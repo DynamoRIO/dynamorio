@@ -1,0 +1,163 @@
+/* **********************************************************
+ * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/* Code Manipulation API Sample:
+ * instrcalls.c
+ *
+ * Instruments direct calls, indirect calls, and returns in the target
+ * application.  For each dynamic execution, the call target and other
+ * key information is written to a log file.  Note that this log file
+ * can become quite large, and this client incurs more overhead than
+ * the other clients due to its log file.
+ */
+
+#include "dr_api.h"
+
+static void event_thread_init(void *drcontext);
+static void event_thread_exit(void *drcontext);
+static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                                         bool for_trace, bool translating);
+
+static client_id_t my_id;
+
+DR_EXPORT void 
+dr_init(client_id_t id)
+{
+    my_id = id;
+    /* make it easy to tell, by looking at log file, which client executed */
+    dr_log(NULL, LOG_ALL, 1, "Client 'instrcalls' initializing\n");
+    /* also give notification to stderr */
+#ifdef SHOW_RESULTS
+    if (dr_is_notify_on())
+        dr_fprintf(STDERR, "Client instrcalls is running\n");
+#endif
+    dr_register_bb_event(event_basic_block);
+    dr_register_thread_init_event(event_thread_init);
+    dr_register_thread_exit_event(event_thread_exit);
+}
+
+#ifdef WINDOWS
+# define DIRSEP '\\'
+#else
+# define DIRSEP '/'
+#endif
+
+static void
+event_thread_init(void *drcontext)
+{
+    file_t f;
+    char logname[512];
+    char *dirsep;
+    int len;
+    /* We're going to dump our data to a per-thread file.
+     * On Windows we need an absolute path so we place it in
+     * the same directory as our library. We could also pass
+     * in a path and retrieve with dr_get_options().
+     */
+    len = snprintf(logname, sizeof(logname)/sizeof(logname[0]),
+                   "%s", dr_get_client_path(my_id));
+    DR_ASSERT(len > 0);
+    for (dirsep = logname + len; *dirsep != DIRSEP; dirsep--)
+        DR_ASSERT(dirsep > logname);
+    len = snprintf(dirsep + 1, (sizeof(logname) - (dirsep - logname))/sizeof(logname[0]),
+                   "instrcalls.%d.log", dr_get_thread_id(drcontext));
+    DR_ASSERT(len > 0);
+    logname[sizeof(logname)/sizeof(logname[0])-1] = '\0';
+    f = dr_open_file(logname, DR_FILE_WRITE_OVERWRITE);
+    DR_ASSERT(f != INVALID_FILE);
+
+    /* store it in the slot provided in the drcontext */
+    dr_set_tls_field(drcontext, (void *)(ptr_uint_t)f);
+    dr_log(drcontext, LOG_ALL, 1, 
+           "instrcalls: log for thread %d is instrcalls.%03d\n",
+           dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
+}
+
+static void
+event_thread_exit(void *drcontext)
+{
+    file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(drcontext);
+    dr_close_file(f);
+}
+
+static void
+at_call(app_pc instr_addr, app_pc target_addr)
+{
+    file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+    dr_mcontext_t mc;
+    dr_get_mcontext(dr_get_current_drcontext(), &mc, NULL);
+    dr_fprintf(f, "CALL @ "PFX" to "PFX", TOS is "PFX"\n",
+               instr_addr, target_addr, mc.xsp);
+}
+
+static void
+at_call_ind(app_pc instr_addr, app_pc target_addr)
+{
+    file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+    dr_fprintf(f, "CALL INDIRECT @ "PFX" to "PFX"\n", instr_addr, target_addr);
+}
+
+static void
+at_return(app_pc instr_addr, app_pc target_addr)
+{
+    file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+    dr_fprintf(f, "RETURN @ "PFX" to "PFX"\n", instr_addr, target_addr);
+}
+
+static dr_emit_flags_t 
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    instr_t *instr, *next_instr;
+#ifdef VERBOSE
+    dr_printf("in dr_basic_block(tag="PFX")\n", tag);
+# if VERBOSE_VERBOSE
+    instrlist_disassemble(drcontext, tag, bb, STDOUT);
+# endif
+#endif
+    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
+        next_instr = instr_get_next(instr);
+        if (!instr_opcode_valid(instr))
+            continue;
+        /* instrument calls and returns -- ignore far calls/rets */
+        if (instr_is_call_direct(instr)) {
+            dr_insert_call_instrumentation(drcontext, bb, instr, (app_pc)at_call);
+        } else if (instr_is_call_indirect(instr)) {
+            dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_call_ind,
+                                          SPILL_SLOT_1);
+        } else if (instr_is_return(instr)) {
+            dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_return,
+                                          SPILL_SLOT_1);
+        }
+    }
+    return DR_EMIT_DEFAULT;
+}

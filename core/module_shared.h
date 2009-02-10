@@ -1,0 +1,348 @@
+/* **********************************************************
+ * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+#ifndef MODULE_LIST_H
+#define MODULE_LIST_H
+
+/* DR_API EXPORT TOFILE dr_tools.h */
+/* DR_API EXPORT BEGIN */
+/**************************************************
+ * MODULE INFORMATION TYPES
+ */
+
+/**
+ * Type used for dr_get_proc_address().  On windows this is the same as the base
+ * address of the module.
+ */
+typedef void * module_handle_t;
+
+#ifdef WINDOWS
+
+#define MODULE_FILE_VERSION_INVALID ULLONG_MAX
+
+/**
+ * Used to hold .rsrc section version number information. This number is usually
+ * presented as p1.p2.p3.p4 by PE parsing tools.
+ */
+typedef union _version_number_t {
+    uint64 version;  /**< Representation as a 64-bit integer. */
+    struct {
+        uint ms;     /**< */
+        uint ls;     /**< */
+    } version_uint;  /**< Representation as 2 32-bit integers. */
+    struct {
+        ushort p2;   /**< */
+        ushort p1;   /**< */
+        ushort p4;   /**< */
+        ushort p3;   /**< */
+    } version_parts; /**< Representation as 4 16-bit integers. */
+} version_number_t;
+
+#endif
+
+/* DR_API EXPORT END */
+
+#include "module.h" /* include os_specific header */
+
+/* DR_API EXPORT TOFILE dr_tools.h */
+/* DR_API EXPORT BEGIN */
+
+/**
+ * Holds the names of a module.  This structure contains multiple
+ * fields corresponding to different sources of a module name.  Note
+ * that some of these names may not exist for certain modules.  It is
+ * highly likely, however, that at least one name is available.  Use
+ * dr_module_preferred_name() on the parent _module_data_t to get the
+ * preferred name of the module.
+ */
+typedef struct _module_names_t {
+    const char *module_name; /**< On windows this name comes from the PE header exports
+                              * section (NULL if the module has no exports section).  On
+                              * Linux the name will come from the ELF DYNAMIC program 
+                              * header (NULL if the module has no SONAME entry). */
+    const char *file_name; /**< The file name used to load this module. Note - on Windows
+                            * this is not always available. */
+#ifdef WINDOWS
+    const char *exe_name; /**< If this module is the main executable of this process then
+                           * this is the executable name used to launch the process (NULL
+                           * for all other modules). */
+    const char *rsrc_name; /**< The internal name given to the module in its resource
+                            * section. Will be NULL if the module has no resource section
+                            * or doesn't set this field within it. */
+#else /* LINUX */
+    uint64 inode; /**< The inode of the module file mapped in. */
+#endif
+} module_names_t;
+
+/* DR_API EXPORT END */
+
+#ifdef WINDOWS
+/* Introduced as part of case 9842; see module_names_t above.  Shouldn't
+ * put case number in exported parts (CLIENT api), so adding it here.
+ *
+ * The name precedence order is as follows,
+ *      Choice #1: PE exports name.
+ *      Choice #2: executable qualified name (This would be the last choice 
+ *                  except historically it's been #2 so we'll stick with that).
+ *      Choice #3: .rsrc original filename, already strduped.
+ *      Choice #4: file name. 
+ */
+#define GET_MODULE_NAME(mod_names)                                          \
+    (((mod_names)->module_name != NULL) ? (mod_names)->module_name :        \
+     (((mod_names)->exe_name != NULL) ? (mod_names)->exe_name :             \
+      (((mod_names)->rsrc_name != NULL) ? (mod_names)->rsrc_name :          \
+       (((mod_names)->file_name != NULL) ? (mod_names)->file_name : NULL))))
+#else
+/* For Linux the precedence order is as follows,
+ * Choice #1: the module_name (SONAME entry from the DYNAMIC program_header, if it exists)
+ * Choice #2: the filename of the file mapped in (from the maps file)
+ */
+#define GET_MODULE_NAME(mod_names)                                          \
+    (((mod_names)->module_name != NULL) ? (mod_names)->module_name :        \
+     (((mod_names)->file_name != NULL) ? (mod_names)->file_name : NULL))
+#endif
+
+/* Used to augments the basic vm_area_vector_t interval, all fields that
+ * we get from the loader or PE/ELF header should be maintained here. This is what
+ * we store in the loaded_modules_areas vector. */
+typedef struct _module_area_t {
+    /* vm_area_t has start and end fields, but we're duplicating them in module_data_t so
+     * the information is available to the module iterator. */
+    /* On windows start-end bound the view of the module that was mapped. This view size
+     * is almost always the same as the internal_size == pe size (the full size of the
+     * module).  On Vista we've seen drivers mapped into user processes (leading to
+     * view size = PAGE_ALIGN(pe_size) > pe size) and partial mappings of child
+     * executables (leading to view size < pe_size). */
+    app_pc start;
+    app_pc end;
+
+    app_pc entry_point;
+
+    uint flags;
+
+    module_names_t names;
+
+    os_module_data_t os_data; /* os specific data for this module */
+} module_area_t;
+
+/* Flags used in module_area_t.flags */
+enum {
+    /* case 9653: only the 1st coarse unit in a module's +x region(s) is persisted */
+    MODULE_HAS_PRIMARY_COARSE = 0x00000001,
+#if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
+    /* case 8648: did we load persisted RCT data for the whole module? */
+    MODULE_RCT_LOADED      = 0x00000002,
+#endif
+#ifdef RETURN_AFTER_CALL /* should include RCT_IND_BRANCH but matching other code */
+    MODULE_HAS_BORLAND_SEH = 0x00000004,
+#endif
+    /* case 9672: used to detect whether to preserve persisted RCT on a flush */
+    MODULE_BEING_UNLOADED  = 0x00000008,
+    /* case 9799: used to ensure persistent caches are safe to use */
+    MODULE_WAS_EXEMPTED    = 0x00000010,
+#if defined(X64) && (defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH))
+    /* PR 277064/277044: have we scanned the module yet? */
+    MODULE_RCT_SCANNED     = 0x00000020,
+#endif
+};
+
+/**************** init/exit routines *****************/
+void modules_init(void);
+bool is_module_list_initialized(void);
+void modules_exit(void);
+void modules_reset_list(void);
+
+/**************** module_list updating routines *****************/
+void module_list_add(app_pc base, size_t view_size, bool at_map _IF_LINUX(uint64 inode)
+                     _IF_LINUX(const char *filename));
+void module_list_remove(app_pc base, size_t view_size);
+
+/**************** module_data_lock routines *****************/
+void os_get_module_info_lock(void);
+void os_get_module_info_unlock(void);
+void os_get_module_info_write_lock(void);
+void os_get_module_info_write_unlock(void);
+bool os_get_module_info_locked(void);
+bool os_get_module_info_write_locked(void);
+
+/**************** module flag routines *****************/
+bool os_module_set_flag(app_pc module_base, uint flag);
+bool os_module_clear_flag(app_pc module_base, uint flag);
+bool os_module_get_flag(app_pc module_base, uint flag);
+
+
+/**************** module_area accessor routines (os shared) *****************/
+
+module_area_t * module_pc_lookup(byte *pc);
+
+bool module_overlaps(byte *pc, size_t len);
+
+/* Unlike os_get_module_info(), sets *name to NULL if return value is false */
+bool os_get_module_name(const app_pc pc, /*OUT*/ const char **name);
+
+const char * os_get_module_name_strdup(const app_pc pc HEAPACCT(which_heap_t which));
+
+/* Returns the number of characters copied (maximum is buf_len -1).
+ * If there is no module at pc, or no module name available, 0 is
+ * returned and the buffer set to "".
+ */
+size_t os_get_module_name_buf(const app_pc pc, char *buf, size_t buf_len);
+
+/* Copies the module name into buf and returns a pointer to buf,
+ * unless buf is too small, in which case the module name is strdup-ed
+ * and a pointer to it returned (which the caller must strfree).
+ * If there is no module name, returns NULL.
+ */
+const char * os_get_module_name_buf_strdup(const app_pc pc, char *buf, size_t buf_len
+                                           HEAPACCT(which_heap_t which));
+
+size_t os_module_get_view_size(app_pc module_base);
+
+
+/**************** module iterator routines *****************/
+/* module iterator fields */
+typedef struct _module_iterator_t module_iterator_t;
+/* If plan to write to module_area fields must call os_get_module_info_write_[un]lock
+ * around entire usage of the iterator. */
+module_iterator_t * module_iterator_start(void);
+bool module_iterator_hasnext(module_iterator_t *mi);
+module_area_t * module_iterator_next(module_iterator_t *mi);
+void module_iterator_stop(module_iterator_t *mi);
+
+/***************** in os specific module.c *****************/
+void os_modules_init(void);
+void os_modules_exit(void);
+void os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
+                         bool at_map _IF_LINUX(uint64 inode)
+                         _IF_LINUX(const char *filename) HEAPACCT(which_heap_t which));
+void os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which));
+void free_module_names(module_names_t *mod_names HEAPACCT(which_heap_t which));
+
+
+
+/**************************************************************************************/
+/* Moved from os_shared.h to use typedefs here, in <os>/module.c 
+ * Should clean up and see if these can be shared/obsoleted by the os shared mod list. */
+bool os_get_module_info_all_names(const app_pc pc,
+                                  /* FIXME PR 215890: does ELF64 use 64-bit timestamp
+                                   * or checksum?
+                                   */
+                                  uint *checksum, uint *timestamp,
+                                  size_t *size, module_names_t **names,
+                                  size_t *code_size, uint64 *file_version);
+
+generic_func_t
+get_proc_address(module_handle_t lib, const char *name);
+
+void print_modules(file_t f, bool dump_xml);
+
+const char *get_module_short_name(app_pc pc HEAPACCT(which_heap_t which));
+
+app_pc get_module_base(app_pc pc);
+
+/* Returns true if [start_pc, end_pc) is within a single code section.
+ * Returns the bounds of the enclosing section in sec_start and sec_end.
+ * Note that unlike is_in_*_section routines, does NOT merge adjacent sections. */
+bool is_range_in_code_section(app_pc module_base, app_pc start_pc, app_pc end_pc,
+                              app_pc *sec_start /* OPTIONAL OUT */,
+                              app_pc *sec_end /* OPTIONAL OUT */);
+/* Returns true if addr is in a code section and if so returns in sec_start and sec_end
+ * the bounds of the section containing addr (MERGED with adjacent code sections). */
+bool is_in_code_section(app_pc module_base, app_pc addr,
+                        app_pc *sec_start /* OPTIONAL OUT */,
+                        app_pc *sec_end /* OPTIONAL OUT */);
+/* Same as above only for initalized data sections instead of code. */
+bool is_in_dot_data_section(app_pc module_base, app_pc addr,
+                            app_pc *sec_start /* OPTIONAL OUT */,
+                            app_pc *sec_end /* OPTIONAL OUT */);
+/* Same as above only for any section instead of code. */
+bool is_in_any_section(app_pc module_base, app_pc addr,
+                       app_pc *sec_start /* OPTIONAL OUT */,
+                       app_pc *sec_end /* OPTIONAL OUT */);
+
+bool is_mapped_as_image(app_pc module_base);
+
+
+bool os_get_module_info(const app_pc pc, uint *checksum,
+                        uint *timestamp, size_t *size, const char **name,
+                        size_t *code_size, uint64 *file_version);
+static inline bool
+module_info_exists(const app_pc pc)
+{
+    return os_get_module_info(pc, NULL, NULL, NULL, NULL, NULL, NULL);
+}
+
+bool get_named_section_bounds(app_pc module_base, const char *name,
+                              app_pc *start/*OUT*/, app_pc *end/*OUT*/);
+bool get_module_company_name(app_pc mod_base, char *out_buf, size_t out_buf_size);
+
+#if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
+rct_module_table_t *
+os_module_get_rct_htable(app_pc pc, rct_type_t which);
+#endif
+
+typedef struct {
+    /* MD5 of portions of files mapped as image sections */
+    byte full_MD5[MD5_RAW_BYTES];
+    /* a full digest uses all readable raw bytes (as also present in
+     * the file) in sections loaded in memory */
+    /* Note that for most files this should result in the same value
+     * as md5sum, except for files with digital signatures or
+     * debugging information that is not loaded in memory */
+
+    /* an MD5 digest of only header and footer of file with lengths
+     * specified by aslr_short_digest */
+    byte short_MD5[MD5_RAW_BYTES];
+
+    /* FIXME: case 4678 about possible NYI subregion checksums
+     * amenable to lazy evaluation.  Such digests which will be of
+     * dynamic size and file offset which will have to be specified
+     * here. */
+} module_digest_t;
+/* FIXME: rename since being used for module-independent purposes? */
+
+void
+module_calculate_digest(/*OUT*/ module_digest_t *digest,
+                        app_pc module_base, 
+                        size_t module_size,
+                        bool full_digest,
+                        bool short_digest,
+                        uint short_digest_size,
+                        uint sec_characteristics);
+
+/* actually in utils.c since os-independent */
+bool
+module_digests_equal(const module_digest_t *calculated_digest, 
+                     const module_digest_t *matching_digest,
+                     bool check_short, bool check_full);
+
+#endif /* MODULE_LIST_H */

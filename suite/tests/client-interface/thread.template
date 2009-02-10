@@ -1,0 +1,9 @@
+PR 216931: client options are -paramx -paramy
+inside app thread.exe
+PR 198871 locking test......passed
+#if +CLIENT_SIDELINE :
+client thread is alive
+client thread is dying
+PR 222812: client thread test passed
+#endif
+thank you for testing the client interface

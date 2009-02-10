@@ -1,0 +1,5 @@
+parent is running under DynamoRIO
+trying vfork()
+child is running under DynamoRIO
+parent waiting for child
+child has exited

@@ -1,0 +1,17 @@
+in main thread
+main thread converted to fiber
+creating worker fiber 0
+switching to worker fiber first time
+in worker fiber
+back to main
+switching to worker fiber second time
+in worker fiber again
+deleting worker fiber 0
+creating worker fiber 1
+switching to worker fiber first time
+in worker fiber
+back to main
+switching to worker fiber second time
+in worker fiber again
+deleting worker fiber 1
+all done

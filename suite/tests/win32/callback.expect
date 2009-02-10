@@ -1,0 +1,11 @@
+About to create thread
+in wnd_callback 0x00000024 0
+in wnd_callback 0x00000081 0
+in wnd_callback 0x00000083 0
+in wnd_callback 0x00000001 0
+in wnd_callback 0x00008001 3 0
+About to crash
+Inside handler
+in wnd_callback 0x00008001 0 2
+Got message 0x00008001 1 3
+All done

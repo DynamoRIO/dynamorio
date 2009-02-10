@@ -1,0 +1,707 @@
+<!doctype html public "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>DynamoRIO Coding Standards</title>
+</head>
+
+<!--------------------------------------------------------------------------
+Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of VMware, Inc. nor the names of its contributors may be
+  used to endorse or promote products derived from this software without
+  specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGE.
+-------------------------------------------------------------------------->
+
+<body bgcolor="ffffff" text="000000" link="000088" vlink="006600">
+
+<h1>DynamoRIO Coding Standards</h1>
+
+<ul>
+<li><a href="#Style">Coding Style</a></li>
+<li><a href="#Content">Code Content</a></li>
+</ul>
+
+<!--------------------------------------------------------------------------->
+<a name="Style">&nbsp;</a>
+<table bgcolor="#6699cc" width=100% cellspacing=0 cellpadding=5 border=0>
+<tr><td>&nbsp;<font size=+2>
+<strong>Coding Style</strong>
+</font></td></tr></table>
+<!--------------------------------------------------------------------------->
+
+<p>The overall goal is to <strong>make the source code as readable and
+as self-documenting as possible</strong>.  Everyone following the same
+style guidelines is an important part of keeping the code consistent and
+maintainable.</p>
+
+
+<h3>Naming Conventions</h3>
+
+<ol>
+
+<li><p>Variable and function names use only lowercase letters.  Multi-word
+function and variable names are all lowercase with underscores delimiting
+words.  Do not use CamelCase for names, unless mirroring Windows-defined
+data structures.
+<pre>
+<em>GOOD</em>: instr_get_target()
+<font color=gray><em>BAD</em>:  instrGetTarget()</font>
+</pre>
+</p></li>
+
+<li><p>Type names are all lowercase, with underscores dividing words, and
+ending in <tt>_t</tt>:
+<pre>
+instr_t
+build_bb_t
+</pre>
+</p></li>
+
+<li><p>The name of a struct in a typedef should be the type name with an
+underscore prefixed:
+<pre>
+typedef struct _build_bb_t {
+    ...
+} build_bb_t;
+</pre>
+</p></li>
+
+<li><p>Constants should be in all capital letters, with underscores dividing
+words.  Enum members should use a common descriptive prefix.
+<pre>
+static const int MAX_SIZE = 256;
+enum {
+    DUMPCORE_DEADLOCK           = 0x0004,
+    DUMPCORE_ASSERTION          = 0x0008,
+};
+</pre>
+</p></li>
+
+<li><p>Preprocessor defines and macros should be in all capital letters, with
+underscores dividing words.
+<pre>
+#ifdef WINDOWS
+# define IF_WINDOWS(x) x
+#else
+# define IF_WINDOWS(x)
+#endif
+</pre>
+</p></li>
+
+<li><p>Functions that operate on a data structure should contain that
+structure as a prefix.  For example, all of the routines that operate on
+the <tt>instr_t</tt> struct begin with <tt>instr_</tt>.
+</p></li>
+
+<li><p>Use <tt>static</tt> when possible for every function or variable
+that is not needed outside of its own file.
+</p></li>
+
+</ol>
+
+
+<h3>Types</h3>
+
+<ol>
+
+<li><p>See above for naming conventions for types.
+</p></li>
+
+<li><p>When declaring a function with no arguments, always explicitly use
+the <tt>void</tt> keyword.  Otherwise the compiler will not be able to
+check whether you are incorrectly passing arguments to that function.
+<pre>
+<em>GOOD</em>: int foo(void);
+<font color=gray><em>BAD</em>:  int foo();</font>
+</pre>
+</p></li>
+
+<li><p>Use the <tt>IN</tt>, <tt>OUT</tt>, and <tt>INOUT</tt> labels to
+describe function parameters.  This is a recent addition to DynamoRIO so
+you will see many older functions without these labels, but use them on all
+new functions.
+<pre>
+<em>GOOD</em>: int foo(IN int length, OUT char *buf);
+<font color=gray><em>BAD</em>:  int foo(int length, char *buf);</font>
+</pre>
+</p></li>
+
+<li><p>Only use boolean types as conditionals.  This means using explicit NULL
+comparisons and result comparisons.  In particular with functions like
+strcmp() and memcmp(), the use of ! is counter-intuitive.
+<pre>
+<em>GOOD</em>: if (p == NULL) ...
+<font color=gray><em>BAD</em>:  if (p)</font>
+<em>GOOD</em>: if (p != NULL) ...
+<font color=gray><em>BAD</em>:  if (!p)</font>
+<em>GOOD</em>: if (strncmp(...) == 0) ...
+<font color=gray><em>BAD</em>:  if (!strncmp(...))</font>
+</pre>
+</p></li>
+
+<li><p>It's much easier to read <tt>if (i == 0)</tt> than <tt>if (0 == i)
+</tt>.  The compiler, with all warnings turned on (which we have), will
+warn you if you use assignment rather than equality.
+<pre>
+<em>GOOD</em>: if (i == 0) ...
+<font color=gray><em>BAD</em>:  if (0 == i)</font>
+</pre>
+</p></li>
+
+<li><p>Use the <tt>TEST</tt> and related macros for testing bits.
+<pre>
+<em>GOOD</em>: if (TEST(BITMASK, x))
+<font color=gray><em>BAD</em>:  if ((x & BITMASK) != 0)</font>
+</pre>
+</p></li>
+
+<li><p>Write code that is 32-bit and 64-bit aware:
+  <ul>
+  <li><p>Use int and uint for 32-bit integers.  Do not use long as its size is
+  64-bit for Linux but 32-bit for Windows.  We assume that int is a 32-bit
+  type.
+  <li><p>Use int64 and uint64 for 64-bit integers.  Use <tt>INT64_FORMAT</tt>
+  and related macros for printing 64-bit integers.
+  <li><p>Use ptr_uint_t and ptr_int_t for pointer-sized integers.
+  <li><p>Use size_t for sizes of memory regions.
+  <li><p>Use reg_t for register-sized values.
+  <li><p>Use <tt>ASSERT_TRUNCATE</tt> macros when casting to a smaller type.
+  <li><p>Use <tt>PFX</tt> and other printf macros for printing pointer-sized variables.
+  </ul>
+</p></li>
+
+<li><p>Invalid addresses, either pointers to our data structures or
+application addresses that we're manipulating, have the value NULL, not 0.
+0 is only for arithmetic types.  
+</p></li>
+
+<li><p><tt>const</tt> makes code easier to read and lets the compiler complain
+about errors and generate better code.  It is also required for the most
+efficient self-protection.  Use whenever possible.
+</p></li>
+
+<li><p>Place * prefixing variable names (C style), not suffixing type names
+(Java style):
+<pre>
+<em>GOOD</em>: char *foo;
+<font color=gray><em>BAD</em>:  char* foo;</font>
+</pre>
+</p></li>
+
+</ol>
+
+
+<h3>Commenting Conventions</h3>
+
+<ol>
+
+<li><p>This is C, so <tt>/* */</tt> comments are preferable to <tt>//</tt>.
+Put stars on each line of a multi-line comment, like this:
+<pre>
+/* multi-line
+ * comment
+ * with stars
+ */
+</pre>
+Generally the trailing <tt>*/</tt> should be on its own line, but it can
+optionally be on the end of the precending line.
+</p></li>
+
+<li><p>Make liberal use of comments.  However, too many comments can impair
+readability.  Choose self-descriptive function and variable names to reduce
+the number of comments needed.
+</p></li>
+
+<li><p>Do not use large, clunky function headers that simply duplicate
+information in the code itself.  Such headers tend to contain stale,
+incorrect information, for two reasons: the code is often updated without
+maintaining the header, and since the headers are a pain to type they are
+often copied from other functions and not completely modified for their new
+home.  They also make it harder to see the code or to group related
+functions, as they take up so much screen space.  It is better to have
+leaner, more maintainable, and more readable implementation files by using
+self-descriptive function and parameter names and placing comments for
+function parameters next to the parameters themselves.
+
+<pre>
+<em>GOOD</em>: /* Retrieves the name of the logfile for a particular thread. 
+       * Returns false if no such thread exists.
+       */
+      bool get_logfile(IN thread_id_t thread, 
+                       OUT char *fname,
+                       IN size_t fname_len)
+
+<font color=gray><em>BAD</em>:  /*------------------------------------------------------
+       * Name: get_logfile
+       *
+       * Purpose:
+       *    Retrieves the name of the logfile for a particular thread. 
+       *
+       * Parameters:
+       *    [IN]  thread    = which thread
+       *    [OUT] fname     = where to store the logfile name
+       *    [IN]  fname_len = the size of the fname buffer
+       *
+       * Returns:
+       *     True if successful.
+       *     False if no such thread exists.
+       *
+       * Side effects:
+       *     None.
+       * ------------------------------------------------------
+       */
+      bool get_logfile(thread_id_t thread, char *fname, size_t fname_len)
+  </font>
+</pre>
+</p></li>
+
+<li><p>Use doxygen comments on all function and type declarations that are
+exported as part of the API.  For comments starting with <tt>/**</tt>,
+leave the rest of the first line empty, unless the entire comment is a
+single line.  Some examples:
+<pre>
+DR_API
+/**
+ * Returns the entry point of the function with the given name in the module
+ * with the given base. Returns NULL on failure.
+ * \note Currently Windows only.
+ */
+generic_func_t
+dr_get_proc_address(IN module_handle_t lib, IN const char *name);
+
+/**
+ * Data structure passed with a signal event.  Contains the machine
+ * context at the signal interruption point and other signal
+ * information.
+ */
+typedef struct _dr_siginfo_t {
+    int sig;                /**< The signal number. */
+    void *drcontext;        /**< The context of the thread receiving the signal. */
+    dr_mcontext_t mcontext; /**< The machine state at the signal interruption point. */
+    siginfo_t siginfo;      /**< The signal information provided by the kernel. */
+} dr_siginfo_t;
+</pre>
+</p></li>
+
+<li><p><strong>NEVER</strong> check in commented-out code.  This is
+unacceptable.  If you feel strongly that you need to leave code in that is
+disabled, use conditional compilation (e.g., <tt>#if
+DISABLED_UNTIL_BUG_812_IS_FIXED</tt>), and explain why the code is
+disabled.
+</p></li>
+
+<li><p>Sloppy comments full of misspelled words, etc. are an indication of
+carelessness.  We do not want carelessly written code, and we do not
+want carelessly written comments.
+</p></li>
+
+<li><p>Use <tt>FIXME</tt> in comments to indicate missing features, code that
+could be optimized, or anything else that may warrant re-examination later.
+</p></li>
+
+</ol>
+
+
+<h3>Warnings Are Errors</h3>
+
+<ol>
+
+<li><p> Uninitialized variables warning (W4701 for cl): Don't initialize
+variables when you don't need to, so that we can still have good warnings
+about uninitialized variables in the future.  Only if the compiler can't
+analyze code properly is it better to err on the side of a deterministic
+bug and set to 0 or {0}.
+
+<p> Use do {} while () loops to help the compiler figure out that variables
+will get initialized.  The generated code on those constructs is faster and
+better predicted (although optimizations should be able to transform simple
+loops).
+</p></li>
+
+<li><p> For suggested use of static analysis tools: PreFAST or /analyze for
+new code, refer to case 3966.
+</p></li>
+
+</ol>
+
+
+<h3>Program Structure</h3>
+
+<ol>
+
+<li><p>Keep the line length to 90 characters or less.
+</p></li>
+
+<li><p>Use an indentation level of 4 spaces (no tabs, always expand them to
+spaces when saving the file).  <strong>WARNING</strong>: Emacs defaults are
+not always correct here.  Make sure your .emacs contains the following:
+
+<pre>
+; always expand tabs to spaces
+(setq-default indent-tabs-mode 'nil)
+
+; want "gnu" style but indent of 4:
+(setq c-basic-offset 4)
+(add-hook 'c-mode-hook '(lambda ()
+			  (setq c-basic-offset 4)))
+</pre>
+</p></li>
+
+<li><p>K&amp;R-style braces: opening braces at the end of the line preceding
+the new code block, closing braces on their own line at the same
+indentation as the line preceding the code block.  Functions are an
+exception -- see below.
+</p></li>
+
+<li><p>Functions should have their type on a separate line from their name.
+Place the function's opening brace on a line by itself at zero
+indentation.
+<br><em>Example</em>:<br>
+<pre>
+int
+foo(int x, int y)
+{
+    return 42;
+}
+</pre>
+</p></li>
+
+<li><p>Put spaces after commas in parameter and argument lists
+<pre>
+<em>GOOD</em>: foo(x, y, z);
+<font color=gray><em>BAD</em>:  foo(x,y,z);</font>
+</pre>
+</p></li>
+
+<li><p>Do not put spaces between a function name or a <tt>for</tt>,
+<tt>if</tt>, <tt>while</tt>, <tt>do</tt>, or <tt>switch</tt> and the
+following parenthesis, or before the closing parenthesis.<br>
+<pre>
+<em>GOOD</em>: if (x == 6)
+<font color=gray><em>BAD</em>:  if( x==6 )</font>
+</pre>
+</p></li>
+
+<li><p>Always put the body of an if or loop on a separate line from the
+line containing the keyword.
+<pre>
+<em>GOOD</em>: if (x == 6)
+          y = 5;
+
+<font color=gray><em>BAD</em>:  if (x==6) y = 5;</font>
+</pre>
+</p></li>
+
+<li><p>A multi-line (not just multi-statement) body (of an if, loop, etc.)
+should always be surrounded with braces (to avoid errors in later
+statements arising from indentation mistakes).
+</p></li>
+
+<li><p>Statements should always begin on a new line (do not put multiple
+statements on the same line).
+</p></li>
+
+<li><p>Indent nested preprocessor statements.  The # character must be in
+the first column, but the rest of the statement can be indented.
+<br><em>Example:</em></br>
+<pre>
+#ifdef OUTERDEF
+#  ifdef INNERDEF
+#    define INSIDE
+#  endif
+#else
+#  define OUTSIDE
+#endif
+</pre>
+</p></li>
+
+<li><p>To make the code easier to read, use the <tt>DODEBUG</tt>,
+<tt>DOSTATS</tt>, or <tt>DOLOG</tt> macros, or the <tt>IF_WINDOWS</tt> and
+related macros, rather than ifdefs, for common defines.
+</p></li>
+
+<li><p> Do not use DO_ONCE(SYSLOG_INTERNAL.  Instead use two new macros:
+DODEBUG_ONCE and SYSLOG_INTERNAL_*_ONCE.
+</p></li>
+
+<li><p>Use <em>make ugly</em> to examine the code for known poor coding
+patterns.
+</p></li>
+
+</ol>
+
+
+<h3>File Organization</h3>
+
+<ol>
+
+<li><p>Write OS-independent code as much as possible and keep it in the
+base <tt>core/</tt> directory.  If code must diverge for Windows versus
+Linux, provide an OS-independent interface documented
+in <tt>core/os_shared.h</tt> and implemented separately
+in <tt>core/linux/</tt> and <tt>core/windows/</tt>.
+</p></li>
+
+</ol>
+
+<!--------------------------------------------------------------------------->
+<a name="Content">&nbsp;</a>
+<table bgcolor="#6699cc" width=100% cellspacing=0 cellpadding=5 border=0>
+<tr><td>&nbsp;<font size=+2>
+<strong>Code Content</strong>
+</font></td></tr></table>
+<!--------------------------------------------------------------------------->
+
+
+<h3>Adding New Features</h3>
+
+<ol>
+
+<li><p>A new feature should be added under its own preprocessor define as well
+as under its own off-by-default runtime option, to facilitate incremental
+development and testing.  Once it is working properly, the ifdefs can be
+removed.  Once it is proven to be worthwhile and robust, the option can be
+turned on by default.
+</p></li>
+
+<li><p>Code reviews are required for any commit, regardless of how trivial.
+</p></li>
+
+<li><p>Use assertions whenever an assumption is made.  We have several types
+of ASSERT macros: use the appropriate one.  For any API-visible function,
+use CLIENT_ASSERT to provide an understandable string to the user.
+</p></li>
+
+<li><p>Add a new statistic to <tt>core/lib/statsx.h</tt> for anything we might
+want to keep track of.
+</p></li>
+
+<li><p>Be careful with locks.  Make sure to follow our deadlock-avoidance
+scheme when adding a new lock: add it to the list in <tt>core/utils.h</tt>.
+</p></li>
+
+</ol>
+
+
+<h3>Security</h3>
+
+<ol>
+
+<li><p>Be security aware. Carefully watch your buffers and input validation to
+avoid introducing vulnerabilities.
+</p></li>
+
+<li><p>Do not use unsafe string routines.  E.g., use <tt>snprintf</tt> instead
+of <tt>sprintf</tt>.
+</p></li>
+
+<li><p>Variable placement: <strong>.data is read-only!</strong>
+</p></li>
+
+  <p>
+  For self-protection from inadvertent or malicious application activity,
+  DynamoRIO uses a non-standard data section layout with five separate
+  sections:
+
+  <ol></p></li>
+
+  <li><p><em>.rdata</em> = read-only data<br> Mark all non-written
+  variables as <tt>const</tt> to get them into this section.
+  </p></li>
+
+  <li><p><em>.data</em> = rarely-written data<br> Variables that are
+  written only during initialization, cleanup, or a handful of times during
+  execution. This section is write-protected by default and only
+  unprotected for small, infrequent windows of time.  This is the default
+  location for a variable (even if in .bss, if on Windows, though not on
+  Linux currently due to PR 213296), so if you write to your new
+  default-location variable after initialization <strong>DynamoRIO will
+  crash</strong>!  In debug builds a special self-protection message will
+  alert you to crashes coming from attempts to write to .data.
+
+  </p><p>If you must write to a variable after initialization,
+  you can either unprotect it with this pair of macros (however, see the
+  next item):
+  <pre>
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+  </pre>
+  Or you can move it to another section, probably .fspdata, like this:
+  <pre>
+    DECLARE_FREQPROT_VAR(static vartype myvar, initial-value);
+  </pre>
+  </p>
+
+  </p><p>
+  Only unprotect if you write <strong>very infrequently</strong>, as in
+  zero times on any critical path.  Keep an eye on the stats for
+  unprotection calls and make sure you're not affecting performance and not
+  opening up too many windows where the entire .data section is
+  unprotected.
+
+  </p><p> Do not keep pointers in a data section other than .data.  If they
+  must be writable, use indirection and keep them on the heap.
+
+  </p><p> Think about whether non-pointers (booleans, counters) can be
+  exploited before throwing them into unprotected sections.  Can an
+  overwrite of the variable in question cause us to stop protecting the
+  application, or to lose control of the application?
+
+  </p><p> Place all locks in .cspdata.
+
+  </p><p> Be aware that DO_ONCE introduces a window where .data is unprotected
+  (see PR 212510).
+
+  </p></li>
+
+  <li><p><em>.fspdata</em> = frequently-written self-protected data<br>
+  Variables that are written enough that we do not want to unprotect .data
+  every time. We place them in a separate section called .fspdata (for
+  "frequently self-protected data", referring to the number of times we
+  need to change the page protections, which is proportional to the number
+  of post-init writes) both for security and performance reasons. We moved
+  any pointers in this category into structures on the heap, enabling us to
+  move their base pointers into .data. Currently the heap is better
+  protected than our data sections due to its better randomization and its
+  guard pages.  Try not to put new variables here as we hope to eventually
+  eliminate this section.  Note that this is not yet protected at all: PR
+  212508.
+  </p></li>
+
+  <li><p><em>.cspdata</em> = context-switch-written self-protected data<br>
+  This is our section for locks, which are written so frequently that
+  unprotecting them is best done at each context switch.  Note that this is
+  not yet protected at all: PR 212508.
+  </p></li>
+
+  <li><p><em>.nspdata</em> = not self-protected data<br> Debug-build-only
+  variables, statistics, or data that is not persistent across code cache
+  execution fall into this category of variables that we never
+  protect.  This section is always writable.
+  </p></li>
+  </ol>
+
+  </p><p>DynamoRIO has several other features for self-protection:
+  <ol>
+  
+  <li><p>The base of its heap is randomized.  This is why we consider
+  writable pointers in the heap to be safer than writable pointers in a
+  data section.
+  </p></li>
+
+  <li><p>Guard pages protect both ends of every stack and heap unit to
+  protect against sequential overwrites.
+  </p></li>
+
+  <li><p>No state is kept on the DynamoRIO stack across code cache
+  execution: execution starts from a clean slate at the base of the stack
+  on every exit from the code cache.
+  </p></li>
+
+  <li><p>Generated code is made read-only after initialization.
+  </p></li>
+
+  <li><p>The options are made read-only after initialization.
+  Now that we have .data read-only, this is simply part of that feature.
+  </p></li>
+
+  <li><p>The base of the dynamorio.dll library is randomized.
+  </p></li>
+
+  </ol>
+
+</p></li>
+
+</ol>
+
+
+<h3>Transparency</h3>
+
+<p>
+The DynamoRIO core must be absolutely transparent.  It cannot interfere
+with the application's semantics.  This means that extra care must be taken
+when using <strong>any</strong> operating system or shared library
+resources that might interact with the application's use of those
+resources.  See the API documentation for more details.  The following
+guidelines list some common mistakes to avoid.
+</p>
+
+<ol>
+
+<li><p>Do not introduce new user library dependencies.  On Windows we only
+use ntdll.dll, and there we only call routines that we are sure are
+re-entrant.  On Linux we're not quite there yet: we still use some C
+library routines.  But we're working toward libc independence, so avoid
+adding any new library calls.
+</p></li>
+
+<li><p> Never call any potentially non-reentrant library routines.  These
+include malloc, calloc, fprintf, etc., and everything that calls these
+routines, such as strdup.  Usually you'll be violating the prior point if
+you use these, but keep in mind that many ntdll.dll routines are
+non-reentrant because they acquire locks or allocate memory.  Use raw
+system calls instead of library routines (yes we have hit many bugs due to
+using library routines).
+</p></li>
+
+<li><p>Do not make any alertable system calls on Windows.
+This includes any Wait* API routine.  Use the system calls instead, which
+let you specify whether it should be alertable or not.
+</p></li>
+
+<li><p> For memory allocation, use either the local heap (via
+<tt>heap_alloc</tt>) or the global heap (via
+<tt>global_heap_alloc</tt>). (In certain circumstances, such as inside
+signal handlers, other heaps should be used.)  Always de-allocate
+memory.  We cannot assume we will last as long as the application, since
+we may be detached before the application exits.
+</p></li>
+
+<li><p> For I/O, use the interfaces exported by the OS subdirectories.  Do not
+use <tt>stderr</tt> or <tt>stdout</tt> -- due to <tt>FILE</tt> problems on windows we use
+<tt>HANDLE</tt> on windows and hide the distinction behind the
+<tt>file_t</tt> type.  Use the <tt>STDERR</tt> and <tt>STDOUT</tt> macros.
+</p></li>
+
+<li><p>DO NOT USE FLOATING-POINT OPERATIONS!
+DynamoRIO does not save or restore floating-point state on context
+switches.  You can use the routines <tt>save_fpstate</tt> and
+<tt>restore_fpstate</tt> (includes mmx & sse state) around your code if
+you really need floating point operations.
+</p></li>
+
+<li><p>DO NOT HOLD LOCKS ACROSS CODE CACHE EXECUTION!
+Doing so violates the assumptions of our synchronization algorithms.
+</p></li>
+
+</ol>
+
+<!--------------------------------------------------------------------------->
+<table bgcolor="#6699cc" width=100% cellspacing=0 cellpadding=5 border=0>
+<tr><td>&nbsp;</td></tr></table>
+<!--------------------------------------------------------------------------->
+
+</body>
+</html>

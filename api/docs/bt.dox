@@ -1,0 +1,978 @@
+/* **********************************************************
+ * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page API_BT Code Manipulation API
+
+The Code Manipulation API exposes the full power of \DynamoRIO, allowing
+tools to observe and modify the application's actual code stream as it
+executes.  Modifications are not limited to trampoline insertion and can
+include arbitrary changes.  We divide the API description into the
+following sections:
+
+ - \ref sec_IR
+ - \ref sec_events_bt
+ - \ref sec_decode
+ - \ref sec_64bit
+ - \ref sec_IR_utils
+ - \ref sec_translation
+ - \ref bt_examples
+\ifnot vmsafe - \ref sec_startstop
+\endif
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_IR Instruction Representation
+
+The primary data structures involved in instruction manipulation are
+the \c instr_t, which represents a single IA-32 instruction, and the \c
+instrlist_t, which is a linked list of instructions.  The header files
+dr_ir_instrlist.h and dr_ir_instr.h list a number of functions that
+operate on these data structures, including:
+
+- Routines to create new instructions.
+- Routines to iterate over an instruction's operands.
+- Routines to iterate over an \c instrlist_t.
+- Routines to insert and remove an \c instr_t from an \c instrlist_t.
+
+As we will see in the the \ref sec_events_bt section that follows, a
+\client usually interacts with \c instrlist_t's in the form of \e basic \e
+blocks or \e traces.  A basic block is a sequence of instructions that
+terminates with a control transfer operation.  Traces are
+frequently-executed sequences of basic blocks that \DynamoRIO forms
+dynamically as the application executes, i.e., \e hot code.
+Collectively, we refer to basic blocks and traces as \e fragments.
+Both basic blocks and traces present a linear view of control flow.
+In other words, instruction sequences have a single entrance and one
+or more exits.  This representation greatly simplifies analysis and is
+a primary contributor to \DynamoRIO's efficiency.
+
+
+\if level_of_detail
+********************
+\subsection sec_IR_adaptive Adaptive Level of Detail
+
+It is costly to decode IA-32 instructions.  Fortunately, \DynamoRIO is
+often only interested in high-level information for a subset of
+instructions, such as just the control-flow instructions.  Each
+instruction can be at one of five levels of detail.  To simplify \clients,
+\DynamoRIO only passes them instructions at Level 3 or Level 4.
+Internally, \DynamoRIO uses all five levels:
+
+\par Level 0: Raw Bundle
+
+At Level 0, the \c instr_t data structure holds raw bytes for group of
+instructions decoded only enough to determine the final instruction
+boundary:
+
+<table border=0 cellpadding=2 cellspacing=1>
+<tr bgcolor="ffcc99"><td><tt>
+8d 34 01 8b 46 0c 2b 46 1c 0f b7 4e 08 c1 e1 07 3b c1 0f 8d a2 0a 00 00
+</tt></td></tr>
+</table>
+
+\par Level 1: Raw Individual
+
+At Level 1, each \c instr_t holds only one instruction, but has no more
+information than raw bytes:
+
+<table border=0 cellpadding=2 cellspacing=1>
+<tr><td bgcolor="ffcc99"><tt>8d 34 01</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>8b 46 0c</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>2b 46 1c</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>0f b7 4e 08</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>c1 e1 07</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>3b c1</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>0f 8d a2 0a 00 00</tt></td></tr>
+</table>
+
+\par Level 2: Opcode and Eflags
+
+At Level 2, \c instr_t has been decoded just enough to determine opcode and
+flags effects (flags are important when analyzing IA-32 code).  Raw bytes
+are still used for encoding.  The flags effects below are only shown for
+reading (R) or writing (W) the six arithmetic flags (Carry, Parity, Adjust,
+Zero, Sign, and Overflow).
+
+<table border=0 cellpadding=2 cellspacing=1>
+<tr><td bgcolor="ffcc99"><tt>8d 34 01</tt></td>
+  <td bgcolor="ccccff"><tt>lea</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>-</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>8b 46 0c</tt></td>
+  <td bgcolor="ccccff"><tt>mov</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>-</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>2b 46 1c</tt></td>
+  <td bgcolor="ccccff"><tt>sub</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>WCPAZSO</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>0f b7 4e 08</tt></td>
+  <td bgcolor="ccccff"><tt>movzx</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>-</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>c1 e1 07</tt></td>
+  <td bgcolor="ccccff"><tt>shl</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>WCPAZSO</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>3b c1</tt></td>
+  <td bgcolor="ccccff"><tt>cmp</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>WCPAZSO</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>0f 8d a2 0a 00 00</tt></td>
+  <td bgcolor="ccccff"><tt>jnl</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>RSO</tt></td></tr>
+</table>
+
+\par Level 3: Operands
+
+A Level 3 \c instr_t contains dynamically allocated arrays of source and
+destination operands (dynamic because IA-32 is so variable) that are now
+filled in.  Raw bytes are still valid and are used for encoding.  This
+level combines high-level information with quick encoding.
+
+<table border=0 cellpadding=2 cellspacing=1>
+<tr><td bgcolor="ffcc99"><tt>8d 34 01</tt></td>
+  <td bgcolor="ccccff"><tt>lea</tt></td>
+  <td bgcolor="ccff66"><tt>(%ecx,%eax,1) => %esi</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>-</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>8b 46 0c</tt></td>
+  <td bgcolor="ccccff"><tt>mov</tt></td>
+  <td bgcolor="ccff66"><tt>0xc(%esi) => %eax</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>-</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>2b 46 1c</tt></td>
+  <td bgcolor="ccccff"><tt>sub</tt></td>
+  <td bgcolor="ccff66"><tt>0x1c(%esi) %eax => %eax</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>WCPAZSO</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>0f b7 4e 08</tt></td>
+  <td bgcolor="ccccff"><tt>movzx</tt></td>
+  <td bgcolor="ccff66"><tt>0x8(%esi) => %ecx</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>-</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>c1 e1 07</tt></td>
+  <td bgcolor="ccccff"><tt>shl</tt></td>
+  <td bgcolor="ccff66"><tt>$0x07 %ecx => %ecx</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>WCPAZSO</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>3b c1</tt></td>
+  <td bgcolor="ccccff"><tt>cmp</tt></td>
+  <td bgcolor="ccff66"><tt>%eax %ecx</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>WCPAZSO</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>0f 8d a2 0a 00 00</tt></td>
+  <td bgcolor="ccccff"><tt>jnl</tt></td>
+  <td bgcolor="ccff66"><tt>$0x77f52269</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>RSO</tt></td></tr>
+</table>
+
+\par Level 4: Modified Operands
+
+At the highest level, \c instr_t has been modified at the operand level, or
+has been created from operands, such that the raw bytes are no longer
+valid.  The \c instr_t must be fully encoded from its operands.
+
+<table border=0 cellpadding=2 cellspacing=1>
+<tr><td>&nbsp;</td>
+  <td bgcolor="ccccff"><tt>lea</tt></td>
+  <td bgcolor="ccff66"><tt>(%ecx,%eax,1) => \e %edi</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>-</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td>&nbsp;</td>
+  <td bgcolor="ccccff"><tt>mov</tt></td>
+  <td bgcolor="ccff66"><tt>0xc(\e %edi) => %eax</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>-</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td>&nbsp;</td>
+  <td bgcolor="ccccff"><tt>sub</tt></td>
+  <td bgcolor="ccff66"><tt>0x1c(\e %edi) %eax => %eax</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>WCPAZSO</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td>&nbsp;</td>
+  <td bgcolor="ccccff"><tt>movzx</tt></td>
+  <td bgcolor="ccff66"><tt>0x8(\e %edi) => %ecx</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>-</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>c1 e1 07</tt></td>
+  <td bgcolor="ccccff"><tt>shl</tt></td>
+  <td bgcolor="ccff66"><tt>$0x07 %ecx => %ecx</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>WCPAZSO</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>3b c1</tt></td>
+  <td bgcolor="ccccff"><tt>cmp</tt></td>
+  <td bgcolor="ccff66"><tt>%eax %ecx</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>WCPAZSO</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;</td><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>0f 8d a2 0a 00 00</tt></td>
+  <td bgcolor="ccccff"><tt>jnl</tt></td>
+  <td bgcolor="ccff66"><tt>$0x77f52269</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>RSO</tt></td></tr>
+</table>
+
+\par Basic Block Example
+
+As an example of using different levels of detail, a basic block in
+\DynamoRIO is represented using a Level 0 \c instr_t for all non-control-flow
+instructions, and a Level 3 \c instr_t for the block-ending control-flow
+instruction:
+
+<table border=0 cellpadding=2 cellspacing=1>
+<tr bgcolor="ffcc99"><td colspan=4><tt>
+8d 34 01 8b 46 0c 2b 46 1c 0f b7 4e 08 c1 e1 07 3b c1
+</tt></td></tr>
+<tr align="middle" bgcolor="ffffff"><td>&nbsp;|</td></tr>
+<tr><td bgcolor="ffcc99"><tt>0f 8d a2 0a 00 00</tt></td>
+  <td bgcolor="ccccff"><tt>jnl&nbsp;&nbsp;&nbsp;&nbsp;</tt></td>
+  <td bgcolor="ccff66"><tt>$0x77f52269&nbsp;&nbsp;&nbsp;&nbsp;</tt></td>
+  <td bgcolor="ccccff" align="middle"><tt>&nbsp;&nbsp;RSO&nbsp;&nbsp;</tt></td></tr>
+</table>
+
+However, when a \client registers for the basic block event, \DynamoRIO
+passes an \c instrlist_t of all Level 3 \c instr_t's, for simplicity.
+\endif
+
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_events_bt Events
+
+The core of a \client's interaction with \DynamoRIO occurs through <em>
+event hooks</em>: the \client registers its own callback routine (or \e
+hook) for each event it is interested in.  \DynamoRIO calls the
+\client's event hooks at appropriate times, giving the \client access to
+key actions during execution of the application.  The \ref sec_events
+section describes events common to the entire \DynamoRIO API. Here we
+discuss the events specific to the Code Manipulation portion.
+
+\DynamoRIO provides two events related to fragment creation: one for
+basic blocks and one for traces (see dr_register_bb_event() and
+dr_register_trace_event()).  Through these fragment-creation hooks,
+the \client has the ability to inspect and modify any piece of code
+that \DynamoRIO emits before it executes.  Using the basic block hook,
+a \client sees \e all application code.  The trace-creation hook
+provides a mechanism for \clients to instrument only
+frequently-executed code paths.
+
+The code manipulation API is highly efficient in that fragment
+creation comprises a small part of \DynamoRIO's overhead.  A \client's
+analysis time rarely impacts execution time; only instrumentation code
+inserted by the \client affects efficiency.
+
+
+******************** \subsection sec_events_bb Basic Block Creation
+
+Through the basic block creation event, registered via
+dr_register_bb_event(), the \client has the ability to inspect and transform
+any piece of code prior to its execution.  The \client's hook receives
+three parameters:
+
+\code
+dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb, 
+                          bool for_trace, bool translating);
+\endcode 
+
+ - \c drcontext is a pointer to the input program's machine context.
+   \Clients should not inspect or modify the context; it is provided as
+   an opaque pointer (i.e., <tt>void *</tt>) to be passed to API
+   routines that require access to this internal data.
+
+ - \c tag is a unique identifier for the basic block fragment.
+
+ - \c bb is a pointer to the list of instructions that comprise the
+   basic block.  \Clients can examine, manipulate, or completely
+   replace the instructions in the list.
+
+ - \c for_trace indicates whether this callback is for a new basic block
+   (false) or for adding a basic block to a trace being created (true).
+   The \client has the opportunity to either include the same modifications
+   made to the standalone basic block, or to use different modifications,
+   for the code in the trace.
+
+ - \c translating indicates whether this callback is for basic block
+   creation (false) or is for address translation (true). This is further
+   explained in \ref sec_translation.
+
+The return value of the basic block callback should generally be
+DR_EMIT_DEFAULT; however, time-varying instrumentation or complex code
+transformations may need to return DR_EMIT_STORE_TRANSLATIONS.  See \ref
+sec_translation for further details.
+
+To iterate over instructions in an \c instrlist_t, use the \ref
+instrlist_first(), \ref instrlist_last(), and \ref instr_get_next()
+routines.  For example:
+
+\code
+dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb, 
+                          bool for_trace, bool translating)
+{
+  instr_t *instr, *next;
+  for (instr = instrlist_first(bb);
+       instr != instrlist_last(bb);
+       instr = next) {
+    next = instr_get_next(instr);
+    /* do some processing on instr */
+  }
+  return DR_EMIT_DEFAULT;
+}
+\endcode
+
+********************
+\subsection sec_Meta Meta-Instructions
+
+\DynamoRIO performs some processing on the basic block after the
+\client has finished with it, primarily modifying branches to ensure
+that \DynamoRIO retains control after execution.  It is important that
+the \client mark any control-flow instructions it does not want treated
+as application instructions as \e meta-instructions. Doing so informs
+\DynamoRIO that these instructions should execute natively rather than
+being trapped and redirected to new basic block fragments.
+Meta instructions are marked using these API routines:
+
+\code
+instr_set_ok_to_mangle()
+instrlist_meta_preinsert()
+instrlist_meta_postinsert()
+instrlist_meta_append()
+\endcode
+
+Through meta instructions, a \client can add its own internal control flow
+or make a call to a native routine that will not be brought into the code
+cache by \DynamoRIO.  However, such native calls need to be careful to
+remain transparent (see \ref sec_clean_call).
+
+While \DynamoRIO attempts to support arbitrary code transformations, its
+internal operation requires that we impose the following limitations:
+
+ - If there is more than one non-meta branch, only the last can be
+   conditional.
+ - A non-meta conditional branch must be the final instruction in the
+   block.
+ - There can only be one indirect branch (call, jump, or return) in 
+   a basic block, and it must be the final non-meta branch in the block.
+ - The exit control-flow of a block ending in a system call cannot be
+   changed.
+
+********************
+\subsection sec_events_trace Trace Creation
+
+\DynamoRIO provides access to traces primarily through the trace-creation
+event, registered via dr_register_trace_event().  It is important to note
+that \clients are not
+required to employ the trace-creation event to ensure full instrumentation.
+Rather, it is sufficient to perform all code modification using the basic
+block event.  Any basic blocks that \DynamoRIO chooses to place in a trace
+will contain all \client modifications (unless the \client behaves
+differently in the basic block hook when its \c for_trace parameter is
+true).  The trace-creation event provides
+a mechanism for \clients to instrument \e hot code separately.
+
+The parameters to the trace-creation event hook are nearly identical
+to those of the basic block hook:
+
+\code
+dr_emit_flags_t new_trace(void *drcontext, void *tag, instrlist_t *trace,
+                          bool translating);
+\endcode 
+
+ - \c drcontext is a pointer to the input program's machine context.
+   \Clients should not inspect or modify the context; it is provided as
+   an opaque pointer (i.e., <tt>void *</tt>) to be passed to API
+   routines that require access to this internal data.
+
+ - \c tag is a unique identifier for the trace fragment.
+
+ - \c bb is a pointer to the list of instructions that comprise the
+   trace.  \Clients can examine, manipulate, or completely replace the
+   instructions in the list.
+
+ - \c translating indicates whether this callback is for trace creation
+   (false) or is for address translation (true). This is further explained
+   in \ref sec_translation.
+
+The return value of the trace callback should generally be DR_EMIT_DEFAULT;
+however, time-varying instrumentation or complex code transformations may
+need to return DR_EMIT_STORE_TRANSLATIONS.  See \ref sec_translation for
+further details.
+
+\DynamoRIO calls the \client-supplied event hook each time a trace is
+created, just before the trace is emitted into the code cache.
+Additionally, as each constituent basic block is added to the trace,
+\DynamoRIO calls the basic block creation hook with the \p for_trace
+parameter set to true.  In order to preserve basic block instrumentation
+inside of traces, a \client need only act identically with respect to the
+\p for_trace parameter; it can ignore the trace event if its goal is to
+place instrumentation on all code.
+
+The constituent basic blocks will be stitched together prior to insertion
+in the code cache: conditional branches will be realigned so that their
+fall-through target remains on the trace, and inlined indirect branches
+will be preceded by a comparison against the on-trace target.
+
+If the basic block callback behaves differently based on the \p for_trace
+parameter, different instrumentation will exist in the trace as opposed to
+the standalone basic block.  If the basic block corresponds to the
+application code at the start of the trace (i.e., it is a trace head), the
+trace will shadow the basic block and the trace will be executed
+preferentially.  If #dr_delete_fragment() is called, it will also delete
+the trace first and may leave the basic block in place.  The flush routines
+(#dr_flush_region(), #dr_delay_flush_region(), #dr_unlink_flush_region()),
+however, will delete traces and basic blocks alike.
+
+********************
+\subsection sec_events_translation State Restoration
+
+If a \client is only adding instrumentation (meta instructions) that do not
+reference application memory, and is not reordering or removing application
+instructions, then it need not register for this event.  If, however, a
+\client is modifying application code or adding instructions that could
+fault, the \client must be capable of restoring the original context.
+\DynamoRIO calls the state restoration event, registered via
+dr_register_restore_state_event(), whenever it needs to translate a code
+cache context to an original application context:
+
+\code
+void restore_state(void *drcontext, void *tag, dr_mcontext_t *mcontext,
+                   bool restore_memory, bool app_code_consistent)
+\endcode
+
+See \ref sec_translation for further details.
+
+********************
+\subsection sec_events_del Basic Block and Trace Deletion
+
+\DynamoRIO can also provide notification of fragment deletion via
+dr_register_delete_event().  The signature for this event callback is:
+
+\code
+void fragment_deleted(void *drcontext, void *tag);
+\endcode
+
+\DynamoRIO calls this event hook each time it deletes a fragment from
+the code cache.  Such information may be needed if the \client
+maintains its own data structures about emitted fragment code that
+must be consistent across fragment deletions.
+
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_decode Decoding and Encoding
+
+As discussed in \ref sec_events_bb and \ref sec_events_trace, a
+\client's primary interface to code inspection and manipulation is via
+the basic block and trace hooks.  However, \DynamoRIO also
+exports a rich set of functions and data structures to decode and
+encode instructions directly.  The following subsections overview this
+functionality.
+
+
+********************
+\subsection sec_Decoding Decoding
+
+\DynamoRIO provides several routines for decoding and disassembling
+IA-32 instructions.  The most common method for decoding is the
+decode() routine, which populates an \c instr_t data structure with all
+information about the instruction (e.g., opcode and operand
+information).
+
+When decoding instructions, \clients must explicitly manage the \c
+instr_t data structure.  For example, the following code shows how to
+use the instr_init(), instr_reset(), and instr_free() routines to
+decode a sequence of arbritrary instructions:
+
+\code
+instr_t instr;
+instr_init(&instr);
+do {
+  instr_reset(dcontext, &instr);
+  pc = decode(dcontext, pc, &instr);
+  /* check for invalid instr */
+  if (pc == NULL)
+    break;
+  if (instr_writes_memory(&instr)) {
+    /* do some processing */
+  }
+} while (pc < stop_pc);
+instr_free(dcontext, &instr);
+\endcode
+
+The 64-bit build of \DynamoRIO is capable of decoding 32-bit code as well.
+See \ref sec_64bit for full details.
+
+\subsection sec_InstrGen Instruction Generation
+
+\Clients can construct instructions from scratch in two different ways:
+
+ -# Using the INSTR_CREATE_opcode macros that fill
+    in implicit operands automatically:
+    \code
+instr_t *instr = INSTR_CREATE_dec(dcontext, opnd_create_reg(REG_EDX));
+    \endcode
+ -# Specifying the opcode and all operands (including implicit
+    operands):
+    \code
+instr_t *instr = instr_create(dcontext);
+instr_set_opcode(instr, OP_dec);
+instr_set_num_opnds(dcontext, instr, 1, 1);
+instr_set_dst(instr, 0, opnd_create_reg(REG_EDX));
+instr_set_src(instr, 0, opnd_create_reg(REG_EDX));
+    \endcode
+
+When using the second method, the exact order of operands and their
+sizes must match the templates that \DynamoRIO uses.  The
+INSTR_CREATE_ macros in dr_ir_macros.h should be consulted to
+determine the order.
+
+
+\subsection sec_Encoding Encoding
+
+\DynamoRIO's encoding routines take an instruction or list of
+instructions and encode them into the corresponding IA-32 bit pattern:
+
+\code instr_encode(), instrlist_encode() \endcode
+
+When encoding a control transfer instruction that targets another
+instruction, two encoding passes are performed: one to find the offset
+of the target instruction, and the other to link the control transfer
+to the proper target offset.
+
+The 64-bit build of \DynamoRIO is capable of encoding 32-bit code as well.
+See \ref sec_64bit for details.
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_64bit 64-bit Versus 32-bit Instructions
+
+The 64-bit build of \DynamoRIO uses 64-bit decoding and encoding by
+default, while the 32-bit build uses 32-bit.  The 64-bit build is also
+capable of decoding and encoding 32-bit instructions.  Each thread has a
+current mode that is used to determine how to interpret instructions while
+decoding, whose default matches the \DynamoRIO build.  The set_x86_mode()
+routine changes the current mode, while get_x86_mode() queries the current
+mode.
+
+Each instruction contains a flag indicating whether it should be encoded in
+32-bit or 64-bit mode.  When an instruction is created or decoded, the
+instruction's flag is set to the thread's current mode.  It can be queried
+with instr_get_x86_mode() and changed with instr_set_x86_mode().
+
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_IR_utils Utilities
+
+In addition to instruction decoding and encoding, the API includes
+several higher-level routines to facilitate code instrumentation.
+These include the following:
+
+- Routines to insert clean calls to \client-defined functions.
+- Routines to instrument control-flow instructions.
+- Routines to spill registers to \DynamoRIO's thread-private spill
+  slots.
+- Routines to quickly save and restore arithmetic flags,
+  floating-point state, and MMX/SSE registers.
+
+The following subsections describe these routines in more detail.
+
+********************
+\subsection sec_clean_call Clean Calls
+
+To make it easy to insert code into the application instruction
+stream, \DynamoRIO provides a <em>clean call</em> mechanism, which
+allows insertion of a transparent call to a \client routine.
+The dr_insert_clean_call() routine takes care of switching to a clean
+stack, setting up arguments to a call and making the call, optionally
+preserving floating point state, and preserving application state across
+the entire sequence.
+
+Here is an example of inserting a clean call to the \c at_mbr function:
+
+\code
+if (instr_is_mbr(instr)) {
+  app_pc address = instr_get_app_pc(instr);
+  uint opcode = instr_get_opcode(instr);
+  instr_t *nxt = instr_get_next(instr);
+  dr_insert_clean_call(drcontext, ilist, nxt, (void *) at_mbr,
+                       false/*don't need to save fp state*/,
+                       2 /* 2 parameters */,
+                       /* opcode is 1st parameter */
+                       OPND_CREATE_INT32(opcode),
+                       /* address is 2nd parameter */
+                       OPND_CREATE_INTPTR(address));
+}
+\endcode
+
+Through this mechanism, \clients can write analysis code in C or other
+high-level languages and easily insert calls to these routines in the
+instruction stream.  Note, however, that saving and restoring machine state
+is an expensive operation.  Performance-critical operations should be
+inlined for maximum efficiency.
+
+The stack that \DynamoRIO switches to for clean calls is relatively small:
+only 20KB by default.  \Clients can increase the size of the stack with the
+\ref op_stack_size "-stack_size" runtime option.  \Clients should also
+avoid keeping persistent state on the clean call stack, as it is wiped
+clean at the start of each clean call.
+
+The saved interrupted application state can be accessed using
+dr_get_mcontext() and modified using dr_set_mcontext().
+
+For performance reasons, clean calls do not save or restore floating point,
+MMX, or SSE state by default.  If the clean callee is using floating point
+or multimedia operations, it should request that the clean call mechanism
+preserve the floating point state through the appropriate parameter to
+dr_insert_clean_call().  See also
+\ref sec_trans_floating_point "Floating Point State, MMX, and SSE Transparency".
+
+If more detailed control over the call sequence is desired, it can be
+broken down into its constituent pieces:
+
+ - dr_prepare_for_call()
+ - Optionally, dr_insert_save_fpstate()
+ - dr_insert_call()
+ - Optionally, dr_insert_restore_fpstate()
+ - dr_cleanup_after_call()
+
+********************
+\subsection sec_state State Preservation
+
+To facilitate code transformations, \DynamoRIO makes available its register
+spill slots and other state preservation functionality.  It exports API
+routines for saving and restoring registers to and from thread-local spill
+slots:
+
+\code dr_save_reg(), dr_restore_reg(), and dr_reg_spill_slot_opnd() \endcode
+
+The values stored in these spill slots remain valid until the next non-meta
+(i.e. application) instruction and as such can be accessed from clean calls using:
+
+\code dr_read_saved_reg(), dr_write_saved_reg() \endcode
+
+For longer term persistance \DynamoRIO also provides a generic dedicated 
+thread-local storage field for use by \clients, making it easy to write 
+thread-aware \clients.  From C code, use:
+
+\code dr_get_tls_field(), dr_set_tls_field() \endcode
+
+To access this thread-local field from the code cache, use the following
+routines to generate the necessary code:
+
+\code dr_insert_read_tls_field(), dr_insert_write_tls_field() \endcode
+
+Since saving and restoring the \c eflags register is required for almost
+all code transformations, and since it is difficult to do so efficiently,
+we export routines that use our efficient method of arithmetic flag
+preservation:
+
+\code dr_save_arith_flags(), dr_restore_arith_flags() \endcode
+
+As just discussed in \ref sec_clean_call, we also export convenience
+routines for making \e clean (i.e., transparent) native calls from the code
+cache, as well as floating point and multimedia state preservation.
+
+
+********************
+\subsection sec_branch_instru Branch Instrumentation
+
+\DynamoRIO provides explicit support for instrumenting call
+instructions, direct (or unconditional) branches, indirect (or
+multi-way) branches, and conditional branches.  These convenience
+routines insert clean calls to \client-provided methods, passing as
+arguments the instruction pc and target pc of each control transfer,
+along with taken or not taken information for conditional branches:
+
+\code
+dr_insert_call_instrumentation()
+dr_insert_ubr_instrumentation()
+dr_insert_mbr_instrumentation()
+dr_insert_cbr_instrumentation()
+\endcode
+
+
+********************
+\subsection sec_adaptive Dynamic Instrumentation
+
+\DynamoRIO allows a \client to dynamically adjust its instrumentation
+by providing routines to flush all cached fragments corresponding to
+an application code region:
+
+\code
+dr_flush_region()
+dr_unlink_flush_region()
+dr_delay_flush_region()
+\endcode
+
+In order to directly modify the instrumentation on a particular fragment
+(as opposed to replacing instrumentation on all copies of fragments
+corresponding to particular application code), \DynamoRIO also supports
+directly replacing an existing fragment with a new \c instrlist_t:
+
+\code
+dr_replace_fragment()
+\endcode
+
+However, this routine is only supported when running with the \ref
+op_thread_priv "-thread_private" runtime option, and it replaces the
+fragment for the current thread only.  A \client can call this routine even
+while inside the to-be-replaced fragment (e.g., in a clean call from inside
+the fragment).  In this scenario, the old fragment is executed to
+completion and the new code is inserted before the next execution.
+
+For example usage, see the \client sample \ref sec_ex3.
+
+********************
+\subsection sec_custom_traces Custom Traces
+
+\DynamoRIO combines frequently executed sequences of basic blocks into
+<em>traces</em>.  It uses a simple profiling scheme based on <em>trace
+heads</em>, which are the targets of backward branches or exits from
+existing traces.  Execution counters are kept for each trace head.  Once a
+head crosses a threshold, the next sequence of basic blocks that are
+executed becomes a new trace.
+
+\DynamoRIO allows a \client to build custom traces by marking its own trace
+heads (<em>in addition</em> to \DynamoRIO's normal trace heads) and
+deciding when to end traces.  If a \client registers for the following
+event, \DynamoRIO will call its hook before extending a trace (with tag \c
+trace_tag) with a new basic block (with tag \c next_tag):
+
+\code
+int query_end_trace(void *drcontext, void *trace_tag, void *next_tag);
+\endcode
+
+The \client hook returns one of these values:
+ - CUSTOM_TRACE_DR_DECIDES = use standard termination criteria
+ - CUSTOM_TRACE_END_NOW = end trace now
+ - CUSTOM_TRACE_CONTINUE = do not end trace
+
+If using standard termination criteria, \DynamoRIO ends the trace if it
+reaches a trace head or another trace (or certain corner-case basic blocks
+that cannot be part of a trace).
+
+The \client can also mark any basic block as a trace head with
+\code dr_mark_trace_head() \endcode
+
+For example usage, see the callee-inlining \client sample \ref sec_ex5.
+
+\if custom_stubs
+********************
+\subsection sec_custom_stubs Custom Exit Stubs
+
+An exit cti can be given an instrlist_t to be prepended to the standard
+exit stub.  There are set and get methods for this custom exit stub code:
+
+\code
+void instr_set_exit_stub_code(instr_t *instr, instrlist_t *stub);
+instrlist_t *instr_exit_stub_code(instr_t *instr);
+\endcode
+
+When a fragment is re-decoded, e.g. when being appended to a trace or when
+re-decoded using dr_decode_fragment, the custom stubs are regenerated and
+added to the owning exit cti's.
+\endif
+
+
+\if prefixes
+********************
+\subsection sec_prefixes Prefixes
+
+Some code manipulations need to store a target address in a register and
+then jump there, but need the register to be restored as well.  \DynamoRIO
+provides a single-instruction prefix that is placed on all fragments (basic
+blocks as well as traces) that restores ecx.  It is on traces for internal
+\DynamoRIO use.  To have it added to basic blocks as well, call this routine
+during initialization:
+
+\code
+void dr_add_prefixes_to_basic_blocks();
+\endcode
+
+To have a cti target the prefix rather than the normal entry, use these set
+and get routines:
+
+\code
+bool instr_branch_targets_prefix(instr_t *instr);
+void instr_branch_set_prefix_target(instr_t *instr, bool val);
+\endcode
+\endif
+
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_translation State Translation
+
+To support transparent fault handling, \DynamoRIO must translate a fault in
+the code cache into a fault at the corresponding application address.
+\DynamoRIO must also be able to translate when a suspended thread is
+examined by the application or by \DynamoRIO itself for internal
+synchronization purposes.
+
+If a \client is only adding observational instrumentation (i.e., \ref
+sec_Meta) (which should not fault) and is not modifying, reordering, or
+removing application instructions, these details can be ignored.  In that
+case the \client's basic block and trace callbacks should return
+#DR_EMIT_DEFAULT in addition to being deterministic and idempotent (i.e.,
+\DynamoRIO should be able to repeatedly call the callback and receive back
+the same resulting instruction list, with no net state changes to the
+\client).
+
+If a \client is performing modifications, then in order for \DynamoRIO to
+properly translate a code cache address the \client must use
+instr_set_translation() (chainable via INSTR_XL8()) in the basic block and
+trace creation callbacks to set the corresponding application address for
+each modified instruction and each added non-meta instruction.  The
+translation value is the application address that should be presented to
+the application as the faulting address, or the application address that
+should be restarted after a suspend.
+
+There are two methods for using the translated addresses:
+
+-# Return #DR_EMIT_STORE_TRANSLATIONS from the basic block creation
+   callback.  DR will then store the translation addresses and use
+   the stored information on a fault.  The basic block callback for
+   \p tag will not be called with \p translating set to true.  Note
+   that unless #DR_EMIT_STORE_TRANSLATIONS is also returned for \p
+   for_trace calls (or #DR_EMIT_STORE_TRANSLATIONS is returned in
+   the trace callback), each constituent block comprising the trace
+   will need to be re-created with both \p for_trace and \p
+   translating set to true.  Storing translations uses additional
+   memory that can be significant: up to 20% in some cases, as it
+   prevents DR from using its simple data structures and forces it
+   to fall back to its complex, corner-case design.  This is why DR
+   does not store all translations by default.
+-# Return #DR_EMIT_DEFAULT from the basic block or trace creation callback.
+   \DynamoRIO will then call the callback again during fault translation
+   with \p translating set to true.  All modifications to the instruction
+   list that were performed on the creation callback must be repeated on
+   the translating callback.  This option is only posible when basic block
+   modifications are deterministic and idempotent, but it saves memory.
+   Naturally, global state changes triggered by block creation should be
+   wrapped in checks for \p translating being false.  Even in this case,
+   instr_set_translation() should be called for non-meta instructions even
+   when \p translating is false, as \DynamoRIO may decide to store the
+   translations at creation time for reasons of its own.
+
+Furthermore, if the \client's modifications change any part of the machine
+state besides the program counter, the \client should use
+dr_register_restore_state_event() (see \ref sec_events_translation) to
+restore the registers to their original application values.
+
+For meta instructions that do not reference application memory (i.e., they
+should not fault), leave the translation field as NULL.  A NULL value
+instructs \DynamoRIO to use the subsequent non-meta instruction's
+translation as the application address, and to fail when translating the
+full state.  Since the full state will only be needed when relocating a
+thread (as stated, there will not be a fault here), failure indicates that
+this is not a valid relocation point, and \DynamoRIO's thread
+synchronization scheme will use another spot.  If the translation field is
+set to a non-NULL value, the \client should be willing to also restore the
+rest of the machine state at that point (restore spilled registers, etc.)
+via #dr_register_restore_state_event().  This is necessary for meta
+instructions that reference application memory.  \DynamoRIO takes care of
+such potentially-faulting instructions added by its own API routines
+(#dr_insert_clean_call() arguments that reference application data,
+#dr_insert_mbr_instrumentation()'s read of application indirect branch
+data, etc.)
+
+
+\ifnot vmsafe
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_startstop Running a Subset of an Application
+
+An alternative to running an entire application under \DynamoRIO control is to
+use the Application Interface to specify a portion of the application to
+run.  This interface consists of the following routines:
+
+\code
+dr_app_setup()
+dr_app_start()
+dr_app_stop()
+dr_app_cleanup()
+dr_app_take_over()
+\endcode
+
+When building an executable that links with the \DynamoRIO library, you may
+need to explicitly link with the C library prior to the \DynamoRIO library:
+
+\code /link /nodefaultlib libcmt.lib dynamorio.lib \endcode
+
+\endif
+
+***************************************************************************
+****************************************************************************
+****************************************************************************
+*/

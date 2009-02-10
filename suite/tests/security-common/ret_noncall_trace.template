@@ -1,0 +1,12 @@
+I think, therefore I am
+#if +PROGRAM_SHEPHERDING : +-security --ibl_table_per_type --no_ret_after_call --X --C --low --client --thin_client --use_moduledb
+# if : --detect_mode
+#  SEC_VIO_AUTO_STOP
+#  if : --internal_detach_mask 
+#   STOP
+#  endif
+# else
+#  SEC_VIO_CONT
+# endif
+#endif
+ ... in serious trouble!

@@ -1,0 +1,65 @@
+#!/bin/sh
+
+# **********************************************************
+# Copyright (c) 2001-2006 VMware, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# 
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# 
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+#$Id: rio 9862 2009-02-10 17:24:10Z derek.bruening $
+#rio injector
+#Vladimir Kiriansky, October 2001
+
+#uses environment variables:
+#requires DYNAMORIO_HOME
+#set DYNAMORIO_OPTIONS to control DynamoRIO behavior
+#  to see feedback on a run, you might set DYNAMORIO_OPTIONS to
+#  "-stats -notify -loglevel 1"
+
+debug=0
+
+if [ "$1" = "" ]
+then
+    echo "usage: rio [-debug] executable [args ...]"
+    exit
+elif [ "$1" = "-debug" ]
+then
+    debug=1
+    shift
+fi
+
+# If release version exists, use it, unless -debug is passed in
+if [ $debug = 0 ] && [ -d $DYNAMORIO_HOME/exports/x86_linux_rel ]
+then
+    export LD_LIBRARY_PATH=$DYNAMORIO_HOME/exports/x86_linux_rel:$LD_LIBRARY_PATH
+else
+    export LD_LIBRARY_PATH=$DYNAMORIO_HOME/exports/x86_linux_dbg:$LD_LIBRARY_PATH
+fi
+
+export LD_PRELOAD="libdrpreload.so libdynamorio.so"
+
+$*

@@ -1,0 +1,83 @@
+testing hook pattern
+#if +PROGRAM_SHEPHERDING : +-security +-no_trampoline_displaced_code --X --executable_if_x --B --executable_heap --low --client --thin_client || +PROGRAM_SHEPHERDING : +-security +-no_executable_if_trampoline --X --executable_if_x --B --executable_heap
+# if : --detect_mode
+#  SEC_VIO_AUTO_STOP
+#  if : --internal_detach_mask 
+#   STOP
+#  endif
+# else
+#  SEC_VIO_CONT
+# endif
+#endif
+testing non-pattern-match on same page
+#if +PROGRAM_SHEPHERDING : +-security --X --executable_if_x --B --executable_heap --low --client --thin_client
+# if : --detect_mode
+#  SEC_VIO_AUTO_STOP
+#  if : --internal_detach_mask 
+#   STOP
+#  endif
+# else
+#  SEC_VIO_CONT
+# endif
+#endif
+malicious code executing #1!
+testing non-pattern-match in same region
+#if +PROGRAM_SHEPHERDING : +-security --X --executable_if_x --B --executable_heap --low --client --thin_client
+# if : --detect_mode
+#  SEC_VIO_AUTO_STOP
+#  if : --internal_detach_mask 
+#   STOP
+#  endif
+# else
+#  SEC_VIO_CONT
+# endif
+#endif
+malicious code executing #2!
+testing hook pattern again
+#if +PROGRAM_SHEPHERDING : +-security +-no_trampoline_displaced_code --X --executable_if_x --B --executable_heap --low --client --thin_client || +PROGRAM_SHEPHERDING : +-security +-no_executable_if_trampoline --X --executable_if_x --B --executable_heap
+# if : --detect_mode
+#  SEC_VIO_AUTO_STOP
+#  if : --internal_detach_mask 
+#   STOP
+#  endif
+# else
+#  SEC_VIO_CONT
+# endif
+#endif
+testing non-pattern-match in same region by another thread
+#if +PROGRAM_SHEPHERDING : +-security --X --executable_if_x --B --executable_heap --low --client --thin_client
+# if : --detect_mode
+#  SEC_VIO_AUTO_STOP
+#  if : --internal_detach_mask 
+#   STOP
+#  endif
+# else
+#  SEC_VIO_CONT
+# endif
+#endif
+malicious code executing #3!
+testing different pattern match in same region
+#if +PROGRAM_SHEPHERDING : +-security +-no_trampoline_dirjmp --X --executable_if_x --B --executable_heap --low --client --thin_client || +PROGRAM_SHEPHERDING : +-security +-no_executable_if_trampoline --X --executable_if_x --B --executable_heap
+# if : --detect_mode
+#  SEC_VIO_AUTO_STOP
+#  if : --internal_detach_mask 
+#   STOP
+#  endif
+# else
+#  SEC_VIO_CONT
+# endif
+#endif
+malicious code executing #4!
+testing pattern match that modifies itself to be a non-match
+#if +PROGRAM_SHEPHERDING : +-security --X --executable_if_x --B --executable_heap --low --client --thin_client
+# if : --detect_mode
+#  SEC_VIO_AUTO_STOP
+#  if : --internal_detach_mask 
+#   STOP
+#  endif
+# else
+#  SEC_VIO_CONT
+# endif
+#endif
+malicious code executing #5!
+finished

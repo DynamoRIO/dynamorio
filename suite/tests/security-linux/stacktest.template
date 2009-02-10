@@ -1,0 +1,32 @@
+Attempting to call a trampoline...
+#if +PROGRAM_SHEPHERDING : +-security +-no_executable_if_trampoline || +PROGRAM_SHEPHERDING : +-security +-X
+# if : --executable_stack
+#  if : --detect_mode
+#   SEC_VIO_AUTO_STOP
+#   STOP
+#  else
+#   SEC_VIO_CONT
+#  endif
+# endif
+#endif
+Succeeded.
+Attempting to simulate a buffer overflow exploit...
+#if +PROGRAM_SHEPHERDING : +-security 
+# if : --no_ret_after_call --C --X
+#  if : --detect_mode
+#   SEC_VIO_AUTO_STOP
+#   STOP
+#  else
+#   SEC_VIO_CONT
+#  endif
+# endif
+# if : --executable_stack
+#  if : --detect_mode
+#   SEC_VIO_AUTO_STOP
+#   STOP
+#  else
+#   SEC_VIO_CONT
+#  endif
+# endif
+#endif
+Succeeded.

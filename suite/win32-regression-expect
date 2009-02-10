@@ -1,0 +1,253 @@
+# **********************************************************
+# Copyright (c) 2003 VMware, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# 
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# 
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+============================================================
+Summary of results:
+
+Build 1: "GEN_DEFINES="/DINLINE_IND_BR_LOOKUP /DTRACE_HEAD_CACHE_INCR""
+       <no errors>
+  Run 1: DYNAMORIO_OPTIONS=\"\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 2: DYNAMORIO_OPTIONS=\"-stats\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 3: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 4: DYNAMORIO_OPTIONS=\"-loglevel 1 -prof_pcs\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 5: DYNAMORIO_OPTIONS=\"-loglevel 1 -stats\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 6: DYNAMORIO_OPTIONS=\"-loglevel 1 -disable_traces\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 7: DYNAMORIO_OPTIONS=\"-loglevel 1 -tracedump_binary -tracedump_origins\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 8: DYNAMORIO_OPTIONS=\"-loglevel 1 -tracedump_text -tracedump_origins\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 9: DYNAMORIO_OPTIONS=\"-loglevel 1 -cache_bb_max 128\" TEST_MINS=360
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 10: DYNAMORIO_OPTIONS=\"-loglevel 1 -cache_trace_max 128\" TEST_MINS=240
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 11: DYNAMORIO_OPTIONS=\"-loglevel 1 -rlr\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 12: DYNAMORIO_OPTIONS=\"-loglevel 1 -remove_dead_code 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 13: DYNAMORIO_OPTIONS=\"-loglevel 1 -constant_prop 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 14: DYNAMORIO_OPTIONS=\"-loglevel 1 -call_return_matching\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 15: DYNAMORIO_OPTIONS=\"-loglevel 1 -remove_unnecessary_zeroing\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 16: DYNAMORIO_OPTIONS=\"-loglevel 1 -peephole\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 2: "CLIENT_INTERFACE=1"
+       <no errors>
+  Run 17: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 3: "CLIENT_INTERFACE=1 EXTERNAL_RELEASE=1"
+       <no errors>
+  Run 18: DYNAMORIO_OPTIONS=\"\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 19: DYNAMORIO_OPTIONS=\"-stats\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 20: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 21: DYNAMORIO_OPTIONS=\"-loglevel 1 -prof_pcs\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 22: DYNAMORIO_OPTIONS=\"-loglevel 1 -stats\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 23: DYNAMORIO_OPTIONS=\"-loglevel 1 -tracedump_binary -tracedump_origins\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 24: DYNAMORIO_OPTIONS=\"-loglevel 1 -tracedump_text -tracedump_origins\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 25: DYNAMORIO_OPTIONS=\"-loglevel 1 -cache_bb_max 128\" TEST_MINS=360
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 26: DYNAMORIO_OPTIONS=\"-loglevel 1 -cache_trace_max 128\" TEST_MINS=240
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 4: "CLIENT_INTERFACE=1 EXTERNAL_RELEASE=1 EXTERNAL_RELEASE_PROFILE=1"
+       <no errors>
+  Run 27: DYNAMORIO_OPTIONS=\"\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 28: DYNAMORIO_OPTIONS=\"-loglevel 1 -prof_counts -tracedump_binary\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 29: DYNAMORIO_OPTIONS=\"-loglevel 1 -prof_counts -tracedump_text\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 5: "GEN_DEFINES="/DINLINE_IND_BR_LOOKUP /DTRACE_HEAD_CACHE_INCR /DHASHTABLE_OPEN_ADDRESS /DHASHTABLE_NOCHASING /DHASHTABLE_OPEN_ADDRESS_SENTINEL""
+       <no errors>
+  Run 30: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 6: "GEN_DEFINES="/DTRACE_HEAD_CACHE_INCR /DHASHTABLE_OPEN_ADDRESS /DHASHTABLE_NOCHASING /DHASHTABLE_OPEN_ADDRESS_SENTINEL""
+       <no errors>
+  Run 31: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 7: "GEN_DEFINES="/DINLINE_IND_BR_LOOKUP /DTRACE_HEAD_CACHE_INCR /DADAPTIVE_WORKING_SET""
+       <no errors>
+  Run 32: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 8: "GEN_DEFINES="/DPROFILE_LINKCOUNT""
+       <no errors>
+  Run 33: DYNAMORIO_OPTIONS=\"-loglevel 1 -prof_counts -tracedump_binary\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 34: DYNAMORIO_OPTIONS=\"-loglevel 1 -prof_counts -tracedump_text\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 9: "GEN_DEFINES="/DPROFILE_LINKCOUNT /DLINKCOUNT_64_BITS""
+       <no errors>
+  Run 35: DYNAMORIO_OPTIONS=\"-loglevel 1 -prof_counts -tracedump_binary\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 36: DYNAMORIO_OPTIONS=\"-loglevel 1 -prof_counts -tracedump_text\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 10: "GEN_DEFINES="/DCHECK_CODE_ORIGINS""
+       <no errors>
+  Run 37: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 38: DYNAMORIO_OPTIONS=\"-loglevel 1 -executable_heap\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 39: DYNAMORIO_OPTIONS=\"-loglevel 1 -executable_stack\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 40: DYNAMORIO_OPTIONS=\"-loglevel 1 -executable_data\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 11: "GEN_DEFINES="/DCHECK_CODE_ORIGINS /DCODE_ORIGIN_STATISTICS""
+       <no errors>
+  Run 41: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 12: "GEN_DEFINES="/DPROTECT_FROM_APP""
+       <no errors>
+  Run 42: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 43: DYNAMORIO_OPTIONS=\"-loglevel 1\" TIMER= TEST_TIME=
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 13: "GEN_DEFINES="/DINLINE_IND_BR_LOOKUP /DTRACE_HEAD_CACHE_INCR /DASSUME_NORMAL_EFLAGS""
+       <no errors>
+  Run 44: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 14: "GEN_DEFINES="/DFRAGMENT_SIZES_STUDY""
+       <no errors>
+  Run 45: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 15: "GEN_DEFINES="/DFOOL_CPUID""
+       <no errors>
+  Run 46: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 16: "GEN_DEFINES="/DINLINE_IND_BR_LOOKUP /DTRACE_HEAD_CACHE_INCR /DNATIVE_RETURN /DASSUME_NORMAL_EFLAGS /DCUSTOM_EXIT_STUBS""
+       <no errors>
+  Run 47: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 17: "GEN_DEFINES="""
+       <no errors>
+  Run 48: DYNAMORIO_OPTIONS=\"-loglevel 1\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 18: "DEBUG=0"
+       <no errors>
+  Run 49: DYNAMORIO_OPTIONS=\"\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 50: DYNAMORIO_OPTIONS=\"-prof_pcs\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 51: DYNAMORIO_OPTIONS=\"-tracedump_binary -tracedump_origins\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 52: DYNAMORIO_OPTIONS=\"-tracedump_text -tracedump_origins\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 53: DYNAMORIO_OPTIONS=\"-cache_bb_max 128\" TEST_MINS=360
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 54: DYNAMORIO_OPTIONS=\"-cache_trace_max 128\" TEST_MINS=240
+       SPEC: <no failures>
+       TESTS: <no failures>
+Build 19: "CLIENT_INTERFACE=1 EXTERNAL_RELEASE=1 DEBUG=0"
+       <no errors>
+  Run 55: DYNAMORIO_OPTIONS=\"\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 56: DYNAMORIO_OPTIONS=\"-prof_pcs\"
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 57: DYNAMORIO_OPTIONS=\"-tracedump_binary -tracedump_origins\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 58: DYNAMORIO_OPTIONS=\"-tracedump_text -tracedump_origins\" TEST_MINS=20
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 59: DYNAMORIO_OPTIONS=\"-cache_bb_max 128\" TEST_MINS=360
+       SPEC: <no failures>
+       TESTS: <no failures>
+  Run 60: DYNAMORIO_OPTIONS=\"-cache_trace_max 128\" TEST_MINS=240
+       SPEC: <no failures>
+       TESTS: <no failures>
+
+============================================================

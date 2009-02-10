@@ -1,0 +1,15 @@
+creating window
+detach_callback start
+finished first callback test
+Exiting with stacked callbacks
+finished exit test
+Starting busy work
+Starting busy build
+Detaching
+Detach finished
+Done busy building
+Done busy working
+finished detach test
+finished second callback test
+SuspendSelf resumed, exiting
+detach_callback done

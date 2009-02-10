@@ -1,0 +1,31 @@
+to set up on vista
+
+copy over the following files
+drpreinject.dll
+dynamorio.dll
+drcontrol.exe
+drview.exe
+vista_prelim_cfg.drcontrol.cfg
+
+Be sure the folder(s) containing dynamorio.dll and drpreinject.dll are readable by all users (i.e. readable by everyone) and the that log folder specified below is writable by everyone.
+
+open a runas admin cmd shell (not the same as running from an admin account;
+as an admin user create a link to cmd.exe, right click and select runas admin)
+
+in the cmd shell run (examples assume files copied to c:\dr\setup and are in [] )
+[cd c:\dr\setup]
+drcontrol -create <path to folder holding dynamorio.dll [ex. c:\dr\setup ] >
+drcontrol -load vista_prelim_cfg.drcontrol.cfg
+drcontrol -logdir <path to desired log directory [ex. c:\dr\logs ] >
+drcontrol -drlib <path to dynamorio.dll [ex. c:\dr\setup\dynamorio.dll ] >
+drcontrol -create_eventlog <path to dynamorio.dll [ex. c:\dr\setup\dynamorio.dll ] >
+drcontrol -preinject LOAD_ON
+drcontrol -preinject <path to drpreinject.dll [ex. c:\dr\setup\drpreinject.dll ] >
+
+use regedit or drcontrol to adjust options, processes under dr, hotpatch
+configuration, etc. as desired
+
+note that the prelim configuration uses the global options for all process
+except slsvc.exe
+
+note that we can be pretty slow in vista (esp. explorer.exe under mf, which also has the known bug 9717)

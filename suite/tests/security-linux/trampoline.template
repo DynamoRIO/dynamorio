@@ -1,0 +1,13 @@
+inside outer
+inside ind
+#if +PROGRAM_SHEPHERDING : +-security +-no_executable_if_trampoline || +PROGRAM_SHEPHERDING : +-security +-X
+# if : --executable_stack
+#  if : --detect_mode
+#   SEC_VIO_AUTO_STOP
+#   STOP
+#  else
+#   SEC_VIO_CONT
+#  endif
+# endif
+#endif
+inside nested 41

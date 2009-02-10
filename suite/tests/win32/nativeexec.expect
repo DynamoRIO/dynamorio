@@ -1,0 +1,7 @@
+calling via IAT-style call
+nativeexec.dll:import_me1(57)
+calling via PLT-style call
+nativeexec.dll:import_me2(37)
+calling via funky ind call
+nativeexec.dll:import_me3(17)
+all done

@@ -1,0 +1,22 @@
+Bad instr about to happen
+#if +PROGRAM_SHEPHERDING : +-security --low --client --thin_client
+# if : --executable_stack
+#  if : --detect_mode
+#   if : -+throw_exception
+#    SEC_VIO_EXCEPTION
+#   else
+#     if : -+kill_thread
+#      SEC_VIO_THREAD
+#     else  
+#      SEC_VIO_STOP
+#     endif
+#   endif
+#   if : --internal_detach_mask
+#    STOP
+#   endif
+#  else
+#   SEC_VIO_CONT
+#  endif
+# endif
+#endif
+Got an illegal instruction

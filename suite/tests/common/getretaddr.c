@@ -1,0 +1,131 @@
+/* **********************************************************
+ * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+#ifndef ASM_CODE_ONLY /* C code */
+#include "tools.h"
+#include <stdio.h>
+
+#ifdef USE_DYNAMO
+#include "dynamorio.h"
+#endif
+
+#define VERBOSE 0
+
+ptr_int_t get_retaddr(void);
+ptr_int_t get_retaddr_from_frameptr(void);
+
+#ifdef X64
+# ifdef WINDOWS  /* 5th param is on the stack */
+void foo(int x1,int x2,int x3,int x4,int x)
+# else  /* 7th param is on the stack */
+void foo(int x1,int x2,int x3,int x4,int x5,int x6,int x)
+# endif
+#else
+void foo(int x)
+#endif
+{
+    ptr_int_t myaddr1, myaddr2;
+#if defined(X64) && defined(WINDOWS)
+    /* no frame pointer available w/ the compiler we're using */
+#else
+    myaddr1 = get_retaddr_from_frameptr();
+# if VERBOSE
+    print("my own return address is "PFX"\n", myaddr1);
+# endif
+#endif
+    /* alternative method: */
+    myaddr2 = *(((ptr_int_t*)&x) - IF_X64_ELSE(IF_WINDOWS_ELSE(5, 1), 1));
+#if defined(X64) && defined(WINDOWS)
+    myaddr1 = myaddr2;
+#endif
+    if (myaddr1 == myaddr2)
+        print("return addresses match\n");
+    else
+        print("ERROR -- return addresses do not match\n");
+#if VERBOSE
+    print("my own return address is "PFX"\n", myaddr2);
+#endif
+}
+
+int main()
+{
+    ptr_int_t myaddr;
+#ifdef USE_DYNAMO
+    dynamorio_app_init();
+    dynamorio_app_start();
+#endif
+    /* make sure dynamorio can handle this non-call */
+    myaddr = get_retaddr();
+#if VERBOSE
+    print("my address is something like "PFX"\n", myaddr);
+#endif
+#ifdef X64
+# ifdef WINDOWS  /* 5th param is on the stack */
+    foo(3,3,3,3,3);
+# else  /* 7th param is on the stack */
+    foo(3,3,3,3,3,3,3);
+# endif
+#else
+    foo(3);
+#endif
+#ifdef USE_DYNAMO
+    dynamorio_app_stop();
+    dynamorio_app_exit();
+#endif
+    return 0;
+}
+
+
+#else /* asm code *************************************************************/
+#include "asm_defines.asm"
+START_FILE
+
+#define FUNCNAME get_retaddr
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* We don't bother w/ SEH64 directives, though we're an illegal leaf routine! */
+        call     next_instr
+    next_instr:
+        pop      REG_XAX
+        ret
+        END_FUNC(FUNCNAME)
+
+#undef FUNCNAME
+#define FUNCNAME get_retaddr_from_frameptr
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, PTRSZ [REG_XBP + ARG_SZ]
+        ret
+        END_FUNC(FUNCNAME)
+
+END_FILE
+#endif

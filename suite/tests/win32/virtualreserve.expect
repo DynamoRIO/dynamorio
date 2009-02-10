@@ -1,0 +1,15 @@
+alloced 16384
+committed 4096
+committed 8192
+flushed 12288
+committed 16384
+attempting to decommit 3 byte cross-page 0 - should decommit two pages
+attempting to decommitted 3 byte cross-page 0 - should fail
+decommitting (p+0x10, 16384) (gets backwards aligned) - should hopefully fail
+decommitted size 0 and p (gets backwards aligned) - should decommit whole region
+decommitting (p+0x0, 16384) - should be ok
+releasing p+0x3010 - should fail
+releasing p+0x10 - will actually free
+alloced again 16384
+released p
+Successful

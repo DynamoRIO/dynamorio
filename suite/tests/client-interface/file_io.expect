@@ -1,0 +1,11 @@
+0123456789
+01234
+abcdefg
+vwxyz
+
+dummy_func is rx
+writable_buf is rw
+read_only_buf is r
+dr_safe_read() check
+dr_safe_write() check
+done

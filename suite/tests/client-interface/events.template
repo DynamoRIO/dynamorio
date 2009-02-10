@@ -1,0 +1,68 @@
+#if +WINDOWS :
+module load event 2
+module load event 1
+thread init event 2
+thread init event 1
+bb event 2
+bb event 1
+end trace event 2
+end trace event 1
+delete event 2
+delete event 1
+trace event 2
+trace event 1
+filter syscall event 2
+filter syscall event 1
+pre syscall event 2
+pre syscall event 1
+post syscall event 2
+post syscall event 1
+in restore_state event 2
+in restore_state event 1
+exception event 2
+exception event 1
+module unload event 2
+module unload event 1
+exception event redirect
+Redirect success!
+thread exit event 2
+thread exit event 1
+exit event 2
+exit event 1
+#else
+module load event 2
+module load event 1
+thread init event 2
+thread init event 1
+bb event 2
+bb event 1
+end trace event 2
+end trace event 1
+delete event 2
+delete event 1
+trace event 2
+trace event 1
+filter syscall event 2
+filter syscall event 1
+pre syscall event 2
+pre syscall event 1
+post syscall event 2
+post syscall event 1
+module unload event 2
+module unload event 1
+Sending SIGUSR1
+signal event 2 sig=10
+signal event 1 sig=10
+Got SIGUSR1
+Sending SIGUSR2
+signal event 1 sig=12
+Sending SIGURG
+signal event 1 sig=23
+Done
+fork init event 2
+fork init event 1
+thread exit event 2
+thread exit event 1
+exit event 2
+exit event 1
+#endif

@@ -1,0 +1,31 @@
+starting up
+#if +PROGRAM_SHEPHERDING +WINDOWS : +-security --executable_heap +-no_executable_if_hook --executable_if_text --executable_if_x --X || +PROGRAM_SHEPHERDING +LINUX : +-security --executable_heap --executable_if_x --X
+# if : --detect_mode
+#  if : +-throw_exception
+// The exception handler is bad, so we loop to -throw_exception_max_per_thread
+#   SEC_VIO_EXCEPTION
+#   if : --throw_exception_max 1
+#    SEC_VIO_EXCEPTION
+#    SEC_VIO_EXCEPTION
+#    SEC_VIO_EXCEPTION
+#    SEC_VIO_EXCEPTION
+#    SEC_VIO_EXCEPTION
+#    SEC_VIO_EXCEPTION
+#    SEC_VIO_EXCEPTION
+#    SEC_VIO_EXCEPTION
+#    SEC_VIO_EXCEPTION
+#   endif
+#  endif
+#  if : +-kill_thread
+#    SEC_VIO_THREAD
+#  else  
+#    SEC_VIO_STOP
+#  endif
+#  if : --internal_detach_mask
+#   STOP
+#  endif
+# else
+#  SEC_VIO_CONT
+# endif
+#endif
+all done

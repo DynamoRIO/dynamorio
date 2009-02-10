@@ -1,0 +1,18 @@
+thank you for testing the client interface
+#if +RUNREGRESSION_XP +PROGRAM_SHEPHERDING : +-security +-no_executable_if_rx_text --executable_after_load
+# SEC_VIO_STOP
+No such process found.
+Window not found: Calculator
+#else
+# if +DEBUG :
+Process calc.exe, running SC debug
+# else
+#  if +PROFILE :
+Process calc.exe, running SC profile
+#  else
+Process calc.exe, running SC release
+#  endif
+# endif
+Close message sent.
+#endif
+No such process found.

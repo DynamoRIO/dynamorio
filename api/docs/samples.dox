@@ -1,0 +1,526 @@
+/* **********************************************************
+ * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+\page API_samples Sample Use Cases
+
+We provide several examples to illustrate how the \DynamoRIO API is used to
+build a \DynamoRIO \client.
+
+\if vmsafe
+\section probe_samples Probe API Examples
+
+Not available yet.
+\endif
+
+\if vmsafe
+\anchor sec_mf_samples
+\section mf_samples Memory Firewall Examples
+
+An example Memory Firewall \client implementation is provided at <a
+href="samples/MF_moduledb.c">samples/MF_moduledb.c</a> (see that file
+for additional documentation). The MF_moduledb sample \client reads in
+a list of module names and options from a config file and exempts security
+violations associated with those modules based on the type of
+violation and the options in the file. In this manner violations from
+dlls known to have certain types of false positives can be avoided.
+It also supports dynamically changing its exemptions with a nudge
+handler that triggers re-reading the config file.
+
+The MF_moduledb sample \client is provided with a configuration file <a
+href="samples/MF_moduledb-sample.config">samples/MF_moduledb-sample.config</a>
+and a violation generating executable <a
+href="samples/VIPA_test.exe">samples/VIPA_test.exe.c</a> for easy
+testing. To use :
+
+Use drdeploy.exe to configure VIPA_test.exe to run under security_api mode with
+the appropriate options.
+drdeploy.exe -reg VIPA_test.exe -root \<root path\> -mode security_api -client \<path
+to MF_moduledb.dll\> -ops "-client_ops \<path to MF_moduledb-sample.config\>"
+
+Then run VIPA_test.exe. Clicking on the heap attack button should produce messages
+that a potential security violation is being allowed.  Clicking on the stack attack
+button should produce a message that a potential security violation is being blocked
+by killing the process.
+
+Use 'drdeploy.exe -nudge VIPA_text.exe' to nudge the process to re-read the
+configuration file.
+
+\endif
+
+\section bt_examples Code Manipulation API Examples
+
+
+********************
+\subsection sec_ex1 Instruction Counting
+
+We now illustrate how to use the above API to implement a simple
+instrumentation \client for counting the number of executed call and
+return instructions in the input program.  Full code for this example is
+in the file <a href="samples/countcalls.c">samples/countcalls.c</a>.
+
+The \client maintains set of three counters: num_direct_calls,
+num_indirect_calls, and num_returns to count three different
+types of instructions during execution.  It keeps both thread-private
+and global versions of these counters.  The \client initializes
+everything by supplying the following dr_init routine:
+
+\code
+DR_EXPORT void 
+dr_init(client_id_t id)
+{
+  /* register events */
+  dr_register_exit_event(event_exit);
+  dr_register_thread_init_event(event_thread_init);
+  dr_register_thread_exit_event(event_thread_exit);
+  dr_register_bb_event(event_basic_block);
+
+  /* make it easy to tell, by looking at log file, which \client executed */
+  dr_log(NULL, LOG_ALL, 1, "\Client 'countcalls' initializing\n");
+}
+\endcode
+
+The \client provides an event_exit routine that displays the final 
+values of the global counters as well as a thread_exit routine that
+shows the counter totals on a per-thread basis.
+
+The \client keeps track of each thread's instruction counts separately. 
+To do this, it creates a data structure that will be separately allocated 
+for each thread:
+
+\code
+typedef struct {
+  int num_direct_calls;
+  int num_indirect_calls;
+  int num_returns;
+} per_thread_t;
+\endcode
+
+Now the thread hooks are used to initialize the data structure and to
+display the thread-private totals :
+
+\code
+static void event_thread_init(void *drcontext)
+{
+  /* create an instance of our data structure for this thread */
+  per_thread *data = (per_thread *)
+    dr_thread_alloc(drcontext, sizeof(per_thread));
+  /* store it in the slot provided in the drcontext */
+  dr_set_tls_field(drcontext, data);
+  data->num_direct_calls = 0;
+  data->num_indirect_calls = 0;
+  data->num_returns = 0;
+  dr_log(drcontext, LOG_ALL, 1, "countcalls: set up for thread %d\n",
+         dr_get_thread_id(drcontext));
+}
+
+static void event_thread_exit(void *drcontext)
+{
+  per_thread *data = (per_thread *) dr_get_tls_field(drcontext);
+
+  ... // string formatting and displaying
+
+  /* clean up memory */
+  dr_thread_free(drcontext, data, sizeof(per_thread));
+}
+\endcode
+
+The real work is done in the basic block hook.  We simply look for
+the instructions we're interested in and insert an increment of the
+appropriate thread-local and global counters, remembering to save the
+flags, of course.  This sample has separate paths for incrementing the 
+thread private counts for shared vs. thread-private caches (see the 
+-thread_private option) to illustrate the differences in targeting
+for them.  Note that the shared path would work fine with private
+caches.
+
+\code
+static void
+insert_counter_update(void *drcontext, instrlist_t *bb, instr_t *where, int offset)
+{
+  /* Since the inc instruction clobbers 5 of the arithmetic eflags,
+   * we have to save them around the inc. We could be more efficient
+   * by not bothering to save the overflow flag and constructing our
+   * own sequence of instructions to save the other 5 flags (using
+   * lahf) or by doing a liveness analysis on the flags and saving
+   * only if live.
+   */
+  dr_save_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
+
+  /* Increment the global counter using the lock prefix to make it atomic
+   * across threads. It would be cheaper to aggregate the thread counters
+   * in the exit events, but this sample is intended to illustrate inserted
+   * instrumentation.
+   */
+  instrlist_meta_preinsert(bb, where, LOCK(INSTR_CREATE_inc
+    (drcontext, OPND_CREATE_ABSMEM(((byte *)&global_count) + offset, OPSZ_4))));
+
+  /* Increment the thread private counter. */
+  if (dr_using_all_private_caches()) {
+    per_thread_t *data = (per_thread_t *) dr_get_tls_field(drcontext);
+    /* private caches - we can use an absolute address */
+    instrlist_meta_preinsert(bb, where, INSTR_CREATE_inc(drcontext, 
+        OPND_CREATE_ABSMEM(((byte *)&data) + offset, OPSZ_4)));
+  } else {
+    /* shared caches - we must indirect via thread local storage */
+    /* We spill xbx to use a scratch register (we could do a liveness
+     * analysis to try and find a dead register to use). Note that xax
+     * is currently holding the saved eflags. */
+    dr_save_reg(drcontext, bb, where, REG_XBX, SPILL_SLOT_2);
+    dr_insert_read_tls_field(drcontext, bb, where, REG_XBX);
+    instrlist_meta_preinsert(bb, where,
+        INSTR_CREATE_inc(drcontext, OPND_CREATE_MEM32(REG_XBX, offset)));
+    dr_restore_reg(drcontext, bb, where, REG_XBX, SPILL_SLOT_2);
+  }
+
+  /* restore flags */
+  dr_restore_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
+}
+
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+  instr_t *instr, *next_instr;
+
+  ... // some logging
+
+  for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
+    /* grab next now so we don't go over instructions we insert */
+    next_instr = instr_get_next(instr);
+
+    /* instrument calls and returns -- ignore far calls/rets */
+    if (instr_is_call_direct(instr)) {
+      insert_counter_update(drcontext, bb, instr,
+                            offsetof(per_thread_t, num_direct_calls));
+    } else if (instr_is_call_indirect(instr)) {
+      insert_counter_update(drcontext, bb, instr,
+                            offsetof(per_thread_t, num_indirect_calls));
+    } else if (instr_is_return(instr)) {
+      insert_counter_update(drcontext, bb, instr,
+                            offsetof(per_thread_t, num_returns));
+    }
+  }
+
+  ... // some logging
+
+  return DR_EMIT_DEFAULT;
+}
+
+\endcode
+
+\par Building the Example
+
+To build the \client instrumentation application, the
+\client program file (say instrcalls.c) should include the main header file:
+
+\code
+#include "dr_api.h"
+\endcode
+
+The \client's target operating system and architecture must
+be specified by setting pre-processor defines before including the
+\DynamoRIO header files.  The appropriate library must then be linked
+with.  The define choices are:
+
+-# \p WINDOWS or \p LINUX
+-# \p X86_32 or \p X86_64
+
+We can then build the \client shared library in Windows:
+
+\code
+> cl instrcalls.c /I$DYNAMORIO_HOME/include /link /NODEFAULTLIB /NOENTRY /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:instrcalls.dll 
+\endcode
+
+Be sure to include /NODEFAULTLIB and /NOENTRY!  Not including them will
+result in an unsafe \client library with the potential to deadlock or
+crash.  See \ref transparency for further information on transparency.
+
+\if linux
+To build in Linux:
+
+\code
+> gcc -shared -nostartfiles -DLINUX -I$DYNAMORIO_HOME/include instrcalls.c -o instrcalls.so 
+\endcode
+\endif
+
+The result is a shared library instrcalls.dll. To invoke the \client library,
+follow the instructions under \ref sec_deploy.
+
+
+********************
+\subsection sec_ex2 Instruction Profiling
+
+The next example shows how to use the provided control flow
+instrumentation routines, which allow more sophisticated profiling than
+simply counting instructions.  Full code for this example is
+in the file <a href="samples/instrcalls.c">samples/instrcalls.c</a>.
+
+As in the previous example, the \client is interested in direct and
+indirect calls and returns.  The \client wants to analyze the target
+address of each dynamic instance of a call or return.  For our example,
+we simply dump the data in text format to a separate file for each
+thread.  Since FILE cannot be exported from a DLL on Windows, we use the
+\DynamoRIO-provided file_t type that hides the distinction between FILE and
+HANDLE \if linux to allow the same code to work on Linux and Windows
+\endif.  We make use of the thread initialization and exit routines to
+open and close the file.  We store the file for a thread in the user
+slot in the drcontext.
+
+\code
+static void event_thread_init(void *drcontext)
+{
+  /* we're going to dump our data to a per-thread file */
+  file_t f;
+  char logname[512];
+
+  ... // filename generation
+
+  f = dr_open_file(fname, false/*write*/);
+  DR_ASSERT(f != INVALID_FILE);
+
+  /* store it in the slot provided in the drcontext */
+  dr_set_tls_field(drcontext, (void *)f);
+
+  ... // logging
+}
+
+static void event_thread_exit(void *drcontext)
+{
+  file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(drcontext);
+  dr_close_file(f);
+}
+\endcode
+
+The basic block hook inserts a call to a procedure for each
+type of instruction, using the API-provided
+dr_insert_call_instrumentation and dr_insert_mbr_instrumentation
+routines, which insert calls to procedures with a certain signature.
+
+\code
+static dr_emit_flags_t 
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+  instr_t *instr, *next_instr;
+
+  ... // logging
+
+  for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
+    next_instr = instr_get_next(instr);
+    if (!instr_opcode_valid(instr))
+        continue;
+    /* instrument calls and returns -- ignore far calls/rets */
+    if (instr_is_call_direct(instr)) {
+        dr_insert_call_instrumentation(drcontext, bb, instr, (app_pc)at_call);
+    } else if (instr_is_call_indirect(instr)) {
+        dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_call_ind,
+                                      SPILL_SLOT_1);
+    } else if (instr_is_return(instr)) {
+        dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_return,
+                                      SPILL_SLOT_1);
+    }
+  }
+  return DR_EMIT_DEFAULT;
+}
+\endcode
+
+These procedures look like this :
+
+\code
+static void
+at_call(app_pc instr_addr, app_pc target_addr)
+{
+  file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+  dr_mcontext_t mc;
+  dr_get_mcontext(dr_get_current_drcontext(), &mc, NULL);
+  dr_fprintf(f, "CALL @ "PFX" to "PFX", TOS is "PFX"\n",
+             instr_addr, target_addr, mc.xsp);
+}
+
+static void
+at_call_ind(app_pc instr_addr, app_pc target_addr)
+{
+  file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+  dr_fprintf(f, "CALL INDIRECT @ "PFX" to "PFX"\n", instr_addr, target_addr);
+}
+
+static void
+at_return(app_pc instr_addr, app_pc target_addr)
+{
+  file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+  dr_fprintf(f, "RETURN @ "PFX" to "PFX"\n", instr_addr, target_addr);
+}
+\endcode
+
+The address of the instruction and the address of its target are both
+provided.  These routines could perform some sort of analysis based on
+these addresses.  In our example we simply print out the data.
+
+
+********************
+\subsection sec_ex3 Modifying Existing Instrumentation
+
+In this example, we show how to update or replace existing
+instrumentation after it executes.  This ability is useful for \clients
+performing adaptive optimization.  In this example, however, we are
+interested in recording the direction of all conditional branches, but
+wish to remove the overhead of instrumentation once we've gathered
+that information.  This code could form part of a dynamic CFG builder,
+where we want to observe the control-flow edges that execute at
+runtime, but remove the instrumentation after it executes.
+
+While \DynamoRIO supports direct fragment replacement, another method
+for re-instrumentation is to flush the fragment from the code cache
+and rebuild it in the basic block event callback.  In other words, we
+take the following approach:
+
+-# In the basic block event callback, insert separate instrumentation
+   for the taken and fall-through edges.
+-# When the basic block executes, note the direction taken and flush
+   the fragment from the code cache.
+-# When the basic block event triggers again, insert instrumentation
+   only for the unseen edge.  After both edges have triggered, remove
+   all instrumentation for the cbr.
+
+We insert separate clean calls for the taken and fall-through cases.
+In each clean call, we record the observed direction and immediately
+flush the basic block using dr_flush_region().  Since that routine
+removes the calling block, we redirect execution to the target or
+fall-through address with dr_redirect_execution().  The file <a
+href="samples/cbr.c">samples/cbr.c</a> contains the full code for this
+sample.
+
+********************
+\subsection sec_ex4 Optimization
+
+For the next example we consider a \client application for a simple
+optimization. The optimizer replaces every increment/decrement operation
+with a corresponding add/subtract operation if running on a Pentium 4,
+where the add/subtract is less expensive.  For optimizations, we are
+less concerned with covering all the code that is executed; on the
+contrary, in order to amortize the optimization overhead, we only want
+to apply the optimization to hot code.  Thus, we apply the optimization
+at the trace level rather than the basic block level.  Full code for
+this example is in the file <a
+href="samples/inc2add.c">samples/inc2add.c</a>.
+
+
+********************
+\subsection sec_ex5 Custom Tracing
+
+This example demonstrates the custom tracing interface. It changes
+\DynamoRIO's tracing behavior to favor making traces that start at a call
+and end right after a return.  It demonstrates the use of both custom trace
+API elements :
+
+\code
+int query_end_trace(void *drcontext, void *trace_tag, void *next_tag);
+bool dr_mark_trace_head(void *drcontext, void *tag);
+\endcode
+
+Full code for this example is in the file <a
+href="samples/inline.c">samples/inline.c</a>.
+
+
+********************
+\subsection sec_ex6 Use of Floating Point Operation in a \Client
+
+Because saving the floating point state is very expensive, \DynamoRIO seeks 
+to do so on an as needed basis.  If a \client wishes to use floating point
+operations it must save and restore the application's floating point state
+around the usage.  For an inserted clean call out of the code cache, this
+can be conveniently done using dr_insert_clean_call() and passing true for
+the save_fpstate parameter.  It can also be done explicitly using these
+routines:
+
+\code
+void proc_save_fpstate(byte *buf);
+void proc_restore_fpstate(byte *buf);
+\endcode
+
+These routines must be used if floating point operations are performed in
+non-inserted-call locations, such as event callbacks.  Note that there are
+restrictions on how these methods may be called: see the documentation in
+the header files for additional information.  Note also that the floating
+point state must be saved around calls to our provided printing routines
+when they are used to print floats.  However, it is not necessary to save
+and restore the floating point state around floating point operations if
+they are being used in the initialization or termination routines.
+
+This example \client counts the number of basic blocks processed and keeps
+statistics on their average size using floating point operations. Full code
+for this example is in the file <a
+href="samples/bbsize.c">samples/bbsize.c</a>.
+
+
+\ifnot vmsafe
+********************
+\subsection sec_ex7 Use of Custom \Client Statistics with the Windows GUI
+
+The new Windows GUI will display custom \client statistics, if they are
+placed in shared memory with a certain name.  The sample <a
+href="samples/stats.c">samples/stats.c</a> gives code for the
+protocol used in the form of a sample \client that counts total
+instructions, floating-point instructions, and system calls.
+
+\endif
+
+\ifnot vmsafe
+********************
+\subsection sec_ex8 Use of Standalone API
+
+The binary tracedump reader also functions as an example of
+\ref page_standalone : <a href="samples/tracedump.c">samples/tracedump.c</a>.
+
+\endif
+
+********************
+\subsection sec_ex9 Other examples
+
+The sample <a href="samples/strace.c">samples/strace.c</a> displays how to
+use the system call events and API routines.
+
+The sample <a href="samples/signal.c">samples/signal.c</a> demonstrates how to
+use the signal event.
+
+The sample <a href="samples/prefetch.c">samples/prefetch.c</a> demonstrates
+modifying the dynamic code stream for compatibilty between different
+processor types. 
+
+The sample <a href="samples/div.c">samples/div.c</a> demonstrates
+profiling the types of values fed to a particular opcode.
+
+The sample <a href="samples/empty.c">samples/empty.c</a> is provided
+as an example \client that does nothing.
+
+ */

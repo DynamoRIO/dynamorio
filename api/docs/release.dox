@@ -1,0 +1,546 @@
+/* **********************************************************
+ * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+***************************************************************************
+
+\page release_notes Release Notes for Version 1.3.1
+
+This section is divided into the following subsections:
+
+ - \ref sec_package
+\ifnot vmsafe
+ - \ref sec_changes
+\endif
+ - \ref sec_limits
+\ifnot vmsafe 
+ - \ref sec_future
+\endif
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_package Distribution Contents
+
+The following are part of the \DynamoRIO release distribution:
+
+\if profiling
+  FIXME PR 225255: profile library too
+\endif
+
+ - Four different \DynamoRIO libraries: debug and release for each of
+   32-bit and 64-bit. 
+   The debug library enables assertion messages to more easily diagnose
+   API usage errors.
+ - The \DynamoRIO deployment library and command-line utility
+   \c drdeploy.exe, for configuring applications to execute under
+   \DynamoRIO control. \if linux Windows package only. \endif
+ - A utility \c drinject.exe to launch applications under \DynamoRIO
+   control.  \if linux Windows package only. \endif
+ - A utility \c drview.exe for viewing which 32-bit or WOW64 processes
+   are running under \DynamoRIO control.  Note that the tool does
+   not yet support showing the status of 64-bit applications.
+   \if linux Windows package only. \endif
+\if linux
+ - The \c drdeploy script for configuring and running applications under
+   \DynamoRIO on Linux (Linux package only).
+\endif
+ - Header files for the \DynamoRIO APIs.
+ - This documentation.
+ - \ref API_samples "Sample \clients".
+\ifnot vmsafe
+ - A graphical statistics viewer, usable with the \DynamoRIO debug
+   library to see internal statistics as well as custom statistics defined
+   by a \client (see \ref sec_ex7). \if linux Windows package only. \endif
+\endif
+\ifnot vmsafe
+ - A binary tracedump reader, which also functions as a sample
+   \client using \DynamoRIO as a standalone library (see \ref
+   sec_standalone).
+\endif
+
+\ifnot vmsafe
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_changes Changes Since Prior Releases
+
+We have re-numbered the \DynamoRIO versions as follows:
+
+ - 1.0.0 = 0.9.6 build 9600
+ - 1.1.0 = 0.9.6 build 9601
+ - 1.2.0 = 0.9.6 build 9602
+
+The current version is 1.3.1 and is backward compatible with the 0.9.6
+releases.  1.3.1 is identical to 1.3.0 but is under a BSD license (see \ref
+page_license).
+
+The changes between version 1.3.0 and version 1.2.0 (0.9.6 9602) are:
+
+ - Version numbering shift to 1.x.y instead of 0.9.6 960x
+ - New system call pre, post, and filter events, and new system call
+   parameter and result access, along with a feature to chain system calls:
+   - dr_register_pre_syscall_event()
+   - dr_register_post_syscall_event()
+   - dr_register_filter_syscall_event()
+   - dr_syscall_get_param()
+   - dr_syscall_set_param()
+   - dr_syscall_set_sysnum()
+   - dr_syscall_get_result()
+   - dr_syscall_set_result()
+   - dr_syscall_invoke_another()
+   - dr_is_wow64()
+ - New signal event for Linux
+   - dr_register_signal_event()
+ - New option \ref op_pause "-pause_on_error", and error messages to
+   stdout by default for release builds, to improve Linux debugging
+ - New routines for memory allocation and memory manipulation:
+   - dr_nonheap_alloc()
+   - dr_nonheap_free()
+   - dr_memory_protect()
+ - New option \ref op_syntax_intel "-syntax_intel" for Intel-style disassembly
+ - New option \ref op_sysenter "-sysenter_is_int80"
+ - The parameter to an application's system call (normally kept in the eax
+   register) can now be freely changed in basic blocks on all platforms
+ - Added support for 64-bit -thread_private
+ - Added corner-case undocumented IA-32 opcode support
+ - Fixed bug running multi-threaded 64-bit Linux apps
+ - Fixed bugs in 64-bit Linux signal handling
+ - Fixed bug running -thread_private debug build
+ - Fixed bug running 32-bit apps on 64-bit Linux on AMD processors
+ - Fixed bug where OS_OPEN_APPEND overwrote instead of appending on Windows
+
+The changes between the 0.9.6 release builds 9602 and 9601 are:
+
+ - Performance improvements for both the base \DynamoRIO system and for
+   \client instrumentation when running on Pentium M, Core, and Core 2
+   processors.
+ - 64-bit bug fixes
+ - Added several convenience routines:
+   - get_register_name() 
+   - reg_to_pointer_sized()
+   - reg_is_gpr()
+   - reg_is_segment()
+   - reg_32_to_8()
+ - Disassembly now expands immed sizes to match operands
+ - Fixed bug in instr_is_nop()
+
+The changes between the 0.9.6 release builds 9601 and 9600 are:
+
+ - The Windows registry key used is now "VMware, Inc." instead of "VMware"
+ - Added large file support (see #DR_FILE_ALLOW_LARGE)
+ - Added support for decoding from a copy of code: decode_from_copy() and
+   disassemble_from_copy().
+ - Changed the default options to favor performance, and added the
+   \ref op_memory "-opt_memory" runtime option to prioritize memory instead.
+
+Release 0.9.6 is \b not backward compatible with prior releases 0.9.1-0.9.5.
+
+The major changes between the 0.9.6 and 0.9.5 releases include 64-bit
+support, multiple \clients, state translation, trace contents, and Linux
+module events and fast system calls:
+
+ - 64-bit applications and \clients are now supported.  This changed
+   several function signatures: 
+   - instr_encode()
+   - decode_next_pc()
+   - decode_sizeof()
+   - decode_eflags_usage()
+   - instr_init()
+   - The binary trace dump format changed.
+   .
+   Several new functions were added:
+   - set_x86_mode()
+   - get_x86_mode()
+   - instr_set_x86_mode()
+   - instr_get_x86_mode()
+   - opnd_create_rel_addr()
+   - opnd_create_far_rel_addr()
+   - opnd_is_rel_addr()
+   - opnd_is_near_rel_addr()
+   - opnd_is_far_rel_addr()
+   - instr_has_rel_addr_reference()
+   - instr_get_rel_addr_target()
+   - instr_get_rel_addr_dst_idx()
+   - instr_get_rel_addr_src_idx()
+   - instr_shrink_to_32_bits()
+   - opnd_shrink_to_32_bits()
+   - reg_32_to_64()
+   - reg_64_to_32()
+   - reg_is_extended()
+   - reg_parameter_num()
+   .
+   To build a 64-bit \client, set the \p X86_64 preprocessor define before
+   including the \DynamoRIO header files, and link with the 64-bit build of
+   \DynamoRIO (for a 32-bit \client, set \p X86_32).
+ - Multiple \clients are now supported.  This changed the signatures of
+   dr_init(), dr_get_options(), and dr_get_client_path().  It also changed
+   how \clients are deployed and nudged, and how events are unregistered:
+   explicit unregistration routines are now used.
+ - State translation in the presence of \clients is now fully supported.
+   This changed the signature for the basic block and trace event callbacks
+   (see dr_register_bb_event() and dr_register_trace_event()), added a
+   new event dr_register_restore_state_event(), and added new functions
+   instr_set_translation(), instr_set_meta_no_translation(), and INSTR_XL8().
+ - The trace callback (#dr_register_trace_event()) now presents original
+   application code to the \client, rather than code that has already
+   been modified for execution in the code cache.  The \client also has
+   flexibility in which instrumentation is included from constituent
+   basic blocks added to a trace (the \p for_trace parameter: see
+   #dr_register_bb_event()).
+ - Fast system calls (syscall and sysenter) are now supported on Linux.
+ - Module load/unload events and module iteration are now supported on Linux.
+ - System calls for 32-bit applications on 64-bit kernels are no longer
+   hidden by vsyscall; related functions were removed:
+   instr_is_lol64_syscall(), instr_is_32on64_syscall().
+ - Due to both 64-bit support and full WOW64 (32-bit applications on 64-bit
+   Windows) support, xmm registers were added to dr_mcontext_t, and a
+   new function dr_mcontext_xmm_fields_valid() was added.
+ - Far instr-type operands are now supported: opnd_create_far_instr(),
+   opnd_is_near_instr(), opnd_is_far_instr().
+ - Miscellaneous new functions were added:
+   - instr_convert_short_meta_jmp_to_long()
+   - instr_reads_from_reg()
+   - LOCK()
+   - OPND_CREATE_INT_32OR8()
+   - OPND_CREATE_INT_16OR8()
+   - instrlist_meta_append()
+   - dr_using_all_private_caches()
+ - The type of nudge arguments was changed from (void *) to uint64.
+ - The signature of dr_lookup_module() changed.  It no longer has an
+   IMAGE_SECTION_HEADER out argument.  See dr_lookup_module_section()
+   for that functionality.
+ - The disassemble-from-address routines now return NULL when pointed at
+   invalid instructions (matching the decode routines).
+ - The routines to access \DynamoRIO tls slots from the cache were changed.
+   dr_insert_write_temp_tls was eliminated in favor of a generalized #dr_save_reg
+   with more flexibility on which slot can be used.  #dr_save_arith_flags was
+   similarly generalized.  Slots are now guaranteed to remain valid until the
+   next non-meta instruction allowing access to saved registers during clean
+   calls via #dr_read_saved_reg and #dr_write_saved_reg.  #dr_insert_mbr_instrumentation
+   also now requires caller to specify the spill slot to be clobbered
+   which must be less than dr_max_opnd_accessible_spill_slot().
+
+The major changes between the 0.9.5 and 0.9.4 releases are:
+
+ - The basic block hook (\ref sec_events_bb) passes completely unmodified
+   application code to the \client (no mangling or elision).
+ - The old \client hook exports have been replaced with an explicit event
+   registration model.
+ - Instruction representation simplification: the \client only sees fully
+   decoded instructions.
+ - Easier-to-use clean calls (see #dr_insert_clean_call).
+ - Library support (-wrap on linux, ntdll on windows: see \ref sec_extlibs
+   and \ref sec_utils).
+ - Some features have been removed (these are easily implemented by a
+   \client): there is no more edge-counting profile build, no more
+   custom exit stubs, and no more prefixes.
+ - Infrastructure improvements:
+   - Thread-shared caches (can still request thread-private: \ref
+     op_thread_priv "-thread_private option").  Note that there are
+     some subtle changes stemming from using thread-shared: in particular,
+     note that the context passed to the deletion event may be NULL
+     (see #dr_register_delete_event).
+   - Direct access to TLS slots (#dr_save_reg, dr_insert_write_temp_tls,
+     #dr_insert_write_tls_field).
+ - Module events (#dr_register_module_load_event),
+   module iteration (#dr_module_iterator_start, #dr_lookup_module, etc.),
+   and memory querying (#dr_query_memory, #dr_virtual_query).
+ - The full API is now documented in html and pdf for easy browsing.
+ - Numerous type and routine name changes.
+
+\endif
+
+***************************************************************************
+\if future
+FIXME not done yet
+
+  - see \clients/mit_release/using.html: what's included, etc.
+  - DRcontrol: specify target app and runtime options (TODO: case 10647:
+                                                       external vs internal ops) 
+  - GUI: just stats viewer, or control too?
+  - DRview
+  - native_exec (TODO: specify on module load; TODO: case 10846 eliding problems)
+  - multiple \clients (TODO: multiple non-mutating, one mutating RIO \client;
+                      multiple probe \clients w/ chaining; one prog shep \client?)
+  - detach (TODO: ask each \client to clean up)
+  - updating: load new library  
+
+Options for communication in and out of the process are discussed in \ref
+sec_comm.
+\endif
+
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_limits Limitations
+
+\subsection sec_limit_clients \Client Limitations
+The most important limitation on a \client is that it remain transparent.
+This is described fully in \ref transparency.
+Here we summarize the key points to remain transparent:
+  - The \client should be a self-contained library with linkage to nothing
+other than \DynamoRIO libraries, unless those other libraries are
+statically linked and have all of their own resource usage made transparent
+(see \ref sec_extlibs).  Linkage to other shared libraries is likely to
+result in using the libraries used by the process being controlled, thereby
+leading to unpredictable re-entrancy problems.
+  - Currently communication API provided by \DynamoRIO is limited to file
+I/O.  The \client should only use this and not any system libraries
+directly to avoid non-deterministic and unpredictable re-entrancy problems.
+This is because the process can be in the middle of using them.  If a
+\client has to avail of more system services, it can include its own system
+call entry functions, statically link against these or request that these
+be added to \DynamoRIO.  Non system resource related functionality like
+string manipulation, etc. can be statically linked to a \client or by
+defining users' own routines.
+\if vmsafe
+  - The security agent on the security monitor VM has no direct
+    relationship with \DynamoRIO.  However, the VMsafe solution provider
+    can architect their own communication channel between the security
+    agent on the security monitor VM and the \client by using an agent on
+    the \client's VM as an intermediary.
+ \anchor limits_winlogon
+  - There is a known false positive in the anti-piracy DRM code in the
+    Windows Genuine Advantage component of winlogon.exe.  This code
+    performs deliberate obfuscation and violations of standard coding
+    behavior.
+\endif
+\if vmsafe
+  - The \client can run in only one mode at a time, which cannot be changed during the
+execution of the process.  Mode change can be done only on a subsequent
+application restart.
+  - The \client should call only the API corresponding to the mode it was started
+in.  Mixing API from different modes can lead to unspecified results and is
+not supported.
+  - Probe API allows only one registration of probes, which must occur in
+    dr_init().  
+  - Probes can be specified only with library names and offsets from the base
+    of the library in memory (\ref DR_PROBE_ADDR_LIB_OFFS).
+  - When a probe callback finishes execution it can't request \DynamoRIO to
+    perform any actions like logging, control flow changes, etc.
+  - Probe locations can't include system call wrappers in ntdll.dll, i.e.,
+    ntdll!Nt* routines can't be probe locations.
+\endif
+
+\subsection sec_limit_platforms Platform Limitations
+  - \DynamoRIO currently supports the following NT-based 32-bit
+    Windows systems : NT (all service packs), 2000 (all service
+    packs), XP (32-bit, service packs 0-3), 2003 (32-bit, service
+    packs 0-2), and Vista (32-bit, service packs 0-1). It does not
+    support Windows 95, 98, ME or Server 2008.
+  - This release of \DynamoRIO has limited support for running 32-bit
+    Windows applications on the following 64-bit Windows operating
+    systems : Windows XP Professional x64 (service pack 2), Windows 2003
+    x64 (service pack 2), Vista x64 (service packs 0-1). Only the 32-bit
+    code will be seen, and children processes created will not be injected
+    into.  On 64-bit Windows 32-bit applications are automatically run
+    through the Windows-On-Windows or WOW64 emulator so system call and
+    indirect call processing \clients must be aware of
+    #instr_is_wow64_syscall().
+  - This release of \DynamoRIO has experimental support for running
+    64-bit Windows applications, using the 64-bit \DynamoRIO build, on
+    the following 64-bit Windows systems: Windows XP Professional x64
+    (service pack 2), Windows 2003
+    x64 (service pack 2), Vista x64 (service packs 0-1). It does not
+    support any Itanium based Windows systems.  For 64-bit
+    applications \clients must be compiled for 64-bit with a
+    fixed preferred address in the lower 2GB of the address space (e.g.,
+    with the link options /base:"0x72000000" /FIXED), and multiple
+    \clients with conflicting base addresses aren't supported.  See <a
+    href="samples/Makefile">samples/Makefile</a> for an example.  The
+    target application may fail to initialize properly or load
+    \DynamoRIO if there is an address conflict with the preferred
+    bases of the \client or \DynamoRIO dlls, but given the choice of
+    bases and the fact that \DynamoRIO is loaded quite early we expect
+    this to only very rarely be a problem.  This limitation will be
+    addressed in future releases.  This release also does not support
+    thread-private caches with 64-bit applications.
+  - This release does not fully support applications that mix 32-bit and
+    64-bit code.  Future releases will support such mixtures.
+  - When running a cygwin application under control of \DynamoRIO,
+    stderr and stdout output from \DynamoRIO or its \clients may not
+    be visible.
+\if linux
+  - This release of \DynamoRIO has limited support for most 32-bit Linux
+    distributions running on Intel-compatible hardware, including
+    Ubuntu 7.04, Ubuntu 8.04, and Fedora 9.  It may not support
+    applications using segment registers beyond the standard threading
+    library usage.  Future releases will match the Windows version in
+    comprehensive support.
+  - This release of \DynamoRIO has limited support for running 32-bit
+    Linux applications on 64-bit Linux operating systems on
+    AMD64-compatible hardware.
+  - This release of \DynamoRIO has experimental support for running 64-bit
+    Linux applications, using the 64-bit \DynamoRIO build.  Similarly to
+    64-bit Windows, \clients must set a preferred base address in the lower
+    2GB of the address space, and multiple \clients with conflicting base
+    addresses aren't supported.  See <a
+    href="samples/Makefile">samples/Makefile</a> for an example.
+    This limitation will be addressed in future releases.
+\endif
+
+\subsection sec_limit_perf Performance Limitations
+
+  - In order to present a more straightforward code stream to \clients,
+    \DynamoRIO has several optimizations disabled in this release.
+    System-call-heavy applications are the ones most likely to be affected.
+    Future releases may allow \clients to choose performance versus
+    visibility.  This release does provide the \ref op_memory "-opt_memory option"
+    to enable prioritizing memory usage.
+  - The performance \if vmsafe of Code Manipulation Mode and Memory 
+    Firewall Mode \endif when starting up large desktop applications
+    may be noticeably worse than native.  Upcoming releases will
+    address this issue. \if vmsafe Note that Probe Mode incurs
+    significantly less overhead than the other modes. \endif
+  - The performance \if vmsafe of Code Manipulation Mode \endif when
+    running  Java, .Net, Flash or similar managed execution
+    applications can be noticeably worse then native.  This can
+    include applications that load these components as in-process
+    plugins (such as Internet Explorer). Upcoming releases will
+    address this issue.  \if vmsafe Probe Mode and Memory Firewall
+    Mode are not affected. \endif
+  - When using \if vmsafe Code Manipulation Mode or Memory Firewall
+    Mode \else \DynamoRIO \endif on all or many processes on a system
+    simultaneously, memory usage may become a factor.  Upcoming
+    releases will address this issue.  \if vmsafe Note that Probe Mode
+    incurs significantly less overhead than the other modes. \endif
+
+\subsection sec_limit_deploy Deployment Limitations
+
+  - The dr_config.lib library is not multi-thread safe.  Users of the
+    library should ensure that no more then one thread accesses the
+    library at a time.
+  - Other installed software that uses hooks may not always be
+    interoperable with \DynamoRIO.
+  - Other installed software may conflict with \DynamoRIO's use of the
+    \c \\HKLM\\SOFTWARE\\Microsoft\\Windows\\WindowsNT\\CurrentVersion\\AppInit_DLLs
+    registry key (only very rarely an issue).
+  - Cygwin processes do not work with \DynamoRIO due to cygwin's
+    implementation of fork being incompatible with \DynamoRIO.
+  - Though \DynamoRIO supports running on Windows NT, the provided
+    installer will only run on Windows 2000 and higher.  After
+    installation on a 2000 or higher machine the \ref sec_package may
+    be copied to the NT machine for use there.
+  - On Windows NT, a reboot is required after the initial
+    dr_register_process() in order for \DynamoRIO to take control of any
+    applications.  The reboot will not change or undo the registration.
+  - A Windows application that does not statically link with
+    user32.dll will not be run under control of \DynamoRIO unless its
+    parent process (typically cmd.exe or explorer.exe, for manually
+    launched applications) is already under \DynamoRIO control
+    \if vmsafe (the parent can be in any mode)\endif or the drinject.exe
+    utility is used to launch the application. Only some small
+    non-graphical applications do not link with user32.dll.
+  - When invoking an application in any way that is not from a parent
+    process under \DynamoRIO control, \DynamoRIO takes control a little
+    later and in some rare cases the application has already created a new
+    thread.  This is in violation of the Windows specficiations, but cygwin
+    processes do this.  This new thread will not be under \DynamoRIO
+    control and can cause a variety of problems.  In such cases it is best
+    to invoke from a parent process under \DynamoRIO control.  However, for
+    32-bit applications on 64-bit Windows operating systems, \DynamoRIO
+    takes over later even from the parent.  Future releases will address
+    this limitation.
+  - This release does not support running some Windows services under
+    control of \DynamoRIO: System, smss.exe, csrss.exe, and protected
+    processes on Windows Vista.
+  - This release does not support nudging 64-bit processes.
+\anchor limits_vista_service_messagebox
+  - On Windows Vista most services are run in a separate session as a
+    security feature.  This means that neither \DynamoRIO nor its
+    \client will be able to display a messagebox when running in said
+    services (they have no associated visible window station). See
+    dr_messagebox().
+  - On Windows Vista \if vmsafe in Code Manipulation Mode \endif the code from
+    certain dlls (found mostly in services) and the code subsequently
+    called from those dlls is run natively and is not visible to the
+    instrumentation APIs.  This only applies to dlls that have a .pexe
+    section (only 13 dlls have such a section is a standard Vista
+    install) which seems to be associated with a likely obfuscation
+    method involving kernel side components that this release has no
+    other workaround for.
+\if linux
+\anchor limits_linux_preload
+  - On Linux, the only provided deployment method in this release (aside
+    from the \ref sec_startstop "app_start() app_stop()" interface, which
+    requires soure code modification) is LD_PRELOAD.  This means that
+    static binaries cannot be injected into.  Also, suid-root binaries
+    disallow absolute paths in LD_PRELOAD and ignore LD_LIBRARY_PATH, so
+    alternate methods of specifying the path are needed there.  One method
+    is to place libdrpreload.so's full path in /etc/ld.so.preload and copy
+    libdynamorio.so to /usr/lib or some other system search directory.
+\endif
+
+\ifnot vmsafe 
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_future Plans for Future Releases
+
+We hope to include the following major features in future releases:
+
+ - Persistent and process-shared code caches
+ - Auto-inlining of instrumentation callouts
+ - \Client threads
+
+We also plan to add a number of secondary features, including:
+
+ - More flexible (earlier, or later via attach) Linux injection
+ - Full control over trace building
+ - \Client exception event for \client fault recovery/remediation
+
+Send comments or requests to <a
+href="mailto:dynamorio-govirtual@vmware.com">dynamorio-govirtual@vmware.com</a>.
+\endif
+
+*/
+

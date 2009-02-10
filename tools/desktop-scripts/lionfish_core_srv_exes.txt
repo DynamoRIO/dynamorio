@@ -1,0 +1,6 @@
+lsass.exe
+spoolsv.exe
+svchost.exe
+winlogon.exe
+services.exe
+nodemgr.exe

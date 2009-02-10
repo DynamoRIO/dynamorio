@@ -1,0 +1,59 @@
+# **********************************************************
+# Copyright (c) 2002-2003 VMware, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# 
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# 
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+## Suite for SPEC2000 on ref dataset
+BMARKBASE/benchmarks/spec2000/int/crafty	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/gap	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/vortex	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/perlbmk	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/gcc	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/vpr	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/mcf	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/mesa	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/art	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/twolf	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/equake	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/parser	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/eon	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/bzip2	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/int/gzip	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/apsi	(make REF_MINS=120 COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/swim	(make REF_MINS=150 COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/ammp	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/sixtrack	(make COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/wupwise	(make REF_MINS=300 COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/mgrid	(make REF_MINS=200 COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/applu	(make REF_MINS=200 COPYDATA=yes REPLACEHERE run_ref)
+
+# FORTRAN 90
+BMARKBASE/benchmarks/spec2000/fp/facerec	(make REF_MINS=300 COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/fma3d	(make REF_MINS=300 COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/galgel	(make REF_MINS=300 COPYDATA=yes REPLACEHERE run_ref)
+BMARKBASE/benchmarks/spec2000/fp/lucas	(make REF_MINS=300 COPYDATA=yes REPLACEHERE run_ref)

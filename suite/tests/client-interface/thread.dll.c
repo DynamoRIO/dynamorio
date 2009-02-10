@@ -1,0 +1,176 @@
+/* **********************************************************
+ * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+#include "dr_api.h"
+
+/* Eventually this routine will test i/o by waiting on a file */
+
+#define MINSERT instrlist_meta_preinsert
+
+static uint num_lea = 0;
+
+/* we don't want msgboxes for regressions */
+#define ASSERT(x) \
+    ((void)((!(x)) ? \
+        (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s\n", \
+                    __FILE__,  __LINE__, #x), \
+         dr_abort(), 0) : 0))
+
+static void 
+at_lea(uint opc, app_pc tag)
+{
+    /* PR 223285: test (one side of) DR_ASSERT for something we know will succeed
+     * (we don't want msgboxes in regressions)
+     */
+    DR_ASSERT(opc == OP_lea);
+    ASSERT((process_id_t) dr_get_tls_field(dr_get_current_drcontext()) ==
+           dr_get_process_id() + 1 /*we added 1 inline*/);
+    dr_set_tls_field(dr_get_current_drcontext(), (void *) dr_get_process_id());
+    num_lea++;
+    /* FIXME: should do some fp ops and really test the fp state preservation */
+}
+              
+static
+dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+{
+    instr_t *instr, *next_instr;
+    
+    for (instr = instrlist_first(bb);
+         instr != NULL; instr = next_instr) {
+        next_instr = instr_get_next(instr);
+        if (instr_get_opcode(instr) == OP_lea) {
+            /* PR 200411: test inline tls access by adding 1 */
+            dr_save_reg(drcontext, bb, instr, REG_EAX, SPILL_SLOT_1);
+            dr_insert_read_tls_field(drcontext, bb, instr, REG_EAX);
+            instrlist_meta_preinsert(bb, instr, INSTR_CREATE_lea
+                                     (drcontext, opnd_create_reg(REG_EAX),
+                                      opnd_create_base_disp(REG_EAX, REG_NULL, 0, 1,
+                                                            OPSZ_lea)));
+            dr_insert_write_tls_field(drcontext, bb, instr, REG_EAX);
+            dr_restore_reg(drcontext, bb, instr, REG_EAX, SPILL_SLOT_1);
+            dr_insert_clean_call(drcontext, bb, instr, at_lea, true/*save fp*/,
+                                 2, OPND_CREATE_INT32(instr_get_opcode(instr)),
+                                 OPND_CREATE_INTPTR(tag));
+        }
+    }
+    return DR_EMIT_DEFAULT;
+}
+
+void exit_event(void)
+{
+    ASSERT(num_lea > 0);
+}
+
+static bool
+str_eq(const char *s1, const char *s2)
+{
+    if (s1 == NULL || s2 == NULL)
+        return false;
+    while (*s1 == *s2) {
+        if (*s1 == '\0')
+            return true;
+        s1++;
+        s2++;
+    }
+    return false;
+}
+
+/* FIXME PR 222812: not supported yet */
+#ifdef CLIENT_SIDELINE
+static bool child_alive;
+static bool child_continue;
+
+static void
+thread_func(void *arg)
+{
+    /* FIXME: should really test corner cases: do raw system calls, etc. to
+     * ensure we're treating it as a true native thread
+     */
+    ASSERT((process_id_t) arg == dr_get_process_id());
+    child_alive = true;
+    dr_printf("client thread is alive\n");
+    /* FIXME: do we now have to provide condition vars, etc.?!? */
+    while (!child_continue)
+        dr_thread_yield();
+    dr_printf("client thread is dying\n");
+    dr_terminate_client_thread();
+    DR_ASSERT_MSG(false, "should not get here");
+}
+#endif
+
+DR_EXPORT
+void dr_init(client_id_t id)
+{
+#ifdef CLIENT_SIDELINE
+    bool success;
+#endif
+    /* PR 216931: client options */
+    const char * ops = dr_get_options(id);
+    ASSERT(str_eq(ops, "-paramx -paramy"));
+    dr_printf("PR 216931: client options are %s\n", ops);
+
+    dr_register_bb_event(bb_event);
+    dr_register_exit_event(exit_event);
+
+    /* PR 219381: dr_get_application_name() and dr_get_process_id() */
+#ifdef WINDOWS
+    dr_printf("inside app %s\n", dr_get_application_name());
+#else /* LINUX - append .exe so can use same expect file. */
+    dr_printf("inside app %s.exe\n", dr_get_application_name());
+#endif
+    dr_set_tls_field(dr_get_current_drcontext(), (void *) dr_get_process_id());
+
+    {
+        /* test PR 198871: client locks are all at same rank */
+        void *lock1 = dr_mutex_create();
+        void *lock2 = dr_mutex_create();
+        dr_mutex_lock(lock1);
+        dr_mutex_lock(lock2);
+        dr_printf("PR 198871 locking test...");
+        dr_mutex_unlock(lock2);
+        dr_mutex_unlock(lock1);
+        dr_mutex_destroy(lock1);
+        dr_mutex_destroy(lock2);
+        dr_printf("...passed\n");
+    }
+
+#ifdef CLIENT_SIDELINE
+    /* PR 222812: client thread */
+    success = dr_create_client_thread(thread_func, (void *) dr_get_process_id(),
+                                      12*PAGE_SIZE, 10*PAGE_SIZE);
+    ASSERT(success);
+    while (!child_alive)
+        dr_thread_yield();
+    child_continue = true;
+    dr_printf("PR 222812: client thread test passed\n");
+#endif
+}

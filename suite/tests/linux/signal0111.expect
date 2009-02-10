@@ -1,0 +1,9 @@
+signal_handler: sig=10
+Got SIGUSR1
+signal_handler: sig=11
+Got SIGSEGV
+Sending SIGUSR2
+Sending SIGUSR1
+Generating SIGSEGV
+1750007.722714
+Got some timer hits!

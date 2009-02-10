@@ -1,0 +1,6 @@
+#if +CLIENT_INTERFACE +HOT_PATCHING_INTERFACE : +-probe_api --thin_client
+The whole is greater than the sum of parts: 4 + 4 = 10
+# else
+The whole is greater than the sum of parts: 4 + 4 = 8
+ - apparently not!
+#endif

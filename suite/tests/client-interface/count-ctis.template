@@ -1,0 +1,11 @@
+thank you for testing the client interface
+direct calls... yes
+indirect calls... yes
+direct jumps... yes
+#if +WINDOWS :
+indirect jumps... yes
+#else
+indirect jumps... no
+#endif
+conditional branches... yes
+returns... yes
