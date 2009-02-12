@@ -213,14 +213,6 @@ if [ $remotedynamo == 0 ] && [ $key != "native" ]; then
     if test -e $DYNAMORIO_HOME; then
         cp -r $DYNAMORIO_HOME/core .
         cp -r $DYNAMORIO_HOME/exports .
-        # workaround for case 7852:
-        # The text relocation policy only seems to exist in v19 and later (==FC4+)
-        # and is only enforced by default in v20 and later (==FC5+).
-        # FIXME: determine precisely whether that particular policy is in effect.
-	if [ -e /selinux/policyvers ] && (( `cat /selinux/policyvers` >= 19 )) &&
-           [ -e /usr/sbin/getenforce ] && [ `/usr/sbin/getenforce` == "Enforcing" ]; then
-            chcon -t texrel_shlib_t ./exports/*/*.so
-        fi
     else
         echo "*** Error: DR home $DYNAMORIO_HOME does not exist"
         exit 127

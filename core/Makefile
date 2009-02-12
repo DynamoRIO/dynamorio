@@ -103,30 +103,23 @@ DEP_SFX =dep
 DEPENDS =-MM -MG -MP # no system headers, generated get phony targets
 
 # Basic directories
-DYNAMO	     =..
+DYNAMO	     :=..
 # src/ or core/
-CORE_DIRNAME =core
-SRC	     =.
-HTML	     =$(DYNAMO)/html
-HTML_BACK    =../$(CORE_DIRNAME)
-EXPORTS_BASE =$(DYNAMO)/exports
-BUILD_BASE   =$(DYNAMO)/build
+CORE_DIRNAME :=core
+SRC	     :=.
+HTML	     :=$(DYNAMO)/html
+HTML_BACK    :=../$(CORE_DIRNAME)
+EXPORTS_BASE :=$(DYNAMO)/exports
+BUILD_BASE   :=$(DYNAMO)/build
+INSTALL_BIN_BASE :=$(EXPORTS_BASE)/bin
 ifeq ($(ARCH), x64)
-  INSTALL_LIB_BASE :=$(DYNAMO)/lib64
+  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib64
+  INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin64
 else
-  INSTALL_LIB_BASE :=$(DYNAMO)/lib32
+  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib32
+  INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin32
 endif
-INSTALL_BIN      =$(DYNAMO)/bin
-INSTALL_INCLUDE  =$(DYNAMO)/include
-# read from env var
-SYSWIDE_DIR  =$(DYNAMORIO_AUTOINJECT)
-ifeq ($(MACHINE), win32)
-SYSWIDE_DIR := $(subst \,/,$(SYSWIDE_DIR))
-# on windows this env var contains the library name
-# on linux it's the directory name
-SYSWIDE_DIR := $(dir $(SYSWIDE_DIR))
-endif
-# we check for empty env var once we know debug status
+INSTALL_INCLUDE  :=$(EXPORTS_BASE)/include
 
 ###########################################################################
 ##
@@ -646,12 +639,6 @@ endif # PROFILE
 endif # DEBUG
 
 BUILD = $(BUILD_BASE)/$(ARCH)_$(OSNAME)_$(BUILD_SUFFIX)
-EXPORTS = $(EXPORTS_BASE)/$(ARCH)_$(OSNAME)_$(BUILD_SUFFIX)
-
-ifeq ($(SYSWIDE_DIR),)
-# use install dir if no systemwide env var set
-SYSWIDE_DIR = $(INSTALL_LIB_BASE)
-endif
 
 # target specific CFLAGS
 TGT_DEFINES = $(ARCH_DEFS) $(OS_DEFS)
@@ -868,7 +855,7 @@ PRE_INJECTFLAGS = $(TGTFLAGS) $(PRE_INJECT_B) /dll /incremental:no $(LD_MACHINE_
 # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
 PRE_INJECTLIBS_1 = $(MSLIB) $(L)$(subst /,\\,$(NTDLL_LIBPATH)) \
                    /NODEFAULTLIB $(NTDLL_LIB) kernel32.lib msvcrt.lib \
-                   $(L)$(EXPORTS) $(OUTNAME).lib
+                   $(L)$(INSTALL_LIB) $(OUTNAME).lib
 PRE_INJECTLIBS := $(subst /link,,$(PRE_INJECTLIBS_1))
 # release base - 64k 
 EARLY_INJECT_HELPER1_B = /base:"0x70FF0000"
@@ -1124,8 +1111,8 @@ endif
 
 ifeq ($(MACHINE), win32)
 # we need to set any environment variables into the registry with drinject
-UNIT_CMDLINE=${EXPORTS}/${INJECTOR} ${INJECTOR_CMDLINE} -noinject
-UNIT_CMDLINE_DEPENDS=${EXPORTS}/${INJECTOR}
+UNIT_CMDLINE=${INSTALL_BIN}/${INJECTOR} ${INJECTOR_CMDLINE} -noinject
+UNIT_CMDLINE_DEPENDS=${INSTALL_BIN}/${INJECTOR}
 # FIXME: in fact it will be a good dual purpose test to run all tests under DR
 # after the proper library is used - see comment about -standalone.obj
 else
@@ -1138,13 +1125,13 @@ unitrun: all standalone ${UNIT_CMDLINE_DEPENDS}
 else # !STANDALONE
 
 ifeq ($(STATIC),1)
-all: builddir dynamorio $(EXPORTS)/$(FORTRAN_OBJ)
+all: builddir dynamorio $(INSTALL_LIB)/$(FORTRAN_OBJ)
 else
 ifeq ($(MACHINE), win32)
 all: builddir dynamorio injector early_inject_helper clients
 else #linux
-all: builddir dynamorio $(EXPORTS)/$(FORTRAN_OBJ) \
-     $(EXPORTS)/$(PRELOAD) clients
+all: builddir dynamorio $(INSTALL_LIB)/$(FORTRAN_OBJ) \
+     $(INSTALL_LIB_BASE)/$(PRELOAD) clients
 endif
 endif # !STATIC
 endif # !STANDALONE
@@ -1157,7 +1144,13 @@ builddir:
 	@(if ! test -e $(BUILD)/$(OSNAME); then $(MKDIR) $(BUILD)/$(OSNAME); fi)
 	@(if ! test -e $(BUILD)/$(LIBDIR); then $(MKDIR) $(BUILD)/$(LIBDIR); fi)
 	@(if ! test -e $(EXPORTS_BASE); then $(MKDIR) $(EXPORTS_BASE); fi)
-	@(if ! test -e $(EXPORTS); then $(MKDIR) $(EXPORTS); fi)
+	@(if ! test -e $(INSTALL_LIB_BASE); then $(MKDIR) $(INSTALL_LIB_BASE); fi)
+	@(if ! test -e $(INSTALL_LIB); then $(MKDIR) $(INSTALL_LIB); fi)
+	@(if ! test -e $(INSTALL_BIN_BASE); then $(MKDIR) $(INSTALL_BIN_BASE); fi)
+ifeq ($(MACHINE), win32)
+	@(if ! test -e $(INSTALL_BIN); then $(MKDIR) $(INSTALL_BIN); fi)
+endif
+	@(if ! test -e $(INSTALL_INCLUDE); then $(MKDIR) $(INSTALL_INCLUDE); fi)
 
 # creates the TAGS directory under core/ for Emacs use
 ifeq ($(MACHINE), win32)
@@ -1173,21 +1166,18 @@ tags TAGS:
 	$(LS) -1 $(ALL_SRCS) > cscope.files
 	-cscope -b
 
-# blows away build, exports, and install dirs
+# blows away build and exports dirs
 clear:
 	$(RM) -r $(BUILD_BASE)
 	$(RM) -r $(EXPORTS_BASE)
-	$(RM) -r $(INSTALL_LIB)
-	$(RM) -r $(INSTALL_BIN)
-	$(RM) -r $(INSTALL_INCLUDE)
 
 # removes .a,.i and .o files and generated header files
 clean:
-	$(RM) $(OBJS) $(UNIT_OBJS) $(OTHER_OBJS) $(CPPS) $(DEPS) $(EXPORTS)/*$(SO_SFX) $(BUILD)/*$(SO_SFX) $(EXPORTS)/*.{$(OBJ_SFX),h} $(BUILD)/*.{$(OBJ_SFX),h} $(BUILD)/*/*.{$(OBJ_SFX),h} $(PRELOAD_OBJS)
+	$(RM) $(OBJS) $(UNIT_OBJS) $(OTHER_OBJS) $(CPPS) $(DEPS) $(BUILD)/*$(SO_SFX) $(BUILD)/*.{$(OBJ_SFX),h} $(BUILD)/*/*.{$(OBJ_SFX),h} $(PRELOAD_OBJS)
 	$(RM) $(BUILDMARK_H)
+	$(RM) -r $(INSTALL_LIB) $(INSTALL_BIN) $(INSTALL_INCLUDE)
 ifeq ($(MACHINE), win32)
 	$(RM) $(PDBS) $(BUILD)/*.$(CPP_SFX).bak $(BUILD)/*/*.$(CPP_SFX).bak $(BUILD)/*.{cod,exp,lib,map,pdb,res,rc,bin,exe} $(BUILD)/*/*.{cod,exp,lib,map,pdb,res,rc,bin,exe}
-	$(RM) $(EXPORTS)/*.{cod,exp,lib,map,pdb,res,rc,bin,exe}
 else
 ifeq ($(LINKER_VERSION_SCRIPT), 1)
 	$(RM) $(EXPORT_LIST)
@@ -1196,7 +1186,8 @@ endif
 
 exports: unexport all
 unexport:
-	$(RM) $(EXPORTS)/*.{so,a,h,dll,lib} $(BUILD)/*.{so,a,dll,lib}
+	$(RM) -r $(INSTALL_LIB) $(INSTALL_BIN) $(INSTALL_INCLUDE)
+	$(RM) $(BUILD)/*.{so,a,dll,lib}
 
 # removes emacs *~ files
 zap:
@@ -1367,25 +1358,25 @@ ifneq ($(STATIC),1) ########################################
 
 # injector
 ifeq ($(MACHINE), win32)
-injector: builddir $(EXPORTS)/$(INJECTOR) $(EXPORTS)/$(ARCHIVE)
-$(EXPORTS)/$(INJECTOR): $(BUILD)/$(INJECTOR)
-	$(CP) $(BUILD)/$(INJECTNAME).{exe,map} $(EXPORTS)
+injector: builddir $(INSTALL_BIN)/$(INJECTOR) $(INSTALL_LIB)/$(ARCHIVE)
+$(INSTALL_BIN)/$(INJECTOR): $(BUILD)/$(INJECTOR)
+	$(CP) $(BUILD)/$(INJECTNAME).{exe,map} $(INSTALL_BIN)
 ifneq ($(DBG),) # sometimes can't build pdb (case 192750)
-	$(CP) $(BUILD)/$(INJECTNAME).pdb $(EXPORTS)
+	$(CP) $(BUILD)/$(INJECTNAME).pdb $(INSTALL_BIN)
 endif
 $(BUILD)/$(INJECTOR): $(INJECT_OBJS)
 	$(LD) $(INJECTFLAGS) $(INJECT_OBJS) $(INJECTLIBS)
 
-early_inject_helper: builddir $(EXPORTS)/$(EARLY_INJECT_HELPER1) $(EXPORTS)/$(EARLY_INJECT_HELPER2)
-$(EXPORTS)/$(EARLY_INJECT_HELPER1): $(BUILD)/$(EARLY_INJECT_HELPER1)
-	$(CP) $(BUILD)/$(EARLY_INJECT_HELPER1_NAME).{dll,map} $(EXPORTS)
+early_inject_helper: builddir $(INSTALL_LIB_BASE)/$(EARLY_INJECT_HELPER1) $(INSTALL_LIB_BASE)/$(EARLY_INJECT_HELPER2)
+$(INSTALL_LIB_BASE)/$(EARLY_INJECT_HELPER1): $(BUILD)/$(EARLY_INJECT_HELPER1)
+	$(CP) $(BUILD)/$(EARLY_INJECT_HELPER1_NAME).{dll,map} $(INSTALL_LIB_BASE)
 ifneq ($(DBG),) # sometimes can't build pdb (case 192750)
-	$(CP) $(BUILD)/$(EARLY_INJECT_HELPER1_NAME).pdb $(EXPORTS)
+	$(CP) $(BUILD)/$(EARLY_INJECT_HELPER1_NAME).pdb $(INSTALL_LIB_BASE)
 endif
-$(EXPORTS)/$(EARLY_INJECT_HELPER2): $(BUILD)/$(EARLY_INJECT_HELPER2)
-	$(CP) $(BUILD)/$(EARLY_INJECT_HELPER2_NAME).{dll,map,lib} $(EXPORTS)
+$(INSTALL_LIB_BASE)/$(EARLY_INJECT_HELPER2): $(BUILD)/$(EARLY_INJECT_HELPER2)
+	$(CP) $(BUILD)/$(EARLY_INJECT_HELPER2_NAME).{dll,map,lib} $(INSTALL_LIB_BASE)
 ifneq ($(DBG),) # sometimes can't build pdb (case 192750)
-	$(CP) $(BUILD)/$(EARLY_INJECT_HELPER2_NAME).pdb $(EXPORTS)
+	$(CP) $(BUILD)/$(EARLY_INJECT_HELPER2_NAME).pdb $(INSTALL_LIB_BASE)
 endif
 $(BUILD)/$(EARLY_INJECT_HELPER1): $(EARLY_INJECT_HELPER1_OBJS) $(BUILD)/$(EARLY_INJECT_HELPER2)
 	$(LD) $(EARLY_INJECT_HELPER1_FLAGS) $(EARLY_INJECT_HELPER1_OBJS) $(EARLY_INJECT_HELPER1_LIBS)
@@ -1394,18 +1385,13 @@ $(BUILD)/$(EARLY_INJECT_HELPER2): $(EARLY_INJECT_HELPER2_OBJS)
 
 
 # pre-injector: separate library + copy of dynamo library in special place
-preload: builddir $(INSTALL_LIB_BASE)/$(PRELOAD) $(EXPORTS)/$(ARCHIVE)
-	@$(ECHO) "installing $(ARCHIVE) for systemwide injection to $(SYSWIDE_DIR)"
-	@(if ! test -e $(SYSWIDE_DIR); then $(MKDIR) $(SYSWIDE_DIR); fi)
-	$(CP) $(EXPORTS)/$(ARCHIVE) $(SYSWIDE_DIR)/$(ARCHIVE)
+preload: builddir $(INSTALL_LIB_BASE)/$(PRELOAD) $(INSTALL_LIB)/$(ARCHIVE)
+
 $(INSTALL_LIB_BASE)/$(PRELOAD): $(PRE_INJECT_OBJS)
-	@(if ! test -e $(INSTALL_LIB_BASE); then $(MKDIR) $(INSTALL_LIB_BASE); fi)
 	$(LD) $(PRE_INJECTFLAGS) $(PRE_INJECT_OBJS) $(PRE_INJECTLIBS)
 	$(CP) $(BUILD)/$(PREINJECTNAME).{dll,map} $(INSTALL_LIB_BASE)
-	$(CP) $(BUILD)/$(PREINJECTNAME).{dll,map} $(EXPORTS)
 ifneq ($(DBG),) # sometimes can't build pdb (case 192750)
 	$(CP) $(BUILD)/$(PREINJECTNAME).pdb $(INSTALL_LIB_BASE)
-	$(CP) $(BUILD)/$(PREINJECTNAME).pdb $(EXPORTS) 
 endif
 
 # TODO: use a RLL library instead of putting everything in one dll
@@ -1414,10 +1400,10 @@ $(BUILD)/%.rll : $(BUILD)/$(OSNAME)/%.res
 endif
 
 ifeq ($(MACHINE), linux)
-LDDYNAMO = -L$(EXPORTS) -ldynamorio
+LDDYNAMO = -L$(INSTALL_LIB) -ldynamorio
 
-preload: builddir $(EXPORTS)/$(PRELOAD) $(EXPORTS)/$(ARCHIVE)
-$(EXPORTS)/$(PRELOAD): $(BUILD)/$(PRELOAD)
+preload: builddir $(INSTALL_LIB_BASE)/$(PRELOAD) $(INSTALL_LIB)/$(ARCHIVE)
+$(INSTALL_LIB_BASE)/$(PRELOAD): $(BUILD)/$(PRELOAD)
 # PR 212290: ensure no text relocations (they violate selinux execmod policies)
 	$(READELF) -d $(BUILD)/$(PRELOAD) | $(GREP) -q TEXTREL; \
 	if [ $$? == 0 ]; then \
@@ -1428,8 +1414,6 @@ $(EXPORTS)/$(PRELOAD): $(BUILD)/$(PRELOAD)
 	if [ $$? == 0 ]; then \
 	    $(ECHO) "$(BUILD)/$(PRELOAD) has executable stack" && false; \
 	fi
-	$(CP) -a $(BUILD)/$(PRELOAD) $(EXPORTS)
-	@(if ! test -e $(INSTALL_LIB_BASE); then $(MKDIR) $(INSTALL_LIB_BASE); fi)
 	$(CP) -a $(BUILD)/$(PRELOAD) $(INSTALL_LIB_BASE)/$(PRELOAD)
 
 $(BUILD)/$(PRELOAD): $(PRELOAD_OBJS)
@@ -1468,35 +1452,19 @@ $(BUILD)/$(OSNAME)/%.rc $(BUILD)/$(OSNAME)/%.h: $(OSNAME)/%.mc
 endif # ifeq  ($(MACHINE), win32)
 
 ifeq ($(STATIC),1)
-install: all
+install: unexport all
 else
 # FIXME - should install also copy early inject helper dlls to system32?
-install: all preload
+install: unexport all preload
 endif
-ifeq ($(MACHINE), linux)
-	@(if ! test -e $(INSTALL_LIB_BASE); then $(MKDIR) $(INSTALL_LIB_BASE); fi)
-	@(if ! test -e $(SYSWIDE_DIR); then $(MKDIR) $(SYSWIDE_DIR); fi)
-else
-# preload builds install base dir for us
-endif
-	@(if ! test -e $(INSTALL_LIB); then $(MKDIR) $(INSTALL_LIB); fi)
-	@(if ! test -e $(INSTALL_BIN); then $(MKDIR) $(INSTALL_BIN); fi)
-	@(if ! test -e $(INSTALL_INCLUDE); then $(MKDIR) $(INSTALL_INCLUDE); fi)
-	$(CP) $(EXPORTS)/$(ARCHIVE) $(INSTALL_LIB)
-# copy exported .h files if they exist
-	@(junk=`$(LS) $(EXPORTS)/*.h 2>&1`; if [ $$? == 0 ] ; then \
-		$(CP) $(EXPORTS)/*.h $(INSTALL_INCLUDE); fi)
 ifeq ($(MACHINE), win32)
 # get the .lib file too for linking (_app interface)
-	$(CP) $(EXPORTS)/$(subst dll,lib,$(ARCHIVE)) $(INSTALL_LIB)
-ifeq ($(STATIC), 0)
-	$(CP) $(EXPORTS)/$(INJECTOR) $(INSTALL_BIN)
-endif
+	$(CP) $(BUILD)/$(subst dll,lib,$(ARCHIVE)) $(INSTALL_LIB)
 endif
 
 # lib helper: fortran
-$(EXPORTS)/$(FORTRAN_OBJ): $(BUILD)/$(FORTRAN_OBJ)
-	$(CP) $(BUILD)/$(FORTRAN_OBJ) $(EXPORTS)
+$(INSTALL_LIB)/$(FORTRAN_OBJ): $(BUILD)/$(FORTRAN_OBJ)
+	$(CP) $(BUILD)/$(FORTRAN_OBJ) $(INSTALL_LIB)
 
 ifeq ($(MACHINE), linux)
 ifeq ($(LINKER_VERSION_SCRIPT), 1)
@@ -1508,7 +1476,7 @@ endif
 endif
 
 # dynamo library itself
-$(EXPORTS)/$(ARCHIVE): $(BUILD)/$(ARCHIVE) $(GENAPI)
+$(INSTALL_LIB)/$(ARCHIVE): $(BUILD)/$(ARCHIVE) $(GENAPI)
 ifeq ($(MACHINE), linux)
 # PR 212290: ensure no text relocations (they violate selinux execmod policies)
 	$(READELF) -d $(BUILD)/$(ARCHIVE) | $(GREP) -q TEXTREL; \
@@ -1520,54 +1488,54 @@ ifeq ($(MACHINE), linux)
 	if [ $$? == 0 ]; then \
 	    $(ECHO) "$(BUILD)/$(ARCHIVE) has executable stack" && false; \
 	fi
-	$(CP) -a $(BUILD)/$(ARCHIVE) $(EXPORTS)
-	$(SIZE) $(EXPORTS)/$(ARCHIVE)
+	$(CP) -a $(BUILD)/$(ARCHIVE) $(INSTALL_LIB)
+	$(SIZE) $(INSTALL_LIB)/$(ARCHIVE)
 else
-	$(CP) $(BUILD)/$(OUTNAME).{dll,lib,map} $(EXPORTS)
+	$(CP) $(BUILD)/$(OUTNAME).{dll,lib,map} $(INSTALL_LIB)
 ifneq ($(DBG),) # sometimes can't build pdb (case 192750)
-	$(CP) $(BUILD)/$(OUTNAME).pdb $(EXPORTS)
+	$(CP) $(BUILD)/$(OUTNAME).pdb $(INSTALL_LIB)
 endif
-	$(DUMPBIN) /summary $(EXPORTS)/$(ARCHIVE)
+	$(DUMPBIN) /summary $(INSTALL_LIB)/$(ARCHIVE)
 endif # WINDOWS
 
 ifeq ($(CLIENT_INTERFACE), 1)
 api_headers: $(GENAPI) $(HEADERS) builddir
 # create header files to complete IR API
-	$(RM) $(EXPORTS)/dr_*.h
-	$(CP) $(LIB_SRC)/dr_api.h $(EXPORTS)
+	$(RM) $(INSTALL_INCLUDE)/dr_*.h
+	$(CP) $(LIB_SRC)/dr_api.h $(INSTALL_INCLUDE)
 ifeq ($(MACHINE), linux)
-	$(PERL) $(GENAPI) -header $(EXPORTS) "$(API_DEFINES)"
+	$(PERL) $(GENAPI) -header $(INSTALL_INCLUDE) "$(API_DEFINES)"
 else
-	$(PERL) $(GENAPI) -header $(EXPORTS) "$(API_DEFINES)"
+	$(PERL) $(GENAPI) -header $(INSTALL_INCLUDE) "$(API_DEFINES)"
 endif
 # kill #ifdefs from func declarations in dr_app.h,
 # but not from #defines at top (WINDOWS, etc.)
 # FIXME: make this simpler!  do we really have to write another script?
 # there must be a better way to selectively strip defines from our header files
 	export line=`$(GREP) -n '/\*\*\*\*' $(LIB_SRC)/dr_app.h | $(CUT) -d : -f 1 | $(AWK) '{print $$1 - 1}'`; \
-	$(HEAD) -$$line $(LIB_SRC)/dr_app.h > $(EXPORTS)/dr_app.h; \
-	export rest=`$(WC) $(LIB_SRC)/dr_app.h $(EXPORTS)/dr_app.h | $(XARGS) $(ECHO) | $(AWK) '{print $$1 - $$5}'`; \
+	$(HEAD) -$$line $(LIB_SRC)/dr_app.h > $(INSTALL_INCLUDE)/dr_app.h; \
+	export rest=`$(WC) $(LIB_SRC)/dr_app.h $(INSTALL_INCLUDE)/dr_app.h | $(XARGS) $(ECHO) | $(AWK) '{print $$1 - $$5}'`; \
 	$(TAIL) -$$rest $(LIB_SRC)/dr_app.h | $(SED) 's/#endif \/\* _DR_APP_H_ \*\///' > ._foo; \
-	$(CPP) $(CPP_KEEP_COMMENTS) $(CPP_NO_LINENUM) $(subst /,-,$(DEFINES)) ._foo >> $(EXPORTS)/dr_app.h; \
-	$(TAIL) -2 $(LIB_SRC)/dr_app.h >> $(EXPORTS)/dr_app.h; \
-	$(SED) -i 's/\r//' $(EXPORTS)/dr_app.h
+	$(CPP) $(CPP_KEEP_COMMENTS) $(CPP_NO_LINENUM) $(subst /,-,$(DEFINES)) ._foo >> $(INSTALL_INCLUDE)/dr_app.h; \
+	$(TAIL) -2 $(LIB_SRC)/dr_app.h >> $(INSTALL_INCLUDE)/dr_app.h; \
+	$(SED) -i 's/\r//' $(INSTALL_INCLUDE)/dr_app.h
 	$(RM) ._foo
 # FIXME - would be better if this was just not generated at all when !HOT_PATCING_INTERFACE.
 # Need to add appropriate ifdefs for the core, for now this is the easiest path.
 ifneq ($(HOT_PATCHING_INTERFACE), 1)
-	$(RM) $(EXPORTS)/dr_probe.h
+	$(RM) $(INSTALL_INCLUDE)/dr_probe.h
 endif
 else
 ifeq ($(APP_EXPORTS), 1)
 api_headers: $(LIB_SRC)/dr_app.h builddir
-	$(RM) $(EXPORTS)/dr_*.h
-	$(CP) $(LIB_SRC)/dr_app.h $(EXPORTS)
+	$(RM) $(INSTALL_INCLUDE)/dr_*.h
+	$(CP) $(LIB_SRC)/dr_app.h $(INSTALL_INCLUDE)
 else
 api_headers:
 endif
 endif
 
-dynamorio: $(DEFINES_H) compare-defines usedep_defines $(EXPORTS)/$(ARCHIVE) api_headers
+dynamorio: $(DEFINES_H) compare-defines usedep_defines $(INSTALL_LIB)/$(ARCHIVE) api_headers
 
 standalone: $(DEFINES_H) compare-defines usedep_defines $(BUILD)/$(STANDALONE_EXE)
 
@@ -1595,7 +1563,7 @@ LINKER_DEFAULT_BASE:=0x08048000
 endif
 
 # we always use a script for our own library bounds (PR 361594)
-LD_USE_SCRIPT := -Xlinker -dT -Xlinker $(LD_SCRIPT)
+LD_USE_SCRIPT := -Xlinker $(LD_SCRIPT_OPTION) -Xlinker $(LD_SCRIPT)
 
 $(BUILD)/$(ARCHIVE): $(MESSAGE_STRINGS_H) $(MESSAGE_H) $(OBJS)
 ifeq ($(MACHINE), linux)
@@ -1742,11 +1710,11 @@ ifeq ($(MACHINE), win32)
 # .exe added automatically
 TESTPROG=notepad
 progrun: all
-	${EXPORTS}/${INJECTOR} ${EXPORTS}/${ARCHIVE} ${TESTPROG}${EXE_SFX} ${TESTARGS}
+	${INSTALL_BIN}/${INJECTOR} ${INSTALL_LIB}/${ARCHIVE} ${TESTPROG}${EXE_SFX} ${TESTARGS}
 else
 TESTPROG=ls
 progrun: all
-	export LD_LIBRARY_PATH=${CUR_FULL}/${CORE_DIRNAME}/${EXPORTS}/:$$LD_LIBRARY_PATH \
+	export LD_LIBRARY_PATH=${CUR_FULL}/${CORE_DIRNAME}/${INSTALL_LIB}/:$$LD_LIBRARY_PATH \
 	LD_PRELOAD="$(PRELOAD) $(ARCHIVE)"; ${TESTPROG}${EXE_SFX} ${TESTARGS}
 endif
 
@@ -1793,7 +1761,7 @@ COMMENT="Build ${BUILD_NUMBER} by $(USER)@$(COMPUTERNAME)"
 symbols:
 	@$(ECHO) "Connecting to $(SYMBOL_SERVER)"; \
 	export sa=$(SYMBOL_ADMIN) ss=$(SYMBOL_STORE); \
-	$(DYNAMORIO_TOOLS)/external/symstore add /r /f ${EXPORTS} \
+	$(DYNAMORIO_TOOLS)/external/symstore add /r /f ${EXPORTS_BASE} \
 	/s ${SYMBOL_STORE} /t ${PRODUCT_NAME} /v ${COMMENT} /c ${DATE} | $(PERL) -e '\
 	$$sa=$$ENV{"sa"}; $$ss=$$ENV{"ss"}; \
 	while (<>) { if (/^Finding ID...\s+(\d+)/) {$$id=$$1;} print $$_; } \

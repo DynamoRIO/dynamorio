@@ -264,7 +264,7 @@ check_hotp_dir:
 	false; fi)
 
 check_dr_dir:
-	@(if [ ! -f $(DYNAMORIO_HOME)/exports/x86_win32_rel/dynamorio.dll ]; then \
+	@(if [ ! -f $(DYNAMORIO_HOME)/exports/lib32/release/dynamorio.dll ]; then \
 	echo "core must be built!"; \
 	false; fi)
 
@@ -272,7 +272,7 @@ $(DYNAMORIO_HOTPATCH)/test/hotp-test.lib: check_hotp_dir
 
 $(DR_LIB_DIR): check_dr_dir
 	mkdir -p $(DR_LIB_DIR)
-	cp -f $(DYNAMORIO_HOME)/exports/x86_win32_rel/*.dll $(DR_LIB_DIR)
+	cp -f $(DYNAMORIO_HOME)/exports/lib32/release/*.dll $(DR_LIB_DIR)
 
 $(HOTP_LIB_DIR): $(DR_LIB_DIR) check_hotp_dir
 	cp -f $(DYNAMORIO_HOTPATCH)/test/hotp-test.dll .

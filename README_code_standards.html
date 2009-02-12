@@ -319,6 +319,18 @@ want carelessly written comments.
 
 <li><p>Use <tt>FIXME</tt> in comments to indicate missing features, code that
 could be optimized, or anything else that may warrant re-examination later.
+Include the issue number using the syntax i#&lt;number&gt;.  For example:
+<pre>
+/* FIXME i#391: we do not yet handle a corner case where ...
+ */
+</pre>
+</p></li>
+
+<li><p>Mark any temporary or unfinished code unsuitable for committing with
+a <tt>NOCHECKIN</tt> comment.  The "make ugly" target, run by the regression suite, will remind you to clean up the code.
+<pre>
+x = 4; /* NOCHECKIN: temporary debugging change */
+</pre>
 </p></li>
 
 </ol>

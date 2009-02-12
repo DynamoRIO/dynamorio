@@ -41,7 +41,7 @@
 ## To change DynamoRIO options: say "make OPS='whatever'"
 ##
 
-.PHONY: all run clean runbase runsecurity runrunall runhotp runnogui \
+.PHONY: all run clean runbase runsecurity runrunall runnogui \
         runrunall-nogui runapi runinterface runcommon runos runbasesecurity \
 	runossecurity runnointerface runheader reportbuild
 
@@ -60,7 +60,7 @@ endif
 # Set default values for the DYNAMORIO_ env vars
 ifeq ($(MACHINE), win32)
 ifndef DYNAMORIO_HOME
-  DYNAMORIO_HOME := $(shell $(CYGPATH) -ma $(CURDIR)/../..)
+  DYNAMORIO_HOME := $(shell $(CYGPATH) -ma $(CURDIR)/../../exports)
 endif
 ifndef DYNAMORIO_TOOLS
   # export for runall/runalltest.sh
@@ -74,7 +74,7 @@ ifndef DYNAMORIO_CACHE_ROOT
 endif
 else
 ifndef DYNAMORIO_HOME
-  DYNAMORIO_HOME := $(CURDIR)/../..
+  DYNAMORIO_HOME := $(CURDIR)/../../exports
 endif
 ifndef DYNAMORIO_TOOLS
   # export for runall/runalltest.sh
@@ -109,7 +109,6 @@ DISABLED_SECURITY_WIN32 := | $(GREP) -vE 'selfmod-threads'
 # case 9423 covers re-enabling
 DISABLED_RUNALL := | $(GREP) -vE 'earlythread'
 # pthreads tests are also _completely_ disabled down below
-DISABLED_HOTP := | $(GREP) -vE 'gui'
 # FIXME: PR 199115 to re-enable fragdel, get some more of the LINUX tests working
 ifeq ($(MACHINE), win32)
 DISABLED_INTERFACE := | $(GREP) -vE '/fragdel|/syscall-mod|/signal'
@@ -128,7 +127,7 @@ else
 endif
 
 DISABLED_ALL := $(DISABLED_OS) $(DISABLED_SECURITY_OS) $(DISABLED_RUNALL) \
-		$(DISABLED_HOTP) $(DISABLED_INTERFACE) $(DISABLED_COMMON)
+		$(DISABLED_INTERFACE) $(DISABLED_COMMON)
 
 # Some things that are nice to be able to turn off from the cmd line
 WARN_DEFS := yes
@@ -162,66 +161,36 @@ LIB_NAME =dynamorio.dll
 endif
 
 # use release build if it exists, unless DEBUG=yes
-ifeq ($(MACHINE), linux)
-DYNAMORIO_DIR_BASE = $(DYNAMORIO_HOME)/exports/$(ARCH)_linux_
-DYNAMORIO_BUILD_DIR_BASE = $(DYNAMORIO_HOME)/build/$(ARCH)_linux_
+DYNAMORIO_DIR_BASE :=$(DYNAMORIO_HOME)
+ifeq ($(ARCH), x64)
+  LIB_SUBDIR :=lib64
+  BIN_SUBDIR :=bin64
 else
-DYNAMORIO_DIR_BASE = $(DYNAMORIO_HOME)/exports/$(ARCH)_win32_
-DYNAMORIO_BUILD_DIR_BASE = $(DYNAMORIO_HOME)/build/$(ARCH)_win32_
+  LIB_SUBDIR :=lib32
+  BIN_SUBDIR :=bin32
 endif
 
-# allow yes or 1 for DEBUG or INTERNAL
-USE_DEBUG=$(DEBUG)
+# allow yes or 1 for DEBUG
 ifeq ($(DEBUG),yes)
-USE_DEBUG=1
+RELEASE_EXISTS:=""
+else
+ifeq ($(DEBUG),1)
+RELEASE_EXISTS:=""
+else
+RELEASE_EXISTS:=$(wildcard $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/release)
 endif
-USE_INTERNAL=$(INTERNAL)
-ifeq ($(INTERNAL),yes)
-USE_INTERNAL=1
-endif
-USE_PROFILE=$(PROFILE)
-ifeq ($(PROFILE),yes)
-USE_PROFILE=1
 endif
 
-# We check for a build based on the following order
-# Relase, Internal, Profile, Debug
-# FIXME - is that the order we want?
-PROFILE_EXISTS=$(wildcard $(DYNAMORIO_DIR_BASE)prof)
-INTERNAL_EXISTS=$(wildcard $(DYNAMORIO_DIR_BASE)intr)
-RELEASE_EXISTS=$(wildcard $(DYNAMORIO_DIR_BASE)rel)
+ifeq ($(RELEASE_EXISTS), $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/release)
+DYNAMORIO_DIR := $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/release
+DYNAMORIO_BUILD_DIR = $(DYNAMORIO_HOME)/build/$(ARCH)_win32_rel
+else
+DYNAMORIO_DIR := $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/debug
+DYNAMORIO_BUILD_DIR = $(DYNAMORIO_HOME)/build/$(ARCH)_win32_dbg
+endif
 
-ifeq ($(USE_DEBUG),1)
-RELEASE_EXISTS=""
-INTERNAL_EXISTS=""
-PROFILE_EXISTS=""
-else
-ifeq ($(USE_PROFILE),1)
-RELEASE_EXISTS=""
-INTERNAL_EXIST=""
-else
-ifeq ($(USE_INTERNAL),1)
-RELEASE_EXISTS=""
-endif # intr
-endif # profile
-endif # debug
-
-ifeq ($(RELEASE_EXISTS), $(DYNAMORIO_DIR_BASE)rel)
-BUILD_SUFFIX=rel
-else
-ifeq ($(INTERNAL_EXISTS), $(DYNAMORIO_DIR_BASE)intr)
-BUILD_SUFFIX=intr
-else
-ifeq ($(PROFILE_EXISTS), $(DYNAMORIO_DIR_BASE)prof)
-BUILD_SUFFIX=prof
-else
-BUILD_SUFFIX=dbg
-endif # profile
-endif # intr
-endif # rel
-
-DYNAMORIO_DIR = $(DYNAMORIO_DIR_BASE)$(BUILD_SUFFIX)
-DYNAMORIO_BUILD_DIR = $(DYNAMORIO_BUILD_DIR_BASE)$(BUILD_SUFFIX)
+DYNAMORIO_INCDIR := $(DYNAMORIO_DIR_BASE)/include
+DYNAMORIO_BINDIR := $(DYNAMORIO_DIR_BASE)/bin/$(BIN_SUBDIR)
 
 CORE_DIRNAME=core
 
@@ -267,16 +236,16 @@ endif
 DR_OPS = $(OPS)
 
 ifeq ($(MACHINE), linux)
-DYNAMORIO_INC := $(I)$(DYNAMORIO_DIR) 
+DYNAMORIO_INC := $(I)$(DYNAMORIO_INCDIR) 
 else
-DYNAMORIO_INC := $(I)$(subst /,\\,$(shell $(CYGPATH) -m ${DYNAMORIO_DIR}))
+DYNAMORIO_INC := $(I)$(subst /,\\,$(shell $(CYGPATH) -m ${DYNAMORIO_INCDIR}))
 DYNAMORIO_LIBDIR := $(subst /,\\,$(shell $(CYGPATH) -m ${DYNAMORIO_DIR}))
 endif
 
 CC_BASE = $(CC) $(DBG) $I. $(MSINCLUDE) tools.c
 
 # TODO: use common flags between the liveshield creation system and this
-HOTP_DLL_INC_DIR = $(shell $(CYGPATH) -m $(DYNAMORIO_HOME))/$(CORE_DIRNAME)/lib
+HOTP_DLL_INC_DIR = $(shell $(CYGPATH) -m $(DYNAMORIO_HOME))/../$(CORE_DIRNAME)/lib
 
 # DBG and LINK_DBG flags are set to empty by runregression so that regressions
 # over ssh can work (PR 192750).  However, this breaks hotp tests (PR 234043)
@@ -389,7 +358,7 @@ LINK += tools_asm.$(OBJ_SFX)
 # enable the assembly to work on linux and windows.
 
 # asm flags
-ASM_CORE_INC := $(DYNAMORIO_HOME)/$(CORE_DIRNAME)/x86
+ASM_CORE_INC := $(DYNAMORIO_HOME)/../$(CORE_DIRNAME)/x86
 ifeq ($(MACHINE), linux)
   ASMPREPROC := $(I)$(ASM_CORE_INC)
   DEFINES += $(D)ASSEMBLE_WITH_GAS
@@ -501,11 +470,6 @@ SRCS_RUNALL_NODLL := $(foreach file,$(SRCS_RUNALL),$(if $(wildcard $(subst .c,.d
 SRCS_RUNALL_DLL := $(foreach file,$(SRCS_RUNALL),$(if $(wildcard $(subst .c,.dll.c,$(file))),$(file),))
 endif
 
-# get name of hotp tests, exclude dlls used by tests and hotp dlls; they all
-# have the same name but different suffixes.
-# TODO: currently only one dll supported for the test and for the patch dll.
-SRCS_HOTP := $(shell $(LS) hotp/*/*.c | $(GREP) -v '.hotp\.c$$' | $(GREP) -v '.dll\.c$$' ${DISABLED_HOTP})
-
 # we have to have roots separate for win32 .exe suffix
 PGMS_ROOT_COMMON := $(patsubst %.c,%,$(SRCS_COMMON))
 PGMS_ROOT_COMMON += $(EXTRA_COMMON_TESTS)
@@ -517,8 +481,7 @@ PGMS_ROOT_OS += $(EXTRA_OS_TESTS)
 PGMS_ROOT_PTHREADS := $(patsubst %.c,%,$(SRCS_PTHREADS))
 PGMS_ROOT_SECURITY_COMMON := $(patsubst %.c,%,$(SRCS_SECURITY_COMMON))
 PGMS_ROOT_SECURITY_OS := $(patsubst %.c,%,$(SRCS_SECURITY_OS))
-PGMS_ROOT_HOTP := $(patsubst %.c,%,$(SRCS_HOTP))
-PGMS_ROOT := $(PGMS_ROOT_COMMON) $(PGMS_ROOT_API) $(PGMS_ROOT_PROBE_API) $(PGMS_ROOT_INTERFACE) $(PGMS_ROOT_OS) $(PGMS_ROOT_PTHREADS) $(PGMS_ROOT_SECURITY_COMMON) $(PGMS_ROOT_SECURITY_COMMON) $(PGMS_ROOT_SECURITY_OS) $(PGMS_ROOT_HOTP)
+PGMS_ROOT := $(PGMS_ROOT_COMMON) $(PGMS_ROOT_API) $(PGMS_ROOT_PROBE_API) $(PGMS_ROOT_INTERFACE) $(PGMS_ROOT_OS) $(PGMS_ROOT_PTHREADS) $(PGMS_ROOT_SECURITY_COMMON) $(PGMS_ROOT_SECURITY_COMMON) $(PGMS_ROOT_SECURITY_OS) 
 
 PGMS_EXE_COMMON := $(patsubst %.c,%$(EXE_SFX),$(SRCS_COMMON))
 PGMS_EXE_API := $(patsubst %.c,%$(EXE_SFX),$(SRCS_API))
@@ -541,10 +504,7 @@ PGMS_EXE_PTHREADS := $(patsubst %.c,%$(EXE_SFX),$(SRCS_PTHREADS))
 PGMS_EXE_SECURITY_COMMON := $(patsubst %.c,%$(EXE_SFX),$(SRCS_SECURITY_COMMON))
 PGMS_EXE_RUNALL_NODLL := $(patsubst %.c,%$(EXE_SFX),$(SRCS_RUNALL_NODLL))
 PGMS_EXE_RUNALL_DLL := $(patsubst %.c,%$(EXE_SFX),$(SRCS_RUNALL_DLL))
-PGMS_EXE_HOTP := $(patsubst %.c,%$(EXE_SFX),$(SRCS_HOTP))
-PGMS_DLL_HOTP := $(patsubst %.c,%.dll.dll,$(SRCS_HOTP))
-PGMS_DLL_HOTP_PATCH := $(patsubst %.c,%.hotp.dll,$(SRCS_HOTP))
-PGMS_EXE := $(PGMS_EXE_COMMON) $(PGMS_EXE_API) $(PGMS_EXE_PROBE_API) $(PGMS_CLIENT_PROBE_API) $(PGMS_DLL_PROBE_API) $(PGMS_PROBES_PROBE_API) $(PGMS_EXE_INTERFACE) $(PGMS_DLL_INTERFACE) $(PGMS_EXE_OS_NODLL) $(PGMS_EXE_OS_DLL) $(PGMS_EXE_OS) $(PGMS_EXE_PTHREADS) $(PGMS_EXE_SECURITY_COMMON) $(PGMS_EXE_SECURITY_OS_NODLL) $(PGMS_EXE_SECURITY_OS_DLL) $(PGMS_EXE_RUNALL_NODLL) $(PGMS_EXE_RUNALL_DLL) $(PGMS_EXE_HOTP) $(PGMS_DLL_HOTP) $(PGMS_DLL_HOTP_PATCH)
+PGMS_EXE := $(PGMS_EXE_COMMON) $(PGMS_EXE_API) $(PGMS_EXE_PROBE_API) $(PGMS_CLIENT_PROBE_API) $(PGMS_DLL_PROBE_API) $(PGMS_PROBES_PROBE_API) $(PGMS_EXE_INTERFACE) $(PGMS_DLL_INTERFACE) $(PGMS_EXE_OS_NODLL) $(PGMS_EXE_OS_DLL) $(PGMS_EXE_OS) $(PGMS_EXE_PTHREADS) $(PGMS_EXE_SECURITY_COMMON) $(PGMS_EXE_SECURITY_OS_NODLL) $(PGMS_EXE_SECURITY_OS_DLL) $(PGMS_EXE_RUNALL_NODLL) $(PGMS_EXE_RUNALL_DLL) 
 
 TEMPLATE_COMMON := $(shell $(LS) common/*.template security-common/*.template)
 PGMS_EXP_COMMON := $(patsubst %.template, %.expect, $(TEMPLATE_COMMON))
@@ -564,9 +524,6 @@ PGMS_EXP_API := $(patsubst %.template, %.expect, $(TEMPLATE_API))
 
 TEMPLATE_PROBE_API := $(shell $(LS) probe-api/*.template)
 PGMS_EXP_PROBE_API := $(patsubst %.template, %.expect, $(TEMPLATE_PROBE_API))
-
-TEMPLATE_HOTP := $(shell $(LS) hotp/*/*.template)
-PGMS_EXP_HOTP := $(patsubst %.template, %.expect, $(TEMPLATE_HOTP))
 
 #for testing run all, done through a shell script
 RUNALL_SCRIPTS := $(shell $(LS) runall/*.runall ${DISABLED_RUNALL})
@@ -616,7 +573,7 @@ ifeq ($(MACHINE), win32)
 TYPE_EXE := VFT_APP
 TYPE_DLL := VFT_DLL
 
-RESOURCE_FILE := $(shell $(CYGPATH) -ua $(DYNAMORIO_HOME)/${CORE_DIRNAME}/win32/resources.rc)
+RESOURCE_FILE := $(shell $(CYGPATH) -ua $(DYNAMORIO_HOME)/../${CORE_DIRNAME}/win32/resources.rc)
 WINRESOURCE_FILE := $(shell $(CYGPATH) -ma ${RESOURCE_FILE})
 DYNAMORIO_WINDIR := $(shell $(CYGPATH) -ma ${DYNAMORIO_HOME})
 RCFLAGS := $(MSINCLUDE) -r
@@ -702,45 +659,17 @@ $(PGMS_EXE_PTHREADS): %.exe: %.c $(TOOLS)
 $(PGMS_EXE_SECURITY_COMMON): %.exe: %.c $(TOOLS) oresources.res
 	$(CC_BASE) $(EXEOUT)$@ $< $(LINK) oresources.res > $*.clout 2>&1
 
-$(PGMS_EXP_OS) $(PGMS_EXP_HOTP) $(PGMS_EXP_PROBE_API): %.expect: %.template
-	$(PERL) gen_expect.pl '$(DEFS)' '$(DR_OPS)' $*.template
-
-# Note: only one test dll and one hot patch dll can be built today; the former
-#       being conditional, i.e., if the test.dll.c exists, it will be built.
-#       TODO: Multiple & variable number of test dlls.
-# Note: also, the test dll won't be linked with app; test has to load it - 
-#       while restrictive, it allows to test more common scenarios with dll 
-#       loading that the former doesn't allow
-# Note: /Fm needed to generate .map files which are used to generate hotp 
-#       config files
-$(PGMS_EXE_HOTP): %.exe: %.c $(TOOLS)
-	$(CC_BASE) $(OPT) /Fm $(EXEOUT)$@ $< $(LINK) > $*.clout 2>&1
-	@(if test -e $*.dll.c; then $(MAKE) -s $*.dll.dll; fi)
-
 # dlls used by both hotp & probe tests (not probe or client dlls) need map files
-$(PGMS_DLL_PROBE_API) $(PGMS_DLL_HOTP): %.dll: %.c $(TOOLS)
+$(PGMS_DLL_PROBE_API): %.dll: %.c $(TOOLS)
 	$(CC_BASE) $(OPT) /Fm $< $(LINK) $(DLLOUT)$@ > $*.clout 2>&1
 
 # Probes need DR API header files, and those in turn need stdio.h.
 $(PGMS_PROBES_PROBE_API): HOTP_DLL_CFLAGS += $(DYNAMORIO_INC) $(MSINCLUDE)
 # dlls containing probes or hot patches are built the same way. Also these dlls
 # shouldn't depend upon $(TOOLS) as $(TOOLS) links agains external dlls.
-$(PGMS_PROBES_PROBE_API) \
-$(PGMS_DLL_HOTP_PATCH): %.dll: %.c $(HOTP_DLL_INC_DIR)/hotpatch_interface.h
+$(PGMS_PROBES_PROBE_API): %.dll: %.c $(HOTP_DLL_INC_DIR)/hotpatch_interface.h
 	$(CC) $(HOTP_DLL_CFLAGS) $(I)$(HOTP_DLL_INC_DIR) $(OUT)$*.obj $< > $*.clout 2>&1
 	$(LD) $(HOTP_DLL_LDFLAGS) $(DLLOUT)$@ $*.obj >> $*.clout 2>&1
-
-# For some weird reason make decides all .cfg files are intermediate and deletes
-# them after running that hotp test; not good for debugging failures, so make it
-# "my precious".
-.PRECIOUS : %-defs.cfg
-
-# TODO: generates hotp defs only for .exe for now; and only one patch point
-# TODO: for now all modes are set to protect; there is no way to specify 
-#       different modes for different patch points; well, we can specify 
-#       multiple patch points for now anyway :)
-%-defs.cfg: %.exe
-	@cd $(CURWD)/$(@D); $(CURWD)/hotp/bin/build-cfg.pl -target $(notdir $*).exe -ppoint `$(CURWD)/hotp/bin/get_ppoints.pl $(notdir $*).exe`
 
 ##################################################
 else # linux
@@ -770,7 +699,7 @@ $(PGMS_EXE_INTERFACE): %: %.c $(TOOLS)
     # preferred base address in the lower 2GB
     PREFERRED_BASE := 0x72000000
     LD_SCRIPT := ldscript
-    LD_USE_SCRIPT := -Xlinker -dT -Xlinker $(LD_SCRIPT)
+    LD_USE_SCRIPT := -Xlinker $(LD_SCRIPT_OPTION) -Xlinker $(LD_SCRIPT)
 $(LD_SCRIPT):
     # To set a preferred base address we tweak the default linker script
 	ld --verbose | grep -A 1000 SECTIONS | grep -B 1000 '^}' | \
@@ -866,13 +795,13 @@ ifeq ($(MACHINE), win32)
 TIMER_NATIVE     = $(DYNAMORIO_TOOLS)/winstats.exe $(TIMER_TIME) -silent
 DYNAMORIO_DLL := $(subst /,\\,$(shell $(CYGPATH) -m $(DYNAMORIO_DIR)/dynamorio.dll))
 TIMER_INJECTOR = export DYNAMORIO_OPTIONS='$(DR_OPS)'; \
-    $(DYNAMORIO_DIR)/drinject.exe $(TIMER_TIME) $(DYNAMORIO_DLL)
+    $(DYNAMORIO_BINDIR)/drinject.exe $(TIMER_TIME) $(DYNAMORIO_DLL)
 TIMER_API = export DYNAMORIO_OPTIONS='$(DR_OPS)'; \
-    $(DYNAMORIO_DIR)/drinject.exe $(TIMER_TIME) -noinject
+    $(DYNAMORIO_BINDIR)/drinject.exe $(TIMER_TIME) -noinject
 else
 TIMER_NATIVE     = $(DYNAMORIO_TOOLS)/runstats $(TIMER_TIME) -silent
 TIMER_INJECTOR   = $(DYNAMORIO_TOOLS)/runstats $(TIMER_TIME) -silent \
-   -env LD_LIBRARY_PATH '$(DYNAMORIO_DIR):$(LD_LIBRARY_PATH)' \
+   -env LD_LIBRARY_PATH '$(DYNAMORIO_DIR)/..:$(DYNAMORIO_DIR):$(LD_LIBRARY_PATH)' \
    -env LD_PRELOAD 'libdrpreload.so libdynamorio.so' \
    -env DYNAMORIO_OPTIONS '$(DR_OPS)'
 TIMER_API   = $(DYNAMORIO_TOOLS)/runstats $(TIMER_TIME) -silent \
@@ -890,7 +819,7 @@ $(DYNAMORIO_PREINJECT):
 		$(CP) $(DYNAMORIO_HOME)/lib32/drpreinject.dll .; \
 	else \
 		cd $(CURWD); $(MKDIR) -p $(PRELOAD_BUILD_DIR); \
-		$(CP) -r $(DYNAMORIO_HOME)/${CORE_DIRNAME} $(PRELOAD_BUILD_DIR)/; \
+		$(CP) -r $(DYNAMORIO_HOME)/../${CORE_DIRNAME} $(PRELOAD_BUILD_DIR)/; \
 		$(CP) -r $(DYNAMORIO_MAKE) $(PRELOAD_BUILD_DIR)/; \
 		$(RM) $(PRELOAD_BUILD_DIR)/${CORE_DIRNAME}/Makefile.mydefines; \
 		cd $(PRELOAD_BUILD_DIR)/${CORE_DIRNAME}; \
@@ -903,10 +832,7 @@ endif
 # we run API tests first as those are more easily broken
 run: runheader runinterface runapi runnointerface
 
-# runallbuthotp is used only as solution for PR 234043
-runallbuthotp: runheader runinterface runapi runbase runsecurity runrunall
-
-runnointerface: runbase runsecurity runrunall runhotp
+runnointerface: runbase runsecurity runrunall
 
 runnogui: runbase runsecurity runrunall-nogui
 
@@ -949,12 +875,6 @@ else
 runrunall:
 endif
 
-ifeq ($(MACHINE), win32)
-runhotp: reportbuild $(patsubst %,%.runhotp,$(PGMS_ROOT_HOTP))
-else
-runhotp:
-endif
-
 runheader:
 	@$(ECHO) "Disabled tests are -- ${DISABLED_ALL} --"
 
@@ -978,6 +898,10 @@ expect: $(patsubst %,%.runexpect,$(PGMS_ROOT_API)) \
         $(patsubst %,%.runexpect,$(PGMS_ROOT_SECURITY_OS))
 
 %.announce:
+ifeq ($(MACHINE), linux)
+	@(if ! test -e $(DYNAMORIO_TOOLS)/runstats; then \
+	  $(MAKE) -C $(DYNAMORIO_TOOLS) runstats; fi)
+endif
 	@(if ! test -e $(RESDIR); then $(MKDIR) $(RESDIR); fi)
 	@(if ! test -e $(RESDIR)/$(dir $*); then $(MKDIR) -p $(RESDIR)/$(dir $*); fi)
 	@(if ! test -e $$DYNAMORIO_LOGDIR; then $(MKDIR) -p $$DYNAMORIO_LOGDIR; fi)
@@ -985,7 +909,7 @@ expect: $(patsubst %,%.runexpect,$(PGMS_ROOT_API)) \
 	@$(ECHO)
 	@$(ECHO) ----- $* ----------------------
 
-.PHONY : %.runrunall $.runhotp
+.PHONY : %.runrunall 
 
 %.runrunall: $(DYNAMORIO_PREINJECT) %.announce %.expect
 ifeq ($(MACHINE), win32)
@@ -996,18 +920,6 @@ ifeq ($(MACHINE), win32)
 	@(if $(LS) $(CURWD)/$*.template > .trash 2>&1; then $(MV) $(CURWD)/$*.expect $(CURWD)/$*.expect.last; fi)
 else
 	@$(ECHO) "run all not supported on linux"
-endif
-
-# prepend to avoid -thin_client assert
-%.runhotp: DR_OPS := -hot_patching $(DR_OPS)
-%.runhotp: $(DYNAMORIO_PREINJECT) %.exe %.hotp.dll %-defs.cfg %.announce %.expect
-ifeq ($(MACHINE), win32)
-	@cd $(RESDIR); $(PERL) $(CURWD)/hotp/bin/run_test.pl $(DYNAMORIO_DIR)/dynamorio.dll "$(DR_OPS)" $(DYNAMORIO_DIR)/drinject.exe $(CURWD)/$*.exe > $*.out 2>&1; cd $(CURWD)
-	@if $(DIFF) -i $(CURWD)/$*.expect $(RESDIR)/$*.out; then $(ECHO) "PASS"; else $(ECHO) "FAIL"; fi
-	@$(ECHO)
-	@(if $(LS) $(CURWD)/$*.template > .trash 2>&1; then $(MV) $(CURWD)/$*.expect $(CURWD)/$*.expect.last; fi)
-else
-	@$(ECHO) "hot patching not supported on linux; well, not yet"
 endif
 
 ifeq ($(MACHINE), win32)
@@ -1097,7 +1009,7 @@ ifeq ($(MACHINE), win32)
 else
 %.runinjector: %.announce % %.expect
 # timer includes injector args
-	@cd $(RESDIR); $(TIMER_INJECTOR) $(CURWD)/$* > $*.out 2>&1; cd $(CURWD)
+	cd $(RESDIR); $(TIMER_INJECTOR) $(CURWD)/$* > $*.out 2>&1; cd $(CURWD)
 endif
 	@(if $(DIFF) $(CURWD)/$*.expect $(RESDIR)/$*.out; then $(ECHO) "PASS"; else $(ECHO) "FAIL"; fi)
 	@$(ECHO)

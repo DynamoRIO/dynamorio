@@ -38,7 +38,7 @@
 ### works best if you have symbols -- for DR dll, have pdb in same dir,
 ###   for OS set _NT_SYMBOL_PATH 
 ### sample usage:
-###   address_query.pl c:/builds/11087/exports/x86_win32_rel/dynamorio.dll 7004e660 77f830e7
+###   address_query.pl c:/builds/11087/exports/lib32/release/dynamorio.dll 7004e660 77f830e7
 ### it also accepts stdin or a file with -f <file>
 ###
 ### REQUIRES that DYNAMORIO_TOOLS is set and that it points to 

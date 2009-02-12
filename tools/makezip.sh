@@ -191,23 +191,23 @@ run_build () {
 
     make $target_config $1 $defines clean install
     if [ $linux -eq 1 ]; then
-        $CP ../exports/x${2}_linux_${3}/libdynamorio.so $base/$projname/$lib/$lib_sub
-        $CP ../exports/x${2}_linux_${3}/libdynamorio.so $base/symbols/$lib/$lib_sub
+        $CP ../exports/$lib/$lib_sub/libdynamorio.so $base/$projname/$lib/$lib_sub
+        $CP ../exports/$lib/$lib_sub/libdynamorio.so $base/symbols/$lib/$lib_sub
         if [ $3 == "rel" ]; then
-            $CP ../exports/x${2}_linux_${3}/libdrpreload.so $base/$projname/$lib
-            $CP ../exports/x${2}_linux_${3}/libdrpreload.so $base/symbols/$lib
+            $CP ../exports/$lib/$lib_sub/libdrpreload.so $base/$projname/$lib
+            $CP ../exports/$lib/$lib_sub/libdrpreload.so $base/symbols/$lib
         fi
-        $CP ../exports/x${2}_linux_${3}/*.h $base/include_test
+        $CP ../exports/include/*.h $base/include_test
     else
-        $CP ../exports/x${2}_win32_${3}/dynamorio.{dll,lib} $base/$projname/$lib/$lib_sub
-        $CP ../exports/x${2}_win32_${3}/dynamorio.{pdb,map} $base/symbols/$lib/$lib_sub
+        $CP ../exports/$lib/$lib_sub/dynamorio.{dll,lib} $base/$projname/$lib/$lib_sub
+        $CP ../exports/$lib/$lib_sub/dynamorio.{pdb,map} $base/symbols/$lib/$lib_sub
         if [ $3 == "rel" ]; then
-            $CP ../exports/x${2}_win32_${3}/{drpreinject,drearlyhelp1,drearlyhelp2}.dll $base/$projname/$lib
-            $CP ../exports/x${2}_win32_${3}/{drpreinject.{pdb,map},drearlyhelp1.{pdb,map},drearlyhelp2.{pdb,map}} $base/symbols/$lib
-            $CP ../exports/x${2}_win32_${3}/drinject.exe $base/$projname/bin/$bin
-            $CP ../exports/x${2}_win32_${3}/drinject.{pdb,map} $base/symbols/bin/$bin
+            $CP ../exports/$lib/{drpreinject,drearlyhelp1,drearlyhelp2}.dll $base/$projname/$lib
+            $CP ../exports/$lib/{drpreinject.{pdb,map},drearlyhelp1.{pdb,map},drearlyhelp2.{pdb,map}} $base/symbols/$lib
+            $CP ../exports/bin/$bin/drinject.exe $base/$projname/bin/$bin
+            $CP ../exports/bin/$bin/drinject.{pdb,map} $base/symbols/bin/$bin
         fi
-        $CP ../exports/x${2}_win32_${3}/*.h $base/include_test
+        $CP ../exports/include/*.h $base/include_test
     fi
 }
 

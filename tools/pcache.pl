@@ -91,11 +91,11 @@ unless (-f "$pfile" || -f "$pfile_win32") {
 if ($DRdll eq "") {
     $DRhome = $ENV{'DYNAMORIO_HOME'};
     if ($pfile =~ /-dbg/) {
-        $suffix = "dbg";
+        $suffix = "debug";
     } else {
-        $suffix = "rel";
+        $suffix = "release";
     }
-    $DRdll = "$DRhome/exports/x86_win32_$suffix/dynamorio.dll";
+    $DRdll = "$DRhome/exports/lib32/$suffix/dynamorio.dll";
 }
 $DRdllwin32 = &unixpath2win32($DRdll);
 # try both -- different perls like different paths

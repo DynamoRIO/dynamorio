@@ -98,7 +98,13 @@ ifeq ($(MACHINE), linux)
     # Naturally for multiple clients different addresses should be used.
     PREFERRED_BASE := 0x72000000
     LD_SCRIPT := ldscript
-    LD_USE_SCRIPT := -Xlinker -dT -Xlinker $(LD_SCRIPT)
+    # -dT is better when going through gcc but it requires ld 2.18+
+    ifeq ($(shell $(LD) -help | grep dT),)
+      LD_SCRIPT_OPTION := -T
+    else
+      LD_SCRIPT_OPTION := -dT
+    endif
+    LD_USE_SCRIPT := -Xlinker $(LD_SCRIPT_OPTION) -Xlinker $(LD_SCRIPT)
   else
     CFLAGS := -m32 $(DBG) $(D)LINUX
     LD_USE_SCRIPT :=

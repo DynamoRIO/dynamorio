@@ -2131,14 +2131,15 @@ set_fcache_target(dcontext_t *dcontext, cache_pc value)
  * FAULT TRANSLATION
  *
  * Current status:
- * After PR 214962 and PR 267260, we properly translate indirect branch
- * mangling and client modifications.
+ * After PR 214962, PR 267260, PR 263407, and PR 268372, we properly
+ * translate indirect branch mangling and client modifications.
  * FIXME: However, we still do not properly translate for:
  * - PR 267764: translate selfmod-mangled code
  * - PR 303413: properly translate native_exec and windows sysenter mangling faults
  * - PR 208037: flushed fragments (need -safe_translate_flushed)
  * - PR 213251: hot patch fragments (b/c nudge can change whether patched => 
  *     should store translations for all hot patch fragments) 
+ * - PR 372021: restore eflags if within window of ibl or trace-cmp eflags-are-dead 
  */
 
 typedef struct _translate_walk_t {

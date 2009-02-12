@@ -41,7 +41,7 @@
  *
  * To build:
  * 1) Build DR w/ CLIENT_INTERFACE=1
- * 2) cl winsysnums.c /I$DYNAMORIO_HOME/exports/x86_win32_dbg /link /libpath:$DYNAMORIO_HOME/exports/x86_win32_dbg dynamorio.lib imagehlp.lib
+ * 2) cl winsysnums.c /I$DYNAMORIO_HOME/include /link /libpath:$DYNAMORIO_HOME/lib32/debug dynamorio.lib imagehlp.lib
  *
  * To run, you need to put dynamorio.dll into either the current directory
  * or system32.

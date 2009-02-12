@@ -1,14 +1,41 @@
 # **********************************************************
-# Copyright 2008 VMware, Inc.  All rights reserved. -- VMware Confidential
+# Copyright (c) 2000-2009 VMware, Inc.  All rights reserved.
 # **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# 
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# 
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
 
 ###########################################################################
 ###########################################################################
 ###
 ### Top-level Makefile for building DynamoRIO
 ###
-### Default build is a GoVirtual release package.
+### Default build is all modules for one arch.
 ###
+### The "package" target builds a release package.
 ### The build directory is NOT automatically updated:
 ### the user should invoke as "make clean zip" (or just "make")
 ### in order to update an existing build directory.
@@ -16,15 +43,49 @@
 ### WARNING: do NOT include any shell-invoking values prior to
 ### the currently-under-cygwin test below!
 
-.PHONY: default zip clean dynamorio-all
+.PHONY: default package dynamorio-onearch clean dynamorio-package clean-package
 
-default: clean dynamorio-all
+default: dynamorio-onearch
+
+package: clean-package dynamorio-package
 
 # Only Windows shoud have the OS env var set
 ifeq ($(OS),)
   MACHINE := linux
 else
   MACHINE := win32
+endif
+
+ifndef ARCH
+# default is x86 instead of x64
+ARCH = x86
+endif
+
+# Makes all but samples for one arch
+# FIXME: figure out strategy for Windows w/o local cygwin: vs batch file
+# usage below for package target
+# FIXME: eliminate makezip.sh and move all its functionality here?
+# that would address PR 371733: makezip.sh should propagate errors 
+# FIXME PR 207890: re-enable USEDEP for core
+# FIXME: build INTERNAL=1 instead?
+# FIXME PR 209902: get core/Makefile supporting -jN and then parallelize
+# this target
+dynamorio-onearch:
+	$(MAKE) -C core ARCH=$(ARCH) DEBUG=1 INTERNAL=0 EXTERNAL_INJECTOR=1 
+	$(MAKE) -C core ARCH=$(ARCH) DEBUG=0 INTERNAL=0 EXTERNAL_INJECTOR=1 install
+	$(MAKE) -C api/docs
+ifeq ($(MACHINE), win32)
+	$(MAKE) -C libutil
+	$(MAKE) -C tools EXTERNAL_DRVIEW=1
+endif
+
+clean:
+# docs first to avoid error about no headers
+	$(MAKE) -C api/docs clean
+	$(MAKE) -C core clear
+ifeq ($(MACHINE), win32)
+	$(MAKE) -C libutil clean
+	$(MAKE) -C tools clean
 endif
 
 # build team provides these:
@@ -111,10 +172,10 @@ ifeq ($(MACHINE), win32)
   ifeq ($(LOCAL_CYGWIN),1)
     # Currently under cygwin: keep using that cygwin.
     # We assume all utilities are on the PATH.
-zip:
+dynamorio-package:
 	$(DYNAMORIO_TOOLS)/makezip.sh $(MAKEZIP_ARGS)
 
-clean:
+clean-package:
 	$(RM) -rf $(BUILD_ROOT) $(PUBLISH_DIR)
 
   else
@@ -125,13 +186,13 @@ clean:
       DYNAMORIO_BATCH := batch
     endif
 
-zip:
+dynamorio-package:
 	$(DYNAMORIO_BATCH)\makezip.bat $(MAKEZIP_ARGS)
 
     # For some reason I can't get direct invocation of rd to
     # work with toolchain make: it messes up its CreateProcess
     # invocation.
-clean:
+clean-package:
 	-$(DYNAMORIO_BATCH)\rmtree.bat $(subst /,\,$(BUILD_ROOT))
 	-$(DYNAMORIO_BATCH)\rmtree.bat $(subst /,\,$(PUBLISH_DIR))
 
@@ -143,28 +204,13 @@ else
   ifndef DYNAMORIO_MAKE
     DYNAMORIO_MAKE := make
   endif
-  # we need the x64 version of strip in order to operate on x64 libs
-  ARCH := x64
   include $(DYNAMORIO_MAKE)/compiler.mk
 
-  # Set up for scripts like makezip.sh and for auto-generated
-  # api/docs/latex/Makefile to use toolchain utils.
-  # For scripts we could set env vars whenever make invokes a script
-  #   TAR=$(TAR) PERL=$(PERL) ... <script>
-  # and then have the script explicitly invoke $TAR, but it's less work
-  # to set up the path (esp. for auto-gen latex/Makefile).
-  #
-  # PR 340793: this older doxygen doesn't quite match newer local
-  # doxygen, but it's close enough
-  #
-  PATH := $(BINUTILS)/$(BINPREFIX)-linux/bin:$(COREUTILS):$(TC_AWK):$(TC_DIFF):$(TC_GREP):$(TC_PERL):$(TC_SED):$(TC_XARGS):$(TC_DOXYGEN):$(TC_MOGRIFY):$(TC_FIG2DEV):$(TC_GS):$(TC_TETEX):$(TC_TAR):$(TC_GZIP):$(TC_ZIP):$(TC_MAKE):$(TC_FIND)
-
-zip:
+dynamorio-package:
 	$(DYNAMORIO_TOOLS)/makezip.sh $(MAKEZIP_ARGS)
 
-clean:
+clean-package:
 	$(RM) -rf $(BUILD_ROOT) $(PUBLISH_DIR)
 
 endif
 ##################################################
-dynamorio-all: zip

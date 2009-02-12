@@ -37,7 +37,7 @@ endif
 include $(DYNAMORIO_MAKE)/compiler.mk
 
 ifndef DYNAMORIO_HOME
-DYNAMORIO_HOME := ../..
+DYNAMORIO_HOME := ../../exports
 endif
 
 ifndef DYNAMORIO_LIBUTIL
@@ -45,59 +45,15 @@ DYNAMORIO_LIBUTIL := ../../libutil
 endif
 
 ifeq ($(MACHINE), linux)
-DYNAMORIO_DIR_BASE := $(DYNAMORIO_HOME)/exports/x86_$(MACHINE)_
+HEADER_DIR := $(DYNAMORIO_HOME)/include
 else
-DYNAMORIO_DIR_BASE := $(DYNAMORIO_HOME)/exports/x86_$(MACHINE)_
+HEADER_DIR := $(shell $(CYGPATH) -u $(DYNAMORIO_HOME)/include)
 endif
+HEADERS    := $(wildcard $(HEADER_DIR)/dr_*.h)
 
-# allow yes or 1 for DEBUG or INTERNAL
-USE_DEBUG=$(DEBUG)
-ifeq ($(DEBUG),yes)
-USE_DEBUG := 1
-endif
-USE_INTERNAL=$(INTERNAL)
-ifeq ($(INTERNAL),yes)
-USE_INTERNAL := 1
-endif
-
-INTERNAL_EXISTS := $(wildcard $(DYNAMORIO_DIR_BASE)intr/dr_api.h)
-RELEASE_EXISTS  := $(wildcard $(DYNAMORIO_DIR_BASE)rel/dr_api.h)
-DEBUG_EXISTS    := $(wildcard $(DYNAMORIO_DIR_BASE)dbg/dr_api.h)
-
-ifeq ($(USE_DEBUG),1)
-RELEASE_EXISTS  := ""
-INTERNAL_EXISTS := ""
-else
-ifeq ($(USE_INTERNAL),1)
-RELEASE_EXISTS  := ""
-DEBUG_EXISTS    := ""
-endif
-endif
-
-ifeq ($(RELEASE_EXISTS), $(DYNAMORIO_DIR_BASE)rel/dr_api.h)
-BUILD := rel
-else
-ifeq ($(INTERNAL_EXISTS), $(DYNAMORIO_DIR_BASE)intr/dr_api.h)
-BUILD := intr
-else
-ifeq ($(DEBUG_EXISTS), $(DYNAMORIO_DIR_BASE)dbg/dr_api.h)
-BUILD := dbg
-else
-$(error API header files do not exist)
-endif
-endif
-endif
-
-ifeq ($(MACHINE), linux)
-EXPORT_DIR := $(DYNAMORIO_DIR_BASE)$(BUILD)
-else
-EXPORT_DIR := $(shell $(CYGPATH) -u $(DYNAMORIO_DIR_BASE)$(BUILD))
-endif
-HEADERS    := $(wildcard $(EXPORT_DIR)/dr_*.h)
-
-# We need to escape EXPORT_DIR so we can pass it to sed.
+# We need to escape HEADER_DIR so we can pass it to sed.
 # Use sed to put in the escape characters.
-EXPORT_ESC := $(shell $(ECHO) "$(EXPORT_DIR)" | $(SED) 's/\./\\\./g')
+EXPORT_ESC := $(shell $(ECHO) "$(HEADER_DIR)" | $(SED) 's/\./\\\./g')
 EXPORT_ESC := $(shell $(ECHO) "$(EXPORT_ESC)" | $(SED) 's/\//\\\//g')
 EXPORT_SED := "s/\(INPUT[ \t]*=\)/\1 $(EXPORT_ESC)/g"
 
@@ -111,8 +67,8 @@ LIBUTIL_ESC := $(shell $(ECHO) "$(LIBUTIL_ESC)" | $(SED) 's/\//\\\//g')
 LIBUTIL_SED := "s/\(INPUT[ \t]*=\)/\1 $(LIBUTIL_ESC)/g"
 
 
-all: $(HEADERS) mkimages Doxyfile
-	@$(ECHO) "** Using headers in $(EXPORT_DIR) **"
+all: check_headers $(HEADERS) mkimages Doxyfile
+	@$(ECHO) "** Using headers in $(HEADER_DIR) **"
 ifdef VMSAFE
 	@$(ECHO) "Use the macro \\DynamoRIO to allow name substitution"
 # we don't do -i to allow function names and macros
@@ -154,6 +110,10 @@ endif
 # doxygen fails to copy image referenced only in footer.html
 	$(CP) images/favicon.png html/
 
+check_headers:
+	@(if ! test -e $(HEADER_DIR)/dr_api.h; then \
+	  echo ERROR: API header files do not exist; false; fi)
+
 pdf: all
 	-$(CP) images/vmware-logo-crop.png latex/vmware-logo.png
 	./fix-latex.pl
@@ -188,7 +148,7 @@ ifndef HEADER_DIR
 update_headers:
 	@$(ECHO) "must set HEADER_DIR variable"; false
 else
-update_headers:
+update_headers: check_headers
 # even w/ no extension given, my cygwin perl makes .bak files!
 	cd $(HEADER_DIR); \
 	  $(PERL) -pi -e 's|\bDynamoRIO\b|${VMSAFE_NAME}|g' *.h; \

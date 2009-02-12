@@ -39,9 +39,9 @@
 ###   0x710282fc 0x7102b25e 0x71035934 0x710299a5 31537
 ###   0x710282fc 0x7102826c 0x710283e3 0x710358f6 36271
 
-$usage = "Usage: $0 [-build [dbg|rel|intr|prof]] [-base <DRdllbase>] [-dll <DRdllpath>] <callproffile>\n";
+$usage = "Usage: $0 [-build [exports/ subdir for lib]] [-base <DRdllbase>] [-dll <DRdllpath>] <callproffile>\n";
 
-$bld = "dbg";
+$bld = "lib32/debug";
 $DR = $ENV{'DYNAMORIO_HOME'};
 $DRdll = "";
 $infile = "";
@@ -72,7 +72,7 @@ while ($#ARGV >= 0) {
 die $usage if ($infile eq "");
 
 if ($DRdll eq "") {
-    $DRdll = "$DR/exports/x86_win32_$bld/dynamorio.dll";
+    $DRdll = "$DR/exports/$bld/dynamorio.dll";
 }
 die "Cannot find $DRdll" unless (-f $DRdll);
 

@@ -153,7 +153,7 @@ function dtail {
 
 function diag2line { 
     dhome; 
-    grep -E 'Call stack|frame ptr|Unrecoverable' $1 | grep -B 50 'the application' | grep -v 'Call stack' | awk '{print $NF}' | xargs address_query.pl $DYNAMORIO_HOME/exports/x86_win32_dbg/dynamorio.dll; 
+    grep -E 'Call stack|frame ptr|Unrecoverable' $1 | grep -B 50 'the application' | grep -v 'Call stack' | awk '{print $NF}' | xargs address_query.pl $DYNAMORIO_HOME/exports/lib32/debug/dynamorio.dll; 
 }
 function diag2linelast { diag2line `ls -t1 ${DYNAMORIO_LOGDIR}/*.html | head -1`; }
 
@@ -170,24 +170,24 @@ function cvslatestr {
 
 function ldump { ldmp $1 `cygpath -w "${DYNAMORIO_TOOLS}/dummy.exe"`; }
 
-alias injector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/x86_win32_dbg/drinject.exe ${DYNAMORIO_HOME//\//\\\\}\\exports\\x86_win32_dbg\\dynamorio.dll'
-alias relinjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/x86_win32_rel/drinject.exe ${DYNAMORIO_HOME//\//\\\\}\\exports\\x86_win32_rel\\dynamorio.dll'
+alias injector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/lib32/debug/drinject.exe ${DYNAMORIO_HOME//\//\\\\}\\exports\\lib32/debug\\dynamorio.dll'
+alias relinjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/lib32/release/drinject.exe ${DYNAMORIO_HOME//\//\\\\}\\exports\\lib32/release\\dynamorio.dll'
 
 # match linux aliases
 alias rio=relinjector
 alias drio=injector
 
-alias meminjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/x86_win32_dbg/drinject.exe -mem ${DYNAMORIO_HOME//\//\\\\}\\exports\\x86_win32_dbg\\dynamorio.dll'
-alias memrelinjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/x86_win32_rel/drinject.exe -mem ${DYNAMORIO_HOME//\//\\\\}\\exports\\x86_win32_rel\\dynamorio.dll'
+alias meminjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/lib32/debug/drinject.exe -mem ${DYNAMORIO_HOME//\//\\\\}\\exports\\lib32/debug\\dynamorio.dll'
+alias memrelinjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/lib32/release/drinject.exe -mem ${DYNAMORIO_HOME//\//\\\\}\\exports\\lib32/release\\dynamorio.dll'
 
-alias straceops='usetree strace; useops -stats -loglevel 2 -logmask 0x1201f -stracelibname c:\\derek\\dr\\trees\\strace\\exports\\x86_win32_dbg\\stracedr.dll'
+alias straceops='usetree strace; useops -stats -loglevel 2 -logmask 0x1201f -stracelibname c:\\derek\\dr\\trees\\strace\\exports\\lib32/debug\\stracedr.dll'
 
-alias drsynch='\cp $DYNAMORIO_HOME/exports/x86_win32_dbg/dynamorio.* /c/Progra~1/Determina/SecureCore/lib/debug; chmod ogu+rwx /c/Progra~1/Determina/SecureCore/lib/debug/dynamorio.dll'
-alias drrelsynch='\cp $DYNAMORIO_HOME/exports/x86_win32_rel/dynamorio.* /c/Progra~1/Determina/SecureCore/lib/release; chmod ogu+rwx /c/Progra~1/Determina/SecureCore/lib/release/dynamorio.dll'
+alias drsynch='\cp $DYNAMORIO_HOME/exports/lib32/debug/dynamorio.* /c/Progra~1/Determina/SecureCore/lib/debug; chmod ogu+rwx /c/Progra~1/Determina/SecureCore/lib/debug/dynamorio.dll'
+alias drrelsynch='\cp $DYNAMORIO_HOME/exports/lib32/release/dynamorio.* /c/Progra~1/Determina/SecureCore/lib/release; chmod ogu+rwx /c/Progra~1/Determina/SecureCore/lib/release/dynamorio.dll'
 
 function setkey {
     if [ -z $2 ]; then
-        debug="dbg";
+        debug="debug";
     else
         debug=$2;
     fi
@@ -196,7 +196,7 @@ function setkey {
         net stop scnodemgr;
         svccntrl scnodemgr -manual;
     fi
-    drcontrol -app $1 -drlib `cygpath -w "${DYNAMORIO_HOME}/exports/x86_win32_${debug}/dynamorio.dll"`;
+    drcontrol -app $1 -drlib `cygpath -w "${DYNAMORIO_HOME}/exports/lib32/${debug}/dynamorio.dll"`;
     drcontrol -app $1 -logdir `cygpath -w ${DYNAMORIO_LOGDIR}`;
     drcontrol -app $1 -options "${DYNAMORIO_OPTIONS}";
     # avoid double entries -- assume not testing compat w/ AppInit
@@ -214,7 +214,7 @@ function setkey {
 
 function resetreg {
     if [ -z $1 ]; then
-        debug="dbg";
+        debug="debug";
     else
         debug=$1;
     fi
@@ -224,7 +224,7 @@ function resetreg {
         svccntrl scnodemgr -manual;
     fi
     # may as well set global key though we're setting every app key below
-    drcontrol -drlib `cygpath -w "${DYNAMORIO_HOME}/exports/x86_win32_${debug}/dynamorio.dll"`;
+    drcontrol -drlib `cygpath -w "${DYNAMORIO_HOME}/exports/lib32/${debug}/dynamorio.dll"`;
     drcontrol -logdir `cygpath -w ${DYNAMORIO_LOGDIR}`;
     drcontrol -options "${DYNAMORIO_OPTIONS}";
     # drcontrol -load not implemented, and no way to remove a string value,
@@ -232,7 +232,7 @@ function resetreg {
     # rununder values, or set the values we want for each app, which is a pain
     # to edit manually later but oh well:
     for app in `drcontrol -dump | grep Group | awk '{print $NF}'`; do
-        drcontrol -app $app -drlib `cygpath -w "${DYNAMORIO_HOME}/exports/x86_win32_${debug}/dynamorio.dll"`;
+        drcontrol -app $app -drlib `cygpath -w "${DYNAMORIO_HOME}/exports/lib32/${debug}/dynamorio.dll"`;
         drcontrol -app $app -logdir `cygpath -w ${DYNAMORIO_LOGDIR}`;
         drcontrol -app $app -options "${DYNAMORIO_OPTIONS}";
     done;

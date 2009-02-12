@@ -80,38 +80,43 @@ EXE_SFX =.exe
 LIB_NAME =dynamorio.dll
 endif
 
+ifndef DYNAMORIO_HOME
+DYNAMORIO_HOME := ../../exports
+endif
+
 # use release build if it exists, unless DEBUG=yes
-ifeq ($(MACHINE), linux)
-DYNAMORIO_DIR_BASE = $(DYNAMORIO_HOME)/exports/x86_linux_
-DYNAMORIO_BUILD_DIR_BASE = $(DYNAMORIO_HOME)/build/x86_linux_
+DYNAMORIO_DIR_BASE :=$(DYNAMORIO_HOME)
+ifeq ($(ARCH), x64)
+  LIB_SUBDIR :=lib64
+  ARCH_FLAGS := $(D)X86_64
 else
-DYNAMORIO_DIR_BASE = $(DYNAMORIO_HOME)/exports/x86_win32_
-DYNAMORIO_BUILD_DIR_BASE = $(DYNAMORIO_HOME)/build/x86_win32_
+  LIB_SUBDIR :=lib32
+  ARCH_FLAGS := $(D)X86_32
 endif
 
 # allow yes or 1 for DEBUG
 ifeq ($(DEBUG),yes)
-RELEASE_EXISTS=""
+RELEASE_EXISTS:=""
 else
 ifeq ($(DEBUG),1)
-RELEASE_EXISTS=""
+RELEASE_EXISTS:=""
 else
-RELEASE_EXISTS=$(wildcard $(DYNAMORIO_DIR_BASE)rel)
+RELEASE_EXISTS:=$(wildcard $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/release)
 endif
 endif
 
-ifeq ($(RELEASE_EXISTS), $(DYNAMORIO_DIR_BASE)rel)
-DYNAMORIO_DIR = $(DYNAMORIO_DIR_BASE)rel
-DYNAMORIO_BUILD_DIR = $(DYNAMORIO_BUILD_DIR_BASE)rel
+ifeq ($(RELEASE_EXISTS), $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/release)
+DYNAMORIO_DIR := $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/release
 else
-DYNAMORIO_DIR = $(DYNAMORIO_DIR_BASE)dbg
-DYNAMORIO_BUILD_DIR = $(DYNAMORIO_BUILD_DIR_BASE)dbg
+DYNAMORIO_DIR := $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/debug
 endif
+
+DYNAMORIO_INCDIR := $(DYNAMORIO_DIR_BASE)/include
 
 ifeq ($(MACHINE), linux)
-DYNAMORIO_INC = $(I)$(DYNAMORIO_DIR) 
+DYNAMORIO_INC = $(I)$(DYNAMORIO_INCDIR)
 else
-DYNAMORIO_INC = $(I)$(subst /,\\,$(shell cygpath -m ${DYNAMORIO_DIR})) $(MSINCLUDE)
+DYNAMORIO_INC = $(I)$(subst /,\\,$(shell cygpath -m ${DYNAMORIO_INCDIR})) $(MSINCLUDE)
 DYNAMORIO_LIBDIR = $(subst /,\\,$(shell cygpath -m ${DYNAMORIO_DIR})) $(MSLIB)
 endif
 
@@ -125,7 +130,7 @@ else
 CC_BASE += $(D)LINUX
 endif
 
-CC_BASE_DYNAMORIO = $(CC_BASE) $(DYNAMORIO_INC) $(D)DYNAMO $(D)X86
+CC_BASE_DYNAMORIO = $(CC_BASE) $(DYNAMORIO_INC) $(D)DYNAMO $(ARCH_FLAGS)
 
 ifeq ($(MACHINE), linux)
 LINK = -lm
@@ -141,10 +146,9 @@ LINK_DYNAMORIO = $(L)$(DYNAMORIO_LIBDIR) $(WINLIBS) dynamorio.lib /subsystem:con
 endif
 
 ifeq ($(MACHINE), linux)
-# FIXME: re-enable signal tests when have time to fix core signal bugs
-SRCS := tracedump.c
+SRCS := 
 else
-SRCS := tracedump.c module_rsrc.c winsysnums.c vista_hash.c
+SRCS := module_rsrc.c winsysnums.c vista_hash.c
 endif
 
 PGMS := $(patsubst %.c,%$(EXE_SFX),$(SRCS))

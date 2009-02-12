@@ -380,7 +380,7 @@ must_not_be_elided(app_pc pc)
 /* This function allows automatically injected dynamo to ignore
  * dynamo API routines that would really mess things up
  */
-inline bool
+static inline bool
 must_escape_from(app_pc pc)
 {
     /* if ever find ourselves at top of one of these, immediately issue

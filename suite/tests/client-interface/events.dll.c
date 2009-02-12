@@ -36,6 +36,9 @@
  */
 
 #include "dr_api.h"
+#ifdef LINUX
+# include <signal.h>
+#endif
 
 static
 void exit_event1(void)

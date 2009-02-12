@@ -80,7 +80,7 @@ export DYNAMORIO_LOGDIR=${COLONHOME}/dr/logs-nightly
 export DYNAMORIO_TOOLS=${COLONHOME}/dr/tools
 export DYNAMORIO_DESKTOP=${COLONHOME}/dr/benchmarks/desktop
 
-alias meminjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/x86_win32_dbg/drinject.exe -mem -stats ${DYNAMORIO_HOME//\//\\\\}\\exports\\x86_win32_dbg\\dynamorio.dll'
+alias meminjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/bin32/drinject.exe -mem -stats ${DYNAMORIO_HOME//\//\\\\}\\exports\\lib32\\debug\\dynamorio.dll'
 
 cd ${DYNAMORIO_HOME}/src
 make clear
