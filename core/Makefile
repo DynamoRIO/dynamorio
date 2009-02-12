@@ -577,7 +577,7 @@ endif
 endif
 
 # Processing for custom builds
-include Makefile.custom_build
+include ../Makefile.custom_build
 
 ifneq ($(CUSTOM_PRODUCT_NAME),)
   GEN_DEFINES += $(D)CUSTOM_PRODUCT_NAME=$(CUSTOM_PRODUCT_NAME)
@@ -1074,8 +1074,7 @@ GENAPI = lib/genapi.pl
 .PHONY:: all builddir help tags clear clean exports unexport zap html ugly pretty_ugly \
 	really_ugly compare-defines clean-mark buildmark buildnum injector preload \
 	early_inject_helper install dynamorio usedep_defines depend clients symbols \
-	diff diffcheck diffemail diffclean diffnotes diffskel diffprep diffsend \
-	commit runregression specupdate api_headers
+	runregression specupdate api_headers
 
 ###########################################################################
 ## Unit tests have all objs except for the current unit tested file
@@ -1771,174 +1770,6 @@ symbols:
 	else { print "\nWarning: no dynamorio.dll seems to have been added!\n"; }'
 
 endif # win32
-
-###########################################################################
-# diff automation
-#
-# usage: prepare a notes file with any comments for the email after a line
-# beginning "toemail", and point to it w/ NOTES=
-#
-# example: make REVIEWER=derek DIFFNUM=2 NOTES=msg diffsend
-# to give better diff base name use CUR_TREE=
-
-DIFF_DIR=..
-# name is picked by current tree name as set above
-
-# default for notes location
-NOTES=$(DIFF_DIR)/diff.notes
-
-DIFFNUM=1
-# specify this if want to add case number or something
-DIFF_PREFIX=
-DIFF_NAME=$(DIFF_PREFIX)$(CUR_TREE)-$(DIFFNUM)
-DIFF_DIFF=$(DIFF_DIR)/$(DIFF_NAME).diff
-DIFF_NOTES=$(DIFF_DIR)/$(DIFF_NAME).notes
-DIFFEMAIL=$(DIFF_DIR)/$(DIFF_NAME).email
-# will have machine name appended to it:
-REGRESSION=$(DIFF_DIR)/$(DIFF_NAME).regr
-
-# obtain remote host from $CVSROOT
-# we don't want to hardcode the cvsroot path so we instead
-# remove the trailing /... in $CVSROOT
-REVIEW_DIR=~/review
-# there's no clean way to do this w/o invoking shell: we split off abs path
-# (yes we assume it's an abs path) from machine: (if there is one), kill the
-# whole abs path, re-add the : (if needed), and then append the review path.
-
-ifeq ($(USECVS), 1)
-REMOTE_DIR=$(patsubst %,%:,$(patsubst /%,,$(subst :, ,$(subst :ext:,,$(CVSROOT)))))$(REVIEW_DIR)
-REMOTE_HOST=$(subst :,,$(subst $(REVIEW_DIR),,$(REMOTE_DIR)))
-else
-# without CVS this is used for storing review comments AS well as a sendmail proxy
-REVIEW_HOST=determina-cvs.eng.vmware.com
-# FQDN for VPN users, no localhost users expected
-REMOTE_HOST=${USER}@$(REVIEW_HOST)
-
-# used for reviews, currently target of scp, FIXME: should change to point to local mount of home share
-REMOTE_DIR=$(REMOTE_HOST):$(REVIEW_DIR)
-endif
-
-REVIEWER=
-REVIEWER_MAIL=$(REVIEWER)@vmware.com
-# only allow reviewers in the dev list
-REVIEWER_CHECK=$(filter ${REVIEWER},${DEVELOPERS})
-CARBON_COPY=dynamorio@vmware.com
-
-# cvs diff -c -p -N
-# FIXME: p4 DIFF doesn't show new files (-N) and doesn't support function info (-p)
-# We get around this by using P4DIFF env. variable to tell p4 to use plain diff.
-# For p4 built-in diff
-#   -dc -dp or -dcp => diff -c (eqv.)
-#   -dp -dc or -dpc => diff    (eqv.)
-# For P4DIFF=diff,ok should there be any difference in the two cases below, the manual
-# is unclear and disagrees slightly with p4 help diff, also unclear... so experimentally
-#   -dc -dp => diff -c
-#   -dp -dc or -dpc or -dcp => diff -c -p
-# Going with -dcp which should work for either diff tool.
-# FIXME: -db -dl may be ok too if perforce handles these better than CVS
-# FIXME: should perhaps just back in the options we want to the P4DIFF def below
-# FIXME: if we move to p5 we can get diffs for new files too, xref case 225545
-DIFF_OPTIONS=-dcp
-
-COMMIT_SCRIPT=${DYNAMORIO_TOOLS}/commitmsg.pl
-
-$(DIFF_DIFF): $(C_SRCS) Makefile 
-	export P4DIFF=diff; $(P4) diff $(DIFF_OPTIONS) > $@ || true
-# p4 doesn't diff added or deleted files. So we add those in manually. Xref PR 225545.
-# show deleted files: Note - uses 'p4 annotate' to display the contents of the file.
-	for i in `$(P4) opened | $(AWK) '/ - delete.*text/ {print $$1}'`; do \
-	  $(ECHO) $$i | $(AWK) '{printf "==== %s - Removing ====\n*** %s\n--- /dev/null\n***************\n",$$1,$$1 >> "$@"}'; \
-	  $(P4) annotate -q $$i | $(SED) 's|^[0-9]*: |- |' >> $@; \
-	done || true
-	$(P4) opened | $(AWK) '/ - delete.*binary/ {printf "==== %s - Removing ====\n*** %s\n--- /dev/null\n***************[Binary]\n",$$1,$$1}' >> $@ || true
-# show added files: Note - the sed \\ to \\\\ is for windows p4 (which gives a
-#                   windows path which needs escaping); the first sed strips off the
-#                   revision number which 'p4 where' chokes on.
-	for i in `$(P4) opened | $(AWK) '/ - add.*text/ {print $$1}' | $(SED) 's|#[0-9]*$$||'`; do \
-	  $(P4) where $$i | $(AWK) '{printf "==== %s#NEW - %s ====\n*** /dev/null\n--- %s\n***************\n",$$1,$$3,$$3 >> "$@"; print $$3}' | \
-	  $(SED) 's|\\|\\\\|g' | $(XARGS) $(CAT) | $(SED) 's|^|+ |' >> $@; \
-	done || true
-	$(P4) opened | $(AWK) '/ - add.*binary/ {print $$1}' | $(SED) 's|#[0-9]*$$||' | $(XARGS) --no-run-if-empty $(P4) where | $(AWK) '{printf "==== %s#NEW - %s ====\n*** /dev/null\n--- %s\n***************[Binary]\n",$$1,$$3,$$3}' >> $@ || true
-# inline comments for a regular patch diff should be the norm for now
-# FIXME: we should also produce web diffs for quick reviews
-
-$(DIFFEMAIL):
-	@(if [ -z $(REVIEWER) ]; then $(ECHO) "must set REVIEWER="; false; fi)
-	@(if [ -z $(REVIEWER_CHECK) ]; then $(ECHO) "must set REVIEWER to one of $(DEVELOPERS)"; false; fi)
-	@$(ECHO) "From: $(USER)@vmware.com" > $@
-	@$(ECHO) "To: $(REVIEWER_MAIL)" >> $@
-	@$(ECHO) "Cc: $(CARBON_COPY)" >> $@
-	@$(ECHO) "Subject: [cr] $(DIFF_NAME)" >> $@
-	@$(ECHO) "" >> $@
-	@$(ECHO) "$(REMOTE_DIR)/$(DIFF_NAME).{diff,notes}" >> $@
-	@$(ECHO) "" >> $@
-	@$(GREP) '^toemail' $(DIFF_NOTES) || ($(ECHO) "missing toemail marker"; false)
-	@$(GREP) -A 50000 '^toemail' $(DIFF_NOTES) | $(GREP) -v toemail >> $@
-	@$(ECHO) "" >> $@
-	@$(ECHO) "----------------------------------------" >> $@
-	@-diffstat -f 1 $(DIFF_DIFF) >> $@
-	@LINES=`$(WC) -l $(DIFF_DIFF)|$(CUT) -f 1 -d ' '`; $(ECHO) $$LINES diff lines >> $@; $(ECHO) Requires $$[($$LINES+500)/500] reviewers unless $(REVIEWER) overrides >> $@
-	@$(ECHO) "This email was generated automatically by $(USER) at `date`" >> $@
-	@$(ECHO) "" >> $@
-	@$(ECHO) Review before sending email
-	$(CAT) $(DIFFEMAIL)
-
-diff: $(DIFF_DIFF)
-
-# FIXME - eventually depend on "runregression" and check its output for failed tests
-diffcheck: ${DIFF_DIFF} diffnotes
-# FIXME: new files fail here
-	@($(GREP) -c '^==== //' ${DIFF_DIFF}; $(GREP) -c '^\.$$' ${DIFF_NOTES}) | $(XARGS) | $(AWK) '{if ($$1 != $$2) { print "ERROR: "$$1" changed files != "$$2" notes entries"; exit -1}}'
-# runregression checks for make ugly failures this way, FIXME - we could use
-# exit $$[1-$$?] after each of the grep rules in ugly: and just use a dependency here
-# instead, however we'd have to stop using - to ignore failures in ugly: which would
-# make it less usefull 
-	$(MAKE) -s ugly | $(GREP) -v '^$(UGLY_RULE_HEADER)'; exit $$[1-$$?]
-
-diffemail: diffnotes $(DIFFEMAIL)
-
-diffclean: 
-	-$(RM) $(DIFF_DIR)/$(DIFF_NAME).{diff,notes,email,regr}*
-
-diffnotes: $(NOTES)
-	@(if test -e $(DIFF_NOTES); then $(ECHO) Already copied. Update DIFFNUM=$$[$(DIFFNUM)+1]; false; fi)
-	$(CP) $(NOTES) $(DIFF_NOTES)
-
-# no clean rule for $(NOTES), must remove manually
-diffskel: 
-	@(if test -e $(NOTES); then $(ECHO) "Will not clobber existing $(NOTES)"; false; fi)
-# note need to this for any new files or for deleted file that will not show up in p4 diff
-	$(P4) -s opened | $(GREP) -v exit: | $(GREP) -v " - edit" | $(AWK) '{printf "%s:\n %s\n.\n",$$2,$$4}' > $(NOTES)
-# FIXME: we should show to user anything other than info: from p4 -s output
-# FIXME: need to be converted to a cleaner format without //depot nor local path files
-# but we mostly care about actual diffs
-	$(P4) -s diff -sa | $(GREP) -v exit: | $(AWK) '{printf "%s:\n\n.\n",$$2}' >> $(NOTES)
-	$(PERL) -e 'printf "===========================================================================\ntoemail:\n<general notes here>\n"' >> $(NOTES)
-
-diffprep: diffnotes $(DIFF_DIFF) $(DIFFEMAIL)
-# FIXME: eventually require regression results before sending out diff?
-	@(r=`$(ECHO) ${REGRESSION}*`; if test -e $${r%% *}; then $(CHMOD) g+r ${REGRESSION}*; scp -q ${REGRESSION}* $(REMOTE_DIR); else $(ECHO) "WARNING: No regression results found!"; fi)
-	$(CHMOD) g+r $(DIFF_DIR)/$(DIFF_NAME).{diff,notes,email}
-# sanity check: don't copy diffs into the repo
-	@(if [ ${REMOTE_DIR} == ${CVSROOT} ]; then $(ECHO) "Bad review dir ${REMOTE_DIR}: check your CVSROOT" && false; fi)
-	scp -q $(DIFF_DIR)/$(DIFF_NAME).{diff,notes,email} $(REMOTE_DIR) 
-	@$(ECHO) [cr] $(DIFF_NAME)
-
-EMAIL_COMMAND=/usr/sbin/sendmail $(REVIEWER_MAIL) $(CARBON_COPY) < $(REVIEW_DIR)/$(DIFF_NAME).email
-diffsend: diffprep
-	@(if [ -z $(REMOTE_HOST) ]; then $(EMAIL_COMMAND); else ssh $(REMOTE_HOST) "$(EMAIL_COMMAND)"; fi)
-	@touch $(DIFF_DIR)/$(DIFF_NAME).$(REVIEWER_MAIL)
-	@$(ECHO) Mail sent
-
-
-# FIXME: make an official copy of the final diff, notes, and response comments
-# from previous diffs -- have <shareddir>/review/<user>/<tree>.{response,rebuttal}?
-commit: diffnotes diffcheck
-#FIXME: commitmsg.pl not supported
-# ${COMMIT_SCRIPT} ${DIFF_NOTES}
-	@$(ECHO) RTFM:  p4 change; p4 submit
-	$(P4) help simple
-
 
 ##################################################
 # Support for running regression suite 

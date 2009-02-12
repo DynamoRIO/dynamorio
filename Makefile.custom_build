@@ -37,41 +37,41 @@
 # YY defaults to 1st 2 letters of CUR_TREE, unless CASENUM is defined,
 # in which case it is the last 2 letters of CASENUM (all % 10 of course)
 
-DEVELOPERS=dbruenin vkirians tgarnett slarsen bchandra
+DEVELOPERS := derek.bruening qin.zhao
 ifeq ($(strip ${USER}),)
 # USER is set on unix, USERNAME on windows -- in this makefile we use USER
-USER=${USERNAME}
+USER := ${USERNAME}
 endif
 
 ifndef BUILD_NUMBER
 # schemes like 1st letter, uid, etc. can be concocted but not easy to avoid
 # collisions so we just have a list
-DEVELOPER_NUMS=1 2 3 4 5 6 7 8 9
-DEVNUM=$(foreach num,${DEVELOPER_NUMS},\
+DEVELOPER_NUMS := 1 2 3 4 5 6 7 8 9
+DEVNUM := $(foreach num,${DEVELOPER_NUMS},\
     $(if $(findstring ${USER},$(word ${num},${DEVELOPERS})), ${num}))
 ifeq (${strip ${DEVNUM}},)
 # unknown developer gets 0
-DEVNUM=0 
+DEVNUM := 0 
 endif
 
-CUR_FULL=$(shell cd ..$(CUR_FULL_ADD); $(ECHO) $$PWD)
-CUR_TREE=$(notdir ${CUR_FULL})
+CUR_FULL := $(shell cd ..$(CUR_FULL_ADD); $(ECHO) $$PWD)
+CUR_TREE := $(notdir ${CUR_FULL})
 ifeq ($(strip ${CASENUM}),)
 # convert 1st two chars in tree name to numbers where a=0, b=1, etc.
 # I had it as the more familiar a=1, b=2 but then numbers get 1 added to
 # them and it gets confusing.
-TREENUM=$(shell x=${CUR_TREE}; for ((i=0; i<2; i++)); do \
+TREENUM := $(shell x=${CUR_TREE}; for ((i=0; i<2; i++)); do \
           $(ECHO) $$((36\#$${x:$$i:1} % 10)); done) 
 else
 # take last 2 chars of CASENUM, converted to digits as above
-TREENUM=$(shell x=${CASENUM}; for ((i=2; i>0; i--)); do \
+TREENUM := $(shell x=${CASENUM}; for ((i=2; i>0; i--)); do \
           $(ECHO) $$((36\#$${x:$$((-$$i)):1} % 10)); done) 
 # FIXME: auto-create tree name for diffs by adding CASENUM to CUR_TREE?
 endif
-BUILD_NUMBER_SPACES=9${DEVNUM}${TREENUM}${DIFFNUM}
+BUILD_NUMBER_SPACES := 9${DEVNUM}${TREENUM}${DIFFNUM}
 # seems to be no make function for removing spaces so we invoke shell for sed
-BUILD_NUMBER=$(shell $(ECHO) ${BUILD_NUMBER_SPACES} | $(SED) 's/ //g')
-RESOURCE_DEFINES = $(D)PRIVATE_BUILD $(D)PRERELEASE_BUILD $(D)PRIVATE_BUILD_DESC="\"$(USER) DIFFNUM=$(DIFFNUM) $(CUR_FULL)\""
+BUILD_NUMBER := $(shell $(ECHO) ${BUILD_NUMBER_SPACES} | $(SED) 's/ //g')
+RESOURCE_DEFINES := $(D)PRIVATE_BUILD $(D)PRERELEASE_BUILD $(D)PRIVATE_BUILD_DESC="\"$(USER) DIFFNUM=$(DIFFNUM) $(CUR_FULL)\""
 endif # BUILD_NUMBER
 
 ifdef SPECIAL_BUILD

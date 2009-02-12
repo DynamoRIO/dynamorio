@@ -43,7 +43,9 @@
 ### WARNING: do NOT include any shell-invoking values prior to
 ### the currently-under-cygwin test below!
 
-.PHONY: default package dynamorio-onearch clean dynamorio-package clean-package
+.PHONY: default package dynamorio-onearch clean dynamorio-package clean-package \
+	diffdir diff diffcheck diffclean notesclean reviewclean \
+        diffnotes diffprep review
 
 default: dynamorio-onearch
 
@@ -214,3 +216,108 @@ clean-package:
 
 endif
 ##################################################
+
+
+# Processing for custom builds
+include Makefile.custom_build
+
+###########################################################################
+# code review automation
+#
+# see the wiki for full discussion of our code review process.
+# to summarize: reviewer commits to /reviews/<user>/<year>/i###-descr.diff
+#   with a commit log that auto-opens an Issue
+#
+# usage: prepare a notes file with comments for the reviewer after a line
+# beginning "toreview:", and point to it w/ NOTES= (deafult is ./diff.notes)
+#
+# example:
+#   make USER=derek.bruening CUR_TREE=i4-make-review REVIEWER=qin.zhao review
+# use the "diffprep" target to view prior to committing
+# use "reviewclean" to abort
+
+DYNAMORIO_REVIEWS := ../reviews
+YEAR := $(shell $(DATE) +%Y)
+DIFF_DIR := $(DYNAMORIO_REVIEWS)/$(USER)/$(YEAR)
+
+# name is picked by current tree name as set above
+
+# default for notes location
+# these notes become the commit log for the diff
+NOTES := diff.notes
+
+# specify this if want to add case number or something
+DIFF_PREFIX := 
+DIFF_NAME := $(DIFF_PREFIX)$(CUR_TREE)
+DIFF_DIFF := $(DIFF_DIR)/$(DIFF_NAME).diff
+DIFF_NOTES := $(DIFF_DIR)/$(DIFF_NAME).notes
+# will have machine name appended to it:
+REGRESSION := $(DIFF_DIR)/$(DIFF_NAME).regr
+
+REVIEWER := 
+# only allow reviewers in the dev list
+REVIEWER_CHECK := $(filter ${REVIEWER},${DEVELOPERS})
+
+# We want context diffs with procedure names for better readability
+# svn diff does show new files for us but we pass -N just in case
+DIFF_OPTIONS := --diff-cmd diff -x "-c -p -N"
+
+diffdir:
+	@(cd $(DYNAMORIO_REVIEWS); \
+	  if ! test -e $(USER); then $(SVN) mkdir $(USER); fi; \
+	  if ! test -e $(USER)/$(YEAR); then $(SVN) mkdir $(USER)/$(YEAR); fi)
+
+# We commit the diff to review/ using special syntax to auto-generate
+# an Issue that covers performing the review
+$(DIFF_DIFF): diffdir $(C_SRCS) Makefile 
+	@(if ! test -e $@; then cd $(DYNAMORIO_REVIEWS); touch $@; $(SVN) add $@; fi)
+	$(SVN) diff $(DIFF_OPTIONS) > $@
+
+diffclean: 
+	-cd $(DYNAMORIO_REVIEWS); $(SVN) revert $(DIFF_DIFF)
+
+notesclean: 
+	-cd $(DYNAMORIO_REVIEWS); $(SVN) revert $(DIFF_NOTES)
+
+reviewclean: diffclean notesclean
+
+# inline comments for a regular patch diff should be the norm for now
+# FIXME: we should also produce web diffs for quick reviews
+# FIXME: xref discussion on using Google Code's post-commit review options
+
+diff: $(DIFF_DIFF)
+
+diffnotes: $(DIFF_NOTES)
+
+# anything after the line "toreview:" from $(NOTES) is added to the commit log
+$(DIFF_NOTES): $(NOTES) $(DIFF_DIFF)
+	@(if ! test -e $@; then cd $(DYNAMORIO_REVIEWS); touch $@; $(SVN) add $@; fi)
+	@$(ECHO) "new review:" > $@
+	@$(ECHO) "owner: $(REVIEWER)" >> $@
+	@$(ECHO) "summary: $(USER)/$(YEAR)/$(DIFF_NAME)" >> $@
+	@$(GREP) -q '^toreview' $(NOTES) || ($(ECHO) "missing toreview marker"; false)
+	@$(SED) '1,/^toreview:$$/d' < $(NOTES) >> $@
+	@$(ECHO) -e "\nstats:" >> $@
+	@LINES=`$(WC) -l $(DIFF_DIFF)|$(CUT) -f 1 -d ' '`; $(ECHO) $$LINES diff lines >> $@
+	@-diffstat -f 1 $(DIFF_DIFF) >> $@
+	@$(ECHO) created $@
+
+# FIXME - eventually depend on "runregression" and check its output for failed tests
+diffcheck: ${DIFF_DIFF}
+# runregression checks for make ugly failures this way, FIXME - we could use
+# exit $$[1-$$?] after each of the grep rules in ugly: and just use a dependency here
+# instead, however we'd have to stop using - to ignore failures in ugly: which would
+# make it less usefull 
+	$(MAKE) -C core -s ugly | $(GREP) -v '^$(UGLY_RULE_HEADER)'; exit $$[1-$$?]
+
+diffprep: $(DIFF_DIFF) $(DIFF_NOTES)
+	@(if [ -z $(REVIEWER) ]; then $(ECHO) "must set REVIEWER="; false; fi)
+	@(if [ -z $(REVIEWER_CHECK) ]; then $(ECHO) "must set REVIEWER to one of $(DEVELOPERS)"; false; fi)
+# we don't do a full diffcheck since it's ok to send incremental unfinished diffs
+	-$(MAKE) -C core -s ugly
+# FIXME: eventually require regression results before sending out diff?
+	@(r=`$(ECHO) ${REGRESSION}*`; if test -e $${r%% *}; then $(CHMOD) g+r ${REGRESSION}*; scp -q ${REGRESSION}* $(REMOTE_DIR); else $(ECHO) "WARNING: No regression results found!"; fi)
+
+review: diffprep
+	@(cd $(DYNAMORIO_REVIEWS); $(SVN) commit --force-log -F $(DIFF_NOTES))
+
