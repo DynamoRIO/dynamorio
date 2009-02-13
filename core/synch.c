@@ -508,7 +508,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
     app_pc pc;
-    byte cxt[CONTEXT_HEAP_SIZE_OPAQUE];
+    byte cxt[MAX(CONTEXT_HEAP_SIZE_OPAQUE, sizeof(dr_mcontext_t))];
     bool set_context = false;
     bool set_mcontext = false;
     if (tsd->pending_synch_count == 0 || cur_state == THREAD_SYNCH_NONE) 

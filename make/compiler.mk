@@ -92,6 +92,33 @@ else
   MACHINE := win32
 endif
 
+# Paths
+ifndef ARCH
+  # default is x86 instead of x64
+  ARCH := x86
+endif
+ifndef DYNAMORIO_BASE
+  DYNAMORIO_BASE   :=..
+endif
+EXPORTS_BASE       :=$(DYNAMORIO_BASE)/exports
+BUILD_BASE         :=$(DYNAMORIO_BASE)/build
+ifndef BUILD_LIBUTIL
+  BUILD_LIBUTIL    :=$(BUILD_BASE)/libutil
+endif
+ifndef BUILD_TOOLS
+  BUILD_TOOLS      :=$(BUILD_BASE)/tools
+endif
+INSTALL_BIN_BASE   :=$(EXPORTS_BASE)/bin
+ifeq ($(ARCH), x64)
+  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib64
+  INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin64
+else
+  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib32
+  INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin32
+endif
+INSTALL_INCLUDE    :=$(EXPORTS_BASE)/include
+INSTALL_DOCS       :=$(EXPORTS_BASE)/docs
+
 #
 # Variables for shell utilities
 #

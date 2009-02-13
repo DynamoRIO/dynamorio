@@ -36,8 +36,8 @@
 # pdf.  Our approach is to try to replicate the structure of the html
 # output.
 
-$html_dir = "./html";
-$latex_dir = "./latex";
+$html_dir = "$ARGV[0]/html";
+$latex_dir = "$ARGV[0]/latex";
 
 $html_file = "$html_dir/tree.html";
 $latex_file = "$latex_dir/refman.tex";

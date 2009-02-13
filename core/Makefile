@@ -51,15 +51,6 @@
 ETAGS	= /usr/bin/etags
 MAKE	= make
 
-#allow adding to p4 command line, for ex. P4PATH_OVERRIDE='-d $(shell $(CYGPATH) -m $$PWD)'
-#for using the windows native p4 client under cygwin without having to set P4CLIENT
-P4 = p4 $(P4PATH_OVERRIDE)
-
-ifndef ARCH
-# default is x86 instead of x64
-ARCH = x86
-endif
-
 ifndef DYNAMORIO_MAKE
   DYNAMORIO_MAKE := ../make
 endif
@@ -102,24 +93,11 @@ GCC     =gcc
 DEP_SFX =dep
 DEPENDS =-MM -MG -MP # no system headers, generated get phony targets
 
-# Basic directories
-DYNAMO	     :=..
 # src/ or core/
 CORE_DIRNAME :=core
 SRC	     :=.
-HTML	     :=$(DYNAMO)/html
+HTML	     :=$(DYNAMORIO_BASE)/html
 HTML_BACK    :=../$(CORE_DIRNAME)
-EXPORTS_BASE :=$(DYNAMO)/exports
-BUILD_BASE   :=$(DYNAMO)/build
-INSTALL_BIN_BASE :=$(EXPORTS_BASE)/bin
-ifeq ($(ARCH), x64)
-  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib64
-  INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin64
-else
-  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib32
-  INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin32
-endif
-INSTALL_INCLUDE  :=$(EXPORTS_BASE)/include
 
 ###########################################################################
 ##
@@ -577,7 +555,7 @@ endif
 endif
 
 # Processing for custom builds
-include ../Makefile.custom_build
+include $(DYNAMORIO_BASE)/Makefile.custom_build
 
 ifneq ($(CUSTOM_PRODUCT_NAME),)
   GEN_DEFINES += $(D)CUSTOM_PRODUCT_NAME=$(CUSTOM_PRODUCT_NAME)
@@ -1193,7 +1171,7 @@ zap:
 	$(RM) $(SRC)/*~ $(OS_SRC)/*~ $(ARCH_SRC)/*~ $(LIB_SRC)/*~
 
 %.iso: 
-	(cd $(DYNAMO); mkisofs -o $@ -R -J $*)
+	(cd $(DYNAMORIO_BASE); mkisofs -o $@ -R -J $*)
 	@$(ECHO) "The source files should not be made accessible to unauthorized parties! ***"
 
 # creates html navigation files for the entire Dynamo source tree

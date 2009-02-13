@@ -233,6 +233,8 @@ $DYNAMORIO_LIBUTIL = $ENV{'DYNAMORIO_LIBUTIL'}; # win32-only
 $DYNAMORIO_LIBUTIL = "../libutil" if ($DYNAMORIO_LIBUTIL eq '');
 $DYNAMORIO_TOOLS = $ENV{'DYNAMORIO_TOOLS'};
 $DYNAMORIO_TOOLS = "../tools" if ($DYNAMORIO_TOOLS eq '');
+$BUILD_TOOLS = $ENV{'BUILD_TOOLS'};
+$BUILD_TOOLS = "../build/tools" if ($BUILD_TOOLS eq '');
 $DYNAMORIO_BENCHMARKS = $ENV{'DYNAMORIO_BENCHMARKS'};
 $DYNAMORIO_BENCHMARKS = "../benchmarks" if ($DYNAMORIO_BENCHMARKS eq '');
 $DYNAMORIO_API = $ENV{'DYNAMORIO_API'};
@@ -342,13 +344,17 @@ if (!$justshow) {
 
 $coredir = "core";
 
-if (! -d "$DYNAMORIO_HOME/$coredir") {
-    print "ERROR: Cannot find $DYNAMORIO_HOME/$coredir, exiting\n";
+# FIXME: i#4 changed DYNAMORIO_HOME to include exports/ to clean up
+# top-level dirs.  Some Makefiles use DYNAMORIO_BASE.  Here we go
+# with DYNAMORIO_HOME/.. like tests/Makefefile does.  Kind of ugly.
+# But I do like the cleanup making exports/ look like the release layout.
+if (! -d "$DYNAMORIO_HOME/../$coredir") {
+    print "ERROR: Cannot find $DYNAMORIO_HOME/../$coredir, exiting\n";
     exit 0;
 }
 if (!$justshow) {
-    print "Copying sources from $DYNAMORIO_HOME/$coredir\n";
-    system("cp -r $DYNAMORIO_HOME/$coredir .");
+    print "Copying sources from $DYNAMORIO_HOME/../$coredir\n";
+    system("cp -r $DYNAMORIO_HOME/../$coredir .");
     # On Vista regressions mc complains access denied opening win32/events.mc 
     system("chmod -R aug+rxw $coredir");
     # eliminate any custom settings
@@ -438,17 +444,17 @@ if (!$justshow && $on_windows) {
 
     # drcontrol -save fails when there is no top-level Determina registry
     # entry, so do -create first.  (only creates if non-existent)
-    system("$DYNAMORIO_TOOLS/DRcontrol -create \"$wintopdir\"");
+    system("$BUILD_TOOLS/DRcontrol -create \"$wintopdir\"");
 
     $regression_backup = "$wintopdir\\regression-backup.mfp";
     system("rm -f $regression_backup") if (-e $regresion_backup);
-    system("$DYNAMORIO_TOOLS/drcontrol -save \"$regression_backup\"");
+    system("$BUILD_TOOLS/drcontrol -save \"$regression_backup\"");
 
     # Some tests rely on having valid CACHE_ROOT and CACHE_SHARED
     # registry settings and directories.
     # DRcontrol copies permissions from $DYNAMORIO_HOME/logs and lib,
     # so make sure those directories exist.
-    $dr_home = `$DYNAMORIO_TOOLS/DRcontrol -fulldump|grep DYNAMORIO_HOME=|head -1`;
+    $dr_home = `$BUILD_TOOLS/DRcontrol -fulldump|grep DYNAMORIO_HOME=|head -1`;
     $dr_home =~ s/.*DYNAMORIO_HOME=([\w:~\\\/]+).*\n/$1/;
     system("mkdir -p \"$dr_home/logs\"") if (! -e "$dr_home/logs");
     system("mkdir -p \"$dr_home/lib\"") if (! -e "$dr_home/lib");
@@ -539,12 +545,12 @@ while ($i <= $#cases) {
         print "Running share tests......\n";
         $logfile = sprintf("share_tests_%03d.log", $b-1);
         if (!$justshow) {
-            $shareres = system("cd $DYNAMORIO_LIBUTIL && DYNAMORIO_HOME=$topdir/$stamp make -s tests_test >> $topdir/$stamp/$logfile 2>&1");
+            $shareres = system("cd $DYNAMORIO_LIBUTIL && DYNAMORIO_BASE=$topdir/$stamp make -s tests_test >> $topdir/$stamp/$logfile 2>&1");
         }
         # FIXME: keep getting problems where these testers are left around
         # when I have AppInit already set or other conditions, should fix up
         # share tests to handle that but for now killing
-        system("$DYNAMORIO_TOOLS/drkill -exe tester_1.exe");
+        system("$BUILD_TOOLS/drkill -exe tester_1.exe");
 
         $shareresults = `grep -i 'Test Results' $topdir/$stamp/$logfile`;
         print "libutil module $shareresults\n";
@@ -597,7 +603,7 @@ while ($i <= $#cases) {
             # can't repro manually, but it seems to be that the rm is not
             # yet done.  so, we split that out in a separate command.
             my $docres = system
-            ("export DYNAMORIO_HOME=$homedir; ".
+            ("export DYNAMORIO_HOME=$homedir/exports; ".
              "(rm -rf $DYNAMORIO_API/docs/genimages && ".
              "make -C $DYNAMORIO_API/docs clean $cases[$i]) >> $topdir/$stamp/$logfile 2>&1");
             if ($docres != 0) {
@@ -632,7 +638,7 @@ while ($i <= $#cases) {
                 $SETLIB = 'LIB=`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/VC/LIB"`\;`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/Lib"`';
                 $SETPATH = 'export PATH=\"`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/VC/Bin"`:$PATH\";';
             }
-            my $sampleres = system("$SETPATH DYNAMORIO_HOME=$homedir $SETINC $SETLIB ".
+            my $sampleres = system("$SETPATH DYNAMORIO_HOME=$homedir/exports $SETINC $SETLIB ".
                                    "make -C $DYNAMORIO_API/samples DEBUG=1 SHOW_RESULTS=0 DBG= ".
                                    "clean $cases[$i] all >> $topdir/$stamp/$logfile 2>&1");
             if ($sampleres != 0) {
@@ -663,7 +669,7 @@ while ($i <= $#cases) {
                             ".000\\\"\\\\n" . $expect;
                     }
                     my $runres = system
-                        ("export DYNAMORIO_HOME=$homedir; (mkdir -p $tgt; ".
+                        ("export DYNAMORIO_HOME=$homedir/exports; (mkdir -p $tgt; ".
                          "cp $DYNAMORIO_API/samples/$s.dll $tgt/$s.dll.dll; ".
                          "echo -e $runall > $tgt/$s.runall; ".
                          "echo -e $expect > $tgt/$s.expect; ".
@@ -725,7 +731,7 @@ while ($i <= $#cases) {
             $runtarget =~ s/ *spec *//;
             ###################################################
             # SPEC
-            $cmd = "export DYNAMORIO_HOME=$curdir; $nice $topdir/runsuite $bmarkbase regression regression $cases[$i]";
+            $cmd = "export DYNAMORIO_HOME=$curdir/exports; $nice $topdir/runsuite $bmarkbase regression regression $cases[$i]";
             print "$cmd\n";
             system("(echo; echo \"$n: $cases[$i]\n\"; echo) >> $logfile 2>&1");
             if (!$justshow) {
@@ -816,7 +822,7 @@ while ($i <= $#cases) {
             }
             # case 192750: cannot create pdb files over public key ssh,
             # so we unset {LINK_,}DBG
-            $cmd = "export DYNAMORIO_HOME=$curdir; cd $topdir/tests; $nice make -k $parallel_run RESDIR=$topdir/$stamp/$link-tests OPS=$ops DEFS=$defs DBG= LINK_DBG= $runtarget";
+            $cmd = "export DYNAMORIO_HOME=$curdir/exports; cd $topdir/tests; $nice make -k $parallel_run RESDIR=$topdir/$stamp/$link-tests OPS=$ops DEFS=$defs DBG= LINK_DBG= $runtarget";
             print "$cmd\n";
             if (!$justshow) {
                 system("$cmd >> $topdir/$stamp/$logfile 2>&1");
@@ -853,9 +859,9 @@ while ($i <= $#cases) {
             }
             if ($on_windows) {
                 # TEMPORARY workaround for case 10798
-                system("$DYNAMORIO_TOOLS/drkill -exe aslr-dll.exe");
+                system("$BUILD_TOOLS/drkill -exe aslr-dll.exe");
                 # threadinjection is also often left around
-                system("$DYNAMORIO_TOOLS/drkill -exe threadinjection.exe");
+                system("$BUILD_TOOLS/drkill -exe threadinjection.exe");
             }
             # compress any ldmps produced
             # TODO: gzips tend to hang and block the rest of the regression 
@@ -863,7 +869,7 @@ while ($i <= $#cases) {
             # after 10 seconds; xref case 9756
             system("cd $DYNAMORIO_LOGDIR; gzip *.ldmp > /dev/null 2>&1 &");
             sleep 10;
-            system("$DYNAMORIO_TOOLS/drkill -exe gzip.exe");
+            system("$BUILD_TOOLS/drkill -exe gzip.exe");
         }
 
         if (!$justbuild) {
@@ -887,7 +893,7 @@ chdir("..");
     
 # restore registry
 if (!$justshow && $on_windows) {
-    system("$DYNAMORIO_TOOLS/DRcontrol -load \"$regression_backup\"")
+    system("$BUILD_TOOLS/DRcontrol -load \"$regression_backup\"")
         if (-e $regresion_backup);
 }
 
@@ -935,11 +941,11 @@ system("grep -h '^make' runlog.* | sort | uniq -c | sort -nr");
 print "\n";
 
 if ($on_windows) {
-    $hung = `$DYNAMORIO_TOOLS/DRview -listall -cmdline | grep -B 1 suite | grep '^PID' | wc`;
+    $hung = `$BUILD_TOOLS/DRview -listall -cmdline | grep -B 1 suite | grep '^PID' | wc`;
     # we expect to see 2 processes: sh.exe and grep.exe
     if ($hung !~ /^\s*2\s/) {
         print "Hang check FAILED: Processes may be hung, > the 2 expected in the list:\n";
-        system("$DYNAMORIO_TOOLS/DRview -listall -cmdline | grep -B 1 suite | grep '^PID'");
+        system("$BUILD_TOOLS/DRview -listall -cmdline | grep -B 1 suite | grep '^PID'");
     }
 
     if ($nodemgr_running) {

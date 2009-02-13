@@ -84,10 +84,6 @@ if [ -z "$OS" ]; then
     echo Linux
     CP="cp -a"
     os="Linux"
-    # PR 236973: there is no "g++" binary we can put on path so we have
-    # to explicitly reference the binary.  This path needs ARCH
-    # replaced with "i686" or "x86_64".
-    gxx=/build/toolchain/lin32/gcc-4.1.2-2/bin/ARCH-linux-g++
 else
     linux=0
     windows=1
@@ -254,21 +250,21 @@ if [ $linux -eq 1 ]; then
 else
     cd $DYNAMORIO_LIBUTIL
     make $target_config $defines clean all
-    $CP drconfig.{dll,lib} $base/$projname/lib32
-    $CP drconfig.{pdb,map} $base/symbols/lib32
+    $CP ../build/libutil/drconfig.{dll,lib} $base/$projname/lib32
+    $CP ../build/libutil/drconfig.{pdb,map} $base/symbols/lib32
     cd $DYNAMORIO_TOOLS
     make $target_config $defines EXTERNAL_DRVIEW=1 clean all
-    $CP drdeploy.exe $base/$projname/bin
-    $CP drdeploy.{pdb,map} $base/symbols/bin
+    $CP ../build/tools/drdeploy.exe $base/$projname/bin
+    $CP ../build/tools/drdeploy.{pdb,map} $base/symbols/bin
     # drdeploy needs this in same dir: make dup copy
-    $CP drconfig.dll $base/$projname/bin
-    $CP DRview.exe $base/$projname/bin/bin32/drview.exe
-    $CP DRview.{pdb,map} $base/symbols/bin/bin32
+    $CP ../build/tools/drconfig.dll $base/$projname/bin
+    $CP ../build/tools/DRview.exe $base/$projname/bin/bin32/drview.exe
+    $CP ../build/tools/DRview.{pdb,map} $base/symbols/bin/bin32
 
     if [ $projname != "viper" ]; then
         cd DRgui
         make $defines clean all
-        $CP build_dbg_demo/DRgui.exe $base/$projname/bin/bin32/drgui.exe
+        $CP ../build/tools/DRgui_dbg_demo/DRgui.exe $base/$projname/bin/bin32/drgui.exe
     fi
 fi
 
@@ -295,10 +291,10 @@ if [ $projname == "viper" ]; then
     # replace DR, DynamoRIO, and client in header files w/ VIPER and VIPA
     make VMSAFE=1 HEADER_DIR=$base/$projname/include update_headers
 fi
-$CP -r html $base/$projname/docs
+$CP -r ../exports/docs/html $base/$projname/docs
 if [ $projname == "viper" ]; then
     # The pdf output is messed up (more so on Linux) xref PR 314339 about fixing it.
-    $CP latex/refman.pdf $base/$projname/docs/$projname.pdf
+    $CP ../exports/docs/latex/refman.pdf $base/$projname/docs/$projname.pdf
 fi
 
 ##################################################
@@ -323,7 +319,7 @@ build_samples() {
         DYNAMORIO_HOME=$base/$projname make EXCLUDE="stats.c tracedump.c" $1 clean all
     else
         # PR 236973: there is no "g++" toolchain binary so we have to include whole path
-        DYNAMORIO_HOME=$base/$projname make GXX=${gxx/ARCH/$3} EXCLUDE=MF_moduledb.c $1 clean all
+        DYNAMORIO_HOME=$base/$projname make EXCLUDE=MF_moduledb.c $1 clean all
     fi
     mkdir -p $base/$projname/docs/html/samples/build$2
     if [ $linux -eq 1 ]; then
@@ -349,12 +345,12 @@ if [ $windows -eq 1 ]; then
     export LIB=`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/VC/LIB"`\;`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/Lib"`;
     export PATH=`cygpath -ua "${TCROOT}/win32/winsdk-6.1.6000/VC/Bin"`:$PATH;
 fi
-build_samples "ARCH=x86 GCC=/build/toolchain/lin32/gcc-4.1.2-2/bin/i686-linux-gcc" 32 i686
+build_samples "ARCH=x86" 32 i686
 if [ $windows -eq 1 ]; then
     export LIB=`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/VC/LIB/x64"`\;`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/Lib/x64"`;
     export PATH=`cygpath -ua "${TCROOT}/win32/winsdk-6.1.6000/VC/Bin/x86_x64"`:$PATH;
 fi
-build_samples "ARCH=x64 GCC=/build/toolchain/lin32/gcc-4.1.2-2/bin/x86_64-linux-gcc" 64 x86_64
+build_samples "ARCH=x64" 64 x86_64
 
 
 ##################################################

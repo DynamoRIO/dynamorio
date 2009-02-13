@@ -28,13 +28,20 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-.PHONY: all clean mkimages
+.PHONY: all clean mkimages check_headers outdir
 
 ifndef DYNAMORIO_MAKE
 DYNAMORIO_MAKE := ../../make
 endif
+ifndef DYNAMORIO_BASE
+  DYNAMORIO_BASE := ../..
+endif
 
 include $(DYNAMORIO_MAKE)/compiler.mk
+
+GENIMGDIR := $(BUILD_BASE)/genimages
+
+DOXYFILE := $(BUILD_BASE)/Doxyfile
 
 ifndef DYNAMORIO_HOME
 DYNAMORIO_HOME := ../../exports
@@ -66,8 +73,7 @@ LIBUTIL_ESC := $(shell $(ECHO) "$(LIBUTIL_DIR)" | $(SED) 's/\./\\\./g')
 LIBUTIL_ESC := $(shell $(ECHO) "$(LIBUTIL_ESC)" | $(SED) 's/\//\\\//g')
 LIBUTIL_SED := "s/\(INPUT[ \t]*=\)/\1 $(LIBUTIL_ESC)/g"
 
-
-all: check_headers $(HEADERS) mkimages Doxyfile
+all: check_headers $(HEADERS) mkimages $(DOXYFILE) outdir
 	@$(ECHO) "** Using headers in $(HEADER_DIR) **"
 ifdef VMSAFE
 	@$(ECHO) "Use the macro \\DynamoRIO to allow name substitution"
@@ -77,47 +83,50 @@ ifdef VMSAFE
 endif
 
 # run doxygen and fail on warnings
-	$(DOXYGEN) 2>&1 | $(TEE) doxygen.out
+	$(DOXYGEN) $(DOXYFILE) 2>&1 | $(TEE) doxygen.out
 	$(GREP) -i warning doxygen.out; if [ $$? == 0 ]; then false; fi
 	$(RM) doxygen.out
 
 # doxygen does not put header.html on the top-level frame so we add favicon manually
-	$(SED) -i 's/<title>/<link rel="shortcut icon" type="image\/x-icon" href="favicon.ico" \/>\n<title>/' html/index.html
+	$(SED) -i 's/<title>/<link rel="shortcut icon" type="image\/x-icon" href="favicon.ico" \/>\n<title>/' $(INSTALL_DOCS)/html/index.html
 # add our logo to treeview pane (yes there is no closing </body></html>)
-	$(ECHO) '<p>&nbsp;<br><img src="drlogo.png"></p>' >> html/tree.html
+	$(ECHO) '<p>&nbsp;<br><img src="drlogo.png"></p>' >> $(INSTALL_DOCS)/html/tree.html
 # workaround for doxygen bug
-	$(CP) html/htmlstyle.css html/doxygen.css
+	$(CP) $(INSTALL_DOCS)/html/htmlstyle.css $(INSTALL_DOCS)/html/doxygen.css
 # get our samples in place
-	$(MKDIR) -p html/samples
-	$(CP) -a ../samples/*.c html/samples/
+	$(MKDIR) -p $(INSTALL_DOCS)/html/samples
+	$(CP) -a ../samples/*.c $(INSTALL_DOCS)/html/samples/
 # not exporting custom stats for VMsafe, security api for VMAP
 # FIXME: these exclusions are duplicated in tools/makezip.sh: combine somehow?
 ifdef VMSAFE
 # -f because of perforce file protections being carried over
-	$(RM) html/samples/stats.c html/samples/tracedump.c
-	$(CP) -a ../samples/MF_moduledb-sample.config html/samples/
-	$(CP) -a ../samples/VIPA_test.exe html/samples/
+	$(RM) $(INSTALL_DOCS)/html/samples/stats.c $(INSTALL_DOCS)/html/samples/tracedump.c
+	$(CP) -a ../samples/MF_moduledb-sample.config $(INSTALL_DOCS)/html/samples/
+	$(CP) -a ../samples/VIPA_test.exe $(INSTALL_DOCS)/html/samples/
 else
-	$(RM) html/samples/MF_moduledb*
+	$(RM) $(INSTALL_DOCS)/html/samples/MF_moduledb*
 ifeq ($(MACHINE), linux)
 # no stats sample on linux
-	$(RM) html/samples/stats.c
+	$(RM) $(INSTALL_DOCS)/html/samples/stats.c
 endif
 endif
-	$(CP) -a ../samples/Makefile html/samples/
+	$(CP) -a ../samples/Makefile $(INSTALL_DOCS)/html/samples/
 # IE for some reason won't initially load an .ico in a web page from a server,
 # though will show it via file: or after pointing straight at image from server.
 # doxygen fails to copy image referenced only in footer.html
-	$(CP) images/favicon.png html/
+	$(CP) images/favicon.png $(INSTALL_DOCS)/html/
 
 check_headers:
 	@(if ! test -e $(HEADER_DIR)/dr_api.h; then \
 	  echo ERROR: API header files do not exist; false; fi)
 
+outdir:
+	@(if ! test -e $(INSTALL_DOCS); then $(MKDIR) -p $(INSTALL_DOCS); fi)
+
 pdf: all
-	-$(CP) images/vmware-logo-crop.png latex/vmware-logo.png
-	./fix-latex.pl
-	$(MAKE) -C latex
+	-$(CP) images/vmware-logo-crop.png $(INSTALL_DOCS)/latex/vmware-logo.png
+	./fix-latex.pl $(INSTALL_DOCS)
+	$(MAKE) -C $(INSTALL_DOCS)/latex
 
 # note that we can have "a" vs "an" issues
 # thus, going w/ a consonant-onset acronym:
@@ -126,8 +135,10 @@ VMSAFE_NAME=VIPER
 # Viper In-Process Agent: again, starting w/ a consonant
 VMSAFE_CLIENT=VIPA
 
-Doxyfile: API.doxy Makefile
+$(DOXYFILE): API.doxy Makefile
 	$(SED) $(EXPORT_SED) $< > $@
+	$(SED) -i 's/\(OUTPUT_DIRECTORY[ \t]*=\).*/\1 $(subst /,\/,$(INSTALL_DOCS))/' $@
+	$(SED) -i 's/genimages/$(subst /,\/,$(BUILD_BASE))\/genimages/' $@
 	$(SED) -i $(LIBUTIL_SED) $@
 ifdef VMSAFE
 	$(SED) -i 's/\(PROJECT_NAME[ \t]*=\).*/\1 "VMsafe In-Process API"/' $@
@@ -142,7 +153,7 @@ else
 endif
 # "doxygen -u" seems to preserve our non-default settings, while eliminating
 # warnings about deprecated options due to differing versions of doxygen
-	$(DOXYGEN) -u
+	$(DOXYGEN) -u $(DOXYFILE)
 
 ifndef HEADER_DIR
 update_headers:
@@ -167,7 +178,6 @@ FIGXL8 := $(SED) 's|DynamoRIO|${VMSAFE_NAME}|g'
 else
 FIGXL8 := $(CAT)
 endif
-GENIMGDIR := genimages
 FIGS := $(wildcard *.fig)
 FIG_IMAGES := $(patsubst %.fig,$(GENIMGDIR)/%.eps,$(FIGS)) \
               $(patsubst %.fig,$(GENIMGDIR)/%.png,$(FIGS))
@@ -199,5 +209,5 @@ $(GENIMGDIR)/%.tiff: $(GENIMGDIR)/%.post.fig
 ####################
 
 clean:
-	$(RM) -r html latex rtf Doxyfile $(GENIMGDIR)
+	$(RM) -r $(INSTALL_DOCS) $(DOXYFILE) $(GENIMGDIR)
 

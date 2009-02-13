@@ -28,11 +28,6 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-ifndef ARCH
-# default is x86 instead of x64
-  ARCH := x86
-endif
-
 ifndef DYNAMORIO_MAKE
   DYNAMORIO_MAKE := ../../make
 endif
@@ -74,10 +69,10 @@ ifdef DEBUG
   CFLAGS += /Zi /Od /MTd
   DEFINES += /D"_DEBUG"
   LDFLAGS += /debug
-  BUILDDIR := build_dbg
+  BUILDDIR := $(BUILD_TOOLS)/DRinstall_dbg
 else
   CFLAGS += /O2 /MT
-  BUILDDIR := build_rel
+  BUILDDIR := $(BUILD_TOOLS)/DRinstall_rel
 endif
 
 INCLUDES := $(MSINCLUDE) /I$(BUILDDIR)

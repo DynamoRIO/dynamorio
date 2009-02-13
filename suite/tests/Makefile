@@ -50,6 +50,9 @@ MAKEFLAGS := -s
 ifndef DYNAMORIO_MAKE
   DYNAMORIO_MAKE := ../../make
 endif
+ifndef DYNAMORIO_BASE
+  DYNAMORIO_BASE := ../..
+endif
 include $(DYNAMORIO_MAKE)/compiler.mk
 
 ifndef ARCH
@@ -62,8 +65,14 @@ ifeq ($(MACHINE), win32)
 ifndef DYNAMORIO_HOME
   DYNAMORIO_HOME := $(shell $(CYGPATH) -ma $(CURDIR)/../../exports)
 endif
+# export for runall/runalltest.sh
+# try to check for relative path: incorrect if .. in middle
+ifeq ($(findstring ..,$(BUILD_TOOLS)),)
+  export BUILD_TOOLS := $(shell $(CYGPATH) -ma $(BUILD_TOOLS))
+else
+  export BUILD_TOOLS := $(shell $(CYGPATH) -ma $(CURDIR)/$(BUILD_TOOLS))
+endif
 ifndef DYNAMORIO_TOOLS
-  # export for runall/runalltest.sh
   export DYNAMORIO_TOOLS := $(shell $(CYGPATH) -ma $(CURDIR)/../../tools)
 endif
 ifndef DYNAMORIO_LOGDIR
@@ -76,9 +85,15 @@ else
 ifndef DYNAMORIO_HOME
   DYNAMORIO_HOME := $(CURDIR)/../../exports
 endif
+# export for runall/runalltest.sh
+# try to check for relative path: incorrect if .. in middle
+ifeq ($(findstring ..,$(BUILD_TOOLS)),)
+  export BUILD_TOOLS := $(BUILD_TOOLS)
+else
+  export BUILD_TOOLS := $(CURDIR)/$(BUILD_TOOLS)
+endif
 ifndef DYNAMORIO_TOOLS
-  # export for runall/runalltest.sh
-  DYNAMORIO_TOOLS := $(CURDIR)/../../tools
+  export DYNAMORIO_TOOLS := $(CURDIR)/../../tools
 endif
 ifndef DYNAMORIO_LOGDIR
   export DYNAMORIO_LOGDIR := $(CURDIR)/logs
@@ -792,19 +807,19 @@ api/dis.runapi: EXE_ARGS = $(CURWD)/api/dis-udis86-randtest.raw
 TIMER_TIME = -s 60
 
 ifeq ($(MACHINE), win32)
-TIMER_NATIVE     = $(DYNAMORIO_TOOLS)/winstats.exe $(TIMER_TIME) -silent
+TIMER_NATIVE     = $(BUILD_TOOLS)/winstats.exe $(TIMER_TIME) -silent
 DYNAMORIO_DLL := $(subst /,\\,$(shell $(CYGPATH) -m $(DYNAMORIO_DIR)/dynamorio.dll))
 TIMER_INJECTOR = export DYNAMORIO_OPTIONS='$(DR_OPS)'; \
     $(DYNAMORIO_BINDIR)/drinject.exe $(TIMER_TIME) $(DYNAMORIO_DLL)
 TIMER_API = export DYNAMORIO_OPTIONS='$(DR_OPS)'; \
     $(DYNAMORIO_BINDIR)/drinject.exe $(TIMER_TIME) -noinject
 else
-TIMER_NATIVE     = $(DYNAMORIO_TOOLS)/runstats $(TIMER_TIME) -silent
-TIMER_INJECTOR   = $(DYNAMORIO_TOOLS)/runstats $(TIMER_TIME) -silent \
+TIMER_NATIVE     = $(BUILD_TOOLS)/runstats $(TIMER_TIME) -silent
+TIMER_INJECTOR   = $(BUILD_TOOLS)/runstats $(TIMER_TIME) -silent \
    -env LD_LIBRARY_PATH '$(DYNAMORIO_DIR)/..:$(DYNAMORIO_DIR):$(LD_LIBRARY_PATH)' \
    -env LD_PRELOAD 'libdrpreload.so libdynamorio.so' \
    -env DYNAMORIO_OPTIONS '$(DR_OPS)'
-TIMER_API   = $(DYNAMORIO_TOOLS)/runstats $(TIMER_TIME) -silent \
+TIMER_API   = $(BUILD_TOOLS)/runstats $(TIMER_TIME) -silent \
    -env DYNAMORIO_OPTIONS '$(DR_OPS)'
 endif
 
@@ -813,19 +828,12 @@ DIFF += -b
 
 ifeq ($(MACHINE), win32) 
 #only for win32
-PRELOAD_BUILD_DIR = TMPPREINJDIR
 $(DYNAMORIO_PREINJECT):
 	@(if $(LS) $(DYNAMORIO_HOME)/lib32/drpreinject.dll > .trash 2>&1; then \
 		$(CP) $(DYNAMORIO_HOME)/lib32/drpreinject.dll .; \
 	else \
-		cd $(CURWD); $(MKDIR) -p $(PRELOAD_BUILD_DIR); \
-		$(CP) -r $(DYNAMORIO_HOME)/../${CORE_DIRNAME} $(PRELOAD_BUILD_DIR)/; \
-		$(CP) -r $(DYNAMORIO_MAKE) $(PRELOAD_BUILD_DIR)/; \
-		$(RM) $(PRELOAD_BUILD_DIR)/${CORE_DIRNAME}/Makefile.mydefines; \
-		cd $(PRELOAD_BUILD_DIR)/${CORE_DIRNAME}; \
-		$(MAKE) -s DEBUG=0 clean install; \
-		$(CP) $(CURWD)/$(PRELOAD_BUILD_DIR)/lib32/drpreinject.dll $(CURWD); \
-		cd $(CURWD); \
+		$(MAKE) -s -C $(DYNAMORIO_HOME)/../${CORE_DIRNAME} DYNAMORIO_BASE=.. DEBUG=0 clean install; \
+		$(CP) $(DYNAMORIO_HOME)/lib32/drpreinject.dll .; \
 	fi)
 endif
 
@@ -899,8 +907,8 @@ expect: $(patsubst %,%.runexpect,$(PGMS_ROOT_API)) \
 
 %.announce:
 ifeq ($(MACHINE), linux)
-	@(if ! test -e $(DYNAMORIO_TOOLS)/runstats; then \
-	  $(MAKE) -C $(DYNAMORIO_TOOLS) runstats; fi)
+	(if ! test -e $(BUILD_TOOLS)/runstats; then \
+	  $(MAKE) -C $(DYNAMORIO_TOOLS); fi)
 endif
 	@(if ! test -e $(RESDIR); then $(MKDIR) $(RESDIR); fi)
 	@(if ! test -e $(RESDIR)/$(dir $*); then $(MKDIR) -p $(RESDIR)/$(dir $*); fi)
@@ -1035,6 +1043,5 @@ clean:
 	$(RM) *.obj *.pdb *.clout *.trash drpreinject.dll *.res
 	$(RM) $(ALL_GENERATED_EXPECT)
 	$(RM) -r $(RESDIR)
-	$(RM) -r $(PRELOAD_BUILD_DIR)
 	$(RM) $(patsubst %,%.expect,$(EXTRA_TESTS))
 	$(RM) $(patsubst %,%.template,$(EXTRA_TESTS))

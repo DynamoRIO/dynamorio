@@ -28,13 +28,11 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-ifndef ARCH
-# default is x86 instead of x64
-  ARCH := x86
-endif
-
 ifndef DYNAMORIO_MAKE
   DYNAMORIO_MAKE := ../../make
+endif
+ifndef DYNAMORIO_BASE
+  DYNAMORIO_BASE := ../..
 endif
 
 # PR 232385: we need DRgui.exe to run on NT, which means we cannot
@@ -52,10 +50,7 @@ ifndef DYNAMORIO_HOME
 endif
 WIN_DYNAMORIO_HOME := $(shell $(CYGPATH) -ma ${DYNAMORIO_HOME})
 
-ifndef DYNAMORIO_LIBUTIL
-  DYNAMORIO_LIBUTIL := ../../libutil
-endif
-WIN_DYNAMORIO_LIBUTIL := $(shell $(CYGPATH) -ma ${DYNAMORIO_LIBUTIL})
+WIN_DYNAMORIO_LIBUTIL := $(shell $(CYGPATH) -ma ${BUILD_LIBUTIL})
 
 CORE_DIRNAME := core
 
@@ -100,18 +95,18 @@ LDFLAGS := $(MSLIB) advapi32.lib $(NODEF) \
 ifdef DEBUG
   CFLAGS += /Zi /Od
   LDFLAGS += /debug
-  POLICY_LIB := $(DYNAMORIO_LIBUTIL)/policy_staticd.lib
+  POLICY_LIB := $(BUILD_LIBUTIL)/policy_staticd.lib
 else
   CFLAGS += /O2
-  POLICY_LIB := $(DYNAMORIO_LIBUTIL)/policy_static.lib
+  POLICY_LIB := $(BUILD_LIBUTIL)/policy_static.lib
 endif
 
 WIN_POLICY_LIB := "$(shell $(CYGPATH) -ma $(POLICY_LIB))"
 
 ifeq ($(DEMO), 1)
-  BUILDDIR := build_dbg_demo
+  BUILDDIR := $(BUILD_TOOLS)/DRgui_dbg_demo
 else
-  BUILDDIR := build_dbg_internal
+  BUILDDIR := $(BUILD_TOOLS)/DRgui_dbg_internal
 endif
 
 EXEBASE := DRgui

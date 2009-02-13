@@ -32,7 +32,7 @@
 
 #notes: 
 #current DYNAMORIO_OPTIONS env var will be used to determine options
-#DYNAMORIO_TOOLS must be set
+#BUILD_TOOLS must be set
 
 usage="runalltest <runallfile> <drdll> <win32_drpreinject_path> <runall_max_wait (optional)>"
 
@@ -63,34 +63,34 @@ if [ ${exepath:0:6} == "<path>" ]; then
 fi
 
 function nudge_exe {
-    pid=`$DYNAMORIO_TOOLS/DRview -exe $1 | gawk '{print $2}' | sed 's/,//'`
+    pid=`$BUILD_TOOLS/DRview -exe $1 | gawk '{print $2}' | sed 's/,//'`
     # case 10382: look for "No such process found", since if we
     # pass a non-number to DRcontrol it will nudge all processes!
     if [ "$pid" = "such" ]; then
         echo "Error: $1 process not found for nudge"
     else
-        $DYNAMORIO_TOOLS/DRcontrol $2 $pid
+        $BUILD_TOOLS/DRcontrol $2 $pid
     fi
 }
 
 
 #some tests need to be able to find the tools folder
-export DYNAMORIO_WINTOOLS=`cygpath -w $DYNAMORIO_TOOLS`
+export DYNAMORIO_WINTOOLS=`cygpath -w $BUILD_TOOLS`
 
 # make sure the registry set is there (only creates if nonexistent).
 dr_home=`cygpath -da $PWD`
-$DYNAMORIO_TOOLS/DRcontrol -create "$dr_home"
+$BUILD_TOOLS/DRcontrol -create "$dr_home"
 
 # save the old registry settings so we can leave the registry in the
 # same state we found it.
-prev_preinject=`$DYNAMORIO_TOOLS/DRcontrol -preinject REPORT`
+prev_preinject=`$BUILD_TOOLS/DRcontrol -preinject REPORT`
 prev_settings=_prev_settings
-$DYNAMORIO_TOOLS/DRcontrol -save $prev_settings
+$BUILD_TOOLS/DRcontrol -save $prev_settings
 
-$DYNAMORIO_TOOLS/DRcontrol -preinject OFF
-$DYNAMORIO_TOOLS/DRcontrol -app "$exename" -run 1 -options "$DYNAMORIO_OPTIONS"  -drlib $drdll
-$DYNAMORIO_TOOLS/DRcontrol -preinject $drpreinject
-$DYNAMORIO_TOOLS/DRcontrol -app "$exename" -logdir "$DYNAMORIO_LOGDIR"
+$BUILD_TOOLS/DRcontrol -preinject OFF
+$BUILD_TOOLS/DRcontrol -app "$exename" -run 1 -options "$DYNAMORIO_OPTIONS"  -drlib $drdll
+$BUILD_TOOLS/DRcontrol -preinject $drpreinject
+$BUILD_TOOLS/DRcontrol -app "$exename" -logdir "$DYNAMORIO_LOGDIR"
 
 # clear pcache dir before starting app and then create the registry
 # entry and associated dir
@@ -111,7 +111,7 @@ cache_root=`dirname "$DYNAMORIO_CACHE_ROOT"`
 # drcontrol -sharedcache gives an error message if it can't copy
 # permissions from the lib and logs directories (e.g., if they don't
 # exist).  Swallow the error message so it doesn't mess up the output.
-junk=`$DYNAMORIO_TOOLS/DRcontrol -app "$exename" -sharedcache "$cache_root" 2>&1`
+junk=`$BUILD_TOOLS/DRcontrol -app "$exename" -sharedcache "$cache_root" 2>&1`
 
 # for 3rd party apps w/ windows, we use DRview results to ensure we're in control
 if [ "$caption" != "<nowindow>" ]; then
@@ -119,19 +119,19 @@ if [ "$caption" != "<nowindow>" ]; then
 
     sleep $RUNALL_SLEEP
         
-    $DYNAMORIO_TOOLS/DRcontrol -preinject OFF
+    $BUILD_TOOLS/DRcontrol -preinject OFF
 
-    $DYNAMORIO_TOOLS/DRview -exe $exename -nopid -nobuildnum
+    $BUILD_TOOLS/DRview -exe $exename -nopid -nobuildnum
 
     if [ "$mode" == "<detach>" ]; then
-        $DYNAMORIO_TOOLS/DRcontrol -detachexe $exename
+        $BUILD_TOOLS/DRcontrol -detachexe $exename
 
         # Currently DRcontrol -detachexe waits for the injected detach thread
         # to exit at which point should be finished detaching, so we don't need
         # to sleep here. DRcontrol does time out if wait is too long so we
         # won't get stuck here.
 
-        $DYNAMORIO_TOOLS/DRview -exe $exename -nopid -nobuildnum
+        $BUILD_TOOLS/DRview -exe $exename -nopid -nobuildnum
 
     elif [ "$mode" == "<reset>" ]; then
         # test two in a row
@@ -141,7 +141,7 @@ if [ "$caption" != "<nowindow>" ]; then
         # Currently DRcontrol -nudge waits for the injected nudge thread to
         # exit, so we don't need to sleep here. DRcontrol does time out if
         # wait is too long so we won't get stuck here.
-        $DYNAMORIO_TOOLS/DRview -exe $exename -nopid -nobuildnum
+        $BUILD_TOOLS/DRview -exe $exename -nopid -nobuildnum
 
     elif [ "$mode" == "<hotp>" ]; then
         # test both kinds of hotp nudge (even if no patches match)
@@ -151,7 +151,7 @@ if [ "$caption" != "<nowindow>" ]; then
         # Currently DRcontrol -nudge waits for the injected nudge thread to
         # exit, so we don't need to sleep here. DRcontrol does time out if
         # wait is too long so we won't get stuck here.
-        $DYNAMORIO_TOOLS/DRview -exe $exename -nopid -nobuildnum
+        $BUILD_TOOLS/DRview -exe $exename -nopid -nobuildnum
 
     elif [ "$mode" == "<freeze>" ]; then
         # test two in a row
@@ -161,12 +161,12 @@ if [ "$caption" != "<nowindow>" ]; then
         # Currently DRcontrol -nudge waits for the injected nudge thread to
         # exit, so we don't need to sleep here. DRcontrol does time out if
         # wait is too long so we won't get stuck here.
-        $DYNAMORIO_TOOLS/DRview -exe $exename -nopid -nobuildnum
+        $BUILD_TOOLS/DRview -exe $exename -nopid -nobuildnum
 
     elif [ "$mode" == "<persist>" ]; then
         # we now have per-user and not per-app dirs
         # we'll use the 'whoami' tool in tools/external/ to get the SID
-        cursid=`$DYNAMORIO_TOOLS/external/whoami.exe /user | tail -1 | gawk '{print $2}'`
+        cursid=`$BUILD_TOOLS/external/whoami.exe /user | tail -1 | gawk '{print $2}'`
         cachedir="$cache_root/cache/$cursid"
 
         # test persisting and re-using
@@ -177,19 +177,19 @@ if [ "$caption" != "<nowindow>" ]; then
         fi
 
         # run a second copy
-        $DYNAMORIO_TOOLS/DRcontrol -preinject $drpreinject
+        $BUILD_TOOLS/DRcontrol -preinject $drpreinject
         $exepath &
         sleep $RUNALL_SLEEP
-        $DYNAMORIO_TOOLS/DRcontrol -preinject OFF
+        $BUILD_TOOLS/DRcontrol -preinject OFF
         # we assume that it's using the persisted caches
         # FIXME: add way to find out
 
         # Currently DRcontrol -nudge waits for the injected nudge thread to
         # exit, so we don't need to sleep here. DRcontrol does time out if
         # wait is too long so we won't get stuck here.
-        $DYNAMORIO_TOOLS/DRview -exe $exename -nopid -nobuildnum
+        $BUILD_TOOLS/DRview -exe $exename -nopid -nobuildnum
 
-        $DYNAMORIO_TOOLS/closewnd "$caption" $RUNALL_MAX_WAIT
+        $BUILD_TOOLS/closewnd "$caption" $RUNALL_MAX_WAIT
     elif [ "$mode" == "<client_nudge>" ]; then
         # send a client nudge, we pick arbitrary value 10 for argument
         nudge_exe $exename "-client_nudge 10 -pid";
@@ -199,33 +199,33 @@ if [ "$caption" != "<nowindow>" ]; then
         # Currently DRcontrol -nudge waits for the injected nudge thread to
         # exit, so we don't need to sleep here. DRcontrol does time out if
         # wait is too long so we won't get stuck here.
-        $DYNAMORIO_TOOLS/DRview -exe $exename -nopid -nobuildnum
+        $BUILD_TOOLS/DRview -exe $exename -nopid -nobuildnum
     fi
 
-    $DYNAMORIO_TOOLS/closewnd "$caption" $RUNALL_MAX_WAIT
+    $BUILD_TOOLS/closewnd "$caption" $RUNALL_MAX_WAIT
 
     sleep $RUNALL_SLEEP
 
-    $DYNAMORIO_TOOLS/DRview -exe $exename -nobuildnum
+    $BUILD_TOOLS/DRview -exe $exename -nobuildnum
 else
-    $DYNAMORIO_TOOLS/winstats -m 2 -silent $exepath
+    $BUILD_TOOLS/winstats -m 2 -silent $exepath
 
-    $DYNAMORIO_TOOLS/DRcontrol -preinject OFF
+    $BUILD_TOOLS/DRcontrol -preinject OFF
 fi
 
 #just in case
-$DYNAMORIO_TOOLS/DRkill -exe $exename -quiet
+$BUILD_TOOLS/DRkill -exe $exename -quiet
 
 # restore registry settings
-$DYNAMORIO_TOOLS/DRcontrol -remove "$exename"
+$BUILD_TOOLS/DRcontrol -remove "$exename"
 
 if [[ ${#prev_preinject} > 0 ]]; then
-    $DYNAMORIO_TOOLS/DRcontrol -preinject "$prev_preinject"
+    $BUILD_TOOLS/DRcontrol -preinject "$prev_preinject"
 else
-    $DYNAMORIO_TOOLS/DRcontrol -preinject OFF
+    $BUILD_TOOLS/DRcontrol -preinject OFF
 fi
 
 if [ -e $prev_settings ]; then
-    $DYNAMORIO_TOOLS/DRcontrol -load $prev_settings
+    $BUILD_TOOLS/DRcontrol -load $prev_settings
     rm -f $prev_settings
 fi

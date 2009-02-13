@@ -33,21 +33,20 @@
 ###
 ### Top-level Makefile for building DynamoRIO
 ###
-### Default build is all modules for one arch.
+### Default build is all modules for one arch, x86 by default.
+### Specify ARCH=x64 for 64-bit.
 ###
 ### The "package" target builds a release package.
-### The build directory is NOT automatically updated:
-### the user should invoke as "make clean zip" (or just "make")
-### in order to update an existing build directory.
 ###
 ### WARNING: do NOT include any shell-invoking values prior to
 ### the currently-under-cygwin test below!
 
-.PHONY: default package dynamorio-onearch clean dynamorio-package clean-package \
+.PHONY: default all package dynamorio-onearch clean dynamorio-package clean-package \
 	diffdir diff diffcheck diffclean notesclean reviewclean \
         diffnotes diffprep review
 
 default: dynamorio-onearch
+all: dynamorio-onearch
 
 package: clean-package dynamorio-package
 
@@ -89,6 +88,11 @@ ifeq ($(MACHINE), win32)
 	$(MAKE) -C libutil clean
 	$(MAKE) -C tools clean
 endif
+
+###########################################################################
+###########################################################################
+#
+# building a release package
 
 # build team provides these:
 # OBJDIR               = ignored
@@ -174,6 +178,12 @@ ifeq ($(MACHINE), win32)
   ifeq ($(LOCAL_CYGWIN),1)
     # Currently under cygwin: keep using that cygwin.
     # We assume all utilities are on the PATH.
+
+    ifndef DYNAMORIO_MAKE
+      DYNAMORIO_MAKE := make
+    endif
+    include $(DYNAMORIO_MAKE)/compiler.mk
+
 dynamorio-package:
 	$(DYNAMORIO_TOOLS)/makezip.sh $(MAKEZIP_ARGS)
 
@@ -219,8 +229,13 @@ endif
 
 
 # Processing for custom builds
+# FIXME: this has shell-invoking vars: ruins under-cygwin check:
+# but we may not need that check anymore since we will probably
+# have to require devs to have cygwin on their machines.
 include Makefile.custom_build
 
+
+###########################################################################
 ###########################################################################
 # code review automation
 #
@@ -236,7 +251,9 @@ include Makefile.custom_build
 # use the "diffprep" target to view prior to committing
 # use "reviewclean" to abort
 
-DYNAMORIO_REVIEWS := ../reviews
+ifndef DYNAMORIO_REVIEWS
+  DYNAMORIO_REVIEWS := ../reviews
+endif
 YEAR := $(shell $(DATE) +%Y)
 DIFF_DIR := $(DYNAMORIO_REVIEWS)/$(USER)/$(YEAR)
 
