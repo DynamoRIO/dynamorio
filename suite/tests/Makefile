@@ -840,6 +840,9 @@ endif
 # we run API tests first as those are more easily broken
 run: runheader runinterface runapi runnointerface
 
+# runallbuthotp is used only as solution for PR 234043
+runallbuthotp: runheader runinterface runapi runbase runsecurity runrunall
+
 runnointerface: runbase runsecurity runrunall
 
 runnogui: runbase runsecurity runrunall-nogui

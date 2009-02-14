@@ -264,7 +264,7 @@ else
     if [ $projname != "viper" ]; then
         cd DRgui
         make $defines clean all
-        $CP ../build/tools/DRgui_dbg_demo/DRgui.exe $base/$projname/bin/bin32/drgui.exe
+        $CP ../../build/tools/DRgui_dbg_demo/DRgui.exe $base/$projname/bin/bin32/drgui.exe
     fi
 fi
 
@@ -335,6 +335,7 @@ build_samples() {
         # PR 232490: ensure services can read these
         chmod ugo+rx $base/$projname/docs/html/samples/build$2/*.{dll,exe}
     fi
+    make $1 clean
 }
 
 mkdir -p $base/$projname/docs/html/samples

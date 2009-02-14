@@ -83,6 +83,8 @@ ifdef VMSAFE
 endif
 
 # run doxygen and fail on warnings
+# re-run -u in case Doxyfile was generated on a different machine
+	$(DOXYGEN) -u $(DOXYFILE)
 	$(DOXYGEN) $(DOXYFILE) 2>&1 | $(TEE) doxygen.out
 	$(GREP) -i warning doxygen.out; if [ $$? == 0 ]; then false; fi
 	$(RM) doxygen.out

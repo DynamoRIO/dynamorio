@@ -73,11 +73,11 @@ INCLUDES := /I"$(WIN_DYNAMORIO_BASE)/$(CORE_DIRNAME)" \
 	    $(MSINCLUDE)
 
 # We get resource defines and the build number from
-# Makefile.custom_build. (DIFFNUM is referenced there)
+# custom_build.mk (DIFFNUM is referenced there)
 ifndef DIFFNUM
   DIFFNUM := 1
 endif
-include $(DYNAMORIO_BASE)/Makefile.custom_build
+include $(DYNAMORIO_MAKE)/custom_build.mk
 
 BNFLAGS := /DBUILD_NUMBER=$(BUILD_NUMBER)
 ifneq ($(VERSION_NUMBER),)

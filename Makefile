@@ -80,7 +80,7 @@ ifeq ($(MACHINE), win32)
 	$(MAKE) -C tools EXTERNAL_DRVIEW=1
 endif
 
-clean:
+clean: clean-package
 # docs first to avoid error about no headers
 	$(MAKE) -C api/docs clean
 	$(MAKE) -C core clear
@@ -188,7 +188,7 @@ dynamorio-package:
 	$(DYNAMORIO_TOOLS)/makezip.sh $(MAKEZIP_ARGS)
 
 clean-package:
-	$(RM) -rf $(BUILD_ROOT) $(PUBLISH_DIR)
+	$(RM) -r $(BUILD_ROOT) $(PUBLISH_DIR)
 
   else
 
@@ -222,7 +222,7 @@ dynamorio-package:
 	$(DYNAMORIO_TOOLS)/makezip.sh $(MAKEZIP_ARGS)
 
 clean-package:
-	$(RM) -rf $(BUILD_ROOT) $(PUBLISH_DIR)
+	$(RM) -r $(BUILD_ROOT) $(PUBLISH_DIR)
 
 endif
 ##################################################
@@ -232,7 +232,7 @@ endif
 # FIXME: this has shell-invoking vars: ruins under-cygwin check:
 # but we may not need that check anymore since we will probably
 # have to require devs to have cygwin on their machines.
-include Makefile.custom_build
+include $(DYNAMORIO_MAKE)/custom_build.mk
 
 
 ###########################################################################
@@ -338,3 +338,141 @@ diffprep: $(DIFF_DIFF) $(DIFF_NOTES)
 review: diffprep
 	@(cd $(DYNAMORIO_REVIEWS); $(SVN) commit --force-log -F $(DIFF_NOTES))
 
+
+##################################################
+##################################################
+# Support for running regression suite 
+#
+# We update the target's tools, libutil, and suite dirs from the local copy, allowing
+# testing of changes to other components than just core/.
+#
+# To avoid the problem of a later checkout being newer than an older modified
+# file, we can either clobber every time or use rsync w/ separate targets --
+# we choose the latter, splitting up src targets, but assuming people rarely
+# send over multiple tools/libutil/suite targets.
+# By default we copy to a dedicated regression dir and don't clobber in-use
+# checkouts, etc. on the remote machine.
+#
+# WARNING: if you have serious clock skew rsync may copy the same files multiple times
+# in a row, thinking they're still new, or may not copy files that really are new.
+
+ifdef DYNAMORIO_REGRESSION
+  RUNREG_BASE := ${DYNAMORIO_REGRESSION}
+else
+  RUNREG_BASE := ~/dr/regression
+endif
+RUNREG_HOST=localhost
+RUNREG_TREE=${RUNREG_BASE}/${CUR_TREE}
+RUNREG_SRC=${RUNREG_TREE}/${CORE_DIRNAME}
+RUNREG_MAKE=${RUNREG_TREE}/make
+RUNREG_TOOLS=${RUNREG_TREE}/tools
+RUNREG_LIBUTIL=${RUNREG_TREE}/libutil
+RUNREG_SUITE=${RUNREG_TREE}/suite
+RUNREG_API=${RUNREG_TREE}/api
+ifndef RUNREG_USER
+  RUNREG_USER := ${USER}
+endif
+ifeq (${RUNREG_HOST}, localhost)
+RUNREG_LOC=
+RUNREG_CMD=$(SHELL) -c
+RUNREG_SCRIPT=$(PERL) runregression
+else
+RUNREG_LOC=${RUNREG_USER}@${RUNREG_HOST}:
+RUNREG_CMD=ssh ${RUNREG_USER}@${RUNREG_HOST}
+RUNREG_SCRIPT=perl runregression
+endif
+# DYNAMORIO_{TOOLS,LIBUTIL,MAKE,SUITE,API} must be set
+# for a regression.  We'll supply default values relative to the
+# current directory if they're not explicitly provided.
+ifndef DYNAMORIO_CORE
+  DYNAMORIO_CORE := core
+endif
+ifndef DYNAMORIO_TOOLS
+  DYNAMORIO_TOOLS := tools
+endif
+ifndef DYNAMORIO_LIBUTIL
+  DYNAMORIO_LIBUTIL := libutil
+endif
+ifndef DYNAMORIO_SUITE
+  DYNAMORIO_SUITE := suite
+endif
+ifndef DYNAMORIO_API
+  DYNAMORIO_API := api
+endif
+ifeq ($(MACHINE), win32)
+DR_CORE=$(shell $(CYGPATH) -ui ${DYNAMORIO_CORE})
+DR_MAKE=$(shell $(CYGPATH) -ui ${DYNAMORIO_MAKE})
+DR_TOOLS=$(shell $(CYGPATH) -ui ${DYNAMORIO_TOOLS})
+DR_LIBUTIL=$(shell $(CYGPATH) -ui ${DYNAMORIO_LIBUTIL})
+DR_SUITE=$(shell $(CYGPATH) -ui ${DYNAMORIO_SUITE})
+DR_API=$(shell $(CYGPATH) -ui ${DYNAMORIO_API})
+else
+DR_CORE=${DYNAMORIO_CORE}
+DR_MAKE=${DYNAMORIO_MAKE}
+DR_TOOLS=${DYNAMORIO_TOOLS}
+DR_LIBUTIL=${DYNAMORIO_LIBUTIL}
+DR_SUITE=${DYNAMORIO_SUITE}
+DR_API=${DYNAMORIO_API}
+endif
+
+SHELL_RC=~/.bashrc
+
+# If you have problems rsync-ing (replacing an in-use file, etc.) can disable by
+# running with NORSYNC=1 (will still rsync the src tree)
+NORSYNC = 0
+
+# We use -C to avoid clobbering CVS files, so remote dirs can still be used as cvs co's
+# if so desired.
+RSYNC = rsync -auvzC --exclude=*.map --exclude=*.pdb
+
+RSYNC_TOOLS_FLAGS := --include=/external/whoami.exe --exclude=/external/*
+
+runregression:
+	@(if [ ! -d ${DR_CORE} ]; then \
+		$(ECHO) "ERROR: ${DR_CORE} does not exist!"; false; fi)
+	@(if [ ! -d ${DR_MAKE} ]; then \
+		$(ECHO) "ERROR: ${DR_MAKE} does not exist!"; false; fi)
+	@(if [ ! -d ${DR_TOOLS} ]; then \
+		$(ECHO) "ERROR: ${DR_TOOLS} does not exist!"; false; fi)
+	@(if [ ! -d ${DR_LIBUTIL} ]; then \
+		$(ECHO) "ERROR: ${DR_LIBUTIL} does not exist!"; false; fi)
+	@(if [ ! -d ${DR_SUITE} ]; then \
+		$(ECHO) "ERROR: ${DR_SUITE} does not exist!"; false; fi)
+	@(if [ ! -d ${DR_API} ]; then \
+		$(ECHO) "ERROR: ${DR_API} does not exist!"; false; fi)
+# Since there may be no subdirs already created, and we can't use rsync's --relative
+# w/o being able to break up the local path and w/o identical path tails, we use
+# mkdir -p to make the dir structure.
+	${RUNREG_CMD} "mkdir -p ${RUNREG_SRC}"
+	${RSYNC} ${DR_CORE}/ ${RUNREG_LOC}${RUNREG_SRC}
+ifeq (${NORSYNC}, 0)
+	${RSYNC} ${DR_MAKE}/ ${RUNREG_LOC}${RUNREG_MAKE}
+	${RSYNC} $(RSYNC_TOOLS_FLAGS) ${DR_TOOLS}/ ${RUNREG_LOC}${RUNREG_TOOLS}
+	${RSYNC} ${DR_LIBUTIL}/ ${RUNREG_LOC}${RUNREG_LIBUTIL}
+# FIXME: We no longer have the CVS/Entries file to easily get
+# a list of directories to rsync.  We may end up sending more
+# than necessary; for now just provide the long list of
+# exclusions to try to avoid sending generated files.
+	${RSYNC} \
+	    --exclude=*.exe --exclude=*.obj --exclude=*.pdb	\
+	    --exclude=*.ilk --exclude=*.clout --exclude=*.dll	\
+	    --exclude=*.last --exclude=*.lib --exclude=*.exp	\
+	    --exclude=results/ --exclude=stress/run/		\
+	    --exclude=regression-*/ --exclude=cache/		\
+	    --exclude=/release --exclude=/native		\
+	    --exclude=logs/ --include=events*dummy?.so		\
+	    ${DR_SUITE}/ ${RUNREG_LOC}${RUNREG_SUITE}
+	${RSYNC} --include=VIPA_test.exe ${DR_API}/ ${RUNREG_LOC}${RUNREG_API}
+endif
+# We must source .bashrc to get the compiler path, etc. set up
+# (cygwin bash non-interactive does not source it even if started by sshd).
+	${RUNREG_CMD} " \
+	    if [ -e ${SHELL_RC} ]; then source ${SHELL_RC}; fi; \
+	    cd ${RUNREG_SUITE}; \
+            export DYNAMORIO_BASE=${RUNREG_TREE}; \
+            export DYNAMORIO_TOOLS=${RUNREG_TOOLS}; \
+            export DYNAMORIO_LIBUTIL=${RUNREG_LIBUTIL}; \
+	    export DYNAMORIO_MAKE=${RUNREG_MAKE}; \
+	    export DYNAMORIO_API=${RUNREG_API}; \
+            ${RUNREG_SCRIPT} ${RUNREG_OPTIONS}" 2>&1 | $(TEE) ${REGRESSION}-${RUNREG_HOST}
+	@$(GREP) "all builds succesful" ${REGRESSION}-${RUNREG_HOST}

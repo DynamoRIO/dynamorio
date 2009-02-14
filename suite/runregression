@@ -228,19 +228,26 @@ $mf_mode = "-security_api";
     "BUILD::LIN::NOSHORT::ADD_DEFINES=\"${D}CHECK_RETURNS_SSE2\"",
 );
 
-$DYNAMORIO_HOME = $ENV{'DYNAMORIO_HOME'};
+$topdir = `pwd`;
+chop $topdir;
+
+$DYNAMORIO_BASE = $ENV{'DYNAMORIO_BASE'};
+$DYNAMORIO_BASE = "$topdir/.." if ($DYNAMORIO_BASE eq '');
+$DYNAMORIO_HOME = "$DYNAMORIO_BASE/exports";
 $DYNAMORIO_LIBUTIL = $ENV{'DYNAMORIO_LIBUTIL'}; # win32-only
-$DYNAMORIO_LIBUTIL = "../libutil" if ($DYNAMORIO_LIBUTIL eq '');
+$DYNAMORIO_LIBUTIL = "$topdir/../libutil" if ($DYNAMORIO_LIBUTIL eq '');
 $DYNAMORIO_TOOLS = $ENV{'DYNAMORIO_TOOLS'};
-$DYNAMORIO_TOOLS = "../tools" if ($DYNAMORIO_TOOLS eq '');
+$DYNAMORIO_TOOLS = "$topdir/../tools" if ($DYNAMORIO_TOOLS eq '');
 $BUILD_TOOLS = $ENV{'BUILD_TOOLS'};
-$BUILD_TOOLS = "../build/tools" if ($BUILD_TOOLS eq '');
+$BUILD_TOOLS = "$topdir/../build/tools" if ($BUILD_TOOLS eq '');
 $DYNAMORIO_BENCHMARKS = $ENV{'DYNAMORIO_BENCHMARKS'};
-$DYNAMORIO_BENCHMARKS = "../benchmarks" if ($DYNAMORIO_BENCHMARKS eq '');
+$DYNAMORIO_BENCHMARKS = "$topdir/../benchmarks" if ($DYNAMORIO_BENCHMARKS eq '');
 $DYNAMORIO_API = $ENV{'DYNAMORIO_API'};
-$DYNAMORIO_API = "../api" if ($DYNAMORIO_API eq '');
+$DYNAMORIO_API = "$topdir/../api" if ($DYNAMORIO_API eq '');
 $DYNAMORIO_LOGDIR = $ENV{'DYNAMORIO_LOGDIR'};
 $DYNAMORIO_LOGDIR =~ s|\\|/|g;
+$DYNAMORIO_MAKE = $ENV{'DYNAMORIO_MAKE'};
+$DYNAMORIO_MAKE = "$topdir/../make" if ($DYNAMORIO_MAKE eq '');
 
 ###########################################################################
 # arguments
@@ -323,8 +330,6 @@ if (!$justtests && !$justbuild && ! -d "$bmarkbase/benchmarks") {
     print "$usage";
     exit 0;
 }
-$topdir = `pwd`;
-chop $topdir;
 
 $dstamp = `date | awk '{print \$6 "-" \$2\$3}'`;
 chop $dstamp;
@@ -344,17 +349,13 @@ if (!$justshow) {
 
 $coredir = "core";
 
-# FIXME: i#4 changed DYNAMORIO_HOME to include exports/ to clean up
-# top-level dirs.  Some Makefiles use DYNAMORIO_BASE.  Here we go
-# with DYNAMORIO_HOME/.. like tests/Makefefile does.  Kind of ugly.
-# But I do like the cleanup making exports/ look like the release layout.
-if (! -d "$DYNAMORIO_HOME/../$coredir") {
-    print "ERROR: Cannot find $DYNAMORIO_HOME/../$coredir, exiting\n";
+if (! -d "$DYNAMORIO_BASE/$coredir") {
+    print "ERROR: Cannot find $DYNAMORIO_BASE/$coredir, exiting\n";
     exit 0;
 }
 if (!$justshow) {
-    print "Copying sources from $DYNAMORIO_HOME/../$coredir\n";
-    system("cp -r $DYNAMORIO_HOME/../$coredir .");
+    print "Copying sources from $DYNAMORIO_BASE/$coredir\n";
+    system("cp -r $DYNAMORIO_BASE/$coredir .");
     # On Vista regressions mc complains access denied opening win32/events.mc 
     system("chmod -R aug+rxw $coredir");
     # eliminate any custom settings
@@ -366,7 +367,7 @@ if (!$justshow) {
 $build_ok = 1;
 
 if (!$justshow) {
-    system("cd $coredir; make -s ugly >> $topdir/$stamp/make_ugly_s.log 2>&1");
+    system("cd $coredir; make DYNAMORIO_MAKE=$DYNAMORIO_MAKE -s ugly >> $topdir/$stamp/make_ugly_s.log 2>&1");
     print "\n============================================================\n\n";
     $make_ugly_result = "make ugly: succeeded\n";
     open(IN, "< $topdir/$stamp/make_ugly_s.log");
@@ -508,14 +509,15 @@ while ($i <= $#cases) {
     print "\n============================================================\n";
     print "Build $b: $case\n\n";
     print "Building......\n";
-    
+
+    $makedirs = "DYNAMORIO_MAKE=$DYNAMORIO_MAKE DYNAMORIO_BASE=..";
     system("echo \"$n: $case\n\n\" >> ../$logfile 2>&1");
     # use clear instead of clean so we don't have to worry about defines
     # xref case 9783, need to override BUILD for newer cygwin versions for clear,
     # but must unset USEDEP so we don't try to include "/buildmark.dep"
     # FIXME case 192750: cannot create pdb files over public key ssh
     if (!$justshow) {
-        system("($nice make USEDEP=0 BUILD= clear; $nice make $parallel_build $case DBG= LINK_DBG= install) >> ../$logfile 2>&1");
+        system("($nice make $makedirs USEDEP=0 BUILD= clear; $nice make $makedirs $parallel_build $case DBG= LINK_DBG= install) >> ../$logfile 2>&1");
     }
     system("grep -i [^W]error ../$logfile");
     $errors = `grep -i [^W]error ../$logfile`;
@@ -727,7 +729,8 @@ while ($i <= $#cases) {
             $cases[$i] =~ s/\"(.*)\\/\"$ADDITIONAL_TEST_OPTIONS_WIN32 \1\\/;
         }
 
-        if (!$justtests && $runtarget =~ /spec/) {
+        # "if 0" to disable: had to remove spec2k support for open-source
+        if (0 && !$justtests && $runtarget =~ /spec/) {
             $runtarget =~ s/ *spec *//;
             ###################################################
             # SPEC

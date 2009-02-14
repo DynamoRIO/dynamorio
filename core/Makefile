@@ -93,8 +93,6 @@ GCC     =gcc
 DEP_SFX =dep
 DEPENDS =-MM -MG -MP # no system headers, generated get phony targets
 
-# src/ or core/
-CORE_DIRNAME :=core
 SRC	     :=.
 HTML	     :=$(DYNAMORIO_BASE)/html
 HTML_BACK    :=../$(CORE_DIRNAME)
@@ -285,8 +283,9 @@ ifeq ($(MACHINE), linux)
 # Note that we're still using a linker script to set our preferred
 # base (PR 253624) and will need to for section ordering as well
 # (PR 208267) but those are separate scripts.
-LINKER_VERSION_SCRIPT = 0
-
+ifeq ($(HAVE_FVISIBILITY), 1)
+  LINKER_VERSION_SCRIPT := 0
+endif
 KEEP_SYMBOLS_FOR_LIBC_BACKTRACE := 0
 ifeq ($(INTERNAL), 1)
 KEEP_SYMBOLS_FOR_LIBC_BACKTRACE := 1
@@ -555,7 +554,7 @@ endif
 endif
 
 # Processing for custom builds
-include $(DYNAMORIO_BASE)/Makefile.custom_build
+include $(DYNAMORIO_MAKE)/custom_build.mk
 
 ifneq ($(CUSTOM_PRODUCT_NAME),)
   GEN_DEFINES += $(D)CUSTOM_PRODUCT_NAME=$(CUSTOM_PRODUCT_NAME)
@@ -1749,190 +1748,6 @@ symbols:
 
 endif # win32
 
-##################################################
-# Support for running regression suite 
-#
-# We update the target's tools, libutil, and suite dirs from the local copy, allowing
-# testing of changes to other components than just core/.
-# We do assume that benchmarks/ is already set up and pointed at by a
-# DYNAMORIO_BENCHMARKS that is set in the shell rc file.
-#
-# To avoid the problem of a later checkout being newer than an older modified
-# file, we can either clobber every time or use rsync w/ separate targets --
-# we choose the latter, splitting up src targets, but assuming people rarely
-# send over multiple tools/libutil/suite targets.
-# By default we copy to a dedicated regression dir and don't clobber in-use
-# checkouts, etc. on the remote machine.
-#
-# WARNING: if you have serious clock skew rsync may copy the same files multiple times
-# in a row, thinking they're still new, or may not copy files that really are new.
-
-ifdef DYNAMORIO_REGRESSION
-  RUNREG_BASE := ${DYNAMORIO_REGRESSION}
-else
-  RUNREG_BASE := ~/dr/regression
-endif
-RUNREG_HOST=localhost
-RUNREG_TREE=${RUNREG_BASE}/trees/${CUR_TREE}
-RUNREG_SRC=${RUNREG_TREE}/${CORE_DIRNAME}
-RUNREG_MAKE=${RUNREG_BASE}/make
-RUNREG_TOOLS=${RUNREG_BASE}/tools
-RUNREG_LIBUTIL=${RUNREG_BASE}/libutil
-RUNREG_SUITE=${RUNREG_BASE}/suite
-RUNREG_BENCHMARKS=${RUNREG_BASE}/benchmarks
-RUNREG_API=${RUNREG_BASE}/api
-ifeq (${RUNREG_HOST}, localhost)
-RUNREG_LOC=
-RUNREG_CMD=$(SHELL) -c
-RUNREG_SCRIPT=$(PERL) runregression
-else
-RUNREG_LOC=${USER}@${RUNREG_HOST}:
-RUNREG_CMD=ssh ${USER}@${RUNREG_HOST}
-RUNREG_SCRIPT=perl runregression
-endif
-# DYNAMORIO_{TOOLS,LIBUTIL,MAKE,SUITE,BENCHMARKS,API} must be set
-# for a regression.  We'll supply default values relative to the
-# current directory if they're not explicitly provided.
-ifndef DYNAMORIO_TOOLS
-  DYNAMORIO_TOOLS := ../tools
-endif
-ifndef DYNAMORIO_LIBUTIL
-  DYNAMORIO_LIBUTIL := ../libutil
-endif
-ifndef DYNAMORIO_SUITE
-  DYNAMORIO_SUITE := ../suite
-endif
-ifndef DYNAMORIO_BENCHMARKS
-  DYNAMORIO_BENCHMARKS := ../benchmarks
-endif
-ifndef DYNAMORIO_API
-  DYNAMORIO_API := ../api
-endif
-ifeq ($(MACHINE), win32)
-DR_MAKE=$(shell $(CYGPATH) -ui ${DYNAMORIO_MAKE})
-DR_TOOLS=$(shell $(CYGPATH) -ui ${DYNAMORIO_TOOLS})
-DR_LIBUTIL=$(shell $(CYGPATH) -ui ${DYNAMORIO_LIBUTIL})
-DR_SUITE=$(shell $(CYGPATH) -ui ${DYNAMORIO_SUITE})
-DR_BENCHMARKS=$(shell $(CYGPATH) -ui ${DYNAMORIO_BENCHMARKS})
-DR_API=$(shell $(CYGPATH) -ui ${DYNAMORIO_API})
-else
-DR_MAKE=${DYNAMORIO_MAKE}
-DR_TOOLS=${DYNAMORIO_TOOLS}
-DR_LIBUTIL=${DYNAMORIO_LIBUTIL}
-DR_SUITE=${DYNAMORIO_SUITE}
-DR_BENCHMARKS=${DYNAMORIO_BENCHMARKS}
-DR_API=${DYNAMORIO_API}
-endif
-
-# To save time when rsync'ing the benchmarks directory, only include
-# the bare minimum needed for the regression:
-BENCHMARK_SRCS:=RunSuite			\
-		spec2000/Makefile*		\
-		spec2000/tools			\
-		spec2000/specperl		\
-		spec2000/int/crafty/RunSpec	\
-		spec2000/int/crafty/Makefile	\
-		spec2000/int/crafty/src		\
-		spec2000/int/crafty/data/test 	\
-		spec2000/int/gcc/RunSpec	\
-		spec2000/int/gcc/Makefile	\
-		spec2000/int/gcc/src		\
-		spec2000/int/gcc/data/test	\
-		spec2000/int/mcf/RunSpec	\
-		spec2000/int/mcf/Makefile	\
-		spec2000/int/mcf/src		\
-		spec2000/int/mcf/data/test	
-
-# Note below that we use rsync -R when transferting portions of the
-# benchmarks module so we can maintain the directory structure.  We
-# need the './' syntax to get it right.  See the description of -R in
-# the rsync man page.
-BENCHMARK_SRCS := $(patsubst %,${DR_BENCHMARKS}/./%,${BENCHMARK_SRCS})
-
-SHELL_RC=~/.bashrc
-
-# If you have problems rsync-ing (replacing an in-use file, etc.) can disable by
-# running with NORSYNC=1 (will still rsync the src tree)
-NORSYNC = 0
-
-# We use -C to avoid clobbering CVS files, so remote dirs can still be used as cvs co's
-# if so desired.
-RSYNC = rsync -auvzC --exclude=*.map --exclude=*.pdb
-
-RSYNC_TOOLS_FLAGS := --include=/external/whoami.exe --exclude=/external/*
-
-runregression:
-	@(if [ ! -d ${DR_MAKE} ]; then \
-		$(ECHO) "ERROR: ${DR_MAKE} does not exist!"; false; fi)
-	@(if [ ! -d ${DR_TOOLS} ]; then \
-		$(ECHO) "ERROR: ${DR_TOOLS} does not exist!"; false; fi)
-	@(if [ ! -d ${DR_LIBUTIL} ]; then \
-		$(ECHO) "ERROR: ${DR_LIBUTIL} does not exist!"; false; fi)
-	@(if [ ! -d ${DR_SUITE} ]; then \
-		$(ECHO) "ERROR: ${DR_SUITE} does not exist!"; false; fi)
-	@(if [ ! -d ${DR_BENCHMARKS} ]; then \
-		$(ECHO) "ERROR: ${DR_BENCHMARKS} does not exist!"; false; fi)
-	@(if [ ! -d ${DR_API} ]; then \
-		$(ECHO) "ERROR: ${DR_API} does not exist!"; false; fi)
-# Since there may be no subdirs already created, and we can't use rsync's --relative
-# w/o being able to break up the local path and w/o identical path tails, we use
-# mkdir -p to make the dir structure.
-	${RUNREG_CMD} "mkdir -p ${RUNREG_SRC}"
-	${RSYNC} . ${RUNREG_LOC}${RUNREG_SRC}
-ifeq (${NORSYNC}, 0)
-	${RSYNC} ${DR_MAKE}/ ${RUNREG_LOC}${RUNREG_MAKE}
-	${RSYNC} $(RSYNC_TOOLS_FLAGS) ${DR_TOOLS}/ ${RUNREG_LOC}${RUNREG_TOOLS}
-	${RSYNC} ${DR_LIBUTIL}/ ${RUNREG_LOC}${RUNREG_LIBUTIL}
-# FIXME: We no longer have the CVS/Entries file to easily get
-# a list of directories to rsync.  We may end up sending more
-# than necessary; for now just provide the long list of
-# exclusions to try to avoid sending generated files.
-	${RSYNC} \
-	    --exclude=*.exe --exclude=*.obj --exclude=*.pdb	\
-	    --exclude=*.ilk --exclude=*.clout --exclude=*.dll	\
-	    --exclude=*.last --exclude=*.lib --exclude=*.exp	\
-	    --exclude=results/ --exclude=TMPPREINJDIR/		\
-	    --exclude=TMPPREINJDIR/ --exclude=stress/run/	\
-	    --exclude=regression-*/ --exclude=cache/		\
-	    --exclude=logs/ --include=events*dummy?.so		\
-	    ${DR_SUITE}/ ${RUNREG_LOC}${RUNREG_SUITE}
-# -C auto-ignores *.exe so we explicitly include specperl.exe here
-	${RSYNC} -R --include=specperl.exe \
-	    ${BENCHMARK_SRCS} ${RUNREG_LOC}${RUNREG_BENCHMARKS}
-	${RSYNC} --exclude=/docs/html/ --exclude=/docs/latex/   \
-                 --include=VIPA_test.exe                        \
-	    ${DR_API}/ ${RUNREG_LOC}${RUNREG_API}
-endif
-# We must source .bashrc to get the compiler path, etc. set up
-# (cygwin bash non-interactive does not source it even if started by sshd).
-	${RUNREG_CMD} " \
-	    if [ -e ${SHELL_RC} ]; then source ${SHELL_RC}; fi; \
-	    cd ${RUNREG_SUITE}; \
-            export DYNAMORIO_HOME=${RUNREG_TREE}; \
-            export DYNAMORIO_TOOLS=${RUNREG_TOOLS}; \
-            export DYNAMORIO_LIBUTIL=${RUNREG_LIBUTIL}; \
-	    export DYNAMORIO_MAKE=${RUNREG_MAKE}; \
-	    export DYNAMORIO_BENCHMARKS=${RUNREG_BENCHMARKS}; \
-	    export DYNAMORIO_API=${RUNREG_API}; \
-            ${RUNREG_SCRIPT} ${RUNREG_OPTIONS}" 2>&1 | $(TEE) ${REGRESSION}-${RUNREG_HOST}
-	@$(GREP) "all builds succesful" ${REGRESSION}-${RUNREG_HOST}
-
-specupdate:
-	@if ! test ${DYNAMORIO_BENCHMARKS}; then $(ECHO) "ERROR: DYNAMORIO_BENCHMARKS not set"; exit -1; fi
-# Send just config files for spec2000
-# (need the dirs explicit so * doesn't squash them)
-# Make sure your symlinks are local, if possible -- FIXME: runstats.c is not
-	RUNREG_BENCHMARKS=`${RUNREG_CMD} "source ${SHELL_RC} > /dev/null; \
-            cygpath -u \\$${DYNAMORIO_BENCHMARKS} 2> /dev/null || $(ECHO) \\$${DYNAMORIO_BENCHMARKS}"`; \
-            ${RSYNC} --include=/spec2000/ --include=/spec2000/*/ \
-            --include=/spec2000/*/*/ --include=/RunSuite --include=/spec2000**/Makefile* \
-            --include=/spec2000**/RunSpec --include=/spec2000**/tools/* \
-            --exclude=* ${DR_BENCHMARKS}/ ${RUNREG_LOC}$${RUNREG_BENCHMARKS}
-
 up update: # (needed only since we don't have good make depends)
-# FIXME: not very sophisticated version for starters with P4, 
 # check if up to date, and update if not
-#	(cvs status | grep Status | grep -vE 'Up-to-date|Locally') && (cvs update; make clear) || $(ECHO) Up-to-date
-	$(P4) diff -sa  # new files not needed here
-	$(P4) sync
-	make clear
+	($(SVN) update | grep Updated) && make clear || $(ECHO) Up-to-date

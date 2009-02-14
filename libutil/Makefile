@@ -63,7 +63,7 @@ DBG = /Zi
 LINK_DBG = /debug
 
 CORE_DIRNAME := core
-include $(DYNAMORIO_BASE)/Makefile.custom_build
+include $(DYNAMORIO_MAKE)/custom_build.mk
 
 TARGET_LIB := policy
 CONFIG_LIB := drconfig

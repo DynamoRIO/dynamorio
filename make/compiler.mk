@@ -55,6 +55,11 @@
 #   - Require doxygen >= 1.5.1, 1.5.3+ better, to build the docs
 #   - Require fig2dev (transfig), ImageMagick, ghostscript to build the docs
 #
+# If typedef conflicts arise (such as on RHEL3), currently you'll have
+# to manually resolve by defining one of our DR_DO_NOT_DEFINE_*
+# defines (DR_DO_NOT_DEFINE_uint, DR_DO_NOT_DEFINE_ushort, etc.).
+# Eventually we'll have a pre-make step that automates this.
+#
 # We need to be careful of subtle differences between
 # compiler and header versions.  Xref issues in the past: 
 #
@@ -91,33 +96,6 @@ ifeq ($(OS),)
 else
   MACHINE := win32
 endif
-
-# Paths
-ifndef ARCH
-  # default is x86 instead of x64
-  ARCH := x86
-endif
-ifndef DYNAMORIO_BASE
-  DYNAMORIO_BASE   :=..
-endif
-EXPORTS_BASE       :=$(DYNAMORIO_BASE)/exports
-BUILD_BASE         :=$(DYNAMORIO_BASE)/build
-ifndef BUILD_LIBUTIL
-  BUILD_LIBUTIL    :=$(BUILD_BASE)/libutil
-endif
-ifndef BUILD_TOOLS
-  BUILD_TOOLS      :=$(BUILD_BASE)/tools
-endif
-INSTALL_BIN_BASE   :=$(EXPORTS_BASE)/bin
-ifeq ($(ARCH), x64)
-  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib64
-  INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin64
-else
-  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib32
-  INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin32
-endif
-INSTALL_INCLUDE    :=$(EXPORTS_BASE)/include
-INSTALL_DOCS       :=$(EXPORTS_BASE)/docs
 
 #
 # Variables for shell utilities
@@ -173,6 +151,39 @@ SVN      := svn
 # * zip is used by makezip.sh
 # * make is used by makezip.sh
 # * find is used by makezip.sh
+
+# Paths
+ifndef ARCH
+  # default is x86 instead of x64
+  ARCH := x86
+endif
+ifndef DYNAMORIO_BASE
+  DYNAMORIO_BASE   :=..
+else
+  ifeq ($(MACHINE), win32)
+    DYNAMORIO_BASE   :=$(shell $(CYGPATH) -ma $(DYNAMORIO_BASE))
+  endif
+endif
+EXPORTS_BASE       :=$(DYNAMORIO_BASE)/exports
+BUILD_BASE         :=$(DYNAMORIO_BASE)/build
+ifndef BUILD_LIBUTIL
+  BUILD_LIBUTIL    :=$(BUILD_BASE)/libutil
+endif
+ifndef BUILD_TOOLS
+  BUILD_TOOLS      :=$(BUILD_BASE)/tools
+endif
+INSTALL_BIN_BASE   :=$(EXPORTS_BASE)/bin
+ifeq ($(ARCH), x64)
+  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib64
+  INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin64
+else
+  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib32
+  INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin32
+endif
+INSTALL_INCLUDE    :=$(EXPORTS_BASE)/include
+INSTALL_DOCS       :=$(EXPORTS_BASE)/docs
+# src/ or core/
+CORE_DIRNAME :=core
 
 
 #
@@ -351,5 +362,12 @@ else
   # as was convenient)
   AS := $(DYNAMORIO_MAKE)/as-2.18.50
   ASMFLAGS := -mmnemonic=intel -msyntax=intel -mnaked-reg --noexecstack
+
+  # Features
+  ifeq ($(shell $(CC) -v --help 2>&1 | grep fvisibility=),)
+    HAVE_FVISIBILITY := 0
+  else
+    HAVE_FVISIBILITY := 1
+  endif
 
 endif # win32
