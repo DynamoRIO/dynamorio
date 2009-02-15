@@ -881,24 +881,26 @@ enum {
 #  define wcscasecmp _wcsicmp
 #endif
 
-#define printf   printf_forbidden_function
-#define sprintf  sprintf_forbidden_function
-#define swprintf swprintf_forbidden_function
-#define vsprintf vsprintf_forbidden_function
-#define __try    __try_forbidden_construct /* see case 4461 */
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+#  define printf   printf_forbidden_function
+#  define sprintf  sprintf_forbidden_function
+#  define swprintf swprintf_forbidden_function
+#  define vsprintf vsprintf_forbidden_function
+#  define __try    __try_forbidden_construct /* see case 4461 */
 
 /* libc independence */
-#define mprotect     mprotect_forbidden_function
-#define mmap         mmap_forbidden_function
-#define munmap       munmap_forbidden_function
-#define getppid      getppid_forbidden_function
-#define sched_yield  sched_yield_forbidden_function
-#define dup          dup_forbidden_function
-#define sigaltstack  sigaltstack_forbidden_function
-#define setitimer    setitimer_forbidden_function
-#define _exit        _exit_forbidden_function
-#define gettimeofday gettimeofday_forbidden_function
-#define time         time_forbidden_function
-#define modify_ldt   modify_ldt_forbidden_function
+#  define mprotect     mprotect_forbidden_function
+#  define mmap         mmap_forbidden_function
+#  define munmap       munmap_forbidden_function
+#  define getppid      getppid_forbidden_function
+#  define sched_yield  sched_yield_forbidden_function
+#  define dup          dup_forbidden_function
+#  define sigaltstack  sigaltstack_forbidden_function
+#  define setitimer    setitimer_forbidden_function
+#  define _exit        _exit_forbidden_function
+#  define gettimeofday gettimeofday_forbidden_function
+#  define time         time_forbidden_function
+#  define modify_ldt   modify_ldt_forbidden_function
+#endif
 
 #endif /* _GLOBALS_H_ */

@@ -164,7 +164,7 @@ $(POLICY_LIB):
 # we'll copy the DLL to the tools directory so users won't need to
 # update their path.
 $(OUTDIR)/drdeploy.exe: $(OUTDIR)/$(CONFIG_DLL) $(OUTDIR)/drdeploy.res drdeploy.c
-	$(CC) $(CFLAGS_DRDEPLOY) /c drdeploy.c $(OUT)$(OUTDIR)/drdeploy.obj
+	$(CC) $(CFLAGS_DRDEPLOY) /c drdeploy.c $(OUT)$(OUTDIR)/drdeploy.obj /Fd$(OUTDIR)/drdeploy.pdb
 	$(LD) $(OUTDIR)/drdeploy.obj $(OUTDIR)/drdeploy.res $(LDFLAGS) $(CONFIG_LIB) $(WIN_POLICY_LIB) /pdb:$(OUTDIR)/drdeploy.pdb /map:$(OUTDIR)/drdeploy.map /out:$@
 # We could add a manifest so that we can request elevation on Vista (xref PR 233520).
 # Works fine for double clicking the app, but running from a cmd shell just gives access
@@ -240,8 +240,8 @@ DRgui:
 # case 192750: propagate whether to build pdb files
 	$(MAKE) -C DRgui DBG=$(DBG) LINK_DBG=$(LINK_DBG)
 
+# we assume that DRgui's files are inside our OUTDIR
 clean:
-	$(MAKE) -C DRgui clean
 	$(RM) -r $(OUTDIR)
 
 

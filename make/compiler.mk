@@ -152,7 +152,9 @@ SVN      := svn
 # * make is used by makezip.sh
 # * find is used by makezip.sh
 
+#
 # Paths
+#
 ifndef ARCH
   # default is x86 instead of x64
   ARCH := x86
@@ -186,15 +188,17 @@ INSTALL_DOCS       :=$(EXPORTS_BASE)/docs
 CORE_DIRNAME :=core
 
 
+###########################################################################
+###########################################################################
 #
 # Windows
 #
 ifeq ($(MACHINE), win32)
-  ifdef ENABLE_TOOLCHAIN
-    ifneq ($(ENABLE_TOOLCHAIN),1)
-      # we don't support the old bora-winroot
-      $(error !ENABLE_TOOLCHAIN is not supported)
-    endif
+  ifndef SDKROOT
+    $(error SDKROOT must point at a Windows SDK or Visual Studio installation)
+  endif
+  ifndef DDKROOT
+    $(error DDKROOT must point at a Windows DDK or WDK installation)
   endif
 
   #
@@ -214,44 +218,149 @@ ifeq ($(MACHINE), win32)
   CPP_KEEP_COMMENTS := /C
   CPP_NO_LINENUM := /EP
 
-  ifdef TCROOT
-    TCROOT := $(shell $(CYGPATH) -ma '$(TCROOT)')
+  SDKROOT := $(shell $(CYGPATH) -ma '$(SDKROOT)')
+  DDKROOT := $(shell $(CYGPATH) -ma '$(DDKROOT)')
+
+  # We can build dynamorio.dll from just the DDK, but we can't build
+  # drinject.exe (need imagehlp.lib) or libutil's static library (need lib.exe)
+  # or DRgui.  So we use the SDK/VS primarily, and use the DDK only for
+  # ntdll.lib.  We need cl 14, and thus the Vista SDK (6.1.6000) or Visual Studio 2005.
+  # For the DDK, either 2003 DDK (3790.1830) or Vista WDK (6000) with x64 libraries.
+
+  ifndef SDKROOT
+    # Here to show how to build core (minus injector) from just DDK.
+    # We need cl 14 for C99 vararg macros which means the
+    # Vista Windows Driver Kit (WDK) 6000 or later.
+    # Note that we want the oldest lib but the newest headers.
+    DDK_BIN_BASE := $(DDKROOT)/bin/x86
+    ifeq ($(ARCH), x64)
+      DDK_BIN_ARCH := $(DDKROOT)/bin/x86/amd64
+      DDK_LIB := $(DDKROOT)/lib/wnet/amd64
+      DDK_LIB_CRT := $(DDKROOT)/lib/crt/amd64
+    else
+      DDK_BIN_ARCH := $(DDKROOT)/bin/x86/x86
+      DDK_LIB := $(DDKROOT)/lib/w2k/i386
+      DDK_LIB_CRT := $(DDKROOT)/lib/crt/i386
+    endif
+    DDK_INC_API := $(DDKROOT)/inc/api
+    DDK_INC_CRT := $(DDKROOT)/inc/crt
+    # we are not setting INCLUDE or LIB env vars, so we set all paths here
+    MSINCLUDE := $(I)'$(shell $(CYGPATH) -wa "$(DDK_INC_API)")' \
+                 $(I)'$(shell $(CYGPATH) -wa "$(DDK_INC_CRT)")'
+    # no imagehlp.lib => can't build drinject.exe
+    MSLIB     := $(L)'$(shell $(CYGPATH) -wa "$(DDK_LIB)")' \
+                 $(L)'$(shell $(CYGPATH) -wa "$(DDK_LIB_CRT)")'
+    NTDLL_LIBPATH_X86 := $(DDK_LIB)
+    NTDLL_LIBPATH_X64 := $(DDK_LIB)
+    # we do not set PATH and rely on mspdb80.dll and mspdbsrv.exe being
+    # in same dir as cl.exe.
+    CC  := $(DDK_BIN_ARCH)/cl.exe /nologo
+    CPP := $(CC)
+    LD  := $(DDK_BIN_ARCH)/link.exe /nologo
+    ifeq ($(ARCH), x64)
+      AS := $(DDK_BIN_ARCH)/ml64.exe /nologo
+    else
+      AS := $(DDK_BIN_BASE)/ml.exe /nologo
+    endif
+    MC := $(DDK_BIN_BASE)/mc.exe
+    # no MT but currently not used
+    RC := $(DDK_BIN_BASE)/rc.exe
+    ML := $(DDK_BIN_BASE)/ml.exe
+    # no AR = lib.exe => can't build libutil/
+    # no BIND => can't run certain suite/tests/
+    # no DUMPBIN but only used for core/Makefile dll stats
+  else
 
     ifeq ($(ARCH), x64)
-      BINSUBDIR := /x86_x64
-      LIBSUBDIR := /x64
-      # should rename this one: toolchain bug
+      ifeq ($(wildcard $(SDKROOT)/VC/Bin/x64),$(SDKROOT)/VC/Bin/x64)
+        # Vista SDK
+        # Annoyingly it's missing ml64.exe and MFC.  We get ml64.exe
+        # from the DDK (meaning we need the Vista WDK) but neither has
+        # MFC libraries or resources so we can't build DRgui.
+        # FIXME: support pointing at an older Visual Studio for DRgui.
+        BINSUBDIR := /x64
+        LIBSUBDIR := /x64
+      else
+       ifeq ($(wildcard $(SDKROOT)/VC/Bin/x86_64),$(SDKROOT)/VC/Bin/x86_x64)
+        # VMware toolchain SDK + VS2005 mix
+        BINSUBDIR := /x86_x64
+        LIBSUBDIR := /x64
+       else
+        ifeq ($(wildcard $(SDKROOT)/VC/Bin/amd64),$(SDKROOT)/VC/Bin/amd64)
+        # Visual Studio 2005.  bin/amd64 has mspdb* and msobj80.dll already,
+        # so we use it in preference to x86_amd64.
+        BINSUBDIR := /amd64
+        LIBSUBDIR := /amd64
+        else
+          $(error Invalid SDKROOT: no x64 binaries found!)
+        endif
+       endif
+      endif
       MFCLIBSUBDIR := /amd64
     else
       BINSUBDIR :=
       LIBSUBDIR :=
       MFCLIBSUBDIR :=
     endif
-    # xref bora/make/mk/defs-compilersWin32.mk
-    ifeq ($(USE_VC71),1)
-      WROOT_BASE := $(TCROOT)/win32/visualstudio-2003
-      WROOT_VC := $(WROOT_BASE)/VC7
+
+    ifeq ($(wildcard $(SDKROOT)/VC/PlatformSDK),$(SDKROOT)/VC/PlatformSDK)
+      # Visual Studio 2005
+      WROOT_BASE := $(SDKROOT)
+      WROOT_VC := $(WROOT_BASE)/VC
       WROOT_PSDK := $(WROOT_VC)/PlatformSDK
       WROOT_SDKTOOLS := $(WROOT_BASE)/Common7/Tools/Bin
       MFCDIR := atlmfc
+      ifeq ($(wildcard $(WROOT_VC)/Bin/mspdb80.dll),)
+        # FIXME: too ugly to make users do?  Should we try to set PATH instead?
+        $(error Please copy $(WROOT_BASE)/Common7/IDE/mspdb* and $(WROOT_BASE)/Common7/IDE/msobj80.dll to $(WROOT_VC)/Bin)
+      endif
+    else
+      # Windows Vista SDK or VMware toolchain SDK + VS2005 mix
+      WROOT_BASE := $(SDKROOT)
+      WROOT_VC := $(WROOT_BASE)/VC
+      WROOT_PSDK := $(WROOT_BASE)
+      WROOT_SDKTOOLS := $(WROOT_PSDK)/Bin
+      MFCDIR := atlmfc
+    endif
+
+    # When we build the official release version of DRgui (and DRinstall,
+    # now deprecated) we use MFC and we want to run on older Windows (NT if
+    # possible), which means using older Visual Studio, so we point at it
+    # separately via VSROOT.  This may also be necessary when using Vista
+    # SDK, which is missing MFC.
+    ifeq ($(USE_VC71),1)
+      ifdef VSROOT
+        # Visual Studio 2003
+        WROOT_BASE := $(shell $(CYGPATH) -ma '$(VSROOT)')
+        WROOT_VC := $(WROOT_BASE)/VC7
+        WROOT_PSDK := $(WROOT_VC)/PlatformSDK
+        WROOT_SDKTOOLS := $(WROOT_BASE)/Common7/Tools/Bin
+        MFCDIR := atlmfc
+      else
+        USE_VC71 := 0
+      endif
     else
      ifeq ($(USE_VC60),1)
-       WROOT_BASE := $(TCROOT)/win32/visual-studio-98
-       WROOT_VC := $(WROOT_BASE)/vc98
-       # no SDK, so missing Common/MSDev98/Bin for rc.exe, ml.exe!
-       # Below we use the vc7 versions
-       WROOT_PSDK := $(WROOT_VC)
-       WROOT_SDKTOOLS := $(WROOT_VC)/Bin
-       MFCDIR := MFC
-     # windows vista sdk compiler is the default
-     else
-       WROOT_BASE := $(TCROOT)/win32/winsdk-6.1.6000
-       WROOT_VC := $(WROOT_BASE)/VC
-       WROOT_PSDK := $(WROOT_BASE)
-       WROOT_SDKTOOLS := $(WROOT_PSDK)/Bin
-       MFCDIR := atlmfc
+      ifdef VSROOT
+        # Visual Studio 98
+        WROOT_BASE := $(shell $(CYGPATH) -ma '$(VSROOT)')
+        WROOT_VC := $(WROOT_BASE)/vc98
+        WROOT_PSDK := $(WROOT_VC)
+        WROOT_SDKTOOLS := $(WROOT_VC)/Bin
+        MFCDIR := MFC
+        ifeq ($(wildcard $(WROOT_VC)/Bin/mspdb60.dll),)
+          # FIXME: too ugly to make users do?  Should we try to set PATH instead?
+          $(error Please copy $(VSROOT)/Common/MSDev98/Bin/mspdb60.dll to $(WROOT_VC)/Bin)
+        endif
+      else
+        ifeq ($(wildcard $(WROOT_VC)/$(MFCDIR)),)
+          $(error To build DRgui you need to set VSROOT, or change SDKROOT to Visual Studio 2005)
+        endif
+        USE_VC60 := 0
+      endif
      endif
     endif
+
     # we are not setting INCLUDE or LIB env vars, so we set all paths here
     MSINCLUDE := $(I)'$(shell $(CYGPATH) -wa "$(WROOT_PSDK)/Include")' \
                  $(I)'$(shell $(CYGPATH) -wa "$(WROOT_VC)/INCLUDE")' \
@@ -259,27 +368,35 @@ ifeq ($(MACHINE), win32)
     MSLIB     := $(L)'$(shell $(CYGPATH) -wa "$(WROOT_PSDK)/Lib$(LIBSUBDIR)")' \
                  $(L)'$(shell $(CYGPATH) -wa "$(WROOT_VC)/LIB$(LIBSUBDIR)")' \
                  $(L)'$(shell $(CYGPATH) -wa "$(WROOT_VC)/$(MFCDIR)/lib$(MFCLIBSUBDIR)")'
-    # for open-source release we can't distribute ntdll.lib so point at it
-    # note that we want the oldest ntdll.lib for maximum compatibility
-    DDK_BASE := $(TCROOT)/win32/winddk-6000.16386
-    NTDLL_LIBPATH_X86 := $(DDK_BASE)/lib/w2k/i386
-    NTDLL_LIBPATH_X64 := $(DDK_BASE)/lib/wnet/amd64
-    # we do not set PATH and rely on mspdb80.dll and mspdbsrv.exe being
+
+    # For open-source release we can't distribute ntdll.lib so point at it.
+    # Note that we want the oldest ntdll.lib for maximum compatibility.
+    # The 2003 DDK (3790.1830) or Vista WDK (6000) both have these paths:
+    NTDLL_LIBPATH_X86 := $(DDKROOT)/lib/w2k/i386
+    NTDLL_LIBPATH_X64 := $(DDKROOT)/lib/wnet/amd64
+
+    # We do not set PATH: instead we rely on mspdb80.dll and mspdbsrv.exe being
     # in same dir as cl.exe.
     CC  := $(WROOT_VC)/Bin$(BINSUBDIR)/cl.exe /nologo
     CPP := $(CC)
     LD  := $(WROOT_VC)/Bin$(BINSUBDIR)/link.exe /nologo
     ifeq ($(ARCH), x64)
       AS := $(WROOT_VC)/Bin$(BINSUBDIR)/ml64.exe /nologo
+      # Vista SDK is missing ml64.exe
+      ifeq ($(wildcard $(AS)),)
+        # FIXME: share w/ ifndef SDKROOT above
+        AS := $(DDKROOT)/bin/x86/amd64/ml64.exe /nologo
+      endif
     else
       AS := $(WROOT_VC)/Bin$(BINSUBDIR)/ml.exe /nologo
     endif
     MC := $(WROOT_SDKTOOLS)/mc.exe
     MT := $(WROOT_SDKTOOLS)/mt.exe
     ifeq ($(USE_VC60),1)
-      # FIXME: ask toolchain people to add these; for now we use vc7 versions
-      RC := $(TCROOT)/win32/visualstudio-2003/Common7/Tools/Bin/rc.exe
-      ML := $(TCROOT)/win32/visualstudio-2003/VC/Bin/ml.exe
+      # Missing from VMware toolchain VS98 -- though a local install would have it,
+      # in Common/MSDev98/Bin
+      RC := $(DDKROOT)/bin/x86/rc.exe
+      # We assume ML is not needed
     else
       RC := $(WROOT_SDKTOOLS)/rc.exe
       ML := $(WROOT_VC)/Bin/ml.exe
@@ -287,30 +404,24 @@ ifeq ($(MACHINE), win32)
     AR := $(WROOT_VC)/Bin$(BINSUBDIR)/lib.exe /nologo
     BIND := $(WROOT_SDKTOOLS)/bind.exe
     DUMPBIN := $(WROOT_VC)/Bin$(BINSUBDIR)/dumpbin.exe
-  else
-    ifndef BUILDTOOLS
-      $(error compiler.mk requires TCROOT or BUILDTOOLS)
-    endif
-    ifeq ($(USE_VC60),1)
-      # note that to build with vc6.0sp5 you'll need to re-instate the separate
-      # use of cpp to handle vararg macros
-      COMPILER := VC/6.0sp5
-    else
-      ifeq ($(USE_VC71),1)
-        COMPILER := VC/7.1
-      else
-        # default to 8.0
-        COMPILER := VC/8.0
-      endif
-    endif
-    include $(BUILDTOOLS)/$(COMPILER)/Setup.mk
-    MSINCLUDE := 
-    MSLIB := 
-    LD += /nologo
-    AR := lib.exe /nologo
-    CPP := $(CC)
-  endif # TCROOT
 
+    # Vista SDK is missing MFC.  This will supply header files so we can
+    # build libutil (core/win32/resources.rc includes winres.h) but
+    # we'll need VSROOT (see above) to build DRgui.
+    ifeq ($(wildcard $(WROOT_VC)/$(MFCDIR)),)
+      MSINCLUDE += $(I)'$(shell $(CYGPATH) -wa "$(DDKROOT)/inc/mfc42")'
+      ifeq ($(ARCH), x64)
+        DDKMFCLIBDIR := amd64
+      else
+        DDKMFCLIBDIR := i386
+      endif
+      MSLIB += $(L)'$(shell $(CYGPATH) -wa "$(DDKROOT)/lib/mfc/$(DDKMFCLIBDIR)")'
+    endif
+
+  endif
+
+###########################################################################
+###########################################################################
 #
 # Linux
 #

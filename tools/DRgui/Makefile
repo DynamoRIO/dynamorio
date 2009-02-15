@@ -44,6 +44,10 @@ USE_VC60 := 1
 
 include $(DYNAMORIO_MAKE)/compiler.mk
 
+ifeq ($(wildcard ${BUILD_LIBUTIL}),)
+  $(error Please build libutil first)
+endif
+
 # use DYNAMORIO_HOME if possible
 ifndef DYNAMORIO_HOME
   DYNAMORIO_HOME := ../..

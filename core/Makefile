@@ -1471,7 +1471,10 @@ else
 ifneq ($(DBG),) # sometimes can't build pdb (case 192750)
 	$(CP) $(BUILD)/$(OUTNAME).pdb $(INSTALL_LIB)
 endif
+# we don't have DUMPBIN if solely using DDK
+ifdef DUMPBIN
 	$(DUMPBIN) /summary $(INSTALL_LIB)/$(ARCHIVE)
+endif
 endif # WINDOWS
 
 ifeq ($(CLIENT_INTERFACE), 1)
@@ -1606,6 +1609,8 @@ ifeq ($(MACHINE), win32)
 else # linux
 	$(CC) $(CFLAGS) $(INCLUDE_PATHS) $(GENERATED_INCLUDES) $(DEFINES) $(D)NOT_DYNAMORIO_CORE_PROPER $(INCR) $< $(OUT)$@
 endif
+
+$(BUILD)/win32/injector.$(OBJ_SFX): DEFINES += $(D)NOT_DYNAMORIO_CORE_PROPER
 
 # .c -> .cod (and implicitly .$(OBJ_SFX))
 $(BUILD)/%.cod: $(BUILD)/%.c

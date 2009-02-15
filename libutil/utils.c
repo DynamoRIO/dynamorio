@@ -1802,7 +1802,8 @@ set_registry_permissions_for_user(WCHAR *hklm_keyname, WCHAR *user)
 static void
 insert_file(FILE *file, wchar_t *file_src_name, BOOL delete)
 {
-    int fd_src = _wopen(file_src_name, _O_RDONLY|_O_BINARY);
+    /* 3rd arg not needed but older headers do not declare as optional */
+    int fd_src = _wopen(file_src_name, _O_RDONLY|_O_BINARY, 0);
     long length;
     int error;
     
