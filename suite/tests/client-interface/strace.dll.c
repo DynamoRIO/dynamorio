@@ -30,8 +30,7 @@
  * DAMAGE.
  */
 
-/* Code Manipulation API Sample:
- * strace.c
+/* Test adapted from api/samples/strace.c
  *
  * Monitors system calls.  As an example, we modify SYS_write/NtWriteFile.
  * On Windows we have to take extra steps to find system call numbers
@@ -46,8 +45,12 @@
 # include <syscall.h>
 #endif
 
+/* Due to differences among plaforms we don't display syscall #s and args 
+ * so we leave SHOW_RESULTS undefined
+ */
+
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
+# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 # define ATOMIC_INC(var) _InterlockedIncrement(&var)
 #else
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg);

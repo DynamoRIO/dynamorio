@@ -1,0 +1,7 @@
+#if +WINDOWS :
+Goodbye world!
+Goodbye world!
+#else
+Hello stdout!
+Hello stdout!
+#endif
