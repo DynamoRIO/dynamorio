@@ -35,7 +35,7 @@
 ***************************************************************************
 ***************************************************************************
 
-\page release_notes Release Notes for Version 1.3.1
+\page release_notes Release Notes for Version 1.3.2
 
 This section is divided into the following subsections:
 
@@ -110,8 +110,15 @@ We have re-numbered the \DynamoRIO versions as follows:
  - 1.1.0 = 0.9.6 build 9601
  - 1.2.0 = 0.9.6 build 9602
 
-The current version is 1.3.1 and is backward compatible with the 0.9.6
-releases.  1.3.1 is identical to 1.3.0 but is under a BSD license (see \ref
+The current version is 1.3.2 and is backward compatible with the 0.9.6
+releases.  The changes between version 1.3.2 and 1.3.1 are:
+
+ - instr_convert_short_meta_jmp_to_long() now returns the longer version of
+   the taken jump, to use when setting the target of a jecxz or loop*
+   branch.
+ - Various bug fixes
+
+Version 1.3.1 is identical to 1.3.0 but is under a BSD license (see \ref
 page_license).
 
 The changes between version 1.3.0 and version 1.2.0 (0.9.6 9602) are:

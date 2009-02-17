@@ -81,7 +81,8 @@ if [ "$1" = "" ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ]
 then
     echo $usage
     echo
-    head -n 44 $0 | tail -n 36
+    # sed would be more precise but may not be available
+    head -n 69 $0 | tail -n 34
     exit
 fi
 
@@ -235,7 +236,7 @@ then
     echo "Running \"$*\""
 fi
 
-export LD_LIBRARY_PATH=$dr_lib_path:$dr_lib_path/$lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$dr_lib_path/$lib:$LD_LIBRARY_PATH
 export LD_PRELOAD="libdynamorio.so libdrpreload.so"
 
 $*

@@ -65,9 +65,13 @@ CFLAGS  =-std=gnu99 # -std=c99 doesn't quite work
 WARN    =-Wall -Werror
 OPT     =-O3
 DBG     =-g3
-# FIXME: perhaps we should optimize but with -fno-omit-frame-pointer?
-# disable intrinsic to avoid stack overflow in set_dynamo_options(): case 7853
-DBG_OPT =-fno-builtin-strcmp
+# We use -O to avoid stack overflow in debug build (makes a huge difference by
+# having locals/temps share stack slots) but we use -fno-omit-frame-pointer to
+# keep things more easily debuggable (though gcc claims only omits when
+# debuggable).
+# We disable strcmp intrinsic to avoid stack overflow in set_dynamo_options(): case 7853
+# FIXME: now that we have -O we may not need -fno-builtin-strcmp
+DBG_OPT =-O -fno-omit-frame-pointer -fno-builtin-strcmp
 OBJ_SFX =o
 EXE_SFX =   # note . would be included here
 ifeq ($(STATIC), 1)
@@ -869,6 +873,9 @@ ARCHIVE	= libdynamorio$(SO_SFX)
 else
 ARCHIVE	= libdynamorio$(SO_SFX)
 PRELOAD = libdrpreload$(SO_SFX)
+# we want libdrpreload.so in same dir as libdynamorio.so for easier 
+# LD_LIBRARY_PATH for execve, so we do not put in base dir like Windows does
+INSTALL_PRELOAD := $(INSTALL_LIB)/$(PRELOAD)
 ifeq ($(LINKER_VERSION_SCRIPT), 1)
 EXPORT_LIST = $(BUILD)/exportlist
 LINKER_EXPORT_FLAGS = -Xlinker --version-script -Xlinker $(EXPORT_LIST)
@@ -884,6 +891,7 @@ else # win32
 ARCHIVE	= $(OUTNAME)$(SO_SFX)
 INJECTOR = $(INJECTNAME)$(EXE_SFX)
 PRELOAD = $(PREINJECTNAME)$(SO_SFX)
+INSTALL_PRELOAD := $(INSTALL_LIB_BASE)/$(PRELOAD)
 EARLY_INJECT_HELPER1 = $(EARLY_INJECT_HELPER1_NAME)$(SO_SFX)
 EARLY_INJECT_HELPER2 = $(EARLY_INJECT_HELPER2_NAME)$(SO_SFX)
 endif
@@ -1107,7 +1115,7 @@ ifeq ($(MACHINE), win32)
 all: builddir dynamorio injector early_inject_helper clients
 else #linux
 all: builddir dynamorio $(INSTALL_LIB)/$(FORTRAN_OBJ) \
-     $(INSTALL_LIB_BASE)/$(PRELOAD) clients
+     $(INSTALL_PRELOAD) clients
 endif
 endif # !STATIC
 endif # !STANDALONE
@@ -1361,9 +1369,9 @@ $(BUILD)/$(EARLY_INJECT_HELPER2): $(EARLY_INJECT_HELPER2_OBJS)
 
 
 # pre-injector: separate library + copy of dynamo library in special place
-preload: builddir $(INSTALL_LIB_BASE)/$(PRELOAD) $(INSTALL_LIB)/$(ARCHIVE)
+preload: builddir $(INSTALL_PRELOAD) $(INSTALL_LIB)/$(ARCHIVE)
 
-$(INSTALL_LIB_BASE)/$(PRELOAD): $(PRE_INJECT_OBJS)
+$(INSTALL_PRELOAD): $(PRE_INJECT_OBJS)
 	$(LD) $(PRE_INJECTFLAGS) $(PRE_INJECT_OBJS) $(PRE_INJECTLIBS)
 	$(CP) $(BUILD)/$(PREINJECTNAME).{dll,map} $(INSTALL_LIB_BASE)
 ifneq ($(DBG),) # sometimes can't build pdb (case 192750)
@@ -1378,8 +1386,8 @@ endif
 ifeq ($(MACHINE), linux)
 LDDYNAMO = -L$(INSTALL_LIB) -ldynamorio
 
-preload: builddir $(INSTALL_LIB_BASE)/$(PRELOAD) $(INSTALL_LIB)/$(ARCHIVE)
-$(INSTALL_LIB_BASE)/$(PRELOAD): $(BUILD)/$(PRELOAD)
+preload: builddir $(INSTALL_PRELOAD) $(INSTALL_LIB)/$(ARCHIVE)
+$(INSTALL_PRELOAD): $(BUILD)/$(PRELOAD)
 # PR 212290: ensure no text relocations (they violate selinux execmod policies)
 	$(READELF) -d $(BUILD)/$(PRELOAD) | $(GREP) -q TEXTREL; \
 	if [ $$? == 0 ]; then \
@@ -1390,7 +1398,7 @@ $(INSTALL_LIB_BASE)/$(PRELOAD): $(BUILD)/$(PRELOAD)
 	if [ $$? == 0 ]; then \
 	    $(ECHO) "$(BUILD)/$(PRELOAD) has executable stack" && false; \
 	fi
-	$(CP) -a $(BUILD)/$(PRELOAD) $(INSTALL_LIB_BASE)/$(PRELOAD)
+	$(CP) -a $(BUILD)/$(PRELOAD) $(INSTALL_PRELOAD)
 
 $(BUILD)/$(PRELOAD): $(PRELOAD_OBJS)
 # FIXME case 69/1891: -z initfirst = initialize first at runtime (before libc)
@@ -1695,7 +1703,7 @@ progrun: all
 else
 TESTPROG=ls
 progrun: all
-	export LD_LIBRARY_PATH=${CUR_FULL}/${CORE_DIRNAME}/${INSTALL_LIB}/:$$LD_LIBRARY_PATH \
+	export LD_LIBRARY_PATH=${CUR_FULL}/${INSTALL_LIB}/:$$LD_LIBRARY_PATH \
 	LD_PRELOAD="$(PRELOAD) $(ARCHIVE)"; ${TESTPROG}${EXE_SFX} ${TESTARGS}
 endif
 

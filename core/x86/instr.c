@@ -4081,9 +4081,12 @@ DR_API
  * OP_jecxz, converts it to a sequence of multiple instructions (which
  * is different from instr_is_cti_short_rewrite()).  Each added instruction
  * is marked !instr_ok_to_mangle().
+ * Returns the long form of the instruction, which is identical to \p instr
+ * unless \p instr is OP_loop* or OP_jecxz, in which case the return value
+ * is the final instruction in the sequence, the long jump to the taken target.
  * \note DR automatically converts non-meta short ctis to long form.
  */
-void 
+instr_t *
 instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,
                                      instr_t *instr)
 {
@@ -4092,8 +4095,8 @@ instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,
     CLIENT_ASSERT(instr_is_cti_short(instr),
                   "instr_convert_short_meta_jmp_to_long: instr is not a short cti");
     if (instr_ok_to_mangle(instr) || !instr_is_cti_short(instr))
-        return;
-    convert_to_near_rel_meta(dcontext, ilist, instr);
+        return instr;
+    return convert_to_near_rel_meta(dcontext, ilist, instr);
 }
 
 /* Given a machine state, returns whether or not the cbr instr would be taken

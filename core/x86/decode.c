@@ -194,7 +194,11 @@ resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
                 (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_2 : OPSZ_4));
     case OPSZ_4_rex8: return (TEST(PREFIX_REX_W, di->prefixes) ? OPSZ_8 : OPSZ_4);
     case OPSZ_6_irex10_short4: /* rex.w trumps data prefix, but is ignored on AMD */
-        ASSERT_CURIOSITY(!TEST(PREFIX_REX_W, di->prefixes));
+        DODEBUG({
+            /* less annoying than a CURIOSITY assert when testing */
+            if (TEST(PREFIX_REX_W, di->prefixes))
+                SYSLOG_INTERNAL_INFO_ONCE("curiosity: rex.w on OPSZ_6_irex10_short4!");
+        });
         return ((TEST(PREFIX_REX_W, di->prefixes) && proc_get_vendor() != VENDOR_AMD) ?
                 OPSZ_10 : (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_4 : OPSZ_6));
     case OPSZ_6x10: return (X64_MODE(di) ? OPSZ_10 : OPSZ_6);

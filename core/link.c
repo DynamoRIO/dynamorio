@@ -3393,7 +3393,11 @@ coarse_lazy_link(dcontext_t *dcontext, fragment_t *targetf)
         if (info != NULL) {
             ASSERT(is_dynamo_address((byte *)info)); /* ensure union used as expected */
             stub = coarse_stub_lookup_by_target(dcontext, info, dcontext->next_tag);
-            ASSERT(stub != NULL);
+            if (stub == NULL) {
+                /* We may be deliving a signal */
+                IF_WINDOWS(ASSERT_NOT_REACHED());
+                goto lazy_link_done;
+            }
             /* May already be linked (we may have just built its target)
              * Case 8825: we must hold the change_linking_lock when we check.
              * Cheaper to just grab lock than to test first, unless high contention.

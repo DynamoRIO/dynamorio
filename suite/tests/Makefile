@@ -160,6 +160,7 @@ OBJ_SFX =o
 EXE_SFX =
 LIB_SFX =.so
 LIB_NAME =libdynamorio.so
+OS_DIR  := linux
 else # win32
 # avoid problems w/ line endings on #! files that cygwin's sh has
 DLLOUT  =/dll /out:
@@ -173,6 +174,7 @@ OBJ_SFX =obj
 EXE_SFX =.exe
 LIB_SFX =.dll
 LIB_NAME =dynamorio.dll
+OS_DIR  := win32
 endif
 
 # use release build if it exists, unless DEBUG=yes
@@ -198,10 +200,10 @@ endif
 
 ifeq ($(RELEASE_EXISTS), $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/release)
 DYNAMORIO_DIR := $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/release
-DYNAMORIO_BUILD_DIR = $(DYNAMORIO_HOME)/build/$(ARCH)_win32_rel
+DYNAMORIO_BUILD_DIR = $(DYNAMORIO_HOME)/build/$(ARCH)_$(OS_DIR)_rel
 else
 DYNAMORIO_DIR := $(DYNAMORIO_DIR_BASE)/$(LIB_SUBDIR)/debug
-DYNAMORIO_BUILD_DIR = $(DYNAMORIO_HOME)/build/$(ARCH)_win32_dbg
+DYNAMORIO_BUILD_DIR = $(DYNAMORIO_HOME)/build/$(ARCH)_$(OS_DIR)_dbg
 endif
 
 DYNAMORIO_INCDIR := $(DYNAMORIO_DIR_BASE)/include
@@ -674,6 +676,9 @@ $(PGMS_EXE_PTHREADS): %.exe: %.c $(TOOLS)
 $(PGMS_EXE_SECURITY_COMMON): %.exe: %.c $(TOOLS) oresources.res
 	$(CC_BASE) $(EXEOUT)$@ $< $(LINK) oresources.res > $*.clout 2>&1
 
+$(PGMS_EXP_OS) $(PGMS_EXP_PROBE_API): %.expect: %.template
+	$(PERL) gen_expect.pl '$(DEFS)' '$(DR_OPS)' $*.template
+
 # dlls used by both hotp & probe tests (not probe or client dlls) need map files
 $(PGMS_DLL_PROBE_API): %.dll: %.c $(TOOLS)
 	$(CC_BASE) $(OPT) /Fm $< $(LINK) $(DLLOUT)$@ > $*.clout 2>&1
@@ -816,7 +821,7 @@ TIMER_API = export DYNAMORIO_OPTIONS='$(DR_OPS)'; \
 else
 TIMER_NATIVE     = $(BUILD_TOOLS)/runstats $(TIMER_TIME) -silent
 TIMER_INJECTOR   = $(BUILD_TOOLS)/runstats $(TIMER_TIME) -silent \
-   -env LD_LIBRARY_PATH '$(DYNAMORIO_DIR)/..:$(DYNAMORIO_DIR):$(LD_LIBRARY_PATH)' \
+   -env LD_LIBRARY_PATH ':$(DYNAMORIO_DIR):$(LD_LIBRARY_PATH)' \
    -env LD_PRELOAD 'libdrpreload.so libdynamorio.so' \
    -env DYNAMORIO_OPTIONS '$(DR_OPS)'
 TIMER_API   = $(BUILD_TOOLS)/runstats $(TIMER_TIME) -silent \
@@ -829,11 +834,11 @@ DIFF += -b
 ifeq ($(MACHINE), win32) 
 #only for win32
 $(DYNAMORIO_PREINJECT):
-	@(if $(LS) $(DYNAMORIO_HOME)/lib32/drpreinject.dll > .trash 2>&1; then \
-		$(CP) $(DYNAMORIO_HOME)/lib32/drpreinject.dll .; \
+	@(if $(LS) $(DYNAMORIO_HOME)/$(LIB_SUBDIR)/drpreinject.dll > .trash 2>&1; then \
+		$(CP) $(DYNAMORIO_HOME)/$(LIB_SUBDIR)/drpreinject.dll .; \
 	else \
 		$(MAKE) -s -C $(DYNAMORIO_HOME)/../${CORE_DIRNAME} DYNAMORIO_BASE=.. DEBUG=0 clean install; \
-		$(CP) $(DYNAMORIO_HOME)/lib32/drpreinject.dll .; \
+		$(CP) $(DYNAMORIO_HOME)/$(LIB_SUBDIR)/drpreinject.dll .; \
 	fi)
 endif
 
@@ -1020,7 +1025,7 @@ ifeq ($(MACHINE), win32)
 else
 %.runinjector: %.announce % %.expect
 # timer includes injector args
-	cd $(RESDIR); $(TIMER_INJECTOR) $(CURWD)/$* > $*.out 2>&1; cd $(CURWD)
+	@cd $(RESDIR); $(TIMER_INJECTOR) $(CURWD)/$* > $*.out 2>&1; cd $(CURWD)
 endif
 	@(if $(DIFF) $(CURWD)/$*.expect $(RESDIR)/$*.out; then $(ECHO) "PASS"; else $(ECHO) "FAIL"; fi)
 	@$(ECHO)

@@ -300,7 +300,8 @@ prepare_for_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 void
 cleanup_after_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 void convert_to_near_rel(dcontext_t *dcontext, instr_t *instr);
-void convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+instr_t *convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist,
+                                  instr_t *instr);
 int find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 bool insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                             app_pc start_pc, app_pc end_pc, /* end is open */

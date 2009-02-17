@@ -1754,11 +1754,6 @@ dr_get_application_name(void)
 DR_API process_id_t
 dr_get_process_id(void)
 {
-    /* FIXME PR 226085: internally we need to reconcile these types; for now just
-     * getting the client-exposed type set so we can change it internally
-     * w/ no API changes
-     */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
     return (process_id_t) get_process_id();
 }
 

@@ -83,7 +83,7 @@ extern int num_fragments;
  * absolute PC, so we can just pretend instructions are longer
  * than they really are.
  */
-static void
+static instr_t *
 convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
     int opcode = instr_get_opcode(instr);
@@ -92,13 +92,13 @@ convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
 
     if (opcode == OP_jmp_short) {
         instr_set_opcode(instr, OP_jmp);
-        return;
+        return instr;
     }
 
     if (OP_jo_short <= opcode && opcode <= OP_jnle_short) {
         /* WARNING! following is OP_ enum order specific */
         instr_set_opcode(instr, opcode - OP_jo_short + OP_jo);
-        return;
+        return instr;
     }
 
     if (OP_loopne <= opcode && opcode <= OP_jecxz) {
@@ -158,7 +158,7 @@ convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
             instrlist_meta_postinsert(ilist, instr, INSTR_CREATE_jmp_short
                                       (dcontext, opnd_create_instr(nottaken)));
             instr_set_target(instr, opnd_create_instr(taken));
-            return;
+            return taken;
         }
 
         if (opnd_is_near_pc(instr_get_target(instr)))
@@ -196,18 +196,19 @@ convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
         LOG(THREAD, LOG_INTERP, 2, "convert_to_near_rel: jecxz/loop* opcode\n");
         /* original target operand is still valid */
         instr_set_operands_valid(instr, true);
-        return;
+        return instr;
     }
 
     LOG(THREAD, LOG_INTERP, 1, "convert_to_near_rel: unknown opcode: %d %s\n",
         opcode, info->name);
     ASSERT_NOT_REACHED();      /* conversion not possible OR not a short-form cti */
+    return instr;
 }
 
-void
+instr_t *
 convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
-    convert_to_near_rel_common(dcontext, ilist, instr);
+    return convert_to_near_rel_common(dcontext, ilist, instr);
 }
 
 void

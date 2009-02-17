@@ -1859,7 +1859,7 @@ llseek_syscall(int fd, int64 offset, int origin, int64 *result)
 {
 #ifdef X64
     *result = dynamorio_syscall(SYS_lseek, 3, fd, offset, origin);
-    return (int) *result;
+    return ((*result > 0) ? 0 : (int)*result);
 #else
     return dynamorio_syscall(SYS__llseek, 5, fd, (uint)((offset >> 32) & 0xFFFFFFFF),
                              (uint)(offset & 0xFFFFFFFF), result, origin); 
@@ -3264,6 +3264,11 @@ pre_system_call(dcontext_t *dcontext)
            sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset, 
              size_t sigsetsize)
          */
+        /* we also need access to the params in post_system_call */
+        dcontext->sys_param0 = sys_param(dcontext, 0);
+        dcontext->sys_param1 = sys_param(dcontext, 1);
+        dcontext->sys_param2 = sys_param(dcontext, 2);
+        dcontext->sys_param3 = sys_param(dcontext, 3);
         handle_sigprocmask(dcontext, (int) sys_param(dcontext, 0),
                            (kernel_sigset_t *) sys_param(dcontext, 1),
                            (kernel_sigset_t *) sys_param(dcontext, 2),
@@ -4012,10 +4017,10 @@ post_system_call(dcontext_t *dcontext)
              size_t sigsetsize)
          */
         /* FIXME Handle syscall failure. */
-        handle_post_sigprocmask(dcontext, (int) sys_param(dcontext, 0),
-                                (kernel_sigset_t *) sys_param(dcontext, 1),
-                                (kernel_sigset_t *) sys_param(dcontext, 2),
-                                (size_t) sys_param(dcontext, 3));
+        handle_post_sigprocmask(dcontext, (int) dcontext->sys_param0,
+                                (kernel_sigset_t *) dcontext->sys_param1,
+                                (kernel_sigset_t *) dcontext->sys_param2,
+                                (size_t) dcontext->sys_param3);
         break;
     }
 

@@ -3895,7 +3895,11 @@ coarse_exit_prefix_size(uint flags)
      * emit, or else set up a template to be patched w/ specific info field.
      * Also we'd have to unprot .data as we don't access this until post-init.
      */
-    return SIZE_MOV_XBX_TO_TLS(flags, true) + SIZE_MOV_PTR_IMM_TO_XAX(flags)
+    /* We don't need to require addr16: in fact it might be better to force
+     * not using it, so if we persist on P4 but run on Core we don't lose
+     * performance.  We have enough space.
+     */
+    return SIZE_MOV_XBX_TO_TLS(flags, false) + SIZE_MOV_PTR_IMM_TO_XAX(flags)
         + 5*JMP_LONG_LENGTH;
 }
 

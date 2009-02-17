@@ -189,10 +189,8 @@ run_build () {
     if [ $linux -eq 1 ]; then
         $CP ../exports/$lib/$lib_sub/libdynamorio.so $base/$projname/$lib/$lib_sub
         $CP ../exports/$lib/$lib_sub/libdynamorio.so $base/symbols/$lib/$lib_sub
-        if [ $3 == "rel" ]; then
-            $CP ../exports/$lib/$lib_sub/libdrpreload.so $base/$projname/$lib
-            $CP ../exports/$lib/$lib_sub/libdrpreload.so $base/symbols/$lib
-        fi
+        $CP ../exports/$lib/$lib_sub/libdrpreload.so $base/$projname/$lib/$lib_sub
+        $CP ../exports/$lib/$lib_sub/libdrpreload.so $base/symbols/$lib/$lib_sub
         $CP ../exports/include/*.h $base/include_test
     else
         $CP ../exports/$lib/$lib_sub/dynamorio.{dll,lib} $base/$projname/$lib/$lib_sub

@@ -330,8 +330,12 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                 /* should be meta, and meta-instrs shouldn't have translations */
                 instr_set_meta_no_translation(instr);
                 /* it may not reach (in particular for x64) w/ our added clean call */
-                if (instr_is_cti_short(instr))
-                    instr_convert_short_meta_jmp_to_long(drcontext, bb, instr);
+                if (instr_is_cti_short(instr)) {
+                    /* if jecxz/loop we want to set the target of the long-taken
+                     * so set instr to the return value
+                     */
+                    instr = instr_convert_short_meta_jmp_to_long(drcontext, bb, instr);
+                }
                 instr_set_target(instr, opnd_create_instr(label));
                 
                 if (insert_not_taken) {

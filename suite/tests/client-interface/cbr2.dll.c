@@ -160,10 +160,14 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
              */
             instr_set_ok_to_mangle(instr, false);
             instr_set_translation(instr, NULL);
-            instr_set_target(instr, opnd_create_instr(instr_get_next(jmp_ft)));
             /* If this is a short cti, make sure it can reach its new target */
-            if (instr_is_cti_short(instr))
-                instr_convert_short_meta_jmp_to_long(drcontext, bb, instr);
+            if (instr_is_cti_short(instr)) {
+                /* if jecxz/loop we want to set the target of the long-taken
+                 * so set instr to the return value
+                 */
+                instr = instr_convert_short_meta_jmp_to_long(drcontext, bb, instr);
+            }
+            instr_set_target(instr, opnd_create_instr(instr_get_next(jmp_ft)));
         }
     }
     /* since our added instrumentation is not constant, we ask to store
