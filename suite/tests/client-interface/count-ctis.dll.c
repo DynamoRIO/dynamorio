@@ -135,11 +135,11 @@ static
 void check(uint count, char *str)
 {
     dr_printf("%s... ", str);
-    if (count > 30) {
+    if (count > 28) {
         dr_printf("yes\n");
     }
     else {
-        dr_printf("no\n");
+        dr_printf("no\n", count);
     }
 }
 

@@ -67,11 +67,15 @@ typedef __int64 int64;
 #ifdef WINDOWS
 # define IF_WINDOWS(x) x
 # define IF_WINDOWS_ELSE(x,y) (x)
-# define INT64_FORMAT "I64"
+# ifndef USE_DYNAMO
+#  define INT64_FORMAT "I64"
+# endif
 #else
 # define IF_WINDOWS(x)
 # define IF_WINDOWS_ELSE(x,y) (y)
-# define INT64_FORMAT "ll"
+# ifndef USE_DYNAMO
+#  define INT64_FORMAT "ll"
+# endif
 #endif
 
 /* some tests include dr_api.h and tools.h, so avoid duplicating */
@@ -181,22 +185,22 @@ int code_inc(int foo);
 int code_dec(int foo);
 int dummy(void);
 
-static int
+static size_t
 size(Code_Snippet func)
 {
-    int val1 = 0, val2 = 0, ret_val;
+    ptr_int_t val1 = 0, val2 = 0, ret_val;
     switch(func) {
     case CODE_INC:
-        val1 = (int)code_inc;
-        val2 = (int)code_dec;
+        val1 = (ptr_int_t)code_inc;
+        val2 = (ptr_int_t)code_dec;
         break;
     case CODE_DEC:
-        val1 = (int)code_dec;
-        val2 = (int)dummy;
+        val1 = (ptr_int_t)code_dec;
+        val2 = (ptr_int_t)dummy;
         break;
     case CODE_SELF_MOD:
-        val1 = (int)code_self_mod;
-        val2 = (int)code_inc;
+        val1 = (ptr_int_t)code_self_mod;
+        val2 = (ptr_int_t)code_inc;
         break;
     default:
         return 0;

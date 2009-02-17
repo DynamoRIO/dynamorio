@@ -30,8 +30,9 @@
  * DAMAGE.
  */
 
-#include <unistd.h>
+#define _GNU_SOURCE 1 /* for mremap */
 #include <sys/mman.h>
+#include <unistd.h>
 #include <stdio.h>
 #include "tools.h"
 
@@ -42,11 +43,11 @@
 int
 main()
 {
-    const int size = 0x00008765;
-    int newsize = size + 0x100; /* these values of size & newsize work for
-                                 * the mremap() on p3rh9 w/the 2.4.21-4
-                                 * kernel
-                                 */
+    const size_t size = 0x00008765;
+    size_t newsize = size + 0x100; /* these values of size & newsize work for
+                                    * the mremap() on p3rh9 w/the 2.4.21-4
+                                    * kernel
+                                    */
     void *p;
 #ifdef USE_DYNAMO
     dynamorio_app_init();

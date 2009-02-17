@@ -126,7 +126,7 @@ add_trace_head_entry(void *drcontext, void *tag)
     e->size = 0;
     e->has_ret = false;
     e->is_trace_head = false;
-    hindex = HASH_FUNC_BITS((ptr_uint_t)tag, HASH_BITS);
+    hindex = (uint) HASH_FUNC_BITS((ptr_uint_t)tag, HASH_BITS);
     e->next = table[hindex];
     table[hindex] = e;
     return e;
@@ -142,7 +142,7 @@ lookup_trace_head_entry(void *drcontext, void *tag)
     trace_head_entry_t **table = htable;
     trace_head_entry_t *e;
     uint hindex;
-    hindex = HASH_FUNC_BITS((ptr_uint_t)tag, HASH_BITS);
+    hindex = (uint) HASH_FUNC_BITS((ptr_uint_t)tag, HASH_BITS);
     for (e = table[hindex]; e; e = e->next) {
 	if (e->tag == tag)
 	    return e;
@@ -160,7 +160,7 @@ remove_trace_head_entry(void *drcontext, void *tag)
     trace_head_entry_t **table = htable;
     trace_head_entry_t *e, *prev;
     uint hindex;
-    hindex = HASH_FUNC_BITS((ptr_uint_t)tag, HASH_BITS);
+    hindex = (uint) HASH_FUNC_BITS((ptr_uint_t)tag, HASH_BITS);
     for (prev = NULL, e = table[hindex]; e; prev = e, e = e->next) {
 	if (e->tag == tag) {
 	    if (prev)

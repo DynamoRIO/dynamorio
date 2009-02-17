@@ -38,12 +38,12 @@
 # define NOP asm("nop")
 #endif
 
-static void foo()
+static void foo(void)
 {
     printf("called foo()\n");
 }
 
-static void bar()
+static void bar(void)
 {
     printf("called bar()\n");
 }

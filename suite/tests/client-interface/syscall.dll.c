@@ -48,7 +48,7 @@ void at_syscall()
         dr_mcontext_t mcontext;
         void *drcontext = dr_get_current_drcontext();
         dr_get_mcontext(drcontext, &mcontext, NULL);
-        dr_printf("%x\n", mcontext.eax);
+        dr_printf(PFX"\n", mcontext.xax);
     }
 }
 

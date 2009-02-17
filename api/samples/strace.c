@@ -287,7 +287,7 @@ decode_syscall_num(byte *entry)
         if (opc == OP_mov_imm && opnd_is_reg(instr_get_dst(&instr, 0)) &&
             opnd_get_reg(instr_get_dst(&instr, 0)) == REG_EAX) {
             DR_ASSERT(opnd_is_immed_int(instr_get_src(&instr, 0)));
-            num = opnd_get_immed_int(instr_get_src(&instr, 0));
+            num = (int) opnd_get_immed_int(instr_get_src(&instr, 0));
             break;
         }
         /* stop at call to vsyscall or at int itself */

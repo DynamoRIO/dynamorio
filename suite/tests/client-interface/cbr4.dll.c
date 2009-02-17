@@ -189,7 +189,7 @@ void delete_table(hash_table_t table)
 static inline
 uint hash_func(app_pc addr)
 {
-    return ((ptr_uint_t)addr % HASH_TABLE_SIZE);
+    return (uint) ((ptr_uint_t)addr % HASH_TABLE_SIZE);
 }
 
 elem_t *lookup(hash_table_t table, app_pc addr)

@@ -11,8 +11,4 @@ Flush completion id=400
 #endif
 count = 402
 0 undeleted fragments
-#if : +-thread_private || : +-enable_full_api
-constructed BB 9 times
-#else
-constructed BB 5 times
-#endif
+constructed BB 5-10 times

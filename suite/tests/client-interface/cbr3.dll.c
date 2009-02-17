@@ -187,7 +187,7 @@ void delete_table(hash_table_t table)
 static inline
 uint hash_func(app_pc addr)
 {
-    return ((ptr_uint_t)addr % HASH_TABLE_SIZE);
+    return (uint) ((ptr_uint_t)addr % HASH_TABLE_SIZE);
 }
 
 elem_t *lookup(hash_table_t table, app_pc addr)
@@ -239,7 +239,7 @@ static void at_taken(app_pc src, app_pc targ)
      */
     dr_flush_region(src, 1);
     dr_get_mcontext(drcontext, &mcontext, &app_errno);
-    mcontext.eip = targ;
+    mcontext.xip = targ;
     dr_redirect_execution(&mcontext, app_errno);
 }
 
@@ -266,7 +266,7 @@ static void at_not_taken(app_pc src, app_pc fall)
      */
     dr_flush_region(src, 1);
     dr_get_mcontext(drcontext, &mcontext, &app_errno);
-    mcontext.eip = fall;
+    mcontext.xip = fall;
     dr_redirect_execution(&mcontext, app_errno);
 }
 

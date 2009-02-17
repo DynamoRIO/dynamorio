@@ -52,9 +52,10 @@ at_lea(uint opc, app_pc tag)
      * (we don't want msgboxes in regressions)
      */
     DR_ASSERT(opc == OP_lea);
-    ASSERT((process_id_t) dr_get_tls_field(dr_get_current_drcontext()) ==
+    ASSERT((process_id_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext()) ==
            dr_get_process_id() + 1 /*we added 1 inline*/);
-    dr_set_tls_field(dr_get_current_drcontext(), (void *) dr_get_process_id());
+    dr_set_tls_field(dr_get_current_drcontext(),
+                     (void *)(ptr_uint_t) dr_get_process_id());
     num_lea++;
     /* FIXME: should do some fp ops and really test the fp state preservation */
 }
@@ -69,14 +70,14 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
         next_instr = instr_get_next(instr);
         if (instr_get_opcode(instr) == OP_lea) {
             /* PR 200411: test inline tls access by adding 1 */
-            dr_save_reg(drcontext, bb, instr, REG_EAX, SPILL_SLOT_1);
-            dr_insert_read_tls_field(drcontext, bb, instr, REG_EAX);
+            dr_save_reg(drcontext, bb, instr, REG_XAX, SPILL_SLOT_1);
+            dr_insert_read_tls_field(drcontext, bb, instr, REG_XAX);
             instrlist_meta_preinsert(bb, instr, INSTR_CREATE_lea
-                                     (drcontext, opnd_create_reg(REG_EAX),
-                                      opnd_create_base_disp(REG_EAX, REG_NULL, 0, 1,
+                                     (drcontext, opnd_create_reg(REG_XAX),
+                                      opnd_create_base_disp(REG_XAX, REG_NULL, 0, 1,
                                                             OPSZ_lea)));
-            dr_insert_write_tls_field(drcontext, bb, instr, REG_EAX);
-            dr_restore_reg(drcontext, bb, instr, REG_EAX, SPILL_SLOT_1);
+            dr_insert_write_tls_field(drcontext, bb, instr, REG_XAX);
+            dr_restore_reg(drcontext, bb, instr, REG_XAX, SPILL_SLOT_1);
             dr_insert_clean_call(drcontext, bb, instr, at_lea, true/*save fp*/,
                                  2, OPND_CREATE_INT32(instr_get_opcode(instr)),
                                  OPND_CREATE_INTPTR(tag));
@@ -147,7 +148,8 @@ void dr_init(client_id_t id)
 #else /* LINUX - append .exe so can use same expect file. */
     dr_printf("inside app %s.exe\n", dr_get_application_name());
 #endif
-    dr_set_tls_field(dr_get_current_drcontext(), (void *) dr_get_process_id());
+    dr_set_tls_field(dr_get_current_drcontext(),
+                     (void *)(ptr_uint_t) dr_get_process_id());
 
     {
         /* test PR 198871: client locks are all at same rank */
