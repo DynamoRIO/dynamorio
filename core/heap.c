@@ -851,7 +851,8 @@ is_vmm_reserved_address(byte *pc, size_t size)
      */
     return (heapmgt != NULL && heapmgt->vmheap.start_addr != NULL &&
             pc >= heapmgt->vmheap.start_addr &&
-            (pc + size > pc) /*overflow*/ &&
+            /* i#14: workaround for gcc 4.3.0 bug */
+            (pc < ((byte *)POINTER_MAX) - size) /* no overflow */ &&
             (pc + size) <= heapmgt->vmheap.end_addr);
 }
 

@@ -884,15 +884,17 @@ uint hashtable_num_bits(uint size);
  * 32bit displacement from everywhere in the supplied region. Checks for underflow. If the
  * supplied region is too large then returned value may be > reachable_region_start
  * (caller should check) as the constraint may not be satisfiable. */
+/* i#14: gcc 4.3.0 has a bug where it treats "ptr - const < ptr" as always true,
+ * so we work around that here */
 # define REACHABLE_32BIT_START(reachable_region_start, reachable_region_end) \
-    (((reachable_region_end) + INT_MIN < (reachable_region_end)) ?           \
+    (((reachable_region_end) > ((byte *)(ptr_uint_t)(uint)(INT_MIN))) ?      \
      (reachable_region_end) + INT_MIN : (byte *)PTR_UINT_0)
 /* Given a region, returns the end of the enclosing region that can reached by a
  * 32bit displacement from everywhere in the supplied region. Checks for overflow. If the
  * supplied region is too large then returned value may be < reachable_region_end
  * (caller should check) as the constraint may not be satisfiable. */
 # define REACHABLE_32BIT_END(reachable_region_start, reachable_region_end)   \
-    (((reachable_region_start) + INT_MAX > (reachable_region_start)) ?  \
+    (((reachable_region_start) < ((byte *)POINTER_MAX) - INT_MAX) ?          \
      (reachable_region_start) + INT_MAX : (byte *)POINTER_MAX)
 
 /* alignment helpers, alignment must be power of 2 */
