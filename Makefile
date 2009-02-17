@@ -244,7 +244,7 @@ include $(DYNAMORIO_MAKE)/custom_build.mk
 #   with a commit log that auto-opens an Issue
 #
 # usage: prepare a notes file with comments for the reviewer after a line
-# beginning "toreview:", and point to it w/ NOTES= (deafult is ./diff.notes)
+# beginning "toreview:", and point to it w/ NOTES= (defult is ./diff.notes)
 #
 # example:
 #   make USER=derek.bruening CUR_TREE=i4-make-review REVIEWER=qin.zhao review

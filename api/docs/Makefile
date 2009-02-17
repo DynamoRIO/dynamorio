@@ -28,7 +28,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-.PHONY: all clean mkimages check_headers outdir
+.PHONY: all clean mkimages check_headers outdir genimgdir
 
 ifndef DYNAMORIO_MAKE
 DYNAMORIO_MAKE := ../../make
@@ -38,6 +38,11 @@ ifndef DYNAMORIO_BASE
 endif
 
 include $(DYNAMORIO_MAKE)/compiler.mk
+
+ifeq ($(MACHINE), win32)
+  BUILD_BASE := $(shell $(CYGPATH) -u $(BUILD_BASE))
+  INSTALL_DOCS := $(shell $(CYGPATH) -u $(INSTALL_DOCS))
+endif
 
 GENIMGDIR := $(BUILD_BASE)/genimages
 
@@ -75,12 +80,12 @@ LIBUTIL_SED := "s/\(INPUT[ \t]*=\)/\1 $(LIBUTIL_ESC)/g"
 
 all: check_headers $(HEADERS) mkimages $(DOXYFILE) outdir
 	@$(ECHO) "** Using headers in $(HEADER_DIR) **"
-ifdef VMSAFE
+
+# this only really counts for ifdef VMSAFE but better to catch these early
 	@$(ECHO) "Use the macro \\DynamoRIO to allow name substitution"
 # we don't do -i to allow function names and macros
 	$(GREP) -E -n -H "(^|[^\\])DynamoRIO" *.dox; if [ $$? == 0 ]; then false; fi
 	$(GREP) -E -n -i -H "(^|[^_\\-])client($$|[^_])" *.dox; if [ $$? == 0 ]; then false; fi
-endif
 
 # run doxygen and fail on warnings
 # re-run -u in case Doxyfile was generated on a different machine
@@ -184,6 +189,7 @@ FIGS := $(wildcard *.fig)
 FIG_IMAGES := $(patsubst %.fig,$(GENIMGDIR)/%.eps,$(FIGS)) \
               $(patsubst %.fig,$(GENIMGDIR)/%.png,$(FIGS))
 mkimages: $(GENIMGDIR) $(FIG_IMAGES)
+genimgdir: $(GENIMGDIR)
 $(GENIMGDIR):
 	if ! test -d $(GENIMGDIR); then $(MKDIR) -p $(GENIMGDIR); fi
 # fig2dev w/ pipe or redirect crashes sometimes on cygwin so

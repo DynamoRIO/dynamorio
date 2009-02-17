@@ -76,7 +76,7 @@ $parallel_build = "";
 $parallel_run = "";
 
 # Shortcuts for common build options
-$rel_ext = "DEBUG=0 INTERNAL=0";
+$rel_ext = "DEBUG=0 INTERNAL=0 EXTERNAL_INJECTOR=1";
 $rel_int = "DEBUG=0 INTERNAL=1";
 $dbg_ext = "DEBUG=1 INTERNAL=0";
 $dbg_int = "DEBUG=1 INTERNAL=1";
@@ -106,25 +106,43 @@ $mf_mode = "-security_api";
 # We treat doc and sample builds as runs because they depend on the last build of core.
 #
 # See old-runregression-runs-2-6-08 for a very long list of runs and targets mostly
-# from Determina.  We've got a new smaller set to match our VMware interface focus.
+# from Determina.  We've got a new smaller set to match our API focus.
 
 @cases = (
 # product builds and runs
 ## VMAP builds and runs
     "BUILD::VMAP=1 $dbg_int",
-        # our supported configurations
+        # our main configuration
         "SHORT::ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
-        # Assume is similar enough to VMSAFE that it's tests cover -thread_private
-        # and -disable_traces well enough.
-        # Test supported other options (-stack_size, logging, -no_hide, NOTE -no_hide is
-        # windows only!)
+        # test supported options
+        # maybe this should be SHORT as -coarse_units will eventually be the default?
+        "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -opt_memory\\\"",
+        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private\\\"",
+        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -disable_traces\\\"",
+        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private -disable_traces\\\"",
+        "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -loglevel 1\\\"",
+        "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -stack_size 120k\\\"",
+        "WIN::ONLY::runrunall runinterface::DYNAMORIO_OPTIONS=\\\"-enable_full_api\\\"",
         "WIN::ONLY::runcommon runinterface::DYNAMORIO_OPTIONS=\\\"-code_api -stack_size 120K -loglevel 1 -no_hide\\\"",
         "LIN::ONLY::runcommon runinterface::DYNAMORIO_OPTIONS=\\\"-code_api -stack_size 120K -loglevel 1\\\"",
+        "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"\\\"",
+        "LIN::ONLY::runos::DYNAMORIO_OPTIONS=\\\"-code_api -sysenter_is_int80 \\\"",
         # cover -tracedump_* options, just a couple combinations
-        "ONLY::spec::DYNAMORIO_OPTIONS=\\\"-code_api -tracedump_text -tracedump_origins\\\" TEST_MINS=5",
-        "ONLY::spec::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private -tracedump_binary \\\" TEST_MINS=5",
+        "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -tracedump_text -tracedump_origins\\\" TEST_MINS=5",
+        "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -tracedump_text -tracedump_origins -syntax_intel\\\" TEST_MINS=5",
+        "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private -tracedump_binary\\\" TEST_MINS=5",
         # make sure we at least sometimes exercise -checklevel > 0
         "DYNAMORIO_OPTIONS=\\\"-checklevel 2\\\" TEST_MINS=5",
+
+        # pcache tests: per-user so each app will merge w/ previous, plus merge
+        # w/ at-unload persists from earlier -desktop run 
+        "WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-desktop -coarse_freeze_at_exit\\\"",
+        # run again so each must use the merged pcaches
+        "WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-desktop -coarse_freeze_at_exit\\\"",
+
+        # limit on shared cache size
+        "ONLY::runrunall runos::DYNAMORIO_OPTIONS=\\\"-finite_shared_bb_cache -cache_shared_bb_regen 80\\\"",
+        "ONLY::runrunall runos::DYNAMORIO_OPTIONS=\\\"-finite_shared_trace_cache -cache_shared_trace_regen 80\\\"",
 
     "BUILD::VMAP=1 $rel_ext",
         # xref PR 306319, make sure samples build and run against release build too
@@ -132,52 +150,53 @@ $mf_mode = "-security_api";
         # just a few tests since we expect internal debug to catch most problems
         "ONLY::runinterface::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
 
-    "BUILD::VMAP=1 $dbg_ext",
+   "BUILD::VMAP=1 $dbg_ext",
         # build docs and samples
-        "SHORT::BUILDDOCS::pdf",
+        "SHORT::BUILDDOCS::all",
         "SHORT::BUILDSAMPLES::EXCLUDE=MF_moduledb.c",
         # just a few tests since we expect internal debug to catch most problems
         "ONLY::runinterface::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
 
+## FIXME PR 215424: we should have runs of these but no x64 regression machines set up
+    "BUILD::ARCH=x64 $dbg_int",
+        "SHORT::ONLY::ARCH=x64 spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
+        "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private\\\"",
+        "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -disable_traces\\\"",
+        "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -opt_memory\\\"",
+
+    "BUILD::ARCH=x64 $rel_ext",
+        # just a few tests since we expect internal debug to catch most problems
+        "ONLY::ARCH=x64 runinterface::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
+
+##### non-product builds and runs: we ensure VMSAFE=1 and VPS=1 still build but that's all for short
+
 ## VMSAFE builds and runs
     "BUILD::VMSAFE=1 $dbg_int",
+        # keep lightweight modes alive
+        # i#24: -thin_client not working: once it works, re-enable
+        #"WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-thin_client\\\"",
+        "WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
         # our supported configurations
-        "SHORT::ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"$code_mode\\\"",
-        "SHORT::ONLY::runsecurity runrunall runinterface::DYNAMORIO_OPTIONS=\\\"$mf_mode\\\"",
+        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"$code_mode\\\"",
+        "ONLY::runsecurity runrunall runinterface::DYNAMORIO_OPTIONS=\\\"$mf_mode\\\"",
         "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"$mf_mode\\\"",
-        "SHORT::WIN::ONLY::runos runrunall::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
+        "WIN::ONLY::runos runrunall::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
         "WIN::ONLY::spec runcommon runsecurity::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
-        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"$code_mode -thread_private\\\"",
-        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"$code_mode -disable_traces\\\"",
-        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"$code_mode -thread_private -disable_traces\\\"",
-        "ONLY::spec::DYNAMORIO_OPTIONS=\\\"$code_mode -loglevel 1\\\"",
-        "ONLY::spec::DYNAMORIO_OPTIONS=\\\"$code_mode -stack_size 120k\\\"",
-        "SHORT::WIN::ONLY::runrunall runinterface::DYNAMORIO_OPTIONS=\\\"-enable_full_api\\\"",
         # other configurations we may eventually support
         "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"-security_api -code_api\\\"",
         "ONLY::runallbuthotp runprobeapi::DYNAMORIO_OPTIONS=\\\"-security_api -probe_api\\\"",
         "ONLY::runallbuthotp runprobeapi::DYNAMORIO_OPTIONS=\\\"-security_api -code_api -probe_api\\\"",
-        # pcache tests: per-user so each app will merge w/ previous, plus merge
-        # w/ at-unload persists from earlier -desktop run 
-        "SHORT::WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-desktop -coarse_freeze_at_exit\\\"",
-        # run again so each must use the merged pcaches
-        "WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-desktop -coarse_freeze_at_exit\\\"",
-        "SHORT::WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-thin_client\\\"",
 
-    "BUILD::VMSAFE=1 $rel_ext",
-        # just a few tests since we expect internal debug to catch most problems
-        "SHORT::ONLY::runinterface::DYNAMORIO_OPTIONS=\\\"$code_mode\\\"",
-        "SHORT::ONLY::runsecurity runinterface::DYNAMORIO_OPTIONS=\\\"$mf_mode\\\"",
-        "SHORT::WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
+    "BUILD::NOSHORT::VMSAFE=1 $rel_ext",
 
-    "BUILD::VMSAFE=1 $dbg_ext",
+    "BUILD::NOSHORT::VMSAFE=1 $dbg_ext",
         # build docs and samples
-        "SHORT::BUILDDOCS::VMSAFE=1 pdf",
-        "SHORT::BUILDSAMPLES::EXCLUDE=stats.c",
+        "BUILDDOCS::VMSAFE=1 pdf",
+        "BUILDSAMPLES::EXCLUDE=stats.c",
         # just a few tests since we expect internal debug to catch most problems
         "ONLY::runinterface::DYNAMORIO_OPTIONS=\\\"$code_mode\\\"",
         "ONLY::runsecurity runinterface::DYNAMORIO_OPTIONS=\\\"$mf_mode\\\"",
-        "SHORT::WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
+        "WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
 
 ## Determina VPS builds and runs
     "BUILD::VPS=1 $dbg_int",
@@ -193,17 +212,17 @@ $mf_mode = "-security_api";
         # tests in runall/ and security-{common,win32}/ to fully exercise this.
         "WIN::ONLY::runrunall runsecurity::DYNAMORIO_OPTIONS=\\\"-security -use_moduledb\\\"",
         
-    "BUILD::VPS=1 $rel_ext",
+    "BUILD::NOSHORT::VPS=1 $rel_ext",
         # just a few tests since we expect internal debug to catch most problems
         "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"\\\"",
         "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -detect_mode -report_max 0 -no_diagnostics\\\"",
         "WIN::ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-security -liveshields\\\"",
         "WIN::ONLY::runrunall runsecurity::DYNAMORIO_OPTIONS=\\\"-security -client\\\"",
 
-# non-product builds and runs
-
 ## we don't really use internal release builds for anything, but keep it working
-    "BUILD::$rel_int",
+    "BUILD::NOSHORT::$rel_int",
+        "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"\\\"",
+    "BUILD::NOSHORT::ARCH=x64 $rel_int",
         "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"\\\"",
 
 ## build with nothing enabled
@@ -211,21 +230,17 @@ $mf_mode = "-security_api";
         "ONLY::runbase runsecurity runrunall::DYNAMORIO_OPTIONS=\\\"\\\"",
 
 ## edge profiling
-    "BUILD::ADD_DEFINES=\"${D}PROFILE_LINKCOUNT ${D}LINKCOUNT_64_BITS\"",
-        "ONLY::spec::DYNAMORIO_OPTIONS=\\\"-prof_counts -tracedump_binary -no_inline_trace_ibl\\\" TEST_MINS=5",
+    "BUILD::NOSHORT::ADD_DEFINES=\"${D}PROFILE_LINKCOUNT ${D}LINKCOUNT_64_BITS\"",
+        "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-prof_counts -tracedump_binary -no_inline_trace_ibl\\\" TEST_MINS=5",
 
 ## release-build kstats and callprof
     "BUILD::NOSHORT::DEBUG=0 INTERNAL=0 KSTATS=1 CALLPROF=1 PROFILE=1",
         "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"\\\"",
 
-## FIXME PR 215424: we should have runs of these but no x64 regression machines set up
-    "BUILD::ARCH=x64",
-    "BUILD::ARCH=x64 DEBUG=0",
-
 ## defines we don't want to break -- no runs though since we don't currently use these
     "BUILD::NOSHORT::ADD_DEFINES=\"${D}DGC_DIAGNOSTICS\"",
-    "BUILD::WIN::NOSHORT::DEBUG=1 INTERNAL=1 STRACE_CLIENT=1",
-    "BUILD::LIN::NOSHORT::ADD_DEFINES=\"${D}CHECK_RETURNS_SSE2\"",
+    "BUILD::NOSHORT::WIN::DEBUG=1 INTERNAL=1 STRACE_CLIENT=1",
+    "BUILD::NOSHORT::LIN::ADD_DEFINES=\"${D}CHECK_RETURNS_SSE2\"",
 );
 
 $topdir = `pwd`;
@@ -405,23 +420,18 @@ if ($on_windows) {
 # including runstats on Linux).
 print "\nbuilding tools module\n";
 # case 192750: cannot create pdb files over public key ssh, so we unset {LINK_,}DBG
-if (!$justshow && system("cd $DYNAMORIO_TOOLS && make DBG= LINK_DBG= clean all >> $topdir/$stamp/tools_build.log 2>&1") != 0) {
+# when we rely on the "make clean all" to remove ../build/tools and
+# remake it, I get a "permission denied" on the "mkdir ../build/tools":
+# can't repro manually, but seems to be that the rm is not
+# yet done.  so, we split that out in a separate command.
+# xref the exact same issues with genimages making the docs below.
+if (!$justshow && system("(cd $DYNAMORIO_TOOLS && make clean && make DBG= LINK_DBG= all) >> $topdir/$stamp/tools_build.log 2>&1") != 0) {
     print "tools module build ERROR\n";
     $summary .= "TOOLS: FAILED\n";
     $build_ok = 0;
 } else {
     print "tools module build succeeded\n";
     $summary .= "TOOLS: succeeded\n";
-}
-
-if ($on_windows) {
-    # stop nodemgr from interfering with the runall tests
-    print "\nStopping nodemgr\n";
-    if (!$justshow) {
-        $nodemgr_running = (system("net stop scnodemgr") == 0);
-    } else {
-        $nodemgr_running = 0; # no need to restart
-    }
 }
 
 print "\ncleaning tests \n";
@@ -513,7 +523,7 @@ while ($i <= $#cases) {
     $makedirs = "DYNAMORIO_MAKE=$DYNAMORIO_MAKE DYNAMORIO_BASE=..";
     system("echo \"$n: $case\n\n\" >> ../$logfile 2>&1");
     # use clear instead of clean so we don't have to worry about defines
-    # xref case 9783, need to override BUILD for newer cygwin versions for clear,
+    # xref PR 214218/9783, need to override BUILD for newer cygwin versions for clear,
     # but must unset USEDEP so we don't try to include "/buildmark.dep"
     # FIXME case 192750: cannot create pdb files over public key ssh
     if (!$justshow) {
@@ -604,10 +614,15 @@ while ($i <= $#cases) {
             # remake it, I get a "permission denied" on the "mkdir genimages":
             # can't repro manually, but it seems to be that the rm is not
             # yet done.  so, we split that out in a separate command.
+            # yet another issue: after a clean I get:
+            #   make: *** No rule to make target `/d/derek/opensource/dr/build/genimages/client.eps', needed by `mkimages'.  Stop.
+            # only happens on Windows and only after a clean (and with an
+            # absolute BUILD_BASE?).  workaround is a separate genimgdir.
             my $docres = system
             ("export DYNAMORIO_HOME=$homedir/exports; ".
-             "(rm -rf $DYNAMORIO_API/docs/genimages && ".
-             "make -C $DYNAMORIO_API/docs clean $cases[$i]) >> $topdir/$stamp/$logfile 2>&1");
+             "(make -C $DYNAMORIO_API/docs clean && ".
+             "make -C $DYNAMORIO_API/docs genimgdir && ".
+             "make -C $DYNAMORIO_API/docs $cases[$i]) >> $topdir/$stamp/$logfile 2>&1");
             if ($docres != 0) {
                 $summary .= "  DOCS: BUILD FAILURE!\n";
                 $build_ok = 0;
@@ -635,10 +650,11 @@ while ($i <= $#cases) {
             my $SETLIB = '';
             my $SETPATH = '';
             if ($on_windows) {
-                # set up LIB, PATH, and INCLUDE env vars (samples/Makefile can't assume TCROOT)
-                $SETINC = 'INCLUDE=`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/VC/INCLUDE"`\;`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/Include"`';
-                $SETLIB = 'LIB=`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/VC/LIB"`\;`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/Lib"`';
-                $SETPATH = 'export PATH=\"`cygpath -wa "${TCROOT}/win32/winsdk-6.1.6000/VC/Bin"`:$PATH\";';
+                # set up LIB, PATH, and INCLUDE env vars (samples/Makefile can't
+                # include make/compiler.mk).  put in paths for both VS2005 and SDK.
+                $SETINC = 'INCLUDE=`cygpath -wa "${SDKROOT}/VC/INCLUDE"`\;`cygpath -wa "${SDKROOT}/Include"`\;`cygpath -wa "${SDKROOT}/VC/PlatformSDK/Include"`';
+                $SETLIB = 'LIB=`cygpath -wa "${SDKROOT}/VC/LIB"`\;`cygpath -wa "${SDKROOT}/Lib"`\;`cygpath -wa "${SDKROOT}/VC/PlatformSDK/Lib"`';
+                $SETPATH = 'export PATH=\"`cygpath -wa "${SDKROOT}/VC/Bin"`:$PATH\";';
             }
             my $sampleres = system("$SETPATH DYNAMORIO_HOME=$homedir/exports $SETINC $SETLIB ".
                                    "make -C $DYNAMORIO_API/samples DEBUG=1 SHOW_RESULTS=0 DBG= ".
@@ -677,7 +693,7 @@ while ($i <= $#cases) {
                          "echo -e $expect > $tgt/$s.expect; ".
                          "cd $topdir/tests; make DEBUG=1 $tmpdir/$s.runinterface)".
                          " >> $topdir/$stamp/$logfile 2>&1");
-                    my $grepres = system("grep -q FAIL $topdir/$stamp/$logfile");
+                    my $grepres = system("sed '/$s/,\$ \!d' $topdir/$stamp/$logfile | grep -q FAIL");
                     if ($runres != 0 || $grepres == 0) {
                         $summary .= "  SAMPLE RUN $s: FAILURE!\n";
                         $build_ok = 0;
@@ -731,7 +747,6 @@ while ($i <= $#cases) {
 
         # "if 0" to disable: had to remove spec2k support for open-source
         if (0 && !$justtests && $runtarget =~ /spec/) {
-            $runtarget =~ s/ *spec *//;
             ###################################################
             # SPEC
             $cmd = "export DYNAMORIO_HOME=$curdir/exports; $nice $topdir/runsuite $bmarkbase regression regression $cases[$i]";
@@ -784,9 +799,8 @@ while ($i <= $#cases) {
                 system("(echo \"===========================================================================\") >> $logfile 2>&1");
                 print "\n";
             }
-        } else {
-            $runtarget =~ s/ *spec *//;
         }
+        $runtarget =~ s/spec *//;
 
         if (!$justspec && $runtarget ne "") {
             ###################################################
@@ -796,7 +810,11 @@ while ($i <= $#cases) {
             $ops = $cases[$i];
             $ops =~ s/DYNAMORIO_OPTIONS=\\(.*)\\/\1/;
             $defs_dir = $curdir;
-            $defs_dir .="/build/x86_";
+            if ($runtarget =~ /ARCH=x64/) {
+                $defs_dir .="/build/x64_";
+            } else {
+                $defs_dir .="/build/x86_";
+            }
             if (`uname -s` =~ Linux) {
                 $defs_dir .="linux_";
             } else {
@@ -823,9 +841,19 @@ while ($i <= $#cases) {
             if ($singletest ne "") {
                 $runtarget = " $singletest";
             }
+            # FIXME i#12: we should rename or put x64 in different dir vs x86
+            # For now we make clean on transition (to avoid time cost of making
+            # clean every time)
+            if (($runtarget =~ /ARCH=x64/ && $lastruntarget !~ /ARCH=x64/) ||
+                ($runtarget !~ /ARCH=x64/ && $lastruntarget =~ /ARCH=x64/)) {
+                $clean = "clean";
+            } else {
+                $clean = "";
+            }
+            $lastruntarget = $runtarget;
             # case 192750: cannot create pdb files over public key ssh,
             # so we unset {LINK_,}DBG
-            $cmd = "export DYNAMORIO_HOME=$curdir/exports; cd $topdir/tests; $nice make -k $parallel_run RESDIR=$topdir/$stamp/$link-tests OPS=$ops DEFS=$defs DBG= LINK_DBG= $runtarget";
+            $cmd = "export DYNAMORIO_HOME=$curdir/exports; cd $topdir/tests; $nice make -k $parallel_run RESDIR=$topdir/$stamp/$link-tests OPS=$ops DEFS=$defs DBG= LINK_DBG= $clean $runtarget";
             print "$cmd\n";
             if (!$justshow) {
                 system("$cmd >> $topdir/$stamp/$logfile 2>&1");
@@ -949,11 +977,6 @@ if ($on_windows) {
     if ($hung !~ /^\s*2\s/) {
         print "Hang check FAILED: Processes may be hung, > the 2 expected in the list:\n";
         system("$BUILD_TOOLS/DRview -listall -cmdline | grep -B 1 suite | grep '^PID'");
-    }
-
-    if ($nodemgr_running) {
-        # re-start nodemgr
-        system("net start scnodemgr");
     }
 }
 

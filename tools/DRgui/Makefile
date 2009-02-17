@@ -48,11 +48,7 @@ ifeq ($(wildcard ${BUILD_LIBUTIL}),)
   $(error Please build libutil first)
 endif
 
-# use DYNAMORIO_HOME if possible
-ifndef DYNAMORIO_HOME
-  DYNAMORIO_HOME := ../..
-endif
-WIN_DYNAMORIO_HOME := $(shell $(CYGPATH) -ma ${DYNAMORIO_HOME})
+WIN_DYNAMORIO_BASE := $(shell $(CYGPATH) -ma ${DYNAMORIO_BASE})
 
 WIN_DYNAMORIO_LIBUTIL := $(shell $(CYGPATH) -ma ${BUILD_LIBUTIL})
 
@@ -75,8 +71,8 @@ ifeq ($(ARCH), x64)
   DEFINES += /D"X64"
 endif
 
-INCLUDES := /I"$(WIN_DYNAMORIO_HOME)/$(CORE_DIRNAME)/lib" \
-	    /I"$(WIN_DYNAMORIO_HOME)/$(CORE_DIRNAME)" \
+INCLUDES := /I"$(WIN_DYNAMORIO_BASE)/$(CORE_DIRNAME)/lib" \
+	    /I"$(WIN_DYNAMORIO_BASE)/$(CORE_DIRNAME)" \
 	    /I"$(WIN_DYNAMORIO_LIBUTIL)" \
 	    $(MSINCLUDE)
 

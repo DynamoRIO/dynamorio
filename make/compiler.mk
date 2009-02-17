@@ -218,6 +218,9 @@ ifeq ($(MACHINE), win32)
   CPP_KEEP_COMMENTS := /C
   CPP_NO_LINENUM := /EP
 
+  # FIXME: all these shell invocations slow us down: require users to
+  # set paths in mixed fashion?
+  # i#19 will also solve if a pre-make step records all the paths.
   SDKROOT := $(shell $(CYGPATH) -ma '$(SDKROOT)')
   DDKROOT := $(shell $(CYGPATH) -ma '$(DDKROOT)')
 
