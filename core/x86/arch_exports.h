@@ -50,6 +50,7 @@
 #define XMM_REG_SIZE  16
 #define XMM_SLOTS_SIZE  (NUM_XMM_SLOTS*XMM_REG_SIZE)
 #define XMM_SAVED_SIZE  (NUM_XMM_SAVED*XMM_REG_SIZE)
+#define XMM_ALIGN     16
 
 typedef enum {
     IBL_NONE = -1,

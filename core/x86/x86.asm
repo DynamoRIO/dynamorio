@@ -1609,7 +1609,7 @@ GLOBAL_LABEL(load_dynamo:)
        and invoked upon return from the injector. When it is invoked, 
        it expects the app's stack to look like this:
 
-                xsp-->| &LoadLibrary  |
+                xsp-->| &LoadLibrary  |  for x64 xsp must be 16-aligned
                       | &dynamo_path  |
                       | &GetProcAddr  |
                       | &dynamo_entry |___
@@ -1617,7 +1617,7 @@ GLOBAL_LABEL(load_dynamo:)
                       |(saved context)| dr_mcontext_t struct
                       | &code_alloc   |   | pointer to the code allocation
                       | sizeof(code_alloc)| size of the code allocation
-                      |_______________|___|
+                      |_______________|___| (possible padding for x64 xsp alignment)
        &dynamo_path-->|               |   |
                       | (dynamo path) | TEXT(DYNAMORIO_DLL_PATH)
                       |_______________|___|
@@ -1653,6 +1653,9 @@ load_dynamo_repeatme:
         cmp      ebx, 0
         jg       load_dynamo_repeat_outer
 
+# ifdef X64
+        /* xsp is 8-aligned and our pop makes it 16-aligned */
+# endif
         /* TOS has &DebugBreak */
         pop      REG_XBX /* pop   REG_XBX = &DebugBreak */
         CALLWIN0(REG_XBX) /* call DebugBreak  (in kernel32.lib) */

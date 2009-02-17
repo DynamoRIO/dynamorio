@@ -249,6 +249,13 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         *bufptr++ = SIZE_OF_LOAD_DYNAMO;
         nbytes = sizeof(dr_mcontext_t) + 2*sizeof(reg_t);
         cxt->CXT_XSP -= nbytes;
+#ifdef X64
+        /* We need xsp to be aligned prior to each call, but we can only pad
+         * before the context as all later users assume the info they need is
+         * at TOS.
+         */
+        cxt->CXT_XSP = ALIGN_BACKWARD(cxt->CXT_XSP, XMM_ALIGN);
+#endif
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
                                      buf, nbytes, &nbytes)) {
             display_error("WriteMemory failed");
