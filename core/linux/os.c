@@ -2782,18 +2782,34 @@ pre_system_call(dcontext_t *dcontext)
         /* fall-through */
 #endif
     case SYS_exit: {
+        bool exit_process = false;
+#ifdef SYS_exit_group
+        if (mc->xax == SYS_exit_group)
+            exit_process = true;
+#endif
         LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 1,
-            "SYS_exit(%d) encountered in thread %d\n", mc->xax, get_thread_id());
+            "SYS_exit%s(%d) encountered in thread %d\n",
+#ifdef SYS_exit_group
+            (mc->xax == SYS_exit_group) ? "_group" :
+#endif
+            "", mc->xax, get_thread_id());
         if (get_num_threads() == 1 && !dynamo_exited) {
             LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
-                "SYS_exit(%d) encountered in final thread %d, exiting DynamoRIO\n",
-                mc->xax, get_thread_id());
+                "SYS_exit%s(%d) in final thread %d => exiting DynamoRIO\n",
+#ifdef SYS_exit_group
+                (mc->xax == SYS_exit_group) ? "_group" :
+#endif
+                "", mc->xax, get_thread_id());
             /* we want to clean up even if not automatic startup! */
             automatic_startup = true;
+            exit_process = true;
         } else {
             LOG(THREAD, LOG_TOP|LOG_THREADS|LOG_SYSCALLS, 1,
-                "SYS_exit(%d) encountered, cleaning up thread %d\n", mc->xax,
-                get_thread_id());
+                "SYS_exit%s(%d) in thread %d => cleaning up %s\n",
+#ifdef SYS_exit_group
+                (mc->xax == SYS_exit_group) ? "_group" :
+#endif
+                "", mc->xax, get_thread_id(), exit_process ? "process" : "thread");
         }
         KSTOP(num_exits_dir_syscall);
 
@@ -2807,8 +2823,7 @@ pre_system_call(dcontext_t *dcontext)
          * as an argument for the later call to _exit
          */
         cleanup_and_terminate(dcontext, mc->xax, sys_param(dcontext, 0),
-                              sys_param(dcontext, 1),
-                              (get_num_threads() == 1 && !dynamo_exited));
+                              sys_param(dcontext, 1), exit_process);
         break;
     }
 
