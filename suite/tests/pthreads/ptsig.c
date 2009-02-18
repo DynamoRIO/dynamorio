@@ -34,6 +34,7 @@
  * gcc -o pthreads pthreads.c -lpthread -D_REENTRANT -I../lib -L../lib -ldynamo -ldl -lbfd -liberty
  */
 
+#include "tools.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -56,16 +57,20 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #if VERBOSE
-    fprintf(stderr, "thread %d signal_handler: sig=%d, retaddr="PFX", fpregs="PFX"\n",
+    print("thread %d signal_handler: sig=%d, retaddr="PFX", fpregs="PFX"\n",
 	    getpid(), sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
 #endif
 
     switch (sig) {
     case SIGUSR1: {
 	struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+#ifdef X64
+	void *pc = (void *) sc->rip;
+#else
 	void *pc = (void *) sc->eip;
+#endif
 #if VERBOSE
-	fprintf(stderr, "thread %d got SIGUSR1 @ "PFX"\n", getpid(), pc);
+	print("thread %d got SIGUSR1 @ "PFX"\n", getpid(), pc);
 #endif
         break;
     }
@@ -104,16 +109,16 @@ process(void *arg)
     register int iproc;
 
 #if VERBOSE
-    fprintf(stderr, "thread %s starting\n", id);
+    print("thread %s starting\n", id);
 #endif
     if (((char *)arg)[0] == '1') {
 	intercept_signal(SIGUSR1, (handler_t) SIG_IGN);
 #if VERBOSE
-	fprintf(stderr, "thread %d ignoring SIGUSR1\n", getpid());
+	print("thread %d ignoring SIGUSR1\n", getpid());
 #endif
     }
 #if VERBOSE
-    fprintf(stderr, "thread %d sending SIGUSR1\n", getpid());
+    print("thread %d sending SIGUSR1\n", getpid());
 #endif
     kill(getpid(), SIGUSR1);
 
@@ -136,7 +141,7 @@ process(void *arg)
     pthread_mutex_unlock(&pi_lock);
 
 #if VERBOSE
-    fprintf(stderr, "thread %s exiting\n", id);
+    print("thread %s exiting\n", id);
 #endif
     return(NULL);
 }
@@ -155,7 +160,7 @@ main(int argc, char **argv)
 #if 0
     /* Get the number of intervals */
     if (argc != 2) {
-	fprintf(stderr, "Usage: %s <intervals>\n", argv[0]);
+	print("Usage: %s <intervals>\n", argv[0]);
 	exit(0);
     }
     intervals = atoi(argv[1]);
@@ -171,24 +176,29 @@ main(int argc, char **argv)
     /* Make the two threads */
     if (pthread_create(&thread0, NULL, process, "0") ||
 	pthread_create(&thread1, NULL, process, "1")) {
-	fprintf(stderr, "%s: cannot make thread\n", argv[0]);
+	print("%s: cannot make thread\n", argv[0]);
 	exit(1);
     }
     
     /* Join (collapse) the two threads */
     if (pthread_join(thread0, &retval) ||
 	pthread_join(thread1, &retval)) {
-	fprintf(stderr, "%s: thread join failed\n", argv[0]);
+	print("%s: thread join failed\n", argv[0]);
 	exit(1);
     }
 
 #if VERBOSE
-    fprintf(stderr, "thread %d sending SIGUSR1\n", getpid());
+    print("thread %d sending SIGUSR1\n", getpid());
 #endif
     kill(getpid(), SIGUSR1);
 
     /* Print the result */
-    printf("Estimation of pi is %16.15f\n", pi);
+    print("Estimation of pi is %16.15f\n", pi);
+
+    struct timespec sleeptime;
+    sleeptime.tv_sec = 0;
+    sleeptime.tv_nsec = 1000*1000*1000; /* 100ms */
+    nanosleep(&sleeptime, NULL);
 
 #ifdef USE_DYNAMO
     dynamorio_app_stop();

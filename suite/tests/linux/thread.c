@@ -55,12 +55,15 @@
 #ifdef __i386__
 # define __NR_set_tid_address 258
 # define __NR_gettid 224
+# define __NR_exit 1
 #else
 # define __NR_set_tid_address 218
 # define __NR_gettid 186
+# define __NR_exit 60
 #endif
 #define SYS_set_tid_address __NR_set_tid_address
 #define SYS_gettid __NR_gettid
+#define SYS_exit __NR_exit
 
 #define false (0)
 #define true (1)
@@ -126,19 +129,25 @@ int run(void *arg)
      */
     child = syscall(SYS_gettid);
     syscall(SYS_set_tid_address, &child);
-    printf("Sideline thread started\n");
+    fprintf(stderr, "Sideline thread started\n");
     while (true) {
 	/* do nothing for now */
 	i++;
 	if (i % 2500000 == 0)
-	    printf("i = %d\n", i);
+	    fprintf(stderr, "i = %d\n", i);
 	if (i % 25000000 == 0)
 	    break;
     }
     while (!child_exit)
         nanosleep(&sleeptime, NULL);
-    printf("Sideline thread finished\n");
+    fprintf(stderr, "Sideline thread finished\n");
     child_done = true;
+#ifdef X64
+    /* FIXME: returning here invokes SYS_exit_group and takes down the
+     * parent...what's up with that?
+     */
+    syscall(SYS_exit);
+#endif
     return 0;
 }
 
@@ -167,7 +176,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
     /* this is really a tid since we passed CLONE_THREAD: child has same pid as us */
   
     if (newpid == -1) {
-	printf("smp.c: Error calling __clone\n");
+	fprintf(stderr, "smp.c: Error calling __clone\n");
 	stack_free(my_stack, THREAD_STACK_SIZE);
 	return -1;
     }
@@ -181,7 +190,7 @@ delete_thread(pid_t pid, void *stack)
 {
     pid_t result;
     /* do not print out pids to make diff easy */
-    printf("Waiting for child to exit\n");
+    fprintf(stderr, "Waiting for child to exit\n");
     /* pid is really a tid, and since we used CLONE_THREAD, we cannot use
      * any wait() routine since our parent has the child not us.
      * so we rely on CLONE_CHILD_CLEARTID.  FIXME: use futex here.
@@ -189,7 +198,7 @@ delete_thread(pid_t pid, void *stack)
      */
     while (child != 0)
         nanosleep(&sleeptime, NULL);
-    printf("Child has exited\n");
+    fprintf(stderr, "Child has exited\n");
     stack_free(stack, THREAD_STACK_SIZE);
 }
 

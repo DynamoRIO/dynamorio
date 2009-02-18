@@ -43,38 +43,45 @@
 jmp_buf mark;
 int where; /* 0 = normal, 1 = segfault longjmp */
 
-int
-ring(int num)
+ptr_int_t
+#ifdef X64
+# ifdef WINDOWS  /* 5th param is on the stack */
+ring(int x1, int x2, int x3, int x4, ptr_int_t x)
+# else  /* 7th param is on the stack */
+ring(int x1, int x2, int x3, int x4, int x5, int x6, ptr_int_t x)
+# endif
+#else
+ring(ptr_int_t x)
+#endif
 {
-    int addr;
-    print("looking at ring "PFX"\n", num);
-    *(int*) (&num - 1) = num;
-    return num;
+    print("looking at ring "PFX"\n", x);
+    *(ptr_int_t*) (((ptr_int_t*)&x) - IF_X64_ELSE(IF_WINDOWS_ELSE(5, 1), 1)) = x;
+    return (ptr_int_t) x;
 }
 
-int
-twofoo()
-{
-    int a = foo();
-    print("first foo a=%d\n", a);
-
-    a += foo();
-    print("second foo a=%d\n", a);
-    return a;
-}
-
-int
+ptr_int_t
 foo()
 {
     print("in foo\n");
     return 1;
 }
 
-int
+ptr_int_t
 bar()
 {
     print("in bar\n");
     return 3;
+}
+
+ptr_int_t
+twofoo()
+{
+    ptr_int_t a = foo();
+    print("first foo a="SZFMT"\n", a);
+
+    a += foo();
+    print("second foo a="SZFMT"\n", a);
+    return a;
 }
 
 
@@ -152,7 +159,15 @@ invalid_ret(int num)
 {
     where = setjmp(mark);
     if (where == 0) {
+#ifdef X64
+# ifdef WINDOWS
+        ring(1, 2, 3, 4, num);
+# else
+        ring(1, 2, 3, 4, 5, 6, num);
+# endif
+#else
         ring(num);
+#endif
         print("unexpectedly we came back!");
     } else {
         print("fault caught on "PFX"\n", num);

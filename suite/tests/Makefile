@@ -527,7 +527,7 @@ TEMPLATE_COMMON := $(shell $(LS) common/*.template security-common/*.template)
 PGMS_EXP_COMMON := $(patsubst %.template, %.expect, $(TEMPLATE_COMMON))
 
 ifeq  ($(MACHINE), linux)
-TEMPLATE_OS := $(shell $(LS) security-linux/*.template)
+TEMPLATE_OS := $(shell $(LS) security-linux/*.template linux/*.template)
 else
 TEMPLATE_OS := $(shell $(LS) security-win32/*.template win32/*.template runall/*.template)
 endif

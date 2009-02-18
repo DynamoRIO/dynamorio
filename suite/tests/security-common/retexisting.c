@@ -32,7 +32,7 @@
 
 #include "tools.h"
 
-int
+ptr_int_t
 precious()
 {
 #ifdef USER32    /* map user32.dll for a RunAll test */
@@ -42,37 +42,46 @@ precious()
     exit(1);
 }
 
-int
-ring(int num)
+ptr_int_t
+#ifdef X64
+# ifdef WINDOWS  /* 5th param is on the stack */
+ring(int x1, int x2, int x3, int x4, int x)
+# else  /* 7th param is on the stack */
+ring(int x1, int x2, int x3, int x4, int x5, int x6, int x)
+# endif
+#else
+ring(int x)
+#endif
 {
     print("looking at ring\n");
-    *(int*) (&num - 1) = (int)&precious;
-    return num;
+    *(ptr_int_t*) (((ptr_int_t*)&x) - IF_X64_ELSE(IF_WINDOWS_ELSE(5, 1), 1))
+        = (ptr_int_t)&precious;
+    return (ptr_int_t) x;
 }
 
-int
-twofoo()
-{
-    int a = foo();
-    print("first foo a=%d\n", a);
-
-    a += foo();
-    print("second foo a=%d\n", a);
-    return a;
-}
-
-int
+ptr_int_t
 foo()
 {
     print("in foo\n");
     return 1;
 }
 
-int
+ptr_int_t
 bar()
 {
     print("in bar\n");
     return 3;
+}
+
+ptr_int_t
+twofoo()
+{
+    ptr_int_t a = foo();
+    print("first foo a="SZFMT"\n", a);
+
+    a += foo();
+    print("second foo a="SZFMT"\n", a);
+    return a;
 }
 
 int
@@ -83,6 +92,14 @@ main()
     print("starting good function\n");
     twofoo();
     print("starting bad function\n");
+#ifdef X64
+# ifdef WINDOWS
+    ring(1, 2, 3, 4, 5);
+# else
+    ring(1, 2, 3, 4, 5, 6, 7);
+# endif
+#else
     ring(1);
+#endif
     print("all done [not seen]\n");
 }
