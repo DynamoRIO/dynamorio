@@ -530,6 +530,10 @@ dynamorio_app_init(void)
          * (in a race with injected threads, sometimes it is not the primary thread)
          */
         dynamo_thread_init();
+#ifdef LINUX
+        /* i#27: we need to special-case the 1st thread */
+        signal_thread_inherit(get_thread_private_dcontext(), NULL);
+#endif
 
         /* We move vm_areas_init() below dynamo_thread_init() so we can have
          * two things: 1) a dcontext and 2) a SIGSEGV handler, for TRY/EXCEPT

@@ -493,6 +493,15 @@ typedef struct _thread_sig_info_t {
 #endif
 } thread_sig_info_t;
 
+/* i#27: custom data to pass to the child of a clone */
+typedef struct _clone_record_t {
+    app_pc continuation_pc;
+    thread_id_t caller_id;
+    int clone_sysnum;
+    uint clone_flags;
+    thread_sig_info_t info;
+} clone_record_t;
+
 /**** function prototypes ***********************************************/
 
 /* in x86.asm for x64 */
@@ -836,10 +845,7 @@ signal_exit()
 void
 signal_thread_init(dcontext_t *dcontext)
 {
-    int i, rc;
-    kernel_sigaction_t oldact;
-    thread_id_t p_tid;
-    thread_record_t *tr;
+    int rc;
     thread_sig_info_t *info = HEAP_TYPE_ALLOC(dcontext, thread_sig_info_t,
                                               ACCT_OTHER, PROTECTED);
     dcontext->signal_field = (void *) info;
@@ -872,21 +878,128 @@ signal_thread_init(dcontext_t *dcontext)
     kernel_sigemptyset(&info->app_sigblocked);
 
     ASSIGN_INIT_LOCK_FREE(info->child_lock, child_lock);
+    
+    /* someone must call signal_thread_inherit() to finish initialization:
+     * for first thread, called from initial setup; else, from new_thread_setup.
+     */
+}
 
-    /* inherit and potentially share signal handler state from parent? */
-    p_tid = get_parent_id();
-    /* we're in a thread_init call so we already hold thread_initexit_lock! */
-    tr = thread_lookup(p_tid);
-    if (tr != NULL && tr->under_dynamo_control) {
-        /* initialize handler state in signal_thread_inherit() call,
-         * from here we don't know if should share or inherit
-         */
+/* i#27: create custom data to pass to the child of a clone
+ * since we can't rely on being able to find the caller, or that
+ * its syscall data is still valid, once in the child.
+ */
+void *
+create_clone_record(dcontext_t *dcontext, app_pc continuation_pc)
+{
+    clone_record_t *record = (clone_record_t *)
+        global_heap_alloc(sizeof(*record) HEAPACCT(ACCT_OTHER));
+    record->continuation_pc = continuation_pc;
+    record->caller_id = dcontext->owning_thread;
+    record->clone_sysnum = dcontext->sys_num;
+    record->clone_flags = dcontext->sys_param0;
+    record->info = *((thread_sig_info_t *)dcontext->signal_field);
+    LOG(THREAD, LOG_ASYNCH, 1,
+        "create_clone_record: thread %d, pc "PFX"\n",
+        record->caller_id, continuation_pc);
+    return (void *) record;
+}
+
+static void
+destroy_clone_record(clone_record_t *record)
+{
+    ASSERT(record != NULL);
+    global_heap_free(record, sizeof(*record) HEAPACCT(ACCT_OTHER));
+}
+
+/* Called once a new thread's dcontext is created.
+ * Inherited and shared fields are set up here.
+ * The clone_record contains the continuation pc, which is returned.
+ */
+app_pc
+signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
+{
+    clone_record_t *record = (clone_record_t *) clone_record;
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    kernel_sigaction_t oldact;
+    int i, rc;
+    if (record != NULL) {
+        app_pc continuation_pc = record->continuation_pc;
+        LOG(THREAD, LOG_ASYNCH, 1,
+            "continuation pc is "PFX"\n", continuation_pc);
+        LOG(THREAD, LOG_ASYNCH, 1,
+            "parent tid is %d, parent sysnum is %d(%s), clone flags="PIFX"\n", 
+            record->caller_id, record->clone_sysnum,
+            record->clone_sysnum == SYS_vfork ? "vfork" : 
+            record->clone_sysnum == SYS_clone ? "clone" : "unexpected",
+            record->clone_flags);
+        if (record->clone_sysnum == SYS_vfork) {
+            /* The above clone_flags argument is bogus.
+               SYS_vfork doesn't have a free register to keep the hardcoded value
+               see /usr/src/linux/arch/i386/kernel/process.c */
+            /* CHECK: is this the only place real clone flags are needed? */
+            record->clone_flags = CLONE_VFORK | CLONE_VM | SIGCHLD;
+        }
+
+        /* handlers are either inherited or shared */
+        if (TEST(CLONE_SIGHAND, record->clone_flags)) {
+            /* need to share table of handlers! */
+            LOG(THREAD, LOG_ASYNCH, 2, "sharing signal handlers with parent\n");
+            info->shared_app_sigaction = true;
+            info->shared_refcount = record->info.shared_refcount;
+            info->shared_lock = record->info.shared_lock;
+            info->app_sigaction = record->info.app_sigaction;
+            info->we_intercept = record->info.we_intercept;
+            mutex_lock(info->shared_lock);
+            (*info->shared_refcount)++;
+#ifdef DEBUG
+            for (i = 0; i < MAX_SIGNUM; i++) {
+                if (info->app_sigaction[i] != NULL) {
+                    LOG(THREAD, LOG_ASYNCH, 2, "\thandler for signal %d is "PFX"\n",
+                        i, info->app_sigaction[i]->handler);
+                }
+            }
+#endif
+            mutex_unlock(info->shared_lock);
+        } else {
+            /* copy handlers */
+            LOG(THREAD, LOG_ASYNCH, 2, "inheriting signal handlers from parent\n");
+            info->app_sigaction = (kernel_sigaction_t **)
+                handler_alloc(dcontext, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
+            memset(info->app_sigaction, 0, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
+            for (i = 0; i < MAX_SIGNUM; i++) {
+                ASSERT(record->info.restorer_valid[i] == -1);
+                if (record->info.app_sigaction[i] != NULL) {
+                    info->app_sigaction[i] = (kernel_sigaction_t *)
+                        handler_alloc(dcontext, sizeof(kernel_sigaction_t));
+                    memcpy(info->app_sigaction[i], record->info.app_sigaction[i],
+                           sizeof(kernel_sigaction_t));
+                    LOG(THREAD, LOG_ASYNCH, 2, "\thandler for signal %d is "PFX"\n",
+                        i, info->app_sigaction[i]->handler);
+                }
+            }
+            info->we_intercept = (bool *)
+                handler_alloc(dcontext, MAX_SIGNUM * sizeof(bool));
+            memcpy(info->we_intercept, record->info.we_intercept,
+                   MAX_SIGNUM * sizeof(bool));
+            mutex_lock(&record->info.child_lock);
+            record->info.num_unstarted_children--;
+            mutex_unlock(&record->info.child_lock);
+        }
+
         if (APP_HAS_SIGSTACK(info)) {
             /* parent was under our control, so the real sigstack we see is just
              * the parent's being inherited -- clear it now
              */
             memset(&info->app_sigstack, 0, sizeof(stack_t));
         }
+
+        /* rest of state is never shared.
+         * app_sigstack should already be in place, when we set up our sigstack
+         * we asked for old sigstack.
+         * FIXME: are current pending or blocked inherited?
+         */
+        destroy_clone_record(record);
+        return continuation_pc;
     } else {
         /* initialize in isolation */
 
@@ -970,93 +1083,12 @@ signal_thread_init(dcontext_t *dcontext)
                 }
             }
         }
-    }
-}
 
-/* called once a new thread's dcontext is created.
- * Inherited and shared fields are set up here.
- */
-void
-signal_thread_inherit(dcontext_t *dcontext)
-{
-    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
-    thread_record_t *tr;
-    int i;
-    thread_id_t p_tid = get_parent_id();
-    mutex_lock(&thread_initexit_lock); /* need lock to hold thread_record_t */
-    tr = thread_lookup(p_tid);
-    if (tr != NULL && tr->under_dynamo_control) {
-        thread_sig_info_t *p_info = (thread_sig_info_t *) tr->dcontext->signal_field;
-        uint clone_flags = tr->dcontext->sys_param0;
-        LOG(THREAD, LOG_ASYNCH, 1,
-            "parent pid is %d, parent sysnum is %d(%s), clone flags="PIFX"\n", 
-            p_tid, 
-            tr->dcontext->sys_num, 
-            tr->dcontext->sys_num == SYS_vfork ? "vfork" : 
-            tr->dcontext->sys_num == SYS_clone ? "clone" : "unexpected",
-            clone_flags);
-        if (tr->dcontext->sys_num == SYS_vfork) {
-            /* The above clone_flags argument is bogus.
-               SYS_vfork doesn't have a free register to keep the hardcoded value
-               see /usr/src/linux/arch/i386/kernel/process.c */
-            /* CHECK: is this the only place real clone flags are needed? */
-            clone_flags = CLONE_VFORK | CLONE_VM | SIGCHLD;
-        }
-        mutex_unlock(&thread_initexit_lock); /* done with tr */
-
-        /* handlers are either inherited or shared */
-        if ((clone_flags & CLONE_SIGHAND) != 0) {
-            /* need to share table of handlers! */
-            LOG(THREAD, LOG_ASYNCH, 2, "sharing signal handlers with parent\n");
-            info->shared_app_sigaction = true;
-            info->shared_refcount = p_info->shared_refcount;
-            info->shared_lock = p_info->shared_lock;
-            info->app_sigaction = p_info->app_sigaction;
-            info->we_intercept = p_info->we_intercept;
-            mutex_lock(info->shared_lock);
-            (*info->shared_refcount)++;
-#ifdef DEBUG
-            for (i = 0; i < MAX_SIGNUM; i++) {
-                if (info->app_sigaction[i] != NULL) {
-                    LOG(THREAD, LOG_ASYNCH, 2, "\thandler for signal %d is "PFX"\n",
-                        i, info->app_sigaction[i]->handler);
-                }
-            }
-#endif
-            mutex_unlock(info->shared_lock);
-        } else {
-            /* copy handlers */
-            LOG(THREAD, LOG_ASYNCH, 2, "inheriting signal handlers from parent\n");
-            info->app_sigaction = (kernel_sigaction_t **)
-                handler_alloc(dcontext, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
-            memset(info->app_sigaction, 0, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
-            for (i = 0; i < MAX_SIGNUM; i++) {
-                ASSERT(p_info->restorer_valid[i] == -1);
-                if (p_info->app_sigaction[i] != NULL) {
-                    info->app_sigaction[i] = (kernel_sigaction_t *)
-                        handler_alloc(dcontext, sizeof(kernel_sigaction_t));
-                    memcpy(info->app_sigaction[i], p_info->app_sigaction[i],
-                           sizeof(kernel_sigaction_t));
-                    LOG(THREAD, LOG_ASYNCH, 2, "\thandler for signal %d is "PFX"\n",
-                        i, info->app_sigaction[i]->handler);
-                }
-            }
-            info->we_intercept = (bool *) handler_alloc(dcontext, MAX_SIGNUM * sizeof(bool));
-            memcpy(info->we_intercept, p_info->we_intercept,
-                   MAX_SIGNUM * sizeof(bool));
-            mutex_lock(&p_info->child_lock);
-            p_info->num_unstarted_children--;
-            mutex_unlock(&p_info->child_lock);
-        }
-        /* rest of state is never shared.
-         * app_sigstack should already be in place, when we set up our sigstack
-         * we asked for old sigstack.
-         * FIXME: are current pending or blocked inherited?
-         */
-    } else {
-        mutex_unlock(&thread_initexit_lock);
-        LOG(THREAD, LOG_ASYNCH, 1, "WARNING: cannot find parent of thread %d\n",
-            get_thread_id());
+        /* should be 1st thread */
+        if (get_num_threads() > 1)
+            ASSERT_NOT_REACHED();
+        /* FIXME: any way to recover if not 1st thread? */
+        return NULL;
     }
 }
 
@@ -2572,9 +2604,21 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
      * e.g., synchronize_dynamic_options grabs the stats_lock!
      */
     if (dcontext == NULL) { /* FIXME: || !intercept_asynch, or maybe !under_our_control */
+        /* FIXME i#26: this could be a signal arbitrarily sent to this thread.
+         * We could try to route it to another thread, using a global queue
+         * of pending signals.  But what if it was targeted to this thread
+         * via SYS_{tgkill,tkill}?  Can we tell the difference, even if
+         * we watch the kill syscalls: could come from another process?
+         */
         SYSLOG_INTERNAL_ERROR("ERROR: master_signal_handler w/ NULL dcontext: tid=%d, sig=%d",
                               get_thread_id(), sig);
-        exit_syscall(1);
+        /* see FIXME comments above.
+         * workaround for now: suppressing is better than dying.
+         */
+        if (can_always_delay[sig])
+            return;
+        else
+            exit_syscall(1);
     }
 
     /* we may be entering dynamo from code cache! */

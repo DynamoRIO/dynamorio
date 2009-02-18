@@ -425,6 +425,7 @@ enum {
     LOCK_RANK(pcache_dir_check_lock),
 #ifdef LINUX
     LOCK_RANK(suspend_lock),
+    LOCK_RANK(shared_lock),
 #endif
     /* ADD HERE a lock around section that may allocate memory */
 
@@ -459,7 +460,6 @@ enum {
     LOCK_RANK(do_threshold_mutex),  /* FIXME: NOT TESTED */
     LOCK_RANK(threads_killed_lock),  /* FIXME: NOT TESTED */
     LOCK_RANK(child_lock),  /* FIXME: NOT TESTED */
-    LOCK_RANK(shared_lock),  /* FIXME: NOT TESTED */
     
 #ifdef SIDELINE
     LOCK_RANK(sideline_lock), /* FIXME: NOT TESTED */

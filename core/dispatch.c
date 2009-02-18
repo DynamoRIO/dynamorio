@@ -1688,7 +1688,8 @@ handle_system_call(dcontext_t *dcontext)
          */
         if (is_clone_thread_syscall(dcontext)) {
             /* code for after clone is in do_clone_syscall
-             * it expects the pc after the app's syscall instr to be in edi --
+             * it expects a clone_record_t, containing the pc after the app's
+             * syscall instr and other data (see i#27), to be in a register --
              * the alternative is to modify the do_syscall code dynamically, here!
              * FIXME PR 286194: currently we do not restore this in the child at all:
              * better to keep a stack in parent, or use CLONE_SETTLS (PR 285898), or
@@ -1696,7 +1697,8 @@ handle_system_call(dcontext_t *dcontext)
              */
             /* save register in sys_param1, which is not used already in pre/post */
             dcontext->sys_param1 = mc->CLONE_SCRATCH_REG_MC;
-            mc->CLONE_SCRATCH_REG_MC = (reg_t) dcontext->asynch_target;
+            mc->CLONE_SCRATCH_REG_MC = (reg_t)
+                create_clone_record(dcontext, dcontext->asynch_target);
             do_syscall = (app_pc) get_do_clone_syscall_entry(dcontext);
         } else if (is_sigreturn_syscall(dcontext)) {
             /* HACK: sigreturn goes straight to fcache_return, which expects
@@ -1787,7 +1789,7 @@ handle_post_system_call(dcontext_t *dcontext)
         /* Make sure syscall didn't modify xbp.  The parent comes here, but the child
          * goes straight to dispatch from new_thread_dynamo_start().
          */
-        ASSERT(mc->CLONE_SCRATCH_REG_MC == (reg_t)dcontext->asynch_target);
+        ASSERT(is_dynamo_address((byte *)mc->CLONE_SCRATCH_REG_MC));
         mc->CLONE_SCRATCH_REG_MC = dcontext->sys_param1;
     } else if (was_sigreturn_syscall(dcontext)) {
         /* restore app xax */

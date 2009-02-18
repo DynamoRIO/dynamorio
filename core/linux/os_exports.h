@@ -216,6 +216,9 @@ bool is_signal_restorer_code(byte *pc, size_t *len);
 # define SC_XFLAGS eflags
 #endif
 
+void *create_clone_record(dcontext_t *dcontext, app_pc continuation_pc);
+app_pc signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
+
 /***************************************************************************/
 
 /* in pcprofile.c */

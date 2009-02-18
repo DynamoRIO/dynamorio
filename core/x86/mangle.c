@@ -2164,7 +2164,7 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
  */
 void
 mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                         instr_t *pc_to_ecx, bool skip _IF_X64(gencode_mode_t mode))
+                         instr_t *data_to_ecx, bool skip _IF_X64(gencode_mode_t mode))
 {
             /*
                 int 0x80
@@ -2178,7 +2178,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                 jecxz child
                 jmp parent
               child:
-                mov <app pc after int>,xcx
+                mov <clone_record_t *>,xcx
                 jmp new_thread_dynamo_start
               parent:
                 xchg xax,xcx
@@ -2186,7 +2186,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                 <post system call, etc.>
             */
     instr_t *in = instr_get_next(instr);
-    /* child == pc_to_ecx */
+    /* child == data_to_ecx */
     instr_t *parent =
         INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
                           opnd_create_reg(REG_XCX));
@@ -2213,10 +2213,10 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     }
     PRE(ilist, in, xchg);
     PRE(ilist, in,
-        INSTR_CREATE_jecxz(dcontext, opnd_create_instr(pc_to_ecx)));
+        INSTR_CREATE_jecxz(dcontext, opnd_create_instr(data_to_ecx)));
     PRE(ilist, in,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(parent)));
-    PRE(ilist, in, pc_to_ecx);
+    PRE(ilist, in, data_to_ecx);
     /* an exit cti, not a meta instr */
     instrlist_preinsert
         (ilist, in,

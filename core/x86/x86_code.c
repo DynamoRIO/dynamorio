@@ -44,11 +44,6 @@
 #include "arch.h"
 #include <string.h> /* for memcpy */
 
-#ifdef LINUX
-/* in signal.c */
-extern void signal_thread_inherit(dcontext_t *dcontext);
-#endif
-
 /* Helper routine for the x86.asm PUSH_DR_MCONTEXT, to fill in the xmm0-5 values
  * only if necessary.
  */
@@ -204,7 +199,8 @@ auto_setup(ptr_uint_t appstack)
 #ifdef LINUX
 
 /* Called by new_thread_dynamo_start to initialize the dcontext
- * structure for the current thread and start executing at mc->pc.
+ * structure for the current thread and start executing at the
+ * the pc stored in the clone_record_t * stored at mc->pc.
  * Assumes that it is called on the initstack.
  */
 void
@@ -222,16 +218,15 @@ new_thread_setup(dr_mcontext_t *mc)
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-    signal_thread_inherit(dcontext);
     thread_starting(dcontext);
-    dcontext->next_tag = (app_pc) mc->pc;
+    dcontext->next_tag = signal_thread_inherit(dcontext, (void *) mc->pc);
     ASSERT(dcontext->next_tag != NULL);
 
     *get_mcontext(dcontext) = *mc;
     /* get app xsp from initstack_app_xsp */
     get_mcontext(dcontext)->xsp = (reg_t) initstack_app_xsp;
-    /* clear xax (was used to hold next pc) */
-    ASSERT(get_mcontext(dcontext)->xax == (reg_t) dcontext->next_tag);
+    /* clear xax (was used to hold clone record) */
+    ASSERT(get_mcontext(dcontext)->xax == (reg_t) mc->pc);
     get_mcontext(dcontext)->xax = 0;
     /* clear pc */
     get_mcontext(dcontext)->pc = 0;

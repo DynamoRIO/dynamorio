@@ -7026,14 +7026,15 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     if (handle_clone) {
         /* put in clone code, and make sure to target it.
          * do it here since it assumes an instr after the syscall exists.
-         * assume that the next pc after the int is in CLONE_SCRATCH_REG_REG
+         * assume that a pointer to a clone_record_t, containing the next pc after
+         * the int along with other needed data, is in CLONE_SCRATCH_REG_REG
          * (see handle_system_call() in dispatch for more info)
          */
-        instr_t *pc_to_ecx =
+        instr_t *data_to_ecx =
             INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XCX),
                                 opnd_create_reg(CLONE_SCRATCH_REG_REG));
         mangle_insert_clone_code(dcontext, &ilist, post_syscall,
-                                 pc_to_ecx, false /*do not skip*/
+                                 data_to_ecx, false /*do not skip*/
                                  _IF_X64(MODE_OVERRIDE(code->x86_mode)));
     }
 #endif
@@ -7278,7 +7279,7 @@ is_jmp_rel8(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */)
  * via the clone system call.
  * assumptions:
  *   1) app's xcx is in xax.
- *   2) xcx contains next app pc, which is not 0.
+ *   2) xcx contains clone_record_t, which is not 0.
  *   3) app's xax should contain 0.
  */
 byte * 
@@ -7316,7 +7317,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
     APP(&ilist, INSTR_CREATE_jecxz(dcontext, opnd_create_instr(try_again)));
 
     APP(&ilist, have_lock);
-    /* put app xcx into xcx , and next pc in xax */
+    /* put app xcx into xcx , and clone_record_t in xax */
     APP(&ilist, INSTR_CREATE_mov_ld
         (dcontext, opnd_create_reg(REG_XCX), opnd_create_reg(REG_XAX)));
     APP(&ilist, INSTR_CREATE_mov_ld
