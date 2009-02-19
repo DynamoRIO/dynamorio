@@ -45,4 +45,14 @@ and AMD64 hardware.
 Instructions for building:
 
 Please see the DynamoRIO wiki for information on the required tools on both
-Windows and Linux.
+Windows and Linux:
+
+http://code.google.com/p/dynamorio/wiki/HowToBuild
+
+************************************************************
+
+Reporting bugs:
+
+Use the Issue Tracker at http://code.google.com/p/dynamorio/issues/list
+
+
