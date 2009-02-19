@@ -2967,12 +2967,6 @@ void post_system_call(dcontext_t *dcontext)
     KSTART(post_syscall);
     dcontext->whereami = WHERE_SYSCALL_HANDLER;
 
-#ifdef CLIENT_INTERFACE 
-    instrument_post_syscall(dcontext, sysnum);
-    /* re-set in case client changed.  client can't change sysnum. */
-    success = NT_SUCCESS(mc->xax);
-#endif
-
     LOG(THREAD, LOG_SYSCALLS, 2,
         "post syscall: sysnum="PFX", params @"PFX", result="PFX"\n",
         sysnum, param_base, mc->xax);
@@ -3153,6 +3147,14 @@ void post_system_call(dcontext_t *dcontext)
         }
 #endif /* DEBUG */
     }
+
+
+#ifdef CLIENT_INTERFACE 
+    /* The instrument_post_syscall should be called after DR finishes all
+     * its operations. Xref to i#1.
+     */
+    instrument_post_syscall(dcontext, sysnum);
+#endif
 
     /* stats lock grabbing ok here, any synch with suspended threads taken
      * care of already */
