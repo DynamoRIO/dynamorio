@@ -57,6 +57,7 @@ if ($#ARGV != 2) {
 }
 
 $build_defs = $ARGV[0];
+$build_defs =~ s/ [-\/]D/ /g;
 $run_ops = $ARGV[1];
 $file = $ARGV[2];
 
@@ -161,7 +162,7 @@ while (<IN>) {
                     if ($tok =~ /(.*)\((.*)\)/) {
                         $tok = "$1 $2";
                     }
-                    if (not($check_in =~ /$tok/)) {
+                    if (not($check_in =~ /\b$tok\b/)) {
                         print "BAD: required token $tok missing\n" if ($verbose);
                         $success = $no;
                     }
@@ -172,7 +173,7 @@ while (<IN>) {
                     if ($tok =~ /(.*)\((.*)\)/) {
                         $tok = "$1 $2";
                     }
-                    if ($check_in =~ /$tok/) {
+                    if ($check_in =~ /\b$tok\b/) {
                         print "BAD: unwanted token $tok present\n" if ($verbose);
                         $success = $no;
                     }

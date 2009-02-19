@@ -89,6 +89,7 @@ all: check_headers $(HEADERS) mkimages $(DOXYFILE) outdir
 
 # run doxygen and fail on warnings
 # re-run -u in case Doxyfile was generated on a different machine
+# developer should ignore warnings about obsolete tags in this -u run
 	$(DOXYGEN) -u $(DOXYFILE)
 	$(DOXYGEN) $(DOXYFILE) 2>&1 | $(TEE) doxygen.out
 	$(GREP) -i warning doxygen.out; if [ $$? == 0 ]; then false; fi

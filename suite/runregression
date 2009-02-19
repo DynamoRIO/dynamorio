@@ -89,9 +89,10 @@ $mf_mode = "-security_api";
 # A case is either a build or a run.
 #
 # A build takes the form of :
-#     BUILD::[WIN::|LIN::][NOSHORT::]<build options>
+#     BUILD::[WIN::|LIN::][NOSHORT::][NOCLEAR::]<build options>
 # where WIN or LIN specifies that build is only to be performed on that platform
 # and NOSHORT specifies not to do that build for the short regression.
+# NOCLEAR specifies to not "make clear" before building.
 #
 # A run is perfromed using the last build.  It can either be a sample build
 #     [SHORT::][WIN::|LIN::]BUILDSAMPLES::<api/samples makefile targets>
@@ -112,6 +113,8 @@ $mf_mode = "-security_api";
 # product builds and runs
 ## VMAP builds and runs
     "BUILD::VMAP=1 $dbg_int",
+    # Issue 20: we build x64 so we have both simultaneously for cross-arch tests
+    "BUILD::NOCLEAR::ARCH=x64 VMAP=1 $dbg_int",
         # our main configuration
         "SHORT::ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
         # test supported options
@@ -144,11 +147,22 @@ $mf_mode = "-security_api";
         "ONLY::runrunall runos::DYNAMORIO_OPTIONS=\\\"-finite_shared_bb_cache -cache_shared_bb_regen 80\\\"",
         "ONLY::runrunall runos::DYNAMORIO_OPTIONS=\\\"-finite_shared_trace_cache -cache_shared_trace_regen 80\\\"",
 
+        # we don't need a separate build b/c we built up above
+        # xref Issue 16: not all tests are ported to 64-bit
+        "SHORT::ONLY::ARCH=x64 spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
+        "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private\\\"",
+        "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -disable_traces\\\"",
+        "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -opt_memory\\\"",
+
     "BUILD::VMAP=1 $rel_ext",
+    # Issue 20: we build x64 so we have both simultaneously for cross-arch tests
+    "BUILD::NOCLEAR::ARCH=x64 $rel_ext",
         # xref PR 306319, make sure samples build and run against release build too
         "BUILDSAMPLES::EXCLUDE=MF_moduledb.c",
         # just a few tests since we expect internal debug to catch most problems
         "ONLY::runinterface::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
+        # just a few x64 tests since we expect internal debug to catch most problems
+        "ONLY::ARCH=x64 runinterface::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
 
    "BUILD::VMAP=1 $dbg_ext",
         # build docs and samples
@@ -156,17 +170,6 @@ $mf_mode = "-security_api";
         "SHORT::BUILDSAMPLES::EXCLUDE=MF_moduledb.c",
         # just a few tests since we expect internal debug to catch most problems
         "ONLY::runinterface::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
-
-## FIXME PR 215424: we should have runs of these but no x64 regression machines set up
-    "BUILD::ARCH=x64 $dbg_int",
-        "SHORT::ONLY::ARCH=x64 spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
-        "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private\\\"",
-        "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -disable_traces\\\"",
-        "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -opt_memory\\\"",
-
-    "BUILD::ARCH=x64 $rel_ext",
-        # just a few tests since we expect internal debug to catch most problems
-        "ONLY::ARCH=x64 runinterface::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
 
 ##### non-product builds and runs: we ensure VMSAFE=1 and VPS=1 still build but that's all for short
 
@@ -515,6 +518,12 @@ while ($i <= $#cases) {
     }
     $case =~ s/^NOSHORT:://;
 
+    $clear = 1;
+    if ($case =~ /^NOCLEAR::/) {
+        $clear = 0;
+        $case =~ s/^NOCLEAR:://;
+    }
+
     $logfile = sprintf("buildlog.%03d", $b);
     print "\n============================================================\n";
     print "Build $b: $case\n\n";
@@ -527,7 +536,10 @@ while ($i <= $#cases) {
     # but must unset USEDEP so we don't try to include "/buildmark.dep"
     # FIXME case 192750: cannot create pdb files over public key ssh
     if (!$justshow) {
-        system("($nice make $makedirs USEDEP=0 BUILD= clear; $nice make $makedirs $parallel_build $case DBG= LINK_DBG= install) >> ../$logfile 2>&1");
+        if ($clear) {
+            system("$nice make $makedirs USEDEP=0 BUILD= clear >> ../$logfile 2>&1");
+        }
+        system("$nice make $makedirs $parallel_build $case DBG= LINK_DBG= install >> ../$logfile 2>&1");
     }
     system("grep -i [^W]error ../$logfile");
     $errors = `grep -i [^W]error ../$logfile`;

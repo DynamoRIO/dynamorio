@@ -175,11 +175,16 @@ ifndef BUILD_TOOLS
   BUILD_TOOLS      :=$(BUILD_BASE)/tools
 endif
 INSTALL_BIN_BASE   :=$(EXPORTS_BASE)/bin
+# Issue 20: cross-arch execve depends on these being distinct and not
+# subsets of each other (e.g., not "lib" and "lib64") and on the
+# release package using these same names.
+INSTALL_LIB_X64    := lib64
+INSTALL_LIB_X86    := lib32
 ifeq ($(ARCH), x64)
-  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib64
+  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/$(INSTALL_LIB_X64)
   INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin64
 else
-  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/lib32
+  INSTALL_LIB_BASE :=$(EXPORTS_BASE)/$(INSTALL_LIB_X86)
   INSTALL_BIN      :=$(INSTALL_BIN_BASE)/bin32
 endif
 INSTALL_INCLUDE    :=$(EXPORTS_BASE)/include

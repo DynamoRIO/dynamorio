@@ -40,6 +40,7 @@
 #include <sys/wait.h>  /* for wait */
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 #ifdef USE_DYNAMO
 #include "dynamorio.h"

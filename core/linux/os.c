@@ -121,6 +121,11 @@ DECLARE_CXTSWPROT_VAR(mutex_t tls_lock, INIT_LOCK_FREE(tls_lock));
 
 /* full path to our own library, used for execve */
 static char dynamorio_library_path[MAXIMUM_PATH];
+/* Issue 20: path to other architecture */
+static char dynamorio_alt_arch_path[MAXIMUM_PATH];
+/* Makefile passes us LIBDIR_X{86,64} defines */
+#define DR_LIBDIR_X86 STRINGIFY(LIBDIR_X86)
+#define DR_LIBDIR_X64 STRINGIFY(LIBDIR_X64)
 
 /* pc values delimiting dynamo dll image */
 static app_pc dynamo_dll_start = NULL;
@@ -2709,6 +2714,203 @@ handle_self_signal(dcontext_t *dcontext, uint sig)
     }
 }
 
+static void
+handle_execve(dcontext_t *dcontext)
+{
+    /* in /usr/src/linux/arch/i386/kernel/process.c:
+     *  asmlinkage int sys_execve(struct pt_regs regs) { ...
+     *  error = do_execve(filename, (char **) regs.xcx, (char **) regs.xdx, &regs);
+     * in fs/exec.c:
+     *  int do_execve(char * filename, char ** argv, char ** envp, struct pt_regs * regs)
+     */
+    /* We need to make sure we get injected into the new image:
+     * we simply make sure LD_PRELOAD contains us, and that our directory
+     * is on LD_LIBRARY_PATH (seems not to work to put absolute paths in
+     * LD_PRELOAD).
+     * FIXME: this doesn't work for setuid programs
+     * We also pass the current DYNAMORIO_OPTIONS to the new image.
+     * FIXME: security hole here -- have some other way to pass the options?
+     */
+    char *fname = (char *)  sys_param(dcontext, 0);
+    char **envp = (char **) sys_param(dcontext, 2);
+    int i, preload = -1, ldpath = -1, ops = -1;
+    bool preload_us = false, ldpath_us = false;
+    bool x64 = IF_X64_ELSE(true, false);
+    file_t file;
+    char *inject_library_path;
+    DEBUG_DECLARE(char **argv = (char **) sys_param(dcontext, 1);)
+
+    LOG(GLOBAL, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
+    LOG(THREAD, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
+    DODEBUG({
+        SYSLOG_INTERNAL_INFO("-- execve %s --", fname);
+        LOG(THREAD, LOG_SYSCALLS, 1, "syscall: execve %s\n", fname);
+        LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 1, "execve %s\n", fname);
+        if (stats->loglevel >= 3) {
+            if (argv == NULL) {
+                LOG(THREAD, LOG_SYSCALLS, 3, "\targs are NULL\n");
+            } else {
+                for (i = 0; argv[i] != NULL; i++) {
+                    LOG(THREAD, LOG_SYSCALLS, 2, "\targ %d: len=%d\n",
+                        i, strlen(argv[i]));
+                    LOG(THREAD, LOG_SYSCALLS, 3, "\targ %d: %s\n",
+                        i, argv[i]);
+                }
+            }
+        }
+    });
+
+    /* Issue 20: handle cross-architecture execve */
+    file = os_open(fname, OS_OPEN_READ);
+    if (file != INVALID_FILE) {
+        x64 = file_is_elf64(file);
+        os_close(file);
+    }
+    inject_library_path = IF_X64_ELSE(x64, !x64) ? dynamorio_library_path :
+        dynamorio_alt_arch_path;
+
+    if (envp == NULL) {
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tenv is NULL\n");
+        i = 0;
+    } else {
+        for (i = 0; envp[i] != NULL; i++) {
+            /* execve env vars should never be set here */
+            ASSERT(strstr(envp[i], DYNAMORIO_VAR_EXECVE) != envp[i]);
+            if (strstr(envp[i], DYNAMORIO_VAR_OPTIONS) == envp[i]) {
+                ops = i;
+            }
+            if (strstr(envp[i], "LD_LIBRARY_PATH=") == envp[i]) {
+                ldpath = i;
+                if (strstr(envp[i], inject_library_path) != NULL)
+                    ldpath_us = true;
+            }
+            if (strstr(envp[i], "LD_PRELOAD=") == envp[i]) {
+                preload = i;
+                if (strstr(envp[i], DYNAMORIO_PRELOAD_NAME) != NULL &&
+                    strstr(envp[i], DYNAMORIO_LIBRARY_NAME) != NULL) {
+                    preload_us = true;
+                }
+            }
+            LOG(THREAD, LOG_SYSCALLS, 3, "\tenv %d: %s\n", i, envp[i]);
+        }
+    }
+    dcontext->sys_param0 = (reg_t) envp;
+
+#ifdef STATIC_LIBRARY
+    /* no way we can inject, we just lose control */
+    SYSLOG_INTERNAL_WARNING("WARNING: static DynamoRIO library, losing control on execve");
+    return;
+#endif
+
+    /* We want to add new env vars, so we create a new envp
+     * array.  We have to deallocate them and restore the old
+     * envp if execve fails; if execve succeeds, the address
+     * space is reset so we don't need to do anything.  
+     */
+    int num_old = i;
+    uint sz;
+    char *var, *old;
+    int idx_preload = preload, idx_ldpath = ldpath, idx_ops = ops;
+    char *options = option_string; /* global var */
+    int num_new;
+    char **new_envp;
+    uint logdir_length;
+
+    num_new = 
+        (get_log_dir(PROCESS_DIR, NULL, NULL) ? 1 : 0) + /* logdir */
+        2 + /* execve indicator var plus final NULL */
+        ((preload<0) ? 1 : 0) +
+        ((ldpath<0) ? 1 : 0) +
+        ((ops < 0 && options != NULL) ? 1 : 0);
+    new_envp = heap_alloc(dcontext, sizeof(char*)*(num_old+num_new)
+                          HEAPACCT(ACCT_OTHER));
+    memcpy(new_envp, envp, sizeof(char*)*num_old);
+
+    *sys_param_addr(dcontext, 2) = (reg_t) new_envp;  /* OUT */
+    /* store for reset in case execve fails */
+    dcontext->sys_param1 = (reg_t) new_envp;
+    dcontext->sys_param2 = (reg_t) num_old;
+    /* if no var to overwrite, need new var at end */
+    if (preload < 0)
+        idx_preload = i++;
+    if (ldpath < 0)
+        idx_ldpath = i++;
+    if (ops < 0 && options != NULL)
+        idx_ops = i++;
+
+    if (!preload_us) {
+        LOG(THREAD, LOG_SYSCALLS, 1,
+            "WARNING: execve env does NOT preload DynamoRIO, forcing it!\n");
+        if (preload >= 0) {
+            sz = strlen(envp[preload]) + strlen(DYNAMORIO_PRELOAD_NAME)+
+                strlen(DYNAMORIO_LIBRARY_NAME) + 3;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            old = envp[preload] + strlen("LD_PRELOAD=");
+            snprintf(var, sz, "LD_PRELOAD=%s %s %s",
+                     DYNAMORIO_PRELOAD_NAME, DYNAMORIO_LIBRARY_NAME, old);
+        } else {
+            sz = strlen("LD_PRELOAD=") + strlen(DYNAMORIO_PRELOAD_NAME) + 
+                strlen(DYNAMORIO_LIBRARY_NAME) + 2;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            snprintf(var, sz, "LD_PRELOAD=%s %s",
+                     DYNAMORIO_PRELOAD_NAME, DYNAMORIO_LIBRARY_NAME);
+        }
+        *(var+sz-1) = '\0'; /* null terminate */
+        new_envp[idx_preload] = var;
+        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+            idx_preload, new_envp[idx_preload]);
+    }
+
+    if (!ldpath_us) {
+        if (ldpath >= 0) {
+            sz = strlen(envp[ldpath]) + strlen(inject_library_path) + 2;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            old = envp[ldpath] + strlen("LD_LIBRARY_PATH=");
+            snprintf(var, sz, "LD_LIBRARY_PATH=%s:%s", inject_library_path, old);
+        } else {
+            sz = strlen("LD_LIBRARY_PATH=") + strlen(inject_library_path) + 1;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            snprintf(var, sz, "LD_LIBRARY_PATH=%s", inject_library_path);
+        }
+        *(var+sz-1) = '\0'; /* null terminate */
+        new_envp[idx_ldpath] = var;
+        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+            idx_ldpath, new_envp[idx_ldpath]);
+    }
+
+    if (ops < 0 && options != NULL) {
+        sz = strlen(DYNAMORIO_VAR_OPTIONS) + strlen(options) + 2;
+        var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+        snprintf(var, sz, "%s=%s", DYNAMORIO_VAR_OPTIONS, options);
+        *(var+sz-1) = '\0'; /* null terminate */
+        new_envp[idx_ops] = var;
+        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+            idx_ops, new_envp[idx_ops]);
+    }
+
+    if (get_log_dir(PROCESS_DIR, NULL, &logdir_length)) {
+        sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + 1 +
+            logdir_length;
+        var = heap_alloc(dcontext, 
+                         sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+        snprintf(var, sz, "%s=", DYNAMORIO_VAR_EXECVE_LOGDIR);
+        get_log_dir(PROCESS_DIR, var+strlen(var), &logdir_length);
+        *(var+sz-1) = '\0'; /* null terminate */
+        new_envp[i++] = var;
+        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
+    }
+
+    sz = strlen(DYNAMORIO_VAR_EXECVE) + 3;
+    /* we always pass this var to indicate "post-execve" */
+    var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+    snprintf(var, sz, "%s=1", DYNAMORIO_VAR_EXECVE);
+    *(var+sz-1) = '\0'; /* null terminate */
+    new_envp[i++] = var;
+    LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
+    /* must end with NULL */
+    new_envp[i] = NULL;
+}
+
 /* System call interception: put any special handling here
  * Arguments come from the pusha right before the call
  */
@@ -3041,183 +3243,7 @@ pre_system_call(dcontext_t *dcontext)
     }
 
     case SYS_execve: {
-        /* in /usr/src/linux/arch/i386/kernel/process.c:
-         asmlinkage int sys_execve(struct pt_regs regs) { ...
-         error = do_execve(filename, (char **) regs.xcx, (char **) regs.xdx, &regs);
-         * in fs/exec.c:
-         int do_execve(char * filename, char ** argv, char ** envp, struct pt_regs * regs)
-         */
-        /* We need to make sure we get injected into the new image:
-         * we simply make sure LD_PRELOAD contains us, and that our directory
-         * is on LD_LIBRARY_PATH (seems not to work to put absolute paths in
-         * LD_PRELOAD).
-         * FIXME: this doesn't work for setuid programs
-         * We also pass the current DYNAMORIO_OPTIONS to the new image.
-         * FIXME: security hole here -- have some other way to pass the options?
-         */
-        DEBUG_DECLARE(char *fname = (char *)  sys_param(dcontext, 0);)
-        DEBUG_DECLARE(char **argv = (char **) sys_param(dcontext, 1);)
-        char **envp = (char **) sys_param(dcontext, 2);
-        int i, preload = -1, ldpath = -1, ops = -1;
-        bool preload_us = false, ldpath_us = false;
-        LOG(GLOBAL, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
-        LOG(THREAD, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
-        DODEBUG({
-            SYSLOG_INTERNAL_INFO("-- execve %s --", fname);
-            LOG(THREAD, LOG_SYSCALLS, 1, "syscall: execve %s\n", fname);
-            LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 1, "execve %s\n", fname);
-            if (stats->loglevel >= 3) {
-                if (argv == NULL) {
-                    LOG(THREAD, LOG_SYSCALLS, 3, "\targs are NULL\n");
-                } else {
-                    for (i = 0; argv[i] != NULL; i++) {
-                        LOG(THREAD, LOG_SYSCALLS, 2, "\targ %d: len=%d\n",
-                            i, strlen(argv[i]));
-                        LOG(THREAD, LOG_SYSCALLS, 3, "\targ %d: %s\n",
-                            i, argv[i]);
-                    }
-                }
-            }
-        });
-        if (envp == NULL) {
-            LOG(THREAD, LOG_SYSCALLS, 3, "\tenv is NULL\n");
-            i = 0;
-        } else {
-            for (i = 0; envp[i] != NULL; i++) {
-                /* execve env vars should never be set here */
-                ASSERT(strstr(envp[i], DYNAMORIO_VAR_EXECVE) != envp[i]);
-                if (strstr(envp[i], DYNAMORIO_VAR_OPTIONS) == envp[i]) {
-                    ops = i;
-                }
-                if (strstr(envp[i], "LD_LIBRARY_PATH=") == envp[i]) {
-                    ldpath = i;
-                    if (strstr(envp[i], dynamorio_library_path) != NULL)
-                        ldpath_us = true;
-                }
-                if (strstr(envp[i], "LD_PRELOAD=") == envp[i]) {
-                    preload = i;
-                    if (strstr(envp[i], DYNAMORIO_PRELOAD_NAME) != NULL &&
-                        strstr(envp[i], DYNAMORIO_LIBRARY_NAME) != NULL) {
-                        preload_us = true;
-                    }
-                }
-                LOG(THREAD, LOG_SYSCALLS, 3, "\tenv %d: %s\n", i, envp[i]);
-            }
-        }
-        dcontext->sys_param0 = (reg_t) envp;
-
-#ifdef STATIC_LIBRARY
-        /* no way we can inject, we just lose control */
-        SYSLOG_INTERNAL_WARNING("WARNING: static DynamoRIO library, losing control on execve");
-        break;
-#endif
-
-        {
-            /* We want to add new env vars, so we create a new envp
-             * array.  We have to deallocate them and restore the old
-             * envp if execve fails; if execve succeeds, the address
-             * space is reset so we don't need to do anything.  
-             */
-            int num_old = i;
-            uint sz;
-            char *var, *old;
-            int idx_preload = preload, idx_ldpath = ldpath, idx_ops = ops;
-            char *options = option_string; /* global var */
-            int num_new;
-            char **new_envp;
-            num_new = 
-                (get_log_dir(PROCESS_DIR, NULL, NULL) ? 1 : 0) + /* logdir */
-                2 + /* execve indicator var plus final NULL */
-                ((preload<0) ? 1 : 0) +
-                ((ldpath<0) ? 1 : 0) +
-                ((ops < 0 && options != NULL) ? 1 : 0);
-            new_envp = heap_alloc(dcontext, sizeof(char*)*(num_old+num_new)
-                                  HEAPACCT(ACCT_OTHER));
-            memcpy(new_envp, envp, sizeof(char*)*num_old);
-
-            *sys_param_addr(dcontext, 2) = (reg_t) new_envp;  /* OUT */
-            /* store for reset in case execve fails */
-            dcontext->sys_param1 = (reg_t) new_envp;
-            dcontext->sys_param2 = (reg_t) num_old;
-            /* if no var to overwrite, need new var at end */
-            if (preload < 0)
-                idx_preload = i++;
-            if (ldpath < 0)
-                idx_ldpath = i++;
-            if (ops < 0 && options != NULL)
-                idx_ops = i++;
-            if (!preload_us) {
-                LOG(THREAD, LOG_SYSCALLS, 1,
-                    "WARNING: execve env does NOT preload DynamoRIO, forcing it!\n");
-                if (preload >= 0) {
-                    sz = strlen(envp[preload]) + strlen(DYNAMORIO_PRELOAD_NAME)+
-                        strlen(DYNAMORIO_LIBRARY_NAME) + 3;
-                    var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                    old = envp[preload] + strlen("LD_PRELOAD=");
-                    snprintf(var, sz, "LD_PRELOAD=%s %s %s",
-                            DYNAMORIO_PRELOAD_NAME, DYNAMORIO_LIBRARY_NAME, old);
-                } else {
-                    sz = strlen("LD_PRELOAD=") + strlen(DYNAMORIO_PRELOAD_NAME) + 
-                        strlen(DYNAMORIO_LIBRARY_NAME) + 2;
-                    var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                    snprintf(var, sz, "LD_PRELOAD=%s %s",
-                            DYNAMORIO_PRELOAD_NAME, DYNAMORIO_LIBRARY_NAME);
-                }
-                *(var+sz-1) = '\0'; /* null terminate */
-                new_envp[idx_preload] = var;
-                LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-                    idx_preload, new_envp[idx_preload]);
-            }
-            if (!ldpath_us) {
-                if (ldpath >= 0) {
-                    sz = strlen(envp[ldpath]) + strlen(dynamorio_library_path) + 2;
-                    var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                    old = envp[ldpath] + strlen("LD_LIBRARY_PATH=");
-                    snprintf(var, sz, "LD_LIBRARY_PATH=%s:%s", dynamorio_library_path, old);
-                } else {
-                    sz = strlen("LD_LIBRARY_PATH=") + strlen(dynamorio_library_path) + 1;
-                    var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                    snprintf(var, sz, "LD_LIBRARY_PATH=%s", dynamorio_library_path);
-                }
-                *(var+sz-1) = '\0'; /* null terminate */
-                new_envp[idx_ldpath] = var;
-                LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-                    idx_ldpath, new_envp[idx_ldpath]);
-            }
-            if (ops < 0 && options != NULL) {
-                sz = strlen(DYNAMORIO_VAR_OPTIONS) + strlen(options) + 2;
-                var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                snprintf(var, sz, "%s=%s", DYNAMORIO_VAR_OPTIONS, options);
-                *(var+sz-1) = '\0'; /* null terminate */
-                new_envp[idx_ops] = var;
-                LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-                    idx_ops, new_envp[idx_ops]);
-            }
-            {
-                uint logdir_length;
-                if (get_log_dir(PROCESS_DIR, NULL, &logdir_length)) {
-                    sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + 1 +
-                         logdir_length;
-                    var = heap_alloc(dcontext, 
-                                     sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                    snprintf(var, sz, "%s=", DYNAMORIO_VAR_EXECVE_LOGDIR);
-                    get_log_dir(PROCESS_DIR, var+strlen(var), &logdir_length);
-                    *(var+sz-1) = '\0'; /* null terminate */
-                    new_envp[i++] = var;
-                    LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
-                }
-            }
-            sz = strlen(DYNAMORIO_VAR_EXECVE) + 3;
-            /* we always pass this var to indicate "post-execve" */
-            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-            snprintf(var, sz, "%s=1", DYNAMORIO_VAR_EXECVE);
-            *(var+sz-1) = '\0'; /* null terminate */
-            new_envp[i++] = var;
-            LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
-            /* must end with NULL */
-            new_envp[i] = NULL;
-        }
-
+        handle_execve(dcontext);
         break;
     }
 
@@ -4310,7 +4336,7 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
         ASSERT_NOT_REACHED();
     }
     if (fullpath != NULL) {
-        /* We need the path for dynamorio_library_path for execve.
+        /* We need the path for inject_library_path for execve.
          * For now we use dl_iterate_phdr() from glibc 2.2.4+.
          */
         dl_iterate_data_t iter_data = { mod_start, fullpath, path_size };
@@ -4455,6 +4481,7 @@ get_dynamo_library_bounds(void)
      */
     extern int dynamorio_so_start, dynamorio_so_end;
     app_pc check_start, check_end;
+    char *libdir;
     dynamo_dll_start = (app_pc) &dynamorio_so_start;
     dynamo_dll_end = (app_pc) ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
 #ifndef HAVE_PROC_MAPS
@@ -4474,6 +4501,21 @@ get_dynamo_library_bounds(void)
 #else
     ASSERT(res > 0);
 #endif
+
+    /* Issue 20: we need the path to the alt arch */
+    strncpy(dynamorio_alt_arch_path, dynamorio_library_path,
+            BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_path));
+    /* Assumption: libdir name is not repeated elsewhere in path */
+    libdir = strstr(dynamorio_alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
+    if (libdir != NULL) {
+        char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
+        /* do NOT place the NULL */
+        strncpy(libdir, newdir, strlen(newdir));
+    }
+    NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
+    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME" alt arch path: %s\n",
+        dynamorio_alt_arch_path);
+
     return res;
 }
 

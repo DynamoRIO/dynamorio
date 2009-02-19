@@ -114,6 +114,10 @@ int main(int argc, char *argv[])
     dynamorio_app_init();
     dynamorio_app_start();
 #endif
+    if (argc < 2) {
+        printf("ERROR: not enough args\n");
+        return -1;
+    }
 
     if (find_dynamo_library())
 	printf("parent is running under DynamoRIO\n");
@@ -139,15 +143,16 @@ int main(int argc, char *argv[])
 	env[0] = env0;
 	env[1] = NULL;
 #endif
-	arg[0] = "/bin/basename";
-	arg[1] = "/fake/path/it_worked";
+        printf("about to execve %s\n", argv[0]);
+	arg[0] = argv[1];
+	arg[1] = argv[2];
 	arg[2] = NULL;
 	if (find_dynamo_library())
 	    printf("child is running under DynamoRIO\n");
 	else
 	    printf("child is running natively\n");
 	result = execve("/bin/bogus_will_fail", arg, env);
-	result = execve("/bin/basename", arg, env);
+	result = execve(argv[1], arg, env);
 	if (result < 0)
 	    perror("ERROR in execve");
     }	

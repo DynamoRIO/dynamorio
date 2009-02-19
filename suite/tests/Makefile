@@ -112,7 +112,7 @@ ifeq ($(MACHINE), linux)
 # EXTRA TESTS
 # Until we need file-based .runall-type functionality, for now I'm
 # adding a few extra runs of other test programs solely in the Makefile:
-EXTRA_OS_TESTS := linux/clone-reset linux/thread-reset
+EXTRA_OS_TESTS := linux/clone-reset linux/thread-reset linux/execve32 linux/execve64
 endif
 
 EXTRA_COMMON_TESTS += common/decode-stress
@@ -121,7 +121,8 @@ EXTRA_TESTS := $(EXTRA_COMMON_TESTS) $(EXTRA_OS_TESTS)
 EXTRA_TESTS_EXE := $(patsubst %,%.$(EXE_SFX),$(EXTRA_TESTS))
 
 # **** DISABLED TESTS ****
-DISABLED_LINUX := | $(GREP) -vE '/vfork'
+# Issue 20: execve => execve{32,64} and runs execve-sub
+DISABLED_LINUX := | $(GREP) -vE '/vfork|/execve-sub|/execve.c'
 # PR 215238 covers re-enabling threadinjection
 DISABLED_WIN32 := | $(GREP) -vE '/debugger|/threadinjection'
 # case 4757 covers re-enabling selfmod-threads
@@ -185,10 +186,10 @@ endif
 # use release build if it exists, unless DEBUG=yes
 DYNAMORIO_DIR_BASE :=$(DYNAMORIO_HOME)
 ifeq ($(ARCH), x64)
-  LIB_SUBDIR :=lib64
+  LIB_SUBDIR :=$(INSTALL_LIB_X64)
   BIN_SUBDIR :=bin64
 else
-  LIB_SUBDIR :=lib32
+  LIB_SUBDIR :=$(INSTALL_LIB_X86)
   BIN_SUBDIR :=bin32
 endif
 
@@ -235,6 +236,7 @@ DEFS += $(DEFS_T)
 endif
 endif # NATIVE
 endif # defines.h
+# get emacs syntax highlighting back on track: "
 
 # runall max wait value. It's okay to use a large number here; closewnd
 # closes the app as soon as it is found. We only reach the maximum
@@ -703,6 +705,7 @@ $(PGMS_EXE_COMMON): %: %.c $(TOOLS)
 	$(CC_BASE) $(EXEOUT)$@ $< $(LINK)
 $(PGMS_EXE_OS): %: %.c $(TOOLS)
 	$(CC_BASE) $(EXEOUT)$@ $< $(LINK)
+
 # extra runs that use existing apps: we copy the app and expect file
 %-reset: %
 	$(CP) -f $< $@
@@ -714,6 +717,16 @@ $(PGMS_EXE_OS): %: %.c $(TOOLS)
 %-stress.expect: %.template
 	$(CP) -f $< $*-stress.template
 	$(PERL) gen_expect.pl '$(DEFS)' '$(DR_OPS)' $*-stress.template
+# execve{32,64}
+%32: %.c $(TOOLS)
+	$(CC_BASE) $(EXEOUT)$@ $< $(LINK)
+%32.expect: %.expect
+	$(CP) -f $< $@
+%64: %.c $(TOOLS)
+	$(CC_BASE) $(EXEOUT)$@ $< $(LINK)
+%64.expect: %.expect
+	$(CP) -f $< $@
+
 $(PGMS_EXE_API): %: %.c $(TOOLS) $(DYNAMORIO_DIR)
 	$(CC_BASE_DYNAMORIO) $(D)USE_DYNAMO $(EXEOUT)$@ $< $(LINK_DYNAMORIO) tools_asm.$(OBJ_SFX) 
 $(PGMS_EXE_INTERFACE): %: %.c $(TOOLS)
@@ -750,6 +763,12 @@ $(PGMS_EXE_SECURITY_OS): %: %.c $(TOOLS)
 $(PGMS_EXP_OS): %.expect: %.template
 	$(PERL) gen_expect.pl '$(DEFS)' '$(DR_OPS)' $*.template
 
+# we do NOT want CC_BASE as it links w/ tools_asm
+linux/execve-sub32: linux/execve-sub.c
+	$(CC) -m32 $(EXEOUT)$@ $<
+linux/execve-sub64: linux/execve-sub.c
+	$(CC) -m64 $(EXEOUT)$@ $<
+
 endif # linux
 
 # for clean (xref PR 245246)
@@ -761,11 +780,18 @@ ALL_GENERATED_EXPECT := $(patsubst %.template, %.expect, $(ALL_TEMPLATES))
 ###########################################################################
 # test-specific rules
 
+TEST_ARGS :=
+
 win32/nativeexec.runinjector: DR_OPS += -native_exec_list nativeexec.dll.dll
 win32/nativeterminate.runinjector: DR_OPS += -native_exec_list nativeterminate.dll.dll
 
 linux/clone-reset.runinjector: DR_OPS += -reset_at_fragment_count 100
 linux/thread-reset.runinjector: DR_OPS += -reset_at_fragment_count 100
+
+linux/execve32.runinjector: linux/execve-sub32
+linux/execve32.runinjector: TEST_ARGS = $(CURWD)/linux/execve-sub32
+linux/execve64.runinjector: linux/execve-sub64
+linux/execve64.runinjector: TEST_ARGS = $(CURWD)/linux/execve-sub64
 
 common/decode-stress.runinjector: DR_OPS += -stress_recreate_state
 
@@ -1026,11 +1052,11 @@ ifeq ($(MACHINE), win32)
 # again, we have to duplicate, b/c %$(EXE_SFX) doesn't work
 %.runinjector: %.announce %.exe %.expect
 # injector includes timer args
-	@cd $(RESDIR); $(TIMER_INJECTOR) $(CURWD)/$*$(EXE_SFX) > $*.out 2>&1; cd $(CURWD)
+	@cd $(RESDIR); $(TIMER_INJECTOR) $(CURWD)/$*$(EXE_SFX) $(TEST_ARGS) > $*.out 2>&1; cd $(CURWD)
 else
 %.runinjector: %.announce % %.expect
 # timer includes injector args
-	@cd $(RESDIR); $(TIMER_INJECTOR) $(CURWD)/$* > $*.out 2>&1; cd $(CURWD)
+	@cd $(RESDIR); $(TIMER_INJECTOR) $(CURWD)/$* $(TEST_ARGS) > $*.out 2>&1; cd $(CURWD)
 endif
 	@(if $(DIFF) $(CURWD)/$*.expect $(RESDIR)/$*.out; then $(ECHO) "PASS"; else $(ECHO) "FAIL"; fi)
 	@$(ECHO)
@@ -1058,3 +1084,6 @@ clean:
 	$(RM) -r $(RESDIR)
 	$(RM) $(patsubst %,%.expect,$(EXTRA_TESTS))
 	$(RM) $(patsubst %,%.template,$(EXTRA_TESTS))
+ifeq ($(MACHINE), linux)
+	$(RM) linux/execve linux/execve-sub{32,64}
+endif

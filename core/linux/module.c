@@ -35,6 +35,12 @@
 #include "os_private.h"
 #include <elf.h>    /* for ELF types */
 #include <string.h>
+#include <stddef.h> /* offsetof */
+
+typedef union _elf_generic_header_t {
+    Elf64_Ehdr elf64;
+    Elf32_Ehdr elf32;
+} elf_generic_header_t;
 
 
 /* Question : how is the size of the initial map determined?  There seems to be no better
@@ -57,8 +63,8 @@
 /* Is there an ELF header for a shared object at address 'base'? 
  * If size == 0 then checks for header readability else assumes that size bytes from
  * base are readable (unmap races are then callers responsibility). */
-bool
-is_elf_so_header(app_pc base, size_t size)
+static bool
+is_elf_so_header_common(app_pc base, size_t size, bool memory)
 {
     /* FIXME We could check more fields in the header just as the
      * dlopen() does. */
@@ -94,18 +100,24 @@ is_elf_so_header(app_pc base, size_t size)
         /* FIXME - should we add any of these to the check? For real 
          * modules all of these should hold. */
         ASSERT_CURIOSITY(elf_header.e_version == 1);
-        ASSERT_CURIOSITY(elf_header.e_ehsize == sizeof(ELF_HEADER_TYPE));
+        ASSERT_CURIOSITY(!memory || elf_header.e_ehsize == sizeof(ELF_HEADER_TYPE));
         ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV);
         ASSERT_CURIOSITY(elf_header.e_type == ET_DYN ||
                          elf_header.e_type == ET_EXEC);
 #ifdef X64
-        ASSERT_CURIOSITY(elf_header.e_machine == EM_X86_64);
+        ASSERT_CURIOSITY(!memory || elf_header.e_machine == EM_X86_64);
 #else
-        ASSERT_CURIOSITY(elf_header.e_machine == EM_386);
+        ASSERT_CURIOSITY(!memory || elf_header.e_machine == EM_386);
 #endif
         return true;
     }
     return false;
+}
+
+bool
+is_elf_so_header(app_pc base, size_t size)
+{
+    return is_elf_so_header_common(base, size, true);
 }
 
 void
@@ -588,4 +600,19 @@ module_calculate_digest(/*OUT*/ module_digest_t *digest,
                         uint sec_characteristics)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME PR 295534: NYI */
+}
+
+bool
+file_is_elf64(file_t f)
+{
+    /* on error, assume same arch as us */
+    bool res = IF_X64_ELSE(true, false);
+    elf_generic_header_t elf_header;
+    if (os_read(f, &elf_header, sizeof(elf_header)) != sizeof(elf_header))
+        return res;
+    if (!is_elf_so_header_common((app_pc)&elf_header, sizeof(elf_header), false))
+        return res;
+    ASSERT(offsetof(Elf64_Ehdr, e_machine) == 
+           offsetof(Elf32_Ehdr, e_machine));
+    return (elf_header.elf64.e_machine == EM_X86_64);
 }

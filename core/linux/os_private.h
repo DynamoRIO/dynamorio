@@ -142,6 +142,7 @@ bool module_read_program_header(app_pc base,
                                 OUT size_t *segment_align);
 
 void os_request_live_coredump(const char *msg);
+bool file_is_elf64(file_t f);
 
 #ifdef VMX86_SERVER
 #  include "vmkuw.h"

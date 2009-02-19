@@ -113,6 +113,8 @@ We have re-numbered the \DynamoRIO versions as follows:
 The current version is 1.3.2 and is backward compatible with the 0.9.6
 releases.  The changes between version 1.3.2 and 1.3.1 are:
 
+ - Added support for Linux execve of cross-architectural executables
+   (e.g., 32-bit process performing execve of 64-bit executable)
  - instr_convert_short_meta_jmp_to_long() now returns the longer version of
    the taken jump, to use when setting the target of a jecxz or loop*
    branch.

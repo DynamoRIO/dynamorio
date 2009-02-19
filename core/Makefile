@@ -639,6 +639,10 @@ TGT_CFLAGS += -m32
 ASMFLAGS += --32
 endif
 
+# Issue 20: we need to know lib dirs for cross-arch execve
+TGT_DEFINES += $(D)LIBDIR_X64=$(INSTALL_LIB_X64)
+TGT_DEFINES += $(D)LIBDIR_X86=$(INSTALL_LIB_X86)
+
 # don't use -fpic, it's slow?  we want statically linked shared lib?
 TGT_CFLAGS += -fpic
 
