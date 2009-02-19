@@ -3698,9 +3698,6 @@ post_system_call(dcontext_t *dcontext)
     uint prot;
     where_am_i_t old_whereami;
     DEBUG_DECLARE(bool ok;)
-#ifdef CLIENT_INTERFACE 
-    DEBUG_DECLARE(bool client_failed = false;)
-#endif
 
     RSTATS_INC(post_syscall);
 
@@ -3722,17 +3719,6 @@ post_system_call(dcontext_t *dcontext)
         mc->xbp = dcontext->sys_xbp;
     }
 
-#ifdef CLIENT_INTERFACE 
-    /* after restore of xbp so client sees it as though was sysenter */
-    instrument_post_syscall(dcontext, sysnum);
-    /* re-set these vars */
-    result = (ptr_int_t) mc->xax; /* signed */
-    DODEBUG({
-        if (success && result < 0)
-            client_failed = true;
-    });
-    success = (result >= 0);
-#endif
 
     /* handle fork, try to do it early before too much logging occurs */
     if (sysnum == SYS_fork ||
@@ -4056,12 +4042,23 @@ post_system_call(dcontext_t *dcontext)
         if (ignorable_system_call(sysnum))
             STATS_INC(post_syscall_ignorable);
         else
-            ASSERT(success || dcontext->expect_last_syscall_to_fail
-                   IF_CLIENT_INTERFACE(|| client_failed));
+            ASSERT(success || dcontext->expect_last_syscall_to_fail);
     });
 
 
  exit_post_system_call:
+
+#ifdef CLIENT_INTERFACE 
+    /* The instrument_post_syscall should be called after DR finishes all
+     * its operations, since DR needs to know the real syscall results, 
+     * and any changes made by the client are simply to foll the app.
+     * Also, dr_syscall_invoke_another() needs to set eax, which shouldn't 
+     * affect the result of the 1st syscall. Xref i#1.
+     */
+    /* after restore of xbp so client sees it as though was sysenter */
+    instrument_post_syscall(dcontext, sysnum);
+#endif
+
     dcontext->whereami = old_whereami;
 }
 
