@@ -4051,7 +4051,7 @@ post_system_call(dcontext_t *dcontext)
 #ifdef CLIENT_INTERFACE 
     /* The instrument_post_syscall should be called after DR finishes all
      * its operations, since DR needs to know the real syscall results, 
-     * and any changes made by the client are simply to foll the app.
+     * and any changes made by the client are simply to fool the app.
      * Also, dr_syscall_invoke_another() needs to set eax, which shouldn't 
      * affect the result of the 1st syscall. Xref i#1.
      */
