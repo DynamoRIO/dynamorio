@@ -55,11 +55,6 @@ ifndef DYNAMORIO_BASE
 endif
 include $(DYNAMORIO_MAKE)/compiler.mk
 
-ifndef ARCH
-# default is x86 instead of x64
-ARCH = x86
-endif
-
 # Set default values for the DYNAMORIO_ env vars
 ifeq ($(MACHINE), win32)
 ifndef DYNAMORIO_HOME
@@ -71,6 +66,11 @@ ifeq ($(findstring ..,$(BUILD_TOOLS)),)
   export BUILD_TOOLS := $(shell $(CYGPATH) -ma $(BUILD_TOOLS))
 else
   export BUILD_TOOLS := $(shell $(CYGPATH) -ma $(CURDIR)/$(BUILD_TOOLS))
+endif
+ifeq ($(findstring ..,$(INSTALL_BIN)),)
+  export INSTALL_BIN := $(shell $(CYGPATH) -ma $(INSTALL_BIN))
+else
+  export INSTALL_BIN := $(shell $(CYGPATH) -ma $(CURDIR)/$(INSTALL_BIN))
 endif
 ifndef DYNAMORIO_TOOLS
   export DYNAMORIO_TOOLS := $(shell $(CYGPATH) -ma $(CURDIR)/../../tools)
@@ -91,6 +91,11 @@ ifeq ($(findstring ..,$(BUILD_TOOLS)),)
   export BUILD_TOOLS := $(BUILD_TOOLS)
 else
   export BUILD_TOOLS := $(CURDIR)/$(BUILD_TOOLS)
+endif
+ifeq ($(findstring ..,$(INSTALL_BIN)),)
+  export INSTALL_BIN := $(INSTALL_BIN)
+else
+  export INSTALL_BIN := $(CURDIR)/$(INSTALL_BIN)
 endif
 ifndef DYNAMORIO_TOOLS
   export DYNAMORIO_TOOLS := $(CURDIR)/../../tools
@@ -930,7 +935,7 @@ endif
 %.runrunall: $(DYNAMORIO_PREINJECT) %.announce %.expect
 ifeq ($(MACHINE), win32)
 	@if test -e $*.c; then $(MAKE) -s $*.exe; fi
-	@cd $(RESDIR); export DYNAMORIO_OPTIONS='$(DR_OPS)'; $(SHELL) $(CURWD)/runall/runalltest.sh $(CURWD)/$*.runall $(DYNAMORIO_LIBDIR)\\dynamorio.dll $(DYNAMORIO_WINPREINJECT) $(RUNALL_MAX_WAIT) > $*.out 2>&1; cd $(CURWD)
+	@cd $(RESDIR); export DYNAMORIO_OPTIONS='$(DR_OPS)'; $(SHELL) $(CURWD)/runall/runalltest.sh $(CURWD)/$*.runall $(DYNAMORIO_LIBDIR)\\dynamorio.dll $(DYNAMORIO_WINPREINJECT) $(RUNALL_MAX_WAIT) $(ARCH) > $*.out 2>&1; cd $(CURWD)
 	@if $(DIFF) -i $(CURWD)/$*.expect $(RESDIR)/$*.out; then $(ECHO) "PASS"; else $(ECHO) "FAIL"; fi
 	@$(ECHO)
 	@(if $(LS) $(CURWD)/$*.template > .trash 2>&1; then $(MV) $(CURWD)/$*.expect $(CURWD)/$*.expect.last; fi)
@@ -990,7 +995,7 @@ endif
 
 ifeq ($(MACHINE), win32)
 %.runinterface: $(DYNAMORIO_PREINJECT) %.dll.dll %.runall %.announce %.expect
-	@cd $(RESDIR); export DYNAMORIO_OPTIONS='$(DR_OPS)'; $(SHELL) $(CURWD)/runall/runalltest.sh $(CURWD)/$*.runall $(DYNAMORIO_LIBDIR)\\dynamorio.dll $(DYNAMORIO_WINPREINJECT) $(INTERFACE_MAX_WAIT) > $*.out 2>&1; cd $(CURWD)
+	@cd $(RESDIR); export DYNAMORIO_OPTIONS='$(DR_OPS)'; $(SHELL) $(CURWD)/runall/runalltest.sh $(CURWD)/$*.runall $(DYNAMORIO_LIBDIR)\\dynamorio.dll $(DYNAMORIO_WINPREINJECT) $(INTERFACE_MAX_WAIT) $(ARCH) > $*.out 2>&1; cd $(CURWD)
 	@if $(DIFF) -i $(CURWD)/$*.expect $(RESDIR)/$*.out; then $(ECHO) "PASS"; else $(ECHO) "FAIL"; fi
 	@$(ECHO)
 	@(if $(LS) $(CURWD)/$*.template > .trash 2>&1; then $(MV) $(CURWD)/$*.expect $(CURWD)/$*.expect.last; fi)

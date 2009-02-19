@@ -33,22 +33,22 @@
 #notes: 
 #current DYNAMORIO_OPTIONS env var will be used to determine options
 #BUILD_TOOLS must be set
+# for ARCH=x64, INSTALL_BIN must be set
 
-usage="runalltest <runallfile> <drdll> <win32_drpreinject_path> <runall_max_wait (optional)>"
+usage="runalltest <runallfile> <drdll> <win32_drpreinject_path> <runall_max_wait> <X64|X86>"
+
+if [ $# -ne 5 ] ; then
+    echo "Usage: $0 $usage"
+    exit 127
+fi
 
 # 3 seconds seems to be the magic number here. I've seen problems
 # with <freeze> tests for anything less.
 RUNALL_SLEEP=3
 
-RUNALL_MAX_WAIT=10
-if [ $# -ne 3 ] ; then
-if [ $# -ne 4 ] ; then
-    echo "Usage: $0 $usage"
-    exit 127
-else
-    RUNALL_MAX_WAIT=$4
-fi
-fi
+RUNALL_MAX_WAIT=$4
+
+ARCH=$5
 
 exepath=`head -1 $1`
 caption=`head -2 $1 | tail -1`
@@ -62,6 +62,12 @@ if [ ${exepath:0:6} == "<path>" ]; then
     exepath=${exepath/<path>/$runalldir}
 fi
 
+if [ "$ARCH" == "x64" ]; then
+    drctl="$BUILD_TOOLS/DRcontrol -64"
+else
+    drctl="$BUILD_TOOLS/DRcontrol -32"
+fi
+
 function nudge_exe {
     pid=`$BUILD_TOOLS/DRview -exe $1 | gawk '{print $2}' | sed 's/,//'`
     # case 10382: look for "No such process found", since if we
@@ -69,28 +75,27 @@ function nudge_exe {
     if [ "$pid" = "such" ]; then
         echo "Error: $1 process not found for nudge"
     else
-        $BUILD_TOOLS/DRcontrol $2 $pid
+        $drctl $2 $pid
     fi
 }
-
 
 #some tests need to be able to find the tools folder
 export DYNAMORIO_WINTOOLS=`cygpath -w $BUILD_TOOLS`
 
 # make sure the registry set is there (only creates if nonexistent).
 dr_home=`cygpath -da $PWD`
-$BUILD_TOOLS/DRcontrol -create "$dr_home"
+$drctl -create "$dr_home"
 
 # save the old registry settings so we can leave the registry in the
 # same state we found it.
-prev_preinject=`$BUILD_TOOLS/DRcontrol -preinject REPORT`
+prev_preinject=`$drctl -preinject REPORT`
 prev_settings=_prev_settings
-$BUILD_TOOLS/DRcontrol -save $prev_settings
+$drctl -save $prev_settings
 
-$BUILD_TOOLS/DRcontrol -preinject OFF
-$BUILD_TOOLS/DRcontrol -app "$exename" -run 1 -options "$DYNAMORIO_OPTIONS"  -drlib $drdll
-$BUILD_TOOLS/DRcontrol -preinject $drpreinject
-$BUILD_TOOLS/DRcontrol -app "$exename" -logdir "$DYNAMORIO_LOGDIR"
+$drctl -preinject OFF
+$drctl -app "$exename" -run 1 -options "$DYNAMORIO_OPTIONS"  -drlib $drdll
+$drctl -preinject $drpreinject
+$drctl -app "$exename" -logdir "$DYNAMORIO_LOGDIR"
 
 # clear pcache dir before starting app and then create the registry
 # entry and associated dir
@@ -111,20 +116,24 @@ cache_root=`dirname "$DYNAMORIO_CACHE_ROOT"`
 # drcontrol -sharedcache gives an error message if it can't copy
 # permissions from the lib and logs directories (e.g., if they don't
 # exist).  Swallow the error message so it doesn't mess up the output.
-junk=`$BUILD_TOOLS/DRcontrol -app "$exename" -sharedcache "$cache_root" 2>&1`
+junk=`$drctl -app "$exename" -sharedcache "$cache_root" 2>&1`
 
 # for 3rd party apps w/ windows, we use DRview results to ensure we're in control
 if [ "$caption" != "<nowindow>" ]; then
-    $exepath &
+    if [ "$ARCH" == "x64" ]; then
+        $INSTALL_BIN/drinject.exe -noinject $exepath &
+    else
+        $exepath &
+    fi
 
     sleep $RUNALL_SLEEP
         
-    $BUILD_TOOLS/DRcontrol -preinject OFF
+    $drctl -preinject OFF
 
     $BUILD_TOOLS/DRview -exe $exename -nopid -nobuildnum
 
     if [ "$mode" == "<detach>" ]; then
-        $BUILD_TOOLS/DRcontrol -detachexe $exename
+        $drctl -detachexe $exename
 
         # Currently DRcontrol -detachexe waits for the injected detach thread
         # to exit at which point should be finished detaching, so we don't need
@@ -177,10 +186,10 @@ if [ "$caption" != "<nowindow>" ]; then
         fi
 
         # run a second copy
-        $BUILD_TOOLS/DRcontrol -preinject $drpreinject
+        $drctl -preinject $drpreinject
         $exepath &
         sleep $RUNALL_SLEEP
-        $BUILD_TOOLS/DRcontrol -preinject OFF
+        $drctl -preinject OFF
         # we assume that it's using the persisted caches
         # FIXME: add way to find out
 
@@ -210,22 +219,22 @@ if [ "$caption" != "<nowindow>" ]; then
 else
     $BUILD_TOOLS/winstats -m 2 -silent $exepath
 
-    $BUILD_TOOLS/DRcontrol -preinject OFF
+    $drctl -preinject OFF
 fi
 
 #just in case
 $BUILD_TOOLS/DRkill -exe $exename -quiet
 
 # restore registry settings
-$BUILD_TOOLS/DRcontrol -remove "$exename"
+$drctl -remove "$exename"
 
 if [[ ${#prev_preinject} > 0 ]]; then
-    $BUILD_TOOLS/DRcontrol -preinject "$prev_preinject"
+    $drctl -preinject "$prev_preinject"
 else
-    $BUILD_TOOLS/DRcontrol -preinject OFF
+    $drctl -preinject OFF
 fi
 
 if [ -e $prev_settings ]; then
-    $BUILD_TOOLS/DRcontrol -load $prev_settings
+    $drctl -load $prev_settings
     rm -f $prev_settings
 fi

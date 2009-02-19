@@ -30,6 +30,12 @@
  * DAMAGE.
  */
 
+#if defined(X64) && defined(WINDOWS)
+/* FIXME i#29: doesn't work on x64 natively: we're messing up the SEH w/ our
+ * retaddr trick in ring()
+ */
+#endif
+
 #include "tools.h"
 #include <setjmp.h>
 

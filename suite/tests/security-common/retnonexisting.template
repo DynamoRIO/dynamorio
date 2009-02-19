@@ -16,10 +16,10 @@ looking at ring 0x00000001
 //match native behaviour
 #endif
 #if +X64 :
-fault caught on 0x000000000000001
-looking at ring 0x000000000000000
-fault caught on 0x000000000000000
-looking at ring 0x000000000badbad
+fault caught on 0x0000000000000001
+looking at ring 0x0000000000000000
+fault caught on 0x0000000000000000
+looking at ring 0x0000000000badbad
 #else
 fault caught on 0x00000001
 looking at ring 0x00000000
