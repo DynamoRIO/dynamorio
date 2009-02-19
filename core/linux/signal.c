@@ -2263,8 +2263,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             "record_pending_signal(%d at pc "PFX"): signal is currently blocked\n",
             sig, pc);
         blocked = true;
-    } else if (pc == 0 || /* special case -- see master_signal_handler FIXME */
-               /* PR 205795: to avoid lock problems w/ in_fcache (it grabs a lock, we
+    } else if (/* PR 205795: to avoid lock problems w/ in_fcache (it grabs a lock, we
                 * could have interrupted someone holding that), we first check
                 * whereami --- if whereami is WHERE_FCACHE we still check the pc
                 * to distinguish generated routines, but at least we're certain
@@ -2761,11 +2760,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         }
         /* if get here, pass the signal to the app */
 
-        /* FIXME: jmp to pc 0 => matches null_fragment => we jmp to 0!
-         * special case here, but is this best way to handle it, to have it
-         * match null_fragment?
-         */
-        if (sig == SIGSEGV && pc != 0 && !syscall_signal/*only for in-cache signals*/) {
+        ASSERT(pc != 0); /* shouldn't get here */
+        if (sig == SIGSEGV && !syscall_signal/*only for in-cache signals*/) {
             /* special case: we expect a seg fault for executable regions
              * that were writable and marked read-only by us.
              */
@@ -2778,7 +2774,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         LOG(THREAD, LOG_ALL, 1,
             "** Received SIG%s at cache pc "PFX" in thread %d\n",
             (sig == SIGSEGV) ? "SEGV" : "BUS", pc, get_thread_id());
-        ASSERT(pc == 0 || syscall_signal || in_fcache(pc));
+        ASSERT(syscall_signal || in_fcache(pc));
         /* if we were building a trace, kill it */
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");

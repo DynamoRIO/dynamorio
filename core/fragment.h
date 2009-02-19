@@ -363,7 +363,6 @@ typedef struct _fragment_entry_t {
     cache_pc  start_pc_fragment;/* very top of fragment's code from fragment_t */
 } fragment_entry_t;
 
-#define HASHLOOKUP_NULL_START_PC ((cache_pc)PTR_UINT_0)
 #define HASHLOOKUP_SENTINEL_START_PC ((cache_pc)PTR_UINT_1)
 
 /* Flags stored in {fragment,ibl}_table_t->flags bitfield

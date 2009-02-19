@@ -188,8 +188,13 @@ rct_module_table_t rct_global_table;
 
 /* instead of an empty hashtable slot containing NULL, we fill it
  * with a pointer to this constant fragment, which we give a tag
- * of 0:
+ * of 0.
+ * PR 305731: rather than having a start_pc of 0, which causes
+ * an app targeting 0 to crash at 0, we point at a handler that
+ * sends the app to an ibl miss.
  */
+byte * hashlookup_null_target;
+#define HASHLOOKUP_NULL_START_PC ((cache_pc)hashlookup_null_handler)
 static const fragment_t null_fragment = { NULL_TAG, 0, 0, 0, 0,
                                         HASHLOOKUP_NULL_START_PC, };
 /* to avoid range check on fast path using an end of table sentinel fragment */
@@ -773,6 +778,25 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
     table->branch_type = branch_type;
     hashtable_ibl_init(dcontext, table, bits, load_factor_percent,
                        func, hash_offset, flags NAME(table_name));
+
+    /* PR 305731: rather than having a start_pc of 0, which causes an
+     * app targeting 0 to crash at 0, we point at a handler that sends
+     * the app to an ibl miss via target_delete, which restores
+     * registers saved in the found path.
+     */
+    if (dcontext != GLOBAL_DCONTEXT && hashlookup_null_target == NULL) {
+        ASSERT(!dynamo_initialized);
+        hashlookup_null_target = get_target_delete_entry_pc(dcontext, table);
+#if !defined(X64) && defined(LINUX)
+        /* see comments in x86.asm: we patch to avoid text relocations */
+        byte *pc = (byte *) hashlookup_null_handler;
+        byte *page_start = (byte *) PAGE_START(pc);
+        byte *page_end = (byte *) ALIGN_FORWARD(pc + JMP_LONG_LENGTH, PAGE_SIZE);
+        make_writable(page_start, page_end - page_start);
+        insert_relative_target(pc + 1, hashlookup_null_target, NOT_HOT_PATCHABLE);
+        make_unwritable(page_start, page_end - page_start);
+#endif
+    }
 }
 
 static void

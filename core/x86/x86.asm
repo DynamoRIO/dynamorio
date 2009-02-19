@@ -205,7 +205,8 @@ DECL_EXTERN(nt_continue_setup)
 #if defined(LINUX) && defined(X64)
 DECL_EXTERN(master_signal_handler_C)
 #endif
-
+DECL_EXTERN(hashlookup_null_target)
+        
 /* non-functions: these make us non-PIC! (PR 212290) */
 DECL_EXTERN(exiting_thread_count)
 DECL_EXTERN(initstack)
@@ -1573,6 +1574,25 @@ GLOBAL_LABEL(get_xmm_caller_saved:)
 #endif
         ret
         END_FUNC(get_xmm_caller_saved)
+
+/* void hashlookup_null_handler(void)
+ * PR 305731: if the app targets NULL, it ends up here, which indirects
+ * through hashlookup_null_target to end up in an ibl miss routine.
+ */
+        DECLARE_FUNC(hashlookup_null_handler)
+GLOBAL_LABEL(hashlookup_null_handler:)
+#if !defined(X64) && defined(LINUX)
+        /* We don't have any free registers to make this PIC so we patch
+         * this up.  It would be better to generate than patch .text,
+         * but we need a static address to reference in null_fragment
+         * (though if we used shared ibl target_delete we could
+         * set our final address prior to using null_fragment anywhere).
+         */
+        jmp      hashlookup_null_handler
+#else
+        jmp      PTRSZ SYMREF(hashlookup_null_target) /* rip-relative on x64 */
+#endif
+        END_FUNC(hashlookup_null_handler)
 
 /*#############################################################################
  *#############################################################################

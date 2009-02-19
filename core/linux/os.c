@@ -2375,14 +2375,16 @@ make_writable(byte *pc, size_t size)
     STATS_INC(protection_change_calls);
     STATS_ADD(protection_change_pages, size / PAGE_SIZE);
 
-    /* update all_memory_areas list with the protection change */
-    all_memory_areas_lock();
-    ASSERT(vmvector_overlap(all_memory_areas, start_page, start_page + prot_size));
-    LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
-        start_page, start_page + prot_size, osprot_to_memprot(prot));
-    update_all_memory_areas(start_page, start_page + prot_size,
-                            osprot_to_memprot(prot));
-    all_memory_areas_unlock();
+    if (all_memory_areas_initialized()) {
+        /* update all_memory_areas list with the protection change */
+        all_memory_areas_lock();
+        ASSERT(vmvector_overlap(all_memory_areas, start_page, start_page + prot_size));
+        LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
+            start_page, start_page + prot_size, osprot_to_memprot(prot));
+        update_all_memory_areas(start_page, start_page + prot_size,
+                                osprot_to_memprot(prot));
+        all_memory_areas_unlock();
+    }
     return true;
 }
 

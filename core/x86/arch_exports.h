@@ -817,7 +817,8 @@ void dynamorio_nonrt_sigreturn(void);
 # endif
 #endif
 void back_from_native(void);
-DEBUG_DECLARE(void debug_infinite_loop(); /* handy cpu eating infinite loop */)
+DEBUG_DECLARE(void debug_infinite_loop(void); /* handy cpu eating infinite loop */)
+void hashlookup_null_handler(void);
 
 /* in proc.c -- everything in proc.h is exported so just include it here */
 #include "proc.h"

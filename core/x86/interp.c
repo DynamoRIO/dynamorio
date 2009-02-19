@@ -2532,7 +2532,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     DEBUG_DECLARE(bool regenerated = false;)
 
     ASSERT(bb->initialized);
-    ASSERT(bb->start_pc != NULL);
+    /* note that it's ok for bb->start_pc to be NULL as our check_new_page_start
+     * will catch it
+     */
     /* vmlist must start out empty (or N/A) */
     ASSERT(bb->vmlist == NULL || !bb->for_cache);
 
