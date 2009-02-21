@@ -40,6 +40,7 @@ endif
 include $(DYNAMORIO_MAKE)/compiler.mk
 
 ifeq ($(MACHINE), win32)
+  # cygwin doxygen seems to have some issues with colons in paths
   BUILD_BASE := $(shell $(CYGPATH) -u $(BUILD_BASE))
   INSTALL_DOCS := $(shell $(CYGPATH) -u $(INSTALL_DOCS))
 endif

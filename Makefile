@@ -43,7 +43,7 @@
 
 .PHONY: default all package dynamorio-onearch clean dynamorio-package clean-package \
 	diffdir diff diffcheck diffclean notesclean reviewclean \
-        diffnotes diffprep review
+        diffnotes diffprep review core core-debug core-release
 
 default: dynamorio-onearch
 all: dynamorio-onearch
@@ -71,14 +71,20 @@ endif
 # FIXME: build INTERNAL=1 instead?
 # FIXME PR 209902: get core/Makefile supporting -jN and then parallelize
 # this target
-dynamorio-onearch:
-	$(MAKE) -C core ARCH=$(ARCH) DEBUG=1 INTERNAL=0 EXTERNAL_INJECTOR=1 
-	$(MAKE) -C core ARCH=$(ARCH) DEBUG=0 INTERNAL=0 EXTERNAL_INJECTOR=1 install
+dynamorio-onearch: core
 	$(MAKE) -C api/docs
 ifeq ($(MACHINE), win32)
 	$(MAKE) -C libutil
 	$(MAKE) -C tools EXTERNAL_DRVIEW=1
 endif
+
+core: core-debug core-release
+
+core-debug:
+	$(MAKE) -C core ARCH=$(ARCH) DEBUG=1 INTERNAL=0 EXTERNAL_INJECTOR=1 
+
+core-release:
+	$(MAKE) -C core ARCH=$(ARCH) DEBUG=0 INTERNAL=0 EXTERNAL_INJECTOR=1 install
 
 clean: clean-package
 # docs first to avoid error about no headers
@@ -469,10 +475,5 @@ endif
 	${RUNREG_CMD} " \
 	    if [ -e ${SHELL_RC} ]; then source ${SHELL_RC}; fi; \
 	    cd ${RUNREG_SUITE}; \
-            export DYNAMORIO_BASE=${RUNREG_TREE}; \
-            export DYNAMORIO_TOOLS=${RUNREG_TOOLS}; \
-            export DYNAMORIO_LIBUTIL=${RUNREG_LIBUTIL}; \
-	    export DYNAMORIO_MAKE=${RUNREG_MAKE}; \
-	    export DYNAMORIO_API=${RUNREG_API}; \
             ${RUNREG_SCRIPT} ${RUNREG_OPTIONS}" 2>&1 | $(TEE) ${REGRESSION}-${RUNREG_HOST}
 	@$(GREP) "all builds succesful" ${REGRESSION}-${RUNREG_HOST}

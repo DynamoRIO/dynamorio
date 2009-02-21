@@ -1156,21 +1156,13 @@ tags TAGS:
 
 # blows away build and exports dirs
 clear:
-	$(RM) -r $(BUILD_BASE)
-	$(RM) -r $(EXPORTS_BASE)
+	$(RM) -r $(BUILD_BASE)/x*
+	$(RM) -r $(INSTALL_LIB_BASE) $(INSTALL_BIN_BASE) $(INSTALL_INCLUDE)
 
 # removes .a,.i and .o files and generated header files
 clean:
-	$(RM) $(OBJS) $(UNIT_OBJS) $(OTHER_OBJS) $(CPPS) $(DEPS) $(BUILD)/*$(SO_SFX) $(BUILD)/*.{$(OBJ_SFX),h} $(BUILD)/*/*.{$(OBJ_SFX),h} $(PRELOAD_OBJS)
-	$(RM) $(BUILDMARK_H)
+	$(RM) -r $(BUILD) $(UNIT_OBJS) $(OTHER_OBJS) $(DEPS)
 	$(RM) -r $(INSTALL_LIB) $(INSTALL_BIN) $(INSTALL_INCLUDE)
-ifeq ($(MACHINE), win32)
-	$(RM) $(PDBS) $(BUILD)/*.$(CPP_SFX).bak $(BUILD)/*/*.$(CPP_SFX).bak $(BUILD)/*.{cod,exp,lib,map,pdb,res,rc,bin,exe} $(BUILD)/*/*.{cod,exp,lib,map,pdb,res,rc,bin,exe}
-else
-ifeq ($(LINKER_VERSION_SCRIPT), 1)
-	$(RM) $(EXPORT_LIST)
-endif
-endif
 
 exports: unexport all
 unexport:

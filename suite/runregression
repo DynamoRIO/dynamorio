@@ -41,9 +41,9 @@
 #
 # See case syntax below for specifying runs.
 #
-# FIXME: for stress tests we may want to mix spec (for larger apps) with
-# multi-threaded and corner-case apps.  "spec runsecurity" is a good mix,
-# but perhaps we want a "stress" target in suite/tests/Makefile that
+# FIXME: for stress tests we may want to mix larger apps with
+# multi-threaded and corner-case apps.
+# perhaps we want a "stress" target in suite/tests/Makefile that
 # includes just codemod-threads and a handful of other good all-around
 # tests from win32/, etc.
 
@@ -102,8 +102,8 @@ $mf_mode = "-security_api";
 #     [SHORT::][WIN::|LIN::][ONLY::<targerts>::]DYNAMORIO_OPTIONS=\\\"...\\\"
 #         [suite/tests Makefile var overrides]
 # where WIN and LIN work as before and SHORT says do the regression test run for a
-# short run of runregression. The targets for ONLY are "spec" to run the spec tests
-# and any valid suite/tests Makefile targets (if no ONLY then does "spec all").
+# short run of runregression. The targets for ONLY are
+# any valid suite/tests Makefile targets (if no ONLY then does "all").
 # We treat doc and sample builds as runs because they depend on the last build of core.
 #
 # See old-runregression-runs-2-6-08 for a very long list of runs and targets mostly
@@ -116,13 +116,13 @@ $mf_mode = "-security_api";
     # Issue 20: we build x64 so we have both simultaneously for cross-arch tests
     "BUILD::NOCLEAR::ARCH=x64 VMAP=1 $dbg_int",
         # our main configuration
-        "SHORT::ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
+        "SHORT::ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
         # test supported options
         # maybe this should be SHORT as -coarse_units will eventually be the default?
         "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -opt_memory\\\"",
-        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private\\\"",
-        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -disable_traces\\\"",
-        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private -disable_traces\\\"",
+        "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private\\\"",
+        "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -disable_traces\\\"",
+        "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private -disable_traces\\\"",
         "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -loglevel 1\\\"",
         "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -stack_size 120k\\\"",
         "WIN::ONLY::runrunall runinterface::DYNAMORIO_OPTIONS=\\\"-enable_full_api\\\"",
@@ -149,7 +149,7 @@ $mf_mode = "-security_api";
 
         # we don't need a separate build b/c we built up above
         # xref Issue 16: not all tests are ported to 64-bit
-        "SHORT::ONLY::ARCH=x64 spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
+        "SHORT::ONLY::ARCH=x64 runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
         "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -thread_private\\\"",
         "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -disable_traces\\\"",
         "ONLY::ARCH=x64 runcommon::DYNAMORIO_OPTIONS=\\\"-code_api -opt_memory\\\"",
@@ -180,11 +180,11 @@ $mf_mode = "-security_api";
         #"WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-thin_client\\\"",
         "WIN::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
         # our supported configurations
-        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"$code_mode\\\"",
+        "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"$code_mode\\\"",
         "ONLY::runsecurity runrunall runinterface::DYNAMORIO_OPTIONS=\\\"$mf_mode\\\"",
-        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"$mf_mode\\\"",
+        "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"$mf_mode\\\"",
         "WIN::ONLY::runos runrunall::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
-        "WIN::ONLY::spec runcommon runsecurity::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
+        "WIN::ONLY::runcommon runsecurity::DYNAMORIO_OPTIONS=\\\"$probe_mode\\\"",
         # other configurations we may eventually support
         "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"-security_api -code_api\\\"",
         "ONLY::runallbuthotp runprobeapi::DYNAMORIO_OPTIONS=\\\"-security_api -probe_api\\\"",
@@ -203,8 +203,8 @@ $mf_mode = "-security_api";
 
 ## Determina VPS builds and runs
     "BUILD::VPS=1 $dbg_int",
-        "ONLY::spec runnointerface::DYNAMORIO_OPTIONS=\\\"\\\"",
-        "ONLY::spec runnointerface::DYNAMORIO_OPTIONS=\\\"-security\\\"",
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"\\\"",
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-security\\\"",
         "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -detect_mode -report_max 0 -no_diagnostics\\\"",
         "WIN::ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-security -liveshields\\\"",
         "WIN::ONLY::runrunall runsecurity::DYNAMORIO_OPTIONS=\\\"-security -client\\\"",
@@ -238,7 +238,7 @@ $mf_mode = "-security_api";
 
 ## release-build kstats and callprof
     "BUILD::NOSHORT::DEBUG=0 INTERNAL=0 KSTATS=1 CALLPROF=1 PROFILE=1",
-        "ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"\\\"",
+        "ONLY::runallbuthotp::DYNAMORIO_OPTIONS=\\\"\\\"",
 
 ## defines we don't want to break -- no runs though since we don't currently use these
     "BUILD::NOSHORT::ADD_DEFINES=\"${D}DGC_DIAGNOSTICS\"",
@@ -251,6 +251,8 @@ chop $topdir;
 
 $DYNAMORIO_BASE = $ENV{'DYNAMORIO_BASE'};
 $DYNAMORIO_BASE = "$topdir/.." if ($DYNAMORIO_BASE eq '');
+# we deliberately ignore the DYNAMORIO_HOME env var: have to set
+# DYNAMORIO_BASE to use a different tree w/ this suite/
 $DYNAMORIO_HOME = "$DYNAMORIO_BASE/exports";
 $DYNAMORIO_LIBUTIL = $ENV{'DYNAMORIO_LIBUTIL'}; # win32-only
 $DYNAMORIO_LIBUTIL = "$topdir/../libutil" if ($DYNAMORIO_LIBUTIL eq '');
@@ -266,16 +268,18 @@ $DYNAMORIO_LOGDIR = $ENV{'DYNAMORIO_LOGDIR'};
 $DYNAMORIO_LOGDIR =~ s|\\|/|g;
 $DYNAMORIO_MAKE = $ENV{'DYNAMORIO_MAKE'};
 $DYNAMORIO_MAKE = "$topdir/../make" if ($DYNAMORIO_MAKE eq '');
+$DYNAMORIO_CORE = $ENV{'DYNAMORIO_CORE'};
+$DYNAMORIO_CORE = "$topdir/../core" if ($DYNAMORIO_CORE eq '');
+$SDKROOT = $ENV{'SDKROOT'};
 
 ###########################################################################
 # arguments
 
-$usage = "Usage: $0 [<bmarkdir>] [-justbuild] [-justspec] [-justtests]
+$usage = "Usage: $0 [<bmarkdir>] [-justbuild] [-justtests]
   [-justapidocs] [-noapidocs]
   [-justsharetests] [-nosharetests] [-test <test target>] [-run <run number>]
   [-long] [-n] [-parallel_build] [-parallel_run] [-ignore_only]\n";
 $justbuild = 0;
-$justspec = 0;
 $justtests = 0;
 $justshow = 0;
 $short = 1;
@@ -289,8 +293,6 @@ $ignoreonly = 0;
 while ($#ARGV >= 0) {
     if ($ARGV[0] eq '-justbuild') {
         $justbuild = 1;
-    } elsif ($ARGV[0] eq '-justspec') {
-        $justspec = 1;
     } elsif ($ARGV[0] eq '-justtests') {
         $justtests = 1;
     } elsif ($ARGV[0] eq '-parallel_build') {
@@ -365,27 +367,32 @@ if (!$justshow) {
     chdir($stamp);
 }
 
-$coredir = "core";
-
-if (! -d "$DYNAMORIO_BASE/$coredir") {
-    print "ERROR: Cannot find $DYNAMORIO_BASE/$coredir, exiting\n";
+if (! -d "$DYNAMORIO_CORE") {
+    print "ERROR: Cannot find $DYNAMORIO_CORE, exiting\n";
     exit 0;
 }
+# We used to make a copy of core/ inside the regression run dir and
+# build from that, but now that we're integrated w/ tools/, libutil/, etc.,
+# and we're not sharing those w/ other trees, we don't bother.
+# Plus, just copying core/ meant we were using absolute paths for
+# DYNAMORIO_MAKE, etc., which meant we needed a make that handled colons in
+# paths.
 if (!$justshow) {
-    print "Copying sources from $DYNAMORIO_BASE/$coredir\n";
-    system("cp -r $DYNAMORIO_BASE/$coredir .");
-    # On Vista regressions mc complains access denied opening win32/events.mc 
-    system("chmod -R aug+rxw $coredir");
+    if ($on_windows) {
+        # On Vista regressions mc complains access denied opening win32/events.mc 
+        system("chmod a+rxw $DYNAMORIO_CORE/win32/events.mc");
+    }
     # eliminate any custom settings
-    if (-f "$coredir/Makefile.mydefines") {
-        system("rm $coredir/Makefile.mydefines");
+    if (-f "$DYNAMORIO_CORE/Makefile.mydefines") {
+        $had_mydefines = 1;
+        system("mv $DYNAMORIO_CORE/Makefile.mydefines $DYNAMORIO_CORE/Makefile.mydefines.disabled");
     }
 }
 
 $build_ok = 1;
 
 if (!$justshow) {
-    system("cd $coredir; make DYNAMORIO_MAKE=$DYNAMORIO_MAKE -s ugly >> $topdir/$stamp/make_ugly_s.log 2>&1");
+    system("cd $DYNAMORIO_CORE; make -s ugly >> $topdir/$stamp/make_ugly_s.log 2>&1");
     print "\n============================================================\n\n";
     $make_ugly_result = "make ugly: succeeded\n";
     open(IN, "< $topdir/$stamp/make_ugly_s.log");
@@ -482,7 +489,7 @@ if (!$justshow && $on_windows) {
     $ENV{'DYNAMORIO_CACHE_SHARED'} = "$wintopdir\\cache\\shared";
 }
 
-chdir("$coredir");
+chdir("$DYNAMORIO_CORE");
 $srcdir = `pwd`;
 chop $srcdir;
 $b = 1; # build number
@@ -524,25 +531,23 @@ while ($i <= $#cases) {
         $case =~ s/^NOCLEAR:://;
     }
 
-    $logfile = sprintf("buildlog.%03d", $b);
+    $logfile = sprintf("$topdir/$stamp/buildlog.%03d", $b);
     print "\n============================================================\n";
     print "Build $b: $case\n\n";
     print "Building......\n";
 
-    $makedirs = "DYNAMORIO_MAKE=$DYNAMORIO_MAKE DYNAMORIO_BASE=..";
-    system("echo \"$n: $case\n\n\" >> ../$logfile 2>&1");
-    # use clear instead of clean so we don't have to worry about defines
-    # xref PR 214218/9783, need to override BUILD for newer cygwin versions for clear,
+    system("echo \"$n: $case\n\n\" >> $logfile 2>&1");
+    # xref PR 214218/9783, need to override BUILD for newer cygwin versions for clean,
     # but must unset USEDEP so we don't try to include "/buildmark.dep"
     # FIXME case 192750: cannot create pdb files over public key ssh
     if (!$justshow) {
         if ($clear) {
-            system("$nice make $makedirs USEDEP=0 BUILD= clear >> ../$logfile 2>&1");
+            system("$nice make USEDEP=0 $case clear >> $logfile 2>&1");
         }
-        system("$nice make $makedirs $parallel_build $case DBG= LINK_DBG= install >> ../$logfile 2>&1");
+        system("$nice make $parallel_build $case DBG= LINK_DBG= install >> $logfile 2>&1");
     }
-    system("grep -i [^W]error ../$logfile");
-    $errors = `grep -i [^W]error ../$logfile`;
+    system("grep -i [^W]error $logfile");
+    $errors = `grep -i [^W]error $logfile`;
     if ($errors eq '') {
         $errors = "<no errors>\n";
     } else {
@@ -550,8 +555,8 @@ while ($i <= $#cases) {
         $build_ok = 0;
     }
     $summary .= "Build $b: \"$case\"\n       $errors";
-    system("grep -i warning ../$logfile");
-    $warn = `grep -i warning ../$logfile`;
+    system("grep -i warning $logfile");
+    $warn = `grep -i warning $logfile`;
     if ($warn eq '') {
         $warn = "<no warnings>\n";
     } else {
@@ -567,16 +572,16 @@ while ($i <= $#cases) {
         ($sharetests || ($shareshort && $cases[$i] eq $release_build)) &&
         $onlyrun == 0) {
         print "Running share tests......\n";
-        $logfile = sprintf("share_tests_%03d.log", $b-1);
+        $logfile = sprintf("$topdir/$stamp/share_tests_%03d.log", $b-1);
         if (!$justshow) {
-            $shareres = system("cd $DYNAMORIO_LIBUTIL && DYNAMORIO_BASE=$topdir/$stamp make -s tests_test >> $topdir/$stamp/$logfile 2>&1");
+            $shareres = system("cd $DYNAMORIO_LIBUTIL && DYNAMORIO_BASE=$topdir/$stamp make -s tests_test >> $logfile 2>&1");
         }
         # FIXME: keep getting problems where these testers are left around
         # when I have AppInit already set or other conditions, should fix up
         # share tests to handle that but for now killing
         system("$BUILD_TOOLS/drkill -exe tester_1.exe");
 
-        $shareresults = `grep -i 'Test Results' $topdir/$stamp/$logfile`;
+        $shareresults = `grep -i 'Test Results' $logfile`;
         print "libutil module $shareresults\n";
 
         if (!$justshow && $shareres != 0) {
@@ -616,8 +621,8 @@ while ($i <= $#cases) {
             }
             print "\n------------------------------\n";
             print "API DOCS \"$cases[$i]\"\n";
-            $logfile = sprintf("apilog_docs.%03d.log", $b);
-            my $homedir = "$topdir/$stamp";
+            $logfile = sprintf("$topdir/$stamp/apilog_docs.%03d.log", $b);
+            my $homedir = $DYNAMORIO_HOME;
             if ($on_windows) {
                 $homedir = `cygpath -ma $homedir`;
                 chomp $homedir;
@@ -631,10 +636,10 @@ while ($i <= $#cases) {
             # only happens on Windows and only after a clean (and with an
             # absolute BUILD_BASE?).  workaround is a separate genimgdir.
             my $docres = system
-            ("export DYNAMORIO_HOME=$homedir/exports; ".
+            ("export DYNAMORIO_HOME=$homedir; ".
              "(make -C $DYNAMORIO_API/docs clean && ".
              "make -C $DYNAMORIO_API/docs genimgdir && ".
-             "make -C $DYNAMORIO_API/docs $cases[$i]) >> $topdir/$stamp/$logfile 2>&1");
+             "make -C $DYNAMORIO_API/docs $cases[$i]) >> $logfile 2>&1");
             if ($docres != 0) {
                 $summary .= "  DOCS: BUILD FAILURE!\n";
                 $build_ok = 0;
@@ -652,25 +657,28 @@ while ($i <= $#cases) {
             }
             print "\n------------------------------\n";
             print "API Samples \"$cases[$i]\"\n";
-            my $homedir = "$topdir/$stamp";
+            my $homedir = $DYNAMORIO_HOME;
             if ($on_windows) {
                 $homedir = `cygpath -ma $homedir`;
                 chomp $homedir;
             }
-            $logfile = sprintf("apilog_samples.%03d.log", $b);
+            $logfile = sprintf("$topdir/$stamp/apilog_samples.%03d.log", $b);
             my $SETINC = '';
             my $SETLIB = '';
             my $SETPATH = '';
             if ($on_windows) {
-                # set up LIB, PATH, and INCLUDE env vars (samples/Makefile can't
+                # Set up LIB, PATH, and INCLUDE env vars (samples/Makefile can't
                 # include make/compiler.mk).  put in paths for both VS2005 and SDK.
-                $SETINC = 'INCLUDE=`cygpath -wa "${SDKROOT}/VC/INCLUDE"`\;`cygpath -wa "${SDKROOT}/Include"`\;`cygpath -wa "${SDKROOT}/VC/PlatformSDK/Include"`';
-                $SETLIB = 'LIB=`cygpath -wa "${SDKROOT}/VC/LIB"`\;`cygpath -wa "${SDKROOT}/Lib"`\;`cygpath -wa "${SDKROOT}/VC/PlatformSDK/Lib"`';
-                $SETPATH = 'export PATH=\"`cygpath -wa "${SDKROOT}/VC/Bin"`:$PATH\";';
+                # We assume SDKROOT is already a mixed path so we don't need cygpath.
+                $SETINC = 'INCLUDE="${SDKROOT}/VC/INCLUDE"\\;"${SDKROOT}/Include"\\;"${SDKROOT}/VC/PlatformSDK/Include"';
+                $SETLIB = 'LIB="${SDKROOT}/VC/LIB"\\;"${SDKROOT}/Lib"\\;"${SDKROOT}/VC/PlatformSDK/Lib"';
+                $U_SDKROOT = `cygpath -u "${SDKROOT}/VC/Bin"`;
+                chomp $U_SDKROOT;
+                $SETPATH = "PATH=\"${U_SDKROOT}:$ENV{'PATH'}\"";
             }
-            my $sampleres = system("$SETPATH DYNAMORIO_HOME=$homedir/exports $SETINC $SETLIB ".
+            my $sampleres = system("$SETPATH DYNAMORIO_HOME=$homedir $SETINC $SETLIB ".
                                    "make -C $DYNAMORIO_API/samples DEBUG=1 SHOW_RESULTS=0 DBG= ".
-                                   "clean $cases[$i] all >> $topdir/$stamp/$logfile 2>&1");
+                                   "clean $cases[$i] all >> $logfile 2>&1");
             if ($sampleres != 0) {
                 $summary .= "  SAMPLES: BUILD FAILURE!\n";
                 $build_ok = 0;
@@ -681,7 +689,7 @@ while ($i <= $#cases) {
                 # Try running the clients.  This is pretty hacky: due to lack of
                 # symlinks on windows, we copy to a temp suite/tests/ dir and
                 # invoke "make %.runinterface" w/ generated control files.
-                $logfile = sprintf("apilog_runs.%03d.log", $b);
+                $logfile = sprintf("$topdir/$stamp/apilog_runs.%03d.log", $b);
                 my $samples = `make -s -C $DYNAMORIO_API/samples $cases[$i] listsrcs`;
                 print "\n";
                 foreach $s (split(' ', $samples)) {
@@ -699,13 +707,13 @@ while ($i <= $#cases) {
                             ".000\\\"\\\\n" . $expect;
                     }
                     my $runres = system
-                        ("export DYNAMORIO_HOME=$homedir/exports; (mkdir -p $tgt; ".
+                        ("export DYNAMORIO_HOME=$homedir; (mkdir -p $tgt; ".
                          "cp $DYNAMORIO_API/samples/$s.dll $tgt/$s.dll.dll; ".
                          "echo -e $runall > $tgt/$s.runall; ".
                          "echo -e $expect > $tgt/$s.expect; ".
                          "cd $topdir/tests; make DEBUG=1 $tmpdir/$s.runinterface)".
-                         " >> $topdir/$stamp/$logfile 2>&1");
-                    my $grepres = system("sed '/$s/,\$ \!d' $topdir/$stamp/$logfile | grep -q FAIL");
+                         " >> $logfile 2>&1");
+                    my $grepres = system("sed '/$s/,\$ \!d' $logfile | grep -q FAIL");
                     if ($runres != 0 || $grepres == 0) {
                         $summary .= "  SAMPLE RUN $s: FAILURE!\n";
                         $build_ok = 0;
@@ -732,11 +740,11 @@ while ($i <= $#cases) {
             $cases[$i] =~ s/^ONLY::([^:]+):://;
             $runtarget = $1;
         } else {
-            # default is to run spec and all tests
-            $runtarget = "spec all";
+            # default is to run all tests
+            $runtarget = "all";
         }
 
-        $logfile = sprintf("runlog.%03d", $n);
+        $logfile = sprintf("$topdir/$stamp/runlog.%03d", $n);
         print "\n------------------------------\n";
         print "Run $n: $cases[$i]\n";
         $curdate = `date`;
@@ -748,73 +756,17 @@ while ($i <= $#cases) {
         print "target for this run is \"$runtarget\"\n";
 
         # Note we could let the tests Makefile add these for us (by setting
-        # DYNAMORIO_OPTIONS instead of OPS on the cmd line) but since we need it for the
-        # spec tests too we just go ahead and do it here. The added options go first so
-        # individual runs can override them at need.
+        # DYNAMORIO_OPTIONS instead of OPS on the cmd line) but since we
+        # (used to) need it for the spec tests too we just go ahead and do
+        # it here. The added options go first so individual runs can
+        # override them at need.
         if (`uname -s` =~ Linux) {
             $cases[$i] =~ s/\"(.*)\\/\"$ADDITIONAL_TEST_OPTIONS_LINUX \1\\/;
         } else {
             $cases[$i] =~ s/\"(.*)\\/\"$ADDITIONAL_TEST_OPTIONS_WIN32 \1\\/;
         }
 
-        # "if 0" to disable: had to remove spec2k support for open-source
-        if (0 && !$justtests && $runtarget =~ /spec/) {
-            ###################################################
-            # SPEC
-            $cmd = "export DYNAMORIO_HOME=$curdir/exports; $nice $topdir/runsuite $bmarkbase regression regression $cases[$i]";
-            print "$cmd\n";
-            system("(echo; echo \"$n: $cases[$i]\n\"; echo) >> $logfile 2>&1");
-            if (!$justshow) {
-                system("$cmd >> $topdir/$stamp/$logfile 2>&1");
-            }
-            print("Results of SPEC run:\n");
-            system("grep -i fail $logfile");
-            print("\n");
-            # keep track of errors for summary at end
-            $errors = `grep -i fail $logfile | grep -v '^No '`;
-            $passes = `grep -c " ok " $logfile`;
-            chop $passes;
-            if ($errors eq "") {
-                $sum_failed = "0 failed";
-                $sum_mark = "   ";
-            } else {
-                $sum_mark = "***";
-                if ($errors =~ /failed: ([0-9]+)/) {
-                    $num_fails = $1;
-                } else {
-                    $num_fails = 0;
-                }
-                $sum_failed = "$num_fails failed";
-                if ($errors =~ /post-verify/) {
-                    # this number includes all sub-tests
-                    $errors =~ /post-verify.*([0-9]+)/;
-                    $sum_failed .= ", $1 sub-tests failed";
-                    system("grep -E '[Ee]rror:' $logfile");
-                    print "\n";
-                }
-            }
-            $summary .= "   $sum_mark SPEC: $passes passed, $sum_failed $sum_mark\n";
-            if (!$justshow) {
-                # set up links to SPEC dirs and files
-                $rundir = `grep "Running in" $logfile`;
-                chop $rundir;
-                $rundir =~ s/.*$stamp\///;
-                system("ln -s $rundir $link");
-                print "run directory is $rundir <= $link\n";
-                $detailedlogfile = sprintf("runlog-details.%03d", $n);
-                system("ln -s $rundir/log.regression $detailedlogfile");
-                $resultsfile = sprintf("results.%03d", $n);
-                system("ln -s $rundir/results.regression $resultsfile");
-            }
-            if (!$justspec) {
-                # add separators before tests
-                system("(echo \"===========================================================================\") >> $logfile 2>&1");
-                print "\n";
-            }
-        }
-        $runtarget =~ s/spec *//;
-
-        if (!$justspec && $runtarget ne "") {
+        if ($runtarget ne "") {
             ###################################################
             # our own tests
             system("(echo; echo \"suite/tests\"; echo) >> $logfile 2>&1");
@@ -865,10 +817,10 @@ while ($i <= $#cases) {
             $lastruntarget = $runtarget;
             # case 192750: cannot create pdb files over public key ssh,
             # so we unset {LINK_,}DBG
-            $cmd = "export DYNAMORIO_HOME=$curdir/exports; cd $topdir/tests; $nice make -k $parallel_run RESDIR=$topdir/$stamp/$link-tests OPS=$ops DEFS=$defs DBG= LINK_DBG= $clean $runtarget";
+            $cmd = "export DYNAMORIO_HOME=$DYNAMORIO_HOME; cd $topdir/tests; $nice make -k $parallel_run RESDIR=$topdir/$stamp/$link-tests OPS=$ops DEFS=$defs DBG= LINK_DBG= $clean $runtarget";
             print "$cmd\n";
             if (!$justshow) {
-                system("$cmd >> $topdir/$stamp/$logfile 2>&1");
+                system("$cmd >> $logfile 2>&1");
             }
             print("Results of tests run:\n");
             $fails = 0;
@@ -932,7 +884,7 @@ while ($i <= $#cases) {
         $n++;
     }
 }
-chdir("..");
+chdir("$topdir/$stamp");
     
 # restore registry
 if (!$justshow && $on_windows) {
@@ -943,20 +895,13 @@ if (!$justshow && $on_windows) {
 if ($justshow) {
     system("rm buildlog* runlog*");
 } else {
-    # save space
-    # don't need duplicate copies of core and exports for each run
-    # yes the builds do differ but exports add up to >10MB
-    system("find . -name $coredir.tar.bz2 -exec rm {} \\;");
-    system("find . -name exports.tar.bz2 -exec rm {} \\;");
-    system("tar cjf $coredir.tar.bz2 $coredir");
-    rmtree("$coredir", 0, 0);
-    system("tar cjf exports.tar.bz2 exports");
-    rmtree(["exports", "build", "inject", "lib"], 0, 0);
-    if (!$justspec) {
-        # tests run dirs take up a lot of space, compress them
-        system("tar czf rundir-alltests.tgz rundir.*tests");
-        rmtree([glob("rundir.*tests")], 0, 0);
+    if ($had_mydefines) {
+        system("mv $DYNAMORIO_CORE/Makefile.mydefines.disabled $DYNAMORIO_CORE/Makefile.mydefines");
     }
+    # save space
+    # tests run dirs take up a lot of space, compress them
+    system("tar czf rundir-alltests.tgz rundir.*tests");
+    rmtree([glob("rundir.*tests")], 0, 0);
 }
 
 print "\n============================================================\n";

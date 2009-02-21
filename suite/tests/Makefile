@@ -599,7 +599,7 @@ TYPE_DLL := VFT_DLL
 
 RESOURCE_FILE := $(shell $(CYGPATH) -ua $(DYNAMORIO_HOME)/../${CORE_DIRNAME}/win32/resources.rc)
 WINRESOURCE_FILE := $(shell $(CYGPATH) -ma ${RESOURCE_FILE})
-DYNAMORIO_WINDIR := $(shell $(CYGPATH) -ma ${DYNAMORIO_HOME})
+DYNAMORIO_WINDIR := $(shell $(CYGPATH) -ma ${DYNAMORIO_BASE})
 RCFLAGS := $(MSINCLUDE) -r
 
 dresources.res: $(RESOURCE_FILE)
@@ -1076,7 +1076,7 @@ endif
 
 # can't get brace expansion to work on cygwin!
 clean:
-	$(RM) tools_asm.$(OBJ_SFX)
+	$(RM) tools_asm.$(OBJ_SFX) tools_asm.s
 	$(RM) $(PGMS_EXE) $(EXTRA_TESTS_EXE) .trash
 	$(RM) */*.out */*.clout */*.$(OBJ_SFX) */*.pdb */*.ilk */*.opt */*.c~ */*.expect.last */*.dll */*.dll.so */*.lib */*.exp */*.manifest */*.s
 	$(RM) *.obj *.pdb *.clout *.trash drpreinject.dll *.res

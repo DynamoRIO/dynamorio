@@ -155,16 +155,17 @@ SVN      := svn
 #
 # Paths
 #
+# For Windows, all paths should be "mixed", i.e., with drive letter
+# but forward slashes.  It is also simpler to use 8.3 names (if you
+# haven't disabled those on your NTFS) to avoid having to escape
+# or quote spaces.  E.g., c:/PROGRA~1/MICROS~4/
+#
 ifndef ARCH
   # default is x86 instead of x64
   ARCH := x86
 endif
 ifndef DYNAMORIO_BASE
   DYNAMORIO_BASE   :=..
-else
-  ifeq ($(MACHINE), win32)
-    DYNAMORIO_BASE   :=$(shell $(CYGPATH) -ma $(DYNAMORIO_BASE))
-  endif
 endif
 EXPORTS_BASE       :=$(DYNAMORIO_BASE)/exports
 BUILD_BASE         :=$(DYNAMORIO_BASE)/build
@@ -223,11 +224,11 @@ ifeq ($(MACHINE), win32)
   CPP_KEEP_COMMENTS := /C
   CPP_NO_LINENUM := /EP
 
-  # FIXME: all these shell invocations slow us down: require users to
-  # set paths in mixed fashion?
-  # i#19 will also solve if a pre-make step records all the paths.
-  SDKROOT := $(shell $(CYGPATH) -ma '$(SDKROOT)')
-  DDKROOT := $(shell $(CYGPATH) -ma '$(DDKROOT)')
+  # We require developers to have set up SDKROOT and DDKROOT as mixed paths
+  # (see above).
+  # Once we have a pre-make step (i#19) we can allow any type of path and convert
+  # it at configure time.  We don't want the performance hit of invoking
+  # cygpath here.
 
   # We can build dynamorio.dll from just the DDK, but we can't build
   # drinject.exe (need imagehlp.lib) or libutil's static library (need lib.exe)
@@ -253,11 +254,9 @@ ifeq ($(MACHINE), win32)
     DDK_INC_API := $(DDKROOT)/inc/api
     DDK_INC_CRT := $(DDKROOT)/inc/crt
     # we are not setting INCLUDE or LIB env vars, so we set all paths here
-    MSINCLUDE := $(I)'$(shell $(CYGPATH) -wa "$(DDK_INC_API)")' \
-                 $(I)'$(shell $(CYGPATH) -wa "$(DDK_INC_CRT)")'
+    MSINCLUDE := $(I)"$(DDK_INC_API)" $(I)"$(DDK_INC_CRT)"
     # no imagehlp.lib => can't build drinject.exe
-    MSLIB     := $(L)'$(shell $(CYGPATH) -wa "$(DDK_LIB)")' \
-                 $(L)'$(shell $(CYGPATH) -wa "$(DDK_LIB_CRT)")'
+    MSLIB     := $(L)"$(DDK_LIB))" $(L)"$(DDK_LIB_CRT))"
     NTDLL_LIBPATH_X86 := $(DDK_LIB)
     NTDLL_LIBPATH_X64 := $(DDK_LIB)
     # we do not set PATH and rely on mspdb80.dll and mspdbsrv.exe being
@@ -339,7 +338,7 @@ ifeq ($(MACHINE), win32)
     ifeq ($(USE_VC71),1)
       ifdef VSROOT
         # Visual Studio 2003
-        WROOT_BASE := $(shell $(CYGPATH) -ma '$(VSROOT)')
+        WROOT_BASE := $(VSROOT)
         WROOT_VC := $(WROOT_BASE)/VC7
         WROOT_PSDK := $(WROOT_VC)/PlatformSDK
         WROOT_SDKTOOLS := $(WROOT_BASE)/Common7/Tools/Bin
@@ -351,7 +350,7 @@ ifeq ($(MACHINE), win32)
      ifeq ($(USE_VC60),1)
       ifdef VSROOT
         # Visual Studio 98
-        WROOT_BASE := $(shell $(CYGPATH) -ma '$(VSROOT)')
+        WROOT_BASE := $(VSROOT)
         WROOT_VC := $(WROOT_BASE)/vc98
         WROOT_PSDK := $(WROOT_VC)
         WROOT_SDKTOOLS := $(WROOT_VC)/Bin
@@ -370,12 +369,12 @@ ifeq ($(MACHINE), win32)
     endif
 
     # we are not setting INCLUDE or LIB env vars, so we set all paths here
-    MSINCLUDE := $(I)'$(shell $(CYGPATH) -wa "$(WROOT_PSDK)/Include")' \
-                 $(I)'$(shell $(CYGPATH) -wa "$(WROOT_VC)/INCLUDE")' \
-                 $(I)'$(shell $(CYGPATH) -wa "$(WROOT_VC)/$(MFCDIR)/include")'
-    MSLIB     := $(L)'$(shell $(CYGPATH) -wa "$(WROOT_PSDK)/Lib$(LIBSUBDIR)")' \
-                 $(L)'$(shell $(CYGPATH) -wa "$(WROOT_VC)/LIB$(LIBSUBDIR)")' \
-                 $(L)'$(shell $(CYGPATH) -wa "$(WROOT_VC)/$(MFCDIR)/lib$(MFCLIBSUBDIR)")'
+    MSINCLUDE := $(I)"$(WROOT_PSDK)/Include" \
+                 $(I)"$(WROOT_VC)/INCLUDE" \
+                 $(I)"$(WROOT_VC)/$(MFCDIR)/include"
+    MSLIB     := $(L)"$(WROOT_PSDK)/Lib$(LIBSUBDIR)" \
+                 $(L)"$(WROOT_VC)/LIB$(LIBSUBDIR)" \
+                 $(L)"$(WROOT_VC)/$(MFCDIR)/lib$(MFCLIBSUBDIR)"
 
     # For open-source release we can't distribute ntdll.lib so point at it.
     # Note that we want the oldest ntdll.lib for maximum compatibility.
@@ -417,13 +416,13 @@ ifeq ($(MACHINE), win32)
     # build libutil (core/win32/resources.rc includes winres.h) but
     # we'll need VSROOT (see above) to build DRgui.
     ifeq ($(wildcard $(WROOT_VC)/$(MFCDIR)),)
-      MSINCLUDE += $(I)'$(shell $(CYGPATH) -wa "$(DDKROOT)/inc/mfc42")'
+      MSINCLUDE += $(I)"$(DDKROOT)/inc/mfc42"
       ifeq ($(ARCH), x64)
         DDKMFCLIBDIR := amd64
       else
         DDKMFCLIBDIR := i386
       endif
-      MSLIB += $(L)'$(shell $(CYGPATH) -wa "$(DDKROOT)/lib/mfc/$(DDKMFCLIBDIR)")'
+      MSLIB += $(L)"$(DDKROOT)/lib/mfc/$(DDKMFCLIBDIR)"
     endif
 
   endif
