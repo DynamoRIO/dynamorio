@@ -431,6 +431,9 @@ not supported.
     addresses aren't supported.  See <a
     href="samples/Makefile">samples/Makefile</a> for an example.
     This limitation will be addressed in future releases.
+  - Cross-architecture execve (e.g., a 32-bit process performing execve of
+    a 64-bit executable) may stop working if the paths to the
+    libdynamrio.so and libdrpreload.so libraries are renamed.
 \endif
 
 \subsection sec_limit_perf Performance Limitations

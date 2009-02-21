@@ -33,10 +33,10 @@
 /* Generates a .B from a trace.
  * FIXME: need to put in a template
  * FIXME: need to make native work (exception handling stuff)
- * FIXME: need to make it work on linux
  * FIXME: need to make it work with -detect_mode
  */
 
+#define NEED_HANDLER 1
 #include "tools.h"
  
 #define NUM_TIMES 100

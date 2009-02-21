@@ -583,6 +583,14 @@ sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
     return dynamorio_syscall(SYS_rt_sigprocmask, 4, how, set, oset, sigsetsize);
 }
 
+static void
+unblock_all_signals(void)
+{
+    kernel_sigset_t set;
+    kernel_sigemptyset(&set);
+    sigprocmask_syscall(SIG_SETMASK, &set, NULL, sizeof(set));
+}
+
 /* exported for stackdump.c */
 bool
 set_default_signal_action(int sig)
@@ -2431,42 +2439,6 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     }
 }
 
-#ifdef STACK_GUARD_PAGE
-static bool
-is_dstack_overflow(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                   struct sigcontext *sc)
-{
-    instr_t instr;
-    /* initial sanity check though we don't know how long instr is */
-    if (!is_readable_without_exception(instr_cache_pc, 1))
-        return false;
-    instr_init(dcontext, &instr);
-    decode(dcontext, instr_cache_pc, &instr);
-    if (!instr_valid(&instr)) {
-        LOG(THREAD, LOG_ALL, 2,
-            "WARNING: got SIGSEGV for invalid instr at cache pc "PFX"\n", instr_cache_pc);
-        ASSERT_NOT_REACHED();
-        return false;
-    }
-    if (instr_writes_memory(&instr)) {
-        dr_mcontext_t mc;
-        app_pc target;
-        sigcontext_to_mcontext(&mc, sc);
-        target = instr_compute_address(&instr, &mc);
-        DOLOG(2, LOG_ALL, {
-            LOG(THREAD, LOG_ALL, 2,
-                "For SIGSEGV at cache pc "PFX", computed target "PFX"\n",
-                instr_cache_pc, target);
-            loginst(dcontext, 2, &instr, "\tfaulting write");
-        });
-        instr_free(dcontext, &instr);
-        return (is_stack_overflow(dcontext, target));
-    }
-    instr_free(dcontext, &instr);
-    return false;
-}
-#endif /* STACK_GUARD_PAGE */
-
 /* Distinguish SYS_kill-generated from instruction-generated signals.
  * If sent from another process we can't tell, but if sent from this
  * thread the interruption point should be our own post-syscall.
@@ -2480,30 +2452,30 @@ is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp)
             dcontext->sys_num == SYS_kill);
 }
 
-static bool
-check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                        struct sigcontext *sc)
+static byte *
+compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
+                      struct sigcontext *sc, bool *write)
 {
-    /* special case: we expect a seg fault for executable regions
-     * that were writable and marked read-only by us.
-     * have to figure out the target address!
-     * unfortunately the OS doesn't tell us, nor whether it's a write.
-     * FIXME: if sent from SYS_kill(SIGSEGV), the pc will be post-syscall,
-     * and if that post-syscall instr is a write that could have faulted,
-     * how can we tell the difference?
-     */
+    byte *target = NULL;
     instr_t instr;
+    ASSERT(write != NULL);
+    /* initial sanity check though we don't know how long instr is */
+    if (!is_readable_without_exception(instr_cache_pc, 1))
+        return NULL;
     instr_init(dcontext, &instr);
     decode(dcontext, instr_cache_pc, &instr);
     if (!instr_valid(&instr)) {
         LOG(THREAD, LOG_ALL, 2,
             "WARNING: got SIGSEGV for invalid instr at cache pc "PFX"\n", instr_cache_pc);
         ASSERT_NOT_REACHED();
-        return false;
+        return NULL;
     }
-    if (instr_writes_memory(&instr)) {
+    if (instr_writes_memory(&instr))
+        *write = true;
+    else
+        *write = false;
+    if (*write || instr_reads_memory(&instr)) {
         dr_mcontext_t mc;
-        app_pc target;
         sigcontext_to_mcontext(&mc, sc);
         target = instr_compute_address(&instr, &mc);
         DOLOG(2, LOG_ALL, {
@@ -2513,59 +2485,74 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
             loginst(dcontext, 2, &instr, "\tfaulting write");
         });
         instr_free(dcontext, &instr);
-        if (was_executable_area_writable(target)) {
-            /* translate instr_cache_pc to original app pc
-             * DO NOT use translate_sigcontext, don't want to change the
-             * signal frame or else we'll lose control when we try to
-             * return to signal pc!
-             */
-            app_pc next_pc, translated_pc;
-            ASSERT((cache_pc)sc->SC_XIP == instr_cache_pc);
-            /* For safe recreation we need to either be couldbelinking or hold 
-             * the initexit lock (to keep someone from flushing current 
-             * fragment), the initexit lock is easier
-             */
-            mutex_lock(&thread_initexit_lock);
-            translated_pc = recreate_app_pc(dcontext, instr_cache_pc, NULL);
-            ASSERT(translated_pc != NULL);
-            mutex_unlock(&thread_initexit_lock);
-            next_pc =
-                handle_modified_code(dcontext, instr_cache_pc, translated_pc,
-                                     target);
-
-            /* going to exit from middle of fragment (at the write) so will mess up
-             * trace building
-             */
-            if (is_building_trace(dcontext)) {
-                LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
-                trace_abort(dcontext);
-            }
-
-            if (next_pc == NULL) {
-                /* re-execute the write -- just have master_signal_handler return */
-                return true;
-            } else {
-                /* Do not resume execution in cache, go back to dispatch.
-                 * Set our sigreturn context to point to fcache_return!
-                 * Then we'll go back through kernel, appear in fcache_return,
-                 * and go through dispatch & interp, without messing up dynamo stack.
-                 * Note that even if this is a write in the shared cache, we
-                 * still go to the private fcache_return for simplicity.
-                 */
-                sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
-                get_mcontext(dcontext)->xax = sc->SC_XAX;
-                sc->SC_XAX = (ptr_uint_t) get_selfmod_linkstub();
-                /* fcache_return will save rest of state */
-                dcontext->next_tag = next_pc;
-                LOG(THREAD, LOG_ASYNCH, 2,
-                    "\tset next_tag to "PFX", resuming in fcache_return\n",
-                    next_pc);
-                /* now have master_signal_handler return */
-                return true;
-            }
-        }
     } else
         instr_free(dcontext, &instr);
+    return target;
+}
+
+static bool
+check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
+                        struct sigcontext *sc, byte *target)
+{
+    /* special case: we expect a seg fault for executable regions
+     * that were writable and marked read-only by us.
+     * have to figure out the target address!
+     * unfortunately the OS doesn't tell us, nor whether it's a write.
+     * FIXME: if sent from SYS_kill(SIGSEGV), the pc will be post-syscall,
+     * and if that post-syscall instr is a write that could have faulted,
+     * how can we tell the difference?
+     */
+    if (was_executable_area_writable(target)) {
+        /* translate instr_cache_pc to original app pc
+         * DO NOT use translate_sigcontext, don't want to change the
+         * signal frame or else we'll lose control when we try to
+         * return to signal pc!
+         */
+        app_pc next_pc, translated_pc;
+        ASSERT((cache_pc)sc->SC_XIP == instr_cache_pc);
+        /* For safe recreation we need to either be couldbelinking or hold 
+         * the initexit lock (to keep someone from flushing current 
+         * fragment), the initexit lock is easier
+         */
+        mutex_lock(&thread_initexit_lock);
+        translated_pc = recreate_app_pc(dcontext, instr_cache_pc, NULL);
+        ASSERT(translated_pc != NULL);
+        mutex_unlock(&thread_initexit_lock);
+        next_pc =
+            handle_modified_code(dcontext, instr_cache_pc, translated_pc,
+                                 target);
+
+        /* going to exit from middle of fragment (at the write) so will mess up
+         * trace building
+         */
+        if (is_building_trace(dcontext)) {
+            LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
+            trace_abort(dcontext);
+        }
+
+        if (next_pc == NULL) {
+            /* re-execute the write -- just have master_signal_handler return */
+            return true;
+        } else {
+            /* Do not resume execution in cache, go back to dispatch.
+             * Set our sigreturn context to point to fcache_return!
+             * Then we'll go back through kernel, appear in fcache_return,
+             * and go through dispatch & interp, without messing up dynamo stack.
+             * Note that even if this is a write in the shared cache, we
+             * still go to the private fcache_return for simplicity.
+             */
+            sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
+            get_mcontext(dcontext)->xax = sc->SC_XAX;
+            sc->SC_XAX = (ptr_uint_t) get_selfmod_linkstub();
+            /* fcache_return will save rest of state */
+            dcontext->next_tag = next_pc;
+            LOG(THREAD, LOG_ASYNCH, 2,
+                "\tset next_tag to "PFX", resuming in fcache_return\n",
+                next_pc);
+            /* now have master_signal_handler return */
+            return true;
+        }
+    }
     return false;
 }
 
@@ -2679,6 +2666,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
         void *pc = (void *) sc->SC_XIP;
         bool syscall_signal = false; /* signal came from syscall? */
+        bool is_write = false;
+        byte *target = compute_memory_target(dcontext, pc, sc, &is_write);
 
 #ifdef SIDELINE
         if (dcontext == NULL) {
@@ -2687,7 +2676,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         }
 #endif
 #ifdef STACK_GUARD_PAGE
-        if (sig == SIGSEGV && is_dstack_overflow(dcontext, pc, sc)) {
+        if (sig == SIGSEGV && is_write && is_stack_overflow(dcontext, target)) {
             SYSLOG_INTERNAL_CRITICAL(PRODUCT_NAME" stack overflow at pc "PFX, pc);
             /* options are already synchronized by the SYSLOG */
             if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dynamo_options.dumpcore_mask))
@@ -2747,15 +2736,42 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
                 syscall_signal = true;
             }
             if (!syscall_signal) {
-                char *where = in_generated_routine(dcontext, pc) ? " generated" : "";
-                SYSLOG(SYSLOG_CRITICAL, SIGSEGV_IN_SECURE_CORE, 7, 
-                       get_application_name(), get_application_pid(),
-                       (sig == SIGSEGV) ? "SEGV" : "BUS", where, 
-                       PRODUCT_NAME, pc, get_thread_id());
-                /* options are already synchronized by the SYSLOG */
-                if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dynamo_options.dumpcore_mask))
-                    os_dump_core("sigsegv in secure core");
-                os_terminate(dcontext, TERMINATE_PROCESS);
+                if (check_in_last_thread_vm_area(dcontext, target)) {
+                    /* See comments in callback.c as well.
+                     * FIXME: try to share code
+                     */
+                    SYSLOG_INTERNAL_WARNING("(decode) exception in last area, "
+                                            "DR pc="PFX", app pc="PFX, pc, target);
+                    STATS_INC(num_exceptions_decode);
+                    if (is_building_trace(dcontext)) {
+                        LOG(THREAD, LOG_ASYNCH, 2, "intercept_exception: "
+                                                   "squashing old trace\n");
+                        trace_abort(dcontext);
+                    }
+                    /* we do get faults when not building a bb: e.g.,
+                     * ret_after_call_check does decoding (case 9396) */
+                    if (dcontext->bb_build_info != NULL) {
+                        /* must have been building a bb at the time */
+                        bb_build_abort(dcontext, true/*clean vm area*/);
+                    }
+                    /* Since we have no sigreturn we have to restore the mask manually */
+                    unblock_all_signals();
+                    /* Let's pass it back to the application - memory is unreadable */
+                    if (TEST(DUMPCORE_FORGE_UNREAD_EXEC, DYNAMO_OPTION(dumpcore_mask)))
+                        os_dump_core("Warning: Racy app execution (decode unreadable)");
+                    os_forge_exception(target, UNREADABLE_MEMORY_EXECUTION_EXCEPTION);
+                    ASSERT_NOT_REACHED();
+                } else {
+                    char *where = in_generated_routine(dcontext, pc) ? " generated" : "";
+                    SYSLOG(SYSLOG_CRITICAL, SIGSEGV_IN_SECURE_CORE, 7, 
+                           get_application_name(), get_application_pid(),
+                           (sig == SIGSEGV) ? "SEGV" : "BUS", where, 
+                           PRODUCT_NAME, pc, get_thread_id());
+                    /* options are already synchronized by the SYSLOG */
+                    if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dynamo_options.dumpcore_mask))
+                        os_dump_core("sigsegv in secure core");
+                    os_terminate(dcontext, TERMINATE_PROCESS);
+                }
             }
         }
         /* if get here, pass the signal to the app */
@@ -2765,7 +2781,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             /* special case: we expect a seg fault for executable regions
              * that were writable and marked read-only by us.
              */
-            if (check_for_modified_code(dcontext, pc, sc)) {
+            if (is_write && check_for_modified_code(dcontext, pc, sc, target)) {
                 /* it was our signal, so don't pass to app -- return now */
                 break;
             }

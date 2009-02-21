@@ -88,13 +88,13 @@
     STATS_DEF("Exceptions while lost control", num_except_while_lost)
     STATS_DEF("Exceptions at SetContext points for reset", num_reset_setcontext_at_fault)
     STATS_DEF("Exceptions at SetContext points for app", num_app_setcontext_at_fault)
-    STATS_DEF("Exceptions in decoding app memory", num_exceptions_decode)
     STATS_DEF("GetContextThread w/o CONTEXT_CONTROL", num_app_getcontext_no_control)
     STATS_DEF("SetContextThread w/o CONTEXT_CONTROL", num_app_setcontext_no_control)
     STATS_DEF("Re-takeovers after native", num_retakeover_after_native)
 #else
     RSTATS_DEF("Total signals delivered", num_signals)
 #endif
+    STATS_DEF("Exceptions in decoding app memory", num_exceptions_decode)
     RSTATS_DEF("System calls, pre", pre_syscall)
     RSTATS_DEF("System calls, post", post_syscall)
     STATS_DEF("System calls, pre, ignorable", pre_syscall_ignorable)

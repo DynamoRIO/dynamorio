@@ -7693,7 +7693,9 @@ check_in_last_thread_vm_area(dcontext_t *dcontext, app_pc pc)
     if (is_readable_without_exception((app_pc)&data->last_area, 4) &&
         is_readable_without_exception((app_pc)&data->last_area->end, 4) &&
         is_readable_without_exception((app_pc)&data->last_area->start, 4))
-        in_last = (pc < data->last_area->end && data->last_area->start <= pc);
+        /* we can walk off to the next page */
+        in_last = (pc < data->last_area->end + MAX_INSTR_LENGTH &&
+                   data->last_area->start <= pc);
     /* last decoded app pc may be in last shared area instead */
     if (!in_last && DYNAMO_OPTION(shared_bbs)) {
         /* FIXME: bad to grab on failure path...
@@ -7702,7 +7704,9 @@ check_in_last_thread_vm_area(dcontext_t *dcontext, app_pc pc)
         SHARED_VECTOR_RWLOCK(&shared_data->areas, read, lock);
         if (is_readable_without_exception((app_pc)&shared_data->last_area->end, 4) &&
             is_readable_without_exception((app_pc)&shared_data->last_area->start, 4))
-            in_last = (pc < shared_data->last_area->end && shared_data->last_area->start <= pc);
+            /* we can walk off to the next page */
+            in_last = (pc < shared_data->last_area->end + MAX_INSTR_LENGTH &&
+                       shared_data->last_area->start <= pc);
         SHARED_VECTOR_RWLOCK(&shared_data->areas, read, unlock);
     }
     /* the last decoded app pc may be in the last decoded page or the page after

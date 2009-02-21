@@ -508,8 +508,60 @@ test_print(void *buf, int n)
 }
 
 #ifdef LINUX
+# define USE_USER32()
+# ifdef NEED_HANDLER
+#  include <unistd.h>
+#  include <signal.h>
+#  include <ucontext.h>
+#  include <errno.h>
+#  define INIT() intercept_signal(SIGSEGV, signal_handler)
+
+/* just use single-arg handlers */
+typedef void (*handler_t)(int);
+typedef void (*handler_3_t)(int, struct siginfo *, void *);
+
+static void
+signal_handler(int sig)
+{
+    if (sig == SIGSEGV) {
+        print("Unhandled exception caught.\n");
+    } else {
+        print("ERROR: Unexpected signal %d caught\n", sig);
+    }
+    exit(-1);
+}
+
+#define ASSERT_NOERR(rc) do {                               \
+  if (rc) {                                                 \
+     print("%s:%d rc=%d errno=%d %s\n", __FILE__, __LINE__, \
+           rc, errno, strerror(errno));                     \
+  }                                                         \
+} while (0);
+
+/* set up signal_handler as the handler for signal "sig" */
+static void
+intercept_signal(int sig, handler_t handler)
+{
+    int rc;
+    struct sigaction act;
+
+    act.sa_sigaction = (handler_3_t) handler;
+    /* FIXME: due to DR bug 840 we cannot block ourself in the handler
+     * since the handler does not end in a sigreturn, so we have an empty mask
+     * and we use SA_NOMASK
+     */
+    rc = sigemptyset(&act.sa_mask); /* block no signals within handler */
+    ASSERT_NOERR(rc);
+    /* FIXME: due to DR bug #654 we use SA_SIGINFO -- change it once DR works */
+    act.sa_flags = SA_NOMASK | SA_SIGINFO | SA_ONSTACK;
+    
+    /* arm the signal */
+    rc = sigaction(sig, &act, NULL);
+    ASSERT_NOERR(rc);
+}
+# else
 #  define INIT()
-#  define USE_USER32()
+# endif /* NEED_HANDLER */
 #else
 #  define USE_USER32() do { if (argc > 5) MessageBeep(0); } while (0)
 
@@ -521,11 +573,9 @@ test_print(void *buf, int n)
 # define WINDOWS_VERSION_2000   50
 # define WINDOWS_VERSION_NT     40
 
-#ifdef WINDOWS
 /* returns 0 on failure */
 int
 get_windows_version();
-#endif
 
 static LONG WINAPI 
 our_exception_filter(struct _EXCEPTION_POINTERS * pExceptionInfo)
