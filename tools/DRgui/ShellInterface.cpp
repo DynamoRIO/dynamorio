@@ -272,7 +272,7 @@ HRESULT CreateShortCut::CreateIt (LPCSTR pszShortcutFile, LPSTR pszLink,
             hres = ppf->Save (wsz, TRUE);
             
             if (! SUCCEEDED (hres))
-                AfxMessageBox (“Save failed!”);
+                AfxMessageBox ("Save failed!");
             
             // Release the pointer to IPersistFile.
             ppf->Release ();
