@@ -128,27 +128,30 @@ mkdir $base/include_test
 ##################################################
 # defaults for DYNAMORIO_ env vars
 
-if [ -z "$DYNAMORIO_HOME" ] ; then
+# ignore any current value of HOME
+unset DYNAMORIO_HOME
+
+if [ -z "$DYNAMORIO_BASE" ] ; then
     makezip_dir=`dirname $0`
-    DYNAMORIO_HOME=`cd $makezip_dir/../ ; pwd`
+    DYNAMORIO_BASE=`cd $makezip_dir/../ ; pwd`
 fi
 if [ -z "$DYNAMORIO_MAKE" ] ; then
-    DYNAMORIO_MAKE=$DYNAMORIO_HOME/make
+    DYNAMORIO_MAKE=$DYNAMORIO_BASE/make
 fi
 if [ -z "$DYNAMORIO_LIBUTIL" ] ; then
-    DYNAMORIO_LIBUTIL=$DYNAMORIO_HOME/libutil
+    DYNAMORIO_LIBUTIL=$DYNAMORIO_BASE/libutil
 fi
 if [ -z "$DYNAMORIO_TOOLS" ] ; then
-    DYNAMORIO_TOOLS=$DYNAMORIO_HOME/tools
+    DYNAMORIO_TOOLS=$DYNAMORIO_BASE/tools
 fi
 if [ -z "$DYNAMORIO_API" ] ; then
-    DYNAMORIO_API=$DYNAMORIO_HOME/api
+    DYNAMORIO_API=$DYNAMORIO_BASE/api
 fi
 
 ##################################################
 # core
 
-cd $DYNAMORIO_HOME/core
+cd $DYNAMORIO_BASE/core
 if test -e Makefile.mydefines ; then 
     mv Makefile.mydefines .ignoreme
 fi
@@ -261,7 +264,10 @@ else
 
     if [ $projname != "viper" ]; then
         cd DRgui
-        make $defines clean all
+        # avoid cygwin bug where "make clean all" => sometimes can't mkdir
+        # as part of "all" target b/c the "clean" removal isn't fully done
+        make $defines clean
+        make $defines all
         $CP ../../build/tools/DRgui_dbg_demo/DRgui.exe $base/$projname/bin/bin32/drgui.exe
     fi
 fi
@@ -271,7 +277,7 @@ fi
 
 # release-build headers were built above; libutil/dr_config.h should be there
 if [ -z $DYNAMORIO_API ] ; then
-    cd $DYNAMORIO_HOME/api
+    cd $DYNAMORIO_BASE/api
 else
     cd $DYNAMORIO_API
 fi
@@ -280,19 +286,19 @@ cd docs
 # and so it can't create it when do "make clean pdf/all"
 make clean
 if [ $projname == "viper" ]; then
-    make $target_config pdf
+    make $target_config $defines pdf
 else
     # see comments below: we're not building pdf
-    make $target_config all
+    make $target_config $defines all
 fi
 if [ $projname == "viper" ]; then
     # replace DR, DynamoRIO, and client in header files w/ VIPER and VIPA
-    make VMSAFE=1 HEADER_DIR=$base/$projname/include update_headers
+    make VMSAFE=1 HEADER_DIR=$base/$projname/include $defines update_headers
 fi
-$CP -r ../exports/docs/html $base/$projname/docs
+$CP -r ../../exports/docs/html $base/$projname/docs
 if [ $projname == "viper" ]; then
     # The pdf output is messed up (more so on Linux) xref PR 314339 about fixing it.
-    $CP ../exports/docs/latex/refman.pdf $base/$projname/docs/$projname.pdf
+    $CP ../../exports/docs/latex/refman.pdf $base/$projname/docs/$projname.pdf
 fi
 
 ##################################################
@@ -300,7 +306,7 @@ fi
 # test our setup so far by using it to build
 
 if [ -z $DYNAMORIO_API ] ; then
-    cd $DYNAMORIO_HOME/api
+    cd $DYNAMORIO_BASE/api
 else
     cd $DYNAMORIO_API
 fi
@@ -355,7 +361,7 @@ build_samples "ARCH=x64" 64 x86_64
 ##################################################
 # README file
 
-cd $DYNAMORIO_HOME
+cd $DYNAMORIO_BASE
 $CP License.txt $base/$projname/
 
 # FIXME PR 232127: once gets larger we won't want to auto-generate but for now:
@@ -407,7 +413,7 @@ else
 fi
     
 if [ -n "$publishdir" ]; then
-    cd $DYNAMORIO_HOME
+    cd $DYNAMORIO_BASE
     if ! test -e $publishdir; then
         mkdir -p $publishdir
     fi

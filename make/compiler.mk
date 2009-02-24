@@ -229,6 +229,12 @@ ifeq ($(MACHINE), win32)
   # Once we have a pre-make step (i#19) we can allow any type of path and convert
   # it at configure time.  We don't want the performance hit of invoking
   # cygpath here.
+  ifeq ($(findstring :,$(SDKROOT)),)
+    $(error SDKROOT must be a mixed path with drive + forward slashes)
+  endif
+  ifeq ($(findstring :,$(DDKROOT)),)
+    $(error SDKROOT must be a mixed path with drive + forward slashes)
+  endif
 
   # We can build dynamorio.dll from just the DDK, but we can't build
   # drinject.exe (need imagehlp.lib) or libutil's static library (need lib.exe)

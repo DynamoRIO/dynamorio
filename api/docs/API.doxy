@@ -55,7 +55,7 @@ INHERIT_DOCS           = YES
 SEPARATE_MEMBER_PAGES  = NO
 TAB_SIZE               = 8
 # if you add/change aliases make sure you also change the sed lines in the Makefile
-ALIASES                = DynamoRIO=DynamoRIO Client=Client Clients=Clients client=client clients=clients
+ALIASES                = DynamoRIO=DynamoRIO Client=Client Clients=Clients client=client clients=clients DR_VERSION=X.Y.Z
 OPTIMIZE_OUTPUT_FOR_C  = YES
 OPTIMIZE_OUTPUT_JAVA   = NO
 BUILTIN_STL_SUPPORT    = NO

@@ -129,8 +129,11 @@ $(BUILDDIR)/$(EXEBASE).exe: $(OBJS) $(RES_OBJS) $(POLICY_LIB)
 $(BUILDDIR)/%.obj: %.cpp $(HEADERS)
 	$(CC) $(CFLAGS) /c $< /Fo$@ /Fd$(subst .obj,.pdb,$@)
 
-$(BUILDDIR)/%.res: %.rc
+$(BUILDDIR)/%.res: $(BUILDDIR)/%.gen.rc
 	$(RC) /r /fo $@ $(INCLUDES) $<
+
+$(BUILDDIR)/%.gen.rc: %.rc
+	$(SED) 's/DynamoRIO Version X.Y.Z/DynamoRIO Version $(VERSION_NUMBER)/' $< > $@
 
 clean: 
 	$(RM) -r $(BUILDDIR)

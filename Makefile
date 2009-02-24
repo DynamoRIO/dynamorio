@@ -113,7 +113,7 @@ BUILD_TYPE := vmap
 BUILD_ROOT := $(CURDIR)/zipbuild
 
 # used if invoker doesn't specify
-NO_BUILD_NUMBER := 16
+NO_BUILD_NUMBER := 17
 
 # our BUILD_NUMBER goes into the windows x.y.z.w version and so must
 # be <64K, which is vmware's PRODUCT_BUILD_NUMBER.  but we're supposed
@@ -132,12 +132,14 @@ else
   VER_BUILD_NUMBER := $(NO_BUILD_NUMBER)
 endif
 
-# keep in sync with CURRENT_API_VERSION in core/x86/instrument.h
+# Keep in sync with CURRENT_API_VERSION in core/x86/instrument.h
 # and _USES_DR_VERSION_ in dr_api.h (PR 250952) and compatibility
 # check in core/x86/instrument.c (OLDEST_COMPATIBLE_VERSION, etc.)
-# and api/docs/footer.html
-# and tools/DRgui/DynamoRIO.rc
-VERSION_NUMBER := 1.3.1
+# We auto-update library resource fields and the text in these files (i#17):
+# - api/docs/release.dox (though must manually update the changelog)
+# - api/docs/footer.html
+# - tools/DRgui/DynamoRIO.rc
+VERSION_NUMBER := 1.3.2
 
 MAKEZIP_ARGS := $(BUILD_TYPE) $(BUILD_ROOT) $(VER_BUILD_NUMBER) \
                 $(UNIQUE_BUILD_NUMBER) $(VERSION_NUMBER) $(PUBLISH_DIR)

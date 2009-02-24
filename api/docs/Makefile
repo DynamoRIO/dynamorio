@@ -49,6 +49,10 @@ GENIMGDIR := $(BUILD_BASE)/genimages
 
 DOXYFILE := $(BUILD_BASE)/Doxyfile
 
+ifeq ($(VERSION_NUMBER),)
+  VERSION_NUMBER := custom
+endif
+
 ifndef DYNAMORIO_HOME
 DYNAMORIO_HOME := ../../exports
 endif
@@ -79,7 +83,7 @@ LIBUTIL_ESC := $(shell $(ECHO) "$(LIBUTIL_DIR)" | $(SED) 's/\./\\\./g')
 LIBUTIL_ESC := $(shell $(ECHO) "$(LIBUTIL_ESC)" | $(SED) 's/\//\\\//g')
 LIBUTIL_SED := "s/\(INPUT[ \t]*=\)/\1 $(LIBUTIL_ESC)/g"
 
-all: check_headers $(HEADERS) mkimages $(DOXYFILE) outdir
+all: check_headers $(HEADERS) mkimages $(DOXYFILE) $(BUILD_BASE)/footer.html outdir
 	@$(ECHO) "** Using headers in $(HEADER_DIR) **"
 
 # this only really counts for ifdef VMSAFE but better to catch these early
@@ -100,8 +104,10 @@ all: check_headers $(HEADERS) mkimages $(DOXYFILE) outdir
 	$(SED) -i 's/<title>/<link rel="shortcut icon" type="image\/x-icon" href="favicon.ico" \/>\n<title>/' $(INSTALL_DOCS)/html/index.html
 # add our logo to treeview pane (yes there is no closing </body></html>)
 	$(ECHO) '<p>&nbsp;<br><img src="drlogo.png"></p>' >> $(INSTALL_DOCS)/html/tree.html
-# workaround for doxygen bug
+# workaround for doxygen bugs
 	$(CP) $(INSTALL_DOCS)/html/htmlstyle.css $(INSTALL_DOCS)/html/doxygen.css
+# doxygen 1.5.7.1 puts in $relpath$doxygen.css and doesn't expand it!
+	$(SED) -i 's/\$$relpath\$$//' $(INSTALL_DOCS)/html/*.html
 # get our samples in place
 	$(MKDIR) -p $(INSTALL_DOCS)/html/samples
 	$(CP) -a ../samples/*.c $(INSTALL_DOCS)/html/samples/
@@ -149,6 +155,8 @@ $(DOXYFILE): API.doxy Makefile
 	$(SED) -i 's/\(OUTPUT_DIRECTORY[ \t]*=\).*/\1 $(subst /,\/,$(INSTALL_DOCS))/' $@
 	$(SED) -i 's/genimages/$(subst /,\/,$(BUILD_BASE))\/genimages/' $@
 	$(SED) -i $(LIBUTIL_SED) $@
+	$(SED) -i 's/footer.html/$(subst /,\/,$(BUILD_BASE))\/footer.html/' $@
+	$(SED) -i 's/DR_VERSION=X.Y.Z/DR_VERSION=$(VERSION_NUMBER)/' $@
 ifdef VMSAFE
 	$(SED) -i 's/\(PROJECT_NAME[ \t]*=\).*/\1 "VMsafe In-Process API"/' $@
 	$(SED) -i 's/\(ENABLED_SECTIONS[ \t]*=\)/\1 vmsafe/' $@
@@ -163,6 +171,9 @@ endif
 # "doxygen -u" seems to preserve our non-default settings, while eliminating
 # warnings about deprecated options due to differing versions of doxygen
 	$(DOXYGEN) -u $(DOXYFILE)
+
+$(BUILD_BASE)/footer.html: footer.html Makefile
+	$(SED) 's/version 1.3.1/version $(VERSION_NUMBER)/' $< > $@
 
 ifndef HEADER_DIR
 update_headers:
@@ -219,5 +230,5 @@ $(GENIMGDIR)/%.tiff: $(GENIMGDIR)/%.post.fig
 ####################
 
 clean:
-	$(RM) -r $(INSTALL_DOCS) $(DOXYFILE) $(GENIMGDIR)
+	$(RM) -r $(INSTALL_DOCS) $(DOXYFILE) $(GENIMGDIR) $(BUILD_BASE)/footer.html
 
