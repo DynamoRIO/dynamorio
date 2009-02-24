@@ -2321,9 +2321,9 @@ DR_API
 void 
 instr_invert_cbr(instr_t *instr);
 
+/* PR 266292 */
 DR_API
 /**
- * PR 266292:
  * Assumes that instr is a meta instruction (!instr_ok_to_mangle())
  * and an instr_is_cti_short() (8-bit reach).  Converts instr's opcode
  * to a long form (32-bit reach).  If instr's opcode is OP_loop* or

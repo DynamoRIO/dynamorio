@@ -62,7 +62,7 @@ CFLAGS  =-std=gnu99 # -std=c99 doesn't quite work
 # FIXME case 191480: we used to pass -pedantic just to cpp;
 # now w/ no separate cpp step we should eliminate the
 # warnings and pass -pedantic to main gcc
-WARN    =-Wall -Werror
+WARN    =-Wall #-Werror
 OPT     =-O3
 DBG     =-g3
 # We use -O to avoid stack overflow in debug build (makes a huge difference by

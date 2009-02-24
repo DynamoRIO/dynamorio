@@ -280,7 +280,6 @@ extern char **__environ;
 int
 our_unsetenv(const char *name)
 {
-    /* This is pretty much straight from the glibc sources */
     size_t len;
     char **ep;
     
