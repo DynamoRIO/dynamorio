@@ -59,6 +59,7 @@
 #include <time.h>
 #include <tchar.h>
 
+#include "configure.h"
 #include "globals_shared.h"
 
 #include "ntdll.h"

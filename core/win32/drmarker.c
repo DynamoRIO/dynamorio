@@ -40,6 +40,7 @@
  *
  */
 
+#include "configure.h"
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 # include "globals.h"
 # include "os_private.h"

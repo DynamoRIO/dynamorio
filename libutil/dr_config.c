@@ -32,6 +32,7 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include "configure.h" /* since not including share.h */
 #include "utils.h"
 #include "processes.h"
 #include "globals_shared.h"

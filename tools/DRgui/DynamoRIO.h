@@ -40,6 +40,8 @@
 #if !defined(AFX_DYNAMORIO_H__23EBE600_BBF9_4F81_B49E_8CA6E806E7F8__INCLUDED_)
 #define AFX_DYNAMORIO_H__23EBE600_BBF9_4F81_B49E_8CA6E806E7F8__INCLUDED_
 
+#include "configure.h"
+
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
@@ -71,7 +73,7 @@
 class CDynamoRIOApp : public CWinApp
 {
 public:
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     BOOL ConfigureForNewUser();
     void SetEnvVarPermanently(TCHAR *var, TCHAR *val);
     void PreExit();
@@ -82,7 +84,7 @@ public:
 
     // global function for TimerProc inside view
     static CDynamoRIOView * GetActiveView();
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     // global function for systemwide status
     static BOOL SystemwideSet();
     // global function for current library to use
@@ -109,7 +111,7 @@ public:
     //{{AFX_MSG(CDynamoRIOApp)
     afx_msg void OnAppAbout();
     afx_msg void OnAppExit();
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     afx_msg void OnEditOptions();
     afx_msg void OnLibraryRelease();
     afx_msg void OnLibraryProfile();
@@ -125,7 +127,7 @@ public:
 protected:
     BOOL CheckWindowsVersion(BOOL &windows_NT);
     CMainFrame *m_pMainFrame;
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     void DisableMissingLibraries(BOOL notify);
     void DisableSystemwideInject();
     BOOL m_bSystemwideAllowed;

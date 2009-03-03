@@ -97,7 +97,7 @@ get_mem_stats(pid_t pid)
     if (status == NULL)
         return; /* child already exited */
     while(!feof(status)){
-        unsigned long val = 0;
+        unsigned val = 0;
         char prefix[STATUS_LINE_LENGTH];
         int len;
         if (NULL==fgets(line, sizeof(line), status))

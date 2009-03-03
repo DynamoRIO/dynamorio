@@ -42,6 +42,8 @@
 ###   2) multiple declarations do not share the same line
 ###
 
+use File::Copy;
+
 $usage = "Usage: $0 -header <destinationdir> <defines> | -filter <defines> | -debug\n";
 
 $header = 0;
@@ -92,6 +94,34 @@ while ($#ARGV >= 0) {
         exit 0;
     }
     shift;
+}
+
+if ($header) {
+    # clean up existing files first
+    # since the set of files we're creating is dynamic it's not clear how
+    # we can avoid this auto-clean and have something nicer
+    @existing = glob("$dir/dr_*.h");
+    if ($#existing >= 0) {
+        unlink(@existing);
+    }
+
+    if (defined($defines{"CLIENT_INTERFACE"})) {
+        # dr_api.h is copied verbatim
+        copy("lib/dr_api.h", "$dir");
+
+        # dr_app.h is copied verbatim
+        # We used to have #ifdefs (LOGPC I think) in the func declarations
+        # and we had a complex series of commands in core/Makefile to strip
+        # them out while leaving the ifdefs at the top of the file.
+        copy("lib/dr_app.h", "$dir");
+
+    } else {
+        if (!defined($defines{"APP_EXPORTS"})) {
+            die "Should not be invoked w/o APP_EXPORTS or CLIENT_INTERFACE\n";
+        }
+        # dr_app.h is copied verbatim
+        copy("lib/dr_app.h", "$dir");
+    }
 }
 
 # I used to just do 
@@ -416,6 +446,11 @@ if ($header) {
             die "Error: Couldn't open $dir/$files{$fname} for append\n";
         print OUT "\n#endif /* $wrapdef{$fname} */\n";
         close(OUT);
+    }
+    if (!defined($defines{"HOT_PATCING_INTERFACE"})) {
+        # Need to add appropriate ifdefs for the core to get this auto-removed.
+        # For now this is the easiest method.
+	unlink("$dir/dr_probe.h");
     }
 } else {
     if ($filter) {

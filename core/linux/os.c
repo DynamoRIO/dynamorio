@@ -1431,9 +1431,7 @@ mmap_syscall_succeeded(byte *retval)
      */
     bool fail = (result < 0 && result >= -PAGE_SIZE);
     ASSERT_CURIOSITY(!fail ||
-#ifdef VMX86_SERVER
-                     result == -ENOENT  ||
-#endif
+                     IF_VMX86_SERVER(result == -ENOENT  ||)
                      result == -EBADF   ||
                      result == -EACCES  ||
                      result == -EINVAL  ||
@@ -2973,7 +2971,6 @@ pre_system_call(dcontext_t *dcontext)
 
     switch (mc->xax) {
 
-#if defined(SYS_exit_group)
     case SYS_exit_group:
 # ifdef VMX86_SERVER
         if (os_in_vmkernel_32bit()) {
@@ -2983,36 +2980,25 @@ pre_system_call(dcontext_t *dcontext)
         }
 # endif
         /* fall-through */
-#endif
     case SYS_exit: {
         bool exit_process = false;
-#ifdef SYS_exit_group
         if (mc->xax == SYS_exit_group)
             exit_process = true;
-#endif
         LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 1,
             "SYS_exit%s(%d) encountered in thread %d\n",
-#ifdef SYS_exit_group
-            (mc->xax == SYS_exit_group) ? "_group" :
-#endif
-            "", mc->xax, get_thread_id());
+            (mc->xax == SYS_exit_group) ? "_group" : "", mc->xax, get_thread_id());
         if (get_num_threads() == 1 && !dynamo_exited) {
             LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
                 "SYS_exit%s(%d) in final thread %d => exiting DynamoRIO\n",
-#ifdef SYS_exit_group
-                (mc->xax == SYS_exit_group) ? "_group" :
-#endif
-                "", mc->xax, get_thread_id());
+                (mc->xax == SYS_exit_group) ? "_group" : "", mc->xax, get_thread_id());
             /* we want to clean up even if not automatic startup! */
             automatic_startup = true;
             exit_process = true;
         } else {
             LOG(THREAD, LOG_TOP|LOG_THREADS|LOG_SYSCALLS, 1,
                 "SYS_exit%s(%d) in thread %d => cleaning up %s\n",
-#ifdef SYS_exit_group
-                (mc->xax == SYS_exit_group) ? "_group" :
-#endif
-                "", mc->xax, get_thread_id(), exit_process ? "process" : "thread");
+                (mc->xax == SYS_exit_group) ? "_group" : "",
+                mc->xax, get_thread_id(), exit_process ? "process" : "thread");
         }
         KSTOP(num_exits_dir_syscall);
 

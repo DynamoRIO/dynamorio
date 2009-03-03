@@ -37,7 +37,7 @@
 // IgnoreDlg.cpp : implementation file
 //
 
-#ifndef DYNAMORIO_DEMO /* around whole file */
+#ifndef DRGUI_DEMO /* around whole file */
 
 #include "stdafx.h"
 #include "DynamoRIO.h"
@@ -142,4 +142,4 @@ void CIgnoreDlg::OnSetPermanent()
     OnOK();
 }
 
-#endif /* !DYNAMORIO_DEMO */ /* around whole file */
+#endif /* !DRGUI_DEMO */ /* around whole file */

@@ -33,6 +33,7 @@
 /* Copyright (c) 2003-2007 Determina Corp. */
 /* Copyright (c) 2002-2003 Massachusetts Institute of Technology */
 
+#include "configure.h"
 #ifdef LOAD_TO_CONST
 
 #include "globals.h"

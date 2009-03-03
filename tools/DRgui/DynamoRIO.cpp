@@ -73,7 +73,7 @@ BEGIN_MESSAGE_MAP(CDynamoRIOApp, CWinApp)
     //{{AFX_MSG_MAP(CDynamoRIOApp)
     ON_COMMAND(ID_APP_ABOUT, OnAppAbout)
     ON_COMMAND(ID_APP_EXIT, OnAppExit)
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     ON_COMMAND(ID_EDIT_OPTIONS, OnEditOptions)
     ON_COMMAND(ID_LIBRARY_RELEASE, OnLibraryRelease)
     ON_COMMAND(ID_LIBRARY_PROFILE, OnLibraryProfile)
@@ -84,7 +84,7 @@ BEGIN_MESSAGE_MAP(CDynamoRIOApp, CWinApp)
     ON_COMMAND(ID_EDIT_IGNORELIST, OnEditIgnorelist)
 #endif
     //}}AFX_MSG_MAP
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     // Standard file based document commands
     ON_COMMAND(ID_FILE_NEW, CWinApp::OnFileNew)
     ON_COMMAND(ID_FILE_OPEN, CWinApp::OnFileOpen)
@@ -113,7 +113,7 @@ CDynamoRIOApp theApp;
     return (CDynamoRIOView *) theApp.m_pMainFrame->GetActiveView();
 }
 
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
 /* static */ BOOL CDynamoRIOApp::SystemwideSet()
 {
     return theApp.m_bInjectAll;
@@ -138,7 +138,7 @@ CDynamoRIOApp theApp;
 {
     theApp.PreExit();
 }
-#endif /* !DYNAMORIO_DEMO */
+#endif /* !DRGUI_DEMO */
 
 /*static */void CDynamoRIOApp::SetStatusbarText(TCHAR *txt)
 {
@@ -150,7 +150,7 @@ CDynamoRIOApp theApp;
 
 BOOL CDynamoRIOApp::InitInstance()
 {
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     TCHAR msg[MAX_PATH*2];
 #endif
     BOOL windows_NT;
@@ -173,7 +173,7 @@ BOOL CDynamoRIOApp::InitInstance()
 #endif
 #endif
 
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     // Change the registry key under which our settings are stored,
     // including MRU
     SetRegistryKey(L_DYNAMORIO_REGISTRY_KEY);
@@ -186,7 +186,7 @@ BOOL CDynamoRIOApp::InitInstance()
 
     CSingleDocTemplate* pDocTemplate;
     pDocTemplate = new CSingleDocTemplate(
-#ifdef DYNAMORIO_DEMO
+#ifdef DRGUI_DEMO
                                           IDR_MAINFRAME_DEMO,
 #else
                                           IDR_MAINFRAME,
@@ -218,7 +218,7 @@ BOOL CDynamoRIOApp::InitInstance()
     // handler when this var is set, so I disable it:
     m_pMainFrame->m_bAutoMenuEnable = FALSE;        
 
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     m_bSystemwideAllowed = TRUE;
 
     // set the string we'll put into the registry key to inject system-wide
@@ -396,7 +396,7 @@ BOOL CDynamoRIOApp::InitInstance()
         m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_DEBUG, MF_BYCOMMAND|MF_GRAYED);
         m_pMainWnd->GetMenu()->EnableMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND|MF_GRAYED);
     }
-#endif /*! DYNAMORIO_DEMO */
+#endif /*! DRGUI_DEMO */
 
     return TRUE;
 }
@@ -500,18 +500,18 @@ BEGIN_MESSAGE_MAP(CAboutDlg, CDialog)
 
 
 CDocument * CDynamoRIOApp::OpenDocumentFile(LPCTSTR
-#ifndef DYNAMORIO_DEMO /* avoid warning */
+#ifndef DRGUI_DEMO /* avoid warning */
                                             lpszFileName
 #endif
                                             )
 {
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     RunNewApp(lpszFileName);
 #endif
     return m_pMainFrame->GetActiveView()->GetDocument();
 }
 
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
 
 static TCHAR szFilter[] = _T("Executable Files (*.exe)|*.exe|All Files (*.*)|*.*||");
 
@@ -903,7 +903,7 @@ BOOL CDynamoRIOApp::ConfigureForNewUser()
     return TRUE;
 }
 
-#endif /* !DYNAMORIO_DEMO */
+#endif /* !DRGUI_DEMO */
 
 void CDynamoRIOApp::OnAppExit() 
 {

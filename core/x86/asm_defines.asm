@@ -38,6 +38,8 @@
  * script replace @N@ for us.
  */
 
+#include "configure.h"
+
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
 # define START_FILE .text

@@ -32,6 +32,9 @@
 
 /* Copyright (c) 2006-2007 Determina Corp. */
 
+#ifndef _MODULEDB_H_
+#define _MODULEDB_H_
+
 /* Module database section flags - 
  * These control the module section specific relaxations and are used in 2-bit
  * fields in the module policy flags. */
@@ -110,3 +113,5 @@ print_moduledb_exempt_lists(file_t file);
 void process_control(void);
 void process_control_init(void);
 #endif
+
+#endif /* _MODULEDB_H_ */

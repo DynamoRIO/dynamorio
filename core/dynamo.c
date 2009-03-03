@@ -59,7 +59,6 @@
 #include "hotpatch.h"
 #include "moduledb.h"
 #include "module_shared.h"
-#include "defines.h"
 #include "synch.h"
 
 #include <string.h>

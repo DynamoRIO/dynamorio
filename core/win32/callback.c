@@ -39,6 +39,7 @@
  */
 
 /* This whole file assumes x86 */
+#include "configure.h"
 #ifndef X86
 #error X86 must be defined
 #endif

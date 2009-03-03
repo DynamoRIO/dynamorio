@@ -41,6 +41,8 @@
 #ifndef _GLOBALS_H_
 #define _GLOBALS_H_ 1
 
+#include "configure.h"
+
 #ifdef WINDOWS
 /* Vista SDK compiler default is to set NTDDI_VERSION to NTDDI_LONGHORN, causing
  * problems w/ new Vista-only flags like in PROCESS_ALL_ACCESS in win32/injector.c.
@@ -225,6 +227,10 @@ typedef size_t app_rva_t;   /* application offset from module base; PE32+ module
 #  error SIMULATE_ATTACK requires PROGRAM_SHEPHERDING
 # endif
 #endif
+
+/* in buildmark.c */
+extern const char dynamorio_version_string[];
+extern const char dynamorio_buildmark[];
 
 struct _opnd_t;
 typedef struct _opnd_t opnd_t;

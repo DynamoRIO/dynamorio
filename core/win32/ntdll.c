@@ -39,7 +39,7 @@
  * This file is used by the main library, the preinject library, and the
  * standalone injector.
  */
-
+#include "configure.h"
 #ifdef NOT_DYNAMORIO_CORE
 # define ASSERT(x)
 # define ASSERT_CURIOSITY(x)

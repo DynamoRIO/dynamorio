@@ -43,12 +43,13 @@
 #  include "globals.h"
 #  include "fcache.h"
 #  include "monitor.h"
-#  include "defines.h"
 #  include "moduledb.h"     /* for the process control defines */
 #  include <string.h>
 
 #else  /* NOT_DYNAMORIO_CORE */
+#  include "configure.h"
 #  include <stdio.h>            /* snprintf, sscanf */
+#  include <string.h>
 
 # ifdef WINDOWS
 #  define inline __inline

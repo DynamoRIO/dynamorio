@@ -38,6 +38,7 @@
  * (c) determina, inc. all rights reserved
  */
 
+#include "configure.h"
 #include "mfapi.h"
 #include "services.h"
 

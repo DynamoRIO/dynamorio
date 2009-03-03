@@ -33,7 +33,6 @@
 /* Copyright (c) 2003-2007 Determina Corp. */
 
 #include "globals.h"
-#include "defines.h"
 
 #if defined(__DATE__) && defined(__TIME__)
 const char dynamorio_buildmark[] = __DATE__ " " __TIME__;

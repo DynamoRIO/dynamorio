@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include "configure.h"
 #ifdef WINDOWS /* Nudge only supported on Windows for now. */
 
 #include "globals.h"

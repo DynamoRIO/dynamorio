@@ -1073,13 +1073,11 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                 }
                 rc = sigaction_syscall(i, NULL, &oldact);
                 ASSERT(rc == 0
-#ifdef VMX86_SERVER
                        /* Workaround for PR 223720, which was fixed in ESX4.0 but
                         * is present in ESX3.5 and earlier: vmkernel treats
                         * 63 and 64 as invalid signal numbers.
                         */
-                       || (i >= 63 && rc == -EINVAL)
-#endif
+                       IF_VMX86_SERVER(|| (i >= 63 && rc == -EINVAL))
                        );
                 if (rc == 0 &&
                     oldact.handler != (handler_t) SIG_DFL &&
@@ -1190,13 +1188,11 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
     /* arm the signal */
     rc = sigaction_syscall(sig, &act, &oldact);
     ASSERT(rc == 0
-#ifdef VMX86_SERVER
            /* Workaround for PR 223720, which was fixed in ESX4.0 but
             * is present in ESX3.5 and earlier: vmkernel treats
             * 63 and 64 as invalid signal numbers.
             */
-           || (i >= 63 && rc == -EINVAL)
-#endif
+           IF_VMX86_SERVER(|| (i >= 63 && rc == -EINVAL))
            );
     if (rc != 0) /* be defensive: app will probably still work */
         return;

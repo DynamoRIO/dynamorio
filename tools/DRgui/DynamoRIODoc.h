@@ -71,7 +71,7 @@ protected:
 
     // Implementation
 public:
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     void InitPaths();
     TCHAR m_dynamorio_home[_MAX_DIR];
     TCHAR m_injector_path[MAX_PATH];

@@ -36,10 +36,6 @@
 
 /* file "mangle.c" */
 
-#ifdef LINUX
-#include <sys/syscall.h>
-#endif
-
 #include "globals.h"
 #include "arch.h"
 #include "link.h"
@@ -58,6 +54,10 @@
 
 #ifdef RCT_IND_BRANCH
 # include "rct.h" /* rct_add_rip_rel_addr */
+#endif
+
+#ifdef LINUX
+#include <sys/syscall.h>
 #endif
 
 #ifdef WINDOWS

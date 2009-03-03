@@ -37,6 +37,7 @@
 // file properties), assumes that FILE_NAME, FILE_DESCRIPTION and FILE_TYPE are defined
 // externally to this file 
 
+#include "configure.h"
 #include "winres.h"
 
 #ifdef INCLUDE_EVENTS
@@ -45,6 +46,99 @@
 
 // get PRODUCT_NAME, etc, constants
 #include "globals_shared.h"
+
+// difficult to pass spaces in defines from cmake to nmake so we hardcode
+#ifdef RC_IS_CORE
+# define FILE_NAME DYNAMORIO_LIBRARY_NAME
+# define FILE_DESCRIPTION PRODUCT_NAME " core library"
+# define FILE_TYPE VFT_DLL
+#elif defined(RC_IS_PRELOAD)
+# define FILE_NAME INJECT_DLL_NAME
+# define FILE_DESCRIPTION PRODUCT_NAME " systemwide injector library"
+# define FILE_TYPE VFT_DLL
+#elif defined(RC_IS_DRINJECT)
+# define FILE_NAME DRINJECT_NAME
+# define FILE_DESCRIPTION PRODUCT_NAME " injection utility"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_EARLY1)
+# define FILE_NAME INJECT_HELPER_DLL1_NAME
+# define FILE_DESCRIPTION PRODUCT_NAME " additional win2k injector library"
+# define FILE_TYPE VFT_DLL
+#elif defined(RC_IS_EARLY2)
+# define FILE_NAME INJECT_HELPER_DLL2_NAME
+# define FILE_DESCRIPTION PRODUCT_NAME " additional win2k injector library"
+# define FILE_TYPE VFT_DLL
+// libutil
+#elif defined(RC_IS_DRCONFIG)
+# define FILE_NAME "drconfig.dll"
+# define FILE_DESCRIPTION PRODUCT_NAME " configuration library"
+# define FILE_TYPE VFT_DLL
+#elif defined(RC_IS_DUMPEVTS)
+# define FILE_NAME "dumpevts.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME " event dumping tool"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_MFAPI)
+# define FILE_NAME "mfapi.dll"
+# define FILE_DESCRIPTION PRODUCT_NAME " MF API interface library"
+# define FILE_TYPE VFT_DLL
+// tools
+#elif defined(RC_IS_DRview)
+# define FILE_NAME "DRview.Exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "cmd line status viewer"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_DRcontrol)
+# define FILE_NAME "DRcontrol.Exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "cmd line configuration tool"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_DRkill)
+# define FILE_NAME "DRkill.Exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "process terminating utility"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_closewnd)
+# define FILE_NAME "closewnd.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "closes window app"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_winstats)
+# define FILE_NAME "winstats.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "gathers memory stats"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_svccntrl)
+# define FILE_NAME "svccntrl.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "cmd line services configuration utility"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_DRload)
+# define FILE_NAME "DRload.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "loads a dll for analysis"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_balloon)
+# define FILE_NAME "balloon.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "out of memory testing tool"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_dummy)
+# define FILE_NAME "dummy.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "dummy process for ldmp creation"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_ldmp)
+# define FILE_NAME "ldmp.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME ".ldmp reading tool"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_drdeploy)
+# define FILE_NAME "drdeploy.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "deployment command-line utility"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_runjob)
+# define FILE_NAME "runjob.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "job limit testing tool"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_readproc)
+# define FILE_NAME "readproc.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "dump process memory"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_drdel)
+# define FILE_NAME "drdel.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "delete from file cache"
+# define FILE_TYPE VFT_APP
+#endif
 
 #ifndef FILE_NAME
 # error FILE_NAME not defined

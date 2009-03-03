@@ -45,6 +45,7 @@
  */
 
 /* for policy.dll linkage of qualified name utils */
+#include "configure.h"
 #ifndef NOT_DYNAMORIO_CORE
 
 #include "globals.h"

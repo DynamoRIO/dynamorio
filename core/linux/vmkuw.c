@@ -32,6 +32,7 @@
 
 /* vmkuw.c - VMKernel UserWorld support functions */
 
+#include "configure.h"
 #ifndef VMX86_SERVER
 #error This is only needed for supporting ESX/ESXi
 #endif

@@ -30,6 +30,7 @@
 
 //Microsoft Developer Studio generated resource script.
 //
+#include "configure.h"
 #include "resource.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
@@ -228,10 +229,10 @@ END
 
 IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 211, 193
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "About DynamoRIO"
+CAPTION "About ${PRODUCT_NAME}"
 FONT 8, "MS Sans Serif"
 BEGIN
-    LTEXT           "DynamoRIO Version X.Y.Z",IDC_STATIC,57,82,102,11,
+    LTEXT           "${PRODUCT_NAME} Version ${VERSION_NUMBER}",IDC_STATIC,57,82,102,11,
                     SS_NOPREFIX
     LTEXT           "Copyright (C) 2007-2009",IDC_STATIC,67,99,78,8
     DEFPUSHBUTTON   "OK",IDOK,81,172,50,14,WS_GROUP
@@ -265,7 +266,7 @@ BEGIN
     LTEXT           "Log dir:",IDC_STATIC,7,286,42,10
 END
 
-IDD_DYNAMORIO_DEMO_FORM DIALOGEX 0, 0, 289, 313
+IDD_DRGUI_DEMO_FORM DIALOGEX 0, 0, 289, 313
 STYLE WS_CHILD
 FONT 11, "Lucida Console", 400
 BEGIN

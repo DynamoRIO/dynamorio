@@ -39,6 +39,8 @@
 #ifndef _DETERMINA_SHARE_H_
 #define _DETERMINA_SHARE_H_
 
+#include "configure.h"
+
 /* 
 C:\PROGRAM FILES\MICROSOFT VISUAL STUDIO\VC98\INCLUDE\rpcasync.h(45) : 
 warning C4115: '_RPC_ASYNC_STATE' : named type definition in parentheses

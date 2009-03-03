@@ -37,7 +37,7 @@
 // LoggingDlg.cpp : implementation file
 //
 
-#ifndef DYNAMORIO_DEMO /* around whole file */
+#ifndef DRGUI_DEMO /* around whole file */
 
 #include "stdafx.h"
 #include "DynamoRIO.h"
@@ -311,4 +311,4 @@ void CLoggingDlg::OnOK()
     CDialog::OnOK();
 }
 
-#endif /* !DYNAMORIO_DEMO */ /* around whole file */
+#endif /* !DRGUI_DEMO */ /* around whole file */

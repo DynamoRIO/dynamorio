@@ -36,7 +36,7 @@
 //
 #define IDD_ABOUTBOX                    100
 #define IDD_DYNAMORIO_FORM              101
-#define IDD_DYNAMORIO_DEMO_FORM         102
+#define IDD_DRGUI_DEMO_FORM         102
 #define IDR_ABOUT_ICON                  126
 #define IDR_MAINFRAME_DEMO              127
 #define IDR_MAINFRAME                   128

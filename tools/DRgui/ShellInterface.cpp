@@ -38,7 +38,7 @@
 //
 //////////////////////////////////////////////////////////////////////
 
-#ifndef DYNAMORIO_DEMO /* around whole file */
+#ifndef DRGUI_DEMO /* around whole file */
 
 #include "stdafx.h"
 #include "DynamoRIO.h"
@@ -356,4 +356,4 @@ HRESULT ResolveShortCut::ResolveIt (HWND hwnd, LPCSTR pszShortcutFile)
 }
 #endif /* 0 */
 
-#endif /* !DYNAMORIO_DEMO */ /* around whole file */
+#endif /* !DRGUI_DEMO */ /* around whole file */

@@ -41,6 +41,7 @@
  * to link both ntdll.lib and a libc.lib).
  */
 
+#include "configure.h"
 #if defined(NOT_DYNAMORIO_CORE)
 # define ASSERT(x)
 # define ASSERT_NOT_REACHED()

@@ -72,8 +72,6 @@
 # include "synch.h" /* all_threads_synch_lock */
 #endif
 
-#include "defines.h" /* for dynamorio_buildmark, etc. */
-
 #include <stdarg.h> /* for varargs */
 
 #include <ctype.h> /* for tolower */

@@ -82,8 +82,8 @@ protected: // create from serialization only
         public:
     //{{AFX_DATA(CDynamoRIOView)
     enum { 
-#ifdef DYNAMORIO_DEMO
-        IDD = IDD_DYNAMORIO_DEMO_FORM 
+#ifdef DRGUI_DEMO
+        IDD = IDD_DRGUI_DEMO_FORM 
 #else
         IDD = IDD_DYNAMORIO_FORM 
 #endif
@@ -140,7 +140,7 @@ protected:
 
     // statistics
     CString m_Exited;
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     CString m_LogLevel;
     CString m_LogMask;
     CString m_LogDir;
@@ -156,7 +156,7 @@ protected:
     //{{AFX_MSG(CDynamoRIOView)
     afx_msg void OnSelchangeList();
     afx_msg void OnDropdownList();
-#ifndef DYNAMORIO_DEMO
+#ifndef DRGUI_DEMO
     afx_msg void OnChangeLogging();
     afx_msg void OnLogDirExplore();
 #endif
