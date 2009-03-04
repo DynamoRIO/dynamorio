@@ -66,6 +66,9 @@ if (WIN32 AND NOT X64)
   # FIXME: There is no supported way to suppress a "command line" warning
   # used to do: 
   #   $(BUILD)/io.obj: FILTER_CC = 2>&1 | $(GREP) -v "D9035 : option 'QIfist'";
+  # we just live with it for now:
+  #   [ 20%] Building C object core/CMakeFiles/dynamorio.dir/io.c.obj
+  #   cl : Command line warning D9002 : ignoring unknown option '/QIFist'
   set_source_files_properties(io.c COMPILE_FLAGS "/QIFist")
 endif (WIN32 AND NOT X64)
 
@@ -220,7 +223,10 @@ if (UNIX)
   # We always use a script for our own library bounds (PR 361594).
   # We could build this at configure time instead of build time as
   # it does not depend on the source files.
+  # FIXME: this is duplicated in DynamoRIOUse.cmake
   set(ld_script ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
+  set_directory_properties(PROPERTIES
+    ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
   set(dynamorio_link_flags 
     "${dynamorio_link_flags} -Xlinker ${ld_script_option} -Xlinker ${ld_script}")
   add_custom_command(TARGET dynamorio
@@ -262,6 +268,7 @@ if (UNIX)
     VERBATIM # recommended: p260
     )
 
+  # we used to run size on libdynamorio.so for info purposes
 
 else (UNIX)
 ###########################################################################
@@ -285,12 +292,12 @@ else (UNIX)
   endif (X64)
   set(DEF_BLD ${CMAKE_CURRENT_BINARY_DIR}/dr_ntdll.def)
   file(READ ${DEF_SRC} string)
-  if (CLIENT_INTERFACE)
+  if (NOT CLIENT_INTERFACE)
     # we're not exporting snprintf() so remove from def file */
     string(REGEX REPLACE
       " snprintf"
       "" string "${string}")
-  endif (CLIENT_INTERFACE)
+  endif (NOT CLIENT_INTERFACE)
   file(WRITE ${DEF_BLD} "${string}")
   set(FORWARD_TO_NTDLL "/def:${DEF_BLD} /ignore:4197")
 
@@ -344,6 +351,8 @@ else (UNIX)
   # note that _alldvrm is in ntdll.dll on xp+; but for pre-xp uses we
   # stick with the static linking of the impl in msvcrt.lib.
   target_link_libraries(dynamorio ntdll msvcrt)
+
+  # we used to run dumpbin /headers on dynamorio.dll for info purposes
 
 
   set_target_properties(drinject PROPERTIES
@@ -432,11 +441,3 @@ else (UNIX)
   install(TARGETS drearlyhelp1 DESTINATION ${INSTALL_LIB_BASE})
   install(TARGETS drearlyhelp2 DESTINATION ${INSTALL_LIB_BASE})
 endif (UNIX)
-
-install(DIRECTORY ${BUILD_INCLUDE} DESTINATION ${INSTALL_PREFIX})
-
-install(FILES ${PROJECT_SOURCE_DIR}/tools/dynamorio
-  DESTINATION ${INSTALL_BIN_BASE}
-  RENAME drdeploy
-  )
-

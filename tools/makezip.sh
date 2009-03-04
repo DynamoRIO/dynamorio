@@ -325,24 +325,24 @@ build_samples() {
         # PR 236973: there is no "g++" toolchain binary so we have to include whole path
         DYNAMORIO_HOME=$base/$projname make EXCLUDE=MF_moduledb.c $1 clean all
     fi
-    mkdir -p $base/$projname/docs/html/samples/build$2
+    mkdir -p $base/$projname/samples/bin$2
     if [ $linux -eq 1 ]; then
-        $CP *.so $base/$projname/docs/html/samples/build$2
+        $CP *.so $base/$projname/samples/bin$2
         # FIXME - better way to handle executables
-        $CP tracedump $base/$projname/docs/html/samples/build$2
+        $CP tracedump $base/$projname/samples/bin$2
     else
-        $CP *.{pdb,dll,exe} $base/$projname/docs/html/samples/build$2
+        $CP *.{pdb,dll,exe} $base/$projname/samples/bin$2
         if [ $projname != "viper" ]; then
         # we don't want security api sample app
-            rm -f $base/$projname/docs/html/samples/build$2/VIPA_test.exe
+            rm -f $base/$projname/samples/bin$2/VIPA_test.exe
         fi
         # PR 232490: ensure services can read these
-        chmod ugo+rx $base/$projname/docs/html/samples/build$2/*.{dll,exe}
+        chmod ugo+rx $base/$projname/samples/bin$2/*.{dll,exe}
     fi
     make $1 clean
 }
 
-mkdir -p $base/$projname/docs/html/samples
+mkdir -p $base/$projname/samples
 # must setup environment for samples Makefile
 # we assume for Linux that something reasonable is already set up
 if [ $windows -eq 1 ]; then
@@ -367,22 +367,22 @@ $CP License.txt $base/$projname/
 # FIXME PR 232127: once gets larger we won't want to auto-generate but for now:
 echo -e 'QUICKSTART\n' > $base/$projname/README
 if [ $linux -eq 1 ]; then
-    echo -e "% bin/drdeploy -client docs/html/samples/build32/bbsize.so 0x1 \"\" ls" >> $base/$projname/README
+    echo -e "% bin/drdeploy -client samples/bin32/bbsize.so 0x1 \"\" ls" >> $base/$projname/README
     echo -e "Or if on 64-bit Linux" >> $base/$projname/README
-    echo -e "% bin/drdeploy -64 -client docs/html/samples/build64/bbsize.so 0x1 \"\" ls" >> $base/$projname/README
+    echo -e "% bin/drdeploy -64 -client samples/bin64/bbsize.so 0x1 \"\" ls" >> $base/$projname/README
     echo -e "" >> $base/$projname/README
     echo -e "% bin/drdeploy" >> $base/$projname/README
     echo -e "For additional options." >> $base/$projname/README
 else
     if [ $projname == "viper" ]; then
-        echo -e '% bin/drdeploy.exe -32 -reg calc.exe -root `cygpath -wa .` -mode code -client `cygpath -wa ./docs/html/samples/build32/bbsize.dll` 0x1 ""' >> $base/$projname/README
+        echo -e '% bin/drdeploy.exe -32 -reg calc.exe -root `cygpath -wa .` -mode code -client `cygpath -wa ./samples/bin32/bbsize.dll` 0x1 ""' >> $base/$projname/README
         echo -e 'Or for 64-bit' >> $base/$projname/README
-        echo -e '% bin/drdeploy.exe -64 -reg calc.exe -root `cygpath -wa .` -mode code -client `cygpath -wa ./docs/html/samples/build64/bbsize.dll` 0x1 ""' >> $base/$projname/README
+        echo -e '% bin/drdeploy.exe -64 -reg calc.exe -root `cygpath -wa .` -mode code -client `cygpath -wa ./samples/bin64/bbsize.dll` 0x1 ""' >> $base/$projname/README
     else
         # no -mode arg for vmap
-        echo -e '% bin/drdeploy.exe -32 -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./docs/html/samples/build32/bbsize.dll` 0x1 ""' >> $base/$projname/README
+        echo -e '% bin/drdeploy.exe -32 -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./samples/bin32/bbsize.dll` 0x1 ""' >> $base/$projname/README
         echo -e 'Or for 64-bit' >> $base/$projname/README
-        echo -e '% bin/drdeploy.exe -64 -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./docs/html/samples/build64/bbsize.dll` 0x1 ""' >> $base/$projname/README
+        echo -e '% bin/drdeploy.exe -64 -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./samples/bin64/bbsize.dll` 0x1 ""' >> $base/$projname/README
     fi
     echo -e 'Then:' >> $base/$projname/README
     echo -e '% cmd /c start calc' >> $base/$projname/README

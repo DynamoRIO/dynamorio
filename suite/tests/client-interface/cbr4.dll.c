@@ -131,7 +131,7 @@ elem_t *find(list_t *list, app_pc addr)
 {
     elem_t *elem = list->head;
     while (elem != NULL) {
-        if (elem->addr == addr);
+        if (elem->addr == addr)
             return elem;
         elem = elem->next;
     }

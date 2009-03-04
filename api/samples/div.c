@@ -89,7 +89,7 @@ callback(app_pc addr, uint divisor)
     div_count++;
 
     /* check for power of 2 */
-    if (divisor & (divisor - 1) != 0)
+    if ((divisor & (divisor - 1)) != 0)
         div_p2_count++;
 
     dr_mutex_unlock(count_mutex);

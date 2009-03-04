@@ -28,6 +28,25 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+###########################################################################
+# FIXME not yet finished:
+# i#65: convert suite/ to cmake and ctest
+# i#63: packaging to replace makezip.sh
+# i#67: convert api/samples/Makefile to cmake
+# i#64: re-add "make review"
+# i#66: re-add "make runregression"
+# i#73: provide automatic suport for locating ml64.exe when using Vista SDK+WDK
+# 
+# future nice-to-have work:
+# i#68: replace perl with cmake scripts and CTest
+# i#69: re-add support for core unit tests and standalone build rules
+# i#70: symbol store support in core/Makefile and tools/Makefile
+# i#71: support mingw/cygwin makefile cmake target with cl compiler, for make -j
+#
+# Not filed: move info like "build core solely from DDK" from compiler.mk into
+# HowToBuild.wiki
+###########################################################################
+
 cmake_minimum_required(VERSION 2.6)
 
 if ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}"
@@ -39,7 +58,7 @@ if ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}"
   # - Use ASM-ATT instead of ASM: should work
   # - I tried puting a patched CMakeASMInformation.cmake ahead of share/Modules
   #   but enable_language() seems to not use the CMAKE_MODULE_PATH
-  SET(CMAKE_ASM_SOURCE_FILE_EXTENSIONS s;S;asm)
+  set(CMAKE_ASM_SOURCE_FILE_EXTENSIONS s;S;asm)
 endif ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}"
   STRLESS "2.6.4")
 
@@ -50,9 +69,9 @@ project(DynamoRIO)
 
 # many are core-specific
 
-SET(INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/exports" CACHE PATH
+set(INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/exports" CACHE PATH
   "where to install")
-SET(CMAKE_INSTALL_PREFIX "${INSTALL_PREFIX}" CACHE INTERNAL
+set(CMAKE_INSTALL_PREFIX "${INSTALL_PREFIX}" CACHE INTERNAL
   "where to install" FORCE)
 
 # configurations that also have defines
@@ -73,7 +92,12 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 else(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(X64_DEFAULT OFF)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-option(X64 "target 64-bit" ${X64_DEFAULT})
+if (UNIX)
+  option(X64 "target 64-bit" ${X64_DEFAULT})
+else (UNIX)
+  # not controllable from here: must change env vars before invoking CMake
+  set(X64 ${X64_DEFAULT})
+endif (UNIX)
 
 option(VMKERNEL "target VMkernel")
 option(VMKCLASSIC "target VMkernel")
@@ -161,10 +185,13 @@ mark_as_advanced(
   SET_PREFERRED_BASE
   preferred_base
   GENERATE_PDBS
+  DRGUI_DEMO
   )
 # replaced by our own DEBUG, INTERNAL, etc.
 # FIXME: or should we support and map these to ours?
-SET(CMAKE_BUILD_TYPE "Release" CACHE INTERNAL
+# if we do support we'll need to remove flags like /MD coming from
+# the CMAKE_C_FLAGS_*, which are added to the base CMAKE_C_FLAGS.
+set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
   "build type: unused" FORCE)
 
 # resources when packaging
@@ -206,6 +233,7 @@ if (UNIX)
   if (cpp-NOTFOUND OR NOT EXISTS "${CMAKE_CPP}")
     message(FATAL_ERROR "cpp is required to build")
   endif (cpp-NOTFOUND OR NOT EXISTS "${CMAKE_CPP}")
+  mark_as_advanced(CMAKE_CPP)
 
 else (UNIX)
 
@@ -231,7 +259,7 @@ else (UNIX)
   if (CMAKE_MC_COMPILER-NOTFOUND OR NOT EXISTS "${CMAKE_MC_COMPILER}")
     message(FATAL_ERROR "message compiler not found: required to build")
   endif (CMAKE_MC_COMPILER-NOTFOUND OR NOT EXISTS "${CMAKE_MC_COMPILER}")
-  message(STATUS "-- Found message compiler: ${CMAKE_MC_COMPILER}")
+  message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
   mark_as_advanced(CMAKE_MC_COMPILER)
 
   # Note that we want the oldest ntdll.lib for maximum compatibility.
@@ -256,7 +284,7 @@ else (UNIX)
   if (NTDLL_LIBPATH-NOTFOUND OR NOT EXISTS "${NTDLL_LIBPATH}")
     message(FATAL_ERROR "ntdll.lib not found: required to build")
   endif (NTDLL_LIBPATH-NOTFOUND OR NOT EXISTS "${NTDLL_LIBPATH}")
-  message(STATUS "-- Found ntdll.lib: ${NTDLL_LIBPATH}")
+  message(STATUS "Found ntdll.lib: ${NTDLL_LIBPATH}")
   get_filename_component(NTDLL_LIBPATH "${NTDLL_LIBPATH}" PATH)
   link_directories(${NTDLL_LIBPATH})
 
@@ -345,19 +373,13 @@ else (UNIX)
     # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
     set(DBG "")
     set(LINK_DBG "")
-    # just in case we stop using just cmake type Release
-    string(REGEX REPLACE "/debug" "" CMAKE_EXE_LINKER_FLAGS_DEBUG
-      "${CMAKE_EXE_LINKER_FLAGS_DEBUG}")
-    string(REGEX REPLACE "/debug" "" CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
-      "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO}")
-    string(REGEX REPLACE "/debug" "" CMAKE_MODULE_LINKER_FLAGS_DEBUG
-      "${CMAKE_MODULE_LINKER_FLAGS_DEBUG}")
-    string(REGEX REPLACE "/debug" "" CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO
-      "${CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO}")
-    string(REGEX REPLACE "/debug" "" CMAKE_SHARED_LINKER_FLAGS_DEBUG
-      "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}")
-    string(REGEX REPLACE "/debug" "" CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO
-      "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO}")
+    # Default from cmake in DEBUG and RELWITHDEBINFO has /debug
+    string(REGEX REPLACE "/debug" "" CMAKE_EXE_LINKER_FLAGS
+      "${CMAKE_EXE_LINKER_FLAGS}")
+    string(REGEX REPLACE "/debug" "" CMAKE_MODULE_LINKER_FLAGS
+      "${CMAKE_MODULE_LINKER_FLAGS}")
+    string(REGEX REPLACE "/debug" "" CMAKE_SHARED_LINKER_FLAGS
+      "${CMAKE_SHARED_LINKER_FLAGS}")
   endif (GENERATE_PDBS)
   # w/ cl, using DBG here won't mess up the optimizations, debug line number info
   # gets a little messed up, but is better than nothing
@@ -477,8 +499,7 @@ if (UNIX)
 
   # Better to use -dT when passing linker options through gcc, but ld
   # prior to 2.18 only supports -T
-  # FIXME: this is duplicated in api/samples/Makefile b/c it needs to be
-  # a standalone Makefile
+  # FIXME: should we duplicate this in DynamoRIOUse.cmake?
   execute_process(COMMAND
     ${CMAKE_LINKER} --help
     RESULT_VARIABLE ld_result
@@ -501,23 +522,24 @@ endif (UNIX)
 #   Release => -O3 -NDEBUG
 # Right now we only support gcc and cl but could change in future
 if (DEBUG)
-  set(CMAKE_C_FLAGS_RELEASE "${BASE_CFLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${DBG} ${DBG_OPT}")
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
     # FIXME: just disable frame ptr elim opt: but /Oy- ran into some issues
     set (OPT "")
   endif (CALLPROF)
-  set(CMAKE_C_FLAGS_RELEASE "${BASE_CFLAGS} ${OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${OPT}")
 endif (DEBUG)
 if (NOT DISABLE_WARNINGS)
-  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${WARN}")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WARN}")
 endif (NOT DISABLE_WARNINGS)
 
 ###########################################################################
 
 # use a single path for libs so tools can find libutil lib
-set(LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
 set(INSTALL_BIN_BASE bin)
 # Issue 20: cross-arch execve depends on these being distinct and not
@@ -539,6 +561,8 @@ else (DEBUG)
 endif (DEBUG)
 set(INSTALL_INCLUDE include)
 set(INSTALL_DOCS docs)
+# samples are installed via api/samples/ separate CMake project
+set(INSTALL_CMAKE cmake)
 set(BUILD_INCLUDE ${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE})
 
 configure_file(
@@ -597,7 +621,14 @@ include_directories(BEFORE
 # important b/c w/o 64-bit tools they must configure two different
 # build dirs for 64-bit windows: one for 64-bit core and one for
 # 32-bit tools.
-option(BUILD_CORE "build core library" ON)
+if (WIN32)
+  option(BUILD_CORE "build core library and drinject tool" ON)
+else (WIN32)
+  option(BUILD_CORE "build core library" ON)
+endif (WIN32)
+if (WIN32 AND X64)
+  message("Currently 64-bit Windows tools (other than drinject) are not supported (but 32-bit drdeploy can configure 64-bit applications)")
+endif (WIN32 AND X64)
 if (NOT WIN32 OR NOT X64)
   # FIXME i#28: port tools to 64-bit
   # FIXME i#28: port libutil to 64-bit
@@ -645,14 +676,18 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/core
     VERBATIM # recommended: p260
     )
+  install(DIRECTORY ${BUILD_INCLUDE} DESTINATION ${INSTALL_PREFIX})
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
 if (CLIENT_INTERFACE OR APP_EXPORTS)
   if (BUILD_DOCS)
     find_package(ImageMagick COMPONENTS mogrify)
     if (NOT ImageMagick_mogrify_FOUND)
-      message("ImageMagick is required to build the documentation")
-      set(BUILD_DOCS OFF)
+      # cmake 2.6.0 does not set the _FOUND vars, just the exec path
+      if (NOT EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
+        message("ImageMagick is required to build the documentation")
+        set(BUILD_DOCS OFF)
+      endif (NOT EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
     endif (NOT ImageMagick_mogrify_FOUND)
     mark_as_advanced(ImageMagick_EXECUTABLE_DIR)
 
@@ -681,15 +716,31 @@ endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
 ###########################################################################
 
-# FIXME not yet finished:
-# i#65: convert suite/ to cmake and ctest
-# i#63: packaging to replace makezip.sh
-# i#67: convert api/samples/Makefile to cmake
-# i#64: re-add "make review"
-# i#66: re-add "make runregression"
-# 
-# future nice-to-have work:
-# i#68: replace perl with cmake scripts and CTest
-# i#69: re-add support for core unit tests and standalone build rules
-# i#70: symbol store support in core/Makefile and tools/Makefile
-# i#71: support mingw/cygwin makefile cmake target with cl compiler, for make -j
+# create CMake configuration files for clients to use
+configure_file(
+  ${PROJECT_SOURCE_DIR}/DynamoRIOConfig.cmake.in
+  ${PROJECT_BINARY_DIR}/DynamoRIOConfig.cmake)
+install(FILES
+  ${PROJECT_SOURCE_DIR}/DynamoRIOUse.cmake
+  ${PROJECT_BINARY_DIR}/DynamoRIOConfig.cmake
+  DESTINATION ${INSTALL_CMAKE}
+)
+
+# should we disallow selecting samples when core is not built?
+# right now the samples build will just fail
+option(BUILD_SAMPLES "build client samples" ON)
+if (BUILD_SAMPLES)
+  # api/samples is set up to function both as a separate project for
+  # building samples vs a DynamoRIO installation, and to allow
+  # building as a component of the whole source tree, since
+  # DynamoRIOUse.cmake will not override already-defined vars:
+  set(DynamoRIO_DIR ${PROJECT_BINARY_DIR})
+  set(DynamoRIO_INCLUDE_DIRS "${PROJECT_BINARY_DIR}/include")
+  set(DynamoRIO_LIBRARY32_REL_DIRS "${LIBRARY_OUTPUT_PATH}")
+  set(DynamoRIO_LIBRARY32_DBG_DIRS "${LIBRARY_OUTPUT_PATH}")
+  set(DynamoRIO_LIBRARY64_REL_DIRS "${LIBRARY_OUTPUT_PATH}")
+  set(DynamoRIO_LIBRARY64_DBG_DIRS "${LIBRARY_OUTPUT_PATH}")
+  set(DynamoRIO_USE_FILE "${PROJECT_SOURCE_DIR}/DynamoRIOUse.cmake")
+  add_subdirectory(api/samples)
+endif (BUILD_SAMPLES)
+

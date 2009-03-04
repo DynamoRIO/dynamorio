@@ -176,7 +176,6 @@ event_pre_syscall(void *drcontext, int sysnum)
          * our example we suppress output starting with 'H' instead
          */
         byte *output = (byte *) dr_syscall_get_param(drcontext, 5);
-        size_t len = dr_syscall_get_param(drcontext, 6);
         byte first;
         size_t read;
         bool ok = dr_safe_read(output, 1, &first, &read);

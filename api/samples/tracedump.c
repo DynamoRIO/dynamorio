@@ -104,7 +104,7 @@ read_data(file_t f, void *drcontext)
         dr_printf("\nTRACE # %d\n", hdrs.frag_id);
         dr_printf("Tag = "PFX"\n", hdrs.tag);
         if (hdrs.num_bbs > 0) {
-            int j;
+            uint j;
             app_pc tag;
             dr_printf("\nORIGINAL CODE\n");
             for (j=0; j<hdrs.num_bbs; j++) {
@@ -141,7 +141,7 @@ read_data(file_t f, void *drcontext)
         for (i = 0; i<hdrs.num_exits; i++) {
             assert(STUB_DATA_FIXED_SIZE+fhdr.linkcount_size < BUF_SIZE);
             read = dr_read_file(f, sbuf, STUB_DATA_FIXED_SIZE+fhdr.linkcount_size);
-            assert(read == STUB_DATA_FIXED_SIZE+fhdr.linkcount_size);
+            assert(read == (int) STUB_DATA_FIXED_SIZE+fhdr.linkcount_size);
             p = sbuf;
 
             /* We read in whole struct.  The union and code fields are of
@@ -169,7 +169,7 @@ read_data(file_t f, void *drcontext)
                           i, STUBIDX(stubs,i)->target,
                           STUBIDX(stubs,i)->linked ? "not linked" : "linked");
             }
-            assert(p - sbuf == STUB_DATA_FIXED_SIZE+fhdr.linkcount_size);
+            assert(p - sbuf == (int) STUB_DATA_FIXED_SIZE+fhdr.linkcount_size);
             if (STUBIDX(stubs,i)->stub_pc < hdrs.cache_start_pc ||
                 STUBIDX(stubs,i)->stub_pc >= hdrs.cache_start_pc + hdrs.code_size) {
                 assert(STUBIDX(stubs,i)->stub_size < BUF_SIZE);

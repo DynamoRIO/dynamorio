@@ -42,6 +42,7 @@
 
 #include "dr_api.h"
 #include <stddef.h> /* for offsetof */
+#include <wchar.h> /* _snwprintf */
 
 #ifndef WINDOWS
 # error WINDOWS-only!
@@ -201,6 +202,9 @@ GET_NTDLL(NtUnmapViewOfSection, (IN HANDLE         ProcessHandle,
 
 GET_NTDLL(NtOpenDirectoryObject, (PHANDLE, ACCESS_MASK ,POBJECT_ATTRIBUTES));
 
+GET_NTDLL(RtlInitUnicodeString, (IN OUT PUNICODE_STRING DestinationString,
+                                 IN PCWSTR SourceString));
+
 typedef struct _PEB {
     BOOLEAN InheritedAddressSpace;
     BOOLEAN ReadImageFileExecOptions;
@@ -298,8 +302,6 @@ static NTSTATUS
 wchar_to_unicode(PUNICODE_STRING dst, PCWSTR src)
 {
     NTSTATUS res;
-    GET_NTDLL(RtlInitUnicodeString, (IN OUT PUNICODE_STRING DestinationString,
-                                     IN PCWSTR SourceString));
     res = RtlInitUnicodeString(dst, src);
     return res;
 }

@@ -47,7 +47,7 @@ Not available yet.
 \section mf_samples Memory Firewall Examples
 
 An example Memory Firewall \client implementation is provided at <a
-href="samples/MF_moduledb.c">samples/MF_moduledb.c</a> (see that file
+href="../../samples/MF_moduledb.c">../../samples/MF_moduledb.c</a> (see that file
 for additional documentation). The MF_moduledb sample \client reads in
 a list of module names and options from a config file and exempts security
 violations associated with those modules based on the type of
@@ -57,9 +57,9 @@ It also supports dynamically changing its exemptions with a nudge
 handler that triggers re-reading the config file.
 
 The MF_moduledb sample \client is provided with a configuration file <a
-href="samples/MF_moduledb-sample.config">samples/MF_moduledb-sample.config</a>
+href="../../samples/MF_moduledb-sample.config">../../samples/MF_moduledb-sample.config</a>
 and a violation generating executable <a
-href="samples/VIPA_test.exe">samples/VIPA_test.exe.c</a> for easy
+href="../../samples/VIPA_test.exe">../../samples/VIPA_test.exe.c</a> for easy
 testing. To use :
 
 Use drdeploy.exe to configure VIPA_test.exe to run under security_api mode with
@@ -86,7 +86,7 @@ configuration file.
 We now illustrate how to use the above API to implement a simple
 instrumentation \client for counting the number of executed call and
 return instructions in the input program.  Full code for this example is
-in the file <a href="samples/countcalls.c">samples/countcalls.c</a>.
+in the file <a href="../../samples/countcalls.c">../../samples/countcalls.c</a>.
 
 The \client maintains set of three counters: num_direct_calls,
 num_indirect_calls, and num_returns to count three different
@@ -283,7 +283,7 @@ follow the instructions under \ref sec_deploy.
 The next example shows how to use the provided control flow
 instrumentation routines, which allow more sophisticated profiling than
 simply counting instructions.  Full code for this example is
-in the file <a href="samples/instrcalls.c">samples/instrcalls.c</a>.
+in the file <a href="../../samples/instrcalls.c">../../samples/instrcalls.c</a>.
 
 As in the previous example, the \client is interested in direct and
 indirect calls and returns.  The \client wants to analyze the target
@@ -417,7 +417,7 @@ In each clean call, we record the observed direction and immediately
 flush the basic block using dr_flush_region().  Since that routine
 removes the calling block, we redirect execution to the target or
 fall-through address with dr_redirect_execution().  The file <a
-href="samples/cbr.c">samples/cbr.c</a> contains the full code for this
+href="../../samples/cbr.c">../../samples/cbr.c</a> contains the full code for this
 sample.
 
 ********************
@@ -432,7 +432,7 @@ contrary, in order to amortize the optimization overhead, we only want
 to apply the optimization to hot code.  Thus, we apply the optimization
 at the trace level rather than the basic block level.  Full code for
 this example is in the file <a
-href="samples/inc2add.c">samples/inc2add.c</a>.
+href="../../samples/inc2add.c">../../samples/inc2add.c</a>.
 
 
 ********************
@@ -449,7 +449,7 @@ bool dr_mark_trace_head(void *drcontext, void *tag);
 \endcode
 
 Full code for this example is in the file <a
-href="samples/inline.c">samples/inline.c</a>.
+href="../../samples/inline.c">../../samples/inline.c</a>.
 
 
 ********************
@@ -480,7 +480,7 @@ they are being used in the initialization or termination routines.
 This example \client counts the number of basic blocks processed and keeps
 statistics on their average size using floating point operations. Full code
 for this example is in the file <a
-href="samples/bbsize.c">samples/bbsize.c</a>.
+href="../../samples/bbsize.c">../../samples/bbsize.c</a>.
 
 
 \ifnot vmsafe
@@ -489,7 +489,7 @@ href="samples/bbsize.c">samples/bbsize.c</a>.
 
 The new Windows GUI will display custom \client statistics, if they are
 placed in shared memory with a certain name.  The sample <a
-href="samples/stats.c">samples/stats.c</a> gives code for the
+href="../../samples/stats.c">../../samples/stats.c</a> gives code for the
 protocol used in the form of a sample \client that counts total
 instructions, floating-point instructions, and system calls.
 
@@ -500,27 +500,27 @@ instructions, floating-point instructions, and system calls.
 \subsection sec_ex8 Use of Standalone API
 
 The binary tracedump reader also functions as an example of
-\ref page_standalone : <a href="samples/tracedump.c">samples/tracedump.c</a>.
+\ref page_standalone : <a href="../../samples/tracedump.c">../../samples/tracedump.c</a>.
 
 \endif
 
 ********************
 \subsection sec_ex9 Other examples
 
-The sample <a href="samples/strace.c">samples/strace.c</a> displays how to
+The sample <a href="../../samples/strace.c">../../samples/strace.c</a> displays how to
 use the system call events and API routines.
 
-The sample <a href="samples/signal.c">samples/signal.c</a> demonstrates how to
+The sample <a href="../../samples/signal.c">../../samples/signal.c</a> demonstrates how to
 use the signal event.
 
-The sample <a href="samples/prefetch.c">samples/prefetch.c</a> demonstrates
+The sample <a href="../../samples/prefetch.c">../../samples/prefetch.c</a> demonstrates
 modifying the dynamic code stream for compatibilty between different
 processor types. 
 
-The sample <a href="samples/div.c">samples/div.c</a> demonstrates
+The sample <a href="../../samples/div.c">../../samples/div.c</a> demonstrates
 profiling the types of values fed to a particular opcode.
 
-The sample <a href="samples/empty.c">samples/empty.c</a> is provided
+The sample <a href="../../samples/empty.c">../../samples/empty.c</a> is provided
 as an example \client that does nothing.
 
  */

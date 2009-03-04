@@ -69,8 +69,6 @@ static int bbs_no_eflags_saved;
 #endif
 
 static void event_exit(void);
-static void event_thread_init(void *drcontext);
-static void event_thread_exit(void *drcontext);
 static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating);
 

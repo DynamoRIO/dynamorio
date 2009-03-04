@@ -42,10 +42,10 @@ endif (X64)
 # Unfortunately with VC60 we can't make a debug build as libutil uses
 # VC71 and we can't incorporate the policy_staticd pdbs.
 
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} /EHsc")
 # avoid warning about overriding
 string(REGEX REPLACE "/W3" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-SET(CMAKE_MFC_FLAG 1) # static dlls
+set(CMAKE_MFC_FLAG 1) # static dlls
 
 add_definitions(-DNOT_DYNAMORIO_CORE -DWIN32 -DUNICODE -D_UNICODE)
 

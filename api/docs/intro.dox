@@ -431,7 +431,7 @@ applications under \DynamoRIO on Linux.
 As an example of drdeploy usage, the following command runs \c ls
 under \DynamoRIO with the bbsize sample \client:
 \code
-% bin/drdeploy -client docs/html/samples/bbsize.so ls
+% bin/drdeploy -client samples/bin32/bbsize.so ls
 \endcode
 Run \c drdeploy with no options to get a list of the options and
 environment variable shortcuts it supports.
@@ -785,7 +785,7 @@ g++ -o my-client.so -I<header dir> \
   my-client.cpp
 \endcode
 
-See also the stl_test.cpp sample and Makefile provided with this
+See also the stl_test.cpp sample and CMake build files provided with this
 documentation.
 
 Be aware that we have successfully built and tested several small C++

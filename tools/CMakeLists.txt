@@ -30,6 +30,11 @@
 
 if (UNIX)
   add_executable(runstats runstats.c)
+
+  install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/dynamorio
+    DESTINATION ${INSTALL_BIN_BASE}
+    RENAME drdeploy
+    )
 else (UNIX)
   if (X64)
     message(FATAL_ERROR "libutil is 32-bit only (issue 28 covers porting to 64-bit)")
@@ -39,7 +44,7 @@ else (UNIX)
   # W2 is default (we're using W3).  We should also replace
   # all references to unsafe functions (e.g., fopen) and
   # remove /wd4996
-  string(REGEX REPLACE "/W4" "/W3" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+  string(REGEX REPLACE "/W4" "/W3" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   set(tool_cflags "/wd4996")
   add_definitions(-DNOT_DYNAMORIO_CORE -DWIN32)
 

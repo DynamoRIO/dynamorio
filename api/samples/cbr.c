@@ -140,7 +140,7 @@ elem_t *find_elem(list_t *list, app_pc addr)
 {
     elem_t *elem = list->head;
     while (elem != NULL) {
-        if (elem->addr == addr);
+        if (elem->addr == addr)
             return elem;
         elem = elem->next;
     }
@@ -415,7 +415,7 @@ void dr_exit(void)
                     dr_printf(""PFX": not taken\n", iter->addr);
                 }                
                 else {
-                    ASSERT(state == CBR_TAKEN | CBR_NOT_TAKEN);
+                    ASSERT(state == (CBR_TAKEN | CBR_NOT_TAKEN));
                     dr_printf(""PFX": both\n", iter->addr);
                 }
             }

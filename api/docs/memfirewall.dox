@@ -155,7 +155,7 @@ void dr_write_forensics_report(void *dcontext, (file_t) file,
 \section sec_MF_examples Examples
 
 An example Memory Firewall \client implementation is provided at <a
-href="samples/MF_moduledb.c">samples/MF_moduledb.c</a>. See \ref
+href="../../samples/MF_moduledb.c">../../samples/MF_moduledb.c</a>. See \ref
 sec_mf_samples for a description.
 
 \endif
