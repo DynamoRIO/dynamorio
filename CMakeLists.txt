@@ -32,7 +32,6 @@
 # FIXME not yet finished:
 # i#65: convert suite/ to cmake and ctest
 # i#63: packaging to replace makezip.sh
-# i#67: convert api/samples/Makefile to cmake
 # i#64: re-add "make review"
 # i#66: re-add "make runregression"
 # i#73: provide automatic suport for locating ml64.exe when using Vista SDK+WDK
@@ -48,9 +47,9 @@
 ###########################################################################
 
 cmake_minimum_required(VERSION 2.6)
-
-if ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}"
-    STRLESS "2.6.4")
+set(cmake_ver_string
+  "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
+if ("${cmake_ver_string}" STRLESS "2.6.4")
   # Workaround for cmake bug #8639 where CMAKE_ASM_SOURCE_FILE_EXTENSIONS
   # is not set and our asm files are not built (should be fixed in 2.6.4).
   # We can simply set the var ahead of time, luckily, since noone clears it:
@@ -59,8 +58,7 @@ if ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}"
   # - I tried puting a patched CMakeASMInformation.cmake ahead of share/Modules
   #   but enable_language() seems to not use the CMAKE_MODULE_PATH
   set(CMAKE_ASM_SOURCE_FILE_EXTENSIONS s;S;asm)
-endif ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}"
-  STRLESS "2.6.4")
+endif ("${cmake_ver_string}" STRLESS "2.6.4")
 
 project(DynamoRIO)
 
@@ -683,11 +681,14 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   if (BUILD_DOCS)
     find_package(ImageMagick COMPONENTS mogrify)
     if (NOT ImageMagick_mogrify_FOUND)
-      # cmake 2.6.0 does not set the _FOUND vars, just the exec path
-      if (NOT EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
+      # cmake 2.6.0 does not set the _FOUND vars, just the exec path,
+      # and it uses all caps
+      if (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
+        set(ImageMagick_mogrify_EXECUTABLE ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
+      else (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
         message("ImageMagick is required to build the documentation")
         set(BUILD_DOCS OFF)
-      endif (NOT EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
+      endif (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
     endif (NOT ImageMagick_mogrify_FOUND)
     mark_as_advanced(ImageMagick_EXECUTABLE_DIR)
 
@@ -702,12 +703,39 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
       message("fig2dev (from transfig) is required to build the documentation")
       set(BUILD_DOCS OFF)
     endif (NOT FIG2DEV_FOUND)
-    # FIXME: fig2dev needs ghostscript to produce eps: check separately?
+
+    # fig2dev needs ghostscript to produce tiff files (not to produce eps)
+    include(${PROJECT_SOURCE_DIR}/make/FindGhostscript.cmake)
+    if (NOT GHOSTSCRIPT_FOUND)
+      message("ghostscript is required to build the documentation")
+      set(BUILD_DOCS OFF)
+    else (NOT GHOSTSCRIPT_FOUND)
+      # must be on path.  we can't just literally check the path
+      # b/c of cygwin issues: c:/cygwin/bin vs /usr/bin, etc.
+      get_filename_component(gs_name ${GHOSTSCRIPT_EXECUTABLE} NAME)
+      find_program(GHOSTSCRIPT_ON_PATH ${gs_name} PATHS ENV PATH NO_DEFAULT_PATH)
+      if (NOT EXISTS ${GHOSTSCRIPT_ON_PATH})
+        message("ghostscript is installed, but must be on PATH for fig2dev to find it")
+        set(BUILD_DOCS OFF)
+      endif (NOT EXISTS ${GHOSTSCRIPT_ON_PATH})
+      mark_as_advanced(GHOSTSCRIPT_ON_PATH)
+    endif (NOT GHOSTSCRIPT_FOUND)
 
     if (BUILD_DOCS)
       add_subdirectory(api/docs)
     else (BUILD_DOCS)
-      message("*** NOT building documentation ***")
+      message("*** NOT building documentation *** (must re-enable BUILD_DOCS manually if fix up the component paths)")
+      # Note the difference between cache vars and live vars in CMake.
+      # The cache var indicates "would like to build docs" and the live var
+      # "capable of building docs."  The problem is that if we FORCE the
+      # cache var OFF as further confirmation of the warning message, the
+      # user must not only fix up the paths in the required component vars
+      # but also re-enable BUILD_DOCS before re-configuring due to our
+      # guard above.  An alternative is to add an option BUILD_DOCS_CAPABLE
+      # as an informational message that is peristent and right next to the
+      # real option, but I think forcing the user to re-enable BUILD_DOCS
+      # is actually simpler and reasonable.
+      set(BUILD_DOCS OFF CACHE BOOL "build documentation" FORCE)
     endif (BUILD_DOCS)
   endif (BUILD_DOCS)
 else (CLIENT_INTERFACE OR APP_EXPORTS)

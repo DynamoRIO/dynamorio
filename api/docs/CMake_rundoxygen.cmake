@@ -33,7 +33,7 @@ foreach (dox ${dox_files})
   file(READ ${dox} string)
   # These are case-sensitive, to allow function names and macros
   string(REGEX MATCH
-    "(^|[^\\])DynamoRIO"
+    "(^|[^\\/])DynamoRIO"
     bad_dr "${string}")
   string(REGEX MATCH
     "(^|[^_\\-])client($|[^_])"
