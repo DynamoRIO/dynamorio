@@ -42,6 +42,7 @@
 # i#70: symbol store support in core/Makefile and tools/Makefile
 # i#71: support mingw/cygwin makefile cmake target with cl compiler, for make -j
 # i#75: convert clients/standalone/Makefile to CMake 
+# i#72: RHEL3 linker script has no __executable_start
 #
 # Not filed:
 # * move info like "build core solely from DDK" from compiler.mk into
