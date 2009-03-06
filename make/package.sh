@@ -74,11 +74,12 @@ mkdir ../build64dbg; cd ../build64dbg
 cmake $DEFS -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF ${srcdir}
 make -j 4
 
+# debug first so we take release files in case they overlap
 echo "set(CPACK_INSTALL_CMAKE_PROJECTS
-  \"$PWD/../build32rel;DynamoRIO;ALL;/\"
   \"$PWD/../build32dbg;DynamoRIO;ALL;/\"
-  \"$PWD/../build64rel;DynamoRIO;ALL;/\"
+  \"$PWD/../build32rel;DynamoRIO;ALL;/\"
   \"$PWD/../build64dbg;DynamoRIO;ALL;/\"
+  \"$PWD/../build64rel;DynamoRIO;ALL;/\"
   )
 " >> CPackConfig.cmake
 make package

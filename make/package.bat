@@ -82,10 +82,12 @@ REM cmake handles backslashes in env vars fine, but complains if
 REM in a direct path or string, so be sure to go through $ENV
 echo string(REGEX REPLACE "\\\\" "/" curdir "$ENV{CUR_DIR}") >> CPackConfig.cmake
 echo set(CPACK_INSTALL_CMAKE_PROJECTS >> CPackConfig.cmake
-echo   "${curdir}/build32rel;DynamoRIO;ALL;/" >> CPackConfig.cmake
+REM debug first, since we do have some files that overlap: drinject,
+REM and the lib/ files, for which we want release build
 echo   "${curdir}/build32dbg;DynamoRIO;ALL;/" >> CPackConfig.cmake
-echo   "${curdir}/build64rel;DynamoRIO;ALL;/" >> CPackConfig.cmake
+echo   "${curdir}/build32rel;DynamoRIO;ALL;/" >> CPackConfig.cmake
 echo   "${curdir}/build64dbg;DynamoRIO;ALL;/" >> CPackConfig.cmake
+echo   "${curdir}/build64rel;DynamoRIO;ALL;/" >> CPackConfig.cmake
 echo   ) >> CPackConfig.cmake
 nmake package
 

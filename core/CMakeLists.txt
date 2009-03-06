@@ -68,8 +68,8 @@ if (WIN32 AND NOT X64)
   #   $(BUILD)/io.obj: FILTER_CC = 2>&1 | $(GREP) -v "D9035 : option 'QIfist'";
   # we just live with it for now:
   #   [ 20%] Building C object core/CMakeFiles/dynamorio.dir/io.c.obj
-  #   cl : Command line warning D9002 : ignoring unknown option '/QIFist'
-  set_source_files_properties(io.c COMPILE_FLAGS "/QIFist")
+  #   cl : Command line warning D9035 : option 'QIfist' has been deprecated and will be removed in a future release
+  set_source_files_properties(io.c COMPILE_FLAGS "/QIfist")
 endif (WIN32 AND NOT X64)
 
 set(ARCH_DIRNAME x86)
