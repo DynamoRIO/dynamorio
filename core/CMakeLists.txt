@@ -95,7 +95,7 @@ set(ARCH_SRCS
   )
 
 # These custom commands are per-subdir so can't just place at top level
-include(../CMake_events.cmake)
+include(../make/CMake_events.cmake)
 
 if (UNIX)
   set(OSNAME linux)
@@ -163,7 +163,7 @@ endif (UNIX)
 # FIXME: how get cmake to analyze #includes of my asm files?
 set(asm_dependencies
   ${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm
-  ${PROJECT_SOURCE_DIR}/CMake_asm.cmake
+  ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   ${PROJECT_BINARY_DIR}/configure.h)
 set_source_files_properties(x86/x86.asm x86/pre_inject_asm.asm
   PROPERTIES OBJECT_DEPENDS "${asm_dependencies}")
@@ -437,7 +437,8 @@ if (UNIX)
   install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
 else (UNIX)
   install(TARGETS drinject DESTINATION ${INSTALL_BIN})
-  install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB_BASE})
-  install(TARGETS drearlyhelp1 DESTINATION ${INSTALL_LIB_BASE})
-  install(TARGETS drearlyhelp2 DESTINATION ${INSTALL_LIB_BASE})
+  install(TARGETS ${PRELOAD_NAME} RUNTIME DESTINATION ${INSTALL_LIB_BASE})
+  install(TARGETS drearlyhelp1 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
+  install(TARGETS drearlyhelp2 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
 endif (UNIX)
+

@@ -36,7 +36,7 @@ if (X64)
 endif (X64)
 
 # These custom commands are per-subdir so can't just place at top level
-include(../CMake_events.cmake)
+include(../make/CMake_events.cmake)
 
 # FIXME i#60: add rules from old Makefile for building unit tests
 # the tests had been broken for a while
@@ -118,9 +118,10 @@ if (MFAPI_ENABLED)
 endif (MFAPI_ENABLED)
 
 install(TARGETS drconfig
-  RUNTIME DESTINATION ${INSTALL_LIB} # .dll
-  LIBRARY DESTINATION ${INSTALL_LIB} # .so
-  ARCHIVE DESTINATION ${INSTALL_LIB} # .lib
+  RUNTIME DESTINATION ${INSTALL_LIB_BASE} # .dll
+  LIBRARY DESTINATION ${INSTALL_LIB_BASE} # .so
+  ARCHIVE DESTINATION ${INSTALL_LIB_BASE} # .lib
   )
 # drdeploy.exe needs a copy in the bin dir
-install(TARGETS drconfig DESTINATION ${INSTALL_BIN_BASE})
+install(TARGETS drconfig DESTINATION ${INSTALL_BIN})
+

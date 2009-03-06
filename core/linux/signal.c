@@ -1077,7 +1077,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                         * is present in ESX3.5 and earlier: vmkernel treats
                         * 63 and 64 as invalid signal numbers.
                         */
-                       IF_VMX86_SERVER(|| (i >= 63 && rc == -EINVAL))
+                       IF_VMX86(|| (i >= 63 && rc == -EINVAL))
                        );
                 if (rc == 0 &&
                     oldact.handler != (handler_t) SIG_DFL &&
@@ -1192,7 +1192,7 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
             * is present in ESX3.5 and earlier: vmkernel treats
             * 63 and 64 as invalid signal numbers.
             */
-           IF_VMX86_SERVER(|| (i >= 63 && rc == -EINVAL))
+           IF_VMX86(|| (i >= 63 && rc == -EINVAL))
            );
     if (rc != 0) /* be defensive: app will probably still work */
         return;

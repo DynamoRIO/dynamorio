@@ -31,10 +31,20 @@
 if (UNIX)
   add_executable(runstats runstats.c)
 
-  install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/dynamorio
-    DESTINATION ${INSTALL_BIN_BASE}
-    RENAME drdeploy
-    )
+  # set the default arch
+  # we duplicate tools/dynamorio in tools/drdeploy.in to keep
+  # dynamorio runnable w/ no arch arg: alternative is to add_custom_target,
+  # add_custom_command, and add CMake_drdeploy.cmake to modify ^arch
+  if (X64)
+    set(archdefault 64)
+  else (X64)
+    set(archdefault 32)
+  endif (X64)
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in
+    ${CMAKE_CURRENT_BINARY_DIR}/drdeploy
+    @ONLY)
+  install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/drdeploy
+    DESTINATION ${INSTALL_BIN})
 else (UNIX)
   if (X64)
     message(FATAL_ERROR "libutil is 32-bit only (issue 28 covers porting to 64-bit)")
@@ -96,14 +106,13 @@ else (UNIX)
   # drdeploy.exe links to libutil/drconfig.dll.  When we build drdeploy,
   # we'll copy the DLL to the tools directory so users won't need to
   # update their path.
-  install(TARGETS drdeploy DESTINATION ${INSTALL_BIN_BASE})
+
   # We could add a manifest so that we can request elevation on Vista
   # (xref PR 233520).  Works fine for double clicking the app, but
   # running from a cmd shell just gives access denied if the cmd shell
   # isn't runas admin which isn't quite as nice.  Disable for now.
   # $(MT) -manifest drdeploy.exe.manifest -outputresource:drdeploy.exe
 
-  string(REGEX REPLACE "drdeploy" "" tgts_bin32 "${tgts}")
-  install(TARGETS ${tgts_bin32} DESTINATION ${INSTALL_BIN})
+  install(TARGETS ${tgts} DESTINATION ${INSTALL_BIN})
 
 endif (UNIX)

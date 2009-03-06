@@ -27,6 +27,7 @@ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 
 **********************************************************
+About DynamoRIO
 
 DynamoRIO is a runtime code manipulation system that supports code
 transformations on any part of a program, while it executes. DynamoRIO
@@ -40,19 +41,62 @@ transparent, and comprehensive manipulation of unmodified applications
 running on stock operating systems (Windows or Linux) and commodity IA-32
 and AMD64 hardware.
 
-************************************************************
+The DynamoRIO home page:
 
+  http://code.google.com/p/dynamorio/
+
+************************************************************
+Quickstart instructions for running DynamoRIO:
+
+--------------------------------------------------
+On Linux:
+
+32-bit:
+  % bin32/drdeploy -client samples/bin32/libbbsize.so 0x1 "" ls
+64-bit:
+  % bin64/drdeploy -client samples/bin64/libbbsize.so 0x1 "" ls
+For additional options:
+  % bin32/drdeploy
+
+--------------------------------------------------
+On Windows, with examples run from a cygwin shell:
+
+First, set parameters for the target application:
+32-bit:
+  % bin32/drdeploy.exe -32 -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./samples/bin32/bbsize.dll` 0x1 ""
+64-bit:
+  % bin32/drdeploy.exe -64 -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./samples/bin64/bbsize.dll` 0x1 ""
+
+Second, run the application, either natively:
+  % cmd /c start calc
+Or using direct injection:
+32-bit:
+  % bin32/drinject.exe `cygpath -wa $SYSTEMROOT/system32/calc.exe`
+64-bit:
+  Cygwin is 32-bit and the WOW64 redirection prevents it from accessing the
+  64-bit system32 directory.  Copy calc.exe using Explorer or the cmd shell
+  to ./calc64.exe, and then:
+  % bin64/drinject.exe `cygpath -wa ./calc64.exe`
+
+Now close calc and a messagebox should pop up produced by the bbsize client.
+
+************************************************************
 Instructions for building:
 
-Please see the DynamoRIO wiki for information on the required tools on both
-Windows and Linux:
+If you are building from source, please see the DynamoRIO wiki for
+information on the required tools on both Windows and Linux:
 
 http://code.google.com/p/dynamorio/wiki/HowToBuild
 
 ************************************************************
+Getting help and reporting bugs:
 
-Reporting bugs:
+Query the DynamoRIO users group mailing list/discussion forum:
 
-Use the Issue Tracker at http://code.google.com/p/dynamorio/issues/list
+  http://groups.google.com/group/dynamorio-users
 
+Use the Issue Tracker:
 
+  http://code.google.com/p/dynamorio/issues/list
+
+************************************************************

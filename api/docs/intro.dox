@@ -406,7 +406,7 @@ process must statically link to user32.dll (only a few small
 non-graphical windows applications don't link user32.dll).  If a
 target application does not link to user32.dll, \DynamoRIO can still
 inject if the process is launched with the appropriate drinject.exe tool (in the 
-bin/bin32 and bin/bin64 directories) or the parent process (usually cmd.exe or 
+bin32 and bin64 directories) or the parent process (usually cmd.exe or 
 explorer.exe for user launched processes) is running under \DynamoRIO.
 The drinject.exe tool uses the configuration information set by
 drdeploy.exe for the target application.
@@ -431,7 +431,7 @@ applications under \DynamoRIO on Linux.
 As an example of drdeploy usage, the following command runs \c ls
 under \DynamoRIO with the bbsize sample \client:
 \code
-% bin/drdeploy -client samples/bin32/bbsize.so ls
+% bin32/drdeploy -client samples/bin32/libbbsize.so ls
 \endcode
 Run \c drdeploy with no options to get a list of the options and
 environment variable shortcuts it supports.

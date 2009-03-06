@@ -41,7 +41,7 @@
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
-# define ATOMIC_INC(var) _InterlockedIncrement(&var)
+# define ATOMIC_INC(var) _InterlockedIncrement((volatile LONG *)(&(var)))
 #else
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 # define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m" (var) : : "memory")

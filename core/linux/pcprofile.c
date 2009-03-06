@@ -272,7 +272,7 @@ pcprofile_add_entry(thread_pc_info_t *info, void *pc, int whereami)
     e->counter = 1;
     e->whereami = whereami;
     e->next = NULL;
-#if DEBUG
+#ifdef DEBUG
     e->id = 0;
 #endif
     e->tag = 0;

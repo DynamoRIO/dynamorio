@@ -31,19 +31,21 @@
 ###########################################################################
 # FIXME not yet finished:
 # i#65: convert suite/ to cmake and ctest
-# i#63: packaging to replace makezip.sh
 # i#64: re-add "make review"
 # i#66: re-add "make runregression"
 # i#73: provide automatic suport for locating ml64.exe when using Vista SDK+WDK
 # 
 # future nice-to-have work:
+# i#74: create source tarball via 'make package_source' 
 # i#68: replace perl with cmake scripts and CTest
 # i#69: re-add support for core unit tests and standalone build rules
 # i#70: symbol store support in core/Makefile and tools/Makefile
 # i#71: support mingw/cygwin makefile cmake target with cl compiler, for make -j
+# i#75: convert clients/standalone/Makefile to CMake 
 #
-# Not filed: move info like "build core solely from DDK" from compiler.mk into
-# HowToBuild.wiki
+# Not filed:
+# * move info like "build core solely from DDK" from compiler.mk into
+#   HowToBuild.wiki
 ###########################################################################
 
 cmake_minimum_required(VERSION 2.6)
@@ -67,10 +69,22 @@ project(DynamoRIO)
 
 # many are core-specific
 
-set(INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/exports" CACHE PATH
-  "where to install")
-set(CMAKE_INSTALL_PREFIX "${INSTALL_PREFIX}" CACHE INTERNAL
-  "where to install" FORCE)
+# I want to override the default CMAKE_INSTALL_PREFIX, but keep
+# the name of the var so CPack and other standard tools work.
+# The best I can come up with is to disallow installing to the
+# default location, which seems reasonable.
+# If we didn't use standard tools we could set CMAKE_INSTALL_PREFIX
+# to be CACHE INTERNAL FORCE to INSTALL_PREFIX.
+if (UNIX)
+  set(default_install "/usr/local")
+else (UNIX)
+  set(default_install "$ENV{SYSTEMDRIVE}/Program Files")
+endif (UNIX)
+if ("${CMAKE_INSTALL_PREFIX}" MATCHES "^${default_install}")
+  set(CMAKE_INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/exports" 
+    CACHE PATH "install path" FORCE)
+endif ("${CMAKE_INSTALL_PREFIX}" MATCHES "^${default_install}")
+set(INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 # configurations that also have defines
 option(DEBUG "build with asserts and logging enabled")
@@ -129,12 +143,12 @@ option(KSTATS "internal kstat profiling")
 option(CALLPROF "internal caller profiling support")
 option(STANDALONE_UNIT_TEST "internal unit tests")
 option(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE "keep internal symbols exported")
-if (INTERNAL)
+if (INTERNAL OR DEBUG)
   set(KSTATS 1)
-  if (DEBUG)
-    set(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE 1)
-  endif (DEBUG)
-endif (INTERNAL)
+endif (INTERNAL OR DEBUG)
+if (INTERNAL AND DEBUG)
+  set(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE 1)
+endif (INTERNAL AND DEBUG)
 # no KSTATS for caller profiling: we want to be as close to release
 # build as we can, but w/o optimizations
 if (CALLPROF)
@@ -404,7 +418,7 @@ if (UNIX)
   # up the --defsym args.
   set(CMAKE_ASM_COMPILE_OBJECT
     "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E <SOURCE> -o <OBJECT>.s"
-    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P ${PROJECT_SOURCE_DIR}/CMake_asm.cmake"
+    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
     # not using <FLAGS> b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
     # is passed in: we don't need the include dirs b/c of the cpp step.
     # update: Brad fixed bug #8107: moved -Ddynamorio_EXPORTS from <FLAGS> to <DEFINES> 
@@ -429,7 +443,7 @@ else (UNIX)
     #
     # ml can't handle line number markers so using ${CPP_NO_LINENUM}.
     "<CMAKE_C_COMPILER> ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E ${CPP_NO_LINENUM} <SOURCE> > <OBJECT>.s"
-    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P ${PROJECT_SOURCE_DIR}/CMake_asm.cmake"
+    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
     "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} /c /Fo<OBJECT> <OBJECT>.s"
     )
 endif (UNIX)
@@ -514,6 +528,46 @@ if (UNIX)
     set(ld_script_option "-dT")
   endif (NOT flag_present)
 
+  # We want separate .debug files for all shared libraries
+  if (NOT DEFINED CMAKE_OBJCOPY)
+    find_package(BinUtils)
+  endif (NOT DEFINED CMAKE_OBJCOPY)
+  if (EXISTS ${CMAKE_OBJCOPY} AND EXISTS ${CMAKE_STRIP})
+    # Check for --only-keep-debug support: added ~2.15
+    execute_process(COMMAND
+      ${CMAKE_OBJCOPY} --help
+      RESULT_VARIABLE objcopy_result
+      ERROR_QUIET
+      OUTPUT_VARIABLE objcopy_out)
+    if (objcopy_result)
+      message(FATAL_ERROR "*** ${CMAKE_OBJCOPY} failed to run ***\n")
+    endif (objcopy_result)
+    string(REGEX MATCH "only-keep-debug" flag_present "${objcopy_out}")
+    if (NOT flag_present)
+      message("${CMAKE_OBJCOPY} missing flag --only-keep-debug: leaving debug info in .so files")
+    else (NOT flag_present)
+      set(CMAKE_C_CREATE_SHARED_LIBRARY
+        # standard rule
+        "<CMAKE_C_COMPILER> <CMAKE_SHARED_LIBRARY_C_FLAGS> <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> <CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS> <CMAKE_SHARED_LIBRARY_SONAME_C_FLAG><TARGET_SONAME> -o <TARGET> <OBJECTS> <LINK_LIBRARIES>"
+        # now create a .debug copy
+        "${CMAKE_OBJCOPY} --only-keep-debug <TARGET> <TARGET>.debug"
+        # link original to point at .debug copy
+        # directory components are removed, so "../lib/" is fine
+        "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
+        # We can't strip everything since a client's _USES_DR_VERSION_ will be
+        # removed, so we only strip debug (-g) and local (-x), and preserve
+        # file attributes (-p):
+        "${CMAKE_STRIP} -g -x -p <TARGET>"
+        )
+      SET(CMAKE_C_LINK_EXECUTABLE
+        "<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> <OBJECTS>  -o <TARGET> <LINK_LIBRARIES>"
+        "${CMAKE_OBJCOPY} --only-keep-debug <TARGET> <TARGET>.debug"
+        "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
+        "${CMAKE_STRIP} -g -x -p <TARGET>"
+        )
+    endif (NOT flag_present)
+  endif (EXISTS ${CMAKE_OBJCOPY} AND EXISTS ${CMAKE_STRIP})
+
 endif (UNIX)
 
 # Should we be using fewer of these and using cmake's Debug vs Release?
@@ -535,11 +589,10 @@ endif (NOT DISABLE_WARNINGS)
 
 ###########################################################################
 
-# use a single path for libs so tools can find libutil lib
+# use a single path for easier installation of pdbs
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
-set(INSTALL_BIN_BASE bin)
 # Issue 20: cross-arch execve depends on these being distinct and not
 # subsets of each other (e.g., not "lib" and "lib64") and on the
 # release package using these same names.
@@ -547,10 +600,10 @@ set(INSTALL_LIB_X64 lib64)
 set(INSTALL_LIB_X86 lib32)
 if (X64)
   set(INSTALL_LIB_BASE ${INSTALL_LIB_X64})
-  set(INSTALL_BIN ${INSTALL_BIN_BASE}/bin64)
+  set(INSTALL_BIN bin64)
 else (X64)
   set(INSTALL_LIB_BASE ${INSTALL_LIB_X86})
-  set(INSTALL_BIN ${INSTALL_BIN_BASE}/bin32)
+  set(INSTALL_BIN bin32)
 endif (X64)
 if (DEBUG)
   set(INSTALL_LIB ${INSTALL_LIB_BASE}/debug)
@@ -564,7 +617,7 @@ set(INSTALL_CMAKE cmake)
 set(BUILD_INCLUDE ${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE})
 
 configure_file(
-  ${PROJECT_SOURCE_DIR}/configure.cmake.h
+  ${PROJECT_SOURCE_DIR}/make/configure.cmake.h
   ${PROJECT_BINARY_DIR}/configure.h
   )
 
@@ -674,7 +727,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/core
     VERBATIM # recommended: p260
     )
-  install(DIRECTORY ${BUILD_INCLUDE} DESTINATION ${INSTALL_PREFIX})
+  install(DIRECTORY ${BUILD_INCLUDE} DESTINATION .)
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
 if (CLIENT_INTERFACE OR APP_EXPORTS)
@@ -744,12 +797,56 @@ endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
 ###########################################################################
 
+install(FILES
+  ${PROJECT_SOURCE_DIR}/README 
+  ${PROJECT_SOURCE_DIR}/License.txt 
+  ${PROJECT_SOURCE_DIR}/ACKNOWLEDGEMENTS
+  DESTINATION .)
+
+# We put all our libs and exes in common dirs, making it easier
+# to copy our symbols.  It's a pain to construct the pdb name
+# counterparts for targets, so we use the install(DIRECTORY) commands
+# where we can use wildcards.
+# Slightly ugly to have hardcoded names: long-term CMake should
+# support auto-installing pdb files.
+install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
+  DESTINATION ${INSTALL_LIB_BASE}
+  FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+  FILES_MATCHING
+  PATTERN "*.debug"
+  PATTERN "*.pdb"
+  PATTERN "dynamorio.pdb" EXCLUDE # in ${INSTALL_LIB}
+  PATTERN "libdynamorio.so.debug" EXCLUDE # in ${INSTALL_LIB}
+  PATTERN "libdrpreload.so.debug" EXCLUDE # in ${INSTALL_LIB}
+  PATTERN "policy_static.pdb" EXCLUDE
+  )
+install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
+  DESTINATION ${INSTALL_LIB}
+  FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+  FILES_MATCHING
+  PATTERN "dynamorio.pdb"
+  PATTERN "libdynamorio.so.debug" 
+  PATTERN "libdrpreload.so.debug" 
+  )
+if (BUILD_TOOLS OR WIN32)
+  install(DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/
+    DESTINATION ${INSTALL_BIN}
+    FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+    FILES_MATCHING
+    PATTERN "*.debug"
+    PATTERN "*.pdb"
+    PATTERN "runstats.debug" EXCLUDE # since not installing runstats
+    )
+endif (BUILD_TOOLS OR WIN32)
+
+###########################################################################
+
 # create CMake configuration files for clients to use
 configure_file(
-  ${PROJECT_SOURCE_DIR}/DynamoRIOConfig.cmake.in
+  ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfig.cmake.in
   ${PROJECT_BINARY_DIR}/DynamoRIOConfig.cmake)
 install(FILES
-  ${PROJECT_SOURCE_DIR}/DynamoRIOUse.cmake
+  ${PROJECT_SOURCE_DIR}/make/DynamoRIOUse.cmake
   ${PROJECT_BINARY_DIR}/DynamoRIOConfig.cmake
   DESTINATION ${INSTALL_CMAKE}
 )
@@ -768,7 +865,67 @@ if (BUILD_SAMPLES)
   set(DynamoRIO_LIBRARY32_DBG_DIRS "${LIBRARY_OUTPUT_PATH}")
   set(DynamoRIO_LIBRARY64_REL_DIRS "${LIBRARY_OUTPUT_PATH}")
   set(DynamoRIO_LIBRARY64_DBG_DIRS "${LIBRARY_OUTPUT_PATH}")
-  set(DynamoRIO_USE_FILE "${PROJECT_SOURCE_DIR}/DynamoRIOUse.cmake")
+  set(DynamoRIO_USE_FILE "${PROJECT_SOURCE_DIR}/make/DynamoRIOUse.cmake")
   add_subdirectory(api/samples)
 endif (BUILD_SAMPLES)
 
+###########################################################################
+# packaging
+
+# For building a full release package, we rely on an external script to
+# build multiple configurations ({release,debug}x{32-bit,64-bit}) with a
+# shared install tree.  In the final build, if an appropriate
+# CPACK_INSTALL_CMAKE_PROJECTS variable is set to point at all 4 builds,
+# "make package" will produce a package from all 4 installs.
+
+# FIXME i#74: create source tarball via 'make package_source' 
+# Just need to exclude exports/ (or move exports/ to ../?) and
+# other files inside source dir (or run on untouched source dir)
+# and update package.{sh,bat}.
+# Note that CPACK_SOURCE_IGNORE_FILES may be tricky to set from here
+# due to the escapes needed: may want to move to a configured file.
+
+if (UNIX)
+  # not bothering with TZ (5M!) or TBZ2 (3.0M vs 3.2M for TGZ)
+  set(CPACK_GENERATOR "STGZ;TGZ")
+  # not bothering with TZ or TBZ2
+  set(CPACK_SOURCE_GENERATOR "TGZ")
+  # We've already split out our separate .debug files and stripped the
+  # originals in our build rules
+  set(CPACK_STRIP_FILES OFF)
+  set(CPACK_SYSTEM_NAME "Linux")
+else (UNIX)
+  # FIXME: try Windows NSIS
+  set(CPACK_GENERATOR "ZIP")
+  set(CPACK_SOURCE_GENERATOR "ZIP")
+  set(CPACK_SYSTEM_NAME "Windows")
+endif (UNIX)
+
+set(CPACK_PACKAGE_NAME "DynamoRIO")
+set(CPACK_PACKAGE_VENDOR "DynamoRIO community")
+set(CPACK_PACKAGE_DESCRIPTION_FILE "${PROJECT_SOURCE_DIR}/README")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "DynamoRIO Dynamic Instrumentation Tool Platform")
+set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/License.txt")
+set(CPACK_RESOURCE_FILE_README "${PROJECT_SOURCE_DIR}/README")
+
+set(CPACK_PACKAGE_VERSION "${VERSION_NUMBER}")
+string(REGEX REPLACE 
+  "^([0-9]+)\\..*" "\\1" CPACK_PACKAGE_VERSION_MAJOR "${VERSION_NUMBER}")
+string(REGEX REPLACE 
+  "^[0-9]+\\.([0-9]+)\\..*" "\\1" CPACK_PACKAGE_VERSION_MINOR "${VERSION_NUMBER}")
+string(REGEX REPLACE 
+  "^[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" CPACK_PACKAGE_VERSION_PATCH "${VERSION_NUMBER}")
+
+# CPack tarballs do not allow setting a different name for the base
+# directory and the file: I tried a ton of CPack variables for "install
+# dir" and looked at the source code.  Most of the variables are for the
+# other installers (rpm, nsis).  I can hack it via
+# CPACK_TEMPORARY_PACKAGE_FILE_NAME if I hardcode the exentsion: but maybe
+# having the full version in the base dir is a good thing, though I'm not
+# sure about the caps.
+set(CPACK_PACKAGE_FILE_NAME "DynamoRIO-${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "dynamorio")
+set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "DynamoRIO")
+set(CPACK_PACKAGE_RELOCATABLE "true")
+
+include(CPack)

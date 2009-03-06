@@ -68,7 +68,8 @@ read_data(file_t f, void *drcontext)
 {
     byte sbuf[BUF_SIZE];
     byte *dbuf = NULL;
-    int read, dlen = 0, i;
+    ssize_t read;
+    int dlen = 0, i;
     byte *p = sbuf, *pc, *next_pc;
     tracedump_trace_header_t hdrs;
     tracedump_file_header_t fhdr;
@@ -180,7 +181,7 @@ read_data(file_t f, void *drcontext)
                 memcpy(STUBIDX(stubs,i)->stub_code, p, STUBIDX(stubs,i)->stub_size);
                 p += STUBIDX(stubs,i)->stub_size;
             } else if (STUBIDX(stubs,i)->stub_pc - hdrs.cache_start_pc < next_stub_offs) {
-                next_stub_offs = STUBIDX(stubs,i)->stub_pc - hdrs.cache_start_pc;
+                next_stub_offs = (int) (STUBIDX(stubs,i)->stub_pc - hdrs.cache_start_pc);
             }
         }
         if (hdrs.code_size >= dlen)
@@ -211,7 +212,8 @@ read_data(file_t f, void *drcontext)
             for (i=cur_stub + 1; i<hdrs.num_exits; i++) {
                 if (STUBIDX(stubs,i)->stub_pc >= hdrs.cache_start_pc &&
                     STUBIDX(stubs,i)->stub_pc < hdrs.cache_start_pc + hdrs.code_size) {
-                    next_stub_offs = STUBIDX(stubs,i)->stub_pc - hdrs.cache_start_pc;
+                    next_stub_offs = (int)
+                        (STUBIDX(stubs,i)->stub_pc - hdrs.cache_start_pc);
                     break;
                 }
             }

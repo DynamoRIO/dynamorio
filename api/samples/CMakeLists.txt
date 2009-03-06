@@ -32,11 +32,11 @@ cmake_minimum_required(VERSION 2.6)
 
 project(DynamoRIO_samples)
 
-set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
-set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
+set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
+set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
 
 option(SHOW_RESULTS
-  "Display results in pop-up (Windows) or console message (Linux)"
+  "Display client results in pop-up (Windows) or console message (Linux)"
   ON)
 if (SHOW_RESULTS)
   add_definitions(-DSHOW_RESULTS)
@@ -57,6 +57,8 @@ if (UNIX)
   endif (X64)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_CFLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_CFLAGS}")
+  # we're not assuming gcc >= 3.4 in our header files
+  string(REGEX REPLACE "-fvisibility=internal" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 else (UNIX)
   # disable stack protection: "unresolved external symbol ___security_cookie"
   # disable the warning "unreferenced formal parameter" #4100
@@ -92,11 +94,12 @@ endif(DynamoRIO_FOUND)
 file(GLOB srcs *.c *.cpp)
 # Not all clients are supported on all plaforms
 string(REGEX REPLACE "[^;]*MF_moduledb.c" "" srcs "${srcs}")
-if (UNIX)
+if (UNIX OR X64)
   string(REGEX REPLACE "[^;]*stats.c" "" srcs "${srcs}")
-else (UNIX)
+endif (UNIX OR X64)
+if (WIN32)
   string(REGEX REPLACE "[^;]*stl_test.cpp" "" srcs "${srcs}")
-endif (UNIX)
+endif (WIN32)
 
 foreach (src ${srcs})
   get_filename_component(tgt ${src} NAME_WE)
@@ -146,14 +149,17 @@ endforeach (src)
 
 
 # Strip out everything past this point for the user-exposed file
+# Should we add some install targets for users?
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt" string)
 string(REGEX REPLACE "# Strip out everything.*$" "" string "${string}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists.txt" "${string}")
 
-set(INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/../../exports" CACHE PATH
-  "where to install")
-set(CMAKE_INSTALL_PREFIX "${INSTALL_PREFIX}" CACHE INTERNAL
-  "where to install" FORCE)
+if (NOT DEFINED INSTALL_PREFIX)
+  set(INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/../../exports" CACHE PATH
+    "where to install")
+  set(CMAKE_INSTALL_PREFIX "${INSTALL_PREFIX}" CACHE INTERNAL
+    "where to install" FORCE)
+endif (NOT DEFINED INSTALL_PREFIX)
 set(INSTALL_SAMPLES samples)
 if (X64)
   set(INSTALL_SAMPLES_BIN ${INSTALL_SAMPLES}/bin64)
@@ -165,3 +171,11 @@ install(TARGETS ${tgts} DESTINATION ${INSTALL_SAMPLES_BIN})
 install(FILES ${srcs} DESTINATION ${INSTALL_SAMPLES})
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists.txt"
   DESTINATION ${INSTALL_SAMPLES})
+
+install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
+  DESTINATION ${INSTALL_SAMPLES_BIN}
+  FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+  FILES_MATCHING
+  PATTERN "*.debug"
+  PATTERN "*.pdb"
+  )
