@@ -58,7 +58,8 @@
 /* Add new statistics at the end so that older GUIs can still show old statistics */
 /* Try to avoid preprocessor directives in STATS - 
    shouldn't matter, and makes old GUIs compatible */
-/* Keep descriptions up to a reasonable length (column 60) */
+/* Keep descriptions up to a reasonable length (column 62 max -- else will hit
+ * a warning in gcc 4.1.2-2) */
 
 /* use RSTATS_DEF for statistics that are available in release build as well
  * as debug (you must use RSTATS_INC, etc. as well with such stats)
@@ -177,8 +178,8 @@
     STATS_DEF("Exempted regions, on .data x section list", num_dot_data_x_list)
     STATS_DEF("Exempted regions, ..x", num_mark_if_x)
     STATS_DEF("Exempted regions, .-x", num_mark_if_rx)
-    STATS_DEF("Exempted regions, loaded executable or library image", num_exempt_image)
-    STATS_DEF("Exempted regions, on loaded executable or library image list", num_exempt_image_list)
+    STATS_DEF("Exempted regions, executable or library image", num_exempt_image)
+    STATS_DEF("Exempted regions, executable or library list", num_exempt_image_list)
     STATS_DEF("Exempted regions, on moduledb exempt image list", num_moduledb_exempt_image)
     STATS_DEF("Exempted threats", num_exempt_threat)
     STATS_DEF("Silently blocked threats", num_silently_blocked_threat)
@@ -227,7 +228,7 @@
     STATS_DEF("Cache consistency flushes", num_flushes)
     STATS_DEF("Cache consistency flushes that flushed nothing", num_empty_flushes)
     STATS_DEF("Cache consistency flushes via synchall", flush_synchall)
-    STATS_DEF("Thread not translated in synchall flush (flush race)", flush_synchall_races)
+    STATS_DEF("Thread not translated in synchall flush (race)", flush_synchall_races)
     STATS_DEF("Thread not synched with in synchall flush", flush_synchall_fail)
     STATS_DEF("Cache consistency coarse units flushed", flush_coarse_units)
     STATS_DEF("Cache consistency persisted units flushed", flush_persisted_units)
@@ -265,7 +266,7 @@
               num_shared_ibt_entries_skipped)
     STATS_DEF("Shared deletion: shared IBT entries examined",
               num_shared_ibt_entries_examined)
-    STATS_DEF("Flush queue marked nonempty to relink shared_syscall",
+    STATS_DEF("Flush queue marked nonempty: relink shared_sys",
               num_flushq_relink_syscall)
     STATS_DEF("Flush queue marked nonempty, yet empty", num_flushq_actually_empty)
     STATS_DEF("Fragments added to lazy deletion list", num_lazy_deletion_appends)
@@ -481,7 +482,7 @@
     STATS_DEF("Same-size IBT table resizes", num_same_size_ibt_table_resizes)
     STATS_DEF("Shared IBT table flushes", num_shared_ibt_table_flushes)
     STATS_DEF("Shared IBT table ptr resets", num_shared_ibt_table_ptr_resets)
-    STATS_DEF("IBT adds disallowed shared table, private fragment",
+    STATS_DEF("IBT adds disallowed shared table, private frag",
               num_ibt_shared_private_conflict)
     STATS_DEF("Dead shared IBT tables", num_dead_shared_ibt_tables)
     STATS_DEF("Peak # dead shared IBT tables", peak_num_dead_shared_ibt_tables)
@@ -491,7 +492,7 @@
               num_dead_shared_ibt_tables_freed_at_exit)
     STATS_DEF("Shared IBT tables freed: immediately",
               num_shared_ibt_tables_freed_immediately)
-    STATS_DEF("Pvt ptrs to shared tables updated at-syscall walks",
+    STATS_DEF("Pvt ptrs to shared tables updated at-sys walks",
               num_shared_tables_updated_atsyscall)
     STATS_DEF("IBT unlinked entries NOT moved on resize",
               num_ibt_unlinked_entries_not_moved)
@@ -577,7 +578,7 @@
     STATS_DEF("Coarse-grain trace heads from fine", coarse_th_from_fine)
     STATS_DEF("Coarse grain freezes", coarse_freezes)
     STATS_DEF("Coarse grain freezes aborted", coarse_freeze_abort)
-    STATS_DEF("Coarse grain at-unload not persisted: synch failure",
+    STATS_DEF("Coarse grain at-unload not persist: synch fail",
               persist_unload_suspend_failure)
     STATS_DEF("Coarse grain units frozen", coarse_units_frozen)
     STATS_DEF("Coarse grain fall-throughs during freezing", coarse_freeze_fallthrough)
@@ -589,17 +590,17 @@
     STATS_DEF("Coarse grain code persisted (bytes)", coarse_code_persisted)
     STATS_DEF("Coarse grain units not persisted: too small", persist_too_small)
     STATS_DEF("Coarse grain code small, persisted anyway", persist_code_small)
-    STATS_DEF("Coarse grain units not persisted: no space", coarse_units_persist_nospace)
-    STATS_DEF("Coarse grain units not persisted: duplicate", coarse_units_persist_dup)
-    STATS_DEF("Coarse grain units not persisted: file/name error",
+    STATS_DEF("Coarse grain units not persist: no space", coarse_units_persist_nospace)
+    STATS_DEF("Coarse grain units not persist: duplicate", coarse_units_persist_dup)
+    STATS_DEF("Coarse grain units not persist: file/name error",
               coarse_units_persist_error)
-    STATS_DEF("Coarse grain units not persisted: excluded",
+    STATS_DEF("Coarse grain units not persist: excluded",
               coarse_units_persist_excluded)
     STATS_DEF("Persisted cache files renamed", persist_rename_success)
-    STATS_DEF("Coarse grain units not persisted: rename tmp fail",
+    STATS_DEF("Coarse grain units not persist: rename tmp fail",
               persist_rename_tmp_fail)
-    STATS_DEF("Coarse grain units not persisted: rename fail", persist_rename_fail)
-    STATS_DEF("Coarse grain units not persisted: rename race", persist_rename_race)
+    STATS_DEF("Coarse grain units not persist: rename fail", persist_rename_fail)
+    STATS_DEF("Coarse grain units not persist: rename race", persist_rename_race)
     STATS_DEF("Persisted cache files renamed & deleted", persist_delete_success)
     STATS_DEF("Persisted cache tmp file delete error on failure",
               persist_delete_tmp_fail)
@@ -701,7 +702,7 @@
 
     STATS_DEF("Fcache exits, from trace, ind target ...", num_exits_ind_bad_miss_trace)
     STATS_DEF("Fcache exits, trace->trace, ind target ...", num_exits_ind_bad_miss_trace2trace)
-    STATS_DEF("Fcache exits, trace->BB not trace head, ind target", num_exits_ind_bad_miss_trace2bb_nth)
+    STATS_DEF("Fcache exits, trace->BB not trace head, ind tgt", num_exits_ind_bad_miss_trace2bb_nth)
     STATS_DEF("Fcache exits, trace->BB trace head, ind target", num_exits_ind_bad_miss_trace2bb_th)
 
 #ifdef RETURN_AFTER_CALL
@@ -969,7 +970,7 @@
      /* probably more -pad_jmps stats then needed, remove some of the less important ones
       * once we've better characterized the behavior */
     STATS_DEF("-pad_jmps fragments size overestimated", pad_jmps_fragments_overestimated)
-    STATS_DEF("-pad_jmps excess instances coalesced with next free", pad_jmps_excess_next_free)
+    STATS_DEF("-pad_jmps excess instances coalesced w/ nxt free", pad_jmps_excess_next_free)
     STATS_DEF("-pad_jmps excess instances failed to be returned", pad_jmps_excess_wasted)
     STATS_DEF("-pad_jmps excess bytes failed to be returned", pad_jmps_excess_wasted_bytes)
     STATS_DEF("-pad_jmps body bytes shared bb", pad_jmps_shared_bb_body_bytes)
@@ -1097,23 +1098,23 @@
     STATS_DEF("Trace fragment ending with an IBL, syscall", num_traces_end_at_ibl_syscall)
     STATS_DEF("Trace fragment ending at MUST_END_TRACE", num_traces_at_must_end_trace)
     STATS_DEF("Trace fragment ending with an IBL, speculative", num_traces_end_at_ibl_speculative_link)
-    STATS_DEF("Yields in intercept_apc waiting for dynamo_initialized", apc_yields_while_initializing)
+    STATS_DEF("Yields in intercept_apc wait dynamo_initialized", apc_yields_while_initializing)
     STATS_DEF("IBL Tables groomed", num_ibt_groomed)
     STATS_DEF("IBL Tables reached maximum capacity", num_ibt_max_capacity)
     STATS_DEF("IAT areas in current modules", num_IAT_areas)
-    STATS_DEF("Indirect calls through IAT", num_indirect_calls_IAT)
-    STATS_DEF("Indirect calls through IAT elided", num_indirect_calls_IAT_elided)
-    STATS_DEF("Indirect calls through IAT converted", num_indirect_calls_IAT_converted)
-    STATS_DEF("Indirect calls through IAT to native module, skipped", num_indirect_calls_IAT_native)
-    STATS_DEF("Indirect jumps through IAT", num_indirect_jumps_IAT)
-    STATS_DEF("Indirect jumps through IAT elided", num_indirect_jumps_IAT_elided)
-    STATS_DEF("Indirect jumps through IAT converted", num_indirect_jumps_IAT_converted)
-    STATS_DEF("Indirect jumps through IAT non PLT, curiosity", num_indirect_jumps_IAT_not_PLT)
+    STATS_DEF("Indirect calls via IAT", num_indirect_calls_IAT)
+    STATS_DEF("Indirect calls via IAT elided", num_indirect_calls_IAT_elided)
+    STATS_DEF("Indirect calls via IAT converted", num_indirect_calls_IAT_converted)
+    STATS_DEF("Indirect calls via IAT to native module, skipped", num_indirect_calls_IAT_native)
+    STATS_DEF("Indirect jumps via IAT", num_indirect_jumps_IAT)
+    STATS_DEF("Indirect jumps via IAT elided", num_indirect_jumps_IAT_elided)
+    STATS_DEF("Indirect jumps via IAT converted", num_indirect_jumps_IAT_converted)
+    STATS_DEF("Indirect jumps via IAT non PLT, curiosity", num_indirect_jumps_IAT_not_PLT)
     STATS_DEF("Indirect jumps likely PLT not IAT, curiosity", num_indirect_jumps_PLT_not_IAT)
     STATS_DEF("Indirect jumps likely PLT", num_indirect_jumps_likely_PLT)
-    STATS_DEF("Indirect jumps through IAT to native module, skipped", num_indirect_jumps_IAT_native)
+    STATS_DEF("Indirect jumps via IAT to native module, skipped", num_indirect_jumps_IAT_native)
     STATS_DEF("Invalidating cache due to IAT hooker", num_invalidate_IAT_hooker)
-    STATS_DEF("Num flushes in app mem prot chg -> rwx we could've skipped", num_possible_app_to_rwx_skip_flush)
+    STATS_DEF("Num flushes in app prot->rwx we could've skipped", num_possible_app_to_rwx_skip_flush)
 #ifdef HOT_PATCHING_INTERFACE
     STATS_DEF("Protector executions", hotp_num_prot_exec)
     STATS_DEF("Detector executions", hotp_num_det_exec)
@@ -1121,12 +1122,12 @@
     STATS_DEF("Policy read nudges", hotp_num_policy_nudge)
     STATS_DEF("Mode read nudges", hotp_num_mode_nudge)
     STATS_DEF("Hot patches injected", hotp_num_inject)
-    STATS_DEF("Fragments that have direct cti that should be hot patched", 
+    STATS_DEF("Fragments w/ direct cti should be hot patched", 
               hotp_num_frag_direct_cti)
-    STATS_DEF("Hot patches executed after mode was set to OFF; for hotp mode",
+    STATS_DEF("Hot patches executed after mode was set to OFF",
               hotp_exec_mode_off)
     STATS_DEF("Hot patches injected in hotp_only mode", hotp_only_num_inject)
-    STATS_DEF("Hot patch control flow collisions in hotp_only mode", hotp_only_cflow_collision)
+    STATS_DEF("Hot patch control flow collisions in hotp_only", hotp_only_cflow_collision)
     STATS_DEF("hotp_only injections aborted", hotp_only_aborted_injects)
 #endif
     STATS_DEF("ASLR DLLs randomized", aslr_dlls_bumped)
