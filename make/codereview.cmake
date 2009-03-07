@@ -43,7 +43,7 @@
 # (defult is ./diff.notes)
 #
 # Since we no longer invoke "make" from the soure dir (due to cmake: i#19, i#64),
-# we have to invoke this explicitly "cmake -P make/CMake_review.cmake".
+# we have to invoke this explicitly "cmake -P make/codereview.cmake".
 #
 # Parameter list:
 #
@@ -64,7 +64,7 @@
 # Examples:
 #
 # Dry run to ensure diff and notes file are as desired:
-#   > cmake -DAUTHOR:STRING=derek.bruening -DREVIEWER:STRING=qin.zhao -DLABEL:STRING=i64-cmake-review -P make/CMake_review.cmake
+#   > cmake -DAUTHOR:STRING=derek.bruening -DREVIEWER:STRING=qin.zhao -DLABEL:STRING=i64-cmake-review -P make/codereview.cmake
 #   -- notes file is "diff.notes"
 #   -- destination is "../reviews/derek.bruening/2009/i64-cmake-review.{diff,notes}"
 #   -- svn: A         ../reviews/derek.bruening/2009/i64-cmake-review.diff
@@ -72,7 +72,7 @@
 #   -- ready to commit
 #   
 # Want to abort (maybe decided to change LABEL) so undoing local svn add:
-#   > cmake -DAUTHOR:STRING=derek.bruening -DREVIEWER:STRING=qin.zhao -DLABEL:STRING=i64-cmake-review -DREVERT:BOOL=ON -P make/CMake_review.cmake
+#   > cmake -DAUTHOR:STRING=derek.bruening -DREVIEWER:STRING=qin.zhao -DLABEL:STRING=i64-cmake-review -DREVERT:BOOL=ON -P make/codereview.cmake
 #   -- notes file is "diff.notes"
 #   -- destination is "../reviews/derek.bruening/2009/i64-cmake-review.{diff,notes}"
 #   -- svn: D         ../reviews/derek.bruening/2009/i64-cmake-review.diff
@@ -80,7 +80,7 @@
 #   -- revert complete
 #
 # Ready to commit:
-#   > cmake -DAUTHOR:STRING=derek.bruening -DREVIEWER:STRING=qin.zhao -DLABEL:STRING=i64-cmake-review -DCOMMIT:BOOL=ON -P make/CMake_review.cmake
+#   > cmake -DAUTHOR:STRING=derek.bruening -DREVIEWER:STRING=qin.zhao -DLABEL:STRING=i64-cmake-review -DCOMMIT:BOOL=ON -P make/codereview.cmake
 #   -- notes file is "diff.notes"
 #   -- destination is "../reviews/derek.bruening/2009/i64-cmake-review.{diff,notes}"
 #   -- svn: A         ../reviews/derek.bruening/2009/i64-cmake-review.diff
