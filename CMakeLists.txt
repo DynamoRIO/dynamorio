@@ -34,6 +34,7 @@
 # i#64: re-add "make review"
 # i#66: re-add "make runregression"
 # i#73: provide automatic suport for locating ml64.exe when using Vista SDK+WDK
+# i#79: build: custom build number or label for non-release builds
 # 
 # future nice-to-have work:
 # i#74: create source tarball via 'make package_source' 
@@ -43,6 +44,7 @@
 # i#71: support mingw/cygwin makefile cmake target with cl compiler, for make -j
 # i#75: convert clients/standalone/Makefile to CMake 
 # i#72: RHEL3 linker script has no __executable_start
+# i#60: re-add libutil/ unit tests 
 #
 # Not filed:
 # * move info like "build core solely from DDK" from compiler.mk into
@@ -256,7 +258,7 @@ else (UNIX)
   endif (NOT ${COMPILER_BASE_NAME} STREQUAL "cl")
   set(CMAKE_CPP ${CMAKE_C_COMPILER})
 
-  # cmake doesn't even look for ml!  should file a cmake bug
+  # CMake older than 2.6.3 does not automatically look for ml or ml64
   get_filename_component(cl_path ${CMAKE_C_COMPILER} PATH)
   if (X64)
     find_program(CMAKE_ASM_COMPILER ml64.exe HINTS "${cl_path}" DOC "path to assembler")
