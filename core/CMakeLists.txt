@@ -233,7 +233,8 @@ if (UNIX)
     PRE_LINK
     COMMAND ${CMAKE_COMMAND}
     # script does not inherit any vars so we must pass them all in
-    ARGS -Doutfile=${ld_script}
+    # to work around i#84 be sure to put a space after -D for 1st arg at least
+    ARGS -D outfile=${ld_script}
          -DCMAKE_LINKER=${CMAKE_LINKER}
          -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
          -DLD_FLAGS=${LD_FLAGS}
@@ -251,7 +252,8 @@ if (UNIX)
   add_custom_command(TARGET dynamorio
     POST_BUILD
     COMMAND ${CMAKE_COMMAND}
-    ARGS -Dlib=${lib_to_check}
+    # to work around i#84 be sure to put a space after -D for 1st arg at least
+    ARGS -D lib=${lib_to_check}
          -DCMAKE_LINKER=${CMAKE_LINKER}
          -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
          -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
@@ -261,7 +263,8 @@ if (UNIX)
   add_custom_command(TARGET ${PRELOAD_NAME}
     POST_BUILD
     COMMAND ${CMAKE_COMMAND}
-    ARGS -Dlib=${lib_to_check}
+    # to work around i#84 be sure to put a space after -D for 1st arg at least
+    ARGS -D lib=${lib_to_check}
          -DCMAKE_LINKER=${CMAKE_LINKER}
          -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
          -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake

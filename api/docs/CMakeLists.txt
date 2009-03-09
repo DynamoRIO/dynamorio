@@ -80,7 +80,8 @@ add_custom_command(
           ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
   COMMAND ${CMAKE_COMMAND}
   # script does not inherit any vars so we must pass them all in
-  ARGS -Dsrcdir=${CMAKE_CURRENT_SOURCE_DIR} -Doutfile=${doxyfile}
+  # to work around i#84 be sure to put a space after -D for 1st arg at least
+  ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} -Doutfile=${doxyfile}
        -Dproj_srcdir=${PROJECT_SOURCE_DIR} -Dversion_number=${VERSION_NUMBER}
        -Dheader_dir=${BUILD_INCLUDE} -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
        -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
@@ -93,7 +94,8 @@ add_custom_command(
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/footer.html
           ${CMAKE_CURRENT_SOURCE_DIR}/CMake_footer.cmake
   COMMAND ${CMAKE_COMMAND}
-  ARGS -Dsrcdir=${CMAKE_CURRENT_SOURCE_DIR} -Doutfile=${footer}
+  # to work around i#84 be sure to put a space after -D for 1st arg at least
+  ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} -Doutfile=${footer}
        -Dversion_number=${VERSION_NUMBER}
        -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_footer.cmake
   VERBATIM # recommended: p260
@@ -121,7 +123,8 @@ add_custom_command(
   # files" so we run it through a script
   COMMAND ${CMAKE_COMMAND}
   # Have to quote dox_files to keep ;-separated
-  ARGS -Dsrcdir=${CMAKE_CURRENT_SOURCE_DIR} "-Ddox_files=${dox_files}"
+  # to work around i#84 be sure to put a space after -D for 1st arg at least
+  ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} "-Ddox_files=${dox_files}"
        -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
        -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_rundoxygen.cmake
   VERBATIM # recommended: p260
