@@ -91,7 +91,7 @@ link_directories(${DynamoRIO_LIBDIR})
 
 if (UNIX)
   # avoid SElinux text relocation security violations by explicitly requesting PIC
-  set(CLIENT_LINK_FLAGS "-fPIC -shared -nostartfiles")
+  set(CLIENT_LINK_FLAGS "-fPIC -shared -nostartfiles -nodefaultlibs -lgcc")
 else (UNIX)
   set(CLIENT_LINK_FLAGS "/nodefaultlib /noentry")
 endif (UNIX)
