@@ -731,10 +731,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     DEPENDS ${BUILD_INCLUDE}/dr_app.h)
   file(MAKE_DIRECTORY ${BUILD_INCLUDE})
   # technically only the headers in the genapi.pl list
-  file(GLOB header_files *.h */*.h)
-  # avoid the temp file timestamp triggering rebuilds
-  get_filename_component(tmpfile_nm ${defines_tmpfile} NAME)
-  string(REGEX REPLACE "${tmpfile_nm}" "" header_files "${header_files}")
+  file(GLOB header_files core/*.h core/*/*.h libutil/*.h)
   add_custom_command(
     OUTPUT ${BUILD_INCLUDE}/dr_app.h # among other files
     DEPENDS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
