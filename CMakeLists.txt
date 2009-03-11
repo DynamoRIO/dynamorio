@@ -847,7 +847,8 @@ endif (BUILD_TOOLS OR WIN32)
 # create CMake configuration files for clients to use
 configure_file(
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfig.cmake.in
-  ${PROJECT_BINARY_DIR}/DynamoRIOConfig.cmake)
+  ${PROJECT_BINARY_DIR}/DynamoRIOConfig.cmake
+  @ONLY)
 install(FILES
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOUse.cmake
   ${PROJECT_BINARY_DIR}/DynamoRIOConfig.cmake

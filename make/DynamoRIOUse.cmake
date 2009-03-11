@@ -29,14 +29,14 @@
 # DAMAGE.
 
 # How to use:
-# Locate the DynamoRIO package and include this file.
-# But first, set these three parameters:
+# First, set these three parameters:
 #
 #    DynamoRIO_X64 = if client is 64-bit
 #    DynamoRIO_DEBUG = if wish to link to debug DynamoRIO library
 #    DynamoRIO_CXX = if client is C++
 #
-# Here is a sample CMakeLists.txt file for a client:
+# Then include this file, by first executing a find_package()
+# as shown in this sample CMakeLists.txt file for a client:
 # 
 #   find_package(DynamoRIO)
 #   if (DynamoRIO_FOUND)
@@ -47,6 +47,11 @@
 #     add_library(myclient SHARED myclient.c)
 #     target_link_libraries(myclient dynamorio)
 #   endif(DynamoRIO_FOUND)
+#
+# When building your client, users will need to point at the DynamoRIO
+# installation's cmake directory with the DynamoRIO_DIR variable, like this:
+#
+#   cmake -DDynamoRIO_DIR:PATH=/absolute/path/to/dynamorio/cmake <path to your client sources>
 
 if (UNIX)
   if (NOT CMAKE_COMPILER_IS_GNUCC)

@@ -31,25 +31,25 @@
 # How to use: see the notes at the top of DynamoRIOUse.cmake
 
 if (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
-  set(DynamoRIO_INCLUDE_DIRS "@CMAKE_INSTALL_PREFIX@/include")
+  set(DynamoRIO_INCLUDE_DIRS "${DynamoRIO_DIR}/../include")
 endif (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
 
 if (NOT DEFINED DynamoRIO_LIBRARY32_REL_DIRS)
-  set(DynamoRIO_LIBRARY32_REL_DIRS "@CMAKE_INSTALL_PREFIX@/lib32/release")
+  set(DynamoRIO_LIBRARY32_REL_DIRS "${DynamoRIO_DIR}/../lib32/release")
 endif (NOT DEFINED DynamoRIO_LIBRARY32_REL_DIRS)
 
 if (NOT DEFINED DynamoRIO_LIBRARY32_DBG_DIRS)
-  set(DynamoRIO_LIBRARY32_DBG_DIRS "@CMAKE_INSTALL_PREFIX@/lib32/debug")
+  set(DynamoRIO_LIBRARY32_DBG_DIRS "${DynamoRIO_DIR}/../lib32/debug")
 endif (NOT DEFINED DynamoRIO_LIBRARY32_DBG_DIRS)
 
 if (NOT DEFINED DynamoRIO_LIBRARY64_REL_DIRS)
-  set(DynamoRIO_LIBRARY64_REL_DIRS "@CMAKE_INSTALL_PREFIX@/lib64/release")
+  set(DynamoRIO_LIBRARY64_REL_DIRS "${DynamoRIO_DIR}/../lib64/release")
 endif (NOT DEFINED DynamoRIO_LIBRARY64_REL_DIRS)
 
 if (NOT DEFINED DynamoRIO_LIBRARY64_DBG_DIRS)
-  set(DynamoRIO_LIBRARY64_DBG_DIRS "@CMAKE_INSTALL_PREFIX@/lib64/debug")
+  set(DynamoRIO_LIBRARY64_DBG_DIRS "${DynamoRIO_DIR}/../lib64/debug")
 endif (NOT DEFINED DynamoRIO_LIBRARY64_DBG_DIRS)
 
 if (NOT DEFINED DynamoRIO_USE_FILE)
-  set(DynamoRIO_USE_FILE "@CMAKE_INSTALL_PREFIX@/cmake/DynamoRIOUse.cmake")
+  set(DynamoRIO_USE_FILE "${DynamoRIO_DIR}/DynamoRIOUse.cmake")
 endif (NOT DEFINED DynamoRIO_USE_FILE)
