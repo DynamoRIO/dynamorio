@@ -380,7 +380,7 @@ else (UNIX)
   set(BASE_CFLAGS "${BASE_CFLAGS} /GS-")
   set(WARN "/W4 /WX")
   # Default from cmake has /W3 so remove to avoid warning about overriding
-  string(REGEX REPLACE "/W3" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "/W[0-9]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   if (GENERATE_PDBS)
     set(DBG "/Zi")
     set(LINK_DBG "/debug")
@@ -619,6 +619,8 @@ set(INSTALL_DOCS docs)
 set(INSTALL_CMAKE cmake)
 set(BUILD_INCLUDE ${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE})
 
+# This does a copy-if-different, so it won't trigger recompilation of
+# every single source file if no changes
 configure_file(
   ${PROJECT_SOURCE_DIR}/make/configure.cmake.h
   ${PROJECT_BINARY_DIR}/configure.h
@@ -628,13 +630,16 @@ configure_file(
 # and a var set to all the options for genapi.pl.
 # Strategy: add -D<define> token after each #define, and then run
 # cpp => left with just the -D<define> that are defined.
+# If we append this to configure.h we'll trigger recompilation of
+# everything, so we generate a separate header file.
 file(READ ${PROJECT_BINARY_DIR}/configure.h configure_h)
 string(REGEX REPLACE
   "(# *define *)([^_][^ \r\n]+)( *\r?\n)"
   "\\1\\2\\3-D\\2\n" configure_h_mod "${configure_h}")
 set(defines_tmpfile ${PROJECT_BINARY_DIR}/configure_temp.h)
-set_directory_properties(PROPERTIES
-  ADDITIONAL_MAKE_CLEAN_FILES "${defines_tmpfile}")
+# we do NOT add ${defines_tmpfile} to set_directory_properties
+# ADDITIONAL_MAKE_CLEAN_FILES b/c it's built at configure time:
+# would be part of "make distclean" but cmake does not have that.
 file(WRITE ${defines_tmpfile} "${configure_h_mod}")
 # No way to get cmdline defines from cmake: but shouldn't be any, all
 # in configure.h, except the -Ddynamorio_EXPORTS that cmake defines.
@@ -659,14 +664,21 @@ string(REGEX MATCHALL
 string(REGEX REPLACE
   ";"
   " " defines "${defines}")
-string(REGEX REPLACE
-  "(#endif /\\* _CONFIGURE_H_ \\*/)"
-  "#define DYNAMORIO_DEFINES \"${defines}\"\n\n\\1"
-  configure_h "${configure_h}")
-file(WRITE ${PROJECT_BINARY_DIR}/configure.h "${configure_h}")
+set(defines_tofile
+  "#ifndef _CONFIGDEFS_\n#define _CONFIGDEFS_ 1\n\n#define DYNAMORIO_DEFINES \"${defines}\"\n\n#endif /* _CONFIGDEFS_ */\n")
+# Try to avoid triggering re-compilation if no changes
+set(defines_file ${PROJECT_BINARY_DIR}/configure_defines.h)
+if (EXISTS ${defines_file})
+  file(READ ${defines_file} defines_fromfile)
+  if (NOT "${defines_fromfile}" STREQUAL "${defines_tofile}")
+    file(WRITE ${defines_file} "${defines_tofile}")
+  endif (NOT "${defines_fromfile}" STREQUAL "${defines_tofile}")
+else (EXISTS ${defines_file})
+  file(WRITE ${defines_file} "${defines_tofile}")
+endif (EXISTS ${defines_file})
 
 include_directories(BEFORE 
-  ${PROJECT_BINARY_DIR} # for configure.h
+  ${PROJECT_BINARY_DIR} # for configure.h and configure_defines.h
   )
 
 ###########################################################################
@@ -715,11 +727,14 @@ endif (BUILD_DRGUI)
 
 # used by docs, so here instead of in core/CMakeLists.txt
 if (CLIENT_INTERFACE OR APP_EXPORTS)
-  add_custom_target(api_headers ALL
+  add_custom_target(api_headers
     DEPENDS ${BUILD_INCLUDE}/dr_app.h)
   file(MAKE_DIRECTORY ${BUILD_INCLUDE})
   # technically only the headers in the genapi.pl list
   file(GLOB header_files *.h */*.h)
+  # avoid the temp file timestamp triggering rebuilds
+  get_filename_component(tmpfile_nm ${defines_tmpfile} NAME)
+  string(REGEX REPLACE "${tmpfile_nm}" "" header_files "${header_files}")
   add_custom_command(
     OUTPUT ${BUILD_INCLUDE}/dr_app.h # among other files
     DEPENDS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl

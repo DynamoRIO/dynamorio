@@ -39,6 +39,7 @@
  */
 
 #include "globals.h"
+#include "configure_defines.h"
 #include "link.h"
 #include "fragment.h"
 #include "fcache.h"

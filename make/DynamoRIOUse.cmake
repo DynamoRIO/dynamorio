@@ -98,6 +98,11 @@ if (UNIX)
   # avoid SElinux text relocation security violations by explicitly requesting PIC
   set(CLIENT_LINK_FLAGS "-fPIC -shared -nostartfiles -nodefaultlibs -lgcc")
 else (UNIX)
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
+  string(REGEX REPLACE "/M[TD]d?" ""
+    CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
+  string(REGEX REPLACE "/RTC." ""
+    CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
   set(CLIENT_LINK_FLAGS "/nodefaultlib /noentry")
 endif (UNIX)
 set(CMAKE_SHARED_LINKER_FLAGS

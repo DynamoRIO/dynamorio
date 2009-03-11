@@ -133,13 +133,14 @@ set_directory_properties(PROPERTIES
   ADDITIONAL_MAKE_CLEAN_FILES "html;latex;rtf")
 
 add_custom_target(htmldocs ALL
-  DEPENDS ${BUILD_INCLUDE}/dr_app.h # FIXME: any better way than picking 1 file?
-          ${doxyfile}
+  DEPENDS ${doxyfile}
           ${footer}
           ${figures_eps}
           ${figures_png}
           ${docsgen}
   )
+# add_custom_target DEPENDS cannot take targets!
+add_dependencies(htmldocs api_headers)
 
 # FIXME i#59: if epstopdf and latex are available, add optional pdf
 # target that invokes fix-latex.pl and install rule

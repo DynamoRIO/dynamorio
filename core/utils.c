@@ -39,6 +39,7 @@
  */
 
 #include "globals.h"
+#include "configure_defines.h"
 #include "utils.h"
 #include "module_shared.h"
 #include <string.h>  /* for memset */

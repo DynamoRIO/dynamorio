@@ -181,6 +181,11 @@ add_library(dynamorio SHARED
   ${CMAKE_CURRENT_SOURCE_DIR}/CMake_ldscript.cmake
   )
 
+# rather than a separate BUILD_INCLUDES option we always build
+# include headers if building core (or if building docs or samples as
+# they have real dependencies)
+add_dependencies(dynamorio api_headers)
+
 add_library(${PRELOAD_NAME} SHARED ${PRELOAD_SRCS})
 # We do not issue:
 #   target_link_libraries(${PRELOAD_NAME} dynamorio)

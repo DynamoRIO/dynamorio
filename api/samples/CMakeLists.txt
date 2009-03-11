@@ -154,6 +154,11 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt" string)
 string(REGEX REPLACE "# Strip out everything.*$" "" string "${string}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists.txt" "${string}")
 
+foreach (tgt ${tgts})
+  # ensure we rebuild samples if library or includes change
+  add_dependencies(${tgt} api_headers dynamorio)
+endforeach (tgt)
+
 if (NOT DEFINED INSTALL_PREFIX)
   set(INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/../../exports" CACHE PATH
     "where to install")
