@@ -195,6 +195,14 @@
 
 /* only architecture we support (this is set for X64 as well) */
 #define X86
+
+#ifdef WINDOWS
+   /* we do not support linking to libc.  we should probably remove
+    * this define from the code and eliminate it altogether.
+    */
+#  define NOLIBC
+#endif
+
 #ifdef LINUX
 #  define ASSEMBLE_WITH_GAS
 #else

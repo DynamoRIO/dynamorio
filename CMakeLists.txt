@@ -854,6 +854,12 @@ if (BUILD_TOOLS OR WIN32)
     )
 endif (BUILD_TOOLS OR WIN32)
 
+# create empty logs dir for release package
+# be sure to get var from env so it's at install time not configure time
+install(CODE "file(MAKE_DIRECTORY \"\${ENV}\${CMAKE_INSTALL_PREFIX}/logs\")")
+# CPack seems to ignore empty dirs so add a README file
+install(CODE "file(WRITE \"\${ENV}\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
+
 ###########################################################################
 
 # create CMake configuration files for clients to use
@@ -936,7 +942,7 @@ string(REGEX REPLACE
 # directory and the file: I tried a ton of CPack variables for "install
 # dir" and looked at the source code.  Most of the variables are for the
 # other installers (rpm, nsis).  I can hack it via
-# CPACK_TEMPORARY_PACKAGE_FILE_NAME if I hardcode the exentsion: but maybe
+# CPACK_TEMPORARY_PACKAGE_FILE_NAME if I hardcode the extension: but maybe
 # having the full version in the base dir is a good thing, though I'm not
 # sure about the caps.
 set(CPACK_PACKAGE_FILE_NAME "DynamoRIO-${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}")
