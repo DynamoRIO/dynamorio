@@ -4357,7 +4357,7 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
         }
 
         if ((name_cmp != NULL && strstr(iter.comment, name_cmp) != NULL) ||
-            (start != NULL && *start >= iter.vm_start && *start < iter.vm_end)) {
+            (name == NULL && *start >= iter.vm_start && *start < iter.vm_end)) {
             if (!found_library) {
                 size_t mod_readable_sz;
                 char *dst = (fullpath != NULL) ? fullpath : libname;
