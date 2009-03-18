@@ -42,8 +42,6 @@
 ###   2) multiple declarations do not share the same line
 ###
 
-use File::Copy;
-
 $usage = "Usage: $0 -header <destinationdir> <defines> | -filter <defines> | -debug\n";
 
 $header = 0;
@@ -96,6 +94,25 @@ while ($#ARGV >= 0) {
     shift;
 }
 
+# I was using File::Copy but native-windows perl
+# "v5.8.8 built for MSWin32-x86-multi-thread" maintains modtime, and
+# even doing utime() after the copy() wasn't updating.
+# With the old time we have a rebuild of header files on every make.
+# So just doing my own copy rather than waste any more time on 
+# perl variant issues.  This gives us consistent line endings with
+# the generated files, as well.
+sub copy_file
+{
+    my ($src, $dst) = @_;
+    open(SRC, "< $src") || die "Error: Couldn't open $src for copy\n";
+    open(DST, "> $dst") || die "Error: Couldn't open $dst for copy\n";
+    while (<SRC>) {
+        print DST $_;
+    }
+    close(SRC);
+    close(DST);
+}
+
 if ($header) {
     # clean up existing files first
     # since the set of files we're creating is dynamic it's not clear how
@@ -107,20 +124,20 @@ if ($header) {
 
     if (defined($defines{"CLIENT_INTERFACE"})) {
         # dr_api.h is copied verbatim
-        copy("lib/dr_api.h", "$dir");
+        copy_file("lib/dr_api.h", "$dir/dr_api.h");
 
         # dr_app.h is copied verbatim
         # We used to have #ifdefs (LOGPC I think) in the func declarations
         # and we had a complex series of commands in core/Makefile to strip
         # them out while leaving the ifdefs at the top of the file.
-        copy("lib/dr_app.h", "$dir");
+        copy_file("lib/dr_app.h", "$dir/dr_app.h");
 
     } else {
         if (!defined($defines{"APP_EXPORTS"})) {
             die "Should not be invoked w/o APP_EXPORTS or CLIENT_INTERFACE\n";
         }
         # dr_app.h is copied verbatim
-        copy("lib/dr_app.h", "$dir");
+        copy_file("lib/dr_app.h", "$dir/dr_app.h");
     }
 }
 
