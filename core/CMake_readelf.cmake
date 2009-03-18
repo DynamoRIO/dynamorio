@@ -28,52 +28,44 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# readelf is a binutils app just like ld
-if (NOT CMAKE_COMPILER_IS_GNUCC)
-  message(FATAL_ERROR "this script is only for gnu ld")
-endif (NOT CMAKE_COMPILER_IS_GNUCC)
-get_filename_component(READELF_EXECUTABLE ${CMAKE_LINKER} PATH)
-set(READELF_EXECUTABLE "${READELF_EXECUTABLE}/readelf")
-if (NOT EXISTS "${READELF_EXECUTABLE}")
-  message("${READELF_EXECUTABLE} not found: not checking SElinux or execstack")
-else (NOT EXISTS "${READELF_EXECUTABLE}")
+# caller must set READELF_EXECUTABLE so it can be a cache variable
+# caller must also set "lib" to point to target library
 
-  # PR 212290: ensure no text relocations (they violate selinux execmod policies)
-  # looking for dynamic section tag:
-  #   0x00000016 (TEXTREL)                    0x0
-  execute_process(COMMAND
-    ${READELF_EXECUTABLE} -d ${lib}
-    RESULT_VARIABLE readelf_result
-    ERROR_VARIABLE readelf_error
-    OUTPUT_VARIABLE string
-    )
-  if (readelf_result OR readelf_error)
-    message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
-  endif (readelf_result OR readelf_error)
-  string(REGEX MATCH
-    "TEXTREL"
-    has_textrel "${string}")
-  if (has_textrel)
-    message(FATAL_ERROR "*** Error: ${lib} has text relocations")
-  endif (has_textrel)
+# PR 212290: ensure no text relocations (they violate selinux execmod policies)
+# looking for dynamic section tag:
+#   0x00000016 (TEXTREL)                    0x0
+execute_process(COMMAND
+  ${READELF_EXECUTABLE} -d ${lib}
+  RESULT_VARIABLE readelf_result
+  ERROR_VARIABLE readelf_error
+  OUTPUT_VARIABLE string
+  )
+if (readelf_result OR readelf_error)
+  message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
+endif (readelf_result OR readelf_error)
+string(REGEX MATCH
+  "TEXTREL"
+  has_textrel "${string}")
+if (has_textrel)
+  message(FATAL_ERROR "*** Error: ${lib} has text relocations")
+endif (has_textrel)
 
-  # also check for execstack
-  # looking for stack properties:
-  #   GNU_STACK      0x000000 0x00000000 0x00000000 0x00000 0x00000 RWE 0x4
-  execute_process(COMMAND
-    ${READELF_EXECUTABLE} -l ${lib}
-    RESULT_VARIABLE readelf_result
-    ERROR_VARIABLE readelf_error
-    OUTPUT_VARIABLE string
-    )
-  if (readelf_result OR readelf_error)
-    message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
-  endif (readelf_result OR readelf_error)
-  string(REGEX MATCH
-    "STACK.*RWE"
-    has_execstack "${string}")
-  if (has_execstack)
-    message(FATAL_ERROR "*** Error: ${lib} has executable stack")
-  endif (has_execstack)
+# also check for execstack
+# looking for stack properties:
+#   GNU_STACK      0x000000 0x00000000 0x00000000 0x00000 0x00000 RWE 0x4
+execute_process(COMMAND
+  ${READELF_EXECUTABLE} -l ${lib}
+  RESULT_VARIABLE readelf_result
+  ERROR_VARIABLE readelf_error
+  OUTPUT_VARIABLE string
+  )
+if (readelf_result OR readelf_error)
+  message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
+endif (readelf_result OR readelf_error)
+string(REGEX MATCH
+  "STACK.*RWE"
+  has_execstack "${string}")
+if (has_execstack)
+  message(FATAL_ERROR "*** Error: ${lib} has executable stack")
+endif (has_execstack)
 
-endif (NOT EXISTS "${READELF_EXECUTABLE}")

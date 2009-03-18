@@ -34,7 +34,9 @@
 # i#64: re-add "make review"
 # i#66: re-add "make runregression"
 # i#73: provide automatic suport for locating ml64.exe when using Vista SDK+WDK
-# i#79: build: custom build number or label for non-release builds
+# i#79: custom build number or label for non-release builds
+# i#77: make DRgui a subproject to support with different compiler from libutil 
+# i#84: nmake adds space before 1st / in 1st arg to a command invoked with quotes
 # 
 # future nice-to-have work:
 # i#74: create source tarball via 'make package_source' 
@@ -945,7 +947,8 @@ string(REGEX REPLACE
 # CPACK_TEMPORARY_PACKAGE_FILE_NAME if I hardcode the extension: but maybe
 # having the full version in the base dir is a good thing, though I'm not
 # sure about the caps.
-set(CPACK_PACKAGE_FILE_NAME "DynamoRIO-${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}")
+set(CPACK_PACKAGE_FILE_NAME
+  "DynamoRIO-${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "dynamorio")
 set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "DynamoRIO")
 set(CPACK_PACKAGE_RELOCATABLE "true")

@@ -253,28 +253,38 @@ if (UNIX)
     LINK_FLAGS "${dynamorio_link_flags}")
   target_link_libraries(dynamorio c dl m)
 
-  get_target_property(lib_to_check dynamorio LOCATION)
-  add_custom_command(TARGET dynamorio
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND}
-    # to work around i#84 be sure to put a space after -D for 1st arg at least
-    ARGS -D lib=${lib_to_check}
-         -DCMAKE_LINKER=${CMAKE_LINKER}
-         -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
-         -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
-    VERBATIM # recommended: p260
-    )
-  get_target_property(lib_to_check ${PRELOAD_NAME} LOCATION)
-  add_custom_command(TARGET ${PRELOAD_NAME}
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND}
-    # to work around i#84 be sure to put a space after -D for 1st arg at least
-    ARGS -D lib=${lib_to_check}
-         -DCMAKE_LINKER=${CMAKE_LINKER}
-         -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
-         -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
-    VERBATIM # recommended: p260
-    )
+  # Note that we can't locate readelf inside CMake_readelf.cmake as that
+  # would disallow pointing externally at a readelf location, so we make it
+  # a proper cache variable.
+  # Note that nothing depends on CMake_readelf.cmake: that's ok, we'll check
+  # in the next clean build if we modify the script.
+  # readelf is a binutils app just like ld
+  get_filename_component(binutils_path ${CMAKE_LINKER} PATH)
+  find_program(READELF_EXECUTABLE readelf HINTS "${binutils_path}" DOC "path to readelf")
+  if (READELF_EXECUTABLE-NOTFOUND OR NOT EXISTS "${READELF_EXECUTABLE}")
+    message("${READELF_EXECUTABLE} not found: not checking SElinux or execstack")
+  else (READELF_EXECUTABLE-NOTFOUND OR NOT EXISTS "${READELF_EXECUTABLE}")
+    get_target_property(lib_to_check dynamorio LOCATION)
+    add_custom_command(TARGET dynamorio
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      # to work around i#84 be sure to put a space after -D for 1st arg at least
+      ARGS -D lib=${lib_to_check}
+           -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
+           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
+      VERBATIM # recommended: p260
+      )
+    get_target_property(lib_to_check ${PRELOAD_NAME} LOCATION)
+    add_custom_command(TARGET ${PRELOAD_NAME}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      # to work around i#84 be sure to put a space after -D for 1st arg at least
+      ARGS -D lib=${lib_to_check}
+           -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
+           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
+      VERBATIM # recommended: p260
+      )
+  endif (READELF_EXECUTABLE-NOTFOUND OR NOT EXISTS "${READELF_EXECUTABLE}")
 
   # we used to run size on libdynamorio.so for info purposes
 

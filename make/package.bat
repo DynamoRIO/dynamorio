@@ -29,27 +29,36 @@ REM LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 REM OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 REM DAMAGE.
 
-set USAGE="usage: <VisStudio root> <source path> <publish path> <ver#> <build#> <uniquebuild#>";
-if ""=="%6" (
+set USAGE="usage: <cl32.bat> <cl64.bat> <cmake extra args> <source path> <publish path (w/ backslashes)> <ver#> <build#> <uniquebuild#>";
+REM Pass "" for ver# to use the default.
+if ""=="%8" (
     echo %USAGE%
     exit /b 1
-) else if not ""=="%7" (
+) else if not ""=="%9" (
     echo %USAGE%
     exit /b 1
 )
-set VSROOT=%1
-set SRCDIR=%2
-set PUBLISHDIR=%3
-set VERNUM=%4
-set BUILDNUM=%5
-set UNIQUE_BUILDNUM=%6
+set CL32BAT=%1
+set CL64BAT=%2
+set CUSTOM=%3
+set SRCDIR=%4
+set PUBLISHDIR=%5
+set VERNUM=%6
+set BUILDNUM=%7
+set UNIQUE_BUILDNUM=%8
+
+REM remove surrounding quotes since "-C foo.cmake" => vague
+REM "Error processing foo.cmake" error
+for /f "useback tokens=*" %%a in ('%CUSTOM%') do set CUSTOM=%%~a
 
 set CUR_DIR=%CD%
 
-set DEFS=-DVERSION_NUMBER:STRING=%VERNUM% -DBUILD_NUMBER:STRING=%BUILDNUM% -DUNIQUE_BUILD_NUMBER:STRING=%UNIQUE_BUILDNUM%
+set DEFS=-DBUILD_NUMBER:STRING=%BUILDNUM% -DUNIQUE_BUILD_NUMBER:STRING=%UNIQUE_BUILDNUM%
+if not ""==%VERNUM% (
+   set DEFS=-DVERSION_NUMBER:STRING=%VERNUM% %DEFS%
+)
 
-set VS80COMNTOOLS=%VSROOT%\Common7\Tools\
-call %VSROOT%\VC\vcvarsall.bat x86
+call %CL32BAT%
 
 rd /s /q build32rel
 rd /s /q build32dbg
@@ -58,28 +67,30 @@ rd /s /q build64dbg
 
 md build32rel
 cd build32rel
-cmake -G"NMake Makefiles" %DEFS% -DX64:BOOL=OFF %SRCDIR%
+cmake -G"NMake Makefiles" %DEFS% %CUSTOM% -DX64:BOOL=OFF %SRCDIR%
 nmake
 
 md ..\build32dbg
 cd ..\build32dbg
-cmake -G"NMake Makefiles" %DEFS% -DX64:BOOL=OFF -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF %SRCDIR%
+cmake -G"NMake Makefiles" %DEFS% %CUSTOM% -DX64:BOOL=OFF -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF %SRCDIR%
 nmake
 
-call %VSROOT%\VC\vcvarsall.bat x64
+call %CL64BAT%
 
 md ..\build64rel
 cd ..\build64rel
-cmake -G"NMake Makefiles" %DEFS% -DBUILD_DOCS:BOOL=OFF %SRCDIR%
+cmake -G"NMake Makefiles" %DEFS% %CUSTOM% -DBUILD_DOCS:BOOL=OFF %SRCDIR%
 nmake
 
 md ..\build64dbg
 cd ..\build64dbg
-cmake -G"NMake Makefiles" %DEFS% -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF %SRCDIR%
+cmake -G"NMake Makefiles" %DEFS% %CUSTOM% -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF %SRCDIR%
 nmake
 
-REM cmake handles backslashes in env vars fine, but complains if
-REM in a direct path or string, so be sure to go through $ENV
+REM handle read-only sources
+attrib -R CPackConfig.cmake
+REM we're generating raw cmake so we can't put single backslashes in:
+REM so we have cmake read in via $ENV
 echo string(REGEX REPLACE "\\\\" "/" curdir "$ENV{CUR_DIR}") >> CPackConfig.cmake
 echo set(CPACK_INSTALL_CMAKE_PROJECTS >> CPackConfig.cmake
 REM debug first, since we do have some files that overlap: drinject,

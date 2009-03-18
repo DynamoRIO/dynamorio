@@ -35,45 +35,52 @@
 
 # Run this from where you want the build dirs to be and point it
 # at the source dir.
-# The first build# is the exported version build# and must be <64K
-# The second uniquebuild# can be larger
-usage="<source path> <publish path> <ver#> <build#> <uniquebuild#>";
-# mandatory 5 arguments
-if [ $# -ne 5 ]; then
+# The first build# is the exported version build# and must be <64K.
+# The second uniquebuild# can be larger.
+# Pass "" for ver# to use the default.
+usage="<cmake extra args> <source path> <publish path> <ver#> <build#> <uniquebuild#>";
+# mandatory 6 arguments
+if [ $# -ne 6 ]; then
     echo "Usage: $0 $usage"
     exit 127
 fi
-srcdir=$1
+custom=$1
+srcdir=$2
 if ! test -e $srcdir/CMakeLists.txt ; then 
     echo "Error: directory $srcdir is not a source directory"
     exit 127
 fi
-publishdir=$2
-vernum=$3
-buildnum=$4
+publishdir=$3
+vernum=$4
+buildnum=$5
 # internal build number guaranteed to be unique but may be >64K
-unique_buildnum=$5
+unique_buildnum=$6
 
-DEFS="-DVERSION_NUMBER:STRING=${vernum} -DBUILD_NUMBER:STRING=${buildnum} -DUNIQUE_BUILD_NUMBER:STRING=${unique_buildnum}"
+DEFS="-DBUILD_NUMBER:STRING=${buildnum} -DUNIQUE_BUILD_NUMBER:STRING=${unique_buildnum}"
+if [ ! -z ${vernum} ]; then
+    DEFS="-DVERSION_NUMBER:STRING=${vernum} ${DEFS}"
+fi
 
 rm -rf build*{rel,dbg}
 
 mkdir build32rel; cd build32rel
-cmake $DEFS -DX64:BOOL=OFF ${srcdir}
+cmake ${DEFS} ${custom} -DX64:BOOL=OFF ${srcdir}
 make -j 4
 
 mkdir ../build32dbg; cd ../build32dbg
-cmake $DEFS -DX64:BOOL=OFF -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF ${srcdir}
+cmake ${DEFS} ${custom} -DX64:BOOL=OFF -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF ${srcdir}
 make -j 4
 
 mkdir ../build64rel; cd ../build64rel
-cmake $DEFS -DBUILD_DOCS:BOOL=OFF ${srcdir}
+cmake ${DEFS} ${custom} -DBUILD_DOCS:BOOL=OFF ${srcdir}
 make -j 4
 
 mkdir ../build64dbg; cd ../build64dbg
-cmake $DEFS -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF ${srcdir}
+cmake ${DEFS} ${custom} -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF ${srcdir}
 make -j 4
 
+# handle read-only sources
+chmod +w CPackConfig.cmake
 # debug first so we take release files in case they overlap
 echo "set(CPACK_INSTALL_CMAKE_PROJECTS
   \"$PWD/../build32dbg;DynamoRIO;ALL;/\"
