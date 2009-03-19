@@ -42,7 +42,7 @@
 #define _OS_EXPORTS_H_ 1
 
 #include <stdarg.h>
-#include "os_shared.h"
+#include "../os_shared.h"
 
 #define getpid getpid_forbidden_use_get_process_id
 

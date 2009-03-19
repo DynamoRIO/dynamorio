@@ -50,7 +50,7 @@
  */
 #pragma warning( disable : 4115 )
 
-#include "globals.h"
+#include "../globals.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <commdlg.h>

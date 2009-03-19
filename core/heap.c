@@ -2014,6 +2014,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
         dcontext != GLOBAL_DCONTEXT && dcontext != NULL) {
         stack_reserve_end = dcontext->dstack + GUARD_PAGE_ADJUSTMENT/2;
 #if defined(LINUX) && !defined(HAVE_PROC_MAPS)
+        prot = 0; /* avoid compiler warning: should only need inside if */
         if (!dynamo_initialized) {
             /* memory info is not yet set up.  since so early we only support
              * post-stack if inside vmm (won't be true only for pathological
@@ -2022,7 +2023,6 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
             if (vmm_is_reserved_unit(&heapmgt->vmheap, stack_reserve_end, reserve_size)) {
                 known_stack = true;
                 available = reserve_size;
-                prot = 0;
             } else
                 known_stack = false;
         } else

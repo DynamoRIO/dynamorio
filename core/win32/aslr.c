@@ -36,7 +36,7 @@
  * aslr.c - ASLR: address space layout randomization from user mode
  */
 
-#include "globals.h"
+#include "../globals.h"
 #include "ntdll.h"
 #include "os_private.h"
 #include "aslr.h"
@@ -44,10 +44,10 @@
 #include "decode.h"     /* for decode_opcode */
 #ifdef GBOP
 # include "gbop.h"
-# include "fragment.h"
-# include "hotpatch.h"
+# include "../fragment.h"
+# include "../hotpatch.h"
 #endif
-#include "module_shared.h"
+#include "../module_shared.h"
 
 enum {ASLR_MAP_GRANULARITY = 64*1024}; /* 64KB - OS allocation granularity */
 

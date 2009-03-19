@@ -33,7 +33,7 @@
 #ifndef MODULE_H
 #define MODULE_H
 
-#include "fragment.h" /* for rct_module_table_t, is inlined so need struct definition
+#include "../fragment.h" /* for rct_module_table_t, is inlined so need struct definition
                        * FIXME - remove this header dependency */
 
 #define OS_IMAGE_READ    IMAGE_SCN_MEM_READ

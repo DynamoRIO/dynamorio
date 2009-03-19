@@ -54,7 +54,7 @@
 #include <execinfo.h>
 #include <stdio.h>
 
-#include "globals.h"
+#include "../globals.h"
 #include "os_private.h"
 
 /* use backtrace feature of glibc 

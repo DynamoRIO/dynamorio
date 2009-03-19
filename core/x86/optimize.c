@@ -39,18 +39,18 @@
  * (old offline optimization stuff is in mangle.c)
  */
 
-#include "globals.h"   /* just to disable warning C4206 about an empty file */
+#include "../globals.h"   /* just to disable warning C4206 about an empty file */
 
 #ifdef INTERNAL /* around whole file */
 
-#include "globals.h"
-#include "instrlist.h"
+#include "../globals.h"
+#include "../instrlist.h"
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
 #include "decode.h"
 #include "decode_fast.h"
-#include "fragment.h"
+#include "../fragment.h"
 #include "disassemble.h"
 #include "proc.h"
 #include <string.h> /* for memset */

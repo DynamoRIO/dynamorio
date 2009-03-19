@@ -55,18 +55,18 @@
 #include <sys/syscall.h>
 #include <sched.h>
 #include <string.h> /* for memcpy and memset */
-#include "globals.h"
+#include "../globals.h"
 #include "os_private.h"
-#include "fragment.h"
-#include "fcache.h"
-#include "perfctr.h"
+#include "../fragment.h"
+#include "../fcache.h"
+#include "../perfctr.h"
 #include "arch.h"
-#include "monitor.h" /* for trace_abort */
-#include "link.h" /* for linking interrupted fragment_t */
+#include "../monitor.h" /* for trace_abort */
+#include "../link.h" /* for linking interrupted fragment_t */
 #include "instr.h" /* to find target of SIGSEGV */
 #include "decode.h" /* to find target of SIGSEGV */
 #include "decode_fast.h" /* to handle self-mod code */
-#include "synch.h"
+#include "../synch.h"
 
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
@@ -853,7 +853,9 @@ signal_exit()
 void
 signal_thread_init(dcontext_t *dcontext)
 {
+#ifdef HAVE_SIGALTSTACK
     int rc;
+#endif
     thread_sig_info_t *info = HEAP_TYPE_ALLOC(dcontext, thread_sig_info_t,
                                               ACCT_OTHER, PROTECTED);
     dcontext->signal_field = (void *) info;
@@ -1192,7 +1194,7 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
             * is present in ESX3.5 and earlier: vmkernel treats
             * 63 and 64 as invalid signal numbers.
             */
-           IF_VMX86(|| (i >= 63 && rc == -EINVAL))
+           IF_VMX86(|| (sig >= 63 && rc == -EINVAL))
            );
     if (rc != 0) /* be defensive: app will probably still work */
         return;

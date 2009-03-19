@@ -44,27 +44,27 @@
 #error X86 must be defined
 #endif
 
-#include "globals.h"
+#include "../globals.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"
-#include "monitor.h"
-#include "fcache.h"
-#include "fragment.h"
+#include "../monitor.h"
+#include "../fcache.h"
+#include "../fragment.h"
 #include "decode_fast.h"
 #include "disassemble.h"
 #include "instr_create.h"
 #include "ntdll.h"
 #include "events.h"
 #include "os_private.h"
-#include "moduledb.h"
+#include "../moduledb.h"
 #include "aslr.h"
-#include "nudge.h" /* for generic_nudge_target() address */
+#include "../nudge.h" /* for generic_nudge_target() address */
 #ifdef RETURN_AFTER_CALL
-# include "rct.h" /* for rct_ind_branch_target_lookup */
+# include "../rct.h" /* for rct_ind_branch_target_lookup */
 #endif
 #include "instrument.h"
-#include "perscache.h"
+#include "../perscache.h"
 
 #include <string.h> /* for memcpy */
 #include <windows.h>

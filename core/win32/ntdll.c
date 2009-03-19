@@ -57,8 +57,8 @@
  * used by preinject.
  * preinject just defines its own internal_error!
  */
-# include "globals.h"
-# include "module_shared.h"
+# include "../globals.h"
+# include "../module_shared.h"
 #endif
 
 /* We have to hack away things we use here that won't work for non-core */

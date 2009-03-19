@@ -37,10 +37,10 @@
 /* file "instr.c" -- x86-specific IR utilities
  */
 
-#include "globals.h"
+#include "../globals.h"
 #include "instr.h"
 #include "arch.h"
-#include "link.h"
+#include "../link.h"
 #include "decode.h"
 #include "decode_fast.h"
 #include "instr_create.h"

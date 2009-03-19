@@ -37,7 +37,7 @@
 /* decode_table.c -- tables for decoding x86 instructions
  */
 
-#include "globals.h" /* need this to include decode.h (uint, etc.) */
+#include "../globals.h" /* need this to include decode.h (uint, etc.) */
 #include "arch.h"    /* need this to include decode.h (byte, etc. */
 #include "instr.h" /* for REG_ constants */
 #include "decode.h"

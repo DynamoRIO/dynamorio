@@ -42,10 +42,10 @@
 
 #include "configure.h"
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-# include "globals.h"
+# include "../globals.h"
 # include "os_private.h"
-# include "nudge.h"
-# include "module_shared.h"
+# include "../nudge.h"
+# include "../module_shared.h"
 #else  /* NOT_DYNAMORIO_CORE */
 # define WIN32_LEAN_AND_MEAN
 # include <windows.h> /* no longer included in globals_shared.h */

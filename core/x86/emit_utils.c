@@ -39,11 +39,11 @@
  * worry about getting stale cache entries.
  */
 
-#include "globals.h"
-#include "link.h"
-#include "fragment.h"
-#include "fcache.h"
-#include "emit.h"
+#include "../globals.h"
+#include "../link.h"
+#include "../fragment.h"
+#include "../fcache.h"
+#include "../emit.h"
 
 #include "arch.h"
 #include "instr.h"
@@ -51,14 +51,14 @@
 #include "instrument.h" /* for dr_insert_call() */
 #include "proc.h"
 #include <string.h> /* for memcpy */
-#include "instrlist.h"
+#include "../instrlist.h"
 #include "decode.h"
 #include "decode_fast.h"
 #ifdef DEBUG
 #include "disassemble.h"
 #endif
 #include <limits.h> /* for UCHAR_MAX */
-#include "perscache.h"
+#include "../perscache.h"
 
 /* fragment_t fields */
 #define FRAGMENT_TAG_OFFS        (offsetof(fragment_t, tag))

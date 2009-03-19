@@ -32,7 +32,7 @@
 
 /* Copyright (c) 2003-2007 Determina Corp. */
 
-#include "globals.h"
+#include "../globals.h"
 
 /* Collects and displays diagnostic information.
  * FIXME: Stub for future development; diagnostics not supported on linux (yet)

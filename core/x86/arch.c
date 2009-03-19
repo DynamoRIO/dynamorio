@@ -38,16 +38,16 @@
  * arch.c - x86 architecture specific routines
  */
 
-#include "globals.h"
-#include "link.h"
-#include "fragment.h"
+#include "../globals.h"
+#include "../link.h"
+#include "../fragment.h"
 
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
 #include "decode.h"
 #include "decode_fast.h"
-#include "fcache.h"
+#include "../fcache.h"
 #include "proc.h"
 #include "instrument.h"
 
@@ -3904,9 +3904,11 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
                get_syscall_method() == SYSCALL_METHOD_INT);
         if (new_method == SYSCALL_METHOD_SYSENTER) {
 # ifndef HAVE_TLS
-            /* PR 361894: we use TLS for our vsyscall hook (PR 212570) */
-            FATAL_USAGE_ERROR(SYSENTER_NOT_SUPPORTED, 2, 
-                              get_application_name(), get_application_pid());
+            if (DYNAMO_OPTION(hook_vsyscall)) {
+                /* PR 361894: we use TLS for our vsyscall hook (PR 212570) */
+                FATAL_USAGE_ERROR(SYSENTER_NOT_SUPPORTED, 2, 
+                                  get_application_name(), get_application_pid());
+            }
 # endif
             /* Hook the sysenter continuation point so we don't lose control */
             if (!sysenter_hook_failed && !hook_vsyscall(dcontext)) {

@@ -36,8 +36,8 @@
 #include "configure.h"
 #ifdef LOAD_TO_CONST
 
-#include "globals.h"
-#include "instrlist.h"
+#include "../globals.h"
+#include "../instrlist.h"
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
@@ -45,10 +45,10 @@
 #include "decode_fast.h"
 #include "disassemble.h"
 #include "proc.h"
-#include "fragment.h"
+#include "../fragment.h"
 #include "instrument.h"
-#include "emit.h"
-#include "link.h"
+#include "../emit.h"
+#include "../link.h"
 
 
 #include <string.h> /* for memset */

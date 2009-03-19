@@ -81,7 +81,7 @@ typedef DWORD cxt_seg_t;
     ((dr_xmm_t*)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
 #endif
 
-#include "os_shared.h"
+#include "../os_shared.h"
 #include "arch_exports.h"       /* for dr_mcontext_t */
 #include "aslr.h"               /* for aslr_context */
 

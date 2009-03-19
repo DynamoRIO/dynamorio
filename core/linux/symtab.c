@@ -46,7 +46,7 @@
 #include <errno.h>
 #include <bfd.h>
 /* globals.h gives us stdio, stdlib, and assert */
-#include "globals.h"
+#include "../globals.h"
 
 static uint bfd_symcount, nonnull_symcount;
 static asymbol **bfd_syms = NULL;

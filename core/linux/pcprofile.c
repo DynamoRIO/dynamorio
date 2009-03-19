@@ -38,10 +38,10 @@
  * pcprofile.c - pc sampling profiler for dynamo
  */
 
-#include "globals.h"
-#include "utils.h"
-#include "fragment.h"
-#include "fcache.h"
+#include "../globals.h"
+#include "../utils.h"
+#include "../fragment.h"
+#include "../fcache.h"
 #include <string.h> /* for memset */
 
 /* Don't use symtab, it doesn't give us anything that addr2line or

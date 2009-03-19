@@ -35,19 +35,19 @@
 /* module.c - maintains information about modules (dll or executable images) */
 
 
-#include "globals.h"
+#include "../globals.h"
 #include "ntdll.h"
 #include <stddef.h> /* for offsetof */
 
 #ifdef RCT_IND_BRANCH
-#  include "rct.h"
+#  include "../rct.h"
 #endif
 
-#include "utils.h"
+#include "../utils.h"
 #include "os_private.h"
 #include "aslr.h"
 #include "instrument.h"
-#include "perscache.h" /* for coarse_info_t.rct_loaded */
+#include "../perscache.h" /* for coarse_info_t.rct_loaded */
 
 /* used to hold the version information we get from the .rsrc section */
 typedef struct _version_info_t {

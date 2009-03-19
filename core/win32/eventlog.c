@@ -34,11 +34,11 @@
 
 /* eventlog.c - Windows specific event logging issues */
 
-#include "globals.h"
+#include "../globals.h"
 
 #include <windows.h>
 #include <tchar.h>
-#include "utils.h"
+#include "../utils.h"
 
 #include "events.h"             /* generated from message file  */
 #include "ntdll.h"

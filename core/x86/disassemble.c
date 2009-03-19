@@ -61,7 +61,7 @@
  *    tricks like adding each fragment to it.
  */
 
-#include "globals.h"
+#include "../globals.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"
@@ -70,10 +70,10 @@
 #include <string.h>
 
 /* these are only needed for symbolic address lookup: */
-#include "fragment.h" /* for fragment_pclookup */
-#include "link.h" /* for linkstub lookup */
+#include "../fragment.h" /* for fragment_pclookup */
+#include "../link.h" /* for linkstub lookup */
 
-#include "fcache.h" /* for in_fcache */
+#include "../fcache.h" /* for in_fcache */
 
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE) 
 

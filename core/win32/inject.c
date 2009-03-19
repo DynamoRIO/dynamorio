@@ -39,8 +39,8 @@
  */
 
 /* FIXME: Unicode support?!?! case 61 */
-#include "globals.h"            /* for pragma warning's and assert defines */
-#include "module_shared.h"      /* for get_proc_address() */
+#include "../globals.h"            /* for pragma warning's and assert defines */
+#include "../module_shared.h"      /* for get_proc_address() */
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

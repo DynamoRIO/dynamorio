@@ -1667,7 +1667,7 @@ void print_optimization_stats(void);
 #include "sideline.h"
 #endif
 
-#include "link.h"
+#include "../link.h"
 /* convert link flags to ibl_branch_type_t */
 static inline ibl_branch_type_t
 extract_branchtype(ushort linkstub_flags)

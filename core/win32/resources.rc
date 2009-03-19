@@ -165,7 +165,7 @@
 #define BUILD_NUMBER_STR STRINGIFY(BUILD_NUMBER)
 
 #ifdef INTERNAL
-# include "defines.h"
+# include "configure_defines.h"
 # define COMMENT_STR DYNAMORIO_DEFINES
 #else
 # define COMMENT_STR ""

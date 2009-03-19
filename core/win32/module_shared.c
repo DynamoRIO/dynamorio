@@ -55,10 +55,10 @@
  * used by preinject.
  * preinject just defines its own internal_error!
  */
-# include "globals.h"
+# include "../globals.h"
 # if !defined(NOT_DYNAMORIO_CORE_PROPER)
 #  include "os_private.h" /* for is_readable_pe_base() */
-#  include "module_shared.h" /* for is_in_code_section() */
+#  include "../module_shared.h" /* for is_in_code_section() */
 # endif
 #endif
 

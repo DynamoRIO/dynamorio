@@ -36,11 +36,11 @@
 
 /* file "mangle.c" */
 
-#include "globals.h"
+#include "../globals.h"
 #include "arch.h"
-#include "link.h"
-#include "fragment.h"
-#include "instrlist.h"
+#include "../link.h"
+#include "../fragment.h"
+#include "../instrlist.h"
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
@@ -53,7 +53,7 @@
 #include "instrument.h" /* for dr_insert_call */
 
 #ifdef RCT_IND_BRANCH
-# include "rct.h" /* rct_add_rip_rel_addr */
+# include "../rct.h" /* rct_add_rip_rel_addr */
 #endif
 
 #ifdef LINUX

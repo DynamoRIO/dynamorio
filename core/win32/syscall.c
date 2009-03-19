@@ -36,13 +36,13 @@
  * syscall.c - win32-specific system call handling routines
  */
 
-#include "globals.h"
-#include "fragment.h"
+#include "../globals.h"
+#include "../fragment.h"
 #include "ntdll.h"
 #include "os_private.h"
 #include "aslr.h"
 #include "instrument.h"
-#include "synch.h"
+#include "../synch.h"
 
 /* this points to one of the os-version-specific system call # arrays below */
 int *syscalls = NULL;

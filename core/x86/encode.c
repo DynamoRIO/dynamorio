@@ -36,7 +36,7 @@
 
 /* encode.c -- an x86 encoder */
 
-#include "globals.h"
+#include "../globals.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"

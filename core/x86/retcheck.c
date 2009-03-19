@@ -39,16 +39,16 @@
  * FIXME: Experimental.
  */
 
-#include "globals.h"
-#include "instrlist.h"
+#include "../globals.h"
+#include "../instrlist.h"
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
 #include "decode.h"
 
-#include "link.h"               /* for frag tag */
-#include "fragment.h"
-#include "rct.h"
+#include "../link.h"               /* for frag tag */
+#include "../fragment.h"
+#include "../rct.h"
 #include "instrument.h" /* for dr_insert_clean_call */
 
 #ifdef CHECK_RETURNS_SSE2
@@ -82,8 +82,8 @@
 #define USE_LOCAL_MPROT_STACK 0
 
 #if SSE2_USE_STACK_POINTER /* stack pointer and jump table method */
-# include "fragment.h"
-# include "link.h"
+# include "../fragment.h"
+# include "../link.h"
 #endif
 
 /* make code more readable by shortening long lines */

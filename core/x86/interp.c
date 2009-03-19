@@ -38,14 +38,14 @@
  * interp.c - interpreter used for native trace selection
  */
 
-#include "globals.h"
-#include "link.h"
-#include "fragment.h"
-#include "emit.h"
-#include "dispatch.h"
-#include "instrlist.h"
-#include "fcache.h"
-#include "monitor.h" /* for trace_abort and monitor_data_t */
+#include "../globals.h"
+#include "../link.h"
+#include "../fragment.h"
+#include "../emit.h"
+#include "../dispatch.h"
+#include "../instrlist.h"
+#include "../fcache.h"
+#include "../monitor.h" /* for trace_abort and monitor_data_t */
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
@@ -54,15 +54,15 @@
 #include "disassemble.h"
 #include <string.h> /* for memcpy */
 #include "instrument.h"
-#include "hotpatch.h"
+#include "../hotpatch.h"
 #ifdef RETURN_AFTER_CALL
-# include "rct.h"
+# include "../rct.h"
 #endif
 #ifdef WINDOWS
 # include "ntdll.h" /* for EXCEPTION_REGISTRATION */
-# include "nudge.h" /* for generic_nudge_target() address */
+# include "../nudge.h" /* for generic_nudge_target() address */
 #endif
-#include "perscache.h"
+#include "../perscache.h"
 
 #ifdef CHECK_RETURNS_SSE2
 #include <setjmp.h> /* for warning when see libc setjmp */

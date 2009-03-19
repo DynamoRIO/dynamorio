@@ -38,18 +38,18 @@
  * os.c - win32 specific routines
  */
 
-#include "globals.h"
-#include "fragment.h"
-#include "fcache.h"
+#include "../globals.h"
+#include "../fragment.h"
+#include "../fcache.h"
 #include "ntdll.h"
 #include "os_private.h"
-#include "nudge.h"
-#include "moduledb.h"
-#include "hotpatch.h"
+#include "../nudge.h"
+#include "../moduledb.h"
+#include "../hotpatch.h"
 #ifdef DEBUG
-# include "vmareas.h"
+# include "../vmareas.h"
 #endif
-#include "dispatch.h"
+#include "../dispatch.h"
 #include "instrument.h" /* is_in_client_lib() */
 
 #include <windows.h>
@@ -57,7 +57,7 @@
 
 #include "events.h"             /* event log messages */
 #include "aslr.h"
-#include "synch.h"
+#include "../synch.h"
 
 #ifdef DEBUG
 DECLARE_CXTSWPROT_VAR(static mutex_t snapshot_lock, INIT_LOCK_FREE(snapshot_lock));

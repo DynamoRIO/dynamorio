@@ -421,8 +421,9 @@ endif (UNIX)
 
 ###########################################################################
 
+# Do not put core/ into the include dirs as our link.h will conflict
+# with /usr/include/link.h!
 include_directories(BEFORE 
-  ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/${ARCH_DIRNAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/${OSNAME}

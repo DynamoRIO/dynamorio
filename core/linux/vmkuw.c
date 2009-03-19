@@ -82,10 +82,18 @@
 #undef PAGE_SIZE
 
 #include "globals_shared.h"
-#include "globals.h"
-#include "utils.h"
+#include "../globals.h"
+#include "../utils.h"
 
 #include "vmkuw.h"
+
+/* Handle 4.0 and 4.x */
+#ifndef VMK_USER32_FIRST_MMAP_TEXT_VADDR
+# define VMK_USER32_FIRST_MMAP_TEXT_VADDR VMK_USER_FIRST_MMAP_TEXT_VADDR
+#endif
+#ifndef VMK_USER32_LAST_MMAP_TEXT_VADDR
+# define VMK_USER32_LAST_MMAP_TEXT_VADDR VMK_USER_LAST_MMAP_TEXT_VADDR
+#endif
 
 enum {VMKUW_TYPE_NONE,
       VMKUW_TYPE_KERN,
@@ -286,11 +294,11 @@ vmk_get_timer_frequency(void)
 byte *
 os_vmk_mmap_text_start(void)
 {
-    return (byte *) VMK_USER_FIRST_MMAP_TEXT_VADDR;
+    return (byte *) VMK_USER32_FIRST_MMAP_TEXT_VADDR;
 }
 
 byte *
 os_vmk_mmap_text_end(void)
 {
-    return (byte *) ALIGN_FORWARD(VMK_USER_LAST_MMAP_TEXT_VADDR, PAGE_SIZE);
+    return (byte *) ALIGN_FORWARD(VMK_USER32_LAST_MMAP_TEXT_VADDR, PAGE_SIZE);
 }

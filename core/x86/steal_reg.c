@@ -36,13 +36,13 @@
 
 /* x86/steal_reg.c */
 
-#include "globals.h"
-#include "instrlist.h"
+#include "../globals.h"
+#include "../instrlist.h"
 
 #include "arch.h"
 #include "instr.h"
 #include "steal_reg.h"
-#include "fragment.h"
+#include "../fragment.h"
 
 /* N.B.:
  * For debugging reg stealing, it's nice to be able to only do reg stealing

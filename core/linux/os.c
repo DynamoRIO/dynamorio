@@ -46,7 +46,7 @@
 #include <fcntl.h>
 /* for pthread thread-local-storage */
 #include <pthread.h>
-#include "globals.h"
+#include "../globals.h"
 #include <string.h>
 #include <unistd.h> /* for write and usleep and _exit */
 #include <limits.h>
@@ -56,13 +56,13 @@
 #include <stdio.h>
 #include <signal.h>
 #include <syslog.h>             /* vsyslog */
-#include "vmareas.h"
+#include "../vmareas.h"
 #ifdef RCT_IND_BRANCH
-#  include "rct.h"
+#  include "../rct.h"
 #endif
 #include "syscall.h"            /* our own local copy */
 #include "os_private.h"
-#include "module_shared.h"
+#include "../module_shared.h"
 
 #ifdef X86
 # include "instr.h" /* for get_segment_base() */

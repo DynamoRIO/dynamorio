@@ -1249,7 +1249,7 @@ enum {LONGJMP_EXCEPTION = 1};
 
 /* volatile to ensure the compiler doesn't completely skip a READ */
 #define PROBE_READ_PC(pc) ((*(volatile char *)(pc)))
-#define PROBE_WRITE_PC(pc) ATOMIC_ADD_PTR(volatile char*, pc, 0)
+#define PROBE_WRITE_PC(pc) ATOMIC_ADD_PTR(volatile char*, (*(volatile char *)(pc)), 0)
 /* FIXME: while handling a read exception thread stack expansion in
  * other threads may lose its guard page.  Since current thread won't
  * know if it is ok to expand, therefore the stacks won't grow any

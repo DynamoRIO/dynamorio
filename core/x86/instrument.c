@@ -38,24 +38,24 @@
  * instrument.c - interface for instrumentation
  */
 
-#include "globals.h"   /* just to disable warning C4206 about an empty file */
+#include "../globals.h"   /* just to disable warning C4206 about an empty file */
 
 
 #include "instrument.h"
-#include "instrlist.h"
+#include "../instrlist.h"
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
 #include "decode.h"
 #include "disassemble.h"
-#include "fragment.h"
-#include "emit.h"
-#include "link.h"
-#include "monitor.h" /* for mark_trace_head */
+#include "../fragment.h"
+#include "../emit.h"
+#include "../link.h"
+#include "../monitor.h" /* for mark_trace_head */
 #include <string.h> /* for strstr */
 #include <stdarg.h> /* for varargs */
 #ifdef WINDOWS
-# include "nudge.h" /* for nudge_internal() */
+# include "../nudge.h" /* for nudge_internal() */
 #endif
 
 #ifdef CLIENT_INTERFACE

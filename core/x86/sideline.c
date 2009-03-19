@@ -38,7 +38,7 @@
  * sideline.c - simultaneous optimization support
  */
 
-#include "globals.h"
+#include "../globals.h"
 
 #ifdef SIDELINE /* around whole file */
 
@@ -62,14 +62,14 @@
 #endif
 
 #include "sideline.h"
-#include "instrlist.h"
+#include "../instrlist.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"
-#include "fragment.h"
-#include "emit.h"
-#include "link.h"
-#include "fcache.h"
+#include "../fragment.h"
+#include "../emit.h"
+#include "../link.h"
+#include "../fcache.h"
 
 #ifdef SIDELINE_COUNT_STUDY
 # ifndef PROFILE_LINKCOUNT

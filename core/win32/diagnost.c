@@ -34,17 +34,17 @@
 
 /* diagnost.c - maintains information about modules (dll or executable images) */
 
-#include "globals.h"
+#include "../globals.h"
 
 #include "ntdll.h"
-#include "fragment.h"
-#include "link.h"
-#include "utils.h"
+#include "../fragment.h"
+#include "../link.h"
+#include "../utils.h"
 #include "diagnost.h"
 #include "os_private.h"
-#include "hotpatch.h"
-#include "moduledb.h"
-#include "module_shared.h"
+#include "../hotpatch.h"
+#include "../moduledb.h"
+#include "../module_shared.h"
 
 /* Declared globally to reduce recursion overhead */
 /* Not persistent across code cache execution, so not protected */

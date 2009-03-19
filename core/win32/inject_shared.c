@@ -48,14 +48,14 @@
 #include "configure.h"
 #ifndef NOT_DYNAMORIO_CORE
 
-#include "globals.h"
+#include "../globals.h"
 
 #include <windows.h>
 #include <tchar.h>
 #include <stdio.h>
 #include "ntdll.h"  /* should link with ntdll.o */
 #ifdef DEBUG
-# include "moduledb.h"   /* for macros for 9252 fix. */
+# include "../moduledb.h"   /* for macros for 9252 fix. */
 #endif
 
 /* for asserts, copied from utils.h */

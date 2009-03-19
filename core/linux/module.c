@@ -30,8 +30,8 @@
  * DAMAGE.
  */
 
-#include "globals.h"
-#include "module_shared.h"
+#include "../globals.h"
+#include "../module_shared.h"
 #include "os_private.h"
 #include <elf.h>    /* for ELF types */
 #include <string.h>
