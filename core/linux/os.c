@@ -3546,7 +3546,16 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
                  * Note, if it is a header of a different module, then we'll not have
                  * an overlap, so we will not hit this case.
                  */
-                ASSERT_CURIOSITY(ma->start + ma->os_data.alignment == base);
+                /* Issue 89: the vdso might be loaded inside ld.so as below, 
+                 * which causes ASSERT_CURIOSITY fail.
+                 * b7fa3000-b7fbd000 r-xp 00000000 08:01 108679     /lib/ld-2.8.90.so
+                 * b7fbd000-b7fbe000 r-xp b7fbd000 00:00 0          [vdso]
+                 * b7fbe000-b7fbf000 r--p 0001a000 08:01 108679     /lib/ld-2.8.90.so
+                 * b7fbf000-b7fc0000 rw-p 0001b000 08:01 108679     /lib/ld-2.8.90.so
+                 * So we should add a vsyscall exemptions check here.
+                 */
+                ASSERT_CURIOSITY(ma->start + ma->os_data.alignment == base ||
+                                 base == vsyscall_page_start);
             }
         });
     }
@@ -3595,6 +3604,12 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot
      * can read the memory to see if it is a elf_header
      */
     /* FIXME - get inode for check */
+    /* FIXME: if we have an early injection before ld.so, we need a way to
+     * find the vdso if using sysenter so that we can hook it and syscalls 
+     * will work properly on recent Linux distributions
+     * So we should look for VSYSCALL_PAGE_MAPS_NAME here as well as in
+     * find_executable_vm_areas. xref i#89.
+     */
     overlaps_image = mmap_check_for_module_overlap(base, size,
                                                    TEST(MEMPROT_READ, memprot), 0, true);
     if (overlaps_image) {
@@ -4769,7 +4784,6 @@ find_executable_vm_areas(void)
     maps_iter_t iter;
     maps_iterator_start(&iter, true/*may alloc*/);
     while (maps_iterator_next(&iter)) {
-        bool overlaps_image;
         bool image = false;
         size_t size = iter.vm_end - iter.vm_start;
         DEBUG_DECLARE(char *map_type = "Private");
@@ -4781,12 +4795,16 @@ find_executable_vm_areas(void)
         LOG(GLOBAL, LOG_VMAREAS, 2,
             "start="PFX" end="PFX" prot=%x comment=%s\n",
             iter.vm_start, iter.vm_end, iter.prot, iter.comment);
-
-        /* find modules for module list */
-        overlaps_image = mmap_check_for_module_overlap(iter.vm_start, size,
-                                                       TEST(MEMPROT_READ, iter.prot),
-                                                       iter.inode, false);
-
+        /* Issue 89: the vdso might be loaded inside ld.so as below, 
+         * which causes ASSERT_CURIOSITY in mmap_check_for_module_overlap fail.
+         * b7fa3000-b7fbd000 r-xp 00000000 08:01 108679     /lib/ld-2.8.90.so
+         * b7fbd000-b7fbe000 r-xp b7fbd000 00:00 0          [vdso]
+         * b7fbe000-b7fbf000 r--p 0001a000 08:01 108679     /lib/ld-2.8.90.so
+         * b7fbf000-b7fc0000 rw-p 0001b000 08:01 108679     /lib/ld-2.8.90.so
+         * So we always first check if it is a vdso page before calling 
+         * mmap_check_for_module_overlap. And in mmap_check_for_module_overlap,
+         * a vsyscall exemptions check is added.
+         */
         if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
                     strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0
             /* Older kernels do not label it as "[vdso]", but it is hardcoded there */
@@ -4798,11 +4816,18 @@ find_executable_vm_areas(void)
             ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE);
             ASSERT(!dynamo_initialized); /* .data should be +w */
             ASSERT(vsyscall_page_start == NULL);
+            /* we're not considering as "image" even if part of ld.so (xref i#89) and
+             * thus we aren't adjusting our code origins policies to remove the
+             * vsyscall page exemption.
+             */
+            DODEBUG({ map_type = "VDSO"; });
             vsyscall_page_start = iter.vm_start;
             LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ "PFX" %s\n",
                 vsyscall_page_start, iter.comment);
 # endif
-        } else if (overlaps_image) {
+        } else if (mmap_check_for_module_overlap(iter.vm_start, size,
+                                                 TEST(MEMPROT_READ, iter.prot),
+                                                 iter.inode, false)) {
             /* we already added the whole image region when we hit the first map for it */
             image = true;
             DODEBUG({ map_type = "ELF SO"; });
