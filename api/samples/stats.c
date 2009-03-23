@@ -549,9 +549,9 @@ event_exit(void)
     char fname[512];
     char *dirsep;
     int len;
-    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                   "Instrumentation results:\n"
-                   "  saw %" STAT_FORMAT_CODE " flops\n", stats->num_flops);
+    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                      "Instrumentation results:\n"
+                      "  saw %" STAT_FORMAT_CODE " flops\n", stats->num_flops);
     DR_ASSERT(len > 0);
     msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
 #ifdef SHOW_RESULTS
@@ -561,13 +561,13 @@ event_exit(void)
     /* On Windows we need an absolute path so we place it in
      * the same directory as our library.
      */
-    len = snprintf(fname, sizeof(fname)/sizeof(fname[0]),
-                   "%s", dr_get_client_path(my_id));
+    len = dr_snprintf(fname, sizeof(fname)/sizeof(fname[0]),
+                      "%s", dr_get_client_path(my_id));
     DR_ASSERT(len > 0);
     for (dirsep = fname + len; *dirsep != DIRSEP; dirsep--)
         DR_ASSERT(dirsep > fname);
-    len = snprintf(dirsep + 1, (sizeof(fname) - (dirsep - fname))/sizeof(fname[0]),
-                   "stats.%d.log", dr_get_process_id());
+    len = dr_snprintf(dirsep + 1, (sizeof(fname) - (dirsep - fname))/sizeof(fname[0]),
+                      "stats.%d.log", dr_get_process_id());
     DR_ASSERT(len > 0);
     fname[sizeof(fname)/sizeof(fname[0])-1] = '\0';
     f = dr_open_file(fname, DR_FILE_WRITE_OVERWRITE);

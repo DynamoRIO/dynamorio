@@ -604,9 +604,11 @@ typedef uint64 timestamp_t;
 /* Convenience defines for cross-platform printing */
 #ifdef X64
 # define PFMT ZHEX64_FORMAT_STRING
+# define PIFMT HEX64_FORMAT_STRING
 # define SZFMT INT64_FORMAT_STRING
 #else
 # define PFMT ZHEX32_FORMAT_STRING
+# define PIFMT HEX32_FORMAT_STRING
 # define SZFMT "%d"
 #endif
 #endif
@@ -616,6 +618,7 @@ typedef uint64 timestamp_t;
 /* DR_API EXPORT BEGIN */
 #ifdef API_EXPORT_ONLY
 #define PFX "0x"PFMT
+#define PIFX "0x"PIFMT
 #endif
 /* DR_API EXPORT END */
 

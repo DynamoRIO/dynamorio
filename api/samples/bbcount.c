@@ -94,12 +94,12 @@ event_exit(void)
 #ifdef SHOW_RESULTS
     char msg[512];
     int len;
-    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                   "Instrumentation results:\n"
-                   "%10d basic block executions\n"
-                   "%10d basic blocks needed flag saving\n"
-                   "%10d basic blocks did not\n",
-                   global_count, bbs_eflags_saved, bbs_no_eflags_saved);
+    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                      "Instrumentation results:\n"
+                      "%10d basic block executions\n"
+                      "%10d basic blocks needed flag saving\n"
+                      "%10d basic blocks did not\n",
+                      global_count, bbs_eflags_saved, bbs_no_eflags_saved);
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);

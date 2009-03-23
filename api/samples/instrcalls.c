@@ -83,13 +83,14 @@ event_thread_init(void *drcontext)
      * the same directory as our library. We could also pass
      * in a path and retrieve with dr_get_options().
      */
-    len = snprintf(logname, sizeof(logname)/sizeof(logname[0]),
-                   "%s", dr_get_client_path(my_id));
+    len = dr_snprintf(logname, sizeof(logname)/sizeof(logname[0]),
+                      "%s", dr_get_client_path(my_id));
     DR_ASSERT(len > 0);
     for (dirsep = logname + len; *dirsep != DIRSEP; dirsep--)
         DR_ASSERT(dirsep > logname);
-    len = snprintf(dirsep + 1, (sizeof(logname) - (dirsep - logname))/sizeof(logname[0]),
-                   "instrcalls.%d.log", dr_get_thread_id(drcontext));
+    len = dr_snprintf(dirsep + 1,
+                      (sizeof(logname) - (dirsep - logname))/sizeof(logname[0]),
+                      "instrcalls.%d.log", dr_get_thread_id(drcontext));
     DR_ASSERT(len > 0);
     logname[sizeof(logname)/sizeof(logname[0])-1] = '\0';
     f = dr_open_file(logname, DR_FILE_WRITE_OVERWRITE);

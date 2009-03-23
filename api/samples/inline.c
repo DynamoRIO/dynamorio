@@ -218,7 +218,7 @@ event_exit(void)
 #ifdef SHOW_RESULTS
     /* display the results */
     char msg[512];
-    int len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+    int len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
                        "Inlining results:\n"
                        "  Number of complete inlines: %d\n", num_complete_inlines);
     DR_ASSERT(len > 0);

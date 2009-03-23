@@ -66,11 +66,11 @@ exit_event(void)
 #ifdef SHOW_RESULTS
     char msg[512];
     int len;
-    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                   "Instrumentation results:\n"
-                   "  saw %d div instructions\n"
-                   "  of which %d were powers of 2\n",
-                   div_count, div_p2_count);
+    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                      "Instrumentation results:\n"
+                      "  saw %d div instructions\n"
+                      "  of which %d were powers of 2\n",
+                      div_count, div_p2_count);
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);

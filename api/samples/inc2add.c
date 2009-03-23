@@ -95,12 +95,12 @@ event_exit(void)
     char msg[256];
     int len;
     if (enable) {
-	len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                       "converted %d out of %d inc/dec to add/sub\n",
-                       num_converted, num_examined);
+	len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                          "converted %d out of %d inc/dec to add/sub\n",
+                          num_converted, num_examined);
     } else {
-	len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                       "decided to keep all original inc/dec\n");
+	len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                          "decided to keep all original inc/dec\n");
     }
     DR_ASSERT(len > 0);
     msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';

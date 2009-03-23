@@ -213,7 +213,7 @@ set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
 
 # resources when packaging
 # xref cmake's supported VERSION + SOVERSION which we're not using
-set(VERSION_NUMBER "1.3.2" CACHE STRING "Version number")
+set(VERSION_NUMBER "1.3.3" CACHE STRING "Version number")
 string(REGEX REPLACE "\\." "," VERSION_COMMA_DELIMITED "${VERSION_NUMBER}")
 set(BUILD_NUMBER "18" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "18" CACHE STRING "Unique build number")

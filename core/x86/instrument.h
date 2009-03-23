@@ -1912,7 +1912,7 @@ DR_API
  * Stdout printing that won't interfere with the
  * application's own printing.  Currently non-buffered.
  * \note On Windows, this routine does not support printing floating
- * point values.  Use snprintf() instead.
+ * point values.  Use dr_snprintf() instead.
  */
 void 
 dr_printf(const char *fmt, ...);
@@ -1922,13 +1922,11 @@ DR_API
  * Printing to a file that won't interfere with the
  * application's own printing.  Currently non-buffered.
  * \note On Windows, this routine does not support printing floating
- * point values.  Use snprintf() instead.
+ * point values.  Use dr_snprintf() instead.
  */
 void
 dr_fprintf(file_t f, const char *fmt, ...);
 
-/* We have to temporarily suspend our snprintf->_snprintf define */
-#undef snprintf
 DR_API
 /**
  * Utility routine to print a formatted message to a string.  Will not
@@ -1939,9 +1937,20 @@ DR_API
  * character.  If the number of characters to write exceeds max, then
  * max characters are written and -1 is returned.  If an error
  * occurs, a negative value is returned.
- * \note This routine does not support printing wide characters: use
- * _snprintf() instead (though _snprintf() does not support printing floating
- * point values).
+ * \note This routine does not support printing wide characters.  On
+ * Windows you can use _snprintf() instead (though _snprintf() does
+ * not support printing floating point values).
+ */
+int
+dr_snprintf(char *buf, size_t max, const char *fmt, ...);
+
+/* We have to temporarily suspend our snprintf->_snprintf define */
+#undef snprintf
+DR_API
+/**
+ * Deprecated.  Use dr_snprintf() instead.
+ * This routine is identical to dr_snprintf() and included for
+ * backward compatibility only.
  */
 int
 snprintf(char *buf, size_t max, const char *fmt, ...);

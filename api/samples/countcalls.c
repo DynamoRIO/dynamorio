@@ -92,13 +92,13 @@ display_results(per_thread_t *data, char *thread_note)
 #ifdef SHOW_RESULTS
     char msg[512];
     int len;
-    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                   "%sInstrumentation results:\n"
-                   "  saw %d direct calls\n"
-                   "  saw %d indirect calls\n"
-                   "  saw %d returns\n",
-                   thread_note, data->num_direct_calls,
-                   data->num_indirect_calls, data->num_returns);
+    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                      "%sInstrumentation results:\n"
+                      "  saw %d direct calls\n"
+                      "  saw %d indirect calls\n"
+                      "  saw %d returns\n",
+                      thread_note, data->num_direct_calls,
+                      data->num_indirect_calls, data->num_returns);
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);
@@ -133,8 +133,8 @@ event_thread_exit(void *drcontext)
     char msg[512];
     int len;
 
-    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                   "Thread %d exited - ", dr_get_thread_id(drcontext));
+    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                      "Thread %d exited - ", dr_get_thread_id(drcontext));
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
 

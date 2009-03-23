@@ -2508,6 +2508,25 @@ snprintf(char *buf, size_t max, const char *fmt, ...)
 # define snprintf our_snprintf /* restore the define */
 #endif
 {
+    /* we would share code w/ dr_snprintf but no easy way to do that w/ varargs
+     * (macro too ugly; export forwarder maybe)
+     */
+    /* in io.c */
+    extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
+    int res;
+    va_list ap;
+    va_start(ap, fmt);
+    res = our_vsnprintf(buf, max, fmt, ap);
+    va_end(ap);
+    /* Normalize Linux behavior to match Windows */
+    if ((size_t)res > max)
+        res = -1;
+    return res;
+}
+
+DR_API int
+dr_snprintf(char *buf, size_t max, const char *fmt, ...)
+{
     /* in io.c */
     extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
     int res;

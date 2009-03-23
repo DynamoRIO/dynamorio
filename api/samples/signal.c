@@ -74,10 +74,10 @@ event_exit(void)
     char msg[512];
     int len;
     /* Note that using %f with dr_printf or dr_fprintf on Windows will print
-     * garbage as they use ntdll._vsnprintf, so we must use snprintf.
+     * garbage as they use ntdll._vsnprintf, so we must use dr_snprintf.
      */
-    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                   "<Number of signals seen: %d>", num_signals);
+    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                      "<Number of signals seen: %d>", num_signals);
     DR_ASSERT(len > 0);
     msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
     DISPLAY_STRING(msg);
