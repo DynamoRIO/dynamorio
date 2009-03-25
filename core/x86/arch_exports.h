@@ -812,6 +812,7 @@ void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec
 #else /* LINUX */
 long dynamorio_syscall(uint sysnum, uint num_args, ...);
 void dynamorio_sigreturn(void);
+void dynamorio_sys_exit(void);
 # ifndef X64
 void dynamorio_nonrt_sigreturn(void);
 # endif
@@ -1142,6 +1143,7 @@ enum {
 
     INT_LENGTH = 2,
     SYSCALL_LENGTH = 2,
+    SYSENTER_LENGTH = 2,
 };
 
 #define REL32_REACHABLE_OFFS(offs) ((offs) <= INT_MAX && (offs) >= INT_MIN)

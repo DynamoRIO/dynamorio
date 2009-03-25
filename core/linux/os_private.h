@@ -84,6 +84,10 @@ typedef struct _os_thread_data_t {
     bool wakeup;
     bool resumed;
     struct sigcontext *suspended_sigcxt;
+
+    /* PR 297902: for thread termination */
+    bool terminate;
+    bool terminated;
 } os_thread_data_t;
 
 /* in signal.c */

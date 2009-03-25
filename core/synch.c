@@ -922,6 +922,16 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
             "Success synching with thread "IDFMT" performing cleanup\n", id);
         if (THREAD_SYNCH_IS_TERMINATED(desired_state)) {
             thread_terminate(trec);
+#ifdef LINUX
+            /* We need to ensure the target thread has received the
+             * signal and is no longer using its sigstack or ostd struct
+             * before we clean those up.
+             */
+            while (!is_thread_terminated(trec->dcontext)) {
+                /* FIXME i#96/PR 295561: use futex */
+                synch_thread_yield();
+            }
+#endif
         }
         if (THREAD_SYNCH_IS_CLEANED(desired_state)) {
             dynamo_other_thread_exit(trec _IF_WINDOWS(false));

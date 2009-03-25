@@ -94,7 +94,7 @@ int main(int argc, char** argv)
 
     if (n <= 1) { // base case
 	pf("base case\n");
-	exit(1);
+	_exit(1);
     }
 
     // now spawn two children
@@ -184,7 +184,7 @@ int main(int argc, char** argv)
     if (argc == 1) 
 	printf("\tfib(%d)=%d [%d] %s\n", n, sum, fib(n), sum == fib(n) ? "OK" : "BAD");
 #endif
-    exit(sum);
+    _exit(sum);
 }
 
 

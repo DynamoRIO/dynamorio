@@ -705,7 +705,8 @@ dynamorio_fork_init(dcontext_t *dcontext)
     global_heap_free(threads, num_threads*sizeof(thread_record_t*)
                      HEAPACCT(ACCT_THREAD_MGT));
 
-    add_thread(get_thread_id(), true/*under dynamo control*/, dcontext);
+    add_thread(get_process_id(), get_thread_id(), true/*under dynamo control*/,
+               dcontext);
 
     GLOBAL_STAT(num_threads) = 1;
 # ifdef DEBUG
@@ -979,22 +980,6 @@ dynamo_process_exit_cleanup(void)
          */
         dynamo_thread_not_under_dynamo(dcontext);
 
-#ifdef LINUX
-        if (get_num_threads() > 1 ||
-            (get_num_threads() == 1 && dcontext == NULL)) {
-            /* FIXME: assumption: pthreads is being used, it keeps a monitor
-             * thread around.  We cannot exit dynamo before the monitor thread
-             * dies.  But, we can assume that the monitor will never call
-             * dr_app_stop, so we assume we'll see its SYS_exit.
-             * So, we just wait for that.
-             */
-            LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
-                "dynamorio_app_exit: threads remain, so not exiting process\n");
-            dynamo_thread_exit();
-            return SUCCESS;
-        }
-#endif
-
         /* we deliberately do NOT clean up initstack (which was
          * allocated using a separate mmap and so is not part of some
          * large unit that is de-allocated), as it is used in special
@@ -1016,7 +1001,6 @@ dynamo_process_exit_cleanup(void)
             mutex_unlock(&thread_initexit_lock);
         }
 
-#ifdef WINDOWS
         /* we don't check control_all_threads b/c we're just killing
          * the threads we know about here
          */
@@ -1032,16 +1016,28 @@ dynamo_process_exit_cleanup(void)
                 "\ndynamorio_app_exit: cleaning up %d un-terminated threads\n",
                 get_num_threads());
 
-#ifdef CLIENT_INTERFACE
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
             /* make sure client nudges are finished */
             wait_for_outstanding_nudges();
 #endif
 
             /* xref case 8747, requesting suspended is preferable to terminated and it
              * doesn't make a difference here which we use (since the process is about
-             * to die). */
+             * to die).  
+             * On Linux, however, we do not have dependencies on OS thread
+             * properties like we do on Windows (TEB, etc.), and our suspended
+             * threads use their sigstacks and ostd data structs, making cleanup
+             * while still catching other leaks more difficult: thus it's
+             * simpler to terminate and then clean up.  FIXME: by terminating
+             * we'll raise SIGCHLD that may not have been raised natively if the
+             * whole group went down in a single SYS_exit_group.  Instead we
+             * could have the suspended thread move from the sigstack-reliant
+             * loop to a stack-free loop (xref i#95).
+             */
             DEBUG_DECLARE(ok =)
-                synch_with_all_threads(THREAD_SYNCH_SUSPENDED_AND_CLEANED, 
+                synch_with_all_threads(IF_WINDOWS_ELSE
+                                       (THREAD_SYNCH_SUSPENDED_AND_CLEANED,
+                                        THREAD_SYNCH_TERMINATED_AND_CLEANED),
                                        &threads, &num_threads, 
                                        /* Case 6821: other synch-all-thread uses that
                                         * only care about threads carrying fcache
@@ -1081,19 +1077,17 @@ dynamo_process_exit_cleanup(void)
             dynamo_thread_exit();
         }
 
+#ifdef WINDOWS
         /* FIXME : our call un-interception isn't atomic so (miniscule) chance
          * of something going wrong if new thread is just hitting its init APC
          */
         if (!INTERNAL_OPTION(noasynch)) {
             callback_interception_unintercept();
         }
-
 #else /* LINUX */
-        /* avoid protecting DR data structs when clean up thread */
-        dynamo_exited = true;
-        dynamo_thread_exit();
         unhook_vsyscall();
 #endif /* LINUX */
+
         return dynamo_shared_exit(IF_WINDOWS(false /* not detaching */));
     }
     return SUCCESS;
@@ -1667,7 +1661,7 @@ get_thread_num(thread_id_t tid)
 }
 
 void
-add_thread(IF_WINDOWS_(HANDLE hthread) 
+add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid),
            thread_id_t tid, bool under_dynamo_control,
            dcontext_t *dcontext)
 {
@@ -1702,6 +1696,8 @@ add_thread(IF_WINDOWS_(HANDLE hthread)
 # endif
     LOG(GLOBAL, LOG_THREADS, 1, "Thread %d our handle rights: "PFX"\n",
         tid, nt_get_handle_access_rights(tr->handle));
+#else
+    tr->pid = pid;
 #endif
     tr->id = tid;
     ASSERT(tid != INVALID_THREAD_ID); /* ensure os never assigns invalid id to a thread */
@@ -1832,7 +1828,7 @@ dynamo_thread_init(void)
      * is held.  CHECK: is this always correct?  thread_lookup does have an assert
      * to try and enforce but cannot tell who has the lock.
      */
-    add_thread(IF_WINDOWS_(NT_CURRENT_THREAD) get_thread_id(), 
+    add_thread(IF_WINDOWS_ELSE(NT_CURRENT_THREAD, get_process_id()), get_thread_id(), 
                under_dynamo_control, dcontext);
 
     LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
@@ -2097,10 +2093,11 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     LOG(GLOBAL, LOG_STATS|LOG_THREADS, 1, "\tdynamo contexts used: %d\n",
         num_dcontext);
 #else /* LINUX */
-    set_thread_private_dcontext(NULL);
+    if (!other_thread)
+        set_thread_private_dcontext(NULL);
     delete_dynamo_context(dcontext_tmp, !on_dstack/*do not free own stack*/);
 #endif /* LINUX */
-    os_tls_exit(local_state);
+    os_tls_exit(local_state, other_thread);
 
 #ifdef SIDELINE
     /* see notes above -- we can now wake up sideline thread */

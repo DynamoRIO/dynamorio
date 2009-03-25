@@ -336,9 +336,11 @@ typedef struct _client_data_t {
 #endif
 
 typedef struct _thread_record_t {
-    thread_id_t id;     /* linux: pid, win32: thread id */
+    thread_id_t id;   /* thread id */
 #ifdef WINDOWS
     HANDLE handle;    /* win32 thread handle */
+#else
+    process_id_t pid; /* thread group id */
 #endif
     uint num;         /* creation ordinal */
     bool under_dynamo_control; /* used for deciding whether to intercept events */
@@ -457,7 +459,7 @@ dcontext_t * standalone_init(void);
 void standalone_exit(void);
 #endif
 thread_record_t * thread_lookup(thread_id_t tid);
-void add_thread(IF_WINDOWS_(HANDLE hthread) 
+void add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid),
                 thread_id_t tid, bool under_dynamo_control, dcontext_t *dcontext);
 bool remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid);
 uint get_thread_num(thread_id_t tid);

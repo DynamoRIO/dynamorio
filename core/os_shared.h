@@ -51,8 +51,11 @@ void os_slow_exit(void);
 void os_fast_exit(void);
 
 void os_tls_init(void);
-/* Can be called from other threads, so uses the parameter to locate tls */
-void os_tls_exit(struct _local_state_t *local_state);
+/* Frees local_state.  If the calling thread is exiting (i.e.,
+ * !other_thread) then also frees kernel resources for the calling
+ * thread; if other_thread then that may not be possible.
+ */
+void os_tls_exit(struct _local_state_t *local_state, bool other_thread);
 void os_thread_init(dcontext_t *dcontext);
 void os_thread_exit(dcontext_t *dcontext);
 void os_thread_under_dynamo(dcontext_t *dcontext);

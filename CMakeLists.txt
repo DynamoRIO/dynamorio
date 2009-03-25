@@ -357,8 +357,9 @@ if (UNIX)
   endif (X64)
   # there's no cmake warning control so we hardcode it
   set(WARN "-Wall -Werror")
-  set(OPT "-O3")
   set(DBG "-g3")
+  # gcc doesn't change its optimizations based on -g
+  set(OPT "-O3 ${DBG}")
   # FIXME: core-specific: move to core/CMakeLists.txt?
   # We use -O to avoid stack overflow in debug build (makes a huge difference by
   # having locals/temps share stack slots) but we use -fno-omit-frame-pointer to

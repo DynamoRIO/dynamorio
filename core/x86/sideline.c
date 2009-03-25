@@ -276,7 +276,9 @@ sideline_init()
 #endif /* LINUX */
 
     /* tell dynamo core about new thread so it won't be treated as app thread */
-    add_thread(IF_WINDOWS_(child_handle) child_tid, false, NULL);
+    /* we created without CLONE_THREAD so its own thread group */
+    add_thread(IF_WINDOWS_ELSE(child_handle, child_tid)
+               child_tid, false, NULL);
 
     LOG(GLOBAL, LOG_SIDELINE, 1, "Sideline thread (id %d) created\n", child_tid);
 
@@ -976,6 +978,10 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
     my_stack = stack_alloc(THREAD_STACK_SIZE);
     /* need SIGCHLD so parent will get that signal when child dies,
      * else have "no children" errors doing a wait
+     */
+    /* We're not using CLONE_THREAD.  If we do want it to be in the same thread
+     * group as the parent we may want a runtime check for Linux 2.4 kernel where
+     * CLONE_THREAD was added.
      */
     flags = SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
     thread = clone(fcn, my_stack, flags, arg); /* old: __clone */

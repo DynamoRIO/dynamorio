@@ -1123,6 +1123,27 @@ GLOBAL_LABEL(dynamorio_sigreturn:)
         jmp      unexpected_return
         END_FUNC(dynamorio_sigreturn)
         
+/* we need to exit without using any stack, to support
+ * THREAD_SYNCH_TERMINATED_AND_CLEANED.
+ */
+        DECLARE_FUNC(dynamorio_sys_exit)
+GLOBAL_LABEL(dynamorio_sys_exit:)
+#ifdef X64
+        mov      edi, 0 /* exit code: hardcoded */
+        mov      eax, HEX(3c) /* SYS_exit */
+        mov      r10, rcx
+        syscall
+#else
+        mov      ebx, 0 /* exit code: hardcoded */
+        mov      eax, HEX(1) /* SYS_exit */
+        /* PR 254280: we assume int$80 is ok even for LOL64 */
+        int      HEX(80)
+#endif
+        /* should not return.  if we somehow do, infinite loop is intentional.
+         * FIXME: do better in release build! FIXME - why not an int3? */
+        jmp      unexpected_return
+        END_FUNC(dynamorio_sys_exit)
+        
 #ifndef X64
 /* since our handler is rt, we have no source for the kernel's/libc's
  * default non-rt sigreturn, so we set up our own.

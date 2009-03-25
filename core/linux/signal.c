@@ -257,6 +257,7 @@ bool can_always_delay[] = {
  * we end up calling many core routines and so want more space
  * (though currently non-debug stack size == SIGSTKSZ (8KB))
  */
+/* this size is assumed in heap.c's threadunits_exit leak relaxation */
 #define SIGSTACK_SIZE DYNAMORIO_STACK_SIZE
 
 /* this flag not defined in our headers */
@@ -3244,6 +3245,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                  * transparent core dump!
                  */
                 KSTOP_NOT_MATCHING_NOT_PROPAGATED(dispatch_num_exits);
+                enter_nolinking(dcontext, NULL, false);
                 cleanup_and_terminate(dcontext, SYS_kill, get_process_id(), sig, true);
                 ASSERT_NOT_REACHED();
             } else {
@@ -3830,6 +3832,17 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
     kernel_sigset_t prevmask;
     ASSERT(ostd != NULL);
+
+    if (ostd->terminate) {
+        /* PR 297902: exit this thread, without using any stack */
+        LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: exiting\n");
+        ostd->terminated = true;
+        /* can't use stack once set terminated to true */
+        asm("jmp dynamorio_sys_exit");
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+
     /* If suspend_count is 0, we are not trying to suspend this thread
      * (thread_resume() may have already decremented suspend_count to 0, but
      * thread_suspend() will not send a signal until this thread unsets
@@ -3870,7 +3883,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
      */
     ASSERT(!ostd->suspended);
     ostd->suspended = true;
-    /* FIXME PR 295561: use futex */
+    /* FIXME i#96/PR 295561: use futex */
     while (!ostd->wakeup)
         thread_yield();
     LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: awake now\n");

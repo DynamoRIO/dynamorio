@@ -63,6 +63,7 @@
 #include "syscall.h"            /* our own local copy */
 #include "os_private.h"
 #include "../module_shared.h"
+#include "../synch.h"
 
 #ifdef X86
 # include "instr.h" /* for get_segment_base() */
@@ -1055,9 +1056,12 @@ os_tls_init()
 #endif
 }
 
-/* Can be called from other threads, so uses the parameter to locate tls */
+/* Frees local_state.  If the calling thread is exiting (i.e.,
+ * !other_thread) then also frees kernel resources for the calling
+ * thread; if other_thread then that may not be possible.
+ */
 void
-os_tls_exit(local_state_t *local_state)
+os_tls_exit(local_state_t *local_state, bool other_thread)
 {
 #ifdef HAVE_TLS
     int res;
@@ -1069,27 +1073,34 @@ os_tls_exit(local_state_t *local_state)
     tls_type_t tls_type = os_tls->tls_type;
     int index = os_tls->ldt_index;
 
-    /* We assume that if called from another thread, that thread has had
-     * its own segment register cleared already: FIXME: is this safe? */
-    WRITE_FS(zero); /* macro needs lvalue! */
-    heap_munmap(os_tls->self, PAGE_SIZE);
-
-    if (tls_type == TLS_TYPE_LDT)
-        clear_ldt_entry(index);
-    else if (tls_type == TLS_TYPE_GDT) {
-        our_modify_ldt_t desc;
-        clear_ldt_struct(&desc, index);
-        res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-        ASSERT(res >= 0);        
-    }
-# ifdef X64
-    else if (tls_type == TLS_TYPE_ARCH_PRCTL) {
-        res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, NULL);
-        ASSERT(res >= 0);
-        /* syscall re-sets gs register so re-clear it */
+    if (!other_thread) {
         WRITE_FS(zero); /* macro needs lvalue! */
     }
+    heap_munmap(os_tls->self, PAGE_SIZE);
+
+    /* For another thread we can't really make these syscalls so we have to
+     * leave it un-cleaned-up.  That's fine if the other thread is exiting:
+     * but if we have a detach feature (i#95) we'll have to get the other
+     * thread to run this code.
+     */
+    if (!other_thread) {
+        if (tls_type == TLS_TYPE_LDT)
+            clear_ldt_entry(index);
+        else if (tls_type == TLS_TYPE_GDT) {
+            our_modify_ldt_t desc;
+            clear_ldt_struct(&desc, index);
+            res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
+            ASSERT(res >= 0);        
+        }
+# ifdef X64
+        else if (tls_type == TLS_TYPE_ARCH_PRCTL) {
+            res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, NULL);
+            ASSERT(res >= 0);
+            /* syscall re-sets gs register so re-clear it */
+            WRITE_FS(zero); /* macro needs lvalue! */
+        }
 # endif
+    }
 #else
     global_heap_free(tls_table, MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     DELETE_LOCK(tls_lock);
@@ -1755,11 +1766,22 @@ thread_resume(thread_record_t *tr)
 bool
 thread_terminate(thread_record_t *tr)
 {
-    /* FIXME PR 297902: for NPTL this will take down the whole group:
-     * should instead send SIGUSR2 and have a flag set telling
+    /* PR 297902: for NPTL sending SIGKILL will take down the whole group:
+     * so instead we send SIGUSR2 and have a flag set telling
      * target thread to execute SYS_exit
      */
-    return thread_signal(tr, SIGKILL);
+    os_thread_data_t *ostd = (os_thread_data_t *) tr->dcontext->os_field;
+    ASSERT(ostd != NULL);
+    ostd->terminate = true;
+    return thread_signal(tr, SUSPEND_SIGNAL);
+}
+
+bool
+is_thread_terminated(dcontext_t *dcontext)
+{
+    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+    ASSERT(ostd != NULL);
+    return ostd->terminated;
 }
 
 bool
@@ -2908,6 +2930,113 @@ handle_execve(dcontext_t *dcontext)
     new_envp[i] = NULL;
 }
 
+/* Used to obtain the pc of the syscall instr itself when the dcontext dc
+ * is currently in a syscall handler.
+ * Alternatively for sysenter we could set app_sysenter_instr_addr for Linux.
+ */
+#define SYSCALL_PC(dc) \
+ ((get_syscall_method() == SYSCALL_METHOD_INT ||     \
+   get_syscall_method() == SYSCALL_METHOD_SYSCALL) ? \
+  (ASSERT(SYSCALL_LENGTH == INT_LENGTH),             \
+   POST_SYSCALL_PC(dc) - INT_LENGTH) :               \
+  (vsyscall_syscall_end_pc - SYSENTER_LENGTH))
+
+static void
+handle_exit(dcontext_t *dcontext)
+{
+    dr_mcontext_t *mc = get_mcontext(dcontext);
+    bool exit_process = false;
+
+    if (mc->xax == SYS_exit_group) {
+        /* We can have multiple thread groups within the same address space.
+         * We need to know whether this is the only group left.
+         * FIXME: we can have races where new threads are created after our
+         * check: we'll live with that for now, but the right approach is to
+         * suspend all threads via synch_with_all_threads(), do the check,
+         * and if exit_process then exit w/o resuming: though have to
+         * coordinate lock access w/ cleanup_and_terminate.
+         * Xref i#94.
+         */
+        process_id_t mypid = get_process_id();
+        thread_record_t **threads;
+        int num_threads, i;
+        exit_process = true;
+        mutex_lock(&thread_initexit_lock);
+        get_list_of_threads(&threads, &num_threads);
+        for (i=0; i<num_threads; i++) {
+            if (threads[i]->pid != mypid) {
+                exit_process = false;
+                break;
+            }
+        }
+        if (!exit_process) {
+            /* We need to clean up the other threads in our group here. */
+            thread_id_t myid = get_thread_id();
+            dr_mcontext_t mcontext;
+            DEBUG_DECLARE(thread_synch_result_t synch_res;)
+            LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
+                "SYS_exit_group %d not final group: %d cleaning up just "
+                "threads in group\n", get_process_id(), get_thread_id());
+            /* Set where we are to handle reciprocal syncs */
+            copy_mcontext(mc, &mcontext);
+            mc->pc = SYSCALL_PC(dcontext);
+            for (i=0; i<num_threads; i++) {
+                if (threads[i]->id != myid && threads[i]->pid == mypid) {
+                    /* See comments in dynamo_process_exit_cleanup(): we terminate
+                     * to make cleanup easier, but may want to switch to shifting
+                     * the target thread to a stack-free loop.
+                     */
+                    DEBUG_DECLARE(synch_res =)
+                        synch_with_thread(threads[i]->id, true/*block*/,
+                                          true/*have initexit lock*/,
+                                          THREAD_SYNCH_VALID_MCONTEXT, 
+                                          THREAD_SYNCH_TERMINATED_AND_CLEANED,
+                                          THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+                    /* initexit lock may be released and re-acquired in course of
+                     * doing the synch so we may have races where the thread
+                     * exits on its own (or new threads appear): we'll live
+                     * with those for now.
+                     */
+                    ASSERT(synch_res == THREAD_SYNCH_RESULT_SUCCESS);
+                }
+            }
+            copy_mcontext(&mcontext, mc);
+        }
+        mutex_unlock(&thread_initexit_lock);
+        global_heap_free(threads, num_threads*sizeof(thread_record_t*)
+                         HEAPACCT(ACCT_THREAD_MGT));
+    }
+
+    if (get_num_threads() == 1 && !dynamo_exited) {
+        LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
+            "SYS_exit%s(%d) in final thread %d of %d => exiting DynamoRIO\n",
+            (mc->xax == SYS_exit_group) ? "_group" : "", mc->xax,
+            get_thread_id(), get_process_id());
+        /* we want to clean up even if not automatic startup! */
+        automatic_startup = true;
+        exit_process = true;
+    } else {
+        LOG(THREAD, LOG_TOP|LOG_THREADS|LOG_SYSCALLS, 1,
+            "SYS_exit%s(%d) in thread %d of %d => cleaning up %s\n",
+            (mc->xax == SYS_exit_group) ? "_group" : "",
+            mc->xax, get_thread_id(), get_process_id(),
+            exit_process ? "process" : "thread");
+    }
+    KSTOP(num_exits_dir_syscall);
+
+    /* N.B.: in all other cases, we just let interp exit,
+     * and then either _fini is executed on app's stack,
+     * or dynamorio_app_exit is called on app's stack...
+     * here, we must switch back to app's stack, and hope
+     * it's valid, because once we exit our stack is gone!
+     * Can't access local vars once kill dstack, so we grab
+     * the exit val and push it on the new stack right now
+     * as an argument for the later call to _exit
+     */
+    cleanup_and_terminate(dcontext, mc->xax, sys_param(dcontext, 0),
+                          sys_param(dcontext, 1), exit_process);
+}
+
 /* System call interception: put any special handling here
  * Arguments come from the pusha right before the call
  */
@@ -2981,38 +3110,7 @@ pre_system_call(dcontext_t *dcontext)
 # endif
         /* fall-through */
     case SYS_exit: {
-        bool exit_process = false;
-        if (mc->xax == SYS_exit_group)
-            exit_process = true;
-        LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 1,
-            "SYS_exit%s(%d) encountered in thread %d\n",
-            (mc->xax == SYS_exit_group) ? "_group" : "", mc->xax, get_thread_id());
-        if (get_num_threads() == 1 && !dynamo_exited) {
-            LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
-                "SYS_exit%s(%d) in final thread %d => exiting DynamoRIO\n",
-                (mc->xax == SYS_exit_group) ? "_group" : "", mc->xax, get_thread_id());
-            /* we want to clean up even if not automatic startup! */
-            automatic_startup = true;
-            exit_process = true;
-        } else {
-            LOG(THREAD, LOG_TOP|LOG_THREADS|LOG_SYSCALLS, 1,
-                "SYS_exit%s(%d) in thread %d => cleaning up %s\n",
-                (mc->xax == SYS_exit_group) ? "_group" : "",
-                mc->xax, get_thread_id(), exit_process ? "process" : "thread");
-        }
-        KSTOP(num_exits_dir_syscall);
-
-        /* N.B.: in all other cases, we just let interp exit,
-         * and then either _fini is executed on app's stack,
-         * or dynamorio_app_exit is called on app's stack...
-         * here, we must switch back to app's stack, and hope
-         * it's valid, because once we exit our stack is gone!
-         * Can't access local vars once kill dstack, so we grab
-         * the exit val and push it on the new stack right now
-         * as an argument for the later call to _exit
-         */
-        cleanup_and_terminate(dcontext, mc->xax, sys_param(dcontext, 0),
-                              sys_param(dcontext, 1), exit_process);
+        handle_exit(dcontext);
         break;
     }
 
@@ -4090,8 +4188,10 @@ post_system_call(dcontext_t *dcontext)
 
 /***************************************************************************/
 /* Memory areas provided by kernel in /proc */
-/* On all supported linux kernels /proc/self/maps -> /proc/$pid/maps */
 
+/* On all supported linux kernels /proc/self/maps -> /proc/$pid/maps 
+ * However, what we want is /proc/$tid/maps, so we can't use "self"
+ */
 #define PROC_SELF_MAPS "/proc/self/maps"
 
 /* these are defined in /usr/src/linux/fs/proc/array.c */
@@ -4127,6 +4227,8 @@ static char comment_buf_iter[BUFSIZE];
 static bool
 maps_iterator_start(maps_iter_t *iter, bool may_alloc)
 {
+    char maps_name[24]; /* should only need 16 for 5-digit tid */
+
     /* Don't assign the local ptrs until the lock is grabbed to make
      * their relationship clear. */
     if (may_alloc) {
@@ -4139,7 +4241,13 @@ maps_iterator_start(maps_iter_t *iter, bool may_alloc)
         iter->comment_buffer = (char *) &comment_buf_scratch;
     }
 
-    iter->maps = os_open(PROC_SELF_MAPS, OS_OPEN_READ);
+    /* We need the maps for our thread id, not process id.
+     * "/proc/self/maps" uses pid which fails if primary thread in group
+     * has exited.
+     */
+    snprintf(maps_name, BUFFER_SIZE_ELEMENTS(maps_name),
+             "/proc/%d/maps", get_thread_id());
+    iter->maps = os_open(maps_name, OS_OPEN_READ);
     ASSERT(iter->maps != INVALID_FILE);
     iter->buf[BUFSIZE-1] = '\0'; /* permanently */
 

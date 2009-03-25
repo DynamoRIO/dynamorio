@@ -138,8 +138,11 @@ function(template2expect outexpect template runops)
 
   string(STRIP "${rundefs}" rundefs)
 
+  # relies on ${defines} from top level
+  # we need a list: else passed as a single arg in quotes
+  string(REGEX REPLACE " " ";" deflist "${defines} ${rundefs}")
   execute_process(COMMAND
-    ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${defines} ${rundefs} -E ${CPP_NO_LINENUM} ${template}
+    ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${deflist} -E ${CPP_NO_LINENUM} ${template}
     RESULT_VARIABLE cpp_result
     ERROR_VARIABLE cpp_err
     OUTPUT_VARIABLE cpp_out
@@ -156,8 +159,8 @@ function(template2expect outexpect template runops)
 
   # remove blank lines left by cpp directives
   string(REGEX REPLACE
-    "\n\n"
-    "\n" cpp_out "${cpp_out}")
+    "(\r?\n)+"
+    "\\1" cpp_out "${cpp_out}")
   # allow matching blank lines via @@
   # FIXME i#65 NOT YET COMPLETED: haven't modified any .template files for this
   #  string(REGEX REPLACE
@@ -174,6 +177,7 @@ function(template2expect outexpect template runops)
   set(msg_throw "Program continuing after throwing an exception.")
   set(msg_mem "Out of memory.  Program aborted.")
   set(msg_unhand "Unhandled exception caught.\n")
+  # FIXME: add in \r? and test on Windows
   string(REGEX REPLACE "\n *SEC_VIO_CONT\n"        "\n${msg_vio}${msg_cont}>\n"
     cpp_out "${cpp_out}")
   string(REGEX REPLACE "\n *SEC_VIO_STOP\n"        "\n${msg_vio}${msg_term}>\n"
@@ -385,9 +389,47 @@ tobuild_ci(client-interface.file_io client-interface/file_io.c
 #tobuild_api(api.dis api/dis.c "-syntax_intel"
 #  "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw")
 
-# FIXME: enable once fix i#94
-#tobuild(linux.clone linux/clone.c)
+tobuild(linux.clone linux/clone.c)
+# FIXME: execve => execve{32,64} and runs execve-sub
+#tobuild(linux.execve linux/execve.c)
+tobuild(linux.execve-null linux/execve-null.c)
+tobuild(linux.execve-rec linux/execve-rec.c)
+tobuild(linux.exit linux/exit.c)
+tobuild(linux.fork linux/fork.c)
+tobuild(linux.infinite linux/infinite.c)
+tobuild(linux.longjmp linux/longjmp.c)
+# FIXME TOFILE: suddently getting (non-det) curiosities and asserts in module list
+tobuild(linux.mmap linux/mmap.c)
+tobuild(linux.signal0000 linux/signal0000.c)
+tobuild(linux.signal0001 linux/signal0001.c)
+tobuild(linux.signal0010 linux/signal0010.c)
+tobuild(linux.signal0011 linux/signal0011.c)
+tobuild(linux.signal0100 linux/signal0100.c)
+tobuild(linux.signal0101 linux/signal0101.c)
+tobuild(linux.signal0110 linux/signal0110.c)
+tobuild(linux.signal0111 linux/signal0111.c)
+tobuild(linux.signal1000 linux/signal1000.c)
+tobuild(linux.signal1001 linux/signal1001.c)
+tobuild(linux.signal1010 linux/signal1010.c)
+tobuild(linux.signal1011 linux/signal1011.c)
+tobuild(linux.signal1100 linux/signal1100.c)
+tobuild(linux.signal1101 linux/signal1101.c)
+tobuild(linux.signal1110 linux/signal1110.c)
+tobuild(linux.signal1111 linux/signal1111.c)
+tobuild(linux.sigplain000 linux/sigplain000.c)
+tobuild(linux.sigplain001 linux/sigplain001.c)
+tobuild(linux.sigplain010 linux/sigplain010.c)
+tobuild(linux.sigplain011 linux/sigplain011.c)
+tobuild(linux.sigplain100 linux/sigplain100.c)
+tobuild(linux.sigplain101 linux/sigplain101.c)
+tobuild(linux.sigplain110 linux/sigplain110.c)
+tobuild(linux.sigplain111 linux/sigplain111.c)
 tobuild(linux.thread linux/thread.c)
+tobuild(linux.threadexit linux/threadexit.c)
+tobuild(linux.threadexit2 linux/threadexit2.c)
+# FIXME: bugs in these, were disabled in the past
+#tobuild(linux.vfork linux/vfork.c)
+#tobuild(linux.vfork-fib linux/vfork-fib.c)
 
 # sample of how to add custom DR options
 torun(linux.thread-reset linux.thread linux/thread.c OFF
