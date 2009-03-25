@@ -5,14 +5,14 @@ at base, no ASLR
 16
 *** invalid indirect call at preferred base!
 // .E expected
-#if +PROGRAM_SHEPHERDING : +-security --X --E --low --client --thin_client --use_moduledb
-# if : --detect_mode --throw_exception
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(E) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(use_moduledb)
+# if !defined(detect_mode) && !defined(throw_exception)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else
-#  if : +-detect_mode
+#  if defined(detect_mode)
 #   SEC_VIO_CONT
 #  else
 #   SEC_VIO_EXCEPTION
@@ -27,10 +27,10 @@ indirect call done
 starting bad return function
 looking at ring
 // .C expected
-#if +PROGRAM_SHEPHERDING : +-security --X --C --low --client --thin_client --use_moduledb
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(C) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(use_moduledb)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else

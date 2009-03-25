@@ -31,7 +31,6 @@
 ###########################################################################
 # FIXME not yet finished:
 # i#65: convert suite/ to cmake and ctest
-# i#64: re-add "make review"
 # i#66: re-add "make runregression"
 # i#73: provide automatic suport for locating ml64.exe when using Vista SDK+WDK
 # i#79: custom build number or label for non-release builds
@@ -630,6 +629,7 @@ configure_file(
 
 # We want a define that's set to all the options for the C code,
 # and a var set to all the options for genapi.pl.
+# Something like cpp -dN but we need it on Windows and want only defines.
 # Strategy: add -D<define> token after each #define, and then run
 # cpp => left with just the -D<define> that are defined.
 # If we append this to configure.h we'll trigger recompilation of
@@ -709,6 +709,20 @@ if (WIN32 AND NOT X64)
 endif (WIN32 AND NOT X64)
 option(BUILD_DOCS "build documentation" ON)
 
+# should we disallow selecting samples when core is not built?
+# right now the samples build will just fail
+option(BUILD_SAMPLES "build client samples" ON)
+
+# FIXME i#65 NOT YET COMPLETED: alternative is to only build when run
+# tests via --build-and-test
+# FIXME: make ON by default for INTERNAL?
+option(BUILD_TESTS "build tests" OFF)
+if (BUILD_TESTS)
+  # tests require tools
+  # FIXME i#65 NOT YET COMPLETED: what about x64 Windows: we need 32-bit drdeploy.exe!
+  set(BUILD_TOOLS ON)
+endif (BUILD_TESTS)
+
 if (BUILD_CORE)
   add_subdirectory(core)
 endif (BUILD_CORE)
@@ -727,7 +741,9 @@ if (BUILD_DRGUI)
   add_subdirectory(tools/DRgui)
 endif (BUILD_DRGUI)
 
-# used by docs, so here instead of in core/CMakeLists.txt
+###########################################################################
+
+# used by docs, samples, and tests, so here instead of in core/CMakeLists.txt
 if (CLIENT_INTERFACE OR APP_EXPORTS)
   add_custom_target(api_headers
     DEPENDS ${BUILD_INCLUDE}/dr_app.h)
@@ -864,7 +880,7 @@ install(CODE "file(WRITE \"\${ENV}\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty
 
 ###########################################################################
 
-# create CMake configuration files for clients to use
+# create CMake configuration files for clients and tests to use
 configure_file(
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfig.cmake.in
   ${PROJECT_BINARY_DIR}/DynamoRIOConfig.cmake
@@ -875,10 +891,7 @@ install(FILES
   DESTINATION ${INSTALL_CMAKE}
 )
 
-# should we disallow selecting samples when core is not built?
-# right now the samples build will just fail
-option(BUILD_SAMPLES "build client samples" ON)
-if (BUILD_SAMPLES)
+if (BUILD_SAMPLES OR BUILD_TESTS)
   # api/samples is set up to function both as a separate project for
   # building samples vs a DynamoRIO installation, and to allow
   # building as a component of the whole source tree, since
@@ -890,8 +903,16 @@ if (BUILD_SAMPLES)
   set(DynamoRIO_LIBRARY64_REL_DIRS "${LIBRARY_OUTPUT_PATH}")
   set(DynamoRIO_LIBRARY64_DBG_DIRS "${LIBRARY_OUTPUT_PATH}")
   set(DynamoRIO_USE_FILE "${PROJECT_SOURCE_DIR}/make/DynamoRIOUse.cmake")
+endif (BUILD_SAMPLES OR BUILD_TESTS)
+
+if (BUILD_SAMPLES)
   add_subdirectory(api/samples)
 endif (BUILD_SAMPLES)
+
+if (BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(suite/tests)
+endif (BUILD_TESTS)
 
 ###########################################################################
 # packaging

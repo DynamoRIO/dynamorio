@@ -4,18 +4,18 @@ first foo a=1
 in foo
 second foo a=2
 starting bad function
-#if +X64 :
+#if defined(X64)
 looking at ring 0x0000000000000001
 #else
 looking at ring 0x00000001
 #endif
-#if +PROGRAM_SHEPHERDING : +-security --no_ret_after_call --C --X --low --client --thin_client --detect_mode --throw_exception --internal_detach_mask --hotp_only
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(no_ret_after_call) && !defined(C) && !defined(X) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(detect_mode) && !defined(throw_exception) && !defined(internal_detach_mask) && !defined(hotp_only)
 // case 9364 - we silently kill (thread or process)
 #   STOP
 # else
 //match native behaviour
 #endif
-#if +X64 :
+#if defined(X64)
 fault caught on 0x0000000000000001
 looking at ring 0x0000000000000000
 fault caught on 0x0000000000000000
@@ -26,12 +26,12 @@ looking at ring 0x00000000
 fault caught on 0x00000000
 looking at ring 0x00badbad
 #endif
-#if +PROGRAM_SHEPHERDING : +-security +-throw_exception_max(1)
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1)
 // note we don't count the 0x00000000 as a .C exception
 // case 8267
 # STOP
 #endif
-#if +X64 :
+#if defined(X64)
 fault caught on 0x0000000000badbad
 looking at ring 0x000000007fffffff
 fault caught on 0x000000007fffffff

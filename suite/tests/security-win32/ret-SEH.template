@@ -1,10 +1,10 @@
 ret-SEH test starting
 ret-SEH test: trylevel -1
 in foo level -1
-#if +PROGRAM_SHEPHERDING : +-security +-no_seh_rct --C
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_seh_rct) && !defined(C)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask 
+#  if !defined(internal_detach_mask) 
 #   STOP
 #  endif
 # else
@@ -14,10 +14,10 @@ in foo level -1
 ret-SEH test: trylevel 0
 in foo level 0
 // if internal_detach_mask we won't do any more DR stuff
-#if +PROGRAM_SHEPHERDING : +-security +-no_seh_rct --C --internal_detach_mask
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_seh_rct) && !defined(C) && !defined(internal_detach_mask)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask 
+#  if !defined(internal_detach_mask) 
 #   STOP
 #  endif
 # else
@@ -26,10 +26,10 @@ in foo level 0
 #endif
 ret-SEH test: trylevel 1
 in foo level 1
-#if +PROGRAM_SHEPHERDING : +-security +-no_seh_rct --C --internal_detach_mask
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_seh_rct) && !defined(C) && !defined(internal_detach_mask)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask 
+#  if !defined(internal_detach_mask) 
 #   STOP
 #  endif
 # else

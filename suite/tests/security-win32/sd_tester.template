@@ -1,9 +1,9 @@
 full suite run
 Executing stack shellcode...
-#if +PROGRAM_SHEPHERDING : +-security --executable_stack --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_stack) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else
@@ -12,8 +12,8 @@ Executing stack shellcode...
 #endif
 success!
 Executing heap shellcode...
-#if +PROGRAM_SHEPHERDING : +-security --executable_heap --internal_detach_mask --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
 #  STOP
 # else
@@ -22,8 +22,8 @@ Executing heap shellcode...
 #endif
 success!
 Executing newheap shellcode...
-#if +PROGRAM_SHEPHERDING : +-security --executable_heap --internal_detach_mask --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
 #  STOP
 # else
@@ -32,8 +32,8 @@ Executing newheap shellcode...
 #endif
 success!
 Executing crtheap shellcode...
-#if +PROGRAM_SHEPHERDING : +-security --executable_heap --internal_detach_mask --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
 #  STOP
 # else
@@ -42,8 +42,8 @@ Executing crtheap shellcode...
 #endif
 success!
 Executing virtual shellcode...
-#if +PROGRAM_SHEPHERDING : +-security --executable_heap --internal_detach_mask --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
 #  STOP
 # else
@@ -54,8 +54,8 @@ success!
 Executing virtual_x shellcode...
 success!
 Executing .data shellcode...
-#if +PROGRAM_SHEPHERDING : +-security --executable_heap --internal_detach_mask --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
 #  STOP
 # else

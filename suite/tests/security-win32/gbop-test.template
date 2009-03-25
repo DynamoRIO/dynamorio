@@ -3,18 +3,18 @@ res=kernel32_base
 plain asm call
 res=kernel32_base
 pretend on stack
-#if +PROGRAM_SHEPHERDING : +-security --C --gbop_exclude_list(kernel32.dll!LoadLibraryA) --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(C) && !defined(gbop_exclude_list___kernel32.dll!LoadLibraryA) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else
 #  SEC_VIO_CONT
 # endif
 #endif
-#if +PROGRAM_SHEPHERDING : +-security --A --gbop_exclude_list(kernel32.dll!LoadLibraryA) --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(A) && !defined(gbop_exclude_list___kernel32.dll!LoadLibraryA) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
 # else
 #  SEC_VIO_CONT
@@ -23,8 +23,8 @@ pretend on stack
 exception since not cleaning up stack
 res=kernel32_base
 pretend on flushed stack
-#if +PROGRAM_SHEPHERDING : +-security --A --gbop_exclude_list(kernel32.dll!LoadLibraryA) --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(A) && !defined(gbop_exclude_list___kernel32.dll!LoadLibraryA) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
 # else
 #  SEC_VIO_CONT
@@ -33,8 +33,8 @@ pretend on flushed stack
 exception since not cleaning up stack
 res=kernel32_base
 pretend in image but not after call
-#if +PROGRAM_SHEPHERDING : +-security --A --gbop_exclude_list(kernel32.dll!LoadLibraryA) --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(A) && !defined(gbop_exclude_list___kernel32.dll!LoadLibraryA) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
 # else
 #  SEC_VIO_CONT

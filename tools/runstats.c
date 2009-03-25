@@ -300,7 +300,7 @@ int usage(char *us)
 {
     fprintf(FP, "Usage: %s [-s limit_sec | -m limit_min | -h limit_hr]\n"
                 "       [-silent] [-env var value] <program> <args...>\n", us);
-    return 0;
+    return 1;
 }
 
 int main(int argc, char *argv[])
@@ -368,6 +368,7 @@ int main(int argc, char *argv[])
     child = fork();
     if (child < 0) {
         perror("ERROR on fork");
+        return 1;
     } else if (child > 0) {
         pid_t result;
         int status;
@@ -405,11 +406,15 @@ int main(int argc, char *argv[])
         
         if (!silent)
             print_stats(&start, &end, &ru, status);
+        return (status == 0 ? 0 : 1);
     } else {
         int result;
         result = execvp(argv[arg_offs], argv+arg_offs);
-        if (result < 0)
+        if (result < 0) {
             perror("ERROR in execvp");
+            fprintf(FP, "  trying to run %s\n", argv[arg_offs]);
+            return 1;
+        }
     }
     return 0;
 }

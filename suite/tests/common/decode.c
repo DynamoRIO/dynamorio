@@ -31,6 +31,8 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
+#include "tools.h" /* for print() */
+
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
@@ -44,7 +46,6 @@
 #endif
 
 #include <setjmp.h>
-#include "tools.h" /* for print() */
 
 jmp_buf mark;
 static int count = 0;

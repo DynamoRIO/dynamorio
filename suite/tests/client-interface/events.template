@@ -1,4 +1,4 @@
-#if +WINDOWS :
+#if defined(WINDOWS)
 module load event 2
 module load event 1
 thread init event 2

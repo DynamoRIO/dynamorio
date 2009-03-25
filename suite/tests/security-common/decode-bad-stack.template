@@ -1,17 +1,17 @@
 Bad instr about to happen
-#if +PROGRAM_SHEPHERDING : +-security --low --client --thin_client
-# if : --executable_stack
-#  if : --detect_mode
-#   if : -+throw_exception
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(executable_stack)
+#  if !defined(detect_mode)
+#   if -+throw_exception
 #    SEC_VIO_EXCEPTION
 #   else
-#     if : -+kill_thread
+#     if -+kill_thread
 #      SEC_VIO_THREAD
 #     else  
 #      SEC_VIO_STOP
 #     endif
 #   endif
-#   if : --internal_detach_mask
+#   if !defined(internal_detach_mask)
 #    STOP
 #   endif
 #  else

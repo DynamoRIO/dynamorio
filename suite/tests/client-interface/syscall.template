@@ -1,6 +1,6 @@
-#if +RUNREGRESSION_Vista :
+#if defined(RUNREGRESSION_Vista)
 #endif
-#if +RUNREGRESSION_2003 :
+#if defined(RUNREGRESSION_2003)
 starting syscall monitoring
 62
 7a
@@ -37,7 +37,7 @@ d6
 1b
 stopping syscall monitoring
 #endif
-#if +RUNREGRESSION_XP :
+#if defined(RUNREGRESSION_XP)
 starting syscall monitoring
 98
 74
@@ -220,7 +220,7 @@ ce
 19
 stopping syscall monitoring
 #endif
-#if +RUNREGRESSION_2000 :
+#if defined(RUNREGRESSION_2000)
 #endif
-#if +RUNREGRESSION_NT :
+#if defined(RUNREGRESSION_NT)
 #endif

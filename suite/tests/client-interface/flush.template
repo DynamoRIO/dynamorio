@@ -1,5 +1,5 @@
-#if : +-thread_private || : +-enable_full_api
-options = use_unlink
+#if (defined(thread_private)) || (defined(enable_full_api)
+)options = use_unlink
 Flush completion id=100
 Flush completion id=200
 Flush completion id=300

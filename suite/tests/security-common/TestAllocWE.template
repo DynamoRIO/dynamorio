@@ -1,20 +1,20 @@
 starting up
-#if -PROGRAM_SHEPHERDING : 
+#if !defined(PROGRAM_SHEPHERDING) 
 2
 0
 1
 4660
 43981
 #else 
-# if : +-exectutable_heap
+# if defined(exectutable_heap)
 2
 0
 1
 4660
 43981
 # else 
-#  if : +-no_executable_if_alloc
-#   if : --detect_mode
+#  if defined(no_executable_if_alloc)
+#   if !defined(detect_mode)
 #    SEC_VIO_AUTO_STOP
 #    STOP
 #   else

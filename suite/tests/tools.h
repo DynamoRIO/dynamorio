@@ -33,6 +33,7 @@
 #ifndef TOOLS_H
 #define TOOLS_H
 
+#include "configure.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h> /* memcpy */
@@ -223,11 +224,11 @@ static int
 call(Code_Snippet func, int val) 
 {
     switch(func){
-    CODE_INC:
+    case CODE_INC:
         return code_inc(val);
-    CODE_DEC:
+    case CODE_DEC:
         return code_dec(val);
-    CODE_SELF_MOD:
+    case CODE_SELF_MOD:
         return code_self_mod(val);
     default:
         print("Failed to find func to run\n");

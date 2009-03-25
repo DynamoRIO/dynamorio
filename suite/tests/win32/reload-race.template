@@ -1,6 +1,6 @@
 made it in and out 10 transitions
 main loop done
-#if : --low --thin_client
+#if !defined(low) && !defined(thin_client)
 Memory check: pagefile usage is >= 900 KB, < 2816 KB
 #else
 Memory check: pagefile usage is < 900 KB

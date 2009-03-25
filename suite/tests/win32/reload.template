@@ -59,19 +59,19 @@ in import 27
 in import 28
 in import 29
 sum=-1314123346
-#if -WINDOWS : || +WINDOWS : +-thin_client || +WINDOWS : +-low 
+#if !defined(WINDOWS) || (defined(WINDOWS) && defined(thin_client)) || (defined(WINDOWS) && defined(low))
 // native
 Memory check: pagefile usage is < 900 KB
 #else
-# if +DEBUG : +-detect_dangling_fcache
+# if defined(DEBUG) && defined(detect_dangling_fcache)
 // not freeing fcache => more usage
 Memory check: pagefile usage is >= 6000 KB, < 16384 KB
 # else
-#  if +DEBUG : +-prof_pcs
+#  if defined(DEBUG) && defined(prof_pcs)
 // DR profile bucket == DR dll size!
 Memory check: pagefile usage is >= 2816 KB, < 6000 KB
 #  else
 Memory check: pagefile usage is >= 900 KB, < 2816 KB
-#  endif // -detect_dangling_fcache
-# endif // -prof_pcs
+#  endif // defined(detect_dangling_fcache)
+# endif // defined(prof_pcs)
 #endif // native

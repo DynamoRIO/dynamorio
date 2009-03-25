@@ -1,6 +1,6 @@
 starting up
-#if -PROGRAM_SHEPHERDING : || +PROGRAM_SHEPHERDING : --security || +PROGRAM_SHEPHERDING : +-security +-internal_detach_mask +0x1 || +PROGRAM_SHEPHERDING : +-executable_heap || +PROGRAM_SHEPHERDING : +-thin_client || +PROGRAM_SHEPHERDING : +-client || +PROGRAM_SHEPHERDING : +-low || +PROGRAM_SHEPHERDING : +-use_moduledb
-# if +PROGRAM_SHEPHERDING : +-security +-internal_detach_mask +0x1 --low --client --thin_client --use_moduledb
+#if !defined(PROGRAM_SHEPHERDING) || (defined(PROGRAM_SHEPHERDING) && !defined(security)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1)) || (defined(PROGRAM_SHEPHERDING) && defined(executable_heap)) || (defined(PROGRAM_SHEPHERDING) && defined(thin_client)) || (defined(PROGRAM_SHEPHERDING) && defined(client)) || (defined(PROGRAM_SHEPHERDING) && defined(low)) || (defined(PROGRAM_SHEPHERDING) && defined(use_moduledb))
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(use_moduledb)
 #  SEC_VIO_STOP
 # endif
 6
@@ -270,7 +270,7 @@ starting up
 6
 3
 #else 
-# if : --detect_mode
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
 #  STOP
 # endif
@@ -675,7 +675,7 @@ starting up
 3
 #endif
 starting stack tests
-#if -PROGRAM_SHEPHERDING : || +PROGRAM_SHEPHERDING : --security || +PROGRAM_SHEPHERDING : +-security +-internal_detach_mask +0x1 || +PROGRAM_SHEPHERDING : +-executable_stack || +PROGRAM_SHEPHERDING : +-thin_client || +PROGRAM_SHEPHERDING : +-client || +PROGRAM_SHEPHERDING : +-low
+#if !defined(PROGRAM_SHEPHERDING)) || (defined(PROGRAM_SHEPHERDING) && !defined(security)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1)) || (defined(PROGRAM_SHEPHERDING) && defined(executable_stack)) || (defined(PROGRAM_SHEPHERDING) && defined(thin_client)) || (defined(PROGRAM_SHEPHERDING) && defined(client)) || (defined(PROGRAM_SHEPHERDING) && defined(low))
 6
 3
 6
@@ -943,7 +943,7 @@ starting stack tests
 6
 3
 #else 
-# if  : --detect_mode
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
 #  STOP
 # endif

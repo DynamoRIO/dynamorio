@@ -1,5 +1,5 @@
 starting tests
-#if -PROGRAM_SHEPHERDING : || +PROGRAM_SHEPHERDING : --security || +PROGRAM_SHEPHERDING : +-security +-internal_detach_mask +0x1 || +PROGRAM_SHEPHERDING : +-thin_client || +PROGRAM_SHEPHERDING : +-client || +PROGRAM_SHEPHERDING : +-low
+#if !defined(PROGRAM_SHEPHERDING) || (defined(PROGRAM_SHEPHERDING) && !defined(security)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1)) || (defined(PROGRAM_SHEPHERDING) && defined(thin_client)) || (defined(PROGRAM_SHEPHERDING) && defined(client)) || (defined(PROGRAM_SHEPHERDING) && defined(low))
 2
 3
 0
@@ -14,7 +14,7 @@ starting tests
 4660
 2
 3
-# if +PROGRAM_SHEPHERDING : +-security +-internal_detach_mask +0x1 --low --client --thin_client
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1) && !defined(low) && !defined(client) && !defined(thin_client)
 #  SEC_VIO_STOP
 # endif
 0
@@ -28,7 +28,7 @@ starting tests
 43981
 4660
 #else
-# if : +-executable_heap
+# if defined(executable_heap)
 2
 3
 0
@@ -43,16 +43,16 @@ starting tests
 43981
 4660
 # else
-#  if : +-no_executable_if_flush || : +-X
-#   if : --detect_mode
+#  if (defined(no_executable_if_flush)) || (defined(X)
+)#   if !defined(detect_mode)
 #    SEC_VIO_AUTO_STOP
 #    STOP
 #   else
 #    SEC_VIO_CONT
 #   endif
 #  endif
-#  if : +-no_executable_if_flush || : +-X
-2
+#  if (defined(no_executable_if_flush)) || (defined(X)
+)2
 3
 #   SEC_VIO_CONT
 0
@@ -80,14 +80,14 @@ starting tests
 43981
 4660
 // case 3947 only if looking at data sections
-# if +PROGRAM_SHEPHERDING : +-security --E +-rct_section_type(0xe0)
-# if : --detect_mode
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0)
+# if !defined(detect_mode)
 // OPTION_REPORT=8 is on by default unless overriden 
-#  if : --rct_ind_call(3)
+#  if !defined(rct_ind_call___3)
 #    SEC_VIO_AUTO_STOP
 #  endif
 // FIXME: case 2144 - we should be testing for rct_ind_call(9) to ignore OPTION_BLOCK=2
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else
@@ -96,29 +96,29 @@ starting tests
 # endif
 2
 // FIXME: case 3947 
-# if +PROGRAM_SHEPHERDING : +-security --E +-rct_section_type(0xe0) +-detect_mode
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
 #  SEC_VIO_CONT
 # endif
 3
-# if +PROGRAM_SHEPHERDING : +-security --E +-rct_section_type(0xe0) +-detect_mode
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
 #  SEC_VIO_CONT
 # endif
 0
-# if +PROGRAM_SHEPHERDING : +-security --E +-rct_section_type(0xe0) +-detect_mode
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
 #  SEC_VIO_CONT
 # endif
 3
-# if +PROGRAM_SHEPHERDING : +-security --E +-rct_section_type(0xe0) +-detect_mode
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
 #  SEC_VIO_CONT
 # endif
 43981
-# if +PROGRAM_SHEPHERDING : +-security --E +-rct_section_type(0xe0) +-detect_mode
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
 #  SEC_VIO_CONT
 # endif
 4660
 #  endif
 # endif
-# if : +-executable_stack
+# if defined(executable_stack)
 2
 3
 0
@@ -132,16 +132,16 @@ starting tests
 43981
 4660
 # else
-#  if : +-no_executable_if_flush || : +-X
-#   if : --detect_mode
+#  if (defined(no_executable_if_flush)) || (defined(X)
+)#   if !defined(detect_mode)
 #    SEC_VIO_AUTO_STOP
 #    STOP
 #   else
 #    SEC_VIO_CONT
 #   endif
 #  endif
-#  if : +-no_executable_if_flush || : +-X
-2
+#  if (defined(no_executable_if_flush)) || (defined(X)
+)2
 // no violation here since same code as the 2 output and still on exec list
 3
 #   SEC_VIO_CONT
@@ -174,7 +174,7 @@ starting tests
 #  else
 2
 3
-#   if : --detect_mode
+#   if !defined(detect_mode)
 #    SEC_VIO_AUTO_STOP
 #    STOP
 #   else

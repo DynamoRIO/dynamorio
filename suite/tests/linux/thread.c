@@ -144,7 +144,7 @@ int run(void *arg)
     child_done = true;
 #ifdef X64
     /* FIXME: returning here invokes SYS_exit_group and takes down the
-     * parent...what's up with that?
+     * parent...what's up with that?  Xref i#94.
      */
     syscall(SYS_exit);
 #endif

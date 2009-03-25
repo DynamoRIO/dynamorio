@@ -11,10 +11,10 @@ calling via PLT-style call
 // the default value is currently -rct_ind_call 0 
 // FIXME: we need support for option parameters when the default changes to 11
 // .E expected
-#if +PROGRAM_SHEPHERDING : +-security --X --E --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(E) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else
@@ -24,10 +24,10 @@ calling via PLT-style call
 PRECIOUS function shouldn't be reachable! ATTACK SUCCESSFUL!
 calling via PLT-style call
 // .E expected
-#if +PROGRAM_SHEPHERDING : +-security --X --E --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(E) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else
@@ -38,10 +38,10 @@ this is another normal function 123456, but shouldn't be called!
 calling via PLT-style indirect jmp
 this is a normal function 123456
 // .C expected
-#if +PROGRAM_SHEPHERDING : +-security --no_ret_after_call --X --C --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(no_ret_after_call) && !defined(X) && !defined(C) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else
@@ -50,10 +50,10 @@ this is a normal function 123456
 #endif
 calling via PLT-style indirect jmp
 // .F expected
-#if +PROGRAM_SHEPHERDING : +-security --X --F --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(F) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else
@@ -63,10 +63,10 @@ calling via PLT-style indirect jmp
 PRECIOUS function shouldn't be reachable! ATTACK SUCCESSFUL!
 // .C expected
 // unless target already cached
-#if +PROGRAM_SHEPHERDING : +-security --no_ret_after_call --X --C +-rct_cache_exempt(0) --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(no_ret_after_call) && !defined(X) && !defined(C) && defined(rct_cache_exempt___0) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else

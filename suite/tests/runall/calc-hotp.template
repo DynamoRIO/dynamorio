@@ -1,22 +1,22 @@
-#if +RUNREGRESSION_XP +PROGRAM_SHEPHERDING : +-security +-no_executable_if_rx_text --executable_after_load
+#if defined(RUNREGRESSION_XP) && defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_rx_text) && !defined(executable_after_load)
 # SEC_VIO_STOP
 No such process found.
 No such process found.
 Window not found: Calculator
 #else
-# if +DEBUG :
+# if defined(DEBUG)
 Process calc.exe, running SC debug
 # else
-#  if +PROFILE :
+#  if defined(PROFILE)
 Process calc.exe, running SC profile
 #  else
 Process calc.exe, running SC release
 #  endif
 # endif
-#if +DEBUG :
+#if defined(DEBUG)
 Process calc.exe, running SC debug
 #else
-# if +PROFILE :
+# if defined(PROFILE)
 Process calc.exe, running SC profile
 # else
 Process calc.exe, running SC release

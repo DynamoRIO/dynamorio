@@ -5,7 +5,7 @@ Inside first filter eax=badcdef0
 	record=00000000, params=2
 	PC 0x00401815 tried to read address 0xbadcdef0
 	pc=0x00401815 eax=0xbadcdef0
-#if +RUNREGRESSION_NT 
+#if defined(RUNREGRESSION_NT) 
   ContextFlags=0x0001001f 
 #else
   ContextFlags=0x0001003f 
@@ -26,7 +26,7 @@ Inside 3rd filter
 	record=00000000, params=2
 	PC 0xdeadbeef tried to read address 0xdeadbeef
 	pc=0xdeadbeef eax=0x00000000
-#if +RUNREGRESSION_NT 
+#if defined(RUNREGRESSION_NT) 
   ContextFlags=0x0001001f 
 #else
   ContextFlags=0x0001003f 
@@ -43,27 +43,27 @@ Finally!
 Expected memory access violation, ignoring it!
 After exception handler
 Attempting execution of badfunc
-#if +PROGRAM_SHEPHERDING : +-security --detect_mode --kill_thread --throw_exception --executable_stack --low --client --thin_client || +PROGRAM_SHEPHERDING : +-security +-internal_detach_mask +-0x1
+#if (defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && !defined(kill_thread) && !defined(throw_exception) && !defined(executable_stack) && !defined(low) && !defined(client) && !defined(thin_client)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1))
 #  SEC_VIO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 #endif
-#if +PROGRAM_SHEPHERDING : +-security +-detect_mode --low --client --thin_client
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(detect_mode) && !defined(low) && !defined(client) && !defined(thin_client)
 #  SEC_VIO_CONT
 #endif
-#if +PROGRAM_SHEPHERDING : +-security --detect_mode +-kill_thread --throw_exception --low --client --thin_client
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && defined(kill_thread) && !defined(throw_exception) && !defined(low) && !defined(client) && !defined(thin_client)
 #  SEC_VIO_THREAD
 #  STOP
 #endif
-#if +PROGRAM_SHEPHERDING : +-security --detect_mode +-throw_exception --low --client --thin_client
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && defined(throw_exception) && !defined(low) && !defined(client) && !defined(thin_client)
 #  SEC_VIO_EXCEPTION
 DATA VIOLATION: Inside first filter eax=0
 	exception code = 0xc0000005, ExceptionFlags=0x00000000
 	record=00000000, params=2
 	PC 0x1400ec00 tried to read address 0x1400ec00
 	pc=0x1400ec00 eax=0x00000000
-#if +RUNREGRESSION_NT 
+#if defined(RUNREGRESSION_NT) 
   ContextFlags=0x0001001f 
 #else
   ContextFlags=0x0001003f 
@@ -78,8 +78,8 @@ DATA VIOLATION: Inside first filter eax=0
   SegGs=0x00000000 SegFs=0x0000003b SegEs=0x00000023 SegDs=0x00000023 
 DATA VIOLATION: Inside first handler
 DATA: At statement after 1st try-except
-#  if +PROGRAM_SHEPHERDING : +-security +-throw_exception +-throw_exception_max +1
-#    if  : +-kill_thread
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception) && defined(throw_exception_max) && defined(1)
+#    if defined(kill_thread)
 #      SEC_VIO_THREAD
 #    else
 #      SEC_VIO_STOP
@@ -92,7 +92,7 @@ DATA: Expected execution violation!
 	record=00000000, params=2
 	PC 0x1400ec00 tried to read address 0x1400ec00
 	pc=0x1400ec00 eax=0x00000000
-#if +RUNREGRESSION_NT 
+#if defined(RUNREGRESSION_NT) 
   ContextFlags=0x0001001f 
 #else
   ContextFlags=0x0001003f 

@@ -77,7 +77,7 @@ add_definitions(-DNOT_DYNAMORIO_CORE)
 # expose it
 add_definitions(-DHOT_PATCHING_INTERFACE)
 
-# FIXME: fix the underlying cause of these warnings and remove these exceptions
+# FIXME i#98: fix the underlying cause of these warnings and remove these exceptions
 set(nowarn "/wd4996 /wd4047 /wd4024 /wd4133 /wd4127 /wd4100 /wd4292 /wd4127 /wd4100")
 set(libutil_cflags "/wd4996 /wd4047 /wd4024 /wd4133 /wd4127 /wd4100 /wd4292 /wd4127 /wd4100")
 set(libutil_ldflags "/nodefaultlib:libc.lib")

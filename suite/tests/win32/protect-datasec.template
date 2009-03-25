@@ -1,15 +1,15 @@
 about to write to every page in .data
 // FIXME: nicer way to specify bitmasks? :)
 // Note that 0x* matches plain 0 so we have to explicitly exclude 0x
-#if : +-protect_mask(0) --protect_mask(0x) || : +-protect_mask(2) || : +-protect_mask(4) || : +-protect_mask(6) || : +-protect_mask(8)
+#if (defined(protect_mask___0) && !defined(protect_mask___0x)) || defined(protect_mask___2)) || defined(protect_mask___4) || defined(protect_mask___6) || defined(protect_mask___8)
 successfully wrote to .data
 #endif
 about to write to every page in .fspdata
-#if : --protect_mask(3) --protect_mask(7) --protect_mask(0x103) --protect_mask(0x107) --protect_mask(0x10f)
+#if !defined(protect_mask___3) && !defined(protect_mask___7) && !defined(protect_mask___0x103) && !defined(protect_mask___0x107) && !defined(protect_mask___0x10f)
 successfully wrote to .fspdata
 #endif
 about to write to every page in .cspdata
-#if : --protect_mask(7) --protect_mask(0x107) --protect_mask(0x10f)
+#if !defined(protect_mask___7) && !defined(protect_mask___0x107) && !defined(protect_mask___0x10f)
 successfully wrote to .cspdata
 #endif
 about to write to every page in .nspdata

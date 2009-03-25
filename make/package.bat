@@ -53,6 +53,10 @@ for /f "useback tokens=*" %%a in ('%CUSTOM%') do set CUSTOM=%%~a
 
 set CUR_DIR=%CD%
 
+REM I filed a CMake feature request http://www.cmake.org/Bug/view.php?id=8726
+REM TODO: once 2.6.4 is released we should add -DCMAKE_RULE_MESSAGES=OFF to
+REM turn off both progress and status messages and speed up the build
+
 set DEFS=-DBUILD_NUMBER:STRING=%BUILDNUM% -DUNIQUE_BUILD_NUMBER:STRING=%UNIQUE_BUILDNUM%
 if not ""==%VERNUM% (
    set DEFS=-DVERSION_NUMBER:STRING=%VERNUM% %DEFS%

@@ -2,10 +2,10 @@ ready to hook
 ok: can't write
 VirtualProtect(kernel32.dll!GetProcessHeaps[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
 //FIXME * is expanded to regexp in gen_expect.pl
-#if +PROGRAM_SHEPHERDING : --patch_proof_list(*=ALL) --patch_proof_list(kernel32) --patch_proof_default_list(kernel32)
+#if defined(PROGRAM_SHEPHERDING) && !defined(patch_proof_list___XXYYALL) && !defined(patch_proof_list___kernel32) && !defined(patch_proof_default_list___kernel32)
 hooked GetProcessHeaps
 #else
-#if -PROGRAM_SHEPHERDING
+#if !defined(PROGRAM_SHEPHERDING)
 hooked GetProcessHeaps
 #else
 there be witches! what happened to my write?
@@ -13,10 +13,10 @@ there be witches! what happened to my write?
 #endif
 restored old code
 VirtualProtect(GetProcessHeaps[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000 
-#if +PROGRAM_SHEPHERDING : --patch_proof_list(*=ALL) --patch_proof_list(kernel32) --patch_proof_default_list(kernel32)
+#if defined(PROGRAM_SHEPHERDING) && !defined(patch_proof_list___XXYYALL) && !defined(patch_proof_list___kernel32) && !defined(patch_proof_default_list___kernel32)
 old permissions ...prev=00000040)
 #else
-#if -PROGRAM_SHEPHERDING
+#if !defined(PROGRAM_SHEPHERDING)
 old permissions ...prev=00000040)
 #else
 old permissions ...prev=00000020)
@@ -26,10 +26,10 @@ ok: can't write
 all should be good
 ok: can't write
 VirtualProtect(kernel32.dll!VirtualQueryEx[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
-#if +PROGRAM_SHEPHERDING : --patch_proof_list(*=ALL) --patch_proof_list(kernel32) --patch_proof_default_list(kernel32)
+#if defined(PROGRAM_SHEPHERDING) && !defined(patch_proof_list___XXYYALL) && !defined(patch_proof_list___kernel32) && !defined(patch_proof_default_list___kernel32)
 hooked VirtualQueryEx
 #else
-#if -PROGRAM_SHEPHERDING
+#if !defined(PROGRAM_SHEPHERDING)
 hooked VirtualQueryEx
 #else
 there be witches! what happened to my write?
@@ -37,10 +37,10 @@ there be witches! what happened to my write?
 #endif
 restored old code
 VirtualProtect(VirtualQueryEx[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000 
-#if +PROGRAM_SHEPHERDING : --patch_proof_list(*=ALL) --patch_proof_list(kernel32) --patch_proof_default_list(kernel32)
+#if defined(PROGRAM_SHEPHERDING) && !defined(patch_proof_list___XXYYALL) && !defined(patch_proof_list___kernel32) && !defined(patch_proof_default_list___kernel32)
 old permissions ...prev=00000040)
 #else
-#if -PROGRAM_SHEPHERDING
+#if !defined(PROGRAM_SHEPHERDING)
 old permissions ...prev=00000040)
 #else
 old permissions ...prev=00000020)
@@ -51,10 +51,10 @@ all should be good
 loading secur32
 ok: can't write
 VirtualProtect(secur32.dll!LsaLogonUser[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
-#if +PROGRAM_SHEPHERDING : --patch_proof_list(*=ALL) --patch_proof_list(secur32) --patch_proof_default_list(secur32)
+#if defined(PROGRAM_SHEPHERDING) && !defined(patch_proof_list___XXYYALL) && !defined(patch_proof_list___secur32) && !defined(patch_proof_default_list___secur32)
 hooked LsaLogonUser
 #else
-#if -PROGRAM_SHEPHERDING
+#if !defined(PROGRAM_SHEPHERDING)
 hooked LsaLogonUser
 #else
 there be witches! what happened to my write?
@@ -62,10 +62,10 @@ there be witches! what happened to my write?
 #endif
 restored old code
 VirtualProtect(LsaLogonUser[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000 
-#if +PROGRAM_SHEPHERDING : --patch_proof_list(*=ALL) --patch_proof_list(secur32) --patch_proof_default_list(secur32)
+#if defined(PROGRAM_SHEPHERDING) && !defined(patch_proof_list___XXYYALL) && !defined(patch_proof_list___secur32) && !defined(patch_proof_default_list___secur32)
 old permissions ...prev=00000040)
 #else
-#if -PROGRAM_SHEPHERDING
+#if !defined(PROGRAM_SHEPHERDING)
 old permissions ...prev=00000040)
 #else
 old permissions ...prev=00000020)
@@ -75,10 +75,10 @@ ok: can't write
 all should be good
 ok: can't write
 VirtualProtect(secur32.dll!MakeSignature[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
-#if +PROGRAM_SHEPHERDING : --patch_proof_list(*=ALL) --patch_proof_list(secur32) --patch_proof_default_list(secur32)
+#if defined(PROGRAM_SHEPHERDING) && !defined(patch_proof_list___XXYYALL) && !defined(patch_proof_list___secur32) && !defined(patch_proof_default_list___secur32)
 hooked MakeSignature
 #else
-#if -PROGRAM_SHEPHERDING
+#if !defined(PROGRAM_SHEPHERDING)
 hooked MakeSignature
 #else
 there be witches! what happened to my write?
@@ -86,10 +86,10 @@ there be witches! what happened to my write?
 #endif
 restored old code
 VirtualProtect(MakeSignature[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000 
-#if +PROGRAM_SHEPHERDING : --patch_proof_list(*=ALL) --patch_proof_list(secur32) --patch_proof_default_list(secur32)
+#if defined(PROGRAM_SHEPHERDING) && !defined(patch_proof_list___XXYYALL) && !defined(patch_proof_list___secur32) && !defined(patch_proof_default_list___secur32)
 old permissions ...prev=00000040)
 #else
-#if -PROGRAM_SHEPHERDING
+#if !defined(PROGRAM_SHEPHERDING)
 old permissions ...prev=00000040)
 #else
 old permissions ...prev=00000020)

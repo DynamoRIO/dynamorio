@@ -4,7 +4,7 @@ foo
 bar
 foo
 loaded rebased.dll.dll
-#if +PROGRAM_SHEPHERDING : +-security +-no_executable_if_rx_text --executable_after_load
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_rx_text) && !defined(executable_after_load)
 # SEC_VIO_STOP
 # STOP
 #else

@@ -1,4 +1,4 @@
-#if +WINDOWS :
+#if defined(WINDOWS)
 Goodbye world!
 Goodbye world!
 #else

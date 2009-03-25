@@ -1,8 +1,8 @@
 starting up
-#if +PROGRAM_SHEPHERDING : +-security --executable_stack --low --client --thin_client
-# if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_stack) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
 #  SEC_VIO_AUTO_STOP
-#  if : --internal_detach_mask
+#  if !defined(internal_detach_mask)
 #   STOP
 #  endif
 # else

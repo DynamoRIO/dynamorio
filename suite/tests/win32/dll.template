@@ -1,7 +1,7 @@
 Found 3 of 5 expected modules
 Didn't find module dynamorio.dll
 Didn't find module dll.dll.dll
-#if : +-no_hide
+#if defined(no_hide)
 Found 4 of 5 expected modules
 Didn't find module dll.dll.dll
 #else
@@ -13,7 +13,7 @@ dll.dll.dll process attach
 loaded dll.dll.dll
 Found 4 of 5 expected modules
 Didn't find module dynamorio.dll
-#if : +-no_hide
+#if defined(no_hide)
 Found 5 of 5 expected modules
 #else
 Found 4 of 5 expected modules
@@ -26,7 +26,7 @@ freed library
 Found 3 of 5 expected modules
 Didn't find module dynamorio.dll
 Didn't find module dll.dll.dll
-#if : +-no_hide
+#if defined(no_hide)
 Found 4 of 5 expected modules
 Didn't find module dll.dll.dll
 #else

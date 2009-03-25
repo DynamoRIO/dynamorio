@@ -50,7 +50,7 @@ else (UNIX)
     message(FATAL_ERROR "libutil is 32-bit only (issue 28 covers porting to 64-bit)")
   endif (X64)
 
-  # FIXME eventually upgrade to W4 with pragma exceptions.
+  # FIXME i#98: eventually upgrade to W4 with pragma exceptions.
   # W2 is default (we're using W3).  We should also replace
   # all references to unsafe functions (e.g., fopen) and
   # remove /wd4996

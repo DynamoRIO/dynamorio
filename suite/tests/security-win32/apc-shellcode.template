@@ -339,9 +339,9 @@ Result = 8700
 VSE-like native mode
 native_queue_apc returned 1
 second native_queue_apc returned 1
-#if +PROGRAM_SHEPHERDING : +-security --low --client --thin_client
-#if : --apc_policy
-# if : --exempt_threat_list
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
+#if !defined(apc_policy)
+# if !defined(exempt_threat_list)
 #    SEC_VIO_THREAD
 #    SEC_VIO_THREAD
 # else
@@ -353,9 +353,9 @@ VSE native shellcode returned
 other APC native mode
 native_queue_apc returned 1
 second native_queue_apc returned 1
-#if +PROGRAM_SHEPHERDING : +-security --low --client --thin_client
-#if : --apc_policy
-# if : --silent_block_threat_list
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
+#if !defined(apc_policy)
+# if !defined(silent_block_threat_list)
 #    SEC_VIO_THREAD
 #    SEC_VIO_THREAD
 # else
@@ -367,8 +367,8 @@ SleepEx returned 192
 VSE-like user mode
 QueueUserAPC returned 1
 second QueueUserAPC returned 1
-#if +PROGRAM_SHEPHERDING : +-security --low --client --thin_client
-#if : --detect_mode
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
+#if !defined(detect_mode)
 # SEC_VIO_AUTO_STOP
 # STOP
 #else

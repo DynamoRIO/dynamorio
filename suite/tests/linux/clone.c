@@ -136,6 +136,9 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
     my_stack = stack_alloc(THREAD_STACK_SIZE);
     /* need SIGCHLD so parent will get that signal when child dies,
      * else have errors doing a wait */
+    /* we're not doing CLONE_THREAD => child has its own pid
+     * (the thread.c test tests CLONE_THREAD)
+     */
     flags = SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
     newpid = __clone(fcn, my_stack, flags, arg);
   
