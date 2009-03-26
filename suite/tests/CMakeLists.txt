@@ -58,6 +58,8 @@ set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 # FIXME: add command to run natively
 # FIXME: update TestSuite.wiki
 # FIXME: build latest cmake for "ctest -W 60" and "ctest -j"
+# FIXME: can we get .runall tests to run in parallel:
+#   rename calc.exe, use drkill instead of closewnd?
 
 ###########################################################################
 # RUNTIME OPTIONS TO TEST
@@ -88,6 +90,11 @@ endif (UNIX)
 set(vmap_run_list
   # our main configuration
   "SHORT::-code_api"
+  # sanity check: run single app to make sure these options aren't totally broken
+  "SHORT::ONLY::client.events::-code_api -opt_memory"
+  "SHORT::ONLY::client.events::-code_api -thread_private"
+  "SHORT::ONLY::client.events::-code_api -disable_traces"
+  "SHORT::ONLY::client.events::-code_api -thread_private -disable_traces"
   # maybe this should be SHORT as -coarse_units will eventually be the default?
   "-code_api -opt_memory"
   "-code_api -thread_private"
@@ -220,9 +227,18 @@ include_directories(${PROJECT_SOURCE_DIR}/core/x86) # asm_defines.asm
 # - CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}
 # - CMAKE_SHARED_LINKER_FLAGS
 
+if (UNIX)
+  if (X64)
+    set(ARCH_CFLAGS "-m64")
+  else (X64)
+    set(ARCH_CFLAGS "-m32")
+  endif (X64)
+endif (UNIX)
+
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
-set(ORIG_CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
-set(ORIG_CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
+set(ORIG_CMAKE_C_FLAGS
+  "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${ARCH_CFLAGS}")
+set(ORIG_CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_CFLAGS}")
 
 if (NOT DEFINED DynamoRIO_DIR)
   set(DynamoRIO_DIR "${PROJECT_SOURCE_DIR}/../cmake" CACHE PATH
@@ -240,8 +256,8 @@ if (DynamoRIO_FOUND)
   include(${DynamoRIO_USE_FILE})
 endif(DynamoRIO_FOUND)
 
-set(CLIENT_CMAKE_C_FLAGS "${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
-set(CLIENT_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
+set(CLIENT_CMAKE_C_FLAGS "${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${ARCH_CFLAGS}")
+set(CLIENT_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_CFLAGS}")
 
 # We clear the absolute flags so we can use PROPERTIES to set for each test
 set(CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "")
@@ -286,6 +302,8 @@ endif (UNIX)
 # some tests need to link with tools.c and its embedded asm code
 set(tools_c ${CMAKE_CURRENT_SOURCE_DIR}/tools.c)
 set(tools_asm ${CMAKE_CURRENT_BINARY_DIR}/tools_asm.asm)
+set_source_files_properties(${tools_c} PROPERTIES
+  COMPILE_FLAGS "${ORIG_CMAKE_C_FLAGS}")
 set_source_files_properties(${tools_asm} PROPERTIES
   GENERATED ON COMPILE_FLAGS "-DASM_CODE_ONLY")
 add_custom_command(
@@ -339,6 +357,8 @@ function(add_exe test source)
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
   add_executable(${test} ${test_srcs})
+  set_target_properties(${test} PROPERTIES
+    LINK_FLAGS "${ARCH_CFLAGS}")
   if (UNIX)
     target_link_libraries(${test} ${libmath} ${libdl})
     if ("${test}" MATCHES "^pthread")
@@ -361,7 +381,6 @@ function(tobuild_dll test source dr_ops)
   add_exe(${test} ${source})
 
   add_library(${test}.dll SHARED ${dll_source})
-  # FIXME: do we need add_exe features like cmdline defs?
   set_target_properties(${test}.dll PROPERTIES
     COMPILE_FLAGS "${ORIG_CMAKE_C_FLAGS} ${platform_defs}"
     LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS}")
@@ -398,7 +417,7 @@ endfunction(tobuild_ci)
 function(tobuild_api test source dr_ops exe_ops)
   add_exe(${test} ${source})
   set_target_properties(${test} PROPERTIES
-    COMPILE_FLAGS "-DUSE_DYNAMO")
+    COMPILE_FLAGS "${CLIENT_CMAKE_C_FLAGS} -DUSE_DYNAMO")
   target_link_libraries(${test} dynamorio)
   add_dependencies(${test} api_headers dynamorio)
   set(testlist_api ${testlist_api} ${test} PARENT_SCOPE)
@@ -450,8 +469,6 @@ function(template2expect outexpect template runops)
   # gen_expect.pl does
 
   string(STRIP "${rundefs}" rundefs)
-
-  message("running ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${defines} ${rundefs} -E ${CPP_NO_LINENUM} ${template}")#NOCHECKIN
 
   # relies on ${defines} from top level
   # we need a list: else passed as a single arg in quotes
@@ -646,6 +663,11 @@ endfunction(torun_runall)
 tobuild(common.broadfun common/broadfun.c)
 tobuild(common.decode-bad common/decode-bad.c)
 tobuild(common.decode common/decode.c)
+# We build all tests before running so decode will be built before
+# ctest -j ever ran this.  If we switch to --build-and-test then we'll
+# make these runonly tests make sure their exe is built.
+torunonly(common.decode-stress common.decode common/decode.c
+  "-stress_recreate_state" "")
 tobuild(common.eflags common/eflags.c)
 tobuild(common.fib common/fib.c)
 tobuild(common.getretaddr common/getretaddr.c)
@@ -656,8 +678,6 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.conflict common/conflict.c)
 #tobuild(common.ops common/ops.c)
 #tobuild(common.recurse common/recurse.c)
-torunonly(common.decode-stress common.decode common/decode.c
-  "-stress_recreate_state" "")
 
 tobuild_ci(client.abort client-interface/abort.c "" "")
 tobuild_ci(client.alloc client-interface/alloc.c "" "")
@@ -750,7 +770,6 @@ if (UNIX)
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
 
   # runs of other builds with custom DR options
-  # FIXME: if we do ctest -j might these be run before being built?
   torunonly(linux.thread-reset linux.thread linux/thread.c
     "-reset_at_fragment_count 100" "")
   torunonly(linux.clone-reset linux.clone linux/clone.c
@@ -868,7 +887,8 @@ tobuild(security-common.retnonexisting security-common/retnonexisting.c)
 if (NOT X64)
   # FIXME i#16: these tests need to be fixed to compile for x64
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
-  tobuild(security-common.selfmod-big security-common/selfmod-big.c)
+  # FIXME: not building on 32-bit b/c protect_mem() from tools.h being stripped
+  #tobuild(security-common.selfmod-big security-common/selfmod-big.c)
   tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
 endif (NOT X64)
 tobuild(security-common.selfmod security-common/selfmod.c)
