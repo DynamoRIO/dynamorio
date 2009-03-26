@@ -714,12 +714,12 @@ option(BUILD_DOCS "build documentation" ON)
 # right now the samples build will just fail
 option(BUILD_SAMPLES "build client samples" ON)
 
-# FIXME i#65 NOT YET COMPLETED: alternative is to only build when run
-# tests via --build-and-test
-# FIXME: make ON by default for INTERNAL?
+# We include all tests and build them at configure time if requested.
+# An alternative is to keep them in separate projects and only build
+# when we run them via --build-and-test.
 option(BUILD_TESTS "build tests" OFF)
 if (BUILD_TESTS)
-  # tests require tools
+  # Tests require tools
   # FIXME i#65 NOT YET COMPLETED: what about x64 Windows: we need 32-bit drdeploy.exe!
   set(BUILD_TOOLS ON)
 endif (BUILD_TESTS)

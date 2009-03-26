@@ -119,7 +119,8 @@ if (DynamoRIO_X64)
   if (UNIX)
     # We use a linker script to set the preferred base
     set(LD_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
-    set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${LD_SCRIPT})
+    # We do NOT add ${LD_SCRIPT} as an ADDITIONAL_MAKE_CLEAN_FILES since it's
+    # configure-time built not make-time built
     if (X64)
       set(LD_FLAGS "-melf_x86_64")
     else (X64)

@@ -15,7 +15,7 @@ starting tests
 2
 3
 # if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1) && !defined(low) && !defined(client) && !defined(thin_client)
-#  SEC_VIO_STOP
+   SEC_VIO_STOP
 # endif
 0
 3
@@ -45,30 +45,30 @@ starting tests
 # else
 #  if (defined(no_executable_if_flush)) || (defined(X)
 )#   if !defined(detect_mode)
-#    SEC_VIO_AUTO_STOP
-#    STOP
+     SEC_VIO_AUTO_STOP
+     STOP
 #   else
-#    SEC_VIO_CONT
+     SEC_VIO_CONT
 #   endif
 #  endif
 #  if (defined(no_executable_if_flush)) || (defined(X)
 )2
 3
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 0
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 3
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 43981
 4660
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 2
 3
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 0
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 3
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 43981
 4660
 #  else
@@ -84,36 +84,36 @@ starting tests
 # if !defined(detect_mode)
 // OPTION_REPORT=8 is on by default unless overriden 
 #  if !defined(rct_ind_call___3)
-#    SEC_VIO_AUTO_STOP
+     SEC_VIO_AUTO_STOP
 #  endif
 // FIXME: case 2144 - we should be testing for rct_ind_call(9) to ignore OPTION_BLOCK=2
 #  if !defined(internal_detach_mask)
-#   STOP
+    STOP
 #  endif
 # else
-#  SEC_VIO_CONT
+   SEC_VIO_CONT
 # endif
 # endif
 2
 // FIXME: case 3947 
 # if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
-#  SEC_VIO_CONT
+   SEC_VIO_CONT
 # endif
 3
 # if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
-#  SEC_VIO_CONT
+   SEC_VIO_CONT
 # endif
 0
 # if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
-#  SEC_VIO_CONT
+   SEC_VIO_CONT
 # endif
 3
 # if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
-#  SEC_VIO_CONT
+   SEC_VIO_CONT
 # endif
 43981
 # if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
-#  SEC_VIO_CONT
+   SEC_VIO_CONT
 # endif
 4660
 #  endif
@@ -134,56 +134,56 @@ starting tests
 # else
 #  if (defined(no_executable_if_flush)) || (defined(X)
 )#   if !defined(detect_mode)
-#    SEC_VIO_AUTO_STOP
-#    STOP
+     SEC_VIO_AUTO_STOP
+     STOP
 #   else
-#    SEC_VIO_CONT
+     SEC_VIO_CONT
 #   endif
 #  endif
 #  if (defined(no_executable_if_flush)) || (defined(X)
 )2
 // no violation here since same code as the 2 output and still on exec list
 3
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 0
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 3
-#   SEC_VIO_CONT
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
+    SEC_VIO_CONT
 43981
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 4660
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 2
 // no violation here since same code as the 2 output and still on exec list
 3
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 0
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 3
 // no violation on entry into selfmod since it's on previous page than the
 // inc/dec code, just one violation for after selfmod itself
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 43981
 // first violation is unknown code b/c the continue above only added
 // the second page of the selfmod code, now we're executing first page
 // (doesn't happen w/ first stack buf b/c it's all on same page)
-#   SEC_VIO_CONT
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
+    SEC_VIO_CONT
 4660
 #  else
 2
 3
 #   if !defined(detect_mode)
-#    SEC_VIO_AUTO_STOP
-#    STOP
+     SEC_VIO_AUTO_STOP
+     STOP
 #   else
-#    SEC_VIO_CONT
+     SEC_VIO_CONT
 #   endif
 0
 3
-#   SEC_VIO_CONT
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
+    SEC_VIO_CONT
 43981
 // no violation here b/c selfmod entry is on exec list from the prev continue
 // after the selfmod write, the exec area is removed since on stack, but
@@ -193,14 +193,14 @@ starting tests
 4660
 2
 3
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 0
 3
 // no violation on entry into selfmod since it's on previous page than the
 // inc/dec code, just one violation for after selfmod itself
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 43981
-#   SEC_VIO_CONT
+    SEC_VIO_CONT
 4660
 #  endif
 # endif

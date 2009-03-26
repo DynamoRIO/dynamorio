@@ -24,12 +24,12 @@ hooking done with
 hookerfirst main()
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(no_ret_after_call) && !defined(C) && !defined(X) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(use_moduledb)
 # if !defined(detect_mode)
-#  SEC_VIO_AUTO_STOP
+   SEC_VIO_AUTO_STOP
 #  if !defined(internal_detach_mask)
-#   STOP
+    STOP
 #  endif
 # else
-#  SEC_VIO_CONT
+   SEC_VIO_CONT
 # endif
 #endif
 *** invalid ret allowed!

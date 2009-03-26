@@ -44,20 +44,20 @@ Expected memory access violation, ignoring it!
 After exception handler
 Attempting execution of badfunc
 #if (defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && !defined(kill_thread) && !defined(throw_exception) && !defined(executable_stack) && !defined(low) && !defined(client) && !defined(thin_client)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1))
-#  SEC_VIO_STOP
+   SEC_VIO_STOP
 #  if !defined(internal_detach_mask)
-#   STOP
+    STOP
 #  endif
 #endif
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(detect_mode) && !defined(low) && !defined(client) && !defined(thin_client)
-#  SEC_VIO_CONT
+   SEC_VIO_CONT
 #endif
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && defined(kill_thread) && !defined(throw_exception) && !defined(low) && !defined(client) && !defined(thin_client)
-#  SEC_VIO_THREAD
-#  STOP
+   SEC_VIO_THREAD
+   STOP
 #endif
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && defined(throw_exception) && !defined(low) && !defined(client) && !defined(thin_client)
-#  SEC_VIO_EXCEPTION
+   SEC_VIO_EXCEPTION
 DATA VIOLATION: Inside first filter eax=0
 	exception code = 0xc0000005, ExceptionFlags=0x00000000
 	record=00000000, params=2
@@ -80,12 +80,12 @@ DATA VIOLATION: Inside first handler
 DATA: At statement after 1st try-except
 #  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception) && defined(throw_exception_max) && defined(1)
 #    if defined(kill_thread)
-#      SEC_VIO_THREAD
+       SEC_VIO_THREAD
 #    else
-#      SEC_VIO_STOP
+       SEC_VIO_STOP
 #    endif
 #  else
-#    SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
 DATA: Finally!
 DATA: Expected execution violation!
 	exception code = 0xc0000005, ExceptionFlags=0x00000000
@@ -107,7 +107,7 @@ DATA: Expected execution violation!
   SegGs=0x00000000 SegFs=0x0000003b SegEs=0x00000023 SegDs=0x00000023 
 DATA: After exception handler
 #  endif
-#  STOP
+   STOP
 #endif
 DATA: At statement after exception
 DATA: At statement after 1st try-except

@@ -11,7 +11,7 @@ looking at ring 0x00000001
 #endif
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(no_ret_after_call) && !defined(C) && !defined(X) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(detect_mode) && !defined(throw_exception) && !defined(internal_detach_mask) && !defined(hotp_only)
 // case 9364 - we silently kill (thread or process)
-#   STOP
+    STOP
 # else
 //match native behaviour
 #endif
@@ -29,7 +29,7 @@ looking at ring 0x00badbad
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1)
 // note we don't count the 0x00000000 as a .C exception
 // case 8267
-# STOP
+  STOP
 #endif
 #if defined(X64)
 fault caught on 0x0000000000badbad

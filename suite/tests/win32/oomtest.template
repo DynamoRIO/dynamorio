@@ -1,7 +1,7 @@
 // we'd like to have an inequality but no support for that so we
 // hardcode our regression option of 2M
 #if defined(vm_size) && defined(2M)
-# OUT_OF_MEMORY
+  OUT_OF_MEMORY
 #else
 Successful
 #endif

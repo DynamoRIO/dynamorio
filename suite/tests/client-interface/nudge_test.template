@@ -1,6 +1,6 @@
 thank you for testing the client interface
 #if defined(RUNREGRESSION_XP) && defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_rx_text) && !defined(executable_after_load)
-# SEC_VIO_STOP
+  SEC_VIO_STOP
 No such process found.
 Window not found: Untitled - Notepad
 #else

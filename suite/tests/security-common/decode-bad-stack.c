@@ -31,6 +31,7 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
+#include "tools.h" /* for print() */
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
@@ -41,8 +42,6 @@
 # include <ucontext.h>
 # include <errno.h>
 #endif
-
-#include "tools.h" /* for print() */
 
 /* just use single-arg handlers */
 typedef void (*handler_t)(int);

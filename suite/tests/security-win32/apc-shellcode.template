@@ -342,8 +342,8 @@ second native_queue_apc returned 1
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
 #if !defined(apc_policy)
 # if !defined(exempt_threat_list)
-#    SEC_VIO_THREAD
-#    SEC_VIO_THREAD
+     SEC_VIO_THREAD
+     SEC_VIO_THREAD
 # else
 # endif
 #endif
@@ -356,8 +356,8 @@ second native_queue_apc returned 1
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
 #if !defined(apc_policy)
 # if !defined(silent_block_threat_list)
-#    SEC_VIO_THREAD
-#    SEC_VIO_THREAD
+     SEC_VIO_THREAD
+     SEC_VIO_THREAD
 # else
 # endif
 #endif
@@ -369,10 +369,10 @@ QueueUserAPC returned 1
 second QueueUserAPC returned 1
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
 #if !defined(detect_mode)
-# SEC_VIO_AUTO_STOP
-# STOP
+  SEC_VIO_AUTO_STOP
+  STOP
 #else
-# SEC_VIO_CONT
+  SEC_VIO_CONT
 #endif
 #endif
 SleepEx returned 192

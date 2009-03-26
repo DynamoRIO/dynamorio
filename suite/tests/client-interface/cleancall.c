@@ -35,6 +35,8 @@
  * on linux (PR 304708)
  */
 
+#include "tools.h" /* for print() */
+
 #ifdef LINUX
 # include <unistd.h>
 # include <signal.h>
@@ -44,7 +46,6 @@
 #endif
 
 #include <setjmp.h>
-#include "tools.h" /* for print() */
 
 #ifdef WINDOWS
 # define NOP __nop()
