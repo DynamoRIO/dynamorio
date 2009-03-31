@@ -40,6 +40,8 @@
  * official shared memory layout required by the statistics viewer.
  */
 
+#define _CRT_SECURE_NO_DEPRECATE 1
+
 #include "dr_api.h"
 #include <stddef.h> /* for offsetof */
 #include <wchar.h> /* _snwprintf */

@@ -35,6 +35,17 @@ file(GLOB figures_fig *.fig)
 set(genimg_dirname ${CMAKE_CURRENT_BINARY_DIR}/genimages)
 file(MAKE_DIRECTORY ${genimg_dirname})
 
+if (WIN32 AND "${ImageMagick_mogrify_EXECUTABLE}" MATCHES "cygwin")
+  # i#100: cygwin mogrify mis-parses mixed paths when the drive is a,
+  # b, c, or g (haven't tracked down why those particular letters):
+  #   % mogrify -resize 33% -format png c:/client.tiff[0]
+  #   mogrify: Must specify image size `/client.tiff'.
+  string(REGEX REPLACE "^([a-zA-Z]):/" "/cygdrive/\\1/"
+    genimg_dirname_IM "${genimg_dirname}")
+else (WIN32 AND "${ImageMagick_mogrify_EXECUTABLE}" MATCHES "cygwin")
+  set(genimg_dirname_IM "${genimg_dirname}")
+endif (WIN32 AND "${ImageMagick_mogrify_EXECUTABLE}" MATCHES "cygwin")
+
 # Because fig2dev does not perform anti-aliasing, converting directly
 # to an image format can result in very poor quality lines and text.
 # This problem is compounded if that image is subsequently resized
@@ -65,7 +76,7 @@ foreach (fig ${figures_fig})
     DEPENDS ${genimg_dirname}/${base}.tiff
     COMMAND ${ImageMagick_mogrify_EXECUTABLE}
     # fig2dev produces multi-part image so ask for just 1st
-    ARGS -resize 33% -format png ${genimg_dirname}/${base}.tiff[0]
+    ARGS -resize 33% -format png ${genimg_dirname_IM}/${base}.tiff[0]
     VERBATIM # recommended: p260
     )
   # FYI: for VMSAFE we did: $(SED) 's|DynamoRIO|${VMSAFE_NAME}|g'
