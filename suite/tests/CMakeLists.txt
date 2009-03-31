@@ -55,6 +55,7 @@ set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 #   for cross-arch execve.
 # FIXME: we need x86 drdeploy to run x64 Windows runall tests
 # FIXME: add a VMKERNEL=ON build to the runregression list
+#   but need bora headers for that so have to run at vmware => nightly
 # FIXME: add command to run natively
 # FIXME: update TestSuite.wiki
 # FIXME: build latest cmake for "ctest -W 60" and "ctest -j"
@@ -493,6 +494,9 @@ function(template2expect outexpect template runops)
   string(REGEX REPLACE
     "(\r?\n)+"
     "\\1" cpp_out "${cpp_out}")
+  string(REGEX REPLACE
+    "^(\r?\n)+"
+    "" cpp_out "${cpp_out}")
   # allow matching blank lines via @@
   # FIXME i#65 NOT YET COMPLETED: haven't modified any .template files for this
   #  string(REGEX REPLACE
@@ -564,7 +568,7 @@ function(rundr_cmd outcmd outops native dr_ops_aux)
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
   else (UNIX)
     # FIXME i#65 NOT YET COMPLETED: need internal drinject: have separate
-    # target drinjectex.exe?
+    # target drinjectex.exe?  would also help avoid confusion w/ drmemory.sh, etc.
     set(dr_ops "-stderr_mask 0xC -msgbox_mask 0 -dumpcore_mask 0xfd -staged ${dr_ops_aux} ${TEST_OPTIONS}")
   endif (UNIX)
   set(${outops} "${dr_ops}" PARENT_SCOPE)
@@ -594,7 +598,7 @@ function(torun test exe source native dr_ops exe_ops)
     #   if we did our own diff then the CTest output would be more readable.
     #   Note that we can't output, say, the diff head, but we can be quieter.
     # * Changes in .template don't require reconfiguring + rebuilding
-    #   (FIXME: is there a way to say "CTestTestfile.cmake depends on .template?)
+    #   (FIXME: is there a way to say "CTestTestfile.cmake depends on .template"?)
     # * We could support extra runtime options via env var DYNAMORIO_OPTIONS,
     #   but while that might be useful it could also be confusing.
     template2expect(expect
