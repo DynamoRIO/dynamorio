@@ -112,7 +112,9 @@ main(int argc, char** argv)
      * Load and unload a module to cause a module unload event
      */
 #if 1
-    strncpy(buf, argv[0], sizeof(buf));
+    if (argc != 2)
+        exit(1);
+    strncpy(buf, argv[1], sizeof(buf));
     buf[sizeof(buf)-1] = '\0';
     end_path = strrchr(buf, '/');
     if (end_path == NULL)

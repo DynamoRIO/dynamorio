@@ -393,7 +393,10 @@ function(tobuild_dll test source dr_ops)
 endfunction(tobuild_dll)
 
 # client interface app with client
-function(tobuild_ci test source client_ops dr_ops)
+# note that we can't easily have a routine that takes no ops
+# and calls this one w/ "" "" "" b/c the PARENT_SCOPE won't make
+# it all the way back then.
+function(tobuild_ci test source client_ops dr_ops exe_ops)
   string(REGEX REPLACE "\\.c$" ".dll.c" client_source "${source}")
 
   add_exe(${test} ${source})
@@ -411,6 +414,7 @@ function(tobuild_ci test source client_ops dr_ops)
   set(${test}_source ${source} PARENT_SCOPE)
   set(${test}_client_ops ${client_ops} PARENT_SCOPE)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
+  set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
 endfunction(tobuild_ci)
 
@@ -649,7 +653,7 @@ function(torun_ci name test ops)
     endif ("${ops}" MATCHES "(-thread_private|-enable_full_api)")
   endif ("${test}" MATCHES "client\\.flush")
   torun("${name}" ${test} ${${test}_source} OFF
-    " -code_api -client_lib ${${test}_client_path}\;0\;${cli_ops} ${${test}_dr_ops} ${ops}" "")
+    " -code_api -client_lib ${${test}_client_path}\;0\;${cli_ops} ${${test}_dr_ops} ${ops}" "${${test}_exe_ops}")
 endfunction(torun_ci)
 
 function(torun_api name test ops)
@@ -683,45 +687,47 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.ops common/ops.c)
 #tobuild(common.recurse common/recurse.c)
 
-tobuild_ci(client.abort client-interface/abort.c "" "")
-tobuild_ci(client.alloc client-interface/alloc.c "" "")
-tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "")
-tobuild_ci(client.cleancall client-interface/cleancall.c "" "")
-tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "")
+tobuild_ci(client.abort client-interface/abort.c "" "" "")
+tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
+tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
+tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
+tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
 if (UNIX)
-  # just happens to not make as many traces
-  tobuild_ci(client.events client-interface/events.c "" "-trace_threshold 5")
-  tobuild_ci(client.signal client-interface/signal.c "" "")
-  tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "")
+  # just happens to not make as many traces.  also needs path for events*.so.
+  tobuild_ci(client.events client-interface/events.c 
+    "" "-trace_threshold 5" "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/")
+  tobuild_ci(client.signal client-interface/signal.c "" "" "")
+  tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
 else (UNIX)
-  tobuild_ci(client.events client-interface/events.c "" "")
-  tobuild_ci(client.cbr3 client-interface/cbr3.c "" "")
-  tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private")
-  tobuild_ci(client.modules client-interface/modules.c "" "")
-  tobuild_ci(client.syscall client-interface/syscall.c "" "")
+  tobuild_ci(client.events client-interface/events.c "" "" "")
+  tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
+  tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
+  tobuild_ci(client.modules client-interface/modules.c "" "" "")
+  tobuild_ci(client.syscall client-interface/syscall.c "" "" "")
   # FIXME: enable these .runall tests once have .runall support
-  #tobuild_ci_runall(client.cbr2 client-interface/cbr2.runall "" "")
-  #tobuild_ci_runall(client.cbr client-interface/cbr.runall "" "")
-  #tobuild_ci_runall(client.custom_traces client-interface/custom_traces.runall "" "")
-  #tobuild_ci_runall(client.decode-bb client-interface/decode-bb.runall "" "")
-  #tobuild_ci_runall(client.nudge_test client-interface/nudge_test.runall "" "")
-  #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "")
+  #tobuild_ci_runall(client.cbr2 client-interface/cbr2.runall "" "" "")
+  #tobuild_ci_runall(client.cbr client-interface/cbr.runall "" "" "")
+  #tobuild_ci_runall(client.custom_traces client-interface/custom_traces.runall "" "" "")
+  #tobuild_ci_runall(client.decode-bb client-interface/decode-bb.runall "" "" "")
+  #tobuild_ci_runall(client.nudge_test client-interface/nudge_test.runall "" "" "")
+  #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
 endif (UNIX)
 tobuild_ci(client.file_io client-interface/file_io.c
-  "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "")
+  "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 # we add custom option to flush test based on dr ops in torun_ci()
-tobuild_ci(client.flush client-interface/flush.c "" "")
+tobuild_ci(client.flush client-interface/flush.c "" "" "")
 # FIXME: PR 199115 to re-enable fragdel, get some more of the LINUX tests working
-#tobuild_ci(client.fragdel client-interface/fragdel.c "" "")
+#tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
 if (PROGRAM_SHEPHERDING)
-  tobuild_ci(client.security client-interface/security.c "" "-security_api")
+  tobuild_ci(client.security client-interface/security.c "" "-security_api" "")
 endif (PROGRAM_SHEPHERDING)
-tobuild_ci(client.strace client-interface/strace.c "" "")
+tobuild_ci(client.strace client-interface/strace.c "" "" "")
 # FIXME: quotes are being removed so test gets paramx and DR gets paramy,
 # and paramy is defined to be 1 by the cpp .template step!
-#tobuild_ci(client.thread client-interface/thread.c "\\\"-paramx -paramy\\\"" "")
-tobuild_ci(client.truncate client-interface/truncate.c "" "")
-tobuild_ci(client.unregister client-interface/unregister.c "" "")
+#tobuild_ci(client.thread client-interface/thread.c
+#  "\\\"-paramx -paramy\\\"" "" "")
+tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
+tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
 
 # FIXME i#65 NOT YET COMPLETED: enable once resolve out-of-memory issues
 #tobuild_api(api.dis api/dis.c "-syntax_intel"
