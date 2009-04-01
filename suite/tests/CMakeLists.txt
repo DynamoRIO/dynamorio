@@ -273,6 +273,9 @@ string(REGEX REPLACE "-fvisibility=internal" "" CLIENT_CMAKE_C_FLAGS
 if (UNIX)
   string(REGEX REPLACE "-Wall" "" ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
   string(REGEX REPLACE "-std=gnu99" "" ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
+  # some tests rely on specific "nop;nop" patterns that optimization ruins
+  # we should probably move the -O from top level into core/CMakeLists.txt
+  string(REGEX REPLACE "-O " " " ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
   find_library(libmath m)
   find_library(libdl dl)
   find_library(libpthread pthread)
@@ -374,6 +377,15 @@ function(tobuild test source)
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
 endfunction(tobuild)
+
+# normal app w/ options
+function(tobuild_ops test source dr_ops exe_ops)
+  add_exe(${test} ${source})
+  set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
+  set(${test}_source ${source} PARENT_SCOPE)
+  set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
+  set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
+endfunction(tobuild_ops)
 
 # normal app that has a dll and an executable
 function(tobuild_dll test source dr_ops)
@@ -501,6 +513,10 @@ function(template2expect outexpect template runops)
   string(REGEX REPLACE
     "^(\r?\n)+"
     "" cpp_out "${cpp_out}")
+  # allow trailing space on a line via @&
+  string(REGEX REPLACE
+    "@&"
+    " " cpp_out "${cpp_out}")
   # allow matching blank lines via @@
   # FIXME i#65 NOT YET COMPLETED: haven't modified any .template files for this
   #  string(REGEX REPLACE
@@ -637,7 +653,8 @@ function(torun_normal name test ops)
   else (DEFINED ${test}_realtest)
     set(exe ${test})
   endif (DEFINED ${test}_realtest)
-  torun("${name}" ${exe} ${${test}_source} OFF "${${test}_dr_ops} ${ops}" "")
+  torun("${name}" ${exe} ${${test}_source} OFF "${${test}_dr_ops} ${ops}"
+    "${${test}_exe_ops}")
 endfunction(torun_normal)
 
 function(torun_ci name test ops)
@@ -737,16 +754,23 @@ tobuild_api(api.startstop api/startstop.c "" "")
 
 if (UNIX)
   tobuild(linux.clone linux/clone.c)
-  # FIXME: execve => execve{32,64} and runs execve-sub
-  # has custom args as well
+
+  # FIXME: cross-arch execve: build execve-sub{32,64} and then run
+  # two tests execve{32,64}.  Requires lib{32,64} setup though
+  # so need a "make install" first w/ both archs.
   #tobuild(linux.execve linux/execve.c)
-  tobuild(linux.execve-null linux/execve-null.c)
+
+  # helper app for execve-null
+  add_exe(linux.execve-sub linux/execve-sub.c)
+  tobuild_ops(linux.execve-null linux/execve-null.c ""
+    "${EXECUTABLE_OUTPUT_PATH}/linux.execve-sub")
+
   tobuild(linux.execve-rec linux/execve-rec.c)
   tobuild(linux.exit linux/exit.c)
   tobuild(linux.fork linux/fork.c)
   tobuild(linux.infinite linux/infinite.c)
   tobuild(linux.longjmp linux/longjmp.c)
-  # FIXME TOFILE: suddently getting (non-det) curiosities and asserts in module list
+  # FIXME TOFILE: suddently seeing non-det curiosities/asserts in module list on mmap
   tobuild(linux.mmap linux/mmap.c)
   tobuild(linux.signal0000 linux/signal0000.c)
   tobuild(linux.signal0001 linux/signal0001.c)
@@ -773,8 +797,11 @@ if (UNIX)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.thread linux/thread.c)
+
+  # FIXME TOFILE: nondet failures: still some races or sthg
   tobuild(linux.threadexit linux/threadexit.c)
   tobuild(linux.threadexit2 linux/threadexit2.c)
+
   # FIXME: bugs in these, were disabled in the past
   #tobuild(linux.vfork linux/vfork.c)
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
