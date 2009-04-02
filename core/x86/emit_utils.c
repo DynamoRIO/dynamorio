@@ -7281,48 +7281,29 @@ is_jmp_rel8(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */)
  *   1) app's xcx is in xax.
  *   2) xcx contains clone_record_t, which is not 0.
  *   3) app's xax should contain 0.
+ *   4) this thread holds initstack_mutex
  */
 byte * 
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
 {
     instrlist_t ilist;
-    instr_t *try_again = INSTR_CREATE_label(dcontext);
-    instr_t *have_lock = INSTR_CREATE_label(dcontext);
     uint offset;
 
     /* initialize the ilist */
     instrlist_init(&ilist);
 
-    APP(&ilist, try_again);
-    /* We used to xchg ecx w/ initstack_mutex, since it's non-zero, but
-     * we can lose it if two threads are here simultaneously (PR 207903).
-     * Plus, for 64-bit, initstack_mutex.lock_requests is 32-bit,
-     * so we'd end up clobbering the top 32 bits of rcx w/ an xchg.
-     * So, we have to spill a register.
-     * FIXME PR 207903: this is still racy: we need a thread-private spill slot.
-     * We could fix w/ CLONE_SETTLS (only kernel 2.5.32+ though) (PR 285898).
+    /* Since we don't have TLS available here (we could use CLONE_SETTLS
+     * for kernel 2.5.32+: PR 285898) we can't non-racily acquire
+     * initstack_mutex as we can't spill or spare a register
+     * (xref i#101/PR 207903).
+     * We rely on mangle_insert_clone_code() acquiring the lock at the
+     * SYS_clone site, where we do have a free register (though presently
+     * that free register is not restored in the child: PR 286194).
      */
-    APP(&ilist, INSTR_CREATE_mov_st
-        (dcontext, OPND_CREATE_ABSMEM((void *)&initstack_app_xsp, OPSZ_PTR),
-         opnd_create_reg(REG_XCX)));
-    APP(&ilist, INSTR_CREATE_mov_imm
-        (dcontext, opnd_create_reg(REG_XCX), OPND_CREATE_INT32(1)));
-    APP(&ilist, INSTR_CREATE_xchg
-        (dcontext, OPND_CREATE_ABSMEM((void *)&initstack_mutex, OPSZ_PTR),
-         opnd_create_reg(REG_XCX)));
-    APP(&ilist, INSTR_CREATE_jecxz(dcontext, opnd_create_instr(have_lock)));
-    /* improve spin-loop perf on P4 */
-    APP(&ilist, INSTR_CREATE_pause(dcontext));
-    /* try again -- too few free regs to call sleep() */
-    APP(&ilist, INSTR_CREATE_jecxz(dcontext, opnd_create_instr(try_again)));
 
-    APP(&ilist, have_lock);
     /* put app xcx into xcx , and clone_record_t in xax */
-    APP(&ilist, INSTR_CREATE_mov_ld
-        (dcontext, opnd_create_reg(REG_XCX), opnd_create_reg(REG_XAX)));
-    APP(&ilist, INSTR_CREATE_mov_ld
-        (dcontext, opnd_create_reg(REG_XAX),
-         OPND_CREATE_ABSMEM((void *)&initstack_app_xsp, OPSZ_PTR)));
+    APP(&ilist, INSTR_CREATE_xchg
+        (dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(REG_XCX)));
     /* save app's esp */
     APP(&ilist, INSTR_CREATE_mov_st
         (dcontext, OPND_CREATE_ABSMEM((void *)&initstack_app_xsp, OPSZ_PTR),

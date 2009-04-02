@@ -154,8 +154,6 @@ int run(void *arg)
         for (j = 1; j < NUM_THREADS; j++) {
             child[j] = create_thread(run, (void *)(long)j, &stack[j], true);
             assert(child[j] > -1);
-            /* work around races in the core in starting threads: PR 207903 */
-            nanosleep(&sleeptime, NULL);
         }
     }
 

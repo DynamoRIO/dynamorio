@@ -2161,6 +2161,8 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
  * pc_to_ecx is an instr that puts the pc after the app's syscall instr
  * into xcx.
  * skip decides whether the clone code is skipped by default or not.
+ *
+ * N.B.: mangle_clone_code() makes assumptions about this exact code layout
  */
 void
 mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -2178,6 +2180,16 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                 jecxz child
                 jmp parent
               child:
+                # i#101/PR 207903: we don't have TLS in the shared routine
+                # new_thread_dynamo_start so we get lock while we have scratch reg
+                mov $1,xcx
+                xchg xcx, &initstack_mutex
+                jecxz have_lock
+                pause
+                jmp child
+              have_lock:
+                # N.B.: currently this comes from xbp so don't clobber that.
+                # xref PR 286194.
                 mov <clone_record_t *>,xcx
                 jmp new_thread_dynamo_start
               parent:
@@ -2186,13 +2198,10 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                 <post system call, etc.>
             */
     instr_t *in = instr_get_next(instr);
-    /* child == data_to_ecx */
-    instr_t *parent =
-        INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
-                          opnd_create_reg(REG_XCX));
-    instr_t *xchg =
-        INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
-                          opnd_create_reg(REG_XCX));
+    instr_t *xchg = INSTR_CREATE_label(dcontext);
+    instr_t *child = INSTR_CREATE_label(dcontext);
+    instr_t *have_lock = INSTR_CREATE_label(dcontext);
+    instr_t *parent = INSTR_CREATE_label(dcontext);
     ASSERT(in != NULL);
     /* we have to dynamically skip or not skip the clone code
      * see mangle_clone_code below
@@ -2212,10 +2221,29 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
             INSTR_CREATE_jmp(dcontext, opnd_create_instr(xchg)));
     }
     PRE(ilist, in, xchg);
+    PRE(ilist, in, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
+                                     opnd_create_reg(REG_XCX)));
     PRE(ilist, in,
-        INSTR_CREATE_jecxz(dcontext, opnd_create_instr(data_to_ecx)));
+        INSTR_CREATE_jecxz(dcontext, opnd_create_instr(child)));
     PRE(ilist, in,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(parent)));
+
+    PRE(ilist, in, child);
+    /* i#101/PR 207903: we don't have TLS in shared routine new_thread_dynamo_start
+     * so we get lock while we have scratch reg to avoid races
+     */
+    PRE(ilist, in, INSTR_CREATE_mov_imm
+        (dcontext, opnd_create_reg(REG_ECX), OPND_CREATE_INT32(1)));
+    PRE(ilist, in, INSTR_CREATE_xchg
+        (dcontext, OPND_CREATE_ABSMEM((void *)&initstack_mutex, OPSZ_4),
+         opnd_create_reg(REG_ECX)));
+    PRE(ilist, in, INSTR_CREATE_jecxz(dcontext, opnd_create_instr(have_lock)));
+    /* improve spin-loop perf on P4 */
+    PRE(ilist, in, INSTR_CREATE_pause(dcontext));
+    /* try again -- too few free regs to call sleep() */
+    PRE(ilist, in, INSTR_CREATE_jmp(dcontext, opnd_create_instr(child)));
+
+    PRE(ilist, in, have_lock);
     PRE(ilist, in, data_to_ecx);
     /* an exit cti, not a meta instr */
     instrlist_preinsert
@@ -2224,6 +2252,8 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                           ((app_pc)get_new_thread_start(dcontext _IF_X64(mode)))));
     instr_set_ok_to_mangle(instr_get_prev(in), false);
     PRE(ilist, in, parent);
+    PRE(ilist, in, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
+                                     opnd_create_reg(REG_XCX)));
 }
 #endif /* LINUX */
 
@@ -2473,19 +2503,18 @@ mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip)
     ASSERT(pc != NULL); /* our own code! */
     ASSERT(instr_get_opcode(&instr) == OP_jmp);
     if (skip) {
-        /* target is after 2nd xchg */
+        /* target is after 3rd xchg */
         instr_t tmp_instr;
         int num_xchg = 0;
         target = pc;
         instr_init(dcontext, &tmp_instr);
-        while (num_xchg <= 1) {
+        while (num_xchg <= 2) {
             instr_reset(dcontext, &tmp_instr);
             target = decode(dcontext, target, &tmp_instr);
             ASSERT(target != NULL); /* our own code! */
             if (instr_get_opcode(&tmp_instr) == OP_xchg)
                 num_xchg++;
         }
-        /* now target is instr after 2nd xchg */
     } else {
         target = pc;
     }

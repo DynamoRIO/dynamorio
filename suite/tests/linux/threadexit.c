@@ -107,8 +107,6 @@ int main()
         child_exit[i] = false;
         child[i] = create_thread(run, (void *)(long)i, &stack[i]);
         assert(child[i] > -1);
-        /* work around races in the core in starting threads: PR 207903 */
-        nanosleep(&sleeptime, NULL);
     }
 
     for (i = 0; i < NUM_THREADS; i++) {
