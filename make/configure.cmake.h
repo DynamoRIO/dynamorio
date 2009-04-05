@@ -61,6 +61,7 @@
 /* for use by developers */
 #cmakedefine KSTATS
 #cmakedefine CALLPROF
+#cmakedefine LINKCOUNT
 #cmakedefine STANDALONE_UNIT_TEST
 #cmakedefine KEEP_SYMBOLS_FOR_LIBC_BACKTRACE
 
@@ -298,5 +299,10 @@
 #  define EXTERNAL_DRVIEW
 #endif
 
+#ifdef LINKCOUNT
+#  define PROFILE_LINKCOUNT
+/* not bothering to support 32-bit: only if we start using it again */
+#  define LINKCOUNT_64_BITS
+#endif
 
 #endif /* _CONFIGURE_H_ */

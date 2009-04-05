@@ -54,8 +54,6 @@ set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 # FIXME: xref issue 20 where we build x64 and x86 to have both simultaneously
 #   for cross-arch execve.
 # FIXME: we need x86 drdeploy to run x64 Windows runall tests
-# FIXME: add a VMKERNEL=ON build to the runregression list
-#   but need bora headers for that so have to run at vmware => nightly
 # FIXME: add command to run natively
 # FIXME: update TestSuite.wiki
 # FIXME: build latest cmake for "ctest -W 60" and "ctest -j"
@@ -132,37 +130,42 @@ set(vmap_run_list
 set(vmsafe_run_list
   # keep lightweight modes alive
   # i#24: -thin_client not working: once it works, re-enable
-  #"WIN::ONLY::^runall::-thin_client",
-  "WIN::ONLY::^runall::-probe_api -hotp_only",
+  #"WIN::ONLY::^runall::-thin_client"
+  "WIN::ONLY::^runall::-probe_api -hotp_only"
   # our supported configurations
-  "ONLY::^[^h]::-code_api -probe_api",
-  "ONLY::^security ^runall runinterface::-security_api",
-  "ONLY::^[^h]::-security_api",
-  "WIN::ONLY::^(runall|${osname})::-probe_api -hotp_only",
-  "WIN::ONLY::^(common|security)::-probe_api -hotp_only",
+  "ONLY::^[^h]::-code_api -probe_api"
+  "ONLY::^security ^runall runinterface::-security_api"
+  "ONLY::^[^h]::-security_api"
+  "WIN::ONLY::^(runall|${osname})::-probe_api -hotp_only"
+  "WIN::ONLY::^(common|security)::-probe_api -hotp_only"
   # other configurations we may eventually support
-  "ONLY::^[^h]::-security_api -code_api",
-  "-security_api -probe_api",
-  "-security_api -code_api -probe_api",
+  "ONLY::^[^h]::-security_api -code_api"
+  "-security_api -probe_api"
+  "-security_api -code_api -probe_api"
   )
 
 # xref the very long set of runs we used to test in
 # suite/old-runregression-runs-2-6-08
 set(vps_run_list
-  "ONLY::^(common|${osname}|security|runall)::",
-  "ONLY::^(common|${osname}|security|runall)::-security",
-  "ONLY::^security::-security -detect_mode -report_max 0 -no_diagnostics",
-  "WIN::ONLY::^(common|${osname}|security|runall)::-security -liveshields",
-  "WIN::ONLY::^runall ^security::-security -client",
-  "WIN::ONLY::^runall ^security::-security -low", # not a default config
+  "ONLY::^(common|${osname}|security|runall)::"
+  "ONLY::^(common|${osname}|security|runall)::-security"
+  "ONLY::^security::-security -detect_mode -report_max 0 -no_diagnostics"
+  "WIN::ONLY::^(common|${osname}|security|runall)::-security -liveshields"
+  "WIN::ONLY::^runall ^security::-security -client"
+  "WIN::ONLY::^runall ^security::-security -low" # not a default config
   # Test with -use_moduledb relaxations, (is on by default, but tests Makefile
   # adds -staged which turns it off, we re-enable by turning the option back on).
   # The tests Makefile adds different version resource information to different
   # tests in runall/ and security-{common,win32}/ to fully exercise this.
-  "WIN::ONLY::^(runall|security)::-security -use_moduledb",
+  "WIN::ONLY::^(runall|security)::-security -use_moduledb"
   )
 
-if (VMAP)
+if (LINKCOUNT AND TEST_SUITE)
+  # FIXME: how up time limit?  had TEST_MINS=5 for this:
+  set(run_list "ONLY::^common::-prof_counts -tracedump_binary -no_inline_trace_ibl -indirect_stubs")
+elseif (CALLPROF AND TEST_SUITE)
+  set(run_list "ONLY::^common::")
+elseif (VMAP)
   if (TEST_SUITE)
     # if running multiple builds we don't redo all tests for later builds
     # we expect internal debug to catch most problems
@@ -196,14 +199,17 @@ elseif (VPS)
       set(run_list
         "ONLY::^common::"
         "ONLY::^security::-security -detect_mode -report_max 0 -no_diagnostics"
-        "WIN::ONLY::^(common|${osname}|security|runall)::-security -liveshields",
-        "WIN::ONLY::^(runall|security)::-security -client",
+        "WIN::ONLY::^(common|${osname}|security|runall)::-security -liveshields"
+        "WIN::ONLY::^(runall|security)::-security -client"
         )
     endif (DEBUG AND INTERNAL)
   else (TEST_SUITE)
     set(run_list ${vps_run_list})
   endif (TEST_SUITE)
-endif (VMAP)
+else (LINKCOUNT AND TEST_SUITE)
+  # no tests
+  set(run_list "")
+endif (LINKCOUNT AND TEST_SUITE)
 
 ###########################################################################
 # BUILDING
@@ -275,7 +281,7 @@ if (UNIX)
   string(REGEX REPLACE "-std=gnu99" "" ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
   # some tests rely on specific "nop;nop" patterns that optimization ruins
   # we should probably move the -O from top level into core/CMakeLists.txt
-  string(REGEX REPLACE "-O " " " ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "-O[0-9]? " " " ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
   find_library(libmath m)
   find_library(libdl dl)
   find_library(libpthread pthread)
@@ -362,7 +368,10 @@ function(add_exe test source)
 
   add_executable(${test} ${test_srcs})
   set_target_properties(${test} PROPERTIES
-    LINK_FLAGS "${ARCH_CFLAGS}")
+    LINK_FLAGS "${ARCH_CFLAGS}"
+    # we don't want the default rpath of <builddir>/lib as it makes
+    # it hard to use other DR builds w/ these apps
+    SKIP_BUILD_RPATH ON)
   if (UNIX)
     target_link_libraries(${test} ${libmath} ${libdl})
     if ("${test}" MATCHES "^pthread")
@@ -523,6 +532,11 @@ function(template2expect outexpect template runops)
     " " cpp_out "${cpp_out}")
   # allow matching blank lines via @@
   # FIXME i#65 NOT YET COMPLETED: haven't modified any .template files for this
+  #security-win32/except-thread.template:
+  #win32/debugger.template:
+  #win32/delaybind.template:
+  #win32/delaybind.template:
+  #win32/threadinjection.template:
   #  string(REGEX REPLACE
   #    "@@"
   #    "\n" cpp_out "${cpp_out}")
@@ -538,13 +552,13 @@ function(template2expect outexpect template runops)
   set(msg_mem "Out of memory.  Program aborted.")
   set(msg_unhand "Unhandled exception caught.\n")
   # FIXME: add in \r? and test on Windows
-  string(REGEX REPLACE "\n *SEC_VIO_CONT\n"        "\n${msg_vio}${msg_cont}>\n"
+  string(REGEX REPLACE "(^|\n) *SEC_VIO_CONT\n"        "\\1${msg_vio}${msg_cont}>\n"
     cpp_out "${cpp_out}")
-  string(REGEX REPLACE "\n *SEC_VIO_STOP\n"        "\n${msg_vio}${msg_term}>\n"
+  string(REGEX REPLACE "(^|\n) *SEC_VIO_STOP\n"        "\\1${msg_vio}${msg_term}>\n"
     cpp_out "${cpp_out}")
-  string(REGEX REPLACE "\n *SEC_VIO_EXCEPTION\n"   "\n${msg_vio}${msg_throw}>\n"
+  string(REGEX REPLACE "(^|\n) *SEC_VIO_EXCEPTION\n"   "\\1${msg_vio}${msg_throw}>\n"
     cpp_out "${cpp_out}")
-  string(REGEX REPLACE "\n *SEC_VIO_THREAD\n"      "\n${msg_vio}${msg_thread}>\n"
+  string(REGEX REPLACE "(^|\n) *SEC_VIO_THREAD\n"      "\\1${msg_vio}${msg_thread}>\n"
     cpp_out "${cpp_out}")
   string(REGEX REPLACE "\n *OUT_OF_MEMORY\n"       "\n<${msg_mem}>\n"
     cpp_out "${cpp_out}")
@@ -698,12 +712,15 @@ endfunction(torun_runall)
 
 tobuild(common.broadfun common/broadfun.c)
 tobuild(common.decode-bad common/decode-bad.c)
-tobuild(common.decode common/decode.c)
-# We build all tests before running so decode will be built before
-# ctest -j ever ran this.  If we switch to --build-and-test then we'll
-# make these runonly tests make sure their exe is built.
-torunonly(common.decode-stress common.decode common/decode.c
-  "-stress_recreate_state" "")
+if (WIN32)
+  # FIXME: disabled to speed up suite: will be re-enabled as part of i#105 fix
+  tobuild(common.decode common/decode.c)
+  # We build all tests before running so decode will be built before
+  # ctest -j ever ran this.  If we switch to --build-and-test then we'll
+  # make these runonly tests make sure their exe is built.
+  torunonly(common.decode-stress common.decode common/decode.c
+    "-stress_recreate_state" "")
+endif (WIN32)
 tobuild(common.eflags common/eflags.c)
 tobuild(common.fib common/fib.c)
 tobuild(common.getretaddr common/getretaddr.c)
@@ -715,50 +732,52 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.ops common/ops.c)
 #tobuild(common.recurse common/recurse.c)
 
-tobuild_ci(client.abort client-interface/abort.c "" "" "")
-tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
-tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
-tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
-tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
-if (UNIX)
-  # just happens to not make as many traces.  also needs path for events*.so.
-  tobuild_ci(client.events client-interface/events.c 
-    "" "-trace_threshold 5" "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/")
-  tobuild_ci(client.signal client-interface/signal.c "" "" "")
-  tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
-else (UNIX)
-  tobuild_ci(client.events client-interface/events.c "" "" "")
-  tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
-  tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
-  tobuild_ci(client.modules client-interface/modules.c "" "" "")
-  tobuild_ci(client.syscall client-interface/syscall.c "" "" "")
-  # FIXME: enable these .runall tests once have .runall support
-  #tobuild_ci_runall(client.cbr2 client-interface/cbr2.runall "" "" "")
-  #tobuild_ci_runall(client.cbr client-interface/cbr.runall "" "" "")
-  #tobuild_ci_runall(client.custom_traces client-interface/custom_traces.runall "" "" "")
-  #tobuild_ci_runall(client.decode-bb client-interface/decode-bb.runall "" "" "")
-  #tobuild_ci_runall(client.nudge_test client-interface/nudge_test.runall "" "" "")
-  #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
-endif (UNIX)
-tobuild_ci(client.file_io client-interface/file_io.c
-  "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
-# we add custom option to flush test based on dr ops in torun_ci()
-tobuild_ci(client.flush client-interface/flush.c "" "" "")
-# FIXME: PR 199115 to re-enable fragdel, get some more of the LINUX tests working
-#tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
-if (PROGRAM_SHEPHERDING)
-  tobuild_ci(client.security client-interface/security.c "" "-security_api" "")
-endif (PROGRAM_SHEPHERDING)
-tobuild_ci(client.strace client-interface/strace.c "" "" "")
-tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
-tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
-tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
-
-# FIXME i#65 NOT YET COMPLETED: enable once resolve cmake out-of-memory issues
-#tobuild_api(api.dis api/dis.c "-syntax_intel"
-#  "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw")
-tobuild_api(api.ir api/ir.c "" "")
-tobuild_api(api.startstop api/startstop.c "" "")
+if (CLIENT_INTERFACE)
+  tobuild_ci(client.abort client-interface/abort.c "" "" "")
+  tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
+  tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
+  tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
+  tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
+  if (UNIX)
+    # just happens to not make as many traces.  also needs path for events*.so.
+    tobuild_ci(client.events client-interface/events.c 
+      "" "-trace_threshold 5" "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/")
+    tobuild_ci(client.signal client-interface/signal.c "" "" "")
+    tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
+  else (UNIX)
+    tobuild_ci(client.events client-interface/events.c "" "" "")
+    tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
+    tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
+    tobuild_ci(client.modules client-interface/modules.c "" "" "")
+    tobuild_ci(client.syscall client-interface/syscall.c "" "" "")
+    # FIXME: enable these .runall tests once have .runall support
+    #tobuild_ci_runall(client.cbr2 client-interface/cbr2.runall "" "" "")
+    #tobuild_ci_runall(client.cbr client-interface/cbr.runall "" "" "")
+    #tobuild_ci_runall(client.custom_traces client-interface/custom_traces.runall
+    #  "" "" "")
+    #tobuild_ci_runall(client.decode-bb client-interface/decode-bb.runall "" "" "")
+    #tobuild_ci_runall(client.nudge_test client-interface/nudge_test.runall "" "" "")
+    #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
+  endif (UNIX)
+  tobuild_ci(client.file_io client-interface/file_io.c
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
+  # we add custom option to flush test based on dr ops in torun_ci()
+  tobuild_ci(client.flush client-interface/flush.c "" "" "")
+  # FIXME: PR 199115 to re-enable fragdel, get some more of the LINUX tests working
+  #tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
+  if (PROGRAM_SHEPHERDING)
+    tobuild_ci(client.security client-interface/security.c "" "-security_api" "")
+  endif (PROGRAM_SHEPHERDING)
+  tobuild_ci(client.strace client-interface/strace.c "" "" "")
+  tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
+  tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
+  tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
+  # FIXME i#65 NOT YET COMPLETED: enable once resolve cmake out-of-memory issues
+  #tobuild_api(api.dis api/dis.c "-syntax_intel"
+  #  "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw")
+  tobuild_api(api.ir api/ir.c "" "")
+  tobuild_api(api.startstop api/startstop.c "" "")
+endif (CLIENT_INTERFACE)
 
 if (UNIX)
   tobuild(linux.clone linux/clone.c)

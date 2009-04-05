@@ -30,8 +30,8 @@
 
 ###########################################################################
 # FIXME not yet finished:
-# i#65: convert suite/ to cmake and ctest
-# i#66: re-add "make runregression"
+# i#65: convert suite/ to cmake and ctest: need Windows support
+# i#66: re-add "make runregression": need Windows support
 # i#73: provide automatic suport for locating ml64.exe when using Vista SDK+WDK
 # i#79: custom build number or label for non-release builds
 # i#77: make DRgui a subproject to support with different compiler from libutil 
@@ -48,7 +48,7 @@
 # i#60: re-add libutil/ unit tests 
 #
 # Not filed:
-# * move info like "build core solely from DDK" from compiler.mk into
+# * move info like "build core solely from DDK" from make/compiler.mk into
 #   HowToBuild.wiki
 ###########################################################################
 
@@ -145,6 +145,7 @@ endif (VPS)
 # for developers
 option(KSTATS "internal kstat profiling")
 option(CALLPROF "internal caller profiling support")
+option(LINKCOUNT "internal linkcount profiling")
 option(STANDALONE_UNIT_TEST "internal unit tests")
 option(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE "keep internal symbols exported")
 if (INTERNAL OR DEBUG)
@@ -196,6 +197,7 @@ mark_as_advanced(
   VPS
   KSTATS
   CALLPROF
+  LINKCOUNT
   STANDALONE_UNIT_TEST
   KEEP_SYMBOLS_FOR_LIBC_BACKTRACE
   SET_PREFERRED_BASE
@@ -710,9 +712,20 @@ if (WIN32 AND NOT X64)
 endif (WIN32 AND NOT X64)
 option(BUILD_DOCS "build documentation" ON)
 
+if (VMSAFE)
+  # I did not preserve VMSAFE docs building: to reactivate it, need to
+  # add the missing transformations mentioned in api/docs/CMakeLists.txt
+  # and fix genapi.pl on lib/dr_config.h to handle the outer ifdef WINDOWS
+  # (ends up keeping 1st endif in 1st enum).
+  set(BUILD_DOCS OFF)
+endif (VMSAFE)
+
 # should we disallow selecting samples when core is not built?
 # right now the samples build will just fail
 option(BUILD_SAMPLES "build client samples" ON)
+if (NOT CLIENT_INTERFACE)
+  set(BUILD_SAMPLES OFF)
+endif (NOT CLIENT_INTERFACE)
 
 # We include all tests and build them at configure time if requested.
 # An alternative is to keep them in separate projects and only build
@@ -913,6 +926,8 @@ endif (BUILD_SAMPLES)
 if (BUILD_TESTS)
   enable_testing()
   add_subdirectory(suite/tests)
+  # add Dashboard support
+  include(CTest)
 endif (BUILD_TESTS)
 
 ###########################################################################

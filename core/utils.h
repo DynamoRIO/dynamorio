@@ -1408,6 +1408,12 @@ enum {LONGJMP_EXCEPTION = 1};
 #define RSTATS_SUB XSTATS_SUB
 #define RSTATS_ADD_PEAK XSTATS_ADD_PEAK
 
+#if defined(DEBUG) && defined(INTERNAL)
+#   define DODEBUGINT(statement) do { statement } while (0)
+#else
+#   define DODEBUGINT(statement) /* nothing */
+#endif
+
 #ifdef DEBUG
 #   define DODEBUG(statement) do { statement } while (0)
 #   define DEBUG_DECLARE(declaration) declaration

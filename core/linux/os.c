@@ -953,7 +953,7 @@ get_segment_base(uint seg)
             }
             /* else fall back on get_thread_area */
 # endif
-            DODEBUG({
+            DODEBUGINT({
                 uint max_idx = (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT);
                 ASSERT_CURIOSITY(index <= max_idx && index >= (max_idx - 2));
             });

@@ -62,6 +62,7 @@
 #endif
 
 #ifdef X64
+# include "instr.h"
 # include "decode.h" /* get_x86_mode */
 #endif
 

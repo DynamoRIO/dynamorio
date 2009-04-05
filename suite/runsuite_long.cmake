@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2002-2003 VMware, Inc.  All rights reserved.
+# Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,16 +28,5 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-## Suite for SPEC2000 on test dataset: integer bmarks only
-BMARKBASE/benchmarks/spec2000/int/vpr	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/mcf	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/bzip2	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/twolf	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/crafty	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/gap	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/vortex	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/perlbmk	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/parser	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/eon	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/gzip	(make COPYDATA=yes REPLACEHERE run)
-BMARKBASE/benchmarks/spec2000/int/gcc	(make COPYDATA=yes REPLACEHERE run)
+# Variables are not propagated so we have to pass params via ,
+ctest_run_script(${CTEST_SCRIPT_DIRECTORY}/runsuite.cmake,long)
