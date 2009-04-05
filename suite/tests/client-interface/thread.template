@@ -1,5 +1,5 @@
 PR 216931: client options are -paramx -paramy
-inside app thread.exe
+inside app client.thread.exe
 PR 198871 locking test......passed
 #if defined(CLIENT_SIDELINE)
 client thread is alive
@@ -7,3 +7,14 @@ client thread is dying
 PR 222812: client thread test passed
 #endif
 thank you for testing the client interface
+#ifdef X64
+TLS slot 0 is 0x00000000badcab42
+TLS slot 1 is 0x00000000badcab43
+TLS slot 2 is 0x00000000badcab44
+TLS slot 3 is 0x00000000badcab45
+#else
+TLS slot 0 is 0xbadcab42
+TLS slot 1 is 0xbadcab43
+TLS slot 2 is 0xbadcab44
+TLS slot 3 is 0xbadcab45
+#endif

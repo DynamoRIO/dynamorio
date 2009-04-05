@@ -38,6 +38,24 @@
 
 static uint num_lea = 0;
 
+static uint tls_offs;
+#define CANARY 0xbadcab42
+#define NUM_TLS_SLOTS 4
+
+#ifdef X64
+# define ASM_XAX "rax"
+# define ASM_XDX "rdx"
+# define ASM_XBP "rbp"
+# define ASM_XSP "rsp"
+# define ASM_SEG "gs"
+#else
+# define ASM_XAX "eax"
+# define ASM_XDX "edx"
+# define ASM_XBP "ebp"
+# define ASM_XSP "esp"
+# define ASM_SEG "fs"
+#endif
+
 /* we don't want msgboxes for regressions */
 #define ASSERT(x) \
     ((void)((!(x)) ? \
@@ -88,6 +106,8 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 
 void exit_event(void)
 {
+    bool success = dr_raw_tls_cfree(tls_offs, NUM_TLS_SLOTS);
+    ASSERT(success);
     ASSERT(num_lea > 0);
 }
 
@@ -128,12 +148,46 @@ thread_func(void *arg)
 }
 #endif
 
+static void
+thread_init_event(void *drcontext)
+{
+    int i;
+    for (i = 0; i < NUM_TLS_SLOTS; i++) {
+        int idx = tls_offs + i*sizeof(void*);
+        ptr_uint_t val = (ptr_uint_t) (CANARY+i);
+#ifdef WINDOWS
+        IF_X64_ELSE(__writegsqword,__writefsdword)(idx, val);
+#else
+        asm("mov %0, %%"ASM_XAX : : "m"((val)) : ASM_XAX);
+        asm("movzx %0, %%"ASM_XDX"" : : "m"((idx)) : ASM_XDX);
+        asm("mov %%"ASM_XAX", %%"ASM_SEG":(%%"ASM_XDX")" : : : ASM_XAX, ASM_XDX);
+#endif
+    }
+}
+
+static void
+thread_exit_event(void *drcontext)
+{
+    int i;
+    for (i = 0; i < NUM_TLS_SLOTS; i++) {
+        int idx = tls_offs + i*sizeof(void*);
+        ptr_uint_t val;
+#ifdef WINDOWS
+        val = IF_X64_ELSE(__readgsqword,__readfsdword)(idx);
+#else
+        asm("movzx %0, %%"ASM_XAX : : "m"((idx)) : ASM_XAX);
+        asm("mov %%"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);
+        asm("mov %%"ASM_XAX", %0" : "=m"((val)) : : ASM_XAX);
+#endif
+        dr_printf("TLS slot %d is "PFX"\n", i, val);
+    }
+}
+
 DR_EXPORT
 void dr_init(client_id_t id)
 {
-#ifdef CLIENT_SIDELINE
     bool success;
-#endif
+    reg_id_t seg;
     /* PR 216931: client options */
     const char * ops = dr_get_options(id);
     ASSERT(str_eq(ops, "-paramx -paramy"));
@@ -141,6 +195,13 @@ void dr_init(client_id_t id)
 
     dr_register_bb_event(bb_event);
     dr_register_exit_event(exit_event);
+    dr_register_thread_init_event(thread_init_event);
+    dr_register_thread_exit_event(thread_exit_event);
+
+    /* i#108: client raw TLS */
+    success = dr_raw_tls_calloc(&seg, &tls_offs, NUM_TLS_SLOTS, 0);
+    ASSERT(success);
+    ASSERT(seg == IF_X64_ELSE(SEG_GS, SEG_FS));
 
     /* PR 219381: dr_get_application_name() and dr_get_process_id() */
 #ifdef WINDOWS

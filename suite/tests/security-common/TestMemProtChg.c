@@ -36,7 +36,16 @@
 
 static char buffer[BUFFER_SIZE];
 
-static int prot_codes[7] = {ALLOW_READ, ALLOW_READ|ALLOW_EXEC, ALLOW_WRITE, ALLOW_READ|ALLOW_WRITE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC, ALLOW_WRITE|ALLOW_EXEC, ALLOW_EXEC};
+/* FIXME: DR throws exception on unreadable memory w/o this: did we
+ * used to behave differently?
+ * Natively on modern hw+os this app dies right away due to NX.
+ */
+#define ADD_READ |ALLOW_READ
+static int prot_codes[7] = {
+    ALLOW_READ, ALLOW_READ|ALLOW_EXEC, ALLOW_WRITE ADD_READ,
+    ALLOW_READ|ALLOW_WRITE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC,
+    ALLOW_WRITE|ALLOW_EXEC ADD_READ, ALLOW_EXEC
+};
 
 static void 
 do_test(char *buf, int len)

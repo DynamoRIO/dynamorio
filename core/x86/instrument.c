@@ -2612,6 +2612,28 @@ dr_set_tls_field(void *drcontext, void *value)
 }
 
 DR_API
+bool
+dr_raw_tls_calloc(OUT reg_id_t *segment_register,
+                  OUT uint *offset,
+                  IN  uint num_slots,
+                  IN  uint alignment)
+{
+    CLIENT_ASSERT(segment_register != NULL,
+                  "dr_raw_tls_calloc: segment_register cannot be NULL");
+    CLIENT_ASSERT(offset != NULL,
+                  "dr_raw_tls_calloc: offset cannot be NULL");
+    *segment_register = SEG_TLS;
+    return os_tls_calloc(offset, num_slots, alignment);
+}
+
+DR_API
+bool
+dr_raw_tls_cfree(uint offset, uint num_slots)
+{
+    return os_tls_cfree(offset, num_slots);
+}
+
+DR_API
 /* Current thread gives up its time quantum. */
 void
 dr_thread_yield(void)

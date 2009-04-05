@@ -397,6 +397,7 @@ enum {
     LOCK_RANK(client_nudge_count_lock), /* > dr_client_mutex */
     LOCK_RANK(client_flush_request_lock), /* > dr_client_mutex */
     LOCK_RANK(callback_registration_lock), /* > dr_client_mutex */
+    LOCK_RANK(client_tls_lock), /* > dr_client_mutex */
 #endif
     LOCK_RANK(table_rwlock), /* > dr_client_mutex */
     LOCK_RANK(loaded_module_areas),  /* < dynamo_areas < global_alloc_lock */

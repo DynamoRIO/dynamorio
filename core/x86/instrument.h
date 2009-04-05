@@ -2008,6 +2008,43 @@ DR_API
 void 
 dr_set_tls_field(void *drcontext, void *value);
 
+DR_API
+/**
+ * Allocates \p num_slots contiguous thread-local storage slots that
+ * can be directly accessed via an offset from \p segment_register.
+ * These slots will be initialized to 0 for each new thread.
+ * The slot offsets are [\p offset .. \p offset + (num_slots - 1)].
+ * These slots are disjoint from the #dr_spill_slot_t register spill slots
+ * and the client tls field (dr_get_tls_field()).
+ * Returns whether or not the slots were successfully obtained.
+ *
+ * \note These slots are useful for thread-shared code caches.  With
+ * thread-private caches, DR's memory pools are guaranteed to be
+ * reachable via absolute or rip-relative accesses from the code cache
+ * and client libraries.
+ *
+ * \note These slots are a limited resource.  On Windows the slots are
+ * shared with the application and reserving even one slot can result
+ * in failure to initialize for certain applications.  On Linux they
+ * are more plentiful and transparent but currently DR limits clients
+ * to no more than 64 slots.
+ */
+bool
+dr_raw_tls_calloc(OUT reg_id_t *segment_register,
+                  OUT uint *offset,
+                  IN  uint num_slots,
+                  IN  uint alignment);
+
+DR_API
+/**
+ * Frees \p num_slots raw thread-local storage slots starting at
+ * offset \p offset that were allocated with dr_raw_tls_calloc().
+ * Returns whether or not the slots were successfully freed.
+ */
+bool
+dr_raw_tls_cfree(uint offset, uint num_slots);
+
+
 /* PR 222812: due to issues in supporting client thread synchronization
  * and other complexities we are using nudges for simple push-i/o and
  * saving thread creation for sideline usage scenarios.

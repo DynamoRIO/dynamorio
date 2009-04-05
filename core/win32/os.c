@@ -1181,6 +1181,22 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
      * the freed TEB tls slots */
 }
 
+#ifdef CLIENT_INTERFACE
+/* Allocates num_slots tls slots aligned with alignment align */
+bool
+os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
+{
+    bool need_synch = !dynamo_initialized;
+    return (bool) tls_calloc(need_synch, offset, num_slots, alignment);
+}
+
+bool
+os_tls_cfree(uint offset, uint num_slots)
+{
+    return (bool) tls_cfree(true, offset, num_slots);
+}
+#endif
+
 void
 os_thread_init(dcontext_t *dcontext)
 {

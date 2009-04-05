@@ -290,8 +290,6 @@ typedef struct {
 } instr_t;
 #endif /* API_EXPORT_ONLY */
 
-/* DR_API EXPORT END */
-
 #ifndef IN
 # define IN /* marks input param */
 #endif
@@ -301,6 +299,8 @@ typedef struct {
 #ifndef INOUT
 # define INOUT /* marks input+output param */
 #endif
+
+/* DR_API EXPORT END */
 
 #ifdef X64
 # define POINTER_MAX ULLONG_MAX

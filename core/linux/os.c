@@ -116,6 +116,15 @@ static tls_slot_t *tls_table;
 DECLARE_CXTSWPROT_VAR(mutex_t tls_lock, INIT_LOCK_FREE(tls_lock));
 #endif
 
+#ifdef CLIENT_INTERFACE
+/* Should we place this in a client header?  Currently mentioned in
+ * dr_raw_tls_calloc() docs.
+ */
+# define MAX_NUM_CLIENT_TLS 64
+static bool client_tls_allocated[MAX_NUM_CLIENT_TLS];
+DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_lock));
+#endif
+
 #include <stddef.h> /* for offsetof */
 
 #include <sys/utsname.h> /* for struct utsname */
@@ -526,6 +535,9 @@ os_slow_exit(void)
     signal_exit();
     DELETE_LOCK(memory_info_buf_lock);
     DELETE_LOCK(maps_iter_buf_lock);
+#ifdef CLIENT_INTERFACE
+    DELETE_LOCK(client_tls_lock);
+#endif
     vmvector_delete_vector(GLOBAL_DCONTEXT, all_memory_areas);
     all_memory_areas = NULL;
 }
@@ -619,6 +631,8 @@ enum {
     LDT_TYPE_ACCESSED  = 0x1,
 };
 
+#define LDT_BASE(ldt) (((ldt)->base3124<<24) | ((ldt)->base2316<<16) | (ldt)->base1500)
+
 #ifdef DEBUG
 # if 0 /* not used */
 #  ifdef X64
@@ -635,7 +649,7 @@ print_raw_ldt(raw_ldt_entry_t *ldt)
     LOG(GLOBAL, LOG_ALL, 1,
         "\traw: "PFX" "PFX"\n", *((unsigned int *)ldt), *(1+(unsigned int *)ldt));
     LOG(GLOBAL, LOG_ALL, 1,
-        "\tbase: 0x%x\n", (ldt->base3124<<24) | (ldt->base2316<<16) | ldt->base1500);
+        "\tbase: 0x%x\n", LDT_BASE(ldt));
     LOG(GLOBAL, LOG_ALL, 1,
         "\tlimit: 0x%x\n", (ldt->limit1916<<16) | ldt->limit1500);
     LOG(GLOBAL, LOG_ALL, 1,
@@ -768,25 +782,41 @@ clear_ldt_entry(uint index)
 #define USER_PRIVILEGE  3
 #define LDT_NOT_GDT     1
 #define GDT_NOT_LDT     0
+#define SELECTOR_IS_LDT  0x4
 #define LDT_SELECTOR(idx) ((idx) << 3 | ((LDT_NOT_GDT) << 2) | (USER_PRIVILEGE))
 #define GDT_SELECTOR(idx) ((idx) << 3 | ((GDT_NOT_LDT) << 2) | (USER_PRIVILEGE))
+#define SELECTOR_INDEX(sel) ((sel) >> 3)
 
 #define WRITE_FS(val) \
-    ASSERT(sizeof(val) == sizeof(void*));                           \
+    ASSERT(sizeof(val) == sizeof(reg_t));                           \
     asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"ASM_SEG";" \
                  : : "m" ((val)) : ASM_XAX);
 
-/* FIXME: assumes that fs/gs is not already in use by app */
-static bool
-is_segment_register_initialized(void)
+static uint
+read_selector(reg_id_t seg)
 {
     uint sel;
     /* pre-P6 family leaves upper 2 bytes undefined, so we clear them
      * we don't clear and then use movw b/c that takes an extra clock cycle
      */
-    asm volatile("movl %"ASM_SEG", %%eax; andl $0x0000ffff, %%eax; "\
-                 "movl %%eax, %0" : "=m"(sel) : : "eax");
-    return sel != 0;
+    if (seg == SEG_FS) {
+        asm volatile("movl %%fs, %%eax; andl $0x0000ffff, %%eax; "
+                     "movl %%eax, %0" : "=m"(sel) : : "eax");
+    } else if (seg == SEG_GS) {
+        asm volatile("movl %%gs, %%eax; andl $0x0000ffff, %%eax; "
+                     "movl %%eax, %0" : "=m"(sel) : : "eax");
+    } else {
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+    return sel;
+}
+
+/* FIXME: assumes that fs/gs is not already in use by app */
+static bool
+is_segment_register_initialized(void)
+{
+    return (read_selector(SEG_TLS) != 0);
 }
 
 /* layout of our TLS */
@@ -803,6 +833,9 @@ typedef struct _os_local_state_t {
     int ldt_index;
     /* tid needed to ensure children are set up properly */
     thread_id_t tid;
+#ifdef CLIENT_INTERFACE
+    void *client_tls[MAX_NUM_CLIENT_TLS];
+#endif
 } os_local_state_t;
 
 #define TLS_LOCAL_STATE_OFFSET (offsetof(os_local_state_t, state))
@@ -877,14 +910,63 @@ set_tls(ushort tls_offs, void *value)
 #ifdef X86
 /* Returns POINTER_MAX on failure.
  * Assumes that cs, ss, ds, and es are flat.
+ * Should we export this to clients?  For now they can get
+ * this information via opnd_compute_address().
  */
 byte *
 get_segment_base(uint seg)
 {
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
-    else /* FIXME: NYI */
-        return (byte *) POINTER_MAX;
+    else {
+        uint selector = read_selector(seg);
+        uint index = SELECTOR_INDEX(selector);
+        LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n",
+            __func__, selector, index, TEST(SELECTOR_IS_LDT, selector));
+
+        if (TEST(SELECTOR_IS_LDT, selector)) {
+            /* we have to read the entire ldt from 0 to the index */
+            size_t sz = sizeof(raw_ldt_entry_t) * (index + 1);
+            raw_ldt_entry_t *ldt = global_heap_alloc(sz HEAPACCT(ACCT_OTHER));
+            int bytes;
+            byte *base;
+            memset(ldt, 0, sizeof(ldt));
+            bytes = modify_ldt_syscall(0, (void *)ldt, sz);
+            base = (byte *)(ptr_uint_t) LDT_BASE(&ldt[index]);
+            global_heap_free(ldt, sz HEAPACCT(ACCT_OTHER));
+            if (bytes == sz) {
+                LOG(THREAD_GET, LOG_THREADS, 4,
+                    "modify_ldt %d => %x\n", index, base);
+                return base;
+            }
+        } else {
+            our_modify_ldt_t desc;
+            int res;
+# ifdef X64
+            byte *base;
+            res = dynamorio_syscall(SYS_arch_prctl, 2,
+                                    (seg == SEG_FS ? ARCH_GET_FS : ARCH_GET_GS), &base);
+            if (res >= 0) {
+                LOG(THREAD_GET, LOG_THREADS, 4,
+                    "arch_prctl %s => "PFX"\n", reg_names[seg], base);
+                return base;
+            }
+            /* else fall back on get_thread_area */
+# endif
+            DODEBUG({
+                uint max_idx = (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT);
+                ASSERT_CURIOSITY(index <= max_idx && index >= (max_idx - 2));
+            });
+            initialize_ldt_struct(&desc, NULL, 0, index);
+            res = dynamorio_syscall(SYS_get_thread_area, 1, &desc);
+            if (res >= 0) {
+                LOG(THREAD_GET, LOG_THREADS, 4,
+                    "get_thread_area %d => %x\n", index, desc.base_addr);
+                return (byte *)(ptr_uint_t) desc.base_addr;
+            }
+        }
+    }
+    return (byte *) POINTER_MAX;
 }
 #endif
 
@@ -1107,6 +1189,59 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
 #endif
 }
 
+#ifdef CLIENT_INTERFACE
+/* Allocates num_slots tls slots aligned with alignment align */
+bool
+os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
+{
+    bool res = false;
+    uint i, count = 0;
+    int start = -1;
+    uint offs = offsetof(os_local_state_t, client_tls);
+    if (num_slots > MAX_NUM_CLIENT_TLS)
+        return false;
+    mutex_lock(&client_tls_lock);
+    for (i = 0; i < MAX_NUM_CLIENT_TLS; i++) {
+        if (!client_tls_allocated[i] &&
+            /* ALIGNED doesn't work for 0 */
+            (alignment == 0 || ALIGNED(offs + i*sizeof(void*), alignment))) {
+            if (start == -1)
+                start = i;
+            count++;
+            if (count >= num_slots)
+                break;
+        } else {
+            start = -1;
+            count = 0;
+        }
+    }
+    if (count >= num_slots) {
+        for (i = 0; i < num_slots; i++)
+            client_tls_allocated[i + start] = true;
+        *offset = offs + start*sizeof(void*);
+        res = true;
+    }
+    mutex_unlock(&client_tls_lock);
+    return res;
+}
+
+bool
+os_tls_cfree(uint offset, uint num_slots)
+{
+    uint i;
+    uint offs = (offset - offsetof(os_local_state_t, client_tls))/sizeof(void*);
+    bool ok = true;
+    mutex_lock(&client_tls_lock);
+    for (i = 0; i < num_slots; i++) {
+        if (!client_tls_allocated[i + offs])
+            ok = false;
+        client_tls_allocated[i + offs] = false;
+    }
+    mutex_unlock(&client_tls_lock);
+    return ok;
+}
+#endif
+
 void
 os_thread_init(dcontext_t *dcontext)
 {
@@ -1135,6 +1270,9 @@ os_thread_init(dcontext_t *dcontext)
     if (INTERNAL_OPTION(profile_pcs)) {
         pcprofile_thread_init(dcontext);
     }
+
+    LOG(THREAD, LOG_THREADS, 1, "cur gs base is "PFX"\n", get_segment_base(SEG_GS));
+    LOG(THREAD, LOG_THREADS, 1, "cur fs base is "PFX"\n", get_segment_base(SEG_FS));
 }
 
 void

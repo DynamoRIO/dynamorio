@@ -111,6 +111,10 @@ The changes between version 1.3.3 and 1.3.2 are:
 
  - Provide support for building \clients using CMake (see cmake/*, and for
    an example of usage see samples/CMakeLists.txt)
+ - Added directly-addressable thread-local storage slots for exclusive
+   \client use:
+   - dr_raw_tls_calloc()
+   - dr_raw_tls_free()
  - Provide dr_snprintf() (identical to snprintf()) for consistent naming
    and to avoid gcc warnings about using pointers with %x (which we're
    using because there is no portable way to precisely control %p)
@@ -411,7 +415,7 @@ not supported.
     through the Windows-On-Windows or WOW64 emulator so system call and
     indirect call processing \clients must be aware of
     #instr_is_wow64_syscall().
-  - This release of \DynamoRIO has experimental support for running
+  - This release of \DynamoRIO supports running
     64-bit Windows applications, using the 64-bit \DynamoRIO build, on
     the following 64-bit Windows systems: Windows XP Professional x64
     (service pack 2), Windows 2003
@@ -427,24 +431,23 @@ not supported.
     bases of the \client or \DynamoRIO dlls, but given the choice of
     bases and the fact that \DynamoRIO is loaded quite early we expect
     this to only very rarely be a problem.  This limitation will be
-    addressed in future releases.  This release also does not support
-    thread-private caches with 64-bit applications.
+    addressed in future releases.
   - This release does not fully support applications that mix 32-bit and
     64-bit code.  Future releases will support such mixtures.
   - When running a cygwin application under control of \DynamoRIO,
     stderr and stdout output from \DynamoRIO or its \clients may not
     be visible.
 \if linux
-  - This release of \DynamoRIO has limited support for most 32-bit Linux
+  - This release of \DynamoRIO has support for most 32-bit Linux
     distributions running on Intel-compatible hardware, including
     Ubuntu 7.04, Ubuntu 8.04, and Fedora 9.  It may not support
     applications using segment registers beyond the standard threading
     library usage.  Future releases will match the Windows version in
     comprehensive support.
-  - This release of \DynamoRIO has limited support for running 32-bit
+  - This release of \DynamoRIO has support for running 32-bit
     Linux applications on 64-bit Linux operating systems on
     AMD64-compatible hardware.
-  - This release of \DynamoRIO has experimental support for running 64-bit
+  - This release of \DynamoRIO has support for running 64-bit
     Linux applications, using the 64-bit \DynamoRIO build.  Similarly to
     64-bit Windows, \clients must set a preferred base address in the lower
     2GB of the address space, and multiple \clients with conflicting base

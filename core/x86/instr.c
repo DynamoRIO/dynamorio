@@ -1275,7 +1275,9 @@ reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
 DR_API
 /* Returns the effective address of opnd, computed using the passed-in
  * register values.  If opnd is a far address, ignores that aspect
- * except for fs: references on Windows.
+ * except for TLS references on Windows (fs: for 32-bit, gs: for 64-bit)
+ * or typical fs: or gs: references on Linux.  For far addresses the
+ * calling thread's segment selector is used.
  */
 app_pc
 opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)

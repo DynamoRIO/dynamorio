@@ -460,9 +460,13 @@ function(template2expect outexpect template runops)
   # options but we've switched to cpp.  We convert -foo to -Dfoo and
   # -foo value to -Dfoo___value.
   # We replace bad define-name chars in client_lib with _.
+  # First we strip out the single-quoted client_lib arg
+  string(REGEX REPLACE
+    "'.*'"
+    "_xx_" rundefs "${runops}")
   string(REGEX REPLACE
     "[;/\\.]"
-    "_" rundefs "${runops}")
+    "_" rundefs "${rundefs}")
   string(REGEX REPLACE
     "([^ ])-"
     "\\1_" rundefs "${rundefs}")
@@ -603,6 +607,9 @@ function(torun test exe source native dr_ops exe_ops)
   get_filename_component(srcpath ${source} PATH)
   if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
     file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect expect)
+    # add dependence so cmake will reconfigure if file changes
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect
+      ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
   elseif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.template)
     # We convert .template at configure time and use CTest's built-in
     # PASS_REGULAR_EXPRESSION to diff the output.
@@ -617,13 +624,16 @@ function(torun test exe source native dr_ops exe_ops)
     # * Large regexps that don't match are printed in their entirety, so
     #   if we did our own diff then the CTest output would be more readable.
     #   Note that we can't output, say, the diff head, but we can be quieter.
-    # * Changes in .template don't require reconfiguring + rebuilding
-    #   (FIXME: is there a way to say "CTestTestfile.cmake depends on .template"?)
+    # * Changes in .template don't require reconfiguring: but it's automatic
+    #   (thanks to configure_file() hack) and pretty quick
     # * We could support extra runtime options via env var DYNAMORIO_OPTIONS,
     #   but while that might be useful it could also be confusing.
     template2expect(expect
       ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.template
       ${runops})
+    # add dependence so cmake will reconfigure if file changes
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.template
+      ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
   else (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
     message(FATAL_ERROR "no .expect or .template for ${srcpath}/${srcbase}")
   endif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
@@ -669,8 +679,9 @@ function(torun_ci name test ops)
       set(cli_ops "use_unlink")
     endif ("${ops}" MATCHES "(-thread_private|-enable_full_api)")
   endif ("${test}" MATCHES "client\\.flush")
+  # note that we cannot use double quotes as they'll be stripped out
   torun("${name}" ${test} ${${test}_source} OFF
-    " -code_api -client_lib ${${test}_client_path}\;0\;${cli_ops} ${${test}_dr_ops} ${ops}" "${${test}_exe_ops}")
+    " -code_api -client_lib '${${test}_client_path}\;0\;${cli_ops}' ${${test}_dr_ops} ${ops}" "${${test}_exe_ops}")
 endfunction(torun_ci)
 
 function(torun_api name test ops)
@@ -739,14 +750,11 @@ if (PROGRAM_SHEPHERDING)
   tobuild_ci(client.security client-interface/security.c "" "-security_api" "")
 endif (PROGRAM_SHEPHERDING)
 tobuild_ci(client.strace client-interface/strace.c "" "" "")
-# FIXME: quotes are being removed so test gets paramx and DR gets paramy,
-# and paramy is defined to be 1 by the cpp .template step!
-#tobuild_ci(client.thread client-interface/thread.c
-#  "\\\"-paramx -paramy\\\"" "" "")
+tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
 tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
 tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
 
-# FIXME i#65 NOT YET COMPLETED: enable once resolve out-of-memory issues
+# FIXME i#65 NOT YET COMPLETED: enable once resolve cmake out-of-memory issues
 #tobuild_api(api.dis api/dis.c "-syntax_intel"
 #  "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw")
 tobuild_api(api.ir api/ir.c "" "")

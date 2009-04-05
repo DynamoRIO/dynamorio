@@ -141,13 +141,22 @@ struct _local_state_t; /* in arch_exports.h */
 struct _local_state_extended_t; /* in arch_exports.h */
 struct _local_state_t *get_local_state(void);
 struct _local_state_extended_t *get_local_state_extended(void);
- 
+
 #ifdef X86
 /* Returns POINTER_MAX on failure.
  * Assumes that cs, ss, ds, and es are flat.
  */
 byte *
 get_segment_base(uint seg);
+#endif
+
+#ifdef CLIENT_INTERFACE
+/* Allocates num_slots tls slots aligned with alignment align */
+bool
+os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment);
+
+bool
+os_tls_cfree(uint offset, uint num_slots);
 #endif
 
 bool pre_system_call(dcontext_t *dcontext);

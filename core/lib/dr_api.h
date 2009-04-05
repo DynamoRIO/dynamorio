@@ -51,6 +51,9 @@ extern "C" {
 /* Application start/stop interface */
 #include "dr_app.h"
 
+/* opnd_t (instruction operand) routines */
+#include "dr_ir_opnd.h"
+
 /* High-level routines: memory allocation, mutex support, file 
  * support, printing, thread support, adaptive optimization, 
  * custom traces, processor-specific utilities, trace dumping, 
@@ -60,9 +63,6 @@ extern "C" {
 
 /* Utility routines for identifying features of the processor. */
 #include "dr_proc.h"
-
-/* opnd_t (operand) routines */
-#include "dr_ir_opnd.h"
 
 /* Instruction convenience & decode/disassemble routines */
 #include "dr_ir_utils.h"
