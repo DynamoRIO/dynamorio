@@ -929,6 +929,7 @@ get_segment_base(uint seg)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
     else {
+# ifdef HAVE_TLS
         uint selector = read_selector(seg);
         uint index = SELECTOR_INDEX(selector);
         LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n",
@@ -952,7 +953,7 @@ get_segment_base(uint seg)
         } else {
             our_modify_ldt_t desc;
             int res;
-# ifdef X64
+#  ifdef X64
             byte *base;
             res = dynamorio_syscall(SYS_arch_prctl, 2,
                                     (seg == SEG_FS ? ARCH_GET_FS : ARCH_GET_GS), &base);
@@ -962,7 +963,7 @@ get_segment_base(uint seg)
                 return base;
             }
             /* else fall back on get_thread_area */
-# endif
+#  endif /* X64 */
             DODEBUGINT({
                 uint max_idx = (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT);
                 ASSERT_CURIOSITY(index <= max_idx && index >= (max_idx - 2));
@@ -975,6 +976,7 @@ get_segment_base(uint seg)
                 return (byte *)(ptr_uint_t) desc.base_addr;
             }
         }
+# endif /* HAVE_TLS */
     }
     return (byte *) POINTER_MAX;
 }
