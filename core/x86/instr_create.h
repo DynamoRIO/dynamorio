@@ -1084,19 +1084,19 @@
 /* FIXME: do we really want these constants here? Should they be floats or doubles? */
 #define INSTR_CREATE_fldl2t(dc) \
   instr_create_1dst_1src((dc), OP_fldl2t, opnd_create_reg(REG_ST0), \
-  opnd_create_immed_float(M_LN10/M_LN2))
+  opnd_create_immed_float((float)M_LN10/(float)M_LN2))
 #define INSTR_CREATE_fldl2e(dc) \
   instr_create_1dst_1src((dc), OP_fldl2e, opnd_create_reg(REG_ST0), \
-  opnd_create_immed_float(1.0f/M_LN2))
+  opnd_create_immed_float(1.0f/(float)M_LN2))
 #define INSTR_CREATE_fldpi(dc) \
   instr_create_1dst_1src((dc), OP_fldpi, opnd_create_reg(REG_ST0), \
-  opnd_create_immed_float(M_PI))
+  opnd_create_immed_float((float)M_PI))
 #define INSTR_CREATE_fldlg2(dc) \
   instr_create_1dst_1src((dc), OP_fldlg2, opnd_create_reg(REG_ST0), \
-  opnd_create_immed_float(M_LN2/M_LN10))
+  opnd_create_immed_float((float)M_LN2/(float)M_LN10))
 #define INSTR_CREATE_fldln2(dc) \
   instr_create_1dst_1src((dc), OP_fldln2, opnd_create_reg(REG_ST0), \
-  opnd_create_immed_float(M_LN2))
+  opnd_create_immed_float((float)M_LN2))
 #define INSTR_CREATE_fldz(dc) \
   instr_create_1dst_1src((dc), OP_fldz, opnd_create_reg(REG_ST0), opnd_create_immed_float(0.0f))
 #define INSTR_CREATE_f2xm1(dc) \

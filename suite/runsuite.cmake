@@ -63,6 +63,18 @@ else ("${CTEST_SCRIPT_ARG}" MATCHES "nightly")
   else ("${CTEST_SCRIPT_ARG}" MATCHES "long")
     set(TEST_LONG OFF)
   endif ("${CTEST_SCRIPT_ARG}" MATCHES "long")
+  # CTest does "scp file ${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}" so for
+  # local copy w/o needing sshd on localhost we arrange to have : in the
+  # absolute filepath.  Note that I would prefer having the results inside
+  # each build dir, but having : in the build dir name complicates
+  # LD_LIBRARY_PATH.
+  set(CTEST_DROP_SITE "${BINARY_BASE}/xml")
+  set(CTEST_DROP_LOCATION "results")
+  set(RESULTS_DIR "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}")
+  if (EXISTS "${RESULTS_DIR}")
+    file(REMOVE_RECURSE "${RESULTS_DIR}")
+  endif (EXISTS "${RESULTS_DIR}")
+  file(MAKE_DIRECTORY "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}")
 endif ("${CTEST_SCRIPT_ARG}" MATCHES "nightly")
 
 if (TEST_LONG)
@@ -88,7 +100,6 @@ set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
 function(testbuild name initial_cache)
   set(CTEST_BUILD_NAME "${name}")
   set(CTEST_BINARY_DIRECTORY "${BINARY_BASE}/build_${CTEST_BUILD_NAME}")
-  set(CTEST_DROP_LOCATION "${CTEST_BINARY_DIRECTORY}")
   set(CTEST_INITIAL_CACHE "${initial_cache}
     BUILD_TESTS:BOOL=ON
     TEST_SUITE:BOOL=ON
@@ -216,7 +227,7 @@ endif (DO_ALL_BUILDS)
 
 set(outf "${BINARY_BASE}/results.txt")
 file(WRITE ${outf} "==================================================\nRESULTS\n\n")
-file(GLOB all_xml build*/*Configure.xml)
+file(GLOB all_xml ${RESULTS_DIR}/*Configure.xml)
 list(SORT all_xml)
 foreach (xml ${all_xml})
   get_filename_component(fname "${xml}" NAME_WE)

@@ -10,7 +10,7 @@ Attempting execution of badfunc
   SEC_VIO_THREAD
 THREAD0: After running other thread
 Attempting execution of badfunc
-#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(kill_thread_max) && defined(1)
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(kill_thread_max___1)
     SEC_VIO_STOP
 #  else
     SEC_VIO_THREAD
@@ -40,10 +40,10 @@ Exception match : yes
 # endif
 DATA VIOLATION: Inside first handler
 DATA: At statement after 1st try-except
-#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max) && defined(1) && defined(kill_thread)
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1) && defined(kill_thread)
      SEC_VIO_THREAD
 #  endif
-#  if !defined(throw_exception_max_per_thread) && defined(1) && !defined(throw_exception_max) && defined(1)
+#  if !defined(throw_exception_max_per_thread___1) && !defined(throw_exception_max___1)
      SEC_VIO_EXCEPTION
 DATA: Finally!
 DATA: Expected execution violation!
@@ -66,17 +66,17 @@ Exception match : yes
 #   endif 
 DATA: After exception handler
 #  endif
-#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max) && defined(1) && !defined(kill_thread)
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1) && !defined(kill_thread)
      SEC_VIO_STOP
      STOP
 #  endif
 THREAD0: After running other thread
 Attempting execution of badfunc
-#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max) && defined(1) && defined(kill_thread_max) && defined(1)
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1) && defined(kill_thread_max___1)
      SEC_VIO_STOP
      STOP
 #  endif
-#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max) && defined(1) && defined(kill_thread)
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1) && defined(kill_thread)
      SEC_VIO_THREAD
      STOP
 #  endif
@@ -125,7 +125,7 @@ DATA: After exception handler
 THREAD0: After calling more bad code here
   STOP
 #endif
-#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && defined(throw_exception) && defined(throw_exception_max) && defined(1) && defined(kill_thread) && defined(kill_thread_max) && defined(1) && !defined(low) && !defined(client) && !defined(thin_client)
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && defined(throw_exception) && defined(throw_exception_max___1) && defined(kill_thread) && defined(kill_thread_max___1) && !defined(low) && !defined(client) && !defined(thin_client)
   SEC_VIO_EXCEPTION
   SEC_VIO_THREAD
   SEC_VIO_EXCEPTION

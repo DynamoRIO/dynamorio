@@ -124,8 +124,8 @@ sort()
 #endif
 }
 
-void
-executor(void)
+unsigned int __stdcall
+executor(void *arg)
 {
     int w;
     sort();                 /* do some work */
@@ -139,6 +139,7 @@ executor(void)
     InterlockedIncrement(&global_finished);
 
     /* TODO: could thread_suspend(a paired thread) */
+    return 0;
 }
 
 int

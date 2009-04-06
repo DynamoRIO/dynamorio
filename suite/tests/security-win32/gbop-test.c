@@ -51,14 +51,14 @@ int
 main()
 {
     char* arg0 = "kernel32.dll";
-    int res;
-    int stack = 0;
-    int kernel32_base;
+    ptr_uint_t res;
+    ptr_uint_t stack = 0;
+    ptr_uint_t kernel32_base;
 
     INIT();
 
     print("plain C call\n");
-    res = LoadLibrary(arg0);
+    res = (ptr_uint_t) LoadLibrary(arg0);
 
     kernel32_base = res;
     REPORT(res);
@@ -98,7 +98,7 @@ main()
     /* now make some portion of the stack look good - this will be
      * forever in this mode
      */
-    NTFlush(stack - 0x1000, 0x2000);
+    NTFlush((char *)(stack - 0x1000), 0x2000);
     
     print("pretend on flushed stack\n");
     /* note that this is a pseudo attack, in fact we get a .C

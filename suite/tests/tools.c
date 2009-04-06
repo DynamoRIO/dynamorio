@@ -74,8 +74,8 @@ create_thread(fptr f)
     /* FIXME: use the one from linux/clone.c */
     ASSERT_NOT_IMPLEMENTED();
 #else
-    thread_handle tid;
-    th = (thread_handle)_beginthreadex(NULL, 0, f, NULL, 0, &tid);
+    uint tid;
+    th = (thread_handle) _beginthreadex(NULL, 0, f, NULL, 0, &tid);
 #endif
     return th;
 }

@@ -43,6 +43,9 @@
 # include <errno.h>
 #endif
 
+/* asm routine */
+void jumpto(char *buf);
+
 /* just use single-arg handlers */
 typedef void (*handler_t)(int);
 typedef void (*handler_3_t)(int, struct siginfo *, void *);
@@ -111,7 +114,6 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 int main(int argc, char *argv[])
 {
     double res = 0.;
-    int i,j;
     unsigned char buf[8];
     buf[0] = 0xdf;
     buf[1] = 0xfa;

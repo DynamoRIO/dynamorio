@@ -211,7 +211,7 @@ native_send_apc(PKNORMAL_ROUTINE native_func1,
 {
     int res = native_queue_apc(GetCurrentThread(),
                                native_func1,
-                               NULL, NULL);
+                               NULL, 0);
     print("native_queue_apc returned %d\n", res);
 
     /* we queue up two APCs at a time maybe of different type */
@@ -223,7 +223,7 @@ native_send_apc(PKNORMAL_ROUTINE native_func1,
      */
     res = native_queue_apc(GetCurrentThread(),
                            native_func2,
-                           NULL, NULL);
+                           NULL, 0);
     print("second native_queue_apc returned %d\n", res);
 
     /* an alertable system call so we receive the APCs (FIFO order) */
@@ -249,8 +249,8 @@ main()
     
     __try {
         print("VSE-like native mode\n");
-        native_send_apc((PKNORMAL_ROUTINE*)vse_native_datacode,
-                        (PKNORMAL_ROUTINE*)vse_native_datacode);
+        native_send_apc((PKNORMAL_ROUTINE)vse_native_datacode,
+                        (PKNORMAL_ROUTINE)vse_native_datacode);
         print("VSE native shellcode returned\n");
     } 
     __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -259,8 +259,8 @@ main()
 
     __try {
         print("other APC native mode\n");
-        native_send_apc((PKNORMAL_ROUTINE*)other_native_datacode,
-                        (PKNORMAL_ROUTINE*)other_native_datacode);
+        native_send_apc((PKNORMAL_ROUTINE)other_native_datacode,
+                        (PKNORMAL_ROUTINE)other_native_datacode);
         print("*** other APC native shellcode returned\n");
     } 
     __except (EXCEPTION_EXECUTE_HANDLER) {

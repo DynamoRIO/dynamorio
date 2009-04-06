@@ -50,6 +50,10 @@
 # include "dynamorio.h"
 #endif
 
+/* asm routines */
+void clear_eflags(void);
+void evil_copy(void *start, int count, ptr_int_t value);
+
 #define VERBOSE 0
 
 #define EXPANDSTR(x) #x
@@ -301,7 +305,7 @@ main()
          * execution or a crash doesn't matter -- the test does what it's supposed
          * to do!
          */
-        evil_copy(dstack_base, DSTACK_SIZE / sizeof(int), evil);
+        evil_copy(dstack_base, DSTACK_SIZE / sizeof(int), (ptr_int_t)evil);
         print("wrote to entire dstack without incident!\n");
     } else if (where == 1) {
         print("error writing to "PFX" in expected dstack "PFX"-"PFX"\n",

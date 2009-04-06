@@ -42,6 +42,9 @@
 
 #define VERBOSE 0
 
+/* asm routine */
+void test_eflags_pos(uint pos);
+
 /*
  * eflags we care about:
  *  11 10  9  8  7  6  5  4  3  2  1  0

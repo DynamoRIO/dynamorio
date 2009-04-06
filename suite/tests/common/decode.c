@@ -47,6 +47,14 @@
 
 #include <setjmp.h>
 
+/* asm routines */
+void test_modrm16(char *buf);
+void test_nops(void);
+void test_sse3(char *buf);
+void test_3dnow(char *buf);
+void test_far_cti(void);
+void test_data16_mbr(void);
+
 jmp_buf mark;
 static int count = 0;
 static bool print_access_vio = true;

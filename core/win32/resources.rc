@@ -138,6 +138,13 @@
 # define FILE_NAME "drdel.exe"
 # define FILE_DESCRIPTION PRODUCT_NAME "delete from file cache"
 # define FILE_TYPE VFT_APP
+// tests
+#elif defined(RC_IS_TEST)
+# define FILE_NAME ""
+# define FILE_DESCRIPTION PRODUCT_NAME "regression test"
+# define FILE_TYPE VFT_APP
+#else
+# error must define an RC_IS_xxx define
 #endif
 
 #ifndef FILE_NAME

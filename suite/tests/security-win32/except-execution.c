@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include "tools.h"
 #include <windows.h>
 
 #ifdef USE_DYNAMO
@@ -271,7 +272,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
 
 /***************************************************************************/
 
-typedef void (*fptr)();
+typedef void (*funcptr)();
 
 char* badfunc;
 
@@ -392,7 +393,7 @@ run_test()
         __try {
             __try {
                 initialize_registry_context();
-                ((fptr)badfunc)();
+                ((funcptr)badfunc)();
                 print("DATA: At statement after exception\n");
             }
             __except (
@@ -407,7 +408,7 @@ run_test()
             print("DATA: At statement after 1st try-except\n");
             __try {
                 initialize_registry_context();
-                ((fptr)badfunc)(); 
+                ((funcptr)badfunc)(); 
                 print("DATA: Inside 2nd try\n");
             } __except (EXCEPTION_CONTINUE_SEARCH) {
                 print("DATA: This should NOT be printed\n");

@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include "tools.h"
 #include <windows.h>
 
 #ifdef USE_DYNAMO
@@ -38,7 +39,7 @@
 
 #include "except.h"
 
-typedef void (*fptr)();
+typedef void (*funcptr)();
 
 /* PR 229292: we need to isolate this var to avoid flushes to it via
  * writes to other vars
@@ -70,7 +71,7 @@ call_bad_code(LPVOID parm)
 	__try {
 	    __try {
                 initialize_registry_context();
-                ((fptr)badfunc)();
+                ((funcptr)badfunc)();
 		print("DATA: At statement after exception\n");
 	    }
 	    __except (
@@ -81,8 +82,8 @@ call_bad_code(LPVOID parm)
 #ifdef DUMP_REGISTER_STATE
                       dump_exception_info(&exception, context),
 #else 
-                      print("Address match : %s\n", (exception.ExceptionAddress == badfunc && context->CXT_XIP == badfunc) ? "yes" : "no"),
-                      print("Exception match : %s\n", (exception.ExceptionCode == 0xc0000005 && exception.ExceptionInformation[0] == 0 && exception.ExceptionInformation[1] == badfunc) ? "yes" : "no"),
+                      print("Address match : %s\n", (exception.ExceptionAddress == (PVOID)badfunc && context->CXT_XIP == (ptr_uint_t)badfunc) ? "yes" : "no"),
+                      print("Exception match : %s\n", (exception.ExceptionCode == 0xc0000005 && exception.ExceptionInformation[0] == 0 && exception.ExceptionInformation[1] == (ptr_uint_t)badfunc) ? "yes" : "no"),
 #endif
 		      EXCEPTION_EXECUTE_HANDLER) {
 		print("DATA VIOLATION: Inside first handler\n");
@@ -90,7 +91,7 @@ call_bad_code(LPVOID parm)
 	    print("DATA: At statement after 1st try-except\n");
 	    __try {
                 initialize_registry_context();
-                ((fptr)badfunc)(); 
+                ((funcptr)badfunc)(); 
 		print("DATA: Inside 2nd try\n");
 	    } __except (EXCEPTION_CONTINUE_SEARCH) {
 		print("DATA: This should NOT be printed\n");
@@ -110,8 +111,8 @@ call_bad_code(LPVOID parm)
 #ifdef DUMP_REGISTER_STATE
         dump_exception_info(&exception, context);
 #else 
-        print("Address match : %s\n", (exception.ExceptionAddress == badfunc && context->CXT_XIP == badfunc) ? "yes" : "no");
-        print("Exception match : %s\n", (exception.ExceptionCode == 0xc0000005 && exception.ExceptionInformation[0] == 0 && exception.ExceptionInformation[1] == badfunc) ? "yes" : "no");
+        print("Address match : %s\n", (exception.ExceptionAddress == (PVOID)badfunc && context->CXT_XIP == (ptr_uint_t)badfunc) ? "yes" : "no");
+        print("Exception match : %s\n", (exception.ExceptionCode == 0xc0000005 && exception.ExceptionInformation[0] == 0 && exception.ExceptionInformation[1] == (ptr_uint_t)badfunc) ? "yes" : "no");
 #endif
     }
     print("DATA: After exception handler\n");
@@ -129,7 +130,7 @@ main()
     dynamorio_app_start();
 #endif
 
-    badfunc = ALIGN_FORWARD(badfuncbuf, 512);
+    badfunc = (char *) ALIGN_FORWARD(badfuncbuf, 512);
     
     /* FIXME: make this fancier */
     badfunc[0] = 0xc3; /* ret */

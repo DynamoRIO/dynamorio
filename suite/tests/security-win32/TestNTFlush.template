@@ -43,16 +43,16 @@ starting tests
 43981
 4660
 # else
-#  if (defined(no_executable_if_flush)) || (defined(X)
-)#   if !defined(detect_mode)
+#  if defined(no_executable_if_flush) || defined(X)
+#   if !defined(detect_mode)
      SEC_VIO_AUTO_STOP
      STOP
 #   else
      SEC_VIO_CONT
 #   endif
 #  endif
-#  if (defined(no_executable_if_flush)) || (defined(X)
-)2
+#  if defined(no_executable_if_flush) || defined(X)
+2
 3
     SEC_VIO_CONT
 0
@@ -132,16 +132,16 @@ starting tests
 43981
 4660
 # else
-#  if (defined(no_executable_if_flush)) || (defined(X)
-)#   if !defined(detect_mode)
+#  if defined(no_executable_if_flush) || defined(X)
+#   if !defined(detect_mode)
      SEC_VIO_AUTO_STOP
      STOP
 #   else
      SEC_VIO_CONT
 #   endif
 #  endif
-#  if (defined(no_executable_if_flush)) || (defined(X)
-)2
+#  if defined(no_executable_if_flush) || defined(X)
+2
 // no violation here since same code as the 2 output and still on exec list
 3
     SEC_VIO_CONT

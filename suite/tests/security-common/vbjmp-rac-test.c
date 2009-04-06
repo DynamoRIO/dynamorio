@@ -54,6 +54,7 @@ int
 bar()
 {
     print("in bar\n");
+    return 0;
 }
 
 int

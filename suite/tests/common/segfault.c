@@ -110,7 +110,6 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 int main(int argc, char *argv[])
 {
     double res = 0.;
-    int i,j;
 
 #ifdef USE_DYNAMO
     dynamorio_app_init();

@@ -64,7 +64,7 @@
 //#define MORE  more fanout 
 //#define TOO_MUCH or more depth and more work
 
-int compare( const void *arg1, const void *arg2 )
+int compare(const void *arg1, const void *arg2)
 {
    /* Compare all of both strings: */
    return 
@@ -81,11 +81,10 @@ sort()
 {
     int argc = 5;
     char *argv[] = {"one", "two", "three","five", "six", "unsorted"};
-    int i;
 
 #ifdef TOO_MUCH
    /* Sort remaining args using Quicksort algorithm: */
-   qsort( (void *)argv, (size_t)argc, sizeof( char * ), compare );
+   qsort((void *)argv, (size_t)argc, sizeof( char * ), compare);
 #endif
    
    compare(&argv[4], &argv[2]);

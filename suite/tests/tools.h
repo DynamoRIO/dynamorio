@@ -45,6 +45,7 @@
 # include <errno.h>
 #else
 # include <windows.h>
+# include <process.h> /* _beginthreadex */
 # define NTSTATUS DWORD
 # define NT_SUCCESS(status) (status >= 0)
 #endif
@@ -243,7 +244,7 @@ page_align(char *buf)
 }
 
 static char*
-copy_to_buf_normal(char *buf, int buf_len, int* copied_len, Code_Snippet func) 
+copy_to_buf_normal(char *buf, int buf_len, int *copied_len, Code_Snippet func) 
 {
     void *start;
     size_t len = size(func);
@@ -260,13 +261,9 @@ copy_to_buf_normal(char *buf, int buf_len, int* copied_len, Code_Snippet func)
     default:
         print("Failed to copy func\n");
     }
-    if (len > buf_len) {
+    if (len > (uint) buf_len) {
         print("Insufficient buffer for copy, have %d need %d\n", buf_len, len);
         len = buf_len;
-    }
-    if (len < 0) {
-        print("Negative buffer available for copying\n");
-        len = 0;
     }
     memcpy(buf, start, len);
     if (copied_len != NULL) *copied_len = len;
@@ -294,7 +291,7 @@ copy_to_buf_cross_page(char *buf, int buf_len, int *copied_len, Code_Snippet fun
 }
 
 static char*
-copy_to_buf(char *buf, int buf_len, int* copied_len, Code_Snippet func, Copy_Mode mode) 
+copy_to_buf(char *buf, int buf_len, int *copied_len, Code_Snippet func, Copy_Mode mode) 
 {
     switch(mode) {
     case COPY_NORMAL:
@@ -598,12 +595,12 @@ set_global_filter()
 
 #endif /* LINUX */
 
-typedef void (*fptr)();
-
 #ifdef LINUX
 typedef int thread_handle;
+typedef unsigned int (*fptr)(void *);
 #else
 typedef HANDLE thread_handle;
+typedef unsigned int (__stdcall *fptr)(void *);
 #endif
 
 /* Thread related functions */

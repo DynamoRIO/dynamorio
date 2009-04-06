@@ -50,7 +50,7 @@ static int prot_codes[7] = {
 static void 
 do_test(char *buf, int len)
 {
-    int i, j, copied_len, cur;
+    int i, j;
     char *code;
     protect_mem(buf, len, ALLOW_READ|ALLOW_WRITE);
     for (i = 0; i < 7; i++) {

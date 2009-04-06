@@ -46,6 +46,22 @@
 
 #include <setjmp.h>
 
+/* asm routines */
+void test_priv_0(void);
+void test_priv_1(void);
+void test_priv_2(void);
+void test_priv_3(void);
+void test_prefix_0(void);
+void test_prefix_1(void);
+void test_inval_0(void);
+void test_inval_1(void);
+void test_inval_2(void);
+void test_inval_3(void);
+void test_inval_4(void);
+void test_inval_5(void);
+void test_inval_6(void);
+void test_inval_7(void);
+
 jmp_buf mark;
 static int count = 0;
 static bool invalid_lock;
@@ -164,7 +180,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 int main(int argc, char *argv[])
 {
     double res = 0.;
-    int i,j;
+    int i;
 
 #ifdef USE_DYNAMO
     dynamorio_app_init();

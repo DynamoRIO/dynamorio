@@ -178,6 +178,7 @@ invalid_ret(int num)
     } else {
         print("fault caught on "PFX"\n", num);
     }
+    return 0;
 }
 
 int

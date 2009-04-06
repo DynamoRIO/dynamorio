@@ -48,7 +48,6 @@ funny_target()
     __asm {
         mov eax,1
         jmp over
-badtarget:
         mov eax,2               /* bad target */
 over:
         add eax,eax

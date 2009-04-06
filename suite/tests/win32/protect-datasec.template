@@ -1,7 +1,6 @@
 about to write to every page in .data
 // FIXME: nicer way to specify bitmasks? :)
-// Note that 0x* matches plain 0 so we have to explicitly exclude 0x
-#if (defined(protect_mask___0) && !defined(protect_mask___0x)) || defined(protect_mask___2)) || defined(protect_mask___4) || defined(protect_mask___6) || defined(protect_mask___8)
+#if defined(protect_mask___0) || defined(protect_mask___2) || defined(protect_mask___4) || defined(protect_mask___6) || defined(protect_mask___8)
 successfully wrote to .data
 #endif
 about to write to every page in .fspdata

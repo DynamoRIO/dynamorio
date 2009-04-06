@@ -49,8 +49,6 @@ therefore TWO writes are considered bad and we have a security violation.
 #include "tools.h"
 #include <windows.h>
 
-typedef void (*fptr)();
-
 const char* hookfn = "VirtualProtect"; /* and then next page */
 
 #define NDEP /* for testing case 10387 */
@@ -210,10 +208,10 @@ int
 main()
 {
     HANDLE kern32 = GetModuleHandle(TEXT("KERNEL32.DLL"));
-    DWORD* addr_hook = (DWORD)GetProcAddress(kern32, hookfn);
+    DWORD* addr_hook = (DWORD*)GetProcAddress(kern32, hookfn);
 
     HANDLE far_dll = LoadLibrary(TEXT(FARAWAY_DLL));
-    DWORD* unset_hook = (DWORD)GetProcAddress(far_dll, faraway_hook);
+    DWORD* unset_hook = (DWORD*)GetProcAddress(far_dll, faraway_hook);
 
     INIT();
     

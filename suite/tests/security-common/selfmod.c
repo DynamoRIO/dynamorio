@@ -46,9 +46,6 @@ foo(int iters)
 int
 main()
 {
-#ifndef LINUX
-    int old;
-#endif
     INIT();
 
 #ifdef USE_DYNAMO

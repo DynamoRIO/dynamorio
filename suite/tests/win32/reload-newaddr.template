@@ -12,8 +12,8 @@
 #endif
 iters is 40
 // FIXME: strange behavior: giving up on smaller categories
-#if (defined(desktop)) || ((defined(disable_traces) && !defined(no_coarse_units))
-)Memory check: pagefile usage increase is < 80 KB
+#if defined(desktop) || (defined(disable_traces) && !defined(no_coarse_units))
+Memory check: pagefile usage increase is < 80 KB
 #else
 #if defined(no_coarse_units)
 Memory check: pagefile usage increase is < 80 KB

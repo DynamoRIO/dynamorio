@@ -240,12 +240,18 @@ if (UNIX)
   else (X64)
     set(ARCH_CFLAGS "-m32")
   endif (X64)
+  set(ARCH_LDFLAGS "${ARCH_CFLAGS}")
+else (UNIX)
+  # for resources.rc to include globals_shared.h
+  include_directories(${PROJECT_SOURCE_DIR}/core/lib)
+  set(ARCH_CFLAGS "")
+  set(ARCH_LDFLAGS "")
 endif (UNIX)
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
 set(ORIG_CMAKE_C_FLAGS
   "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${ARCH_CFLAGS}")
-set(ORIG_CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_CFLAGS}")
+set(ORIG_CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
 
 if (NOT DEFINED DynamoRIO_DIR)
   set(DynamoRIO_DIR "${PROJECT_SOURCE_DIR}/../cmake" CACHE PATH
@@ -264,7 +270,7 @@ if (DynamoRIO_FOUND)
 endif(DynamoRIO_FOUND)
 
 set(CLIENT_CMAKE_C_FLAGS "${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${ARCH_CFLAGS}")
-set(CLIENT_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_CFLAGS}")
+set(CLIENT_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
 
 # We clear the absolute flags so we can use PROPERTIES to set for each test
 set(CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "")
@@ -324,18 +330,17 @@ add_custom_command(
   VERBATIM # recommended: p260
   )
 
-function(add_exe test source)
-  get_filename_component(srcbase ${source} NAME_WE)
-  get_filename_component(srcpath ${source} PATH)
+if (WIN32)
+  set_source_files_properties(${PROJECT_SOURCE_DIR}/core/win32/resources.rc
+    PROPERTIES COMPILE_FLAGS "-DRC_IS_TEST")
+endif (WIN32)
 
-  set(test_srcs ${source} ${tools_c} ${tools_asm})
-
-  # FIXME: add mresources.res and oresources.res to windows apps
-
+function (set_cflags source)
   # We can't set the target properties COMPILE_FLAGS as that will
   # pass -g3 to cpp which ends up not expanding macros!
   # So we set properties on source files only.
   file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${source} srccode)
+  set(srccode "${srccode}" PARENT_SCOPE)
   # We support a test either getting defines from configure.h or
   # needing them passed in on cmd line.
   if ("${srccode}" MATCHES "tools\\.h" OR
@@ -347,6 +352,30 @@ function(add_exe test source)
     set_source_files_properties(${source} PROPERTIES
       COMPILE_FLAGS "${platform_defs} ${ORIG_CMAKE_C_FLAGS}")
   endif ()
+endfunction (set_cflags)
+
+function(add_exe test source)
+  get_filename_component(srcbase ${source} NAME_WE)
+  get_filename_component(srcpath ${source} PATH)
+
+  if (WINDOWS)
+    if ("${source}" MATCHES "^security-common")
+      # we add non-MS non-DR version info to some tests to better test -use_moduledb
+      set(rc_srcs ${CMAKE_CURRENT_SOURCE_DIR}/oresources.rc)
+    elseif ("${source}" MATCHES "^runall")
+      # we add MS-like version info to some tests to better test -use_moduledb
+      set(rc_srcs ${CMAKE_CURRENT_SOURCE_DIR}/mresources.rc)
+    else ("${source}" MATCHES "^security-common")
+      # we add dr resource version info to only some of our security tests to test both
+      # sides of the -use_moduledb functionality, and ensure the matching works
+      set(rc_srcs ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
+    endif ("${source}" MATCHES "^security-common")
+  else (WINDOWS)
+    set(rc_srcs "")
+  endif (WINDOWS)
+
+  set(test_srcs ${source} ${tools_c} ${tools_asm} ${rc_srcs})
+  set_cflags(${source}) # sets srccode var
 
   # Some files use asm code, which must be separate for x64, but it's much
   # more convenient to have it in the same source file and auto-split.
@@ -403,8 +432,8 @@ function(tobuild_dll test source dr_ops)
   add_exe(${test} ${source})
 
   add_library(${test}.dll SHARED ${dll_source})
+  set_cflags(${dll_source})
   set_target_properties(${test}.dll PROPERTIES
-    COMPILE_FLAGS "${ORIG_CMAKE_C_FLAGS} ${platform_defs}"
     LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS}")
   target_link_libraries(${test} ${test}.dll)
 
@@ -468,13 +497,13 @@ function(template2expect outexpect template runops)
   # We used to use a custom perl script to match defines and runtime
   # options but we've switched to cpp.  We convert -foo to -Dfoo and
   # -foo value to -Dfoo___value.
-  # We replace bad define-name chars in client_lib with _.
   # First we strip out the single-quoted client_lib arg
   string(REGEX REPLACE
     "'.*'"
     "_xx_" rundefs "${runops}")
+  # We replace bad define-name chars in client_lib with _.
   string(REGEX REPLACE
-    "[;/\\.]"
+    "[;/\\.!]"
     "_" rundefs "${rundefs}")
   string(REGEX REPLACE
     "([^ ])-"
@@ -606,7 +635,7 @@ function(rundr_cmd outcmd outops native dr_ops_aux)
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
   else (UNIX)
     # FIXME i#65 NOT YET COMPLETED: need internal drinject: have separate
-    # target drinjectex.exe?  would also help avoid confusion w/ drmemory.sh, etc.
+    # target drinjectx.exe?  would also help avoid confusion w/ drmemory.sh, etc.
     set(dr_ops "-stderr_mask 0xC -msgbox_mask 0 -dumpcore_mask 0xfd -staged ${dr_ops_aux} ${TEST_OPTIONS}")
   endif (UNIX)
   set(${outops} "${dr_ops}" PARENT_SCOPE)
@@ -868,9 +897,9 @@ else (UNIX)
   tobuild(win32.finally win32/finally.c)
   tobuild(win32.fpe win32/fpe.c)
   tobuild(win32.getthreadcontext win32/getthreadcontext.c)
-  tobuild_dll(win32.hookerfirst win32/hookerfirst.c)
+  tobuild_dll(win32.hookerfirst win32/hookerfirst.c "")
   tobuild(win32.hooker-secur32 win32/hooker-secur32.c)
-  tobuild_dll(win32.multisec win32/multisec.c)
+  tobuild_dll(win32.multisec win32/multisec.c "")
   tobuild_dll(win32.nativeexec win32/nativeexec.c
     "-native_exec_list nativeexec.dll.dll")
   tobuild_dll(win32.nativeterminate win32/nativeterminate.c

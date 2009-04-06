@@ -42,8 +42,8 @@
 #endif
 
 /* from nativeterminate.dll.dll */
-__declspec(dllimport) import_me1(int x);
-__declspec(dllimport) import_me_die(int x);
+__declspec(dllimport) __stdcall import_me1(int x);
+__declspec(dllimport) __stdcall import_me_die(int x);
 
 int
 main()
@@ -58,10 +58,10 @@ main()
     print("calling via IAT-style call\n");
     import_me1(57);
     print("calling in a thread\n");
-    join_thread(create_thread(import_me1));
+    join_thread(create_thread((fptr)import_me1));
 
     print("calling in a thread that dies\n");
-    join_thread(create_thread(import_me_die));
+    join_thread(create_thread((fptr)import_me_die));
     print("case 5455 regression passed\n");
 
     print("all done\n");
