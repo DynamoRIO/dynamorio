@@ -46,7 +46,6 @@
 #cmakedefine WINDOWS
 #cmakedefine LINUX
 #cmakedefine VMKERNEL
-#cmakedefine VMKCLASSIC
 #cmakedefine MACOS
 
 /* set by high-level VMAP/VMSAFE/VPS configurations */
@@ -213,9 +212,6 @@
 /* operating system */
 #ifdef LINUX
 
-#  ifdef VMKCLASSIC
-#    define VMKERNEL
-#  endif
 #  ifdef VMKERNEL
 #    define VMX86_SERVER
 #    define USERLEVEL
@@ -227,10 +223,6 @@
       * over whether use non-TLS get_thread_private_dcontext()
       * and force thread-private (and not support x64).
       */  
-#    ifdef VMKCLASSIC
-      /* FIXME: setting this until get drpreload working on esx classic */
-#      define INIT_TAKE_OVER
-#    endif
 #  else
 #    ifdef MACOS
        /* FIXME NYI */

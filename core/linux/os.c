@@ -44,13 +44,29 @@
 /* for open */
 #include <sys/stat.h>
 #include <fcntl.h>
-/* for pthread thread-local-storage */
-#include <pthread.h>
+#include <sched.h>              /* for CLONE_* */
 #include "../globals.h"
 #include <string.h>
 #include <unistd.h> /* for write and usleep and _exit */
 #include <limits.h>
 #include <sys/sysinfo.h>        /* for get_nprocs_conf */
+
+#ifdef X86
+/* must be prior to <link.h> => <elf.h> => INT*_{MIN,MAX} */
+# include "instr.h" /* for get_segment_base() */
+#endif
+
+#ifndef HAVE_PROC_MAPS
+/* must be prior to including dlfcn.h */
+# define _GNU_SOURCE 1
+/* despite man page I had to define this in addition to prev line */
+# define __USE_GNU 1
+/* this relies on not having -Icore/ to avoid including core/link.h
+ * (pre-cmake we used -iquote instead of -I when we did have -Icore/)
+ */
+# include <link.h> /* struct dl_phdr_info */
+#endif
+
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -65,22 +81,8 @@
 #include "../module_shared.h"
 #include "../synch.h"
 
-#ifdef X86
-# include "instr.h" /* for get_segment_base() */
-#endif
-
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
-#endif
-
-#ifndef HAVE_PROC_MAPS
-# define _GNU_SOURCE 1
-/* despite man page I had to define this in addition to prev line */
-# define __USE_GNU 1
-/* this relies on using -iquote instead of -I to avoid conflicts with
- * core/link.h
- */
-# include <link.h> /* struct dl_phdr_info */
 #endif
 
 #include <asm/ldt.h>
@@ -330,13 +332,21 @@ our_unsetenv(const char *name)
 int
 _init()
 {
-# ifdef INIT_TAKE_OVER
     /* if do not want to use drpreload.so, we can take over here */
     extern void dynamorio_app_take_over(void);
-    if (dynamorio_app_init() == 0 /* success */) {
-        dynamorio_app_take_over();
-    }
+    bool takeover = false;
+# ifdef INIT_TAKE_OVER
+    takeover = true;
 # endif
+# ifdef VMX86_SERVER
+    /* PR 391765: take over here instead of using preload */
+    takeover = os_in_vmkernel_classic();
+# endif
+    if (takeover) {
+        if (dynamorio_app_init() == 0 /* success */) {
+            dynamorio_app_take_over();
+        }
+    }
     return 0;
 }
 
@@ -3242,6 +3252,7 @@ pre_system_call(dcontext_t *dcontext)
 # ifdef VMX86_SERVER
         if (os_in_vmkernel_32bit()) {
             /* on esx 3.5 => ENOSYS, so wait for SYS_exit */
+            LOG(THREAD, LOG_SYSCALLS, 2, "on esx35 => ignoring exitgroup\n");
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
             break;
         }
@@ -4907,6 +4918,14 @@ probe_address(dcontext_t *dcontext, app_pc pc,
      */
     if (is_stack_overflow(dcontext, pc))
         return pc + PAGE_SIZE;
+# endif
+# ifdef VMX86_SERVER
+    /* Workaround for PR 380621 */
+    if (is_vmkernel_addr_in_user_space(pc, &base)) {
+        LOG(GLOBAL, LOG_VMAREAS, 4, "%s: skipping vmkernel region "PFX"-"PFX"\n",
+            __func__, pc, base);
+        return base;
+    }
 # endif
     /* for find_vm_areas_via_probe(), skip modules added by dl_iterate_get_areas_cb.
      * for get_memory_info_from_os() we may want to be able to disable this if

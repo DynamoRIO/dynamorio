@@ -1185,9 +1185,10 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
     act.handler = (handler_t) master_signal_handler;
     /* FIXME PR 287309: we need to NOT suppress further SIGSEGV */
     kernel_sigfillset(&act.mask); /* block all signals within handler */
-    act.flags =
-        SA_SIGINFO | /* send 3 args to handler */
-        SA_ONSTACK; /* use our sigstack */
+    act.flags = SA_SIGINFO; /* send 3 args to handler */
+#ifdef HAVE_SIGALTSTACK
+    act.flags |= SA_ONSTACK; /* use our sigstack */
+#endif
     /* arm the signal */
     rc = sigaction_syscall(sig, &act, &oldact);
     ASSERT(rc == 0
@@ -1358,9 +1359,10 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
         non_const_act->handler = (handler_t) master_signal_handler;
         /* block all signals within handler */
         kernel_sigfillset(&(non_const_act->mask)); 
-        non_const_act->flags =
-            SA_SIGINFO | /* send 3 args to handler */
-            SA_ONSTACK; /* use our sigstack */
+        non_const_act->flags = SA_SIGINFO; /* send 3 args to handler */
+#ifdef HAVE_SIGALTSTACK
+        non_const_act->flags |= SA_ONSTACK; /* use our sigstack */
+#endif
 #ifdef X64
         /* PR 305020: must have SA_RESTORER for x64 */
         non_const_act->flags |= SA_RESTORER;

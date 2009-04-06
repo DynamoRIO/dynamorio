@@ -115,9 +115,8 @@ else (UNIX)
   set(X64 ${X64_DEFAULT})
 endif (UNIX)
 
-option(VMKERNEL "target VMkernel")
-option(VMKCLASSIC "target VMkernel")
-option(MACOS "target MacOS")
+option(VMKERNEL "target VMkernel (not officially supported yet)")
+option(MACOS "target MacOS (not officially supported yet)")
 
 # high-level configurations
 option(VMAP "client support" ON)
@@ -190,7 +189,6 @@ endif (VMKERNEL)
 # we do not support most users choosing these
 mark_as_advanced(
   VMKERNEL
-  VMKCLASSIC
   MACOS
   VMAP
   VMSAFE

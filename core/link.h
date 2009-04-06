@@ -38,8 +38,8 @@
  * link.h - link exports
  */
 
-#ifndef _LINK_H_
-#define _LINK_H_ 1
+#ifndef _CORE_LINK_H_ /* using different define than /usr/include/link.h */
+#define _CORE_LINK_H_ 1
 
 
 /* linkstub_t flags
@@ -570,4 +570,4 @@ coarse_stubs_set_info(coarse_info_t *info);
 void
 coarse_stubs_set_end_pc(coarse_info_t *info, byte *end_pc);
 
-#endif /* _LINK_H_ */
+#endif /* _CORE_LINK_H_ */

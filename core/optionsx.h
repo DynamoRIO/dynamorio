@@ -2592,10 +2592,6 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 #ifdef VMX86_SERVER
     OPTION_DEFAULT(uint, vmkuw_version, 0,
                    "override vmkernel userworld version this library was compiled for")
-    /* FIXME PR 363075: we can distinguish visor from classic but not 32-bit
-     * (3.5) from 64-bit (4.0); we allow running on 3.5 via this option
-     */
-    OPTION_DEFAULT(bool, esx_32bit, false, "running on 32-bit vmkernel")
 #endif
 
 #undef OPTION
