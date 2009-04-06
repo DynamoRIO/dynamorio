@@ -626,9 +626,12 @@ function(rundr_cmd outcmd outops native dr_ops_aux)
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
     set(cmd ${MAIN_EXECUTABLE_OUTPUT_PATH}/runstats -s ${TEST_SECONDS} -silent)
+    # We set LD_LIBRARY_PATH even for native api/ apps since we're not setting
+    # rpath (to make it easier to try different trees)
+    set(cmd ${cmd}
+      -env LD_LIBRARY_PATH "${MAIN_LIBRARY_OUTPUT_PATH}:$ENV{LD_LIBRARY_PATH}")
     if (NOT native)
       set(cmd ${cmd}
-        -env LD_LIBRARY_PATH "${MAIN_LIBRARY_OUTPUT_PATH}:$ENV{LD_LIBRARY_PATH}"
         -env LD_PRELOAD "libdrpreload.so libdynamorio.so")
     endif (NOT native)
     # add dr_ops last to avoid needing extra \ on ;
