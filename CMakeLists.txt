@@ -324,7 +324,7 @@ if (UNIX) # unlikely to be an issue on Windows
   CHECK_TYPE_SIZE(sbyte DR_DO_NOT_DEFINE_sbyte)
   CHECK_TYPE_SIZE(uint32 DR_DO_NOT_DEFINE_uint32)
   CHECK_TYPE_SIZE(uint64 DR_DO_NOT_DEFINE_uint64)
-  CHECK_TYPE_SIZE(int64 DR_DO_NOT_DEFINE_int32)
+  CHECK_TYPE_SIZE(int32 DR_DO_NOT_DEFINE_int32)
   CHECK_TYPE_SIZE(int64 DR_DO_NOT_DEFINE_int64)
   # we could do CHECK_SYMBOL_EXISTS for MAX and MIN but they're not
   # in standard headers so up to user to define if an issue
@@ -448,7 +448,9 @@ else (UNIX)
     #
     # ml can't handle line number markers so using ${CPP_NO_LINENUM}.
     "<CMAKE_C_COMPILER> ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E ${CPP_NO_LINENUM} <SOURCE> > <OBJECT>.s"
-    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
+    # cmake does add quotes in custom commands, etc. but not in this rule so we add
+    # them to handle paths with spaces:
+    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake\""
     "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} /c /Fo<OBJECT> <OBJECT>.s"
     )
 endif (UNIX)

@@ -319,7 +319,7 @@ else (UNIX)
       "" string "${string}")
   endif (NOT CLIENT_INTERFACE)
   file(WRITE ${DEF_BLD} "${string}")
-  set(FORWARD_TO_NTDLL "/def:${DEF_BLD} /ignore:4197")
+  set(FORWARD_TO_NTDLL "/def:\"${DEF_BLD}\" /ignore:4197")
 
   # PR 219380: we export ntdll routines from dynamorio.dll by forwarding them.
   # However, the linker tries to be smart and thinks our _snprintf forward
@@ -356,7 +356,7 @@ else (UNIX)
   get_filename_component(drpath ${drout} PATH)
   get_filename_component(drname ${drout} NAME_WE)
   set(dynamorio_link_flags 
-    "${dynamorio_link_flags} /map:${drpath}/${drname}.map /mapinfo:exports")
+    "${dynamorio_link_flags} /map:\"${drpath}/${drname}.map\" /mapinfo:exports")
   # make sure to export dynamo_auto_start (it's now in x86.s and so
   # we can't just say __declspec(dllexport))
   set(dynamorio_link_flags 

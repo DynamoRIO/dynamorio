@@ -70,6 +70,7 @@ if (is_cygwin)
 endif (is_cygwin)
 
 # Be sure to quote ${string} to avoid interpretation (semicolons removed, etc.)
+# i#113: be sure to quote all paths to handle spaces
 
 # FIXME i#59: if epstopdf and latex are available, set "GENERATE_LATEX" to "YES"
 
@@ -78,23 +79,23 @@ endif (is_cygwin)
 string(REGEX REPLACE
   "(INPUT[ \t]*=) *\\."
   # We no longer need ${proj_srcdir}/libutil on here, right?
-  "\\1 ${srcdir} ${header_dir}" string "${string}")
+  "\\1 \"${srcdir}\" \"${header_dir}\"" string "${string}")
 string(REGEX REPLACE
   "([^a-z])images"
-  "\\1${srcdir}/images" string "${string}")
+  "\\1\"${srcdir}/images\"" string "${string}")
 string(REGEX REPLACE
   "(header.html)"
-  "${srcdir}/\\1" string "${string}")
+  "\"${srcdir}/\\1\"" string "${string}")
 string(REGEX REPLACE
   "(htmlstyle.css)"
-  "${srcdir}/\\1" string "${string}")
+  "\"${srcdir}/\\1\"" string "${string}")
 
 string(REGEX REPLACE
   # if I don't quote ${string}, then this works: [^$]*$
   # . always seems to match newline, despite book's claims
   # xref cmake emails about regexp ^$ ignoring newlines: ugh!
   "(OUTPUT_DIRECTORY[ \t]*=)[^\n\r](\r?\n)"
-  "\\1 ${outdir}\\2" string "${string}")
+  "\\1 \"${outdir}\"\\2" string "${string}")
 
 string(REGEX REPLACE
   "DR_VERSION=X.Y.Z"
