@@ -77,8 +77,8 @@
 #  include "../rct.h"
 #endif
 #include "syscall.h"            /* our own local copy */
-#include "os_private.h"
 #include "../module_shared.h"
+#include "os_private.h"
 #include "../synch.h"
 
 #ifdef CLIENT_INTERFACE

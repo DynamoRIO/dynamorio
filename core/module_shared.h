@@ -40,8 +40,9 @@
  */
 
 /**
- * Type used for dr_get_proc_address().  On windows this is the same as the base
- * address of the module.
+ * Type used for dr_get_proc_address().  This can be obtained from the
+ * #_module_data_t structure.  It is equivalent to the base address of
+ * the module on both Windows and Linux.
  */
 typedef void * module_handle_t;
 

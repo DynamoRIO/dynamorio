@@ -39,6 +39,7 @@
 #define _OS_PRIVATE_H_ 1
 
 #include <signal.h> /* for stack_t */
+#include "module.h" /* for os_module_data_t */
 
 /* for inline asm */
 #ifdef X64
@@ -131,7 +132,7 @@ void pcprofile_fork_init(dcontext_t *dcontext);
 bool is_elf_so_header(app_pc base, size_t size);
 bool module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                                  app_pc *out_base, app_pc *out_end, char **out_soname,
-                                 size_t *out_align);
+                                 os_module_data_t *out_data);
 
 uint module_num_program_headers(app_pc base);
 

@@ -30,8 +30,11 @@
  * DAMAGE.
  */
 
-#include <windows.h>
 #include <stdio.h>
+
+#ifdef WINDOWS
+# include <windows.h>
+# define EXPORT __declspec(dllexport)
 
 char *get_systemroot(char** env)
 {
@@ -47,15 +50,19 @@ char *get_systemroot(char** env)
 
     return "C:\\WINDOWS";
 }
+#else
+# define EXPORT
+#endif
 
-__declspec(dllexport)
+EXPORT
 void start_monitor()
 {}
 
-__declspec(dllexport)
+EXPORT
 void stop_monitor()
 {}
 
+#ifdef WINDOWS
 void create_proc(char *cmd, char *cmdline, STARTUPINFO *sinfo)
 {
     PROCESS_INFORMATION pinfo;
@@ -75,9 +82,12 @@ void create_proc(char *cmd, char *cmdline, STARTUPINFO *sinfo)
         exit(1);
     }
 }
+#endif
 
-void main(int argc, char** argv, char** env)
+int
+main(int argc, char** argv, char** env)
 {
+#ifdef WINDOWS
     STARTUPINFO sinfo;
 
     /* This test prints out all system calls.  Creating a new process
@@ -96,12 +106,22 @@ void main(int argc, char** argv, char** env)
      */
     GetStartupInfo(&sinfo);
     create_proc(cmd, cmdline, &sinfo);
+#endif
 
     /* dummy marker to inform client lib to start monitoring */
     start_monitor();
 
+#ifdef WINDOWS
     create_proc(cmd, cmdline, &sinfo);
+#else
+    /* for linux this is really just a module iterator and dr_get_proc_address
+     * test; strace.* does syscall testing
+     */
+    fprintf(stderr, "syscall.c test\n");
+#endif
 
     /* dummy marker to inform client lib to stop monitoring */
     stop_monitor();
+
+    return 0;
 }

@@ -41,8 +41,8 @@ static app_pc start_pc = NULL;
 static app_pc stop_pc = NULL;
 static bool monitoring = false;
 
-static
-void at_syscall()
+static void
+at_syscall()
 {
     if (monitoring) {
         dr_mcontext_t mcontext;
@@ -52,8 +52,8 @@ void at_syscall()
     }
 }
 
-static
-dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     app_pc pc = dr_fragment_app_pc(tag);
 
@@ -84,8 +84,14 @@ dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_t
     return DR_EMIT_DEFAULT;
 }
 
-DR_EXPORT
-void dr_init(client_id_t id)
+#ifdef WINDOWS
+# define TEST_NAME "client.syscall.exe"
+#else
+# define TEST_NAME "client.syscall"
+#endif
+
+DR_EXPORT void
+dr_init(client_id_t id)
 {
     /* Look up start_monitor() and stop_monitor() in the target app.
      * These functions are dummy markers that tell us when to start
@@ -96,13 +102,30 @@ void dr_init(client_id_t id)
     dr_module_iterator_t *iter = dr_module_iterator_start();
     while (dr_module_iterator_hasnext(iter)) {
         module_data_t *data = dr_module_iterator_next(iter);
-        if (strncmp(dr_module_preferred_name(data), "syscall.exe", 11) == 0) {
+        if (strcmp(dr_module_preferred_name(data), TEST_NAME) == 0) {
             module_handle_t lib = data->handle;
             start_pc = (app_pc)dr_get_proc_address(lib, "start_monitor");
             stop_pc = (app_pc)dr_get_proc_address(lib, "stop_monitor");
+#ifdef WINDOWS /* on linux we look for libc too */
             dr_free_module_data(data);
             break;
+#endif
         }
+#ifdef LINUX
+        /* do some more dr_get_proc_address testing */
+        if (strncmp(dr_module_preferred_name(data), "libc.", 5) == 0) {
+            module_handle_t lib = data->handle;
+            dr_printf("found libc\n");
+            if (dr_get_proc_address(lib, "malloc") == NULL)
+                dr_printf("ERROR: can't find malloc in libc\n");
+            if (dr_get_proc_address(lib, "free") == NULL)
+                dr_printf("ERROR: can't find free in libc\n");
+            if (dr_get_proc_address(lib, "printf") == NULL)
+                dr_printf("ERROR: can't find printf in libc\n");
+            if (dr_get_proc_address(lib, "gettimeofday") == NULL)
+                dr_printf("ERROR: can't find gettimeofday in libc\n");
+        }
+#endif
         dr_free_module_data(data);
     }
     dr_module_iterator_stop(iter);

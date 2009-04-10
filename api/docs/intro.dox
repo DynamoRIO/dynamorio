@@ -512,7 +512,7 @@ set of event callbacks.  These events include the following:
 \endif
   - Application library load and unload
 \ifnot NYI_kernel_mediated_transfer_events
-  - Application fault or exception \if linux (currently Windows only) \endif
+  - Application fault or exception (signal on Linux)
 \else
   - Kernel-mediated control transfers:
     - Application fault or exception
@@ -590,7 +590,7 @@ these restrictions can be relaxed (see \ref sec_trans_probe). \endif
  - Simple mutexes
  - File creation, reading, and writing
  - Address space querying
- - Application module iterator \if linux (currently Windows only) \endif
+ - Application module iterator
  - Processor feature identification
 \if future - FIXME: try...except, or safe_rw? \endif
 

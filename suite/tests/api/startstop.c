@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <math.h>
 #ifdef USE_DYNAMO
+#include "configure.h"
 #include "dr_api.h"
 #endif
 

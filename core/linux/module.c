@@ -36,16 +36,21 @@
 #include <elf.h>    /* for ELF types */
 #include <string.h>
 #include <stddef.h> /* offsetof */
+#include <link.h>   /* Elf_Symndx */
 
 typedef union _elf_generic_header_t {
     Elf64_Ehdr elf64;
     Elf32_Ehdr elf32;
 } elf_generic_header_t;
 
+/* In case want to build w/o gnu headers and use that to run recent gnu elf */
+#ifndef DT_GNU_HASH
+# define DT_GNU_HASH 0x6ffffef5
+#endif
 
 /* Question : how is the size of the initial map determined?  There seems to be no better
  * way than to walk the program headers and find the largest virtual offset.  You'd think
- * there would be a field in the header or something easier then that...
+ * there would be a field in the header or something easier than that...
  *
  * Generally the section headers will be unavailable to us unless we go to disk 
  * (investigate, pursuant to the answer to the above question being large enough to
@@ -132,16 +137,56 @@ os_modules_exit(void)
     /* nothing */
 }
 
+/* Returns absolute address of the ELF dynamic array DT_ target */
+static app_pc
+elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size,
+                size_t view_size, ssize_t offset, bool at_map)
+{
+    /* FIXME - if at_map this needs to be adjusted if not in the first segment
+     * since we haven't re-mapped later ones yet. Since it's read only I've
+     * never seen it not be in the first segment, but should fix or at least
+     * check. PR 307610.
+     */
+    /* FIXME PR 307687 - on some machines (for already loaded modules) someone
+     * (presumably the loader?) has relocated this address.  The Elf spec is
+     * adamant that dynamic entry addresses shouldn't have relocations (for
+     * consistency) so must be the loader doing it on its own (same .so on
+     * different machines will be different here).
+     * How can we reliably tell if it has been relocated or not?  We can
+     * check against the module bounds, but if it is loaded at a small offset
+     * (or the module's base_address is large) that's potentially ambiguous. No
+     * other real option short of going to disk though so we'll stick to that
+     * and default to already relocated (which seems to be the case for the
+     * newer ld versions).
+     */
+    app_pc tgt = (app_pc) dyn->d_un.d_ptr;
+    if (at_map || tgt < base || tgt > base + size) {
+        /* not relocated, adjust by offset */
+        tgt = (app_pc) dyn->d_un.d_ptr + offset;
+    }
+                            
+    /* sanity check location */
+    if (tgt < base || tgt > base + size) {
+        ASSERT_CURIOSITY(false && "DT entry not in module");
+        tgt = NULL;
+    } else if (at_map && tgt > base + view_size) {
+        ASSERT_CURIOSITY(false && "DT entry not in initial map");
+        tgt = NULL;
+    }
+    return tgt;
+}
+
 /* Returned addresses out_base and out_end are relative to the actual
  * loaded module base, so the "base" param should be added to produce
  * absolute addresses.
+ * If out_data != NULL, fills in the dynamic section fields.
  */
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                             OUT app_pc *out_base /* relative pc */,
                             OUT app_pc *out_end /* relative pc */,
                             OUT char **out_soname,
-                            OUT size_t *out_align)
+                            OUT os_module_data_t *out_data)
 {
     app_pc mod_base = (app_pc) POINTER_MAX, mod_end = (app_pc)0;
     char *soname = NULL;
@@ -174,17 +219,18 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             ELF_PROGRAM_HEADER_TYPE *prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)
                 (base + elf_hdr->e_phoff + i * elf_hdr->e_phentsize);
             if (prog_hdr->p_type == PT_LOAD) {
-                if (out_align != NULL) {
+                if (out_data != NULL) {
                     if (!found_load) {
-                        *out_align = prog_hdr->p_align;
+                        out_data->alignment = prog_hdr->p_align;
                     } else {
                         /* We expect all segments to have the same alignment */
-                        ASSERT_CURIOSITY(*out_align == prog_hdr->p_align);
+                        ASSERT_CURIOSITY(out_data->alignment == prog_hdr->p_align);
                     }
                 }
                 found_load = true;
             }
-            if (out_soname != NULL && prog_hdr->p_type == PT_DYNAMIC) {
+            if ((out_soname != NULL || out_data != NULL) &&
+                prog_hdr->p_type == PT_DYNAMIC) {
                 /* if at_map use file offset as segments haven't been remapped yet and
                  * the dynamic section isn't usually in the first segment (FIXME in
                  * theory it's possible to construct a file where the dynamic section
@@ -206,61 +252,52 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
 
                 TRY_EXCEPT(dcontext, {
                     int soname_index = -1;
-                    char *strtab = NULL;
+                    char *dynstr = NULL;
+                    size_t sz = mod_end - mod_base;
                     while (dyn->d_tag != DT_NULL) {
                         if (dyn->d_tag == DT_SONAME) {
                             soname_index = dyn->d_un.d_val;
-                            if (strtab != NULL)
+                            if (dynstr != NULL)
                                 break;
-                        }
-                        if (dyn->d_tag == DT_STRTAB) {
-                            /* FIXME - if at_map this needs to be adjusted if not
-                             * in the first segment since we haven't re-mapped later
-                             * ones yet. Since it's read only I've never seen it
-                             * not be in the first segment, but should fix or at
-                             * least check. PR 307610. */
-                            
-                            /* Xref PR 307687 - on some machines (for already loaded
-                             * modules) someone (presumably the loader?) has relocated
-                             * this address.  The Elf spec is adamant that dynamic
-                             * entry addresses shouldn't have relocations (for
-                             * consistency) so must be the loader doing it on its
-                             * own (same .so on different machines will be different
-                             * here).  FIXME - how can we reliably tell if it has
-                             * been relocated or not?  We can check against the
-                             * module bounds, but if it is loaded at a small offset
-                             * that's potentially ambiguous. No other real option
-                             * though so we'll stick to that and default to already
-                             * relocated (which seems to be the case for the newer
-                             * ld versions). */
-                            strtab = (char *)dyn->d_un.d_ptr;
-                            if (at_map || (app_pc)strtab < base ||
-                                (app_pc)strtab > base + (mod_end - mod_base)) {
-                                /* not relocated, adjust by offset */
-                                strtab = (char *)dyn->d_un.d_ptr + offset;
+                        } else if (dyn->d_tag == DT_STRTAB) {
+                            dynstr = (char *)
+                                elf_dt_abs_addr(dyn, base, sz, view_size, offset, at_map);
+                            if (out_data != NULL)
+                                out_data->dynstr = (app_pc) dynstr;
+                            if (soname_index != -1 && out_data == NULL)
+                                break; /* done w/ DT entries */
+                        } else if (out_data != NULL) {
+                            if (dyn->d_tag == DT_SYMTAB) {
+                                out_data->dynsym =
+                                    elf_dt_abs_addr(dyn, base, sz, view_size, offset,
+                                                    at_map);
+                            } else if (dyn->d_tag == DT_HASH &&
+                                       /* if has both .gnu.hash and .hash, prefer
+                                        * .gnu.hash
+                                        */
+                                       !out_data->hash_is_gnu) {
+                                out_data->hashtab =
+                                    elf_dt_abs_addr(dyn, base, sz, view_size, offset,
+                                                    at_map);
+                                out_data->hash_is_gnu = false;
+                            } else if (dyn->d_tag == DT_GNU_HASH) {
+                                out_data->hashtab =
+                                    elf_dt_abs_addr(dyn, base, sz, view_size, offset,
+                                                    at_map);
+                                out_data->hash_is_gnu = true;
+                            } else if (dyn->d_tag == DT_STRSZ) {
+                                out_data->dynstr_size = (size_t) dyn->d_un.d_val;
+                            } else if (dyn->d_tag == DT_SYMENT) {
+                                out_data->symentry_size = (size_t) dyn->d_un.d_val;
                             }
-                            
-                            /* sanity check strtab location */
-                            if ((app_pc)strtab < base ||
-                                (app_pc)strtab > base + (mod_end - mod_base)) {
-                                ASSERT_CURIOSITY(false && "strtab not in module");
-                                strtab = NULL;
-                            } else if (at_map && (app_pc)strtab > base + view_size) {
-                                ASSERT_CURIOSITY(false && "strtab not in inital map");
-                                strtab = NULL;
-                            }
-                            
-                            if (soname_index != -1)
-                                break;
                         }
                         dyn++;
                     }
-                    if (soname_index != -1 && strtab != NULL) {
-                        soname = strtab + soname_index;
+                    if (soname_index != -1 && dynstr != NULL) {
+                        soname = dynstr + soname_index;
 
                         /* sanity check soname location */
-                        if ((app_pc)soname < base ||
-                            (app_pc)soname > base + (mod_end - mod_base)) {
+                        if ((app_pc)soname < base || (app_pc)soname > base + sz) {
                             ASSERT_CURIOSITY(false && "soname not in module");
                             soname = NULL;
                         } else if (at_map && (app_pc)soname < base + view_size) {
@@ -386,7 +423,38 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     ASSERT(is_elf_so_header(base, view_size));  
 
     module_walk_program_headers(base, view_size, at_map,
-                                &mod_base, &mod_end, &soname, &ma->os_data.alignment);
+                                &mod_base, &mod_end, &soname, &ma->os_data);
+    LOG(GLOBAL, LOG_SYMBOLS, 2,
+        "%s: hashtab="PFX", dynsym="PFX", dynstr="PFX", strsz="SZFMT", symsz="SZFMT"\n",
+        __func__, ma->os_data.hashtab, ma->os_data.dynsym, ma->os_data.dynstr,
+        ma->os_data.dynstr_size, ma->os_data.symentry_size); 
+    if (ma->os_data.hashtab != NULL) {
+        /* set up symbol lookup fields */
+        if (ma->os_data.hash_is_gnu) {
+            /* .gnu.hash format.  can't find good docs for it. */
+            Elf32_Word symbias;
+            Elf32_Word bitmask_nwords;
+            Elf32_Word *htab = (Elf32_Word *) ma->os_data.hashtab;
+            ma->os_data.num_buckets = (size_t) *htab++;
+            symbias = *htab++;
+            bitmask_nwords = *htab++;
+            ma->os_data.gnu_bitidx = (ptr_uint_t) (bitmask_nwords - 1);
+            ma->os_data.gnu_shift = (ptr_uint_t) *htab++;
+            ma->os_data.gnu_bitmask = (app_pc) htab;
+            htab += ELF_WORD_SIZE / 32 * bitmask_nwords;
+            ma->os_data.buckets = (app_pc) htab;
+            htab += ma->os_data.num_buckets;
+            ma->os_data.chain = (app_pc) (htab - symbias);
+        } else {
+            /* sysv .hash format: nbuckets; nchain; buckets[]; chain[] */
+            Elf_Symndx *htab = (Elf_Symndx *) ma->os_data.hashtab;
+            ma->os_data.num_buckets = (size_t) *htab++;
+            ma->os_data.num_chain = (size_t) *htab++;
+            ma->os_data.buckets = (app_pc) htab;
+            ma->os_data.chain = (app_pc) (htab + ma->os_data.num_buckets);
+        }
+        ASSERT(ma->os_data.symentry_size == sizeof(ELF_SYM_TYPE));
+    }
 
     /* expect to map whole module */
     /* XREF 307599 on rounding module end to the next PAGE boundary */
@@ -459,12 +527,113 @@ os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which))
     /* nothing */
 }
 
+/* The hash func used in the ELF hash tables.
+ * Even for ELF64 .hash entries are 32-bit.  See Elf_Symndx in elfclass.h.
+ * Thus chain table and symbol table entries must be 32-bit; but string table
+ * entries are 64-bit.
+ */
+static Elf_Symndx
+elf_hash(const char *name)
+{
+    Elf_Symndx h = 0, g;
+    while (*name != '\0') {
+        h = (h << 4) + *name;
+        g = h & 0xf0000000;
+        if (g != 0)
+            h ^= g >> 24;
+        h &= ~g;
+        name++;
+    }
+    return h;
+}
+
+static Elf_Symndx
+elf_gnu_hash(const char *name)
+{
+    Elf_Symndx h = 5381;
+    for (unsigned char c = *name; c != '\0'; c = *++name)
+        h = h * 33 + c;
+    return (h & 0xffffffff);
+}
+
+static bool
+elf_sym_matches(ELF_SYM_TYPE *sym, char *strtab, const char *name)
+{
+    LOG(GLOBAL, LOG_SYMBOLS, 4, "%s: considering type=%d %s\n",
+        __func__, ELF_ST_TYPE(sym->st_info), strtab + sym->st_name);
+    /* Only consider "typical" types */
+    return (ELF_ST_TYPE(sym->st_info) <= STT_FUNC &&
+            /* Paranoid so limiting to 4K */
+            strncmp(strtab + sym->st_name, name, PAGE_SIZE) == 0);
+}
+
 generic_func_t
 get_proc_address(module_handle_t lib, const char *name)
 {
-    ASSERT(is_elf_so_header((app_pc)lib, 0));
-    ASSERT_NOT_IMPLEMENTED(false && "PR 307607");
-    return NULL;
+    app_pc res = NULL;
+    module_area_t *ma;
+    os_get_module_info_lock();
+    ma = module_pc_lookup((app_pc)lib);
+    if (ma != NULL && ma->os_data.hashtab != NULL) {
+        Elf_Symndx hidx;
+        Elf_Symndx *buckets = (Elf_Symndx *) ma->os_data.buckets;
+        Elf_Symndx *chain = (Elf_Symndx *) ma->os_data.chain;
+        ELF_SYM_TYPE *symtab = (ELF_SYM_TYPE *) ma->os_data.dynsym;
+        char *strtab = (char *) ma->os_data.dynstr;
+        Elf_Symndx sidx;
+        ELF_SYM_TYPE sym;
+        if (ma->os_data.hash_is_gnu) {
+            /* The new GNU hash scheme to improve lookup speed.
+             * Can't find good doc to reference here.
+             */
+            ELF_ADDR *bitmask = (ELF_ADDR *) ma->os_data.gnu_bitmask;
+            ELF_ADDR entry;
+            uint h1, h2;
+            ASSERT(bitmask != NULL);
+            hidx = elf_gnu_hash(name);
+            entry = bitmask[(hidx / ELF_WORD_SIZE) & ma->os_data.gnu_bitidx];
+            h1 = hidx & (ELF_WORD_SIZE - 1);
+            h2 = (hidx >> ma->os_data.gnu_shift) & (ELF_WORD_SIZE - 1);
+            if (TEST(1, (entry >> h1) & (entry >> h2))) {
+                Elf32_Word bucket = buckets[hidx % ma->os_data.num_buckets];
+                if (bucket != 0) {
+                    Elf32_Word *harray = &chain[bucket];
+                    do {
+                        if ((((*harray) ^ hidx) >> 1) == 0) {
+                            sidx = harray - chain;
+                            if (elf_sym_matches(&symtab[sidx], strtab, name)) {
+                                res = (app_pc) (symtab[sidx].st_value +
+                                                (ma->start - ma->os_data.base_address));
+                                break;
+                            }
+                        }
+                    } while (!TEST(1, *harray++));
+                }
+            }
+        } else {
+            /* See the ELF specs: hashtable entry holds first symbol table index;
+             * chain entries hold subsequent that have same hash.
+             */
+            hidx = elf_hash(name);
+            for (sidx = buckets[hidx % ma->os_data.num_buckets];
+                 sidx != STN_UNDEF;
+                 sidx = chain[sidx]) {
+                sym = symtab[sidx];
+                if (sym.st_name >= ma->os_data.dynstr_size) {
+                    ASSERT(false && "malformed ELF symbol entry");
+                    continue;
+                }
+                if (elf_sym_matches(&sym, strtab, name))
+                    break;
+            }
+            if (sidx != STN_UNDEF) {
+                res = (app_pc) (sym.st_value + (ma->start - ma->os_data.base_address));
+            }
+        }
+    }
+    os_get_module_info_unlock();
+    LOG(GLOBAL, LOG_SYMBOLS, 2, "%s: %s => "PFX"\n", __func__, name, res);
+    return convert_data_to_function(res);
 }
 
 /* Returns the bounds of the first section with matching name. */
@@ -472,6 +641,7 @@ bool
 get_named_section_bounds(app_pc module_base, const char *name,
                          app_pc *start/*OUT*/, app_pc *end/*OUT*/)
 {
+    /* FIXME: not implemented */
     ASSERT(is_elf_so_header(module_base, 0));
     if (start != NULL)
         *start = NULL;

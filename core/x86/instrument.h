@@ -1570,18 +1570,19 @@ bool
 dr_lookup_module_section(module_handle_t lib,
                          byte *pc, IMAGE_SECTION_HEADER *section_out);
 
-DR_API
-/**
- * Returns the entry point of the function with the given name in the module
- * with the given base. Returns NULL on failure.
- * \note Currently Windows only.
- */
-generic_func_t
-dr_get_proc_address(module_handle_t lib, const char *name);
-
 /* DR_API EXPORT BEGIN */
 #endif /* WINDOWS */
 /* DR_API EXPORT END */
+
+DR_API
+/**
+ * Returns the entry point of the function with the given name in the module
+ * with the given base.  Returns NULL on failure.
+ * \note On Linux this ignores symbol preemption by other modules and only
+ * examines the specified module.
+ */
+generic_func_t
+dr_get_proc_address(module_handle_t lib, const char *name);
 
 
 /* DR_API EXPORT BEGIN */

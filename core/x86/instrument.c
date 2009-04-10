@@ -2208,17 +2208,21 @@ dr_lookup_module_section(module_handle_t lib, byte *pc, IMAGE_SECTION_HEADER *se
     CLIENT_ASSERT((lib != NULL), "dr_lookup_module_section: null module_handle_t");
     return module_pc_section_lookup((app_pc)lib, pc, section_out);
 }
+#endif
 
 DR_API
 /* Returns the entry point of the function with the given name in the module
- * with the given handle. */
+ * with the given handle.
+ * We're not taking in module_data_t to make it simpler for the client
+ * to iterate or lookup the module_data_t, store the single-field
+ * handle, and then free the data right away: besides, module_data_t
+ * is not an opaque type.
+ */
 generic_func_t
 dr_get_proc_address(module_handle_t lib, const char *name)
 {
     return get_proc_address(lib, name);
 }
-
-#endif
 
 DR_API
 /* Creates a new directory.  Fails if the directory already exists
@@ -3957,11 +3961,12 @@ dr_fragment_app_pc(void *tag)
         tag = get_app_pc_from_intercept_pc(tag);
     CLIENT_ASSERT(tag != NULL, "dr_fragment_app_pc shouldn't be NULL");
 
+    /* Without -hide our DllMain routine ends up in the cache (xref PR 223120).
+     * On Linux fini() ends up in the cache.
+     */
     if (DYNAMO_OPTION(hide)) {
-#endif
         CLIENT_ASSERT(!is_dynamo_address(tag), "dr_fragment_app_pc shouldn't be DR pc");
-#ifdef WINDOWS
-    } /* without -hide our DllMain routine ends up in the cache (xref PR 223120) */
+    }
 #endif
     return tag;
 }

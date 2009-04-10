@@ -109,12 +109,13 @@ The current version is \DR_VERSION and is backward compatible with releases from
 
 The changes between version 1.3.3 and 1.3.2 are:
 
- - Provide support for building \clients using CMake (see cmake/*, and for
-   an example of usage see samples/CMakeLists.txt)
  - Added directly-addressable thread-local storage slots for exclusive
    \client use:
    - dr_raw_tls_calloc()
    - dr_raw_tls_free()
+ - Provide dr_get_proc_address() on Linux
+ - Provide support for building \clients using CMake (see cmake/*, and for
+   an example of usage see samples/CMakeLists.txt)
  - Provide dr_snprintf() (identical to snprintf()) for consistent naming
    and to avoid gcc warnings about using pointers with %x (which we're
    using because there is no portable way to precisely control %p)

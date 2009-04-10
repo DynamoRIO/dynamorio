@@ -1,6 +1,17 @@
-#if defined(RUNREGRESSION_Vista)
-#endif
-#if defined(RUNREGRESSION_2003)
+#ifdef LINUX
+found libc
+starting syscall monitoring
+# ifdef X64
+0x0000000000000001
+# else
+0x00000004
+# endif
+syscall.c test
+stopping syscall monitoring
+#else
+# if defined(RUNREGRESSION_Vista)
+# endif
+# if defined(RUNREGRESSION_2003)
 starting syscall monitoring
 62
 7a
@@ -36,8 +47,8 @@ d6
 1b
 1b
 stopping syscall monitoring
-#endif
-#if defined(RUNREGRESSION_XP)
+# endif
+# if defined(RUNREGRESSION_XP)
 starting syscall monitoring
 98
 74
@@ -219,8 +230,9 @@ ce
 19
 19
 stopping syscall monitoring
+# endif
+# if defined(RUNREGRESSION_2000)
 #endif
-#if defined(RUNREGRESSION_2000)
-#endif
-#if defined(RUNREGRESSION_NT)
+# if defined(RUNREGRESSION_NT)
+# endif
 #endif

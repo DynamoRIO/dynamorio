@@ -39,10 +39,18 @@
 # define ELF_HEADER_TYPE Elf64_Ehdr
 # define ELF_PROGRAM_HEADER_TYPE Elf64_Phdr
 # define ELF_DYNAMIC_ENTRY_TYPE Elf64_Dyn
+# define ELF_ADDR Elf64_Addr
+# define ELF_SYM_TYPE Elf64_Sym
+# define ELF_ST_TYPE ELF64_ST_TYPE
+# define ELF_WORD_SIZE 64 /* __ELF_NATIVE_CLASS */
 #else
 # define ELF_HEADER_TYPE Elf32_Ehdr
 # define ELF_PROGRAM_HEADER_TYPE Elf32_Phdr
 # define ELF_DYNAMIC_ENTRY_TYPE Elf32_Dyn
+# define ELF_ADDR Elf32_Addr
+# define ELF_SYM_TYPE Elf32_Sym
+# define ELF_ST_TYPE ELF32_ST_TYPE
+# define ELF_WORD_SIZE 32 /* __ELF_NATIVE_CLASS */
 #endif
 
 /* FIXME NYI */
@@ -55,11 +63,29 @@ typedef struct _os_module_data_t {
      * the lowest p_vaddr value for a PT_LOAD segment. One then obtains the base
      * address by truncating the memory load address to the nearest multiple of the
      * maximum page size and subtracting the truncated lowest p_vaddr value. 
-     * Thus, this is better thought of as the "base_offset", the relocation
-     * offset.
+     * Thus, this is not the load address but the base address used in
+     * address references within the file.
      */
     app_pc base_address; 
     size_t alignment; /* the alignment between segments */
+
+    /* i#112: Dynamic section info for exported symbol lookup.  Not
+     * using elf types here to avoid having to export those.
+     */
+    bool   hash_is_gnu;   /* gnu hash function? */
+    app_pc hashtab;       /* absolute addr of .hash or .gnu.hash */
+    size_t num_buckets;   /* number of bucket entries */
+    app_pc buckets;       /* absolute addr of hash bucket table */
+    size_t num_chain;     /* number of chain entries */
+    app_pc chain;         /* absolute addr of hash chain table */
+    app_pc dynsym;        /* absolute addr of .dynsym */
+    app_pc dynstr;        /* absolute addr of .dynstr */
+    size_t dynstr_size;   /* size of .dynstr */
+    size_t symentry_size; /* size of a .dynsym entry */
+    /* for .gnu.hash */
+    app_pc gnu_bitmask;
+    ptr_uint_t gnu_shift;
+    ptr_uint_t gnu_bitidx;
 } os_module_data_t;
 
 #endif /* MODULE_H */

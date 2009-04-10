@@ -41,8 +41,9 @@
 #error NEED USE_DYNAMO
 #endif
 
-#include "tools.h"
+#include "configure.h"
 #include "dr_api.h"
+#include "tools.h"
 
 #ifdef WINDOWS
 # define _USE_MATH_DEFINES 1

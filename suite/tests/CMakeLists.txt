@@ -471,8 +471,13 @@ endfunction(tobuild_ci)
 # client interface standalone app
 function(tobuild_api test source dr_ops exe_ops)
   add_exe(${test} ${source})
+  # we don't set -DUSE_DYNAMO on the target to avoid setting
+  # it for tools.c and thus adding dependencies on api headers
+  # to other tests
+  set_source_files_properties(${source} PROPERTIES
+    COMPILE_FLAGS "-DUSE_DYNAMO")
   set_target_properties(${test} PROPERTIES
-    COMPILE_FLAGS "${CLIENT_CMAKE_C_FLAGS} -DUSE_DYNAMO")
+    COMPILE_FLAGS "${CLIENT_CMAKE_C_FLAGS}")
   target_link_libraries(${test} dynamorio)
   add_dependencies(${test} api_headers dynamorio)
   set(testlist_api ${testlist_api} ${test} PARENT_SCOPE)
@@ -770,6 +775,7 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
   tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
   tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
+  tobuild_ci(client.syscall client-interface/syscall.c "" "" "")
   if (UNIX)
     # just happens to not make as many traces.  also needs path for events*.so.
     tobuild_ci(client.events client-interface/events.c 
@@ -781,7 +787,6 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
     tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
     tobuild_ci(client.modules client-interface/modules.c "" "" "")
-    tobuild_ci(client.syscall client-interface/syscall.c "" "" "")
     # FIXME: enable these .runall tests once have .runall support
     #tobuild_ci_runall(client.cbr2 client-interface/cbr2.runall "" "" "")
     #tobuild_ci_runall(client.cbr client-interface/cbr.runall "" "" "")

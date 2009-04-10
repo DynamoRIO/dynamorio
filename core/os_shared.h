@@ -256,6 +256,10 @@ void os_syslog(syslog_event_type_t priority, uint message_id,
                uint substitutions_num, va_list args);
 
 #if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
+/* Note that this is NOT identical to module_handle_t: on Linux this
+ * is a pointer to a loader data structure and NOT the base address
+ * (xref PR 366195).
+ */
 typedef void * shlib_handle_t;
 typedef void (*shlib_routine_ptr_t)();
 

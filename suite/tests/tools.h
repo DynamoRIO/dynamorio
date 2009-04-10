@@ -51,7 +51,13 @@
 #endif
 
 #ifdef USE_DYNAMO
-# include "dr_api.h"
+/* to avoid non-api tests depending on dr_api headers we rely on test
+ * including dr_api.h before tools.h (though then must include
+ * configure.h before either)
+ */
+# ifndef _DR_API_H_
+#  error "must include dr_api.h before tools.h"
+# endif
 #else
 typedef unsigned int bool;
 # ifdef LINUX
