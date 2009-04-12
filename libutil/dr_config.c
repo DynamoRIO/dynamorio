@@ -485,6 +485,12 @@ get_proc_policy(ConfigGroup *policy, const char *process_name)
     return res;
 }                
 
+static bool
+platform_is_64bit(dr_platform_t platform)
+{
+    return (platform == DR_PLATFORM_64BIT
+            IF_X64(|| platform == DR_PLATFORM_DEFAULT));
+}
 
 dr_config_status_t
 dr_register_process(const char *process_name,
@@ -539,12 +545,12 @@ dr_register_process(const char *process_name,
 
     /* set the autoinject string (i.e., path to dynamorio.dll */
     if (debug) {
-        if (get_dr_platform() != DR_PLATFORM_64BIT)
+        if (!platform_is_64bit(get_dr_platform()))
             _snwprintf(wbuf, MAX_PATH, L"%S"DEBUG32_DLL, dr_root_dir);
         else
             _snwprintf(wbuf, MAX_PATH, L"%S"DEBUG64_DLL, dr_root_dir);
     } else {
-        if (get_dr_platform() != DR_PLATFORM_64BIT)
+        if (!platform_is_64bit(get_dr_platform()))
             _snwprintf(wbuf, MAX_PATH, L"%S"RELEASE32_DLL, dr_root_dir);
         else
             _snwprintf(wbuf, MAX_PATH, L"%S"RELEASE64_DLL, dr_root_dir);
@@ -563,7 +569,7 @@ dr_register_process(const char *process_name,
     }
 
     /* Set the appinit key */
-    if (get_dr_platform() != DR_PLATFORM_64BIT)
+    if (!platform_is_64bit(get_dr_platform()))
         _snwprintf(wbuf, MAX_PATH, L"%S"PREINJECT32_DLL, dr_root_dir);
     else
         _snwprintf(wbuf, MAX_PATH, L"%S"PREINJECT64_DLL, dr_root_dir);
@@ -643,7 +649,7 @@ read_process_policy(ConfigGroup *proc_policy,
         *dr_options = '\0';
 
     if (process_name != NULL && proc_policy->name != NULL) {
-        int len = MIN(wcslen(proc_policy->name), MAX_PATH-1);
+        SIZE_T len = MIN(wcslen(proc_policy->name), MAX_PATH-1);
         _snprintf(process_name, len, "%S", proc_policy->name);
         process_name[len] = '\0';
     }

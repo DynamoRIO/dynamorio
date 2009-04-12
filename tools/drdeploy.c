@@ -34,10 +34,6 @@
 
 #include "configure.h"
 
-#ifdef X64
-#error X64 not yet supported
-#endif
-
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <string.h>
@@ -254,6 +250,14 @@ void register_client(const char *process_name,
     }
 }
 
+static const char *
+platform_name(dr_platform_t platform)
+{
+    return (platform == DR_PLATFORM_64BIT
+            IF_X64(|| platform == DR_PLATFORM_DEFAULT)) ?
+        "64-bit" : "32-bit/WOW64";
+}
+
 static void
 list_process(char *name, dr_platform_t platform, dr_registered_process_iterator_t *iter)
 {
@@ -270,13 +274,11 @@ list_process(char *name, dr_platform_t platform, dr_registered_process_iterator_
         name = name_buf;
     } else if (!dr_process_is_registered(name, platform, root_dir_buf, &dr_mode,
                                          &debug, dr_options)) {
-        printf("Process %s not registered for %s\n", name,
-               platform == DR_PLATFORM_64BIT ? "64-bit" : "32-bit/WOW64");
+        printf("Process %s not registered for %s\n", name, platform_name(platform));
         return;
     }
 
-    printf("Process %s registered for %s\n", name,
-           platform == DR_PLATFORM_64BIT ? "64-bit" : "32-bit/WOW64");
+    printf("Process %s registered for %s\n", name, platform_name(platform));
     printf("\tRoot=\"%s\" Debug=%s\n\tOptions=\"%s\"\n",
            root_dir_buf, debug ? "yes" : "no", dr_options);
     
@@ -488,8 +490,7 @@ int main(int argc, char *argv[])
         else /* list all */ {
             dr_registered_process_iterator_t *iter =
                 dr_registered_process_iterator_start(dr_platform);
-            printf("Registered processes for %s\n", dr_platform == DR_PLATFORM_64BIT ?
-                   "64-bit" : "32-bit/WOW64");
+            printf("Registered processes for %s\n",  platform_name(dr_platform));
             while (dr_registered_process_iterator_hasnext(iter))
                 list_process(NULL, dr_platform, iter);
             dr_registered_process_iterator_stop(iter);

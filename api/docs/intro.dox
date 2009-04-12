@@ -364,11 +364,11 @@ C:\\dr.  Register \c calc.exe to run with the bbsize sample \client
 using the following command:
 \if vmsafe
 \code
-C:\dr\bin\drdeploy.exe -reg calc.exe -root C:\dr -mode code -client C:\dr\docs\html\samples\bbsize.dll 0 ""
+C:\dr\bin32\drdeploy.exe -reg calc.exe -root C:\dr -mode code -client C:\dr\docs\html\samples\bbsize.dll 0 ""
 \endcode
 \else
 \code
-C:\dr\bin\drdeploy.exe -reg calc.exe -root C:\dr -client C:\dr\docs\html\samples\bbsize.dll 0 ""
+C:\dr\bin32\drdeploy.exe -reg calc.exe -root C:\dr -client C:\dr\docs\html\samples\bbsize.dll 0 ""
 \endcode
 \endif
 The next time \c calc.exe is started, it will run under \DynamoRIO
@@ -376,13 +376,13 @@ with the bbsize \client.
 
 To unregister \c calc.exe, issue the following command:
 \code
-C:\dr\bin\drdeploy.exe -unreg calc.exe
+C:\dr\bin32\drdeploy.exe -unreg calc.exe
 \endcode
 
 To \ref sec_comm "nudge" all instances of \c calc.exe running under
 \DynamoRIO with argument "5", use:
 \code
-C:\dr\bin\drdeploy.exe -nudge calc.exe 0 5
+C:\dr\bin32\drdeploy.exe -nudge calc.exe 0 5
 \endcode
 This will result in a nudge event with argument=5 delivered to the
 \client callback registered with dr_register_nudge_event() in all
@@ -392,8 +392,10 @@ target \client (see dr_deploy.h for details).  Note that nudging
 64-bit applications is not yet supported.
 
 To view 32-bit or WOW64 processes running under \DynamoRIO the
-\c bin\bin32\drview.exe tool can be used.  Note that the tool does
-not yet support showing the status of 64-bit applications.
+\c drview.exe tool can be used.  The bin64 version will display both 32-bit
+and 64-bit processes and will indicate which are 32-bit.  The bin32 version
+will display 64-bit processes but is unable to determine whether \DynamoRIO
+is present.
 
 \attention
 Note that on Windows NT a reboot is required after the first process

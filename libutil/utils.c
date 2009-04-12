@@ -289,23 +289,6 @@ get_exename_from_path(const WCHAR *path)
     return name;
 }
 
-/* returns the exe without the path info. the buf must be tolower()ed. 
- *  in len the length of just the exe is stored (eg, w/o cmdline) */
-WCHAR *
-get_exeptr(const WCHAR *buf, int *exenamelen)
-{
-    WCHAR *head, *target = wcsstr(buf, L_EXE_SUFFIX);
-
-    if (target == NULL)
-        return NULL;
-    
-    head = (WCHAR *)buf;
-    while (wcschr(head, L'\\') && wcschr(head, L'\\') < target)
-        head = wcschr(head, L'\\') + 1;
-    *exenamelen = target - head + 4;
-    return head;
-}
-
 DWORD
 acquire_shutdown_privilege()
 {
@@ -794,7 +777,8 @@ set_dr_platform(dr_platform_t platform)
 dr_platform_t 
 get_dr_platform()
 {
-    if (registry_view == DR_PLATFORM_64BIT)
+    if (registry_view == DR_PLATFORM_64BIT
+        IF_X64(|| registry_view == DR_PLATFORM_DEFAULT))
         return DR_PLATFORM_64BIT;
     return DR_PLATFORM_32BIT;
 }
@@ -1435,12 +1419,12 @@ write_file_contents_if_different(WCHAR *path, char *contents, BOOL *changed)
 
 DWORD
 read_file_contents(WCHAR *path, char *contents, 
-                   UINT maxchars, UINT *needed)
+                   SIZE_T maxchars, SIZE_T *needed)
 {
     FILE *fp = NULL;
     DWORD res = ERROR_SUCCESS;
-    UINT n_read = 0;
-    UINT n_needed = 0;
+    SIZE_T n_read = 0;
+    SIZE_T n_needed = 0;
     char buf[READ_BUF_SZ];
 
     DO_ASSERT(path != NULL);
@@ -1456,7 +1440,7 @@ read_file_contents(WCHAR *path, char *contents,
     }
 
     if (contents != NULL) {
-        n_read = fread(contents, 1, maxchars, fp);
+       n_read = fread(contents, 1, maxchars, fp);
 
         /* NULL terminate string. */
         contents[n_read == maxchars ? n_read - 1 : n_read] = '\0';
@@ -2181,7 +2165,7 @@ main()
         char *test1, *test2;
         char buffy[1024];
         WCHAR *fn = L"utils.tst";
-        UINT needed;
+        SIZE_T needed;
         BOOL changed;
 
         test1 = "This is a stupid file.\r\n\r\nDon't you think?\r\n";

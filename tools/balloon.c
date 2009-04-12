@@ -52,17 +52,21 @@ balloon -p <PID> [-v <MB or KB to reserve>] [-c <MB or KB to commit>] [-f] [-t]\
 // To check values see $ ./DRview.exe -p 416 -showmem | tail -1 | awk {'print "virtual peak " $9'}
 }
 
+#ifdef X64
+enum {LAST_STATUS_VALUE_OFFSET = 0x1250};
+#else
 enum {LAST_STATUS_VALUE_OFFSET = 0xbf4}; /* on Win2000+ case 6789 */
+#endif
+
 int
 get_last_status()
 {
-    int laststatus;
     /* get_own_teb()->LastStatusValue */
-    __asm {
-        mov  eax, fs:[LAST_STATUS_VALUE_OFFSET]
-        mov  laststatus, eax
-    }
-    return laststatus;
+#ifdef X64
+    return __readgsdword(LAST_STATUS_VALUE_OFFSET);
+#else
+    return __readfsdword(LAST_STATUS_VALUE_OFFSET);
+#endif
 }
 
 int

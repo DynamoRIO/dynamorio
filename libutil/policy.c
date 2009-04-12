@@ -67,7 +67,7 @@ get_msgkey_id(WCHAR *msgk)
 
 char *
 parse_policy_line(char *start, BOOL *done, msg_id *mfield,
-                  WCHAR *param, WCHAR *value, UINT maxchars)
+                  WCHAR *param, WCHAR *value, SIZE_T maxchars)
 {
     char *next = parse_line(start, done, param, value, maxchars);
 
@@ -100,7 +100,7 @@ parse_policy(char *policy_definition,
     char *polstr = policy_definition;
     ConfigGroup *policy, *app;
     char *modes_file;
-    UINT modes_file_size;
+    SIZE_T modes_file_size;
     BOOL parsing_done;
     int engines[MAX_SUPPORTED_ENGINES] = { 0 };
 
@@ -459,7 +459,7 @@ validate_policy(char *policy_definition)
 
 
 void
-append_policy_block(char *policy_buffer, UINT maxchars, UINT *accumlen,
+append_policy_block(char *policy_buffer, SIZE_T maxchars, SIZE_T *accumlen,
                     ConfigGroup *cfg)
 {
     NameValuePairNode *nvpn = NULL;
@@ -475,8 +475,8 @@ append_policy_block(char *policy_buffer, UINT maxchars, UINT *accumlen,
     }
     else {
         msg_append_nvp(policy_buffer, maxchars, accumlen,
-                          msg_id_keys[MSGKEY_APP_NAME],
-                          cfg->name);
+                       msg_id_keys[MSGKEY_APP_NAME],
+                       cfg->name);
     }
 
     for(nvpn = cfg->params; NULL != nvpn; nvpn = nvpn->next) {
@@ -491,11 +491,11 @@ append_policy_block(char *policy_buffer, UINT maxchars, UINT *accumlen,
 
 /* FIXME: does not export modes! */
 DWORD
-policy_export(char *policy_buffer, UINT maxchars, UINT *needed)
+policy_export(char *policy_buffer, SIZE_T maxchars, SIZE_T *needed)
 {
     ConfigGroup *config, *chld;
     DWORD res;
-    UINT accumlen = 0;
+    SIZE_T accumlen = 0;
 
     res = read_config_group(&config, L_PRODUCT_NAME, TRUE);
     if (res != ERROR_SUCCESS)
@@ -529,7 +529,7 @@ DWORD
 load_policy(WCHAR *filename, BOOL synchronize_system, DWORD *warning)
 {
     DWORD res;
-    UINT len;
+    SIZE_T len;
     char *policy;
 
     DO_ASSERT(filename != NULL);
@@ -553,7 +553,7 @@ DWORD
 save_policy(WCHAR *filename)
 {
     DWORD res;
-    UINT len;
+    SIZE_T len;
     char *policy;
 
     res = policy_export(NULL, 0, &len);
@@ -620,7 +620,7 @@ main()
 {
     char *testline = "GLOBAL_PROTECT=1\r\nBEGIN_BLOCK\r\nAPP_NAME=inetinfo.exe\r\nDYNAMORIO_OPTIONS=\r\nFOO=\\bar.dll\r\n";
     WCHAR *sample = L"sample.mfp";
-    UINT len;
+    SIZE_T len;
     DWORD res;
     char *policy;
 

@@ -40,7 +40,7 @@
 #ifndef UNIT_TEST
 
 char *
-next_token_sep(char *start, UINT *len, char sep)
+next_token_sep(char *start, SIZE_T *len, char sep)
 {
     char *curtok = start;
     char seps[16];
@@ -71,7 +71,7 @@ next_token_sep(char *start, UINT *len, char sep)
 }
 
 char *
-next_token(char *start, UINT *len)
+next_token(char *start, SIZE_T *len)
 {
     return next_token_sep(start, len, '=');
 }
@@ -79,7 +79,7 @@ next_token(char *start, UINT *len)
 /* assumes that start points directly after the start_delimeter
  * returns the size of the message block, or -1 on error */
 char *
-get_message_block_size(char *start, WCHAR *end_delimiter_w, UINT *size)
+get_message_block_size(char *start, WCHAR *end_delimiter_w, SIZE_T *size)
 {
     char *endptr;
     char end_delimiter[MAX_PATH];
@@ -113,10 +113,10 @@ get_message_block_size(char *start, WCHAR *end_delimiter_w, UINT *size)
 /* takes an optional separator, by default '=' */
 char *
 parse_line_sep(char *start, char sep, BOOL *done,
-               WCHAR *param, WCHAR *value, UINT maxchars)
+               WCHAR *param, WCHAR *value, SIZE_T maxchars)
 {
     char *curtok;
-    UINT toklen = 0;
+    SIZE_T toklen = 0;
     const WCHAR *prefix;
 
     DO_ASSERT(start != NULL);
@@ -194,14 +194,14 @@ parse_line_sep(char *start, char sep, BOOL *done,
  * a line is either a single token, or an NVP (separated by =). */
 char *
 parse_line(char *start, BOOL *done,
-           WCHAR *param, WCHAR *value, UINT maxchars)
+           WCHAR *param, WCHAR *value, SIZE_T maxchars)
 {
     return parse_line_sep(start, '=', done, param, value, maxchars);
 }
 
 
 void
-msg_append(char *msg_buffer, UINT maxchars, WCHAR *data, UINT *accumlen)
+msg_append(char *msg_buffer, SIZE_T maxchars, WCHAR *data, SIZE_T *accumlen)
 {
     DO_ASSERT(accumlen != NULL);
 
@@ -210,7 +210,7 @@ msg_append(char *msg_buffer, UINT maxchars, WCHAR *data, UINT *accumlen)
 
     if (msg_buffer != NULL && 
         strlen(msg_buffer) + wcslen(data) < maxchars) {
-        UINT oldsz = strlen(msg_buffer);
+        SIZE_T oldsz = strlen(msg_buffer);
         DO_DEBUG(DL_FINEST,
                  printf("msg_buffer: %s, os=%d, data=%S\n", 
                         msg_buffer, oldsz, data);
@@ -239,7 +239,7 @@ msg_append(char *msg_buffer, UINT maxchars, WCHAR *data, UINT *accumlen)
  */
 
 void
-msg_append_nvp(char *msg_buffer, UINT maxchars, UINT *accumlen,
+msg_append_nvp(char *msg_buffer, SIZE_T maxchars, SIZE_T *accumlen,
                WCHAR *name, WCHAR *value)
 {
     /* exclude installation-specific parameters */
@@ -272,7 +272,7 @@ main()
 {
     char *testline = "GLOBAL_PROTECT=1\r\nBEGIN_BLOCK\r\nAPP_NAME=inetinfo.exe\r\nDYNAMORIO_OPTIONS=\r\nFOO=\\bar.dll\r\n";
     WCHAR *sample = L"sample.mfp";
-    UINT len;
+    SIZE_T len;
     DWORD res;
     char *policy;
 

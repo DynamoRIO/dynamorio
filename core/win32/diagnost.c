@@ -910,7 +910,7 @@ report_processes(IN file_t diagnostics_file, IN security_violation_t violation_t
             /* A NextEntryDelta of 0 indicates the last process in the structure */
             if (sp->NextEntryDelta == 0)
                 found_last_process = true;
-            if (is_pid_me(sp->ProcessId)) {
+            if (is_pid_me((process_id_t)sp->ProcessId)) {
                 found_current_process = true;
                 report_current_process(diagnostics_file, sp, violation_type,
                                        false /*not conservative*/);

@@ -68,7 +68,7 @@ enable_protection_ex(BOOL inject, DWORD flags,
                      const WCHAR *blacklist, 
                      const WCHAR *whitelist, DWORD *list_error, 
                      const WCHAR *custom_preinject_name, 
-                     WCHAR *current_list, UINT maxchars)
+                     WCHAR *current_list, SIZE_T maxchars)
 {
     return set_autoinjection_ex(inject, flags, blacklist, whitelist,
                                 list_error, custom_preinject_name,
@@ -76,7 +76,7 @@ enable_protection_ex(BOOL inject, DWORD flags,
 }
 
 DWORD
-inject_status(int pid, DWORD *status, DWORD *build)
+inject_status(process_id_t pid, DWORD *status, DWORD *build)
 {
     DWORD dll_stat, res = ERROR_SUCCESS;
     
@@ -128,7 +128,7 @@ consistency_detach(DWORD timeout)
 }
 
 BOOL
-is_process_pending_restart(int pid)
+is_process_pending_restart(process_id_t pid)
 {
     DWORD res;
     ConfigGroup *policy;

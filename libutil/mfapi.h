@@ -50,6 +50,9 @@
 #include <windows.h>
 #include <wchar.h>
 
+/* we don't want to include core headers here */
+typedef UINT_PTR process_id_t;
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -232,7 +235,7 @@ policy_import(char *policy_definition, BOOL synchronize_system,
  *  be re-tried with a larger buffer. 
  * again note char buffer. */
 DWORD
-policy_export(char *policy_buffer, UINT maxchars, UINT *needed);
+policy_export(char *policy_buffer, SIZE_T maxchars, SIZE_T *needed);
 
 /* convenience method for loading from a file */
 DWORD
@@ -363,7 +366,7 @@ enable_protection_ex(BOOL inject, DWORD flags,
                      const WCHAR *blacklist, 
                      const WCHAR *whitelist, DWORD *list_error, 
                      const WCHAR *custom_preinject_name, 
-                     WCHAR *current_list, UINT maxchars);
+                     WCHAR *current_list, SIZE_T maxchars);
 
 
 /*************************
@@ -394,7 +397,7 @@ enumerate_processes(process_callback pcb, void **param);
  * if the build pointer is non-NULL, returns the build number of the
  *   core (if the process is protected).*/
 DWORD
-inject_status(int pid, DWORD *status, DWORD *build);
+inject_status(process_id_t pid, DWORD *status, DWORD *build);
 
 /* returns TRUE if the indicated process is configured for 
  *  protection, yet is not running under Determina (this means it 
@@ -406,7 +409,7 @@ inject_status(int pid, DWORD *status, DWORD *build);
  *  API may be exposed in the future.
  */
 BOOL
-is_process_pending_restart(int pid);
+is_process_pending_restart(process_id_t pid);
 
 /* returns TRUE if any process is_pending_restart */
 BOOL
@@ -431,7 +434,7 @@ is_any_process_pending_restart();
 /* detach from indicated process -- if allow_upgraded_perms, then 
  *  attempt to acquire necessary privileges (usually necessary) */
 DWORD
-detach(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms);
+detach(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms);
 
 /* detach from all running processes (with timeout).
  * timeout is per process */
@@ -450,14 +453,14 @@ consistency_detach(DWORD timeout);
 /* use this to notify a process to use new configuration information
  *  in the memory patch "modes" file. */
 DWORD
-hotp_notify_modes_update(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms);
+hotp_notify_modes_update(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms);
 
 /* use this to notify a process to use new configuration information
  *  in the memory patch "definitions" file -- note that since new
  *  policy definitions will be re-loaded, this will also cause the
  *  modes information to be re-read as well. */
 DWORD
-hotp_notify_defs_update(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms);
+hotp_notify_defs_update(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms);
 
 /* get modes update for all running processes. timeout is per process */
 DWORD

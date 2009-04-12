@@ -44,7 +44,7 @@ int
 main(int argc, char **argv)
 {
     HANDLE hw;
-    DWORD res;
+    LRESULT res;
     UINT wait_tot, wait_max;
 
     if (argc != 3) {

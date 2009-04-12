@@ -65,6 +65,9 @@
 extern "C"{
 #endif 
 
+/* we have circular dep issues if we include share.h */
+typedef UINT_PTR process_id_t;
+
 #define MAX_PARAM_LEN 1024
 #define CONFIG_PATH_SEPARATOR L':'
 #define LIST_SEPARATOR_CHAR L';'
@@ -201,7 +204,7 @@ write_reg_string(HKEY subkey, const WCHAR *keyname, const WCHAR *value);
 
 /* identifies processes relative to a ConfigGroup */
 ConfigGroup *
-get_process_config_group(ConfigGroup *config, int pid);
+get_process_config_group(ConfigGroup *config, process_id_t pid);
 
 BOOL
 is_parent_of_qualified_config_group(ConfigGroup *config);
@@ -217,7 +220,7 @@ get_qualified_config_group(ConfigGroup *config,
 /* filename comparisons are independent of path */
 
 WCHAR *
-new_file_list(UINT initial_chars);
+new_file_list(SIZE_T initial_chars);
 
 void
 free_file_list(WCHAR *list);
@@ -257,7 +260,7 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
                      const WCHAR *blacklist, 
                      const WCHAR *whitelist, DWORD *list_error, 
                      const WCHAR *custom_preinject_name, 
-                     WCHAR *current_list, UINT maxchars);
+                     WCHAR *current_list, SIZE_T maxchars);
 
 DWORD
 set_custom_autoinjection(const WCHAR *preinject, DWORD flags);

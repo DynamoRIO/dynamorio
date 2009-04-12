@@ -31,9 +31,6 @@
 if (UNIX)
   message(FATAL_ERROR "libutil is Windows-only")
 endif (UNIX)
-if (X64)
-  message(FATAL_ERROR "libutil is 32-bit only (issue 28 covers porting to 64-bit)")
-endif (X64)
 
 # These custom commands are per-subdir so can't just place at top level
 include(../make/CMake_events.cmake)

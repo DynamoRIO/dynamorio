@@ -6741,7 +6741,7 @@ open_trusted_cache_root_directory(void)
     if (IS_GET_PARAMETER_FAILURE(retval) || 
         (strchr(base_directory, DIRSEP) == NULL &&
          strchr(base_directory, ALT_DIRSEP) == NULL)) {
-        SYSLOG_INTERNAL_ERROR(" %s not set!\n", DYNAMORIO_VAR_CACHE_ROOT);
+        SYSLOG_INTERNAL_WARNING(" %s not set!\n", DYNAMORIO_VAR_CACHE_ROOT);
         return INVALID_HANDLE_VALUE;
     }
     NULL_TERMINATE_BUFFER(base_directory);

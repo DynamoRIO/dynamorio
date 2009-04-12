@@ -177,7 +177,7 @@ write_file_contents_if_different(WCHAR *path, char *contents, BOOL *changed);
 
 DWORD
 read_file_contents(WCHAR *path, char *contents, 
-                   UINT maxchars, UINT *needed);
+                   SIZE_T maxchars, SIZE_T *needed);
 
 const WCHAR *
 get_dynamorio_home();

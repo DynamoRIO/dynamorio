@@ -920,10 +920,11 @@ typedef struct _SYSTEM_PROCESSES {
     LARGE_INTEGER KernelTime;
     UNICODE_STRING ProcessName;
     KPRIORITY BasePriority;
-    ULONG ProcessId;
-    ULONG InheritedFromProcessId;
+    HANDLE ProcessId;
+    HANDLE InheritedFromProcessId;
     ULONG HandleCount;
-    ULONG Reserved2[2];
+    ULONG SessionId;
+    ULONG PageDirectoryFrame;
     VM_COUNTERS VmCounters;
     IO_COUNTERSEX IoCounters;  /* Windows 2000+ only */
     SYSTEM_THREADS Threads[1]; /* Variable size */

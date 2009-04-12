@@ -40,23 +40,23 @@
 #define L_EQUALS L"="
 
 char *
-next_token(char *start, UINT *len);
+next_token(char *start, SIZE_T *len);
 
 char *
-parse_line(char *start, BOOL *done, WCHAR *param, WCHAR *value, UINT maxchars);
+parse_line(char *start, BOOL *done, WCHAR *param, WCHAR *value, SIZE_T maxchars);
 
 char *
 parse_line_sep(char *start, char sep, BOOL *done,
-               WCHAR *param, WCHAR *value, UINT maxchars);
+               WCHAR *param, WCHAR *value, SIZE_T maxchars);
 
 char *
-get_message_block_size(char *start, WCHAR *end_delimiter_w, UINT *size);
+get_message_block_size(char *start, WCHAR *end_delimiter_w, SIZE_T *size);
 
 void
-msg_append(char *msg_buffer, UINT maxchars, WCHAR *data, UINT *accumlen);
+msg_append(char *msg_buffer, SIZE_T maxchars, WCHAR *data, SIZE_T *accumlen);
 
 void
-msg_append_nvp(char *msg_buffer, UINT maxchars, UINT *accumlen,
+msg_append_nvp(char *msg_buffer, SIZE_T maxchars, SIZE_T *accumlen,
                WCHAR *name, WCHAR *value);
 
 #endif

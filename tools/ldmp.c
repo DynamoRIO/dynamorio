@@ -30,6 +30,10 @@
  * DAMAGE.
  */
 
+#ifdef X64
+# error 64-bit not yet supported (issue #118)
+#endif
+
 #include <windows.h>
 #include <stdio.h>
 #include <assert.h>
@@ -101,13 +105,15 @@ typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
 #define OBJ_KERNEL_HANDLE       0x00000200L
 typedef ULONG ACCESS_MASK;
 
-#ifndef _W64
-# define _W64
-#endif
+#ifndef X64
+# ifndef _W64
+#  define _W64
+# endif
 typedef _W64 long LONG_PTR, *PLONG_PTR;
 typedef _W64 unsigned long ULONG_PTR, *PULONG_PTR;
+#endif
 typedef LONG KPRIORITY;
-typedef ULONG KAFFINITY;
+typedef ULONG_PTR KAFFINITY;
 
 typedef struct _PROCESS_BASIC_INFORMATION {
     NTSTATUS ExitStatus;

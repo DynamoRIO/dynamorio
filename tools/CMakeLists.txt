@@ -46,10 +46,6 @@ if (UNIX)
   install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/drdeploy
     DESTINATION ${INSTALL_BIN})
 else (UNIX)
-  if (X64)
-    message(FATAL_ERROR "libutil is 32-bit only (issue 28 covers porting to 64-bit)")
-  endif (X64)
-
   # FIXME i#98: eventually upgrade to W4 with pragma exceptions.
   # W2 is default (we're using W3).  We should also replace
   # all references to unsafe functions (e.g., fopen) and
@@ -70,9 +66,12 @@ else (UNIX)
     DRload
     balloon 
     dummy 
-    ldmp
     drdeploy
     )
+if (NOT X64)
+  # FIXME i#118: ldmp not yet 64-bit
+  set(tgts ${tgts} ldmp)
+endif (NOT X64)
 
   include_directories(
     ${PROJECT_SOURCE_DIR}/libutil

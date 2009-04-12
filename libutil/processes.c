@@ -66,7 +66,7 @@ static HANDLE ntdll_handle = NULL;
 
 
 int
-under_dynamorio(int ProcessID)
+under_dynamorio(process_id_t ProcessID)
 {
     return under_dynamorio_ex(ProcessID, NULL);
 }
@@ -143,7 +143,7 @@ free_hotp_status_table(hotp_policy_status_table_t *hotp_status)
 }
 
 DWORD
-get_dr_marker_helper(int ProcessID, dr_marker_t *marker, 
+get_dr_marker_helper(process_id_t ProcessID, dr_marker_t *marker, 
                      hotp_policy_status_table_t **hotp_status, int *found)
 {
     DWORD res = ERROR_SUCCESS;
@@ -157,7 +157,7 @@ get_dr_marker_helper(int ProcessID, dr_marker_t *marker,
              );
 
     acquire_privileges();
-    hproc = OpenProcess(PROCESS_VM_READ, FALSE, ProcessID);
+    hproc = OpenProcess(PROCESS_VM_READ, FALSE, (DWORD)ProcessID);
     if (hproc != NULL) {
         *found = read_and_verify_dr_marker(hproc, marker);
         if (*found == DR_MARKER_FOUND && hotp_status != NULL &&
@@ -193,7 +193,7 @@ get_dr_marker_helper(int ProcessID, dr_marker_t *marker,
  *  middle of a detach, etc) cause this to fail. 
  * NOTE: this is redefined in detach.c to avoid include issues! */
 DWORD
-get_dr_marker(int ProcessID, dr_marker_t *marker, 
+get_dr_marker(process_id_t ProcessID, dr_marker_t *marker, 
               hotp_policy_status_table_t **hotp_status, int *found)
 {
     DWORD res = ERROR_SUCCESS;
@@ -212,7 +212,7 @@ get_dr_marker(int ProcessID, dr_marker_t *marker,
 }
 
 DWORD
-get_hotp_status(int pid, hotp_policy_status_table_t **hotp_status)
+get_hotp_status(process_id_t pid, hotp_policy_status_table_t **hotp_status)
 {
     dr_marker_t marker;
     int found;
@@ -231,7 +231,7 @@ free_dynamorio_stats(dr_statistics_t *stats)
 
 /* Caller must call free_dynamorio_stats on return value, if it's non-NULL */
 struct _dr_statistics_t *
-get_dynamorio_stats(int pid)
+get_dynamorio_stats(process_id_t pid)
 {
     dr_marker_t marker;
     dr_statistics_t *stats = NULL;
@@ -240,7 +240,7 @@ get_dynamorio_stats(int pid)
     HANDLE hproc;
 
     acquire_privileges();
-    hproc = OpenProcess(PROCESS_VM_READ, FALSE, pid);
+    hproc = OpenProcess(PROCESS_VM_READ, FALSE, (DWORD)pid);
     if (hproc != NULL) {
         found = read_and_verify_dr_marker(hproc, &marker);
         if (found == DR_MARKER_FOUND && marker.stats != NULL) {
@@ -281,7 +281,7 @@ get_dynamorio_stats(int pid)
 /* NOTE in v 1.17 this had a kernel32 method of getting the dll file version
  * that might be useful in other situations */
 int
-under_dynamorio_ex(int ProcessID, DWORD *build_num)
+under_dynamorio_ex(process_id_t ProcessID, DWORD *build_num)
 {
     dr_marker_t marker;
     DWORD err;
@@ -312,7 +312,7 @@ under_dynamorio_ex(int ProcessID, DWORD *build_num)
 }
 
 DWORD
-check_status_and_pending_restart(ConfigGroup *config, int pid, 
+check_status_and_pending_restart(ConfigGroup *config, process_id_t pid, 
                                  BOOL *pending_restart, 
                                  int *status, ConfigGroup **process_cfg)
 {
@@ -371,14 +371,14 @@ check_status_and_pending_restart(ConfigGroup *config, int pid,
 }
 
 DWORD
-hotp_notify_modes_update(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms)
+hotp_notify_modes_update(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms)
 {
     return generic_nudge(pid, allow_upgraded_perms, NUDGE_GENERIC(mode), 0,
                          NULL, timeout_ms);
 }
 
 DWORD
-hotp_notify_defs_update(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms)
+hotp_notify_defs_update(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms)
 {
     return generic_nudge(pid, allow_upgraded_perms, NUDGE_GENERIC(policy), 0,
                          NULL, timeout_ms);
@@ -713,7 +713,7 @@ get_process_peb(HANDLE process_handle, PEB *peb)
  * it's there) to be compatible with previous implementations */
 /* NOTE len's are in bytes */
 DWORD
-get_process_name_and_cmdline(int pid, WCHAR *name_buf, int name_len, WCHAR *cmdline_buf, int cmdline_len)
+get_process_name_and_cmdline(process_id_t pid, WCHAR *name_buf, int name_len, WCHAR *cmdline_buf, int cmdline_len)
 {
     HANDLE process_handle = NULL;
     unsigned long nbytes;
@@ -725,7 +725,7 @@ get_process_name_and_cmdline(int pid, WCHAR *name_buf, int name_len, WCHAR *cmdl
     acquire_privileges();
     process_handle = OpenProcess(PROCESS_ALL_ACCESS,
                                  FALSE,
-                                 pid);
+                                 (DWORD)pid);
     error = GetLastError();
     release_privileges();
 
@@ -755,7 +755,7 @@ get_process_name_and_cmdline(int pid, WCHAR *name_buf, int name_len, WCHAR *cmdl
          * it seems that something during process initialization converts
          *  Buffer from an offset to a pointer...
          */
-        void *cmdline_location = (void*)((uint)process_parameters.CommandLine.Buffer);
+        void *cmdline_location = (void*)(process_parameters.CommandLine.Buffer);
         
         int cmdlen = process_parameters.CommandLine.Length;
         cmdlen = (cmdlen > cmdline_len - 1) ? cmdline_len - 1 : cmdlen;
@@ -778,7 +778,7 @@ get_process_name_and_cmdline(int pid, WCHAR *name_buf, int name_len, WCHAR *cmdl
          *  Buffer from an offset to a pointer...
          */
         WCHAR buf[MAX_PATH];
-        void *name_location = (void*)((uint)process_parameters.ImagePathName.Buffer);
+        void *name_location = (void*)(process_parameters.ImagePathName.Buffer);
         
         int namelen = process_parameters.ImagePathName.Length;
         namelen = (namelen > name_len - 1) ? name_len - 1 : namelen;
@@ -806,13 +806,13 @@ get_process_name_and_cmdline(int pid, WCHAR *name_buf, int name_len, WCHAR *cmdl
 }
 
 DWORD
-get_process_cmdline(int pid, WCHAR *buf, int len)
+get_process_cmdline(process_id_t pid, WCHAR *buf, int len)
 {
     return get_process_name_and_cmdline(pid, NULL, 0, buf, len);
 }
 
 DWORD
-get_process_name(int pid, WCHAR *buf, int len)
+get_process_name(process_id_t pid, WCHAR *buf, int len)
 {
     return get_process_name_and_cmdline(pid, buf, len, NULL, 0);   
 }
@@ -876,7 +876,7 @@ process_walk(processwalk_callback pwcb, void **param)
                 proc_snap = NULL;
             } else { 
                 proc_snap = (SYSTEM_PROCESSES *)
-                    (((uint)proc_snap) + proc_snap->NextEntryDelta);
+                    (((char *)proc_snap) + proc_snap->NextEntryDelta);
             }
         }
         res = ERROR_SUCCESS;
@@ -911,7 +911,7 @@ enumerate_processes(process_callback pcb, void **param)
 #define MAX_MODULE_LIST_INFINITE_LOOP_THRESHOLD 2048
 
 DWORD
-dll_walk_proc(int ProcessID, dllwalk_callback dwcb, void **param)
+dll_walk_proc(process_id_t ProcessID, dllwalk_callback dwcb, void **param)
 {
     PEB peb;
     PEB_LDR_DATA ldr;
@@ -927,7 +927,7 @@ dll_walk_proc(int ProcessID, dllwalk_callback dwcb, void **param)
     
     acquire_privileges();
     hproc = OpenProcess(PROCESS_VM_READ|PROCESS_QUERY_INFORMATION, FALSE, 
-                        ProcessID);
+                        (DWORD)ProcessID);
     res = GetLastError();
     release_privileges();
     if (hproc == NULL)
@@ -944,7 +944,7 @@ dll_walk_proc(int ProcessID, dllwalk_callback dwcb, void **param)
     }
 
     // arbitrary - use the InLoadOrderList since it has simplest offsets
-    first = (LIST_ENTRY *)(((uint)peb.LoaderData) + 
+    first = (LIST_ENTRY *)(((char *)peb.LoaderData) + 
                            offsetof(PEB_LDR_DATA, InLoadOrderModuleList));
     // prime the loop
     mod.InLoadOrderModuleList.Flink = ldr.InLoadOrderModuleList.Flink;
@@ -1045,13 +1045,13 @@ dll_walk_all(dllwalk_callback dwcb, void **param)
 }
 
 DWORD
-terminate_process(int pid)
+terminate_process(process_id_t pid)
 {
     HANDLE hproc;
     DWORD res = 0;
 
     acquire_privileges();
-    hproc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+    hproc = OpenProcess(PROCESS_TERMINATE, FALSE, (DWORD)pid);
     release_privileges();
 
     if (!hproc) 

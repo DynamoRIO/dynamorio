@@ -72,9 +72,8 @@ The following are part of the \DynamoRIO release distribution:
    \DynamoRIO control. \if linux Windows package only. \endif
  - A utility \c drinject.exe to launch applications under \DynamoRIO
    control.  \if linux Windows package only. \endif
- - A utility \c drview.exe for viewing which 32-bit or WOW64 processes
-   are running under \DynamoRIO control.  Note that the tool does
-   not yet support showing the status of 64-bit applications.
+ - A utility \c drview.exe for viewing which processes
+   are running under \DynamoRIO control.
    \if linux Windows package only. \endif
 \if linux
  - The \c drdeploy script for configuring and running applications under
@@ -113,6 +112,7 @@ The changes between version 1.3.3 and 1.3.2 are:
    \client use:
    - dr_raw_tls_calloc()
    - dr_raw_tls_free()
+ - Provide 64-bit versions of the drdeploy.exe and drview.exe tools.
  - Provide dr_get_proc_address() on Linux
  - Provide support for building \clients using CMake (see cmake/*, and for
    an example of usage see samples/CMakeLists.txt)

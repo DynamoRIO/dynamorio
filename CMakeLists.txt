@@ -697,17 +697,9 @@ if (WIN32)
 else (WIN32)
   option(BUILD_CORE "build core library" ON)
 endif (WIN32)
-if (WIN32 AND X64)
-  message("Currently 64-bit Windows tools (other than drinject) are not supported (but 32-bit drdeploy can configure 64-bit applications)")
-endif (WIN32 AND X64)
-if (NOT WIN32 OR NOT X64)
-  # FIXME i#28: port tools to 64-bit
-  # FIXME i#28: port libutil to 64-bit
-  option(BUILD_TOOLS "build tools" ON)
-endif (NOT WIN32 OR NOT X64)
+option(BUILD_TOOLS "build tools" ON)
 if (WIN32 AND NOT X64)
   # FIXME i#62: port DRgui to 64-bit
-  # FIXME i#28: port libutil to 64-bit
   option(BUILD_DRGUI "build DRgui statistics viewer (requires MFC)" ON)
 endif (WIN32 AND NOT X64)
 option(BUILD_DOCS "build documentation" ON)

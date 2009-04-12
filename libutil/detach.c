@@ -59,6 +59,46 @@ typedef NTSTATUS (NTAPI *NtCreateThreadType) (OUT PHANDLE ThreadHandle,
                                               IN BOOLEAN CreateSuspended);
 NtCreateThreadType NtCreateThread = NULL;
 
+#ifdef X64
+typedef unsigned __int64 ptr_uint_t;
+# define CXT_XIP Rip
+# define CXT_XAX Rax
+# define CXT_XCX Rcx
+# define CXT_XDX Rdx
+# define CXT_XBX Rbx
+# define CXT_XSP Rsp
+# define CXT_XBP Rbp
+# define CXT_XSI Rsi
+# define CXT_XDI Rdi
+/* It looks like both CONTEXT.Xmm0 and CONTEXT.FltSave.XmmRegisters[0] are filled in.
+ * We use the latter so that we don't have to hardcode the index.
+ */
+# define CXT_XMM(cxt, idx) ((dr_xmm_t*)&((cxt)->FltSave.XmmRegisters[idx]))
+/* they kept the 32-bit EFlags field; sure, the upper 32 bits of Rflags
+ * are undefined right now, but doesn't seem very forward-thinking. */
+# define CXT_XFLAGS EFlags
+#else
+typedef uint ptr_uint_t;
+# define CXT_XIP Eip
+# define CXT_XAX Eax
+# define CXT_XCX Ecx
+# define CXT_XDX Edx
+# define CXT_XBX Ebx
+# define CXT_XSP Esp
+# define CXT_XBP Ebp
+# define CXT_XSI Esi
+# define CXT_XDI Edi
+# define CXT_XFLAGS EFlags
+/* This is not documented, but CONTEXT.ExtendedRegisters looks like fxsave layout.
+ * Presumably there are no processors that have SSE but not FXSR
+ * (we ASSERT on that in proc_init()).
+ */
+# define FXSAVE_XMM0_OFFSET 160
+# define CXT_XMM(cxt, idx) \
+    ((dr_xmm_t*)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
+#endif
+
+#ifndef X64
 DWORD WINAPI dummy_func(LPVOID dummy_arg)
 {
     return (DWORD)dummy_arg;
@@ -125,6 +165,7 @@ get_kernel_thread_start_thunk()
     DO_ASSERT(start_address != NULL);
     return start_address;
 }
+#endif /* !X64 */
 
 /* returns NULL on error */
 /* FIXME - is similar to core create_thread, but uses API routines where
@@ -145,15 +186,16 @@ get_kernel_thread_start_thunk()
 static HANDLE
 nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
                  void *arg, const void *arg_buf, SIZE_T arg_buf_size,
-                 uint stack_reserve, uint stack_commit, bool suspended,
-                 uint *tid, bool target_api, void **remote_stack /* OUT */)
+                 SIZE_T stack_reserve, SIZE_T stack_commit, bool suspended,
+                 ptr_uint_t *tid, bool target_api, bool target_64bit,
+                 void **remote_stack /* OUT */)
 {
     HANDLE hThread = NULL;
     USER_STACK stack = {0};
     OBJECT_ATTRIBUTES oa;
     CLIENT_ID cid;
     CONTEXT context = {0};
-    uint num_commit_bytes, code;
+    SIZE_T num_commit_bytes, code;
     unsigned long old_prot;
     void *p;
     SECURITY_DESCRIPTOR *sd = NULL;
@@ -161,11 +203,17 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
     void *thread_arg = arg;
     BOOL wow64 = is_wow64(hProcess);
 
+#ifdef X64
+    DO_ASSERT(!target_api); /* NYI */
+#else
+    DO_ASSERT(!target_64bit); /* Not supported. */
+#endif
+
     if (NtCreateThread == NULL) {
         /* FIXME - on Vista we could instead use NtCreateThreadEx which is what all
          * the api routines use and requires less setup. But it also uses structs that
          * we haven't fully reversed or found good documentation for. */
-        /* Don't need a lock, writing the pointer (4 byte write) is atomic. */
+        /* Don't need a lock, writing the pointer (4 [8 on 64-bit] byte write) is atomic. */
         NtCreateThread = (NtCreateThreadType)
             GetProcAddress(GetModuleHandle(L"ntdll.dll"), "NtCreateThread");
         if (NtCreateThread == NULL)
@@ -265,7 +313,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
     GetThreadContext(GetCurrentThread(), &context);
 
     /* set esp */
-    context.Esp = (uint)stack.ExpandableStackBase;
+    context.CXT_XSP = (ptr_uint_t)stack.ExpandableStackBase;
     /* On vista, the kernel sets esp a random number of bytes in from the base of
      * the stack as part of the stack ASLR.  RtlUserThreadStart assumes that
      * esp will be set at least 8 bytes into the region by writing to esp+4 and
@@ -275,7 +323,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
      * target api or not in case it's relied on elsewhere. */
 #define VISTA_THREAD_STACK_PAD 56
     if (platform == PLATFORM_VISTA) {
-        context.Esp -= VISTA_THREAD_STACK_PAD;
+        context.CXT_XSP -= VISTA_THREAD_STACK_PAD;
     }
     /* Anticipating x64 we align to 16 bytes everywhere */
 #define STACK_ALIGNMENT 16
@@ -286,8 +334,8 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
             thread_arg = (void *)
                 (((byte *)stack.ExpandableStackBase) + PAGE_SIZE - arg_buf_size);
         } else {
-            context.Esp -= ALIGN_FORWARD(arg_buf_size, STACK_ALIGNMENT);
-            thread_arg = (void *)context.Esp;
+            context.CXT_XSP -= ALIGN_FORWARD(arg_buf_size, STACK_ALIGNMENT);
+            thread_arg = (void *)context.CXT_XSP;
         }
         if (!WriteProcessMemory(hProcess, thread_arg, arg_buf, arg_buf_size, &written) ||
             written != arg_buf_size) {
@@ -295,39 +343,42 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
         }
         if (platform == PLATFORM_VISTA) {
             /* pad after our argument so RtlUserThreadStart won't clobber it */
-            context.Esp -= VISTA_THREAD_STACK_PAD;
+            context.CXT_XSP -= VISTA_THREAD_STACK_PAD;
         }
     }
 
     /* set eip and argument */
+#ifndef X64
     if (target_api) {
         if (platform == PLATFORM_VISTA) {
-            context.Eip = (uint)GetProcAddress(GetModuleHandle(L"ntdll.dll"),
+            context.CXT_XIP = (ptr_uint_t)GetProcAddress(GetModuleHandle(L"ntdll.dll"),
                                                "RtlUserThreadStart");
         } else {
-            context.Eip = (uint)get_kernel_thread_start_thunk();
+            context.CXT_XIP = (ptr_uint_t)get_kernel_thread_start_thunk();
         }
         /* For kernel32!BaseThreadStartThunk and ntdll!RltUserThreadStartThunk
          * Eax contains the address of the thread routine and Ebx the arg */
-        context.Eax = (uint)start_addr;
-        context.Ebx = (uint)thread_arg;
-    } else {
+        context.Eax = (ptr_uint_t)start_addr;
+        context.Ebx = (ptr_uint_t)thread_arg;
+    } else
+#endif /* !X64 */
+       {
         void *buf[2];
         bool res;
         SIZE_T written;
         /* directly targeting the start_address */
-        context.Eip = (uint)start_addr;
-        context.Esp -= sizeof(buf);
+        context.CXT_XIP = (ptr_uint_t)start_addr;
+        context.CXT_XSP -= sizeof(buf);
         /* set up arg on stack, give NULL return address */
         buf[1] = thread_arg;
         buf[0] = NULL;
-        res = WriteProcessMemory(hProcess, (void *)context.Esp, &buf,
+        res = WriteProcessMemory(hProcess, (void *)context.CXT_XSP, &buf,
                                  sizeof(buf), &written);
         if (!res || written != sizeof(buf)) {
             goto error;
         }
     }                           
-    if (context.Eip == 0) {
+    if (context.CXT_XIP == 0) {
         DO_ASSERT(false);
         goto error;
     }
@@ -342,7 +393,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
     }
 
     if (tid != NULL)
-        *tid = (uint)cid.UniqueThread;
+       *tid = (ptr_uint_t)cid.UniqueThread;
 
  exit:
     if (sd != NULL) {
@@ -398,6 +449,7 @@ create_remote_thread(HANDLE hProc, PTHREAD_START_ROUTINE pfnThreadRtn,
         hThread = nt_create_thread(hProc, pfnThreadRtn, arg, arg_buf, arg_buf_size,
                                    STACK_RESERVE, STACK_COMMIT, false, NULL,
                                    TEST(CREATE_REMOTE_THREAD_TARGET_API, flags),
+                                   false /* !64-bit */,
                                    remote_stack);
     } else {
         DO_ASSERT(false && "not tested (not currently used)");
@@ -412,11 +464,11 @@ create_remote_thread(HANDLE hProc, PTHREAD_START_ROUTINE pfnThreadRtn,
 
 /* define this here so that clients don't need to know about dr_marker_t */
 DWORD
-get_dr_marker(int ProcessID, dr_marker_t *marker, 
+get_dr_marker(process_id_t ProcessID, dr_marker_t *marker, 
               hotp_policy_status_table_t **hotp_status, int *found);
 
 DWORD
-nudge_dr(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms, nudge_arg_t *nudge_arg)
+nudge_dr(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms, nudge_arg_t *nudge_arg)
 {
     DWORD res = ERROR_SUCCESS;
     int found;
@@ -448,7 +500,7 @@ nudge_dr(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms, nudge_arg_t *nudg
                            PROCESS_CREATE_THREAD + 
                            READ_CONTROL +
                            SYNCHRONIZE, 
-                           FALSE, pid);
+                           FALSE, (DWORD)pid);
     res = GetLastError();
     if (hProcess == NULL) {
         if (allow_upgraded_perms) {
@@ -460,7 +512,7 @@ nudge_dr(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms, nudge_arg_t *nudg
                                    PROCESS_CREATE_THREAD +
                                    READ_CONTROL +
                                    SYNCHRONIZE, 
-                                   FALSE, pid);
+                                   FALSE, (DWORD)pid);
             res = GetLastError();
             release_privileges();
             if (hProcess == NULL) {
@@ -542,7 +594,7 @@ nudge_dr(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms, nudge_arg_t *nudg
  * process that directly targets the detach routine.  
  */
 DWORD
-detach(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms)
+detach(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms)
 {
     return generic_nudge(pid, allow_upgraded_perms, NUDGE_GENERIC(detach), 0,
                          NULL, timeout_ms);
@@ -550,7 +602,7 @@ detach(int pid, BOOL allow_upgraded_perms, DWORD timeout_ms)
 
 /* generic nudge DR, action mask determines which actions will be executed */
 DWORD
-generic_nudge(int pid, BOOL allow_upgraded_perms, DWORD action_mask, 
+generic_nudge(process_id_t pid, BOOL allow_upgraded_perms, DWORD action_mask, 
               client_id_t client_id /* optional */, uint64 client_arg /* optional */,
               DWORD timeout_ms)
 {
@@ -573,7 +625,7 @@ generic_nudge(int pid, BOOL allow_upgraded_perms, DWORD action_mask,
  * value out via the exit code). inject_dll provides no way to pass arguments 
  * in to the dll. */
 DWORD
-inject_dll(int pid, const WCHAR *dll_name, BOOL allow_upgraded_perms, 
+inject_dll(process_id_t pid, const WCHAR *dll_name, BOOL allow_upgraded_perms, 
            DWORD timeout_ms, PHANDLE loading_thread)
 {
     DWORD res;
@@ -600,7 +652,7 @@ inject_dll(int pid, const WCHAR *dll_name, BOOL allow_upgraded_perms,
                            PROCESS_CREATE_THREAD +
                            READ_CONTROL +
                            SYNCHRONIZE, 
-                           FALSE, pid);
+                           FALSE, (DWORD)pid);
     if (hProcess == NULL) {
         if (allow_upgraded_perms) {
             acquire_privileges();
@@ -611,7 +663,7 @@ inject_dll(int pid, const WCHAR *dll_name, BOOL allow_upgraded_perms,
                                    PROCESS_CREATE_THREAD +
                                    READ_CONTROL +
                                    SYNCHRONIZE, 
-                                   FALSE, pid);
+                                   FALSE, (DWORD)pid);
             release_privileges();
             if (hProcess == NULL) {
                 return GetLastError();

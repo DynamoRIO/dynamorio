@@ -147,7 +147,7 @@ typedef enum {
 
 char *
 parse_policy_line(char *start, BOOL *done, msg_id *mfield,
-                  WCHAR *param, WCHAR *value, UINT maxchars);
+                  WCHAR *param, WCHAR *value, SIZE_T maxchars);
 
 DWORD
 parse_policy(char *policy_definition,

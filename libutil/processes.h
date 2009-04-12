@@ -89,13 +89,13 @@ typedef struct module_info_s {
     PVOID BaseAddress;
     PVOID EntryPoint;
     ULONG SizeOfImage;
-    // strings are NULL terminated, non persistant and in this address space
+    // strings are NULL terminated, non persistent and in this address space
     WCHAR *FullDllName; // dll name with path (i.e. "c:\win\sys32\foo.dll")
     WCHAR *BaseDllName; // just dll name (i.e. "foo.dll")
     SHORT LoadCount;
     SHORT TlsIndex;
     ULONG TimeDateStamp;
-    ULONG ProcessID; // ID of Process this module is loaded into
+    process_id_t ProcessID; // ID of Process this module is loaded into
 } module_info_t;
 
 
@@ -113,7 +113,7 @@ typedef BOOL (*dllwalk_callback)(module_info_t *mi, void **param);
 
 
 DWORD
-dll_walk_proc(int ProcessID, dllwalk_callback dwcb, void **param);
+dll_walk_proc(process_id_t ProcessID, dllwalk_callback dwcb, void **param);
 
 DWORD
 dll_walk_all(dllwalk_callback dwcb, void **param);
@@ -122,14 +122,14 @@ DWORD
 process_walk(processwalk_callback pwcb, void **param);
 
 DWORD
-get_process_name_and_cmdline(int pid, WCHAR *name_buf, int name_len, 
+get_process_name_and_cmdline(process_id_t pid, WCHAR *name_buf, int name_len, 
                              WCHAR *cmdline_buf, int cmdline_len);
 
 DWORD
-get_process_name(int pid, WCHAR *buf, int len);
+get_process_name(process_id_t pid, WCHAR *buf, int len);
 
 DWORD
-get_process_cmdline(int pid, WCHAR *buf, int len);
+get_process_cmdline(process_id_t pid, WCHAR *buf, int len);
 
 
 
@@ -138,7 +138,7 @@ get_process_cmdline(int pid, WCHAR *buf, int len);
  */ 
 
 DWORD
-terminate_process(int pid);
+terminate_process(process_id_t pid);
 
 DWORD
 terminate_process_by_exe(WCHAR *exename);
@@ -150,10 +150,10 @@ terminate_process_by_exe(WCHAR *exename);
  */ 
 
 int
-under_dynamorio(int ProcessID);
+under_dynamorio(process_id_t ProcessID);
 
 int
-under_dynamorio_ex(int ProcessID, DWORD *build_num);
+under_dynamorio_ex(process_id_t ProcessID, DWORD *build_num);
 
 /* pending_restart is required OUT parameter.
  * status is optional OUT parameter -- if not NULL, will have the status
@@ -163,7 +163,7 @@ under_dynamorio_ex(int ProcessID, DWORD *build_num);
  * for internal convenience, may pass NULL for config, in which case
  *  status is the only well-defined output parameter. */
 DWORD
-check_status_and_pending_restart(ConfigGroup *config, int pid, 
+check_status_and_pending_restart(ConfigGroup *config, process_id_t pid, 
                                  BOOL *pending_restart, 
                                  int *status, ConfigGroup **process_cfg);
 
@@ -174,14 +174,14 @@ is_anything_pending_restart(ConfigGroup *c, BOOL *pending_restart);
 /* hotpatch status: the returned pointer must be freed with 
  *  free_hotp_status_table below. */
 DWORD
-get_hotp_status(int pid, hotp_policy_status_table_t **hotp_status);
+get_hotp_status(process_id_t pid, hotp_policy_status_table_t **hotp_status);
 
 /* if a hotp_status table was requested, it must be freed. */
 void
 free_hotp_status_table(hotp_policy_status_table_t *hotp_status);
 
 dr_statistics_t *
-get_dynamorio_stats(int pid);
+get_dynamorio_stats(process_id_t pid);
 
 void
 free_dynamorio_stats(dr_statistics_t *stats);
@@ -200,7 +200,7 @@ free_dynamorio_stats(dr_statistics_t *stats);
  * value out via the exit code). inject_dll provides no way to pass arguments 
  * in to the dll. */
 DWORD
-inject_dll(int pid, const WCHAR *dll_name, BOOL allow_upgraded_perms, 
+inject_dll(process_id_t pid, const WCHAR *dll_name, BOOL allow_upgraded_perms, 
            DWORD timeout_ms, PHANDLE loading_thread);
 /* pending_restart is required OUT parameter */
 DWORD
@@ -208,7 +208,7 @@ detach_all_not_in_config_group(ConfigGroup *c, DWORD timeout_ms);
 
 /* generic nudge DR, action mask determines which actions will be executed */
 DWORD
-generic_nudge(int pid, BOOL allow_upgraded_perms, DWORD action_mask, 
+generic_nudge(process_id_t pid, BOOL allow_upgraded_perms, DWORD action_mask, 
               client_id_t id /* optional */, uint64 client_arg /* optional */,
               DWORD timeout_ms);
 

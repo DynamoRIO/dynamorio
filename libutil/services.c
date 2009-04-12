@@ -260,7 +260,7 @@ add_dependent_service(ServiceHandle service, ServiceHandle requiredService)
     WCHAR *nextdep = NULL;
     QUERY_SERVICE_CONFIG *scfg;
     BYTE buffer[SVC_BUFSZ];
-    DWORD size;
+    SIZE_T size;
     SC_HANDLE hsvc = OpenService(scmdb,
                                  services[service].service_name,
                                  SERVICE_QUERY_CONFIG|SERVICE_CHANGE_CONFIG);

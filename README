@@ -63,9 +63,9 @@ On Windows, with examples run from a cygwin shell:
 
 First, set parameters for the target application:
 32-bit:
-  % bin32/drdeploy.exe -32 -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./samples/bin32/bbsize.dll` 0x1 ""
+  % bin32/drdeploy.exe -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./samples/bin32/bbsize.dll` 0x1 ""
 64-bit:
-  % bin32/drdeploy.exe -64 -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./samples/bin64/bbsize.dll` 0x1 ""
+  % bin64/drdeploy.exe -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./samples/bin64/bbsize.dll` 0x1 ""
 
 Second, run the application, either natively:
   % cmd /c start calc

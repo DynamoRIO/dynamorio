@@ -70,7 +70,7 @@ usage()
 #ifdef EXTERNAL_DRVIEW
     fprintf(stderr, "drview [-help] [-pid n] [-exe name] [-listdr] [-listall] [-v]\n");
 #else
-    fprintf(stderr, "DRview [-help] [-pid n] [-exe name] [-listdr] [-listall] [-listdlls] [-showdlls] [-nopid] [-out file] [-cmdline] [-showmem] [-showtime] [-nobuildnum] [-qname strip] [-noqnames] [-hot_patch] [-s n] [-tillidle] [-idlecpu c] [-showmemfreq f] [-idleafter s] [-v]\n");
+    fprintf(stderr, "DRview [-help] [-pid n] [-exe name] [-listdr] [-listall] [-listdlls] [-showdlls] [-nopid] [-no32] [-out file] [-cmdline] [-showmem] [-showtime] [-nobuildnum] [-qname strip] [-noqnames] [-hot_patch] [-s n] [-tillidle] [-idlecpu c] [-showmemfreq f] [-idleafter s] [-v]\n");
 #endif
     exit(1);
 }
@@ -88,6 +88,9 @@ help()
     fprintf(stderr, " -listdlls\t\tlist all DLLs [short] for a specific pid or executable\n");
     fprintf(stderr, " -showdlls\t\tlist all DLLs [long] for a specific pid or executable\n");
     fprintf(stderr, " -nopid\t\t\tdoes not display PIDs of processes (useful for expect files)\n");
+# ifdef X64
+    fprintf(stderr, " -no32\t\t\tdoes not display whether 32-bit\n");
+# endif
     fprintf(stderr, " -onlypid\t\tonly shows PID\n");
     fprintf(stderr, " -out file\t\toutput to file instead of stdout\n");
     fprintf(stderr, " -cmdline\t\tshow process command lines\n");
@@ -112,7 +115,7 @@ help()
     exit(1);
 }
 
-BOOL listdr=FALSE, listall=FALSE, nopid=FALSE, onlypid=FALSE,
+BOOL listdr=FALSE, listall=FALSE, nopid=FALSE, no32=FALSE, onlypid=FALSE,
      listdlls=FALSE, showdlls=FALSE,
      qname=FALSE, strip=FALSE, noqnames=FALSE;
      cmdline=FALSE,
@@ -130,7 +133,7 @@ uint idlecpu=0;
 uint showmemfreq=1;
 uint flag_after_ms=0;
 char *exe=NULL, *outf=NULL;
-uint save_pid = 0;
+process_id_t save_pid = 0;
 WCHAR save_module[MAX_PATH];
 WCHAR wexe[MAX_PATH];
 FILE *fp;
@@ -297,6 +300,9 @@ main(int argc, char **argv)
         }
         else if (!strcmp(argv[argidx], "-nopid")) {
             nopid=TRUE;
+        }
+        else if (!strcmp(argv[argidx], "-no32")) {
+            no32=TRUE;
         }
         else if (!strcmp(argv[argidx], "-onlypid")) {
             onlypid=TRUE;
@@ -545,9 +551,9 @@ pw_callback(process_info_t *pi, void **param)
             if (!listdr || under_dr) {
                 if (!nopid && !showmem) {
                     if (onlypid)
-                        fprintf(fp, "%d\n", pi->ProcessID);
+                        fprintf(fp, "%d\n", (DWORD) pi->ProcessID);
                     else
-                        fprintf(fp, "PID %d, ", pi->ProcessID);
+                        fprintf(fp, "PID %d, ", (DWORD) pi->ProcessID);
                 }
                 if (!showmem && !onlypid) {
                     WCHAR qual_name[MAX_CMDLINE];
@@ -557,14 +563,20 @@ pw_callback(process_info_t *pi, void **param)
                                               BUFFER_SIZE_ELEMENTS(qual_name));
                         name_to_use = qual_name;
                     }
-                    if (version == -1 || !showbuild) {
-                        fprintf(fp, "Process %S, running %s\n",
-                                name_to_use, resstr);
+                    fprintf(fp, "Process %S, ", name_to_use);
+#ifdef X64
+                    if (!no32) {
+                        HANDLE hproc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, 
+                                                   (DWORD) pi->ProcessID);
+                        if (is_wow64(hproc))
+                            fprintf(fp, "32-bit, ");
+                        CloseHandle(hproc);
                     }
-                    else {
-                        fprintf(fp, "Process %S, running %s (build %d)\n",
-                                name_to_use, resstr, version);
-                    }
+#endif
+                    if (version == -1 || !showbuild)
+                        fprintf(fp, "running %s\n", resstr);
+                    else
+                        fprintf(fp, "running %s (build %d)\n", resstr, version);
                 }
                 if (cmdline) {
                     res = get_process_cmdline(pi->ProcessID, buf,

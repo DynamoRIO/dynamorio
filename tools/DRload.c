@@ -303,7 +303,7 @@ main(int argc, char *argv[])
         getchar();
     }
     if (debugbreak) {
-        __asm _emit 0xcc;
+        __debugbreak();
     }
     if (infinite) {
         while (1)

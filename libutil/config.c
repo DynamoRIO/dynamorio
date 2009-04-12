@@ -437,7 +437,7 @@ custom_hotp_modes_read_handler(ConfigGroup *config,
     WCHAR parambuf[MAX_PATH];
     WCHAR valbuf[MAX_PATH];
     DWORD res;
-    unsigned int needed = 0;
+    SIZE_T needed = 0;
     BOOL done = FALSE;
     char *modes_line;
     ConfigGroup *hotp_config;
@@ -938,7 +938,7 @@ write_reg_string(HKEY subkey, const WCHAR *keyname, const WCHAR *value)
 {
     if (value)
         return RegSetValueEx(subkey, keyname, 0, REG_SZ, (LPBYTE) value,
-                             (wcslen(value)+1)*sizeof(WCHAR));
+                             (DWORD)(wcslen(value)+1)*sizeof(WCHAR));
     else 
         return RegDeleteValue(subkey, keyname);
 }
@@ -959,7 +959,7 @@ get_qualified_config_group(ConfigGroup *config,
     _snwprintf(qname, MAX_PATH, L"%s-", exename);
     if (get_commandline_qualifier(cmdline, 
                                   qname + wcslen(qname), 
-                                  MAX_PATH - wcslen(qname), FALSE)) {
+                                  (UINT)(MAX_PATH - wcslen(qname)), FALSE)) {
         c = get_child(qname, config);
         if (NULL != c)
             return c;
@@ -968,7 +968,7 @@ get_qualified_config_group(ConfigGroup *config,
     _snwprintf(qname, MAX_PATH, L"%s-", exename);
     if (get_commandline_qualifier(cmdline,
                                   qname + wcslen(qname), 
-                                  MAX_PATH - wcslen(qname), TRUE)) {
+                                  (UINT)(MAX_PATH - wcslen(qname)), TRUE)) {
         c = get_child(qname, config);
         if (NULL != c)
             return c;
@@ -992,7 +992,7 @@ is_parent_of_qualified_config_group(ConfigGroup *config)
 }
 
 ConfigGroup *
-get_process_config_group(ConfigGroup *config, int pid)
+get_process_config_group(ConfigGroup *config, process_id_t pid)
 {
     WCHAR buf[MAX_PATH];
     DWORD res;
@@ -1080,7 +1080,7 @@ add_to_file_list(WCHAR *list, const WCHAR *filename,
                  BOOL overwrite_existing, WCHAR separator)
 {
     WCHAR *new_list;
-    UINT new_list_size;
+    SIZE_T new_list_size;
 
     if (NULL == list || 0 == wcslen(list))
         return wcsdup(filename);
@@ -1112,7 +1112,7 @@ add_to_file_list(WCHAR *list, const WCHAR *filename,
 
 /* provide these helpers to avoid multiple libc problems */
 WCHAR *
-new_file_list(UINT initial_chars)
+new_file_list(SIZE_T initial_chars)
 {
     WCHAR *list = (WCHAR *)malloc(sizeof(WCHAR) * (1+initial_chars));
     *list = L'\0';
@@ -1225,7 +1225,7 @@ set_autoinjection_ex(BOOL inject, DWORD flags,
                      const WCHAR *blacklist, const WCHAR *whitelist,
                      /* OUT */ DWORD *list_error, 
                      const WCHAR *custom_preinject_name,
-                     /* OUT */ WCHAR *current_list, UINT maxchars)
+                     /* OUT */ WCHAR *current_list, SIZE_T maxchars)
 {
     WCHAR curlist[MAX_PARAM_LEN];
     WCHAR preinject_name[MAX_PATH];
@@ -1599,7 +1599,7 @@ create_eventlog(const WCHAR *dll_path)
      * to be expanded */
     res = RegSetValueEx(eventlog_key, L_EVENT_FILE_VALUE_NAME, 0,
                         REG_EXPAND_SZ, (LPBYTE) wvalue, 
-                        (wcslen(wvalue)+1)*sizeof(WCHAR));
+                        (DWORD)(wcslen(wvalue)+1)*sizeof(WCHAR));
     if (res != ERROR_SUCCESS)
         return res;
 
@@ -1633,12 +1633,14 @@ create_eventlog(const WCHAR *dll_path)
         return res;
 
     res = RegSetValueEx(eventsrc_key, L_EVENT_CATEGORY_FILE_NAME, 0, REG_SZ,
-                        (LPBYTE) dll_path, (wcslen(dll_path)+1)*sizeof(WCHAR));
+                        (LPBYTE) dll_path,
+                        (DWORD)(wcslen(dll_path)+1)*sizeof(WCHAR));
     if (res != ERROR_SUCCESS)
         return res;
 
     res = RegSetValueEx(eventsrc_key, L_EVENT_MESSAGE_FILE, 0, REG_SZ,
-                        (LPBYTE) dll_path, (wcslen(dll_path)+1)*sizeof(WCHAR));
+                        (LPBYTE) dll_path,
+                        (DWORD)(wcslen(dll_path)+1)*sizeof(WCHAR));
     if (res != ERROR_SUCCESS)
         return res;
 
