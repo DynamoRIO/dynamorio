@@ -91,7 +91,7 @@ main(int argc)
         print("at base, no ASLR\n");
     else {
         print("targeting original base\n");
-        go_where = (fiptr) ((char*)go_where + (base - hmod));
+        go_where = (fiptr) ((char*)go_where + (base - (char *)hmod));
     }
 
     /* in wrong address space, but a good entry!  

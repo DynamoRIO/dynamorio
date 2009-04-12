@@ -32,6 +32,7 @@
 
 /* This is adapted from MSDN help on 'longjmp' */
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #include <stdio.h>
 #include <signal.h>
 #include <setjmp.h>
@@ -75,7 +76,9 @@ int main()
     /* Set up floating-point error handler. The compiler
      * will generate a warning because it expects
      * signal-handling functions to take only one argument.
+     * 'void (__cdecl *)(int,int)' differs in parameter lists from 'void (__cdecl *)(int)'
      */
+#pragma warning(disable:4113)
     if (signal(SIGFPE, fphandler) == SIG_ERR) {
 	fprintf(stderr, "Couldn't set SIGFPE\n");
 	abort();   

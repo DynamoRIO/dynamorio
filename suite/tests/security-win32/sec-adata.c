@@ -69,7 +69,6 @@ get_buf_target(byte *func)
 
 int main()
 {
-    HMODULE lib;
     byte *code;
     byte *adata_buf = (byte *)expendable_function;
     byte *acode_buf = (byte *)expendable_function2;

@@ -76,6 +76,7 @@ ThreadProc1(LPVOID param)
     }
     printf("exiting thread...");
     fflush(stdout);
+    return 0;
 }
 
 DWORD WINAPI
@@ -84,6 +85,7 @@ ThreadProc2(LPVOID param)
     SuspendThread(GetCurrentThread());
     printf("resumed,exiting\n");
     fflush(stdout);
+    return 0;
 }
 
 #define CHECK_SUSPEND_COUNT(val, expect) do {                                    \

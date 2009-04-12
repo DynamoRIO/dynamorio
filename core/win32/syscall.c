@@ -2419,8 +2419,8 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
              * though we expect it to be unusual in normal applications. Same thing with
              * detach_test.exe and threadinjection.exe. */
             ASSERT_CURIOSITY_ONCE((thread_lookup(tid) != NULL || /* thread known */
-                                   EXEMPT_TEST("suspend.exe;detach_test.exe;"
-                                               "threadinjection.exe")) &&
+                                   EXEMPT_TEST("win32.suspend.exe;runall.detach_test.exe;"
+                                               "win32.threadinjection.exe")) &&
                                   "app suspending unknown thread");
             if (DYNAMO_OPTION(suspend_on_synch_failure_for_app_suspend)) {
                 /* thread may already be exited in which case this will fail */

@@ -68,7 +68,6 @@ sort()
 {
     int argc = 5;
     char *argv[] = {"one", "two", "three","five", "six", "unsorted"};
-    int i;
 
    /* Sort remaining args using Quicksort algorithm: */
    qsort( (void *)argv, (size_t)argc, sizeof( char * ), compare );
@@ -101,7 +100,6 @@ int
 main()
 {
     void *p;
-    BOOL res;
     int reserved = 0;
     int commit = 0;
     int t;
@@ -129,7 +127,7 @@ main()
 
 
     for (t = 0; t < THREADS; t++) {
-        resume_thread(thread[t]);
+        resume_thread((thread_handle)thread[t]);
     }
     VERBOSE_PRINT("resumed %d\n", THREADS);
 

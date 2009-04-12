@@ -88,11 +88,8 @@ foo(int n) {                    /* CFI */
         push ecx
 #ifdef PLAIN_CALL
         call bar
-ac1:
         call bar
-ac2:
         call bar
-ac3:
 #else  /* CALL=PUSH/JMP */
         push offset ac1
         jmp bar
@@ -133,11 +130,8 @@ foo_second(int n) {
         push ecx
 #ifdef PLAIN_CALL
         call bar
-ac1:
         call bar
-ac2:
         call bar
-ac3:
 #else  /* CALL=PUSH/JMP */
         push offset ac1
         jmp bar
@@ -174,7 +168,6 @@ foo_with_extras(int n) {
         call bar
         call bar
         call bar
-ac:
         pop ecx
         jmp done
 
@@ -203,7 +196,6 @@ foo_first(int n) {
         call bar
         call bar
         call bar
-ac:
         pop ecx
         jmp done
 

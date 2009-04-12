@@ -50,7 +50,7 @@ get_module_preferred_base(void* module_base)
     IMAGE_NT_HEADERS *nt;
     dos = (IMAGE_DOS_HEADER *) module_base;
     nt = (IMAGE_NT_HEADERS *) (((ptr_uint_t)dos) + dos->e_lfanew);
-    return nt->OptionalHeader.ImageBase;
+    return (void *) nt->OptionalHeader.ImageBase;
 }
 
 int num_checks = 0;

@@ -33,6 +33,8 @@
 #ifndef ASM_CODE_ONLY /* C code */
 #include <stdio.h>
 
+void marker(void); /* in asm code */
+
 int test = 1;
 
 int main()

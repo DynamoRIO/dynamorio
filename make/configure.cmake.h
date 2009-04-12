@@ -287,7 +287,6 @@
 #endif
 
 #ifndef INTERNAL
-#  define EXTERNAL_INJECTOR
 #  define EXTERNAL_DRVIEW
 #endif
 

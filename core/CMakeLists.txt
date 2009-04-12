@@ -150,7 +150,11 @@ else (UNIX)
     x86/x86.asm
     win32/resources.rc
     )
+  # we have two drinject versions: a simpler external version that
+  # relies on drdeploy having already configured the target app, and
+  # a more complex version (drinjectx) that is independent of drdeploy.
   add_executable(drinject ${INJECTOR_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
+  add_executable(drinjectx ${INJECTOR_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
 
   add_library(drearlyhelp1 SHARED 
     win32/early_inject_helper1.c
@@ -378,6 +382,8 @@ else (UNIX)
   set_target_properties(drinject PROPERTIES
     # COMPILE_DEFINITONS isn't working for me: cmake bug?
     # Set define parameters for resources.rc
+    COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_DRINJECT -DEXTERNAL_INJECTOR")
+  set_target_properties(drinjectx PROPERTIES
     COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_DRINJECT")
   # I'm adding libcmt to attempt to make sure we have multithreaded C lib:
   if (DEBUG)
@@ -389,8 +395,9 @@ else (UNIX)
     # not bothering with map files
     "${LD_FLAGS} /incremental:no /subsystem:console /NODEFAULTLIB")
   set_target_properties(drinject PROPERTIES LINK_FLAGS "${drinject_link_flags}")
-  target_link_libraries(drinject
-    ${WIN32_C_LIB} ntdll kernel32 advapi32 imagehlp)
+  set_target_properties(drinjectx PROPERTIES LINK_FLAGS "${drinject_link_flags}")
+  target_link_libraries(drinject ${WIN32_C_LIB} ntdll kernel32 advapi32 imagehlp)
+  target_link_libraries(drinjectx ${WIN32_C_LIB} ntdll kernel32 advapi32 imagehlp)
 
 
   set_target_properties(${PRELOAD_NAME} PROPERTIES
@@ -458,6 +465,8 @@ if (UNIX)
   install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
 else (UNIX)
   install(TARGETS drinject DESTINATION ${INSTALL_BIN})
+  # we install drinjectx for developer use; should we document it?
+  install(TARGETS drinjectx DESTINATION ${INSTALL_BIN})
   install(TARGETS ${PRELOAD_NAME} RUNTIME DESTINATION ${INSTALL_LIB_BASE})
   install(TARGETS drearlyhelp1 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
   install(TARGETS drearlyhelp2 RUNTIME DESTINATION ${INSTALL_LIB_BASE})

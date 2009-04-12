@@ -37,6 +37,7 @@
 
 #ifdef WINDOWS
 # include <windows.h>
+# include <stdio.h>
 #else
 # include <stdlib.h>
 # include <stdio.h>

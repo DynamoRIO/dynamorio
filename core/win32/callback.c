@@ -2653,7 +2653,7 @@ intercept_new_thread(CONTEXT *cxt)
                          is_nudge_thread || thunk_xip == RtlUserThreadStart ||
                          /* The security_win32/execept-execution.exe regr test does a
                           * raw create thread using the old NtCreateThread syscall. */
-                         check_filter("except-execution.exe",
+                         check_filter("security-win32.except-execution.exe",
                                       get_short_name(get_application_name())));
         /* check for hooker's shellcode delivered via a remote thread */
         if (TEST(OPTION_ENABLED, DYNAMO_OPTION(thread_policy))) {
@@ -4555,12 +4555,11 @@ intercept_exception(app_state_at_intercept_t *state)
          * judging by the need for the filter, doesn't even look like it needs
          * to be native. */
         ASSERT_CURIOSITY(pExcptRec->ExceptionCode != STATUS_ILLEGAL_INSTRUCTION ||
-                         check_filter("decode-prefixes.exe;decode-bad.exe;"
-                                      "decode-bad-stack.exe;decode.exe;"
-                                      "decode-stress.exe",
+                         check_filter("common.decode-bad.exe;common.decode.exe;"
+                                      "security-common.decode-bad-stack.exe;",
                                       get_short_name(get_application_name())));
         ASSERT_CURIOSITY(pExcptRec->ExceptionCode != STATUS_PRIVILEGED_INSTRUCTION
-                         || check_filter("decode-priv.exe;decode-bad.exe", 
+                         || check_filter("common.decode.exe;common.decode-bad.exe", 
                                          get_short_name(get_application_name())));
 
         /* if !takeover, the thread could be native and not in fcache */

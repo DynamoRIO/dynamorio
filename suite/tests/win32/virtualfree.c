@@ -32,6 +32,7 @@
 
 #include <windows.h>
 #include <assert.h>
+#include <stdio.h>
 
 #if USE_DYNAMO
 #include "dynamorio.h"

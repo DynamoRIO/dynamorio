@@ -1644,7 +1644,7 @@ get_dll_short_name(app_pc base_addr)
         /* sanity check whether really MEM_IMAGE, but too late */
         if (!is_string_readable_without_exception(dll_name, NULL)) {
             ASSERT_CURIOSITY(false && "Exports name not readable, partial map?" ||
-                             EXEMPT_TEST("partial_map.exe"));
+                             EXEMPT_TEST("win32.partial_map.exe"));
             dll_name = NULL;
         }
         LOG(THREAD_GET, LOG_SYMBOLS, 3, 
@@ -1766,7 +1766,7 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
                      names->rsrc_name != NULL || names->file_name != NULL ||
                      !at_map ||
                      /* PR 229284: a partial map can cause this */
-                     check_filter("partial_map.exe",
+                     check_filter("win32.partial_map.exe",
                                   get_short_name(get_application_name())));
 }
 
@@ -1979,7 +1979,7 @@ get_module_base_reloc(app_pc module_base, size_t *base_reloc_size /* OPTIONAL OU
         return base_reloc;
     } else {
         ASSERT_CURIOSITY(false && "bad base relocation" ||
-                         EXEMPT_TEST("partial_map.exe")); /* expected for partial map */
+                         EXEMPT_TEST("win32.partial_map.exe"));/*expected for partial map*/
     }
 
     return NULL;
@@ -2680,7 +2680,7 @@ rct_add_exports(dcontext_t *dcontext, app_pc module_base, size_t module_size)
                  * to code sections only
                  */
                 ASSERT(func >= module_base && func < (module_base + module_size) ||
-                       EXEMPT_TEST("partial_map.exe"));
+                       EXEMPT_TEST("win32.partial_map.exe"));
                 /* FIXME: note that we may add not only functions but
                  * export data as well! 
                  * FIXME: currently we leave on code origins to cover this up,
@@ -3131,7 +3131,7 @@ add_rct_module(dcontext_t *dcontext,
                 }
                 ASSERT_CURIOSITY(target_module_name != NULL ||
                                  /* for partial map, entry point may not be mapped in */
-                                 EXEMPT_TEST("partial_map.exe"));
+                                 EXEMPT_TEST("win32.partial_map.exe"));
 
                 /* case 5776 see if it was rerouted outside of the module, e.g. in .NET */
                 /* FIXME: we still can't tell whether it was modified */
@@ -3143,7 +3143,7 @@ add_rct_module(dcontext_t *dcontext,
 
                 if ((target_module_name == NULL ||
                      !check_filter("mscoree.dll", target_module_name)) &&
-                    !check_filter("partial_map.exe",
+                    !check_filter("win32.partial_map.exe",
                                   get_short_name(get_application_name()))) {
                     SYSLOG_INTERNAL_WARNING("entry point outside of module: %s "
                                             PFX"-"PFX", entry point="PFX" %s\n",
@@ -3154,7 +3154,7 @@ add_rct_module(dcontext_t *dcontext,
                     /* Quiet for partial_map test case (where isn't actually modified,
                      * just not mapped in). */
                     ASSERT_CURIOSITY(false && "modified entry point" ||
-                                     EXEMPT_TEST("partial_map.exe"));
+                                     EXEMPT_TEST("win32.partial_map.exe"));
                 }
                 if (target_module_name != NULL)
                     dr_strfree(target_module_name HEAPACCT(ACCT_VMAREAS));
@@ -3393,7 +3393,7 @@ rct_process_module_mmap(app_pc module_base, size_t module_size,
                 /* Quiet assert for partial map test case where we are tricked above
                  * into thinking the entry point has been modified (it just hasn't been
                  * mapped in). */
-                ASSERT_CURIOSITY(!use_ldr || EXEMPT_TEST("partial_map.exe"));
+                ASSERT_CURIOSITY(!use_ldr || EXEMPT_TEST("win32.partial_map.exe"));
                 ASSERT(get_thread_private_dcontext() != NULL);
                 /* newly loaded module - we should add the PE entry point now */
             }
@@ -3701,7 +3701,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
      * the full image.  Shouldn't be a problem here, but is a problem for other
      * core components (reloc walking etc.). */
     ASSERT_CURIOSITY(ALIGN_FORWARD(pe_size, PAGE_SIZE) == view_size ||
-                     EXEMPT_TEST("partial_map.exe"));
+                     EXEMPT_TEST("win32.partial_map.exe"));
     
     ASSERT(preferred_base != NULL);
     ma->os_data.preferred_base = preferred_base;
@@ -5439,7 +5439,7 @@ get_module_resource_directory(app_pc mod_base, size_t *rsrc_size /* OUT */)
         } else {
             ASSERT_CURIOSITY(false && "resource directory not readable" ||
                              /* for partial map, .rsrc dir was't mapped in */
-                             EXEMPT_TEST("partial_map.exe"));
+                             EXEMPT_TEST("win32.partial_map.exe"));
         }
     } else {
         ASSERT_CURIOSITY(resource_dir->VirtualAddress == 0 &&

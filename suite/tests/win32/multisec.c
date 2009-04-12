@@ -36,12 +36,14 @@
 
 #define VERBOSE 0
 
+typedef void (*funcptr)();
+
 #pragma code_seg(".mycode1")
 void func2() { 
     print("func2\n");
 }
 
-fptr f2 = &func2;
+funcptr f2 = &func2;
 
 #pragma code_seg(".my_code2")   /* 2 will be truncated - up to 8 char limit */
 void func3() { 
@@ -59,8 +61,8 @@ void func4() {
 }
 #pragma code_seg()                /* back in .text */
 
-const fptr cf = &func3;
-fptr f = &func2;
+const funcptr cf = &func3;
+funcptr f = &func2;
 
 HMODULE
 myload(char* lib) 
@@ -69,8 +71,6 @@ myload(char* lib)
     if (hm == NULL) {
         print("error loading library %s\n", lib);
     } else {
-        BOOL res;
-        BOOL (WINAPI *proc)(DWORD);
         print("loaded %s\n", lib);
 #if VERBOSE
         print("library is at "PFX"\n", hm);

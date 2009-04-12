@@ -59,7 +59,7 @@ ThreadProc1(LPVOID parm)
     print("exiting thread\n");
 }
 
-static int 
+int 
 main(void) 
 {
     HANDLE ht;

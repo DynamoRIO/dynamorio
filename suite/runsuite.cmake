@@ -262,6 +262,16 @@ foreach (xml ${all_xml})
       string(REGEX MATCHALL "Status=\"failed\"" test_errors "${string}")
       if (test_errors)
         list(LENGTH test_errors num_errors)
+
+        # sanity check
+        file(GLOB lastfailed build_${build}/Testing/Temporary/LastTestsFailed*.log)
+        file(READ ${lastfailed} faillist)
+        string(REGEX MATCHALL "\n" faillines "${faillist}")
+        list(LENGTH faillines failcount)
+        if (NOT failcount EQUAL num_errors)
+          message("WARNING: ${num_errors} errors != ${lastfailed} => ${failcount}")
+        endif (NOT failcount EQUAL num_errors)
+
         file(APPEND ${outf}
           "${build}: ${num_passed} tests passed, **** ${num_errors} tests failed: ****\n")
         # avoid ; messing up interp as list

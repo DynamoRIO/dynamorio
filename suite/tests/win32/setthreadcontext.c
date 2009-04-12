@@ -90,10 +90,10 @@ setregproc(LPVOID parm)
     }
 
     print("ecx was set, exiting\n");
-    return;
+    return 0;
 }
 
-static int 
+int 
 main(void) 
 {
     HANDLE ht;

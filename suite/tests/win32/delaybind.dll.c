@@ -146,7 +146,7 @@ test_sid(void)
                                    0, 0, 0, 0, 0, 0,
                                    &psid) ) {
         print( "AllocateAndInitializeSid Error %u\n", GetLastError() );
-        return FALSE;
+        return;
     }
 
     ok = GetTextualSid(psid, buf, &size);

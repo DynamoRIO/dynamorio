@@ -56,7 +56,7 @@
 #pragma comment(lib, "delayimp")
 /* using the standard implementation of delay loading in delayimp.lib */
 
-#pragma comment(lib, "delaybind.dll.lib")
+#pragma comment(lib, "win32.delaybind.dll.lib")
 
 /* note that in later Visual Studio __FUnloadDelayLoadedDLL has
  * been renamed to __FUnloadDelayLoadedDLL2 since they had to
@@ -64,6 +64,9 @@
  * pointers.
  */
 #define UNLOAD __FUnloadDelayLoadedDLL2
+
+int __declspec(dllimport)
+make_a_lib(int arg);
 
 int
 myloader(void)
@@ -85,7 +88,6 @@ myloader(void)
 
 int main()
 {
-    HMODULE lib;
     print("starting delaybind\n");
 
     myloader();

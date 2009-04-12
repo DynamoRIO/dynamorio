@@ -40,7 +40,7 @@
 #include "tools.h"
 #include <windows.h>
 
-typedef void (*fptr)();
+typedef void (*funcptr)();
 
 void
 foo() 
@@ -66,7 +66,7 @@ void func2() {
 }
 
 #pragma data_seg(".data2")
-fptr f2 = &func2;
+funcptr f2 = &func2;
 
 #pragma data_seg()
 
@@ -86,11 +86,11 @@ void func4() {
 }
 #pragma code_seg()                /* back in .text */
 
-const fptr cf = &foo;
-fptr f = &foo;
+const funcptr cf = &foo;
+funcptr f = &foo;
 
 #pragma data_seg(".data1")
-fptr f4 = &func4;
+funcptr f4 = &func4;
 
 #pragma data_seg()
 

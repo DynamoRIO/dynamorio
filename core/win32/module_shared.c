@@ -207,7 +207,7 @@ get_module_exports_directory_common(app_pc base_addr,
                 return exports;
             } else {
                 ASSERT_CURIOSITY(false && "bad exports directory, partial map?" ||
-                                 EXEMPT_TEST("partial_map.exe"));
+                                 EXEMPT_TEST("win32.partial_map.exe"));
             }
         }
     } else 
@@ -238,7 +238,7 @@ get_module_exports_directory_check_common(app_pc base_addr,
                                                sizeof(*functions))) {
                 ASSERT_CURIOSITY(false &&  "ill-formed exports directory, unreadable "
                                  "functions array, partial map?" ||
-                                 EXEMPT_TEST("partial_map.exe"));
+                                 EXEMPT_TEST("win32.partial_map.exe"));
                 return NULL;
             }
         }
@@ -251,7 +251,7 @@ get_module_exports_directory_check_common(app_pc base_addr,
                                                sizeof(*fnames))) {
                 ASSERT_CURIOSITY(false &&  "ill-formed exports directory, unreadable "
                                  "ordinal or names array, partial map?" ||
-                                 EXEMPT_TEST("partial_map.exe"));
+                                 EXEMPT_TEST("win32.partial_map.exe"));
                 return NULL;
             }
         }
@@ -336,7 +336,7 @@ get_proc_address_common(module_handle_t lib, const char *name _IF_NOT_X64(bool l
         bool match = false;
         ASSERT_CURIOSITY((app_pc)export_name > module_base &&  /* sanity check */
                          (app_pc)export_name < module_base + module_size ||
-                         EXEMPT_TEST("partial_map.exe"));
+                         EXEMPT_TEST("win32.partial_map.exe"));
         /* FIXME - xref case 9717, we haven't verified that export_name string is
          * safely readable (might not be the case for improperly formed or partially
          * mapped module) and the try will only protect us if we have a thread_private
@@ -346,7 +346,7 @@ get_proc_address_common(module_handle_t lib, const char *name _IF_NOT_X64(bool l
             match = (strcasecmp(name, export_name) == 0);
         }, {
             ASSERT_CURIOSITY_ONCE(false && "Exception during get_proc_address" ||
-                                  EXEMPT_TEST("partial_map.exe"));
+                                  EXEMPT_TEST("win32.partial_map.exe"));
         });
         if (match) {
             /* we have a match */
@@ -375,7 +375,7 @@ get_proc_address_common(module_handle_t lib, const char *name _IF_NOT_X64(bool l
                  * to return. */
                 ASSERT_CURIOSITY(false && "get_proc_addr export location "
                                  "outside of module bounds" ||
-                                  EXEMPT_TEST("partial_map.exe"));
+                                  EXEMPT_TEST("win32.partial_map.exe"));
                 return NULL;
             }
 #endif

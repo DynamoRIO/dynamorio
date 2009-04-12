@@ -126,11 +126,11 @@ print_modules()
      * hide from walks like the above, check our dll address directly to see
      * if we are still on the module list */
     mbi.Type = MEM_IMAGE;
-    mbi.BaseAddress = 0x71000000; /* release */
-    mbi.AllocationBase = 0x71000000;
+    mbi.BaseAddress = (PVOID) 0x71000000; /* release */
+    mbi.AllocationBase = (PVOID) 0x71000000;
     num_found += check_mbi(&mbi);
-    mbi.BaseAddress = 0x15000000; /* debug */
-    mbi.AllocationBase = 0x15000000;
+    mbi.BaseAddress = (PVOID) 0x15000000; /* debug */
+    mbi.AllocationBase = (PVOID) 0x15000000;
     num_found += check_mbi(&mbi);
 
     print("Found %d of %d expected modules\n", num_found, num_modules);
@@ -146,7 +146,6 @@ print_modules()
 int main()
 {
     HANDLE lib;
-    int i;
 #ifdef USE_DYNAMO
     dynamorio_app_init();
     dynamorio_app_start();

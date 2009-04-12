@@ -83,7 +83,6 @@ wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 int WINAPI
 run_func(void * arg)
 {
-    EXCEPTION_RECORD exception;
     MSG msg;
     char *winName = "foobar";
     WNDCLASS wndclass = {0, wnd_callback, 0, 0, NULL/* WinMain hwnd would be here */,
@@ -144,7 +143,6 @@ main()
 {
     int tid;
     HANDLE hThread;
-    MSG msg;
     uint msgnum = 0;
 
 #ifdef USE_DYNAMO

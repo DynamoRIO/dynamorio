@@ -2380,7 +2380,7 @@ persist_modinfo_cmp(persisted_module_info_t *mi1, persisted_module_info_t *mi2)
                                                DYNAMO_OPTION(persist_load_validation)),
                                           TEST(PERSCACHE_MODULE_MD5_COMPLETE,
                                                DYNAMO_OPTION(persist_load_validation)))
-                     || check_filter("partial_map.exe",
+                     || check_filter("win32.partial_map.exe",
                                      get_short_name(get_application_name())));
     if (TESTALL(PERSCACHE_MODULE_MD5_SHORT|PERSCACHE_MODULE_MD5_COMPLETE,
                 DYNAMO_OPTION(persist_load_validation))) {

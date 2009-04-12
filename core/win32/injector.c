@@ -95,6 +95,7 @@ static BOOL use_environment = TRUE; /* FIXME : for now default to using
                                      * never use the environment if using
                                      * debug injection.  Revisit.
                                      */
+static const char *ops_param;
 static double wallclock; /* in seconds */
 
 /* FIXME : assert stuff, internal error, display_message duplicated from 
@@ -305,6 +306,13 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
         do_##name ? "set" : "not set", #name, name##_value));
 
     DO_ENV_VARS();
+
+    if (ops_param != NULL) {
+        /* -ops overrides env var */
+        strncpy(options_value, ops_param, BUFFER_SIZE_ELEMENTS(options_value));
+        NULL_TERMINATE_BUFFER(options_value);
+        do_options = TRUE;
+    }
 
     /* we always want to set the rununder to make sure RUNUNDER_ON is on
      * to support following children; we set RUNUNDER_EXPLICIT to allow
@@ -548,7 +556,8 @@ int usage(char *us)
             us);
 #else
     fprintf(FP, "Usage: %s [-s limit_sec | -m limit_min | -h limit_hr | -no_wait] [-stats]\n"
-            "      [-mem] [-no_env | -env]  [-force] -noinject|<dll_to_inject> <program> <args...>\n", us);
+            "      [-mem] [-no_env | -env] [-ops <options>] [-force]\n"
+            "      -noinject|<dll_to_inject> <program> <args...>\n", us);
 #endif
     return 0;
 }
@@ -650,6 +659,11 @@ main(int argc, char *argv[], char *envp[])
         } else if (strcmp(argv[arg_offs], "-env") == 0) {
             use_environment = TRUE;
             arg_offs += 1;
+        } else if (strcmp(argv[arg_offs], "-ops") == 0) {
+            if (argc <= arg_offs+1)
+                return usage(argv[0]);
+            ops_param = argv[arg_offs+1];
+            arg_offs += 2;
         }
 #endif /* ! EXTERNAL_INJECTOR */
         else {

@@ -103,6 +103,9 @@ else (UNIX)
     CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
   string(REGEX REPLACE "/RTC." ""
     CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
+  # Avoid bringing in libc and/or kernel32 for stack checks
+  set(CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}
+    "${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} /GS-")
   set(CLIENT_LINK_FLAGS "/nodefaultlib /noentry")
 endif (UNIX)
 set(CMAKE_SHARED_LINKER_FLAGS

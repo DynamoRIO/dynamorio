@@ -30,6 +30,8 @@
  * DAMAGE.
  */
 
+#include <stdio.h>
+
 __declspec(dllexport,noinline)
 void start_instrument()
 {}

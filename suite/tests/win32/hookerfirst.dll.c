@@ -44,8 +44,6 @@
 #include "tools.h"
 #include <windows.h>
 
-typedef void (*fptr)();
-
 #define NAKED __declspec( naked ) 
 
 /* FIXME: check for some unexpected behaviours with size = 5 and size = 0x1000, or even 0x2000 */
@@ -126,7 +124,7 @@ do_hook(const char* hookfn, int args, int use_call,
     }
 
     __try {
-        *hooktarget = 0xbaad;
+        *hooktarget = 0xba;
         print("bad: why is this writable?\n");
     }
     __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -178,7 +176,7 @@ do_hook(const char* hookfn, int args, int use_call,
     print("old permissions ...prev="PFMT")\n", prev);
 
     __try {
-        *hooktarget = 0xbaad;
+        *hooktarget = 0xba;
         print("bad: why is this writable?\n");
     }
     __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -247,7 +245,7 @@ do_unhook(const char* hookfn, int args, int use_call,
     print("old permissions ...prev="PFMT")\n", prev);
 
     __try {
-        *hooktarget = 0xbaad;
+        *hooktarget = 0xba;
         print("bad: why is this writable?\n");
     }
     __except (EXCEPTION_EXECUTE_HANDLER) {

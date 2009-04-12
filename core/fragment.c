@@ -4652,7 +4652,7 @@ rct_table_add(dcontext_t *dcontext, app_pc tag, rct_type_t which)
      * is also possible on a full mapping since we've seen entry points redirected
      * (and there's nothing requiring that they be re-directed to another dll or, if
      * at dr init, that we've already processed that target module, xref case 10693. */
-    ASSERT_CURIOSITY(permod != NULL || EXEMPT_TEST("partial_map.exe"));
+    ASSERT_CURIOSITY(permod != NULL || EXEMPT_TEST("win32.partial_map.exe"));
     if (permod == NULL || rct_table_lookup_internal(dcontext, tag, permod) != NULL) {
         os_get_module_info_unlock();
         return false;

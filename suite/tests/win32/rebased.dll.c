@@ -67,7 +67,7 @@
 #include "tools.h"
 #include <windows.h>
 
-typedef void (*fptr)();
+typedef void (*funcptr)();
 
 void
 foo() 
@@ -81,8 +81,8 @@ bar()
     print("bar\n");
 }
 
-const fptr cf = &foo;
-fptr f = &foo;
+const funcptr cf = &foo;
+funcptr f = &foo;
 
 void
 dlltest(void) 

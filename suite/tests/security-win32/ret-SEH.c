@@ -69,7 +69,7 @@ static scopetable_entry scopes[] = {
 #define NUM_SCOPE_ENTRIES (sizeof(scopes)/sizeof(scopetable_entry))
 
 static VC_EXCEPTION_REGISTRATION vcex = {
-    {NULL, NULL}, &scopes, 0, 0
+    {NULL, NULL}, (scopetable_entry *) &scopes, 0, 0
 };
 
 void
@@ -114,6 +114,9 @@ ret_SEH(int level)
         pop eax
     }
 }
+
+/* Disable "Inline asm assigning to 'FS:0' : handler not registered as safe handler" */
+#pragma warning(disable:4733)
 
 int
 main(int argc, char *argv[])

@@ -377,7 +377,6 @@ int main()
     int tid;
     HANDLE detach_thread;
     HANDLE my_thread;
-    HANDLE lib;
     byte *nudge_target;
     int i;
 

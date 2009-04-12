@@ -88,7 +88,6 @@ get_mem_usage()
 static void
 check_mem_usage(SIZE_T peakpage)
 {
-    VM_COUNTERS mem;
     SIZE_T newpeak = get_mem_usage();
 #if VERBOSE
     print("Pagefile usage increase is %d KB\n", (newpeak - peakpage) / 1024);
@@ -199,7 +198,7 @@ doload(int iter)
 int main(int argc, char** argv)
 {
     HANDLE event;
-    int i, res;
+    uint i, res;
     unsigned long hThread;
     uint iters = 0;
     int sum = 0;

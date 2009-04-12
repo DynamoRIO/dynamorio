@@ -31,13 +31,15 @@
  */
 
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #include "Windows.h"
+#include <stdio.h>
 
 #ifdef USE_DYNAMO
 #include "dynamorio.h"
 #endif
 
-static int 
+int 
 main(int argc, char **argv) 
 {
     STARTUPINFO si = { sizeof(STARTUPINFO) };

@@ -565,11 +565,11 @@ aslr_get_fitting_base(app_pc requested_base, size_t view_size)
             /* FIXME: case 6739 could try to wrap around (ONCE!) */
             ASSERT_CURIOSITY((ptr_uint_t)current_base <= DYNAMO_OPTION(aslr_dll_top) ||
                              /* case 9844: suppress for short regression for now */
-                             check_filter("reload-race.exe",
+                             check_filter("win32.reload-race.exe",
                                           get_short_name(get_application_name())));
             ASSERT_CURIOSITY(false && "exhausted DLL range" ||
                              /* case 9378: suppress for short regression for now */
-                             check_filter("reload-race.exe",
+                             check_filter("win32.reload-race.exe",
                                           get_short_name(get_application_name())));
             return NULL;
         }
@@ -644,7 +644,7 @@ aslr_update_failed(bool request_new,
             new_base = aslr_get_fitting_base(requested_base, needed_size);
             ASSERT_CURIOSITY(new_base != NULL ||
                              /* case 9894: suppress for short regression for now */
-                             check_filter("reload-race.exe",
+                             check_filter("win32.reload-race.exe",
                                           get_short_name(get_application_name())));
         } else {
             /* give up, something is not right, just reset */
@@ -670,7 +670,7 @@ aslr_update_view_size(app_pc view_base, size_t view_size)
     ASSERT_CURIOSITY_ONCE((ptr_uint_t)(view_base + view_size) <=
                           DYNAMO_OPTION(aslr_dll_top) ||
                           /* case 7059: suppress for short regr for now */
-                          EXEMPT_TEST("reload-race.exe"));
+                          EXEMPT_TEST("win32.reload-race.exe"));
 
     /* FIXME: if aslr_dll_top is not reachable should wrap around, or
      * know not to try anymore.  Currently we'll just keep trying to
@@ -1475,7 +1475,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                                                         size_needed);
                         ASSERT_CURIOSITY(retry_base != 0 ||
                                          /* case 9893: suppress for short regr for now */
-                                         check_filter("reload-race.exe",
+                                         check_filter("win32.reload-race.exe",
                                                 get_short_name(get_application_name())));
                     } else {
                         retry_base = NULL;
@@ -2017,7 +2017,7 @@ aslr_possible_preferred_address(app_pc target_addr)
         ASSERT(vmvector_lookup(aslr_wouldbe_areas, wouldbe_preferred_base)
                == wouldbe_module_current_base ||
                /* FIXME case 10727: if serious then let's fix this */
-               check_filter("reload-race.exe",
+               check_filter("win32.reload-race.exe",
                             get_short_name(get_application_name())));
         return target_addr - wouldbe_preferred_base 
             + wouldbe_module_current_base;
@@ -2320,7 +2320,7 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
             heap_pad_base, heap_pad_size, error_code, append_heap_pad_base);
 
         ASSERT_CURIOSITY(NT_SUCCESS(error_code) || 
-                         check_filter("oomtest.exe",
+                         check_filter("win32.oomtest.exe",
                                       get_short_name(get_application_name())));
         /* not critical functionality loss if we have failed to
          * reserve this memory, but shouldn't happen */

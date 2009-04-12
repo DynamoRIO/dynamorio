@@ -137,7 +137,7 @@ transferProc()
     ExitThread(0);
 }
 
-static int 
+int 
 main(void) 
 {
     HANDLE ht;

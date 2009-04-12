@@ -80,7 +80,7 @@ enum {ROUNDS = 10};
 enum {LOOP_WORK = 100};
 
 /* --------- */
-int thread[TOTAL_THREADS];
+thread_handle thread[TOTAL_THREADS];
 
 long global_started = 0;                   /* unsynchronized */
 long global_finished = 0;                   /* unsynchronized */
@@ -102,7 +102,6 @@ sort()
 {
     int argc = 5;
     char *argv[] = {"one", "two", "three","five", "six", "unsorted"};
-    int i;
 
    /* Sort remaining args using Quicksort algorithm: */
    qsort( (void *)argv, (size_t)argc, sizeof( char * ), compare );
@@ -152,9 +151,9 @@ main()
 
 
     /* this doesn't do much in fact */
-    SetProcessWorkingSetSize(GetCurrentProcess(),
-                             MINSIZE_KB*1024,
-                             MAXSIZE_KB*1024);
+    res = SetProcessWorkingSetSize(GetCurrentProcess(),
+                                   MINSIZE_KB*1024,
+                                   MAXSIZE_KB*1024);
     // on Win2003 there is a SetProcessWorkingSetSizeEx that sets QUOTA_LIMITS_HARDWS_ENABLE
 
 

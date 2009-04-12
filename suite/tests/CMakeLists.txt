@@ -53,12 +53,10 @@ set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 # FIXME: .runall support
 # FIXME: xref issue 20 where we build x64 and x86 to have both simultaneously
 #   for cross-arch execve.
-# FIXME: we need x86 drdeploy to run x64 Windows runall tests
 # FIXME: add command to run natively
-# FIXME: update TestSuite.wiki
 # FIXME: build latest cmake for "ctest -W 60" and "ctest -j"
-# FIXME: can we get .runall tests to run in parallel:
-#   rename calc.exe, use drkill instead of closewnd?
+# FIXME: i#111: get .runall tests to run in parallel
+# FIXME: i#119: add support for 64-bit nudges   	
 
 ###########################################################################
 # RUNTIME OPTIONS TO TEST
@@ -214,6 +212,15 @@ endif (LINKCOUNT AND TEST_SUITE)
 ###########################################################################
 # BUILDING
 
+if (WIN32)
+  find_program(BIND_EXECUTABLE bind.exe DOC "path to bind.exe")
+  if (BIND_EXECUTABLE-NOTFOUND OR NOT EXISTS "${BIND_EXECUTABLE}")
+    message(FATAL_ERROR "bind.exe not found: required to build Windows tests")
+  endif (BIND_EXECUTABLE-NOTFOUND OR NOT EXISTS "${BIND_EXECUTABLE}")
+  message(STATUS "Found bind.exe: ${BIND_EXECUTABLE}")
+  mark_as_advanced(BIND_EXECUTABLE)
+endif (WIN32)
+
 # put libs in same dir for tests that need to load them
 set(MAIN_EXECUTABLE_OUTPUT_PATH "${EXECUTABLE_OUTPUT_PATH}")
 set(MAIN_LIBRARY_OUTPUT_PATH "${LIBRARY_OUTPUT_PATH}")
@@ -251,7 +258,7 @@ endif (UNIX)
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
 set(ORIG_CMAKE_C_FLAGS
   "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${ARCH_CFLAGS}")
-set(ORIG_CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
+set(ORIG_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
 
 if (NOT DEFINED DynamoRIO_DIR)
   set(DynamoRIO_DIR "${PROJECT_SOURCE_DIR}/../cmake" CACHE PATH
@@ -299,6 +306,9 @@ else (UNIX)
   # all references to unsafe functions (e.g., fopen) and
   # remove /wd4996
   string(REGEX REPLACE "/W4" "/W3" ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
+  # Versions without debug, for over ssh
+  string(REGEX REPLACE "/Zi" "" ORIG_C_FLAGS_NODBG "${ORIG_CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "/debug" "" SHARED_LINKER_FLAGS_NODBG "${ORIG_SHARED_LINKER_FLAGS}")
 endif (UNIX)
 
 # since we're including configure.h we do not want any default defines
@@ -336,6 +346,15 @@ if (WIN32)
 endif (WIN32)
 
 function (set_cflags source)
+  if ("${source}" MATCHES "^security-win32/except-execution.c")
+    # PR 229292: we want over-ssh and local builds to match the template so
+    # we always build w/o pdbs.  We put this check here as it's simpler
+    # than passing args all the way through, and needing extra explicit
+    # sets for PARENT_SCOPE due to new helper routine layers.
+    set(cflags "${ORIG_C_FLAGS_NODBG}")
+  else ()
+    set(cflags "${ORIG_CMAKE_C_FLAGS}")
+  endif ()
   # We can't set the target properties COMPILE_FLAGS as that will
   # pass -g3 to cpp which ends up not expanding macros!
   # So we set properties on source files only.
@@ -347,10 +366,10 @@ function (set_cflags source)
       "${srccode}" MATCHES "configure\\.h")
     # getting defines from configure.h
     set_source_files_properties(${source} PROPERTIES
-      COMPILE_FLAGS "${ORIG_CMAKE_C_FLAGS}")
+      COMPILE_FLAGS "${cflags}")
   else ()
     set_source_files_properties(${source} PROPERTIES
-      COMPILE_FLAGS "${platform_defs} ${ORIG_CMAKE_C_FLAGS}")
+      COMPILE_FLAGS "${platform_defs} ${cflags}")
   endif ()
 endfunction (set_cflags)
 
@@ -374,8 +393,12 @@ function(add_exe test source)
     set(rc_srcs "")
   endif (WINDOWS)
 
-  set(test_srcs ${source} ${tools_c} ${tools_asm} ${rc_srcs})
+  set(test_srcs ${source} ${rc_srcs})
   set_cflags(${source}) # sets srccode var
+
+  if ("${srccode}" MATCHES "include \"tools\\.h\"")
+    set(test_srcs ${test_srcs} ${tools_c} ${tools_asm})
+  endif ()
 
   # Some files use asm code, which must be separate for x64, but it's much
   # more convenient to have it in the same source file and auto-split.
@@ -431,7 +454,12 @@ function(tobuild_dll test source dr_ops)
 
   add_exe(${test} ${source})
 
-  add_library(${test}.dll SHARED ${dll_source})
+  set(lib_srcs ${dll_source})
+  file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${source} srccode)
+  if ("${srccode}" MATCHES "include \"tools\\.h\"")
+    set(lib_srcs ${lib_srcs} ${tools_c} ${tools_asm})
+  endif ()
+  add_library(${test}.dll SHARED ${lib_srcs})
   set_cflags(${dll_source})
   set_target_properties(${test}.dll PROPERTIES
     LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS}")
@@ -445,12 +473,11 @@ endfunction(tobuild_dll)
 # client interface app with client
 # note that we can't easily have a routine that takes no ops
 # and calls this one w/ "" "" "" b/c the PARENT_SCOPE won't make
-# it all the way back then.
+# it all the way back then: would need to chain.
 function(tobuild_ci test source client_ops dr_ops exe_ops)
   string(REGEX REPLACE "\\.c$" ".dll.c" client_source "${source}")
 
   add_exe(${test} ${source})
-  add_dependencies(${test} api_headers dynamorio)
 
   add_library(${test}.dll SHARED ${client_source})
   set_target_properties(${test}.dll PROPERTIES
@@ -480,6 +507,16 @@ function(tobuild_api test source dr_ops exe_ops)
     COMPILE_FLAGS "${CLIENT_CMAKE_C_FLAGS}")
   target_link_libraries(${test} dynamorio)
   add_dependencies(${test} api_headers dynamorio)
+  if (WIN32)
+    # Since we can't set the working dir w/o making an external script,
+    # we copy dynamorio.dll into the default dir.  Yes, we're wasteful
+    # by re-copying for each test.
+    add_custom_command(TARGET ${test} POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -E copy ${MAIN_LIBRARY_OUTPUT_PATH}/dynamorio.dll
+        ${CMAKE_CURRENT_BINARY_DIR}/dynamorio.dll
+      VERBATIM)
+  endif (WIN32)
   set(testlist_api ${testlist_api} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
@@ -494,6 +531,16 @@ function(torunonly test realtest source dr_ops exe_ops)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
   set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
 endfunction(torunonly)
+
+function(tobind target)
+  get_target_property(binary ${target} LOCATION)
+  add_custom_command(TARGET ${target}
+    POST_BUILD
+    COMMAND ${BIND_EXECUTABLE}
+    ARGS -u ${binary}
+    VERBATIM # recommended: p260
+  )
+endfunction(tobind)
 
 ###########################################################################
 # RUNNING
@@ -564,16 +611,10 @@ function(template2expect outexpect template runops)
   string(REGEX REPLACE
     "@&"
     " " cpp_out "${cpp_out}")
-  # allow matching blank lines via @@
-  # FIXME i#65 NOT YET COMPLETED: haven't modified any .template files for this
-  #security-win32/except-thread.template:
-  #win32/debugger.template:
-  #win32/delaybind.template:
-  #win32/delaybind.template:
-  #win32/threadinjection.template:
-  #  string(REGEX REPLACE
-  #    "@@"
-  #    "\n" cpp_out "${cpp_out}")
+  # allow matching blank lines via @@ => we strip it out after stripping blank
+  string(REGEX REPLACE
+    "@@"
+    "" cpp_out "${cpp_out}")
 
   # support macros from our security days
   string(REGEX MATCHALL "-throw_exception" op_throw "${runops}")
@@ -642,9 +683,19 @@ function(rundr_cmd outcmd outops native dr_ops_aux)
     # add dr_ops last to avoid needing extra \ on ;
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
   else (UNIX)
-    # FIXME i#65 NOT YET COMPLETED: need internal drinject: have separate
-    # target drinjectx.exe?  would also help avoid confusion w/ drmemory.sh, etc.
     set(dr_ops "-stderr_mask 0xC -msgbox_mask 0 -dumpcore_mask 0xfd -staged ${dr_ops_aux} ${TEST_OPTIONS}")
+    # if we used a cmake script to run each test we could use in that script:
+    #   set(ENV{DYNAMORIO_OPTIONS} "${dr_ops}")
+    # but we take advantage of a new drinjectx feature: -ops
+    set(cmd ${MAIN_EXECUTABLE_OUTPUT_PATH}/drinjectx.exe -s ${TEST_SECONDS})
+    if (native)
+      set(${outcmd} ${cmd} -ops "${dr_ops}" -noinject PARENT_SCOPE)
+    else (native)
+      file(TO_NATIVE_PATH "${MAIN_LIBRARY_OUTPUT_PATH}/dynamorio.dll" dllpath)
+      # forward slashes work fine: we just need drive-letter path
+      # add dr_ops last to avoid needing extra \ on ;
+      set(${outcmd} ${cmd} -ops "${dr_ops}" ${dllpath} PARENT_SCOPE)
+    endif (native)
   endif (UNIX)
   set(${outops} "${dr_ops}" PARENT_SCOPE)
 endfunction(rundr_cmd)
@@ -652,7 +703,8 @@ endfunction(rundr_cmd)
 # if test != exe we assume exe is already added as a build target
 function(torun test exe source native dr_ops exe_ops)
   rundr_cmd(rundr runops ${native} "${dr_ops}")
-  add_test(${test} ${rundr} ${EXECUTABLE_OUTPUT_PATH}/${exe} ${exe_ops})
+  get_target_property(exepath ${exe} LOCATION)
+  add_test(${test} ${rundr} ${exepath} ${exe_ops})
 
   get_filename_component(srcbase ${source} NAME_WE)
   get_filename_component(srcpath ${source} PATH)
@@ -702,6 +754,12 @@ function(torun test exe source native dr_ops exe_ops)
     "\\\\\\1" expect "${expect}")
   string(REGEX REPLACE "\\]"
     "\\\\]" expect "${expect}")
+
+  if (WIN32)
+    # libc print => CRLF, dr_printf => plain newline: match both
+    string(REGEX REPLACE "\n" "\r?\n" expect "${expect}")
+  endif (WIN32)    
+
   # match whole output
   set(expect "^${expect}$")
 
@@ -885,20 +943,16 @@ if (UNIX)
   endif (NOT X64)
   tobuild(security-linux.trampoline security-linux/trampoline.c)
 else (UNIX)
-  # FIXME: need these custom build settings:
-  #win32/delaybind.runnative win32/delaybind.runinjector: LINK += /delayload:delaybind.dll.dll /delay:unload
-  #win32/delaybind.runnative win32/delaybind.runinjector: win32/delaybind.exe.bind win32/delaybind.dll.dll.bind
-  #security-win32/sec-fixed.dll.dll: LINK += /FIXED
-  #security-win32/secalign-fixed.dll.dll: LINK += /FIXED
-  ## PR 229292: we want over-ssh and local builds to match the template so
-  ## we always build w/o pdbs
-  #security-win32/except-execution.exe: DBG=
-  #win32/membar.exe: CC_BASE += $(OPT) # need optimizations
-
   tobuild(win32.aslr-dll win32/aslr-dll.c)
   tobuild(win32.callback win32/callback.c)
   tobuild(win32.crtprcs win32/crtprcs.c)
-  tobuild(win32.delaybind win32/delaybind.c)
+
+  tobuild_dll(win32.delaybind win32/delaybind.c "")
+  set_target_properties(win32.delaybind PROPERTIES
+    LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS} /delayload:win32.delaybind.dll.dll /delay:unload")
+  tobind(win32.delaybind)
+  tobind(win32.delaybind.dll)
+
   tobuild_dll(win32.dll win32/dll.c "")
   tobuild(win32.except win32/except.c)
   tobuild(win32.fiber-rac win32/fiber-rac.c)
@@ -928,6 +982,7 @@ else (UNIX)
   tobuild(win32.threadexit win32/threadexit.c)
   # PR 215238 covers re-enabling threadinjection
   #tobuild(win32.threadinjection win32/threadinjection.c)
+  # FIXME: debugger test was disabled in past: not sure why
   #tobuild(win32.debugger win32/debugger.c)
   tobuild(win32.tls win32/tls.c)
   tobuild(win32.virtualfree win32/virtualfree.c)
@@ -938,7 +993,11 @@ else (UNIX)
   tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
   tobuild_dll(security-win32.aslr-ind security-win32/aslr-ind.c "")
   tobuild(security-win32.codemod-threads security-win32/codemod-threads.c)
+
+  # we tweak cflags in set_cflags() rather than passing extra param all
+  # the way through: adding helper func layers gets awkward w/ PARENT_SCOPE
   tobuild(security-win32.except-execution security-win32/except-execution.c)
+
   tobuild(security-win32.except-thread security-win32/except-thread.c)
   tobuild(security-win32.gbop-test security-win32/gbop-test.c)
   tobuild(security-win32.hooker security-win32/hooker.c)
@@ -948,8 +1007,21 @@ else (UNIX)
   tobuild(security-win32.ret-SEH security-win32/ret-SEH.c)
   tobuild(security-win32.sd_tester security-win32/sd_tester.c)
   tobuild(security-win32.sec-adata security-win32/sec-adata.c)
+
+  # FIXME: getting warnings from pragmas in src code:
+  #   secalign-fixed.dll.c.obj : warning LNK4229: invalid directive '/fixed' encountered; ignored
+  #  secalign-fixed.dll.c.obj : warning LNK4229: invalid directive '/driver' encountered; ignored
+  #  section-max.dll.c.obj : warning LNK4229: invalid directive '/driver' encountered; ignored
+  # I checked secalign-fixed.dll.dll and it does have 0x2000 alignment and has
+  # no relocations, so not sure what the warnings imply.
   tobuild_dll(security-win32.secalign-fixed security-win32/secalign-fixed.c "")
+  set_target_properties(security-win32.secalign-fixed.dll PROPERTIES
+    LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS} /fixed")
+
   tobuild_dll(security-win32.sec-fixed security-win32/sec-fixed.c "")
+  set_target_properties(security-win32.sec-fixed.dll PROPERTIES
+    LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS} /fixed")
+
   tobuild_dll(security-win32.sec-xdata security-win32/sec-xdata.c "")
   # case 4757 covers re-enabling selfmod-threads
   #tobuild(security-win32.selfmod-threads security-win32/selfmod-threads.c)

@@ -31,6 +31,7 @@
  */
 
 #include <windows.h>
+#include <stdio.h>
 #include <setjmp.h>
 jmp_buf mark;              /* Address for long jump to jump to */
 
@@ -62,8 +63,6 @@ finally_proc()
 int
 main()
 {
-    EXCEPTION_RECORD exception;
-    CONTEXT context;
     int jmpret;
 
 #ifdef USE_DYNAMO

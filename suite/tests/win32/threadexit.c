@@ -98,8 +98,6 @@ long global_finished = 0;                   /* unsynchronized */
 #  define YIELD() /* or do nothing on a multi processor */
 #endif
 
-typedef void (*fptr)();
-
 int compare( const void *arg1, const void *arg2 )
 {
    /* Compare all of both strings: */
@@ -111,7 +109,9 @@ sort()
 {
     int argc = 5;
     char *argv[] = {"one", "two", "three","five", "six", "unsorted"};
+#ifdef VERY_VERBOSE
     int i;
+#endif
 
    /* Sort remaining args using Quicksort algorithm: */
    qsort( (void *)argv, (size_t)argc, sizeof( char * ), compare );

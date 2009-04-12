@@ -43,8 +43,6 @@ myload(char* lib)
     if (hm == NULL) {
         print("error %d loading library %s\n", GetLastError(), lib);
     } else {
-        BOOL res;
-        BOOL (WINAPI *proc)(DWORD);
         print("loaded %s\n", lib);
 #if VERBOSE
         print("library is at "PFX"\n", hm);
