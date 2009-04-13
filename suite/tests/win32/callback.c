@@ -135,7 +135,7 @@ run_func(void * arg)
             continue;
         }
     }
-    return msg.wParam;
+    return (int) msg.wParam;
 }
 
 int

@@ -249,8 +249,8 @@ page_align(char *buf)
     return (char *)(((ptr_int_t)buf + PAGE_SIZE - 1) & ~(PAGE_SIZE-1));
 }
 
-static char*
-copy_to_buf_normal(char *buf, int buf_len, int *copied_len, Code_Snippet func) 
+static char *
+copy_to_buf_normal(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func) 
 {
     void *start;
     size_t len = size(func);
@@ -267,17 +267,18 @@ copy_to_buf_normal(char *buf, int buf_len, int *copied_len, Code_Snippet func)
     default:
         print("Failed to copy func\n");
     }
-    if (len > (uint) buf_len) {
+    if (len > buf_len) {
         print("Insufficient buffer for copy, have %d need %d\n", buf_len, len);
         len = buf_len;
     }
     memcpy(buf, start, len);
-    if (copied_len != NULL) *copied_len = len;
+    if (copied_len != NULL)
+        *copied_len = len;
     return buf;
 }
 
-static char*
-copy_to_buf_cross_page(char *buf, int buf_len, int *copied_len, Code_Snippet func) 
+static char *
+copy_to_buf_cross_page(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func) 
 {
     char* buf_back = buf;
     switch(func) {
@@ -296,8 +297,9 @@ copy_to_buf_cross_page(char *buf, int buf_len, int *copied_len, Code_Snippet fun
     return copy_to_buf_normal(buf, buf_len, copied_len, func);
 }
 
-static char*
-copy_to_buf(char *buf, int buf_len, int *copied_len, Code_Snippet func, Copy_Mode mode) 
+static char *
+copy_to_buf(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func,
+            Copy_Mode mode) 
 {
     switch(mode) {
     case COPY_NORMAL:
@@ -340,13 +342,13 @@ static HANDLE ntdll_handle = NULL;
 
 /* returns 0 if flush performed ok, not-zero otherwise */
 static int
-NTFlush(char *buf, int len)
+NTFlush(char *buf, size_t len)
 {
     NTSTATUS status;
     GET_NTDLL(NtFlushInstructionCache,
               (IN HANDLE ProcessHandle,
                IN PVOID BaseAddress OPTIONAL,
-               IN ULONG FlushSize));
+               IN SIZE_T FlushSize));
     status = NtFlushInstructionCache(GetCurrentProcess(), buf, len);
     if (!NT_SUCCESS(status)) {
         print("Error using NTFlush method\n");
@@ -468,7 +470,7 @@ allocate_mem(int size, int prot)
 }
 
 static void
-protect_mem(void *start, int len, int prot) 
+protect_mem(void *start, size_t len, int prot) 
 {
 #ifdef LINUX
     void *page_start = (void *)(((ptr_int_t)start) & ~(PAGE_SIZE -1));
@@ -486,7 +488,7 @@ protect_mem(void *start, int len, int prot)
 }
 
 static void
-protect_mem_check(void *start, int len, int prot, int expected)
+protect_mem_check(void *start, size_t len, int prot, int expected)
 {
 #ifdef LINUX 
     /* FIXME : add check */

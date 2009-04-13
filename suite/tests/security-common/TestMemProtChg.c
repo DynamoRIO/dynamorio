@@ -48,7 +48,7 @@ static int prot_codes[7] = {
 };
 
 static void 
-do_test(char *buf, int len)
+do_test(char *buf, size_t len)
 {
     int i, j;
     char *code;

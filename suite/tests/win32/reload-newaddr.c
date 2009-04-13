@@ -199,7 +199,7 @@ int main(int argc, char** argv)
 {
     HANDLE event;
     uint i, res;
-    unsigned long hThread;
+    ULONG_PTR hThread;
     uint iters = 0;
     int sum = 0;
     SIZE_T peakpage;

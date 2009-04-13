@@ -151,6 +151,7 @@ START_FILE
 #define FUNCNAME jumpto
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        END_PROLOG
         jmp      ARG1
         /* won't come back */
         ret

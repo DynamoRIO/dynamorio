@@ -1,4 +1,5 @@
 #if !defined(X64)
+Jumping to a sequence of every addr16 modrm byte
 # if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_alloc) && !defined(low) && !defined(client) && !defined(thin_client)
 #  if !defined(detect_mode)
     SEC_VIO_AUTO_STOP

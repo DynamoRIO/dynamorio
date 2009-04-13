@@ -954,16 +954,9 @@ else (UNIX)
   tobind(win32.delaybind.dll)
 
   tobuild_dll(win32.dll win32/dll.c "")
-  tobuild(win32.except win32/except.c)
   tobuild(win32.fiber-rac win32/fiber-rac.c)
   tobuild(win32.finally win32/finally.c)
-  tobuild(win32.fpe win32/fpe.c)
-  tobuild(win32.getthreadcontext win32/getthreadcontext.c)
-  tobuild_dll(win32.hookerfirst win32/hookerfirst.c "")
-  tobuild(win32.hooker-secur32 win32/hooker-secur32.c)
   tobuild_dll(win32.multisec win32/multisec.c "")
-  tobuild_dll(win32.nativeexec win32/nativeexec.c
-    "-native_exec_list nativeexec.dll.dll")
   tobuild_dll(win32.nativeterminate win32/nativeterminate.c
     "-native_exec_list nativeterminate.dll.dll")
   tobuild(win32.oomtest win32/oomtest.c)
@@ -973,10 +966,7 @@ else (UNIX)
   tobuild_dll(win32.reload win32/reload.c "")
   tobuild_dll(win32.reload-newaddr win32/reload-newaddr.c "")
   tobuild_dll(win32.reload-race win32/reload-race.c "")
-  tobuild(win32.rsbtest win32/rsbtest.c)
   tobuild_dll(win32.section-max win32/section-max.c "")
-  tobuild(win32.setcxtsyscall win32/setcxtsyscall.c)
-  tobuild(win32.setthreadcontext win32/setthreadcontext.c)
   tobuild(win32.suspend win32/suspend.c)
   tobuild(win32.threadchurn win32/threadchurn.c)
   tobuild(win32.threadexit win32/threadexit.c)
@@ -984,27 +974,47 @@ else (UNIX)
   #tobuild(win32.threadinjection win32/threadinjection.c)
   # FIXME: debugger test was disabled in past: not sure why
   #tobuild(win32.debugger win32/debugger.c)
-  tobuild(win32.tls win32/tls.c)
   tobuild(win32.virtualfree win32/virtualfree.c)
   tobuild(win32.virtualreserve win32/virtualreserve.c)
   tobuild(win32.winapc win32/winapc.c)
   tobuild(win32.winthread win32/winthread.c)
 
   tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
-  tobuild_dll(security-win32.aslr-ind security-win32/aslr-ind.c "")
-  tobuild(security-win32.codemod-threads security-win32/codemod-threads.c)
 
-  # we tweak cflags in set_cflags() rather than passing extra param all
-  # the way through: adding helper func layers gets awkward w/ PARENT_SCOPE
-  tobuild(security-win32.except-execution security-win32/except-execution.c)
+  if (NOT X64)
+    # FIXME i#16: these tests need to be fixed to compile for x64
 
-  tobuild(security-win32.except-thread security-win32/except-thread.c)
-  tobuild(security-win32.gbop-test security-win32/gbop-test.c)
-  tobuild(security-win32.hooker security-win32/hooker.c)
-  tobuild(security-win32.hooker-ntdll security-win32/hooker-ntdll.c)
-  tobuild(security-win32.indexisting security-win32/indexisting.c)
-  tobuild(security-win32.patterns security-win32/patterns.c)
-  tobuild(security-win32.ret-SEH security-win32/ret-SEH.c)
+    # fpe compiles, but pops up an unhandled exception box 
+    tobuild(win32.fpe win32/fpe.c)
+
+    tobuild(win32.except win32/except.c)
+    tobuild(win32.getthreadcontext win32/getthreadcontext.c)
+    tobuild_dll(win32.hookerfirst win32/hookerfirst.c "")
+    tobuild(win32.hooker-secur32 win32/hooker-secur32.c)
+    tobuild_dll(win32.nativeexec win32/nativeexec.c
+      "-native_exec_list nativeexec.dll.dll")
+    tobuild(win32.rsbtest win32/rsbtest.c)
+    tobuild(win32.setcxtsyscall win32/setcxtsyscall.c)
+    tobuild(win32.setthreadcontext win32/setthreadcontext.c)
+    tobuild(win32.tls win32/tls.c)
+
+    tobuild_dll(security-win32.aslr-ind security-win32/aslr-ind.c "")
+    tobuild(security-win32.codemod-threads security-win32/codemod-threads.c)
+
+    # we tweak cflags in set_cflags() rather than passing extra param all
+    # the way through: adding helper func layers gets awkward w/ PARENT_SCOPE
+    tobuild(security-win32.except-execution security-win32/except-execution.c)
+    
+    tobuild(security-win32.except-thread security-win32/except-thread.c)
+    tobuild(security-win32.gbop-test security-win32/gbop-test.c)
+
+    tobuild(security-win32.hooker security-win32/hooker.c)
+    tobuild(security-win32.hooker-ntdll security-win32/hooker-ntdll.c)
+    tobuild(security-win32.indexisting security-win32/indexisting.c)
+    tobuild(security-win32.patterns security-win32/patterns.c)
+    tobuild(security-win32.ret-SEH security-win32/ret-SEH.c)
+  endif (NOT X64)
+
   tobuild(security-win32.sd_tester security-win32/sd_tester.c)
   tobuild(security-win32.sec-adata security-win32/sec-adata.c)
 
@@ -1012,8 +1022,9 @@ else (UNIX)
   #   secalign-fixed.dll.c.obj : warning LNK4229: invalid directive '/fixed' encountered; ignored
   #  secalign-fixed.dll.c.obj : warning LNK4229: invalid directive '/driver' encountered; ignored
   #  section-max.dll.c.obj : warning LNK4229: invalid directive '/driver' encountered; ignored
+  #  sec-xdata.dll.c.obj : warning LNK4078: multiple '.xdata' sections found with different attributes (C0500040)
   # I checked secalign-fixed.dll.dll and it does have 0x2000 alignment and has
-  # no relocations, so not sure what the warnings imply.
+  # no relocations, so not sure what the warnings imply.  Did not check the others.
   tobuild_dll(security-win32.secalign-fixed security-win32/secalign-fixed.c "")
   set_target_properties(security-win32.secalign-fixed.dll PROPERTIES
     LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS} /fixed")

@@ -56,8 +56,8 @@ get_short_name(char* exename)
 
 static char * modules[] = {
     "dynamorio.dll",
-    "dll.exe",
-    "dll.dll.dll",
+    "win32.dll.exe",
+    "win32.dll.dll.dll",
     "kernel32.dll",
     "ntdll.dll",
 };
@@ -151,13 +151,13 @@ int main()
     dynamorio_app_start();
 #endif
     print_modules();
-    lib = LoadLibrary("dll.dll.dll");
+    lib = LoadLibrary("win32.dll.dll.dll");
     if (lib == NULL) {
         print("error loading library\n");
     } else {
         BOOL res;
         BOOL (WINAPI *proc)(DWORD);
-        print("loaded dll.dll.dll\n");
+        print("loaded win32.dll.dll.dll\n");
 #if VERBOSE
         print("library is at "PFX"\n", lib);
         fflush(stdout);

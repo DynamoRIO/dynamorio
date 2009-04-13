@@ -50,7 +50,7 @@ int
 main()
 {
     int tid;
-    unsigned long hThread;
+    HANDLE hThread;
 
 #ifdef USE_DYNAMO
     dynamorio_app_init();
@@ -59,7 +59,7 @@ main()
 
     printf("Before _beginthreadex\n");
     fflush(stdout);
-    hThread = _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
+    hThread = (HANDLE) _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
 
     WaitForSingleObject((HANDLE)hThread, INFINITE);
 

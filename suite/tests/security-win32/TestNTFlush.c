@@ -42,10 +42,10 @@ static char buf2[BUF2_LEN];
 #define VERBOSE3(msg, arg1, arg2, arg3)
 
 static void 
-do_test(char *buf, int len, Copy_Mode mode) 
+do_test(char *buf, size_t len, Copy_Mode mode) 
 {
     char *code;
-    int copied_len;
+    size_t copied_len;
     code = copy_to_buf(buf, len, &copied_len, CODE_INC, mode);
     VERBOSE2("wrote code "PFX"-"PFX"\n", code, code+copied_len);
     NTFlush(code, copied_len);

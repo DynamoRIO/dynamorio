@@ -48,13 +48,13 @@
 #include "tools.h"
 
 static int result = 0;
-static int apc_arg = 0;
+static ULONG_PTR apc_arg = 0;
 
 /* forwards */
 static void
-send_apc(PAPCFUNC func, unsigned long depth);
+send_apc(PAPCFUNC func, ULONG_PTR depth);
 static void WINAPI
-apc_func(unsigned long arg);
+apc_func(ULONG_PTR arg);
 
 typedef VOID (NTAPI *  PKNORMAL_ROUTINE )
      (IN PVOID NormalContext, IN PVOID SystemArgument1, IN PVOID SystemArgument2); 
@@ -62,7 +62,7 @@ typedef VOID (NTAPI *  PKNORMAL_ROUTINE )
 /* we need native APCs */
 int
 native_queue_apc(HANDLE thread, PKNORMAL_ROUTINE apc_dispatch, 
-                 PAPCFUNC func, unsigned long arg)
+                 PAPCFUNC func, ULONG_PTR arg)
 {
     NTSTATUS status;
     GET_NTDLL(NtQueueApcThread, 
@@ -100,7 +100,7 @@ native_queue_apc(HANDLE thread, PKNORMAL_ROUTINE apc_dispatch,
 /* our replacement of kernel32!BaseDispatchAPC */
 int
 NTAPI
-our_dispatch_apc(PVOID context, PAPCFUNC func, unsigned long arg)
+our_dispatch_apc(PVOID context, PAPCFUNC func, ULONG_PTR arg)
 {
     /* no SEH stuff for us */
     func(arg);
@@ -110,7 +110,7 @@ our_dispatch_apc(PVOID context, PAPCFUNC func, unsigned long arg)
 /* our replacement of kernel32!QueueUserAPC() */
 int
 queue_apc(bool native, PAPCFUNC func, 
-          HANDLE thread, unsigned long arg)
+          HANDLE thread, ULONG_PTR arg)
 {
     if (native) {
         return native_queue_apc(thread, (PKNORMAL_ROUTINE)&our_dispatch_apc,
@@ -121,12 +121,12 @@ queue_apc(bool native, PAPCFUNC func,
 }
 
 static void WINAPI
-apc_func(unsigned long arg)
+apc_func(ULONG_PTR arg)
 {
     result += 100;
     apc_arg = arg;
 
-    print("apc_func %d\n", arg);
+    print("apc_func %d\n", (int) arg);
     /* nested APC */
     if (arg > 0) {
         send_apc(arg % 3 == 0 ? apc_func : apc_func, /* FIXME: get fancy */
@@ -179,13 +179,13 @@ unsigned char other_native_datacode[] =
 PAPCFUNC other_apc_func = (PAPCFUNC)other_datacode;
 
 static void WINAPI
-other_apc_func_helper(unsigned long arg)
+other_apc_func_helper(ULONG_PTR arg)
 {
     print("webcam or crash and burn in interop issues\n");
 }
 
 static void
-send_apc(PAPCFUNC func, unsigned long depth)
+send_apc(PAPCFUNC func, ULONG_PTR depth)
 {
     int res = queue_apc(false, func, GetCurrentThread(), depth);
     print("QueueUserAPC returned %d\n", res);
@@ -201,7 +201,7 @@ send_apc(PAPCFUNC func, unsigned long depth)
      * well technically 192 is io completion interruption, but seems to 
      * report that for any interrupting APC */
     print("SleepEx returned %d\n", res);
-    print("Apc arg = %d\n", apc_arg);
+    print("Apc arg = %d\n", (int) apc_arg);
     print("Result = %d\n", result);
 }
 

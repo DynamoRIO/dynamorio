@@ -144,7 +144,7 @@ int main(int argc, char** argv)
     HANDLE lib;
     HANDLE event;
     int i;
-    unsigned long hThread;
+    ULONG_PTR hThread;
     int sum = 0;
 
     USE_USER32();

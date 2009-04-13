@@ -268,7 +268,7 @@ void exception_event_redirect(void *dcontext, dr_exception_t *excpt)
 {
     app_pc addr;
     dr_mcontext_t mcontext;
-    module_data_t *data = dr_lookup_module_by_name("events.exe");
+    module_data_t *data = dr_lookup_module_by_name("client.events.exe");
     dr_printf("exception event redirect\n");
     if (data == NULL) {
         dr_printf("couldn't find events.exe module\n");

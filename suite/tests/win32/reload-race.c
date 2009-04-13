@@ -273,7 +273,7 @@ int main(int argc, char** argv)
 {
     HANDLE lib;
     HANDLE event;
-    unsigned long hThread;
+    ULONG_PTR hThread;
     int reloaded = 0;
 
     USE_USER32();

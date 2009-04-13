@@ -411,7 +411,7 @@ void dr_init(client_id_t id)
      * These functions are markers that tell us when to start and stop
      * instrumenting.
      */
-    module_data_t *prog = dr_lookup_module_by_name("cbr3.exe");
+    module_data_t *prog = dr_lookup_module_by_name("client.cbr3.exe");
     ASSERT(prog != NULL);
 
     start_pc = (app_pc)dr_get_proc_address(prog->start, "start_instrument");

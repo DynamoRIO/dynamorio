@@ -43,7 +43,7 @@
 static BOOL synch_1 = TRUE;
 static BOOL synch_2 = TRUE;
 static int result = 0;
-static int apc_arg = 0;
+static ULONG_PTR apc_arg = 0;
 
 unsigned int WINAPI
 run_func(void * arg)
@@ -60,14 +60,14 @@ run_func(void * arg)
      * well technically 192 is io completion interruption, but seems to 
      * report that for any interrupting APC */
     printf("SleepEx returned %d\n", res);
-    printf("Apc arg = %d\n", apc_arg);
+    printf("Apc arg = %d\n", (int) apc_arg);
     printf("Result = %d\n", result);
     fflush(stdout);
     return 0;
 }
 
 void WINAPI
-apc_func(unsigned long arg)
+apc_func(ULONG_PTR arg)
 {
     result += 100;
     apc_arg = arg;
@@ -77,7 +77,7 @@ int
 main()
 {
     unsigned int tid;
-    unsigned long hThread;
+    HANDLE hThread;
     int res;
 
 #ifdef USE_DYNAMO
@@ -87,13 +87,13 @@ main()
 
     printf("Before _beginthreadex\n");
     fflush(stdout);
-    hThread = _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
+    hThread = (HANDLE) _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
 
     while (synch_2) {
         SwitchToThread();
     }
 
-    res = QueueUserAPC(apc_func, (HANDLE)hThread, 37);
+    res = QueueUserAPC(apc_func, hThread, 37);
     printf("QueueUserAPC returned %d\n", res);
     fflush(stdout);
     

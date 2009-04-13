@@ -5,6 +5,12 @@ thread init event 2
 thread init event 1
 bb event 2
 bb event 1
+filter syscall event 2
+filter syscall event 1
+pre syscall event 2
+pre syscall event 1
+post syscall event 2
+post syscall event 1
 # if !defined(disable_traces)
 end trace event 2
 end trace event 1
@@ -17,12 +23,6 @@ trace event 1
 delete event 2
 delete event 1
 # endif
-filter syscall event 2
-filter syscall event 1
-pre syscall event 2
-pre syscall event 1
-post syscall event 2
-post syscall event 1
 in restore_state event 2
 in restore_state event 1
 exception event 2

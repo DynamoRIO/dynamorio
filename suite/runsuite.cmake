@@ -29,10 +29,9 @@
 # DAMAGE.
 
 # Unfinished features in i#66:
-# * Windows support: must set env vars for cl32 vs cl64
-# * ssh support
 # * have a list of known failures and label w/ " (known: i#XX)"
 # * use the features in the latest CTest: -W, -j
+# * ssh support for running on remote machines: copy, disable pdbs, run
 
 cmake_minimum_required (VERSION 2.2)
 
@@ -44,7 +43,7 @@ if ("${CTEST_SCRIPT_ARG}" MATCHES "nightly")
   # We assume a manual check out was done, and that CTest can just do "update".
   # If we want a fresh checkout we can set CTEST_BACKUP_AND_RESTORE
   # and CTEST_CHECKOUT_COMMAND but the update should be fine.
-  set(CTEST_UPDATE_COMMAND "/usr/bin/svn")
+  find_program(CTEST_UPDATE_COMMAND svn DOC "source code update command")
 
   set(SUITE_TYPE Nightly)
   set(DO_UPDATE ON)
@@ -68,9 +67,18 @@ else ("${CTEST_SCRIPT_ARG}" MATCHES "nightly")
   # absolute filepath.  Note that I would prefer having the results inside
   # each build dir, but having : in the build dir name complicates
   # LD_LIBRARY_PATH.
-  set(CTEST_DROP_SITE "${BINARY_BASE}/xml")
-  set(CTEST_DROP_LOCATION "results")
-  set(RESULTS_DIR "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}")
+  if (WIN32)
+    # Colon not allowed in name so use drive
+    string(REGEX MATCHALL "^[A-Za-z]" drive "${BINARY_BASE}")
+    string(REGEX REPLACE "^[A-Za-z]:" "" nondrive "${BINARY_BASE}")
+    set(CTEST_DROP_SITE "${drive}")
+    set(CTEST_DROP_LOCATION "${nondrive}/xmlresults")
+    set(RESULTS_DIR "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}")
+  else (WIN32)
+    set(CTEST_DROP_SITE "${BINARY_BASE}/xml")
+    set(CTEST_DROP_LOCATION "results")
+    set(RESULTS_DIR "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}")
+  endif (WIN32)
   if (EXISTS "${RESULTS_DIR}")
     file(REMOVE_RECURSE "${RESULTS_DIR}")
   endif (EXISTS "${RESULTS_DIR}")
@@ -92,9 +100,12 @@ set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
 #   "CMake Error: Some required settings in the configuration file were missing:"
 # but we don't want to do another build so we just ignore the error.
 set(CTEST_CMAKE_COMMAND "${CMAKE_EXECUTABLE_NAME}")
+# FIXME: add support for NMake on Windows if devs want to use that
+# Doesn't support -j though
 set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
 set(CTEST_PROJECT_NAME "DynamoRIO")
-set(CTEST_BUILD_COMMAND "/usr/bin/make -j5")
+find_program(MAKE_COMMAND make DOC "make command")
+set(CTEST_BUILD_COMMAND "${MAKE_COMMAND} -j5")
 set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
 
 function(testbuild name initial_cache)
@@ -107,6 +118,42 @@ function(testbuild name initial_cache)
     ")
   ctest_empty_binary_directory(${CTEST_BINARY_DIRECTORY})
   file(WRITE "${CTEST_BINARY_DIRECTORY}/CMakeCache.txt" "${CTEST_INITIAL_CACHE}")
+
+  if (WIN32)
+    # Convert env vars to run proper compiler.
+    # Note that this is fragile and won't work with non-standard
+    # directory layouts: we assume standard VS2005 or SDK.
+    # FIXME: would be nice to have case-insensitive regex flag!
+    # For now hardcoding VC, Bin, amd64
+    if ("${initial_cache}" MATCHES "X64:BOOL=ON")
+      if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+        # Note that we can't set ENV{PATH} as the output var of the replace:
+        # it has to be its own set().
+        string(REGEX REPLACE "VC([/\\\\])Bin" "VC\\1Bin\\1amd64"
+          newpath "$ENV{PATH}")
+        set(ENV{PATH} "${newpath}")
+        string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
+          newlib "$ENV{LIB}")
+        set(ENV{LIB} "${newlib}")
+        string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
+          newlibpath "$ENV{LIBPATH}")
+        set(ENV{LIBPATH} "${newlibpath}")
+      endif (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+    else ("${initial_cache}" MATCHES "X64:BOOL=ON")
+      if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+        string(REGEX REPLACE "(VC[/\\\\]Bin[/\\\\])amd64" "\\1"
+          newpath "$ENV{PATH}")
+        set(ENV{PATH} "${newpath}")
+        string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\]amd64" "\\1"
+          newlib "$ENV{LIB}")
+        set(ENV{LIB} "${newlib}")
+        string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\]amd64" "\\1"
+          newlibpath "$ENV{LIBPATH}")
+        set(ENV{LIBPATH} "${newlibpath}")
+      endif ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
+    endif ("${initial_cache}" MATCHES "X64:BOOL=ON")
+  endif (WIN32)
+
   ctest_start(${SUITE_TYPE})
   if (DO_UPDATE)
     ctest_update(SOURCE "${CTEST_SOURCE_DIRECTORY}")

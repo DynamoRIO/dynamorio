@@ -44,7 +44,7 @@ static void
 myload(char* lib, bool append_to_sysroot) 
 {
     HANDLE file, mapping;
-    DWORD size = 0, size_to_map;
+    SIZE_T size = 0, size_to_map;
     char *map_addr;
     MEMORY_BASIC_INFORMATION mbi;
     char file_name_buf[MAX_PATH];

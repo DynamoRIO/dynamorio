@@ -44,10 +44,10 @@ DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {
     case DLL_PROCESS_ATTACH:
-        print("dll.dll.dll process attach\n");
+        print("win32.dll.dll.dll process attach\n");
         break;
     case DLL_PROCESS_DETACH:
-        print("dll.dll.dll process detach\n");
+        print("win32.dll.dll.dll process detach\n");
         break;        
     }
     return TRUE;

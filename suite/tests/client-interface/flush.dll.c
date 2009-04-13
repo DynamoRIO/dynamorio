@@ -227,7 +227,7 @@ bool string_match(const char *str1, const char *str2)
 static
 void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
 {
-    if (string_match(dr_module_preferred_name(data), "flush.exe")) {
+    if (string_match(dr_module_preferred_name(data), "client.flush.exe")) {
         start = data->start;
         end = data->end;
     }
