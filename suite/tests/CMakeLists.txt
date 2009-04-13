@@ -49,13 +49,13 @@ option(TEST_SUITE "running series of builds so skip some overlapping tests")
 set(TEST_SECONDS "60" CACHE STRING "Test time limit in seconds")
 set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 
+# FIXME: i#120: .runall support
 # FIXME: run samples like runregression does
-# FIXME: .runall support
 # FIXME: xref issue 20 where we build x64 and x86 to have both simultaneously
 #   for cross-arch execve.
 # FIXME: add command to run natively
-# FIXME: build latest cmake for "ctest -W 60" and "ctest -j"
 # FIXME: i#111: get .runall tests to run in parallel
+#   and use latest cmake for "ctest -j" (and "ctest -W 60")
 # FIXME: i#119: add support for 64-bit nudges   	
 
 ###########################################################################
@@ -924,7 +924,7 @@ if (UNIX)
   tobuild(linux.threadexit linux/threadexit.c)
   tobuild(linux.threadexit2 linux/threadexit2.c)
 
-  # FIXME: bugs in these, were disabled in the past
+  # FIXME i#125: bugs in these, were disabled in the past
   #tobuild(linux.vfork linux/vfork.c)
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
 
@@ -972,7 +972,7 @@ else (UNIX)
   tobuild(win32.threadexit win32/threadexit.c)
   # PR 215238 covers re-enabling threadinjection
   #tobuild(win32.threadinjection win32/threadinjection.c)
-  # FIXME: debugger test was disabled in past: not sure why
+  # FIXME i#125: debugger test was disabled in past: not sure why
   #tobuild(win32.debugger win32/debugger.c)
   tobuild(win32.virtualfree win32/virtualfree.c)
   tobuild(win32.virtualreserve win32/virtualreserve.c)
@@ -1034,7 +1034,7 @@ else (UNIX)
     LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS} /fixed")
 
   tobuild_dll(security-win32.sec-xdata security-win32/sec-xdata.c "")
-  # case 4757 covers re-enabling selfmod-threads
+  # PR 209235 covers re-enabling selfmod-threads
   #tobuild(security-win32.selfmod-threads security-win32/selfmod-threads.c)
   tobuild(security-win32.TestNTFlush security-win32/TestNTFlush.c)
 
@@ -1071,7 +1071,7 @@ tobuild(security-common.retnonexisting security-common/retnonexisting.c)
 if (NOT X64)
   # FIXME i#16: these tests need to be fixed to compile for x64
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
-  # FIXME: not building on 32-bit b/c protect_mem() from tools.h being stripped
+  # FIXME i#125: not building on 32-bit b/c protect_mem() from tools.h being stripped
   #tobuild(security-common.selfmod-big security-common/selfmod-big.c)
   tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
 endif (NOT X64)
