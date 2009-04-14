@@ -1111,6 +1111,10 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb,
         instrlist_disassemble(dcontext, tag, bb, THREAD);
 #endif
 
+    /* i#117/PR 395156: allow dr_[gs]et_mcontext where accurate */
+    if (!translating && !for_trace)
+        dcontext->client_data->mcontext_in_dcontext = true;
+
     /* Note - currently we are couldbelinking and hold the
      * bb_building lock when this is called (see PR 227619).
      */
@@ -1121,6 +1125,8 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb,
     if (emitflags != NULL)
         *emitflags = ret;
     DODEBUG({ check_ilist_translations(bb); });
+
+    dcontext->client_data->mcontext_in_dcontext = false;
 
 #ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\nafter instrumentation:\n");
@@ -1171,12 +1177,18 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace,
      */
 #endif
 
+    /* i#117/PR 395156: allow dr_[gs]et_mcontext where accurate */
+    if (!translating)
+        dcontext->client_data->mcontext_in_dcontext = true;
+
     /* We or together the return values */
     call_all_ret(ret, |=, , trace_callbacks,
                  int (*)(void *, void *, instrlist_t *, bool),
                  (void *)dcontext, (void *)tag, trace, translating);
 
     DODEBUG({ check_ilist_translations(trace); });
+
+    dcontext->client_data->mcontext_in_dcontext = false;
 
 #ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\nafter instrumentation:\n");
@@ -3493,8 +3505,21 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno)
     CLIENT_ASSERT(context != NULL, "invalid context");
 
 #ifdef CLIENT_INTERFACE
+    /* i#117/PR 395156: support getting mcontext from events where mcontext is
+     * stable.  It would be nice to support it from init and thread init,
+     * but the mcontext is not available at those points.
+     *
+     * Since DR calls this routine when recreating state and wants the
+     * clean call version, can't distinguish by whereami=WHERE_FCACHE,
+     * so we set a flag in the supported events. If client routine
+     * crashes and we recreate then we want clean call version anyway
+     * so should be ok.  Note that we want in_pre_syscall for other
+     * reasons (dr_syscall_set_param() for Windows) so we keep it a
+     * separate flag.
+     */
     /* PR 207947: support mcontext access from syscall events */
-    if (dcontext->client_data->in_pre_syscall ||
+    if (dcontext->client_data->mcontext_in_dcontext ||
+        dcontext->client_data->in_pre_syscall ||
         dcontext->client_data->in_post_syscall) {
         *context = *get_mcontext(dcontext);
         if (app_errno != NULL)
@@ -3532,8 +3557,10 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context, const int *app_errno)
                   "DR context protection NYI");
     CLIENT_ASSERT(context != NULL, "invalid context");
 
+    /* i#117/PR 395156: allow dr_[gs]et_mcontext where accurate */
     /* PR 207947: support mcontext access from syscall events */
-    if (dcontext->client_data->in_pre_syscall ||
+    if (dcontext->client_data->mcontext_in_dcontext ||
+        dcontext->client_data->in_pre_syscall ||
         dcontext->client_data->in_post_syscall) {
         *get_mcontext(dcontext) = *context;
         if (app_errno != NULL)

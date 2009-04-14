@@ -333,6 +333,8 @@ typedef struct _client_data_t {
     bool           in_post_syscall;
     /* flag for dr_syscall_invoke_another() */
     bool           invoke_another_syscall;
+    /* flag for dr_get_mcontext (i#117/PR 395156) */
+    bool           mcontext_in_dcontext;
 } client_data_t;
 #endif
 

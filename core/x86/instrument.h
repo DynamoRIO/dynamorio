@@ -2552,12 +2552,20 @@ dr_mcontext_xmm_fields_valid(void);
 
 DR_API
 /**
- * Copies the machine context captured at dr_insert_clean_call() or
- * dr_prepare_for_call() or at a pre- or post-syscall event
- * (dr_register_pre_syscall_event(), dr_register_post_syscall_event())
- * to \p context.  Does NOT copy the pc field.
- * If \p app_errno is non-NULL copies the saved application error code
- * (value of GetLastError() on Windows or errno on Linux) to \p app_errno.
+ * Copies the current application machine context to \p context.
+ * This routine may only be called from:
+ * - A clean call invoked by dr_insert_clean_call() or dr_prepare_for_call() 
+ * - A pre- or post-syscall event (dr_register_pre_syscall_event(), 
+ *   dr_register_post_syscall_event()) 
+ * - Basic block or trace creation events (dr_register_bb_event(),
+ *   dr_register_trace_event()), but for basic block creation only when the
+ *   basic block callback parameters \p for_trace and \p translating are
+ *   false, and for trace creation only when \p translating is false.
+ *
+ * Does NOT copy the pc field.  If \p app_errno is non-NULL copies the
+ * saved application error code (value of GetLastError() on Windows or
+ * errno on Linux) to \p app_errno.
+ *
  * \note NUM_XMM_SLOTS in the dr_mcontext_t.xmm array are filled in, but
  * only if dr_mcontext_fields_valid() returns true.
  * \note The context is the context saved at the dr_insert_clean_call() or
@@ -2571,13 +2579,21 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno);
 #ifdef CLIENT_INTERFACE
 DR_API
 /**
- * Sets the machine context to \p context, which is restored at the
- * cleanup stage of dr_insert_clean_call() or in
- * dr_cleanup_after_call() or after a pre- or post-syscall event
- * (dr_register_pre_syscall_event(),
- * dr_register_post_syscall_event()).  Ignores the pc
- * field. if \p app_errno is non-NULL sets the application error code (value
- * of GetLastError() on Windows or errno on Linux) to be restored as well.
+ * Sets the application machine context to \p context.
+ * This routine may only be called from:
+ * - A clean call invoked by dr_insert_clean_call() or dr_prepare_for_call() 
+ * - A pre- or post-syscall event (dr_register_pre_syscall_event(), 
+ *   dr_register_post_syscall_event()) 
+ *   dr_register_thread_exit_event())
+ * - Basic block or trace creation events (dr_register_bb_event(),
+ *   dr_register_trace_event()), but for basic block creation only when the
+ *   basic block callback parameters \p for_trace and \p translating are
+ *   false, and for trace creation only when \p translating is false.
+ *
+ * Ignores the pc field. if \p app_errno is non-NULL sets the
+ * application error code (value of GetLastError() on Windows or errno
+ * on Linux) to be restored as well.
+ *
  * \note The xmm0 through xmm5 fields are only set for 64-bit or WOW64
  * processes where the underlying processor supports SSE.  For
  * dr_insert_clean_call() that requested \p save_fpstate, the xmm0
