@@ -162,6 +162,7 @@ static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
 /* Xref PR 258731, dup of STDOUT/STDERR in case app wants to close them. */
 DR_API file_t our_stdout = INVALID_FILE;
 DR_API file_t our_stderr = INVALID_FILE;
+DR_API file_t our_stdin = INVALID_FILE;
 
 /* Track all memory regions seen by DR. We track these ourselves to prevent
  * repeated reads of /proc/self/maps (case 3771). The MEMPROT_* value on a
@@ -3695,6 +3696,12 @@ pre_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
                 "WARNING: app is closing stderr=%d - duplicating descriptor for "
                 "DynamoRIO usage got %d.\n", fd, our_stderr);
+        }
+        if (DYNAMO_OPTION(dup_stdin_on_close) && fd == STDIN) {
+            our_stdin = dup_syscall(fd);
+            LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
+                "WARNING: app is closing stdin=%d - duplicating descriptor for "
+                "DynamoRIO usage got %d.\n", fd, our_stdin);
         }
         break;
     }

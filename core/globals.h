@@ -151,6 +151,7 @@ typedef HANDLE file_t;
 #define INVALID_FILE INVALID_HANDLE_VALUE
 #define STDOUT (file_t)get_stdout_handle()
 #define STDERR (file_t)get_stderr_handle()
+#define STDIN  (file_t)get_stdin_handle()
 #define DIRSEP '\\'
 #define ALT_DIRSEP '/'
 

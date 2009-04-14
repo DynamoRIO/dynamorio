@@ -959,8 +959,8 @@ FIXME PR 225255: profiling options
 Options controlling notifications from \DynamoRIO:
 
  - \b -msgbox_mask \e 0xN: \anchor op_msgbox_mask
-   Controls whether \DynamoRIO uses pop-up message boxes when
-   presenting information. \if linux Currently Windows only. \endif
+   Controls whether \DynamoRIO uses pop-up message boxes on Windows,
+   or waits for a key press on Linux, when presenting information.
    The mask takes the following bitfields:
    - INFORMATION = 0x1
    - WARNING     = 0x2
@@ -969,6 +969,8 @@ Options controlling notifications from \DynamoRIO:
    .
    dr_messagebox() is not affected by -msgbox_mask. For the
    provided Windows debug build -msgbox_mask defaults to 0xC.
+   On Linux the default is 0, as this feature reads from standard input and
+   might conflict with some applications.
 
 \attention
    On Vista most Windows services are currently unable to display
@@ -987,7 +989,7 @@ Options controlling notifications from \DynamoRIO:
    non-zero.  Messages printed to stderr will only be visible for
    applications that have an attached console.  For the provided Linux
    debug builds, -stderr_mask defaults to 0xF; for the Linux release
-   builds, its default is 0xE.
+   builds, its default is 0xE.  The default on Windows is 0.
 
 \ifnot vmsafe
 Options aiding in debugging:
@@ -1082,8 +1084,11 @@ networking).  Thus, if a crash occurs in a Windows service under
    \par
    To attach to a process on Windows, use the \ref op_msgbox_mask
    "-msgbox_mask" option and attach the debugger while the dialog box has
-   paused the application.  On Linux, use the \ref op_pause
-   "-pause_on_error" option to allow attaching a debugger when a problem
+   paused the application.  On Linux, the same option can be used and
+   the debugger attached while the application waits for enter to be
+   pressed.  Since this may not work for applications that themselves
+   read from standard input, an alternative exists: the \ref op_pause
+   "-pause_on_error" option allows attaching a debugger when a problem
    occurs.  To run an application on Linux under a debugger from the start
    you can perform the work of the \c drdeploy script by setting the
    LD_LIBRARY_PATH and LD_PRELOAD environment variables from within the

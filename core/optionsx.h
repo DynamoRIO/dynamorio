@@ -452,11 +452,12 @@
      OPTION_DEFAULT(uint, prof_pcs_freq, 10000, "Profiling sample frequency in 100's of nanoseconds, requires -prof_pcs")
 #endif
 
-#ifdef WINDOWS
     DYNAMIC_OPTION_DEFAULT(uint, msgbox_mask,
-         /* Enable for client debug bulids so DR ASSERTS are visible (xref PR 232783) */
-         IF_CLIENT_INTERFACE_ELSE(IF_DEBUG_ELSE(0xC, 0), 0),
+         /* Enable for client debug builds so DR ASSERTS are visible (xref PR 232783) */
+         /* i#116/PR 394985: for Linux off by default since won't work for all apps */
+         IF_WINDOWS_ELSE(IF_CLIENT_INTERFACE_ELSE(IF_DEBUG_ELSE(0xC, 0), 0), 0),
          "show a messagebox for events, use only for demonstration purposes")
+#ifdef WINDOWS
     OPTION_DEFAULT(uint_time, eventlog_timeout, 10000, "gives the timeout (in ms) to use for an eventlog transaction")
 #endif /* WINDOWS */
     DYNAMIC_OPTION_DEFAULT(uint, syslog_mask, 0, /* PR 232126: re-enable: SYSLOG_ALL */
@@ -505,6 +506,8 @@
     OPTION_DEFAULT(bool, dup_stdout_on_close, true, "Duplicate stdout for DynamoRIO "
                    "or client usage if app tries to close it.")
     OPTION_DEFAULT(bool, dup_stderr_on_close, true, "Duplicate stderr for DynamoRIO "
+                   "or client usage if app tries to close it.")
+    OPTION_DEFAULT(bool, dup_stdin_on_close, true, "Duplicate stdin for DynamoRIO "
                    "or client usage if app tries to close it.")
 
     /* Xref PR 308654 where calling dlclose on the client lib at exit time can lead

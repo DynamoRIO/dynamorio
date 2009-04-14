@@ -724,6 +724,15 @@ get_stdout_handle()
     return hout;
 }
 
+HANDLE
+get_stdin_handle()
+{
+    HANDLE hin = get_own_peb()->ProcessParameters->StdInputHandle;
+    if (hin == NULL)
+        return INVALID_HANDLE_VALUE;
+    return hin;
+}
+
 thread_exited_status_t
 is_thread_exited(HANDLE hthread)
 {

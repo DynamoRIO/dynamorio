@@ -1801,7 +1801,8 @@ do_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
  * depending on the runtime parameters and the priority:
  *   -syslog_mask controls sending to the system log
  *   -stderr_mask controls sending to stderr
- *   -msgbox_mask controls sending to an interactive pop-up window
+ *   -msgbox_mask controls sending to an interactive pop-up window, or
+ *      a wait for a keypress on linux
  */
 void 
 notify(syslog_event_type_t priority, bool internal, bool synch, 
@@ -1847,15 +1848,23 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
     if (TEST(priority, dynamo_options.stderr_mask))
         print_file(STDERR, "<%s>\n", msgbuf);
 
-#ifdef WINDOWS
     if (TEST(priority, dynamo_options.msgbox_mask)) {
+#ifdef WINDOWS
         /* FIXME : could use os_countdown_msgbox (if ever implemented) here to
          * do a timed out messagebox, could then also replace the os_timeout in
          * vmareas.c
          */
         debugbox(msgbuf);
-    }
+#else
+        /* i#116/PR 394985: this won't work for apps that are
+         * themselves reading from stdin, but this is a simple way to
+         * pause and continue, allowing gdb to attach
+         */
+        char keypress;
+        print_file(STDERR, "<press enter to continue>\n");
+        os_read(STDIN, &keypress, sizeof(keypress));
 #endif
+    }
 }
 
 /****************************************************************************
