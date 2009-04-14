@@ -34,6 +34,7 @@
 #    DynamoRIO_X64 = if client is 64-bit
 #    DynamoRIO_DEBUG = if wish to link to debug DynamoRIO library
 #    DynamoRIO_CXX = if client is C++
+#    DynamoRIO_VISATT = if using gcc visibility attributes
 #
 # Then include this file, by first executing a find_package()
 # as shown in this sample CMakeLists.txt file for a client:
@@ -78,6 +79,10 @@ if (DynamoRIO_X64)
 else (DynamoRIO_X64)
   add_definitions(-DX86_32)
 endif (DynamoRIO_X64)
+
+if (DynamoRIO_VISATT)
+  add_definitions(-DUSE_VISIBILITY_ATTRIBUTES)
+endif (DynamoRIO_VISATT)
 
 if (DynamoRIO_X64)
   if (DynamoRIO_DEBUG)

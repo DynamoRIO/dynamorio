@@ -213,6 +213,13 @@ if ($header) {
     }
 }
 
+sub keep_define($)
+{
+    my ($def) = @_;
+    return ($def eq "WINDOWS" || $def eq "LINUX" || $def eq "X64" ||
+            $def eq "X86_64" || $def eq "USE_VISIBILITY_ATTRIBUTES");
+}
+
 foreach $file (@headers) {
     open(IN, "< $file") || die "Error: Couldn't open $file for input\n";
     if ($debug) {
@@ -327,7 +334,7 @@ foreach $file (@headers) {
         }
         if ($l =~ /^\#\s*ifdef (\S+)/ || $l =~ /^\#\s*if defined\((\S+)\)/) {
             # we want to keep all WINDOWS, LINUX, and X64 defines, so ignore those.
-            if ($1 eq "WINDOWS" || $1 eq "LINUX" || $1 eq "X64" || $1 eq "X86_64") {
+            if (&keep_define($1)) {
                 $in_define_keep = 1;
             } else {
                 if ($debug) {
@@ -342,7 +349,7 @@ foreach $file (@headers) {
             }
         } elsif ($l =~ /^\#\s*ifndef (\S+)/) {
             # we want to keep all WINDOWS, LINUX, and X64 defines, so ignore those.
-            if ($1 eq "WINDOWS" || $1 eq "LINUX" || $1 eq "X64" || $1 eq "X86_64") {
+            if (&keep_define($1)) {
                 $in_define_keep = 1;
             } else {
                 if ($debug) {

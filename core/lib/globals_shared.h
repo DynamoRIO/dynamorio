@@ -108,8 +108,15 @@
 #  define inline __inline
 #  define INLINE_FORCED __forceinline
 #else
-#  define DR_EXPORT
-/* we assume gcc is being used */
+/* We assume gcc is being used.  If the client is using -fvisibility
+ * (in gcc >= 3.4) to not export symbols by default, setting
+ * USE_VISIBILITY_ATTRIBUTES will properly export.
+ */
+#  ifdef USE_VISIBILITY_ATTRIBUTES
+#    define DR_EXPORT __attribute__ ((visibility ("default")))
+#  else
+#    define DR_EXPORT
+#  endif
 #  define LINK_ONCE __attribute__ ((weak))
 #  define ALIGN_VAR(x) __attribute__ ((aligned (x)))
 #  define inline __inline__
@@ -231,6 +238,8 @@ typedef HANDLE file_t;
 #  define STDOUT (dr_get_stdout_file())
 /** The file_t value for standard error. */
 #  define STDERR (dr_get_stderr_file())
+/** The file_t value for standard input. */
+#  define STDIN  (dr_get_stdin_file())
 #endif
 #endif
 
@@ -242,10 +251,14 @@ typedef int file_t;
 extern file_t our_stdout;
 /** Allow use of stderr after the application closes it. */
 extern file_t our_stderr;
+/** Allow use of stdin after the application closes it. */
+extern file_t our_stdin;
 /** The file_t value for standard output. */
 #  define STDOUT (our_stdout == INVALID_FILE ? stdout->_fileno : our_stdout)
 /** The file_t value for standard error. */
 #  define STDERR (our_stderr == INVALID_FILE ? stderr->_fileno : our_stderr)
+/** The file_t value for standard error. */
+#  define STDIN  (our_stdin == INVALID_FILE ? stdin->_fileno : our_stdin)
 #endif
 
 #ifdef AVOID_API_EXPORT
