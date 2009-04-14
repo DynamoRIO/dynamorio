@@ -70,9 +70,11 @@ include_directories(BEFORE
   )
 add_definitions(-D_CRT_SECURE_NO_WARNINGS -DUNICODE -D_UNICODE)
 add_definitions(-DNOT_DYNAMORIO_CORE)
-# We define this to get processes.h included: PROBE_API controls whether we
-# expose it
-add_definitions(-DHOT_PATCHING_INTERFACE)
+if (NOT HOT_PATCHING_INTERFACE)
+  # We define this to get processes.h included: PROBE_API controls whether we
+  # expose it
+  add_definitions(-DHOT_PATCHING_INTERFACE)
+endif (NOT HOT_PATCHING_INTERFACE)
 
 # FIXME i#98: fix the underlying cause of these warnings and remove these exceptions
 set(nowarn "/wd4996 /wd4047 /wd4024 /wd4133 /wd4127 /wd4100 /wd4292 /wd4127 /wd4100")

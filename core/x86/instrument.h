@@ -594,7 +594,7 @@ DR_API
  * at the time DR initialized). \note The client should be aware that
  * if the module is being loaded it may not be fully processed by the
  * loader (relocating, rebinding and on Linux segment remapping may
- * have not yet occured). n\note The module_data_t \p *info passed
+ * have not yet occured). \note The module_data_t \p *info passed
  * to the callback routine is valid only for the duration of the
  * callback and should not be freed; a persistent copy can be made with
  * dr_copy_module_data().
@@ -1576,8 +1576,8 @@ dr_lookup_module_section(module_handle_t lib,
 
 DR_API
 /**
- * Returns the entry point of the function with the given name in the module
- * with the given base.  Returns NULL on failure.
+ * Returns the entry point of the exported function with the given
+ * name in the module with the given base.  Returns NULL on failure.
  * \note On Linux this ignores symbol preemption by other modules and only
  * examines the specified module.
  */
@@ -1874,6 +1874,11 @@ DR_API
 /** Returns a handle to stderr. */
 file_t
 dr_get_stderr_file(void);
+
+DR_API
+/** Returns a handle to stdin. */
+file_t
+dr_get_stdin_file(void);
 
 #ifdef PROGRAM_SHEPHERDING
 DR_API

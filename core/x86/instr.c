@@ -3477,6 +3477,51 @@ instr_set_our_mangling(instr_t *instr, bool ours)
 }
 
 DR_API
+/* Emulates instruction to find the address of the index-th memory operand.
+ * Either or both OUT variables can be NULL.
+ */
+bool
+instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
+                         OUT app_pc *addr, OUT bool *is_write)
+{
+    /* for string instr, even w/ rep prefix, assume want value at point of
+     * register snapshot passed in
+     */
+    int i;
+    opnd_t curop = {0};
+    int memcount = -1;
+    bool write = false;;
+    for (i=0; i<instr_num_dsts(instr); i++) {
+        curop = instr_get_dst(instr, i);
+        if (opnd_is_memory_reference(curop)) {
+            memcount++;
+            if (memcount == (int)index) {
+                write = true;
+                break;
+            }
+        }
+    }
+    /* lea has a mem_ref source operand, but doesn't actually read */
+    if (memcount != (int)index && instr_get_opcode(instr) != OP_lea) {
+        for (i=0; i<instr_num_srcs(instr); i++) {
+            curop = instr_get_src(instr, i);
+            if (opnd_is_memory_reference(curop)) {
+                memcount++;
+                if (memcount == (int)index)
+                    break;
+            }
+        }
+    }
+    if (memcount != (int)index)
+        return false;
+    if (addr != NULL)
+        *addr = opnd_compute_address(curop, mc);
+    if (is_write != NULL)
+        *is_write = write;
+    return true;
+}
+
+DR_API
 /* Returns NULL if none of instr's operands is a memory reference.
  * Otherwise, returns the effective address of the first memory operand
  * when the operands are considered in this order: destinations and then
@@ -3485,34 +3530,10 @@ DR_API
 app_pc
 instr_compute_address(instr_t *instr, dr_mcontext_t *mc)
 {
-    /* for string instr, even w/ rep prefix, assume want value at point of
-     * register snapshot passed in
-     */
-    int a;
-    opnd_t curop = {0};
-    bool found = false;
-    for (a=0; a<instr_num_dsts(instr); a++) {
-        curop = instr_get_dst(instr,a);
-        if (opnd_is_memory_reference(curop)) {
-            found = true;
-            break;
-        }
-    }
-    if (!found) {
-        /* lea has a mem_ref source operand, but doesn't actually read */
-        if (instr_get_opcode(instr) == OP_lea)
-            return NULL;
-        for (a=0; a<instr_num_srcs(instr); a++) {
-            curop = instr_get_src(instr,a);
-            if (opnd_is_memory_reference(curop)) {
-                found = true;
-                break;
-            }
-        }
-    }
-    if (!found)
+    app_pc addr;
+    if (!instr_compute_address_ex(instr, mc, 0, &addr, NULL))
         return NULL;
-    return opnd_compute_address(curop, mc);
+    return addr;
 }
 
 /* Calculates the size, in bytes, of the memory read or write of instr

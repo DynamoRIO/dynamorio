@@ -2085,6 +2085,22 @@ instr_compute_address(instr_t *instr, dr_mcontext_t *mc);
 
 DR_API
 /**
+ * Performs address calculation in the same manner as
+ * instr_compute_address() but handles multiple memory operands.  The
+ * \p index parameter should be initially set to 0 and then
+ * incremented with each successive call until this routine returns
+ * false, which indicates that there are no more memory operands.  The
+ * address of each is computed in the same manner as
+ * instr_compute_address() and returned in \p addr; whether it is a
+ * write is returned in \p is_write.  Either or both OUT variables can
+ * be NULL.
+ */
+bool
+instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
+                         OUT app_pc *addr, OUT bool *write);
+
+DR_API
+/**
  * Calculates the size, in bytes, of the memory read or write of \p instr.
  * If \p instr does not reference memory, or is invalid, returns 0.
  * If \p instr is a repeated string instruction, considers only one iteration.

@@ -2402,6 +2402,12 @@ dr_get_stderr_file(void)
 {
     return get_stderr_handle();
 }
+
+DR_API file_t
+dr_get_stdin_file(void)
+{
+    return get_stdin_handle();
+}
 #endif
 
 #ifdef PROGRAM_SHEPHERDING

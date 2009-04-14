@@ -2459,9 +2459,15 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
 {
     byte *target = NULL;
     instr_t instr;
-    ASSERT(write != NULL);
+    dr_mcontext_t mc;
+    uint memopidx;
+    bool found_target;
+    uint prot;
+    /* we don't want to grab a lock here, so we use _from_os */
+    bool in_maps =
+        get_memory_info_from_os(instr_cache_pc, NULL, NULL, &prot);
     /* initial sanity check though we don't know how long instr is */
-    if (!is_readable_without_exception(instr_cache_pc, 1))
+    if (!in_maps || !TEST(MEMPROT_READ, prot))
         return NULL;
     instr_init(dcontext, &instr);
     decode(dcontext, instr_cache_pc, &instr);
@@ -2469,25 +2475,41 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
         LOG(THREAD, LOG_ALL, 2,
             "WARNING: got SIGSEGV for invalid instr at cache pc "PFX"\n", instr_cache_pc);
         ASSERT_NOT_REACHED();
+        instr_free(dcontext, &instr);
         return NULL;
     }
-    if (instr_writes_memory(&instr))
-        *write = true;
-    else
-        *write = false;
-    if (*write || instr_reads_memory(&instr)) {
-        dr_mcontext_t mc;
-        sigcontext_to_mcontext(&mc, sc);
-        target = instr_compute_address(&instr, &mc);
-        DOLOG(2, LOG_ALL, {
-            LOG(THREAD, LOG_ALL, 2,
-                "For SIGSEGV at cache pc "PFX", computed target "PFX"\n",
-                instr_cache_pc, target);
-            loginst(dcontext, 2, &instr, "\tfaulting write");
-        });
-        instr_free(dcontext, &instr);
-    } else
-        instr_free(dcontext, &instr);
+
+    sigcontext_to_mcontext(&mc, sc);
+    ASSERT(write != NULL);
+    /* i#115/PR 394984: consider all memops */
+    for (memopidx = 0;
+         instr_compute_address_ex(&instr, &mc, memopidx, &target, write);
+         memopidx++) {
+        in_maps = get_memory_info_from_os(target, NULL, NULL, &prot);
+        if ((!in_maps || !TEST(MEMPROT_READ, prot)) ||
+            (*write && !TEST(MEMPROT_WRITE, prot))) {
+            found_target = true;
+            break;
+        }
+    }
+    if (!found_target) {
+        /* probably an NX fault: how tell whether kernel enforcing? */
+        if (!TEST(MEMPROT_EXEC, prot)) {
+            target = instr_cache_pc;
+            found_target = true;
+        }
+    }
+    ASSERT(found_target);
+    DOLOG(2, LOG_ALL, {
+        LOG(THREAD, LOG_ALL, 2,
+            "For SIGSEGV at cache pc "PFX", computed target %s "PFX"\n",
+            instr_cache_pc, *write ? "write" : "read", target);
+        loginst(dcontext, 2, &instr, "\tfaulting instr");
+    });
+
+    instr_free(dcontext, &instr);
+    if (!found_target)
+        target = NULL;
     return target;
 }
 
@@ -2655,8 +2677,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 
     case SIGBUS: /* PR 313665: look for DR crashes on unaligned memory or mmap bounds */
     case SIGSEGV: {
-        /* The kernel does NOT fill out the signal-specific fields of siginfo,
-         * except for SIGCHLD, thus we cannot do this:
+        /* Older kernels do NOT fill out the signal-specific fields of siginfo,
+         * except for SIGCHLD.  Thus we cannot do this:
          *     void *pc = (void*) siginfo->si_addr;
          * Thus we must use the third argument, which is a ucontext_t (see above)
          */
@@ -2689,7 +2711,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             /* handle our own TRY/EXCEPT */
 #ifdef HAVE_PROC_MAPS
             /* our probe produces many of these every run */
-            SYSLOG_INTERNAL_WARNING("Handling our fault in a TRY at "PFX, pc);
+            /* since we use for safe_*, making a _ONCE */
+            SYSLOG_INTERNAL_WARNING_ONCE("(1+x) Handling our fault in a TRY at "PFX, pc);
 #endif
             LOG(THREAD, LOG_ALL, level, "TRY fault at "PFX"\n", pc);
             if (TEST(DUMPCORE_TRY_EXCEPT, DYNAMO_OPTION(dumpcore_mask)))
