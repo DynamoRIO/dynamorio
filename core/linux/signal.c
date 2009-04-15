@@ -2690,7 +2690,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         void *pc = (void *) sc->SC_XIP;
         bool syscall_signal = false; /* signal came from syscall? */
         bool is_write = false;
-        byte *target = compute_memory_target(dcontext, pc, sc, &is_write);
+        byte *target;
 
 #ifdef SIDELINE
         if (dcontext == NULL) {
@@ -2698,15 +2698,6 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             ASSERT_NOT_REACHED();
         }
 #endif
-#ifdef STACK_GUARD_PAGE
-        if (sig == SIGSEGV && is_write && is_stack_overflow(dcontext, target)) {
-            SYSLOG_INTERNAL_CRITICAL(PRODUCT_NAME" stack overflow at pc "PFX, pc);
-            /* options are already synchronized by the SYSLOG */
-            if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dynamo_options.dumpcore_mask))
-                os_dump_core("stack overflow");
-            os_terminate(dcontext, TERMINATE_PROCESS);
-        }
-#endif /* STACK_GUARD_PAGE */
         if (dcontext->try_except_state != NULL) {
             /* handle our own TRY/EXCEPT */
 #ifdef HAVE_PROC_MAPS
@@ -2744,6 +2735,25 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             os_terminate(dcontext, TERMINATE_PROCESS);
         }
 #endif
+
+        /* For !HAVE_PROC_MAPS, we cannot compute the target until
+         * after the try/except check b/c compute_memory_target()
+         * calls get_memory_info_from_os() which does a probe: and the
+         * try/except could be from a probe itself.  A try/except that
+         * triggers a stack overflow should recover on the longjmp, so
+         * this order should be fine.
+         */
+
+        target = compute_memory_target(dcontext, pc, sc, &is_write);
+#ifdef STACK_GUARD_PAGE
+        if (sig == SIGSEGV && is_write && is_stack_overflow(dcontext, target)) {
+            SYSLOG_INTERNAL_CRITICAL(PRODUCT_NAME" stack overflow at pc "PFX, pc);
+            /* options are already synchronized by the SYSLOG */
+            if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dynamo_options.dumpcore_mask))
+                os_dump_core("stack overflow");
+            os_terminate(dcontext, TERMINATE_PROCESS);
+        }
+#endif /* STACK_GUARD_PAGE */
 
         /* FIXME: libc! 
          * FIXME PR 205795: in_fcache and is_dynamo_address do grab locks!
