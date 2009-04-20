@@ -745,17 +745,18 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #else
 #  define PRODUCT_NAME "DynamoRIO"
 #endif
-/* I initially was going to use "VMware, Inc." for the registry and eventlog,
- * since other VMware products use the longer name in the registry,
- * but both Jim's original comment here about "alphanum only" and memories
+/* PR 323321: split eventlog from reg name so we can use longer name in reg.
+ * Jim's original comment here about "alphanum only" and memories
  * of issues w/ eventlog Araksha => Determin[a] have made us cautious
  * (though in my tests on win2k the longer name worked fine for eventlog).
- * Update:
- * PR 323321: split eventlog from reg name so we can use longer name in reg.
  */
-#define COMPANY_NAME "VMware, Inc." /* used for reg key */
-#define COMPANY_NAME_EVENTLOG "VMware" /* used for event log */
-#define COMPANY_LONG_NAME "VMware, Inc."
+/* i#80: I thought about flattening the reg key but simpler to just
+ * have two DynamoRIO levels
+ */
+#define COMPANY_NAME "DynamoRIO" /* used for reg key */
+#define COMPANY_NAME_EVENTLOG "DynamoRIO" /* used for event log */
+/* used in (c) stmt in log file and in resources */
+#define COMPANY_LONG_NAME "DynamoRIO developers"
 
 #ifdef BUILD_NUMBER
 #  define BUILD_NUMBER_STRING "build "STRINGIFY(BUILD_NUMBER)
@@ -944,12 +945,8 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define DYNAMORIO_REGISTRY_BASE_SUBKEY "Software\\"COMPANY_NAME"\\"PRODUCT_NAME
 #  define DYNAMORIO_REGISTRY_BASE L"\\Registry\\Machine\\Software\\"L_EXPAND_LEVEL(COMPANY_NAME)L("\\")L_EXPAND_LEVEL(PRODUCT_NAME)
 #  define DYNAMORIO_REGISTRY_HIVE HKEY_LOCAL_MACHINE
-#  define DYNAMORIO_REGISTRY_KEY_SET COMPANY_NAME
 #  define DYNAMORIO_REGISTRY_KEY    DYNAMORIO_REGISTRY_BASE_SUBKEY
 #  define L_DYNAMORIO_REGISTRY_KEY L"Software\\"L_EXPAND_LEVEL(COMPANY_NAME)L"\\"L_EXPAND_LEVEL(PRODUCT_NAME)
-/* this is just here to keep things in one place. probably should combine 
-   with other keys. */
-#  define DYNAMORIO_REGISTRY_CONFIG_SUBKEY L"Software\\"L_EXPAND_LEVEL(COMPANY_NAME)L"\\Configuration\\"L_EXPAND_LEVEL(PRODUCT_NAME)
 
 #  define INJECT_ALL_HIVE    HKEY_LOCAL_MACHINE
 #  define INJECT_ALL_KEY     "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"

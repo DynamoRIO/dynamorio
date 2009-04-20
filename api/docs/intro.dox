@@ -115,9 +115,7 @@ sections:
 
 - \subpage page_license
 
-\image html vmware-logo.png
-\image rtf vmware-logo.png
-
+<br>
 
 ***************************************************************************
 ***************************************************************************
@@ -268,6 +266,7 @@ following sub-sections:
  - \ref sec_deploy
  - \ref sec_events
  - \ref sec_utils
+ - \ref sec_build
  - \ref sec_extlibs
  - \ref sec_comm
  - \ref sec_options
@@ -277,7 +276,7 @@ following sub-sections:
 \ifnot vmsafe
 \DynamoRIO exports a rich Application Programming Interface (API) to the
 user for building a \DynamoRIO <em>\client</em>. A \DynamoRIO \client is a
-program that is coupled with \DynamoRIO in order to jointly operate on an
+library that is coupled with \DynamoRIO in order to jointly operate on an
 input program binary:
 
   \image html \client.png
@@ -354,7 +353,7 @@ API) can be used to register processes and \clients,
 unregister processes or \clients, and \ref sec_comm
 "nudge" running processes.  Registration
 information is stored in the Windows registry 
-(\c \\HKLM\\SOFTWARE\\VMware\\DynamoRIO) and as such is
+(\c \\HKLM\\SOFTWARE\\DynamoRIO\\DynamoRIO) and as such is
 persistent across reboots.  Processes are identified by executable
 name for registration, unregistration, and nudging.  Run \c drdeploy.exe
 with no arguments for help on its usage.
@@ -734,6 +733,107 @@ be sure to \ref sec_trans_floating_point "save the application's floating
 point state" so as to avoid corrupting it.
 
 ***************************************************************************
+\section sec_build Building a \Client
+
+To use the \DynamoRIO API, a \client should include the main \DynamoRIO
+header file:
+
+\code
+#include "dr_api.h"
+\endcode
+
+The \client's target operating system and architecture must
+be specified by setting pre-processor defines before including the
+\DynamoRIO header files.  The appropriate library must then be linked
+with.  The define choices are:
+
+-# \p WINDOWS or \p LINUX
+-# \p X86_32 or \p X86_64
+
+For transparency reasons (see \ref transparency), \clients should be
+self-contained and should not share libraries with the application.  Thus,
+when a \client is linked the linker options for no default libraries, no
+startup files, and no entry point should be used.  Not specifying those
+options will result in an unsafe \client library with the potential to
+deadlock or crash.
+
+Additionally, 64-bit \clients must set a preferred base address in the
+lower 2GB.
+
+The \DynamoRIO release supplies <a href="http://www.cmake.org">CMake</a>
+configuration files to facilitate building \clients with the proper
+compiler and linker flags.  CMake is a cross-platform build system that
+generates Makefiles or other development system project files.
+
+Two files are distributed in the \p cmake/ directory: \p
+DynamoRIOConfig.cmake and \p DynamoRIOUse.cmake.  In its \p CMakeLists.txt
+file, a \client should first invoke a \p find_package(\DynamoRIO) command.
+If found, the \client should then set several parameters specifying which
+type of build to target.  Finally, the \client should \p include the \p
+DynamoRIOUse.cmake file, via a CMake variable set by
+DynamoRIOConfig.cmake.  Here is an example:
+
+\code
+find_package(DynamoRIO)
+if (DynamoRIO_FOUND)
+  set(DynamoRIO_X64 ON)
+  set(DynamoRIO_DEBUG ON)
+  set(DynamoRIO_CXX OFF)
+  set(DynamoRIO_VISATT OFF)
+  include(${DynamoRIO_USE_FILE})
+endif(DynamoRIO_FOUND)
+\endcode
+
+The \p samples/CMakeLists.txt file in the release package is another, more
+complex example.
+
+When configuring, the \p DynamoRIO_DIR CMake variable can be passed in to
+identify the directory that contains the DynamoRIOConfig.cmake file.  For
+example:
+
+\code
+mkdir ../build
+cd ../build
+cmake -DDynamoRIO_DIR=$DYNAMORIO_HOME/cmake ../myclient
+make
+\endcode
+
+The parameters to \p DynamoRIOUse.cmake are:
+
+ - DynamoRIO_X64 = whether \client is 64-bit
+ - DynamoRIO_DEBUG = whether to link to debug \DynamoRIO library
+ - DynamoRIO_CXX = whether \client is C++
+ - DynamoRIO_VISATT = whether \client is using gcc visibility attributes
+
+If a \client is not using CMake, the appropriate compiler and linker flags
+can be gleaned from DynamoRIOUse.cmake.  One method is to invoke CMake to
+generate a Makefile and then build with \p VERBOSE=1.  We also summarize
+here the key flags required for 32-bit \clients for \p gcc:
+
+\code
+gcc -fPIC -shared -nostartfiles -nodefaultlibs -lgcc -DLINUX -DX86_32
+    -I$DYNAMORIO_HOME/include my-client.c  
+\endcode
+
+And for \p cl:
+
+\code
+cl my-client.c /I$DYNAMORIO_HOME/include /link /NODEFAULTLIB /NOENTRY
+   /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:my-client.dll 
+\endcode
+
+For a 64-bit \client with \p cl:
+
+\code
+cl my-client.c /I$DYNAMORIO_HOME/include /link /NODEFAULTLIB /NOENTRY
+   /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:my-client.dll 
+   /base:0x72000000 /fixed
+\endcode
+
+For 64-bit Linux \clients, setting the preferred base takes several steps.
+Refer to \p DynamorioUse.cmake for details.
+
+***************************************************************************
 \section sec_extlibs Using External Libraries
 
 \Clients are free to use external libraries as long as those libraries
@@ -788,7 +888,9 @@ g++ -o my-client.so -I<header dir> \
 \endcode
 
 See also the stl_test.cpp sample and CMake build files provided with this
-documentation.
+documentation.  The provided CMake build files will set these flags
+automatically when the \p DynamoRIO_CXX CMake variable is set (see \ref
+sec_build).
 
 Be aware that we have successfully built and tested several small C++
 \clients using the gcc toolchain, but have not performed extensive testing.
@@ -1047,7 +1149,21 @@ Options available only in the debug build of \DynamoRIO:
 \section sec_debugging Diagnosing and Reporting Problems
 
 When using a complex system like \DynamoRIO, problems can be challenging to
-diagnose.  This section contains some debugging tips.
+diagnose.  This section contains some debugging tips and shows how to get
+help.
+
+\subsection sec_reporting Obtaining Help and Reporting Problems
+
+For questions and discussion, join the <a
+href="http://groups.google.com/group/dynamorio-users/">\DynamoRIO Users
+group</a>.
+
+For bug reports, use the <a
+href="http://code.google.com/p/dynamorio/issues/list">Issue Tracker</a>.
+Please include <a
+href="http://code.google.com/p/dynamorio/wiki/BugReporting">a detailed
+description</a> of the problem (is it an application crash?  a \DynamoRIO
+crash?  a hang?  a debug build assert?) and how to reproduce it.
 
 \subsection sec_diagnosing Debugging Tips
 
@@ -1115,14 +1231,6 @@ networking).  Thus, if a crash occurs in a Windows service under
    header files wrapped in ifndef DR_DO_NOT_DEFINE_<type> to make it
    easier to work around such conflicts.
 
-\subsection sec_reporting Reporting Problems
-
-For questions as well as bug reports, send email to <a
-href="mailto:dynamorio-govirtual@vmware.com">dynamorio-govirtual@vmware.com</a>.
-For bug reports, please include a detailed description of the problem (is
-it an application crash?  a \DynamoRIO crash?  a hang?  a debug build
-assert?) and how to reproduce it.
-
 ****************************************************************************
 ****************************************************************************
 */
@@ -1181,77 +1289,13 @@ output is visible.
 The binary tracedump reader (\ref sec_ex8) is an example of use of
 \DynamoRIO as a standalone library.
 
+When building an application that uses \DynamoRIO as a standalone library,
+follow the steps for \ref sec_build to include the header files and link
+with the \DynamoRIO library, but omit the linker flags requesting no
+standard libraries or startup files.  \DynamoRIO's CMake support does this
+automatically, as the linker flags for shared libraries are separate from
+those for executables.
+
 \endif
 
 */
-
-
-===========================================================================
-INTERNAL NOTES
-
-TODO:
-try "favico.ico" w/o /, once have write access
-this doesn't have ico, try it:
-  http://engweb.vmware.com/~slarsen/dr_api/
-this already has ico:
-  http://vmweb.vmware.com/~slarsen/dr_api/
-
-TODO:
-* move event details to header files
-* remove trace hook from bt.dox?
-* 64-bit?
-* \client limitations: mention arithmetic flag assumptions?
-* do bb mod limits apply to traces too?
-* add notes on actually building VIPA:
-  - need /noentry /nodefaultlib
-    (xref case 202210 on .E if don't have /noentry)
-
-PDF output:
-* vmware-logo.eps is ugly: couldn't get a nice conversion: took from
-  openoffice of VMsafe DevGuide
-* update all eps captions and sizes
-
-PDF and RTF output:
-* intro pages are at end!
-
-RTF output:
-* images in separate files
-* no title (need template?)
-
-TODO:
-See using.html from the MIT release, which had these sections:
-    - What's in the Release Distribution
-    - What Does and Doesn't Work
-    - Using the GUI
-    - Running \DynamoRIO from the Command Line
-    - Environment Variables
-    - Runtime Options
-    - Profiling
-    - Application Interface
-
---------------------------------------------------
-Complaints about doxygen treeview:
-* Treeview uses frames, which are horrible for bookmarking and history tracking
-* Current page not tracked in treeview
-* Globals list still uses tabs: not that bad though
-
---------------------------------------------------
-\page => under a separate top-level chapter "Related Pages"
-example:
-  \page page1 A documentation page
-    Leading text.
-    \section sec An example section
-    This page contains the subsections \ref subsection1 and \ref subsection2.
-    For more info see page \ref page2.
-    \subsection subsection1 The first subsection
-    Text.
-    \subsection subsection2 The second subsection
-    More text.
-  \page page2 Another page
-    Even more info.
-
-groups => under a separate top-level chapter "Modules"
-  \defgroup IntVariables Global integer variables
-  \ingroup A
-
-===========================================================================

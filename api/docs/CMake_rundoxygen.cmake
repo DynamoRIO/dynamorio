@@ -33,10 +33,10 @@ foreach (dox ${dox_files})
   file(READ ${dox} string)
   # These are case-sensitive, to allow function names and macros
   string(REGEX MATCH
-    "(^|[^\\/])DynamoRIO"
+    "(^|[^\\/\(])DynamoRIO[^-A-Za-z_]"
     bad_dr "${string}")
   string(REGEX MATCH
-    "(^|[^_\\-])client($|[^_])"
+    "(^|[^-_\\/a-z])client($|[^_])"
     bad_client "${string}")
   if (bad_dr OR bad_client)
     message(FATAL_ERROR 
@@ -64,6 +64,11 @@ string(REGEX REPLACE
   "<link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"favicon.ico\"/>\n<title>"
   string "${string}")
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/index.html "${string}")
+
+# Add link to home page to treeview pane
+file(APPEND 
+  ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html 
+  "<p>&nbsp;<a target=\"main\" href=\"http://code.google.com/p/dynamorio/\">DynamoRIO Home Page</a></p>")
 
 # Add our logo to treeview pane (yes there is no closing </body></html>)
 file(APPEND 

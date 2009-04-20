@@ -29,20 +29,15 @@
 # DAMAGE.
 
 ###########################################################################
-# FIXME not yet finished:
-# i#65: convert suite/ to cmake and ctest: need Windows support
-# i#66: re-add "make runregression": need Windows support
+# Missing features:
+# i#77: make DRgui a subproject to support with different compiler from libutil 
 # i#73: provide automatic suport for locating ml64.exe when using Vista SDK+WDK
 # i#79: custom build number or label for non-release builds
-# i#77: make DRgui a subproject to support with different compiler from libutil 
 # i#84: nmake adds space before 1st / in 1st arg to a command invoked with quotes
-# 
-# future nice-to-have work:
 # i#74: create source tarball via 'make package_source' 
 # i#68: replace perl with cmake scripts and CTest
 # i#69: re-add support for core unit tests and standalone build rules
 # i#70: symbol store support in core/Makefile and tools/Makefile
-# i#71: support mingw/cygwin makefile cmake target with cl compiler, for make -j
 # i#75: convert clients/standalone/Makefile to CMake 
 # i#72: RHEL3 linker script has no __executable_start
 # i#60: re-add libutil/ unit tests 
@@ -212,7 +207,7 @@ set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
 
 # resources when packaging
 # xref cmake's supported VERSION + SOVERSION which we're not using
-set(VERSION_NUMBER "1.3.3" CACHE STRING "Version number")
+set(VERSION_NUMBER "1.4.0" CACHE STRING "Version number")
 string(REGEX REPLACE "\\." "," VERSION_COMMA_DELIMITED "${VERSION_NUMBER}")
 set(BUILD_NUMBER "18" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "18" CACHE STRING "Unique build number")
@@ -328,8 +323,6 @@ if (UNIX) # unlikely to be an issue on Windows
   CHECK_TYPE_SIZE(int64 DR_DO_NOT_DEFINE_int64)
   # we could do CHECK_SYMBOL_EXISTS for MAX and MIN but they're not
   # in standard headers so up to user to define if an issue
-
-  # FIXME: -iquote: no way to do it in cmake
 endif (UNIX)
 
 ###########################################################################
@@ -368,6 +361,7 @@ if (UNIX)
   # We disable strcmp intrinsic to avoid stack overflow in
   # set_dynamo_options(): case 7853.
   # FIXME: now that we have -O we may not need -fno-builtin-strcmp
+  # FIXME: actually -O is making it annoying to debug: need better solution!
   set(DBG_OPT "-O -fno-omit-frame-pointer -fno-builtin-strcmp")
   set(CPP_KEEP_COMMENTS -C)
   set(CPP_NO_LINENUM -P)

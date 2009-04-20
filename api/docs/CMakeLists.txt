@@ -154,7 +154,8 @@ add_custom_target(htmldocs ALL
 add_dependencies(htmldocs api_headers)
 
 # FIXME i#59: if epstopdf and latex are available, add optional pdf
-# target that invokes fix-latex.pl and install rule
+# target that invokes fix-latex.pl and install rule.
+# Need to copy drlogo-16x16.png to latex/drlogo.png after i#80 changes.
 
 ###########################################################################
 # install rules

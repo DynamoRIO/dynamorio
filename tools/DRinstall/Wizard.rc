@@ -32,6 +32,9 @@
 //
 #include "resource.h"
 
+// get PRODUCT_NAME, etc, constants
+#include "globals_shared.h"
+
 #define APSTUDIO_READONLY_SYMBOLS
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -186,7 +189,8 @@ BEGIN
     BEGIN
         BLOCK "040904B0"
         BEGIN
-            VALUE "CompanyName", "VMware\0"
+#define ASCIIZ "\0"
+            VALUE "CompanyName", COMPANY_LONG_NAME ASCIIZ
             VALUE "FileDescription", "DynamoRIO Installer\0"
             VALUE "FileVersion", "1, 0, 0, 1\0"
             VALUE "InternalName", "DRinstall\0"

@@ -240,42 +240,20 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 \par Building the Example
 
-To build the \client instrumentation application, the
-\client program file (say instrcalls.c) should include the main header file:
+For general instructions on building a \client, see \ref sec_build.
+
+To build the \p instrcalls.c \client using CMake, if \p DYNAMORIO_HOME is
+set to the base of the \DynamoRIO release package:
 
 \code
-#include "dr_api.h"
+mkdir build
+cd build
+cmake -DDynamoRIO_DIR=$DYNAMORIO_HOME/cmake $DYNAMORIO_HOME/samples
+make instrcalls
 \endcode
 
-The \client's target operating system and architecture must
-be specified by setting pre-processor defines before including the
-\DynamoRIO header files.  The appropriate library must then be linked
-with.  The define choices are:
-
--# \p WINDOWS or \p LINUX
--# \p X86_32 or \p X86_64
-
-We can then build the \client shared library in Windows:
-
-\code
-> cl instrcalls.c /I$DYNAMORIO_HOME/include /link /NODEFAULTLIB /NOENTRY /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:instrcalls.dll 
-\endcode
-
-Be sure to include /NODEFAULTLIB and /NOENTRY!  Not including them will
-result in an unsafe \client library with the potential to deadlock or
-crash.  See \ref transparency for further information on transparency.
-
-\if linux
-To build in Linux:
-
-\code
-> gcc -shared -nostartfiles -DLINUX -I$DYNAMORIO_HOME/include instrcalls.c -o instrcalls.so 
-\endcode
-\endif
-
-The result is a shared library instrcalls.dll. To invoke the \client library,
-follow the instructions under \ref sec_deploy.
-
+The result is a shared library instrcalls.dll or libinstrcalls.so. To
+invoke the \client library, follow the instructions under \ref sec_deploy.
 
 ********************
 \subsection sec_ex2 Instruction Profiling

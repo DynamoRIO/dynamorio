@@ -965,10 +965,12 @@ dr_app_cleanup()
 dr_app_take_over()
 \endcode
 
-When building an executable that links with the \DynamoRIO library, you may
-need to explicitly link with the C library prior to the \DynamoRIO library:
-
-\code /link /nodefaultlib libcmt.lib dynamorio.lib \endcode
+When building an executable that uses \DynamoRIO's Application Interface,
+follow the steps for \ref sec_build to include the header files and link
+with the \DynamoRIO library, but omit the linker flags requesting no
+standard libraries or startup files.  \DynamoRIO's CMake support does this
+automatically, as the linker flags for shared libraries are separate from
+those for executables.
 
 \endif
 

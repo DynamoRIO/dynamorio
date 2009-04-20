@@ -1104,6 +1104,10 @@ dr_standalone_init(void);
  */
 
 #ifdef WINDOWS
+/**
+ * If \p x is false, displays a message about an assertion failure
+ * (appending \p msg to the message) and then calls dr_abort()
+ */ 
 # define DR_ASSERT_MSG(x, msg) \
     ((void)((!(x)) ? \
         (dr_messagebox("ASSERT FAILURE: %s:%d: %s (%s)", __FILE__,  __LINE__, #x, msg),\
@@ -1116,6 +1120,10 @@ dr_standalone_init(void);
          dr_abort(), 0) : 0))
 #endif
 
+/**
+ * If \p x is false, displays a message about an assertion failure and
+ * then calls dr_abort()
+ */ 
 #define DR_ASSERT(x) DR_ASSERT_MSG(x, "")
 
 /* DR_API EXPORT END */

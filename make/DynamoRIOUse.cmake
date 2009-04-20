@@ -29,7 +29,7 @@
 # DAMAGE.
 
 # How to use:
-# First, set these three parameters:
+# First, set these parameters:
 #
 #    DynamoRIO_X64 = if client is 64-bit
 #    DynamoRIO_DEBUG = if wish to link to debug DynamoRIO library
@@ -44,6 +44,7 @@
 #     set(DynamoRIO_X64 ON)
 #     set(DynamoRIO_DEBUG OFF)
 #     set(DynamoRIO_CXX OFF)
+#     set(DynamoRIO_VISATT OFF)
 #     include(${DynamoRIO_USE_FILE})
 #     add_library(myclient SHARED myclient.c)
 #     target_link_libraries(myclient dynamorio)

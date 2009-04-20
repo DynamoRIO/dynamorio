@@ -88,6 +88,7 @@ if (DynamoRIO_FOUND)
     set(DynamoRIO_DEBUG OFF)
   endif ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
   set(DynamoRIO_CXX OFF)
+  set(DynamoRIO_VISATT OFF)
   include(${DynamoRIO_USE_FILE})
 endif(DynamoRIO_FOUND)
 

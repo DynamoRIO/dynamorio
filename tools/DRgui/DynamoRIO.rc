@@ -33,6 +33,9 @@
 #include "configure.h"
 #include "resource.h"
 
+// get PRODUCT_NAME, etc, constants
+#include "globals_shared.h"
+
 #define APSTUDIO_READONLY_SYMBOLS
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -227,16 +230,15 @@ END
 // Dialog
 //
 
-IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 211, 193
+IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 211, 140
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About ${PRODUCT_NAME}"
 FONT 8, "MS Sans Serif"
 BEGIN
-    LTEXT           "${PRODUCT_NAME} Version ${VERSION_NUMBER}",IDC_STATIC,57,82,102,11,
+    LTEXT           "${PRODUCT_NAME} Version ${VERSION_NUMBER}",IDC_STATIC,63,82,102,11,
                     SS_NOPREFIX
-    LTEXT           "Copyright (C) 2007-2009",IDC_STATIC,67,99,78,8
-    DEFPUSHBUTTON   "OK",IDOK,81,172,50,14,WS_GROUP
-    CONTROL         153,IDC_STATIC,"Static",SS_BITMAP,43,117,125,44
+    LTEXT           "Copyright (C) 2007-2009",IDC_STATIC,67,98,78,8
+    DEFPUSHBUTTON   "OK",IDOK,81,118,50,14,WS_GROUP
     CONTROL         157,IDC_STATIC,"Static",SS_BITMAP,70,7,71,66
 END
 
@@ -461,12 +463,13 @@ BEGIN
     BLOCK "StringFileInfo"
     BEGIN
         BLOCK "040904b0"
-        BEGIN
-            VALUE "CompanyName", "VMware\0"
+        BEGIN 
+#define ASCIIZ "\0"
+           VALUE "CompanyName", COMPANY_LONG_NAME ASCIIZ
             VALUE "FileDescription", "DynamoRIO GUI\0"
             VALUE "FileVersion", "${VERSION_COMMA_DELIMITED},${BUILD_NUMBER}\0"
             VALUE "InternalName", "DynamoRIO GUI\0"
-            VALUE "LegalCopyright", "Copyright (C) 2002-2008\0"
+            VALUE "LegalCopyright", "Copyright (C) 2002-2009\0"
             VALUE "OriginalFilename", "DRgui.EXE\0"
             VALUE "ProductName", "DynamoRIO GUI\0"
             VALUE "ProductVersion", "${VERSION_COMMA_DELIMITED},${BUILD_NUMBER}\0"

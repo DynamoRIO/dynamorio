@@ -106,7 +106,7 @@ The following are part of the \DynamoRIO release distribution:
 The current version is \DR_VERSION and is backward compatible with releases from
 1.0.0 (originally called 0.9.6: see below) onward.
 
-The changes between version 1.3.3 and 1.3.2 are:
+The changes between version 1.4.0 and 1.3.2 are:
 
  - Added directly-addressable thread-local storage slots for exclusive
    \client use:
@@ -125,6 +125,7 @@ The changes between version 1.3.3 and 1.3.2 are:
  - Provide dr_snprintf() (identical to snprintf()) for consistent naming
    and to avoid gcc warnings about using pointers with %x (which we're
    using because there is no portable way to precisely control %p)
+ - Changed the top-level registry key to "\DynamoRIO"
 
 The changes between version 1.3.2 and 1.3.1 are:
 
@@ -580,8 +581,10 @@ We also plan to add a number of secondary features, including:
  - Full control over trace building
  - \Client exception event for \client fault recovery/remediation
 
-Send comments or requests to <a
-href="mailto:dynamorio-govirtual@vmware.com">dynamorio-govirtual@vmware.com</a>.
+To discuss current and future features, join the <a
+href="http://groups.google.com/group/dynamorio-users/">\DynamoRIO Users
+group</a>.
+
 \endif
 
 */
