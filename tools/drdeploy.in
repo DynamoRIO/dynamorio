@@ -183,14 +183,14 @@ then
         dr_lib_path=$default_home/lib$arch
     fi
 fi
-if [ ! -e $dr_lib_path/$lib/libdynamorio.so ]
+if [ ! -e "$dr_lib_path/$lib/libdynamorio.so" ]
 then
     echo "ERROR - libdynamorio.so not found in $dr_lib_path/$lib"
     echo $usage
     exit
 fi
 # convert to absolute path
-dr_lib_path=`cd $dr_lib_path ; pwd`
+dr_lib_path=`cd "$dr_lib_path" ; pwd`
 
 if [ ! -n "$*" ]
 then

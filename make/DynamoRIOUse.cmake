@@ -157,7 +157,7 @@ if (DynamoRIO_X64)
 
     # -dT is preferred, available on ld 2.18+: we could check for it
     set(LD_SCRIPT_OPTION "-T")
-    set(PREFERRED_BASE_FLAGS "-Xlinker ${LD_SCRIPT_OPTION} -Xlinker ${LD_SCRIPT}")
+    set(PREFERRED_BASE_FLAGS "-Xlinker ${LD_SCRIPT_OPTION} -Xlinker \"${LD_SCRIPT}\"")
   else (UNIX)
     set(PREFERRED_BASE_FLAGS "/base:${PREFERRED_BASE} /fixed")
   endif (UNIX)

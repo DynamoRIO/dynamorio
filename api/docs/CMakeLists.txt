@@ -60,15 +60,19 @@ foreach (fig ${figures_fig})
   add_custom_command(
     OUTPUT ${genimg_dirname}/${base}.eps
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig
+    # fig2dev doesn't quote gs output path; set working dir to avoid spaces
     COMMAND ${FIG2DEV_EXECUTABLE}
-    ARGS -L eps ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig ${genimg_dirname}/${base}.eps
+    ARGS -L eps ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig ${base}.eps
+    WORKING_DIRECTORY ${genimg_dirname}
     VERBATIM # recommended: p260
     )
   add_custom_command(
     OUTPUT ${genimg_dirname}/${base}.tiff
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig
+    # fig2dev doesn't quote gs output path; set working dir to avoid spaces
     COMMAND ${FIG2DEV_EXECUTABLE}
-    ARGS -L tiff -m 4 ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig ${genimg_dirname}/${base}.tiff
+    ARGS -L tiff -m 4 ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig ${base}.tiff
+    WORKING_DIRECTORY ${genimg_dirname}
     VERBATIM # recommended: p260
     )
   add_custom_command(

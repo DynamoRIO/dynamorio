@@ -239,7 +239,7 @@ if (UNIX)
   set_directory_properties(PROPERTIES
     ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
   set(dynamorio_link_flags 
-    "${dynamorio_link_flags} -Xlinker ${ld_script_option} -Xlinker ${ld_script}")
+    "${dynamorio_link_flags} -Xlinker ${ld_script_option} -Xlinker \"${ld_script}\"")
   add_custom_command(TARGET dynamorio
     PRE_LINK
     COMMAND ${CMAKE_COMMAND}

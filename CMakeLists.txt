@@ -417,7 +417,7 @@ if (UNIX)
   # up the --defsym args.
   set(CMAKE_ASM_COMPILE_OBJECT
     "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E <SOURCE> -o <OBJECT>.s"
-    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
+    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake\""
     # not using <FLAGS> b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
     # is passed in: we don't need the include dirs b/c of the cpp step.
     # update: Brad fixed bug #8107: moved -Ddynamorio_EXPORTS from <FLAGS> to <DEFINES> 
