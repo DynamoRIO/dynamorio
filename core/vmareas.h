@@ -58,19 +58,17 @@ enum {
     /* these are bitmask flags */
     VECTOR_SHARED        = 0x0001,
     VECTOR_FRAGMENT_LIST = 0x0002, /* for vmareas.c-only use */
-    VECTOR_NEVER_MERGE   = 0x0004,
-    /* Used as a qualifier for VECTOR_NEVER_MERGE: while a merge of
-     * adjacent areas is not desired, data does not contain critical
-     * information.  Overlapping regions will preserve the data from
-     * an arbitrary region's version, and data is not guaranteed to be
-     * preserved if any of these regions is removed.  
-     */
-    VECTOR_OVERLAP_NON_CRITICAL = 0x0008,
+    /* never merge adjacent regions */
+    VECTOR_NEVER_MERGE_ADJACENT = 0x0004,
+    /* results in an assert if a new region overlaps existing */
+    VECTOR_NEVER_OVERLAP = 0x0008,
     /* case 10335: if a higher-level lock is being used, set this
      * flag to avoid the redundant vector-level lock
      */
     VECTOR_NO_LOCK       = 0x0010,
 };
+
+#define VECTOR_NEVER_MERGE (VECTOR_NEVER_MERGE_ADJACENT | VECTOR_NEVER_OVERLAP)
 
 /* This vector data structure is only exposed here for quick length checks.
  * For external (non-vmareas.c) users, the vmvector_* interface is the
@@ -90,6 +88,28 @@ struct vm_area_vector_t {
      * to perform a read (don't need full recursive lock)
      */
     read_write_lock_t lock;
+
+    /* Callbacks to support payloads */
+    /* Frees a payload */
+    void (*free_payload_func)(void*);
+    /* Returns the payload to use for a new region split from the given data's
+     * region.
+     */
+    void *(*split_payload_func)(void*);
+    /* Should adjacent/overlapping regions w/ given payloads be merged?
+     * If it returns false, adjacent regions are not merged, and
+     * a new overlapping region is split (the split_payload_func is
+     * called) and only nonoverlapping pieces are added.
+     * If NULL, it is assumed to return true for adjacent but false
+     * for overlapping.
+     * The VECTOR_NEVER_MERGE_ADJACENT flag takes precedence over this function.
+     */
+    bool (*should_merge_func)(bool adjacent, void*, void*);
+    /* Merge adjacent or overlapping regions: dst is first arg.
+     * If NULL, the free_payload_func will be called for src.
+     * If non-NULL, the free_payload_func will NOT be called.
+     */
+    void *(*merge_payload_func)(void *dst, void *src);
 }; /* typedef-ed in globals.h */
 
 /* vm_area_vectors should NOT be declared statically if their locks need to be
@@ -121,6 +141,13 @@ extern vm_area_vector_t *IAT_areas;
 extern mutex_t shared_delete_lock;
 
 /* operations on the opaque vector struct */
+void
+vmvector_set_callbacks(vm_area_vector_t *v,
+                       void (*free_func)(void*),
+                       void *(*split_func)(void*),
+                       bool (*should_merge_func)(bool, void*, void*),
+                       void *(*merge_func)(void*, void*));
+
 void
 vmvector_print(vm_area_vector_t *v, file_t outf);
 
@@ -162,6 +189,15 @@ vmvector_create_vector(dcontext_t *dcontext, uint flags);
 bool
 vmvector_lookup_data(vm_area_vector_t *v, app_pc pc, app_pc *start, app_pc *end,
                      void **data);
+
+/* Returns false if pc is in a vmarea in v.
+ * Otherwise, returns the start pc of the vmarea prior to pc in prev (NULL
+ * if none) and the start pc of the vmarea after pc in next (POINTER_MAX
+ * if none).
+ */
+bool
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc,
+                          OUT app_pc *prev, OUT app_pc *next);
 
 bool
 vmvector_modify_data(vm_area_vector_t *v, app_pc start, app_pc end, void *data);
@@ -324,6 +360,9 @@ is_valid_address(app_pc addr);
  */
 void
 mark_dynamo_vm_areas_stale(void);
+
+bool
+are_dynamo_vm_areas_stale(void);
 
 void
 dynamo_vm_areas_lock(void);

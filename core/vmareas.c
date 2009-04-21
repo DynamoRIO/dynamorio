@@ -288,6 +288,8 @@ vm_area_vector_t *IAT_areas;
  */
 static vm_area_vector_t *written_areas;
 
+static void free_written_area(void *data);
+
 #ifdef PROGRAM_SHEPHERDING
 /* for executable_if_flush and executable_if_alloc, we need a future list, so their regions
  * are considered executable until de-allocated -- even if written to!
@@ -886,7 +888,7 @@ vm_area_merge_fraglists(vm_area_t *dst, vm_area_t *src)
  */
 static void
 add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
-            uint vm_flags, uint frag_flags _IF_DEBUG(char *comment))
+            uint vm_flags, uint frag_flags, void *data _IF_DEBUG(char *comment))
 {
     int i, j, diff;
     /* if we have overlap, we extend an existing area -- else we add a new area */
@@ -908,7 +910,11 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
              frag_flags == v->buf[i].frag_flags &&
              /* never merge coarse-grain */
              !TEST(FRAG_COARSE_GRAIN, v->buf[i].frag_flags) &&
-             !TEST(VECTOR_NEVER_MERGE, v->flags))) {
+             !TEST(VECTOR_NEVER_MERGE_ADJACENT, v->flags) &&
+             (v->should_merge_func == NULL ||
+              v->should_merge_func(true/*adjacent*/, data, v->buf[i].custom.client)))) {
+            ASSERT(!(start < v->buf[i].end && end > v->buf[i].start) ||
+                   !TEST(VECTOR_NEVER_OVERLAP, v->flags));
             if (overlap_start == -1) {
                 /* assume we'll simply expand an existing area rather than
                  * add a new one -- we'll reset this if we hit merge conflicts */
@@ -1030,8 +1036,11 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
             ASSERT(TEST(FRAG_COARSE_GRAIN, frag_flags) ||
                    !TEST(FRAG_COARSE_GRAIN, v->buf[i].frag_flags));
 
-            /* must overlap same type -- else split */
-            if (vm_flags != v->buf[i].vm_flags || frag_flags != v->buf[i].frag_flags) {
+            /* for overlapping region: must overlap same type -- else split */
+            if ((vm_flags != v->buf[i].vm_flags || frag_flags != v->buf[i].frag_flags) &&
+                (v->should_merge_func == NULL ||
+                 !v->should_merge_func(false/*not adjacent*/,
+                                       data, v->buf[i].custom.client))) {
                 LOG(GLOBAL, LOG_VMAREAS, 1,
                     "add_vm_area "PFX"-"PFX" %s vm_flags=0x%08x "
                     "frag_flags=0x%08x\n  overlaps diff type "PFX"-"PFX" %s"
@@ -1053,13 +1062,16 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
                  */
                 if (start < v->buf[i].start) {
                     if (end > v->buf[i].end) {
+                        void *add_data = data;
                         /* need two areas, one for either side */
                         LOG(GLOBAL, LOG_VMAREAS, 3,
                             "=> will add "PFX"-"PFX" after i\n", v->buf[i].end, end);
                         /* safe to recurse here, new area will be after the area
                          * we are currently looking at in the vector */
-                        add_vm_area(v, v->buf[i].end, end, vm_flags, frag_flags
-                                    _IF_DEBUG(comment));
+                        if (v->split_payload_func != NULL)
+                            add_data = v->split_payload_func(data);
+                        add_vm_area(v, v->buf[i].end, end, vm_flags, frag_flags,
+                                    add_data _IF_DEBUG(comment));
                     }
                     /* if had been merging, let this routine finish that off -- else,
                      * need to add a new area
@@ -1110,6 +1122,7 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
         strncpy(new_area.comment, comment, len);
         new_area.comment[len]  = '\0'; /* if max no null */
 #endif
+        new_area.custom.client = data;
         LOG(GLOBAL, LOG_VMAREAS, 3, "=> adding "PFX"-"PFX"\n", start, end);
         vm_area_vector_check_size(v);
         /* shift subsequent entries */
@@ -1156,6 +1169,13 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
             v->buf[overlap_start].end = end;
         else
             v->buf[overlap_start].end = v->buf[overlap_end-1].end;
+        if (v->merge_payload_func != NULL) {
+            v->buf[overlap_start].custom.client =
+                v->merge_payload_func(data, v->buf[overlap_start].custom.client);
+        } else if (v->free_payload_func != NULL) {
+            /* if a merge exists we assume it will free if necessary */
+            v->free_payload_func(v->buf[overlap_start].custom.client);
+        }
         LOG(GLOBAL, LOG_VMAREAS, 3, " to "PFX"-"PFX"\n",
             v->buf[overlap_start].start, v->buf[overlap_start].end);
         /* when merge, use which comment?  could combine them all
@@ -1169,16 +1189,20 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
             global_heap_free(v->buf[i].comment, strlen(v->buf[i].comment)+1
                              HEAPACCT(ACCT_VMAREAS));
 #endif
-            if (v == written_areas) {
-                /* FIXME: generalize vmvector further to allow custom merging
-                 * control so we don't have to hardcode this vector pointer check
-                 */
-                HEAP_TYPE_FREE(GLOBAL_DCONTEXT, (ro_vs_sandbox_data_t *)
-                               written_areas->buf[i].custom.client,
-                               ro_vs_sandbox_data_t, ACCT_VMAREAS, UNPROTECTED);
-                
+            if (v->merge_payload_func != NULL) {
+                v->buf[overlap_start].custom.client =
+                    v->merge_payload_func(v->buf[overlap_start].custom.client,
+                                          v->buf[i].custom.client);
+            } else if (v->free_payload_func != NULL) {
+                /* if a merge exists we assume it will free if necessary */
+                v->free_payload_func(v->buf[i].custom.client);
             }
             /* merge frags lists */
+            /* FIXME: switch this to a merge_payload_func.  It won't be able
+             * to print out the bounds, and it will have to do the work of
+             * vm_area_clean_fraglist() on each merge, but we could then get
+             * rid of VECTOR_FRAGMENT_LIST.
+             */
             if (TEST(VECTOR_FRAGMENT_LIST, v->flags) && v->buf[i].custom.frags != NULL)
                 vm_area_merge_fraglists(&v->buf[overlap_start], &v->buf[i]);
         }
@@ -1292,6 +1316,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             vm_make_writable(start, end - start);
         }
         v->buf[overlap_start].end = start;
+        /* FIXME: add a vmvector callback function for changing bounds? */
         if (TEST(FRAG_COARSE_GRAIN, v->buf[overlap_start].frag_flags) &&
             official_coarse_vector) {
             adjust_coarse_unit_bounds(&v->buf[overlap_start], false/*leave invalid*/);
@@ -1307,6 +1332,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             vm_make_writable(v->buf[overlap_end-1].start, end - v->buf[overlap_end-1].start);
         }
         v->buf[overlap_end-1].start = end;
+        /* FIXME: add a vmvector callback function for changing bounds? */
         if (TEST(FRAG_COARSE_GRAIN, v->buf[overlap_end-1].frag_flags) &&
             official_coarse_vector) {
             adjust_coarse_unit_bounds(&v->buf[overlap_end-1], false/*leave invalid*/);
@@ -1321,6 +1347,11 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             if (restore_prot && TEST(VM_MADE_READONLY, v->buf[i].vm_flags)) {
                 vm_make_writable(v->buf[i].start, v->buf[i].end - v->buf[i].start);
             }
+            /* FIXME: use a free_payload_func instead of this custom
+             * code.  But then we couldn't assert on the bounds and on
+             * VM_EXECUTED_FROM.  Could add bounds to callback params, but
+             * vm_flags are not exposed to vmvector interface...
+             */
             if (TEST(FRAG_COARSE_GRAIN, v->buf[i].frag_flags) &&
                 official_coarse_vector) {
                 coarse_info_t *info = (coarse_info_t *) v->buf[i].custom.client;
@@ -1355,6 +1386,9 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                 }
                 v->buf[i].custom.client = NULL;
             }
+            if (v->free_payload_func != NULL) {
+                v->free_payload_func(v->buf[i].custom.client);
+            }
 #ifdef DEBUG
             global_heap_free(v->buf[i].comment, strlen(v->buf[i].comment)+1
                              HEAPACCT(ACCT_VMAREAS));
@@ -1384,8 +1418,15 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
          */
         new_area.vm_flags &= ~VM_ADD_TO_SHARED_DATA;
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tadding "PFX"-"PFX"\n", new_area.start, new_area.end);
+        /* we copied v->buf[overlap_start] above and so already have a copy
+         * of the client field
+         */
+        if (v->split_payload_func != NULL) {
+            new_area.custom.client = v->split_payload_func(new_area.custom.client);
+        } /* else, just keep the copy */
         add_vm_area(v, new_area.start, new_area.end, new_area.vm_flags,
-                    new_area.frag_flags _IF_DEBUG(new_area.comment));
+                    new_area.frag_flags, new_area.custom.client
+                    _IF_DEBUG(new_area.comment));
     }
     DOLOG(5, LOG_VMAREAS, { print_vm_areas(v, GLOBAL); });
     return true;
@@ -1524,6 +1565,7 @@ vm_areas_init()
     VMVECTOR_ALLOC_VECTOR(written_areas, GLOBAL_DCONTEXT,
                           VECTOR_SHARED | VECTOR_NEVER_MERGE,
                           written_areas);
+    vmvector_set_callbacks(written_areas, free_written_area, NULL, NULL, NULL);
 #ifdef PROGRAM_SHEPHERDING
     VMVECTOR_ALLOC_VECTOR(futureexec_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
                           futureexec_areas);
@@ -1619,7 +1661,6 @@ vm_areas_reset_free(void)
 int
 vm_areas_exit()
 {
-    int i;
     vm_areas_exited = true;
     vm_areas_statistics();
 
@@ -1698,11 +1739,6 @@ vm_areas_exit()
     vmvector_delete_vector(GLOBAL_DCONTEXT, emulate_write_areas);
     emulate_write_areas = NULL;
 
-    for (i = 0; i < written_areas->length; i++) {
-        HEAP_TYPE_FREE(GLOBAL_DCONTEXT,
-                       (ro_vs_sandbox_data_t *) written_areas->buf[i].custom.client,
-                       ro_vs_sandbox_data_t, ACCT_VMAREAS, UNPROTECTED);
-    }
     vmvector_delete_vector(GLOBAL_DCONTEXT, written_areas);
     written_areas = NULL;
 
@@ -1783,6 +1819,23 @@ vm_areas_thread_exit(dcontext_t *dcontext)
  */
 
 void
+vmvector_set_callbacks(vm_area_vector_t *v,
+                       void (*free_func)(void*),
+                       void *(*split_func)(void*),
+                       bool (*should_merge_func)(bool, void*, void*),
+                       void *(*merge_func)(void*, void*))
+{
+    bool release_lock; /* 'true' means this routine needs to unlock */
+    ASSERT(v != NULL);
+    LOCK_VECTOR(v, release_lock, read);
+    v->free_payload_func = free_func;
+    v->split_payload_func = split_func;
+    v->should_merge_func = should_merge_func;
+    v->merge_payload_func = merge_func;
+    UNLOCK_VECTOR(v, release_lock, read);
+}
+
+void
 vmvector_print(vm_area_vector_t *v, file_t outf)
 {
     bool release_lock; /* 'true' means this routine needs to unlock */
@@ -1791,27 +1844,13 @@ vmvector_print(vm_area_vector_t *v, file_t outf)
     UNLOCK_VECTOR(v, release_lock, read);
 }
 
-/* ASSUMPTION: no merges are allowed! */
 void
 vmvector_add(vm_area_vector_t *v, app_pc start, app_pc end, void *data)
 {
-    vm_area_t *a = NULL;
     bool release_lock; /* 'true' means this routine needs to unlock */
-    DEBUG_DECLARE(bool ok;)
-
     LOCK_VECTOR(v, release_lock, write);
     ASSERT_OWN_WRITE_LOCK(SHOULD_LOCK_VECTOR(v), &v->lock);
-    add_vm_area(v, start, end, 0, 0 _IF_DEBUG(""));
-    DEBUG_DECLARE(ok = ) lookup_addr(v, start, &a);
-    ASSERT(ok);
-    /* no merging combined w/ client data! */
-    ASSERT(data == NULL || TEST(VECTOR_NEVER_MERGE, v->flags));
-    if (TEST(VECTOR_NEVER_MERGE, v->flags)) {
-        /* flag region overlap, unless client data is not critical */
-        ASSERT((a->start == start && a->end == end) ||
-               TEST(VECTOR_OVERLAP_NON_CRITICAL, v->flags));
-        a->custom.client = data;
-    }
+    add_vm_area(v, start, end, 0, 0, data _IF_DEBUG(""));
     UNLOCK_VECTOR(v, release_lock, write);
 }
 
@@ -1911,6 +1950,39 @@ vmvector_lookup_data(vm_area_vector_t *v, app_pc pc,
     return overlap;
 }
 
+/* Returns false if pc is in a vmarea in v.
+ * Otherwise, returns the start pc of the vmarea prior to pc in prev and
+ * the start pc of the vmarea after pc in next.
+ */
+bool
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc,
+                          OUT app_pc *prev, OUT app_pc *next)
+{
+    bool success;
+    int index;
+    bool release_lock; /* 'true' means this routine needs to unlock */
+    
+    LOCK_VECTOR(v, release_lock, read);
+    ASSERT_OWN_READWRITE_LOCK(SHOULD_LOCK_VECTOR(v), &v->lock);
+    success = !binary_search(v, pc, pc+1, NULL, &index, false);
+    if (success) {
+        if (prev != NULL) {
+            if (index == -1)
+                *prev = NULL;
+            else
+                *prev = v->buf[index].start;
+        }
+        if (next != NULL) {
+            if (index >= v->length - 1)
+                *next = (app_pc) POINTER_MAX;
+            else
+                *next = v->buf[index+1].start;
+        }
+    }
+    UNLOCK_VECTOR(v, release_lock, read);
+    return success;
+}
+
 /* Sets custom data field if a vmarea is present. Returns true if found,
  * false if not found.  NOTE: Access to custom data needs explicit
  * synchronization in addition to vm_area_vector_t's locks!
@@ -2002,6 +2074,12 @@ vmvector_free_vector(dcontext_t *dcontext, vm_area_vector_t *v)
 void
 vmvector_delete_vector(dcontext_t *dcontext, vm_area_vector_t *v)
 {
+    if (v->free_payload_func != NULL) {
+        int i;
+        for (i = 0; i < v->length; i++) {
+            v->free_payload_func(v->buf[i].custom.client);
+        }
+    }
     vmvector_free_vector(dcontext, v);
     HEAP_TYPE_FREE(dcontext, v, vm_area_vector_t, ACCT_VMAREAS, PROTECTED);
 }
@@ -2096,6 +2174,13 @@ print_written_areas(file_t outf)
 }
 #endif
 
+static void
+free_written_area(void *data)
+{
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, (ro_vs_sandbox_data_t *) data,
+                   ro_vs_sandbox_data_t, ACCT_VMAREAS, UNPROTECTED);
+}
+
 /* Functions as a lookup routine if an entry is already present.
  * Returns true if an entry was already present, false if not, in which
  * case an entry for [start, end) is added.
@@ -2123,10 +2208,13 @@ add_written_area(vm_area_vector_t *v, app_pc tag, app_pc start,
          * not critical.  In case of simultaneous overlap, we take counter from
          * first region, since that's how add_vm_area does the merge.
          */
-        add_vm_area(v, start, end, /* no flags */ 0, 0 _IF_DEBUG(""));
+        add_vm_area(v, start, end, /* no flags */ 0, 0, NULL _IF_DEBUG(""));
         DEBUG_DECLARE(ok = ) lookup_addr(v, tag, &a);
         ASSERT(ok && a != NULL);
         /* If we merged, we already have an ro2s struct */
+        /* FIXME: now that we have merge callback support, should just pass
+         * a struct into add_vm_area and avoid this post-lookup
+         */
         if (a->custom.client == NULL) {
             /* Since selfmod_execs is written from the cache this must be
              * unprotected.  Attacker changing selfmod_execs or written_count
@@ -2340,7 +2428,7 @@ add_executable_vm_area_helper(app_pc start, app_pc end, uint vm_flags, uint frag
     ASSERT_OWN_WRITE_LOCK(true, &executable_areas->lock);
 
     add_vm_area(executable_areas, start, end,
-                vm_flags, frag_flags _IF_DEBUG(comment));
+                vm_flags, frag_flags, NULL _IF_DEBUG(comment));
 
     if (TEST(VM_WRITABLE, vm_flags)) {
         /* N.B.: the writable flag indicates the natural state of the memory,
@@ -2658,7 +2746,7 @@ add_futureexec_vm_area(app_pc start, app_pc end, bool once_only
     write_lock(&futureexec_areas->lock);
     add_vm_area(futureexec_areas, start, end,
                 (once_only ? VM_ONCE_ONLY : 0),
-                0 /* frag_flags */ _IF_DEBUG(comment));
+                0 /* frag_flags */, NULL _IF_DEBUG(comment));
     write_unlock(&futureexec_areas->lock);
     return true;
 }
@@ -2810,7 +2898,7 @@ get_coarse_info_internal(app_pc addr, bool init, bool have_shvm_lock)
                     "adding coarse region "PFX"-"PFX" to shared vm areas\n",
                     area_copy.start, area_copy.end);
                 add_vm_area(&shared_data->areas, area_copy.start, area_copy.end,
-                            area_copy.vm_flags, area_copy.frag_flags
+                            area_copy.vm_flags, area_copy.frag_flags, NULL
                             _IF_DEBUG(area_copy.comment));
             }
             if (!have_shvm_lock)
@@ -3229,6 +3317,12 @@ update_dynamo_vm_areas(bool have_writelock)
         dynamo_vm_areas_unlock();
 }
 
+bool
+are_dynamo_vm_areas_stale(void)
+{
+    return !dynamo_areas_uptodate;
+}
+
 /* Used for DR heap area changes as circular dependences prevent
  * directly adding or removing DR vm areas->
  * Must hold the DR areas lock across the combination of calling this and
@@ -3343,9 +3437,13 @@ add_dynamo_vm_area(app_pc start, app_pc end, uint prot, bool unmod_image
     if (!dynamo_areas_uptodate)
         update_dynamo_vm_areas(true);
     ASSERT(!vm_area_overlap(dynamo_areas, start, end));
-    add_vm_area(dynamo_areas, start, end, vm_flags, 0 /* frag_flags */
-                _IF_DEBUG(comment));
-    update_all_memory_areas(start, end, prot);
+    add_vm_area(dynamo_areas, start, end, vm_flags, 0 /* frag_flags */,
+                NULL _IF_DEBUG(comment));
+    if (unmod_image) {
+        /* we assume unmod_image == whether calling from outside heap.c */
+        update_all_memory_areas(start, end, prot,
+                                unmod_image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA);
+    }
     return true;
 }
 
@@ -3391,7 +3489,7 @@ add_dynamo_heap_vm_area(app_pc start, app_pc end, bool writable, bool unmod_imag
                 VM_DR_HEAP |
                 (writable ? VM_WRITABLE : 0) |
                 (unmod_image ? VM_UNMOD_IMAGE : 0),
-                0 /* frag_flags */ _IF_DEBUG(comment));
+                0 /* frag_flags */, NULL _IF_DEBUG(comment));
     return true;
 }
 
@@ -6063,7 +6161,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                     LOG(THREAD, LOG_VMAREAS, 2, "adding pretend-writable region "PFX"-"PFX"\n",
                         base, base+size);
                     add_vm_area(pretend_writable_areas, base, base+size,
-                                true, 0 _IF_DEBUG("DR_MODIFY_NOP"));
+                                true, 0, NULL _IF_DEBUG("DR_MODIFY_NOP"));
                 } else {
                     LOG(THREAD, LOG_VMAREAS, 2, "removing pretend-writable region "PFX"-"PFX"\n",
                         base, base+size);
@@ -7571,7 +7669,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
 #endif
         
         add_vm_area(&data->areas, area->start, area->end, area->vm_flags,
-                    area->frag_flags _IF_DEBUG(area->comment));
+                    area->frag_flags, NULL _IF_DEBUG(area->comment));
         /* get area for actual pc (new area could have been split up) */
         ok = lookup_addr(&data->areas, pc, &local_area);
         ASSERT(ok);
@@ -7992,7 +8090,7 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
                 ok = lookup_addr(&tgt_data->areas, FRAG_PC(entry), &tgt_area);
                 if (!ok) {
                     add_vm_area(&tgt_data->areas, area->start, area->end, area->vm_flags,
-                                area->frag_flags _IF_DEBUG(area->comment));
+                                area->frag_flags, NULL _IF_DEBUG(area->comment));
                     ok = lookup_addr(&tgt_data->areas, FRAG_PC(entry), &tgt_area);
                     ASSERT(ok);
                     /* modified vector, must clear last_area */
@@ -10792,13 +10890,14 @@ print_vector_msg(vm_area_vector_t *v, file_t f, char *msg)
 
 static void
 check_vec(vm_area_vector_t *v, int i, app_pc start, app_pc end,
-          uint vm_flags, uint frag_flags)
+          uint vm_flags, uint frag_flags, void *data)
 {
     ASSERT(i < v->length);
     ASSERT(v->buf[i].start == start);
     ASSERT(v->buf[i].end == end);
     ASSERT(v->buf[i].vm_flags == vm_flags);
     ASSERT(v->buf[i].frag_flags == frag_flags);
+    ASSERT(v->buf[i].custom.client == data);
 }
 
 void
@@ -10815,16 +10914,16 @@ vmvector_tests()
     vmvector_add(&v, (app_pc)0x202, (app_pc)0x210, NULL); /* should complain */
     vmvector_add(&v, (app_pc)0x203, (app_pc)0x221, NULL);
     vmvector_print(&v, STDERR);
-    check_vec(&v, 2, (app_pc)0x203, (app_pc)0x221, 0, 0);
+    check_vec(&v, 2, (app_pc)0x203, (app_pc)0x221, 0, 0, NULL);
 
     res = vmvector_remove_containing_area(&v, (app_pc)0x103, NULL, NULL); /* not in */
     EXPECT(res, false);
-    check_vec(&v, 0, (app_pc)0x100, (app_pc)0x103, 0, 0);
+    check_vec(&v, 0, (app_pc)0x100, (app_pc)0x103, 0, 0, NULL);
     res = vmvector_remove_containing_area(&v, (app_pc)0x100, NULL, &end);
     EXPECT(end, 0x103);
     EXPECT(res, true);
     vmvector_print(&v, STDERR);
-    check_vec(&v, 0, (app_pc)0x200, (app_pc)0x203, 0, 0);
+    check_vec(&v, 0, (app_pc)0x200, (app_pc)0x203, 0, 0, NULL);
     res = vmvector_remove_containing_area(&v, (app_pc)0x100, NULL, NULL); /* not in */
     EXPECT(res, false);
     vmvector_print(&v, STDERR);
@@ -10850,17 +10949,17 @@ main() {
 
     /* TEST 1: merge a bunch of areas
      */
-    add_vm_area(&v, (app_pc)1, (app_pc)3, 0, 0 _IF_DEBUG("A"));
-    add_vm_area(&v, (app_pc)5, (app_pc)7, 0, 0 _IF_DEBUG("B"));
-    add_vm_area(&v, (app_pc)9, (app_pc)11, 0, 0 _IF_DEBUG("C"));
+    add_vm_area(&v, (app_pc)1, (app_pc)3, 0, 0, NULL _IF_DEBUG("A"));
+    add_vm_area(&v, (app_pc)5, (app_pc)7, 0, 0, NULL _IF_DEBUG("B"));
+    add_vm_area(&v, (app_pc)9, (app_pc)11, 0, 0, NULL _IF_DEBUG("C"));
     print_vector_msg(&v, STDERR, "after adding areas");
-    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, 0);
-    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, 0);
-    check_vec(&v, 2, (app_pc)9, (app_pc)11, 0, 0);
+    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, 0, NULL);
+    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, 0, NULL);
+    check_vec(&v, 2, (app_pc)9, (app_pc)11, 0, 0, NULL);
 
-    add_vm_area(&v, (app_pc)0, (app_pc)12, 0, 0 _IF_DEBUG("D"));
+    add_vm_area(&v, (app_pc)0, (app_pc)12, 0, 0, NULL _IF_DEBUG("D"));
     print_vector_msg(&v, STDERR, "after merging with D");
-    check_vec(&v, 0, (app_pc)0, (app_pc)12, 0, 0);
+    check_vec(&v, 0, (app_pc)0, (app_pc)12, 0, 0, NULL);
 
     /* clear for next test */
     remove_vm_area(&v, (app_pc)0, UNIVERSAL_REGION_END, false);
@@ -10869,25 +10968,25 @@ main() {
     /* TEST 2: add an area that covers several smaller ones, including one
      * that cannot be merged
      */
-    add_vm_area(&v, (app_pc)1, (app_pc)3, 0, 0 _IF_DEBUG("A"));
-    add_vm_area(&v, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED _IF_DEBUG("B"));
-    add_vm_area(&v, (app_pc)9, (app_pc)11, 0, 0 _IF_DEBUG("C"));
+    add_vm_area(&v, (app_pc)1, (app_pc)3, 0, 0, NULL _IF_DEBUG("A"));
+    add_vm_area(&v, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("B"));
+    add_vm_area(&v, (app_pc)9, (app_pc)11, 0, 0, NULL _IF_DEBUG("C"));
     print_vector_msg(&v, STDERR, "after adding areas");
-    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, 0);
-    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED);
-    check_vec(&v, 2, (app_pc)9, (app_pc)11, 0, 0);
+    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, 0, NULL);
+    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 2, (app_pc)9, (app_pc)11, 0, 0, NULL);
 
-    add_vm_area(&v, (app_pc)2, (app_pc)10, 0, 0 _IF_DEBUG("D"));
+    add_vm_area(&v, (app_pc)2, (app_pc)10, 0, NULL, 0 _IF_DEBUG("D"));
     print_vector_msg(&v, STDERR, "after merging with D");
-    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, 0);
-    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED);
-    check_vec(&v, 2, (app_pc)7, (app_pc)11, 0, 0);
+    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, 0, NULL);
+    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 2, (app_pc)7, (app_pc)11, 0, 0, NULL);
 
     remove_vm_area(&v, (app_pc)6, (app_pc)8, false);
     print_vector_msg(&v, STDERR, "after removing 6-8");
-    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, 0);
-    check_vec(&v, 1, (app_pc)5, (app_pc)6, 0, FRAG_SELFMOD_SANDBOXED);
-    check_vec(&v, 2, (app_pc)8, (app_pc)11, 0, 0);
+    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, 0, NULL);
+    check_vec(&v, 1, (app_pc)5, (app_pc)6, 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 2, (app_pc)8, (app_pc)11, 0, 0, NULL);
 
     /* clear for next test */
     remove_vm_area(&v, (app_pc)0, UNIVERSAL_REGION_END, false);
@@ -10896,29 +10995,29 @@ main() {
     /* TEST 3: add an area that covers several smaller ones, including two
      * that cannot be merged
      */
-    add_vm_area(&v, (app_pc)1, (app_pc)3, 0, FRAG_SELFMOD_SANDBOXED _IF_DEBUG("A"));
-    add_vm_area(&v, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED _IF_DEBUG("B"));
-    add_vm_area(&v, (app_pc)9, (app_pc)11, 0, 0 _IF_DEBUG("C"));
+    add_vm_area(&v, (app_pc)1, (app_pc)3, 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("A"));
+    add_vm_area(&v, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("B"));
+    add_vm_area(&v, (app_pc)9, (app_pc)11, 0, 0, NULL _IF_DEBUG("C"));
     print_vector_msg(&v, STDERR, "after adding areas");
-    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, FRAG_SELFMOD_SANDBOXED);
-    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED);
-    check_vec(&v, 2, (app_pc)9, (app_pc)11, 0, 0);
+    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 2, (app_pc)9, (app_pc)11, 0, 0, NULL);
 
-    add_vm_area(&v, (app_pc)2, (app_pc)12, 0, 0 _IF_DEBUG("D"));
+    add_vm_area(&v, (app_pc)2, (app_pc)12, 0, 0, NULL _IF_DEBUG("D"));
     print_vector_msg(&v, STDERR, "after merging with D");
-    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, FRAG_SELFMOD_SANDBOXED);
-    check_vec(&v, 1, (app_pc)3, (app_pc)5, 0, 0);
-    check_vec(&v, 2, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED);
-    check_vec(&v, 3, (app_pc)7, (app_pc)12, 0, 0);
+    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 1, (app_pc)3, (app_pc)5, 0, 0, NULL);
+    check_vec(&v, 2, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 3, (app_pc)7, (app_pc)12, 0, 0, NULL);
 
     remove_vm_area(&v, (app_pc)2, (app_pc)11, false);
     print_vector_msg(&v, STDERR, "after removing 2-11");
-    check_vec(&v, 0, (app_pc)1, (app_pc)2, 0, FRAG_SELFMOD_SANDBOXED);
-    check_vec(&v, 1, (app_pc)11, (app_pc)12, 0, 0);
+    check_vec(&v, 0, (app_pc)1, (app_pc)2, 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 1, (app_pc)11, (app_pc)12, 0, 0, NULL);
 
     /* FIXME: would be nice to be able to test that an assert is generated... 
      * say, for this:
-     * add_vm_area(&v, (app_pc)7, (app_pc)12, 0, FRAG_SELFMOD_SANDBOXED _IF_DEBUG("E"));
+     * add_vm_area(&v, (app_pc)7, (app_pc)12, 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("E"));
      */
 
     /* clear for next test */
@@ -10927,13 +11026,13 @@ main() {
 
     /* TEST 4: add an area completely inside one that cannot be merged
      */
-    add_vm_area(&v, (app_pc)1, (app_pc)5, 0, FRAG_SELFMOD_SANDBOXED _IF_DEBUG("A"));
+    add_vm_area(&v, (app_pc)1, (app_pc)5, 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("A"));
     print_vector_msg(&v, STDERR, "after adding areas");
-    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, FRAG_SELFMOD_SANDBOXED);
+    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, FRAG_SELFMOD_SANDBOXED, NULL);
 
-    add_vm_area(&v, (app_pc)3, (app_pc)4, 0, 0 _IF_DEBUG("B"));
+    add_vm_area(&v, (app_pc)3, (app_pc)4, 0, 0, NULL _IF_DEBUG("B"));
     print_vector_msg(&v, STDERR, "after merging with B");
-    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, FRAG_SELFMOD_SANDBOXED);
+    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, FRAG_SELFMOD_SANDBOXED, NULL);
 
     vmvector_tests();
 

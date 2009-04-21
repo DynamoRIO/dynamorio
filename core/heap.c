@@ -2026,6 +2026,10 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
             } else
                 known_stack = false;
         } else
+#elif defined(LINUX)
+            /* the all_memory_areas list doesn't keep details inside vmheap */
+            known_stack = get_memory_info_from_os(stack_reserve_end, NULL,
+                                                  &available, &prot);
 #else
             known_stack = get_memory_info(stack_reserve_end, NULL, &available, &prot);
 #endif
@@ -2372,12 +2376,15 @@ heap_vmareas_synch_units()
              * needs to change.
              */
             update_all_memory_areas((app_pc)u, UNIT_RESERVED_END(u),
-                                    MEMPROT_READ | MEMPROT_WRITE); /* unit */
+                                    MEMPROT_READ | MEMPROT_WRITE,
+                                    DR_MEMTYPE_DATA); /* unit */
             if (offs != 0) {
                 /* guard pages */
-                update_all_memory_areas((app_pc)u - offs, (app_pc)u, MEMPROT_NONE);
+                update_all_memory_areas((app_pc)u - offs, (app_pc)u, MEMPROT_NONE,
+                                        DR_MEMTYPE_DATA);
                 update_all_memory_areas(UNIT_RESERVED_END(u),
-                                        UNIT_RESERVED_END(u) + offs, MEMPROT_NONE);
+                                        UNIT_RESERVED_END(u) + offs, MEMPROT_NONE,
+                                        DR_MEMTYPE_DATA);
             }
             if (next_may_die) {
                 STATS_INC(num_vmareas_resize_synch);
@@ -2399,11 +2406,14 @@ heap_vmareas_synch_units()
             u->in_vmarea_list = true;
             add_dynamo_heap_vm_area(start, end, true, false _IF_DEBUG("dead heap unit"));
             update_all_memory_areas((app_pc)u, UNIT_RESERVED_END(u),
-                                    MEMPROT_READ | MEMPROT_WRITE); /* unit */
+                                    MEMPROT_READ | MEMPROT_WRITE,
+                                    DR_MEMTYPE_DATA); /* unit */
             if (offs != 0) {
                 /* guard pages */
-                update_all_memory_areas(start, (app_pc)u, MEMPROT_NONE);
-                update_all_memory_areas(UNIT_RESERVED_END(u), end, MEMPROT_NONE);
+                update_all_memory_areas(start, (app_pc)u, MEMPROT_NONE,
+                                        DR_MEMTYPE_DATA);
+                update_all_memory_areas(UNIT_RESERVED_END(u), end, MEMPROT_NONE,
+                                        DR_MEMTYPE_DATA);
             }
             /* case 4196 if next was put back on live list for
              * dynamo_areas.buf vector, then next will no longer be a

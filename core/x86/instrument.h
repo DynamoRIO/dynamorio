@@ -1308,18 +1308,6 @@ DR_API
 bool
 dr_memory_is_readable(const byte *pc, size_t size);
 
-/* NOTE - keep these defines in sync with their counterparts in os_shared.h.
- * The extra BEGIN END is to get spacing nice. Once we have more control over the layout
- * of the API header files share with os_shared.h. */
-/* DR_API EXPORT BEGIN */
-/* DR_API EXPORT END */
-/* DR_API EXPORT BEGIN */
-#define DR_MEMPROT_NONE  0x00 /**< No read, write, or execute privileges. */
-#define DR_MEMPROT_READ  0x01 /**< Read privileges. */
-#define DR_MEMPROT_WRITE 0x02 /**< Write privileges. */
-#define DR_MEMPROT_EXEC  0x04 /**< Execute privileges. */
-/* DR_API EXPORT END */
-
 /* FIXME - this is a real view of memory including changes made for dr cache consistency,
  * but what we really want to show the client is the apps view of memory (which would
  * requires fixing correcting the view and fixing up exceptions for areas we made read
@@ -1336,6 +1324,16 @@ DR_API
  */
 bool
 dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot);
+
+DR_API
+/**
+ * Provides additional information beyond dr_query_memory().
+ * Returns true if it was able to obtain information (including about
+ * free regions) and sets the fields of \p info.
+ * Returns false on failure.
+ */
+bool
+dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
 
 /* DR_API EXPORT BEGIN */
 #ifdef WINDOWS 

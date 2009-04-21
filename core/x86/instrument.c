@@ -356,6 +356,7 @@ add_client_lib(char *path, char *id_str, char *options)
         return;
     }
 
+    LOG(GLOBAL, LOG_INTERP, 4, "about to load client library %s\n", path);
     client_lib = load_shared_library(path);
     if (client_lib == NULL) {
         char msg[MAXIMUM_PATH*4];
@@ -469,6 +470,16 @@ instrument_init(void)
     for (i=0; i<num_client_libs; i++) {
         void (*init)(client_id_t) = (void (*)(client_id_t))
             (lookup_library_routine(client_libs[i].lib, INSTRUMENT_INIT_NAME));
+
+        /* we can't do this in instrument_load_client_libs() b/c vmheap
+         * is not set up at that point
+         */
+        all_memory_areas_lock();
+        update_all_memory_areas(client_libs[i].start, client_libs[i].end,
+                                /* FIXME: need to walk the sections */
+                                MEMPROT_NONE, DR_MEMTYPE_IMAGE);
+        all_memory_areas_unlock();
+
         /* Since the user has to register all other events, it
          * doesn't make sense to provide the -client_lib
          * option for a module that doesn't export dr_init.
@@ -1976,6 +1987,18 @@ dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
     return get_memory_info_from_os(pc, base_pc, size, prot);
 #else 
     return get_memory_info(pc, base_pc, size, prot);
+#endif
+}
+
+DR_API
+bool
+dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
+{
+#ifdef LINUX
+    /* PR 246897: all_memory_areas not ready for prime time */
+    return query_memory_ex_from_os(pc, info);
+#else
+    return query_memory_ex(pc, info);
 #endif
 }
 

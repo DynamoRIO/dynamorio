@@ -154,7 +154,8 @@ if ($header) {
      './globals.h',
      './x86/arch_exports.h', # encode routines
      './x86/proc.h',
-     './module_shared.h',
+     './os_shared.h',        # before instrument.h
+     './module_shared.h',    # before instrument.h
      './x86/instrument.h',
      './x86/instr.h',
      './x86/instr_create.h',

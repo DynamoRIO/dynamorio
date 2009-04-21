@@ -275,14 +275,51 @@ bool shared_library_bounds(IN shlib_handle_t lib, IN byte *addr,
                            OUT byte **start, OUT byte **end);
 #endif
 
-/* NOTE - keep these in sync with the client API counterparts in instrument.h */
-#define MEMPROT_NONE  0x00
-#define MEMPROT_READ  0x01
-#define MEMPROT_WRITE 0x02
-#define MEMPROT_EXEC  0x04
+/* DR_API EXPORT TOFILE dr_tools.h */
+/* DR_API EXPORT BEGIN */
+/**************************************************
+ * MEMORY INFORMATION TYPES
+ */
+
+#define DR_MEMPROT_NONE  0x00 /**< No read, write, or execute privileges. */
+#define DR_MEMPROT_READ  0x01 /**< Read privileges. */
+#define DR_MEMPROT_WRITE 0x02 /**< Write privileges. */
+#define DR_MEMPROT_EXEC  0x04 /**< Execute privileges. */
+
+/**
+ * Flags describing memory used by dr_query_memory_ex().
+ */
+typedef enum {
+    DR_MEMTYPE_FREE,  /**< No memory is allocated here */
+    DR_MEMTYPE_IMAGE, /**< An executable file is mapped here */
+    DR_MEMTYPE_DATA,  /**< Some other data is allocated here */
+} dr_mem_type_t;
+
+/**
+ * Describes a memory region.  Used by dr_query_memory_ex().
+ */
+typedef struct _dr_mem_info_t {
+    /** Starting address of memory region */
+    byte          *base_pc;
+    /** Size of region */
+    size_t        size;
+    /** Protection of region (DR_MEMPROT_* flags) */
+    uint          prot;
+    /** Type of region */
+    dr_mem_type_t type;
+} dr_mem_info_t;
+
+/* DR_API EXPORT END */
+
+#define MEMPROT_NONE  DR_MEMPROT_NONE
+#define MEMPROT_READ  DR_MEMPROT_READ
+#define MEMPROT_WRITE DR_MEMPROT_WRITE
+#define MEMPROT_EXEC  DR_MEMPROT_EXEC
 bool get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);
+bool query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
 #ifdef LINUX
 bool get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size, uint *prot);
+bool query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info);
 #endif
 
 bool get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top);
@@ -489,7 +526,8 @@ int find_executable_vm_areas(void);
 /* all_memory_areas is linux only, dummy on win32 */
 void all_memory_areas_lock(void);
 void all_memory_areas_unlock(void);
-void update_all_memory_areas(app_pc start, app_pc end, uint prot);
+/* pass -1 if type is unchanged */
+void update_all_memory_areas(app_pc start, app_pc end, uint prot, int type);
 bool remove_from_all_memory_areas(app_pc start, app_pc end);
 
 /* file operations */

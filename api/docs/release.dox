@@ -114,6 +114,7 @@ The changes between version 1.4.0 and 1.3.2 are:
    - dr_raw_tls_free()
  - Provide 64-bit versions of the drdeploy.exe and drview.exe tools.
  - Provide dr_get_proc_address() on Linux
+ - Added dr_query_memory_ex() to allow address space walking on Linux
  - Added -msgbox_mask on Linux: waits for a keypress
    - Added STDIN and dr_get_stdin_file()
  - Support calling dr_get_mcontext() from bb and trace callbacks

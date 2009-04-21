@@ -240,9 +240,8 @@ aslr_init(void)
         DYNAMO_OPTION(aslr_dll_pad));
 
     VMVECTOR_ALLOC_VECTOR(aslr_wouldbe_areas, GLOBAL_DCONTEXT,
-                          VECTOR_SHARED | VECTOR_NEVER_MERGE | 
                           /* allow overlap due to conflicting DLLs */
-                          VECTOR_OVERLAP_NON_CRITICAL, 
+                          VECTOR_SHARED | VECTOR_NEVER_MERGE_ADJACENT, 
                           aslr_areas);
     VMVECTOR_ALLOC_VECTOR(aslr_heap_pad_areas, GLOBAL_DCONTEXT,
                           VECTOR_SHARED | VECTOR_NEVER_MERGE,

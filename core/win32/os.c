@@ -2746,7 +2746,9 @@ find_executable_vm_areas()
 /* all_memory_areas is linux only, dummy on win32 */
 void all_memory_areas_lock()   { /* do nothing */ }
 void all_memory_areas_unlock() { /* do nothing */ }
-void update_all_memory_areas(app_pc start, app_pc end, uint prot) { /* do nothing */ }
+void update_all_memory_areas(app_pc start, app_pc end, uint prot, int type) {
+    /* do nothing */ 
+}
 bool remove_from_all_memory_areas(app_pc start, app_pc end) { return true; }
 
 /* Processes a mapped-in section, which may or may not be an image.
@@ -3606,6 +3608,31 @@ get_allocation_size(byte *pc, byte **base_pc)
     if (base_pc != NULL)
         *base_pc = (byte *) region_base;
     return size;
+}
+
+/* Returns size and writability of the memory area (not allocation region)
+ * containing pc.  This is a single memory area all from the same allocation
+ * region and all with the same protection and state attributes.
+ * If base_pc != NULL returns base pc of the area.
+ */
+bool
+query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
+{
+    MEMORY_BASIC_INFORMATION mbi;
+    size_t res = query_virtual_memory(pc, &mbi, sizeof(mbi));
+    ASSERT(info != NULL);
+    if (res != sizeof(mbi))
+        return false;
+    info->base_pc = mbi.BaseAddress;
+    info->size = mbi.RegionSize;
+    info->prot = osprot_to_memprot(mbi.Protect);
+    if (mbi.State == MEM_FREE)
+        info->type = DR_MEMTYPE_FREE;
+    else if (mbi.State == MEM_IMAGE)
+        info->type = DR_MEMTYPE_IMAGE;
+    else
+        info->type = DR_MEMTYPE_DATA;
+    return true;
 }
 
 /* Returns size and writability of the memory area (not allocation region)
