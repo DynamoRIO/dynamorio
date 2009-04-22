@@ -35,6 +35,8 @@
  * (except the nudge and security violation callback)
  */
 
+#include "tools.h"
+
 #ifdef WINDOWS
 # include <windows.h>
 # include <stdio.h>
@@ -49,6 +51,7 @@
 # include <assert.h>
 #endif
 
+
 #ifdef LINUX
 /* handler with SA_SIGINFO flag set gets three arguments: */
 typedef void (*handler_t)(int, struct siginfo *, void *);
@@ -57,11 +60,11 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (sig == SIGUSR1)
-	fprintf(stderr, "Got SIGUSR1\n");
+	print("Got SIGUSR1\n");
     else if (sig == SIGUSR2)
-	fprintf(stderr, "Got SIGUSR2\n");
+	print("Got SIGUSR2\n");
     else if (sig == SIGURG)
-	fprintf(stderr, "Got SIGURG\n");
+	print("Got SIGURG\n");
 }
 
 /* set up signal_handler as the handler for signal "sig" */
@@ -142,7 +145,7 @@ main(int argc, char** argv)
     if (hmod != NULL)
 	dlclose(hmod);
     else
-	printf("module load of %s failed\n", buf);
+	print("module load of %s failed\n", buf);
     
     /* large .bss */
 #ifdef X64
@@ -155,26 +158,25 @@ main(int argc, char** argv)
     if (hmod != NULL)
 	dlclose(hmod);
     else
-	printf("module load of %s failed\n", buf);
+	print("module load of %s failed\n", buf);
 
     /* test load of non-existent file */
     hmod = dlopen("foo_bar_no_exist.so", RTLD_LAZY|RTLD_LOCAL);
     if (hmod != NULL) {
-	printf("ERROR - module load of %s succeeded\n", buf);
+	print("ERROR - module load of %s succeeded\n", buf);
 	dlclose(hmod);
     }
 
     intercept_signal(SIGUSR1, (handler_t) signal_handler);
     intercept_signal(SIGUSR2, (handler_t) signal_handler);
     intercept_signal(SIGURG, (handler_t) signal_handler);
-    fprintf(stderr, "Sending SIGUSR1\n");
+    print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);
-    fprintf(stderr, "Sending SIGUSR2\n");
+    print("Sending SIGUSR2\n");
     kill(getpid(), SIGUSR2);
-    fprintf(stderr, "Sending SIGURG\n");
+    print("Sending SIGURG\n");
     kill(getpid(), SIGURG);
-    fprintf(stderr, "Done\n");
-
+    print("Done\n");
     /*
      * Cause a fork event
      */
@@ -198,7 +200,7 @@ main(int argc, char** argv)
               EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
     }
     /* Never Reached */
-    printf("Shouldn't be reached\n");
+    print("Shouldn't be reached\n");
 #endif
 }
 
@@ -207,7 +209,7 @@ __declspec(dllexport)
 void
 redirect()
 {
-    printf("Redirect success!\n");
+    print("Redirect success!\n");
     exit(0);
 }
 #endif

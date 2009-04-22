@@ -1,96 +1,78 @@
 #if defined(WINDOWS)
-module load event 2
-module load event 1
-thread init event 2
-thread init event 1
-bb event 2
-bb event 1
-filter syscall event 2
-filter syscall event 1
-pre syscall event 2
-pre syscall event 1
-post syscall event 2
-post syscall event 1
-# if !defined(disable_traces)
-end trace event 2
-end trace event 1
-delete event 2
-delete event 1
-trace event 2
-trace event 1
-# endif
-# if defined(disable_traces) && defined(thread_private)
-delete event 2
-delete event 1
-# endif
-in restore_state event 2
-in restore_state event 1
-exception event 2
-exception event 1
-module unload event 2
-module unload event 1
 exception event redirect
 Redirect success!
-# if defined(disable_traces) && !defined(thread_private)
-delete event 2
-delete event 1
-# endif
-thread exit event 2
-thread exit event 1
 exit event 2
 exit event 1
-#else
-module load event 2
-module load event 1
-thread init event 2
-thread init event 1
-bb event 2
-bb event 1
+module load event 1 is called 1 time(s)
+module load event 2 is called 1 time(s)
+thread init event 1 is called 1 time(s)
+thread init event 2 is called 1 time(s)
+bb event 1 is called 1 time(s)
+bb event 2 is called 1 time(s)
 # if !defined(disable_traces)
-end trace event 2
-end trace event 1
-delete event 2
-delete event 1
-trace event 2
-trace event 1
+end trace event 1 is called 1 time(s)
+end trace event 2 is called 1 time(s)
+trace event 1 is called 1 time(s)
+trace event 2 is called 1 time(s)
 # endif
-# if defined(disable_traces) && defined(thread_private)
-delete event 2
-delete event 1
-# endif
-filter syscall event 2
-filter syscall event 1
-pre syscall event 2
-pre syscall event 1
-post syscall event 2
-post syscall event 1
-module unload event 2
-module unload event 1
+delete event 1 is called 1 time(s)
+delete event 2 is called 1 time(s)
+filter syscall event 1 is called 1 time(s)
+filter syscall event 2 is called 1 time(s)
+pre syscall event 1 is called 1 time(s)
+pre syscall event 2 is called 1 time(s)
+post syscall event 1 is called 1 time(s)
+post syscall event 2 is called 1 time(s)
+module unload event 1 is called 1 time(s)
+module unload event 2 is called 1 time(s)
+thread exit event 1 is called 1 time(s)
+thread exit event 2 is called 1 time(s)
+exception event 1 is called 1 time(s)
+exception event 2 is called 1 time(s)
+restore state event 1 is called 1 time(s)
+restore state event 2 is called 1 time(s)
+#else
 Sending SIGUSR1
-signal event 2 sig=10
-signal event 1 sig=10
 Got SIGUSR1
 Sending SIGUSR2
-signal event 1 sig=12
 Sending SIGURG
-signal event 1 sig=23
 Done
-fork init event 2
-fork init event 1
-# if defined(disable_traces) && !defined(thread_private)
-delete event 2
-delete event 1
+exit event 2
+exit event 1
+module load event 1 is called 1 time(s)
+module load event 2 is called 1 time(s)
+thread init event 1 is called 1 time(s)
+thread init event 2 is called 1 time(s)
+bb event 1 is called 1 time(s)
+bb event 2 is called 1 time(s)
+# if !defined(disable_traces)
+end trace event 1 is called 1 time(s)
+end trace event 2 is called 1 time(s)
+trace event 1 is called 1 time(s)
+trace event 2 is called 1 time(s)
 # endif
-thread exit event 2
-thread exit event 1
+delete event 1 is called 1 time(s)
+delete event 2 is called 1 time(s)
+filter syscall event 1 is called 1 time(s)
+filter syscall event 2 is called 1 time(s)
+pre syscall event 1 is called 1 time(s)
+pre syscall event 2 is called 1 time(s)
+post syscall event 1 is called 1 time(s)
+post syscall event 2 is called 1 time(s)
+module unload event 1 is called 1 time(s)
+module unload event 2 is called 1 time(s)
+thread exit event 1 is called 1 time(s)
+thread exit event 2 is called 1 time(s)
+signal event 1 is called 3 time(s)
+signal event 2 is called 1 time(s)
 exit event 2
 exit event 1
 # if defined(disable_traces) && !defined(thread_private)
-delete event 2
-delete event 1
-# endif
-thread exit event 2
-thread exit event 1
-exit event 2
-exit event 1
+delete event 1 is called 1 time(s)
+delete event 2 is called 1 time(s)
+# endif 
+thread exit event 1 is called 1 time(s)
+thread exit event 2 is called 1 time(s)
+fork init event 1 is called 1 time(s)
+fork init event 2 is called 1 time(s)
 #endif

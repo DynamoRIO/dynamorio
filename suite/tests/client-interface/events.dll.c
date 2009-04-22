@@ -40,18 +40,127 @@
 # include <signal.h>
 #endif
 
+void *mutex;
+
+enum event_seq {
+    EVENT_MODULE_LOAD_1 = 0,
+    EVENT_MODULE_LOAD_2,
+    EVENT_THREAD_INIT_1,
+    EVENT_THREAD_INIT_2,
+    EVENT_BB_1,
+    EVENT_BB_2,
+    EVENT_END_TRACE_1,
+    EVENT_END_TRACE_2,
+    EVENT_TRACE_1,
+    EVENT_TRACE_2,
+    EVENT_DELETE_1,
+    EVENT_DELETE_2,
+    EVENT_FILTER_SYSCALL_1,
+    EVENT_FILTER_SYSCALL_2,
+    EVENT_PRE_SYSCALL_1,
+    EVENT_PRE_SYSCALL_2,
+    EVENT_POST_SYSCALL_1,
+    EVENT_POST_SYSCALL_2,
+    EVENT_MODULE_UNLOAD_1,
+    EVENT_MODULE_UNLOAD_2,
+    EVENT_THREAD_EXIT_1,
+    EVENT_THREAD_EXIT_2,
+    EVENT_FORK_INIT_1,
+    EVENT_FORK_INIT_2,
+    EVENT_SIGNAL_1,
+    EVENT_SIGNAL_2,
+    EVENT_EXCEPTION_1,
+    EVENT_EXCEPTION_2,
+    EVENT_RESTORE_STATE_1,
+    EVENT_RESTORE_STATE_2,
+    EVENT_last,
+};
+
+char *name[EVENT_last] = {
+    "module load event 1",
+    "module load event 2",
+    "thread init event 1",
+    "thread init event 2",
+    "bb event 1", 
+    "bb event 2",
+    "end trace event 1",
+    "end trace event 2",
+    "trace event 1",
+    "trace event 2",
+    "delete event 1",
+    "delete event 2",
+    "filter syscall event 1",
+    "filter syscall event 2",
+    "pre syscall event 1",
+    "pre syscall event 2",
+    "post syscall event 1",
+    "post syscall event 2",
+    "module unload event 1",
+    "module unload event 2",
+    "thread exit event 1",
+    "thread exit event 2",
+    "fork init event 1",
+    "fork init event 2",
+    "signal event 1",
+    "signal event 2",
+    "exception event 1",
+    "exception event 2",
+    "restore state event 1",
+    "restore state event 2",
+};
+
+int counts[EVENT_last];
+
+static void
+inc_count_first(int first, int second)
+{
+    dr_mutex_lock(mutex);
+    if (counts[second] == 0)
+        dr_printf("%s is called before %s\n", name[first], name[second]);
+    counts[first]++;
+    dr_mutex_unlock(mutex);
+}
+
+
+static void
+inc_count_second(int second)
+{
+    dr_mutex_lock(mutex);
+    counts[second]++;
+    dr_mutex_unlock(mutex);
+}
+
+
+static 
+void check_result(void)
+{
+    int i;
+    for (i = 0; i < EVENT_last; i++) {
+        if (counts[i] == 0) 
+            continue;
+        dr_printf("%s is called %d time(s)\n", name[i], counts[i]);
+        dr_flush_file(STDOUT);
+    }
+}
+
 static
 void exit_event1(void)
 {
     dr_printf("exit event 1\n");
+    dr_flush_file(STDOUT);
+
     if (!dr_unregister_exit_event(exit_event1))
         dr_printf("unregister failed!\n");
+    check_result();
+    dr_mutex_destroy(mutex);
 }
 
 static
 void exit_event2(void)
 {
     dr_printf("exit event 2\n");
+    dr_flush_file(STDOUT);
+
     if (!dr_unregister_exit_event(exit_event2))
         dr_printf("unregister failed!\n");
 }
@@ -59,14 +168,14 @@ void exit_event2(void)
 static
 void thread_init_event1(void *drcontext)
 {
-    dr_printf("thread init event 1\n");
+    inc_count_first(EVENT_THREAD_INIT_1, EVENT_THREAD_INIT_2);
     if (!dr_unregister_thread_init_event(thread_init_event1))
         dr_printf("unregister failed!\n");
 }
 static
 void thread_init_event2(void *drcontext)
 {
-    dr_printf("thread init event 2\n");
+    inc_count_second(EVENT_THREAD_INIT_2);
     if (!dr_unregister_thread_init_event(thread_init_event2))
         dr_printf("unregister failed!\n");
 }
@@ -74,7 +183,7 @@ void thread_init_event2(void *drcontext)
 static
 void thread_exit_event1(void *drcontext)
 {
-    dr_printf("thread exit event 1\n");
+    inc_count_first(EVENT_THREAD_EXIT_1, EVENT_THREAD_EXIT_2);
     if (!dr_unregister_thread_exit_event(thread_exit_event1))
         dr_printf("unregister failed!\n");
 }
@@ -82,7 +191,7 @@ void thread_exit_event1(void *drcontext)
 static
 void thread_exit_event2(void *drcontext)
 {
-    dr_printf("thread exit event 2\n");
+    inc_count_second(EVENT_THREAD_EXIT_2);
     if (!dr_unregister_thread_exit_event(thread_exit_event2))
         dr_printf("unregister failed!\n");
 }
@@ -91,14 +200,19 @@ void thread_exit_event2(void *drcontext)
 static
 void fork_init_event1(void *drcontext)
 {
-    dr_printf("fork init event 1\n");
+    inc_count_first(EVENT_FORK_INIT_1, EVENT_FORK_INIT_2);
     if (!dr_unregister_fork_init_event(fork_init_event1))
         dr_printf("unregister failed!\n");
 }
 static
 void fork_init_event2(void *drcontext)
 {
-    dr_printf("fork init event 2\n");
+    int i;
+    dr_mutex_lock(mutex);
+    for (i = 0; i < EVENT_last; i++)
+        counts[i] = 0;
+    counts[EVENT_FORK_INIT_2]++;
+    dr_mutex_unlock(mutex);
     if (!dr_unregister_fork_init_event(fork_init_event2))
         dr_printf("unregister failed!\n");
 }
@@ -106,9 +220,9 @@ void fork_init_event2(void *drcontext)
 #endif
 static
 dr_emit_flags_t bb_event1(void *dcontext, void *tag, instrlist_t *bb,
-                          bool for_trace, bool translating)
+                           bool for_trace, bool translating)
 {
-    dr_printf("bb event 1\n");
+    inc_count_first(EVENT_BB_1, EVENT_BB_2);
     if (!dr_unregister_bb_event(bb_event1))
         dr_printf("unregister failed!\n");
     return DR_EMIT_DEFAULT;
@@ -118,7 +232,7 @@ static
 dr_emit_flags_t bb_event2(void *dcontext, void *tag, instrlist_t *bb,
                           bool for_trace, bool translating)
 {
-    dr_printf("bb event 2\n");
+    inc_count_second(EVENT_BB_2);
     if (!dr_unregister_bb_event(bb_event2))
         dr_printf("unregister failed!\n");
     return DR_EMIT_DEFAULT;
@@ -128,7 +242,7 @@ static
 dr_emit_flags_t trace_event1(void *dcontext, void *tag, instrlist_t *trace,
                              bool translating)
 {
-    dr_printf("trace event 1\n");
+    inc_count_first(EVENT_TRACE_1, EVENT_TRACE_2);
     if (!dr_unregister_trace_event(trace_event1))
         dr_printf("unregister failed!\n");
     return DR_EMIT_DEFAULT;
@@ -138,7 +252,7 @@ static
 dr_emit_flags_t trace_event2(void *dcontext, void *tag, instrlist_t *trace,
                              bool translating)
 {
-    dr_printf("trace event 2\n");
+    inc_count_second(EVENT_TRACE_2);
     if (!dr_unregister_trace_event(trace_event2))
         dr_printf("unregister failed!\n");
     return DR_EMIT_DEFAULT;
@@ -147,7 +261,7 @@ dr_emit_flags_t trace_event2(void *dcontext, void *tag, instrlist_t *trace,
 static
 dr_custom_trace_action_t end_trace_event1(void *dcontext, void *trace_tag, void *next_tag)
 {
-    dr_printf("end trace event 1\n");
+    inc_count_first(EVENT_END_TRACE_1, EVENT_END_TRACE_2);
     if (!dr_unregister_end_trace_event(end_trace_event1))
         dr_printf("unregister failed!\n");
     return 0;
@@ -156,7 +270,7 @@ dr_custom_trace_action_t end_trace_event1(void *dcontext, void *trace_tag, void 
 static
 dr_custom_trace_action_t end_trace_event2(void *dcontext, void *trace_tag, void *next_tag)
 {
-    dr_printf("end trace event 2\n");
+    inc_count_second(EVENT_END_TRACE_2);
     if (!dr_unregister_end_trace_event(end_trace_event2))
         dr_printf("unregister failed!\n");
     return 0;
@@ -165,14 +279,15 @@ dr_custom_trace_action_t end_trace_event2(void *dcontext, void *trace_tag, void 
 static
 void delete_event1(void *dcontext, void *tag)
 {
-    dr_printf("delete event 1\n");
+    inc_count_first(EVENT_DELETE_1, EVENT_DELETE_2);
     if (!dr_unregister_delete_event(delete_event1))
         dr_printf("unregister failed!\n");
 }
+
 static
 void delete_event2(void *dcontext, void *tag)
 {
-    dr_printf("delete event 2\n");
+    inc_count_second(EVENT_DELETE_2);
     if (!dr_unregister_delete_event(delete_event2))
         dr_printf("unregister failed!\n");
 }
@@ -180,7 +295,7 @@ void delete_event2(void *dcontext, void *tag)
 static
 void module_load_event1(void *drcontext, const module_data_t *info, bool loaded)
 {
-    dr_printf("module load event 1\n");
+    inc_count_first(EVENT_MODULE_LOAD_1, EVENT_MODULE_LOAD_2);
     if (!dr_unregister_module_load_event(module_load_event1))
         dr_printf("unregister failed!\n");
 }
@@ -188,7 +303,7 @@ void module_load_event1(void *drcontext, const module_data_t *info, bool loaded)
 static
 void module_load_event2(void *drcontext, const module_data_t *info, bool loaded)
 {
-    dr_printf("module load event 2\n");
+    inc_count_second(EVENT_MODULE_LOAD_2);
     if (!dr_unregister_module_load_event(module_load_event2))
         dr_printf("unregister failed!\n");
 }
@@ -196,7 +311,7 @@ void module_load_event2(void *drcontext, const module_data_t *info, bool loaded)
 static
 void module_unload_event1(void *drcontext, const module_data_t *info)
 {
-    dr_printf("module unload event 1\n");
+    inc_count_first(EVENT_MODULE_UNLOAD_1, EVENT_MODULE_UNLOAD_2);
     if (!dr_unregister_module_unload_event(module_unload_event1))
         dr_printf("unregister failed!\n");
 }
@@ -204,7 +319,7 @@ void module_unload_event1(void *drcontext, const module_data_t *info)
 static
 void module_unload_event2(void *drcontext, const module_data_t *info)
 {
-    dr_printf("module unload event 2\n");
+    inc_count_second(EVENT_MODULE_UNLOAD_2);
     if (!dr_unregister_module_unload_event(module_unload_event2))
         dr_printf("unregister failed!\n");
 }
@@ -212,7 +327,7 @@ void module_unload_event2(void *drcontext, const module_data_t *info)
 static
 bool pre_syscall_event1(void *drcontext, int sysnum)
 {
-    dr_printf("pre syscall event 1\n");
+    inc_count_first(EVENT_PRE_SYSCALL_1, EVENT_PRE_SYSCALL_2);
     if (!dr_unregister_pre_syscall_event(pre_syscall_event1))
         dr_printf("unregister failed!\n");
     return true;
@@ -221,7 +336,7 @@ bool pre_syscall_event1(void *drcontext, int sysnum)
 static
 bool pre_syscall_event2(void *drcontext, int sysnum)
 {
-    dr_printf("pre syscall event 2\n");
+    inc_count_second(EVENT_PRE_SYSCALL_2);
     if (!dr_unregister_pre_syscall_event(pre_syscall_event2))
         dr_printf("unregister failed!\n");
     return true;
@@ -230,7 +345,7 @@ bool pre_syscall_event2(void *drcontext, int sysnum)
 static
 void post_syscall_event1(void *drcontext, int sysnum)
 {
-    dr_printf("post syscall event 1\n");
+    inc_count_first(EVENT_POST_SYSCALL_1, EVENT_POST_SYSCALL_2);
     if (!dr_unregister_post_syscall_event(post_syscall_event1))
         dr_printf("unregister failed!\n");
 }
@@ -238,7 +353,7 @@ void post_syscall_event1(void *drcontext, int sysnum)
 static
 void post_syscall_event2(void *drcontext, int sysnum)
 {
-    dr_printf("post syscall event 2\n");
+    inc_count_second(EVENT_POST_SYSCALL_2);
     if (!dr_unregister_post_syscall_event(post_syscall_event2))
         dr_printf("unregister failed!\n");
 }
@@ -246,7 +361,7 @@ void post_syscall_event2(void *drcontext, int sysnum)
 static
 bool filter_syscall_event1(void *drcontext, int sysnum)
 {
-    dr_printf("filter syscall event 1\n");
+    inc_count_first(EVENT_FILTER_SYSCALL_1, EVENT_FILTER_SYSCALL_2);
     if (!dr_unregister_filter_syscall_event(filter_syscall_event1))
         dr_printf("unregister failed!\n");
     return true;
@@ -255,7 +370,7 @@ bool filter_syscall_event1(void *drcontext, int sysnum)
 static
 bool filter_syscall_event2(void *drcontext, int sysnum)
 {
-    dr_printf("filter syscall event 2\n");
+    inc_count_second(EVENT_FILTER_SYSCALL_2);
     if (!dr_unregister_filter_syscall_event(filter_syscall_event2))
         dr_printf("unregister failed!\n");
     return true;
@@ -290,7 +405,7 @@ static
 void exception_event1(void *dcontext, dr_exception_t *excpt)
 {
     if (excpt->record->ExceptionCode == STATUS_ACCESS_VIOLATION)
-        dr_printf("exception event 1\n");
+        inc_count_first(EVENT_EXCEPTION_1, EVENT_EXCEPTION_2);
 
     if (!dr_unregister_exception_event(exception_event1))
         dr_printf("unregister failed!\n");
@@ -303,8 +418,8 @@ static
 void exception_event2(void *dcontext, dr_exception_t *excpt)
 {    
     if (excpt->record->ExceptionCode == STATUS_ACCESS_VIOLATION)
-        dr_printf("exception event 2\n");
-    
+        inc_count_second(EVENT_EXCEPTION_2);
+
     dr_register_exception_event(exception_event_redirect);
 
     if (!dr_unregister_exception_event(exception_event2))
@@ -314,9 +429,8 @@ void exception_event2(void *dcontext, dr_exception_t *excpt)
 static
 dr_signal_action_t signal_event1(void *dcontext, dr_siginfo_t *info)
 {
-    dr_printf("signal event 1 sig=%d\n", info->sig);
-
-    if (info->sig == SIGUSR2)
+    inc_count_first(EVENT_SIGNAL_1, EVENT_SIGNAL_2);
+    if (info->sig == SIGUSR2) 
         return DR_SIGNAL_SUPPRESS;
     else if (info->sig == SIGURG) {
         if (!dr_unregister_signal_event(signal_event1))
@@ -329,7 +443,7 @@ dr_signal_action_t signal_event1(void *dcontext, dr_siginfo_t *info)
 static
 dr_signal_action_t signal_event2(void *dcontext, dr_siginfo_t *info)
 {    
-    dr_printf("signal event 2 sig=%d\n", info->sig);
+    inc_count_second(EVENT_SIGNAL_2);
     
     if (!dr_unregister_signal_event(signal_event2))
         dr_printf("unregister failed!\n");
@@ -342,7 +456,7 @@ static void
 restore_state_event1(void *drcontext, void *tag, dr_mcontext_t *mcontext,
                      bool restore_memory, bool app_code_consistent)
 {
-    dr_printf("in restore_state event 1\n");
+    inc_count_first(EVENT_RESTORE_STATE_1, EVENT_RESTORE_STATE_2);
 
     if (!dr_unregister_restore_state_event(restore_state_event1))
         dr_printf("unregister failed!\n");
@@ -352,7 +466,7 @@ static void
 restore_state_event2(void *drcontext, void *tag, dr_mcontext_t *mcontext,
                      bool restore_memory, bool app_code_consistent)
 {
-    dr_printf("in restore_state event 2\n");
+    inc_count_second(EVENT_RESTORE_STATE_2);
 
     if (!dr_unregister_restore_state_event(restore_state_event2))
         dr_printf("unregister failed!\n");
@@ -365,7 +479,10 @@ void dr_init(client_id_t id)
      * would require some extra stuff our testing infrastructure
      * doesn't currently support.
      */
-
+    int i;
+    for (i = 0; i < EVENT_last; i++)
+        counts[i] = 0;
+    mutex = dr_mutex_create();
     dr_register_exit_event(exit_event1);
     dr_register_exit_event(exit_event2);
     dr_register_thread_init_event(thread_init_event1);
