@@ -2519,6 +2519,7 @@ set_protection(byte *pc, size_t length, uint prot/*MEMPROT_*/)
     });
     all_memory_areas_lock();
     ASSERT(vmvector_overlap(all_memory_areas, start_page, start_page + num_bytes) ||
+           /* we could synch up: instead we relax the assert if DR areas not in allmem */
            are_dynamo_vm_areas_stale());
     LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
         start_page, start_page + num_bytes, osprot_to_memprot(flags));
@@ -2568,6 +2569,7 @@ make_writable(byte *pc, size_t size)
         /* update all_memory_areas list with the protection change */
         all_memory_areas_lock();
         ASSERT(vmvector_overlap(all_memory_areas, start_page, start_page + prot_size) ||
+               /* we could synch up: instead, relax assert if DR areas not in allmem */
                are_dynamo_vm_areas_stale());
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
             start_page, start_page + prot_size, osprot_to_memprot(prot));
@@ -2615,6 +2617,7 @@ make_unwritable(byte *pc, size_t size)
     if (all_memory_areas_initialized()) {
         all_memory_areas_lock();
         ASSERT(vmvector_overlap(all_memory_areas, start_page, start_page + prot_size) ||
+               /* we could synch up: instead, relax assert if DR areas not in allmem */
                are_dynamo_vm_areas_stale());
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
             start_page, start_page + prot_size, osprot_to_memprot(prot));
@@ -3432,6 +3435,7 @@ pre_system_call(dcontext_t *dcontext)
             /* update all_memory_areas list */
             all_memory_areas_lock();
             ASSERT(vmvector_overlap(all_memory_areas, addr, addr + len) ||
+                   /* we could synch: instead, relax assert if DR areas not in allmem */
                    are_dynamo_vm_areas_stale());
             LOG(GLOBAL, LOG_VMAREAS|LOG_SYSCALLS, 3,
                 "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
@@ -3750,6 +3754,7 @@ allmem_info_dup(void *data)
     allmem_info_t *src = (allmem_info_t *) data;
     allmem_info_t *dst = 
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, allmem_info_t, ACCT_MEM_MGT, PROTECTED);
+    ASSERT(src != NULL);
     *dst = *src;
     return dst;
 }
@@ -3759,8 +3764,9 @@ allmem_should_merge(bool adjacent, void *data1, void *data2)
 {
     allmem_info_t *i1 = (allmem_info_t *) data1;
     allmem_info_t *i2 = (allmem_info_t *) data2;
-    /* we do want to merge identical regions to avoid continual splitting
-     * due to mprotect fragmenting our list
+    /* we do want to merge identical regions, whether overlapping or
+     * adjacent, to avoid continual splitting due to mprotect
+     * fragmenting our list
      */
     return (i1->prot == i2->prot &&
             i1->type == i2->type);
@@ -3810,6 +3816,14 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
             if (vmvector_lookup_data(all_memory_areas, start,
                                      NULL, NULL, (void **) &info)) {
                 type = info->type;
+                DODEBUG({
+                    /* [start..end_in) may cross multiple different-prot regions,
+                     * but should all be same type
+                     */
+                    ASSERT(vmvector_lookup_data(all_memory_areas, end_in - 1,
+                                                NULL, NULL, (void **) &info));
+                    ASSERT(info->type == type);
+                });
             } else
                 ASSERT_NOT_REACHED();
         }
@@ -3830,6 +3844,7 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
         start, end, prot, type);
     info = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, allmem_info_t, ACCT_MEM_MGT, PROTECTED);
     info->prot = prot;
+    ASSERT(type >= 0);
     info->type = type;
     vmvector_add(all_memory_areas, start, end, (void *)info);
 }
@@ -4289,7 +4304,7 @@ post_system_call(dcontext_t *dcontext)
         size = dcontext->sys_param1;
         prot = dcontext->sys_param2;
         if (!success) {
-            uint memprot;
+            uint memprot = 0;
             /* Revert the prot bits if needed. */
             DEBUG_DECLARE(ok =)
                 get_memory_info_from_os(base, NULL, NULL, &memprot);
@@ -4340,7 +4355,7 @@ post_system_call(dcontext_t *dcontext)
             ASSERT(info != NULL);
             update_all_memory_areas(old_brk, new_brk,
                                     /* be paranoid */
-                                    (info == NULL) ? info->prot :
+                                    (info != NULL) ? info->prot :
                                     MEMPROT_READ|MEMPROT_WRITE, DR_MEMTYPE_DATA);
             all_memory_areas_unlock();
         }
@@ -4644,9 +4659,11 @@ maps_iterator_next(maps_iter_t *iter)
  * relies on user libraries
  */
 typedef struct _dl_iterate_data_t {
-    app_pc target_base;
+    app_pc target_addr;
     char *path_out;
     size_t path_size;
+    app_pc mod_start;
+    app_pc mod_end;
 } dl_iterate_data_t;
 
 static int
@@ -4665,21 +4682,38 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
      * separate pages, I don't see any way to find the elf header in
      * such cases short of walking backward and looking for the magic #s.
      */
+    app_pc pref_start, pref_end;
     app_pc min_vaddr =
         module_vaddr_from_prog_header((app_pc)info->dlpi_phdr, info->dlpi_phnum, NULL);
     app_pc base = info->dlpi_addr + min_vaddr;
     LOG(GLOBAL, LOG_VMAREAS, 2,
         "dl_iterate_get_path_cb: addr="PFX" hdrs="PFX" base="PFX" name=%s\n",
         info->dlpi_addr, info->dlpi_phdr, base, info->dlpi_name);
-    if (iter_data->target_base == base) {
-        /* We want just the path, not the filename */
-        char *slash = rindex(info->dlpi_name, '/');
-        ASSERT_CURIOSITY(slash != NULL);
-        ASSERT_CURIOSITY((slash - info->dlpi_name) < iter_data->path_size);
-        strncpy(iter_data->path_out, info->dlpi_name,
-                MIN(iter_data->path_size, (slash - info->dlpi_name)));
-        iter_data->path_out[iter_data->path_size] = '\0';
-        return 1; /* done iterating */
+    /* all we have is an addr somewhere in the module, so we need the end */
+    if (module_walk_program_headers(base,
+                                    /* FIXME: don't have view size: but
+                                     * anything larger than header sizes works
+                                     */
+                                    PAGE_SIZE, 
+                                    false, &pref_start, &pref_end, NULL, NULL)) {
+        /* we're passed back start,end of preferred base */
+        if (iter_data->target_addr >= base &&
+            iter_data->target_addr < base + (pref_end - pref_start)) {
+            if (iter_data->path_size > 0) {
+                /* We want just the path, not the filename */
+                char *slash = rindex(info->dlpi_name, '/');
+                ASSERT_CURIOSITY(slash != NULL);
+                ASSERT_CURIOSITY((slash - info->dlpi_name) < iter_data->path_size);
+                strncpy(iter_data->path_out, info->dlpi_name,
+                        MIN(iter_data->path_size, (slash - info->dlpi_name)));
+                iter_data->path_out[iter_data->path_size] = '\0';
+            }
+            iter_data->mod_start = base;
+            iter_data->mod_end = base + (pref_end - pref_start);
+            return 1; /* done iterating */
+        }
+    } else {
+        ASSERT_NOT_REACHED();
     }
     return 0; /* keep looking */
 }
@@ -4709,8 +4743,10 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
     maps_iter_t iter;
     app_pc last_base = NULL;
     app_pc last_end = NULL;
-#endif
     size_t image_size = 0;
+#else
+    dl_iterate_data_t iter_data;
+#endif
     app_pc cur_end = NULL;
     app_pc mod_start = NULL;
     ASSERT(name != NULL || start != NULL);
@@ -4718,31 +4754,19 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
 #ifndef HAVE_PROC_MAPS
     /* PR 361594: os-independent alternative to /proc/maps */
     ASSERT(start != NULL);
-    ASSERT(is_elf_so_header(*start, 0));
-    /* Get size by walking the program headers. Size includes the .bss section. */
-    if (module_walk_program_headers(*start,
-                                    /* FIXME: don't have view size: but
-                                     * anything larger than header sizes works
-                                     */
-                                    PAGE_SIZE, 
-                                    false, &mod_start, &cur_end, NULL, NULL)) {
-        /* we're passed back start,end of preferred base */
-        image_size = cur_end - mod_start;
-        mod_start = *start;
-        cur_end = mod_start + image_size;
-        count = 1; /* nobody uses this anyway */
-    } else {
-        ASSERT_NOT_REACHED();
-    }
-    if (fullpath != NULL) {
-        /* We need the path for inject_library_path for execve.
-         * For now we use dl_iterate_phdr() from glibc 2.2.4+.
-         */
-        dl_iterate_data_t iter_data = { mod_start, fullpath, path_size };
-        DEBUG_DECLARE(int res = )
-           dl_iterate_phdr(dl_iterate_get_path_cb, &iter_data);
-        ASSERT(res == 1);
-    }
+    /* We don't have the base and we can't walk backwards (see comments above)
+     * so we rely on dl_iterate_phdr() from glibc 2.2.4+, which will
+     * also give us the path, needed for inject_library_path for execve.
+     */
+    iter_data.target_addr = *start;
+    iter_data.path_out = fullpath;
+    iter_data.path_size = (fullpath == NULL) ? 0 : path_size;
+    DEBUG_DECLARE(int res = )
+        dl_iterate_phdr(dl_iterate_get_path_cb, &iter_data);
+    ASSERT(res == 1);
+    mod_start = iter_data.mod_start;
+    cur_end = iter_data.mod_end;
+    count = 1;
     LOG(GLOBAL, LOG_VMAREAS, 2,
         "get_library_bounds %s => "PFX"-"PFX" %s\n",
         name == NULL ? "<null>" : name, mod_start, cur_end,
@@ -5191,7 +5215,11 @@ find_executable_vm_areas(void)
      * Queries from heap routines use _from_os.
      * Queries in check_thread_vm_area are fine getting "noaccess": wants
      * any DR memory not on exec areas list to be noaccess.
-     * Queries from clients: should be ok to hide innards.
+     * Queries from clients: should be ok to hide innards.  Marking noaccess
+     * should be safer than marking free, as unruly client might try to mmap
+     * something in the free space: better to have it think it's reserved but
+     * not yet used memory.  FIXME: we're not marking beyond-vmheap DR regions
+     * as noaccess!
      */
     byte *our_heap_start, *our_heap_end;
     get_vmm_heap_bounds(&our_heap_start, &our_heap_end);
@@ -5500,6 +5528,10 @@ get_memory_info(const byte *pc, byte **base_pc, size_t *size,
     return true;
 }
 
+/* We assume that this routine might be called instead of query_memory_ex()
+ * b/c the caller is in a fragile location and cannot acquire locks, so
+ * we try to do the same here.
+ */
 bool
 query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
 {
@@ -5516,6 +5548,9 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
     /* silly to loop over all x64 pages */
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
 
+    /* FIXME PR 287309: we need nested sigsegv to be called from
+     * signal handler! 
+     */
     next_pc = probe_address(dcontext, (app_pc) pc, our_heap_start,
                             our_heap_end, &cur_prot);
     if (next_pc != pc) {
@@ -5546,7 +5581,9 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
     info->size = end_pc - start_pc;
     info->prot = cur_prot;
     if (cur_prot == MEMPROT_NONE) {
-        /* FIXME: how distinguish from reserved but inaccessable? */
+        /* FIXME: how distinguish from reserved but inaccessable?
+         * Could try mprotect() and see whether it fails
+         */
         info->type = DR_MEMTYPE_FREE;
         have_type = true;
     }

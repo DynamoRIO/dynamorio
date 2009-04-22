@@ -1329,7 +1329,8 @@ DR_API
 /**
  * Provides additional information beyond dr_query_memory().
  * Returns true if it was able to obtain information (including about
- * free regions) and sets the fields of \p info.
+ * free regions) and sets the fields of \p info.  This routine can be
+ * used to iterate over the entire address space.
  * Returns false on failure.
  */
 bool
@@ -1341,7 +1342,8 @@ dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
 /* NOTE - see fixme for dr_query_memory - PR 198873. */
 DR_API
 /**
- * Equivalent to the win32 API function VirtualQuery(), see it for a description of
+ * Equivalent to the win32 API function VirtualQuery().
+ * See that routine for a description of
  * arguments and return values.  \note Windows-only.
  */
 size_t

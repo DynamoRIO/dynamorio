@@ -1953,6 +1953,8 @@ vmvector_lookup_data(vm_area_vector_t *v, app_pc pc,
 /* Returns false if pc is in a vmarea in v.
  * Otherwise, returns the start pc of the vmarea prior to pc in prev and
  * the start pc of the vmarea after pc in next.
+ * FIXME: most callers will call this and vmvector_lookup_data():
+ * should this routine do both to avoid an extra binary search?
  */
 bool
 vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc,
@@ -3439,11 +3441,8 @@ add_dynamo_vm_area(app_pc start, app_pc end, uint prot, bool unmod_image
     ASSERT(!vm_area_overlap(dynamo_areas, start, end));
     add_vm_area(dynamo_areas, start, end, vm_flags, 0 /* frag_flags */,
                 NULL _IF_DEBUG(comment));
-    if (unmod_image) {
-        /* we assume unmod_image == whether calling from outside heap.c */
-        update_all_memory_areas(start, end, prot,
-                                unmod_image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA);
-    }
+    update_all_memory_areas(start, end, prot,
+                            unmod_image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA);
     return true;
 }
 

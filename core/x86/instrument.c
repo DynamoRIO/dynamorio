@@ -476,7 +476,9 @@ instrument_init(void)
          */
         all_memory_areas_lock();
         update_all_memory_areas(client_libs[i].start, client_libs[i].end,
-                                /* FIXME: need to walk the sections */
+                                /* FIXME: need to walk the sections: but may be
+                                 * better to obfuscate from clients anyway
+                                 */
                                 MEMPROT_NONE, DR_MEMTYPE_IMAGE);
         all_memory_areas_unlock();
 
