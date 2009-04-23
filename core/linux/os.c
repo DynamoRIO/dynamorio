@@ -621,8 +621,12 @@ typedef enum {
 /* GDT slot we use for set_thread_area.
  * This depends on the kernel, not on the app!
  */
-#define GDT_32BIT  8 /*  6=NPTL, 7=wine */
-#define GDT_64BIT 14 /* 12=NPTL, 13=wine */
+static int tls_gdt_index = -1;
+# define GDT_NUM_TLS_SLOTS 3
+# ifdef DEBUG
+#  define GDT_32BIT  8 /*  6=NPTL, 7=wine */
+#  define GDT_64BIT 14 /* 12=NPTL, 13=wine */
+# endif
 
 static int
 modify_ldt_syscall(int func, void *ptr, unsigned long bytecount)
@@ -764,7 +768,8 @@ initialize_ldt_struct(our_modify_ldt_t *ldt, void *base, size_t size, uint index
     ldt->read_exec_only = 0;
     ldt->limit_in_pages = 0;
     ldt->seg_not_present = 0;
-    ldt->useable = 0; /* becomes custom bit */
+    /* While linux kernel doesn't care if we set this, vmkernel requires it */
+    ldt->useable = 1; /* becomes custom AVL bit */
 }
 
 static void
@@ -978,7 +983,9 @@ get_segment_base(uint seg)
             /* else fall back on get_thread_area */
 #  endif /* X64 */
             DODEBUGINT({
-                uint max_idx = (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT);
+                uint max_idx =
+                    IF_VMX86_ELSE(tls_gdt_index,
+                                  (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT));
                 ASSERT_CURIOSITY(index <= max_idx && index >= (max_idx - 2));
             });
             initialize_ldt_struct(&desc, NULL, 0, index);
@@ -1112,29 +1119,70 @@ os_tls_init()
         our_modify_ldt_t desc;
         /* Base here must be 32-bit */
         IF_X64(ASSERT(DYNAMO_OPTION(heap_in_lower_4GB) && segment <= (byte*)UINT_MAX));
-        /* We could pass -1 and ask for the next available slot, but I'm
-         * afraid of being earlier than pthreads or wine and breaking
-         * their assumptions, so we hardcode the 3rd slot.
-         */
-        initialize_ldt_struct(&desc, segment, PAGE_SIZE,
-# ifndef HAVE_TLS_AREA_MULTI
-                              /* for ESX4.0 there is only one slot: taking it for now,
-                               * though we'll conflict w/ pthreads
-                               */
-                              -1
-# else
-                              kernel_is_64bit() ? GDT_64BIT : GDT_32BIT
+        if (!dynamo_initialized) {
+            /* We don't want to break the assumptions of pthreads or wine,
+             * so we try to take the last slot.  We don't want to hardcode
+             * the index b/c the kernel will let us clobber entries so we want
+             * to only pass in -1.
+             */
+            int i;
+            int avail_index[GDT_NUM_TLS_SLOTS];
+            our_modify_ldt_t clear_desc;
+            ASSERT(tls_gdt_index == -1);
+            for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
+                avail_index[i] = -1;
+                initialize_ldt_struct(&desc, segment, PAGE_SIZE, -1);
+                res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
+                LOG(GLOBAL, LOG_THREADS, 4,
+                    "%s: set_thread_area -1 => %d res, %d index\n",
+                    __func__, res, desc.entry_number);
+                if (res >= 0) {
+                    /* We assume monotonic increases */
+                    avail_index[i] = desc.entry_number;
+                    ASSERT(avail_index[i] > tls_gdt_index);
+                    tls_gdt_index = desc.entry_number;
+                } else
+                    break;
+            }
+            /* Now give up the earlier slots */
+            for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
+                if (avail_index[i] > -1 &&
+                    avail_index[i] != tls_gdt_index) {
+                    LOG(GLOBAL, LOG_THREADS, 4,
+                        "clearing set_thread_area index %d\n", avail_index[i]);
+                    clear_ldt_struct(&clear_desc, avail_index[i]);
+                    res = dynamorio_syscall(SYS_set_thread_area, 1, &clear_desc);
+                    ASSERT(res >= 0);
+                }
+            }
+# ifndef VMX86_SERVER
+            ASSERT_CURIOSITY(tls_gdt_index ==
+                             (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT));
 # endif
-                              );
-        res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
+            if (tls_gdt_index > -1)
+                res = 0;
+        } else {
+            /* For subsequent threads we need to clobber the parent's
+             * entry with our own
+             */
+            ASSERT(tls_gdt_index > -1);
+            initialize_ldt_struct(&desc, segment, PAGE_SIZE, tls_gdt_index);
+            res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
+            LOG(GLOBAL, LOG_THREADS, 4,
+                "%s: set_thread_area -1 => %d res, %d index\n",
+                __func__, res, desc.entry_number);
+            ASSERT(res < 0 || desc.entry_number == tls_gdt_index);
+        }
         if (res >= 0) {
             LOG(GLOBAL, LOG_THREADS, 1,
-                "os_tls_init: set_thread_area successful for base "PFX"\n", segment);
+                "os_tls_init: set_thread_area successful for base "PFX" @index %d\n",
+                segment, tls_gdt_index);
             os_tls->tls_type = TLS_TYPE_GDT;
-            index = desc.entry_number;
+            index = tls_gdt_index;
             selector = GDT_SELECTOR(index);
             WRITE_FS(selector); /* macro needs lvalue! */
         } else {
+            IF_VMX86(ASSERT_NOT_REACHED()); /* since no modify_ldt */
             LOG(GLOBAL, LOG_THREADS, 1,
                 "os_tls_init: set_thread_area failed: error %d\n", res);
         }
@@ -1156,6 +1204,9 @@ os_tls_init()
     }
     os_tls->ldt_index = index;
     ASSERT(os_tls->tls_type != TLS_TYPE_NONE);
+    /* FIXME: this should be a SYSLOG fatal error?  Should fall back on !HAVE_TLS?
+     * Should have create_ldt_entry() return failure instead of asserting, then.
+     */
 #else
     tls_table = (tls_slot_t *)
         global_heap_alloc(MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));

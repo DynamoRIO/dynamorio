@@ -97,7 +97,6 @@
 # Linux variants
 #    $(D)HAVE_PROC_MAPS - set if /proc/self/maps is available
 #    $(D)HAVE_TLS       - set if any form of ldt or gdt entry can be claimed
-#    $(D)HAVE_TLS_AREA_MULTI - set if a usually-unused set_thread_area slot is available
 #    $(D)HAVE_SIGALTSTACK - set if SYS_sigaltstack is available
 #    $(D)INIT_TAKE_OVER - libdynamorio.so init() takes over so no preload needed
 # not supported but still in code because may be useful later
@@ -215,14 +214,8 @@
 #  ifdef VMKERNEL
 #    define VMX86_SERVER
 #    define USERLEVEL
-     /* FIXME PR 361894: ESX4.0+ has HAVE_TLS but not HAVE_TLS_AREA_MULTI:
-      * so won't work w/ pthreads or other app using TLS slot:
-      * not specifying for now since too limiting.
-      * Remove HAVE_TLS_AREA_MULTI, then?
-      * Plus, ESX3.5 does not have any TLS: so need runtime control
-      * over whether use non-TLS get_thread_private_dcontext()
-      * and force thread-private (and not support x64).
-      */  
+     /* PR 361894/388563: only on ESX4.1+ */
+#    define HAVE_TLS
 #  else
 #    ifdef MACOS
        /* FIXME NYI */
@@ -232,7 +225,6 @@
        /* FIXME: use cmake to discover whether these are available */
 #      define HAVE_PROC_MAPS
 #      define HAVE_TLS
-#      define HAVE_TLS_AREA_MULTI
 #      define HAVE_SIGALTSTACK
 #    endif
 #  endif
