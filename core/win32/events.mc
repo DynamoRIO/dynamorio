@@ -463,7 +463,17 @@ Application %1!s! (%2!s!). Unsupported processor: LAHF/SAHF instructions require
 
 ;#ifdef CLIENT_INTERFACE
 MessageId =
-Severity = WARNING
+Severity = ERROR
+Facility = DRCore
+SymbolicName = MSG_CLIENT_LIBRARY_UNLOADABLE
+Language=English
+Application %1!s! (%2!s!). Unable to load client library: %s.
+.
+;#endif
+
+;#ifdef CLIENT_INTERFACE
+MessageId =
+Severity = ERROR
 Facility = DRCore
 SymbolicName = MSG_CLIENT_VERSION_INCOMPATIBLE
 Language=English

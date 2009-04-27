@@ -249,8 +249,6 @@ if (UNIX)
   endif (X64)
   set(ARCH_LDFLAGS "${ARCH_CFLAGS}")
 else (UNIX)
-  # for resources.rc to include globals_shared.h
-  include_directories(${PROJECT_SOURCE_DIR}/core/lib)
   set(ARCH_CFLAGS "")
   set(ARCH_LDFLAGS "")
 endif (UNIX)
@@ -302,6 +300,9 @@ if (UNIX)
     message(FATAL_ERROR "cannot find required libs m, dl, and/or pthread")
   endif (libmath-NOTFOUND OR libdl-NOTFOUND OR libpthread-NOTFOUND)
 else (UNIX)
+  # for resources.rc to include globals_shared.h
+  # must be AFTER build/include now that dr_api.h is configured
+  include_directories(AFTER ${PROJECT_SOURCE_DIR}/core/lib)
   # W2 is default (we're using W3).  We should also replace
   # all references to unsafe functions (e.g., fopen) and
   # remove /wd4996
@@ -482,7 +483,10 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   add_library(${test}.dll SHARED ${client_source})
   set_target_properties(${test}.dll PROPERTIES
     COMPILE_FLAGS "${CLIENT_CMAKE_C_FLAGS} ${platform_defs}"
-    LINK_FLAGS "${CLIENT_SHARED_LINKER_FLAGS}")
+    LINK_FLAGS "${CLIENT_SHARED_LINKER_FLAGS}"
+    # we don't want the default rpath of <builddir>/lib as it makes
+    # it hard to use other DR builds w/ these apps
+    SKIP_BUILD_RPATH ON)
   target_link_libraries(${test}.dll dynamorio)
   add_dependencies(${test}.dll api_headers dynamorio)
   get_target_property(client_path ${test}.dll LOCATION)

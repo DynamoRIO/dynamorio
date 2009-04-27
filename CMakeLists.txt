@@ -206,7 +206,8 @@ set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
   "build type: unused" FORCE)
 
 # resources when packaging
-# xref cmake's supported VERSION + SOVERSION which we're not using
+# N.B.: once VERSION_NUMBER crosses 2.x we'll need to update the
+# symlink loop in core/CMakeLists.txt
 set(VERSION_NUMBER "1.4.0" CACHE STRING "Version number")
 string(REGEX REPLACE "\\." "," VERSION_COMMA_DELIMITED "${VERSION_NUMBER}")
 set(BUILD_NUMBER "18" CACHE STRING "Build number (must be <64K)")
@@ -617,6 +618,14 @@ set(INSTALL_DOCS docs)
 set(INSTALL_CMAKE cmake)
 set(BUILD_INCLUDE ${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE})
 
+# set var needed by configure.cmake.h
+string(REGEX REPLACE 
+  "^([0-9]+)\\..*" "\\1" VERSION_NUMBER_MAJOR "${VERSION_NUMBER}")
+string(REGEX REPLACE 
+  "^[0-9]+\\.([0-9]+)\\..*" "\\1" VERSION_NUMBER_MINOR "${VERSION_NUMBER}")
+math(EXPR VERSION_NUMBER_INTEGER
+  "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
+
 # This does a copy-if-different, so it won't trigger recompilation of
 # every single source file if no changes
 configure_file(
@@ -745,8 +754,12 @@ endif (BUILD_DRGUI)
 
 # used by docs, samples, and tests, so here instead of in core/CMakeLists.txt
 if (CLIENT_INTERFACE OR APP_EXPORTS)
+  # set VERSION_NUMBER_INTEGER in dr_api.h
+  configure_file(${PROJECT_SOURCE_DIR}/core/lib/dr_api.h
+    ${BUILD_INCLUDE}/dr_api.h)
   add_custom_target(api_headers
-    DEPENDS ${BUILD_INCLUDE}/dr_app.h)
+    DEPENDS ${BUILD_INCLUDE}/dr_app.h
+            ${BUILD_INCLUDE}/dr_api.h)
   file(MAKE_DIRECTORY ${BUILD_INCLUDE})
   # technically only the headers in the genapi.pl list
   file(GLOB header_files core/*.h core/*/*.h libutil/*.h)
@@ -849,7 +862,7 @@ install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
   PATTERN "*.debug"
   PATTERN "*.pdb"
   PATTERN "dynamorio.pdb" EXCLUDE # in ${INSTALL_LIB}
-  PATTERN "libdynamorio.so.debug" EXCLUDE # in ${INSTALL_LIB}
+  PATTERN "libdynamorio.so.*debug" EXCLUDE # in ${INSTALL_LIB}
   PATTERN "libdrpreload.so.debug" EXCLUDE # in ${INSTALL_LIB}
   PATTERN "policy_static.pdb" EXCLUDE
   )
@@ -858,7 +871,7 @@ install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
   FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
   FILES_MATCHING
   PATTERN "dynamorio.pdb"
-  PATTERN "libdynamorio.so.debug" 
+  PATTERN "libdynamorio.so.*debug" 
   PATTERN "libdrpreload.so.debug" 
   )
 if (BUILD_TOOLS OR WIN32)
@@ -873,10 +886,10 @@ if (BUILD_TOOLS OR WIN32)
 endif (BUILD_TOOLS OR WIN32)
 
 # create empty logs dir for release package
-# be sure to get var from env so it's at install time not configure time
-install(CODE "file(MAKE_DIRECTORY \"\${ENV}\${CMAKE_INSTALL_PREFIX}/logs\")")
+# be sure to escape ",$ since evaluated at install time not configure time
+install(CODE "file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/logs\")")
 # CPack seems to ignore empty dirs so add a README file
-install(CODE "file(WRITE \"\${ENV}\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
+install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
 
 ###########################################################################
 
@@ -956,10 +969,8 @@ set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/License.txt")
 set(CPACK_RESOURCE_FILE_README "${PROJECT_SOURCE_DIR}/README")
 
 set(CPACK_PACKAGE_VERSION "${VERSION_NUMBER}")
-string(REGEX REPLACE 
-  "^([0-9]+)\\..*" "\\1" CPACK_PACKAGE_VERSION_MAJOR "${VERSION_NUMBER}")
-string(REGEX REPLACE 
-  "^[0-9]+\\.([0-9]+)\\..*" "\\1" CPACK_PACKAGE_VERSION_MINOR "${VERSION_NUMBER}")
+set(CPACK_PACKAGE_VERSION_MAJOR "${VERSION_NUMBER_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${VERSION_NUMBER_MINOR}")
 string(REGEX REPLACE 
   "^[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" CPACK_PACKAGE_VERSION_PATCH "${VERSION_NUMBER}")
 

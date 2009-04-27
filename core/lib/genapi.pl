@@ -119,12 +119,20 @@ if ($header) {
     # we can avoid this auto-clean and have something nicer
     @existing = glob("$dir/dr_*.h");
     if ($#existing >= 0) {
-        unlink(@existing);
+        # dr_api.h is now created at configure time
+        foreach $index (0 .. $#existing) {
+            if ("$existing[$index]" eq "$dir/dr_api.h") {
+                delete $existing[$index];
+            }
+        }
+        if ($#existing >= 0) {
+            unlink(@existing);
+        }
     }
 
     if (defined($defines{"CLIENT_INTERFACE"})) {
-        # dr_api.h is copied verbatim
-        copy_file("lib/dr_api.h", "$dir/dr_api.h");
+        # dr_api.h is copied by top-level CMakeLists.txt, for easier
+        # substitution of VERSION_NUMBER_INTEGER
 
         # dr_app.h is copied verbatim
         # We used to have #ifdefs (LOGPC I think) in the func declarations

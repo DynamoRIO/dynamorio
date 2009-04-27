@@ -92,7 +92,8 @@ extern "C" {
 DR_EXPORT void dr_init(client_id_t client_id);
 
 /* Version checking */
-DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = 103; /* 1.3.x */
+/* This equals major*100 + minor */
+DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
 
 #ifdef __cplusplus
 }

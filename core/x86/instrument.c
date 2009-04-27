@@ -85,14 +85,17 @@ extern void do_file_write(file_t f, const char *fmt, va_list ap);
  * - api/docs/footer.html
  */
 #define USES_DR_VERSION_NAME "_USES_DR_VERSION_"
-/* should we expose this for use in samples/tracedump.c? */
+/* Should we expose this for use in samples/tracedump.c? 
+ * Also, if we change this, need to change the symlink generation
+ * in core/CMakeLists.txt: at that point should share single define.
+ */
 #define OLDEST_COMPATIBLE_VERSION  96 /* 0.9.6 == 1.0.0 through 1.2.0 */
 /* The 3rd version number, the bugfix/patch number, should not affect
  * compatibility, so our version check number simply uses:
  *   major*100 + minor
  * Which gives us room for 100 minor versions per major.
  */
-#define NEWEST_COMPATIBLE_VERSION 103 /* 1.3.x */
+#define NEWEST_COMPATIBLE_VERSION CURRENT_API_VERSION
 
 /* Store the unique not-part-of-version build number (the version
  * BUILD_NUMBER is limited to 64K and is not guaranteed to be unique)
@@ -373,6 +376,8 @@ add_client_lib(char *path, char *id_str, char *options)
          * client.
          */
         CLIENT_ASSERT(false, msg);
+        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 3, 
+               get_application_name(), get_application_pid(), msg);
     }
     else {
         /* PR 250952: version check */
@@ -384,7 +389,7 @@ add_client_lib(char *path, char *id_str, char *options)
             /* not a fatal usage error since we want release build to continue */
             CLIENT_ASSERT(false, 
                           "client library is incompatible with this version of DR");
-            SYSLOG(SYSLOG_WARNING, CLIENT_VERSION_INCOMPATIBLE, 2, 
+            SYSLOG(SYSLOG_ERROR, CLIENT_VERSION_INCOMPATIBLE, 2, 
                    get_application_name(), get_application_pid());
         }
         else {

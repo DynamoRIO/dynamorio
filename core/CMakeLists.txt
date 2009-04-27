@@ -259,6 +259,40 @@ if (UNIX)
     LINK_FLAGS "${dynamorio_link_flags}")
   target_link_libraries(dynamorio c dl m)
 
+  # We use .so versioning via symlinks.
+  # We do not version the preload lib as it does not expose an API,
+  # and drconfig is Windows-only.
+  # Our releases match our API so we use major.minor as our soversion.
+  # That allows both forward and backward compatibility, but means that
+  # we need to provide symlinks for all backward compatible versions.
+  # In the future CMake is expected to add explicit support for this.
+  string(REGEX REPLACE 
+    "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
+  set_target_properties(dynamorio PROPERTIES
+    VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
+  # Note that if we ever increase OLDEST_COMPATIBLE_VERSION in 
+  # x86/instrument.c to be > 104 we need to update this var and
+  # should then share a common define.
+  set(COMPAT_SOVERSION 104)
+  get_target_property(curver_base dynamorio LOCATION)
+  get_filename_component(curver_path "${curver_base}" PATH)
+  get_filename_component(curver_base "${curver_base}" NAME)
+  get_target_property(curver_sover dynamorio SOVERSION)
+  set(curver "${curver_base}.${curver_sover}")
+  # This loop assumes still on 1.x
+  # Once we go to 2.x we'll need to store somewhere the highest 1.x we released
+  while (${COMPAT_SOVERSION} LESS ${VERSION_NUMBER_INTEGER})
+    math(EXPR COMPAT_SUFFIX "${COMPAT_SOVERSION}-100")
+    string(REGEX REPLACE "so.${VERSION_MAJOR_MINOR}"
+      "so.1.${COMPAT_SUFFIX}" oldver "${curver}")
+    set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} ${curver_path}/${oldver})
+    add_custom_command(TARGET dynamorio POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E create_symlink ${curver} ${oldver}
+      WORKING_DIRECTORY ${LIBRARY_OUTPUT_PATH}
+      VERBATIM)
+    math(EXPR COMPAT_SOVERSION "${COMPAT_SOVERSION}+1")
+  endwhile ()
+
   # Note that we can't locate readelf inside CMake_readelf.cmake as that
   # would disallow pointing externally at a readelf location, so we make it
   # a proper cache variable.
@@ -464,6 +498,7 @@ install(TARGETS dynamorio
   )
 if (UNIX)
   install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
+  install(FILES ${COMPAT_SYMLINKS} DESTINATION ${INSTALL_LIB})
 else (UNIX)
   install(TARGETS drinject DESTINATION ${INSTALL_BIN})
   # we install drinjectx for developer use; should we document it?

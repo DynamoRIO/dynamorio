@@ -51,7 +51,7 @@
  * this is defined outside of CLIENT_INTERFACE b/c it's used for
  * a general tracedump version as well.
  */
-#define CURRENT_API_VERSION 103 /* 1.3.x */
+#define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 
 #ifdef CLIENT_INTERFACE
 

@@ -144,6 +144,10 @@ foreach (src ${srcs})
   endif ("${src}" MATCHES "\\.cpp$")
 
   target_link_libraries(${tgt} dynamorio)
+  # We don't want an rpath as it makes it hard to switch
+  # between debug and release at runtime (rpath is removed
+  # on "make install"; here we avoid in build dir).
+  set_target_properties(${tgt} PROPERTIES SKIP_BUILD_RPATH ON)
 
   set(tgts ${tgts} ${tgt})
 endforeach (src)
