@@ -97,7 +97,10 @@
 #
 # Linux variants
 #    $(D)HAVE_PROC_MAPS - set if /proc/self/maps is available
+#      if not set: issues w/ mem queries from signal handler (PR 287309)
 #    $(D)HAVE_TLS       - set if any form of ldt or gdt entry can be claimed
+#      if not set: client reg spill slots won't work, and may hit asserts
+#      after fork.
 #    $(D)HAVE_SIGALTSTACK - set if SYS_sigaltstack is available
 #    $(D)INIT_TAKE_OVER - libdynamorio.so init() takes over so no preload needed
 # not supported but still in code because may be useful later

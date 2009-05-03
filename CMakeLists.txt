@@ -61,29 +61,24 @@ if ("${cmake_ver_string}" STRLESS "2.6.4")
   set(CMAKE_ASM_SOURCE_FILE_EXTENSIONS s;S;asm)
 endif ("${cmake_ver_string}" STRLESS "2.6.4")
 
+# I want to override the default CMAKE_INSTALL_PREFIX, but allow it to
+# be set (as the same var name, so CPack and other standard tools
+# work) externally.  The best solution is to check whether defined BEFORE
+# the project() command.
+# If we didn't use standard tools we could set CMAKE_INSTALL_PREFIX
+# to be CACHE INTERNAL FORCE to INSTALL_PREFIX.
+if (NOT DEFINED CMAKE_INSTALL_PREFIX)
+  set(install_override ON)
+else (NOT DEFINED CMAKE_INSTALL_PREFIX)
+  set(install_override OFF)
+endif (NOT DEFINED CMAKE_INSTALL_PREFIX)
+
 project(DynamoRIO)
 
 ###########################################################################
 # configuration options
 
 # many are core-specific
-
-# I want to override the default CMAKE_INSTALL_PREFIX, but keep
-# the name of the var so CPack and other standard tools work.
-# The best I can come up with is to disallow installing to the
-# default location, which seems reasonable.
-# If we didn't use standard tools we could set CMAKE_INSTALL_PREFIX
-# to be CACHE INTERNAL FORCE to INSTALL_PREFIX.
-if (UNIX)
-  set(default_install "/usr/local")
-else (UNIX)
-  set(default_install "$ENV{SYSTEMDRIVE}/Program Files")
-endif (UNIX)
-if ("${CMAKE_INSTALL_PREFIX}" MATCHES "^${default_install}")
-  set(CMAKE_INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/exports" 
-    CACHE PATH "install path" FORCE)
-endif ("${CMAKE_INSTALL_PREFIX}" MATCHES "^${default_install}")
-set(INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 # configurations that also have defines
 option(DEBUG "build with asserts and logging enabled")
@@ -98,17 +93,17 @@ if (WIN32)
   set(WINDOWS 1)
 endif (WIN32)
 
+# Whether 64-bit is expected to be selected by user setting up compiler
+# prior to invoking CMake: it has to be that way for Windows, and for
+# Linux the user should set both CFLAGS and CXXFLAGS to -m32 or -m64
+# to override gcc's default.
+# FIXME: can we rely on CMAKE_C_SIZEOF_DATA_PTR in all CMake versions
+# >= 2.6?  If so we only need CFLAGS to be set and not CXXFLAGS.
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-  set(X64_DEFAULT ON)
+  set(X64 ON)
 else(CMAKE_SIZEOF_VOID_P EQUAL 8)
-  set(X64_DEFAULT OFF)
+  set(X64 OFF)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-if (UNIX)
-  option(X64 "target 64-bit" ${X64_DEFAULT})
-else (UNIX)
-  # not controllable from here: must change env vars before invoking CMake
-  set(X64 ${X64_DEFAULT})
-endif (UNIX)
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 option(MACOS "target MacOS (not officially supported yet)")
@@ -136,23 +131,30 @@ if (VPS)
   endif (WIN32)
 endif (VPS)
 
-# for developers
-option(KSTATS "internal kstat profiling")
-option(CALLPROF "internal caller profiling support")
-option(LINKCOUNT "internal linkcount profiling")
-option(STANDALONE_UNIT_TEST "internal unit tests")
-option(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE "keep internal symbols exported")
+# For developers
+# CMake note: never set option vars as it prevents override by cache var:
+# instead set default value in separate var and use that to initialize option.
 if (INTERNAL OR DEBUG)
-  set(KSTATS 1)
+  set(KSTATS_DEFAULT ON)
+else (INTERNAL OR DEBUG)
+  set(KSTATS_DEFAULT 0FF)
 endif (INTERNAL OR DEBUG)
 if (INTERNAL AND DEBUG)
-  set(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE 1)
+  set(KEEP_SYMBOLS_DEFAULT ON)
+else (INTERNAL AND DEBUG)
+  set(KEEP_SYMBOLS_DEFAULT OFF)
 endif (INTERNAL AND DEBUG)
 # no KSTATS for caller profiling: we want to be as close to release
 # build as we can, but w/o optimizations
 if (CALLPROF)
-  set(KSTATS 0FF)
+  set(KSTATS_DEFAULT 0FF)
 endif (CALLPROF)
+option(KSTATS "internal kstat profiling" ${KSTATS_DEFAULT})
+option(CALLPROF "internal caller profiling support")
+option(LINKCOUNT "internal linkcount profiling")
+option(STANDALONE_UNIT_TEST "internal unit tests")
+option(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE "keep internal symbols exported"
+  ${KEEP_SYMBOLS_DEFAULT})
 if (WIN32)
   # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
   option(GENERATE_PDBS "generate Windows debug information" ON)
@@ -223,6 +225,13 @@ mark_as_advanced(
 # This is hardcoded in globals_shared.h: going to leave it that way, but
 # adding indirection within cmake files
 set(PRODUCT_NAME "DynamoRIO")
+
+if (install_override)
+  set(CMAKE_INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/exports" 
+    CACHE PATH "install path" FORCE)
+endif (install_override)
+# for historical reasons we have a separate mirror var
+set(INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 ###########################################################################
 # toolchain

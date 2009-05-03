@@ -108,7 +108,7 @@ find_program(MAKE_COMMAND make DOC "make command")
 set(CTEST_BUILD_COMMAND "${MAKE_COMMAND} -j5")
 set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
 
-function(testbuild name initial_cache)
+function(testbuild name is64 initial_cache)
   set(CTEST_BUILD_NAME "${name}")
   set(CTEST_BINARY_DIRECTORY "${BINARY_BASE}/build_${CTEST_BUILD_NAME}")
   set(CTEST_INITIAL_CACHE "${initial_cache}
@@ -125,7 +125,7 @@ function(testbuild name initial_cache)
     # directory layouts: we assume standard VS2005 or SDK.
     # FIXME: would be nice to have case-insensitive regex flag!
     # For now hardcoding VC, Bin, amd64
-    if ("${initial_cache}" MATCHES "X64:BOOL=ON")
+    if (is64)
       if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
         # Note that we can't set ENV{PATH} as the output var of the replace:
         # it has to be its own set().
@@ -139,7 +139,7 @@ function(testbuild name initial_cache)
           newlibpath "$ENV{LIBPATH}")
         set(ENV{LIBPATH} "${newlibpath}")
       endif (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
-    else ("${initial_cache}" MATCHES "X64:BOOL=ON")
+    else (is64)
       if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
         string(REGEX REPLACE "(VC[/\\\\]Bin[/\\\\])amd64" "\\1"
           newpath "$ENV{PATH}")
@@ -151,7 +151,15 @@ function(testbuild name initial_cache)
           newlibpath "$ENV{LIBPATH}")
         set(ENV{LIBPATH} "${newlibpath}")
       endif ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
-    endif ("${initial_cache}" MATCHES "X64:BOOL=ON")
+    endif (is64)
+  else (WIN32)
+    if (is64)
+      set(ENV{CFLAGS} "-m64")
+      set(ENV{CXXFLAGS} "-m64")
+    else (is64)
+      set(ENV{CFLAGS} "-m32")
+      set(ENV{CXXFLAGS} "-m32")
+    endif (is64)
   endif (WIN32)
 
   ctest_start(${SUITE_TYPE})
@@ -168,97 +176,82 @@ function(testbuild name initial_cache)
   endif (DO_SUBMIT)
 endfunction(testbuild)
 
-testbuild("debug-internal-32" "
-  X64:BOOL=OFF
+testbuild("debug-internal-32" OFF "
   DEBUG:BOOL=ON
   INTERNAL:BOOL=ON
   ")
-testbuild("debug-internal-64" "
-  X64:BOOL=ON
+testbuild("debug-internal-64" ON "
   DEBUG:BOOL=ON
   INTERNAL:BOOL=ON
   ")
-testbuild("debug-external-32" "
-  X64:BOOL=OFF
+testbuild("debug-external-32" OFF "
   DEBUG:BOOL=ON
   INTERNAL:BOOL=OFF
   ")
-testbuild("debug-external-64" "
-  X64:BOOL=ON
+testbuild("debug-external-64" ON "
   DEBUG:BOOL=ON
   INTERNAL:BOOL=OFF
   ")
-testbuild("release-external-32" "
-  X64:BOOL=OFF
+testbuild("release-external-32" OFF "
   DEBUG:BOOL=OFF
   INTERNAL:BOOL=OFF
   ")
-testbuild("release-external-64" "
-  X64:BOOL=ON
+testbuild("release-external-64" ON "
   DEBUG:BOOL=OFF
   INTERNAL:BOOL=OFF
   ")
 # we don't really use internal release builds for anything, but keep it working
 if (DO_ALL_BUILDS)
-  testbuild("release-internal-32" "
-    X64:BOOL=OFF
+  testbuild("release-internal-32" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=ON
     ")
-  testbuild("release-internal-64" "
-    X64:BOOL=ON
+  testbuild("release-internal-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=ON
     ")
 endif (DO_ALL_BUILDS)
 # non-official-API builds
-testbuild("vmsafe-debug-internal-32" "
+testbuild("vmsafe-debug-internal-32" OFF "
   VMAP:BOOL=OFF
   VMSAFE:BOOL=ON
-  X64:BOOL=OFF
   DEBUG:BOOL=ON
   INTERNAL:BOOL=ON
   ")
 if (DO_ALL_BUILDS)
-  testbuild("vmsafe-release-external-32" "
+  testbuild("vmsafe-release-external-32" OFF "
     VMAP:BOOL=OFF
     VMSAFE:BOOL=ON
-    X64:BOOL=OFF
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     ")
 endif (DO_ALL_BUILDS)
-testbuild("vps-debug-internal-32" "
+testbuild("vps-debug-internal-32" OFF "
   VMAP:BOOL=OFF
   VPS:BOOL=ON
-  X64:BOOL=OFF
   DEBUG:BOOL=ON
   INTERNAL:BOOL=ON
   ")
 if (DO_ALL_BUILDS)
-  testbuild("vps-release-external-32" "
+  testbuild("vps-release-external-32" OFF "
     VMAP:BOOL=OFF
     VPS:BOOL=ON
-    X64:BOOL=OFF
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     ")
   # Builds we'll keep from breaking but not worth running many tests
-  testbuild("callprof-32" "
+  testbuild("callprof-32" OFF "
     CALLPROF:BOOL=ON
-    X64:BOOL=OFF
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     ")
-  testbuild("linkcount-32" "
+  testbuild("linkcount-32" OFF "
     LINKCOUNT:BOOL=ON
-    X64:BOOL=OFF
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
     ")
-  testbuild("nodefs-debug-internal-32" "
+  testbuild("nodefs-debug-internal-32" OFF "
     VMAP:BOOL=OFF
-    X64:BOOL=OFF
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
     ")

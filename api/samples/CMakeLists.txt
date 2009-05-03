@@ -42,14 +42,17 @@ if (SHOW_RESULTS)
   add_definitions(-DSHOW_RESULTS)
 endif (SHOW_RESULTS)
 
+# Whether 64-bit is expected to be selected by user setting up compiler
+# prior to invoking CMake: it has to be that way for Windows, and for
+# Linux the user should set both CFLAGS and CXXFLAGS to -m32 or -m64
+# to override gcc's default.
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-  set(X64_DEFAULT ON)
+  set(X64 ON)
 else(CMAKE_SIZEOF_VOID_P EQUAL 8)
-  set(X64_DEFAULT OFF)
+  set(X64 OFF)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 if (UNIX)
-  option(X64 "target 64-bit" ${X64_DEFAULT})
   if (X64)
     set(ARCH_CFLAGS "-m64")
   else (X64)
@@ -68,8 +71,6 @@ else (UNIX)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CL_CFLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CL_CFLAGS}")
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-  # not controllable from here: must change env vars before invoking CMake
-  set(X64 ${X64_DEFAULT})
 endif (UNIX)
 string(STRIP "${CMAKE_C_FLAGS}" CMAKE_C_FLAGS)
 string(STRIP "${CMAKE_CXX_FLAGS}" CMAKE_CXX_FLAGS)
@@ -81,7 +82,6 @@ endif (NOT DEFINED DynamoRIO_DIR)
 
 find_package(DynamoRIO)
 if (DynamoRIO_FOUND)
-  set(DynamoRIO_X64 ${X64})
   if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
     set(DynamoRIO_DEBUG ON)
   else ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
@@ -157,6 +157,10 @@ endforeach (src)
 # Should we add some install targets for users?
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt" string)
 string(REGEX REPLACE "# Strip out everything.*$" "" string "${string}")
+# Should we put in the work to support in-source build?
+if (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
+  message(FATAL_ERROR "in-source build not supported for BUILD_SAMPLES: please create separate build directory, or disable BUILD_SAMPLES")
+endif (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists.txt" "${string}")
 
 foreach (tgt ${tgts})

@@ -31,7 +31,6 @@
 # How to use:
 # First, set these parameters:
 #
-#    DynamoRIO_X64 = if client is 64-bit
 #    DynamoRIO_DEBUG = if wish to link to debug DynamoRIO library
 #    DynamoRIO_CXX = if client is C++
 #    DynamoRIO_VISATT = if using gcc visibility attributes
@@ -41,7 +40,6 @@
 # 
 #   find_package(DynamoRIO)
 #   if (DynamoRIO_FOUND)
-#     set(DynamoRIO_X64 ON)
 #     set(DynamoRIO_DEBUG OFF)
 #     set(DynamoRIO_CXX OFF)
 #     set(DynamoRIO_VISATT OFF)
@@ -74,6 +72,12 @@ if (UNIX)
 else (UNIX)
   add_definitions(-DWINDOWS)
 endif (UNIX)
+
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(DynamoRIO_X64 ON)
+else(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(DynamoRIO_X64 OFF)
+endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 if (DynamoRIO_X64)
   add_definitions(-DX86_64)

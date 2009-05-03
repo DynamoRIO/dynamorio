@@ -71,12 +71,12 @@ rd /s /q build64dbg
 
 md build32rel
 cd build32rel
-cmake -G"NMake Makefiles" %DEFS% %CUSTOM% -DX64:BOOL=OFF %SRCDIR%
+cmake -G"NMake Makefiles" %DEFS% %CUSTOM% %SRCDIR%
 nmake
 
 md ..\build32dbg
 cd ..\build32dbg
-cmake -G"NMake Makefiles" %DEFS% %CUSTOM% -DX64:BOOL=OFF -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF %SRCDIR%
+cmake -G"NMake Makefiles" %DEFS% %CUSTOM% -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF %SRCDIR%
 nmake
 
 call %CL64BAT%

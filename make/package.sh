@@ -64,19 +64,19 @@ fi
 rm -rf build*{rel,dbg}
 
 mkdir build32rel; cd build32rel
-cmake ${DEFS} ${custom} -DX64:BOOL=OFF ${srcdir}
+CFLAGS=-m32 CXXFLAGS=-m32 cmake ${DEFS} ${custom} ${srcdir}
 make -j 4
 
 mkdir ../build32dbg; cd ../build32dbg
-cmake ${DEFS} ${custom} -DX64:BOOL=OFF -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF ${srcdir}
+CFLAGS=-m32 CXXFLAGS=-m32 cmake ${DEFS} ${custom} -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF ${srcdir}
 make -j 4
 
 mkdir ../build64rel; cd ../build64rel
-cmake ${DEFS} ${custom} -DBUILD_DOCS:BOOL=OFF ${srcdir}
+CFLAGS=-m64 CXXFLAGS=-m64 cmake ${DEFS} ${custom} -DBUILD_DOCS:BOOL=OFF ${srcdir}
 make -j 4
 
 mkdir ../build64dbg; cd ../build64dbg
-cmake ${DEFS} ${custom} -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF ${srcdir}
+CFLAGS=-m64 CXXFLAGS=-m64 cmake ${DEFS} ${custom} -DDEBUG:BOOL=ON -DBUILD_TOOLS:BOOL=OFF -DBUILD_DOCS:BOOL=OFF -DBUILD_DRGUI:BOOL=OFF -DBUILD_SAMPLES:BOOL=OFF ${srcdir}
 make -j 4
 
 # handle read-only sources

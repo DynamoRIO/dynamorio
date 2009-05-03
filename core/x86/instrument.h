@@ -2186,7 +2186,7 @@ DR_API
  * \note The stored value remains available only until the next non-meta (i.e.
  * application) instruction. Use dr_insert_write_tls_field() and 
  * dr_insert_read_tls_field() for a persistent (but more costly to access)
- * thread-local-storage location.
+ * thread-local-storage location.  See also dr_raw_tls_calloc().
  */
 void 
 dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
