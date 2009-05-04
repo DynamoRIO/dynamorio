@@ -73,6 +73,13 @@ else (NOT DEFINED CMAKE_INSTALL_PREFIX)
   set(install_override OFF)
 endif (NOT DEFINED CMAKE_INSTALL_PREFIX)
 
+# Allow users to set -m32 in just CFLAGS and have it apply to CXXFLAGS as well.
+# CMake puts such flags in various variables early on and we'd have to go
+# manually add to CMAKE_SHARED_LIBRARY_CXX_FLAGS or something to fix later.
+if (NOT DEFINED ENV{CXXFLAGS})
+  set(ENV{CXXFLAGS} "$ENV{CFLAGS}")
+endif (NOT DEFINED ENV{CXXFLAGS})
+
 project(DynamoRIO)
 
 ###########################################################################
@@ -95,15 +102,17 @@ endif (WIN32)
 
 # Whether 64-bit is expected to be selected by user setting up compiler
 # prior to invoking CMake: it has to be that way for Windows, and for
-# Linux the user should set both CFLAGS and CXXFLAGS to -m32 or -m64
-# to override gcc's default.
-# FIXME: can we rely on CMAKE_C_SIZEOF_DATA_PTR in all CMake versions
-# >= 2.6?  If so we only need CFLAGS to be set and not CXXFLAGS.
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+# Linux the user should set CFLAGS to -m32 or -m64
+# to override gcc's default.  To simplify matters we only look at
+# CMAKE_C_SIZEOF_DATA_PTR, controlled by CFLAGS, so the user doesn't
+# have to also set CXXFLAGS (CMAKE_SIZEOF_VOID_P happens
+# to come from CXXFLAGS).  (CMAKE_C_SIZEOF_DATA_PTR can be relied on
+# to be set in all CMake versions we support.)
+if (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   set(X64 ON)
-else(CMAKE_SIZEOF_VOID_P EQUAL 8)
+else(CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   set(X64 OFF)
-endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 option(MACOS "target MacOS (not officially supported yet)")
@@ -348,12 +357,15 @@ if (UNIX)
   # disable strict aliasing opt in gcc 3.3.3 -- gives warnings and makes bad assumptions
   set(BASE_CFLAGS "${BASE_CFLAGS} -fno-strict-aliasing")
   set(ASM_FLAGS "-mmnemonic=intel -msyntax=intel -mnaked-reg --noexecstack")
+  # now that the user must set non-default -mNN we don't nec. need these:
   if (X64)
     set(BASE_CFLAGS "-m64 ${BASE_CFLAGS}")
+    set(BASE_CXXFLAGS "-m64")
     set(ASM_FLAGS "${ASM_FLAGS} --64")
     set(LD_FLAGS "-melf_x86_64")
   else (X64)
     set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
+    set(BASE_CXXFLAGS "-m32")
     # putting --32 last so we fail on -mmnemonic=intel on older as, not --32
     set(ASM_FLAGS "${ASM_FLAGS} --32")
     set(LD_FLAGS "-melf_i386")
@@ -387,6 +399,7 @@ else (UNIX)
   set(WARN "/W4 /WX")
   # Default from cmake has /W3 so remove to avoid warning about overriding
   string(REGEX REPLACE "/W[0-9]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "/W[0-9]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   if (GENERATE_PDBS)
     set(DBG "/Zi")
     set(LINK_DBG "/debug")
@@ -411,6 +424,7 @@ else (UNIX)
   set(CPP_NO_LINENUM /EP)
   set(CMAKE_CPP_FLAGS "/nologo")
   set(ASM_FLAGS "/nologo")
+  set(BASE_CXXFLAGS "${BASE_CFLAGS}")
 endif (UNIX)
 
 enable_language(ASM)
@@ -518,11 +532,12 @@ if (UNIX)
     # Using "internal" instead of "hidden" b/c we don't need any indirect
     # calls to our non-exported functions
     set(BASE_CFLAGS "${BASE_CFLAGS} -fvisibility=internal")
+    set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -fvisibility=internal")
   endif (HAVE_FVISIBILITY AND NOT KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
 
   # Better to use -dT when passing linker options through gcc, but ld
   # prior to 2.18 only supports -T
-  # FIXME: should we duplicate this in DynamoRIOUse.cmake?
+  # FIXME: should we duplicate this in DynamoRIOConfig.cmake?
   execute_process(COMMAND
     ${CMAKE_LINKER} --help
     RESULT_VARIABLE ld_result
@@ -576,6 +591,25 @@ if (UNIX)
         "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
         "${CMAKE_STRIP} -g -x -p <TARGET>"
         )
+      set(CMAKE_CXX_CREATE_SHARED_LIBRARY
+        # standard rule
+        "<CMAKE_CXX_COMPILER> <CMAKE_SHARED_LIBRARY_CXX_FLAGS> <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> <CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS> <CMAKE_SHARED_LIBRARY_SONAME_CXX_FLAG><TARGET_SONAME> -o <TARGET> <OBJECTS> <LINK_LIBRARIES>"
+        # now create a .debug copy
+        "${CMAKE_OBJCOPY} --only-keep-debug <TARGET> <TARGET>.debug"
+        # link original to point at .debug copy
+        # directory components are removed, so "../lib/" is fine
+        "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
+        # We can't strip everything since a client's _USES_DR_VERSION_ will be
+        # removed, so we only strip debug (-g) and local (-x), and preserve
+        # file attributes (-p):
+        "${CMAKE_STRIP} -g -x -p <TARGET>"
+        )
+      SET(CMAKE_CXX_LINK_EXECUTABLE
+        "<CMAKE_CXX_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS>  -o <TARGET> <LINK_LIBRARIES>"
+        "${CMAKE_OBJCOPY} --only-keep-debug <TARGET> <TARGET>.debug"
+        "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
+        "${CMAKE_STRIP} -g -x -p <TARGET>"
+        )
     endif (NOT flag_present)
   endif (EXISTS ${CMAKE_OBJCOPY} AND EXISTS ${CMAKE_STRIP})
 
@@ -586,6 +620,7 @@ endif (UNIX)
 # Right now we only support gcc and cl but could change in future
 if (DEBUG)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CXXFLAGS} ${DBG} ${DBG_OPT}")
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
@@ -593,9 +628,11 @@ else (DEBUG)
     set (OPT "")
   endif (CALLPROF)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CXXFLAGS} ${OPT}")
 endif (DEBUG)
 if (NOT DISABLE_WARNINGS)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WARN}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARN}")
 endif (NOT DISABLE_WARNINGS)
 
 ###########################################################################
@@ -903,13 +940,18 @@ install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir fo
 ###########################################################################
 
 # create CMake configuration files for clients and tests to use
+# we also create cmake/DynamoRIOTarget.cmake in core/CMakeLists.txt
 configure_file(
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfig.cmake.in
-  ${PROJECT_BINARY_DIR}/DynamoRIOConfig.cmake
+  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake
+  @ONLY)
+configure_file(
+  ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfigVersion.cmake.in
+  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
   @ONLY)
 install(FILES
-  ${PROJECT_SOURCE_DIR}/make/DynamoRIOUse.cmake
-  ${PROJECT_BINARY_DIR}/DynamoRIOConfig.cmake
+  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake
+  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
   DESTINATION ${INSTALL_CMAKE}
 )
 
@@ -917,14 +959,14 @@ if (BUILD_SAMPLES OR BUILD_TESTS)
   # api/samples is set up to function both as a separate project for
   # building samples vs a DynamoRIO installation, and to allow
   # building as a component of the whole source tree, since
-  # DynamoRIOUse.cmake will not override already-defined vars:
-  set(DynamoRIO_DIR ${PROJECT_BINARY_DIR})
+  # DynamoRIOConfig.cmake will not override already-defined vars:
   set(DynamoRIO_INCLUDE_DIRS "${PROJECT_BINARY_DIR}/include")
   set(DynamoRIO_LIBRARY32_REL_DIRS "${LIBRARY_OUTPUT_PATH}")
   set(DynamoRIO_LIBRARY32_DBG_DIRS "${LIBRARY_OUTPUT_PATH}")
   set(DynamoRIO_LIBRARY64_REL_DIRS "${LIBRARY_OUTPUT_PATH}")
   set(DynamoRIO_LIBRARY64_DBG_DIRS "${LIBRARY_OUTPUT_PATH}")
-  set(DynamoRIO_USE_FILE "${PROJECT_SOURCE_DIR}/make/DynamoRIOUse.cmake")
+  set(DynamoRIO_INTERNAL ON) # do not import dynamorio lib target
+  set(DynamoRIO_DIR ${PROJECT_BINARY_DIR}/cmake)
 endif (BUILD_SAMPLES OR BUILD_TESTS)
 
 if (BUILD_SAMPLES)

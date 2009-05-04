@@ -152,7 +152,7 @@ main(int argc, char** argv)
     /* generate SIGSEGV; we'll re-crash post-handler unless client
      * modifies mcontext
      */
-#ifdef X86_64
+#ifdef X64
 # define EAX "%rax"
 # define ECX "%rcx"
 #else

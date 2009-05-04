@@ -31,6 +31,7 @@
  */
 
 #include "dr_api.h"
+#include <string.h>
 
 /* Tests instrumenting system calls.  Also tests module_iterator interface and 
  * dr_get_proc_address(). */

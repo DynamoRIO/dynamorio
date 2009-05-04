@@ -763,32 +763,31 @@ lower 2GB.
 The \DynamoRIO release supplies <a href="http://www.cmake.org">CMake</a>
 configuration files to facilitate building \clients with the proper
 compiler and linker flags.  CMake is a cross-platform build system that
-generates Makefiles or other development system project files.
+generates Makefiles or other development system project files.  A \p
+DynamoRIOConfig.cmake configuration file, along with supporting files, is
+distributed in the \p cmake/ directory.
 
-Two files are distributed in the \p cmake/ directory: \p
-DynamoRIOConfig.cmake and \p DynamoRIOUse.cmake.  In its \p CMakeLists.txt
-file, a \client should first invoke a \p find_package(\DynamoRIO) command.
-If found, the \client should then set several parameters specifying which
-type of build to target.  Finally, the \client should \p include the \p
-DynamoRIOUse.cmake file, via a CMake variable set by
-DynamoRIOConfig.cmake.  Here is an example:
+In its \p CMakeLists.txt file, a \client should first invoke a \p
+find_package(\DynamoRIO) command.  This can optionally take a version
+parameter.  This adds \DynamoRIO as an imported target.  If found, the
+\client should then invoke the \p configure_DynamoRIO_client() function in
+order to configure build settings.  Here is an example:
 
 \code
-find_package(DynamoRIO)
-if (DynamoRIO_FOUND)
-  set(DynamoRIO_X64 ON)
-  set(DynamoRIO_DEBUG ON)
-  set(DynamoRIO_CXX OFF)
-  set(DynamoRIO_VISATT OFF)
-  include(${DynamoRIO_USE_FILE})
-endif(DynamoRIO_FOUND)
+add_library(myclient SHARED myclient.c)
+find_package(\DynamoRIO)
+if (NOT DynamoRIO_FOUND)
+  message(FATAL_ERROR "\DynamoRIO package required to build")
+endif(NOT DynamoRIO_FOUND)
+configure_DynamoRIO_client(myclient)
 \endcode
 
-The \p samples/CMakeLists.txt file in the release package is another, more
-complex example.
+The \p samples/CMakeLists.txt file in the release package serves as another
+example.  The top of \p DynamoRIOConfig.cmake contains detailed
+instructions as well.
 
 When configuring, the \p DynamoRIO_DIR CMake variable can be passed in to
-identify the directory that contains the DynamoRIOConfig.cmake file.  For
+identify the directory that contains the \p DynamoRIOConfig.cmake file.  For
 example:
 
 \code
@@ -798,15 +797,8 @@ cmake -DDynamoRIO_DIR=$DYNAMORIO_HOME/cmake ../myclient
 make
 \endcode
 
-The parameters to \p DynamoRIOUse.cmake are:
-
- - DynamoRIO_X64 = whether \client is 64-bit
- - DynamoRIO_DEBUG = whether to link to debug \DynamoRIO library
- - DynamoRIO_CXX = whether \client is C++
- - DynamoRIO_VISATT = whether \client is using gcc visibility attributes
-
 If a \client is not using CMake, the appropriate compiler and linker flags
-can be gleaned from DynamoRIOUse.cmake.  One method is to invoke CMake to
+can be gleaned from \p DynamoRIOConfig.cmake.  One method is to invoke CMake to
 generate a Makefile and then build with \p VERBOSE=1.  We also summarize
 here the key flags required for 32-bit \clients for \p gcc:
 
@@ -831,7 +823,7 @@ cl my-client.c /I$DYNAMORIO_HOME/include /link /NODEFAULTLIB /NOENTRY
 \endcode
 
 For 64-bit Linux \clients, setting the preferred base takes several steps.
-Refer to \p DynamorioUse.cmake for details.
+Refer to \p DynamoRIOConfig.cmake for details.
 
 ***************************************************************************
 \section sec_extlibs Using External Libraries
@@ -1293,8 +1285,7 @@ When building an application that uses \DynamoRIO as a standalone library,
 follow the steps for \ref sec_build to include the header files and link
 with the \DynamoRIO library, but omit the linker flags requesting no
 standard libraries or startup files.  \DynamoRIO's CMake support does this
-automatically, as the linker flags for shared libraries are separate from
-those for executables.
+automatically via the \p configure_DynamoRIO_standalone() function.
 
 \endif
 

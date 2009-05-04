@@ -230,16 +230,43 @@ set(EXECUTABLE_OUTPUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/bin")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}) # tools.h
 include_directories(${PROJECT_SOURCE_DIR}/core/x86) # asm_defines.asm
 
+# FIXME i#98: improve code so can set Wall/W4
+if (UNIX)
+  string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "-std=gnu99" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  # some tests rely on specific "nop;nop" patterns that optimization ruins
+  # we should probably move the -O from top level into core/CMakeLists.txt
+  string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  find_library(libmath m)
+  find_library(libdl dl)
+  find_library(libpthread pthread)
+  if (libmath-NOTFOUND OR libdl-NOTFOUND OR libpthread-NOTFOUND)
+    message(FATAL_ERROR "cannot find required libs m, dl, and/or pthread")
+  endif (libmath-NOTFOUND OR libdl-NOTFOUND OR libpthread-NOTFOUND)
+else (UNIX)
+  # W2 is default (we're using W3).  We should also replace
+  # all references to unsafe functions (e.g., fopen) and
+  # remove /wd4996
+  string(REGEX REPLACE "/W4" "/W3" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  # Versions without debug, for over ssh
+  string(REGEX REPLACE "/Zi" "" ORIG_C_FLAGS_NODBG "${CMAKE_C_FLAGS}")
+  if (RUNNING_OVER_SSH)
+    set(CMAKE_C_FLAGS "${ORIG_C_FLAGS_NODBG}")
+    string(REGEX REPLACE "/debug" "" CMAKE_SHARED_LINKER_FLAGS
+      "${CMAKE_SHARED_LINKER_FLAGS}")
+  endif (RUNNING_OVER_SSH)
+endif (UNIX)
+
 # To avoid having separate subdirs with separate CMakeLists.txt files,
-# we use DynamoRIOUse.cmake here.  It makes global changes, though.
+# we use DynamoRIOConfig.cmake here.  It makes global changes, though.
 # We live with those changes on all our tests even though we don't
 # need them everywhere for:
-# - add_definitions: we remove, since using configure.h
 # - include_directories
 # - link_directories
 # We isolate these:
-# - CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}
-# - CMAKE_SHARED_LINKER_FLAGS
+# - CMAKE_C_FLAGS
+# We have to be careful to append its changes to target properties
+# with changes we want to make, as well.
 
 if (UNIX)
   if (X64)
@@ -253,65 +280,36 @@ else (UNIX)
   set(ARCH_LDFLAGS "")
 endif (UNIX)
 
-string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
-set(ORIG_CMAKE_C_FLAGS
-  "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${ARCH_CFLAGS}")
-set(ORIG_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
-
 if (NOT DEFINED DynamoRIO_DIR)
   set(DynamoRIO_DIR "${PROJECT_SOURCE_DIR}/../cmake" CACHE PATH
     "DynamoRIO installation's cmake directory")
 endif (NOT DEFINED DynamoRIO_DIR)
 find_package(DynamoRIO)
-if (DynamoRIO_FOUND)
-  if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-    set(DynamoRIO_DEBUG ON)
-  else ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-    set(DynamoRIO_DEBUG OFF)
-  endif ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-  set(DynamoRIO_CXX OFF)
-  include(${DynamoRIO_USE_FILE})
-endif(DynamoRIO_FOUND)
+if (NOT DynamoRIO_FOUND)
+  message(FATAL_ERROR "DynamoRIO package required to build")
+endif(NOT DynamoRIO_FOUND)
 
-set(CLIENT_CMAKE_C_FLAGS "${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${ARCH_CFLAGS}")
-set(CLIENT_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
+# Force global changes now, and set ORIG_CMAKE_C_FLAGS
+configure_DynamoRIO_global(OFF)
 
-# We clear the absolute flags so we can use PROPERTIES to set for each test
-set(CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "")
-set(CMAKE_C_FLAGS "")
-set(CMAKE_SHARED_LINKER_FLAGS "")
+# configure_DynamoRIO_global() cleared the absolute flags for us.
+# We now use PROPERTIES to set for each test.
+# We do want the bitwidth flags for gcc on everything though:
+set(CMAKE_C_FLAGS "${ARCH_CFLAGS}")
+# DynamoRIOConfig.cmake no longer sets global CMAKE_SHARED_LINKER_FLAGS
+# so we no longer need to clear this and we can just add arch:
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
 
-# we're not assuming gcc >= 3.4 in our header files
-string(REGEX REPLACE "-fvisibility=internal" "" CLIENT_CMAKE_C_FLAGS
-  "${CLIENT_CMAKE_C_FLAGS}")
-
-# FIXME i#98: improve code so can set Wall/W4
-if (UNIX)
-  string(REGEX REPLACE "-Wall" "" ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
-  string(REGEX REPLACE "-std=gnu99" "" ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
-  # some tests rely on specific "nop;nop" patterns that optimization ruins
-  # we should probably move the -O from top level into core/CMakeLists.txt
-  string(REGEX REPLACE "-O[0-9]? " " " ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
-  find_library(libmath m)
-  find_library(libdl dl)
-  find_library(libpthread pthread)
-  if (libmath-NOTFOUND OR libdl-NOTFOUND OR libpthread-NOTFOUND)
-    message(FATAL_ERROR "cannot find required libs m, dl, and/or pthread")
-  endif (libmath-NOTFOUND OR libdl-NOTFOUND OR libpthread-NOTFOUND)
-else (UNIX)
+if (WIN32)
   # for resources.rc to include globals_shared.h
   # must be AFTER build/include now that dr_api.h is configured
   include_directories(AFTER ${PROJECT_SOURCE_DIR}/core/lib)
-  # W2 is default (we're using W3).  We should also replace
-  # all references to unsafe functions (e.g., fopen) and
-  # remove /wd4996
-  string(REGEX REPLACE "/W4" "/W3" ORIG_CMAKE_C_FLAGS "${ORIG_CMAKE_C_FLAGS}")
-  # Versions without debug, for over ssh
-  string(REGEX REPLACE "/Zi" "" ORIG_C_FLAGS_NODBG "${ORIG_CMAKE_C_FLAGS}")
-  string(REGEX REPLACE "/debug" "" SHARED_LINKER_FLAGS_NODBG "${ORIG_SHARED_LINKER_FLAGS}")
-endif (UNIX)
+endif (WIN32)
 
-# since we're including configure.h we do not want any default defines
+# Since we're including configure.h we do not want any default defines.
+# Note that the new DynamoRIOConfig.cmake doesn't set these so we can
+# probably remove this line.  We remove from target-specific flags
+# from configure_DynamoRIO_* in tobuild_api().
 remove_definitions(-DX64 -DLINUX -DWINDOWS)
 set(platform_defs "")
 if (X64)
@@ -461,8 +459,6 @@ function(tobuild_dll test source dr_ops)
   endif ()
   add_library(${test}.dll SHARED ${lib_srcs})
   set_cflags(${dll_source})
-  set_target_properties(${test}.dll PROPERTIES
-    LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS}")
   target_link_libraries(${test} ${test}.dll)
 
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
@@ -480,14 +476,8 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   add_exe(${test} ${source})
 
   add_library(${test}.dll SHARED ${client_source})
-  set_target_properties(${test}.dll PROPERTIES
-    COMPILE_FLAGS "${CLIENT_CMAKE_C_FLAGS} ${platform_defs}"
-    LINK_FLAGS "${CLIENT_SHARED_LINKER_FLAGS}"
-    # we don't want the default rpath of <builddir>/lib as it makes
-    # it hard to use other DR builds w/ these apps
-    SKIP_BUILD_RPATH ON)
-  target_link_libraries(${test}.dll dynamorio)
-  add_dependencies(${test}.dll api_headers dynamorio)
+  configure_DynamoRIO_client(${test}.dll)
+  add_dependencies(${test}.dll api_headers)
   get_target_property(client_path ${test}.dll LOCATION)
 
   set(testlist_ci ${testlist_ci} ${test} PARENT_SCOPE)
@@ -501,15 +491,31 @@ endfunction(tobuild_ci)
 # client interface standalone app
 function(tobuild_api test source dr_ops exe_ops)
   add_exe(${test} ${source})
+  # save property since configure_DynamoRIO_standalone will clobber it
+  get_target_property(pre_lflags ${test} LINK_FLAGS)
+  # disable the default rpath for standalone apps
+  set(DynamoRIO_RPATH OFF)
+  configure_DynamoRIO_standalone(${test})
   # we don't set -DUSE_DYNAMO on the target to avoid setting
   # it for tools.c and thus adding dependencies on api headers
   # to other tests
   set_source_files_properties(${source} PROPERTIES
     COMPILE_FLAGS "-DUSE_DYNAMO")
+  # append to properties set by configure_DynamoRIO_standalone
+  get_target_property(prop_cflags ${test} COMPILE_FLAGS)
+  # since we're including configure.h we do not want any default defines
+  string(REGEX REPLACE "-DX64" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DLINUX" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DWINDOWS" "" prop_cflags "${prop_cflags}")
+  # FIXME: apparently moving cflags to a target property makes it show up
+  # in the cpp run for tools_asm, where it doesn't if in global var.
+  # This causes compilation failure.  Removing -g3 manually as a workaround.
+  string(REGEX REPLACE "-g3" "" prop_cflags "${prop_cflags}")
+  get_target_property(prop_lflags ${test} LINK_FLAGS)
   set_target_properties(${test} PROPERTIES
-    COMPILE_FLAGS "${CLIENT_CMAKE_C_FLAGS}")
-  target_link_libraries(${test} dynamorio)
-  add_dependencies(${test} api_headers dynamorio)
+    COMPILE_FLAGS "${prop_cflags}"
+    LINK_FLAGS "${pre_lflags} ${prop_lflags}")
+  add_dependencies(${test} api_headers)
   if (WIN32)
     # Since we can't set the working dir w/o making an external script,
     # we copy dynamorio.dll into the default dir.  Yes, we're wasteful
@@ -952,7 +958,7 @@ else (UNIX)
 
   tobuild_dll(win32.delaybind win32/delaybind.c "")
   set_target_properties(win32.delaybind PROPERTIES
-    LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS} /delayload:win32.delaybind.dll.dll /delay:unload")
+    LINK_FLAGS "/delayload:win32.delaybind.dll.dll /delay:unload")
   tobind(win32.delaybind)
   tobind(win32.delaybind.dll)
 
@@ -1030,11 +1036,11 @@ else (UNIX)
   # no relocations, so not sure what the warnings imply.  Did not check the others.
   tobuild_dll(security-win32.secalign-fixed security-win32/secalign-fixed.c "")
   set_target_properties(security-win32.secalign-fixed.dll PROPERTIES
-    LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS} /fixed")
+    LINK_FLAGS "/fixed")
 
   tobuild_dll(security-win32.sec-fixed security-win32/sec-fixed.c "")
   set_target_properties(security-win32.sec-fixed.dll PROPERTIES
-    LINK_FLAGS "${ORIG_SHARED_LINKER_FLAGS} /fixed")
+    LINK_FLAGS "/fixed")
 
   tobuild_dll(security-win32.sec-xdata security-win32/sec-xdata.c "")
   # PR 209235 covers re-enabling selfmod-threads

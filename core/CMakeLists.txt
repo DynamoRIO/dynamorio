@@ -234,7 +234,7 @@ if (UNIX)
   # We always use a script for our own library bounds (PR 361594).
   # We could build this at configure time instead of build time as
   # it does not depend on the source files.
-  # FIXME: this is duplicated in DynamoRIOUse.cmake
+  # FIXME: this is duplicated in DynamoRIOConfig.cmake
   set(ld_script ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
   set_directory_properties(PROPERTIES
     ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
@@ -492,10 +492,13 @@ endif (VMKERNEL)
 
 
 install(TARGETS dynamorio
+  EXPORT DynamoRIOTarget
   RUNTIME DESTINATION ${INSTALL_LIB} # .dll
   LIBRARY DESTINATION ${INSTALL_LIB} # .so
   ARCHIVE DESTINATION ${INSTALL_LIB} # .lib
   )
+install(EXPORT DynamoRIOTarget DESTINATION ${INSTALL_CMAKE})
+export(TARGETS dynamorio FILE ${PROJECT_BINARY_DIR}/cmake/DynamoRIOTarget.cmake)
 if (UNIX)
   install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
   install(FILES ${COMPAT_SYMLINKS} DESTINATION ${INSTALL_LIB})
