@@ -35,6 +35,9 @@ if (X64)
   message(FATAL_ERROR "DRgui is 32-bit only (issue 62 covers porting to 64-bit)")
 endif (X64)
 
+# FIXME i#77: make DRgui a subproject to support with different compiler from libutil
+# For now, DRgui.exe just won't run on NT.
+#
 # PR 232385: for release packages we want DRgui.exe to run on NT,
 # which means we cannot build using VC71 or VC80, as their MFC
 # versions add dependencies on libraries like shlwapi.dll and ole*.dll
