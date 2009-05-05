@@ -31,6 +31,9 @@
 # We don't really support VMSAFE docs but we may as well be macro-clean
 foreach (dox ${dox_files})
   file(READ ${dox} string)
+  # Exceptions inside \code
+  string(REGEX REPLACE "find_package\(DynamoRIO\)" "" string "${string}")
+  string(REGEX REPLACE "ERROR \"DynamoRIO" "" string "${string}")
   # These are case-sensitive, to allow function names and macros
   string(REGEX MATCH
     "(^|[^\\/\(])DynamoRIO[^-A-Za-z_]"

@@ -177,20 +177,3 @@ install(FILES
   DESTINATION ${INSTALL_DOCS}/html
   )
 
-# We no longer support VMSAFE, where we deleted stats.c and tracedump.c
-# and copied MF_moduledb-sample.config and VIPA_test.exe
-string(REGEX REPLACE
-  # list of files is ;-separated
-  "[^;]*MF_moduledb.c"
-  "" samples_tocopy "${samples_files}")
-if (UNIX)
-  # no stats sample on linux
-  string(REGEX REPLACE
-    "[^;]*stats.c"
-    "" samples_tocopy "${samples_tocopy}")
-endif (UNIX)
-install(FILES
-  ${samples_tocopy}
-  DESTINATION ${INSTALL_DOCS}/html/samples
-)
-
