@@ -353,7 +353,9 @@ API) can be used to register processes and \clients,
 unregister processes or \clients, and \ref sec_comm
 "nudge" running processes.  Registration
 information is stored in the Windows registry 
-(\c \\HKLM\\SOFTWARE\\DynamoRIO\\DynamoRIO) and as such is
+(\c \\HKLM\\SOFTWARE\\DynamoRIO\\DynamoRIO, or for 32-bit on 64-bit Windows
+(WOW64)
+\c \\HKLM\\SOFTWARE\\Wow6432Node\\DynamoRIO\\DynamoRIO) and as such is
 persistent across reboots.  Processes are identified by executable
 name for registration, unregistration, and nudging.  Run \c drdeploy.exe
 with no arguments for help on its usage.
@@ -363,11 +365,11 @@ C:\\dr.  Register \c calc.exe to run with the bbsize sample \client
 using the following command:
 \if vmsafe
 \code
-C:\dr\bin32\drdeploy.exe -reg calc.exe -root C:\dr -mode code -client C:\dr\docs\html\samples\bbsize.dll 0 ""
+C:\dr\bin32\drdeploy.exe -reg calc.exe -root C:\dr -mode code -client C:\dr\samples\bin32\bbsize.dll 0 ""
 \endcode
 \else
 \code
-C:\dr\bin32\drdeploy.exe -reg calc.exe -root C:\dr -client C:\dr\docs\html\samples\bbsize.dll 0 ""
+C:\dr\bin32\drdeploy.exe -reg calc.exe -root C:\dr -client C:\dr\samples\bin32\bbsize.dll 0 ""
 \endcode
 \endif
 The next time \c calc.exe is started, it will run under \DynamoRIO
@@ -401,8 +403,11 @@ Note that on Windows NT a reboot is required after the first process
 is registered before any applications will run under \DynamoRIO.
 
 \DynamoRIO uses the
-\c \\HKLM\\SOFTWARE\\Microsoft\\Windows\\WindowsNT\\CurrentVersion\\AppInit_DLLs
-key to inject into new processes.  For injection to work, the registered
+<tt>\\HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows NT\\CurrentVersion\\AppInit_DLLs</tt>
+key 
+(for 32-bit on 64-bit Windows (WOW64), 
+<tt>\\HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_DLLs</tt>)
+to inject into new processes.  For injection to work, the registered
 process must statically link to user32.dll (only a few small
 non-graphical windows applications don't link user32.dll).  If a
 target application does not link to user32.dll, \DynamoRIO can still
@@ -432,7 +437,7 @@ applications under \DynamoRIO on Linux.
 As an example of drdeploy usage, the following command runs \c ls
 under \DynamoRIO with the bbsize sample \client:
 \code
-% bin32/drdeploy -client samples/bin32/libbbsize.so ls
+% bin32/drdeploy -client samples/bin32/libbbsize.so 0 "" ls
 \endcode
 Run \c drdeploy with no options to get a list of the options and
 environment variable shortcuts it supports.
@@ -796,6 +801,22 @@ cd ../build
 cmake -DDynamoRIO_DIR=$DYNAMORIO_HOME/cmake ../myclient
 make
 \endcode
+
+The compiler needs to be configured prior to invoking cmake.  If using gcc
+with a non-default target platform, the \p CFLAGS and \p CXXFLAGS
+environment variables should be set prior to invoking cmake.  For example,
+to configure a 32-bit \client when gcc's default is 64-bit:
+
+\code
+mkdir ../build
+cd ../build
+CFLAGS=-m32 cmake -DDynamoRIO_DIR=$DYNAMORIO_HOME/cmake ../myclient
+make
+\endcode
+
+Note that \p CXXFLAGS should be set instead for a C++ \client, and both should
+be set when building both types of \clients from the same configuration
+(e.g., \p samples/CMakeLists.txt).
 
 If a \client is not using CMake, the appropriate compiler and linker flags
 can be gleaned from \p DynamoRIOConfig.cmake.  One method is to invoke CMake to

@@ -491,14 +491,34 @@ if (VMKERNEL)
 endif (VMKERNEL)
 
 
+# To support packaging both together we need different names
+# FIXME: should we also append Debug, and have an optional param
+# to DynamoRIOConfig.cmake to link to it (only really makes sense
+# if using rpath)?  If we did that we'd need to set the debug
+# param for our internal builds.
+if (X64)
+  set(target_name "DynamoRIOTarget64")
+else (X64)
+  set(target_name "DynamoRIOTarget32")
+endif (X64)
+# Avoid transitive linking for imported target.
+# This is a shared library, after all, and ntdll.lib is typically not available.
+set_target_properties(dynamorio PROPERTIES
+  # I seem to have to set these to remove the
+  # IMPORTED_LINK_INTERFACE_LIBRARIES from the resulting .cmake file.
+  LINK_INTERFACE_LIBRARIES ""
+  LINK_INTERFACE_LIBRARIES_NOCONFIG ""
+  # Setting these isn't affecting anything but doing so anyway.
+  IMPORTED_LINK_INTERFACE_LIBRARIES ""
+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "")
 install(TARGETS dynamorio
-  EXPORT DynamoRIOTarget
+  EXPORT ${target_name}
   RUNTIME DESTINATION ${INSTALL_LIB} # .dll
   LIBRARY DESTINATION ${INSTALL_LIB} # .so
   ARCHIVE DESTINATION ${INSTALL_LIB} # .lib
   )
-install(EXPORT DynamoRIOTarget DESTINATION ${INSTALL_CMAKE})
-export(TARGETS dynamorio FILE ${PROJECT_BINARY_DIR}/cmake/DynamoRIOTarget.cmake)
+install(EXPORT ${target_name} DESTINATION ${INSTALL_CMAKE})
+export(TARGETS dynamorio FILE ${PROJECT_BINARY_DIR}/cmake/${target_name}.cmake)
 if (UNIX)
   install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
   install(FILES ${COMPAT_SYMLINKS} DESTINATION ${INSTALL_LIB})

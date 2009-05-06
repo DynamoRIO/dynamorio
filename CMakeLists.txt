@@ -958,13 +958,7 @@ install(FILES
 if (BUILD_SAMPLES OR BUILD_TESTS)
   # api/samples is set up to function both as a separate project for
   # building samples vs a DynamoRIO installation, and to allow
-  # building as a component of the whole source tree, since
-  # DynamoRIOConfig.cmake will not override already-defined vars:
-  set(DynamoRIO_INCLUDE_DIRS "${PROJECT_BINARY_DIR}/include")
-  set(DynamoRIO_LIBRARY32_REL_DIRS "${LIBRARY_OUTPUT_PATH}")
-  set(DynamoRIO_LIBRARY32_DBG_DIRS "${LIBRARY_OUTPUT_PATH}")
-  set(DynamoRIO_LIBRARY64_REL_DIRS "${LIBRARY_OUTPUT_PATH}")
-  set(DynamoRIO_LIBRARY64_DBG_DIRS "${LIBRARY_OUTPUT_PATH}")
+  # building as a component of the whole source tree
   set(DynamoRIO_INTERNAL ON) # do not import dynamorio lib target
   set(DynamoRIO_DIR ${PROJECT_BINARY_DIR}/cmake)
 endif (BUILD_SAMPLES OR BUILD_TESTS)

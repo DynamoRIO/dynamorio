@@ -228,12 +228,11 @@ init_dr_marker(dr_marker_t *marker)
     memset(marker, 0, sizeof(dr_marker_t));
 # ifdef DEBUG
     marker->flags |= DR_MARKER_DEBUG_BUILD;
+# else
+    marker->flags |= DR_MARKER_RELEASE_BUILD;
 # endif
 # ifdef PROFILE
     marker->flags |= DR_MARKER_PROFILE_BUILD;
-# endif
-# ifdef RELEASE
-    marker->flags |= DR_MARKER_RELEASE_BUILD;
 # endif
     /* make sure we set one of the above flags and not more then one */
     ASSERT(TESTANY(DR_MARKER_BUILD_TYPES, marker->flags) &&

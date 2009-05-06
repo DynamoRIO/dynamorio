@@ -104,8 +104,8 @@ dr_init(client_id_t id)
   dr_register_thread_exit_event(event_thread_exit);
   dr_register_bb_event(event_basic_block);
 
-  /* make it easy to tell, by looking at log file, which \client executed */
-  dr_log(NULL, LOG_ALL, 1, "\Client 'countcalls' initializing\n");
+  /* make it easy to tell, by looking at log file, which client executed */
+  dr_log(NULL, LOG_ALL, 1, "Client 'countcalls' initializing\n");
 }
 \endcode
 

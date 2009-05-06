@@ -558,21 +558,25 @@ pw_callback(process_info_t *pi, void **param)
                 if (!showmem && !onlypid) {
                     WCHAR qual_name[MAX_CMDLINE];
                     WCHAR *name_to_use = pi->ProcessName;
+#ifdef X64
+                    HANDLE hproc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, 
+                                               (DWORD) pi->ProcessID);
+                    if (is_wow64(hproc)) {
+                        if (!no32)
+                            fprintf(fp, "32-bit, ");
+                        /* FIXME: currently x64 process can't see 32-bit
+                         * drmarker
+                         */
+                        resstr="<unknown>";
+                    }
+                    CloseHandle(hproc);
+#endif
                     if (!noqnames) {
                         generate_process_name(pi, qual_name,
                                               BUFFER_SIZE_ELEMENTS(qual_name));
                         name_to_use = qual_name;
                     }
                     fprintf(fp, "Process %S, ", name_to_use);
-#ifdef X64
-                    if (!no32) {
-                        HANDLE hproc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, 
-                                                   (DWORD) pi->ProcessID);
-                        if (is_wow64(hproc))
-                            fprintf(fp, "32-bit, ");
-                        CloseHandle(hproc);
-                    }
-#endif
                     if (version == -1 || !showbuild)
                         fprintf(fp, "running %s\n", resstr);
                     else

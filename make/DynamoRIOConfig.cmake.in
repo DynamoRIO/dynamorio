@@ -68,8 +68,7 @@
 # Global changes:
 #
 # Due to CMake limitations, this file must set some global values:
-# - include dirs
-# - link dirs
+# - include directories
 # - compiler flags
 #
 # In order to set the compiler flags, the base flags are emptied out:
@@ -123,23 +122,11 @@ get_filename_component(cwd "${CMAKE_CURRENT_LIST_FILE}" PATH)
 
 # Export variables in case client needs custom configuration that
 # our exported functions do not provide.
-# Additionally, only set these if not already defined, to allow
+# Additionally, only set if not already defined, to allow
 # for further customization.
 if (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
   set(DynamoRIO_INCLUDE_DIRS "${cwd}/../include")
 endif (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
-if (NOT DEFINED DynamoRIO_LIBRARY32_REL_DIRS)
-  set(DynamoRIO_LIBRARY32_REL_DIRS "${cwd}/../lib32/release")
-endif (NOT DEFINED DynamoRIO_LIBRARY32_REL_DIRS)
-if (NOT DEFINED DynamoRIO_LIBRARY32_DBG_DIRS)
-  set(DynamoRIO_LIBRARY32_DBG_DIRS "${cwd}/../lib32/debug")
-endif (NOT DEFINED DynamoRIO_LIBRARY32_DBG_DIRS)
-if (NOT DEFINED DynamoRIO_LIBRARY64_REL_DIRS)
-  set(DynamoRIO_LIBRARY64_REL_DIRS "${cwd}/../lib64/release")
-endif (NOT DEFINED DynamoRIO_LIBRARY64_REL_DIRS)
-if (NOT DEFINED DynamoRIO_LIBRARY64_DBG_DIRS)
-  set(DynamoRIO_LIBRARY64_DBG_DIRS "${cwd}/../lib64/debug")
-endif (NOT DEFINED DynamoRIO_LIBRARY64_DBG_DIRS)
 
 if (UNIX)
   # Wrapping for C++ clients
@@ -163,12 +150,6 @@ if (UNIX)
   set(DynamoRIO_CXX_LINK_FLAGS
     "${DynamoRIO_CXX_LINK_FLAGS} -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free")
 endif (UNIX)
-
-if (NOT DynamoRIO_INTERNAL)
-  # Define imported target for DynamoRIO library, to allow dependencies on
-  # the library and trigger client rebuild on DynamoRIO upgrade:
-  include(${cwd}/DynamoRIOTarget.cmake)
-endif (NOT DynamoRIO_INTERNAL)
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
 
@@ -234,15 +215,18 @@ function (configure_DynamoRIO_global is_cxx)
     # support a user calling us prior to setting up any targets
     get_size(${is_cxx} is_x64)
 
-    # We always link to release build.  At runtime debug build can be
-    # swapped in instead.  We assume is_x64 can have only one value
-    # per configuration.
-    if (is_x64)
-      set(libdir ${DynamoRIO_LIBRARY64_REL_DIRS})
-    else (is_x64)
-      set(libdir ${DynamoRIO_LIBRARY32_REL_DIRS})
-    endif (is_x64)
-    link_directories(${libdir})
+    if (NOT DynamoRIO_INTERNAL)
+      # Define imported target for DynamoRIO library, to allow dependencies on
+      # the library and trigger client rebuild on DynamoRIO upgrade:
+      # We always link to release build.  At runtime debug build can be
+      # swapped in instead.
+      # We assume is_x64 can have only one value per configuration.
+      if (is_x64)
+        include(${cwd}/DynamoRIOTarget64.cmake)
+      else (is_x64)
+        include(${cwd}/DynamoRIOTarget32.cmake)
+      endif (is_x64)
+    endif (NOT DynamoRIO_INTERNAL)
 
     # Remove global C flags that are unsafe for a client library.
     # Since CMake does not support removing flags on a per-target basis,
@@ -253,8 +237,8 @@ function (configure_DynamoRIO_global is_cxx)
       set(ORIG_${var} "${${var}}" PARENT_SCOPE)
       set(local_${var} "${${var}}")
       if (WIN32)
-        # We could only do all this for Windows, but it simplifies
-        # cross-platform uses to be symmetric
+        # We could limit this global var changing to Windows,
+        # but it simplifies cross-platform uses to be symmetric
         string(REGEX REPLACE "/M[TD]d?" "" local_${var} "${local_${var}}")
         string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
       endif (WIN32)
@@ -305,6 +289,15 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
       set(tgt_cflags
         "${ORIG_CMAKE_C_FLAGS} ${ORIG_CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
     endif (tgt_cxx)
+    if (WIN32)
+      # For standalone, static libc complains about memcpy conflicting
+      # with DR's exported memcpy (forwarded to ntdll), so use dynamic libc
+      if ("${tgt_cflags}" MATCHES "/MT")
+        string(REGEX REPLACE "/MT" "/MD" tgt_cflags "${tgt_cflags}")
+      else ("${tgt_cflags}" MATCHES "/MT")
+        set(tgt_cflags "${tgt_cflags} /MD")
+      endif ("${tgt_cflags}" MATCHES "/MT")
+    endif (WIN32)
   endif (is_client)
 
   get_size(${tgt_cxx} tgt_x64)
@@ -444,7 +437,7 @@ function (configure_DynamoRIO_client target)
     COMPILE_FLAGS "${tgt_cflags}"
     LINK_FLAGS "${tgt_link_flags}")
 
-  # FIXME: a nice feature would be to check the client for libc imports or
+  # TODO: a nice feature would be to check the client for libc imports or
   # other not-recommended properties
 
 endfunction (configure_DynamoRIO_client)
