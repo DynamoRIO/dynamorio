@@ -1982,15 +1982,18 @@ dr_memory_is_readable(const byte *pc, size_t size)
 }
 
 DR_API
-/* OS neutral memory query for clients, just wrapper around our get_memroy_info().
- * FIXME - do something about executable areas we made non-writable - see PR 198873 */
+/* OS neutral memory query for clients, just wrapper around our get_memory_info().
+ * FIXME i#143/PR 214872/PR 198873: do something about executable
+ * areas we made non-writable
+ */
 bool
 dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
 {
-#ifdef LINUX
-    /* xref PR 246897 - the cached all memory list won't include the client lib
-     * mappings and appears to be inaccurate at times. For now we use the from
-     * os version instead (even though it's slower). FIXME */
+#if defined(LINUX) && defined(HAVE_PROC_MAPS)
+    /* xref PR 246897 - the cached all memory list can have problems when
+     * out-of-process entities change the mapings. For now we use the from
+     * os version instead (even though it's slower, and only if we have
+     * HAVE_PROC_MAPS support). FIXME */
     return get_memory_info_from_os(pc, base_pc, size, prot);
 #else 
     return get_memory_info(pc, base_pc, size, prot);
@@ -2001,7 +2004,7 @@ DR_API
 bool
 dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
 {
-#ifdef LINUX
+#if defined(LINUX) && defined(HAVE_PROC_MAPS)
     /* PR 246897: all_memory_areas not ready for prime time */
     return query_memory_ex_from_os(pc, info);
 #else
@@ -2012,7 +2015,9 @@ dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
 #ifdef WINDOWS
 DR_API
 /* Calls NtQueryVirtualMemory.
- * FIXME - do something about executable areas we made non-writable - see PR 198873 */
+ * FIXME i#143/PR 214872/PR 198873: do something about executable
+ * areas we made non-writable
+ */
 size_t
 dr_virtual_query(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbi_size)
 {
@@ -2021,8 +2026,7 @@ dr_virtual_query(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbi_size)
 #endif
 
 DR_API
-/* Wrapper around our safe_read. Xref P4 198875, placeholder till we have try/except.
- * FIXME - the Linux version isn't actually safe - see PR 208562. */
+/* Wrapper around our safe_read. Xref P4 198875, placeholder till we have try/except */
 bool
 dr_safe_read(const void *base, size_t size, void *out_buf, size_t *bytes_read)
 {
@@ -2030,8 +2034,7 @@ dr_safe_read(const void *base, size_t size, void *out_buf, size_t *bytes_read)
 }
 
 DR_API
-/* Wrapper around our safe_write. Xref P4 198875, placeholder till we have try/except.
- * FIXME - the Linux version isn't actually safe - see PR 208562. */
+/* Wrapper around our safe_write. Xref P4 198875, placeholder till we have try/except */
 bool
 dr_safe_write(void *base, size_t size, const void *in_buf, size_t *bytes_written)
 {
@@ -2124,7 +2127,8 @@ dr_lookup_module_by_name(const char *name)
     while (module_iterator_hasnext(mi)) {
         module_area_t *area = module_iterator_next(mi);
         module_data_t *client_data;
-        if (strcasecmp(GET_MODULE_NAME(&area->names), name) == 0) {
+        const char *modname = GET_MODULE_NAME(&area->names);
+        if (modname != NULL && strcasecmp(modname, name) == 0) {
             client_data = copy_module_area_to_module_data(area);
             module_iterator_stop(mi);
             return client_data;

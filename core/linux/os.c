@@ -4354,6 +4354,9 @@ post_system_call(dcontext_t *dcontext)
         base = (app_pc) dcontext->sys_param0;
         size = dcontext->sys_param1;
         prot = dcontext->sys_param2;
+        /* FIXME i#143: we need to tweak the returned oldprot for
+         * writable areas we've made read-only
+         */
         if (!success) {
             uint memprot = 0;
             /* Revert the prot bits if needed. */
@@ -5117,11 +5120,12 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
  * if the probe was successful, returns in prot the results.
  */
 static app_pc
-probe_address(dcontext_t *dcontext, app_pc pc,
+probe_address(dcontext_t *dcontext, app_pc pc_in,
               byte *our_heap_start, byte *our_heap_end, OUT uint *prot)
 {
     app_pc base;
     size_t size;
+    app_pc pc = (app_pc) ALIGN_BACKWARD(pc_in, PAGE_SIZE);
     ASSERT(ALIGNED(pc, PAGE_SIZE));
     ASSERT(prot != NULL);
     *prot = MEMPROT_NONE;

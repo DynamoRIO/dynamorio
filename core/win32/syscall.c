@@ -1663,6 +1663,9 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
 
             return false; /* do not execute system call */
         } else {
+            /* FIXME i#143: we still need to tweak the returned oldprot (in
+             * post-syscall) for writable areas we've made read-only
+             */
             /* FIXME: ASSERT here that have not modified size unless using, e.g. fix_unsafe_hooker */
         }
     } else {
