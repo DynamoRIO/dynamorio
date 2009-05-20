@@ -35,7 +35,31 @@
 
 cmake_minimum_required (VERSION 2.2)
 
-if ("${CTEST_SCRIPT_ARG}" MATCHES "nightly")
+# arguments are a ;-separated list (must escape as \; from ctest_run_script())
+set(arg_nightly OFF)
+set(arg_long OFF)
+set(arg_include "")
+
+foreach (arg ${CTEST_SCRIPT_ARG})
+  if (${arg} STREQUAL "nightly")
+    set(arg_nightly ON)
+  endif (${arg} STREQUAL "nightly")
+  if (${arg} STREQUAL "long")
+    set(arg_long ON)
+  endif (${arg} STREQUAL "long")
+  if (${arg} MATCHES "^include=")
+    string(REGEX REPLACE "^include=" "" arg_include "${arg}")
+  endif (${arg} MATCHES "^include=")
+endforeach (arg)
+
+# allow setting the base cache variables via an include file
+set(base_cache "")
+if (NOT ${arg_include} STREQUAL "")
+  message("including ${arg_include}")
+  include(${arg_include})
+endif (NOT ${arg_include} STREQUAL "")
+
+if (${arg_nightly})
   # FIXME NOT FINISHED i#11: nightly long run
   # FIXME: need to pass in CTEST_DASHBOARD_ROOT and CTEST_SITE
   set(BINARY_BASE "${CTEST_DASHBOARD_ROOT}/")
@@ -50,18 +74,18 @@ if ("${CTEST_SCRIPT_ARG}" MATCHES "nightly")
   set(DO_SUBMIT ON)
   set(SUBMIT_LOCAL OFF)
   set(TEST_LONG ON)
-else ("${CTEST_SCRIPT_ARG}" MATCHES "nightly")
+else (${arg_nightly})
   # a local run, not a nightly
   get_filename_component(BINARY_BASE "." ABSOLUTE)
   set(SUITE_TYPE Experimental)
   set(DO_UPDATE OFF)
   set(DO_SUBMIT ON)
   set(SUBMIT_LOCAL ON)
-  if ("${CTEST_SCRIPT_ARG}" MATCHES "long")
+  if (${arg_long})
     set(TEST_LONG ON)
-  else ("${CTEST_SCRIPT_ARG}" MATCHES "long")
+  else (${arg_long})
     set(TEST_LONG OFF)
-  endif ("${CTEST_SCRIPT_ARG}" MATCHES "long")
+  endif (${arg_long})
   # CTest does "scp file ${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}" so for
   # local copy w/o needing sshd on localhost we arrange to have : in the
   # absolute filepath.  Note that I would prefer having the results inside
@@ -83,7 +107,7 @@ else ("${CTEST_SCRIPT_ARG}" MATCHES "nightly")
     file(REMOVE_RECURSE "${RESULTS_DIR}")
   endif (EXISTS "${RESULTS_DIR}")
   file(MAKE_DIRECTORY "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}")
-endif ("${CTEST_SCRIPT_ARG}" MATCHES "nightly")
+endif (${arg_nightly})
 
 if (TEST_LONG)
   set(DO_ALL_BUILDS ON)
@@ -115,6 +139,7 @@ function(testbuild name is64 initial_cache)
     BUILD_TESTS:BOOL=ON
     TEST_SUITE:BOOL=ON
     ${test_long_cache}
+    ${base_cache}
     ")
   ctest_empty_binary_directory(${CTEST_BINARY_DIRECTORY})
   file(WRITE "${CTEST_BINARY_DIRECTORY}/CMakeCache.txt" "${CTEST_INITIAL_CACHE}")
