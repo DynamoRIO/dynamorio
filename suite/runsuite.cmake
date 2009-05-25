@@ -54,10 +54,10 @@ endforeach (arg)
 
 # allow setting the base cache variables via an include file
 set(base_cache "")
-if (NOT ${arg_include} STREQUAL "")
+if (arg_include)
   message("including ${arg_include}")
   include(${arg_include})
-endif (NOT ${arg_include} STREQUAL "")
+endif (arg_include)
 
 if (${arg_nightly})
   # FIXME NOT FINISHED i#11: nightly long run
@@ -129,12 +129,37 @@ set(CTEST_CMAKE_COMMAND "${CMAKE_EXECUTABLE_NAME}")
 set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
 set(CTEST_PROJECT_NAME "DynamoRIO")
 find_program(MAKE_COMMAND make DOC "make command")
-set(CTEST_BUILD_COMMAND "${MAKE_COMMAND} -j5")
+set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j5")
 set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
 
-function(testbuild name is64 initial_cache)
+if (UNIX)
+  # For cross-arch execve tests we need to run from an install dir
+  set(installpath "${BINARY_BASE}/install")
+  set(install_build_args "install")
+  set(install_path_cache "CMAKE_INSTALL_PREFIX:PATH=${installpath}
+    ")
+  # Each individual 64-bit build should also set TEST_32BIT_PATH and one of
+  # these.  Note that we put BOTH dirs on the path, so we can run the other test
+  # (loader will bypass name match if wrong elf class).
+  # FIXME i#145: should we use this dual path as a solution for cross-arch execve?
+  # Only if we verify it works on all versions of ld.
+  set(use_lib64_debug_cache
+    "TEST_LIB_PATH:PATH=${installpath}/lib64/debug:${installpath}/lib32/debug
+    ")
+  set(use_lib64_release_cache
+    "TEST_LIB_PATH:PATH=${installpath}/lib64/release:${installpath}/lib64/release
+    ")
+else (UNIX)
+  set(install_build_args "")
+endif (UNIX)
+
+# returns the build dir in "last_build_dir"
+function(testbuild_ex name is64 initial_cache build_args)
   set(CTEST_BUILD_NAME "${name}")
+  # support "make install"
+  set(CTEST_BUILD_COMMAND "${CTEST_BUILD_COMMAND_BASE} ${build_args}")
   set(CTEST_BINARY_DIRECTORY "${BINARY_BASE}/build_${CTEST_BUILD_NAME}")
+  set(last_build_dir "${CTEST_BINARY_DIRECTORY}" PARENT_SCOPE)
   set(CTEST_INITIAL_CACHE "${initial_cache}
     BUILD_TESTS:BOOL=ON
     TEST_SUITE:BOOL=ON
@@ -199,16 +224,25 @@ function(testbuild name is64 initial_cache)
   if (DO_SUBMIT)
     ctest_submit()
   endif (DO_SUBMIT)
+endfunction(testbuild_ex)
+
+function(testbuild name is64 initial_cache)
+  testbuild_ex(${name} ${is64} ${initial_cache} "")
 endfunction(testbuild)
 
-testbuild("debug-internal-32" OFF "
+# For cross-arch execve test we need to "make install"
+testbuild_ex("debug-internal-32" OFF "
   DEBUG:BOOL=ON
   INTERNAL:BOOL=ON
-  ")
-testbuild("debug-internal-64" ON "
+  ${install_path_cache}
+  " "${install_build_args}")
+testbuild_ex("debug-internal-64" ON "
   DEBUG:BOOL=ON
   INTERNAL:BOOL=ON
-  ")
+  ${install_path_cache}
+  ${use_lib64_debug_cache}
+  TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
+  " "${install_build_args}")
 testbuild("debug-external-32" OFF "
   DEBUG:BOOL=ON
   INTERNAL:BOOL=OFF
@@ -217,14 +251,18 @@ testbuild("debug-external-64" ON "
   DEBUG:BOOL=ON
   INTERNAL:BOOL=OFF
   ")
-testbuild("release-external-32" OFF "
+testbuild_ex("release-external-32" OFF "
   DEBUG:BOOL=OFF
   INTERNAL:BOOL=OFF
-  ")
-testbuild("release-external-64" ON "
+  ${install_path_cache}
+  " "${install_build_args}")
+testbuild_ex("release-external-64" ON "
   DEBUG:BOOL=OFF
   INTERNAL:BOOL=OFF
-  ")
+  ${install_path_cache}
+  ${use_lib64_release_cache}
+  TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
+  " "${install_build_args}")
 # we don't really use internal release builds for anything, but keep it working
 if (DO_ALL_BUILDS)
   testbuild("release-internal-32" OFF "

@@ -3001,6 +3001,9 @@ handle_execve(dcontext_t *dcontext)
     });
 
     /* Issue 20: handle cross-architecture execve */
+    /* Xref alternate solution i#145: use dual paths on
+     * LD_LIBRARY_PATH to solve cross-arch execve
+     */
     file = os_open(fname, OS_OPEN_READ);
     if (file != INVALID_FILE) {
         x64 = file_is_elf64(file);
@@ -4988,6 +4991,8 @@ get_dynamo_library_bounds(void)
         char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
         /* do NOT place the NULL */
         strncpy(libdir, newdir, strlen(newdir));
+    } else {
+        SYSLOG_INTERNAL_WARNING("unable to determine lib path for cross-arch execve");
     }
     NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME" alt arch path: %s\n",

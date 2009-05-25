@@ -375,7 +375,13 @@ add_client_lib(char *path, char *id_str, char *options)
          * they may happen at customer sites with a third party
          * client.
          */
-        CLIENT_ASSERT(false, msg);
+#ifdef LINUX
+        /* PR 408318: 32-vs-64 errors should NOT be fatal to continue
+         * in debug build across execve chains
+         */
+        if (strstr(err, "wrong ELF class") == NULL)
+#endif
+            CLIENT_ASSERT(false, msg);
         SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 3, 
                get_application_name(), get_application_pid(), msg);
     }

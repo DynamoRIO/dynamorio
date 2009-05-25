@@ -108,6 +108,10 @@ The following are part of the \DynamoRIO release distribution:
 The current version is \DR_VERSION and is backward compatible with releases from
 1.0.0 (originally called 0.9.6: see below) onward.
 
+The changes between version 1.4.1 and 1.4.0 are:
+
+ - Fixed bug in cross-architecture execve (Issue 146)
+
 The changes between version 1.4.0 and 1.3.2 are:
 
  - Added directly-addressable thread-local storage slots for exclusive

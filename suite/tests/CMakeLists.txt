@@ -48,12 +48,14 @@ option(TEST_LONG "run long set of tests")
 option(TEST_SUITE "running series of builds so skip some overlapping tests")
 set(TEST_SECONDS "60" CACHE STRING "Test time limit in seconds")
 set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
+set(TEST_LIB_PATH "" CACHE STRING "DynamoRIO library path (if empty, uses local build)")
+if (UNIX)
+  set(TEST_32BIT_PATH "" CACHE STRING "32-bit test bin dir for cross-arch tests")
+endif (UNIX)
 
 # FIXME: i#120: .runall support
-# FIXME: run samples like runregression does
-# FIXME: xref issue 20 where we build x64 and x86 to have both simultaneously
-#   for cross-arch execve.
-# FIXME: add command to run natively
+# FIXME: i#65: run samples like runregression does
+# FIXME: i#65: add command to run natively
 # FIXME: i#111: get .runall tests to run in parallel
 #   and use latest cmake for "ctest -j" (and "ctest -W 60")
 # FIXME: i#119: add support for 64-bit nudges   	
@@ -223,7 +225,11 @@ endif (WIN32)
 
 # put libs in same dir for tests that need to load them
 set(MAIN_EXECUTABLE_OUTPUT_PATH "${EXECUTABLE_OUTPUT_PATH}")
-set(MAIN_LIBRARY_OUTPUT_PATH "${LIBRARY_OUTPUT_PATH}")
+if (NOT TEST_LIB_PATH)
+  set(MAIN_LIBRARY_OUTPUT_PATH "${LIBRARY_OUTPUT_PATH}")
+else (NOT TEST_LIB_PATH)
+  set(MAIN_LIBRARY_OUTPUT_PATH "${TEST_LIB_PATH}")
+endif (NOT TEST_LIB_PATH)
 set(LIBRARY_OUTPUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/bin")
 set(EXECUTABLE_OUTPUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/bin")
 
@@ -713,6 +719,10 @@ endfunction(rundr_cmd)
 function(torun test exe source native dr_ops exe_ops)
   rundr_cmd(rundr runops ${native} "${dr_ops}")
   get_target_property(exepath ${exe} LOCATION)
+  # support running binaries that are not targets of this build
+  if ("${exepath}" STREQUAL "exepath-NOTFOUND")
+    set(exepath ${exe})
+  endif ("${exepath}" STREQUAL "exepath-NOTFOUND")
   add_test(${test} ${rundr} ${exepath} ${exe_ops})
 
   get_filename_component(srcbase ${source} NAME_WE)
@@ -830,7 +840,8 @@ tobuild(common.fib common/fib.c)
 tobuild(common.getretaddr common/getretaddr.c)
 tobuild(common.protect-dstack common/protect-dstack.c)
 tobuild(common.segfault common/segfault.c)
-# PR 217255: these 4 removed to shorten the regression suite
+# PR 217255: these 4 removed to shorten the regression suite since not
+# adding much value in terms of testing corner cases
 #tobuild(common.hello common/hello.c)
 #tobuild(common.conflict common/conflict.c)
 #tobuild(common.ops common/ops.c)
@@ -886,11 +897,22 @@ endif (CLIENT_INTERFACE)
 if (UNIX)
   tobuild(linux.clone linux/clone.c)
 
-  # FIXME: cross-arch execve: build execve-sub{32,64} and then run
-  # two tests execve{32,64}.  Requires lib{32,64} setup though
-  # so need a "make install" first w/ both archs.
-  #tobuild(linux.execve linux/execve.c)
-
+  # Cross-arch execve test: can only be done via a suite of tests that
+  # build both 32-bit and 64-bit.  We have 32-bit just build, and
+  # 64-bit then builds and runs both directions.
+  if (TEST_SUITE)
+    if (X64)
+      add_exe(linux.execve-sub64 linux/execve-sub.c)
+      tobuild_ops(linux.execve64 linux/execve.c ""
+        "${TEST_32BIT_PATH}/linux.execve-sub32")
+      torunonly(linux.execve32 ${TEST_32BIT_PATH}/linux.execve32 linux/execve.c ""
+        "${EXECUTABLE_OUTPUT_PATH}/linux.execve-sub64")
+    else (X64)
+      add_exe(linux.execve-sub32 linux/execve-sub.c)
+      add_exe(linux.execve32 linux/execve.c)
+    endif (X64)
+  endif (TEST_SUITE)
+    
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)
   tobuild_ops(linux.execve-null linux/execve-null.c ""
