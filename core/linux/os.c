@@ -4488,7 +4488,7 @@ post_system_call(dcontext_t *dcontext)
            sys_rt_sigaction(int sig, const struct sigaction *act, 
              struct sigaction *oact, size_t sigsetsize)
          */
-        /* FIXME Handle syscall failure. */
+        /* FIXME i#148: Handle syscall failure. */
         int sig  = (int) dcontext->sys_param0;
         const kernel_sigaction_t *act =
             (const kernel_sigaction_t *) dcontext->sys_param1;
@@ -4506,7 +4506,7 @@ post_system_call(dcontext_t *dcontext)
            sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset, 
              size_t sigsetsize)
          */
-        /* FIXME Handle syscall failure. */
+        /* FIXME i#148: Handle syscall failure. */
         handle_post_sigprocmask(dcontext, (int) dcontext->sys_param0,
                                 (kernel_sigset_t *) dcontext->sys_param1,
                                 (kernel_sigset_t *) dcontext->sys_param2,

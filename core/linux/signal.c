@@ -1708,6 +1708,27 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set)
 }
 #endif /* DEBUG */
 
+/* PR 205795: to avoid lock problems w/ in_fcache (it grabs a lock, we
+ * could have interrupted someone holding that), we first check
+ * whereami --- if whereami is WHERE_FCACHE we still check the pc
+ * to distinguish generated routines, but at least we're certain
+ * it's not in DR where it could own a lock.
+ * We also check dstack, as client clean calls are still WHERE_FCACHE.
+ * Checking dstack is a much better check than looking at the pc, as
+ * pc could be in gencode, client, DR, libc/ntdll, etc.
+ */
+static bool
+safe_is_in_fcache(dcontext_t *dcontext, app_pc pc, app_pc xsp)
+{
+    if (dcontext->whereami != WHERE_FCACHE ||
+        IF_CLIENT_INTERFACE(is_in_client_lib(pc) ||)
+        is_on_dstack(dcontext, xsp) ||
+        is_on_initstack(xsp))
+        return false;
+    /* Reasonably certain not in DR code, so no locks should be held */
+    return in_fcache(pc);
+}
+
 /* FIXME: should copy xmm here too for client access; xref save_xmm() */
 void
 sigcontext_to_mcontext(dr_mcontext_t *mc, struct sigcontext *sc)
@@ -1789,7 +1810,7 @@ translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc)
     } else {
         ASSERT_NOT_REACHED(); /* is ok to break things, is LINUX :) */
         /* FIXME : what to do? reg state might be wrong at least get pc */
-        if (in_fcache((cache_pc)sc->SC_XIP)) {
+        if (safe_is_in_fcache(dcontext, (cache_pc)sc->SC_XIP, (app_pc)sc->SC_XSP)) {
             sc->SC_XIP = (ptr_uint_t)recreate_app_pc(dcontext, mcontext.pc, NULL);
             ASSERT(sc->SC_XIP != (ptr_uint_t)NULL);
         } else {
@@ -2238,6 +2259,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
     byte *pc = (byte *) sc->SC_XIP;
+    byte *xsp = (byte*) sc->SC_XSP;
     bool receive_now = false;
     bool blocked = false;
     sigpending_t *pend;
@@ -2272,13 +2294,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             "record_pending_signal(%d at pc "PFX"): signal is currently blocked\n",
             sig, pc);
         blocked = true;
-    } else if (/* PR 205795: to avoid lock problems w/ in_fcache (it grabs a lock, we
-                * could have interrupted someone holding that), we first check
-                * whereami --- if whereami is WHERE_FCACHE we still check the pc
-                * to distinguish generated routines, but at least we're certain
-                * it's not in DR where it could own a lock
-                */
-               (dcontext->whereami == WHERE_FCACHE && in_fcache(pc))) {
+    } else if (safe_is_in_fcache(dcontext, pc, xsp)) {
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d) from cache pc "PFX"\n", sig, pc);
         if (forged || can_always_delay[sig]) {
@@ -2384,7 +2400,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          */
 #ifdef DEBUG
         if (stats->loglevel >= 2 && (stats->logmask & LOG_ASYNCH) != 0 &&
-            in_fcache(pc)) {
+            safe_is_in_fcache(dcontext, pc, xsp)) {
             fragment_t wrapper;
             fragment_t *f = fragment_pclookup(dcontext, pc, &wrapper);
             ASSERT(f != NULL);
@@ -2758,9 +2774,10 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         /* FIXME: libc! 
          * FIXME PR 205795: in_fcache and is_dynamo_address do grab locks!
          */
-        if (!in_fcache(pc) && (is_dynamo_address(pc) ||
-                               in_generated_routine(dcontext, pc) ||
-                               is_at_do_syscall(dcontext, pc, (byte*)sc->SC_XSP))) {
+        if (!safe_is_in_fcache(dcontext, pc, (byte*)sc->SC_XSP) &&
+            (is_dynamo_address(pc) ||
+             in_generated_routine(dcontext, pc) ||
+             is_at_do_syscall(dcontext, pc, (byte*)sc->SC_XSP))) {
             /* kill(getpid(), SIGSEGV) looks just like a SIGSEGV in the store of eax
              * to mcontext after the syscall instr in do_syscall -- try to distinguish:
              */
@@ -2824,7 +2841,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         LOG(THREAD, LOG_ALL, 1,
             "** Received SIG%s at cache pc "PFX" in thread %d\n",
             (sig == SIGSEGV) ? "SEGV" : "BUS", pc, get_thread_id());
-        ASSERT(syscall_signal || in_fcache(pc));
+        ASSERT(syscall_signal || safe_is_in_fcache(dcontext, pc, (byte *)sc->SC_XSP));
         /* if we were building a trace, kill it */
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
@@ -3313,7 +3330,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
             /* pc should be an app pc at this point (it was translated) --
              * check for bad cases here
              */
-            if (in_fcache(pc)) {
+            if (safe_is_in_fcache(dcontext, pc, (byte *)sc->SC_XSP)) {
                 fragment_t wrapper;
                 fragment_t *f;
                 LOG(THREAD, LOG_ALL, 1,
@@ -3487,7 +3504,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
         }
     }
 
-    ASSERT(!in_fcache((app_pc) sc->SC_XIP));
+    ASSERT(!safe_is_in_fcache(dcontext, (app_pc) sc->SC_XIP, (byte *)sc->SC_XSP));
 
 #ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
