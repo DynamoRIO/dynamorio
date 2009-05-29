@@ -1713,16 +1713,16 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set)
  * whereami --- if whereami is WHERE_FCACHE we still check the pc
  * to distinguish generated routines, but at least we're certain
  * it's not in DR where it could own a lock.
- * We also check dstack, as client clean calls are still WHERE_FCACHE.
- * Checking dstack is a much better check than looking at the pc, as
- * pc could be in gencode, client, DR, libc/ntdll, etc.
+ * We can't use is_on_dstack() here b/c we need to handle clean call
+ * arg crashes -- which is too bad since checking client dll and DR dll is
+ * not sufficient due to calls to ntdll, libc, or pc being in gencode.
  */
 static bool
 safe_is_in_fcache(dcontext_t *dcontext, app_pc pc, app_pc xsp)
 {
     if (dcontext->whereami != WHERE_FCACHE ||
         IF_CLIENT_INTERFACE(is_in_client_lib(pc) ||)
-        is_on_dstack(dcontext, xsp) ||
+        is_in_dynamo_dll(pc) ||
         is_on_initstack(xsp))
         return false;
     /* Reasonably certain not in DR code, so no locks should be held */
