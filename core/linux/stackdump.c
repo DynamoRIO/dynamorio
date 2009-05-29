@@ -174,6 +174,9 @@ void stackdump()
 
     SYSLOG_INTERNAL_WARNING("stackdump: glibc backtrace:");
     glibc_stackdump(STDERR);
+#ifdef DEBUG
+    glibc_stackdump(main_logfile);  /* hostd closes stderr, so print a copy. */
+#endif
 
 #ifdef VMX86_SERVER
     if (os_in_vmkernel_userworld()) {

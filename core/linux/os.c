@@ -148,7 +148,7 @@ static bool kernel_thread_groups;
 
 static bool kernel_64bit;
 
-static pid_t pid_cached;
+pid_t pid_cached;
 
 #ifdef PROFILE_RDTSC
 uint kilo_hertz; /* cpu clock speed */
@@ -954,6 +954,7 @@ get_segment_base(uint seg)
             __func__, selector, index, TEST(SELECTOR_IS_LDT, selector));
 
         if (TEST(SELECTOR_IS_LDT, selector)) {
+            LOG(THREAD_GET, LOG_THREADS, 4, "selector is LDT\n");
             /* we have to read the entire ldt from 0 to the index */
             size_t sz = sizeof(raw_ldt_entry_t) * (index + 1);
             raw_ldt_entry_t *ldt = global_heap_alloc(sz HEAPACCT(ACCT_OTHER));
@@ -3762,7 +3763,10 @@ pre_system_call(dcontext_t *dcontext)
             if (fd == main_logfile || fd == dcontext->logfile) {
                 LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
                     "\tWARNING: app trying to close DynamoRIO file!  Not allowing it.\n");
-                return false;
+                execute_syscall = false;    /* PR 402766 - break, not return. */
+                SET_RETURN_VAL(dcontext, -EBADF);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                break;
             }
         }
 #endif
@@ -4086,7 +4090,25 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot
             }
         }
         maps_iterator_stop(&iter);
+#ifdef HAVE_PROC_MAPS
         ASSERT_CURIOSITY(found_map); /* barring weird races we should find this map */
+#else /* HAVE_PROC_MAPS */
+        /* Without /proc/maps or other memory querying interface available at 
+         * library map time, there is no way to find out the name of the file 
+         * that was mapped, thus its inode isn't available either.  
+         *
+         * Just module_list_add with no filename will still result in 
+         * library name being extracted from the .dynamic section and added 
+         * to the module list.  However, this name may not always exist, thus
+         * we might have a library with no file name available at all!
+         *
+         * Note: visor implements vsi mem maps that give file info, but, no 
+         *       path, should be ok.  xref PR 401580.
+         *
+         * Once PR 235433 is implemented in visor then fix maps_iterator*() to
+         * use vsi to find out page protection info, file name & inode.
+         */
+#endif /* HAVE_PROC_MAPS */
         /* XREF 307599 on rounding module end to the next PAGE boundary */
         module_list_add(base, ALIGN_FORWARD(size, PAGE_SIZE), true, inode, filename);
         if (found_map)
@@ -4369,6 +4391,7 @@ post_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, 3,
                 "syscall: mprotect failed: "PFX"-"PFX" prot->%d\n",
                 base, base+size, osprot_to_memprot(prot));
+            LOG(THREAD, LOG_SYSCALLS, 3, "\told prot->%d\n", memprot);
             if (prot != memprot_to_osprot(memprot)) {
                 /* We're trying to reverse the prot change, assuming that
                  * this action doesn't have any unexpected side effects
@@ -4526,10 +4549,19 @@ post_system_call(dcontext_t *dcontext)
 
     } /* switch */
     DODEBUG({
-        if (ignorable_system_call(sysnum))
+        if (ignorable_system_call(sysnum)) {
             STATS_INC(post_syscall_ignorable);
-        else
-            ASSERT(success || dcontext->expect_last_syscall_to_fail);
+        } else {
+            /* Many syscalls can fail though they aren't ignored.  However, they
+             * shouldn't happen without us knowing about them.  See PR 402769 
+             * for SYS_close case.
+             */
+            if (!(success || sysnum == SYS_close ||
+                  dcontext->expect_last_syscall_to_fail)) {
+                SYSLOG_INTERNAL_ERROR_ONCE("Unexpected failure of non-ignorable"
+                                           " syscall (%d)", sysnum);
+            }
+        }
     });
 
 
@@ -4550,6 +4582,7 @@ post_system_call(dcontext_t *dcontext)
 }
 
 /***************************************************************************/
+#ifdef HAVE_PROC_MAPS
 /* Memory areas provided by kernel in /proc */
 
 /* On all supported linux kernels /proc/self/maps -> /proc/$pid/maps 
@@ -4586,10 +4619,12 @@ static char comment_buf_scratch[BUFSIZE];
  */
 static char buf_iter[BUFSIZE];
 static char comment_buf_iter[BUFSIZE];
+#endif /* HAVE_PROC_MAPS */
 
 static bool
 maps_iterator_start(maps_iter_t *iter, bool may_alloc)
 {
+#ifdef HAVE_PROC_MAPS
     char maps_name[24]; /* should only need 16 for 5-digit tid */
 
     /* Don't assign the local ptrs until the lock is grabbed to make
@@ -4620,11 +4655,16 @@ maps_iterator_start(maps_iter_t *iter, bool may_alloc)
     iter->vm_start = NULL;
     iter->comment = iter->comment_buffer;
     return true;
+#else /* HAVE_PROC_MAPS */
+    /* FIXME PR 235433: for VMX86_SERVER use VSI queries */
+    return false;
+#endif /* HAVE_PROC_MAPS */
 }
 
 static void
 maps_iterator_stop(maps_iter_t *iter)
 {
+#ifdef HAVE_PROC_MAPS
     ASSERT((iter->may_alloc && OWN_MUTEX(&maps_iter_buf_lock)) ||
            (!iter->may_alloc && OWN_MUTEX(&memory_info_buf_lock)));
     os_close(iter->maps);
@@ -4632,11 +4672,13 @@ maps_iterator_stop(maps_iter_t *iter)
         mutex_unlock(&maps_iter_buf_lock);
     else
         mutex_unlock(&memory_info_buf_lock);
+#endif /* HAVE_PROC_MAPS */
 }
 
 static bool
 maps_iterator_next(maps_iter_t *iter)
 {
+#ifdef HAVE_PROC_MAPS
     char perm[16];
     char *line;
     int len;
@@ -4709,6 +4751,10 @@ maps_iterator_next(maps_iter_t *iter)
         iter->comment_buffer[0]='\0';
     iter->prot = permstr_to_memprot(perm);
     return true;
+#else /* HAVE_PROC_MAPS */
+    /* FIXME PR 235433: for VMX86_SERVER use VSI queries */
+    return false;
+#endif /* HAVE_PROC_MAPS */
 }
 
 #ifndef HAVE_PROC_MAPS

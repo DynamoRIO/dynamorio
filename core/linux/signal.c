@@ -2478,10 +2478,14 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     dr_mcontext_t mc;
     uint memopidx;
     bool found_target;
+    bool in_maps;
     uint prot;
+
+    LOG(THREAD, LOG_ALL, 2, "computing memory target for "PFX" causing SIGSEGV\n",
+        instr_cache_pc);
+
     /* we don't want to grab a lock here, so we use _from_os */
-    bool in_maps =
-        get_memory_info_from_os(instr_cache_pc, NULL, NULL, &prot);
+    in_maps = get_memory_info_from_os(instr_cache_pc, NULL, NULL, &prot);
     /* initial sanity check though we don't know how long instr is */
     if (!in_maps || !TEST(MEMPROT_READ, prot))
         return NULL;
@@ -2616,6 +2620,9 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
     sigframe_rt_t *frame = (sigframe_rt_t *) xsp;
 #ifdef DEBUG
     uint level = 2;
+# ifdef INTERNAL
+    struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+# endif
 # ifndef HAVE_PROC_MAPS
     /* avoid logging every single TRY probe fault */
     if (!dynamo_initialized)
@@ -2635,6 +2642,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
          * via SYS_{tgkill,tkill}?  Can we tell the difference, even if
          * we watch the kill syscalls: could come from another process?
          */
+        /* Using global dcontext because dcontext is NULL here. */
+        DOLOG(1, LOG_ASYNCH, { dump_sigcontext(GLOBAL_DCONTEXT, sc); });
         SYSLOG_INTERNAL_ERROR("ERROR: master_signal_handler w/ NULL dcontext: tid=%d, sig=%d",
                               get_thread_id(), sig);
         /* see FIXME comments above.
@@ -2654,15 +2663,25 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 
     LOG(THREAD, LOG_ASYNCH, level, "\nmaster_signal_handler: sig=%d, retaddr="PFX"\n",
         sig, *((byte **)xsp));
+    LOG(THREAD, LOG_ASYNCH, 3,
+        "siginfo: pid = %d, status = %d, errno = %d, si_code = %d\n",
+        siginfo->si_pid, siginfo->si_status, siginfo->si_errno, 
+        siginfo->si_code);
+    DOLOG(3, LOG_ASYNCH, { dump_sigcontext(dcontext, sc); });
+
 #ifndef X64
+# ifndef VMX86_SERVER
     /* FIXME case 6700: 2.6.9 (FC3) kernel sets up our frame with a pretcode
      * of 0x440.  This happens if our restorer is unspecified (though 2.6.9
      * src code shows setting the restorer to a default value in that case...)
      * or if we explicitly point at dynamorio_sigreturn.  I couldn't figure
      * out why it kept putting 0x440 there.  So we fix the issue w/ this
      * hardcoded return.
+     * This hack causes vmkernel to kill the process on sigreturn due to 
+     * vmkernel's non-standard sigreturn semantics.  PR 404712.
      */
     *((byte **)xsp) = (byte *) dynamorio_sigreturn;
+# endif
 #endif
 
     /* N.B.:

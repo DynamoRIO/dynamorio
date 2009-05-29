@@ -541,7 +541,8 @@
 
     OPTION_DEFAULT(uint_size, stack_size, IF_X64_ELSE(20*1024,12*1024),
                    "size of thread-private stacks, in KB")
-    OPTION_DEFAULT(bool, stack_shares_gencode, true,
+    /* FIXME PR 403008: stack_shares_gencode fails on vmkernel. */
+    OPTION_DEFAULT(bool, stack_shares_gencode, IF_VMX86_ELSE(false, true),
         "stack and thread-private generated code share an allocation region")
 
     OPTION_DEFAULT(uint, spinlock_count_on_SMP, 1000U, "spinlock loop cycles on SMP")

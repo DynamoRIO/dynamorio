@@ -119,7 +119,20 @@ dispatch(dcontext_t *dcontext)
     fragment_t *targetf;
     fragment_t coarse_f;
 
+#ifdef HAVE_TLS
     ASSERT(dcontext == get_thread_private_dcontext());
+#else
+# ifdef LINUX
+    /* CAUTION: for !HAVE_TLS, upon a fork, the child's 
+     * get_thread_private_dcontext() will return NULL because its thread 
+     * id is different and tls_table hasn't been updated yet (will be 
+     * done in post_system_call()).  NULL dcontext thus returned causes 
+     * logging/core dumping to malfunction; kstats trigger asserts.
+     */
+    ASSERT(dcontext == get_thread_private_dcontext() || pid_cached != get_process_id());
+# endif
+#endif
+
     dispatch_enter_dynamorio(dcontext);
     LOG(THREAD, LOG_INTERP, 2, "\ndispatch: target = "PFX"\n", dcontext->next_tag);
 
