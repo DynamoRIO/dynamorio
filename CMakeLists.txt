@@ -148,11 +148,18 @@ if (INTERNAL OR DEBUG)
 else (INTERNAL OR DEBUG)
   set(KSTATS_DEFAULT 0FF)
 endif (INTERNAL OR DEBUG)
-if (INTERNAL AND DEBUG)
+
+# PR 403006 - We want to keep symbols to get glibc backtrace for DR errors, but
+# that causes a collision of app and dr symbols on visor (DR's crc32() was
+# linked to imports of crc32() in libz.so in hostd).  So, we just keep symbol
+# support for glibc backtrace only on linux - hope we don't run into any
+# collisions on linux!  Longer term we do our own backtrace with symbols.
+#
+if (INTERNAL AND DEBUG AND NOT VMKERNEL)
   set(KEEP_SYMBOLS_DEFAULT ON)
-else (INTERNAL AND DEBUG)
+else (INTERNAL AND DEBUG AND NOT VMKERNEL)
   set(KEEP_SYMBOLS_DEFAULT OFF)
-endif (INTERNAL AND DEBUG)
+endif (INTERNAL AND DEBUG AND NOT VMKERNEL)
 # no KSTATS for caller profiling: we want to be as close to release
 # build as we can, but w/o optimizations
 if (CALLPROF)

@@ -312,7 +312,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
     if (is_client)
       if (NOT DEFINED DynamoRIO_VISATT)
         # Try to automatically determine visibility
-        if ("${tgt_cflags}" MATCHES "-fvisibility=internal")
+        if ("${tgt_cflags}" MATCHES "-fvisibility=hidden|-fvisibility=internal")
           set(DynamoRIO_VISATT ON)
         endif()
       endif (NOT DEFINED DynamoRIO_VISATT)
