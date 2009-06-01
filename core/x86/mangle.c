@@ -2115,17 +2115,21 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         while (prev != NULL &&
                instr_num_dsts(prev) > 0 &&
                opnd_is_reg(instr_get_dst(prev, 0)) &&
+#ifdef X64
+               opnd_get_reg(instr_get_dst(prev, 0)) != REG_RAX &&
+#endif
                opnd_get_reg(instr_get_dst(prev, 0)) != REG_EAX) {
 #ifdef CLIENT_INTERFACE
             /* if client added cti in between, bail and assume non-ignorable */
             if (instr_is_cti(prev))
                 return -1;
 #endif
-            prev = instr_get_prev(prev);
+            prev = instr_get_prev_expanded(dcontext, ilist, prev);
         }
         if (prev != NULL &&
             instr_get_opcode(prev) == OP_mov_imm &&
-            opnd_get_reg(instr_get_dst(prev, 0)) == REG_EAX) {
+            (IF_X64_ELSE(opnd_get_reg(instr_get_dst(prev, 0)) == REG_RAX, true) ||
+             opnd_get_reg(instr_get_dst(prev, 0)) == REG_EAX)) {
 #ifdef CLIENT_INTERFACE
             instr_t *walk, *tgt;
 #endif
