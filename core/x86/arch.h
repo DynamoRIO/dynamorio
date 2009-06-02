@@ -276,7 +276,7 @@ cache_pc trace_head_incr_shared_routine(IF_X64(gencode_mode_t mode));
 
 /* in mangle.c but not exported to non-x86 files */
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
-                              instr_t *instr, instr_t *data_to_ecx, bool skip
+                              instr_t *instr, bool skip
                               _IF_X64(gencode_mode_t mode));
 void
 set_selfmod_sandbox_offsets(dcontext_t *dcontext);

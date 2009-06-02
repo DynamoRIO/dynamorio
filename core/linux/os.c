@@ -3541,6 +3541,17 @@ pre_system_call(dcontext_t *dcontext)
         }
         /* save for post_system_call */
         dcontext->sys_param0 = (reg_t) flags;
+
+        /* For thread creation clone syscalls a clone_record_t structure
+         * containing the pc after the app's syscall instr and other data
+         * (see i#27) is placed at the bottom of the dstack (which is allocated
+         * by create_clone_record() - it also saves app stack and switches
+         * to dstack).  xref i#149/PR 403015.
+         * Note: This must be done after sys_param0 is set.
+         */
+        if (is_clone_thread_syscall(dcontext))
+            create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
+
         break;
     }
 
@@ -3553,6 +3564,12 @@ pre_system_call(dcontext_t *dcontext)
 
         /* save for post_system_call, treated as if SYS_clone */
         dcontext->sys_param0 = (reg_t) flags;
+
+        /* vfork has the same needs as clone.  Pass info via a clone_record_t
+         * structure to child.  See SYS_clone for info about i#149/PR 403015.
+         */
+        if (is_clone_thread_syscall(dcontext))
+            create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
         break;
     }
 

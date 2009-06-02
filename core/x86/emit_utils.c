@@ -7026,15 +7026,9 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     if (handle_clone) {
         /* put in clone code, and make sure to target it.
          * do it here since it assumes an instr after the syscall exists.
-         * assume that a pointer to a clone_record_t, containing the next pc after
-         * the int along with other needed data, is in CLONE_SCRATCH_REG_REG
-         * (see handle_system_call() in dispatch for more info)
          */
-        instr_t *data_to_ecx =
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XCX),
-                                opnd_create_reg(CLONE_SCRATCH_REG_REG));
         mangle_insert_clone_code(dcontext, &ilist, post_syscall,
-                                 data_to_ecx, false /*do not skip*/
+                                 false /*do not skip*/
                                  _IF_X64(MODE_OVERRIDE(code->x86_mode)));
     }
 #endif
@@ -7296,22 +7290,13 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
      * for kernel 2.5.32+: PR 285898) we can't non-racily acquire
      * initstack_mutex as we can't spill or spare a register
      * (xref i#101/PR 207903).
-     * We rely on mangle_insert_clone_code() acquiring the lock at the
-     * SYS_clone site, where we do have a free register (though presently
-     * that free register is not restored in the child: PR 286194).
      */
 
-    /* put app xcx into xcx , and clone_record_t in xax */
+    /* Restore app xcx and xax, which were swapped post-syscall to distinguish
+     * parent from child.
+     */
     APP(&ilist, INSTR_CREATE_xchg
         (dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(REG_XCX)));
-    /* save app's esp */
-    APP(&ilist, INSTR_CREATE_mov_st
-        (dcontext, OPND_CREATE_ABSMEM((void *)&initstack_app_xsp, OPSZ_PTR),
-         opnd_create_reg(REG_XSP)));
-    /* now use initstack as temporary stack */
-    APP(&ilist, INSTR_CREATE_mov_ld
-        (dcontext, opnd_create_reg(REG_XSP),
-         OPND_CREATE_ABSMEM((void *)&initstack, OPSZ_PTR)));
 
     /* grab exec state and pass as param in a dr_mcontext_t struct
      * new_thread_setup will restore real app xsp and xax

@@ -136,14 +136,6 @@ extern app_pc vsyscall_syscall_end_pc;
 extern app_pc vsyscall_sysenter_return_pc;
 #define VSYSCALL_PAGE_MAPS_NAME "[vdso]"
 
-/* We need a place to store the continuation pc for the child thread.
- * We pick a register not used for SYS_clone parameters.
- * FIXME PR 286194: currently we do not restore this in the child at all: better to
- * keep a stack in parent, or use CLONE_SETTLS (PR 285898)?
- */
-#define CLONE_SCRATCH_REG_MC  xbp
-#define CLONE_SCRATCH_REG_REG REG_XBP
-
 bool is_clone_thread_syscall(dcontext_t *dcontext);
 bool was_clone_thread_syscall(dcontext_t *dcontext);
 bool is_sigreturn_syscall(dcontext_t *dcontext);
@@ -217,8 +209,16 @@ bool is_signal_restorer_code(byte *pc, size_t *len);
 # define SC_XFLAGS eflags
 #endif
 
-void *create_clone_record(dcontext_t *dcontext, app_pc continuation_pc);
-app_pc signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
+void *
+create_clone_record(dcontext_t *dcontext, reg_t *app_xsp);
+void *
+get_clone_record(reg_t xsp);
+reg_t
+get_clone_record_app_xsp(void *record);
+byte *
+get_clone_record_dstack(void *record);
+app_pc
+signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
 
 /***************************************************************************/
 

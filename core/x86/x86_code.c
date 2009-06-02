@@ -202,29 +202,42 @@ auto_setup(ptr_uint_t appstack)
  * structure for the current thread and start executing at the
  * the pc stored in the clone_record_t * stored at mc->pc.
  * Assumes that it is called on the initstack.
+ *
+ * CAUTION: don't add a lot of stack variables in this routine or call a lot 
+ *          of functions before get_clone_record() because get_clone_record() 
+ *          makes assumptions about the usage of stack being less than a page.
  */
 void
 new_thread_setup(dr_mcontext_t *mc)
 {
     dcontext_t *dcontext;
+    void *crec;
     int rc;
-    /* this is where a new thread first touches other than the initstack,
+    /* this is where a new thread first touches other than the dstack,
      * so we "enter" DR here
      */
     ENTERING_DR();
+
+    /* i#149/PR 403015: clone_record_t is passed via dstack. */
+    crec = get_clone_record(mc->xsp);
     LOG(GLOBAL, LOG_INTERP, 1,
-        "new_thread_setup: thread %d, pc "PFX"\n", get_thread_id(), mc->pc);
-    rc = dynamo_thread_init();
+        "new_thread_setup: thread %d, dstack "PFX" clone record "PFX"\n",
+        get_thread_id(), get_clone_record_dstack(crec), crec);
+
+    rc = dynamo_thread_init(get_clone_record_dstack(crec));
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
     thread_starting(dcontext);
-    dcontext->next_tag = signal_thread_inherit(dcontext, (void *) mc->pc);
+    dcontext->next_tag = signal_thread_inherit(dcontext, (void *) crec);
     ASSERT(dcontext->next_tag != NULL);
 
     *get_mcontext(dcontext) = *mc;
-    /* get app xsp from initstack_app_xsp */
-    get_mcontext(dcontext)->xsp = (reg_t) initstack_app_xsp;
+
+    /* As we used dstack as app thread stack to pass clone record, we now need
+     * to switch back to the real app thread stack before continuing.
+     */
+    get_mcontext(dcontext)->xsp = get_clone_record_app_xsp(crec);
     /* clear xax (was used to hold clone record) */
     ASSERT(get_mcontext(dcontext)->xax == (reg_t) mc->pc);
     get_mcontext(dcontext)->xax = 0;
@@ -232,7 +245,7 @@ new_thread_setup(dr_mcontext_t *mc)
     get_mcontext(dcontext)->pc = 0;
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      true/*on initstack*/, false/*shouldn't return*/);
+                      false/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 

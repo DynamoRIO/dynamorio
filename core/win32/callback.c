@@ -2517,7 +2517,7 @@ intercept_new_thread(CONTEXT *cxt)
      */
 
     /* initialize thread now */
-    if (dynamo_thread_init() != -1) {
+    if (dynamo_thread_init(NULL) != -1) {
         app_pc thunk_xip = (app_pc)cxt->CXT_XIP;
         dcontext_t *dcontext = get_thread_private_dcontext();
         LOG_DECLARE(char sym_buf[MAXIMUM_SYMBOL_LENGTH];)
@@ -6136,7 +6136,7 @@ intercept_image_entry(app_state_at_intercept_t *state)
 
         /* we must create a new dcontext to be a 'known' thread */
         /* initialize thread now */
-        if (dynamo_thread_init() != -1) {
+        if (dynamo_thread_init(NULL) != -1) {
             LOG(THREAD_GET, LOG_ASYNCH, 1, "just initialized primary thread \n");
             /* keep in synch if we do anything else in intercept_new_thread() */
         } else {

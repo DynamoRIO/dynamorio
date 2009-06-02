@@ -386,7 +386,7 @@ test_rct_ind_branch_check(void)
     fragment_t f;
 
     /* to pass args security_violation assumes present */
-    dcontext_t *dcontext = create_new_dynamo_context(true/*initial*/);
+    dcontext_t *dcontext = create_new_dynamo_context(true/*initial*/, NULL);
 
     f.tag = (app_pc)0xbeef;
     l.fragment = &f;

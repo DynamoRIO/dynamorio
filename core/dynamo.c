@@ -529,7 +529,7 @@ dynamorio_app_init(void)
         /* thread-specific initialization for the first thread we inject in
          * (in a race with injected threads, sometimes it is not the primary thread)
          */
-        dynamo_thread_init();
+        dynamo_thread_init(NULL);
 #ifdef LINUX
         /* i#27: we need to special-case the 1st thread */
         signal_thread_inherit(get_thread_private_dcontext(), NULL);
@@ -766,7 +766,7 @@ standalone_init(void)
     os_init();
 
     os_tls_init();
-    dcontext = create_new_dynamo_context(true/*initial*/);
+    dcontext = create_new_dynamo_context(true/*initial*/, NULL);
     set_thread_private_dcontext(dcontext);
     /* sanity check */
     ASSERT(get_thread_private_dcontext() == dcontext);
@@ -1252,7 +1252,7 @@ dynamo_process_exit(void)
 }
 
 dcontext_t *
-create_new_dynamo_context(bool initial)
+create_new_dynamo_context(bool initial, byte *dstack_in)
 {
     dcontext_t *dcontext;
     size_t alloc = sizeof(dcontext_t) + proc_get_cache_line_size();
@@ -1276,9 +1276,17 @@ create_new_dynamo_context(bool initial)
     /* must set to 0 so can tell if initialized for callbacks! */
     memset(dcontext, 0x0, sizeof(dcontext_t));
     dcontext->allocated_start = alloc_start;
+
     /* we share a single dstack across all callbacks */
-    if (initial)
-        dcontext->dstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE);
+    if (initial) {
+        if (dstack_in == NULL)
+            dcontext->dstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE);
+        else
+            dcontext->dstack = dstack_in;   /* xref i#149/PR 403015 */
+    } else {
+        /* dstack may be pre-allocated only at thread init, not at callback */
+        ASSERT(dstack_in == NULL);
+    }
 #ifdef RETURN_STACK
     dcontext->rstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE);
     /* Cannot have RETURN_STACK with inlined IBLs */
@@ -1463,7 +1471,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
 dcontext_t *
 create_callback_dcontext(dcontext_t *old_dcontext)
 {
-    dcontext_t *new_dcontext = create_new_dynamo_context(false);
+    dcontext_t *new_dcontext = create_new_dynamo_context(false, NULL);
     new_dcontext->valid = false;
     /* all of these fields are shared among all dcontexts of a thread: */
     new_dcontext->owning_thread = old_dcontext->owning_thread;
@@ -1754,10 +1762,12 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid)
 DECLARE_FREQPROT_VAR(static bool reset_at_nth_thread_triggered, false);
 
 /* thread-specific initialization 
+ * if dstack_in is NULL, then a dstack is allocated; else dstack_in is used 
+ * as the thread's dstack
  * returns -1 if current thread has already been initialized
  */
 int
-dynamo_thread_init(void)
+dynamo_thread_init(byte *dstack_in)
 {
     dcontext_t *dcontext;
     /* due to lock issues (see below) we need another var */
@@ -1803,7 +1813,7 @@ dynamo_thread_init(void)
     }
 
     os_tls_init();
-    dcontext = create_new_dynamo_context(true/*initial*/);
+    dcontext = create_new_dynamo_context(true/*initial*/, dstack_in);
     initialize_dynamo_context(dcontext);
     set_thread_private_dcontext(dcontext);
     /* sanity check */

@@ -470,7 +470,7 @@ int get_num_threads(void);
 void get_list_of_threads(thread_record_t ***list, int *num);
 bool is_thread_known(thread_id_t tid);
 bool is_thread_initialized(void);
-int dynamo_thread_init(void);
+int dynamo_thread_init(byte *dstack_in);
 int dynamo_thread_exit(void);
 void dynamo_thread_stack_free_and_exit(byte *stack);
 int dynamo_other_thread_exit(thread_record_t *tr
@@ -479,7 +479,7 @@ void dynamo_thread_under_dynamo(dcontext_t *dcontext);
 void dynamo_thread_not_under_dynamo(dcontext_t *dcontext);
 /* used for synch to prevent thread creation/deletion in critical periods */
 extern mutex_t thread_initexit_lock;
-dcontext_t * create_new_dynamo_context(bool initial);
+dcontext_t * create_new_dynamo_context(bool initial, byte *dstack_in);
 void initialize_dynamo_context(dcontext_t *dcontext);
 dcontext_t * create_callback_dcontext(dcontext_t *old_dcontext);
 int dynamo_nullcalls_exit(void);

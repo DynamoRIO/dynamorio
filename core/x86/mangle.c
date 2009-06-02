@@ -2167,10 +2167,14 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
  * skip decides whether the clone code is skipped by default or not.
  *
  * N.B.: mangle_clone_code() makes assumptions about this exact code layout
+ *
+ * CAUTION: don't use a lot of stack in the generated code because 
+ *          get_clone_record() makes assumptions about the usage of stack being
+ *          less than a page.
  */
 void
 mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                         instr_t *data_to_ecx, bool skip _IF_X64(gencode_mode_t mode))
+                         bool skip _IF_X64(gencode_mode_t mode))
 {
             /*
                 int 0x80
@@ -2184,17 +2188,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                 jecxz child
                 jmp parent
               child:
-                # i#101/PR 207903: we don't have TLS in the shared routine
-                # new_thread_dynamo_start so we get lock while we have scratch reg
-                mov $1,xcx
-                xchg xcx, &initstack_mutex
-                jecxz have_lock
-                pause
-                jmp child
-              have_lock:
-                # N.B.: currently this comes from xbp so don't clobber that.
-                # xref PR 286194.
-                mov <clone_record_t *>,xcx
+                # i#149/PR 403015: the child is on the dstack so no need to swap stacks
                 jmp new_thread_dynamo_start
               parent:
                 xchg xax,xcx
@@ -2204,7 +2198,6 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     instr_t *in = instr_get_next(instr);
     instr_t *xchg = INSTR_CREATE_label(dcontext);
     instr_t *child = INSTR_CREATE_label(dcontext);
-    instr_t *have_lock = INSTR_CREATE_label(dcontext);
     instr_t *parent = INSTR_CREATE_label(dcontext);
     ASSERT(in != NULL);
     /* we have to dynamically skip or not skip the clone code
@@ -2233,22 +2226,6 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(parent)));
 
     PRE(ilist, in, child);
-    /* i#101/PR 207903: we don't have TLS in shared routine new_thread_dynamo_start
-     * so we get lock while we have scratch reg to avoid races
-     */
-    PRE(ilist, in, INSTR_CREATE_mov_imm
-        (dcontext, opnd_create_reg(REG_ECX), OPND_CREATE_INT32(1)));
-    PRE(ilist, in, INSTR_CREATE_xchg
-        (dcontext, OPND_CREATE_ABSMEM((void *)&initstack_mutex, OPSZ_4),
-         opnd_create_reg(REG_ECX)));
-    PRE(ilist, in, INSTR_CREATE_jecxz(dcontext, opnd_create_instr(have_lock)));
-    /* improve spin-loop perf on P4 */
-    PRE(ilist, in, INSTR_CREATE_pause(dcontext));
-    /* try again -- too few free regs to call sleep() */
-    PRE(ilist, in, INSTR_CREATE_jmp(dcontext, opnd_create_instr(child)));
-
-    PRE(ilist, in, have_lock);
-    PRE(ilist, in, data_to_ecx);
     /* an exit cti, not a meta instr */
     instrlist_preinsert
         (ilist, in,

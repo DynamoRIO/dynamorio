@@ -111,6 +111,8 @@ The current version is \DR_VERSION and is backward compatible with releases from
 The changes between version 1.4.1 and 1.4.0 are:
 
  - Fixed bug in cross-architecture execve (Issue 146)
+ - Clone record is now passed via dstack instead of ebp (Issue 149)
+ - Fixed close() syscall handling, !HAVE_TLS assert & minor issues (Issue 151)
 
 The changes between version 1.4.0 and 1.3.2 are:
 

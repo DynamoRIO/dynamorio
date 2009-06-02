@@ -495,7 +495,10 @@ typedef struct _thread_sig_info_t {
 } thread_sig_info_t;
 
 /* i#27: custom data to pass to the child of a clone */
+/* PR i#149/403015: clone record now passed via a new dstack */
 typedef struct _clone_record_t {
+    byte *dstack;          /* dstack for new thread - allocated by parent thread */
+    reg_t app_thread_xsp;  /* app xsp preserved for new thread to use */
     app_pc continuation_pc;
     thread_id_t caller_id;
     int clone_sysnum;
@@ -898,28 +901,98 @@ signal_thread_init(dcontext_t *dcontext)
 /* i#27: create custom data to pass to the child of a clone
  * since we can't rely on being able to find the caller, or that
  * its syscall data is still valid, once in the child.
+ *
+ * i#149/ PR 403015: The clone record is passed to the new thread via the dstack
+ * created for it.  Unlike before, where the child thread would create its own
+ * dstack, now the parent thread creates the dstack.  Also, switches app stack
+ * to dstack.
  */
 void *
-create_clone_record(dcontext_t *dcontext, app_pc continuation_pc)
+create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 {
-    clone_record_t *record = (clone_record_t *)
-        global_heap_alloc(sizeof(*record) HEAPACCT(ACCT_OTHER));
-    record->continuation_pc = continuation_pc;
+    byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE);
+    LOG(THREAD, LOG_ASYNCH, 1,
+        "create_clone_record: dstack for new thread is "PFX"\n", dstack);
+
+    /* Note, the stack grows to low memory addr, so dstack points to the high
+     * end of the allocated stack region.  So, we must subtract to get space for
+     * the clone record.
+     */
+    clone_record_t *record = (clone_record_t *) (dstack - sizeof(clone_record_t));
+    LOG(THREAD, LOG_ASYNCH, 1, "allocated clone record: "PFX"\n", record);
+
+    record->dstack = dstack;
+    record->app_thread_xsp = *app_thread_xsp;
+    /* asynch_target is set in dispatch() prior to calling pre_system_call(). */
+    record->continuation_pc = dcontext->asynch_target;
     record->caller_id = dcontext->owning_thread;
     record->clone_sysnum = dcontext->sys_num;
     record->clone_flags = dcontext->sys_param0;
     record->info = *((thread_sig_info_t *)dcontext->signal_field);
     LOG(THREAD, LOG_ASYNCH, 1,
         "create_clone_record: thread %d, pc "PFX"\n",
-        record->caller_id, continuation_pc);
+        record->caller_id, record->continuation_pc);
+
+    /* Set the thread stack to point to the dstack, below the clone record.
+     * Note: the kernel pushes a few things on the app thread stack and seems
+     * to leave it there; as app thread is now on dstack, these pushes may not
+     * be visible to app - a transparency issue.  I suspect these are temp uses
+     * by the kernel, so we should be fine.  Can do an experiment and find out.
+     */
+    *app_thread_xsp = ALIGN_BACKWARD(record, REGPARM_END_ALIGN);
+ 
     return (void *) record;
 }
 
-static void
-destroy_clone_record(clone_record_t *record)
+/* i#149/PR 403015: The clone record is passed to the new thread by placing it
+ * at the bottom of the dstack, i.e., the high memory.  So the new thread gets
+ * it from the base of the dstack.  The dstack is then set as the app stack.
+ *
+ * CAUTION: don't use a lot of stack in this routine as it gets invoked on the
+ *          dstack from new_thread_setup - this is because this routine assumes 
+ *          no more than a page of dstack has been used so far since the clone 
+ *          system call was done.
+ */
+void *
+get_clone_record(reg_t xsp)
+{
+    clone_record_t *record; 
+    byte *dstack_base;
+
+    /* xsp should be in a dstack, i.e., dynamorio heap.  */
+    ASSERT(is_dynamo_address((app_pc) xsp));
+
+    /* The (size of the clone record +
+     *      stack used by new_thread_start (only for setting up dr_mcontext_t) +
+     *      stack used by new_thread_setup before calling get_clone_record())
+     * is less than a page.  This is verified by the assert below.  If it does
+     * exceed a page, it won't happen at random during runtime, but in a
+     * predictable way during development, which will be caught by the assert.
+     * The current usage is about 800 bytes for clone_record +
+     * sizeof(dr_mcontext_t) + few words in new_thread_setup before
+     * get_clone_record() is called.
+     */
+    dstack_base = (byte *) ALIGN_FORWARD(xsp, PAGE_SIZE);
+    record = (clone_record_t *) (dstack_base - sizeof(clone_record_t));
+
+    /* dstack_base and the dstack in the clone record should be the same. */
+    ASSERT(dstack_base == record->dstack);
+    return (void *) record;
+}
+
+/* i#149/PR 403015: App xsp is passed to the new thread via the clone record. */
+reg_t
+get_clone_record_app_xsp(void *record)
 {
     ASSERT(record != NULL);
-    global_heap_free(record, sizeof(*record) HEAPACCT(ACCT_OTHER));
+    return ((clone_record_t *) record)->app_thread_xsp;
+}
+
+byte *
+get_clone_record_dstack(void *record)
+{
+    ASSERT(record != NULL);
+    return ((clone_record_t *) record)->dstack;
 }
 
 /* Called once a new thread's dcontext is created.
@@ -1009,7 +1082,6 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
          * we asked for old sigstack.
          * FIXME: are current pending or blocked inherited?
          */
-        destroy_clone_record(record);
         return continuation_pc;
     } else {
         /* initialize in isolation */

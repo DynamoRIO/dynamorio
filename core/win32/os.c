@@ -231,7 +231,7 @@ DllMainThreadAttach()
          */
         LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
             "DllMain: initializing new thread %d\n", get_thread_id());
-        dynamo_thread_init();
+        dynamo_thread_init(NULL);
     }
 }
 #endif
