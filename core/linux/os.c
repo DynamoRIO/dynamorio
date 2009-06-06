@@ -3462,6 +3462,7 @@ pre_system_call(dcontext_t *dcontext)
            unsigned long prot)
         */
         uint res;
+        DEBUG_DECLARE(app_pc end;)
         app_pc addr  = (void *) sys_param(dcontext, 0);
         size_t len  = (size_t) sys_param(dcontext, 1);
         uint prot = (uint) sys_param(dcontext, 2);
@@ -3473,6 +3474,39 @@ pre_system_call(dcontext_t *dcontext)
         LOG(THREAD, LOG_SYSCALLS, 2,
             "syscall: mprotect addr="PFX" size="PFX" prot=%s\n",
             addr, len, memprot_string(osprot_to_memprot(prot)));
+
+        /* PR 413109 - fail mprotect if start region is unknown; seen in hostd.
+         * FIXME: get_memory_info_from_os() should be used instead of 
+         *      vmvector_lookup_data() to catch mprotect failure cases on shared
+         *      memory allocated by another process.  However, till PROC_MAPS 
+         *      are implemented on visor, get_memory_info_from_os() can't 
+         *      distinguish between inaccessible and unallocated, so it doesn't 
+         *      work.  Once PROC_MAPS is available on visor use 
+         *      get_memory_info_from_os() and resolve case.
+         *
+         * FIXME: Failing mprotect if addr isn't allocated doesn't help if there
+         *      are unallocated pages in the middle of the the mprotect region. 
+         *      As it will be expensive to do page wise check for each mprotect 
+         *      syscall just to guard against a corner case, it might be better 
+         *      to let the system call fail and recover in post_system_call(). 
+         *      See PR 410921.
+         */
+        if (!vmvector_lookup_data(all_memory_areas, addr, NULL, 
+                                  IF_DEBUG_ELSE(&end, NULL), NULL)) {
+            LOG(THREAD, LOG_SYSCALLS, 2,
+                "\t"PFX" isn't mapped; aborting mprotect\n", addr);
+            execute_syscall = false;
+            SET_RETURN_VAL(dcontext, -ENOMEM);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            break;
+        } else {
+            /* If mprotect region spans beyond the end of the vmarea then it 
+             * spans 2 or more vmareas with dissimilar protection (xref 
+             * PR 410921) or has unallocated regions in between (PR 413109).
+             */
+            DODEBUG(dcontext->mprot_multi_areas = (addr + len) > end ? true : false;);
+        }
+
         res = app_memory_protection_change(dcontext, addr, len, 
                                            osprot_to_memprot(prot),
                                            &new_memprot, NULL);
@@ -4424,8 +4458,28 @@ post_system_call(dcontext_t *dcontext)
                 ASSERT_NOT_IMPLEMENTED(res != SUBSET_APP_MEM_PROT_CHANGE);
                 ASSERT(res == DO_APP_MEM_PROT_CHANGE ||
                        res == PRETEND_APP_MEM_PROT_CHANGE);
-                /* NYI Store state to revert the all-mems list. */
-                ASSERT_NOT_IMPLEMENTED(false);
+
+                /* PR 410921 - Revert the changes to all-mems list. 
+                 * FIXME: This fix assumes the whole region had the prot & 
+                 * type, which is true in the cases we have seen so far, but 
+                 * theoretically may not be true.  If it isn't true, multiple 
+                 * memory areas with different types/protections might have 
+                 * been changed in pre_system_call(), so will have to keep a 
+                 * list of all vmareas changed.  This might be expensive for 
+                 * each mprotect syscall to guard against a rare theoretical bug.
+                 */
+                ASSERT_CURIOSITY(!dcontext->mprot_multi_areas);
+                all_memory_areas_lock();
+                ASSERT(vmvector_overlap(all_memory_areas, base, base + size) ||
+                       /* we could synch up: instead we relax the assert if 
+                        * DR areas not in allmem */
+                       are_dynamo_vm_areas_stale());
+                LOG(GLOBAL, LOG_VMAREAS, 3, 
+                    "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
+                    base, base + size, osprot_to_memprot(prot));
+                update_all_memory_areas(base, base + size, memprot,
+                                        -1/*type unchanged*/);
+                all_memory_areas_unlock();
             }
         }
         break;
@@ -5216,11 +5270,11 @@ probe_address(dcontext_t *dcontext, app_pc pc_in,
         return base;
     }
 # endif
-    /* for find_vm_areas_via_probe(), skip modules added by dl_iterate_get_areas_cb.
-     * for get_memory_info_from_os() we may want to be able to disable this if
-     * we think all_memory_areas() is wrong?
+    /* Only for find_vm_areas_via_probe(), skip modules added by 
+     * dl_iterate_get_areas_cb.  Subsequent probes are about gettting 
+     * info from OS, so do the actual probe.  See PR 410907.
      */
-    if (get_memory_info(pc, &base, &size, prot))
+    if (!dynamo_initialized && get_memory_info(pc, &base, &size, prot))
         return base + size;
 
     TRY_EXCEPT(dcontext, /* try */ {
@@ -5242,7 +5296,8 @@ probe_address(dcontext_t *dcontext, app_pc pc_in,
     LOG(GLOBAL, LOG_VMAREAS, 5, "%s: probe "PFX" => %s\n",
         __func__, pc, memprot_string(*prot));
 
-    return pc;
+    /* PR 403000 - for unaligned probes return the address passed in as arg. */
+    return pc_in;
 }
 
 /* helper for find_vm_areas_via_probe() */

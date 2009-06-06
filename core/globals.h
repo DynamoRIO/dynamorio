@@ -683,6 +683,9 @@ struct _dcontext_t {
 #ifdef LINUX
     bool           sys_was_int;     /* was the last system call via do_int_syscall? */
     bool           sys_xbp;         /* PR 313715: store orig xbp */
+# ifdef DEBUG
+    bool           mprot_multi_areas; /* PR 410921: mprotect of 2 or more vmareas? */
+# endif
 #endif
 
 #ifdef X64
