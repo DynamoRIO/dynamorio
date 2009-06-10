@@ -492,6 +492,10 @@ typedef struct _generated_code_t {
     uint do_int_syscall_offs; /* offs of pc after actual syscall instr */
     byte *do_clone_syscall;
     uint do_clone_syscall_offs; /* offs of pc after actual syscall instr */
+# ifdef VMX86_SERVER
+    byte *do_vmkuw_syscall;
+    uint do_vmkuw_syscall_offs; /* offs of pc after actual syscall instr */
+# endif
 #endif
 #ifdef LINUX
     /* PR 212290: can't be static code in x86.asm since it can't be PIC */
@@ -705,6 +709,11 @@ byte * emit_do_callback_return(dcontext_t *dcontext, byte *pc,
 byte * emit_do_clone_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                              byte *fcache_return_pc, bool thread_shared,
                              uint *syscall_offs /*OUT*/);
+# ifdef VMX86_SERVER
+byte * emit_do_vmkuw_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
+                             byte *fcache_return_pc, bool thread_shared,
+                             uint *syscall_offs /*OUT*/);
+# endif
 #endif
 
 #ifdef LINUX

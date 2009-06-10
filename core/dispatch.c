@@ -66,6 +66,10 @@
 # include "decode.h" /* get_x86_mode */
 #endif
 
+#ifdef VMX86_SERVER
+# include "vmkuw.h"
+#endif
+
 /* forward declarations */
 static void
 dispatch_enter_dynamorio(dcontext_t *dcontext);
@@ -1546,9 +1550,9 @@ void
 handle_system_call(dcontext_t *dcontext)
 {
     fcache_enter_func_t fcache_enter = get_fcache_enter_private_routine(dcontext);
-    dr_mcontext_t *mc = get_mcontext(dcontext);
     app_pc do_syscall = (app_pc) get_do_syscall_entry(dcontext);
 #ifdef CLIENT_INTERFACE 
+    dr_mcontext_t *mc = get_mcontext(dcontext);
     bool execute_syscall = true;
 #endif
 #ifdef WINDOWS
@@ -1561,8 +1565,17 @@ handle_system_call(dcontext_t *dcontext)
         /* last_exit will be for the syscall so set a flag (could alternatively
          * set up a separate exit stub but this is simpler) */
         dcontext->sys_was_int = true;
-    } else
+# ifdef VMX86_SERVER
+        if (is_vmkuw_sysnum(mc->xax)) {
+            /* Even w/ syscall # shift int80 => ENOSYS */
+            do_syscall = get_do_vmkuw_syscall_entry(dcontext);
+            LOG(THREAD, LOG_SYSCALLS, 2, "Using do_vmkuw_syscall\n");
+        }
+# endif
+    } else {
         dcontext->sys_was_int = false;
+        IF_VMX86(ASSERT(!is_vmkuw_sysnum(mc->xax)));
+    }
 #endif
 
 #ifdef CLIENT_INTERFACE 

@@ -51,6 +51,10 @@
 # include "disassemble.h"
 #endif
 
+#ifdef VMX86_SERVER
+# include "vmkuw.h" /* VMKUW_SYSCALL_GATEWAY */
+#endif
+
 #ifdef DEBUG
 /* case 10450: give messages to clients */
 # undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
@@ -3855,11 +3859,17 @@ instr_get_interrupt_number(instr_t *instr)
 {
     CLIENT_ASSERT(instr_get_opcode(instr) == OP_int,
                   "instr_get_interrupt_number: instr not interrupt");
-    if (instr_operands_valid(instr))
-        return (int) opnd_get_immed_int(instr_get_src(instr, 0));
-    else if (instr_raw_bits_valid(instr))
-        return instr_get_raw_byte(instr, 1);
-    else {
+    if (instr_operands_valid(instr)) {
+        ptr_int_t val = opnd_get_immed_int(instr_get_src(instr, 0));
+        /* undo the sign extension.  prob return value shouldn't be signed but
+         * too late to bother changing that.
+         */
+        CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_sbyte(val), "invalid interrupt number");
+        return (int) (byte) val;
+    } else if (instr_raw_bits_valid(instr)) {
+        /* widen as unsigned */
+        return (int) (uint) instr_get_raw_byte(instr, 1);
+    } else {
         CLIENT_ASSERT(false, "instr_get_interrupt_number: invalid instr");
         return 0;
     }
@@ -3878,7 +3888,11 @@ instr_is_syscall(instr_t *instr)
 #ifdef WINDOWS
         return ((byte) num == 0x2e);
 #else
+# ifdef VMX86_SERVER
+        return ((byte) num == 0x80 || (byte) num == VMKUW_SYSCALL_GATEWAY);
+# else
         return ((byte) num == 0x80);
+# endif
 #endif
     }
 #ifdef WINDOWS

@@ -161,6 +161,10 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                 print_file(file, "do_int_syscall:\n");
             else if (last_pc == code->do_clone_syscall)
                 print_file(file, "do_clone_syscall:\n");
+#  ifdef VMX86_SERVER
+            else if (last_pc == code->do_vmkuw_syscall)
+                print_file(file, "do_vmkuw_syscall:\n");
+#  endif
 # endif
 # ifdef LINUX
             else if (last_pc == code->new_thread_dynamo_start)
@@ -829,6 +833,12 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     code->do_clone_syscall = pc;
     pc = emit_do_clone_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                                &code->do_clone_syscall_offs);
+# ifdef VMX86_SERVER
+    pc = check_size_and_cache_line(code, pc);
+    code->do_vmkuw_syscall = pc;
+    pc = emit_do_vmkuw_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
+                               &code->do_vmkuw_syscall_offs);
+# endif
 #endif /* LINUX */
     
     return pc;
@@ -1420,6 +1430,14 @@ get_do_clone_syscall_entry(dcontext_t *dcontext)
     generated_code_t *code = THREAD_GENCODE(dcontext);
     return (cache_pc) code->do_clone_syscall;
 }
+# ifdef VMX86_SERVER
+cache_pc
+get_do_vmkuw_syscall_entry(dcontext_t *dcontext)
+{
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    return (cache_pc) code->do_vmkuw_syscall;
+}
+# endif
 #endif
 
 cache_pc
@@ -2002,7 +2020,9 @@ is_after_do_syscall_addr(dcontext_t *dcontext, cache_pc pc)
                                                        _IF_X64(GENCODE_FROM_DCONTEXT));
     ASSERT(code != NULL);
     return (pc == (cache_pc) (code->do_syscall + code->do_syscall_offs) ||
-            pc == (cache_pc) (code->do_int_syscall + code->do_int_syscall_offs));
+            pc == (cache_pc) (code->do_int_syscall + code->do_int_syscall_offs)
+            IF_VMX86(|| pc == (cache_pc) (code->do_vmkuw_syscall +
+                                          code->do_vmkuw_syscall_offs)));
 }
 #endif
 

@@ -68,6 +68,10 @@
 #include <setjmp.h> /* for warning when see libc setjmp */
 #endif
 
+#ifdef VMX86_SERVER
+# include "vmkuw.h" /* VMKUW_SYSCALL_GATEWAY */
+#endif
+
 enum { DIRECT_XFER_LENGTH = 5 };
 
 /* forward declarations */
@@ -1526,9 +1530,18 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
      * we let bb keep going, else we end bb and flag it
      */
     sysnum = find_syscall_num(dcontext, bb->ilist, bb->instr);
+#ifdef VMX86_SERVER
+    DOSTATS({
+        if (instr_get_opcode(bb->instr) == OP_int &&
+            instr_get_interrupt_number(bb->instr) == VMKUW_SYSCALL_GATEWAY) {
+            STATS_INC(vmkuw_syscall_sites);
+            LOG(THREAD, LOG_SYSCALLS, 2, "vmkuw system call site: #=%d\n", sysnum);
+        }
+    });
+#endif
     BBPRINT(bb, 3, "syscall # is %d\n", sysnum);
 #ifdef CLIENT_INTERFACE 
-    if (instrument_filter_syscall(dcontext, sysnum)) {
+    if (sysnum > -1 && instrument_filter_syscall(dcontext, sysnum)) {
         BBPRINT(bb, 3, "client asking to intercept => pretending syscall # %d is -1\n",
                 sysnum);
         sysnum = -1;

@@ -110,6 +110,10 @@
 #ifdef WINDOWS
     STATS_DEF("Instances of interrupt 2B", num_int2b)
 #endif
+#ifdef VMX86_SERVER
+    STATS_DEF("VMKUW system call sites", vmkuw_syscall_sites)
+    STATS_DEF("VMKUW non-ignorable system calls", vmkuw_syscalls_intercept)
+#endif
     RSTATS_DEF("Native modules present", num_native_module_loads)
     STATS_DEF("Native module entrance checks", num_native_entrance_checks)
     STATS_DEF("Native module entrance TOS checks", num_native_entrance_TOS_checks)

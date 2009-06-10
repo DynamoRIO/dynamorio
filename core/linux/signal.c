@@ -2735,11 +2735,11 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 
     LOG(THREAD, LOG_ASYNCH, level, "\nmaster_signal_handler: sig=%d, retaddr="PFX"\n",
         sig, *((byte **)xsp));
-    LOG(THREAD, LOG_ASYNCH, 3,
+    LOG(THREAD, LOG_ASYNCH, level+1,
         "siginfo: pid = %d, status = %d, errno = %d, si_code = %d\n",
         siginfo->si_pid, siginfo->si_status, siginfo->si_errno, 
         siginfo->si_code);
-    DOLOG(3, LOG_ASYNCH, { dump_sigcontext(dcontext, sc); });
+    DOLOG(level+1, LOG_ASYNCH, { dump_sigcontext(dcontext, sc); });
 
 #ifndef X64
 # ifndef VMX86_SERVER

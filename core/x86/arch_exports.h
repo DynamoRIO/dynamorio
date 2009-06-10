@@ -694,6 +694,9 @@ cache_pc get_do_callback_return_entry(dcontext_t *dcontext);
 #else
 cache_pc get_do_int_syscall_entry(dcontext_t *dcontext);
 cache_pc get_do_clone_syscall_entry(dcontext_t *dcontext);
+# ifdef VMX86_SERVER
+cache_pc get_do_vmkuw_syscall_entry(dcontext_t *dcontext);
+# endif
 #endif
 byte * get_global_do_syscall_entry(void);
 

@@ -2743,6 +2743,10 @@ ignorable_system_call(int num)
     case SYS_close:
         return false;
     default:
+#ifdef VMX86_SERVER
+        if (is_vmkuw_sysnum(num))
+            return vmkuw_ignorable_system_call(num);
+#endif
         return true;
     }
 }
@@ -3844,6 +3848,15 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
+    default: {
+#ifdef VMX86_SERVER
+        if (is_vmkuw_sysnum(mc->xax)) {
+            execute_syscall = vmkuw_pre_system_call(dcontext);
+            break;
+        }
+#endif
+    }
+
     } /* end switch */
 
     dcontext->whereami = old_whereami;
@@ -4618,7 +4631,16 @@ post_system_call(dcontext_t *dcontext)
         success = true;
         break;
 
+#ifdef VMX86_SERVER
+    default:
+        if (is_vmkuw_sysnum(sysnum)) {
+            vmkuw_post_system_call(dcontext);
+            break;
+        }
+#endif
+
     } /* switch */
+
     DODEBUG({
         if (ignorable_system_call(sysnum)) {
             STATS_INC(post_syscall_ignorable);

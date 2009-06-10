@@ -60,6 +60,10 @@
 #include <limits.h> /* for UCHAR_MAX */
 #include "../perscache.h"
 
+#ifdef VMX86_SERVER
+# include "vmkuw.h"
+#endif
+
 /* fragment_t fields */
 #define FRAGMENT_TAG_OFFS        (offsetof(fragment_t, tag))
 /* CAUTION: if TAG_OFFS changes from 0, must change indirect exit stub! */
@@ -6960,7 +6964,7 @@ static byte *
 emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
                        byte *pc, byte *fcache_return_pc,
                        bool handle_clone, bool thread_shared, bool force_int,
-                       uint *syscall_offs /*OUT*/)
+                       instr_t *syscall_instr, uint *syscall_offs /*OUT*/)
 {
     instrlist_t ilist;
     instr_t *syscall;
@@ -6973,10 +6977,14 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     if (handle_clone)
         force_int = true;
 #endif
-    if (force_int)
-        syscall = create_int_syscall_instr(dcontext);
-    else
-        syscall = create_syscall_instr(dcontext);
+    if (syscall_instr != NULL)
+        syscall = syscall_instr;
+    else {
+        if (force_int)
+            syscall = create_int_syscall_instr(dcontext);
+        else
+            syscall = create_syscall_instr(dcontext);
+    }
 
     /* PR 284029: for now we assume there are no syscalls in x86 code.
      */
@@ -7100,8 +7108,20 @@ emit_do_clone_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                       uint *syscall_offs /*OUT*/)
 {
     return emit_do_syscall_common(dcontext, code, pc, fcache_return_pc,
-                                  true, thread_shared, false, syscall_offs);
+                                  true, thread_shared, false, NULL, syscall_offs);
 }
+# ifdef VMX86_SERVER
+byte * 
+emit_do_vmkuw_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
+                      byte *fcache_return_pc, bool thread_shared,
+                      uint *syscall_offs /*OUT*/)
+{
+    instr_t *gateway = INSTR_CREATE_int
+        (dcontext, opnd_create_immed_int((char)VMKUW_SYSCALL_GATEWAY, OPSZ_1));
+    return emit_do_syscall_common(dcontext, code, pc, fcache_return_pc,
+                                  false, thread_shared, false, gateway, syscall_offs);
+}
+# endif
 #endif /* LINUX */
 
 byte * 
@@ -7110,7 +7130,7 @@ emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                 uint *syscall_offs /*OUT*/)
 {
     pc = emit_do_syscall_common(dcontext, code, pc, fcache_return_pc,
-                                false, thread_shared, force_int, syscall_offs);
+                                false, thread_shared, force_int, NULL, syscall_offs);
     return pc;
 }
 
