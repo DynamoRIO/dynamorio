@@ -1940,7 +1940,8 @@ heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded)
     ASSERT(!DYNAMO_OPTION(vm_reserve) ||
            !DYNAMO_OPTION(stack_shares_gencode) ||
            (ptr_uint_t)p - (guarded ? (GUARD_PAGE_ADJUSTMENT/2) : 0) ==
-           ALIGN_BACKWARD(p, VMM_BLOCK_SIZE));
+           ALIGN_BACKWARD(p, VMM_BLOCK_SIZE) ||
+           at_reset_at_vmm_limit());
     LOG(GLOBAL, LOG_HEAP, 2, "heap_mmap: %d bytes [/ %d] @ "PFX"\n",
         commit_size, reserve_size, p);
     STATS_ADD_PEAK(mmap_capacity, commit_size);
@@ -2346,7 +2347,11 @@ heap_vmareas_synch_units()
     }
     for (u = heapmgt->heap.units; u != NULL; u = next) {
         app_pc start = (app_pc)u - offs;
-        app_pc end = UNIT_RESERVED_END(u) + offs;
+        /* support un-aligned heap reservation end: PR 415269 (though as
+         * part of that PR we shouldn't have un-aligned anymore)
+         */
+        app_pc end_align = (app_pc) ALIGN_FORWARD(UNIT_RESERVED_END(u), PAGE_SIZE);
+        app_pc end = end_align + offs;
         /* u can be moved to dead list, so cache the next link; case 4196. */
         next = u->next_global;
         /* case 3045: areas inside the vmheap reservation are not added to the list */
@@ -2375,15 +2380,14 @@ heap_vmareas_synch_units()
              * as MEMPROT_READ | MEMPROT_WRITE.  If other places are added, then this
              * needs to change.
              */
-            update_all_memory_areas((app_pc)u, UNIT_RESERVED_END(u),
+            update_all_memory_areas((app_pc)u, end_align,
                                     MEMPROT_READ | MEMPROT_WRITE,
                                     DR_MEMTYPE_DATA); /* unit */
             if (offs != 0) {
                 /* guard pages */
                 update_all_memory_areas((app_pc)u - offs, (app_pc)u, MEMPROT_NONE,
                                         DR_MEMTYPE_DATA);
-                update_all_memory_areas(UNIT_RESERVED_END(u),
-                                        UNIT_RESERVED_END(u) + offs, MEMPROT_NONE,
+                update_all_memory_areas(end_align, end, MEMPROT_NONE,
                                         DR_MEMTYPE_DATA);
             }
             if (next_may_die) {
@@ -2397,7 +2401,11 @@ heap_vmareas_synch_units()
     }
     for (u = heapmgt->heap.dead; u != NULL; u = next) {
         app_pc start = (app_pc)u - offs;
-        app_pc end = UNIT_RESERVED_END(u) + offs;
+        /* support un-aligned heap reservation end: PR 415269 (though as
+         * part of that PR we shouldn't have un-aligned anymore)
+         */
+        app_pc end_align = (app_pc) ALIGN_FORWARD(UNIT_RESERVED_END(u), PAGE_SIZE);
+        app_pc end = end_align + offs;
         /* u can be moved to live list, so cache the next link; case 4196. */
         next = u->next_global;
         /* case 3045: areas inside the vmheap reservation are not added to the list */
@@ -2405,14 +2413,14 @@ heap_vmareas_synch_units()
                                                         start, end - start)) {
             u->in_vmarea_list = true;
             add_dynamo_heap_vm_area(start, end, true, false _IF_DEBUG("dead heap unit"));
-            update_all_memory_areas((app_pc)u, UNIT_RESERVED_END(u),
+            update_all_memory_areas((app_pc)u, end_align,
                                     MEMPROT_READ | MEMPROT_WRITE,
                                     DR_MEMTYPE_DATA); /* unit */
             if (offs != 0) {
                 /* guard pages */
                 update_all_memory_areas(start, (app_pc)u, MEMPROT_NONE,
                                         DR_MEMTYPE_DATA);
-                update_all_memory_areas(UNIT_RESERVED_END(u), end, MEMPROT_NONE,
+                update_all_memory_areas(end_align, end, MEMPROT_NONE,
                                         DR_MEMTYPE_DATA);
             }
             /* case 4196 if next was put back on live list for
@@ -2543,7 +2551,7 @@ heap_create_unit(thread_units_t *tu, size_t size, bool must_be_new)
 
     if (!must_be_new) {
         for (dead = heapmgt->heap.dead;
-             dead != NULL && UNIT_RESERVED_SIZE(heapmgt->heap.dead) < size;
+             dead != NULL && UNIT_RESERVED_SIZE(dead) < size;
              prev_dead = dead, dead = dead->next_global)
             ;
     }
@@ -2656,7 +2664,8 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
 
     /* heuristic: don't keep around more dead units than max(5, 1/4 num threads)
      * FIXME: share the policy with the fcache dead unit policy
-     * also, don't put special larger-than-max units on free list
+     * also, don't put special larger-than-max units on free list -- though
+     * we do now have support for doing so (after PR 415269)
      */
     if (UNITALLOC(unit) <= HEAP_UNIT_MAX_SIZE &&
         (heapmgt->heap.num_dead < 5 ||
@@ -3081,8 +3090,10 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
     if (alloc_size > MAXROOM) {
         /* too big for normal unit, build a special unit just for this allocation */
         /* don't need alloc_size or even aligned_size, just need size */
-        /* must create new since on free we assume exactly this size */
         heap_unit_t *new_unit, *prev;
+        /* we page-align to avoid wasting space if unit gets reused later */
+        size_t unit_size = ALIGN_FORWARD(size + sizeof(heap_unit_t), PAGE_SIZE);
+        ASSERT(size < unit_size && "overflow");
 
         if (!safe_to_allocate_or_free_heap_units()) {
             /* circular dependence solution: we need to hold DR lock before
@@ -3091,12 +3102,15 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
             return NULL;
         }
             
-        ASSERT(size < size + sizeof(heap_unit_t) && "overflow");
-        new_unit = heap_create_unit(tu, size + sizeof(heap_unit_t), true/*must be new*/);
-        /* we want to commit the whole thing right away */
+        /* Can reuse a dead unit if large enough: we'll just not use any
+         * excess size until this is freed and put back on dead list.
+         * (Currently we don't put oversized units on dead list though.)
+         */
+        new_unit = heap_create_unit(tu, unit_size, false/*can be reused*/);
+        /* we want to commit the whole alloc right away */
         heap_unit_extend_commitment(new_unit, size, MEMPROT_READ|MEMPROT_WRITE);
         prev = tu->top_unit;
-        alloc_size = size;
+        alloc_size = size; /* should we include page-alignment? */
         /* insert prior to cur unit (new unit will be full, so keep cur unit
          * where it is)
          */
@@ -3118,7 +3132,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
 #endif
         p = new_unit->start_pc;
         new_unit->cur_pc += size;
-        ACCOUNT_FOR_ALLOC(alloc_new, tu, which, size, size);
+        ACCOUNT_FOR_ALLOC(alloc_new, tu, which, size, size); /* use alloc_size? */
         goto done_allocating;
     }
     if (tu->free_list[bucket] != NULL) {
@@ -3195,7 +3209,12 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                  */
                 heap_unit_t *prev = tu->top_unit;
                 while (1) {
-                    if (prev->cur_pc + alloc_size <= prev->end_pc) {
+                    /* make sure we do NOT steal space from oversized units,
+                     * who though they may have extra space from alignment
+                     * may be freed wholesale when primary alloc is freed
+                     */
+                    if (UNITALLOC(prev) <= HEAP_UNIT_MAX_SIZE &&
+                        prev->cur_pc + alloc_size <= prev->end_pc) {
                         tu->cur_unit = prev;
                         u = prev;
                         break;
@@ -3403,12 +3422,12 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size HEAPACCT(which_he
         /* just retire the unit # */
 #ifdef DEBUG_MEMORY
         LOG(THREAD, LOG_HEAP, 3, "\tFreeing oversized heap unit %d (%d KB)\n",
-            u->id, size);
+            u->id, size/1024);
         /* go ahead and set unallocated, even though we are just going to free
          * the unit, is needed for an assert in heap_free_unit anyways */
         memset(p, HEAP_UNALLOCATED_BYTE, size);
 #endif
-        ASSERT(size == UNITROOM(u));
+        ASSERT(size <= UNITROOM(u));
         heap_free_unit(u, tu->dcontext);
         ACCOUNT_FOR_FREE(tu, which, size);
         return true;

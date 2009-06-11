@@ -2362,7 +2362,9 @@ os_syslog(syslog_event_type_t priority, uint message_id,
 static bool
 all_memory_areas_initialized(void)
 {
-    return (all_memory_areas != NULL && !vmvector_empty(all_memory_areas));
+    return (all_memory_areas != NULL && !vmvector_empty(all_memory_areas) &&
+            /* not really set until vm_areas_init() */
+            dynamo_initialized);
 }
 
 #if defined(DEBUG) && defined(INTERNAL)
@@ -5423,10 +5425,12 @@ find_executable_vm_areas(void)
      */
     byte *our_heap_start, *our_heap_end;
     get_vmm_heap_bounds(&our_heap_start, &our_heap_end);
-    all_memory_areas_lock();
-    update_all_memory_areas(our_heap_start, our_heap_end, MEMPROT_NONE,
-                            DR_MEMTYPE_DATA);
-    all_memory_areas_unlock();
+    if (our_heap_end - our_heap_start > 0) {
+        all_memory_areas_lock();
+        update_all_memory_areas(our_heap_start, our_heap_end, MEMPROT_NONE,
+                                DR_MEMTYPE_DATA);
+        all_memory_areas_unlock();
+    }
 
 #ifndef HAVE_PROC_MAPS
     count = find_vm_areas_via_probe();
