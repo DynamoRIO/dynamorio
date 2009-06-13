@@ -528,12 +528,19 @@ static void report_low_on_memory(oom_source_t source,
                                  heap_error_code_t os_error_code);
 
 /* virtual memory manager */
-enum {VMM_BLOCK_SIZE = 64*1024}; /* 64KB */
+enum {VMM_BLOCK_SIZE = IF_WINDOWS_ELSE(64,16)*1024}; /* 64KB or 16KB */
 /* Our current allocation unit matches the allocation granularity on
-   windows, to avoid worrying about external fragmentation 
-   Since most of our allocations fall within this range this makes the
-   common operation be finding a single empty block.
-*/
+ * windows, to avoid worrying about external fragmentation 
+ * Since most of our allocations fall within this range this makes the
+ * common operation be finding a single empty block.
+ *
+ * On Linux we save a lot of wasted alignment space by using a smaller
+ * granularity (PR 415959).
+ *
+ * FIXME: for Windows, if we reserve the whole region up front and
+ * just commit pieces, why do we need to match the Windows kernel
+ * alloc granularity?
+ */
 
 enum {
     /* maximum 512MB virtual memory units */
@@ -885,18 +892,20 @@ rel32_reachable_from_heap(byte *tgt)
  * the request.
  */
 static vm_addr_t
-vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size)
+vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in)
 {
     vm_addr_t p;
     uint request;
     uint first_block;
+    size_t size;
 
-    size = ALIGN_FORWARD(size, VMM_BLOCK_SIZE);
+    size = ALIGN_FORWARD(size_in, VMM_BLOCK_SIZE);
     ASSERT_TRUNCATE(request, uint, size/VMM_BLOCK_SIZE);
     request = (uint) size/VMM_BLOCK_SIZE;
 
-    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_reserve_blocks: size=%d in blocks=%d free_blocks~=%d\n",
-        size, request, vmh->num_free_blocks);
+    LOG(GLOBAL, LOG_HEAP, 2,
+        "vmm_heap_reserve_blocks: size=%d => %d in blocks=%d free_blocks~=%d\n",
+        size_in, size, request, vmh->num_free_blocks);
 
     mutex_lock(&vmh->lock);
     if (vmh->num_free_blocks < request) {
@@ -911,9 +920,15 @@ vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size)
 
     if (first_block != BITMAP_NOT_FOUND) {
         p = vmm_block_to_addr(vmh, first_block);
-        /* FIXME: add a stat vmm_vsize_wasted because of alignment */
         STATS_ADD_PEAK(vmm_vsize_used, size);
         STATS_ADD_PEAK(vmm_vsize_blocks_used, request);
+        STATS_ADD_PEAK(vmm_vsize_wasted, size - size_in);
+        DOSTATS({
+            if (request > 1) {
+                STATS_INC(vmm_multi_block_allocs);
+                STATS_ADD(vmm_multi_blocks, request);
+            }
+        });
     } else {
         p = NULL;
     }
@@ -927,12 +942,13 @@ vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size)
  * Update bookkeeping information about the freed region.
  */
 static void
-vmm_heap_free_blocks(vm_heap_t *vmh, vm_addr_t p, size_t size)
+vmm_heap_free_blocks(vm_heap_t *vmh, vm_addr_t p, size_t size_in)
 {
     uint first_block = vmm_addr_to_block(vmh, p);
     uint request;
+    size_t size;
 
-    size = ALIGN_FORWARD(size, VMM_BLOCK_SIZE);
+    size = ALIGN_FORWARD(size_in, VMM_BLOCK_SIZE);
     ASSERT_TRUNCATE(request, uint, size/VMM_BLOCK_SIZE);
     request = (uint) size/VMM_BLOCK_SIZE;
 
@@ -947,6 +963,7 @@ vmm_heap_free_blocks(vm_heap_t *vmh, vm_addr_t p, size_t size)
     ASSERT(vmh->num_free_blocks <= vmh->num_blocks);
     STATS_SUB(vmm_vsize_used, size);
     STATS_SUB(vmm_vsize_blocks_used, request);
+    STATS_SUB(vmm_vsize_wasted, size - size_in);
 }
 
 /* This is the proper interface for the rest of heap.c to the os_heap_* functions */
@@ -3234,6 +3251,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                         /* size for heap_create_unit doesn't include any guard 
                          * pages */
                         ASSERT(unit_size > UNITOVERHEAD);
+                        ASSERT(unit_size > (size_t) GUARD_PAGE_ADJUSTMENT);
                         unit_size -= GUARD_PAGE_ADJUSTMENT;
                         new_unit = heap_create_unit(tu, unit_size, false/*can reuse*/);
                         prev->next_local = new_unit;
@@ -3860,6 +3878,15 @@ special_heap_init_internal(uint block_size, bool use_lock, bool executable,
     special_units_t *su;
     size_t unit_size = (block_size * 16 > HEAP_UNIT_MIN_SIZE) ?
         (block_size * 16) : HEAP_UNIT_MIN_SIZE;
+    /* Whether using 16K or 64K vmm blocks, HEAP_UNIT_MIN_SIZE of 32K wastes
+     * space, and our main uses (stubs, whether global or coarse, and signal
+     * pending queue) don't need a lot of space, so shrinking.
+     * This tuning is a little fragile (just like for regular heap units and
+     * fcache units) so be careful when changing default parameters.
+     */
+    unit_size = (size_t) ALIGN_FORWARD(unit_size, PAGE_SIZE);
+    ASSERT(unit_size > (size_t) GUARD_PAGE_ADJUSTMENT);
+    unit_size -= GUARD_PAGE_ADJUSTMENT;
     su = (special_units_t *)
         (persistent ? global_heap_alloc(sizeof(special_units_t) HEAPACCT(ACCT_MEM_MGT)) :
          nonpersistent_heap_alloc(GLOBAL_DCONTEXT, sizeof(special_units_t)

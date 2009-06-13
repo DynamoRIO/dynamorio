@@ -578,7 +578,7 @@ os_terminate(dcontext_t *dcontext, terminate_flags_t flags)
 {
     /* FIXME: terminate type is ignored */
     ASSERT_NOT_IMPLEMENTED(flags == TERMINATE_PROCESS);
-    /* FIXME: kill entire thread group if linux kernel supports groups; else,
+    /* FIXME PR 416504: kill entire thread group if linux kernel supports groups; else,
      * if tid==pid and no groups, try to hack it?
      */
     exit_syscall(1);
@@ -2334,6 +2334,7 @@ os_get_disk_free_space(/*IN*/ file_t file_handle,
 void
 exit_syscall(long status)
 {
+    /* FIXME PR 416504: some callers want SYS_exit_group */
     dynamorio_syscall(SYS_exit, 1, status);
 }
 

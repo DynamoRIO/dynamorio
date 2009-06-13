@@ -869,6 +869,10 @@ signal_thread_init(dcontext_t *dcontext)
 
     /* our special heap to avoid reentrancy problems
      * composed entirely of sigpending_t units
+     * Note that it's fine to have the special heap do page-at-a-time
+     * committing, which does not use locks (unless triggers reset!),
+     * but if we need a new unit that will grab a lock: FIXME: are we
+     * worried about that?  We'd only hit it with 24K/ 36+ pending signals.
      */
     info->sigheap = special_heap_init(sizeof(sigpending_t),
                                       false /* cannot have any locking */,
@@ -876,7 +880,10 @@ signal_thread_init(dcontext_t *dcontext)
                                       true /* persistent */);
 
 #ifdef HAVE_SIGALTSTACK
-    /* set up alternate stack */
+    /* set up alternate stack 
+     * aligned only to heap alignment (== pointer size) but kernel should
+     * align x64 signal frame to 16 for us.
+     */
     info->sigstack.ss_sp = (char *) heap_alloc(dcontext, SIGSTACK_SIZE
                                                HEAPACCT(ACCT_OTHER));
     info->sigstack.ss_size = SIGSTACK_SIZE;

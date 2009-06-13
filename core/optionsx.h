@@ -541,8 +541,11 @@
 
     OPTION_DEFAULT(uint_size, stack_size, IF_X64_ELSE(20*1024,12*1024),
                    "size of thread-private stacks, in KB")
-    /* FIXME PR 403008: stack_shares_gencode fails on vmkernel. */
-    OPTION_DEFAULT(bool, stack_shares_gencode, IF_VMX86_ELSE(false, true),
+    /* PR 415959: smaller vmm block size makes this both not work and not needed
+     * on Linux.
+     * FIXME PR 403008: stack_shares_gencode fails on vmkernel
+     */
+    OPTION_DEFAULT(bool, stack_shares_gencode, IF_LINUX_ELSE(false, true),
         "stack and thread-private generated code share an allocation region")
 
     OPTION_DEFAULT(uint, spinlock_count_on_SMP, 1000U, "spinlock loop cycles on SMP")
@@ -1152,12 +1155,7 @@
         "skip the assert curiosity on out of vm_reserve (for regression tests)")
     OPTION_DEFAULT(bool, vm_reserve, true, "reserve virtual memory") 
     /* FIXME - on 64bit probably will need more space */
-    /* For VMX86_SERVER we're in the mmap_text region, which is only 128MB
-     * total, so we scale down our reservation.  We could split up our data
-     * and text into two separate vmheap regions if we do need more room
-     * (that's PR 365331).
-     */
-    OPTION_DEFAULT(uint_size, vm_size, IF_VMX86_ELSE(32*1024*1024, 128*1024*1024),
+    OPTION_DEFAULT(uint_size, vm_size, 128*1024*1024,
         "maximum virtual memory reserved, in KB or MB")
         /* default size is in Kilobytes, Examples: 262144, 1024k, 256m, up to maximum of 512M */
      /* FIXME: default value is currently not good enough for sqlserver, for which we need more than 256MB */

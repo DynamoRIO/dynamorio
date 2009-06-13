@@ -952,6 +952,10 @@
 #endif
     STATS_DEF("Our virtual memory blocks in use", vmm_vsize_blocks_used)
     STATS_DEF("Our peak virtual memory blocks in use", peak_vmm_vsize_blocks_used)
+    STATS_DEF("Wasted vmm space due to alignment", vmm_vsize_wasted)
+    STATS_DEF("Peak wasted vmm space due to alignment", peak_vmm_vsize_wasted)
+    STATS_DEF("Allocations using multiple vmm blocks", vmm_multi_block_allocs)
+    STATS_DEF("Blocks used for multi-block allocs", vmm_multi_blocks)
     STATS_DEF("Our virtual memory in use (bytes)", vmm_vsize_used)
     STATS_DEF("Our peak virtual memory in use (bytes)", peak_vmm_vsize_used)
     STATS_DEF("Number of landing pad areas allocated", num_landing_pad_areas)
