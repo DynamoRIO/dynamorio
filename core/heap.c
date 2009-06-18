@@ -350,6 +350,9 @@ const char * whichheap_name[] = {
     "Memory Mgt",
     "Stats",
     "SpecialHeap",
+# ifdef CLIENT_INTERFACE
+    "Client",
+# endif
     /* NOTE: Add your heap name here */
     "Other",
 };
@@ -735,7 +738,8 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
         error_code = HEAP_ERROR_NOT_AT_PREFERRED;
     } else {
 #endif
-        vmh->start_addr = os_heap_reserve((void*)preferred, size, &error_code);
+        vmh->start_addr = os_heap_reserve((void*)preferred, size, &error_code,
+                                          true/*+x*/);
         LOG(GLOBAL, LOG_HEAP, 1,
             "vmm_heap_unit_init preferred="PFX" got start_addr="PFX"\n",
             preferred, vmh->start_addr);
@@ -750,10 +754,11 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
         /* PR 215395, make sure allocation satisfies heap reachability contraints */
         vmh->alloc_start = os_heap_reserve_in_region(heap_allowable_region_start,
                                                      heap_allowable_region_end,
-                                                     size + VMM_BLOCK_SIZE, &error_code);
+                                                     size + VMM_BLOCK_SIZE, &error_code,
+                                                     true/*+x*/);
 #else
         vmh->alloc_start = (heap_pc)
-            os_heap_reserve(NULL, size + VMM_BLOCK_SIZE, &error_code);
+            os_heap_reserve(NULL, size + VMM_BLOCK_SIZE, &error_code, true/*+x*/);
 #endif
         vmh->start_addr = (heap_pc) ALIGN_FORWARD(vmh->alloc_start, VMM_BLOCK_SIZE);
         LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init unable to allocate at preferred="
@@ -987,7 +992,7 @@ at_reset_at_vmm_limit()
 
 /* Reserve virtual address space without committing swap space for it */
 static vm_addr_t
-vmm_heap_reserve(size_t size, heap_error_code_t *error_code)
+vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable)
 {
     vm_addr_t p;
     /* should only be used on sizable aligned pieces */
@@ -1013,12 +1018,12 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code)
             /* PR 215395, make sure allocation satisfies heap reachability contraints */
             p = os_heap_reserve_in_region(heap_allowable_region_start,
                                           heap_allowable_region_end,
-                                          size, error_code);
+                                          size, error_code, executable);
             /* ensure future heap allocations are reachable from this allocation */
             if (p != NULL)
                 request_region_be_heap_reachable(p, size);
 #else
-            p = os_heap_reserve(NULL, size, error_code);
+            p = os_heap_reserve(NULL, size, error_code, executable);
 #endif
             if (p != NULL)
                 return p;
@@ -1077,12 +1082,12 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code)
 #ifdef X64
     /* PR 215395, make sure allocation satisfies heap reachability contraints */
     p = os_heap_reserve_in_region(heap_allowable_region_start, heap_allowable_region_end,
-                                  size, error_code);
+                                  size, error_code, executable);
     /* ensure future heap allocations are reachable from this allocation */
     if (p != NULL)
         request_region_be_heap_reachable(p, size);
 #else
-    p = os_heap_reserve(NULL, size, error_code);
+    p = os_heap_reserve(NULL, size, error_code, executable);
 #endif
     return p;
 }
@@ -1242,7 +1247,7 @@ vmm_heap_decommit(vm_addr_t p, size_t size, heap_error_code_t *error_code)
 static void *
 vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code)
 {
-    vm_addr_t p = vmm_heap_reserve(size, error_code);
+    vm_addr_t p = vmm_heap_reserve(size, error_code, TEST(MEMPROT_EXEC, prot));
     if (!p)
         return NULL;               /* out of reserved memory */
 
@@ -1883,7 +1888,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
 
     /* memory alloc/dealloc and updating DR list must be atomic */
     dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
-    p = vmm_heap_reserve(reserve_size, &error_code);
+    p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot));
     if (p == NULL) {    
         /* This is very unlikely to happen - we have to reach at least 2GB reserved memory. */
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory - cannot reserve %dKB. "
@@ -1891,7 +1896,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
         heap_low_on_memory();
         fcache_low_on_memory();
 
-        p = vmm_heap_reserve(reserve_size, &error_code);
+        p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot));
         if (p == NULL) {
             report_low_on_memory(OOM_RESERVE, error_code);
         }
@@ -2084,7 +2089,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
         /* Memory is already reserved with OS */
         p = stack_reserve_end;
     } else {
-        p = os_heap_reserve(stack_reserve_end, reserve_size, &error_code);
+        p = os_heap_reserve(stack_reserve_end, reserve_size, &error_code, true/*+x*/);
 #ifdef X64
         /* ensure future heap allocations are reachable from this allocation
          * (this will also verify that this region meets reachability requirements) */
@@ -4505,7 +4510,7 @@ alloc_landing_pad(app_pc addr_to_hook)
         lpad_area_start = os_heap_reserve_in_region(alloc_region_start,
                                                     alloc_region_end,
                                                     LANDING_PAD_AREA_SIZE,
-                                                    &heap_error);
+                                                    &heap_error, true/*+x*/);
         if (lpad_area_start == NULL ||
             heap_error == HEAP_ERROR_CANT_RESERVE_IN_REGION) {
             /* Should retry with using just the aligned target address - we may
@@ -4515,7 +4520,7 @@ alloc_landing_pad(app_pc addr_to_hook)
             lpad_area_start = os_heap_reserve(
                                   (void *)ALIGN_FORWARD(addr_to_hook,
                                                         LANDING_PAD_AREA_SIZE),
-                                  LANDING_PAD_AREA_SIZE, &heap_error);
+                                  LANDING_PAD_AREA_SIZE, &heap_error, true/*+x*/);
             if (lpad_area_start == NULL) {
                 /* Even at startup when there will be enough memory,
                  * theoritically 2 GB of dlls might get packed together before

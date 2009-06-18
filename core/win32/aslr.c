@@ -2305,13 +2305,15 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
          */
         heap_pad_base = os_heap_reserve(append_heap_pad_base,
                                         heap_pad_size,
-                                        &error_code);
+                                        &error_code, 
+                                        false/*ignored on Windows*/);
         if (heap_pad_base == NULL) {
             /* unable to get preferred, let the os pick a spot */
             /* FIXME - remove this - no real reason to reserve if we can't get our
              * preferred, but the old os_heap_reserve implementation automatically
              * tried again for us and the code below assumes so. */
-            heap_pad_base = os_heap_reserve(NULL, heap_pad_size, &error_code);
+            heap_pad_base = os_heap_reserve(NULL, heap_pad_size, &error_code, 
+                                            false/*ignored on Windows*/);
         }
 
         LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 2,
@@ -2489,13 +2491,15 @@ aslr_reserve_initial_heap_pad(app_pc preferred_base, size_t reserve_offset)
                                                ASLR_MAP_GRANULARITY);
     app_pc heap_reservation_base = os_heap_reserve(preferred_base, 
                                                    heap_reservation_size, 
-                                                   &error_code);
+                                                   &error_code, 
+                                                   false/*ignored on Windows*/);
     if (heap_reservation_base == NULL) {
         /* unable to get a preferred, let the os pick a spot */
         /* FIXME - remove this - no real reason to reserve if we can't get our
          * preferred, but the old os_heap_reserve implementation automatically
          * tried again for us and the code below assumes so. */
-        heap_reservation_base = os_heap_reserve(NULL, heap_reservation_size, &error_code);
+        heap_reservation_base = os_heap_reserve(NULL, heap_reservation_size, &error_code, 
+                                                false/*ignored on Windows*/);
     }
     LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
         "ASLR: ASLR_HEAP: requested random offset="PFX",\n"

@@ -2939,6 +2939,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         LOG(THREAD, LOG_ALL, 1,
             "** Received SIG%s at cache pc "PFX" in thread %d\n",
             (sig == SIGSEGV) ? "SEGV" : "BUS", pc, get_thread_id());
+        if (TEST(DUMPCORE_APP_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
+            os_dump_core("application fault");
         ASSERT(syscall_signal || safe_is_in_fcache(dcontext, pc, (byte *)sc->SC_XSP));
         /* if we were building a trace, kill it */
         if (is_building_trace(dcontext)) {
@@ -3711,6 +3713,8 @@ os_forge_exception(app_pc target_pc, exception_type_t type)
     default: ASSERT_NOT_REACHED(); sig = SIGSEGV; break;
     }
 
+    LOG(GLOBAL, LOG_ASYNCH, 1, "os_forge_exception sig=%d\n", sig);
+
     /* since we always delay delivery, we always want an rt frame.  we'll convert
      * to a plain frame on delivery.
      */
@@ -3809,22 +3813,25 @@ os_dump_core(const char *msg)
         os_request_live_coredump(msg);
     }
 
-    /* fork, dump core, then use gdb to get a stack dump
-     * we can get into an infinite loop if there's a seg fault
-     * in the process of doing this -- so we have a do-once test,
-     * and if it failed we do the no-symbols dr callstack dump
-     */
-    static bool tried_stackdump = false;
-    if (!tried_stackdump) {
-        tried_stackdump = true;
-        stackdump();
-    } else {
-        static bool tried_calldump = false;
-        if  (!tried_calldump) {
-            tried_calldump = true;
-            dump_dr_callstack(STDERR);
+    if (TEST(DUMPCORE_INCLUDE_STACKDUMP, dynamo_options.dumpcore_mask)) {
+        /* fork, dump core, then use gdb to get a stack dump
+         * we can get into an infinite loop if there's a seg fault
+         * in the process of doing this -- so we have a do-once test,
+         * and if it failed we do the no-symbols dr callstack dump
+         */
+        static bool tried_stackdump = false;
+        if (!tried_stackdump) {
+            tried_stackdump = true;
+            stackdump();
+        } else {
+            static bool tried_calldump = false;
+            if  (!tried_calldump) {
+                tried_calldump = true;
+                dump_dr_callstack(STDERR);
+            }
         }
     }
+
     if (!DYNAMO_OPTION(live_dump)) {
         os_request_fatal_coredump(msg);
         ASSERT_NOT_REACHED();

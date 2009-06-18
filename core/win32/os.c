@@ -3051,9 +3051,12 @@ os_heap_free(void *p, size_t size, heap_error_code_t *error_code)
 }
 
 /* reserve virtual address space without committing swap space for it, 
-   and of course no physical pages since it will never be touched */
+ * and of course no physical pages since it will never be touched.
+ * executable arg is ignored.
+ */
 void *
-os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code)
+os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
+                bool executable)
 {
     void *p = preferred;
     ASSERT(error_code != NULL);
@@ -3069,9 +3072,10 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code)
     return p;
 }
 
+/* executable arg is ignored */
 void *
 os_heap_reserve_in_region(void *start, void *end, size_t size,
-                          heap_error_code_t *error_code)
+                          heap_error_code_t *error_code, bool executable)
 {
     byte *cur, *p = NULL;
     MEMORY_BASIC_INFORMATION mbi;
@@ -3083,7 +3087,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
 
     /* if no restriction on location use regular os_heap_reserve() */
     if (start == (void *)PTR_UINT_0 && end == (void *)POINTER_MAX)
-        return os_heap_reserve(NULL, size, error_code);
+        return os_heap_reserve(NULL, size, error_code, executable);
 
     /* walk bounds to find a suitable location */
     cur = (byte *)ALIGN_FORWARD(start, VM_ALLOCATION_BOUNDARY);
@@ -3093,7 +3097,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
         if (mbi.State == MEM_FREE &&
             mbi.RegionSize - (cur - (byte *)mbi.BaseAddress) >= size) {
             /* we have a slot */
-            p = (byte *)os_heap_reserve(cur, size, error_code);
+            p = (byte *)os_heap_reserve(cur, size, error_code, executable);
             /* note - p could be NULL if someone grabbed some of the memory first */
             LOG(GLOBAL, LOG_HEAP, (p == NULL) ? 1U : 3U,
                 "os_heap_reserve_in_region: got "PFX" trying to reserve "SZFMT" byte @ "

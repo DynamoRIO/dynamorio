@@ -999,7 +999,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                     todo->tag);
             }
 
-            HEAP_TYPE_FREE(dcontext, todo, client_todo_list_t, ACCT_OTHER, UNPROTECTED);
+            HEAP_TYPE_FREE(dcontext, todo, client_todo_list_t, ACCT_CLIENT, UNPROTECTED);
             todo = next_todo;
         }
         dcontext->client_data->to_do = NULL;

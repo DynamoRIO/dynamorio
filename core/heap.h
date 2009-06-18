@@ -67,6 +67,9 @@ typedef enum {
     ACCT_MEM_MGT,
     ACCT_STATS,
     ACCT_SPECIAL,
+# ifdef CLIENT_INTERFACE
+    ACCT_CLIENT,
+# endif
     /* NOTE: Also update the whichheap_name in heap.c when adding here */
     ACCT_OTHER,
     ACCT_LAST

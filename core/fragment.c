@@ -5759,7 +5759,8 @@ process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
                                             false/*don't force synchall*/);
             }
         }
-        HEAP_TYPE_FREE(alloc_dcontext, iter, client_flush_req_t, ACCT_OTHER, UNPROTECTED);
+        HEAP_TYPE_FREE(alloc_dcontext, iter, client_flush_req_t, ACCT_CLIENT,
+                       UNPROTECTED);
         iter = next;
     }
 }

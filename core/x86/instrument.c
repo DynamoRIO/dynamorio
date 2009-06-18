@@ -991,7 +991,7 @@ instrument_thread_exit(dcontext_t *dcontext)
         if (todo->ilist != NULL) {
             instrlist_clear_and_destroy(dcontext, todo->ilist);
         }
-        HEAP_TYPE_FREE(dcontext, todo, client_todo_list_t, ACCT_OTHER, UNPROTECTED);
+        HEAP_TYPE_FREE(dcontext, todo, client_todo_list_t, ACCT_CLIENT, UNPROTECTED);
         todo = next_todo;
     }
 
@@ -999,7 +999,7 @@ instrument_thread_exit(dcontext_t *dcontext)
     flush = dcontext->client_data->flush_list;
     while (flush != NULL) {
         client_flush_req_t *next_flush = flush->next;
-        HEAP_TYPE_FREE(dcontext, flush, client_flush_req_t, ACCT_OTHER, UNPROTECTED);
+        HEAP_TYPE_FREE(dcontext, flush, client_flush_req_t, ACCT_CLIENT, UNPROTECTED);
         flush = next_flush;
     }        
 
@@ -1302,7 +1302,7 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
                                   )
 {
     module_data_t *copy = (module_data_t *)
-        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_data_t, ACCT_OTHER, UNPROTECTED);
+        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_data_t, ACCT_CLIENT, UNPROTECTED);
     memset(copy, 0, sizeof(module_data_t));
 
     copy->start = start;
@@ -1311,14 +1311,14 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
     copy->flags = flags;
 
     if (names->module_name != NULL)
-        copy->names.module_name = dr_strdup(names->module_name HEAPACCT(ACCT_OTHER));
+        copy->names.module_name = dr_strdup(names->module_name HEAPACCT(ACCT_CLIENT));
     if (names->file_name != NULL)
-        copy->names.file_name = dr_strdup(names->file_name HEAPACCT(ACCT_OTHER));
+        copy->names.file_name = dr_strdup(names->file_name HEAPACCT(ACCT_CLIENT));
 #ifdef WINDOWS
     if (names->exe_name != NULL)
-        copy->names.exe_name = dr_strdup(names->exe_name HEAPACCT(ACCT_OTHER));
+        copy->names.exe_name = dr_strdup(names->exe_name HEAPACCT(ACCT_CLIENT));
     if (names->rsrc_name != NULL)
-        copy->names.rsrc_name = dr_strdup(names->rsrc_name HEAPACCT(ACCT_OTHER));
+        copy->names.rsrc_name = dr_strdup(names->rsrc_name HEAPACCT(ACCT_CLIENT));
 
     copy->file_version = file_version;
     copy->product_version = product_version;
@@ -1384,9 +1384,9 @@ dr_free_module_data(module_data_t *data)
         return;
     }
 
-    free_module_names(&data->names HEAPACCT(ACCT_OTHER));
+    free_module_names(&data->names HEAPACCT(ACCT_CLIENT));
 
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, data, module_data_t, ACCT_OTHER, UNPROTECTED);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, data, module_data_t, ACCT_CLIENT, UNPROTECTED);
 }
 
 /* Notify user when a module is loaded */
@@ -1831,7 +1831,7 @@ void *
 dr_thread_alloc(void *drcontext, size_t size)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    return heap_alloc(dcontext, size HEAPACCT(ACCT_IR));
+    return heap_alloc(dcontext, size HEAPACCT(ACCT_CLIENT));
 }
 
 DR_API 
@@ -1845,7 +1845,7 @@ dr_thread_free(void *drcontext, void *mem, size_t size)
     CLIENT_ASSERT(drcontext != NULL, "dr_thread_free: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_thread_free: drcontext is invalid");
-    heap_free(dcontext, mem, size HEAPACCT(ACCT_IR));
+    heap_free(dcontext, mem, size HEAPACCT(ACCT_CLIENT));
 }
 
 DR_API 
@@ -1854,7 +1854,7 @@ DR_API
 void *
 dr_global_alloc(size_t size)
 {
-    return global_heap_alloc(size HEAPACCT(ACCT_OTHER));
+    return global_heap_alloc(size HEAPACCT(ACCT_CLIENT));
 }
 
 DR_API 
@@ -1864,7 +1864,7 @@ DR_API
 void
 dr_global_free(void *mem, size_t size)
 {
-    global_heap_free(mem, size HEAPACCT(ACCT_OTHER));
+    global_heap_free(mem, size HEAPACCT(ACCT_CLIENT));
 }
 
 DR_API 
@@ -1895,7 +1895,7 @@ __wrap_malloc(size_t size)
     void *mem;
     ASSERT(sizeof(size_t) >= HEAP_ALIGNMENT);
     size += sizeof(size_t);
-    mem = global_heap_alloc(size HEAPACCT(ACCT_OTHER));
+    mem = global_heap_alloc(size HEAPACCT(ACCT_CLIENT));
     if (mem == NULL) {
         CLIENT_ASSERT(false, "malloc failed: out of memory");
         return NULL;
@@ -1939,7 +1939,7 @@ __wrap_free(void *mem)
      */
     if (mem != NULL) {
         mem -= sizeof(size_t);
-        global_heap_free(mem, *((size_t *)mem) HEAPACCT(ACCT_OTHER));
+        global_heap_free(mem, *((size_t *)mem) HEAPACCT(ACCT_CLIENT));
     }
 }
 #endif
@@ -2054,7 +2054,7 @@ void *
 dr_mutex_create(void)
 {
     void *mutex = (void *)HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, mutex_t, 
-                                          ACCT_OTHER, UNPROTECTED);
+                                          ACCT_CLIENT, UNPROTECTED);
     ASSIGN_INIT_LOCK_FREE(*((mutex_t *) mutex), dr_client_mutex);
     return mutex;
 }
@@ -2067,7 +2067,7 @@ dr_mutex_destroy(void *mutex)
 {
     /* Delete mutex so locks_not_closed()==0 test in dynamo.c passes */
     DELETE_LOCK(*((mutex_t *) mutex));
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, (mutex_t *)mutex, mutex_t, ACCT_OTHER, UNPROTECTED);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, (mutex_t *)mutex, mutex_t, ACCT_CLIENT, UNPROTECTED);
 }
 
 DR_API 
@@ -2160,14 +2160,14 @@ dr_module_iterator_t
 dr_module_iterator_start(void)
 {
     client_mod_iterator_t *client_iterator = (client_mod_iterator_t *)
-        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, client_mod_iterator_t, ACCT_OTHER, UNPROTECTED);
+        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, client_mod_iterator_t, ACCT_CLIENT, UNPROTECTED);
     module_iterator_t *dr_iterator = module_iterator_start();
 
     memset(client_iterator, 0, sizeof(*client_iterator)); 
     while (module_iterator_hasnext(dr_iterator)) {
         module_area_t *area = module_iterator_next(dr_iterator);
         client_mod_iterator_list_t *list = (client_mod_iterator_list_t *)
-            HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, client_mod_iterator_list_t, ACCT_OTHER,
+            HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, client_mod_iterator_list_t, ACCT_CLIENT,
                             UNPROTECTED);
 
         ASSERT(area != NULL);
@@ -2231,10 +2231,10 @@ dr_module_iterator_stop(dr_module_iterator_t *mi)
     while (ci->current != NULL) {
         client_mod_iterator_list_t *next = ci->current->next;
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, ci->current, client_mod_iterator_list_t,
-                       ACCT_OTHER, UNPROTECTED);
+                       ACCT_CLIENT, UNPROTECTED);
         ci->current = next;
     }
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, ci, client_mod_iterator_t, ACCT_OTHER, UNPROTECTED);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, ci, client_mod_iterator_t, ACCT_CLIENT, UNPROTECTED);
 }
 
 DR_API
@@ -3688,7 +3688,8 @@ dr_delete_fragment(void *drcontext, void *tag)
 #endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL && (f->flags & FRAG_CANNOT_DELETE) == 0) {
-        client_todo_list_t * todo = HEAP_TYPE_ALLOC(dcontext, client_todo_list_t, ACCT_OTHER, UNPROTECTED);
+        client_todo_list_t * todo = HEAP_TYPE_ALLOC(dcontext, client_todo_list_t,
+                                                    ACCT_CLIENT, UNPROTECTED);
         client_todo_list_t * iter = dcontext->client_data->to_do;
         todo->next = NULL;
         todo->ilist = NULL;
@@ -3752,7 +3753,8 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     frag_found = (f != NULL);
     if (frag_found) {
         client_todo_list_t * iter = dcontext->client_data->to_do;
-        client_todo_list_t * todo = HEAP_TYPE_ALLOC(dcontext, client_todo_list_t, ACCT_OTHER, UNPROTECTED);
+        client_todo_list_t * todo = HEAP_TYPE_ALLOC(dcontext, client_todo_list_t,
+                                                    ACCT_CLIENT, UNPROTECTED);
         todo->next = NULL;
         todo->ilist = ilist;
         todo->tag = tag;
@@ -3806,7 +3808,7 @@ void dr_flush_fragments(void *drcontext, void *curr_tag, void *flush_tag)
     if (curr_tag != NULL)
         vm_area_unlink_incoming(dcontext, (app_pc)curr_tag);
 
-    flush = HEAP_TYPE_ALLOC(dcontext, client_flush_req_t, ACCT_OTHER, UNPROTECTED);
+    flush = HEAP_TYPE_ALLOC(dcontext, client_flush_req_t, ACCT_CLIENT, UNPROTECTED);
     flush->flush_callback = NULL;
     if (flush_tag == NULL) {
         flush->start = UNIVERSAL_REGION_BASE;
@@ -3935,7 +3937,8 @@ dr_delay_flush_region(app_pc start, size_t size, uint flush_id,
      * dr_unlink_flush_region() here if it's safe. Is difficult to detect non-dr locks
      * that could block a couldbelinking thread though. */
 
-    flush = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, client_flush_req_t, ACCT_OTHER, UNPROTECTED);
+    flush = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, client_flush_req_t, ACCT_CLIENT,
+                            UNPROTECTED);
     memset(flush, 0x0, sizeof(client_flush_req_t));
     flush->start = (app_pc)start;
     flush->size = size;

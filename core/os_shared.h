@@ -86,12 +86,17 @@ typedef uint heap_error_code_t;
 
 /* Reserve size bytes of virtual address space in one piece without committing swap
  * space for it.  If preferred is non-NULL then memory will be reserved at that address
- * only (if size bytes are unavailable at preferred then the allocation will fail). */
-void *os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code);
+ * only (if size bytes are unavailable at preferred then the allocation will fail). 
+ * The executable flag is for platforms that divide executable from data memory.
+ */
+void *os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
+                      bool executable);
 /* Reserve size bytes of virtual address space in one piece entirely within the
- * address range specified without committing swap space for it. */
+ * address range specified without committing swap space for it. 
+ * The executable flag is for platforms that divide executable from data memory.
+ */
 void *os_heap_reserve_in_region(void *start, void *end, size_t size,
-                                heap_error_code_t *error_code);
+                                heap_error_code_t *error_code, bool executable);
 /* commit previously reserved pages, returns false when out of memory */
 bool os_heap_commit(void *p, size_t size, uint prot, heap_error_code_t *error_code);
 /* decommit previously committed page, so it is reserved for future reuse */
@@ -216,6 +221,7 @@ enum {
     DUMPCORE_OUT_OF_MEM         = 0x0200,
     DUMPCORE_OUT_OF_MEM_SILENT  = 0x0400, /* not on by default in DEBUG */
 #ifdef LINUX
+    DUMPCORE_INCLUDE_STACKDUMP  = 0x0800,
     DUMPCORE_WAIT_FOR_DEBUGGER  = 0x1000, /* not on by default in DEBUG */
 #endif
 #ifdef HOT_PATCHING_INTERFACE       /* Part of fix for 5988. */

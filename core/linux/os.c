@@ -1705,17 +1705,16 @@ os_heap_free(void *p, size_t size, heap_error_code_t *error_code)
  * instead using mmap, and asserting that all os_heap requests are for
  * reasonably large pieces of memory */
 void *
-os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code)
+os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
+                bool executable)
 {
     void *p;
     uint prot = PROT_NONE;
 #ifdef VMX86_SERVER
     /* PR 365331: we need to be in the mmap_text region for code cache and
-     * gencode.  Ideally we should have a parameter indicating whether this
-     * reservation will be used for text or data: then we could avoid
-     * filling up the mmap_text region (xref PR 365331).
+     * gencode (PROT_EXEC).
      */
-    ASSERT(preferred == NULL ||
+    ASSERT(!executable || preferred == NULL ||
            ((byte *)preferred >= os_vmk_mmap_text_start() &&
             ((byte *)preferred)+size <= os_vmk_mmap_text_end()));
     /* Note that a preferred address overrides PROT_EXEC and a mmap_data
@@ -1728,7 +1727,7 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code)
      * But in most uses we should get our preferred vmheap and shouldn't run
      * out of vmheap, so this should be a corner-case issue.
      */
-    if (preferred == NULL)
+    if (executable)
         prot = PROT_EXEC;
 #endif
     /* should only be used on aligned pieces */
@@ -1763,15 +1762,16 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code)
     LOG(GLOBAL, LOG_HEAP, 2, "os_heap_reserve: %d bytes @ "PFX"\n", size, p);
 #ifdef VMX86_SERVER
     /* PR 365331: ensure our memory is all in the mmap_text region */
-    ASSERT((byte *)p >= os_vmk_mmap_text_start() &&
-           ((byte *)p) + size <= os_vmk_mmap_text_end());
+    ASSERT(!executable ||
+           ((byte *)p >= os_vmk_mmap_text_start() &&
+            ((byte *)p) + size <= os_vmk_mmap_text_end()));
 #endif
     return p;
 }
 
 void *
 os_heap_reserve_in_region(void *start, void *end, size_t size,
-                          heap_error_code_t *error_code)
+                          heap_error_code_t *error_code, bool executable)
 {
     byte *p = NULL;
     byte *try_start;
@@ -1781,7 +1781,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
 
     /* if no restriction on location use regular os_heap_reserve() */
     if (start == (void *)PTR_UINT_0 && end == (void *)POINTER_MAX)
-        return os_heap_reserve(NULL, size, error_code);
+        return os_heap_reserve(NULL, size, error_code, executable);
 
     /* FIXME: be smarter and use a memory query instead of trying every single page 
      * FIXME: if result is not at preferred it may still be in range: so
@@ -1789,7 +1789,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
      */
     for (try_start = (byte *) start; try_start < (byte *)end - size;
          try_start += PAGE_SIZE) {
-        p = os_heap_reserve(try_start, size, error_code);
+        p = os_heap_reserve(try_start, size, error_code, executable);
         if (*error_code == HEAP_ERROR_SUCCESS && p != NULL &&
             p >= (byte *)start && p + size <= (byte *)end)
             break;
