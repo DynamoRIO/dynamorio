@@ -509,7 +509,10 @@ typedef struct _clone_record_t {
 /**** function prototypes ***********************************************/
 
 /* in x86.asm for x64 */
-IF_NOT_X64(static) void
+#if !defined(X64) && defined(HAVE_SIGALTSTACK)
+static
+#endif
+void
 master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
 
 static void
@@ -1949,6 +1952,10 @@ thread_set_self_mcontext(dr_mcontext_t *mc)
 static bool
 sig_has_restorer(thread_sig_info_t *info, int sig)
 {
+#ifdef VMX86_SERVER
+    /* vmkernel ignores SA_RESTORER (PR 405694) */
+    return false;
+#endif
     if (info->app_sigaction[sig] == NULL)
         return false;
     if (TEST(SA_RESTORER, info->app_sigaction[sig]->flags))
@@ -2112,6 +2119,72 @@ convert_frame_to_nonrt_partial(dcontext_t *dcontext, int sig, sigframe_rt_t *f_o
 }
 #endif
 
+/* Exported for call from master_signal_handler asm routine.
+ * For the rt signal frame f_old that was copied to f_new, updates
+ * the intra-frame absolute pointers to point to the new addresses
+ * in f_new.
+ * Only updates the pretcode to the stored app restorer if for_app.
+ */
+void
+fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
+                       sigframe_rt_t *f_old, sigframe_rt_t *f_new, bool for_app)
+{
+    if (dcontext == NULL)
+        dcontext = get_thread_private_dcontext();
+    ASSERT(dcontext != NULL);
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    bool has_restorer = sig_has_restorer(info, sig);
+    if (has_restorer && for_app)
+        f_new->pretcode = (char *) info->app_sigaction[sig]->restorer;
+    else {
+#ifdef X64
+        ASSERT_NOT_REACHED();
+#else
+        /* only point at retcode if old one was -- with newer OS, points at
+         * vsyscall page and there is no restorer, yet stack restorer code left
+         * there for gdb compatibility
+         */
+        if (f_old->pretcode == f_old->retcode)
+            f_new->pretcode = f_new->retcode;
+        /* else, pointing at vsyscall, or we set it to dynamorio_sigreturn in
+         * master_signal_handler 
+         */
+        LOG(THREAD, LOG_ASYNCH, 3, "\tleaving pretcode with old value\n");
+#endif
+    }
+#ifndef X64
+    f_new->pinfo = &(f_new->info);
+    f_new->puc = &(f_new->uc);
+    /* if fpstate ptr is not NULL, update it to new frame's fpstate struct */
+    if (f_new->uc.uc_mcontext.fpstate != NULL)
+        f_new->uc.uc_mcontext.fpstate = &f_new->fpstate;
+#else
+    if (f_old->uc.uc_mcontext.fpstate != NULL) {
+        uint frame_size = get_app_frame_size(info, sig);
+        byte *frame_end = ((byte *)f_new) + frame_size;
+        byte *tgt = (byte *) ALIGN_FORWARD(frame_end, 16);
+        ASSERT(tgt - frame_end <= X64_FRAME_EXTRA);
+        memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(struct _fpstate));
+        f_new->uc.uc_mcontext.fpstate = (struct _fpstate *) tgt;
+        LOG(THREAD, LOG_ASYNCH, 4, "\tfpstate old="PFX" new="PFX"\n",
+            f_old->uc.uc_mcontext.fpstate, f_new->uc.uc_mcontext.fpstate);
+    } else {
+        /* if fpstate is not set up, we're delivering signal immediately,
+         * and we shouldn't need an fpstate since DR code won't modify it;
+         * only if we delayed will we need it, and when delaying we make
+         * room and set up the pointer in copy_frame_to_pending
+         */
+        LOG(THREAD, LOG_ASYNCH, 4, "\tno fpstate needed\n");
+    }
+#endif
+    LOG(THREAD, LOG_ASYNCH, 3, "\tretaddr = "PFX"\n", f_new->pretcode);
+#ifdef RETURN_AFTER_CALL
+    info->signal_restorer_retaddr = (app_pc) f_new->pretcode;
+#endif
+    /* 32-bit kernel copies to aligned buf first */
+    IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
+}
+
 /* Copies frame to sp.
  * PR 304708: we now leave in rt form right up until we copy to the
  * app stack, so that we can deliver to a client at a safe spot
@@ -2126,7 +2199,9 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     bool rtframe = IS_RT_FOR_APP(info, sig);
     uint frame_size = get_app_frame_size(info, sig);
+#ifndef X64
     bool has_restorer = sig_has_restorer(info, sig);
+#endif
     byte *check_pc;
     uint size = frame_size;
 #ifdef X64
@@ -2198,54 +2273,8 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 
     /* fix up pretcode, pinfo, puc, fpstate */
     if (rtframe) {
-        sigframe_rt_t *f_new = (sigframe_rt_t *) sp;
-        sigframe_rt_t *f_old = frame;
-        if (has_restorer)
-            f_new->pretcode = (char *) info->app_sigaction[sig]->restorer;
-        else {
-#ifdef X64
-            ASSERT_NOT_REACHED();
-#else
-            /* only point at retcode if old one was -- with newer OS, points at
-             * vsyscall page and there is no restorer, yet stack restorer code left
-             * there for gdb compatibility
-             */
-            if (f_old->pretcode == f_old->retcode)
-                f_new->pretcode = f_new->retcode;
-            else /* we set it to dynamorio_sigreturn in master_signal_handler */
-                ASSERT(f_new->pretcode = (char *) dynamorio_sigreturn);
-            LOG(THREAD, LOG_ASYNCH, 3, "\tleaving pretcode with old value\n");
-#endif
-        }
-#ifndef X64
-        f_new->pinfo = &(f_new->info);
-        f_new->puc = &(f_new->uc);
-        /* if fpstate ptr is not NULL, update it to new frame's fpstate struct */
-        if (f_new->uc.uc_mcontext.fpstate != NULL)
-            f_new->uc.uc_mcontext.fpstate = &f_new->fpstate;
-#else
-        if (f_old->uc.uc_mcontext.fpstate != NULL) {
-            byte *tgt = (byte *) ALIGN_FORWARD(sp + frame_size, 16);
-            ASSERT(tgt - (sp + frame_size) <= X64_FRAME_EXTRA);
-            memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(struct _fpstate));
-            f_new->uc.uc_mcontext.fpstate = (struct _fpstate *) tgt;
-            LOG(THREAD, LOG_ASYNCH, 4, "\tfpstate old="PFX" new="PFX"\n",
-                f_old->uc.uc_mcontext.fpstate, f_new->uc.uc_mcontext.fpstate);
-        } else {
-            /* if fpstate is not set up, we're delivering signal immediately,
-             * and we shouldn't need an fpstate since DR code won't modify it;
-             * only if we delayed will we need it, and when delaying we make
-             * room and set up the pointer in copy_frame_to_pending
-             */
-            LOG(THREAD, LOG_ASYNCH, 4, "\tno fpstate needed\n");
-        }
-#endif
-        LOG(THREAD, LOG_ASYNCH, 3, "\tretaddr = "PFX"\n", f_new->pretcode);
-#ifdef RETURN_AFTER_CALL
-        info->signal_restorer_retaddr = (app_pc) f_new->pretcode;
-#endif
-        /* 32-bit kernel copies to aligned buf first */
-        IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
+        fixup_rtframe_pointers(dcontext, sig, frame, (sigframe_rt_t *) sp,
+                               true/*for app*/);
     } else {
 #ifdef X64
         ASSERT_NOT_REACHED();
@@ -2258,8 +2287,12 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
             /* see comments in rt case above */
             if (f_old->pretcode == f_old->retcode)
                 f_new->pretcode = f_new->retcode;
-            else /* we set it to dynamorio_sigreturn in master_signal_handler */
+            else {
+                /* whether we set to dynamorio_sigreturn in master_signal_handler
+                 * or it's still vsyscall page, we have to convert to non-rt
+                 */
                 f_new->pretcode = (char *) dynamorio_nonrt_sigreturn;
+            } /* else, pointing at vsyscall most likely */
             LOG(THREAD, LOG_ASYNCH, 3, "\tleaving pretcode with old value\n");
         }
         /* if fpstate ptr is not NULL, update it to new frame's fpstate struct */
@@ -2678,6 +2711,37 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
     return false;
 }
 
+#ifndef HAVE_SIGALTSTACK
+/* The exact layout of this struct is relied on in master_signal_handler()
+ * in x86.asm.
+ */
+struct clone_and_swap_args {
+    byte *stack;
+    byte *tos;
+};
+
+/* Helper function for swapping handler to dstack */
+bool
+sig_should_swap_stack(struct clone_and_swap_args *args, kernel_ucontext_t *ucxt)
+{
+    byte *cur_esp;
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL)
+        return false;
+    GET_STACK_PTR(cur_esp);
+    if (!is_on_dstack(dcontext, cur_esp)) {
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        /* Pass back the proper args to clone_and_swap_stack: we want to
+         * copy to dstack from the tos at the signal interruption point.
+         */
+        args->stack = dcontext->dstack;
+        args->tos = (byte *) sc->SC_XSP;
+        return true;
+    } else
+        return false;
+}
+#endif
+
 /* the master signal handler
  * WARNING: behavior varies with different versions of the kernel!
  * sigaction support was only added with 2.2
@@ -2687,6 +2751,10 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
 void
 master_signal_handler_C(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt,
                         byte *xsp)
+#elif !defined(HAVE_SIGALTSTACK)
+/* stub in x86.asm swaps to dstack */
+void
+master_signal_handler_C(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 #else
 static void
 master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)

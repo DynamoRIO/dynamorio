@@ -780,6 +780,7 @@ ret_tgt_cache_to_app(dcontext_t *dcontext, app_pc pc);
 void call_switch_stack(dcontext_t *dcontext, byte *stack, void (*func) (dcontext_t *),
                        bool free_initstack, bool return_on_return);
 void unexpected_return(void);
+void clone_and_swap_stack(byte *stack, byte *tos);
 void go_native(dcontext_t *dcontext);
 void cleanup_and_terminate(dcontext_t *dcontext, int sysnum,
                            ptr_uint_t sys_arg1, ptr_uint_t sys_arg2, bool exitproc);

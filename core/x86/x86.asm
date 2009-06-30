@@ -206,7 +206,12 @@ DECL_EXTERN(nt_continue_setup)
 DECL_EXTERN(master_signal_handler_C)
 #endif
 DECL_EXTERN(hashlookup_null_target)
-        
+#if defined(LINUX) && !defined(HAVE_SIGALTSTACK)
+DECL_EXTERN(sig_should_swap_stack)
+DECL_EXTERN(fixup_rtframe_pointers)
+# define CLONE_AND_SWAP_STRUCT_SIZE 2*ARG_SZ
+#endif
+     
 /* non-functions: these make us non-PIC! (PR 212290) */
 DECL_EXTERN(exiting_thread_count)
 DECL_EXTERN(initstack)
@@ -357,6 +362,34 @@ GLOBAL_LABEL(unexpected_return:)
          * FIXME - why not an int3? */
         jmp      unexpected_return
         END_FUNC(unexpected_return)
+
+/*
+ * Copies from the current xsp to tos onto the base of stack and then
+ * swaps to the cloned top of stack.
+ *
+ * void clone_and_swap_stack(byte *stack, byte *tos)
+ */
+        DECLARE_FUNC(clone_and_swap_stack)
+GLOBAL_LABEL(clone_and_swap_stack:)
+        mov      REG_XAX, ARG1
+        mov      REG_XCX, ARG2
+        mov      REG_XDX, REG_XSP
+        /* save not-always-caller-saved regs */
+        push     REG_XSI
+        push     REG_XDI
+        /* memcpy(stack - sz, cur_esp, sz) */
+        sub      REG_XCX, REG_XDX /* sz = tos - cur_esp */
+        mov      REG_XSI, REG_XDX /* source = tos */
+        mov      REG_XDI, REG_XAX /* dest = stack - sz */
+        sub      REG_XDI, REG_XCX
+        sub      REG_XAX, REG_XCX /* before lose sz, calculate tos on stack */
+        rep movsb
+        /* restore and swap to cloned stack */
+        pop      REG_XDI
+        pop      REG_XSI
+        mov      REG_XSP, REG_XAX
+        ret
+        END_FUNC(clone_and_swap_stack)
 
 /*
  * dr_app_start - Causes application to run under Dynamo control 
@@ -1160,7 +1193,7 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
         END_FUNC(dynamorio_sigreturn)
 #endif
         
-#ifdef X64
+#if defined(X64) && defined(HAVE_SIGALTSTACK)
 /* PR 305020: for x64 we can't use args to get the original stack pointer,
  * so we use a stub routine here that adds a 4th arg to our C routine:
  *   master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
@@ -1172,6 +1205,88 @@ GLOBAL_LABEL(master_signal_handler:)
         /* master_signal_handler_C will do the ret */
         END_FUNC(master_signal_handler)
 #endif
+
+#ifndef HAVE_SIGALTSTACK
+/* PR 283149: if we're on the app stack now and we need to deliver
+ * immediately, we can't copy over our own sig frame w/ the app's, and we
+ * can't push the app's below ours and have continuation work.  One choice
+ * is to copy the frame to pending and assume we'll deliver right away.
+ * Instead we always swap to dstack, which also makes us a little more 
+ * transparent wrt running out of app stack or triggering app stack guard
+ * pages.  We do it in asm since it's ugly to swap stacks in the middle
+ * of a C routine: have to fix up locals + frame ptr, or jmp to start of
+ * func and clobber callee-saved regs (which messes up vmkernel sigreturn).
+ */
+        DECLARE_FUNC(master_signal_handler)
+GLOBAL_LABEL(master_signal_handler:)
+        mov      REG_XAX, ARG1
+        mov      REG_XCX, ARG2
+        mov      REG_XDX, ARG3
+        /* save args */
+        push     REG_XAX
+        push     REG_XCX
+        push     REG_XDX
+        /* make space for answers: struct clone_and_swap_args */
+        sub      REG_XSP, CLONE_AND_SWAP_STRUCT_SIZE
+        mov      REG_XAX, REG_XSP
+        /* call a C routine rather than writing everything in asm */
+        CALLC2(sig_should_swap_stack, REG_XAX, REG_XDX)
+        cmp      REG_XAX, 0
+        pop      REG_XAX /* clone_and_swap_args.stack */
+        pop      REG_XCX /* clone_and_swap_args.tos */
+        je       no_swap
+        /* calculate the offset between stacks */
+        mov      REG_XDX, REG_XAX
+        sub      REG_XDX, REG_XCX /* shift = stack - tos */
+# ifdef VMX86_SERVER
+        /* update the two parameters to sigreturn for new stack
+         * we can eliminate this once we have PR 405694
+         */
+#  ifdef X64
+        add      r12, REG_XDX     /* r12 += shift */
+#  else
+        add      REG_XSI, REG_XDX /* xsi += shift */
+#  endif
+        add      REG_XBP, REG_XDX /* xbp += shift */
+# endif
+        push     REG_XDX
+        CALLC2(clone_and_swap_stack, REG_XAX, REG_XCX)
+        /* get shift back and update arg2 and arg3 */
+        pop      REG_XDX
+        pop      REG_XCX /* arg3 */
+        pop      REG_XAX /* arg2 */
+        add      REG_XAX, REG_XDX /* arg2 += shift */
+        add      REG_XCX, REG_XDX /* arg3 += shift */
+# ifndef X64
+        /* update the official arg2 and arg3 on the stack */
+        mov     [3*ARG_SZ + REG_XSP], REG_XAX  /* skip arg1+retaddr+arg1 */
+        mov     [4*ARG_SZ + REG_XSP], REG_XCX
+# endif
+        push     REG_XAX
+        push     REG_XCX
+        /* need to get arg1, old frame, new frame */
+        mov      REG_XAX, [4*ARG_SZ + REG_XSP] /* skip 3 args + retaddr */
+        neg      REG_XDX
+        add      REG_XDX, REG_XSP /* xsp-shift = old frame */
+        mov      REG_XCX, REG_XSP
+        add      REG_XCX, 3*ARG_SZ /* new frame */
+        /* have to be careful about order of reg params */
+        CALLC5(fixup_rtframe_pointers, 0, REG_XAX, REG_XDX, REG_XCX, 0)
+no_swap:
+# ifdef X64
+        pop      ARG3
+        pop      ARG2
+        pop      ARG1
+        mov      rcx, rsp /* pass as 4th arg */
+# else
+        add      REG_XSP, 3*ARG_SZ
+# endif
+        jmp      master_signal_handler_C
+        /* shouldn't return */
+        jmp      unexpected_return
+        ret
+        END_FUNC(master_signal_handler)
+#endif /* !HAVE_SIGALTSTACK */
 
 #endif /* LINUX */
 
