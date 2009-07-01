@@ -746,8 +746,8 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
 #ifdef X64
     }
 #endif
-    if (vmh->start_addr == NULL && DYNAMO_OPTION(vm_allow_not_at_base)) {
-        SYSLOG_INTERNAL_WARNING("Preferred vmm heap allocation failed");
+    while (vmh->start_addr == NULL && DYNAMO_OPTION(vm_allow_not_at_base)) {
+        SYSLOG_INTERNAL_WARNING_ONCE("Preferred vmm heap allocation failed");
         /* need extra size to ensure alignment */
         vmh->alloc_size = size + VMM_BLOCK_SIZE;
 #ifdef X64
@@ -762,7 +762,18 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
 #endif
         vmh->start_addr = (heap_pc) ALIGN_FORWARD(vmh->alloc_start, VMM_BLOCK_SIZE);
         LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init unable to allocate at preferred="
-            PFX" letting OS place got start_addr="PFX" \n", preferred, vmh->start_addr);
+            PFX" letting OS place sz=%dM addr="PFX" \n",
+            preferred, size/(1024*1024), vmh->start_addr);
+        if (DYNAMO_OPTION(vm_allow_smaller)) {
+            /* Just a little smaller might fit */
+            size_t sub = (size_t) ALIGN_FORWARD(size/16, 1024*1024);
+            SYSLOG_INTERNAL_WARNING_ONCE("Full size vmm heap allocation failed");
+            if (size > sub)
+                size -= sub;
+            else
+                break;
+        } else
+            break;
     }
 #ifdef X64
     ASSERT(vmh->start_addr >= heap_allowable_region_start &&
@@ -1689,7 +1700,7 @@ report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
                              );
 
         /* FIXME: case 7306 can't specify arguments in SYSLOG_CUSTOM_NOTIFY */
-        SYSLOG_INTERNAL_WARNING("OOM Status: %s %s\n", oom_source_code, status_hex); 
+        SYSLOG_INTERNAL_WARNING("OOM Status: %s %s", oom_source_code, status_hex); 
 
         /* FIXME: case 7296 - ldmp even if we have decided not to produce an event above */
         if (TEST(DUMPCORE_OUT_OF_MEM, DYNAMO_OPTION(dumpcore_mask)))

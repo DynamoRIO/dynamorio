@@ -1171,6 +1171,8 @@
     OPTION_DEFAULT(bool, vm_allow_not_at_base, true, "if we can't allocate vm heap at "
                    "preferred base (plus random jitter) allow the os to choose where to "
                    "place it instead of dying")
+    OPTION_DEFAULT(bool, vm_allow_smaller, true, "if we can't allocate vm heap of "
+                   "requested size, try smaller sizes instead of dying")
 #ifdef X64
     /* For linux, we assume our preferred address gets us <4GB as well: if that
      * has issues we should make them independent (PR 253624).
