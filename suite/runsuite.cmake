@@ -28,17 +28,19 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Unfinished features in i#66:
+# Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
-# * use the features in the latest CTest: -W, -j
 # * ssh support for running on remote machines: copy, disable pdbs, run
+# * i#111: use the features in the latest CTest: -W, -j
 
 cmake_minimum_required (VERSION 2.2)
 
 # arguments are a ;-separated list (must escape as \; from ctest_run_script())
-set(arg_nightly OFF)
-set(arg_long OFF)
-set(arg_include "")
+set(arg_nightly OFF)  # whether to report the results
+set(arg_long OFF)     # whether to run the long suite
+set(arg_include "")   # cmake file to include up front
+set(arg_preload "")   # cmake file to include prior to each 32-bit build
+set(arg_preload64 "") # cmake file to include prior to each 64-bit build
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "nightly")
@@ -50,6 +52,12 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} MATCHES "^include=")
     string(REGEX REPLACE "^include=" "" arg_include "${arg}")
   endif (${arg} MATCHES "^include=")
+  if (${arg} MATCHES "^preload=")
+    string(REGEX REPLACE "^preload=" "" arg_preload "${arg}")
+  endif (${arg} MATCHES "^preload=")
+  if (${arg} MATCHES "^preload64=")
+    string(REGEX REPLACE "^preload64=" "" arg_preload64 "${arg}")
+  endif (${arg} MATCHES "^preload64=")
 endforeach (arg)
 
 # allow setting the base cache variables via an include file
@@ -156,6 +164,20 @@ endif (UNIX)
 # returns the build dir in "last_build_dir"
 function(testbuild_ex name is64 initial_cache build_args)
   set(CTEST_BUILD_NAME "${name}")
+  # Support other VC installations than VS2005 via pre-build include file.
+  # Preserve path so include file can simply prepend each time.
+  set(pre_path "$ENV{PATH}")
+  if (is64)
+    set(preload_file "${arg_preload64}")
+  else (is64)
+    set(preload_file "${arg_preload}")
+  endif (is64)
+  if (preload_file)
+    # Command-style CTest (i.e., using ctest_configure(), etc.) does
+    # not support giving args to CTEST_CMAKE_COMMAND so we are forced
+    # to do an include() instead of -C
+    include("${preload_file}")
+  endif (preload_file)
   # support "make install"
   set(CTEST_BUILD_COMMAND "${CTEST_BUILD_COMMAND_BASE} ${build_args}")
   set(CTEST_BINARY_DIRECTORY "${BINARY_BASE}/build_${CTEST_BUILD_NAME}")
@@ -170,6 +192,9 @@ function(testbuild_ex name is64 initial_cache build_args)
   file(WRITE "${CTEST_BINARY_DIRECTORY}/CMakeCache.txt" "${CTEST_INITIAL_CACHE}")
 
   if (WIN32)
+    # If other compilers also on path ensure we pick cl
+    set(ENV{CC} "cl")
+    set(ENV{CXX} "cl")
     # Convert env vars to run proper compiler.
     # Note that this is fragile and won't work with non-standard
     # directory layouts: we assume standard VS2005 or SDK.
@@ -224,6 +249,7 @@ function(testbuild_ex name is64 initial_cache build_args)
   if (DO_SUBMIT)
     ctest_submit()
   endif (DO_SUBMIT)
+  set(ENV{PATH} "${pre_path}")
 endfunction(testbuild_ex)
 
 function(testbuild name is64 initial_cache)
