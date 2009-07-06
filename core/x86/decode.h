@@ -683,6 +683,11 @@ DR_API
 byte 
 decode_first_opcode_byte(int opcode);
 
+DR_API
+/** Given an OP_ constant, returns the string name of its opcode. */
+const char *
+decode_opcode_name(int opcode);
+
 /* DR_API EXPORT TOFILE dr_ir_opcodes.h */
 
 /* exported tables */

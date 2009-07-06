@@ -1656,6 +1656,14 @@ decode_first_opcode_byte(int opcode)
     return (byte)((info->opcode & 0x00ff0000) >> 16);
 }
 
+DR_API
+const char * 
+decode_opcode_name(int opcode)
+{
+    const instr_info_t * info = op_instr[opcode];
+    return info->name;
+}
+
 #ifdef DECODE_UNIT_TEST
 # include "instr_create.h"
 
