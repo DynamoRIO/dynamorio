@@ -114,6 +114,7 @@ The changes between version 1.4.1 and 1.4.0 are:
  - Clone record is now passed via dstack instead of ebp (Issue 149)
  - Fixed close() syscall handling, !HAVE_TLS assert & minor issues (Issue 151)
  - Added dr_memory_is_dr_internal()
+ - Added dr_get_parent_id()
 
 The changes between version 1.4.0 and 1.3.2 are:
 

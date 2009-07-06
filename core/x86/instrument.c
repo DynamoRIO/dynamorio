@@ -1793,6 +1793,15 @@ dr_get_process_id(void)
     return (process_id_t) get_process_id();
 }
 
+#ifdef LINUX
+DR_API 
+process_id_t
+dr_get_parent_id(void)
+{
+    return get_parent_id();
+}
+#endif
+
 #ifdef WINDOWS
 DR_API
 bool

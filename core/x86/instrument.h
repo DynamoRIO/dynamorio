@@ -1161,6 +1161,16 @@ DR_API
 process_id_t
 dr_get_process_id(void);
 
+#ifdef LINUX
+DR_API 
+/**
+ * Returns the process id of the parent of the current process. 
+ * \note Linux only.
+ */
+process_id_t
+dr_get_parent_id(void);
+#endif
+
 #ifdef WINDOWS
 DR_API
 /** 
