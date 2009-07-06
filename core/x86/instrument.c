@@ -2047,6 +2047,14 @@ dr_safe_write(void *base, size_t size, const void *in_buf, size_t *bytes_written
     return safe_write_ex(base, size, in_buf, bytes_written);
 }
 
+DR_API
+bool
+dr_memory_is_dr_internal(const byte *pc)
+{
+    return is_dynamo_address((app_pc)pc);
+}
+
+
 DR_API 
 /* Initializes a mutex
  */

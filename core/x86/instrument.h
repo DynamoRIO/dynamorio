@@ -1321,6 +1321,9 @@ DR_API
  * start address of the memory region continaing \p pc, \p size is the
  * size of said memory region and \p prot is an ORed combination of
  * DR_MEMPROT_* flags describing its current protection.
+ *
+ * \note To examine only application memory, skip memory for which
+ * dr_memory_is_dr_internal() returns true.
  */
 bool
 dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot);
@@ -1332,6 +1335,9 @@ DR_API
  * free regions) and sets the fields of \p info.  This routine can be
  * used to iterate over the entire address space.
  * Returns false on failure.
+ *
+ * \note To examine only application memory, skip memory for which
+ * dr_memory_is_dr_internal() returns true.
  */
 bool
 dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
@@ -1383,6 +1389,15 @@ DR_API
  */
 bool
 dr_memory_protect(void *base, size_t size, uint new_prot);
+
+DR_API
+/**
+ * Returns true iff pc is memory allocated by DR for its own
+ * purposes, and would not exist if the application were run
+ * natively.
+ */
+bool
+dr_memory_is_dr_internal(const byte *pc);
 
 /* DR_API EXPORT BEGIN */
 
