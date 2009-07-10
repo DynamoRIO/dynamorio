@@ -2799,7 +2799,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         if (can_always_delay[sig])
             return;
         else
-            exit_syscall(1);
+            exit_process_syscall(1);
     }
 
     /* we may be entering dynamo from code cache! */

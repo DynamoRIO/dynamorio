@@ -476,7 +476,7 @@
      * we decide to provide our ldmp tools externally.
      */
     DYNAMIC_OPTION_DEFAULT(uint, dumpcore_mask,
-                           IF_INTERNAL_ELSE(IF_DEBUG_ELSE_0(0xbff), 0),
+                           IF_INTERNAL_ELSE(IF_DEBUG_ELSE_0(0x8bff), 0),
                            "indicate events to dump core on")
     IF_LINUX(OPTION_ALIAS(pause_on_error, dumpcore_mask, DUMPCORE_OPTION_PAUSE,
                           STATIC, OP_PCACHE_NOP))

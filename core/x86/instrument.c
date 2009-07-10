@@ -1732,6 +1732,8 @@ DR_API
 void
 dr_abort(void)
 {
+    if (TEST(DUMPCORE_DR_ABORT, dynamo_options.dumpcore_mask))
+        os_dump_core("dr_abort");
     os_terminate(NULL, TERMINATE_PROCESS);
 }
 

@@ -213,18 +213,18 @@ void stackdump()
              */
             if (!set_default_signal_action(SIGABRT)) {
                 SYSLOG_INTERNAL_ERROR("ERROR in setting handler");
-                exit_syscall(1);
+                exit_process_syscall(1);
             }
             dynamorio_syscall(SYS_kill, 2, get_process_id(), SIGABRT);
         }
 #if VERBOSE
         SYSLOG_INTERNAL_ERROR("about to exit process %d", get_process_id());
 #endif
-        exit_syscall(0);
+        exit_process_syscall(0);
     }
     else if (pid == -1) {
         SYSLOG_INTERNAL_ERROR("ERROR: could not fork to dump core");
-        exit_syscall(1);
+        exit_process_syscall(1);
     }
 #if VERBOSE
     SYSLOG_INTERNAL_ERROR("parent %d %d waiting for child %d", get_process_id(),
@@ -253,7 +253,7 @@ void stackdump()
         fd = open_syscall(tmp_name, O_RDONLY, 0);
         if (fd < 0) {
             SYSLOG_INTERNAL_ERROR("ERROR: open failed on temporary file");
-            exit_syscall(1);
+            exit_process_syscall(1);
         }
 #if !BATCH_MODE
         /* Redirect stdin from the temporary file */
@@ -272,7 +272,7 @@ void stackdump()
             fd = open_syscall(core_name, O_RDONLY, 0);
             if (fd < 0) {
                 SYSLOG_INTERNAL_ERROR("ERROR: no core file found!");
-                exit_syscall(1);
+                exit_process_syscall(1);
             }
         }
         close_syscall(fd);
@@ -294,11 +294,11 @@ void stackdump()
         execlp(DEBUGGER, DEBUGGER, QUIET_MODE, exec_name, core_name, NULL);
 #endif
         SYSLOG_INTERNAL_ERROR("ERROR: execlp failed for debugger");
-        exit_syscall(1);
+        exit_process_syscall(1);
     }
     else if (pid == -1) {
         SYSLOG_INTERNAL_ERROR("ERROR: could not fork to run debugger");
-        exit_syscall(1);
+        exit_process_syscall(1);
     }
     /* Parent continues */
     /* while(wait(NULL)>0) waits for all children, and could hang, so: */

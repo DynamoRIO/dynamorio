@@ -87,7 +87,8 @@ int close_syscall(int fd);
 int dup_syscall(int fd);
 ssize_t read_syscall(int fd, void *buf, size_t nbytes);
 ssize_t write_syscall(int fd, const void *buf, size_t nbytes);
-void exit_syscall(long status);
+void exit_process_syscall(long status);
+void exit_thread_syscall(long status);
 process_id_t get_parent_id(void);
 
 /* to avoid pthreads problems we must have our own vnsprintf */

@@ -228,6 +228,9 @@ enum {
     DUMPCORE_HOTP_DETECTION     = 0x2000, /* not on by default in DEBUG */
     DUMPCORE_HOTP_PROTECTION    = 0x4000, /* not on by default in DEBUG */
 #endif
+#ifdef CLIENT_INTERFACE
+    DUMPCORE_DR_ABORT           = 0x8000,
+#endif
     /* all exception cases here are off by default since we expect them to
      * usually be the app's fault (or normal behavior for the app) */
     DUMPCORE_FORGE_ILLEGAL_INST = 0x10000,
@@ -250,6 +253,9 @@ enum {
                                   DUMPCORE_UNSUPPORTED_APP    |
                                   DUMPCORE_TIMEOUT            |
                                   DUMPCORE_CURIOSITY          |
+# ifdef CLIENT_INTERFACE
+                                  DUMPCORE_DR_ABORT           |
+# endif
                                   DUMPCORE_OUT_OF_MEM         |
                                   DUMPCORE_OUT_OF_MEM_SILENT,
 #endif

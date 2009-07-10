@@ -578,10 +578,7 @@ os_terminate(dcontext_t *dcontext, terminate_flags_t flags)
 {
     /* FIXME: terminate type is ignored */
     ASSERT_NOT_IMPLEMENTED(flags == TERMINATE_PROCESS);
-    /* FIXME PR 416504: kill entire thread group if linux kernel supports groups; else,
-     * if tid==pid and no groups, try to hack it?
-     */
-    exit_syscall(1);
+    exit_process_syscall(1);
 }
 
 int 
@@ -2332,9 +2329,24 @@ os_get_disk_free_space(/*IN*/ file_t file_handle,
 }
 
 void
-exit_syscall(long status)
+exit_process_syscall(long status)
 {
-    /* FIXME PR 416504: some callers want SYS_exit_group */
+    /* We now assume SYS_exit_group is defined: not building on old machines,
+     * but will execute there.  We try exit_group and if it fails we use exit.
+     *
+     * FIXME: if no exit_group, kill all other threads (==processes in same addr
+     * space) manually?  Presumably we got here b/c at an unsafe point to do
+     * full exit?  Or is that not true: what about dr_abort()?
+     */
+    dynamorio_syscall(SYS_exit_group, 1, status);
+    /* would assert that result is -ENOSYS but assert likely calls us => infinite loop */
+    exit_thread_syscall(status);
+    ASSERT_NOT_REACHED();
+}
+
+void
+exit_thread_syscall(long status)
+{
     dynamorio_syscall(SYS_exit, 1, status);
 }
 
