@@ -310,6 +310,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
   if (UNIX)
     set(tgt_cflags "${tgt_cflags} -DLINUX")
     if (is_client)
+
       if (NOT DEFINED DynamoRIO_VISATT)
         # Try to automatically determine visibility
         if ("${tgt_cflags}" MATCHES "-fvisibility=hidden|-fvisibility=internal")
@@ -322,9 +323,25 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
       if (tgt_cxx)
         set(tgt_link_flags "${tgt_link_flags} ${DynamoRIO_CXX_LINK_FLAGS}")
       endif (tgt_cxx)
+
       # avoid SElinux text relocation security violations by explicitly requesting PIC
       set(tgt_link_flags 
         "${tgt_link_flags} -fPIC -shared -nostartfiles -nodefaultlibs -lgcc")
+
+      # i#163: avoid stack-check feature that relies on separate library
+      execute_process(COMMAND
+        ${CMAKE_C_COMPILER} -v --help
+        RESULT_VARIABLE gcc_result
+        ERROR_QUIET
+        OUTPUT_VARIABLE gcc_out)
+      if (gcc_result)
+        message(FATAL_ERROR "*** ${CMAKE_C_COMPILER} failed to run ***\n")
+      endif (gcc_result)
+      string(REGEX MATCH "fstack-protector" flag_present "${gcc_out}")
+      if (flag_present)
+        set(tgt_cflags "${tgt_cflags} -fno-stack-protector")
+      endif (flag_present)
+
     endif (is_client)
     # gcc is invoked for the link step so we have to repeat cflags as well
     set(tgt_link_flags "${tgt_cflags} ${tgt_link_flags}")
