@@ -1654,7 +1654,8 @@ mmap_syscall_succeeded(byte *retval)
      */
     bool fail = (result < 0 && result >= -PAGE_SIZE);
     ASSERT_CURIOSITY(!fail ||
-                     IF_VMX86(result == -ENOENT  ||)
+                     IF_VMX86(result == -ENOENT ||)
+                     IF_VMX86(result == -ENOSPC ||)
                      result == -EBADF   ||
                      result == -EACCES  ||
                      result == -EINVAL  ||
