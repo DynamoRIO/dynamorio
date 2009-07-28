@@ -269,6 +269,7 @@ following sub-sections:
  - \ref sec_build
  - \ref sec_extlibs
  - \ref sec_comm
+ - \ref sec_64bit_reach
  - \ref sec_options
  - \ref sec_debugging
 \endif
@@ -738,6 +739,18 @@ be sure to \ref sec_trans_floating_point "save the application's floating
 point state" so as to avoid corrupting it.
 
 ***************************************************************************
+\section sec_64bit_reach 64-Bit Reachability
+
+To simplify reachability in a 64-bit address space, \DynamoRIO guarantees
+that all of its code caches and heap are within the same 2GB memory region.
+\DynamoRIO also loads \client libraries within 32-bit reachability of its
+code caches and heap (which currently requires that \client libraries have
+preferred bases in the lower 2GB of the address space: see \ref
+limits_64bit).  This means that any static data or code in a \client
+library, or any data allocated using \DynamoRIO's API, is guaranteed to be
+directly reachable from code cache code.
+
+***************************************************************************
 \section sec_build Building a \Client
 
 To use the \DynamoRIO API, a \client should include the main \DynamoRIO
@@ -831,14 +844,16 @@ gcc -fPIC -shared -nostartfiles -nodefaultlibs -lgcc -DLINUX -DX86_32
 And for \p cl:
 
 \code
-cl my-client.c /I$DYNAMORIO_HOME/include /link /NODEFAULTLIB /NOENTRY
+cl my-client.c /I$DYNAMORIO_HOME/include /GS- /DWINDOWS /DX86_32
+   /link /NODEFAULTLIB /NOENTRY
    /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:my-client.dll 
 \endcode
 
 For a 64-bit \client with \p cl:
 
 \code
-cl my-client.c /I$DYNAMORIO_HOME/include /link /NODEFAULTLIB /NOENTRY
+cl my-client.c /I$DYNAMORIO_HOME/include /GS- /DWINDOWS /DX86_64
+   /link /NODEFAULTLIB /NOENTRY
    /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:my-client.dll 
    /base:0x72000000 /fixed
 \endcode

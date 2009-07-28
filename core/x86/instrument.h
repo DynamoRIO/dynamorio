@@ -1487,7 +1487,7 @@ struct _module_data_t {
                            * this module */
 
     char *full_path; /**< full path to the file backing this module;
-                      * currently not implemented (always NULL) */
+                      * currently not implemented (always NULL): i#138 */
 
 #ifdef WINDOWS
     version_number_t file_version; /**< file version number from .rsrc section */
@@ -1763,7 +1763,15 @@ DR_API
  * If no such file exists then one is created.
  * The file access mode is set by the \p mode_flags argument which is drawn from
  * the DR_FILE_* defines ORed together.  Returns INVALID_FILE if unsuccessful.
+ *
  * \note No more then one write mode flag can be specified.
+ *
+ * \note DR does not hide files opened by clients from the
+ * application, to allow clients to open application files and other
+ * forms of interaction.  Some applications close all file
+ * descriptors, and clients may want to watch for the close system
+ * call and turn it into a nop (e.g., return -EBADF and not execute it
+ * on Linux) if targeting a client-owned filed.
  */
 file_t
 dr_open_file(const char *fname, uint mode_flags);
@@ -1952,6 +1960,8 @@ DR_API
  * application's own printing.  Currently non-buffered.
  * \note On Windows, this routine does not support printing floating
  * point values.  Use dr_snprintf() instead.
+ * \note If the data to be printed is large it will be truncated to
+ * an internal buffer size.
  */
 void 
 dr_printf(const char *fmt, ...);
@@ -1962,6 +1972,8 @@ DR_API
  * application's own printing.  Currently non-buffered.
  * \note On Windows, this routine does not support printing floating
  * point values.  Use dr_snprintf() instead.
+ * \note If the data to be printed is large it will be truncated to
+ * an internal buffer size.
  */
 void
 dr_fprintf(file_t f, const char *fmt, ...);
@@ -1979,6 +1991,8 @@ DR_API
  * \note This routine does not support printing wide characters.  On
  * Windows you can use _snprintf() instead (though _snprintf() does
  * not support printing floating point values).
+ * \note If the data to be printed is large it will be truncated to
+ * an internal buffer size.
  */
 int
 dr_snprintf(char *buf, size_t max, const char *fmt, ...);

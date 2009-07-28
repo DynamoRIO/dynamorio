@@ -252,6 +252,15 @@ cmake -DDynamoRIO_DIR=$DYNAMORIO_HOME/cmake $DYNAMORIO_HOME/samples
 make instrcalls
 \endcode
 
+To build 32-bit samples when using gcc with a default of 64-bit, use:
+
+\code
+mkdir build
+cd build
+CFLAGS=-m32 CXXFLAGS=-m32 cmake -DDynamoRIO_DIR=$DYNAMORIO_HOME/cmake $DYNAMORIO_HOME/samples
+make instrcalls
+\endcode
+
 The result is a shared library instrcalls.dll or libinstrcalls.so. To
 invoke the \client library, follow the instructions under \ref sec_deploy.
 

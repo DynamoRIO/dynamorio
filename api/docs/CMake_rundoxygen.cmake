@@ -73,7 +73,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/index.html "${string}")
 # Add link to home page to treeview pane
 file(APPEND 
   ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html 
-  "<p>&nbsp;<a target=\"main\" href=\"http://code.google.com/p/dynamorio/\">DynamoRIO Home Page</a></p>")
+  "<p>&nbsp;<a target=\"main\" href=\"http://dynamorio.org/\">DynamoRIO Home Page</a></p>")
 
 # Add our logo to treeview pane (yes there is no closing </body></html>)
 file(APPEND 

@@ -441,6 +441,7 @@ not supported.
     through the Windows-On-Windows or WOW64 emulator so system call and
     indirect call processing \clients must be aware of
     #instr_is_wow64_syscall().
+\anchor limits_64bit
   - This release of \DynamoRIO supports running
     64-bit Windows applications, using the 64-bit \DynamoRIO build, on
     the following 64-bit Windows systems: Windows XP Professional x64
