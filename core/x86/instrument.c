@@ -2925,7 +2925,7 @@ dr_swap_to_clean_stack(void *drcontext, instrlist_t *ilist, instr_t *where)
     /* PR 219620: For thread-shared, we need to get the dcontext
      * dynamically rather than use the constant passed in here.
      */
-    if (SHARED_FRAGMENTS_ENABLED()) {
+    if (SCRATCH_ALWAYS_TLS()) {
         MINSERT(ilist, where, instr_create_save_to_tls
                 (dcontext, REG_XAX, TLS_XAX_SLOT));
         insert_get_mcontext_base(dcontext, ilist, where, REG_XAX);
@@ -2956,7 +2956,7 @@ dr_restore_app_stack(void *drcontext, instrlist_t *ilist, instr_t *where)
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_restore_app_stack: drcontext is invalid");
     /* restore stack */
-    if (SHARED_FRAGMENTS_ENABLED()) {
+    if (SCRATCH_ALWAYS_TLS()) {
         /* use the register we're about to clobber as scratch space */        
         insert_get_mcontext_base(dcontext, ilist, where, REG_XSP);
         MINSERT(ilist, where, instr_create_restore_from_dc_via_reg
@@ -3006,7 +3006,7 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
     } else {
         reg_id_t reg_slot = SPILL_SLOT_MC_REG[slot - NUM_TLS_SPILL_SLOTS];
         int offs = opnd_get_reg_dcontext_offs(reg_slot);
-        if (SHARED_FRAGMENTS_ENABLED()) {
+        if (SCRATCH_ALWAYS_TLS()) {
             /* PR 219620: For thread-shared, we need to get the dcontext
              * dynamically rather than use the constant passed in here.
              */
@@ -3051,7 +3051,7 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
     } else {
         reg_id_t reg_slot = SPILL_SLOT_MC_REG[slot - NUM_TLS_SPILL_SLOTS];
         int offs = opnd_get_reg_dcontext_offs(reg_slot);
-        if (SHARED_FRAGMENTS_ENABLED()) {
+        if (SCRATCH_ALWAYS_TLS()) {
             /* PR 219620: For thread-shared, we need to get the dcontext
              * dynamically rather than use the constant passed in here.
              */
@@ -3070,7 +3070,7 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
 DR_API dr_spill_slot_t
 dr_max_opnd_accessible_spill_slot()
 {
-    if (SHARED_FRAGMENTS_ENABLED())
+    if (SCRATCH_ALWAYS_TLS())
         return SPILL_SLOT_TLS_MAX;
     else
         return SPILL_SLOT_MAX;
@@ -3095,7 +3095,7 @@ dr_reg_spill_slot_opnd(void *drcontext, dr_spill_slot_t slot)
     } else {
         reg_id_t reg_slot = SPILL_SLOT_MC_REG[slot - NUM_TLS_SPILL_SLOTS];
         int offs = opnd_get_reg_dcontext_offs(reg_slot);
-        ASSERT(!SHARED_FRAGMENTS_ENABLED()); /* client assert above should catch */
+        ASSERT(!SCRATCH_ALWAYS_TLS()); /* client assert above should catch */
         return opnd_create_dcontext_field(dcontext, offs);
     }
 }
@@ -3169,7 +3169,7 @@ dr_insert_read_tls_field(void *drcontext, instrlist_t *ilist, instr_t *where,
                   "dr_insert_read_tls_field: drcontext cannot be NULL");
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "must use a pointer-sized general-purpose register");
-    if (SHARED_FRAGMENTS_ENABLED()) {
+    if (SCRATCH_ALWAYS_TLS()) {
         /* For thread-shared, since reg must be general-purpose we can
          * use it as a base pointer (repeatedly).  Plus it's already dead.
          */
@@ -3202,7 +3202,7 @@ dr_insert_write_tls_field(void *drcontext, instrlist_t *ilist, instr_t *where,
                   "dr_insert_write_tls_field: drcontext cannot be NULL");
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "must use a pointer-sized general-purpose register");
-    if (SHARED_FRAGMENTS_ENABLED()) {
+    if (SCRATCH_ALWAYS_TLS()) {
         reg_id_t spill = REG_XAX;
         if (reg == spill) /* don't need sub-reg test b/c we know it's pointer-sized */
             spill = REG_XDI;

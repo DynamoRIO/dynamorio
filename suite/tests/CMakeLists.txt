@@ -803,9 +803,9 @@ function(torun_ci name test ops)
     # can use the unlink flush routines or not which depends on having
     # either -thread_private or -enable_full_api We check here and pass
     # a client option if the unlink flush is safe to use.
-    if ("${ops}" MATCHES "(-thread_private|-enable_full_api)")
+    if ("${ops} ${TEST_OPTIONS}" MATCHES "(-thread_private|-enable_full_api)")
       set(cli_ops "use_unlink")
-    endif ("${ops}" MATCHES "(-thread_private|-enable_full_api)")
+    endif ()
   endif ("${test}" MATCHES "client\\.flush")
   # note that we cannot use double quotes as they'll be stripped out
   torun("${name}" ${test} ${${test}_source} OFF

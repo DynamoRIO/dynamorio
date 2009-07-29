@@ -297,6 +297,14 @@ set_dynamo_options(options_t *options, char *optstr);
 #define SHARED_FRAGMENTS_ENABLED() \
     (DYNAMO_OPTION(shared_bbs) || DYNAMO_OPTION(shared_traces))
 
+/* PR 244737: for x64 we use a "unified" scheme were thread-shared and
+ * thread-private code always uses TLS for scratch space, eliminating
+ * reachability issues.  We require -private_ib_in_tls for x64 as well
+ * as for SHARED_FRAGMENTS_ENABLED and use that option to also
+ * cover non-ib scratch space.
+ */
+#define SCRATCH_ALWAYS_TLS() (DYNAMO_OPTION(private_ib_in_tls))
+
 /* are any traces (potentially) private? */
 /* FIXME Fix this if we permit private & shared traces to co-exist */
 #define PRIVATE_TRACES_ENABLED() \

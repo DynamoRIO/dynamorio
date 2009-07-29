@@ -472,7 +472,7 @@ prepare_for_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
      * dynamically rather than use the constant passed in here.  Save
      * away xax in a TLS slot and then load the dcontext there.
      */
-    if (SHARED_FRAGMENTS_ENABLED()) {
+    if (SCRATCH_ALWAYS_TLS()) {
         PRE(ilist, instr, instr_create_save_to_tls
             (dcontext, REG_XAX, TLS_XAX_SLOT));
 
@@ -541,7 +541,7 @@ prepare_for_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 #else
     /* put shared errno on stack, for symmetry w/ win32, rather than
      * into app storage slot */
-    if (SHARED_FRAGMENTS_ENABLED()) {
+    if (SCRATCH_ALWAYS_TLS()) {
         /* eax is dead here (already saved to stack) */
         insert_get_mcontext_base(dcontext, ilist, instr, REG_XAX);
         PRE(ilist, instr, instr_create_restore_from_dc_via_reg
@@ -588,7 +588,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
      * overwrite the app's error code) */
     preinsert_set_last_error(dcontext, ilist, instr, REG_EAX);
 #else
-    if (SHARED_FRAGMENTS_ENABLED()) {
+    if (SCRATCH_ALWAYS_TLS()) {
         /* xbx is dead (haven't restored yet) and eax contains the errno */
         insert_get_mcontext_base(dcontext, ilist, instr, REG_XBX);
         PRE(ilist, instr, instr_create_save_to_dc_via_reg
@@ -608,7 +608,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     /* Swap stacks back.  For thread-shared, we need to get the dcontext
      * dynamically.  Save xax in TLS so we can use it as scratch.
      */
-    if (SHARED_FRAGMENTS_ENABLED()) {
+    if (SCRATCH_ALWAYS_TLS()) {
         PRE(ilist, instr, instr_create_save_to_tls
             (dcontext, REG_XAX, TLS_XAX_SLOT));
 

@@ -56,7 +56,7 @@ static reg_t buf[] = { 0xcafebabe, 0xfeedadad, 0xeeeeeeee, 0xbadcabee };
 static void
 foo(reg_t a1, reg_t a2, reg_t a3, reg_t a4, reg_t a5, reg_t a6, reg_t a7, reg_t a8)
 {
-    dr_fprintf(STDERR, "foo "PFX" "PFX" "PFX" "PFX"\n    "PFX" "PFX" "PFX" "PFX" \n",
+    dr_fprintf(STDERR, "foo "PFX" "PFX" "PFX" "PFX"\n    "PFX" "PFX" "PFX" "PFX"\n",
                a1, 
                /* printing addr of buf would be non-deterministic */
                IF_X64_ELSE((a2 == (reg_t) buf) ? 1 : -1, a2),

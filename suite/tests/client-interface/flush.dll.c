@@ -152,8 +152,8 @@ void exit_event(void)
 
     dr_printf("%d undeleted fragments\n", count);
     /* get around nondeterminism */
-    if (bb_build_count >= 5 && bb_build_count <= 10)
-        dr_printf("constructed BB 5-10 times\n");
+    if (bb_build_count >= 5 && bb_build_count <= 15)
+        dr_printf("constructed BB 5-15 times\n");
     else
         dr_printf("constructed BB %d times\n", bb_build_count);
 }
