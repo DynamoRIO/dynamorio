@@ -4168,6 +4168,38 @@ is_execution_exception(EXCEPTION_RECORD *pExcptRec)
     return execution;
 }
 
+#ifdef CLIENT_INTERFACE
+static void
+client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
+                       EXCEPTION_RECORD * pExcptRec,
+                       dr_mcontext_t *raw_mcontext)
+{
+    /* We cannot use the heap, as clients are allowed to call dr_redirect_execution()
+     * and not come back.  So we use the stack, but we separate from
+     * intercept_exception() to avoid adding two mcontexts to its stack usage
+     * (we have to add one for the pre-translation raw_mcontext).
+     * We should only come here for in-fcache faults, so we should have
+     * plenty of stack space.
+     */
+    dr_exception_t einfo;
+    einfo.record = pExcptRec;
+    context_to_mcontext(&einfo.mcontext, cxt);
+    einfo.raw_mcontext = *raw_mcontext;
+    /* We allow client to change context */
+    if (instrument_exception(dcontext, &einfo)) {
+        mcontext_to_context(cxt, &einfo.mcontext);
+    } else {
+        mcontext_to_context(cxt, &einfo.raw_mcontext);
+        /* Now re-execute the faulting instr, or go to
+         * new context specified by client, skipping
+         * app exception handlers.
+         */
+        EXITING_DR();
+        nt_continue(cxt);
+    }
+}
+#endif
+
 /*
  * Exceptions:
  * Kernel gives control to KiUserExceptionDispatcher.
@@ -4247,6 +4279,9 @@ intercept_exception(app_state_at_intercept_t *state)
         /* if !takeover, we handle our-fault write faults, but then let go */
         bool takeover = intercept_asynch_for_self(false/*no unknown threads*/);
         bool thread_is_lost = false; /* temporarily native (UNDER_DYN_HACK) */
+#ifdef CLIENT_INTERFACE
+        dr_mcontext_t raw_mcontext;
+#endif
         DEBUG_DECLARE(bool known_source = false;)
         
         /* grab parameters to native method */
@@ -4386,6 +4421,8 @@ intercept_exception(app_state_at_intercept_t *state)
                                  get_application_name(), 
                                  get_application_pid(),
                                  excpt_addr);
+            if (TEST(DUMPCORE_INTERNAL_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
+                os_dump_core("exception in client");
             /* kill process on a crash in client code */
             os_terminate(NULL, TERMINATE_PROCESS);
         }
@@ -4694,6 +4731,12 @@ intercept_exception(app_state_at_intercept_t *state)
              */
             /* remember faulting pc */
             faulting_pc = (cache_pc) pExcptRec->ExceptionAddress;
+#ifdef CLIENT_INTERFACE
+            if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+                /* i#182/PR 449996: we provide the pre-translation context */
+                context_to_mcontext(&raw_mcontext, cxt);
+            }
+#endif
             /* For safe recreation we need to either be couldbelinking or hold the
              * initexit lock (to keep someone from flushing current fragment), the
              * initexit lock is easier
@@ -4789,10 +4832,7 @@ intercept_exception(app_state_at_intercept_t *state)
 #ifdef CLIENT_INTERFACE
             /* Inform client of exceptions */
             if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
-                dr_exception_t exception;
-                exception.record = pExcptRec;
-                context_to_mcontext(&exception.mcontext, cxt);
-                instrument_exception(dcontext, &exception);
+                client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext);
             }
 #endif
             /* Fixme : we could do this higher up in the function (before

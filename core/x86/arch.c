@@ -2588,13 +2588,18 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
         else
             res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
         /* should only happen for thread synch, not a fault */
-        ASSERT(res == RECREATE_SUCCESS_STATE /* clean call */ ||
-               tdcontext != get_thread_private_dcontext() ||
-               INTERNAL_OPTION(stress_recreate_pc) ||
-               /* we can currently fail for selfmod (PR 267764) and flushed (PR 208037)
-                * (and hotpatch, native_exec, and sysenter: but too rare to check) */
-               TEST(FRAG_SELFMOD_SANDBOXED, flags) ||
-               TEST(FRAG_WAS_DELETED, flags));
+        DODEBUG({
+            if (!(res == RECREATE_SUCCESS_STATE /* clean call */ ||
+                  tdcontext != get_thread_private_dcontext() ||
+                  INTERNAL_OPTION(stress_recreate_pc) ||
+                  /* we can currently fail for selfmod (PR 267764) and flushed (PR 208037)
+                   * (and hotpatch, native_exec, and sysenter: but too rare to check) */
+                  TEST(FRAG_SELFMOD_SANDBOXED, flags) ||
+                  TEST(FRAG_WAS_DELETED, flags))) {
+                CLIENT_ASSERT(false, "meta-instr faulted?  should mark as non-meta"
+                              " and set translation!");
+            }
+        });
         if (answer == NULL) {
             /* use next instr's translation.  skip any further meta-instrs regions. */
             for (; i < info->num_entries; i++) {
@@ -2735,9 +2740,14 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
                 else
                     res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
                 /* should only happen for thread synch, not a fault */
-                ASSERT(instr_is_our_mangling(inst) /* PR 302951 */ ||
-                       tdcontext != get_thread_private_dcontext() ||
-                       INTERNAL_OPTION(stress_recreate_pc));
+                DODEBUG({
+                    if (!(instr_is_our_mangling(inst) /* PR 302951 */ ||
+                          tdcontext != get_thread_private_dcontext() ||
+                          INTERNAL_OPTION(stress_recreate_pc))) {
+                        CLIENT_ASSERT(false, "meta-instr faulted?  should mark as "
+                                      "non-meta and set translation!");
+                    }
+                });
                 if (prev_ok == NULL) {
                     answer = start_app;
                     LOG(THREAD_GET, LOG_INTERP, 2,

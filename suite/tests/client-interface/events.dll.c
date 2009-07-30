@@ -379,7 +379,7 @@ bool filter_syscall_event2(void *drcontext, int sysnum)
 
 #ifdef WINDOWS
 static
-void exception_event_redirect(void *dcontext, dr_exception_t *excpt)
+bool exception_event_redirect(void *dcontext, dr_exception_t *excpt)
 {
     app_pc addr;
     dr_mcontext_t mcontext;
@@ -387,7 +387,7 @@ void exception_event_redirect(void *dcontext, dr_exception_t *excpt)
     dr_printf("exception event redirect\n");
     if (data == NULL) {
         dr_printf("couldn't find events.exe module\n");
-        return;
+        return true;
     }
     addr = (app_pc)dr_get_proc_address(data->handle, "redirect");
     dr_free_module_data(data);
@@ -395,14 +395,15 @@ void exception_event_redirect(void *dcontext, dr_exception_t *excpt)
     mcontext.pc = addr;
     if (addr == NULL) {
         dr_printf("Couldn't find function redirect in events.exe\n");
-        return;
+        return true;
     }
     dr_redirect_execution(&mcontext, 0);
     dr_printf("should not be reached, dr_redirect_execution() should not return\n");
+    return true;
 }
 
 static
-void exception_event1(void *dcontext, dr_exception_t *excpt)
+bool exception_event1(void *dcontext, dr_exception_t *excpt)
 {
     if (excpt->record->ExceptionCode == STATUS_ACCESS_VIOLATION)
         inc_count_first(EVENT_EXCEPTION_1, EVENT_EXCEPTION_2);
@@ -412,10 +413,11 @@ void exception_event1(void *dcontext, dr_exception_t *excpt)
 
     /* ensure we get our deletion events */
     dr_flush_region(excpt->record->ExceptionAddress, 1);
+    return true;
 }
 
 static
-void exception_event2(void *dcontext, dr_exception_t *excpt)
+bool exception_event2(void *dcontext, dr_exception_t *excpt)
 {    
     if (excpt->record->ExceptionCode == STATUS_ACCESS_VIOLATION)
         inc_count_second(EVENT_EXCEPTION_2);
@@ -424,6 +426,7 @@ void exception_event2(void *dcontext, dr_exception_t *excpt)
 
     if (!dr_unregister_exception_event(exception_event2))
         dr_printf("unregister failed!\n");
+    return true;
 }
 #else
 static

@@ -5772,8 +5772,15 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
     next_pc = probe_address(dcontext, (app_pc) pc, our_heap_start,
                             our_heap_end, &cur_prot);
     if (next_pc != pc) {
-        /* FIXME: should iterate the cases: if vmheap, return its bounds */
-        return false;
+        if (pc >= our_heap_start && pc < our_heap_end) {
+            /* Just making all readable for now */
+            start_pc = our_heap_start;
+            end_pc = our_heap_end;
+            cur_prot = MEMPROT_READ;
+        } else {
+            /* FIXME: should iterate rest of cases */
+            return false;
+        }
     } else {
         for (probe_pc = (app_pc) ALIGN_BACKWARD(pc, PAGE_SIZE) - PAGE_SIZE;
              probe_pc > (app_pc) NULL; probe_pc -= PAGE_SIZE) {

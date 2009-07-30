@@ -648,18 +648,44 @@ dr_unregister_module_unload_event(void (*func)(void *drcontext,
 typedef struct _dr_exception_t {
     dr_mcontext_t mcontext;   /**< Machine context at exception point. */
     EXCEPTION_RECORD *record; /**< Win32 exception record. */
+    /** 
+     * The raw pre-translated machine state at the exception interruption
+     * point inside the code cache.  Clients are cautioned when examining
+     * code cache instructions to not rely on any details of code inserted
+     * other than their own.
+     */
+    ALIGN_VAR(8)/*avoid differences in padding*/
+    dr_mcontext_t raw_mcontext;
 } dr_exception_t;
 /* DR_API EXPORT END */
 
 DR_API
 /**
- * Registers a callback function for the exception event.  DR calls \p
- * func whenever the application throws an exception.  \note Only
- * valid on Windows. \note The function is not called for
- * RaiseException.
+ * Registers a callback function for the exception event.  DR calls \p func
+ * whenever the application throws an exception.  If \p func returns true,
+ * the exception is delivered to the application's handler along with any
+ * changes made to \p excpt->mcontext.  If \p func returns false, the
+ * faulting instruction in the code cache is re-executed using \p
+ * excpt->raw_mcontext, including any changes made to that structure.
+ * Clients are expected to use \p excpt->raw_mcontext when using faults as
+ * a mechanism to push rare cases out of an instrumentation fastpath that
+ * need to examine instrumentation instructions rather than the translated
+ * application state and should normally not examine it for application
+ * instruction faults.  Certain registers may not contain proper
+ * application values in \p excpt->raw_mcontext for exceptions in
+ * application instructions.  Clients are cautioned against relying on any
+ * details of code cache layout or register usage beyond instrumentation
+ * inserted by the client itself when examining \p excpt->raw_mcontext.
+ *
+ * To skip the passing of the exception to the application's exception
+ * handlers and to send control elsewhere instead, a client can call
+ * dr_redirect_execution() from \p func.
+ *
+ * \note Only valid on Windows.
+ * \note The function is not called for RaiseException.
  */
 void
-dr_register_exception_event(void (*func)(void *drcontext, dr_exception_t *excpt));
+dr_register_exception_event(bool (*func)(void *drcontext, dr_exception_t *excpt));
 
 DR_API
 /**
@@ -668,7 +694,7 @@ DR_API
  * (e.g., \p func was not registered).
  */
 bool
-dr_unregister_exception_event(void (*func)(void *drcontext, dr_exception_t *excpt));
+dr_unregister_exception_event(bool (*func)(void *drcontext, dr_exception_t *excpt));
 /* DR_API EXPORT BEGIN */
 #endif /* WINDOWS */
 /* DR_API EXPORT END */
@@ -804,9 +830,26 @@ dr_unregister_post_syscall_event(void (*func)(void *drcontext, int sysnum));
  * information.
  */
 typedef struct _dr_siginfo_t {
-    int sig;                /**< The signal number. */
-    void *drcontext;        /**< The context of the thread receiving the signal. */
-    dr_mcontext_t mcontext; /**< The machine state at the signal interruption point. */
+    /** The signal number. */
+    int sig;
+    /** The context of the thread receiving the signal. */
+    void *drcontext;
+    /** The application machine state at the signal interruption point. */
+    dr_mcontext_t mcontext;
+    /** 
+     * The raw pre-translated machine state at the signal interruption
+     * point inside the code cache.  NULL for delayable signals.  Clients
+     * are cautioned when examining code cache instructions to not rely on
+     * any details of code inserted other than their own.
+     */
+    dr_mcontext_t raw_mcontext;
+    /** Whether raw_mcontext is valid. */
+    bool raw_mcontext_valid;
+    /**
+     * For SIGBUS and SIGSEGV, the address whose access caused the signal
+     * to be raised (as calculated by DR).
+     */
+    byte *access_address;
 } dr_siginfo_t;
 
 /**
@@ -835,14 +878,31 @@ DR_API
 /**
  * Requests that DR call the provided callback function \p func whenever a
  * signal is received by any application thread.  The return value of \p
- * func determines whether DR delivers the signal to the application.  The
- * callback function will be called even if the application has no handler
- * or has registered a SIG_IGN or SIG_DFL handler.
+ * func determines whether DR delivers the signal to the application.
+ * To redirect execution return DR_SIGNAL_REDIRECT (do not call
+ * dr_redirect_execution() from a signal callback).  The callback function
+ * will be called even if the application has no handler or has registered
+ * a SIG_IGN or SIG_DFL handler.
  *
- * Modifications to the fields of \p siginfo->mcontext will be
- * propagated to the application if it has a handler for the signal.
+ * Modifications to the fields of \p siginfo->mcontext will be propagated
+ * to the application if it has a handler for the signal, if
+ * DR_SIGNAL_DELIVER is returned.
  *
- * DR raises a signal event only when about to devlier a signal to the
+ * The \p siginfo->raw_mcontext data is only provided for non-delayable
+ * signals (e.g., SIGSEGV) that must be delivered immediately.  Whether it
+ * is supplied is specified in \p siginfo->raw_mcontext_valid.  It is
+ * intended for clients using faults as a mechanism to push rare cases out
+ * of an instrumentation fastpath that need to examine instrumentation
+ * instructions rather than the translated application state.  Certain
+ * registers may not contain proper application values in \p
+ * excpt->raw_mcontext for exceptions in application instructions.  Clients
+ * are cautioned against relying on any details of code cache layout or
+ * register usage beyond instrumentation inserted by the client itself.  If
+ * DR_SIGNAL_SUPPRESS is returned, \p siginfo->mcontext is ignored and \p
+ * siginfo->raw_mcontext is used as the resumption context.  The client's
+ * changes to \p siginfo->raw_mcontext will take effect.
+ * 
+ * DR raises a signal event only when about to deliver a signal to the
  * application.  Thus, if the application has blocked a signal, the
  * corresponding signal event will not occur until the application unblocks
  * the signal, even if such a signal is delivered by the kernel.  DR will
@@ -1058,7 +1118,7 @@ void instrument_post_syscall(dcontext_t *dcontext, int sysnum);
 bool instrument_invoke_another_syscall(dcontext_t *dcontext);
 
 #ifdef WINDOWS
-void instrument_exception(dcontext_t *dcontext, dr_exception_t *exception);
+bool instrument_exception(dcontext_t *dcontext, dr_exception_t *exception);
 void instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg);
 void instrument_client_thread_termination(void);
 void wait_for_outstanding_nudges(void);

@@ -65,6 +65,7 @@
 #pragma warning( disable : 4210) //nonstandard extension used : function given file scope
 #pragma warning( disable : 4505) //unreferenced local function has been removed
 #pragma warning( disable : 4702) //unreachable code (should be disabled DEBUG=0, e.g. for INTERNAL_OPTION test)
+#pragma warning( disable : 4324) // structure was padded due to __declspec(align())
 
 /**************************************************/
 /* warnings on compiling with VC 8.0, all on VC or PlatformSDK header files */

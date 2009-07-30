@@ -443,6 +443,10 @@ typedef struct _sigpending_t {
      */
     struct _fpstate __attribute__ ((aligned (16))) fpstate;
 #endif
+#ifdef CLIENT_INTERFACE
+    /* i#182/PR 449996: we provide the faulting access address for SIGSEGV, etc. */
+    byte *access_address;
+#endif
     struct _sigpending_t *next;
 } sigpending_t;
 
@@ -520,7 +524,8 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig);
 
 static void
 execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
-                           struct sigcontext *sc_orig);
+                           struct sigcontext *sc_orig
+                           _IF_CLIENT(byte *access_address));
 
 static bool
 execute_handler_from_dispatch(dcontext_t *dcontext, int sig);
@@ -2134,6 +2139,15 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
     ASSERT(dcontext != NULL);
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     bool has_restorer = sig_has_restorer(info, sig);
+#ifdef DEBUG
+    uint level = 3;
+# ifndef HAVE_PROC_MAPS
+    /* avoid logging every single TRY probe fault */
+    if (!dynamo_initialized)
+        level = 5;
+# endif
+#endif
+
     if (has_restorer && for_app)
         f_new->pretcode = (char *) info->app_sigaction[sig]->restorer;
     else {
@@ -2149,7 +2163,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         /* else, pointing at vsyscall, or we set it to dynamorio_sigreturn in
          * master_signal_handler 
          */
-        LOG(THREAD, LOG_ASYNCH, 3, "\tleaving pretcode with old value\n");
+        LOG(THREAD, LOG_ASYNCH, level, "\tleaving pretcode with old value\n");
 #endif
     }
 #ifndef X64
@@ -2166,7 +2180,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         ASSERT(tgt - frame_end <= X64_FRAME_EXTRA);
         memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(struct _fpstate));
         f_new->uc.uc_mcontext.fpstate = (struct _fpstate *) tgt;
-        LOG(THREAD, LOG_ASYNCH, 4, "\tfpstate old="PFX" new="PFX"\n",
+        LOG(THREAD, LOG_ASYNCH, level+1, "\tfpstate old="PFX" new="PFX"\n",
             f_old->uc.uc_mcontext.fpstate, f_new->uc.uc_mcontext.fpstate);
     } else {
         /* if fpstate is not set up, we're delivering signal immediately,
@@ -2174,10 +2188,10 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
          * only if we delayed will we need it, and when delaying we make
          * room and set up the pointer in copy_frame_to_pending
          */
-        LOG(THREAD, LOG_ASYNCH, 4, "\tno fpstate needed\n");
+        LOG(THREAD, LOG_ASYNCH, level+1, "\tno fpstate needed\n");
     }
 #endif
-    LOG(THREAD, LOG_ASYNCH, 3, "\tretaddr = "PFX"\n", f_new->pretcode);
+    LOG(THREAD, LOG_ASYNCH, level, "\tretaddr = "PFX"\n", f_new->pretcode);
 #ifdef RETURN_AFTER_CALL
     info->signal_restorer_retaddr = (app_pc) f_new->pretcode;
 #endif
@@ -2313,7 +2327,8 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
  * in rt form.
  */
 static void
-copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
+copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
+                      _IF_CLIENT(byte *access_address))
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     sigframe_rt_t *dst = &(info->sigpending[sig]->rt_frame);
@@ -2338,35 +2353,64 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
 #else
     dst->uc.uc_mcontext.fpstate = &dst->fpstate;
 #endif
+#ifdef CLIENT_INTERFACE
+    info->sigpending[sig]->access_address = access_address;
+#endif
 }
 
 /**** real work ***********************************************/
 
 #ifdef CLIENT_INTERFACE
 static dr_signal_action_t
-send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
+send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
+                      struct sigcontext *raw_sc, byte *access_address)
 {
     struct sigcontext *sc = (struct sigcontext *) &(frame->uc.uc_mcontext);
-    dr_siginfo_t si;
+    /* It's safe to allocate since we do not send signals that interrupt DR.
+     * With dr_mcontext_t x2 that's a little big for stack alloc.
+     */
+    dr_siginfo_t *si;
     dr_signal_action_t action;
     if (!dr_signal_hook_exists())
         return DR_SIGNAL_DELIVER;
-    si.sig = sig;
-    si.drcontext = (void *) dcontext;
-    sigcontext_to_mcontext(&si.mcontext, sc);
-    action = instrument_signal(dcontext, &si);
+    si = heap_alloc(dcontext, sizeof(*si) HEAPACCT(ACCT_OTHER));
+    si->sig = sig;
+    si->drcontext = (void *) dcontext;
+    /* i#182/PR 449996: we provide the pre-translation context */
+    if (raw_sc != NULL) {
+        si->raw_mcontext_valid = true;
+        sigcontext_to_mcontext(&si->raw_mcontext, raw_sc);
+    } else
+        si->raw_mcontext_valid = false;
+    /* The client has no way to calculate this when using
+     * instrumentation that deliberately faults (to shift a rare event
+     * out of the fastpath) so we provide it.  When raw_mcontext is
+     * available the client can calculate it, but we provide it as a
+     * convenience anyway.
+     */
+    si->access_address = access_address;
+    sigcontext_to_mcontext(&si->mcontext, sc);
+    /* We disallow the client calling dr_redirect_execution(), so we
+     * will not leak si
+     */
+    action = instrument_signal(dcontext, si);
     if (action == DR_SIGNAL_DELIVER ||
         action == DR_SIGNAL_REDIRECT) {
         /* propagate client changes */
-        mcontext_to_sigcontext(sc, &si.mcontext);
+        mcontext_to_sigcontext(sc, &si->mcontext);
+    } else if (action == DR_SIGNAL_SUPPRESS && raw_sc != NULL) {
+        /* propagate client changes */
+        mcontext_to_sigcontext(raw_sc, &si->raw_mcontext);
     }
+    heap_free(dcontext, si, sizeof(*si) HEAPACCT(ACCT_OTHER));
     return action;
 }
 #endif
 
 static void
 record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
-                      sigframe_rt_t *frame, bool forged)
+                      sigframe_rt_t *frame, bool forged
+                      _IF_CLIENT(byte *access_address))
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
@@ -2528,7 +2572,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * we'll copy the context to the app stack and then adjust the
          * original on our stack so we take over.
          */
-        execute_handler_from_cache(dcontext, sig, frame, &sc_orig);
+        execute_handler_from_cache(dcontext, sig, frame, &sc_orig
+                                   _IF_CLIENT(access_address));
 
     } else {
         /* Happened in DR, do not translate context.  Record for later processing
@@ -2551,13 +2596,13 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              *  happen while in cache?  but for asynch, we would have to
              *  construct our own frame...kind of a pain.  
              */
-            copy_frame_to_pending(dcontext, sig, frame);
+            copy_frame_to_pending(dcontext, sig, frame _IF_CLIENT(access_address));
         } else {
             /* For clients, we document that we do not pass to them
              * unless we're prepared to deliver to app.  We would have
              * to change our model to pass them non-final-translated
-             * contexts in order to give them signals as soon as they
-             * come in.
+             * contexts for delayable signals in order to give them
+             * signals as soon as they come in.  Xref i#182/PR 449996.
              */
             LOG(THREAD, LOG_ASYNCH, 3,
                 "\tnon-rt signal already in queue, ignoring this one!\n");
@@ -2589,7 +2634,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     instr_t instr;
     dr_mcontext_t mc;
     uint memopidx;
-    bool found_target;
+    bool found_target = false;
     bool in_maps;
     uint prot;
 
@@ -2631,17 +2676,16 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
             found_target = true;
         }
     }
-    ASSERT(found_target);
+    /* we may still not find target, e.g. for SYS_kill(SIGSEGV) */
+    if (!found_target)
+        target = NULL;
     DOLOG(2, LOG_ALL, {
         LOG(THREAD, LOG_ALL, 2,
             "For SIGSEGV at cache pc "PFX", computed target %s "PFX"\n",
             instr_cache_pc, *write ? "write" : "read", target);
         loginst(dcontext, 2, &instr, "\tfaulting instr");
     });
-
     instr_free(dcontext, &instr);
-    if (!found_target)
-        target = NULL;
     return target;
 }
 
@@ -2913,6 +2957,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
                                  get_application_name(), 
                                  get_application_pid(),
                                  excpt_addr);
+            if (TEST(DUMPCORE_INTERNAL_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
+                os_dump_core("exception in client");
             /* kill process on a crash in client code */
             os_terminate(dcontext, TERMINATE_PROCESS);
         }
@@ -3015,14 +3061,14 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
             trace_abort(dcontext);
         }
-        record_pending_signal(dcontext, sig, ucxt, frame, false);
+        record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(target));
         break;
     }
 
     /* PR 212090: the signal we use to suspend threads */
     case SUSPEND_SIGNAL:
         if (handle_suspend_signal(dcontext, ucxt))
-            record_pending_signal(dcontext, sig, ucxt, frame, false);
+            record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
         /* else, don't deliver to app */
         break;
 
@@ -3047,7 +3093,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
              */
             pcprofile_alarm(dcontext, pc, (app_pc) sc->SC_XBP);
         } else
-            record_pending_signal(dcontext, sig, ucxt, frame, false);
+            record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
         break;
     }
 
@@ -3071,7 +3117,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 #endif
     
     default: {
-        record_pending_signal(dcontext, sig, ucxt, frame, false);
+        record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
         break;
     }
     } /* end switch */
@@ -3086,7 +3132,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 
 static void
 execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
-                           struct sigcontext *sc_orig)
+                           struct sigcontext *sc_orig
+                           _IF_CLIENT(byte *access_address))
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     /* we want to modify the sc in DR's frame */
@@ -3101,7 +3148,8 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
                                                  * interruption point */);
 
 #ifdef CLIENT_INTERFACE
-    dr_signal_action_t action = send_signal_to_client(dcontext, sig, our_frame);
+    dr_signal_action_t action = 
+        send_signal_to_client(dcontext, sig, our_frame, sc_orig, access_address);
     /* in order to pass to the client, we come all the way here for signals
      * the app has no handler for
      */
@@ -3306,7 +3354,8 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     LOG(THREAD, LOG_ASYNCH, 3, "\tset frame's eip to "PFX"\n", sc->SC_XIP);
 
 #ifdef CLIENT_INTERFACE
-    action = send_signal_to_client(dcontext, sig, frame);
+    action = send_signal_to_client(dcontext, sig, frame, NULL,
+                                   info->sigpending[sig]->access_address);
     /* in order to pass to the client, we come all the way here for signals
      * the app has no handler for
      */
@@ -3813,7 +3862,8 @@ os_forge_exception(app_pc target_pc, exception_type_t type)
      * If we did, we'd move this below enter_nolinking() (and update
      * record_pending_signal() to do the translation).
      */
-    record_pending_signal(dcontext, sig, &frame.uc, &frame, true/*forged*/);
+    record_pending_signal(dcontext, sig, &frame.uc, &frame, true/*forged*/
+                          _IF_CLIENT(NULL));
 
     /* For most callers this is not necessary and we only do it to match
      * the Windows usage model: but for forging from our own handler,

@@ -800,15 +800,15 @@ dr_unregister_module_unload_event(void (*func)(void *drcontext,
 
 #ifdef WINDOWS
 void
-dr_register_exception_event(void (*func)(void *drcontext, dr_exception_t *excpt))
+dr_register_exception_event(bool (*func)(void *drcontext, dr_exception_t *excpt))
 {
-    add_callback(&exception_callbacks, (void (*)(void))func, true);
+    add_callback(&exception_callbacks, (bool (*)(void))func, true);
 }
 
 bool
-dr_unregister_exception_event(void (*func)(void *drcontext, dr_exception_t *excpt))
+dr_unregister_exception_event(bool (*func)(void *drcontext, dr_exception_t *excpt))
 {
-    return remove_callback(&exception_callbacks, (void (*)(void))func, true);
+    return remove_callback(&exception_callbacks, (bool (*)(void))func, true);
 }
 #else
 void
@@ -1481,11 +1481,14 @@ instrument_invoke_another_syscall(dcontext_t *dcontext)
 
 #ifdef WINDOWS
 /* Notify user of exceptions.  Note: not called for RaiseException */
-void
+bool
 instrument_exception(dcontext_t *dcontext, dr_exception_t *exception)
 {
-    call_all(exception_callbacks, int (*)(void *, dr_exception_t *),
-             (void *)dcontext, exception);
+    bool res = true;
+    call_all_ret(res, = res &&, , exception_callbacks,
+                 bool (*)(void *, dr_exception_t *),
+                 (void *)dcontext, exception);
+    return res;
 }
 #else
 dr_signal_action_t

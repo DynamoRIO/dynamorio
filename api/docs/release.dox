@@ -110,12 +110,16 @@ The current version is \DR_VERSION and is backward compatible with releases from
 
 The changes between version 1.4.1 and 1.4.0 are:
 
- - Fixed bug in cross-architecture execve (Issue 146)
- - Clone record is now passed via dstack instead of ebp (Issue 149)
- - Fixed close() syscall handling, !HAVE_TLS assert & minor issues (Issue 151)
+ - Added access to the pre-translated context for both
+   dr_register_signal_event() and dr_register_exception_event(), enabling
+   \clients to use faults to push rare events out of instrumentation paths.
+   This changed the return type for exception event callbacks.
  - Added dr_memory_is_dr_internal()
  - Added dr_get_parent_id()
  - Added decode_opcode_name()
+ - Fixed bug in cross-architecture execve (Issue 146)
+ - Clone record is now passed via dstack instead of ebp (Issue 149)
+ - Fixed close() syscall handling, !HAVE_TLS assert & minor issues (Issue 151)
 
 The changes between version 1.4.0 and 1.3.2 are:
 
