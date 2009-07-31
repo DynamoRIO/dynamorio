@@ -2467,7 +2467,9 @@ dynamorio_unprotect(void)
                 for (i = 0; i < HASHTABLE_SIZE(ALL_THREADS_HASH_BITS); i++) {
                     for (tr = all_threads[i]; tr; tr = tr->next) {
                         if (tr->under_dynamo_control) {
-                            thread_suspend(all_threads[i]);
+                            DEBUG_DECLARE(bool ok =)
+                                thread_suspend(all_threads[i]);
+                            ASSERT(ok);
                             protect_info->num_threads_suspended++;
                         }
                     }

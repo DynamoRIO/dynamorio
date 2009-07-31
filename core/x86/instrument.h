@@ -850,6 +850,13 @@ typedef struct _dr_siginfo_t {
      * to be raised (as calculated by DR).
      */
     byte *access_address;
+    /**
+     * Indicates this signal is blocked.  DR_SIGNAL_BYPASS is not allowed,
+     * and a second event will be sent if the signal is later delivered to
+     * the application.  Events are only sent for blocked non-delayable signals,
+     * not for delayable signals.
+     */
+    bool blocked;       
 } dr_siginfo_t;
 
 /**
@@ -902,13 +909,20 @@ DR_API
  * siginfo->raw_mcontext is used as the resumption context.  The client's
  * changes to \p siginfo->raw_mcontext will take effect.
  * 
- * DR raises a signal event only when about to deliver a signal to the
- * application.  Thus, if the application has blocked a signal, the
- * corresponding signal event will not occur until the application unblocks
- * the signal, even if such a signal is delivered by the kernel.  DR will
- * not raise a signal event for a SIGSEGV or SIGBUS raised by a client code
- * fault rather than the application.  Use dr_safe_read() or
- * dr_safe_write() to prevent such faults.
+ * For a delayable signal, DR raises a signal event only when about to
+ * deliver the signal to the application.  Thus, if the application has
+ * blocked a delayable signal, the corresponding signal event will not
+ * occur until the application unblocks the signal, even if such a signal
+ * is delivered by the kernel.  For non-delayable signals, DR will raise a
+ * signal event on initial receipt of the signal, with the \p
+ * siginfo->blocked field set.  Such a blocked signal will have a second
+ * event raised when it is delivered to the application (if it is not
+ * suppressed by the client, and if there is not already a pending blocked
+ * signal, for non-real-time signals).
+ *
+ * DR will not raise a signal event for a SIGSEGV or SIGBUS
+ * raised by a client code fault rather than the application.  Use
+ * dr_safe_read() or dr_safe_write() to prevent such faults.
  * 
  * \note Only valid on Linux.
  *

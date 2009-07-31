@@ -1272,6 +1272,10 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
     act.handler = (handler_t) master_signal_handler;
     /* FIXME PR 287309: we need to NOT suppress further SIGSEGV */
     kernel_sigfillset(&act.mask); /* block all signals within handler */
+    /* PR 450670: we let our suspend signal interrupt our own handler
+     * We never send more than one before resuming, so no danger to stack usage.
+     */
+    kernel_sigdelset(&act.mask, SUSPEND_SIGNAL);
     act.flags = SA_SIGINFO; /* send 3 args to handler */
 #ifdef HAVE_SIGALTSTACK
     act.flags |= SA_ONSTACK; /* use our sigstack */
@@ -2363,7 +2367,8 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
 #ifdef CLIENT_INTERFACE
 static dr_signal_action_t
 send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
-                      struct sigcontext *raw_sc, byte *access_address)
+                      struct sigcontext *raw_sc, byte *access_address,
+                      bool blocked)
 {
     struct sigcontext *sc = (struct sigcontext *) &(frame->uc.uc_mcontext);
     /* It's safe to allocate since we do not send signals that interrupt DR.
@@ -2373,6 +2378,7 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     dr_signal_action_t action;
     if (!dr_signal_hook_exists())
         return DR_SIGNAL_DELIVER;
+    LOG(THREAD, LOG_ASYNCH, 2, "sending signal to client\n");
     si = heap_alloc(dcontext, sizeof(*si) HEAPACCT(ACCT_OTHER));
     si->sig = sig;
     si->drcontext = (void *) dcontext;
@@ -2389,6 +2395,7 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
      * convenience anyway.
      */
     si->access_address = access_address;
+    si->blocked = blocked;
     sigcontext_to_mcontext(&si->mcontext, sc);
     /* We disallow the client calling dr_redirect_execution(), so we
      * will not leak si
@@ -2405,6 +2412,61 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     heap_free(dcontext, si, sizeof(*si) HEAPACCT(ACCT_OTHER));
     return action;
 }
+
+/* Returns false if caller should exit */
+static bool
+handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_t action,
+                                sigframe_rt_t *our_frame, struct sigcontext *sc_orig,
+                                bool blocked)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    struct sigcontext *sc = get_sigcontext_from_rt_frame(our_frame);
+    /* in order to pass to the client, we come all the way here for signals
+     * the app has no handler for
+     */
+    if (action == DR_SIGNAL_REDIRECT) {
+        /* send_signal_to_client copied mcontext into our
+         * master_signal_handler frame, so we set up for fcache_return w/
+         * the mcontext state and this as next_tag
+         */
+        sigcontext_to_mcontext(get_mcontext(dcontext), sc);
+        dcontext->next_tag = (app_pc) sc->SC_XIP;
+        sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
+        sc->SC_XAX = (ptr_uint_t) get_sigreturn_linkstub();
+        if (is_building_trace(dcontext)) {
+            LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
+            trace_abort(dcontext);
+        }
+        return false;
+    }
+    else if (action == DR_SIGNAL_SUPPRESS ||
+             (!blocked && info->app_sigaction[sig] != NULL &&
+              info->app_sigaction[sig]->handler == (handler_t)SIG_IGN)) {
+        LOG(THREAD, LOG_ASYNCH, 2, "%s: not delivering!\n",
+            (action == DR_SIGNAL_SUPPRESS) ?
+            "client suppressing signal" :
+            "app signal handler is SIG_IGN");
+        /* restore original (untranslated) sc */
+        our_frame->uc.uc_mcontext = *sc_orig;
+        return false;
+    }
+    else if (!blocked && /* no BYPASS for blocked */
+             (action == DR_SIGNAL_BYPASS ||
+              (info->app_sigaction[sig] == NULL ||
+               info->app_sigaction[sig]->handler == (handler_t)SIG_DFL))) {
+        LOG(THREAD, LOG_ASYNCH, 2, "%s: executing default action\n",
+            (action == DR_SIGNAL_BYPASS) ?
+            "client forcing default" :
+            "app signal handler is SIG_DFL");
+        execute_default_from_cache(dcontext, sig, our_frame);
+        /* if we haven't terminated, restore original (untranslated) sc */
+        our_frame->uc.uc_mcontext = *sc_orig;
+        return false;
+    }
+    CLIENT_ASSERT(action == DR_SIGNAL_DELIVER, "invalid signal event return value");
+    return true;
+}
+
 #endif
 
 static void
@@ -2413,12 +2475,32 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                       _IF_CLIENT(byte *access_address))
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
     struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+    struct sigcontext sc_orig;
     byte *pc = (byte *) sc->SC_XIP;
     byte *xsp = (byte*) sc->SC_XSP;
     bool receive_now = false;
     bool blocked = false;
     sigpending_t *pend;
+
+    /* PR 450670: we let SUSPEND_SIGNAL interrupt our signal handler.
+     * We can have re-entrancy issues in this routine if the app uses
+     * the same signal.
+     */
+    if (ostd->processing_signal > 0) {
+        LOG(THREAD, LOG_ASYNCH, 1, "nested signal %d\n", sig);
+        ASSERT(sig == SUSPEND_SIGNAL);
+        ASSERT(can_always_delay[sig]);
+        /* To avoid re-entrant execution of special_heap_alloc() and of
+         * prepending to the pending list we just drop this signal.
+         * FIXME: do better.
+         */
+        STATS_INC(num_signals_dropped);
+        SYSLOG_INTERNAL_WARNING_ONCE("dropping nested signal");
+        return;
+    }
+    ostd->processing_signal++; /* no need for atomicity: thread-private */
 
     if (info->in_sigsuspend) {
         /* sigsuspend ends when a signal is received, so restore the
@@ -2443,6 +2525,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         LOG(THREAD, LOG_ASYNCH, 3,
             "record_pending_signal (%d at pc "PFX"): action is SIG_IGN!\n",
             sig, pc);
+        ostd->processing_signal--;
         return;
     } else if (kernel_sigismember(&info->app_sigblocked, sig)) {
         /* signal is blocked by app, so just record it, don't receive now */
@@ -2546,7 +2629,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         /* we need to translate sc before we know whether client wants to
          * suppress, so we need a backup copy
          */
-        struct sigcontext sc_orig = *sc;
+        sc_orig = *sc;
 
         ASSERT(!forged);
         translate_sigcontext(dcontext, sc);
@@ -2576,6 +2659,33 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                                    _IF_CLIENT(access_address));
 
     } else {
+
+#ifdef CLIENT_INTERFACE
+        /* PR 449996: must let client act on blocked non-delayable signals to
+         * handle instrumentation faults.  Make sure we're at a safe spot: i.e.,
+         * only raise for in-cache faults.  Checking forged and no-delay
+         * to avoid the in-cache check for delayable signals => safer.
+         */
+        if (blocked && !forged && !can_always_delay[sig] &&
+            safe_is_in_fcache(dcontext, pc, xsp)) {
+            dr_signal_action_t action;
+            sc_orig = *sc;
+            translate_sigcontext(dcontext, sc);
+            action = send_signal_to_client(dcontext, sig, frame, &sc_orig,
+                                           access_address, true/*blocked*/);
+            /* For blocked signal early event we disallow BYPASS (xref PR 449996) */
+            CLIENT_ASSERT(action != DR_SIGNAL_BYPASS,
+                          "cannot bypass a blocked signal event");
+            if (!handle_client_action_from_cache(dcontext, sig, action, frame,
+                                                 &sc_orig, true/*blocked*/)) {
+                ostd->processing_signal--;
+                return;
+            }
+            /* restore original (untranslated) sc */
+            frame->uc.uc_mcontext = sc_orig;
+        }
+#endif
+
         /* Happened in DR, do not translate context.  Record for later processing
          * at a safe point with a clean app state.
          */
@@ -2611,6 +2721,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         if (!blocked)
             dcontext->signals_pending = true;
     }
+    ostd->processing_signal--;
 }
 
 /* Distinguish SYS_kill-generated from instruction-generated signals.
@@ -2847,6 +2958,9 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
     }
 
     /* we may be entering dynamo from code cache! */
+    /* Note that this is unsafe if -single_thread_in_DR => we grab a lock =>
+     * hang if signal interrupts DR: but we don't really support that option
+     */
     ENTERING_DR();
     local = local_heap_protected(dcontext);
     if (local)
@@ -3122,7 +3236,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
     }
     } /* end switch */
     
-    LOG(THREAD, LOG_ASYNCH, 3, "\tmaster_signal_handler returning now\n\n");
+    LOG(THREAD, LOG_ASYNCH, 3, "\tmaster_signal_handler %d returning now\n\n", sig);
 
     /* restore protections */
     if (local)
@@ -3149,49 +3263,11 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
 
 #ifdef CLIENT_INTERFACE
     dr_signal_action_t action = 
-        send_signal_to_client(dcontext, sig, our_frame, sc_orig, access_address);
-    /* in order to pass to the client, we come all the way here for signals
-     * the app has no handler for
-     */
-    if (action == DR_SIGNAL_REDIRECT) {
-        /* send_signal_to_client copied mcontext into our
-         * master_signal_handler frame, so we set up for fcache_return w/
-         * the mcontext state and this as next_tag
-         */
-        sigcontext_to_mcontext(get_mcontext(dcontext), sc);
-        dcontext->next_tag = (app_pc) sc->SC_XIP;
-        sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
-        sc->SC_XAX = (ptr_uint_t) get_sigreturn_linkstub();
-        if (is_building_trace(dcontext)) {
-            LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
-            trace_abort(dcontext);
-        }
+        send_signal_to_client(dcontext, sig, our_frame, sc_orig, access_address,
+                              false/*not blocked*/);
+    if (!handle_client_action_from_cache(dcontext, sig, action, our_frame, sc_orig,
+                                         false/*!blocked*/))
         return;
-    }
-    else if (action == DR_SIGNAL_SUPPRESS ||
-             (info->app_sigaction[sig] != NULL &&
-              info->app_sigaction[sig]->handler == (handler_t)SIG_IGN)) {
-        LOG(THREAD, LOG_ASYNCH, 2, "%s: not delivering!\n",
-            (action == DR_SIGNAL_SUPPRESS) ?
-            "client suppressing signal" :
-            "app signal handler is SIG_IGN");
-        /* restore original (untranslated) sc */
-        our_frame->uc.uc_mcontext = *sc_orig;
-        return;
-    }
-    else if (action == DR_SIGNAL_BYPASS ||
-             (info->app_sigaction[sig] == NULL ||
-              info->app_sigaction[sig]->handler == (handler_t)SIG_DFL)) {
-        LOG(THREAD, LOG_ASYNCH, 2, "%s: executing default action\n",
-            (action == DR_SIGNAL_BYPASS) ?
-            "client forcing default" :
-            "app signal handler is SIG_DFL");
-        execute_default_from_cache(dcontext, sig, our_frame);
-        /* if we haven't terminated, restore original (untranslated) sc */
-        our_frame->uc.uc_mcontext = *sc_orig;
-        return;
-    }
-    CLIENT_ASSERT(action == DR_SIGNAL_DELIVER, "invalid signal event return value");
 #else
     if (info->app_sigaction[sig] == NULL ||
         info->app_sigaction[sig]->handler == (handler_t)SIG_DFL) {
@@ -3355,7 +3431,8 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 
 #ifdef CLIENT_INTERFACE
     action = send_signal_to_client(dcontext, sig, frame, NULL,
-                                   info->sigpending[sig]->access_address);
+                                   info->sigpending[sig]->access_address,
+                                   false/*not blocked*/);
     /* in order to pass to the client, we come all the way here for signals
      * the app has no handler for
      */
@@ -4142,7 +4219,6 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
      * thread_{suspend,resume} to prevent our own re-suspension signal
      * from arriving before we've re-blocked on the resume.
      */
-    set_blocked(dcontext, &ucxt->uc_sigmask);
     sigprocmask_syscall(SIG_SETMASK, &ucxt->uc_sigmask, &prevmask,
                         sizeof(ucxt->uc_sigmask));
 
@@ -4164,7 +4240,6 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: awake now\n");
 
     /* re-block so our exit from master_signal_handler is not interrupted */
-    set_blocked(dcontext, &prevmask);
     sigprocmask_syscall(SIG_SETMASK, &prevmask, NULL, sizeof(prevmask));
     ostd->suspended_sigcxt = NULL;
 

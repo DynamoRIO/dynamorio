@@ -809,6 +809,8 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
              * It is now up to the caller to handle this, and some use
              * small loop counts and abort on failure, so only a curiosity. */
             ASSERT_CURIOSITY(loop_count < max_loops);
+            LOG(THREAD, LOG_SYNCH, 3, 
+                "Exceeded loop count synching with thread "IDFMT"\n", id);
             goto exit_synch_with_thread;
         }
         DOSTATS({
@@ -838,6 +840,9 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                                       " thread, case 2096?");
                 res = (TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags) ?
                        THREAD_SYNCH_RESULT_SUCCESS : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
+                /* Make sure to not leave suspended if not returning success */
+                if (!TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags))
+                    thread_resume(trec);
                 break;
             }
             if (at_safe_spot(trec, &mc, desired_state)) {

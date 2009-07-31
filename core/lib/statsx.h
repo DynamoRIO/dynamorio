@@ -94,6 +94,7 @@
     STATS_DEF("Re-takeovers after native", num_retakeover_after_native)
 #else
     RSTATS_DEF("Total signals delivered", num_signals)
+    RSTATS_DEF("Signals dropped", num_signals_dropped)
 #endif
     STATS_DEF("Exceptions in decoding app memory", num_exceptions_decode)
     RSTATS_DEF("System calls, pre", pre_syscall)

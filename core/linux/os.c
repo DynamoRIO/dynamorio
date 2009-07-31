@@ -1944,8 +1944,9 @@ thread_suspend(thread_record_t *tr)
      */
     mutex_unlock(&ostd->suspend_lock);
     /* FIXME PR 295561: use futex */
-    while (!ostd->suspended)
+    while (!ostd->suspended) {
         thread_yield();
+    }
     return true;
 }
 

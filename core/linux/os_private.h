@@ -89,6 +89,9 @@ typedef struct _os_thread_data_t {
     /* PR 297902: for thread termination */
     bool terminate;
     bool terminated;
+
+    /* PR 450670: for re-entrant suspend signals */
+    int processing_signal;
 } os_thread_data_t;
 
 /* in signal.c */
