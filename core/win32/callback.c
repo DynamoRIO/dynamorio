@@ -4200,6 +4200,139 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
 }
 #endif
 
+static void
+check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
+                         EXCEPTION_RECORD * pExcptRec,
+                         dr_mcontext_t *raw_mcontext,
+                         app_pc forged_exception_addr)
+{
+    /* even though in_fcache is the much more common path (we hope! :)),
+     * it grabs a lock, so we check for DR exceptions first, hoping to
+     * avoid livelock due to us crashing while holding the fcache lock
+     */
+    /* FIXME : we still might pass exceptions that are our fault back to
+     * the app (in a client library, global do syscall, client library dgc
+     * maybe others?). Also is the on_dstack/on_initstack check too 
+     * general?  We might take responsibility for app crashes if their esp 
+     * gets set to random address that happens to match one of our stacks.
+     * We could additionally require that the pc is also in ntdll.dll or 
+     * kernel32.dll (that would cover cases (like bug 3516) where we call 
+     * out to other dlls) though as it is now it may cover some of the 
+     * remaining holes (client library for instance).  Is also possible 
+     * that we could take responsibility for an app exception that occurs
+     * in the first few instructions of a location we hooked (since if
+     * we didn't takover at the hook, it would execute out of the 
+     * interception buffer (guard page on stack for instance)).
+     */
+    /* Note the is_on_[init/d]stack routines count any guard pages as part
+     * of the stack */
+    bool is_DR_exception = false;
+    if ((is_on_dstack(dcontext, (byte *)cxt->CXT_XSP)
+         /* PR 302951: clean call arg processing => pass to app/client.
+          * Rather than call the risky in_fcache we check whereami. */
+         IF_CLIENT_INTERFACE(&& (dcontext->whereami != WHERE_FCACHE))) ||
+        is_on_initstack((byte *)cxt->CXT_XSP)) {
+        is_DR_exception = true;
+    }
+    /* Is this an exception forged by DR that should be passed on
+     * to the app? */
+    else if (forged_exception_addr != (app_pc) pExcptRec->ExceptionAddress) {
+        if (is_in_dynamo_dll((app_pc)pExcptRec->ExceptionAddress))
+            is_DR_exception = true;
+        else {
+            /* we go ahead and grab locks here to do a negative test for
+             * !in_fcache rather than trying to enumerate all non-cache
+             * categories, as we'll have to grab a lock anyway to find
+             * whether in a separate stub region.  we do this last to
+             * reduce the scenarios in which we won't report a crash.
+             */
+            if (is_dynamo_address((app_pc)pExcptRec->ExceptionAddress) && 
+                !in_fcache(pExcptRec->ExceptionAddress)) {
+#ifdef CLIENT_INTERFACE
+                /* PR 451074: client needs a chance to handle exceptions in its
+                 * own gencode.  client_exception_event() won't return if client
+                 * wants to re-execute faulting instr.
+                 */
+                if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+                    /* raw_mcontext equals mcontext */
+                    context_to_mcontext(raw_mcontext, cxt);
+                    client_exception_event(dcontext, cxt, pExcptRec, raw_mcontext);
+                }
+#endif
+                is_DR_exception = true;
+            }
+        }
+    }
+    if (is_DR_exception) {
+        /* Check if we ended up decoding from unreadable memory due to an 
+         * app race condition (case 845) or hit an IN_PAGE_ERROR (case 10567) */
+        if ((pExcptRec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION ||
+             pExcptRec->ExceptionCode == EXCEPTION_IN_PAGE_ERROR) &&
+            (pExcptRec->NumberParameters >= 2) && 
+            (pExcptRec->ExceptionInformation[0] == 
+             EXCEPTION_INFORMATION_READ_EXECUTE_FAULT
+             )) {
+            app_pc target_addr = (app_pc)pExcptRec->ExceptionInformation[1];
+            ASSERT((pExcptRec->ExceptionCode == EXCEPTION_IN_PAGE_ERROR)
+                   || !is_readable_without_exception(target_addr, 4));
+            /* for shared fragments, the bb building lock is what prevents
+             * another thread from changing the shared last_area before
+             * we check it
+             * note: for hotp_only or thin_client, this shouldn't trigger,
+             *       especially for thin_client because it will crash as
+             *       uninitialized vmarea_vectors will be accessed.
+             */
+            if (!RUNNING_WITHOUT_CODE_CACHE() &&
+                check_in_last_thread_vm_area(dcontext, target_addr)) {
+
+                exception_type_t exception_type =
+                    (pExcptRec->ExceptionCode == EXCEPTION_IN_PAGE_ERROR) ?
+                    IN_PAGE_ERROR_EXCEPTION : UNREADABLE_MEMORY_EXECUTION_EXCEPTION;
+
+                /* The last decoded application pc should always be in the 
+                 * thread's last area, yet if code executed by one thread 
+                 * is unmapped by another we may have let it through 
+                 * check_thread_vm_area and into decode*()
+                 */
+                SYSLOG_INTERNAL_ERROR("(decode) exception in last area, "
+                                      "%s: dr pc="PFX", app pc="PFX,
+                                      (exception_type == IN_PAGE_ERROR_EXCEPTION) ?
+                                      "in_page_error" : "probably app race condition",
+                                      (app_pc)pExcptRec->ExceptionAddress,
+                                      target_addr);
+                STATS_INC(num_exceptions_decode);
+                if (is_building_trace(dcontext)) {
+                    LOG(THREAD, LOG_ASYNCH, 2, "intercept_exception: "
+                                               "squashing old trace\n");
+                    trace_abort(dcontext);
+                }
+                /* we do get faults when not building a bb: e.g.,
+                 * ret_after_call_check does decoding (case 9396) */
+                if (dcontext->bb_build_info != NULL) {
+                    /* must have been building a bb at the time */
+                    bb_build_abort(dcontext, true/*clean vm area*/);
+                }
+                /* FIXME: if necessary, have a separate dump core mask for
+                 * in_page_error */
+                /* Let's pass it back to the application - memory is unreadable */
+                if (TEST(DUMPCORE_FORGE_UNREAD_EXEC,
+                         DYNAMO_OPTION(dumpcore_mask)))
+                    os_dump_core("Warning: Racy app execution "
+                                 "(decode unreadable)");
+                os_forge_exception(target_addr, exception_type);
+
+                /* CHECK: I hope we're not covering up the symptom instead 
+                 * of fixing the real cause
+                 */
+                ASSERT_NOT_REACHED();
+            }
+        }
+
+        internal_dynamo_exception(dcontext, pExcptRec, cxt);
+        ASSERT_NOT_REACHED();
+    }
+}
+
 /*
  * Exceptions:
  * Kernel gives control to KiUserExceptionDispatcher.
@@ -4473,110 +4606,8 @@ intercept_exception(app_state_at_intercept_t *state)
             DODEBUG({ known_source = true; });
         }
 
-        /* even though in_fcache is the much more common path (we hope! :)),
-         * it grabs a lock, so we check for DR exceptions first, hoping to
-         * avoid livelock due to us crashing while holding the fcache lock
-         */
-        /* FIXME : we still might pass exceptions that are our fault back to
-         * the app (in a client library, global do syscall, client library dgc
-         * maybe others?). Also is the on_dstack/on_initstack check too 
-         * general?  We might take responsibility for app crashes if their esp 
-         * gets set to random address that happens to match one of our stacks.
-         * We could additionally require that the pc is also in ntdll.dll or 
-         * kernel32.dll (that would cover cases (like bug 3516) where we call 
-         * out to other dlls) though as it is now it may cover some of the 
-         * remaining holes (client library for instance).  Is also possible 
-         * that we could take responsibility for an app exception that occurs
-         * in the first few instructions of a location we hooked (since if
-         * we didn't takover at the hook, it would execute out of the 
-         * interception buffer (guard page on stack for instance)).
-         */
-        /* Note the is_on_[init/d]stack routines count any guard pages as part
-         * of the stack */
-        if ((is_on_dstack(dcontext, (byte *)cxt->CXT_XSP)
-             /* PR 302951: clean call arg processing => pass to app/client.
-              * Rather than call the risky in_fcache we check whereami. */
-             IF_CLIENT_INTERFACE(&& (dcontext->whereami != WHERE_FCACHE))) ||
-            is_on_initstack((byte *)cxt->CXT_XSP) ||
-            /* Is this an exception forged by DR that should be passed on
-             * to the app? */
-            (forged_exception_addr != (app_pc) pExcptRec->ExceptionAddress &&
-             (is_in_dynamo_dll((app_pc)pExcptRec->ExceptionAddress) ||
-             /* we go ahead and grab locks here to do a negative test for
-              * !in_fcache rather than trying to enumerate all non-cache
-              * categories, as we'll have to grab a lock anyway to find
-              * whether in a separate stub region.  we do this last to
-              * reduce the scenarios in which we won't report a crash.
-              */
-              (is_dynamo_address((app_pc)pExcptRec->ExceptionAddress) && 
-               !in_fcache(pExcptRec->ExceptionAddress))))) {
-            /* Check if we ended up decoding from unreadable memory due to an 
-             * app race condition (case 845) or hit an IN_PAGE_ERROR (case 10567) */
-            if ((pExcptRec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION ||
-                 pExcptRec->ExceptionCode == EXCEPTION_IN_PAGE_ERROR) &&
-                (pExcptRec->NumberParameters >= 2) && 
-                (pExcptRec->ExceptionInformation[0] == 
-                 EXCEPTION_INFORMATION_READ_EXECUTE_FAULT
-                 )) {
-                app_pc target_addr = (app_pc)pExcptRec->ExceptionInformation[1];
-                ASSERT((pExcptRec->ExceptionCode == EXCEPTION_IN_PAGE_ERROR)
-                       || !is_readable_without_exception(target_addr, 4));
-                /* for shared fragments, the bb building lock is what prevents
-                 * another thread from changing the shared last_area before
-                 * we check it
-                 * note: for hotp_only or thin_client, this shouldn't trigger,
-                 *       especially for thin_client because it will crash as
-                 *       uninitialized vmarea_vectors will be accessed.
-                 */
-                if (!RUNNING_WITHOUT_CODE_CACHE() &&
-                    check_in_last_thread_vm_area(dcontext, target_addr)) {
-
-                    exception_type_t exception_type =
-                        (pExcptRec->ExceptionCode == EXCEPTION_IN_PAGE_ERROR) ?
-                        IN_PAGE_ERROR_EXCEPTION : UNREADABLE_MEMORY_EXECUTION_EXCEPTION;
-
-                    /* The last decoded application pc should always be in the 
-                     * thread's last area, yet if code executed by one thread 
-                     * is unmapped by another we may have let it through 
-                     * check_thread_vm_area and into decode*()
-                     */
-                    SYSLOG_INTERNAL_ERROR("(decode) exception in last area, "
-                                          "%s: dr pc="PFX", app pc="PFX,
-                                          (exception_type == IN_PAGE_ERROR_EXCEPTION) ?
-                                          "in_page_error" : "probably app race condition",
-                                          (app_pc)pExcptRec->ExceptionAddress,
-                                          target_addr);
-                    STATS_INC(num_exceptions_decode);
-                    if (is_building_trace(dcontext)) {
-                        LOG(THREAD, LOG_ASYNCH, 2, "intercept_exception: "
-                                                   "squashing old trace\n");
-                        trace_abort(dcontext);
-                    }
-                    /* we do get faults when not building a bb: e.g.,
-                     * ret_after_call_check does decoding (case 9396) */
-                    if (dcontext->bb_build_info != NULL) {
-                        /* must have been building a bb at the time */
-                        bb_build_abort(dcontext, true/*clean vm area*/);
-                    }
-                    /* FIXME: if necessary, have a separate dump core mask for
-                     * in_page_error */
-                    /* Let's pass it back to the application - memory is unreadable */
-                    if (TEST(DUMPCORE_FORGE_UNREAD_EXEC,
-                             DYNAMO_OPTION(dumpcore_mask)))
-                        os_dump_core("Warning: Racy app execution "
-                                     "(decode unreadable)");
-                    os_forge_exception(target_addr, exception_type);
-
-                    /* CHECK: I hope we're not covering up the symptom instead 
-                     * of fixing the real cause
-                     */
-                    ASSERT_NOT_REACHED();
-                }
-            }
-
-            internal_dynamo_exception(dcontext, pExcptRec, cxt);
-            ASSERT_NOT_REACHED();
-        }
+        check_internal_exception(dcontext, cxt, pExcptRec, &raw_mcontext,
+                                 forged_exception_addr);
 
         /* don't do this for DR exception in case it's exception in trace_abort! */
         if (is_building_trace(dcontext)) {

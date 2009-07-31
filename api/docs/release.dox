@@ -110,10 +110,13 @@ The current version is \DR_VERSION and is backward compatible with releases from
 
 The changes between version 1.4.1 and 1.4.0 are:
 
- - Added access to the pre-translated context for both
-   dr_register_signal_event() and dr_register_exception_event(), enabling
-   \clients to use faults to push rare events out of instrumentation paths.
-   This changed the return type for exception event callbacks.
+ - Enabled \clients to use faults to push rare events out of
+   instrumentation paths:
+   - Added access to the pre-translated context for both
+     dr_register_signal_event() and dr_register_exception_event()
+     This changed the return type for exception event callbacks.
+   - Added a signal/exception event on a fault in non-code-cache
+     \DynamoRIO code, such as \client-generated code.
  - Added dr_memory_is_dr_internal()
  - Added dr_get_parent_id()
  - Added decode_opcode_name()

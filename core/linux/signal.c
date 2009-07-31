@@ -1272,7 +1272,7 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
     act.handler = (handler_t) master_signal_handler;
     /* FIXME PR 287309: we need to NOT suppress further SIGSEGV */
     kernel_sigfillset(&act.mask); /* block all signals within handler */
-    /* PR 450670: we let our suspend signal interrupt our own handler
+    /* i#184/PR 450670: we let our suspend signal interrupt our own handler
      * We never send more than one before resuming, so no danger to stack usage.
      */
     kernel_sigdelset(&act.mask, SUSPEND_SIGNAL);
@@ -2484,7 +2484,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     bool blocked = false;
     sigpending_t *pend;
 
-    /* PR 450670: we let SUSPEND_SIGNAL interrupt our signal handler.
+    /* i#184/PR 450670: we let SUSPEND_SIGNAL interrupt our signal handler.
      * We can have re-entrancy issues in this routine if the app uses
      * the same signal.
      */
@@ -2661,7 +2661,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     } else {
 
 #ifdef CLIENT_INTERFACE
-        /* PR 449996: must let client act on blocked non-delayable signals to
+        /* i#182/PR 449996: must let client act on blocked non-delayable signals to
          * handle instrumentation faults.  Make sure we're at a safe spot: i.e.,
          * only raise for in-cache faults.  Checking forged and no-delay
          * to avoid the in-cache check for delayable signals => safer.
@@ -2673,7 +2673,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             translate_sigcontext(dcontext, sc);
             action = send_signal_to_client(dcontext, sig, frame, &sc_orig,
                                            access_address, true/*blocked*/);
-            /* For blocked signal early event we disallow BYPASS (xref PR 449996) */
+            /* For blocked signal early event we disallow BYPASS (xref i#182/PR 449996) */
             CLIENT_ASSERT(action != DR_SIGNAL_BYPASS,
                           "cannot bypass a blocked signal event");
             if (!handle_client_action_from_cache(dcontext, sig, action, frame,
@@ -3101,9 +3101,26 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
          * FIXME PR 205795: in_fcache and is_dynamo_address do grab locks!
          */
         if (!safe_is_in_fcache(dcontext, pc, (byte*)sc->SC_XSP) &&
-            (is_dynamo_address(pc) ||
-             in_generated_routine(dcontext, pc) ||
-             is_at_do_syscall(dcontext, pc, (byte*)sc->SC_XSP))) {
+            (in_generated_routine(dcontext, pc) ||
+             is_at_do_syscall(dcontext, pc, (byte*)sc->SC_XSP) ||
+             is_dynamo_address(pc))) {
+#ifdef CLIENT_INTERFACE
+            if (!in_generated_routine(dcontext, pc) &&
+                !is_at_do_syscall(dcontext, pc, (byte*)sc->SC_XSP)) {
+                /* PR 451074: client needs a chance to handle exceptions in its
+                 * own gencode.  client_exception_event() won't return if client
+                 * wants to re-execute faulting instr.
+                 */
+                dr_signal_action_t action =
+                    send_signal_to_client(dcontext, sig, frame, sc,
+                                          target, false/*!blocked*/);
+                if (!handle_client_action_from_cache(dcontext, sig, action, frame,
+                                                     sc, false/*!blocked*/)) {
+                    /* client handled fault */
+                    break;
+                }
+            }
+#endif
             /* kill(getpid(), SIGSEGV) looks just like a SIGSEGV in the store of eax
              * to mcontext after the syscall instr in do_syscall -- try to distinguish:
              */
