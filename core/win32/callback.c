@@ -4203,8 +4203,8 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
 static void
 check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
                          EXCEPTION_RECORD * pExcptRec,
-                         dr_mcontext_t *raw_mcontext,
-                         app_pc forged_exception_addr)
+                         app_pc forged_exception_addr
+                         _IF_CLIENT(dr_mcontext_t *raw_mcontext))
 {
     /* even though in_fcache is the much more common path (we hope! :)),
      * it grabs a lock, so we check for DR exceptions first, hoping to
@@ -4606,8 +4606,8 @@ intercept_exception(app_state_at_intercept_t *state)
             DODEBUG({ known_source = true; });
         }
 
-        check_internal_exception(dcontext, cxt, pExcptRec, &raw_mcontext,
-                                 forged_exception_addr);
+        check_internal_exception(dcontext, cxt, pExcptRec, forged_exception_addr
+                                 _IF_CLIENT(&raw_mcontext));
 
         /* don't do this for DR exception in case it's exception in trace_abort! */
         if (is_building_trace(dcontext)) {
