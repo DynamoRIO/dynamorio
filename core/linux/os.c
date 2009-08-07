@@ -450,14 +450,13 @@ get_application_pid()
     return get_application_pid_helper(false);
 }
 
-/* get application name, (cached), used for event logging */
-/* FIXME : Not yet implemented */
-char*
-get_application_name()
+/* we need to re-cache after a fork */
+static char *
+get_application_name_helper(bool ignore_cache)
 {
     static char name_buf[MAXIMUM_PATH];
     
-    if (!name_buf[0]) {
+    if (!name_buf[0] || ignore_cache) {
         /* FIXME PR 363063: move getnamefrompid() here and replace /proc reliance
          * ideally w/ os-independent method, but could use VSI for ESX
          */
@@ -465,6 +464,14 @@ get_application_name()
         getnamefrompid(get_process_id(), name_buf, BUFFER_SIZE_ELEMENTS(name_buf));
     }
     return name_buf;
+}
+
+/* get application name, (cached), used for event logging */
+/* FIXME : Not yet implemented */
+char *
+get_application_name(void)
+{
+    return get_application_name_helper(false);
 }
 
 const char *
@@ -1367,14 +1374,18 @@ os_thread_exit(dcontext_t *dcontext)
     });
 }
 
+/* this one is called before child's new logfiles are set up */
 void
 os_fork_init(dcontext_t *dcontext)
 {
+    /* re-populate cached data that contains pid */
     pid_cached = get_process_id();
     get_application_pid_helper(true);
+    get_application_name_helper(true);
     if (INTERNAL_OPTION(profile_pcs)) {
         pcprofile_fork_init(dcontext);
     }
+    signal_fork_init(dcontext);
 }
 
 void
@@ -2993,6 +3004,9 @@ handle_execve(dcontext_t *dcontext)
      * We also pass the current DYNAMORIO_OPTIONS to the new image.
      * FIXME: security hole here -- have some other way to pass the options?
      */
+    /* FIXME i#191: supposed to preserve things like pending signal
+     * set across execve: going to ignore for now
+     */
     char *fname = (char *)  sys_param(dcontext, 0);
     char **envp = (char **) sys_param(dcontext, 2);
     int i, preload = -1, ldpath = -1, ops = -1;
@@ -3623,6 +3637,7 @@ pre_system_call(dcontext_t *dcontext)
         /* vfork has the same needs as clone.  Pass info via a clone_record_t
          * structure to child.  See SYS_clone for info about i#149/PR 403015.
          */
+        /* FIXME: PR 403015 bug: there are no params to vfork: how is this working? */
         if (is_clone_thread_syscall(dcontext))
             create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
         break;
@@ -3667,7 +3682,11 @@ pre_system_call(dcontext_t *dcontext)
         /* in /usr/src/linux/arch/i386/kernel/signal.c:
            asmlinkage int sys_sigreturn(unsigned long __unused)
          */
-        handle_sigreturn(dcontext, false);
+        execute_syscall = handle_sigreturn(dcontext, false);
+        /* app will not expect syscall to return, so when handle_sigreturn
+         * returns false it always redirects the context, and thus no
+         * need to set return val here.
+         */
         break;
     }
 #endif
@@ -4289,6 +4308,7 @@ post_system_call(dcontext_t *dcontext)
             /* change parent pid to our pid */
             replace_thread_id(dcontext->owning_thread, child);
             dcontext->owning_thread = child;
+            dcontext->owning_process = get_process_id();
 
             /* now let dynamo initialize new shared memory, logfiles, etc. 
              * need access to static vars in dynamo.c, that's why we don't do it. */
@@ -5762,7 +5782,9 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
     uint cur_prot = MEMPROT_NONE;
     dcontext_t *dcontext = get_thread_private_dcontext();
     ASSERT(info != NULL);
-    ASSERT(dcontext != NULL);
+    /* don't crash if no dcontext, which happens (PR 452174) */
+    if (dcontext == NULL)
+        return false;
     get_vmm_heap_bounds(&our_heap_start, &our_heap_end);
     /* silly to loop over all x64 pages */
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));

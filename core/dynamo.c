@@ -649,6 +649,11 @@ dynamorio_fork_init(dcontext_t *dcontext)
     char parent_logdir[MAXIMUM_PATH];
 # endif
 
+    /* re-cache app name, etc. that are using parent pid before we
+     * create log dirs (xref i#189/PR 452168)
+     */
+    os_fork_init(dcontext);
+
     /* sanity check, plus need to set this for statistics_init:
      * even if parent did an execve, env var should be reset by now
      */
@@ -725,7 +730,6 @@ dynamorio_fork_init(dcontext_t *dcontext)
     /* FIXME: maybe should have a callback list for who wants to be notified
      * on a fork -- probably everyone who makes a log file on init.
      */
-    os_fork_init(dcontext);
     fragment_fork_init(dcontext);
 
 # ifdef CLIENT_INTERFACE

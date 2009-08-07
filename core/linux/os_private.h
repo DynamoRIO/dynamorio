@@ -102,6 +102,7 @@ void signal_init(void);
 void signal_exit(void);
 void signal_thread_init(dcontext_t *dcontext);
 void signal_thread_exit(dcontext_t *dcontext);
+void signal_fork_init(dcontext_t *dcontext);
 void handle_clone(dcontext_t *dcontext, uint flags);
 bool handle_sigaction(dcontext_t *dcontext, int sig,
                       const kernel_sigaction_t *act, 
@@ -109,7 +110,7 @@ bool handle_sigaction(dcontext_t *dcontext, int sig,
 void handle_post_sigaction(dcontext_t *dcontext, int sig,
                            const kernel_sigaction_t *act, 
                            kernel_sigaction_t *oact, size_t sigsetsize);
-void handle_sigreturn(dcontext_t *dcontext, bool rt);
+bool handle_sigreturn(dcontext_t *dcontext, bool rt);
 bool handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack,
                         stack_t *old_stack);
 void handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,

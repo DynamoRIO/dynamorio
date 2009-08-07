@@ -760,6 +760,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
     dr_mcontext_t mc;
     thread_synch_result_t res = THREAD_SYNCH_RESULT_NOT_SAFE;
     bool first_loop = true;
+    IF_LINUX(bool actually_suspended = true;)
     const uint max_loops = TEST(THREAD_SYNCH_SMALL_LOOP_MAX, flags) ?
         (SYNCH_MAXIMUM_LOOPS/10) : SYNCH_MAXIMUM_LOOPS;
 
@@ -831,6 +832,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                                       " thread, case 2096?");
                 res = (TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags) ?
                        THREAD_SYNCH_RESULT_SUCCESS : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
+                IF_LINUX(actually_suspended = false);
                 break;
             }
             if (!thread_get_mcontext(trec, &mc)) {
@@ -932,10 +934,14 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
              * signal and is no longer using its sigstack or ostd struct
              * before we clean those up.
              */
-            while (!is_thread_terminated(trec->dcontext)) {
-                /* FIXME i#96/PR 295561: use futex */
-                synch_thread_yield();
-            }
+            /* PR 452168: if failed to send suspend signal, do not spin */
+            if (actually_suspended) {
+                while (!is_thread_terminated(trec->dcontext)) {
+                    /* FIXME i#96/PR 295561: use futex */
+                    synch_thread_yield();
+                }
+            } else
+                ASSERT(TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags));
 #endif
         }
         if (THREAD_SYNCH_IS_CLEANED(desired_state)) {

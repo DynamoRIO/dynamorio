@@ -393,6 +393,7 @@ typedef struct sigframe {
      * just go to new context and interpret from there), so the only
      * transparency problem here is if app tries to build its own plain
      * frame and call sigreturn() unrelated to signal delivery.
+     * UPDATE: actually we do invoke SYS_*sigreturn
      */
     int sig_noclobber;
 } sigframe_plain_t;
@@ -553,7 +554,7 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set);
 static inline int
 sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
 {
-#ifdef X64
+#if defined(X64) && !defined(VMX86_SERVER)
     /* PR 305020: must have SA_RESTORER for x64 */
     if (act != NULL && !TEST(SA_RESTORER, act->flags)) {
         act->flags |= SA_RESTORER;
@@ -1188,6 +1189,40 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
     }
 }
 
+/* This one is called before child's new logfiles are set up, since
+ * os_fork_init() has to be called there (xref i#189/PR 452168).  If
+ * we want to log to new logfile need to split from os_fork_init().
+ */
+void
+signal_fork_init(dcontext_t *dcontext)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    int i;
+    /* Child of fork is a single thread in a new process so should
+     * start over w/ no sharing (xref i#190/PR 452178) 
+     */
+    if (info->shared_app_sigaction) {
+        info->shared_app_sigaction = false;
+        if (info->shared_lock != NULL) {
+            DELETE_LOCK(*info->shared_lock);
+            global_heap_free(info->shared_lock, sizeof(mutex_t) HEAPACCT(ACCT_OTHER));
+        }
+        if (info->shared_refcount != NULL)
+            global_heap_free(info->shared_refcount, sizeof(int) HEAPACCT(ACCT_OTHER));
+        info->shared_refcount = NULL;
+    }
+    info->num_unstarted_children = 0;
+    for (i = 0; i < MAX_SIGNUM; i++) {
+        /* "A child created via fork(2) initially has an empty pending signal set" */
+        dcontext->signals_pending = false;
+        while (info->sigpending[i] != NULL) {
+            sigpending_t *temp = info->sigpending[i];
+            info->sigpending[i] = temp->next;
+            special_heap_free(info->sigheap, temp);
+        }
+    }
+}
+
 void
 signal_thread_exit(dcontext_t *dcontext)
 {
@@ -1213,7 +1248,7 @@ signal_thread_exit(dcontext_t *dcontext)
         mutex_unlock(info->shared_lock);
     }
     if (!info->shared_app_sigaction || *info->shared_refcount == 0) {
-        LOG(THREAD, LOG_ASYNCH, 2, "Signal handler cleanup:\n");
+        LOG(THREAD, LOG_ASYNCH, 2, "signal handler cleanup:\n");
         for (i = 0; i < MAX_SIGNUM; i++) {
             if (info->app_sigaction[i] != NULL) {
                 /* restore to old handler */
@@ -1226,11 +1261,6 @@ signal_thread_exit(dcontext_t *dcontext)
                 LOG(THREAD, LOG_ASYNCH, 2, "\trestoring SIG_DFL as handler for %d\n", i);
                 sigaction_syscall(i, &act, NULL);
             }
-            while (info->sigpending[i] != NULL) {
-                sigpending_t *temp = info->sigpending[i];
-                info->sigpending[i] = temp->next;
-                special_heap_free(info->sigheap, temp);
-            }
         }
         handler_free(dcontext, info->app_sigaction, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
         handler_free(dcontext, info->we_intercept, MAX_SIGNUM * sizeof(bool));
@@ -1240,6 +1270,14 @@ signal_thread_exit(dcontext_t *dcontext)
         }
         if (info->shared_refcount != NULL)
             global_heap_free(info->shared_refcount, sizeof(int) HEAPACCT(ACCT_OTHER));
+    }
+    for (i = 0; i < MAX_SIGNUM; i++) {
+        /* pending queue is per-thread and not shared */
+        while (info->sigpending[i] != NULL) {
+            sigpending_t *temp = info->sigpending[i];
+            info->sigpending[i] = temp->next;
+            special_heap_free(info->sigheap, temp);
+        }
     }
     special_heap_exit(info->sigheap);
     DELETE_LOCK(info->child_lock);
@@ -1454,7 +1492,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
 #ifdef HAVE_SIGALTSTACK
         non_const_act->flags |= SA_ONSTACK; /* use our sigstack */
 #endif
-#ifdef X64
+#if defined(X64) && !defined(VMX86_SERVER)
         /* PR 305020: must have SA_RESTORER for x64 */
         non_const_act->flags |= SA_RESTORER;
         non_const_act->restorer = (void (*)(void)) dynamorio_sigreturn;
@@ -1925,6 +1963,9 @@ thread_set_self_context(void *cxt)
     sigframe_rt_t frame; /* for x64, 440 bytes */
     struct sigcontext *sc = (struct sigcontext *) cxt;
     app_pc xsp_for_sigreturn;
+#ifdef VMX86_SERVER
+    ASSERT_NOT_IMPLEMENTED(false); /* PR 405694: can't use regular sigreturn! */
+#endif
 #ifdef X64
     struct _fpstate __attribute__ ((aligned (16))) fpstate; /* 512 bytes */
     frame.uc.uc_mcontext.fpstate = &fpstate;
@@ -2158,6 +2199,11 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
 #ifdef X64
         ASSERT_NOT_REACHED();
 #else
+# ifdef VMX86_SERVER
+        /* PR 404712: skip kernel's restorer code */
+        if (for_app)
+            f_new->pretcode = (char *) dynamorio_sigreturn;
+# else
         /* only point at retcode if old one was -- with newer OS, points at
          * vsyscall page and there is no restorer, yet stack restorer code left
          * there for gdb compatibility
@@ -2168,6 +2214,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
          * master_signal_handler 
          */
         LOG(THREAD, LOG_ASYNCH, level, "\tleaving pretcode with old value\n");
+# endif
 #endif
     }
 #ifndef X64
@@ -2227,7 +2274,8 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     ASSERT(rtframe);
 #endif
 
-    LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_stack: rt=%d, sp="PFX"\n", rtframe, sp);
+    LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_stack: rt=%d, src="PFX", sp="PFX"\n",
+        rtframe, frame, sp);
 
     /* before we write to the app's stack we need to see if it's writable */
     check_pc = (byte *) ALIGN_BACKWARD(sp, PAGE_SIZE);
@@ -2298,10 +2346,16 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         ASSERT_NOT_REACHED();
 #else
         sigframe_plain_t *f_new = (sigframe_plain_t *) sp;
+# ifndef VMX86_SERVER
         sigframe_plain_t *f_old = (sigframe_plain_t *) frame;
+# endif
         if (has_restorer)
             f_new->pretcode = (char *) info->app_sigaction[sig]->restorer;
         else {
+# ifdef VMX86_SERVER
+            /* PR 404712: skip kernel's restorer code */
+            f_new->pretcode = (char *) dynamorio_nonrt_sigreturn;
+# else
             /* see comments in rt case above */
             if (f_old->pretcode == f_old->retcode)
                 f_new->pretcode = f_new->retcode;
@@ -2312,6 +2366,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
                 f_new->pretcode = (char *) dynamorio_nonrt_sigreturn;
             } /* else, pointing at vsyscall most likely */
             LOG(THREAD, LOG_ASYNCH, 3, "\tleaving pretcode with old value\n");
+# endif
         }
         /* if fpstate ptr is not NULL, update it to new frame's fpstate struct */
         if (f_new->sc.fpstate != NULL)
@@ -2603,8 +2658,13 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          */
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d) from gen routine "PFX"\n", sig, pc);
-        LOG(THREAD, LOG_ASYNCH, 1,
-            "WARNING: signal in gen routine: may cause problems!\n");
+        /* This could come from another thread's SYS_kill (via our gen do_syscall) */
+        DOLOG(1, LOG_ASYNCH, {
+            if (!is_after_syscall_address(dcontext, pc)) {
+                LOG(THREAD, LOG_ASYNCH, 1,
+                    "WARNING: signal %d in gen routine: may cause problems!\n", sig);
+            }
+        });
     } else {
         /* FIXME: what about routines called from code cache, like pre_system_call?
          * want to unlink fragment and get back to dispatch...but syscall could
@@ -3590,7 +3650,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
         if (default_action[sig] == DEFAULT_TERMINATE ||
             default_action[sig] == DEFAULT_TERMINATE_CORE) {
             /* N.B.: we don't have to restore our handler because the
-             * default action is for the process to die!
+             * default action is for the process (entire thread group for NPTL) to die!
              */
             if (from_dispatch ||
                 can_always_delay[sig] ||
@@ -3720,7 +3780,8 @@ receive_pending_signal(dcontext_t *dcontext)
     }
 }
 
-void
+/* Returns false if should NOT issue syscall. */
+bool
 handle_sigreturn(dcontext_t *dcontext, bool rt)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
@@ -3830,6 +3891,13 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
      */
     dcontext->asynch_target = (app_pc) sc->SC_XIP;
     next_pc = dcontext->asynch_target;
+
+#ifdef VMX86_SERVER
+    /* PR 404712: kernel only restores gp regs so we do it ourselves and avoid
+     * complexities of kernel's non-linux-like sigreturn semantics
+     */
+    sigcontext_to_mcontext(get_mcontext(dcontext), sc);
+#else
     /* HACK to get eax put into mcontext AFTER do_syscall */
     dcontext->next_tag = (app_pc) sc->SC_XAX;
     /* use special linkstub so we know why we came out of the cache */
@@ -3846,9 +3914,12 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
      * look like whatever would happen to the app...
      */
     ASSERT((app_pc)sc->SC_XIP != next_pc);
+#endif
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset next tag to "PFX", sc->SC_XIP to "PFX"\n",
         next_pc, sc->SC_XIP);
+
+    return IF_VMX86_ELSE(false, true);
 }
 
 bool

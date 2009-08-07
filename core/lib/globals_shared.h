@@ -399,9 +399,11 @@ typedef struct {
 #ifdef VMX86_SERVER
 # define IF_VMX86(x) x
 # define IF_VMX86_ELSE(x,y) x
+# define _IF_VMX86(x) , x
 #else
 # define IF_VMX86(x)
 # define IF_VMX86_ELSE(x,y) y
+# define _IF_VMX86(x)
 #endif
 
 #ifdef LINUX
