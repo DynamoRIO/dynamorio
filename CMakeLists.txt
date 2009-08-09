@@ -143,6 +143,8 @@ endif (VPS)
 # For developers
 # CMake note: never set option vars as it prevents override by cache var:
 # instead set default value in separate var and use that to initialize option.
+# For a dependent option, use a string var and only set it if the string is ""
+# (xref i#170 and see below).
 if (INTERNAL OR DEBUG)
   set(KSTATS_DEFAULT ON)
 else (INTERNAL OR DEBUG)
@@ -165,12 +167,24 @@ endif (INTERNAL AND DEBUG AND NOT VMKERNEL)
 if (CALLPROF)
   set(KSTATS_DEFAULT 0FF)
 endif (CALLPROF)
-option(KSTATS "internal kstat profiling" ${KSTATS_DEFAULT})
+
+set(KSTATS "" CACHE STRING "internal kstat profiling: ON or OFF overrides default")
+# FIXME i#170: once CMake 2.8 is released we can detect whether 2.8 is
+# in use, and if so use a value-enum to get drop-down of possible values, like so:
+#   set_property(CACHE KSTATS PROPERTY STRINGS "" "ON" "OFF")
+if ("${KSTATS}" STREQUAL "")
+    set(KSTATS ${KSTATS_DEFAULT})
+endif()
+set(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE "" CACHE STRING
+  "keep internal symbols exported: ON or OFF overrides default")
+# FIXME i#170: ditto
+if ("${KEEP_SYMBOLS_FOR_LIBC_BACKTRACE}" STREQUAL "")
+  set(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE ${KEEP_SYMBOLS_DEFAULT})
+endif ()
+
 option(CALLPROF "internal caller profiling support")
 option(LINKCOUNT "internal linkcount profiling")
 option(STANDALONE_UNIT_TEST "internal unit tests")
-option(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE "keep internal symbols exported"
-  ${KEEP_SYMBOLS_DEFAULT})
 if (WIN32)
   # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
   option(GENERATE_PDBS "generate Windows debug information" ON)
