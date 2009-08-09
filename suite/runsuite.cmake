@@ -41,6 +41,7 @@ set(arg_long OFF)     # whether to run the long suite
 set(arg_include "")   # cmake file to include up front
 set(arg_preload "")   # cmake file to include prior to each 32-bit build
 set(arg_preload64 "") # cmake file to include prior to each 64-bit build
+set(arg_site "")
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "nightly")
@@ -58,6 +59,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} MATCHES "^preload64=")
     string(REGEX REPLACE "^preload64=" "" arg_preload64 "${arg}")
   endif (${arg} MATCHES "^preload64=")
+  if (${arg} MATCHES "^site=")
+    string(REGEX REPLACE "^site=" "" arg_site "${arg}")
+  endif (${arg} MATCHES "^site=")
 endforeach (arg)
 
 # allow setting the base cache variables via an include file
@@ -67,10 +71,24 @@ if (arg_include)
   include(${arg_include})
 endif (arg_include)
 
-if (${arg_nightly})
-  # FIXME NOT FINISHED i#11: nightly long run
-  # FIXME: need to pass in CTEST_DASHBOARD_ROOT and CTEST_SITE
-  set(BINARY_BASE "${CTEST_DASHBOARD_ROOT}/")
+if (arg_long)
+  set(TEST_LONG ON)
+else (arg_long)
+  set(TEST_LONG OFF)
+endif (arg_long)
+
+get_filename_component(BINARY_BASE "." ABSOLUTE)
+
+if (arg_nightly)
+  # i#11: nightly run
+  # Caller should have set CTEST_SITE via site= arg
+  if (arg_site)
+    set(CTEST_SITE "${arg_site}")
+  else (arg_site)
+    message(FATAL_ERROR "must set sitename via site= arg")
+  endif (arg_site)
+
+  set(CTEST_DASHBOARD_ROOT "${BINARY_BASE}")
 
   # We assume a manual check out was done, and that CTest can just do "update".
   # If we want a fresh checkout we can set CTEST_BACKUP_AND_RESTORE
@@ -81,19 +99,12 @@ if (${arg_nightly})
   set(DO_UPDATE ON)
   set(DO_SUBMIT ON)
   set(SUBMIT_LOCAL OFF)
-  set(TEST_LONG ON)
-else (${arg_nightly})
+else (arg_nightly)
   # a local run, not a nightly
-  get_filename_component(BINARY_BASE "." ABSOLUTE)
   set(SUITE_TYPE Experimental)
   set(DO_UPDATE OFF)
   set(DO_SUBMIT ON)
   set(SUBMIT_LOCAL ON)
-  if (${arg_long})
-    set(TEST_LONG ON)
-  else (${arg_long})
-    set(TEST_LONG OFF)
-  endif (${arg_long})
   # CTest does "scp file ${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}" so for
   # local copy w/o needing sshd on localhost we arrange to have : in the
   # absolute filepath.  Note that I would prefer having the results inside
@@ -115,7 +126,7 @@ else (${arg_nightly})
     file(REMOVE_RECURSE "${RESULTS_DIR}")
   endif (EXISTS "${RESULTS_DIR}")
   file(MAKE_DIRECTORY "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}")
-endif (${arg_nightly})
+endif (arg_nightly)
 
 if (TEST_LONG)
   set(DO_ALL_BUILDS ON)
@@ -256,6 +267,7 @@ function(testbuild_ex name is64 initial_cache build_args)
   #   INCLUDE broadfun
   ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}")
   if (DO_SUBMIT)
+    # include any notes via set(CTEST_NOTES_FILES )?
     ctest_submit()
   endif (DO_SUBMIT)
   set(ENV{PATH} "${pre_path}")
