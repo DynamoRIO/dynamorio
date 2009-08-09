@@ -182,8 +182,17 @@ function(testbuild_ex name is64 initial_cache build_args)
   set(CTEST_BUILD_COMMAND "${CTEST_BUILD_COMMAND_BASE} ${build_args}")
   set(CTEST_BINARY_DIRECTORY "${BINARY_BASE}/build_${CTEST_BUILD_NAME}")
   set(last_build_dir "${CTEST_BINARY_DIRECTORY}" PARENT_SCOPE)
+  # for short suite, don't build tests for builds that don't run tests
+  # (since building takes forever on windows)
+  if (NOT "${test_long_cache}" STREQUAL "" OR
+      "${name}" STREQUAL "debug-internal-32" OR
+      "${name}" STREQUAL "debug-internal-64")
+    set(tests_cache "BUILD_TESTS:BOOL=ON")
+  else ()
+    set(tests_cache "")
+  endif()
   set(CTEST_INITIAL_CACHE "${initial_cache}
-    BUILD_TESTS:BOOL=ON
+    ${tests_cache}
     TEST_SUITE:BOOL=ON
     ${test_long_cache}
     ${base_cache}
