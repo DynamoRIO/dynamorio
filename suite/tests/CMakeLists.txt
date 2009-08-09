@@ -86,6 +86,9 @@ endif (UNIX)
 # LIN = Linux-only
 # ONLY = only run tests that match regex
 
+# N.B.: if short-suite tests are added to other than the debug-internal-{32,64}
+# builds, update runsuite.cmake to build the tests for those builds!
+
 set(vmap_run_list
   # our main configuration
   "SHORT::-code_api"
@@ -990,7 +993,8 @@ else (UNIX)
   tobuild_dll(win32.multisec win32/multisec.c "")
   tobuild_dll(win32.nativeterminate win32/nativeterminate.c
     "-native_exec_list nativeterminate.dll.dll")
-  tobuild(win32.oomtest win32/oomtest.c)
+  # FIXME i#192: oomtest ends up killing parent shell: investigate, fix, re-enable!
+  #tobuild(win32.oomtest win32/oomtest.c)
   tobuild(win32.partial_map win32/partial_map.c)
   tobuild(win32.protect-datasec win32/protect-datasec.c)
   tobuild_dll(win32.rebased win32/rebased.c "")
