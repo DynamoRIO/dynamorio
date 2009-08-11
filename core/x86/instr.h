@@ -2801,6 +2801,7 @@ enum {
     EFLAGS_AF = 0x00000010, /**< The bit in the eflags register of AF (Aux Carry Flag). */
     EFLAGS_ZF = 0x00000040, /**< The bit in the eflags register of ZF (Zero Flag). */
     EFLAGS_SF = 0x00000080, /**< The bit in the eflags register of SF (Sign Flag). */
+    EFLAGS_DF = 0x00000400, /**< The bit in the eflags register of DF (Direction Flag). */
     EFLAGS_OF = 0x00000800, /**< The bit in the eflags register of OF (Overflow Flag). */
 };
 

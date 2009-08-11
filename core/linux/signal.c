@@ -551,6 +551,9 @@ static void
 dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set);
 #endif
 
+static bool
+is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, struct siginfo *info);
+
 static inline int
 sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
 {
@@ -1294,6 +1297,41 @@ signal_thread_exit(dcontext_t *dcontext)
 #endif
 }
 
+static void
+set_our_handler_sigact(kernel_sigaction_t *act, int sig)
+{
+    act->handler = (handler_t) master_signal_handler;
+
+    act->flags = SA_SIGINFO; /* send 3 args to handler */
+#ifdef HAVE_SIGALTSTACK
+    act->flags |= SA_ONSTACK; /* use our sigstack */
+#endif
+
+#if defined(X64) && !defined(VMX86_SERVER)
+    /* PR 305020: must have SA_RESTORER for x64 */
+    act->flags |= SA_RESTORER;
+    act->restorer = (void (*)(void)) dynamorio_sigreturn;
+#endif
+
+    /* We block most signals within our handler */
+    kernel_sigfillset(&act->mask);
+    /* i#184/PR 450670: we let our suspend signal interrupt our own handler
+     * We never send more than one before resuming, so no danger to stack usage
+     * from our own: but app could pile them up.
+     */
+    kernel_sigdelset(&act->mask, SUSPEND_SIGNAL);
+    /* i#193/PR 287309: we need to NOT suppress further SIGSEGV, for decode faults,
+     * for try/except, and for !HAVE_PROC_MAPS probes.
+     * Just like SUSPEND_SIGNAL, if app sends repeated SEGV, could run out of 
+     * alt stack: seems too corner-case to be worth increasing stack size.
+     */
+    kernel_sigdelset(&act->mask, SIGSEGV);
+    if (sig == SUSPEND_SIGNAL || sig == SIGSEGV)
+        act->flags |= SA_NODEFER;
+    LOG(THREAD_GET, LOG_ASYNCH, 3,
+        "mask for our handler is "PFX" "PFX"\n", act->mask.sig[0], act->mask.sig[1]);
+}
+
 /* Set up master_signal_handler as the handler for signal "sig",
  * for the current thread.  Since we deal with kernel data structures
  * in our interception of system calls, we use them here as well,
@@ -1307,17 +1345,7 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
     kernel_sigaction_t oldact;
     ASSERT(sig < MAX_SIGNUM);
 
-    act.handler = (handler_t) master_signal_handler;
-    /* FIXME PR 287309: we need to NOT suppress further SIGSEGV */
-    kernel_sigfillset(&act.mask); /* block all signals within handler */
-    /* i#184/PR 450670: we let our suspend signal interrupt our own handler
-     * We never send more than one before resuming, so no danger to stack usage.
-     */
-    kernel_sigdelset(&act.mask, SUSPEND_SIGNAL);
-    act.flags = SA_SIGINFO; /* send 3 args to handler */
-#ifdef HAVE_SIGALTSTACK
-    act.flags |= SA_ONSTACK; /* use our sigstack */
-#endif
+    set_our_handler_sigact(&act, sig);
     /* arm the signal */
     rc = sigaction_syscall(sig, &act, &oldact);
     ASSERT(rc == 0
@@ -1485,18 +1513,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
          * FIXME: double-check we're dealing w/ all posible mask, flag
          * differences bet app & our handler
          */
-        non_const_act->handler = (handler_t) master_signal_handler;
-        /* block all signals within handler */
-        kernel_sigfillset(&(non_const_act->mask)); 
-        non_const_act->flags = SA_SIGINFO; /* send 3 args to handler */
-#ifdef HAVE_SIGALTSTACK
-        non_const_act->flags |= SA_ONSTACK; /* use our sigstack */
-#endif
-#if defined(X64) && !defined(VMX86_SERVER)
-        /* PR 305020: must have SA_RESTORER for x64 */
-        non_const_act->flags |= SA_RESTORER;
-        non_const_act->restorer = (void (*)(void)) dynamorio_sigreturn;
-#endif
+        set_our_handler_sigact(non_const_act, sig);
 
         /* FIXME PR 297033: we don't support intercepting DEFAULT_STOP /
          * DEFAULT_CONTINUE signals b/c we can't generate the default
@@ -1581,12 +1598,14 @@ handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack,
  */
 
 static void
-set_blocked(dcontext_t *dcontext, kernel_sigset_t *set)
+set_blocked(dcontext_t *dcontext, kernel_sigset_t *set, bool absolute)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
-    /* discard current blocked signals, re-set from new mask */
-    kernel_sigemptyset(&info->app_sigblocked);
+    if (absolute) {
+        /* discard current blocked signals, re-set from new mask */
+        kernel_sigemptyset(&info->app_sigblocked);
+    } /* else, OR in the new set */
     for (i=0; i<MAX_SIGNUM; i++) {
         if (info->we_intercept[i] && kernel_sigismember(set, i)) {
             kernel_sigaddset(&info->app_sigblocked, i);
@@ -1856,6 +1875,19 @@ safe_is_in_fcache(dcontext_t *dcontext, app_pc pc, app_pc xsp)
         return false;
     /* Reasonably certain not in DR code, so no locks should be held */
     return in_fcache(pc);
+}
+
+static bool
+is_on_alt_stack(dcontext_t *dcontext, byte *sp)
+{
+#ifdef HAVE_SIGALTSTACK
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    return (sp >= (byte *) info->sigstack.ss_sp &&
+            /* deliberate equality check since stacks often init to top */
+            sp <= (byte *) (info->sigstack.ss_sp + info->sigstack.ss_size));
+#else
+    return false;
+#endif
 }
 
 /* FIXME: should copy xmm here too for client access; xref save_xmm() */
@@ -2521,8 +2553,19 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
     CLIENT_ASSERT(action == DR_SIGNAL_DELIVER, "invalid signal event return value");
     return true;
 }
-
 #endif
+
+static void
+abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, const char *signame, const char *where)
+{
+    SYSLOG(SYSLOG_CRITICAL, SIGSEGV_IN_SECURE_CORE, 7, 
+           get_application_name(), get_application_pid(),
+           signame, where, PRODUCT_NAME, pc, get_thread_id());
+    /* options are already synchronized by the SYSLOG */
+    if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dynamo_options.dumpcore_mask))
+        os_dump_core("sigsegv in core");
+    os_terminate(dcontext, TERMINATE_PROCESS);
+}
 
 static void
 record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
@@ -2539,17 +2582,19 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     bool blocked = false;
     sigpending_t *pend;
 
-    /* i#184/PR 450670: we let SUSPEND_SIGNAL interrupt our signal handler.
-     * We can have re-entrancy issues in this routine if the app uses
-     * the same signal.
+    /* We no longer block SUSPEND_SIGNAL (i#184/PR 450670) or SIGSEGV (i#193/PR 287309).
+     * But we can have re-entrancy issues in this routine if the app uses the same
+     * SUSPEND_SIGNAL, or the nested SIGSEGV needs to be sent to the app.  The
+     * latter shouldn't happen unless the app sends SIGSEGV via SYS_kill().
      */
     if (ostd->processing_signal > 0) {
         LOG(THREAD, LOG_ASYNCH, 1, "nested signal %d\n", sig);
-        ASSERT(sig == SUSPEND_SIGNAL);
-        ASSERT(can_always_delay[sig]);
+        ASSERT(sig == SUSPEND_SIGNAL || sig == SIGSEGV);
+        ASSERT(can_always_delay[sig] ||
+               is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, &frame->info));
         /* To avoid re-entrant execution of special_heap_alloc() and of
          * prepending to the pending list we just drop this signal.
-         * FIXME: do better.
+         * FIXME i#194/PR 453996: do better.
          */
         STATS_INC(num_signals_dropped);
         SYSLOG_INTERNAL_WARNING_ONCE("dropping nested signal");
@@ -2666,19 +2711,20 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             }
         });
     } else {
-        /* FIXME: what about routines called from code cache, like pre_system_call?
-         * want to unlink fragment and get back to dispatch...but syscall could
-         * take a while...and have to walk stack to find which fragment?
-         */
         /* the signal interrupted dynamo => do not run handler now! */
-#ifdef DEBUG
-        /* FIXME: is_dynamo_address grabs too many locks, livelock can happen
-         * easily if any are interrupted, so we do not call it to distinguish
-         * DR addresses from libc or other libraries we use
-         */
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d) from dynamo or lib at pc "PFX"\n", sig, pc);
-#endif
+        if (!forged &&
+            !can_always_delay[sig] &&
+            !is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, &frame->info)) {
+            /* i#195/PR 453964: don't re-execute if will just re-fault.
+             * Our checks for dstack, etc. in master_signal_handler should
+             * have accounted for everything
+             */
+            ASSERT_NOT_REACHED();
+            abort_on_DR_fault(dcontext, pc,
+                              (sig == SIGSEGV) ? "SEGV" : "other", "unknown");
+        }
     }
 
     LOG(THREAD, LOG_ASYNCH, 3, "\taction is not SIG_IGN\n");
@@ -2746,6 +2792,17 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         }
 #endif
 
+        /* i#196/PR 453847: avoid infinite loop of signals if try to re-execute */
+        if (blocked && !forged && !can_always_delay[sig] &&
+            !is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, &frame->info)) {
+            ASSERT(default_action[sig] == DEFAULT_TERMINATE ||
+                   default_action[sig] == DEFAULT_TERMINATE_CORE);
+            LOG(THREAD, LOG_ASYNCH, 1,
+                "blocked fatal signal %d cannot be delayed: terminating\n", sig);
+            translate_sigcontext(dcontext, sc);
+            execute_default_from_cache(dcontext, sig, frame);
+        }
+        
         /* Happened in DR, do not translate context.  Record for later processing
          * at a safe point with a clean app state.
          */
@@ -2791,10 +2848,21 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
  * and identify them as well.
  */
 static bool
-is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp)
+is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, struct siginfo *info)
 {
+#ifndef VMX86_SERVER /* does not properly set si_code */
+    /* i#133: use si_code to distinguish user-sent signals.
+     * Even 2.2 Linux kernel supports <=0 meaning user-sent (except
+     * SIGIO) so we assume we can rely on it.
+     */
+    if (info->si_code <= 0)
+        return true;
+#endif
     return (is_at_do_syscall(dcontext, pc, xsp) &&
-            dcontext->sys_num == SYS_kill);
+            (dcontext->sys_num == SYS_kill ||
+             dcontext->sys_num == SYS_tkill ||
+             dcontext->sys_num == SYS_tgkill ||
+             dcontext->sys_num == SYS_rt_sigqueueinfo));
 }
 
 static byte *
@@ -3082,15 +3150,12 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
          *     void *pc = (void*) siginfo->si_addr;
          * Thus we must use the third argument, which is a ucontext_t (see above)
          */
-        /* FIXME PR 287309: we need to NOT suppress further SIGSEGV while in this
-         * handler, since we call decode() and need to handle faults due to app races
-         * or i/o paging.
-         */
         struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
         void *pc = (void *) sc->SC_XIP;
         bool syscall_signal = false; /* signal came from syscall? */
         bool is_write = false;
         byte *target;
+        bool is_DR_exception = false;
 
 #ifdef SIDELINE
         if (dcontext == NULL) {
@@ -3157,13 +3222,23 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         }
 #endif /* STACK_GUARD_PAGE */
 
-        /* FIXME: libc! 
-         * FIXME PR 205795: in_fcache and is_dynamo_address do grab locks!
-         */
-        if (!safe_is_in_fcache(dcontext, pc, (byte*)sc->SC_XSP) &&
-            (in_generated_routine(dcontext, pc) ||
-             is_at_do_syscall(dcontext, pc, (byte*)sc->SC_XSP) ||
-             is_dynamo_address(pc))) {
+        /* FIXME: share code with Windows callback.c */
+        /* FIXME PR 205795: in_fcache and is_dynamo_address do grab locks! */
+        if ((is_on_dstack(dcontext, (byte *)sc->SC_XSP)
+             /* PR 302951: clean call arg processing => pass to app/client.
+              * Rather than call the risky in_fcache we check whereami. */
+             IF_CLIENT_INTERFACE(&& (dcontext->whereami != WHERE_FCACHE))) ||
+            is_on_alt_stack(dcontext, (byte *)sc->SC_XSP) ||
+            is_on_initstack((byte *)sc->SC_XSP)) {
+            /* Checks here need to cover everything that record_pending_signal()
+             * thinks is non-fcache, non-gencode: else that routine will kill
+             * process since can't delay or re-execute (i#195/PR 453964).
+             */
+            is_DR_exception = true;
+        } else if (!safe_is_in_fcache(dcontext, pc, (byte*)sc->SC_XSP) &&
+                   (in_generated_routine(dcontext, pc) ||
+                    is_at_do_syscall(dcontext, pc, (byte*)sc->SC_XSP) ||
+                    is_dynamo_address(pc))) {
 #ifdef CLIENT_INTERFACE
             if (!in_generated_routine(dcontext, pc) &&
                 !is_at_do_syscall(dcontext, pc, (byte*)sc->SC_XSP)) {
@@ -3181,10 +3256,13 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
                 }
             }
 #endif
+            is_DR_exception = true;
+        }
+        if (is_DR_exception) {
             /* kill(getpid(), SIGSEGV) looks just like a SIGSEGV in the store of eax
              * to mcontext after the syscall instr in do_syscall -- try to distinguish:
              */
-            if (is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP)) {
+            if (is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, siginfo)) {
                 LOG(THREAD, LOG_ALL, 2,
                     "assuming SIGSEGV at post-do-syscall is kill, not our write fault\n");
                 syscall_signal = true;
@@ -3216,15 +3294,9 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
                     os_forge_exception(target, UNREADABLE_MEMORY_EXECUTION_EXCEPTION);
                     ASSERT_NOT_REACHED();
                 } else {
-                    char *where = in_generated_routine(dcontext, pc) ? " generated" : "";
-                    SYSLOG(SYSLOG_CRITICAL, SIGSEGV_IN_SECURE_CORE, 7, 
-                           get_application_name(), get_application_pid(),
-                           (sig == SIGSEGV) ? "SEGV" : "BUS", where, 
-                           PRODUCT_NAME, pc, get_thread_id());
-                    /* options are already synchronized by the SYSLOG */
-                    if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dynamo_options.dumpcore_mask))
-                        os_dump_core("sigsegv in secure core");
-                    os_terminate(dcontext, TERMINATE_PROCESS);
+                    abort_on_DR_fault(dcontext, pc, (sig == SIGSEGV) ? "SEGV" : "BUS",
+                                      in_generated_routine(dcontext, pc) ?
+                                      " generated" : "");
                 }
             }
         }
@@ -3384,12 +3456,12 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
         trace_abort(dcontext);
     }
 
-    /* discard current blocked signals, re-set from sigaction mask */
+    /* add to set of blocked signals those in sigaction mask */
     blocked = info->app_sigaction[sig]->mask;
     /* SA_NOMASK says whether to block sig itself or not */
     if ((info->app_sigaction[sig]->flags & SA_NOMASK) == 0)
         kernel_sigaddset(&blocked, sig);
-    set_blocked(dcontext, &blocked);
+    set_blocked(dcontext, &blocked, false/*relative: OR these in*/);
 
     /* Set our sigreturn context (NOT for the app: we already copied the
      * translated context to the app stack) to point to fcache_return!
@@ -3556,12 +3628,12 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     ASSERT(info->app_sigaction[sig] != NULL);
     handler = info->app_sigaction[sig]->handler;
 
-    /* discard current blocked signals, re-set from sigaction mask */
+    /* add to set of blocked signals those in sigaction mask */
     blocked = info->app_sigaction[sig]->mask;
     /* SA_NOMASK says whether to block sig itself or not */
     if ((info->app_sigaction[sig]->flags & SA_NOMASK) == 0)
         kernel_sigaddset(&blocked, sig);
-    set_blocked(dcontext, &blocked);
+    set_blocked(dcontext, &blocked, false/*relative: OR these in*/);
 
     /* if we were building a trace, kill it */
     if (is_building_trace(dcontext)) {
@@ -3579,6 +3651,8 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     mcontext->xsi = (reg_t) &((sigframe_rt_t *)xsp)->info;
     mcontext->xdx = (reg_t) &((sigframe_rt_t *)xsp)->uc;
 #endif
+    /* Clear eflags DF (signal handler should match function entry ABI) */
+    mcontext->xflags &= ~EFLAGS_DF;
     /* Make sure handler is next thing we execute */       
     dcontext->next_tag = (app_pc) handler;
 
@@ -3654,7 +3728,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
              */
             if (from_dispatch ||
                 can_always_delay[sig] ||
-                is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP)) {
+                is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, &frame->info)) {
                 /* This must have come from SYS_kill rather than raised by
                  * a faulting instruction.  Thus we can't go re-execute the
                  * instr in order to re-raise the signal (if from_dispatch,
@@ -3824,7 +3898,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
          */
         sc = get_sigcontext_from_app_frame(info, sig, (void *) frame);
         /* discard blocked signals, re-set from prev mask stored in frame */
-        set_blocked(dcontext, &frame->uc.uc_sigmask);
+        set_blocked(dcontext, &frame->uc.uc_sigmask, true/*absolute*/);
     } else {
         /* FIXME: libc's restorer pops prior to calling sigreturn, I have
          * no idea why, but kernel asks for xsp-8 not xsp-4...weird!
@@ -3849,7 +3923,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
         prevset.sig[0] = frame->sc.oldmask;
         if (_NSIG_WORDS > 1)
             memcpy(&prevset.sig[1], &frame->extramask, sizeof(frame->extramask));
-        set_blocked(dcontext, &prevset);
+        set_blocked(dcontext, &prevset, true/*absolute*/);
     }
 
     /* We abandoned the previous context, so we need to start
