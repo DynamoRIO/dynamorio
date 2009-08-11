@@ -2847,7 +2847,6 @@ reg_t
 dr_syscall_get_param(void *drcontext, int param_num)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    dcontext->client_data->in_post_syscall = true;
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall,
                   "dr_syscall_get_param() can only be called from pre-syscall event");
     return sys_param(dcontext, param_num);
@@ -5396,9 +5395,9 @@ find_vm_areas_via_probe(void)
      * pages and avoid wasting our time on faults in large empty areas
      * of the address space.  This is especially important for 64-bit.
      * If done lazily, to avoid races, should do "lock add *page,0".
-     * If that faults, then just try to read.  However, we'll need
+     * If that faults, then just try to read.  Note that we need
      * nested SIGSEGV support to handle probing while inside a SIGSEGV
-     * handler: that's PR 287309.
+     * handler (see PR 287309).
      *
      * Note that we have no good way (at least that's not racy, or
      * that'll work if there's no NX) to check for +x, and as such we
@@ -5741,8 +5740,9 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
             out_info->type = DR_MEMTYPE_DATA; /* hopefully we won't miss an image */
         }
 #else
-        /* FIXME: This is dangerous since we need to probe and we do
-         * not yet support nested SIGSEGV (PR 287309).
+        /* We now have nested probes, but currently probing sometimes calls
+         * get_memory_info(), so we can't probe here unless we remove that call
+         * there.
          */
 #endif
     }
@@ -5789,9 +5789,6 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
     /* silly to loop over all x64 pages */
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
 
-    /* FIXME PR 287309: we need nested sigsegv to be called from
-     * signal handler! 
-     */
     next_pc = probe_address(dcontext, (app_pc) pc, our_heap_start,
                             our_heap_end, &cur_prot);
     if (next_pc != pc) {
