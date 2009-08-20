@@ -78,6 +78,7 @@ void os_thread_stack_store(dcontext_t *dcontext);
 app_pc get_dynamorio_dll_end(void);
 thread_id_t get_tls_thread_id(void);
 bool is_thread_terminated(dcontext_t *dcontext);
+void os_tls_pre_init(int gdt_index);
 
 /* We do NOT want our libc routines wrapped by pthreads, so we use
  * our own syscall wrappers.

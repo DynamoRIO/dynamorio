@@ -355,6 +355,16 @@ dynamorio_app_init(void)
 #ifdef LINUX
         if (getenv(DYNAMORIO_VAR_EXECVE) != NULL) {
             post_execve = true;
+# ifdef VMX86_SERVER
+            /* PR 458917: our gdt slot was not cleared on exec so we need to
+             * clear it now to ensure we don't leak it and eventually run out of
+             * slots.  We could alternatively call os_tls_exit() prior to
+             * execve, since syscalls use thread-private fcache_enter, but
+             * complex to recover from execve failure, so instead we pass which
+             * TLS index we had.
+             */
+            os_tls_pre_init(atoi(getenv(DYNAMORIO_VAR_EXECVE)));
+# endif
             /* important to remove it, don't want to propagate to forked children, etc. */
             unsetenv(DYNAMORIO_VAR_EXECVE);
             /* check that it's gone: we've had problems with unsetenv */

@@ -1134,8 +1134,9 @@ os_tls_init()
             int avail_index[GDT_NUM_TLS_SLOTS];
             our_modify_ldt_t clear_desc;
             ASSERT(tls_gdt_index == -1);
-            for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
+            for (i = 0; i < GDT_NUM_TLS_SLOTS; i++)
                 avail_index[i] = -1;
+            for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
                 initialize_ldt_struct(&desc, segment, PAGE_SIZE, -1);
                 res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
                 LOG(GLOBAL, LOG_THREADS, 4,
@@ -1268,6 +1269,36 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     global_heap_free(tls_table, MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     DELETE_LOCK(tls_lock);
 #endif
+}
+
+static int
+os_tls_get_gdt_index(dcontext_t *dcontext)
+{
+    os_local_state_t *os_tls = (os_local_state_t *)
+        ((byte*)dcontext->local_state) - offsetof(os_local_state_t, state);
+    if (os_tls->tls_type == TLS_TYPE_GDT)
+        return os_tls->ldt_index;
+    else
+        return -1;
+}
+
+void
+os_tls_pre_init(int gdt_index)
+{
+    /* Only set to above 0 for tls_type == TLS_TYPE_GDT */
+    if (gdt_index > 0) {
+        /* PR 458917: clear gdt slot to avoid leak across exec */ 
+        our_modify_ldt_t desc;
+        int res;
+        static const ptr_uint_t zero = 0;
+        /* Be sure to clear the selector before anything that might
+         * call get_thread_private_dcontext()
+         */
+        WRITE_FS(zero); /* macro needs lvalue! */
+        clear_ldt_struct(&desc, gdt_index);
+        res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
+        ASSERT(res >= 0);        
+    }
 }
 
 #ifdef CLIENT_INTERFACE
@@ -3178,10 +3209,13 @@ handle_execve(dcontext_t *dcontext)
         LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
     }
 
-    sz = strlen(DYNAMORIO_VAR_EXECVE) + 3;
+    sz = strlen(DYNAMORIO_VAR_EXECVE) + 4;
     /* we always pass this var to indicate "post-execve" */
     var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-    snprintf(var, sz, "%s=1", DYNAMORIO_VAR_EXECVE);
+    /* PR 458917: we overload this to also pass our gdt index */
+    ASSERT(os_tls_get_gdt_index(dcontext) < 100 &&
+           os_tls_get_gdt_index(dcontext) >= -1); /* only 2 chars allocated */
+    snprintf(var, sz, "%s=%02d", DYNAMORIO_VAR_EXECVE, os_tls_get_gdt_index(dcontext));
     *(var+sz-1) = '\0'; /* null terminate */
     new_envp[i++] = var;
     LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
