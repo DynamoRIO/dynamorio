@@ -522,6 +522,29 @@ void restore_debugger_key_injection(int id, BOOL started)
 
 /***************************** end debug key injection ********************/
 
+/* i#200/PR 459481: communicate child pid via file */
+static void
+write_pid_to_file(const char *pidfile, process_id_t pid)
+{
+    HANDLE f = CreateFile(pidfile, GENERIC_WRITE, FILE_SHARE_READ,
+                          NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (f == INVALID_HANDLE_VALUE) {
+        DO_VERBOSE({
+            fprintf(FP, "Cannot open %s: %d\n", pidfile, GetLastError());
+        });
+        display_error("Error writing to pidfile file\n");
+    } else {
+        TCHAR pidbuf[16];
+        BOOL ok;
+        DWORD written;
+        _snprintf(pidbuf, BUFFER_SIZE_ELEMENTS(pidbuf), "%d\n", pid);
+        NULL_TERMINATE_BUFFER(pidbuf);
+        ok = WriteFile(f, pidbuf, (DWORD)strlen(pidbuf), &written, NULL);
+        ASSERT(ok && written == strlen(pidbuf));
+        CloseHandle(f);
+    }
+}
+
 static const TCHAR*
 get_image_name(TCHAR *app_name)
 {
@@ -549,14 +572,14 @@ int usage(char *us)
 #ifdef EXTERNAL_INJECTOR
     fprintf(FP,
             "Usage : %s [-s limit_sec | -m limit_min | -h limit_hr | -no_wait] \n"
-            "        [-noinject] <application> [args...]\n"
+            "        [-noinject] [-pidfile <file>] <application> [args...]\n"
             "    -no_wait   don't wait for application to exit before returning\n"
             "    -s -m -h   kill the application if runs longer than specified limit\n"
             "    -noinject  just launch the process without injecting\n",
             us);
 #else
     fprintf(FP, "Usage: %s [-s limit_sec | -m limit_min | -h limit_hr | -no_wait] [-stats]\n"
-            "      [-mem] [-no_env | -env] [-ops <options>] [-force]\n"
+            "      [-mem] [-no_env | -env] [-ops <options>] [-force] [-pidfile <file>]\n"
             "      -noinject|<dll_to_inject> <program> <args...>\n", us);
 #endif
     return 0;
@@ -594,6 +617,7 @@ main(int argc, char *argv[], char *envp[])
 #ifdef EXTERNAL_INJECTOR
     char                library_path_buf[MAXIMUM_PATH];
 #endif
+    char                *pidfile = NULL;
 
     STARTUPINFO mysi;
     GetStartupInfo(&mysi);
@@ -666,7 +690,12 @@ main(int argc, char *argv[], char *envp[])
             arg_offs += 2;
         }
 #endif /* ! EXTERNAL_INJECTOR */
-        else {
+        else if (strcmp(argv[arg_offs], "-pidfile") == 0) {
+            if (argc <= arg_offs+1)
+                return usage(argv[0]);
+            pidfile = argv[arg_offs+1];
+            arg_offs += 2;
+        } else {
             return usage(argv[0]);
         }
         if (limit < -1 && !limit_default) {
@@ -845,6 +874,10 @@ main(int argc, char *argv[], char *envp[])
         TerminateProcess(pi.hProcess, 0);
         goto error;
     }
+
+    /* i#200/PR 459481: communicate child pid via file */
+    if (pidfile != NULL)
+        write_pid_to_file(pidfile, pi.dwProcessId);
 
     /* force_injection prevents overriding of inject based on registry */
     if (inject && !force_injection) {

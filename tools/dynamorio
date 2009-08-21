@@ -239,4 +239,5 @@ fi
 export LD_LIBRARY_PATH=$dr_lib_path/$lib:$LD_LIBRARY_PATH
 export LD_PRELOAD="libdynamorio.so libdrpreload.so"
 
-$*
+# keep same pid for easier scripting
+exec $*
