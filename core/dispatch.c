@@ -1587,7 +1587,9 @@ handle_system_call(dcontext_t *dcontext)
      * after sysenter handling but it's not clear which is better: we'll
      * assert if client changes xsp/xdx but that's fine.
      */
-    if (!instrument_pre_syscall(dcontext, (int) mc->xax)) {
+    /* i#202: ignore native syscalls in early_inject_init() */
+    if (IF_WINDOWS(dynamo_initialized &&)
+        !instrument_pre_syscall(dcontext, (int) mc->xax)) {
         /* we won't execute post-syscall so we do not need to store
          * dcontext->sys_*
          */

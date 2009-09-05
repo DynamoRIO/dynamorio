@@ -3156,7 +3156,9 @@ void post_system_call(dcontext_t *dcontext)
     /* The instrument_post_syscall should be called after DR finishes all
      * its operations. Xref to i#1.
      */
-    instrument_post_syscall(dcontext, sysnum);
+    /* i#202: ignore native syscalls in early_inject_init() */
+    if (dynamo_initialized)
+        instrument_post_syscall(dcontext, sysnum);
 #endif
 
     /* stats lock grabbing ok here, any synch with suspended threads taken
