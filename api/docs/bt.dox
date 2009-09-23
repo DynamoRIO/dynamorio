@@ -389,6 +389,9 @@ or make a call to a native routine that will not be brought into the code
 cache by \DynamoRIO.  However, such native calls need to be careful to
 remain transparent (see \ref sec_clean_call).
 
+Meta-instructions are considered observational and should not fault.  See
+\ref sec_translation for more information on fault handling.
+
 While \DynamoRIO attempts to support arbitrary code transformations, its
 internal operation requires that we impose the following limitations:
 
@@ -942,6 +945,11 @@ such potentially-faulting instructions added by its own API routines
 #dr_insert_mbr_instrumentation()'s read of application indirect branch
 data, etc.)
 
+For meta-instructions that can fault but only in deliberate ways (typically
+by accessing \client memory) and never access application memory, the
+"meta-instruction that can fault" property can be set via \ref
+instr_set_meta_may_fault() to avoid incurring the potential cost of added
+sandboxing checks that look for changes to application code.
 
 \ifnot vmsafe
 ***************************************************************************

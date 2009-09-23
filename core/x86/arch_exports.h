@@ -1531,6 +1531,12 @@ DR_API
  * meta instructions should not fault and are not considered
  * application instructions but rather added instrumentation code (see
  * #dr_register_bb_event() for further information on recreating).
+ *
+ * \note For meta-instructions that can fault but only when accessing
+ * client memory and that never access application memory, the
+ * "meta-instruction that can fault" property can be set via
+ * #instr_set_meta_may_fault to avoid incurring the cost of added
+ * sandboxing checks that look for changes to application code.
  */
 void 
 instr_set_ok_to_mangle(instr_t *instr, bool val);

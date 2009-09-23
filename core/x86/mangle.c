@@ -3112,17 +3112,27 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     uint flags =
         instr_eflags_to_fragment_eflags(forward_eflags_analysis(dcontext, ilist, next));
     bool use_tls = IF_X64_ELSE(true, false);
+    instr_t *next_app = next;
     DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "writes memory"); });
 
     ASSERT(!instr_is_call_indirect(instr)); /* FIXME: can you have REP on on CALL's */
 
-    if (next != NULL) {
-        if (!instr_raw_bits_valid(next)) {
+    /* skip meta instrs to find next app instr (xref PR 472190) */
+    while (next_app != NULL && !instr_ok_to_mangle(next_app))
+        next_app = instr_get_next(next_app);
+
+    if (next_app != NULL) {
+        /* client may have inserted non-meta instrs, so use translation first
+         * (xref PR 472190) 
+         */
+        if (instr_get_app_pc(next_app) != NULL)
+            after_write = instr_get_app_pc(next_app);
+        else if (!instr_raw_bits_valid(next_app)) {
             /* next must be the final jmp! */
-            ASSERT(instr_is_ubr(next) && instr_get_next(next) == NULL);
-            after_write = opnd_get_pc(instr_get_target(next));
+            ASSERT(instr_is_ubr(next_app) && instr_get_next(next_app) == NULL);
+            after_write = opnd_get_pc(instr_get_target(next_app));
         } else
-            after_write = instr_get_raw_bits(next);
+            after_write = instr_get_raw_bits(next_app);
     } else {
         after_write = end_pc;
     }
@@ -3246,12 +3256,22 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     uint flags =
         instr_eflags_to_fragment_eflags(forward_eflags_analysis(dcontext, ilist, next));
     bool use_tls = IF_X64_ELSE(true, false);
+    instr_t *next_app = next;
     DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "writes memory"); });
 
-    if (next != NULL) {
-        if (!instr_raw_bits_valid(next)) {
+    /* skip meta instrs to find next app instr (xref PR 472190) */
+    while (next_app != NULL && !instr_ok_to_mangle(next_app))
+        next_app = instr_get_next(next_app);
+
+    if (next_app != NULL) {
+        /* client may have inserted non-meta instrs, so use translation first
+         * (xref PR 472190) 
+         */
+        if (instr_get_app_pc(next_app) != NULL)
+            after_write = instr_get_app_pc(next_app);
+        else if (!instr_raw_bits_valid(next_app)) {
             /* next must be the final artificially added jmp! */
-            ASSERT(instr_is_ubr(next) && instr_get_next(next) == NULL);
+            ASSERT(instr_is_ubr(next_app) && instr_get_next(next_app) == NULL);
             /* for sure this is the last jmp out, but it
              * doesn't have to be a direct jmp but instead
              * it could be the exit branch we add as an
@@ -3261,13 +3281,13 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
              * instruction even though it writes to memory
              */
             DOLOG(4, LOG_INTERP, { 
-                loginst(dcontext, 4, next, "next instr");
+                loginst(dcontext, 4, next_app, "next app instr");
             });
-            after_write = opnd_get_pc(instr_get_target(next));
+            after_write = opnd_get_pc(instr_get_target(next_app));
             LOG(THREAD, LOG_INTERP, 4, "after_write = "PFX" next should be final jmp\n",
                 after_write);
         } else
-            after_write = instr_get_raw_bits(next);
+            after_write = instr_get_raw_bits(next_app);
     } else {
         ASSERT_NOT_TESTED();
         after_write = end_pc;
@@ -3683,6 +3703,9 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
             /* don't mangle anything that mangle inserts! */
             next = instr_get_next_expanded(dcontext, ilist, instr);
             if (!instr_ok_to_mangle(instr))
+                continue;
+            /* don't mangle "meta-instruction that can fault" (xref PR 472190) */
+            if (instr_is_meta_may_fault(instr))
                 continue;
             if (record_translation) {
                 /* make sure inserted instrs translate to the proper original instr */

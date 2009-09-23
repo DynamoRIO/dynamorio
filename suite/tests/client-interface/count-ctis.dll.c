@@ -135,7 +135,7 @@ static
 void check(uint count, char *str)
 {
     dr_printf("%s... ", str);
-    if (count > 28) {
+    if (count > 20) {
         dr_printf("yes\n");
     }
     else {

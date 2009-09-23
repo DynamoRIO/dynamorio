@@ -1259,8 +1259,13 @@ enum {
 #ifdef WINDOWS
     /* used to indicate that a syscall should be executed via shared syscall */
     INSTR_SHARED_SYSCALL        = 0x01000000,
-    /* 0x02000000 -- used to be INSTR_SYSENTER_CALL_PAIR */
 #endif
+    /* client instr that may fault but not on app memory (PR 472190).
+     * FIXME: this one is also do-not-mangle for most cases, like selfmod,
+     * just not for translation: I'd propagate further but afraid of
+     * breaking things.
+     */
+    INSTR_META_MAY_FAULT        = 0x02000000,
     /* Signifies that this instruction may need to be hot patched and should
      * therefore not cross a cache line. It is not necessary to set this for
      * exit cti's or linkstubs since it is mainly intended for clients etc. 
@@ -1583,6 +1588,33 @@ DR_API
 /** Returns true iff \p instr's raw bits are not a valid encoding of \p instr. */
 bool 
 instr_needs_encoding(instr_t *instr);
+
+DR_API
+/**
+ * Return true iff \p instr is not a meta-instruction that can fault
+ * (see instr_set_meta_may_fault() for more information).
+ */
+bool
+instr_is_meta_may_fault(instr_t *instr);
+
+DR_API
+/**
+ * Sets \p instr as a "meta-instruction that can fault" if \p val is
+ * true and clears that property if \p val is false.  This property is
+ * only meaningful for instructions that are marked as "ok to mangle"
+ * (see instr_set_ok_to_mangle()).  Normally such instructions are
+ * treated as application instructions (i.e., not as
+ * meta-instructions).  The "meta-instruction that can fault" property
+ * indicates that an instruction should be treated as an application
+ * instruction for purposes of fault translation, but not for purposes
+ * of mangling.  The property should only be set for instructions that
+ * do not access application memory and therefore do not need
+ * sandboxing to ensure they do not change application code, yet do
+ * access client memory and may deliberately fault (usually to move a
+ * rare case out of the code path and to a fault-based path).
+ */
+void
+instr_set_meta_may_fault(instr_t *instr, bool val);
 
 DR_API
 /**

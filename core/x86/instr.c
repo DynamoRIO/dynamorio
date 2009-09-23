@@ -2201,6 +2201,21 @@ instr_set_ok_to_mangle(instr_t *instr, bool val)
         instr->flags |= INSTR_DO_NOT_MANGLE;
 }
 
+bool
+instr_is_meta_may_fault(instr_t *instr)
+{
+    return TEST(INSTR_META_MAY_FAULT, instr->flags);
+}
+
+void
+instr_set_meta_may_fault(instr_t *instr, bool val)
+{
+    if (val)
+        instr->flags |= INSTR_META_MAY_FAULT;
+    else
+        instr->flags &= ~INSTR_META_MAY_FAULT;
+}
+
 /* convenience routine */
 void
 instr_set_meta_no_translation(instr_t *instr)
