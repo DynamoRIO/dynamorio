@@ -4499,7 +4499,19 @@ post_system_call(dcontext_t *dcontext)
             /* Now modify the all-mems list. */
             /* We don't expect an existing entry for the new region. */
             all_memory_areas_lock();
-            ASSERT(!vmvector_overlap(all_memory_areas, base, base + size) ||
+            
+            /* i#175
+             * there are cases that base = mremap(old_base, old_size, size),
+             * where old_base = base, and old_size > size, 
+             * they do overlap and should not cause assertion failure.
+             * So if the new mremaped memory fall into old memory region,
+             * assertion success.
+             */
+            ASSERT((base >= old_base             && 
+                    base < (old_base + old_size) &&
+                    (base + size) > old_base     && 
+                    (base + size) <= (old_base + size)) ||
+                   !vmvector_overlap(all_memory_areas, base, base + size) ||
                    are_dynamo_vm_areas_stale());
             DEBUG_DECLARE(ok =)
                 remove_from_all_memory_areas(old_base, old_base+old_size);
@@ -5546,6 +5558,14 @@ find_executable_vm_areas(void)
             vsyscall_page_start = iter.vm_start;
             LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ "PFX" %s\n",
                 vsyscall_page_start, iter.comment);
+# else
+            /* i#172
+             * fix bugs for OS where vdso page is set unreadable as below
+             * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vdso]
+             * but it is readable indeed.
+             */
+            if (!TESTALL((PROT_READ|PROT_EXEC), iter.prot))
+                iter.prot |= (PROT_READ|PROT_EXEC);
 # endif
         } else if (mmap_check_for_module_overlap(iter.vm_start, size,
                                                  TEST(MEMPROT_READ, iter.prot),

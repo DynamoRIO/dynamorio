@@ -748,7 +748,7 @@ const reg_id_t reg_fixer[]={
     REG_R8,   REG_R9,   REG_R10,  REG_R11,  REG_R12,  REG_R13,  REG_R14,  REG_R15,
     REG_XAX,  REG_XCX,  REG_XDX,  REG_XBX,  REG_XAX,  REG_XCX,  REG_XDX,  REG_XBX, 
     REG_R8,   REG_R9,   REG_R10,  REG_R11,  REG_R12,  REG_R13,  REG_R14,  REG_R15,
-    REG_XSI,  REG_XDI,  REG_XSP,  REG_XBP,
+    REG_XSP,  REG_XBP,  REG_XSI,  REG_XDI,  /* i#201 */
     REG_MM0,  REG_MM1,  REG_MM2,  REG_MM3,  REG_MM4,  REG_MM5,  REG_MM6,  REG_MM7,
     REG_XMM0, REG_XMM1, REG_XMM2, REG_XMM3, REG_XMM4, REG_XMM5, REG_XMM6, REG_XMM7,
     REG_XMM8, REG_XMM9, REG_XMM10,REG_XMM11,REG_XMM12,REG_XMM13,REG_XMM14,REG_XMM15,
@@ -1539,6 +1539,9 @@ reg_get_size(reg_id_t reg)
         return IF_X64_ELSE(OPSZ_8, OPSZ_4);
     if (reg >= REG_START_CR && reg <= REG_STOP_CR)
         return IF_X64_ELSE(OPSZ_8, OPSZ_4);
+    /* i#176 add reg size handling for floating point registers */
+    if (reg >= REG_START_FLOAT && reg <= REG_STOP_FLOAT)
+        return OPSZ_10;
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
 }

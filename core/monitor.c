@@ -61,7 +61,13 @@ extern bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_
 /* SPEC2000 applu has a trace head entry fragment of size 40K! */
 /* streamit's fft had a 944KB bb (ridiculous unrolling) */
 /* no reason to have giant traces, second half will become 2ndary trace */
-#define MAX_TRACE_BUFFER_SIZE  16*1024 /* in bytes */
+/* The instrumentation easily makes trace large, 
+ * so we should make the buffer size bigger, if a client is used.*/
+#ifdef CLIENT_INTERFACE
+# define MAX_TRACE_BUFFER_SIZE  MAX_FRAGMENT_SIZE
+#else
+# define MAX_TRACE_BUFFER_SIZE  (16*1024) /* in bytes */
+#endif
 /* most traces are under 1024 bytes.
  * for x64, the rip-rel instrs prevent a memcpy on a resize
  */
