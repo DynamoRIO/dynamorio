@@ -3490,7 +3490,12 @@ pre_system_call(dcontext_t *dcontext)
             /* XREF 307599 on rounding module end to the next PAGE boundary */
             ASSERT_CURIOSITY((app_pc)ALIGN_FORWARD(addr+len, PAGE_SIZE) == ma->end);
             os_get_module_info_unlock();
-            if (ma != NULL)
+            /* i#210:
+             * we only think a module is removed if its first memory region
+             * is unloaded (unmapped).
+             * XREF i#160 to fix the real problem of handling module splitting.
+             */
+            if (ma != NULL && ma->start == addr)
                 module_list_remove(addr, ALIGN_FORWARD(len, PAGE_SIZE));
         } else 
             os_get_module_info_unlock();
@@ -3507,15 +3512,26 @@ pre_system_call(dcontext_t *dcontext)
              unsigned long old_len, unsigned long new_len,
              unsigned long flags, unsigned long new_addr)
         */
+        dr_mem_info_t info;
         app_pc addr = (void *) sys_param(dcontext, 0);
         size_t old_len = (size_t) sys_param(dcontext, 1);
         size_t new_len = (size_t) sys_param(dcontext, 2);
+        DEBUG_DECLARE(bool ok;)
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: mremap addr="PFX" size="PFX"\n",
             addr, old_len);
         /* post_system_call does the work */
         dcontext->sys_param0 = (reg_t) addr;
         dcontext->sys_param1 = old_len;
         dcontext->sys_param2 = new_len;
+        /* i#173
+         * we need memory type and prot to set the
+         * new memory region in the post_system_call
+         */
+        DEBUG_DECLARE(ok =)
+            query_memory_ex(addr, &info);
+        ASSERT(ok);
+        dcontext->sys_param3 = info.prot;
+        dcontext->sys_param4 = info.type;
         DODEBUG({
             /* we don't expect to see remappings of modules */
             os_get_module_info_lock();
@@ -4475,9 +4491,11 @@ post_system_call(dcontext_t *dcontext)
             app_memory_deallocation(dcontext, (app_pc)old_base, old_size,
                                     false /* don't own thread_initexit_lock */,
                                     false /* not image, FIXME: somewhat arbitrary */);
-            DEBUG_DECLARE(ok =)
-                query_memory_ex(old_base, &info);
-            ASSERT(ok);
+            /* i#173
+             * use memory prot and type obtained from pre_system_call
+             */
+            info.prot = dcontext->sys_param3;
+            info.type = dcontext->sys_param4;
             DODEBUG({
                     /* we don't expect to see remappings of modules */
                     os_get_module_info_lock();
