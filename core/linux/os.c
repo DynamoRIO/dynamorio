@@ -190,8 +190,8 @@ static void *allmem_info_merge(void *dst_data, void *src_data);
 DECLARE_CXTSWPROT_VAR(uint all_memory_areas_recursion, 0);
 
 static void
-process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot
-             _IF_DEBUG(char *map_type));
+process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
+             uint flags _IF_DEBUG(char *map_type));
 
 /* Iterator over /proc/self/maps
  * Called at arbitrary places, so cannot use fopen.
@@ -3443,15 +3443,17 @@ pre_system_call(dcontext_t *dcontext)
         void *addr = (void *) sys_param(dcontext, 0);
         size_t len = (size_t) sys_param(dcontext, 1);
         uint prot = (uint) sys_param(dcontext, 2);
+        uint flags = (uint) sys_param(dcontext, 3);
         LOG(THREAD, LOG_SYSCALLS, 2,
             "syscall: mmap2 addr="PFX" size="PIFX" prot=0x%x"
             " flags="PIFX" offset="PIFX" fd=%d\n",
-            addr, len, prot, sys_param(dcontext, 3),
+            addr, len, prot, flags,
             sys_param(dcontext, 5), sys_param(dcontext, 4));
         /* post_system_call does the work */
         dcontext->sys_param0 = (reg_t) addr;
         dcontext->sys_param1 = len;
         dcontext->sys_param2 = prot;
+        dcontext->sys_param3 = flags;
         break;
     }
     /* must flush stale fragments when we see munmap/mremap */
@@ -3933,6 +3935,13 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
+#ifdef DEBUG
+    case SYS_open: {
+        dcontext->sys_param0 = sys_param(dcontext, 0);
+        break;
+    }
+#endif
+
     default: {
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(mc->xax)) {
@@ -4141,14 +4150,13 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
 
 /* All processing for mmap and mmap2. */
 static void
-process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot
-            _IF_DEBUG(char *map_type))
+process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
+             uint flags _IF_DEBUG(char *map_type))
 {
     bool image = false;
     uint memprot = osprot_to_memprot(prot);
     app_pc area_start;
     app_pc area_end;
-    bool overlaps_image;
     allmem_info_t *info;
 
     LOG(THREAD, LOG_SYSCALLS, 4, "process_mmap("PFX","PFX",%s,%s)\n",
@@ -4183,9 +4191,10 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot
      * So we should look for VSYSCALL_PAGE_MAPS_NAME here as well as in
      * find_executable_vm_areas. xref i#89.
      */
-    overlaps_image = mmap_check_for_module_overlap(base, size,
-                                                   TEST(MEMPROT_READ, memprot), 0, true);
-    if (overlaps_image) {
+    if (TEST(MAP_ANONYMOUS, flags)) {
+        /* not an ELF mmap */
+    } else if (mmap_check_for_module_overlap(base, size,
+                                             TEST(MEMPROT_READ, memprot), 0, true)) {
         /* FIXME - how can we distinguish between the loader mapping the segments
          * over the initial map from someone just mapping over part of a module? If
          * is the latter case need to adjust the view size or remove from module list. */
@@ -4384,10 +4393,24 @@ post_system_call(dcontext_t *dcontext)
     /****************************************************************************/
     /* MEMORY REGIONS */
 
+#ifdef DEBUG
+    case SYS_open: {
+        if (success) {
+            /* useful for figuring out what module was loaded that then triggers
+             * module.c elf curiosities
+             */
+            LOG(THREAD, LOG_SYSCALLS, 2, "SYS_open %s => %d\n",
+                dcontext->sys_param0, (int)result);
+        }
+        break;
+    }
+#endif
+
 #ifndef X64
     case SYS_mmap2:
 #endif
     case SYS_mmap: {
+        uint flags;
         DEBUG_DECLARE(char *map_type;)
         RSTATS_INC(num_app_mmaps);
         base = (app_pc) mc->xax; /* For mmap, it's NOT arg->addr! */
@@ -4410,17 +4433,19 @@ post_system_call(dcontext_t *dcontext)
             mmap_arg_struct_t *arg = (mmap_arg_struct_t *) dcontext->sys_param0;
             size = (size_t) arg->len;
             prot = (uint) arg->prot;
+            flags = (uint) arg->flags;
             DEBUG_DECLARE(map_type = "mmap";)
         }
         else {
 #endif
             size = (size_t) dcontext->sys_param1;
             prot = (uint) dcontext->sys_param2;
+            flags = (uint) dcontext->sys_param3;
             DEBUG_DECLARE(map_type = IF_X64_ELSE("mmap2","mmap");)
 #ifndef X64
         }
 #endif
-        process_mmap(dcontext, base, size, prot _IF_DEBUG(map_type));
+        process_mmap(dcontext, base, size, prot, flags _IF_DEBUG(map_type));
         break;
     }
     case SYS_munmap: {
@@ -4543,6 +4568,18 @@ post_system_call(dcontext_t *dcontext)
         base = (app_pc) dcontext->sys_param0;
         size = dcontext->sys_param1;
         prot = dcontext->sys_param2;
+#ifdef VMX86_SERVER
+        /* PR 475111: workaround for PR 107872 */
+        if (result == -EBUSY && prot == PROT_NONE) {
+            result = mprotect_syscall(base, size, PROT_READ);
+            SET_RETURN_VAL(dcontext, result);
+            success = (result >= 0);
+            LOG(THREAD, LOG_VMAREAS, 1, 
+                "re-doing mprotect -EBUSY for "PFX"-"PFX" => %d\n",
+                base, base + size, (int)result);
+            SYSLOG_INTERNAL_WARNING_ONCE("re-doing mprotect for PR 475111, PR 107872"); 
+        }
+#endif
         /* FIXME i#143: we need to tweak the returned oldprot for
          * writable areas we've made read-only
          */

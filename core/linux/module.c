@@ -101,14 +101,16 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         elf_header.e_ident[EI_MAG0] == ei_expected[EI_MAG0] &&
         elf_header.e_ident[EI_MAG1] == ei_expected[EI_MAG1] &&
         elf_header.e_ident[EI_MAG2] == ei_expected[EI_MAG2] &&
-        elf_header.e_ident[EI_MAG3] == ei_expected[EI_MAG3]) {
+        elf_header.e_ident[EI_MAG3] == ei_expected[EI_MAG3] &&
+        /* PR 475158: if an app loads a linkable but not loadable
+         * file (e.g., .o file) we don't want to treat as a module
+         */
+        (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)) {
         /* FIXME - should we add any of these to the check? For real 
          * modules all of these should hold. */
         ASSERT_CURIOSITY(elf_header.e_version == 1);
         ASSERT_CURIOSITY(!memory || elf_header.e_ehsize == sizeof(ELF_HEADER_TYPE));
         ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV);
-        ASSERT_CURIOSITY(elf_header.e_type == ET_DYN ||
-                         elf_header.e_type == ET_EXEC);
 #ifdef X64
         ASSERT_CURIOSITY(!memory || elf_header.e_machine == EM_X86_64);
 #else
