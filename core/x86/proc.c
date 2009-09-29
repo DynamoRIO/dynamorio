@@ -97,6 +97,119 @@ static features_t features = {0, 0, 0, 0};
  */
 static uint brand_string[12] = {0x6e6b6e75, 0x006e776f};
 
+static void
+set_cache_size(uint val, uint *dst)
+{
+    CLIENT_ASSERT(dst != NULL, "invalid internal param");
+    switch (val) {
+        case 8:    *dst = CACHE_SIZE_8_KB;   break;
+        case 16:   *dst = CACHE_SIZE_16_KB;  break;
+        case 32:   *dst = CACHE_SIZE_32_KB;  break;
+        case 64:   *dst = CACHE_SIZE_64_KB;  break;
+        case 128:  *dst = CACHE_SIZE_128_KB; break;
+        case 256:  *dst = CACHE_SIZE_256_KB; break;
+        case 512:  *dst = CACHE_SIZE_512_KB; break;
+        case 1024: *dst = CACHE_SIZE_1_MB;   break;
+        case 2048: *dst = CACHE_SIZE_2_MB;   break;
+        default: SYSLOG_INTERNAL_ERROR("Unknown processor cache size"); break;
+    }
+}
+
+static void
+get_cache_sizes_amd(uint max_ext_val)
+{
+    uint cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
+
+    if (max_ext_val >= 0x80000005) {
+#ifdef LINUX
+        our_cpuid((int*)cpuid_res_local, 0x80000005);
+#else
+        __cpuid(cpuid_res_local, 0x80000005);
+#endif
+        set_cache_size((cpuid_res_local[2]/*ecx*/ >> 24), &L1_icache_size);
+        set_cache_size((cpuid_res_local[3]/*edx*/ >> 24), &L1_dcache_size);
+    }
+
+    if (max_ext_val >= 0x80000006) {
+#ifdef LINUX
+        our_cpuid((int*)cpuid_res_local, 0x80000006);
+#else
+        __cpuid(cpuid_res_local, 0x80000006);
+#endif
+        set_cache_size((cpuid_res_local[2]/*ecx*/ >> 16), &L2_cache_size);
+    }
+}
+
+static void
+get_cache_sizes_intel(uint max_val)
+{
+    /* declare as uint so compiler won't complain when we write GP regs to the array */
+    uint cache_codes[4];
+    int i;
+
+    if (max_val < 2)
+        return;
+
+#ifdef LINUX
+    our_cpuid((int*)cache_codes, 2);
+#else
+    __cpuid(cache_codes, 2);
+#endif
+    /* The lower 8 bits of eax specify the number of times cpuid
+     * must be executed to obtain a complete picture of the cache
+     * characteristics.
+     */
+    CLIENT_ASSERT((cache_codes[0] & 0xff) == 1, "cpuid error");
+    cache_codes[0] &= ~0xff;
+    
+    /* Cache codes are stored in consecutive bytes in the 
+     * GP registers.  For each register, a 1 in bit 31 
+     * indicates that the codes should be ignored... zero
+     * all four bytes when that happens
+     */
+    for (i=0; i<4; i++) {
+        if (cache_codes[i] & 0x80000000)
+            cache_codes[i] = 0;
+    }
+    
+    /* Table 3-17, pg 3-171 of IA-32 instruction set reference lists
+     * all codes.  Omitting L3 cache characteristics for now...
+     */
+    for (i=0; i<16; i++) {
+        switch (((uchar*)cache_codes)[i]) {
+            case 0x06: L1_icache_size = CACHE_SIZE_8_KB; break;
+            case 0x08: L1_icache_size = CACHE_SIZE_16_KB; break;
+            case 0x0a: L1_dcache_size = CACHE_SIZE_8_KB; break;
+            case 0x0c: L1_dcache_size = CACHE_SIZE_16_KB; break;
+            case 0x2c: L1_dcache_size = CACHE_SIZE_32_KB; break;
+            case 0x30: L1_icache_size = CACHE_SIZE_32_KB; break;
+            case 0x41: L2_cache_size = CACHE_SIZE_128_KB; break;
+            case 0x42: L2_cache_size = CACHE_SIZE_256_KB; break;
+            case 0x43: L2_cache_size = CACHE_SIZE_512_KB; break;
+            case 0x44: L2_cache_size = CACHE_SIZE_1_MB; break;
+            case 0x45: L2_cache_size = CACHE_SIZE_2_MB; break;
+            case 0x60: L1_dcache_size = CACHE_SIZE_16_KB; break;
+            case 0x66: L1_dcache_size = CACHE_SIZE_8_KB; break;
+            case 0x67: L1_dcache_size = CACHE_SIZE_16_KB; break;
+            case 0x68: L1_dcache_size = CACHE_SIZE_32_KB; break;
+            case 0x78: L2_cache_size = CACHE_SIZE_1_MB; break;
+            case 0x79: L2_cache_size = CACHE_SIZE_128_KB; break;
+            case 0x7a: L2_cache_size = CACHE_SIZE_256_KB; break;
+            case 0x7b: L2_cache_size = CACHE_SIZE_512_KB; break;
+            case 0x7c: L2_cache_size = CACHE_SIZE_1_MB; break;
+            case 0x7d: L2_cache_size = CACHE_SIZE_2_MB; break;
+            case 0x7f: L2_cache_size = CACHE_SIZE_512_KB; break;
+            case 0x82: L2_cache_size = CACHE_SIZE_256_KB; break;
+            case 0x83: L2_cache_size = CACHE_SIZE_512_KB; break;
+            case 0x84: L2_cache_size = CACHE_SIZE_1_MB; break;
+            case 0x85: L2_cache_size = CACHE_SIZE_2_MB; break;
+            case 0x86: L2_cache_size = CACHE_SIZE_512_KB; break;
+            case 0x87: L2_cache_size = CACHE_SIZE_1_MB; break;
+            default: break;
+        }
+    }
+}
+
 /*
  * On Pentium through Pentium III, I-cache lines are 32 bytes.
  * On Pentium IV they are 64 bytes.
@@ -109,14 +222,9 @@ get_processor_specific_info(void)
      * "AP-485: Intel Processor Identification and the CPUID
      * instruction", 96 pages, January 2006
      */
-    volatile /* don't put in register since we can't communicate constraints
-              * due to PIC error when we clobber ebx, even if safely */
-        uint res_eax, res_ebx = 0, res_ecx = 0, res_edx = 0;
+    uint res_eax, res_ebx = 0, res_ecx = 0, res_edx = 0;
     uint max_val, max_ext_val;
     int cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
-    /* declare as uint so compiler won't complain when we write GP regs to the array */
-    uint cache_codes[4];
-    int i;
 
     /* First check for existence of the cpuid instruction
      * by attempting to modify bit 21 of eflags
@@ -159,6 +267,27 @@ get_processor_specific_info(void)
             res_eax, res_ebx, res_ecx, res_edx);
     }
 
+    /* Try to get extended cpuid information */
+#ifdef LINUX
+    our_cpuid(cpuid_res_local, 0x80000000);
+#else
+    __cpuid(cpuid_res_local, 0x80000000);
+#endif
+    max_ext_val = cpuid_res_local[0]/*eax*/;
+
+    /* Extended feature flags */
+    if (max_ext_val >= 0x80000001) {
+#ifdef LINUX
+        our_cpuid(cpuid_res_local, 0x80000001);
+#else
+        __cpuid(cpuid_res_local, 0x80000001);
+#endif
+        res_ecx = cpuid_res_local[2];
+        res_edx = cpuid_res_local[3];
+        features.ext_flags_edx = res_edx;
+        features.ext_flags_ecx = res_ecx;
+    }
+
     /* now get processor info */
 #ifdef LINUX
     our_cpuid(cpuid_res_local, 1);
@@ -195,8 +324,11 @@ get_processor_specific_info(void)
     features.flags_edx = res_edx;
     features.flags_ecx = res_ecx;
 
-    if (family == FAMILY_PENTIUM_4) {
-        /* Pentium IV */
+    /* Now features.* are complete and we can query */
+    if (proc_has_feature(FEATURE_CLFSH)) {
+        /* The new manuals imply ebx always holds the
+         * cache line size for clflush, not just on P4
+         */
         cache_line_size = (res_ebx & 0x0000ff00) >> 5; /* (x >> 8) * 8 == x >> 5 */
     } else if (vendor == VENDOR_INTEL &&
                (family == FAMILY_PENTIUM_3 || family == FAMILY_PENTIUM_2)) {
@@ -220,100 +352,22 @@ get_processor_specific_info(void)
                   "invalid cache line size");
 
     /* get L1 and L2 cache sizes */
-    if (max_val >= 2) {
-#ifdef LINUX
-        our_cpuid((int*)cache_codes, 2);
-#else
-        __cpuid(cache_codes, 2);
-#endif
-        /* The lower 8 bits of eax specify the number of times cpuid
-         * must be executed to obtain a complete picture of the cache
-         * characteristics.
-         */
-        CLIENT_ASSERT((cache_codes[0] & 0xff) == 1, "cpuid error");
-        cache_codes[0] &= ~0xff;
-
-        /* Cache codes are stored in consecutive bytes in the 
-         * GP registers.  For each register, a 1 in bit 31 
-         * indicates that the codes should be ignored... zero
-         * all four bytes when that happens
-         */
-        for (i=0; i<4; i++) {
-            if (cache_codes[i] & 0x80000000)
-                cache_codes[i] = 0;
-        }
-
-        /* Table 3-17, pg 3-171 of IA-32 instruction set reference lists
-         * all codes.  Omitting L3 cache characteristics for now...
-         */
-        for (i=0; i<16; i++) {
-            switch (((uchar*)cache_codes)[i]) {
-            case 0x06: L1_icache_size = CACHE_SIZE_8_KB; break;
-            case 0x08: L1_icache_size = CACHE_SIZE_16_KB; break;
-            case 0x0a: L1_dcache_size = CACHE_SIZE_8_KB; break;
-            case 0x0c: L1_dcache_size = CACHE_SIZE_16_KB; break;
-            case 0x2c: L1_dcache_size = CACHE_SIZE_32_KB; break;
-            case 0x30: L1_icache_size = CACHE_SIZE_32_KB; break;
-            case 0x41: L2_cache_size = CACHE_SIZE_128_KB; break;
-            case 0x42: L2_cache_size = CACHE_SIZE_256_KB; break;
-            case 0x43: L2_cache_size = CACHE_SIZE_512_KB; break;
-            case 0x44: L2_cache_size = CACHE_SIZE_1_MB; break;
-            case 0x45: L2_cache_size = CACHE_SIZE_2_MB; break;
-            case 0x60: L1_dcache_size = CACHE_SIZE_16_KB; break;
-            case 0x66: L1_dcache_size = CACHE_SIZE_8_KB; break;
-            case 0x67: L1_dcache_size = CACHE_SIZE_16_KB; break;
-            case 0x68: L1_dcache_size = CACHE_SIZE_32_KB; break;
-            case 0x78: L2_cache_size = CACHE_SIZE_1_MB; break;
-            case 0x79: L2_cache_size = CACHE_SIZE_128_KB; break;
-            case 0x7a: L2_cache_size = CACHE_SIZE_256_KB; break;
-            case 0x7b: L2_cache_size = CACHE_SIZE_512_KB; break;
-            case 0x7c: L2_cache_size = CACHE_SIZE_1_MB; break;
-            case 0x7d: L2_cache_size = CACHE_SIZE_2_MB; break;
-            case 0x7f: L2_cache_size = CACHE_SIZE_512_KB; break;
-            case 0x82: L2_cache_size = CACHE_SIZE_256_KB; break;
-            case 0x83: L2_cache_size = CACHE_SIZE_512_KB; break;
-            case 0x84: L2_cache_size = CACHE_SIZE_1_MB; break;
-            case 0x85: L2_cache_size = CACHE_SIZE_2_MB; break;
-            case 0x86: L2_cache_size = CACHE_SIZE_512_KB; break;
-            case 0x87: L2_cache_size = CACHE_SIZE_1_MB; break;
-            default: break;
-            }
-        }
-    }
-
-    /* Try to get extended cpuid information */
-#ifdef LINUX
-    our_cpuid(cpuid_res_local, 0x80000000);
-#else
-    __cpuid(cpuid_res_local, 0x80000000);
-#endif
-    res_eax = cpuid_res_local[0];
-    max_ext_val = res_eax;
+    if (vendor == VENDOR_AMD)
+        get_cache_sizes_amd(max_ext_val);
+    else
+        get_cache_sizes_intel(max_val);
 
     /* Processor brand string */
     if (max_ext_val >= 0x80000004) {
 #ifdef LINUX
         our_cpuid((int*)&brand_string[0], 0x80000002);
-    our_cpuid((int*)&brand_string[4], 0x80000003);
-    our_cpuid((int*)&brand_string[8], 0x80000004);
+        our_cpuid((int*)&brand_string[4], 0x80000003);
+        our_cpuid((int*)&brand_string[8], 0x80000004);
 #else
-    __cpuid(&brand_string[0], 0x80000002);
-    __cpuid(&brand_string[4], 0x80000003);
-    __cpuid(&brand_string[8], 0x80000004);
+        __cpuid(&brand_string[0], 0x80000002);
+        __cpuid(&brand_string[4], 0x80000003);
+        __cpuid(&brand_string[8], 0x80000004);
 #endif
-    }
-
-    /* Extended feature flags */
-    if (max_ext_val >= 0x80000001) {
-#ifdef LINUX
-        our_cpuid(cpuid_res_local, 0x80000001);
-#else
-        __cpuid(cpuid_res_local, 0x80000001);
-#endif
-        res_ecx = cpuid_res_local[2];
-        res_edx = cpuid_res_local[3];
-        features.ext_flags_edx = res_edx;
-        features.ext_flags_ecx = res_ecx;
     }
 }
 
@@ -327,6 +381,10 @@ proc_init(void)
     mask = (cache_line_size - 1);
 
     LOG(GLOBAL, LOG_TOP, 1, "Cache line size is %d bytes\n", cache_line_size);
+    LOG(GLOBAL, LOG_TOP, 1, "L1 icache=%s, L1 dcache=%s, L2 cache=%s\n",
+        proc_get_cache_size_str(proc_get_L1_icache_size()),
+        proc_get_cache_size_str(proc_get_L1_dcache_size()),
+        proc_get_cache_size_str(proc_get_L2_cache_size()));
     LOG(GLOBAL, LOG_TOP, 1, "Processor brand string = %s\n", brand_string);
     LOG(GLOBAL, LOG_TOP, 1, "Type=0x%x, Family=0x%x, Model=0x%x, Stepping=0x%x\n",
         type, family, model, stepping);
@@ -453,6 +511,7 @@ proc_get_cache_size_str(cache_size_t size)
         "8 KB",
         "16 KB",
         "32 KB",
+        "64 KB",
         "128 KB",
         "256 KB",
         "512 KB",

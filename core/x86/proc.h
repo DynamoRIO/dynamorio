@@ -87,6 +87,8 @@ enum {
 /* Remember that we add extended family to family as Intel suggests */
 #define FAMILY_ITANIUM_2_DC 17 /**< proc_get_family() processor family: Itanium 2 DC */
 #define FAMILY_ITANIUM_2    16 /**< proc_get_family() processor family: Itanium 2 */
+#define FAMILY_K8L          16 /**< proc_get_family() processor family: AMD K8L */
+#define FAMILY_K8           15 /**< proc_get_family() processor family: AMD K8 */
 #define FAMILY_PENTIUM_4    15 /**< proc_get_family() processor family: Pentium 4 */
 #define FAMILY_ITANIUM       7 /**< proc_get_family() processor family: Itanium */
 /* Pentium Pro, Pentium II, Pentium III, Athlon, Pentium M, Core, Core 2 */
@@ -190,6 +192,7 @@ typedef enum {
     CACHE_SIZE_8_KB,    /**< L1 or L2 cache size of 8 KB. */
     CACHE_SIZE_16_KB,   /**< L1 or L2 cache size of 16 KB. */
     CACHE_SIZE_32_KB,   /**< L1 or L2 cache size of 32 KB. */
+    CACHE_SIZE_64_KB,   /**< L1 or L2 cache size of 64 KB. */
     CACHE_SIZE_128_KB,  /**< L1 or L2 cache size of 128 KB. */
     CACHE_SIZE_256_KB,  /**< L1 or L2 cache size of 256 KB. */
     CACHE_SIZE_512_KB,  /**< L1 or L2 cache size of 512 KB. */
