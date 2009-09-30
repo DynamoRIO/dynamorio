@@ -119,7 +119,7 @@ The changes between version 1.4.1 and 1.4.0 are:
      \DynamoRIO code, such as \client-generated code.
    - Added the "meta-instruction that can fault" property via
      instr_is_meta_may_fault() and instr_set_meta_may_fault().
- - Added dr_memory_is_dr_internal()
+ - Added dr_memory_is_dr_internal() and dr_memory_is_in_client()
  - Added dr_get_parent_id()
  - Added decode_opcode_name()
  - Fixed bug in cross-architecture execve (Issue 146)

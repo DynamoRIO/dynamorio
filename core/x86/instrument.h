@@ -1415,7 +1415,7 @@ DR_API
  * DR_MEMPROT_* flags describing its current protection.
  *
  * \note To examine only application memory, skip memory for which
- * dr_memory_is_dr_internal() returns true.
+ * dr_memory_is_dr_internal() or dr_memory_is_in_client() returns true.
  */
 bool
 dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot);
@@ -1490,6 +1490,13 @@ DR_API
  */
 bool
 dr_memory_is_dr_internal(const byte *pc);
+
+DR_API
+/**
+ * Returns true iff pc is located inside a client library.
+ */
+bool
+dr_memory_is_in_client(const byte *pc);
 
 /* DR_API EXPORT BEGIN */
 

@@ -2068,6 +2068,13 @@ dr_memory_is_dr_internal(const byte *pc)
     return is_dynamo_address((app_pc)pc);
 }
 
+DR_API
+bool
+dr_memory_is_in_client(const byte *pc)
+{
+    return is_in_client_lib((app_pc)pc);
+}
+
 
 DR_API 
 /* Initializes a mutex
