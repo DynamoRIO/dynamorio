@@ -112,7 +112,8 @@ The changes between version 1.4.1 and 1.4.0 are:
 
  - Enabled \clients to use faults to push rare events out of
    instrumentation paths:
-   - Added access to the pre-translated context for both
+   - Added access to the pre-translated context and the code fragment
+     information for both 
      dr_register_signal_event() and dr_register_exception_event()
      This changed the return type for exception event callbacks.
    - Added a signal/exception event on a fault in non-code-cache

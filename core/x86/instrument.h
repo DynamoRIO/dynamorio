@@ -637,6 +637,40 @@ dr_unregister_module_unload_event(void (*func)(void *drcontext,
                                                const module_data_t *info));
 
 /* DR_API EXPORT BEGIN */
+/**
+ * Data structure passed within dr_exception_t/dr_siginfo_t.
+ * Contains information about the code fragment inside the code cache 
+ * at the exception/signal interruption point. 
+ */
+typedef struct _dr_fault_fragment_info_t {
+    /**
+     * The tag of the code fragment inside the code cache at the
+     * exception/signal interruption point. NULL for interruption not
+     * in the code cache.
+     */
+    void *tag;
+    /**
+     * The start address of the code fragment inside the code cache at
+     * the exception/signal interruption point. NULL for interruption
+     * not in the code cache.  Clients are cautioned when examining
+     * code cache instructions to not rely on any details of code
+     * inserted other than their own.  
+     */
+    app_pc cache_start_pc;
+    /** Indicates whether the interrupted code fragment is a trace */
+    bool is_trace;
+    /**
+     * Indicates whether the original application code containing the
+     * code corresponding to the exception/signal ingerruption point
+     * is guaranteed to still be in the same state it was when the
+     * code was placed in the code cache. This guarantee varies
+     * depending on the type of cache consistency being used by DR.
+     */
+    bool app_code_consistent;    
+} dr_fault_fragment_info_t;
+/* DR_API EXPORT END */
+
+/* DR_API EXPORT BEGIN */
 #ifdef WINDOWS
 /* DR_API EXPORT END */
 
@@ -656,6 +690,11 @@ typedef struct _dr_exception_t {
      */
     ALIGN_VAR(8)/*avoid differences in padding*/
     dr_mcontext_t raw_mcontext;
+    /**
+     * Information about the code fragment inside the code cache at
+     * the exception interruption point. 
+     */
+    dr_fault_fragment_info_t fault_fragment_info;
 } dr_exception_t;
 /* DR_API EXPORT END */
 
@@ -685,6 +724,13 @@ DR_API
  * handlers and to send control elsewhere instead, a client can call
  * dr_redirect_execution() from \p func.
  *
+ * \note \p excpt->fault_fragment_info data is provided with 
+ * \p excpt->raw_mcontext. It is valid only if  
+ * \p excpt->fault_fragment_info.cache_start_pc is not \p NULL. 
+ * It provides clients information about the code fragment being
+ * executed at the exception interruption point. Clients are cautioned
+ * against relying on any details of code cache layout or register
+ * usage beyond  instrumentation inserted by the client itself.  
  * \note Only valid on Windows.
  * \note The function is not called for RaiseException.
  */
@@ -861,6 +907,11 @@ typedef struct _dr_siginfo_t {
      * not for delayable signals.
      */
     bool blocked;       
+    /**
+     * Information about the code fragment inside the code cache
+     * at the signal interruption point.
+     */
+    dr_fault_fragment_info_t fault_fragment_info;
 } dr_siginfo_t;
 
 /**
@@ -931,6 +982,15 @@ DR_API
  * DR will not raise a signal event for a SIGSEGV or SIGBUS
  * raised by a client code fault rather than the application.  Use
  * dr_safe_read() or dr_safe_write() to prevent such faults.
+ *
+ * \note \p siginfo->fault_fragment_info data is provided 
+ * with \p siginfo->raw_mcontext. It is valid only if 
+ * \p siginfo->fault_fragment_info.cache_start_pc is not 
+ * \p NULL. It provides clients information about the code fragment
+ * being executed at the signal interruption point. Clients are
+ * cautioned against relying on any details of code cache layout or
+ * register usage beyond instrumentation inserted by the client
+ * itself. 
  * 
  * \note Only valid on Linux.
  *
@@ -1156,6 +1216,7 @@ bool dr_bb_hook_exists(void);
 bool dr_trace_hook_exists(void);
 bool dr_fragment_deleted_hook_exists(void);
 bool dr_end_trace_hook_exists(void);
+bool hide_tag_from_client(app_pc tag);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */

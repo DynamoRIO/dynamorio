@@ -1032,7 +1032,7 @@ dr_end_trace_hook_exists(void)
     return (end_trace_callbacks.num > 0);
 }
 
-static bool
+bool
 hide_tag_from_client(app_pc tag)
 {
 #ifdef WINDOWS

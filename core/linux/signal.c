@@ -2469,10 +2469,29 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     si = heap_alloc(dcontext, sizeof(*si) HEAPACCT(ACCT_OTHER));
     si->sig = sig;
     si->drcontext = (void *) dcontext;
+    /* i#207: fragment tag and fcache start pc on fault. */
+    si->fault_fragment_info.tag = NULL;
+    si->fault_fragment_info.cache_start_pc = NULL;
     /* i#182/PR 449996: we provide the pre-translation context */
     if (raw_sc != NULL) {
+        fragment_t *fragment;
+        fragment_t  wrapper;
         si->raw_mcontext_valid = true;
         sigcontext_to_mcontext(&si->raw_mcontext, raw_sc);
+        /* i#207: fragment tag and fcache start pc on fault. */
+        /* FIXME: we should avoid the fragment_pclookup since it is expensive 
+         * and since we already did the work of a lookup when translating 
+         */
+        fragment = fragment_pclookup(dcontext, si->raw_mcontext.pc, &wrapper);
+        if (fragment != NULL && !hide_tag_from_client(fragment->tag)) {
+            si->fault_fragment_info.tag = fragment->tag;
+            si->fault_fragment_info.cache_start_pc = fragment->start_pc;
+            si->fault_fragment_info.is_trace = TEST(FRAG_IS_TRACE, 
+                                                    fragment->flags);
+            si->fault_fragment_info.app_code_consistent = 
+                !TESTANY(FRAG_WAS_DELETED|FRAG_SELFMOD_SANDBOXED, 
+                         fragment->flags);
+        }
     } else
         si->raw_mcontext_valid = false;
     /* The client has no way to calculate this when using

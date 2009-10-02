@@ -4182,9 +4182,26 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
      * plenty of stack space.
      */
     dr_exception_t einfo;
+    fragment_t *fragment;
+    fragment_t  wrapper;
     einfo.record = pExcptRec;
     context_to_mcontext(&einfo.mcontext, cxt);
     einfo.raw_mcontext = *raw_mcontext;
+    /* i#207 fragment tag and fcache start pc on fault. */
+    /* FIXME: we should avoid the fragment_pclookup since it is expensive
+     * and pass in fragment found when translating
+     */
+    einfo.fault_fragment_info.tag = NULL;
+    einfo.fault_fragment_info.cache_start_pc = NULL;
+    fragment = fragment_pclookup(dcontext, einfo.raw_mcontext.pc, &wrapper);
+    if (fragment != NULL && !hide_tag_from_client(fragment->tag)) {
+        einfo.fault_fragment_info.tag = fragment->tag;
+        einfo.fault_fragment_info.cache_start_pc = fragment->start_pc;
+        einfo.fault_fragment_info.is_trace = TEST(FRAG_IS_TRACE, 
+                                                  fragment->flags);
+        einfo.fault_fragment_info.app_code_consistent = 
+            !TESTANY(FRAG_WAS_DELETED|FRAG_SELFMOD_SANDBOXED, fragment->flags);
+    }
     /* We allow client to change context */
     if (instrument_exception(dcontext, &einfo)) {
         mcontext_to_context(cxt, &einfo.mcontext);
