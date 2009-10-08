@@ -400,10 +400,12 @@ typedef struct {
 # define IF_VMX86(x) x
 # define IF_VMX86_ELSE(x,y) x
 # define _IF_VMX86(x) , x
+# define IF_NOT_VMX86(x) 
 #else
 # define IF_VMX86(x)
 # define IF_VMX86_ELSE(x,y) y
 # define _IF_VMX86(x)
+# define IF_NOT_VMX86(x) x
 #endif
 
 #ifdef LINUX
@@ -1072,6 +1074,8 @@ enum {
 
     RUNUNDER_EXPLICIT             = 0x80,  /* 128 */
 };
+#endif /* WINDOWS */
+
 
 /* A bitmask of possible actions to take on a nudge.  Accessed via
  * NUDGE_GENERIC(name) Recommended to always pass -nudge opt so to
@@ -1117,10 +1121,12 @@ enum {
     /* security testing */                                                      \
     NUDGE_DEF(violation, "Simulate a security violation")                       \
     /* ADD NEW NUDGE_DEFs only immediately above this line  */                  \
-    /* since these are used as a bitmask only 30 types can be supported */
+    /* Since these are used as a bitmask only 32 types can be supported:
+     * but on Linux only 28.  If we want more we can simply use the client_arg
+     * field to multiplex.
+     */
 
 typedef enum {
-    NUDGE_DR_PARAMETRIZED_START,
 #define NUDGE_DEF(name, comment) NUDGE_DR_##name, 
     NUDGE_DEFINITIONS()
 #undef NUDGE_DEF
@@ -1130,28 +1136,61 @@ typedef enum {
 /* note that these are bitmask values */
 #define NUDGE_GENERIC(name) (1 << (NUDGE_DR_##name))
 
+/* On Linux only 2 bits for this */
 #define NUDGE_ARG_VERSION_1 1
 #define NUDGE_ARG_CURRENT_VERSION NUDGE_ARG_VERSION_1
 
-/* nudge_arg_t flags */
+/* nudge_arg_t flags 
+ * On Linux only 2 bits for these
+ */
 enum {
     NUDGE_IS_INTERNAL       = 0x01, /* nudge is internally generated */
+#ifdef WINDOWS
     NUDGE_NUDGER_FREE_STACK = 0x02, /* nudger will free the nudge thread's stack so the
                                      * nudge thread itself shouldn't */
     NUDGE_FREE_ARG          = 0x04, /* nudge arg is in a separate allocation and should
                                      * be freed by the nudge thread */
+#endif
 };
 
 typedef struct {
+#ifdef LINUX
+    /* We only have room for 16 bytes that we control, 24 bytes total.
+     * Note that the kernel does NOT copy the huge amount of padding
+     * at the tail end of siginfo_t so we cannot use that.
+     */
+    int ignored1; /* siginfo_t.si_signo: kernel sets so we cannot use */
+    /* These make up the siginfo_t.si_errno field.  Since version starts
+     * at 1, this field will never be 0 for a nudge signal, but is always
+     * 0 for a libc sigqueue()-generated signal.
+     */
+    uint nudge_action_mask:28;
+    uint version:2;
+    uint flags:2;
+    int ignored2; /* siginfo_t.si_code: has meaning to kernel so we avoid using */
+#else
     uint version; /* version number for future proofing */
     uint nudge_action_mask; /* drawn from NUDGE_DEFS above */
     uint flags; /* flags drawn from above enum */
+#endif
     client_id_t client_id; /* unique ID identifying client */
     uint64 client_arg; /* argument for a client nudge */
-    /* Add future arguments for nudge actions here. */
+#ifdef WIN32
+    /* Add future arguments for nudge actions here. 
+     * There is no room for more Linux arguments.
+     */
+#endif
 } nudge_arg_t;
 
-#endif /* WINDOWS */
+#ifdef LINUX
+/* i#61/PR 211530: Linux nudges.
+ * We pick a signal that is very unlikely to be sent asynchronously by
+ * the app, and for which we can distinguish synch from asynch by
+ * looking at the interrupted pc.
+ */
+# define NUDGESIG_SIGNUM         SIGILL
+#endif
+
 
 #ifdef HOT_PATCHING_INTERFACE
 /* These type defintions define the hot patch interface between the core &

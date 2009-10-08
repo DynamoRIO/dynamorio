@@ -108,8 +108,9 @@ The following are part of the \DynamoRIO release distribution:
 The current version is \DR_VERSION and is backward compatible with releases from
 1.0.0 (originally called 0.9.6: see below) onward.
 
-The changes between version 1.4.1 and 1.4.0 are:
+The changes between version 1.5.0 and 1.4.0 are:
 
+ - Added nudge support on Linux
  - Enabled \clients to use faults to push rare events out of
    instrumentation paths:
    - Added access to the pre-translated context and the code fragment

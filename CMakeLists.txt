@@ -240,7 +240,7 @@ set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
 # resources when packaging
 # N.B.: once VERSION_NUMBER crosses 2.x we'll need to update the
 # symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER "1.4.1" CACHE STRING "Version number")
+set(VERSION_NUMBER "1.5.0" CACHE STRING "Version number")
 string(REGEX REPLACE "\\." "," VERSION_COMMA_DELIMITED "${VERSION_NUMBER}")
 set(BUILD_NUMBER "18" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "18" CACHE STRING "Unique build number")
@@ -525,22 +525,11 @@ if (UNIX)
   endif (NOT flag_present)
 
   # Check for -fvisibility
-  # I tried cmake's CheckCCompilerFlag but it doesn't seem to work
-  execute_process(COMMAND
-    ${CMAKE_C_COMPILER} -v --help
-    RESULT_VARIABLE gcc_result
-    ERROR_QUIET
-    OUTPUT_VARIABLE gcc_out)
-  if (gcc_result)
-    message(FATAL_ERROR "*** ${CMAKE_C_COMPILER} failed to run ***\n")
-  endif (gcc_result)
-  string(REGEX MATCH "fvisibility" flag_present "${gcc_out}")
-  if (NOT flag_present)
+  include(CheckCCompilerFlag)
+  CHECK_C_COMPILER_FLAG("-fvisibility=internal" HAVE_FVISIBILITY)
+  if (NOT HAVE_FVISIBILITY)
     message("${CMAKE_C_COMPILER} missing flag -fvisibility, using linker script instead")
-    set(HAVE_FVISIBILITY OFF)
-  else (NOT flag_present)
-    set(HAVE_FVISIBILITY ON)
-  endif (NOT flag_present)
+  endif (NOT HAVE_FVISIBILITY)
   # For INTERNAL builds we keep our symbols visible, for better libc backtraces
   if (HAVE_FVISIBILITY AND NOT KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
     # PR 262458: for gcc >= 3.4 we can use -fvisibility instead of a

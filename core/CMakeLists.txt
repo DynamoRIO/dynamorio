@@ -481,6 +481,7 @@ if (VMKERNEL)
     ${VMKERNEL_TREE}/lib/public
     ${VMKERNEL_TREE}/vmkernel/public
     ${VMKERNEL_TREE}/vmkernel/include/vmkapi
+    ${VMKERNEL_TREE}/vmkernel/include/vmkapi/v50
     ${VMKERNEL_TREE}/vmkernel/include/vmkapi/current
     ${VMKERNEL_TREE}/vmkernel/include/user
     ${VMKERNEL_TREE}/vmkernel/include/public

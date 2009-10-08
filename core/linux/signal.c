@@ -67,6 +67,7 @@
 #include "decode.h" /* to find target of SIGSEGV */
 #include "decode_fast.h" /* to handle self-mod code */
 #include "../synch.h"
+#include "../nudge.h"
 
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
@@ -539,6 +540,9 @@ execute_default_from_dispatch(dcontext_t *dcontext, int sig, sigframe_rt_t *fram
 
 static bool
 handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt);
+
+static bool
+handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
 
 static struct sigcontext *
 get_sigcontext_from_rt_frame(sigframe_rt_t *frame);
@@ -1158,6 +1162,8 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
 #ifdef SIDELINE
             intercept_signal(dcontext, info, SIGCHLD);
 #endif
+            /* i#61/PR 211530: the signal we use for nudges */
+            intercept_signal(dcontext, info, NUDGESIG_SIGNUM);
         
             /* process any handlers app registered before our init */
             for (i=1; i<MAX_SIGNUM; i++) {
@@ -2586,6 +2592,53 @@ abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, const char *signame, const ch
     os_terminate(dcontext, TERMINATE_PROCESS);
 }
 
+/* Returns whether unlinked.  Even if not, may still have mangled syscall. */
+static bool
+unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
+                           byte *pc/*interruption pc*/)
+{
+    bool unlinked = false;
+    /* may not be linked if trace_relink or something */
+    if (TEST(FRAG_LINKED_OUTGOING, f->flags)) {
+        LOG(THREAD, LOG_ASYNCH, 3,
+            "\tunlinking outgoing for interrupted F%d\n", f->id);
+        /* FIXME: this is same lock problem as mangle_syscall below...
+         * and to fix this in same way would require not sharing
+         * any bbs at all!!!
+         * FIXME FIXME FIXME!!!
+         * But, if we interrupted a fragment, shouldn't be a problem,
+         * since can't have interrupted a lock holder, right?
+         */
+        SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
+        unlink_fragment_outgoing(dcontext, f);
+        SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
+        unlinked = true;
+    } else {
+        LOG(THREAD, LOG_ASYNCH, 3,
+            "\toutgoing already unlinked for interrupted F%d\n", f->id);
+    }
+    if (TEST(FRAG_HAS_SYSCALL, f->flags)) {
+        /* Syscalls are signal barriers!
+         * Make sure the next syscall (if any) in f is not executed!
+         * instead go back to dispatch right before the syscall
+         */
+        /* syscall mangling does a bunch of decodes but only one write,
+         * changing the target of a jmp, which should be atomic
+         * except for cache lines -- FIXME, make the instr_encode use
+         * a locked write?
+         * Anyway, if that write is atomic, we just want to prevent
+         * two people in here at same time, so we have to use linking lock --
+         * but we CANNOT grab a lock like that on this path!
+         * Possibility of livelock or deadlock.
+         * Our solution is to not share bbs that contain syscalls.
+         * They can still become traces, they just need to be private.
+         */
+        ASSERT(!TEST(FRAG_SHARED, f->flags));
+        mangle_syscall_code(dcontext, f, pc, false/*do not skip exit cti*/);
+    }
+    return unlinked;
+}
+
 static void
 record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                       sigframe_rt_t *frame, bool forged
@@ -2663,46 +2716,14 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             fragment_t *f = fragment_pclookup(dcontext, pc, &wrapper);
             ASSERT(f != NULL);
             LOG(THREAD, LOG_ASYNCH, 2, "\tdelaying until exit F%d\n", f->id);
-            /* may not be linked if trace_relink or something */
-            if ((f->flags & FRAG_LINKED_OUTGOING) != 0) {
-                LOG(THREAD, LOG_ASYNCH, 3,
-                    "\tunlinking outgoing for interrupted F%d\n", f->id);
-                /* FIXME: this is same lock problem as mangle_syscall below...
-                 * and to fix this in same way would require not sharing
-                 * any bbs at all!!!
-                 * FIXME FIXME FIXME!!!
-                 */
-                SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
-                unlink_fragment_outgoing(dcontext, f);
-                SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
+            if (unlink_fragment_for_signal(dcontext, f, pc))
                 info->interrupted = f;
-            } else {
-                LOG(THREAD, LOG_ASYNCH, 3,
-                    "\toutgoing already unlinked for interrupted F%d\n", f->id);
+            else {
                 /* either was unlinked for trace creation, or we got another
                  * signal before exiting cache to handle 1st
                  */
                 ASSERT(info->interrupted == NULL ||
                        info->interrupted == f);
-            }
-            if ((f->flags & FRAG_HAS_SYSCALL) != 0) {
-                /* Syscalls are signal barriers!
-                 * Make sure the next syscall (if any) in f is not executed!
-                 * instead go back to dispatch right before the syscall
-                 */
-                /* syscall mangling does a bunch of decodes but only one write,
-                 * changing the target of a jmp, which should be atomic
-                 * except for cache lines -- FIXME, make the instr_encode use
-                 * a locked write?
-                 * Anyway, if that write is atomic, we just want to prevent
-                 * two people in here at same time, so we have to use linking lock --
-                 * but we CANNOT grab a lock like that on this path!
-                 * Possibility of livelock or deadlock.
-                 * Our solution is to not share bbs that contain syscalls.
-                 * They can still become traces, they just need to be private.
-                 */
-                ASSERT(!TEST(FRAG_SHARED, f->flags));
-                mangle_syscall_code(dcontext, f, pc, false/*do not skip exit cti*/);
             }
         } else {
             /* the signal interrupted code cache => run handler now! */
@@ -2865,6 +2886,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
  * thread the interruption point should be our own post-syscall.
  * FIXME PR 368277: for other threads in same process we should set a flag
  * and identify them as well.
+ * FIXME: for faults like SIGILL we could examine the interrupted pc
+ * to see whether it is capable of generating such a fault (see code
+ * used in handle_nudge_signal()).
  */
 static bool
 is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, struct siginfo *info)
@@ -3350,6 +3374,13 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
     /* PR 212090: the signal we use to suspend threads */
     case SUSPEND_SIGNAL:
         if (handle_suspend_signal(dcontext, ucxt))
+            record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
+        /* else, don't deliver to app */
+        break;
+
+    /* i#61/PR 211530: the signal we use for nudges */
+    case NUDGESIG_SIGNUM:
+        if (handle_nudge_signal(dcontext, siginfo, ucxt))
             record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
         /* else, don't deliver to app */
         break;
@@ -4438,4 +4469,107 @@ void
 dr_setjmp_sigmask(dr_jmp_buf_t *buf)
 {
     sigprocmask_syscall(SIG_SETMASK, NULL, &buf->sigmask, sizeof(buf->sigmask));
+}
+
+/* i#61/PR 211530: nudge on Linux.
+ * Determines whether this is a nudge signal, and if so queues up a nudge,
+ * or is an app signal.  Returns whether to pass the signal on to the app.
+ */
+static bool
+handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+{
+    struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+    nudge_arg_t *arg = (nudge_arg_t *) siginfo;
+    instr_t instr;
+    char buf[MAX_INSTR_LENGTH];
+
+    /* Distinguish a nudge from an app signal.  An app using libc sigqueue()
+     * will never have its signal mistaken as libc does not expose the siginfo_t
+     * and always passes 0 for si_errno, so we're only worried beyond our
+     * si_code check about an app using a raw syscall that is deliberately
+     * trying to fool us.
+     * While there is a lot of padding space in siginfo_t, the kernel doesn't
+     * copy it through on SYS_rt_sigqueueinfo so we don't have room for any
+     * dedicated magic numbers.  The client id could function as a magic
+     * number for client nudges, but I don't think we want to kill the app
+     * if an external nudger types the client id wrong.
+     */
+    if (siginfo->si_signo != NUDGESIG_SIGNUM
+        /* PR 477454: remove the IF_NOT_VMX86 once we have nudge-arg support */
+        IF_NOT_VMX86(|| siginfo->si_code != SI_QUEUE
+                     || siginfo->si_errno == 0)) {
+        return true; /* pass to app */
+    }
+#if defined(CLIENT_INTERFACE) && !defined(VMX86_SERVER)
+    DODEBUG({
+        if (TEST(NUDGE_GENERIC(client), arg->nudge_action_mask) &&
+            !is_valid_client_id(arg->client_id)) {
+            SYSLOG_INTERNAL_WARNING("received client nudge for invalid id=0x%x",
+                                    arg->client_id);
+        }
+    });
+#endif
+    if (dynamo_exited || !dynamo_initialized || dcontext == NULL) {
+        /* Ignore the nudge: too early, or too late.
+         * Xref Windows handling of such cases in nudge.c: old case 5702, etc.
+         * We do this before the illegal-instr check b/c it's unsafe to decode
+         * if too early or too late.
+         */
+        SYSLOG_INTERNAL_WARNING("too-early or too-late nudge: ignoring");
+        return false; /* do not pass to app */
+    }
+
+    /* As a further check, try to detect whether this was raised synchronously
+     * from a real illegal instr: though si_code for that should not be
+     * SI_QUEUE.  It's possible a nudge happened to come at a bad instr before
+     * it faulted, or maybe the instr after a syscall or other wait spot is
+     * illegal, but we'll live with that risk.
+     */
+    ASSERT(NUDGESIG_SIGNUM == SIGILL); /* else this check makes no sense */
+    instr_init(dcontext, &instr);
+    if (safe_read((byte *)sc->SC_XIP, sizeof(buf), buf) &&
+        decode(dcontext, (byte *)buf, &instr) == NULL) {
+        instr_free(dcontext, &instr);
+        return true; /* pass to app */
+    }
+    instr_free(dcontext, &instr);
+
+#ifdef VMX86_SERVER
+    /* Treat as a client nudge until we have PR 477454 */
+    if (siginfo->si_errno == 0) {
+        arg->version = NUDGE_ARG_CURRENT_VERSION;
+        arg->flags = 0;
+        arg->nudge_action_mask = NUDGE_GENERIC(client);
+        arg->client_id = 0;
+        arg->client_arg = 0;
+    }
+#endif
+
+    LOG(THREAD, LOG_ASYNCH, 1,
+        "received nudge version=%u flags=0x%x mask=0x%x id=0x%08x arg=0x"
+        ZHEX64_FORMAT_STRING"\n",
+        arg->version, arg->flags, arg->nudge_action_mask,
+        arg->client_id, arg->client_arg);
+    SYSLOG_INTERNAL_INFO("received nudge mask=0x%x id=0x%08x arg=0x"ZHEX64_FORMAT_STRING,
+                         arg->nudge_action_mask, arg->client_id, arg->client_arg);
+
+    /* We need to handle the nudge at a safe, nolinking spot */
+    if (safe_is_in_fcache(dcontext, (byte *)sc->SC_XIP, (byte*)sc->SC_XSP) &&
+        dcontext->interrupted_for_nudge == NULL) {
+        /* We unlink the interrupted fragment and skip any inlined syscalls to
+         * bound the nudge delivery time.  If we already unlinked one we assume
+         * that's sufficient.
+         */
+        fragment_t wrapper;
+        fragment_t *f = fragment_pclookup(dcontext, (byte *)sc->SC_XIP, &wrapper);
+        if (f != NULL) {
+            unlink_fragment_for_signal(dcontext, f, (byte *)sc->SC_XIP);
+            dcontext->interrupted_for_nudge = f;
+        }
+    }
+
+    /* No lock is needed since thread-private and this signal is blocked now */
+    nudge_add_pending(dcontext, arg);
+
+    return false; /* do not pass to app */
 }

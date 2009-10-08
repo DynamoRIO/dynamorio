@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,27 +30,56 @@
  * DAMAGE.
  */
 
-#ifndef _NUDGE_H_
-#define _NUDGE_H_
+/* An app that stays up long enough for testing nudges. */
 
-/* Tiggers a nudge targeting this process.  nudge_action_mask should be drawn from the
- * NUDGE_GENERIC(***) values.  client_id is only relevant for client nudges. */
-bool nudge_internal(uint nudge_action_mask, uint64 client_arg, client_id_t client_id);
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+#include <assert.h>
+/* just use single-arg handlers */
+typedef void (*handler_t)(int);
+typedef void (*handler_3_t)(int, struct siginfo *, void *);
 
-#ifdef WINDOWS /* only Windows uses threads for nudges */
-/* The following are exported only so other routines can check their addresses for
- * nudge threads.  They are not meant to be called internally. */
-void generic_nudge_target(nudge_arg_t *arg);
-bool generic_nudge_handler(nudge_arg_t *arg);
-#else
+static void
+signal_handler(int sig)
+{
+    if (sig == SIGTERM)
+        fprintf(stderr, "done\n");
+    exit(1);
+}
 
-/* This routine may not return */
-void
-handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg);
+static void
+intercept_signal(int sig, handler_t handler)
+{
+    int rc;
+    struct sigaction act;
+    act.sa_sigaction = (handler_3_t) handler;
+    rc = sigemptyset(&act.sa_mask); /* block no signals within handler */
+    assert(rc == 0);
+    act.sa_flags = SA_NOMASK | SA_SIGINFO | SA_ONSTACK;
+    rc = sigaction(sig, &act, NULL);
+    assert(rc == 0);
+}
 
-/* Only touches thread-private data and acquires no lock */
-void
-nudge_add_pending(dcontext_t *dcontext, nudge_arg_t *nudge_arg);
-#endif
+int
+main(int argc, const char *argv[])
+{
+    int arg_offs = 1;
+    while (arg_offs < argc && argv[arg_offs][0] == '-') {
+        if (strcmp(argv[arg_offs], "-v") == 0) {
+            /* enough verbosity to satisfy runall.cmake: needs an initial and a
+             * final line
+             */
+            fprintf(stderr, "starting\n");
+            intercept_signal(SIGTERM, signal_handler);
+            arg_offs++;
+        } else
+            return 1;
+    }
 
-#endif /* _NUDGE_H_ */
+    while (1)
+        ;
+    return 0;
+}
+

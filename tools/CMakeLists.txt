@@ -28,8 +28,15 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+add_executable(run_in_bg run_in_bg.c)
+
 if (UNIX)
   add_executable(runstats runstats.c)
+  add_executable(nudgeunix nudgeunix.c)
+
+  include_directories(
+    ${PROJECT_SOURCE_DIR}/core/lib
+    )
 
   # set the default arch
   # we duplicate tools/dynamorio in tools/drdeploy.in to keep
@@ -68,16 +75,18 @@ else (UNIX)
     dummy 
     drdeploy
     )
-if (NOT X64)
-  # FIXME i#118: ldmp not yet 64-bit
-  set(tgts ${tgts} ldmp)
-endif (NOT X64)
+  if (NOT X64)
+    # FIXME i#118: ldmp not yet 64-bit
+    set(tgts ${tgts} ldmp)
+  endif (NOT X64)
 
   include_directories(
     ${PROJECT_SOURCE_DIR}/libutil
     ${PROJECT_SOURCE_DIR}/core
     ${PROJECT_SOURCE_DIR}/core/lib
     )
+
+  target_link_libraries(run_in_bg ntdll)
 
   foreach (tgt ${tgts})
     add_executable(${tgt} ${tgt}.c ${RESOURCES})

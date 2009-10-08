@@ -54,9 +54,7 @@
 #include "../monitor.h" /* for mark_trace_head */
 #include <string.h> /* for strstr */
 #include <stdarg.h> /* for varargs */
-#ifdef WINDOWS
-# include "../nudge.h" /* for nudge_internal() */
-#endif
+#include "../nudge.h" /* for nudge_internal() */
 
 #ifdef CLIENT_INTERFACE
 /* in utils.c, not exported to everyone */
@@ -619,6 +617,18 @@ is_in_client_lib(app_pc addr)
     return false;
 }
 
+bool
+is_valid_client_id(client_id_t id)
+{
+    size_t i;
+    for (i=0; i<num_client_libs; i++) {
+        if (client_libs[i].id == id) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void
 dr_register_exit_event(void (*func)(void))
 {
@@ -884,7 +894,6 @@ dr_unregister_security_event(void (*func)(void *drcontext, void *source_tag,
 }           
 #endif
 
-#ifdef WINDOWS
 void
 dr_register_nudge_event(void (*func)(void *drcontext, uint64 argument), client_id_t id)
 {
@@ -938,7 +947,6 @@ dr_nudge_client(client_id_t client_id, uint64 argument)
 
     return false;
 }
-#endif /* WINDOWS */
 
 void
 instrument_thread_init(dcontext_t *dcontext)
@@ -1631,7 +1639,6 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
 }
 #endif
 
-#ifdef WINDOWS
 /* Notify the client of a nudge. */
 void
 instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
@@ -1647,7 +1654,8 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
 
     /* find the client the nudge is intended for */
     for (i=0; i<num_client_libs; i++) {
-        if (client_libs[i].id == id) {
+        /* until we have nudge-arg support (PR 477454), nudges target the 1st client */
+        if (IF_VMX86_ELSE(true, client_libs[i].id == id)) {
             break;
         }
     }
@@ -1655,6 +1663,7 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
     if (i == num_client_libs || client_libs[i].nudge_callbacks.num == 0)
         return;
 
+#ifdef WINDOWS
     /* count the number of nudge events so we can make sure they're
      * all finished before exiting
      */
@@ -1676,16 +1685,20 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
      * thread hits native_exec_syscalls hooks. */
     dcontext->client_data->is_client_thread = true;
     dcontext->thread_record->under_dynamo_control = false;
+#endif
 
     call_all(client_libs[i].nudge_callbacks, int (*)(void *, uint64), 
              (void *)dcontext, arg);
 
+#ifdef WINDOWS
     dcontext->thread_record->under_dynamo_control = true;
     dcontext->client_data->is_client_thread = false;
 
     ATOMIC_DEC(int, num_client_owned_threads);
+#endif
 }
 
+#ifdef WINDOWS
 /* wait for all nudges to finish */
 void
 wait_for_outstanding_nudges()

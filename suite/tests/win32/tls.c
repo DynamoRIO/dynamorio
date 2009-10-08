@@ -295,7 +295,6 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
     /* since these are used as a bitmask only 30 types can be supported */
 
 typedef enum {
-    NUDGE_DR_PARAMETRIZED_START,
 #define NUDGE_DEF(name, comment) NUDGE_DR_##name, 
     NUDGE_DEFINITIONS()
 #undef NUDGE_DEF

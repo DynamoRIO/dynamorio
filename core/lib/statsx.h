@@ -1172,3 +1172,5 @@
     /* GBOP */
     STATS_DEF("GBOP validations", gbop_validations)
     STATS_DEF("GBOP violations, BAD", gbop_violations)
+    STATS_DEF("Nudges", num_nudges)
+    STATS_DEF("Doubled-up nudges", num_pending_nudges)

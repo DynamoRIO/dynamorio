@@ -339,6 +339,14 @@ typedef struct _client_data_t {
 } client_data_t;
 #endif
 
+#ifdef LINUX
+/* i#61/PR 211530: nudges on Linux do not use separate threads */
+typedef struct _pending_nudge_t {
+    nudge_arg_t arg;
+    struct _pending_nudge_t *next;
+} pending_nudge_t;
+#endif
+
 typedef struct _thread_record_t {
     thread_id_t id;   /* thread id */
 #ifdef WINDOWS
@@ -862,6 +870,13 @@ struct _dcontext_t {
 
     /* Used to abort bb building on decode faults.  Not persistent across cache. */
     void *bb_build_info;
+
+#ifdef LINUX
+    pending_nudge_t *nudge_pending;
+    /* frag we unlinked to expedite nudge delivery */
+    fragment_t *interrupted_for_nudge;
+#endif
+
 };
 
 /* sentinel value for dcontext_t* used to indicate

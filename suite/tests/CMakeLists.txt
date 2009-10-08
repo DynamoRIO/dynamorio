@@ -481,8 +481,11 @@ endfunction(tobuild_dll)
 # it all the way back then: would need to chain.
 function(tobuild_ci test source client_ops dr_ops exe_ops)
   string(REGEX REPLACE "\\.c$" ".dll.c" client_source "${source}")
+  string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
 
-  add_exe(${test} ${source})
+  if (NOT "${source}" MATCHES "\\.runall$")
+    add_exe(${test} ${source})
+  endif()
 
   add_library(${test}.dll SHARED ${client_source})
   configure_DynamoRIO_client(${test}.dll)
@@ -683,10 +686,17 @@ endfunction(template2expect)
 
 ##################################################
 
-function(rundr_cmd outcmd outops native dr_ops_aux)
+function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
   # assumes tools have been built: enforced at top level
   if (UNIX)
     set(dr_ops "-stderr_mask 0xC -dumpcore_mask 0 ${dr_ops_aux} ${TEST_OPTIONS}")
+    if (is_runall)
+      # eliminate double-spaces, to help w/ passing strings to runall.cmake
+      string(REGEX REPLACE "  +" " " dr_ops "${dr_ops}")
+      string(REGEX REPLACE " $" "" dr_ops "${dr_ops}")
+      # ; must be quoted: can't seem to match \; or replace w/ \ so using !
+      string(REGEX REPLACE ".;" "!" dr_ops "${dr_ops}")
+    endif (is_runall)
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
     set(cmd ${MAIN_EXECUTABLE_OUTPUT_PATH}/runstats -s ${TEST_SECONDS} -silent)
@@ -702,6 +712,13 @@ function(rundr_cmd outcmd outops native dr_ops_aux)
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
   else (UNIX)
     set(dr_ops "-stderr_mask 0xC -msgbox_mask 0 -dumpcore_mask 0xfd -staged ${dr_ops_aux} ${TEST_OPTIONS}")
+    if (is_runall)
+      # eliminate double-spaces, to help w/ passing strings to runall.cmake
+      string(REGEX REPLACE "  +" " " dr_ops "${dr_ops}")
+      string(REGEX REPLACE " $" "" dr_ops "${dr_ops}")
+      # ; must be quoted: can't seem to match \; or replace w/ \ so using !
+      string(REGEX REPLACE ".;" "!" dr_ops "${dr_ops}")
+    endif (is_runall)
     # if we used a cmake script to run each test we could use in that script:
     #   set(ENV{DYNAMORIO_OPTIONS} "${dr_ops}")
     # but we take advantage of a new drinjectx feature: -ops
@@ -720,16 +737,53 @@ endfunction(rundr_cmd)
 
 # if test != exe we assume exe is already added as a build target
 function(torun test exe source native dr_ops exe_ops)
-  rundr_cmd(rundr runops ${native} "${dr_ops}")
+  get_filename_component(srcbase ${source} NAME_WE)
+  get_filename_component(srcpath ${source} PATH)
+  if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runall)
+    set(is_runall ON)
+  else ()
+    set(is_runall OFF)
+  endif ()
+
+  rundr_cmd(rundr runops ${native} "${dr_ops}" ${is_runall})
   get_target_property(exepath ${exe} LOCATION)
   # support running binaries that are not targets of this build
   if ("${exepath}" STREQUAL "exepath-NOTFOUND")
     set(exepath ${exe})
   endif ("${exepath}" STREQUAL "exepath-NOTFOUND")
-  add_test(${test} ${rundr} ${exepath} ${exe_ops})
 
-  get_filename_component(srcbase ${source} NAME_WE)
-  get_filename_component(srcpath ${source} PATH)
+  if (is_runall)
+    # to run the test we use a series of commands in runall.cmake.
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runall" runall)
+    if (UNIX)
+      # swap from runstats to run_in_bg to run the test in the background
+      set(tmpfile "${CMAKE_CURRENT_BINARY_DIR}/${test}-out")
+      string(REGEX REPLACE "^.*-env;LD_L" 
+        "${MAIN_EXECUTABLE_OUTPUT_PATH}/run_in_bg;-out;${tmpfile};-env;LD_L"
+        rundr "${rundr}")
+      if ("${runall}" MATCHES "<reset>")
+        set(nudge_arg "-type\;reset")
+      elseif ("${runall}" MATCHES "<client")
+        string(REGEX MATCHALL "<client_nudge[^>]+" nudge_arg "${runall}")
+        string(REGEX REPLACE "<client_nudge" "-client" nudge_arg "${nudge_arg}")
+        string(REGEX REPLACE " " "\\\\;" nudge_arg "${nudge_arg}")
+      endif ()
+    endif (UNIX)
+    # FIXME i#120: for Windows, get app name to run from .runall file.
+    # For linux we always run linux.infloop.
+    set(cmd_with_at ${rundr} ${EXECUTABLE_OUTPUT_PATH}/linux.infloop ${exe_ops})
+    # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
+    # to get around the pain of trying to quote everything just right:
+    # much simpler this way.
+    string(REGEX REPLACE " " "@@" cmd_with_at "${cmd_with_at}")
+    string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
+    add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${MAIN_EXECUTABLE_OUTPUT_PATH}
+      -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
+  else(is_runall)
+    add_test(${test} ${rundr} ${exepath} ${exe_ops})
+  endif (is_runall)
+
   if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
     file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect expect)
     # add dependence so cmake will reconfigure if file changes
@@ -863,12 +917,13 @@ if (CLIENT_INTERFACE)
       "" "-trace_threshold 5" "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/")
     tobuild_ci(client.signal client-interface/signal.c "" "" "")
     tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
+    tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c "" "" "")
     tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
     tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
     tobuild_ci(client.modules client-interface/modules.c "" "" "")
-    # FIXME: enable these .runall tests once have .runall support
+    # FIXME i#120: enable these .runall tests once have .runall support
     #tobuild_ci_runall(client.cbr2 client-interface/cbr2.runall "" "" "")
     #tobuild_ci_runall(client.cbr client-interface/cbr.runall "" "" "")
     #tobuild_ci_runall(client.custom_traces client-interface/custom_traces.runall
@@ -976,6 +1031,10 @@ if (UNIX)
     tobuild(security-linux.stacktest security-linux/stacktest.c)
   endif (NOT X64)
   tobuild(security-linux.trampoline security-linux/trampoline.c)
+
+  # this app is used in nudge tests
+  add_exe(linux.infloop linux/infloop.c)
+  torunonly(linux.reset linux/infloop linux/reset.runall "" "-v")
 else (UNIX)
   tobuild(win32.aslr-dll win32/aslr-dll.c)
   tobuild(win32.callback win32/callback.c)

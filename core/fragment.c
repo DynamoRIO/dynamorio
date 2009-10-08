@@ -50,6 +50,9 @@
 #include <limits.h> /* UINT_MAX */
 #include "perscache.h"
 #include "synch.h"
+#ifdef LINUX
+# include "nudge.h"
+#endif
 
 /* FIXME: make these runtime parameters */
 #define INIT_HTABLE_SIZE_SHARED_BB    (DYNAMO_OPTION(coarse_units) ? 5 : 10)
@@ -5826,6 +5829,32 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
         not_flushed = not_flushed &&
             fcache_flush_pending_units(dcontext, was_I_flushed);
     }
+
+#ifdef LINUX
+    /* i#61/PR 211530: nudges on Linux do not use separate threads */
+    while (dcontext->nudge_pending != NULL) {
+        /* handle_nudge may not return, so we can't call it w/ inconsistent state */
+        pending_nudge_t local = *dcontext->nudge_pending;
+        heap_free(dcontext, dcontext->nudge_pending, sizeof(local) HEAPACCT(ACCT_OTHER));
+        dcontext->nudge_pending = local.next;
+        if (dcontext->interrupted_for_nudge != NULL) {
+            fragment_t *f = dcontext->interrupted_for_nudge;
+            LOG(THREAD, LOG_ASYNCH, 3, "\tre-linking outgoing for interrupted F%d\n",
+                f->id);
+            SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
+            link_fragment_outgoing(dcontext, f, false);
+            SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
+            if (TEST(FRAG_HAS_SYSCALL, f->flags)) {
+                mangle_syscall_code(dcontext, f, EXIT_CTI_PC(f, dcontext->last_exit),
+                                    true/*skip exit cti*/);
+            }
+            dcontext->interrupted_for_nudge = NULL;
+        }
+        handle_nudge(dcontext, &local.arg);
+        /* we may have done a reset, so do not enter cache now */
+        return false;
+    }
+#endif
 
 #ifdef CLIENT_INTERFACE
     /* Handle flush requests queued via dr_flush_fragments()/dr_delay_flush_region() */

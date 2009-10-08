@@ -1126,18 +1126,16 @@ dr_unregister_security_event(void (*func)(void *drcontext, void *source_tag,
                                           dr_security_violation_action_t *action));
 #endif /* PROGRAM_SHEPHERDING */
 
-/* DR_API EXPORT BEGIN */
-#ifdef WINDOWS
-/* DR_API EXPORT END */
 
 DR_API
 /**
  * Registers a callback function for nudge events.  External entities
- * can nudge a process through the dr_nudge_process() API routine.  DR
- * then calls \p func whenever the current process receives the
- * nudge. The nudge event is delivered in a new non-application
- * thread.  Callers must specify the target client by passing the client
- * ID that was provided in dr_init(). 
+ * can nudge a process through the dr_nudge_process() API routine on
+ * Windows or using the \p nudgeunix tool on Linux.  DR then calls \p
+ * func whenever the current process receives the nudge.  On Windows,
+ * the nudge event is delivered in a new non-application thread.
+ * Callers must specify the target client by passing the client ID
+ * that was provided in dr_init().
  */
 void
 dr_register_nudge_event(void (*func)(void *drcontext, uint64 argument), client_id_t id);
@@ -1155,21 +1153,23 @@ DR_API
 /**
  * Triggers an asynchronous nudge event in the current process.  The callback
  * function registered with dr_register_nudge_event() will be called with the
- * supplied \p argument in a new non-application thread.
- * \note Currently Windows only.
- * \note Not yet supported for 32-bit processes running on 64-bit windows (WOW64).
+ * supplied \p argument (in a new non-application thread on Windows).
+ *
+ * \note On Linux, the nudge will not be delivered until this thread exits
+ * the code cache.  Thus, if this routine is called from a clean call,
+ * dr_redirect_execution() should be used to ensure cache exit.
+ *
+ * \note Not yet supported for 32-bit processes running on 64-bit Windows (WOW64).
  */
 bool
 dr_nudge_client(client_id_t id, uint64 argument);
 
-/* DR_API EXPORT BEGIN */
-#endif /* WINDOWS */
-/* DR_API EXPORT END */
 
 void instrument_load_client_libs(void);
 void instrument_init(void);
 void instrument_exit(void);
 bool is_in_client_lib(app_pc addr);
+bool is_valid_client_id(client_id_t id);
 void instrument_thread_init(dcontext_t *dcontext);
 void instrument_thread_exit(dcontext_t *dcontext);
 #ifdef LINUX
@@ -1199,10 +1199,9 @@ bool instrument_pre_syscall(dcontext_t *dcontext, int sysnum);
 void instrument_post_syscall(dcontext_t *dcontext, int sysnum);
 bool instrument_invoke_another_syscall(dcontext_t *dcontext);
 
+void instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg);
 #ifdef WINDOWS
 bool instrument_exception(dcontext_t *dcontext, dr_exception_t *exception);
-void instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg);
-void instrument_client_thread_termination(void);
 void wait_for_outstanding_nudges(void);
 #else
 dr_signal_action_t instrument_signal(dcontext_t *dcontext, dr_siginfo_t *siginfo);

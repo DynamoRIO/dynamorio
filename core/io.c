@@ -394,6 +394,10 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
                         if (*c == 'X')
                             prefixbuf[1] = 'X';
                     }
+                    if (*c == 'o')
+                        base = 8;    /* determine base */
+                    if (*c == 'x' || *c == 'X' || *c == 'p')
+                        base = 16;
                     ASSERT(sizeof(void *) == sizeof(val));
                     if (*c == 'p')
                         val = (ptr_uint_t) va_arg(ap, void *);  /* get val */
@@ -401,12 +405,12 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
                         val = (ptr_uint_t) va_arg(ap, ulong);
                     else if (h_type)
                         val = (ptr_uint_t) va_arg(ap, uint); /* ushort promoted */
-                    else
+                    else if (ll_type) {
+                        str = uint64_to_str((uint64)va_arg(ap, uint64), base, buf,
+                                            decimal, caps);
+                        break;
+                    } else
                         val = (ptr_uint_t) va_arg(ap, uint);
-                    if (*c == 'o')
-                        base = 8;    /* determine base */
-                    if (*c == 'x' || *c == 'X' || *c == 'p')
-                        base = 16;
                     ASSERT(sizeof(val) == sizeof(ulong));
                     str = ulong_to_str((ulong)val, base, buf, decimal, caps);  /* generate string */
                     break;
