@@ -29,14 +29,14 @@ thread exit event 1 is called 1 time(s)
 thread exit event 2 is called 1 time(s)
 exception event 1 is called 1 time(s)
 exception event 2 is called 1 time(s)
-restore state event 1 is called 1 time(s)
-restore state event 2 is called 1 time(s)
 #else
 Sending SIGUSR1
 Got SIGUSR1
 Sending SIGUSR2
 Sending SIGURG
 Done
+signal event redirect
+Redirect success!
 exit event 2
 exit event 1
 module load event 1 is called 1 time(s)
@@ -76,3 +76,7 @@ thread exit event 2 is called 1 time(s)
 fork init event 1 is called 1 time(s)
 fork init event 2 is called 1 time(s)
 #endif
+restore state event 1 is called 1 time(s)
+restore state event 2 is called 1 time(s)
+restore state ex event 1 is called 1 time(s)
+restore state ex event 2 is called 1 time(s)

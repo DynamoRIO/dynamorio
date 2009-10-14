@@ -188,6 +188,7 @@ static callback_list_t end_trace_callbacks = {0,};
 #endif
 static callback_list_t fragdel_callbacks = {0,};
 static callback_list_t restore_state_callbacks = {0,};
+static callback_list_t restore_state_ex_callbacks = {0,};
 static callback_list_t module_load_callbacks = {0,};
 static callback_list_t module_unload_callbacks = {0,};
 static callback_list_t filter_syscall_callbacks = {0,};
@@ -556,6 +557,7 @@ void free_all_callback_lists()
 #endif
     free_callback_list(&fragdel_callbacks);
     free_callback_list(&restore_state_callbacks);
+    free_callback_list(&restore_state_ex_callbacks);
     free_callback_list(&module_load_callbacks);
     free_callback_list(&module_unload_callbacks);
     free_callback_list(&filter_syscall_callbacks);
@@ -740,6 +742,25 @@ dr_unregister_restore_state_event(void (*func)
                                    bool restore_memory, bool app_code_consistent))
 {
     return remove_callback(&restore_state_callbacks, (void (*)(void))func, true);
+}
+
+void
+dr_register_restore_state_ex_event(bool (*func) (void *drcontext, bool restore_memory,
+                                                 dr_restore_state_info_t *info))
+{
+    if (!INTERNAL_OPTION(code_api)) {
+        CLIENT_ASSERT(false, "asking for restore_state_ex event when code_api disabled");
+        return;
+    }
+
+    add_callback(&restore_state_ex_callbacks, (void (*)(void))func, true);
+}
+
+bool
+dr_unregister_restore_state_ex_event(bool (*func) (void *drcontext,  bool restore_memory,
+                                                   dr_restore_state_info_t *info))
+{
+    return remove_callback(&restore_state_ex_callbacks, (void (*)(void))func, true);
 }
 
 void
@@ -1260,16 +1281,29 @@ instrument_fragment_deleted(dcontext_t *dcontext, app_pc tag, uint flags)
              (void *)dcontext, (void *)tag);
 }
 
-void
-instrument_restore_state(dcontext_t *dcontext, app_pc tag, dr_mcontext_t *mc,
-                         bool restore_memory, bool app_code_consistent)
+bool
+instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
+                         dr_restore_state_info_t *info)
 {
-    if (restore_state_callbacks.num == 0)
-        return;
-
-    call_all(restore_state_callbacks,
-             int (*)(void *, void *, dr_mcontext_t *, bool, bool),
-             (void *)dcontext, (void *)tag, mc, restore_memory, app_code_consistent);
+    bool res = true;
+    /* Support both legacy and extended handlers */
+    if (restore_state_callbacks.num > 0) {
+        call_all(restore_state_callbacks,
+                 int (*)(void *, void *, dr_mcontext_t *, bool, bool),
+                 (void *)dcontext, info->fragment_info.tag, info->mcontext,
+                 restore_memory, info->fragment_info.app_code_consistent);
+    }
+    if (restore_state_ex_callbacks.num > 0) {
+        /* i#220/PR 480565: client has option of failing the translation.
+         * We fail it if any client wants to.
+         */
+        call_all_ret(res, = res &&, , restore_state_ex_callbacks,
+                     int (*)(void *, bool, dr_restore_state_info_t *),
+                     (void *)dcontext, restore_memory, info);
+    }
+    CLIENT_ASSERT(!restore_memory || res,
+                  "translation should not fail for restore_memory=true");
+    return res;
 }
 
 #ifdef CUSTOM_TRACES

@@ -2934,6 +2934,9 @@ recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
         instrlist_t *ilist = NULL;
         fragment_t *f = owning_f;
         bool alloc = false;
+#ifdef CLIENT_INTERFACE
+        dr_restore_state_info_t client_info;
+#endif
         IF_X64(bool old_mode;)
 
         /* Rather than storing a mapping table, we re-build the fragment
@@ -3017,6 +3020,11 @@ recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
         IF_X64(old_mode = set_x86_mode(tdcontext, FRAG_IS_32(f->flags)));
 
         /* now recreate the state */
+#ifdef CLIENT_INTERFACE
+        /* keep a copy of the pre-translation state */
+        client_info.raw_mcontext = *mcontext;
+        client_info.raw_mcontext_valid = true;
+#endif
         if (ilist == NULL) {
             ASSERT(f != NULL && FRAGMENT_TRANSLATION_INFO(f) != NULL);
             ASSERT(!TEST(FRAG_WAS_DELETED, f->flags) ||
@@ -3048,9 +3056,15 @@ recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
             /* PR 214962: if the client has a restore callback, invoke it to
              * fix up the state (and pc).
              */
-            instrument_restore_state(tdcontext, f->tag, mcontext, restore_memory,
-                                     !TESTANY(FRAG_WAS_DELETED|FRAG_SELFMOD_SANDBOXED,
-                                              f->flags));
+            client_info.mcontext = mcontext;
+            client_info.fragment_info.tag = (void *) f->tag;
+            client_info.fragment_info.cache_start_pc = FCACHE_ENTRY_PC(f);
+            client_info.fragment_info.is_trace = TEST(FRAG_IS_TRACE, f->flags);
+            client_info.fragment_info.app_code_consistent =
+                !TESTANY(FRAG_WAS_DELETED|FRAG_SELFMOD_SANDBOXED, f->flags);
+            /* i#220/PR 480565: client has option of failing the translation */
+            if (!instrument_restore_state(tdcontext, restore_memory, &client_info))
+                res = RECREATE_FAILURE;
         }
 #endif
 

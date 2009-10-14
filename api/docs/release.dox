@@ -111,7 +111,7 @@ The current version is \DR_VERSION and is backward compatible with releases from
 The changes between version 1.5.0 and 1.4.0 are:
 
  - Added nudge support on Linux
- - Enabled \clients to use faults to push rare events out of
+ - Made it easier for \clients to use faults to push rare events out of
    instrumentation paths:
    - Added access to the pre-translated context and the code fragment
      information for both 
@@ -121,6 +121,9 @@ The changes between version 1.5.0 and 1.4.0 are:
      \DynamoRIO code, such as \client-generated code.
    - Added the "meta-instruction that can fault" property via
      instr_is_meta_may_fault() and instr_set_meta_may_fault().
+   - Added a new event dr_register_restore_state_ex_event() that provides
+     the pre-translated context and code fragment information, and allows
+     for translation failure for non-fault translations.
  - Added dr_memory_is_dr_internal() and dr_memory_is_in_client()
  - Added dr_get_parent_id()
  - Added decode_opcode_name()

@@ -2004,6 +2004,13 @@ thread_resume(thread_record_t *tr)
      */
     mutex_lock(&ostd->suspend_lock);
     ASSERT(ostd->suspend_count > 0);
+    /* PR 479750: if do get here and target is not suspended then abort
+     * to avoid possible deadlocks
+     */
+    if (ostd->suspend_count == 0) {
+        mutex_unlock(&ostd->suspend_lock);
+        return true; /* the thread is "resumed", so success status */
+    }
     ostd->suspend_count--;
     if (ostd->suspend_count > 0) {
         mutex_unlock(&ostd->suspend_lock);

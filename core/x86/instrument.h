@@ -236,7 +236,8 @@ DR_API
  *
  * Furthermore, if the client's modifications change any part of the
  * machine state besides the program counter, the client should use
- * #dr_register_restore_state_event() to restore the registers and
+ * #dr_register_restore_state_event() or
+ * #dr_register_restore_state_ex_event() to restore the registers and
  * application memory to their original application values.
  *
  * For meta instructions that do not reference application memory
@@ -250,7 +251,8 @@ DR_API
  * spot.  If the translation field is set to a non-NULL value, the
  * client should be willing to also restore the rest of the machine
  * state at that point (restore spilled registers, etc.) via
- * #dr_register_restore_state_event().  This is necessary for meta
+ * #dr_register_restore_state_event() or
+ * #dr_register_restore_state_ex_event().  This is necessary for meta
  * instructions that reference application memory.  DR takes care of
  * such potentially-faulting instructions added by its own API
  * routines (#dr_insert_clean_call() arguments that reference
@@ -522,7 +524,7 @@ dr_register_restore_state_event(void (*func)
 
 DR_API
 /**
- * Unregister a callback function for the fault state restoration event.
+ * Unregister a callback function for the machine state restoration event.
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  */
@@ -530,6 +532,118 @@ bool
 dr_unregister_restore_state_event(void (*func)
                                   (void *drcontext, void *tag, dr_mcontext_t *mcontext,
                                    bool restore_memory, bool app_code_consistent));
+
+/* DR_API EXPORT BEGIN */
+/**
+ * Data structure passed within dr_exception_t, dr_siginfo_t, and
+ * dr_restore_state_info_t.
+ * Contains information about the code fragment inside the code cache 
+ * at the exception/signal/translation interruption point. 
+ */
+typedef struct _dr_fault_fragment_info_t {
+    /**
+     * The tag of the code fragment inside the code cache at the
+     * exception/signal/translation interruption point. NULL for
+     * interruption not in the code cache.
+     */
+    void *tag;
+    /**
+     * The start address of the code fragment inside the code cache at
+     * the exception/signal/translation interruption point. NULL for interruption
+     * not in the code cache.  Clients are cautioned when examining
+     * code cache instructions to not rely on any details of code
+     * inserted other than their own.  
+     */
+    byte *cache_start_pc;
+    /** Indicates whether the interrupted code fragment is a trace */
+    bool is_trace;
+    /**
+     * Indicates whether the original application code containing the
+     * code corresponding to the exception/signal/translation interruption point
+     * is guaranteed to still be in the same state it was when the
+     * code was placed in the code cache. This guarantee varies
+     * depending on the type of cache consistency being used by DR.
+     */
+    bool app_code_consistent;    
+} dr_fault_fragment_info_t;
+
+/**
+ * Data structure passed to a restore_state_ex event handler (see
+ * dr_register_restore_state_ex_event()).  Contains the machine
+ * context at the translation point and other translation
+ * information.
+ */
+typedef struct _dr_restore_state_info_t {
+    /** The application machine state at the translation point. */
+    dr_mcontext_t *mcontext;
+    /** Whether raw_mcontext is valid. */
+    bool raw_mcontext_valid;
+    /** 
+     * The raw pre-translated machine state at the translation
+     * interruption point inside the code cache.  Clients are
+     * cautioned when examining code cache instructions to not rely on
+     * any details of code inserted other than their own.
+     */
+    dr_mcontext_t raw_mcontext;
+    /**
+     * Information about the code fragment inside the code cache
+     * at the translation interruption point.
+     */
+    dr_fault_fragment_info_t fragment_info;
+} dr_restore_state_info_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Registers a callback function for the machine state restoration
+ * event with extended information.
+ *
+ * This event is identical to that for dr_register_restore_state_event()
+ * with the following exceptions:
+ *
+ * - Additional information is provided in the
+ *   dr_restore_state_info_t structure, including the pre-translation
+ *   context (containing the address inside the code cache of the
+ *   translation point) and the starting address of the containing
+ *   fragment in the code cache.  Certain registers may not contain
+ *   proper application values in \p info->raw_mcontext.  Clients are
+ *   cautioned against relying on any details of code cache layout or
+ *   register usage beyond instrumentation inserted by the client
+ *   itself when examining \p info->raw_mcontext.
+ *
+ * - The callback function returns a boolean indicating the success of
+ *   the translation.  When DR is translating not for a fault but for
+ *   thread relocation, the \p restore_memory parameter will be false.
+ *   Such translation can target a meta-instruction that can fault
+ *   (see instr_set_meta_may_fault()).  For that scenario, a client
+ *   can choose not to translate.  Such instructions do not always
+ *   require full translation for faults, and allowing translation
+ *   failure removes the requirement that a client must translate at
+ *   all such instructions.  Note, however, that returning false can
+ *   cause performance degradation as DR must then resume the thread
+ *   and attempt to re-suspend it at a safer spot.  Clients must
+ *   return true for translation points in application code in order
+ *   to avoid catastropic failure to suspend, and should thus identify
+ *   whether translation points are inside their own instrumentation
+ *   before returning false.  Translation for relocation will never
+ *   occur in meta instructions, so clients only need to look for
+ *   meta-may-fault instructions.  Clients should never return false
+ *   when \p restore_memory is true.
+ */
+void
+dr_register_restore_state_ex_event(bool (*func) (void *drcontext, bool restore_memory,
+                                                 dr_restore_state_info_t *info));
+
+DR_API
+/**
+ * Unregister a callback function for the machine state restoration
+ * event with extended ifnormation.  \return true if unregistration is
+ * successful and false if it is not (e.g., \p func was not
+ * registered).
+ */
+bool
+dr_unregister_restore_state_ex_event(bool (*func) (void *drcontext, bool restore_memory,
+                                                   dr_restore_state_info_t *info));
 
 DR_API 
 /**
@@ -635,40 +749,6 @@ DR_API
 bool
 dr_unregister_module_unload_event(void (*func)(void *drcontext,
                                                const module_data_t *info));
-
-/* DR_API EXPORT BEGIN */
-/**
- * Data structure passed within dr_exception_t/dr_siginfo_t.
- * Contains information about the code fragment inside the code cache 
- * at the exception/signal interruption point. 
- */
-typedef struct _dr_fault_fragment_info_t {
-    /**
-     * The tag of the code fragment inside the code cache at the
-     * exception/signal interruption point. NULL for interruption not
-     * in the code cache.
-     */
-    void *tag;
-    /**
-     * The start address of the code fragment inside the code cache at
-     * the exception/signal interruption point. NULL for interruption
-     * not in the code cache.  Clients are cautioned when examining
-     * code cache instructions to not rely on any details of code
-     * inserted other than their own.  
-     */
-    app_pc cache_start_pc;
-    /** Indicates whether the interrupted code fragment is a trace */
-    bool is_trace;
-    /**
-     * Indicates whether the original application code containing the
-     * code corresponding to the exception/signal ingerruption point
-     * is guaranteed to still be in the same state it was when the
-     * code was placed in the code cache. This guarantee varies
-     * depending on the type of cache consistency being used by DR.
-     */
-    bool app_code_consistent;    
-} dr_fault_fragment_info_t;
-/* DR_API EXPORT END */
 
 /* DR_API EXPORT BEGIN */
 #ifdef WINDOWS
@@ -1185,8 +1265,8 @@ dr_custom_trace_action_t instrument_end_trace(dcontext_t *dcontext, app_pc trace
                                            app_pc next_tag);
 #endif
 void instrument_fragment_deleted(dcontext_t *dcontext, app_pc tag, uint flags);
-void instrument_restore_state(dcontext_t *dcontext, app_pc tag, dr_mcontext_t *mc,
-                              bool restore_memory, bool app_code_consistent);
+bool instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
+                              dr_restore_state_info_t *info);
 
 module_data_t * copy_module_area_to_module_data(const module_area_t *area);
 void instrument_module_load(module_data_t *data, bool previously_loaded);

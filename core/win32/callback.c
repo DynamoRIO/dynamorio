@@ -4196,7 +4196,7 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
     fragment = fragment_pclookup(dcontext, einfo.raw_mcontext.pc, &wrapper);
     if (fragment != NULL && !hide_tag_from_client(fragment->tag)) {
         einfo.fault_fragment_info.tag = fragment->tag;
-        einfo.fault_fragment_info.cache_start_pc = fragment->start_pc;
+        einfo.fault_fragment_info.cache_start_pc = FCACHE_ENTRY_PC(fragment);
         einfo.fault_fragment_info.is_trace = TEST(FRAG_IS_TRACE, 
                                                   fragment->flags);
         einfo.fault_fragment_info.app_code_consistent = 

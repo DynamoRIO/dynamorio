@@ -199,17 +199,19 @@ main(int argc, char** argv)
     __except (GetExceptionCode() == STATUS_ACCESS_VIOLATION ? 
               EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
     }
+#else
+    *(int *)4 = 0;
+#endif
     /* Never Reached */
     print("Shouldn't be reached\n");
-#endif
 }
 
 #ifdef WINDOWS
 __declspec(dllexport) 
+#endif
 void
 redirect()
 {
     print("Redirect success!\n");
     exit(0);
 }
-#endif

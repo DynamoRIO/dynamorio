@@ -2491,7 +2491,7 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
         fragment = fragment_pclookup(dcontext, si->raw_mcontext.pc, &wrapper);
         if (fragment != NULL && !hide_tag_from_client(fragment->tag)) {
             si->fault_fragment_info.tag = fragment->tag;
-            si->fault_fragment_info.cache_start_pc = fragment->start_pc;
+            si->fault_fragment_info.cache_start_pc = FCACHE_ENTRY_PC(fragment);
             si->fault_fragment_info.is_trace = TEST(FRAG_IS_TRACE, 
                                                     fragment->flags);
             si->fault_fragment_info.app_code_consistent = 
@@ -3355,12 +3355,10 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
                 break;
             }
         }
-        /* pass it to the application */
+        /* pass it to the application (or client) */
         LOG(THREAD, LOG_ALL, 1,
             "** Received SIG%s at cache pc "PFX" in thread %d\n",
             (sig == SIGSEGV) ? "SEGV" : "BUS", pc, get_thread_id());
-        if (TEST(DUMPCORE_APP_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
-            os_dump_core("application fault");
         ASSERT(syscall_signal || safe_is_in_fcache(dcontext, pc, (byte *)sc->SC_XSP));
         /* if we were building a trace, kill it */
         if (is_building_trace(dcontext)) {
@@ -3483,6 +3481,10 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
 
     LOG(THREAD, LOG_ASYNCH, 2, "execute_handler_from_cache for signal %d\n", sig);
     RSTATS_INC(num_signals);
+
+    /* now that we know it's not a client-involved fault, dump as app fault */
+    if (TEST(DUMPCORE_APP_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
+        os_dump_core("application fault");
 
     LOG(THREAD, LOG_ASYNCH, 3, "\txsp is "PFX"\n", xsp);
 

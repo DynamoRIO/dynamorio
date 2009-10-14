@@ -73,6 +73,8 @@ enum event_seq {
     EVENT_EXCEPTION_2,
     EVENT_RESTORE_STATE_1,
     EVENT_RESTORE_STATE_2,
+    EVENT_RESTORE_STATE_EX_1,
+    EVENT_RESTORE_STATE_EX_2,
     EVENT_last,
 };
 
@@ -107,6 +109,8 @@ char *name[EVENT_last] = {
     "exception event 2",
     "restore state event 1",
     "restore state event 2",
+    "restore state ex event 1",
+    "restore state ex event 2",
 };
 
 int counts[EVENT_last];
@@ -430,6 +434,29 @@ bool exception_event2(void *dcontext, dr_exception_t *excpt)
 }
 #else
 static
+dr_signal_action_t signal_event_redirect(void *dcontext, dr_siginfo_t *info)
+{
+    if (info->sig == SIGSEGV) {
+        app_pc addr;
+        module_data_t *data = dr_lookup_module_by_name("client.events");
+        dr_printf("signal event redirect\n");
+        if (data == NULL) {
+            dr_printf("couldn't find client.events module\n");
+            return DR_SIGNAL_DELIVER;
+        }
+        addr = (app_pc)dr_get_proc_address(data->handle, "redirect");
+        dr_free_module_data(data);
+        if (addr == NULL) {
+            dr_printf("Couldn't find function redirect in client.events\n");
+            return DR_SIGNAL_DELIVER;
+        }
+        info->mcontext.pc = addr;
+        return DR_SIGNAL_REDIRECT;
+    }
+    return DR_SIGNAL_DELIVER;
+}
+
+static
 dr_signal_action_t signal_event1(void *dcontext, dr_siginfo_t *info)
 {
     inc_count_first(EVENT_SIGNAL_1, EVENT_SIGNAL_2);
@@ -447,6 +474,8 @@ static
 dr_signal_action_t signal_event2(void *dcontext, dr_siginfo_t *info)
 {    
     inc_count_second(EVENT_SIGNAL_2);
+
+    dr_register_signal_event(signal_event_redirect);
     
     if (!dr_unregister_signal_event(signal_event2))
         dr_printf("unregister failed!\n");
@@ -473,6 +502,28 @@ restore_state_event2(void *drcontext, void *tag, dr_mcontext_t *mcontext,
 
     if (!dr_unregister_restore_state_event(restore_state_event2))
         dr_printf("unregister failed!\n");
+}
+
+static bool
+restore_state_ex_event1(void *drcontext, bool restore_memory,
+                        dr_restore_state_info_t *info)
+{
+    inc_count_first(EVENT_RESTORE_STATE_EX_1, EVENT_RESTORE_STATE_EX_2);
+
+    if (!dr_unregister_restore_state_ex_event(restore_state_ex_event1))
+        dr_printf("unregister failed!\n");
+    return true;
+}
+
+static bool
+restore_state_ex_event2(void *drcontext, bool restore_memory,
+                        dr_restore_state_info_t *info)
+{
+    inc_count_second(EVENT_RESTORE_STATE_EX_2);
+
+    if (!dr_unregister_restore_state_ex_event(restore_state_ex_event2))
+        dr_printf("unregister failed!\n");
+    return true;
 }
 
 DR_EXPORT
@@ -506,6 +557,8 @@ void dr_init(client_id_t id)
     dr_register_delete_event(delete_event2);
     dr_register_restore_state_event(restore_state_event1);
     dr_register_restore_state_event(restore_state_event2);
+    dr_register_restore_state_ex_event(restore_state_ex_event1);
+    dr_register_restore_state_ex_event(restore_state_ex_event2);
     dr_register_module_load_event(module_load_event1);
     dr_register_module_load_event(module_load_event2);
     dr_register_module_unload_event(module_unload_event1);
