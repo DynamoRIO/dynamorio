@@ -34,28 +34,47 @@
  * Runs an app in the background (since cmake scripts can't do so).
  * Takes in the app path and arguments (as separate parameters)
  * and launches the app as a separate process.  Prints the process id
- * of that process to stdout.
+ * of that process to a file, if requested.  On Linux prints the
+ * process id to stdout if the -pid option is not provided.
+ *
+ * Note that we can't easily print the pid to stoud on Windows: we
+ * can't dup stdout prior to spawning b/c then cmake will wait for the
+ * child to close that descriptor, which will never happen.  If we use
+ * CreateFile("CONOUT$") it opens the raw console and doesn't work
+ * within cygwin shells.  We could _spawnv another tool and have it
+ * _execv, but simpler to use pid file.
  */
 
 #include "configure.h"
 #ifdef WINDOWS
+# define _CRT_SECURE_NO_WARNINGS 1
 # include <windows.h>
 # include <process.h>
+# include <io.h>
 #else
 # include <unistd.h>
 # include <sys/types.h>
-# include <sys/stat.h>
-# include <fcntl.h>
 # include <string.h>
 #endif
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#ifdef WINDOWS
+/* use ISO C++-conformant names */
+# define dup _dup
+# define fileno _fileno
+# define open _open
+# define close _close
+#endif
 
 int
 usage(const char *us)
 {
     fprintf(stderr,
-            "Usage: %s [-env <var> <value>] [-out <file>] <program> <args...>\n", us);
+            "Usage: %s [-env <var> <value>] [-out <file>] [-pid <file>] <program> <args...>\n",
+            us);
     return 1;
 }
 
@@ -117,17 +136,51 @@ process_id_from_handle(HANDLE h)
 }
 #endif
 
+static void
+redirect_stdouterr(const char *outfile)
+{
+    int newout = -1;
+    int stdout_fd = fileno(stdout);
+    int stderr_fd = fileno(stderr);
+    if (outfile != NULL) {
+        newout = open(outfile, O_CREAT|O_WRONLY|O_TRUNC, S_IREAD|S_IWRITE);
+        if (newout < 0) {
+            perror("open new stdout failed");
+            exit(1);
+        }
+    }
+    /* we must close these in order for cmake's execute_process()
+     * to stop waiting on the parent (setsid() or grandchild make
+     * no difference)
+     */
+    /* somehow closing both and then dup'ing twice fails under
+     * some circumstances so we do one at a time
+     */
+    if (close(stdout_fd) != 0 ||
+        (outfile != NULL && dup(newout) != stdout_fd)) {
+        fprintf(stderr, "stdout redirect FAILED");
+        exit(1);
+    }
+    if (close(stderr_fd) != 0 ||
+        (outfile != NULL && dup(newout) != stderr_fd)) {
+        fprintf(stderr, "stderr redirect FAILED");
+        exit(1);
+    }
+}
+
 int
 main(int argc, char *argv[])
 {
 #ifdef WINDOWS
-    HANDLE child;
+    HANDLE hchild;
+    int child;
 #else
     pid_t child;
 #endif
     int rc;
     int arg_offs = 1;
     const char *outfile = NULL;
+    const char *pidfile = NULL;
 
     if (argc < 2) {
         return usage(argv[0]);
@@ -160,6 +213,11 @@ main(int argc, char *argv[])
                 return usage(argv[0]);
             outfile = argv[arg_offs+1];
             arg_offs += 2;
+        } else if (strcmp(argv[arg_offs], "-pid") == 0) {
+            if (argc <= arg_offs+1)
+                return usage(argv[0]);
+            pidfile = argv[arg_offs+1];
+            arg_offs += 2;
         } else {
             return usage(argv[0]);
         }
@@ -171,47 +229,37 @@ main(int argc, char *argv[])
     child = fork();
     if (child < 0) {
         perror("ERROR on fork");
-    } else if (child > 0) {
-        printf("%d\n", child);
-    } else {
+    } else if (child == 0) {
         /* redirect std{out,err} */
-        int newout;
-        if (outfile != NULL) {
-            newout = open(outfile, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR|S_IWUSR);
-            if (newout < 0) {
-                perror("open new stdout failed");
-                exit(1);
-            }
-        }
-        /* we must close these in order for cmake's execute_process()
-         * to stop waiting on the parent (setsid() or grandchild make
-         * no difference)
-         */
-        close(stdout->_fileno);
-        close(stderr->_fileno);
-        if (outfile != NULL) {
-            /* dup() guarantees to take the lowest available fd */
-            if (dup(newout) != stdout->_fileno ||
-                dup(newout) != stderr->_fileno) {
-                fprintf(stderr, "std{out,err} redirect FAILED");
-                exit(1);
-            }
-        }
+        redirect_stdouterr(outfile);
         execv(argv[arg_offs], argv+arg_offs/*include app*/);
         fprintf(stderr, "execv of %s FAILED", argv[arg_offs]);
+        exit(1);
     }
+    /* else, parent, and we continue below */
+    if (pidfile == NULL)
+        printf("%d\n", child);
 #else
-    /* FIXME i#120: do fd redirection like on Linux.
-     * Should do it in parent, but keep orig stdout so can print out child pid.
-     */
+    /* redirect std{out,err} */
+    redirect_stdouterr(outfile);
     /* Do we want _P_DETACH instead of _P_NOWAIT?  _P_DETACH doesn't return the
      * child handle though.
      */
-    child = (HANDLE) _spawnv(_P_NOWAIT, argv[arg_offs], argv+arg_offs/*include app*/);
-    if (child == INVALID_HANDLE_VALUE) {
+    hchild = (HANDLE) _spawnv(_P_NOWAIT, argv[arg_offs], argv+arg_offs/*include app*/);
+    if (hchild == INVALID_HANDLE_VALUE) {
         fprintf(stderr, "_spawnv of %s FAILED", argv[arg_offs]);
         exit(1);
     }
-    printf("%d\n", process_id_from_handle(child));
+    child = process_id_from_handle(hchild);
 #endif
+    if (pidfile != NULL) {
+        FILE *f = fopen(pidfile, "w");
+        if (f == NULL) {
+            perror("open pidfile failed");
+            exit(1);
+        }
+        fprintf(f, "%d\n", child);
+        fclose(f);
+    }
+    return 0;
 }

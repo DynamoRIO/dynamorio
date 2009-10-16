@@ -937,7 +937,8 @@ if (BUILD_TOOLS OR WIN32)
     FILES_MATCHING
     PATTERN "*.debug"
     PATTERN "*.pdb"
-    PATTERN "runstats.debug" EXCLUDE # since not installing runstats
+    PATTERN "runstats.debug" EXCLUDE # since not installing tool
+    PATTERN "run_in_bg.debug" EXCLUDE # since not installing tool
     )
 endif (BUILD_TOOLS OR WIN32)
 

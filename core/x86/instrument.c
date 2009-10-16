@@ -55,6 +55,7 @@
 #include <string.h> /* for strstr */
 #include <stdarg.h> /* for varargs */
 #include "../nudge.h" /* for nudge_internal() */
+#include "../synch.h"
 
 #ifdef CLIENT_INTERFACE
 /* in utils.c, not exported to everyone */
@@ -1719,12 +1720,24 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
      * thread hits native_exec_syscalls hooks. */
     dcontext->client_data->is_client_thread = true;
     dcontext->thread_record->under_dynamo_control = false;
+#else
+    /* support calling dr_get_mcontext() on this thread.  the app
+     * context should be intact in the current mcontext except
+     * xip which we set from next_tag.
+     */
+    CLIENT_ASSERT(!dcontext->client_data->mcontext_in_dcontext,
+                  "internal inconsistency in where mcontext is");
+    dcontext->client_data->mcontext_in_dcontext = true;
+    /* officially get_mcontext() doesn't always set xip: we do anyway */
+    get_mcontext(dcontext)->xip = dcontext->next_tag;
 #endif
 
     call_all(client_libs[i].nudge_callbacks, int (*)(void *, uint64), 
              (void *)dcontext, arg);
 
-#ifdef WINDOWS
+#ifdef LINUX
+    dcontext->client_data->mcontext_in_dcontext = false;
+#else
     dcontext->thread_record->under_dynamo_control = true;
     dcontext->client_data->is_client_thread = false;
 
@@ -2153,7 +2166,7 @@ void
 dr_mutex_lock(void *mutex)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
-    /* set client_grab_mutex so that we now to set client_thread_safe_for_synch
+    /* set client_grab_mutex so that we know to set client_thread_safe_for_synch
      * around the actual wait for the lock */
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_grab_mutex = mutex;
@@ -2803,6 +2816,129 @@ dr_sleep(int time_ms)
 }
 # endif
 
+DR_API
+bool
+dr_suspend_all_other_threads(OUT void ***drcontexts,
+                             OUT uint *num_suspended,
+                             OUT uint *num_unsuspended)
+{
+    uint out_suspended = 0, out_unsuspended = 0;
+    thread_record_t **threads;
+    int num_threads;
+    dcontext_t *my_dcontext = get_thread_private_dcontext();
+    int i;
+
+    CLIENT_ASSERT(thread_owns_no_locks(my_dcontext),
+                  "dr_suspend_all_other_threads cannot be called while holding a lock");
+    CLIENT_ASSERT(drcontexts != NULL && num_suspended != NULL,
+                  "dr_suspend_all_other_threads invalid params");
+    LOG(GLOBAL, LOG_FRAGMENT, 2, 
+        "\ndr_suspend_all_other_threads: thread %d suspending all threads\n",
+        get_thread_id());
+
+    /* suspend all DR-controlled threads at safe locations */
+    if (!synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT_OR_NO_XFER,
+                                &threads, &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                                /* if we fail to suspend a thread (e.g., for
+                                 * privilege reasons), ignore and continue
+                                 */
+                                THREAD_SYNCH_SUSPEND_FAILURE_IGNORE)) {
+        *drcontexts = NULL;
+        *num_suspended = 0;
+        if (num_unsuspended != NULL)
+            *num_unsuspended = get_num_threads() - 1/*us*/;
+        return false;
+    }
+    /* now we own the thread_initexit_lock */
+    CLIENT_ASSERT(OWN_MUTEX(&all_threads_synch_lock) && OWN_MUTEX(&thread_initexit_lock),
+                  "internal locking error");
+
+    /* To avoid two passes we allocate the array now.  It may be larger than
+     * necessary if we had suspend failures but taht's ok.
+     * We hide the threads num and array in extra slots. 
+     */
+    *drcontexts = (void **)
+        global_heap_alloc((num_threads+2)*sizeof(dcontext_t*) HEAPACCT(ACCT_THREAD_MGT));
+    for (i = 0; i < num_threads; i++) {
+        dcontext_t *dcontext = threads[i]->dcontext;
+        if (dcontext != NULL) { /* include my_dcontext here */
+            if (dcontext != my_dcontext) {
+                /* must translate BEFORE freeing any memory! */
+                if (!thread_synch_successful(threads[i])) {
+                    out_unsuspended++;
+                } else if (is_thread_currently_native(threads[i])) {
+                    out_unsuspended++;
+                } else if (thread_synch_state_no_xfer(dcontext)) {
+                    /* FIXME: for all other synchall callers, the app
+                     * context should be sitting in their mcontext, even
+                     * though we can't safely get their native context and
+                     * translate it.
+                     */
+                    (*drcontexts)[out_suspended] = (void *) dcontext;
+                    out_suspended++;
+                    CLIENT_ASSERT(!dcontext->client_data->mcontext_in_dcontext,
+                                  "internal inconsistency in where mcontext is");
+                    /* officially get_mcontext() doesn't always set xip: we do anyway */
+                    get_mcontext(dcontext)->xip = dcontext->next_tag;
+                    dcontext->client_data->mcontext_in_dcontext = true;
+                } else {
+                    bool res;
+                    (*drcontexts)[out_suspended] = (void *) dcontext;
+                    out_suspended++;
+                    /* FIXME: I'm not 100% sure but I believe it is safe for
+                     * all safe_spots to clobber the thread's mcontext with
+                     * its own translation.  If it turns out not to be we'll
+                     * have to allocate a new mcontext for each thread here.
+                     */
+                    /* FIXME PERFORMANCE: better to lazily only translate
+                     * if client actually calls dr_get_mcontext(), via a
+                     * new flag, since some clients may just want to stop
+                     * the world but not examine the threads.
+                     */                     
+                    res = thread_get_mcontext(threads[i], get_mcontext(dcontext));
+                    CLIENT_ASSERT(res, "failed to get mcontext of suspended thread");
+                    res = translate_mcontext(threads[i], get_mcontext(dcontext),
+                                             false/*do not restore memory*/);
+                    CLIENT_ASSERT(res, "failed to xl8 mcontext of suspended thread");
+                    CLIENT_ASSERT(!dcontext->client_data->mcontext_in_dcontext,
+                                  "internal inconsistency in where mcontext is");
+                    dcontext->client_data->mcontext_in_dcontext = true;
+                }
+            }
+        }
+    }
+    /* Hide the two extra vars we need the client to pass back to us */
+    (*drcontexts)[out_suspended] = (void *) threads;
+    (*drcontexts)[out_suspended+1] = (void *)(ptr_uint_t) num_threads;
+    *num_suspended = out_suspended;
+    if (num_unsuspended != NULL)
+        *num_unsuspended = out_unsuspended;
+    return true;
+}
+
+bool
+dr_resume_all_other_threads(IN void **drcontexts,
+                            IN uint num_suspended)
+{
+    thread_record_t **threads;
+    int num_threads;
+    uint i;
+    CLIENT_ASSERT(drcontexts != NULL,
+                  "dr_suspend_all_other_threads invalid params");
+    LOG(GLOBAL, LOG_FRAGMENT, 2, 
+        "dr_resume_all_other_threads\n");
+    threads = (thread_record_t **) drcontexts[num_suspended];
+    num_threads = (int)(ptr_int_t) drcontexts[num_suspended+1];
+    for (i = 0; i < num_suspended; i++) {
+        dcontext_t *dcontext = (dcontext_t *) drcontexts[i];
+        dcontext->client_data->mcontext_in_dcontext = false;
+    }
+    global_heap_free(drcontexts, (num_threads+2)*sizeof(dcontext_t*)
+                     HEAPACCT(ACCT_THREAD_MGT));
+    end_synch_with_all_threads(threads, num_threads, true/*resume*/);
+    return true;
+}
+
 #endif /* CLIENT_INTERFACE */
 
 DR_API
@@ -2829,6 +2965,30 @@ void
 instrlist_meta_append(instrlist_t *ilist, instr_t *inst)
 {
     instr_set_ok_to_mangle(inst, false);
+    instrlist_append(ilist, inst);
+}
+
+DR_API
+void 
+instrlist_meta_fault_preinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
+{
+    instr_set_meta_may_fault(inst, true);
+    instrlist_preinsert(ilist, where, inst);
+}
+
+DR_API
+void
+instrlist_meta_fault_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
+{
+    instr_set_meta_may_fault(inst, true);
+    instrlist_postinsert(ilist, where, inst);
+}
+
+DR_API
+void
+instrlist_meta_fault_append(instrlist_t *ilist, instr_t *inst)
+{
+    instr_set_meta_may_fault(inst, true);
     instrlist_append(ilist, inst);
 }
 

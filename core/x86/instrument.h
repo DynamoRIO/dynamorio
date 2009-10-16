@@ -516,6 +516,10 @@ DR_API
  * type of cache consistency being used by DR.
  *
  * The client can update \p mcontext.pc in this callback.
+ *
+ * \note The passed-in \p drcontext may correspond to a different thread
+ * than the thread executing the callback.  Do not assume that the
+ * executing thread is the target thread.
  */
 void
 dr_register_restore_state_event(void (*func)
@@ -2377,6 +2381,60 @@ DR_API
 void
 dr_thread_yield(void);
 
+/* FIXME - xref PR 227619 - some other event handler are safe (image_load/unload for*
+ * example) which we could note here. */
+DR_API
+/**
+ * Suspends all other threads in the process and returns an array of
+ * contexts in \p drcontexts with one context per successfully suspended
+ * threads.  The contexts can be passed to routines like dr_get_thread_id()
+ * or dr_get_mcontext().  However, the contexts may not be modified:
+ * dr_set_mcontext() is not supported.  dr_get_mcontext() can be called on
+ * the caller of this routine, unless in a Windows nudge callback.
+ *
+ * The number of successfully suspended threads, which is also the length
+ * of the \p drcontexts array, is returned in \p num_suspended, which is a
+ * required parameter.  The number of un-successfully suspended threads, if
+ * any, is returned in the optional parameter \p num_unsuspended.  The
+ * calling thread is not considered in either count.  DR can fail to
+ * suspend a thread for privilege reasons (e.g., on Windows in a
+ * low-privilege process where another process injected a thread).  This
+ * function returns true iff all threads were suspended, in which case \p
+ * num_unsuspended will be 0.
+ *
+ * The caller must invoke dr_resume_all_other_threads() in order to resume
+ * the suspended threads, free the \p drcontexts array, and release
+ * coarse-grain locks that prevent new threads from being created.
+ *
+ * This routine may not be called from any registered event callback other
+ * than the nudge event.  It may be called from clean calls out of the
+ * cache.  This routine may not be called while any locks are held that
+ * could block a thread processing a registered event callback or cache
+ * callout.
+ *
+ * \note A client wishing to invoke this routine from an event callback can
+ * queue up a nudge via dr_nudge_client() and invoke this routine from the
+ * nudge callback.
+ */
+bool
+dr_suspend_all_other_threads(OUT void ***drcontexts,
+                             OUT uint *num_suspended,
+                             OUT uint *num_unsuspended);
+
+DR_API
+/**
+ * May only be used after invoking dr_suspend_all_other_threads().  This
+ * routine resumes the threads that were suspended by
+ * dr_suspend_all_other_threads() and must be passed the same array and
+ * count of suspended threads that were returned by
+ * dr_suspend_all_other_threads().  It also frees the \p drcontexts array
+ * and releases the locks acquired by dr_suspend_all_other_threads().  The
+ * return value indicates whether all resumption attempts were successful.
+ */
+bool
+dr_resume_all_other_threads(IN void **drcontexts,
+                            IN uint num_suspended);
+
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */
 
@@ -2580,9 +2638,33 @@ void
 instrlist_meta_postinsert(instrlist_t *ilist, instr_t *where, instr_t *instr);
 
 DR_API
-/** Inserts \p instr as a non-application instruction onto the end of ilist */
+/** Inserts \p instr as a non-application instruction onto the end of \p ilist */
 void
 instrlist_meta_append(instrlist_t *ilist, instr_t *instr);
+
+DR_API
+/**
+ * Inserts \p instr as a non-application instruction that can fault (see
+ * instr_set_meta_may_fault()) into \p ilist prior to \p where. 
+ */
+void 
+instrlist_meta_fault_preinsert(instrlist_t *ilist, instr_t *where, instr_t *instr);
+
+DR_API
+/**
+ * Inserts \p instr as a non-application instruction that can fault (see
+ * instr_set_meta_may_fault()) into \p ilist after \p where. 
+ */
+void
+instrlist_meta_fault_postinsert(instrlist_t *ilist, instr_t *where, instr_t *instr);
+
+DR_API
+/**
+ * Inserts \p instr as a non-application instruction that can fault (see
+ * instr_set_meta_may_fault()) onto the end of \p ilist. 
+ */
+void
+instrlist_meta_fault_append(instrlist_t *ilist, instr_t *instr);
 
 /* dr_insert_* are used by general DR */
 
@@ -2837,6 +2919,8 @@ DR_API
  *   dr_register_trace_event()), but for basic block creation only when the
  *   basic block callback parameters \p for_trace and \p translating are
  *   false, and for trace creation only when \p translating is false.
+ * - A nudge callback (dr_register_nudge_event()) on Linux.
+ *   (On Windows nudges happen in separate dedicated threads.)
  *
  * Does NOT copy the pc field.  If \p app_errno is non-NULL copies the
  * saved application error code (value of GetLastError() on Windows or
@@ -2979,7 +3063,7 @@ DR_API
  * dr_redirect_execution() after this routine to continue execution.  Returns true if
  * successful.
  *
- * \note This routine may not be called from any registered event callback other then
+ * \note This routine may not be called from any registered event callback other than
  * the nudge event; clean calls out of the cache may call this routine.
  * \note If called from a clean call, caller must continue execution by calling
  * dr_redirect_execution() after this routine, as the fragment containing the callout may
@@ -3016,7 +3100,7 @@ DR_API
  * event handler.  It may not be called from any other event callback.  No locks can be
  * held when calling this routine.  Returns true if successful.
  *
- * \note This routine may not be called from any registered event callback other then
+ * \note This routine may not be called from any registered event callback other than
  * the nudge event; clean calls out of the cache may call this routine.
  * \note This routine may not be called while any locks are held that could block a thread
  * processing a registered event callback or cache callout.

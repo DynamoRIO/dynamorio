@@ -62,10 +62,10 @@ if (UNIX)
   if (NOT EXISTS ${SLEEP})
     message(FATAL_ERROR "cannot find 'sleep'")
   endif (NOT EXISTS ${SLEEP})
-  execute_process(COMMAND "${SLEEP}" 1)
 else (UNIX)
   message(FATAL_ERROR "need a sleep on Windows")
   # FIXME i#120: add tools/sleep.exe?
+  # or use perl?  trying to get away from perl though
 endif (UNIX)
 
 while (NOT EXISTS "${out}")

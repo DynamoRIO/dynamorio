@@ -949,7 +949,16 @@ For meta-instructions that can fault but only in deliberate ways (typically
 by accessing \client memory) and never access application memory, the
 "meta-instruction that can fault" property can be set via \ref
 instr_set_meta_may_fault() to avoid incurring the potential cost of added
-sandboxing checks that look for changes to application code.
+sandboxing checks that look for changes to application code.  The
+instrlist_meta_fault_preinsert() and related routines make this a simpler
+process.  Here is an example:
+
+\code
+#define PREXL8M instrlist_meta_fault_preinsert
+
+app_pc xl8 = instr_get_app_pc(inst);
+PREXL8M(bb, inst, INSTR_XL8(INSTR_CREATE_mov_st(drcontext, dst, src), xl8));
+\endcode
 
 \ifnot vmsafe
 ***************************************************************************

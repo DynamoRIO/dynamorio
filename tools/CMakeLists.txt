@@ -52,6 +52,7 @@ if (UNIX)
     @ONLY)
   install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/drdeploy
     DESTINATION ${INSTALL_BIN})
+  install(TARGETS nudgeunix DESTINATION ${INSTALL_BIN})
 else (UNIX)
   # FIXME i#98: eventually upgrade to W4 with pragma exceptions.
   # W2 is default (we're using W3).  We should also replace
