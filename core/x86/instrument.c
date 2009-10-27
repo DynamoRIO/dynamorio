@@ -2650,32 +2650,6 @@ dr_fprintf(file_t f, const char *fmt, ...)
 }
 
 DR_API int
-/* We have to temporarily suspend our snprintf->_snprintf define */
-#undef snprintf
-snprintf(char *buf, size_t max, const char *fmt, ...)
-#ifdef WINDOWS
-# define snprintf _snprintf /* restore the define */
-#else
-# define snprintf our_snprintf /* restore the define */
-#endif
-{
-    /* we would share code w/ dr_snprintf but no easy way to do that w/ varargs
-     * (macro too ugly; export forwarder maybe)
-     */
-    /* in io.c */
-    extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
-    int res;
-    va_list ap;
-    va_start(ap, fmt);
-    res = our_vsnprintf(buf, max, fmt, ap);
-    va_end(ap);
-    /* Normalize Linux behavior to match Windows */
-    if ((size_t)res > max)
-        res = -1;
-    return res;
-}
-
-DR_API int
 dr_snprintf(char *buf, size_t max, const char *fmt, ...)
 {
     /* in io.c */

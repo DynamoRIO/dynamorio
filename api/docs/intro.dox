@@ -733,7 +733,7 @@ that we believe to be safe for \clients to use:
 In general, these routines match their standard C library counterparts.  However, be
 warned that some of these may be more limited.  In particular, _vsnprintf
 and _snprintf do not support floating-point values.  \DynamoRIO provides
-its own snprintf() that does support floating-point values, but does
+its own dr_snprintf() that does support floating-point values, but does
 not support printing wide characters.  When printing floating-point values 
 be sure to \ref sec_trans_floating_point "save the application's floating 
 point state" so as to avoid corrupting it.

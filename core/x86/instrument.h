@@ -2230,22 +2230,6 @@ DR_API
 int
 dr_snprintf(char *buf, size_t max, const char *fmt, ...);
 
-/* We have to temporarily suspend our snprintf->_snprintf define */
-#undef snprintf
-DR_API
-/**
- * Deprecated.  Use dr_snprintf() instead.
- * This routine is identical to dr_snprintf() and included for
- * backward compatibility only.
- */
-int
-snprintf(char *buf, size_t max, const char *fmt, ...);
-#ifdef WINDOWS
-# define snprintf _snprintf /* restore the define */
-#else
-# define snprintf our_snprintf /* restore the define */
-#endif
-
 DR_API 
 /** Prints \p msg followed by the instruction \p instr to file \p f. */
 void 

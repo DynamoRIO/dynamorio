@@ -130,6 +130,8 @@ The changes between version 1.5.0 and 1.4.0 are:
  - Added dr_memory_is_dr_internal() and dr_memory_is_in_client()
  - Added dr_get_parent_id()
  - Added decode_opcode_name()
+ - Removed the deprecated snprintf() as it causes symbol pre-emption
+   problems on Linux.  Older \clients should switch to dr_snprintf().
  - Fixed bug in cross-architecture execve (Issue 146)
  - Clone record is now passed via dstack instead of ebp (Issue 149)
  - Fixed close() syscall handling, !HAVE_TLS assert & minor issues (Issue 151)

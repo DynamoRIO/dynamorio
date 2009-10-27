@@ -124,10 +124,6 @@ EXPORTS
         _stricmp = NTDLL._stricmp
         _strcmpi = NTDLL._strcmpi
         _snwprintf = NTDLL._snwprintf
-;; we get "instrument.obj : warning LNK4197: export '_snprintf' specified 
-;;   multiple times; using first specification", so we have to explicitly
-;; re-list our own export (order doesn't matter):
-        snprintf
         _snprintf = NTDLL._snprintf
         _memicmp = NTDLL._memicmp
         _memccpy = NTDLL._memccpy
