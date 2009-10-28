@@ -625,6 +625,8 @@ get_proc_address(module_handle_t lib, const char *name)
                     ASSERT(false && "malformed ELF symbol entry");
                     continue;
                 }
+                if (sym.st_value == 0 && ELF_ST_TYPE(sym.st_info) != STT_TLS)
+                    continue; /* no value */
                 if (elf_sym_matches(&sym, strtab, name))
                     break;
             }
