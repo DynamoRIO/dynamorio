@@ -1171,9 +1171,10 @@ encode_immed(decode_info_t * di, byte *pc)
             val = di->immed + (ptr_int_t)pc - di->modrm;
 #ifdef X64
             /* check if code in 2G assumption is violated, i.e. 0 < val < 2G */
-            if (size == OPSZ_4)
+            if (size == OPSZ_4) {
                 CLIENT_ASSERT((val > 0) && (val < INT_MAX),
                               "encode error: immediate has invalid size");
+            }
 #endif
         } else {
             val = di->immed;
