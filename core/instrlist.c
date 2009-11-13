@@ -333,22 +333,32 @@ instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
         inst = instr_get_next(inst);
     }
 
-    /* Fix up instr targets and restore note field */
+    /* Fix up instr src if it is an instr and restore note field */
+    /* Note: we do not allows instruction update code cache, 
+     * which is very dangerous.
+     * So we do not support instr as dst opnd and won't fix up here if any.
+     */
     for (inst = instrlist_first(old), copy = instrlist_first(newlist);
          inst != NULL && copy != NULL;
          inst = instr_get_next(inst), copy = instr_get_next(copy)) {
-        if (instr_is_cti(copy) && opnd_is_instr(instr_get_target(copy))) {
-            opnd_t op = instr_get_target(copy);
+        int i;
+        for (i = 0; i < inst->num_srcs; i++) {
             instr_t *tgt;
+            opnd_t   op = instr_get_src(copy, i);
+            if (!opnd_is_instr(op))
+                continue;
             CLIENT_ASSERT(opnd_get_instr(op) != NULL,
-                          "instrlist_clone: NULL instr target");
-            /* would be nice to assert the instr tgt is in this instrlist */
+                          "instrlist_clone: NULL instr operand");
             tgt = (instr_t *) instr_get_note(opnd_get_instr(op));
+            CLIENT_ASSERT(tgt != NULL,
+                          "instrlist_clone: operand instr not in instrlist");
             if (opnd_is_far_instr(op)) {
-                instr_set_target(copy, opnd_create_far_instr
-                                 (opnd_get_segment_selector(op), tgt));
+                instr_set_src(copy, i,
+                              opnd_create_far_instr
+                              (opnd_get_segment_selector(op), tgt));
             } else
-                instr_set_target(copy, opnd_create_instr(tgt));
+                instr_set_src(copy, i,
+                              opnd_create_instr(tgt));     
         }
         /* restore note field */
         instr_set_note(inst, instr_get_note(copy));

@@ -751,7 +751,11 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
     case TYPE_I:
         /* we allow instr: it means 4/8-byte immed equal to pc of instr */
         return ((opnd_is_near_instr(opnd) &&
-                 size_ok(di, OPSZ_PTR, opsize, false/*!addr*/)) ||
+                 (size_ok(di, OPSZ_PTR, opsize, false/*!addr*/) ||
+                  /* xref:i222, assume code cache is always in the first 2G,
+                   * so it is possible to use 4-byte opnd to represent the pc
+                   */
+                  IF_X64_ELSE(size_ok(di, OPSZ_4, opsize, false), false))) || 
                 (opnd_is_immed_int(opnd) &&
                  size_ok(di, opnd_get_size(opnd), opsize, false/*!addr*/) &&
                  immed_size_ok(di, opnd_get_immed_int(opnd), opsize)));
@@ -1157,7 +1161,7 @@ encode_immed(decode_info_t * di, byte *pc)
             size = di->size_immed2; /* TYPE_I put real size there */
             di->size_immed2 = OPSZ_NA;
             CLIENT_ASSERT((size == OPSZ_4_short2 && !TEST(PREFIX_DATA, di->prefixes)) ||
-                          size == OPSZ_4,
+                          (size == OPSZ_4) || IF_X64_ELSE((size == OPSZ_8), false),
                           "encode error: immediate has invalid size");
             /* we want val to be pc of target instr 
              * immed is the difference between us and target
@@ -1165,6 +1169,12 @@ encode_immed(decode_info_t * di, byte *pc)
              * prior to this immed
              */
             val = di->immed + (ptr_int_t)pc - di->modrm;
+#ifdef X64
+            /* check if code in 2G assumption is violated, i.e. 0 < val < 2G */
+            if (size == OPSZ_4)
+                CLIENT_ASSERT((val > 0) && (val < INT_MAX),
+                              "encode error: immediate has invalid size");
+#endif
         } else {
             val = di->immed;
             size = di->size_immed;
