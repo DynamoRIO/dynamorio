@@ -1575,7 +1575,7 @@ is_thread_initialized(void)
      * get_thread_private_dcontext() when we only really need the
      * check for this call here, so we explicitly check.
      */
-    if (get_tls_thread_id() != get_thread_id())
+    if (get_tls_thread_id() != get_sys_thread_id())
         return false;
 #endif
     return (get_thread_private_dcontext() != NULL);

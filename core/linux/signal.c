@@ -3219,12 +3219,18 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 
             /* The exception interception code did an ENTER so we must EXIT here */
             EXITING_DR();
-            /* Since we have no sigreturn we have to restore the mask manually,
-             * just like siglongjmp() 
+            /* Since we have no sigreturn we have to restore the mask
+             * manually, just like siglongjmp().  i#226/PR 492568: we rely
+             * on the kernel storing the prior mask in ucxt, so we do not
+             * need to store it on every setjmp.
              */
-            sigprocmask_syscall(SIG_SETMASK,
-                                &dcontext->try_except_state->context.sigmask, NULL,
-                                sizeof(dcontext->try_except_state->context.sigmask));
+            /* Verify that there's no scenario where the mask gets changed prior
+             * to a fault inside a try
+             */
+            ASSERT(memcmp(&dcontext->try_except_state->context.sigmask,
+                          &ucxt->uc_sigmask, sizeof(ucxt->uc_sigmask)) == 0);
+            sigprocmask_syscall(SIG_SETMASK, &ucxt->uc_sigmask, NULL,
+                                sizeof(ucxt->uc_sigmask));
             DR_LONGJMP(&dcontext->try_except_state->context, LONGJMP_EXCEPTION);
             ASSERT_NOT_REACHED();
         }
@@ -4470,7 +4476,13 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
 void
 dr_setjmp_sigmask(dr_jmp_buf_t *buf)
 {
+    /* i#226/PR 492568: we rely on the kernel storing the prior mask in the
+     * signal frame, so we do not need to store it on every setjmp, which
+     * can be a performance hit.
+     */
+#ifdef DEBUG
     sigprocmask_syscall(SIG_SETMASK, NULL, &buf->sigmask, sizeof(buf->sigmask));
+#endif
 }
 
 /* i#61/PR 211530: nudge on Linux.

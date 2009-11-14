@@ -77,6 +77,7 @@ void os_fork_init(dcontext_t *dcontext);
 void os_thread_stack_store(dcontext_t *dcontext);
 app_pc get_dynamorio_dll_end(void);
 thread_id_t get_tls_thread_id(void);
+thread_id_t get_sys_thread_id(void);
 bool is_thread_terminated(dcontext_t *dcontext);
 void os_tls_pre_init(int gdt_index);
 

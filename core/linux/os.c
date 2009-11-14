@@ -1456,13 +1456,26 @@ get_parent_id(void)
 }
 
 thread_id_t 
-get_thread_id()
+get_sys_thread_id(void)
 {
     if (kernel_thread_groups) {
         return dynamorio_syscall(SYS_gettid, 0);
     } else {
         return dynamorio_syscall(SYS_getpid, 0);
     }
+}
+
+thread_id_t 
+get_thread_id(void)
+{
+    /* i#228/PR 494330: making a syscall here is a perf bottleneck since we call
+     * this routine in read and recursive locks so use the TLS value instead
+     */
+    thread_id_t id = get_tls_thread_id();
+    if (id != INVALID_THREAD_ID)
+        return id;
+    else
+        return get_sys_thread_id();
 }
 
 thread_id_t
@@ -1521,7 +1534,7 @@ get_thread_private_dcontext(void)
      */
     /* PR 307698: this assert causes large slowdowns (also xref PR 207366) */ 
     DOCHECK(1, {
-        ASSERT(get_tls_thread_id() == get_thread_id() ||
+        ASSERT(get_tls_thread_id() == get_sys_thread_id() ||
                /* ok for fork as mentioned above */
                pid_cached != get_process_id());
     });
@@ -4363,7 +4376,7 @@ post_system_call(dcontext_t *dcontext)
         (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0))) {
         if (result == 0) {
             /* we're the child */
-            thread_id_t child = get_thread_id();
+            thread_id_t child = get_sys_thread_id();
 #ifdef DEBUG
             thread_id_t parent = get_parent_id();
             SYSLOG_INTERNAL_INFO("-- parent %d forked child %d --", parent, child);

@@ -1066,10 +1066,12 @@ void read_lock(read_write_lock_t *rw)
                 /* contended read */
                 /* am I the writer?
                  * ASSUMPTION: reading field is atomic 
-                 * FIXME: for linux get_thread_id() is expensive -- we
+                 * For linux get_thread_id() is expensive -- we
                  * should either address that through special handling
                  * of native and new thread cases, or switch this
-                 * routine to pass in dcontext and use that
+                 * routine to pass in dcontext and use that.
+                 * Update: linux get_thread_id() now calls get_tls_thread_id()
+                 * and avoids the syscall (xref PR 473640).
                  * FIXME: we could also reorganize this check so that it is done only once
                  * instead of in the loop body but it doesn't seem wortwhile
                  */
@@ -1101,10 +1103,12 @@ void read_lock(read_write_lock_t *rw)
             /* contended read */
             /* am I the writer?
              * ASSUMPTION: reading field is atomic 
-             * FIXME: for linux get_thread_id() is expensive -- we
+             * For linux get_thread_id() is expensive -- we
              * should either address that through special handling
              * of native and new thread cases, or switch this
-             * routine to pass in dcontext and use that
+             * routine to pass in dcontext and use that.
+             * Update: linux get_thread_id() now calls get_tls_thread_id()
+             * and avoids the syscall (xref PR 473640).
              */
             if (rw->writer == get_thread_id()) {
                 /* we would share the code below but we do not want
