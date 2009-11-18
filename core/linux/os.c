@@ -5819,12 +5819,18 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
                  * r--, where /proc/maps lists it as r-x.  Infact, all regions listed in
                  * /proc/maps are executable, even guard pages --x (see case 8821)
                  */
-                SYSLOG_INTERNAL_ERROR("get_memory_info mismatch! "
-                    "(can happen if os combines entries in /proc/pid/maps)\n"
-                    "\tos says: "PFX"-"PFX" prot="PFX"\n"
-                    "\tcache says: "PFX"-"PFX" prot="PFX"\n",
-                    from_os_base_pc, from_os_base_pc + from_os_size,
-                    from_os_prot, start, end, info->prot);
+                DODEBUG({
+                    /* we add the whole client lib as a single entry */
+                    if (IF_CLIENT_INTERFACE_ELSE(!is_in_client_lib(start) ||
+                                                 !is_in_client_lib(end - 1), true)) {
+                        SYSLOG_INTERNAL_WARNING("get_memory_info mismatch! "
+                            "(can happen if os combines entries in /proc/pid/maps)\n"
+                            "\tos says: "PFX"-"PFX" prot="PFX"\n"
+                            "\tcache says: "PFX"-"PFX" prot="PFX"\n",
+                            from_os_base_pc, from_os_base_pc + from_os_size,
+                            from_os_prot, start, end, info->prot);
+                    }
+                });
             }
         });
 #endif
