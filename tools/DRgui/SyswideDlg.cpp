@@ -37,6 +37,8 @@
 // SyswideDlg.cpp : implementation file
 //
 
+#include "configure.h"
+
 #ifndef DRGUI_DEMO /* around whole file */
 
 #include "stdafx.h"
