@@ -453,10 +453,27 @@ dr_unregister_end_trace_event(dr_custom_trace_action_t (*func)
                               (void *drcontext, void *tag, void *next_tag));
 #endif
 
+/* For the new-bb-before-deletion-event problem (PR 495787, and
+ * described in the comment below):
+ * Note that we do not want a new "unreachable event" b/c clients need
+ * to keep bb info around in case the semi-flushed bb hits a fault.
+ * The main worry w/ the counter approach, in addition to ensuring
+ * it handles duplicates due to thread-private, is that can we
+ * guarantee that deletion events will be in order, or can a new
+ * fragment be deleted prior to older fragments?  For most clients
+ * it won't matter I suppose.
+ */
 DR_API
 /**
  * Registers a callback function for the fragment deletion event.  DR
  * calls \p func whenever it removes a fragment from the code cache.
+ * Due to DR's high-performance non-precise flushing, a fragment
+ * can be made inaccessible but not actually freed for some time.
+ * A new fragment can thus be created before the deletion event
+ * for the old fragment is raised.  We recommended using a counter
+ * to ignore subsequent deletion events when using per-fragment
+ * data structures and duplicate fragments are seen.
+ *
  * \note drcontext may be NULL when thread-shared fragments are being
  * deleted during process exit.  For this reason, thread-private
  * heap should not be used for data structures intended to be freed
@@ -2206,7 +2223,9 @@ DR_API
  * \note On Windows, this routine does not support printing floating
  * point values.  Use dr_snprintf() instead.
  * \note If the data to be printed is large it will be truncated to
- * an internal buffer size.
+ * an internal buffer size.  Use dr_write_file() to print large buffers.
+ * \note On Linux this routine does not check for errors like EINTR.  Use
+ * dr_write_file() if that is a concern.
  */
 void
 dr_fprintf(file_t f, const char *fmt, ...);
