@@ -435,7 +435,11 @@ function (configure_DynamoRIO_client target)
       # Strip out just the SECTIONS{} portion
       string(REGEX REPLACE ".*(SECTIONS.*\n\\}).*" "\\1" string "${string}")
       # Find and replace the default base
-      string(REGEX MATCH "= *(0x[0-9]+) *\\+ *SIZEOF_HEADERS" default_base "${string}")
+      string(REGEX MATCH "= *[^{\\.\n]+(0x[0-9]+)\\)? *\\+ *SIZEOF_HEADERS"
+        default_base "${string}")
+      if ("${default_base}" STREQUAL "")
+        message(FATAL_ERROR "unsupported ld version: please file this bug")
+      endif()
       string(REGEX REPLACE ".*(0x[0-9]+).*" "\\1" default_base "${default_base}")
       string(REGEX REPLACE "${default_base}" "${PREFERRED_BASE}" string "${string}")
       string(REGEX REPLACE "(\n{)" "\\1\n  . = ${PREFERRED_BASE};" string "${string}")

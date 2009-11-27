@@ -51,6 +51,8 @@ string(REGEX REPLACE
 
 # We need default base for older ld and for set_preferred
 # We expect:
+#   ld -melf_x86_64 --verbose (version 2.19.51)
+#     PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x400000)); . = SEGMENT_START("text-segment", 0x400000) + SIZEOF_HEADERS;
 #   ld -melf_x86_64 --verbose (version 2.18.50)
 #     PROVIDE (__executable_start = 0x400000); . = 0x400000 + SIZEOF_HEADERS;
 #   ld -melf_i386 --verbose
@@ -58,7 +60,7 @@ string(REGEX REPLACE
 #   rhel3 ld --verbose (version 2.14.90)
 #     . = 0x08048000 + SIZEOF_HEADERS;
 string(REGEX MATCH
-  "= *(0x[0-9]+) *\\+ *SIZEOF_HEADERS"
+  "= *[^{\\.\n]+(0x[0-9]+)\\)? *\\+ *SIZEOF_HEADERS"
   default_base "${string}")
 string(REGEX REPLACE
   ".*(0x[0-9]+).*"
