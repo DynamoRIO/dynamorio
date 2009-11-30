@@ -3630,6 +3630,9 @@ bool
 dynamo_vm_area_overlap(app_pc start, app_pc end)
 {
     bool overlap;
+    /* case 3045: areas inside the vmheap reservation are not added to the list */
+    if (is_vmm_reserved_address(start, end - start))
+        return true;
     dynamo_vm_areas_start_reading();
     overlap = vm_area_overlap(dynamo_areas, start, end);
     dynamo_vm_areas_done_reading();
@@ -5778,9 +5781,6 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     if (!TEST(MEMPROT_EXEC, prot))
         return false;
 
-    LOG(GLOBAL, LOG_VMAREAS, 1, "New +x app memory region: "PFX"-"PFX" %s\n",
-        base, base+size, memprot_string(prot));
-
     /* Do not add our own code cache and other data structures
      * to executable list -- but do add our code segment
      * FIXME: checking base only is good enough?
@@ -5791,6 +5791,9 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         if (!is_in_dynamo_dll(base)) /* our own text section is ok */
             return false;
     }
+
+    LOG(GLOBAL, LOG_VMAREAS, 1, "New +x app memory region: "PFX"-"PFX" %s\n",
+        base, base+size, memprot_string(prot));
 
     if (!TEST(MEMPROT_WRITE, prot)) {
         uint frag_flags = 0;
@@ -7171,8 +7174,37 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             /* case 9330 tracks a violation while we are unloading,
              * but address shouldn't be on a new futureexec_area (case 9371)
              */
-            if (is_in_dr || !is_allocated_mem || prot == 0/*no access flags*/ ||
-                is_being_unloaded) {
+#ifdef WINDOWS 
+            if (in_private_library(pc)) {
+                /* Privately-loaded libs are put on the DR list, and if the app
+                 * ends up executing from them they can come here.  We assert
+                 * in debug build but let it go in release.  But, we first
+                 * have to swap to native execution of FLS callbacks, which
+                 * we cannot use our do-not-inline on b/c they're call* targets.
+                 */
+                if (private_lib_handle_cb(dcontext, pc)) {
+                    /* Did the native call and set up to interpret at retaddr */
+                    check_thread_vm_area_cleanup(dcontext, true/*redirecting*/,
+                                                 true/*clean bb*/, data, vmlist,
+                                                 own_execareas_writelock,
+                                                 caller_execareas_writelock);
+                    /* avoid assert in dispatch_enter_dynamorio() */
+                    dcontext->whereami = WHERE_TRAMPOLINE;
+                    set_last_exit(dcontext, (linkstub_t *)
+                                  get_ibl_sourceless_linkstub(LINK_RETURN, 0));
+                    if (is_couldbelinking(dcontext))
+                        enter_nolinking(dcontext, NULL, false);
+                    KSTART(fcache_default);
+                    transfer_to_dispatch(dcontext, dcontext->app_errno,
+                                         get_mcontext(dcontext));
+                    ASSERT_NOT_REACHED();
+                }
+                CLIENT_ASSERT(false, "privately-loaded library executed by app: "
+                              "please report this transparency violation");
+            }
+#endif
+            if ((is_in_dr IF_WINDOWS(&& !in_private_library(pc))) ||
+                !is_allocated_mem || prot == 0/*no access flags*/ || is_being_unloaded) {
                 if (xfer) {
                     /* don't follow cti, wait for app to get there and then 
                      * handle this (might be pathological case where cti is 

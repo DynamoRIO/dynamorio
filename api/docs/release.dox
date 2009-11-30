@@ -110,6 +110,8 @@ The current version is \DR_VERSION and is backward compatible with releases from
 
 The changes between version 1.5.0 and 1.4.0 are:
 
+ - Added a private loader on Windows for better support for library usage
+   by \clients
  - Added nudge support on Linux
  - Added dr_suspend_all_other_threads() and dr_resume_all_other_threads()
  - Made it easier for \clients to use faults to push rare events out of
@@ -401,21 +403,15 @@ sec_comm.
 The most important limitation on a \client is that it remain transparent.
 This is described fully in \ref transparency.
 Here we summarize the key points to remain transparent:
-  - The \client should be a self-contained library with linkage to nothing
-other than \DynamoRIO libraries, unless those other libraries are
-statically linked and have all of their own resource usage made transparent
-(see \ref sec_extlibs).  Linkage to other shared libraries is likely to
-result in using the libraries used by the process being controlled, thereby
-leading to unpredictable re-entrancy problems.
+
+  - For full transparency, the \client should be a self-contained library
+with linkage to nothing other than \DynamoRIO libraries.  On Windows we
+provide private loading that makes some use of system libraries safe, but
+global resource conflicts can still occur and \clients are cautioned from
+using system-interacting library routines.  On Linux we recommend using
+only static linking for now.  See \ref sec_extlibs for further details.
   - Currently communication API provided by \DynamoRIO is limited to file
-I/O.  The \client should only use this and not any system libraries
-directly to avoid non-deterministic and unpredictable re-entrancy problems.
-This is because the process can be in the middle of using them.  If a
-\client has to avail of more system services, it can include its own system
-call entry functions, statically link against these or request that these
-be added to \DynamoRIO.  Non system resource related functionality like
-string manipulation, etc. can be statically linked to a \client or by
-defining users' own routines.
+I/O and nudges.
 \if vmsafe
   - The security agent on the security monitor VM has no direct
     relationship with \DynamoRIO.  However, the VMsafe solution provider

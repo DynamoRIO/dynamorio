@@ -70,6 +70,7 @@ typedef enum {
 # ifdef CLIENT_INTERFACE
     ACCT_CLIENT,
 # endif
+    ACCT_LIBDUP, /* private copies of system libs => may leak */
     /* NOTE: Also update the whichheap_name in heap.c when adding here */
     ACCT_OTHER,
     ACCT_LAST
@@ -135,8 +136,8 @@ void heap_munmap_ex(void *p, size_t size, bool guarded);
 
 /* updates dynamo_areas and calls the os_ versions */
 byte *
-map_file(file_t f, size_t size, size_t offs, app_pc addr, uint prot,
-         bool copy_on_write);
+map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+         bool copy_on_write, bool image);
 bool
 unmap_file(byte *map, size_t size);
 

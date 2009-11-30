@@ -428,6 +428,11 @@ enum {
     LOCK_RANK(suspend_lock),
     LOCK_RANK(shared_lock),
 #endif
+#ifdef WINDOWS
+    LOCK_RANK(privload_lock), /* < modlist_areas */
+    LOCK_RANK(modlist_areas), /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(privload_fls_lock), /* < dynamo_areas < global_alloc_lock */
+#endif    
     /* ADD HERE a lock around section that may allocate memory */
 
     /* N.B.: the order of allunits < global_alloc < heap_unit is relied on
@@ -1761,9 +1766,10 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #define LOG_HOT_PATCHING   0x00200000
 #define LOG_HTABLE         0x00400000
 #define LOG_MODULEDB       0x00800000
+#define LOG_LOADER         0x01000000
 
-#define LOG_ALL_RELEASE    0x00e0ffff
-#define LOG_ALL            0x00ffffff
+#define LOG_ALL_RELEASE    0x01e0ffff
+#define LOG_ALL            0x01ffffff
 
 #ifdef WINDOWS_PC_SAMPLE
 # define LOG_PROFILE       LOG_ALL

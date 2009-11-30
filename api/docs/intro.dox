@@ -583,10 +583,11 @@ shared libraries that may be in use by the application.  The \client should
 only use external resources through \DynamoRIO's own API, through direct
 system calls, or via an external agent in a separate process that
 communicates with the \client (see \ref sec_comm).  Third-party libraries
-can be used if they are linked statically and there is no possibility of
-global resource conflicts (e.g., a third-party library's memory allocation
-must be wrapped: see \ref sec_extlibs).  \if vmsafe For the Probe API,
-these restrictions can be relaxed (see \ref sec_trans_probe). \endif
+can be used if they are linked statically or loaded privately and there is
+no possibility of global resource conflicts (e.g., a third-party library's
+memory allocation must be wrapped): see \ref sec_extlibs for more details.
+\if vmsafe For the Probe API, these restrictions can be relaxed (see \ref
+sec_trans_probe). \endif
 
 \DynamoRIO's API provides:
 
@@ -866,25 +867,35 @@ Refer to \p DynamoRIOConfig.cmake for details.
 
 \Clients are free to use external libraries as long as those libraries
 do not use any global user-mode resources that would interfere with
-the running application.  Furthermore, \clients should link statically
-to all libraries in order to prevent re-entrancy problems (see \ref
+the running application.  Furthermore, \clients must either link statically
+to all libraries or load them using a private loader separate from the
+application's loader in order to prevent re-entrancy problems (see \ref
 sec_trans_resource).
 
-Most libraries need to allocate and free memory.  For transparency,
-\clients should use \DynamoRIO's internal memory pool.
+Currently we provide a private loader for Windows and we plan to supply a
+private Linux loader in the near future.  With private loading, the \client
+uses a separate copy of each library from any copy used by the application.
+Even with this separation, if these libraries use global resources there
+can still be conflicts.  Our Windows private loader redirects heap
+allocation in the main process heap to instead use \DynamoRIO's internal
+heap.  The loader also attempts to isolate other global resource usage and
+global callbacks.  In this release it should be considered a beta feature.
+Please file reports on any transparency problems observed when using the
+private loader.
 
 \if linux
-On Linux, ld provides the -wrap option, which allows us to override
-the C library's memory heap allocation routines with our own.  For
-convenience, \DynamoRIO exports __wrap_malloc(), __wrap_realloc(), and
-__wrap_free() for this purpose.  These routines behave like their C
-library counterparts, but operate on \DynamoRIO's global memory pool.
-Use the -Xlinker flag with gcc to replace the libc routines with
-\DynamoRIO's _wrap routines, e.g.,
+On Linux, where we do not yet have a private loader, ld provides the -wrap
+option, which allows us to override the C library's memory heap allocation
+routines with our own.  For convenience, \DynamoRIO exports
+__wrap_malloc(), __wrap_realloc(), and __wrap_free() for this purpose.
+These routines behave like their C library counterparts, but operate on
+\DynamoRIO's global memory pool.  Use the -Xlinker flag with gcc to replace
+the libc routines with \DynamoRIO's _wrap routines, e.g.,
 
 \code
   gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free ...
 \endcode
+\endif
 
 \subsection subsec_cpp C++ \Clients
 
@@ -893,10 +904,11 @@ convenient to develop C++ \clients that use the \em new and \em delete
 operators (as long as those operators are implemented using malloc and
 free).  In particular, heap allocation is required to use the C++
 Standard Template Library containers. When developing a C++ \client,
-make sure to link statically to libstdc++.  This is most easily
-accomplished by specifying the path to the static version of the
-library on the gcc command line.  gcc's -print-file-name option is
-useful for discovering this path, e.g.,
+we recommend linking statically to the C++ runtime library.
+
+On Linux, this is most easily accomplished by specifying the path to the
+static version of the library on the gcc command line.  gcc's
+-print-file-name option is useful for discovering this path, e.g.,
 
 \code
   g++ -print-file-name=libstdc++.a
@@ -920,6 +932,13 @@ documentation.  The provided CMake build files will set these flags
 automatically when the \p DynamoRIO_CXX CMake variable is set (see \ref
 sec_build).
 
+On Windows, when using the Microsoft Visual C++ compiler, simply use the \p
+/MT compiler flag.  The \client will still use the \p kernel32.dll library
+but our private loader will load a separate copy of that library and
+redirect heap allocation automatically.  Our private loader does not yet
+support locating SxS libraries, so using \p /MD will most likely not work
+unless using an older version of the compiler.
+
 Be aware that we have successfully built and tested several small C++
 \clients using the gcc toolchain, but have not performed extensive testing.
 Our \clients successfully compile and run linked with the g++ libraries
@@ -931,10 +950,8 @@ We do not recommend that a \client or its libraries invoke their own system
 calls as this bypasses \DynamoRIO's monitoring of changes to the process
 address space and changes to threads or control flow.  Such system calls
 will also not work properly on Linux when using sysenter on some systems.
-If you see an assert to that effect in debug build, try the \ref
+If you see an assert to that effect in debug build on Linux, try the \ref
 op_sysenter "-sysenter_is_int80" option.
-
-\endif
 
 ***************************************************************************
 \section sec_comm Communication

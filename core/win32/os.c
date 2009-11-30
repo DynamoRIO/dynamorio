@@ -808,6 +808,7 @@ os_init(void)
      */
 
     aslr_init();
+    loader_init();
 
     /* ensure static cache buffers are primed, both for .data protection purposes and
      * because it may not be safe to get this information later */
@@ -955,6 +956,7 @@ os_slow_exit(void)
 
     aslr_exit();
     eventlog_slow_exit();
+    loader_exit();
 }
 
 /* FIXME: what are good values here? */
@@ -1222,6 +1224,7 @@ os_thread_init(dcontext_t *dcontext)
             dcontext->win32_start_addr);
     }
     aslr_thread_init(dcontext);
+    loader_thread_init(dcontext);
 }
 
 void
@@ -1229,6 +1232,7 @@ os_thread_exit(dcontext_t *dcontext)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
     aslr_thread_exit(dcontext);
+    loader_thread_exit(dcontext);
 #ifdef DEBUG
     /* for non-debug we do fast exit path and don't free local heap */
     /* clean up ostd fields here */
@@ -2701,8 +2705,20 @@ find_executable_vm_areas()
     });
     /* Strategy: walk through every block in memory */
     while (query_virtual_memory(pb, &mbi, sizeof(mbi)) == sizeof(mbi)) {
+        /* Skip client lib and any other privately loaded libs: we don't want them
+         * on our mod list or executable area list
+         */
+        bool skip = dynamo_vm_area_overlap(pb, pb + mbi.RegionSize) &&
+            !is_in_dynamo_dll(pb); /* our own text section is ok */
         ASSERT(pb == mbi.BaseAddress);
-        if (mbi.State != MEM_FREE && mbi.Type == MEM_IMAGE && pb == mbi.AllocationBase) {
+        DOLOG(2, LOG_VMAREAS, {
+            if (skip) {
+                LOG(GLOBAL, LOG_VMAREAS, 2, PFX"-"PFX" skipping: internal DR region\n",
+                    pb, pb + mbi.RegionSize);
+            }
+        });
+        if (!skip && mbi.State != MEM_FREE && mbi.Type == MEM_IMAGE &&
+            pb == mbi.AllocationBase) {
             /* first region in an image */
             MEMORY_BASIC_INFORMATION mbi_image;
             PBYTE pb_image = pb + mbi.RegionSize;
@@ -2725,12 +2741,12 @@ find_executable_vm_areas()
             process_image(image_base, view_size, image_prot,
                           true /* add */, true /* rewalking */);
         }
-        if (process_memory_region(NULL, &mbi, true/*init*/, true/*add*/))
+        if (!skip && process_memory_region(NULL, &mbi, true/*init*/, true/*add*/))
             num_executable++;
         if (pb + mbi.RegionSize < pb)
             break;
         pb += mbi.RegionSize;
-        if (image_base != NULL && pb >= image_base + view_size) {
+        if (!skip && image_base != NULL && pb >= image_base + view_size) {
             ASSERT(pb == image_base + view_size);
             process_image_post_vmarea(image_base, view_size, image_prot, 
                                       true /* add */, true /* rewalking */);
@@ -3470,10 +3486,14 @@ os_countdown_messagebox(char *message, int time_in_milliseconds) {
 shlib_handle_t 
 load_shared_library(char *name)
 {
-    wchar_t buf[MAX_PATH];
-    snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%hs", name);
-    NULL_TERMINATE_BUFFER(buf);
-    return load_library(buf);
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        return (shlib_handle_t) load_private_library(name);
+    } else {
+        wchar_t buf[MAX_PATH];
+        snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%hs", name);
+        NULL_TERMINATE_BUFFER(buf);
+        return load_library(buf);
+    }
 }
 #endif
 
@@ -3487,7 +3507,11 @@ lookup_library_routine(shlib_handle_t lib, char *name)
 void
 unload_shared_library(shlib_handle_t lib)
 {
-   free_library(lib);
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        unload_private_library((app_pc)lib);
+    } else {
+        free_library(lib);
+    }
 }
 
 void
@@ -4884,13 +4908,12 @@ os_rename_file_in_directory(IN HANDLE rootdir,
 }
 
 byte *
-os_map_file(file_t f, size_t size, uint64 offs, app_pc addr, uint prot,
-            bool copy_on_write)
+os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+            bool copy_on_write, bool image)
 {
     NTSTATUS res;
     HANDLE section;
     byte *map = addr;
-    size_t view_size = size;
     uint osprot = memprot_to_osprot(prot);
     LARGE_INTEGER li_offs;
     li_offs.QuadPart = offs;
@@ -4908,7 +4931,7 @@ os_map_file(file_t f, size_t size, uint64 offs, app_pc addr, uint prot,
                             /* can only be SEC_IMAGE if a PE file */
                             /* FIXME: SEC_RESERVE shouldn't work w/ COW yet
                              * it did in my test */
-                            SEC_COMMIT,
+                            image ? SEC_IMAGE : SEC_COMMIT,
                             f,
                             /* process private - no security needed */
                             /* object name attributes */
@@ -4926,7 +4949,7 @@ os_map_file(file_t f, size_t size, uint64 offs, app_pc addr, uint prot,
                                  0, /* 3 */
                                  0 /* not page-file-backed */, /* 4 */
                                  &li_offs, /* 5 */
-                                 (PSIZE_T) &view_size, /* 6 */
+                                 (PSIZE_T) size, /* 6 */
                                  ViewUnmap /* FIXME: expose? */, /* 7 */
                                  0 /* no special top-down or anything */, /* 8 */
                                  osprot); /* 9 */
@@ -6772,7 +6795,7 @@ open_trusted_cache_root_directory(void)
     if (IS_GET_PARAMETER_FAILURE(retval) || 
         (strchr(base_directory, DIRSEP) == NULL &&
          strchr(base_directory, ALT_DIRSEP) == NULL)) {
-        SYSLOG_INTERNAL_WARNING(" %s not set!\n", DYNAMORIO_VAR_CACHE_ROOT);
+        SYSLOG_INTERNAL_WARNING("%s not set!", DYNAMORIO_VAR_CACHE_ROOT);
         return INVALID_HANDLE_VALUE;
     }
     NULL_TERMINATE_BUFFER(base_directory);

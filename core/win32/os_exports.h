@@ -441,4 +441,13 @@ wchar_t *get_application_cmdline(void);
 const char *
 get_application_short_unqualified_name(void);
 
+/* in loader.c */
+app_pc load_private_library(const char *filename);
+bool unload_private_library(app_pc modbase);
+void loader_thread_init(dcontext_t *dcontext);
+void loader_thread_exit(dcontext_t *dcontext);
+bool in_private_library(app_pc pc);
+/* Handles a private-library FLS callback called from interpreted app code */
+bool private_lib_handle_cb(dcontext_t *dcontext, app_pc pc);
+
 #endif /* _OS_EXPORTS_H_ */

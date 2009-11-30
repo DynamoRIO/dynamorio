@@ -111,6 +111,7 @@ typedef struct _STRING {
   PCHAR  Buffer;
 } ANSI_STRING;
 typedef ANSI_STRING *PANSI_STRING;
+typedef ANSI_STRING OEM_STRING;
 
 typedef struct _OBJECT_ATTRIBUTES {
     ULONG Length;

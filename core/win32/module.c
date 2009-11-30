@@ -1088,8 +1088,6 @@ check_for_unsupported_modules()
 
 /* non-DEBUG routines for parsing PE files */
 
-#define RVA_TO_VA(base, rva)    ((ptr_uint_t)(base) + (ptr_uint_t)(rva))
-
 /* FIXME: make this a static inline function get_nt_header
  * that verifies and returns nt header */
 #define DOS_HEADER(base)  ((IMAGE_DOS_HEADER *)(base))
@@ -3966,9 +3964,11 @@ bool os_module_free_IAT_code(app_pc addr)
     return found;
 }
 
-/* applies relocations to PE (SEC_IMAGE) file.  Assumes all sections
+/* applies relocations to PE (SEC_IMAGE) file.  
+ * If !protect_incrementally, assumes all sections
  * have been made writable, similarly caller is responsible for
- * restoring any section protection if needed.
+ * restoring any section protection if needed; else,
+ * makes pages writable and restores prot as it goes.
  * 
  * returns false if some unhandled error condition (e.g. unknown
  * relocation type), should signal failure to relocate.
@@ -3982,7 +3982,8 @@ static bool
 module_apply_relocations(app_pc module_base, size_t module_size,
                          IMAGE_BASE_RELOCATION *base_reloc,
                          size_t base_reloc_size,
-                         ssize_t relocation_delta)
+                         ssize_t relocation_delta,
+                         bool protect_incrementally)
 {
     app_pc relocs = NULL;          /* reloc entries */
     app_pc relocs_end = 0;         /* to iterate through reloc entries */
@@ -4028,6 +4029,9 @@ module_apply_relocations(app_pc module_base, size_t module_size,
          */
         uint rva = (uint) ((IMAGE_BASE_RELOCATION *)relocs)->VirtualAddress;
         uint block_size = (uint) ((IMAGE_BASE_RELOCATION *)relocs)->SizeOfBlock;
+        app_pc prot_pc = NULL;
+        size_t prot_size = 0;
+        uint orig_prot = 0;
 
         LOG(GLOBAL, LOG_RCT, 6, "\t %8x RVA, %8x SizeofBlock\n",
             rva, block_size);
@@ -4043,6 +4047,23 @@ module_apply_relocations(app_pc module_base, size_t module_size,
          */
         relocs_block_end = relocs + block_size;
         relocs = relocs + IMAGE_SIZEOF_BASE_RELOCATION;
+        
+        if (protect_incrementally) {
+            /* Make target page writable.  Each relocation block is for one
+             * page, but the final ref can touch the next page, so to do one
+             * page at a time which may be more performant on x64 (marking
+             * writable costs pagefile usage up front, and x64 has few
+             * relocations) would require checking whether next page is in same
+             * region anyway: for simplicity we do whole region at once.
+             */
+            byte *first_pc = (app_pc)
+                RVA_TO_VA(module_base, (rva + IMAGE_REL_BASED_OFFSET(*(ushort *)relocs)));
+            if (!get_memory_info(first_pc, &prot_pc, &prot_size, NULL))
+                return false;
+            if (!protect_virtual_memory((void *)prot_pc, prot_size,
+                                        PAGE_READWRITE, &orig_prot))
+                return false; /* failed to make writable */
+        }
 
         while (relocs < relocs_block_end) {
             bool unsup_reloc = false;
@@ -4070,7 +4091,7 @@ module_apply_relocations(app_pc module_base, size_t module_size,
                 app_pc original_ref = ref - relocation_delta;
                 if (original_ref < original_preferred_base || 
                     original_ref >= original_preferred_base + module_size) { 
-                    LOG(GLOBAL, LOG_RCT, 1, "ref 0x%08 outside module "PFX"-"PFX, 
+                    LOG(GLOBAL, LOG_RCT, 1, "  ref "PFX" outside module "PFX"-"PFX"\n", 
                         original_ref, original_preferred_base, 
                         original_preferred_base + module_size);
                 }
@@ -4083,8 +4104,13 @@ module_apply_relocations(app_pc module_base, size_t module_size,
 
         /* each block of relocation entries is for a 4k (PAGE_SIZE) page */
         DODEBUG(pages_touched++;);
-    } /* all relocation entries */
 
+        if (protect_incrementally) {
+            if (!protect_virtual_memory((void *)prot_pc, prot_size, orig_prot, &orig_prot))
+                return false; /* failed to restore prot */
+        }
+    } /* all relocation entries */
+    
     LOG(GLOBAL, LOG_RCT, 2, "reloc: module_apply_relocations:  "
         "fixed up %u addresses, touched %u pages\n",
         addresses_fixedup, pages_touched);
@@ -4424,7 +4450,8 @@ module_file_relocatable(app_pc module_base)
 }
 
 
-/* returns true if succesful.  Note the module mapping is left
+/* returns true if successful.
+ * if !protect_incrementally, note the module mapping is left
  * writable on success, and it is up to callers to call
  * module_restore_permissions() to make unwritable.  
  * FIXME: may change this interface to require users to guarantee writability.
@@ -4432,7 +4459,8 @@ module_file_relocatable(app_pc module_base)
  */
 bool
 module_rebase(app_pc module_base, size_t module_size,
-              ssize_t relocation_delta /* value will be added to each relocation */)
+              ssize_t relocation_delta /* value will be added to each relocation */,
+              bool protect_incrementally)
 {
     IMAGE_BASE_RELOCATION *base_reloc = NULL;
     size_t base_reloc_size = 0;
@@ -4446,12 +4474,14 @@ module_rebase(app_pc module_base, size_t module_size,
         return false;
     }
 
-    /* unprotect all sections - even if there are no relocations to apply */ 
-    ok = module_make_writable(module_base, module_size);
-    ASSERT_CURIOSITY(ok && "out of commit space?");
-    if (!ok) {
-        ASSERT_NOT_TESTED();
-        return false;
+    if (!protect_incrementally) {
+        /* unprotect all sections - even if there are no relocations to apply */ 
+        ok = module_make_writable(module_base, module_size);
+        ASSERT_CURIOSITY(ok && "out of commit space?");
+        if (!ok) {
+            ASSERT_NOT_TESTED();
+            return false;
+        }
     }
 
     base_reloc = get_module_base_reloc(module_base, &base_reloc_size);
@@ -4477,14 +4507,15 @@ module_rebase(app_pc module_base, size_t module_size,
         ok = module_apply_relocations(module_base, module_size,
                                       base_reloc,
                                       base_reloc_size,
-                                      relocation_delta);
+                                      relocation_delta, protect_incrementally);
         ASSERT(ok);
-        /* note we don't care about requested permissions here, but if
-         * part of a real loader we'd need to restore the original
-         * section permissions.  Or alternatively protect and
-         * unprotect page by page.
-         */
-
+        if (!protect_incrementally) {
+            /* note we don't care about requested permissions here, but if
+             * part of a real loader we'd need to restore the original
+             * section permissions.  Or alternatively protect and
+             * unprotect page by page.
+             */
+        }
         if (!ok) 
             return false;
     } else {
@@ -6172,3 +6203,4 @@ get_loader_lock_owner()
     return (thread_id_t) lock->OwningThread;
 }
 #endif
+

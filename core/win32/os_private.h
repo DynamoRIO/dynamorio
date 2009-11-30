@@ -490,6 +490,8 @@ typedef struct _scope_table_t {
 #endif /* __IMAGE_UNWIND_INFO */
 #endif /* X64 */
 
+#define RVA_TO_VA(base, rva)    ((ptr_uint_t)(base) + (ptr_uint_t)(rva))
+
 bool
 is_readable_pe_base(app_pc base);
 
@@ -550,7 +552,8 @@ bool
 module_file_relocatable(app_pc module_base);
 
 bool module_rebase(app_pc module_base, size_t module_size,
-                   ssize_t relocation_delta);
+                   ssize_t relocation_delta,
+                   bool protect_incrementally);
 bool module_dump_pe_file(HANDLE new_file,
                          app_pc module_base, size_t module_size);
 
@@ -569,6 +572,9 @@ bool
 aslr_compare_header(app_pc original_module_base, size_t original_header_len,
                     app_pc suspect_module_base);
 
+/* in module_shared.c */
+generic_func_t
+get_proc_address_ex(module_handle_t lib, const char *name, const char **forwarder OUT);
 
 /* in aslr.c */
 const wchar_t *
@@ -597,5 +603,9 @@ prot_string(uint prot);
 
 const PSID
 get_process_primary_SID(void);
+
+/* in loader.c */
+void loader_init(void);
+void loader_exit(void);
 
 #endif /* _OS_PRIVATE_H_ */

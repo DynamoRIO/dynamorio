@@ -347,10 +347,20 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
     set(tgt_link_flags "${tgt_cflags} ${tgt_link_flags}")
   else (UNIX)
     set(tgt_cflags "${tgt_cflags} -DWINDOWS")
+    if (tgt_cxx)
+      set(tgt_cflags "${tgt_cflags} /EHsc")
+    endif (tgt_cxx)
     if (is_client)
       # Avoid bringing in libc and/or kernel32 for stack checks
       set(tgt_cflags "${tgt_cflags} /GS-")
-      set(tgt_link_flags "${tgt_link_flags} /nodefaultlib /noentry")
+      # FIXME: why isn't /debug showing up: is it
+      if (tgt_cxx)
+        # Take advantage of the Windows private loader: no longer need
+        # /nodefaultlib or /noentry.  We only do so for C++ clients for now.
+        set(tgt_link_flags "${tgt_link_flags}")
+      else (tgt_cxx)
+        set(tgt_link_flags "${tgt_link_flags} /nodefaultlib /noentry")
+      endif (tgt_cxx)
     endif (is_client)
   endif (UNIX)
 

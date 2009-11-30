@@ -71,6 +71,9 @@ function(dobuild name is64 initial_cache)
   file(WRITE "${CTEST_BINARY_DIRECTORY}/CMakeCache.txt" "${CTEST_INITIAL_CACHE}")
 
   if (WIN32)
+    # If other compilers also on path ensure we pick cl
+    set(ENV{CC} "cl")
+    set(ENV{CXX} "cl")
     # Convert env vars to run proper compiler.
     # Note that this is fragile and won't work with non-standard
     # directory layouts: we assume standard VS2005 or SDK.

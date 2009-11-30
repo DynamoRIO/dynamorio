@@ -122,10 +122,18 @@ dr_init(client_id_t client_id)
     //
 #ifdef SHOW_RESULTS
     if (success) {
+# ifdef WINDOWS
+        dr_messagebox("SUCCESS");
+# else
         dr_printf("\nSUCCESS\n");
+# endif
     }
     else {
+# ifdef WINDOWS
+        dr_messagebox("FAILURE");
+# else
         dr_printf("\nFAILURE\n");
+# endif
     }
 #endif
 }

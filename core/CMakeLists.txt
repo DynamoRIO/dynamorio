@@ -129,6 +129,7 @@ else (UNIX)
     win32/module_shared.c
     win32/diagnost.c
     win32/aslr.c
+    win32/loader.c
     win32/resources.rc
    )
   set(PRELOAD_SRCS

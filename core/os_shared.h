@@ -603,8 +603,8 @@ bool os_rename_file(const char *orig_name, const char *new_name, bool replace);
  * Windows we have a 64-bit offset.  We go with the widest here, a
  * 64-bit offset, to avoid limiting Windows.
  */
-byte *os_map_file(file_t f, size_t size, uint64 offs, app_pc addr,
-                  uint prot, bool copy_on_write);
+byte *os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
+                  uint prot, bool copy_on_write, bool image);
 bool os_unmap_file(byte *map, size_t size);
 
 bool

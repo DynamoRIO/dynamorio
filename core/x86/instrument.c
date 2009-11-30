@@ -360,6 +360,7 @@ add_client_lib(char *path, char *id_str, char *options)
     }
 
     LOG(GLOBAL, LOG_INTERP, 4, "about to load client library %s\n", path);
+
     client_lib = load_shared_library(path);
     if (client_lib == NULL) {
         char msg[MAXIMUM_PATH*4];
@@ -411,6 +412,9 @@ add_client_lib(char *path, char *id_str, char *options)
             LOG(GLOBAL, LOG_INTERP, 1, "loaded %s at "PFX"-"PFX"\n",
                 path, client_libs[idx].start, client_libs[idx].end);
 #ifdef X64
+            /* provide a better error message than the heap assert */
+            CLIENT_ASSERT(client_libs[idx].start < (app_pc)(ptr_int_t)INT_MAX,
+                          "64-bit client library must have base in lower 2GB");
             request_region_be_heap_reachable(client_libs[idx].start,
                                              client_libs[idx].end -
                                              client_libs[idx].start);

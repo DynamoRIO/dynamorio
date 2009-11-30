@@ -4105,7 +4105,9 @@ free_library(module_handle_t lib)
 
 /* FIXME : the following function (get_module_handle)
  * should really be implemented in module.c rather than as wrappers to the
- * undocumented ntdll ldr routines. */
+ * undocumented ntdll ldr routines.  In particular, LdrGetDllHandle does
+ * allocate memory on the app's heap, so this is not fully transparent!
+ */
 
 /* The Kernel32 version appears to be more or less a wrapper around this 
  * function. The kernel32 version has lots of code for processing the name into

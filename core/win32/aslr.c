@@ -4284,7 +4284,7 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
     }
 
     success = module_rebase(base, view_size, 
-                            *new_base - original_preferred_base);
+                            *new_base - original_preferred_base, false/*batch +w*/);
 
     /* need to perform all actions usually taken by rebase.exe note
      * rebase modifies in the header the timestamp, imagebase and

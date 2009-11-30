@@ -69,9 +69,6 @@ string(REGEX REPLACE "[^;]*MF_moduledb.c" "" srcs "${srcs}")
 if (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   string(REGEX REPLACE "[^;]*stats.c" "" srcs "${srcs}")
 endif (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
-if (WIN32)
-  string(REGEX REPLACE "[^;]*stl_test.cpp" "" srcs "${srcs}")
-endif (WIN32)
 
 foreach (src ${srcs})
   get_filename_component(tgt ${src} NAME_WE)
@@ -125,6 +122,12 @@ configure_file("${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt.in"
 foreach (tgt ${tgts})
   # ensure we rebuild samples if includes change
   add_dependencies(${tgt} api_headers)
+  if (WIN32) # for release and debug
+    # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
+    # In any case we make sure to add it:
+    get_target_property(cur_flags ${tgt} LINK_FLAGS)
+    set_target_properties(${tgt} PROPERTIES LINK_FLAGS "${cur_flags} /debug")
+  endif (WIN32)
 endforeach (tgt)
 
 if (NOT DEFINED INSTALL_PREFIX)

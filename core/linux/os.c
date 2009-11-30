@@ -2358,14 +2358,14 @@ os_delete_mapped_file(const char *filename)
 }
 
 byte *
-os_map_file(file_t f, size_t size, uint64 offs, app_pc addr, uint prot,
-            bool copy_on_write)
+os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+            bool copy_on_write, bool image)
 {
     /* Linux mmap has 32-bit off_t; mmap2 considers it a page-size multiple;
      * we stick w/ mmap and assume no need for larger offsets for now.
      */
     ASSERT(CHECK_TRUNCATE_TYPE_uint(offs));
-    byte *map = mmap_syscall(addr, size, memprot_to_osprot(prot),
+    byte *map = mmap_syscall(addr, *size, memprot_to_osprot(prot),
                              copy_on_write ? MAP_PRIVATE : MAP_SHARED,
                              f, offs);
     ASSERT_NOT_TESTED();

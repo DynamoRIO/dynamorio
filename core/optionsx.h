@@ -320,6 +320,12 @@
     OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING, 
                             ";-separated string containing client "
                             "lib paths, IDs, and options")
+    /* If we revive hotpatching should use this there as well: but for now
+     * don't want to mess up any legacy tools that rely on hotp libs in
+     * regular loader list
+     */
+    OPTION_DEFAULT_INTERNAL(bool, private_loader, true,
+                            "use private loader for clients and dependents")
 
     /* PR 200418: Code Manipulation API.  This option enables the code
      * manipulation events and sets some default options.  We can't

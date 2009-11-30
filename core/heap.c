@@ -353,6 +353,7 @@ const char * whichheap_name[] = {
 # ifdef CLIENT_INTERFACE
     "Client",
 # endif
+    "Lib Dup",
     /* NOTE: Add your heap name here */
     "Other",
 };
@@ -2302,15 +2303,16 @@ is_stack_overflow(dcontext_t *dcontext, byte *sp)
 #endif
 
 byte *
-map_file(file_t f, size_t size, size_t offs, app_pc addr, uint prot, bool copy_on_write)
+map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+         bool copy_on_write, bool image)
 {
     byte *view;
     /* memory alloc/dealloc and updating DR list must be atomic */
     dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
-    view = os_map_file(f, size, offs, addr, prot, copy_on_write);
+    view = os_map_file(f, size, offs, addr, prot, copy_on_write, image);
     if (view != NULL) {
-        STATS_ADD_PEAK(file_map_capacity, size);
-        account_for_memory((void *)view, size, prot, true/*add now*/
+        STATS_ADD_PEAK(file_map_capacity, *size);
+        account_for_memory((void *)view, *size, prot, true/*add now*/
                            _IF_DEBUG("map_file"));
     }
     dynamo_vm_areas_unlock();
@@ -2665,6 +2667,11 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
     /* The hotp_only leak relaxation below is for case 9588 & 9593.  */
     CLIENT_ASSERT(IF_HOTP(hotp_only_contains_leaked_trampoline
                           (unit->start_pc, unit->end_pc - unit->start_pc) ||)
+                  /* i#157: private loader => system lib allocs come here =>
+                   * they don't always clean up.  we have to relax here, but our
+                   * threadunits_exit checks should find all leaks anyway.
+                   */
+                  heapmgt->global_units.acct.cur_usage[ACCT_LIBDUP] > 0 ||
                   is_region_memset_to_char(unit->start_pc, 
                                            unit->end_pc - unit->start_pc,
                                            HEAP_UNALLOCATED_BYTE),
@@ -2936,6 +2943,10 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
                     continue;
 # endif
             if (j != ACCT_TOMBSTONE /* known leak */ &&
+                /* i#157: private loader => system lib allocs come here =>
+                 * they don't always clean up
+                 */
+                j != ACCT_LIBDUP &&
                 INTERNAL_OPTION(heap_accounting_assert)) {
                 SYSLOG_INTERNAL_ERROR("memory leak: %s "SZFMT" bytes not freed",
                                       whichheap_name[j], tu->acct.cur_usage[j]);

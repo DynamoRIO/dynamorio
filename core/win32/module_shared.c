@@ -273,8 +273,9 @@ get_module_exports_directory_check_common(app_pc base_addr,
  * the module and for exports not in a code section (FIXME - is this the
  * behavior we want?). Name is case insensitive.
  */ 
-generic_func_t
-get_proc_address_common(module_handle_t lib, const char *name _IF_NOT_X64(bool ldr64))
+static generic_func_t
+get_proc_address_common(module_handle_t lib, const char *name _IF_NOT_X64(bool ldr64),
+                        const char **forwarder OUT)
 {
     app_pc module_base;
     size_t exports_size;
@@ -387,9 +388,15 @@ get_proc_address_common(module_handle_t lib, const char *name _IF_NOT_X64(bool l
                  * a get_module_handle call which might not be safe here. 
                  * With current and planned usage we shouldn' be looking these
                  * up anyways. */
-                ASSERT_NOT_IMPLEMENTED(false &&
-                                       "get_proc_addr export is forwarded");
-                return NULL;
+                if (forwarder != NULL) {
+                    /* func should point at something like "NTDLL.strlen" */
+                    *forwarder = (const char *) func;
+                    return NULL;
+                } else {
+                    ASSERT_NOT_IMPLEMENTED(false &&
+                                           "get_proc_addr export is forwarded");
+                    return NULL;
+                }
             }
             /* avoid non-core issues: we don't have is_in_code_section */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
@@ -434,10 +441,18 @@ get_module_exports_directory_check(app_pc base_addr,
 generic_func_t
 get_proc_address(module_handle_t lib, const char *name)
 {
-    return get_proc_address_common(lib, name _IF_NOT_X64(false));
+    return get_proc_address_common(lib, name _IF_NOT_X64(false), NULL);
 }
 
 #ifndef NOT_DYNAMORIO_CORE /* else need get_own_peb() alternate */
+
+/* could be linked w/ non-core but only used by loader.c so far */
+generic_func_t
+get_proc_address_ex(module_handle_t lib, const char *name, const char **forwarder OUT)
+{
+    return get_proc_address_common(lib, name _IF_NOT_X64(false), forwarder);
+}
+
 /* returns NULL if no loader module is found
  * N.B.: walking loader data structures at random times is dangerous! See
  * get_ldr_module_by_pc in module.c for code to grab the ldr lock (which is
@@ -607,7 +622,7 @@ get_module_handle_64(wchar_t *name)
 void *
 get_proc_address_64(HANDLE lib, const char *name)
 {
-    return (void *) get_proc_address_common(lib, name _IF_NOT_X64(true));
+    return (void *) get_proc_address_common(lib, name _IF_NOT_X64(true), NULL);
 }
 
 #endif /* !X64 */
