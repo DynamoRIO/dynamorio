@@ -2459,11 +2459,14 @@ static bool
 try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                    uint slot_size)
 {
+    uint commit_size = DYNAMO_OPTION(cache_commit_increment);
     ASSERT(CACHE_PROTECTED(cache));
 
-    if (unit->end_pc < unit->reserved_end_pc) {
+    if (unit->end_pc < unit->reserved_end_pc &&
+        unit->cur_pc + slot_size > unit->cur_pc /*overflow*/ &&
+        /* simpler to just not support taking very last page in address space */
+        unit->end_pc + commit_size > unit->end_pc /* overflow */) {
         /* extend commitment if have more reserved */
-        uint commit_size = DYNAMO_OPTION(cache_commit_increment);
         while (unit->cur_pc + slot_size > unit->end_pc + commit_size)
             commit_size *= 2;
         if (unit->end_pc + commit_size > unit->reserved_end_pc) {
@@ -2941,7 +2944,7 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     }
 
     /* check next slot first before we potentially shift back from coalescing */
-    if (unit->cur_pc > start_pc + size) {
+    if (unit->cur_pc > start_pc + size && start_pc + size > start_pc /*overflow*/) {
         fragment_t *subseq = FRAG_NEXT_SLOT(start_pc, size);
         if (FRAG_IS_FREE_LIST(subseq)) {
             /* this is a free list entry, coalesce with it */
