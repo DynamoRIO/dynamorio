@@ -510,6 +510,7 @@ typedef struct _clone_record_t {
     int clone_sysnum;
     uint clone_flags;
     thread_sig_info_t info;
+    thread_sig_info_t *parent_info;
 } clone_record_t;
 
 /**** function prototypes ***********************************************/
@@ -952,15 +953,15 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     record->clone_sysnum = dcontext->sys_num;
     record->clone_flags = dcontext->sys_param0;
     record->info = *((thread_sig_info_t *)dcontext->signal_field);
+    record->parent_info = (thread_sig_info_t *) dcontext->signal_field;
     LOG(THREAD, LOG_ASYNCH, 1,
         "create_clone_record: thread %d, pc "PFX"\n",
         record->caller_id, record->continuation_pc);
 
     /* Set the thread stack to point to the dstack, below the clone record.
-     * Note: the kernel pushes a few things on the app thread stack and seems
-     * to leave it there; as app thread is now on dstack, these pushes may not
-     * be visible to app - a transparency issue.  I suspect these are temp uses
-     * by the kernel, so we should be fine.  Can do an experiment and find out.
+     * Note: it's glibc who sets up the arg to the thread start function;
+     * the kernel just does a fork + stack swap, so we can get away w/ our
+     * own stack swap if we restore before the glibc asm code takes over.
      */
     *app_thread_xsp = ALIGN_BACKWARD(record, REGPARM_END_ALIGN);
  
@@ -1091,6 +1092,10 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             mutex_lock(&record->info.child_lock);
             record->info.num_unstarted_children--;
             mutex_unlock(&record->info.child_lock);
+            /* this should be safe since parent should wait for us */
+            mutex_lock(&record->parent_info->child_lock);
+            record->parent_info->num_unstarted_children--;
+            mutex_unlock(&record->parent_info->child_lock);
         }
 
         if (APP_HAS_SIGSTACK(info)) {

@@ -105,6 +105,9 @@ bool    dr_api_exit  = false;
 #ifdef RETURN_AFTER_CALL
 bool    dr_preinjected = false;
 #endif /* RETURN_AFTER_CALL */
+#ifdef LINUX
+static bool dynamo_exiting = false;
+#endif
 bool    dynamo_exited = false;
 bool    dynamo_exited_and_cleaned = false;
 #ifdef DEBUG
@@ -222,6 +225,10 @@ file_t main_logfile = INVALID_FILE;
 dr_statistics_t *stats = NULL;
 
 DECLARE_FREQPROT_VAR(static int num_known_threads, 0);
+#ifdef LINUX
+/* i#237/PR 498284: vfork threads that execve need to be separately delay-freed */
+DECLARE_FREQPROT_VAR(static int num_execve_threads, 0);
+#endif
 DECLARE_FREQPROT_VAR(static uint threads_ever_count, 0);
 
 /* FIXME : not static so os.c can hand walk it for dump core */
@@ -711,10 +718,17 @@ dynamorio_fork_init(dcontext_t *dcontext)
      * other threads (fork -> we're alone in address space), so clear
      * out entire thread table, then add child
      */
+    /* we could have forked right when another thread held this lock 
+     * FIXME i#239/PR 498752: need to free ALL locks held!
+     */
+    ASSIGN_INIT_LOCK_FREE(thread_initexit_lock, thread_initexit_lock);
     mutex_lock(&thread_initexit_lock);
-    get_list_of_threads(&threads, &num_threads);
+    get_list_of_threads_ex(&threads, &num_threads, true/*include execve*/);
     for (i=0; i<num_threads; i++) {
-        remove_thread(threads[i]->id);
+        if (threads[i] == dcontext->thread_record)
+            remove_thread(threads[i]->id);
+        else
+            dynamo_other_thread_exit(threads[i]);
     }
     mutex_unlock(&thread_initexit_lock);
     global_heap_free(threads, num_threads*sizeof(thread_record_t*)
@@ -1048,6 +1062,7 @@ dynamo_process_exit_cleanup(void)
              * could have the suspended thread move from the sigstack-reliant
              * loop to a stack-free loop (xref i#95).
              */
+            IF_LINUX(dynamo_exiting = true;) /* include execve-exited vfork threads */
             DEBUG_DECLARE(ok =)
                 synch_with_all_threads(IF_WINDOWS_ELSE
                                        (THREAD_SYNCH_SUSPENDED_AND_CLEANED,
@@ -1588,10 +1603,34 @@ is_thread_known(thread_id_t tid)
     return (thread_lookup(tid) != NULL);
 }
 
+#ifdef LINUX
+/* i#237/PR 498284: a thread about to execute SYS_execve should be considered
+ * exited, but we can't easily clean up it for real immediately
+ */
+void
+mark_thread_execve(thread_record_t *tr, bool execve)
+{
+    ASSERT((execve && !tr->execve) || (!execve && tr->execve));
+    tr->execve = execve;
+    mutex_lock(&all_threads_lock);
+    if (execve) {
+        /* since we free on a second vfork we should never accumulate
+         * more than one
+         */
+        ASSERT(num_execve_threads == 0);
+        num_execve_threads++;
+    } else {
+        ASSERT(num_execve_threads > 0);
+        num_execve_threads--;
+    }
+    mutex_unlock(&all_threads_lock);
+}
+#endif /* LINUX */
+
 int
 get_num_threads(void)
 {
-    return num_known_threads;
+    return num_known_threads IF_LINUX(- num_execve_threads);
 }
 
 /* This routine takes a snapshot of all the threads known to DR,
@@ -1603,8 +1642,9 @@ get_num_threads(void)
  * The caller CANNOT be could_be_linking, else a deadlock with flushing
  * can occur (unless the caller is the one flushing)
  */
-void
-get_list_of_threads(thread_record_t ***list, int *num)
+static void
+get_list_of_threads_common(thread_record_t ***list, int *num
+                           _IF_LINUX(bool include_execve))
 {
     int i, cur = 0, max_num;
     thread_record_t *tr;
@@ -1619,23 +1659,51 @@ get_list_of_threads(thread_record_t ***list, int *num)
     ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
 
     mutex_lock(&all_threads_lock);
-    max_num = get_num_threads();
+    /* Do not include vfork threads that exited via execve, unless we're exiting */
+    max_num = IF_LINUX_ELSE((include_execve || dynamo_exiting) ?
+                            num_known_threads : get_num_threads(),
+                            get_num_threads());
     mylist = (thread_record_t **) global_heap_alloc(max_num*sizeof(thread_record_t*)
                                                  HEAPACCT(ACCT_THREAD_MGT));
     for (i = 0; i < HASHTABLE_SIZE(ALL_THREADS_HASH_BITS); i++) {
         for (tr = all_threads[i]; tr != NULL; tr = tr->next) {
             /* include those for which !tr->under_dynamo_control */
-            mylist[cur] = tr;
-            cur++;
+            /* don't include those that exited for execve.  there should be
+             * no race b/c vfork suspends the parent.  xref i#237/PR 498284.
+             */
+            if (IF_LINUX_ELSE(!tr->execve || include_execve || dynamo_exiting, true)) {
+                mylist[cur] = tr;
+                cur++;
+            }
         }
     }
-    
-    ASSERT(cur == max_num);
+
+    ASSERT(cur > 0);
+    IF_WINDOWS(ASSERT(cur == max_num));
+    if (cur < max_num) {
+        mylist = (thread_record_t **)
+            global_heap_realloc(mylist, max_num, cur, sizeof(thread_record_t*)
+                                HEAPACCT(ACCT_THREAD_MGT));
+    }
 
     *num = cur;
     *list = mylist;
     mutex_unlock(&all_threads_lock);
 }
+
+void
+get_list_of_threads(thread_record_t ***list, int *num)
+{
+    get_list_of_threads_common(list, num _IF_LINUX(false));
+}
+
+#ifdef LINUX
+void
+get_list_of_threads_ex(thread_record_t ***list, int *num, bool include_execve)
+{
+    get_list_of_threads_common(list, num, include_execve);
+}
+#endif
 
 /* assumes caller can ensure that thread is either suspended or self to
  * avoid races
@@ -1720,6 +1788,7 @@ add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid),
         tid, nt_get_handle_access_rights(tr->handle));
 #else
     tr->pid = pid;
+    tr->execve = false;
 #endif
     tr->id = tid;
     ASSERT(tid != INVALID_THREAD_ID); /* ensure os never assigns invalid id to a thread */
@@ -1756,17 +1825,21 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid)
                 prevtr->next = tr->next;
             else
                 all_threads[hindex] = tr->next;
+            /* must be inside all_threads_lock to avoid race w/ get_list_of_threads */
+            RSTATS_DEC(num_threads);
+#ifdef LINUX
+            if (tr->execve) {
+                ASSERT(num_execve_threads > 0);
+                num_execve_threads--;
+            }
+#endif
+            num_known_threads--;
 #ifdef WINDOWS
             close_handle(tr->handle);
 #endif
             global_heap_free(tr, sizeof(thread_record_t) HEAPACCT(ACCT_THREAD_MGT));
             break;
         }
-    }
-    /* must be inside all_threads_lock to avoid race w/ get_list_of_threads */
-    if (tr != NULL) {
-        RSTATS_DEC(num_threads);
-        num_known_threads--;
     }
     mutex_unlock(&all_threads_lock);
     return (tr != NULL);

@@ -353,6 +353,7 @@ typedef struct _thread_record_t {
     HANDLE handle;    /* win32 thread handle */
 #else
     process_id_t pid; /* thread group id */
+    bool execve;      /* exiting due to execve (i#237/PR 498284) */
 #endif
     uint num;         /* creation ordinal */
     bool under_dynamo_control; /* used for deciding whether to intercept events */
@@ -478,6 +479,10 @@ uint get_thread_num(thread_id_t tid);
 int get_num_threads(void);
 void get_list_of_threads(thread_record_t ***list, int *num);
 bool is_thread_known(thread_id_t tid);
+#ifdef LINUX
+void get_list_of_threads_ex(thread_record_t ***list, int *num, bool include_execve);
+void mark_thread_execve(thread_record_t *tr, bool execve);
+#endif
 bool is_thread_initialized(void);
 int dynamo_thread_init(byte *dstack_in);
 int dynamo_thread_exit(void);

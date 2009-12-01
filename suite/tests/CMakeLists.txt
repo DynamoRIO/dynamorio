@@ -1014,7 +1014,8 @@ if (UNIX)
   tobuild(linux.threadexit2 linux/threadexit2.c)
 
   # FIXME i#125: bugs in these, were disabled in the past
-  #tobuild(linux.vfork linux/vfork.c)
+  tobuild_ops(linux.vfork linux/vfork.c ""
+    "${EXECUTABLE_OUTPUT_PATH}/linux.execve-sub")
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
 
   # runs of other builds with custom DR options

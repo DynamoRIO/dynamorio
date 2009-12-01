@@ -2553,8 +2553,7 @@ global_heap_realloc(void *ptr, size_t old_num, size_t new_num, size_t element_si
 {
     void *new_area = global_heap_alloc(new_num * element_size HEAPACCT(which));
     if (ptr) {
-        ASSERT(old_num <= new_num);
-        memcpy(new_area, ptr, old_num * element_size);
+        memcpy(new_area, ptr, (old_num < new_num ? old_num : new_num) * element_size);
         global_heap_free(ptr, old_num * element_size HEAPACCT(which));
     }
     return new_area;

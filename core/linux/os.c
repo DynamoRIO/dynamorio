@@ -131,6 +131,9 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_
 
 #include <sys/utsname.h> /* for struct utsname */
 
+/* forward decl */
+static void handle_execve_post(dcontext_t *dcontext);
+
 /* full path to our own library, used for execve */
 static char dynamorio_library_path[MAXIMUM_PATH];
 /* Issue 20: path to other architecture */
@@ -1391,6 +1394,12 @@ void
 os_thread_exit(dcontext_t *dcontext)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+
+    /* i#237/PR 498284: if we had a vfork child call execve we need to clean up
+     * the env vars.
+     */
+    if (dcontext->thread_record->execve)
+        handle_execve_post(dcontext);
 
     DELETE_LOCK(ostd->suspend_lock);
 
@@ -3145,6 +3154,24 @@ handle_execve(dcontext_t *dcontext)
     char **new_envp;
     uint logdir_length;
 
+    /* i#237/PR 498284: If we're a vfork "thread" we're really in a different
+     * process and if we exec then the parent process will still be alive.  We
+     * can't easily clean our own state (dcontext, dstack, etc.) up in our
+     * parent process: we need it to invoke the syscall and the syscall might
+     * fail.  We could expand cleanup_and_terminate to also be able to invoke
+     * SYS_execve: but execve seems more likely to fail than termination
+     * syscalls.  Our solution is to mark this thread as "execve" and hide it
+     * from regular thread queries; we clean it up in the process-exiting
+     * synch_with_thread(), or if the same parent thread performs another vfork
+     * (to prevent heap accumulation from repeated vfork+execve).  Since vfork
+     * on linux suspends the parent, there cannot be any races with the execve
+     * syscall completing: there can't even be peer vfork threads, so we could
+     * set a flag and clean up in dispatch, but that seems overkill.  (If vfork
+     * didn't suspend the parent we'd need to touch a marker file or something
+     * to know the execve was finished.)
+     */
+    mark_thread_execve(dcontext->thread_record, true);
+
     num_new = 
         (get_log_dir(PROCESS_DIR, NULL, NULL) ? 1 : 0) + /* logdir */
         2 + /* execve indicator var plus final NULL */
@@ -3241,6 +3268,44 @@ handle_execve(dcontext_t *dcontext)
     LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
     /* must end with NULL */
     new_envp[i] = NULL;
+}
+
+static void
+handle_execve_post(dcontext_t *dcontext)
+{
+    /* if we get here it means execve failed (doesn't return on success),
+     * or we did an execve from a vfork and its memory changes are visible
+     * in the parent process.
+     * we have to restore env to how it was and free the allocated heap.
+     */
+    char **old_envp = (char **) dcontext->sys_param0;
+    char **new_envp = (char **) dcontext->sys_param1;
+    int num_old = (int) dcontext->sys_param2;
+#ifdef STATIC_LIBRARY
+    /* nothing to clean up */
+    return;
+#endif
+    if (new_envp != NULL) {
+        int i;
+        LOG(THREAD, LOG_SYSCALLS, 2, "\tcleaning up our env vars\n");
+        /* we replaced existing ones and/or added new ones */
+        for (i=0; i<num_old; i++) {
+            if (old_envp[i] != new_envp[i]) {
+                heap_free(dcontext, new_envp[i],
+                          sizeof(char)*(strlen(new_envp[i])+1)
+                          HEAPACCT(ACCT_OTHER));
+            }
+        }
+        for (; new_envp[i] != NULL; i++) {
+            heap_free(dcontext, new_envp[i],
+                      sizeof(char)*(strlen(new_envp[i])+1)
+                      HEAPACCT(ACCT_OTHER));
+        }
+        i++; /* need to de-allocate final null slot too */
+        heap_free(dcontext, new_envp, sizeof(char*)*i HEAPACCT(ACCT_OTHER));
+        /* restore prev envp */
+        *sys_param_addr(dcontext, 2) = (reg_t) old_envp;
+    }
 }
 
 /* Used to obtain the pc of the syscall instr itself when the dcontext dc
@@ -3702,15 +3767,35 @@ pre_system_call(dcontext_t *dcontext)
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork\n");
         handle_clone(dcontext, flags);
 
+        /* i#237/PR 498284: to avoid accumulation of thread state we clean up a
+         * vfork child who invoked execve here so we have at most one
+         * outstanding thread.  we also clean up at process exit.  we could do
+         * this in dispatch but too rare to be worth a flag check there.
+         */
+        thread_record_t **threads;
+        int num_threads, i;
+        mutex_lock(&thread_initexit_lock);
+        get_list_of_threads_ex(&threads, &num_threads, true/*include execve*/);
+        for (i=0; i<num_threads; i++) {
+            if (threads[i]->execve) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "cleaning up earlier vfork thread\n");
+                dynamo_other_thread_exit(threads[i]);
+            }
+        }
+        mutex_unlock(&thread_initexit_lock);
+        global_heap_free(threads, num_threads*sizeof(thread_record_t*)
+                         HEAPACCT(ACCT_THREAD_MGT));
+
         /* save for post_system_call, treated as if SYS_clone */
         dcontext->sys_param0 = (reg_t) flags;
 
         /* vfork has the same needs as clone.  Pass info via a clone_record_t
          * structure to child.  See SYS_clone for info about i#149/PR 403015.
          */
-        /* FIXME: PR 403015 bug: there are no params to vfork: how is this working? */
-        if (is_clone_thread_syscall(dcontext))
-            create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
+        if (is_clone_thread_syscall(dcontext)) {
+            dcontext->sys_param1 = mc->xsp; /* for restoring in parent */
+            create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
+        }
         break;
     }
 
@@ -4699,44 +4784,23 @@ post_system_call(dcontext_t *dcontext)
 
     case SYS_vfork: {
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork returned "PFX"\n", mc->xax);
+        if (was_clone_thread_syscall(dcontext)) {
+            /* restore xsp in parent */
+            LOG(THREAD, LOG_SYSCALLS, 2,
+                "vfork: restoring xsp from "PFX" to "PFX"\n",
+                mc->xsp, dcontext->sys_param1);
+            mc->xsp = dcontext->sys_param1;
+        }
         break;
     }
 
     case SYS_execve: {
-        /* if we get here it means execve failed (doesn't return on success)
-         * we have to restore env to how it was
-         */
-        char **old_envp = (char **) dcontext->sys_param0;
-        char **new_envp = (char **) dcontext->sys_param1;
-        int num_old = (int) dcontext->sys_param2;
+        /* if we get here it means execve failed (doesn't return on success) */
         success = false;
+        mark_thread_execve(dcontext->thread_record, false);
         ASSERT(result < 0);
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: execve failed\n");
-#ifdef STATIC_LIBRARY
-        /* nothing to clean up */
-        break;
-#endif
-        if (new_envp != NULL) {
-            int i;
-            LOG(THREAD, LOG_SYSCALLS, 2, "\tcleaning up our env vars\n");
-            /* we replaced existing ones and/or added new ones */
-            for (i=0; i<num_old; i++) {
-                if (old_envp[i] != new_envp[i]) {
-                    heap_free(dcontext, new_envp[i],
-                              sizeof(char)*(strlen(new_envp[i])+1)
-                              HEAPACCT(ACCT_OTHER));
-                }
-            }
-            for (; new_envp[i] != NULL; i++) {
-                heap_free(dcontext, new_envp[i],
-                          sizeof(char)*(strlen(new_envp[i])+1)
-                          HEAPACCT(ACCT_OTHER));
-            }
-            i++; /* need to de-allocate final null slot too */
-            heap_free(dcontext, new_envp, sizeof(char*)*i HEAPACCT(ACCT_OTHER));
-            /* restore prev envp */
-            *sys_param_addr(dcontext, 2) = (reg_t) old_envp;
-        }
+        handle_execve_post(dcontext);
         /* Don't 'break' as we have an ASSERT(success) just below
          * the switch(). */
         goto exit_post_system_call;

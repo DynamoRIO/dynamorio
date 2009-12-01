@@ -820,6 +820,16 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                 STATS_INC(synch_yields_for_exiting_thread);
             }
         });
+#ifdef LINUX
+        if (trec != NULL && trec->execve) {
+            /* i#237/PR 498284: clean up vfork "threads" that invoked execve.
+             * There should be no race since vfork suspends the parent.
+             */
+            res = THREAD_SYNCH_RESULT_SUCCESS;
+            actually_suspended = false;
+            break;
+        }
+#endif
         if (trec != NULL) {
             if (first_loop) {
                 adjust_wait_at_safe_spot(trec->dcontext, 1);
@@ -928,7 +938,8 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
         LOG(THREAD, LOG_SYNCH, 2, 
             "Success synching with thread "IDFMT" performing cleanup\n", id);
         if (THREAD_SYNCH_IS_TERMINATED(desired_state)) {
-            thread_terminate(trec);
+            if (IF_LINUX_ELSE(!trec->execve, true))
+                thread_terminate(trec);
 #ifdef LINUX
             /* We need to ensure the target thread has received the
              * signal and is no longer using its sigstack or ostd struct

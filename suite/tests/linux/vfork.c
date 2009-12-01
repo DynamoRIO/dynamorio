@@ -34,6 +34,8 @@
  * test of fork
  */
 
+#include "tools.h"
+
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/types.h> /* for wait and mmap */
@@ -50,52 +52,52 @@
 /* a hopefuly portable /proc/@self/maps reader */
 
 /* these are defined in /usr/src/linux/fs/proc/array.c */
-#define MAPS_LINE_LENGTH	4096
+#define MAPS_LINE_LENGTH        4096
 /* for systems with sizeof(void*) == 4: */
-#define MAPS_LINE_FORMAT4	  "%08lx-%08lx %s %*x %*s %*u %4096s"
-#define MAPS_LINE_MAX4	49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
+#define MAPS_LINE_FORMAT4         "%08lx-%08lx %s %*x %*s %*u %4096s"
+#define MAPS_LINE_MAX4  49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
 /* for systems with sizeof(void*) == 8: */
-#define MAPS_LINE_FORMAT8	  "%016lx-%016lx %s %*x %*s %*u %4096s"
-#define MAPS_LINE_MAX8	73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
+#define MAPS_LINE_FORMAT8         "%016lx-%016lx %s %*x %*s %*u %4096s"
+#define MAPS_LINE_MAX8  73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
 
-#define MAPS_LINE_MAX	MAPS_LINE_MAX8
+#define MAPS_LINE_MAX   MAPS_LINE_MAX8
 
 int
 find_dynamo_library()
 {
     pid_t pid = getpid();
-    char 	proc_pid_maps[64];	/* file name */
+    char        proc_pid_maps[64];      /* file name */
 
     FILE *maps;
-    char 	line[MAPS_LINE_LENGTH];
-    int 	count = 0;
+    char        line[MAPS_LINE_LENGTH];
+    int         count = 0;
 
     // open file's /proc/id/maps virtual map description
     int n = snprintf(proc_pid_maps, sizeof(proc_pid_maps),
-		     "/proc/%d/maps", pid);
+                     "/proc/%d/maps", pid);
     if (n<0 || n==sizeof(proc_pid_maps))
-	assert(0); /* paranoia */
+        assert(0); /* paranoia */
   
     maps=fopen(proc_pid_maps,"r");
 
     while(!feof(maps)){
-	void * vm_start, * vm_end;
-	char perm[16];
-	char comment_buffer[MAPS_LINE_LENGTH];
-	int len;
+        void * vm_start, * vm_end;
+        char perm[16];
+        char comment_buffer[MAPS_LINE_LENGTH];
+        int len;
     
-	if (NULL==fgets(line, sizeof(line), maps))
-	    break;
-	len = sscanf(line,
-		     sizeof(void*) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
-		     (unsigned long*)&vm_start, (unsigned long*)&vm_end, perm,
-		     comment_buffer);
-	if (len<4)
-	    comment_buffer[0]='\0';
-	if (strstr(comment_buffer, "dynamorio") != 0) {
-	    fclose(maps);
-	    return 1;
-	}
+        if (NULL==fgets(line, sizeof(line), maps))
+            break;
+        len = sscanf(line,
+                     sizeof(void*) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
+                     (unsigned long*)&vm_start, (unsigned long*)&vm_end, perm,
+                     comment_buffer);
+        if (len<4)
+            comment_buffer[0]='\0';
+        if (strstr(comment_buffer, "dynamorio") != 0) {
+            fclose(maps);
+            return 1;
+        }
     }
   
     fclose(maps);
@@ -104,45 +106,69 @@ find_dynamo_library()
 
 /***************************************************************************/
 
+static void
+do_execve(char *path)
+{
+    int result;
+    char *arg[3];
+    char **env = NULL;
+    arg[0] = path;
+    arg[1] = "/fake/path/it_worked";
+    arg[2] = NULL;
+    if (find_dynamo_library())
+        print("child is running under DynamoRIO\n");
+    else
+        print("child is running natively\n");
+    /* test i#237 resource cleanup by invoking execve */
+    result = execve(path, arg, env);
+    if (result < 0)
+        perror("ERROR in execve");
+}
+
 int main(int argc, char** argv)
 {
     pid_t child;
-    int do_vfork = argc == 1;
 
 #ifdef USE_DYNAMO
     dynamorio_app_init();
     dynamorio_app_start();
 #endif
 
+    if (argc < 2)
+        return 1;
     if (find_dynamo_library())
-	printf("parent is running under DynamoRIO\n");
+        print("parent is running under DynamoRIO\n");
     else
-	printf("parent is running natively\n");
+        print("parent is running natively\n");
 
-    if (do_vfork) {		/* default */
-	printf("trying vfork()\n");
-	child = vfork(); 
-    } else {
-	printf("trying fork()\n");
-	child = fork();
-    }
-
+    print("trying vfork() #1\n");
+    child = vfork(); 
     if (child < 0) {
-	perror("ERROR on fork");
+        perror("ERROR on fork");
     } else if (child > 0) {
-	pid_t result;
-	printf("parent waiting for child\n");
-	result = waitpid(child, NULL, 0);
-	assert(result == child);
-	printf("child has exited\n");
+        pid_t result;
+        print("parent waiting for child\n");
+        result = waitpid(child, NULL, 0);
+        assert(result == child);
+        print("child has exited\n");
     } else {
-	if (find_dynamo_library())
-	    printf("child is running under DynamoRIO\n");
-	else
-	    printf("child is running natively\n");
-	if (argc == 1)
-	    _exit(0);
-    }	
+        do_execve(argv[1]);
+    }   
+
+    /* do 2 in a row to test i#237/PR 498284 */
+    print("trying vfork() #2\n");
+    child = vfork(); 
+    if (child < 0) {
+        perror("ERROR on fork");
+    } else if (child > 0) {
+        pid_t result;
+        print("parent waiting for child\n");
+        result = waitpid(child, NULL, 0);
+        assert(result == child);
+        print("child has exited\n");
+    } else {
+        do_execve(argv[1]);
+    }   
 
 #ifdef USE_DYNAMO
     dynamorio_app_stop();
