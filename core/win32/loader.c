@@ -172,6 +172,9 @@ typedef struct _redirect_import_t {
     app_pc func;
 } redirect_import_t;
 
+static void
+privload_redirect_setup(privmod_t *mod);
+
 static app_pc
 privload_redirect_imports(privmod_t *impmod, const char *name);
 
@@ -280,6 +283,13 @@ typedef struct _fls_cb_t {
 static fls_cb_t *fls_cb_list; /* in .data, so we have a permanent head node */
 DECLARE_CXTSWPROT_VAR(static mutex_t privload_fls_lock,
                       INIT_LOCK_FREE(privload_fls_lock));
+
+/* Rather than statically linking to real kernel32 we want to invoke
+ * routines in the private kernel32
+ */
+static DWORD (WINAPI *priv_kernel32_FlsAlloc)(PFLS_CALLBACK_FUNCTION);
+static HMODULE (WINAPI *priv_kernel32_GetModuleHandleA)(const char *);
+static FARPROC (WINAPI *priv_kernel32_GetProcAddress)(HMODULE, const char *);
 
 /***************************************************************************/
 
@@ -443,10 +453,12 @@ privload_load_finalize(privmod_t *privmod)
 {
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
-    if (!privmod->externally_loaded) {
-        vmvector_add(modlist_areas, privmod->base, privmod->base + privmod->size,
-                     (void *)privmod);
-    }
+    ASSERT(!privmod->externally_loaded);
+
+    vmvector_add(modlist_areas, privmod->base, privmod->base + privmod->size,
+                 (void *)privmod);
+
+    privload_redirect_setup(privmod);
 
     if (!privload_process_imports(privmod)) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to process imports %s\n",
@@ -889,8 +901,9 @@ static privmod_t *
 privload_lookup(const char *name)
 {
     privmod_t *mod;
-    ASSERT(name != NULL && name[0] != '\0');
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    if (name == NULL || name[0] == '\0')
+        return NULL;
     for (mod = modlist; mod != NULL; mod = mod->next) {
         if (strcasecmp(name, mod->name) == 0)
             return mod;
@@ -1028,6 +1041,26 @@ privload_init_search_paths(void)
         NULL_TERMINATE_BUFFER(systemroot);
     } else
         ASSERT_NOT_REACHED();
+}
+
+/* Rather than statically linking to real kernel32 we want to invoke
+ * routines in the private kernel32
+ */
+static void
+privload_redirect_setup(privmod_t *mod)
+{
+    if (strcasecmp(mod->name, "kernel32.dll") == 0) {
+        if (!dynamo_initialized)
+            SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        priv_kernel32_FlsAlloc = (DWORD (WINAPI *)(PFLS_CALLBACK_FUNCTION))
+            get_proc_address_ex(mod->base, "FlsAlloc", NULL);
+        priv_kernel32_GetModuleHandleA = (HMODULE (WINAPI *)(const char *))
+            get_proc_address_ex(mod->base, "GetModuleHandleA", NULL);
+        priv_kernel32_GetProcAddress = (FARPROC (WINAPI *)(HMODULE, const char *))
+            get_proc_address_ex(mod->base, "GetProcAddress", NULL);
+        if (!dynamo_initialized)
+            SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    }
 }
 
 static app_pc
@@ -1263,6 +1296,7 @@ private_lib_handle_cb(dcontext_t *dcontext, app_pc pc)
 static DWORD WINAPI
 redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb)
 {
+    ASSERT(priv_kernel32_FlsAlloc != NULL);
     if (in_private_library((app_pc)cb)) {
         fls_cb_t *entry = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, fls_cb_t,
                                           ACCT_OTHER, PROTECTED);
@@ -1284,7 +1318,7 @@ redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb)
         dynamo_vm_areas_unlock();
         LOG(GLOBAL, LOG_LOADER, 2, "%s: cb="PFX"\n", __FUNCTION__, cb);
     }
-    return FlsAlloc(cb);
+    return (*priv_kernel32_FlsAlloc)(cb);
 }
 
 /* Eventually we should intercept at the Ldr level but that takes more work
@@ -1296,6 +1330,7 @@ redirect_GetModuleHandleA(const char *name)
 {
     privmod_t *mod;
     app_pc res = NULL;
+    ASSERT(priv_kernel32_GetModuleHandleA != NULL);
     acquire_recursive_lock(&privload_lock);
     mod = privload_lookup(name);
     if (mod != NULL) {
@@ -1304,7 +1339,7 @@ redirect_GetModuleHandleA(const char *name)
     }
     release_recursive_lock(&privload_lock);
     if (mod == NULL)
-        return GetModuleHandle(name);
+        return (*priv_kernel32_GetModuleHandleA)(name);
     else
         return (HMODULE) res;
 }
@@ -1314,19 +1349,21 @@ redirect_GetProcAddress(app_pc modbase, const char *name)
 {
     privmod_t *mod;
     app_pc res = NULL;
+    ASSERT(priv_kernel32_GetProcAddress != NULL);
     LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"%s\n", __FUNCTION__, modbase, name);
     acquire_recursive_lock(&privload_lock);
     mod = privload_lookup_by_base(modbase);
     if (mod != NULL) {
+        const char *forwarder;
         res = privload_redirect_imports(mod, name);
         /* I assume GetProcAddress returns NULL for forwarded exports? */
         if (res == NULL)
-            res = (app_pc) get_proc_address_ex(modbase, name, NULL);
+            res = (app_pc) get_proc_address_ex(modbase, name, &forwarder);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => "PFX"\n", __FUNCTION__, name, res);
     }
     release_recursive_lock(&privload_lock);
     if (mod == NULL)
-        return GetProcAddress((HMODULE)modbase, name);
+        return (*priv_kernel32_GetProcAddress)((HMODULE)modbase, name);
     else
         return (FARPROC) convert_data_to_function(res);
 }
