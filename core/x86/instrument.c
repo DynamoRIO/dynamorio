@@ -2486,6 +2486,24 @@ dr_file_tell(file_t f)
 }
 
 DR_API
+file_t
+dr_dup_file_handle(file_t f)
+{
+#ifdef LINUX
+    /* returns -1 on failure == INVALID_FILE */
+    return dup_syscall(f);
+#else
+    HANDLE ht = INVALID_HANDLE_VALUE;
+    NTSTATUS res = duplicate_handle(NT_CURRENT_PROCESS, f, NT_CURRENT_PROCESS,
+                                    &ht, SYNCHRONIZE, 0, 0);
+    if (!NT_SUCCESS(res))
+        return INVALID_FILE;
+    else
+        return ht;
+#endif
+}
+
+DR_API
 void
 dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...)
 {

@@ -2081,6 +2081,14 @@ DR_API
 int64
 dr_file_tell(file_t f);
 
+DR_API
+/**
+ * Returns a new copy of the file handle \p f.
+ * Returns INVALID_FILE on error.
+ */
+file_t
+dr_dup_file_handle(file_t f);
+
 /* TODO add delete_file, rename/move_file, copy_file, get_file_size, truncate_file etc.
  * All should be easy though at some point should perhaps tell people to just use the raw
  * systemcalls, esp for linux where they're documented and let them provide their own

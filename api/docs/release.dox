@@ -129,6 +129,7 @@ The changes between version 1.5.0 and 1.4.0 are:
    - Added a new event dr_register_restore_state_ex_event() that provides
      the pre-translated context and code fragment information, and allows
      for translation failure for non-fault translations.
+ - Added dr_dup_file_handle()
  - Added dr_memory_is_dr_internal() and dr_memory_is_in_client()
  - Added dr_get_parent_id()
  - Added decode_opcode_name()
