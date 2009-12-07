@@ -2249,7 +2249,7 @@ typedef struct {
 
 DR_API
 /* Initialize a new client module iterator. */
-dr_module_iterator_t
+dr_module_iterator_t *
 dr_module_iterator_start(void)
 {
     client_mod_iterator_t *client_iterator = (client_mod_iterator_t *)

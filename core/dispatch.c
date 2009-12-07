@@ -425,6 +425,21 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
     }
 #endif
 
+#if defined(LINUX) && defined(DEBUG)
+    /* i#238/PR 499179: check that libc errno hasn't changed.  It's
+     * not worth actually saving+restoring since to we'd also need to
+     * preserve on clean calls, a perf hit.  Better to catch all libc
+     * routines that need it and wrap just those.
+     */
+    ASSERT(get_libc_errno() == dcontext->libc_errno ||
+           /* only when pthreads is loaded does libc switch to a per-thread
+            * errno, so our raw thread tests end up using the same errno
+            * for each thread!
+            */
+           check_filter("linux.thread;linux.clone",
+                        get_short_name(get_application_name())));
+#endif
+
     IF_X64(ASSERT(get_x86_mode(dcontext) == TEST(FRAG_32_BIT, targetf->flags)));
     if (TEST(FRAG_SHARED, targetf->flags))
         fcache_enter = get_fcache_enter_shared_routine(dcontext);
@@ -622,6 +637,11 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
      * assumes none are held
      */
     ASSERT_OWN_NO_LOCKS();
+
+#if defined(LINUX) && defined(DEBUG)
+    /* i#238/PR 499179: check that libc errno hasn't changed */
+    dcontext->libc_errno = get_libc_errno();
+#endif
 
     DOLOG(2, LOG_INTERP, { 
         if (wherewasi == WHERE_APP) {

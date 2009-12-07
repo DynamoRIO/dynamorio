@@ -620,3 +620,27 @@ our_snprintf(char *s, size_t max, const char *fmt, ...)
     va_end(ap);
     return res;
 }
+
+#ifdef LINUX
+/* i#238/PR 499179: avoid touching errno: our __errno_location doesn't
+ * affect libc and we're using libc's sscanf.
+ *
+ * If we do have a private loader (i#157) and isolation of a private
+ * libc then there's no need to write our own complete sscanf: if we
+ * don't have that though we'll want our own for libc independence
+ * (i#46/PR 206369) for earlier injection and to solve errno issues.
+ */
+int
+our_sscanf(const char *str, const char *fmt, ...)
+{
+    int res, saved_errno;
+    va_list ap;
+    va_start(ap, fmt);
+    saved_errno = get_libc_errno();
+    res = vsscanf(str, fmt, ap);
+    set_libc_errno(saved_errno);
+    va_end(ap);
+    return res;
+}
+#endif
+

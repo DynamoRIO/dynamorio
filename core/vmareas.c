@@ -7869,7 +7869,7 @@ remove_shared_vmlist(dcontext_t *dcontext, void *vmlist, fragment_t *f,
     fragment_t *next;
     bool remove;
     bool ok;
-    uint check_flags;
+    uint check_flags = 0;
     app_pc pc;
     LOG(THREAD, LOG_VMAREAS, 4, "\tremoving shared vm data for F%d("PFX")\n",
         f->id, f->tag);

@@ -1787,7 +1787,7 @@ DR_API
  * does not prevent modules from being loaded or unloaded while the iterator is being
  * walked.
  */
-dr_module_iterator_t
+dr_module_iterator_t *
 dr_module_iterator_start(void);
 
 DR_API
@@ -2934,8 +2934,8 @@ DR_API
  *   (On Windows nudges happen in separate dedicated threads.)
  *
  * Does NOT copy the pc field.  If \p app_errno is non-NULL copies the
- * saved application error code (value of GetLastError() on Windows or
- * errno on Linux) to \p app_errno.
+ * saved application error code (value of GetLastError() on Windows; ignored
+ * on Linux) to \p app_errno.
  *
  * \note NUM_XMM_SLOTS in the dr_mcontext_t.xmm array are filled in, but
  * only if dr_mcontext_fields_valid() returns true.
@@ -2961,8 +2961,8 @@ DR_API
  *   basic block callback parameters \p for_trace and \p translating are
  *   false, and for trace creation only when \p translating is false.
  *
- * Ignores the pc field. if \p app_errno is non-NULL sets the
- * application error code (value of GetLastError() on Windows or errno
+ * Ignores the pc field.  If \p app_errno is non-NULL sets the
+ * application error code (value of GetLastError() on Windows; ignored
  * on Linux) to be restored as well.
  *
  * \note The xmm0 through xmm5 fields are only set for 64-bit or WOW64
@@ -2983,7 +2983,7 @@ DR_API
  * dr_insert_clean_call() or dr_prepare_for_call()) or an exception event with the
  * state specified in \p mcontext (including pc, and including the xmm0 through xmm5
  * values if dr_mcontext_xmm_fields_valid() returns true) and the application error
- * code (value of GetLastError() on Windows or errno on Linux) specified by \p app_errno.
+ * code (value of GetLastError() on Windows; ignored on Linux) specified by \p app_errno.
  *
  * \note dr_get_mcontext() can be used to get the register state (except pc) and the
  * \p app_errno value saved in dr_insert_clean_call() or dr_prepare_for_call()

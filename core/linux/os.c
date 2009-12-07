@@ -266,13 +266,17 @@ static int init_errno; /* errno until 1st dcontext created */
  * in the code cache and on x64 we hit an assert on our own segment use
  * in get_thread_private_dcontext():
  *   "no support yet for application using non-NPTL segment"
+ * That is now relaxed for code in the DR library.
  * FIXME: though we used to use this for the app too: presumably we don't
  * need that anymore, since having our own private copy is just as good
- * to isolated DR errno changes from app errno uses.
+ * to isolate DR errno changes from app errno uses.
+ * Update: i#238/PR 499179: this isolates usage in our library, but not
+ * when we call libc routines.  Also, even when not "hidden", we control
+ * the app's errno but not libc's: b/c __errno_location is no longer weak?
  */
 __attribute__ ((visibility ("hidden")))
 int *
-__errno_location() {
+__errno_location(void) {
     /* Each dynamo thread should have a separate errno */
     dcontext_t *dcontext = get_thread_private_dcontext();
     if (dcontext == NULL)
@@ -282,6 +286,87 @@ __errno_location() {
         return &(dcontext->upcontext_ptr->errno);
     }
 }
+
+/* i#238/PR 499179: libc errno preservation
+ *
+ * Errno location is per-thread so we store the
+ * function globally and call it each time.  Note that pthreads seems
+ * to be the one who provides per-thread errno: using raw syscalls to
+ * create threads, we end up with a global errno:
+ * 
+ *   > for i in linux.thread.*0/log.*; do grep 'libc errno' $i | head -1; done
+ *   libc errno loc: 0x00007f153de26698
+ *   libc errno loc: 0x00007f153de26698
+ *   > for i in pthreads.pthreads.*0/log.*; do grep 'libc errno' $i | head -1; done
+ *   libc errno loc: 0x00007fc24d1ce698
+ *   libc errno loc: 0x00007fc24d1cd8b8
+ *   libc errno loc: 0x00007fc24c7cc8b8
+ */
+typedef int *(*errno_loc_t)(void);
+
+static errno_loc_t
+get_libc_errno_location(bool do_init)
+{
+    static errno_loc_t libc_errno_loc;
+    if (do_init) {
+        module_iterator_t *mi = module_iterator_start();
+        while (module_iterator_hasnext(mi)) {
+            module_area_t *area = module_iterator_next(mi);
+            const char *modname = GET_MODULE_NAME(&area->names);
+            /* We ensure matches start to avoid matching "libgolibc.so".
+             * GET_MODULE_NAME never includes the path: i#138 will add path.
+             */
+            if (modname != NULL && strstr(modname, "libc.so") == modname) {
+                /* called during init when .data is writable */
+                libc_errno_loc = (errno_loc_t)
+                    get_proc_address(area->start, "__errno_location");
+                ASSERT(libc_errno_loc != NULL);
+                LOG(GLOBAL, LOG_THREADS, 2, "libc errno loc func: "PFX"\n",
+                    libc_errno_loc);
+                break;
+            }
+        }
+        module_iterator_stop(mi);
+    }
+    return libc_errno_loc;
+}
+
+/* i#238/PR 499179: our __errno_location isn't affecting libc so until
+ * we have libc independence or our own private isolated libc we need
+ * to preserve the app's libc's errno
+ */
+int
+get_libc_errno(void)
+{
+    errno_loc_t func = get_libc_errno_location(false);
+    ASSERT(func != NULL || !dynamo_initialized);
+    if (func != NULL) {
+        int *loc = (*func)();
+        ASSERT(loc != NULL);
+        LOG(THREAD_GET, LOG_THREADS, 5, "libc errno loc: "PFX"\n", loc);
+        if (loc != NULL)
+            return *loc;
+    }
+    return 0;
+}
+
+/* i#238/PR 499179: our __errno_location isn't affecting libc so until
+ * we have libc independence or our own private isolated libc we need
+ * to preserve the app's libc's errno
+ */
+void
+set_libc_errno(int val)
+{
+    errno_loc_t func = get_libc_errno_location(false);
+    ASSERT(func != NULL || !dynamo_initialized);
+    if (func != NULL) {
+        int *loc = (*func)();
+        ASSERT(loc != NULL);
+        if (loc != NULL)
+            *loc = val;
+    }
+}
+
 
 /* N.B.: pthreads has two other locations it keeps on a per-thread basis:
  * h_errno and res_state.  See glibc-2.2.4/linuxthreads/errno.c.
@@ -3132,7 +3217,6 @@ handle_execve(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, 3, "\tenv %d: %s\n", i, envp[i]);
         }
     }
-    dcontext->sys_param0 = (reg_t) envp;
 
 #ifdef STATIC_LIBRARY
     /* no way we can inject, we just lose control */
@@ -3183,9 +3267,11 @@ handle_execve(dcontext_t *dcontext)
     memcpy(new_envp, envp, sizeof(char*)*num_old);
 
     *sys_param_addr(dcontext, 2) = (reg_t) new_envp;  /* OUT */
-    /* store for reset in case execve fails */
+    /* store for reset in case execve fails, and for cleanup if
+     * this is a vfork thread
+     */
+    dcontext->sys_param0 = (reg_t) envp;
     dcontext->sys_param1 = (reg_t) new_envp;
-    dcontext->sys_param2 = (reg_t) num_old;
     /* if no var to overwrite, need new var at end */
     if (preload < 0)
         idx_preload = i++;
@@ -3280,7 +3366,6 @@ handle_execve_post(dcontext_t *dcontext)
      */
     char **old_envp = (char **) dcontext->sys_param0;
     char **new_envp = (char **) dcontext->sys_param1;
-    int num_old = (int) dcontext->sys_param2;
 #ifdef STATIC_LIBRARY
     /* nothing to clean up */
     return;
@@ -3288,23 +3373,21 @@ handle_execve_post(dcontext_t *dcontext)
     if (new_envp != NULL) {
         int i;
         LOG(THREAD, LOG_SYSCALLS, 2, "\tcleaning up our env vars\n");
-        /* we replaced existing ones and/or added new ones */
-        for (i=0; i<num_old; i++) {
-            if (old_envp[i] != new_envp[i]) {
+        /* we replaced existing ones and/or added new ones.
+         * we can't compare to old_envp b/c it may have changed by now.
+         */
+        for (i=0; new_envp[i] != NULL; i++) {
+            if (is_dynamo_address((byte *)new_envp[i])) {
                 heap_free(dcontext, new_envp[i],
                           sizeof(char)*(strlen(new_envp[i])+1)
                           HEAPACCT(ACCT_OTHER));
             }
         }
-        for (; new_envp[i] != NULL; i++) {
-            heap_free(dcontext, new_envp[i],
-                      sizeof(char)*(strlen(new_envp[i])+1)
-                      HEAPACCT(ACCT_OTHER));
-        }
         i++; /* need to de-allocate final null slot too */
         heap_free(dcontext, new_envp, sizeof(char*)*i HEAPACCT(ACCT_OTHER));
-        /* restore prev envp */
-        *sys_param_addr(dcontext, 2) = (reg_t) old_envp;
+        /* restore prev envp if we're post-syscall */
+        if (!dcontext->thread_record->execve)
+            *sys_param_addr(dcontext, 2) = (reg_t) old_envp;
     }
 }
 
@@ -3778,7 +3861,8 @@ pre_system_call(dcontext_t *dcontext)
         get_list_of_threads_ex(&threads, &num_threads, true/*include execve*/);
         for (i=0; i<num_threads; i++) {
             if (threads[i]->execve) {
-                LOG(THREAD, LOG_SYSCALLS, 2, "cleaning up earlier vfork thread\n");
+                LOG(THREAD, LOG_SYSCALLS, 2, "cleaning up earlier vfork thread %d\n",
+                    threads[i]->id);
                 dynamo_other_thread_exit(threads[i]);
             }
         }
@@ -5773,6 +5857,10 @@ find_executable_vm_areas(void)
     DOLOG(1, LOG_VMAREAS, { print_modules(GLOBAL, DUMP_NOT_XML); });
 
     STATS_ADD(num_app_code_modules, count);
+
+    /* now that we have the modules set up, query libc */
+    get_libc_errno_location(true/*force init*/);
+
     return count;
 }
 

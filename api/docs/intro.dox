@@ -531,7 +531,7 @@ set of event callbacks.  These events include the following:
 
   - Signal interception (Linux-only)
 
-  - Nudge received - see \ref sec_comm \if linux (currently Windows only) \endif
+  - Nudge received - see \ref sec_comm
 
 Typically, a \client will register for the desired events at
 initialization in its dr_init() routine.  \DynamoRIO then calls the

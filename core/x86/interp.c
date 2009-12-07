@@ -2843,7 +2843,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #else
         if (instr_get_prefix_flag(bb->instr,
-                                  (SEG_TLS == SEG_GS) ? PREFIX_SEG_GS : PREFIX_SEG_FS)) {
+                                  (SEG_TLS == SEG_GS) ? PREFIX_SEG_GS : PREFIX_SEG_FS)
+            /* __errno_location is interpreted when global, though it's hidden in TOT */
+            IF_LINUX(&& !is_in_dynamo_dll(bb->instr_start))) {
             /* On linux we use a segment register and do not yet
              * support the application using the same register!
              */

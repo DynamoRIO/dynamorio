@@ -43,6 +43,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #ifdef USE_DYNAMO
 #include "dynamorio.h"
@@ -162,9 +163,14 @@ int main(int argc, char** argv)
         perror("ERROR on fork");
     } else if (child > 0) {
         pid_t result;
+        int err;
         print("parent waiting for child\n");
+        /* linux kernel will (incorrectly) return ECHILD sometimes
+         * if the child has already exited
+         */
         result = waitpid(child, NULL, 0);
-        assert(result == child);
+        err = errno;
+        assert(result == child || (result == -1 && err == ECHILD));
         print("child has exited\n");
     } else {
         do_execve(argv[1]);

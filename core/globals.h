@@ -880,6 +880,10 @@ struct _dcontext_t {
     pending_nudge_t *nudge_pending;
     /* frag we unlinked to expedite nudge delivery */
     fragment_t *interrupted_for_nudge;
+# ifdef DEBUG
+    /* i#238/PR 499179: check that libc errno hasn't changed */
+    int libc_errno;
+# endif
 #endif
 
 };

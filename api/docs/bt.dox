@@ -478,13 +478,16 @@ reference application memory, and is not reordering or removing application
 instructions, then it need not register for this event.  If, however, a
 \client is modifying application code or adding instructions that could
 fault, the \client must be capable of restoring the original context.
-\DynamoRIO calls the state restoration event, registered via
-dr_register_restore_state_event(), whenever it needs to translate a code
-cache context to an original application context:
+\DynamoRIO calls a state restoration event, registered via
+dr_register_restore_state_event() or dr_register_restore_state_ex_event(),
+whenever it needs to translate a code cache context to an original
+application context:
 
 \code
 void restore_state(void *drcontext, void *tag, dr_mcontext_t *mcontext,
                    bool restore_memory, bool app_code_consistent)
+void restore_state_ex(void *drcontext, bool restore_memory,
+                      dr_restore_state_info_t *info)
 \endcode
 
 See \ref sec_translation for further details.
@@ -925,8 +928,9 @@ There are two methods for using the translated addresses:
 
 Furthermore, if the \client's modifications change any part of the machine
 state besides the program counter, the \client should use
-dr_register_restore_state_event() (see \ref sec_events_translation) to
-restore the registers to their original application values.
+dr_register_restore_state_event() or dr_register_restore_state_ex_event()
+(see \ref sec_events_translation) to restore the registers to their
+original application values.
 
 For meta instructions that do not reference application memory (i.e., they
 should not fault), leave the translation field as NULL.  A NULL value
@@ -938,7 +942,8 @@ this is not a valid relocation point, and \DynamoRIO's thread
 synchronization scheme will use another spot.  If the translation field is
 set to a non-NULL value, the \client should be willing to also restore the
 rest of the machine state at that point (restore spilled registers, etc.)
-via #dr_register_restore_state_event().  This is necessary for meta
+via #dr_register_restore_state_event() or
+#dr_register_restore_state_ex_event().  This is necessary for meta
 instructions that reference application memory.  \DynamoRIO takes care of
 such potentially-faulting instructions added by its own API routines
 (#dr_insert_clean_call() arguments that reference application data,
