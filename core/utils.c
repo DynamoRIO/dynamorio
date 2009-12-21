@@ -718,6 +718,22 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
 #  define DEADLOCK_AVOIDANCE_UNLOCK(lock, ownable) /* do nothing */
 #endif /* DEADLOCK_AVOIDANCE */
 
+#ifdef LINUX
+void
+mutex_fork_reset(mutex_t *mutex)
+{
+    /* i#239/PR 498752: need to free locks held by other threads at fork time.
+     * We can't call ASSIGN_INIT_LOCK_FREE as that clobbers any contention event
+     * (=> leak) and the debug-build lock lists (=> asserts like PR 504594).
+     */
+    mutex->lock_requests = LOCK_FREE_STATE;
+# ifdef DEADLOCK_AVOIDANCE
+    mutex->owner = INVALID_THREAD_ID;
+    mutex->owning_dcontext = NULL;
+# endif
+}
+#endif
+
 static uint spinlock_count = 0;     /* initialized in utils_init, but 0 is always safe */
 DECLARE_FREQPROT_VAR(static uint random_seed, 1234); /* initialized in utils_init */
 DEBUG_DECLARE(static uint initial_random_seed;)

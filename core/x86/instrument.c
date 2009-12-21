@@ -492,9 +492,12 @@ instrument_init(void)
         all_memory_areas_lock();
         update_all_memory_areas(client_libs[i].start, client_libs[i].end,
                                 /* FIXME: need to walk the sections: but may be
-                                 * better to obfuscate from clients anyway
+                                 * better to obfuscate from clients anyway.
+                                 * We can't set as MEMPROT_NONE as that leads to
+                                 * bugs if the app wants to interpret part of
+                                 * its code section (xref PR 504629).
                                  */
-                                MEMPROT_NONE, DR_MEMTYPE_IMAGE);
+                                MEMPROT_READ, DR_MEMTYPE_IMAGE);
         all_memory_areas_unlock();
 
         /* Since the user has to register all other events, it
