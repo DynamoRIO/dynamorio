@@ -499,14 +499,6 @@ Language=English
 Application %1!s! (%2!s!). System calls using sysenter are not supported on this operating system.
 .
 
-MessageId = 
-Severity = ERROR
-Facility = DRCore
-SymbolicName = MSG_ESX_VERSION_MISMATCH
-Language=English
-Application %1!s! (%2!s!). Please verify that the DynamoRIO build corresponds to the ESX/Visor build you are using.
-.
-
 ;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = ERROR
@@ -514,6 +506,16 @@ Facility = DRCore
 SymbolicName = MSG_WAITING_FOR_DEBUGGER
 Language=English
 Application %1!s! (%2!s!). Waiting for debugger to attach.
+.
+;#endif
+
+;#ifdef VMX86_SERVER
+MessageId =
+Severity = ERROR
+Facility = DRCore
+SymbolicName = MSG_DRVMKLIB_UNLOADABLE
+Language=English
+Application %1!s! (%2!s!). Unable to load vmklib library: %s.
 .
 ;#endif
 

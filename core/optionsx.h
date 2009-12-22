@@ -2599,11 +2599,6 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     }, "run dr in a light weight mode with nothing but a few hooks", STATIC,
     OP_PCACHE_NOP)
 
-#ifdef VMX86_SERVER
-    OPTION_DEFAULT(uint, vmkuw_version, 0,
-                   "override vmkernel userworld version this library was compiled for")
-#endif
-
 #undef OPTION
 #undef OPTION_NAME
 #undef OPTION_DEFAULT

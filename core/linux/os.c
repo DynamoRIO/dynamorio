@@ -1861,7 +1861,8 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     /* PR 365331: we need to be in the mmap_text region for code cache and
      * gencode (PROT_EXEC).
      */
-    ASSERT(!executable || preferred == NULL ||
+    ASSERT(!os_in_vmkernel_userworld() ||
+           !executable || preferred == NULL ||
            ((byte *)preferred >= os_vmk_mmap_text_start() &&
             ((byte *)preferred)+size <= os_vmk_mmap_text_end()));
     /* Note that a preferred address overrides PROT_EXEC and a mmap_data
@@ -1909,7 +1910,7 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     LOG(GLOBAL, LOG_HEAP, 2, "os_heap_reserve: %d bytes @ "PFX"\n", size, p);
 #ifdef VMX86_SERVER
     /* PR 365331: ensure our memory is all in the mmap_text region */
-    ASSERT(!executable ||
+    ASSERT(!os_in_vmkernel_userworld() || !executable ||
            ((byte *)p >= os_vmk_mmap_text_start() &&
             ((byte *)p) + size <= os_vmk_mmap_text_end()));
 #endif
@@ -4759,7 +4760,8 @@ post_system_call(dcontext_t *dcontext)
         prot = dcontext->sys_param2;
 #ifdef VMX86_SERVER
         /* PR 475111: workaround for PR 107872 */
-        if (result == -EBUSY && prot == PROT_NONE) {
+        if (os_in_vmkernel_userworld() &&
+            result == -EBUSY && prot == PROT_NONE) {
             result = mprotect_syscall(base, size, PROT_READ);
             SET_RETURN_VAL(dcontext, result);
             success = (result >= 0);
@@ -5457,6 +5459,14 @@ bool
 is_in_dynamo_dll(app_pc pc)
 {
     ASSERT(dynamo_dll_start != NULL);
+#ifdef VMX86_SERVER
+    /* We want to consider vmklib as part of the DR lib for allowing
+     * execution (_init calls os_in_vmkernel_classic()) and for
+     * reporting crashes as our fault
+     */
+    if (vmk_in_vmklib(pc))
+        return true;
+#endif
     return (pc >= dynamo_dll_start && pc < dynamo_dll_end);
 }
 
@@ -5878,6 +5888,10 @@ find_dynamo_library_vm_areas(void)
     add_dynamo_vm_area(get_dynamorio_dll_start(), get_dynamorio_dll_end(),
                        MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
                        true /* from image */ _IF_DEBUG(dynamorio_library_path));
+#ifdef VMX86_SERVER
+    if (os_in_vmkernel_userworld())
+        vmk_add_vmklib_to_dynamo_areas();
+#endif
     return 1;
 }
 

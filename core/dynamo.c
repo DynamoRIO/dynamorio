@@ -76,6 +76,10 @@
 
 #include "perscache.h"
 
+#ifdef VMX86_SERVER
+#  include "vmkuw.h"
+#endif
+
 /* global thread-shared variables */
 bool    dynamo_initialized = false;
 bool    dynamo_heap_initialized = false;
@@ -443,6 +447,10 @@ dynamorio_app_init(void)
 #endif
         statistics_init();
 
+#ifdef VMX86_SERVER
+        /* Must be before {vmm_,}heap_init() */
+        vmk_init_lib();
+#endif
 #ifdef CLIENT_INTERFACE
         /* PR 200207: load the client lib before callback_interception_init
          * since the client library load would hit our own hooks (xref hotpatch

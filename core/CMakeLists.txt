@@ -473,25 +473,6 @@ include_directories(BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}/${OSNAME}
   ${CMAKE_CURRENT_BINARY_DIR} # for event_strings.h and events.h
   )
-if (VMKERNEL)
-  # We need these only for the OS dependent files,
-  # yet there are no filename conflicts so always add to include paths
-  set(VMKERNEL_TREE "$ENV{VMTREE}") # path to bora
-  include_directories(AFTER
-    ${VMKERNEL_TREE}/public
-    ${VMKERNEL_TREE}/lib/public
-    ${VMKERNEL_TREE}/vmkernel/public
-    ${VMKERNEL_TREE}/vmkernel/include/vmkapi
-    ${VMKERNEL_TREE}/vmkernel/include/vmkapi/v50
-    ${VMKERNEL_TREE}/vmkernel/include/vmkapi/current
-    ${VMKERNEL_TREE}/vmkernel/include/user
-    ${VMKERNEL_TREE}/vmkernel/include/public
-    ${VMKERNEL_TREE}/lib/vmkuser/include/public
-    ${VMKERNEL_TREE}/vmkernel/distribute
-    ${VMKERNEL_TREE}/vmcore/public
-    )
-endif (VMKERNEL)
-
 
 # To support packaging both together we need different names
 # FIXME: should we also append Debug, and have an optional param
