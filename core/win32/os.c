@@ -1499,8 +1499,10 @@ memprot_to_osprot(uint prot)
 {
     uint os_prot = 0;
     if (TEST(MEMPROT_EXEC, prot)) {
-        ASSERT(TEST(MEMPROT_READ, prot));
-        if (TEST(MEMPROT_WRITE, prot))
+        if (!TEST(MEMPROT_READ, prot)) {
+            ASSERT(!TEST(MEMPROT_WRITE, prot));
+            os_prot = PAGE_EXECUTE;
+        } else if (TEST(MEMPROT_WRITE, prot))
             os_prot = PAGE_EXECUTE_READWRITE;
         else
             os_prot = PAGE_EXECUTE_READ;
@@ -2332,7 +2334,8 @@ mem_stats_snapshot()
  * unset if called when processing a system call for (un)map 
  */
 static void
-process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking)
+process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
+              const char *filepath)
 {
     const char *name = NULL;
     bool module_is_native_exec = false;
@@ -2376,7 +2379,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking)
      * or other data that we cache in the list.
      */
     if (add) /* add first */
-        module_list_add(base, size, !rewalking /* !rewalking <=> at_map */);
+        module_list_add(base, size, !rewalking /* !rewalking <=> at_map */, filepath);
     else
         os_module_set_flag(base, MODULE_BEING_UNLOADED);
 
@@ -2739,7 +2742,7 @@ find_executable_vm_areas()
             }
             view_size = pb_image - pb;
             process_image(image_base, view_size, image_prot,
-                          true /* add */, true /* rewalking */);
+                          true /* add */, true /* rewalking */, NULL);
         }
         if (!skip && process_memory_region(NULL, &mbi, true/*init*/, true/*add*/))
             num_executable++;
@@ -2773,7 +2776,7 @@ bool remove_from_all_memory_areas(app_pc start, app_pc end) { return true; }
  * returns the number of executable areas added to DR's list
  */
 int
-process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add)
+process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add, const char *filepath)
 {
     PBYTE pb;
     MEMORY_BASIC_INFORMATION mbi;
@@ -2792,7 +2795,8 @@ process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add)
         return num_executable;
     region_base = (app_pc) mbi.AllocationBase;
     if (mbi.Type == MEM_IMAGE) {
-        process_image(region_base, size, mbi.Protect, add, false /* not rewalking */);
+        process_image(region_base, size, mbi.Protect, add, false /* not rewalking */,
+                      filepath);
         image = true;
         image_prot = mbi.Protect;
     }
@@ -4188,6 +4192,79 @@ make_unwritable(byte *pc, size_t size)
 {
     internal_change_protection(pc, size, false/*relative*/, false, false/*ignored*/,
                                0, NULL);
+}
+
+bool
+convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
+                       IN size_t buf_len/*# elements*/)
+{
+    /* RtlNtPathNameToDosPathName is only available on XP+ */
+    HANDLE objdir;
+    UNICODE_STRING ustr;
+    wchar_t drive[3] = { L'x', L':', L'\0' };
+    PROCESS_DEVICEMAP_INFORMATION map;
+    uint i, len;
+    NTSTATUS res;
+    const wchar_t *lanman = L"\\Device\\LanmanRedirector\\";
+
+    LOG(THREAD_GET, LOG_NT, 3, "%s: converting %S\n", __FUNCTION__, fname);
+
+    /* Network paths: FIXME: what other forms do they take? */
+    if (wcsstr(fname, lanman) == fname) {
+        _snwprintf(buf, buf_len, L"\\\\%s", fname + wcslen(lanman));
+        buf[buf_len - 1] = L'\0';
+        LOG(THREAD_GET, LOG_NT, 3, "%s: result %S\n", __FUNCTION__, buf);
+        return true;
+    }
+
+    /* Plan for local files:
+     * 1) NtQueryInformationProcess ProcessDeviceMap => list of valid drive
+     *    letter symlinks (emulating kernel32!GetLogicalDriveStrings)
+     * 2) loop through each drive symlink, calling NtOpenSymbolicLinkObject
+     *    to get the target (emulating kernel32!QueryDosDevice)
+     * 3) when find a match, replace \Device\HarddiskVolumeX with drive letter
+     */
+    /* We could cache the drive map but it can change so we re-create every time */
+    res = nt_get_drive_map(NT_CURRENT_PROCESS, &map);
+    if (!NT_SUCCESS(res)) {
+        LOG(THREAD_GET, LOG_NT, 2, "%s: drive map error 0x%x\n", __FUNCTION__, res);
+        return false;
+    }
+    /* Open the \?? Dos devices dir, which is where the drive symlinks live.
+     * FIXME: via NtSetInformationProcess ProcessDeviceMap, can the device
+     * dir be different from "\??"?  How do we know?
+     */
+    res = nt_open_object_directory(&objdir, L"\\??", false);
+    if (!NT_SUCCESS(res)) {
+        LOG(THREAD_GET, LOG_NT, 2, "%s: \\?? error 0x%x\n", __FUNCTION__, res);
+        return false;
+    }
+    LOG(THREAD_GET, LOG_NT, 2, "%s: DriveMap=%d\n", __FUNCTION__, map.Query.DriveMap);
+    /* We use buf for our temporary buffer as well as final result */
+    ustr.Length = 0;
+    ustr.MaximumLength = (USHORT) buf_len*sizeof(wchar_t);
+    ustr.Buffer = buf;
+    for (i = 0; i < sizeof(map.Query.DriveType)/sizeof(UCHAR); i++) {
+        if (map.Query.DriveType[i] != DRIVE_UNKNOWN) {
+            drive[0] = L'A' + (wchar_t)i;
+            res = nt_get_symlink_target(objdir, drive, &ustr, &len);
+            if (NT_SUCCESS(res)) {
+                LOG(THREAD_GET, LOG_NT, 3, "%s: drive %d=%c: type=%d => %S\n",
+                    __FUNCTION__, i, 'A'+(wchar_t)i, map.Query.DriveType[i], ustr.Buffer);
+            } else {
+                LOG(THREAD_GET, LOG_NT, 3, "%s: failed to query symlink: 0x%x\n",
+                    __FUNCTION__, res);
+            }
+            if (wcsstr(fname, ustr.Buffer) == fname) {
+                /* We start with the \\ so we don't need to add one */
+                _snwprintf(buf, buf_len, L"%s%s", drive, fname+wcslen(ustr.Buffer));
+                buf[buf_len - 1] = L'\0';
+                LOG(THREAD_GET, LOG_NT, 3, "%s: result %S\n", __FUNCTION__, buf);
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 static bool

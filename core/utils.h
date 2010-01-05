@@ -886,6 +886,7 @@ typedef enum {
 
 ptr_uint_t hash_value(ptr_uint_t val, hash_function_t func, ptr_uint_t mask, uint bits);
 uint hashtable_num_bits(uint size);
+
 /****************************************************************************/
 
 /* Reachability helpers */

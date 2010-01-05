@@ -236,6 +236,7 @@ DECLARE_FREQPROT_VAR(static int num_execve_threads, 0);
 DECLARE_FREQPROT_VAR(static uint threads_ever_count, 0);
 
 /* FIXME : not static so os.c can hand walk it for dump core */
+/* FIXME: use new generic_table_t and generic_hash_* routines */
 thread_record_t ** all_threads; /* ALL_THREADS_HASH_BITS-bit addressed hash table */
 
 /* these locks are used often enough that we put them in .cspdata: */
@@ -1373,9 +1374,6 @@ delete_dynamo_context(dcontext_t *dcontext, bool free_stack)
     } /* else will be cleaned up by caller */
 
     ASSERT(dcontext->try_except_state == NULL);
-#ifdef WINDOWS
-    aslr_free_last_section_file_name(dcontext);
-#endif
 
 #ifdef RETURN_STACK
     LOG(THREAD, LOG_TOP, 1, "Return stack still has %d pair(s) on it\n",
@@ -1432,8 +1430,10 @@ initialize_dynamo_context(dcontext_t *dcontext)
     dcontext->aslr_context.randomized_section_handle = INVALID_HANDLE_VALUE;
     dcontext->aslr_context.original_image_section_handle = INVALID_HANDLE_VALUE;
     dcontext->aslr_context.original_section_base = ASLR_INVALID_SECTION_BASE;
+# ifdef DEBUG
+    dcontext->aslr_context.last_app_section_handle = INVALID_HANDLE_VALUE;
+# endif
     /* note that aslr_context.last_child_padded is preserved across callbacks */
-    aslr_free_last_section_file_name(dcontext);
     dcontext->ignore_enterexit = false;
 #else
     dcontext->sys_param0 = 0;

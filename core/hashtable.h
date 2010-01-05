@@ -84,7 +84,7 @@
  */
 #define TABLE_NEEDS_LOCK(ptable)                          \
     (TEST(HASHTABLE_SHARED, (ptable)->table_flags) &&     \
-     !TEST(HASHTABLE_READ_ONLY, (ptable)->table_flags))   \
+     !TEST(HASHTABLE_READ_ONLY, (ptable)->table_flags))
 
 /* is_local is currently debug-only and only affects asserts */
 #define ASSERT_TABLE_SYNCHRONIZED(ptable, RW)                                \
@@ -172,6 +172,53 @@ typedef struct _fragment_stat_entry_t {
  */
 uint
 hashtable_bits_given_entries(uint entries, uint load);
+
+/*******************************************************************************
+ * GENERIC HASHTABLE INSTANTIATION
+ */
+
+/* To support arbitrary payloads versus tags we have 3 choices:
+ * 1) assume payload struct has tag as pointer-sized field at offs 0
+ * 2) wrap struct w/ tag,payload pair
+ * 3) pass table_t to ENTRY_TAG and _ ARE_EQUAL
+ * We go with #2 as it is the cleanest.  If users really need to save space
+ * they can templatize their own hashtable code.
+ */
+typedef struct _generic_entry_t {
+    ptr_uint_t key; /* called "tag" in hashtablex.h */
+    void *payload;
+} generic_entry_t;
+
+/* macros w/ name and types are duplicated in utils.c -- keep in sync */
+#define NAME_KEY generic
+#define ENTRY_TYPE generic_entry_t *
+/* not defining HASHTABLE_USE_LOOKUPTABLE */
+#define CUSTOM_FIELDS \
+    void (*free_payload_func)(void*);
+#define HASHTABLEX_HEADER 1
+#include "hashtablex.h"
+#undef HASHTABLEX_HEADER
+
+generic_table_t *
+generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent, 
+                    uint table_flags, void (*free_payload_func)(void*)
+                    _IF_DEBUG(const char *table_name));
+
+void
+generic_hash_destroy(dcontext_t *dcontext, generic_table_t *htable);
+
+void *
+generic_hash_lookup(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key);
+
+void
+generic_hash_add(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key,
+                 void *payload);
+
+bool
+generic_hash_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key);
+
+/*******************************************************************************/
+
 
 #ifdef HASHTABLE_STATISTICS
 /* caller is responsible for any needed synchronization */

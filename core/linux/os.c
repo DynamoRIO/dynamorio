@@ -4458,7 +4458,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
          */
 #endif /* HAVE_PROC_MAPS */
         /* XREF 307599 on rounding module end to the next PAGE boundary */
-        module_list_add(base, ALIGN_FORWARD(size, PAGE_SIZE), true, inode, filename);
+        module_list_add(base, ALIGN_FORWARD(size, PAGE_SIZE), true, filename, inode);
         if (found_map)
             dr_strfree(filename HEAPACCT(ACCT_OTHER));
     }
@@ -5545,7 +5545,7 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
     }
 # endif
     if (modbase != vsyscall_page_start)
-        module_list_add(modbase, modsize, false, 0/*don't have inode*/, info->dlpi_name);
+        module_list_add(modbase, modsize, false, info->dlpi_name, 0/*don't have inode*/);
 
     for (i = 0; i < info->dlpi_phnum; i++) {
         app_pc start, end;
@@ -5830,7 +5830,7 @@ find_executable_vm_areas(void)
                 "Found already mapped module total module :\n"
                 "\t"PFX"-"PFX" inode="UINT64_FORMAT_STRING" name=%s\n",
                 iter.vm_start, iter.vm_start+image_size, iter.inode, iter.comment);
-            module_list_add(iter.vm_start, image_size, false, iter.inode, iter.comment);
+            module_list_add(iter.vm_start, image_size, false, iter.comment, iter.inode);
         } else if (iter.inode != 0) {
             DODEBUG({ map_type = "Mapped File"; });
         }

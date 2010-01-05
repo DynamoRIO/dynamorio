@@ -108,16 +108,16 @@ os_get_module_info_write_locked(void)
 /**************** module_area routines *****************/
 
 static module_area_t *
-module_area_create(app_pc base, size_t view_size, bool at_map _IF_LINUX(uint64 inode)
-                   _IF_LINUX(const char *filename))
+module_area_create(app_pc base, size_t view_size, bool at_map, const char *filepath
+                   _IF_LINUX(uint64 inode))
 {
     module_area_t *ma =
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_area_t, ACCT_VMAREAS, PROTECTED);
     memset(ma, 0, sizeof(*ma));
     ma->start = base;
     ma->end = base + view_size;
-    os_module_area_init(ma, base, view_size, at_map _IF_LINUX(inode)
-                        _IF_LINUX(filename) HEAPACCT(ACCT_VMAREAS));
+    os_module_area_init(ma, base, view_size, at_map, filepath _IF_LINUX(inode)
+                        HEAPACCT(ACCT_VMAREAS));
     return ma;
 }
 
@@ -189,8 +189,8 @@ modules_exit(void)
 /**************** module_list updating routines *****************/
 
 void
-module_list_add(app_pc base, size_t view_size, bool at_map _IF_LINUX(uint64 inode)
-                _IF_LINUX(const char *filename))
+module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
+                _IF_LINUX(uint64 inode))
 {
 #ifdef CLIENT_INTERFACE
     module_data_t *client_data = NULL;
@@ -202,8 +202,8 @@ module_list_add(app_pc base, size_t view_size, bool at_map _IF_LINUX(uint64 inod
     os_get_module_info_write_lock();
     /* defensively checking */
     if (!vmvector_overlap(loaded_module_areas, base, base+view_size)) {
-        module_area_t *ma = module_area_create(base, view_size, at_map _IF_LINUX(inode)
-                                               _IF_LINUX(filename));
+        module_area_t *ma = module_area_create(base, view_size, at_map, filepath
+                                               _IF_LINUX(inode));
         ASSERT(ma != NULL);
         
         LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1, "module %s ["PFX","PFX"] added\n",

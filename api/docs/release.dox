@@ -108,6 +108,10 @@ The following are part of the \DynamoRIO release distribution:
 The current version is \DR_VERSION and is backward compatible with releases from
 1.0.0 (originally called 0.9.6: see below) onward.
 
+The changes between version 1.6.0 and 1.5.0 are:
+
+ - Added the full path to modules in module_data_t
+
 The changes between version 1.5.0 and 1.4.0 are:
 
  - Added a private loader on Windows for better support for library usage

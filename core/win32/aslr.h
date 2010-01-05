@@ -445,7 +445,7 @@ typedef struct {
     /* ASLR_SHARED_CONTENTS needs to preserve some context across
      * NtCreateSection and NtMapViewOfSection system calls
      * xref case 9028 about using a more robust scheme that doesn't depend
-     * on these being consecutive
+     * on these being consecutive: FIXME: add to section2file table?
      */
     HANDLE randomized_section_handle; /* for shared randomization */
     app_pc original_section_base; /* for detecting attacks */
@@ -455,15 +455,10 @@ typedef struct {
     /* used for !ASLR_ALLOW_ORIGINAL_CLOBBER to pass information from
      * NtCreateSection to NtMapViewOfSection or NtCreateProcess* */
 
-    /* Case 1272: store short file name from section creation for use when
-     * module is mapped in.  These two fields are thus used for non-aslr
-     * purposes.  We will fail to keep the file name if there are
-     * non-properly-nested calls to create a section and map it (case 9028).
-     */
-    const char *last_section_file_name;
+#ifdef DEBUG
+    /* with i#138's section2file table we only use this for debugging */
     HANDLE last_app_section_handle; /* flagging unusual section handle uses */
-    /* e.g. a NtMapViewOfSection that doesn't immediately follow
-     * NtCreateSection or NtOpenSection  */
+#endif
 
     /* Case 9173: only pad each child once.  Rather than record every child seen
      * (which has problems w/ pid reuse, as well as unbounded growth, as we

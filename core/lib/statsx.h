@@ -140,6 +140,7 @@
     STATS_DEF("Module rebindings", num_app_rebinds)
 #ifdef WINDOWS
     STATS_DEF("Application map mismatches with sections", map_section_mismatch)
+    STATS_DEF("Application map file unknown Dos name", map_unknown_Dos_name)
 #endif
     STATS_DEF("Application modules with long names", app_modname_too_long)
     STATS_DEF("Application modules with code", num_app_code_modules)

@@ -415,7 +415,7 @@ module_read_program_header(app_pc base,
 
 void
 os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
-                    bool at_map, uint64 inode, const char *filename
+                    bool at_map, const char *filepath, uint64 inode
                     HEAPACCT(which_heap_t which))
 {
     app_pc mod_base, mod_end;
@@ -470,10 +470,14 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
 
     /* names - note os.c callers don't distinguish between no filename and an empty
      * filename, we treat both as NULL, but leave the distinction for SONAME. */
-    if (filename == NULL || filename[0] == '\0')
+    if (filepath == NULL || filepath[0] == '\0') {
         ma->names.file_name = NULL;
-    else
-        ma->names.file_name = dr_strdup(get_short_name(filename) HEAPACCT(which));
+        ma->full_path = NULL;
+    } else {
+        ma->names.file_name = dr_strdup(get_short_name(filepath) HEAPACCT(which));
+        /* We could share alloc w/ names.file_name but simpler to separate */
+        ma->full_path = dr_strdup(filepath HEAPACCT(which));
+    }
     ma->names.inode = inode;
     if (soname == NULL)
         ma->names.module_name = NULL;
@@ -526,7 +530,8 @@ print_modules(file_t f, bool dump_xml)
 void
 os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which))
 {
-    /* nothing */
+    if (ma->full_path != NULL)
+        dr_strfree(ma->full_path HEAPACCT(which));
 }
 
 /* The hash func used in the ELF hash tables.

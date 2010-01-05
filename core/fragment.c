@@ -764,7 +764,7 @@ static void
 hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits, 
                      uint load_factor_percent, hash_function_t func,
                      uint hash_offset, ibl_branch_type_t branch_type,
-                     bool use_lookup, uint table_flags NAME(const char *table_name))
+                     bool use_lookup, uint table_flags _IF_DEBUG(const char *table_name))
 {
     uint flags = table_flags;
     ASSERT(dcontext != GLOBAL_DCONTEXT || TEST(FRAG_TABLE_SHARED, flags));
@@ -780,7 +780,7 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
 #endif
     table->branch_type = branch_type;
     hashtable_ibl_init(dcontext, table, bits, load_factor_percent,
-                       func, hash_offset, flags NAME(table_name));
+                       func, hash_offset, flags _IF_DEBUG(table_name));
 
     /* PR 305731: rather than having a start_pc of 0, which causes an
      * app targeting 0 to crash at 0, we point at a handler that sends
@@ -1333,7 +1333,7 @@ fragment_reset_init(void)
                                     (hash_function_t)INTERNAL_OPTION(alt_hash_func),
                                     0 /* hash_mask_offset */,
                                     FRAG_TABLE_SHARED | FRAG_TABLE_TARGET_SHARED
-                                    NAME("shared_bb"));
+                                    _IF_DEBUG("shared_bb"));
         }
         if (DYNAMO_OPTION(shared_traces)) {
             hashtable_fragment_init(GLOBAL_DCONTEXT, shared_trace,
@@ -1342,7 +1342,7 @@ fragment_reset_init(void)
                                     (hash_function_t)INTERNAL_OPTION(alt_hash_func),
                                     0 /* hash_mask_offset */,
                                     FRAG_TABLE_SHARED | FRAG_TABLE_TARGET_SHARED
-                                    NAME("shared_trace"));
+                                    _IF_DEBUG("shared_trace"));
         }
         /* init routine will work for future_fragment_t* same as for fragment_t* */
         hashtable_fragment_init(GLOBAL_DCONTEXT, shared_future,
@@ -1351,7 +1351,7 @@ fragment_reset_init(void)
                                 (hash_function_t)INTERNAL_OPTION(alt_hash_func),
                                 0 /* hash_mask_offset */,
                                 FRAG_TABLE_SHARED | FRAG_TABLE_TARGET_SHARED
-                                NAME("shared_future"));
+                                _IF_DEBUG("shared_future"));
     }
 
     if (SHARED_IBT_TABLES_ENABLED()) {
@@ -1373,7 +1373,7 @@ fragment_reset_init(void)
                                      FRAG_TABLE_SHARED |
                                      FRAG_TABLE_TARGET_SHARED |
                                      FRAG_TABLE_TRACE
-                                     NAME(ibl_trace_table_type_names[branch_type]));
+                                     _IF_DEBUG(ibl_trace_table_type_names[branch_type]));
 #ifdef HASHTABLE_STATISTICS
                 if (INTERNAL_OPTION(hashtable_ibl_stats)) {
                     CHECK_UNPROT_STATS(&shared_pt->trace_ibt[branch_type]);
@@ -1396,7 +1396,7 @@ fragment_reset_init(void)
                                      false, /* no lookup table */
                                      FRAG_TABLE_SHARED |
                                      FRAG_TABLE_TARGET_SHARED
-                                     NAME(ibl_bb_table_type_names[branch_type]));
+                                     _IF_DEBUG(ibl_bb_table_type_names[branch_type]));
                 /* mark as inclusive table for bb's - we in fact currently
                  * keep only frags that are not FRAG_IS_TRACE_HEAD */
 #ifdef HASHTABLE_STATISTICS
@@ -1883,14 +1883,14 @@ fragment_thread_reset_init(dcontext_t *dcontext)
     hashtable_fragment_init(dcontext, &pt->bb, INIT_HTABLE_SIZE_BB,
                             INTERNAL_OPTION(private_bb_load),
                             (hash_function_t)INTERNAL_OPTION(alt_hash_func),
-                            0, 0 NAME("bblock"));
+                            0, 0 _IF_DEBUG("bblock"));
 
     /* init routine will work for future_fragment_t* same as for fragment_t* */
     hashtable_fragment_init(dcontext, &pt->future, INIT_HTABLE_SIZE_FUTURE,
                             INTERNAL_OPTION(private_future_load),
                             (hash_function_t)INTERNAL_OPTION(alt_hash_func),
                             0 /* hash_mask_offset */, 0
-                            NAME("future"));
+                            _IF_DEBUG("future"));
     
     /* The trace table now is not used by IBL routines, and
      * therefore doesn't need a lookup table, we can also use the
@@ -1902,7 +1902,7 @@ fragment_thread_reset_init(dcontext_t *dcontext)
                                 (hash_function_t)INTERNAL_OPTION(alt_hash_func),
                                 0 /* hash_mask_offset */,
                                 FRAG_TABLE_TRACE
-                                NAME("trace"));
+                                _IF_DEBUG("trace"));
     }
 
     /* We'll now have more control over hashtables based on branch
@@ -1929,7 +1929,7 @@ fragment_thread_reset_init(dcontext_t *dcontext)
                                      (DYNAMO_OPTION(shared_traces) ?
                                       FRAG_TABLE_TARGET_SHARED : 0) |
                                      FRAG_TABLE_TRACE
-                                     NAME(ibl_trace_table_type_names[branch_type]));
+                                     _IF_DEBUG(ibl_trace_table_type_names[branch_type]));
 #ifdef HASHTABLE_STATISTICS
                 if (INTERNAL_OPTION(hashtable_ibl_stats)) {
                     CHECK_UNPROT_STATS(pt->trace_ibt[branch_type]);
@@ -1995,7 +1995,7 @@ fragment_thread_reset_init(dcontext_t *dcontext)
                                      false, /* no lookup table */
                                      (DYNAMO_OPTION(shared_bbs) ?
                                       FRAG_TABLE_TARGET_SHARED : 0)
-                                     NAME(ibl_bb_table_type_names[branch_type]));
+                                     _IF_DEBUG(ibl_bb_table_type_names[branch_type]));
                 /* mark as inclusive table for bb's - we in fact currently
                  * keep only frags that are not FRAG_IS_TRACE_HEAD */
 #ifdef HASHTABLE_STATISTICS
@@ -2036,7 +2036,7 @@ fragment_thread_reset_init(dcontext_t *dcontext)
 #ifdef NATIVE_RETURN
     hashtable_fragment_init(dcontext, &pt->deleted, INIT_HTABLE_SIZE_DELETED, 75, 
                             (hash_function_t)INTERNAL_OPTION(alt_hash_func), 
-                            0 /* hash_mask_offset */, 0 NAME("deleted"));
+                            0 /* hash_mask_offset */, 0 _IF_DEBUG("deleted"));
 #endif
     update_generated_hashtable_access(dcontext);
 }
@@ -4691,8 +4691,8 @@ rct_table_add(dcontext_t *dcontext, app_pc tag, rct_type_t which)
                                * way to estimate final size, so going to
                                * relax a little as not perf-critical */
                               | HASHTABLE_RELAX_CLUSTER_CHECKS
-                              NAME(which == RCT_RAC ? "after_call_targets" :
-                                   "rct_ind_targets"));
+                              _IF_DEBUG(which == RCT_RAC ? "after_call_targets" :
+                                        "rct_ind_targets"));
         STATS_RCT_ADD(which, live_tables, 1);
     }
     ASSERT(permod->live_table != NULL);
@@ -4871,8 +4871,8 @@ app_pc_table_t *
 rct_table_resurrect(dcontext_t *dcontext, byte *mapped_table, rct_type_t which)
 {
     return hashtable_app_pc_resurrect(GLOBAL_DCONTEXT, mapped_table
-                                      NAME(which == RCT_RAC ? "after_call_targets" :
-                                           "rct_ind_targets"));
+                                      _IF_DEBUG(which == RCT_RAC ? "after_call_targets" :
+                                                "rct_ind_targets"));
 }
 
 void
@@ -7595,7 +7595,7 @@ fragment_coarse_htable_create(coarse_info_t *info, uint init_capacity,
                           0 /* hash_mask_offset */,
                           HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                           HASHTABLE_RELAX_CLUSTER_CHECKS
-                          NAME("coarse htable"));
+                          _IF_DEBUG("coarse htable"));
     info->htable = (void *) htable;
 
     /* We could create th_htable lazily independently of htable but not worth it */
@@ -7614,7 +7614,7 @@ fragment_coarse_htable_create(coarse_info_t *info, uint init_capacity,
                           0 /* hash_mask_offset */,
                           HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                           HASHTABLE_RELAX_CLUSTER_CHECKS
-                          NAME("coarse th htable"));
+                          _IF_DEBUG("coarse th htable"));
     /* We give th table a lower lock rank for coarse_body_from_htable_entry().
      * FIXME: add param to init() that takes in lock rank?
      */
@@ -8349,7 +8349,7 @@ fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_
                                   0 /* hash_mask_offset */,
                                   HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                                   HASHTABLE_RELAX_CLUSTER_CHECKS
-                                  NAME("coarse pclookup htable"));
+                                  _IF_DEBUG("coarse pclookup htable"));
             /* We give pc table a lower lock rank so we can add below
              * while holding the lock, though the table is still local
              * while we hold info->lock and do not write it out to its
@@ -8663,8 +8663,9 @@ fragment_coarse_htable_resurrect(dcontext_t *dcontext,  coarse_info_t *info,
     ASSERT(mapped_table != NULL);
     ASSERT(*htable == NULL);
     *htable = hashtable_coarse_resurrect(dcontext, mapped_table
-                                         NAME(cache_table ? "persisted cache htable" :
-                                              "persisted stub htable"));
+                                         _IF_DEBUG(cache_table ?
+                                                   "persisted cache htable" :
+                                                   "persisted stub htable"));
     /* generally want to keep basic alignment */
     ASSERT_CURIOSITY(ALIGNED((*htable)->table, sizeof(app_pc)));
 }

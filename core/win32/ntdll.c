@@ -357,6 +357,14 @@ GET_NTDLL(NtQueryInformationToken, (IN HANDLE TokenHandle,
  * comments in GET_SYSCALL definition.
  */
 
+GET_RAW_SYSCALL(QueryVirtualMemory,
+                IN HANDLE ProcessHandle,
+                IN const void *BaseAddress,
+                IN MEMORY_INFORMATION_CLASS MemoryInformationClass,
+                OUT PVOID MemoryInformation,
+                IN SIZE_T MemoryInformationLength,
+                OUT PSIZE_T ReturnLength OPTIONAL);
+
 GET_RAW_SYSCALL(MapViewOfSection, 
                 IN HANDLE           SectionHandle,
                 IN HANDLE           ProcessHandle,
@@ -1522,6 +1530,14 @@ is_wow64_process(HANDLE h)
     return self_is_wow64;
 }
 
+NTSTATUS
+nt_get_drive_map(HANDLE process, PROCESS_DEVICEMAP_INFORMATION *map OUT)
+{
+    ULONG len = 0;
+    return NtQueryInformationProcess(process, ProcessDeviceMap,
+                                     map, sizeof(*map), &len);
+}
+
 /* use base hint if present; will bump size up to PAGE_SIZE multiple
  * Note returns raw NTSTATUS.
  */
@@ -1649,13 +1665,6 @@ query_virtual_memory(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbile
 {
     NTSTATUS res;
     SIZE_T got;
-    GET_RAW_SYSCALL(QueryVirtualMemory,
-                    IN HANDLE ProcessHandle,
-                    IN const void *BaseAddress,
-                    IN MEMORY_INFORMATION_CLASS MemoryInformationClass,
-                    OUT PVOID MemoryInformation,
-                    IN SIZE_T MemoryInformationLength,
-                    OUT PSIZE_T ReturnLength OPTIONAL);
     ASSERT(mbilen == sizeof(MEMORY_BASIC_INFORMATION));
     memset(mbi, 0, sizeof(MEMORY_BASIC_INFORMATION));
     res = NT_SYSCALL(QueryVirtualMemory, NT_CURRENT_PROCESS, pc, MemoryBasicInformation,
@@ -1674,6 +1683,30 @@ query_virtual_memory(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbile
 #endif
 
     return got;
+}
+
+NTSTATUS
+get_mapped_file_name(const byte *pc, PWSTR buf, USHORT buf_bytes)
+{
+    NTSTATUS res;
+    SIZE_T got;
+    /* name.SectionFileName.Buffer MUST be inlined: even if Buffer is initialized
+     * to point elsewhere, the kernel modifies it.  The size passed in must include
+     * the struct and the post-inlined buffer.
+     */
+    MEMORY_SECTION_NAME *name = (MEMORY_SECTION_NAME *) buf;
+    name->SectionFileName.Length = 0;
+    name->SectionFileName.MaximumLength = buf_bytes - sizeof(*name);
+    name->SectionFileName.Buffer = buf + sizeof(*name);
+    res = NT_SYSCALL(QueryVirtualMemory, NT_CURRENT_PROCESS, pc, MemorySectionName,
+                     name, buf_bytes, &got);
+    if (NT_SUCCESS(res)) {
+        /* save since we'll be clobbering the fields */
+        int len = name->SectionFileName.Length;
+        memmove(buf, name->SectionFileName.Buffer, len);
+        buf[len/sizeof(wchar_t)] = L'\0';
+    }
+    return res;
 }
 
 int
@@ -1932,8 +1965,9 @@ int
 close_handle(HANDLE h)
 {
     NTSTATUS res;
-    GET_NTDLL(NtClose, (IN HANDLE Handle));
-    res = NtClose(h);
+    GET_RAW_SYSCALL(Close,
+                    IN HANDLE Handle);
+    res = NT_SYSCALL(Close, h);
     return NT_SUCCESS(res);
 }
 
@@ -1944,15 +1978,16 @@ duplicate_handle(HANDLE source_process, HANDLE source, HANDLE target_process,
                  uint options)
 {
     NTSTATUS res;
-    GET_NTDLL(NtDuplicateObject, (IN HANDLE SourceProcessHandle,
-                                  IN HANDLE SourceHandle,
-                                  IN HANDLE TargetProcessHandle,
-                                  OUT PHANDLE TargetHandle OPTIONAL,
-                                  IN ACCESS_MASK DesiredAcess,
-                                  IN ULONG Atrributes,
-                                  IN ULONG options_t));
-    res = NtDuplicateObject(source_process, source, target_process, target, 
-                            access, attributes, options);
+    GET_RAW_SYSCALL(DuplicateObject,
+                    IN HANDLE SourceProcessHandle,
+                    IN HANDLE SourceHandle,
+                    IN HANDLE TargetProcessHandle,
+                    OUT PHANDLE TargetHandle OPTIONAL,
+                    IN ACCESS_MASK DesiredAcess,
+                    IN ULONG Atrributes,
+                    IN ULONG options_t);
+    res = NT_SYSCALL(DuplicateObject, source_process, source, target_process, target, 
+                     access, attributes, options);
     return res;
 }
 

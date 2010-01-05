@@ -151,6 +151,7 @@ typedef struct _module_area_t {
     uint flags;
 
     module_names_t names;
+    char *full_path;
 
     os_module_data_t os_data; /* os specific data for this module */
 } module_area_t;
@@ -183,8 +184,8 @@ void modules_exit(void);
 void modules_reset_list(void);
 
 /**************** module_list updating routines *****************/
-void module_list_add(app_pc base, size_t view_size, bool at_map _IF_LINUX(uint64 inode)
-                     _IF_LINUX(const char *filename));
+void module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
+                     _IF_LINUX(uint64 inode));
 void module_list_remove(app_pc base, size_t view_size);
 
 /**************** module_data_lock routines *****************/
@@ -243,8 +244,8 @@ void module_iterator_stop(module_iterator_t *mi);
 void os_modules_init(void);
 void os_modules_exit(void);
 void os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
-                         bool at_map _IF_LINUX(uint64 inode)
-                         _IF_LINUX(const char *filename) HEAPACCT(which_heap_t which));
+                         bool at_map, const char *filepath
+                         _IF_LINUX(uint64 inode) HEAPACCT(which_heap_t which));
 void os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which));
 void free_module_names(module_names_t *mod_names HEAPACCT(which_heap_t which));
 

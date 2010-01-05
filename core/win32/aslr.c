@@ -475,27 +475,8 @@ aslr_thread_init(dcontext_t *dcontext)
 }
 
 void
-aslr_set_last_section_file_name(dcontext_t *dcontext, const wchar_t *short_name)
-{
-    aslr_free_last_section_file_name(dcontext);
-    dcontext->aslr_context.last_section_file_name =
-        (const char *) dr_wstrdup(short_name HEAPACCT(ACCT_OTHER));
-}
-
-void
-aslr_free_last_section_file_name(dcontext_t *dcontext)
-{
-    if (dcontext->aslr_context.last_section_file_name != NULL) {
-        dr_strfree(dcontext->aslr_context.last_section_file_name
-                   HEAPACCT(ACCT_OTHER));
-    }
-    dcontext->aslr_context.last_section_file_name = NULL;
-}
-
-void
 aslr_thread_exit(dcontext_t *dcontext)
 {
-    aslr_free_last_section_file_name(dcontext);
 }
 
 /* ASLR random range choice */
@@ -1725,8 +1706,15 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                 const char *module_name = NULL;
                 bool alloc = false;
                 uint module_characteristics;
-                if (DYNAMO_OPTION(track_module_filenames))
-                    module_name = dcontext->aslr_context.last_section_file_name;
+                if (DYNAMO_OPTION(track_module_filenames)) {
+                    const char *path = section_to_file_lookup(section_handle);
+                    if (path != NULL) {
+                        module_name = get_short_name(path);
+                        if (module_name != NULL)
+                            module_name = dr_strdup(module_name HEAPACCT(ACCT_OTHER));
+                        dr_strfree(path HEAPACCT(ACCT_VMAREAS));
+                    }
+                }
                 if (module_name == NULL) {
                     alloc = true;
                     module_name =

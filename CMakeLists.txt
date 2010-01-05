@@ -240,7 +240,7 @@ set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
 # resources when packaging
 # N.B.: once VERSION_NUMBER crosses 2.x we'll need to update the
 # symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER "1.5.0" CACHE STRING "Version number")
+set(VERSION_NUMBER "1.6.0" CACHE STRING "Version number")
 string(REGEX REPLACE "\\." "," VERSION_COMMA_DELIMITED "${VERSION_NUMBER}")
 set(BUILD_NUMBER "18" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "18" CACHE STRING "Unique build number")

@@ -199,7 +199,8 @@ void global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t whi
 
 /* use global heap for shared fragments and their related data structures */
 #define FRAGMENT_ALLOC_DC(dc, flags) (TEST(FRAG_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
-#define FRAGMENT_TABLE_ALLOC_DC(dc, flags) (TEST(FRAG_TABLE_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
+#define FRAGMENT_TABLE_ALLOC_DC(dc, flags) \
+    (TEST(HASHTABLE_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
 
 /* convenience for allocating a single type: does cast, sizeof, and HEAPACCT
  * for you, and takes param for whether protected or not

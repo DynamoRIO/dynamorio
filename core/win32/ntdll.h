@@ -454,6 +454,22 @@ typedef struct _VM_COUNTERS {
     SIZE_T PeakPagefileUsage;
 } VM_COUNTERS;
 
+/* format of data returned by QueryInformationProcess ProcessDeviceMap */
+typedef struct _PROCESS_DEVICEMAP_INFORMATION {
+    union {
+        struct {
+            HANDLE DirectoryHandle;
+        } Set;
+        struct {
+            ULONG DriveMap;
+            UCHAR DriveType[32];
+        } Query;
+    };
+#ifdef X64
+    ULONG Flags;
+#endif
+} PROCESS_DEVICEMAP_INFORMATION, *PPROCESS_DEVICEMAP_INFORMATION;
+
 #if defined(NOT_DYNAMORIO_CORE)
 # ifndef bool
 typedef int bool;
@@ -953,6 +969,10 @@ typedef enum _MEMORY_INFORMATION_CLASS {
     MemoryBasicVlmInformation
 } MEMORY_INFORMATION_CLASS;
 
+typedef struct _MEMORY_SECTION_NAME {
+    UNICODE_STRING SectionFileName;
+} MEMORY_SECTION_NAME, *PMEMORY_SECTION_NAME;
+
 #define SYMBOLIC_LINK_QUERY (0x1)
 #define SYMBOLIC_LINK_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | SYMBOLIC_LINK_QUERY)
 
@@ -1102,6 +1122,9 @@ get_ntdll_base(void);
 size_t
 query_virtual_memory(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbilen);
 
+NTSTATUS
+get_mapped_file_name(const byte *pc, PWSTR buf, USHORT buf_bytes);
+
 /* for allocating in another process, 
  * keep in mind base is now IN/OUT value, a NULL value means no preference
  * will bump size up to PAGE_SIZE multiple */
@@ -1214,6 +1237,9 @@ get_process_load(HANDLE h);
 
 int
 is_wow64_process(HANDLE h);
+
+NTSTATUS
+nt_get_drive_map(HANDLE process, PROCESS_DEVICEMAP_INFORMATION *map OUT);
 
 void *
 get_section_address(HANDLE h);
@@ -1439,6 +1465,11 @@ query_full_attributes_file(PCWSTR filename,
 
 /*  A non close operation has been requested of a file object with a delete pending. */
 #define STATUS_DELETE_PENDING            ((NTSTATUS)0xC0000056L)
+
+/* The volume for a file has been externally altered such that the opened file 
+ * is no longer valid.
+ */
+#define STATUS_FILE_INVALID              ((NTSTATUS)0xC0000098L)
 
 /*  The file that was specified as a target is a directory and the
  * caller specified that it could be anything but a directory.

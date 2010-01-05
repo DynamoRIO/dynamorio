@@ -1270,6 +1270,7 @@ void instrument_load_client_libs(void);
 void instrument_init(void);
 void instrument_exit(void);
 bool is_in_client_lib(app_pc addr);
+const char *get_client_path_from_addr(app_pc addr);
 bool is_valid_client_id(client_id_t id);
 void instrument_thread_init(dcontext_t *dcontext);
 void instrument_thread_exit(dcontext_t *dcontext);
@@ -1736,8 +1737,7 @@ struct _module_data_t {
                            * dr_module_preferred_name() to get the preferred name for
                            * this module */
 
-    char *full_path; /**< full path to the file backing this module;
-                      * currently not implemented (always NULL): i#138 */
+    char *full_path; /**< full path to the file backing this module */
 
 #ifdef WINDOWS
     version_number_t file_version; /**< file version number from .rsrc section */

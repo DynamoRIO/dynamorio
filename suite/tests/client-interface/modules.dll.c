@@ -57,6 +57,12 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
      * different runs.  For the sake of making this test robust, I'll
      * just look for the module in question.
      */
+    /* Test i#138 */
+    if (data->full_path == NULL || data->full_path[0] == '\0')
+        dr_printf("ERROR: full_path empty for %s\n", dr_module_preferred_name(data));
+    /* We do not expect \\server-style paths for this test */
+    else if (data->full_path[0] == '\\' || data->full_path[1] != ':')
+        dr_printf("ERROR: full_path is not in DOS format: %s\n", data->full_path);
     if (string_match(data->names.module_name, "ADVAPI32.dll"))
         dr_printf("LOADED MODULE: %s\n", data->names.module_name);
 }

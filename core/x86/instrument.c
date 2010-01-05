@@ -627,6 +627,20 @@ is_in_client_lib(app_pc addr)
     return false;
 }
 
+const char *
+get_client_path_from_addr(app_pc addr)
+{
+    size_t i;
+    for (i=0; i<num_client_libs; i++) {
+        if ((addr >= (app_pc)client_libs[i].start) &&
+            (addr < client_libs[i].end)) {
+            return client_libs[i].path;
+        }
+    }
+
+    return "";
+}
+
 bool
 is_valid_client_id(client_id_t id)
 {
@@ -1342,7 +1356,8 @@ instrument_end_trace(dcontext_t *dcontext, app_pc trace_tag, app_pc next_tag)
 
 static module_data_t *
 create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
-                                  uint flags, const module_names_t *names
+                                  uint flags, const module_names_t *names,
+                                  const char *full_path
 #ifdef WINDOWS
                                   , version_number_t file_version,
                                   version_number_t product_version,
@@ -1360,6 +1375,8 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
     copy->entry_point = entry_point;
     copy->flags = flags;
 
+    if (full_path != NULL)
+        copy->full_path = dr_strdup(full_path HEAPACCT(ACCT_CLIENT));
     if (names->module_name != NULL)
         copy->names.module_name = dr_strdup(names->module_name HEAPACCT(ACCT_CLIENT));
     if (names->file_name != NULL)
@@ -1386,7 +1403,7 @@ copy_module_area_to_module_data(const module_area_t *area)
         return NULL;
 
     return create_and_initialize_module_data(area->start, area->end, area->entry_point,
-                                             0, &area->names
+                                             0, &area->names, area->full_path
 #ifdef WINDOWS
                                              , area->os_data.file_version,
                                              area->os_data.product_version,
@@ -1408,7 +1425,7 @@ dr_copy_module_data(const module_data_t *data)
         return NULL;
 
     return create_and_initialize_module_data(data->start, data->end, data->entry_point,
-                                             0, &data->names
+                                             0, &data->names, data->full_path
 #ifdef WINDOWS
                                              , data->file_version,
                                              data->product_version,
@@ -1434,6 +1451,8 @@ dr_free_module_data(module_data_t *data)
         return;
     }
 
+    if (data->full_path != NULL)
+        dr_strfree(data->full_path HEAPACCT(ACCT_CLIENT));
     free_module_names(&data->names HEAPACCT(ACCT_CLIENT));
 
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, data, module_data_t, ACCT_CLIENT, UNPROTECTED);

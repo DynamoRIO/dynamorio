@@ -461,7 +461,7 @@ syscall_while_native(app_state_at_intercept_t *state)
          * of the currently used ones are problematic). Also calling
          * through Sygate hooks may reach here.
          */
-        SYSLOG_INTERNAL_WARNING_ONCE("syscall_while_native: using %s - maybe hooked?\n",
+        SYSLOG_INTERNAL_WARNING_ONCE("syscall_while_native: using %s - maybe hooked?",
                                      syscall_names[sysnum]);
     });
     STATS_INC(num_syscall_trampolines_DR);
@@ -1702,14 +1702,20 @@ presys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
          * Note we also wouldn't like some global handle being used by
          * different threads as well, or any other unusually nested
          * use of NtCreateSection/NtOpenSection before NtMapViewOfSection.
+         *
+         * For non-image sections accessed via OpenSection rather than CreateSection,
+         * we do NOT have the file name here, but we can get it once we have a mapping
+         * via MemorySectionName: plus we don't care about non-images.  But, we don't
+         * have a test for image here, so we leave this LOG note.
          */
-        if (!(section_handle == dcontext->aslr_context.
-              last_app_section_handle || 
-              section_handle == dcontext->aslr_context.
-              randomized_section_handle)) {
+        const char *file = section_to_file_lookup(section_handle);
+        if (file == NULL &&
+            section_handle != dcontext->aslr_context.randomized_section_handle) {
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS,
-                1, "syscall: NtMapViewOfSection unusual section mapping");
+                2, "syscall: NtMapViewOfSection unusual section mapping\n");
         }
+        if (file != NULL)
+            dr_strfree(file HEAPACCT(ACCT_VMAREAS));
     });
 
     /* no pre-processing needed except for ASLR */
@@ -1783,7 +1789,7 @@ presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
     if (TESTANY(ASLR_DLL|ASLR_MAPPED, DYNAMO_OPTION(aslr))) {
         aslr_pre_process_unmapview(dcontext, base, size);
     }
-    process_mmap(dcontext, base, size, false/*unmap*/);
+    process_mmap(dcontext, base, size, false/*unmap*/, NULL);
 }
 
 /* NtFlushInstructionCache */
@@ -1842,7 +1848,8 @@ presys_CreateSection(dcontext_t *dcontext, reg_t *param_base)
     uint attributes = (uint) sys_param(dcontext, param_base, 5);
     HANDLE file_handle = (HANDLE) sys_param(dcontext, param_base, 6);
     LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-        "syscall: NtCreateSection protect 0x%x, attributes 0x%x\n", protect, attributes);
+        "syscall: NtCreateSection protect 0x%x, attributes 0x%x, file "PIFX"\n",
+        protect, attributes, file_handle);
 
     DODEBUG({
         if (obj != NULL && obj->ObjectName != NULL) {
@@ -1858,6 +1865,19 @@ presys_CreateSection(dcontext_t *dcontext, reg_t *param_base)
                 "syscall: NtCreateSection\n");
         }
     });
+}
+
+/* NtClose */
+static void
+presys_Close(dcontext_t *dcontext, reg_t *param_base)
+{
+    if (DYNAMO_OPTION(track_module_filenames)) {
+        HANDLE handle = (HANDLE) sys_param(dcontext, param_base, 0);
+        if (section_to_file_remove(handle)) {
+            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                "syscall: NtClose of section handle "PFX"\n", handle);
+        }
+    }
 }
 
 #ifdef DEBUG
@@ -2056,6 +2076,9 @@ pre_system_call(dcontext_t *dcontext)
     }
     else if (sysnum == syscalls[SYS_CreateSection]) {
         presys_CreateSection(dcontext, param_base);
+    }
+    else if (sysnum == syscalls[SYS_Close]) {
+        presys_Close(dcontext, param_base);
     }
 #ifdef DEBUG
     /* FIXME: move this stuff to an strace-like client, not needed
@@ -2658,6 +2681,14 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                     }
                 }
             }
+        } else if (class == MemorySectionName) {
+            /* This does work on image sections on later Windows */
+            if (is_dynamo_address(base)) {
+                /* Apps should be fine with this failing.  This is the failure
+                 * status for an address that does not contain a mapped file.
+                 */
+                SET_RETURN_VAL(dcontext, STATUS_INVALID_ADDRESS);
+            }
         }
     } else {
         IPC_ALERT("Warning: QueryVirtualMemory on another process\n");
@@ -2666,34 +2697,76 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
 
 static void
 postsys_create_or_open_section(dcontext_t *dcontext,
-                               HANDLE *unsafe_section_handle, HANDLE file_handle)
+                               HANDLE *unsafe_section_handle, HANDLE file_handle,
+                               bool non_image)
 {
-    if (DYNAMO_OPTION(track_module_filenames)) {
+    HANDLE section_handle = INVALID_HANDLE_VALUE;
+    if (DYNAMO_OPTION(track_module_filenames) &&
+        safe_read(unsafe_section_handle, sizeof(section_handle), &section_handle)) {
         /* Case 1272: keep file name around to use for module identification */
         FILE_NAME_INFORMATION name_info; /* note: large struct */
-        const wchar_t *short_name;
-        if (file_handle == INVALID_HANDLE_VALUE)
-            short_name = NULL;
-        else
-            short_name = get_file_short_name(file_handle, &name_info);
-        
-        /* We keep only last section, so we need the handle to see if it matches
-         * when we hit the mapview */
-        safe_read(unsafe_section_handle,
-                  sizeof(dcontext->aslr_context.last_app_section_handle),
-                  &dcontext->aslr_context.last_app_section_handle);
-        
-        aslr_set_last_section_file_name(dcontext, short_name);
+        wchar_t buf[MAXIMUM_PATH];
+        wchar_t *fname = name_info.FileName;
+        /* For i#138 we want the full path so we ignore the short name
+         * returned by get_file_short_name
+         */
+        if (file_handle != INVALID_HANDLE_VALUE && 
+            get_file_short_name(file_handle, &name_info) != NULL) {
+            bool have_name = false;
+            if (convert_NT_to_Dos_path(buf, name_info.FileName,
+                                       BUFFER_SIZE_ELEMENTS(buf))) {
+                fname = buf;
+                have_name = true;
+            } else if (get_os_version() <= WINDOWS_VERSION_2000 && !non_image) {
+                /* It's normal for NtQueryInformationFile to return a relative path.
+                 * For non-images, or for XP+ for all sections, we can get the
+                 * absolute path at map time: but for images (or if we don't know
+                 * whether image, e.g. for OpenSection) on NT/2K we map in the file
+                 * as a non-image to find the name.  Kind of expensive, but it's only
+                 * for legacy platforms, and option-controlled.
+                 */
+                size_t size = 0;
+                byte *pc = os_map_file(file_handle, &size, 0, NULL, MEMPROT_READ,
+                                       false/*no cow*/, false/*!image*/);
+                if (pc == NULL) {
+                    /* We don't know what perms the file was opened with.  Sometimes
+                     * we can only map +x so try that.
+                     */
+                    pc = os_map_file(file_handle, &size, 0, NULL, MEMPROT_EXEC,
+                                     false/*no cow*/, false/*!image*/);
+                }
+                if (pc != NULL) {
+                    NTSTATUS res = get_mapped_file_name(pc, buf, BUFFER_SIZE_BYTES(buf));
+                    if (NT_SUCCESS(res)) {
+                        have_name = convert_NT_to_Dos_path
+                            (name_info.FileName, buf,
+                             BUFFER_SIZE_ELEMENTS(name_info.FileName));
+                    }
+                    os_unmap_file(pc, size);
+                }
+            }
+            if (!have_name) {
+                STATS_INC(map_unknown_Dos_name);
+                SYSLOG_INTERNAL_WARNING_ONCE("unknown mapfile Dos name");
+                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                    "\t%s: WARNING: unable to convert NT to Dos path for \"%S\"\n",
+                    __FUNCTION__, fname);
+            }
+            section_to_file_add_wide(section_handle, fname);
+        } else {
+            /* We assume that we'll have the file_handle for image sections:
+             * either we'll see a CreateSection w/ a file, or we'll see OpenSection
+             * on a KnownDlls path w/ RootDirectory set.  So this is likely a
+             * non-image section, whose backing file we'll query at map time.
+             */
+            DODEBUG(name_info.FileName[0] = '\0';);
+        }
+#ifdef DEBUG
+        dcontext->aslr_context.last_app_section_handle = section_handle;
+#endif
         LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-            "\tNt{Create,Open}Section: sec handle "PIFX", file name %s\n",
-            dcontext->aslr_context.last_app_section_handle,
-            dcontext->aslr_context.last_section_file_name == NULL ? "<null>" :
-            dcontext->aslr_context.last_section_file_name);
-    } else {
-        DODEBUG({
-            dcontext->aslr_context.
-                last_app_section_handle = *unsafe_section_handle;
-        });
+            "\tNt{Create,Open}Section: sec handle "PIFX", file "PFX" => \"%S\"\n",
+            section_handle, file_handle, fname);
     }
 }
 
@@ -2710,11 +2783,13 @@ postsys_CreateSection(dcontext_t *dcontext, reg_t *param_base, bool success)
     uint attributes = (uint) postsys_param(dcontext, param_base, 5);
     HANDLE file_handle = (HANDLE) postsys_param(dcontext, param_base, 6);
     LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-        "syscall: NtCreateSection protect 0x%x, attributes 0x%x\n", protect, attributes);
+        "syscall: NtCreateSection protect 0x%x, attributes 0x%x\n",
+        protect, attributes);
     if (!success)
         return;
 
-    postsys_create_or_open_section(dcontext, unsafe_section_handle, file_handle);
+    postsys_create_or_open_section(dcontext, unsafe_section_handle, file_handle,
+                                   !TEST(SEC_IMAGE, attributes));
 
     if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr))) {
         if (TEST(SEC_IMAGE, attributes)) {
@@ -2753,13 +2828,12 @@ postsys_OpenSection(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 
     LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-        "syscall: NtOpenSection opened sh "PIFX", access_mask 0x%x\n", 
-        *unsafe_section_handle, access_mask);
+        "syscall: NtOpenSection opened sh "PIFX", access_mask 0x%x, obj_attr "PFX"\n", 
+        *unsafe_section_handle, access_mask, obj_attr);
 
-    /* FIXME: currently we only use short names for -track_module_filenames,
-     * so we only need to use obj_attr->ObjectName->Buffer and don't need
-     * to call aslr_recreate_known_dll_file() at all, but I'm assuming
-     * we may add full path to module list in the future.
+    /* If we only wanted short names for -track_module_filenames,
+     * could we use obj_attr->ObjectName->Buffer and not
+     * call aslr_recreate_known_dll_file() at all?
      */
     if ((DYNAMO_OPTION(track_module_filenames) ||
          (TEST(ASLR_DLL, DYNAMO_OPTION(aslr)) && 
@@ -2782,8 +2856,14 @@ postsys_OpenSection(dcontext_t *dcontext, reg_t *param_base, bool success)
         if (ok && root_directory != NULL && 
             aslr_is_handle_KnownDlls(root_directory)) {
 
-            aslr_recreate_known_dll_file(obj_attr, 
-                                         &new_file_handle);
+            if (aslr_recreate_known_dll_file(obj_attr, &new_file_handle)) {
+                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                    "syscall: NtOpenSection: recreated file handle "PIFX"\n", 
+                    new_file_handle);
+            } else {
+                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                    "syscall: NtOpenSection: unable to recreate file handle\n");
+            }
 
             if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr)) && 
                 TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache))) {
@@ -2799,16 +2879,20 @@ postsys_OpenSection(dcontext_t *dcontext, reg_t *param_base, bool success)
                     /* leaving as is */
                 }
             }
-            close_handle(new_file_handle);
+            /* If we're not replacing the section (i.e., not doing ASLR_DLL),
+             * we need new_file_handle for postsys_create_or_open_section so we do
+             * not close here
+             */
         } else {
             /* nothing */
         }
     }
-    /* Even if we didn't get the name we need to set the last section handle */
     if (DYNAMO_OPTION(track_module_filenames)) {
         postsys_create_or_open_section(dcontext, unsafe_section_handle,
-                                       new_file_handle);
+                                       new_file_handle, false/*don't know*/);
     }
+    if (new_file_handle != INVALID_HANDLE_VALUE)
+        close_handle(new_file_handle);
 }
 
 /* NtMapViewOfSection */
@@ -2893,28 +2977,69 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
 #endif
         RSTATS_INC(num_app_mmaps);
         if (!DYNAMO_OPTION(thin_client)) {
-            if (DYNAMO_OPTION(track_module_filenames) &&
-                dcontext->aslr_context.last_app_section_handle != section_handle) {
-                aslr_free_last_section_file_name(dcontext);
-                STATS_INC(map_section_mismatch);
-                /* FIXME case 9028: use mapping rather than just last-seen to avoid */
-                SYSLOG_INTERNAL_WARNING_ONCE("app section "PIFX" vs map "PIFX" mismatch",
-                                         dcontext->aslr_context.last_app_section_handle,
-                                         section_handle);
-            } else {
-                LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                    "\tNtMapViewOfSection: sec handle "PIFX" == file name %s\n",
-                    dcontext->aslr_context.last_app_section_handle,
-                    dcontext->aslr_context.last_section_file_name == NULL ? "<null>" :
-                    dcontext->aslr_context.last_section_file_name);
+            const char *file = NULL;
+            DEBUG_DECLARE(const char *reason = "";)
+            if (DYNAMO_OPTION(track_module_filenames)) {
+                bool unknown = true;
+                /* get_mapped_file_name always gives an absolute path, so it's
+                 * preferable to using our section_to_file table.  but,
+                 * get_mapped_file_name only works on image sections on XP+.
+                 * we go ahead and use it on all sections here, even though
+                 * we don't use the names of non-image sections, to avoid
+                 * warnings below (where we don't know whether image or not).
+                 */
+                wchar_t buf[MAXIMUM_PATH];
+                /* FIXME: should we heap alloc to avoid these huge buffers */
+                wchar_t buf2[MAXIMUM_PATH];
+                NTSTATUS res = get_mapped_file_name(base, buf, BUFFER_SIZE_BYTES(buf));
+                if (NT_SUCCESS(res)) {
+                    if (convert_NT_to_Dos_path(buf2, buf, BUFFER_SIZE_ELEMENTS(buf2))) {
+                        file = dr_wstrdup(buf2 HEAPACCT(ACCT_VMAREAS));
+                    } else {
+                        file = dr_wstrdup(buf HEAPACCT(ACCT_VMAREAS));
+                        STATS_INC(map_unknown_Dos_name);
+                        SYSLOG_INTERNAL_WARNING_ONCE("unknown mapfile Dos name");
+                        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                            "\t%s: WARNING: unable to convert NT to Dos path for \"%S\"\n",
+                            __FUNCTION__, buf2);
+                    }
+                    /* may as well update the table: if already there this is a nop */
+                    section_to_file_add(section_handle, file);
+                    unknown = false;
+                } else if (res == STATUS_FILE_INVALID) {
+                    /* An anonymous section backed by the pagefile.  Should we
+                     * verify that its CreateSection was passed NULL for a file?
+                     * You can see some of these just starting up calc.  They
+                     * have names like
+                     * "\BaseNamedObjects\CiceroSharedMemDefaultS-1-5-21-1262752155-650278929-1212509807-100"
+                     */
+                    unknown = false;
+                    DODEBUG(reason = " (pagefile-backed)";);
+                } else {
+                    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                        "\tget_mapped_file_name failed error="PFX"\n", res);
+                } 
+                if (file == NULL) {
+                    file = section_to_file_lookup(section_handle);
+                    if (file != NULL)
+                        unknown = false;
+                }
+                if (unknown) {
+                    /* Since we have a process-wide handle map and we watch
+                     * close and duplicate, we should only mess up when handles
+                     * are passed via IPC.
+                     */
+                    STATS_INC(map_section_mismatch);
+                    SYSLOG_INTERNAL_WARNING_ONCE("unknown mapped section "PIFX,
+                                                 section_handle);
+                }
             }
-            /* Else, we use the stored filename.  Local kernel handle
-             * reuse won't be a problem here even though we're not watching
-             * close() b/c we'll see the re-open, but we could have a
-             * handle closed and a duplicate one passed via IPC that we would
-             * think was the same: FIXME.
-             */
-            process_mmap(dcontext, base, size, true/*map*/);
+            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                "\tNtMapViewOfSection: sec handle "PIFX" == file \"%s\"%s\n",
+                section_handle, file == NULL ? "<null>" : file, reason);
+            process_mmap(dcontext, base, size, true/*map*/, file);
+            if (file != NULL)
+                dr_strfree(file HEAPACCT(ACCT_VMAREAS));
         }
     } else {
         IPC_ALERT("WARNING: MapViewOfSection on another process\n");
@@ -2953,6 +3078,35 @@ postsys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success
          * end too early.
          */
         mark_unload_end(base);
+    }
+}
+
+/* NtDuplicateObject */
+static void
+postsys_DuplicateObject(dcontext_t *dcontext, reg_t *param_base, bool success)
+{
+    if (DYNAMO_OPTION(track_module_filenames) && success) {
+        HANDLE src_process = (HANDLE) sys_param(dcontext, param_base, 0);
+        HANDLE tgt_process = (HANDLE) sys_param(dcontext, param_base, 2);
+        if (is_phandle_me(src_process) && is_phandle_me(tgt_process)) {
+            HANDLE src = (HANDLE) sys_param(dcontext, param_base, 1);
+            HANDLE *dst = (HANDLE*) sys_param(dcontext, param_base, 3);
+            const char *file = section_to_file_lookup(src);
+            if (file != NULL) {
+                HANDLE dup;
+                if (safe_read(dst, sizeof(dup), &dup)) {
+                    /* Should already be converted to Dos path */
+                    section_to_file_add(dup, file);
+                    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                        "syscall: NtDuplicateObject section handle "PFX" => "PFX"\n",
+                        src, dup);
+                } else /* shouldn't happen: syscall succeeded; must be race */
+                    ASSERT_NOT_REACHED();
+                dr_strfree(file HEAPACCT(ACCT_VMAREAS));
+            }
+        } else {
+            IPC_ALERT("WARNING: handle via IPC may mess up section-to-handle mapping\n");
+        }
     }
 }
 
@@ -3059,8 +3213,12 @@ void post_system_call(dcontext_t *dcontext)
     }
     else if (sysnum == syscalls[SYS_CreateUserProcess]) {
         postsys_CreateUserProcess(dcontext, param_base, success);
-    } else if (sysnum == syscalls[SYS_UnmapViewOfSection]) {
+    } 
+    else if (sysnum == syscalls[SYS_UnmapViewOfSection]) {
         postsys_UnmapViewOfSection(dcontext, param_base, success);
+    } 
+    else if (sysnum == syscalls[SYS_DuplicateObject]) {
+        postsys_DuplicateObject(dcontext, param_base, success);
 #ifdef DEBUG
     /* Check to see if any system calls for which we did non-reversible
      * processing in pre_system_call() failed. FIXME : handle failure

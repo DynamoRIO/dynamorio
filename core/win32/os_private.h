@@ -104,7 +104,8 @@ int
 osprot_to_memprot(uint prot);
 
 int
-process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add);
+process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add,
+             const char *filepath);
 
 void
 check_for_ldrpLoadImportModule(byte *base, uint *ebp);
@@ -572,6 +573,19 @@ bool
 aslr_compare_header(app_pc original_module_base, size_t original_header_len,
                     app_pc suspect_module_base);
 
+/* Returns a dr_strdup-ed string which caller must dr_strfree w/ ACCT_VMAREAS */
+const char *
+section_to_file_lookup(HANDLE section_handle);
+
+bool
+section_to_file_add_wide(HANDLE section_handle, const wchar_t *file_path);
+
+bool
+section_to_file_add(HANDLE section_handle, const char *file_path);
+
+bool
+section_to_file_remove(HANDLE section_handle);
+
 /* in module_shared.c */
 generic_func_t
 get_proc_address_ex(module_handle_t lib, const char *name, const char **forwarder OUT);
@@ -603,6 +617,10 @@ prot_string(uint prot);
 
 const PSID
 get_process_primary_SID(void);
+
+bool
+convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
+                       IN size_t buf_len/*# elements*/);
 
 /* in loader.c */
 void loader_init(void);

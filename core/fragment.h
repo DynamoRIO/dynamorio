@@ -331,12 +331,6 @@ typedef struct _private_trace_t {
     (((branch_type) == IBL_INDCALL) ? DYNAMO_OPTION(ibl_indcall_hash_offset) : \
      DYNAMO_OPTION(ibl_hash_func_offset))
 
-#ifdef DEBUG
-# define NAME(x) , x
-#else
-# define NAME(x)
-#endif
-
 #ifdef HASHTABLE_STATISTICS
 /* Statistics written from the cache that must be allocated separately */
 typedef struct _unprot_ht_statistics_t {

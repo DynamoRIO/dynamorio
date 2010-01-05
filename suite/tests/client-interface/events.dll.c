@@ -297,6 +297,22 @@ void delete_event2(void *dcontext, void *tag)
 }
 
 static
+void module_load_event_perm(void *drcontext, const module_data_t *info, bool loaded)
+{
+    /* Test i#138 */
+    if (info->full_path == NULL || info->full_path[0] == '\0')
+        dr_printf("ERROR: full_path empty for %s\n", dr_module_preferred_name(info));
+#ifdef WINDOWS
+    /* We do not expect \\server-style paths for this test */
+    else if (info->full_path[0] == '\\' || info->full_path[1] != ':')
+        dr_printf("ERROR: full_path is not in DOS format: %s\n", info->full_path);
+#else
+    else if (info->full_path[0] != '/')
+        dr_printf("ERROR: full_path is not absolute: %s\n", info->full_path);
+#endif
+}
+
+static
 void module_load_event1(void *drcontext, const module_data_t *info, bool loaded)
 {
     inc_count_first(EVENT_MODULE_LOAD_1, EVENT_MODULE_LOAD_2);
@@ -559,6 +575,7 @@ void dr_init(client_id_t id)
     dr_register_restore_state_event(restore_state_event2);
     dr_register_restore_state_ex_event(restore_state_ex_event1);
     dr_register_restore_state_ex_event(restore_state_ex_event2);
+    dr_register_module_load_event(module_load_event_perm);
     dr_register_module_load_event(module_load_event1);
     dr_register_module_load_event(module_load_event2);
     dr_register_module_unload_event(module_unload_event1);

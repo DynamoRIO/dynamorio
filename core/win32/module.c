@@ -48,6 +48,7 @@
 #include "aslr.h"
 #include "instrument.h"
 #include "../perscache.h" /* for coarse_info_t.rct_loaded */
+#include "../hashtable.h" /* section2file table */
 
 /* used to hold the version information we get from the .rsrc section */
 typedef struct _version_info_t {
@@ -68,6 +69,96 @@ module_area_free_IAT(module_area_t *ma);
  * directory and as such they're only valid while the module is loaded. */
 static bool
 get_module_resource_version_info(app_pc mod_base, version_info_t *info_out);
+
+/****************************************************************************
+ * Section-to-file table for i#138 and PR 213463 (case 9028)
+ */
+
+static generic_table_t *section2file_table;
+#define INIT_HTABLE_SIZE_SECTION 6 /* should remain small */
+
+typedef struct _section_to_file_t {
+    HANDLE section_handle;
+    const char *file_path; /* dr_strdup-ed */
+} section_to_file_t;
+
+static void
+section_to_file_free(section_to_file_t *s2f)
+{
+    dr_strfree(s2f->file_path HEAPACCT(ACCT_VMAREAS));
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, s2f, section_to_file_t, ACCT_VMAREAS, PROTECTED);
+}
+
+/* Returns a dr_strdup-ed string which caller must dr_strfree w/ ACCT_VMAREAS */
+const char *
+section_to_file_lookup(HANDLE section_handle)
+{
+    section_to_file_t *s2f;
+    const char *file = NULL;
+    TABLE_RWLOCK(section2file_table, write, lock);
+    s2f = generic_hash_lookup(GLOBAL_DCONTEXT, section2file_table,
+                              (ptr_uint_t)section_handle);
+    if (s2f != NULL)
+        file = dr_strdup(s2f->file_path HEAPACCT(ACCT_VMAREAS));
+    TABLE_RWLOCK(section2file_table, write, unlock);
+    return file;
+}
+
+static bool
+section_to_file_add_common(HANDLE section_handle, const char *filepath_dup)
+{
+    section_to_file_t *s2f;
+    bool added = false;
+    TABLE_RWLOCK(section2file_table, write, lock);
+    s2f = generic_hash_lookup(GLOBAL_DCONTEXT, section2file_table,
+                              (ptr_uint_t)section_handle);
+    if (s2f != NULL) {
+        /* update */
+        dr_strfree(s2f->file_path HEAPACCT(ACCT_VMAREAS));
+    } else {
+        added = true;
+        s2f = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, section_to_file_t, ACCT_VMAREAS, PROTECTED);
+        s2f->section_handle = section_handle;
+        generic_hash_add(GLOBAL_DCONTEXT, section2file_table,
+                         (ptr_uint_t)s2f->section_handle, (void *)s2f);
+    }
+    s2f->file_path = filepath_dup;
+    LOG(GLOBAL, LOG_VMAREAS, 2,
+        "section_to_file: section "PFX" => %s\n", section_handle, s2f->file_path);
+    TABLE_RWLOCK(section2file_table, write, unlock);
+    return added;
+}
+
+bool
+section_to_file_add_wide(HANDLE section_handle, const wchar_t *file_path)
+{
+    return section_to_file_add_common(section_handle,
+                                      dr_wstrdup(file_path HEAPACCT(ACCT_VMAREAS)));
+}
+
+bool
+section_to_file_add(HANDLE section_handle, const char *file_path)
+{
+    return section_to_file_add_common(section_handle,
+                                      dr_strdup(file_path HEAPACCT(ACCT_VMAREAS)));
+}
+
+bool
+section_to_file_remove(HANDLE section_handle)
+{
+    bool found = false;
+    TABLE_RWLOCK(section2file_table, write, lock);
+    found = generic_hash_remove(GLOBAL_DCONTEXT, section2file_table,
+                                (ptr_uint_t)section_handle);
+    TABLE_RWLOCK(section2file_table, write, unlock);
+    DODEBUG({
+        if (found) {
+            LOG(GLOBAL, LOG_VMAREAS, 2,
+                "section_to_file: removed section "PFX"\n", section_handle);
+        }
+    });
+    return found;
+}
 
 /****************************************************************************/
 #ifdef DEBUG                    /* around symbols related part of the file */
@@ -1657,14 +1748,16 @@ get_dll_short_name(app_pc base_addr)
 /* Get all possible names for the module corresponding to pc.  Part of fix for 
  * case 9842.  We have to maintain all different module names, can't just use
  * a precedence rule for deciding at all points.
+ * The ma parameter is optional: if set, ma->full_path is set.
  */
 static void
 get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map,
-                                    module_names_t *names
-                                    HEAPACCT(which_heap_t which))
+                                    module_names_t *names, module_area_t *ma,
+                                    const char *file_path HEAPACCT(which_heap_t which))
 {
     const char *name;
     app_pc base;
+    char buf[MAXIMUM_PATH];
 
     ASSERT(names != NULL);
     if (names == NULL)
@@ -1728,14 +1821,35 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
         /* Choice #3: .rsrc original filename, already strduped */
         names->rsrc_name = (char *) get_module_original_filename(base HEAPACCT(which));
 
-        /* Choice #4: file name */
-        if (at_map && DYNAMO_OPTION(track_module_filenames) && dcontext != NULL) {
-            name = dcontext->aslr_context.last_section_file_name;
-            if (name != NULL)
-                names->file_name = dr_strdup(name HEAPACCT(which));
-            else 
-                names->file_name = NULL;
+        /* Choice #4: file name 
+         * At init time it's safe enough to walk loader list.  At run time
+         * we rely on being at_map and using -track_module_filenames which
+         * will result in a non-NULL file_path parameter.
+         */
+        if (file_path != NULL) {
+            name = get_short_name(file_path);
+            if (ma != NULL)
+                ma->full_path = dr_strdup(file_path HEAPACCT(which));
+        } else if (!dynamo_initialized) {
+            const char *path = buf;
+            get_module_name(base, buf, BUFFER_SIZE_ELEMENTS(buf));
+            if (buf[0] == '\0' && is_in_dynamo_dll(base))
+                path = get_dynamorio_library_path();
+            IF_CLIENT_INTERFACE({
+                if (path[0] == '\0' && is_in_client_lib(base))
+                    path = get_client_path_from_addr(base);
+            });
+            name = get_short_name(path);
+            /* Set the path too.  We could avoid a strdup by sharing the
+             * same alloc w/ the short name, but simpler to separate.
+             */
+            if (ma != NULL)
+                ma->full_path = dr_strdup(path HEAPACCT(which));
         }
+        if (name != NULL)
+            names->file_name = dr_strdup(name HEAPACCT(which));
+        else 
+            names->file_name = NULL;
 
         DOLOG(3, LOG_VMAREAS, {
             LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1,
@@ -1796,7 +1910,7 @@ get_module_short_name_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
     module_names_t names = {0};
     const char *res;
 
-    get_all_module_short_names_uncached(dcontext, pc, at_map, &names
+    get_all_module_short_names_uncached(dcontext, pc, at_map, &names, NULL, NULL
                                         HEAPACCT(which));
     res = dr_strdup(GET_MODULE_NAME(&names) HEAPACCT(which));
     free_module_names(&names HEAPACCT(which));
@@ -3472,14 +3586,25 @@ rct_is_exported_function(app_pc tag)
 void
 os_modules_init(void)
 {
-    if (DYNAMO_OPTION(hide))
+    section2file_table =
+        generic_hash_create(GLOBAL_DCONTEXT, 
+                            INIT_HTABLE_SIZE_SECTION,
+                            80 /* load factor: not perf-critical */,
+                            HASHTABLE_SHARED,
+                            (void(*)(void*)) section_to_file_free
+                            _IF_DEBUG("section-to-file table"));
+
+    if (DYNAMO_OPTION(hide)) {
+        /* retrieve path before hiding, since this is called before os_init() */
+        get_dynamorio_library_path();
         hide_from_module_lists();
+    }
 }
 
 void
 os_modules_exit(void)
 {
-
+    generic_hash_destroy(GLOBAL_DCONTEXT, section2file_table);
 }
 
 void
@@ -3503,6 +3628,8 @@ os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which))
 {
     ASSERT(TEST(MODULE_BEING_UNLOADED, ma->flags));
 
+    if (ma->full_path != NULL)
+        dr_strfree(ma->full_path HEAPACCT(which));
     if (ma->os_data.company_name != NULL)
         dr_strfree(ma->os_data.company_name HEAPACCT(which));
     if (ma->os_data.product_name != NULL)
@@ -3616,7 +3743,7 @@ get_module_info_pe(const app_pc module_base, uint *checksum, uint *timestamp,
 /* update our data structures that keep track of PE modules */
 void
 os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
-                    bool at_map HEAPACCT(which_heap_t which))
+                    bool at_map, const char *filepath HEAPACCT(which_heap_t which))
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     app_pc preferred_base = NULL;
@@ -3639,8 +3766,9 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     ma->entry_point = get_module_entry(base);
     get_module_info_pe(base, &checksum, &timestamp, &pe_size, NULL, 
                        &ma->os_data.code_size);
-    get_all_module_short_names_uncached(dcontext, base, at_map, &ma->names
-                                        HEAPACCT(which));
+    /* We pass in ma to get ma->full_path set */
+    get_all_module_short_names_uncached(dcontext, base, at_map, &ma->names,
+                                        ma, filepath HEAPACCT(which));
     get_module_resource_version_info(base, &info); /* we inited to zero so ok if fails */
     ma->os_data.file_version = info.file_version;
     ma->os_data.product_version = info.product_version;

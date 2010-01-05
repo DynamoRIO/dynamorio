@@ -34,6 +34,7 @@
 
 #include "globals.h"
 #include "hashtable.h"
+#include <string.h> /* memset */
 
 /* Returns the proper number of hash bits to have a capacity with the
  * given load for the given number of entries
@@ -44,6 +45,144 @@ hashtable_bits_given_entries(uint entries, uint load)
     /* Add 1 for the sentinel */
     return hashtable_num_bits(((entries + 1) * 100) / load);
 }
+
+
+/*******************************************************************************
+ * GENERIC HASHTABLE INSTANTIATION
+ *
+ * We save code space by having hashtables that don't need special inlining
+ * use the same code.  We also provide a more "normal" hashtable interface,
+ * with key and payload separation and payload freeing.
+ *
+ * We only support caller synchronization currently (the caller should
+ * use TABLE_RWLOCK) but we could provide a flag specifying whether
+ * synch is intra-routine or not.
+ */
+
+/* 2 macros w/ name and types are duplicated in fragment.h -- keep in sync */
+#define NAME_KEY generic
+#define ENTRY_TYPE generic_entry_t *
+/* not defining HASHTABLE_USE_LOOKUPTABLE */
+#define ENTRY_TAG(f)              ((f)->key)
+#define ENTRY_EMPTY               NULL
+/* we assume that 1 is not a valid value: that keys are in fact pointers */
+#define ENTRY_SENTINEL            ((generic_entry_t*)(ptr_uint_t)1)
+#define ENTRY_IS_EMPTY(f)         ((f) == NULL)
+#define ENTRY_IS_SENTINEL(f)      ((f) == (generic_entry_t*)(ptr_uint_t)1)
+#define ENTRY_IS_INVALID(f)       (false) /* no invalid entries */
+#define ENTRIES_ARE_EQUAL(f,g)    (ENTRY_TAG(f) == ENTRY_TAG(g))
+/* if usage becomes widespread we may need to parameterize this */
+#define HASHTABLE_WHICH_HEAP(flags) (ACCT_OTHER)
+#define HTLOCK_RANK               table_rwlock
+#define HASHTABLE_SUPPORT_PERSISTENCE 0
+
+#include "hashtablex.h"
+/* all defines are undef-ed at end of hashtablex.h */
+#define GENERIC_ENTRY_IS_REAL(e) ((e) != NULL && (e) != (generic_entry_t*)(ptr_uint_t)1)
+
+/* required routines for hashtable interface */
+
+static void
+hashtable_generic_init_internal_custom(dcontext_t *dcontext, generic_table_t *htable)
+{ /* nothing */
+}
+
+static void
+hashtable_generic_resized_custom(dcontext_t *dcontext, generic_table_t *htable,
+                                uint old_capacity, generic_entry_t **old_table,
+                                generic_entry_t **old_table_unaligned,
+                                uint old_ref_count, uint old_table_flags)
+{ /* nothing */ 
+}
+
+# ifdef DEBUG
+static void
+hashtable_generic_study_custom(dcontext_t *dcontext, generic_table_t *htable, 
+                              uint entries_inc/*amnt table->entries was pre-inced*/)
+{ /* nothing */ 
+}
+# endif
+
+static void
+hashtable_generic_free_entry(dcontext_t *dcontext, generic_table_t *htable,
+                             generic_entry_t *entry)
+{
+    (*htable->free_payload_func)(entry->payload);
+    HEAP_TYPE_FREE(dcontext, entry, generic_entry_t, ACCT_OTHER, PROTECTED);
+}
+
+/* Wrapper routines to implement our generic_entry_t and free-func layer */
+
+generic_table_t *
+generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent, 
+                    uint table_flags, void (*free_payload_func)(void*)
+                    _IF_DEBUG(const char *table_name))
+{
+    generic_table_t *table = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, generic_table_t,
+                                             ACCT_OTHER, PROTECTED);
+    hashtable_generic_init(GLOBAL_DCONTEXT, table, bits, load_factor_percent,
+                           (hash_function_t)INTERNAL_OPTION(alt_hash_func),
+                           0 /* hash_mask_offset */, table_flags
+                           _IF_DEBUG("section-to-file table"));
+    table->free_payload_func = free_payload_func;
+    return table;
+}
+
+void
+generic_hash_destroy(dcontext_t *dcontext, generic_table_t *htable)
+{
+    /* FIXME: why doesn't hashtablex.h walk the table and call the free routine
+     * in free() or in remove()?  It only seems to do it for range_remove().
+     */
+    uint i;
+    generic_entry_t *e;
+    for (i = 0; i < htable->capacity; i++) {
+        e = htable->table[i];
+        /* must check for sentinel */
+        if (GENERIC_ENTRY_IS_REAL(e)) {
+            hashtable_generic_free_entry(dcontext, htable, e);
+        }
+    }
+    hashtable_generic_free(dcontext, htable);
+    HEAP_TYPE_FREE(dcontext, htable, generic_table_t, ACCT_OTHER, PROTECTED);
+}
+
+void *
+generic_hash_lookup(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key)
+{
+    generic_entry_t *e = hashtable_generic_lookup(dcontext, key, htable);
+    if (e != NULL)
+        return e->payload;
+    return NULL;
+}
+
+void
+generic_hash_add(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key,
+                 void *payload)
+{
+    generic_entry_t *e =
+        HEAP_TYPE_ALLOC(dcontext, generic_entry_t, ACCT_OTHER, PROTECTED);
+    e->key = key;
+    e->payload = payload;
+    hashtable_generic_add(dcontext, e, htable);
+}
+
+bool
+generic_hash_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key)
+{
+    /* There is no remove routine that takes in a tag, nor one that frees the
+     * payload, so we construct it
+     */
+    generic_entry_t *e = hashtable_generic_lookup(dcontext, key, htable);
+    if (e != NULL && hashtable_generic_remove(e, htable)) {
+        hashtable_generic_free_entry(dcontext, htable, e);
+        return true;
+    }
+    return false;
+}
+
+/*******************************************************************************/
+
 
 #ifdef HASHTABLE_STATISTICS
 

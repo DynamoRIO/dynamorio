@@ -528,7 +528,7 @@ HTNAME(hashtable_,NAME_KEY,_init)(dcontext_t *dcontext,
                                   uint hash_offset
                                   /* FIXME: turn this bool into a HASHTABLE_ flag */
                                   _IFLOOKUP(bool use_lookup),
-                                  uint table_flags NAME(const char *table_name))
+                                  uint table_flags _IF_DEBUG(const char *table_name))
 {
 #ifdef DEBUG
     table->name = table_name;
@@ -2118,7 +2118,7 @@ HTNAME(hashtable_,NAME_KEY,_merge)(dcontext_t *dcontext,
                                       src1->load_factor_percent, src1->hash_func,
                                       src1->hash_mask_offset _IFLOOKUP(use_lookup),
                                       src1->table_flags & ~(HASHTABLE_COPY_IGNORE_FLAGS)
-                                      NAME(src1->name));
+                                      _IF_DEBUG(src1->name));
     HTNAME(hashtable_,NAME_KEY,_add_all)(dcontext, dst, src1, false/*don't check dups*/);
     HTNAME(hashtable_,NAME_KEY,_add_all)(dcontext, dst, src2, true/*check dups*/);
     return dst;
@@ -2141,7 +2141,7 @@ HTNAME(hashtable_,NAME_KEY,_copy)(dcontext_t *dcontext,
                                       src->load_factor_percent, src->hash_func,
                                       src->hash_mask_offset _IFLOOKUP(use_lookup),
                                       src->table_flags & ~(HASHTABLE_COPY_IGNORE_FLAGS)
-                                      NAME(src->name));
+                                      _IF_DEBUG(src->name));
     dst->entries = src->entries;
     dst->unlinked_entries = src->unlinked_entries;
     if (dst->table != NULL)
@@ -2158,7 +2158,7 @@ HTNAME(hashtable_,NAME_KEY,_copy)(dcontext_t *dcontext,
  */
 HTNAME(,NAME_KEY,_table_t) *
 HTNAME(hashtable_,NAME_KEY,_resurrect)(dcontext_t *dcontext, byte *mapped_table
-                                       NAME(const char *table_name))
+                                       _IF_DEBUG(const char *table_name))
 {
     HTNAME(,NAME_KEY,_table_t) *htable;
     uint flags;

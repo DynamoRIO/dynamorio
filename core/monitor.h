@@ -160,6 +160,7 @@ typedef struct _monitor_data_t {
     /* trace head counters are thread-private and must be kept in a
      * separate table and not in the fragment_t structure.
      */
+    /* FIXME: use new generic_table_t and generic_hash_* routines */
     trace_head_table_t thead_table;
 
 #ifdef CLIENT_INTERFACE
