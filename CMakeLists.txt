@@ -1009,7 +1009,11 @@ if (UNIX)
   # We've already split out our separate .debug files and stripped the
   # originals in our build rules
   set(CPACK_STRIP_FILES OFF)
-  set(CPACK_SYSTEM_NAME "Linux")
+  if (VMKERNEL)
+    set(CPACK_SYSTEM_NAME "ESXi")
+  else (VMKERNEL)
+    set(CPACK_SYSTEM_NAME "Linux")
+  endif (VMKERNEL)
 else (UNIX)
   # FIXME: try Windows NSIS
   set(CPACK_GENERATOR "ZIP")
