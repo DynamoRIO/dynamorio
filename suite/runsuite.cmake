@@ -461,3 +461,10 @@ endforeach (xml)
 
 file(READ ${outf} string)
 message("${string}")
+
+# workaround for http://www.cmake.org/Bug/view.php?id=9647
+# it complains and returns error if CTEST_BINARY_DIRECTORY not set
+set(CTEST_BINARY_DIRECTORY "${BINARY_BASE}/")
+# it tries to configure+build, but with a start command it does nothing,
+# which is what we want:
+ctest_start(${SUITE_TYPE})

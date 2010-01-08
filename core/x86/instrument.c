@@ -2861,11 +2861,12 @@ dr_suspend_all_other_threads(OUT void ***drcontexts,
                                  * privilege reasons), ignore and continue
                                  */
                                 THREAD_SYNCH_SUSPEND_FAILURE_IGNORE)) {
-        *drcontexts = NULL;
-        *num_suspended = 0;
-        if (num_unsuspended != NULL)
-            *num_unsuspended = get_num_threads() - 1/*us*/;
-        return false;
+        LOG(GLOBAL, LOG_FRAGMENT, 2, 
+            "\ndr_suspend_all_other_threads: failed to suspend every thread\n");
+        /* some threads may have been successfully suspended so we must return
+         * their info so they'll be resumed.  I believe there is thus no
+         * scenario under which we return false.
+         */
     }
     /* now we own the thread_initexit_lock */
     CLIENT_ASSERT(OWN_MUTEX(&all_threads_synch_lock) && OWN_MUTEX(&thread_initexit_lock),
