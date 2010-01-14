@@ -48,6 +48,10 @@ typedef union _elf_generic_header_t {
 # define DT_GNU_HASH 0x6ffffef5
 #endif
 
+#ifndef STT_GNU_IFUNC
+# define STT_GNU_IFUNC STT_LOOS
+#endif
+
 /* Question : how is the size of the initial map determined?  There seems to be no better
  * way than to walk the program headers and find the largest virtual offset.  You'd think
  * there would be a field in the header or something easier than that...
@@ -110,7 +114,8 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
          * modules all of these should hold. */
         ASSERT_CURIOSITY(elf_header.e_version == 1);
         ASSERT_CURIOSITY(!memory || elf_header.e_ehsize == sizeof(ELF_HEADER_TYPE));
-        ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV);
+        ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV ||
+                         elf_header.e_ident[EI_OSABI] == ELFOSABI_LINUX);
 #ifdef X64
         ASSERT_CURIOSITY(!memory || elf_header.e_machine == EM_X86_64);
 #else
@@ -569,7 +574,9 @@ elf_sym_matches(ELF_SYM_TYPE *sym, char *strtab, const char *name)
     LOG(GLOBAL, LOG_SYMBOLS, 4, "%s: considering type=%d %s\n",
         __func__, ELF_ST_TYPE(sym->st_info), strtab + sym->st_name);
     /* Only consider "typical" types */
-    return (ELF_ST_TYPE(sym->st_info) <= STT_FUNC &&
+    return ((ELF_ST_TYPE(sym->st_info) <= STT_FUNC ||
+             /* i#248/PR 510905: FC12 libc strlen has this type */
+             ELF_ST_TYPE(sym->st_info) == STT_GNU_IFUNC) &&
             /* Paranoid so limiting to 4K */
             strncmp(strtab + sym->st_name, name, PAGE_SIZE) == 0);
 }
