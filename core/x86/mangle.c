@@ -2799,9 +2799,10 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                     instr_num_dsts(instr) == 1 && /* only one dest: a register */
                     opnd_is_reg(instr_get_dst(instr, 0))) {
                     opnd_size_t sz = opnd_get_size(instr_get_dst(instr, 0));
+                    reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
                     /* if target is 16 or 8 bit sub-register the whole reg is not dead
                      * (for 32-bit, top 32 bits are cleared) */
-                    if (sz == OPSZ_4 || sz == OPSZ_8) {
+                    if (reg_is_gpr(reg) && (reg_is_32bit(reg) || reg_is_64bit(reg))) {
                         spill = false;
                         scratch_reg = opnd_get_reg(instr_get_dst(instr, 0));
                         if (sz == OPSZ_4)
