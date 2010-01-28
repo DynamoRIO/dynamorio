@@ -719,9 +719,19 @@ void wait_for_event(event_t e);
 timestamp_t
 get_timer_frequency(void);
 
-/* seconds since 1970 */
+/* On Linux, returns the number of seconds since the Epoch (Jan 1, 1970).
+ * On Windows, returns the number of seconds since Jan 1, 1600 (this is
+ * the current UTC time).
+ */
 uint
 query_time_seconds(void);
+
+/* On Linux, returns the number of milliseconds since the Epoch (Jan 1, 1970).
+ * On Windows, returns the number of milliseconds since Jan 1, 1600 (this is
+ * the current UTC time).
+ */
+uint64
+query_time_millis(void);
 
 /* gives a good but not necessarily crypto-strength random seed */
 uint

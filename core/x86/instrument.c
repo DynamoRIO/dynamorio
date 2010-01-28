@@ -1907,20 +1907,15 @@ DR_API
 void
 dr_get_time(dr_time_t *time)
 {
-#ifdef LINUX
-    CLIENT_ASSERT(false, "dr_get_time NYI on linux");
-#else
-    SYSTEMTIME st;
-    query_system_time(&st);
-    time->year = st.wYear;
-    time->month = st.wMonth;
-    time->day_of_week = st.wDayOfWeek;
-    time->day = st.wDay;
-    time->hour = st.wHour;
-    time->minute = st.wMinute;
-    time->second = st.wSecond;
-    time->milliseconds = st.wMilliseconds;
-#endif 
+    convert_millis_to_date(query_time_millis(), time);
+}
+
+DR_API
+/* Returns the number of milliseconds since the Epoch (Jan 1, 1970). */
+uint64
+dr_get_milliseconds(void)
+{
+    return query_time_millis();
 }
 
 DR_API 

@@ -617,6 +617,21 @@ query_time_seconds(void)
     return (uint) dynamorio_syscall(SYS_time, 1, NULL);
 }
 
+/* milliseconds since 1970 */
+uint64
+query_time_millis()
+{
+    struct timeval current_time;
+    if (dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL) == 0) {
+        uint64 res = (((uint64)current_time.tv_sec) * 1000) +
+            (current_time.tv_usec / 1000);
+        return res;
+    } else {
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+}
+
 #ifdef RETURN_AFTER_CALL
 /* Finds the bottom of the call stack, presumably at program startup. */
 /* This routine is a copycat of internal_dump_callstack and makes assumptions about program state, 

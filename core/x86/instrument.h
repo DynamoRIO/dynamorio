@@ -1426,25 +1426,19 @@ bool
 dr_is_wow64(void);
 #endif
 
-/* DR_API EXPORT BEGIN */
-
-/** Structure written by dr_get_time() to specify the current time. */
-typedef struct {
-    uint year;         /**< */
-    uint month;        /**< */
-    uint day_of_week;  /**< */
-    uint day;          /**< */
-    uint hour;         /**< */
-    uint minute;       /**< */
-    uint second;       /**< */
-    uint milliseconds; /**< */
-} dr_time_t;
-/* DR_API EXPORT END */
-
 DR_API
 /** Retrieves the current time. */
 void
 dr_get_time(dr_time_t *time);
+
+DR_API
+/**
+ * On Linux, returns the number of milliseconds since the Epoch (Jan 1, 1970).
+ * On Windows, returns the number of milliseconds since Jan 1, 1600 (this is
+ * the current UTC time).
+ */
+uint64
+dr_get_milliseconds(void);
 
 DR_API
 /** Aborts the process immediately. */

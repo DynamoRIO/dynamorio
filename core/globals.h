@@ -262,6 +262,23 @@ typedef struct _instr_list_t instrlist_t;
 typedef struct _module_data_t module_data_t;
 /* DR_API EXPORT END */
 
+/* DR_API EXPORT BEGIN */
+
+/**
+ * Structure written by dr_get_time() to specify the current time. 
+ */
+typedef struct {
+    uint year;         /**< */
+    uint month;        /**< */
+    uint day_of_week;  /**< */
+    uint day;          /**< */
+    uint hour;         /**< */
+    uint minute;       /**< */
+    uint second;       /**< */
+    uint milliseconds; /**< */
+} dr_time_t;
+/* DR_API EXPORT END */
+
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
 struct _rct_module_table_t;
 typedef struct _rct_module_table_t rct_module_table_t;

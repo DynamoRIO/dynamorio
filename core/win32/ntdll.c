@@ -2691,13 +2691,11 @@ query_time_100ns()
     return systime.QuadPart;
 }
 
-/* FIXME : check how this is used, is definitely overflowing a uint, is this
- * used for elapsed time (should use tickcount then) or a seed (ok)? */
-uint
+uint64
 query_time_millis()
 {
     LONGLONG time100ns = query_time_100ns();
-    return (uint) (time100ns / TIMER_UNITS_PER_MILLISECOND);
+    return ((uint64)time100ns / TIMER_UNITS_PER_MILLISECOND);
 }
 
 uint
@@ -2718,72 +2716,25 @@ query_time_seconds()
     }
 }
 
-/* NOTE - month is zero indexed */
-static const uint days_per_month_normal[12] = 
-    {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-static const uint days_per_month_leap[12] = 
-    {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-
+/* uses convert_millis_to_date() in utils.c so core-only for simpler linking */
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 /* note that ntdll!RtlTimeToTimeFields has this same functionality */
 void
 query_system_time(SYSTEMTIME *st)
 {
     LONGLONG time = query_time_100ns() / TIMER_UNITS_PER_MILLISECOND;
-    WORD year, month;
-    bool leap_year;
-
-    st->wMilliseconds = (WORD)(time % 1000);
-    time /= 1000;
-    st->wSecond = (WORD)(time % 60);
-    time /= 60;
-    st->wMinute = (WORD)(time % 60);
-    time /= 60;
-    st->wHour = (WORD)(time % 24);
-    /* FIXME - optimization - at this point we could move to a uint
-     * number_of_days which should be much faster in the later / and %
-     * operations than continuing to use LONGLONG time. */
-    time /= 24;
-
-    /* time is now num. of days since Sun. Jan. 1, 1601 */
-    st->wDayOfWeek = (WORD)(time % 7); /* Sun. is 0 */
-
-    /* Since 1601 is the first year of a 400 year leap year cycle, we can use
-     * the following to figure out the correct year. NOTE the 100 year and 4
-     * year values are only correct if not crossing a 400 year of 100 year
-     * (respectively) alignment. */
-#define BASE_YEAR 1601
-#define DAYS_IN_400_YEARS (400*365 + 97)
-#define DAYS_IN_100_YEARS (100*365 + 24)
-#define DAYS_IN_4_YEARS (4*365 + 1)
-    ASSERT(BASE_YEAR % 400 == 1); /* verify alignment */
-    year = (WORD)(BASE_YEAR + 400*(time / DAYS_IN_400_YEARS));
-    time %= DAYS_IN_400_YEARS;
-    year = (WORD)(year + (100*(time / DAYS_IN_100_YEARS)));
-    time %= DAYS_IN_100_YEARS;
-    year = (WORD)(year + (4*(time / DAYS_IN_4_YEARS)));
-    time %= DAYS_IN_4_YEARS;
-    year = (WORD)(year + (time / 365));
-    time %= 365;
-    leap_year = (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));
-    st->wYear = year;
-    
-    /* time is now num. of days since the first of the year */
-    month = 1;
-    while (month <= 12) {
-        uint days_in_month = leap_year ? 
-            days_per_month_leap[month-1] :
-            days_per_month_normal[month-1];
-        if (time >= days_in_month) {
-            month++;
-            time -= days_in_month;
-        } else
-            break;
-    }
-    ASSERT (month != 13);
-    st->wMonth = month;
-    st->wDay = (WORD)(time+1); /* day, like month, is not zero indexed */
+    dr_time_t dr_time;
+    convert_millis_to_date((uint64)time, &dr_time);
+    st->wYear = (WORD) dr_time.year;
+    st->wMonth = (WORD) dr_time.month;
+    st->wDayOfWeek = (WORD) dr_time.day_of_week;
+    st->wDay = (WORD) dr_time.day;
+    st->wHour = (WORD) dr_time.hour;
+    st->wMinute = (WORD) dr_time.minute;
+    st->wSecond = (WORD) dr_time.second;
+    st->wMilliseconds = (WORD) dr_time.milliseconds;
 }
-
+#endif
 
 /* returns NULL (default security descriptor) if can't setup owner,
  * otherwise edits in place the passed in security descriptor

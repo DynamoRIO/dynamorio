@@ -2868,35 +2868,16 @@ void
 print_timestamp(file_t logfile)
 {
     uint min, sec, msec;
-#ifdef LINUX
-    static struct timeval initial_time;
-    struct timeval current_time;
-
-    if (!initial_time.tv_sec) {
-        /* first time around we obtain initial time */
-        dynamorio_syscall(SYS_gettimeofday, 2, &initial_time, NULL);
-    }
-    dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
-
-    current_time.tv_usec -= initial_time.tv_usec;
-    if (current_time.tv_usec < 0) {
-        current_time.tv_sec--;  /* borrow a second */
-        current_time.tv_usec += 1000*1000;
-    }
-    current_time.tv_sec -= initial_time.tv_sec;
-
-    sec = current_time.tv_sec;
-    msec = current_time.tv_usec / 1000; /* milliseconds are good enough */
-#else  /* !LINUX */
-    static uint initial_time = 0;   /* in milliseconds */
-    uint current_time;
+    static uint64 initial_time = 0;   /* in milliseconds */
+    uint64 current_time;
 
     if (!initial_time)
         initial_time = query_time_millis();
-    current_time = query_time_millis() - initial_time; /* elapsed */
-    sec = current_time / 1000;
-    msec = current_time % 1000;
-#endif /* LINUX */
+    current_time = query_time_millis();
+    if (current_time > 0) /* call did not fail */
+        current_time -= initial_time; /* elapsed */
+    sec = (uint) (current_time / 1000);
+    msec = (uint) (current_time % 1000);
     min = sec / 60;
     sec = sec % 60;
     print_file(logfile, "(%ld:%02ld.%03ld)", min, sec, msec);
@@ -3221,6 +3202,79 @@ get_random_offset(size_t max_offset)
     LOG(GLOBAL, LOG_ALL, 2, "get_random_offset: value=%d (mod %d), new rs=%d\n", 
         value, max_offset, random_seed);
     return value;
+}
+
+/* NOTE - month is zero indexed */
+static const uint days_per_month_normal[12] = 
+    {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+static const uint days_per_month_leap[12] = 
+    {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+/* On Linux, millis is the number of milliseconds since the Epoch (Jan 1, 1970).
+ * On Windows, millis is the number of milliseconds since Jan 1, 1600 (this is
+ * the current UTC time).
+ */ 
+void
+convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
+{
+    uint64 time = millis;
+    uint year, month;
+    bool leap_year;
+
+    dr_time->milliseconds = (uint)(time % 1000);
+    time /= 1000;
+    dr_time->second = (uint)(time % 60);
+    time /= 60;
+    dr_time->minute = (uint)(time % 60);
+    time /= 60;
+    dr_time->hour = (uint)(time % 24);
+    /* FIXME - optimization - at this point we could move to a uint
+     * number_of_days which should be much faster in the later / and %
+     * operations than continuing to use LONGLONG time. */
+    time /= 24;
+
+    /* time is now num. of days since Sun. Jan. 1, 1601 */
+    dr_time->day_of_week = (uint)(time % 7); /* Sun. is 0 */
+
+#ifdef WINDOWS
+    /* Since 1601 is the first year of a 400 year leap year cycle, we can use
+     * the following to figure out the correct year. NOTE the 100 year and 4
+     * year values are only correct if not crossing a 400 year of 100 year
+     * (respectively) alignment. */
+# define BASE_YEAR 1601
+#else
+# define BASE_YEAR 1970
+#endif
+#define DAYS_IN_400_YEARS (400*365 + 97)
+#define DAYS_IN_100_YEARS (100*365 + 24)
+#define DAYS_IN_4_YEARS (4*365 + 1)
+    ASSERT(BASE_YEAR % 400 == 1); /* verify alignment */
+    year = (uint)(BASE_YEAR + 400*(time / DAYS_IN_400_YEARS));
+    time %= DAYS_IN_400_YEARS;
+    year = (uint)(year + (100*(time / DAYS_IN_100_YEARS)));
+    time %= DAYS_IN_100_YEARS;
+    year = (uint)(year + (4*(time / DAYS_IN_4_YEARS)));
+    time %= DAYS_IN_4_YEARS;
+    year = (uint)(year + (time / 365));
+    time %= 365;
+    leap_year = (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));
+    dr_time->year = year;
+    
+    /* time is now num. of days since the first of the year */
+    month = 1;
+    while (month <= 12) {
+        uint days_in_month = leap_year ? 
+            days_per_month_leap[month-1] :
+            days_per_month_normal[month-1];
+        if (time >= days_in_month) {
+            month++;
+            time -= days_in_month;
+        } else
+            break;
+    }
+    ASSERT (month != 13);
+    dr_time->month = month;
+    dr_time->day = (uint)(time+1); /* day, like month, is not zero indexed */
 }
 
 const uint crctab[] = {

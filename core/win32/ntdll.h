@@ -1746,9 +1746,7 @@ nt_pipe_transceive(HANDLE hpipe, void *input, uint input_size,
 #define TIMER_UNITS_PER_MILLISECOND (1000 * 10) /* 100ns intervals */
 
 /* uint query_time_seconds() declared in os_shared.h */
-
-uint
-query_time_millis(void);
+/* uint64 query_time_millis() declared in os_shared.h */
 
 void
 query_system_time(SYSTEMTIME *st);

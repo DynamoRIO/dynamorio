@@ -6391,7 +6391,7 @@ os_random_seed()
 {
     LARGE_INTEGER tsc_or_rtc;   
     uint seed = (uint) get_thread_id();
-    seed ^= query_time_millis();
+    seed ^= (uint) query_time_millis();
 
     /* safer to use than RDTSC, since it defaults to real time clock
      * if TSC is not available, either one is good enough for randomness

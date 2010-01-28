@@ -428,7 +428,6 @@ bool is_intercepted_app_pc(app_pc pc, byte **interception_pc);
 /* in ntdll.c, exported through here */
 void syscalls_init(void);
 void syscalls_init_options_read(void);
-uint query_time_millis(void);
 int get_last_error(void);
 void set_last_error(int error);
 HANDLE get_stderr_handle(void);

@@ -111,6 +111,7 @@ The current version is \DR_VERSION and is backward compatible with releases from
 The changes between version 1.6.0 and 1.5.0 are:
 
  - Added the full path to modules in module_data_t
+ - Added dr_get_milliseconds() and dr_get_time() impl for Linux
 
 The changes between version 1.5.0 and 1.4.0 are:
 
