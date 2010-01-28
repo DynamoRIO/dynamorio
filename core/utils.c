@@ -3233,7 +3233,7 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
      * operations than continuing to use LONGLONG time. */
     time /= 24;
 
-    /* time is now num. of days since Sun. Jan. 1, 1601 */
+    /* time is now num. of days since Sun. Jan. 1, 1601 (1970 for Linux) */
     dr_time->day_of_week = (uint)(time % 7); /* Sun. is 0 */
 
 #ifdef WINDOWS
@@ -3242,13 +3242,14 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
      * year values are only correct if not crossing a 400 year of 100 year
      * (respectively) alignment. */
 # define BASE_YEAR 1601
+    ASSERT(BASE_YEAR % 400 == 1); /* verify alignment */
 #else
 # define BASE_YEAR 1970
+    /* this all works since 2000 is in fact a leap year */
 #endif
 #define DAYS_IN_400_YEARS (400*365 + 97)
 #define DAYS_IN_100_YEARS (100*365 + 24)
 #define DAYS_IN_4_YEARS (4*365 + 1)
-    ASSERT(BASE_YEAR % 400 == 1); /* verify alignment */
     year = (uint)(BASE_YEAR + 400*(time / DAYS_IN_400_YEARS));
     time %= DAYS_IN_400_YEARS;
     year = (uint)(year + (100*(time / DAYS_IN_100_YEARS)));
