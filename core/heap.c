@@ -3064,7 +3064,8 @@ common_heap_extend_commitment(heap_pc cur_pc, heap_pc end_pc, heap_pc reserved_e
             commit_size = ALIGN_FORWARD(cur_pc + size_need - (ptr_uint_t)end_pc,
                                         PAGE_SIZE);
         }
-        if (end_pc + commit_size > reserved_end_pc) {
+        if (end_pc + commit_size > reserved_end_pc ||
+            end_pc + commit_size < end_pc /* overflow */) {
             /* commit anyway before caller moves on to new unit so that
              * we keep an invariant that all units but the current one
              * are fully committed, so our algorithm for looking at the end
@@ -3072,6 +3073,8 @@ common_heap_extend_commitment(heap_pc cur_pc, heap_pc end_pc, heap_pc reserved_e
              */
             commit_size = reserved_end_pc - end_pc;
         }
+        ASSERT(end_pc + commit_size > end_pc /* overflow */ &&
+               end_pc + commit_size <= reserved_end_pc);
         extend_commitment(end_pc, commit_size, prot, false /* extension */);
 #ifdef DEBUG_MEMORY
         memset(end_pc, HEAP_UNALLOCATED_BYTE, commit_size);
