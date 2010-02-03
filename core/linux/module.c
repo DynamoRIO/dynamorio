@@ -569,20 +569,29 @@ elf_gnu_hash(const char *name)
 }
 
 static bool
-elf_sym_matches(ELF_SYM_TYPE *sym, char *strtab, const char *name)
+elf_sym_matches(ELF_SYM_TYPE *sym, char *strtab, const char *name,
+                bool *is_indirect_code OUT)
 {
+    /* i#248/PR 510905: FC12 libc strlen has this type */
+    bool is_ifunc = (ELF_ST_TYPE(sym->st_info) == STT_GNU_IFUNC);
     LOG(GLOBAL, LOG_SYMBOLS, 4, "%s: considering type=%d %s\n",
         __func__, ELF_ST_TYPE(sym->st_info), strtab + sym->st_name);
     /* Only consider "typical" types */
-    return ((ELF_ST_TYPE(sym->st_info) <= STT_FUNC ||
-             /* i#248/PR 510905: FC12 libc strlen has this type */
-             ELF_ST_TYPE(sym->st_info) == STT_GNU_IFUNC) &&
-            /* Paranoid so limiting to 4K */
-            strncmp(strtab + sym->st_name, name, PAGE_SIZE) == 0);
+    if ((ELF_ST_TYPE(sym->st_info) <= STT_FUNC || is_ifunc) &&
+        /* Paranoid so limiting to 4K */
+        strncmp(strtab + sym->st_name, name, PAGE_SIZE) == 0) {
+        if (is_indirect_code != NULL)
+            *is_indirect_code = is_ifunc;
+        return true;
+    }
+    return false;
 }
 
+/* if we add any more values, switch to a globally-defined dr_export_info_t 
+ * and use it here
+ */
 generic_func_t
-get_proc_address(module_handle_t lib, const char *name)
+get_proc_address_ex(module_handle_t lib, const char *name, bool *is_indirect_code OUT)
 {
     app_pc res = NULL;
     module_area_t *ma;
@@ -615,7 +624,8 @@ get_proc_address(module_handle_t lib, const char *name)
                     do {
                         if ((((*harray) ^ hidx) >> 1) == 0) {
                             sidx = harray - chain;
-                            if (elf_sym_matches(&symtab[sidx], strtab, name)) {
+                            if (elf_sym_matches(&symtab[sidx], strtab, name,
+                                                is_indirect_code)) {
                                 res = (app_pc) (symtab[sidx].st_value +
                                                 (ma->start - ma->os_data.base_address));
                                 break;
@@ -639,7 +649,7 @@ get_proc_address(module_handle_t lib, const char *name)
                 }
                 if (sym.st_value == 0 && ELF_ST_TYPE(sym.st_info) != STT_TLS)
                     continue; /* no value */
-                if (elf_sym_matches(&sym, strtab, name))
+                if (elf_sym_matches(&sym, strtab, name, is_indirect_code))
                     break;
             }
             if (sidx != STN_UNDEF) {
@@ -650,6 +660,12 @@ get_proc_address(module_handle_t lib, const char *name)
     os_get_module_info_unlock();
     LOG(GLOBAL, LOG_SYMBOLS, 2, "%s: %s => "PFX"\n", __func__, name, res);
     return convert_data_to_function(res);
+}
+
+generic_func_t
+get_proc_address(module_handle_t lib, const char *name)
+{
+    return get_proc_address_ex(lib, name, NULL);
 }
 
 /* Returns the bounds of the first section with matching name. */

@@ -3065,7 +3065,7 @@ common_heap_extend_commitment(heap_pc cur_pc, heap_pc end_pc, heap_pc reserved_e
                                         PAGE_SIZE);
         }
         if (end_pc + commit_size > reserved_end_pc ||
-            end_pc + commit_size < end_pc /* overflow */) {
+            end_pc + commit_size < end_pc /* overflow: seen in PR 518644 */) {
             /* commit anyway before caller moves on to new unit so that
              * we keep an invariant that all units but the current one
              * are fully committed, so our algorithm for looking at the end

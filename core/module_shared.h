@@ -265,6 +265,14 @@ bool os_get_module_info_all_names(const app_pc pc,
 generic_func_t
 get_proc_address(module_handle_t lib, const char *name);
 
+#ifdef LINUX
+/* if we add any more values, switch to a globally-defined dr_export_info_t 
+ * and use it here
+ */
+generic_func_t
+get_proc_address_ex(module_handle_t lib, const char *name, bool *is_indirect_code OUT);
+#endif
+
 void print_modules(file_t f, bool dump_xml);
 
 const char *get_module_short_name(app_pc pc HEAPACCT(which_heap_t which));

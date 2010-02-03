@@ -2387,6 +2387,23 @@ dr_get_proc_address(module_handle_t lib, const char *name)
 }
 
 DR_API
+bool
+dr_get_proc_address_ex(module_handle_t lib, const char *name,
+                       dr_export_info_t *info OUT, size_t info_len)
+{
+    /* If we add new fields we'll check various values of info_len */
+    if (info == NULL || info_len < sizeof(*info))
+        return false;
+#ifdef WINDOWS
+    info->address = get_proc_address(lib, name);
+    info->is_indirect_code = false;
+#else
+    info->address = get_proc_address_ex(lib, name, &info->is_indirect_code);
+#endif
+    return (info->address != NULL);
+}
+
+DR_API
 /* Creates a new directory.  Fails if the directory already exists
  * or if it can't be created.
  */

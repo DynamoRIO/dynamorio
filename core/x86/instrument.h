@@ -1857,9 +1857,46 @@ DR_API
  * name in the module with the given base.  Returns NULL on failure.
  * \note On Linux this ignores symbol preemption by other modules and only
  * examines the specified module.
+ * \note On Linux, in order to handle indirect code objects, use
+ * dr_get_proc_address_ex().
  */
 generic_func_t
 dr_get_proc_address(module_handle_t lib, const char *name);
+
+/* DR_API EXPORT BEGIN */
+/**
+ * Data structure used by dr_get_proc_address_ex() to retrieve information
+ * about an exported symbol.
+ */
+typedef struct _dr_export_info_t {
+    /**
+     * The entry point of the export as an absolute address located
+     * within the queried module.  This address is identical to what
+     * dr_get_proc_address_ex() returns.
+     */
+    generic_func_t address;
+    /**
+     * Relevant for Linux only.  Set to true iff this export is an
+     * indirect code object, which is a new ELF extension allowing
+     * runtime selection of which implementation to use for an
+     * exported symbol.  The address of such an export is a function
+     * that takes no arguments and returns the address of the selected
+     * implementation.
+     */
+    bool is_indirect_code;
+} dr_export_info_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Returns information in \p info about the symbol \p name exported
+ * by the module \p lib.  Returns false if the symbol is not found.
+ * \note On Linux this ignores symbol preemption by other modules and only
+ * examines the specified module.
+ */
+bool
+dr_get_proc_address_ex(module_handle_t lib, const char *name,
+                       dr_export_info_t *info OUT, size_t info_len);
 
 
 /* DR_API EXPORT BEGIN */
