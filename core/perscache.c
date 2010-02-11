@@ -3246,10 +3246,11 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
                 DYNAMO_OPTION(persist_gen_validation))) {
         byte *map = (byte *) &pers;
         uint which = DYNAMO_OPTION(persist_gen_validation);
+        size_t sz = 0;
         if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE,
                  DYNAMO_OPTION(persist_gen_validation))) {
             /* FIXME if mmap up front (case 9758) don't need this mmap */
-            size_t sz = pers.header_len+pers.data_len-sizeof(persisted_footer_t);
+            sz = pers.header_len+pers.data_len-sizeof(persisted_footer_t);
             map = map_file(fd, &sz, 0, NULL, MEMPROT_READ,
                            false/*won't change so save pagefile by not asking for COW*/,
                            false/*!image*/);
@@ -3267,7 +3268,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
                  DYNAMO_OPTION(persist_gen_validation)) &&
             map != (byte *) &pers) {
             ASSERT(map != NULL); /* we cleared _COMPLETE so shouldn't get here */
-            unmap_file(map,  pers.header_len+pers.data_len);
+            unmap_file(map, sz);
         }
     } else {
         memset(&footer, 0, sizeof(footer));
@@ -3580,13 +3581,17 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
         goto coarse_unit_load_exit;
     }
     pers = (coarse_persisted_info_t *) map;
-    ASSERT(pers->header_len + pers->data_len == map_size);
+    ASSERT(pers->header_len + pers->data_len <= map_size &&
+           ALIGN_FORWARD(pers->header_len + pers->data_len, PAGE_SIZE) ==
+           ALIGN_FORWARD(map_size, PAGE_SIZE));
     footer = (persisted_footer_t *)
         (map + pers->header_len + pers->data_len - sizeof(persisted_footer_t));
 
     if (pers->magic != PERSISTENT_CACHE_MAGIC ||
         /* case 10160: don't crash trying to read footer */
-        pers->header_len + pers->data_len != map_size ||
+        pers->header_len + pers->data_len > map_size ||
+        ALIGN_FORWARD(pers->header_len + pers->data_len, PAGE_SIZE) !=
+        ALIGN_FORWARD(map_size, PAGE_SIZE) ||
         footer->magic != PERSISTENT_CACHE_MAGIC ||
         TEST(PERSCACHE_CODE_INVALID, pers->flags)) {
         LOG(THREAD, LOG_CACHE, 1, "  invalid persisted file %s\n", filename);
@@ -3694,7 +3699,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
         DYNAMO_OPTION(persist_map_rw_separate)) {
         size_t ro_size;
         map2_size = stubs_and_prefixes_len + sizeof(persisted_footer_t);
-        ro_size = map_size - map2_size;
+        ro_size = (size_t)file_size/*un-aligned*/ - map2_size;
         ASSERT(ro_size == ALIGN_FORWARD(pers->header_len + pers->data_len
                                         - stubs_and_prefixes_len
                                         - pers->pad_len
@@ -3767,7 +3772,8 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
         ASSERT(map2 == info->mmap_pc + info->mmap_ro_size);
     } else
         info->mmap_size = map_size;
-    ASSERT(info->mmap_size == pers->header_len + pers->data_len);
+    ASSERT(ALIGN_FORWARD(info->mmap_size, PAGE_SIZE) ==
+           ALIGN_FORWARD(pers->header_len + pers->data_len, PAGE_SIZE));
     if (DYNAMO_OPTION(persist_lock_file))
         info->fd = fd;
 

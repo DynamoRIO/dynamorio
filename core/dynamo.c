@@ -1252,6 +1252,9 @@ dynamo_process_exit(void)
     if (TRACEDUMP_ENABLED() IF_CLIENT_INTERFACE(|| dr_fragment_deleted_hook_exists()))
         fragment_exit();
 
+    /* PR 522783: must be before we clear dcontext (if CLIENT_INTERFACE)! */
+    dynamo_process_exit_with_thread_info();
+
     /* Inform client of process exit */
 #ifdef CLIENT_INTERFACE
     if (!INTERNAL_OPTION(nullcalls)) {
@@ -1279,7 +1282,6 @@ dynamo_process_exit(void)
 #ifdef CALL_PROFILE
     profile_callers_exit();
 #endif
-    dynamo_process_exit_with_thread_info();
 # ifdef KSTATS
     if (DYNAMO_OPTION(kstats))
         kstat_exit();

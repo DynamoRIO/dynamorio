@@ -3590,7 +3590,7 @@ os_modules_init(void)
         generic_hash_create(GLOBAL_DCONTEXT, 
                             INIT_HTABLE_SIZE_SECTION,
                             80 /* load factor: not perf-critical */,
-                            HASHTABLE_SHARED,
+                            HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
                             (void(*)(void*)) section_to_file_free
                             _IF_DEBUG("section-to-file table"));
 
@@ -3944,6 +3944,7 @@ os_get_module_info_all_names(const app_pc pc, OUT uint *checksum,
     ASSERT(os_get_module_info_locked());;
     ma = module_pc_lookup(pc);
     if (ma != NULL) {
+        ok = true;
         if (checksum != NULL)
             *checksum = ma->os_data.checksum;
         if (timestamp != NULL)
