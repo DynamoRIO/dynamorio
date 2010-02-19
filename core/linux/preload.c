@@ -46,14 +46,14 @@
 #define VERBOSE 0
 #define INIT_BEFORE_LIBC 0
 
+#include "configure.h"
+
 #include <stdio.h>
-/* for open */
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 /* for getpid */
 #include <unistd.h>
-/* for rindex */
+/* for getenv */
+#include <stdlib.h>
+/* for rindex or strstr */
 #include <string.h>
 
 #if VERBOSE
@@ -63,8 +63,24 @@
 #endif /* VERBOSE */
 
 #if START_DYNAMO
-void dynamorio_app_take_over(void);
+/* Including globals.h or vmkuw.h to avoid the following declarations causes
+ * many other types to be included which are undefined.  Simpler to redefine
+ * these.
+ */
+#define true (1)
+#define false (0)
+typedef int bool;
+# ifdef VMX86_SERVER
+/* This function is not statically linked so as avoid duplicating or compiling
+ * DR code into libdrpreload.so, which is messy.  As libdynamorio.so is
+ * already loaded into the process and avaiable, it is cleaner to just use
+ * functions from it, i.e., dynamic linking.  See PR 212034.
+ */
+void vmk_init_lib(void);
+# endif
+char *get_application_short_name(void);
 int dynamorio_app_init(void);
+void dynamorio_app_take_over(void);
 #endif /* START_DYNAMO */
 
 #define MAX_COMMAND_LENGTH 1024
@@ -72,34 +88,41 @@ int dynamorio_app_init(void);
 /* Give a global variable definition. */
 int nothing = 0;
 
-/* this routine is straight from utils.c 
- * except it uses libc routines open, read, and close, to avoid
- * having to do syscall wrappers here, and since usage is prior
- * to DR taking over and so we don't care about pthreads interference
+/* Tells whether or not to take over a process.  PR 212034.  We use env vars to
+ * decide this; longer term we want to switch to config files.
+ *
+ * If include list exists then it acts as a white list, i.e., take over 
+ * only if pname is on it, not otherwise.  If the list doesn't exist then
+ * act normal, i.e., take over.  Ditto but reversed for exclude list as it is a
+ * blacklist.  If both lists exist, then white list gets preference.
  */
-static void 
-getnamefrompid(int pid, char *name, uint maxlen)
+static bool
+take_over(const char *pname)
 {
-    int fd, n;
-    char tempstring[200+1],*lastpart;
-    /*this is a shitty way of getting the process name,
-    but i can't think of anything better... */
+    char *plist;
+# ifdef INTERNAL
+    /* HACK just for our benchmark scripts: 
+     * do not take over a process whose executable is named "texec"
+     */
+    if (strcmp(pname, "texec") == 0) {
+        pf("running texec, NOT taking over!\n");
+        return false;
+    }
+# endif
 
-    snprintf(tempstring, 200+1, "/proc/%d/cmdline", pid);
-    fd = open(tempstring, O_RDONLY);
-    n = read(fd, tempstring, 200);
-    tempstring[n] = '\0';
-    lastpart = rindex(tempstring, '/');
+    /* Guard against "" pname because strstr will return plist if so! */
+    if (pname[0] == '\0')
+        return true;
 
-    if (lastpart == NULL)
-      lastpart = tempstring;
-    else
-      lastpart++; /*don't include last '/' in name*/ 
+    plist = getenv("DYNAMORIO_INCLUDE");
+    if (plist != NULL)
+        return strstr(plist, pname) ? true : false;
 
-    strncpy(name, lastpart, maxlen-1);
-    name[maxlen-1]  = '\0'; /* if max no null */
+    plist = getenv("DYNAMORIO_EXCLUDE");
+    if (plist != NULL)
+        return strstr(plist, pname) ? false : true;
 
-    close(fd);
+    return true;
 }
 
 int
@@ -112,10 +135,13 @@ _init ()
 {
 #endif
     int init;
-    char name[MAX_COMMAND_LENGTH];
+    const char *name;
 #if VERBOSE_INIT_FINI
     fprintf (stderr, "preload initialized\n");
 #endif /* VERBOSE_INIT_FINI */
+#ifdef VMX86_SERVER
+    vmk_init_lib();
+#endif
 
 #if INIT_BEFORE_LIBC
   {
@@ -130,17 +156,10 @@ _init ()
 
 #if START_DYNAMO
     pf("ready to start dynamo\n");
-    getnamefrompid(getpid(), name, MAX_COMMAND_LENGTH);
+    name = get_application_short_name();
     pf("preload _init: running %s\n", name);
-# ifdef INTERNAL
-    /* HACK just for our benchmark scripts: 
-     * do not take over a process whose executable is named "texec"
-     */
-    if (strcmp(name, "texec") == 0) {
-        pf("running texec, NOT taking over!\n");
+    if (!take_over(name))
         return 0;
-    }
-# endif
     init = dynamorio_app_init();
     pf("dynamorio_app_init() returned %d\n", init);
     dynamorio_app_take_over();

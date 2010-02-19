@@ -59,6 +59,9 @@
 # include <errno.h>
 # include <sys/time.h>          /* gettimeofday */
 # include "syscall.h"           /* SYS_gettimeofday */
+# ifdef VMX86_SERVER
+#  include "vmkuw.h"
+# endif
 #else
 # include <errno.h>
 /* FIXME : remove when syslog macros fixed */
@@ -3077,10 +3080,12 @@ print_xml_cdata(file_t f, const char *str)
 /* TODO - NYI print_xml_body_string, print_xml_attribute_string */
 
 #ifdef LINUX
-/* FIXME: this should be reworked, and the copy in preload should be removed */
-extern void 
+void 
 getnamefrompid(int pid, char *name, uint maxlen)
 {
+# ifdef VMX86_SERVER
+    vmk_getnamefrompid(pid, name, maxlen);
+# else
     int fd,n;
     char tempstring[200+1], *lastpart;
     /*this is a shitty way of getting the process name,
@@ -3102,6 +3107,7 @@ getnamefrompid(int pid, char *name, uint maxlen)
     name[maxlen-1]  = '\0'; /* if max no null */
 
     close_syscall(fd);
+# endif
 }
 #endif
 

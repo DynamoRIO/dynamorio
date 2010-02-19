@@ -562,7 +562,13 @@ get_application_name(void)
     return get_application_name_helper(false);
 }
 
-const char *
+/* Note: this is exported so that libdrpreload.so (preload.c) can use it to
+ * get process names to do selective process following (PR 212034).  The
+ * alternative is to duplicate or compile in this code into libdrpreload.so,
+ * which is messy.  Besides, libdynamorio.so is already loaded into the process
+ * and avaiable, so cleaner to just use functions from it.
+ */
+DYNAMORIO_EXPORT const char *
 get_application_short_name()
 {
     /* FIXME: NYI: need get_application_name() to have full path, here not */
