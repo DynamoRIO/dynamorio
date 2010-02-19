@@ -2352,6 +2352,11 @@ bool
 instr_is_label(instr_t *instr);
 
 DR_API
+/** Returns true iff \p instr is an "undefined" instruction (ud2) */
+bool 
+instr_is_undefined(instr_t *instr);
+
+DR_API
 /**
  * Assumes that \p instr's opcode is OP_int and that either \p instr's
  * operands or its raw bits are valid.

@@ -113,6 +113,7 @@ The changes between version 1.6.0 and 1.5.0 are:
  - Added the full path to modules in module_data_t
  - Added dr_get_proc_address_ex() to support indirect code objects
  - Added dr_get_milliseconds() and dr_get_time() impl for Linux
+ - Added instr_is_undefined()
 
 The changes between version 1.5.0 and 1.4.0 are:
 

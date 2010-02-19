@@ -481,6 +481,8 @@ typedef struct _thread_sig_info_t {
     stack_t app_sigstack;
     sigpending_t *sigpending[MAX_SIGNUM];
     kernel_sigset_t app_sigblocked;
+    /* for returning the old mask (xref PR 523394) */
+    kernel_sigset_t pre_syscall_app_sigblocked;
 
     /* to handle sigsuspend we have to save blocked set */
     bool in_sigsuspend;
@@ -1637,6 +1639,8 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask\n");
+    if (oset != NULL)
+        info->pre_syscall_app_sigblocked = info->app_sigblocked;
     if (set != NULL) {
         if (how == SIG_BLOCK) {
             /* The set of blocked signals is the union of the current
@@ -1708,7 +1712,10 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
     if (oset != NULL) {
         for (i=0; i<MAX_SIGNUM; i++) {
             if (info->we_intercept[i] &&
-                kernel_sigismember(&info->app_sigblocked, i)) {
+                /* use the pre-syscall value: do not take into account changes
+                 * from this syscall itself! (PR 523394)
+                 */
+                kernel_sigismember(&info->pre_syscall_app_sigblocked, i)) {
                 kernel_sigaddset(oset, i);
             }
         }
@@ -4547,7 +4554,9 @@ handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t 
     ASSERT(NUDGESIG_SIGNUM == SIGILL); /* else this check makes no sense */
     instr_init(dcontext, &instr);
     if (safe_read((byte *)sc->SC_XIP, sizeof(buf), buf) &&
-        decode(dcontext, (byte *)buf, &instr) == NULL) {
+        (decode(dcontext, (byte *)buf, &instr) == NULL ||
+         /* check for ud2 (xref PR 523161) */
+         instr_is_undefined(&instr))) {
         instr_free(dcontext, &instr);
         return true; /* pass to app */
     }

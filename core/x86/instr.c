@@ -4064,6 +4064,15 @@ instr_is_label(instr_t *instr)
     return instr_opcode_valid(instr) && instr_get_opcode(instr) == OP_LABEL;
 }
 
+/* Returns true iff instr is an "undefined" instruction (ud2) */
+bool 
+instr_is_undefined(instr_t *instr)
+{
+    return (instr_opcode_valid(instr) &&
+            (instr_get_opcode(instr) == OP_ud2a ||
+             instr_get_opcode(instr) == OP_ud2b));
+}
+
 /* Given a cbr, change the opcode (and potentially branch hint
  * prefixes) to that of the inverted branch condition.
  */
