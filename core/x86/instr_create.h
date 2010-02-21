@@ -187,6 +187,7 @@
  */
 
 /* no-operand instructions */
+/** @name No-operand instructions */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
@@ -261,6 +262,7 @@
  */
 #define INSTR_CREATE_jcc(dc, op, t) \
   instr_create_0dst_1src((dc), (op), (t))
+/** @name Direct unconditional jump */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -301,6 +303,7 @@
  */
 #define INSTR_CREATE_jmp_far_ind(dc, t) \
   instr_create_0dst_1src((dc), OP_jmp_far_ind, (t))
+/** @name One explicit source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -363,6 +366,7 @@
 #define INSTR_CREATE_nop_modrm(dc, s) \
   instr_create_0dst_1src((dc), OP_nop_modrm, (s))
 /* @} */ /* end doxygen group */
+/** @name Prefetch */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -432,6 +436,7 @@
   instr_create_0dst_1src((dc), OP_frstor, (m))
 
 /* no destination, 1 implicit source */
+/** @name One implicit source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
@@ -444,7 +449,8 @@
   instr_create_0dst_1src((dc), OP_sahf, opnd_create_reg(REG_AH))
 /* @} */ /* end doxygen group */
 
-/* no destination, 2 sources */
+/* no destination, 2 explicit sources */
+/** @name No destination, 2 explicit sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -510,6 +516,7 @@
   instr_create_0dst_2src((dc), OP_jecxz, (t), opnd_create_reg(REG_CX))
 
 /* no destination, 2 sources */
+/** @name No destination, 2 sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * Creates an instr_t for an OP_out instruction with a source of al
@@ -521,6 +528,7 @@
 #define INSTR_CREATE_out_4(dc) \
   instr_create_0dst_2src((dc), OP_out, opnd_create_reg(REG_EAX), opnd_create_reg(REG_DX))
 /* @} */ /* end doxygen group */
+/** @name No destination, explicit immed source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * Creates an instr_t for an OP_out instruction with a source of al
@@ -535,6 +543,7 @@
   instr_create_0dst_2src((dc), OP_out, (i), opnd_create_reg(REG_EAX))
 /* @} */ /* end doxygen group */
 
+/** @name No destination, 2 implicit sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
@@ -555,6 +564,7 @@
 /* @} */ /* end doxygen group */
 
 /* floating-point */
+/** @name Floating-point with source of memory or fp register */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
@@ -571,6 +581,7 @@
 #define INSTR_CREATE_fcomp(dc, s) \
   instr_create_0dst_2src((dc), OP_fcomp, (s), opnd_create_reg(REG_ST0))
 /* @} */ /* end doxygen group */
+/** @name Floating-point with fp register source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
@@ -593,6 +604,7 @@
 #define INSTR_CREATE_fucomp(dc, f) \
   instr_create_0dst_2src((dc), OP_fucomp, opnd_create_reg(REG_ST0), (f))
 /* @} */ /* end doxygen group */
+/** @name Floating-point with no explicit sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx,
@@ -616,6 +628,7 @@
  */
 #define INSTR_CREATE_setcc(dc, op, d) \
   instr_create_1dst_0src((dc), (op), (d))
+/** @name 1 explicit destination, no sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -665,6 +678,7 @@
 /* @} */ /* end doxygen group */
 
 /* floating-point */
+/** @name Floating-point with memory destination */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -710,6 +724,7 @@
   instr_create_1dst_0src((dc), OP_ffreep, (f))
 
 /* 1 implicit destination, no sources */
+/** @name 1 implicit destination, no sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
@@ -729,6 +744,7 @@
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 source */
+/** @name 1 destination, 1 source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -930,6 +946,7 @@
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
+/** @name 1 destination, 1 implicit source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -951,6 +968,7 @@
 /* @} */ /* end doxygen group */
 
 /* 1 implicit destination, 1 implicit source */
+/** @name 1 implicit destination, 1 implicit source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
@@ -974,6 +992,7 @@
     opnd_create_far_base_disp(SEG_DS, REG_XBX, REG_AL, 1, 0, OPSZ_xlat))
 /* @} */ /* end doxygen group */
 
+/** @name In with no explicit sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * Creates an instr_t for an OP_in instruction with a source of al
@@ -985,6 +1004,7 @@
 #define INSTR_CREATE_in_4(dc) \
   instr_create_1dst_1src((dc), OP_in, opnd_create_reg(REG_EAX), opnd_create_reg(REG_DX))
 /* @} */ /* end doxygen group */
+/** @name In with explicit source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * Creates an instr_t for an OP_in instruction with a source of al
@@ -1011,6 +1031,7 @@
  */
 #define INSTR_CREATE_fcmovcc(dc, op, f) \
   instr_create_1dst_1src((dc), (op), opnd_create_reg(REG_ST0), (f))
+/** @name Floating point with destination that is memory or fp register */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
@@ -1037,6 +1058,7 @@
  */
 #define INSTR_CREATE_fld(dc, s) \
   instr_create_1dst_1src((dc), OP_fld, opnd_create_reg(REG_ST0), (s))
+/** @name Floating-point with memory destination and implicit source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx_mem macro creates an instr_t with opcode OP_xxx and
@@ -1054,6 +1076,7 @@
 #define INSTR_CREATE_fbstp(dc, m) \
   instr_create_1dst_1src((dc), OP_fbstp, (m), opnd_create_reg(REG_ST0))
 /* @} */ /* end doxygen group */
+/** @name Floating-point with memory source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx_mem macro creates an instr_t with opcode OP_xxx and
@@ -1067,6 +1090,7 @@
 #define INSTR_CREATE_fbld(dc, m) \
   instr_create_1dst_1src((dc), OP_fbld, opnd_create_reg(REG_ST0), (m))
 /* @} */ /* end doxygen group */
+/** @name Floating-point implicit destination and implicit source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
@@ -1137,6 +1161,7 @@
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources */
+/** @name 1 destination, 2 sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -1189,6 +1214,7 @@
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
+/** @name 1 destination, 2 sources: 1 explicit, 1 implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -1529,6 +1555,7 @@
   instr_create_1dst_2src((dc), OP_pmulld, (d), (s), (d))
 /* @} */ /* end doxygen group */
 
+/** @name 1 destination, 1 explicit register-or-immediate source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -1580,6 +1607,7 @@
  */
 #define INSTR_CREATE_imul(dc, d, s) \
   instr_create_1dst_2src((dc), OP_imul, (d), (s), (d))
+/** @name 1 implicit destination, 1 explicit source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx, INSTR_CREATE_xxx_1, or INSTR_CREATE_xxx_4 macro creates an
@@ -1611,6 +1639,7 @@
     (s), opnd_create_reg(REG_EDX), opnd_create_reg(REG_EAX))
 /* @} */ /* end doxygen group */
 
+/** @name 1 destination, 1 explicit source that is cl, an immediate, or a constant */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
@@ -1641,6 +1670,7 @@
   instr_create_1dst_2src((dc), OP_sar, (d), (ri), (d))
 /* @} */ /* end doxygen group */
 
+/** @name 1 implicit destination, 2 explicit sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -1660,6 +1690,7 @@
 /* @} */ /* end doxygen group */
 
 /* floating-point */
+/** @name Floating-point with explicit destination and explicit mem-or-fp-reg source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -1686,6 +1717,7 @@
 #define INSTR_CREATE_fsubr(dc, f, s) \
   instr_create_1dst_2src((dc), OP_fsubr, (f), (s), (f))
 /* @} */ /* end doxygen group */
+/** @name Floating-point with explicit destination and implicit source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with
@@ -1708,6 +1740,7 @@
 #define INSTR_CREATE_fsubrp(dc, f) \
   instr_create_1dst_2src((dc), OP_fsubrp, (f), opnd_create_reg(REG_ST0), (f))
 /* @} */ /* end doxygen group */
+/** @name Floating-point with implicit destination and explicit memory source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -1786,6 +1819,7 @@
   instr_create_1dst_3src((dc), OP_insertq, (d), (r), (i1), (i2))
 
 /* 1 implicit destination, 2 sources: 1 explicit, 1 implicit */
+/** @name 1 implicit destination, 2 sources: 1 explicit, 1 implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -1799,6 +1833,7 @@
 #define INSTR_CREATE_aad(dc, i) \
   instr_create_1dst_2src((dc), OP_aad, opnd_create_reg(REG_AX), (i), opnd_create_reg(REG_AX))
 /* @} */ /* end doxygen group */
+/** @name Loop instructions */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -1816,6 +1851,7 @@
 /* @} */ /* end doxygen group */
 
 /* 1 implicit destination, 2 implicit sources */
+/** @name 1 implicit destination, 2 implicit sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
@@ -1847,6 +1883,7 @@
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 3 sources: 1 implicit */
+/** @name 1 destination, 3 sources: 1 implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
@@ -1864,6 +1901,7 @@
 #define INSTR_CREATE_shrd(dc, d, s, ri) \
   instr_create_1dst_3src((dc), OP_shrd, (d), (s), (ri), (d))
 /* @} */ /* end doxygen group */
+/** @name 1 explicit destination, 2 explicit sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
@@ -1897,6 +1935,7 @@
 /* @} */ /* end doxygen group */
 
 /* 1 implicit destination, 3 sources */
+/** @name 1 implicit destination, 3 sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
@@ -1914,6 +1953,7 @@
 /* @} */ /* end doxygen group */
 
 /* 1 implicit destination, 3 sources: 2 implicit */
+/** @name 1 implicit destination, 3 sources: 2 implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx_imm macro creates an instr_t with opcode OP_xxx and the
@@ -1938,6 +1978,7 @@
 /* @} */ /* end doxygen group */
 
 /* 1 implicit destination, 5 sources: 2 implicit */
+/** @name 1 implicit destination, 5 sources: 2 implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
@@ -1966,6 +2007,7 @@
   instr_create_2dst_0src((dc), OP_rdtsc, opnd_create_reg(REG_EDX), opnd_create_reg(REG_EAX))
 
 /* 2 destinations: 1 implicit, 1 source */
+/** @name 2 destinations: 1 implicit, 1 source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -1987,6 +2029,7 @@
 /* @} */ /* end doxygen group */
 
 /* 2 implicit destinations, 1 implicit source */
+/** @name 2 implicit destinations, 1 implicit source */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
@@ -2036,6 +2079,7 @@
     opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_VARSTACK))
 
 /* 2 destinations: 1 implicit, 2 sources: 1 implicit */
+/** @name 2 destinations: 1 implicit, 2 sources: 1 implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
@@ -2051,6 +2095,7 @@
 /* @} */ /* end doxygen group */
 
 /* string instructions */
+/** @name String instructions */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx_1 or INSTR_CREATE_xxx_4 macro creates an instr_t with opcode
@@ -2313,6 +2358,7 @@
     (i), opnd_create_reg(REG_XSP))
 
 /* 2 destinations: 1 implicit, 3 sources: 1 implicit */
+/** @name 2 destinations: 1 implicit, 3 sources: 1 implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx_1 or INSTR_CREATE_xxx_4 macro creates an
@@ -2337,6 +2383,7 @@
     opnd_create_reg(REG_XBP), opnd_create_reg(REG_XBP), opnd_create_reg(REG_XSP), \
     opnd_create_base_disp(REG_XBP, REG_NULL, 0, 0, OPSZ_STACK))
 
+/** @name No destination, many implicit sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
@@ -2396,6 +2443,7 @@
 
 /****************************************************************************/
 
+/** @name Nops */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * Convenience routine for nop of certain size.  We choose edi as working register
@@ -2410,6 +2458,7 @@
 #define INSTR_CREATE_nop2byte(dc) INSTR_CREATE_nop2byte_reg(dc, REG_XDI)
 #define INSTR_CREATE_nop3byte(dc) INSTR_CREATE_nop3byte_reg(dc, REG_XDI)
 /* @} */ /* end doxygen group */
+/** @name 2-byte reg nops */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * Convenience routine for nop of certain size.
