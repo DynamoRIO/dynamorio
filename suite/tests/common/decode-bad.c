@@ -291,7 +291,12 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME test_prefix_0
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+# ifdef X64
+        /* avoid ASSERT "no support yet for application using non-NPTL segment" */
+        RAW(64) RAW(f2) RAW(f3) RAW(eb) RAW(00)
+# else
         RAW(65) RAW(f2) RAW(f3) RAW(eb) RAW(00)
+# endif
         ret
         END_FUNC(FUNCNAME)
 

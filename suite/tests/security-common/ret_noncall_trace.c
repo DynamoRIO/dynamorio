@@ -52,21 +52,39 @@
 #define INNER_LOOP_COUNT 4
 #define MAX_SUM (NUM_TIMES * (NUM_TIMES + 1) / 2 * INNER_LOOP_COUNT)
 
-static unsigned int saved_eip;
+static ptr_uint_t saved_eip;
 
-int next_num (int max_val)
+int
+#ifdef X64
+# ifdef WINDOWS  /* 5th param is on the stack */
+next_num(int x1, int x2, int x3, int x4, int max_val)
+# else  /* 7th param is on the stack */
+next_num(int x1, int x2, int x3, int x4, int x5, int x6, int max_val)
+# endif
+#else
+next_num(int max_val)
+#endif
 {
   static int counter;
 
   counter++;
-  saved_eip = *(&max_val - 1);
+  saved_eip = *(((ptr_uint_t*)&max_val) - IF_X64_ELSE(IF_WINDOWS_ELSE(5, 1), 1));
   saved_eip += 6;		/* Set rp to main()'s do-while loop. */
   return counter;
 }
 
-int check_sum (int sum)
+int
+#ifdef X64
+# ifdef WINDOWS  /* 5th param is on the stack */
+check_sum(int x1, int x2, int x3, int x4, int sum)
+# else  /* 7th param is on the stack */
+check_sum(int x1, int x2, int x3, int x4, int x5, int x6, int sum)
+# endif
+#else
+check_sum (int sum)
+#endif
 {
-  *(&sum - 1) = saved_eip;
+  *(((ptr_uint_t*)&sum) - IF_X64_ELSE(IF_WINDOWS_ELSE(5, 1), 1)) = saved_eip;
 
   return 1;			/* Make the bogus transition here. */
 }
@@ -82,7 +100,16 @@ int main ()
   for (i = 0; i < NUM_TIMES; i++)
   {
     inner_loop = INNER_LOOP_COUNT;
-    val = next_num(NUM_TIMES);		/* Get next_num() into a trace. */
+    /* Get next_num() into a trace. */
+#ifdef X64
+# ifdef WINDOWS
+    val = next_num(1, 2, 3, 4, NUM_TIMES);
+# else
+    val = next_num(1, 2, 3, 4, 5, 6, NUM_TIMES);
+# endif
+#else
+    val = next_num(NUM_TIMES);
+#endif
     do {
       sum += val;
       if (sum > MAX_SUM)
@@ -93,5 +120,13 @@ int main ()
     } while (--inner_loop);
   }
 
-  check_sum(sum);
+#ifdef X64
+# ifdef WINDOWS
+    val = check_sum(1, 2, 3, 4, sum);
+# else
+    val = check_sum(1, 2, 3, 4, 5, 6, sum);
+# endif
+#else
+    val = check_sum(sum);
+#endif
 }

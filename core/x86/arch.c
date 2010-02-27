@@ -2268,6 +2268,33 @@ instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
     return true;
 }
 
+static inline bool
+instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
+{
+    /* We don't support restoring a fault in the middle, but we
+     * identify here to avoid "unsupported mangle instr" message
+     */
+    if (!instr_is_our_mangling(inst))
+        return false;
+    return
+#ifdef X64
+        instr_get_opcode(inst) == OP_mov_imm ||
+        /* mov %rax -> xbx-tls-spill-slot */
+        instr_get_opcode(inst) == OP_mov_st ||
+        instr_get_opcode(inst) == OP_lahf ||
+        instr_get_opcode(inst) == OP_seto ||
+        instr_get_opcode(inst) == OP_cmp ||
+        instr_get_opcode(inst) == OP_jnz ||
+        instr_get_opcode(inst) == OP_add ||
+        instr_get_opcode(inst) == OP_sahf
+#else
+        instr_get_opcode(inst) == OP_lea ||
+        instr_get_opcode(inst) == OP_jecxz ||
+        instr_get_opcode(inst) == OP_jmp
+#endif
+        ;
+}
+
 static void
 translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *walk)
 {
@@ -2386,6 +2413,9 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          */
         else if (instr_check_xsp_mangling(tdcontext, inst, &walk->xsp_adjust)) {
             /* walk->xsp_adjust is now adjusted */
+        }
+        else if (instr_is_trace_cmp(tdcontext, inst)) {
+            /* nothing to do */
         }
         /* We do not support restoring state at arbitrary points for thread
          * relocation (a performance issue, not a correctness one): if not a

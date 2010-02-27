@@ -573,7 +573,7 @@ endfunction(tobind)
 
 # i#215: mark tests w/ text relocations to avoid violating selinux policies
 function(tochcon target)
-  if (NOT CHCON-NOTFOUND)
+  if (UNIX AND NOT CHCON-NOTFOUND)
     get_target_property(binary ${target} LOCATION)
     add_custom_command(TARGET ${target}
       POST_BUILD
@@ -581,7 +581,7 @@ function(tochcon target)
       ARGS -t textrel_shlib_t ${binary}
       VERBATIM # recommended: p260
       )
-  endif (NOT CHCON-NOTFOUND)
+  endif (UNIX AND NOT CHCON-NOTFOUND)
 endfunction(tochcon)
 
 ###########################################################################

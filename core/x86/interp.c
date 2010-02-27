@@ -4939,6 +4939,8 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     added_size += insert_restore_spilled_xcx(dcontext, trace, next);
 
 #ifdef X64
+    LOG(THREAD, LOG_INTERP, 4, "next_flags for post-ibl-cmp: 0x%x\n",
+        next_flags);
     if (!TEST(FRAG_WRITES_EFLAGS_6, next_flags) &&
         !DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
         if (!TEST(FRAG_WRITES_EFLAGS_OF, next_flags) &&  /* OF was saved */
@@ -5822,10 +5824,16 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
         if (inst == md->blk_info[blk].bounds.end_instr) {
             /* Chain exit to point to next bb */
             if (blk + 1 < md->num_blks) {
+                /* We must do proper analysis so that state translation matches
+                 * created traces in whether eflags are restored post-cmp
+                 */
+                uint next_flags = forward_eflags_analysis(dcontext, ilist,
+                                                          instr_get_next(inst));
+                next_flags = instr_eflags_to_fragment_eflags(next_flags);
+                LOG(THREAD, LOG_INTERP, 4, "next_flags for fixup_last_cti: 0x%x\n",
+                    next_flags);
                 fixup_last_cti(dcontext, ilist, md->blk_info[blk+1].info.tag,
-                               /* FIXME: do eflags analysis for better x64
-                                * inline cmp; for now we pass 0 */
-                               0,
+                               next_flags,
                                md->trace_flags, NULL, NULL,
                                TEST(FRAG_HAS_TRANSLATION_INFO, md->trace_flags),
                                &num_exits_deleted,

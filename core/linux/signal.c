@@ -3035,7 +3035,13 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
              * still go to the private fcache_return for simplicity.
              */
             sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
+#ifdef X64
+            /* x64 always uses shared gencode */
+            get_local_state_extended()->spill_space.xax = sc->SC_XAX;
+#else
             get_mcontext(dcontext)->xax = sc->SC_XAX;
+#endif
+            LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax "PFX"\n", sc->SC_XAX);
             sc->SC_XAX = (ptr_uint_t) get_selfmod_linkstub();
             /* fcache_return will save rest of state */
             dcontext->next_tag = next_pc;
