@@ -35,7 +35,7 @@
 static
 void my_abort(app_pc tag)
 {
-    dr_printf("aborting now\n");
+    dr_fprintf(STDERR, "aborting now\n");
     dr_abort();
 }
 

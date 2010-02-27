@@ -63,20 +63,20 @@ void security_event(void *drcontext, void *source_tag,
         break;
     }
 
-    dr_printf("security violation: \"%s\"\n", violation_str);
+    dr_fprintf(STDERR, "security violation: \"%s\"\n", violation_str);
 #if 0
-    dr_printf("Source tag="PFX" pc="PFX" Target pc="PFX"\n",
+    dr_fprintf(STDERR, "Source tag="PFX" pc="PFX" Target pc="PFX"\n",
               source_tag, source_pc, target_pc);
 #endif
 
     violations++;
 
     if (violations == 1) {
-        dr_printf("continuing...\n");
+        dr_fprintf(STDERR, "continuing...\n");
         *action = DR_VIOLATION_ACTION_CONTINUE;
     }
     else {
-        dr_printf("terminating...\n");
+        dr_fprintf(STDERR, "terminating...\n");
         *action = DR_VIOLATION_ACTION_KILL_PROCESS;
 #if 0
         dr_write_forensics_report(drcontext, dr_get_stdout_file(), violation,

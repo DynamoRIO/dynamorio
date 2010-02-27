@@ -56,7 +56,7 @@ byte * find_prot_edge(const byte *start, uint prot_flag)
     } while (dr_query_memory(last, &base, &size, &prot) && TESTALL(prot_flag, prot));
     
     if (last == start)
-        dr_printf("error in find_prot_edge");
+        dr_fprintf(STDERR, "error in find_prot_edge");
 
     return last;
 }
@@ -103,29 +103,29 @@ void dr_init(client_id_t id)
      * is there (should add write tests, file_exists, directory etc. tests). */
     file = dr_open_file(dr_get_options(id), DR_FILE_READ);
     if (file == INVALID_FILE)
-        dr_printf("Error opening file\n");
+        dr_fprintf(STDERR, "Error opening file\n");
     memset(buf, 0, sizeof(buf));
     dr_read_file(file, buf, 10);
     pos = dr_file_tell(file);
     if (pos < 0)
-        dr_printf("tell error\n");
-    dr_printf("%s\n", buf);
+        dr_fprintf(STDERR, "tell error\n");
+    dr_fprintf(STDERR, "%s\n", buf);
     if (!dr_file_seek(file, 0, DR_SEEK_SET))
-        dr_printf("seek error\n");
+        dr_fprintf(STDERR, "seek error\n");
     memset(buf, 0, sizeof(buf));
     dr_read_file(file, buf, 5);
-    dr_printf("%s\n", buf);
+    dr_fprintf(STDERR, "%s\n", buf);
     for (i = 0; i < 100; i++) buf[i] = 0;
     if (!dr_file_seek(file, pos - 5, DR_SEEK_CUR))
-        dr_printf("seek error\n");
+        dr_fprintf(STDERR, "seek error\n");
     memset(buf, 0, sizeof(buf));
     dr_read_file(file, buf, 7);
-    dr_printf("%s\n", buf);
+    dr_fprintf(STDERR, "%s\n", buf);
     if (!dr_file_seek(file, -6, DR_SEEK_END))
-        dr_printf("seek error\n");
+        dr_fprintf(STDERR, "seek error\n");
     memset(buf, 0, sizeof(buf));
     dr_read_file(file, buf, 6);
-    dr_printf("%s\n", buf);
+    dr_fprintf(STDERR, "%s\n", buf);
     dr_close_file(file);
 
     /* Test the memory query routines */
@@ -133,21 +133,21 @@ void dr_init(client_id_t id)
     if (!dr_memory_is_readable((byte *)dummy_func, 1) ||
         !dr_memory_is_readable(read_only_buf+1000, 4000) ||
         !dr_memory_is_readable(writable_buf+1000, 4000)) {
-        dr_printf("ERROR : dr_memory_is_readable() incorrect results\n");
+        dr_fprintf(STDERR, "ERROR : dr_memory_is_readable() incorrect results\n");
     }
 
     if (!dr_query_memory((byte *)dummy_func, &base_pc, &size, &prot))
-        dr_printf("ERROR : can't find dummy_func mem region\n");
-    dr_printf("dummy_func is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
+        dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
+    dr_fprintf(STDERR, "dummy_func is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
               TEST(DR_MEMPROT_EXEC, prot) ? "x" : "");
     if (base_pc > (byte *)dummy_func || base_pc + size < (byte *)dummy_func)
-        dr_printf("dummy_func region mismatch");
+        dr_fprintf(STDERR, "dummy_func region mismatch");
 
     memset(writable_buf, 0, sizeof(writable_buf)); /* strip off write copy */
     if (!dr_query_memory(writable_buf+100, &base_pc, &size, &prot))
-        dr_printf("ERROR : can't find dummy_func mem region\n");
-    dr_printf("writable_buf is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
+        dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
+    dr_fprintf(STDERR, "writable_buf is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
 #if LINUX
 	      /* Linux sometimes (probably depends on version and hardware NX
@@ -160,26 +160,26 @@ void dr_init(client_id_t id)
 #endif
 	      );
     if (base_pc > writable_buf || base_pc + size < writable_buf)
-        dr_printf("writable_buf region mismatch\n");
+        dr_fprintf(STDERR, "writable_buf region mismatch\n");
     if (base_pc + size < writable_buf + sizeof(writable_buf))
-        dr_printf("writable_buf size mismatch "PFX" "PFX" "PFX" "PFX"\n",
+        dr_fprintf(STDERR, "writable_buf size mismatch "PFX" "PFX" "PFX" "PFX"\n",
                   base_pc, size, writable_buf, sizeof(writable_buf));
 
     if (!dr_query_memory(read_only_buf+100, &base_pc, &size, &prot))
-        dr_printf("ERROR : can't find dummy_func mem region\n");
-    dr_printf("read_only_buf is %s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
+        dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
+    dr_fprintf(STDERR, "read_only_buf is %s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "");
     if (base_pc > read_only_buf || base_pc + size < read_only_buf)
-        dr_printf("read_only_buf region mismatch");
+        dr_fprintf(STDERR, "read_only_buf region mismatch");
     if (base_pc + size < read_only_buf + sizeof(read_only_buf))
-        dr_printf("read_only_buf size mismatch");
+        dr_fprintf(STDERR, "read_only_buf size mismatch");
     
     /* test the safe_read functions */
     /* TODO - extend test to cover racy writes and reads (won't work on Linux yet). */
     memset(safe_buf, 0xcd, sizeof(safe_buf));
     if (!dr_safe_read(read_only_buf + 4000, 1000, safe_buf, &bytes_read) ||
         bytes_read != 1000 || !memchk(safe_buf, 0, 1000) || *(safe_buf+1000) != 0xcd) {
-        dr_printf("ERROR in plain dr_safe_read()\n");
+        dr_fprintf(STDERR, "ERROR in plain dr_safe_read()\n");
     }
     memset(safe_buf, 0xcd, sizeof(safe_buf));
     edge = find_prot_edge(read_only_buf, DR_MEMPROT_READ);
@@ -187,15 +187,15 @@ void dr_init(client_id_t id)
     if (dr_safe_read(edge - (PAGE_SIZE + 10), PAGE_SIZE+20, safe_buf, &bytes_read) ||
         bytes_read == 0xcdcdcdcd || bytes_read > PAGE_SIZE+10 || 
         !memchk(safe_buf, 0, bytes_read)) {
-        dr_printf("ERROR in overlap dr_safe_read()\n");
+        dr_fprintf(STDERR, "ERROR in overlap dr_safe_read()\n");
     }
-    dr_printf("dr_safe_read() check\n");
+    dr_fprintf(STDERR, "dr_safe_read() check\n");
 
     memset(safe_buf, 0xcd, sizeof(safe_buf));
     if (!dr_safe_write(writable_buf, 1000, safe_buf, &bytes_written) ||
         bytes_written != 1000 || !memchk(writable_buf, 0xcd, 1000) ||
         !memchk(writable_buf+1000, 0, 1000)) {
-        dr_printf("ERROR in plain dr_safe_write()\n");
+        dr_fprintf(STDERR, "ERROR in plain dr_safe_write()\n");
     }
     memset(writable_buf, 0, sizeof(writable_buf));
     edge = find_prot_edge(writable_buf, DR_MEMPROT_WRITE);
@@ -203,10 +203,10 @@ void dr_init(client_id_t id)
     if (dr_safe_write(edge - (PAGE_SIZE + 10), PAGE_SIZE+20, safe_buf, &bytes_written) ||
         bytes_written == 0xcdcdcdcd || bytes_written > PAGE_SIZE+10 ||
         !memchk(edge - (PAGE_SIZE + 10), 0xcd, bytes_written)) {
-        dr_printf("ERROR in overlap dr_safe_write() "PFX" "PFX" %d\n", writable_buf, edge, bytes_written);
+        dr_fprintf(STDERR, "ERROR in overlap dr_safe_write() "PFX" "PFX" %d\n", writable_buf, edge, bytes_written);
     }
-    dr_printf("dr_safe_write() check\n");
+    dr_fprintf(STDERR, "dr_safe_write() check\n");
 
-    dr_printf("done\n");
+    dr_fprintf(STDERR, "done\n");
 }
 

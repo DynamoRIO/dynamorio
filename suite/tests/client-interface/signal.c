@@ -34,8 +34,7 @@
  * API regression test for signal event
  */
 
-#ifdef LINUX /* whole file */
-
+#include "tools.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -67,7 +66,7 @@ redirect_target(void)
     NOP; NOP;
     foo();
 
-    fprintf(stderr, "Redirected\n");
+    print("Redirected\n");
     longjmp(mark, 1);
 }
 
@@ -78,13 +77,13 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (sig == SIGUSR1)
-	fprintf(stderr, "Got SIGUSR1\n");
+	print("Got SIGUSR1\n");
     else if (sig == SIGUSR2)
-	fprintf(stderr, "Got SIGUSR2\n");
+	print("Got SIGUSR2\n");
     else if (sig == SIGURG)
-	fprintf(stderr, "Got SIGURG\n");
+	print("Got SIGURG\n");
     else if (sig == SIGSEGV)
-	fprintf(stderr, "Got SIGSEGV\n");
+	print("Got SIGSEGV\n");
 }
 
 /* set up signal_handler as the handler for signal "sig" */
@@ -121,23 +120,23 @@ main(int argc, char** argv)
     intercept_signal(SIGURG, (handler_t) signal_handler);
     intercept_signal(SIGSEGV, (handler_t) signal_handler);
 
-    fprintf(stderr, "Sending SIGURG\n");
+    print("Sending SIGURG\n");
     kill(getpid(), SIGURG);
-    fprintf(stderr, "Sending SIGURG\n");
+    print("Sending SIGURG\n");
     kill(getpid(), SIGURG);
-    fprintf(stderr, "Sending SIGURG\n");
+    print("Sending SIGURG\n");
     kill(getpid(), SIGURG);
 
     unintercept_signal(SIGURG);
 
-    fprintf(stderr, "Sending SIGURG\n");
+    print("Sending SIGURG\n");
     kill(getpid(), SIGURG);
-    fprintf(stderr, "Sending SIGURG\n");
+    print("Sending SIGURG\n");
     kill(getpid(), SIGURG);
-    fprintf(stderr, "Sending SIGURG\n");
+    print("Sending SIGURG\n");
     kill(getpid(), SIGURG);
 
-    fprintf(stderr, "Sending SIGTERM\n");
+    print("Sending SIGTERM\n");
     kill(getpid(), SIGTERM);
 
     if (setjmp(mark) == 0) {
@@ -145,7 +144,7 @@ main(int argc, char** argv)
         redirect_target();
     }
     if (setjmp(mark) == 0) {
-        fprintf(stderr, "Sending SIGUSR2\n");
+        print("Sending SIGUSR2\n");
         kill(getpid(), SIGUSR2);
     }
 
@@ -167,10 +166,8 @@ main(int argc, char** argv)
     asm("pop "ECX);
     asm("pop "EAX);
 
-    fprintf(stderr, "Sending SIGUSR1\n");
+    print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);
 
-    fprintf(stderr, "Done\n");
+    print("Done\n");
 }
-
-#endif /* LINUX */

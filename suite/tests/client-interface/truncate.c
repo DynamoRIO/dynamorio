@@ -34,5 +34,5 @@
 
 int main()
 {
-    printf("hello world!\n");
+    fprintf(stderr, "hello world!\n");
 }

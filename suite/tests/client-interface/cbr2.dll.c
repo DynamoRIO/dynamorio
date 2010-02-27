@@ -75,7 +75,7 @@ void at_bb(app_pc bb_addr)
     app_pc cbr_addr = dr_get_tls_field(drcontext);
 
     if (cbr_addr != NULL && cbr_addr != bb_addr) {
-        dr_printf("ERROR: expected branch to "PFX", but entered BB at "PFX"\n",
+        dr_fprintf(STDERR, "ERROR: expected branch to "PFX", but entered BB at "PFX"\n",
                   cbr_addr, bb_addr);
     }
 
@@ -179,7 +179,7 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 DR_EXPORT
 void dr_init(client_id_t id)
 {
-    dr_printf("thank you for testing the client interface\n");
+    dr_fprintf(STDERR, "thank you for testing the client interface\n");
     dr_register_bb_event(bb_event);
     dr_register_thread_init_event(thread_init_event);
 }

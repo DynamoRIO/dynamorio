@@ -44,6 +44,12 @@ void write_array(char *array)
         array[i] = VAL;
 }
 
+/* WARNING i#262: if you use the cmake binary package, ctest is built
+ * without a GNU_STACK section, which causes the linux kernel to set
+ * the READ_IMPLIES_EXEC personality flag, which is propagated to
+ * children and causes all mmaps to be +x, breaking all these tests
+ * that check for mmapped memory to be +rw or +r!
+ */
 static
 void global_test(void)
 {
@@ -59,10 +65,6 @@ void global_test(void)
     dr_fprintf(STDERR, "success\n");
 }
 
-/* FIXME: 32-bit apps on my 64-bit linux machine end up with +x for
- * all of these regardless of what's allocated up front or what's
- * mprotected: DR is doing the right thing, the OS is adding it.
- */
 static
 void nonheap_test(void)
 {

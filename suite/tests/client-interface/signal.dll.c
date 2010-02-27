@@ -58,7 +58,7 @@ dr_signal_action_t signal_event(void *dcontext, dr_siginfo_t *info)
 {
     static int count = -1;
     count++;
-    dr_printf("signal event %d sig=%d\n", count, info->sig);
+    dr_fprintf(STDERR, "signal event %d sig=%d\n", count, info->sig);
 
     if (info->sig == SIGURG) {
         static int count_urg = -1;
@@ -71,7 +71,7 @@ dr_signal_action_t signal_event(void *dcontext, dr_siginfo_t *info)
             case 3: return DR_SIGNAL_DELIVER;
             case 4: return DR_SIGNAL_SUPPRESS;
             case 5: return DR_SIGNAL_BYPASS;
-            default: dr_printf("too many SIGURG\n");
+            default: dr_fprintf(STDERR, "too many SIGURG\n");
         }
     } else if (info->sig == SIGTERM) {
         return DR_SIGNAL_SUPPRESS;

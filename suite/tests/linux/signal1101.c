@@ -35,4 +35,5 @@
 #define USE_SIGSTACK 0
 #define USE_TIMER 1
 
+#include "tools.h"
 #include "signal-base.h"

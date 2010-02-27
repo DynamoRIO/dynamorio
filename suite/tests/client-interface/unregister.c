@@ -34,6 +34,6 @@
 
 int main()
 {
-    printf("thank you for testing the client interface\n");
+    fprintf(stderr, "thank you for testing the client interface\n");
     return 0;
 }

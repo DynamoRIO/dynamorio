@@ -59,19 +59,19 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
      */
     /* Test i#138 */
     if (data->full_path == NULL || data->full_path[0] == '\0')
-        dr_printf("ERROR: full_path empty for %s\n", dr_module_preferred_name(data));
+        dr_fprintf(STDERR, "ERROR: full_path empty for %s\n", dr_module_preferred_name(data));
     /* We do not expect \\server-style paths for this test */
     else if (data->full_path[0] == '\\' || data->full_path[1] != ':')
-        dr_printf("ERROR: full_path is not in DOS format: %s\n", data->full_path);
+        dr_fprintf(STDERR, "ERROR: full_path is not in DOS format: %s\n", data->full_path);
     if (string_match(data->names.module_name, "ADVAPI32.dll"))
-        dr_printf("LOADED MODULE: %s\n", data->names.module_name);
+        dr_fprintf(STDERR, "LOADED MODULE: %s\n", data->names.module_name);
 }
 
 static
 void module_unload_event(void *dcontext, const module_data_t *data)
 {
     if (string_match(data->names.module_name, "ADVAPI32.dll"))
-        dr_printf("UNLOADED MODULE: %s\n", data->names.module_name);
+        dr_fprintf(STDERR, "UNLOADED MODULE: %s\n", data->names.module_name);
 }
 
 DR_EXPORT

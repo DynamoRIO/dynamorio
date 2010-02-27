@@ -34,5 +34,5 @@
 
 int main()
 {
-    printf("ERROR: this shouldn't print\n");
+    fprintf(stderr, "ERROR: this shouldn't print\n");
 }

@@ -112,7 +112,7 @@ void decrement(void *tag)
 
     elem = find(tag);
     if (elem == NULL) {
-        dr_printf("ERROR removing "PFX"\n", tag);
+        dr_fprintf(STDERR, "ERROR removing "PFX"\n", tag);
     }
     else {
         elem->count--;
@@ -145,17 +145,17 @@ void exit_event(void)
     while (iter) {
         elem_t *next = iter->next;
         count += iter->count;
-        dr_printf("ERROR: "PFX" undeleted\n", iter->tag);
+        dr_fprintf(STDERR, "ERROR: "PFX" undeleted\n", iter->tag);
         dr_global_free(iter, sizeof(elem_t));
         iter = next;
     }
 
-    dr_printf("%d undeleted fragments\n", count);
+    dr_fprintf(STDERR, "%d undeleted fragments\n", count);
     /* get around nondeterminism */
     if (bb_build_count >= 5 && bb_build_count <= 15)
-        dr_printf("constructed BB 5-15 times\n");
+        dr_fprintf(STDERR, "constructed BB 5-15 times\n");
     else
-        dr_printf("constructed BB %d times\n", bb_build_count);
+        dr_fprintf(STDERR, "constructed BB %d times\n", bb_build_count);
 }
 
 static
@@ -175,7 +175,7 @@ void deleted_event(void *dcontext, void *tag)
 
 void flush_event(int flush_id)
 {
-    dr_printf("Flush completion id=%d\n", flush_id);
+    dr_fprintf(STDERR, "Flush completion id=%d\n", flush_id);
 }
 
 static 
@@ -283,7 +283,7 @@ DR_EXPORT
 void dr_init(client_id_t id)
 {
     const char *options = dr_get_options(id);
-    dr_printf("options = %s\n", options);
+    dr_fprintf(STDERR, "options = %s\n", options);
     if (options != NULL && strstr(options, "use_unlink") != NULL) {
         use_unlink = true;
     }

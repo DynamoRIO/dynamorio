@@ -91,9 +91,9 @@ void exit_event(void)
 {
     dr_mutex_exit(mutex);
     if (deletions > 10000)
-        dr_printf("deleted > 10k fragments\n");
+        dr_fprintf(STDERR, "deleted > 10k fragments\n");
     else
-        dr_printf("deleted %d fragments\n", deletions);
+        dr_fprintf(STDERR, "deleted %d fragments\n", deletions);
 }
 
 DR_EXPORT

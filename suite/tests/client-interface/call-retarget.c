@@ -40,12 +40,12 @@
 
 static void foo(void)
 {
-    printf("called foo()\n");
+    fprintf(stderr, "called foo()\n");
 }
 
 static void bar(void)
 {
-    printf("called bar()\n");
+    fprintf(stderr, "called bar()\n");
 }
 
 int main()

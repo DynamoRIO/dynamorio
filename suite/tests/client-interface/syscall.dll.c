@@ -49,7 +49,7 @@ at_syscall()
         dr_mcontext_t mcontext;
         void *drcontext = dr_get_current_drcontext();
         dr_get_mcontext(drcontext, &mcontext, NULL);
-        dr_printf(PFX"\n", mcontext.xax);
+        dr_fprintf(STDERR, PFX"\n", mcontext.xax);
     }
 }
 
@@ -59,11 +59,11 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     app_pc pc = dr_fragment_app_pc(tag);
 
     if (pc == start_pc) {
-        dr_printf("starting syscall monitoring\n");
+        dr_fprintf(STDERR, "starting syscall monitoring\n");
         monitoring = true;
     }
     else if (pc == stop_pc) {
-        dr_printf("stopping syscall monitoring\n");
+        dr_fprintf(STDERR, "stopping syscall monitoring\n");
         monitoring = false;
     }
     else {
@@ -116,15 +116,15 @@ dr_init(client_id_t id)
         /* do some more dr_get_proc_address testing */
         if (strncmp(dr_module_preferred_name(data), "libc.", 5) == 0) {
             module_handle_t lib = data->handle;
-            dr_printf("found libc\n");
+            dr_fprintf(STDERR, "found libc\n");
             if (dr_get_proc_address(lib, "malloc") == NULL)
-                dr_printf("ERROR: can't find malloc in libc\n");
+                dr_fprintf(STDERR, "ERROR: can't find malloc in libc\n");
             if (dr_get_proc_address(lib, "free") == NULL)
-                dr_printf("ERROR: can't find free in libc\n");
+                dr_fprintf(STDERR, "ERROR: can't find free in libc\n");
             if (dr_get_proc_address(lib, "printf") == NULL)
-                dr_printf("ERROR: can't find printf in libc\n");
+                dr_fprintf(STDERR, "ERROR: can't find printf in libc\n");
             if (dr_get_proc_address(lib, "gettimeofday") == NULL)
-                dr_printf("ERROR: can't find gettimeofday in libc\n");
+                dr_fprintf(STDERR, "ERROR: can't find gettimeofday in libc\n");
         }
 #endif
         dr_free_module_data(data);
@@ -132,7 +132,7 @@ dr_init(client_id_t id)
     dr_module_iterator_stop(iter);
 
     if (start_pc == NULL || stop_pc == NULL) {
-        dr_printf("ERROR: did not find start/stop markers\n");
+        dr_fprintf(STDERR, "ERROR: did not find start/stop markers\n");
     }
 
     /* Register the BB hook */

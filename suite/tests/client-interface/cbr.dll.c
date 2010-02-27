@@ -51,7 +51,7 @@ void at_cbr(app_pc inst_addr, app_pc targ_addr, int taken)
         dr_set_tls_field(drcontext, fall_addr);
     }
     else {
-        dr_printf("ERROR: expecting 'taken' to be 0 or 1\n");
+        dr_fprintf(STDERR, "ERROR: expecting 'taken' to be 0 or 1\n");
     }
 }
 
@@ -61,7 +61,7 @@ void at_bb(void *drcontext, app_pc bb_addr)
     app_pc cbr_addr = dr_get_tls_field(drcontext);
 
     if (cbr_addr != NULL && cbr_addr != bb_addr) {
-        dr_printf("ERROR: expected jmp to "PFX", but entered BB at "PFX"\n",
+        dr_fprintf(STDERR, "ERROR: expected jmp to "PFX", but entered BB at "PFX"\n",
                   cbr_addr, bb_addr);
     }
 
@@ -103,7 +103,7 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 DR_EXPORT
 void dr_init(client_id_t id)
 {
-    dr_printf("thank you for testing the client interface\n");
+    dr_fprintf(STDERR, "thank you for testing the client interface\n");
     dr_register_bb_event(bb_event);
     dr_register_thread_init_event(thread_init_event);
 }

@@ -35,9 +35,9 @@
 int main()
 {
     int i;
-    printf("counting to 10:\n");
+    fprintf(stderr, "counting to 10:\n");
     for (i=1; i<=10; i++)
-        printf("  %d\n", i);
+        fprintf(stderr, "  %d\n", i);
 
     return 0;
 }

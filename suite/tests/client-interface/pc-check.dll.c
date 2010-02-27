@@ -73,13 +73,13 @@ dr_emit_flags_t bb_event(void *drcontext, app_pc tag, instrlist_t *bb, bool for_
         return DR_EMIT_DEFAULT;
 
     if (!is_in_known_module(bb_addr, &found_section, &section)) {
-        dr_printf("ERROR: BB addr "PFX" in unknown module\n", bb_addr);
+        dr_fprintf(STDERR, "ERROR: BB addr "PFX" in unknown module\n", bb_addr);
     }
     if (!found_section) {
-        dr_printf("ERROR: BB addr "PFX" isn't within a module section\n", bb_addr);
+        dr_fprintf(STDERR, "ERROR: BB addr "PFX" isn't within a module section\n", bb_addr);
     }
     if ((section.Characteristics & IMAGE_SCN_CNT_CODE) == 0) {
-        dr_printf("ERROR: BB addr "PFX" isn't within a code section\n", bb_addr);   
+        dr_fprintf(STDERR, "ERROR: BB addr "PFX" isn't within a code section\n", bb_addr);   
     }
 
     for (instr = instrlist_first(bb);
@@ -88,16 +88,16 @@ dr_emit_flags_t bb_event(void *drcontext, app_pc tag, instrlist_t *bb, bool for_
 
         instr_addr = instr_get_app_pc(instr);
         if (!is_in_known_module(instr_addr, &found_section, &section)) {
-            dr_printf("ERROR: instr addr "PFX" in unknown module\n", instr_addr);
+            dr_fprintf(STDERR, "ERROR: instr addr "PFX" in unknown module\n", instr_addr);
         }
         if (!found_section) {
-            dr_printf("ERROR: instr addr "PFX" isn't within a module section\n", instr_addr);
+            dr_fprintf(STDERR, "ERROR: instr addr "PFX" isn't within a module section\n", instr_addr);
         }
         if ((section.Characteristics & IMAGE_SCN_CNT_CODE) == 0) {
-            dr_printf("ERROR: instr addr "PFX" isn't within a code section\n", instr_addr);   
+            dr_fprintf(STDERR, "ERROR: instr addr "PFX" isn't within a code section\n", instr_addr);   
         }
         if (instr_addr == exit_proc_addr) {
-            dr_printf("Hit kernel32!ExitProcess\n");
+            dr_fprintf(STDERR, "Hit kernel32!ExitProcess\n");
             exit_proc_addr = NULL;
         }
     }
@@ -108,15 +108,15 @@ DR_EXPORT
 void dr_init(client_id_t id)
 {
     module_data_t *data;
-    dr_printf("thank you for testing the client interface\n");
+    dr_fprintf(STDERR, "thank you for testing the client interface\n");
     dr_register_bb_event(bb_event);
     data = dr_lookup_module_by_name("kernel32.dll");
     if (data != NULL) {
         exit_proc_addr = (void *)dr_get_proc_address(data->handle, "ExitProcess");
         if (exit_proc_addr == NULL)
-            dr_printf("ERROR: unable to find kernel32!ExitProcess\n");
+            dr_fprintf(STDERR, "ERROR: unable to find kernel32!ExitProcess\n");
         dr_free_module_data(data);
     } else {
-        dr_printf("ERROR: unable to find ntdll.dll\n");
+        dr_fprintf(STDERR, "ERROR: unable to find ntdll.dll\n");
     }
 }

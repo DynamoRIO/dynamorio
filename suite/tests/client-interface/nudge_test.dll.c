@@ -40,7 +40,7 @@ void nudge_event(void *drcontext, uint64 arg)
     /* first nudge is external */
     static bool first = true;
 
-    dr_printf("nudge delivered %x\n", (uint)arg);
+    dr_fprintf(STDERR, "nudge delivered %x\n", (uint)arg);
 
     if (first) {
         first = false;
@@ -52,14 +52,14 @@ void nudge_event(void *drcontext, uint64 arg)
 static
 void dr_exit(void)
 {
-    dr_printf("done\n");
+    dr_fprintf(STDERR, "done\n");
 }
 
 DR_EXPORT
 void dr_init(client_id_t id)
 {
     client_id = id;
-    dr_printf("thank you for testing the client interface\n");
+    dr_fprintf(STDERR, "thank you for testing the client interface\n");
     dr_register_nudge_event(nudge_event, id);
     dr_register_exit_event(dr_exit);
 }

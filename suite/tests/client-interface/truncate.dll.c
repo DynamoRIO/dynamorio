@@ -49,6 +49,6 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
 DR_EXPORT
 void dr_init(client_id_t id)
 {
-    dr_printf("thank you for testing the client interface\n");
+    dr_fprintf(STDERR, "thank you for testing the client interface\n");
     dr_register_bb_event(bb_event);
 }

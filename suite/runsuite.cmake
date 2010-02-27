@@ -149,7 +149,9 @@ set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
 set(CTEST_PROJECT_NAME "DynamoRIO")
 find_program(MAKE_COMMAND make DOC "make command")
 set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j5")
-set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
+# i#111: use -j if available to run tests in parallel.
+# Only CTest 2.8+ supports -j, but 2.6 just ignores unknown params.
+set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME} -j5")
 
 if (UNIX)
   # For cross-arch execve tests we need to run from an install dir
@@ -202,9 +204,20 @@ function(testbuild_ex name is64 initial_cache build_args)
   else ()
     set(tests_cache "")
   endif()
+  if (WIN32)
+    # i#111: Disabling progress and status messages can speed the Windows build
+    # up by up to 50%.  I filed CMake bug 8726 on this and this variable will be
+    # in the 2.8 release; going ahead and setting now.
+    # For Linux these messages make little perf difference, and can help
+    # diagnose errors or watch progress.
+    set(os_specific_defines "CMAKE_RULE_MESSAGES:BOOL=OFF")
+  else (WIN32)
+    set(os_specific_defines "")
+  endif (WIN32)
   set(CTEST_INITIAL_CACHE "${initial_cache}
     ${tests_cache}
     TEST_SUITE:BOOL=ON
+    ${os_specific_defines}
     ${test_long_cache}
     ${base_cache}
     ")

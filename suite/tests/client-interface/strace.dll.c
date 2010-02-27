@@ -50,10 +50,10 @@
  */
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+# define DISPLAY_STRING(msg) dr_fprintf(STDERR, "%s\n", msg);
 # define ATOMIC_INC(var) _InterlockedIncrement(&var)
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+# define DISPLAY_STRING(msg) dr_fprintf(STDERR, "%s\n", msg);
 # define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m" (var) : : "memory")
 #endif
 

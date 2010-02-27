@@ -34,4 +34,5 @@
 #define USE_SIGSTACK 1
 #define USE_TIMER 0
 
+#include "tools.h"
 #include "sigplain-base.h"

@@ -138,11 +138,11 @@ thread_func(void *arg)
      */
     ASSERT((process_id_t) arg == dr_get_process_id());
     child_alive = true;
-    dr_printf("client thread is alive\n");
+    dr_fprintf(STDERR, "client thread is alive\n");
     /* FIXME: do we now have to provide condition vars, etc.?!? */
     while (!child_continue)
         dr_thread_yield();
-    dr_printf("client thread is dying\n");
+    dr_fprintf(STDERR, "client thread is dying\n");
     dr_terminate_client_thread();
     DR_ASSERT_MSG(false, "should not get here");
 }
@@ -179,7 +179,7 @@ thread_exit_event(void *drcontext)
         asm("mov %%"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);
         asm("mov %%"ASM_XAX", %0" : "=m"((val)) : : ASM_XAX);
 #endif
-        dr_printf("TLS slot %d is "PFX"\n", i, val);
+        dr_fprintf(STDERR, "TLS slot %d is "PFX"\n", i, val);
     }
 }
 
@@ -191,7 +191,7 @@ void dr_init(client_id_t id)
     /* PR 216931: client options */
     const char * ops = dr_get_options(id);
     ASSERT(str_eq(ops, "-paramx -paramy"));
-    dr_printf("PR 216931: client options are %s\n", ops);
+    dr_fprintf(STDERR, "PR 216931: client options are %s\n", ops);
 
     dr_register_bb_event(bb_event);
     dr_register_exit_event(exit_event);
@@ -205,9 +205,9 @@ void dr_init(client_id_t id)
 
     /* PR 219381: dr_get_application_name() and dr_get_process_id() */
 #ifdef WINDOWS
-    dr_printf("inside app %s\n", dr_get_application_name());
+    dr_fprintf(STDERR, "inside app %s\n", dr_get_application_name());
 #else /* LINUX - append .exe so can use same expect file. */
-    dr_printf("inside app %s.exe\n", dr_get_application_name());
+    dr_fprintf(STDERR, "inside app %s.exe\n", dr_get_application_name());
 #endif
     dr_set_tls_field(dr_get_current_drcontext(),
                      (void *)(ptr_uint_t) dr_get_process_id());
@@ -218,12 +218,12 @@ void dr_init(client_id_t id)
         void *lock2 = dr_mutex_create();
         dr_mutex_lock(lock1);
         dr_mutex_lock(lock2);
-        dr_printf("PR 198871 locking test...");
+        dr_fprintf(STDERR, "PR 198871 locking test...");
         dr_mutex_unlock(lock2);
         dr_mutex_unlock(lock1);
         dr_mutex_destroy(lock1);
         dr_mutex_destroy(lock2);
-        dr_printf("...passed\n");
+        dr_fprintf(STDERR, "...passed\n");
     }
 
 #ifdef CLIENT_SIDELINE
@@ -234,6 +234,6 @@ void dr_init(client_id_t id)
     while (!child_alive)
         dr_thread_yield();
     child_continue = true;
-    dr_printf("PR 222812: client thread test passed\n");
+    dr_fprintf(STDERR, "PR 222812: client thread test passed\n");
 #endif
 }

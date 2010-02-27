@@ -67,7 +67,7 @@ int main(int argc)
 
     /* dummy marker to inform client lib to stop instrumenting */
     stop_instrument();
-    printf("y=%d\n", y);
+    fprintf(stderr, "y=%d\n", y);
 
     return 0;
 }

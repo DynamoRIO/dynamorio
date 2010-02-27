@@ -173,7 +173,9 @@ static void VERBOSE_PRINT(char *fmt, ...) {}
 # endif
 #endif
 
-/* DynamoRIO prints to stderr, so we need to too to get right output, also need to flush since DynamoRIO writes directly bypassing the buffering */
+/* DynamoRIO prints directly by syscall to stderr, so we need to too to get
+ * right output, esp. with ctest -j where fprintf(stderr) is buffered.
+ */
 static void
 print(char *fmt, ...)
 {
@@ -181,6 +183,7 @@ print(char *fmt, ...)
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     fflush(stderr);
+    va_end(ap);
 }
 
 /* just to be sure */

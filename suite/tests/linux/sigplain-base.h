@@ -88,12 +88,12 @@ static int timer_hits = 0;
 
 #include <errno.h>
 
-#define ASSERT_NOERR(rc) do {					\
-  if (rc) {							\
-     fprintf(stderr, "%s:%d rc=%d errno=%d %s\n", 		\
-	     __FILE__, __LINE__,				\
-	     rc, errno, strerror(errno));  		        \
-  }								\
+#define ASSERT_NOERR(rc) do {                                   \
+  if (rc) {                                                     \
+     print("%s:%d rc=%d errno=%d %s\n",                         \
+           __FILE__, __LINE__,                                  \
+           rc, errno, strerror(errno));                         \
+  }                                                             \
 } while (0);
 
 static void
@@ -101,10 +101,10 @@ signal_handler(int sig)
 {
 #if USE_TIMER
     if (sig == SIGVTALRM)
-	timer_hits++;
+        timer_hits++;
     else
 #endif
-	fprintf(stderr, "signal_handler: sig=%d\n", sig);
+        print("signal_handler: sig=%d\n", sig);
 }
 
 /* set up signal_handler as the handler for signal "sig" */
@@ -163,8 +163,8 @@ int main(int argc, char *argv[])
     rc = sigaltstack(&sigstack, NULL);
     ASSERT_NOERR(rc);
 # if VERBOSE
-    fprintf(stderr, "Set up sigstack: 0x%08x - 0x%08x\n",
-	    sigstack.ss_sp, sigstack.ss_sp + sigstack.ss_size);
+    print("Set up sigstack: 0x%08x - 0x%08x\n",
+          sigstack.ss_sp, sigstack.ss_sp + sigstack.ss_size);
 # endif
 #endif
 
@@ -174,22 +174,22 @@ int main(int argc, char *argv[])
 
     res = cos(0.56);
 
-    printf("Sending SIGUSR2\n");
+    print("Sending SIGUSR2\n");
     kill(getpid(), SIGUSR2);
 
-    printf("Sending SIGUSR1\n");
+    print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);
 
     for (i=0; i<ITERS; i++) {
-	if (i % 2 == 0) {
-	    res += cos(1./(double)(i+1));
-	} else {
-	    res += sin(1./(double)(i+1));
-	}
-	j = (i << 4) / (i | 0x38);
-	a[i] += j;
+        if (i % 2 == 0) {
+            res += cos(1./(double)(i+1));
+        } else {
+            res += sin(1./(double)(i+1));
+        }
+        j = (i << 4) / (i | 0x38);
+        a[i] += j;
     }
-    printf("%f\n", res);
+    print("%f\n", res);
 
 #if USE_TIMER
     memset(&t, 0, sizeof(t));
@@ -197,9 +197,9 @@ int main(int argc, char *argv[])
     ASSERT_NOERR(rc);
 
     if (timer_hits == 0)
-	printf("Got 0 timer hits!\n");
+        print("Got 0 timer hits!\n");
     else
-	printf("Got some timer hits!\n");
+        print("Got some timer hits!\n");
 #endif
 
 #if USE_SIGSTACK

@@ -64,7 +64,7 @@ int main()
         i++;
     } while (i < 402);
 
-    printf("count = %d\n", count);
+    fprintf(stderr, "count = %d\n", count);
 }
 
 #else /* asm code *************************************************************/

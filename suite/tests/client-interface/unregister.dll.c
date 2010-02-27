@@ -37,7 +37,7 @@ static void unregister();
 static
 dr_emit_flags_t bb_event(void* drcontext, void* tag, instrlist_t* bb, bool for_trace, bool translating)
 {
-    dr_printf("got BB event\n");
+    dr_fprintf(STDERR, "got BB event\n");
     dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
                          (void *)unregister, false, 0);
     return DR_EMIT_DEFAULT;

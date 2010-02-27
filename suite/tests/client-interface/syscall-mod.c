@@ -39,7 +39,7 @@
 int main()
 {
     int pid;
-    printf("starting\n");
+    fprintf(stderr, "starting\n");
     /* we don't want vsyscall since we rely on mov immed, eax being in same bb.
      * plus, libc getpid might cache the pid value.
      */
@@ -50,7 +50,7 @@ int main()
     asm("int $0x80");
 #endif
     asm("mov %%eax, %0" : "=m"(pid));
-    printf("pid = %d\n", pid);
+    fprintf(stderr, "pid = %d\n", pid);
 
     return 0;
 }

@@ -134,12 +134,12 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 static
 void check(uint count, char *str)
 {
-    dr_printf("%s... ", str);
-    if (count > 20) {
-        dr_printf("yes\n");
+    dr_fprintf(STDERR, "%s... ", str);
+    if (count > 15) {
+        dr_fprintf(STDERR, "yes\n");
     }
     else {
-        dr_printf("no\n", count);
+        dr_fprintf(STDERR, "no\n");
     }
 }
 

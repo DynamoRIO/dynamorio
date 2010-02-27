@@ -199,9 +199,9 @@ event_exit(void)
 {
     /* On WOW64xpsp2 I see 440+, but only 230+ on 2k3 */
     if (num_complete_inlines > 100)
-        dr_printf("Inlined callees in >100 traces\n");
+        dr_fprintf(STDERR, "Inlined callees in >100 traces\n");
     else
-        dr_printf("Inlined callees in %d traces: < 100!!!\n", num_complete_inlines);
+        dr_fprintf(STDERR, "Inlined callees in %d traces: < 100!!!\n", num_complete_inlines);
     htable_free(NULL/*global*/, htable);
     dr_mutex_destroy(htable_mutex);
 }

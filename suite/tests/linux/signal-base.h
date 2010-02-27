@@ -97,81 +97,81 @@ static int timer_hits = 0;
 
 #include <errno.h>
 
-#define ASSERT_NOERR(rc) do {					\
-  if (rc) {							\
-     fprintf(stderr, "%s:%d rc=%d errno=%d %s\n",		\
-	     __FILE__, __LINE__,				\
-	     rc, errno, strerror(errno));  		        \
-     _exit(1);							\
-  }								\
+#define ASSERT_NOERR(rc) do {                                   \
+  if (rc) {                                                     \
+     print("%s:%d rc=%d errno=%d %s\n",                         \
+           __FILE__, __LINE__,                                  \
+           rc, errno, strerror(errno));                         \
+     _exit(1);                                                  \
+  }                                                             \
 } while (0);
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #if VERBOSE
-    fprintf(stderr, "signal_handler: sig=%d, retaddr=0x%08x, fpregs=0x%08x\n",
-	    sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
+    print("signal_handler: sig=%d, retaddr=0x%08x, fpregs=0x%08x\n",
+          sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
 #else
 # if USE_TIMER
     if (sig != SIGVTALRM)
 # endif
-	fprintf(stderr, "signal_handler: sig=%d\n", sig);
+        print("signal_handler: sig=%d\n", sig);
 #endif
 
     switch (sig) {
 
     case SIGSEGV: {
-	struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
-	void *pc = (void *) sc->SC_XIP;
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        void *pc = (void *) sc->SC_XIP;
 #if USE_LONGJMP && BLOCK_IN_HANDLER
-	sigset_t set;
-	int rc;
+        sigset_t set;
+        int rc;
 #endif
 #if VERBOSE
-	fprintf(stderr, "Got SIGSEGV @ 0x%08x\n", pc);
+        print("Got SIGSEGV @ 0x%08x\n", pc);
 #else
-	fprintf(stderr, "Got SIGSEGV\n");
+        print("Got SIGSEGV\n");
 #endif
 #if USE_LONGJMP
 # if BLOCK_IN_HANDLER
-	/* longjmp will bypass sigreturn, and sigreturn is what resets
-	 * the set of blocked signals, so we have to unblock them here
-	 */
-	rc = sigemptyset(&set); /* reset blocked signals */
-	ASSERT_NOERR(rc);
-	sigprocmask(SIG_SETMASK, &set, NULL);
+        /* longjmp will bypass sigreturn, and sigreturn is what resets
+         * the set of blocked signals, so we have to unblock them here
+         */
+        rc = sigemptyset(&set); /* reset blocked signals */
+        ASSERT_NOERR(rc);
+        sigprocmask(SIG_SETMASK, &set, NULL);
 # endif
-	longjmp(env, 1);
+        longjmp(env, 1);
 #endif
         break;
     }
 
     case SIGUSR1: {
-	struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
-	void *pc = (void *) sc->SC_XIP;
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        void *pc = (void *) sc->SC_XIP;
 #if VERBOSE
-	fprintf(stderr, "Got SIGUSR1 @ 0x%08x\n", pc);
+        print("Got SIGUSR1 @ 0x%08x\n", pc);
 #else
-	fprintf(stderr, "Got SIGUSR1\n");
+        print("Got SIGUSR1\n");
 #endif
         break;
     }
 
 #if USE_TIMER
     case SIGVTALRM: {
-	struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
-	void *pc = (void *) sc->SC_XIP;
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        void *pc = (void *) sc->SC_XIP;
 #if VERBOSE
-	fprintf(stderr, "Got SIGVTALRM @ 0x%08x\n", pc);
+        print("Got SIGVTALRM @ 0x%08x\n", pc);
 #endif
-	timer_hits++;
-	break;
+        timer_hits++;
+        break;
     }
 #endif
 
     default:
-	assert(0);
+        assert(0);
     }
 }
 
@@ -231,8 +231,8 @@ int main(int argc, char *argv[])
     rc = sigaltstack(&sigstack, NULL);
     ASSERT_NOERR(rc);
 # if VERBOSE
-    fprintf(stderr, "Set up sigstack: 0x%08x - 0x%08x\n",
-	    sigstack.ss_sp, sigstack.ss_sp + sigstack.ss_size);
+    print("Set up sigstack: 0x%08x - 0x%08x\n",
+          sigstack.ss_sp, sigstack.ss_sp + sigstack.ss_size);
 # endif
 #endif
 
@@ -242,32 +242,32 @@ int main(int argc, char *argv[])
 
     res = cos(0.56);
 
-    printf("Sending SIGUSR2\n");
+    print("Sending SIGUSR2\n");
     kill(getpid(), SIGUSR2);
 
-    printf("Sending SIGUSR1\n");
+    print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);
 
-    printf("Generating SIGSEGV\n");
+    print("Generating SIGSEGV\n");
 #if USE_LONGJMP
     res = setjmp(env);
     if (res == 0) {
-	*((int *)0) = 4;
+        *((int *)0) = 4;
     }
 #else
     kill(getpid(), SIGSEGV);
 #endif
 
     for (i=0; i<ITERS; i++) {
-	if (i % 2 == 0) {
-	    res += cos(1./(double)(i+1));
-	} else {
-	    res += sin(1./(double)(i+1));
-	}
-	j = (i << 4) / (i | 0x38);
-	a[i] += j;
+        if (i % 2 == 0) {
+            res += cos(1./(double)(i+1));
+        } else {
+            res += sin(1./(double)(i+1));
+        }
+        j = (i << 4) / (i | 0x38);
+        a[i] += j;
     }
-    printf("%f\n", res);
+    print("%f\n", res);
 
 #if USE_TIMER
     memset(&t, 0, sizeof(t));
@@ -275,9 +275,9 @@ int main(int argc, char *argv[])
     ASSERT_NOERR(rc);
 
     if (timer_hits == 0)
-	printf("Got 0 timer hits!\n");
+        print("Got 0 timer hits!\n");
     else
-	printf("Got some timer hits!\n");
+        print("Got some timer hits!\n");
 #endif
 
 #if USE_SIGSTACK

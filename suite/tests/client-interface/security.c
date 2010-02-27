@@ -35,7 +35,7 @@
 
 void baz()
 {
-    printf("** Return address successfully overwritten **\n");
+    fprintf(stderr, "** Return address successfully overwritten **\n");
     fflush(stdout);
     exit(1);
 }
@@ -43,7 +43,7 @@ void baz()
 void bar()
 {
     unsigned int a[2];
-    printf("** Return address successfully overwritten **\n");
+    fprintf(stderr, "** Return address successfully overwritten **\n");
     fflush(stdout);
     a[3] = (unsigned)baz;
 }

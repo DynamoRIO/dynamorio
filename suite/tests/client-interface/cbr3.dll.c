@@ -63,7 +63,7 @@
 #define ASSERT(x) \
     do {                                                        \
         if (!(x)) {                                             \
-            dr_printf("ASSERT failed on line %d", __LINE__);    \
+            dr_fprintf(STDERR, "ASSERT failed on line %d", __LINE__);    \
             dr_flush_file(dr_get_stdout_file());                \
             dr_abort();                                         \
         }                                                       \
@@ -230,7 +230,7 @@ static void at_taken(app_pc src, app_pc targ)
     ASSERT(elem != NULL);
     elem->state |= CBR_TAKEN;
 
-    dr_printf("cbr taken\n");
+    dr_fprintf(STDERR, "cbr taken\n");
 
     /* 
      * Remove the bb from the cache so it will be re-built the next
@@ -257,7 +257,7 @@ static void at_not_taken(app_pc src, app_pc fall)
     ASSERT(elem != NULL);
     elem->state |= CBR_NOT_TAKEN;
 
-    dr_printf("cbr not taken\n");
+    dr_fprintf(STDERR, "cbr not taken\n");
 
     /* 
      * Remove the bb from the cache so it will be re-built the next
