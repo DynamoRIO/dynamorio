@@ -71,17 +71,13 @@ void evil_copy(void *start, int count, ptr_int_t value);
 /* this used to be 0x3c prior to Jun 3 2005, then 0x40 prior to Mar 11 2006 */
 # define DSTACK_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x1b0,0xbc)
 # ifdef X64
-# define GET_DCONTEXT(var)                                  \
-    asm("push %rax");                                       \
-    asm("mov  %fs:"STRINGIFY(DCONTEXT_TLS_OFFSET)", %rax"); \
-    asm("mov  %%rax, %0" : "=m"((var)));                    \
-    asm("pop  %rax");
+# define GET_DCONTEXT(var)                                                \
+    asm("mov  %%gs:"STRINGIFY(DCONTEXT_TLS_OFFSET)", %%rax" : : : "rax"); \
+    asm("mov  %%rax, %0" : "=m"((var)));
 # else
-# define GET_DCONTEXT(var)                                  \
-    asm("push %eax");                                       \
-    asm("movl %fs:"STRINGIFY(DCONTEXT_TLS_OFFSET)", %eax"); \
-    asm("movl %%eax, %0" : "=m"((var)));                    \
-    asm("popl %eax");
+# define GET_DCONTEXT(var)                                                \
+    asm("movl %%fs:"STRINGIFY(DCONTEXT_TLS_OFFSET)", %%eax" : : : "eax"); \
+    asm("movl %%eax, %0" : "=m"((var))); 
 # endif
 #else
 unsigned int dcontext_tls_offset;
@@ -276,8 +272,10 @@ main()
     print("dcontext is "PFX"\n", dcontext);
 #endif
     dstack = *(int **)(((char *)dcontext) + DSTACK_OFFSET_IN_DCONTEXT);
-    if (!ALIGNED(dstack, PAGE_SIZE)) {
+    if (dstack == NULL || !ALIGNED(dstack, PAGE_SIZE)) {
         print("can't find dstack: old build, or new where dstack offset changed?\n");
+        while (1)
+            ;
         exit(-1);
     }
     dstack_base = (int *) (((char *)dstack) - DSTACK_SIZE);
