@@ -224,6 +224,14 @@ if (WIN32)
   endif (BIND_EXECUTABLE-NOTFOUND OR NOT EXISTS "${BIND_EXECUTABLE}")
   message(STATUS "Found bind.exe: ${BIND_EXECUTABLE}")
   mark_as_advanced(BIND_EXECUTABLE)
+else (WIN32)
+  # i#215: if chcon exists then we'll mark tests w/ text relocations to
+  # avoid violating selinux policies
+  find_program(CHCON chcon DOC "path to chcon")
+  if (NOT CHCON-NOTFOUND)
+    message(STATUS "Found chcon: ${CHCON}")
+  endif (NOT CHCON-NOTFOUND)
+  mark_as_advanced(CHCON)
 endif (WIN32)
 
 # put libs in same dir for tests that need to load them
@@ -562,6 +570,19 @@ function(tobind target)
     VERBATIM # recommended: p260
   )
 endfunction(tobind)
+
+# i#215: mark tests w/ text relocations to avoid violating selinux policies
+function(tochcon target)
+  if (NOT CHCON-NOTFOUND)
+    get_target_property(binary ${target} LOCATION)
+    add_custom_command(TARGET ${target}
+      POST_BUILD
+      COMMAND ${CHCON}
+      ARGS -t textrel_shlib_t ${binary}
+      VERBATIM # recommended: p260
+      )
+  endif (NOT CHCON-NOTFOUND)
+endfunction(tochcon)
 
 ###########################################################################
 # RUNNING
@@ -1160,19 +1181,23 @@ endif (UNIX)
 tobuild(security-common.codemod security-common/codemod.c)
 tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
 tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
+tochcon(security-common.jmp_from_trace)
 tobuild(security-common.retexisting security-common/retexisting.c)
 tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
 tobuild(security-common.retnonexisting security-common/retnonexisting.c)
 if (NOT X64)
   # FIXME i#16: these tests need to be fixed to compile for x64
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
+  tochcon(security-common.selfmod2)
   # FIXME i#125: not building on 32-bit b/c protect_mem() from tools.h being stripped
   #tobuild(security-common.selfmod-big security-common/selfmod-big.c)
   tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
 endif (NOT X64)
 tobuild(security-common.selfmod security-common/selfmod.c)
+tochcon(security-common.selfmod)
 tobuild(security-common.TestAllocWE security-common/TestAllocWE.c)
 tobuild(security-common.TestMemProtChg security-common/TestMemProtChg.c)
+tochcon(security-common.TestMemProtChg)
 
 ###########################################################################
 
