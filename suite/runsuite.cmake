@@ -31,9 +31,10 @@
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
 # * ssh support for running on remote machines: copy, disable pdbs, run
-# * i#111: use the features in the latest CTest: -W, -j
 
 cmake_minimum_required (VERSION 2.2)
+set(cmake_ver_string
+  "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
 
 # arguments are a ;-separated list (must escape as \; from ctest_run_script())
 set(arg_nightly OFF)  # whether to report the results
@@ -149,9 +150,7 @@ set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
 set(CTEST_PROJECT_NAME "DynamoRIO")
 find_program(MAKE_COMMAND make DOC "make command")
 set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j5")
-# i#111: use -j if available to run tests in parallel.
-# Only CTest 2.8+ supports -j, but 2.6 just ignores unknown params.
-set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME} -j5")
+set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
 
 if (UNIX)
   # For cross-arch execve tests we need to run from an install dir
@@ -278,7 +277,14 @@ function(testbuild_ex name is64 initial_cache build_args)
   ctest_build(BUILD "${CTEST_BINARY_DIRECTORY}")
   # to run a subset of tests add an INCLUDE regexp to ctest_test.  e.g.:
   #   INCLUDE broadfun
-  ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}")
+  if ("${cmake_ver_string}" STRLESS "2.8.")
+    ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}")
+  else ()
+    # i#111: run tests in parallel, supported on CTest 2.8.0+
+    # Note that adding -j to CMAKE_COMMAND does not work, though invoking
+    # this script with -j does work, but we want parallel by default.
+    ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" PARALLEL_LEVEL 5)
+  endif ()
   if (DO_SUBMIT)
     # include any notes via set(CTEST_NOTES_FILES )?
     ctest_submit()
