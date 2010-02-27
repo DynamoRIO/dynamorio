@@ -1147,6 +1147,8 @@ extern mutex_t do_threshold_mutex;
  * Note no locks should be grabbed within a TRY/EXCEPT block (FIXME:
  * until we have FINALLY support to release them).
  *
+ * FIXME PR 529066: allow safe_read to work w/o a dcontext
+ *
  * (tip: compile your TRY blocks first outside of this macro for
  * easier line matching and debugging)
  */

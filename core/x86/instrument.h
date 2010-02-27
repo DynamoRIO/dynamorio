@@ -1552,6 +1552,10 @@ DR_API
  * are readable and that reading from that range won't generate an exception (see also
  * dr_safe_read()).
  * \note Nothing guarantees that the memory will stay readable for any length of time.
+ * \note On Linux, especially if the app is in the middle of loading a library
+ * and has not properly set up the .bss yet, a page that seems readable can still
+ * generate SIGBUS if beyond the end of an mmapped file.  Use dr_safe_read() to
+ * avoid such problems.
  */
 bool
 dr_memory_is_readable(const byte *pc, size_t size);

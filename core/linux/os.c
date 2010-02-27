@@ -6197,7 +6197,18 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
     }
 #endif
     if (!have_type) {
-        if (TEST(MEMPROT_READ, info->prot) && is_elf_so_header(info->base_pc, info->size))
+        /* We pass 0 instead of info->size b/c even if marked as +r we can still
+         * get SIGBUS if beyond end of mmapped file: not uncommon if querying
+         * in middle of library load before .bss fully set up (PR 528744).
+         * However, if there is no dcontext, is_elf_so_header's safe_read will
+         * recurse to here, so in that case we use info->size but we assume
+         * it's only at init or exit and so not in the middle of a load
+         * and less likely to be querying a random mmapped file.
+         * The cleaner fix is to allow safe_read to work w/o a dcontext: PR 529066.
+         */
+        if (TEST(MEMPROT_READ, info->prot) &&
+            is_elf_so_header(info->base_pc, (get_thread_private_dcontext() == NULL) ? 
+                             info->size : 0))
             info->type = DR_MEMTYPE_IMAGE;
         else {
             /* FIXME: won't quite match find_executable_vm_areas marking as
