@@ -39,7 +39,9 @@
 #endif
 
 /* undefine this for a performance test */
-#define NIGHTLY_REGRESSION
+#ifndef NIGHTLY_REGRESSION
+# define NIGHTLY_REGRESSION
+#endif
 
 #ifdef NIGHTLY_REGRESSION
 #  define DEPTH 5

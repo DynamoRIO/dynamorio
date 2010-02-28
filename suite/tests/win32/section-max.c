@@ -54,7 +54,7 @@ myload(char* lib)
 int main()
 {
     HMODULE lib;
-    lib = myload("section-max.dll.dll");
+    lib = myload("win32.section-max.dll.dll");
     FreeLibrary(lib);
 
     return 0;

@@ -54,7 +54,7 @@ myload(char* lib)
 int main()
 {
     HMODULE lib;
-    lib = myload("secalign-fixed.dll.dll");
+    lib = myload("security-win32.secalign-fixed.dll.dll");
     FreeLibrary(lib);
 
     return 0;

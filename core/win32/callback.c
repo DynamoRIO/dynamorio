@@ -4641,7 +4641,8 @@ intercept_exception(app_state_at_intercept_t *state)
          * to be native. */
         ASSERT_CURIOSITY(pExcptRec->ExceptionCode != STATUS_ILLEGAL_INSTRUCTION ||
                          check_filter("common.decode-bad.exe;common.decode.exe;"
-                                      "security-common.decode-bad-stack.exe;",
+                                      "security-common.decode-bad-stack.exe;"
+                                      "security-win32.gbop-test.exe",
                                       get_short_name(get_application_name())));
         ASSERT_CURIOSITY(pExcptRec->ExceptionCode != STATUS_PRIVILEGED_INSTRUCTION
                          || check_filter("common.decode.exe;common.decode-bad.exe", 

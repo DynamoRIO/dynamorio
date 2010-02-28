@@ -56,8 +56,8 @@ int main()
     HMODULE lib1;
     HMODULE lib2;
 
-    lib1 = myload("rebased.dll.dll");
-    lib2 = myload("rebase~1.dll");
+    lib1 = myload("win32.rebased.dll.dll");
+    lib2 = myload("win32r~1.dll");
     if (lib1 == lib2) {
         print("there is a problem - should have collided, maybe missing\n");
     }

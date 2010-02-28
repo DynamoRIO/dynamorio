@@ -56,7 +56,7 @@ int main()
     HMODULE lib;
     HMODULE cmd;
     int res;
-    lib = myload("sec-fixed.dll.dll");
+    lib = myload("security-win32.sec-fixed.dll.dll");
     FreeLibrary(lib);
 
     /* unclear what this code is supposed to do on other platforms

@@ -80,11 +80,17 @@ main()
      */
     __try {
         __asm {
+            /* to ensure that xax isn't clobbered while executing random
+             * code on the stack we set up a ud2a on the stack so that
+             * we get an exception right away
+             */
+            push 000b0fh /* ud2a */
+            mov ebx, esp
             push arg0
-                push esp
-                jmp dword ptr LoadLibraryA
-                mov res, eax
-              }
+            push ebx
+            jmp dword ptr LoadLibraryA
+            mov res, eax
+        }
     } __except (
                 (res = (GetExceptionInformation())->ContextRecord->CXT_XAX),
                 EXCEPTION_EXECUTE_HANDLER) {
@@ -107,11 +113,17 @@ main()
      */
     __try {
         __asm {
+            /* to ensure that xax isn't clobbered while executing random
+             * code on the stack we set up a ud2a on the stack so that
+             * we get an exception right away
+             */
+            push 000b0fh /* ud2a */
+            mov ebx, esp
             push arg0
-                push esp
-                jmp dword ptr LoadLibraryA
-                mov res, eax
-              }
+            push ebx
+            jmp dword ptr LoadLibraryA
+            mov res, eax
+        }
     } __except (
                 (res = (GetExceptionInformation())->ContextRecord->CXT_XAX),
                 EXCEPTION_EXECUTE_HANDLER) {

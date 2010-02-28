@@ -48,7 +48,7 @@
 /* The following pragma does not seem to be correctly applying these
  * link options, so we'll put them on the command line in the Makefile.
  *
- * #pragma comment(linker, "/delayload:delaybind.dll.dll /DELAY:UNLOAD")
+ * #pragma comment(linker, "/delayload:win32.delaybind.dll.dll /DELAY:UNLOAD")
  */
 
 /* do not use /DELAY:NOBIND since that was the purpose of this test */
@@ -77,7 +77,7 @@ myloader(void)
     make_a_lib(3);
 
     // dll will unload at this point
-    TestReturn = UNLOAD("delaybind.dll.dll");
+    TestReturn = UNLOAD("win32.delaybind.dll.dll");
    
     if (TestReturn)
         print("\nDLL was unloaded\n");

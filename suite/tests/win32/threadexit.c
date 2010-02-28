@@ -45,7 +45,9 @@ typedef unsigned char* app_pc;
 #endif
 
 /* not including main thread */
-#define NIGHTLY_REGRESSION
+#ifndef NIGHTLY_REGRESSION
+# define NIGHTLY_REGRESSION
+#endif
 
 #ifdef NIGHTLY_REGRESSION
 #  define SAFE_NATIVE 

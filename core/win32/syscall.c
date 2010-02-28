@@ -2247,23 +2247,32 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
          * trec thread is not suspended (get_thread_context doesn't
          * require it!), should we check the suspend count?
          */
-
+        bool translate = true;
         xlate_cxt = cxt;
         if (!TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags)) {
+            LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2, 
+                "NtGetContextThread: app didn't ask for enough, querying ourselves\n");
             STATS_INC(num_app_getcontext_no_control);
             /* we need esp and eip, plus all regs + xmm, to translate the machine state.
              * no further permissions are needed to acquire them so we
              * get our own context w/ them.
              */
             alt_cxt.ContextFlags = CONTEXT_DR_STATE;
-            if (!thread_get_context(trec, &alt_cxt)) {
+            /* if asking for own context, thread_get_context() will point at
+             * dynamorio_syscall_* and we'll fail to translate so we special-case
+             */
+            if (tid == get_thread_id()) {
+                mcontext_to_context(&alt_cxt, mc);
+                alt_cxt.CXT_XIP = (ptr_uint_t) dcontext->asynch_target;
+                translate = false;
+            } else if (!thread_get_context(trec, &alt_cxt)) {
                 ASSERT_NOT_REACHED();
                 /* FIXME: just don't translate -- right now won't hurt us since
                  * we don't translate other than the pc anyway.
                  */
                 return;
-            } else
-                xlate_cxt = &alt_cxt;
+            }
+            xlate_cxt = &alt_cxt;
         }
 
         SELF_PROTECT_LOCAL(trec->dcontext, WRITABLE);
@@ -2271,7 +2280,8 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
          * want to restore memory.  This is no less transparent, because
          * this thread could read the target thread's memory at any time anyway.
          */
-        if (!translate_context(trec, xlate_cxt, false/*leave memory alone*/)) {
+        if (translate &&
+            !translate_context(trec, xlate_cxt, false/*leave memory alone*/)) {
             /* FIXME: can get here native if GetThreadContext on
              * an un-suspended thread, but then API says result is 
              * undefined so just pass anything reasonable 

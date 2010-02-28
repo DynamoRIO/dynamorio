@@ -120,7 +120,7 @@ main(void)
     dynamorio_app_exit();
 #endif
 
-    print("done");
+    print("done\n");
 
     return 0;
 }

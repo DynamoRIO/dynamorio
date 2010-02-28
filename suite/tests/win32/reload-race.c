@@ -297,7 +297,7 @@ int main(int argc, char** argv)
 
     /* need to run as long as necessary to hit the required faults */
     while (transitions < NUM_TRANSITIONS) {
-        lib = LoadLibrary("reload-race.dll.dll");
+        lib = LoadLibrary("win32.reload-race.dll.dll");
         if (lib == NULL) {
             print("error loading library\n");
             break;

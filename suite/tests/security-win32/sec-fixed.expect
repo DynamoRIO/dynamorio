@@ -1,5 +1,5 @@
 in fixed dll
-loaded sec-fixed.dll.dll
+loaded security-win32.sec-fixed.dll.dll
 cmd.exe as data
 calc.exe as data and no resolve
 rundl32.exe as no resolve

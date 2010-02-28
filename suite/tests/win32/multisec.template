@@ -10,7 +10,7 @@ calling f2
 func4
 func3
 func4
-loaded multisec.dll.dll
+loaded win32.multisec.dll.dll
 dlltest
 foo
 foo
@@ -23,7 +23,7 @@ calling f2
 func4
 func3
 func4
-loaded multis~1.dll
+loaded win32m~1.dll
 func2
 exe calling f2
 func2

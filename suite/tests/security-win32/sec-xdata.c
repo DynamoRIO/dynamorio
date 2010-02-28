@@ -43,7 +43,7 @@
 char bad_xdata_buf[1024] = {0};
 #pragma data_seg() 
 
-static char *dll_name = "sec-xdata.dll.dll";
+static char *dll_name = "security-win32.sec-xdata.dll.dll";
 
 int main()
 {

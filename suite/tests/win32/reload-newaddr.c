@@ -174,7 +174,7 @@ doload(int iter)
     HANDLE lib;
     int sum = 0;
     void *p;
-    lib = LoadLibrary("reload-newaddr.dll.dll");
+    lib = LoadLibrary("win32.reload-newaddr.dll.dll");
     if (lib == NULL) {
         print("error loading library\n");
         return 0;

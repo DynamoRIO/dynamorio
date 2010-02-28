@@ -328,7 +328,10 @@ endif (WIN32)
 # probably remove this line.  We remove from target-specific flags
 # from configure_DynamoRIO_* in tobuild_api().
 remove_definitions(-DX64 -DLINUX -DWINDOWS)
-set(platform_defs "")
+# If people want perf stress tests they'll have to manually build to avoid
+# the NIGHTLY_REGRESSION define
+set(test_defs "-DNIGHTLY_REGRESSION")
+set(platform_defs "${test_defs}")
 if (X64)
   set(platform_defs "${platform_defs} -DX64")
 endif (X64)
@@ -381,7 +384,7 @@ function (set_cflags source)
       "${srccode}" MATCHES "configure\\.h")
     # getting defines from configure.h
     set_source_files_properties(${source} PROPERTIES
-      COMPILE_FLAGS "${cflags}")
+      COMPILE_FLAGS "${cflags} ${test_defs}")
   else ()
     set_source_files_properties(${source} PROPERTIES
       COMPILE_FLAGS "${platform_defs} ${cflags}")
@@ -757,7 +760,8 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
 endfunction(rundr_cmd)
 
 # if test != exe we assume exe is already added as a build target
-function(torun test exe source native dr_ops exe_ops)
+# key is the test name without the options, and is used to look up ${key}_realtest
+function(torun test key exe source native dr_ops exe_ops)
   get_filename_component(srcbase ${source} NAME_WE)
   get_filename_component(srcpath ${source} PATH)
   if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runall)
@@ -805,6 +809,8 @@ function(torun test exe source native dr_ops exe_ops)
     add_test(${test} ${rundr} ${exepath} ${exe_ops})
   endif (is_runall)
 
+  set(ALREADY_REGEX OFF)
+
   if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
     file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect expect)
     # add dependence so cmake will reconfigure if file changes
@@ -834,8 +840,20 @@ function(torun test exe source native dr_ops exe_ops)
     # add dependence so cmake will reconfigure if file changes
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.template
       ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
+  elseif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.templatex)
+    # A .templatex is a .template that is treated directly as a regex:
+    # so any regex chars inside are not converted to literals.
+    # We separate the two so that we don't have to escape everything in
+    # regular templates where we want a literal match.
+    template2expect(expect
+      ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.templatex
+      ${runops})
+    # add dependence so cmake will reconfigure if file changes
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.templatex
+      ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
+    set(ALREADY_REGEX ON)
   else (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
-    message(FATAL_ERROR "no .expect or .template for ${srcpath}/${srcbase}")
+    message(FATAL_ERROR "no .expect or .template or .templatex for ${srcpath}/${srcbase}")
   endif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
 
   # FIXME i#65 NOT YET COMPLETED: api/dis output is too long => ctest
@@ -844,13 +862,15 @@ function(torun test exe source native dr_ops exe_ops)
   # since ctest supports only one command per test.
   # We can use the same script to get runtime generation of .expect.
 
-  # turn regex chars into literals
-  # \\] somehow messes up the match though $expect looks identical
-  # some tests do have ']' so we replace it in a separate step below
-  string(REGEX REPLACE "([\\^\\$\\.\\*\\+\\?\\|\\(\\)\\[])" 
-    "\\\\\\1" expect "${expect}")
-  string(REGEX REPLACE "\\]"
-    "\\\\]" expect "${expect}")
+  if (NOT ALREADY_REGEX)
+    # turn regex chars into literals
+    # \\] somehow messes up the match though $expect looks identical
+    # some tests do have ']' so we replace it in a separate step below
+    string(REGEX REPLACE "([\\^\\$\\.\\*\\+\\?\\|\\(\\)\\[])" 
+      "\\\\\\1" expect "${expect}")
+    string(REGEX REPLACE "\\]"
+      "\\\\]" expect "${expect}")
+  endif (NOT ALREADY_REGEX)
 
   if (WIN32)
     # libc print => CRLF, dr_printf => plain newline: match both
@@ -861,6 +881,20 @@ function(torun test exe source native dr_ops exe_ops)
   set(expect "^${expect}$")
 
   set_tests_properties(${test} PROPERTIES PASS_REGULAR_EXPRESSION "${expect}")
+
+  if (WIN32)
+    if (${test} MATCHES "client\\.events" OR DEFINED ${key}_realtest)
+      # On Windows we can't run the same-named app in parallel b/c drinject
+      # writes to global reg keys!  For the short run that's client.events
+      # and all the torunonly() tests.
+      # Unfortunately RUN_SERIAL makes each serial wrt all other tests but we
+      # don't have any finer control.
+      # FIXME i#265: support env vars and not require registry!
+      # Could alternatively rename apps: but would have to rename quite a
+      # few for the long runs and would waste space and time
+      set_tests_properties(${test} PROPERTIES RUN_SERIAL ON)
+    endif()
+  endif (WIN32)
 endfunction(torun)
 
 function(torun_normal name test ops)
@@ -869,7 +903,7 @@ function(torun_normal name test ops)
   else (DEFINED ${test}_realtest)
     set(exe ${test})
   endif (DEFINED ${test}_realtest)
-  torun("${name}" ${exe} ${${test}_source} OFF "${${test}_dr_ops} ${ops}"
+  torun("${name}" ${test} ${exe} ${${test}_source} OFF "${${test}_dr_ops} ${ops}"
     "${${test}_exe_ops}")
 endfunction(torun_normal)
 
@@ -886,12 +920,12 @@ function(torun_ci name test ops)
     endif ()
   endif ("${test}" MATCHES "client\\.flush")
   # note that we cannot use double quotes as they'll be stripped out
-  torun("${name}" ${test} ${${test}_source} OFF
+  torun("${name}" ${test} ${test} ${${test}_source} OFF
     " -code_api -client_lib '${${test}_client_path}\;0\;${cli_ops}' ${${test}_dr_ops} ${ops}" "${${test}_exe_ops}")
 endfunction(torun_ci)
 
 function(torun_api name test ops)
-  torun("${name}" ${test} ${${test}_source} ON
+  torun("${name}" ${test} ${test} ${${test}_source} ON
     "${${test}_dr_ops} ${ops}" "${${test}_exe_ops}")
 endfunction(torun_api)
 
@@ -1058,7 +1092,11 @@ if (UNIX)
   add_exe(linux.infloop linux/infloop.c)
   torunonly(linux.reset linux/infloop linux/reset.runall "" "-v")
 else (UNIX)
-  tobuild(win32.aslr-dll win32/aslr-dll.c)
+  if (VPS)
+    # too flaky across platforms so we limit to VPS only: not too useful
+    # for other than testing our ASLR anyway
+    tobuild(win32.aslr-dll win32/aslr-dll.c)
+  endif (VPS)
   tobuild(win32.callback win32/callback.c)
   tobuild(win32.crtprcs win32/crtprcs.c)
 

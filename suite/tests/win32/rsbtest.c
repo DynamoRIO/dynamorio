@@ -54,7 +54,9 @@ $ cl /O2  /Zi foo.c -I.. /link /incremental:no user32.lib
 
 
 /* undefine this for a performance test */
-#define NIGHTLY_REGRESSION
+#ifndef NIGHTLY_REGRESSION
+# define NIGHTLY_REGRESSION
+#endif
 
 #include "tools.h"
 

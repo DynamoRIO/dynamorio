@@ -117,7 +117,7 @@ main()
     do_check("user32.dll", "MessageBeep");
     do_check("user32.dll", "MessageBoxW");
 
-    do_check("aslr-dll.exe", "executable");
+    do_check("win32.aslr-dll.exe", "executable");
 
     /* Not in KnownDlls! */
     do_check("ntdll.dll", "NtCreateSection");
@@ -136,6 +136,7 @@ main()
     do_check("olecli32.dll", "findexport");
     do_check("olecnv32.dll", "findexport");
     do_check("olesvr32.dll", "findexport");
+    /* FIXME: getting an error accessing olethk32 on xp64! */
     do_check("olethk32.dll", "findexport");
     do_check("rpcrt4.dll", "findexport");
     do_check("shell32.dll", "findexport");

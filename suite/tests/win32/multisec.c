@@ -85,8 +85,8 @@ int main()
     HMODULE lib2;
 
     /* same as rebased test */
-    lib1 = myload("multisec.dll.dll");
-    lib2 = myload("multis~1.dll");
+    lib1 = myload("win32.multisec.dll.dll");
+    lib2 = myload("win32m~1.dll");
     if (lib1 == lib2) {
         print("there is a problem - should have collided, maybe missing\n");
     }

@@ -72,7 +72,7 @@ int
 main(int argc)
 {
     char* base;
-    void* hmod = GetModuleHandle("aslr-ind.dll.dll");
+    void* hmod = GetModuleHandle("security-win32.aslr-ind.dll.dll");
 
     INIT();
     USE_USER32();
