@@ -604,10 +604,12 @@ int wer501 = 5;
 int er502 = 5;
 #pragma data_seg() 
 
+#ifndef X64 /* leaving this in goes over the xp x64 loader limit so removing */
 #pragma comment(linker, "/SECTION:.wer502,WER")
 #pragma data_seg(".wer502") 
 int wer502 = 5;
 #pragma data_seg() 
+#endif
 
 #if 0 /* leaving this in goes over the WOW64 xp loader limit so removing */
 /* --- */

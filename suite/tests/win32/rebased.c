@@ -57,6 +57,7 @@ int main()
     HMODULE lib2;
 
     lib1 = myload("win32.rebased.dll.dll");
+    /* FIXME: name conflicts w/ other r* tests so might be ~2 depending on build order */
     lib2 = myload("win32r~1.dll");
     if (lib1 == lib2) {
         print("there is a problem - should have collided, maybe missing\n");

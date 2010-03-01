@@ -2357,15 +2357,20 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          * spills like rip-rel and ind branches this is fine.
          */
         if (instr_is_cti(inst) &&
-            /* Do not reset for a 32-bit trace-cmp jecxz or jmp, since ecx
-             * needs to be restored (won't fault, but for thread
-             * relocation)
+            /* Do not reset for a trace-cmp jecxz or jmp (32-bit) or
+             * jne (64-bit), since ecx needs to be restored (won't
+             * fault, but for thread relocation)
              */
-            ((instr_get_opcode(inst) != OP_jecxz && instr_get_opcode(inst) != OP_jmp) ||
+            ((instr_get_opcode(inst) != OP_jecxz &&
+              instr_get_opcode(inst) != OP_jmp &&
+              /* x64 trace cmp uses jne for exit */
+              instr_get_opcode(inst) != OP_jne) ||
              /* Rather than check for trace, just ignore exit jumps, which
               * won't mess up linearity here. For stored translation info we
               * don't have meta-flags so we can't use instr_is_exit_cti(). */
-             (instr_get_opcode(inst) == OP_jmp &&
+             ((instr_get_opcode(inst) == OP_jmp ||
+               /* x64 trace cmp uses jne for exit */
+               instr_get_opcode(inst) == OP_jne) &&
               (!opnd_is_pc(instr_get_target(inst)) ||
                (opnd_get_pc(instr_get_target(inst)) >= walk->start_cache &&
                 opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))) {

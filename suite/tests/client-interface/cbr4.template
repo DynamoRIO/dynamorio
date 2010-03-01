@@ -1,4 +1,6 @@
+#ifndef X64
 cbr taken
+#endif
 cbr not taken
 cbr taken
 cbr taken

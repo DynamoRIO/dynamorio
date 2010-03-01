@@ -332,7 +332,7 @@ get_nudge_target()
     /* read DR marker
      * just hardcode the offsets for now
      */
-    static const uint DR_NUDGE_FUNC_OFFSET = 0x20;
+    static const uint DR_NUDGE_FUNC_OFFSET = IF_X64_ELSE(0x28,0x20);
     return get_drmarker_field(DR_NUDGE_FUNC_OFFSET);
 }
 

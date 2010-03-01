@@ -340,9 +340,9 @@ instrument_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                                          (void*)at_not_taken,
                                          false /* don't save fp state */, 
                                          3 /* 3 args for at_not_taken */,
-                                         OPND_CREATE_INT32((ptr_uint_t)src),
-                                         OPND_CREATE_INT32((ptr_uint_t)fall),
-                                         OPND_CREATE_INT32((ptr_uint_t)tag));
+                                         OPND_CREATE_INTPTR((ptr_uint_t)src),
+                                         OPND_CREATE_INTPTR((ptr_uint_t)fall),
+                                         OPND_CREATE_INTPTR((ptr_uint_t)tag));
                 }
                 
                 /*
@@ -364,9 +364,9 @@ instrument_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                                          (void*)at_taken,
                                          false /* don't save fp state */,
                                          3 /* 3 args for at_taken */,
-                                         OPND_CREATE_INT32((ptr_uint_t)src),
-                                         OPND_CREATE_INT32((ptr_uint_t)targ),
-                                         OPND_CREATE_INT32((ptr_uint_t)tag));
+                                         OPND_CREATE_INTPTR((ptr_uint_t)src),
+                                         OPND_CREATE_INTPTR((ptr_uint_t)targ),
+                                         OPND_CREATE_INTPTR((ptr_uint_t)tag));
                 }
                 
                 /* 

@@ -109,7 +109,7 @@ get_DR_base()
     /* read DR marker
      * just hardcode the offsets for now
      */
-    static const uint DR_BASE_OFFSET = 0x1c;
+    static const uint DR_BASE_OFFSET = IF_X64_ELSE(0x20, 0x1c);
     return get_drmarker_field(DR_BASE_OFFSET);
 }
 #endif /* WINDOWS */
