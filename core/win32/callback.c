@@ -4830,6 +4830,27 @@ intercept_exception(app_state_at_intercept_t *state)
             mutex_unlock(&thread_initexit_lock);
             if (cxt->CXT_XIP == (ptr_uint_t)pExcptRec->ExceptionAddress)
                 pExcptRec->ExceptionAddress = (PVOID) mcontext.pc;
+#ifdef X64
+            {
+                /* PR 520001: the kernel places an extra copy of the fault addr
+                 * in the 16-byte-aligned slot just above pExcptRec.  This copy
+                 * is used as a sanity check by the SEH64 code, so we must
+                 * translate it as well.
+                 */
+                app_pc *extra_addr = (app_pc *)(((app_pc)pExcptRec)+sizeof(*pExcptRec)+8);
+                ASSERT_CURIOSITY(ALIGNED(extra_addr, 16));
+                /* Since I can't find any docs or other refs to this data I'm being
+                 * conservative and only replacing if it matches the fault addr
+                 */
+                if (*extra_addr == (app_pc)cxt->CXT_XIP) {
+                    LOG(THREAD, LOG_ASYNCH, 2,
+                        "Translated extra addr slot "PFX" to "PFX"\n",
+                        *extra_addr, mcontext.pc);
+                    *extra_addr = mcontext.pc;
+                } else
+                    ASSERT_CURIOSITY(false && "extra SEH64 addr not found");
+            }
+#endif
             LOG(THREAD, LOG_ASYNCH, 2, "Translated cxt->Xip "PFX" to "PFX"\n",
                 cxt->CXT_XIP, mcontext.pc);
             mcontext_to_context(cxt, &mcontext);

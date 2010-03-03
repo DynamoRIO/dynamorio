@@ -69,8 +69,31 @@ wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             /* ensure SendMessage returns prior to our crash */
             ReplyMessage(TRUE);
             print("About to crash\n");
+#ifdef X64
+            /* FIXME i#266: even natively this exception is not making it across
+             * the callback boundary!  Is that a fundamental limitation of the
+             * overly-structured SEH64?  32-bit SEH has no problem.
+             * For now we have a local try/except.
+             */
+            __try {
+                *((int *)BAD_WRITE) = 4;
+                print("Should not get here\n");
+            }
+            __except (/* Only catch the bad write, to not mask DR errors (like
+                       * case 10579) */
+                      (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION &&
+                       (GetExceptionInformation())->ExceptionRecord->ExceptionInformation[0]
+                       == 1 /* write */ &&
+                       (GetExceptionInformation())->ExceptionRecord->ExceptionInformation[1]
+                       == BAD_WRITE) ?
+                      EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+                print("Inside handler\n");
+                past_crash = true;
+            }
+#else
             *((int *)BAD_WRITE) = 4;
             print("Should not get here\n");
+#endif
         }
         return MSG_SUCCESS;
     } else {
