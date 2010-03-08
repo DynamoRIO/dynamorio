@@ -3083,11 +3083,16 @@ print_xml_cdata(file_t f, const char *str)
 void 
 getnamefrompid(int pid, char *name, uint maxlen)
 {
-# ifdef VMX86_SERVER
-    vmk_getnamefrompid(pid, name, maxlen);
-# else
     int fd,n;
     char tempstring[200+1], *lastpart;
+
+# ifdef VMX86_SERVER
+    if (os_in_vmkernel_userworld()) {
+        vmk_getnamefrompid(pid, name, maxlen);
+        return;
+    }
+# endif
+
     /*this is a shitty way of getting the process name,
     but i can't think of anything better... */
 
@@ -3107,7 +3112,6 @@ getnamefrompid(int pid, char *name, uint maxlen)
     name[maxlen-1]  = '\0'; /* if max no null */
 
     close_syscall(fd);
-# endif
 }
 #endif
 

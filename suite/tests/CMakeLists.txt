@@ -226,12 +226,18 @@ if (WIN32)
   mark_as_advanced(BIND_EXECUTABLE)
 else (WIN32)
   # i#215: if chcon exists then we'll mark tests w/ text relocations to
-  # avoid violating selinux policies
-  find_program(CHCON chcon DOC "path to chcon")
-  if (NOT CHCON-NOTFOUND)
-    message(STATUS "Found chcon: ${CHCON}")
-  endif (NOT CHCON-NOTFOUND)
-  mark_as_advanced(CHCON)
+  # avoid violating selinux policies.  On Ubuntu, chcon is part of coreutils
+  # package too, so it will be there even if selinux isn't enabled, so check for
+  # for selinux.
+  find_program(SELINUXENABLED selinuxenabled DOC "path to selinuxenabled")
+  if (SELINUXENABLED)
+    find_program(CHCON chcon DOC "path to chcon")
+    if (NOT "${CHCON}" STREQUAL "CHCON-NOTFOUND")
+      message(STATUS "Detected selinux: will chcon binaries with text relocations.")
+      set(SELINUXFOUND "yes")
+    endif (NOT "${CHCON}" STREQUAL "CHCON-NOTFOUND")
+    mark_as_advanced(CHCON)
+  endif (SELINUXENABLED)
 endif (WIN32)
 
 # put libs in same dir for tests that need to load them
@@ -576,7 +582,7 @@ endfunction(tobind)
 
 # i#215: mark tests w/ text relocations to avoid violating selinux policies
 function(tochcon target)
-  if (UNIX AND NOT CHCON-NOTFOUND)
+  if (UNIX AND SELINUXFOUND)
     get_target_property(binary ${target} LOCATION)
     add_custom_command(TARGET ${target}
       POST_BUILD
@@ -584,7 +590,7 @@ function(tochcon target)
       ARGS -t textrel_shlib_t ${binary}
       VERBATIM # recommended: p260
       )
-  endif (UNIX AND NOT CHCON-NOTFOUND)
+  endif (UNIX AND SELINUXFOUND)
 endfunction(tochcon)
 
 ###########################################################################
