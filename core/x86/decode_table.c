@@ -556,7 +556,7 @@ const instr_info_t * const op_instr[] =
     /* OP_fcmovu    */   &float_high_modrm[2][0x18],
     /* OP_fucompp   */   &float_high_modrm[2][0x29],
     /* OP_fcmovnb   */   &float_high_modrm[3][0x00],
-    /* OP_fcmovene  */   &float_high_modrm[3][0x08],
+    /* OP_fcmovne   */   &float_high_modrm[3][0x08],
     /* OP_fcmovnbe  */   &float_high_modrm[3][0x10],
     /* OP_fcmovnu   */   &float_high_modrm[3][0x18],
     /* OP_fnclex    */   &float_high_modrm[3][0x22],
@@ -1427,7 +1427,9 @@ const instr_info_t second_byte[] = {
   {INVALID, 0x0f3e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   {INVALID, 0x0f3f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* 40 */
-  /* cmovxx does not always write dest -- model that as a read of dest */
+  /* cmovcc does not always write dest -- model that as a read of dest
+   * FIXME i#269: is that always a good idea?
+   */
   {OP_cmovo,  0x0f4010, "cmovo",  Gv, xx, Ev, Gv, xx, mrm, fRO, END_LIST},
   {OP_cmovno, 0x0f4110, "cmovno", Gv, xx, Ev, Gv, xx, mrm, fRO, END_LIST},
   {OP_cmovb,  0x0f4210, "cmovb",  Gv, xx, Ev, Gv, xx, mrm, fRC, END_LIST},
@@ -3573,6 +3575,7 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fcos,   0xd9ff10, "fcos",   st0, xx, st0, xx, xx, mrm, x, END_LIST},
    },
     { /* da = [2] */
+        /* FIXME i#269: should these also have dst as src like cmovcc does? */
         {OP_fcmovb, 0xdac010, "fcmovb", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x01]}, /* c0 = [0x00] */
         {OP_fcmovb, 0xdac110, "fcmovb", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x02]},
         {OP_fcmovb, 0xdac210, "fcmovb", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x03]},
@@ -3647,14 +3650,14 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fcmovnb, 0xdbc510, "fcmovnb", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x06]},
         {OP_fcmovnb, 0xdbc610, "fcmovnb", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x07]},
         {OP_fcmovnb, 0xdbc710, "fcmovnb", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
-        {OP_fcmovene, 0xdbc810, "fcmovene", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x09]}, /* c8 = [0x08] */
-        {OP_fcmovene, 0xdbc910, "fcmovene", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0a]},
-        {OP_fcmovene, 0xdbca10, "fcmovene", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0b]},
-        {OP_fcmovene, 0xdbcb10, "fcmovene", st0, xx, st3, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0c]},
-        {OP_fcmovene, 0xdbcc10, "fcmovene", st0, xx, st4, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0d]},
-        {OP_fcmovene, 0xdbcd10, "fcmovene", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0e]},
-        {OP_fcmovene, 0xdbce10, "fcmovene", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0f]},
-        {OP_fcmovene, 0xdbcf10, "fcmovene", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
+        {OP_fcmovne, 0xdbc810, "fcmovne", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x09]}, /* c8 = [0x08] */
+        {OP_fcmovne, 0xdbc910, "fcmovne", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0a]},
+        {OP_fcmovne, 0xdbca10, "fcmovne", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0b]},
+        {OP_fcmovne, 0xdbcb10, "fcmovne", st0, xx, st3, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0c]},
+        {OP_fcmovne, 0xdbcc10, "fcmovne", st0, xx, st4, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0d]},
+        {OP_fcmovne, 0xdbcd10, "fcmovne", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0e]},
+        {OP_fcmovne, 0xdbce10, "fcmovne", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0f]},
+        {OP_fcmovne, 0xdbcf10, "fcmovne", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
         {OP_fcmovnbe, 0xdbd010, "fcmovnbe", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x12]}, /* d0 = [0x10] */
         {OP_fcmovnbe, 0xdbd110, "fcmovnbe", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x12]},
         {OP_fcmovnbe, 0xdbd210, "fcmovnbe", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x13]},

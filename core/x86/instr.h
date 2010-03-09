@@ -2409,6 +2409,23 @@ instr_jcc_taken(instr_t *instr, reg_t eflags);
 bool
 instr_cbr_taken(instr_t *instr, dr_mcontext_t *mcontext, bool pre);
 
+DR_API
+/**
+ * Converts a cmovcc opcode \p cmovcc_opcode to the OP_jcc opcode that
+ * tests the same bits in eflags.
+ */
+int
+instr_cmovcc_to_jcc(int cmovcc_opcode);
+
+DR_API
+/**
+ * Given \p eflags, returns whether or not the conditional move
+ * instruction \p instr would execute the move.  The conditional move
+ * can be an OP_cmovcc or an OP_fcmovcc instruction.
+ */
+bool
+instr_cmovcc_triggered(instr_t *instr, reg_t eflags);
+
 /* utility routines that are in optimize.c */
 opnd_t 
 instr_get_src_mem_access(instr_t *instr);
@@ -3469,7 +3486,7 @@ enum {
 /* 462 */     OP_fcmovu,     /* &float_high_modrm[2][0x18], */ /**< fcmovu opcode */
 /* 463 */     OP_fucompp,    /* &float_high_modrm[2][0x29], */ /**< fucompp opcode */
 /* 464 */     OP_fcmovnb,    /* &float_high_modrm[3][0x00], */ /**< fcmovnb opcode */
-/* 465 */     OP_fcmovene,   /* &float_high_modrm[3][0x08], */ /**< fcmovene opcode */
+/* 465 */     OP_fcmovne,    /* &float_high_modrm[3][0x08], */ /**< fcmovne opcode */
 /* 466 */     OP_fcmovnbe,   /* &float_high_modrm[3][0x10], */ /**< fcmovnbe opcode */
 /* 467 */     OP_fcmovnu,    /* &float_high_modrm[3][0x18], */ /**< fcmovnu opcode */
 /* 468 */     OP_fnclex,     /* &float_high_modrm[3][0x22], */ /**< fnclex opcode */

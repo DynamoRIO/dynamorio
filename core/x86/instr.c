@@ -4104,7 +4104,8 @@ instr_invert_cbr(instr_t *instr)
             instr_set_raw_byte(instr, 1, (byte)2);
             instr_set_raw_byte(instr, 3, (byte)5);
         }
-    } else if (opc >= OP_jo && opc <= OP_jnle) {
+    } else if ((opc >= OP_jo && opc <= OP_jnle) ||
+               (opc >= OP_jo_short && opc <= OP_jnle_short)) {
         switch (opc) {
         case OP_jb:   opc = OP_jnb; break;
         case OP_jnb:  opc = OP_jb; break;
@@ -4122,6 +4123,23 @@ instr_invert_cbr(instr_t *instr)
         case OP_jns:  opc = OP_js; break;
         case OP_jz:   opc = OP_jnz; break;
         case OP_jnz:  opc = OP_jz; break;
+        case OP_jb_short:   opc = OP_jnb_short; break;
+        case OP_jnb_short:  opc = OP_jb_short; break;
+        case OP_jbe_short:  opc = OP_jnbe_short; break;
+        case OP_jnbe_short: opc = OP_jbe_short; break;
+        case OP_jl_short:   opc = OP_jnl_short; break;
+        case OP_jnl_short:  opc = OP_jl_short; break;
+        case OP_jle_short:  opc = OP_jnle_short; break;
+        case OP_jnle_short: opc = OP_jle_short; break;
+        case OP_jo_short:   opc = OP_jno_short; break;
+        case OP_jno_short:  opc = OP_jo_short; break;
+        case OP_jp_short:   opc = OP_jnp_short; break;
+        case OP_jnp_short:  opc = OP_jp_short; break;
+        case OP_js_short:   opc = OP_jns_short; break;
+        case OP_jns_short:  opc = OP_js_short; break;
+        case OP_jz_short:   opc = OP_jnz_short; break;
+        case OP_jnz_short:  opc = OP_jz_short; break;
+        default: CLIENT_ASSERT(false, "instr_invert_cbr: unknown opcode"); break;
         }
         instr_set_opcode(instr, opc);
         /* reverse any branch hint */
@@ -4191,13 +4209,10 @@ instr_cbr_taken(instr_t *instr, dr_mcontext_t *mcontext, bool pre)
     return instr_jcc_taken(instr, mcontext->xflags);
 }
 
-/* Given eflags, returns whether or not the conditional branch instr would be taken */
-bool
-instr_jcc_taken(instr_t *instr, reg_t eflags)
+/* Given eflags, returns whether or not the conditional branch opc would be taken */
+static bool
+opc_jcc_taken(int opc, reg_t eflags)
 {
-    uint opc = instr_get_opcode(instr);
-    CLIENT_ASSERT(instr_is_cbr(instr) && !instr_is_cti_loop(instr),
-                  "instr_jcc_taken: instr not a non-jecxz/loop-cbr");
     switch (opc) {
     case OP_jo: case OP_jo_short:
         return TEST(EFLAGS_OF, eflags);
@@ -4239,6 +4254,56 @@ instr_jcc_taken(instr_t *instr, reg_t eflags)
     }
 }
 
+/* Given eflags, returns whether or not the conditional branch instr would be taken */
+bool
+instr_jcc_taken(instr_t *instr, reg_t eflags)
+{
+    int opc = instr_get_opcode(instr);
+    CLIENT_ASSERT(instr_is_cbr(instr) && !instr_is_cti_loop(instr),
+                  "instr_jcc_taken: instr not a non-jecxz/loop-cbr");
+    return opc_jcc_taken(opc, eflags);
+}
+
+DR_API
+/* Converts a cmovcc opcode \p cmovcc_opcode to the OP_jcc opcode that
+ * tests the same bits in eflags.
+ */
+int
+instr_cmovcc_to_jcc(int cmovcc_opcode)
+{
+    int jcc_opc = OP_INVALID;
+    if (cmovcc_opcode >= OP_cmovo && cmovcc_opcode <= OP_cmovnle) {
+        jcc_opc = cmovcc_opcode - OP_cmovo + OP_jo;
+    } else {
+        switch (cmovcc_opcode) {
+        case OP_fcmovb:   jcc_opc = OP_jb;   break;
+        case OP_fcmove:   jcc_opc = OP_jz;   break;
+        case OP_fcmovbe:  jcc_opc = OP_jbe;  break;
+        case OP_fcmovu:   jcc_opc = OP_jp;   break;
+        case OP_fcmovnb:  jcc_opc = OP_jnb;  break;
+        case OP_fcmovne:  jcc_opc = OP_jnz;  break;
+        case OP_fcmovnbe: jcc_opc = OP_jnbe; break;
+        case OP_fcmovnu:  jcc_opc = OP_jnp;  break;
+        default:
+            CLIENT_ASSERT(false, "invalid cmovcc opcode");
+            return OP_INVALID;
+        }
+    }
+    return jcc_opc;
+}
+
+DR_API
+/* Given \p eflags, returns whether or not the conditional move
+ * instruction \p instr would execute the move.  The conditional move
+ * can be an OP_cmovcc or an OP_fcmovcc instruction.
+ */
+bool
+instr_cmovcc_triggered(instr_t *instr, reg_t eflags)
+{
+    int opc = instr_get_opcode(instr);
+    int jcc_opc = instr_cmovcc_to_jcc(opc);
+    return opc_jcc_taken(jcc_opc, eflags);
+}
 
 bool
 instr_uses_fp_reg(instr_t *instr)
