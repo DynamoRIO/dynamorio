@@ -1024,16 +1024,21 @@ instrument_fork_init(dcontext_t *dcontext)
 void
 instrument_thread_exit(dcontext_t *dcontext)
 {
+#ifdef DEBUG
     client_todo_list_t *todo;
     client_flush_req_t *flush;
+#endif
 
     /* Note - currently own initexit lock when this is called (see PR 227619). */
     call_all(thread_exit_callbacks, int (*)(void *), (void *)dcontext);
 
-#ifdef CLIENT_SIDELINE
+#ifdef DEBUG
+    /* PR 470957: avoid racy crashes by not freeing in release build */
+
+# ifdef CLIENT_SIDELINE
     DELETE_LOCK(dcontext->client_data->sideline_mutex);
     DELETE_LOCK(dcontext->client_data->sideline_heap_lock);
-#endif
+# endif
 
     /* could be heap space allocated for the todo list */
     todo = dcontext->client_data->to_do;
@@ -1057,6 +1062,8 @@ instrument_thread_exit(dcontext_t *dcontext)
     HEAP_TYPE_FREE(dcontext, dcontext->client_data, client_data_t,
                    ACCT_OTHER, UNPROTECTED);
     dcontext->client_data = NULL; /* for mutex_wait_contended_lock() */
+
+#endif /* DEBUG */
 }
 
 bool
@@ -1081,6 +1088,12 @@ bool
 dr_end_trace_hook_exists(void)
 {
     return (end_trace_callbacks.num > 0);
+}
+
+bool
+dr_thread_exit_hook_exists(void)
+{
+    return (thread_exit_callbacks.num > 0);
 }
 
 bool

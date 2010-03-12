@@ -3122,6 +3122,13 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 #endif
     bool local;
     dcontext_t *dcontext = get_thread_private_dcontext();
+    if (dynamo_exited && get_num_threads() > 1 && sig == SIGSEGV) {
+        /* PR 470957: this is almost certainly a race so just squelch it.
+         * We live w/ the risk that it was holding a lock our release-build
+         * exit code needs.
+         */
+        exit_thread_syscall(1);
+    }
     /* FIXME: ensure the path for recording a pending signal does not grab any DR locks
      * that could have been interrupted
      * e.g., synchronize_dynamic_options grabs the stats_lock!

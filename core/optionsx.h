@@ -2414,6 +2414,12 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
       * 'Bug #4809 @x86/arch.c:145;Ignore message @x86/arch.c:146'
       */
 
+    /* needed primarily for CLIENT_INTERFACE but technically all configurations
+     * can have racy crashes at exit time (xref PR 470957)
+     */
+    OPTION(bool, synch_at_exit,
+        "synchronize with all threads at exit in release build")
+
 #ifdef EXPOSE_INTERNAL_OPTIONS
     OPTION_NAME(bool, optimize, " synthethic", "set if ANY opts are on")
 

@@ -4417,6 +4417,14 @@ intercept_exception(app_state_at_intercept_t *state)
      * is_thread_known().  
      * FIXME: is_thread_known() may be unnecessary */
     dcontext_t *dcontext = get_thread_private_dcontext();
+    
+    if (dynamo_exited && get_num_threads() > 1) {
+        /* PR 470957: this is almost certainly a race so just squelch it.
+         * We live w/ the risk that it was holding a lock our release-build
+         * exit code needs.
+         */
+        nt_terminate_thread(NT_CURRENT_THREAD, 0);
+    }
 
     if (intercept_asynch_global() && 
         (dcontext != NULL || is_thread_known(get_thread_id()))) {

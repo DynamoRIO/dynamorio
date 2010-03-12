@@ -110,6 +110,8 @@ The current version is \DR_VERSION and is backward compatible with releases from
 
 The changes between version 1.6.0 and 1.5.0 are:
 
+ - Added -synch_at_exit option and dr_request_synchronized_exit() to
+   provide guarantees over thread exit event timing in release build
  - Added instr_cmovcc_triggered() and instr_cmovcc_to_jcc()
  - Changed OP_fcmovene to OP_fcmovne
  - Implemented instr_invert_cbr() for OP_jcc_short

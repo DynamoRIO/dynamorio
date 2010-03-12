@@ -70,7 +70,13 @@
 DR_API
 /**
  * Registers a callback function for the process exit event.  DR calls
- * \p func when the process exits.
+ * \p func when the process exits.  Note that in release build it is
+ * possible for other threads to still be executing, so
+ * synchronization should be used for global variables; alternatively,
+ * the -synch_at_exit option can be set, or the
+ * dr_request_synchronized_exit() routine invoked, to guarantee that
+ * only one thread is active at exit time (at a potential performance
+ * cost).
  *
  * On Linux, SYS_execve does NOT result in an exit event, but it WILL
  * result in the client library being reloaded and its dr_init()
@@ -687,6 +693,17 @@ DR_API
 /**
  * Registers a callback function for the thread exit event.  DR calls
  * \p func whenever an application thread exits.
+ *
+ * There are some potential races at process exit time with the thread
+ * exit event for all remaining threads.  In debug builds, \DynamoRIO
+ * synchronizes with all remaining threads at process exit time,
+ * guaranteeing that no other threads are executing when the thread
+ * exit events are raised.  In release build, however, for performance
+ * reasons, while \DynamoRIO attempts to prevent other threads from
+ * executing (and thus running instrumentation code or raising events)
+ * beyond when their own thread exit events are raised, no guarantee
+ * is provided.  The \p -synch_at_exit option can be turned on in
+ * order to provide such a guarantee, at a potential performance hit.
  */
 void
 dr_register_thread_exit_event(void (*func)(void *drcontext));
@@ -1317,6 +1334,7 @@ bool dr_bb_hook_exists(void);
 bool dr_trace_hook_exists(void);
 bool dr_fragment_deleted_hook_exists(void);
 bool dr_end_trace_hook_exists(void);
+bool dr_thread_exit_hook_exists(void);
 bool hide_tag_from_client(app_pc tag);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
@@ -1376,6 +1394,16 @@ DR_API
 /** Returns true if all \DynamoRIO caches are thread private. */
 bool
 dr_using_all_private_caches(void);
+
+DR_API
+/**
+ * Enables the -synch_at_exit runtime option, which guarantees that no
+ * thread will executed beyond its own thread exit event at process
+ * exit time.  When the -synch_at_exit option is off, which is the
+ * default setting, in release builds there is no such guarantee.
+ */
+bool
+dr_request_synchronized_exit(void);
 
 DR_API
 /** 

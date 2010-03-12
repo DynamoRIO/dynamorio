@@ -66,6 +66,7 @@
 
 #ifdef WINDOWS
 /* for close handle, duplicate handle, free memory and constants associated with them */
+/* also for nt_terminate_process_for_app() */
 #include "ntdll.h"
 #include "nudge.h" /* to get generic_nudge_target() address for an assert */
 #endif
@@ -1000,6 +1001,61 @@ dynamorio_app_exit(void)
     return dynamo_process_exit();
 }
 
+/* synchs with all threads using synch type synch_res.
+ * also sets dynamo_exited to true.
+ * does not resume the threads but does release the thread_initexit_lock.
+ */
+static void
+synch_with_threads_at_exit(thread_synch_result_t synch_res)
+{
+    int num_threads;
+    thread_record_t **threads;
+    DEBUG_DECLARE(bool ok;)
+    LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
+        "\nsynch_with_threads_at_exit: cleaning up %d un-terminated threads\n",
+        get_num_threads());
+
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+    /* make sure client nudges are finished */
+    wait_for_outstanding_nudges();
+#endif
+
+    /* xref case 8747, requesting suspended is preferable to terminated and it
+     * doesn't make a difference here which we use (since the process is about
+     * to die).  
+     * On Linux, however, we do not have dependencies on OS thread
+     * properties like we do on Windows (TEB, etc.), and our suspended
+     * threads use their sigstacks and ostd data structs, making cleanup
+     * while still catching other leaks more difficult: thus it's
+     * simpler to terminate and then clean up.  FIXME: by terminating
+     * we'll raise SIGCHLD that may not have been raised natively if the
+     * whole group went down in a single SYS_exit_group.  Instead we
+     * could have the suspended thread move from the sigstack-reliant
+     * loop to a stack-free loop (xref i#95).
+     */
+    IF_LINUX(dynamo_exiting = true;) /* include execve-exited vfork threads */
+    DEBUG_DECLARE(ok =)
+        synch_with_all_threads(synch_res,
+                               &threads, &num_threads, 
+                               /* Case 6821: other synch-all-thread uses that
+                                * only care about threads carrying fcache
+                                * state can ignore us
+                                */
+                               THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                               /* if we fail to suspend a thread (e.g., privilege
+                                * problems) ignore it. FIXME: retry instead? */
+                               THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+    ASSERT(ok);
+    ASSERT(threads == NULL && num_threads == 0); /* We asked for CLEANED */
+    /* the synch_with_all_threads function grabbed the 
+     * thread_initexit_lock for us! */
+    /* do this now after all threads we know about are killed and 
+     * while we hold the thread_initexit_lock so any new threads that 
+     * are waiting on it won't get in our way (see thread_init()) */
+    dynamo_exited = true;
+    end_synch_with_all_threads(threads, num_threads, false/*don't resume*/);
+}
+
 #ifdef DEBUG
 /* cleanup after the application has exited */
 static int
@@ -1048,54 +1104,9 @@ dynamo_process_exit_cleanup(void)
              * all have gone through dynamo_thread_exit, so clean them up now
              * so we can get stats about them
              */
-            int num_threads;
-            thread_record_t **threads;
-            DEBUG_DECLARE(bool ok;)
-            LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
-                "\ndynamorio_app_exit: cleaning up %d un-terminated threads\n",
-                get_num_threads());
-
-#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
-            /* make sure client nudges are finished */
-            wait_for_outstanding_nudges();
-#endif
-
-            /* xref case 8747, requesting suspended is preferable to terminated and it
-             * doesn't make a difference here which we use (since the process is about
-             * to die).  
-             * On Linux, however, we do not have dependencies on OS thread
-             * properties like we do on Windows (TEB, etc.), and our suspended
-             * threads use their sigstacks and ostd data structs, making cleanup
-             * while still catching other leaks more difficult: thus it's
-             * simpler to terminate and then clean up.  FIXME: by terminating
-             * we'll raise SIGCHLD that may not have been raised natively if the
-             * whole group went down in a single SYS_exit_group.  Instead we
-             * could have the suspended thread move from the sigstack-reliant
-             * loop to a stack-free loop (xref i#95).
-             */
-            IF_LINUX(dynamo_exiting = true;) /* include execve-exited vfork threads */
-            DEBUG_DECLARE(ok =)
-                synch_with_all_threads(IF_WINDOWS_ELSE
+            synch_with_threads_at_exit(IF_WINDOWS_ELSE
                                        (THREAD_SYNCH_SUSPENDED_AND_CLEANED,
-                                        THREAD_SYNCH_TERMINATED_AND_CLEANED),
-                                       &threads, &num_threads, 
-                                       /* Case 6821: other synch-all-thread uses that
-                                        * only care about threads carrying fcache
-                                        * state can ignore us
-                                        */
-                                       THREAD_SYNCH_NO_LOCKS_NO_XFER,
-                                       /* if we fail to suspend a thread (e.g., privilege
-                                        * problems) ignore it. FIXME: retry instead? */
-                                       THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
-            ASSERT(ok);
-            ASSERT(threads == NULL && num_threads == 0); /* We asked for CLEANED */
-            /* the synch_with_all_threads function grabbed the 
-             * thread_initexit_lock for us! */
-            /* do this now after all threads we know about are killed and 
-             * while we hold the thread_initexit_lock so any new threads that 
-             * are waiting on it won't get in our way (see thread_init()) */
-            dynamo_exited = true;
-            end_synch_with_all_threads(threads, num_threads, false/*don't resume*/);
+                                        THREAD_SYNCH_TERMINATED_AND_CLEANED));
         }
         /* now that APC interception point is unpatched and 
          * dynamorio_exited is set and we've killed all the theads we know
@@ -1193,8 +1204,6 @@ dynamo_process_exit(void)
     if (dynamo_exited)
         return SUCCESS;
 
-    dynamo_exited = true;
-
     /* don't need to do much!
      * we didn't create any IPC objects or anything that might be persistent
      * beyond our death, we're not holding any systemwide locks, etc.
@@ -1214,13 +1223,52 @@ dynamo_process_exit(void)
     each_thread = each_thread || DYNAMO_OPTION(kstats);
 # endif
 # ifdef CLIENT_INTERFACE
-    each_thread = each_thread || !INTERNAL_OPTION(nullcalls);
+    each_thread = each_thread ||
+        /* If we don't need a thread exit event, avoid the possibility of
+         * racy crashes (PR 470957) by not calling instrument_thread_exit()
+         */
+        (!INTERNAL_OPTION(nullcalls) && dr_thread_exit_hook_exists());
 # endif
+
+    if (DYNAMO_OPTION(synch_at_exit)) {
+        /* needed primarily for CLIENT_INTERFACE but technically all configurations
+         * can have racy crashes at exit time (xref PR 470957)
+         */
+        synch_with_threads_at_exit(THREAD_SYNCH_SUSPENDED);
+    } else
+        dynamo_exited = true;
+
     if (each_thread) {
         thread_record_t **threads;
         int num, i;
         mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&threads, &num);
+
+# ifdef CLIENT_INTERFACE
+        /* try to prevent any other thread from executing after its exit
+         * event callback is invoked (PR 470957): if guarantee is needed
+         * -synch_at_exit should be used.
+         */
+        if (!DYNAMO_OPTION(synch_at_exit) && num > 1 && dr_thread_exit_hook_exists()) {
+#  ifdef WINDOWS
+            /* 0 as first arg means "terminate all other threads but this one" */
+            nt_terminate_process_for_app(0, 0);
+#  else
+            thread_id_t my_tid = get_thread_id();
+            for (i = 0; i < num; i++) {
+                if (threads[i]->id != my_tid) {
+                    /* no advantage to use, say, the first half of thread_suspend()
+                     * since just going to exit process, so terminate.
+                     * if the thread is holding a lock that's used below we're
+                     * in trouble: very unlikely though.
+                     */
+                    thread_terminate(threads[i]);
+                }
+            }
+#  endif
+        }
+# endif /* CLIENT_INTERFACE */
+
         for (i = 0; i < num; i++) {
             /* FIXME: separate trace dump from rest of fragment cleanup code */
             if (TRACEDUMP_ENABLED() IF_CLIENT_INTERFACE(|| true))
@@ -1260,9 +1308,9 @@ dynamo_process_exit(void)
     if (!INTERNAL_OPTION(nullcalls)) {
 # ifdef WINDOWS
         /* instrument_exit() unloads the client library, so make sure
-         * LdrUnloadDll isn't hooked.
+         * LdrUnloadDll isn't hooked if using the app loader.
          */
-        if (!INTERNAL_OPTION(noasynch)) {
+        if (!INTERNAL_OPTION(noasynch) && !INTERNAL_OPTION(private_loader)) {
             callback_interception_unintercept();
         }
 # endif
