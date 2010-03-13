@@ -537,9 +537,9 @@ dr_init(client_id_t id)
 }
 
 #ifdef WINDOWS
-# define DIRSEP '\\'
+# define IF_WINDOWS(x) x
 #else
-# define DIRSEP '/'
+# define IF_WINDOWS(x) /* nothing */
 #endif
 
 static void 
@@ -566,7 +566,7 @@ event_exit(void)
     len = dr_snprintf(fname, sizeof(fname)/sizeof(fname[0]),
                       "%s", dr_get_client_path(my_id));
     DR_ASSERT(len > 0);
-    for (dirsep = fname + len; *dirsep != DIRSEP; dirsep--)
+    for (dirsep = fname + len; *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\'); dirsep--)
         DR_ASSERT(dirsep > fname);
     len = dr_snprintf(dirsep + 1, (sizeof(fname) - (dirsep - fname))/sizeof(fname[0]),
                       "stats.%d.log", dr_get_process_id());
