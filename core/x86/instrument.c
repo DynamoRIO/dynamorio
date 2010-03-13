@@ -1848,6 +1848,17 @@ dr_using_all_private_caches(void)
 }
 
 DR_API
+void
+dr_request_synchronized_exit(void)
+{
+    if (!DYNAMO_OPTION(synch_at_exit)) {
+        options_make_writable();
+        dynamo_options.synch_at_exit = true;
+        options_restore_readonly();
+    }
+}
+
+DR_API
 /* Returns the option string passed along with a client path via DR's
  * -client_lib option.
  */

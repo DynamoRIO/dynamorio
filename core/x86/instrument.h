@@ -1402,7 +1402,7 @@ DR_API
  * exit time.  When the -synch_at_exit option is off, which is the
  * default setting, in release builds there is no such guarantee.
  */
-bool
+void
 dr_request_synchronized_exit(void);
 
 DR_API
