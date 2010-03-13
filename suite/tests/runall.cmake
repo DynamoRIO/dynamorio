@@ -59,9 +59,9 @@ endif (cmd_result)
 
 if (UNIX)
   find_program(SLEEP "sleep")
-  if (NOT EXISTS ${SLEEP})
+  if (NOT SLEEP)
     message(FATAL_ERROR "cannot find 'sleep'")
-  endif (NOT EXISTS ${SLEEP})
+  endif (NOT SLEEP)
 else (UNIX)
   message(FATAL_ERROR "need a sleep on Windows")
   # FIXME i#120: add tools/sleep.exe?
@@ -108,9 +108,9 @@ endif ()
 
 if (UNIX)
   find_program(KILL "kill")
-  if (NOT EXISTS ${KILL})
+  if (NOT KILL)
     message(FATAL_ERROR "cannot find 'kill'")
-  endif (NOT EXISTS ${KILL})
+  endif (NOT KILL)
   execute_process(COMMAND "${KILL}" ${pid}
     RESULT_VARIABLE kill_result
     ERROR_VARIABLE kill_err

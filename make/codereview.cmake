@@ -124,9 +124,9 @@ if (NOT EXISTS ${REVIEWS})
 endif (NOT EXISTS ${REVIEWS})
 
 find_program(SVN svn DOC "subversion client")
-if (SVN-NOTFOUND OR NOT EXISTS "${SVN}")
+if (NOT SVN)
   message(FATAL_ERROR "svn not found")
-endif (SVN-NOTFOUND OR NOT EXISTS "${SVN}")
+endif (NOT SVN)
 # we run svn in the review checkout
 function(run_svn)
   execute_process(COMMAND ${SVN} ${ARGV}
@@ -143,16 +143,16 @@ function(run_svn)
 endfunction(run_svn)
 
 find_program(DIFFSTAT diffstat DOC "diff statistics displayer")
-if (DIFFSTAT-NOTFOUND OR NOT EXISTS "${DIFFSTAT}")
+if (NOT DIFFSTAT)
   message(STATUS "diffstat not found: will not have diff statistics")
-endif (DIFFSTAT-NOTFOUND OR NOT EXISTS "${DIFFSTAT}")
+endif (NOT DIFFSTAT)
 
 # get the year
 if (UNIX)
   find_program(DATE date DOC "unix date")
-  if (DATE-NOTFOUND OR NOT EXISTS "${DATE}")
+  if (NOT DATE)
     message(FATAL_ERROR "date not found")
-  endif (DATE-NOTFOUND OR NOT EXISTS "${DATE}")
+  endif (NOT DATE)
   execute_process(COMMAND ${DATE} +%Y
     RESULT_VARIABLE date_result 
     ERROR_VARIABLE date_err
@@ -163,9 +163,9 @@ if (UNIX)
   string(STRIP "${year}" year)
 else (UNIX)
   find_program(CMD cmd DOC "cmd shell")
-  if (CMD-NOTFOUND OR NOT EXISTS "${CMD}")
+  if (NOT CMD)
     message(FATAL_ERROR "cmd not found")
-  endif (CMD-NOTFOUND OR NOT EXISTS "${CMD}")
+  endif (NOT CMD)
   # If use forward slashes => "The syntax of the command is incorrect."
   file(TO_NATIVE_PATH "${CMD}" CMD)
   execute_process(COMMAND ${CMD} /c date /T

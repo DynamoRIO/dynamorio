@@ -73,7 +73,7 @@ endif (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 foreach (src ${srcs})
   get_filename_component(tgt ${src} NAME_WE)
   
-  if ("${tgt}" STREQUAL "tracedump")
+  if ("${tgt}" STREQUAL "tracedump" OR "${tgt}" STREQUAL "memdump")
     # standalone app
     add_executable(${tgt} ${src})
     # We don't want an rpath as it makes it hard to switch
@@ -94,7 +94,7 @@ foreach (src ${srcs})
       COMMAND ${CMAKE_COMMAND}
       ARGS -E echo "Make sure the loader finds the dynamorio library ${FIND_MSG}"
       VERBATIM)
-  else ("${tgt}" STREQUAL "tracedump")
+  else ("${tgt}" STREQUAL "tracedump" OR "${tgt}" STREQUAL "memdump")
     add_library(${tgt} SHARED ${src})
     configure_DynamoRIO_client(${tgt})
 
@@ -104,7 +104,7 @@ foreach (src ${srcs})
       COMMAND ${CMAKE_COMMAND}
       ARGS -E echo "Usage: pass to drdeploy: -client ${tgtnm} 0 \"\""
       VERBATIM)
-  endif ("${tgt}" STREQUAL "tracedump")
+  endif ("${tgt}" STREQUAL "tracedump" OR "${tgt}" STREQUAL "memdump")
 
   set(tgts ${tgts} ${tgt})
 endforeach (src)

@@ -240,7 +240,13 @@ set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
 # resources when packaging
 # N.B.: once VERSION_NUMBER crosses 2.x we'll need to update the
 # symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER "1.6.0" CACHE STRING "Version number")
+set(VERSION_NUMBER_DEFAULT "1.6.0")
+# do not store the default VERSION_NUMBER in the cache to prevent a stale one
+# from preventing future version updates in a pre-existing build dir
+set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
+if ("${VERSION_NUMBER}" STREQUAL "")
+  set(VERSION_NUMBER ${VERSION_NUMBER_DEFAULT})
+endif()
 string(REGEX REPLACE "\\." "," VERSION_COMMA_DELIMITED "${VERSION_NUMBER}")
 set(BUILD_NUMBER "18" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "18" CACHE STRING "Unique build number")
@@ -281,9 +287,9 @@ if (UNIX)
   # we assume it's in the same dir.
   get_filename_component(compiler_path ${CMAKE_C_COMPILER} PATH)
   find_program(CMAKE_CPP cpp HINTS "${compiler_path}" DOC "path to C preprocessor")
-  if (cpp-NOTFOUND OR NOT EXISTS "${CMAKE_CPP}")
+  if (NOT CMAKE_CPP)
     message(FATAL_ERROR "cpp is required to build")
-  endif (cpp-NOTFOUND OR NOT EXISTS "${CMAKE_CPP}")
+  endif (NOT CMAKE_CPP)
   mark_as_advanced(CMAKE_CPP)
 
 else (UNIX)
@@ -301,15 +307,15 @@ else (UNIX)
   else (X64)
     find_program(CMAKE_ASM_COMPILER ml.exe HINTS "${cl_path}" DOC "path to assembler")
   endif (X64)
-  if (CMAKE_ASM_COMPILER-NOTFOUND OR NOT EXISTS "${CMAKE_ASM_COMPILER}")
+  if (NOT CMAKE_ASM_COMPILER)
     message(FATAL_ERROR "assembler not found: required to build")
-  endif (CMAKE_ASM_COMPILER-NOTFOUND OR NOT EXISTS "${CMAKE_ASM_COMPILER}")
+  endif (NOT CMAKE_ASM_COMPILER)
 
   # cmake has CMAKE_RC_COMPILER, but no message compiler
   find_program(CMAKE_MC_COMPILER mc.exe DOC "path to message compiler")
-  if (CMAKE_MC_COMPILER-NOTFOUND OR NOT EXISTS "${CMAKE_MC_COMPILER}")
+  if (NOT CMAKE_MC_COMPILER)
     message(FATAL_ERROR "message compiler not found: required to build")
-  endif (CMAKE_MC_COMPILER-NOTFOUND OR NOT EXISTS "${CMAKE_MC_COMPILER}")
+  endif (NOT CMAKE_MC_COMPILER)
   message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
   mark_as_advanced(CMAKE_MC_COMPILER)
 
@@ -332,9 +338,9 @@ else (UNIX)
   # Use find_library() and not find_path() in case on LIB env var or sthg
   find_library(NTDLL_LIBPATH ntdll.lib HINTS "${DDK_ROOT}/${NTDLL_LIB_SUBPATH}"
     DOC "Path to ntdll.lib from either 2003 DDK (3790.1830) or Vista WDK (6000)")
-  if (NTDLL_LIBPATH-NOTFOUND OR NOT EXISTS "${NTDLL_LIBPATH}")
+  if (NOT NTDLL_LIBPATH)
     message(FATAL_ERROR "ntdll.lib not found: required to build")
-  endif (NTDLL_LIBPATH-NOTFOUND OR NOT EXISTS "${NTDLL_LIBPATH}")
+  endif (NOT NTDLL_LIBPATH)
   message(STATUS "Found ntdll.lib: ${NTDLL_LIBPATH}")
   get_filename_component(NTDLL_LIBPATH "${NTDLL_LIBPATH}" PATH)
   link_directories(${NTDLL_LIBPATH})
@@ -869,10 +875,10 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
       # b/c of cygwin issues: c:/cygwin/bin vs /usr/bin, etc.
       get_filename_component(gs_name ${GHOSTSCRIPT_EXECUTABLE} NAME)
       find_program(GHOSTSCRIPT_ON_PATH ${gs_name} PATHS ENV PATH NO_DEFAULT_PATH)
-      if (NOT EXISTS ${GHOSTSCRIPT_ON_PATH})
+      if (NOT GHOSTSCRIPT_ON_PATH)
         message("ghostscript is installed, but must be on PATH for fig2dev to find it")
         set(BUILD_DOCS OFF)
-      endif (NOT EXISTS ${GHOSTSCRIPT_ON_PATH})
+      endif (NOT GHOSTSCRIPT_ON_PATH)
       mark_as_advanced(GHOSTSCRIPT_ON_PATH)
     endif (NOT GHOSTSCRIPT_FOUND)
 

@@ -302,9 +302,9 @@ if (UNIX)
   # readelf is a binutils app just like ld
   get_filename_component(binutils_path ${CMAKE_LINKER} PATH)
   find_program(READELF_EXECUTABLE readelf HINTS "${binutils_path}" DOC "path to readelf")
-  if (READELF_EXECUTABLE-NOTFOUND OR NOT EXISTS "${READELF_EXECUTABLE}")
-    message("${READELF_EXECUTABLE} not found: not checking SElinux or execstack")
-  else (READELF_EXECUTABLE-NOTFOUND OR NOT EXISTS "${READELF_EXECUTABLE}")
+  if (NOT READELF_EXECUTABLE)
+    message("readelf not found: not checking SElinux or execstack")
+  else (NOT READELF_EXECUTABLE)
     get_target_property(lib_to_check dynamorio LOCATION)
     add_custom_command(TARGET dynamorio
       POST_BUILD
@@ -325,7 +325,7 @@ if (UNIX)
            -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
       VERBATIM # recommended: p260
       )
-  endif (READELF_EXECUTABLE-NOTFOUND OR NOT EXISTS "${READELF_EXECUTABLE}")
+  endif (NOT READELF_EXECUTABLE)
 
   # we used to run size on libdynamorio.so for info purposes
 
