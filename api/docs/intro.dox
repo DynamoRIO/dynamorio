@@ -391,7 +391,7 @@ This will result in a nudge event with argument=5 delivered to the
 \c calc.exe processes running under \DynamoRIO.  The third argument,
 0, is an ID supplied at registration which uniquely identifies the
 target \client (see dr_deploy.h for details).  Note that nudging
-64-bit applications is not yet supported.
+64-bit applications is not yet supported on Windows.
 
 To view 32-bit or WOW64 processes running under \DynamoRIO the
 \c drview.exe tool can be used.  The bin64 version will display both 32-bit
@@ -442,6 +442,17 @@ under \DynamoRIO with the bbsize sample \client:
 \endcode
 Run \c drdeploy with no options to get a list of the options and
 environment variable shortcuts it supports.
+
+To \ref sec_comm "nudge" a process with pid \c targetpid running under
+\DynamoRIO and pass argument "5" to the nudge callback, use the \c
+nudgeunix tool:
+\code
+bin32/nudgeunix -pid targetpid -client 0 5
+\endcode
+This will result in a nudge event with argument=5 delivered to the
+\client callback registered with dr_register_nudge_event() in the
+target process.  The 0 argument is an ID supplied at registration which
+uniquely identifies the target \client (see dr_deploy.h for details).
 
 \endif
 \endif
@@ -970,8 +981,7 @@ target application process.  These include:
    for pushing data into the process. Nudges are used to notify \DynamoRIO
    that it needs to re-read its options, or perform some other action.
    \DynamoRIO also provides a custom nudge event that can be used by
-   \clients. See dr_nudge_process() and dr_register_nudge_event(). \if linux
-   Nudges are currently only supported on Windows. \endif
+   \clients. See dr_nudge_process() and dr_register_nudge_event().
  - Files can be used to send data out.  An external process can wait on
    the file.
 
