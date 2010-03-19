@@ -4362,6 +4362,19 @@ dr_fragment_app_pc(void *tag)
     return tag;
 }
 
+DR_API 
+/* i#268: opposite of dr_fragment_app_pc() */
+app_pc
+dr_app_pc_for_decoding(app_pc pc)
+{
+#ifdef WINDOWS
+    app_pc displaced;
+    if (is_intercepted_app_pc(pc, &displaced))
+        return displaced;
+#endif
+    return pc;
+}
+
 
 /***************************************************************************
  * CUSTOM TRACES SUPPORT

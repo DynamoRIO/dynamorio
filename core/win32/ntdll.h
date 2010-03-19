@@ -1118,6 +1118,11 @@ get_own_teb(void);
 void *
 get_ntdll_base(void);
 
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+bool
+is_in_ntdll(app_pc pc);
+#endif
+
 /* replacement for API call VirtualQuery */
 size_t
 query_virtual_memory(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbilen);

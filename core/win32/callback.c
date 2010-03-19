@@ -1331,7 +1331,13 @@ is_intercepted_app_pc(app_pc pc, byte **interception_pc)
 {
     intercept_map_elem_t *iter = intercept_map->head;
     while (iter != NULL) {
-        if (iter->original_app_pc == pc) {
+        /* i#268: respond for any pc not just the first.
+         * FIXME: do we handle app targeting middle of hook?
+         * I'm assuming here that we would not create another
+         * entry for that start and it's ok to not match only start.
+         */
+        if (pc >= iter->original_app_pc &&
+            pc < iter->original_app_pc + iter->displace_length) {
             /* PR 219351: For syscall trampolines, while building bbs we replace
              * the jmp and never execute from the displaced app code in the
              * buffer, so the bb looks normal.  FIXME: should we just not add to
@@ -1342,7 +1348,7 @@ is_intercepted_app_pc(app_pc pc, byte **interception_pc)
             if (is_syscall_trampoline(iter->interception_pc))
                 return false;
             if (interception_pc != NULL)
-                *interception_pc = iter->interception_pc;
+                *interception_pc = iter->interception_pc + (pc - iter->original_app_pc);
 
             return true;
         }
@@ -4247,7 +4253,12 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
     if ((is_on_dstack(dcontext, (byte *)cxt->CXT_XSP)
          /* PR 302951: clean call arg processing => pass to app/client.
           * Rather than call the risky in_fcache we check whereami. */
-         IF_CLIENT_INTERFACE(&& (dcontext->whereami != WHERE_FCACHE))) ||
+         IF_CLIENT_INTERFACE(&& (dcontext->whereami != WHERE_FCACHE ||
+                                 /* i#263: do not pass to app if fault is in
+                                  * client lib or ntdll called by client
+                                  */
+                                 is_in_client_lib((app_pc)pExcptRec->ExceptionAddress) ||
+                                 is_in_ntdll((app_pc)pExcptRec->ExceptionAddress)))) ||
         is_on_initstack((byte *)cxt->CXT_XSP)) {
         is_DR_exception = true;
     }

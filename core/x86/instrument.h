@@ -149,6 +149,7 @@ DR_API
  * for temporary structures such as instr_t and instrlist_t.
  *
  * - \p tag is a unique identifier for the basic block fragment.
+ * Use dr_fragment_app_pc() to translate it to an application address.
  * - \p bb is a pointer to the list of instructions that comprise the
  * basic block.  Clients can examine, manipulate, or completely
  * replace the instructions in the list.
@@ -3238,6 +3239,25 @@ DR_API
 /** Retrieves the application PC of a fragment with tag \p tag. */
 app_pc
 dr_fragment_app_pc(void *tag);
+
+DR_API 
+/**
+ * Given an application PC, returns a PC that contains the application code
+ * corresponding to the original PC.  In some circumstances on Windows DR
+ * inserts a jump on top of the original code, which the client will not
+ * see in the bb and trace hooks due to DR replacing it there with the
+ * displaced original application code in order to present the client with
+ * an unmodified view of the application code.  A client should use this
+ * routine when attempting to decode the original application instruction
+ * that caused a fault from the translated fault address, as the translated
+ * address may actually point in the middle of DR's jump.
+ *
+ * \note Other applications on the system sometimes insert their own hooks,
+ * which will not be hidden by DR and will appear to the client as jumps
+ * and subsequent displaced code.
+ */
+app_pc
+dr_app_pc_for_decoding(app_pc pc);
 
 #ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */

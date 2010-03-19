@@ -828,6 +828,7 @@ os_init(void)
     get_system_basic_info();
     os_user_directory_supports_ownership();
     is_wow64_process(NT_CURRENT_PROCESS);
+    is_in_ntdll(get_ntdll_base());
 }
 
 static void

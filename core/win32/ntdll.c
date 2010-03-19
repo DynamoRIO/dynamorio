@@ -899,6 +899,21 @@ get_ntdll_base(void)
     return ntdll_base;
 }
 
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+/* get_allocation_size() in os.c */
+bool
+is_in_ntdll(app_pc pc)
+{
+    static app_pc ntdll_end;
+    app_pc base = get_ntdll_base();
+    if (ntdll_end == NULL) {
+        ntdll_end = base + get_allocation_size(base, NULL);
+        ASSERT(ntdll_end > base);
+    }
+    return (pc >= base && pc < ntdll_end);
+}
+#endif
+
 /* routines for conversion between CONTEXT and dr_mcontext_t */
 /* assumes our segment registers are the same as the app and that
    we never touch floating-point state and debug registers 
