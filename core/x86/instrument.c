@@ -1471,6 +1471,30 @@ dr_free_module_data(module_data_t *data)
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, data, module_data_t, ACCT_CLIENT, UNPROTECTED);
 }
 
+/* Looks up the being-loaded module at modbase and invokes the client event */
+void
+instrument_module_load_trigger(app_pc modbase)
+{
+    /* see notes in module_list_add() where we use to do this: but
+     * we need this to be after exec areas processing so module is
+     * in consistent state in case client acts on it, even though
+     * we have to re-look-up the data here.
+     */
+    if (!IS_STRING_OPTION_EMPTY(client_lib)) {
+        module_area_t *ma;
+        module_data_t *client_data = NULL;
+        os_get_module_info_lock();
+        ma = module_pc_lookup(modbase);
+        ASSERT(ma != NULL);
+        if (ma != NULL) {
+            client_data = copy_module_area_to_module_data(ma);
+            os_get_module_info_unlock();
+            instrument_module_load(client_data, false /*loading now*/);
+            dr_free_module_data(client_data);
+        }
+    }
+}
+
 /* Notify user when a module is loaded */
 void
 instrument_module_load(module_data_t *data, bool previously_loaded)

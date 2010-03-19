@@ -258,6 +258,10 @@
     */
 #endif
 
+#if defined(HOT_PATCHING_INTERFACE) && defined(CLIENT_INTERFACE)
+#  define PROBE_API
+#endif
+
 #if defined(PROGRAM_SHEPHERDING) && defined(CLIENT_INTERFACE)
 /* used by libutil and tools */
 #  define MF_API

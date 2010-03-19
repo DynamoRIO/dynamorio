@@ -213,6 +213,12 @@ typedef int ptr_int_t;
 #endif
 /* for memory region sizes, use size_t */
 
+/**
+ * Application offset from module base.
+ * PE32+ modules are limited to 2GB, but not ELF x64 med/large code model.
+ */
+typedef size_t app_rva_t;
+
 #ifdef WINDOWS
 typedef ptr_uint_t thread_id_t;
 typedef ptr_uint_t process_id_t;

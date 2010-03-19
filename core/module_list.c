@@ -192,11 +192,6 @@ void
 module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
                 _IF_LINUX(uint64 inode))
 {
-#ifdef CLIENT_INTERFACE
-    module_data_t *client_data = NULL;
-    bool inform_client = false;
-#endif
-
     ASSERT(loaded_module_areas != NULL);
     ASSERT(!vmvector_overlap(loaded_module_areas, base, base+view_size));
     os_get_module_info_write_lock();
@@ -218,15 +213,14 @@ module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
          * lookup/add.
          */
         vmvector_add(loaded_module_areas, base, base+view_size, ma);
-        
-#ifdef CLIENT_INTERFACE
-        /* inform clients of module loads, we copy the data now and wait to
-         * call the client till after we've released the module areas lock */
-        if (!IS_STRING_OPTION_EMPTY(client_lib)) {
-            client_data = copy_module_area_to_module_data(ma);
-            inform_client = true;
-        }
-#endif
+
+        /* note that while it would be natural to invoke the client module
+         * load event since we have the data for it right here, the
+         * module has not been processed for executable areas yet by DR,
+         * which can cause problems if the client calls dr_memory_protect()
+         * or other routines: so we delay and invoke the client event only
+         * when DR's module state is consistent
+         */
     } else {
         /* already added! */
         /* only possible for manual NtMapViewOfSection, loader 
@@ -235,12 +229,6 @@ module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
         /* do nothing */
     }
     os_get_module_info_write_unlock();
-#ifdef CLIENT_INTERFACE
-    if (inform_client) {
-        instrument_module_load(client_data, false /*loading now*/);
-        dr_free_module_data(client_data);
-    }
-#endif
 }
 
 void

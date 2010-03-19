@@ -1740,14 +1740,16 @@ hotp_remove_patches_from_module(const hotp_vul_t *vul_tab, const uint num_vuls,
                              */
                             if (ppoint->trampoline != NULL)
                                 hotp_only_remove_patch(module, ppoint);
-                            else
+                            else {
                                 /* If module is matched and mode is on, then 
                                  * hotp_only patch targeting the current 
                                  * ppoint must be injected unless it has
                                  * been removed to handle loader-safety issues.
                                  */
-                                ASSERT(hotp_globals->ldr_safe_hook_removal &&
+                                ASSERT((ppoint->trampoline == NULL ||
+                                        hotp_globals->ldr_safe_hook_removal) &&
                                        "hotp_only - double patch removal");
+                            }
                         } else {
                             app_pc flush_addr = hotp_ppoint_addr(module, ppoint);
 
@@ -2185,7 +2187,12 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
         return;
 #ifdef WINDOWS
     if (num_threads == 0 && !just_check && DYNAMO_OPTION(hotp_only)) {
-        ASSERT(!dynamo_initialized);
+        /* FIXME PR 225578: dr_register_probes passes 0 for the thread count
+         * b/c post-init probes are NYI: but to enable at-your-own risk probes
+         * relaxing the assert
+         */
+        ASSERT_CURIOSITY_ONCE(!dynamo_initialized &&
+                              "post-init probes at your own risk: PR 225578!");
         num_threads = HOTP_ONLY_NUM_THREADS_AT_INIT;
         /* For hotp_only, all threads should be suspended before patch injection.  
          * However, at this point in startup, callback hooks aren't in place and 
@@ -2298,9 +2305,15 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
 
         if (TESTALL(HOTP_TYPE_PROBE, GLOBAL_VUL(vul_idx).type)
             IF_GBOP(|| (TESTALL(HOTP_TYPE_GBOP_HOOK, GLOBAL_VUL(vul_idx).type)))) {
+            /* FIXME PR 533522: state in the docs/comments which name is
+             * used where!  pe_name vs mod_name
+             */
             name = mod_name;
         } else {    
             ASSERT(TESTALL(HOTP_TYPE_HOT_PATCH, GLOBAL_VUL(vul_idx).type));
+            /* FIXME PR 533522: state in the docs/comments which name is
+             * used where!  pe_name vs mod_name
+             */
             name = pe_name;
         } 
 
@@ -5824,6 +5837,10 @@ typedef enum {
  * defined as an offset within a library. */
 typedef struct {
     /** IN - Full name of the library. */
+    /* FIXME PR 533522: explicitly specify what type of name should be used
+     * here: full path, dr_module_preferred_name(), pe (exports) name, what?
+     * seems broken since need full path to load a lib but that won't match?
+     */
     char *library;
 
     /** IN - Offset to use inside library.  If out of bounds of library, probe
@@ -5836,6 +5853,10 @@ typedef struct {
  * defined as an exported function within a library. */
 typedef struct {
     /** IN - Full name of the library. */
+    /* FIXME PR 533522: explicitly specify what type of name should be used
+     * here: full path, dr_module_preferred_name(), pe (exports) name, what?
+     * seems broken since need full path to load a lib but that won't match?
+     */
     char *library;
 
     /** IN - Name of exported function inside library.  If the function can't
@@ -5846,7 +5867,7 @@ typedef struct {
 
 /** Defines a memory location where a probe is to be inserted or where a
  * callback function exists.  One of three types of address computation as
- * described by dr_probe_addr_t is used identify the location.
+ * described by dr_probe_addr_t is used to identify the location.
  */
 typedef struct {
     /** IN - Specifies the type of address computation to use. */
@@ -5864,28 +5885,58 @@ typedef struct {
     };
 } dr_probe_location_t;
 
-/** probe descriptor
+/* DR_API EXPORT END */
+/* FIXME: hotp_exec_status_t in hotpatch_interface.h is what's really used
+ * in the code so once we start adding actual values here we should merge
+ * the two
+ */
+/* DR_API EXPORT BEGIN */
+/**
+ * Specifies what action to take upon return of a probe callback function.
+ * Additional options will be added in future releases.
+ */
+typedef enum {
+    /** Continue execution normally after the probe. */
+    DR_PROBE_RETURN_NORMAL = 0,
+} dr_probe_return_t;
+
+/**
  * This structure describes the characteristics of a probe.  It is used to add,
- * update and remove probes using dr_register_probes().
+ * update, and remove probes using dr_register_probes().
  */
 typedef struct {
-    /** IN - Pointer to the name of the probe.*/
+    /**
+     * IN - Pointer to the name of the probe.  This string does not need
+     * to be persistent beyond the call to dr_register_probes(): a copy will
+     * be made.
+     */
     char *name;
 
-    /** IN - Location where the probe is to be inserted.  If inserting inside a
+    /**
+     * IN - Location where the probe is to be inserted.  If inserting inside a
      * library, the insertion will be done only if the library is loaded, the
      * location falls within its bounds and the location is marked executable.
      * If inserting outside a library the memory location should be allocated
      * and marked executable.  If neither, the probe will be put in a pending
-     * state where its id will be NULL and its status reflecting the state. */
+     * state where its id will be NULL and its status reflecting the state.
+     */
     dr_probe_location_t insert_loc;
 
-    /** IN - Location of the callback function.  If callback is inside a
+    /**
+     * IN - Location of the callback function.  If callback is inside a
      * library, the library location will be used if it is within its bounds
      * and is marked executable; if library isn't loaded, an attempt will be
      * made to load it.  If using a raw virtual address, then that location
      * should be mapped and marked executable.  If neither is true, the probe
-     * insertion or update will be aborted and status updated accordingly. */
+     * insertion or update will be aborted and status updated accordingly.
+     *
+     * The callback function itself should have this signature:
+     *
+     *   dr_probe_return_t probe_callback(dr_mcontext_t *mc);
+     *
+     * Note that the \p xip field of the \p dr_mcontext_t passed in will
+     * NOT be set.
+     */
     dr_probe_location_t callback_func;
 
     /** OUT - Upon successful probe insertion a unique id will be created. */
@@ -5939,7 +5990,7 @@ DR_API
  * When dr_register_probes() is called after dr_init(), the behavior is 
  *  identical to being called from dr_init() with one caveat: even valid probes
  *  aren't guaranteed to be registered when dr_register_probes() returns.
- *  However, valid probes will be registered with a few milliseconds usually.
+ *  However, valid probes will be registered within a few milliseconds usually.
  *  To prevent performance and potential deadlock issues, it is recommended
  *  that a client shouldn't wait in a loop till the probe status changes.
  *  Instead, clients should check probe status at a later callback.
@@ -5964,7 +6015,7 @@ DR_API
  *  of control should jump into the middle of this 5 byte region beginning at
  *  the probe insertion address.  Further, there should be no int instructions
  *  in this region.  call and jump instructions are allowed in this region as
- *  long as the don't terminate before the end of the region, i.e., no other
+ *  long as they don't terminate before the end of the region, i.e., no other
  *  instruction should start after them in this region (as it will allow
  *  control flow to return to the middle of this region).  If these rules are
  *  not adhered to the results are be unspecified; may result in process crash.
@@ -6051,6 +6102,7 @@ dr_register_probes(
 
     if (num_probes < MIN_NUM_VULNERABILITIES ||
         num_probes > MAX_NUM_VULNERABILITIES || probes == NULL) {
+        /* FIXME PR 533384: return a status code! */
         return;
     }
 
@@ -6059,14 +6111,23 @@ dr_register_probes(
      * 1. dr init time - which doesn't need a nudge but needs remove & reinsert
      *      - PR 225580
      * 2. any other point in dr - which requires an internal nudge - PR 225578
+     *    what about DR event callbacks like module load/unload?
      * Once both these are implemented the probes_initialized bool can go.
      *
      * Note: as we don't have multiple clients and at startup as we are single
      *       threaded here, there is no need for a lock for this temp. bool.
      */
-    if (probes_initialized)
-        return;
-    probes_initialized = true;
+    if (probes_initialized) {
+        /* FIXME PR 533384: return a status code! 
+         * actually I'm having this continue for at-your-own-risk probes
+         */
+        ASSERT_CURIOSITY_ONCE(false &&
+                              "register probes >1x at your own risk: PR 225580!");
+    } else {
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        probes_initialized = true;
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    }
 
     /* Zero out all dynamically allocated hotpatch table structures to avoid
      * leaks when there is a parse error.  See PR 212707, 213480.
@@ -6122,7 +6183,7 @@ dr_register_probes(
             probes[i].status = DR_PROBE_STATUS_UNSUPPORTED;
             goto dr_probe_parse_error;
         } else if (probes[i].callback_func.type != DR_PROBE_ADDR_VIRTUAL) {
-            /* TODO: NYI - support for exported functions (PR 225654) */
+            /* TODO: NYI - support for virtual addresses (PR 225658) */
             probes[i].status = DR_PROBE_STATUS_UNSUPPORTED;
             goto dr_probe_parse_error;
         }
@@ -6163,7 +6224,7 @@ dr_register_probes(
             /* TODO: NYI - support for exported functions (PR 225654) */
             probes[i].status = DR_PROBE_STATUS_UNSUPPORTED;
         } else if (probes[i].insert_loc.type != DR_PROBE_ADDR_VIRTUAL) {
-            /* TODO: NYI - support for exported functions (PR 225654) */
+            /* TODO: NYI - support for virtual addresses (PR 225658) */
             probes[i].status = DR_PROBE_STATUS_UNSUPPORTED;
             goto dr_probe_parse_error;
         }
@@ -6192,7 +6253,9 @@ dr_register_probes(
          * probe can be aborted before that and we don't want an id being
          * returned for a probe that is rejected.
          */
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         vul->id = GENERATE_PROBE_ID();
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
         /* If we parsed a probe definition to this point then it is valid. */
         valid_probes++;
@@ -6231,6 +6294,7 @@ dr_register_probes(
      */
     write_lock(&hotp_vul_table_lock);
 
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     GLOBAL_VUL_TABLE = tab;
     NUM_GLOBAL_VULS = valid_probes;
 
@@ -6242,6 +6306,8 @@ dr_register_probes(
          */
         hotp_init_policy_status_table();
     }
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+
     write_unlock(&hotp_vul_table_lock);
 
     /* Unlike hotp_init(), client init happens after vmareas_init(), i.e.,
@@ -6277,6 +6343,10 @@ dr_register_probes(
     if (GLOBAL_VUL_TABLE != NULL) {
         /* TODO: opt: if it is safe move client_init() between hotp_init() &
          * vm_areas_init() then this loader-list-walk can be eliminated.
+         * UPDATE: no it can't b/c this can be called post-dr_init()!
+         */
+        /* FIXME: to support calling post-dr_init() the actual num_threads needs
+         * to be passed (and should do a synchall): does PR 225578 cover this?
          */
         hotp_walk_loader_list(NULL, 0, NULL, true /* probe_init */);
     }

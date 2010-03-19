@@ -174,8 +174,6 @@ typedef HANDLE file_t;
 
 typedef unsigned char uchar;
 typedef byte * cache_pc;  /* fragment cache pc */
-typedef size_t app_rva_t;   /* application offset from module base; PE32+ modules are
-                           * limited to 2GB, but not elf x64 med/large code model. */
 
 #define SUCCESS 0
 #define FAILURE 1

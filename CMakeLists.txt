@@ -140,6 +140,14 @@ if (VPS)
   endif (WIN32)
 endif (VPS)
 
+# temporary: once build+support issues fixed, remove and add HOT_PATCHING_INTERFACE
+# to VMAP by default
+option(PROBE "enable not-yet-supported Probe API")
+mark_as_advanced(PROBE)
+if (PROBE)
+  set(HOT_PATCHING_INTERFACE 1)
+endif (PROBE)
+
 # For developers
 # CMake note: never set option vars as it prevents override by cache var:
 # instead set default value in separate var and use that to initialize option.
@@ -824,7 +832,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
             ${BUILD_INCLUDE}/dr_api.h)
   file(MAKE_DIRECTORY ${BUILD_INCLUDE})
   # technically only the headers in the genapi.pl list
-  file(GLOB header_files core/*.h core/*/*.h libutil/*.h)
+  file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c)
   add_custom_command(
     OUTPUT ${BUILD_INCLUDE}/dr_app.h # among other files
     DEPENDS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl

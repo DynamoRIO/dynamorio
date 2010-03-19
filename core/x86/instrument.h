@@ -1308,6 +1308,7 @@ bool instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
                               dr_restore_state_info_t *info);
 
 module_data_t * copy_module_area_to_module_data(const module_area_t *area);
+void instrument_module_load_trigger(app_pc modbase);
 void instrument_module_load(module_data_t *data, bool previously_loaded);
 void instrument_module_unload(module_data_t *data);
 
@@ -1870,10 +1871,8 @@ dr_module_preferred_name(const module_data_t *data);
 /* DR_API EXPORT END */
 DR_API
 /**
- * Optionally also
- * returns whether \p pc is within a section within the module in \p section_found and
+ * Returns whether \p pc is within a section within the module in \p section_found and
  * information about that section in \p section_out. \note Not yet available on Linux.
- * \note Returned module_data_t must be freed with dr_free_module_data().
  */
 bool
 dr_lookup_module_section(module_handle_t lib,

@@ -4369,6 +4369,9 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     app_pc area_start;
     app_pc area_end;
     allmem_info_t *info;
+#ifdef CLIENT_INTERFACE
+    bool inform_client = false;
+#endif
 
     LOG(THREAD, LOG_SYSCALLS, 4, "process_mmap("PFX","PFX",%s,%s)\n",
         base, size, memprot_string(memprot), map_type);
@@ -4480,6 +4483,9 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
 #endif /* HAVE_PROC_MAPS */
         /* XREF 307599 on rounding module end to the next PAGE boundary */
         module_list_add(base, ALIGN_FORWARD(size, PAGE_SIZE), true, filename, inode);
+#ifdef CLIENT_INTERFACE
+        inform_client = true;
+#endif
         if (found_map)
             dr_strfree(filename HEAPACCT(ACCT_OTHER));
     }
@@ -4515,6 +4521,12 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     if (app_memory_allocation(dcontext, base, size, memprot, image _IF_DEBUG(map_type)))
         STATS_INC(num_app_code_modules);
     LOG(THREAD, LOG_SYSCALLS, 4, "\t app_mem_alloc -- DONE\n");
+
+#ifdef CLIENT_INTERFACE
+    /* invoke the client event only after DR's state is consistent */
+    if (inform_client && dynamo_initialized)
+        instrument_module_load_trigger(base);
+#endif
 }
 
 /* Returns false if system call should NOT be executed
@@ -6504,6 +6516,7 @@ rct_add_rip_rel_addr(dcontext_t *dcontext, app_pc tgt _IF_DEBUG(app_pc src))
     return false;
 }
 #endif
+#endif /* RCT_IND_BRANCH */
 
 #ifdef HOT_PATCHING_INTERFACE
 void*
@@ -6542,7 +6555,6 @@ insert_jmp_at_tramp_entry(byte *trampoline, byte *target)
     ASSERT_NOT_IMPLEMENTED(false);
 }
 #endif  /* HOT_PATCHING_INTERFACE */
-#endif /* RCT_IND_BRANCH */
 
 bool
 aslr_is_possible_attack(app_pc target)

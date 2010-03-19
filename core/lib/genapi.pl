@@ -480,7 +480,7 @@ if ($header) {
         print OUT "\n#endif /* $wrapdef{$fname} */\n";
         close(OUT);
     }
-    if (!defined($defines{"HOT_PATCING_INTERFACE"})) {
+    if (!defined($defines{"HOT_PATCHING_INTERFACE"})) {
         # Need to add appropriate ifdefs for the core to get this auto-removed.
         # For now this is the easiest method.
 	unlink("$dir/dr_probe.h");
