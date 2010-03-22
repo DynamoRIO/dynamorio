@@ -60,7 +60,8 @@ typedef struct _version_info_t {
 } version_info_t;
 
 static const char *
-get_module_original_filename(app_pc mod_base HEAPACCT(which_heap_t which));
+get_module_original_filename(app_pc mod_base, version_info_t *in_info /*OPTIONAL IN*/
+                             HEAPACCT(which_heap_t which));
 
 static bool
 module_area_free_IAT(module_area_t *ma);
@@ -1040,7 +1041,7 @@ print_modules_ldrlist_and_ourlist(file_t f, bool dump_xml, bool conservative)
                        :
                        "\tfile_version=%d.%d.%d.%d product_version=%d.%d.%d.%d"
                        "\toriginal_filename=%S\n\tcompany_name=%S"
-                       "product_name=%S\n",
+                       " product_name=%S\n",
                        info.file_version.version_parts.p1,
                        info.file_version.version_parts.p2,
                        info.file_version.version_parts.p3,
@@ -1753,6 +1754,7 @@ get_dll_short_name(app_pc base_addr)
 static void
 get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map,
                                     module_names_t *names, module_area_t *ma,
+                                    version_info_t *info, /*OPTIONAL IN*/
                                     const char *file_path HEAPACCT(which_heap_t which))
 {
     const char *name;
@@ -1819,7 +1821,8 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
         }
 
         /* Choice #3: .rsrc original filename, already strduped */
-        names->rsrc_name = (char *) get_module_original_filename(base HEAPACCT(which));
+        names->rsrc_name = (char *)
+            get_module_original_filename(base, info HEAPACCT(which));
 
         /* Choice #4: file name 
          * At init time it's safe enough to walk loader list.  At run time
@@ -1910,7 +1913,7 @@ get_module_short_name_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
     module_names_t names = {0};
     const char *res;
 
-    get_all_module_short_names_uncached(dcontext, pc, at_map, &names, NULL, NULL
+    get_all_module_short_names_uncached(dcontext, pc, at_map, &names, NULL, NULL, NULL
                                         HEAPACCT(which));
     res = dr_strdup(GET_MODULE_NAME(&names) HEAPACCT(which));
     free_module_names(&names HEAPACCT(which));
@@ -3766,10 +3769,12 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     ma->entry_point = get_module_entry(base);
     get_module_info_pe(base, &checksum, &timestamp, &pe_size, NULL, 
                        &ma->os_data.code_size);
-    /* We pass in ma to get ma->full_path set */
-    get_all_module_short_names_uncached(dcontext, base, at_map, &ma->names,
-                                        ma, filepath HEAPACCT(which));
     get_module_resource_version_info(base, &info); /* we inited to zero so ok if fails */
+    /* We pass in ma to get ma->full_path set, and &info to avoid
+     * re-reading .rsrc for get_module_original_filename() (PR 536337)
+     */
+    get_all_module_short_names_uncached(dcontext, base, at_map, &ma->names,
+                                        ma, &info, filepath HEAPACCT(which));
     ma->os_data.file_version = info.file_version;
     ma->os_data.product_version = info.product_version;
     /* This converts unicode to ascii which might not always be good, but we do select
@@ -6249,8 +6254,25 @@ get_module_resource_version_info(app_pc mod_base, version_info_t *info_out)
         info_out->product_version.version_parts.p3,
         info_out->product_version.version_parts.p4,
         ver_info.info->dwFileFlagsMask, ver_info.info->dwFileFlags);
+    LOG(GLOBAL, LOG_SYMBOLS, 3, "rsrc bounds: "PFX"-"PFX"\n",
+        version_rsrc, (byte*)version_rsrc + size);
 
     while (ver_info.string_or_var_info != NULL) {
+        /* PR 536337: xpsp3 dlls have a dword with 0 at the end */
+        if ((byte*)ver_info.string_or_var_info + sizeof(DWORD) >=
+            ((byte*)version_rsrc) + size) {
+#ifdef INTERNAL
+            DODEBUG({
+                DWORD val;
+                ASSERT_CURIOSITY(safe_read(ver_info.string_or_var_info,
+                                           sizeof(val), &val) &&
+                                 val == 0 && "unknown data at end of .rsrc");
+            });
+#endif
+            LOG(GLOBAL, LOG_SYMBOLS, 3, "skipping 0 dword at .rsrc end "PFX"\n",
+                ver_info.string_or_var_info);
+            break;
+        }
         ver_info.string_or_var_info =
             read_string_or_var_info(ver_info.string_or_var_info, version_rsrc,
                                     size, &string_info);
@@ -6313,12 +6335,17 @@ get_module_company_name(app_pc mod_base, char *out_buf, size_t out_buf_size)
  * Caller is responsible for freeing the string heap space, of course!
  */
 static const char *
-get_module_original_filename(app_pc mod_base HEAPACCT(which_heap_t which))
+get_module_original_filename(app_pc mod_base, version_info_t *in_info /*OPTIONAL IN*/
+                             HEAPACCT(which_heap_t which))
 {
-    version_info_t info;
-    if (get_module_resource_version_info(mod_base, &info) &&
-        info.original_filename != NULL) {
-        return (const char *) dr_wstrdup(info.original_filename HEAPACCT(which));
+    version_info_t my_info;
+    version_info_t *info = NULL;
+    if (in_info == NULL && get_module_resource_version_info(mod_base, &my_info))
+        info = &my_info;
+    else
+        info = in_info;
+    if (info != NULL && info->original_filename != NULL) {
+        return (const char *) dr_wstrdup(info->original_filename HEAPACCT(which));
     }
     return NULL;
 }
