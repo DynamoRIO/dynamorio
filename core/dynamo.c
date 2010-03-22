@@ -138,6 +138,9 @@ byte *  initstack;
 DECLARE_NEVERPROT_VAR(byte *exception_stack, NULL);
 #endif
 
+static void
+dynamo_thread_exit_pre_client(dcontext_t *dcontext, thread_id_t id);
+
 /*******************************************************/
 /* separate segment of Non-Self-Protected data to avoid data section
  * protection issues -- we need to write to these vars in bootstrapping
@@ -456,7 +459,7 @@ dynamorio_app_init(void)
 #ifdef CLIENT_INTERFACE
         /* PR 200207: load the client lib before callback_interception_init
          * since the client library load would hit our own hooks (xref hotpatch
-         * cases about that). */
+         * cases about that) -- though -private_loader removes that issue. */
         /* Must be before [vmm_]heap_init() so we can register the client lib as 
          * reachable from the dr heap. Xref PR 215395. */
         instrument_load_client_libs();
@@ -581,6 +584,21 @@ dynamorio_app_init(void)
             dynamo_vm_areas_unlock();
         }
 
+#ifdef WINDOWS
+        if (!INTERNAL_OPTION(noasynch)) {
+            /* PR 216934: This is only this late b/c we originally didn't have
+             * GLOBAL_DCONTEXT and had to be post-thread-init.  Now we should
+             * move it up to report errors in client init routines: though we
+             * then have to handle client library loads w/ our hooks in place.
+             */
+            /* We split the hooks up: first we put in just Ki* to catch
+             * exceptions in client init routines (PR 200207), but we don't want
+             * syscall hooks so client init can scan syscalls
+             */
+            callback_interception_init_start();
+        }
+#endif /* WINDOWS */
+
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
          * dynamo_thread_init so the client can use a dcontext (PR 216936).
@@ -590,23 +608,14 @@ dynamorio_app_init(void)
          * Note: DllMain in client libraries can crash and we still won't
          *       report; better document that client libraries shouldn't have
          *       DllMain.
-         * TODO: doing client init after inserting dr hooks currently breaks
-         *       hot patch dll loading for probe api (only), so it temporarily
-         *       moved before callback_interception_init.
          */
         instrument_init();
 #endif
 
 #ifdef WINDOWS
-        if (!INTERNAL_OPTION(noasynch)) {
-            /* PR 216934: This is only this late b/c we originally didn't have
-             * GLOBAL_DCONTEXT and had to be post-thread-init.  Now we should
-             * move it up to report errors in client init routines: though we
-             * then have to handle client library loads w/ our hooks in place.
-             */
-            callback_interception_init();
-        }
-#endif /* WINDOWS */
+        if (!INTERNAL_OPTION(noasynch))
+            callback_interception_init_finish(); /* split for PR 200207: see above */
+#endif
 
         if (SELF_PROTECT_ON_CXT_SWITCH) {
             protect_info = (protect_info_t *)
@@ -857,14 +866,6 @@ dynamo_shared_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
     /* set this now, could already be set */
     dynamo_exited = true;
 
-    /* now free the all_threads memory */
-    mutex_lock(&all_threads_lock);
-    global_heap_free(all_threads,
-                     HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t*)
-                     HEAPACCT(ACCT_THREAD_MGT));
-    all_threads = NULL;
-    mutex_unlock(&all_threads_lock);
-    
     /* avoid time() for libc independence */
     DODEBUG(endtime = query_time_seconds(););
     LOG(GLOBAL, LOG_STATS, 1, "\n#### Statistics for entire process:\n");
@@ -907,13 +908,37 @@ dynamo_shared_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
     /* We tell the client as soon as possible in case it wants to use services from other
      * components.  Must be after fragment_exit() so that the client gets all the
      * fragment_deleted() callbacks (xref PR 228156). FIXME - might be issues with the
-     * client trying to use api routines that depend on fragment state. FIXME - 
-     * (xref PR 200207) must be after callback_interception_unintercept() since we
-     * need to remove our LdrUnloadDll hook before we unload the client library, but
-     * this means we won't catch exceptions for the client here. */
+     * client trying to use api routines that depend on fragment state.
+     */
     instrument_exit();
 #endif
+
+    if (IF_WINDOWS_ELSE(!detach_stacked_callbacks, true)) {
+        /* We don't fully free cur thread until after client exit event (PR 536058) */
+        if (thread_lookup(get_thread_id()) == NULL) {
+            LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
+                "Current thread never under DynamoRIO control, not exiting it\n");
+        } else {
+            /* call thread_exit even if !under_dynamo_control, could have
+             * been at one time
+             */
+            /* exit this thread now */
+            dynamo_thread_exit();
+        }
+    }
+    /* now that the final thread is exited, free the all_threads memory */
+    mutex_lock(&all_threads_lock);
+    global_heap_free(all_threads,
+                     HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t*)
+                     HEAPACCT(ACCT_THREAD_MGT));
+    all_threads = NULL;
+    mutex_unlock(&all_threads_lock);
+   
 #ifdef WINDOWS
+    /* for -private_loader we do this here to catch more exit-time crashes */
+    if (!INTERNAL_OPTION(noasynch)
+        IF_CLIENT_INTERFACE(&& INTERNAL_OPTION(private_loader)))
+        callback_interception_unintercept();
     /* callback_interception_exit must be after fragment exit for CLIENT_INTERFACE so
      * that fragment_exit->frees fragments->instrument_fragment_deleted->
      * hide_tag_from_fragment->is_intercepted_app_pc won't crash. xref PR 228156 */
@@ -1117,22 +1142,24 @@ dynamo_process_exit_cleanup(void)
          * but it will only global log and do thread_lookup which should be 
          * safe throughout) */
 
-        if (thread_lookup(get_thread_id()) == NULL) {
-            LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
-                "Current thread never under DynamoRIO control, not exiting it\n");
-        } else {
-            /* call thread_exit even if !under_dynamo_control, could have
-             * been at one time
-             */
-            /* exit this thread now */
-            dynamo_thread_exit();
-        }
+        /* In order to pass the client a dcontext in the process exit event
+         * we do some thread cleanup early for the final thread so we can delay
+         * the rest (PR 536058).  This is a little risky in that we
+         * clean up dcontext->fragment_field, which is used for lots of
+         * things like couldbelinking.
+         */
+        dynamo_thread_exit_pre_client(get_thread_private_dcontext(), get_thread_id());
 
 #ifdef WINDOWS
         /* FIXME : our call un-interception isn't atomic so (miniscule) chance
          * of something going wrong if new thread is just hitting its init APC
          */
-        if (!INTERNAL_OPTION(noasynch)) {
+        /* w/ the app's loader we must remove our LdrUnloadDll hook
+         * before we unload the client lib (and thus we miss client
+         * exit crashes): xref PR 200207.
+         */
+        if (!INTERNAL_OPTION(noasynch)
+            IF_CLIENT_INTERFACE(&& !INTERNAL_OPTION(private_loader))) {
             callback_interception_unintercept();
         }
 #else /* LINUX */
@@ -1241,6 +1268,7 @@ dynamo_process_exit(void)
     if (each_thread) {
         thread_record_t **threads;
         int num, i;
+        thread_id_t my_tid = get_thread_id();
         mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&threads, &num);
 
@@ -1254,7 +1282,6 @@ dynamo_process_exit(void)
             /* 0 as first arg means "terminate all other threads but this one" */
             nt_terminate_process_for_app(0, 0);
 #  else
-            thread_id_t my_tid = get_thread_id();
             for (i = 0; i < num; i++) {
                 if (threads[i]->id != my_tid) {
                     /* no advantage to use, say, the first half of thread_suspend()
@@ -1287,7 +1314,7 @@ dynamo_process_exit(void)
 # ifdef CLIENT_INTERFACE
             /* Inform client of all thread exits */
             if (!INTERNAL_OPTION(nullcalls))
-                instrument_thread_exit(threads[i]->dcontext);
+                instrument_thread_exit_event(threads[i]->dcontext);
 # endif
         }
         global_heap_free(threads, num*sizeof(thread_record_t*) 
@@ -1310,20 +1337,22 @@ dynamo_process_exit(void)
         /* instrument_exit() unloads the client library, so make sure
          * LdrUnloadDll isn't hooked if using the app loader.
          */
-        if (!INTERNAL_OPTION(noasynch) && !INTERNAL_OPTION(private_loader)) {
+        if (!INTERNAL_OPTION(noasynch)
+            IF_CLIENT_INTERFACE(&& !INTERNAL_OPTION(private_loader))) {
             callback_interception_unintercept();
         }
 # endif
         /* Must be after fragment_exit() so that the client gets all the
          * fragment_deleted() callbacks (xref PR 228156).  FIXME - might be issues
          * with the client trying to use api routines that depend on fragment state.
-         * FIXME (xref PR 200207) must be after callback_interception_unintercept() since
-         * we need to remove our LdrUnloadDll hook before we unload the client library,
-         * but this means we won't catch exceptions for the client here. */
-        /* PR 327300: avoid crashes if client tries to access the now-freed
-         * dcontext->client_data (dr_get_tls_field(), etc. will crash) */
-        set_thread_private_dcontext(NULL);
+         */
         instrument_exit();
+        /* for -private_loader we do this here to catch more exit-time crashes */
+# ifdef WINDOWS
+        if (!INTERNAL_OPTION(noasynch)
+            IF_CLIENT_INTERFACE(&& INTERNAL_OPTION(private_loader)))
+            callback_interception_unintercept();
+# endif
     }
 #endif
  
@@ -2080,6 +2109,28 @@ dynamo_thread_init(byte *dstack_in)
     return SUCCESS;
 }
 
+/* We don't free cur thread until after client exit event (PR 536058) except for
+ * fragment_thread_exit().  Since this is called outside of dynamo_thread_exit()
+ * on process exit we assume fine to skip enter_threadexit().
+ */
+static void
+dynamo_thread_exit_pre_client(dcontext_t *dcontext, thread_id_t id)
+{
+    /* fcache stats needs to examine fragment state, so run it before
+     * fragment exit, but real fcache exit needs to be after fragment exit
+     */
+#ifdef DEBUG
+    fcache_thread_exit_stats(dcontext);
+#endif
+    /* must abort now to avoid deleting possibly un-deletable fragments
+     * monitor_thread_exit remains later b/c of monitor_remove_fragment calls
+     */
+    trace_abort(dcontext);
+    fragment_thread_exit(dcontext);
+#ifdef CLIENT_INTERFACE
+    instrument_thread_exit_event(dcontext);
+#endif
+}
 
 /* thread-specific cleanup */
 /* Note : if this routine is not called by thread id, then other_thread should
@@ -2174,17 +2225,12 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     }
 #endif
 
-    /* fcache stats needs to examine fragment state, so run it before
-     * fragment exit, but real fcache exit needs to be after fragment exit
+    /* In order to pass the client a dcontext in the process exit event
+     * we do some thread cleanup early for the final thread so we can delay
+     * the rest (PR 536058)
      */
-#ifdef DEBUG
-    fcache_thread_exit_stats(dcontext);
-#endif
-    /* must abort now to avoid deleting possibly un-deletable fragments
-     * monitor_thread_exit remains later b/c of monitor_remove_fragment calls
-     */
-    trace_abort(dcontext);
-    fragment_thread_exit(dcontext);
+    if (!dynamo_exited_and_cleaned)
+        dynamo_thread_exit_pre_client(dcontext, id);
 #ifdef CLIENT_INTERFACE
     /* PR 243759: don't free client_data until after all fragment deletion events */
     if (!DYNAMO_OPTION(thin_client))

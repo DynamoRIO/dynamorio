@@ -409,7 +409,8 @@ void stop_itimer(void);
 /* in callback.c */
 dcontext_t *
 get_prev_swapped_dcontext(dcontext_t *dcontext);
-void callback_interception_init(void);
+void callback_interception_init_start(void);
+void callback_interception_init_finish(void);
 void callback_interception_unintercept(void);
 void callback_interception_exit(void);
 void set_asynch_interception(thread_id_t tid, bool intercept);

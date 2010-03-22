@@ -2274,6 +2274,7 @@ fragment_thread_exit(dcontext_t *dcontext)
 #endif
 
     global_heap_free(pt, sizeof(per_thread_t) HEAPACCT(ACCT_OTHER));
+    dcontext->fragment_field = NULL;
 }
 
 #ifdef LINUX
@@ -5662,6 +5663,7 @@ is_couldbelinking(dcontext_t *dcontext)
      * the caller, at the flush sync wait, or is suspended by thread_synch 
      * routines */
     return (!RUNNING_WITHOUT_CODE_CACHE() /*case 7966: has no pt*/ &&
+            pt != NULL/*PR 536058: no pt*/ &&
             pt->could_be_linking);
 }
 
@@ -5928,7 +5930,7 @@ enter_threadexit(dcontext_t *dcontext)
     per_thread_t *pt = (per_thread_t *) dcontext->fragment_field;
 
     /*case 7966: has no pt, no flushing either */
-    if (RUNNING_WITHOUT_CODE_CACHE())
+    if (RUNNING_WITHOUT_CODE_CACHE() || pt == NULL/*PR 536058: no pt*/)
         return;
 
     mutex_lock(&pt->linking_lock);

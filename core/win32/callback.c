@@ -6484,12 +6484,16 @@ GET_NTDLL(KiUserExceptionDispatcher, (IN PVOID Unknown1,
                                       IN PVOID Unknown2));
 GET_NTDLL(KiRaiseUserExceptionDispatcher, (void));
 
+/* for PR 200207 we want KiUserExceptionDispatcher hook early, but we don't
+ * want -native_exec_syscalls hooks early since client might scan syscalls
+ * to dynamically get their #s.  Plus we want the Ldr hook later to
+ * support -no_private_loader for probe API.
+ */
 void
-callback_interception_init()
+callback_interception_init_start(void)
 {
     byte *pc;
     byte *int2b_after_cb_dispatcher;
-    DEBUG_DECLARE(dr_marker_t test_marker);
 
     intercept_asynch = true;
     intercept_callbacks = true;
@@ -6632,6 +6636,22 @@ callback_interception_init()
                         false /* cannot ignore on CTI */,
                         false /* handle CTI */,
                         NULL, NULL);
+
+    interception_cur_pc = pc; /* save for callback_interception_init_finish() */
+    /* we assume callback_interception_init_finish() is called immediately
+     * after client init, and that leaving interception_code off exec areas
+     * and writable during client init is ok
+     */
+}
+
+void
+callback_interception_init_finish(void)
+{
+    /* must be called immediately after callback_interception_init_start()
+     * as this finishes up initialization
+     */
+    byte *pc = interception_cur_pc;
+    DEBUG_DECLARE(dr_marker_t test_marker);
 
     if (!DYNAMO_OPTION(thin_client)) {
         raise_exception_pc = pc;

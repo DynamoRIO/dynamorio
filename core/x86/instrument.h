@@ -1291,6 +1291,7 @@ bool is_in_client_lib(app_pc addr);
 const char *get_client_path_from_addr(app_pc addr);
 bool is_valid_client_id(client_id_t id);
 void instrument_thread_init(dcontext_t *dcontext);
+void instrument_thread_exit_event(dcontext_t *dcontext);
 void instrument_thread_exit(dcontext_t *dcontext);
 #ifdef LINUX
 void instrument_fork_init(dcontext_t *dcontext);
@@ -2340,7 +2341,6 @@ dr_print_opnd(void *drcontext, file_t f, opnd_t opnd, const char *msg);
 DR_API 
 /**
  * Returns the DR context of the current thread. 
- * This routine may return NULL during process exit.
  */
 void *
 dr_get_current_drcontext(void);
@@ -2995,6 +2995,8 @@ DR_API
  *   false, and for trace creation only when \p translating is false.
  * - A nudge callback (dr_register_nudge_event()) on Linux.
  *   (On Windows nudges happen in separate dedicated threads.)
+ * - A thread or process exit event (dr_register_thread_exit_event(),
+ *   dr_register_exit_event())
  *
  * Does NOT copy the pc field.  If \p app_errno is non-NULL copies the
  * saved application error code (value of GetLastError() on Windows; ignored

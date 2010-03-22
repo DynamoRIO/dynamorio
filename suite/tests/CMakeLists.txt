@@ -580,14 +580,18 @@ function(tobind target)
   )
 endfunction(tobind)
 
-# i#215: mark tests w/ text relocations to avoid violating selinux policies
-function(tochcon target)
+# i#215: mark tests w/ text relocations to avoid violating selinux policies:
+# for that, pass in "textrel_shlib_t" as the type.
+# We also need to mark tests that make their stack +x: "execmem_exec_t"
+# for the type.
+# If both are needed, "wine_exec_t" seems to do the trick.
+function(tochcon target type)
   if (UNIX AND SELINUXFOUND)
     get_target_property(binary ${target} LOCATION)
     add_custom_command(TARGET ${target}
       POST_BUILD
       COMMAND ${CHCON}
-      ARGS -t textrel_shlib_t ${binary}
+      ARGS -t ${type} ${binary}
       VERBATIM # recommended: p260
       )
   endif (UNIX AND SELINUXFOUND)
@@ -1091,6 +1095,7 @@ if (UNIX)
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64
     tobuild(security-linux.stacktest security-linux/stacktest.c)
+    tochcon(security-linux.stacktest execmem_exec_t)
   endif (NOT X64)
   tobuild(security-linux.trampoline security-linux/trampoline.c)
 
@@ -1223,25 +1228,27 @@ else (UNIX)
 endif (UNIX)
 
 tobuild(security-common.codemod security-common/codemod.c)
+tochcon(security-common.codemod execmem_exec_t)
 tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
+tochcon(security-common.decode-bad-stack execmem_exec_t)
 tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
-tochcon(security-common.jmp_from_trace)
+tochcon(security-common.jmp_from_trace textrel_shlib_t)
 tobuild(security-common.retexisting security-common/retexisting.c)
 tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
 tobuild(security-common.retnonexisting security-common/retnonexisting.c)
 if (NOT X64)
   # FIXME i#16: these tests need to be fixed to compile for x64
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
-  tochcon(security-common.selfmod2)
+  tochcon(security-common.selfmod2 textrel_shlib_t)
   # FIXME i#125: not building on 32-bit b/c protect_mem() from tools.h being stripped
   #tobuild(security-common.selfmod-big security-common/selfmod-big.c)
   tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
 endif (NOT X64)
 tobuild(security-common.selfmod security-common/selfmod.c)
-tochcon(security-common.selfmod)
+tochcon(security-common.selfmod textrel_shlib_t)
 tobuild(security-common.TestAllocWE security-common/TestAllocWE.c)
 tobuild(security-common.TestMemProtChg security-common/TestMemProtChg.c)
-tochcon(security-common.TestMemProtChg)
+tochcon(security-common.TestMemProtChg wine_exec_t)
 
 ###########################################################################
 

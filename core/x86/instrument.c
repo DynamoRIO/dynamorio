@@ -588,6 +588,8 @@ instrument_exit(void)
     DEBUG_DECLARE(size_t i);
     /* Note - currently own initexit lock when this is called (see PR 227619). */
 
+    /* support dr_get_mcontext() from the exit event */
+    get_thread_private_dcontext()->client_data->mcontext_in_dcontext = true;
     call_all(exit_callbacks, int (*)(),
              /* It seems the compiler is confused if we pass no var args
               * to the call_all macro.  Bogus NULL arg */
@@ -994,9 +996,11 @@ dr_nudge_client(client_id_t client_id, uint64 argument)
 void
 instrument_thread_init(dcontext_t *dcontext)
 {
-    /* Note that we're called twice: once prior to instrument_init()
-     * (PR 216936) to set up the dcontext client field, and once
-     * after instrument_init() to call the client event.
+    /* Note that we're called twice for the initial thread: once prior
+     * to instrument_init() (PR 216936) to set up the dcontext client
+     * field (at which point there should be no callbacks since client
+     * has not had a chance to register any), and once after
+     * instrument_init() to call the client event.
      */
     if (dcontext->client_data == NULL) {
         dcontext->client_data = HEAP_TYPE_ALLOC(dcontext, client_data_t,
@@ -1008,6 +1012,8 @@ instrument_thread_init(dcontext_t *dcontext)
         ASSIGN_INIT_LOCK_FREE(dcontext->client_data->sideline_heap_lock,
                               sideline_heap_lock);
 #endif
+        CLIENT_ASSERT(dynamo_initialized || thread_init_callbacks.num == 0,
+                      "1st call to instrument_thread_init should have no cbs");
     }
 
     call_all(thread_init_callbacks, int (*)(void *), (void *)dcontext);
@@ -1021,6 +1027,18 @@ instrument_fork_init(dcontext_t *dcontext)
 }
 #endif
 
+/* PR 536058: split the exit event from thread cleanup, to provide a
+ * dcontext in the process exit event
+ */
+void
+instrument_thread_exit_event(dcontext_t *dcontext)
+{
+    /* support dr_get_mcontext() from the exit event */
+    dcontext->client_data->mcontext_in_dcontext = true;
+    /* Note - currently own initexit lock when this is called (see PR 227619). */
+    call_all(thread_exit_callbacks, int (*)(void *), (void *)dcontext);
+}
+
 void
 instrument_thread_exit(dcontext_t *dcontext)
 {
@@ -1028,9 +1046,6 @@ instrument_thread_exit(dcontext_t *dcontext)
     client_todo_list_t *todo;
     client_flush_req_t *flush;
 #endif
-
-    /* Note - currently own initexit lock when this is called (see PR 227619). */
-    call_all(thread_exit_callbacks, int (*)(void *), (void *)dcontext);
 
 #ifdef DEBUG
     /* PR 470957: avoid racy crashes by not freeing in release build */

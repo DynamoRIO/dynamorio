@@ -1286,10 +1286,15 @@ os_thread_stack_exit(dcontext_t *dcontext)
         /* make sure we use our dcontext (dcontext could belong to another thread
          * from other_thread_exit) since flushing will end up using this dcontext
          * for synchronization purposes */
-        app_memory_deallocation(get_thread_private_dcontext(), ostd->stack_base,
-                                ostd->stack_top - ostd->stack_base,
-                                true /* own thread_initexit_lock */,
-                                false /* not image */);
+        /* do not flush if at process exit since already cleaned up fragment
+         * info (for PR 536058)
+         */
+        if (!dynamo_exited) {
+            app_memory_deallocation(get_thread_private_dcontext(), ostd->stack_base,
+                                    ostd->stack_top - ostd->stack_base,
+                                    true /* own thread_initexit_lock */,
+                                    false /* not image */);
+        }
         if (TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr))) {
             size_t stack_reserved_size = ostd->stack_top - ostd->stack_base;
             /* verified above with get_allocation_size() this is not only the committed portion */
@@ -3666,7 +3671,7 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
     info->prot = osprot_to_memprot(mbi.Protect);
     if (mbi.State == MEM_FREE)
         info->type = DR_MEMTYPE_FREE;
-    else if (mbi.State == MEM_IMAGE)
+    else if (mbi.Type == MEM_IMAGE)
         info->type = DR_MEMTYPE_IMAGE;
     else
         info->type = DR_MEMTYPE_DATA;
