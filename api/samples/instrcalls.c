@@ -41,7 +41,11 @@
  */
 
 #include "dr_api.h"
+#ifdef SHOW_SYMBOLS
+# include "drsyms.h"
+#endif
 
+static void event_exit(void);
 static void event_thread_init(void *drcontext);
 static void event_thread_exit(void *drcontext);
 static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
@@ -60,9 +64,25 @@ dr_init(client_id_t id)
     if (dr_is_notify_on())
         dr_fprintf(STDERR, "Client instrcalls is running\n");
 #endif
+    dr_register_exit_event(event_exit);
     dr_register_bb_event(event_basic_block);
     dr_register_thread_init_event(event_thread_init);
     dr_register_thread_exit_event(event_thread_exit);
+#ifdef SHOW_SYMBOLS
+    if (drsym_init(NULL) != DRSYM_SUCCESS) {
+        dr_log(NULL, LOG_ALL, 1, "WARNING: unable to initialize symbol translation\n");
+    }
+#endif
+}
+
+static void
+event_exit(void)
+{
+#ifdef SHOW_SYMBOLS
+    if (drsym_exit() != DRSYM_SUCCESS) {
+        dr_log(NULL, LOG_ALL, 1, "WARNING: error cleaning up symbol library\n");
+    }
+#endif
 }
 
 #ifdef WINDOWS
@@ -110,28 +130,80 @@ event_thread_exit(void *drcontext)
     dr_close_file(f);
 }
 
+#ifdef SHOW_SYMBOLS
+# define MAX_SYM_RESULT 256
+static void
+print_address(file_t f, app_pc addr, const char *prefix)
+{
+    drsym_error_t symres;
+    drsym_info_t *sym;
+    char sbuf[sizeof(*sym) + MAX_SYM_RESULT];
+    module_data_t *data;
+    data = dr_lookup_module(addr);
+    if (data == NULL) {
+        dr_fprintf(f, "%s "PFX" ? ??:0\n", prefix, addr);
+        return;
+    }
+    sym = (drsym_info_t *) sbuf;
+    sym->struct_size = sizeof(*sym);
+    sym->name_size = MAX_SYM_RESULT;
+    symres = drsym_lookup_address(data->full_path, addr - data->start, sym);
+    if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
+        const char *modname = dr_module_preferred_name(data);
+        if (modname == NULL)
+            modname = "<noname>";
+        dr_fprintf(f, "%s "PFX" %s!%s+"PIFX, prefix, addr,
+                   modname, sym->name, addr - data->start - sym->start_offs);
+        if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
+            dr_fprintf(f, " ??:0\n");
+        } else {
+            dr_fprintf(f, " %s:%"UINT64_FORMAT_CODE"+"PIFX"\n",
+                       sym->file, sym->line, sym->line_offs);
+        }
+    } else
+        dr_fprintf(f, "%s "PFX" ? ??:0\n", prefix, addr);
+    dr_free_module_data(data);
+}
+#endif
+
 static void
 at_call(app_pc instr_addr, app_pc target_addr)
 {
     file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
     dr_mcontext_t mc;
     dr_get_mcontext(dr_get_current_drcontext(), &mc, NULL);
+#ifdef SHOW_SYMBOLS
+    print_address(f, instr_addr, "CALL @ ");
+    print_address(f, target_addr, "\t to ");
+    dr_fprintf(f, "\tTOS is "PFX"\n", mc.xsp);
+#else
     dr_fprintf(f, "CALL @ "PFX" to "PFX", TOS is "PFX"\n",
                instr_addr, target_addr, mc.xsp);
+#endif
 }
 
 static void
 at_call_ind(app_pc instr_addr, app_pc target_addr)
 {
     file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+#ifdef SHOW_SYMBOLS
+    print_address(f, instr_addr, "CALL INDIRECT @ ");
+    print_address(f, target_addr, "\t to ");
+#else
     dr_fprintf(f, "CALL INDIRECT @ "PFX" to "PFX"\n", instr_addr, target_addr);
+#endif
 }
 
 static void
 at_return(app_pc instr_addr, app_pc target_addr)
 {
     file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+#ifdef SHOW_SYMBOLS
+    print_address(f, instr_addr, "RETURN @ ");
+    print_address(f, target_addr, "\t to ");
+#else
     dr_fprintf(f, "RETURN @ "PFX" to "PFX"\n", instr_addr, target_addr);
+#endif
 }
 
 static dr_emit_flags_t 

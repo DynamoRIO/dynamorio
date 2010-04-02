@@ -88,6 +88,22 @@ foreach (fig ${figures_fig})
   set(figures_eps ${figures_eps} ${genimg_dirname}/${base}.eps)
 endforeach (fig)
 
+# we want docs for Extensions (i#277/PR 540817) to be subpages but we
+# don't want to edit a top-level page to add new ones so we generate it
+file(GLOB ext_dox_files "${PROJECT_SOURCE_DIR}/ext/*/*.dox")
+foreach (ext_dox ${ext_dox_files})
+  file(READ "${ext_dox}" string)
+  string(REGEX MATCHALL "\n\\\\page [^ ]+" page "${string}")
+  set(ext_pages ${ext_pages} ${page})
+endforeach (ext_dox)
+foreach (page ${ext_pages})
+  string(REGEX REPLACE "\n\\\\page " "" pgname "${page}")
+  set(gen_toc "${gen_toc}- \\\\subpage ${pgname}\n")
+endforeach (page)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/ext.gendox" gendox)
+string(REGEX REPLACE "REPLACE_WITH_EXTENSION_SUBPAGES" "${gen_toc}" gendox "${gendox}")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/gendox.dox" "${gendox}")
+
 set(doxyfile ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 add_custom_command(
   OUTPUT ${doxyfile}
@@ -98,7 +114,8 @@ add_custom_command(
   # to work around i#84 be sure to put a space after -D for 1st arg at least
   ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} -Doutfile=${doxyfile}
        -Dproj_srcdir=${PROJECT_SOURCE_DIR} -Dversion_number=${VERSION_NUMBER}
-       -Dheader_dir=${BUILD_INCLUDE} -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
+       -Dheader_dir=${BUILD_INCLUDE} -Dgendox_dir=${CMAKE_CURRENT_BINARY_DIR}
+       -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
        -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
   VERBATIM # recommended: p260
   )
@@ -117,6 +134,7 @@ add_custom_command(
   )
 
 set(docsgen ${CMAKE_CURRENT_BINARY_DIR}/html/index.html)
+
 file(GLOB dox_files *.dox)
 # we depend on the samples even though we don't copy them,
 # to have them as dependencies for the install rules
@@ -125,6 +143,7 @@ file(GLOB header_files  ${BUILD_INCLUDE}/*.h)
 add_custom_command(
   OUTPUT ${docsgen} # among other files
   DEPENDS ${dox_files}
+          ${ext_dox_files}
           ${header_files}
           ${CMAKE_CURRENT_SOURCE_DIR}/header.html
           ${CMAKE_CURRENT_SOURCE_DIR}/htmlstyle.css

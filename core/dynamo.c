@@ -1262,7 +1262,6 @@ dynamo_process_exit(void)
     if (each_thread) {
         thread_record_t **threads;
         int num, i;
-        thread_id_t my_tid = get_thread_id();
         mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&threads, &num);
 
@@ -1276,6 +1275,7 @@ dynamo_process_exit(void)
             /* 0 as first arg means "terminate all other threads but this one" */
             nt_terminate_process_for_app(0, 0);
 #  else
+            thread_id_t my_tid = get_thread_id();
             for (i = 0; i < num; i++) {
                 if (threads[i]->id != my_tid) {
                     /* no advantage to use, say, the first half of thread_suspend()

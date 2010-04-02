@@ -268,6 +268,7 @@ following sub-sections:
  - \ref sec_utils
  - \ref sec_build
  - \ref sec_extlibs
+ - \ref sec_extensions
  - \ref sec_comm
  - \ref sec_64bit_reach
  - \ref sec_options
@@ -591,7 +592,8 @@ support for creating \e transparent \clients.  See the section on
 transparent when operating in the same process as the application.
 \DynamoRIO provides common resources \clients can use to avoid reliance on
 shared libraries that may be in use by the application.  The \client should
-only use external resources through \DynamoRIO's own API, through direct
+only use external resources through \DynamoRIO's own API, through
+\DynamoRIO Extensions (see \ref sec_extensions), through direct
 system calls, or via an external agent in a separate process that
 communicates with the \client (see \ref sec_comm).  Third-party libraries
 can be used if they are linked statically or loaded privately and there is
@@ -612,7 +614,7 @@ sec_trans_probe). \endif
  - Application module iterator
  - Processor feature identification
  - Extra thread creation
-\if future - FIXME: try...except, or safe_rw? \endif
+ - Symbol lookup (currently Windows-only)
 
 See dr_tools.h and dr_proc.h for specifics of each routine.
 
@@ -874,6 +876,23 @@ cl my-client.c /I$DYNAMORIO_HOME/include /GS- /DWINDOWS /DX86_64
 
 For 64-bit Linux \clients, setting the preferred base takes several steps.
 Refer to \p DynamoRIOConfig.cmake for details.
+
+***************************************************************************
+\section sec_extensions \DynamoRIO Extensions
+
+\DynamoRIO supports extending the API presented to \clients through
+separate libraries called \DynamoRIO Extensions.  Extensions are meant to
+include features that may be too costly to make available by default or
+features contributed by third parties whose licensing requires using a
+separate library.  Extensions can be either static libraries linked with
+\clients at build time or dynamic libraries loaded at runtime.  A private
+loader is used to load dynamic Extensions on Windows; a private loader for
+Linux is in progress.
+
+Current Extensions provide symbol access and container data structures.
+Each Extension has its own documentation and has its functions and data
+structures documented separately from the main API.  See <a
+href="page_ext.html">the full list of Extensions here</a>.
 
 ***************************************************************************
 \section sec_extlibs Using External Libraries

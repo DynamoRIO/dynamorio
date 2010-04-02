@@ -86,4 +86,15 @@ configure_file(
   ${CMAKE_CURRENT_BINARY_DIR}/html/doxygen.css
   COPYONLY)
 
+# For Extensions (i#277/PR 540817) we use doxygen groups which show up under
+# top-level "Modules" which we rename here
+file(READ ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html string)
+string(REGEX REPLACE "Modules" "DynamoRIO Extension Details" string "${string}")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html "${string}")
+file(READ ${CMAKE_CURRENT_BINARY_DIR}/html/modules.html string)
+string(REGEX REPLACE "Module" "Extension" string "${string}")
+string(REGEX REPLACE "module" "Extension" string "${string}")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/modules.html "${string}")
+
+
 # We do not copy samples or favicon for build dir: those are install rules

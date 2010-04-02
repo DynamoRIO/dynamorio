@@ -34,11 +34,19 @@
 # * proj_srcdir
 # * version_number
 # * header_dir
+# * gendox_dir
 # * DOXYGEN_EXECUTABLE
 
 set(outdir "${CMAKE_CURRENT_BINARY_DIR}")
 
-file(READ ${srcdir}/API.doxy string)
+file(READ "${srcdir}/API.doxy" string)
+
+# Support docs for Extensions (i#277/PR 540817)
+file(GLOB dirs "${proj_srcdir}/ext/*/CMakeLists.txt")
+foreach (dir ${dirs})
+  get_filename_component(dir ${dir} PATH)
+  set(ext_dirs ${ext_dirs} ${dir})
+endforeach (dir)
 
 string(REGEX MATCH "cygwin" is_cygwin "${DOXYGEN_EXECUTABLE}")
 if (is_cygwin)
@@ -54,7 +62,7 @@ if (is_cygwin)
   if (NOT CYGPATH)
     message(FATAL_ERROR "cannot find cygpath: thus cannot use cygwin doxygen")
   endif (NOT CYGPATH)
-  set(input_paths srcdir proj_srcdir header_dir outdir)
+  set(input_paths srcdir proj_srcdir header_dir gendox_dir outdir)
   foreach (var ${input_paths})
     execute_process(COMMAND
       ${CYGPATH} -u "${${var}}"
@@ -67,6 +75,23 @@ if (is_cygwin)
     endif (cygpath_result OR cygpath_err)
     string(REGEX REPLACE "[\r\n]" "" ${var} "${${var}}")
   endforeach (var)
+  foreach (dir ${ext_dirs})
+    execute_process(COMMAND
+      ${CYGPATH} -u "${dir}"
+      RESULT_VARIABLE cygpath_result
+      ERROR_VARIABLE cygpath_err
+      OUTPUT_VARIABLE tmp
+      )
+    if (cygpath_result OR cygpath_err)
+      message(FATAL_ERROR "*** ${CYGPATH} failed: ***\n${cygpath_err}")
+    endif (cygpath_result OR cygpath_err)
+    string(REGEX REPLACE "[\r\n]" "" tmp "${tmp}")
+    set(ext_input_dirs "${ext_input_dirs} \"${tmp}\"")
+  endforeach (dir)
+else (is_cygwin)
+  foreach (dir ${ext_dirs})
+    set(ext_input_dirs "${ext_input_dirs} \"${dir}\"")
+  endforeach (dir)
 endif (is_cygwin)
 
 # Be sure to quote ${string} to avoid interpretation (semicolons removed, etc.)
@@ -79,7 +104,8 @@ endif (is_cygwin)
 string(REGEX REPLACE
   "(INPUT[ \t]*=) *\\."
   # We no longer need ${proj_srcdir}/libutil on here, right?
-  "\\1 \"${srcdir}\" \"${header_dir}\"" string "${string}")
+  "\\1 \"${srcdir}\" \"${header_dir}\" \"${gendox_dir}\" ${ext_input_dirs}"
+  string "${string}")
 string(REGEX REPLACE
   "([^a-z])images"
   "\\1\"${srcdir}/images\"" string "${string}")

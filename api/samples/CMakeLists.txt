@@ -42,6 +42,14 @@ if (SHOW_RESULTS)
   add_definitions(-DSHOW_RESULTS)
 endif (SHOW_RESULTS)
 
+if (WIN32)
+  # DRSyms symbol access Extension Not yet implemented on Linux
+  option(SHOW_SYMBOLS "Use symbol lookup in clients that support it" ON)
+  if (SHOW_SYMBOLS)
+    add_definitions(-DSHOW_SYMBOLS)
+  endif (SHOW_SYMBOLS)
+endif (WIN32)
+
 if (NOT DEFINED DynamoRIO_DIR)
   set(DynamoRIO_DIR "${PROJECT_SOURCE_DIR}/../cmake" CACHE PATH
     "DynamoRIO installation's cmake directory")
@@ -97,6 +105,10 @@ foreach (src ${srcs})
   else ("${tgt}" STREQUAL "tracedump")
     add_library(${tgt} SHARED ${src})
     configure_DynamoRIO_client(${tgt})
+
+    if (SHOW_SYMBOLS AND "${tgt}" STREQUAL "instrcalls")
+      use_DynamoRIO_extension(${tgt} drsyms)
+    endif ()
 
     get_target_property(tgtnm ${tgt} LOCATION)
     add_custom_command(TARGET ${tgt}

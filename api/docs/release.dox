@@ -110,9 +110,13 @@ The current version is \DR_VERSION and is backward compatible with releases from
 
 The changes between version 1.6.0 and 1.5.0 are:
 
- - Added thread creation support: dr_create_client_thread()
+ - Added \DynamoRIO Extension support for auxiliary libraries that extend the
+   \DynamoRIO API (Issue 277)
+ - Added symbol lookup support via Extension (Windows only for now) (Issue 44)
+ - Added a "drcontainers" Extension that initially contains a hashtable
+ - Added thread creation support: dr_create_client_thread() (Issue 41)
  - Added dr_sleep()
- - Added dr_set_itimer() and dr_get_itimer() (Linux-only)
+ - Added dr_set_itimer() and dr_get_itimer() (Linux-only) (Issue 283)
  - Added dr_app_pc_for_decoding()
  - Added -synch_at_exit option and dr_request_synchronized_exit() to
    provide guarantees over thread exit event timing in release build

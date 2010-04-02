@@ -104,9 +104,12 @@ static char systemroot[MAXIMUM_PATH];
 typedef bool (WINAPI *dllmain_t)(HANDLE, DWORD, LPVOID);
 
 /* We need to load client libs prior to having heap */
-#define PRIVMOD_STATIC_NUM 6
+#define PRIVMOD_STATIC_NUM 8
 /* These are only written during init so ok to be in .data */
 static privmod_t privmod_static[PRIVMOD_STATIC_NUM];
+/* this marks end of client paths in search_paths[] and end of privmod_static[] */
+static uint privmod_static_client_idx;
+/* this marks end of search_paths[] */
 static uint privmod_static_idx;
 /* We store client paths here to use for locating libraries later
  * Unfortunately we can't use dynamic storage, and the paths are clobbered
@@ -341,7 +344,7 @@ loader_init(void)
     }
 
     /* Process client libs we loaded early but did not finalize */
-    for (i = 0; i < privmod_static_idx; i++) {
+    for (i = 0; i < privmod_static_client_idx; i++) {
         /* Transfer to real list so we can do normal processing */
         mod = privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
                               privmod_static[i].name);
@@ -978,10 +981,13 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
      *   3) system dir
      *   4) windows dir
      *   5) dirs on PATH
-     * We modify "exe dir" to be "client lib dir" and we do not support cur dir.
+     * We modify "exe dir" to be "client lib dir".
+     * we do not support cur dir.
+     * we additionally support loading from the Extensions dir
+     * (i#277/PR 540817, added to search_paths in privload_init_search_paths()).
      */
     
-    /* 1) client lib dir */
+    /* 1) client lib dir(s) and Extensions dir */
     for (i = 0; i < privmod_static_idx; i++) {
         snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/%s",
                  search_paths[i], impname);
@@ -1020,12 +1026,50 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
     return mod;
 }
 
+#ifdef X64
+# define LIB_SUBDIR "lib64"
+#else
+# define LIB_SUBDIR "lib32"
+#endif
+#define EXT_SUBDIR "ext"
+
 static void
 privload_init_search_paths(void)
 {
     reg_query_value_result_t value_result;
     DIAGNOSTICS_KEY_VALUE_FULL_INFORMATION diagnostic_value_info;
+    const char *path, *mid, *end;
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+
+    /* We support loading from the Extensions dir.  We locate it by
+     * assuming dynamorio.dll is in <prefix>/lib{32,64}/{debug,release}/
+     * and that the Extensions are in <prefix>/ext/lib{32,64}/{debug,release}/
+     * Xref i#277/PR 540817.
+     * FIXME: this does not work from a build dir: only using exports!
+     */
+    /* we use this marker to indicate the end of client paths on the list
+     * and the start of other things like Extensions.  we assume client
+     * libs were loaded prior to calling this routine.
+     */
+    privmod_static_client_idx = privmod_static_idx;
+    path = get_dynamorio_library_path();
+    mid = strstr(path, LIB_SUBDIR);
+    if (mid != NULL && (strlen(path)+strlen(EXT_SUBDIR)+1/*sep*/) <
+        BUFFER_SIZE_ELEMENTS(search_paths[privmod_static_idx])) {
+        char *s = search_paths[privmod_static_idx];
+        snprintf(s, mid - path, "%s", path);
+        s += (mid - path);
+        snprintf(s, strlen(EXT_SUBDIR)+1/*sep*/, "%s%c", EXT_SUBDIR, DIRSEP);
+        s += strlen(EXT_SUBDIR)+1/*sep*/;
+        end = double_strrchr(path, DIRSEP, ALT_DIRSEP);
+        if (end != NULL && privmod_static_idx < PRIVMOD_STATIC_NUM) {
+            snprintf(s, end - mid, "%s", mid);
+            NULL_TERMINATE_BUFFER(search_paths[privmod_static_idx]);
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: added Extension search dir %s\n",
+                __FUNCTION__, search_paths[privmod_static_idx]);
+            privmod_static_idx++;
+        }
+    }
 
     /* Get SystemRoot from CurrentVersion reg key */
     value_result = reg_query_value(DIAGNOSTICS_OS_REG_KEY, 

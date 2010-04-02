@@ -759,6 +759,21 @@ include_directories(BEFORE
   ${PROJECT_BINARY_DIR} # for configure.h and configure_defines.h
   )
 
+# Export targets for importing by clients.
+# We include DynamoRIO and all Extensions in the same file for simplicity,
+# since the Extensions depend on DynamoRIO and in some cases each other
+# and so need to be locatable as a group.
+# To support packaging both together we need different names
+# FIXME: should we also append Debug, and have an optional param
+# to DynamoRIOConfig.cmake to link to it (only really makes sense
+# if using rpath)?  If we did that we'd need to set the debug
+# param for our internal builds.
+if (X64)
+  set(exported_targets_name "DynamoRIOTarget64")
+else (X64)
+  set(exported_targets_name "DynamoRIOTarget32")
+endif (X64)
+
 ###########################################################################
 
 # Let user pick which components to build.  This is especially
@@ -775,8 +790,12 @@ if (WIN32 AND NOT X64)
   # FIXME i#62: port DRgui to 64-bit
   option(BUILD_DRGUI "build DRgui statistics viewer (requires MFC)" ON)
 endif (WIN32 AND NOT X64)
+option(BUILD_EXT "build Extension libraries" ON)
 option(BUILD_DOCS "build documentation" ON)
 
+if (VPS)
+  set(BUILD_EXT OFF)
+endif (VPS)
 if (VMSAFE)
   # I did not preserve VMSAFE docs building: to reactivate it, need to
   # add the missing transformations mentioned in api/docs/CMakeLists.txt
@@ -983,6 +1002,11 @@ install(FILES
   DESTINATION ${INSTALL_CMAKE}
 )
 
+# Extensions (i#277/PR 540817)
+if (BUILD_EXT)
+  add_subdirectory(ext)
+endif (BUILD_EXT)
+
 if (BUILD_SAMPLES OR BUILD_TESTS)
   # api/samples is set up to function both as a separate project for
   # building samples vs a DynamoRIO installation, and to allow
@@ -1001,6 +1025,10 @@ if (BUILD_TESTS)
   # add Dashboard support
   include(CTest)
 endif (BUILD_TESTS)
+
+# Create the exported targets file.  This will include all targets added
+# in subdirectories via install(TARGETS ... EXPORT ${exported_targets_name}).
+install(EXPORT ${exported_targets_name} DESTINATION ${INSTALL_CMAKE})
 
 ###########################################################################
 # packaging

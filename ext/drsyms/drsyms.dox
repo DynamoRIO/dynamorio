@@ -1,0 +1,79 @@
+/* **********************************************************
+ * Copyright (c) 2010 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drsyms Symbol Access Library
+
+The \p drsyms DynamoRIO Extension provides symbol information.  Currently
+it is only available for Windows PDB symbols but Linux and Cygwin support
+is in the works.
+
+ - \ref sec_drsyms_setup
+ - \ref sec_drsyms_api
+
+\section sec_drsyms_setup Setup
+
+To use \p drsyms with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drsyms) \endcode
+
+That will automatically set up the include path and library dependence.
+
+The \p drsyms library on Windows relies on the \p dbghlp.dll library from
+Microsoft.  You will need to download the Debugging Tools for Windows
+package from http://www.microsoft.com/whdc/devtools/debugging/default.mspx
+and place the \p dbghelp.dll in the same directory as either \p drsyms.dll
+or as your client library.
+
+\section sec_drsyms_api API
+
+All functions return a success code of type #drsym_error_t.
+
+Prior to use, \p drsyms must be initialized by a call to drsym_init().  
+The \p drsyms API will eventually support both sideline and online use, and
+the parameter to drsym_init() will specify the symbol server to use for
+sideline use.  Today only online use is supported and \p NULL should be
+passed.
+
+Symbol lookup is supported in both directions: from an address to a symbol
+via drsym_lookup_address(), and from a symbol to an address via
+drsym_lookup_address().
+
+For an example of usage see the \p instrcalls sample client distributed
+with DynamoRIO.
+
+When finished with the library, call drsym_exit().
+
+*/

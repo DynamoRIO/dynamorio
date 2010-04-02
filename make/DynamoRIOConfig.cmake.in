@@ -490,3 +490,33 @@ function (configure_DynamoRIO_standalone target)
     LINK_FLAGS "${tgt_link_flags}")
 
 endfunction (configure_DynamoRIO_standalone)
+
+###########################################################################
+#
+
+# DynamoRIO Extensions
+function (use_DynamoRIO_extension target extname)
+  if (NOT DynamoRIO_INTERNAL)
+    # Extensions are exported in the same cmake file as DynamoRIO
+    # so we do not need to include another file here.
+    # FIXME: should we add explicit support for 3rd party Extensions
+    # that are not checked in to public svn by searching here for
+    # ${cwd}/../ext/cmake/*.cmake or something?
+    include_directories(${cwd}/../ext/include)
+  else (NOT DynamoRIO_INTERNAL)
+    # support building from build dir
+    if (EXISTS "${PROJECT_SOURCE_DIR}/ext")
+      include_directories(${PROJECT_SOURCE_DIR}/ext/${extname})
+    elseif (EXISTS "${PROJECT_SOURCE_DIR}/../../ext")
+      # A hack to support samples being a separate project: probably it
+      # should NOT be separate inside DR, and the exported CMakeLists.txt
+      # should add a project declaration.  An alternative is to
+      # copy ext headers to <builddir>/ext/include and not even check
+      # DynamoRIO_INTERNAL.
+      include_directories(${PROJECT_SOURCE_DIR}/../../ext/${extname})
+    endif ()
+  endif (NOT DynamoRIO_INTERNAL)
+
+  target_link_libraries(${target} ${extname})
+
+endfunction (use_DynamoRIO_extension)
