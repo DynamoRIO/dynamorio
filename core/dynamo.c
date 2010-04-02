@@ -559,7 +559,7 @@ dynamorio_app_init(void)
         /* thread-specific initialization for the first thread we inject in
          * (in a race with injected threads, sometimes it is not the primary thread)
          */
-        dynamo_thread_init(NULL);
+        dynamo_thread_init(NULL _IF_CLIENT_INTERFACE(false));
 #ifdef LINUX
         /* i#27: we need to special-case the 1st thread */
         signal_thread_inherit(get_thread_private_dcontext(), NULL);
@@ -1093,12 +1093,6 @@ dynamo_process_exit_cleanup(void)
         APP_EXPORT_ASSERT(dynamo_initialized, "Improper DynamoRIO initialization");
 
         dcontext = get_thread_private_dcontext();
-
-        /* this normally will already have been called but sometimes
-         * app_exit is called before app_stop.
-         * we want to call this now to stop timers, etc.
-         */
-        dynamo_thread_not_under_dynamo(dcontext);
 
         /* we deliberately do NOT clean up initstack (which was
          * allocated using a separate mmap and so is not part of some
@@ -1722,6 +1716,13 @@ get_num_threads(void)
     return num_known_threads IF_LINUX(- num_execve_threads);
 }
 
+bool
+is_last_app_thread(void)
+{
+    return (get_num_threads() ==
+            IF_CLIENT_INTERFACE(get_num_client_threads() +) 1);
+}
+
 /* This routine takes a snapshot of all the threads known to DR,
  * NOT LIMITED to those currently under DR control!
  * It returns an array of thread_record_t* and the length of the array
@@ -1943,14 +1944,14 @@ DECLARE_FREQPROT_VAR(static bool reset_at_nth_thread_triggered, false);
  * returns -1 if current thread has already been initialized
  */
 int
-dynamo_thread_init(byte *dstack_in)
+dynamo_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
 {
     dcontext_t *dcontext;
     /* due to lock issues (see below) we need another var */
     bool reset_at_nth_thread_pending = false;
     bool under_dynamo_control = true;
     APP_EXPORT_ASSERT(dynamo_initialized || dynamo_exited ||
-                      get_num_threads() == 0,
+                      get_num_threads() == 0 IF_CLIENT_INTERFACE(|| client_thread),
                       PRODUCT_NAME" not initialized");
 
     if (INTERNAL_OPTION(nullcalls))
@@ -2038,7 +2039,9 @@ dynamo_thread_init(byte *dstack_in)
     });
 
     LOG(THREAD, LOG_TOP|LOG_THREADS, 1,
-        "THREAD %d (dcontext "PFX")\n\n", get_thread_id(), dcontext);
+        "%sTHREAD %d (dcontext "PFX")\n\n",
+        IF_CLIENT_INTERFACE_ELSE(client_thread ? "CLIENT " : "", ""),
+        get_thread_id(), dcontext);
     LOG(THREAD, LOG_TOP|LOG_THREADS, 1,
         "DR stack is "PFX"-"PFX"\n", dcontext->dstack - DYNAMORIO_STACK_SIZE, dcontext->dstack);
 #endif
@@ -2070,7 +2073,7 @@ dynamo_thread_init(byte *dstack_in)
          * now (PR 216936), which is required to intialize
          * the client dcontext field prior to instrument_init().
          */
-        instrument_thread_init(dcontext);
+        instrument_thread_init(dcontext, client_thread);
 #endif
 
 #ifdef SIDELINE
@@ -2182,6 +2185,8 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
         }
     }
 #endif
+
+    dynamo_thread_not_under_dynamo(dcontext);
 
 #ifdef SIDELINE
     /* N.B.: do not clean up any data structures while sideline thread

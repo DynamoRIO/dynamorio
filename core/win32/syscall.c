@@ -1096,7 +1096,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
         bool secondary = dr_injected_secondary_thread && 
             !dr_late_injected_primary_thread;
 
-        bool exitproc = !secondary && (get_num_threads() == 1 && !dynamo_exited);
+        bool exitproc = !secondary && (is_last_app_thread() && !dynamo_exited);
         /* this should really be check_sole_thread() */
         /* FIXME: case 9461 - we may not control all threads,
          * the syscall may fail and may not be allowed to kill last thread

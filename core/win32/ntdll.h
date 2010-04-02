@@ -1794,6 +1794,11 @@ HANDLE
 create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
               void *arg, const void *arg_buf, size_t arg_buf_size,
               uint stack_reserve, uint stack_commit, bool suspended, thread_id_t *tid);
+HANDLE
+create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
+                         void *arg, const void *arg_buf, size_t arg_buf_size,
+                         byte *stack_base, size_t stack_size,
+                         bool suspended, thread_id_t *tid);
 
 /* NOTE : this isn't equivalent to nt_get_context(NT_CURRENT_THREAD, cxt)
  * (where the returned context is undefined) so use this to get the context

@@ -373,8 +373,6 @@ monitor_thread_exit(dcontext_t *dcontext)
         heap_free(dcontext, md->blk_info, md->blk_info_length*sizeof(trace_bb_build_t)
                   HEAPACCT(ACCT_TRACE));
     }
-    if (md->last_copy != NULL)
-        delete_private_copy(dcontext);
 
     /* case 7966: don't initialize at all for hotp_only
      * FIXME: could set initial sizes to 0 for all configurations, instead
@@ -2411,7 +2409,7 @@ trace_abort(dcontext_t *dcontext)
     instrlist_t *trace;
     bool prevlinking = true;
 
-    if (md->trace_tag == NULL)
+    if (md->trace_tag == NULL && md->last_copy == NULL)
         return; /* NOT in trace selection mode */
 
     /* we're changing linking state -- and we're often called from
@@ -2419,7 +2417,7 @@ trace_abort(dcontext_t *dcontext)
      * additionally we are changing trace state that the flusher
      * reads, and we could have a race condition, so we consider
      * that to be a linking change as well. If we are the flusher
-     * than the synch is unnecessary and could even cause a livelock.
+     * then the synch is unnecessary and could even cause a livelock.
      */
     if (!is_self_flushing()) {
         if (!is_couldbelinking(dcontext)) {
@@ -2437,6 +2435,12 @@ trace_abort(dcontext_t *dcontext)
     if (md->last_fragment != NULL) {
         internal_restore_last(dcontext);
     }
+
+    /* moved here primarily to delete prior to fragment_thread_exit but
+     * let monitor_thread_exit remain later
+     */
+    if (md->last_copy != NULL)
+        delete_private_copy(dcontext);
 
     /* free the instrlist_t elements */
     trace = &md->trace;

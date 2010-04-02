@@ -3395,7 +3395,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
 }
 
 
-/* allocate storage on the app's heap */
+/* allocate storage on the thread's private heap */
 void*
 heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
 {
@@ -3404,13 +3404,7 @@ heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
     if (dcontext == GLOBAL_DCONTEXT)
         return global_heap_alloc(size HEAPACCT(which));
     tu = ((thread_heap_t *) dcontext->heap_field)->local_heap;
-#if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
-    mutex_lock(&dcontext->sideline_heap_lock);
-#endif
     ret_val = common_heap_alloc(tu, size HEAPACCT(which));
-#if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
-    mutex_unlock(&dcontext->sideline_heap_lock);
-#endif
     ASSERT(ret_val != NULL);
     return ret_val;
 }
@@ -3554,14 +3548,8 @@ heap_free(dcontext_t *dcontext, void *p, size_t size HEAPACCT(which_heap_t which
         return;
     }
     tu = ((thread_heap_t *) dcontext->heap_field)->local_heap;
-#if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
-    mutex_lock(&dcontext->sideline_heap_lock);
-#endif
     DEBUG_DECLARE(ok = ) common_heap_free(tu, p, size HEAPACCT(which));
     ASSERT(ok);
-#if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
-    mutex_unlock(&dcontext->sideline_heap_lock);
-#endif
 }
 
 bool local_heap_protected(dcontext_t *dcontext)

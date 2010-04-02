@@ -251,6 +251,7 @@
    /* standard client interface features */
 #  define DYNAMORIO_IR_EXPORTS
 #  define CUSTOM_TRACES
+#  define CLIENT_SIDELINE
    /* PR 200409: not part of our current API, xref PR 215179 on -pad_jmps
     * issues with CUSTOM_EXIT_STUBS
 #  define CUSTOM_EXIT_STUBS

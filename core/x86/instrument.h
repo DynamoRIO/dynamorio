@@ -1288,9 +1288,11 @@ void instrument_load_client_libs(void);
 void instrument_init(void);
 void instrument_exit(void);
 bool is_in_client_lib(app_pc addr);
+app_pc get_client_base(client_id_t client_id);
 const char *get_client_path_from_addr(app_pc addr);
 bool is_valid_client_id(client_id_t id);
-void instrument_thread_init(dcontext_t *dcontext);
+void instrument_thread_init(dcontext_t *dcontext
+                            _IF_CLIENT_INTERFACE(bool client_thread));
 void instrument_thread_exit_event(dcontext_t *dcontext);
 void instrument_thread_exit(dcontext_t *dcontext);
 #ifdef LINUX
@@ -1329,6 +1331,7 @@ void wait_for_outstanding_nudges(void);
 dr_signal_action_t instrument_signal(dcontext_t *dcontext, dr_siginfo_t *siginfo);
 bool dr_signal_hook_exists(void);
 #endif
+int get_num_client_threads(void);
 #ifdef PROGRAM_SHEPHERDING
 void instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
                                    security_violation_t violation, action_type_t *action);
@@ -2408,47 +2411,58 @@ dr_raw_tls_cfree(uint offset, uint num_slots);
 /* PR 222812: due to issues in supporting client thread synchronization
  * and other complexities we are using nudges for simple push-i/o and
  * saving thread creation for sideline usage scenarios.
+ * These are implemented in <os>/os.c.
  */
-/* These are implemented in win32/os.c.  For Linux we should use
- * create_thread() in x86/sideline.c, with a different stack freeing model.
+/* PR 231301: for synch with client threads we can't distinguish between
+ * client_lib->ntdll/gencode/other_lib (which is safe) from
+ * client_lib->dr->ntdll/gencode/other_lib (which isn't) so we consider both
+ * unsafe.  If the client thread spends a lot of time in ntdll or worse directly
+ * makes blocking/long running system calls (note dr_thread_yield, dr_sleep,
+ * dr_mutex_lock, and dr_messagebox are ok) then it may have performance or
+ * correctness (if the synch times out) impacts.
  */
-#if defined(CLIENT_SIDELINE) && defined(WINDOWS)
+#ifdef CLIENT_SIDELINE
 DR_API
 /**
- * Creates a new thread that is marked as a non-application thread (i.e.,
- * DR will let it run natively and not execute its code from the code cache).
- * The thread will NOT terminate automatically simply by returning from
- * \p func: instead it must call dr_terminate_thread() to exit and to
- * free its stack.
+ * Creates a new thread that is marked as a non-application thread (i.e., DR
+ * will let it run natively and not execute its code from the code cache).  The
+ * thread will terminate automatically simply by returning from \p func; if
+ * running when the application terminates its last thread, the client thread
+ * will also terminate when DR shuts the process down.
  *
- * \note Thread creation via this routine is not yet fully transparent:
- * -# All dlls will be notifed of thread creation by DLL_THREAD_ATTACH.
- * -# The thread will show up in the list of application threads if
- *    the operating system is queried about threads.
+ * Init and exit events will not be raised for this thread (instead simply place
+ * init and exit code in \p func).
  *
- * \note Windows-only in the current implementation.
+ * The new client thread has a drcontext that can be used for thread-private
+ * heap allocations.  It has a stack of the same size as the DR stack used by
+ * application threads.
+ *
+ * On Linux, this thread is guaranteed to have its own private itimer
+ * if dr_set_itimer() is called from it.  However this does mean it
+ * will have its own process id.
+ *
+ * A client thread should refrain from spending most of its time in
+ * calls to other libraries or making blocking or long-running system
+ * calls as such actions may incur performance or correctness problems
+ * with DR's synchronization engine, which needs to be able to suspend
+ * client threads at safe points and cannot determine whether the
+ * aforementioned actions are safe for suspension.  Calling
+ * dr_sleep(), dr_thread_yield(), dr_messagebox(), or using DR's locks
+ * are safe.
+ *
+ * \note Thread creation via this routine is not yet fully
+ * transparent: on Windows, the thread will show up in the list of
+ * application threads if the operating system is queried about
+ * threads.  The thread will not trigger a DLL_THREAD_ATTACH message.
  */
 bool
-dr_create_client_thread(void (*func)(void *param), void *arg,
-                        size_t stack_reserve, size_t stack_commit);
-
-DR_API
-/**
- * Must only be called by a thread created via dr_create_client_thread().
- * Frees its own stack and terminates itself.  This routine does not return
- * when successful and returns false when unsuccessful.
- *
- * \note Windows-only in the current implementation.
- */
-bool
-dr_terminate_client_thread(void);
+dr_create_client_thread(void (*func)(void *param), void *arg);
+#endif /* CLIENT_SIDELINE */
 
 DR_API
 /** Current thread sleeps for \p time_ms milliseconds. */
 void
 dr_sleep(int time_ms);
-
-#endif /* defined(CLIENT_SIDELINE) && defined(WINDOWS) */
 
 DR_API
 /** Current thread gives up its time quantum. */
@@ -2508,6 +2522,65 @@ DR_API
 bool
 dr_resume_all_other_threads(IN void **drcontexts,
                             IN uint num_suspended);
+
+/* We do not translate the context to avoid lock issues (PR 205795).
+ * We do not delay until a safe point (via regular delayable signal path)
+ * since some clients may want the interrupted context: for a general
+ * timer clients should create a separate thread.
+ */
+#ifdef LINUX
+DR_API
+/**
+ * Installs an interval timer in the itimer sharing group that
+ * contains the calling thread.
+ *
+ * @param[in] which Must be one of ITIMER_REAL, ITIMER_VIRTUAL, or ITIMER_PROF
+ * @param[in] millisec The frequency of the timer, in milliseconds.  Passing
+ *   0 disables the timer.
+ * @param[in] func The function that will be called each time the
+ *   timer fires.  It will be passed the context of the thread that
+ *   received the itimer signal and its machine context, which has not
+ *   been translated and so may contain raw code cache values.  The function
+ *   will be called from a signal handler that may have interrupted
+ *   lock holder or other critical code, so it must be careful in its
+ *   operations.  If a general timer that does not interrupt client code
+ *   is required, the client should create a separate thread via
+ *   dr_create_client_thread() (which is guaranteed to have a private
+ *   itimer) and set the itimer there, where the callback function can
+ *   perform more operations safely if that new thread never acquires locks
+ *   in its normal operation.
+ *
+ * Itimer sharing varies by kernel.  Prior to 2.6.12 itimers were
+ * thread-private; after 2.6.12 they are shared across a thread group,
+ * though there could be multiple thread groups in one address space.
+ * The dr_get_itimer() function can be used to see whether a thread
+ * already has an itimer in its group to avoid re-setting an itimer
+ * set by an earlier thread.
+ *
+ * The itimer will operate successfully in the presence of an
+ * application itimer of the same type.
+ *
+ * The return value indicates whether the timer was successfully
+ * installed (or uninstalled if 0 was passed for \p millisec).
+ *
+ * \note Linux-only.
+ */
+bool
+dr_set_itimer(int which, uint millisec,
+              void (*func)(void *drcontext, dr_mcontext_t *mcontext));
+
+DR_API
+/**
+ * If an interval timer is already installed in the itimer sharing group that
+ * contains the calling thread, returns its frequency.  Else returns 0.
+ *
+ * @param[in] which Must be one of ITIMER_REAL, ITIMER_VIRTUAL, or ITIMER_PROF
+ *
+ * \note Linux-only.
+ */
+uint
+dr_get_itimer(int which);
+#endif /* LINUX */
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */

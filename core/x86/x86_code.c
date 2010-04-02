@@ -211,6 +211,7 @@ void
 new_thread_setup(dr_mcontext_t *mc)
 {
     dcontext_t *dcontext;
+    app_pc next_tag;
     void *crec;
     int rc;
     /* this is where a new thread first touches other than the dstack,
@@ -224,13 +225,17 @@ new_thread_setup(dr_mcontext_t *mc)
         "new_thread_setup: thread %d, dstack "PFX" clone record "PFX"\n",
         get_thread_id(), get_clone_record_dstack(crec), crec);
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec));
+    rc = dynamo_thread_init(get_clone_record_dstack(crec) _IF_CLIENT_INTERFACE(false));
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
+    /* set up sig handlers before starting itimer in thread_starting() (PR 537743)
+     * but thread_starting() calls initialize_dynamo_context() so cache next_tag
+     */
+    next_tag = signal_thread_inherit(dcontext, (void *) crec);
+    ASSERT(next_tag != NULL);
     thread_starting(dcontext);
-    dcontext->next_tag = signal_thread_inherit(dcontext, (void *) crec);
-    ASSERT(dcontext->next_tag != NULL);
+    dcontext->next_tag = next_tag;
 
     *get_mcontext(dcontext) = *mc;
 

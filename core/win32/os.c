@@ -231,7 +231,7 @@ DllMainThreadAttach()
          */
         LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
             "DllMain: initializing new thread %d\n", get_thread_id());
-        dynamo_thread_init(NULL);
+        dynamo_thread_init(NULL _IF_CLIENT_INTERFACE(false));
     }
 }
 #endif
@@ -1104,7 +1104,8 @@ os_terminate(dcontext_t *dcontext, terminate_flags_t terminate_type)
        access even to itself? 
     */
     if (TEST(TERMINATE_THREAD, terminate_type)) {
-        exit_process = (get_num_threads() == 1 && !dynamo_exited);
+        exit_process = (!IS_CLIENT_THREAD(dcontext) &&
+                        is_last_app_thread() && !dynamo_exited);
         if (!exit_process) {
             currentThreadOrProcess = NT_CURRENT_THREAD;
         } 
@@ -1254,6 +1255,10 @@ os_thread_stack_exit(dcontext_t *dcontext)
      */
     if (DYNAMO_OPTION(thin_client))
         return;
+    if (IS_CLIENT_THREAD(dcontext)) {
+        /* dstack is the only stack */
+        return;
+    }
 
     if (ostd->stack_base != NULL) {
         LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
@@ -1325,76 +1330,77 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
 }
 
 #ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
-/* We have two choices for the stack:
- * 1) Hide it from user, allocate a 1-or-2-page stack to get to the apc
- *    dispatcher and swap to our dstack, which the client uses; then free
- *    the dstack using existing mechanisms, and let the small stack leak
- *    or eventually free it if worth the effort.
- * 2) Expose the stack size to the user and do not create a dcontext
- *    or a dstack.  Then we need a custom stack de-allocation.
- * I'm going with #2.  dr_terminate_client_thread() de-allocates.
- * 
- * FIXME PR 210591: transparency issues:
+/* i#41/PR 222812: client threads
+ * * thread must have dcontext since many API routines require one and we
+ *   don't expose GLOBAL_DCONTEXT (xref PR 243008, PR 216936, PR 536058)
+ * * reversed the old design of not using dstack (partly b/c want dcontext)
+ *   and avoiding needing a temp stack by just creating dstack up front,
+ *   like is done on linux. dstack should be big enough for client threads
+ *   (xref PR 202669)
+ * * reversed the old design of explicit dr_terminate_client_thread(): now
+ *   the thread is auto-terminated and stack cleaned up on return from run
+ *   function
+ */
+/* FIXME PR 210591: transparency issues:
  * 1) All dlls will be notifed of thread creation by DLL_THREAD_ATTACH
+ *    => this is now solved by not running the Ldr code: intercept_new_thread()
+ *    just comes straight here
  * 2) The thread will show up in the list of threads accessed by
  *    NtQuerySystemInformation's SystemProcessesAndThreadsInformation structure.
- *
- * FIXME PR 202669: if the client leaves reservation space we should have
- * the stack auto-expand.
  */
-DR_API bool
-dr_create_client_thread(void (*func)(void *param), void *arg,
-                        size_t stack_reserve, size_t stack_commit)
+
+void
+client_thread_target(void *param)
 {
+    /* Thread was initialized in intercept_new_thread() */
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    /* We stored the func and args at base of dstack and param points at them */
+    void **arg_buf = (void **) param;
+    void (*func)(void *param) = (void (*)(void*)) convert_data_to_function(arg_buf[0]);
+    void *arg = arg_buf[1];
+    byte *dstack = dcontext->dstack;
+    ASSERT(IS_CLIENT_THREAD(dcontext));
+    LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n",
+        get_thread_id());
+    LOG(THREAD, LOG_ALL, 1, "func="PFX", arg="PFX"\n", func, arg);
+
+    (*func)(arg);
+
+    LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
+        get_thread_id());
+    os_terminate(dcontext, TERMINATE_THREAD|TERMINATE_CLEANUP);
+}
+
+DR_API bool
+dr_create_client_thread(void (*func)(void *param), void *arg)
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE);
     HANDLE hthread;
     bool res;
     thread_id_t tid;
-    CLIENT_ASSERT(stack_reserve >= stack_commit,
-                  "stack_reserve must be >= stack_commit");
+    void *arg_buf[2];
+    LOG(THREAD, LOG_ASYNCH, 1,
+        "dr_create_client_thread: dstack for new thread is "PFX"\n", dstack);
+
+    /* We store the func and args at base of dstack for client_thread_target */
+    arg_buf[0] = (void *) func;
+    arg_buf[1] = arg;
+
     /* FIXME PR 225714: does this work on Vista? */
-    hthread = create_thread(NT_CURRENT_PROCESS, (void *)func, arg, NULL, 0,
-                            stack_reserve, stack_commit, false, &tid);
+    hthread = create_thread_have_stack(NT_CURRENT_PROCESS, IF_X64_ELSE(true, false),
+                                       (void *)client_thread_target,
+                                       NULL, arg_buf, BUFFER_SIZE_BYTES(arg_buf),
+                                       dstack, DYNAMORIO_STACK_SIZE, false, &tid);
     CLIENT_ASSERT(hthread != INVALID_HANDLE_VALUE, "error creating thread");
-    if (hthread == INVALID_HANDLE_VALUE)
+    if (hthread == INVALID_HANDLE_VALUE) {
+        stack_free(dstack, DYNAMORIO_STACK_SIZE);
         return false;
-    /* mark the thread now as a native thread */
-    add_thread(hthread, tid, false/*!under_dynamo_control*/, NULL/*no dcontext*/);
+    }
     /* FIXME: what about all of our check_sole_thread() checks? */
     res = close_handle(hthread);
     CLIENT_ASSERT(res, "error closing thread handle");
     return res;        
-}
-
-DR_API bool
-dr_terminate_client_thread(void)
-{
-    thread_id_t tid = get_thread_id();
-    thread_record_t *tr = thread_lookup(tid);
-    byte *stack_base;
-    byte *term_args;
-    if (tr == NULL || tr->dcontext != NULL || tr->under_dynamo_control) {
-        CLIENT_ASSERT(false, "dr_terminate_client_thread called on non-client thread");
-        return false;
-    }
-    /* We don't have a dcontext+dstack to clean up so we do not call os_terminate;
-     * we simply do the necessary cleanup here.
-     */
-    /* increment _exiting_thread_count so that we don't get killed after 
-     * we're off the all_threads list */
-    ATOMIC_INC(int, exiting_thread_count);
-    remove_thread(NT_CURRENT_THREAD, tid);
-    /* Once we're using CreateThreadEx, for get_os_version() >= WINDOWS_VERSION_VISTA
-     * the kernel will clean up the stack for us and we can directly call
-     * nt_terminate_thread here.
-     */
-    get_stack_bounds(NULL, &stack_base, NULL);
-    term_args = os_terminate_static_arguments(false/*thread only*/);
-    cleanup_and_terminate_client_thread
-        (syscalls[SYS_TerminateThread], stack_base,
-         IF_X64_ELSE(NT_CURRENT_THREAD, (ptr_uint_t)term_args),
-         IF_X64_ELSE(KILL_THREAD_EXIT_STATUS, (ptr_uint_t)term_args/*filler*/));
-    ASSERT_NOT_REACHED();
-    return true; /* satisfy compiler */
 }
 #endif CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
 
@@ -3713,6 +3719,10 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
              * about possibly handling this differently. */
             return false;
         }
+        if (IS_CLIENT_THREAD(dcontext)) {
+            ostd->stack_base = dcontext->dstack - DYNAMORIO_STACK_SIZE;
+            ostd->stack_top = dcontext->dstack;
+        }
     }
     if (dcontext == NULL || ostd->stack_base == NULL) {
         byte * stack_base = NULL;
@@ -3736,11 +3746,13 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
          * stack and we would largely be fine with that. */
         ASSERT(stack_base != NULL);
         ASSERT(stack_base < stack_top);
-        ASSERT(get_allocation_base(stack_top - 1) == stack_base &&
-               (get_allocation_base(stack_top) != stack_base ||
-                /* PR 252008: for WOW64 nudges we allocate an extra page.
-                 * We would test dcontext->nudge_thread but that's not set yet. */
-                is_wow64_process(NT_CURRENT_PROCESS)));
+        ASSERT((get_allocation_base(stack_top - 1) == stack_base &&
+                (get_allocation_base(stack_top) != stack_base ||
+                 /* PR 252008: for WOW64 nudges we allocate an extra page.
+                  * We would test dcontext->nudge_thread but that's not set yet. */
+                 is_wow64_process(NT_CURRENT_PROCESS)))
+                /* client threads use dstack as sole stack */
+               IF_CLIENT_INTERFACE(|| is_dynamo_address(stack_base)));
         if (dcontext == NULL) {
             if (base != NULL)
                 *base = stack_base;

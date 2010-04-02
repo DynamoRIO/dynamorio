@@ -784,11 +784,6 @@ void clone_and_swap_stack(byte *stack, byte *tos);
 void go_native(dcontext_t *dcontext);
 void cleanup_and_terminate(dcontext_t *dcontext, int sysnum,
                            ptr_uint_t sys_arg1, ptr_uint_t sys_arg2, bool exitproc);
-#ifdef CLIENT_INTERFACE
-void cleanup_and_terminate_client_thread(int sysnum, byte *stack_base,
-                                         ptr_uint_t sys_arg1,
-                                         ptr_uint_t sys_arg2);
-#endif
 bool cpuid_supported(void);
 void our_cpuid(int res[4], int eax);
 #ifdef WINDOWS
@@ -820,6 +815,8 @@ void dynamorio_sys_exit(void);
 # ifndef X64
 void dynamorio_nonrt_sigreturn(void);
 # endif
+thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
+                            void *ctid, void (*func)(void));
 #endif
 void back_from_native(void);
 DEBUG_DECLARE(void debug_infinite_loop(void); /* handy cpu eating infinite loop */)

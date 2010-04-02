@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2007 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,30 +31,60 @@
  */
 
 #include "tools.h"
+#include <assert.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+#include <ucontext.h>
+#include <sys/time.h> /* itimer */
+#include <time.h>     /* for nanosleep */
 
-#ifdef WINDOWS
-# define NOP __nop()
-#else /* LINUX */
-# define NOP asm("nop")
-#endif
+/* test PR 204556: support DR+client itimers in presence of app itimers
+ * and  i#283/PR 368737: add client timer support
+ */
 
-int main()
+/* handler with SA_SIGINFO flag set gets three arguments: */
+typedef void (*handler_t)(int, struct siginfo *, void *);
+
+static void
+signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
-#ifdef WINDOWS
-    HANDLE lib = LoadLibrary("client.thread.appdll.dll");
-    if (lib == NULL) {
-        print("error loading library\n");
-    } else {
-        print("loaded library\n");
-        /* PR 210591: test transparency by having client create a thread here
-         * and ensuring DllMain of the lib isn't notified
-         */
-        NOP; NOP; NOP; NOP; NOP; NOP; NOP;
-        FreeLibrary(lib);
-    }
-#else
-    /* test creating thread here */
-    NOP; NOP; NOP; NOP; NOP; NOP; NOP;
-#endif
-    print("thank you for testing the client interface\n");
+    if (sig == SIGALRM)
+	print("app got SIGALRM\n");
+    else
+        assert(0);
+}
+
+static void
+intercept_signal(int sig, handler_t handler)
+{
+    int rc;
+    struct sigaction act;
+    act.sa_sigaction = handler;
+    rc = sigfillset(&act.sa_mask); /* block all signals within handler */
+    assert(rc == 0);
+    act.sa_flags = SA_SIGINFO;
+    rc = sigaction(sig, &act, NULL);
+    assert(rc == 0);
+}
+
+int
+main(int argc, char *argv[])
+{
+    int rc;
+    struct itimerval t;
+    intercept_signal(SIGALRM, (handler_t) signal_handler);
+    t.it_interval.tv_sec = 0;
+    t.it_interval.tv_usec = 10000;
+    t.it_value.tv_sec = 0;
+    t.it_value.tv_usec = 10000;
+    rc = setitimer(ITIMER_REAL, &t, NULL);
+    assert(rc == 0);
+
+    struct timespec sleeptime;
+    sleeptime.tv_sec = 0;
+    sleeptime.tv_nsec = 60*1000*1000; /* 50ms */
+    nanosleep(&sleeptime, NULL);
+
+    return 0;
 }

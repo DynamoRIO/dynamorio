@@ -402,10 +402,6 @@ thread_id_t get_loader_lock_owner(void);
 bool module_pc_section_lookup(app_pc module_base, app_pc pc,
                               IMAGE_SECTION_HEADER *section_out);
 
-/* in signal.c */
-void start_itimer(dcontext_t *dcontext);
-void stop_itimer(void);
-
 /* in callback.c */
 dcontext_t *
 get_prev_swapped_dcontext(dcontext_t *dcontext);

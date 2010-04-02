@@ -288,80 +288,6 @@ typedef enum {
 } rct_type_t;
 #endif
 
-#ifdef CLIENT_INTERFACE
-typedef struct _client_to_do_list_t {
-    /* used to make a list of fragments to delete/replace */
-    /* deletes frag at tag if ilist is null else replaces it with ilist */
-    instrlist_t *ilist;
-    app_pc tag;
-    struct _client_to_do_list_t *next;
-} client_todo_list_t;
-
-/* Clients need a separate list to queue up flush requests from dr_flush() */
-typedef struct _client_flush_req_t {
-    app_pc start;
-    size_t size;
-    uint   flush_id; /* client supplied identifier for this flush */
-    void (*flush_callback)(int);
-    struct _client_flush_req_t *next;
-} client_flush_req_t;
-
-/* for -thin_client we don't allocate client_data currently, also client_data could be
- * NULL during thread startup or teardown (i.e. mutex_wait_contended_lock() usage) */
-#define IS_CLIENT_THREAD(dcontext) \
-    ((dcontext) != NULL && (dcontext)->client_data != NULL && \
-     (dcontext)->client_data->is_client_thread)
-
-/* Client interface-specific data for dcontexts */
-typedef struct _client_data_t {
-    /* field for use by user via exported API */
-    void *         user_field;
-    client_todo_list_t * to_do;
-    client_flush_req_t *flush_list;
-# ifdef CLIENT_SIDELINE
-    mutex_t            sideline_mutex;
-    mutex_t            sideline_heap_lock;
-# endif
-    /* fields for doing release and debug build checks against erroneous API usage */
-    module_data_t      *no_delete_mod_data;
-
-    /* Client-owned threads, such as a client nudge thread, require special
-     * synchronization support. is_client_thread means that the thread is currently
-     * completely owned by the client.  client_thread_safe_for_sync is use to mark
-     * client-owned threads that are safe for synch_with_all_threads synchronization but
-     * are in dynamo/native code (such as in dr_thread_yield(), dr_sleep(),
-     * dr_mutex_lock() and dr_messagebox()).  Note it does not need to be set when
-     * the client is in client library code.  For dr_mutex_lock() we set client_grab_mutex
-     * to the client mutex that is being locked so that we can set
-     * client_thread_safe_for_sync only around the actual wait.
-     * FIXME - PR 231301, we may need a way for clients that call ntdll directly to
-     * mark client_thread_safe_for_synch for client-owned threads when calling out to
-     * ntdll. Especially if they're calling system calls that wait or take a long time
-     * to finish etc. Applies to generated code and other libraries called by the client
-     * lib as well.
-     */
-    bool           is_client_thread; /* NOTE - use IS_CLIENT_THREAD() */
-    bool           client_thread_safe_for_synch;
-    void           *client_grab_mutex;
-
-    /* flags for asserts on linux and for getting param base right on windows */
-    bool           in_pre_syscall;
-    bool           in_post_syscall;
-    /* flag for dr_syscall_invoke_another() */
-    bool           invoke_another_syscall;
-    /* flag for dr_get_mcontext (i#117/PR 395156) */
-    bool           mcontext_in_dcontext;
-} client_data_t;
-#endif
-
-#ifdef LINUX
-/* i#61/PR 211530: nudges on Linux do not use separate threads */
-typedef struct _pending_nudge_t {
-    nudge_arg_t arg;
-    struct _pending_nudge_t *next;
-} pending_nudge_t;
-#endif
-
 typedef struct _thread_record_t {
     thread_id_t id;   /* thread id */
 #ifdef WINDOWS
@@ -405,6 +331,81 @@ typedef uint64 linkcount_type_t;
 #include "dispatch.h"
 
 #include "dr_stats.h"
+
+#ifdef CLIENT_INTERFACE
+typedef struct _client_to_do_list_t {
+    /* used to make a list of fragments to delete/replace */
+    /* deletes frag at tag if ilist is null else replaces it with ilist */
+    instrlist_t *ilist;
+    app_pc tag;
+    struct _client_to_do_list_t *next;
+} client_todo_list_t;
+
+/* Clients need a separate list to queue up flush requests from dr_flush() */
+typedef struct _client_flush_req_t {
+    app_pc start;
+    size_t size;
+    uint   flush_id; /* client supplied identifier for this flush */
+    void (*flush_callback)(int);
+    struct _client_flush_req_t *next;
+} client_flush_req_t;
+
+/* for -thin_client we don't allocate client_data currently, also client_data could be
+ * NULL during thread startup or teardown (i.e. mutex_wait_contended_lock() usage) */
+#define IS_CLIENT_THREAD(dcontext) \
+    ((dcontext) != NULL && (dcontext)->client_data != NULL && \
+     (dcontext)->client_data->is_client_thread)
+
+/* Client interface-specific data for dcontexts */
+typedef struct _client_data_t {
+    /* field for use by user via exported API */
+    void *         user_field;
+    client_todo_list_t * to_do;
+    client_flush_req_t *flush_list;
+# ifdef CLIENT_SIDELINE
+    mutex_t            sideline_mutex;
+# endif
+    /* fields for doing release and debug build checks against erroneous API usage */
+    module_data_t      *no_delete_mod_data;
+
+    /* Client-owned threads, such as a client nudge thread, require special
+     * synchronization support. is_client_thread means that the thread is currently
+     * completely owned by the client.  client_thread_safe_for_sync is use to mark
+     * client-owned threads that are safe for synch_with_all_threads synchronization but
+     * are in dynamo/native code (such as in dr_thread_yield(), dr_sleep(),
+     * dr_mutex_lock() and dr_messagebox()).  Note it does not need to be set when
+     * the client is in client library code.  For dr_mutex_lock() we set client_grab_mutex
+     * to the client mutex that is being locked so that we can set
+     * client_thread_safe_for_sync only around the actual wait.
+     * FIXME - PR 231301, we may need a way for clients that call ntdll directly to
+     * mark client_thread_safe_for_synch for client-owned threads when calling out to
+     * ntdll. Especially if they're calling system calls that wait or take a long time
+     * to finish etc. Applies to generated code and other libraries called by the client
+     * lib as well.
+     */
+    bool           is_client_thread; /* NOTE - use IS_CLIENT_THREAD() */
+    bool           client_thread_safe_for_synch;
+    void           *client_grab_mutex;
+
+    /* flags for asserts on linux and for getting param base right on windows */
+    bool           in_pre_syscall;
+    bool           in_post_syscall;
+    /* flag for dr_syscall_invoke_another() */
+    bool           invoke_another_syscall;
+    /* flag for dr_get_mcontext (i#117/PR 395156) */
+    bool           mcontext_in_dcontext;
+} client_data_t;
+#else
+# define IS_CLIENT_THREAD(dcontext) false
+#endif /* CLIENT_INTERFACE */
+
+#ifdef LINUX
+/* i#61/PR 211530: nudges on Linux do not use separate threads */
+typedef struct _pending_nudge_t {
+    nudge_arg_t arg;
+    struct _pending_nudge_t *next;
+} pending_nudge_t;
+#endif
 
 /* size of each Dynamo thread-private stack */
 #define DYNAMORIO_STACK_SIZE dynamo_options.stack_size
@@ -492,6 +493,7 @@ void add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid),
 bool remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid);
 uint get_thread_num(thread_id_t tid);
 int get_num_threads(void);
+bool is_last_app_thread(void);
 void get_list_of_threads(thread_record_t ***list, int *num);
 bool is_thread_known(thread_id_t tid);
 #ifdef LINUX
@@ -499,7 +501,7 @@ void get_list_of_threads_ex(thread_record_t ***list, int *num, bool include_exec
 void mark_thread_execve(thread_record_t *tr, bool execve);
 #endif
 bool is_thread_initialized(void);
-int dynamo_thread_init(byte *dstack_in);
+int dynamo_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread));
 int dynamo_thread_exit(void);
 void dynamo_thread_stack_free_and_exit(byte *stack);
 int dynamo_other_thread_exit(thread_record_t *tr

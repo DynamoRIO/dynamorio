@@ -1,10 +1,24 @@
 PR 216931: client options are -paramx -paramy
 inside app client.thread.exe
 PR 198871 locking test......passed
-#if defined(CLIENT_SIDELINE)
 client thread is alive
+#ifdef LINUX
+event_timer fired
+#endif
 client thread is dying
 PR 222812: client thread test passed
+#ifdef WINDOWS
+thread.appdll.dll process attach
+loaded library
+#endif
+client thread is alive
+#ifdef LINUX
+event_timer fired
+#endif
+client thread is dying
+PR 210591: client transparency test passed
+#ifdef WINDOWS
+thread.appdll.dll process detach
 #endif
 thank you for testing the client interface
 #ifdef X64

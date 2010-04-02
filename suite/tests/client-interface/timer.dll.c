@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2007 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,31 +30,23 @@
  * DAMAGE.
  */
 
-#include "tools.h"
-
-#ifdef WINDOWS
-# define NOP __nop()
-#else /* LINUX */
-# define NOP asm("nop")
-#endif
-
-int main()
-{
-#ifdef WINDOWS
-    HANDLE lib = LoadLibrary("client.thread.appdll.dll");
-    if (lib == NULL) {
-        print("error loading library\n");
-    } else {
-        print("loaded library\n");
-        /* PR 210591: test transparency by having client create a thread here
-         * and ensuring DllMain of the lib isn't notified
-         */
-        NOP; NOP; NOP; NOP; NOP; NOP; NOP;
-        FreeLibrary(lib);
-    }
+#include "dr_api.h"
+#ifdef LINUX
+# include <sys/time.h>
 #else
-    /* test creating thread here */
-    NOP; NOP; NOP; NOP; NOP; NOP; NOP;
+# error NYI
 #endif
-    print("thank you for testing the client interface\n");
+
+/* test PR 368737: add client timer support */
+static void
+event_timer(void *drcontext, dr_mcontext_t *mcontext)
+{
+    dr_fprintf(STDERR, "client event_timer fired\n");
+}
+
+DR_EXPORT
+void dr_init(client_id_t id)
+{
+    if (!dr_set_itimer(ITIMER_REAL, 25, event_timer))
+        dr_fprintf(STDERR, "unable to set timer callback\n");
 }

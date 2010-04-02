@@ -110,6 +110,11 @@ process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add,
 void
 check_for_ldrpLoadImportModule(byte *base, uint *ebp);
 
+#ifdef CLIENT_SIDELINE
+void
+client_thread_target(void *param);
+#endif
+
 /* in syscall.c *********************************************************/
 
 /* this points to a windows-version-specific syscall array */

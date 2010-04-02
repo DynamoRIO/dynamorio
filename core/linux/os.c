@@ -1230,10 +1230,14 @@ os_tls_init()
          * as solve race PR 207903), at least for kernel 2.5.32+.  For now we stick
          * w/ manual setup.
          */
+        /* using local static b/c dynamo_initialized is not set for a client thread
+         * when created in client's dr_init routine
+         */
+        static bool tls_global_init = false;
         our_modify_ldt_t desc;
         /* Base here must be 32-bit */
         IF_X64(ASSERT(DYNAMO_OPTION(heap_in_lower_4GB) && segment <= (byte*)UINT_MAX));
-        if (!dynamo_initialized) {
+        if (!tls_global_init) {
             /* We don't want to break the assumptions of pthreads or wine,
              * so we try to take the last slot.  We don't want to hardcode
              * the index b/c the kernel will let us clobber entries so we want
@@ -1242,6 +1246,8 @@ os_tls_init()
             int i;
             int avail_index[GDT_NUM_TLS_SLOTS];
             our_modify_ldt_t clear_desc;
+            ASSERT(!dynamo_initialized);
+            tls_global_init = true;
             ASSERT(tls_gdt_index == -1);
             for (i = 0; i < GDT_NUM_TLS_SLOTS; i++)
                 avail_index[i] = -1;
@@ -1488,9 +1494,6 @@ os_thread_init(dcontext_t *dcontext)
     ASSIGN_INIT_LOCK_FREE(ostd->suspend_lock, suspend_lock);
 
     signal_thread_init(dcontext);
-    if (INTERNAL_OPTION(profile_pcs)) {
-        pcprofile_thread_init(dcontext);
-    }
 
     LOG(THREAD, LOG_THREADS, 1, "cur gs base is "PFX"\n", get_segment_base(SEG_GS));
     LOG(THREAD, LOG_THREADS, 1, "cur fs base is "PFX"\n", get_segment_base(SEG_FS));
@@ -1510,9 +1513,6 @@ os_thread_exit(dcontext_t *dcontext)
     DELETE_LOCK(ostd->suspend_lock);
 
     signal_thread_exit(dcontext);
-    if (INTERNAL_OPTION(profile_pcs)) {
-        pcprofile_thread_exit(dcontext);
-    }
 
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({
@@ -1537,19 +1537,13 @@ os_fork_init(dcontext_t *dcontext)
 void
 os_thread_under_dynamo(dcontext_t *dcontext)
 {
-    /* FIXME: what about signals? */
-    if (INTERNAL_OPTION(profile_pcs)) {
-        start_itimer(dcontext);
-    }
+    start_itimer(dcontext);
 }
 
 void
 os_thread_not_under_dynamo(dcontext_t *dcontext)
 {
-    /* FIXME: what about signals? */
-    if (INTERNAL_OPTION(profile_pcs)) {
-        stop_itimer();
-    }
+    stop_itimer(dcontext);
 }
 
 static pid_t
@@ -2067,12 +2061,20 @@ thread_sleep(uint64 milliseconds)
     int count = 0;
     req.tv_sec = (milliseconds / 1000);
     /* docs say can go up to 1000000000, but doesn't work on FC9 */
-    req.tv_nsec = (milliseconds % 1000) * 1000;
-    while (dynamorio_syscall(SYS_nanosleep, 2, &req, &remain) == -1) {
+    req.tv_nsec = (milliseconds % 1000) * 1000000;
+    /* FIXME: if we need accurate sleeps in presence of itimers we should
+     * be using SYS_clock_nanosleep w/ an absolute time instead of relative
+     */
+    while (dynamorio_syscall(SYS_nanosleep, 2, &req, &remain) == -EINTR) {
         /* interrupted by signal or something: finish the interval */
-        ASSERT(remain.tv_sec < (milliseconds / 1000) &&
-               remain.tv_nsec < (milliseconds % 1000) * 1000);
-        if (count++ > 3) {
+        ASSERT(remain.tv_sec <= req.tv_sec &&
+               (remain.tv_sec < req.tv_sec ||
+                /* there seems to be some rounding */
+                (remain.tv_nsec/100000) <= (req.tv_nsec/100000)));
+        /* not unusual for client threads to use itimers and have their run
+         * routine sleep forever
+         */
+        if (count++ > 3 && !IS_CLIENT_THREAD(get_thread_private_dcontext())) {
             ASSERT_NOT_REACHED();
             break; /* paranoid */
         }
@@ -2213,6 +2215,98 @@ is_thread_currently_native(thread_record_t *tr)
 {
     return (!tr->under_dynamo_control);
 }
+
+#ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
+static void
+client_thread_run(void)
+{
+    void (*func)(void *param);
+    dcontext_t *dcontext;
+    byte *xsp;
+    GET_STACK_PTR(xsp);
+    void *crec = get_clone_record((reg_t)xsp);
+    IF_DEBUG(int rc = )
+        dynamo_thread_init(get_clone_record_dstack(crec), true);
+    ASSERT(rc != -1); /* this better be a new thread */
+    dcontext = get_thread_private_dcontext();
+    ASSERT(dcontext != NULL);
+    LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n",
+        get_thread_id());
+    /* We stored the func and args in particular clone record fields */
+    func = (void (*)(void *param)) signal_thread_inherit(dcontext, crec);
+    void *arg = (void *) get_clone_record_app_xsp(crec);
+    LOG(THREAD, LOG_ALL, 1, "func="PFX", arg="PFX"\n", func, arg);
+
+    (*func)(arg);
+
+    LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
+        get_thread_id());
+    cleanup_and_terminate(dcontext, SYS_exit, 0, 0, false/*just thread*/);
+}
+
+/* i#41/PR 222812: client threads
+ * * thread must have dcontext since many API routines require one and we
+ *   don't expose GLOBAL_DCONTEXT (xref PR 243008, PR 216936, PR 536058)
+ * * reversed the old design of not using dstack (partly b/c want dcontext)
+ *   and I'm using the same parent-creates-dstack and clone_record_t design
+ *   to create linux threads: dstack should be big enough for client threads
+ *   (xref PR 202669)
+ * * reversed the old design of explicit dr_terminate_client_thread(): now
+ *   the thread is auto-terminated and stack cleaned up on return from run
+ *   function
+ */
+DR_API bool
+dr_create_client_thread(void (*func)(void *param), void *arg)
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    byte *xsp;
+    /* We do not pass SIGCHLD since don't want signal to parent and don't support
+     * waiting on child.
+     * We do not pass CLONE_THREAD so that the new thread is in its own thread
+     * group, allowing it to have private itimers and not receive any signals
+     * sent to the app's thread groups.  It also makes the thread not show up in
+     * the thread list for the app, making it more invisible.
+     */
+    uint flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND
+        IF_NOT_X64(| CLONE_SETTLS);
+    /* need to share signal handler table, prior to creating clone record */
+    handle_clone(dcontext, flags);
+    void *crec = create_clone_record(dcontext, (reg_t*)&xsp);
+    /* make sure client_thread_run can get the func and arg, and that
+     * signal_thread_inherit gets the right syscall info
+     */
+    set_clone_record_fields(crec, (reg_t) arg, (app_pc) func, SYS_clone, flags);
+#ifndef X64
+    /* For the TCB we simply share the parent's.  On Linux we could just inherit
+     * the same selector but not for VMX86_SERVER so we specify for both for
+     * 32-bit.  Most of the fields are pthreads-specific and we assume the ones
+     * that will be used (such as tcbhead_t.sysinfo @0x10) are read-only.
+     */
+    our_modify_ldt_t desc;
+    /* if get_segment_base() returned size too we could use it */
+    uint index = SELECTOR_INDEX(read_selector(IF_X64_ELSE(SEG_FS,SEG_GS)));
+    initialize_ldt_struct(&desc, NULL, 0, index);
+    int res = dynamorio_syscall(SYS_get_thread_area, 1, &desc);
+    if (res != 0) {
+        LOG(THREAD, LOG_ALL, 1, "client thread tls get failed: %d\n", res);
+        return false;
+    }
+#endif
+    LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp="PFX" dstack="PFX"\n",
+        xsp, get_clone_record_dstack(crec));
+    thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, IF_X64_ELSE(NULL, &desc),
+                                         NULL, client_thread_run);
+    if (newpid < 0) {
+        LOG(THREAD, LOG_ALL, 1, "client thread creation failed: %d\n", newpid);
+        return false;
+    } else if (newpid == 0) {
+        /* dynamorio_clone() should have called client_thread_run directly */
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+    return true;
+}
+#endif /* CLIENT_SIDELINE PR 222812: tied to sideline usage */
 
 int
 get_num_processors()
@@ -3148,7 +3242,7 @@ handle_self_signal(dcontext_t *dcontext, uint sig)
          * no races w/ another thread re-installing?) and then SYS_kill.
          */
         cleanup_and_terminate(dcontext, SYS_exit, -1, 0,
-                              (get_num_threads() == 1 && !dynamo_exited));
+                              (is_last_app_thread() && !dynamo_exited));
         ASSERT_NOT_REACHED();
     }
 }
@@ -3438,7 +3532,7 @@ handle_exit(dcontext_t *dcontext)
          * suspend all threads via synch_with_all_threads(), do the check,
          * and if exit_process then exit w/o resuming: though have to
          * coordinate lock access w/ cleanup_and_terminate.
-         * Xref i#94.
+         * Xref i#94.  Xref PR 541760.
          */
         process_id_t mypid = get_process_id();
         thread_record_t **threads;
@@ -3447,7 +3541,7 @@ handle_exit(dcontext_t *dcontext)
         mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&threads, &num_threads);
         for (i=0; i<num_threads; i++) {
-            if (threads[i]->pid != mypid) {
+            if (threads[i]->pid != mypid && !IS_CLIENT_THREAD(threads[i]->dcontext)) {
                 exit_process = false;
                 break;
             }
@@ -3490,7 +3584,7 @@ handle_exit(dcontext_t *dcontext)
                          HEAPACCT(ACCT_THREAD_MGT));
     }
 
-    if (get_num_threads() == 1 && !dynamo_exited) {
+    if (is_last_app_thread() && !dynamo_exited) {
         LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
             "SYS_exit%s(%d) in final thread %d of %d => exiting DynamoRIO\n",
             (mc->xax == SYS_exit_group) ? "_group" : "", mc->xax,
@@ -3507,15 +3601,6 @@ handle_exit(dcontext_t *dcontext)
     }
     KSTOP(num_exits_dir_syscall);
 
-    /* N.B.: in all other cases, we just let interp exit,
-     * and then either _fini is executed on app's stack,
-     * or dynamorio_app_exit is called on app's stack...
-     * here, we must switch back to app's stack, and hope
-     * it's valid, because once we exit our stack is gone!
-     * Can't access local vars once kill dstack, so we grab
-     * the exit val and push it on the new stack right now
-     * as an argument for the later call to _exit
-     */
     cleanup_and_terminate(dcontext, mc->xax, sys_param(dcontext, 0),
                           sys_param(dcontext, 1), exit_process);
 }
@@ -4046,6 +4131,19 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 #endif
+    case SYS_setitimer:       /* 104 */
+        dcontext->sys_param0 = sys_param(dcontext, 0);
+        dcontext->sys_param1 = sys_param(dcontext, 1);
+        dcontext->sys_param2 = sys_param(dcontext, 2);
+        handle_pre_setitimer(dcontext, (int) sys_param(dcontext, 0),
+                             (const struct itimerval *) sys_param(dcontext, 1),
+                             (struct itimerval *) sys_param(dcontext, 2));
+        break;
+    case SYS_getitimer:      /* 105 */
+        dcontext->sys_param0 = sys_param(dcontext, 0);
+        dcontext->sys_param1 = sys_param(dcontext, 1);
+        break;
+
 #if 0
 # ifndef X64
     case SYS_signal: {         /* 48 */
@@ -4095,9 +4193,7 @@ pre_system_call(dcontext_t *dcontext)
 #endif
     case SYS_rt_sigpending:   /* 176 */
     case SYS_rt_sigtimedwait: /* 177 */
-    case SYS_rt_sigqueueinfo: /* 178 */
-    case SYS_setitimer:       /* 104 */
-    case SYS_getitimer: {      /* 105 */
+    case SYS_rt_sigqueueinfo: { /* 178 */
         /* FIXME: handle all of these syscalls! */
         LOG(THREAD, LOG_ASYNCH|LOG_SYSCALLS, 1,
             "WARNING: unhandled signal system call %d\n", mc->xax);
@@ -4969,6 +5065,16 @@ post_system_call(dcontext_t *dcontext)
          * assert below
          */
         success = true;
+        break;
+
+    case SYS_setitimer:       /* 104 */
+        handle_post_setitimer(dcontext, success, (int) dcontext->sys_param0,
+                              (const struct itimerval *) dcontext->sys_param1,
+                              (struct itimerval *) dcontext->sys_param2);
+        break;
+    case SYS_getitimer:      /* 105 */
+        handle_post_getitimer(dcontext, success, (int) dcontext->sys_param0,
+                              (struct itimerval *) dcontext->sys_param1);
         break;
 
 #ifdef VMX86_SERVER

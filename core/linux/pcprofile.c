@@ -43,6 +43,10 @@
 #include "../fragment.h"
 #include "../fcache.h"
 #include <string.h> /* for memset */
+#ifdef CLIENT_INTERFACE
+# include "instrument.h"
+#endif
+#include <sys/time.h> /* ITIMER_VIRTUAL */
 
 /* Don't use symtab, it doesn't give us anything that addr2line or
  * other post-execution tools can't (it doesn't see into shared libraries),
@@ -83,32 +87,49 @@ typedef struct _pc_profile_entry_t {
 
 /* The timer and all data are per-thread */
 typedef struct _thread_pc_info_t {
+    bool thread_shared;
     pc_profile_entry_t **htable; /* HASH_BITS-bit addressed hash table, key is pc */
     void *special_heap;
     file_t file;
     int where[WHERE_LAST];
 } thread_pc_info_t;
 
+#define ALARM_FREQUENCY 10 /* milliseconds */
+
 /* forward declarations for static functions */
 static pc_profile_entry_t *pcprofile_add_entry(thread_pc_info_t *info, void *pc, int whereami);
 static pc_profile_entry_t *pcprofile_lookup(thread_pc_info_t *info, void *pc);
 static void pcprofile_reset(thread_pc_info_t *info);
 static void pcprofile_results(thread_pc_info_t *info);
+static void pcprofile_alarm(dcontext_t *dcontext, dr_mcontext_t *mcontext);
 
 /* initialization */
 void
-pcprofile_thread_init(dcontext_t *dcontext)
+pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_info)
 {
     int i;
     int size = HASHTABLE_SIZE(HASH_BITS) * sizeof(pc_profile_entry_t*);
+    thread_pc_info_t *info;
 
-    thread_pc_info_t *info = heap_alloc(dcontext, sizeof(thread_pc_info_t)
-                                    HEAPACCT(ACCT_OTHER));
+    if (shared_itimer) {
+        /* Linux kernel 2.6.12+ shares itimers across all threads.  We thus
+         * share the same data and assume we don't need any synch on these
+         * data structs or the file since only one timer fires at a time
+         * and we block subsequent while in the handler.
+         */
+        ASSERT(parent_info != NULL);
+        info = (thread_pc_info_t *) parent_info;
+        ASSERT(info->thread_shared);
+        return;
+    }
+
+    /* we use global heap so we can share with child threads */
+    info = global_heap_alloc(sizeof(thread_pc_info_t) HEAPACCT(ACCT_OTHER));
     dcontext->pcprofile_field = (void *) info;
     memset(info, 0, sizeof(thread_pc_info_t));
+    info->thread_shared = shared_itimer;
 
-    info->htable = (pc_profile_entry_t**) heap_alloc(dcontext, size
-                                                 HEAPACCT(ACCT_OTHER));
+    info->htable = (pc_profile_entry_t**) global_heap_alloc(size HEAPACCT(ACCT_OTHER));
     memset(info->htable, 0, size);
 #if USE_SYMTAB
     valid_symtab = symtab_init();
@@ -119,27 +140,26 @@ pcprofile_thread_init(dcontext_t *dcontext)
     info->special_heap = special_heap_init(sizeof(pc_profile_entry_t), false /* no locks */,
                                            false /* -x */, true /* persistent */);
 
-    start_itimer(dcontext);
+    set_itimer_callback(dcontext, ITIMER_VIRTUAL, ALARM_FREQUENCY, pcprofile_alarm);
 }
 
-/* cleanup */
+/* cleanup: only called for thread-shared itimer for last thread in group */
 void
 pcprofile_thread_exit(dcontext_t *dcontext)
 {
     int size;
     thread_pc_info_t *info = (thread_pc_info_t *) dcontext->pcprofile_field;
-
     /* don't want any alarms while holding lock for printing results
      * (see notes under pcprofile_cache_flush below)
      */
-    stop_itimer();
+    set_itimer_callback(dcontext, ITIMER_VIRTUAL, 0, NULL);
 
     pcprofile_results(info);
     size = HASHTABLE_SIZE(HASH_BITS) * sizeof(pc_profile_entry_t*);
     pcprofile_reset(info); /* special heap so no fast path */
 #ifdef DEBUG
     /* for non-debug we do fast exit path and don't free local heap */
-    heap_free(dcontext, info->htable, size HEAPACCT(ACCT_OTHER));
+    global_heap_free(info->htable, size HEAPACCT(ACCT_OTHER));
 #endif
 #if USE_SYMTAB
     if (valid_symtab)
@@ -149,18 +169,21 @@ pcprofile_thread_exit(dcontext_t *dcontext)
     special_heap_exit(info->special_heap);
 #ifdef DEBUG
     /* for non-debug we do fast exit path and don't free local heap */
-    heap_free(dcontext, info, sizeof(thread_pc_info_t) HEAPACCT(ACCT_OTHER));
+    global_heap_free(info, sizeof(thread_pc_info_t) HEAPACCT(ACCT_OTHER));
 #endif
 }
 
 void
 pcprofile_fork_init(dcontext_t *dcontext)
 {
+    /* itimers are not inherited across fork */
     /* FIXME: hmmm...I guess a forked child will just start from scratch?
      */
     thread_pc_info_t *info = (thread_pc_info_t *) dcontext->pcprofile_field;
+    info->thread_shared = false;
     pcprofile_reset(info);
     info->file = open_log_file("pcsamples", NULL, 0);
+    set_itimer_callback(dcontext, ITIMER_VIRTUAL, ALARM_FREQUENCY, pcprofile_alarm);
 }
 
 #if 0
@@ -175,8 +198,8 @@ pcprof_dump_callstack(dcontext_t *dcontext, app_pc cur_pc, app_pc ebp, file_t ou
     /* only DR routines 
      * cannot call is_readable b/c that asks for memory -> livelock
      */
-    while (pc != NULL && (pc >= dcontext->dstack - DYNAMORIO_STACK_SIZE) &&
-           pc < dcontext->dstack) {
+    while (pc != NULL && ((byte*)pc >= dcontext->dstack - DYNAMORIO_STACK_SIZE) &&
+           (byte*)pc < (app_pc)dcontext->dstack) {
         print_file(outfile, 
             "\tframe ptr "PFX" => parent "PFX", ret = "PFX"\n", pc, *pc, *(pc+1));
         num++;
@@ -196,26 +219,29 @@ pcprof_dump_callstack(dcontext_t *dcontext, app_pc cur_pc, app_pc ebp, file_t ou
  * Right now interrupting heap_alloc or interrupting pcprofile_results are
  * the only bad things that could happen, both are dealt with.
  */
-void
-pcprofile_alarm(dcontext_t *dcontext, void *pc, app_pc ebp)
+static void
+pcprofile_alarm(dcontext_t *dcontext, dr_mcontext_t *mcontext)
 {               
     thread_pc_info_t *info = (thread_pc_info_t *) dcontext->pcprofile_field;
     pc_profile_entry_t *entry;
     fragment_t *fragment;
     fragment_t wrapper;
+    void *pc = (void *) mcontext->pc;
 
     entry = pcprofile_lookup(info, pc);
 
 #if 0
+# ifdef DEBUG
     print_file(info->file, "\nalarm "PFX"\n", pc);
-    pcprof_dump_callstack(dcontext, pc, ebp, info->file);
+# endif
+    pcprof_dump_callstack(dcontext, pc, (app_pc) mcontext->xbp, info->file);
 #endif
 
     if (entry != NULL) {
         entry->counter++;
     } else {
-        /* the process is suspended, so we don't care about data races, but
-         * we can't have anyone else holding locks we need.
+        /* for thread-shared itimers we block this signal in the handler
+         * so we assume we won't have any data races.
          * special_heap routines do not use any locks.
          */
         entry = pcprofile_add_entry(info, pc, dcontext->whereami);
@@ -391,6 +417,9 @@ pcprofile_results(thread_pc_info_t *info)
     
     print_file(info->file, "DynamoRIO library base: "PFX"\n",
                get_dynamorio_dll_start());
+#ifdef CLIENT_INTERFACE
+    print_file(info->file, "client base: "PFX"\n", get_client_base(0));
+#endif
     print_file(info->file, "ITIMER distribution (%d):\n", total);
     if (info->where[WHERE_APP] > 0) {
         print_file(info->file, "  %5.1f%% of time in APPLICATION (%d)\n",

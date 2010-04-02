@@ -56,6 +56,9 @@
 #include <stdarg.h> /* for varargs */
 #include "../nudge.h" /* for nudge_internal() */
 #include "../synch.h"
+#ifdef LINUX
+# include <sys/time.h> /* ITIMER_* */
+#endif
 
 #ifdef CLIENT_INTERFACE
 /* in utils.c, not exported to everyone */
@@ -231,11 +234,17 @@ static size_t num_client_libs = 0;
 
 #ifdef WINDOWS
 /* used for nudge support */
-static bool block_client_owned_threads = false;
-DECLARE_CXTSWPROT_VAR(static int num_client_owned_threads, 0);
-/* protects block_client_owned_threads and incrementing num_client_owned_threads */
-DECLARE_CXTSWPROT_VAR(static mutex_t client_nudge_count_lock,
-                      INIT_LOCK_FREE(client_nudge_count_lock));
+static bool block_client_nudge_threads = false;
+DECLARE_CXTSWPROT_VAR(static int num_client_nudge_threads, 0);
+#endif
+#ifdef CLIENT_SIDELINE
+/* # of sideline threads */
+DECLARE_CXTSWPROT_VAR(static int num_client_sideline_threads, 0);
+#endif
+#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
+/* protects block_client_nudge_threads and incrementing num_client_nudge_threads */
+DECLARE_CXTSWPROT_VAR(static mutex_t client_thread_count_lock,
+                      INIT_LOCK_FREE(client_thread_count_lock));
 #endif
 
 /****************************************************************************/
@@ -533,7 +542,7 @@ instrument_init(void)
      * real reason.
      */
     if (thread_init_callbacks.num > 0) {
-        instrument_thread_init(get_thread_private_dcontext());
+        instrument_thread_init(get_thread_private_dcontext(), false);
     }
 }
 
@@ -605,8 +614,8 @@ instrument_exit(void)
     free_all_callback_lists();
 #endif
 
-#ifdef WINDOWS
-    DELETE_LOCK(client_nudge_count_lock);
+#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
+    DELETE_LOCK(client_thread_count_lock);
 #endif
     DELETE_LOCK(callback_registration_lock);
 }
@@ -627,6 +636,14 @@ is_in_client_lib(app_pc addr)
     }
 
     return false;
+}
+
+app_pc
+get_client_base(client_id_t client_id)
+{
+    if (client_id >= num_client_libs)
+        return NULL;
+    return (app_pc)client_libs[client_id].start;
 }
 
 const char *
@@ -994,7 +1011,7 @@ dr_nudge_client(client_id_t client_id, uint64 argument)
 }
 
 void
-instrument_thread_init(dcontext_t *dcontext)
+instrument_thread_init(dcontext_t *dcontext, bool client_thread)
 {
     /* Note that we're called twice for the initial thread: once prior
      * to instrument_init() (PR 216936) to set up the dcontext client
@@ -1009,12 +1026,22 @@ instrument_thread_init(dcontext_t *dcontext)
 
 #ifdef CLIENT_SIDELINE
         ASSIGN_INIT_LOCK_FREE(dcontext->client_data->sideline_mutex, sideline_mutex);
-        ASSIGN_INIT_LOCK_FREE(dcontext->client_data->sideline_heap_lock,
-                              sideline_heap_lock);
 #endif
-        CLIENT_ASSERT(dynamo_initialized || thread_init_callbacks.num == 0,
+        CLIENT_ASSERT(dynamo_initialized || thread_init_callbacks.num == 0 ||
+                      client_thread,
                       "1st call to instrument_thread_init should have no cbs");
     }
+
+#ifdef CLIENT_SIDELINE
+    if (client_thread) {
+        ATOMIC_INC(int, num_client_sideline_threads);
+        /* We don't call dynamo_thread_not_under_dynamo() b/c we want itimers. */
+        dcontext->thread_record->under_dynamo_control = false;
+        dcontext->client_data->is_client_thread = true;
+        /* no init event */
+        return;
+    }
+#endif /* CLIENT_SIDELINE */
 
     call_all(thread_init_callbacks, int (*)(void *), (void *)dcontext);
 }
@@ -1033,6 +1060,13 @@ instrument_fork_init(dcontext_t *dcontext)
 void
 instrument_thread_exit_event(dcontext_t *dcontext)
 {
+#ifdef CLIENT_SIDELINE
+    if (IS_CLIENT_THREAD(dcontext)) {
+        ATOMIC_DEC(int, num_client_sideline_threads);
+        /* no exit event */
+        return;
+    }
+#endif
     /* support dr_get_mcontext() from the exit event */
     dcontext->client_data->mcontext_in_dcontext = true;
     /* Note - currently own initexit lock when this is called (see PR 227619). */
@@ -1052,7 +1086,6 @@ instrument_thread_exit(dcontext_t *dcontext)
 
 # ifdef CLIENT_SIDELINE
     DELETE_LOCK(dcontext->client_data->sideline_mutex);
-    DELETE_LOCK(dcontext->client_data->sideline_heap_lock);
 # endif
 
     /* could be heap space allocated for the todo list */
@@ -1780,18 +1813,18 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
     /* count the number of nudge events so we can make sure they're
      * all finished before exiting
      */
-    mutex_lock(&client_nudge_count_lock);
-    if (block_client_owned_threads) {
+    mutex_lock(&client_thread_count_lock);
+    if (block_client_nudge_threads) {
         /* FIXME - would be nice if there was a way to let the external agent know that
          * the nudge event wasn't delivered (but this only happens when the process
          * is detaching or exiting). */
-        mutex_unlock(&client_nudge_count_lock);
+        mutex_unlock(&client_thread_count_lock);
         return;
     }
 
     /* atomic to avoid locking around the dec */
-    ATOMIC_INC(int, num_client_owned_threads);
-    mutex_unlock(&client_nudge_count_lock);
+    ATOMIC_INC(int, num_client_nudge_threads);
+    mutex_unlock(&client_thread_count_lock);
 
     /* We need to mark this as a client controlled thread for synch_with_all_threads
      * and otherwise treat it as native.  Xref PR 230836 on what to do if this
@@ -1819,8 +1852,18 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
     dcontext->thread_record->under_dynamo_control = true;
     dcontext->client_data->is_client_thread = false;
 
-    ATOMIC_DEC(int, num_client_owned_threads);
+    ATOMIC_DEC(int, num_client_nudge_threads);
 #endif
+}
+
+int
+get_num_client_threads(void)
+{
+    int num = IF_WINDOWS_ELSE(num_client_nudge_threads, 0);
+# ifdef CLIENT_SIDELINE
+    num += num_client_sideline_threads;
+# endif
+    return num;
 }
 
 #ifdef WINDOWS
@@ -1829,26 +1872,26 @@ void
 wait_for_outstanding_nudges()
 {
     /* block any new nudge threads from starting */
-    mutex_lock(&client_nudge_count_lock);
+    mutex_lock(&client_thread_count_lock);
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-    block_client_owned_threads = true;
+    block_client_nudge_threads = true;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
     DOLOG(1, LOG_TOP, {
-        if (num_client_owned_threads > 0) {
+        if (num_client_nudge_threads > 0) {
             LOG(GLOBAL, LOG_TOP, 1,
                 "Waiting for %d nudges to finish - app is about to kill all threads "
-                "except the current one./n", num_client_owned_threads);
+                "except the current one./n", num_client_nudge_threads);
         }
     });
 
-    while (num_client_owned_threads > 0) {
+    while (num_client_nudge_threads > 0) {
         /* yield with lock released to allow nudges to finish */
-        mutex_unlock(&client_nudge_count_lock);
+        mutex_unlock(&client_thread_count_lock);
         dr_thread_yield();
-        mutex_lock(&client_nudge_count_lock);
+        mutex_lock(&client_thread_count_lock);
     }
-    mutex_unlock(&client_nudge_count_lock);
+    mutex_unlock(&client_thread_count_lock);
 }
 #endif /* WINDOWS */
 
@@ -2890,24 +2933,18 @@ dr_thread_yield(void)
         dcontext->client_data->client_thread_safe_for_synch = false;
 }
 
-/* for now tied to sideline feature PR 222812, not implemented on Linux */
-# if defined(CLIENT_SIDELINE) && defined(WINDOWS)
 DR_API
 /* Current thread sleeps for time_ms milliseconds. */
 void
 dr_sleep(int time_ms)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
-    LARGE_INTEGER liDueTime;
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = true;
-    /* FIXME - add an os agnostic os_sleep() at some point when we need it on Linux */
-    liDueTime.QuadPart= - time_in_milliseconds * TIMER_UNITS_PER_MILLISECOND;
-    nt_sleep(&liDueTime);
+    thread_sleep(time_ms);
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = false;
 }
-# endif
 
 DR_API
 bool
@@ -3032,6 +3069,25 @@ dr_resume_all_other_threads(IN void **drcontexts,
     end_synch_with_all_threads(threads, num_threads, true/*resume*/);
     return true;
 }
+
+# ifdef LINUX
+DR_API
+bool
+dr_set_itimer(int which, uint millisec,
+              void (*func)(void *drcontext, dr_mcontext_t *mcontext))
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    return set_itimer_callback(dcontext, which, millisec,
+                               (void (*)(dcontext_t *, dr_mcontext_t *))func);
+}
+
+uint
+dr_get_itimer(int which)
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    return get_itimer_frequency(dcontext, which);
+}
+# endif /* LINUX */
 
 #endif /* CLIENT_INTERFACE */
 

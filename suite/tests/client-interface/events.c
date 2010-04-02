@@ -181,10 +181,10 @@ main(int argc, char** argv)
      * Cause a fork event
      */
     if (fork() == 0) {
-        wait(NULL);
+        abort();
     }
     else {
-        abort();
+        wait(NULL);
     }
 #endif /* LINUX */
 

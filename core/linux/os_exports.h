@@ -187,10 +187,6 @@ typedef struct _kernel_sigset_t {
 } kernel_sigset_t;
 
 void receive_pending_signal(dcontext_t *dcontext);
-void start_itimer(dcontext_t *dcontext);
-void stop_itimer(void);
-void start_PAPI_timer(void);
-void stop_PAPI_timer(void);
 bool is_signal_restorer_code(byte *pc, size_t *len);
 
 #define CONTEXT_HEAP_SIZE(sc) (sizeof(sc))
@@ -231,6 +227,13 @@ byte *
 get_clone_record_dstack(void *record);
 app_pc
 signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
+
+bool
+set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,
+                    void (*func)(dcontext_t *, dr_mcontext_t *));
+
+uint
+get_itimer_frequency(dcontext_t *dcontext, int which);
 
 /***************************************************************************/
 

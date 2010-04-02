@@ -40,6 +40,7 @@
 
 #include <signal.h> /* for stack_t */
 #include "module.h" /* for os_module_data_t */
+#include <sys/time.h> /* struct itimerval */
 
 /* for inline asm */
 #ifdef X64
@@ -128,8 +129,29 @@ mcontext_to_sigcontext(struct sigcontext *sc, dr_mcontext_t *mc);
 bool
 set_default_signal_action(int sig);
 
+void start_itimer(dcontext_t *dcontext);
+void stop_itimer(dcontext_t *dcontext);
+
+/* handle app itimer syscalls */
+void
+handle_pre_setitimer(dcontext_t *dcontext,
+                     int which, const struct itimerval *new_timer,
+                     struct itimerval *prev_timer);
+void
+handle_post_setitimer(dcontext_t *dcontext, bool success,
+                      int which, const struct itimerval *new_timer,
+                      struct itimerval *prev_timer);
+void
+handle_post_getitimer(dcontext_t *dcontext, bool success,
+                      int which, struct itimerval *cur_timer);
+
+/* not exported beyond linux/ unlike rest of clone record routines */
+void
+set_clone_record_fields(void *record, reg_t app_thread_xsp, app_pc continuation_pc,
+                        uint clone_sysnum, uint clone_flags);
+
 /* in pcprofile.c */
-void pcprofile_thread_init(dcontext_t *dcontext);
+void pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_info);
 void pcprofile_fork_init(dcontext_t *dcontext);
 
 /* in module.c */

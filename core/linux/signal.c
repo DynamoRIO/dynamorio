@@ -460,6 +460,26 @@ typedef struct _sigpending_t {
 # define X64_FRAME_EXTRA (sizeof(struct _fpstate) + 8)
 #endif
 
+/* PR 204556: DR/clients use itimers so we need to emulate the app's usage */
+typedef struct _itimer_info_t {
+    /* easier to manipulate a single value than the two-field struct timeval */
+    uint64 interval;
+    uint64 value;
+} itimer_info_t;
+
+typedef struct _thread_itimer_info_t {
+    itimer_info_t app;
+    itimer_info_t app_saved;
+    itimer_info_t dr;
+    itimer_info_t actual;
+    void (*cb)(dcontext_t *, dr_mcontext_t *);
+} thread_itimer_info_t;
+
+/* We use all 3: ITIMER_REAL for clients (i#283/PR 368737), ITIMER_VIRTUAL
+ * for -prof_pcs, and ITIMER_PROF for PAPI
+ */
+#define NUM_ITIMERS 3
+
 typedef struct _thread_sig_info_t {
     /* we use kernel_sigaction_t so we don't have to translate back and forth
      * between it and libc version.
@@ -473,6 +493,23 @@ typedef struct _thread_sig_info_t {
     int *shared_refcount;
     /* signals we intercept must also be sharable */
     bool *we_intercept;
+
+    /* DR and clients use itimers, so we need to emulate the app's itimer
+     * usage.  This info is shared across CLONE_THREAD threads only for
+     * NPTL in kernel 2.6.12+ so these fields are separately shareable from
+     * the CLONE_SIGHAND set of fields above.
+     */
+    bool shared_itimer;
+    /* We only need owner info.  xref i#219: we should add a known-owner
+     * lock for cases where a full-fledged recursive lock is not needed.
+     */
+    recursive_lock_t *shared_itimer_lock;
+    /* b/c a non-CLONE_THREAD thread can be created we can't just use dynamo_exited
+     * and need a refcount here
+     */
+    int *shared_itimer_refcount;
+    int *shared_itimer_underDR; /* indicates # of threads under DR control */
+    thread_itimer_info_t (*itimer)[NUM_ITIMERS];
 
     /* cache restorer validity.  not shared: inheriter will re-populate. */
     int restorer_valid[MAX_SIGNUM];
@@ -513,6 +550,11 @@ typedef struct _clone_record_t {
     uint clone_flags;
     thread_sig_info_t info;
     thread_sig_info_t *parent_info;
+    void *pcprofile_info;
+    /* we leave some padding at base of stack for dynamorio_clone
+     * to store values
+     */
+    reg_t for_dynamorio_clone[4];
 } clone_record_t;
 
 /**** function prototypes ***********************************************/
@@ -542,6 +584,9 @@ static void
 execute_default_from_dispatch(dcontext_t *dcontext, int sig, sigframe_rt_t *frame);
 
 static bool
+handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt);
+
+static bool
 handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt);
 
 static bool
@@ -550,8 +595,12 @@ handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t 
 static struct sigcontext *
 get_sigcontext_from_rt_frame(sigframe_rt_t *frame);
 
-/* in pcprofile.c */
-extern void pcprofile_alarm(dcontext_t *dcontext, void *pc, app_pc ebp);
+static void
+init_itimer(dcontext_t *dcontext, bool first);
+
+static bool
+set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
+                  bool enable);
 
 #ifdef DEBUG
 static void
@@ -582,22 +631,16 @@ sigaltstack_syscall(const stack_t *newstack, stack_t *oldstack)
 }
 
 static inline int
+getitimer_syscall(int which, struct itimerval *val)
+{
+    return dynamorio_syscall(SYS_getitimer, 2, which, val);
+}
+
+static inline int
 setitimer_syscall(int which, struct itimerval *val, struct itimerval *old)
 {
     return dynamorio_syscall(SYS_setitimer, 3, which, val, old);
 }
-
-#ifdef CLIENT_INTERFACE
-/* PR 368737: exported but not documented yet until we're more comfortable
- * that DR handles timer signals robustly (xref PR 205795).
- */
-DR_API
-int
-dr_setitimer(int which, struct itimerval *val, struct itimerval *old)
-{
-    return setitimer_syscall(which, val, old);
-}
-#endif
 
 static inline int
 sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
@@ -855,11 +898,44 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 
 /**** top-level routines ***********************************************/
 
+static bool
+os_itimers_thread_shared(void)
+{
+    static bool itimers_shared;
+    static bool cached = false;
+    if (!cached) {
+        file_t f = os_open("/proc/version", OS_OPEN_READ);
+        if (f != INVALID_FILE) {
+            char buf[128];
+            int major, minor, rel;
+            os_read(f, buf, BUFFER_SIZE_ELEMENTS(buf));
+            NULL_TERMINATE_BUFFER(buf);
+            if (sscanf(buf, "%*s %*s %d.%d.%d", &major, &minor, &rel) == 3) {
+                /* Linux NPTL in kernel 2.6.12+ has POSIX-style itimers shared
+                 * among threads.
+                 */
+                LOG(GLOBAL, LOG_ASYNCH, 1, "kernel version = %d.%d.%d\n",
+                    major, minor, rel);
+                itimers_shared = (major >= 2 && minor >= 6 && rel >= 12);
+                cached = true;
+            }
+        }
+        if (!cached) {
+            /* assume not shared */
+            itimers_shared = false;
+            cached = true;
+        }
+        LOG(GLOBAL, LOG_ASYNCH, 1, "itimers are %s\n",
+            itimers_shared ? "thread-shared" : "thread-private");
+    }
+    return itimers_shared;
+}
 
 void
 signal_init()
 {
     IF_X64(ASSERT(ALIGNED(offsetof(sigpending_t, fpstate), 16)));
+    os_itimers_thread_shared();
 }
 
 void
@@ -956,6 +1032,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     record->clone_flags = dcontext->sys_param0;
     record->info = *((thread_sig_info_t *)dcontext->signal_field);
     record->parent_info = (thread_sig_info_t *) dcontext->signal_field;
+    record->pcprofile_info = dcontext->pcprofile_field;
     LOG(THREAD, LOG_ASYNCH, 1,
         "create_clone_record: thread %d, pc "PFX"\n",
         record->caller_id, record->continuation_pc);
@@ -968,6 +1045,19 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     *app_thread_xsp = ALIGN_BACKWARD(record, REGPARM_END_ALIGN);
  
     return (void *) record;
+}
+
+/* This is to support dr_create_client_thread() */
+void
+set_clone_record_fields(void *record, reg_t app_thread_xsp, app_pc continuation_pc,
+                        uint clone_sysnum, uint clone_flags)
+{
+    clone_record_t *rec = (clone_record_t *) record;
+    ASSERT(rec != NULL);
+    rec->app_thread_xsp = app_thread_xsp;
+    rec->continuation_pc = continuation_pc;
+    rec->clone_sysnum = clone_sysnum;
+    rec->clone_flags = clone_flags;
 }
 
 /* i#149/PR 403015: The clone record is passed to the new thread by placing it
@@ -1028,6 +1118,7 @@ get_clone_record_dstack(void *record)
 app_pc
 signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
 {
+    app_pc res = NULL;
     clone_record_t *record = (clone_record_t *) clone_record;
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     kernel_sigaction_t oldact;
@@ -1100,6 +1191,24 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             mutex_unlock(&record->parent_info->child_lock);
         }
 
+        /* itimers are either private or shared */
+        if (TEST(CLONE_THREAD, record->clone_flags) && os_itimers_thread_shared()) {
+            ASSERT(record->info.shared_itimer);
+            LOG(THREAD, LOG_ASYNCH, 2, "sharing itimers with parent\n");
+            info->shared_itimer = true;
+            info->shared_itimer_refcount = record->info.shared_itimer_refcount;
+            info->shared_itimer_underDR = record->info.shared_itimer_underDR;
+            info->shared_itimer_lock = record->info.shared_itimer_lock;
+            info->itimer = record->info.itimer;
+            acquire_recursive_lock(info->shared_itimer_lock);
+            (*info->shared_itimer_refcount)++;
+            release_recursive_lock(info->shared_itimer_lock);
+            /* shared_itimer_underDR will be incremented in start_itimer() */
+        } else {
+            info->shared_itimer = false;
+            init_itimer(dcontext, false/*!first thread*/);
+        }
+
         if (APP_HAS_SIGSTACK(info)) {
             /* parent was under our control, so the real sigstack we see is just
              * the parent's being inherited -- clear it now
@@ -1112,7 +1221,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
          * we asked for old sigstack.
          * FIXME: are current pending or blocked inherited?
          */
-        return continuation_pc;
+        res = continuation_pc;
     } else {
         /* initialize in isolation */
 
@@ -1132,6 +1241,9 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         info->we_intercept = (bool *) handler_alloc(dcontext, MAX_SIGNUM * sizeof(bool));
         memset(info->we_intercept, 0, MAX_SIGNUM * sizeof(bool));
                 
+        info->shared_itimer = false; /* we'll set to true if a child is created */
+        init_itimer(dcontext, true/*first*/);
+
         if (DYNAMO_OPTION(intercept_all_signals)) {
             /* PR 304708: to support client signal handlers without
              * the complexity of per-thread and per-signal callbacks
@@ -1166,6 +1278,9 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             if (INTERNAL_OPTION(profile_pcs)) {
                 intercept_signal(dcontext, info, SIGVTALRM);
             }
+#ifdef CLIENT_INTERFACE
+            intercept_signal(dcontext, info, SIGALRM);
+#endif
 #ifdef SIDELINE
             intercept_signal(dcontext, info, SIGCHLD);
 #endif
@@ -1201,8 +1316,20 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         if (get_num_threads() > 1)
             ASSERT_NOT_REACHED();
         /* FIXME: any way to recover if not 1st thread? */
-        return NULL;
+        res = NULL;
     }
+
+    /* only when SIGVTALRM handler is in place should we start itimer (PR 537743) */
+    if (INTERNAL_OPTION(profile_pcs)) {
+        /* even if the parent thread exits, we can use a pointer to its
+         * pcprofile_info b/c when shared it's process-shared and is not freed
+         * until the entire process exits
+         */
+        pcprofile_thread_init(dcontext, info->shared_itimer,
+                              (record == NULL) ? NULL : record->pcprofile_info);
+    }
+
+    return res;
 }
 
 /* This one is called before child's new logfiles are set up, since
@@ -1226,6 +1353,23 @@ signal_fork_init(dcontext_t *dcontext)
         if (info->shared_refcount != NULL)
             global_heap_free(info->shared_refcount, sizeof(int) HEAPACCT(ACCT_OTHER));
         info->shared_refcount = NULL;
+    }
+    if (info->shared_itimer) {
+        /* itimers are not inherited across fork */
+        info->shared_itimer = false;
+        memset(info->itimer, 0, sizeof(*info->itimer));
+        ASSERT(info->shared_itimer_lock != NULL);
+        DELETE_RECURSIVE_LOCK(*info->shared_itimer_lock);
+        global_heap_free(info->shared_itimer_lock, sizeof(*info->shared_itimer_lock)
+                         HEAPACCT(ACCT_OTHER));
+        info->shared_itimer_lock = NULL;
+        ASSERT(info->shared_itimer_refcount != NULL);
+        global_heap_free(info->shared_itimer_refcount, sizeof(int) HEAPACCT(ACCT_OTHER));
+        info->shared_itimer_refcount = NULL;
+        ASSERT(info->shared_itimer_underDR != NULL);
+        global_heap_free(info->shared_itimer_underDR, sizeof(int) HEAPACCT(ACCT_OTHER));
+        info->shared_itimer_underDR = NULL;
+        init_itimer(dcontext, true/*first*/);
     }
     info->num_unstarted_children = 0;
     for (i = 0; i < MAX_SIGNUM; i++) {
@@ -1255,6 +1399,12 @@ signal_thread_exit(dcontext_t *dcontext)
         thread_yield();
     }
 
+    if (dynamo_exited) {
+        /* stop itimers before removing signal handlers */
+        for (i = 0; i < NUM_ITIMERS; i++)
+            set_actual_itimer(dcontext, i, info, false/*disable*/);
+    }
+
     /* FIXME: w/ shared handlers, if parent (the owner here) dies,
      * can children keep living w/ a copy of the handlers?
      */
@@ -1266,8 +1416,10 @@ signal_thread_exit(dcontext_t *dcontext)
     if (!info->shared_app_sigaction || *info->shared_refcount == 0) {
         LOG(THREAD, LOG_ASYNCH, 2, "signal handler cleanup:\n");
         for (i = 0; i < MAX_SIGNUM; i++) {
-            if (info->app_sigaction[i] != NULL) {
-                /* restore to old handler */
+            if (info->app_sigaction[i] != NULL && !dynamo_exited) {
+                /* restore to old handler, but not if exiting whole
+                 * process: else may get itimer during cleanup
+                 */
                 LOG(THREAD, LOG_ASYNCH, 2, "\trestoring "PFX" as handler for %d\n",
                     info->app_sigaction[i]->handler, i);
                 sigaction_syscall(i, info->app_sigaction[i], NULL);
@@ -1276,6 +1428,10 @@ signal_thread_exit(dcontext_t *dcontext)
                 /* restore to default */
                 LOG(THREAD, LOG_ASYNCH, 2, "\trestoring SIG_DFL as handler for %d\n", i);
                 sigaction_syscall(i, &act, NULL);
+                if (info->app_sigaction[i] != NULL) {
+                    handler_free(dcontext, info->app_sigaction[i],
+                                 sizeof(kernel_sigaction_t));
+                }
             }
         }
         handler_free(dcontext, info->app_sigaction, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
@@ -1287,6 +1443,33 @@ signal_thread_exit(dcontext_t *dcontext)
         if (info->shared_refcount != NULL)
             global_heap_free(info->shared_refcount, sizeof(int) HEAPACCT(ACCT_OTHER));
     }
+
+    if (info->shared_itimer) {
+        acquire_recursive_lock(info->shared_itimer_lock);
+        (*info->shared_itimer_refcount)--;
+        release_recursive_lock(info->shared_itimer_lock);
+    }
+    if (!info->shared_itimer || *info->shared_itimer_refcount == 0) {
+        if (INTERNAL_OPTION(profile_pcs)) {
+            /* no cleanup needed for non-final thread in group */
+            pcprofile_thread_exit(dcontext);
+        }
+        if (os_itimers_thread_shared())
+            global_heap_free(info->itimer, sizeof(*info->itimer) HEAPACCT(ACCT_OTHER));
+        else
+            heap_free(dcontext, info->itimer, sizeof(*info->itimer) HEAPACCT(ACCT_OTHER));
+        if (info->shared_itimer_lock != NULL) {
+            DELETE_RECURSIVE_LOCK(*info->shared_itimer_lock);
+            global_heap_free(info->shared_itimer_lock, sizeof(recursive_lock_t)
+                             HEAPACCT(ACCT_OTHER));
+            ASSERT(info->shared_itimer_refcount != NULL);
+            global_heap_free(info->shared_itimer_refcount, sizeof(int)
+                             HEAPACCT(ACCT_OTHER));
+            ASSERT(info->shared_itimer_underDR != NULL);
+            global_heap_free(info->shared_itimer_underDR, sizeof(int)
+                             HEAPACCT(ACCT_OTHER));
+        }
+    }
     for (i = 0; i < MAX_SIGNUM; i++) {
         /* pending queue is per-thread and not shared */
         while (info->sigpending[i] != NULL) {
@@ -1295,6 +1478,16 @@ signal_thread_exit(dcontext_t *dcontext)
             special_heap_free(info->sigheap, temp);
         }
     }
+#ifdef HAVE_SIGALTSTACK
+    /* restore app's alternate stack */
+    if (APP_HAS_SIGSTACK(info)) {
+        LOG(THREAD, LOG_ASYNCH, 2, "restoring app signal stack "PFX" - "PFX"\n",
+            info->app_sigstack.ss_sp,
+            info->app_sigstack.ss_sp + info->app_sigstack.ss_size);
+        i = sigaltstack_syscall(&info->app_sigstack, NULL);
+        ASSERT(i == 0);
+    }
+#endif
     special_heap_exit(info->sigheap);
     DELETE_LOCK(info->child_lock);
 #ifdef DEBUG
@@ -1306,7 +1499,10 @@ signal_thread_exit(dcontext_t *dcontext)
     HEAP_TYPE_FREE(dcontext, info, thread_sig_info_t, ACCT_OTHER, PROTECTED);
 #endif
 #ifdef PAPI
-    stop_itimer();
+    /* use SIGPROF for updating gui so it can be distinguished from SIGVTALRM */
+    set_itimer_callback(dcontext, ITIMER_PROF, 500,
+                        (void (*func)(dcontext_t *, dr_mcontext_t *))
+                        perfctr_update_gui());
 #endif
 }
 
@@ -1453,6 +1649,24 @@ handle_clone(dcontext_t *dcontext, uint flags)
         mutex_lock(&info->child_lock);
         info->num_unstarted_children++;
         mutex_unlock(&info->child_lock);
+    }
+
+    if (TEST(CLONE_THREAD, flags) && os_itimers_thread_shared()) {
+        if (!info->shared_itimer) {
+            /* this is the start of a chain of sharing
+             * no synch needed here, child not created yet
+             */
+            info->shared_itimer = true;
+            info->shared_itimer_refcount = (int *)
+                global_heap_alloc(sizeof(int) HEAPACCT(ACCT_OTHER));
+            *info->shared_itimer_refcount = 1;
+            info->shared_itimer_underDR = (int *)
+                global_heap_alloc(sizeof(int) HEAPACCT(ACCT_OTHER));
+            *info->shared_itimer_underDR = 1;
+            info->shared_itimer_lock = (recursive_lock_t *)
+                global_heap_alloc(sizeof(*info->shared_itimer_lock) HEAPACCT(ACCT_OTHER));
+            ASSIGN_INIT_RECURSIVE_LOCK_FREE(*info->shared_itimer_lock, shared_lock);
+        } /* else, some ancestor already created */
     }
 }
 
@@ -3414,30 +3628,13 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         /* else, don't deliver to app */
         break;
 
-#ifdef PAPI
-    /* use SIGPROF for updating gui so it can be distinguished from SIGVTALRM */
-    case SIGPROF: {
-        perfctr_update_gui();
-        break;
-    }
-#endif
-        
-    case SIGVTALRM: {
-        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
-        void *pc = (void *) sc->SC_XIP;
-        /* FIXME: how tell if for us or user?
-         * we have to intercept setitimer, and have us give timer interrupts
-         * to app!
-         */
-        if (INTERNAL_OPTION(profile_pcs)) {
-            /* vtalarm only used with pc profiling.  it interferes w/ PAPI
-             * so arm this signal only if necessary
-             */
-            pcprofile_alarm(dcontext, pc, (app_pc) sc->SC_XBP);
-        } else
+    case SIGALRM:
+    case SIGVTALRM:
+    case SIGPROF:
+        if (handle_alarm(dcontext, sig, ucxt))
             record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
+        /* else, don't deliver to app */
         break;
-    }
 
 #ifdef SIDELINE
     case SIGCHLD: {
@@ -3464,7 +3661,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
     }
     } /* end switch */
     
-    LOG(THREAD, LOG_ASYNCH, 3, "\tmaster_signal_handler %d returning now\n\n", sig);
+    LOG(THREAD, LOG_ASYNCH, level, "\tmaster_signal_handler %d returning now\n\n", sig);
 
     /* restore protections */
     if (local)
@@ -3826,6 +4023,9 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                  */
                 KSTOP_NOT_MATCHING_NOT_PROPAGATED(dispatch_num_exits);
                 enter_nolinking(dcontext, NULL, false);
+                /* FIXME PR 541760: there can be multiple thread groups and thus
+                 * this may not exit all threads in the address space
+                 */
                 cleanup_and_terminate(dcontext, SYS_kill, get_process_id(), sig, true);
                 ASSERT_NOT_REACHED();
             } else {
@@ -4364,62 +4564,415 @@ at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragmen
 }
 #endif /* RETURN_AFTER_CALL */
 
+/***************************************************************************
+ * ITIMERS
+ *
+ * We support combining an app itimer with a DR itimer for each of the 3 types
+ * (PR 204556).
+ */
+
+static inline uint64
+timeval_to_usec(struct timeval *t1)
+{
+    return ((uint64)(t1->tv_sec))*1000000 + t1->tv_usec;
+}
+
+static inline void
+usec_to_timeval(uint64 usec, struct timeval *t1)
+{
+    t1->tv_sec = (long) usec / 1000000;
+    t1->tv_usec = (long) usec % 1000000;
+}
+
+static void
+init_itimer(dcontext_t *dcontext, bool first)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    ASSERT(info != NULL);
+    ASSERT(!info->shared_itimer); /* else inherit */
+    LOG(THREAD, LOG_ASYNCH, 2, "thread has private itimers%s\n",
+        os_itimers_thread_shared() ? " (for now)" : "");
+    if (os_itimers_thread_shared()) {
+        /* we have to allocate now even if no itimer is installed until later,
+         * so that all child threads point to the same data
+         */
+        info->itimer = (thread_itimer_info_t (*)[NUM_ITIMERS])
+            global_heap_alloc(sizeof(*info->itimer) HEAPACCT(ACCT_OTHER));
+    } else {
+        /* for simplicity and parllel w/ shared we allocate proactively */
+        info->itimer = (thread_itimer_info_t (*)[NUM_ITIMERS])
+            heap_alloc(dcontext, sizeof(*info->itimer) HEAPACCT(ACCT_OTHER));
+    }
+    memset(info->itimer, 0, sizeof(*info->itimer));
+    if (first) {
+        /* see if app has set up an itimer before we were loaded */
+        struct itimerval prev;
+        int rc;
+        int which;
+        for (which = 0; which < NUM_ITIMERS; which++) {
+            rc = getitimer_syscall(which, &prev);
+            ASSERT(rc == SUCCESS);
+            (*info->itimer)[which].app.interval = timeval_to_usec(&prev.it_interval);
+            (*info->itimer)[which].app.value = timeval_to_usec(&prev.it_value);
+        }
+    }
+}
+
+/* Up to caller to hold lock for shared itimers */
+static bool
+set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
+                  bool enable)
+{
+    struct itimerval val;
+    int rc;
+    ASSERT(info != NULL && info->itimer != NULL);
+    ASSERT(which >= 0 && which < NUM_ITIMERS);
+    if (enable) {
+        ASSERT(!info->shared_itimer || self_owns_recursive_lock(info->shared_itimer_lock));
+        usec_to_timeval((*info->itimer)[which].actual.interval, &val.it_interval);
+        usec_to_timeval((*info->itimer)[which].actual.value, &val.it_value);
+        LOG(THREAD, LOG_ASYNCH, 2, "installing itimer %d interval="INT64_FORMAT_STRING
+            ", value="INT64_FORMAT_STRING"\n", which,
+            (*info->itimer)[which].actual.interval, (*info->itimer)[which].actual.value);
+    } else {
+        LOG(THREAD, LOG_ASYNCH, 2, "disabling itimer %d\n", which);
+        memset(&val, 0, sizeof(val));
+    }
+    rc = setitimer_syscall(which, &val, NULL);
+    return (rc == SUCCESS);
+}
+
+/* Caller should hold lock */
+bool
+itimer_new_settings(dcontext_t *dcontext, int which, bool app_changed)
+{
+    struct itimerval val;
+    bool res = true;
+    int rc;
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    ASSERT(info != NULL && info->itimer != NULL);
+    ASSERT(which >= 0 && which < NUM_ITIMERS);
+    ASSERT(!info->shared_itimer || self_owns_recursive_lock(info->shared_itimer_lock));
+    /* the general strategy is to set the actual value to the smaller,
+     * update the larger on each signal, and when the larger becomes
+     * smaller do a one-time swap for the remaining
+     */
+    if ((*info->itimer)[which].dr.interval > 0 &&
+        ((*info->itimer)[which].app.interval == 0 ||
+         (*info->itimer)[which].dr.interval < (*info->itimer)[which].app.interval))
+        (*info->itimer)[which].actual.interval = (*info->itimer)[which].dr.interval;
+    else
+        (*info->itimer)[which].actual.interval = (*info->itimer)[which].app.interval;
+
+    if ((*info->itimer)[which].actual.value > 0) {
+        if ((*info->itimer)[which].actual.interval == 0 &&
+            (*info->itimer)[which].dr.value == 0 &&
+            (*info->itimer)[which].app.value == 0) {
+            (*info->itimer)[which].actual.value = 0;
+            res = set_actual_itimer(dcontext, which, info, false/*disabled*/);
+        } else {
+            /* one of app or us has an in-flight timer which we should not interrupt.
+             * but, we already set the new requested value (for app or us), so we
+             * need to update the actual value so we subtract properly.
+             */
+            rc = getitimer_syscall(which, &val);
+            ASSERT(rc == SUCCESS);
+            uint64 left = timeval_to_usec(&val.it_value);
+            if (!app_changed &&
+                (*info->itimer)[which].actual.value == (*info->itimer)[which].app.value)
+                (*info->itimer)[which].app.value = left;
+            if (app_changed &&
+                (*info->itimer)[which].actual.value == (*info->itimer)[which].dr.value)
+                (*info->itimer)[which].dr.value = left;
+            (*info->itimer)[which].actual.value = left;
+        }
+    } else {
+        if ((*info->itimer)[which].dr.value > 0 &&
+            ((*info->itimer)[which].app.value == 0 ||
+             (*info->itimer)[which].dr.value < (*info->itimer)[which].app.value))
+            (*info->itimer)[which].actual.value = (*info->itimer)[which].dr.value;
+        else {
+            (*info->itimer)[which].actual.value = (*info->itimer)[which].app.value;
+        }
+        res = set_actual_itimer(dcontext, which, info, true/*enable*/);
+    }
+    return res;
+}
+
+bool
+set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,
+                    void (*func)(dcontext_t *, dr_mcontext_t *))
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    bool rc;
+    if (which < 0 || which >= NUM_ITIMERS) {
+        CLIENT_ASSERT(false, "invalid itimer type");
+        return false;
+    }
+    ASSERT(info != NULL && info->itimer != NULL);
+    if (info->shared_itimer)
+        acquire_recursive_lock(info->shared_itimer_lock);
+    (*info->itimer)[which].dr.interval = ((uint64)millisec)*1000;
+    (*info->itimer)[which].dr.value = (*info->itimer)[which].dr.interval;
+    (*info->itimer)[which].cb = func;
+    rc = itimer_new_settings(dcontext, which, false/*us*/);
+    if (info->shared_itimer)
+        release_recursive_lock(info->shared_itimer_lock);
+    return rc;
+}
+
+uint
+get_itimer_frequency(dcontext_t *dcontext, int which)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    uint ms = 0;
+    if (which < 0 || which >= NUM_ITIMERS) {
+        CLIENT_ASSERT(false, "invalid itimer type");
+        return 0;
+    }
+    ASSERT(info != NULL && info->itimer != NULL);
+    if (info->shared_itimer)
+        acquire_recursive_lock(info->shared_itimer_lock);
+    ms = (*info->itimer)[which].dr.interval / 1000;
+    if (info->shared_itimer)
+        release_recursive_lock(info->shared_itimer_lock);
+    return ms;
+}
+
+static bool
+handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    ASSERT(info != NULL && info->itimer != NULL);
+    struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+    int which = 0;
+    bool invoke_cb = false, pass_to_app = false, reset_timer_manually = false;
+    bool acquired_lock = false;
+    if (sig == SIGALRM)
+        which = ITIMER_REAL;
+    else if (sig == SIGVTALRM)
+        which = ITIMER_VIRTUAL;
+    else if (sig == SIGPROF)
+        which = ITIMER_PROF;
+    else
+        ASSERT_NOT_REACHED();
+    LOG(THREAD, LOG_ASYNCH, 2, "received alarm %d @"PFX"\n", which, sc->SC_XIP);
+
+    /* This alarm could have interrupted an app thread making an itimer syscall */
+    if (info->shared_itimer) {
+        if (self_owns_recursive_lock(info->shared_itimer_lock)) {
+            /* What can we do?  We just go ahead and hope conflicting writes work out. 
+             * We don't re-acquire in case app was in middle of acquiring.
+             */
+        } else if (try_recursive_lock(info->shared_itimer_lock) ||
+                   try_recursive_lock(info->shared_itimer_lock)) {
+            acquired_lock = true;
+        } else {
+            /* Heuristic: if fail twice then assume interrupted lock routine.
+             * What can we do?  Just continue and hope conflicting writes work out.
+             */
+        }
+    }
+    if ((*info->itimer)[which].app.value > 0) {
+        /* Alarm could have been on its way when app value changed */
+        if ((*info->itimer)[which].app.value >= (*info->itimer)[which].actual.value) {
+            (*info->itimer)[which].app.value -= (*info->itimer)[which].actual.value;
+            LOG(THREAD, LOG_ASYNCH, 2,
+                "\tapp value is now %d\n", (*info->itimer)[which].app.value);
+            if ((*info->itimer)[which].app.value == 0) {
+                pass_to_app = true;
+                (*info->itimer)[which].app.value = (*info->itimer)[which].app.interval;
+            } else
+                reset_timer_manually = true;
+        }
+    }
+    if ((*info->itimer)[which].dr.value > 0) {
+        /* Alarm could have been on its way when DR value changed */
+        if ((*info->itimer)[which].dr.value >= (*info->itimer)[which].actual.value) {
+            (*info->itimer)[which].dr.value -= (*info->itimer)[which].actual.value;
+            LOG(THREAD, LOG_ASYNCH, 2,
+                "\tdr value is now %d\n", (*info->itimer)[which].dr.value);
+            if ((*info->itimer)[which].dr.value == 0) {
+                invoke_cb = true;
+                (*info->itimer)[which].dr.value = (*info->itimer)[which].dr.interval;
+            } else
+                reset_timer_manually = true;
+        }
+    }
+    /* for efficiency we let the kernel reset the value to interval if
+     * there's only one timer
+     */
+    if (reset_timer_manually) {
+        (*info->itimer)[which].actual.value = 0;
+        itimer_new_settings(dcontext, which, true/*doesn't matter: actual.value==0*/);
+    } else
+        (*info->itimer)[which].actual.value = (*info->itimer)[which].actual.interval;
+
+    if (invoke_cb) {
+        /* invoke after setting new itimer value */
+        dr_mcontext_t mc;
+        sigcontext_to_mcontext(&mc, sc);
+        (*(*info->itimer)[which].cb)(dcontext, &mc);
+    }
+    if (info->shared_itimer && acquired_lock)
+        release_recursive_lock(info->shared_itimer_lock);
+    return pass_to_app;
+}
+   
 void
 start_itimer(dcontext_t *dcontext)
 {
-    int rc;
-
-    struct itimerval t;
-    t.it_interval.tv_sec = 0;
-    t.it_interval.tv_usec = 10000;
-    t.it_value.tv_sec = 0;
-    t.it_value.tv_usec = 10000;
-    rc = setitimer_syscall(ITIMER_VIRTUAL, &t, NULL);
-    ASSERT(rc == SUCCESS);
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    ASSERT(info != NULL && info->itimer != NULL);
+    bool start = false;
+    if (info->shared_itimer) {
+        acquire_recursive_lock(info->shared_itimer_lock);
+        (*info->shared_itimer_underDR)++;
+        start = (*info->shared_itimer_underDR == 1);
+    } else
+        start = true;
+    if (start) {
+        /* Enable all DR itimers b/c at least one thread in this set of threads
+         * sharing itimers is under DR control
+         */
+        int which;
+        LOG(THREAD, LOG_ASYNCH, 2, "starting DR itimers from thread %d\n",
+            get_thread_id());
+        for (which = 0; which < NUM_ITIMERS; which++) {
+            /* May have already been started if there was no stop_itimer() since
+             * init time
+             */
+            if ((*info->itimer)[which].dr.value == 0 &&
+                (*info->itimer)[which].dr.interval > 0) {
+                (*info->itimer)[which].dr.value = (*info->itimer)[which].dr.interval;
+                itimer_new_settings(dcontext, which, false/*!app*/);
+            }
+        }
+    }
+    if (info->shared_itimer)
+        release_recursive_lock(info->shared_itimer_lock);
 }
 
 void
-stop_itimer()
+stop_itimer(dcontext_t *dcontext)
 {
-    int rc;
-    struct itimerval t;
-    t.it_interval.tv_sec = 0;
-    t.it_interval.tv_usec = 0;
-    t.it_value.tv_sec = 0;
-    t.it_value.tv_usec = 0;
-    rc = setitimer_syscall(ITIMER_VIRTUAL, &t, NULL);
-    ASSERT(rc == SUCCESS);
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    ASSERT(info != NULL && info->itimer != NULL);
+    bool stop = false;
+    if (info->shared_itimer) {
+        acquire_recursive_lock(info->shared_itimer_lock);
+        ASSERT(*info->shared_itimer_underDR > 0);
+        (*info->shared_itimer_underDR)--;
+        stop = (*info->shared_itimer_underDR == 0);
+    } else
+        stop = true;
+    if (stop) {
+        /* Disable all DR itimers b/c this set of threads sharing this
+         * itimer is now compmletely native
+         */
+        int which;
+        LOG(THREAD, LOG_ASYNCH, 2, "stopping DR itimers from thread %d\n",
+            get_thread_id());
+        for (which = 0; which < NUM_ITIMERS; which++) {
+            if ((*info->itimer)[which].dr.value > 0) {
+                (*info->itimer)[which].dr.value = 0;
+                if ((*info->itimer)[which].app.value > 0) {
+                    (*info->itimer)[which].actual.interval =
+                        (*info->itimer)[which].app.interval;
+                } else
+                    set_actual_itimer(dcontext, which, info, false/*disable*/);
+            }
+        }
+    }
+    if (info->shared_itimer)
+        release_recursive_lock(info->shared_itimer_lock);
 }
 
-#ifdef PAPI
-void start_PAPI_timer()
+/* handle app itimer syscalls */
+void
+handle_pre_setitimer(dcontext_t *dcontext,
+                     int which, const struct itimerval *new_timer,
+                     struct itimerval *prev_timer)
 {
-    int rc;
-    struct itimerval t;
-    t.it_interval.tv_sec = 0;
-    t.it_interval.tv_usec = 500000;
-    t.it_value.tv_sec = 0;
-    t.it_value.tv_usec = 500000;
-
-    /* use realtime timer for papi updates */
-    rc = setitimer_syscall(ITIMER_PROF, &t, NULL);
-    ASSERT(rc == SUCCESS);
+    if (new_timer == NULL || which < 0 || which >= NUM_ITIMERS)
+        return;
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    ASSERT(info != NULL && info->itimer != NULL);
+    struct itimerval val;
+    if (safe_read(new_timer, sizeof(val), &val)) {
+        if (info->shared_itimer)
+            acquire_recursive_lock(info->shared_itimer_lock);
+        /* save a copy in case the syscall fails */
+        (*info->itimer)[which].app_saved = (*info->itimer)[which].app;
+        (*info->itimer)[which].app.interval = timeval_to_usec(&val.it_interval);
+        (*info->itimer)[which].app.value = timeval_to_usec(&val.it_value);
+        itimer_new_settings(dcontext, which, true/*app*/);
+        if (info->shared_itimer)
+            release_recursive_lock(info->shared_itimer_lock);
+    }
 }
 
-void stop_PAPI_timer()
+void
+handle_post_setitimer(dcontext_t *dcontext, bool success,
+                      int which, const struct itimerval *new_timer,
+                      struct itimerval *prev_timer)
 {
-    int rc;
-    struct itimerval t;
-    t.it_interval.tv_sec = 0;
-    t.it_interval.tv_usec = 0;
-    t.it_value.tv_sec = 0;
-    t.it_value.tv_usec = 0;
-
-    /* use realtime timer for papi updates */
-    rc = setitimer_syscall(ITIMER_PROF, &t, NULL);
-    ASSERT(rc == SUCCESS);
+    if (new_timer == NULL || which < 0 || which >= NUM_ITIMERS) {
+        ASSERT(new_timer == NULL || !success);
+        return;
+    }
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    ASSERT(info != NULL && info->itimer != NULL);
+    ASSERT(which >= 0 && which < NUM_ITIMERS);
+    if (!success && new_timer != NULL) {
+        if (info->shared_itimer)
+            acquire_recursive_lock(info->shared_itimer_lock);
+        /* restore saved pre-syscall settings */
+        (*info->itimer)[which].app = (*info->itimer)[which].app_saved;
+        itimer_new_settings(dcontext, which, true/*app*/);
+        if (info->shared_itimer)
+            release_recursive_lock(info->shared_itimer_lock);
+    }
+    if (success && prev_timer != NULL)
+        handle_post_getitimer(dcontext, success, which, prev_timer);
 }
-#endif /* PAPI */
+
+void
+handle_post_getitimer(dcontext_t *dcontext, bool success,
+                      int which, struct itimerval *cur_timer)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    ASSERT(info != NULL && info->itimer != NULL);
+    if (success) {
+        /* write succeeded for kernel but we're user and can have races */
+        struct timeval val;
+        DEBUG_DECLARE(bool ok;)
+        ASSERT(which >= 0 && which < NUM_ITIMERS);
+        ASSERT(cur_timer != NULL);
+        if (info->shared_itimer)
+            acquire_recursive_lock(info->shared_itimer_lock);
+        usec_to_timeval((*info->itimer)[which].app.interval, &val);
+        IF_DEBUG(ok = )
+            safe_write_ex(&cur_timer->it_interval, sizeof(val), &val, NULL);
+        ASSERT(ok);
+        if (safe_read(&cur_timer->it_value, sizeof(val), &val)) {
+            /* subtract the difference between last-asked-for value
+             * and current value to reflect elapsed time
+             */
+            uint64 left = (*info->itimer)[which].app.value -
+                ((*info->itimer)[which].actual.value - timeval_to_usec(&val));
+            usec_to_timeval(left, &val);
+            IF_DEBUG(ok = )
+                safe_write_ex(&cur_timer->it_value, sizeof(val), &val, NULL);
+            ASSERT(ok);
+        } else
+            ASSERT_NOT_REACHED();
+        if (info->shared_itimer)
+            release_recursive_lock(info->shared_itimer_lock);
+    }
+}
+
+/***************************************************************************/
 
 /* Returns whether to pass on to app */
 static bool

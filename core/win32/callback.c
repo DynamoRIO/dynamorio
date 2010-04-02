@@ -211,7 +211,7 @@ intercept_asynch_common(thread_record_t *tr, bool intercept_unknown)
         if (tr->under_dynamo_control == UNDER_DYN_HACK)
             STATS_INC(num_asynch_while_lost);
     });
-    return (tr->under_dynamo_control);
+    return (tr->under_dynamo_control || IS_CLIENT_THREAD(tr->dcontext));
 }
 
 /* if tid != self, must hold thread_initexit_lock */
@@ -2475,13 +2475,20 @@ asynch_take_over(app_state_at_intercept_t *state)
 }
 
 static void
-possible_new_thread_wait_for_dr_init()
+possible_new_thread_wait_for_dr_init(CONTEXT *cxt)
 {
     /* Because of problems with injected threads while we are initializing
      * (case 5167, 5020, 5103 bunch of others) we block here while the main
      * thread finishes initializing. Once dynamo_exited is set is safe to
      * let the thread continue since dynamo_thread_init will imediately
      * return. */
+#ifdef CLIENT_SIDELINE
+    /* We allow a client init routine to create client threads: DR is
+     * initialized enough by now
+     */
+    if (((void *)cxt->CXT_XIP == (void *)client_thread_target))
+        return;
+#endif
     while (!dynamo_initialized && !dynamo_exited) {
         STATS_INC(apc_yields_while_initializing);
         thread_yield();
@@ -2493,6 +2500,10 @@ possible_new_thread_wait_for_dr_init()
 static bool
 intercept_new_thread(CONTEXT *cxt)
 {
+#ifdef CLIENT_INTERFACE
+    bool is_client = false;
+#endif
+    byte *dstack = NULL;
     /* init apc, check init_apc_go_native to sync w/detach */
     if (init_apc_go_native) {
         /* need to wait after checking _go_native to avoid a thread 
@@ -2522,12 +2533,41 @@ intercept_new_thread(CONTEXT *cxt)
      * thread initialization
      */
 
+    /* see notes below about these values */
+#define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)
+#define THREAD_START_ARG  IF_X64_ELSE(CXT_XDX, CXT_XBX)
+
     /* initialize thread now */
-    if (dynamo_thread_init(NULL) != -1) {
+#ifdef CLIENT_SIDELINE
+    /* i#41/PR 222812: client threads target a certain routine and always
+     * directly never via win API (so we don't check THREAT_START_ADDR)
+     */
+    is_client = ((void *)cxt->CXT_XIP == (void *)client_thread_target);
+    if (is_client) {
+        /* client threads start out on dstack */
+        GET_STACK_PTR(dstack);
+        ASSERT(is_dynamo_address(dstack));
+        /* we assume that less than a page will have been used */
+        dstack = (byte *) ALIGN_FORWARD(dstack, PAGE_SIZE);
+    }
+#endif
+    if (dynamo_thread_init(dstack _IF_CLIENT_INTERFACE(is_client)) != -1) {
         app_pc thunk_xip = (app_pc)cxt->CXT_XIP;
         dcontext_t *dcontext = get_thread_private_dcontext();
         LOG_DECLARE(char sym_buf[MAXIMUM_SYMBOL_LENGTH];)
         bool is_nudge_thread = false;
+
+#ifdef CLIENT_SIDELINE
+        if (is_client) {
+            ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP));
+            /* PR 210591: hide our threads from DllMain by not executing rest
+             * of Ldr init code and going straight to target.  create_thread()
+             * already set up the arg in cxt.
+             */
+            nt_continue(cxt);
+            ASSERT_NOT_REACHED();
+        }
+#endif
 
         /* Xref case 552, to ameliorate the risk of an attacker
          * leveraging our detach routines etc. against us, we detect
@@ -2546,7 +2586,7 @@ intercept_new_thread(CONTEXT *cxt)
          * thin_client needs it; part of cases 8884, 8594 & 8888. */
         ASSERT(dcontext != NULL && dcontext->nudge_target == NULL);
         if ((void *)cxt->CXT_XIP == (void *)generic_nudge_target ||
-            (void *)cxt->CXT_XAX == (void *)generic_nudge_target) {
+            (void *)cxt->THREAD_START_ADDR == (void *)generic_nudge_target) {
             LOG(THREAD, LOG_ALL, 1, "Thread targeting nudge.\n");
             if (dcontext != NULL) {
                 dcontext->nudge_target = (void *)generic_nudge_target;
@@ -2615,9 +2655,7 @@ intercept_new_thread(CONTEXT *cxt)
          */
         /* keep in mind this is a 16-bit match */
 #define BASE_THREAD_START_THUNK_USHORT  0xed33
-#define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)
-#define THREAD_START_ARG  IF_X64_ELSE(CXT_XDX, CXT_XBX)
-        
+
         /* see comments in os.c pre_system_call CreateThread, Xax holds
          * the win32 start address (Nebbett), Xbx holds the argument
          * (observation). Same appears to hold for CreateThreadEx. */
@@ -2748,20 +2786,20 @@ ntdll!LdrInitializeThunk:
 static after_intercept_action_t  /* note return value will be ignored */
 intercept_ldr_init(app_state_at_intercept_t *state)
 {
+    CONTEXT *cxt;
+#ifdef X64
+    cxt = (CONTEXT *)(state->mc.xcx);
+#else
+    cxt = (*(CONTEXT **)(state->mc.xsp + LDR_INIT_CXT_XSP_OFFSET));
+#endif
+
     /* we only hook this routine on vista */
     ASSERT(get_os_version() == WINDOWS_VERSION_VISTA);
 
     /* this might be a new thread */
-    possible_new_thread_wait_for_dr_init();
+    possible_new_thread_wait_for_dr_init(cxt);
 
     if (intercept_asynch_for_self(true/*we want unknown threads*/)) {
-        CONTEXT *cxt;
-#ifdef X64
-        cxt = (CONTEXT *)(state->mc.xcx);
-#else
-        cxt = (*(CONTEXT **)(state->mc.xsp + LDR_INIT_CXT_XSP_OFFSET));
-#endif
-
         if (!is_thread_initialized()) {
             if (intercept_new_thread(cxt))
                 return AFTER_INTERCEPT_LET_GO;
@@ -2883,8 +2921,15 @@ cb stack when an exception will abandon that cb frame.
 static after_intercept_action_t  /* note return value will be ignored */
 intercept_apc(app_state_at_intercept_t *state)
 {
+    CONTEXT *cxt;
+    /* the CONTEXT is laid out on the stack itself
+     * from examining KiUserApcDispatcher, we know it's 16 bytes up
+     * we try to verify that at interception time via check_apc_context_offset
+     */
+    cxt = ((CONTEXT *)(state->mc.xsp + APC_CONTEXT_XSP_OFFS));
+
     /* this might be a new thread */
-    possible_new_thread_wait_for_dr_init();
+    possible_new_thread_wait_for_dr_init(cxt);
 
     /* FIXME: should we only intercept apc for non-initialized thread
      * with start/stop interface?
@@ -2892,21 +2937,13 @@ intercept_apc(app_state_at_intercept_t *state)
      *  2nd call turns into nop)
      */
     if (intercept_asynch_for_self(true/*we want unknown threads*/)) {
-        CONTEXT *cxt;
         dcontext_t *dcontext;
         DEBUG_DECLARE(app_pc apc_target;)
         if (get_thread_private_dcontext() != NULL)
             SELF_PROTECT_LOCAL(get_thread_private_dcontext(), WRITABLE);
         /* won't be re-protected until dispatch->fcache */
 
-        /* the CONTEXT is laid out on the stack itself
-         * from examining KiUserApcDispatcher, we know it's 16 bytes up
-         * we try to verify that at interception time via check_apc_context_offset
-         */
-        cxt = ((CONTEXT *)(state->mc.xsp + APC_CONTEXT_XSP_OFFS));
-
         RSTATS_INC(num_APCs);
-
         
 #ifdef DEBUG
         /* retrieve info on this APC call */
@@ -3074,7 +3111,8 @@ intercept_apc(app_state_at_intercept_t *state)
             /* our internal nudge creates a thread that directly targets
              * generic_nudge_target() */
             ASSERT(!is_dynamo_address((app_pc)cxt->CXT_XIP) || 
-                   cxt->CXT_XIP == (ptr_uint_t)generic_nudge_target);
+                   cxt->CXT_XIP == (ptr_uint_t)generic_nudge_target
+                   IF_CLIENT_INTERFACE(|| cxt->CXT_XIP==(ptr_uint_t)client_thread_target));
         }
 
         asynch_retakeover_if_native();
@@ -6265,7 +6303,7 @@ intercept_image_entry(app_state_at_intercept_t *state)
 
         /* we must create a new dcontext to be a 'known' thread */
         /* initialize thread now */
-        if (dynamo_thread_init(NULL) != -1) {
+        if (dynamo_thread_init(NULL _IF_CLIENT_INTERFACE(false)) != -1) {
             LOG(THREAD_GET, LOG_ASYNCH, 1, "just initialized primary thread \n");
             /* keep in synch if we do anything else in intercept_new_thread() */
         } else {

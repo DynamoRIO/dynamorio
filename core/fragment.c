@@ -2693,12 +2693,16 @@ get_total_linkcount(fragment_t *f)
 void
 fragment_get_fragment_delete_mutex(dcontext_t *dcontext)
 {
+    if (dynamo_exited || dcontext == GLOBAL_DCONTEXT)
+        return;
     mutex_lock(&(((per_thread_t *) dcontext->fragment_field)->fragment_delete_mutex));
 }
 
 void
 fragment_release_fragment_delete_mutex(dcontext_t *dcontext)
 {
+    if (dynamo_exited || dcontext == GLOBAL_DCONTEXT)
+        return;
     mutex_unlock(&(((per_thread_t *) dcontext->fragment_field)->fragment_delete_mutex));
 }
 #endif

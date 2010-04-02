@@ -611,6 +611,7 @@ sec_trans_probe). \endif
  - Address space querying
  - Application module iterator
  - Processor feature identification
+ - Extra thread creation
 \if future - FIXME: try...except, or safe_rw? \endif
 
 See dr_tools.h and dr_proc.h for specifics of each routine.

@@ -67,6 +67,10 @@
 #include "asm_defines.asm"
 START_FILE
 
+#ifdef LINUX
+# include "syscall.h"
+#endif
+        
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) mov dest, PTRSZ [offs + reg]
 #define SAVE_TO_DCONTEXT_VIA_REG(reg,offs,src) mov PTRSZ [offs + reg], src
         
@@ -519,8 +523,9 @@ cat_done_saving_dstack:
         CALLC0(get_cleanup_and_terminate_global_do_syscall_entry)
         push     REG_XBX /* 16-byte aligned again */
         push     REG_XAX
-        mov      REG_XSI, [5*ARG_SZ + REG_XBP] /* exitproc */
-        cmp      REG_XSI, 0
+        /* upper bytes are 0xab so only look at lower bytes */
+        mov      esi, DWORD [5*ARG_SZ + REG_XBP] /* exitproc */
+        cmp      esi, 0
         jz       cat_thread_only
         CALLC0(dynamo_process_exit)
         jmp      cat_no_thread
@@ -614,100 +619,6 @@ cat_have_lock:
         jmp      REG_XSI  /* go do the syscall! */
 #endif
         END_FUNC(cleanup_and_terminate)
-
-/*
- * cleanup_and_terminate_client_thread(
- *                       int sysnum,               // 1*ARG_SZ+XBP = syscall #
- *                       byte *stack_base,         // 2*ARG_SZ+XBP =base of stack to free
- *                       int sys_arg1/param_base,  // 3*ARG_SZ+XBP = arg1 for syscall
- *                       int sys_arg2)              // 4*ARG_SZ+XBP = arg2 for syscall
- *
- * Swaps to initstack, calls nt_remote_free_virtual_memory on
- * [stack_base, stack_base+stack_size), and then calls system call sysnum
- * with parameter base param_base.
- *
- * Note that the caller is responsible for placing the actual syscall arguments
- * at the correct offset from edx (or ebx).  See SYSCALL_PARAM_OFFSET in
- * win32 os.c for more info.
- * Assumes the caller already incremented exiting_thread_count and
- * removed the thread from all_threads_list.
- */
-#ifdef CLIENT_SIDELINE /* PR 222812 */
-#ifdef WINDOWS /* we hardcoded nt_free_virtual_memory for now */
-        DECLARE_FUNC(cleanup_and_terminate_client_thread)
-GLOBAL_LABEL(cleanup_and_terminate_client_thread:)
-        mov      REG_XSP, REG_XBP
-#ifdef X64
-        lea      REG_XSP, [-ARG_SZ + REG_XSP] /* maintain align-16: undo retaddr */
-        /* param regs are caller-saved so we must save to stack here */
-# ifdef LINUX
-        /* no padding so we make our own space */
-        lea      REG_XSP, [-4*ARG_SZ + REG_XSP]
-# endif
-        mov      [1*ARG_SZ + REG_XBP], ARG1
-        mov      [2*ARG_SZ + REG_XBP], ARG2
-        mov      [3*ARG_SZ + REG_XBP], ARG3
-        mov      [4*ARG_SZ + REG_XBP], ARG4
-#endif
-        /* switch to initstack for cleanup of current stack */
-        mov      ecx, 1
-catct_spin:       
-        xchg     ecx, DWORD SYMREF(initstack_mutex) /* rip-relative on x64 */
-        jecxz    catct_have_lock
-        /* try again -- too few free regs to call sleep() */
-        pause
-        jmp      catct_spin
-catct_have_lock:
-        /* swap stacks */
-        mov      REG_XSP, DWORD SYMREF(initstack) /* rip-relative on x64 */
-        /* save what we need for termination syscall */
-        push     [4*ARG_SZ + REG_XBP] /* sys_arg2 */
-        push     [3*ARG_SZ + REG_XBP] /* sys_arg1 => 16-byte aligned */
-        /* avoid sygate sysenter version as our stack may be static const at 
-         * that point, caller will take care of sygate hack */
-        CALLC0(get_cleanup_and_terminate_global_do_syscall_entry)
-        push     REG_XAX
-        push     [1*ARG_SZ + REG_XBP]  /* sysnum => 16-byte aligned */
-        /* make call to nt_remote_free_virtual_memory */
-        mov      REG_XAX, [2*ARG_SZ + REG_XBP]  /* stack_base */
-        CALLC1(nt_free_virtual_memory, REG_XAX)
-        /* finally, execute the termination syscall */
-        pop      REG_XAX   /* sysnum */
-#ifdef X64
-        /* We assume we're doing "syscall" on Windows & Linux, where r10 is dead */
-        pop      r10       /* syscall, in reg dead at syscall */
-# ifdef LINUX
-        pop      REG_XDI   /* sys_arg1 */
-        pop      REG_XSI   /* sys_arg2 */
-# else
-        pop      REG_XCX   /* sys_arg1 */
-        pop      REG_XDX   /* sys_arg2 */
-# endif
-#else
-        pop      REG_XSI   /* syscall */
-# ifdef LINUX
-        pop      REG_XBX   /* sys_arg1 */
-        pop      REG_XCX   /* sys_arg2 */
-# else
-        pop      REG_XDX   /* sys_arg1 == param_base */
-        /* sys_arg2 unused */
-# endif
-#endif
-        /* give up initstack mutex -- potential problem here with a thread getting 
-         *   an asynch event that then uses initstack, but syscall should only care 
-         *   about ebx and edx */
-        mov      DWORD SYMREF(initstack_mutex), 0 /* rip-relative on x64 */
-        /* we are finished with all shared resources, decrement the  
-         * exiting_thread_count (allows another thread to kill us) */
-        lock dec DWORD SYMREF(exiting_thread_count) /* rip-relative on x64 */
-#ifdef X64
-        jmp      r10      /* go do the syscall! */
-#else
-        jmp      REG_XSI  /* go do the syscall! */
-#endif
-        END_FUNC(cleanup_and_terminate_client_thread)
-#endif /* WINDOWS */
-#endif /* CLIENT_SIDELINE */
 
 /* global_do_syscall_int
  * Caller is responsible for all set up.  For windows this means putting the
@@ -1287,6 +1198,49 @@ no_swap:
         ret
         END_FUNC(master_signal_handler)
 #endif /* !HAVE_SIGALTSTACK */
+
+/* SYS_clone swaps the stack so we need asm support to call it.
+ * signature:
+ *   thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
+ *                               void *ctid, void (*func)(void))
+ */
+        DECLARE_FUNC(dynamorio_clone)
+GLOBAL_LABEL(dynamorio_clone:)
+        /* save func for use post-syscall on the newsp.
+         * when using clone_record_t we have 4 slots we can clobber.
+         */
+# ifdef X64
+        sub      ARG2, ARG_SZ
+        mov      [ARG2], ARG6 /* func is now on TOS of newsp */
+        /* all args are already in syscall registers */
+        mov      r10, rcx
+        mov      REG_XAX, SYS_clone
+        syscall
+# else
+        mov      REG_XAX, ARG6
+        mov      REG_XCX, ARG2
+        sub      REG_XCX, ARG_SZ
+        mov      [REG_XCX], REG_XAX /* func is now on TOS of newsp */
+        mov      REG_XBX, ARG1
+        mov      REG_XDX, ARG3
+        mov      REG_XSI, ARG4
+        mov      REG_XDI, ARG5
+        mov      REG_XAX, SYS_clone
+        /* PR 254280: we assume int$80 is ok even for LOL64 */
+        int      HEX(80)
+# endif
+        cmp      REG_XAX, 0
+        jne      dynamorio_clone_parent
+        /* avoid conflicts w/ parent's TLS by clearing our reg now */
+        mov      SEG_TLS, ax
+        pop      REG_XCX
+        call     REG_XCX
+        /* shouldn't return */
+        jmp      unexpected_return
+dynamorio_clone_parent:
+        /* return val is in eax still */
+        ret
+        END_FUNC(dynamorio_clone)
 
 #endif /* LINUX */
 

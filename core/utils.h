@@ -307,8 +307,6 @@ enum {
 
 #if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
     LOCK_RANK(sideline_mutex), 
-    LOCK_RANK(sideline_heap_lock),
-    LOCK_RANK(fragment_delete_mutex),
 #endif
 
     LOCK_RANK(shared_cache_flush_lock), /* < shared_cache_count_lock,
@@ -326,6 +324,10 @@ enum {
     LOCK_RANK(shared_vm_areas), /* > change_linking_lock, < executable_areas  */
     LOCK_RANK(shared_cache_count_lock),
     LOCK_RANK(tracedump_mutex),  /* < table_rwlock, > change_linking_lock */
+
+#if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
+    LOCK_RANK(fragment_delete_mutex),
+#endif
 
     LOCK_RANK(emulate_write_lock), /* in future may be < emulate_write_areas */
 
@@ -394,7 +396,7 @@ enum {
 #ifdef CLIENT_INTERFACE
     /* PR 198871: this same label is used for all client locks */
     LOCK_RANK(dr_client_mutex), /* > module_data_lock */
-    LOCK_RANK(client_nudge_count_lock), /* > dr_client_mutex */
+    LOCK_RANK(client_thread_count_lock), /* > dr_client_mutex */
     LOCK_RANK(client_flush_request_lock), /* > dr_client_mutex */
     LOCK_RANK(callback_registration_lock), /* > dr_client_mutex */
     LOCK_RANK(client_tls_lock), /* > dr_client_mutex */
@@ -617,8 +619,8 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 /* in order to use parallel names to the above INIT_*LOCK routines */
 #define DELETE_LOCK(lock) mutex_delete(&lock)
 #define DELETE_SPINMUTEX(spinmutex) spinmutex_delete(&spinmutex)
-#define DELETE_RECURSIVE_LOCK(rec_lock) mutex_delete(&rec_lock.lock)
-#define DELETE_READWRITE_LOCK(rwlock) mutex_delete(&rwlock.lock)
+#define DELETE_RECURSIVE_LOCK(rec_lock) mutex_delete(&(rec_lock).lock)
+#define DELETE_READWRITE_LOCK(rwlock) mutex_delete(&(rwlock).lock)
 /* mutexes need to release any kernel objects that were created */
 void mutex_delete(mutex_t *lock); 
 

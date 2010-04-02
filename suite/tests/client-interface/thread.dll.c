@@ -31,6 +31,16 @@
  */
 
 #include "dr_api.h"
+#ifdef LINUX
+# include <sys/time.h>
+#endif
+
+#ifdef WINDOWS
+# define THREAD_ARG ((void *) dr_get_process_id())
+#else
+/* thread actually has own pid so just using a constant to test arg passing */
+# define THREAD_ARG ((void *)37)
+#endif
 
 /* Eventually this routine will test i/o by waiting on a file */
 
@@ -63,6 +73,42 @@ static uint tls_offs;
                     __FILE__,  __LINE__, #x), \
          dr_abort(), 0) : 0))
 
+static bool child_alive;
+static bool child_continue;
+static bool child_dead;
+
+#ifdef LINUX
+/* test PR 368737: add client timer support */
+static void
+event_timer(void *drcontext, dr_mcontext_t *mcontext)
+{
+    dr_fprintf(STDERR, "event_timer fired\n");
+    if (!dr_set_itimer(ITIMER_REAL, 0, event_timer))
+        dr_fprintf(STDERR, "unable to disable timer\n");
+}
+#endif
+
+static void
+thread_func(void *arg)
+{
+    /* FIXME: should really test corner cases: do raw system calls, etc. to
+     * ensure we're treating it as a true native thread
+     */
+    ASSERT(arg == THREAD_ARG);
+    child_alive = true;
+    dr_fprintf(STDERR, "client thread is alive\n");
+#ifdef LINUX
+    if (!dr_set_itimer(ITIMER_REAL, 10, event_timer))
+        dr_fprintf(STDERR, "unable to set timer callback\n");
+    dr_sleep(30);
+#endif
+    /* FIXME i#279: do we now have to provide condition vars, etc.?!? */
+    while (!child_continue)
+        dr_thread_yield();
+    dr_fprintf(STDERR, "client thread is dying\n");
+    child_dead = true;
+}
+
 static void 
 at_lea(uint opc, app_pc tag)
 {
@@ -82,6 +128,8 @@ static
 dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
+    int num_nops = 0;
+    bool in_nops = false;
     
     for (instr = instrlist_first(bb);
          instr != NULL; instr = next_instr) {
@@ -100,6 +148,33 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
                                  2, OPND_CREATE_INT32(instr_get_opcode(instr)),
                                  OPND_CREATE_INTPTR(tag));
         }
+        if (instr_get_opcode(instr) == OP_nop) {
+            if (!in_nops) {
+                in_nops = true;
+                num_nops = 1;
+            } else
+                num_nops++;
+        } else
+            in_nops = false;
+    }
+    if (num_nops == 7) {
+        /* PR 210591: test transparency by having client create a thread after
+         * app has loaded a library and ensure its DllMain is not notified
+         */
+        bool success;
+        /* reset cond vars */
+        child_alive = false;
+        child_continue = false;
+        child_dead = false;
+        success = dr_create_client_thread(thread_func, THREAD_ARG);
+        ASSERT(success);
+        while (!child_alive)
+            dr_thread_yield();
+        child_continue = true;
+        while (!child_dead)
+            dr_thread_yield();
+        dr_fprintf(STDERR, "PR 210591: client transparency test passed\n");
+        child_dead = true;
     }
     return DR_EMIT_DEFAULT;
 }
@@ -124,29 +199,6 @@ str_eq(const char *s1, const char *s2)
     }
     return false;
 }
-
-/* FIXME PR 222812: not supported yet */
-#ifdef CLIENT_SIDELINE
-static bool child_alive;
-static bool child_continue;
-
-static void
-thread_func(void *arg)
-{
-    /* FIXME: should really test corner cases: do raw system calls, etc. to
-     * ensure we're treating it as a true native thread
-     */
-    ASSERT((process_id_t) arg == dr_get_process_id());
-    child_alive = true;
-    dr_fprintf(STDERR, "client thread is alive\n");
-    /* FIXME: do we now have to provide condition vars, etc.?!? */
-    while (!child_continue)
-        dr_thread_yield();
-    dr_fprintf(STDERR, "client thread is dying\n");
-    dr_terminate_client_thread();
-    DR_ASSERT_MSG(false, "should not get here");
-}
-#endif
 
 static void
 thread_init_event(void *drcontext)
@@ -226,14 +278,13 @@ void dr_init(client_id_t id)
         dr_fprintf(STDERR, "...passed\n");
     }
 
-#ifdef CLIENT_SIDELINE
     /* PR 222812: client thread */
-    success = dr_create_client_thread(thread_func, (void *) dr_get_process_id(),
-                                      12*PAGE_SIZE, 10*PAGE_SIZE);
+    success = dr_create_client_thread(thread_func, THREAD_ARG);
     ASSERT(success);
     while (!child_alive)
         dr_thread_yield();
     child_continue = true;
+    while (!child_dead)
+        dr_thread_yield();
     dr_fprintf(STDERR, "PR 222812: client thread test passed\n");
-#endif
 }

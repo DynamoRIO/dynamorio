@@ -3660,7 +3660,7 @@ get_global_do_syscall_entry()
         /* PR 205310: we sometimes have to execute syscalls before we
          * see an app syscall: for a signal default action, e.g.
          */
-        return (byte *)global_do_syscall_int;
+        return (byte *)IF_X64_ELSE(global_do_syscall_syscall,global_do_syscall_int);
 #else
         ASSERT_NOT_REACHED();
 #endif

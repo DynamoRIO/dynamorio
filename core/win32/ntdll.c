@@ -3898,19 +3898,17 @@ create_process(wchar_t *exe, wchar_t *cmdline)
  */
 /* returns INVALID_HANDLE_VALUE on error */
 HANDLE
-create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
-              void *arg, const void *arg_buf, size_t arg_buf_size,
-              uint stack_reserve, uint stack_commit, bool suspended, thread_id_t *tid)
+create_thread_common(HANDLE hProcess, bool target_64bit, void *start_addr,
+                     void *arg, const void *arg_buf, size_t arg_buf_size,
+                     USER_STACK *stack, bool suspended, thread_id_t *tid)
 {
     HANDLE hthread;
-    USER_STACK stack = {0};
     OBJECT_ATTRIBUTES oa;
     CLIENT_ID cid;
     /* Context must be 16 byte aligned on 64bit */
     byte context_buf[sizeof(CONTEXT)+16] = {0};
     CONTEXT *context = (CONTEXT *)ALIGN_FORWARD(context_buf, 16);
-    uint num_commit_bytes, old_prot;
-    void *p, *thread_arg = arg;
+    void *thread_arg = arg;
     size_t written;
     ptr_uint_t final_stack = 0;
     NTSTATUS res;
@@ -3926,36 +3924,6 @@ create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
 
     InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, NULL, NULL);
   
-    ASSERT(stack_commit + PAGE_SIZE <= stack_reserve &&
-           ALIGNED(stack_commit, PAGE_SIZE) && 
-           ALIGNED(stack_reserve, PAGE_SIZE));
-    if (!NT_SUCCESS(nt_remote_allocate_virtual_memory(hProcess, 
-                                                      &stack.ExpandableStackBottom,
-                                                      stack_reserve, PAGE_READWRITE,
-                                                      MEM_RESERVE))) {
-        NTPRINT("create_thread: failed to allocate stack\n");
-        return INVALID_HANDLE_VALUE;
-    }
-    /* FIXME : for failures beyond this point we don't bother deallocating the
-     * stack. */
-    stack.ExpandableStackBase = 
-        ((byte *)stack.ExpandableStackBottom) + stack_reserve;
-    stack.ExpandableStackLimit = 
-        ((byte *)stack.ExpandableStackBase) - stack_commit;
-    num_commit_bytes = stack_commit + PAGE_SIZE;
-    p = ((byte *)stack.ExpandableStackBase) - num_commit_bytes;
-    if (!NT_SUCCESS(nt_remote_allocate_virtual_memory(hProcess, &p, num_commit_bytes,
-                                                      PAGE_READWRITE, MEM_COMMIT))) {
-        NTPRINT("create_thread: failed to commit stack pages\n");
-        return INVALID_HANDLE_VALUE;
-    }
-    if (!nt_remote_protect_virtual_memory(hProcess, p, PAGE_SIZE,
-                                          PAGE_READWRITE|PAGE_GUARD,
-                                          &old_prot)) {
-        NTPRINT("create_thread: failed to protect stack guard page\n");
-        return INVALID_HANDLE_VALUE;
-    }
-
     /* set the context: initialize with our own
      * We need CONTEXT_CONTROL and CONTEXT_INTEGER for setting the state here.  Also,
      * on 2k3 (but not XP) we appear to need CONTEXT_SEGMENTS (xref PR 269230) as well.
@@ -3964,7 +3932,7 @@ create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
      * implemented. */
     context->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS;
     GET_OWN_CONTEXT(context);
-    context->CXT_XSP = (ptr_uint_t) stack.ExpandableStackBase;
+    context->CXT_XSP = (ptr_uint_t) stack->ExpandableStackBase;
     context->CXT_XIP = (ptr_uint_t) start_addr;
 
     /* write the argument(s) */
@@ -4004,7 +3972,7 @@ create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
 
     /* create the thread - NOTE always creating suspended (see below) */
     res = NT_SYSCALL(CreateThread, &hthread, THREAD_ALL_ACCESS, &oa, 
-                     hProcess, &cid, context, &stack, (byte)TRUE);
+                     hProcess, &cid, context, stack, (byte)TRUE);
     if (!NT_SUCCESS(res)) {
         NTPRINT("create_thread: failed to create thread\n");
         return INVALID_HANDLE_VALUE;
@@ -4025,6 +3993,65 @@ create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
     if (tid != NULL)
         *tid = (thread_id_t)cid.UniqueThread;
     return hthread;
+}
+
+/* Creates a new stack w/ guard page */
+HANDLE
+create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
+              void *arg, const void *arg_buf, size_t arg_buf_size,
+              uint stack_reserve, uint stack_commit, bool suspended, thread_id_t *tid)
+{
+    USER_STACK stack = {0};
+    uint num_commit_bytes, old_prot;
+    void *p;
+
+    ASSERT(stack_commit + PAGE_SIZE <= stack_reserve &&
+           ALIGNED(stack_commit, PAGE_SIZE) && 
+           ALIGNED(stack_reserve, PAGE_SIZE));
+    if (!NT_SUCCESS(nt_remote_allocate_virtual_memory(hProcess, 
+                                                      &stack.ExpandableStackBottom,
+                                                      stack_reserve, PAGE_READWRITE,
+                                                      MEM_RESERVE))) {
+        NTPRINT("create_thread: failed to allocate stack\n");
+        return INVALID_HANDLE_VALUE;
+    }
+    /* FIXME : for failures beyond this point we don't bother deallocating the
+     * stack. */
+    stack.ExpandableStackBase = 
+        ((byte *)stack.ExpandableStackBottom) + stack_reserve;
+    stack.ExpandableStackLimit = 
+        ((byte *)stack.ExpandableStackBase) - stack_commit;
+    num_commit_bytes = stack_commit + PAGE_SIZE;
+    p = ((byte *)stack.ExpandableStackBase) - num_commit_bytes;
+    if (!NT_SUCCESS(nt_remote_allocate_virtual_memory(hProcess, &p, num_commit_bytes,
+                                                      PAGE_READWRITE, MEM_COMMIT))) {
+        NTPRINT("create_thread: failed to commit stack pages\n");
+        return INVALID_HANDLE_VALUE;
+    }
+    if (!nt_remote_protect_virtual_memory(hProcess, p, PAGE_SIZE,
+                                          PAGE_READWRITE|PAGE_GUARD,
+                                          &old_prot)) {
+        NTPRINT("create_thread: failed to protect stack guard page\n");
+        return INVALID_HANDLE_VALUE;
+    }
+
+    return create_thread_common(hProcess, target_64bit, start_addr, arg,
+                                arg_buf, arg_buf_size, &stack, suspended, tid);
+}
+
+/* Uses caller-allocated stack */
+HANDLE
+create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
+                         void *arg, const void *arg_buf, size_t arg_buf_size,
+                         byte *stack_base, size_t stack_size,
+                         bool suspended, thread_id_t *tid)
+{
+    USER_STACK stack = {0};
+    stack.ExpandableStackBase = stack_base;
+    stack.ExpandableStackLimit = stack_base - stack_size;
+    stack.ExpandableStackBottom = stack_base - stack_size;
+    return create_thread_common(hProcess, target_64bit, start_addr, arg,
+                                arg_buf, arg_buf_size, &stack, suspended, tid);
 }
 #endif /* !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER) */
 

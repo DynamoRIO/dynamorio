@@ -219,9 +219,9 @@ delete_thread(pid_t pid, void *stack)
 {
     pid_t result;
     /* do not print out pids to make diff easy */
-    printf("Waiting for child to exit\n");
+    fprintf(stderr, "Waiting for child to exit\n");
     result = waitpid(pid, NULL, 0);
-    printf("Child has exited\n");
+    fprintf(stderr, "Child has exited\n");
     if (result == -1 || result != pid) {
         /* somehow getting errors: ignoring for now since works */
 #if VERBOSE
