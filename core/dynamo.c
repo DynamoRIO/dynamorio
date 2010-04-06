@@ -776,6 +776,8 @@ dynamorio_fork_init(dcontext_t *dcontext)
      * on a fork -- probably everyone who makes a log file on init.
      */
     fragment_fork_init(dcontext);
+    /* this must be called after dynamo_other_thread_exit() above */
+    signal_fork_init(dcontext);
 
 # ifdef CLIENT_INTERFACE
     if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {

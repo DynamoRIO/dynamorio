@@ -1528,10 +1528,6 @@ os_fork_init(dcontext_t *dcontext)
     pid_cached = get_process_id();
     get_application_pid_helper(true);
     get_application_name_helper(true);
-    if (INTERNAL_OPTION(profile_pcs)) {
-        pcprofile_fork_init(dcontext);
-    }
-    signal_fork_init(dcontext);
 }
 
 void

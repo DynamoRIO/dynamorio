@@ -227,6 +227,8 @@ byte *
 get_clone_record_dstack(void *record);
 app_pc
 signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
+void
+signal_fork_init(dcontext_t *dcontext);
 
 bool
 set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,

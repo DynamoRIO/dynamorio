@@ -1332,9 +1332,10 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
     return res;
 }
 
-/* This one is called before child's new logfiles are set up, since
- * os_fork_init() has to be called there (xref i#189/PR 452168).  If
- * we want to log to new logfile need to split from os_fork_init().
+/* This is split from os_fork_init() so the new logfiles are available
+ * (xref i#189/PR 452168).  It had to be after dynamo_other_thread_exit()
+ * called in dynamorio_fork_init() after os_fork_init() else we clean
+ * up data structs used in signal_thread_exit().
  */
 void
 signal_fork_init(dcontext_t *dcontext)
@@ -1380,6 +1381,9 @@ signal_fork_init(dcontext_t *dcontext)
             info->sigpending[i] = temp->next;
             special_heap_free(info->sigheap, temp);
         }
+    }
+    if (INTERNAL_OPTION(profile_pcs)) {
+        pcprofile_fork_init(dcontext);
     }
 }
 
