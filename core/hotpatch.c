@@ -847,8 +847,8 @@ hotp_read_data_file(uint type, size_t *buf_len /* OUT */)
     *buf_len = 0;
 
     retval = get_parameter(type == POLICY_FILE ?
-                               L_IF_WIN(DYNAMORIO_VAR_HOT_PATCH_POLICIES) :
-                               L_IF_WIN(DYNAMORIO_VAR_HOT_PATCH_MODES), 
+                           PARAM_STR(DYNAMORIO_VAR_HOT_PATCH_POLICIES) :
+                           PARAM_STR(DYNAMORIO_VAR_HOT_PATCH_MODES), 
                            file, BUFFER_SIZE_ELEMENTS(file));
     if (IS_GET_PARAMETER_FAILURE(retval)) {
         SYSLOG_INTERNAL_WARNING("Can't find %s definition directory name.",
@@ -1159,7 +1159,7 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
          * disable all associated vuls?   We are going to assert/log if we can't
          * find the dll (below) anyway.
          */
-        retval = get_parameter(L_IF_WIN(DYNAMORIO_VAR_HOME), hotp_dll_cache, 
+        retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_HOME), hotp_dll_cache, 
                                BUFFER_SIZE_ELEMENTS(hotp_dll_cache));
         if (IS_GET_PARAMETER_FAILURE(retval)) {
             SYSLOG_INTERNAL_WARNING("Can't read %s.  Hot patch dll loading "

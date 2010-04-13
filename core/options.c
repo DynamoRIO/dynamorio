@@ -1867,7 +1867,7 @@ options_init()
     write_lock(&options_lock);
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
     /* get dynamo options */
-    retval = get_parameter(L_IF_WIN(DYNAMORIO_VAR_OPTIONS), option_string,
+    retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
                            sizeof(option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))
         ret = set_dynamo_options(&dynamo_options, option_string);
@@ -1936,8 +1936,8 @@ synchronize_dynamic_options()
     }
 
     /* get options */
-    retval = get_parameter(L_IF_WIN(DYNAMORIO_VAR_OPTIONS), new_option_string,
-                           sizeof(new_option_string));
+    retval = get_parameter_ex(PARAM_STR(DYNAMORIO_VAR_OPTIONS), new_option_string,
+                              sizeof(new_option_string), true/*ignore cache*/);
     if (IS_GET_PARAMETER_FAILURE(retval)) {
         STATS_INC(option_synchronizations_nop);
         write_unlock(&options_lock);
@@ -2010,7 +2010,7 @@ get_process_options(HANDLE process_handle)
      * what otherwise?
      */
     set_dynamo_options_defaults(&temp_options);
-    err = get_process_parameter(process_handle, L_DYNAMORIO_VAR_OPTIONS,
+    err = get_process_parameter(process_handle, PARAM_STR(DYNAMORIO_VAR_OPTIONS),
                                 new_option_string, sizeof(new_option_string));
     /* PR 330860: be sure not to set for this process */
     if (IS_GET_PARAMETER_SUCCESS(err))

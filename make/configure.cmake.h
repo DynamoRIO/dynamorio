@@ -63,6 +63,7 @@
 #cmakedefine LINKCOUNT
 #cmakedefine STANDALONE_UNIT_TEST
 #cmakedefine KEEP_SYMBOLS_FOR_LIBC_BACKTRACE
+#cmakedefine PARAMS_IN_REGISTRY
 
 /* when packaging */
 #cmakedefine VERSION_NUMBER ${VERSION_NUMBER}

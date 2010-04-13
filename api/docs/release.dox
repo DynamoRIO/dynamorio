@@ -76,8 +76,8 @@ The following are part of the \DynamoRIO release distribution:
    are running under \DynamoRIO control.
    \if linux Windows package only. \endif
 \if linux
- - The \c drdeploy script for configuring and running applications under
-   \DynamoRIO on Linux (Linux package only).
+ - The \c drconfig, \c drrun, and \c drinject scripts for configuring and
+   running applications under \DynamoRIO on Linux (Linux package only).
 \endif
  - Header files for the \DynamoRIO APIs.
  - This documentation.
@@ -108,8 +108,16 @@ The following are part of the \DynamoRIO release distribution:
 The current version is \DR_VERSION and is backward compatible with releases from
 1.0.0 (originally called 0.9.6: see below) onward.
 
-The changes between version 1.6.0 and 1.5.0 are:
+The changes between version 2.0.0 and 1.5.0 are:
 
+ - Changed the configuration and deployment model for both Linux and
+   Windows to use a configuration file based approach on both platforms,
+   which adds control over child processes on Linux and supports local
+   configuration on Windows for un-privileged and parallel runs.
+   \b IMPORTANT: On Linux, if you're using custom injection via
+   raw environment variables rather than using the \p drdeploy script,
+   you must also set DYNAMORIO_RUNUNDER to 1 for injection to work with
+   this release.
  - Added \DynamoRIO Extension support for auxiliary libraries that extend the
    \DynamoRIO API (Issue 277)
  - Added symbol lookup support via Extension (Windows only for now) (Issue 44)

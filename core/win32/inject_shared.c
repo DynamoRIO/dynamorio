@@ -826,6 +826,12 @@ get_own_short_unqualified_name()
     return short_unqualified_name;
 }
 
+/***************************************************************************/
+#ifdef PARAMS_IN_REGISTRY
+/* We've replaced the registry w/ config files (i#265/PR 486139, i#85/PR 212034)
+ * but when PARAMS_IN_REGISTRY is defined we support the old registry scheme
+ */
+
 static int
 get_subkey_parameter(HANDLE process_handle, const wchar_t *uname, 
                      char *value, int maxlen, bool use_qualified,
@@ -927,6 +933,13 @@ get_parameter(const wchar_t *name, char *value, int maxlen)
                                           REGISTRY_DEFAULT);
 }
 
+/* Identical to get_parameter: for compatibility w/ non-PARAMS_IN_REGISTRY */
+int
+get_parameter_ex(const wchar_t *name, char *value, int maxlen, bool ignore_cache)
+{
+    return get_parameter(name, value, maxlen);
+}
+
 #ifdef X64
 /* get parameter for current process name using 32-bit registry key */
 int
@@ -1000,6 +1013,53 @@ set_process_parameter(HANDLE phandle, const wchar_t *name, const char *value)
 
     return set_registry_parameter(app_specific_base, name, value);
 }
+/***************************************************************************/
+#else /* PARAMS_IN_REGISTRY */
+int
+get_parameter_from_registry(const wchar_t *name, char *value, /* OUT */
+                            int maxlen /* up to MAX_REGISTRY_PARAMETER */)
+{
+    return get_registry_parameter(DYNAMORIO_REGISTRY_BASE, name, value, maxlen,
+                                  REGISTRY_DEFAULT);
+}
+
+# ifndef NOT_DYNAMORIO_CORE
+/* get parameter for a different process */
+int
+get_process_parameter(HANDLE phandle, const char *name, char *value, int maxlen)
+{
+    if (phandle == NULL) {
+#  if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+        /* not linking in utils.c so no get_parameter() */
+        ASSERT_NOT_REACHED();
+        return GET_PARAMETER_FAILURE;
+#  else
+        return get_parameter(name, value, maxlen);
+#  endif
+    } else {
+        wchar_t short_unqual_name[MAXIMUM_PATH];
+        char appname[MAXIMUM_PATH];
+        get_process_qualified_name(phandle, short_unqual_name, 
+                                   BUFFER_SIZE_ELEMENTS(short_unqual_name),
+                                   UNQUALIFIED_SHORT_NAME, REGISTRY_DEFAULT);
+        NULL_TERMINATE_BUFFER(short_unqual_name);
+        snprintf(appname, BUFFER_SIZE_ELEMENTS(appname), "%ls", short_unqual_name);
+        NULL_TERMINATE_BUFFER(appname);
+        return get_config_val_other_app(appname, name, value, maxlen);
+    }
+}
+# endif /* NOT_DYNAMORIO_CORE */
+
+# ifndef X64
+int
+get_parameter_64(const char *name, char *value, int maxlen)
+{
+    return get_config_val_other_arch(name, value, maxlen);
+}
+# endif
+
+#endif /* PARAMS_IN_REGISTRY */
+/***************************************************************************/
 
 /* on NT */
 static bool
@@ -1132,11 +1192,12 @@ systemwide_inject_enabled()
     return 0;
 }
 
+#ifdef PARAMS_IN_REGISTRY /* config files don't support cmdline match */
 /* returns true if the process commandline matches the string in
  * the DYNAMORIO_VAR_CMDLINE parameter.
  * if callers need REGISTRY_{32,64} they should add that parameter: not needed currently.
  */
-int
+static int
 check_commandline_match(HANDLE process)
 {
     char process_cmdline[MAX_PATH];
@@ -1172,6 +1233,7 @@ check_commandline_match(HANDLE process)
         return 0;
     }
 }
+#endif
 
 /* look up RUNUNDER param.
  * if it's defined in app-specific key, check against RUNUNDER_ON
@@ -1192,20 +1254,35 @@ check_commandline_match(HANDLE process)
 static inject_setting_mask_t
 systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichreg)
 {
+#ifdef PARAMS_IN_REGISTRY
     char runvalue[MAX_RUNVALUE_LENGTH];
-    int rununder_mask, retval, err;
+    int retval;
+#else
+    const char *runvalue;
+    bool app_specific;
+#endif
+    int rununder_mask, err;
 
 #if VERBOSE
     display_verbose_message("systemwide_should_inject");
 #endif
 
+#ifdef PARAMS_IN_REGISTRY
     /* get_process_parameter properly terminates short buffer */
     err = get_process_parameter_internal(process, L_DYNAMORIO_VAR_RUNUNDER,
                                          runvalue, sizeof(runvalue),
                                          true/*qual*/, whichreg);
-
     if (IS_GET_PARAMETER_FAILURE(err))
         return INJECT_FALSE;
+#else
+    runvalue = get_config_val_ex(DYNAMORIO_VAR_RUNUNDER, &app_specific, NULL);
+    if (runvalue == NULL)
+        return INJECT_FALSE;
+    if (app_specific)
+        err = GET_PARAMETER_NOAPPSPECIFIC;
+    else
+        err = GET_PARAMETER_SUCCESS;
+#endif
     
     rununder_mask = get_rununder_value(runvalue);
     if (NULL != mask)
@@ -1234,6 +1311,7 @@ systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichr
             if (rununder_mask & RUNUNDER_EXPLICIT)
                 inject_mask |= INJECT_EXPLICIT;
 
+#ifdef PARAMS_IN_REGISTRY /* config files don't support cmdline match */
             if (rununder_mask & RUNUNDER_COMMANDLINE_MATCH) {
                 
                 /* if the commandline matches, return INJECT_TRUE 
@@ -1258,6 +1336,7 @@ systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichr
                 return inject_mask;
                 
             } else /* just normal injection */
+#endif
                 return (inject_mask | INJECT_TRUE);
         }
     }
@@ -1291,6 +1370,7 @@ systemwide_should_inject(HANDLE process, int *mask)
 void 
 check_for_run_once(HANDLE process, int rununder_mask)
 {
+#ifdef PARAMS_IN_REGISTRY
     int size;
     char mask_string[MAX_RUNVALUE_LENGTH];
 
@@ -1319,6 +1399,9 @@ check_for_run_once(HANDLE process, int rununder_mask)
             ASSERT_NOT_REACHED();
         }
     }
+#else
+    /* no support for RUNUNDER_ONCE for config files: use .1config32 instead */
+#endif
 }
 
 #endif /* !defined(NOT_DYNAMORIO_CORE) */

@@ -212,37 +212,6 @@ external_error(char *file, int line, char *msg)
 }
 #endif
 
-#ifndef WINDOWS
-/* Our parameters (option string, logdir, etc.) can be configured
- * through environment variables or, on win32, the registry.
- * This routine is used to check both of those places.
- * value is a buffer allocated by the caller to hold the
- * resulting value.
- */
-int
-get_parameter(const char *name, char *value, int maxlen)
-{
-    char *envval = getenv(name);
-    /* env var has top priority, then registry */
-    if (envval != NULL) {
-        strncpy(value, envval, maxlen-1);
-        value[maxlen-1]  = '\0'; /* if max no null */
-        return GET_PARAMETER_SUCCESS;
-    } 
-    return GET_PARAMETER_FAILURE;
-}
-
-int
-get_unqualified_parameter(const char *name, char *value, int maxlen)
-{
-    /* we don't use qualified names on linux yet */
-    return get_parameter(name, value, maxlen);
-}
-/* FIXME: the prototype should go to os_shared.h and the above moved to linux */
-#else  /* WINDOWS */
-/* get_parameter is now shared with preinject and is in inject_shared.c. */
-#endif
-
 /****************************************************************************/
 /* SYNCHRONIZATION */
 
@@ -2406,27 +2375,37 @@ create_log_dir(int dir_type)
 {
 #ifdef LINUX
     char *pre_execve = getenv(DYNAMORIO_VAR_EXECVE_LOGDIR);
+    bool sharing_logdir = false;
 #endif
     /* synchronize */
     acquire_recursive_lock(&logdir_mutex);
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
 #ifdef LINUX
     if (dir_type == PROCESS_DIR && pre_execve != NULL) {
-        /* use same dir as pre-execve! */
-        strncpy(logdir, pre_execve, BUFFER_SIZE_ELEMENTS(logdir));
-        NULL_TERMINATE_BUFFER(logdir); /* if max no null */
-        logdir_initialized = true;
+        /* if this app has a logdir config, that should trump sharing
+         * the pre-execve logdir.  a logdir env var should not.
+         */
+        bool is_env;
+        if (get_config_val_ex(DYNAMORIO_VAR_LOGDIR, NULL, &is_env) == NULL ||
+            is_env) {
+            /* use same dir as pre-execve! */
+            sharing_logdir = true;
+            strncpy(logdir, pre_execve, BUFFER_SIZE_ELEMENTS(logdir));
+            NULL_TERMINATE_BUFFER(logdir); /* if max no null */
+            logdir_initialized = true;
+        }
         /* important to remove it, don't want to propagate to forked children */
         unsetenv(DYNAMORIO_VAR_EXECVE_LOGDIR);
         /* check that it's gone: we've had problems with unsetenv */
         ASSERT(getenv(DYNAMORIO_VAR_EXECVE_LOGDIR) == NULL);
-    } else {
+    }
 #endif
+    /* used to be an else: leaving indentation though */
         if (dir_type == BASE_DIR) {
             int retval;
             ASSERT(sizeof(basedir) == sizeof(old_basedir));
             strncpy(old_basedir, basedir, sizeof(basedir));
-            retval = get_parameter(L_IF_WIN(DYNAMORIO_VAR_LOGDIR), basedir, 
+            retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_LOGDIR), basedir, 
                                    sizeof(basedir));
             if (IS_GET_PARAMETER_FAILURE(retval))
                 basedir[0] = '\0';
@@ -2485,9 +2464,7 @@ create_log_dir(int dir_type)
                 }
             }
         }
-#ifdef LINUX
-    }
-#endif
+
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     release_recursive_lock(&logdir_mutex);
     
@@ -2500,7 +2477,7 @@ create_log_dir(int dir_type)
     }
     if (dir_type == PROCESS_DIR
 # ifdef LINUX
-        && !post_execve
+        && !sharing_logdir
 # endif
         )
         SYSLOG_INTERNAL_INFO("log dir=%s", logdir);

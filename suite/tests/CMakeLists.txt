@@ -755,6 +755,7 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
       -env LD_LIBRARY_PATH "${MAIN_LIBRARY_OUTPUT_PATH}:$ENV{LD_LIBRARY_PATH}")
     if (NOT native)
       set(cmd ${cmd}
+        -env DYNAMORIO_RUNUNDER 1
         -env LD_PRELOAD "libdrpreload.so libdynamorio.so")
     endif (NOT native)
     # add dr_ops last to avoid needing extra \ on ;

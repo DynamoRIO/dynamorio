@@ -40,6 +40,7 @@ set(CORE_SRCS
   dispatch.c
   emit.c
   utils.c
+  config.c
   stats.c
   heap.c
   instrlist.c
@@ -113,7 +114,13 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} ${VMKUW_DIR}/vmkuw.c)
   endif (VMKERNEL)
   set(PRELOAD_NAME drpreload)
-  set(PRELOAD_SRCS linux/preload.c)
+  set(PRELOAD_SRCS
+    ${SYSLOG_SRCS} 
+    linux/preload.c
+    config.c
+    linux/os.c
+    x86/x86.asm
+    )
 else (UNIX)
   set(OSNAME win32)
   set(OS_SRCS
@@ -141,6 +148,8 @@ else (UNIX)
     x86/pre_inject_asm.asm
     win32/module_shared.c
     win32/resources.rc
+    config.c
+    win32/os.c
     )
   set(PRELOAD_NAME drpreinject)
   set(INJECTOR_SRCS 
@@ -150,6 +159,8 @@ else (UNIX)
     win32/inject_shared.c
     x86/x86.asm
     win32/resources.rc
+    config.c
+    win32/os.c
     )
   # we have two drinject versions: a simpler external version that
   # relies on drdeploy having already configured the target app, and
@@ -267,6 +278,28 @@ if (UNIX)
   # That allows both forward and backward compatibility, but means that
   # we need to provide symlinks for all backward compatible versions.
   # In the future CMake is expected to add explicit support for this.
+
+  function (generate_soversions verstart verstop)
+    while (${verstart} LESS ${verstop})
+      math(EXPR COMPAT_MAJOR "${verstart} / 100")
+      math(EXPR COMPAT_MINOR "${verstart} % 100")
+      get_target_property(curver_base dynamorio LOCATION)
+      get_filename_component(curver_path "${curver_base}" PATH)
+      get_filename_component(curver_base "${curver_base}" NAME)
+      get_target_property(curver_sover dynamorio SOVERSION)
+      set(curver "${curver_base}.${curver_sover}")
+      string(REGEX REPLACE "so.${VERSION_MAJOR_MINOR}"
+        "so.${COMPAT_MAJOR}.${COMPAT_MINOR}" oldver "${curver}")
+      set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} ${curver_path}/${oldver})
+      add_custom_command(TARGET dynamorio POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink ${curver} ${oldver}
+        WORKING_DIRECTORY ${LIBRARY_OUTPUT_PATH}
+        VERBATIM)
+      math(EXPR verstart "${verstart} + 1")
+    endwhile ()
+    set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} PARENT_SCOPE)
+  endfunction (generate_soversions)
+
   string(REGEX REPLACE 
     "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
   set_target_properties(dynamorio PROPERTIES
@@ -275,24 +308,10 @@ if (UNIX)
   # x86/instrument.c to be > 104 we need to update this var and
   # should then share a common define.
   set(COMPAT_SOVERSION 104)
-  get_target_property(curver_base dynamorio LOCATION)
-  get_filename_component(curver_path "${curver_base}" PATH)
-  get_filename_component(curver_base "${curver_base}" NAME)
-  get_target_property(curver_sover dynamorio SOVERSION)
-  set(curver "${curver_base}.${curver_sover}")
-  # This loop assumes still on 1.x
-  # Once we go to 2.x we'll need to store somewhere the highest 1.x we released
-  while (${COMPAT_SOVERSION} LESS ${VERSION_NUMBER_INTEGER})
-    math(EXPR COMPAT_SUFFIX "${COMPAT_SOVERSION}-100")
-    string(REGEX REPLACE "so.${VERSION_MAJOR_MINOR}"
-      "so.1.${COMPAT_SUFFIX}" oldver "${curver}")
-    set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} ${curver_path}/${oldver})
-    add_custom_command(TARGET dynamorio POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E create_symlink ${curver} ${oldver}
-      WORKING_DIRECTORY ${LIBRARY_OUTPUT_PATH}
-      VERBATIM)
-    math(EXPR COMPAT_SOVERSION "${COMPAT_SOVERSION}+1")
-  endwhile ()
+  set(stop1 "106") # +1 since loop is <
+  generate_soversions(${COMPAT_SOVERSION} ${stop1})
+  # We assume we're still on 2.x
+  generate_soversions("200" ${VERSION_NUMBER_INTEGER})
 
   # Note that we can't locate readelf inside CMake_readelf.cmake as that
   # would disallow pointing externally at a readelf location, so we make it
@@ -328,6 +347,9 @@ if (UNIX)
   endif (NOT READELF_EXECUTABLE)
 
   # we used to run size on libdynamorio.so for info purposes
+
+  set_target_properties(${PRELOAD_NAME} PROPERTIES
+    COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_PRELOAD")
 
 else (UNIX)
 ###########################################################################

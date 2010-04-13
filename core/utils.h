@@ -781,20 +781,14 @@ int atomic_swap(volatile int *addr, int value);
         operation##_recursive_lock(&(lock));                      \
 } while (0)
 
-/* Our parameters (option string, logdir, etc.) can be configured
- * through environment variables or, on win32, the registry.
+/* Our parameters (option string, logdir, etc.) are configured
+ * through files and secondarily environment variables.
+ * On Windows we also support using the registry.
  * The routines below are used to check both of those places.
  * value is a buffer allocated by the caller to hold the
  * resulting value.
  */
-
-#ifndef WINDOWS
-int get_parameter(const char *name, char *value, int maxlen);
-int get_unqualified_parameter(const char *name, char *value, int maxlen);
-#else
-/* redeclared in inject_shared.h */
-int get_parameter(const wchar_t *name, char *value, int maxlen);
-#endif
+#include "config.h"
 
 /****************************************************************************
  * hashing functions

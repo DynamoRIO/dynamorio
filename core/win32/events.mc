@@ -315,6 +315,14 @@ Application %1!s! (%2!s!). Option parsing error : unknown option %3!s!. %4!s!
 MessageId = 
 Severity = ERROR
 Facility = DRCore
+SymbolicName = MSG_ERROR_CONFIG_FILE_INVALID
+Language=English
+Application %1!s! (%2!s!). Config file parsing error : invalid line %3!s!.
+.
+
+MessageId = 
+Severity = ERROR
+Facility = DRCore
 SymbolicName = MSG_BAD_OS_VERSION
 Language=English
 Application %1!s! (%2!s!) %3!%s! does not run on %4!s!

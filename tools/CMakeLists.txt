@@ -38,20 +38,47 @@ if (UNIX)
     ${PROJECT_SOURCE_DIR}/core/lib
     )
 
-  # set the default arch
-  # we duplicate tools/dynamorio in tools/drdeploy.in to keep
-  # dynamorio runnable w/ no arch arg: alternative is to add_custom_target,
-  # add_custom_command, and add CMake_drdeploy.cmake to modify ^arch
+  # we generate 3 different scripts from drdeploy.in
   if (X64)
     set(archdefault 64)
+    set(archother 32)
   else (X64)
     set(archdefault 32)
+    set(archother 64)
   endif (X64)
-  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in
-    ${CMAKE_CURRENT_BINARY_DIR}/drdeploy
-    @ONLY)
-  install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/drdeploy
-    DESTINATION ${INSTALL_BIN})
+  set(config 1)
+  set(runapp 0)
+  set(name "drconfig")
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in"
+    "${EXECUTABLE_OUTPUT_PATH}/${name}" @ONLY)
+  set(config 1)
+  set(runapp 1)
+  set(name "drrun")
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in"
+    "${EXECUTABLE_OUTPUT_PATH}/${name}" @ONLY)
+  set(config 0)
+  set(runapp 1)
+  set(name "drinject")
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in"
+    "${EXECUTABLE_OUTPUT_PATH}/${name}" @ONLY)
+  # we leave drdeploy for backward compat w/ old script
+  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
+    "drrun" "${EXECUTABLE_OUTPUT_PATH}/drdeploy"
+    RESULT_VARIABLE symlink_result
+    ERROR_VARIABLE symlink_error
+    OUTPUT_QUIET)
+  if (symlink_result OR symlink_error)
+    message(FATAL_ERROR "*** drdeploy symlink failed: ***\n${symlink_error}")
+  endif (symlink_result OR symlink_error)
+  # simpler to install all and exclude
+  install(DIRECTORY "${EXECUTABLE_OUTPUT_PATH}/"
+    DESTINATION "${INSTALL_BIN}"
+    FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE 
+    GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+    PATTERN "run_in_bg*"
+    PATTERN "runstats*"
+    EXCLUDE)
+
   install(TARGETS nudgeunix DESTINATION ${INSTALL_BIN})
 else (UNIX)
   # FIXME i#98: eventually upgrade to W4 with pragma exceptions.

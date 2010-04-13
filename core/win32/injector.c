@@ -720,6 +720,11 @@ main(int argc, char *argv[], char *envp[])
     }
 #endif
 
+#ifndef PARAMS_IN_REGISTRY
+    /* i#85/PR 212034: use config files */
+    config_init();
+#endif
+
     /* we don't want quotes included in our
      * application path string (app_name), but we do want to put
      * quotes around every member of the command line
@@ -829,7 +834,7 @@ main(int argc, char *argv[], char *envp[])
         fflush(stdout);
     });
 
-#ifndef EXTERNAL_INJECTOR
+#if defined(PARAMS_IN_REGISTRY) && !defined(EXTERNAL_INJECTOR)
     /* don't set registry from environment if using debug key */
     if (!debugger_key_injection) {
         set_registry_from_env(image_name, DYNAMORIO_PATH);
@@ -917,12 +922,12 @@ main(int argc, char *argv[], char *envp[])
 
 #ifdef EXTERNAL_INJECTOR
     if (inject) {
-        int err = get_process_parameter(phandle, L_DYNAMORIO_VAR_AUTOINJECT,
+        int err = get_process_parameter(phandle, PARAM_STR(DYNAMORIO_VAR_AUTOINJECT),
                                         library_path_buf, sizeof(library_path_buf));
         if (err != GET_PARAMETER_SUCCESS && err != GET_PARAMETER_NOAPPSPECIFIC) {
             inject = false;
             display_error("application not properly configured\n"
-                          "use drdeploy.exe to configure the application first");
+                          "use drconfig.exe to configure, or drrun.exe to do both");
         }
         NULL_TERMINATE_BUFFER(library_path_buf);
         DYNAMORIO_PATH = library_path_buf;
@@ -931,6 +936,10 @@ main(int argc, char *argv[], char *envp[])
 
     if (inject) {
         inject_init();
+        /* FIXME PR 211367: use early_inject instead of this late injection!
+         * but non-trivial to gather the relevant addresses: so wait for
+         * earliest injection => i#234/PR 204587 prereq?
+         */
         if (!inject_into_thread(phandle, &cxt, pi.hThread, DYNAMORIO_PATH)) {
             display_error("injection failed");
             close_handle(phandle);
@@ -960,7 +969,7 @@ main(int argc, char *argv[], char *envp[])
             wait_result = WaitForSingleObject(phandle, (limit==0) ? INFINITE : (limit*1000));
             end_time = time(NULL);
             wallclock = difftime(end_time, start_time);
-#ifndef EXTERNAL_INJECTOR
+#if defined(PARAMS_IN_REGISTRY) && !defined(EXTERNAL_INJECTOR)
             if (!debugger_key_injection) {
                 unset_registry_from_env(image_name);
             }

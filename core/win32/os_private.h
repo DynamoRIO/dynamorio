@@ -115,6 +115,9 @@ void
 client_thread_target(void *param);
 #endif
 
+bool os_delete_file_w(const wchar_t *file_name,
+                      file_t directory_handle);
+
 /* in syscall.c *********************************************************/
 
 /* this points to a windows-version-specific syscall array */

@@ -401,6 +401,7 @@ dynamorio_app_init(void)
         statistics_pre_init();
 #endif
 
+        config_init();
         options_init();
 #ifdef WINDOWS
         syscalls_init_options_read(); /* must be called after options_init
@@ -808,6 +809,7 @@ standalone_init(void)
     /* MUST do this before making any system calls */
     syscalls_init();
 #endif
+    config_init();
     options_init();
     vmm_heap_init();
     heap_init();
@@ -984,6 +986,7 @@ dynamo_shared_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
      */
     options_exit();
     utils_exit();
+    config_exit();
 
 #ifdef KSTATS
     kstat_exit();

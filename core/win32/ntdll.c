@@ -2358,6 +2358,29 @@ reg_enum_value(IN PCWSTR keyname,
     return NT_SUCCESS(result);
 }
 
+/* queries the process env vars: NOT the separate copies used in the C
+ * library and in other libraries
+ */
+int
+env_get_value(PCWSTR var, wchar_t *val, size_t valsz)
+{
+    PEB *peb = get_own_peb();
+    PWSTR env = (PWSTR) peb->ProcessParameters->Environment;
+    NTSTATUS res;
+    UNICODE_STRING var_us, val_us;
+    GET_NTDLL(RtlQueryEnvironmentVariable_U, (PWSTR Environment,
+                                              PUNICODE_STRING Name,
+                                              PUNICODE_STRING Value));
+    res = wchar_to_unicode(&var_us, var);
+    if (!NT_SUCCESS(res))
+        return 0;
+    val_us.Length = 0;
+    val_us.MaximumLength = (USHORT) valsz;
+    val_us.Buffer = val;
+    res = RtlQueryEnvironmentVariable_U(env, &var_us, &val_us);
+    return NT_SUCCESS(res);
+}
+
 /* thread token can be primary token, impersonated, or anonymous */
 NTSTATUS
 get_current_user_token(PTOKEN_USER ptoken, USHORT token_buffer_length)
@@ -4207,7 +4230,6 @@ nt_unmap_view_of_section(IN HANDLE         ProcessHandle,
     return res;
 }
 
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 /* Mostly a wrapper around NtCreateDirectoryObject.
  *
  * Note that dacl == NULL allows only owner to use the object - 
@@ -4445,6 +4467,8 @@ nt_get_symlink_target(IN HANDLE              directory_handle,
     return res;
 }
 
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+
 /* General notes about sharing memory */
 /* section<PAGE_EXECUTE, SEC_IMAGE, app_file> gives us CoW in each
  * process, and we can't share the relocation information
@@ -4619,6 +4643,8 @@ nt_create_module_file(OUT HANDLE *file_handle,
     return res;
 }
 
+#endif /* !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE) */
+
 /* thin wrapper around ZwQueryInformationFile - 
  * see DDK for documented information classes */
 NTSTATUS
@@ -4704,6 +4730,8 @@ nt_query_volume_info(IN HANDLE FileHandle,
     return res;
 }
 
+
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 
 /* thin wrapper around ZwQuerySecurityObject - 
  * Note handle can be any executive objective: including file, directory

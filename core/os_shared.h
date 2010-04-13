@@ -593,8 +593,7 @@ bool os_seek(file_t f, int64 offset, int origin);
 /* return the current file position, -1 on failure */
 int64 os_tell(file_t f);
 
-bool os_delete_file(const wchar_t *file_name,
-                    file_t directory_handle);
+bool os_delete_file(const char *file_name);
 bool os_delete_mapped_file(const char *filename);
 bool os_rename_file(const char *orig_name, const char *new_name, bool replace);
 /* These routines do not update dynamo_areas; use the non-os_-prefixed versions */

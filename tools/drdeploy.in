@@ -35,24 +35,24 @@
 
 ###########################################################################
 ##
-## DynamoRIO injector script for Linux
+## DynamoRIO @name@ script for Linux
 ## 
-## usage: drdeploy [-v] [-debug] [-dr_home <path>] [-ops <dr_options>]
+## usage: @name@ [-v] [-debug] [-dr_home <path>] [-ops <dr_options>]
 ##                 [-logdir <path>] -client <path> <executable> [args ...]
 ##
 ##  [-v]                   Verbose output
 ##  [-debug]               Use debug build of DynamoRIO (release is default)
-##  [-64]                  Use 64-bit DynamoRIO (default is 32-bit).  This
+##  [-@archother@]                  Use @archother@-bit DynamoRIO (default is @archdefault@-bit).  This
 ##                           should match what the client library and executable
 ##                           being run were compiled for.
 ##  [-dr_home <path>]      Path to the DynamoRIO install.
-##                           Defaults to .. from drdeploy; may also be omitted
+##                           Defaults to .. from @name@; may also be omitted
 ##                           if DYNAMORIO_HOME is defined in the environment.
 ##  [-ops <dr_options>]    DynamoRIO options (such as -stderr_mask 0xc
 ##                           or -opt_memory: see docs). Can also be specified
 ##                           with DYNAMORIO_OPTIONS in the environment.
 ##  [-logdir <path>]       Path to logging directory.  Defaults to ../logs from
-##                           drdeploy; may also be omitted if DYNAMORIO_LOGDIR
+##                           @name@; may also be omitted if DYNAMORIO_LOGDIR
 ##                           is defined in the environment.
 ##  [-client <path> <ID> "<options>"]
 ##                         Register one or more clients to run alongside DR.
@@ -65,11 +65,16 @@
 ##                           this case, clients specified first on the command
 ##                           line have higher priority.  Neither the path nor
 ##                           the options may contain semicolon characters.
-##  <executable> [args...] The executable to run under DynamoRIO and the args
-##                           to pass to it.
+##  <executable> [args...] The executable to run under DynamoRIO (and the args
+##                           to pass to it if running now).
 
 lib=release
 arch=@archdefault@
+# drconfig: config=1, runapp=0
+# drrun: config=1, runapp=1
+# drinject: config=0, runapp=1
+config=@config@
+runapp=@runapp@
 
 usage="usage: $0 [-v] [-debug] [-32] [-64] [-dr_home <path>] [-ops <dr_options>] [-logdir <path>] [-client <path> <ID> \"<options>\"]* <executable> [args ...]"
 
@@ -234,16 +239,61 @@ else
     export DYNAMORIO_OPTIONS="${client_op_string} $DYNAMORIO_OPTIONS"
 fi
 
-if [ "$verbose" = "yes" ]
+# i#85/PR 212034: we now use config files
+
+if [ ! -n "$HOME" ]
 then
-    echo "Using $lib DynamoRIO ($dr_lib_path/$lib/libdynamorio.so)"
-    echo "With DynamoRIO options=\"$DYNAMORIO_OPTIONS\""
-    echo "Using logging directory=\"$DYNAMORIO_LOGDIR\""
-    echo "Running \"$*\""
+    echo "ERROR - $HOME must exist"
+    echo $usage
+    exit
+fi
+cfgdir="$HOME/.dynamorio"
+if [ ! -d $cfgdir ]
+then
+    mkdir -p "$cfgdir"
 fi
 
-export LD_LIBRARY_PATH=$dr_lib_path/$lib:$LD_LIBRARY_PATH
-export LD_PRELOAD="libdynamorio.so libdrpreload.so"
+app="$1"
+shift
+# better to require bash and use ${app##*/}?
+name=`basename $app`
 
-# keep same pid for easier scripting
-exec $*
+if [ "$config" = "1" ]
+then
+    if [ "$runapp" = "1" ]
+    then
+        cfgfile="$cfgdir/$name.$$.1config$arch"
+        echo "# one-time config file" > $cfgfile
+        if [ "$verbose" = "yes" ]
+        then
+            echo "Using $lib DynamoRIO ($dr_lib_path/$lib/libdynamorio.so)"
+            echo "With DynamoRIO options=\"$DYNAMORIO_OPTIONS\""
+            echo "Using logging directory=\"$DYNAMORIO_LOGDIR\""
+            echo "Running \"$app $*\""
+        fi
+    else
+        cfgfile="$cfgdir/$name.config$arch"
+        echo "# DynamoRIO config file" > $cfgfile
+    fi
+    echo "DYNAMORIO_RUNUNDER=1" >> $cfgfile
+    echo "DYNAMORIO_OPTIONS=$DYNAMORIO_OPTIONS" >> $cfgfile
+    echo "DYNAMORIO_LOGDIR=$DYNAMORIO_LOGDIR" >> $cfgfile
+    echo "DYNAMORIO_AUTOINJECT=$dr_lib_path/$lib/libdynamorio.so" >> $cfgfile
+    echo "DYNAMORIO_HOME=$dr_lib_path" >> $cfgfile
+fi
+
+if [ "$runapp" = "1" ]
+then
+    export LD_LIBRARY_PATH=$dr_lib_path/$lib:$LD_LIBRARY_PATH
+    export LD_PRELOAD="libdynamorio.so libdrpreload.so"
+    
+    # keep same pid for easier scripting
+    exec $app $*
+else
+    if [ "$verbose" = "yes" ]
+    then
+        echo "Wrote config file $cfgfile"
+        exit 0
+    fi
+fi
+exit 1

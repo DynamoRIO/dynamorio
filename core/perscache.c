@@ -2077,8 +2077,8 @@ get_persist_dir(char *directory /* OUT */,
     int retval;
 
     retval = get_parameter((DYNAMO_OPTION(persist_per_user) ? 
-                            L_IF_WIN(DYNAMORIO_VAR_PERSCACHE_ROOT) : 
-                            L_IF_WIN(DYNAMORIO_VAR_PERSCACHE_SHARED)),
+                            PARAM_STR(DYNAMORIO_VAR_PERSCACHE_ROOT) : 
+                            PARAM_STR(DYNAMORIO_VAR_PERSCACHE_SHARED)),
                            directory, directory_len);
     if (IS_GET_PARAMETER_FAILURE(retval) || strchr(directory, DIRSEP) == NULL) {
         SYSLOG_INTERNAL_ERROR_ONCE("%s not set!"

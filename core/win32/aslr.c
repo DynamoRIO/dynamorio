@@ -2628,8 +2628,8 @@ open_relocated_dlls_filecache_directory(void)
      * subdirectory \cache\SID
      */
     retval = get_parameter((per_user ? 
-                            L_IF_WIN(DYNAMORIO_VAR_CACHE_ROOT) :
-                            L_IF_WIN(DYNAMORIO_VAR_CACHE_SHARED)),
+                            PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT) :
+                            PARAM_STR(DYNAMORIO_VAR_CACHE_SHARED)),
                            base_directory, sizeof(base_directory));
     if (IS_GET_PARAMETER_FAILURE(retval) || 
         strchr(base_directory, DIRSEP) == NULL) {
@@ -3775,8 +3775,7 @@ aslr_create_relocated_dll_file(OUT HANDLE *new_file,
             /* the file could legally be in use only if valid for a
              * different core version */
 
-            deleted = os_delete_file(unique_name,
-                                     our_relocated_dlls_directory);
+            deleted = os_delete_file_w(unique_name, our_relocated_dlls_directory);
             if (deleted) {
                 SYSLOG_INTERNAL_WARNING("deleted (invalid) file %ls in the way",
                                         unique_name);

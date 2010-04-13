@@ -429,20 +429,43 @@ permissions.
 \if linux
 \subsection lin_deploy Linux Deployment
 
-Once \DynamoRIO has been unpacked and the target machine configured, the
-\c drdeploy script can be used to run applications
-under \DynamoRIO.  The \ref limits_linux_preload "LD_PRELOAD"
-based \c drdeploy script and the \ref sec_startstop "app_start()/app_stop()"
+Once \DynamoRIO has been unpacked, a set of three scripts provide
+flexibility in configuring and executing applications.
+The \ref limits_linux_preload "LD_PRELOAD"
+based scripts and the \ref sec_startstop "app_start()/app_stop()"
 interface are currently the only supported methods of running
 applications under \DynamoRIO on Linux.  
 
-As an example of drdeploy usage, the following command runs \c ls
+There are two methods for invoking an application under \DynamoRIO:
+ -# Configure and launch in one step via \p drrun
+ -# Configure via \p drconfig and launch via \p drinject
+
+As an example of the simpler method, the following command runs \c ls
 under \DynamoRIO with the bbsize sample \client:
 \code
-% bin32/drdeploy -client samples/bin32/libbbsize.so 0 "" ls
+% bin32/drrun -client samples/bin32/libbbsize.so 0 "" ls
 \endcode
-Run \c drdeploy with no options to get a list of the options and
-environment variable shortcuts it supports.
+Run \c drrun with no options to get a list of the options and
+environment variable shortcuts it supports.  To disable following across
+child execve calls, use the \ref op_children "-no_follow_children" runtime
+option.
+
+Use the scripts in \c bin32/ for 32-bit applications and the scripts in \c
+bin64/ for 64-bit applications.
+
+The two-step method allows for greater control over child processes.  The
+\p drconfig script writes a configuration file for a given application
+name.  \DynamoRIO reads its options from the configuration file at runtime.
+Once each process name is configured, the \p drinject script can be used to
+invoke the parent process.  The \p drrun script can also be used but it
+creates a temporary configuration file that will override settings
+requested via \p drconfig.  The configuration file for each application is
+stored in <tt>$HOME/.dynamorio/&lt;appname&gt;.config32</tt> (or a \p
+config64 suffix for 64-bit).  \DynamoRIO also supports global configuration
+files in <tt>/etc/dynamorio/&lt;appname&gt;.config32</tt> when a local
+configuration file is not found.  \p drconfig does not support directly
+writing a global config file but such files can be copied from or modeled
+on local files.
 
 To \ref sec_comm "nudge" a process with pid \c targetpid running under
 \DynamoRIO and pass argument "5" to the nudge callback, use the \c
@@ -1011,6 +1034,13 @@ target application process.  These include:
 \DynamoRIO's behavior can be fine-tuned using runtime parameters.  Options
 are specified via \c drdeploy.exe or dr_register_process() \if linux on
 Windows and via the \c drdeploy script on Linux\endif.  See \ref sec_deploy.
+
+ - \b -no_follow_children: \anchor op_children
+   This option only applies to Linux.  By default, \DynamoRIO follows
+   into child processes across execve.  When \p -no_follow_children
+   is specified \DynamoRIO only injects across an execve if a configuration
+   file exists (typically created by \p drconfig: see \ref sec_deploy) for
+   the new application name.
 
  - \b -opt_memory: \anchor op_memory
    Reduce memory usage, but potentially at the cost of performance.  This

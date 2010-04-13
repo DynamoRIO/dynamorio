@@ -50,6 +50,12 @@ typedef enum {
     INJECT_EXPLICIT = 4
 } inject_setting_mask_t;
 
+/***************************************************************************/
+#ifdef PARAMS_IN_REGISTRY
+/* We've replaced the registry w/ config files (i#265/PR 486139, i#85/PR 212034)
+ * but when PARAMS_IN_REGISTRY is defined we support the old registry scheme
+ */
+
 /* value is a buffer allocated by the caller to hold the resulting value.
  *
  * The same parameter is looked up first in the application specific registry 
@@ -70,6 +76,10 @@ set_process_parameter(HANDLE phandle, const wchar_t *name, const char *value);
  */
 int
 get_parameter(const wchar_t *name, char *value, int maxlen);
+
+/* Identical to get_parameter: for compatibility w/ non-PARAMS_IN_REGISTRY */
+int
+get_parameter_ex(const wchar_t *name, char *value, int maxlen, bool ignore_cache);
 
 #ifdef X64
 /* Get parameter for current process name from 32-bit registry view.
@@ -94,6 +104,24 @@ get_parameter_64(const wchar_t *name, char *value, int maxlen);
  */
 int
 get_unqualified_parameter(const wchar_t *name, char *value, int maxlen);
+
+/***************************************************************************/
+#else
+int
+get_parameter_from_registry(const wchar_t *name, char *value, /* OUT */
+                            int maxlen /* up to MAX_REGISTRY_PARAMETER */) ;
+
+# ifndef NOT_DYNAMORIO_CORE
+int
+get_process_parameter(HANDLE phandle, const char *name, char *value, int maxlen);
+# endif
+
+# ifndef X64
+int
+get_parameter_64(const char *name, char *value, int maxlen);
+# endif
+#endif /* PARAMS_IN_REGISTRY */
+/***************************************************************************/
 
 /* get_own_*_name routines cache their values and are primed by os_init() */
 const wchar_t*

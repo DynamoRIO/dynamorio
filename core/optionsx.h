@@ -1225,7 +1225,8 @@
 
     /* The follow children options control when we inject into a child. We inject if 
      * any one of the three says we should, see their descriptions for more details. */
-    DYNAMIC_OPTION(bool, follow_children, "inject into all spawned processes unless preinjector is set up to inject into them or they have app-specific RUNUNDER_OFF")
+    DYNAMIC_OPTION_DEFAULT(bool, follow_children, IF_LINUX_ELSE(true, false),
+        "inject into all spawned processes unless preinjector is set up to inject into them or they have app-specific RUNUNDER_OFF")
     /* not dynamic do to interactions with -early_inject */
     OPTION_DEFAULT(bool, follow_systemwide, true, "inject into all spawned processes that are configured to run under dr (app specific RUNUNDER_ON, or no app specific and RUNUNDER_ALL in the global key), dangerous without either -early_inject or -block_mod_load_list_default preventing double injection")
     DYNAMIC_OPTION_DEFAULT(bool, follow_explicit_children, true, "inject into all spawned processes that have app-specific RUNUNDER_EXPLICIT")

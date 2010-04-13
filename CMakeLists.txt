@@ -196,6 +196,9 @@ option(STANDALONE_UNIT_TEST "internal unit tests")
 if (WIN32)
   # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
   option(GENERATE_PDBS "generate Windows debug information" ON)
+  # instead of config files use registry like in the old days
+  # once i#85/PR 212034 and i#265/PR 486139 are finished config files will be default
+  option(PARAMS_IN_REGISTRY "parameters from registry instead of config files" ON)
 endif (WIN32)
 
 # for users
@@ -248,7 +251,7 @@ set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
 # resources when packaging
 # N.B.: once VERSION_NUMBER crosses 2.x we'll need to update the
 # symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER_DEFAULT "1.6.0")
+set(VERSION_NUMBER_DEFAULT "2.0.0")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")

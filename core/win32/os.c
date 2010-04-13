@@ -59,6 +59,19 @@
 #include "aslr.h"
 #include "../synch.h"
 
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+# undef ASSERT
+# undef ASSERT_NOT_IMPLEMENTED
+# undef ASSERT_NOT_TESTED
+# undef ASSERT_CURIOSITY_ONCE
+# define ASSERT(x) /* nothing */
+# define ASSERT_NOT_IMPLEMENTED(x) /* nothing */
+# define ASSERT_NOT_TESTED(x) /* nothing */
+# define ASSERT_CURIOSITY_ONCE(x) /* nothing */
+# undef LOG
+# define LOG(x, ...) /* nothing */
+#else /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
+
 #ifdef DEBUG
 DECLARE_CXTSWPROT_VAR(static mutex_t snapshot_lock, INIT_LOCK_FREE(snapshot_lock));
 #endif
@@ -1761,7 +1774,7 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
     char *library = library_path_buf;
     bool res;
 
-    int err = get_process_parameter(process_handle, L_DYNAMORIO_VAR_AUTOINJECT,
+    int err = get_process_parameter(process_handle, PARAM_STR(DYNAMORIO_VAR_AUTOINJECT),
                                     library_path_buf, sizeof(library_path_buf));
 
     /* If there is no app-specific subkey, then we should check in what mode are we injecting */
@@ -4217,6 +4230,8 @@ make_unwritable(byte *pc, size_t size)
                                0, NULL);
 }
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
+
 bool
 convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
                        IN size_t buf_len/*# elements*/)
@@ -4776,6 +4791,8 @@ os_tell(file_t f)
     return info.CurrentByteOffset.QuadPart;
 }
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER /* around most of file, to exclude preload */
+
 /* Tries to delete a file that may be mapped in by this or another process.
  * We use FILE_DELETE_ON_CLOSE, which works only on SEC_COMMIT, not on SEC_IMAGE.
  * There is no known way to immediately delete a mapped-in SEC_IMAGE file.
@@ -4854,8 +4871,8 @@ os_delete_mapped_file(const char *filename)
 }
 
 bool
-os_delete_file(const wchar_t *file_name,
-               HANDLE directory_handle)
+os_delete_file_w(const wchar_t *file_name,
+                 HANDLE directory_handle)
 {
     NTSTATUS res;
     HANDLE hf;
@@ -4893,6 +4910,16 @@ os_delete_file(const wchar_t *file_name,
 
     /* if we had the only handle, the file should be deleted by now */
     return NT_SUCCESS(res);
+}
+
+bool
+os_delete_file(const char *name)
+{
+    wchar_t wname[MAX_FILE_NAME_LENGTH];
+    if (!convert_to_NT_file_path(wname, name, BUFFER_SIZE_ELEMENTS(wname)))
+        return false;
+    NULL_TERMINATE_BUFFER(wname); /* be paranoid */
+    return os_delete_file_w(wname, NULL);
 }
 
 /* We take in orig_name instead of a file handle so that we can abstract
@@ -5486,7 +5513,7 @@ os_dump_core_external_dump()
         = {0,};
     
     /* the ONCRASH key tells us exactly what to launch, with our pid appended */
-    int retval = get_parameter(L_IF_WIN(DYNAMORIO_VAR_ONCRASH), oncrash_var,
+    int retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_ONCRASH), oncrash_var,
                                sizeof(oncrash_var));
     if (IS_GET_PARAMETER_SUCCESS(retval)) {
         HANDLE child;
@@ -6890,7 +6917,7 @@ open_trusted_cache_root_directory(void)
     HANDLE directory_handle;
     int retval;
 
-    retval = get_parameter(L_IF_WIN(DYNAMORIO_VAR_CACHE_ROOT),
+    retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT),
                            base_directory, sizeof(base_directory));
     if (IS_GET_PARAMETER_FAILURE(retval) || 
         (strchr(base_directory, DIRSEP) == NULL &&
@@ -7143,3 +7170,5 @@ os_check_option_compatibility(void)
     ASSERT(os_has_aslr);
     return changed_options;
 }
+
+#endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */

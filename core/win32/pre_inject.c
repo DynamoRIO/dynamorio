@@ -63,6 +63,7 @@
 #include "ntdll.h"
 #include "inject_shared.h"
 #include "drmarker.h"
+#include "../config.h"
 
 /* case 191729:
  * Avoid warning C4996: '_snwprintf' was declared deprecated 
@@ -240,10 +241,10 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
     bool wow64 = is_wow64_process(NT_CURRENT_PROCESS);
     if (x64_in_wow64) {
         ASSERT(wow64);
-        retval = get_parameter_64(L_DYNAMORIO_VAR_AUTOINJECT, path, MAX_PATH);
+        retval = get_parameter_64(PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), path, MAX_PATH);
     } else
 #endif
-        retval = get_parameter(L_DYNAMORIO_VAR_AUTOINJECT, path, MAX_PATH);
+        retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), path, MAX_PATH);
     if (IS_GET_PARAMETER_SUCCESS(retval)) {
         dr_marker_t mark;
         VERBOSE_MESSAGE("Loading \"%hs\"", path);
@@ -409,10 +410,10 @@ parameters_present(IF_NOT_X64(bool x64_in_wow64))
 #ifndef X64
     if (x64_in_wow64) {
         ASSERT(is_wow64_process(NT_CURRENT_PROCESS));
-        retval = get_parameter_64(L_DYNAMORIO_VAR_AUTOINJECT, path, MAX_PATH);
+        retval = get_parameter_64(PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), path, MAX_PATH);
     } else
 #endif
-        retval = get_parameter(L_DYNAMORIO_VAR_AUTOINJECT, path, MAX_PATH);
+        retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), path, MAX_PATH);
     if (IS_GET_PARAMETER_SUCCESS(retval)) {
         return 1;
     } else {
@@ -438,6 +439,10 @@ process_attach()
     VERBOSE_MESSAGE("inside preinject dll\n");
 
     ntdll_init();
+#ifndef PARAMS_IN_REGISTRY
+    /* i#85/PR 212034: use config files */
+    config_init();
+#endif
 
 #if VERBOSE
     len = GetModuleFileName(NULL, exename, MAX_PATH);

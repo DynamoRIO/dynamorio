@@ -1142,7 +1142,8 @@ check_for_unsupported_modules()
     char dllname[MAXIMUM_PATH];
     const char *short_name;
     uint traversed = 0;
-    int retval = get_parameter(L_DYNAMORIO_VAR_UNSUPPORTED, filter, sizeof(filter));
+    int retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_UNSUPPORTED),
+                               filter, sizeof(filter));
     if (IS_GET_PARAMETER_FAILURE(retval) ||
         filter[0] == 0 /* empty UNSUPPORTED list */) {
         /* no unsupported list, so nothing to look for */

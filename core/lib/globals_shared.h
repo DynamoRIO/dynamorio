@@ -886,6 +886,8 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define L_DYNAMORIO_VAR_CMDLINE     L_EXPAND_LEVEL(DYNAMORIO_VAR_CMDLINE)
 #  define L_DYNAMORIO_VAR_ONCRASH     L_EXPAND_LEVEL(DYNAMORIO_VAR_ONCRASH)
 #  define L_DYNAMORIO_VAR_SAFEMARKER  L_EXPAND_LEVEL(DYNAMORIO_VAR_SAFEMARKER)
+#  define L_DYNAMORIO_VAR_CACHE_ROOT  L_EXPAND_LEVEL(DYNAMORIO_VAR_CACHE_ROOT)
+#  define L_DYNAMORIO_VAR_CACHE_SHARED L_EXPAND_LEVEL(DYNAMORIO_VAR_CACHE_SHARED)
 # ifdef HOT_PATCHING_INTERFACE
 #  define L_DYNAMORIO_VAR_HOT_PATCH_POLICIES  L_EXPAND_LEVEL(DYNAMORIO_VAR_HOT_PATCH_POLICIES)
 #  define L_DYNAMORIO_VAR_HOT_PATCH_MODES  L_EXPAND_LEVEL(DYNAMORIO_VAR_HOT_PATCH_MODES)
@@ -1014,6 +1016,7 @@ enum DLL_TYPE {
         DLL_CUSTOM,
         DLL_PATHHAS
 };
+#endif /* WINDOWS */
 
 /* DYNAMORIO_RUNUNDER controls the injection technique and process naming, 
  *  it is a bitmask of the values below:
@@ -1080,8 +1083,6 @@ enum {
 
     RUNUNDER_EXPLICIT             = 0x80,  /* 128 */
 };
-#endif /* WINDOWS */
-
 
 /* A bitmask of possible actions to take on a nudge.  Accessed via
  * NUDGE_GENERIC(name) Recommended to always pass -nudge opt so to

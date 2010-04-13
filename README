@@ -52,11 +52,14 @@ Quickstart instructions for running DynamoRIO:
 On Linux:
 
 32-bit:
-  % bin32/drdeploy -client samples/bin32/libbbsize.so 0x1 "" ls
+  % bin32/drrun -client samples/bin32/libbbsize.so 0x1 "" ls
 64-bit:
-  % bin64/drdeploy -client samples/bin64/libbbsize.so 0x1 "" ls
+  % bin64/drrun -client samples/bin64/libbbsize.so 0x1 "" ls
 For additional options:
-  % bin32/drdeploy
+  % bin32/drrun
+For full control over child processes use a two-step process:
+first configure with bin32/drconfig and then invoke the parent
+process with bin32/drinject.
 
 --------------------------------------------------
 On Windows, with examples run from a cygwin shell:

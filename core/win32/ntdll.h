@@ -1305,6 +1305,8 @@ int
 reg_enum_value(PCWSTR keyname, ULONG index, KEY_VALUE_INFORMATION_CLASS key_class,
                PVOID key_info, ULONG key_info_length);
 
+int
+env_get_value(PCWSTR var, wchar_t *val, size_t valsz);
 
 #define LengthRequiredSID(subauthorities)                                       \
       (sizeof(SID) - (ANYSIZE_ARRAY * sizeof(DWORD)) /* SID.SubAuthority */     \

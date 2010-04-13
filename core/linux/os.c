@@ -51,6 +51,12 @@
 #include <limits.h>
 #include <sys/sysinfo.h>        /* for get_nprocs_conf */
 
+extern char **__environ;
+#include <errno.h>
+/* avoid problems with use of errno as var name in rest of file */
+#undef errno
+/* we define __set_errno below */
+
 #ifdef X86
 /* must be prior to <link.h> => <elf.h> => INT*_{MIN,MAX} */
 # include "instr.h" /* for get_segment_base() */
@@ -84,6 +90,15 @@
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
 #endif
+
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+# undef ASSERT
+# undef ASSERT_NOT_IMPLEMENTED
+# undef ASSERT_NOT_TESTED
+# define ASSERT(x) /* nothing */
+# define ASSERT_NOT_IMPLEMENTED(x) /* nothing */
+# define ASSERT_NOT_TESTED(x) /* nothing */
+#else /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
 
 #include <asm/ldt.h>
 /* The ldt struct in ldt.h used to be just "struct modify_ldt_ldt_s"; then that
@@ -382,10 +397,6 @@ set_libc_errno(int val)
  * NULL for other vars that are obviously set (by iterating through environ).
  * FIXME: find out the real story here.
  */
-extern char **__environ;
-#include <errno.h> /* for EINVAL */
-/* avoid problems with use of errno as var name in rest of file */
-#undef errno
 #define __set_errno(val) (*__errno_location ()) = (val)
 #define __get_errno() (*__errno_location())
 int
@@ -1548,11 +1559,13 @@ get_process_group_id()
     return dynamorio_syscall(SYS_getpgid, 0);
 }
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
 process_id_t
 get_process_id()
 {
     return dynamorio_syscall(SYS_getpid, 0);
 }
+#ifndef NOT_DYNAMORIO_CORE_PROPER /* around most of file, to exclude preload */
 
 process_id_t
 get_parent_id(void)
@@ -2358,6 +2371,8 @@ shared_library_bounds(IN shlib_handle_t lib, IN byte *addr,
 }
 #endif /* defined(CLIENT_INTERFACE) */
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
+
 /* FIXME - not available in 2.0 or earlier kernels, not really an issue since no one
  * should be running anything that old. */
 int
@@ -2550,6 +2565,12 @@ os_tell(file_t f)
 }
 
 bool
+os_delete_file(const char *name)
+{
+    return (dynamorio_syscall(SYS_unlink, 1, name) == 0);
+}
+
+bool
 os_rename_file(const char *orig_name, const char *new_name, bool replace)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME PR 295534: NYI */ 
@@ -2562,6 +2583,8 @@ os_delete_mapped_file(const char *filename)
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME PR 295534: NYI */ 
     return false;
 }
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER /* around most of file, to exclude preload */
 
 byte *
 os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
@@ -3257,15 +3280,21 @@ handle_execve(dcontext_t *dcontext)
      * is on LD_LIBRARY_PATH (seems not to work to put absolute paths in
      * LD_PRELOAD).
      * FIXME: this doesn't work for setuid programs
-     * We also pass the current DYNAMORIO_OPTIONS to the new image.
-     * FIXME: security hole here -- have some other way to pass the options?
+     *
+     * For -follow_children we also pass the current DYNAMORIO_RUNUNDER and
+     * DYNAMORIO_OPTIONS and logdir to the new image to support a simple
+     * run-all-children model without bothering w/ setting up config files for
+     * children, and to support injecting across execve that does not
+     * preserve $HOME.
+     * FIXME i#287/PR 546544: we'll need to propagate DYNAMORIO_AUTOINJECT too
+     * once we use it in preload
      */
     /* FIXME i#191: supposed to preserve things like pending signal
      * set across execve: going to ignore for now
      */
     char *fname = (char *)  sys_param(dcontext, 0);
     char **envp = (char **) sys_param(dcontext, 2);
-    int i, preload = -1, ldpath = -1, ops = -1;
+    int i, preload = -1, ldpath = -1, ops = -1, rununder = -1;
     bool preload_us = false, ldpath_us = false;
     bool x64 = IF_X64_ELSE(true, false);
     file_t file;
@@ -3314,6 +3343,9 @@ handle_execve(dcontext_t *dcontext)
             if (strstr(envp[i], DYNAMORIO_VAR_OPTIONS) == envp[i]) {
                 ops = i;
             }
+            if (strstr(envp[i], DYNAMORIO_VAR_RUNUNDER) == envp[i]) {
+                rununder = i;
+            }
             if (strstr(envp[i], "LD_LIBRARY_PATH=") == envp[i]) {
                 ldpath = i;
                 if (strstr(envp[i], inject_library_path) != NULL)
@@ -3345,6 +3377,7 @@ handle_execve(dcontext_t *dcontext)
     uint sz;
     char *var, *old;
     int idx_preload = preload, idx_ldpath = ldpath, idx_ops = ops;
+    int idx_rununder = rununder;
     char *options = option_string; /* global var */
     int num_new;
     char **new_envp;
@@ -3369,11 +3402,15 @@ handle_execve(dcontext_t *dcontext)
     mark_thread_execve(dcontext->thread_record, true);
 
     num_new = 
-        (get_log_dir(PROCESS_DIR, NULL, NULL) ? 1 : 0) + /* logdir */
         2 + /* execve indicator var plus final NULL */
         ((preload<0) ? 1 : 0) +
-        ((ldpath<0) ? 1 : 0) +
-        ((ops < 0 && options != NULL) ? 1 : 0);
+        ((ldpath<0) ? 1 : 0);
+    if (DYNAMO_OPTION(follow_children)) {
+        num_new +=
+            ((rununder < 0) ? 1 : 0) +
+            ((ops < 0 && options != NULL) ? 1 : 0) +
+            (get_log_dir(PROCESS_DIR, NULL, NULL) ? 1 : 0) /* logdir */;
+    }
     new_envp = heap_alloc(dcontext, sizeof(char*)*(num_old+num_new)
                           HEAPACCT(ACCT_OTHER));
     memcpy(new_envp, envp, sizeof(char*)*num_old);
@@ -3389,8 +3426,12 @@ handle_execve(dcontext_t *dcontext)
         idx_preload = i++;
     if (ldpath < 0)
         idx_ldpath = i++;
-    if (ops < 0 && options != NULL)
-        idx_ops = i++;
+    if (DYNAMO_OPTION(follow_children)) {
+        if (rununder < 0)
+            idx_rununder = i++;
+        if (ops < 0 && options != NULL)
+            idx_ops = i++;
+    }
 
     if (!preload_us) {
         LOG(THREAD, LOG_SYSCALLS, 1,
@@ -3432,26 +3473,43 @@ handle_execve(dcontext_t *dcontext)
             idx_ldpath, new_envp[idx_ldpath]);
     }
 
-    if (ops < 0 && options != NULL) {
-        sz = strlen(DYNAMORIO_VAR_OPTIONS) + strlen(options) + 2;
-        var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-        snprintf(var, sz, "%s=%s", DYNAMORIO_VAR_OPTIONS, options);
-        *(var+sz-1) = '\0'; /* null terminate */
-        new_envp[idx_ops] = var;
-        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-            idx_ops, new_envp[idx_ops]);
-    }
-
-    if (get_log_dir(PROCESS_DIR, NULL, &logdir_length)) {
-        sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + 1 +
-            logdir_length;
-        var = heap_alloc(dcontext, 
-                         sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-        snprintf(var, sz, "%s=", DYNAMORIO_VAR_EXECVE_LOGDIR);
-        get_log_dir(PROCESS_DIR, var+strlen(var), &logdir_length);
-        *(var+sz-1) = '\0'; /* null terminate */
-        new_envp[i++] = var;
-        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
+    if (DYNAMO_OPTION(follow_children)) {
+        if (rununder < 0) {
+            sz = strlen(DYNAMORIO_VAR_RUNUNDER) + 3 /* =, 1, null */;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            /* Must pass RUNUNDER_ALL to get child injected if has no app config */
+            snprintf(var, sz, "%s=%.1d", DYNAMORIO_VAR_RUNUNDER,
+                     RUNUNDER_ON | RUNUNDER_ALL);
+            *(var+sz-1) = '\0'; /* null terminate */
+            new_envp[idx_rununder] = var;
+            LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+                idx_rununder, new_envp[idx_rununder]);
+        } /* If rununder var is already set we assume it's set to 1. */
+        if (ops < 0 && options != NULL) {
+            sz = strlen(DYNAMORIO_VAR_OPTIONS) + strlen(options) + 2;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            snprintf(var, sz, "%s=%s", DYNAMORIO_VAR_OPTIONS, options);
+            *(var+sz-1) = '\0'; /* null terminate */
+            new_envp[idx_ops] = var;
+            LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+                idx_ops, new_envp[idx_ops]);
+        }
+        if (get_log_dir(PROCESS_DIR, NULL, &logdir_length)) {
+            sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + 1 + logdir_length;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            snprintf(var, sz, "%s=", DYNAMORIO_VAR_EXECVE_LOGDIR);
+            get_log_dir(PROCESS_DIR, var+strlen(var), &logdir_length);
+            *(var+sz-1) = '\0'; /* null terminate */
+            new_envp[i++] = var;
+            LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
+        }
+    } else if (idx_rununder >= 0) {
+        /* disable auto-following of this execve, yet still allow preload
+         * on other side to inject if config file exists.
+         * kind of hacky mangle here:
+         */
+        ASSERT(new_envp[idx_rununder][0] == 'D');
+        new_envp[idx_rununder][0] = 'X';
     }
 
     sz = strlen(DYNAMORIO_VAR_EXECVE) + 4;
@@ -3466,6 +3524,11 @@ handle_execve(dcontext_t *dcontext)
     LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
     /* must end with NULL */
     new_envp[i] = NULL;
+
+    /* we need to clean up the .1config file here.  if the execve fails,
+     * we'll just live w/o dynamic option re-read.
+     */
+    config_exit();
 }
 
 static void
@@ -6704,3 +6767,5 @@ os_check_option_compatibility(void)
     /* no options are Linux OS version dependent */
     return false;
 }
+
+#endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */

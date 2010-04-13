@@ -47,7 +47,8 @@
 #define INIT_BEFORE_LIBC 0
 
 #include "configure.h"
-
+#include "globals_shared.h"
+#include "../config.h"
 #include <stdio.h>
 /* for getpid */
 #include <unistd.h>
@@ -63,13 +64,6 @@
 #endif /* VERBOSE */
 
 #if START_DYNAMO
-/* Including globals.h or vmkuw.h to avoid the following declarations causes
- * many other types to be included which are undefined.  Simpler to redefine
- * these.
- */
-#define true (1)
-#define false (0)
-typedef int bool;
 # ifdef VMX86_SERVER
 /* This function is not statically linked so as avoid duplicating or compiling
  * DR code into libdrpreload.so, which is messy.  As libdynamorio.so is
@@ -100,6 +94,9 @@ static bool
 take_over(const char *pname)
 {
     char *plist;
+    const char *runstr;
+    int rununder;
+    bool app_specific, from_env;
 # ifdef INTERNAL
     /* HACK just for our benchmark scripts: 
      * do not take over a process whose executable is named "texec"
@@ -114,10 +111,33 @@ take_over(const char *pname)
     if (pname[0] == '\0')
         return true;
 
+    /* i#85/PR 212034: use config files */
+    config_init();
+    /* handle rununder values
+     * FIXME: share with systemwide_should_inject()
+     */
+    runstr = get_config_val_ex(DYNAMORIO_VAR_RUNUNDER, &app_specific, &from_env);
+    if (runstr == NULL || runstr[0] == '\0')
+        return false;
+    /* decimal only for now */
+    rununder = atoi(runstr);
+    /* env var counts as app-specific */
+    if (!app_specific && !from_env) {
+        if (TEST(RUNUNDER_ALL, rununder))
+            return true;
+        else
+            return false;
+    }
+    if (!TEST(RUNUNDER_ON, rununder))
+        return false;
+    /* Linux ignores RUNUNDER_EXPLICIT, RUNUNDER_COMMANDLINE_*, RUNUNDER_ONCE */
+
+    /* FIXME PR 546894: eliminate once all users are updated to use config files */
     plist = getenv("DYNAMORIO_INCLUDE");
     if (plist != NULL)
         return strstr(plist, pname) ? true : false;
 
+    /* FIXME PR 546894: eliminate once all users are updated to use config files */
     plist = getenv("DYNAMORIO_EXCLUDE");
     if (plist != NULL)
         return strstr(plist, pname) ? false : true;
@@ -160,6 +180,9 @@ _init ()
     pf("preload _init: running %s\n", name);
     if (!take_over(name))
         return 0;
+    /* FIXME i#287/PR 546544: now load DYNAMORIO_AUTOINJECT DR .so 
+     * and only LD_PRELOAD the preload lib itself
+     */
     init = dynamorio_app_init();
     pf("dynamorio_app_init() returned %d\n", init);
     dynamorio_app_take_over();

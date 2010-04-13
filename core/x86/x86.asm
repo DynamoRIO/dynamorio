@@ -966,7 +966,11 @@ GLOBAL_LABEL(dynamorio_syscall_wow64:)
         ret
         END_FUNC(dynamorio_syscall_wow64)
       
-#else /* LINUX  */
+#endif /* WINDOWS */
+
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+/* we share dynamorio_syscall w/ preload */
+#ifdef LINUX
 /* to avoid libc wrappers we roll our own syscall here
  * hardcoded to use int 0x80 for 32-bit -- FIXME: use something like do_syscall
  * and syscall for 64-bit.
@@ -1040,11 +1044,14 @@ syscall_0args:
         pop      REG_XDI
         pop      REG_XSI
         pop      REG_XBP
-#endif
+# endif /* X64 */
         pop      REG_XBX
         /* return val is in eax for us */
         ret
         END_FUNC(dynamorio_syscall)
+#endif /* LINUX */
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+#ifdef LINUX
 
 /* while with pre-2.6.9 kernels we were able to rely on the kernel's
  * default sigreturn code sequence and be more platform independent,
