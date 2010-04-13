@@ -360,6 +360,10 @@ instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
                 instr_set_src(copy, i,
                               opnd_create_instr(tgt));     
         }
+    }
+    for (inst = instrlist_first(old), copy = instrlist_first(newlist);
+         inst != NULL && copy != NULL;
+         inst = instr_get_next(inst), copy = instr_get_next(copy)) {
         /* restore note field */
         instr_set_note(inst, instr_get_note(copy));
     }
