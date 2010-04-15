@@ -4722,6 +4722,14 @@ intercept_exception(app_state_at_intercept_t *state)
                                         takeover ? MOD_CODE_TAKEOVER : 0);
             }
             if (!takeover) {
+#ifdef CLIENT_INTERFACE
+                /* -probe_api client should get exception events too */
+                if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+                    /* raw_mcontext equals mcontext */
+                    context_to_mcontext(&raw_mcontext, cxt);
+                    client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext);
+                }
+#endif
 #ifdef PROGRAM_SHEPHERDING
                 /* check for an ASLR execution violation - currently
                  * should only be hit in hotp_only, but could also be
