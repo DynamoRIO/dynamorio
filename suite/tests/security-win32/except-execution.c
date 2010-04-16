@@ -111,7 +111,7 @@ typedef unsigned int (__stdcall * threadfunc_t)(void *);
  *  target thread routine can't exit by by returning, instead it must call
  *    ExitThread or the like
  *  caller or target thread routine is responsible for informing csrss (if
- *    neccessary) and freeing the the thread stack 
+ *    necessary) and freeing the the thread stack
  */
 static HANDLE
 nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,

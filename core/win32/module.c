@@ -1498,7 +1498,7 @@ is_in_code_section(app_pc module_base, app_pc addr,
                                          true /* merge */);
 }
 
-/* Same as above only for initalized data sections instead of code. */
+/* Same as above only for initialized data sections instead of code. */
 bool
 is_in_dot_data_section(app_pc module_base, app_pc addr,
                        app_pc *sec_start /* OPTIONAL OUT */,
@@ -2053,7 +2053,7 @@ get_module_base_reloc(app_pc module_base, size_t *base_reloc_size /* OPTIONAL OU
     if (base_reloc_size != NULL)
         *base_reloc_size = 0;
 
-    /* Dont expect base_reloc_dir to be NULL, but to be safe */
+    /* Don't expect base_reloc_dir to be NULL, but to be safe */
     if (base_reloc_dir == NULL) {
         ASSERT_CURIOSITY(false &&
                          "DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC] NULL");
@@ -2121,7 +2121,7 @@ get_module_characteristics(app_pc module_base)
 /* Parse PE and return IMAGE_COR20_HEADER * if it has a valid COM header.
  * Optional OUT: cor20_header_size.
  * NOTE: returning a pointer into a dll that could be unloaded could be racy
- * (though we dont expect a race, see case 1272 for _safe/_unsafe routines)
+ * (though we don't expect a race, see case 1272 for _safe/_unsafe routines)
  */
 IMAGE_COR20_HEADER *
 get_module_cor20_header(app_pc module_base, size_t *cor20_header_size)
@@ -2852,7 +2852,7 @@ rct_add_exports(dcontext_t *dcontext, app_pc module_base, size_t module_size)
  * [referto_start, referto_end).  Add all such valid references to the indirect
  * branch hashtable.
  * returns: -1 if there were no relocation entries
- *           0 if there was a valid entry refering to some section
+ *           0 if there was a valid entry referring to some section
  *          references_found, otherwise
  */
 /* FIXME: should switch to using module_reloc_iterator_start() */
@@ -3816,7 +3816,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
          * emulate ObReferenceObjectByPointer() on the section
          * when a MapViewOfSection succeeds.
          */
-        /* invalidate, so that we know we had a succesful map */
+        /* invalidate, so that we know we had a successful map */
         dcontext->aslr_context.
             original_image_section_handle = INVALID_HANDLE_VALUE;
     } else {
@@ -4950,7 +4950,7 @@ module_calculate_digest(OUT module_digest_t *digest,
      * However for better consistency guarantees, yet with a
      * predictable performance, used this more involved definition of
      * short digest.  While a 64KB digest may be acceptable, full
-     * checks on some 8MB DLLs may be noticable.
+     * checks on some 8MB DLLs may be noticeable.
      */
 
     app_pc header_start = module_base;
@@ -5657,7 +5657,7 @@ get_resource_directory_entry_by_id(IMAGE_RESOURCE_DIRECTORY *dir,
 }
 
 /* returns pointer to the start of the VS_VERSIONINFO structure 
- * also returns the size of the stucture in version_size */
+ * also returns the size of the structure in version_size */
 static void *
 get_module_resource_version_data(app_pc mod_base, size_t *version_size)
 {
@@ -5791,7 +5791,7 @@ get_module_resource_version_data(app_pc mod_base, size_t *version_size)
  *
  * VS_VERSIONINFO is the top level structure
  * {
- *   WORD wLength; // size in bytes of vs_versioninfo stucture
+ *   WORD wLength; // size in bytes of vs_versioninfo structure
  *   WORD wValueLength; // length of Value field below
  *   WORD wType; // type of data in Value (expect 0 -> binary)
  *   WCHAR szKey[]; // contains "VS_VERSION_INFO"
@@ -5809,7 +5809,7 @@ get_module_resource_version_data(app_pc mod_base, size_t *version_size)
  *   WORD wValueLength; // 0
  *   WORD wType; // type of data (expect 1 -> string)
  *   WCHAR szKey; // contains "StringFileInfo"
- *   WORD Padding[]; // if neccesary padding word to align 32 bit
+ *   WORD Padding[]; // if necessary padding word to align 32 bit
  *   StringTable tables[]; // 1 or more
  * }
  * StringTable {
@@ -5817,7 +5817,7 @@ get_module_resource_version_data(app_pc mod_base, size_t *version_size)
  *   WORD wValueLength; // 0
  *   WORD wType; // type of data (expect 1 -> string)
  *   WCHAR szKey; // 8 digit hex string specifying lang id and code page
- *   WORD Padding[]; // if neccesary padding word to align 32 bit
+ *   WORD Padding[]; // if necessary padding word to align 32 bit
  *   String strings[]; // 1 or more
  * }
  * String {
@@ -5825,7 +5825,7 @@ get_module_resource_version_data(app_pc mod_base, size_t *version_size)
  *   WORD wValueLength; // size in bytes of value
  *   WORD wType; // type of data (expect 1 -> string)
  *   WCHAR szKey; // key (for ex. "CompanyName")
- *   WORD Padding[]; // if neccesary padding word to align 32 bit
+ *   WORD Padding[]; // if necessary padding word to align 32 bit
  *   WCHAR szValue; // value (for ex. "Microsoft Corporation")
  * }
  *
@@ -5836,7 +5836,7 @@ get_module_resource_version_data(app_pc mod_base, size_t *version_size)
  *   WORD wValueLength; // 0
  *   WORD wType; // type of data (expect 1 -> string)
  *   WCHAR szKey; // contains "VarFileInfo"
- *   WORD Padding[]; // if neccesary padding word to align 32 bit
+ *   WORD Padding[]; // if necessary padding word to align 32 bit
  *   Var vars[]; // 1 or more
  * }
  * Var {
@@ -5844,7 +5844,7 @@ get_module_resource_version_data(app_pc mod_base, size_t *version_size)
  *   WORD wValueLength; // size in bytes of value member
  *   WORD wType; // type of data (expect 1 -> string)
  *   WCHAR szKey; // contains "Translation"
- *   WORD Padding[]; // if neccesary padding word to align 32 bit
+ *   WORD Padding[]; // if necessary padding word to align 32 bit
  *   DWORD Value[]; // array of 1 or more supported language code page pairs
  * }
  */
@@ -5960,7 +5960,7 @@ read_version_struct_header(byte *start, byte *valid_start, size_t valid_size,
 /* version_info - ptr to VS_VERSIONINFO to read
  * version_info_size - size of said VS_VERSIONINFO
  * info - OUT gets populated with the VS_VERSIONINFO data
- * returns true if succesfully read version info */ 
+ * returns true if successfully read version info */
 static bool
 read_vs_version_info(void *version_info, size_t version_info_size,
                      vs_version_info_t *info /* OUT */)

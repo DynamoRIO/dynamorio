@@ -877,7 +877,7 @@ get_subkey_parameter(HANDLE process_handle, const wchar_t *uname,
 
 
 /* value is a buffer allocated by the caller to hold the
- * resulting value. If not succesful leaves original buffer contents intact.
+ * resulting value. If not successful leaves original buffer contents intact.
  *
  * The same parameter is looked up first in the application specific registry 
  * subtree and then in the global registry tree.  We no longer look for 

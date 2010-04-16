@@ -242,7 +242,7 @@ print_mem_stats(HANDLE h)
 /* Following code handles the copying of environment variables to the 
  * registry (the -env option, default on) and unsetting them later
  *
- * FIXME : race conditions with someone else modifing this registry key,
+ * FIXME : race conditions with someone else modifying this registry key,
  *         doesn't restore registry if -no_wait
  * NOTE : doesn't propagate if using debug injection method (by design)
  *         
@@ -254,7 +254,7 @@ static HKEY image_name_key;
 static HKEY product_name_key;
 
 /* use macros to avoid duplication */
-/* This check is neccesary since we don't have 
+/* This check is necessary since we don't have
  * preprocessor warnings enabled on windows */
 #if defined(TEMP_CMD) || defined(DO_CMD)
 #error TEMP_CMD or DO_ENV_VARS macro already declared!
@@ -489,7 +489,7 @@ void unset_debugger_key_injection()
     if (debug_stop_function == NULL) {
         int res = RegDeleteValue(debugger_key, 
                                  _TEXT(DEBUGGER_INJECTION_VALUE_NAME));
-        VERBOSE_PRINT(("Succesfully deleted debugger registry value? %s\n", 
+        VERBOSE_PRINT(("Successfully deleted debugger registry value? %s\n", 
                        (ERROR_SUCCESS == res) ? "yes" : "no"));
         if (ERROR_SUCCESS != res) {
             ASSERT(FALSE);
@@ -507,12 +507,12 @@ void restore_debugger_key_injection(int id, BOOL started)
         res = RegSetValueEx(debugger_key, 
                             _TEXT(DEBUGGER_INJECTION_VALUE_NAME), 0, REG_SZ, 
                             (BYTE *) debugger_key_value, debugger_key_value_size);
-        VERBOSE_PRINT(("Succesfully restored debugger registry value? %s\n", 
+        VERBOSE_PRINT(("Successfully restored debugger registry value? %s\n", 
                        (ERROR_SUCCESS == res) ? "yes" : "no"));
     } else {
         if (started) {
             res = (*debug_stop_function)(id);
-            VERBOSE_PRINT(("Succesfully detached from debugging process? %s\n",
+            VERBOSE_PRINT(("Successfully detached from debugging process? %s\n",
                            res ? "yes" : "no"));
         }
     }

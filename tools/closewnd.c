@@ -69,7 +69,7 @@ main(int argc, char **argv)
                 /* error case */
                 res = GetLastError();
                 /* msdn lies! claims GetLastError returns 0 for timeout case, yet
-                 * it in fact returns ERROR_TIMEOUT (no suprise) just check for
+                 * it in fact returns ERROR_TIMEOUT (no surprise) just check for
                  * both, not too suprising, I suppose, as I think they have some 
                  * typos in the flag descriptions for the function also */
                 if (res == 0 || res == ERROR_TIMEOUT) {

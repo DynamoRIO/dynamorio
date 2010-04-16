@@ -2537,7 +2537,7 @@ os_flush(file_t f)
     /* we're not using FILE*, so there is no buffering */
 }
 
-/* seek the current file position to offset bytes from origin, return true if succesful */
+/* seek the current file position to offset bytes from origin, return true if successful */
 bool
 os_seek(file_t f, int64 offset, int origin)
 {
@@ -4582,7 +4582,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
          * behavior, it first maps the file in with size equal to the final
          * memory image size (I'm not sure how it gets that size without reading
          * in the elf header and then walking through all the program headers to
-         * get the largest virtual offset).  This is neccesary to reserve all the
+         * get the largest virtual offset).  This is necessary to reserve all the
          * space that will be needed.  It then walks through the program headers
          * mapping over the the previously mapped space with the appropriate
          * permissions and offsets.  Note that the .bss portion is mapped over
@@ -4593,7 +4593,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
          */
         /* FIXME - when should we add the module to our list?  At the first map
          * seems to be the best choice as we know the bounds and it's difficult to
-         * tell when the loader is finished.  The downside is that at the intial map
+         * tell when the loader is finished.  The downside is that at the initial map
          * the memory layout isn't finalized (memory beyond the first segment will
          * be shifted for page alignment reasons), so we have to be careful and
          * make adjustments to read anything beyond the first segment until the 

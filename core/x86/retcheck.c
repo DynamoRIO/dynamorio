@@ -1876,7 +1876,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
         }
 
         /* special handling of unreadable memory targets - most likely
-         * corrupted app, but could also be an unsuccesful attack
+         * corrupted app, but could also be an unsuccessful attack
          */
         if (TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ret_unreadable))) {
             if (!is_readable_without_exception(target_addr, 4)) {

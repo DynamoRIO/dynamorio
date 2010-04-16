@@ -340,7 +340,7 @@ typedef struct _free_list_header_t {
     struct _free_list_header_t *next;
     /* We arrange these two so that the FRAG_FCACHE_FREE_LIST flag will be set
      * at the proper bit as though these were a "uint flags" at the same offset
-     * in the struct as fragment_t.flags.  Since noone else examines a free list
+     * in the struct as fragment_t.flags.  Since no one else examines a free list
      * as though it might be a fragment_t, we don't care about the other flags.
      * We have an ASSERT in fcache_init() to ensure the byte ordering is right.
      *
@@ -4489,7 +4489,7 @@ fcache_low_on_memory()
                 4*dynamo_options.cache_shared_trace_replace/5;
         }
     }
-    /* FIXME: be more or less agressive about traces than bbs?
+    /* FIXME: be more or less aggressive about traces than bbs?
      * could get rid of trace cache altogether...
      */
     if (dynamo_options.finite_trace_cache && dynamo_options.cache_trace_replace > 0) {

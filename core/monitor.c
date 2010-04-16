@@ -1588,7 +1588,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     /* we can't call reset_trace_state() until after -remove_trace_components,
      * but we must clear these two before enter_nolinking so that a flusher
      * doesn't access them in an inconsistent state (trace_vmlist is invalid
-     * once also pointers are transfered to real fragment)
+     * once also pointers are transferred to real fragment)
      */
     md->trace_vmlist = NULL;
     md->trace_tag = NULL;

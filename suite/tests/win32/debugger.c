@@ -129,7 +129,7 @@ invalid_handle()
         dbg = 0;
     } __except(print("in close filter\n", EXCEPTION_CONTINUE_EXECUTION)) {
     }
-    print("continued succesfully\n");
+    print("continued successfully\n");
     return dbg;
 }
 

@@ -346,7 +346,7 @@ print_optimization_stats()
 #ifdef IA32_ON_IA64
     if (dynamo_options.test_i64) {
         if (opt_stats_t.i64_test)
-            LOG(GLOBAL, LOG_OPTS, 1, "IA64 test succeded!\n");
+            LOG(GLOBAL, LOG_OPTS, 1, "IA64 test succeeded!\n");
         else
             LOG(GLOBAL, LOG_OPTS, 1, "IA64 test failed!\n");
         LOG(GLOBAL, LOG_OPTS, 1, "%d entries into Itanium code\n", opt_stats_t.ia64_num_entries);
@@ -1576,7 +1576,7 @@ propagate_address(opnd_t old, prop_state_t *state)
         ((state->reg_state[base_reg] & PS_VALID_VAL) != 0)) {
 
         disp += state->reg_vals[base_reg];
-        /* don't think this is neccesary  *******FIXME*************
+        /* don't think this is necessary  *******FIXME*************
            if ((seg == REG_NULL) && ((base_reg + REG_START_32 == REG_ESP) ||
            (base_reg + REG_START_32 == REG_EBP))) {
            seg = SEG_SS;
@@ -2600,7 +2600,7 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                 state->reg_state[i] = 0;
         }
         // update for regs written to, actually if xh then don't need to 
-        // invalidate xl and vice versa, but to much work to check for that probably unlikely occurence
+        // invalidate xl and vice versa, but to much work to check for that probably unlikely occurrence
         for (i = 0; i < 8; i++) {
             if (instr_writes_to_reg(inst, REG_START_32 + i)) {
                 state->reg_state[i] = 0;
@@ -2688,7 +2688,7 @@ handle_stack(prop_state_t *state, instr_t *inst)
  * both be OPSZ_4_short2, look at prefix?  Similarly at level 2 we don't do any size
  * checking at all for constant address, what if is a byte of existing etc.
  * Ah, just trust the programmer, these are all addresses from him anyways
- * we can trust that he won't do anything that wierd with them
+ * we can trust that he won't do anything that weird with them
  * FIXME :  more robust matching for the dynamorio stack call hints, the pattern
  * matching at the moment is somewhat birttle, though should fail gracefully
  * TODO : (doesn't affect correctness only effectiveness)
@@ -2864,7 +2864,7 @@ remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
     instr_t *inst, *next_inst;
     int i, cur_reg, num_dsts;
-    /* keeps track if actually neccesary to mark off dst of non zeroing instructions */
+    /* keeps track if actually necessary to mark off dst of non zeroing instructions */
     bool check_dsts; 
     bool zeroed[24];
     opnd_t dst;
@@ -2893,7 +2893,7 @@ remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         }
         else {
             /* non-zeroing instruction, check for registers being written 
-             * and mark them non-zero if neccesary*/
+             * and mark them non-zero if necessary */
             if (check_dsts) {
                 num_dsts = instr_num_dsts(inst);
                 for (i = 0; i < num_dsts; i++) {
@@ -3088,7 +3088,7 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         loginst(dcontext,3,inst,"remove_dead_code working on:");
         if (instr_is_cti(inst) || instr_is_interrupt(inst)) {
             /* perhaps to a bit of multi-trace search here to see if really 
-             * neccesary to mark all flags and regs as live when hit cti? */
+             * necessary to mark all flags and regs as live when hit cti? */
             eflags = EFLAGS_READ_ALL;
             for (i = 0; i < 24; i++)
                 free[i] = false;
@@ -3271,7 +3271,7 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 /***************************************************************************/
 /* from Tim */
 /* attempts to combine multiple adjustments of the esp register into a 
- * single adjustment, might eventually be usefull for locations, or as a
+ * single adjustment, might eventually be useful for locations, or as a
  * tool for inlining, but is inspired by ocaml and tinyvm code which have
  * a lot of manipulation of the stack without much actual use of it once
  * the other passes have finished
@@ -3379,7 +3379,7 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             }
             opcode = instr_get_opcode(inst);
             /* if instr depends on ESP or leaves trace must restore */
-            /* include interrupt and call, though may not be neccesary */
+            /* include interrupt and call, though may not be necessary */
             /* could mangle pushes and pops instead of restoring, is */
             /* helpfull?, check for store to ecx_off, might mangle indirect */
             /* macro's by inserting a clean up instruction */
@@ -3434,10 +3434,10 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                     if (last_adjust != NULL)
                         remove_inst(dcontext, trace, last_adjust); 
                 } else {
-                    /* change adjustment if neccesary */
+                    /* change adjustment if necessary */
                     if (first_off != cur_off) {
                         LOG(THREAD, LOG_OPTS, 3, "  current offset %d, initial offset %d\n", cur_off, first_off);
-                        loginst(dcontext, 3, first_adjust, "  replacing intial adjustment");
+                        loginst(dcontext, 3, first_adjust, "  replacing initial adjustment");
                         set_stack_adjustment(first_adjust, cur_off);
                         loginst(dcontext, 3, first_adjust, "  with");
                         ASSERT(cur_off % 4 == 0);
@@ -4063,7 +4063,7 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                             break;
                         }
                     }
-                    // check alignement of address (for partial or unaligned writes)
+                    // check alignment of address (for partial or unaligned writes)
                     // still might be issue with aligned partial writes (data size)
                     // attempted quick fix for gcc bug for CGO paper 1/10/03 Tim
                     // if size/alignment issues really are to blame then a more through

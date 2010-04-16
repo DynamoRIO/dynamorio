@@ -6737,7 +6737,7 @@ unlink_shared_syscall(dcontext_t *dcontext)
  *   xchg xbx, PID in TEB  // restore pid, saved xax now in xbx
  *   mov xbx -> xax_save_offset(xax)
  *   mov xcx -> xcx_save_offset(xax)
- *   mov count_offset(xax) -> xbx  // need count in regsiter for addr calculation below
+ *   mov count_offset(xax) -> xbx  // need count in register for addr calculation below
  *   sub xbx, 1
  *   mov xbx -> count_offset(xax)
  *   mov callback_addrs_offset(xax) -> xcx

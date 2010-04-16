@@ -45,7 +45,7 @@
  */
 
 #define DO_SYNCH_WITH_ALL_SUSPEND_SELF_TEST 1
-/* ouput = 
+/* output = 
  * Testing exiting with self suspended thread.
  */
 

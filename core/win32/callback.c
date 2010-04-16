@@ -664,7 +664,7 @@ insert_let_go_cleanup(dcontext_t *dcontext, instrlist_t *ilist, instr_t *decisio
  * Note: For 64-bit landing pad, tgt_pc can be stored at the bottom of the
  * trampoline too.  I chose the top because it helps avoid a minor reachability
  * problem: iff the landing pad is allocated at the topmost part of the
- * reachability region for a given addr_to_hook, then there is a possiblity
+ * reachability region for a given addr_to_hook, then there is a possibility
  * that the return jmp from the landing pad may not reach the instruction after
  * the hook address.  This is because the number of bytes of the hook (5 bytes)
  * and the number of bytes of the instruction(s) clobbered at the hook point
@@ -2001,7 +2001,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                 ASSERT_NOT_IMPLEMENTED(false && "unchainable CTI");
                 /* FIXME PR 215397: need to re-relativize pc-relative memory reference */
                 IF_X64(ASSERT_NOT_IMPLEMENTED(!instr_has_rel_addr_reference(instr)));
-                /* just append instruction as is, emit re-relativises if neccesary */
+                /* just append instruction as is, emit re-relativises if necessary */
                 instrlist_append(&ilist, instr);
                 /* FIXME: if instr's length doesn't match normal 1st instr we'll
                  * get off down below: really shouldn't continue here */

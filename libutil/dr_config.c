@@ -1061,7 +1061,7 @@ typedef struct {
     bool all; /* if set attempts to nudge all processes */
     client_id_t client_id;
     uint64 argument;
-    int count; /* number of nudges succesfully delivered */
+    int count; /* number of nudges successfully delivered */
     DWORD res; /* last failing error code */
     DWORD timeout; /* amount of time to wait for nudge to finish */
 } pw_nudge_callback_data_t;

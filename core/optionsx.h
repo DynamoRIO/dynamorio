@@ -744,7 +744,7 @@
       * 2nd flags restore in the full prefix would be wrong. So if the BB table
       * is including trace targets, bb_single_restore_prefix and
       * trace_single_restore_prefix must be the same value. See options.c for
-      * what is currently done for options compatability.
+      * what is currently done for options compatibility.
       */
     OPTION(bool, bb_ibt_table_includes_traces,
         "BB IBT tables holds trace targets also")
@@ -1965,7 +1965,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
             options->sygate_sysenter = true;
             options->native_exec_hook_conflict = 3; /* HOOK_CONFLICT_HOOK_DEEPER */
             options->native_exec_hook_create_thread = false;
-        }, "Sets neccesary options for running in Sygate compatible mode",
+        }, "Sets necessary options for running in Sygate compatible mode",
         STATIC, OP_PCACHE_NOP)
 
     /* FIXME - disabling for 64bit due to layout considerations xref PR 215395,

@@ -862,7 +862,7 @@ fragment_add_to_hashtable(dcontext_t *dcontext, fragment_t *e, fragment_table_t 
  * have IBL routine heads inlined in the indirect exit stubs
  *
  * FIXME: [perf] should add a filter of which branch types need updating if
- * updating all is a noticable performance hit.
+ * updating all is a noticeable performance hit.
  *
  * FIXME: [perf] Also it maybe better to traverse all fragments in an fcache
  * unit instead of entries in a half-empty hashtable
@@ -4300,7 +4300,7 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag,
         fragment_entry_t current;
 
         /* Make sure this thread's local ptrs & state is current in case a
-         * shared table resize occured while it was in the cache. We update
+         * shared table resize occurred while it was in the cache. We update
          * only during an IBL miss, since that's the first time that
          * accessing the old table inflicted a cost (a context switch).
          */
@@ -4367,7 +4367,7 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag,
                 ASSERT(ibl_table_too != NULL);
                 ASSERT(!TEST(FRAG_TABLE_TRACE, ibl_table_too->table_flags));
                 /* Make sure this thread's local ptrs & state is up to
-                 * date in case a resize occured while it was in the cache. */
+                 * date in case a resize occurred while it was in the cache. */
                 update_private_ibt_table_ptrs(dcontext, ibl_table_too
                                               _IF_DEBUG(NULL));
                 fragment_add_ibl_target_helper(dcontext, f, ibl_table_too);
@@ -5099,7 +5099,7 @@ coarse_persisted_fill_ibl_helper(dcontext_t *dcontext, ibl_table_t *ibl_table,
     ASSERT(os_get_module_info_locked());
 
     /* Make sure this thread's local ptrs & state are up to
-     * date in case a resize occured while it was in the cache. */
+     * date in case a resize occurred while it was in the cache. */
     update_private_ibt_table_ptrs(dcontext, ibl_table _IF_DEBUG(NULL));
 
     /* Avoid hash collision asserts while adding by sizing up front;
@@ -6912,7 +6912,7 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
 
 /* Flushes fragments from the region without any changes to the exec list.
  * Does not free futures and caller can't be holding the initexit lock.
- * FIXME - add argument paramters (free futures etc.) as needed. */
+ * FIXME - add argument parameters (free futures etc.) as needed. */
 void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
                             bool force_synchall)
@@ -7221,7 +7221,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     if (!TEST(FRAG_SHARED, f->flags)) {
         /* No lock is needed because we use thread-private files.
          * If dumping traces for a different thread (dynamo_other_thread_exit
-         * for ex.) caller is responsible for the neccesary synchronization. */
+         * for ex.) caller is responsible for the necessary synchronization. */
         ASSERT(pt != shared_pt);
         if (!dynamo_resetting)
             mutex_unlock(&tracedump_mutex);

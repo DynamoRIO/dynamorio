@@ -327,7 +327,7 @@ thread_owns_two_locks(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2)
 }
 
 /* Returns true if dcontext thread owns lock1 and optionally lock2
- * (aquired before lock1) and no other locks. */
+ * (acquired before lock1) and no other locks. */
 bool
 thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2)
 {
@@ -1032,7 +1032,7 @@ self_owns_recursive_lock(recursive_lock_t *lock)
    blocked vs any new readers that will grab the lock immediately, and
    for that matter vs any new writers.
     
-   FIXME: Keep in mind that a succesful wait on the kernel events in read
+   FIXME: Keep in mind that a successful wait on the kernel events in read
    locks should not be used as a guarantee that the current thread can
    proceed with a granted request.  We should rather keep looping to
    verify that we are back on the fast path.
@@ -1118,7 +1118,7 @@ void read_lock(read_write_lock_t *rw)
             } else {
                 /* otherwise race with writer */
                 /* after the write lock is released pending readers
-                   should no longer wait since noone will wake them up */
+                   should no longer wait since no one will wake them up */
                 /* no need to pause */
             }
             /* Even if we didn't wait another reader may be waiting for notification */
@@ -2485,7 +2485,7 @@ create_log_dir(int dir_type)
 }
 
 /* Copies the name of the specified directory into buffer, returns true if 
- * the specifed buffer has been initialized (if it hasn't then no copying is
+ * the specified buffer has been initialized (if it hasn't then no copying is
  * done).
  * Will not copy more than *buffer_length bytes and does not ensure null 
  * termination.

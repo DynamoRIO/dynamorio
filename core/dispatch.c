@@ -655,7 +655,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
     /* We have to perform some tasks with last_exit early, before we
      * become couldbelinking -- the rest are done in dispatch_exit_fcache().
      * It's ok to de-reference last_exit since even though deleter may assume
-     * noone has ptrs to it, cannot delete until we're officially out of the
+     * no one has ptrs to it, cannot delete until we're officially out of the
      * cache, which doesn't happen until enter_couldbelinking -- still kind of
      * messy that we're violating assumption of no ptrs...
      */
@@ -996,7 +996,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                 /* delete [old] fragment */
                 if ((f->flags & FRAG_CANNOT_DELETE) == 0) {
                     uint actions;
-                    LOG(THREAD, LOG_INTERP, 3, "Client deleteing old F%d\n", f->id);
+                    LOG(THREAD, LOG_INTERP, 3, "Client deleting old F%d\n", f->id);
                     if (todo->ilist != NULL) {
                         /* for the fragment replacement case, the fragment should
                          * already be unlinked and removed from the hash table.

@@ -1681,7 +1681,7 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
         return;
 
     /* FIXME - the source_tag, source_pc, and context can all be incorrect if the
-     * violation ends up occuring in the middle of a bb we're building.  See case
+     * violation ends up occurring in the middle of a bb we're building.  See case
      * 7380 which we should fix in interp.c.
      */
     
@@ -2608,7 +2608,7 @@ dr_read_file(file_t f, void *buf, size_t count)
 
 DR_API
 /* sets the current file position for file f to offset bytes from the specified origin
- * returns true if succesful */
+ * returns true if successful */
 bool
 dr_file_seek(file_t f, int64 offset, int origin)
 {

@@ -588,7 +588,7 @@ void os_flush(file_t f);
 #define OS_SEEK_SET 0  /* start of file */
 #define OS_SEEK_CUR 1  /* current file position */
 #define OS_SEEK_END 2  /* end of file */
-/* seek the current file position to offset bytes from origin, return true if succesful */
+/* seek the current file position to offset bytes from origin, return true if successful */
 bool os_seek(file_t f, int64 offset, int origin);
 /* return the current file position, -1 on failure */
 int64 os_tell(file_t f);
@@ -854,7 +854,7 @@ enum {
      * automatically on NT, so LdrDefault for NT uses -early_inject_address if
      * specified or else disables early injection (xref 7806). */
     /* Beyond this point not expected to need address determination */
-    INJECT_LOCATION_KiUserApc        = 5, /* NYI as must use map wich is NYI */
+    INJECT_LOCATION_KiUserApc        = 5, /* NYI as must use map which is NYI */
     INJECT_LOCATION_KiUserException  = 6, /* No good, Ldr init issues */
     INJECT_LOCATION_MAX = INJECT_LOCATION_KiUserException,
 };

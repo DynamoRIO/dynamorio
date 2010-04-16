@@ -535,7 +535,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
         ASSERT_NOT_IMPLEMENTED(false);
     }
     EXITING_DR();
-    /* Ref case 5074, for us/app to succesfully SetThreadContext at
+    /* Ref case 5074, for us/app to successfully SetThreadContext at
      * this synch point, this thread can NOT be at a system call. So, for
      * case 10101, we instead have threads that are waiting_at_safe_spot()
      * set their own contexts, allowing us to make system calls here.
@@ -728,7 +728,7 @@ synch_thread_yield()
 
 /* returns a thread_synch_result_t value
  * id - the thread you want to synch with
- * block - whether or not should spin until synch is succesful
+ * block - whether or not should spin until synch is successful
  * hold_initexit_lock - whether or not the caller holds the thread_initexit_lock
  * caller_state - a given permission define from above that describes the 
  *                current state of the caller (note that holding the initexit
@@ -1077,7 +1077,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
         my_id, cur_state, desired_synch_state);
 
     /* grab all_threads_synch_lock */
-    /* since all_threads synch doesn't give any permissions this is neccesary
+    /* since all_threads synch doesn't give any permissions this is necessary
      * to prevent deadlock in the case of two threads trying to synch with all
      * threads at the same time  */
     /* FIXME: for DEADLOCK_AVOIDANCE, to preserve LIFO, should we
@@ -1202,7 +1202,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                                               THREAD_SYNCH_NONE,
                                               desired_synch_state, flags_one);
                 if (synch_res == THREAD_SYNCH_RESULT_SUCCESS) {
-                    LOG(THREAD, LOG_SYNCH, 2, "Synch succeded!\n");
+                    LOG(THREAD, LOG_SYNCH, 2, "Synch succeeded!\n");
                     /* successful synch */
                     synch_array[i] = SYNCH_WITH_ALL_SYNCHED;
                     if (!THREAD_SYNCH_IS_CLEANED(desired_synch_state)) 

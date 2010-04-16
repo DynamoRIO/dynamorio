@@ -62,7 +62,7 @@ send_apc()
     print("QueueUserAPC returned %d\n", res);
     /* an alertable system call so we receive the APC */
     res = SleepEx(100, 1);
-    /* is going to return 192 since recieved apc during sleep call 
+    /* is going to return 192 since received apc during sleep call
      * well technically 192 is io completion interruption, but seems to 
      * report that for any interrupting APC */
     print("SleepEx returned %d\n", res);

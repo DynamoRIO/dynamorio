@@ -619,7 +619,7 @@ static void
 hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls);
 #endif
 
-/* TODO: add function protoypes for all functions in this file */
+/* TODO: add function prototypes for all functions in this file */
 /*----------------------------------------------------------------------------*/
 /* Local data. */
 
@@ -2022,7 +2022,7 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
 
                 /* CAUTION: this memcpy assumes the location & size of 
                  * app code copy in the trampoline, i.e., the first 5 bytes of
-                 * trampoline contain the orignal app code; so any changes 
+                 * trampoline contain the original app code; so any changes 
                  * should be kept in sync.
                  */
                 memcpy(dst, src, HOTP_PATCH_REGION_SIZE);
@@ -4581,7 +4581,7 @@ hotp_only_gateway(app_state_at_intercept_t *state)
          * longer matches, i.e., there is no matching definition.  Could be
          * because the mode was changed, the module got unloaded or new defs
          * came in, etc.  With mp-safe hotp_only patch injection, vulnerability/
-         * policy data changes are preceeded by removal of all injected patches;
+         * policy data changes are preceded by removal of all injected patches;
          * and patch removal guarantees that no patch will be executing.
          * This means that offset lookup should always succeed in this routine.
          */
@@ -6008,7 +6008,7 @@ DR_API
  *  probes not specified in the new list are removed from the process.
  *
  * \remarks
- * The probe insertion address has limitations.  5 bytes begining at the start
+ * The probe insertion address has limitations.  5 bytes beginning at the start
  *  of a probe insertion address should have specific characteristics.  No
  *  instruction should straddle this start of this region, i.e., the probe
  *  insertion address should be the beginning of an instruction.  Also, no flow
@@ -6085,7 +6085,7 @@ dr_register_probes(
     hotp_patch_point_t *ppoint;
     static bool probes_initialized = false;
 
-    /* For now, probes are supported iff probe api is explicity turned on.
+    /* For now, probes are supported iff probe api is explicitly turned on.
      * Also, liveshields shouldn't be on when probe api is on.
      */
     CLIENT_ASSERT(DYNAMO_OPTION(hot_patching) && DYNAMO_OPTION(probe_api) &&
@@ -6362,7 +6362,7 @@ dr_get_probe_status(unsigned int id, dr_probe_status_t *status)
     unsigned int i;
     bool res = false;
 
-    /* For now, probes are supported iff probe api is explicity turned on.
+    /* For now, probes are supported iff probe api is explicitly turned on.
      * Also, liveshields shouldn't be on when probe api is on.
      */
     CLIENT_ASSERT(DYNAMO_OPTION(hot_patching) && DYNAMO_OPTION(probe_api) &&

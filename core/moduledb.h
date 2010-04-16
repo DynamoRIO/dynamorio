@@ -49,7 +49,7 @@ enum {
  * these specify the module specific actions to take when a module is loaded */
 enum {
     MODULEDB_ALL_SECTIONS_BITS   = 0x00000003, /* value from SECTION enum above */
-    MODULEDB_ALL_SECTIONS_SHIFT  = 0, /* >> neccesary to read ALL_SECTIONS_BITS */
+    MODULEDB_ALL_SECTIONS_SHIFT  = 0, /* >> necessary to read ALL_SECTIONS_BITS */
     MODULEDB_RCT_EXEMPT_TO       = 0x00000004,
     MODULEDB_REPORT_ON_LOAD      = 0x00000008,
     MODULEDB_DLL2HEAP            = 0x00000010,

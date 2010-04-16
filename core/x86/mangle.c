@@ -1988,12 +1988,12 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             PRE(ilist, instr, popf);
         }
 
-        /* If the operand size is 64-bits iret additionaly does pop->RSP and pop->ss. */
+        /* If the operand size is 64-bits iret additionally does pop->RSP and pop->ss. */
         if (opnd_get_size(retaddr) == OPSZ_8) {
             PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_RSP)));
             /* We're ignoring the set of SS and since we just set RSP we don't need
              * to do anything to adjust the stack for the pop (since the pop would have
-             * occured with the old RSP). */
+             * occurred with the old RSP). */
         } else {
             ASSERT_NOT_TESTED();
         }

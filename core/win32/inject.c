@@ -445,7 +445,7 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
     if (map) {
         hook_target = NULL; /* for compiler */
         /* NYI see case 102, plan is to remote map in our dll, link and rebase if
-         * neccesary and hook to a routine in our dll */
+         * necessary and hook to a routine in our dll */
         ASSERT_NOT_IMPLEMENTED(false);
     } else {
         byte *remote_code_buffer = NULL, *remote_data_buffer;

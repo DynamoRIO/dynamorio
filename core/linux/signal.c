@@ -1741,8 +1741,8 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
             return false;
         }
         /* now hand kernel our master handler instead of app's 
-         * FIXME: double-check we're dealing w/ all posible mask, flag
-         * differences bet app & our handler
+         * FIXME: double-check we're dealing w/ all possible mask, flag
+         * differences between app & our handler
          */
         set_our_handler_sigact(non_const_act, sig);
 

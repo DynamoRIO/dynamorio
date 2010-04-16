@@ -1859,7 +1859,7 @@ add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid),
     tr = (thread_record_t *) global_heap_alloc(sizeof(thread_record_t)
                                             HEAPACCT(ACCT_THREAD_MGT));
 #ifdef WINDOWS
-    /* we duplicate the thread psuedo-handle, this should give us full rights
+    /* we duplicate the thread pseudo-handle, this should give us full rights
      * Note that instead asking explicitly for THREAD_ALL_ACCESS or just for
      * THREAD_TERMINATE|THREAD_SUSPEND_RESUME|THREAD_GET_CONTEXT|THREAD_SET_CONTEXT
      * does not seem able to acquire more rights than simply duplicating the
@@ -2075,7 +2075,7 @@ dynamo_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
 #ifdef CLIENT_INTERFACE
         /* put client last, may depend on other thread inits.
          * Note that we are calling this prior to instrument_init()
-         * now (PR 216936), which is required to intialize
+         * now (PR 216936), which is required to initialize
          * the client dcontext field prior to instrument_init().
          */
         instrument_thread_init(dcontext, client_thread);

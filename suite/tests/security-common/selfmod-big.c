@@ -45,7 +45,7 @@ static uint big[1024];
 void
 foo(int iters)
 {
-    /* executes iters iters, by modifing the iters bound using
+    /* executes iters iters, by modifying the iters bound using
      * self-modifying code
      */
     int total;

@@ -909,7 +909,7 @@
     STATS_DEF("Our library space (bytes)", dr_library_space)
 
 #ifdef WINDOWS
-    /* reserved means reserved but not commited */
+    /* reserved means reserved but not committed */
     STATS_DEF("Application reserved-only capacity (bytes)", app_reserved_capacity)
     STATS_DEF("Peak application reserved-only capacity (bytes)", peak_app_reserved_capacity)
     STATS_DEF("Application committed capacity (bytes)", app_committed_capacity)
@@ -939,8 +939,8 @@
     STATS_DEF("Our additional virtual size (bytes)", dr_vsize)
     STATS_DEF("Peak our additional virtual size (bytes)", peak_dr_vsize)
 #ifdef WINDOWS
-    STATS_DEF("Our commited capacity (bytes)", dr_commited_capacity)
-    STATS_DEF("Our peak commited capacity (bytes)", peak_dr_commited_capacity)
+    STATS_DEF("Our committed capacity (bytes)", dr_commited_capacity)
+    STATS_DEF("Our peak committed capacity (bytes)", peak_dr_commited_capacity)
     STATS_DEF("Our reserved capacity (bytes)", dr_reserved_capacity)
     STATS_DEF("Our peak reserved capacity (bytes)", peak_dr_reserved_capacity)
     STATS_DEF("App unallocatable free space", app_wasted_vsize)
@@ -1085,7 +1085,7 @@
     STATS_DEF("Multiple setcontexts while in wait_at_safe_spot", wait_multiple_setcxt)
 
 #ifdef WINDOWS
-    /* Borland SEH releated stats, xref case 5752 */
+    /* Borland SEH related stats, xref case 5752 */
     STATS_DEF("Num build bb loop breaks due to fs instrs", num_bb_build_fs)
     STATS_DEF("Num bbs terminated early for process SEH", num_process_SEH_bb_early_terminate)
     STATS_DEF("Num bbs terminated early for debug only process SEH checks", num_process_SEH_bb_early_terminate_debug)

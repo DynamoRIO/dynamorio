@@ -270,7 +270,7 @@ typedef struct _read_write_lock_t {
 #ifdef DEADLOCK_AVOIDANCE
 #  define LOCK_RANK(lock) lock##_rank
 /* This should be the single place where all ranks are declared */
-/* Your lock should preferrably take the last possible rank in this
+/* Your lock should preferably take the last possible rank in this
  * list, usually at the location marked as ADD HERE  */
 
 enum {
@@ -454,7 +454,7 @@ enum {
     LOCK_RANK(heap_unit_lock),   /* recursive */
     LOCK_RANK(vmh_lock),        /* lowest level */
     LOCK_RANK(last_deallocated_lock),
-    /*---- noone below here can be held at a memory allocation site ----*/
+    /*---- no one below here can be held at a memory allocation site ----*/
 
 #ifdef LINUX
     LOCK_RANK(tls_lock), /* if used for get_thread_private_dcontext() may
@@ -1663,7 +1663,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 /* For security messages use passed in fmt string instead of eventlog fmt 
  * string for LOG/stderr/msgbox to avoid breaking our regression suite,
  * NOTE assumes actual id passed, not name of id less MSG_ (so can use array
- * of id's in vmareas.c, another reason need seperate fmt string)
+ * of id's in vmareas.c, another reason need separate fmt string)
  * FIXME : use events.mc string instead (SYSLOG_COMMON), breaks regression
  * This is now used for out-of-memory as well, for the same reason --
  * we should have a mechanism to strip the application name & pid prefix,

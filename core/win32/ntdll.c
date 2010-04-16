@@ -439,7 +439,7 @@ GET_RAW_SYSCALL(CreateFile,
 uint sysenter_tls_offset = 0xffffffff; /* something that will fault */
 /* will be set to false once the options are read but before the native_exec
  * Nt* hooks are put in. Till then lets NT_SYSCALL know it's safe to call via
- * the wrappers for Sygate compatiblity before the option string is read in. */
+ * the wrappers for Sygate compatibility before the option string is read in. */
 static bool nt_wrappers_intercepted = true;
 
 void
@@ -613,7 +613,7 @@ ntdll_init()
 }
 
 /* note that this function is called even on the release fast exit path 
- * (via os_exit) and thus should only do neccesary cleanup without ifdef
+ * (via os_exit) and thus should only do necessary cleanup without ifdef
  * DEBUG, but also be carefull about ifdef DEBUG since Detach wants to remove
  * as much of us as possible
  */
@@ -4170,7 +4170,7 @@ get_module_handle(wchar_t *lib_name)
     UNICODE_STRING ulib_name;
     HANDLE hMod;
     NTSTATUS res;
-    /* NOTE - I've seen the first arugment be 0, 1, or a pointer to a ; seperated
+    /* NOTE - I've seen the first argument be 0, 1, or a pointer to a ; separated
      * path string.  GetModuleHandle usually seems to use 1 though I have no idea
      * what that means.  Seems to work fine either way (doesn't seem to adjust 
      * the load count which was my first guess). */

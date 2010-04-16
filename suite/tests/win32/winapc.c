@@ -56,7 +56,7 @@ run_func(void * arg)
     }
     /* now the alertable system call */
     res = SleepEx(100, 1);
-    /* is going to return 192 since recieved apc during sleep call 
+    /* is going to return 192 since received apc during sleep call
      * well technically 192 is io completion interruption, but seems to 
      * report that for any interrupting APC */
     printf("SleepEx returned %d\n", res);

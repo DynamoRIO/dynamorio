@@ -869,7 +869,7 @@ arch_thread_init(dcontext_t *dcontext)
     return;
 #endif
 
-    /* For detach on windows need to use a seperate mmap so we can leave this
+    /* For detach on windows need to use a separate mmap so we can leave this
      * memory around in case of outstanding callbacks when we detach.  Without
      * detach or on linux could just use one of our heaps (which would save
      * a little space, (would then need to coordinate with arch_thread_exit)

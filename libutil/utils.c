@@ -982,7 +982,7 @@ setup_cache_permissions(WCHAR *cacheRootDirectory)
     get_platform(&platform);
 
     /* Note that we prefer to not create ACLs from scratch, so that we
-     * can accomodate Administrator groups unknown to us that would
+     * can accommodate Administrator groups unknown to us that would
      * have been inherited from \Program Files\.  We should always
      * start with a known ACL and just edit the new ACEs
      */
@@ -2042,7 +2042,7 @@ run_canary_test_ex(FILE *file, /* INOUT */ CANARY_INFO *info,
     /* FIXME - monitor eventlog though we should still detect via forensics and/or
      * exit code (crash/violation).  Xref 10322, for now we suppress eventlogs. */
     /* FIXME - the verify injection tests need work, should just talk to canary proc. */
-    /* FIXME - verify canary output - neccesary? not clear what action would be */
+    /* FIXME - verify canary output - necessary? not clear what action would be */
     /* Files are copied, begin runs */
 
 #define DO_RUN(run_flag, core_ops, canary_options, inject, run_name, test_type) do {  \
@@ -2142,7 +2142,7 @@ run_canary_test(/* INOUT */ CANARY_INFO *info, WCHAR *version_msg)
     info->report = info->buf_report;
     report_file = _wfopen(info->report, L"wb");
     /* FIXME - verify file creation */
-    fprintf(report_file, "%S\n", version_msg == NULL ? L"unkown version" : version_msg);
+    fprintf(report_file, "%S\n", version_msg == NULL ? L"unknown version" : version_msg);
     result = run_canary_test_ex(report_file, info, scratch_folder, canary_process);
     res = delete_tree(scratch_folder);
     fprintf(report_file, "Deleted scratch folder \"%S\", code %d\n",

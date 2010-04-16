@@ -835,7 +835,7 @@ do_single_LTC(dcontext_t *dcontext,instrlist_t *trace, opnd_t mem_access, opnd_t
    what is necessary to make the instruction encode, either
    swapping operands or if there are two constants, it eliminates
    the cmp if possible and walks the rest of the list, fixing
-   jcc's appropriately.  returns the next intruction to examine.
+   jcc's appropriately.  returns the next instruction to examine.
 */
 instr_t
 *fix_cmp_containing_constant(dcontext_t *dcontext, 

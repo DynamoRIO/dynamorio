@@ -50,7 +50,7 @@ int go_threads = 0;
 void
 foo(int iters)
 {
-    /* executes iters iters, by modifing the iters bound using
+    /* executes iters iters, by modifying the iters bound using
      * self-modifying code
      */
     int total;

@@ -1004,7 +1004,7 @@ typedef struct _thread_info_element_t { /* NOTE - this is speculative */
     ptr_uint_t flags;   /* thread_info_elm_buf_access_t | thread_info_elm_buf_type_t */
     size_t buffer_size; /* sizeof of buffer, in bytes */
     void *buffer;       /* flags determine disposition, could be IN or OUT or both */
-    ptr_uint_t unkown;  /* [ observed always 0 ] */
+    ptr_uint_t unknown;  /* [ observed always 0 ] */
 } thread_info_elm_t;
 
 typedef struct _exe_stuff_t { /* NOTE - this is speculative */

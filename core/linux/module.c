@@ -308,7 +308,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                             ASSERT_CURIOSITY(false && "soname not in module");
                             soname = NULL;
                         } else if (at_map && (app_pc)soname > base + view_size) {
-                            ASSERT_CURIOSITY(false && "soname not in inital map");
+                            ASSERT_CURIOSITY(false && "soname not in initial map");
                             soname = NULL;
                         }
 

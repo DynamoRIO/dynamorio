@@ -112,7 +112,7 @@ void LaunchTest
 	if (myParameters.bVerbose == TRUE)
 	{
 		print("------------------------------------------------------------\n");
-		print("Test begining with options: %s\n",szCommandLine);
+		print("Test beginning with options: %s\n",szCommandLine);
 		print("------------------------------------------------------------\n");
 	}
 	

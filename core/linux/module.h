@@ -34,7 +34,7 @@
 #define MODULE_H
 
 /* FIXME - can we have 32bit and 64bit elf files in the same process like we see in
- * windows WOW?  What if anything should we do to accomodate that? */
+ * windows WOW?  What if anything should we do to accommodate that? */
 #ifdef X64
 # define ELF_HEADER_TYPE Elf64_Ehdr
 # define ELF_PROGRAM_HEADER_TYPE Elf64_Phdr

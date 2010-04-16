@@ -290,7 +290,7 @@ bool is_range_in_code_section(app_pc module_base, app_pc start_pc, app_pc end_pc
 bool is_in_code_section(app_pc module_base, app_pc addr,
                         app_pc *sec_start /* OPTIONAL OUT */,
                         app_pc *sec_end /* OPTIONAL OUT */);
-/* Same as above only for initalized data sections instead of code. */
+/* Same as above only for initialized data sections instead of code. */
 bool is_in_dot_data_section(app_pc module_base, app_pc addr,
                             app_pc *sec_start /* OPTIONAL OUT */,
                             app_pc *sec_end /* OPTIONAL OUT */);

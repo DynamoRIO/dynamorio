@@ -158,7 +158,7 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
  * (24kb useful with guard pages), max size defaults to 64kb (56kb useful with
  * guard pages), we keep the max small to save memory, it doesn't seem to be 
  * perf hit! Though with guard pages we are wasting quite a bit of reserved 
- * (though not commited) space */
+ * (though not committed) space */
 /* the only big things global heap is used for are pc sampling
  * hash table and sideline sampling hash table -- if none of those
  * are in use, 16KB should be plenty, we default to 32kb since guard
@@ -188,7 +188,7 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #define UNITROOM(u) ((size_t) (u->end_pc - u->start_pc))
 #define UNIT_RESERVED_ROOM(u) (u->reserved_end_pc - u->start_pc)
 /* we keep the heap_unit_t header at top of the unit, this macro calculates
- * the commited size of the unit by adding header size to available size
+ * the committed size of the unit by adding header size to available size
  */
 #define UNIT_COMMIT_SIZE(u) (UNITROOM(u) + sizeof(heap_unit_t))
 #define UNIT_RESERVED_SIZE(u) (UNIT_RESERVED_ROOM(u) + sizeof(heap_unit_t))
@@ -199,7 +199,7 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 
 /* gets the allocated size of the unit (reserved size + guard pages) */
 #define UNITALLOC(u) (UNIT_RESERVED_SIZE(u) + GUARD_PAGE_ADJUSTMENT)
-/* gets unit overhead, includes the reserved (guard pages) and commited 
+/* gets unit overhead, includes the reserved (guard pages) and committed 
  * (sizeof(heap_unit_t)) portions
  */ 
 #define UNITOVERHEAD (sizeof(heap_unit_t) + GUARD_PAGE_ADJUSTMENT)
@@ -3117,7 +3117,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
     ASSERT(size < MAX_VALID_HEAP_ALLOCATION && "potential integer overflow");
     /* we prefer to crash than having heap overflows */
     if (size > MAX_VALID_HEAP_ALLOCATION) {
-        /* This routine can currently accomodate without integer
+        /* This routine can currently accommodate without integer
          * overflows sizes up to UINT_MAX - sizeof(heap_unit_t), but
          * INT_MAX should be more than enough.
          *

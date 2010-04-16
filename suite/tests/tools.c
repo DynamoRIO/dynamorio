@@ -264,7 +264,7 @@ get_cache_line_size()
 START_FILE
 
 /* int code_self_mod(int iters)
- * executes iters iters, by modifing the iters bound using self-modifying code.
+ * executes iters iters, by modifying the iters bound using self-modifying code.
  */
         DECLARE_FUNC(code_self_mod)
 GLOBAL_LABEL(code_self_mod:)

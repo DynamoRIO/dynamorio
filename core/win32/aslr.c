@@ -1281,7 +1281,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
             } else 
                 ASSERT_NOT_REACHED();
 
-            /* if succesful, we'll use the original base from our records,
+            /* if successful, we'll use the original base from our records,
              * not from mapped PE, so we can detect attacks.
              *
              * case 8507 similarly we have to register to fool hotpatching's
@@ -1813,7 +1813,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
         } else {
             /* FIXME: case 6737 ASLR_MAPPED should we rebase other
              * mappings that are not PEs?  Reversing note: seen in
-             * notepad help, and currenty rebased even for ASLR_DLL
+             * notepad help, and currently rebased even for ASLR_DLL
              *
              * <?xml version="1.0" ...> 
              * <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0"> 
@@ -2223,7 +2223,7 @@ aslr_free_dynamorio_loadblock(void)
 }
 
 
-/* post processing of succesful application reservations */
+/* post processing of successful application reservations */
 void
 aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext, 
                                           app_pc last_allocation_base, 
@@ -2236,7 +2236,7 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
     if (DYNAMO_OPTION(aslr_reserve_pad) > 0) {
         /* We need to randomly pad memory around each memory
          * allocation as well.  Conservatively, we reserve a new
-         * region after each succesful native reservation and would
+         * region after each successful native reservation and would
          * have to free it whenever the target region itself is freed.
          * Assumption: one can't free separately allocated regions
          * with a single NtFreeVirtualMemory.
@@ -2717,7 +2717,7 @@ open_relocated_dlls_filecache_directory(void)
 /* note that this is currently done mostly as a hack, to allow fast
  * first level checksum comparison just based on a file handle.
  * Returns true if the files were the same size, or we have
- * succesfully made them so.
+ * successfully made them so.
  */
 static bool
 aslr_module_force_size(IN HANDLE app_file_handle,
@@ -3559,7 +3559,7 @@ aslr_open_relocated_dll_file(OUT HANDLE *relocated_file,
     /* case 8494 FILE_SHARE_DELETE doesn't allow deletion of a memory
      * mapped file, so aside from the tight interval before we
      * nt_create_section() the file cannot be deleted.  Setting that
-     * flag now would also allow succesfully opening a file, if it has
+     * flag now would also allow successfully opening a file, if it has
      * been already marked for deletion, but we don't expect any such
      * in common use.
      */
@@ -3798,7 +3798,7 @@ aslr_create_relocated_dll_file(OUT HANDLE *new_file,
             }
         }
         /* normally attempt 1 should succeed,
-         * if corrupt and succesfully deleted should succeed on attempt 2
+         * if corrupt and successfully deleted should succeed on attempt 2
          * only in some odd race one would try for a third time
          */
     } while (retry && attempts <= 3);
@@ -3910,7 +3910,7 @@ get_file_short_name(IN HANDLE file_handle, IN OUT FILE_NAME_INFORMATION *name_in
     return w_get_short_name(name_info->FileName);
 }
 
-/* returns true if a likely unique generated_name name was succesfully
+/* returns true if a likely unique generated_name name was successfully
  * produced.  Note name collisions are possible, so callers need to
  * ensure sections correspond to the same file by other means.
  *
@@ -3921,7 +3921,7 @@ calculate_publish_name(wchar_t *generated_name /* OUT */,
                        uint max_name_length /* in elements */,
                        HANDLE file_handle, HANDLE section_handle)
 {
-    /* FIXME: if we are post-processing a succesful app
+    /* FIXME: if we are post-processing a successful app
      * NtCreateSection/NtOpenSection can also map it and calculate any
      * other interesting properties.  Note we won't have the FILE for
      * KnownDlls!  We need to somehow inherit from the original
@@ -4106,7 +4106,7 @@ aslr_write_header(app_pc mapped_module_base, size_t module_size,
     return true;
 }
 
-/* returns true if succesful, caller is responsible for unmapping the
+/* returns true if successful, caller is responsible for unmapping the
  * mapped view if mapped_base is set. 
  * If search_fitting_base then new_base is set to the new random base.
  *
@@ -4763,7 +4763,7 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
          * PAGE_EXECUTE_WRITECOPY therefore one can't write back
          * relocations to a file mapped as image, rather only
          * SEC_COMMIT mappings allow writing back - and ImageRVAToVa
-         * conversions are neccessary when applying any relocations.
+         * conversions are necessary when applying any relocations.
          */
 
         /* We have two options for producing a rebased copy:
@@ -4895,7 +4895,7 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
                 return false;
             }
 
-            /* at this point the file is still exlusive access to the
+            /* at this point the file is still exclusive access to the
              * producer and our current handle disallows execute
              * access to make sure we don't map that as an exclusive
              * copy.  In case of a power failure the file will be
@@ -5285,7 +5285,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
                  * maybe truncated due to power loss */
                 /* FIXME: if persistent we should request producer to redo,
                  * otherwise someone should have caught this as stale.
-                 * Producer while writing should be exlusive. 
+                 * Producer while writing should be exclusive. 
                  */
                 ASSERT_CURIOSITY(false && "bad PE file");
             } else if (res == STATUS_ACCESS_DENIED) {

@@ -45,7 +45,7 @@
 # include <syscall.h>
 #endif
 
-/* Due to differences among plaforms we don't display syscall #s and args 
+/* Due to differences among platforms we don't display syscall #s and args 
  * so we leave SHOW_RESULTS undefined
  */
 

@@ -133,7 +133,7 @@ help()
     fprintf(stderr, " -delay ms\t\tdelay between nudges\n");
     fprintf(stderr, " -timeout ms\t\texpected time for nudge completion\n");
     fprintf(stderr, " -nudge type\t\tnudge action, can be repeated\n");
-    fprintf(stderr, " -client_nudge arg\t\tsend client nudge with specifed hex arg\n");
+    fprintf(stderr, " -client_nudge arg\t\tsend client nudge with specified hex arg\n");
     /* same as -nudge reset -nudge opt, but NOT the same as -reset which wipes out the registry!  */
     fprintf(stderr, " -drpop\t\t\tcache reset\n");
     fprintf(stderr, " -canary_default\trun canary test as PE would using registry implict setup, returns canary code\n");

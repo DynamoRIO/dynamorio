@@ -32,7 +32,7 @@
 
 /* a test for calling NtSetContextThread on a thread at a system call 
 
-interestingly here's what happens to the registers (not outputing since not
+interestingly here's what happens to the registers (not outputting since not
 machine-independent):
 
 suspended@: 00000000 00000000 00334cd0 00420c78 00000000 00000000 0052ff88 0052ffb8

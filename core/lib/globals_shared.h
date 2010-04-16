@@ -1200,7 +1200,7 @@ typedef struct {
 
 
 #ifdef HOT_PATCHING_INTERFACE
-/* These type defintions define the hot patch interface between the core &
+/* These type definitions define the hot patch interface between the core &
  * the node manager.
  * CAUTION: Any changes to this can break the hot patch interface between the
  *          core and the node manager.

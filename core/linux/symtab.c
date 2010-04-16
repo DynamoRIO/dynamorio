@@ -221,7 +221,7 @@ symtab_init()
 
     prepare_symtab();
     sort_symtab();
-    LOG(GLOBAL, LOG_ALL, 1, "SYMBOL TABLE FOR %s SUCCESFULLY LOADED\n\n", filein);
+    LOG(GLOBAL, LOG_ALL, 1, "SYMBOL TABLE FOR %s SUCCESSFULLY LOADED\n\n", filein);
     return true;
 }
 

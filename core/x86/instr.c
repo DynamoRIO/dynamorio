@@ -1709,7 +1709,7 @@ instr_reset(dcontext_t *dcontext, instr_t *instr)
  * Also zeroes out instr's fields, except for raw bit fields and next and prev
  * fields, whether instr is ok to mangle, and instr's x86 mode.
  * Use this routine when you want to decode more information into the
- * same instr_t stucture.
+ * same instr_t structure.
  * This instr must have been initialized before!
  */
 void 
@@ -2560,7 +2560,7 @@ instr_get_translation(instr_t *instr)
 /* This makes it safe to keep an instr around indefinitely when an instrs raw
  * bits point into the cache. It allocates memory local to the instr to hold
  * a copy of the raw bits. If this was not done the original raw bits could 
- * be deleted at some point.  This is neccesary if you want to keep an instr
+ * be deleted at some point.  This is necessary if you want to keep an instr
  * around for a long time (for clients, beyond returning from the call that 
  * gave you the instr)
  */

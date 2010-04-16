@@ -1125,7 +1125,7 @@ bb_process_SEH_push(dcontext_t *dcontext, build_bb_t *bb, void *value)
             /* Perf opt, we use the cheaper get_allocation_base() below instead
              * of get_module_base().  We are checking the result against a
              * known module base (base) so no need to duplicate the is module
-             * check.  FIXME - the checks prob. aren't even neccesary given the
+             * check.  FIXME - the checks prob. aren't even necessary given the
              * later is_in_code_section checks. Xref case 8171. */
             /* FIXME - (perf) we could cache the region from the first
              * is_in_code_section() call and check against that before falling
@@ -1465,7 +1465,7 @@ bb_process_shared_syscall(dcontext_t *dcontext, build_bb_t *bb, int sysnum)
     bb->flags |= FRAG_MUST_END_TRACE;
     /* we redirect all optimizable syscalls to a single shared piece of code.
      * Once a fragment reaches the shared syscall code, it can be safely
-     * deleted, for example, if the thread is interupted for a callback and
+     * deleted, for example, if the thread is interrupted for a callback and
      * DR needs to delete fragments for cache management.
      *
      * Note that w/shared syscall, syscalls can be executed from TWO
@@ -5315,7 +5315,7 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
      * and unlinked paths - currently only XCX is in use.
      * 
      *
-     * Preferrably we should be targeting prefix of target to
+     * Preferably we should be targeting prefix of target to
      * save some space for recovering XCX from hot path.  We'd
      * restore XCX in the exit stub when unlinked.
      * So it would act like a direct CTI when linked and like indirect
@@ -5957,7 +5957,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
     bool possible_ignorable_sysenter = DYNAMO_OPTION(ignore_syscalls) &&
         (get_syscall_method() == SYSCALL_METHOD_SYSENTER) &&
         /* FIXME Traces don't have FRAG_HAS_SYSCALL set so we can't filter on
-         * that flag for all fragments. We should propogate this flag from
+         * that flag for all fragments. We should propagate this flag from
          * a BB to a trace. */
         (TEST(FRAG_HAS_SYSCALL, f->flags) || TEST(FRAG_IS_TRACE, f->flags));
 #endif

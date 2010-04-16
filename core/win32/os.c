@@ -3552,7 +3552,7 @@ void
 shared_library_error(char *buf, int maxlen)
 {
     /* FIXME : this routine does nothing. It used to use kernel32 FormatMessage
-     * to report errors, but now that we are kernel32 independant that will no
+     * to report errors, but now that we are kernel32 independent that will no
      * longer work. Would be nice if we could do something with the nt status
      * codes, but unclear how to propagate them to here. */
     buf[0] = '\0';
@@ -4737,7 +4737,7 @@ os_flush(file_t f)
     bool ok = flush_file_buffers(f);
 }
 
-/* seek the current file position to offset bytes from origin, return true if succesful */
+/* seek the current file position to offset bytes from origin, return true if successful */
 bool
 os_seek(file_t f, int64 offset, int origin)
 {
@@ -5322,7 +5322,7 @@ os_dump_core_live_dump(const char *msg)
     /* synch with all threads */
     /* Don't use get_list_of_threads, it grabs a lock and allocates memory
      * both of which might be dangerous on this path, instead walk table
-     * by hand (we try to grab the neccesary locks, but we will go ahead 
+     * by hand (we try to grab the necessary locks, but we will go ahead
      * and walk the table if we can't FIXME)
      * FIXME : share with dynamo.c */
     /* Try to grab locks,
@@ -6294,7 +6294,7 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
 #endif
     ASSERT(res == WAIT_SIGNALED);
     if (reported_timeout) {
-        /* Our wait eventually succeeded so not truely a deadlock.  Syslog a
+        /* Our wait eventually succeeded so not truly a deadlock.  Syslog a
          * warning to that effect. */
         /* FIXME - should we reset the DO_ONCE now? */
         /* FIXME - should this be a report_dynamorio_problem or some
@@ -6699,7 +6699,7 @@ early_inject_init()
     /* FIXME - if failed to get address for any reason and we were early
      * injected, we could fall back to parent's address. */
     ASSERT(early_inject_address != NULL);
-    /* Since we are using a non-overriden Ldr* location can assert that
+    /* Since we are using a non-overridden Ldr* location can assert that
      * early_inject_address is in ntdll */
     ASSERT(get_allocation_base(early_inject_address) == get_ntdll_base());
     LOG(GLOBAL, LOG_TOP, 1, "early_inject found address "PFX" to use\n",

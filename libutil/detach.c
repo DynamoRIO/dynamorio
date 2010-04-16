@@ -127,7 +127,7 @@ get_kernel_thread_start_thunk()
             cxt.ContextFlags = CONTEXT_FULL;
             if (GetThreadContext(hThread, &cxt)) {
                 /* FIXME - would be a little more elegant to have a lock
-                 * protecting start_address, but is not neccesary for
+                 * protecting start_address, but is not necessary for
                  * correctness as we'll always be writing the same value and
                  * the actual write itself should be atomic.  There are places
                  * in utils.c that really do need synchronization so if we
@@ -175,7 +175,7 @@ get_kernel_thread_start_thunk()
 /* NOTE - if !target_api, target thread routine can't exit by by returning, instead it
  *     must terminate itself.
  * NOTE - caller or target thread routine is responsible for informing csrss (if
- *    neccessary) and freeing the the thread stack (caller is informed of the stack
+ *    necessary) and freeing the the thread stack (caller is informed of the stack
  *    via OUT remote_stack arg).
  * If arg_buf is non-null then the arg_buf_size bytes of arg_buf are copied onto the
  * new thread's stack and pointer to them is passed as the argument to the start

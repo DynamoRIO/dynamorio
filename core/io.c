@@ -487,7 +487,7 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
                     if (is_g)
                         decimal--; /* g/G precision is number of signifigant digits */
                     if (is_g && exp >= -4 && exp <= decimal) {
-                        /* exp is small enought for f, print without exponent */
+                        /* exp is small enough for f, print without exponent */
                         str = double_to_str(val, decimal, buf, pound_flag, !pound_flag);
                         break;
                     }

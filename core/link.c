@@ -2945,7 +2945,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
                 ASSERT(!entrance_stub_linked(self_stub, info) ||
                        entrance_stub_jmp_target(self_stub) == FCACHE_ENTRY_PC(f));
                 /* unlink the stub and add the body pc to the th htable -- but
-                 * do it after the linking below, so that noone uses the body
+                 * do it after the linking below, so that no one uses the body
                  * pc table entry before the fragment is fully linked
                  */
                 th_unlink = true;

@@ -205,7 +205,7 @@ typedef struct _VIOLATION_INFO {
 } VIOLATION_INFO;
   
 /* Takes in a MSG_SEC_FORENSICS event log record pevlr and generates a report file
- * (info->report) as specifed by the flags field in info.  On success returns
+ * (info->report) as specified by the flags field in info.  On success returns
  * ERROR_SUCCESS, else returns a failure code. */
 DWORD
 get_violation_info(EVENTLOGRECORD *pevlr, /* INOUT */ VIOLATION_INFO *info);

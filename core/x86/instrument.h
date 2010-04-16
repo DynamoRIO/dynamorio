@@ -232,7 +232,7 @@ DR_API
  *    DR will then call the callback again during fault translation
  *    with \p translating set to true.  All modifications to \p bb
  *    that were performed on the creation callback must be repeated on
- *    the translating callback.  This option is only posible when
+ *    the translating callback.  This option is only possible when
  *    basic block modifications are deterministic and idempotent, but
  *    it saves memory.  Naturally, global state changes triggered by
  *    block creation should be wrapped in checks for \p translating
@@ -747,7 +747,7 @@ DR_API
  * at the time DR initialized). \note The client should be aware that
  * if the module is being loaded it may not be fully processed by the
  * loader (relocating, rebinding and on Linux segment remapping may
- * have not yet occured). \note The module_data_t \p *info passed
+ * have not yet occurred). \note The module_data_t \p *info passed
  * to the callback routine is valid only for the duration of the
  * callback and should not be freed; a persistent copy can be made with
  * dr_copy_module_data().
@@ -1648,7 +1648,7 @@ DR_API
 /**
  * Safely reads \p size bytes from address \p base into buffer \p
  * out_buf.  Reading is done without the possibility of an exception
- * occuring.  Optionally returns the actual number of bytes copied
+ * occurring.  Optionally returns the actual number of bytes copied
  * into \p bytes_read.  Returns true if successful.  
  */
 bool
@@ -1657,8 +1657,8 @@ dr_safe_read(const void *base, size_t size, void *out_buf, size_t *bytes_read);
 DR_API
 /**
  * Safely writes \p size bytes from buffer \p in_buf to address \p
- * base.  Writing is done without the possiblity of an exception
- * occuring.  Optionally returns the actual number of bytes copied
+ * base.  Writing is done without the possibility of an exception
+ * occurring.  Optionally returns the actual number of bytes copied
  * into \p bytes_written.  Returns true if successful.
  */
 bool
@@ -1750,7 +1750,7 @@ typedef void * dr_module_iterator_t;
  * cast to an Elf32_Ehdr or Elf64_Ehdr. \note On Windows the start address can be cast to
  * an IMAGE_DOS_HEADER for use in finding the IMAGE_NT_HEADER and its OptionalHeader.
  * The OptionalHeader can be used to walk the module sections (among other things).
- * See WINNT.H. \note When accesing any memory inside the module (including header fields)
+ * See WINNT.H. \note When accessing any memory inside the module (including header fields)
  * user is responsible for guarding against corruption and the possibility of the module
  * being unmapped.
  */
@@ -1848,7 +1848,7 @@ dr_module_iterator_stop(dr_module_iterator_t *mi);
 DR_API
 /**
  * Makes a copy of \p data.  Copy must be freed with dr_free_module_data().
- * Useful for making persistent copies of module_data_t's recieved as part of 
+ * Useful for making persistent copies of module_data_t's received as part of
  * image load and unload event callbacks.
  */
 module_data_t *
@@ -2134,7 +2134,7 @@ dr_read_file(file_t f, void *buf, size_t count);
 DR_API
 /**
  * Sets the current file position for file \p f to \p offset bytes
- * from the specfied origin, where \p origin is one of the DR_SEEK_*
+ * from the specified origin, where \p origin is one of the DR_SEEK_*
  * values.  Returns true if successful.
  */
 bool
@@ -2198,7 +2198,7 @@ dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...);
 #define LOG_FRAGMENT       0x00000200  /**< Log data related to app code fragments. */   
 #define LOG_DISPATCH       0x00000400  /**< Log data on every context switch dispatch. */
 #define LOG_MONITOR        0x00000800  /**< Log data related to trace building. */       
-#define LOG_HEAP           0x00001000  /**< Log data related to memory managment. */     
+#define LOG_HEAP           0x00001000  /**< Log data related to memory management. */     
 #define LOG_VMAREAS        0x00002000  /**< Log data related to address space regions. */
 #define LOG_SYNCH          0x00004000  /**< Log data related to synchronization. */      
 #define LOG_MEMSTATS       0x00008000  /**< Log data related to memory statistics. */    

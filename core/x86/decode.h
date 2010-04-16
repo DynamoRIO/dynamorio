@@ -427,7 +427,7 @@ enum {
      */
     OPSZ_2_short1, /**< Intel 'c': 2/1 bytes ("2/1" means 2 bytes normally, but if
                     * another operand requests a short size then this size can
-                    * accomodate by shifting to its short size, which is 1 byte). */
+                    * accommodate by shifting to its short size, which is 1 byte). */
     OPSZ_4_short2, /**< Intel 'z': 4/2 bytes */
     OPSZ_4_rex8_short2, /**< Intel 'v': 8/4/2 bytes */
     OPSZ_4_rex8,   /**< Intel 'd/q' (like 'v' but never 2 bytes). */

@@ -49,7 +49,7 @@ typedef enum {
     THREAD_SYNCH_NO_LOCKS=3,
 
     /* At consistent state, holding no locks, suitable for terminate,
-     * suitable for suspending, but cannot be transfered elsewhere:
+     * suitable for suspending, but cannot be transferred elsewhere:
      * must be resumed at suspend point in order to finish an
      * in-progress task (such as flushing or hot patch updating).
      * Xref case 6821.
@@ -150,7 +150,7 @@ thread_synch_successful(thread_record_t *tr);
 
 /* returns a thread_synch_result_t value
  * id - the thread you want to synch with
- * block - whether or not should spin until synch is succesful
+ * block - whether or not should spin until synch is successful
  * hold_initexit_lock - whether or not the caller holds the thread_initexit_lock
  * caller_state - a given permission define from above that describes the 
  *                current state of the caller (note that holding the initexit

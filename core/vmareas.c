@@ -3659,7 +3659,7 @@ is_on_stack(dcontext_t *dcontext, app_pc pc, vm_area_t *area)
         if (esp >= area->start && esp < area->end)
             return true;
     }
-    /* Now check the "offical" stack bounds.  These are cached so cheap to
+    /* Now check the "official" stack bounds.  These are cached so cheap to
      * look up.  Xref case 8180, these might not always be available, 
      * get_stack_bounds() takes care of any asserts on availability. */
     ok = get_stack_bounds(dcontext, &stack_base, &stack_top);
@@ -3671,7 +3671,7 @@ is_on_stack(dcontext_t *dcontext, app_pc pc, vm_area_t *area)
         if (pc >= stack_base && pc < stack_top)
             return true;
         /* We optimize away the expensive query of esp region bounds if esp
-         * is in within the "offical" stack cached allocation bounds. */
+         * is in within the "official" stack cached allocation bounds. */
         if (esp >= stack_base && esp < stack_top)
             query_esp = false;
     }
@@ -8796,7 +8796,7 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
                         if (FRAG_MULTI(entry)) {
                             vm_area_remove_fragment(dcontext, f);
                             /* move to this area's frags list so will get
-                             * transfered to deletion list if shared, or
+                             * transferred to deletion list if shared, or
                              * freed from this marked-vmarea if private
                              */
                             prepend_entry_to_fraglist(&data->areas.buf[i], f);

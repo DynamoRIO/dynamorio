@@ -1088,7 +1088,7 @@ opnd_same_address(opnd_t op1,opnd_t op2);
 
 DR_API
 /** 
- * Returns true iff there exists some register that is refered to (directly
+ * Returns true iff there exists some register that is referred to (directly
  * or overlapping) by both \p op1 and \p op2.
  */
 bool 
@@ -1661,7 +1661,7 @@ DR_API
  * cache.  The function allocates memory local to \p instr to hold a
  * copy of the raw bits. If this was not done, the original raw bits
  * could be deleted at some point.  Making an instruction persistent
- * is neccesary if you want to keep it beyond returning from the call
+ * is necessary if you want to keep it beyond returning from the call
  * that produced the instruction.
  */
 void

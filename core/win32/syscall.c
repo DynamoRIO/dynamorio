@@ -2222,7 +2222,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     trec = thread_lookup(tid);
     if (trec == NULL) {
         /* this can occur if the target thread hasn't been scheduled yet
-         * and therefore we haven't initalized it yet, (scheduled for 
+         * and therefore we haven't initialized it yet, (scheduled for 
          * fixing), OR if the thread is in another process (FIXME : IPC)
          * for either case we do nothing for now
          */
@@ -2511,7 +2511,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
     if (TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr)) && 
         is_phandle_me(process_handle)) {
         /* We allocate our padding after the application region is
-         * succesfully reserved.  FIXME: assuming that one cannot
+         * successfully reserved.  FIXME: assuming that one cannot
          * pass MEM_RESERVE|MEM_COMMIT on an already reserved
          * region.  Yet note one can MEM_COMMIT a region that has
          * been committed already.  Note that it is OK to pass
@@ -3234,7 +3234,7 @@ void post_system_call(dcontext_t *dcontext)
      * processing in pre_system_call() failed. FIXME : handle failure
      * cases as needed */
     /* FIXME : because of our stateless apc handling we can't check 
-     * SYS_Continue for success (all syscalls interupted by an APC will
+     * SYS_Continue for success (all syscalls interrupted by an APC will
      * look like a continue at post)
      */
     } else if (sysnum == syscalls[SYS_CallbackReturn]) {
