@@ -1028,25 +1028,30 @@ get_parameter_from_registry(const wchar_t *name, char *value, /* OUT */
 int
 get_process_parameter(HANDLE phandle, const char *name, char *value, int maxlen)
 {
+    wchar_t short_unqual_name[MAXIMUM_PATH];
+    char appname[MAXIMUM_PATH];
+    bool app_specific;
+    process_id_t pid;
     if (phandle == NULL) {
-#  if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
-        /* not linking in utils.c so no get_parameter() */
-        ASSERT_NOT_REACHED();
-        return GET_PARAMETER_FAILURE;
-#  else
+#  if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
         return get_parameter(name, value, maxlen);
+#  else
+        pid = process_id_from_handle(NT_CURRENT_PROCESS);
 #  endif
-    } else {
-        wchar_t short_unqual_name[MAXIMUM_PATH];
-        char appname[MAXIMUM_PATH];
-        get_process_qualified_name(phandle, short_unqual_name, 
-                                   BUFFER_SIZE_ELEMENTS(short_unqual_name),
-                                   UNQUALIFIED_SHORT_NAME, REGISTRY_DEFAULT);
-        NULL_TERMINATE_BUFFER(short_unqual_name);
-        snprintf(appname, BUFFER_SIZE_ELEMENTS(appname), "%ls", short_unqual_name);
-        NULL_TERMINATE_BUFFER(appname);
-        return get_config_val_other_app(appname, name, value, maxlen);
-    }
+    } else
+        pid = process_id_from_handle(phandle);
+    get_process_qualified_name(phandle, short_unqual_name, 
+                               BUFFER_SIZE_ELEMENTS(short_unqual_name),
+                               UNQUALIFIED_SHORT_NAME, REGISTRY_DEFAULT);
+    NULL_TERMINATE_BUFFER(short_unqual_name);
+    snprintf(appname, BUFFER_SIZE_ELEMENTS(appname), "%ls", short_unqual_name);
+    NULL_TERMINATE_BUFFER(appname);
+    if (!get_config_val_other_app(appname, pid, name, value, maxlen,
+                                  &app_specific, NULL))
+        return GET_PARAMETER_FAILURE;
+    if (!app_specific)
+        return GET_PARAMETER_NOAPPSPECIFIC;
+    return GET_PARAMETER_SUCCESS;
 }
 # endif /* NOT_DYNAMORIO_CORE */
 
@@ -1054,7 +1059,7 @@ get_process_parameter(HANDLE phandle, const char *name, char *value, int maxlen)
 int
 get_parameter_64(const char *name, char *value, int maxlen)
 {
-    return get_config_val_other_arch(name, value, maxlen);
+    return get_config_val_other_arch(name, value, maxlen, NULL, NULL);
 }
 # endif
 
@@ -1254,12 +1259,9 @@ check_commandline_match(HANDLE process)
 static inject_setting_mask_t
 systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichreg)
 {
-#ifdef PARAMS_IN_REGISTRY
     char runvalue[MAX_RUNVALUE_LENGTH];
+#ifdef PARAMS_IN_REGISTRY
     int retval;
-#else
-    const char *runvalue;
-    bool app_specific;
 #endif
     int rununder_mask, err;
 
@@ -1275,13 +1277,10 @@ systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichr
     if (IS_GET_PARAMETER_FAILURE(err))
         return INJECT_FALSE;
 #else
-    runvalue = get_config_val_ex(DYNAMORIO_VAR_RUNUNDER, &app_specific, NULL);
-    if (runvalue == NULL)
+    err = get_process_parameter(process, DYNAMORIO_VAR_RUNUNDER,
+                                runvalue, sizeof(runvalue));
+    if (IS_GET_PARAMETER_FAILURE(err))
         return INJECT_FALSE;
-    if (app_specific)
-        err = GET_PARAMETER_NOAPPSPECIFIC;
-    else
-        err = GET_PARAMETER_SUCCESS;
 #endif
     
     rununder_mask = get_rununder_value(runvalue);

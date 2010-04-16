@@ -327,17 +327,20 @@ that nudging 64-bit processes is not yet supported.
 
 Process registration, unregistration, and nudging require administrative
 privileges.  On Windows Vista, if UAC is enabled, process registration must be
-performed by an elevated (runas admin) process. When using \c drdeploy.exe,
-be sure that the cmd shell being used was started with elevated
+performed by an elevated (runas admin) process. When using the -syswide_on
+parameter, be sure that the cmd shell being used was started with elevated
 permissions.
 
 \else
 
-Once the \DynamoRIO distribution contents are unpacked (see \ref sec_package),
-deployment is handled by the configuration API and library (see
-dr_config.h) or the \c drdeploy.exe tool\if linux on Windows and the
-\c drdeploy script on Linux\endif.  \c drdeploy.exe is built on top of the
-configuration library and exposes all of its functionality.
+Once the \DynamoRIO distribution contents are unpacked (see \ref
+sec_package), configuration and execution of applications under \DynamoRIO
+is handled by a set of libraries and tools.  \if linux On Windows, the
+tools are \c drconfig.exe, \c drrun.exe, and \c drinject.exe.  The
+corresponding libraries (whose APIs are exposed by the tools) are \c
+drconfiglib.dll and \c drinjectlib.dll with header files \c dr_config.h and
+\c dr_inject.h.  On Linux, the tools are the \c drconfig, \c drrun, and \c
+drinject scripts. \endif
 
 \ifnot vmsafe 
 When using \DynamoRIO as a third-party disassembly library (see \ref
@@ -349,43 +352,79 @@ target application when used as a regular library.
 \subsection win_deploy Windows Deployment
 \endif
 
-To run a process under \DynamoRIO, a \client for that process must
-first be registered. Once unpacked, \c drdeploy.exe (or the configuration
-API) can be used to register processes and \clients,
-unregister processes or \clients, and \ref sec_comm
-"nudge" running processes.  Registration
-information is stored in the Windows registry 
-(\c \\HKLM\\SOFTWARE\\DynamoRIO\\DynamoRIO, or for 32-bit on 64-bit Windows
-(WOW64)
-\c \\HKLM\\SOFTWARE\\Wow6432Node\\DynamoRIO\\DynamoRIO) and as such is
-persistent across reboots.  Processes are identified by executable
-name for registration, unregistration, and nudging.  Run \c drdeploy.exe
-with no arguments for help on its usage.
+There are two methods for running a process under \DynamoRIO: the one-time
+configure-and-run, and the two-step separate configuration and execution.
+The \c drrun.exe tool supports the first, simpler model, while the \c
+drconfig.exe and \c drinject.exe tools support the second, more powerful
+model.  The \c drconfig.exe tool, or the corresponding the \c
+drconfiglib.dll library, can also be used to \ref sec_comm "nudge" running
+processes.
 
-As an example, assume you have unpacked the \DynamoRIO distribution to
-C:\\dr.  Register \c calc.exe to run with the bbsize sample \client
-using the following command:
+Configuration information is stored in files in the current user's profile
+directory, which is obtained from the environment variable \c $USERPROFILE.
+Thus, configurations are persistent across reboots and are private to each
+user.  \DynamoRIO also supports global configurations, which are stored in
+the "config" subdirectory of the directory specified by the \c
+DYNAMORIO_HOME registry value in the registry key \c
+\\HKLM\\SOFTWARE\\DynamoRIO\\DynamoRIO (or for 32-bit on 64-bit Windows
+(WOW64) \c \\HKLM\\SOFTWARE\\Wow6432Node\\DynamoRIO\\DynamoRIO).  Setting
+that \c DYNAMORIO_HOME value and creating the directory it points to must
+be done manually.  The provided tools support reading and writing both
+local and global configuration files, and automatically creating the local
+directory.  \DynamoRIO gives local files precedence when both exist.  Note
+that applications that do not have a $USEPROFILE environment variable can
+only be executed using global configurations.
+
+Configurations are per-process, with the basename of the process used for
+identification (e.g., \c calc.exe).  One-time configuration also uses the
+process id to specify that the configuration is for that process instance
+only.
+
+As an example, assume you have unpacked the \DynamoRIO distribution and
+your current directory is its base directory.  Run \c calc.exe with the
+bbsize sample \client using the following configure-and-run command:
 \if vmsafe
 \code
-C:\dr\bin32\drdeploy.exe -reg calc.exe -root C:\dr -mode code -client C:\dr\samples\bin32\bbsize.dll 0 ""
+bin32/drrun.exe -mode code -client samples/bin32/bbsize.dll 0 "" calc
 \endcode
 \else
 \code
-C:\dr\bin32\drdeploy.exe -reg calc.exe -root C:\dr -client C:\dr\samples\bin32\bbsize.dll 0 ""
+bin32/drrun.exe -client samples/bin32/bbsize.dll 0 "" calc
 \endcode
 \endif
-The next time \c calc.exe is started, it will run under \DynamoRIO
-with the bbsize \client. 
+
+To use system-wide injection, allowing for an application to be run
+under \DynamoRIO regardless of how it is invoked, configure the application
+first (-syswide_on requires administrative privileges):
+\if vmsafe
+\code
+bin32/drconfig.exe -reg calc.exe -syswide_on -mode code -client samples/bin32/bbsize.dll 0 ""
+\endcode
+\else
+\code
+bin32/drconfig.exe -reg calc.exe -syswide_on -client samples/bin32/bbsize.dll 0 ""
+\endcode
+\endif
+
+The next time \c calc.exe is started by the current user, it will run under
+\DynamoRIO with the bbsize \client.
 
 To unregister \c calc.exe, issue the following command:
 \code
-C:\dr\bin32\drdeploy.exe -unreg calc.exe
+bin32/drconfig.exe -unreg calc.exe
 \endcode
+
+Invoke any of the \c drconfig.exe, \c drrun.exe, or \c drinject.exe tools
+with no arguments to see the full list of options available.
+
+By default on Windows \DynamoRIO only follows into children that are
+configured (via \c drconfig.exe).  To follow all children, use the \ref
+op_children "-follow_children" runtime option.
 
 To \ref sec_comm "nudge" all instances of \c calc.exe running under
 \DynamoRIO with argument "5", use:
 \code
-C:\dr\bin32\drdeploy.exe -nudge calc.exe 0 5
+bin32/drconfig.exe -nudge calc.exe 0 5
 \endcode
 This will result in a nudge event with argument=5 delivered to the
 \client callback registered with dr_register_nudge_event() in all
@@ -401,30 +440,29 @@ will display 64-bit processes but is unable to determine whether \DynamoRIO
 is present.
 
 \attention
-Note that on Windows NT a reboot is required after the first process
-is registered before any applications will run under \DynamoRIO.
+Note that on Windows NT a reboot is required after using -syswide_on or -syswide_off.
 
 \DynamoRIO uses the
 <tt>\\HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows NT\\CurrentVersion\\AppInit_DLLs</tt>
 key 
 (for 32-bit on 64-bit Windows (WOW64), 
 <tt>\\HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_DLLs</tt>)
-to inject into new processes.  For injection to work, the registered
-process must statically link to user32.dll (only a few small
-non-graphical windows applications don't link user32.dll).  If a
-target application does not link to user32.dll, \DynamoRIO can still
-inject if the process is launched with the appropriate drinject.exe tool (in the 
-bin32 and bin64 directories) or the parent process (usually cmd.exe or 
-explorer.exe for user launched processes) is running under \DynamoRIO.
-The drinject.exe tool uses the configuration information set by
-drdeploy.exe for the target application.
+for -syswide_on to inject into new processes without having to directly
+launch them \c drrun.exe or \c drinject.exe.  For injection to work, the
+registered process must statically link to user32.dll (only a few small
+non-graphical windows applications don't link user32.dll).  If a target
+application does not link to user32.dll, \DynamoRIO can still inject if the
+process is launched with \c drinject.exe or if the parent process (usually
+cmd.exe or explorer.exe for user launched processes) is running under
+\DynamoRIO.  The drinject.exe tool uses the configuration information set
+by \c drconfig.exe for the target application.
 
 \attention
-Process registration, unregistration, and nudging require administrative
-privileges.  On Windows Vista, if UAC is enabled, process registration must be
-performed by an elevated (runas admin) process. When using \c drdeploy.exe,
-be sure that the cmd shell being used was started with elevated
-permissions.
+The -syswide_on, -syswide_off, use of global configuration files, and
+nudging certain processes may require administrative privileges.  On
+Windows Vista, if UAC is enabled, use an elevated (runas admin)
+process. When using \c drconfig.exe and \c drrun.exe in these scenarios, be
+sure that the cmd shell being used was started with elevated permissions.
 
 \if linux
 \subsection lin_deploy Linux Deployment
@@ -447,7 +485,7 @@ under \DynamoRIO with the bbsize sample \client:
 \endcode
 Run \c drrun with no options to get a list of the options and
 environment variable shortcuts it supports.  To disable following across
-child execve calls, use the \ref op_children "-no_follow_children" runtime
+child execve calls, use the \ref op_no_children "-no_follow_children" runtime
 option.
 
 Use the scripts in \c bin32/ for 32-bit applications and the scripts in \c
@@ -466,6 +504,10 @@ files in <tt>/etc/dynamorio/&lt;appname&gt;.config32</tt> when a local
 configuration file is not found.  \p drconfig does not support directly
 writing a global config file but such files can be copied from or modeled
 on local files.
+
+If a target application executes an \c execve that discards the \c $HOME
+environment variable, the resulting process will not run under \DynamoRIO
+control.  Use global configuration files to handle this situation.
 
 To \ref sec_comm "nudge" a process with pid \c targetpid running under
 \DynamoRIO and pass argument "5" to the nudge callback, use the \c
@@ -1032,10 +1074,17 @@ target application process.  These include:
 \section sec_options Fine-Tuning \DynamoRIO: Runtime Parameters
 
 \DynamoRIO's behavior can be fine-tuned using runtime parameters.  Options
-are specified via \c drdeploy.exe or dr_register_process() \if linux on
-Windows and via the \c drdeploy script on Linux\endif.  See \ref sec_deploy.
+are specified via \c drconfig.exe, \c drrun.exe, or dr_register_process()
+\if linux on Windows and via the \c drconfig and \c drrun scripts on
+Linux\endif.  See \ref sec_deploy.
 
- - \b -no_follow_children: \anchor op_children
+ - \b -follow_children: \anchor op_children
+   This option only applies to Windows.  By default, \DynamoRIO follows
+   into only child processes configured via \c drconfig.exe.
+   When \p -follow_children is specified \DynamoRIO injects into
+   all child processes.
+
+ - \b -no_follow_children: \anchor op_no_children
    This option only applies to Linux.  By default, \DynamoRIO follows
    into child processes across execve.  When \p -no_follow_children
    is specified \DynamoRIO only injects across an execve if a configuration
@@ -1239,9 +1288,9 @@ Options available only in the debug build of \DynamoRIO:
     that is incremented with each directory created.  \if Linux On
     Windows the \else The \endif directories are located by default in
     a subdirectory \e logs of the \DynamoRIO home directory as
-    specified in the dr_register_process() or \c drdeploy.exe
+    specified in the dr_register_process() or \c drconfig.exe
     configuration for the target application.  \if linux On Linux the
-    \c drdeploy script allows for setting the logging directory. \endif
+    \c drconfig and \c drrun scripts allow for setting the logging directory. \endif
     There is one main log file per directory named
     \e app.0.TID.html, where \e TID is the thread identifier of the initial
     thread.  There is also a log file per thread, named \e log.N.TID.html,
@@ -1324,7 +1373,7 @@ networking).  Thus, if a crash occurs in a Windows service under
    read from standard input, an alternative exists: the \ref op_pause
    "-pause_on_error" option allows attaching a debugger when a problem
    occurs.  To run an application on Linux under a debugger from the start
-   you can perform the work of the \c drdeploy script by setting the
+   you can perform the work of the \c drrun script by setting the
    LD_LIBRARY_PATH and LD_PRELOAD environment variables from within the
    debugger.
 

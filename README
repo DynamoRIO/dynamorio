@@ -64,22 +64,21 @@ process with bin32/drinject.
 --------------------------------------------------
 On Windows, with examples run from a cygwin shell:
 
-First, set parameters for the target application:
+Method 1: directly invoke an application:
 32-bit:
-  % bin32/drdeploy.exe -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./samples/bin32/bbsize.dll` 0x1 ""
+  % bin32/drrun.exe -client samples/bin32/bbsize.dll 0x1 "" calc
 64-bit:
-  % bin64/drdeploy.exe -reg calc.exe -root `cygpath -wa .` -client `cygpath -wa ./samples/bin64/bbsize.dll` 0x1 ""
+  % bin64/drrun.exe -client samples/bin64/bbsize.dll 0x1 "" calc
 
-Second, run the application, either natively:
-  % cmd /c start calc
-Or using direct injection:
+Method 2: configure an application and launch it separately.
+This requires administrative privileges:
 32-bit:
-  % bin32/drinject.exe `cygpath -wa $SYSTEMROOT/system32/calc.exe`
+  % bin32/drconfig.exe -reg calc.exe -syswide_on -client samples/bin32/bbsize.dll 0x1 ""
 64-bit:
-  Cygwin is 32-bit and the WOW64 redirection prevents it from accessing the
-  64-bit system32 directory.  Copy calc.exe using Explorer or the cmd shell
-  to ./calc64.exe, and then:
-  % bin64/drinject.exe `cygpath -wa ./calc64.exe`
+  % bin64/drconfig.exe -reg calc.exe -syswide_on -client samples/bin64/bbsize.dll 0x1 ""
+Now run the application however you normally would, with the mouse or from
+the command line:
+  % cmd /c start calc
 
 Now close calc and a messagebox should pop up produced by the bbsize client.
 

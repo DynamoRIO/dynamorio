@@ -67,11 +67,10 @@ The following are part of the \DynamoRIO release distribution:
    32-bit and 64-bit. 
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
- - The \DynamoRIO deployment library and command-line utility
-   \c drdeploy.exe, for configuring applications to execute under
-   \DynamoRIO control. \if linux Windows package only. \endif
- - A utility \c drinject.exe to launch applications under \DynamoRIO
-   control.  \if linux Windows package only. \endif
+ - The \DynamoRIO configuration and execution libraries and command-line
+   utilities \c drconfiglib.dll, \c drinjectlib.dll, \c drconfig.exe,
+   \c drrun.exe, and \c drinject.exe.
+   \if linux Windows package only. \endif
  - A utility \c drview.exe for viewing which processes
    are running under \DynamoRIO control.
    \if linux Windows package only. \endif
@@ -105,19 +104,38 @@ The following are part of the \DynamoRIO release distribution:
 \endhtmlonly
 \section sec_changes Changes Since Prior Releases
 
-The current version is \DR_VERSION and is backward compatible with releases from
-1.0.0 (originally called 0.9.6: see below) onward.
+The current version is \DR_VERSION.  Its \client API is backward compatible
+with releases from 1.0.0 (originally called 0.9.6: see below) onward.
+However, the configuration and deployment API and tools have changed and
+are not backward compatible: see below for details.
 
 The changes between version 2.0.0 and 1.5.0 are:
 
  - Changed the configuration and deployment model for both Linux and
    Windows to use a configuration file based approach on both platforms,
    which adds control over child processes on Linux and supports local
-   configuration on Windows for un-privileged and parallel runs.
+   configuration on Windows for un-privileged and parallel execution
+   (Issue 265).  The registry is no longer used for individual application
+   configuration on Windows other than to point at the location for
+   global configuration files, when used.<br>
+   \b IMPORTANT: On Windows the following non-backward-compatible changes
+   have been made:
+   - drdeploy.exe no longer exists (replaced by drconfig.exe and drrun.exe)
+   - drconfig.dll is now drconfiglib.dll
+   - drconfiglib.dll's API routines now take in a process id to support
+     one-time targeted-process configuration (to support parallel execution)
+   - configuration is either per-user or global, with per-user taking
+     precedence when both exist
+   - configuration does NOT enable systemwide injection by default:
+     use the -syswide_on parameter to drconfig or drrun for that
+     (it requires administrative privileges)
+   .
    \b IMPORTANT: On Linux, if you're using custom injection via
    raw environment variables rather than using the \p drdeploy script,
    you must also set DYNAMORIO_RUNUNDER to 1 for injection to work with
    this release.
+ - Added drinjectlib.dll and dr_inject.h, making custom injection tools
+   easier to build (Issue 246)
  - Added \DynamoRIO Extension support for auxiliary libraries that extend the
    \DynamoRIO API (Issue 277)
  - Added symbol lookup support via Extension (Windows only for now) (Issue 44)

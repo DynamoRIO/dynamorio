@@ -31,6 +31,8 @@
 EXPORTS
    dr_register_process
    dr_unregister_process
+   dr_register_syswide
+   dr_unregister_syswide
    dr_process_is_registered
    dr_registered_process_iterator_start
    dr_registered_process_iterator_hasnext

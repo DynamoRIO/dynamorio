@@ -122,15 +122,29 @@ typedef enum {
 } dr_platform_t;
 
 /**
- * Register a process to run under DynamoRIO.  This requires administrative
- * privileges.  Note that this routine only sets the base options to run
- * a process under DynamoRIO.  To register one or more clients, call
+ * Register a process to run under DynamoRIO.
+ * Note that this routine only sets the base options to run a process
+ * under DynamoRIO.  To register one or more clients, call
  * dr_register_client() subsequently.
  *
  * \param[in]   process_name    A NULL-terminated string specifying the name 
  *                              of the target process.  The string should 
  *                              identify the base name of the process, not the 
  *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, a one-time configuration is created
+ *                              just for it.  If pid == 0, a general configuration
+ *                              is created for all future instances of process_name.
+ *
+ * \param[in]   global          Whether global config files, stored in a dir pointed
+ *                              at by the DYNAMORIO_HOME registry key, should be
+ *                              used, or local config files private to the current 
+ *                              user.  Administrative privileges may be needed if
+ *                              global is true.  Note that DynamoRIO gives local
+ *                              config files precedence when both exist.  The caller
+ *                              must separately create the global directory.
  *
  * \param[in]   dr_root_dir     A NULL-terminated string specifying the full
  *                              path to a valid DynamoRIO root directory.
@@ -159,25 +173,16 @@ typedef enum {
  *              existing registration.
  *
  * \remarks
- * After registration, a process will run under DynamoRIO the next time
- * it launches.  Note that some processes may require a system reboot to 
- * restart.  Process registration persists across reboots until explicitly 
+ * After registration, a process will run under DynamoRIO when launched by the
+ * drinject tool or using drinjectlib.  Note that some processes may require a
+ * system reboot to restart.  Process registration that is not specific to one
+ * pid (i.e., if pid == 0) persists across reboots until explicitly
  * unregistered.
- *
- * \note On Windows NT, a reboot is required after the initial
- * dr_register_process() in order for DynamoRIO to take control of any
- * application.
- *
- * \note An application that does not link with user32.dll will not be
- * run under control of DynamoRIO unless it's launched by the \c drinject.exe 
- * tool (in bin/bin32 or bin/bin64) or the parent process (typically
- * explorer.exe, for manually launched applications) is already under
- * DynamoRIO control (the parent can be in any mode, but 32-bit parent
- * cannot inject into a 64-bit child). Only some small non-graphical
- * applications do not link with user32.dll.
  */
 dr_config_status_t 
 dr_register_process(const char *process_name,
+                    process_id_t pid,
+                    bool global,
                     const char *dr_root_dir,
                     dr_operation_mode_t dr_mode,
                     bool debug,
@@ -185,13 +190,26 @@ dr_register_process(const char *process_name,
                     const char *dr_options);
 
 /**
- * Unregister a process from running under DynamoRIO.  This requires administrative
- * privileges.
+ * Unregister a process from running under DynamoRIO.
  *
  * \param[in]   process_name    A NULL-terminated string specifying the name 
  *                              of the target process.  The string should 
  *                              identify the base name of the process, not the 
  *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the existing one-time configuration is
+ *                              removed. If pid == 0, the general configuration
+ *                              for process_name is removed.
+ *
+ * \param[in]   global          Whether global config files, stored in a dir pointed
+ *                              at by the DYNAMORIO_HOME registry key, should be
+ *                              used, or local config files private to the current 
+ *                              user.  Administrative privileges may be needed if
+ *                              global is true.  Note that DynamoRIO gives local
+ *                              config files precedence when both exist.  The caller
+ *                              must separately create the global directory.
  *
  * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
  *                              for 32-bit (WOW64) processes and 64-bit processes.
@@ -204,7 +222,59 @@ dr_register_process(const char *process_name,
  */
 dr_config_status_t
 dr_unregister_process(const char *process_name,
+                      process_id_t pid,
+                      bool global,
                       dr_platform_t dr_platform);
+
+/**
+ * Sets up systemwide injection so that registered applications will run under
+ * DynamoRIO however they are launched (i.e., they do not need to be explicitly
+ * invoked with the drrun or drinject tools).  This requires administrative
+ * privileges and affects all users (though configurations remain private to
+ * each user).  On Windows NT, a reboot is required for this to take effect.
+ *
+ * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
+ *                              for 32-bit (WOW64) processes and 64-bit processes.
+ *                              This parameter allows selecting which of those
+ *                              to use.
+ *
+ * \param[in]  dr_root_dir      The root DynamoRIO directory (used to locate
+ *                              drpreinject.dll).
+ *
+ *
+ * \return      A dr_config_status_t code indicating the result of 
+ *              the operation.  The operation will fail if the caller does
+ *              not have sufficient privileges.
+ *
+ * \note An application that does not link with user32.dll will not be
+ * run under control of DynamoRIO via systemwide injection.  Such applications
+ * will only be under DynamoRIO control if launched by the drrun or drinject
+ * tools or if the parent process (typically explorer.exe, for manually launched
+ * applications) is already under DynamoRIO control (the parent can be in any
+ * mode, but a 32-bit parent cannot inject into a 64-bit child). Only some small
+ * non-graphical applications do not link with user32.dll.
+ */
+dr_config_status_t
+dr_register_syswide(dr_platform_t dr_platform,
+                    const char *dr_root_dir);
+
+/**
+ * Disables systemwide injection.  Registered applications will not run
+ * under DynamoRIO unless explicitly launched with the drrun or drinject
+ * tools (or a custom tool that uses the drinjectlib library).
+ * On Windows NT, a reboot is required for this to take effect.
+ *
+ * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
+ *                              for 32-bit (WOW64) processes and 64-bit processes.
+ *                              This parameter allows selecting which of those
+ *                              to use.
+ *
+ * \return      A dr_config_status_t code indicating the result of 
+ *              the operation.  The operation will fail if the caller does
+ *              not have sufficient privileges.
+ */
+dr_config_status_t
+dr_unregister_syswide(dr_platform_t dr_platform);
 
 /**
  * Check if a process is registered to run under DynamoRIO.  To obtain client
@@ -214,6 +284,20 @@ dr_unregister_process(const char *process_name,
  *                              of the target process.  The string should 
  *                              identify the base name of the process, not the 
  *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be queried.  If pid == 0, the general
+ *                              configuration for process_name will be queried.
+ *
+ * \param[in]   global          Whether global config files, stored in a dir pointed
+ *                              at by the DYNAMORIO_HOME registry key, should be
+ *                              used, or local config files private to the current 
+ *                              user.  Administrative privileges may be needed if
+ *                              global is true.  Note that DynamoRIO gives local
+ *                              config files precedence when both exist.  The caller
+ *                              must separately create the global directory.
  *
  * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
  *                              for 32-bit (WOW64) processes and 64-bit processes.
@@ -244,6 +328,8 @@ dr_unregister_process(const char *process_name,
  */
 bool
 dr_process_is_registered(const char *process_name,
+                         process_id_t pid,
+                         bool global,
                          dr_platform_t dr_platform,
                          char *dr_root_dir              /* OUT */,
                          dr_operation_mode_t *dr_mode   /* OUT */,
@@ -254,19 +340,28 @@ typedef struct _dr_registered_process_iterator_t dr_registered_process_iterator_
 
 /**
  * Creates and starts an iterator for iterating over all processes registered for
- * the given platform. 
+ * the given platform and given global or local parameter. 
  *
  * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
  *                              for 32-bit (WOW64) processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              configurations to check.
  *
+ * \param[in]   global          Whether global config files, stored in a dir pointed
+ *                              at by the DYNAMORIO_HOME registry key, should be
+ *                              used, or local config files private to the current 
+ *                              user.  Administrative privileges may be needed if
+ *                              global is true.  Note that DynamoRIO gives local
+ *                              config files precedence when both exist.  The caller
+ *                              must separately create the global directory.
+ *
  * \return      iterator for use with dr_registered_process_iterator_hasnext()and 
  *              dr_registered_process_iterator_next().  Must be freed
  *              with dr_registered_process_iterator_stop()
  */
 dr_registered_process_iterator_t *
-dr_registered_process_iterator_start(dr_platform_t dr_platform);
+dr_registered_process_iterator_start(dr_platform_t dr_platform,
+                                     bool global);
 
 /**
  * \param[in]    iter           A registered process iterator created with
@@ -307,9 +402,9 @@ dr_registered_process_iterator_hasnext(dr_registered_process_iterator_t *iter);
  *                              the parameter must be a caller-allocated array of
  *                              length #DR_MAX_OPTIONS_LENGTH.
  *
- * \return      true if the process is registered for the given platform.
+ * \return      true if the information was successfully retrieved.
  */
-void
+bool
 dr_registered_process_iterator_next(dr_registered_process_iterator_t *iter,
                                     char *process_name /* OUT */,
                                     char *dr_root_dir /* OUT */,
@@ -327,13 +422,27 @@ void
 dr_registered_process_iterator_stop(dr_registered_process_iterator_t *iter);
 
 /**
- * Register a client for a particular process.  Note that the process must
- * first be registered via dr_register_process() before calling this routine.
+ * Register a client for a particular process.  Note that the process must first
+ * be registered via dr_register_process() before calling this routine.
  *
  * \param[in]   process_name    A NULL-terminated string specifying the name 
  *                              of the target process.  The string should 
  *                              identify the base name of the process, not the 
  *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be modified.  If pid == 0, the general
+ *                              configuration for process_name will be modified.
+ *
+ * \param[in]   global          Whether global config files, stored in a dir pointed
+ *                              at by the DYNAMORIO_HOME registry key, should be
+ *                              used, or local config files private to the current 
+ *                              user.  Administrative privileges may be needed if
+ *                              global is true.  Note that DynamoRIO gives local
+ *                              config files precedence when both exist.  The caller
+ *                              must separately create the global directory.
  *
  * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
  *                              for 32-bit (WOW64) processes and 64-bit processes.
@@ -372,6 +481,8 @@ dr_registered_process_iterator_stop(dr_registered_process_iterator_t *iter);
  */
 dr_config_status_t
 dr_register_client(const char *process_name,
+                   process_id_t pid,
+                   bool global,
                    dr_platform_t dr_platform,
                    client_id_t client_id,
                    size_t client_pri,
@@ -379,10 +490,26 @@ dr_register_client(const char *process_name,
                    const char *client_options);
 
 /**
+ * Unregister a client for a particular process.
+ *
  * \param[in]   process_name    A NULL-terminated string specifying the name 
  *                              of the target process.  The string should 
  *                              identify the base name of the process, not the 
  *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be modified.  If pid == 0, the general
+ *                              configuration for process_name will be modified.
+ *
+ * \param[in]   global          Whether global config files, stored in a dir pointed
+ *                              at by the DYNAMORIO_HOME registry key, should be
+ *                              used, or local config files private to the current 
+ *                              user.  Administrative privileges may be needed if
+ *                              global is true.  Note that DynamoRIO gives local
+ *                              config files precedence when both exist.  The caller
+ *                              must separately create the global directory.
  *
  * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
  *                              for 32-bit (WOW64) processes and 64-bit processes.
@@ -396,16 +523,33 @@ dr_register_client(const char *process_name,
  */
 dr_config_status_t
 dr_unregister_client(const char *process_name,
+                     process_id_t pid,
+                     bool global,
                      dr_platform_t dr_platform,
                      client_id_t client_id);
 
 /**
- * Retrieve the number of clients registered for a particular process.
+ * Retrieve the number of clients registered for a particular process for
+ * the current user.
  *
  * \param[in]   process_name    A NULL-terminated string specifying the name 
  *                              of the target process.  The string should 
  *                              identify the base name of the process, not the 
  *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be queried.  If pid == 0, the general
+ *                              configuration for process_name will be queried.
+ *
+ * \param[in]   global          Whether global config files, stored in a dir pointed
+ *                              at by the DYNAMORIO_HOME registry key, should be
+ *                              used, or local config files private to the current 
+ *                              user.  Administrative privileges may be needed if
+ *                              global is true.  Note that DynamoRIO gives local
+ *                              config files precedence when both exist.  The caller
+ *                              must separately create the global directory.
  *
  * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
  *                              for 32-bit (WOW64) processes and 64-bit processes.
@@ -416,15 +560,32 @@ dr_unregister_client(const char *process_name,
  */
 size_t
 dr_num_registered_clients(const char *process_name,
+                          process_id_t pid,
+                          bool global,
                           dr_platform_t dr_platform);
 
 /**
- * Retrieve client registration information for a particular process.
+ * Retrieve client registration information for a particular process for
+ * the current user.
  *
  * \param[in]   process_name    A NULL-terminated string specifying the name 
  *                              of the target process.  The string should 
  *                              identify the base name of the process, not the 
  *                              full path of the executable (e.g., calc.exe).
+ *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be queried.  If pid == 0, the general
+ *                              configuration for process_name will be queried.
+ *
+ * \param[in]   global          Whether global config files, stored in a dir pointed
+ *                              at by the DYNAMORIO_HOME registry key, should be
+ *                              used, or local config files private to the current 
+ *                              user.  Administrative privileges may be needed if
+ *                              global is true.  Note that DynamoRIO gives local
+ *                              config files precedence when both exist.  The caller
+ *                              must separately create the global directory.
  *
  * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
  *                              for 32-bit (WOW64) processes and 64-bit processes.
@@ -450,6 +611,8 @@ dr_num_registered_clients(const char *process_name,
  */
 dr_config_status_t
 dr_get_client_info(const char *process_name,
+                   process_id_t pid,
+                   bool global,
                    dr_platform_t dr_platform,
                    client_id_t client_id,
                    size_t *client_pri,  /* OUT */
@@ -467,6 +630,20 @@ typedef struct _dr_client_iterator_t dr_client_iterator_t;
  *                              identify the base name of the process, not the 
  *                              full path of the executable (e.g., calc.exe).
  *
+ * \param[in]   pid             A process id of a target process, typically just
+ *                              created and suspended via dr_inject_process_exit().
+ *                              If pid != 0, the one-time configuration for that pid
+ *                              will be queried.  If pid == 0, the general
+ *                              configuration for process_name will be queried.
+ *
+ * \param[in]   global          Whether global config files, stored in a dir pointed
+ *                              at by the DYNAMORIO_HOME registry key, should be
+ *                              used, or local config files private to the current 
+ *                              user.  Administrative privileges may be needed if
+ *                              global is true.  Note that DynamoRIO gives local
+ *                              config files precedence when both exist.  The caller
+ *                              must separately create the global directory.
+ *
  * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
  *                              for 32-bit (WOW64) processes and 64-bit processes.
  *                              This parameter allows selecting which of those
@@ -478,6 +655,8 @@ typedef struct _dr_client_iterator_t dr_client_iterator_t;
  */
 dr_client_iterator_t *
 dr_client_iterator_start(const char *process_name,
+                         process_id_t pid,
+                         bool global,
                          dr_platform_t dr_platform);
 
 /**

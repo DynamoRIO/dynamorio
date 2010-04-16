@@ -771,15 +771,17 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
     endif (is_runall)
     # if we used a cmake script to run each test we could use in that script:
     #   set(ENV{DYNAMORIO_OPTIONS} "${dr_ops}")
-    # but we take advantage of a new drinjectx feature: -ops
-    set(cmd ${MAIN_EXECUTABLE_OUTPUT_PATH}/drinjectx.exe -s ${TEST_SECONDS})
+    # but we take advantage of the new drrun tool
+    # we pass -exit0 to avoid ctest from considering our segfault and other tests
+    # to have failed.
+    set(cmd ${MAIN_EXECUTABLE_OUTPUT_PATH}/drrun.exe -s ${TEST_SECONDS} -quiet -exit0)
     if (native)
       set(${outcmd} ${cmd} -ops "${dr_ops}" -noinject PARENT_SCOPE)
     else (native)
       file(TO_NATIVE_PATH "${MAIN_LIBRARY_OUTPUT_PATH}/dynamorio.dll" dllpath)
       # forward slashes work fine: we just need drive-letter path
       # add dr_ops last to avoid needing extra \ on ;
-      set(${outcmd} ${cmd} -ops "${dr_ops}" ${dllpath} PARENT_SCOPE)
+      set(${outcmd} ${cmd} -ops "${dr_ops}" -use_dll ${dllpath} PARENT_SCOPE)
     endif (native)
   endif (UNIX)
   set(${outops} "${dr_ops}" PARENT_SCOPE)
@@ -909,17 +911,9 @@ function(torun test key exe source native dr_ops exe_ops)
   set_tests_properties(${test} PROPERTIES PASS_REGULAR_EXPRESSION "${expect}")
 
   if (WIN32)
-    if (${test} MATCHES "client\\.events" OR DEFINED ${key}_realtest)
-      # On Windows we can't run the same-named app in parallel b/c drinject
-      # writes to global reg keys!  For the short run that's client.events
-      # and all the torunonly() tests.
-      # Unfortunately RUN_SERIAL makes each serial wrt all other tests but we
-      # don't have any finer control.
-      # FIXME i#265: support env vars and not require registry!
-      # Could alternatively rename apps: but would have to rename quite a
-      # few for the long runs and would waste space and time
-      set_tests_properties(${test} PROPERTIES RUN_SERIAL ON)
-    endif()
+    # With i#265/PR 486139 we use local one-time config files instead of
+    # global reg keys and can thus run multiple instances of the same
+    # app name simultaneously so we do not need to mark RUN_SERIAL
   endif (WIN32)
 endfunction(torun)
 

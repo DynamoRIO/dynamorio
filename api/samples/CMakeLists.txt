@@ -114,7 +114,7 @@ foreach (src ${srcs})
     add_custom_command(TARGET ${tgt}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
-      ARGS -E echo "Usage: pass to drdeploy: -client ${tgtnm} 0 \"\""
+      ARGS -E echo "Usage: pass to drconfig or drrun: -client ${tgtnm} 0 \"\""
       VERBATIM)
   endif ("${tgt}" STREQUAL "tracedump")
 

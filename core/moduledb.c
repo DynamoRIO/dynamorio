@@ -382,7 +382,12 @@ process_control_report_long_list(char *reg_key)
  */
 static int
 process_control_match(const char *md5_hash, 
-                      const IF_WINDOWS_ELSE_NP(wchar_t, char) *reg_key)
+#ifdef PARAMS_IN_REGISTRY
+                      const IF_WINDOWS_ELSE_NP(wchar_t, char) *reg_key
+#else
+                      const char *reg_key
+#endif
+                      )
 {
     int ret_val, res;
     char *hash_list;
@@ -461,7 +466,7 @@ process_control_whitelist(const char *md5_hash)
     char *threat_id = NULL;
     int anonymous = PROCESS_CONTROL_NOT_MATCHED;
     int app_specific =
-        process_control_match(md5_hash, L_IF_WIN(DYNAMORIO_VAR_APP_PROCESS_WHITELIST));
+        process_control_match(md5_hash, PARAM_STR(DYNAMORIO_VAR_APP_PROCESS_WHITELIST));
 
     /* Do the pure whitelist mode check in case both modes were specified
      * accidentally; a matter of precedence.
@@ -473,7 +478,7 @@ process_control_whitelist(const char *md5_hash)
         if (IS_PROCESS_CONTROL_MATCHED(app_specific))
             return;
         anonymous = process_control_match(md5_hash,
-                        L_IF_WIN(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST));
+                                          PARAM_STR(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST));
         if (IS_PROCESS_CONTROL_MATCHED(anonymous))
             return;
 
@@ -559,10 +564,10 @@ process_control_blacklist(const char *md5_hash)
     security_option_t type_handling;
     action_type_t desired_action;
     int app_specific =
-        process_control_match(md5_hash, L_IF_WIN(DYNAMORIO_VAR_APP_PROCESS_BLACKLIST));
+        process_control_match(md5_hash, PARAM_STR(DYNAMORIO_VAR_APP_PROCESS_BLACKLIST));
 
     int anonymous =
-        process_control_match(md5_hash, L_IF_WIN(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST));
+        process_control_match(md5_hash, PARAM_STR(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST));
 
     ASSERT(IS_PROCESS_CONTROL_MODE_BLACKLIST());
 

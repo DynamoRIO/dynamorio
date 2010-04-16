@@ -56,10 +56,10 @@
 # define FILE_NAME INJECT_DLL_NAME
 # define FILE_DESCRIPTION PRODUCT_NAME " systemwide injector library"
 # define FILE_TYPE VFT_DLL
-#elif defined(RC_IS_DRINJECT)
-# define FILE_NAME DRINJECT_NAME
-# define FILE_DESCRIPTION PRODUCT_NAME " injection utility"
-# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_DRINJECTLIB)
+# define FILE_NAME "drinjectlib.dll"
+# define FILE_DESCRIPTION PRODUCT_NAME " injection utility library"
+# define FILE_TYPE VFT_DLL
 #elif defined(RC_IS_EARLY1)
 # define FILE_NAME INJECT_HELPER_DLL1_NAME
 # define FILE_DESCRIPTION PRODUCT_NAME " additional win2k injector library"
@@ -69,8 +69,8 @@
 # define FILE_DESCRIPTION PRODUCT_NAME " additional win2k injector library"
 # define FILE_TYPE VFT_DLL
 // libutil
-#elif defined(RC_IS_DRCONFIG)
-# define FILE_NAME "drconfig.dll"
+#elif defined(RC_IS_DRCONFIGLIB)
+# define FILE_NAME "drconfiglib.dll"
 # define FILE_DESCRIPTION PRODUCT_NAME " configuration library"
 # define FILE_TYPE VFT_DLL
 #elif defined(RC_IS_DUMPEVTS)
@@ -122,9 +122,17 @@
 # define FILE_NAME "ldmp.exe"
 # define FILE_DESCRIPTION PRODUCT_NAME ".ldmp reading tool"
 # define FILE_TYPE VFT_APP
-#elif defined(RC_IS_drdeploy)
-# define FILE_NAME "drdeploy.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME "deployment command-line utility"
+#elif defined(RC_IS_drconfig)
+# define FILE_NAME "drconfig.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "configuration command-line utility"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_drrun)
+# define FILE_NAME "drrun.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "configure-and-run command-line utility"
+# define FILE_TYPE VFT_APP
+#elif defined(RC_IS_drinject)
+# define FILE_NAME DRINJECT_NAME
+# define FILE_DESCRIPTION PRODUCT_NAME "injection utility"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_runjob)
 # define FILE_NAME "runjob.exe"

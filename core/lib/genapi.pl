@@ -174,6 +174,7 @@ if ($header) {
      './win32/os_private.h', # rsrc section walking
      './hotpatch.c',         # probe api
      './lib/dr_config.h',
+     './lib/dr_inject.h',
      );
 
 # PR 214947: VMware retroactively holds the copyright.

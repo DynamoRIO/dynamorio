@@ -38,8 +38,6 @@
  * injector.c - standalone injector for win32
  */
 
-/* FIXME: Unicode support?!?! case 61 */
-
 /* Disable warnings from vc8 include files */
 /* buildtools\VC\8.0\dist\VC\PlatformSDK\Include\prsht.h(201)
  * "nonstandard extension used : nameless struct/union"
@@ -65,6 +63,10 @@
 #include "ntdll.h"
 #include "inject_shared.h"
 #include "os_private.h"
+
+#ifdef UNICODE
+# error dr_inject.h and drdeploy.c not set up for unicde
+#endif
 
 #define VERBOSE 0
 #if VERBOSE
@@ -167,7 +169,7 @@ internal_error(char *file, int line, char *expr)
 void 
 display_error(char *msg)
 {
-# ifdef EXTERNAL_INJECTOR
+# ifdef DISABLED /* going with msgbox always! */
     fprintf(FP, msg);
 # else
     wchar_t buf[512];
@@ -189,20 +191,74 @@ BOOL WINAPI HandlerRoutine(DWORD dwCtrlType   //  control signal type
 }
 #endif 
 
-static void
-print_mem_stats(HANDLE h)
+/*************************************************************************/
+
+/* Opaque type to users, holds our state */
+typedef struct _dr_inject_info_t {
+    PROCESS_INFORMATION pi;
+    bool using_debugger_injection;
+    char image_name[MAXIMUM_PATH];
+} dr_inject_info_t;
+
+DYNAMORIO_EXPORT
+char *
+dr_inject_get_image_name(void *data)
 {
+    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    if (data == NULL)
+        return NULL;
+    return info->image_name;
+}
+
+DYNAMORIO_EXPORT
+HANDLE
+dr_inject_get_process_handle(void *data)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    if (data == NULL)
+        return INVALID_HANDLE_VALUE;
+    return info->pi.hProcess;
+}
+
+DYNAMORIO_EXPORT
+process_id_t
+dr_inject_get_process_id(void *data)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    if (data == NULL)
+        return 0;
+    return info->pi.dwProcessId;
+}
+
+DYNAMORIO_EXPORT
+bool
+dr_inject_using_debug_key(void *data)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    if (data == NULL)
+        return false;
+    return info->using_debugger_injection;
+}
+
+DYNAMORIO_EXPORT
+void
+dr_inject_print_stats(void *data, int elapsed_secs, bool showstats, bool showmem)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *) data;
     VM_COUNTERS mem;
     /* not in DR library - floating point use is OK */
-    int secs = (int) wallclock;
+    int secs = elapsed_secs;
 
-    if (!get_process_mem_stats(h, &mem)) {
+    if (data == NULL)
+        return;
+
+    if (!get_process_mem_stats(info->pi.hProcess, &mem)) {
         /* failed */
         memset(&mem, 0, sizeof(VM_COUNTERS));
     }
 
     if (showstats) {
-        int cpu = get_process_load(h);
+        int cpu = get_process_load(info->pi.hProcess);
         /* Elapsed real (wall clock) time.  */
         if (secs >= 3600) {     /* One hour -> h:m:s.  */
             fprintf(FP, "%ld:%02ld:%02ldelapsed ",
@@ -445,7 +501,8 @@ static TCHAR debugger_key_value[3*MAX_PATH];
 static DWORD debugger_key_value_size = BUFFER_SIZE_BYTES(debugger_key_value);
 static BOOL (*debug_stop_function)(int); 
 
-static BOOL
+DYNAMORIO_EXPORT
+BOOL
 using_debugger_key_injection(const TCHAR *image_name)
 {
     int res;
@@ -522,31 +579,8 @@ void restore_debugger_key_injection(int id, BOOL started)
 
 /***************************** end debug key injection ********************/
 
-/* i#200/PR 459481: communicate child pid via file */
-static void
-write_pid_to_file(const char *pidfile, process_id_t pid)
-{
-    HANDLE f = CreateFile(pidfile, GENERIC_WRITE, FILE_SHARE_READ,
-                          NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (f == INVALID_HANDLE_VALUE) {
-        DO_VERBOSE({
-            fprintf(FP, "Cannot open %s: %d\n", pidfile, GetLastError());
-        });
-        display_error("Error writing to pidfile file\n");
-    } else {
-        TCHAR pidbuf[16];
-        BOOL ok;
-        DWORD written;
-        _snprintf(pidbuf, BUFFER_SIZE_ELEMENTS(pidbuf), "%d\n", pid);
-        NULL_TERMINATE_BUFFER(pidbuf);
-        ok = WriteFile(f, pidbuf, (DWORD)strlen(pidbuf), &written, NULL);
-        ASSERT(ok && written == strlen(pidbuf));
-        CloseHandle(f);
-    }
-}
-
-static const TCHAR*
-get_image_name(TCHAR *app_name)
+static const TCHAR *
+get_image_name(const TCHAR *app_name)
 {
     const TCHAR *name_start = double_tcsrchr(app_name, _TEXT('\\'), _TEXT('/'));
     if (name_start == NULL) 
@@ -556,342 +590,79 @@ get_image_name(TCHAR *app_name)
     return name_start;
 }
 
-static char *
-strip_quotes(char *str)
-{
-    if (str[0] == '\"' || str[0] == '\'' || str[0] == '`') {
-        /* remove quotes */
-        str++;
-        str[strlen(str)-1] = '\0';
-    }
-    return str;
-}
 
-int usage(char *us)
-{
-#ifdef EXTERNAL_INJECTOR
-    fprintf(FP,
-            "Usage : %s [-s limit_sec | -m limit_min | -h limit_hr | -no_wait] \n"
-            "        [-noinject] [-pidfile <file>] <application> [args...]\n"
-            "    -no_wait   don't wait for application to exit before returning\n"
-            "    -s -m -h   kill the application if runs longer than specified limit\n"
-            "    -noinject  just launch the process without injecting\n",
-            us);
-#else
-    fprintf(FP, "Usage: %s [-s limit_sec | -m limit_min | -h limit_hr | -no_wait] [-stats]\n"
-            "      [-mem] [-no_env | -env] [-ops <options>] [-force] [-pidfile <file>]\n"
-            "      -noinject|<dll_to_inject> <program> <args...>\n", us);
-#endif
-    return 0;
-}
-
-#define MAX_CMDLINE 2048
-
-/* we must be a console application in order to have the process
- * we launch NOT get a brand new console window!
+/* Returns 0 on success.
+ * On failure, returns a Windows API error code.
  */
-int __cdecl
-main(int argc, char *argv[], char *envp[])
+DYNAMORIO_EXPORT
+int
+dr_inject_process_create(const char *app_name, const char *app_cmdline,
+                         void **data OUT)
 {
-    LPTSTR              app_name = NULL;
-    TCHAR               full_app_name[2*MAX_PATH];
-    TCHAR               app_cmdline[MAX_CMDLINE];
-    LPTSTR              ch;
-    const TCHAR*        image_name;
-    int                 i;
-    LPTSTR              pszCmdLine = GetCommandLine();
-    LPTSTR              DYNAMORIO_PATH = NULL;
-    PLOADED_IMAGE       li;
-    STARTUPINFO         si;
-    PROCESS_INFORMATION pi;
-    CONTEXT             cxt;
-    HANDLE              phandle;
-    BOOL                success;
-    BOOL                res;
-    BYTE *              app_entry;
-    DWORD               wait_result;
-    int                 arg_offs = 1;
-    time_t              start_time, end_time;
-    BOOL                debugger_key_injection;
-    BOOL                limit_default = TRUE;
-#ifdef EXTERNAL_INJECTOR
-    char                library_path_buf[MAXIMUM_PATH];
-#endif
-    char                *pidfile = NULL;
-
+    dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
+    STARTUPINFO si;
     STARTUPINFO mysi;
-    GetStartupInfo(&mysi);
-
-    /* parse args */
-    showmem = FALSE;
-    inject = TRUE;
-
-#ifdef EXTERNAL_INJECTOR
-    if (argc < 2) {
-        return usage(argv[0]);
-    }
-#else
-    if (argc < 3) {
-        return usage(argv[0]);
-    }
-#endif
-    while (argv[arg_offs][0] == '-') {
-        if (strcmp(argv[arg_offs], "-s") == 0) {
-            if (argc <= arg_offs+1)
-                return usage(argv[0]);
-            limit = atoi(argv[arg_offs+1]);
-            limit_default = FALSE;
-            arg_offs += 2;
-        } else if (strcmp(argv[arg_offs], "-m") == 0) {
-            if (argc <= arg_offs+1)
-                return usage(argv[0]);
-            limit = atoi(argv[arg_offs+1])*60;
-            limit_default = FALSE;
-            arg_offs += 2;
-        } else if (strcmp(argv[arg_offs], "-h") == 0) {
-            if (argc <= arg_offs+1)
-                return usage(argv[0]);
-            limit = atoi(argv[arg_offs+1])*3600;
-            limit_default = FALSE;
-            arg_offs += 2;
-        } else if (strcmp(argv[arg_offs], "-no_wait") == 0) {
-            limit = -1;
-            limit_default = FALSE;
-            arg_offs += 1;
-        } else if (strcmp(argv[arg_offs], "-noinject") == 0) {
-            inject = FALSE;
-            arg_offs += 1;
-        }
-#ifndef EXTERNAL_INJECTOR
-        else if (strcmp(argv[arg_offs], "-v") == 0) {
-            /* just ignore -v, only here for compatibility with texec */
-            arg_offs += 1;
-        } else if (strcmp(argv[arg_offs], "-mem") == 0) {
-            showmem = TRUE;
-            arg_offs += 1;
-        } else if (strcmp(argv[arg_offs], "-stats") == 0) {
-            showstats = TRUE;
-            arg_offs += 1;
-        } else if (strcmp(argv[arg_offs], "-force") == 0) {
-            VERBOSE_PRINT(("Forcing injection\n"));
-            /* note this overrides INJECT_EXCLUDED */
-            force_injection = TRUE;
-            arg_offs += 1;
-        } else if (strcmp(argv[arg_offs], "-no_env") == 0) {
-            use_environment = FALSE;
-            arg_offs += 1;
-        } else if (strcmp(argv[arg_offs], "-env") == 0) {
-            use_environment = TRUE;
-            arg_offs += 1;
-        } else if (strcmp(argv[arg_offs], "-ops") == 0) {
-            if (argc <= arg_offs+1)
-                return usage(argv[0]);
-            ops_param = argv[arg_offs+1];
-            arg_offs += 2;
-        }
-#endif /* ! EXTERNAL_INJECTOR */
-        else if (strcmp(argv[arg_offs], "-pidfile") == 0) {
-            if (argc <= arg_offs+1)
-                return usage(argv[0]);
-            pidfile = argv[arg_offs+1];
-            arg_offs += 2;
-        } else {
-            return usage(argv[0]);
-        }
-        if (limit < -1 && !limit_default) {
-            return usage(argv[0]);
-        }
-        if (argc - arg_offs < 1) {
-            return usage(argv[0]);
-        }
-    }
-
-#ifndef EXTERNAL_INJECTOR
-    if (inject) {
-        if (argc - arg_offs < 2) {
-            return usage(argv[0]);
-        }
-        /* we don't want quotes included in our dll path string or our
-         * application path string (app_name), but we do want to put
-         * quotes around every member of the command line
-         */
-        DYNAMORIO_PATH = strip_quotes(argv[arg_offs]);
-        arg_offs += 1;
-    }
-#endif
-
-#ifndef PARAMS_IN_REGISTRY
-    /* i#85/PR 212034: use config files */
-    config_init();
-#endif
-
-    /* we don't want quotes included in our
-     * application path string (app_name), but we do want to put
-     * quotes around every member of the command line
-     */
-    app_name = strip_quotes(argv[arg_offs]);
-    arg_offs += 1;
-
-    /* note that we want target app name as part of cmd line
-     * (FYI: if we were using WinMain, the pzsCmdLine passed in
-     *  does not have our own app name in it)
-     * since cygwin shell ends up putting extra quote characters, etc.
-     * in pszCmdLine ('"foo"' => "\"foo\""), we can't easily walk past
-     * the 1st 2 args (our path and the dll path), so we reconstruct
-     * the cmd line from scratch:
-     */
-    ch = app_cmdline;
-    ch += _snprintf(app_cmdline, BUFFER_SIZE_ELEMENTS(app_cmdline), "\"%s\"", 
-                    app_name);
-    for (i = arg_offs; i < argc; i++)
-        ch += _snprintf(ch, 
-                        BUFFER_SIZE_ELEMENTS(app_cmdline) - (ch - app_cmdline),
-                        " \"%s\"", argv[i]);
-    NULL_TERMINATE_BUFFER(app_cmdline);
-    ASSERT(ch - app_cmdline < BUFFER_SIZE_ELEMENTS(app_cmdline));
-
-#if HANDLE_CONTROL_C
-    /* Note that one must call SetConsoleCtrlHandler(NULL, FALSE) to enable
-     * ^C event reception: but under bash/rxvt it still won't work
-     */
-    if (!SetConsoleCtrlHandler(NULL, FALSE) ||
-        !SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
-        display_error("SetConsoleCtrlHandler failed");
-        return 1;
-    }
-    {
-        int flags;
-        /* FIXME: hStdInput apparently is not the right handle...how do I get
-         * the right handle?!?
-         */
-        if (!GetConsoleMode(mysi.hStdInput, &flags)) {
-            display_error("GetConsoleMode failed");
-            return 1;
-        }
-        printf("console mode flags are: "PFX"\n", flags);
-    }
-#endif
-
-    _tsearchenv(app_name, _TEXT("PATH"), full_app_name);
-    if (full_app_name[0] == _TEXT('\0')) {
-        /* may need to append .exe, FIXME : other executable types */
-        TCHAR tmp_buf[BUFFER_SIZE_ELEMENTS(app_name)+5];
-        _sntprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf), 
-                   _TEXT("%s%s"), app_name, _TEXT(".exe"));
-        NULL_TERMINATE_BUFFER(tmp_buf);
-        VERBOSE_PRINT(("app name with exe %s\n", tmp_buf));
-        _tsearchenv(tmp_buf, _TEXT("PATH"), full_app_name);
-    }
-    VERBOSE_PRINT(("app name %s, full app name %s\n", app_name, 
-                   full_app_name));
-    app_name = full_app_name;
-
-    if (NULL != (li = ImageLoad(app_name, NULL))) {
-        app_entry = (BYTE *)
-            (li->MappedAddress +
-             li->FileHeader->OptionalHeader.AddressOfEntryPoint);
-        ImageUnload(li);
-    } else {
-        _snprintf(app_cmdline, BUFFER_SIZE_ELEMENTS(app_cmdline), 
-                  "Failed to load executable image \"%s\"", app_name);
-        NULL_TERMINATE_BUFFER(app_cmdline);
-        display_error(app_cmdline);
-        return 1;
-    }
-
-    DO_VERBOSE({
-        printf("Running %s with cmdline \"%s\"\n", app_name, app_cmdline);
-        fflush(stdout);
-    });
+    int errcode = 0;
+    bool res;
+    if (data == NULL)
+        return ERROR_INVALID_PARAMETER;
     
     /* Launch the application process. */
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESTDHANDLES;
+    GetStartupInfo(&mysi);
     si.hStdInput = mysi.hStdInput;
     si.hStdOutput = mysi.hStdOutput;
     si.hStdError = mysi.hStdError;
 
-    image_name = get_image_name(app_name);
+    strncpy(info->image_name, get_image_name(app_name),
+            BUFFER_SIZE_ELEMENTS(info->image_name));
 
     /* FIXME, won't need to check this, or unset/restore debugger_key_injection
      * if we have our own version of CreateProcess that doesn't check the 
      * debugger key */
-    debugger_key_injection = using_debugger_key_injection(image_name);
+    info->using_debugger_injection = using_debugger_key_injection(info->image_name);
 
-    /* set defaults for limit */
-    if (limit_default) {
-        if (debugger_key_injection)
-            limit = -1; /* no wait */
-        else 
-            limit = 0; /* infinite wait */
-    }
-    
-    DO_VERBOSE({
-        printf("Using debug method? %s, debug_stop_function available %s\n", 
-               debugger_key_injection ? "Yes" : "No", 
-               debug_stop_function ? "Yes" : "No");
-        fflush(stdout);
-    });
-
-#if defined(PARAMS_IN_REGISTRY) && !defined(EXTERNAL_INJECTOR)
-    /* don't set registry from environment if using debug key */
-    if (!debugger_key_injection) {
-        set_registry_from_env(image_name, DYNAMORIO_PATH);
-    }
-#endif
-
-    if (debugger_key_injection) {
+    if (info->using_debugger_injection) {
         unset_debugger_key_injection();
     }
 
-    DO_VERBOSE({
-        printf("starting process\n");
-        fflush(stdout);
-    });
-
     /* Must specify TRUE for bInheritHandles so child inherits stdin! */
-    res = CreateProcess(app_name, app_cmdline, NULL, NULL, TRUE,
-                        CREATE_SUSPENDED + 
-                        ((debug_stop_function && 
-                          debugger_key_injection) ? DEBUG_PROCESS | 
-                                                    DEBUG_ONLY_THIS_PROCESS 
-                                                  : 0),
-                        NULL, NULL, &si, &pi);
+    res = CreateProcess(app_name, (char *)app_cmdline, NULL, NULL, TRUE,
+                        CREATE_SUSPENDED |
+                        ((debug_stop_function && info->using_debugger_injection) ?
+                         DEBUG_PROCESS | DEBUG_ONLY_THIS_PROCESS : 0),
+                        NULL, NULL, &si, &info->pi);
+    if (!res)
+        errcode = GetLastError();
 
-    DO_VERBOSE({
-        printf("done starting process\n");
-        fflush(stdout);
-    });
-
-    if (debugger_key_injection) {
-        restore_debugger_key_injection(pi.dwProcessId, res);
-    }
-    
-    if (!res) {
-        display_error("Failed to launch application");
-        goto error;
+    if (info->using_debugger_injection) {
+        restore_debugger_key_injection(info->pi.dwProcessId, res);
     }
 
-    if ((phandle = OpenProcess(PROCESS_ALL_ACCESS,
-                               FALSE, pi.dwProcessId)) == NULL) {
-        display_error("Cannot open application process");
-        TerminateProcess(pi.hProcess, 0);
-        goto error;
-    }
+    *data = (void *) info;
+    return errcode;
+}
 
-    /* i#200/PR 459481: communicate child pid via file */
-    if (pidfile != NULL)
-        write_pid_to_file(pidfile, pi.dwProcessId);
+DYNAMORIO_EXPORT
+bool
+dr_inject_process_inject(void *data, bool force_injection,
+                         const char *library_path)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    CONTEXT cxt;
+    bool inject = true;
+    char library_path_buf[MAXIMUM_PATH];
 
     /* force_injection prevents overriding of inject based on registry */
-    if (inject && !force_injection) {
-        int inject_flags = systemwide_should_inject(phandle, NULL);
+    if (!force_injection) {
+        int inject_flags = systemwide_should_inject(info->pi.hProcess, NULL);
         bool syswide_will_inject = systemwide_inject_enabled() && 
             TEST(INJECT_TRUE, inject_flags) && 
             !TEST(INJECT_EXPLICIT, inject_flags);
         bool should_not_takeover = TEST(INJECT_EXCLUDED, inject_flags) && 
-            debugger_key_injection;
+            info->using_debugger_injection;
         /* case 10794: to support follow_children we inject even if
          * syswide_will_inject.  we use RUNUNDER_EXPLICIT to avoid
          * user32 injection from happening, to get consistent injection.
@@ -906,7 +677,7 @@ main(int argc, char *argv[], char *envp[])
              * case we use what is in the registry (whoever wrote the registry 
              * should take care of late or nonexistent user32 loading in the 
              * rununder value) */
-            ASSERT(debugger_key_injection);
+            ASSERT(info->using_debugger_injection);
             display_error("application is excluded from injection\n");
         } else {
             /* Don't inject if in safe mode */
@@ -917,104 +688,73 @@ main(int argc, char *argv[], char *envp[])
         }
     }
 
-    VERBOSE_PRINT(("%s in %s (%s)\n", inject ? "Injecting" : "Native", 
-                   app_name, argv[0]));
+    if (!inject)
+        return false;
 
-#ifdef EXTERNAL_INJECTOR
-    if (inject) {
-        int err = get_process_parameter(phandle, PARAM_STR(DYNAMORIO_VAR_AUTOINJECT),
-                                        library_path_buf, sizeof(library_path_buf));
+    if (library_path == NULL) {
+        int err;
+        err = get_process_parameter(info->pi.hProcess,
+                                    PARAM_STR(DYNAMORIO_VAR_AUTOINJECT),
+                                    library_path_buf, sizeof(library_path_buf));
         if (err != GET_PARAMETER_SUCCESS && err != GET_PARAMETER_NOAPPSPECIFIC) {
             inject = false;
-            display_error("application not properly configured\n"
-                          "use drconfig.exe to configure, or drrun.exe to do both");
+            display_error("WARNING: this application is not configured to run under DynamoRIO!\n"
+                          "Use drconfig.exe or drrun.exe to configure.");
         }
         NULL_TERMINATE_BUFFER(library_path_buf);
-        DYNAMORIO_PATH = library_path_buf;
+        library_path = library_path_buf;
+    }
+
+#ifdef PARAMS_IN_REGISTRY
+    /* don't set registry from environment if using debug key */
+    if (!info->using_debugger_injection) {
+        set_registry_from_env(info->image_name, library_path);
     }
 #endif
 
-    if (inject) {
-        inject_init();
-        /* FIXME PR 211367: use early_inject instead of this late injection!
-         * but non-trivial to gather the relevant addresses: so wait for
-         * earliest injection => i#234/PR 204587 prereq?
-         */
-        if (!inject_into_thread(phandle, &cxt, pi.hThread, DYNAMORIO_PATH)) {
-            display_error("injection failed");
-            close_handle(phandle);
-            TerminateProcess(pi.hProcess, 0);
-            goto error;
-        }
-        DO_VERBOSE({
-            printf("Successful at inserting dynamo\n");
-            fflush(stdout);
-        });
+    inject_init();
+    /* FIXME PR 211367: use early_inject instead of this late injection!
+     * but non-trivial to gather the relevant addresses: so wait for
+     * earliest injection => i#234/PR 204587 prereq?
+     */
+    if (!inject_into_thread(info->pi.hProcess, &cxt, info->pi.hThread,
+                            (char *)library_path)) {
+        close_handle(info->pi.hProcess);
+        TerminateProcess(info->pi.hProcess, 0);
+        return false;
     }
-
-    success = FALSE;
-    /* FIXME: indentation left from removing a try block */
-        start_time = time(NULL);
-
-        /* resume the suspended app process so its main thread can run */
-        ResumeThread(pi.hThread);
-    
-        /* detach from the app process */
-        close_handle(pi.hThread);
-        close_handle(pi.hProcess);
-
-        if (limit >= 0) {
-            VERBOSE_PRINT(("Waiting for app to finish\n"));
-            /* now wait for app process to finish */
-            wait_result = WaitForSingleObject(phandle, (limit==0) ? INFINITE : (limit*1000));
-            end_time = time(NULL);
-            wallclock = difftime(end_time, start_time);
-#if defined(PARAMS_IN_REGISTRY) && !defined(EXTERNAL_INJECTOR)
-            if (!debugger_key_injection) {
-                unset_registry_from_env(image_name);
-            }
-#endif
-            if (wait_result == WAIT_OBJECT_0)
-                success = TRUE;
-            else
-                fprintf(FP, "Timeout after %d seconds\n", limit);
-        } else {
-            /* if we are using env -> registry our changes won't get undone!
-             * we can't unset now, the app may still reference them */
-            success = TRUE;
-        }
-
-        /* FIXME: this is my attempt to get ^C, but it doesn't work... */
-#if HANDLE_CONTROL_C
-        /* should we register a control handler for this to work? */
-        if (!success) {
-            printf("Terminating child process!\n");
-            fflush(stdout);
-            TerminateProcess(phandle, 0);
-        } else
-            printf("Injector exiting peacefully\n");
-#endif
-#ifndef EXTERNAL_INJECTOR
-        if (showmem || showstats)
-            print_mem_stats(phandle);
-#endif
-        if (!success) {
-            /* kill the child */
-            TerminateProcess(phandle, 0);
-        }
-        close_handle(phandle);
-        DO_VERBOSE({
-            printf("All done\n");
-            fflush(stdout);
-        });
-
-    return 0;
-
- error:
-#ifndef EXTERNAL_INJECTOR
-    if (!debugger_key_injection) {
-        unset_registry_from_env(image_name);
-    }
-#endif
-    return 1;
+    return true;
 }
+
+DYNAMORIO_EXPORT
+bool
+dr_inject_process_run(void *data)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    /* resume the suspended app process so its main thread can run */
+    ResumeThread(info->pi.hThread);
+    close_handle(info->pi.hThread);
+
+    return true;
+}
+
+DYNAMORIO_EXPORT
+int
+dr_inject_process_exit(void *data, bool terminate)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    int exitcode = -1;
+#ifdef PARAMS_IN_REGISTRY
+    if (!info->using_debugger_injection) {
+        unset_registry_from_env(info->image_name);
+    }
+#endif
+    if (terminate) {
+        TerminateProcess(info->pi.hProcess, 0);
+    }
+    GetExitCodeProcess(info->pi.hProcess, (LPDWORD) &exitcode);
+    close_handle(info->pi.hProcess);
+    HeapFree(GetProcessHeap(), 0, info);
+    return exitcode;
+}
+

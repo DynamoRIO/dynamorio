@@ -49,9 +49,11 @@
 # define GLOBAL_CONFIG_DIR "/etc/dynamorio"
 # define LOCAL_CONFIG_ENV "HOME"
 # define LOCAL_CONFIG_SUBDIR ".dynamorio"
+# define GLOBAL_CONFIG_SUBDIR ""
 #else
 # define LOCAL_CONFIG_ENV "USERPROFILE"
 # define LOCAL_CONFIG_SUBDIR "dynamorio"
+# define GLOBAL_CONFIG_SUBDIR "/config"
 #endif
 
 /* We use separate file names to support apps with the same name
@@ -65,17 +67,35 @@
 # define CFG_SFX CFG_SFX_32
 #endif
 
+/* no logfile is set up yet */
+#if defined(DEBUG) && defined(INTERNAL)
+# define VERBOSE 0
+#else
+# define VERBOSE 0
+#endif
+
 #if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
 /* for linking into linux preload we do use libc for now (xref i#46/PR 206369) */
 # undef ASSERT
 # undef ASSERT_NOT_IMPLEMENTED
 # undef ASSERT_NOT_TESTED
+# undef ASSERT_NOT_REACHED
 # undef FATAL_USAGE_ERROR
 # define ASSERT(x) /* nothing */
 # define ASSERT_NOT_IMPLEMENTED(x) /* nothing */
 # define ASSERT_NOT_TESTED(x) /* nothing */
+# define ASSERT_NOT_REACHED() /* nothing */
 # define FATAL_USAGE_ERROR(x, ...) /* nothing */
-# define print_file fprintf
+# ifdef WINDOWS
+#  if VERBOSE
+extern void display_verbose_message(char *format, ...);
+#   define print_file(f, ...) display_verbose_message(__VA_ARGS__)
+#  else
+#   define print_file(...) /* nothing */
+#  endif
+# else
+#  define print_file(...) fprintf(__VA_ARGS__)
+# endif
 # undef STDERR
 # define STDERR stderr
 # undef our_snprintf
@@ -84,13 +104,7 @@
 # define DECLARE_NEVERPROT_VAR(var, val) var = (val)
 #endif
 
-/* no logfile is set up yet */
 #ifdef DEBUG
-# ifdef INTERNAL
-#  define VERBOSE 0
-# else
-#  define VERBOSE 0
-# endif
 DECLARE_NEVERPROT_VAR(static int infolevel, VERBOSE);
 # define INFO(level, fmt, ...) do { \
         if (infolevel >= (level)) print_file(STDERR, "<"fmt">\n", __VA_ARGS__); \
@@ -243,6 +257,21 @@ process_config_line(char *line, config_info_t *cfg, bool app_specific, bool over
 {
     uint i;
     ASSERT(line != NULL);
+    if (cfg->query != NULL) {
+        if (strstr(line, cfg->query) == line) {
+            char *val = strchr(line, '=');
+            if (val != NULL &&
+                /* see comment below */
+                val == line + strlen(cfg->query)) {
+                strncpy(cfg->u.q.answer.val, val + 1,
+                        BUFFER_SIZE_ELEMENTS(cfg->u.q.answer.val));
+                cfg->u.q.answer.app_specific = app_specific;
+                cfg->u.q.answer.from_env = false;
+                cfg->u.q.have_answer = true;
+            }
+        }
+        return;
+    }
     /* perf: we could stick the names in a hashtable */
     for (i = 0; i < NUM_CONFIG_VAR; i++) {
         if (strstr(line, config_var[i]) == line) {
@@ -257,10 +286,6 @@ process_config_line(char *line, config_info_t *cfg, bool app_specific, bool over
                     FATAL_USAGE_ERROR(ERROR_CONFIG_FILE_INVALID, 3, line);
                     ASSERT_NOT_REACHED();
                 }
-            } else if (cfg->query != NULL) {
-                strncpy(cfg->u.q.answer.val, val + 1,
-                        BUFFER_SIZE_ELEMENTS(cfg->u.q.answer.val));
-                cfg->u.q.have_answer = true;
             } else if (!cfg->u.v->vals[i].has_value || overwrite) {
                 strncpy(cfg->u.v->vals[i].val, val + 1,
                         BUFFER_SIZE_ELEMENTS(cfg->u.v->vals[i].val));
@@ -288,8 +313,8 @@ read_config_file(file_t f, config_info_t *cfg, bool app_specific, bool overwrite
     char buf[BUFSIZE];
 
     char *line, *newline = NULL;
-    int bufread = 0, bufwant;
-    int len;
+    ssize_t bufread = 0, bufwant;
+    ssize_t len;
 
     while (true) {
         /* break file into lines */
@@ -342,10 +367,11 @@ read_config_file(file_t f, config_info_t *cfg, bool app_specific, bool overwrite
 }
 
 static void
-config_read(config_info_t *cfg, const char *appname, const char *sfx)
+config_read(config_info_t *cfg, const char *appname_in, process_id_t pid, const char *sfx)
 {
     file_t f_app = INVALID_FILE, f_default = INVALID_FILE;
     const char *local, *global;
+    const char *appname = appname_in;
     char buf[MAXIMUM_PATH];
     bool check_global = true;
 #ifdef WINDOWS
@@ -365,13 +391,16 @@ config_read(config_info_t *cfg, const char *appname, const char *sfx)
      */
     local = my_getenv(L_IF_WIN(LOCAL_CONFIG_ENV), buf, BUFFER_SIZE_BYTES(buf));
     if (local != NULL) {
-        if (cfg == &config) {
+        process_id_t pid_to_check = pid;
+        if (pid == 0 && cfg == &config)
+            pid_to_check = get_process_id();
+        if (pid_to_check != 0) {
             /* 1) <local>/appname.<pid>.1config
              * only makes sense for main config for this process
              */
             snprintf(cfg->fname_app, BUFFER_SIZE_ELEMENTS(cfg->fname_app),
                      "%s/%s/%s.%d.1%s",
-                     local, LOCAL_CONFIG_SUBDIR, appname, get_process_id(), sfx);
+                     local, LOCAL_CONFIG_SUBDIR, appname, pid_to_check, sfx);
             NULL_TERMINATE_BUFFER(cfg->fname_app);
             INFO(2, "trying config file %s", cfg->fname_app);
             f_app = os_open(cfg->fname_app, OS_OPEN_READ);
@@ -410,8 +439,8 @@ config_read(config_info_t *cfg, const char *appname, const char *sfx)
         /* 4) <global>/appname.config */
         if (f_app == INVALID_FILE) {
             snprintf(cfg->fname_app, BUFFER_SIZE_ELEMENTS(cfg->fname_app), 
-                     "%s/"IF_WINDOWS("config/")"%s.%s",
-                     global, appname, sfx);
+                     "%s%s/%s.%s",
+                     global, GLOBAL_CONFIG_SUBDIR, appname, sfx);
             NULL_TERMINATE_BUFFER(cfg->fname_app);
             INFO(2, "trying config file %s", cfg->fname_app);
             f_app = os_open(cfg->fname_app, OS_OPEN_READ);
@@ -419,7 +448,7 @@ config_read(config_info_t *cfg, const char *appname, const char *sfx)
         /* 5) <global>/default.0config */
         if (f_default == INVALID_FILE) {
             snprintf(cfg->fname_default, BUFFER_SIZE_ELEMENTS(cfg->fname_default),
-                     "%s/default.0%s", global, sfx);
+                     "%s%s/default.0%s", global, GLOBAL_CONFIG_SUBDIR, sfx);
             NULL_TERMINATE_BUFFER(cfg->fname_default);
             INFO(2, "trying config file %s", cfg->fname_default);
             f_default = os_open(cfg->fname_default, OS_OPEN_READ);
@@ -438,7 +467,8 @@ config_read(config_info_t *cfg, const char *appname, const char *sfx)
     } else
         INFO(1, "no default config file found%s", "");
     /* 6) env vars fill in any still-unset values */
-    set_config_from_env(cfg);
+    if (appname_in == NULL) /* only consider env for cur process */
+        set_config_from_env(cfg);
 }
 
 /* up to caller to synchronize */
@@ -446,7 +476,9 @@ config_read(config_info_t *cfg, const char *appname, const char *sfx)
 void
 config_reread(void)
 {
+#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
     file_t f;
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     if (config.fname_app[0] != '\0') {
         f = os_open(config.fname_app, OS_OPEN_READ);
         if (f != INVALID_FILE) {
@@ -471,6 +503,10 @@ config_reread(void)
     }
     /* 6) env vars fill in any still-unset values */
     set_config_from_env(&config);
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+#else
+    ASSERT_NOT_REACHED();
+#endif
 }
 
 /* Since querying for other arch or other app typically asks just about
@@ -479,8 +515,9 @@ config_reread(void)
  * the var in question.
  */
 static bool
-get_config_val_other(const char *appname, const char *sfx,
-                     const char *var, char *val, size_t valsz)
+get_config_val_other(const char *appname, process_id_t pid, const char *sfx,
+                     const char *var, char *val, size_t valsz,
+                     bool *app_specific, bool *from_env)
 {
     /* Can't use heap very easily since used by preinject, injector, and DR
      * so we use a stack var.  WARNING: this is about 1K!
@@ -488,34 +525,42 @@ get_config_val_other(const char *appname, const char *sfx,
     config_info_t info;
     memset(&info, 0, sizeof(info));
     info.query = var;
-    config_read(&info, appname, sfx);
+    config_read(&info, appname, pid, sfx);
     if (info.u.q.have_answer) {
         if (valsz > BUFFER_SIZE_ELEMENTS(info.u.q.answer.val))
             valsz = BUFFER_SIZE_ELEMENTS(info.u.q.answer.val);
         strncpy(val, info.u.q.answer.val, valsz);
         val[valsz-1] = '\0';
+        if (app_specific != NULL)
+            *app_specific = info.u.q.answer.app_specific;
+        if (from_env != NULL)
+            *from_env = info.u.q.answer.from_env;
     }
     return info.u.q.have_answer;
 }
 
 bool
-get_config_val_other_app(const char *appname, const char *var, char *val, size_t valsz)
+get_config_val_other_app(const char *appname, process_id_t pid,
+                         const char *var, char *val, size_t valsz,
+                         bool *app_specific, bool *from_env)
 {
-    return get_config_val_other(appname, CFG_SFX, var, val, valsz);
+    return get_config_val_other(appname, pid, CFG_SFX, var, val, valsz,
+                                app_specific, from_env);
 }
 
 bool
-get_config_val_other_arch(const char *var, char *val, size_t valsz)
+get_config_val_other_arch(const char *var, char *val, size_t valsz,
+                          bool *app_specific, bool *from_env)
 {
-    return get_config_val_other(NULL, IF_X64_ELSE(CFG_SFX_32, CFG_SFX_64),
-                                var, val, valsz);
+    return get_config_val_other(NULL, 0, IF_X64_ELSE(CFG_SFX_32, CFG_SFX_64),
+                                var, val, valsz, app_specific, from_env);
 }
 
 void
 config_init(void)
 {
     config.u.v = &myvals;
-    config_read(&config, NULL, CFG_SFX);
+    config_read(&config, NULL, 0, CFG_SFX);
 }
 
 void

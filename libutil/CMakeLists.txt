@@ -87,16 +87,20 @@ set_target_properties(policy_static PROPERTIES
 set_target_properties(policy_static PROPERTIES
   LINK_FLAGS "${libutil_ldflags}")
 
-add_library(drconfig SHARED ${BASE_SRCS} ${ROOT_SRCS} ${CORE_SRCS}
+add_library(drconfiglib SHARED ${BASE_SRCS} ${ROOT_SRCS} ${CORE_SRCS}
   ${RESOURCES} dr_config.c drconfig.def)
-set_target_properties(drconfig PROPERTIES
+set_target_properties(drconfiglib PROPERTIES
   # Set define parameters for resources.rc
   # Since it's hard to pass spaces in defines (I can get a " through using
   # \\\\\\\" but no spaces) we put strings in resources.rc and select
   # using RC_ defines.
-  COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DRCONFIG")
-set_target_properties(drconfig PROPERTIES
+  COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DRCONFIGLIB")
+set_target_properties(drconfiglib PROPERTIES
   LINK_FLAGS "${libutil_ldflags}")
+# drinject.exe needs a copy in the bin dir
+add_custom_command(TARGET drconfiglib POST_BUILD COMMAND ${CMAKE_COMMAND}
+  ARGS -E copy "${LIBRARY_OUTPUT_PATH}/drconfiglib.dll"
+  "${EXECUTABLE_OUTPUT_PATH}/" VERBATIM)
 
 add_executable(dumpevts dumpevts.c elm.c ${RESOURCES})
 set_target_properties(dumpevts PROPERTIES
@@ -116,11 +120,11 @@ if (MFAPI_ENABLED)
     LINK_FLAGS "${libutil_ldflags}")
 endif (MFAPI_ENABLED)
 
-install(TARGETS drconfig
+install(TARGETS drconfiglib
   RUNTIME DESTINATION ${INSTALL_LIB_BASE} # .dll
   LIBRARY DESTINATION ${INSTALL_LIB_BASE} # .so
   ARCHIVE DESTINATION ${INSTALL_LIB_BASE} # .lib
   )
-# drdeploy.exe needs a copy in the bin dir
-install(TARGETS drconfig DESTINATION ${INSTALL_BIN})
+# drinject.exe and company need a copy in the bin dir
+install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 

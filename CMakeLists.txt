@@ -76,6 +76,7 @@ endif (NOT DEFINED CMAKE_INSTALL_PREFIX)
 # Allow users to set -m32 in just CFLAGS and have it apply to CXXFLAGS as well.
 # CMake puts such flags in various variables early on and we'd have to go
 # manually add to CMAKE_SHARED_LIBRARY_CXX_FLAGS or something to fix later.
+
 if (NOT DEFINED ENV{CXXFLAGS})
   set(ENV{CXXFLAGS} "$ENV{CFLAGS}")
 endif (NOT DEFINED ENV{CXXFLAGS})
@@ -197,8 +198,8 @@ if (WIN32)
   # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
   option(GENERATE_PDBS "generate Windows debug information" ON)
   # instead of config files use registry like in the old days
-  # once i#85/PR 212034 and i#265/PR 486139 are finished config files will be default
-  option(PARAMS_IN_REGISTRY "parameters from registry instead of config files" ON)
+  # (i#85/PR 212034 and i#265/PR 486139 switched DR to config files)
+  option(PARAMS_IN_REGISTRY "parameters from registry instead of config files")
 endif (WIN32)
 
 # for users
@@ -796,9 +797,6 @@ endif (WIN32 AND NOT X64)
 option(BUILD_EXT "build Extension libraries" ON)
 option(BUILD_DOCS "build documentation" ON)
 
-if (VPS)
-  set(BUILD_EXT OFF)
-endif (VPS)
 if (VMSAFE)
   # I did not preserve VMSAFE docs building: to reactivate it, need to
   # add the missing transformations mentioned in api/docs/CMakeLists.txt
@@ -812,6 +810,7 @@ endif (VMSAFE)
 option(BUILD_SAMPLES "build client samples" ON)
 if (NOT CLIENT_INTERFACE)
   set(BUILD_SAMPLES OFF)
+  set(BUILD_EXT OFF)
 endif (NOT CLIENT_INTERFACE)
 
 # We include all tests and build them at configure time if requested.

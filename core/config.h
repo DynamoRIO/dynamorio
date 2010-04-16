@@ -54,10 +54,13 @@ const char *
 get_config_val_ex(const char *var, bool *app_specific, bool *from_env);
 
 bool
-get_config_val_other_app(const char *appname, const char *var, char *val, size_t valsz);
+get_config_val_other_app(const char *appname, process_id_t pid,
+                         const char *var, char *val, size_t valsz,
+                         bool *app_specific, bool *from_env);
 
 bool
-get_config_val_other_arch(const char *var, char *val, size_t valsz);
+get_config_val_other_arch(const char *var, char *val, size_t valsz,
+                          bool *app_specific, bool *from_env);
 
 
 /**************************************************/

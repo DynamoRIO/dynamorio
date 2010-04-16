@@ -101,7 +101,6 @@ else (UNIX)
     DRload
     balloon 
     dummy 
-    drdeploy
     )
   if (NOT X64)
     # FIXME i#118: ldmp not yet 64-bit
@@ -121,8 +120,6 @@ else (UNIX)
 
     if ("${tgt}" STREQUAL "ldmp")
       set(extra_lib "ntdll")
-    elseif ("${tgt}" STREQUAL "drdeploy")
-      set(extra_lib "drconfig")
     endif ("${tgt}" STREQUAL "ldmp")
     target_link_libraries(${tgt}
       policy_static user32 advapi32 pdh imagehlp shell32 "${extra_lib}")
@@ -139,7 +136,23 @@ else (UNIX)
       COMPILE_FLAGS "${tool_cflags} ${unicode_cflags} -DRC_IS_${tgt}")
   endforeach (tgt)
 
-  # drdeploy.exe links to libutil/drconfig.dll.  When we build drdeploy,
+  # we generate 3 different tools from drdeploy.c
+  add_executable(drconfig drdeploy.c ${RESOURCES})
+  set_target_properties(drconfig PROPERTIES
+    COMPILE_FLAGS "${tool_cflags} -DRC_IS_drconfig -DDRCONFIG")
+  add_executable(drrun drdeploy.c ${RESOURCES})
+  set_target_properties(drrun PROPERTIES
+    COMPILE_FLAGS "${tool_cflags} -DRC_IS_drrun -DDRRUN")
+  add_executable(drinject drdeploy.c ${RESOURCES})
+  set_target_properties(drinject PROPERTIES
+    COMPILE_FLAGS "${tool_cflags} -DRC_IS_drinject -DDRINJECT")
+  set(tgts ${tgts} drconfig drrun drinject)
+  foreach (deploytgt drconfig drrun drinject)
+    target_link_libraries(${deploytgt}
+      policy_static user32 advapi32 pdh imagehlp shell32 drconfiglib drinjectlib)
+  endforeach ()
+
+  # drdeploy.exe links to libutil/drconfiglib.dll.  When we build drdeploy,
   # we'll copy the DLL to the tools directory so users won't need to
   # update their path.
 
@@ -149,6 +162,6 @@ else (UNIX)
   # isn't runas admin which isn't quite as nice.  Disable for now.
   # $(MT) -manifest drdeploy.exe.manifest -outputresource:drdeploy.exe
 
-  install(TARGETS ${tgts} DESTINATION ${INSTALL_BIN})
+  install(TARGETS ${tgts} DESTINATION "${INSTALL_BIN}")
 
 endif (UNIX)
