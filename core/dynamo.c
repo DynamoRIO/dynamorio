@@ -1289,6 +1289,10 @@ dynamo_process_exit(void)
                      * in trouble: very unlikely though.
                      */
                     thread_terminate(threads[i]);
+                    /* avoid client dr_suspend_all_other_threads() from
+                     * hanging on this thread
+                     */
+                    remove_thread(threads[i]->id);
                 }
             }
 #  endif

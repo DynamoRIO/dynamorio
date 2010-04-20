@@ -773,7 +773,7 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
     #   set(ENV{DYNAMORIO_OPTIONS} "${dr_ops}")
     # but we take advantage of the new drrun tool
     # we pass -exit0 to avoid ctest from considering our segfault and other tests
-    # to have failed.
+    # to have failed (also xref PR 548997).
     set(cmd ${MAIN_EXECUTABLE_OUTPUT_PATH}/drrun.exe -s ${TEST_SECONDS} -quiet -exit0)
     if (native)
       set(${outcmd} ${cmd} -ops "${dr_ops}" -noinject PARENT_SCOPE)

@@ -668,6 +668,9 @@ endif (NOT DISABLE_WARNINGS)
 # use a single path for easier installation of pdbs
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+# if drinjectlib is built before any exe target this dir won't exist
+# and the "cmake -E copy" will fail (PR 549174)
+file(MAKE_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}")
 
 # Issue 20: cross-arch execve depends on these being distinct and not
 # subsets of each other (e.g., not "lib" and "lib64") and on the
