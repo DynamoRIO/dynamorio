@@ -79,6 +79,7 @@ extern "C" {
 /* CREATE_INSTR_ macros */
 #include "dr_ir_macros.h"
 
+#ifndef DYNAMORIO_STANDALONE
 /**
  * When registering a process, users must provide a list of paths to
  * client libraries and their associated client-specific options.  DR
@@ -94,6 +95,9 @@ DR_EXPORT void dr_init(client_id_t client_id);
 /* Version checking */
 /* This equals major*100 + minor */
 DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
+#else
+LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
+#endif
 
 #ifdef __cplusplus
 }

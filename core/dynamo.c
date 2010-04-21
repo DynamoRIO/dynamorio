@@ -1368,6 +1368,8 @@ dynamo_process_exit(void)
 # endif
     /* so make sure eventlog connection is terminated (if present)  */
     os_fast_exit();
+    /* make sure to delete .1config */
+    config_exit();
 
     return SUCCESS;
 #endif /* !DEBUG */

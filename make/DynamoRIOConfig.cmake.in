@@ -63,6 +63,11 @@
 #  add_executable(myapp myapp.c)
 #  configure_DynamoRIO_standalone(myapp)
 #
+# If using the drconfig (dr_config.h) and/or drinject (dr_inject.h) API's,
+# you also need to explicitly link with those libraries:
+#
+#  target_link_libraries(myapp drinjectlib drconfiglib)
+#
 ###########
 #
 # Global changes:
@@ -290,13 +295,14 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
         "${ORIG_CMAKE_C_FLAGS} ${ORIG_CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
     endif (tgt_cxx)
     if (WIN32)
-      # For standalone, static libc complains about memcpy conflicting
-      # with DR's exported memcpy (forwarded to ntdll), so use dynamic libc
-      if ("${tgt_cflags}" MATCHES "/MT")
-        string(REGEX REPLACE "/MT" "/MD" tgt_cflags "${tgt_cflags}")
-      else ("${tgt_cflags}" MATCHES "/MT")
-        set(tgt_cflags "${tgt_cflags} /MD")
-      endif ("${tgt_cflags}" MATCHES "/MT")
+      # For standalone, we explicitly link in static libc prior to
+      # dynamorio.lib to avoid conflicts w/ ntdll forwards, so we don't
+      # support dynamic libc (xref PR 305100)
+      if ("${tgt_cflags}" MATCHES "/MD")
+        string(REGEX REPLACE "/MD" "/MT" tgt_cflags "${tgt_cflags}")
+      else ("${tgt_cflags}" MATCHES "/MD")
+        set(tgt_cflags "${tgt_cflags} /MT")
+      endif ("${tgt_cflags}" MATCHES "/MD")
     endif (WIN32)
   endif (is_client)
 
@@ -383,11 +389,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
     endif (is_client)
   endif (DEFINED DynamoRIO_RPATH)
   if (use_rpath)
-    if (tgt_x64)
-      set(libdir ${DynamoRIO_LIBRARY64_REL_DIRS})
-    else (tgt_x64)
-      set(libdir ${DynamoRIO_LIBRARY32_REL_DIRS})
-    endif (tgt_x64)
+    get_target_property(libdir dynamorio LOCATION)
     set_target_properties(${target} PROPERTIES
       INSTALL_RPATH ${libdir})
   else (use_rpath)
@@ -485,8 +487,14 @@ function (configure_DynamoRIO_standalone target)
   endforeach (var)
   set(DynamoRIO_configured_globally ${DynamoRIO_configured_globally} PARENT_SCOPE)
 
+  if (WIN32)
+    # PR 305100: must list libc before dynamorio.lib to avoid complaints about
+    # the ntdll forwards conflicting w/ libc
+    set(tgt_link_flags "libcmt.lib ${tgt_link_flags}")
+  endif (WIN32)
+
   set_target_properties(${target} PROPERTIES
-    COMPILE_FLAGS "${tgt_cflags}"
+    COMPILE_FLAGS "${tgt_cflags} -DDYNAMORIO_STANDALONE"
     LINK_FLAGS "${tgt_link_flags}")
 
 endfunction (configure_DynamoRIO_standalone)

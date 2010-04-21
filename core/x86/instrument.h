@@ -2283,6 +2283,8 @@ DR_API
 /**
  * Stdout printing that won't interfere with the
  * application's own printing.  Currently non-buffered.
+ * \note On Windows, this routine is not able to print to the cmd window
+ * (issue 222).
  * \note On Windows, this routine does not support printing floating
  * point values.  Use dr_snprintf() instead.
  * \note If the data to be printed is large it will be truncated to
@@ -2295,6 +2297,8 @@ DR_API
 /**
  * Printing to a file that won't interfere with the
  * application's own printing.  Currently non-buffered.
+ * \note On Windows, this routine is not able to print to STDOUT
+ * or STDERR in the cmd window (issue 222).
  * \note On Windows, this routine does not support printing floating
  * point values.  Use dr_snprintf() instead.
  * \note If the data to be printed is large it will be truncated to

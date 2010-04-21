@@ -513,7 +513,10 @@ if (UNIX)
   install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
   install(FILES ${COMPAT_SYMLINKS} DESTINATION ${INSTALL_LIB})
 else (UNIX)
-  install(TARGETS drinjectlib DESTINATION ${INSTALL_LIB_BASE})
+  install(TARGETS drinjectlib EXPORT ${exported_targets_name}
+    DESTINATION ${INSTALL_LIB_BASE})
+  export(TARGETS drinjectlib FILE
+    ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake APPEND)
   # we put drinjectlib into bin for use by our tools
   install(TARGETS drinjectlib DESTINATION ${INSTALL_BIN})
   install(TARGETS ${PRELOAD_NAME} RUNTIME DESTINATION ${INSTALL_LIB_BASE})

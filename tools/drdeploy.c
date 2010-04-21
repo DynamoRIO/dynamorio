@@ -48,6 +48,8 @@
 #include "config.h"
 #include "share.h"
 
+#define MAX_CMDLINE 4096
+
 typedef enum _action_t {
     action_none,
     action_nudge,
@@ -291,6 +293,9 @@ void register_proc(const char *process,
     if (dr_mode == DR_MODE_NONE) {
         usage("you must provide a DynamoRIO mode");
     }
+    
+    /* warn if the DR root directory doesn't look right */
+    check_dr_root(dr_root, debug, dr_platform, false);
 
     if (dr_process_is_registered(process, pid, global, dr_platform,
                                  NULL, NULL, NULL, NULL)) {
@@ -304,9 +309,6 @@ void register_proc(const char *process,
     if (status != DR_SUCCESS) {
         fatal("process registration failed");
     }
-    
-    /* warn if the DR root directory doesn't look right */
-    check_dr_root(dr_root, debug, dr_platform, false);
 }
 
 
@@ -454,7 +456,7 @@ int main(int argc, char *argv[])
     bool debugger_key_injection = false;
     char *app_name;
     char full_app_name[MAXIMUM_PATH];
-    char app_cmdline[MAXIMUM_PATH*6];
+    char app_cmdline[MAX_CMDLINE];
     char custom_dll[MAXIMUM_PATH];
     int errcode;
     void *inject_data;
@@ -469,18 +471,18 @@ int main(int argc, char *argv[])
 #endif
     char buf[MAXIMUM_PATH];
     char default_root[MAXIMUM_PATH];
-    char *c, prev;
+    char *c;
     char *drlib_path = NULL;
 
     memset(client_paths, 0, sizeof(client_paths));
 
     /* default root: we assume this tool is in <root>/bin{32,64}/dr*.exe */
-    c = argv[0] + strlen(argv[0]) - 1;
-    while (*c != '\\' && *c != '/' && c > argv[0])
+    GetFullPathName(argv[0], BUFFER_SIZE_ELEMENTS(buf), buf, NULL);
+    NULL_TERMINATE_BUFFER(buf);
+    c = buf + strlen(buf) - 1;
+    while (*c != '\\' && *c != '/' && c > buf)
         c--;
-    prev = *(c+1);
-    *(c+1) = '\0';
-    _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s..", argv[0]);
+    _snprintf(c+1, BUFFER_SIZE_ELEMENTS(buf) - (c+1-buf), "..");
     NULL_TERMINATE_BUFFER(buf);
     GetFullPathName(buf, BUFFER_SIZE_ELEMENTS(default_root), default_root, NULL);
     NULL_TERMINATE_BUFFER(default_root);
@@ -846,13 +848,15 @@ int main(int argc, char *argv[])
         write_pid_to_file(pidfile, dr_inject_get_process_id(inject_data));
 
 # ifdef DRRUN
-    process = dr_inject_get_image_name(inject_data);
-    register_proc(process, dr_inject_get_process_id(inject_data), global,
-                  dr_root, dr_mode, use_debug, dr_platform, extra_ops);
-    for (j=0; j<num_clients; j++) {
-        register_client(process, dr_inject_get_process_id(inject_data), global,
-                        dr_platform, client_ids[j],
-                        (char *)client_paths[j], client_options[j]);
+    if (inject) {
+        process = dr_inject_get_image_name(inject_data);
+        register_proc(process, dr_inject_get_process_id(inject_data), global,
+                      dr_root, dr_mode, use_debug, dr_platform, extra_ops);
+        for (j=0; j<num_clients; j++) {
+            register_client(process, dr_inject_get_process_id(inject_data), global,
+                            dr_platform, client_ids[j],
+                            (char *)client_paths[j], client_options[j]);
+        }
     }
 # endif
 

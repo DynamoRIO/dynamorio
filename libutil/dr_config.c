@@ -862,7 +862,8 @@ dr_register_process(const char *process_name,
     }
 #else
     f = open_config_file(process_name, pid, global, dr_platform,
-                         false/*!read*/, true/*write*/, false/*!overwrite*/);
+                         false/*!read*/, true/*write*/,
+                         pid != 0/*overwrite for pid-specific*/);
     if (f == INVALID_HANDLE_VALUE) {
         int err = GetLastError();
         if (err == ERROR_ALREADY_EXISTS)

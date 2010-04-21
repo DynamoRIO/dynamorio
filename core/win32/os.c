@@ -1108,6 +1108,7 @@ os_terminate(dcontext_t *dcontext, terminate_flags_t terminate_type)
              * remove_thread below */
             terminate_type = TERMINATE_THREAD;
         } else {
+            config_exit(); /* delete .1config file */
             nt_terminate_process(currentThreadOrProcess, KILL_PROC_EXIT_STATUS);
             ASSERT_NOT_REACHED();
         }
@@ -1164,6 +1165,7 @@ os_terminate(dcontext_t *dcontext, terminate_flags_t terminate_type)
     } else {
         /* may have decided to terminate process */
         if (exit_process) {
+            config_exit(); /* delete .1config file */
             nt_terminate_process(currentThreadOrProcess, KILL_PROC_EXIT_STATUS);
             ASSERT_NOT_REACHED();
         } else {

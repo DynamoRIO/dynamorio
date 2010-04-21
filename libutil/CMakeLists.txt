@@ -121,10 +121,13 @@ if (MFAPI_ENABLED)
 endif (MFAPI_ENABLED)
 
 install(TARGETS drconfiglib
+  EXPORT ${exported_targets_name}
   RUNTIME DESTINATION ${INSTALL_LIB_BASE} # .dll
   LIBRARY DESTINATION ${INSTALL_LIB_BASE} # .so
   ARCHIVE DESTINATION ${INSTALL_LIB_BASE} # .lib
   )
+export(TARGETS drconfiglib FILE
+  ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake APPEND)
 # drinject.exe and company need a copy in the bin dir
 install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 

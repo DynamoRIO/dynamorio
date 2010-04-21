@@ -601,7 +601,6 @@ dr_inject_process_create(const char *app_name, const char *app_cmdline,
 {
     dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
     STARTUPINFO si;
-    STARTUPINFO mysi;
     int errcode = 0;
     bool res;
     if (data == NULL)
@@ -610,11 +609,11 @@ dr_inject_process_create(const char *app_name, const char *app_cmdline,
     /* Launch the application process. */
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESTDHANDLES;
-    GetStartupInfo(&mysi);
-    si.hStdInput = mysi.hStdInput;
-    si.hStdOutput = mysi.hStdOutput;
-    si.hStdError = mysi.hStdError;
+    /* My old drinject code set dwFlags to STARTF_USESTDHANDLES and
+     * used GetStartupInfo to get values for hStd{Output,Error} but that
+     * ends up not working: perhaps that was before I had bInheritHandles
+     * set to true?  Xref PR 208715, i#261, i#142.
+     */
 
     strncpy(info->image_name, get_image_name(app_name),
             BUFFER_SIZE_ELEMENTS(info->image_name));

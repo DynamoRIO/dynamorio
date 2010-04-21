@@ -705,6 +705,7 @@ os_terminate(dcontext_t *dcontext, terminate_flags_t flags)
 {
     /* FIXME: terminate type is ignored */
     ASSERT_NOT_IMPLEMENTED(flags == TERMINATE_PROCESS);
+    config_exit(); /* delete .1config file */
     exit_process_syscall(1);
 }
 

@@ -1035,7 +1035,10 @@ char * double_strchr(char *string, char c1, char c2);
 const char * double_strrchr(const char *string, char c1, char c2);
 #else
 /* double_strrchr() defined in win32/inject_shared.h */
+# if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+/* conflicts w/ VC8 string.h in drinjectlib */
 size_t wcsnlen(const wchar_t *str, size_t max);
+# endif
 #endif
 
 bool is_region_memset_to_char(byte *addr, size_t size, byte val);
