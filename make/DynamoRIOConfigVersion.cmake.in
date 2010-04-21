@@ -35,14 +35,18 @@ set(PACKAGE_VERSION @VERSION_NUMBER@)
 if("${PACKAGE_FIND_VERSION_MAJOR}" EQUAL 0)
   # No version specified: assume compatible
   set(PACKAGE_VERSION_COMPATIBLE 1)
+elseif("${PACKAGE_FIND_VERSION_MAJOR}" LESS @VERSION_NUMBER_MAJOR@)
+  # Asking for lesser major version == backward compatible
+  set(PACKAGE_VERSION_COMPATIBLE 1)
 elseif("${PACKAGE_FIND_VERSION_MAJOR}" EQUAL @VERSION_NUMBER_MAJOR@)
-  # Same major version == backward compatible
-  # Equal or greater minor version == forward compatible
+  # Asking for lesser version == backward compatible
   if("${PACKAGE_FIND_VERSION_MINOR}" EQUAL @VERSION_NUMBER_MINOR@)
     set(PACKAGE_VERSION_EXACT 1)
   elseif("${PACKAGE_FIND_VERSION_MINOR}" LESS @VERSION_NUMBER_MINOR@)
     set(PACKAGE_VERSION_COMPATIBLE 1)
   else()
+    # We are relatively forward compatible except features we added
+    # but better err on the side of caution
     set(PACKAGE_VERSION_UNSUITABLE 1)
   endif()
 else()
