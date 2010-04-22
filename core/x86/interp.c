@@ -1606,8 +1606,9 @@ bb_process_interrupt(dcontext_t *dcontext, build_bb_t *bb)
     /* PR 307284: for simplicity do syscall/int processing post-client.
      * We give up on inlining but we can still use ignorable/shared syscalls
      * and trace continuation.
+     * PR 550752: we cannot end at int 0x2d: we live w/ client consequences
      */
-    if (bb->pass_to_client && !bb->post_client)
+    if (bb->pass_to_client && !bb->post_client IF_WINDOWS(&& num != 0x2d))
         return false;
 #endif
     BBPRINT(bb, 3, "int 0x%x @ "PFX"\n", num, bb->instr_start);

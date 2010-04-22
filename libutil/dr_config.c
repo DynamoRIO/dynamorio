@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2008 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -787,6 +787,17 @@ platform_is_64bit(dr_platform_t platform)
             IF_X64(|| platform == DR_PLATFORM_DEFAULT));
 }
 
+static void
+get_syswide_path(WCHAR *wbuf,
+                 const char *dr_root_dir)
+{
+    if (!platform_is_64bit(get_dr_platform()))
+        _snwprintf(wbuf, MAXIMUM_PATH, L"%S"PREINJECT32_DLL, dr_root_dir);
+    else
+        _snwprintf(wbuf, MAXIMUM_PATH, L"%S"PREINJECT64_DLL, dr_root_dir);
+    wbuf[MAXIMUM_PATH - 1] = '\0';
+}
+
 dr_config_status_t
 dr_register_syswide(dr_platform_t dr_platform,
                     const char *dr_root_dir)
@@ -794,11 +805,7 @@ dr_register_syswide(dr_platform_t dr_platform,
     WCHAR wbuf[MAXIMUM_PATH];
     set_dr_platform(dr_platform);
     /* Set the appinit key */
-    if (!platform_is_64bit(get_dr_platform()))
-        _snwprintf(wbuf, MAX_PATH, L"%S"PREINJECT32_DLL, dr_root_dir);
-    else
-        _snwprintf(wbuf, MAX_PATH, L"%S"PREINJECT64_DLL, dr_root_dir);
-    NULL_TERMINATE_BUFFER(wbuf);
+    get_syswide_path(wbuf, dr_root_dir);
     /* Always overwrite, in case we have an older drpreinject version in there */
     if (set_custom_autoinjection(wbuf, APPINIT_OVERWRITE) != ERROR_SUCCESS ||
         (is_vista() && set_loadappinit() != ERROR_SUCCESS)) {
@@ -808,11 +815,28 @@ dr_register_syswide(dr_platform_t dr_platform,
 }
 
 dr_config_status_t
-dr_unregister_syswide(dr_platform_t dr_platform)
+dr_unregister_syswide(dr_platform_t dr_platform,
+                      const char *dr_root_dir)
 {
+    WCHAR wbuf[MAXIMUM_PATH];
     set_dr_platform(dr_platform);
-    unset_autoinjection();
+    /* Set the appinit key */
+    get_syswide_path(wbuf, dr_root_dir);
+    if (unset_custom_autoinjection(wbuf, APPINIT_OVERWRITE) != ERROR_SUCCESS)
+        return DR_FAILURE;
+    /* We leave Vista loadappinit on */
     return DR_SUCCESS;
+}
+
+bool
+dr_syswide_is_on(dr_platform_t dr_platform,
+                 const char *dr_root_dir)
+{
+    WCHAR wbuf[MAXIMUM_PATH];
+    set_dr_platform(dr_platform);
+    /* Set the appinit key */
+    get_syswide_path(wbuf, dr_root_dir);
+    return is_custom_autoinjection_set(wbuf);
 }
 
 dr_config_status_t

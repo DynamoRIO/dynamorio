@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2008 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -238,9 +238,8 @@ dr_unregister_process(const char *process_name,
  *                              This parameter allows selecting which of those
  *                              to use.
  *
- * \param[in]  dr_root_dir      The root DynamoRIO directory (used to locate
+ * \param[in]   dr_root_dir     The root DynamoRIO directory (used to locate
  *                              drpreinject.dll).
- *
  *
  * \return      A dr_config_status_t code indicating the result of 
  *              the operation.  The operation will fail if the caller does
@@ -269,12 +268,33 @@ dr_register_syswide(dr_platform_t dr_platform,
  *                              This parameter allows selecting which of those
  *                              to use.
  *
+ * \param[in]   dr_root_dir     The root DynamoRIO directory (used to locate
+ *                              drpreinject.dll).
+ *
  * \return      A dr_config_status_t code indicating the result of 
  *              the operation.  The operation will fail if the caller does
  *              not have sufficient privileges.
  */
 dr_config_status_t
-dr_unregister_syswide(dr_platform_t dr_platform);
+dr_unregister_syswide(dr_platform_t dr_platform,
+                      const char *dr_root_dir);
+
+/**
+ * Returns whether systemwide injection is enabled.
+ *
+ * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
+ *                              for 32-bit (WOW64) processes and 64-bit processes.
+ *                              This parameter allows selecting which of those
+ *                              to use.
+ *
+ * \param[in]   dr_root_dir     The root DynamoRIO directory (used to locate
+ *                              drpreinject.dll).
+ *
+ * \return      Whether systemwide injection is enabled.
+ */
+bool
+dr_syswide_is_on(dr_platform_t dr_platform,
+                 const char *dr_root_dir);
 
 /**
  * Check if a process is registered to run under DynamoRIO.  To obtain client

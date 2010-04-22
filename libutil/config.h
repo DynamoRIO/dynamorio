@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -269,10 +269,16 @@ DWORD
 set_autoinjection();
 
 DWORD
+unset_custom_autoinjection(const WCHAR *preinject, DWORD flags);
+
+DWORD
 unset_autoinjection();
 
 BOOL
 is_autoinjection_set();
+
+BOOL
+is_custom_autoinjection_set(const WCHAR *preinject);
 
 DWORD
 set_loadappinit();

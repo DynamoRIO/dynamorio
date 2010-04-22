@@ -1,4 +1,4 @@
-Copyright (c) 2000-2009 VMware, Inc. licensed under the terms of the BSD.  All other rights reserved.
+Copyright (c) 2000-2010 VMware, Inc. licensed under the terms of the BSD.  All other rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -43,7 +43,7 @@ and AMD64 hardware.
 
 The DynamoRIO home page:
 
-  http://code.google.com/p/dynamorio/
+  http://dynamorio.org/
 
 ************************************************************
 Quickstart instructions for running DynamoRIO:
@@ -57,12 +57,14 @@ On Linux:
   % bin64/drrun -client samples/bin64/libbbsize.so 0x1 "" ls
 For additional options:
   % bin32/drrun
+
 For full control over child processes use a two-step process:
 first configure with bin32/drconfig and then invoke the parent
 process with bin32/drinject.
 
 --------------------------------------------------
-On Windows, with examples run from a cygwin shell:
+On Windows, with examples run from a cygwin shell (for cmd shell replace
+the first slash with a backward slash: e.g., bin32\drrun.exe):
 
 Method 1: directly invoke an application:
 32-bit:

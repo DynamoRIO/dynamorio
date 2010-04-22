@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1434,6 +1434,12 @@ set_autoinjection()
 }
 
 DWORD
+unset_custom_autoinjection(const WCHAR *preinject, DWORD flags)
+{
+    return set_autoinjection_ex(FALSE, flags, NULL, NULL, NULL, preinject, NULL, 0);
+}
+
+DWORD
 unset_autoinjection()
 {
     return set_autoinjection_ex(FALSE, 0, NULL, NULL, NULL, NULL, NULL, 0);
@@ -1459,6 +1465,19 @@ is_autoinjection_set()
     if (res != ERROR_SUCCESS)
         return FALSE;
 
+    return is_in_file_list(list, preinject, APPINIT_SEPARATOR_CHAR);
+}
+
+BOOL
+is_custom_autoinjection_set(const WCHAR *preinject)
+{
+    WCHAR list[MAX_PARAM_LEN];
+    DWORD res;
+    
+    res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L, 
+                               list, MAX_PARAM_LEN);
+    if (res != ERROR_SUCCESS)
+        return FALSE;
     return is_in_file_list(list, preinject, APPINIT_SEPARATOR_CHAR);
 }
 

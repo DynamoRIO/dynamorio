@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2008 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -808,7 +808,7 @@ int main(int argc, char *argv[])
     if (syswide_on) {
         check_dr_root(dr_root, false, dr_platform, true);
         /* If this is the first setting of AppInit on NT, warn about reboot */
-        if (!is_autoinjection_set()) {
+        if (!dr_syswide_is_on(dr_platform, dr_root)) {
             DWORD platform;
             if (get_platform(&platform) == ERROR_SUCCESS &&
                 platform == PLATFORM_WIN_NT_4) {
@@ -821,7 +821,7 @@ int main(int argc, char *argv[])
         }
     }
     if (syswide_off) {
-        if (dr_unregister_syswide(dr_platform) != ERROR_SUCCESS) {
+        if (dr_unregister_syswide(dr_platform, dr_root) != ERROR_SUCCESS) {
             /* PR 233108: try to give more info on whether a privilege failure */
             warn("syswide set failed: re-run as administrator");
         }
