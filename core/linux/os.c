@@ -2077,10 +2077,13 @@ thread_sleep(uint64 milliseconds)
      */
     while (dynamorio_syscall(SYS_nanosleep, 2, &req, &remain) == -EINTR) {
         /* interrupted by signal or something: finish the interval */
-        ASSERT(remain.tv_sec <= req.tv_sec &&
-               (remain.tv_sec < req.tv_sec ||
-                /* there seems to be some rounding */
-                (remain.tv_nsec/100000) <= (req.tv_nsec/100000)));
+        ASSERT_CURIOSITY_ONCE(remain.tv_sec <= req.tv_sec &&
+                              (remain.tv_sec < req.tv_sec ||
+                               /* there seems to be some rounding, and sometimes
+                                * remain nsec > req nsec (I've seen 40K diff)
+                                */
+                               req.tv_nsec - remain.tv_nsec < 100000 ||
+                               req.tv_nsec - remain.tv_nsec > -100000));
         /* not unusual for client threads to use itimers and have their run
          * routine sleep forever
          */

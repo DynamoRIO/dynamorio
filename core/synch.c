@@ -260,7 +260,7 @@ is_native_thread_state_valid(dcontext_t *dcontext, app_pc pc, byte *esp)
     ASSERT(is_thread_currently_native(dcontext->thread_record));
     return (!is_in_dynamo_dll(pc) &&
             IF_WINDOWS(!is_in_interception_buffer(pc) &&)
-            !vmvector_overlap(landing_pad_areas, pc, pc + 1) &&
+            IF_WINDOWS(!vmvector_overlap(landing_pad_areas, pc, pc + 1) &&)
             (!in_generated_routine(dcontext, pc) ||
              /* we allow native thread to be at do_syscall - for int syscalls the pc
               * (syscall return point) will be in do_syscall (so in generated routine)

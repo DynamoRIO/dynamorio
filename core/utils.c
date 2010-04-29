@@ -438,7 +438,10 @@ locks_thread_exit(dcontext_t *dcontext)
         /* when exiting, another thread may be holding the lock instead of the current,
            CHECK: is this true for detaching */
         ASSERT(dcontext->thread_owned_locks->last_lock == &thread_initexit_lock ||
-               dcontext->thread_owned_locks->last_lock == &outermost_lock);
+               dcontext->thread_owned_locks->last_lock == &outermost_lock
+               /* PR 546016: sideline client thread might hold client lock */
+               IF_CLIENT_INTERFACE(|| dcontext->thread_owned_locks->last_lock->rank ==
+                                   dr_client_mutex_rank));
         dcontext->thread_owned_locks = NULL; /* disable thread lock checks before freeing memory */
         UNPROTECTED_GLOBAL_FREE(old_thread_locks, sizeof(thread_locks_t) HEAPACCT(ACCT_OTHER));
     }
