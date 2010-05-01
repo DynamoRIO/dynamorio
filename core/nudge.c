@@ -245,6 +245,12 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 
     STATS_INC(num_nudges);
 
+#ifdef WINDOWS
+    /* Linux does this in signal.c */
+    SYSLOG_INTERNAL_INFO("received nudge mask=0x%x id=0x%08x arg=0x"ZHEX64_FORMAT_STRING,
+                         arg->nudge_action_mask, arg->client_id, arg->client_arg);
+#endif
+
     if (nudge_action_mask == 0) {
         ASSERT_CURIOSITY(false && "Nudge: no action specified");
         return;
