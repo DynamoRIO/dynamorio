@@ -3253,7 +3253,8 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
             sz = pers.header_len+pers.data_len-sizeof(persisted_footer_t);
             map = map_file(fd, &sz, 0, NULL, MEMPROT_READ,
                            false/*won't change so save pagefile by not asking for COW*/,
-                           false/*!image*/);
+                           false/*!image*/,
+                           false/*!fixed*/);
             ASSERT(map != NULL);
             if (map == NULL) {
                 /* give up */
@@ -3566,7 +3567,8 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
                    /* case 9599: asking for COW commits pagefile space
                     * up front, so we map two separate views later: see below
                     */
-                   true/*writes should not change file*/, false/*!image*/);
+                   true/*writes should not change file*/, false/*!image*/,
+                   false/* !fixed*/);
     /* case 9925: if we keep the file handle open we can prevent writes
      * to the file while it's mapped in, but it prevents our rename replacement
      * scheme (case 9701/9720) so we have it under option control.
@@ -3734,11 +3736,13 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
             map = map_file(fd, &map_size, 0, map,
                            /* Ask for max, then restrict pieces */
                            MEMPROT_READ|MEMPROT_EXEC,
-                           false/*no COW to avoid pagefile cost*/, false/*!image*/);
+                           false/*no COW to avoid pagefile cost*/, false/*!image*/,
+                           false/*!fixed*/);
             map2 = map_file(fd, &map2_size, map_size, map + map_size,
                             /* Ask for max, then restrict pieces */
                             MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
-                            true/*writes should not change file*/, false/*!image*/);
+                            true/*writes should not change file*/, false/*!image*/,
+                            false/*!fixed*/);
             /* FIXME: try again if racy alloc and they both don't fit */
             if (!DYNAMO_OPTION(persist_lock_file)) {
                 os_close(fd);

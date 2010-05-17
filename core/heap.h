@@ -137,7 +137,7 @@ void heap_munmap_ex(void *p, size_t size, bool guarded);
 /* updates dynamo_areas and calls the os_ versions */
 byte *
 map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-         bool copy_on_write, bool image);
+         bool copy_on_write, bool image, bool fixed);
 bool
 unmap_file(byte *map, size_t size);
 

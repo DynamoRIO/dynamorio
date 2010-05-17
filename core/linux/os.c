@@ -2592,15 +2592,22 @@ os_delete_mapped_file(const char *filename)
 
 byte *
 os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-            bool copy_on_write, bool image)
+            bool copy_on_write, bool image, bool fixed)
 {
+    int flags;
     /* Linux mmap has 32-bit off_t; mmap2 considers it a page-size multiple;
      * we stick w/ mmap and assume no need for larger offsets for now.
      */
     ASSERT(CHECK_TRUNCATE_TYPE_uint(offs));
+    flags = copy_on_write ? MAP_PRIVATE : MAP_SHARED;
+    /* Allows memory request instead of mapping a file, 
+     * so we can request memory from a particular address with fixed argument */
+    if (f == -1)
+        flags |= MAP_ANONYMOUS;
+    if (fixed)
+        flags |= MAP_FIXED;
     byte *map = mmap_syscall(addr, *size, memprot_to_osprot(prot),
-                             copy_on_write ? MAP_PRIVATE : MAP_SHARED,
-                             f, offs);
+                             flags, f, offs);
     ASSERT_NOT_TESTED();
     if (!mmap_syscall_succeeded(map))
         map = NULL;
@@ -2844,9 +2851,11 @@ is_user_address(byte *pc)
     return true;
 }
 
-/* change protections on memory region starting at pc of length length */
-bool
-set_protection(byte *pc, size_t length, uint prot/*MEMPROT_*/)
+/* change protections on memory region starting at pc of length length 
+ * this does not update the all memory area info 
+ */
+bool 
+os_set_protection(byte *pc, size_t length, uint prot/*MEMPROT_*/)
 {
     app_pc start_page = (app_pc) PAGE_START(pc);
     uint num_bytes = ALIGN_FORWARD(length + (pc - start_page), PAGE_SIZE);
@@ -2881,14 +2890,26 @@ set_protection(byte *pc, size_t length, uint prot/*MEMPROT_*/)
             STATS_ADD(protection_change_pages, num_bytes / PAGE_SIZE);
         }
     });
+    return true;
+}
+
+/* change protections on memory region starting at pc of length length */
+bool
+set_protection(byte *pc, size_t length, uint prot/*MEMPROT_*/)
+{
+    app_pc start_page = (app_pc) PAGE_START(pc);
+    uint num_bytes = ALIGN_FORWARD(length + (pc - start_page), PAGE_SIZE);
+
+    if (os_set_protection(pc, length, prot) == false)
+        return false;
     all_memory_areas_lock();
     ASSERT(vmvector_overlap(all_memory_areas, start_page, start_page + num_bytes) ||
            /* we could synch up: instead we relax the assert if DR areas not in allmem */
            are_dynamo_vm_areas_stale());
     LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
-        start_page, start_page + num_bytes, osprot_to_memprot(flags));
+        start_page, start_page + num_bytes, prot);
     update_all_memory_areas(start_page, start_page + num_bytes,
-                            osprot_to_memprot(flags), -1/*type unchanged*/);
+                            prot, -1/*type unchanged*/);
     all_memory_areas_unlock();
     return true;
 }

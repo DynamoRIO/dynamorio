@@ -4149,6 +4149,15 @@ internal_change_protection(byte *start, size_t requested_size, bool set,
     return !subregions_failed;
 }
 
+/* change protections on memory region starting at pc of length length 
+ * this does not update the all memory area info 
+ */
+bool
+os_set_protection(byte *pc, size_t size, uint prot/*MEMPROT_*/)
+{
+    return set_protection(pc, size, prot);
+}
+
 /* Set protections on memory region starting at pc of length size 
  * (padded to page boundaries).
  * returns false on failure, e.g. out of commit memory
@@ -5038,7 +5047,7 @@ os_rename_file_in_directory(IN HANDLE rootdir,
 
 byte *
 os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-            bool copy_on_write, bool image)
+            bool copy_on_write, bool image, bool fixed)
 {
     NTSTATUS res;
     HANDLE section;

@@ -2307,12 +2307,12 @@ is_stack_overflow(dcontext_t *dcontext, byte *sp)
 
 byte *
 map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-         bool copy_on_write, bool image)
+         bool copy_on_write, bool image, bool fixed)
 {
     byte *view;
     /* memory alloc/dealloc and updating DR list must be atomic */
     dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
-    view = os_map_file(f, size, offs, addr, prot, copy_on_write, image);
+    view = os_map_file(f, size, offs, addr, prot, copy_on_write, image, fixed);
     if (view != NULL) {
         STATS_ADD_PEAK(file_map_capacity, *size);
         account_for_memory((void *)view, *size, prot, true/*add now*/

@@ -602,9 +602,22 @@ bool os_rename_file(const char *orig_name, const char *new_name, bool replace);
  * Windows we have a 64-bit offset.  We go with the widest here, a
  * 64-bit offset, to avoid limiting Windows.
  */
+/* When fixed==true, DR tries to allocate memory from the address specified 
+ * by addr. 
+ * In Linux, it has the same semantic as mmap system call with MAP_FIXED flags, 
+ * If the memory region specified by addr and size overlaps pages of 
+ * any existing mapping(s), then the overlapped part of the existing mapping(s)
+ * will be discarded. If the specified address cannot be used, it will fail
+ * and returns NULL.
+ * XXX: in Windows, fixed argument is currently ignored (PR 214077 / case 9642),
+ * and handling it is covered by PR 214097.
+ */
 byte *os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
-                  uint prot, bool copy_on_write, bool image);
+                  uint prot, bool copy_on_write, bool image, bool fixed);
 bool os_unmap_file(byte *map, size_t size);
+/* unlike set_protection, os_set_protection does not update 
+ * the allmem info in Linux. */
+bool os_set_protection(byte *pc, size_t length, uint prot/*MEMPROT_*/);
 
 bool
 os_current_user_directory(char *directory_prefix /* INOUT */,
