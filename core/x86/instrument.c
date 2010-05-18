@@ -2006,6 +2006,13 @@ dr_is_wow64(void)
 {
     return is_wow64_process(NT_CURRENT_PROCESS);
 }
+
+DR_API
+void *
+dr_get_PEB(void)
+{
+    return get_own_peb();
+}
 #endif
 
 DR_API

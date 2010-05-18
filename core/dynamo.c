@@ -1620,6 +1620,11 @@ create_callback_dcontext(dcontext_t *old_dcontext)
      * from within a callback.
      */
     new_dcontext->win32_start_addr = old_dcontext->win32_start_addr;
+#ifdef CLIENT_INTERFACE
+    /* FlsData is persistent across callbacks */
+    new_dcontext->app_fls_data = old_dcontext->app_fls_data;
+    new_dcontext->priv_fls_data = old_dcontext->priv_fls_data;
+#endif
 #ifdef LINUX
     new_dcontext->signal_field = old_dcontext->signal_field;
     new_dcontext->pcprofile_field = old_dcontext->pcprofile_field;

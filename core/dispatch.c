@@ -1948,6 +1948,11 @@ transfer_to_dispatch(dcontext_t *dcontext, int app_errno, dr_mcontext_t *mc)
     GET_STACK_PTR(cur_xsp);
     if (is_on_initstack(cur_xsp))
         using_initstack = 1;
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* i#249: swap PEB pointers */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        swap_peb_pointer(true/*to priv*/);
+#endif
     LOG(THREAD, LOG_ASYNCH, 2,
         "transfer_to_dispatch: pc=0x%08x, xsp="PFX", initstack=%d\n",
         dcontext->next_tag, mc->xsp, using_initstack);

@@ -2913,6 +2913,19 @@ build_profile_call_buffer()
 
 #endif /* PROFILE_RDTSC */
 
+/* PR 244737: even thread-private fragments use TLS on x64.  We accomplish
+ * that at the caller site, so we should never see an "absolute" request.
+ */
+#define RESTORE_FROM_DC_VIA_REG(absolute, dc, reg_dr, reg, offs)              \
+    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                     \
+                   instr_create_restore_from_dcontext((dc), (reg), (offs))) : \
+     instr_create_restore_from_dc_via_reg((dc), reg_dr, (reg), (offs)))
+/* Note the magic absolute boolean that callers are expected to have declared */
+#define SAVE_TO_DC_VIA_REG(absolute, dc, reg_dr, reg, offs)              \
+    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                \
+                   instr_create_save_to_dcontext((dc), (reg), (offs))) : \
+     instr_create_save_to_dc_via_reg((dc), reg_dr, (reg), (offs)))
+
 #ifdef WINDOWS
 /* LastError preservation routines, used in fcache_enter/return and shared_syscall */
 
@@ -2976,8 +2989,50 @@ preinsert_get_last_error(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next
                                                       ERRNO_TIB_OFFSET, OPSZ_4)
                             ));
 }
-#endif /* WINDOWS */
 
+# ifdef CLIENT_INTERFACE
+/* i#249: isolate app's PEB+TEB by keeping our own copy and swapping on cxt switch */
+void
+preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
+                   bool absolute, reg_id_t reg_dr, reg_id_t reg_scratch, bool to_priv)
+{
+    /* We assume PEB is globally constant and we don't need per-thread pointers
+     * and can use use absolute pointers known at init time
+     */
+    PEB *tgt_peb = to_priv ? get_private_peb() : get_own_peb();
+    ASSERT(INTERNAL_OPTION(private_peb) && should_swap_peb_pointer());
+    ASSERT(reg_dr != REG_NULL && reg_scratch != REG_NULL);
+    /* can't store 64-bit immed, so we use scratch reg, for 32-bit too since
+     * long 32-bit-immed-store instr to fs:offs is slow to decode
+     */
+    PRE(ilist, next, INSTR_CREATE_mov_imm
+        (dcontext, opnd_create_reg(reg_scratch), OPND_CREATE_INTPTR((ptr_int_t)tgt_peb)));
+    PRE(ilist, next, INSTR_CREATE_mov_st
+        (dcontext, opnd_create_far_base_disp
+         (SEG_TLS, REG_NULL, REG_NULL, 0, PEB_TIB_OFFSET, OPSZ_PTR),
+         opnd_create_reg(reg_scratch)));
+
+    /* We also swap TEB->FlsData.  Unlike TEB->ProcessEnvironmentBlock, which is
+     * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
+     * both values and swap between them which is expensive.
+     */
+    PRE(ilist, next, INSTR_CREATE_mov_ld
+        (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
+         (SEG_TLS, REG_NULL, REG_NULL, 0, FLS_DATA_TIB_OFFSET, OPSZ_PTR)));
+    PRE(ilist, next, SAVE_TO_DC_VIA_REG
+        (absolute, dcontext, reg_dr, reg_scratch,
+         to_priv ? APP_FLS_OFFSET : PRIV_FLS_OFFSET));
+    PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+        (absolute, dcontext, reg_dr, reg_scratch,
+         to_priv ? PRIV_FLS_OFFSET : APP_FLS_OFFSET));
+    PRE(ilist, next, INSTR_CREATE_mov_st
+        (dcontext, opnd_create_far_base_disp
+         (SEG_TLS, REG_NULL, REG_NULL, 0, FLS_DATA_TIB_OFFSET, OPSZ_PTR),
+         opnd_create_reg(reg_scratch)));
+}
+# endif /* CLIENT_INTERFACE */
+
+#endif /* WINDOWS */
 
 /***************************************************************************/
 /*             THREAD-PRIVATE/SHARED ROUTINE GENERATION                    */
@@ -2994,14 +3049,10 @@ preinsert_get_last_error(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next
  * that at the caller site, so we should never see an "absolute" request.
  */
 #define RESTORE_FROM_DC(dc, reg, offs) \
-    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                     \
-                   instr_create_restore_from_dcontext((dc), (reg), (offs))) : \
-     instr_create_restore_from_dc_via_reg((dc), REG_NULL, (reg), (offs)))
+    RESTORE_FROM_DC_VIA_REG(absolute, dc, REG_NULL, reg, offs)
 /* Note the magic absolute boolean that callers are expected to have declared */
 #define SAVE_TO_DC(dc, reg, offs) \
-    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                \
-                   instr_create_save_to_dcontext((dc), (reg), (offs))) : \
-     instr_create_save_to_dc_via_reg((dc), REG_NULL, (reg), (offs)))
+    SAVE_TO_DC_VIA_REG(absolute, dc, REG_NULL, reg, offs)
 
 #define OPND_TLS_FIELD(offs) opnd_create_tls_slot(os_tls_offset(offs))
 
@@ -3238,6 +3289,13 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     /* restore the original register state */
 
     APP(&ilist, post_hook/*label*/);
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* i#249: isolate the PEB */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        preinsert_swap_peb(dcontext, &ilist, NULL, absolute, REG_XDI,
+                           REG_XAX/*scratch*/, false/*to app*/);
+    }
+#endif
     APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XAX, XFLAGS_OFFSET));
     APP(&ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XAX)));
     /* restore eflags temporarily using dstack */
@@ -3771,6 +3829,13 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
 # else
     preinsert_get_last_error(dcontext, ilist, NULL, REG_EBX);
     APP(ilist, SAVE_TO_DC(dcontext, REG_EBX, APP_ERRNO_OFFSET));
+# endif
+# ifdef CLIENT_INTERFACE
+    /* i#249: isolate the PEB */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        preinsert_swap_peb(dcontext, ilist, NULL, absolute, REG_XDI,
+                           REG_XAX/*scratch*/, true/*to priv*/);
+    }
 # endif
 #else
     /* copy shared errno into app storage slot */

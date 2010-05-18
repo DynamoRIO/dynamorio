@@ -665,6 +665,11 @@ struct _dcontext_t {
     int            app_errno;       /* storage for app's errno while in dynamo */
     bool           is_exiting;      /* flag for exiting thread */
 #ifdef WINDOWS
+# ifdef CLIENT_INTERFACE
+    /* i#249: TEB field isolation */
+    void *         app_fls_data;
+    void *         priv_fls_data;
+# endif
     /* storage for an extra app value around sysenter system calls for the
      * case 5441 Sygate interoperability hack */
     /* FIXME - this needs to be moved into the upcontext as is written to

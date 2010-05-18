@@ -326,6 +326,16 @@
      */
     OPTION_DEFAULT_INTERNAL(bool, private_loader, true,
                             "use private loader for clients and dependents")
+# ifdef WINDOWS
+    /* Heap isolation for private dll copies.  Valid only with -private_loader. */
+    OPTION_DEFAULT_INTERNAL(bool, privlib_privheap, true,
+                            "redirect heap usage by private libraries to DR heap")
+    /* PEB and select TEB field isolation for private dll copies (i#249).  
+     * Valid only with -private_loader.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, private_peb, true,
+                            "use private PEB + TEB fields for private libraries")
+# endif
 
     /* PR 200418: Code Manipulation API.  This option enables the code
      * manipulation events and sets some default options.  We can't

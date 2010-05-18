@@ -4228,6 +4228,7 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
     dr_exception_t einfo;
     fragment_t *fragment;
     fragment_t  wrapper;
+    bool pass_to_app;
     einfo.record = pExcptRec;
     context_to_mcontext(&einfo.mcontext, cxt);
     einfo.raw_mcontext = *raw_mcontext;
@@ -4246,8 +4247,19 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
         einfo.fault_fragment_info.app_code_consistent = 
             !TESTANY(FRAG_WAS_DELETED|FRAG_SELFMOD_SANDBOXED, fragment->flags);
     }
+
+    /* i#249: swap PEB pointers.  We assume that no other Ki-handling code needs
+     * the PEB swapped, as our hook code does not swap like fcache enter/return
+     * and clean calls do.
+     */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        swap_peb_pointer(true/*to priv*/);
     /* We allow client to change context */
-    if (instrument_exception(dcontext, &einfo)) {
+    pass_to_app = instrument_exception(dcontext, &einfo);
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        swap_peb_pointer(false/*to app*/);
+
+    if (pass_to_app) {
         mcontext_to_context(cxt, &einfo.mcontext);
     } else {
         mcontext_to_context(cxt, &einfo.raw_mcontext);

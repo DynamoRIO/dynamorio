@@ -110,6 +110,7 @@ enum {
     ERRNO_TIB_OFFSET          = 0x068,
     WOW64_TIB_OFFSET          = 0x100,
     PEB_TIB_OFFSET            = 0x060,
+    FLS_DATA_TIB_OFFSET       = 0x17c8,
 #else
     EXCEPTION_LIST_TIB_OFFSET = 0x00,
     TOP_STACK_TIB_OFFSET      = 0x04,
@@ -121,6 +122,7 @@ enum {
     ERRNO_TIB_OFFSET          = 0x34,
     WOW64_TIB_OFFSET          = 0xC0,
     PEB_TIB_OFFSET            = 0x30,
+    FLS_DATA_TIB_OFFSET       = 0xfb4,
 #endif
 };
 
@@ -445,5 +447,12 @@ void loader_thread_exit(dcontext_t *dcontext);
 bool in_private_library(app_pc pc);
 /* Handles a private-library FLS callback called from interpreted app code */
 bool private_lib_handle_cb(dcontext_t *dcontext, app_pc pc);
+#ifdef CLIENT_INTERFACE
+/* our copy of the PEB for isolation (i#249) */
+PEB *get_private_peb(void);
+bool should_swap_peb_pointer(void);
+void swap_peb_pointer(bool to_priv);
+#endif
+
 
 #endif /* _OS_EXPORTS_H_ */

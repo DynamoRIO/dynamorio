@@ -108,6 +108,10 @@
 #define PRIVATE_CODE_OFFSET    ((PROT_OFFS)+offsetof(dcontext_t, private_code))
 
 #ifdef WINDOWS
+# ifdef CLIENT_INTERFACE
+#  define APP_FLS_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, app_fls_data))
+#  define PRIV_FLS_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, priv_fls_data))
+# endif
 # define NONSWAPPED_SCRATCH_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, nonswapped_scratch))
 #endif
 
@@ -684,6 +688,14 @@ preinsert_get_last_error(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next
 void
 preinsert_set_last_error(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
                          reg_id_t reg_errno /* saved errno */);
+
+# ifdef CLIENT_INTERFACE
+/* i#249: isolate app's PEB by keeping our own copy and swapping on cxt switch */
+void
+preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
+                   bool absolute, reg_id_t reg_dr, reg_id_t reg_scratch, bool to_priv);
+# endif
+
 void emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X64(gencode_mode_t mode));
 #endif /* WINDOWS */
 

@@ -1440,6 +1440,14 @@ check_option_compatibility_helper(int recurse_count)
         SET_DEFAULT_VALUE(native_exec_hook_conflict);
         changed_options = true;
     }    
+# ifdef CLIENT_INTERFACE
+    if (INTERNAL_OPTION(private_peb) && !INTERNAL_OPTION(private_loader)) {
+        /* The private peb is set up in loader.c */
+        USAGE_ERROR("-private_peb requires -private_loader");
+        dynamo_options.private_peb = false;
+        changed_options = true;
+    }
+# endif
 #endif
 
 #ifdef WINDOWS

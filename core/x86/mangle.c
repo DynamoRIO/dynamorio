@@ -487,6 +487,15 @@ prepare_for_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
          * vs. no shared support, separate context vs. no separate context support etc. */
         ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
 
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+        /* i#249: swap PEB pointers while we have dcxt in reg.  We risk "silent
+         * death" by using xsp as scratch but don't have simple alternative.
+         */
+        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+            preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
+                               REG_XAX/*dc*/, REG_XSP/*scratch*/, true/*to priv*/);
+        }
+#endif
         PRE(ilist, instr, instr_create_restore_from_dc_via_reg
             (dcontext, REG_XAX, REG_XSP, DSTACK_OFFSET));
 
@@ -535,9 +544,12 @@ prepare_for_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     /* by pushing errno onto stack, it's then in place to be an argument
      * to SetLastError for cleanup!
      */
-    /* FIXME: no longer necessary, update this and cleanup_after_clean_call,
-       All cleanup_call users most importantly, pre_system_call and 
-       post_system_call would need not to reserve room for errno */
+    /* FIXME: no longer necessary, update this and cleanup_after_clean_call.
+     * All cleanup_call users most importantly, pre_system_call and 
+     * post_system_call would need not to reserve room for errno:
+     * except for our private loader w/ client-dependent libs we do need
+     * to handle and isolate (limited) Win32 API usage
+     */
 #else
     /* put shared errno on stack, for symmetry w/ win32, rather than
      * into app storage slot */
@@ -614,6 +626,16 @@ cleanup_after_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 
         insert_get_mcontext_base(dcontext, ilist, instr,
                                  REG_XAX);
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+        /* i#249: swap PEB pointers while we have dcxt in reg.  We risk "silent
+         * death" by using xsp as scratch but don't have simple alternative.
+         */
+        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+            preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
+                               REG_XAX/*dc*/, REG_XSP/*scratch*/, false/*to app*/);
+        }
+#endif
 
         PRE(ilist, instr, instr_create_restore_from_dc_via_reg
             (dcontext, REG_XAX, REG_XSP, XSP_OFFSET));

@@ -1458,6 +1458,17 @@ DR_API
  */
 bool
 dr_is_wow64(void);
+
+DR_API
+/** 
+ * Returns a pointer to the application's Process Environment Block
+ * (PEB).  DR swaps to a private PEB when running client code, in
+ * order to isolate the client and its dependent libraries from the
+ * application, so conventional methods of reading the PEB will obtain
+ * the private PEB instead of the application PEB.
+ */
+void *
+dr_get_PEB(void);
 #endif
 
 DR_API

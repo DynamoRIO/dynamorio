@@ -55,6 +55,13 @@
  * i#234: earliest injection:
  * - use bootstrap loader w/ manual syscalls or ntdll binding to load DR
  *   itself with this private loader at very first APC point
+ *
+ * i#249: TLS/TEB/PEB isolation for private dll copies
+ * - -private_peb uses a private PEB copy, but is limited in several respects:
+ *   * uses a shallow copy
+ *   * does not intercept private libs/client using NtQueryInformationProcess
+ *     but kernel seems to just use TEB pointer anyway!
+ *   * added dr_get_PEB() for client to get app PEB
  */
 
 #include "../globals.h"
@@ -294,6 +301,15 @@ static DWORD (WINAPI *priv_kernel32_FlsAlloc)(PFLS_CALLBACK_FUNCTION);
 static HMODULE (WINAPI *priv_kernel32_GetModuleHandleA)(const char *);
 static FARPROC (WINAPI *priv_kernel32_GetProcAddress)(HMODULE, const char *);
 
+#ifdef CLIENT_INTERFACE
+/* Isolate the app's PEB by making a copy for use by private libs (i#249) */
+static PEB *private_peb;
+/* Isolate TEB->FlsData: for first thread we need to copy before have dcontext */
+static void *priv_fls_data;
+/* Only swap peb and teb fields if we've loaded WinAPI libraries */
+static bool loaded_windows_lib;
+#endif
+
 /***************************************************************************/
 
 void
@@ -304,6 +320,36 @@ loader_init(void)
     app_pc drdll = get_dynamorio_dll_start();
     app_pc user32 = (app_pc) get_module_handle(L"user32.dll");
     privmod_t *mod;
+
+#ifdef CLIENT_INTERFACE
+    if (INTERNAL_OPTION(private_peb)) {
+        /* Isolate the app's PEB by making a copy for use by private libs (i#249).
+         * We just do a shallow copy for now until we hit an issue w/ deeper fields
+         * that are allocated at our init time.
+         * Anything allocated by libraries after our init here will of
+         * course get its own private deep copy.
+         * We also do not intercept private libs calling NtQueryInformationProcess
+         * to get info.PebBaseAddress: we assume they don't do that.  It's not
+         * exposed in any WinAPI routine.
+         */
+        PEB *own_peb = get_own_peb();
+        /* FIXME: does it need to be page-aligned? */
+        private_peb = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, PEB, ACCT_OTHER, UNPROTECTED);
+        memcpy(private_peb, own_peb, sizeof(*private_peb));
+        /* Start with empty values, regardless of what app libs did prior to us
+         * taking over.  FIXME: if we ever have attach will have to verify this:
+         * can priv libs always live in their own universe that starts empty?
+         */
+        private_peb->FlsListHead.Flink = (LIST_ENTRY *) &private_peb->FlsListHead;
+        private_peb->FlsListHead.Blink = (LIST_ENTRY *) &private_peb->FlsListHead;
+        private_peb->FlsCallback = NULL;
+        swap_peb_pointer(true/*to priv*/);
+        LOG(GLOBAL, LOG_LOADER, 2, "app peb="PFX"\n", own_peb);
+        LOG(GLOBAL, LOG_LOADER, 2, "private peb="PFX"\n", private_peb);
+        priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
+        LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->FlsData="PFX"\n", priv_fls_data);
+    }
+#endif
 
     /* use permanent head node to avoid .data unprot */
     ASSERT(fls_cb_list == NULL);
@@ -354,6 +400,12 @@ loader_init(void)
             CLIENT_ASSERT(false, "failure to process imports of client library");
         }
     }
+#ifdef CLIENT_INTERFACE
+    if (!should_swap_peb_pointer()) {
+        /* Not going to be swapping so restore permanently to app */
+        swap_peb_pointer(false/*to app*/);
+    }
+#endif
     release_recursive_lock(&privload_lock);
 }
 
@@ -379,19 +431,59 @@ loader_exit(void)
     }
     mutex_unlock(&privload_fls_lock);
     DELETE_LOCK(privload_fls_lock);
+
+#ifdef CLIENT_INTERFACE
+    if (INTERNAL_OPTION(private_peb)) {
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb, PEB, ACCT_OTHER, UNPROTECTED);
+    }
+#endif
 }
 
 void
 loader_thread_init(dcontext_t *dcontext)
 {
     privmod_t *mod;
+#ifdef CLIENT_INTERFACE
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        if (!dynamo_initialized) {
+            /* For first thread use cached pre-priv-lib value for app and
+             * whatever value priv libs have set for priv
+             */
+            dcontext->priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
+            dcontext->app_fls_data = NULL;
+            set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
+        } else {
+            /* The real value will be set by swap_peb_pointer */
+            dcontext->app_fls_data = NULL;
+            /* We assume clearing out any non-NULL value for priv is safe */
+            dcontext->priv_fls_data = NULL;
+        }
+        LOG(THREAD, LOG_LOADER, 2, "app fls="PFX", priv fls="PFX"\n",
+            dcontext->app_fls_data, dcontext->priv_fls_data);
+        swap_peb_pointer(true/*to priv*/);
+    }
+#endif
+
     acquire_recursive_lock(&privload_lock);
-    /* Walk forward and call independent libs last */
+    /* Walk forward and call independent libs last.
+     * We do notify priv libs of client threads.
+     */
     for (mod = modlist; mod != NULL; mod = mod->next) {
         if (!mod->externally_loaded)
             privload_call_entry(mod, DLL_THREAD_ATTACH);
     }
     release_recursive_lock(&privload_lock);
+
+#ifdef CLIENT_INTERFACE
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        /* For subsequent app threads, peb ptr will be swapped to priv
+         * by transfer_to_dispatch(), and w/ FlsData swap we have to
+         * properly nest.
+         */
+        if (dynamo_initialized/*later thread*/ && !IS_CLIENT_THREAD(dcontext))
+            swap_peb_pointer(false/*to app*/);
+    }
+#endif
 }
 
 void
@@ -406,6 +498,77 @@ loader_thread_exit(dcontext_t *dcontext)
     }
     release_recursive_lock(&privload_lock);
 }
+
+#ifdef CLIENT_INTERFACE
+/* our copy of the PEB for isolation (i#249) */
+PEB *
+get_private_peb(void)
+{
+    ASSERT(INTERNAL_OPTION(private_peb));
+    return private_peb;
+}
+
+/* For performance reasons we avoid the swap if there are no private WinAPI libs:
+ * we assume libs not in the system dir will not write to PEB or TEB fields we
+ * care about (mainly Fls ones).
+ */
+bool
+should_swap_peb_pointer(void)
+{
+    return INTERNAL_OPTION(private_peb) && loaded_windows_lib;
+}
+
+static void
+set_loaded_windows_lib(void)
+{
+    if (!loaded_windows_lib) {
+        if (!dynamo_initialized) {
+            loaded_windows_lib = true;
+            LOG(GLOBAL, LOG_LOADER, 1,
+                "loaded a Windows system library => isolating PEB+TEB\n");
+        } else {
+            /* We've already emitted context switch code that does not swap peb/teb.
+             * Basically we don't support this.  (Should really check for post-emit.)
+             */
+            ASSERT_NOT_REACHED();
+        }
+    }
+}
+
+/* C version of preinsert_swap_peb() */
+void
+swap_peb_pointer(bool to_priv)
+{
+    PEB *tgt_peb = to_priv ? get_private_peb() : get_own_peb();
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    ASSERT(INTERNAL_OPTION(private_peb));
+    ASSERT(!dynamo_initialized || should_swap_peb_pointer());
+    set_tls(PEB_TIB_OFFSET, tgt_peb);
+    LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
+    if (dcontext != NULL) {
+        /* We also swap TEB->FlsData */
+        void *cur_fls = get_tls(FLS_DATA_TIB_OFFSET);
+        if (to_priv) {
+            if (dcontext->priv_fls_data != cur_fls) { /* handle two calls in a row */
+                dcontext->app_fls_data = cur_fls;
+                set_tls(FLS_DATA_TIB_OFFSET, dcontext->priv_fls_data);
+            }
+        } else {
+            if (dcontext->app_fls_data != cur_fls) { /* handle two calls in a row */
+                dcontext->priv_fls_data = cur_fls;
+                set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
+            }
+        }
+        ASSERT(!is_dynamo_address(dcontext->app_fls_data));
+        /* Once we have earier injection we should be able to assert
+         * that priv_fls_data is either NULL or a DR address: but on
+         * notepad w/ drinject it's neither
+         */
+        LOG(THREAD, LOG_LOADER, 3, "app fls="PFX", priv fls="PFX"\n",
+            dcontext->app_fls_data, dcontext->priv_fls_data);
+    }
+}
+#endif /* CLIENT_INTERFACE */
 
 app_pc
 load_private_library(const char *filename)
@@ -616,7 +779,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
     file_t fd;
     app_pc map;
     app_pc pref;
-    byte *(*map_func)(file_t, size_t *, uint64, app_pc, uint, bool, bool);
+    byte *(*map_func)(file_t, size_t *, uint64, app_pc, uint, bool, bool, bool);
     bool (*unmap_func)(file_t, size_t);
     ASSERT(size != NULL);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
@@ -662,7 +825,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
                       /* case 9599: asking for COW commits pagefile space
                        * up front, so we map two separate views later: see below
                        */
-                      true/*writes should not change file*/, true/*image*/);
+                      true/*writes should not change file*/, true/*image*/,
+                      false/*!fixed*/);
     os_close(fd); /* no longer needed */
     fd = INVALID_FILE;
 
@@ -1007,6 +1171,9 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
         NULL_TERMINATE_BUFFER(modpath);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
         if (os_file_exists(modpath, false/*!is_dir*/)) {
+#ifdef CLIENT_INTERFACE
+            set_loaded_windows_lib();
+#endif
             mod = privload_load(modpath, dependent);
             if (mod != NULL)
                 return mod;
@@ -1017,6 +1184,9 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
         NULL_TERMINATE_BUFFER(modpath);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
         if (os_file_exists(modpath, false/*!is_dir*/)) {
+#ifdef CLIENT_INTERFACE
+            set_loaded_windows_lib();
+#endif
             mod = privload_load(modpath, dependent);
             if (mod != NULL)
                 return mod;
@@ -1152,7 +1322,8 @@ static void * WINAPI
 redirect_RtlAllocateHeap(HANDLE heap, ULONG flags, SIZE_T size)
 {
     PEB *peb = get_peb(NT_CURRENT_PROCESS);
-    if (heap == peb->ProcessHeap) {
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true) &&
+        heap == peb->ProcessHeap) {
         byte *mem;
         ASSERT(sizeof(size_t) >= HEAP_ALIGNMENT);
         size += sizeof(size_t);
@@ -1192,7 +1363,8 @@ redirect_RtlReAllocateHeap(HANDLE heap, ULONG flags, byte *ptr, SIZE_T size)
      * addresses go natively.  Xref the opposite problem with
      * RtlFreeUnicodeString, handled below.
      */
-    if (heap == peb->ProcessHeap && (is_dynamo_address(ptr) || ptr == NULL)) {
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true) &&
+        heap == peb->ProcessHeap && (is_dynamo_address(ptr) || ptr == NULL)) {
         byte *buf = NULL;
         /* RtlReAllocateHeap does re-alloc 0-sized */
         LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX" "PIFX"\n", __FUNCTION__, ptr, size);
@@ -1221,6 +1393,7 @@ redirect_RtlFreeHeap(HANDLE heap, ULONG flags, byte *ptr)
 {
     PEB *peb = get_peb(NT_CURRENT_PROCESS);
     if (heap == peb->ProcessHeap && is_dynamo_address(ptr)/*see above*/) {
+        ASSERT(IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true));
         if (ptr != NULL) {
             LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX"\n", __FUNCTION__, ptr);
             ptr -= sizeof(size_t);
@@ -1240,6 +1413,7 @@ redirect_RtlSizeHeap(HANDLE heap, ULONG flags, byte *ptr)
 {
     PEB *peb = get_peb(NT_CURRENT_PROCESS);
     if (heap == peb->ProcessHeap && is_dynamo_address(ptr)/*see above*/) {
+        ASSERT(IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true));
         if (ptr != NULL)
             return *((size_t *)(ptr - sizeof(size_t)));
         else
@@ -1341,7 +1515,8 @@ static DWORD WINAPI
 redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb)
 {
     ASSERT(priv_kernel32_FlsAlloc != NULL);
-    if (in_private_library((app_pc)cb)) {
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true) &&
+        in_private_library((app_pc)cb)) {
         fls_cb_t *entry = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, fls_cb_t,
                                           ACCT_OTHER, PROTECTED);
         mutex_lock(&privload_fls_lock);
