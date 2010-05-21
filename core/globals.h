@@ -670,6 +670,8 @@ struct _dcontext_t {
     /* i#249: TEB field isolation */
     void *         app_fls_data;
     void *         priv_fls_data;
+    /* we need this to restore ptrs for other threads on detach */
+    byte *         teb_base;
 # endif
     /* storage for an extra app value around sysenter system calls for the
      * case 5441 Sygate interoperability hack */

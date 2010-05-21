@@ -111,7 +111,7 @@ are not backward compatible: see below for details.
 
 The changes between version 2.1.0 and 2.0.0 are:
 
- - Added PEB isolation (Issue 249) and dr_get_PEB()
+ - Added PEB isolation (Issue 249) and dr_get_app_PEB()
 
 The changes between version 2.0.0 and 1.5.0 are:
 

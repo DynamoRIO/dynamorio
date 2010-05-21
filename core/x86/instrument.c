@@ -2009,7 +2009,7 @@ dr_is_wow64(void)
 
 DR_API
 void *
-dr_get_PEB(void)
+dr_get_app_PEB(void)
 {
     return get_own_peb();
 }

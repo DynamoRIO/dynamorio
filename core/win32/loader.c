@@ -61,7 +61,7 @@
  *   * uses a shallow copy
  *   * does not intercept private libs/client using NtQueryInformationProcess
  *     but kernel seems to just use TEB pointer anyway!
- *   * added dr_get_PEB() for client to get app PEB
+ *   * added dr_get_app_PEB() for client to get app PEB
  */
 
 #include "../globals.h"
@@ -401,7 +401,7 @@ loader_init(void)
         }
     }
 #ifdef CLIENT_INTERFACE
-    if (!should_swap_peb_pointer()) {
+    if (INTERNAL_OPTION(private_peb) && !should_swap_peb_pointer()) {
         /* Not going to be swapping so restore permanently to app */
         swap_peb_pointer(false/*to app*/);
     }
@@ -461,6 +461,8 @@ loader_thread_init(dcontext_t *dcontext)
         LOG(THREAD, LOG_LOADER, 2, "app fls="PFX", priv fls="PFX"\n",
             dcontext->app_fls_data, dcontext->priv_fls_data);
         swap_peb_pointer(true/*to priv*/);
+        /* For detach we'll need to know the teb base from another thread */
+        dcontext->teb_base = (byte *) get_tls(SELF_TIB_OFFSET);
     }
 #endif
 
@@ -505,6 +507,7 @@ PEB *
 get_private_peb(void)
 {
     ASSERT(INTERNAL_OPTION(private_peb));
+    ASSERT(private_peb != NULL);
     return private_peb;
 }
 
@@ -543,6 +546,7 @@ swap_peb_pointer(bool to_priv)
     dcontext_t *dcontext = get_thread_private_dcontext();
     ASSERT(INTERNAL_OPTION(private_peb));
     ASSERT(!dynamo_initialized || should_swap_peb_pointer());
+    ASSERT(tgt_peb != NULL);
     set_tls(PEB_TIB_OFFSET, tgt_peb);
     LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
     if (dcontext != NULL) {
@@ -562,11 +566,30 @@ swap_peb_pointer(bool to_priv)
         ASSERT(!is_dynamo_address(dcontext->app_fls_data));
         /* Once we have earier injection we should be able to assert
          * that priv_fls_data is either NULL or a DR address: but on
-         * notepad w/ drinject it's neither
+         * notepad w/ drinject it's neither: need to investigate.
          */
         LOG(THREAD, LOG_LOADER, 3, "app fls="PFX", priv fls="PFX"\n",
             dcontext->app_fls_data, dcontext->priv_fls_data);
     }
+}
+
+/* Meant for use on detach only: restore app values and does not update
+ * or swap private values.  Up to caller to synchronize w/ other thread.
+ */
+void
+restore_peb_pointer_for_thread(dcontext_t *dcontext)
+{
+    PEB *tgt_peb = get_own_peb();
+    ASSERT_NOT_TESTED();
+    ASSERT(INTERNAL_OPTION(private_peb));
+    ASSERT(!dynamo_initialized || should_swap_peb_pointer());
+    ASSERT(tgt_peb != NULL);
+    ASSERT(dcontext != NULL && dcontext->teb_base != NULL);
+    *((PEB **)(dcontext->teb_base + PEB_TIB_OFFSET)) = tgt_peb;
+    LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
+        /* We also swap TEB->FlsData */
+    *((void **)(dcontext->teb_base + FLS_DATA_TIB_OFFSET)) = dcontext->app_fls_data;
+    LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_fls_data);
 }
 #endif /* CLIENT_INTERFACE */
 

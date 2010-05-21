@@ -1468,7 +1468,7 @@ DR_API
  * the private PEB instead of the application PEB.
  */
 void *
-dr_get_PEB(void);
+dr_get_app_PEB(void);
 #endif
 
 DR_API
