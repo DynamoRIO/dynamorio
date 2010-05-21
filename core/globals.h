@@ -385,6 +385,7 @@ typedef struct _client_data_t {
      */
     bool           is_client_thread; /* NOTE - use IS_CLIENT_THREAD() */
     bool           client_thread_safe_for_synch;
+    uint           mutex_count; /* mutex nesting: for PR 558463 */
     void           *client_grab_mutex;
 
     /* flags for asserts on linux and for getting param base right on windows */

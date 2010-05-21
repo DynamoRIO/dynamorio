@@ -2302,8 +2302,13 @@ dr_mutex_lock(void *mutex)
     dcontext_t *dcontext = get_thread_private_dcontext();
     /* set client_grab_mutex so that we know to set client_thread_safe_for_synch
      * around the actual wait for the lock */
-    if (IS_CLIENT_THREAD(dcontext))
+    if (IS_CLIENT_THREAD(dcontext)) {
         dcontext->client_data->client_grab_mutex = mutex;
+        /* We do this on the outside so that we're conservative wrt races
+         * in the direction of not killing the thread while it has a lock
+         */
+        dcontext->client_data->mutex_count++;
+    }
     mutex_lock((mutex_t *) mutex);
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_grab_mutex = NULL;
@@ -2315,7 +2320,16 @@ DR_API
 void
 dr_mutex_unlock(void *mutex)
 {
+    dcontext_t *dcontext = get_thread_private_dcontext();
     mutex_unlock((mutex_t *) mutex);
+    /* We do this on the outside so that we're conservative wrt races
+     * in the direction of not killing the thread while it has a lock
+     */
+    if (IS_CLIENT_THREAD(dcontext)) {
+        CLIENT_ASSERT(dcontext->client_data->mutex_count > 0,
+                      "internal client mutex nesting error");
+        dcontext->client_data->mutex_count--;
+    }
 }
 
 DR_API 

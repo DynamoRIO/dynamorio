@@ -450,8 +450,11 @@ at_safe_spot(thread_record_t *trec, dr_mcontext_t *mc,
          * owned thread spent most of its execution time calling out of its lib to ntdll
          * routines or generated code. */
         if (IS_CLIENT_THREAD(trec->dcontext)) {
-            safe = trec->dcontext->client_data->client_thread_safe_for_synch ||
-                is_in_client_lib(mc->pc);
+            safe = (trec->dcontext->client_data->client_thread_safe_for_synch ||
+                    is_in_client_lib(mc->pc)) &&
+                 /* Do not cleanup/terminate a thread holding a client lock (PR 558463) */
+                (!THREAD_SYNCH_IS_CLEANED(desired_state) ||
+                 trec->dcontext->client_data->mutex_count == 0);
         }
 #endif
         if (is_native_thread_state_valid(trec->dcontext, mc->pc, 
