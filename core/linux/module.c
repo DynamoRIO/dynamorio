@@ -587,6 +587,91 @@ elf_sym_matches(ELF_SYM_TYPE *sym, char *strtab, const char *name,
     return false;
 }
 
+/* The new GNU hash scheme to improve lookup speed.
+ * Can't find good doc to reference here.
+ */
+static app_pc 
+gnu_hash_lookup(const char   *name,
+                ssize_t       offset,
+                ELF_SYM_TYPE *symtab,
+                char         *strtab,
+                Elf_Symndx   *buckets,
+                Elf_Symndx   *chain,
+                ELF_ADDR     *bitmask, 
+                ptr_uint_t    bitidx, 
+                ptr_uint_t    shift,
+                size_t        num_buckets,
+                bool         *is_indirect_code)
+{
+    Elf_Symndx sidx;
+    Elf_Symndx hidx;
+    ELF_ADDR entry;
+    uint h1, h2;
+    app_pc res = NULL;
+
+    ASSERT(bitmask != NULL);
+    hidx = elf_gnu_hash(name);
+    entry = bitmask[(hidx / ELF_WORD_SIZE) & bitidx];
+    h1 = hidx & (ELF_WORD_SIZE - 1);
+    h2 = (hidx >>shift) & (ELF_WORD_SIZE - 1);
+    if (TEST(1, (entry >> h1) & (entry >> h2))) {
+        Elf32_Word bucket = buckets[hidx % num_buckets];
+        if (bucket != 0) {
+            Elf32_Word *harray = &chain[bucket];
+            do {
+                if ((((*harray) ^ hidx) >> 1) == 0) {
+                    sidx = harray - chain;
+                    if (elf_sym_matches(&symtab[sidx], strtab, name, is_indirect_code)) {
+                        res = (app_pc) (symtab[sidx].st_value + offset);
+                        break;
+                    }
+                }
+            } while (!TEST(1, *harray++));
+        }
+    }
+    return res;
+}
+
+/* See the ELF specs: hashtable entry holds first symbol table index;
+ * chain entries hold subsequent that have same hash.
+ */
+static app_pc
+elf_hash_lookup(const char   *name,
+                ssize_t       offset,
+                ELF_SYM_TYPE *symtab,
+                char         *strtab,
+                Elf_Symndx   *buckets,
+                Elf_Symndx   *chain,
+                size_t        num_buckets,
+                size_t        dynstr_size,
+                bool         *is_indirect_code)
+{
+    Elf_Symndx    sidx;
+    Elf_Symndx    hidx;
+    ELF_SYM_TYPE *sym;
+    app_pc        res;
+
+    hidx = elf_hash(name);
+    for (sidx = buckets[hidx % num_buckets];
+         sidx != STN_UNDEF;
+         sidx = chain[sidx]) {
+        sym = &symtab[sidx];
+        if (sym->st_name >= dynstr_size) {
+            ASSERT(false && "malformed ELF symbol entry");
+            continue;
+        }
+        if (sym->st_value == 0 && ELF_ST_TYPE(sym->st_info) != STT_TLS)
+            continue; /* no value */
+        if (elf_sym_matches(sym, strtab, name, is_indirect_code))
+            break;
+    }
+    if (sidx != STN_UNDEF) 
+        res = (app_pc) (sym->st_value + offset);
+    else 
+        res = NULL;
+    return res;
+}
+
 /* if we add any more values, switch to a globally-defined dr_export_info_t 
  * and use it here
  */
@@ -598,63 +683,24 @@ get_proc_address_ex(module_handle_t lib, const char *name, bool *is_indirect_cod
     os_get_module_info_lock();
     ma = module_pc_lookup((app_pc)lib);
     if (ma != NULL && ma->os_data.hashtab != NULL) {
-        Elf_Symndx hidx;
         Elf_Symndx *buckets = (Elf_Symndx *) ma->os_data.buckets;
         Elf_Symndx *chain = (Elf_Symndx *) ma->os_data.chain;
         ELF_SYM_TYPE *symtab = (ELF_SYM_TYPE *) ma->os_data.dynsym;
         char *strtab = (char *) ma->os_data.dynstr;
-        Elf_Symndx sidx;
-        ELF_SYM_TYPE sym;
+        size_t num_buckets = ma->os_data.num_buckets;
+        ssize_t offset = ma->start - ma->os_data.base_address;
         if (ma->os_data.hash_is_gnu) {
-            /* The new GNU hash scheme to improve lookup speed.
-             * Can't find good doc to reference here.
-             */
-            ELF_ADDR *bitmask = (ELF_ADDR *) ma->os_data.gnu_bitmask;
-            ELF_ADDR entry;
-            uint h1, h2;
-            ASSERT(bitmask != NULL);
-            hidx = elf_gnu_hash(name);
-            entry = bitmask[(hidx / ELF_WORD_SIZE) & ma->os_data.gnu_bitidx];
-            h1 = hidx & (ELF_WORD_SIZE - 1);
-            h2 = (hidx >> ma->os_data.gnu_shift) & (ELF_WORD_SIZE - 1);
-            if (TEST(1, (entry >> h1) & (entry >> h2))) {
-                Elf32_Word bucket = buckets[hidx % ma->os_data.num_buckets];
-                if (bucket != 0) {
-                    Elf32_Word *harray = &chain[bucket];
-                    do {
-                        if ((((*harray) ^ hidx) >> 1) == 0) {
-                            sidx = harray - chain;
-                            if (elf_sym_matches(&symtab[sidx], strtab, name,
-                                                is_indirect_code)) {
-                                res = (app_pc) (symtab[sidx].st_value +
-                                                (ma->start - ma->os_data.base_address));
-                                break;
-                            }
-                        }
-                    } while (!TEST(1, *harray++));
-                }
-            }
+            /* The new GNU hash scheme */
+            res = gnu_hash_lookup(name, offset, symtab, strtab, buckets, chain,
+                                  (ELF_ADDR *)ma->os_data.gnu_bitmask,
+                                  (ptr_uint_t)ma->os_data.gnu_bitidx,
+                                  (ptr_uint_t)ma->os_data.gnu_shift,
+                                  num_buckets, is_indirect_code);
         } else {
-            /* See the ELF specs: hashtable entry holds first symbol table index;
-             * chain entries hold subsequent that have same hash.
-             */
-            hidx = elf_hash(name);
-            for (sidx = buckets[hidx % ma->os_data.num_buckets];
-                 sidx != STN_UNDEF;
-                 sidx = chain[sidx]) {
-                sym = symtab[sidx];
-                if (sym.st_name >= ma->os_data.dynstr_size) {
-                    ASSERT(false && "malformed ELF symbol entry");
-                    continue;
-                }
-                if (sym.st_value == 0 && ELF_ST_TYPE(sym.st_info) != STT_TLS)
-                    continue; /* no value */
-                if (elf_sym_matches(&sym, strtab, name, is_indirect_code))
-                    break;
-            }
-            if (sidx != STN_UNDEF) {
-                res = (app_pc) (sym.st_value + (ma->start - ma->os_data.base_address));
-            }
+            /* ELF hash scheme */
+            res = elf_hash_lookup(name, offset, symtab, strtab, buckets, chain,
+                                  num_buckets, ma->os_data.dynstr_size,
+                                  is_indirect_code);
         }
     }
     os_get_module_info_unlock();

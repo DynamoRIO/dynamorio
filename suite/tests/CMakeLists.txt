@@ -379,6 +379,8 @@ function (set_cflags source)
   else ()
     set(cflags "${ORIG_CMAKE_C_FLAGS}")
   endif ()
+  # Xref i#230, removes "-fvisibility=internal" option.
+  string(REGEX REPLACE "-fvisibility=internal" "" cflags "${cflags}")
   # We can't set the target properties COMPILE_FLAGS as that will
   # pass -g3 to cpp which ends up not expanding macros!
   # So we set properties on source files only.

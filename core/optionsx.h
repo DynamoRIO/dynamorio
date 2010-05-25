@@ -324,8 +324,10 @@
      * don't want to mess up any legacy tools that rely on hotp libs in
      * regular loader list
      */
-    OPTION_DEFAULT_INTERNAL(bool, private_loader, true,
+    /* i#157: Linux private loader is not stable enough yet, so disabled by default. */
+    OPTION_DEFAULT_INTERNAL(bool, private_loader, IF_WINDOWS_ELSE(true, false),
                             "use private loader for clients and dependents")
+
 # ifdef WINDOWS
     /* Heap isolation for private dll copies.  Valid only with -private_loader. */
     OPTION_DEFAULT_INTERNAL(bool, privlib_privheap, true,
