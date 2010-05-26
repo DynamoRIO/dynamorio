@@ -38,7 +38,7 @@
  * unfinished/additional features:
  *
  * i#235: redirect more of ntdll for more transparent private libraries:
- * - in particular, redirect Ldr*
+ * - in particular, redirect Ldr*, or at least kernel32!*W
  * - we'll redirect any additional routines as transparency issues come up
  *
  * i#232: nested try/except:749
@@ -224,6 +224,9 @@ redirect_GetModuleHandleA(const char *name);
 static FARPROC WINAPI
 redirect_GetProcAddress(app_pc modbase, const char *name);
 
+static HMODULE WINAPI
+redirect_LoadLibraryA(const char *name);
+
 /* Since we can't easily have a 2nd copy of ntdll, our 2nd copy of kernel32,
  * etc. use the same ntdll as the app.  We then have to redirect ntdll imports
  * that use shared resources and could interfere with the app.  There is a LOT
@@ -277,10 +280,12 @@ static const redirect_import_t redirect_kernel32[] = {
     {"FlsAlloc",                       (app_pc)redirect_FlsAlloc},
     /* As an initial interception of loader queries, but simpler than
      * intercepting Ldr*: plus, needed to intercept FlsAlloc called by msvcrt
-     * init routine.  Of course we're missing GetModuleHandle{W,ExA,ExW}.
+     * init routine.  Of course we're missing GetModuleHandle{W,ExA,ExW}
+     * and LoadLibraryW.
      */
     {"GetModuleHandleA",               (app_pc)redirect_GetModuleHandleA},
     {"GetProcAddress",                 (app_pc)redirect_GetProcAddress},
+    {"LoadLibraryA",                   (app_pc)redirect_LoadLibraryA},
 };
 #define REDIRECT_KERNEL32_NUM (sizeof(redirect_kernel32)/sizeof(redirect_kernel32[0]))
 
@@ -300,6 +305,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t privload_fls_lock,
 static DWORD (WINAPI *priv_kernel32_FlsAlloc)(PFLS_CALLBACK_FUNCTION);
 static HMODULE (WINAPI *priv_kernel32_GetModuleHandleA)(const char *);
 static FARPROC (WINAPI *priv_kernel32_GetProcAddress)(HMODULE, const char *);
+static HMODULE (WINAPI *priv_kernel32_LoadLibraryA)(const char *);
 
 #ifdef CLIENT_INTERFACE
 /* Isolate the app's PEB by making a copy for use by private libs (i#249) */
@@ -1295,6 +1301,8 @@ privload_redirect_setup(privmod_t *mod)
             get_proc_address_ex(mod->base, "GetModuleHandleA", NULL);
         priv_kernel32_GetProcAddress = (FARPROC (WINAPI *)(HMODULE, const char *))
             get_proc_address_ex(mod->base, "GetProcAddress", NULL);
+        priv_kernel32_LoadLibraryA = (HMODULE (WINAPI *)(const char *))
+            get_proc_address_ex(mod->base, "LoadLibraryA", NULL);
         if (!dynamo_initialized)
             SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     }
@@ -1608,5 +1616,17 @@ redirect_GetProcAddress(app_pc modbase, const char *name)
         return (*priv_kernel32_GetProcAddress)((HMODULE)modbase, name);
     else
         return (FARPROC) convert_data_to_function(res);
+}
+
+static HMODULE WINAPI
+redirect_LoadLibraryA(const char *name)
+{
+    app_pc res = NULL;
+    ASSERT(priv_kernel32_LoadLibraryA != NULL);
+    res = load_private_library(name);
+    if (res == NULL)
+        return (*priv_kernel32_LoadLibraryA)(name);
+    else
+        return (HMODULE) res;
 }
 

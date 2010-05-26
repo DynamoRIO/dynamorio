@@ -57,6 +57,11 @@ package from http://www.microsoft.com/whdc/devtools/debugging/default.mspx
 and place the \p dbghelp.dll in the same directory as either \p drsyms.dll
 or as your client library.
 
+More recent versions of \p dbghlp.dll on Windows can use significant
+amounts of stack space.  We recommend raising the stack size when using \p
+drsyms on Windows from the default 20KB to 24KB via the DynamoRIO runtime
+option <tt>-stack_size 24K</tt>.
+
 \section sec_drsyms_api API
 
 All functions return a success code of type #drsym_error_t.
