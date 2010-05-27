@@ -144,6 +144,39 @@ DR_EXPORT
 drsym_error_t
 drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs /*OUT*/);
 
+DR_EXPORT
+/**
+ * Returns true if the current standard error handle belongs to a console
+ * window (viz., \p cmd).  DR's dr_printf() and dr_fprintf() do not work
+ * with such console windows.  drsym_write_to_console() can be used instead.
+ */
+bool
+drsym_using_console(void);
+
+DR_EXPORT
+/**
+ * Writes a message to standard error in the current console window.
+ * This can be used as a work around for Issue 261 where DR's
+ * dr_printf() and dr_fprintf() do not work with console windows
+ * (i.e., the \p cmd window).
+ *
+ * Unfortunately there are significant limitations to this console
+ * printing support:
+ * 
+ *  - It does not work from the exit event.  Once the application terminates
+ *    its state with csrss (toward the very end of ExitProcess), no output
+ *    will show up on the console.  We have no good solution here yet as exiting
+ *    early is not ideal.
+ *  - It does not work at all from graphical applications, even when they are
+ *    launched from a console.
+ *  - In the future, with earliest injection (Issue 234), writing to the
+ *    console may not work from the client init event.
+ *
+ * @param[in] fmt Format string, followed by printf-style args to print.
+ */
+bool
+drsym_write_to_console(const char *fmt, ...);
+
 /*@}*/ /* end doxygen group */
 
 #endif /* _DRSYMS_H_ */

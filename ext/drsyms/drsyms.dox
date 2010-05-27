@@ -41,6 +41,7 @@ is in the works.
 
  - \ref sec_drsyms_setup
  - \ref sec_drsyms_api
+ - \ref sec_drsyms_write
 
 \section sec_drsyms_setup Setup
 
@@ -59,8 +60,8 @@ or as your client library.
 
 More recent versions of \p dbghlp.dll on Windows can use significant
 amounts of stack space.  We recommend raising the stack size when using \p
-drsyms on Windows from the default 20KB to 24KB via the DynamoRIO runtime
-option <tt>-stack_size 24K</tt>.
+drsyms on Windows from the default 20KB to 36KB via the DynamoRIO runtime
+option <tt>-stack_size 36K</tt>.
 
 \section sec_drsyms_api API
 
@@ -80,5 +81,25 @@ For an example of usage see the \p instrcalls sample client distributed
 with DynamoRIO.
 
 When finished with the library, call drsym_exit().
+
+\section sec_drsyms_write Console Writing
+
+The \p drsyms Extension also provides convenience routines for printing to
+the \p cmd window, which DR's dr_printf() and dr_fprintf() are unable to do
+(Issue 261).  Use drsym_write_to_console() to write to any kind of window,
+and drsym_using_console() to determine whether inside a "console" or \p cmd
+window.
+
+Unfortunately there are significant limitations to this console
+printing support:
+
+ - It does not work from the exit event.  Once the application terminates
+   its state with csrss (toward the very end of ExitProcess), no output
+   will show up on the console.  We have no good solution here yet as exiting
+   early is not ideal.
+ - It does not work at all from graphical applications, even when they are
+   launched from a console.
+ - In the future, with earliest injection (Issue 234), writing to the
+   console may not work from the client init event.
 
 */

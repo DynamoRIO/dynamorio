@@ -62,6 +62,7 @@
 
 #include <windows.h>
 #include <dbghelp.h>
+#include <stdio.h> /* _vsnprintf */
 
 /* We use the Container Extension's hashtable */
 #include "hashtable.h"
@@ -92,6 +93,11 @@ static bool verbose = false;
 static IF_WINDOWS_ELSE(const wchar_t *, int) shmid;
 
 #define IS_SIDELINE (shmid != 0)
+
+#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+#define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
 /* We assume that the DWORD64 type used by dbghelp for module base addresses
  * is fine to be truncated to a 32-bit void* for 32-bit code
@@ -364,3 +370,50 @@ drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs OUT
         return drsym_lookup_symbol_local(modpath, symbol, modoffs);
     }
 }
+
+/***************************************************************************/
+
+/* Convenience routines to work around i#261.  Perhaps cleaner in a
+ * separate library but putting here for now since we're already using
+ * kernel32 and I prefer to use shared libs for Extensions that import
+ * from Windows libs: and more efficient to use fewer shared libs.
+ */
+
+DR_EXPORT
+bool
+drsym_using_console(void)
+{
+    /* We detect cmd window using what kernel32!WriteFile uses: a handle
+     * having certain bits set.
+     */
+    return (((ptr_int_t)GetStdHandle(STD_ERROR_HANDLE) & 0x10000003) == 0x3);
+}
+
+DR_EXPORT
+bool
+drsym_write_to_console(const char *fmt, ...)
+{
+    bool res = true;
+    /* mirroring DR's MAX_LOG_LEN */
+# define MAX_MSG_LEN 768
+    char msg[MAX_MSG_LEN];
+    va_list ap;
+    uint written;
+    int len;
+    va_start(ap, fmt);
+    /* DR should provide vsnprintf: i#168 */
+    len = _vsnprintf(msg, BUFFER_SIZE_ELEMENTS(msg), fmt, ap);
+    /* Let user know if message was truncated */
+    if (len < 0 || len == BUFFER_SIZE_ELEMENTS(msg))
+        res = false;
+    NULL_TERMINATE_BUFFER(msg);
+    /* Make this routine work in all kinds of windows by going through
+     * kernel32!WriteFile, which will call WriteConsole for us.
+     */
+    res = res &&
+        WriteFile(GetStdHandle(STD_ERROR_HANDLE),
+                  msg, (DWORD) strlen(msg), (LPDWORD) &written, NULL);
+    va_end(ap);
+    return res;
+}
+

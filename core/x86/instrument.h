@@ -2087,10 +2087,15 @@ dr_file_exists(const char *fname);
 
 DR_API 
 /**
- * Opens the file \p fname.  On Windows, \p fname must be an absolute path.
- * If no such file exists then one is created.
+ * Opens the file \p fname. If no such file exists then one is created.
  * The file access mode is set by the \p mode_flags argument which is drawn from
  * the DR_FILE_* defines ORed together.  Returns INVALID_FILE if unsuccessful.
+ *
+ * On Windows, \p fname must be an absolute path (when using Windows
+ * system calls directly there is no such thing as a relative path.
+ * On Windows the notions of current directory and relative paths are
+ * limited to user space via the Win32 API.  We may add limited
+ * support for using the same current directory via Issue 298.)
  *
  * \note No more then one write mode flag can be specified.
  *
@@ -2295,7 +2300,8 @@ DR_API
  * Stdout printing that won't interfere with the
  * application's own printing.  Currently non-buffered.
  * \note On Windows, this routine is not able to print to the cmd window
- * (issue 222).
+ * (issue 261).  The drsym_write_to_console() routine in the \p drsyms
+ * Extension can be used to accomplish that.
  * \note On Windows, this routine does not support printing floating
  * point values.  Use dr_snprintf() instead.
  * \note If the data to be printed is large it will be truncated to
@@ -2309,7 +2315,9 @@ DR_API
  * Printing to a file that won't interfere with the
  * application's own printing.  Currently non-buffered.
  * \note On Windows, this routine is not able to print to STDOUT
- * or STDERR in the cmd window (issue 222).
+ * or STDERR in the cmd window (issue 261).  The
+ * drsym_write_to_console() routine in the \p drsyms Extension can be
+ * used to accomplish that.
  * \note On Windows, this routine does not support printing floating
  * point values.  Use dr_snprintf() instead.
  * \note If the data to be printed is large it will be truncated to
