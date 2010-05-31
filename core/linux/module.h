@@ -58,6 +58,16 @@
 #define OS_IMAGE_WRITE   (ASSERT_NOT_IMPLEMENTED(false), 0)
 #define OS_IMAGE_EXECUTE (ASSERT_NOT_IMPLEMENTED(false), 0)
 
+/* i#160/PR 562667: support non-contiguous library mappings.  While we're at
+ * it we go ahead and store info on each segment whether contiguous or not.
+ */
+typedef struct _module_segment_t {
+    /* start and end are page-aligned beyond the section alignment */
+    app_pc start;
+    app_pc end;
+    uint prot;
+} module_segment_t;
+
 typedef struct _os_module_data_t {
     /* To compute the base address, one determines the memory address associated with
      * the lowest p_vaddr value for a PT_LOAD segment. One then obtains the base
@@ -86,6 +96,12 @@ typedef struct _os_module_data_t {
     app_pc gnu_bitmask;
     ptr_uint_t gnu_shift;
     ptr_uint_t gnu_bitidx;
+
+    /* i#160/PR 562667: support non-contiguous library mappings */
+    bool contiguous;
+    uint num_segments;   /* number of valid entries in segments array */
+    uint alloc_segments; /* capacity of segments array */
+    module_segment_t *segments;
 } os_module_data_t;
 
 #endif /* MODULE_H */

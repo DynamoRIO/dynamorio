@@ -4522,16 +4522,7 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
                  * Note, if it is a header of a different module, then we'll not have
                  * an overlap, so we will not hit this case.
                  */
-                /* Issue 89: the vdso might be loaded inside ld.so as below, 
-                 * which causes ASSERT_CURIOSITY fail.
-                 * b7fa3000-b7fbd000 r-xp 00000000 08:01 108679     /lib/ld-2.8.90.so
-                 * b7fbd000-b7fbe000 r-xp b7fbd000 00:00 0          [vdso]
-                 * b7fbe000-b7fbf000 r--p 0001a000 08:01 108679     /lib/ld-2.8.90.so
-                 * b7fbf000-b7fc0000 rw-p 0001b000 08:01 108679     /lib/ld-2.8.90.so
-                 * So we should add a vsyscall exemptions check here.
-                 */
-                ASSERT_CURIOSITY(ma->start + ma->os_data.alignment == base ||
-                                 base == vsyscall_page_start);
+                ASSERT_CURIOSITY(ma->start + ma->os_data.alignment == base);
             }
         });
     }
@@ -4579,12 +4570,6 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
      * can read the memory to see if it is a elf_header
      */
     /* FIXME - get inode for check */
-    /* FIXME: if we have an early injection before ld.so, we need a way to
-     * find the vdso if using sysenter so that we can hook it and syscalls 
-     * will work properly on recent Linux distributions
-     * So we should look for VSYSCALL_PAGE_MAPS_NAME here as well as in
-     * find_executable_vm_areas. xref i#89.
-     */
     if (TEST(MAP_ANONYMOUS, flags)) {
         /* not an ELF mmap */
     } else if (mmap_check_for_module_overlap(base, size,
@@ -5992,8 +5977,10 @@ find_executable_vm_areas(void)
          * b7fbe000-b7fbf000 r--p 0001a000 08:01 108679     /lib/ld-2.8.90.so
          * b7fbf000-b7fc0000 rw-p 0001b000 08:01 108679     /lib/ld-2.8.90.so
          * So we always first check if it is a vdso page before calling 
-         * mmap_check_for_module_overlap. And in mmap_check_for_module_overlap,
-         * a vsyscall exemptions check is added.
+         * mmap_check_for_module_overlap.
+         * Update: with i#160/PR 562667 handling non-contiguous modules like
+         * ld.so we now gracefully handle other objects like vdso in gaps in
+         * module, but it's simpler to leave this ordering here.
          */
         if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
                     strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0

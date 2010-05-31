@@ -1424,6 +1424,10 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
                                   version_number_t product_version,
                                   uint checksum, uint timestamp,
                                   size_t mod_size
+#else
+                                  , bool contiguous,
+                                  uint num_segments,
+                                  module_segment_data_t *segments
 #endif
                                   )
 {
@@ -1453,6 +1457,13 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
     copy->checksum = checksum;
     copy->timestamp = timestamp;
     copy->module_internal_size = mod_size;
+#else
+    copy->contiguous = contiguous;
+    copy->num_segments = num_segments;
+    copy->segments = (module_segment_data_t *)
+        HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_data_t,
+                         num_segments, ACCT_VMAREAS, PROTECTED);
+    memcpy(copy->segments, segments, num_segments*sizeof(module_segment_data_t));
 #endif
     return copy;
 }
@@ -1463,6 +1474,9 @@ copy_module_area_to_module_data(const module_area_t *area)
     if (area == NULL)
         return NULL;
 
+#ifdef LINUX
+    ASSERT(sizeof(module_segment_data_t) == sizeof(module_segment_t));
+#endif
     return create_and_initialize_module_data(area->start, area->end, area->entry_point,
                                              0, &area->names, area->full_path
 #ifdef WINDOWS
@@ -1471,6 +1485,11 @@ copy_module_area_to_module_data(const module_area_t *area)
                                              area->os_data.checksum,
                                              area->os_data.timestamp,
                                              area->os_data.module_internal_size
+#else
+                                             , area->os_data.contiguous,
+                                             area->os_data.num_segments,
+                                             (module_segment_data_t *)
+                                             area->os_data.segments
 #endif
                                              );
 }
@@ -1492,6 +1511,10 @@ dr_copy_module_data(const module_data_t *data)
                                              data->product_version,
                                              data->checksum, data->timestamp,
                                              data->module_internal_size
+#else
+                                             , data->contiguous,
+                                             data->num_segments,
+                                             data->segments
 #endif
                                              );
 }
@@ -1512,6 +1535,10 @@ dr_free_module_data(module_data_t *data)
         return;
     }
 
+#ifdef LINUX
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, data->segments, module_segment_data_t,
+                    data->num_segments, ACCT_VMAREAS, PROTECTED);
+#endif
     if (data->full_path != NULL)
         dr_strfree(data->full_path HEAPACCT(ACCT_CLIENT));
     free_module_names(&data->names HEAPACCT(ACCT_CLIENT));

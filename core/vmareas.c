@@ -2110,6 +2110,37 @@ vmvector_iterator_hasnext(vmvector_iterator_t *vmvi)
     return (vmvi->index + 1) < vmvi->vector->length;
 }
 
+void
+vmvector_iterator_startover(vmvector_iterator_t *vmvi)
+{
+    ASSERT_VMAREA_VECTOR_PROTECTED(vmvi->vector, READWRITE);
+    vmvi->index = -1;
+}
+
+/* iterator accessor
+ * has to be initialized with vmvector_iterator_start, and should be
+ * called only when vmvector_iterator_hasnext() is true
+ *
+ * returns custom data and 
+ * sets the area boundaries in area_start and area_end 
+ *
+ * does not increment the iterator
+ */
+void*
+vmvector_iterator_peek(vmvector_iterator_t *vmvi, /* IN/OUT */
+                       app_pc *area_start /* OUT */, app_pc *area_end /* OUT */)
+{
+    int idx = vmvi->index + 1;
+    ASSERT(vmvector_iterator_hasnext(vmvi));
+    ASSERT_VMAREA_VECTOR_PROTECTED(vmvi->vector, READWRITE);
+    ASSERT(idx < vmvi->vector->length);
+    if (area_start != NULL)
+        *area_start = vmvi->vector->buf[idx].start;
+    if (area_end != NULL)
+        *area_end = vmvi->vector->buf[idx].end;
+    return vmvi->vector->buf[idx].custom.client;
+}
+
 /* iterator accessor
  * has to be initialized with vmvector_iterator_start, and should be
  * called only when vmvector_iterator_hasnext() is true
@@ -2121,13 +2152,9 @@ void*
 vmvector_iterator_next(vmvector_iterator_t *vmvi, /* IN/OUT */
                        app_pc *area_start /* OUT */, app_pc *area_end /* OUT */)
 {
-    ASSERT(vmvector_iterator_hasnext(vmvi));
-    ASSERT_VMAREA_VECTOR_PROTECTED(vmvi->vector, READWRITE);
+    void *res = vmvector_iterator_peek(vmvi, area_start, area_end);
     vmvi->index++;
-    ASSERT(vmvi->index < vmvi->vector->length);
-    *area_start = vmvi->vector->buf[vmvi->index].start;
-    *area_end = vmvi->vector->buf[vmvi->index].end;
-    return vmvi->vector->buf[vmvi->index].custom.client;
+    return res;
 }
 
 void

@@ -143,6 +143,12 @@ typedef struct _module_area_t {
      * module).  On Vista we've seen drivers mapped into user processes (leading to
      * view size = PAGE_ALIGN(pe_size) > pe size) and partial mappings of child
      * executables (leading to view size < pe_size). */
+    /* To support non-contiguous library mappings on Linux (i#160/PR 562667)
+     * we have the os-specific routines add each module segment to the
+     * vmvector.  We store no data here on that but rely on the vector and
+     * on checking whether the vector entry's start == this start to know
+     * which entry is the primary entry for a module.
+     */
     app_pc start;
     app_pc end;
 
@@ -187,6 +193,8 @@ void modules_reset_list(void);
 void module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
                      _IF_LINUX(uint64 inode));
 void module_list_remove(app_pc base, size_t view_size);
+void module_list_add_mapping(module_area_t *ma, app_pc map_start, app_pc map_end);
+void module_list_remove_mapping(module_area_t *ma, app_pc map_start, app_pc map_end);
 
 /**************** module_data_lock routines *****************/
 void os_get_module_info_lock(void);

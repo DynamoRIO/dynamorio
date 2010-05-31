@@ -3632,6 +3632,9 @@ os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which))
 {
     ASSERT(TEST(MODULE_BEING_UNLOADED, ma->flags));
 
+    /* Modules are always contiguous (xref i#160/PR 562667) */
+    module_list_remove_mapping(ma, ma->start, ma->end);
+
     if (ma->full_path != NULL)
         dr_strfree(ma->full_path HEAPACCT(which));
     if (ma->os_data.company_name != NULL)
@@ -3755,6 +3758,9 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     uint checksum = 0;
     size_t pe_size = 0;
     version_info_t info = {0};
+
+    /* Modules are always contiguous (xref i#160/PR 562667) */
+    module_list_add_mapping(ma, base, base+view_size);
 
     /* currently add is done post-map, and remove is pre-unmap
      * FIXME: we should remove at post-unmap, though unmap is unlikely to fail

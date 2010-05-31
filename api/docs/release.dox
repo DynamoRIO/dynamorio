@@ -111,6 +111,8 @@ are not backward compatible: see below for details.
 
 The changes between version 2.1.0 and 2.0.0 are:
 
+ - Added a segment list to module_data_t for Linux and internal
+   support for non-contiguously-mapped modules (Issue 160)
  - Added PEB isolation (Issue 249) and dr_get_app_PEB()
  - Added limited support for printing to the cmd window (Issue 261) via the
    \p drsyms Extension: drsym_write_to_console() and drsym_using_console() 

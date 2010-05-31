@@ -216,8 +216,15 @@ vmvector_reset_vector(dcontext_t *dcontext, vm_area_vector_t *v);
  */
 void
 vmvector_iterator_start(vm_area_vector_t *v, vmvector_iterator_t *vmvi);
+/* Remove mutations can be used with this routine when removing everything */
+void
+vmvector_iterator_startover(vmvector_iterator_t *vmvi);
 bool
 vmvector_iterator_hasnext(vmvector_iterator_t *vmvi);
+/* does not increment the iterator */
+void*
+vmvector_iterator_peek(vmvector_iterator_t *vmvi, /* IN/OUT */
+                       app_pc *area_start /* OUT */, app_pc *area_end /* OUT */);
 void*
 vmvector_iterator_next(vmvector_iterator_t *vmvi, /* IN/OUT */
                        app_pc *area_start /* OUT */, app_pc *area_end /* OUT */);

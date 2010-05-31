@@ -1755,7 +1755,19 @@ typedef void * dr_module_iterator_t;
 #ifdef AVOID_API_EXPORT
 /* We always give copies of the module_area_t information to clients (in the form
  * of a module_data_t defined below) to avoid locking issues (see PR 225020). */
+/* i#160/PR 562667: support non-contiguous library mappings.  While we're at
+ * it we go ahead and store info on each segment whether contiguous or not.
+ */
 #endif
+#ifdef LINUX
+/** Holds information on a segment of a loaded module. */
+typedef struct _module_segment_data_t {
+    app_pc start; /**< Start address of the segment, page-aligned backward. */
+    app_pc end;   /**< End address of the segment, page-aligned forward. */
+    uint prot;    /**< Protection attributes of the segment */
+} module_segment_data_t;
+#endif
+
 /**
  * Holds information about a loaded module. \note On Linux the start address can be
  * cast to an Elf32_Ehdr or Elf64_Ehdr. \note On Windows the start address can be cast to
@@ -1770,7 +1782,12 @@ struct _module_data_t {
         app_pc start; /**< starting address of this module */
         module_handle_t handle; /**< module_handle for use with dr_get_proc_address() */
     } ; /* anonymous union of start address and module handle */
-    app_pc end; /**< ending address of this module */
+    /**
+     * Ending address of this module.  Note that on Linux the module may not
+     * be contiguous: there may be gaps containing other objects between start
+     * and end.  Use the segments array to examine each mapped region on Linux.
+     */
+    app_pc end;
 
     app_pc entry_point; /**< entry point for this module as specified in the headers */
 
@@ -1789,10 +1806,11 @@ struct _module_data_t {
     uint timestamp; /**< module timestamp from the PE headers */
     size_t module_internal_size; /**< module internal size (from PE headers SizeOfImage) */
 #else
-    /* No Linux specific fields at this time. */
+    bool contiguous;   /**< whether there are no gaps between segments */
+    uint num_segments; /**< number of segments */
+    module_segment_data_t *segments; /**< array of num_segments entries, one per segment */
 #endif
 #ifdef AVOID_API_EXPORT
-    /* FIXME - add path PR 307636 */
     /* FIXME: PR 215890: ELF64 size? Anything else? */
     /* We can add additional fields to the end without breaking compatibility */
 #endif

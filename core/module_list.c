@@ -38,6 +38,8 @@
  * further module information from PE/ELF headers.
  * module_data_lock needs to be held when accessing the custom data fields.
  * Kept on the heap for selfprot (case 7957).
+ * For Linux this is a vector of segments to handle non-contiguous
+ * modules (i#160/PR 562667).
  */
 vm_area_vector_t *loaded_module_areas;
 
@@ -162,9 +164,18 @@ modules_reset_list(void)
         app_pc start, end;
         module_area_t *ma = (module_area_t*)vmvector_iterator_next(&vmvi, &start, &end);
         ASSERT(ma != NULL);
+#ifdef WINDOWS        
         ASSERT(ma->start == start && ma->end == end);
+#else
+        ASSERT(ma->start <= start && ma->end >= end);
+        /* ignore all but the first segment */
+        if (ma->start != start)
+            continue;
+#endif
         ma->flags |= MODULE_BEING_UNLOADED;
         module_area_delete(ma);
+        /* we've removed from the vector so we must reset the iterator */
+        vmvector_iterator_startover(&vmvi);
     }
     vmvector_iterator_stop(&vmvi);
     vmvector_reset_vector(GLOBAL_DCONTEXT, loaded_module_areas);
@@ -188,6 +199,39 @@ modules_exit(void)
 
 /**************** module_list updating routines *****************/
 
+/* Can only be called from os_module_area_init() called from module_list_add(),
+ * which holds the module lock
+ */
+void
+module_list_add_mapping(module_area_t *ma, app_pc map_start, app_pc map_end)
+{
+    /* note that there is normally no need to hold even a
+     * read_lock to make sure that nobody is about to remove
+     * this entry.  While next to impossible that the
+     * currently added module will get unloaded by another
+     * thread, we do grab a full write lock around this safe
+     * lookup/add.
+     */
+    ASSERT(os_get_module_info_write_locked());
+    vmvector_add(loaded_module_areas, map_start, map_end, ma);
+    LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2, "\tmodule %s segment ["PFX","PFX"] added\n",
+        (GET_MODULE_NAME(&ma->names) == NULL) ? "<no name>" :
+        GET_MODULE_NAME(&ma->names), map_start, map_end);
+}
+
+/* Can only be called from os_module_area_reset() called from module_list_remove(),
+ * which holds the module lock
+ */
+void
+module_list_remove_mapping(module_area_t *ma, app_pc map_start, app_pc map_end)
+{
+    ASSERT(os_get_module_info_write_locked());
+    vmvector_remove(loaded_module_areas, map_start, map_end);
+    LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2, "\tmodule %s segment ["PFX","PFX"] removed\n",
+        (GET_MODULE_NAME(&ma->names) == NULL) ? "<no name>" :
+        GET_MODULE_NAME(&ma->names), map_start, map_end);
+}
+
 void
 module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
                 _IF_LINUX(uint64 inode))
@@ -197,22 +241,18 @@ module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
     os_get_module_info_write_lock();
     /* defensively checking */
     if (!vmvector_overlap(loaded_module_areas, base, base+view_size)) {
-        module_area_t *ma = module_area_create(base, view_size, at_map, filepath
-                                               _IF_LINUX(inode));
+        /* module_area_create() calls os_module_area_init() which calls
+         * module_list_add_mapping() to add the module's mappings to
+         * the loaded_module_areas vector, to support non-contiguous
+         * modules (i#160/PR 562667)
+         */
+        DEBUG_DECLARE(module_area_t *ma =)
+            module_area_create(base, view_size, at_map, filepath _IF_LINUX(inode));
         ASSERT(ma != NULL);
         
         LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1, "module %s ["PFX","PFX"] added\n",
             (GET_MODULE_NAME(&ma->names) == NULL) ? "<no name>" :
             GET_MODULE_NAME(&ma->names), base, base+view_size);
-        
-        /* note that there is normally no need to hold even a
-         * read_lock to make sure that nobody is about to remove
-         * this entry.  While next to impossible that the
-         * currently added module will get unloaded by another
-         * thread, we do grab a full write lock around this safe
-         * lookup/add.
-         */
-        vmvector_add(loaded_module_areas, base, base+view_size, ma);
 
         /* note that while it would be natural to invoke the client module
          * load event since we have the data for it right here, the
@@ -251,6 +291,10 @@ module_list_remove(app_pc base, size_t view_size)
     ma = (module_area_t*)vmvector_lookup(loaded_module_areas, base);
     ASSERT_CURIOSITY(ma != NULL); /* loader can't have a race */
     
+    LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2, "module_list_remove %s\n",
+        (GET_MODULE_NAME(&ma->names) == NULL) ? "<no name>" :
+        GET_MODULE_NAME(&ma->names));
+
 #ifdef CLIENT_INTERFACE
     /* inform clients of module unloads, we copy the data now and wait to
      * call the client till after we've released the module areas lock */
@@ -263,8 +307,9 @@ module_list_remove(app_pc base, size_t view_size)
 #endif
     /* defensively checking */
     if (ma != NULL) {
-        vmvector_remove(loaded_module_areas, base, base+view_size);
-        /* extra nice, free only after removing from vector */
+        /* os_module_area_reset() calls module_list_remove_mapping() to
+         * remove the segments from the vector
+         */
         module_area_delete(ma);
     }
     ASSERT(!vmvector_overlap(loaded_module_areas, base, base+view_size));
@@ -471,8 +516,18 @@ module_iterator_start(void)
 bool
 module_iterator_hasnext(module_iterator_t *mi)
 {
+    app_pc start, end;
+    module_area_t *ma;
     ASSERT(os_get_module_info_locked());
-    return vmvector_iterator_hasnext(&mi->vmvi);
+    while (vmvector_iterator_hasnext(&mi->vmvi)) {
+        ma = (module_area_t *) vmvector_iterator_peek(&mi->vmvi, &start, &end);
+        /* skip non-initial segments */
+        if (start != ma->start)
+            vmvector_iterator_next(&mi->vmvi, NULL, NULL);
+        else
+            return true;
+    }
+    return false;
 }
 
 /* Retrieves the module_data_t for a loaded module */
@@ -484,7 +539,7 @@ module_iterator_next(module_iterator_t *mi)
         vmvector_iterator_next(&mi->vmvi, &start, &end);
     ASSERT(os_get_module_info_locked());
     ASSERT(ma != NULL);
-    ASSERT(ma->start == start && ma->end == end);
+    ASSERT(ma->start == start && IF_WINDOWS_ELSE(ma->end == end, ma->end >= end));
     return ma;
 }
 

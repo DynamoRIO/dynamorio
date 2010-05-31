@@ -183,10 +183,75 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size,
     return tgt;
 }
 
+static uint
+module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
+{
+    uint segment_prot = 0;
+    if (TEST(PF_X, prog_hdr->p_flags))
+        segment_prot |= MEMPROT_EXEC;
+    if (TEST(PF_W, prog_hdr->p_flags))
+        segment_prot |= MEMPROT_WRITE;
+    if (TEST(PF_R, prog_hdr->p_flags))
+        segment_prot |= MEMPROT_READ;
+    return segment_prot;
+}
+
+static void
+module_add_segment_data(OUT os_module_data_t *out_data,
+                        ELF_HEADER_TYPE *elf_hdr,
+                        ssize_t load_offset,
+                        ELF_PROGRAM_HEADER_TYPE *prog_hdr)
+{
+    uint seg, i;
+    if (out_data->alignment == 0) {
+        out_data->alignment = prog_hdr->p_align;
+    } else {
+        /* We expect all segments to have the same alignment */
+        ASSERT_CURIOSITY(out_data->alignment == prog_hdr->p_align);
+    }
+    /* Add segments to the module vector (i#160/PR 562667).
+     * For !HAVE_PROC_MAPS we should combine w/ the segment
+     * walk done in dl_iterate_get_areas_cb().
+     */
+    if (out_data->num_segments == 0) {
+        /* over-allocate to avoid 2 passes to count PT_LOAD */
+        out_data->alloc_segments = elf_hdr->e_phnum;
+        out_data->segments = (module_segment_t *)
+            HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_t,
+                             out_data->alloc_segments, ACCT_OTHER, PROTECTED);
+        out_data->contiguous = true;
+    }
+    /* Keep array sorted in addr order.  I'm assuming segments are disjoint! */
+    for (i = 0; i < out_data->num_segments; i++) {
+        if (out_data->segments[i].start > (app_pc)prog_hdr->p_vaddr + load_offset)
+            break;
+    }
+    seg = i;
+    /* Shift remaining entries */
+    for (i = out_data->num_segments; i > seg; i++) {
+        out_data->segments[i] = out_data->segments[i - 1];
+    }
+    out_data->num_segments++;
+    ASSERT(out_data->num_segments <= out_data->alloc_segments);
+    /* ELF requires p_vaddr to already be aligned to p_align */
+    out_data->segments[seg].start = (app_pc)
+        ALIGN_BACKWARD(prog_hdr->p_vaddr + load_offset, PAGE_SIZE);
+    out_data->segments[seg].end = (app_pc)
+        ALIGN_FORWARD(prog_hdr->p_vaddr + load_offset + prog_hdr->p_memsz, PAGE_SIZE);
+    out_data->segments[seg].prot = module_segment_prot_to_osprot(prog_hdr);
+    if (seg > 0) {
+        ASSERT(out_data->segments[seg].start >= out_data->segments[seg - 1].end);
+        if (out_data->segments[seg].start > out_data->segments[seg - 1].end)
+            out_data->contiguous = false;
+    }
+}
+
 /* Returned addresses out_base and out_end are relative to the actual
  * loaded module base, so the "base" param should be added to produce
  * absolute addresses.
- * If out_data != NULL, fills in the dynamic section fields.
+ * If out_data != NULL, fills in the dynamic section fields and adds
+ * entries to the module list vector: so the caller must be
+ * os_module_area_init() if out_data != NULL!
  */
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
@@ -199,6 +264,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
     char *soname = NULL;
     bool found_load = false;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *) base;
+    ssize_t offset; /* offset loaded at relative to base */
     ASSERT(is_elf_so_header(base, view_size));    
 
     /* On adjusting virtual address in the elf headers -
@@ -221,18 +287,14 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
          */
         mod_base = module_vaddr_from_prog_header(base + elf_hdr->e_phoff,
                                                  elf_hdr->e_phnum, &mod_end);
+        offset = base - mod_base;
         /* now we do our own walk */
         for (i = 0; i < elf_hdr->e_phnum; i++) {
             ELF_PROGRAM_HEADER_TYPE *prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)
                 (base + elf_hdr->e_phoff + i * elf_hdr->e_phentsize);
             if (prog_hdr->p_type == PT_LOAD) {
                 if (out_data != NULL) {
-                    if (!found_load) {
-                        out_data->alignment = prog_hdr->p_align;
-                    } else {
-                        /* We expect all segments to have the same alignment */
-                        ASSERT_CURIOSITY(out_data->alignment == prog_hdr->p_align);
-                    }
+                    module_add_segment_data(out_data, elf_hdr, offset, prog_hdr);
                 }
                 found_load = true;
             }
@@ -251,7 +313,6 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                  * be unsigned, but I don't trust that: probably only works b/c
                  * of wraparound arithmetic
                  */
-                ssize_t offset = base - mod_base; /* offset loaded at relative to base */
                 ELF_DYNAMIC_ENTRY_TYPE *dyn = (ELF_DYNAMIC_ENTRY_TYPE *)
                     (at_map ? base + prog_hdr->p_offset :
                      (app_pc)prog_hdr->p_vaddr + offset);
@@ -401,15 +462,8 @@ module_read_program_header(app_pc base,
             if (segment_end != NULL) {
                 *segment_end = (app_pc) (prog_hdr->p_vaddr + prog_hdr->p_memsz);
             }
-            if (segment_prot != NULL) {
-                *segment_prot = 0;
-                if (TEST(PF_X, prog_hdr->p_flags))
-                    *segment_prot |= MEMPROT_EXEC;
-                if (TEST(PF_W, prog_hdr->p_flags))
-                    *segment_prot |= MEMPROT_WRITE;
-                if (TEST(PF_R, prog_hdr->p_flags))
-                    *segment_prot |= MEMPROT_READ;
-            }
+            if (segment_prot != NULL)
+                *segment_prot = module_segment_prot_to_osprot(prog_hdr);
             if (segment_align != NULL)
                 *segment_align = prog_hdr->p_align;
             return true;
@@ -431,6 +485,27 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
 
     module_walk_program_headers(base, view_size, at_map,
                                 &mod_base, &mod_end, &soname, &ma->os_data);
+    if (ma->os_data.contiguous)
+        module_list_add_mapping(ma, base, base+view_size);
+    else {
+        /* Add the non-contiguous segments (i#160/PR 562667).  We could just add
+         * them all separately but vmvectors are more efficient with fewer
+         * entries so we merge.  We don't want general merging in our vector
+         * either.
+         */
+        app_pc seg_base;
+        uint i;
+        ASSERT(ma->os_data.num_segments > 0 && ma->os_data.segments != NULL);
+        seg_base = ma->os_data.segments[0].start;
+        for (i = 1; i < ma->os_data.num_segments; i++) {
+            if (ma->os_data.segments[i].start > ma->os_data.segments[i - 1].end) {
+                module_list_add_mapping(ma, seg_base, ma->os_data.segments[i - 1].end);
+                seg_base = ma->os_data.segments[i].start;
+            }
+        }
+        module_list_add_mapping(ma, seg_base, ma->os_data.segments[i - 1].end);
+    }
+
     LOG(GLOBAL, LOG_SYMBOLS, 2,
         "%s: hashtab="PFX", dynsym="PFX", dynstr="PFX", strsz="SZFMT", symsz="SZFMT"\n",
         __func__, ma->os_data.hashtab, ma->os_data.dynsym, ma->os_data.dynstr,
@@ -535,6 +610,24 @@ print_modules(file_t f, bool dump_xml)
 void
 os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which))
 {
+    if (ma->os_data.contiguous)
+        module_list_remove_mapping(ma, ma->start, ma->end);
+    else {
+        /* Remove the non-contiguous segments (i#160/PR 562667) */
+        app_pc seg_base;
+        uint i;
+        ASSERT(ma->os_data.num_segments > 0 && ma->os_data.segments != NULL);
+        seg_base = ma->os_data.segments[0].start;
+        for (i = 1; i < ma->os_data.num_segments; i++) {
+            if (ma->os_data.segments[i].start > ma->os_data.segments[i - 1].end) {
+                module_list_remove_mapping(ma, seg_base, ma->os_data.segments[i - 1].end);
+                seg_base = ma->os_data.segments[i].start;
+            }
+        }
+        module_list_remove_mapping(ma, seg_base, ma->os_data.segments[i - 1].end);
+    }
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, ma->os_data.segments, module_segment_t,
+                    ma->os_data.alloc_segments, ACCT_OTHER, PROTECTED);
     if (ma->full_path != NULL)
         dr_strfree(ma->full_path HEAPACCT(which));
 }
@@ -847,6 +940,7 @@ module_calculate_digest(/*OUT*/ module_digest_t *digest,
                         uint short_digest_size,
                         uint sec_characteristics)
 {
+    /* be sure to handle non-contiguous modules (xref i#160/PR 562667) */
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME PR 295534: NYI */
 }
 
