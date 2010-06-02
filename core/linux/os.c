@@ -38,6 +38,14 @@
  * os.c - Linux specific routines
  */
 
+/* Easiest to match kernel stat struct by using 64-bit. 
+ * This limits us to 2.4+ kernel but that's ok.
+ * I don't really want to get into requiring kernel headers to build
+ * general release packages, though that would be fine for targeted builds.
+ * There are 3 different stat syscalls (SYS_oldstat, SYS_stat, and SYS_stat64)
+ * and using _LARGEFILE64_SOURCE with SYS_stat64 is the best match.
+ */
+#define _LARGEFILE64_SOURCE
 /* for mmap-related #defines */
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -50,6 +58,16 @@
 #include <unistd.h> /* for write and usleep and _exit */
 #include <limits.h>
 #include <sys/sysinfo.h>        /* for get_nprocs_conf */
+#include <sys/vfs.h> /* for statfs */
+
+/* must be after X64 is defined */
+#ifdef X64
+# define SYSNUM_STAT SYS_stat
+# define SYSNUM_FSTAT SYS_fstat
+#else
+# define SYSNUM_STAT SYS_stat64
+# define SYSNUM_FSTAT SYS_fstat64
+#endif
 
 extern char **__environ;
 #include <errno.h>
@@ -98,6 +116,8 @@ extern char **__environ;
 # define ASSERT(x) /* nothing */
 # define ASSERT_NOT_IMPLEMENTED(x) /* nothing */
 # define ASSERT_NOT_TESTED(x) /* nothing */
+# undef LOG
+# define LOG(...) /* nothing */
 #else /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
 
 #include <asm/ldt.h>
@@ -223,7 +243,7 @@ typedef struct _maps_iter_t {
     size_t offset; /* offset into the file being mapped */
     uint64 inode; /* FIXME - use ino_t?  We need to know what size code to use for the
                    * scanf and I don't trust that we, the maps file, and any clients
-                   * will all agree on it's size since it seems to be defined differently
+                   * will all agree on its size since it seems to be defined differently
                    * depending on whether large file support is compiled in etc.  Just
                    * using uint64 might be safer (see also inode in module_names_t). */
     const char *comment; /* usually file name with path, but can also be [vsdo] for the
@@ -2391,48 +2411,47 @@ llseek_syscall(int fd, int64 offset, int origin, int64 *result)
 #endif
 }
 
-/* FIXME : implement? is easy for files, but is only used for dirs on linux
- * right now which don't know how to do without sideeffects */
 bool
 os_file_exists(const char *fname, bool is_dir)
 {
-#if 0 /* compile out to prevent warning */
-    ASSERT_NOT_IMPLEMENTED(true);
-#endif
-    return true;
+    /* _LARGEFILE64_SOURCE should make libc struct match kernel (see top of file) */
+    struct stat64 st;
+    ptr_int_t res = dynamorio_syscall(SYSNUM_STAT, 2, fname, &st);
+    if (res != 0) {
+        LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n", __func__, res);
+        return false;
+    }
+    return (!is_dir || S_ISDIR(st.st_mode));
 }
 
 bool
 os_get_file_size(const char *file, uint64 *size)
 {
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    /* _LARGEFILE64_SOURCE should make libc struct match kernel (see top of file) */
+    struct stat64 st;
+    ptr_int_t res = dynamorio_syscall(SYSNUM_STAT, 2, file, &st);
+    if (res != 0) {
+        LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n", __func__, res);
+        return false;
+    }
+    ASSERT(size != NULL);
+    *size = st.st_size;
+    return true;
 }
 
 bool
 os_get_file_size_by_handle(file_t fd, uint64 *size)
 {
-    int64 cur_pos = os_tell(fd);
-    int64 file_size = -1;
-    int result;
-    bool ret = true;
-
-    if (cur_pos == -1)
+    /* _LARGEFILE64_SOURCE should make libc struct match kernel (see top of file) */
+    struct stat64 st;
+    ptr_int_t res = dynamorio_syscall(SYSNUM_FSTAT, 2, fd, &st);
+    if (res != 0) {
+        LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n", __func__, res);
         return false;
-
-    /* FIXME - multithread safety? Presumably caller is synchronizing file access. */
-    ASSERT_NOT_TESTED();
-    result = llseek_syscall(fd, 0, SEEK_END, &file_size);
-
-    if (result != 0 || file_size == -1)
-        ret = false;
-    else if (size != NULL)
-        *size = file_size;
-
-    result = llseek_syscall(fd, cur_pos, SEEK_SET, &file_size);
-    ASSERT(result == 0);
-
-    return ret;
+    }
+    ASSERT(size != NULL);
+    *size = st.st_size;
+    return true;
 }
 
 /* created directory will be owned by effective uid,
@@ -2577,15 +2596,30 @@ os_delete_file(const char *name)
 bool
 os_rename_file(const char *orig_name, const char *new_name, bool replace)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME PR 295534: NYI */ 
-    return false;
+    ptr_int_t res;
+    if (!replace) {
+        /* SYS_rename replaces so we must test beforehand => could have race */
+        /* _LARGEFILE64_SOURCE should make libc struct match kernel (see top of file) */
+        struct stat64 st;
+        ptr_int_t res = dynamorio_syscall(SYSNUM_STAT, 2, new_name, &st);
+        if (res == 0)
+            return false;
+        else if (res != -ENOENT) {
+            LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s stat failed: "PIFX"\n", __func__, res);
+            return false;
+        }
+    }
+    res = dynamorio_syscall(SYS_rename, 2, orig_name, new_name);
+    if (res != 0)
+        LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s \"%s\" to \"%s\" failed: "PIFX"\n",
+            __func__, orig_name, new_name, res);
+    return (res == 0);
 }
 
 bool
 os_delete_mapped_file(const char *filename)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME PR 295534: NYI */ 
-    return false;
+    return os_delete_file(filename);
 }
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER /* around most of file, to exclude preload */
@@ -2595,10 +2629,9 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
             bool copy_on_write, bool image, bool fixed)
 {
     int flags;
-    /* Linux mmap has 32-bit off_t; mmap2 considers it a page-size multiple;
-     * we stick w/ mmap and assume no need for larger offsets for now.
-     */
-    ASSERT(CHECK_TRUNCATE_TYPE_uint(offs));
+    uint pg_offs;
+    ASSERT_TRUNCATE(pg_offs, uint, offs / PAGE_SIZE);
+    pg_offs = (uint) (offs / PAGE_SIZE);
     flags = copy_on_write ? MAP_PRIVATE : MAP_SHARED;
     /* Allows memory request instead of mapping a file, 
      * so we can request memory from a particular address with fixed argument */
@@ -2607,8 +2640,7 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
     if (fixed)
         flags |= MAP_FIXED;
     byte *map = mmap_syscall(addr, *size, memprot_to_osprot(prot),
-                             flags, f, offs);
-    ASSERT_NOT_TESTED();
+                             flags, f, pg_offs);
     if (!mmap_syscall_succeeded(map))
         map = NULL;
     return map;
@@ -2618,7 +2650,6 @@ bool
 os_unmap_file(byte *map, size_t size)
 {
     long res = munmap_syscall(map, size);
-    ASSERT_NOT_TESTED();
     return (res == 0);
 }
 
@@ -2628,8 +2659,24 @@ os_get_disk_free_space(/*IN*/ file_t file_handle,
                        /*OUT*/ uint64 *TotalQuotaBytes /*OPTIONAL*/,
                        /*OUT*/ uint64 *TotalVolumeBytes /*OPTIONAL*/)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME PR 295534: NYI */ 
-    return false;
+    /* libc struct seems to match kernel's */
+    struct statfs stat;
+    ptr_int_t res = dynamorio_syscall(SYS_fstatfs, 2, file_handle, &stat);
+    if (res != 0) {
+        LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n", __func__, res);
+        return false;
+    }
+    LOG(GLOBAL, LOG_STATS, 3,
+        "os_get_disk_free_space: avail="SZFMT", free="SZFMT", bsize="SZFMT"\n",
+        stat.f_bavail, stat.f_bfree, stat.f_bsize);
+    if (AvailableQuotaBytes != NULL)
+        *AvailableQuotaBytes = ((uint64)stat.f_bavail * stat.f_bsize);
+    /* no support for quotas */
+    if (TotalQuotaBytes != NULL)
+        *TotalQuotaBytes = ((uint64)stat.f_bavail * stat.f_bsize);
+    if (TotalVolumeBytes != NULL) /* despite name this is how much is free */
+        *TotalVolumeBytes = ((uint64)stat.f_bfree * stat.f_bsize);
+    return true;
 }
 
 void

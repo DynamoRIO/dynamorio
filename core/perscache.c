@@ -2273,7 +2273,7 @@ get_persist_filename(char *filename /*OUT*/, uint filename_max /* max #chars */,
                 LOG(GLOBAL, LOG_CACHE, 2, "\tcreated per-app dir %s\n", dir);
         }
     }
-    /* FIXME case 9653: should we put the section ordinal or vmarea range into
+    /* FIXME PR 214088/case 9653: should we put the section ordinal or vmarea range into
      * the name to support simultaneous sub-module files?  If sections are
      * adjacent they'll be one vmarea, so this affects very few dlls.  For now
      * we only support one file per module.  We could also support multiple
@@ -2361,11 +2361,16 @@ persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t 
          * FIXME: if view_size < modsize, better to skip the footer than have it
          * cover a data section?  Should be ok w/ PERSCACHE_MODULE_MD5_AT_LOAD.
          */
+#ifdef WINDOWS
+        /* FIXME PR 295534: implement OS_IMAGE_WRITE and module_calculate_digest
+         * and also why is OS_IMAGE_WRITE set to the read flag for windows?
+         */
         module_calculate_digest(digest, modbase, view_size,
                                 false /* not full */, true /* yes short */,
                                 DYNAMO_OPTION(persist_short_digest),
                                 /* do not consider writable sections */
                                 ~((uint)OS_IMAGE_WRITE));
+#endif
     }
 }
 
@@ -2775,7 +2780,7 @@ write_persist_file(dcontext_t *dcontext, file_t fd, const void *buf, size_t coun
 {
     ASSERT(fd != INVALID_FILE && buf != NULL && count > 0);
     if (os_write(fd, buf, count) != (ssize_t)count) {
-        LOG(THREAD, LOG_CACHE, 1, "  unable to write %d bytes to file\n", count);
+        LOG(THREAD, LOG_CACHE, 1, "  unable to write "SZFMT" bytes to file\n", count);
         SYSLOG_INTERNAL_WARNING_ONCE("unable to write persistent cache file");
         STATS_INC(coarse_units_persist_error);
         return false;
@@ -2866,7 +2871,7 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
     /* rest of modinfo filled in by get_persist_filename() */
     ASSERT(pers->modinfo.base == modbase);
 
-    ASSERT(info->base_pc > modbase);
+    ASSERT(info->base_pc >= modbase);
     ASSERT(info->end_pc > info->base_pc);
     pers->start_offs = info->base_pc - modbase;
     pers->end_offs = info->end_pc - modbase;
@@ -2954,7 +2959,7 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
     pers->data_len += pers->pad_len;
     /* Our relative jmps require that we do not exceed 32-bit reachability */
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(pers->data_len)));
-    LOG(THREAD, LOG_CACHE, 2, "  header=%d, data=%d, pad=%d\n",
+    LOG(THREAD, LOG_CACHE, 2, "  header="SZFMT", data="SZFMT", pad="SZFMT"\n",
         pers->header_len, pers->data_len, pers->pad_len);
 }
 
@@ -3112,7 +3117,8 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         STATS_INC(coarse_units_persist_error);
         goto coarse_unit_persist_exit;
     }
-    ASSERT_CURIOSITY(os_validate_user_owned(fd) && "persisted while impersonating?");
+    ASSERT_CURIOSITY((!DYNAMO_OPTION(validate_owner_file) ||
+                      os_validate_user_owned(fd)) && "persisted while impersonating?");
 
     created_temp = true;
     /* FIXME case 9758: we could mmap the file: would that be more efficient?
@@ -3547,7 +3553,8 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
          * of course it doesn't hurt to check both.
          */
         DODEBUG({
-            ASSERT_CURIOSITY(os_validate_user_owned(fd) && "impostor not detected!");
+            ASSERT_CURIOSITY((!DYNAMO_OPTION(validate_owner_file) ||
+                              os_validate_user_owned(fd)) && "impostor not detected!");
         });
     }
 
@@ -3556,8 +3563,8 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
         goto coarse_unit_load_exit;
     }
     ASSERT_TRUNCATE(map_size, uint, file_size);
-    map_size = (uint) file_size;
-    LOG(THREAD, LOG_CACHE, 1, "  size of %s is %d\n", filename, map_size);
+    map_size = (size_t) file_size;
+    LOG(THREAD, LOG_CACHE, 1, "  size of %s is "SZFMT"\n", filename, map_size);
     /* FIXME case 9642: control where in address space we map the file:
      * right after vmheap?  Randomized?
      */

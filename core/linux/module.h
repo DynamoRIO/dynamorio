@@ -79,6 +79,10 @@ typedef struct _os_module_data_t {
     app_pc base_address; 
     size_t alignment; /* the alignment between segments */
 
+    /* Fields for pcaches (PR 295534) */
+    size_t checksum;
+    size_t timestamp;
+
     /* i#112: Dynamic section info for exported symbol lookup.  Not
      * using elf types here to avoid having to export those.
      */

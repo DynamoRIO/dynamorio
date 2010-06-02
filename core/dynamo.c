@@ -963,9 +963,10 @@ dynamo_shared_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 #endif
     os_fast_exit();
     os_slow_exit();
-    modules_exit(); /* after aslr_exit() from os_slow_exit() */
     vm_areas_exit();
     perscache_slow_exit(); /* fast called in dynamo_process_exit_with_thread_info() */
+    modules_exit(); /* after aslr_exit() from os_slow_exit(),
+                     * after vm_areas & perscache exits */
     moduledb_exit(); /* before heap_exit */
 #ifdef HOT_PATCHING_INTERFACE
     if (DYNAMO_OPTION(hot_patching))

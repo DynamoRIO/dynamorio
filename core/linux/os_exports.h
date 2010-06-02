@@ -49,9 +49,9 @@
 #define DYNAMORIO_LIBRARY_NAME "libdynamorio.so"
 #define DYNAMORIO_PRELOAD_NAME "libdrpreload.so"
 
-/* FIXME: I made these up */
-#define OS_ALLOC_GRANULARITY     (ASSERT_NOT_IMPLEMENTED(false), 4*1024)
-#define MAP_FILE_VIEW_ALIGNMENT  (ASSERT_NOT_IMPLEMENTED(false), 4*1024)
+/* The smallest granularity the OS supports */
+#define OS_ALLOC_GRANULARITY     (4*1024)
+#define MAP_FILE_VIEW_ALIGNMENT  (4*1024)
 
 /* We steal a segment register, and so use fs for x86 (where pthreads
  * uses gs) and gs for x64 (where pthreads uses fs) (presumably to

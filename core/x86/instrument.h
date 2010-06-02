@@ -1808,7 +1808,11 @@ struct _module_data_t {
 #else
     bool contiguous;   /**< whether there are no gaps between segments */
     uint num_segments; /**< number of segments */
-    module_segment_data_t *segments; /**< array of num_segments entries, one per segment */
+    /**
+     * Array of num_segments entries, one per segment.  The array is sorted
+     * by the start address of each segment.
+     */
+    module_segment_data_t *segments;
 #endif
 #ifdef AVOID_API_EXPORT
     /* FIXME: PR 215890: ELF64 size? Anything else? */

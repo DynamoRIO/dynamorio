@@ -196,6 +196,7 @@ module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
     return segment_prot;
 }
 
+/* Adds an entry for a segment to the out_data->segments array */
 static void
 module_add_segment_data(OUT os_module_data_t *out_data,
                         ELF_HEADER_TYPE *elf_hdr,
@@ -357,6 +358,10 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                                 out_data->dynstr_size = (size_t) dyn->d_un.d_val;
                             } else if (dyn->d_tag == DT_SYMENT) {
                                 out_data->symentry_size = (size_t) dyn->d_un.d_val;
+                            } else if (dyn->d_tag == DT_CHECKSUM) {
+                                out_data->checksum = (size_t) dyn->d_un.d_val;
+                            } else if (dyn->d_tag == DT_GNU_PRELINKED) {
+                                out_data->timestamp = (size_t) dyn->d_un.d_val;
                             }
                         }
                         dyn++;
@@ -563,6 +568,17 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
         ma->names.module_name = NULL;
     else
         ma->names.module_name = dr_strdup(soname HEAPACCT(which));
+
+    /* Fields for pcaches (PR 295534).  These entries are not present in
+     * all libs: I see DT_CHECKSUM and the prelink field on FC12 but not
+     * on Ubuntu 9.04.
+     */
+    if (ma->os_data.checksum == 0 &&
+        (DYNAMO_OPTION(coarse_enable_freeze) || DYNAMO_OPTION(use_persisted))) {
+        /* Use something so we have usable pcache names */
+        ma->os_data.checksum = crc32((const char *)ma->start, PAGE_SIZE);
+    }
+    /* Timestamp we just leave as 0 */
 }
 
 void
@@ -845,12 +861,17 @@ get_module_company_name(app_pc mod_base, char *out_buf, size_t out_buf_size)
     return false;
 }
 
-/* FIXME PR 295529: NYI, here so code origins policies aren't all ifdef WINDOWS */
 app_pc
 get_module_base(app_pc pc)
 {
-    return NULL;
-    ASSERT_NOT_IMPLEMENTED(false);
+    app_pc base = NULL;
+    module_area_t *ma;
+    os_get_module_info_lock();
+    ma = module_pc_lookup(pc);
+    if (ma != NULL)
+        base = ma->start;
+    os_get_module_info_unlock();
+    return base;
 }
 
 /* FIXME PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
@@ -889,23 +910,66 @@ is_in_any_section(app_pc module_base, app_pc addr,
     return false;
 }
 
-/* FIXME PR 295529: NYI, here so code origins policies aren't all ifdef WINDOWS */
 bool
 is_mapped_as_image(app_pc module_base)
 {
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    return is_elf_so_header(module_base, 0);
 }
 
 
-/* FIXME PR 295529: NYI, present so that all hot patching code aren't all ifdef WINDOWS */
+/* Gets module information of module containing pc, cached from our module list.
+ * Returns false if not in module; none of the OUT arguments are set in that case.
+ *
+ * Note: this function returns only one module name using the rule established
+ * by GET_MODULE_NAME(); for getting all possible ones use
+ * os_get_module_info_all_names() directly.  Part of fix for case 9842.
+ *
+ * If name != NULL, caller must acquire the module_data_lock beforehand
+ * and call os_get_module_info_unlock() when finished with the name
+ * (caller can use dr_strdup to make a copy first if necessary; validity of the
+ * name is guaranteed only as long as the caller holds module_data_lock).
+ * If name == NULL, this routine acquires and releases the lock and the
+ * caller has no obligations.
+ */
 bool
 os_get_module_info(const app_pc pc, uint *checksum, uint *timestamp,
-                   size_t *size, const char **pe_name, size_t *code_size,
+                   size_t *size, const char **name, size_t *code_size,
                    uint64 *file_version)
 {
-    return false;
-    ASSERT_NOT_IMPLEMENTED(false); /* yes I know it's dead: leave it here (case 10703) */
+    module_area_t *ma;
+    if (!is_module_list_initialized())
+        return false;
+
+    /* read lock to protect custom data */
+    if (name == NULL)
+        os_get_module_info_lock();
+    ASSERT(os_get_module_info_locked());;
+
+    ma = module_pc_lookup(pc);
+    if (ma != NULL) {
+        if (checksum != NULL)
+            *checksum = ma->os_data.checksum;
+        if (timestamp != NULL)
+            *timestamp = ma->os_data.timestamp;
+        if (size != NULL)
+            *size = ma->end - ma->start;
+        if (name != NULL)
+            *name = GET_MODULE_NAME(&ma->names);
+        if (code_size != NULL) {
+            /* FIXME: after merge w/ PR 562667 just use rx segment size
+             * since don't want to impl section iterator (i#76/PR 212458)?
+             */
+            *code_size = 0;
+        }
+        if (file_version != NULL) {
+            /* FIXME: NYI: make windows-only everywhere if no good linux source */
+            *file_version = 0;
+        }
+    }
+
+    if (name == NULL)
+        os_get_module_info_unlock();
+    return (ma != NULL);
 }
 
 bool
@@ -940,6 +1004,9 @@ module_calculate_digest(/*OUT*/ module_digest_t *digest,
                         uint short_digest_size,
                         uint sec_characteristics)
 {
+    /* FIXME: implement once we have segment list to iterate over
+     * from PR 562667
+     */
     /* be sure to handle non-contiguous modules (xref i#160/PR 562667) */
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME PR 295534: NYI */
 }

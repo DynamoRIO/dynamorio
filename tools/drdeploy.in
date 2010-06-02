@@ -190,9 +190,22 @@ then
 fi
 if [ ! -e "$dr_lib_path/$lib/libdynamorio.so" ]
 then
-    echo "ERROR - libdynamorio.so not found in $dr_lib_path/$lib"
-    echo $usage
-    exit
+    # Support running from build dir
+    if [ -n "$DYNAMORIO_HOME" ]
+    then
+        dr_lib_build_path=$DYNAMORIO_HOME/lib
+    else
+        dr_lib_build_path=$default_home/lib
+    fi
+    if [ -e "$dr_lib_build_path/libdynamorio.so" ]
+    then
+        lib=""
+        dr_lib_path=$dr_lib_build_path
+    else
+        echo "ERROR - libdynamorio.so not found in $dr_lib_path/$lib"
+        echo $usage
+        exit
+    fi
 fi
 # convert to absolute path
 dr_lib_path=`cd "$dr_lib_path" ; pwd`

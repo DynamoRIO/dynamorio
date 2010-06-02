@@ -809,7 +809,7 @@ void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec
                                CONTEXT *cxt, byte *stack);
 #endif
 #else /* LINUX */
-long dynamorio_syscall(uint sysnum, uint num_args, ...);
+ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
 void dynamorio_sigreturn(void);
 void dynamorio_sys_exit(void);
 # ifndef X64
@@ -1648,7 +1648,7 @@ void insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext, instrlist_
         instr_t *instr, void *callee, int arg, app_pc jmp_tag, instr_t *jmp_instr);
 void
 insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                    ptr_int_t val);
+                        ptr_int_t val);
 #ifdef LINUX
 void mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip);
 void mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
