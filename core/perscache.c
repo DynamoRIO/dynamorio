@@ -176,12 +176,16 @@ coarse_unit_create(app_pc base_pc, app_pc end_pc, module_digest_t *digest,
          * If we inject at different points we may see different views of
          * post-loader vs pre-loader module changes but we'll live with that.
          * Should have consistent injection points in steady state usage.
-         * FIXME case 10601: for 4.4 we'll want to not record the at-mmap md5, but
+         * FIXME PR 215036: for 4.4 we'll want to not record the at-mmap md5, but
          * rather the 1st-execution-time post-rebase md5.
          */
         app_pc modbase = get_module_base(info->base_pc);
         size_t modsize;
         os_get_module_info_lock();
+        /* For linux we can't do module segment walking at initial mmap time
+         * b/c the segments are not set up: we hit SIGBUS!
+         */
+        IF_LINUX(ASSERT_BUG_NUM(215036, true));
         if (os_get_module_info(modbase, NULL, NULL, &modsize,
                                NULL, NULL, NULL)) {
             os_get_module_info_unlock();
@@ -2361,16 +2365,11 @@ persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t 
          * FIXME: if view_size < modsize, better to skip the footer than have it
          * cover a data section?  Should be ok w/ PERSCACHE_MODULE_MD5_AT_LOAD.
          */
-#ifdef WINDOWS
-        /* FIXME PR 295534: implement OS_IMAGE_WRITE and module_calculate_digest
-         * and also why is OS_IMAGE_WRITE set to the read flag for windows?
-         */
         module_calculate_digest(digest, modbase, view_size,
                                 false /* not full */, true /* yes short */,
                                 DYNAMO_OPTION(persist_short_digest),
                                 /* do not consider writable sections */
                                 ~((uint)OS_IMAGE_WRITE));
-#endif
     }
 }
 

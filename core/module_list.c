@@ -33,6 +33,9 @@
 #include "globals.h"
 #include "instrument.h"
 #include <string.h> /* for memset */
+#ifdef WINDOWS
+# include "ntdll.h" /* for protect_virtual_memory */
+#endif
 
 /* Used for maintaining our module list.  Custom field points to
  * further module information from PE/ELF headers.
@@ -554,3 +557,319 @@ module_iterator_stop(module_iterator_t *mi)
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, mi, module_iterator_t, ACCT_OTHER, UNPROTECTED);
 }
 
+/**************** digest routines *****************/
+
+/* add only the intersection of the two regions to the running MD5 sum */
+static void
+region_intersection_MD5update(struct MD5Context *ctx, 
+                              app_pc region1_start, size_t region1_len,
+                              app_pc region2_start, size_t region2_len)
+{
+    app_pc intersection_start;
+    size_t intersection_len;
+    ASSERT(ctx != NULL);
+    region_intersection(&intersection_start, &intersection_len,
+                        region1_start, region1_len, 
+                        region2_start, region2_len);
+    if (intersection_len != 0) {
+        LOG(GLOBAL, LOG_SYSCALLS, 2,
+            "adding to short hash region "PFX"-"PFX"\n", 
+            intersection_start, intersection_start + intersection_len);
+        MD5Update(ctx, intersection_start, intersection_len);
+    }
+}
+
+/* keeps track of both short and full digests on each region */
+static
+void
+module_calculate_digest_helper(struct MD5Context * md5_full_cxt /* OPTIONAL */, 
+                               struct MD5Context * md5_short_cxt /* OPTIONAL */,
+                               app_pc region_start, size_t region_len,
+                               app_pc start_header, size_t len_header,
+                               app_pc start_footer, size_t len_footer)
+{
+    ASSERT(md5_full_cxt != NULL || md5_short_cxt != NULL);
+    LOG(GLOBAL, LOG_VMAREAS, 2, "\t%s: segment "PFX"-"PFX"\n",
+        __FUNCTION__, region_start, region_start + region_len);
+    if (md5_full_cxt != NULL) 
+        MD5Update(md5_full_cxt, region_start, region_len);
+    if (md5_short_cxt == NULL)
+        return;
+    if (len_header != 0) {
+        region_intersection_MD5update(md5_short_cxt, 
+                                      region_start, region_len,
+                                      start_header, len_header);
+    }
+    if (len_footer != 0) {
+        region_intersection_MD5update(md5_short_cxt, 
+                                      region_start, region_len,
+                                      start_footer, len_footer);
+    }
+}
+
+/* Verifies that according to section Characteristics its mapping is expected to be
+ * readable (and if not VirtualProtects to makes it so).  NOTE this only operates on
+ * the mapped portion of the section (via get_image_section_map_size()) which may be
+ * smaller then the virtual size (get_image_section_size()) of the section (in which
+ * case it was zero padded).
+ *
+ * Note this is NOT checking the current protection settings with
+ * is_readable_without_exception(), so the actual current state may well vary.
+ *
+ * Returns true if no changes had to be made (the section is already readable).
+ * Returns false if an unreadable section has been made readable (and the
+ * caller should probably call restore_unreadable_section() afterward).
+ */
+static bool
+ensure_section_readable(app_pc module_base, app_pc seg_start,
+                        size_t seg_len, uint seg_chars, OUT uint *old_prot,
+                        app_pc view_start, size_t view_len)
+{
+    int ok;
+    app_pc intersection_start;
+    size_t intersection_len;
+
+    region_intersection(&intersection_start, &intersection_len,
+                        view_start, view_len, 
+                        seg_start, ALIGN_FORWARD(seg_len, PAGE_SIZE));
+    if (intersection_len == 0)
+        return true;
+
+    /* on X86-32 as long as any of RWX is set the contents is readable */
+    if (TESTANY(OS_IMAGE_EXECUTE|OS_IMAGE_READ|OS_IMAGE_WRITE,
+                seg_chars)) {
+        ASSERT(is_readable_without_exception(intersection_start, intersection_len));
+        return true;
+    }
+    /* such a mapping could potentially be used for some protection
+     * scheme in which sections are made readable only on demand */
+
+    /* Otherwise we just mark readable the raw bytes of the section,
+     * NOTE: we'll leave readable, so only users of our private
+     * mappings should use this function!
+     */
+    SYSLOG_INTERNAL_WARNING("unreadable section @"PFX"\n", seg_start);
+#ifdef WINDOWS
+    /* Preserve COW flags */
+    ok = protect_virtual_memory(intersection_start, intersection_len,
+                                PAGE_READONLY, 
+                                old_prot);
+    ASSERT(ok);
+    ASSERT_CURIOSITY(*old_prot == PAGE_NOACCESS || 
+                     *old_prot == PAGE_WRITECOPY); /* expecting unmodifed even
+                                                    * if writable */
+#else
+    /* No other flags to preserve, should be no-access, so we ignore old_prot */
+    ok = os_set_protection(intersection_start, intersection_len, MEMPROT_READ);
+    ASSERT(ok);
+#endif
+    return false;
+}
+
+static bool
+restore_unreadable_section(app_pc module_base, app_pc seg_start,
+                           size_t seg_len, uint seg_chars, uint restore_prot,
+                           app_pc view_start, size_t view_len)
+{
+    int ok;
+    app_pc intersection_start;
+    size_t intersection_len;
+#ifdef WINDOWS
+    uint old_prot;
+#endif
+
+    ASSERT(!TESTANY(OS_IMAGE_EXECUTE|OS_IMAGE_READ|OS_IMAGE_WRITE, seg_chars));
+
+    region_intersection(&intersection_start, &intersection_len,
+                        view_start, view_len, 
+                        seg_start, ALIGN_FORWARD(seg_start + seg_len, PAGE_SIZE));
+    if (intersection_len == 0)
+        return true;
+
+#ifdef WINDOWS
+    /* Preserve COW flags */
+    ok = protect_virtual_memory(intersection_start, intersection_len,
+                                restore_prot, 
+                                &old_prot);
+    ASSERT(ok);
+    ASSERT(old_prot == PAGE_READONLY);
+#else
+    /* No other flags to preserve so we ignore old_prot */
+    ok = os_set_protection(intersection_start, intersection_len, MEMPROT_NONE);
+    ASSERT(ok);
+#endif
+
+    return ok;
+}
+
+/* note it operates on a PE mapping so it can be passed either a
+ * relocated or the original file.  Either full or short digest or both can be requested.
+ * If short_digest is set the short version of the digest is
+ * calculated and set.  Note that if short_digest_size crosses an
+ * unreadable boundary it is truncated to the smallest consecutive
+ * memory region from each of the header and the footer.  If
+ * short_digest_size is 0 or larger than half of the file size the
+ * short and full digests are supposed to be equal.
+ * If sec_characteristics != 0, only sections TESTANY matching those
+ * characteristics (and the PE headers) are considered.
+ * It is the caller's responsibility to ensure that module_size is not
+ * larger than the mapped view size.
+ */
+void
+module_calculate_digest(OUT module_digest_t *digest,
+                        app_pc module_base, 
+                        size_t module_size,
+                        bool full_digest,
+                        bool short_digest,
+                        uint short_digest_size,
+                        uint sec_characteristics)
+{
+    struct MD5Context md5_short_cxt;
+    struct MD5Context md5_full_cxt;
+
+    uint i;
+    app_pc module_end = module_base + module_size;
+
+    /* tentative starts */
+    /* need to adjust these buffers in case of crossing unreadable areas,
+     * or if overlapping
+     */
+    /* Note that simpler alternative would have been to only produce a
+     * digest on the PE header (0x400), and maybe the last section.
+     * However for better consistency guarantees, yet with a
+     * predictable performance, used this more involved definition of
+     * short digest.  While a 64KB digest may be acceptable, full
+     * checks on some 8MB DLLs may be noticeable.
+     */
+
+    app_pc header_start = module_base;
+    size_t header_len = MIN(module_size, short_digest_size);
+    app_pc footer_start = module_end - short_digest_size;
+    size_t footer_len;
+
+    app_pc region_start;
+    size_t region_len;
+
+    ASSERT(digest != NULL);
+    ASSERT(module_base != NULL);
+    ASSERT(module_size != 0);
+
+    LOG(GLOBAL, LOG_VMAREAS, 2,
+        "module_calculate_digest: module "PFX"-"PFX"\n", 
+        module_base, module_base + module_size);
+
+    if (short_digest_size == 0) {
+        header_len = module_size;
+    }
+
+    footer_start = MAX(footer_start, header_start + header_len);
+    footer_len = module_end - footer_start;
+    /* footer region will be unused if footer_len is 0 - in case of
+     * larger than file size short size, or if short_digest_size = 0
+     * which also means unbounded */
+
+    /* note that this function has significant overlap with
+     * module_dump_pe_file(), and in fact we could avoid a second
+     * traversal and associated cache pollution on producing a file if
+     * we provide this functionality in module_dump_pe_file().  Of
+     * course for verification we still need this separately 
+     */
+
+    ASSERT(get_module_base(module_base) == module_base);
+
+    if (short_digest)
+        MD5Init(&md5_short_cxt);
+    if (full_digest) 
+        MD5Init(&md5_full_cxt);
+
+    /* first region to consider is module header.  on linux this is
+     * usually part of 1st segment so perhaps we should skip for linux
+     * (on windows module_get_nth_segment() starts w/ 1st section and
+     * does not include header)
+     */
+    region_start = module_base + 0;
+    region_len = module_get_header_size(module_base);
+
+    /* FIXME: note that if we want to provide/match an Authenticode
+     * hash we'd have to skip the Checksum field in the header - see
+     * pecoff_v8 */
+
+    /* at each step intersect with the possible short regions */
+    module_calculate_digest_helper(full_digest ? &md5_full_cxt : NULL,
+                                   short_digest ? &md5_short_cxt : NULL,
+                                   region_start, region_len,
+                                   header_start, header_len,
+                                   footer_start, footer_len);
+
+    for (i = 0; true; i++) {
+        uint old_section_prot;
+        bool readable;
+        app_pc region_end;
+        uint seg_chars;
+
+        ASSERT(i < 1000); /* look for runaway loop */
+        if (!module_get_nth_segment(module_base, i, &region_start,
+                                    &region_end, &seg_chars))
+            break;
+        region_len = region_end - region_start;
+
+        /* comres.dll for an example of an empty physical section
+         *   .data name
+         *      0 size of raw data
+         *      0 file pointer to raw data
+         */
+        if (region_len == 0) {
+            LOG(GLOBAL, LOG_VMAREAS, 1, "skipping empty physical segment @"PFX"\n", 
+                region_start);
+            /* note that such sections will still get 0-filled 
+             * but we only look at raw bytes */
+            continue;
+        }
+        if (!TESTANY(sec_characteristics, seg_chars)) {
+            LOG(GLOBAL, LOG_VMAREAS, 2, "skipping non-matching segment @"PFX"\n", 
+                region_start);
+            continue;
+        }
+
+        /* make sure region is readable. Alternatively, we could just
+         * ignore unreadable (according to characteristics) portions
+         */
+        readable = ensure_section_readable(module_base, region_start, region_len,
+                                           seg_chars, &old_section_prot,
+                                           module_base, module_size);
+
+        module_calculate_digest_helper(full_digest ? &md5_full_cxt : NULL,
+                                       short_digest ? &md5_short_cxt : NULL,
+                                       region_start, region_len,
+                                       header_start, header_len,
+                                       footer_start, footer_len);                                   
+        if (!readable) {
+            DEBUG_DECLARE(bool ok = )
+                restore_unreadable_section(module_base, region_start, region_len,
+                                           seg_chars, old_section_prot,
+                                           module_base, module_size);
+            ASSERT(ok);
+        }
+    }
+
+    if (short_digest) 
+        MD5Final(digest->short_MD5, &md5_short_cxt);
+    if (full_digest) 
+        MD5Final(digest->full_MD5, &md5_full_cxt);
+
+    DODEBUG({
+        if (full_digest && short_digest && 
+            (short_digest_size == 0 ||
+             short_digest_size * 2 > module_size)) {
+            ASSERT(md5_digests_equal(digest->short_MD5, digest->full_MD5));
+        }
+    });
+
+    /* FIXME: Note that if we did want to have an md5sum-matching
+     * digest we'd have to append the module bytes with the extra
+     * bytes that are only present on disk in our digest.  Since
+     * usually quite small that could be handled by a read_file()
+     * instead of remapping the whole file as MEM_MAPPED. It would be
+     * applicable only if we have the appropriate file handle of
+     * course. */
+}

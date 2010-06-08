@@ -1351,6 +1351,7 @@ print_module_section_info(file_t file, app_pc addr)
  * - if start_pc != NULL, that contains [start_pc, end_pc);
  * - if sec_characteristics_match != 0, that matches ANY of sec_characteristics_match;
  * - if name != NULL, that matches name.
+ * - if nth > -1, the nth section, or nth segment if merge=true
  *
  * If a section or (if merge) group of sections are found that satisfy the above,
  * then returns the bounds of the section(s) in sec_start_out and sec_end_out (both are
@@ -1368,12 +1369,13 @@ is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc
                               uint *sec_characteristics_out /* OPTIONAL OUT */,
                               IMAGE_SECTION_HEADER *sec_header_out /* OPTIONAL OUT */,
                               uint sec_characteristics_match /* TESTANY, 0 to ignore */,
-                              const char *name /* OPTIONAL */, bool merge)
+                              const char *name /* OPTIONAL */, bool merge,
+                              int nth /* -1 to ignore */, bool map_size)
 {
     IMAGE_DOS_HEADER *dos;
     IMAGE_NT_HEADERS *nt;
     IMAGE_SECTION_HEADER *sec;
-    uint i;
+    uint i, seg_num = 0, prev_chars = 0;
     bool prev_sec_same_chars = false, result = false, stop_at_next_non_matching = false;
     app_pc sec_start = 0, sec_end = 0;
 
@@ -1388,10 +1390,13 @@ is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc
         nt == NULL || nt->Signature != IMAGE_NT_SIGNATURE)
         return false;
     /* must specify some criteria */
-    ASSERT(start_pc != NULL || sec_characteristics_match != 0 || name != NULL);
+    ASSERT(start_pc != NULL || sec_characteristics_match != 0 || name != NULL
+           || nth > -1);
     ASSERT(start_pc == NULL || start_pc < end_pc);
-    /* sec_characteristics_out & section_header_out only makes sense if !merge */
-    ASSERT(sec_characteristics_out == NULL || !merge);
+    /* sec_characteristics_out & section_header_out only makes sense if !merge,
+     * unless doing nth segment
+     */
+    ASSERT(sec_characteristics_out == NULL || !merge || nth > -1);
     ASSERT(sec_header_out == NULL || !merge);
     /* We cannot use the OptionalHeader fields BaseOfCode or SizeOfCode or SizeOfData
      * since for multiple sections the SizeOfCode is the sum of the
@@ -1411,9 +1416,11 @@ is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc
              TESTANY(sec_characteristics_match, sec->Characteristics)) &&
             (name == NULL ||
              (sec->Name != NULL && strncmp((const char *)sec->Name,
-                                           name, strlen(name)) == 0))) {
+                                           name, strlen(name)) == 0)) &&
+            (nth == -1 || nth == (int)seg_num)) {
             app_pc new_start = module_base + sec->VirtualAddress;
-            if (prev_sec_same_chars && sec_end == new_start) {
+            if (prev_sec_same_chars && sec_end == new_start &&
+                (nth == -1 || prev_chars == sec->Characteristics)) {
                 /* os will merge adjacent regions w/ same privileges, so consider
                  * these one region by leaving sec_start at its old value if merge */
                 ASSERT(merge);
@@ -1428,7 +1435,7 @@ is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc
             if (merge)
                 prev_sec_same_chars = true;
             sec_end = module_base + sec->VirtualAddress +
-                get_image_section_size(sec, nt);
+                 get_image_section_size(sec, nt);
             LOG(GLOBAL, LOG_VMAREAS, 2,
                 "is_in_executable_file_section (module "PFX", region "PFX"-"PFX"): "
                 "%.*s == "PFX"-"PFX"\n",
@@ -1438,8 +1445,14 @@ is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc
                 (start_pc >= sec_start && start_pc <= sec_end)) {
                 if (sec_start_out != NULL)
                     *sec_start_out = sec_start; /* merged section start */
-                if (sec_end_out != NULL)
-                    *sec_end_out = sec_end; /* merged section end */
+                if (sec_end_out != NULL) {
+                    if (map_size) {
+                        *sec_end_out = module_base + sec->VirtualAddress +
+                            get_image_section_map_size(sec, nt);
+                    } else {
+                        *sec_end_out = sec_end; /* merged section end */
+                    }
+                }
                 if (sec_characteristics_out != NULL)
                     *sec_characteristics_out = sec->Characteristics;
                 if (sec_header_out != NULL)
@@ -1454,8 +1467,18 @@ is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc
                         break;
                 }
             }
-        } else
+        } else {
             prev_sec_same_chars = false;
+            if (nth > -1 && i > 0) {
+                /* count segments */
+                app_pc new_start = module_base + sec->VirtualAddress;
+                if (sec_end != new_start || prev_chars != sec->Characteristics)
+                    seg_num++;
+                sec_end = module_base + sec->VirtualAddress +
+                    get_image_section_size(sec, nt);
+            }
+        }
+        prev_chars = sec->Characteristics;
     }
     return result;
 }
@@ -1468,7 +1491,7 @@ module_pc_section_lookup(app_pc module_base, app_pc pc, IMAGE_SECTION_HEADER *se
         memset(section_out, 0, sizeof(*section_out));
     return is_in_executable_file_section(module_base, pc, pc+1,
                                          NULL, NULL, NULL, section_out,
-                                         0 /* any section */, NULL, false);
+                                         0 /* any section */, NULL, false, -1, false);
 }
 
 /* Returns true if [start_pc, end_pc) is within a single code section.
@@ -1482,7 +1505,7 @@ is_range_in_code_section(app_pc module_base, app_pc start_pc, app_pc end_pc,
     return is_in_executable_file_section(module_base, start_pc, end_pc,
                                          sec_start, sec_end, NULL, NULL,
                                          IMAGE_SCN_CNT_CODE, NULL,
-                                         false /* don't merge */);
+                                         false /* don't merge */, -1, false);
 }
 
 /* Returns true if addr is in a code section and if so returns in sec_start and sec_end
@@ -1495,7 +1518,7 @@ is_in_code_section(app_pc module_base, app_pc addr,
     return is_in_executable_file_section(module_base, addr, addr+1,
                                          sec_start, sec_end, NULL, NULL,
                                          IMAGE_SCN_CNT_CODE, NULL,
-                                         true /* merge */);
+                                         true /* merge */, -1, false);
 }
 
 /* Same as above only for initialized data sections instead of code. */
@@ -1508,7 +1531,7 @@ is_in_dot_data_section(app_pc module_base, app_pc addr,
                                          sec_start, sec_end, NULL, NULL,
                                          IMAGE_SCN_CNT_INITIALIZED_DATA |
                                          IMAGE_SCN_CNT_UNINITIALIZED_DATA,
-                                         NULL, true /* merge */);
+                                         NULL, true /* merge */, -1, false);
 }
 
 /* Same as above only for xdata sections (see below) instead of code. */
@@ -1524,7 +1547,7 @@ is_in_xdata_section(app_pc module_base, app_pc addr,
     if (is_in_executable_file_section(module_base, addr, addr+1, 
                                       sec_start, sec_end, &sec_flags, NULL,
                                       IMAGE_SCN_CNT_INITIALIZED_DATA, ".xdata",
-                                      false /* don't merge */)) {
+                                      false /* don't merge */, -1, false)) {
         bool xdata_prot_match = TESTALL(IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE |
                                         IMAGE_SCN_MEM_EXECUTE, sec_flags);
         ASSERT_CURIOSITY(xdata_prot_match && "unexpected xdata section characteristics");
@@ -1544,7 +1567,7 @@ is_in_any_section(app_pc module_base, app_pc addr,
     return is_in_executable_file_section(module_base, addr, addr+1,
                                          sec_start, sec_end, NULL, NULL,
                                          0 /* any section */, NULL,
-                                         true /* merge */);
+                                         true /* merge */, -1, false);
 }
 
 /* allow only true MEM_IMAGE mappings */
@@ -1568,13 +1591,37 @@ is_mapped_as_image(app_pc module_base)
     return false;
 }
 
+/* Returns true if the module has an nth segment, false otherwise. */
+bool
+module_get_nth_segment(app_pc module_base, uint n,
+                       app_pc *start/*OPTIONAL OUT*/, app_pc *end/*OPTIONAL OUT*/,
+                       uint *chars/*OPTIONAL OUT*/)
+{
+    if (!is_in_executable_file_section
+        (module_base, NULL, NULL, start, end, chars, NULL, 0/* any section */, NULL,
+         true /* merge to make segments */, n, true/*mapped size*/)) {
+        return false;
+    }
+    return true;
+}
+
+size_t
+module_get_header_size(app_pc module_base)
+{
+    IMAGE_NT_HEADERS *nt;
+    ASSERT(is_readable_pe_base(module_base));
+    nt = NT_HEADER(module_base);
+    return nt->OptionalHeader.SizeOfHeaders;
+}
+
 /* returns true if a matching section is found, false otherwise */
 bool
 get_named_section_bounds(app_pc module_base, const char *name,
                          app_pc *start/*OPTIONAL OUT*/, app_pc *end/*OPTIONAL OUT*/)
 {
     if (!is_in_executable_file_section(module_base, NULL, NULL, start, end, NULL, NULL,
-                                       0 /* any section */, name, true /* merge */)) {
+                                       0 /* any section */, name, true /* merge */,
+                                       -1, false)) {
         if (start != NULL)
             *start = NULL;
         if (end != NULL)
@@ -2703,7 +2750,7 @@ rct_add_rip_rel_addr(dcontext_t *dcontext, app_pc tgt _IF_DEBUG(app_pc src))
     if (modbase != NULL &&
         rct_ind_branch_target_lookup(dcontext, tgt) == NULL &&
         is_in_executable_file_section(modbase, tgt, tgt+1, NULL, NULL,
-                                      &secchar, NULL, 0, NULL, false)) {
+                                      &secchar, NULL, 0, NULL, false, -1, false)) {
         ASSERT(DYNAMO_OPTION(rct_section_type) != 0 &&
                !TESTANY(~(IMAGE_SCN_CNT_CODE|IMAGE_SCN_CNT_INITIALIZED_DATA|
                           IMAGE_SCN_CNT_UNINITIALIZED_DATA),
@@ -3360,7 +3407,7 @@ rct_analyze_module_at_violation(dcontext_t *dcontext, app_pc target_pc)
     ASSERT(DYNAMO_OPTION(rct_section_type) != 0); /* sentinel for is_in_executable_... */
     if (!is_in_executable_file_section(module_base, target_pc, target_pc+1, NULL, NULL,
                                        &sec_flags, NULL, DYNAMO_OPTION(rct_section_type),
-                                       NULL, false /* no need to merge */) ||
+                                       NULL, false /* no need to merge */, -1, false) ||
         (DYNAMO_OPTION(rct_section_type_exclude) != 0 &&
          TESTALL(DYNAMO_OPTION(rct_section_type_exclude), sec_flags))) {
         SYSLOG_INTERNAL_WARNING_ONCE("RCT executing from non-analyzed module "
@@ -4789,53 +4836,8 @@ module_dump_pe_file(HANDLE new_file,
     return true;
 }
 
-/* add only the intersection of the two regions to the running MD5 sum */
-static void
-region_intersection_MD5update(struct MD5Context *ctx, 
-                              app_pc region1_start, size_t region1_len,
-                              app_pc region2_start, size_t region2_len)
-{
-    app_pc intersection_start;
-    size_t intersection_len;
-    ASSERT(ctx != NULL);
-    region_intersection(&intersection_start, &intersection_len,
-                        region1_start, region1_len, 
-                        region2_start, region2_len);
-    if (intersection_len != 0) {
-        LOG(GLOBAL, LOG_SYSCALLS, 2,
-            "adding to short hash region "PFX"-"PFX"\n", 
-            intersection_start, intersection_start + intersection_len);
-        MD5Update(ctx, intersection_start, intersection_len);
-    }
-}
-
-/* keeps track of both short and full digests on each region */
-static
-void
-module_calculate_digest_helper(struct MD5Context * md5_full_cxt OPTIONAL, 
-                               struct MD5Context * md5_short_cxt OPTIONAL,
-                               app_pc region_start, size_t region_len,
-                               app_pc start_header, size_t len_header,
-                               app_pc start_footer, size_t len_footer)
-{
-    ASSERT(md5_full_cxt != NULL || md5_short_cxt != NULL);
-    if (md5_full_cxt != NULL) 
-        MD5Update(md5_full_cxt, region_start, region_len);
-    if (md5_short_cxt == NULL)
-        return;
-    if (len_header != 0) {
-        region_intersection_MD5update(md5_short_cxt, 
-                                      region_start, region_len,
-                                      start_header, len_header);
-    }
-    if (len_footer != 0) {
-        region_intersection_MD5update(md5_short_cxt, 
-                                      region_start, region_len,
-                                      start_footer, len_footer);
-    }
-}
-
-/* Verifies that according to section Characteristics it's mapping is expected to be
+/* FIXME: share the version in module_list.c */
+/* Verifies that according to section Characteristics its mapping is expected to be
  * readable (and if not VirtualProtects to makes it so).  NOTE this only operates on
  * the mapped portion of the section (via get_image_section_map_size()) which may be
  * smaller then the virtual size (get_image_section_size()) of the section (in which
@@ -4887,6 +4889,7 @@ ensure_section_readable(app_pc module_base, IMAGE_SECTION_HEADER *sec,
     return false;
 }
 
+/* FIXME: share the version in module_list.c */
 static bool
 restore_unreadable_section(app_pc module_base, IMAGE_SECTION_HEADER *sec, 
                            IMAGE_NT_HEADERS *nt, uint restore_prot,
@@ -4915,179 +4918,6 @@ restore_unreadable_section(app_pc module_base, IMAGE_SECTION_HEADER *sec,
     ASSERT(old_prot == PAGE_READONLY);
 
     return ok;
-}
-
-/* note it operates on a PE mapping so it can be passed either a
- * relocated or the original file.  Either full or short digest or both can be requested.
- * If short_digest is set the short version of the digest is
- * calculated and set.  Note that if short_digest_size crosses an
- * unreadable boundary it is truncated to the smallest consecutive
- * memory region from each of the header and the footer.  If
- * short_digest_size is 0 or larger than half of the file size the
- * short and full digests are supposed to be equal.
- * If sec_characteristics != 0, only sections TESTANY matching those
- * characteristics (and the PE headers) are considered.
- * It is the caller's responsibility to ensure that module_size is not
- * larger than the mapped view size.
- */
-void
-module_calculate_digest(OUT module_digest_t *digest,
-                        app_pc module_base, 
-                        size_t module_size,
-                        bool full_digest,
-                        bool short_digest,
-                        uint short_digest_size,
-                        uint sec_characteristics)
-{
-    struct MD5Context md5_short_cxt;
-    struct MD5Context md5_full_cxt;
-
-    IMAGE_NT_HEADERS *nt;
-    IMAGE_SECTION_HEADER *sec;
-    uint i;
-    app_pc module_end = module_base + module_size;
-
-    /* tentative starts */
-    /* need to adjust these buffers in case of crossing unreadable areas,
-     * or if overlapping
-     */
-    /* Note that simpler alternative would have been to only produce a
-     * digest on the PE header (0x400), and maybe the last section.
-     * However for better consistency guarantees, yet with a
-     * predictable performance, used this more involved definition of
-     * short digest.  While a 64KB digest may be acceptable, full
-     * checks on some 8MB DLLs may be noticeable.
-     */
-
-    app_pc header_start = module_base;
-    size_t header_len = MIN(module_size, short_digest_size);
-    app_pc footer_start = module_end - short_digest_size;
-    size_t footer_len;
-
-    app_pc region_start;
-    size_t region_len;
-
-    ASSERT(digest != NULL);
-    ASSERT(module_base != NULL);
-    ASSERT(module_size != 0);
-
-    LOG(GLOBAL, LOG_SYSCALLS, 2,
-        "module_calculate_digest: module "PFX"-"PFX"\n", 
-        module_base, module_base + module_size);
-
-    if (short_digest_size == 0) {
-        header_len = module_size;
-    }
-
-    footer_start = MAX(footer_start, header_start + header_len);
-    footer_len = module_end - footer_start;
-    /* footer region will be unused if footer_len is 0 - in case of
-     * larger than file size short size, or if short_digest_size = 0
-     * which also means unbounded */
-
-    /* note that this function has significant overlap with
-     * module_dump_pe_file(), and in fact we could avoid a second
-     * traversal and associated cache pollution on producing a file if
-     * we provide this functionality in module_dump_pe_file().  Of
-     * course for verification we still need this separately 
-     */
-
-    if (!is_readable_pe_base(module_base)) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-    nt = NT_HEADER(module_base);
-
-    if (short_digest)
-        MD5Init(&md5_short_cxt);
-    if (full_digest) 
-        MD5Init(&md5_full_cxt);
-
-    /* first region to consider is module header */
-    region_start = module_base + 0;
-    region_len = nt->OptionalHeader.SizeOfHeaders;
-
-    /* FIXME: note that if we want to provide/match an Authenticode
-     * hash we'd have to skip the Checksum field in the header - see
-     * pecoff_v8 */
-
-    /* at each step intersect with the possible short regions */
-    module_calculate_digest_helper(full_digest ? &md5_full_cxt : NULL,
-                                   short_digest ? &md5_short_cxt : NULL,
-                                   region_start, region_len,
-                                   header_start, header_len,
-                                   footer_start, footer_len);
-
-    sec = IMAGE_FIRST_SECTION(nt);
-    for (i = 0; i < nt->FileHeader.NumberOfSections; i++, sec++) {
-        uint old_section_prot;
-        bool readable;
-        LOG(GLOBAL, LOG_VMAREAS, 4, "\tName = %.*s\n", IMAGE_SIZEOF_SHORT_NAME,
-            sec->Name);
-        LOG(GLOBAL, LOG_VMAREAS, 2, "\tVirtualAddress = 0x%08x\n", sec->VirtualAddress);
-        LOG(GLOBAL, LOG_VMAREAS, 2, "\tPointerToRawData  = 0x%08x\n",
-            sec->PointerToRawData);
-        LOG(GLOBAL, LOG_VMAREAS, 2, "\tSizeOfRawData  = 0x%08x\n", sec->SizeOfRawData);
-        
-        /* comres.dll for an example of an empty physical section
-         *   .data name
-         *      0 size of raw data
-         *      0 file pointer to raw data
-         */
-        if (get_image_section_map_size(sec, nt) == 0) {
-            LOG(GLOBAL, LOG_VMAREAS, 1, "skipping empty physical section %.*s\n", 
-                IMAGE_SIZEOF_SHORT_NAME, sec->Name);
-            /* note that such sections will still get 0-filled 
-             * but we only look at raw bytes */
-            continue;
-        }
-        if (!TESTANY(sec_characteristics, sec->Characteristics)) {
-            LOG(GLOBAL, LOG_VMAREAS, 2, "skipping non-matching section %.*s\n", 
-                IMAGE_SIZEOF_SHORT_NAME, sec->Name);
-            continue;
-        }
-
-        /* make sure region is readable. Alternatively, we could just
-         * ignore unreadable (according to characteristics) portions
-         */
-        readable = ensure_section_readable(module_base, sec, nt, &old_section_prot,
-                                           module_base, module_size);
-
-        region_start = module_base + sec->VirtualAddress;
-        region_len = get_image_section_map_size(sec, nt);
-
-        module_calculate_digest_helper(full_digest ? &md5_full_cxt : NULL,
-                                       short_digest ? &md5_short_cxt : NULL,
-                                       region_start, region_len,
-                                       header_start, header_len,
-                                       footer_start, footer_len);                                   
-        if (!readable) {
-            bool ok = restore_unreadable_section(module_base, sec, nt, old_section_prot,
-                                                 module_base, module_size);
-            ASSERT(ok);
-        }
-    }
-
-    if (short_digest) 
-        MD5Final(digest->short_MD5, &md5_short_cxt);
-    if (full_digest) 
-        MD5Final(digest->full_MD5, &md5_full_cxt);
-
-    DODEBUG({
-        if (full_digest && short_digest && 
-            (short_digest_size == 0 ||
-             short_digest_size * 2 > module_size)) {
-            ASSERT(md5_digests_equal(digest->short_MD5, digest->full_MD5));
-        }
-    });
-
-    /* FIXME: Note that if we did want to have an md5sum-matching
-     * digest we'd have to append the module bytes with the extra
-     * bytes that are only present on disk in our digest.  Since
-     * usually quite small that could be handled by a read_file()
-     * instead of remapping the whole file as MEM_MAPPED. It would be
-     * applicable only if we have the appropriate file handle of
-     * course. */
 }
 
 /* We don't want the compiler to use a byte comparison (rep cmpsb)

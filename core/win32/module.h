@@ -37,7 +37,7 @@
                        * FIXME - remove this header dependency */
 
 #define OS_IMAGE_READ    IMAGE_SCN_MEM_READ
-#define OS_IMAGE_WRITE   IMAGE_SCN_MEM_READ
+#define OS_IMAGE_WRITE   IMAGE_SCN_MEM_WRITE
 #define OS_IMAGE_EXECUTE IMAGE_SCN_MEM_EXECUTE
 
 typedef struct _os_module_data_t {

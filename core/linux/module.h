@@ -53,10 +53,10 @@
 # define ELF_WORD_SIZE 32 /* __ELF_NATIVE_CLASS */
 #endif
 
-/* FIXME NYI */
-#define OS_IMAGE_READ    (ASSERT_NOT_IMPLEMENTED(false), 0)
-#define OS_IMAGE_WRITE   (ASSERT_NOT_IMPLEMENTED(false), 0)
-#define OS_IMAGE_EXECUTE (ASSERT_NOT_IMPLEMENTED(false), 0)
+/* used only in our own routines here which use PF_* converted to MEMPROT_* */
+#define OS_IMAGE_READ    (MEMPROT_READ)
+#define OS_IMAGE_WRITE   (MEMPROT_WRITE)
+#define OS_IMAGE_EXECUTE (MEMPROT_EXEC)
 
 /* i#160/PR 562667: support non-contiguous library mappings.  While we're at
  * it we go ahead and store info on each segment whether contiguous or not.

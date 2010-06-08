@@ -328,6 +328,14 @@ rct_module_table_t *
 os_module_get_rct_htable(app_pc pc, rct_type_t which);
 #endif
 
+bool
+module_get_nth_segment(app_pc module_base, uint n,
+                       app_pc *start/*OPTIONAL OUT*/, app_pc *end/*OPTIONAL OUT*/,
+                       uint *chars/*OPTIONAL OUT*/);
+
+size_t
+module_get_header_size(app_pc module_base);
+
 typedef struct {
     /* MD5 of portions of files mapped as image sections */
     byte full_MD5[MD5_RAW_BYTES];

@@ -245,6 +245,11 @@ module_add_segment_data(OUT os_module_data_t *out_data,
         if (out_data->segments[seg].start > out_data->segments[seg - 1].end)
             out_data->contiguous = false;
     }
+    if (seg < out_data->num_segments - 1) {
+        ASSERT(out_data->segments[seg + 1].start >= out_data->segments[seg].end);
+        if (out_data->segments[seg + 1].start > out_data->segments[seg].end)
+            out_data->contiguous = false;
+    }
 }
 
 /* Returned addresses out_base and out_end are relative to the actual
@@ -509,6 +514,15 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
             }
         }
         module_list_add_mapping(ma, seg_base, ma->os_data.segments[i - 1].end);
+        DOLOG(2, LOG_VMAREAS, {
+            LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2, "segment list\n");
+            for (i = 0; i < ma->os_data.num_segments; i++) {
+                LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2,
+                    "\tsegment %d: ["PFX","PFX") prot=%x\n", i,
+                    ma->os_data.segments[i].start, ma->os_data.segments[i].end,
+                    ma->os_data.segments[i].prot);
+            }
+        });
     }
 
     LOG(GLOBAL, LOG_SYMBOLS, 2,
@@ -920,6 +934,8 @@ is_mapped_as_image(app_pc module_base)
 /* Gets module information of module containing pc, cached from our module list.
  * Returns false if not in module; none of the OUT arguments are set in that case.
  *
+ * FIXME: share code w/ win32/module.c's os_get_module_info()
+ *
  * Note: this function returns only one module name using the rule established
  * by GET_MODULE_NAME(); for getting all possible ones use
  * os_get_module_info_all_names() directly.  Part of fix for case 9842.
@@ -956,10 +972,20 @@ os_get_module_info(const app_pc pc, uint *checksum, uint *timestamp,
         if (name != NULL)
             *name = GET_MODULE_NAME(&ma->names);
         if (code_size != NULL) {
-            /* FIXME: after merge w/ PR 562667 just use rx segment size
-             * since don't want to impl section iterator (i#76/PR 212458)?
+            /* Using rx segment size since don't want to impl section
+             * iterator (i#76/PR 212458)
              */
-            *code_size = 0;
+            uint i;
+            size_t rx_sz = 0;
+            ASSERT(ma->os_data.num_segments > 0 && ma->os_data.segments != NULL);
+            for (i = 0; i < ma->os_data.num_segments; i++) {
+                if (ma->os_data.segments[i].prot == (MEMPROT_EXEC | MEMPROT_READ)) {
+                    rx_sz = ma->os_data.segments[i].end -
+                        ma->os_data.segments[i].start;
+                    break;
+                }
+            }
+            *code_size = rx_sz;
         }
         if (file_version != NULL) {
             /* FIXME: NYI: make windows-only everywhere if no good linux source */
@@ -995,20 +1021,46 @@ os_module_get_rct_htable(app_pc pc, rct_type_t which)
 }
 #endif
 
-void
-module_calculate_digest(/*OUT*/ module_digest_t *digest,
-                        app_pc module_base, 
-                        size_t module_size,
-                        bool full_digest,
-                        bool short_digest,
-                        uint short_digest_size,
-                        uint sec_characteristics)
+/* Returns true if the module has an nth segment, false otherwise. */
+bool
+module_get_nth_segment(app_pc module_base, uint n,
+                       app_pc *start/*OPTIONAL OUT*/, app_pc *end/*OPTIONAL OUT*/,
+                       uint *chars/*OPTIONAL OUT*/)
 {
-    /* FIXME: implement once we have segment list to iterate over
-     * from PR 562667
-     */
-    /* be sure to handle non-contiguous modules (xref i#160/PR 562667) */
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME PR 295534: NYI */
+    module_area_t *ma;
+    bool res = false;
+    if (!is_module_list_initialized())
+        return false;
+    os_get_module_info_lock();
+    ma = module_pc_lookup(module_base);
+    if (ma != NULL && n < ma->os_data.num_segments) {
+        LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 3, "%s: ["PFX"-"PFX") %x\n",
+            __FUNCTION__, ma->os_data.segments[n].start, ma->os_data.segments[n].end,
+            ma->os_data.segments[n].prot);
+        if (start != NULL)
+            *start = ma->os_data.segments[n].start;
+        if (end != NULL)
+            *end = ma->os_data.segments[n].end;
+        if (chars != NULL)
+            *chars = ma->os_data.segments[n].prot;
+        res = true;
+    }
+    os_get_module_info_unlock();
+    return res;
+}
+
+size_t
+module_get_header_size(app_pc module_base)
+{
+    ELF_HEADER_TYPE *elf_header = (ELF_HEADER_TYPE *) module_base;
+    if (!is_elf_so_header_common(module_base, 0, true))
+        return 0;
+    ASSERT(offsetof(Elf64_Ehdr, e_machine) == 
+           offsetof(Elf32_Ehdr, e_machine));
+    if (elf_header->e_machine == EM_X86_64)
+        return sizeof(Elf64_Ehdr);
+    else
+        return sizeof(Elf32_Ehdr);
 }
 
 bool

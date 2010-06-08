@@ -1820,7 +1820,8 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT(bool, persist_lock_file, true,
                    "keep persisted file handle open to prevent writes/deletes")
     /* FIXME: could make PC_ to coexist for separate values */
-    OPTION_DEFAULT(uint, persist_gen_validation, 0x1d,
+    /* PR 215036: linux does not support PERSCACHE_MODULE_MD5_AT_LOAD */
+    OPTION_DEFAULT(uint, persist_gen_validation, IF_WINDOWS_ELSE(0x1d,0xd),
                    /* PERSCACHE_MODULE_MD5_SHORT | PERSCACHE_MODULE_MD5_AT_LOAD |
                       PERSCACHE_GENFILE_MD5_{SHORT,COMPLETE} */
         "controls md5 values that we store when we persist")
