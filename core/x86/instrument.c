@@ -4494,6 +4494,23 @@ dr_app_pc_for_decoding(app_pc pc)
     return pc;
 }
 
+DR_API 
+app_pc
+dr_app_pc_from_cache_pc(byte *cache_pc)
+{
+    app_pc res = NULL;
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    bool waslinking = is_couldbelinking(dcontext);
+    if (!waslinking)
+        enter_couldbelinking(dcontext, NULL, false);
+    /* suppress asserts about faults in meta instrs */
+    DODEBUG({ dcontext->client_data->is_translating = true; });
+    res = recreate_app_pc(dcontext, cache_pc, NULL);
+    DODEBUG({ dcontext->client_data->is_translating = false; });
+    if (!waslinking)
+        enter_nolinking(dcontext, NULL, false);
+    return res;
+}
 
 /***************************************************************************
  * CUSTOM TRACES SUPPORT

@@ -2778,7 +2778,9 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
                 DODEBUG({
                     if (!(instr_is_our_mangling(inst) /* PR 302951 */ ||
                           tdcontext != get_thread_private_dcontext() ||
-                          INTERNAL_OPTION(stress_recreate_pc))) {
+                          INTERNAL_OPTION(stress_recreate_pc)
+                          IF_CLIENT_INTERFACE(||
+                                              tdcontext->client_data->is_translating))) {
                         CLIENT_ASSERT(false, "meta-instr faulted?  should mark as "
                                       "non-meta and set translation!");
                     }
@@ -2828,14 +2830,19 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
             DOLOG(5, LOG_INTERP, loginst(get_thread_private_dcontext(), 
                                          5, prev_ok, "\tok instr"););
             prev_bytes = instr_get_translation(inst);
-            /* we really want the pc after the translation target since we'll 
-             * use this if we pass up the target without hitting it
-             */
-            /* FIXME: do we need to check for readability first? 
-             * in normal usage all translation targets should have been decoded
-             * already while building the bb ilist
-             */
-            prev_bytes = decode_next_pc(tdcontext, prev_bytes);
+            if (!instr_is_meta_may_fault(inst)) {
+                /* we really want the pc after the translation target since we'll 
+                 * use this if we pass up the target without hitting it:
+                 * unless this is a meta instr in which case we assume the
+                 * real instr is ahead (FIXME: there could be cases where
+                 * we want the opposite: how know?)
+                 */
+                /* FIXME: do we need to check for readability first? 
+                 * in normal usage all translation targets should have been decoded
+                 * already while building the bb ilist
+                 */
+                prev_bytes = decode_next_pc(tdcontext, prev_bytes);
+            }
         }
 
         translate_walk_track(tdcontext, inst, &walk);

@@ -387,6 +387,9 @@ typedef struct _client_data_t {
     bool           client_thread_safe_for_synch;
     uint           mutex_count; /* mutex nesting: for PR 558463 */
     void           *client_grab_mutex;
+# ifdef DEBUG
+    bool           is_translating;
+# endif
 
     /* flags for asserts on linux and for getting param base right on windows */
     bool           in_pre_syscall;

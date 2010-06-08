@@ -1546,7 +1546,7 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
              */
             CLIENT_ASSERT(di->size_immed2 == OPSZ_NA,
                           "encode error: immed size already set");
-            di->size_immed2 = opsize;
+            di->size_immed2 = resolve_variable_size(di, opsize, false);
             /* And now we ask to be adjusted to become an absolute pc: */
             di->size_immed = OPSZ_28_short14; /* == immed needs +pc */
         } else {

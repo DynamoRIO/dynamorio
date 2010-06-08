@@ -3379,6 +3379,16 @@ DR_API
 app_pc
 dr_app_pc_for_decoding(app_pc pc);
 
+DR_API 
+/**
+ * Given a code cache pc, returns the corresponding application pc.
+ * This involves translating the state and thus may incur calls to
+ * the basic block and trace events (see dr_register_bb_event()).
+ * If translation fails, returns NULL.
+ */
+app_pc
+dr_app_pc_from_cache_pc(byte *cache_pc);
+
 #ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */
 
