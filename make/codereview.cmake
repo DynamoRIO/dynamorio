@@ -181,13 +181,15 @@ else (UNIX)
   string(REGEX REPLACE "^....../../([0-9][0-9][0-9][0-9])" "\\1" year "${date_out}")
 endif (UNIX)
 
-set(DEST_BASE "${REVIEWS}/${AUTHOR}/${year}")
+# we run from the REVIEWS dir so no need to include it here
+set(DEST_BASE "${AUTHOR}/${year}")
 set(DEST "${DEST_BASE}/${LABEL}")
-message(STATUS "destination is \"${DEST}.{diff,notes}\"")
+message(STATUS "destination is \"${REVIEWS}/${DEST}.{diff,notes}\"")
 
 if (REVERT)
 
   execute_process(COMMAND ${SVN} status ${DEST}.diff
+    WORKING_DIRECTORY ${REVIEWS}
     RESULT_VARIABLE svn_result 
     ERROR_VARIABLE svn_err
     OUTPUT_VARIABLE svn_out)
@@ -206,43 +208,49 @@ if (REVERT)
 
 else (REVERT)
 
-  if (NOT EXISTS "${DEST_BASE}")
+  if (NOT EXISTS "${REVIEWS}/${DEST_BASE}")
     if (NOT EXISTS "${REVIEWS}/${AUTHOR}")
-      run_svn("mkdir;${REVIEWS}/${AUTHOR}")
+      run_svn("mkdir;${AUTHOR}")
     endif (NOT EXISTS "${REVIEWS}/${AUTHOR}")
     run_svn("mkdir;${DEST_BASE}")
-  endif (NOT EXISTS "${DEST_BASE}")
+  endif (NOT EXISTS "${REVIEWS}/${DEST_BASE}")
+
+  set(NOTES_LOCAL "${DEST}.notes")
+  set(DIFF_LOCAL "${DEST}.diff")
+  set(NOTES_FILE "${REVIEWS}/${NOTES_LOCAL}")
+  set(DIFF_FILE "${REVIEWS}/${DIFF_LOCAL}")
 
   # If someone manually created these files then this script
   # will fail: we assume not already there if haven't been
   # added to svn yet.
-  if (NOT EXISTS "${DEST}.diff")
-    file(WRITE ${DEST}.diff "")
-    run_svn("add;${DEST}.diff")
-  endif (NOT EXISTS "${DEST}.diff")
-  if (NOT EXISTS "${DEST}.notes")
-    file(WRITE ${DEST}.notes "")
-    run_svn("add;${DEST}.notes")
-  endif (NOT EXISTS "${DEST}.notes")
+  if (NOT EXISTS "${DIFF_FILE}")
+    file(WRITE "${DIFF_FILE}" "")
+    run_svn("add;${DIFF_LOCAL}")
+  endif (NOT EXISTS "${DIFF_FILE}")
+  if (NOT EXISTS "${NOTES_FILE}")
+    file(WRITE "${NOTES_FILE}" "")
+    run_svn("add;${NOTES_LOCAL}")
+  endif (NOT EXISTS "${NOTES_FILE}")
 
   # We want context diffs with procedure names for better readability
   # svn diff does show new files for us but we pass -N just in case
   execute_process(COMMAND ${SVN} diff --diff-cmd diff -x "-c -p -N"
     RESULT_VARIABLE svn_result 
     ERROR_VARIABLE svn_err
-    OUTPUT_FILE ${DEST}.diff)
+    OUTPUT_FILE "${DIFF_FILE}")
   if (svn_result OR svn_err)
     message(FATAL_ERROR "*** ${SVN} diff failed: ***\n${svn_err}")
   endif (svn_result OR svn_err)
 
   file(READ ${NOTES} string)
   string(REGEX REPLACE "^.*\ntoreview:\r?\n" "" pubnotes "${string}")
+  string(REGEX REPLACE "^toreview:\r?\n" "" pubnotes "${pubnotes}")
   if ("${string}" STREQUAL "${pubnotes}")
     message(FATAL_ERROR "${NOTES} is missing \"toreview:\" marker")
   endif ("${string}" STREQUAL "${pubnotes}")
 
   # Do "wc -l" ourselves
-  file(READ ${DEST}.diff string)
+  file(READ "${DIFF_FILE}" string)
   string(REGEX MATCHALL "\n" newlines "${string}")
   list(LENGTH newlines lines )
 
@@ -392,19 +400,19 @@ else (REVERT)
 
   # We commit the diff to review/ using special syntax to auto-generate
   # an Issue that covers performing the review
-  file(WRITE ${DEST}.notes
+  file(WRITE "${NOTES_FILE}"
     "new review:\nowner: ${REVIEWER}\nsummary: ${AUTHOR}/${year}/${LABEL}.diff\n")
-  file(APPEND ${DEST}.notes "${pubnotes}")
-  file(APPEND ${DEST}.notes "\nstats: ${lines} diff lines\n")
+  file(APPEND "${NOTES_FILE}" "${pubnotes}")
+  file(APPEND "${NOTES_FILE}" "\nstats: ${lines} diff lines\n")
   if (EXISTS "${DIFFSTAT}")
-    execute_process(COMMAND ${DIFFSTAT} ${DEST}.diff
+    execute_process(COMMAND ${DIFFSTAT} "${DIFF_FILE}"
       ERROR_QUIET OUTPUT_VARIABLE diffstat_out)
-    file(APPEND ${DEST}.notes "${diffstat_out}")
+    file(APPEND "${NOTES_FILE}" "${diffstat_out}")
   endif (EXISTS "${DIFFSTAT}")
   message(STATUS "ready to commit")
 
   if (COMMIT)
-    run_svn("commit;--force-log;-F;${DEST}.notes")
+    run_svn("commit;--force-log;-F;${NOTES_LOCAL}")
     message(STATUS "committed")
   endif (COMMIT)
 

@@ -373,7 +373,9 @@ be done manually.  The provided tools support reading and writing both
 local and global configuration files, and automatically creating the local
 directory.  \DynamoRIO gives local files precedence when both exist.  Note
 that applications that do not have a $USEPROFILE environment variable can
-only be executed using global configurations.
+only be executed using global configurations.  Also note that by default
+\c $USERPROFILE is not set over cygwin ssh and must be explicitly set in
+the shell startup files.
 
 Configurations are per-process, with the basename of the process used for
 identification (e.g., \c calc.exe).  One-time configuration also uses the

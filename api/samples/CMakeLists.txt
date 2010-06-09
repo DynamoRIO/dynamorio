@@ -48,6 +48,10 @@ if (WIN32)
   if (SHOW_SYMBOLS)
     add_definitions(-DSHOW_SYMBOLS)
   endif (SHOW_SYMBOLS)
+  if (NOT DEFINED GENERATE_PDBS)
+    # support running tests over ssh where pdb building is problematic
+    set(GENERATE_PDBS ON)
+  endif (NOT DEFINED GENERATE_PDBS)
 endif (WIN32)
 
 if (NOT DEFINED DynamoRIO_DIR)
@@ -134,12 +138,12 @@ configure_file("${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt.in"
 foreach (tgt ${tgts})
   # ensure we rebuild samples if includes change
   add_dependencies(${tgt} api_headers)
-  if (WIN32) # for release and debug
+  if (WIN32 AND GENERATE_PDBS) # for release and debug
     # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
     # In any case we make sure to add it:
     get_target_property(cur_flags ${tgt} LINK_FLAGS)
     set_target_properties(${tgt} PROPERTIES LINK_FLAGS "${cur_flags} /debug")
-  endif (WIN32)
+  endif (WIN32 AND GENERATE_PDBS)
 endforeach (tgt)
 
 if (NOT DEFINED INSTALL_PREFIX)

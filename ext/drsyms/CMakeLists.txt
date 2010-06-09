@@ -38,10 +38,12 @@ if (WIN32)
   use_DynamoRIO_extension(drsyms drcontainers)
   # ensure we rebuild if includes change
   add_dependencies(drsyms api_headers)
-  # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
-  # In any case we make sure to add it (for release and debug, to get pdb):
-  get_target_property(cur_flags drsyms LINK_FLAGS)
-  set_target_properties(drsyms PROPERTIES LINK_FLAGS "${cur_flags} /debug")
+  if (GENERATE_PDBS)
+    # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
+    # In any case we make sure to add it (for release and debug, to get pdb):
+    get_target_property(cur_flags drsyms LINK_FLAGS)
+    set_target_properties(drsyms PROPERTIES LINK_FLAGS "${cur_flags} /debug")
+  endif (GENERATE_PDBS)
 
   # documentation is put into main DR docs/ dir
   

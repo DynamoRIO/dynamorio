@@ -66,21 +66,25 @@ foreach (fig ${figures_fig})
     WORKING_DIRECTORY ${genimg_dirname}
     VERBATIM # recommended: p260
     )
-  add_custom_command(
-    OUTPUT ${genimg_dirname}/${base}.tiff
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig
-    # fig2dev doesn't quote gs output path; set working dir to avoid spaces
-    COMMAND ${FIG2DEV_EXECUTABLE}
-    ARGS -L tiff -m 4 ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig ${base}.tiff
-    WORKING_DIRECTORY ${genimg_dirname}
-    VERBATIM # recommended: p260
-    )
+  # To avoid keeping the intermediate .tiff files around, which are quite
+  # large (50MB total, nearly half the space in a default build dir), we
+  # do not list as a separate custom command target but build inside
+  # a sequence of commands:
   add_custom_command(
     OUTPUT ${genimg_dirname}/${base}.png
-    DEPENDS ${genimg_dirname}/${base}.tiff
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig
+    # First build a tiff
+    COMMAND ${FIG2DEV_EXECUTABLE}
+      ARGS -L tiff -m 4 ${CMAKE_CURRENT_SOURCE_DIR}/${base}.fig ${base}.tiff
+    # Second, build a png from the tiff
     COMMAND ${ImageMagick_mogrify_EXECUTABLE}
-    # fig2dev produces multi-part image so ask for just 1st
-    ARGS -resize 33% -format png ${genimg_dirname_IM}/${base}.tiff[0]
+      # fig2dev produces multi-part image so ask for just 1st
+      ARGS -resize 33% -format png ${genimg_dirname_IM}/${base}.tiff[0]
+    # Third, delete the tiff
+    COMMAND ${CMAKE_COMMAND}
+      ARGS -E remove ${genimg_dirname}/${base}.tiff
+    # fig2dev doesn't quote gs output path; set working dir to avoid spaces
+    WORKING_DIRECTORY ${genimg_dirname}
     VERBATIM # recommended: p260
     )
   # FYI: for VMSAFE we did: $(SED) 's|DynamoRIO|${VMSAFE_NAME}|g'

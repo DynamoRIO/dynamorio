@@ -30,7 +30,6 @@
 
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
-# * ssh support for running on remote machines: copy, disable pdbs, run
 
 cmake_minimum_required (VERSION 2.2)
 set(cmake_ver_string
@@ -63,6 +62,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} MATCHES "^site=")
     string(REGEX REPLACE "^site=" "" arg_site "${arg}")
   endif (${arg} MATCHES "^site=")
+  if (${arg} STREQUAL "ssh")
+    set(arg_ssh ON)
+  endif (${arg} STREQUAL "ssh")
 endforeach (arg)
 
 # allow setting the base cache variables via an include file
@@ -71,6 +73,12 @@ if (arg_include)
   message("including ${arg_include}")
   include(${arg_include})
 endif (arg_include)
+
+if (arg_ssh)
+  # avoid problems creating pdbs as cygwin ssh user (i#310)
+  set(base_cache "${base_cache}
+    GENERATE_PDBS:BOOL=OFF")
+endif (arg_ssh)
 
 if (arg_long)
   set(TEST_LONG ON)
@@ -210,6 +218,19 @@ function(testbuild_ex name is64 initial_cache build_args)
     # For Linux these messages make little perf difference, and can help
     # diagnose errors or watch progress.
     set(os_specific_defines "CMAKE_RULE_MESSAGES:BOOL=OFF")
+    if (arg_ssh)
+      # i#310: set key vars that normally come from CMakeDetermineCompilerABI.cmake
+      # but which the try-compile pdb issue prevents
+      if (is64)
+        set(ptr_size "8")
+      else (is64)
+        set(ptr_size "4")
+      endif (is64)
+      set(os_specific_defines "${os_specific_defines}
+        CMAKE_CXX_SIZEOF_DATA_PTR:STRING=${ptr_size}
+        CMAKE_C_SIZEOF_DATA_PTR:STRING=${ptr_size}
+        CMAKE_SIZEOF_VOID_P:STRING=${ptr_size}")
+    endif (arg_ssh)
   else (WIN32)
     set(os_specific_defines "")
   endif (WIN32)

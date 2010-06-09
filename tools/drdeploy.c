@@ -63,10 +63,12 @@ static bool quiet;
 static bool DR_dll_not_needed;
 static bool nocheck;
 
-#define fatal(msg, ...) do { \
+#define die() exit(1)
+
+/* up to caller to call die() if necessary */
+#define error(msg, ...) do { \
     fprintf(stderr, "ERROR: " msg "\n", __VA_ARGS__);    \
     fflush(stderr); \
-    exit(1); \
 } while (0)
 
 #define warn(msg, ...) do { \
@@ -204,27 +206,30 @@ const char *usage_str =
     fprintf(stderr, "\n");                                      \
     fprintf(stderr, "ERROR: " msg "\n\n", __VA_ARGS__);         \
     fprintf(stderr, "%s\n", usage_str);                         \
-    exit(1);                                                    \
+    die();                                                    \
 } while (0)
 
 /* Unregister a process */
-void unregister_proc(const char *process, process_id_t pid,
+bool unregister_proc(const char *process, process_id_t pid,
                      bool global, dr_platform_t dr_platform)
 {
     dr_config_status_t status = dr_unregister_process(process, pid, global, dr_platform);
     if (status == DR_PROC_REG_INVALID) {
-        fatal("no existing registration");
+        error("no existing registration");
+        return false;
     }
     else if (status == DR_FAILURE) {
-        fatal("unregistration failed");
+        error("unregistration failed");
+        return false;
     }
+    return true;
 }
 
 
 /* Check if the provided root directory actually has the files we
- * expect.
+ * expect.  Returns whether a fatal problem.
  */
-static void check_dr_root(const char *dr_root, bool debug,
+static bool check_dr_root(const char *dr_root, bool debug,
                           dr_platform_t dr_platform, bool preinject)
 {
     int i;
@@ -248,7 +253,7 @@ static void check_dr_root(const char *dr_root, bool debug,
 
     if (DR_dll_not_needed) {
         /* assume user knows what he's doing */
-        return;
+        return true;
     }
 
     for (i=0; i<_countof(checked_files); i++) {
@@ -263,8 +268,9 @@ static void check_dr_root(const char *dr_root, bool debug,
                 /* We don't want to create a .1config file that won't be freed
                  * b/c the core is never injected
                  */
-                fatal("cannot find required file %s\n"
+                error("cannot find required file %s\n"
                       "Use -root to specify a proper DynamoRIO root directory.", buf);
+                return false;
             } else {
                 warn("cannot find %s: is this an incomplete installation?", buf);
             }
@@ -272,10 +278,11 @@ static void check_dr_root(const char *dr_root, bool debug,
     }
     if (!ok)
         warn("%s does not appear to be a valid DynamoRIO root", dr_root);
+    return true;
 }
 
 /* Register a process to run under DR */
-void register_proc(const char *process,
+bool register_proc(const char *process,
                    process_id_t pid,
                    bool global,
                    const char *dr_root,
@@ -295,20 +302,30 @@ void register_proc(const char *process,
     }
     
     /* warn if the DR root directory doesn't look right */
-    check_dr_root(dr_root, debug, dr_platform, false);
+    if (!check_dr_root(dr_root, debug, dr_platform, false))
+        return false;
 
     if (dr_process_is_registered(process, pid, global, dr_platform,
                                  NULL, NULL, NULL, NULL)) {
         warn("overriding existing registration");
-        unregister_proc(process, pid, global, dr_platform);
+        if (!unregister_proc(process, pid, global, dr_platform))
+            return false;
     }
 
     status = dr_register_process(process, pid, global, dr_root, dr_mode,
                                  debug, dr_platform, extra_ops);
 
     if (status != DR_SUCCESS) {
-        fatal("process registration failed");
+        /* USERPROFILE is not set by default over cygwin ssh */
+        char buf[MAXIMUM_PATH];
+        if (GetEnvironmentVariableA("USERPROFILE", buf,
+                                    BUFFER_SIZE_ELEMENTS(buf)) <= 0) {
+            error("process registration failed: USERPROFILE env var not set!");
+        } else
+            error("process registration failed");
+        return false;
     }
+    return true;
 }
 
 
@@ -321,7 +338,7 @@ void check_client_lib(const char *client_lib)
 }
 
 
-void register_client(const char *process_name,
+bool register_client(const char *process_name,
                      process_id_t pid,
                      bool global,
                      dr_platform_t dr_platform,
@@ -334,7 +351,8 @@ void register_client(const char *process_name,
 
     if (!dr_process_is_registered(process_name, pid, global, dr_platform,
                                   NULL, NULL, NULL, NULL)) {
-        fatal("can't register client: process is not registered");
+        error("can't register client: process is not registered");
+        return false;
     }
 
     check_client_lib(path);
@@ -346,8 +364,10 @@ void register_client(const char *process_name,
                                 priority, path, options);
 
     if (status != DR_SUCCESS) {
-        fatal("client registration failed with error code %d", status);
+        error("client registration failed with error code %d", status);
+        return false;
     }
+    return true;
 }
 
 static const char *
@@ -650,7 +670,8 @@ int main(int argc, char *argv[])
 # endif
         else if (strcmp(argv[i], "-client") == 0) {
             if (num_clients == MAX_CLIENT_LIBS) {
-                fatal("Maximum number of clients is %d", MAX_CLIENT_LIBS);
+                error("Maximum number of clients is %d", MAX_CLIENT_LIBS);
+                die();
             }
             else {
                 if (i + 3 >= argc) {
@@ -757,15 +778,18 @@ int main(int argc, char *argv[])
 
 #ifdef DRCONFIG
     if (action == action_register) {
-        register_proc(process, 0, global, dr_root, dr_mode,
-                      use_debug, dr_platform, extra_ops);
+        if (!register_proc(process, 0, global, dr_root, dr_mode,
+                           use_debug, dr_platform, extra_ops))
+            die();
         for (j=0; j<num_clients; j++) {
-            register_client(process, 0, global, dr_platform, client_ids[j],
-                            (char *)client_paths[j], client_options[j]);
+            if (!register_client(process, 0, global, dr_platform, client_ids[j],
+                                 (char *)client_paths[j], client_options[j]))
+                die();
         }
     }
     else if (action == action_unregister) {
-        unregister_proc(process, 0, global, dr_platform);
+        if (!unregister_proc(process, 0, global, dr_platform))
+            die();
     }
     else if (action == action_nudge) {
         int count = 1;
@@ -806,7 +830,8 @@ int main(int argc, char *argv[])
         usage("no action specified");
     }
     if (syswide_on) {
-        check_dr_root(dr_root, false, dr_platform, true);
+        if (!check_dr_root(dr_root, false, dr_platform, true))
+            die();
         /* If this is the first setting of AppInit on NT, warn about reboot */
         if (!dr_syswide_is_on(dr_platform, dr_root)) {
             DWORD platform;
@@ -839,7 +864,7 @@ int main(int argc, char *argv[])
                           BUFFER_SIZE_ELEMENTS(app_cmdline) - sofar*sizeof(char), NULL);
         }
         NULL_TERMINATE_BUFFER(app_cmdline);
-        fatal("%s", app_cmdline);
+        error("%s", app_cmdline);
         goto error;
     }
 
@@ -850,19 +875,21 @@ int main(int argc, char *argv[])
 # ifdef DRRUN
     if (inject) {
         process = dr_inject_get_image_name(inject_data);
-        register_proc(process, dr_inject_get_process_id(inject_data), global,
-                      dr_root, dr_mode, use_debug, dr_platform, extra_ops);
+        if (!register_proc(process, dr_inject_get_process_id(inject_data), global,
+                           dr_root, dr_mode, use_debug, dr_platform, extra_ops))
+            goto error;
         for (j=0; j<num_clients; j++) {
-            register_client(process, dr_inject_get_process_id(inject_data), global,
-                            dr_platform, client_ids[j],
-                            (char *)client_paths[j], client_options[j]);
+            if (!register_client(process, dr_inject_get_process_id(inject_data), global,
+                                 dr_platform, client_ids[j],
+                                 (char *)client_paths[j], client_options[j]))
+                goto error;
         }
     }
 # endif
 
     if (inject && !dr_inject_process_inject(inject_data, force_injection, drlib_path)) {
-        fatal("unable to inject: did you forget to run drconfig first?");
-        goto error; /* actually won't get here */
+        error("unable to inject: did you forget to run drconfig first?");
+        goto error;
     }
 
     success = FALSE;
@@ -901,7 +928,10 @@ int main(int argc, char *argv[])
         return 0;
     }
  error:
-    dr_inject_process_exit(inject_data, false);
+    /* we created the process suspended so if we later had an error be sure
+     * to kill it instead of leaving it hanging
+     */
+    dr_inject_process_exit(inject_data, true/*kill process*/);
     return 1;
 #endif /* !DRCONFIG */
 }

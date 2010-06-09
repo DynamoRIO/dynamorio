@@ -76,10 +76,19 @@ endif (NOT DEFINED CMAKE_INSTALL_PREFIX)
 # Allow users to set -m32 in just CFLAGS and have it apply to CXXFLAGS as well.
 # CMake puts such flags in various variables early on and we'd have to go
 # manually add to CMAKE_SHARED_LIBRARY_CXX_FLAGS or something to fix later.
-
 if (NOT DEFINED ENV{CXXFLAGS})
   set(ENV{CXXFLAGS} "$ENV{CFLAGS}")
 endif (NOT DEFINED ENV{CXXFLAGS})
+
+# i#310: support building over cygwin ssh by disabling try-compile to
+# avoid pdb creation issues.  Note that this also disables compiler ABI
+# determination so the invoker must set CMAKE_{C,CXX}_SIZEOF_DATA_PTR
+# in the initial cache.  This also messes up cmake library search path,
+# but that does not affect us.
+if (DEFINED GENERATE_PDBS AND NOT GENERATE_PDBS)
+  set(CMAKE_C_COMPILER_WORKS ON)
+  set(CMAKE_CXX_COMPILER_WORKS ON)
+endif ()
 
 project(DynamoRIO)
 

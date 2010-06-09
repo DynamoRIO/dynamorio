@@ -46,12 +46,12 @@ endif (UNIX)
 # ensure we rebuild if includes change
 add_dependencies(drcontainers api_headers)
 
-if (WIN32)
+if (WIN32 AND GENERATE_PDBS)
   # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
   # In any case we make sure to add it (for release and debug, to get pdb):
   get_target_property(cur_flags drcontainers LINK_FLAGS)
   set_target_properties(drcontainers PROPERTIES LINK_FLAGS "${cur_flags} /debug")
-endif (WIN32)
+endif (WIN32 AND GENERATE_PDBS)
 
 # documentation is put into main DR docs/ dir
 
