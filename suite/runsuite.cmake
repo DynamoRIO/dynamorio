@@ -218,19 +218,6 @@ function(testbuild_ex name is64 initial_cache build_args)
     # For Linux these messages make little perf difference, and can help
     # diagnose errors or watch progress.
     set(os_specific_defines "CMAKE_RULE_MESSAGES:BOOL=OFF")
-    if (arg_ssh)
-      # i#310: set key vars that normally come from CMakeDetermineCompilerABI.cmake
-      # but which the try-compile pdb issue prevents
-      if (is64)
-        set(ptr_size "8")
-      else (is64)
-        set(ptr_size "4")
-      endif (is64)
-      set(os_specific_defines "${os_specific_defines}
-        CMAKE_CXX_SIZEOF_DATA_PTR:STRING=${ptr_size}
-        CMAKE_C_SIZEOF_DATA_PTR:STRING=${ptr_size}
-        CMAKE_SIZEOF_VOID_P:STRING=${ptr_size}")
-    endif (arg_ssh)
   else (WIN32)
     set(os_specific_defines "")
   endif (WIN32)

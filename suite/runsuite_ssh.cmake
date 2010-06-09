@@ -133,7 +133,10 @@ run_cmd("${cmd}")
 # * if coming from a perforce checkout don't want to preserve read-only
 #   perms so should use "-rltgoD" instead of "-a" though should just
 #   get replaced next time so shouldn't matter
-set(cmd "${RSYNC}" "-avzC" "--include=core/" "--delete" "${LOCAL_SRCDIR}/"
+set(cmd "${RSYNC}" "-avzC" "--include=core/" "--delete"
+  # exclude, in case people keep build/install dirs inside src dir
+  "--exclude=/build*" "--exclude=/exports*"
+  "${LOCAL_SRCDIR}/"
   "${USER}@${HOST}:${REMOTE_SRCDIR}/")
 run_cmd("${cmd}")
 

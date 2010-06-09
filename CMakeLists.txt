@@ -80,17 +80,16 @@ if (NOT DEFINED ENV{CXXFLAGS})
   set(ENV{CXXFLAGS} "$ENV{CFLAGS}")
 endif (NOT DEFINED ENV{CXXFLAGS})
 
-# i#310: support building over cygwin ssh by disabling try-compile to
-# avoid pdb creation issues.  Note that this also disables compiler ABI
-# determination so the invoker must set CMAKE_{C,CXX}_SIZEOF_DATA_PTR
-# in the initial cache.  This also messes up cmake library search path,
-# but that does not affect us.
+project(DynamoRIO NONE)
 if (DEFINED GENERATE_PDBS AND NOT GENERATE_PDBS)
-  set(CMAKE_C_COMPILER_WORKS ON)
-  set(CMAKE_CXX_COMPILER_WORKS ON)
+  # i#310: support building over cygwin ssh where we cannot build pdbs.
+  # To prevent cmake's try-compile for its working compiler test and
+  # its ABI determination test we request a Release build config
+  # via a custom Plaform/Windows-cl.cmake in our make/ dir.
+  set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/make")
 endif ()
-
-project(DynamoRIO)
+enable_language(C)
+enable_language(CXX)
 
 ###########################################################################
 # configuration options
@@ -340,13 +339,6 @@ else (UNIX)
   message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
   mark_as_advanced(CMAKE_MC_COMPILER)
 
-  # Note that we want the oldest ntdll.lib for maximum compatibility.
-  # The 2003 DDK (3790.1830) or Vista WDK (6000) both have these paths:
-  if (X64)
-    set(NTDLL_LIB_SUBPATH lib/wnet/amd64)
-  else (X64)
-    set(NTDLL_LIB_SUBPATH lib/w2k/i386)
-  endif (X64)
   # DDKROOT env var is recommended method in our docs
   if (NOT "$ENV{DDKROOT}" STREQUAL "")
     set(DDK_ROOT "$ENV{DDKROOT}")
@@ -355,7 +347,23 @@ else (UNIX)
     set(DDK_ROOT "$ENV{SYSTEMDRIVE}/WINDDK/3790.1830/")
   elseif (EXISTS "$ENV{SYSTEMDRIVE}/WINDDK/6000/")
     set(DDK_ROOT "$ENV{SYSTEMDRIVE}/WINDDK/6000/")
+  elseif (EXISTS "$ENV{SYSTEMDRIVE}/WINDDK/7600.16385.1/")
+    set(DDK_ROOT "$ENV{SYSTEMDRIVE}/WINDDK/7600.16385.1/")
   endif (NOT "$ENV{DDKROOT}" STREQUAL "")
+  # Note that we want the oldest ntdll.lib for maximum compatibility.
+  # The 2003 DDK (3790.1830) or Vista WDK (6000) both have these paths:
+  if (X64)
+    set(NTDLL_LIB_SUBPATH lib/wnet/amd64)
+  else (X64)
+    # Newer WDK (7600.16385.1) does not have w2k so use wxp: if using
+    # that WDK, won't be able to run on 2K or NT.
+    if (EXISTS "${DDK_ROOT}/w2k/i386")
+      set(NTDLL_LIB_SUBPATH lib/w2k/i386)
+    else (EXISTS "${DDK_ROOT}/w2k/i386")
+      message(STATUS "DDK/WDK is too recent: no support for Windows 2000 or earlier")
+      set(NTDLL_LIB_SUBPATH lib/wxp/i386)
+    endif (EXISTS "${DDK_ROOT}/w2k/i386")
+  endif (X64)
   # Use find_library() and not find_path() in case on LIB env var or sthg
   find_library(NTDLL_LIBPATH ntdll.lib HINTS "${DDK_ROOT}/${NTDLL_LIB_SUBPATH}"
     DOC "Path to ntdll.lib from either 2003 DDK (3790.1830) or Vista WDK (6000)")

@@ -55,6 +55,10 @@
  * below.
  */
 
+#ifdef WINDOWS
+# define _CRT_SECURE_NO_DEPRECATE 1
+#endif
+
 /* We use the DR API's mutex and heap whether as a client utility library
  * or (via DR standalone API) in a symbol server process
  */

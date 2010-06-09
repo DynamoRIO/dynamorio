@@ -32,6 +32,9 @@
 
 /* Containers DynamoRIO Extension: Hashtable */
 
+#ifdef WINDOWS
+# define _CRT_SECURE_NO_DEPRECATE 1
+#endif
 #include "dr_api.h"
 #include "hashtable.h"
 #ifdef LINUX
