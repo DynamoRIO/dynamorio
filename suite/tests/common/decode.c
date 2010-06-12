@@ -357,6 +357,11 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(f3) RAW(0f) RAW(12) RAW(20) /* movsldup (%rax), xmm4 */
         RAW(f2) RAW(0f) RAW(12) RAW(20) /* movddup (%rax), xmm4 */
         RAW(f3) RAW(0f) RAW(16) RAW(20) /* movshdup (%rax), xmm4 */
+#ifdef X64
+        /* i#319: these 2 are in original sse but adding here until get api/dis up */
+        RAW(41) RAW(0f) RAW(12) RAW(f4) /* i#319: movlhps %xmm12, xmm6 */
+        RAW(41) RAW(0f) RAW(16) RAW(f4) /* i#319: movhlps %xmm12, xmm6 */
+#endif
         mov  eax, 0
         mov  ecx, 0
         mov  edx, 0
