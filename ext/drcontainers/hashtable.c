@@ -40,6 +40,7 @@
 #ifdef LINUX
 # include <string.h>
 #endif
+#include <stddef.h> /* offsetof */
 
 /***************************************************************************
  * UTILITIES
@@ -80,7 +81,6 @@ stri_eq(const char *s1, const char *s2)
  * HASHTABLE
  *
  * Supports both app_pc and string keys.
- * FIXME PR 446683: right now only supports fixed-size (no realloc).
  */
 
 /* We parametrize heap and assert for use in multiple libraries */
@@ -209,12 +209,27 @@ hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool 
     ASSERT(table->hashtype != HASH_CUSTOM ||
            (table->hash_key_func != NULL && table->cmp_key_func != NULL),
            "hashtable_init_ex missing cmp/hash key func");
+    table->entries = 0;
+    table->config.size = sizeof(table->config);
+    table->config.resizable = true;
+    table->config.resize_threshold = 75;
 }
 
 void
 hashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup)
 {
     hashtable_init_ex(table, num_bits, hashtype, str_dup, true, NULL, NULL, NULL);
+}
+
+void
+hashtable_configure(hashtable_t *table, hashtable_config_t *config)
+{
+    ASSERT(table != NULL && config != NULL, "invalid params");
+    /* Ignoring size of field: shouldn't be in between */
+    if (config->size > offsetof(hashtable_config_t, resizable))
+        table->config.resizable = config->resizable;
+    if (config->size > offsetof(hashtable_config_t, resize_threshold))
+        table->config.resize_threshold = config->resize_threshold;
 }
 
 void
@@ -250,6 +265,41 @@ hashtable_lookup(hashtable_t *table, void *key)
     return res;
 }
 
+/* caller must hold lock */
+static bool
+hashtable_check_for_resize(hashtable_t *table)
+{
+    size_t capacity = (size_t) HASHTABLE_SIZE(table->table_bits);
+    if (table->config.resizable &&
+        /* avoid fp ops.  should check for overflow. */
+        table->entries * 100 > table->config.resize_threshold * capacity) {
+        hash_entry_t **new_table;
+        size_t new_sz;
+        uint i, old_bits;
+        /* double the size */
+        old_bits = table->table_bits;
+        table->table_bits++;
+        new_sz = (size_t) HASHTABLE_SIZE(table->table_bits) * sizeof(hash_entry_t*);
+        new_table = (hash_entry_t **) hash_alloc(new_sz);
+        memset(new_table, 0, new_sz);
+        /* rehash the old table into the new */
+        for (i = 0; i < HASHTABLE_SIZE(old_bits); i++) {
+            hash_entry_t *e = table->table[i];
+            while (e != NULL) {
+                hash_entry_t *nexte = e->next;
+                uint hindex = hash_key(table, e->key);
+                e->next = new_table[hindex];
+                new_table[hindex] = e;
+                e = nexte;
+            }
+        }
+        hash_free(table->table, capacity * sizeof(hash_entry_t*));
+        table->table = new_table;
+        return true;
+    }
+    return false;
+}
+
 bool
 hashtable_add(hashtable_t *table, void *key, void *payload)
 {
@@ -273,6 +323,8 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
         dr_mutex_lock(table->lock);
     e->next = table->table[hindex];
     table->table[hindex] = e;
+    table->entries++;
+    hashtable_check_for_resize(table);
     if (table->synch)
         dr_mutex_unlock(table->lock);
     return true;
@@ -314,6 +366,8 @@ hashtable_add_replace(hashtable_t *table, void *key, void *payload)
     if (old_payload == NULL) {
         new_e->next = table->table[hindex];
         table->table[hindex] = new_e;
+        table->entries++;
+        hashtable_check_for_resize(table);
     }
     if (table->synch)
         dr_mutex_unlock(table->lock);
@@ -340,6 +394,7 @@ hashtable_remove(hashtable_t *table, void *key)
                 (table->free_payload_func)(e->payload);
             hash_free(e, sizeof(*e));
             res = true;
+            table->entries--;
             break;
         }
     }
@@ -369,6 +424,7 @@ hashtable_delete(hashtable_t *table)
     hash_free(table->table, (size_t)HASHTABLE_SIZE(table->table_bits) *
               sizeof(hash_entry_t*));
     table->table = NULL;
+    table->entries = 0;
     if (table->synch)
         dr_mutex_unlock(table->lock);
     dr_mutex_destroy(table->lock);

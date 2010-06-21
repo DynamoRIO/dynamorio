@@ -208,7 +208,8 @@ DR_API file_t our_stdin = INVALID_FILE;
  * all_memory_areas is updated along with dynamo_areas, due to cyclic
  * dependencies.
  */
-static vm_area_vector_t *all_memory_areas;
+/* exported for debug to avoid rank order in print_vm_area() */
+IF_DEBUG_ELSE(,static) vm_area_vector_t *all_memory_areas;
 
 typedef struct _allmem_info_t {
     uint prot;

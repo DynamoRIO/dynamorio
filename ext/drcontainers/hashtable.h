@@ -49,7 +49,14 @@ typedef enum {
     HASH_INTPTR,        /**< A pointer-sized integer or pointer */
     HASH_STRING,        /**< A case-sensitive string */
     HASH_STRING_NOCASE, /**< A case-insensitive string */
-    HASH_CUSTOM,        /**< A custom key (hash and cmp operations must be provided) */
+    /**
+     * A custom key.  Hash and compare operations must be provided
+     * in hashtable_init_ex().  The hash operation can return a full
+     * uint, as its result will be truncated via a mod of the 
+     * hash key bit size.  This allows for resizing the table
+     * without changing the hash operation.
+     */
+    HASH_CUSTOM,
 } hash_type_t;
 
 typedef struct _hash_entry_t {
@@ -57,6 +64,13 @@ typedef struct _hash_entry_t {
     void *payload;
     struct _hash_entry_t *next;
 } hash_entry_t;
+
+/** Configuration parameters for a hashtable. */
+typedef struct _hashtable_config_t {
+    size_t size; /**< The size of the hashtable_config_t struct used */
+    bool resizable; /**< Whether the table should be resized */
+    uint resize_threshold; /**< Resize the table at this % full */
+} hashtable_config_t;
 
 typedef struct _hashtable_t {
     hash_entry_t **table;
@@ -68,6 +82,8 @@ typedef struct _hashtable_t {
     void (*free_payload_func)(void*);
     uint (*hash_key_func)(void*);
     bool (*cmp_key_func)(void*, void*);
+    uint entries;
+    hashtable_config_t config;
 } hashtable_t;
 
 /* should move back to utils.c once have iterator and alloc_exit
@@ -96,18 +112,38 @@ void
 hashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str_dup);
 
 /**
- * Initializes a hashtable with the given size, hash type, whether to
- * duplicate string keys, whether to synchronize each operation, a callback
- * for freeing each payload, a callback for hashing a key, and a callback
- * for comparing two keys.  Even when \p synch is false, the hashtable's lock
- * is initialized and can be used via hashtable_lock and hashtable_unlock,
- * allowing the caller to extend synchronization beyond just the operation
- * in question, to include accessing a looked-up payload, e.g.
+ * Initializes a hashtable with the given parameters.
+ *
+ * @param[out] table     The hashtable to be initialized.
+ * @param[in]  num_bits  The initial number of bits to use for the hash key
+ *   which determines the initial size of the table itself.  The result of the
+ *   hash function will be truncated to this size.  This size will be
+ *   increased when the table is resized (resizing always doubles the size).
+ * @param[in]  hashtype  The type of hash to perform.
+ * @param[in]  str_dup   Whether to duplicate string keys.
+ * @param[in]  synch     Whether to synchronize each operation.
+ *   Even when \p synch is false, the hashtable's lock is initialized and can
+ *   be used via hashtable_lock() and hashtable_unlock(), allowing the caller
+ *   to extend synchronization beyond just the operation in question, to
+ *   include accessing a looked-up payload, e.g.
+ * @param[in]  free_payload_func   A callback for freeing each payload.
+ *   Leave it NULL if no callback is needed.
+ * @param[in]  hash_key_func       A callback for hashing a key.
+ *   Leave it NULL if no callback is needed.
+ *   The hash operation can return a full uint, as its result will be
+ *   truncated via a mod of the hash key bit size.  This allows for resizing
+ *   the table without changing the hash operation.
+ * @param[in]  cmp_key_func        A callback for comparing two keys.
+ *   Leave it NULL if no callback is needed.
  */
 void
 hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype,
                   bool str_dup, bool synch, void (*free_payload_func)(void*),
                   uint (*hash_key_func)(void*), bool (*cmp_key_func)(void*, void*));
+
+/** Configures optional parameters of hashtable operation. */
+void
+hashtable_configure(hashtable_t *table, hashtable_config_t *config);
 
 /** Returns the payload for the given key, or NULL if the key is not found */
 void *

@@ -727,7 +727,11 @@ print_vm_area(vm_area_vector_t *v, vm_area_t *area, file_t outf, const char *pre
 #ifdef DEBUG
     print_file(outf, " %s", area->comment);
     DOLOG(1, LOG_VMAREAS, {
-        app_pc modbase = get_module_base(area->start);
+        IF_LINUX(extern vm_area_vector_t *all_memory_areas;)
+        app_pc modbase = 
+            /* avoid rank order violation */
+            IF_LINUX(v == all_memory_areas ? NULL :)
+            get_module_base(area->start);
         if (modbase != NULL &&
             /* avoid rank order violations */
             v != dynamo_areas &&
