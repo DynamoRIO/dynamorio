@@ -111,6 +111,8 @@ are not backward compatible: see below for details.
 
 The changes between version 2.1.0 and 2.0.0 are:
 
+ - Added support for dr_get_mcontext() from secondary thread init events,
+   and changed its return type to bool
  - Added dynamic hashtable resizing to the drcontainers hashtable
  - Added dr_app_pc_from_cache_pc()
  - Added a segment list to module_data_t for Linux and internal

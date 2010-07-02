@@ -124,7 +124,8 @@ static const char * const retakeover_names[] = {
 typedef struct _intercept_map_elem_t {
     byte *interception_pc;
     app_pc original_app_pc;
-    size_t displace_length;
+    size_t displace_length; /* includes jmp back */
+    size_t orig_length;
     struct _intercept_map_elem_t *next;
 } intercept_map_elem_t;
 
@@ -1247,7 +1248,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
 
 static void
 map_intercept_pc_to_app_pc(byte *interception_pc, app_pc original_app_pc,
-                           size_t displace_length)
+                           size_t displace_length, size_t orig_length)
 {
     intercept_map_elem_t *elem = HEAP_TYPE_ALLOC
         (GLOBAL_DCONTEXT, intercept_map_elem_t, ACCT_OTHER, UNPROTECTED);
@@ -1255,6 +1256,7 @@ map_intercept_pc_to_app_pc(byte *interception_pc, app_pc original_app_pc,
     elem->interception_pc = interception_pc;
     elem->original_app_pc = original_app_pc;
     elem->displace_length = displace_length;
+    elem->orig_length = orig_length;
     elem->next = NULL;
 
     mutex_lock(&map_intercept_pc_lock);
@@ -1316,8 +1318,13 @@ get_app_pc_from_intercept_pc(byte *pc)
     while (iter != NULL) {
         byte *start = iter->interception_pc;
         byte *end = start + iter->displace_length;
-        if (pc >= start && pc < end)
-            return iter->original_app_pc + (pc - start);
+        if (pc >= start && pc < end) {
+            /* include jmp back but map it to instr after displacement */
+            if ((size_t)(pc - start) > iter->orig_length)
+                return iter->original_app_pc + iter->orig_length;
+            else
+                return iter->original_app_pc + (pc - start);
+        }
 
         iter = iter->next;
     }
@@ -1337,7 +1344,7 @@ is_intercepted_app_pc(app_pc pc, byte **interception_pc)
          * entry for that start and it's ok to not match only start.
          */
         if (pc >= iter->original_app_pc &&
-            pc < iter->original_app_pc + iter->displace_length) {
+            pc < iter->original_app_pc + iter->orig_length) {
             /* PR 219351: For syscall trampolines, while building bbs we replace
              * the jmp and never execute from the displaced app code in the
              * buffer, so the bb looks normal.  FIXME: should we just not add to
@@ -1541,7 +1548,7 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
         /* Map interception buffer PCs to original app PCs */
         if (is_in_interception_buffer(pc)) {
             map_intercept_pc_to_app_pc
-                (pc, tgt_pc, size + IF_X64_ELSE(6, 5) /* include jmp back */);
+                (pc, tgt_pc, size + IF_X64_ELSE(6, 5) /* include jmp back */, size);
         }
         
         /* Copy original instructions to our version, re-relativizing where necessary */
@@ -2209,7 +2216,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
 
     /* Map interception buffer PCs to original app PCs */
     if (is_in_interception_buffer(pc))
-        map_intercept_pc_to_app_pc(pc, tgt_pc, 10 /* 5 bytes + jmp back */);
+        map_intercept_pc_to_app_pc(pc, tgt_pc, 10 /* 5 bytes + jmp back */, 5);
 
     /* The normal target, for really doing the system call native, used
      * for letting go normally and for take over.
@@ -2504,6 +2511,7 @@ intercept_new_thread(CONTEXT *cxt)
     bool is_client = false;
 #endif
     byte *dstack = NULL;
+    dr_mcontext_t mc;
     /* init apc, check init_apc_go_native to sync w/detach */
     if (init_apc_go_native) {
         /* need to wait after checking _go_native to avoid a thread 
@@ -2551,7 +2559,8 @@ intercept_new_thread(CONTEXT *cxt)
         dstack = (byte *) ALIGN_FORWARD(dstack, PAGE_SIZE);
     }
 #endif
-    if (dynamo_thread_init(dstack _IF_CLIENT_INTERFACE(is_client)) != -1) {
+    context_to_mcontext(&mc, cxt);
+    if (dynamo_thread_init(dstack, &mc _IF_CLIENT_INTERFACE(is_client)) != -1) {
         app_pc thunk_xip = (app_pc)cxt->CXT_XIP;
         dcontext_t *dcontext = get_thread_private_dcontext();
         LOG_DECLARE(char sym_buf[MAXIMUM_SYMBOL_LENGTH];)
@@ -6323,7 +6332,7 @@ intercept_image_entry(app_state_at_intercept_t *state)
 
         /* we must create a new dcontext to be a 'known' thread */
         /* initialize thread now */
-        if (dynamo_thread_init(NULL _IF_CLIENT_INTERFACE(false)) != -1) {
+        if (dynamo_thread_init(NULL, NULL _IF_CLIENT_INTERFACE(false)) != -1) {
             LOG(THREAD_GET, LOG_ASYNCH, 1, "just initialized primary thread \n");
             /* keep in synch if we do anything else in intercept_new_thread() */
         } else {

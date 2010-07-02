@@ -505,7 +505,8 @@ void get_list_of_threads_ex(thread_record_t ***list, int *num, bool include_exec
 void mark_thread_execve(thread_record_t *tr, bool execve);
 #endif
 bool is_thread_initialized(void);
-int dynamo_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread));
+int dynamo_thread_init(byte *dstack_in, dr_mcontext_t *mc
+                       _IF_CLIENT_INTERFACE(bool client_thread));
 int dynamo_thread_exit(void);
 void dynamo_thread_stack_free_and_exit(byte *stack);
 int dynamo_other_thread_exit(thread_record_t *tr

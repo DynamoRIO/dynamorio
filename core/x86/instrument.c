@@ -542,7 +542,7 @@ instrument_init(void)
      * real reason.
      */
     if (thread_init_callbacks.num > 0) {
-        instrument_thread_init(get_thread_private_dcontext(), false);
+        instrument_thread_init(get_thread_private_dcontext(), false, false);
     }
 }
 
@@ -1011,7 +1011,7 @@ dr_nudge_client(client_id_t client_id, uint64 argument)
 }
 
 void
-instrument_thread_init(dcontext_t *dcontext, bool client_thread)
+instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
 {
     /* Note that we're called twice for the initial thread: once prior
      * to instrument_init() (PR 216936) to set up the dcontext client
@@ -1043,7 +1043,12 @@ instrument_thread_init(dcontext_t *dcontext, bool client_thread)
     }
 #endif /* CLIENT_SIDELINE */
 
+    /* i#117/PR 395156: support dr_get_mcontext() from the thread init event */
+    if (valid_mc)
+        dcontext->client_data->mcontext_in_dcontext = true;
     call_all(thread_init_callbacks, int (*)(void *), (void *)dcontext);
+    if (valid_mc)
+        dcontext->client_data->mcontext_in_dcontext = false;
 }
 
 #ifdef LINUX
@@ -1233,8 +1238,10 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb,
     if (bb_callbacks.num == 0)
         return false;
 
-    if (hide_tag_from_client(tag))
+    if (hide_tag_from_client(tag)) {
+        LOG(THREAD, LOG_INTERP, 3, "hiding tag "PFX" from client\n", tag);
         return false;
+    }
 
     /* do not expand or up-decode the instrlist, client gets to choose
      * whether and how to do that
@@ -3969,7 +3976,7 @@ dr_mcontext_xmm_fields_valid(void)
 #endif /* CLIENT_INTERFACE */
 /* dr_get_mcontext() needed for translating clean call arg errors */
 
-DR_API void
+DR_API bool
 dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno)
 {
     char *state;
@@ -3980,7 +3987,7 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno)
 
 #ifdef CLIENT_INTERFACE
     /* i#117/PR 395156: support getting mcontext from events where mcontext is
-     * stable.  It would be nice to support it from init and thread init,
+     * stable.  It would be nice to support it from init and 1st thread init,
      * but the mcontext is not available at those points.
      *
      * Since DR calls this routine when recreating state and wants the
@@ -3991,6 +3998,9 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno)
      * reasons (dr_syscall_set_param() for Windows) so we keep it a
      * separate flag.
      */
+    /* no support for init or initial thread init */
+    if (!dynamo_initialized)
+        return false;
     /* PR 207947: support mcontext access from syscall events */
     if (dcontext->client_data->mcontext_in_dcontext ||
         dcontext->client_data->in_pre_syscall ||
@@ -3998,7 +4008,7 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno)
         *context = *get_mcontext(dcontext);
         if (app_errno != NULL)
             *app_errno = dcontext->app_errno;
-        return;
+        return true;
     }
 #endif
 
@@ -4019,6 +4029,7 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno)
     context->xsp = get_mcontext(dcontext)->xsp;
 
     /* FIXME: should we set the pc field? */
+    return true;
 }
 
 #ifdef CLIENT_INTERFACE

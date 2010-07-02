@@ -1291,8 +1291,7 @@ bool is_in_client_lib(app_pc addr);
 app_pc get_client_base(client_id_t client_id);
 const char *get_client_path_from_addr(app_pc addr);
 bool is_valid_client_id(client_id_t id);
-void instrument_thread_init(dcontext_t *dcontext
-                            _IF_CLIENT_INTERFACE(bool client_thread));
+void instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc);
 void instrument_thread_exit_event(dcontext_t *dcontext);
 void instrument_thread_exit(dcontext_t *dcontext);
 #ifdef LINUX
@@ -2539,9 +2538,10 @@ DR_API
  * the suspended threads, free the \p drcontexts array, and release
  * coarse-grain locks that prevent new threads from being created.
  *
- * This routine may not be called from any registered event callback other
- * than the nudge event.  It may be called from clean calls out of the
- * cache.  This routine may not be called while any locks are held that
+ * This routine may not be called from any registered event callback
+ * other than the nudge event or the pre- or post-system call event.
+ * It may be called from clean calls out of the cache.
+ * This routine may not be called while any locks are held that
  * could block a thread processing a registered event callback or cache
  * callout.
  *
@@ -3115,10 +3115,17 @@ DR_API
  *   (On Windows nudges happen in separate dedicated threads.)
  * - A thread or process exit event (dr_register_thread_exit_event(),
  *   dr_register_exit_event())
+ * - A thread init event (dr_register_thread_init_event()) for all but
+ *   the initial thread.
  *
  * Does NOT copy the pc field.  If \p app_errno is non-NULL copies the
  * saved application error code (value of GetLastError() on Windows; ignored
  * on Linux) to \p app_errno.
+ *
+ * Returns false if called from the init event or the initial thread's
+ * init event; returns true otherwise (cannot distinguish whether the
+ * caller is in a clean call so it is up to the caller to ensure it is
+ * used properly).
  *
  * \note NUM_XMM_SLOTS in the dr_mcontext_t.xmm array are filled in, but
  * only if dr_mcontext_fields_valid() returns true.
@@ -3127,7 +3134,7 @@ DR_API
  * with dr_save_reg().  To access registers saved with dr_save_reg() from a
  * clean call use dr_read_saved_reg().
  */
-void
+bool
 dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno);
 
 #ifdef CLIENT_INTERFACE
@@ -3249,8 +3256,9 @@ DR_API
 /**
  * Flush all fragments containing any code from the region [\p start, \p start + \p size).
  * Once this routine returns no execution will occur out of the fragments flushed.
- * This routine may only be called during a clean call from the cache or from a nudge
- * event handler.  It may not be called from any other event callback.  No locks can
+ * This routine may only be called during a clean call from the cache, from a nudge
+ * event handler, or from a pre- or post-system call event handler.
+ * It may not be called from any other event callback.  No locks can
  * held when calling this routine.  If called from a clean call, caller can NOT return
  * to the cache (the fragment that was called out of may have been flushed even if it
  * doesn't apparently overlap the flushed region). Instead the caller must call
@@ -3258,7 +3266,8 @@ DR_API
  * successful.
  *
  * \note This routine may not be called from any registered event callback other than
- * the nudge event; clean calls out of the cache may call this routine.
+ * the nudge event or the pre- or post-system call event; clean calls
+ * out of the cache may call this routine.
  * \note If called from a clean call, caller must continue execution by calling
  * dr_redirect_execution() after this routine, as the fragment containing the callout may
  * have been flushed. The context and app_errno to use can be obtained via
@@ -3290,12 +3299,14 @@ DR_API
  * Control will not enter a fragment containing code from the region after this returns,
  * but a thread already in such a fragment will finish out the fragment.  This includes
  * the current thread if this is called from a clean call that returns to the cache.
- * This routine may only be called during a clean call from the cache or from a nudge
- * event handler.  It may not be called from any other event callback.  No locks can be
+ * This routine may only be called during a clean call from the cache, from a nudge
+ * event handler, or from a pre- or post-system call event handler.
+ * It may not be called from any other event callback.  No locks can be
  * held when calling this routine.  Returns true if successful.
  *
  * \note This routine may not be called from any registered event callback other than
- * the nudge event; clean calls out of the cache may call this routine.
+ * the nudge event or the pre- or post-system call event; clean calls
+ * out of the cache may call this routine.
  * \note This routine may not be called while any locks are held that could block a thread
  * processing a registered event callback or cache callout.
  * \note dr_delay_flush_region() has fewer restrictions on use, but is less synchronous.

@@ -560,7 +560,10 @@ dynamorio_app_init(void)
         /* thread-specific initialization for the first thread we inject in
          * (in a race with injected threads, sometimes it is not the primary thread)
          */
-        dynamo_thread_init(NULL _IF_CLIENT_INTERFACE(false));
+        /* i#117/PR 395156: it'd be nice to have mc here but would
+         * require changing start/stop API
+         */
+        dynamo_thread_init(NULL, NULL _IF_CLIENT_INTERFACE(false));
 #ifdef LINUX
         /* i#27: we need to special-case the 1st thread */
         signal_thread_inherit(get_thread_private_dcontext(), NULL);
@@ -1959,10 +1962,12 @@ DECLARE_FREQPROT_VAR(static bool reset_at_nth_thread_triggered, false);
 /* thread-specific initialization 
  * if dstack_in is NULL, then a dstack is allocated; else dstack_in is used 
  * as the thread's dstack
+ * mc can be NULL for the initial thread
  * returns -1 if current thread has already been initialized
  */
 int
-dynamo_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
+dynamo_thread_init(byte *dstack_in, dr_mcontext_t *mc
+                   _IF_CLIENT_INTERFACE(bool client_thread))
 {
     dcontext_t *dcontext;
     /* due to lock issues (see below) we need another var */
@@ -2016,6 +2021,10 @@ dynamo_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
 
     /* set local state pointer for access from other threads */
     dcontext->local_state = get_local_state();
+
+    /* set initial mcontext, if known */
+    if (mc != NULL)
+        *get_mcontext(dcontext) = *mc;
 
     /* For hotp_only, the thread should run native, not under dr.  However,
      * the core should still get control of the thread at hook points to track 
@@ -2091,7 +2100,7 @@ dynamo_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
          * now (PR 216936), which is required to initialize
          * the client dcontext field prior to instrument_init().
          */
-        instrument_thread_init(dcontext, client_thread);
+        instrument_thread_init(dcontext, client_thread, mc != NULL);
 #endif
 
 #ifdef SIDELINE

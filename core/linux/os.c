@@ -2260,7 +2260,7 @@ client_thread_run(void)
     GET_STACK_PTR(xsp);
     void *crec = get_clone_record((reg_t)xsp);
     IF_DEBUG(int rc = )
-        dynamo_thread_init(get_clone_record_dstack(crec), true);
+        dynamo_thread_init(get_clone_record_dstack(crec), NULL, true);
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);

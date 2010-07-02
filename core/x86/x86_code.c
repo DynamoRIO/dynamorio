@@ -225,7 +225,18 @@ new_thread_setup(dr_mcontext_t *mc)
         "new_thread_setup: thread %d, dstack "PFX" clone record "PFX"\n",
         get_thread_id(), get_clone_record_dstack(crec), crec);
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec) _IF_CLIENT_INTERFACE(false));
+    /* As we used dstack as app thread stack to pass clone record, we now need
+     * to switch back to the real app thread stack before continuing.
+     */
+    mc->xsp = get_clone_record_app_xsp(crec);
+    /* clear xax (was used to hold clone record) */
+    ASSERT(mc->xax == (reg_t) mc->pc);
+    mc->xax = 0;
+    /* clear pc */
+    mc->pc = 0;
+
+    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc
+                            _IF_CLIENT_INTERFACE(false));
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
@@ -238,16 +249,6 @@ new_thread_setup(dr_mcontext_t *mc)
     dcontext->next_tag = next_tag;
 
     *get_mcontext(dcontext) = *mc;
-
-    /* As we used dstack as app thread stack to pass clone record, we now need
-     * to switch back to the real app thread stack before continuing.
-     */
-    get_mcontext(dcontext)->xsp = get_clone_record_app_xsp(crec);
-    /* clear xax (was used to hold clone record) */
-    ASSERT(get_mcontext(dcontext)->xax == (reg_t) mc->pc);
-    get_mcontext(dcontext)->xax = 0;
-    /* clear pc */
-    get_mcontext(dcontext)->pc = 0;
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
                       false/*not on initstack*/, false/*shouldn't return*/);
