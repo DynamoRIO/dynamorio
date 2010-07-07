@@ -1636,13 +1636,13 @@ check_option_compatibility_helper(int recurse_count)
     }
     if ((DYNAMO_OPTION(follow_children) || DYNAMO_OPTION(follow_systemwide) ||
          DYNAMO_OPTION(follow_explicit_children)) &&
-        get_os_version() == WINDOWS_VERSION_VISTA &&
+        get_os_version() >= WINDOWS_VERSION_VISTA &&
         (!DYNAMO_OPTION(early_inject) || 
          (!DYNAMO_OPTION(inject_at_create_process) &&
           !DYNAMO_OPTION(vista_inject_at_create_process)))) {
         /* We won't follow into child processes.  Won't affect the current
          * proccess so only a warning. */
-        SYSLOG_INTERNAL_WARNING("Vista requires -early_inject and -vista_"
+        SYSLOG_INTERNAL_WARNING("Vista+ requires -early_inject and -vista_"
                                 "inject_at_create_process options to follow "
                                 "into child processes"); 
     }

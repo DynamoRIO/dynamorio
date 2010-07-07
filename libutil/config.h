@@ -293,10 +293,13 @@ DWORD
 create_eventlog(const WCHAR *dll_path);
 
 DWORD
-destroy_eventlog();
+destroy_eventlog(void);
 
 BOOL
-is_vista();
+is_vista(void);
+
+BOOL
+is_win7(void);
 
 DWORD
 copy_earlyhelper_dlls(const WCHAR *dir);

@@ -63,6 +63,7 @@ static const uint BAD_WRITE = 0x40;
 LRESULT CALLBACK
 wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    bool cross_cb_seh_supported;
     if (message == MSG_CUSTOM) {
         print("in wnd_callback "PFX" %d %d\n", message, wParam, lParam);
         if (wParam == WP_CRASH) {
@@ -70,30 +71,38 @@ wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             ReplyMessage(TRUE);
             print("About to crash\n");
 #ifdef X64
-            /* FIXME i#266: even natively this exception is not making it across
-             * the callback boundary!  Is that a fundamental limitation of the
-             * overly-structured SEH64?  32-bit SEH has no problem.
-             * For now we have a local try/except.
-             */
-            __try {
+            cross_cb_seh_supported = false;
+#else
+            cross_cb_seh_supported =
+                (get_windows_version() < WINDOWS_VERSION_7 ||
+                 !is_wow64(GetCurrentProcess()));
+#endif
+            if (!cross_cb_seh_supported) {
+                /* FIXME i#266: even natively this exception is not making it across
+                 * the callback boundary!  Is that a fundamental limitation of the
+                 * overly-structured SEH64?  32-bit SEH has no problem.  Neither does
+                 * WOW64, except on win7+.
+                 * For now we have a local try/except.
+                 */
+                __try {
+                    *((int *)BAD_WRITE) = 4;
+                    print("Should not get here\n");
+                }
+                __except (/* Only catch the bad write, to not mask DR errors (like
+                           * case 10579) */
+                          (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION &&
+                           (GetExceptionInformation())->ExceptionRecord->
+                           ExceptionInformation[0] == 1 /* write */ &&
+                           (GetExceptionInformation())->ExceptionRecord->
+                           ExceptionInformation[1] == BAD_WRITE) ?
+                          EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+                    print("Inside handler\n");
+                    past_crash = true;
+                }
+            } else {
                 *((int *)BAD_WRITE) = 4;
                 print("Should not get here\n");
             }
-            __except (/* Only catch the bad write, to not mask DR errors (like
-                       * case 10579) */
-                      (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION &&
-                       (GetExceptionInformation())->ExceptionRecord->ExceptionInformation[0]
-                       == 1 /* write */ &&
-                       (GetExceptionInformation())->ExceptionRecord->ExceptionInformation[1]
-                       == BAD_WRITE) ?
-                      EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
-                print("Inside handler\n");
-                past_crash = true;
-            }
-#else
-            *((int *)BAD_WRITE) = 4;
-            print("Should not get here\n");
-#endif
         }
         return MSG_SUCCESS;
     } else {

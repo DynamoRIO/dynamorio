@@ -6295,10 +6295,17 @@ gbop_exclude_filter(const gbop_hook_desc_t *gbop_hook)
         return true;
     }
 
-    if (get_os_version() == WINDOWS_VERSION_VISTA) {
-        /* xref 9772, on Vista shell32!RealShellExecuteA == shell32!RealShellExecuteW
+    if (get_os_version() >= WINDOWS_VERSION_VISTA) {
+        /* xref 9772, on Vista+ shell32!RealShellExecuteA == shell32!RealShellExecuteW
          * and shell32!RealShellExecuteExA == shell32!RealShellExecuteExW so we have to
-         * avoid hooking the same spot twice. Arbitrarily exclude W versions. */
+         * avoid hooking the same spot twice. Arbitrarily exclude W versions.
+         * FIXME: on win7 they all seem to be the same:
+         *   0:003> x shell32!RealShellExecute*
+         *   000007fe`fd9aa7bc SHELL32!RealShellExecuteExA = <no type information>
+         *   000007fe`fd9aa7bc SHELL32!RealShellExecuteExW = <no type information>
+         *   000007fe`fd9aa7bc SHELL32!RealShellExecuteA = <no type information>
+         *   000007fe`fd9aa7bc SHELL32!RealShellExecuteW = <no type information>
+         */
         os_exclude_list =
             "shell32.dll!RealShellExecuteW;shell32.dll!RealShellExecuteExW";
         DODEBUG_ONCE({

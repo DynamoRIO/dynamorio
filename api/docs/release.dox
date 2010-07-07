@@ -111,6 +111,7 @@ are not backward compatible: see below for details.
 
 The changes between version 2.1.0 and 2.0.0 are:
 
+ - Added Windows 7 support
  - Added support for dr_get_mcontext() from secondary thread init events,
    and changed its return type to bool
  - Added dynamic hashtable resizing to the drcontainers hashtable
@@ -504,12 +505,15 @@ not supported.
   - \DynamoRIO currently supports the following NT-based 32-bit
     Windows systems : NT (all service packs), 2000 (all service
     packs), XP (32-bit, service packs 0-3), 2003 (32-bit, service
-    packs 0-2), and Vista (32-bit, service packs 0-1). It does not
-    support Windows 95, 98, ME or Server 2008.
+    packs 0-2), Vista (32-bit, service packs 0-1), and Windows 7 (32-bit,
+    service pack 0). It does not support Windows 95, 98, or ME.
+    Windows Server 2008 is likely to work but has not been tested.
   - This release of \DynamoRIO has limited support for running 32-bit
     Windows applications on the following 64-bit Windows operating
     systems : Windows XP Professional x64 (service pack 2), Windows 2003
-    x64 (service pack 2), Vista x64 (service packs 0-1). Only the 32-bit
+    x64 (service pack 2), Vista x64 (service packs 0-1), and Windows 7
+    (service pack 0).  Windows Server 2008 is likely to work but has not
+    been tested.  Only the 32-bit
     code will be seen, and children processes created will not be injected
     into.  On 64-bit Windows 32-bit applications are automatically run
     through the Windows-On-Windows or WOW64 emulator so system call and
@@ -520,7 +524,9 @@ not supported.
     64-bit Windows applications, using the 64-bit \DynamoRIO build, on
     the following 64-bit Windows systems: Windows XP Professional x64
     (service pack 2), Windows 2003
-    x64 (service pack 2), Vista x64 (service packs 0-1). It does not
+    x64 (service pack 2), Vista x64 (service packs 0-1), and Windows 7 x64
+    (service pack 0). Windows Server 2008 is likely to work but has not
+    been tested.  \DynamoRIO does not
     support any Itanium based Windows systems.  For 64-bit
     applications \clients must be compiled for 64-bit with a
     fixed preferred address in the lower 2GB of the address space (e.g.,
@@ -598,6 +604,9 @@ not supported.
   - Other installed software may conflict with \DynamoRIO's use of the
     \c \\HKLM\\SOFTWARE\\Microsoft\\Windows\\WindowsNT\\CurrentVersion\\AppInit_DLLs
     registry key (only very rarely an issue).
+  - On Windows 7 and Windows Server 2008 R2, the digital signature
+    requirement for AppInit_DLLs libraries is disabled when systemwide
+    injection is requested.  This can be a security concern.    
   - Cygwin processes do not work with \DynamoRIO due to cygwin's
     implementation of fork being incompatible with \DynamoRIO.
   - Though \DynamoRIO supports running on Windows NT, the provided

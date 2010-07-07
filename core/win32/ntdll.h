@@ -847,6 +847,8 @@ typedef struct _SYSTEM_PERFORMANCE_INFORMATION {
     ULONG   FirstLevelTbFills;
     ULONG   SecondLevelTbFills;
     ULONG   SystemCalls;
+    /* Fields added in Windows 7 */
+    ULONG   Unknown[4];
 } SYSTEM_PERFORMANCE_INFORMATION, *PSYSTEM_PERFORMANCE_INFORMATION;
 
 typedef struct _SYSTEM_TIME_OF_DAY_INFORMATION {

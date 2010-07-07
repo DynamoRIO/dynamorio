@@ -791,10 +791,16 @@ static void
 get_syswide_path(WCHAR *wbuf,
                  const char *dr_root_dir)
 {
+    WCHAR path[MAXIMUM_PATH];
+    DWORD len;
     if (!platform_is_64bit(get_dr_platform()))
-        _snwprintf(wbuf, MAXIMUM_PATH, L"%S"PREINJECT32_DLL, dr_root_dir);
+        _snwprintf(path, MAXIMUM_PATH, L"%S"PREINJECT32_DLL, dr_root_dir);
     else
-        _snwprintf(wbuf, MAXIMUM_PATH, L"%S"PREINJECT64_DLL, dr_root_dir);
+        _snwprintf(path, MAXIMUM_PATH, L"%S"PREINJECT64_DLL, dr_root_dir);
+    path[MAXIMUM_PATH - 1] = '\0';
+    /* spaces are separator in AppInit so use short path */
+    len = GetShortPathName(path, wbuf, MAXIMUM_PATH);
+    DO_ASSERT(len > 0);
     wbuf[MAXIMUM_PATH - 1] = '\0';
 }
 

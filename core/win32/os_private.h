@@ -126,6 +126,8 @@ extern int *syscalls;
 /* this points to a windows-version-specific WOW table index array */
 extern int *wow64_index;
 
+extern const int windows_7_x64_syscalls[];
+extern const int windows_7_syscalls[];
 extern const int windows_vista_sp1_x64_syscalls[];
 extern const int windows_vista_sp1_syscalls[];
 extern const int windows_vista_sp0_x64_syscalls[];
@@ -155,8 +157,8 @@ void
 windows_version_init(void);
 
 enum {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0)         \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     SYS_##name,
 #include "syscallx.h"
 #undef SYSCALL

@@ -39,7 +39,7 @@
 /* returns 0 on failure */
 /* FIXME - share with core get_os_version() */
 int
-get_windows_version()
+get_windows_version(void)
 {
     OSVERSIONINFO version;
     int res;
@@ -48,7 +48,9 @@ get_windows_version()
     assert(res != 0);
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
-        if (version.dwMajorVersion == 6 && version.dwMinorVersion == 0) {
+        if (version.dwMajorVersion == 6 && version.dwMinorVersion == 1) {
+            return WINDOWS_VERSION_7;
+        } else if (version.dwMajorVersion == 6 && version.dwMinorVersion == 0) {
             return WINDOWS_VERSION_VISTA;
         } else if (version.dwMajorVersion == 5 && version.dwMinorVersion == 2) {
             return WINDOWS_VERSION_2003;
@@ -61,6 +63,34 @@ get_windows_version()
         }
     }
     return 0;
+}
+
+/* FIXME: share w/ libutil is_wow64() */
+bool
+is_wow64(HANDLE hProcess)
+{
+    /* IsWow64Pocess is only available on XP+ */
+    typedef DWORD (WINAPI *IsWow64Process_Type)(HANDLE hProcess,
+                                                PBOOL isWow64Process);
+    static HANDLE kernel32_handle;
+    static IsWow64Process_Type IsWow64Process;
+    if (kernel32_handle == NULL)
+        kernel32_handle = GetModuleHandle("kernel32.dll");
+    if (IsWow64Process == NULL && kernel32_handle != NULL) {
+        IsWow64Process = (IsWow64Process_Type)
+            GetProcAddress(kernel32_handle, "IsWow64Process");
+    }
+    if (IsWow64Process == NULL) {
+        /* should be NT or 2K */
+        assert(get_windows_version() == WINDOWS_VERSION_NT ||
+               get_windows_version() == WINDOWS_VERSION_2000);
+        return false;
+    } else {
+        bool res;
+        if (!IsWow64Process(hProcess, &res))
+            return false;
+        return res;
+    }
 }
 #endif
 

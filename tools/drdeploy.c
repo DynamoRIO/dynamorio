@@ -839,6 +839,11 @@ int main(int argc, char *argv[])
                 platform == PLATFORM_WIN_NT_4) {
                 warn("on Windows NT, applications will not be taken over until reboot");
             }
+            else if (get_platform(&platform) == ERROR_SUCCESS &&
+                     platform >= PLATFORM_WIN_7) {
+                /* i#323 will fix this but good to warn the user */
+                warn("on Windows 7, syswide_on relaxes system security by removing certain code signing requirements");
+            }
         }
         if (dr_register_syswide(dr_platform, dr_root) != ERROR_SUCCESS) {
             /* PR 233108: try to give more info on whether a privilege failure */

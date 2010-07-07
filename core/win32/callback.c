@@ -1707,11 +1707,13 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
      * ret arg_bytes           {1 byte (0 args) or 3 bytes}
      *
      * For WOW64 (case 3922), there are two types: if setting ecx to 0, xor is used.
-     * mov eax, sysnum         {5 bytes}
-     * mov ecx, wow_index      {5 bytes}  --OR--   xor ecx,ecx  {2 bytes}
-     * lea edx, [esp+4]        {4 bytes}
-     * call fs:0xc0            {7 bytes}
-     * ret arg_bytes           {1 byte (0 args) or 3 bytes}
+     *   mov eax, sysnum         {5 bytes}
+     *   mov ecx, wow_index      {5 bytes}  --OR--   xor ecx,ecx  {2 bytes}
+     *   lea edx, [esp+4]        {4 bytes}
+     *   call fs:0xc0            {7 bytes}
+     * On Win7 WOW64 after the call we have an add:
+     *   add esp,0x4             {3 bytes}
+     *   ret arg_bytes           {1 byte (0 args) or 3 bytes}
      *
      * x64 syscall (PR 215398):
      *   mov r10, rcx          {3 bytes}
@@ -1769,6 +1771,11 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
             APP(ilist, INSTR_CREATE_call_ind(dcontext, opnd_create_reg(REG_XDX)));
         }
     }
+    if (is_wow64_process(NT_CURRENT_PROCESS) && get_os_version() >= WINDOWS_VERSION_7) {
+        APP(ilist,
+            INSTR_CREATE_add(dcontext, opnd_create_reg(REG_XSP), OPND_CREATE_INT8(4)));
+    }
+
     if (arg_bytes == 0) {
         APP(ilist, INSTR_CREATE_ret(dcontext));
     } else {
@@ -2699,10 +2706,10 @@ intercept_new_thread(CONTEXT *cxt)
         /* We expect target address (xip) to be on our executable list 
          * (is usually one of the start thunks). */ 
         ASSERT_CURIOSITY(executable_vm_area_overlap(thunk_xip, thunk_xip+2, false));
-        /* On vista it appears all new threads target RtlUserThreadStart
+        /* On vista+ it appears all new threads target RtlUserThreadStart
          * (the kernel sets in in NtCreateThreadEx). Thread created via the legacy
          * NtCreateThread however can target anywhere (such as our internal nudges). */
-        ASSERT_CURIOSITY(get_os_version() != WINDOWS_VERSION_VISTA ||
+        ASSERT_CURIOSITY(get_os_version() < WINDOWS_VERSION_VISTA ||
                          is_nudge_thread || thunk_xip == RtlUserThreadStart ||
                          /* The security_win32/execept-execution.exe regr test does a
                           * raw create thread using the old NtCreateThread syscall. */
@@ -2731,7 +2738,7 @@ intercept_new_thread(CONTEXT *cxt)
              * will always be on the executable list.
              */
             if (executable_vm_area_overlap(thunk_xip, thunk_xip+2, false) &&
-                (get_os_version() == WINDOWS_VERSION_VISTA ?
+                (get_os_version() >= WINDOWS_VERSION_VISTA ?
                  thunk_xip == RtlUserThreadStart :
                  BASE_THREAD_START_THUNK_USHORT == *(ushort*)thunk_xip)) {
                 apc_thread_policy_helper((app_pc *)&cxt->THREAD_START_ADDR,
@@ -2802,8 +2809,8 @@ intercept_ldr_init(app_state_at_intercept_t *state)
     cxt = (*(CONTEXT **)(state->mc.xsp + LDR_INIT_CXT_XSP_OFFSET));
 #endif
 
-    /* we only hook this routine on vista */
-    ASSERT(get_os_version() == WINDOWS_VERSION_VISTA);
+    /* we only hook this routine on vista+ */
+    ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
 
     /* this might be a new thread */
     possible_new_thread_wait_for_dr_init(cxt);
@@ -2966,7 +2973,7 @@ intercept_apc(app_state_at_intercept_t *state)
 
         /* this is the same check as in dynamorio_init */
         if (!is_thread_initialized()) {
-            ASSERT(get_os_version() != WINDOWS_VERSION_VISTA);
+            ASSERT(get_os_version() < WINDOWS_VERSION_VISTA);
             LOG(GLOBAL, LOG_ASYNCH|LOG_THREADS, 2,
                 "APC thread was not initialized!\n");
             LOG(GLOBAL, LOG_ASYNCH, 1,
@@ -3150,7 +3157,11 @@ check_apc_context_offset(byte *apc_entry)
            opnd_is_reg(instr_get_dst(&instr, 0)) &&
            opnd_get_reg(instr_get_dst(&instr, 0)) == REG_RCX &&
            opnd_is_base_disp(instr_get_src(&instr, 0)) &&
-           opnd_get_disp(instr_get_src(&instr, 0)) == 0 &&
+           ((get_os_version() < WINDOWS_VERSION_7 &&
+             opnd_get_disp(instr_get_src(&instr, 0)) == 0) ||
+            /* on win7x64 the call* tgt is loaded in 1st instr */
+            (get_os_version() >= WINDOWS_VERSION_7 &&
+             opnd_get_disp(instr_get_src(&instr, 0)) == 0x18)) &&
            opnd_get_base(instr_get_src(&instr, 0)) == REG_XSP &&
            opnd_get_index(instr_get_src(&instr, 0)) == REG_NULL);
 #else
@@ -5820,7 +5831,7 @@ get_pc_after_call(byte *entry, byte **cbret)
         pc = decode_cti(dcontext, pc, &instr);
         ASSERT(pc != NULL);
         num_instrs++;
-        ASSERT_CURIOSITY(num_instrs <= 11);
+        ASSERT_CURIOSITY(num_instrs <= 12); /* win7 x64 call* is 12th instr */
     } while (!instr_opcode_valid(&instr) || !instr_is_call(&instr));
     after_call = pc;
 
@@ -6619,7 +6630,7 @@ callback_interception_init_start(void)
 
     /* LdrInitializeThunk is hooked for thin_client too, so that
      * each thread can have a dcontext (case 8884). */
-    if (get_os_version() == WINDOWS_VERSION_VISTA) {
+    if (get_os_version() >= WINDOWS_VERSION_VISTA) {
         module_handle_t ntdllh = get_ntdll_base();
         LdrInitializeThunk = (byte *)get_proc_address(ntdllh,
                                                       "LdrInitializeThunk");
@@ -6916,7 +6927,7 @@ callback_interception_unintercept()
                       (byte*)KiRaiseUserExceptionDispatcher);
     un_intercept_call(callback_pc, (byte*)KiUserCallbackDispatcher);
     un_intercept_call(apc_pc, (byte*)KiUserApcDispatcher);
-    if (get_os_version() == WINDOWS_VERSION_VISTA) {
+    if (get_os_version() >= WINDOWS_VERSION_VISTA) {
         ASSERT(ldr_init_pc != NULL && LdrInitializeThunk != NULL);
         un_intercept_call(ldr_init_pc, (byte *)LdrInitializeThunk);
     }

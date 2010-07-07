@@ -963,12 +963,16 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define INJECT_ALL_HIVE    HKEY_LOCAL_MACHINE
 #  define INJECT_ALL_KEY     "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
 #  define INJECT_ALL_SUBKEY  "AppInit_DLLs"
+/* introduced on Vista */
 #  define INJECT_ALL_LOAD_SUBKEY        "LoadAppInit_DLLs"
+/* introduced on Windows 7/2008 R2 */
+#  define INJECT_ALL_SIGN_SUBKEY        "RequireSignedAppInit_DLLs"
 
 #  define INJECT_ALL_HIVE_L    L"\\Registry\\Machine\\"
 #  define INJECT_ALL_KEY_L     L_EXPAND_LEVEL(INJECT_ALL_KEY)
 #  define INJECT_ALL_SUBKEY_L  L_EXPAND_LEVEL(INJECT_ALL_SUBKEY)
 #  define INJECT_ALL_LOAD_SUBKEY_L      L_EXPAND_LEVEL(INJECT_ALL_LOAD_SUBKEY)
+#  define INJECT_ALL_SIGN_SUBKEY_L      L_EXPAND_LEVEL(INJECT_ALL_SIGN_SUBKEY)
 
 #  define INJECT_DLL_NAME      "drpreinject.dll"
 #  define INJECT_DLL_8_3_NAME  "DRPREI~1.DLL"

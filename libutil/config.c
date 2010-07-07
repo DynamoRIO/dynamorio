@@ -1482,6 +1482,7 @@ is_custom_autoinjection_set(const WCHAR *preinject)
 }
 
 /* FIXME - once we fully support Vista should use get_platform */
+/* Returns true for Vista or later, including Windows 7 */
 BOOL
 is_vista()
 {
@@ -1489,13 +1490,29 @@ is_vista()
     info.dwOSVersionInfoSize = sizeof(info);
 
     if (GetVersionEx(&info)) {
-        return (info.dwMajorVersion == 6);
+        return (info.dwMajorVersion >= 6);
     } else {
         DO_ASSERT(false);
     }
     return FALSE;
 }
 
+BOOL
+is_win7()
+{
+    OSVERSIONINFO info;
+    info.dwOSVersionInfoSize = sizeof(info);
+
+    if (GetVersionEx(&info)) {
+        return (info.dwMajorVersion >= 6 &&
+                info.dwMinorVersion >= 1);
+    } else {
+        DO_ASSERT(false);
+    }
+    return FALSE;
+}
+
+/* Also disables reqt for signature on lib for win7+ */
 DWORD
 set_loadappinit_value(DWORD value)
 {
@@ -1510,8 +1527,21 @@ set_loadappinit_value(DWORD value)
     if (res != ERROR_SUCCESS)
         return res;
 
-    return RegSetValueEx(rootkey, INJECT_ALL_LOAD_SUBKEY_L, 0, REG_DWORD,
-                         (LPBYTE) &value, sizeof(value));
+    res = RegSetValueEx(rootkey, INJECT_ALL_LOAD_SUBKEY_L, 0, REG_DWORD,
+                        (LPBYTE) &value, sizeof(value));
+    if (res != ERROR_SUCCESS)
+        return res;
+
+    if (is_win7()) {
+        /* Disable the reqt for a signature.
+         * FIXME i#323: better to sign drpreinject so we don't have to
+         * relax security!
+         */
+        DWORD disable = 0;
+        res = RegSetValueEx(rootkey, INJECT_ALL_SIGN_SUBKEY_L, 0, REG_DWORD,
+                            (LPBYTE) &disable, sizeof(disable));
+    }
+    return res;
 }
 
 DWORD

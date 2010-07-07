@@ -86,6 +86,7 @@ typedef DWORD cxt_seg_t;
 #include "aslr.h"               /* for aslr_context */
 
 /* you can rely on these increasing with later versions */
+#define WINDOWS_VERSION_7      61
 #define WINDOWS_VERSION_VISTA  60
 #define WINDOWS_VERSION_2003   52
 #define WINDOWS_VERSION_XP     51

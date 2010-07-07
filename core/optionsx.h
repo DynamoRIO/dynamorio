@@ -382,7 +382,7 @@
              * leave that on. */
             options->native_exec = false;
             IF_WINDOWS_AND_CORE({
-                if (get_os_version() == WINDOWS_VERSION_VISTA) {
+                if (get_os_version() >= WINDOWS_VERSION_VISTA) {
                     /* turn native exec on, but limit it to just the pexe option */
                     options->native_exec = true;
                     options->native_exec_managed_code = false;
@@ -539,8 +539,10 @@
     /* Disable diagnostics by default. -security turns it on */
     DYNAMIC_OPTION_DEFAULT(bool, diagnostics, false, "enable diagnostic reporting")
 
-    OPTION_DEFAULT(uint, max_supported_os_version, 60, 
-        /* case 447, defaults to supporting NT, 2000, XP, 2003, and Vista */
+    OPTION_DEFAULT(uint, max_supported_os_version, 61, 
+        /* case 447, defaults to supporting NT, 2000, XP, 2003, and Vista.
+         * Windows 7 added with i#218
+         */
         "Warn on unsupported (but workable) operating system versions greater than max_supported_os_version")
 
     OPTION_DEFAULT(uint, os_aslr, 
@@ -1267,11 +1269,11 @@
      * in maybe_inject_into_proccess() in os.c (see notes there) */
     OPTION_DEFAULT(bool, inject_at_create_process, false,
         "inject at post create process instead of create first thread, requires early injection")
-     /* Separated from above option since on Vista we have to inject at create
-      * process (there is no separate create first thread).  On vista proc
+     /* Separated from above option since on Vista+ we have to inject at create
+      * process (there is no separate create first thread).  On vista+ proc
       * params are available at create process so everything works out. */
     OPTION_DEFAULT(bool, vista_inject_at_create_process, true,
-        "if os version is vista inject at post create, requires early injection")
+        "if os version is vista+, inject at post create (requires early injection)")
 
     OPTION_DEFAULT(bool, inject_primary, false,
         /* case 9347 - we may leave early threads as unknown */

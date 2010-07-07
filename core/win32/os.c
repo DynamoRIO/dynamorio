@@ -505,7 +505,17 @@ windows_version_init()
 
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
-        if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 0) {
+        if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 1) {
+            module_handle_t ntdllh = get_ntdll_base();
+            if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                syscalls = (int *) windows_7_x64_syscalls;
+                os_name = "Microsoft Windows 7 x64";
+            } else {
+                syscalls = (int *) windows_7_syscalls;
+                os_name = "Microsoft Windows 7";
+            }
+            os_version = WINDOWS_VERSION_7;
+        } else if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 0) {
             module_handle_t ntdllh = get_ntdll_base();
             /* Vista system call number differ between service packs, we use
              * the existence of NtReplacePartitionUnit to detect sp1 - see
@@ -1362,6 +1372,10 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
  *    just comes straight here
  * 2) The thread will show up in the list of threads accessed by
  *    NtQuerySystemInformation's SystemProcessesAndThreadsInformation structure.
+ * 3) check_sole_thread()
+ * 4) Vista+'s NtGetNextThread and NtGetNextProcess
+ *    (which I am assuming expose the iterator interface of
+ *    PsGetNextProcessThread, should check) 
  */
 
 void
@@ -2375,7 +2389,19 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
      * We could optimize out these system calls, but for now staying safe
      */
     if (!is_readable_pe_base(base)) {
-        ASSERT_CURIOSITY(false);
+        DOLOG(1, LOG_VMAREAS, {
+            wchar_t buf[MAXIMUM_PATH];
+            NTSTATUS res = get_mapped_file_name(base, buf, BUFFER_SIZE_BYTES(buf));
+            if (NT_SUCCESS(res)) {
+                LOG(GLOBAL, LOG_VMAREAS, 2,
+                    "\t%s: WARNING: image but non-PE mapping @"PFX" backed by \"%S\"\n",
+                    __FUNCTION__, base, buf);
+            }
+        });
+        /* This happens with on win7 so not an assert curiosity
+         * \Device\HarddiskVolume1\Windows\System32\apisetschema.dll
+         */
+        SYSLOG_INTERNAL_WARNING_ONCE("image but non-PE mapping found");
         return;
     }
     /* Our WOW64 design for 32-bit DR involves ignoring all 64-bit dlls
@@ -2655,7 +2681,7 @@ process_image_post_vmarea(app_pc base, size_t size, uint prot, bool add, bool re
      * We could optimize out these system calls, but for now staying safe
      */
     if (!is_readable_pe_base(base)) {
-        ASSERT_CURIOSITY(false);
+        /* see comments in process_image() where we SYSLOG */
         return;
     }
     /* Our WOW64 design for 32-bit DR involves ignoring all 64-bit dlls
@@ -3241,6 +3267,7 @@ os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
         *commit_limit = sperf_info.TotalCommitLimit;
         return true;
     } else {
+        LOG(GLOBAL, LOG_ALL, 1, "ERROR: query_system_info failed 0x%x\n", res);
         ASSERT_NOT_REACHED();
         return false;
     }
@@ -6551,6 +6578,7 @@ early_inject_init()
             break;
         case WINDOWS_VERSION_2003:
         case WINDOWS_VERSION_VISTA:
+        case WINDOWS_VERSION_7:
             /* LdrLoadDll is best but LdrpLoadDll seems to work just as well
              * (FIXME would it be better just to use that so matches XP?),
              * LdrpLoadImportModule also works but it misses the load of

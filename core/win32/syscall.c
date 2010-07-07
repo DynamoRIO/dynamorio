@@ -75,94 +75,108 @@ app_pc sysenter_ret_address = NULL;
 /*******************************************************/
 
 const char * const syscall_names[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     "Nt"#name,
 #include "syscallx.h"
 #undef SYSCALL
 };
+const int windows_7_x64_syscalls[] = {
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+    w7x64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+const int windows_7_syscalls[] = {
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+    w7,
+#include "syscallx.h"
+#undef SYSCALL
+};
 const int windows_vista_sp1_x64_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     vista_sp1_x64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 const int windows_vista_sp1_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     vista_sp1,
 #include "syscallx.h"
 #undef SYSCALL
 };
 const int windows_vista_sp0_x64_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     vista_sp0_x64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 const int windows_vista_sp0_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     vista_sp0,
 #include "syscallx.h"
 #undef SYSCALL
 };
 const int windows_2003_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     tk3,
 #include "syscallx.h"
 #undef SYSCALL
 };
 const int windows_XP_x64_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     xp64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 const int windows_XP_wow64_index[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     wow64,
 #include "syscallx.h"
 #undef SYSCALL
 };
 const int windows_XP_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     xp,
 #include "syscallx.h"
 #undef SYSCALL
 };
 const int windows_2000_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     tk,
 #include "syscallx.h"
 #undef SYSCALL
 };
 const int windows_NT_sp4_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     ntsp4,
 #include "syscallx.h"
 #undef SYSCALL
 };
 /* for SP3 (and maybe SP2 or SP1 -- haven't checked those) */
 const int windows_NT_sp3_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     ntsp3,
 #include "syscallx.h"
 #undef SYSCALL
 };
 /* for SP0 (and maybe SP2 or SP1 -- haven't checked those) */
 const int windows_NT_sp0_syscalls[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     ntsp0,
 #include "syscallx.h"
 #undef SYSCALL
@@ -171,12 +185,12 @@ const int windows_NT_sp0_syscalls[] = {
 /* for x64 this is the # of args */
 const uint syscall_argsz[] = {
 #ifdef X64
-# define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                 vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+# define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                 vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     nargs,
 #else
-# define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                 vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+# define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                 vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     arg32,
 #endif
 #include "syscallx.h"
@@ -187,8 +201,8 @@ const uint syscall_argsz[] = {
  * dynamically changed since this flag is used early on by
  * intercept_native_syscall() */
 static const int syscall_requires_action[] = {
-#define SYSCALL(name, act, nargs, arg32, vista_sp1_x64, vista_sp1, vista_sp0_x64, \
-                vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
+#define SYSCALL(name, act, nargs, arg32, w7x64, w7, vista_sp1_x64, vista_sp1, \
+                vista_sp0_x64, vista_sp0, tk3, xp64, wow64, xp, tk, ntsp4, ntsp3, ntsp0) \
     act,
 #include "syscallx.h"
 #undef SYSCALL
@@ -718,7 +732,7 @@ is_newly_created_process(HANDLE process_handle)
          * full rights). Get handle rights in local since won't be available in an
          * ldmp. */
         DEBUG_DECLARE(ACCESS_MASK rights = nt_get_handle_access_rights(process_handle);)
-        ASSERT_CURIOSITY(get_os_version() == WINDOWS_VERSION_VISTA &&
+        ASSERT_CURIOSITY(get_os_version() >= WINDOWS_VERSION_VISTA &&
                          "xref case 9800, is_newly_created_process failure");
     }
 
@@ -862,7 +876,7 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
     ACCESS_MASK thread_access_mask = (uint) sys_param(dcontext, param_base, 3);
     bool create_suspended = (bool) sys_param(dcontext, param_base, 7);
     create_proc_thread_info_t *thread_stuff = (void *) sys_param(dcontext, param_base, 10);
-    ASSERT(get_os_version() == WINDOWS_VERSION_VISTA);
+    ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
 
     /* might need these in post, note CreateProcess appears to hardcode them */
     ASSERT_CURIOSITY(proc_access_mask == MAXIMUM_ALLOWED);
@@ -948,7 +962,7 @@ presys_CreateThreadEx(dcontext_t *dcontext, reg_t *param_base)
     DEBUG_DECLARE(void *start_parameter = (void *) sys_param(dcontext, param_base, 5);)
     DEBUG_DECLARE(bool create_suspended = (bool) sys_param(dcontext, param_base, 6);)
     DEBUG_DECLARE(process_id_t pid = process_id_from_handle(process_handle);)
-    ASSERT(get_os_version() == WINDOWS_VERSION_VISTA);
+    ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
 
     LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
         "syscall: NtCreateThread pid="PFX" suspended=%d\n"
@@ -1384,7 +1398,7 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
                  * the legacy NtCreateProcess native api (vs NtCreateUserProcess) or
                  * the app is injecting memory into a new process before it's started
                  * initializing itself. */
-                ASSERT_CURIOSITY(get_os_version() != WINDOWS_VERSION_VISTA);
+                ASSERT_CURIOSITY(get_os_version() < WINDOWS_VERSION_VISTA);
                 aslr_maybe_pad_stack(dcontext, process_handle);
             } else {
                 DODEBUG({
@@ -2145,7 +2159,7 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
     /* FIXME should have type for this */
     DEBUG_DECLARE(create_proc_thread_info_t *thread_stuff =
                   (create_proc_thread_info_t *) postsys_param(dcontext, param_base, 10);)
-    ASSERT(get_os_version() == WINDOWS_VERSION_VISTA);
+    ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
 
     LOG(THREAD, LOG_SYSCALLS, 1, "syscall: NtCreateUserProcess => "PIFX"\n", mc->xax);
     DOLOG(1, LOG_SYSCALLS, {

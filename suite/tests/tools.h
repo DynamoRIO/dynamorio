@@ -576,6 +576,7 @@ intercept_signal(int sig, handler_t handler)
 
 #  define INIT() set_global_filter()
 
+# define WINDOWS_VERSION_7      61
 # define WINDOWS_VERSION_VISTA  60
 # define WINDOWS_VERSION_2003   52
 # define WINDOWS_VERSION_XP     51
@@ -584,7 +585,10 @@ intercept_signal(int sig, handler_t handler)
 
 /* returns 0 on failure */
 int
-get_windows_version();
+get_windows_version(void);
+
+bool
+is_wow64(HANDLE hProcess);
 
 static LONG WINAPI 
 our_exception_filter(struct _EXCEPTION_POINTERS * pExceptionInfo)

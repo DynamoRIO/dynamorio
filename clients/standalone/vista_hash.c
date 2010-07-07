@@ -36,6 +36,7 @@
 #include <stddef.h> /* for offsetof */
 #include <string.h> /* for memcpy */
 #include <imagehlp.h>
+#include <stdio.h>
 
 /*
  * NOTE - I haven't tried running this with the dynamorio.dll in this directory so it
@@ -113,7 +114,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
 
         while (p1 - copy1 <= p2 - copy2) {
             uint num_bytes, i, num_prefix = 0;
-            uint size = decode_sizeof(p1, &num_prefix);
+            uint size = decode_sizeof(drcontext, p1, &num_prefix);
             size -= num_prefix;
             num_bytes = num_prefix;
             if (size == 0) {
@@ -144,7 +145,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
 
         while (p2 - copy2 < p1 - copy1) {
             uint num_bytes, i, num_prefix = 0;
-            uint size = decode_sizeof(p2, &num_prefix);
+            uint size = decode_sizeof(drcontext, p2, &num_prefix);
             size -= num_prefix;
             num_bytes = num_prefix;
             if (size == 0) {
@@ -258,7 +259,7 @@ main(int argc, char *argv[])
         } else if (strcmp(argv[arg_offs], "-no_second_pass") == 0) {
             use_second_pass = false;
         } else if (strcmp(argv[arg_offs], "-second_pass_offset") == 0) {
-            if (argc <= arg_offs+1)
+            if ((uint)argc <= arg_offs+1)
                 return usage(argv[0]);
             second_pass_offset = atoi(argv[++arg_offs]);
         } else if (strcmp(argv[arg_offs], "-no_assume_IAT_written") == 0) {
@@ -274,7 +275,7 @@ main(int argc, char *argv[])
     if (arg_offs != argc)
         return usage(argv[0]);
     
-    snprintf(reloc_file, sizeof(reloc_file), "%s.reloc.dll", input_file);
+    _snprintf(reloc_file, sizeof(reloc_file), "%s.reloc.dll", input_file);
     reloc_file[sizeof(reloc_file)-1] = '\0';
     if (!CopyFile(input_file, reloc_file, FALSE)) {
         LPSTR msg = NULL;
@@ -358,7 +359,7 @@ main(int argc, char *argv[])
             p1 += info.RegionSize;
             p2 += info.RegionSize;
         } else if (!prot_is_writable(info.Protect)) {
-            int i;
+            uint i;
             for (i = 0; i < info.RegionSize / PAGE_SIZE; i++) {
                 bool exact = false;
                 if (assume_IAT_written && has_iat &&
@@ -453,7 +454,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2)
     int skipped_bytes = 0, identical_skipped_bytes = 0;
 
     while (p1 < start1 + PAGE_SIZE) {
-        int instr_size = decode_sizeof(p1, NULL _IF_X64(NULL));
+        int instr_size = decode_sizeof(drcontext, p1, NULL _IF_X64(NULL));
         if (p1 + instr_size > start1 + PAGE_SIZE) {
             /* We're overlapping the end of the page, skip these. */
             int end_skip = start1 + PAGE_SIZE - p1;
@@ -463,7 +464,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2)
                 identical_skipped_bytes += end_skip;
             break;
         }
-        if (decode_sizeof(p2, NULL _IF_X64(NULL)) != instr_size) {
+        if (decode_sizeof(drcontext, p2, NULL _IF_X64(NULL)) != instr_size) {
             VVERBOSE_PRINT("Instruction alignment mismatch\n");
             return false;
         }
