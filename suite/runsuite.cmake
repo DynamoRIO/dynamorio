@@ -244,7 +244,7 @@ function(testbuild_ex name is64 initial_cache build_args)
       if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
         # Note that we can't set ENV{PATH} as the output var of the replace:
         # it has to be its own set().
-        string(REGEX REPLACE "VC([/\\\\])Bin" "VC\\1Bin\\1amd64"
+        string(REGEX REPLACE "VC([/\\\\])([Bb][Ii][Nn])" "VC\\1\\2\\1amd64"
           newpath "$ENV{PATH}")
         set(ENV{PATH} "${newpath}")
         string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
@@ -256,7 +256,7 @@ function(testbuild_ex name is64 initial_cache build_args)
       endif (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
     else (is64)
       if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
-        string(REGEX REPLACE "(VC[/\\\\]Bin[/\\\\])amd64" "\\1"
+        string(REGEX REPLACE "(VC[/\\\\][Bb][Ii][Nn][/\\\\])amd64" "\\1"
           newpath "$ENV{PATH}")
         set(ENV{PATH} "${newpath}")
         string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\]amd64" "\\1"
