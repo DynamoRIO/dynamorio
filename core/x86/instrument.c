@@ -2065,6 +2065,27 @@ dr_get_milliseconds(void)
     return query_time_millis();
 }
 
+DR_API
+uint
+dr_get_random_value(uint max)
+{
+    return (uint) get_random_offset(max);
+}
+
+DR_API
+void
+dr_set_random_seed(uint seed)
+{
+    set_random_seed(seed);
+}
+
+DR_API
+uint
+dr_get_random_seed(void)
+{
+    return get_random_seed();
+}
+
 DR_API 
 /* Allocates memory from DR's memory pool specific to the
  * thread associated with drcontext.
@@ -2574,7 +2595,6 @@ dr_create_dir(const char *fname)
     return os_create_dir(fname, CREATE_DIR_REQUIRE_NEW);
 }
 
-#ifdef WINDOWS
 DR_API
 /* Checks existence of a directory. */
 bool
@@ -2590,7 +2610,6 @@ dr_file_exists(const char *fname)
 {
     return os_file_exists(fname, false);
 }
-#endif
 
 DR_API 
 /* Opens a file in the mode specified by mode_flags.

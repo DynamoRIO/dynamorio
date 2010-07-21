@@ -3196,6 +3196,18 @@ get_random_offset(size_t max_offset)
     return value;
 }
 
+void
+set_random_seed(uint seed)
+{
+    random_seed = seed;
+}
+
+uint
+get_random_seed(void)
+{
+    return random_seed;
+}
+
 /* NOTE - month is zero indexed */
 static const uint days_per_month_normal[12] = 
     {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};

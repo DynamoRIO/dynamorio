@@ -1901,6 +1901,12 @@ size_t
 get_random_offset(size_t max_offset);
 
 void
+set_random_seed(uint seed);
+
+uint
+get_random_seed(void);
+
+void
 convert_millis_to_date(uint64 millis, dr_time_t *time OUT);
 
 uint crc32(const char *buf, const uint len);

@@ -2868,7 +2868,7 @@ data_section_exit(void)
          * A failure to re-protect should result in a ton of dispatch
          * entrances w/ .data unprot, so should show up here.
          */
-        ASSERT_CURIOSITY(GLOBAL_STAT(datasec_not_prot) < 20);
+        ASSERT_CURIOSITY(GLOBAL_STAT(datasec_not_prot) < 40);
     });
     for (i=0; i<DATASEC_NUM; i++)
         DELETE_LOCK(datasec_lock[i]);

@@ -1184,8 +1184,22 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
             }
         }
 #endif
+        /* make a copy of the thread ids (can't just keep the thread list
+         * since it consists of pointers to live thread_record_t structs).
+         * we must make the copy before synching b/c cleaning up a thread
+         * involves freeing its thread_record_t.
+         */
+        thread_ids_temp = (thread_id_t *)
+            global_heap_alloc(num_threads * sizeof(thread_id_t)
+                              HEAPACCT(ACCT_THREAD_MGT));
+        for (i = 0; i < num_threads; i++)
+            thread_ids_temp[i] = threads[i]->id;
+        num_threads_temp = num_threads;
+        synch_array_temp = synch_array;
+
         for (i = 0; i < num_threads; i++) {
-            if (threads[i]->id != my_id && synch_array[i] != SYNCH_WITH_ALL_SYNCHED) {
+            /* do not de-ref threads[i] after synching if it was cleaned up! */
+            if (synch_array[i] != SYNCH_WITH_ALL_SYNCHED && threads[i]->id != my_id) {
 #ifdef CLIENT_INTERFACE
                 if (!finished_non_client_threads &&
                     IS_CLIENT_THREAD(threads[i]->dcontext)) {
@@ -1221,7 +1235,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                 }
             } else {
                 LOG(THREAD, LOG_SYNCH, 2, 
-                    "Skipping synch with thread "IDFMT"\n", threads[i]->id);
+                    "Skipping synch with thread "IDFMT"\n", thread_ids_temp[i]);
             }
         }
         /* We test the exiting thread count to avoid races between exit
@@ -1237,17 +1251,6 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                 }
             });
             STATS_INC(synch_yields);
-
-            /* make a copy of the thread ids (can't just keep the thread list
-             * since it consists of pointers to live ThreadRecords
-             */
-            thread_ids_temp = (thread_id_t *)
-                global_heap_alloc(num_threads * sizeof(thread_id_t)
-                                  HEAPACCT(ACCT_THREAD_MGT));
-            for (i = 0; i < num_threads; i++)
-                thread_ids_temp[i] = threads[i]->id;
-            num_threads_temp = num_threads;
-            synch_array_temp = synch_array;
 
             /* release lock in case some other thread waiting on it */
             mutex_unlock(&thread_initexit_lock);

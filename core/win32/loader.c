@@ -338,10 +338,20 @@ loader_init(void)
          * to get info.PebBaseAddress: we assume they don't do that.  It's not
          * exposed in any WinAPI routine.
          */
+        GET_NTDLL(RtlInitializeCriticalSection, (OUT RTL_CRITICAL_SECTION *crit));
         PEB *own_peb = get_own_peb();
         /* FIXME: does it need to be page-aligned? */
         private_peb = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, PEB, ACCT_OTHER, UNPROTECTED);
         memcpy(private_peb, own_peb, sizeof(*private_peb));
+        /* We need priv libs to NOT use any locks that app code uses: else we'll
+         * deadlock (classic transparency violation).
+         * One concern here is that the real PEB points at ntdll!FastPebLock
+         * but we assume nobody cares.
+         */
+        private_peb->FastPebLock = HEAP_TYPE_ALLOC
+            (GLOBAL_DCONTEXT, RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
+        RtlInitializeCriticalSection(private_peb->FastPebLock);
+        
         /* Start with empty values, regardless of what app libs did prior to us
          * taking over.  FIXME: if we ever have attach will have to verify this:
          * can priv libs always live in their own universe that starts empty?
@@ -440,6 +450,8 @@ loader_exit(void)
 
 #ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb)) {
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FastPebLock,
+                       RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb, PEB, ACCT_OTHER, UNPROTECTED);
     }
 #endif
@@ -472,6 +484,11 @@ loader_thread_init(dcontext_t *dcontext)
     }
 #endif
 
+    /* We rely on lock isolation to prevent deadlock while we're here
+     * holding privload_lock and thread_initexit_lock and the priv lib
+     * DllMain may acquire the same lock that another thread acquired
+     * in its app code before requesting a synchall (flush, exit)
+     */
     acquire_recursive_lock(&privload_lock);
     /* Walk forward and call independent libs last.
      * We do notify priv libs of client threads.

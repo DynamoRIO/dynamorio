@@ -1485,6 +1485,28 @@ uint64
 dr_get_milliseconds(void);
 
 DR_API
+/**
+ * Returns a pseudo-random number in the range [0..max).
+ * The pseudo-random sequence can be repeated by passing the seed
+ * used during a run to the next run via the -prng_seed runtime option.
+ */
+uint
+dr_get_random_value(uint max);
+
+DR_API
+/** 
+ * Sets the seed used for dr_get_random_value().  Generally this would
+ * only be called during client initialization.
+ */
+void
+dr_set_random_seed(uint seed);
+
+DR_API
+/** Returns the seed used for dr_get_random_value(). */
+uint
+dr_get_random_seed(void);
+
+DR_API
 /** Aborts the process immediately. */
 void
 dr_abort(void);
@@ -2063,22 +2085,15 @@ DR_API
 bool
 dr_create_dir(const char *fname);
 
-/* DR_API EXPORT BEGIN */
-#ifdef WINDOWS 
-/* DR_API EXPORT END */
- /* FIXME - implement Linux versions */
 DR_API
-/** Checks for the existence of a directory. \note Windows only. */
+/** Checks for the existence of a directory. */
 bool
 dr_directory_exists(const char *fname);
 
 DR_API
-/** Checks the existence of a file. \note Windows only. */
+/** Checks the existence of a file. */
 bool
 dr_file_exists(const char *fname);
-/* DR_API EXPORT BEGIN */
-#endif
-/* DR_API EXPORT END */
 
 /* The extra BEGIN END is to get spacing nice. */
 /* DR_API EXPORT BEGIN */
