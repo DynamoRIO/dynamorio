@@ -46,6 +46,7 @@
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
 #endif
+#include "disassemble.h"
 #include <sys/time.h> /* ITIMER_VIRTUAL */
 
 /* Don't use symtab, it doesn't give us anything that addr2line or
@@ -519,15 +520,17 @@ pcprofile_results(thread_pc_info_t *info)
 #endif
             } else if (e->whereami == WHERE_UNKNOWN) {
                 if (is_dynamo_address(e->pc)) {
-                    print_file(info->file, "pc="PFX"\t#=%d\tin DynamoRIO <SOMEWHERE>\n",
+                    print_file(info->file, "pc="PFX"\t#=%d\tin DynamoRIO <SOMEWHERE> | ",
                                e->pc, e->counter);
                 } else {
                     char *comment = NULL;
                     DODEBUG({ comment = get_address_comment(e->pc); });
-                    print_file(info->file, "pc="PFX"\t#=%d\tin uncategorized: %s\n",
+                    print_file(info->file, "pc="PFX"\t#=%d\tin uncategorized: %s | ",
                                e->pc, e->counter,
                                (comment==NULL)?"<UNKNOWN>":comment);
                 }
+                disassemble_with_info(GLOBAL_DCONTEXT, e->pc, info->file,
+                                      false/*show pc*/, false/*show bytes*/);
             } else {
 #if USE_SYMTAB
                 if (valid_symtab) {
