@@ -3468,11 +3468,11 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
      *     mov end_pc, xsi
      *   forward:
      *     repe cmpsb
+     * endif # copy_size > 1
      *   check_results:
      *     restore xcx
      *     restore xsi
      *     restore xdi
-     * endif # copy_size > 1
      * if eflags live:
      *   je start_bb
      *  restore_eflags_and_exit:
@@ -3494,6 +3494,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
     instr_t *restore_eflags_and_exit = NULL;
     bool use_tls = IF_X64_ELSE(true, false);
     bool saved_xcx = false;
+    instr_t *check_results = INSTR_CREATE_label(dcontext);
 
     instr = instrlist_first_expanded(dcontext, ilist);
 
@@ -3608,7 +3609,6 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
      */
     if (end_pc - start_pc > 1) {
         instr_t *forward = INSTR_CREATE_label(dcontext);
-        instr_t *check_results = INSTR_CREATE_label(dcontext);
         PRE(ilist, instr,
             INSTR_CREATE_jcc(dcontext, OP_jne, opnd_create_instr(check_results)));
 #ifdef X64
@@ -3646,14 +3646,14 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
                                  OPND_CREATE_INTPTR(end_pc)));
         PRE(ilist, instr, forward);
         PRE(ilist, instr, INSTR_CREATE_rep_cmps_1(dcontext));
-        PRE(ilist, instr, check_results);
-        PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, REG_XCX, TLS_XCX_SLOT, XCX_OFFSET));
-        PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, REG_XSI, TLS_XBX_SLOT, XSI_OFFSET));
-        PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, REG_XDI, TLS_XDX_SLOT, XDI_OFFSET));
     }
+    PRE(ilist, instr, check_results);
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, REG_XCX, TLS_XCX_SLOT, XCX_OFFSET));
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, REG_XSI, TLS_XBX_SLOT, XSI_OFFSET));
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, REG_XDI, TLS_XDX_SLOT, XDI_OFFSET));
     if (!TEST(FRAG_WRITES_EFLAGS_6, flags)) {
         instr_t *start_bb = INSTR_CREATE_label(dcontext);
         PRE(ilist, instr,
