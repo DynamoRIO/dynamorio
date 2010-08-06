@@ -365,9 +365,13 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 # define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("l", var)
 # define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("q", var)
 # define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
+/* with just "r" gcc will put $0 from PROBE_WRITE_PC into %eax
+ * and then complain that "lock addq" can't take %eax!
+ * so we use "ri":
+ */
 # define ATOMIC_ADD_suffix(suffix, var, value)                 \
    __asm__ __volatile__("lock add" suffix " %1, %0"            \
-                        : "=m" (var) : "r" (value) : "memory")
+                        : "=m" (var) : "ri" (value) : "memory")
 # define ATOMIC_ADD_int(var, val) ATOMIC_ADD_suffix("l", var, val)
 # define ATOMIC_ADD_int64(var, val) ATOMIC_ADD_suffix("q", var, val)
 # define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)

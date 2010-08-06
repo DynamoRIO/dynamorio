@@ -5759,11 +5759,9 @@ get_dynamorio_dll_preferred_base()
 
 # define VSYSCALL_PAGE_SO_NAME "linux-gate.so"
 /* For now we assume no OS config has user addresses above this value 
- * We just go to max 32-bit (64-bit not supported yet: want lazy probing)
+ * We just go to max 32-bit (64-bit not supported yet: want lazy probing),
+ * if don't have any kind of mmap iterator
  */
-# ifdef X64
-#  error X64 requires HAVE_PROC_MAPS: PR 364552
-# endif
 # define USER_MAX 0xfffff000
 
 /* callback for dl_iterate_phdr() for adding existing modules to our lists */
@@ -5955,6 +5953,45 @@ find_vm_areas_via_probe(void)
 
     ASSERT(dcontext != NULL);
 
+#ifdef VMX86_SERVER
+    /* We only need to probe inside allocated regions */
+    void *iter = vmk_mmaps_iter_start();
+    if (iter != NULL) { /* backward compatibility: support lack of iter */
+        byte *start;
+        size_t length;
+        char name[MAXIMUM_PATH];
+        LOG(GLOBAL, LOG_ALL, 1, "VSI mmaps:\n");
+        while (vmk_mmaps_iter_next(iter, &start, &length, (int *)&prot,
+                                   name, BUFFER_SIZE_ELEMENTS(name))) {
+            LOG(GLOBAL, LOG_ALL, 1, "\t"PFX"-"PFX": %d %s\n",
+                start, start + length, prot, name);
+            ASSERT(ALIGNED(start, PAGE_SIZE));
+            last_prot = MEMPROT_NONE;
+            for (pc = start; pc < start + length; ) {
+                prot = MEMPROT_NONE;
+                app_pc next_pc =
+                    probe_address(dcontext, pc, our_heap_start, our_heap_end, &prot);
+                count += probe_add_region(&last_start, &last_prot, pc, prot,
+                                          next_pc != pc);
+                if (next_pc != pc) {
+                    pc = next_pc;
+                    last_prot = MEMPROT_NONE; /* ensure we add adjacent region */
+                    last_start = pc;
+                } else
+                    pc += PAGE_SIZE;
+            }
+            count += probe_add_region(&last_start, &last_prot, pc, prot, true);
+            last_start = pc;
+        }
+        vmk_mmaps_iter_stop(iter);
+        return count;
+    } /* else, fall back to full probing */
+#else
+# ifdef X64
+/* no lazy probing support yet */
+#  error X64 requires HAVE_PROC_MAPS: PR 364552
+# endif
+#endif
     ASSERT(ALIGNED(USER_MAX, PAGE_SIZE));
     for (pc = (app_pc) PAGE_SIZE; pc < (app_pc) USER_MAX; ) {
         prot = MEMPROT_NONE;
