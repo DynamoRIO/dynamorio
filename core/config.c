@@ -182,6 +182,7 @@ typedef struct _config_info_t {
 
 static config_vals_t myvals;
 static config_info_t config;
+static bool config_initialized;
 
 const char *
 my_getenv(IF_WINDOWS_ELSE_NP(const wchar_t *, const char *) var, char *buf, size_t bufsz)
@@ -502,6 +503,7 @@ config_reread(void)
             INFO(1, "WARNING: unable to re-read config file %s", config.fname_default);
     }
     /* 6) env vars fill in any still-unset values */
+    ASSERT(config.u.v != NULL);
     set_config_from_env(&config);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 #else
@@ -561,6 +563,7 @@ config_init(void)
 {
     config.u.v = &myvals;
     config_read(&config, NULL, 0, CFG_SFX);
+    config_initialized = true;
 }
 
 void
@@ -570,7 +573,7 @@ config_exit(void)
     /* if core, then we're done with 1-time config file.
      * we can't delete this up front b/c we want to support synch ops
      */
-    if (config.u.v->has_1config) {
+    if (config_initialized && config.u.v->has_1config) {
         INFO(2, "deleting config file %s", config.fname_app);
         os_delete_file(config.fname_app);
     }
@@ -588,6 +591,8 @@ int
 get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache)
 {
     const char *val;
+    if (!config_initialized)
+        return GET_PARAMETER_FAILURE;
     if (ignore_cache)
         config_reread();
     val = get_config_val(name);
