@@ -387,6 +387,8 @@ GLOBAL_LABEL(clone_and_swap_stack:)
         mov      REG_XDI, REG_XAX /* dest = stack - sz */
         sub      REG_XDI, REG_XCX
         sub      REG_XAX, REG_XCX /* before lose sz, calculate tos on stack */
+        /* cld from signal handler for app signal should be ok */
+        cld
         rep movsb
         /* restore and swap to cloned stack */
         pop      REG_XDI
@@ -1186,6 +1188,7 @@ GLOBAL_LABEL(master_signal_handler:)
         mov      REG_XAX, [4*ARG_SZ + REG_XSP] /* skip 3 args + retaddr */
         neg      REG_XDX
         add      REG_XDX, REG_XSP /* xsp-shift = old frame */
+        add      REG_XDX, 3*ARG_SZ /* old frame */
         mov      REG_XCX, REG_XSP
         add      REG_XCX, 3*ARG_SZ /* new frame */
         /* have to be careful about order of reg params */

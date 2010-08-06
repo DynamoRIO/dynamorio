@@ -6382,8 +6382,7 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
     if (dcontext == NULL)
         return false;
     get_vmm_heap_bounds(&our_heap_start, &our_heap_end);
-    /* silly to loop over all x64 pages */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+    /* FIXME PR 235433: replace w/ real query to avoid all these probes */
 
     next_pc = probe_address(dcontext, (app_pc) pc, our_heap_start,
                             our_heap_end, &cur_prot);

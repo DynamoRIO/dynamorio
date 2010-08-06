@@ -523,7 +523,7 @@ Severity = ERROR
 Facility = DRCore
 SymbolicName = MSG_DRVMKLIB_UNLOADABLE
 Language=English
-Application %1!s! (%2!s!). Unable to load vmklib library: %s.
+Application %1!s! (%2!s!). Error loading or using vmklib library: %s.
 .
 ;#endif
 

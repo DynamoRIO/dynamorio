@@ -403,8 +403,13 @@ typedef struct sigframe {
 typedef struct rt_sigframe {
     char *pretcode;
 #ifdef X64
+# ifdef VMX86_SERVER
+    struct siginfo info;
+    kernel_ucontext_t uc;
+# else
     kernel_ucontext_t uc;
     struct siginfo info;
+# endif
 #else
     int sig;
     struct siginfo *pinfo;
@@ -2464,13 +2469,13 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
     if (has_restorer && for_app)
         f_new->pretcode = (char *) info->app_sigaction[sig]->restorer;
     else {
-#ifdef X64
-        ASSERT_NOT_REACHED();
-#else
-# ifdef VMX86_SERVER
+#ifdef VMX86_SERVER
         /* PR 404712: skip kernel's restorer code */
         if (for_app)
             f_new->pretcode = (char *) dynamorio_sigreturn;
+#else
+# ifdef X64
+        ASSERT(!for_app);
 # else
         /* only point at retcode if old one was -- with newer OS, points at
          * vsyscall page and there is no restorer, yet stack restorer code left
@@ -3297,6 +3302,11 @@ sig_should_swap_stack(struct clone_and_swap_args *args, kernel_ucontext_t *ucxt)
          * copy to dstack from the tos at the signal interruption point.
          */
         args->stack = dcontext->dstack;
+# ifdef X64
+        /* leave room for fpstate */
+        args->stack -= X64_FRAME_EXTRA;
+        args->stack = (byte *) ALIGN_BACKWARD(args->stack, 16);
+# endif
         args->tos = (byte *) sc->SC_XSP;
         return true;
     } else

@@ -1181,12 +1181,14 @@
      /* FIXME: default value is currently not good enough for sqlserver, for which we need more than 256MB */
 
     /* We hardcode an address in the mmap_text region here, but verify via
-     * the actual bora/vmkernel/public/user_layout.h in vmk_init().
+     * in vmk_init().
      */
-    OPTION_DEFAULT(uint_addr, vm_base, IF_VMX86_ELSE(0x10800000,0x16000000),
+    OPTION_DEFAULT(uint_addr, vm_base,
+                   IF_VMX86_ELSE(IF_X64_ELSE(0x40000000,0x10800000), 0x16000000),
                    "preferred base address hint (ignored for 64-bit linux)")
      /* FIXME: we need to find a good location with no conflict with DLLs or apps allocations */
-    OPTION_DEFAULT(uint_addr, vm_max_offset, IF_VMX86_ELSE(0x05800000,0x10000000),
+    OPTION_DEFAULT(uint_addr, vm_max_offset, 
+                   IF_VMX86_ELSE(IF_X64_ELSE(0x18000000,0x05800000),0x10000000),
                    "base address maximum random jitter")
     OPTION_DEFAULT(bool, vm_allow_not_at_base, true, "if we can't allocate vm heap at "
                    "preferred base (plus random jitter) allow the os to choose where to "

@@ -710,7 +710,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
      * non-deterministic. */
     /* Make sure we don't waste the lower bits from our random number */
     preferred = (
-#if defined(WINDOWS) || !defined(X64)
+#if defined(WINDOWS) || !defined(X64) || defined(VMX86_SERVER)
                  DYNAMO_OPTION(vm_base)
 #else
                  /* For 64-bit linux we can't use a fixed base since our library
