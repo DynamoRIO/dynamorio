@@ -1950,6 +1950,10 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                     u->profile = NULL;
                 }
 #endif
+                /* need to replace u with unit: we remove from fcache_unit_areas
+                 * here and re-add down below
+                 */
+                vmvector_remove(fcache_unit_areas, u->start_pc, u->reserved_end_pc);
                 nonpersistent_heap_free(GLOBAL_DCONTEXT, u, sizeof(fcache_unit_t)
                                         HEAPACCT(ACCT_MEM_MGT));
                 break;
