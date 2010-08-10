@@ -922,14 +922,6 @@ dispatch_exit_fcache(dcontext_t *dcontext)
 
 #ifdef LINUX
     if (dcontext->signals_pending) {
-        if (TEST(FRAG_HAS_SYSCALL, dcontext->last_fragment->flags)) {
-            /* restore syscall (they're a barrier to signals, so signal
-             * handler has cur frag exit before it does a syscall)
-             */
-            mangle_syscall_code(dcontext, dcontext->last_fragment,
-                                EXIT_CTI_PC(dcontext->last_fragment, dcontext->last_exit),
-                                true/*skip exit cti*/);
-        }
         /* FIXME: can overflow app stack if stack up too many signals
          * by interrupting prev handlers -- exacerbated by RAC lack of
          * caching (case 1858), which causes a cache exit prior to

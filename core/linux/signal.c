@@ -538,6 +538,7 @@ typedef struct _thread_sig_info_t {
     stack_t sigstack;
     void *sigheap; /* special heap */
     fragment_t *interrupted; /* frag we unlinked for delaying signal */
+    cache_pc interrupted_pc; /* pc within frag we unlinked for delaying signal */
 
 #ifdef RETURN_AFTER_CALL
     app_pc signal_restorer_retaddr;     /* last signal restorer, known ret exception */
@@ -2827,27 +2828,37 @@ abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, const char *signame, const ch
     os_terminate(dcontext, TERMINATE_PROCESS);
 }
 
-/* Returns whether unlinked.  Even if not, may still have mangled syscall. */
+/* Returns whether unlinked or mangled syscall.
+ * Restored in receive_pending_signal.
+ */
 static bool
 unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
                            byte *pc/*interruption pc*/)
 {
-    bool unlinked = false;
+    /* We only come here if we interrupted a fragment in the cache,
+     * which means that this thread's DR state is safe, and so it
+     * should be ok to acquire a lock.  xref PR 596069.
+     *
+     * There is a race where if two threads hit a signal in the same
+     * shared fragment, the first could re-link after the second
+     * un-links but before the second exits, and the second could then
+     * execute the syscall, resulting in arbitrary delay prior to
+     * signal delivery.  We don't want to allocate global memory,
+     * but we could use a static array of counters (since should
+     * be small # of interrupted shared fragments at any one time)
+     * used as refcounts so we only unlink when all are done.
+     * Not bothering to implement now: going to live w/ chance of
+     * long signal delays.  xref PR 596069.
+     */
+    bool changed = false;
     /* may not be linked if trace_relink or something */
     if (TEST(FRAG_LINKED_OUTGOING, f->flags)) {
         LOG(THREAD, LOG_ASYNCH, 3,
             "\tunlinking outgoing for interrupted F%d\n", f->id);
-        /* FIXME: this is same lock problem as mangle_syscall below...
-         * and to fix this in same way would require not sharing
-         * any bbs at all!!!
-         * FIXME FIXME FIXME!!!
-         * But, if we interrupted a fragment, shouldn't be a problem,
-         * since can't have interrupted a lock holder, right?
-         */
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
         unlink_fragment_outgoing(dcontext, f);
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
-        unlinked = true;
+        changed = true;
     } else {
         LOG(THREAD, LOG_ASYNCH, 3,
             "\toutgoing already unlinked for interrupted F%d\n", f->id);
@@ -2858,20 +2869,60 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
          * instead go back to dispatch right before the syscall
          */
         /* syscall mangling does a bunch of decodes but only one write,
-         * changing the target of a jmp, which should be atomic
-         * except for cache lines -- FIXME, make the instr_encode use
-         * a locked write?
-         * Anyway, if that write is atomic, we just want to prevent
-         * two people in here at same time, so we have to use linking lock --
-         * but we CANNOT grab a lock like that on this path!
-         * Possibility of livelock or deadlock.
-         * Our solution is to not share bbs that contain syscalls.
-         * They can still become traces, they just need to be private.
+         * changing the target of a short jmp, which is atomic
+         * since a one-byte write, so we don't need the change_linking_lock.
          */
-        ASSERT(!TEST(FRAG_SHARED, f->flags));
-        mangle_syscall_code(dcontext, f, pc, false/*do not skip exit cti*/);
+        changed = changed ||
+            mangle_syscall_code(dcontext, f, pc, false/*do not skip exit cti*/);
     }
-    return unlinked;
+    return changed;
+}
+
+static bool
+interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
+                            byte *pc/*interruption pc*/)
+{
+    bool pre_or_post_syscall = false;
+    if (TEST(FRAG_HAS_SYSCALL, f->flags)) {
+        /* PR 596147: if the thread is currently in an inlined
+         * syscall when a signal comes in, we can't delay and bound the
+         * delivery time: we need to deliver now.  Should decode
+         * backward and see if syscall.  We assume our translation of
+         * the interruption state is fine to re-start: i.e., the syscall
+         * is complete if kernel has pc at post-syscall point, and
+         * kernel set EINTR in eax if necessary.
+         */
+        /* Interrupted fcache, so ok to alloc memory for decode */
+        instr_t instr;
+        byte *nxt_pc;
+        instr_init(dcontext, &instr);
+        nxt_pc = decode(dcontext, pc, &instr);
+        if (nxt_pc != NULL && instr_valid(&instr) &&
+            instr_is_syscall(&instr)) {
+            /* pre-syscall but post-jmp so can't skip syscall */
+            pre_or_post_syscall = true;
+        } else {
+            instr_reset(dcontext, &instr);
+            ASSERT(INT_LENGTH == SYSCALL_LENGTH);
+            ASSERT(SYSENTER_LENGTH == SYSCALL_LENGTH);
+            nxt_pc = decode(dcontext, pc - SYSCALL_LENGTH, &instr);
+            if (nxt_pc != NULL && instr_valid(&instr) &&
+                instr_is_syscall(&instr)) {
+                /* decoding backward so check for exit cti jmp prior
+                 * to syscall to ensure no mismatch
+                 */
+                instr_reset(dcontext, &instr);
+                nxt_pc = decode(dcontext, pc - SYSCALL_LENGTH - JMP_LONG_LENGTH, &instr);
+                if (nxt_pc != NULL && instr_valid(&instr) &&
+                    instr_get_opcode(&instr) == OP_jmp) {
+                    /* post-inlined-syscall */
+                    pre_or_post_syscall = true;
+                }
+            }
+        }
+        instr_free(dcontext, &instr);
+    }
+    return pre_or_post_syscall;
 }
 
 static void
@@ -2951,14 +3002,27 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             fragment_t *f = fragment_pclookup(dcontext, pc, &wrapper);
             ASSERT(f != NULL);
             LOG(THREAD, LOG_ASYNCH, 2, "\tdelaying until exit F%d\n", f->id);
-            if (unlink_fragment_for_signal(dcontext, f, pc))
-                info->interrupted = f;
-            else {
-                /* either was unlinked for trace creation, or we got another
-                 * signal before exiting cache to handle 1st
+            if (interrupted_inlined_syscall(dcontext, f, pc)) {
+                /* PR 596147: if delayable signal arrives after syscall-skipping
+                 * jmp, either at syscall or post-syscall, we deliver
+                 * immediately, since we can't bound the delay
                  */
-                ASSERT(info->interrupted == NULL ||
-                       info->interrupted == f);
+                receive_now = true;
+                LOG(THREAD, LOG_ASYNCH, 2,
+                    "signal interrupted pre or post syscall itself so delivering now\n");
+            } else {
+                /* could get another signal but should be in same fragment */
+                ASSERT(info->interrupted == NULL || info->interrupted == f);
+                if (unlink_fragment_for_signal(dcontext, f, pc)) {
+                    info->interrupted = f;
+                    info->interrupted_pc = pc;
+                } else {
+                    /* either was unlinked for trace creation, or we got another
+                     * signal before exiting cache to handle 1st
+                     */
+                    ASSERT(info->interrupted == NULL ||
+                           info->interrupted == f);
+                }
             }
         } else {
             /* the signal interrupted code cache => run handler now! */
@@ -3368,10 +3432,16 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
          * via SYS_{tgkill,tkill}?  Can we tell the difference, even if
          * we watch the kill syscalls: could come from another process?
          */
-        /* Using global dcontext because dcontext is NULL here. */
-        DOLOG(1, LOG_ASYNCH, { dump_sigcontext(GLOBAL_DCONTEXT, sc); });
-        SYSLOG_INTERNAL_ERROR("ERROR: master_signal_handler w/ NULL dcontext: tid=%d, sig=%d",
-                              get_thread_id(), sig);
+        if (sig == SIGALRM || sig == SIGVTALRM || sig == SIGPROF) {
+            /* assuming an alarm during thread exit (xref PR 596127):
+             * suppressing is fine
+             */
+        } else {
+            /* Using global dcontext because dcontext is NULL here. */
+            DOLOG(1, LOG_ASYNCH, { dump_sigcontext(GLOBAL_DCONTEXT, sc); });
+            SYSLOG_INTERNAL_ERROR("ERROR: master_signal_handler w/ NULL dcontext: "
+                                  "tid=%d, sig=%d", get_thread_id(), sig);
+        }
         /* see FIXME comments above.
          * workaround for now: suppressing is better than dying.
          */
@@ -4120,7 +4190,16 @@ receive_pending_signal(dcontext_t *dcontext)
         link_fragment_outgoing(dcontext, info->interrupted, false);
         SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, release,
                                     change_linking_lock);
+        if (TEST(FRAG_HAS_SYSCALL, info->interrupted->flags)) {
+            /* restore syscall (they're a barrier to signals, so signal
+             * handler has cur frag exit before it does a syscall)
+             */
+            ASSERT(info->interrupted_pc != NULL);
+            mangle_syscall_code(dcontext, info->interrupted,
+                                info->interrupted_pc, true/*skip exit cti*/);
+        }
         info->interrupted = NULL;
+        info->interrupted_pc = NULL;
     }
     /* grab first pending signal
      * FIXME: start with real-time ones?

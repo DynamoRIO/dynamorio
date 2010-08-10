@@ -748,7 +748,7 @@ read_instruction(byte *pc, byte *orig_pc,
          *   prefix (REX.W = 1), 66H is ignored."
          * That means non-byte-specific operations, for which 66H is
          * ignored as well, right?
-         * Xref PR NOCHECKIN.
+         * Xref PR 593593.
          * Note that this means we could assert or remove some of
          * the "rex.w trumps data prefix" logic elsewhere in this file.
          */

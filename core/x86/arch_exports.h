@@ -1655,7 +1655,7 @@ insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
                         ptr_int_t val);
 #ifdef LINUX
 void mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip);
-void mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
+bool mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
 #endif
 void finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f);
 

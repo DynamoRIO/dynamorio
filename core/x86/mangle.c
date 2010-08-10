@@ -2300,12 +2300,17 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      * when we want to exit right before the syscall, we call the
      * mangle_syscall_code() routine below.
      */
-    PRE(ilist, instr, INSTR_CREATE_jmp(dcontext, opnd_create_instr(instr)));
+    instr_t *skip_exit = INSTR_CREATE_label(dcontext);
+    PRE(ilist, instr, INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(skip_exit)));
     /* assumption: raw bits of instr == app pc */
     ASSERT(instr_get_raw_bits(instr) != NULL);
     /* this should NOT be a meta-instr so we don't use PRE */
+    /* note that it's ok if this gets linked: we unlink all outgoing exits in
+     * addition to changing the skip_exit jmp upon receiving a signal
+     */
     instrlist_preinsert(ilist, instr, INSTR_CREATE_jmp
                         (dcontext, opnd_create_pc(instr_get_raw_bits(instr))));
+    PRE(ilist, instr, skip_exit);
 
 # ifdef STEAL_REGISTER
     /* in linux, system calls get their parameters via registers.
@@ -2543,7 +2548,7 @@ mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip)
  *   changes back to the default, where skip hops over the exit cti,
  *   which is assumed to be located at pc.
  */
-void
+bool
 mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
 {
     byte *stop_pc = fragment_body_end_pc(dcontext, f);
@@ -2560,16 +2565,16 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
         ASSERT(pc != NULL); /* our own code! */
         if (pc >= stop_pc) {
             LOG(THREAD, LOG_SYSCALLS, 3, "\tno syscalls found\n");
-            return;
+            return false;
         }
     } while (!instr_is_syscall(&instr));
     /* jmps are right before syscall */
-    cti_pc = prev_pc - 6;
-    skip_pc = cti_pc - 6;
+    cti_pc = prev_pc - JMP_LONG_LENGTH;
+    skip_pc = cti_pc - JMP_SHORT_LENGTH;
     instr_reset(dcontext, &instr);
     pc = decode(dcontext, skip_pc, &instr);
     ASSERT(pc != NULL); /* our own code! */
-    ASSERT(instr_get_opcode(&instr) == OP_jmp);
+    ASSERT(instr_get_opcode(&instr) == OP_jmp_short);
     ASSERT(pc == cti_pc);
     DODEBUG({
         pc = decode(dcontext, cti_pc, &cti);
@@ -2599,6 +2604,7 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
             "\ttarget of syscall jmp is already "PFX"\n", target);
     }
     instr_reset(dcontext, &instr);
+    return true;
 }
 #endif /* LINUX */
 

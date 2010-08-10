@@ -2257,6 +2257,20 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     }
 #endif
 
+    /* set tls dc to NULL prior to cleanup, to avoid problems handling
+     * alarm signals received during cleanup (we'll suppress if tls
+     * dc==NULL which seems the right thing to do: not worth our
+     * effort to pass to another thread if thread-group-shared alarm,
+     * and if thread-private then thread would have exited soon
+     * anyway).  see PR 596127.
+     */
+    /* make sure we invalidate the dcontext before releasing the memory  */
+    /* when cleaning up other threads, we cannot set their dcs to null,
+     * but we only do this at dynamorio_app_exit so who cares
+     */
+    if (id == get_thread_id())
+        set_thread_private_dcontext(NULL);
+
     /* In order to pass the client a dcontext in the process exit event
      * we do some thread cleanup early for the final thread so we can delay
      * the rest (PR 536058)
@@ -2309,12 +2323,6 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
 # else
     /* already at one end of list */
 # endif
-    /* make sure we invalidate the dcontext before releasing the memory  */
-    /* when cleaning up other threads, we cannot set their dcs to null,
-     * but we only do this at dynamorio_app_exit so who cares
-     */
-    if (id == get_thread_id())
-        set_thread_private_dcontext(NULL);
 
     /* delete through to other end */
     while (dcontext_tmp) {
