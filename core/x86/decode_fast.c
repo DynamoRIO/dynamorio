@@ -125,6 +125,31 @@ static const signed char immed_adjustment[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
 };
 
+#ifdef X64
+/* for x64 Intel, Jz is always a 64-bit addr ("f64" in Intel table) */
+static const signed char immed_adjustment_intel64[256] = {
+     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 0 */
+     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 1 */
+     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 2 */
+     0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 3 */
+                                                                
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
+     0, 0, 0, 0,  0, 0, 0, 0, -2,-2, 0, 0,  0, 0, 0, 0,  /* 6 */
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
+                                                                
+     0,-2, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0,-2, 0,  0, 0, 0, 0,  /* 9 */
+     0, 0, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  /* A */
+     0, 0, 0, 0,  0, 0, 0, 0, -2,-2,-2,-2, -2,-2,-2,-2,  /* B */
+                                                                
+     0, 0, 0, 0,  0, 0, 0,-2,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0,-2,-2,  0, 0, 0, 0,  /* E */
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
+};
+#endif
+
 /* Data table for fixed immediate part of an x86 instruction that
  * depends upon the existence of an address-size byte.  The table is
  * indexed by the 1st (primary) opcode byte.
@@ -433,8 +458,17 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
     }
     if (num_prefixes != NULL)
         *num_prefixes = sz;
-    if (word_operands)
-        sz += immed_adjustment[opc]; /* no adjustment for 2-byte escapes */
+    if (word_operands) {
+#ifdef X64
+        /* for x64 Intel, always 64-bit addr ("f64" in Intel table) 
+         * FIXME: what about 2-byte jcc?
+         */
+        if (X64_MODE_DC(dcontext) && proc_get_vendor() == VENDOR_INTEL)
+            sz += immed_adjustment_intel64[opc];
+        else
+#endif
+            sz += immed_adjustment[opc]; /* no adjustment for 2-byte escapes */
+    }
     if (addr16) {  /* no adjustment for 2-byte escapes */
         if (X64_MODE_DC(dcontext)) /* from 64 bits down to 32 bits */
             sz += 2*disp_adjustment[opc];

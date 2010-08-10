@@ -4173,7 +4173,8 @@ pre_system_call(dcontext_t *dcontext)
         /* in /usr/src/linux/arch/i386/kernel/signal.c:
            asmlinkage int sys_rt_sigreturn(unsigned long __unused)
          */
-        handle_sigreturn(dcontext, true);
+        execute_syscall = handle_sigreturn(dcontext, true);
+        /* see comment for SYS_sigreturn on return val */
         break;
     }
     case SYS_sigaltstack: {    /* 186 */

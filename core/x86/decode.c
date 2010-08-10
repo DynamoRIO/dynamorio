@@ -187,7 +187,7 @@ resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
                               (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_2 : OPSZ_8)) :
                 (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_2 : OPSZ_4));
     case OPSZ_4_short2xi4:
-        return (X64_MODE(di) && proc_get_vendor() == VENDOR_INTEL ? OPSZ_4 :
+        return ((X64_MODE(di) && proc_get_vendor() == VENDOR_INTEL) ? OPSZ_4 :
                 (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_2 : OPSZ_4));
     case OPSZ_4_rex8_short2: /* rex.w trumps data prefix */
         return (TEST(PREFIX_REX_W, di->prefixes) ? OPSZ_8 :
@@ -743,7 +743,21 @@ read_instruction(byte *pc, byte *orig_pc,
 
     if (data_prefix) {
         /* prefix was not part of opcode, it's a real prefix */
-        di->prefixes |= PREFIX_DATA;
+        /* From Intel manual:
+         *   "For non-byte operations: if a 66H prefix is used with
+         *   prefix (REX.W = 1), 66H is ignored."
+         * That means non-byte-specific operations, for which 66H is
+         * ignored as well, right?
+         * Xref PR NOCHECKIN.
+         * Note that this means we could assert or remove some of
+         * the "rex.w trumps data prefix" logic elsewhere in this file.
+         */
+        if (TEST(PREFIX_REX_W, di->prefixes)) {
+            LOG(THREAD_GET, LOG_ALL, 3,
+                "Ignoring 0x66 in presence of rex.w @"PFX"\n", di->start_pc);
+        } else {
+            di->prefixes |= PREFIX_DATA;
+        }
     }
     
     /* read any trailing immediate bytes */

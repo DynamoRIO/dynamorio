@@ -501,7 +501,9 @@
     /* Note that you also won't get more then -report_max violation core dumps */
     DYNAMIC_OPTION_DEFAULT(uint, dumpcore_violation_threshold, 3, "maximum number of violations to core dump on")
 
-    DYNAMIC_OPTION_DEFAULT(bool, live_dump, IF_WINDOWS_ELSE(true, false), "do a live core dump (no outside dependencies) when warranted by the dumpcore_mask")
+    DYNAMIC_OPTION_DEFAULT(bool, live_dump,
+                           IF_WINDOWS_ELSE(true, IF_VMX86_ELSE(true, false)),
+                           "do a live core dump (no outside dependencies) when warranted by the dumpcore_mask")
 #ifdef WINDOWS
     /* FIXME: make a dynamic option */
     OPTION_INTERNAL(bool, external_dump, "do a core dump using an external debugger (specified in the ONCRASH registry value) when warranted by the dumpcore_mask (kills process on win2k or w/ drwtsn32)")

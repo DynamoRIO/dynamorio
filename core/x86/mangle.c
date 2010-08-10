@@ -1574,6 +1574,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         curaddr = (ptr_uint_t) instr_get_raw_bits(instr);
     ASSERT(curaddr != 0);
     retaddr = curaddr + len;
+    ASSERT(retaddr == (ptr_uint_t) decode_next_pc(dcontext, (byte *)curaddr));
 
 #if defined(RETURN_STACK) || defined(NATIVE_RETURN)
     /* ASSUMPTION: a call to the next instr is not going to ever have a matching ret!
