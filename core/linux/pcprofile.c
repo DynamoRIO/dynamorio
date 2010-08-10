@@ -529,8 +529,12 @@ pcprofile_results(thread_pc_info_t *info)
                                e->pc, e->counter,
                                (comment==NULL)?"<UNKNOWN>":comment);
                 }
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
                 disassemble_with_info(GLOBAL_DCONTEXT, e->pc, info->file,
                                       false/*show pc*/, false/*show bytes*/);
+#else
+                print_file(info->file, "\n");
+#endif
             } else {
 #if USE_SYMTAB
                 if (valid_symtab) {
