@@ -379,8 +379,17 @@ function (set_cflags source)
   else ()
     set(cflags "${ORIG_CMAKE_C_FLAGS}")
   endif ()
-  # Xref i#230, removes "-fvisibility=internal" option.
-  string(REGEX REPLACE "-fvisibility=internal" "" cflags "${cflags}")
+  if ("${source}" MATCHES ".dll.c$")
+    # do nothing
+  else ("${source}" MATCHES ".dll.c$")
+    # We only do it for the executable, not the dll
+    # Xref i#230, removes "-fvisibility=internal" option.
+    string(REGEX REPLACE "-fvisibility=internal" "" cflags "${cflags}")
+    # Xref i#331, removes "/O2" to avoid optimization on the executable
+    if (WIN32)
+      string(REGEX REPLACE "/O2" "" cflags "${cflags}")
+    endif (WIN32)
+  endif ("${source}" MATCHES ".dll.c$")
   # We can't set the target properties COMPILE_FLAGS as that will
   # pass -g3 to cpp which ends up not expanding macros!
   # So we set properties on source files only.

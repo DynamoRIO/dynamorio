@@ -1130,10 +1130,24 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         /* xsp won't have proper value due to stack padding */
         APP(&ilist, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX),
                                         opnd_create_reg(REG_XSP)));
+#ifdef X64
+        /* i#331: align the misaligned stack */
+        APP(&ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
+                                     opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                                           -(int)XSP_SZ, OPSZ_0)));
+#endif
     }
     dr_insert_call(dcontext, &ilist, NULL, (byte *)callee, 1,
                    parameters_stack_padded() ? opnd_create_reg(REG_XAX) :
                    opnd_create_reg(REG_XSP));
+#ifdef X64
+    /* i#331, misaligned stack adjustment cleanup */
+    if (parameters_stack_padded()) {
+        APP(&ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
+                                     opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                                           XSP_SZ, OPSZ_0)));
+    }
+#endif
     /* clean up 2 pushes */
     APP(&ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
                                  opnd_create_base_disp(REG_XSP, REG_NULL, 0,
@@ -1176,6 +1190,12 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
             /* xsp won't have proper value due to stack padding */
             APP(&ilist, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX),
                                             opnd_create_reg(REG_XSP)));
+#ifdef X64
+            /* i#331: align the misaligned stack */
+            APP(&ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
+                                         opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                                               -(int)XSP_SZ, OPSZ_0)));
+#endif
         }
         dr_insert_call(dcontext, &ilist, NULL, (app_pc)asynch_take_over, 1,
                        parameters_stack_padded() ? opnd_create_reg(REG_XAX) :
@@ -1185,6 +1205,14 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
                        OPND_CREATE_INTPTR(0),
                        OPND_CREATE_INT32(-3),
                        OPND_CREATE_INTPTR(0));
+#endif
+#ifdef X64
+        if (parameters_stack_padded()) {
+            /* i#331: misaligned stack adjust cleanup*/
+            APP(&ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
+                                         opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                                               XSP_SZ, OPSZ_0)));
+        }
 #endif
     }
 
