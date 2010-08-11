@@ -635,8 +635,4 @@ bool
 convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
                        IN size_t buf_len/*# elements*/);
 
-/* in loader.c */
-void loader_init(void);
-void loader_exit(void);
-
 #endif /* _OS_PRIVATE_H_ */

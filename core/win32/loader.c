@@ -76,29 +76,6 @@
 # define IMAGE_ORDINAL_FLAG IMAGE_ORDINAL_FLAG32
 #endif
 
-/* List of privately-loaded modules.
- * We assume there will only be a handful of privately-loaded modules,
- * so we do not bother to optimize: we use a linked list, search by
- * linear walk, and find exports by walking the PE structures each time.
- * The list is kept in reverse-dependent order so we can unload from the
- * front without breaking dependencies.
- */
-typedef struct _privmod_t {
-    app_pc base;
-    size_t size;
-    const char *name;
-    uint ref_count;
-    bool externally_loaded;
-    struct _privmod_t *next;
-    struct _privmod_t *prev;
-} privmod_t;
-
-static privmod_t *modlist; /* in .data, but .ntdll, etc. are never removed */
-/* Recursive so redirect_* can be invoked from private library entry points */
-DECLARE_CXTSWPROT_VAR(static recursive_lock_t privload_lock,
-                      INIT_RECURSIVE_LOCK(privload_lock));
-/* Protected by privload_lock */
-DECLARE_NEVERPROT_VAR(static uint privload_recurse_cnt, 0);
 
 /* Not persistent across code cache execution, so not protected */
 DECLARE_NEVERPROT_VAR(static char modpath[MAXIMUM_PATH], {0});
@@ -110,41 +87,10 @@ static char systemroot[MAXIMUM_PATH];
 /* PE entry points take 3 args */
 typedef bool (WINAPI *dllmain_t)(HANDLE, DWORD, LPVOID);
 
-/* We need to load client libs prior to having heap */
-#define PRIVMOD_STATIC_NUM 8
-/* These are only written during init so ok to be in .data */
-static privmod_t privmod_static[PRIVMOD_STATIC_NUM];
-/* this marks end of client paths in search_paths[] and end of privmod_static[] */
-static uint privmod_static_client_idx;
-/* this marks end of search_paths[] */
-static uint privmod_static_idx;
-/* We store client paths here to use for locating libraries later
- * Unfortunately we can't use dynamic storage, and the paths are clobbered
- * immediately by instrument_load_client_libs, so we have max space here.
- */
-static char search_paths[PRIVMOD_STATIC_NUM][MAXIMUM_PATH];
-
-/* Used for in_private_library() */
-vm_area_vector_t *modlist_areas;
-
 /* forward decls */
-static privmod_t *
-privload_load(const char *filename, privmod_t *dependent);
 
-static bool
-privload_load_finalize(privmod_t *mod);
-
-static bool
-privload_unload(privmod_t *privmod);
-
-static bool
-privload_unload_imports(privmod_t *mod);
-
-static app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT);
-
-static bool
-privload_process_imports(privmod_t *mod);
+static void
+privload_init_search_paths(void);
 
 static bool
 privload_get_import_descriptor(privmod_t *mod, IMAGE_IMPORT_DESCRIPTOR **imports OUT,
@@ -154,24 +100,8 @@ static bool
 privload_process_one_import(privmod_t *mod, privmod_t *impmod,
                             IMAGE_THUNK_DATA *lookup, app_pc *address);
 
-static bool
-privload_call_entry(privmod_t *privmod, uint reason);
-
-static privmod_t *
-privload_lookup(const char *name);
-
-static privmod_t *
-privload_lookup_by_base(app_pc modbase);
-
-static privmod_t *
-privload_insert(privmod_t *after, app_pc base, size_t size, const char *name);
-
 static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent);
-
-static void
-privload_init_search_paths(void);
-
 
 /* Redirection of ntdll routines that for transparency reasons we can't
  * point at the real ntdll.  If we get a lot of these should switch to
@@ -182,8 +112,6 @@ typedef struct _redirect_import_t {
     app_pc func;
 } redirect_import_t;
 
-static void
-privload_redirect_setup(privmod_t *mod);
 
 static app_pc
 privload_redirect_imports(privmod_t *impmod, const char *name);
@@ -318,10 +246,9 @@ static bool loaded_windows_lib;
 
 /***************************************************************************/
 
-void
-loader_init(void)
+void 
+os_loader_init_prologue(void)
 {
-    uint i;
     app_pc ntdll = get_ntdll_base();
     app_pc drdll = get_dynamorio_dll_start();
     app_pc user32 = (app_pc) get_module_handle(L"user32.dll");
@@ -375,12 +302,6 @@ loader_init(void)
 
     acquire_recursive_lock(&privload_lock);
     privload_init_search_paths();
-    VMVECTOR_ALLOC_VECTOR(modlist_areas, GLOBAL_DCONTEXT,
-                          VECTOR_SHARED | VECTOR_NEVER_MERGE
-                          /* protected by privload_lock */
-                          | VECTOR_NO_LOCK,
-                          modlist_areas);
-
     /* We count on having at least one node that's never removed so we
      * don't have to unprot .data and write to modlist later
      */
@@ -404,18 +325,11 @@ loader_init(void)
                               "user32.dll");
         mod->externally_loaded = true;
     }
+}
 
-    /* Process client libs we loaded early but did not finalize */
-    for (i = 0; i < privmod_static_client_idx; i++) {
-        /* Transfer to real list so we can do normal processing */
-        mod = privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
-                              privmod_static[i].name);
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: processing imports for %s\n",
-            __FUNCTION__, mod->name);
-        if (!privload_load_finalize(mod)) {
-            CLIENT_ASSERT(false, "failure to process imports of client library");
-        }
-    }
+void
+os_loader_init_epilogue(void)
+{
 #ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb) && !should_swap_peb_pointer()) {
         /* Not going to be swapping so restore permanently to app */
@@ -426,19 +340,8 @@ loader_init(void)
 }
 
 void
-loader_exit(void)
+os_loader_exit(void)
 {
-    /* We must unload for detach so can't leave them loaded */
-    acquire_recursive_lock(&privload_lock);
-    /* The list is kept in reverse-dependent order so we can unload from the
-     * front without breaking dependencies.
-     */
-    while (modlist != NULL)
-        privload_unload(modlist);
-    vmvector_delete_vector(GLOBAL_DCONTEXT, modlist_areas);
-    release_recursive_lock(&privload_lock);
-    DELETE_RECURSIVE_LOCK(privload_lock);
-
     mutex_lock(&privload_fls_lock);
     while (fls_cb_list != NULL) {
         fls_cb_t *cb = fls_cb_list;
@@ -464,9 +367,8 @@ loader_exit(void)
 }
 
 void
-loader_thread_init(dcontext_t *dcontext)
+os_loader_thread_init_prologue(dcontext_t *dcontext)
 {
-    privmod_t *mod;
 #ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
         if (!dynamo_initialized) {
@@ -489,22 +391,11 @@ loader_thread_init(dcontext_t *dcontext)
         dcontext->teb_base = (byte *) get_tls(SELF_TIB_OFFSET);
     }
 #endif
+}
 
-    /* We rely on lock isolation to prevent deadlock while we're here
-     * holding privload_lock and thread_initexit_lock and the priv lib
-     * DllMain may acquire the same lock that another thread acquired
-     * in its app code before requesting a synchall (flush, exit)
-     */
-    acquire_recursive_lock(&privload_lock);
-    /* Walk forward and call independent libs last.
-     * We do notify priv libs of client threads.
-     */
-    for (mod = modlist; mod != NULL; mod = mod->next) {
-        if (!mod->externally_loaded)
-            privload_call_entry(mod, DLL_THREAD_ATTACH);
-    }
-    release_recursive_lock(&privload_lock);
-
+void
+os_loader_thread_init_epilogue(dcontext_t *dcontext)
+{
 #ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
         /* For subsequent app threads, peb ptr will be swapped to priv
@@ -518,16 +409,9 @@ loader_thread_init(dcontext_t *dcontext)
 }
 
 void
-loader_thread_exit(dcontext_t *dcontext)
+os_loader_thread_exit(dcontext_t *dcontext)
 {
-    privmod_t *mod;
-    acquire_recursive_lock(&privload_lock);
-    /* Walk forward and call independent libs last */
-    for (mod = modlist; mod != NULL; mod = mod->next) {
-        if (!mod->externally_loaded)
-            privload_call_entry(mod, DLL_THREAD_DETACH);
-    }
-    release_recursive_lock(&privload_lock);
+    /* do nothing in Windows */
 }
 
 #ifdef CLIENT_INTERFACE
@@ -622,174 +506,26 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
 }
 #endif /* CLIENT_INTERFACE */
 
-app_pc
-load_private_library(const char *filename)
+void
+privload_add_areas(privmod_t *privmod)
 {
-    app_pc res = NULL;
-    privmod_t *privmod;
-
-    /* Simpler to lock up front than to unmap on race.  All helper routines
-     * assume the lock is held.
-     */
-    acquire_recursive_lock(&privload_lock);
-
-    privmod = privload_lookup(filename);
-    if (privmod == NULL) {
-        DODEBUG(privload_recurse_cnt = 0;);
-        privmod = privload_load(filename, NULL);
-    }
-    if (privmod != NULL)
-        res = privmod->base;
-    release_recursive_lock(&privload_lock);
-    return res;
-}
-
-bool
-unload_private_library(app_pc modbase)
-{
-    privmod_t *mod;
-    bool res = false;
-    acquire_recursive_lock(&privload_lock);
-    mod = privload_lookup_by_base(modbase);
-    if (mod != NULL)
-        res = privload_unload(mod);
-    release_recursive_lock(&privload_lock);
-    return res;
-}
-
-bool
-in_private_library(app_pc pc)
-{
-    return vmvector_overlap(modlist_areas, pc, pc+1);
-}
-
-/* most uses should call privload_load() instead
- * if it fails, unloads
- */
-static bool
-privload_load_finalize(privmod_t *privmod)
-{
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-
-    ASSERT(!privmod->externally_loaded);
-
     vmvector_add(modlist_areas, privmod->base, privmod->base + privmod->size,
                  (void *)privmod);
-
-    privload_redirect_setup(privmod);
-
-    if (!privload_process_imports(privmod)) {
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to process imports %s\n",
-            __FUNCTION__, privmod->name);
-        privload_unload(privmod);
-        return false;
-    }
-
-    /* FIXME: not supporting TLS today: covered by i#233, but we don't
-     * expect to see it for dlls, only exes
-     */
-
-    if (!privload_call_entry(privmod, DLL_PROCESS_ATTACH)) {
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: entry routine failed\n", __FUNCTION__);
-        privload_unload(privmod);
-        return false;
-    }
-
-    LOG(GLOBAL, LOG_LOADER, 1, "%s: loaded %s @ "PFX"\n", __FUNCTION__,
-        privmod->name, privmod->base);
-    return true;
 }
 
-static privmod_t *
-privload_load(const char *filename, privmod_t *dependent)
+void
+privload_remove_areas(privmod_t *privmod)
 {
-    app_pc map;
-    size_t size;
-    privmod_t *privmod;
-
-    /* i#232: it would be nice to have nested try/except support:
-     * then we could wrap the whole load process, like ntdll!Ldr does
-     */
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    DODEBUG({
-        /* we have limited stack but we don't expect deep recursion */
-        privload_recurse_cnt++;
-        ASSERT_CURIOSITY(privload_recurse_cnt < 10);
-    });
-
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s\n", __FUNCTION__, filename);
-
-    map = privload_map_and_relocate(filename, &size);
-    if (map == NULL) {
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to map %s\n", __FUNCTION__, filename);
-        return NULL;
-    }
-
-    /* Keep a copy of the lib path for use in searching: we'll strdup in loader_init.
-     * This needs to come before privload_insert which will inc privmod_static_idx.
-     */
-    if (!dynamo_heap_initialized) {
-        const char *end = double_strrchr(filename, DIRSEP, ALT_DIRSEP);
-        if (end != NULL &&
-            end - filename < BUFFER_SIZE_ELEMENTS(search_paths[privmod_static_idx])) {
-            snprintf(search_paths[privmod_static_idx], end - filename, "%s",
-                     filename);
-            NULL_TERMINATE_BUFFER(search_paths[privmod_static_idx]);
-        } else
-            ASSERT_NOT_REACHED(); /* should never have client lib path so big */
-    }
-
-    /* Add to list before processing imports in case of mutually dependent libs */
-    /* Since we control when unmapped, we can use orig export name string and
-     * don't need strdup
-     */
-    /* Add after its dependent to preserve forward-can-unload order */
-    privmod = privload_insert(dependent, map, size, get_dll_short_name(map));
-
-    /* If no heap yet, we'll call finalize later in privload_init() */
-    if (privmod != NULL && dynamo_heap_initialized) {
-        if (!privload_load_finalize(privmod))
-            return NULL;
-    }
-    return privmod;
+    vmvector_remove(modlist_areas, privmod->base, privmod->base + privmod->size);
 }
 
-static bool
-privload_unload(privmod_t *privmod)
+void 
+privload_unmap_file(privmod_t *mod)
 {
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    ASSERT(dynamo_heap_initialized);
-    ASSERT(privmod->ref_count > 0);
-    privmod->ref_count--;
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: %s refcount => %d\n", __FUNCTION__,
-        privmod->name, privmod->ref_count);
-    if (privmod->ref_count == 0) {
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: unloading %s @ "PFX"\n", __FUNCTION__,
-            privmod->name, privmod->base);
-        if (privmod->prev == NULL) {
-            ASSERT(!DATASEC_PROTECTED(DATASEC_RARELY_PROT));
-            modlist = privmod->next;
-        } else
-            privmod->prev->next = privmod->next;
-        if (privmod->next != NULL)
-            privmod->next->prev = privmod->prev;
-        if (!privmod->externally_loaded) {
-            privload_call_entry(privmod, DLL_PROCESS_DETACH);
-            /* this routine may modify modlist, but we're done with it */
-            privload_unload_imports(privmod);
-            vmvector_remove(modlist_areas, privmod->base, privmod->base + privmod->size);
-            /* unmap_file removes from DR areas and calls unmap_file().
-             * It's ok to call this for client libs: ok to remove what's not there.
-             */
-            unmap_file(privmod->base, privmod->size);
-        }
-        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, privmod, privmod_t, ACCT_OTHER, PROTECTED);
-        return true;
-    }
-    return false;
+    unmap_file(mod->base, mod->size);
 }
 
-static bool
+bool
 privload_unload_imports(privmod_t *mod)
 {
     privmod_t *impmod;
@@ -825,7 +561,7 @@ privload_unload_imports(privmod_t *mod)
 }
 
 /* if anything fails, undoes the mapping and returns NULL */
-static app_pc
+app_pc
 privload_map_and_relocate(const char *filename, size_t *size OUT)
 {
     file_t fd;
@@ -902,7 +638,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
     return map;
 }
 
-static bool
+bool
 privload_process_imports(privmod_t *mod)
 {
     privmod_t *impmod;
@@ -1101,7 +837,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
     return true;
 }
 
-static bool
+bool
 privload_call_entry(privmod_t *privmod, uint reason)
 {
     app_pc entry = get_module_entry(privmod->base);
@@ -1114,75 +850,6 @@ privload_call_entry(privmod_t *privmod, uint reason)
         return (*func)((HANDLE)privmod->base, reason, NULL);
     }
     return true;
-}
-
-static privmod_t *
-privload_lookup(const char *name)
-{
-    privmod_t *mod;
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    if (name == NULL || name[0] == '\0')
-        return NULL;
-    for (mod = modlist; mod != NULL; mod = mod->next) {
-        if (strcasecmp(name, mod->name) == 0)
-            return mod;
-    }
-    return NULL;
-}
-
-static privmod_t *
-privload_lookup_by_base(app_pc modbase)
-{
-    privmod_t *mod;
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    for (mod = modlist; mod != NULL; mod = mod->next) {
-        if (modbase == mod->base)
-            return mod;
-    }
-    return NULL;
-}
-
-static privmod_t *
-privload_insert(privmod_t *after, app_pc base, size_t size, const char *name)
-{
-    privmod_t *mod;
-    /* We load client libs before heap is initialized so we use a
-     * static array of initial privmod_t structs until we can fully
-     * load and create proper list entries.
-     */
-    if (dynamo_heap_initialized)
-        mod = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, privmod_t, ACCT_OTHER, PROTECTED);
-    else {
-        /* temporarily use array */
-        if (privmod_static_idx >= PRIVMOD_STATIC_NUM) {
-            ASSERT_NOT_REACHED();
-            return NULL;
-        }
-        mod = &privmod_static[privmod_static_idx++];
-    }
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    mod->base = base;
-    mod->size = size;
-    mod->name = name;
-    mod->ref_count = 1;
-    mod->externally_loaded = false;
-    /* do not add non-heap struct to list: in init() we'll move array to list */
-    if (dynamo_heap_initialized) {
-        if (after == NULL) {
-            mod->next = modlist;
-            mod->prev = NULL;
-            ASSERT(!DATASEC_PROTECTED(DATASEC_RARELY_PROT));
-            modlist = mod;
-        } else {
-            /* we insert after dependent libs so we can unload in forward order */
-            mod->prev = after;
-            mod->next = after->next;
-            if (after->next != NULL)
-                after->next->prev = mod;
-            after->next = mod;
-        }
-    }
-    return mod;
 }
 
 static privmod_t *
@@ -1204,7 +871,7 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
      */
     
     /* 1) client lib dir(s) and Extensions dir */
-    for (i = 0; i < privmod_static_idx; i++) {
+    for (i = 0; i < search_paths_idx; i++) {
         snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/%s",
                  search_paths[i], impname);
         NULL_TERMINATE_BUFFER(modpath);
@@ -1248,51 +915,19 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
     return mod;
 }
 
-#ifdef X64
-# define LIB_SUBDIR "lib64"
-#else
-# define LIB_SUBDIR "lib32"
-#endif
-#define EXT_SUBDIR "ext"
-
+/* Although privload_init_paths will be called in both Linux and Windows,
+ * it is only called from os_loader_init_prologue, so it is ok to keep it
+ * local. Instead, we extract the shared code of adding ext path into
+ * privload_add_drext_path().
+ */
 static void
 privload_init_search_paths(void)
 {
     reg_query_value_result_t value_result;
     DIAGNOSTICS_KEY_VALUE_FULL_INFORMATION diagnostic_value_info;
-    const char *path, *mid, *end;
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
-    /* We support loading from the Extensions dir.  We locate it by
-     * assuming dynamorio.dll is in <prefix>/lib{32,64}/{debug,release}/
-     * and that the Extensions are in <prefix>/ext/lib{32,64}/{debug,release}/
-     * Xref i#277/PR 540817.
-     * FIXME: this does not work from a build dir: only using exports!
-     */
-    /* we use this marker to indicate the end of client paths on the list
-     * and the start of other things like Extensions.  we assume client
-     * libs were loaded prior to calling this routine.
-     */
-    privmod_static_client_idx = privmod_static_idx;
-    path = get_dynamorio_library_path();
-    mid = strstr(path, LIB_SUBDIR);
-    if (mid != NULL && (strlen(path)+strlen(EXT_SUBDIR)+1/*sep*/) <
-        BUFFER_SIZE_ELEMENTS(search_paths[privmod_static_idx])) {
-        char *s = search_paths[privmod_static_idx];
-        snprintf(s, mid - path, "%s", path);
-        s += (mid - path);
-        snprintf(s, strlen(EXT_SUBDIR)+1/*sep*/, "%s%c", EXT_SUBDIR, DIRSEP);
-        s += strlen(EXT_SUBDIR)+1/*sep*/;
-        end = double_strrchr(path, DIRSEP, ALT_DIRSEP);
-        if (end != NULL && privmod_static_idx < PRIVMOD_STATIC_NUM) {
-            snprintf(s, end - mid, "%s", mid);
-            NULL_TERMINATE_BUFFER(search_paths[privmod_static_idx]);
-            LOG(GLOBAL, LOG_LOADER, 1, "%s: added Extension search dir %s\n",
-                __FUNCTION__, search_paths[privmod_static_idx]);
-            privmod_static_idx++;
-        }
-    }
-
+    privload_add_drext_path();
     /* Get SystemRoot from CurrentVersion reg key */
     value_result = reg_query_value(DIAGNOSTICS_OS_REG_KEY, 
                                    DIAGNOSTICS_SYSTEMROOT_REG_KEY,
@@ -1312,7 +947,7 @@ privload_init_search_paths(void)
 /* Rather than statically linking to real kernel32 we want to invoke
  * routines in the private kernel32
  */
-static void
+void
 privload_redirect_setup(privmod_t *mod)
 {
     if (strcasecmp(mod->name, "kernel32.dll") == 0) {

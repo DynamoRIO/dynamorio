@@ -602,6 +602,10 @@ dynamorio_app_init(void)
             callback_interception_init_start();
         }
 #endif /* WINDOWS */
+#ifdef WINDOWS
+        /* loader initialization, finalize the private lib load. */
+        loader_init();
+#endif
 
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
@@ -933,6 +937,9 @@ dynamo_shared_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
             dynamo_thread_exit();
         }
     }
+#ifdef WINDOWS
+    loader_exit();
+#endif
     /* now that the final thread is exited, free the all_threads memory */
     mutex_lock(&all_threads_lock);
     global_heap_free(all_threads,
@@ -2092,6 +2099,9 @@ dynamo_thread_init(byte *dstack_in, dr_mcontext_t *mc
     fcache_thread_init(dcontext);
     link_thread_init(dcontext);
     fragment_thread_init(dcontext);
+#ifdef WINDOWS
+    loader_thread_init(dcontext);
+#endif
 
     if (!DYNAMO_OPTION(thin_client)) {
 #ifdef CLIENT_INTERFACE
@@ -2281,6 +2291,9 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     /* PR 243759: don't free client_data until after all fragment deletion events */
     if (!DYNAMO_OPTION(thin_client))
         instrument_thread_exit(dcontext);
+#endif
+#ifdef WINDOWS
+    loader_thread_exit(dcontext);
 #endif
     fcache_thread_exit(dcontext);
     link_thread_exit(dcontext);

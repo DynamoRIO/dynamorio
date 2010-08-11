@@ -6197,3 +6197,8 @@ get_loader_lock_owner()
 }
 #endif
 
+char *
+get_shared_lib_name(app_pc map, size_t size)
+{
+    return get_dll_short_name(map);
+}

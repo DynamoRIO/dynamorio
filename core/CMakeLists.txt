@@ -56,6 +56,7 @@ set(CORE_SRCS
   nudge.c
   synch.c
   buildmark.c
+  loader_shared.c
   )
 if (UNIX OR CLIENT_INTERFACE)
   # PR 219380: ntdll._vnsprintf doesn't support printing floats so we export ours

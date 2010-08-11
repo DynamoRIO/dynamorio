@@ -831,7 +831,6 @@ os_init(void)
      */
 
     aslr_init();
-    loader_init();
 
     /* ensure static cache buffers are primed, both for .data protection purposes and
      * because it may not be safe to get this information later */
@@ -980,7 +979,6 @@ os_slow_exit(void)
 
     aslr_exit();
     eventlog_slow_exit();
-    loader_exit();
 }
 
 /* FIXME: what are good values here? */
@@ -1251,7 +1249,6 @@ os_thread_init(dcontext_t *dcontext)
             dcontext->win32_start_addr);
     }
     aslr_thread_init(dcontext);
-    loader_thread_init(dcontext);
 }
 
 void
@@ -1259,7 +1256,6 @@ os_thread_exit(dcontext_t *dcontext)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
     aslr_thread_exit(dcontext);
-    loader_thread_exit(dcontext);
 #ifdef DEBUG
     /* for non-debug we do fast exit path and don't free local heap */
     /* clean up ostd fields here */

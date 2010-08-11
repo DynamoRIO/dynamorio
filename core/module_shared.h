@@ -371,4 +371,135 @@ module_digests_equal(const module_digest_t *calculated_digest,
                      const module_digest_t *matching_digest,
                      bool check_short, bool check_full);
 
+/***************************************************************************/
+/* DR's custom loader related data structure and functions,
+ * which should be used by loader only.
+ */
+#ifdef WINDOWS
+
+/* List of privately-loaded modules.
+ * We assume there will only be a handful of privately-loaded modules,
+ * so we do not bother to optimize: we use a linked list, search by
+ * linear walk, and find exports by walking the PE structures each time.
+ * The list is kept in reverse-dependent order so we can unload from the
+ * front without breaking dependencies.
+ */
+typedef struct _privmod_t {
+    app_pc base;
+    size_t size;
+    const char *name;
+    uint ref_count;
+    bool externally_loaded;
+    struct _privmod_t *next;
+    struct _privmod_t *prev;
+} privmod_t;
+
+
+/* more os independent name */
+#ifdef WINDOWS
+# define DLL_PROCESS_INIT DLL_PROCESS_ATTACH
+# define DLL_PROCESS_EXIT DLL_PROCESS_DETACH
+# define DLL_THREAD_INIT  DLL_THREAD_ATTACH
+# define DLL_THREAD_EXIT  DLL_THREAD_DETACH
+#else
+# define DLL_PROCESS_INIT 1
+# define DLL_PROCESS_EXIT 2
+# define DLL_THREAD_INIT  3
+# define DLL_THREAD_EXIT  4
+#endif
+
+/* We need to load client libs prior to having heap */
+#define PRIVMOD_STATIC_NUM 8
+/* It should has more entries than the PRIVMOD_STATIC_NUM,
+ * as it may also contains the extension libraries and 
+ * externally loaded libraries. 
+ * Currently, we set it twice of PRIVMOD_STATIC_NUM
+ */
+#define SEARCH_PATHS_NUM   (2*PRIVMOD_STATIC_NUM)
+
+extern recursive_lock_t privload_lock;
+extern char search_paths[SEARCH_PATHS_NUM][MAXIMUM_PATH];
+extern uint search_paths_idx;
+extern vm_area_vector_t *modlist_areas; 
+
+/* ************************************************************************* *
+ * os independent functions in loader_shared.c, can be called from loader.c  *
+ * ************************************************************************* */
+privmod_t *
+privload_load(const char *filename, privmod_t *dependent);
+
+bool
+privload_unload(privmod_t *privmod);
+
+privmod_t *
+privload_lookup(const char *name);
+
+privmod_t *
+privload_lookup_by_base(app_pc modbase);
+
+privmod_t *
+privload_insert(privmod_t *after, app_pc base, size_t size, const char *name);
+
+/* ************************************************************************* *
+ * os specific functions in loader.c, can be called from loader_shared.c     *
+ * ************************************************************************* */
+void
+privload_redirect_setup(privmod_t *mod);
+
+app_pc
+privload_map_and_relocate(const char *filename, size_t *size OUT);
+
+bool
+privload_call_entry(privmod_t *privmod, uint reason);
+
+bool
+privload_process_imports(privmod_t *mod);
+
+bool
+privload_unload_imports(privmod_t *mod);
+
+void
+privload_unmap_file(privmod_t *mod);
+
+void
+privload_add_areas(privmod_t *privmod);
+
+void
+privload_remove_areas(privmod_t *privmod);
+
+void
+privload_add_drext_path(void);
+
+/* os specific loader initialization prologue before finalize the load, 
+ * will also acquire privload_lock.
+ */
+void
+os_loader_init_prologue(void);
+
+/* os specific loader initialization epilogue after finalize the load, 
+ * will release privload_lock.
+ */
+void
+os_loader_init_epilogue(void);
+
+void
+os_loader_exit(void);
+
+/* os specific thread initilization prologue for loader, holding no lock */
+void
+os_loader_thread_init_prologue(dcontext_t *dcontext);
+
+/* os specific thread initilization epilogue for loader, holding no lock */
+void
+os_loader_thread_init_epilogue(dcontext_t *dcontext);
+
+/* os specific thread exit for loader, holding no lock */
+void
+os_loader_thread_exit(dcontext_t *dcontext);
+
+char *
+get_shared_lib_name(app_pc map, size_t size);
+
+#endif /* WINDOWS */
+
 #endif /* MODULE_LIST_H */

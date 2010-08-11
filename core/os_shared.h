@@ -914,4 +914,15 @@ os_check_option_compatibility(void);
 byte *alloc_landing_pad(app_pc addr_to_hook);
 void landing_pads_to_executable_areas(bool add);
 
+/* in loader_shared.c */
+#ifdef WINDOWS
+app_pc load_private_library(const char *filename);
+bool unload_private_library(app_pc modbase);
+void loader_init(void);
+void loader_exit(void);
+void loader_thread_init(dcontext_t *dcontext);
+void loader_thread_exit(dcontext_t *dcontext);
+bool in_private_library(app_pc pc);
+#endif /* WINDOWS */
+
 #endif /* OS_SHARED_H */
