@@ -339,6 +339,9 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modof
         }
     }
 
+    /* the only thing identifying the target module is the symbol name,
+     * which should be of "modname!symname" format
+     */
     info->SizeOfStruct = sizeof(SYMBOL_INFO);
     info->MaxNameLen = MAX_SYM_NAME;
     if (SymFromName(GetCurrentProcess(), (char *)symbol, info)) {

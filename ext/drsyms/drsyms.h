@@ -138,6 +138,8 @@ DR_EXPORT
  *
  * @param[in] modpath The full path to the module to be queried.
  * @param[in] symbol The name of the symbol being queried.
+ *   To specify a target module, pass "modulename!symbolname" as the symbol
+ *   string to look up.
  * @param[out] modoffs The offset from the base of the module specifying the address
  *   of the specified symbol.
  */
