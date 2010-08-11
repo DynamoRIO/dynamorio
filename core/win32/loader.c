@@ -450,6 +450,12 @@ loader_exit(void)
 
 #ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb)) {
+        if (should_swap_peb_pointer()) {
+            /* Swap back so any further peb queries (e.g., reading env var
+             * while reporting a leak) use a non-freed peb
+             */
+            swap_peb_pointer(false/*to app*/);
+        }
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FastPebLock,
                        RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb, PEB, ACCT_OTHER, UNPROTECTED);
