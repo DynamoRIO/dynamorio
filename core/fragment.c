@@ -3089,6 +3089,9 @@ fragment_delete_from_return_stack(dcontext_t *dcontext, fragment_t *f)
 void
 fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
 {
+#if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
+    bool acquired_shared_vm_lock = false;
+#endif
     LOG(THREAD, LOG_FRAGMENT, 3,
         "fragment_delete: *"PFX" F%d("PFX")."PFX" %s 0x%x\n",
         f, f->id, f->tag, f->start_pc,
@@ -3112,6 +3115,12 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
 #if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     /* need to protect ability to reference frag fields and fcache space */
     /* all other options are mostly notification */
+    if (monitor_delete_would_abort_trace(dcontext, f) && DYNAMO_OPTION(shared_traces)) {
+        /* must acquire shared_vm_areas lock before fragment_delete_mutex (PR 596371) */
+        acquired_shared_vm_lock = true;
+        acquire_recursive_lock(&change_linking_lock);
+        acquire_vm_areas_lock(dcontext, FRAG_SHARED);
+    }
     if (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions))
         fragment_get_fragment_delete_mutex(dcontext);
 #endif
@@ -3193,6 +3202,10 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
 #if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     if (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions))
         fragment_release_fragment_delete_mutex(dcontext);
+    if (acquired_shared_vm_lock) {
+        release_vm_areas_lock(dcontext, FRAG_SHARED);
+        release_recursive_lock(&change_linking_lock);
+    }
 #endif
 
 
@@ -4427,7 +4440,7 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag,
                     hashtable_ibl_study(dcontext, ibl_table, 0/*table consistent*/);
                 });
                 STATS_INC(num_ibt_exit_unknown);
-                ASSERT_CURIOSITY(false && "fragment_add_ibl_target unknown reason");
+                ASSERT_CURIOSITY_ONCE(false && "fragment_add_ibl_target unknown reason");
             }
             /* nothing to do, just sanity checking */
             LOG(THREAD, LOG_FRAGMENT, 2,

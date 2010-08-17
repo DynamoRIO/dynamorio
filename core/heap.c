@@ -3840,6 +3840,15 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
         commit_size = DYNAMO_OPTION(heap_commit_increment);
         ASSERT(commit_size <= size);
         /* create new unit */
+        /* Since vmm lock, dynamo_vm_areas lock, all_memory_areas lock (on
+         * linux), etc. will be acquired, and presumably !su->use_lock means
+         * user can't handle ANY lock being acquired, we assert here: xref PR
+         * 596768.  In release build, we try to acqure the memory anyway.  I'm
+         * worried about pcprofile: can only fit ~1K in one unit and so will
+         * easily run out...should it allocate additional units up front?
+         * => PR 596808.
+         */
+        ASSERT(su->top_unit == NULL/*init*/ || su->use_lock);
         u = (special_heap_unit_t *) get_guarded_real_memory(size, commit_size, prot,
                                                             true, true
                                                             _IF_DEBUG("special_heap"));
@@ -3919,6 +3928,7 @@ special_heap_init_internal(uint block_size, bool use_lock, bool executable,
         (persistent ? global_heap_alloc(sizeof(special_units_t) HEAPACCT(ACCT_MEM_MGT)) :
          nonpersistent_heap_alloc(GLOBAL_DCONTEXT, sizeof(special_units_t)
                                   HEAPACCT(ACCT_MEM_MGT)));
+    memset(su, 0, sizeof(*su));
     ASSERT(block_size >= sizeof(heap_pc *) && "need room for free list ptrs");
     ASSERT(block_size >= sizeof(heap_pc *) + sizeof(uint) &&
            "need room for cfree list ptrs");

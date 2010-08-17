@@ -1586,7 +1586,7 @@ handle_system_call(dcontext_t *dcontext)
 # endif
     } else {
         dcontext->sys_was_int = false;
-        IF_VMX86(ASSERT(!is_vmkuw_sysnum(mc->xax)));
+        IF_NOT_X64(IF_VMX86(ASSERT(!is_vmkuw_sysnum(mc->xax))));
     }
 #endif
 

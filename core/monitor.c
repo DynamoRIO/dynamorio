@@ -589,6 +589,19 @@ reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
 #endif
 }
 
+bool 
+monitor_delete_would_abort_trace(dcontext_t *dcontext, fragment_t *f)
+{
+    monitor_data_t *md;
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL)
+        return false;
+    md = (monitor_data_t *) dcontext->monitor_field;
+    return ((md->last_fragment == f || dcontext->last_fragment == f) &&
+            md->trace_tag > 0);
+}
+
 /* called when a fragment is deleted */
 void 
 monitor_remove_fragment(dcontext_t *dcontext, fragment_t *f)
@@ -1633,7 +1646,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, trace);
 
-    ASSERT_DO_NOT_OWN_MUTEX(true, &change_linking_lock);
     md->trace_tag = tag; /* reinstate for reset */
     reset_trace_state(dcontext, true /* might need change_linking_lock */);
 
@@ -2452,7 +2464,6 @@ trace_abort(dcontext_t *dcontext)
     }
     STATS_INC(num_aborted_traces);
     STATS_ADD(num_bbs_in_all_aborted_traces, md->num_blks);
-    ASSERT_DO_NOT_OWN_MUTEX(true, &change_linking_lock);
     reset_trace_state(dcontext, true /* might need change_linking_lock */);
 
     if (!prevlinking)

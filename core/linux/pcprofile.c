@@ -72,15 +72,15 @@ static bool valid_symtab;
  */
 typedef struct _pc_profile_entry_t {
     void *                  pc;      /* the pc */
-    where_am_i_t          whereami;      /* location of pc */
+    app_pc                 tag;      /* if in fragment, tag */
 #ifdef DEBUG
     int                     id;      /* if in fragment, id */
 #endif
-    app_pc                 tag;      /* if in fragment, tag */
-    uint                offset;      /* if in fragment, offset from start pc */
-    bool                 trace;      /* if in fragment, is it a trace? */
+    ushort              offset;      /* if in fragment, offset from start pc */
+    where_am_i_t    whereami:8;      /* location of pc */
+    bool               trace:1;      /* if in fragment, is it a trace? */
+    bool             retired:1;      /* owning fragment was deleted */
     int                counter;      /* execution counter */
-    bool               retired;      /* owning fragment was deleted */
     struct _pc_profile_entry_t *next;  /* for chaining entries */
 } pc_profile_entry_t;
 
@@ -138,7 +138,12 @@ pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_inf
     for (i = 0; i < WHERE_LAST; i++)
         info->where[i] = 0;
     info->file = open_log_file("pcsamples", NULL, 0);
-    info->special_heap = special_heap_init(sizeof(pc_profile_entry_t), false /* no locks */,
+    /* FIXME PR 596808: we can easily fill up the initial special heap unit,
+     * and creating a new one acquires global locks and can deadlock:
+     * we should allocate many units up front or something
+     */
+    info->special_heap = special_heap_init(sizeof(pc_profile_entry_t),
+                                           false /* no locks */,
                                            false /* -x */, true /* persistent */);
 
     set_itimer_callback(dcontext, ITIMER_VIRTUAL, ALARM_FREQUENCY, pcprofile_alarm);

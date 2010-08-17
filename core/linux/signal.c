@@ -254,6 +254,12 @@ bool can_always_delay[] = {
     /* 63 */                       true,
 };
 
+static inline bool
+sig_is_alarm_signal(int sig)
+{
+    return (sig == SIGALRM || sig == SIGVTALRM || sig == SIGPROF);
+}
+
 /* we do not use SIGSTKSZ b/c for things like code modification
  * we end up calling many core routines and so want more space
  * (though currently non-debug stack size == SIGSTKSZ (8KB))
@@ -972,8 +978,8 @@ signal_thread_init(dcontext_t *dcontext)
      * composed entirely of sigpending_t units
      * Note that it's fine to have the special heap do page-at-a-time
      * committing, which does not use locks (unless triggers reset!),
-     * but if we need a new unit that will grab a lock: FIXME: are we
-     * worried about that?  We'd only hit it with 24K/ 36+ pending signals.
+     * but if we need a new unit that will grab a lock: we try to
+     * avoid that by limiting the # of pending alarm signals (PR 596768).
      */
     info->sigheap = special_heap_init(sizeof(sigpending_t),
                                       false /* cannot have any locking */,
@@ -3147,11 +3153,32 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          */
         if (!blocked || sig >= OFFS_RT ||
             (blocked && info->sigpending[sig] == NULL)) {
-            /* only have 1 pending for non-rt signals */
+            /* only have 1 pending for blocked non-rt signals */
 
             /* special heap alloc always uses sizeof(sigpending_t) blocks */
             pend = special_heap_alloc(info->sigheap);
             ASSERT(sig > 0 && sig < MAX_SIGNUM);
+
+            /* to avoid accumulating signals if we're slow in presence of
+             * a high-rate itimer we only keep 2 alarm signals (PR 596768)
+             */
+            if (sig_is_alarm_signal(sig)) {
+                if (info->sigpending[sig] != NULL &&
+                    info->sigpending[sig]->next != NULL) {
+                    ASSERT(info->sigpending[sig]->next->next == NULL);
+                    /* keep the oldest, replace newer w/ brand-new one, for
+                     * more spread-out alarms
+                     */
+                     sigpending_t *temp = info->sigpending[sig];
+                     info->sigpending[sig] = temp->next;
+                     special_heap_free(info->sigheap, temp);
+                     LOG(THREAD, LOG_ASYNCH, 2,
+                         "3rd pending alarm %d => dropping 2nd\n", sig);
+                     STATS_INC(num_signals_dropped);
+                     SYSLOG_INTERNAL_WARNING_ONCE("dropping 3rd pending alarm signal");
+                }
+            }
+
             pend->next = info->sigpending[sig];
             info->sigpending[sig] = pend;
 
@@ -3432,7 +3459,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
          * via SYS_{tgkill,tkill}?  Can we tell the difference, even if
          * we watch the kill syscalls: could come from another process?
          */
-        if (sig == SIGALRM || sig == SIGVTALRM || sig == SIGPROF) {
+        if (sig_is_alarm_signal(sig)) {
             /* assuming an alarm during thread exit (xref PR 596127):
              * suppressing is fine
              */

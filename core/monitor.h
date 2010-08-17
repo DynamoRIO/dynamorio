@@ -57,6 +57,7 @@ void monitor_thread_reset_init(dcontext_t *dcontext);
 void monitor_thread_reset_free(dcontext_t *dcontext);
 
 void monitor_remove_fragment(dcontext_t *dcontext, fragment_t *f);
+bool monitor_delete_would_abort_trace(dcontext_t *dcontext, fragment_t *f);
 bool monitor_is_linkable(dcontext_t *dcontext, fragment_t *from_f,
                          linkstub_t *from_l, fragment_t *to_f,
                          bool have_link_lock, bool mark_new_trace_head);
