@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2000-2009 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -490,6 +490,13 @@ dynamorio_app_init(void)
         proc_init();
         modules_init(); /* before vm_areas_init() */
         os_init();
+#ifdef WINDOWS
+        /* loader initialization, finalize the private lib load. 
+         * FIXME i#338: this must be before arch_init() for Windows, but Linux
+         * wants it later.
+         */
+        loader_init();
+#endif
         arch_init();
         synch_init();
 
@@ -602,10 +609,6 @@ dynamorio_app_init(void)
             callback_interception_init_start();
         }
 #endif /* WINDOWS */
-#ifdef WINDOWS
-        /* loader initialization, finalize the private lib load. */
-        loader_init();
-#endif
 
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after

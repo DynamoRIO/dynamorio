@@ -126,14 +126,21 @@ loader_init(void)
             __FUNCTION__, mod->name);
         if (!privload_load_finalize(mod)) {
             CLIENT_ASSERT(false, "failure to process imports of client library");
+#ifdef CLIENT_INTERFACE
+            SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 3, 
+                   get_application_name(), get_application_pid(),
+                   "unable to process imports of client library");
+#endif
         }
     }
     /* os specific loader initialization epilogue after finalize the load, 
      * will release privload_lock.
      */
     os_loader_init_epilogue();
-    /* loader_init is called after dynamo_thread_init, so has dcontext */
-    loader_thread_init(get_thread_private_dcontext());
+    /* FIXME i#338: call loader_thread_init here once get
+     * loader_init called after dynamo_thread_init but in a way that
+     * works with Windows
+     */
 }
 
 void
@@ -159,8 +166,11 @@ loader_thread_init(dcontext_t *dcontext)
     privmod_t *mod;
 
     if (modlist == NULL) {
-        /* called from dynamo_thread_init, before loader_init */
-        /* Currently, do nothing */
+        /* FIXME i#338: once restore order this will become nop */
+        /* os specific thread initilization prologue for loader with no lock */
+        os_loader_thread_init_prologue(dcontext);
+        /* os specific thread initilization epilogue for loader with no lock */
+        os_loader_thread_init_epilogue(dcontext);
     } else {
         /* os specific thread initilization prologue for loader with no lock */
         os_loader_thread_init_prologue(dcontext);
