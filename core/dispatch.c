@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2000-2009 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -795,6 +795,10 @@ dispatch_exit_fcache(dcontext_t *dcontext)
 {
     /* case 7966: no distinction of islinking-ness for hotp_only & thin_client */
     ASSERT(RUNNING_WITHOUT_CODE_CACHE() || is_couldbelinking(dcontext));
+
+#if defined(WINDOWS) && defined (CLIENT_INTERFACE)
+    ASSERT(!is_dynamo_address(dcontext->app_fls_data));
+#endif
 
 #ifdef NATIVE_RETURN
     if (in_fcache(dcontext->next_tag)) {
@@ -1949,7 +1953,7 @@ transfer_to_dispatch(dcontext_t *dcontext, int app_errno, dr_mcontext_t *mc)
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)
     /* i#249: swap PEB pointers */
     if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
-        swap_peb_pointer(true/*to priv*/);
+        swap_peb_pointer(dcontext, true/*to priv*/);
 #endif
     LOG(THREAD, LOG_ASYNCH, 2,
         "transfer_to_dispatch: pc=0x%08x, xsp="PFX", initstack=%d\n",

@@ -4106,6 +4106,11 @@ dr_redirect_execution(dr_mcontext_t *mcontext, int app_errno)
 
     dcontext->next_tag = mcontext->pc;
     dcontext->whereami = WHERE_FCACHE;
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* The swap in fcache_return blindly copies into app fls: so swap to app now (i#25) */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        swap_peb_pointer(dcontext, false/*to app*/);
+#endif
     set_last_exit(dcontext, (linkstub_t *)get_client_linkstub());
     transfer_to_dispatch(dcontext, app_errno, mcontext);
 }

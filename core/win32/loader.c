@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2009 Derek Bruening   All rights reserved.
+ * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
 /*
@@ -134,6 +134,12 @@ redirect_RtlFreeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 static SIZE_T WINAPI
 redirect_RtlSizeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 
+static bool WINAPI
+redirect_RtlLockHeap(HANDLE heap);
+
+static bool WINAPI
+redirect_RtlUnlockHeap(HANDLE heap);
+
 static void WINAPI
 redirect_RtlFreeUnicodeString(UNICODE_STRING *string);
 
@@ -189,6 +195,9 @@ static const redirect_import_t redirect_ntdll[] = {
     {"RtlReAllocateHeap",              (app_pc)redirect_RtlReAllocateHeap},
     {"RtlFreeHeap",                    (app_pc)redirect_RtlFreeHeap},
     {"RtlSizeHeap",                    (app_pc)redirect_RtlSizeHeap},
+    /* kernel32!LocalFree calls these */
+    {"RtlLockHeap",                    (app_pc)redirect_RtlLockHeap},
+    {"RtlUnlockHeap",                  (app_pc)redirect_RtlUnlockHeap},
     /* We don't redirect the creation but we avoid DR pointers being passed
      * to RtlFreeHeap and subsequent heap corruption by redirecting the frees,
      * since sometimes creation is by direct RtlAllocateHeap.
@@ -286,7 +295,7 @@ os_loader_init_prologue(void)
         private_peb->FlsListHead.Flink = (LIST_ENTRY *) &private_peb->FlsListHead;
         private_peb->FlsListHead.Blink = (LIST_ENTRY *) &private_peb->FlsListHead;
         private_peb->FlsCallback = NULL;
-        swap_peb_pointer(true/*to priv*/);
+        swap_peb_pointer(NULL, true/*to priv*/);
         LOG(GLOBAL, LOG_LOADER, 2, "app peb="PFX"\n", own_peb);
         LOG(GLOBAL, LOG_LOADER, 2, "private peb="PFX"\n", private_peb);
         priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
@@ -333,7 +342,7 @@ os_loader_init_epilogue(void)
 #ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb) && !should_swap_peb_pointer()) {
         /* Not going to be swapping so restore permanently to app */
-        swap_peb_pointer(false/*to app*/);
+        swap_peb_pointer(NULL, false/*to app*/);
     }
 #endif
     release_recursive_lock(&privload_lock);
@@ -357,7 +366,7 @@ os_loader_exit(void)
             /* Swap back so any further peb queries (e.g., reading env var
              * while reporting a leak) use a non-freed peb
              */
-            swap_peb_pointer(false/*to app*/);
+            swap_peb_pointer(NULL, false/*to app*/);
         }
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FastPebLock,
                        RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
@@ -386,9 +395,11 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
         }
         LOG(THREAD, LOG_LOADER, 2, "app fls="PFX", priv fls="PFX"\n",
             dcontext->app_fls_data, dcontext->priv_fls_data);
-        swap_peb_pointer(true/*to priv*/);
-        /* For detach we'll need to know the teb base from another thread */
+        /* For swapping teb fields (detach, reset i#25) we'll need to
+         * know the teb base from another thread 
+         */
         dcontext->teb_base = (byte *) get_tls(SELF_TIB_OFFSET);
+        swap_peb_pointer(dcontext, true/*to priv*/);
     }
 #endif
 }
@@ -403,7 +414,7 @@ os_loader_thread_init_epilogue(dcontext_t *dcontext)
          * properly nest.
          */
         if (dynamo_initialized/*later thread*/ && !IS_CLIENT_THREAD(dcontext))
-            swap_peb_pointer(false/*to app*/);
+            swap_peb_pointer(dcontext, false/*to app*/);
     }
 #endif
 }
@@ -442,6 +453,8 @@ set_loaded_windows_lib(void)
             loaded_windows_lib = true;
             LOG(GLOBAL, LOG_LOADER, 1,
                 "loaded a Windows system library => isolating PEB+TEB\n");
+            /* attempt to catch init re-ordering (see comment below and i#338) */
+            ASSERT(get_thread_private_dcontext() == NULL);
         } else {
             /* We've already emitted context switch code that does not swap peb/teb.
              * Basically we don't support this.  (Should really check for post-emit.)
@@ -451,29 +464,52 @@ set_loaded_windows_lib(void)
     }
 }
 
+static void *
+get_teb_field(dcontext_t *dcontext, ushort offs)
+{
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
+        /* get our own */
+        return get_tls(offs);
+    } else {
+        byte *teb = dcontext->teb_base;
+        return *((void **)(teb + offs));
+    }
+}
+
+static void
+set_teb_field(dcontext_t *dcontext, ushort offs, void *value)
+{
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
+        /* set our own */
+        set_tls(offs, value);
+    } else {
+        byte *teb = dcontext->teb_base;
+        *((void **)(teb + offs)) = value;
+    }
+}
+
 /* C version of preinsert_swap_peb() */
 void
-swap_peb_pointer(bool to_priv)
+swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
 {
     PEB *tgt_peb = to_priv ? get_private_peb() : get_own_peb();
-    dcontext_t *dcontext = get_thread_private_dcontext();
     ASSERT(INTERNAL_OPTION(private_peb));
     ASSERT(!dynamo_initialized || should_swap_peb_pointer());
     ASSERT(tgt_peb != NULL);
-    set_tls(PEB_TIB_OFFSET, tgt_peb);
+    set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
     LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
-    if (dcontext != NULL) {
+    if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT) {
         /* We also swap TEB->FlsData */
-        void *cur_fls = get_tls(FLS_DATA_TIB_OFFSET);
+        void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
         if (to_priv) {
             if (dcontext->priv_fls_data != cur_fls) { /* handle two calls in a row */
                 dcontext->app_fls_data = cur_fls;
-                set_tls(FLS_DATA_TIB_OFFSET, dcontext->priv_fls_data);
+                set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->priv_fls_data);
             }
         } else {
             if (dcontext->app_fls_data != cur_fls) { /* handle two calls in a row */
                 dcontext->priv_fls_data = cur_fls;
-                set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
+                set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
             }
         }
         ASSERT(!is_dynamo_address(dcontext->app_fls_data));
@@ -498,10 +534,10 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
     ASSERT(!dynamo_initialized || should_swap_peb_pointer());
     ASSERT(tgt_peb != NULL);
     ASSERT(dcontext != NULL && dcontext->teb_base != NULL);
-    *((PEB **)(dcontext->teb_base + PEB_TIB_OFFSET)) = tgt_peb;
+    set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
     LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
-        /* We also swap TEB->FlsData */
-    *((void **)(dcontext->teb_base + FLS_DATA_TIB_OFFSET)) = dcontext->app_fls_data;
+    /* We also swap TEB->FlsData */
+    set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
     LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_fls_data);
 }
 #endif /* CLIENT_INTERFACE */
@@ -1077,6 +1113,10 @@ bool WINAPI RtlFreeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 
 SIZE_T WINAPI RtlSizeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 
+bool WINAPI RtlLockHeap(HANDLE heap);
+
+bool WINAPI RtlUnlockHeap(HANDLE heap);
+
 static bool WINAPI
 redirect_RtlFreeHeap(HANDLE heap, ULONG flags, byte *ptr)
 {
@@ -1109,6 +1149,39 @@ redirect_RtlSizeHeap(HANDLE heap, ULONG flags, byte *ptr)
             return 0;
     } else {
         return RtlSizeHeap(heap, flags, ptr);
+    }
+}
+
+/* These are called by LocalFree, passing kernel32!BaseHeap == peb->ProcessHeap */
+static bool WINAPI
+redirect_RtlLockHeap(HANDLE heap)
+{
+    PEB *peb = get_peb(NT_CURRENT_PROCESS);
+    /* If the main heap, we assume any subsequent alloc/free will be through
+     * DR heap, so we nop this
+     */
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true) &&
+        heap == peb->ProcessHeap) {
+        /* nop */
+        return true;
+    } else {
+        return RtlLockHeap(heap);
+    }
+}
+
+static bool WINAPI
+redirect_RtlUnlockHeap(HANDLE heap)
+{
+    PEB *peb = get_peb(NT_CURRENT_PROCESS);
+    /* If the main heap, we assume any prior alloc/free was through
+     * DR heap, so we nop this
+     */
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true) &&
+        heap == peb->ProcessHeap) {
+        /* nop */
+        return true;
+    } else {
+        return RtlUnlockHeap(heap);
     }
 }
 

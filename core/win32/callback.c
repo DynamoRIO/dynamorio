@@ -4301,11 +4301,11 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
      * and clean calls do.
      */
     if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
-        swap_peb_pointer(true/*to priv*/);
+        swap_peb_pointer(dcontext, true/*to priv*/);
     /* We allow client to change context */
     pass_to_app = instrument_exception(dcontext, &einfo);
     if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
-        swap_peb_pointer(false/*to app*/);
+        swap_peb_pointer(dcontext, false/*to app*/);
 
     if (pass_to_app) {
         mcontext_to_context(cxt, &einfo.mcontext);

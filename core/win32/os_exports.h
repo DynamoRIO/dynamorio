@@ -447,7 +447,7 @@ bool private_lib_handle_cb(dcontext_t *dcontext, app_pc pc);
 /* our copy of the PEB for isolation (i#249) */
 PEB *get_private_peb(void);
 bool should_swap_peb_pointer(void);
-void swap_peb_pointer(bool to_priv);
+void swap_peb_pointer(dcontext_t *dcontext, bool to_priv);
 /* Meant for use on detach only: restore app values and does not update
  * or swap private values.  Up to caller to synchronize w/ other thread.
  */
