@@ -75,7 +75,8 @@ passed.
 
 Symbol lookup is supported in both directions: from an address to a symbol
 via drsym_lookup_address(), and from a symbol to an address via
-drsym_lookup_address().
+drsym_lookup_address().  All symbols in a given module can be enumerated
+via drsym_enumerate_symbols().
 
 For an example of usage see the \p instrcalls sample client distributed
 with DynamoRIO.

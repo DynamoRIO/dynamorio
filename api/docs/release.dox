@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -111,9 +111,9 @@ are not backward compatible: see below for details.
 
 The changes between version 2.1.0 and 2.0.0 are:
 
+ - Added Windows 7 support
  - Added dr_get_random_value(), dr_set_random_seed(), and dr_get_random_seed()
  - Added dr_file_exists() and dr_directory_exists() for Linux
- - Added Windows 7 support
  - Added support for dr_get_mcontext() from secondary thread init events,
    and changed its return type to bool
  - Added dynamic hashtable resizing to the drcontainers hashtable
@@ -121,8 +121,15 @@ The changes between version 2.1.0 and 2.0.0 are:
  - Added a segment list to module_data_t for Linux and internal
    support for non-contiguously-mapped modules (Issue 160)
  - Added PEB isolation (Issue 249) and dr_get_app_PEB()
+ - Added drsym_enumerate_symbols() to the \p drsyms Extension
  - Added limited support for printing to the cmd window (Issue 261) via the
    \p drsyms Extension: drsym_write_to_console() and drsym_using_console() 
+ - Fixed bug in handling single-byte-bb selfmod code
+ - Fixed bugs in handling alarm signals
+ - Fixed 64-bit Windows stack alignment bug (Issue 331)
+ - Fixed handling of "data32 rex.w call"
+ - Fixed Issue 320: a problem with thread-private cache resizing
+ - Fixed Issue 319: decode movlhps and movhlps properly
 
 The changes between version 2.0.0 and 1.5.0 are:
 

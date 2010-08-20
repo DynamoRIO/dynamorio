@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2009 VMware, Inc.    All rights reserved.
+# Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -258,7 +258,7 @@ set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
   "build type: unused" FORCE)
 
 # resources when packaging
-# N.B.: once VERSION_NUMBER crosses 2.x we'll need to update the
+# N.B.: once VERSION_NUMBER crosses 3.x we'll need to update the
 # symlink loop in core/CMakeLists.txt
 set(VERSION_NUMBER_DEFAULT "2.0.0")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
@@ -268,8 +268,8 @@ if ("${VERSION_NUMBER}" STREQUAL "")
   set(VERSION_NUMBER ${VERSION_NUMBER_DEFAULT})
 endif()
 string(REGEX REPLACE "\\." "," VERSION_COMMA_DELIMITED "${VERSION_NUMBER}")
-set(BUILD_NUMBER "18" CACHE STRING "Build number (must be <64K)")
-set(UNIQUE_BUILD_NUMBER "18" CACHE STRING "Unique build number")
+set(BUILD_NUMBER "0" CACHE STRING "Build number (must be <64K)")
+set(UNIQUE_BUILD_NUMBER "0" CACHE STRING "Unique build number")
 set(CUSTOM_PRODUCT_NAME "" CACHE STRING "Custom product name")
 mark_as_advanced(
   VERSION_NUMBER

@@ -252,6 +252,20 @@ unload_module(HANDLE proc, DWORD64 base)
     }
 }
 
+static DWORD64
+lookup_or_load(const char *modpath)
+{
+    DWORD64 base = (DWORD64) hashtable_lookup(&modtable, (void *)modpath);
+    if (base == 0) {
+        base = load_module(GetCurrentProcess(), modpath);
+        if (base != 0) {
+            /* See comment at top of file about truncation of base being ok */
+            hashtable_add(&modtable, (void *)modpath, (void *)(ptr_uint_t)base);
+        }
+    }
+    return base;
+}
+
 static drsym_error_t
 drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *out INOUT)
 {
@@ -270,16 +284,10 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *ou
         return DRSYM_ERROR_INVALID_SIZE;
     
     dr_mutex_lock(symbol_lock);
-    base = (DWORD64) hashtable_lookup(&modtable, (void *)modpath);
+    base = lookup_or_load(modpath);
     if (base == 0) {
-        base = load_module(GetCurrentProcess(), modpath);
-        if (base == 0) {
-            dr_mutex_unlock(symbol_lock);
-            return DRSYM_ERROR_LOAD_FAILED;
-        } else {
-            /* See comment at top of file about truncation of base being ok */
-            hashtable_add(&modtable, (void *)modpath, (void *)(ptr_uint_t)base);
-        }
+        dr_mutex_unlock(symbol_lock);
+        return DRSYM_ERROR_LOAD_FAILED;
     }
 
     info->SizeOfStruct = sizeof(SYMBOL_INFO);
@@ -327,16 +335,10 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modof
         return DRSYM_ERROR_INVALID_PARAMETER;
     
     dr_mutex_lock(symbol_lock);
-    base = (DWORD64) hashtable_lookup(&modtable, (void *)modpath);
+    base = lookup_or_load(modpath);
     if (base == 0) {
-        base = load_module(GetCurrentProcess(), modpath);
-        if (base == 0) {
-            dr_mutex_unlock(symbol_lock);
-            return DRSYM_ERROR_LOAD_FAILED;
-        } else {
-            /* See comment at top of file about truncation of base being ok */
-            hashtable_add(&modtable, (void *)modpath, (void *)(ptr_uint_t)base);
-        }
+        dr_mutex_unlock(symbol_lock);
+        return DRSYM_ERROR_LOAD_FAILED;
     }
 
     /* the only thing identifying the target module is the symbol name,
@@ -354,6 +356,43 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modof
     }
     dr_mutex_unlock(symbol_lock);
     return DRSYM_SUCCESS;
+}
+
+typedef struct _enum_info_t {
+    drsym_enumerate_cb cb;
+    void *data;
+    DWORD64 base;
+} enum_info_t;
+
+static BOOL CALLBACK
+enum_cb(PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID Context) 
+{
+    enum_info_t *info = (enum_info_t *) Context;
+    return (*info->cb)(pSymInfo->Name, (size_t) (pSymInfo->Address - info->base),
+                       info->data);
+}
+
+static drsym_error_t
+drsym_enumerate_symbols_local(const char *modpath, drsym_enumerate_cb callback, void *data)
+{
+    DWORD64 base;
+    drsym_error_t res = DRSYM_SUCCESS;
+    dr_mutex_lock(symbol_lock);
+    base = lookup_or_load(modpath);
+    if (base == 0)
+        res = DRSYM_ERROR_LOAD_FAILED;
+    else {
+        enum_info_t info;
+        info.cb = callback;
+        info.data = data;
+        info.base = base;
+        if (!SymEnumSymbols(GetCurrentProcess(), base, NULL, enum_cb, (PVOID) &info)) {
+            NOTIFY("SymEnumSymbols error %d\n", GetLastError());
+            res = DRSYM_ERROR_SYMBOL_NOT_FOUND;
+        }
+    }
+    dr_mutex_unlock(symbol_lock);
+    return res;
 }
 
 DR_EXPORT
@@ -375,6 +414,17 @@ drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs OUT
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
         return drsym_lookup_symbol_local(modpath, symbol, modoffs);
+    }
+}
+
+DR_EXPORT
+drsym_error_t
+drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data)
+{
+    if (IS_SIDELINE) {
+        return DRSYM_ERROR_NOT_IMPLEMENTED;
+    } else {
+        return drsym_enumerate_symbols_local(modpath, callback, data);
     }
 }
 

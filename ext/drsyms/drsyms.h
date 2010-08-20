@@ -146,6 +146,29 @@ DR_EXPORT
 drsym_error_t
 drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs /*OUT*/);
 
+/** 
+ * Type for drsym_enumerate_symbols callback function.
+ * Returns whether to continue the enumeration.
+ *
+ * @param[in] name    Name of the symbol.
+ * @param[in] modoffs Offset of the symbol from the module base.
+ * @param[in] data    User parameter passed to drsym_enumerate_symbols().
+ */
+typedef bool (*drsym_enumerate_cb)(const char *name, size_t modoffs, void *data);
+
+DR_EXPORT
+/**
+ * Enumerates all symbol information for a given module.
+ * Calls the given callback function for each symbol.
+ * If the callback returns false, the enumeration will end.
+ *
+ * @param[in] modpath   The full path to the module to be queried.
+ * @param[in] callback  Function to call for each symbol found.
+ * @param[in] data      User parameter passed to callback.
+ */
+drsym_error_t
+drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data);
+
 DR_EXPORT
 /**
  * Returns true if the current standard error handle belongs to a console
