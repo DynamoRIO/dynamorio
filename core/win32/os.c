@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2000-2009 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -78,6 +78,18 @@ DECLARE_CXTSWPROT_VAR(static mutex_t snapshot_lock, INIT_LOCK_FREE(snapshot_lock
 
 DECLARE_CXTSWPROT_VAR(static mutex_t dump_core_lock, INIT_LOCK_FREE(dump_core_lock));
 DECLARE_CXTSWPROT_VAR(static mutex_t debugbox_lock, INIT_LOCK_FREE(debugbox_lock));
+
+/* PR 601533: cleanup_and_terminate must release the initstack_mutex
+ * prior to its final syscall, yet the wow64 syscall writes to the
+ * stack b/c it makes a call, so we have a race that can lead to a
+ * hang or worse.  we do not expect the syscall to return, so we can
+ * use a global single-entry stack (the wow64 layer swaps to a
+ * different stack: presumably for alignment and other reasons).
+ */
+#define WOW64_SYSCALL_STACK_SIZE 16 /* presumably only needs to be 4, but just in case */
+DECLARE_NEVERPROT_VAR(static byte wow64_syscall_stack_array[WOW64_SYSCALL_STACK_SIZE],
+                      {0});
+const byte *wow64_syscall_stack = &wow64_syscall_stack_array[WOW64_SYSCALL_STACK_SIZE];
 
 /* globals */
 bool intercept_asynch = false;
@@ -3337,7 +3349,7 @@ thread_set_mcontext(thread_record_t *tr, dr_mcontext_t *mc)
     CONTEXT cxt;
     cxt.ContextFlags = CONTEXT_DR_STATE;
     mcontext_to_context(&cxt, mc);
-    return thread_set_context(tr->handle, &cxt);
+    return thread_set_context(tr, &cxt);
 }
 
 bool

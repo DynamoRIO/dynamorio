@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -226,6 +226,7 @@ DECL_EXTERN(sysenter_ret_address)
 DECL_EXTERN(sysenter_tls_offset)
 #ifdef WINDOWS
 DECL_EXTERN(wow64_index)
+DECL_EXTERN(wow64_syscall_stack)
 # ifdef X64
 DECL_EXTERN(syscall_argsz)
 # endif
@@ -599,6 +600,15 @@ cat_have_lock:
         /* give up initstack mutex -- potential problem here with a thread getting 
          *   an asynch event that then uses initstack, but syscall should only care 
          *   about ebx and edx */
+#ifdef WINDOWS
+        /* PR 601533: the wow64 syscall writes to the stack b/c it
+         * makes a call, so we have a race that can lead to a hang or
+         * worse.  we do not expect the syscall to return, so we can
+         * use a global single-entry stack (the wow64 layer swaps to a
+         * different stack: presumably for alignment and other reasons).
+         */
+        mov      REG_XSP, PTRSZ SYMREF(wow64_syscall_stack)
+#endif
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
 	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, initstack_mutex)
