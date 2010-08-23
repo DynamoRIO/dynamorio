@@ -798,6 +798,8 @@ dispatch_exit_fcache(dcontext_t *dcontext)
 
 #if defined(WINDOWS) && defined (CLIENT_INTERFACE)
     ASSERT(!is_dynamo_address(dcontext->app_fls_data));
+    ASSERT(dcontext->app_fls_data == NULL ||
+           dcontext->app_fls_data != dcontext->priv_fls_data);
 #endif
 
 #ifdef NATIVE_RETURN

@@ -293,6 +293,11 @@ nt_continue_setup(dr_mcontext_t *mc)
     *get_mcontext(dcontext) = *mc;
     /* clear pc */
     get_mcontext(dcontext)->pc = 0;
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* We came straight from fcache, so swap to priv now (i#25) */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        swap_peb_pointer(dcontext, true/*to priv*/);
+#endif
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
                       false/*not on initstack*/, false/*shouldn't return*/);
