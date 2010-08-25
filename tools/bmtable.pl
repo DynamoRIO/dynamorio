@@ -280,7 +280,7 @@ sub cpustr($) {
     if ($cpu == 0) {
         return " -- ";
     } elsif ($cpu < 99) {
-        return sprintf "*%2d*", $cpu;
+        return sprintf "*%02d*", $cpu;
     } else {
         return sprintf "%3d ", $cpu;
     }

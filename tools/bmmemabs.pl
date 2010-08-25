@@ -106,7 +106,7 @@ foreach $s (@sorted) {
 
     # both must be ok
     # we only look at status -- we assume table filtered out bad %CPU
-    if ($ignore_errors || $status1{$s} =~ /ok/ && $status2{$s} =~ /ok/) {
+    if ($ignore_errors || ($status1{$s} =~ /ok/ && $status2{$s} =~ /ok/)) {
 	$bad = 0;
     } else {
 	$bad = 1;
@@ -117,9 +117,9 @@ foreach $s (@sorted) {
 	$ratio = $time1{$s} / $time2{$s};
 	$harsum{"time"} += 1/$ratio;
 	$harnum{"time"}++;
-	printf "%4.3f    ", $ratio;
+	printf "%6.3f    ", $ratio;
     } else {
-	printf "%5s    ", "-----";
+	printf "%6s    ", "------";
     }
     if (!$bad && defined($rss1{$s}) && defined($rss2{$s}) &&
 	$rss1{$s} > 0 && $rss2{$s} > 0) {
@@ -128,7 +128,7 @@ foreach $s (@sorted) {
 	$harnum{"rss"}++;
 	printf "%6d    ", $diff;
     } else {
-	printf "%5s    ", "-----";
+	printf "%6s    ", "------";
     }
     if (!$bad && defined($vsz1{$s}) && defined($vsz2{$s}) &&
 	$vsz1{$s} > 0 && $vsz2{$s} > 0) {
@@ -137,7 +137,7 @@ foreach $s (@sorted) {
 	$harnum{"vsz"}++;
 	printf "%6d    ", $diff;
     } else {
-	printf "%5s    ", "-----";
+	printf "%6s    ", "------";
     }
     print "\n";
 }
