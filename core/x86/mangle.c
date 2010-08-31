@@ -2524,6 +2524,7 @@ mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip)
             if (instr_get_opcode(&tmp_instr) == OP_xchg)
                 num_xchg++;
         }
+        instr_free(dcontext, &tmp_instr);
     } else {
         target = pc;
     }
@@ -2538,7 +2539,7 @@ mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip)
         LOG(THREAD, LOG_SYSCALLS, 3,
             "\ttarget of after-clone jmp is already "PFX"\n", target);
     }
-    instr_reset(dcontext, &instr);
+    instr_free(dcontext, &instr);
 }
 
 /* If skip is false:
@@ -2552,10 +2553,11 @@ bool
 mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
 {
     byte *stop_pc = fragment_body_end_pc(dcontext, f);
-    byte *target, *prev_pc, *cti_pc, *skip_pc;
-    instr_t instr, cti;
+    byte *target, *prev_pc, *cti_pc = NULL, *skip_pc = NULL;
+    instr_t instr;
+    DEBUG_DECLARE(instr_t cti;)
     instr_init(dcontext, &instr);
-    instr_init(dcontext, &cti);
+    DODEBUG({ instr_init(dcontext, &cti); });
     LOG(THREAD, LOG_SYSCALLS, 3,
         "mangle_syscall_code: pc="PFX", skip=%d\n", pc, skip);
     do {
@@ -2563,19 +2565,37 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
         prev_pc = pc;
         pc = decode(dcontext, pc, &instr);
         ASSERT(pc != NULL); /* our own code! */
+        if (instr_get_opcode(&instr) == OP_jmp_short)
+            skip_pc = prev_pc;
+        else if (instr_get_opcode(&instr) == OP_jmp)
+            cti_pc = prev_pc;
         if (pc >= stop_pc) {
             LOG(THREAD, LOG_SYSCALLS, 3, "\tno syscalls found\n");
+            instr_free(dcontext, &instr);
             return false;
         }
     } while (!instr_is_syscall(&instr));
-    /* jmps are right before syscall */
-    cti_pc = prev_pc - JMP_LONG_LENGTH;
-    skip_pc = cti_pc - JMP_SHORT_LENGTH;
+    if (skip_pc != NULL) {
+        /* signal happened after skip jmp: nothing we can do here 
+         *
+         * FIXME PR 213040: we should tell caller difference between
+         * "no syscalls" and "too-close syscall" and have it take
+         * other actions to bound signal delay
+         */
+        instr_free(dcontext, &instr);
+        return false;
+    }
+    ASSERT(skip_pc != NULL && cti_pc != NULL);
+    /* jmps are right before syscall, but there can be nops to pad exit cti */
+    ASSERT(cti_pc == prev_pc - JMP_LONG_LENGTH);
+    ASSERT(skip_pc < cti_pc);
+    ASSERT(skip_pc == cti_pc - JMP_SHORT_LENGTH ||
+           *(cti_pc - JMP_SHORT_LENGTH) == RAW_OPCODE_nop);
     instr_reset(dcontext, &instr);
     pc = decode(dcontext, skip_pc, &instr);
     ASSERT(pc != NULL); /* our own code! */
     ASSERT(instr_get_opcode(&instr) == OP_jmp_short);
-    ASSERT(pc == cti_pc);
+    ASSERT(pc <= cti_pc); /* could be nops */
     DODEBUG({
         pc = decode(dcontext, cti_pc, &cti);
         ASSERT(pc != NULL); /* our own code! */
@@ -2603,7 +2623,7 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
         LOG(THREAD, LOG_SYSCALLS, 3,
             "\ttarget of syscall jmp is already "PFX"\n", target);
     }
-    instr_reset(dcontext, &instr);
+    instr_free(dcontext, &instr);
     return true;
 }
 #endif /* LINUX */

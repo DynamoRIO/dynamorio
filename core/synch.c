@@ -367,7 +367,7 @@ translate_mcontext(thread_record_t *trec, dr_mcontext_t *mcontext,
     ASSERT_CURIOSITY(trec->dcontext->whereami == WHERE_FCACHE ||
                      native_translate ||
                      trec->id == get_thread_id());
-    LOG(THREAD_GET, LOG_SYNCH, 1, 
+    LOG(THREAD_GET, LOG_SYNCH, 2, 
         "translate context, thread %d at pc_recreatable spot translating\n", 
         trec->id);
     success = recreate_app_state(trec->dcontext, mcontext, restore_memory);
