@@ -1432,10 +1432,15 @@ signal_thread_exit(dcontext_t *dcontext)
     if (!info->shared_app_sigaction || *info->shared_refcount == 0) {
         LOG(THREAD, LOG_ASYNCH, 2, "signal handler cleanup:\n");
         for (i = 0; i < MAX_SIGNUM; i++) {
-            if (info->app_sigaction[i] != NULL && !dynamo_exited) {
+            if (info->app_sigaction[i] != NULL) {
                 /* restore to old handler, but not if exiting whole
-                 * process: else may get itimer during cleanup
+                 * process: else may get itimer during cleanup, so we
+                 * set to SIG_IGN (we'll have to fix once we impl detach)
                  */
+                if (dynamo_exited) {
+                    info->app_sigaction[i]->handler = (handler_t) SIG_IGN;
+                    sigaction_syscall(i, info->app_sigaction[i], NULL);
+                }
                 LOG(THREAD, LOG_ASYNCH, 2, "\trestoring "PFX" as handler for %d\n",
                     info->app_sigaction[i]->handler, i);
                 sigaction_syscall(i, info->app_sigaction[i], NULL);
@@ -3050,7 +3055,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             "record_pending_signal(%d) from gen routine "PFX"\n", sig, pc);
         /* This could come from another thread's SYS_kill (via our gen do_syscall) */
         DOLOG(1, LOG_ASYNCH, {
-            if (!is_after_syscall_address(dcontext, pc)) {
+            if (!is_after_syscall_address(dcontext, pc) &&
+                !forged && !can_always_delay[sig]) {
                 LOG(THREAD, LOG_ASYNCH, 1,
                     "WARNING: signal %d in gen routine: may cause problems!\n", sig);
             }
@@ -4077,8 +4083,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     if (info->app_sigaction[sig] != NULL &&
         (info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
         if (!info->we_intercept[sig]) {
-            heap_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t)
-                      HEAPACCT(ACCT_OTHER));
+            handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
             info->app_sigaction[sig] = NULL;
         }
     }
@@ -4347,8 +4352,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
         ASSERT(info->app_sigaction[sig]->handler == (handler_t) SIG_DFL);
         if (!info->we_intercept[sig]) {
             /* let kernel do default independent of us */
-            heap_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t)
-                      HEAPACCT(ACCT_OTHER));
+            handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
             info->app_sigaction[sig] = NULL;
         }
     }
