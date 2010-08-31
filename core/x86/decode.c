@@ -684,7 +684,12 @@ read_instruction(byte *pc, byte *orig_pc,
         /* FIXME case 10672: provide a runtime option to specify new
          * instruction formats */
         DODEBUG({
-            if (report_invalid) {
+            /* don't report when decoding DR addresses, as we sometimes try to
+             * decode backward (e.g., interrupted_inlined_syscall(): PR 605161)
+             * XXX: better to pass in a flag when decoding that we are
+             * being speculative!
+             */
+            if (report_invalid && !is_dynamo_address(di->start_pc)) {
                 SYSLOG_INTERNAL_WARNING_ONCE("Invalid opcode encountered");
                 if (info != NULL && info->type == INVALID) {
                     LOG(THREAD_GET, LOG_ALL, 1, "Invalid opcode @"PFX": 0x%x\n",
