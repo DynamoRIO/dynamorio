@@ -1241,10 +1241,15 @@ GLOBAL_LABEL(dynamorio_clone:)
         mov      REG_XCX, ARG2
         sub      REG_XCX, ARG_SZ
         mov      [REG_XCX], REG_XAX /* func is now on TOS of newsp */
-        mov      REG_XBX, ARG1
         mov      REG_XDX, ARG3
-        mov      REG_XSI, ARG4
-        mov      REG_XDI, ARG5
+        /* preserve callee-saved regs */
+        push     REG_XBX
+        push     REG_XSI
+        push     REG_XDI
+        /* now can't use ARG* since xsp modified by pushes */
+        mov      REG_XBX, DWORD [4*ARG_SZ + REG_XSP] /* ARG1 + 3 pushes */
+        mov      REG_XSI, DWORD [7*ARG_SZ + REG_XSP] /* ARG4 + 3 pushes */
+        mov      REG_XDI, DWORD [8*ARG_SZ + REG_XSP] /* ARG5 + 3 pushes */
         mov      REG_XAX, SYS_clone
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
@@ -1258,6 +1263,12 @@ GLOBAL_LABEL(dynamorio_clone:)
         /* shouldn't return */
         jmp      unexpected_return
 dynamorio_clone_parent:
+# ifndef X64
+        /* restore callee-saved regs */
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBX
+# endif
         /* return val is in eax still */
         ret
         END_FUNC(dynamorio_clone)
