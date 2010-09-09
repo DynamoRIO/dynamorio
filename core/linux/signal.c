@@ -528,6 +528,8 @@ typedef struct _thread_sig_info_t {
     /* rest of app state */
     stack_t app_sigstack;
     sigpending_t *sigpending[MAX_SIGNUM];
+    /* "lock" to prevent interrupting signal from messing up sigpending array */
+    bool accessing_sigpending;
     kernel_sigset_t app_sigblocked;
     /* for returning the old mask (xref PR 523394) */
     kernel_sigset_t pre_syscall_app_sigblocked;
@@ -2956,9 +2958,17 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
      * SUSPEND_SIGNAL, or the nested SIGSEGV needs to be sent to the app.  The
      * latter shouldn't happen unless the app sends SIGSEGV via SYS_kill().
      */
-    if (ostd->processing_signal > 0) {
+    if (ostd->processing_signal > 0 ||
+        /* If we interrupted receive_pending_signal() we can't prepend a new
+         * pending or delete an old b/c we might mess up the state so we
+         * just drop this one: should only happen for alarm signal
+         */
+        (info->accessing_sigpending &&
+         /* we do want to report a crash in receive_pending_signal() */
+         (can_always_delay[sig] ||
+          is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, &frame->info)))) {
         LOG(THREAD, LOG_ASYNCH, 1, "nested signal %d\n", sig);
-        ASSERT(sig == SUSPEND_SIGNAL || sig == SIGSEGV);
+        ASSERT(ostd->processing_signal == 0 || sig == SUSPEND_SIGNAL || sig == SIGSEGV);
         ASSERT(can_always_delay[sig] ||
                is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, &frame->info));
         /* To avoid re-entrant execution of special_heap_alloc() and of
@@ -4236,6 +4246,12 @@ receive_pending_signal(dcontext_t *dcontext)
     /* grab first pending signal
      * FIXME: start with real-time ones?
      */
+    /* "lock" the array to prevent a new signal that interrupts this bit of
+     * code from prepended or deleting from the array while we're accessing it
+     */
+    info->accessing_sigpending = true;
+    /* barrier to prevent compiler from moving the above write below the loop */
+    __asm__ __volatile__("" : : : "memory");
     for (sig = 0; sig < MAX_SIGNUM; sig++) {
         if (info->sigpending[sig] != NULL) {
             bool executing = true;
@@ -4254,6 +4270,9 @@ receive_pending_signal(dcontext_t *dcontext)
                 break;
         }
     }
+    /* barrier to prevent compiler from moving the below write above the loop */
+    __asm__ __volatile__("" : : : "memory");
+    info->accessing_sigpending = false;
 
     /* we only clear this on a call to us where we find NO pending signals */
     if (sig == MAX_SIGNUM) {
