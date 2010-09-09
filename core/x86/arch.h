@@ -111,6 +111,8 @@
 # ifdef CLIENT_INTERFACE
 #  define APP_FLS_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, app_fls_data))
 #  define PRIV_FLS_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, priv_fls_data))
+#  define APP_RPC_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, app_nt_rpc))
+#  define PRIV_RPC_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, priv_nt_rpc))
 # endif
 # define NONSWAPPED_SCRATCH_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, nonswapped_scratch))
 #endif

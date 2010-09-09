@@ -112,6 +112,7 @@ enum {
     WOW64_TIB_OFFSET          = 0x100,
     PEB_TIB_OFFSET            = 0x060,
     FLS_DATA_TIB_OFFSET       = 0x17c8,
+    NT_RPC_TIB_OFFSET         = 0x1698,
 #else
     EXCEPTION_LIST_TIB_OFFSET = 0x00,
     TOP_STACK_TIB_OFFSET      = 0x04,
@@ -124,6 +125,7 @@ enum {
     WOW64_TIB_OFFSET          = 0xC0,
     PEB_TIB_OFFSET            = 0x30,
     FLS_DATA_TIB_OFFSET       = 0xfb4,
+    NT_RPC_TIB_OFFSET         = 0xf1c,
 #endif
 };
 

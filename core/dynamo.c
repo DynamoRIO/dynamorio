@@ -1638,6 +1638,8 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     /* FlsData is persistent across callbacks */
     new_dcontext->app_fls_data = old_dcontext->app_fls_data;
     new_dcontext->priv_fls_data = old_dcontext->priv_fls_data;
+    new_dcontext->app_nt_rpc = old_dcontext->app_nt_rpc;
+    new_dcontext->priv_nt_rpc = old_dcontext->priv_nt_rpc;
     new_dcontext->teb_base = old_dcontext->teb_base;
 #endif
 #ifdef LINUX

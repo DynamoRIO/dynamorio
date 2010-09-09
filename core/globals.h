@@ -674,6 +674,8 @@ struct _dcontext_t {
     /* i#249: TEB field isolation */
     void *         app_fls_data;
     void *         priv_fls_data;
+    void *         app_nt_rpc;
+    void *         priv_nt_rpc;
     /* we need this to restore ptrs for other threads on detach */
     byte *         teb_base;
 # endif

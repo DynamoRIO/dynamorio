@@ -3029,6 +3029,22 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
         (dcontext, opnd_create_far_base_disp
          (SEG_TLS, REG_NULL, REG_NULL, 0, FLS_DATA_TIB_OFFSET, OPSZ_PTR),
          opnd_create_reg(reg_scratch)));
+    /* We swap TEB->ReservedForNtRpc as well.  Hopefully there won't be many
+     * more we'll have to swap.
+     */
+    PRE(ilist, next, INSTR_CREATE_mov_ld
+        (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
+         (SEG_TLS, REG_NULL, REG_NULL, 0, NT_RPC_TIB_OFFSET, OPSZ_PTR)));
+    PRE(ilist, next, SAVE_TO_DC_VIA_REG
+        (absolute, dcontext, reg_dr, reg_scratch,
+         to_priv ? APP_RPC_OFFSET : PRIV_RPC_OFFSET));
+    PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+        (absolute, dcontext, reg_dr, reg_scratch,
+         to_priv ? PRIV_RPC_OFFSET : APP_RPC_OFFSET));
+    PRE(ilist, next, INSTR_CREATE_mov_st
+        (dcontext, opnd_create_far_base_disp
+         (SEG_TLS, REG_NULL, REG_NULL, 0, NT_RPC_TIB_OFFSET, OPSZ_PTR),
+         opnd_create_reg(reg_scratch)));
 }
 # endif /* CLIENT_INTERFACE */
 

@@ -800,6 +800,9 @@ dispatch_exit_fcache(dcontext_t *dcontext)
     ASSERT(!is_dynamo_address(dcontext->app_fls_data));
     ASSERT(dcontext->app_fls_data == NULL ||
            dcontext->app_fls_data != dcontext->priv_fls_data);
+    ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
+    ASSERT(dcontext->app_nt_rpc == NULL ||
+           dcontext->app_nt_rpc != dcontext->priv_nt_rpc);
 #endif
 
 #ifdef NATIVE_RETURN
