@@ -555,6 +555,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     ASSERT_CURIOSITY(TEST(FRAG_IS_TRACE, flags) ||
                      (num_indirect_stubs == 1 && num_direct_stubs == 0) ||
                      (num_indirect_stubs == 0 && num_direct_stubs <= 2) ||
+                     IF_LINUX((num_indirect_stubs == 0 && num_direct_stubs >= 2 &&
+                               TEST(FRAG_HAS_SYSCALL, flags)) ||)
                      (num_indirect_stubs <= 1 && num_direct_stubs >= 1 &&
                       TEST(FRAG_SELFMOD_SANDBOXED, flags)));
 #endif
