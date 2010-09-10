@@ -2727,16 +2727,14 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             bb->cur_pc = bb->instr_start;
         }
 
-#ifdef CLIENT_INTERFACE
-        /* For CI builds, we need the translation when mangling direct
-         * calls.  May as well set it for all cti's since there's
+        /* We need the translation when mangling calls and jecxz/loop*.
+         * May as well set it for all cti's since there's
          * really no extra overhead in doing so.  Note that we go
          * through the above loop only once for cti's, so it's safe
          * to set the translation here.
          */
         if (instr_opcode_valid(bb->instr) && instr_is_cti(bb->instr))
             instr_set_translation(bb->instr, bb->instr_start);
-#endif
 
 #ifdef HOT_PATCHING_INTERFACE
         /* If this lookup succeeds then the current bb needs to be patched.
