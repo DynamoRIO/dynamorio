@@ -162,6 +162,10 @@ set(vps_run_list
   # tests in runall/ and security-{common,win32}/ to fully exercise this.
   "WIN::ONLY::^(runall|security)::-security -use_moduledb"
   )
+# if building dedicated vps, want short suite of all tests
+set(vps_short_list
+  "SHORT::-security"
+  )
 
 if (LINKCOUNT AND TEST_SUITE)
   # FIXME: how up time limit?  had TEST_MINS=5 for this:
@@ -207,7 +211,7 @@ elseif (VPS)
         )
     endif (DEBUG AND INTERNAL)
   else (TEST_SUITE)
-    set(run_list ${vps_run_list})
+    set(run_list ${vps_short_list})
   endif (TEST_SUITE)
 else (LINKCOUNT AND TEST_SUITE)
   # no tests
