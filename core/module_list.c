@@ -710,7 +710,9 @@ restore_unreadable_section(app_pc module_base, app_pc seg_start,
  * memory region from each of the header and the footer.  If
  * short_digest_size is 0 or larger than half of the file size the
  * short and full digests are supposed to be equal.
- * If sec_characteristics != 0, only sections TESTANY matching those
+ * If sec_char_include != 0, only sections TESTANY matching those
+ * characteristics (and the PE headers) are considered.
+ * If sec_char_exclude != 0, only sections !TESTANY matching those
  * characteristics (and the PE headers) are considered.
  * It is the caller's responsibility to ensure that module_size is not
  * larger than the mapped view size.
@@ -722,7 +724,8 @@ module_calculate_digest(OUT module_digest_t *digest,
                         bool full_digest,
                         bool short_digest,
                         uint short_digest_size,
-                        uint sec_characteristics)
+                        uint sec_char_include,
+                        uint sec_char_exclude)
 {
     struct MD5Context md5_short_cxt;
     struct MD5Context md5_full_cxt;
@@ -825,7 +828,8 @@ module_calculate_digest(OUT module_digest_t *digest,
              * but we only look at raw bytes */
             continue;
         }
-        if (!TESTANY(sec_characteristics, seg_chars)) {
+        if (!TESTANY(sec_char_include, seg_chars) ||
+            TESTANY(sec_char_exclude, seg_chars)) {
             LOG(GLOBAL, LOG_VMAREAS, 2, "skipping non-matching segment @"PFX"\n", 
                 region_start);
             continue;

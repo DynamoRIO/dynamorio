@@ -257,6 +257,10 @@ void os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
 void os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which));
 void free_module_names(module_names_t *mod_names HEAPACCT(which_heap_t which));
 
+#ifdef LINUX
+/* returns true if the module is marked as having text relocations */
+bool module_has_text_relocs(app_pc base);
+#endif
 
 
 /**************************************************************************************/
@@ -363,7 +367,8 @@ module_calculate_digest(/*OUT*/ module_digest_t *digest,
                         bool full_digest,
                         bool short_digest,
                         uint short_digest_size,
-                        uint sec_characteristics);
+                        uint sec_char_include,
+                        uint sec_char_exclude);
 
 /* actually in utils.c since os-independent */
 bool

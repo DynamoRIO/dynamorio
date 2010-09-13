@@ -1856,6 +1856,15 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     /* case 8640: relies on -executable_{if_rx_text,after_load} */
     PC_OPTION_DEFAULT(bool, coarse_merge_iat, true,
         "merge iat page into coarse unit at +rx transition")
+    /* PR 214084: avoid push of abs addr in pcache
+     * TODO: should auto-enable (on Linux or Vista+ only?) for -coarse_enable_freeze?
+     */
+    PC_OPTION_DEFAULT(bool, coarse_split_calls, false,
+        "make all calls fine-grained and in own bbs")
+#ifdef LINUX
+    OPTION_DEFAULT(bool, persist_trust_textrel, true,
+        "if textrel flag is not set, assume module has no text relocs")
+#endif
 
     /* case 10339: tuned for boot and memory performance, not steady-state */
     OPTION_COMMAND(bool, desktop, false, "desktop", {

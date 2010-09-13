@@ -39,6 +39,7 @@
 # * toolbindir
 # * out = file where output of background process will be sent
 # * nudge = arguments to nudgeunix
+# * clear = dir to clear ahead of time
 
 # intra-arg space=@@ and inter-arg space=@
 string(REGEX REPLACE "@@" " " cmd "${cmd}")
@@ -47,6 +48,14 @@ string(REGEX REPLACE "!" "\\\;" cmd "${cmd}")
 
 # we must remove so we know when the background process has re-created it
 file(REMOVE "${out}")
+
+if (NOT "${clear}" STREQUAL "")
+  # clear out dir
+  file(GLOB files "${clear}/*")
+  if (NOT "${files}" STREQUAL "")
+    file(REMOVE_RECURSE ${files})
+  endif ()
+endif ()
 
 # run in the background
 execute_process(COMMAND ${cmd}
@@ -78,16 +87,24 @@ while (NOT "${output}" MATCHES "\n")
   file(READ "${out}" output)
 endwhile()
 
-execute_process(COMMAND "${toolbindir}/nudgeunix" -pid ${pid} ${nudge}
-  RESULT_VARIABLE nudge_result
-  ERROR_VARIABLE nudge_err
-  OUTPUT_VARIABLE nudge_out
-)
-# combine out and err
-set(nudge_err "${nudge_out}${nudge_err}")
-if (nudge_result)
-  message(FATAL_ERROR "*** nudgeunix failed (${nudge_result}): ${nudge_err}***\n")
-endif (nudge_result)
+if ("${nudge}" MATCHES "<use-persisted>")
+  # ensure using pcaches, instead of nudging
+  file(READ "/proc/${pid}/maps" maps)
+  if (NOT "${maps}" MATCHES "\\.dpc\n")
+    set(fail_msg "no .dpc files found in ${maps}: not using pcaches!")
+  endif ()
+else ()
+  execute_process(COMMAND "${toolbindir}/nudgeunix" -pid ${pid} ${nudge}
+    RESULT_VARIABLE nudge_result
+    ERROR_VARIABLE nudge_err
+    OUTPUT_VARIABLE nudge_out
+    )
+  # combine out and err
+  set(nudge_err "${nudge_out}${nudge_err}")
+  if (nudge_result)
+    message(FATAL_ERROR "*** nudgeunix failed (${nudge_result}): ${nudge_err}***\n")
+  endif (nudge_result)
+endif ()
 
 if ("${nudge}" MATCHES "-client")
   # wait for more output to file
@@ -124,6 +141,10 @@ if (UNIX)
 else (UNIX)
   # FIXME i#120: for Windows, use ${toolbindir}/DRkill.exe
 endif (UNIX)
+
+if (NOT "${fail_msg}" STREQUAL "")
+  message(FATAL_ERROR "${fail_msg}")
+endif ()
 
 # we require that test print "done" as last line once done
 file(READ "${out}" output)

@@ -630,6 +630,9 @@ endfunction(tochcon)
 ###########################################################################
 # RUNNING
 
+set(PCACHE_DIR "${PROJECT_BINARY_DIR}/pcache")
+set(PCACHE_SHARED_DIR "${PROJECT_BINARY_DIR}/pcache/shared")
+
 function(template2expect outexpect template runops)
   # We used to use a custom perl script to match defines and runtime
   # options but we've switched to cpp.  We convert -foo to -Dfoo and
@@ -769,9 +772,12 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
     set(cmd ${cmd}
       -env LD_LIBRARY_PATH "${MAIN_LIBRARY_OUTPUT_PATH}:$ENV{LD_LIBRARY_PATH}")
     if (NOT native)
+      # FIXME: should really use drrun to override any existing config file
       set(cmd ${cmd}
         -env DYNAMORIO_RUNUNDER 1
-        -env LD_PRELOAD "libdrpreload.so libdynamorio.so")
+        -env LD_PRELOAD "libdrpreload.so libdynamorio.so"
+        -env DYNAMORIO_CACHE_ROOT "${PCACHE_DIR}"
+        -env DYNAMORIO_CACHE_SHARED "${PCACHE_SHARED_DIR}")
     endif (NOT native)
     # add dr_ops last to avoid needing extra \ on ;
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
@@ -829,8 +835,17 @@ function(torun test key exe source native dr_ops exe_ops)
       string(REGEX REPLACE "^.*-env;LD_L" 
         "${MAIN_EXECUTABLE_OUTPUT_PATH}/run_in_bg;-out;${tmpfile};-env;LD_L"
         rundr "${rundr}")
+      set(clear_arg "")
       if ("${runall}" MATCHES "<reset>")
         set(nudge_arg "-type\;reset")
+      elseif ("${runall}" MATCHES "<freeze>")
+        set(nudge_arg "-type\;freeze")
+      elseif ("${runall}" MATCHES "<persist>")
+        set(nudge_arg "-type\;persist")
+        # clear out pcache dir prior to run
+        set(clear_arg "${PCACHE_SHARED_DIR}")
+      elseif ("${runall}" MATCHES "<use-persisted>")
+        set(nudge_arg "<use-persisted>")
       elseif ("${runall}" MATCHES "<client")
         string(REGEX MATCHALL "<client_nudge[^>]+" nudge_arg "${runall}")
         string(REGEX REPLACE "<client_nudge" "-client" nudge_arg "${nudge_arg}")
@@ -847,6 +862,7 @@ function(torun test key exe source native dr_ops exe_ops)
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
     add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${MAIN_EXECUTABLE_OUTPUT_PATH}
       -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
+      -D clear=${clear_arg}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
   else(is_runall)
     add_test(${test} ${rundr} ${exepath} ${exe_ops})
@@ -940,6 +956,10 @@ function(torun_normal name test ops)
   endif (DEFINED ${test}_realtest)
   torun("${name}" ${test} ${exe} ${${test}_source} OFF "${${test}_dr_ops} ${ops}"
     "${${test}_exe_ops}")
+  if (DEFINED ${test}_depends)
+    ops2testprefix(prefix "${ops}")
+    set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${${test}_depends}")
+  endif (DEFINED ${test}_depends)
 endfunction(torun_normal)
 
 function(torun_ci name test ops)
@@ -1126,8 +1146,28 @@ if (UNIX)
   tobuild(security-linux.trampoline security-linux/trampoline.c)
 
   # this app is used in nudge tests
+  # XXX: should all these infloop tests be made cross-platform?
+  # or rely on runall tests that run calc covering this on Windows?
   add_exe(linux.infloop linux/infloop.c)
   torunonly(linux.reset linux/infloop linux/reset.runall "" "-v")
+  if (NOT X64)
+    # XXX: 64-bit support not quite there yet
+    torunonly(linux.freeze linux/infloop linux/freeze.runall
+      "-coarse_units -coarse_enable_freeze" "-v")
+  endif (NOT X64)
+
+  # persistent cache tests
+  file(MAKE_DIRECTORY "${PCACHE_DIR}")
+  file(MAKE_DIRECTORY "${PCACHE_SHARED_DIR}")
+  if (NOT X64)
+    # XXX: 64-bit support not quite there yet
+    torunonly(linux.persist linux/infloop linux/persist.runall
+      "-coarse_units -coarse_split_calls -coarse_enable_freeze -coarse_freeze_min_size 0 -no_persist_per_user -no_validate_owner_dir" "-v")
+    torunonly(linux.persist-use linux/infloop linux/persist-use.runall
+      "-use_persisted -coarse_units -coarse_split_calls -no_persist_per_user -no_validate_owner_dir" "-v")
+  endif (NOT X64)
+  # when running tests in parallel: have to generate pcaches first
+  set(linux.persist-use_depends linux.persist)
 else (UNIX)
   if (VPS)
     # too flaky across platforms so we limit to VPS only: not too useful
@@ -1282,13 +1322,19 @@ tochcon(security-common.TestMemProtChg wine_exec_t)
 # for wider test name fields as ours include the runtime options and
 # app name.
 
-function(run2testname testname ops test)
+function(ops2testprefix prefix ops)
   string(REGEX REPLACE " [^-][^ ]*" "" name "${ops}")
   string(REGEX REPLACE " +-" "," name "${name}")
   string(REGEX REPLACE "^-" "" name "${name}")
   string(STRIP "${name}" name)
   # want it grouped by run, not by test, and it auto-alpha-sorts
-  set(${testname} "${name}|${test}" PARENT_SCOPE)
+  set(${prefix} "${name}|" PARENT_SCOPE)
+endfunction(ops2testprefix)
+
+function(run2testname testname ops test)
+  ops2testprefix(prefix "${ops}")
+  # want it grouped by run, not by test, and it auto-alpha-sorts
+  set(${testname} "${prefix}${test}" PARENT_SCOPE)
 endfunction(run2testname)
 
 foreach (run ${run_list})

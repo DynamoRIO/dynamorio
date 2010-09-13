@@ -1077,3 +1077,52 @@ file_is_elf64(file_t f)
            offsetof(Elf32_Ehdr, e_machine));
     return (elf_header.elf64.e_machine == EM_X86_64);
 }
+
+/* returns true if the module is marked as having text relocations 
+ *
+ * XXX: when get_dynamic_section_info() gets checked in, should
+ * add a field to dyn_sec_info_t so we don't need to re-parse.
+ *
+ * XXX: should we also have a routine that walks the relocs (once that
+ * code is in) and really checks whether there are any text
+ * relocations?  then don't need -persist_trust_textrel option.
+ */
+bool
+module_has_text_relocs(app_pc base)
+{
+    app_pc mod_base;
+    ssize_t offset; /* offset loaded at relative to base */
+    uint i;
+    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
+    ELF_PROGRAM_HEADER_TYPE *prog_hdr;
+    ELF_DYNAMIC_ENTRY_TYPE  *dyn = NULL;
+
+    ASSERT(is_elf_so_header(base, 0));
+    /* walk program headers to get mod_base */
+    mod_base = module_vaddr_from_prog_header(base + elf_hdr->e_phoff,
+                                             elf_hdr->e_phnum, NULL);
+    offset = base - mod_base;
+    /* walk program headers to get dynamic section pointer */
+    prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)(base + elf_hdr->e_phoff);
+    for (i = 0; i < elf_hdr->e_phnum; i++) {
+        if (prog_hdr->p_type == PT_DYNAMIC) {
+            dyn = (ELF_DYNAMIC_ENTRY_TYPE *)(prog_hdr->p_vaddr + offset);
+            break;
+        }
+        prog_hdr++;
+    }
+    if (dyn == NULL)
+        return false;
+    while (dyn->d_tag != DT_NULL) {
+        /* Older binaries have a separate DT_TEXTREL entry */
+        if (dyn->d_tag == DT_TEXTREL)
+            return true;
+        /* Newer binaries have a DF_TEXTREL flag in DT_FLAGS */
+        if (dyn->d_tag == DT_FLAGS) {
+            if (TEST(DF_TEXTREL, dyn->d_un.d_val))
+                return true;
+        }
+        dyn++;
+    }
+    return false;
+}

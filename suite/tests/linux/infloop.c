@@ -78,8 +78,10 @@ main(int argc, const char *argv[])
             return 1;
     }
 
-    while (1)
-        ;
+    while (1) {
+        /* workaround for PR 213040: prevent loop from being coarse */
+        volatile int x = getpid();
+    }
     return 0;
 }
 

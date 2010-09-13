@@ -875,6 +875,16 @@ follow_direct_call(dcontext_t *dcontext, build_bb_t *bb, app_pc callee)
     return false; /* stop bb */
 }
 
+static inline void
+bb_stop_prior_to_instr(dcontext_t *dcontext, build_bb_t *bb, bool appended)
+{
+    if (appended)
+        instrlist_remove(bb->ilist, bb->instr);
+    instr_destroy(dcontext, bb->instr);
+    bb->instr = NULL;
+    bb->cur_pc = bb->instr_start;
+}
+
 /* returns true to indicate "elide and continue" and false to indicate "end bb now" */
 static inline bool
 bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
@@ -898,6 +908,18 @@ bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
         STATS_INC(coarse_prevent_cti);
         return true; /* keep bb going, w/o inlining call */
     } else {
+        if (DYNAMO_OPTION(coarse_split_calls) && DYNAMO_OPTION(coarse_units) && 
+            TEST(FRAG_COARSE_GRAIN, bb->flags)) {
+            if (instrlist_first(bb->ilist) != bb->instr) {
+                /* have call be in its own bb */
+                bb_stop_prior_to_instr(dcontext, bb, true/*appended already*/);
+                return false; /* stop bb */
+            } else {
+                /* single-call fine-grained bb */
+                bb->flags &= ~FRAG_COARSE_GRAIN;
+                STATS_INC(coarse_prevent_cti);
+            }
+        }
         /* FIXME: use follow_direct_call() */
         if (bb->follow_direct &&
             bb->num_elide_call < DYNAMO_OPTION(max_elide_call) &&
@@ -1247,10 +1269,7 @@ bb_process_fs_ref_opnd(dcontext_t *dcontext, build_bb_t *bb, opnd_t dst,
              * only get here through code duplication (typically jmp/call
              * inlining, though can also be through multiple entry points into
              * the same block of non cti instructions). */ 
-            /* FIXME - this is getting common enough to be a shared routine */
-            instr_destroy(dcontext, bb->instr);
-            bb->instr = NULL;
-            bb->cur_pc = bb->instr_start;
+            bb_stop_prior_to_instr(dcontext, bb, false/*not appended yet*/);
             return false; /* stop bb */
         }
         /* Only process the push if building a new bb for cache, can't check
@@ -2783,9 +2802,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                     BBPRINT(bb, 3, "reached selfmod write limit %d, stopping\n",
                             DYNAMO_OPTION(selfmod_max_writes));
                     STATS_INC(num_max_selfmod_writes_enforced);
-                    instr_destroy(dcontext, bb->instr); /* not added to bb->ilist yet */
-                    bb->instr = NULL;
-                    bb->cur_pc = bb->instr_start;
+                    bb_stop_prior_to_instr(dcontext, bb, false/*not added to bb->ilist*/);
                     break;
                 }
             }
@@ -2872,7 +2889,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
         if (instr_is_call_direct(bb->instr)) {
             if (!bb_process_call_direct(dcontext, bb)) {
-                bb->exit_type |= instr_branch_type(bb->instr);
+                if (bb->instr != NULL)
+                    bb->exit_type |= instr_branch_type(bb->instr);
                 break;
             }
         }
@@ -2890,6 +2908,19 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             } else if (instr_is_call_indirect(bb->instr)) {
                 STATS_INC(num_all_calls);
                 STATS_INC(num_indirect_calls);
+
+                if (DYNAMO_OPTION(coarse_split_calls) && DYNAMO_OPTION(coarse_units) && 
+                    TEST(FRAG_COARSE_GRAIN, bb->flags)) {
+                    if (instrlist_first(bb->ilist) != bb->instr) {
+                        /* have call be in its own bb */
+                        bb_stop_prior_to_instr(dcontext, bb, true/*appended already*/);
+                        break; /* stop bb */
+                    } else {
+                        /* single-call fine-grained bb */
+                        bb->flags &= ~FRAG_COARSE_GRAIN;
+                        STATS_INC(coarse_prevent_cti);
+                    }
+                }
 
                 /* If the indirect call can be converted into a direct one,
                  * bypass normal indirect call processing.

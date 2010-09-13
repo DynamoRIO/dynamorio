@@ -2369,7 +2369,7 @@ persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t 
                                 false /* not full */, true /* yes short */,
                                 DYNAMO_OPTION(persist_short_digest),
                                 /* do not consider writable sections */
-                                ~((uint)OS_IMAGE_WRITE));
+                                ~((uint)OS_IMAGE_WRITE), OS_IMAGE_WRITE);
     }
 }
 
@@ -2566,6 +2566,15 @@ coarse_unit_calculate_persist_info(dcontext_t *dcontext, coarse_info_t *info)
     LOG(THREAD, LOG_CACHE, 1, "coarse_unit_calculate_persist_info %s "PFX"-"PFX"\n",
         info->module, info->base_pc, info->end_pc);
     ASSERT(info->frozen && !info->persisted && !info->has_persist_info);
+
+    if (DYNAMO_OPTION(coarse_freeze_elide_ubr))
+        info->flags |= PERSCACHE_ELIDED_UBR;
+#if defined(RETURN_AFTER_CALL) && defined(WINDOWS)
+    if (seen_Borland_SEH)
+        info->flags |= PERSCACHE_SEEN_BORLAND_SEH;
+#endif
+    if (!DYNAMO_OPTION(disable_traces))
+        info->flags |= PERSCACHE_SUPPORT_TRACES;
 
 #ifdef RCT_IND_BRANCH
     ASSERT(info->rct_table == NULL);
@@ -2834,14 +2843,6 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
     /* Take flags from info */
     pers->flags = info->flags;
     pers->flags |= PERSCACHE_X86_32; /* FIXME: see above: should be set earlier */
-    if (DYNAMO_OPTION(coarse_freeze_elide_ubr))
-        pers->flags |= PERSCACHE_ELIDED_UBR;
-#if defined(RETURN_AFTER_CALL) && defined(WINDOWS)
-    if (seen_Borland_SEH)
-        pers->flags |= PERSCACHE_SEEN_BORLAND_SEH;
-#endif
-    if (!DYNAMO_OPTION(disable_traces))
-        pers->flags |= PERSCACHE_SUPPORT_TRACES;
     if (option_level == OP_PCACHE_LOCAL) {
         ASSERT(option_string != NULL);
         pers->flags |= PERSCACHE_EXEMPTION_OPTIONS;
@@ -3468,7 +3469,8 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     DOLOG(1, LOG_CACHE, {
         char modname[MAX_MODNAME_INTERNAL];
         os_get_module_name_buf(modbase, modname, BUFFER_SIZE_ELEMENTS(modname));
-        LOG(THREAD, LOG_CACHE, 1, "coarse_unit_load %s\n", modname);
+        LOG(THREAD, LOG_CACHE, 1, "coarse_unit_load %s "PFX"-"PFX"%s\n",
+            modname, start, end, for_execution ? "" : " (not for exec)");
     });
     DOSTATS({
         if (for_execution)
@@ -3561,7 +3563,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
         LOG(THREAD, LOG_CACHE, 1, "  error obtaining file size for %s\n", filename);
         goto coarse_unit_load_exit;
     }
-    ASSERT_TRUNCATE(map_size, uint, file_size);
+    ASSERT_TRUNCATE(map_size, size_t, file_size);
     map_size = (size_t) file_size;
     LOG(THREAD, LOG_CACHE, 1, "  size of %s is "SZFMT"\n", filename, map_size);
     /* FIXME case 9642: control where in address space we map the file:
@@ -3674,14 +3676,24 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
 
     /* modinfo cmp checks all but base, which is separate for reloc support */
     if (modbase != pers->modinfo.base) {
-        /* FIXME case 9581/9649: Bail out for now since relocs NYI
-         * Once we do support them, make sure to do the right thing when merging:
-         * current code will always apply relocs before merging.
-         */
-        LOG(THREAD, LOG_CACHE, 1, "  module base mismatch "PFX" vs persisted "PFX"\n",
-            modbase, pers->modinfo.base);
-        STATS_INC(perscache_base_mismatch);
-        goto coarse_unit_load_exit;
+#ifdef LINUX
+        /* for linux, we can trust lack of textrel flag as guaranteeing no text relocs */
+        if (DYNAMO_OPTION(persist_trust_textrel) && !module_has_text_relocs(modbase)) {
+            LOG(THREAD, LOG_CACHE, 1, "  module base mismatch "PFX" vs persisted "PFX
+                ", but no text relocs so ok\n", modbase, pers->modinfo.base);
+        } else {
+#endif
+            /* FIXME case 9581/9649: Bail out for now since relocs NYI
+             * Once we do support them, make sure to do the right thing when merging:
+             * current code will always apply relocs before merging.
+             */
+            LOG(THREAD, LOG_CACHE, 1, "  module base mismatch "PFX" vs persisted "PFX"\n",
+                modbase, pers->modinfo.base);
+            STATS_INC(perscache_base_mismatch);
+            goto coarse_unit_load_exit;
+#ifdef LINUX
+        }
+#endif
     }
 
     if (modbase + pers->start_offs < start ||

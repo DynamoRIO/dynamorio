@@ -2961,7 +2961,7 @@ aslr_get_section_digest(OUT module_digest_t *digest,
                             !short_digest_only, /* full */
                             short_digest_only, /* short */
                             DYNAMO_OPTION(aslr_short_digest),
-                            UINT_MAX/*all secs*/);
+                            UINT_MAX/*all secs*/, 0/*all secs*/);
     res = nt_unmap_view_of_section(NT_CURRENT_PROCESS, 
                                    base);
     ASSERT(NT_SUCCESS(res));
@@ -4267,7 +4267,7 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
                                 view_size,
                                 true, true, /* both short and full */
                                 DYNAMO_OPTION(aslr_short_digest),
-                                UINT_MAX/*all secs*/);
+                                UINT_MAX/*all secs*/, 0/*all secs*/);
     }
 
     success = module_rebase(base, view_size, 
@@ -4852,7 +4852,7 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
                                         module_size,
                                         true, true, /* both short and full */
                                         DYNAMO_OPTION(aslr_short_digest),
-                                        UINT_MAX/*all secs*/);
+                                        UINT_MAX/*all secs*/, 0/*all secs*/);
                 /* other than crashing digest can't fail  */
             }
 

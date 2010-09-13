@@ -2865,7 +2865,11 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
      */
     bool changed = false;
     /* may not be linked if trace_relink or something */
-    if (TEST(FRAG_LINKED_OUTGOING, f->flags)) {
+    if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+        /* FIXME PR 213040: we can't unlink it so we need some other scheme
+         * For now we don't have any bound on delivery...
+         */
+    } else if (TEST(FRAG_LINKED_OUTGOING, f->flags)) {
         LOG(THREAD, LOG_ASYNCH, 3,
             "\tunlinking outgoing for interrupted F%d\n", f->id);
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
@@ -5300,8 +5304,8 @@ handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t 
         fragment_t wrapper;
         fragment_t *f = fragment_pclookup(dcontext, (byte *)sc->SC_XIP, &wrapper);
         if (f != NULL) {
-            unlink_fragment_for_signal(dcontext, f, (byte *)sc->SC_XIP);
-            dcontext->interrupted_for_nudge = f;
+            if (unlink_fragment_for_signal(dcontext, f, (byte *)sc->SC_XIP))
+                dcontext->interrupted_for_nudge = f;
         }
     }
 
