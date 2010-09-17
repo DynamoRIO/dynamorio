@@ -650,6 +650,10 @@ GLOBAL_LABEL(global_do_syscall_int:)
 #ifdef DEBUG
         jmp      debug_infinite_loop
 #endif
+#ifdef LINUX
+        /* we do come here for SYS_kill which can fail: try again via exit_group */
+        jmp      dynamorio_sys_exit_group
+#endif
         END_FUNC(global_do_syscall_int)
 
 /* For sygate hack need to indirect the system call through ntdll. */
@@ -730,6 +734,10 @@ GLOBAL_LABEL(global_do_syscall_syscall:)
         syscall
 #   ifdef DEBUG
         jmp      debug_infinite_loop
+#   endif
+#   ifdef LINUX
+        /* we do come here for SYS_kill which can fail: try again via exit_group */
+        jmp      dynamorio_sys_exit_group
 #   endif
         END_FUNC(global_do_syscall_syscall)
 #endif
@@ -1107,6 +1115,27 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
         jmp      unexpected_return
         END_FUNC(dynamorio_sys_exit)
         
+/* exit entire group without using any stack, in case something like
+ * SYS_kill via cleanup_and_terminate fails
+ */
+        DECLARE_FUNC(dynamorio_sys_exit_group)
+GLOBAL_LABEL(dynamorio_sys_exit_group:)
+#ifdef X64
+        mov      edi, 0 /* exit code: hardcoded */
+        mov      eax, HEX(e7) /* SYS_exit_group */
+        mov      r10, rcx
+        syscall
+#else
+        mov      ebx, 0 /* exit code: hardcoded */
+        mov      eax, HEX(fc) /* SYS_exit_group */
+        /* PR 254280: we assume int$80 is ok even for LOL64 */
+        int      HEX(80)
+#endif
+        /* should not return.  if we somehow do, infinite loop is intentional.
+         * FIXME: do better in release build! FIXME - why not an int3? */
+        jmp      unexpected_return
+        END_FUNC(dynamorio_sys_exit_group)
+
 #ifndef X64
 /* since our handler is rt, we have no source for the kernel's/libc's
  * default non-rt sigreturn, so we set up our own.

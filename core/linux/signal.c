@@ -677,6 +677,7 @@ set_default_signal_action(int sig)
 {
     kernel_sigaction_t act;
     int rc;
+    memset(&act, 0, sizeof(act));
     act.handler = (handler_t) SIG_DFL;
     /* arm the signal */
     rc = sigaction_syscall(sig, &act, NULL);
@@ -1407,6 +1408,7 @@ signal_thread_exit(dcontext_t *dcontext)
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
     kernel_sigaction_t act;
+    memset(&act, 0, sizeof(act));
     act.handler = (handler_t) SIG_DFL;
     kernel_sigemptyset(&act.mask); /* does mask matter for SIG_DFL? */
 
@@ -4156,7 +4158,14 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                 /* FIXME PR 541760: there can be multiple thread groups and thus
                  * this may not exit all threads in the address space
                  */
-                cleanup_and_terminate(dcontext, SYS_kill, get_process_id(), sig, true);
+                cleanup_and_terminate(dcontext, SYS_kill,
+                                      /* Pass -pid in case main thread has exited
+                                       * in which case will get -ESRCH
+                                       */
+                                      IF_VMX86(os_in_vmkernel_userworld() ?
+                                               -(int)get_process_id() :)
+                                      get_process_id(),
+                                      sig, true);
                 ASSERT_NOT_REACHED();
             } else {
                 /* We assume that re-executing the interrupted instr will
