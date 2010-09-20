@@ -571,6 +571,23 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
      * filename, we treat both as NULL, but leave the distinction for SONAME. */
     if (filepath == NULL || filepath[0] == '\0') {
         ma->names.file_name = NULL;
+#ifdef VMX86_SERVER
+        /* XXX: provide a targeted query to avoid full walk */
+        void *iter = vmk_mmaps_iter_start();
+        if (iter != NULL) { /* backward compatibility: support lack of iter */
+            byte *start;
+            size_t length;
+            char name[MAXIMUM_PATH];
+            while (vmk_mmaps_iter_next(iter, &start, &length, NULL,
+                                       name, BUFFER_SIZE_ELEMENTS(name))) {
+                if (base == start) {
+                    ma->names.file_name = dr_strdup(name HEAPACCT(which));
+                    break;
+                }
+            }
+            vmk_mmaps_iter_stop(iter);
+        }
+#endif
         ma->full_path = NULL;
     } else {
         ma->names.file_name = dr_strdup(get_short_name(filepath) HEAPACCT(which));
