@@ -3709,29 +3709,68 @@ get_allocation_size(byte *pc, byte **base_pc)
     return size;
 }
 
-/* Returns size and writability of the memory area (not allocation region)
+/* Returns information about the memory area (not allocation region)
  * containing pc.  This is a single memory area all from the same allocation
  * region and all with the same protection and state attributes.
- * If base_pc != NULL returns base pc of the area.
  */
 bool
 query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
 {
     MEMORY_BASIC_INFORMATION mbi;
-    size_t res = query_virtual_memory(pc, &mbi, sizeof(mbi));
+    byte *pb = (byte *) pc;
+    byte *alloc_base;
+    int num_blocks = 0;
     ASSERT(info != NULL);
-    if (res != sizeof(mbi))
+    if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi))
         return false;
-    info->base_pc = mbi.BaseAddress;
-    info->size = mbi.RegionSize;
-    info->prot = osprot_to_memprot(mbi.Protect);
-    if (mbi.State == MEM_FREE)
+    if (mbi.State == MEM_FREE /* free memory doesn't have AllocationBase */) {
         info->type = DR_MEMTYPE_FREE;
-    else if (mbi.Type == MEM_IMAGE)
-        info->type = DR_MEMTYPE_IMAGE;
-    else
-        info->type = DR_MEMTYPE_DATA;
-    return true;
+        info->base_pc = mbi.BaseAddress;
+        info->size = mbi.RegionSize;
+        info->prot = osprot_to_memprot(mbi.Protect);
+        return true;
+    } else {
+        /* BaseAddress is just PAGE_START(pc) and so is not the base_pc we
+         * want: we have to loop for that information (i#345)
+         */
+        alloc_base = (byte *) mbi.AllocationBase;
+        pb = alloc_base;
+
+        do {
+            if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi))
+                break;
+            if (mbi.State == MEM_FREE || mbi.AllocationBase != alloc_base)
+                break;
+            ASSERT(mbi.RegionSize > 0); /* if > 0, we will NOT infinite loop */
+            if ((byte *)mbi.BaseAddress + mbi.RegionSize > pc) {
+                /* We found the region containing the asked-for address,
+                 * and this time mbi.BaseAddress is the real lowest base of
+                 * that all-same-prot region
+                 */
+                ASSERT(pc >= (byte *)mbi.BaseAddress);
+                info->base_pc = mbi.BaseAddress;
+                info->size = mbi.RegionSize;
+                info->prot = osprot_to_memprot(mbi.Protect);
+                if (mbi.Type == MEM_IMAGE)
+                    info->type = DR_MEMTYPE_IMAGE;
+                else
+                    info->type = DR_MEMTYPE_DATA;
+                return true;
+            }
+            if (pb + mbi.RegionSize < pb) /* overflow */
+                break;
+            pb += mbi.RegionSize;
+            /* WARNING: if app is changing memory at same time as we're examining
+             * it, we could have problems: but, if region becomes free, we'll break,
+             * and so long as RegionSize > 0, we should make progress and hit
+             * end of address space in worst case -- so we shouldn't need this
+             * num_blocks max, but we'll keep it for now.
+             */
+            num_blocks++;
+        } while (num_blocks < MAX_QUERY_VM_BLOCKS);
+        ASSERT_CURIOSITY(num_blocks < MAX_QUERY_VM_BLOCKS);
+    }
+    return false;
 }
 
 /* Returns size and writability of the memory area (not allocation region)
@@ -3742,16 +3781,28 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
 bool
 get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot)
 {
-    MEMORY_BASIC_INFORMATION mbi;
-    size_t res = query_virtual_memory(pc, &mbi, sizeof(mbi));
-    if (res != sizeof(mbi) || mbi.State == MEM_FREE)
-        return false;
-    if (base_pc != NULL)
-        *base_pc = mbi.BaseAddress;
-    if (size != NULL)
-        *size = mbi.RegionSize;
-    if (prot != NULL) {
-        *prot = osprot_to_memprot(mbi.Protect);
+    if (base_pc != NULL || size != NULL) {
+        /* BaseAddress is just PAGE_START(pc) and so is not the base_pc we
+         * want: we have to loop for that information (i#345)
+         */
+        dr_mem_info_t info;
+        if (!query_memory_ex(pc, &info))
+            return false;
+        if (base_pc != NULL)
+            *base_pc = info.base_pc;
+        if (size != NULL)
+            *size = info.size;
+        if (prot != NULL)
+            *prot = info.prot;
+        return true;
+    } else {
+        /* Single query is sufficient for prot or just to test whether free */
+        MEMORY_BASIC_INFORMATION mbi;
+        size_t res = query_virtual_memory(pc, &mbi, sizeof(mbi));
+        if (res != sizeof(mbi) || mbi.State == MEM_FREE)
+            return false;
+        if (prot != NULL)
+            *prot = osprot_to_memprot(mbi.Protect);
     }
     return true;
 }
