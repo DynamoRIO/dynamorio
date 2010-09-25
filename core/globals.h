@@ -385,6 +385,8 @@ typedef struct _client_data_t {
      */
     bool           is_client_thread; /* NOTE - use IS_CLIENT_THREAD() */
     bool           client_thread_safe_for_synch;
+    bool           suspendable; /* suspend w/ synchall: PR 609569 */
+    bool           left_unsuspended; /* not suspended by synchall: PR 609569 */
     uint           mutex_count; /* mutex nesting: for PR 558463 */
     void           *client_grab_mutex;
 # ifdef DEBUG

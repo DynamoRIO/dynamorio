@@ -2507,15 +2507,41 @@ DR_API
  * client threads at safe points and cannot determine whether the
  * aforementioned actions are safe for suspension.  Calling
  * dr_sleep(), dr_thread_yield(), dr_messagebox(), or using DR's locks
- * are safe.
+ * are safe.  If a client thread spends a lot of time holding locks,
+ * consider marking it as un-suspendable by calling
+ * dr_client_thread_set_suspendable() for better performance.
+ *
+ * Client threads, whether suspendable or not, must never execute from
+ * the code cache as the underlying fragments might be removed by another
+ * thread.
  *
  * \note Thread creation via this routine is not yet fully
  * transparent: on Windows, the thread will show up in the list of
  * application threads if the operating system is queried about
  * threads.  The thread will not trigger a DLL_THREAD_ATTACH message.
+ * On Linux, the thread will not receive signals meant for the application,
+ * and is guaranteed to have a private itimer.
  */
 bool
 dr_create_client_thread(void (*func)(void *param), void *arg);
+
+DR_API
+/**
+ * Can only be called from a client thread: returns false if called
+ * from a non-client thread.
+ *
+ * Controls whether a client thread created with dr_create_client_thread()
+ * will be suspended by DR for synchronization operations such as
+ * flushing or client requests like dr_suspend_all_other_threads().
+ * A client thread that spends a lot of time holding locks can gain
+ * greater performance by not being suspended.
+ *
+ * A client thread \b will be suspended for a thread termination
+ * operation, including at process exit, regardless of its suspendable
+ * requests.
+ */
+bool
+dr_client_thread_set_suspendable(bool suspendable);
 #endif /* CLIENT_SIDELINE */
 
 DR_API
@@ -2615,7 +2641,9 @@ DR_API
  * though there could be multiple thread groups in one address space.
  * The dr_get_itimer() function can be used to see whether a thread
  * already has an itimer in its group to avoid re-setting an itimer
- * set by an earlier thread.
+ * set by an earlier thread.  A client thread created by
+ * dr_create_client_thread() is guaranteed to not share its itimers
+ * with application threads.
  *
  * The itimer will operate successfully in the presence of an
  * application itimer of the same type.

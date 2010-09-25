@@ -3736,6 +3736,7 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
         alloc_base = (byte *) mbi.AllocationBase;
         pb = alloc_base;
 
+        /* XXX perf: if mbi.AllocationBase == mbi.BaseAddress avoid extra syscall */
         do {
             if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi))
                 break;

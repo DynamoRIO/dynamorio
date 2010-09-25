@@ -407,6 +407,17 @@ waiting_at_safe_spot(thread_record_t *trec, thread_synch_state_t desired_state)
     return false;
 }
 
+#ifdef CLIENT_SIDELINE
+static bool
+should_suspend_client_thread(dcontext_t *dcontext, thread_synch_state_t desired_state)
+{
+    /* Marking un-suspendable does not apply to cleaning/terminating */
+    ASSERT(IS_CLIENT_THREAD(dcontext));
+    return (THREAD_SYNCH_IS_CLEANED(desired_state) ||
+            dcontext->client_data->suspendable);
+}
+#endif
+
 /* checks whether the thread trec is at a spot suitable for requested define
  * desired_state
  * Requires that trec thread is suspended */
@@ -452,8 +463,13 @@ at_safe_spot(thread_record_t *trec, dr_mcontext_t *mc,
         if (IS_CLIENT_THREAD(trec->dcontext)) {
             safe = (trec->dcontext->client_data->client_thread_safe_for_synch ||
                     is_in_client_lib(mc->pc)) &&
-                 /* Do not cleanup/terminate a thread holding a client lock (PR 558463) */
-                (!THREAD_SYNCH_IS_CLEANED(desired_state) ||
+                /* Do not cleanup/terminate a thread holding a client lock (PR 558463) */
+                /* Actually, don't consider a thread holding a client lock to be safe
+                 * at all (PR 609569): client should use
+                 * dr_client_thread_set_suspendable(false) if its thread spends a lot
+                 * of time holding locks.
+                 */
+                (!should_suspend_client_thread(trec->dcontext, desired_state) ||
                  trec->dcontext->client_data->mutex_count == 0);
         }
 #endif
@@ -1206,6 +1222,25 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                     all_synched = false;
                     continue; /* skip this thread for now till non-client are finished */
                 }
+                if (IS_CLIENT_THREAD(threads[i]->dcontext) &&
+                    !should_suspend_client_thread(threads[i]->dcontext,
+                                                  desired_synch_state)) {
+                    /* PR 609569: do not suspend this thread.
+                     * Avoid races between resume_all_threads() and
+                     * dr_client_thread_set_suspendable() by storing the fact.
+                     *
+                     * For most of our synchall purposes we really want to prevent
+                     * threads from acting on behalf of the application, and make
+                     * sure we can relocate them if in the code cache.  DR itself is
+                     * thread-safe, and while a synchall-initiator will touch
+                     * thread-private data for threads it suspends, having some
+                     * threads it does not suspend shouldn't cause any problems so
+                     * long as it doesn't touch their thread-private data.
+                     */
+                    synch_array[i] = SYNCH_WITH_ALL_SYNCHED;
+                    threads[i]->dcontext->client_data->left_unsuspended = true;
+                    continue;
+                }
 #endif
                 /* speed things up a tad */
                 if (synch_array[i] != SYNCH_WITH_ALL_NOTIFIED) {
@@ -1335,9 +1370,19 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
         DEBUG_DECLARE(bool ok;)
         if (threads[i]->id != my_id) {
             if (synch_array[i] == SYNCH_WITH_ALL_SYNCHED) {
-                DEBUG_DECLARE(ok =)
-                    thread_resume(threads[i]);
-                ASSERT(ok);
+                bool resume = true;
+#ifdef CLIENT_SIDELINE
+                if (IS_CLIENT_THREAD(threads[i]->dcontext) &&
+                    threads[i]->dcontext->client_data->left_unsuspended) {
+                    /* PR 609569: we did not suspend this thread */
+                    resume = false;
+                }
+#endif
+                if (resume) {
+                    DEBUG_DECLARE(ok =)
+                        thread_resume(threads[i]);
+                    ASSERT(ok);
+                }
                 /* ensure synch_with_success is set to false on exit path,
                  * even though locks are released and not fully valid
                  */
@@ -1375,6 +1420,14 @@ resume_all_threads(thread_record_t **threads, const uint num_threads)
     for (i = 0; i < num_threads; i++) {
         if (my_tid == threads[i]->id)
             continue;
+#ifdef CLIENT_SIDELINE
+        if (IS_CLIENT_THREAD(threads[i]->dcontext) &&
+            threads[i]->dcontext->client_data->left_unsuspended) {
+            /* PR 609569: we did not suspend this thread */
+            threads[i]->dcontext->client_data->left_unsuspended = false;
+            continue;
+        }
+#endif
 
         /* This routine assumes that each thread in the array was suspended, so
          * each one has to successfully resume.

@@ -3020,6 +3020,20 @@ dr_sleep(int time_ms)
         dcontext->client_data->client_thread_safe_for_synch = false;
 }
 
+#ifdef CLIENT_SIDELINE
+DR_API
+bool
+dr_client_thread_set_suspendable(bool suspendable)
+{
+    /* see notes in synch_with_all_threads() */
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    if (!IS_CLIENT_THREAD(dcontext))
+        return false;
+    dcontext->client_data->suspendable = suspendable;
+    return true;
+}
+#endif
+
 DR_API
 bool
 dr_suspend_all_other_threads(OUT void ***drcontexts,
