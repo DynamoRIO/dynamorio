@@ -3477,6 +3477,25 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
          * fragment!  == case 3567
          */
         translated_pc = recreate_app_pc(dcontext, instr_cache_pc, NULL);
+#ifdef CLIENT_INTERFACE
+        {
+            /* we must translate the full state in case a client changed
+             * register values, since we're going back to dispatch
+             */
+            recreate_success_t res;
+            dr_mcontext_t mcontext;
+            context_to_mcontext(&mcontext, cxt);
+            res = recreate_app_state(dcontext, &mcontext, true/*memory too*/);
+            if (res == RECREATE_SUCCESS_STATE) {
+                mcontext_to_context(cxt, &mcontext);
+            } else {
+                /* Should not happen since this should not be an instr we added! */
+                SYSLOG_INTERNAL_WARNING("Unable to fully translate cxt for codemod fault");
+                /* we should always at least get pc right */
+                ASSERT(res == RECREATE_SUCCESS_PC);
+            }
+        }
+#endif
         mutex_unlock(&thread_initexit_lock);
         LOG(THREAD, LOG_ASYNCH, 2,
             "\tinto "PFX"\n", translated_pc);
