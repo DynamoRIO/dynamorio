@@ -1267,14 +1267,22 @@ dynamo_process_exit(void)
         /* If we don't need a thread exit event, avoid the possibility of
          * racy crashes (PR 470957) by not calling instrument_thread_exit()
          */
-        (!INTERNAL_OPTION(nullcalls) && dr_thread_exit_hook_exists());
+        (!INTERNAL_OPTION(nullcalls) && dr_thread_exit_hook_exists() &&
+         !DYNAMO_OPTION(skip_thread_exit_at_exit));
 # endif
 
-    if (DYNAMO_OPTION(synch_at_exit)) {
+    if (DYNAMO_OPTION(synch_at_exit)
+        /* by default we synch if any exit event exists */
+        IF_CLIENT_INTERFACE(|| (!DYNAMO_OPTION(multi_thread_exit) && 
+                                dr_exit_hook_exists())
+                            || (!DYNAMO_OPTION(skip_thread_exit_at_exit) && 
+                                dr_thread_exit_hook_exists()))) {
         /* needed primarily for CLIENT_INTERFACE but technically all configurations
          * can have racy crashes at exit time (xref PR 470957)
          */
-        synch_with_threads_at_exit(THREAD_SYNCH_SUSPENDED);
+        synch_with_threads_at_exit(IF_WINDOWS_ELSE
+                                   (THREAD_SYNCH_SUSPENDED_AND_CLEANED,
+                                    THREAD_SYNCH_TERMINATED_AND_CLEANED));
     } else
         dynamo_exited = true;
 
@@ -1284,36 +1292,11 @@ dynamo_process_exit(void)
         mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&threads, &num);
 
-# ifdef CLIENT_INTERFACE
-        /* try to prevent any other thread from executing after its exit
-         * event callback is invoked (PR 470957): if guarantee is needed
-         * -synch_at_exit should be used.
-         */
-        if (!DYNAMO_OPTION(synch_at_exit) && num > 1 && dr_thread_exit_hook_exists()) {
-#  ifdef WINDOWS
-            /* 0 as first arg means "terminate all other threads but this one" */
-            nt_terminate_process_for_app(0, 0);
-#  else
-            thread_id_t my_tid = get_thread_id();
-            for (i = 0; i < num; i++) {
-                if (threads[i]->id != my_tid) {
-                    /* no advantage to use, say, the first half of thread_suspend()
-                     * since just going to exit process, so terminate.
-                     * if the thread is holding a lock that's used below we're
-                     * in trouble: very unlikely though.
-                     */
-                    thread_terminate(threads[i]);
-                    /* avoid client dr_suspend_all_other_threads() from
-                     * hanging on this thread
-                     */
-                    remove_thread(threads[i]->id);
-                }
-            }
-#  endif
-        }
-# endif /* CLIENT_INTERFACE */
-
         for (i = 0; i < num; i++) {
+#ifdef CLIENT_SIDELINE
+            if (IS_CLIENT_THREAD(threads[i]->dcontext))
+                continue;
+#endif
             /* FIXME: separate trace dump from rest of fragment cleanup code */
             if (TRACEDUMP_ENABLED() IF_CLIENT_INTERFACE(|| true))
                 /* We always want to call this for CI builds so we can get the
@@ -1330,7 +1313,7 @@ dynamo_process_exit(void)
 # endif
 # ifdef CLIENT_INTERFACE
             /* Inform client of all thread exits */
-            if (!INTERNAL_OPTION(nullcalls))
+            if (!INTERNAL_OPTION(nullcalls) && !DYNAMO_OPTION(skip_thread_exit_at_exit))
                 instrument_thread_exit_event(threads[i]->dcontext);
 # endif
         }

@@ -2448,6 +2448,12 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
      */
     OPTION(bool, synch_at_exit,
         "synchronize with all threads at exit in release build")
+#ifdef CLIENT_INTERFACE
+    OPTION(bool, multi_thread_exit,
+        "do not guarantee that process exit event callback is invoked single-threaded")
+    OPTION(bool, skip_thread_exit_at_exit,
+        "skip thread exit events at process exit")
+#endif
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
     OPTION_NAME(bool, optimize, " synthethic", "set if ANY opts are on")

@@ -69,14 +69,11 @@
 
 DR_API
 /**
- * Registers a callback function for the process exit event.  DR calls
- * \p func when the process exits.  Note that in release build it is
- * possible for other threads to still be executing, so
- * synchronization should be used for global variables; alternatively,
- * the -synch_at_exit option can be set, or the
- * dr_request_synchronized_exit() routine invoked, to guarantee that
- * only one thread is active at exit time (at a potential performance
- * cost).
+ * Registers a callback function for the process exit event.  DR calls \p
+ * func when the process exits.  By default, the process exit event will be
+ * executed with only a single live thread.  dr_set_process_exit_behavior()
+ * can provide superior exit performance for clients that have flexible
+ * exit event requirements.
  *
  * On Linux, SYS_execve does NOT result in an exit event, but it WILL
  * result in the client library being reloaded and its dr_init()
@@ -695,16 +692,9 @@ DR_API
  * Registers a callback function for the thread exit event.  DR calls
  * \p func whenever an application thread exits.
  *
- * There are some potential races at process exit time with the thread
- * exit event for all remaining threads.  In debug builds, \DynamoRIO
- * synchronizes with all remaining threads at process exit time,
- * guaranteeing that no other threads are executing when the thread
- * exit events are raised.  In release build, however, for performance
- * reasons, while \DynamoRIO attempts to prevent other threads from
- * executing (and thus running instrumentation code or raising events)
- * beyond when their own thread exit events are raised, no guarantee
- * is provided.  The \p -synch_at_exit option can be turned on in
- * order to provide such a guarantee, at a potential performance hit.
+ * See dr_set_process_exit_behavior() for options controlling performance
+ * and whether thread exit events are invoked at process exit time in
+ * release build.
  */
 void
 dr_register_thread_exit_event(void (*func)(void *drcontext));
@@ -717,6 +707,48 @@ DR_API
  */
 bool
 dr_unregister_thread_exit_event(void (*func)(void *drcontext));
+
+/* DR_API EXPORT TOFILE dr_events.h */
+/* DR_API EXPORT BEGIN */
+/**
+ * Flags controlling thread behavior at process exit time in release build.
+ * See dr_set_process_exit_behavior() for further details.
+ */
+typedef enum {
+    /**
+     * Do not guarantee that the process exit event is executed
+     * single-threaded.  This is equivalent to specifying the \p
+     * -multi_thread_exit runtime option.  Setting this flag can improve
+     * process exit performance, but usually only when the
+     * #DR_EXIT_SKIP_THREAD_EXIT flag is also set, or when no thread exit
+     * events are registered.
+     */
+    DR_EXIT_MULTI_THREAD           = 0x01,
+    /**
+     * Do not invoke thread exit event callbacks at process exit time.
+     * Thread exit event callbacks will still be invoked at other times.
+     * This is equivalent to setting the \p -skip_thread_exit_at_exit
+     * runtime option.  Setting this flag can improve process exit
+     * performance, but usually only when the #DR_EXIT_MULTI_THREAD flag is
+     * also set, or when no process exit event is registered.
+     */
+    DR_EXIT_SKIP_THREAD_EXIT        = 0x02,
+} dr_exit_flags_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Specifies how process exit should be handled with respect to thread exit
+ * events and thread synchronization in release build.  In debug build, and
+ * in release build by default, all threads are always synchronized at exit
+ * time, resulting in a single-threaded process exit event, and all thread
+ * exit event callbacks are always called.  This routine can provide more
+ * performant exits in release build by avoiding the synchronization if the
+ * client is willing to skip thread exit events at process exit and is
+ * willing to execute its process exit event with multiple live threads.
+ */
+void
+dr_set_process_exit_behavior(dr_exit_flags_t flags);
 
 #ifdef LINUX
 DR_API
@@ -1340,6 +1372,7 @@ bool dr_trace_hook_exists(void);
 bool dr_fragment_deleted_hook_exists(void);
 bool dr_end_trace_hook_exists(void);
 bool dr_thread_exit_hook_exists(void);
+bool dr_exit_hook_exists(void);
 bool hide_tag_from_client(app_pc tag);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
@@ -1401,12 +1434,7 @@ bool
 dr_using_all_private_caches(void);
 
 DR_API
-/**
- * Enables the -synch_at_exit runtime option, which guarantees that no
- * thread will executed beyond its own thread exit event at process
- * exit time.  When the -synch_at_exit option is off, which is the
- * default setting, in release builds there is no such guarantee.
- */
+/** \deprecated Replaced by dr_set_process_exit_behavior() */
 void
 dr_request_synchronized_exit(void);
 

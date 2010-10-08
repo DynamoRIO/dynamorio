@@ -1150,6 +1150,12 @@ dr_thread_exit_hook_exists(void)
 }
 
 bool
+dr_exit_hook_exists(void)
+{
+    return (exit_callbacks.num > 0);
+}
+
+bool
 hide_tag_from_client(app_pc tag)
 {
 #ifdef WINDOWS
@@ -1967,9 +1973,26 @@ DR_API
 void
 dr_request_synchronized_exit(void)
 {
-    if (!DYNAMO_OPTION(synch_at_exit)) {
+    SYSLOG_INTERNAL_WARNING_ONCE("dr_request_synchronized_exit deprecated: "
+                                 "use dr_set_process_exit_behavior instead");
+}
+
+DR_API
+void
+dr_set_process_exit_behavior(dr_exit_flags_t flags)
+{
+    if ((!DYNAMO_OPTION(multi_thread_exit) && TEST(DR_EXIT_MULTI_THREAD, flags)) ||
+        (DYNAMO_OPTION(multi_thread_exit) && !TEST(DR_EXIT_MULTI_THREAD, flags))) {
         options_make_writable();
-        dynamo_options.synch_at_exit = true;
+        dynamo_options.multi_thread_exit = TEST(DR_EXIT_MULTI_THREAD, flags);
+        options_restore_readonly();
+    }
+    if ((!DYNAMO_OPTION(skip_thread_exit_at_exit) &&
+         TEST(DR_EXIT_SKIP_THREAD_EXIT, flags)) ||
+        (DYNAMO_OPTION(skip_thread_exit_at_exit) &&
+         !TEST(DR_EXIT_SKIP_THREAD_EXIT, flags))) {
+        options_make_writable();
+        dynamo_options.skip_thread_exit_at_exit = TEST(DR_EXIT_SKIP_THREAD_EXIT, flags);
         options_restore_readonly();
     }
 }

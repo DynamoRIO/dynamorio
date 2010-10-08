@@ -1175,17 +1175,25 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    This option requests that \DynamoRIO convert sysenter into int 0x80
    instead.  See \ref sec_extlibs.
 
- - \b -synch_at_exit: \anchor op_synch_at_exit
-   In debug builds, \DynamoRIO synchronizes with all remaining threads
-   at process exit time.  In release build, for performance reasons,
-   while \DynamoRIO attempts to prevent other threads from executing
-   (and thus running instrumentation code or raising events) beyond
-   when their own thread exit events are raised, no guarantee is provided.
-   If the \client spends a long time in the process exit event, concurrent
-   threads could cause racy access to data and thus errors.  This option
-   can be turned on in order to provide a guarantee and avoid races, but at
-   a potential performance hit.  This option can also be enabled
-   programmatically via dr_request_synchronized_exit().
+ - \b -multi_thread_exit:
+   By default, \DynamoRIO synchronizes with all remaining threads
+   at process exit time and the process exit event executes with only
+   one live thread.  This option requests that in release build the
+   synchronization be avoided.  The process exit event must be written
+   in a thread-safe manner.  Note that if thread exit events are
+   registered, to avoid the synchronization the -skip_thread_exit_at_exit
+   option must also be set.  These options can also be enabled
+   programmatically via dr_set_process_exit_behavior().
+
+ - \b -skip_thread_exit_at_exit:
+   By default, \DynamoRIO synchronizes with all remaining threads at
+   process exit time in order to safely call each thread exit event.  This
+   option requests that in release build the synchronization be avoided by
+   removing the invocation of thread exit events at process exit time.
+   Note that if the process exit event is registered, to avoid the
+   synchronization the -multi_thread_exit option must also be set.  These
+   options can also be enabled programmatically via
+   dr_set_process_exit_behavior().
 \if pcache
 FIXME: expose -desktop and pcache location configuration
 \endif
