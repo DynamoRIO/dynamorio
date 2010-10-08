@@ -4240,9 +4240,9 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag,
 {
     per_thread_t *pt = (per_thread_t *) dcontext->fragment_field;
     fragment_t *f = NULL;
+    fragment_t wrapper;
 
     if (SHARED_BB_ONLY_IB_TARGETS()) {
-        fragment_t wrapper;
         f = fragment_lookup_bb(dcontext, tag);
         if (f == NULL) {
             f = fragment_coarse_lookup_wrapper(dcontext, tag, &wrapper);
