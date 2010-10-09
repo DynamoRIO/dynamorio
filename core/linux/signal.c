@@ -934,6 +934,7 @@ os_itimers_thread_shared(void)
                 itimers_shared = (major >= 2 && minor >= 6 && rel >= 12);
                 cached = true;
             }
+            os_close(f);
         }
         if (!cached) {
             /* assume not shared */
