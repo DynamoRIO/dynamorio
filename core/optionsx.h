@@ -490,11 +490,12 @@
 #ifdef WINDOWS
     DYNAMIC_OPTION(uint, internal_detach_mask, "indicates what events the core should detach from the app on")
 #endif
-    /* Turn on dumpcore by default, even for debug builds, until
-     * we decide to provide our ldmp tools externally.
+    /* Leaving dumpcore off by default even for DEBUG + INTERNAL b/c that's
+     * now what's packaged up.  For test suites we can explicitly turn it on
+     * in the future by setting up some other define.
+     * Good defaults for Windows are 0x8bff, for Linux 0x837f
      */
-    DYNAMIC_OPTION_DEFAULT(uint, dumpcore_mask,
-                           IF_INTERNAL_ELSE(IF_DEBUG_ELSE_0(0x8bff), 0),
+    DYNAMIC_OPTION_DEFAULT(uint, dumpcore_mask, 0,
                            "indicate events to dump core on")
     IF_LINUX(OPTION_ALIAS(pause_on_error, dumpcore_mask, DUMPCORE_OPTION_PAUSE,
                           STATIC, OP_PCACHE_NOP))

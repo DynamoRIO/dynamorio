@@ -200,8 +200,10 @@ endfunction(dobuild)
 
 
 dobuild("release-32" OFF "")
+# open-source now, no reason for debug to not be internal as well
 dobuild("debug-32" OFF "
   DEBUG:BOOL=ON
+  INTERNAL:BOOL=ON
   BUILD_TOOLS:BOOL=OFF
   BUILD_DOCS:BOOL=OFF
   BUILD_DRGUI:BOOL=OFF
@@ -211,6 +213,7 @@ if (NOT arg_no64)
   dobuild("release-64" ON "")
   dobuild("debug-64" ON "
     DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
     BUILD_TOOLS:BOOL=OFF
     BUILD_DOCS:BOOL=OFF
     BUILD_DRGUI:BOOL=OFF

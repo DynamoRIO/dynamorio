@@ -131,6 +131,7 @@ The changes between version 2.1.0 and 2.0.0 are:
    event is registered.  dr_set_process_exit_behavior() can provide
    more performant exit performance for \clients that have flexible
    exit event requirements.
+ - Switched debug build to also be an INTERNAL=ON build
  - Fixed bug in handling single-byte-bb selfmod code
  - Fixed bugs in handling alarm signals
  - Fixed 64-bit Windows stack alignment bug (Issue 331)
