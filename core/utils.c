@@ -4093,6 +4093,7 @@ dr_wstrdup(const wchar_t *str HEAPACCT(which_heap_t which))
 {
     char *dup;
     size_t str_len;
+    int res;
     if (str == NULL)
         return NULL;
     /* FIXME: should have a max length and truncate? 
@@ -4101,8 +4102,22 @@ dr_wstrdup(const wchar_t *str HEAPACCT(which_heap_t which))
      */
     str_len = wcslen(str) + 1;      /* Extra 1 char for the '\0' at the end. */
     dup = (char*) heap_alloc(GLOBAL_DCONTEXT, str_len HEAPACCT(which));
-    snprintf(dup, str_len, "%S", str);
+    res = snprintf(dup, str_len, "%S", str);
+    if (res < 0 || (size_t)res < str_len - 1) {
+        /* apparently for some versions of ntdll!_snprintf, if %S
+         * conversion hits a non-ASCII char it will write a NULL and
+         * snprintf will return -1 (that's the libc behavior) or the
+         * number of chars to that point.  we don't want strlen to return
+         * fewer chars than we allocated so we fill it in (i#347).
+         */
+        ASSERT_NOT_TESTED(); /* all my ntdll's stick in '?' and don't stop! */
+        if (res < 0)
+            dup[0] = '\0';
+        memset(dup + strlen(dup), '?', str_len - 1 - strlen(dup));
+    }
     dup[str_len - 1] = '\0';        /* Being on the safe side. */
+    /* Ensure when we free we'll pass the same size (i#347) */
+    ASSERT(strlen(dup) == str_len - 1);
     return dup;
 }
 #endif
