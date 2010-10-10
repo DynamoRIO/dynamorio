@@ -77,6 +77,7 @@ enum {
  *   Intel Pentium M           Family 6, Model 9 and 13
  *   Intel Core                Family 6, Model 14
  *   Intel Core 2              Family 6, Model 15
+ *   Intel Core i7 (Nehalem)   Family 6, Models 26, 30, 31, 37, 44, 47
  */
 /* DR_API EXPORT END */
 #ifdef IA32_ON_IA64 /* don't export IA64 stuff! */
@@ -85,13 +86,18 @@ enum {
 #endif
 /* DR_API EXPORT BEGIN */
 /* Remember that we add extended family to family as Intel suggests */
+#define FAMILY_LLANO        18 /**< proc_get_family() processor family: AMD Llano */
 #define FAMILY_ITANIUM_2_DC 17 /**< proc_get_family() processor family: Itanium 2 DC */
+#define FAMILY_K8_MOBILE    17 /**< proc_get_family() processor family: AMD K8 Mobile */
 #define FAMILY_ITANIUM_2    16 /**< proc_get_family() processor family: Itanium 2 */
 #define FAMILY_K8L          16 /**< proc_get_family() processor family: AMD K8L */
 #define FAMILY_K8           15 /**< proc_get_family() processor family: AMD K8 */
 #define FAMILY_PENTIUM_4    15 /**< proc_get_family() processor family: Pentium 4 */
+#define FAMILY_P4           15 /**< proc_get_family() processor family: P4 family */
 #define FAMILY_ITANIUM       7 /**< proc_get_family() processor family: Itanium */
-/* Pentium Pro, Pentium II, Pentium III, Athlon, Pentium M, Core, Core 2 */
+/* Pentium Pro, Pentium II, Pentium III, Athlon, Pentium M, Core, Core 2, Core i7 */
+#define FAMILY_P6            6 /**< proc_get_family() processor family: P6 family */
+#define FAMILY_CORE_I7       6 /**< proc_get_family() processor family: Core i7 */
 #define FAMILY_CORE_2        6 /**< proc_get_family() processor family: Core 2 */
 #define FAMILY_CORE          6 /**< proc_get_family() processor family: Core */
 #define FAMILY_PENTIUM_M     6 /**< proc_get_family() processor family: Pentium M */
@@ -99,7 +105,9 @@ enum {
 #define FAMILY_PENTIUM_2     6 /**< proc_get_family() processor family: Pentium 2 */
 #define FAMILY_PENTIUM_PRO   6 /**< proc_get_family() processor family: Pentium Pro */
 #define FAMILY_ATHLON        6 /**< proc_get_family() processor family: Athlon */
+#define FAMILY_K7            6 /**< proc_get_family() processor family: AMD K7 */
 /* Pentium (586) */
+#define FAMILY_P5            5 /**< proc_get_family() processor family: P5 family */
 #define FAMILY_PENTIUM       5 /**< proc_get_family() processor family: Pentium */
 #define FAMILY_K6            5 /**< proc_get_family() processor family: K6 */
 #define FAMILY_K5            5 /**< proc_get_family() processor family: K5 */
@@ -109,10 +117,18 @@ enum {
 /* We do not enumerate all models; just relevant ones needed to distinguish
  * major processors in the same family.
  */
-#define MODEL_PENTIUM_M_1MB  9 /**< proc_get_model() processor model: Pentium M 1MB L2 */
-#define MODEL_PENTIUM_M     13 /**< proc_get_model() processor model: Pentium M 2MB L2 */
-#define MODEL_CORE          14 /**< proc_get_model() processor model: Core */
-#define MODEL_CORE_2        15 /**< proc_get_model() processor model: Core 2 */
+#define MODEL_I7_WESTMERE_EX  47 /**< proc_get_model(): Core i7 Westmere Ex */
+#define MODEL_I7_WESTMERE     44 /**< proc_get_model(): Core i7 Westmere */
+#define MODEL_I7_CLARKDALE    37 /**< proc_get_model(): Core i7 Clarkdale/Arrandale */
+#define MODEL_I7_HAVENDALE    31 /**< proc_get_model(): Core i7 Havendale/Auburndale */
+#define MODEL_I7_CLARKSFIELD  30 /**< proc_get_model(): Core i7 Clarksfield/Lynnfield */
+#define MODEL_ATOM            28 /**< proc_get_model(): Atom */
+#define MODEL_I7_GAINESTOWN   26 /**< proc_get_model(): Core i7 Gainestown */
+#define MODEL_CORE_PENRYN     23 /**< proc_get_model(): Core 2 Penryn */
+#define MODEL_CORE_2          15 /**< proc_get_model(): Core 2 Merom/Conroe */
+#define MODEL_CORE            14 /**< proc_get_model(): Core Yonah */
+#define MODEL_PENTIUM_M       13 /**< proc_get_model(): Pentium M 2MB L2 */
+#define MODEL_PENTIUM_M_1MB    9 /**< proc_get_model(): Pentium M 1MB L2 */
 
 /**
  * Struct to hold all 4 32-bit feature values returned by cpuid.
@@ -172,6 +188,8 @@ typedef enum {
     FEATURE_CID =       10 + 32,        /**< Context ID */ 
     FEATURE_CX16 =      13 + 32,        /**< CMPXCHG16B instruction supported */
     FEATURE_xPTR =      14 + 32,        /**< Send Task Priority Messages */
+    FEATURE_SSE41 =     19 + 32,        /**< SSE4.1 Extensions supported */
+    FEATURE_SSE42 =     20 + 32,        /**< SSE4.2 Extensions supported */
     /* extended features returned in edx */
     FEATURE_SYSCALL =   11 + 64,        /**< SYSCALL/SYSRET instructions supported */
     FEATURE_XD_Bit =    20 + 64,        /**< Execution Disable bit */
