@@ -33,14 +33,13 @@
 #
 # See CodeReviews.wiki for full discussion of our code review process.
 # To summarize: reviewer commits to /reviews/<user>/<year>/i###-descr.diff
-#   with a commit log that auto-opens an Issue
+#   and uploads a diff to Rietveld
 # Inline comments for a regular patch diff should be the norm for now
-# FIXME: we should also produce web diffs for quick reviews
-# FIXME: xref discussion on using Google Code's post-commit review options
 #
-# Usage: prepare a notes file with comments for the reviewer after a line
-# beginning "toreview:", and point to it w/ the NOTES variable
-# (defult is ./diff.notes)
+# Usage: prepare a notes file with comments for the reviewer after a
+# line beginning "toreview:" (and optionally ending at a line
+# beginning ":endreview", or the end of the file), and point to it w/
+# the NOTES variable (defult is ./diff.notes)
 #
 # Since we no longer invoke "make" from the soure dir (due to cmake: i#19, i#64),
 # we have to invoke this explicitly "cmake -P make/codereview.cmake".
@@ -52,6 +51,7 @@
 #                     It must contain the string label "toreview:".
 #                     Content prior to the label is discarded (private notes).
 #                     Content after the label is included in the review request.
+#                     If a line begins ":endreview" it will end the notes.
 #   LABEL:STRING    = Name for review.  Should follow "i###-descr" format where
 #                     ### is the Issue number.  For example: "i64-cmake-review".
 #   AUTHOR:STRING   = Username on https://dynamorio.googlecode.com/svn
@@ -59,37 +59,44 @@
 #   REVERT:BOOL     = Set to ON to revert locally-added files
 #   COMMIT:BOOL     = Set to ON to officially commit the review request
 #                     (the default is to simply create and locally add the
-#                     .diff and .notes files)
+#                     .diff file)
+#   DIFFARGS:STRING = Arguments to pass to svn or git diff
+#   DR_ISSUE:BOOL   = Set to ON to create a DynamoRIO Issue to cover the review
+#                     task.  This is no longer recommended as we use Rietveld
+#                     and don't want to pollute the DR issue tracker.
 #
 # Examples:
 #
 # Dry run to ensure diff and notes file are as desired:
-#   > cmake -DAUTHOR:STRING=derek.bruening -DREVIEWER:STRING=qin.zhao -DLABEL:STRING=i64-cmake-review -P make/codereview.cmake
+#   > cmake -DAUTHOR:STRING=derek.bruening -DREVIEWER=qin.zhao -DLABEL=i64-cmake-review -P make/codereview.cmake
 #   -- notes file is "diff.notes"
-#   -- destination is "../reviews/derek.bruening/2009/i64-cmake-review.{diff,notes}"
+#   -- destination is "../reviews/derek.bruening/2009/i64-cmake-review.diff"
 #   -- svn: A         ../reviews/derek.bruening/2009/i64-cmake-review.diff
-#   -- svn: A         ../reviews/derek.bruening/2009/i64-cmake-review.notes
 #   -- ready to commit
 #   
 # Want to abort (maybe decided to change LABEL) so undoing local svn add:
-#   > cmake -DAUTHOR:STRING=derek.bruening -DREVIEWER:STRING=qin.zhao -DLABEL:STRING=i64-cmake-review -DREVERT:BOOL=ON -P make/codereview.cmake
+#   > cmake -DAUTHOR=derek.bruening -DREVIEWER=qin.zhao -DLABEL=i64-cmake-review -DREVERT=ON -P make/codereview.cmake
 #   -- notes file is "diff.notes"
-#   -- destination is "../reviews/derek.bruening/2009/i64-cmake-review.{diff,notes}"
+#   -- destination is "../reviews/derek.bruening/2009/i64-cmake-review.diff"
 #   -- svn: D         ../reviews/derek.bruening/2009/i64-cmake-review.diff
-#   -- svn: D         ../reviews/derek.bruening/2009/i64-cmake-review.notes
 #   -- revert complete
 #
 # Ready to commit:
-#   > cmake -DAUTHOR:STRING=derek.bruening -DREVIEWER:STRING=qin.zhao -DLABEL:STRING=i64-cmake-review -DCOMMIT:BOOL=ON -P make/codereview.cmake
+#   > cmake -DAUTHOR=derek.bruening -DREVIEWER=qin.zhao -DLABEL=i64-cmake-review -DCOMMIT=ON -P make/codereview.cmake
 #   -- notes file is "diff.notes"
-#   -- destination is "../reviews/derek.bruening/2009/i64-cmake-review.{diff,notes}"
+#   -- destination is "../reviews/derek.bruening/2009/i64-cmake-review.diff"
 #   -- svn: A         ../reviews/derek.bruening/2009/i64-cmake-review.diff
-#   -- svn: A         ../reviews/derek.bruening/2009/i64-cmake-review.notes
+#   -- Issue is uploaded to: http://codereview.appspot.com/2419041
 #   -- svn: Sending        derek.bruening/2009/i64-cmake-review.diff
-#   -- svn: Sending        derek.bruening/2009/i64-cmake-review.notes
 #   -- svn: Transmitting file data .
 #   -- svn: Committed revision 75.
 #   -- committed
+#
+# From a git-svn checkout you need to specify the "git diff" args.
+# For example:
+#   > cmake -DAUTHOR=derek.bruening -DREVIEWER=qin.zhao -DLABEL=i64-cmake-review -DCOMMIT=ON -DDIFFARGS=master.. -P make/codereview.cmake
+#  For multi-word args, separate with \; (do not quote and use spaces):
+#   > cmake -DAUTHOR=derek.bruening -DREVIEWER=qin.zhao -DLABEL=i64-cmake-review -DCOMMIT=ON -DDIFFARGS=8373a5e95043d4096bf32047d6886ac6fd0678cb\;5a9b096e296a5e3066d7429c313e6094749c6595 -P make/codereview.cmake
 #
 # Note that you can make a cmake script that sets common variables and point at it
 # with the -C parameter to cmake.
@@ -122,6 +129,12 @@ endif (NOT DEFINED REVIEWS)
 if (NOT EXISTS ${REVIEWS})
   message(FATAL_ERROR "cannot find REVIEWS=\"${REVIEWS}\"")
 endif (NOT EXISTS ${REVIEWS})
+
+# Unfortunately there's no way to get the dir this script is in so we
+# assume we're in top level of repository
+if (NOT EXISTS "make/upload.py")
+  message(FATAL_ERROR "cannot find make/upload.py")
+endif ()
 
 find_program(SVN svn DOC "subversion client")
 if (NOT SVN)
@@ -184,7 +197,7 @@ endif (UNIX)
 # we run from the REVIEWS dir so no need to include it here
 set(DEST_BASE "${AUTHOR}/${year}")
 set(DEST "${DEST_BASE}/${LABEL}")
-message(STATUS "destination is \"${REVIEWS}/${DEST}.{diff,notes}\"")
+message(STATUS "destination is \"${REVIEWS}/${DEST}.diff\"")
 
 if (REVERT)
 
@@ -199,9 +212,9 @@ if (REVERT)
   if ("${svn_out}" MATCHES "^\\A")
     # svn revert doesn't delete local copy if new => svn delete
     # FIXME: if AUTHOR was mistyped should we remove the directories too?
-    run_svn("delete;--force;${DEST}.diff;${DEST}.notes")
+    run_svn("delete;--force;${DEST}.diff")
   else ("${svn_out}" MATCHES "^\\A")
-    run_svn("revert;${DEST}.diff;${DEST}.notes")
+    run_svn("revert;${DEST}.diff")
   endif ("${svn_out}" MATCHES "^\\A")
 
   message(STATUS "revert complete")
@@ -215,44 +228,63 @@ else (REVERT)
     run_svn("mkdir;${DEST_BASE}")
   endif (NOT EXISTS "${REVIEWS}/${DEST_BASE}")
 
-  set(NOTES_LOCAL "${DEST}.notes")
   set(DIFF_LOCAL "${DEST}.diff")
-  set(NOTES_FILE "${REVIEWS}/${NOTES_LOCAL}")
   set(DIFF_FILE "${REVIEWS}/${DIFF_LOCAL}")
 
   # If someone manually created these files then this script
   # will fail: we assume not already there if haven't been
   # added to svn yet.
+  set(cur_issue )
   if (NOT EXISTS "${DIFF_FILE}")
     file(WRITE "${DIFF_FILE}" "")
     run_svn("add;${DIFF_LOCAL}")
+  else (NOT EXISTS "${DIFF_FILE}")
+    # Get Rietveld issue #
+    file(READ "${DIFF_FILE}" curdiff)
+    string(REGEX MATCHALL "http://codereview.appspot.com/[0-9]*" issue "${curdiff}")
+    string(REGEX REPLACE "http://codereview.appspot.com/" "" inum "${issue}")
+    if (NOT "${inum}" STREQUAL "")
+      set(cur_issue -i ${inum})
+    endif ()
   endif (NOT EXISTS "${DIFF_FILE}")
-  if (NOT EXISTS "${NOTES_FILE}")
-    file(WRITE "${NOTES_FILE}" "")
-    run_svn("add;${NOTES_LOCAL}")
-  endif (NOT EXISTS "${NOTES_FILE}")
 
-  # We want context diffs with procedure names for better readability
-  # svn diff does show new files for us but we pass -N just in case
-  execute_process(COMMAND ${SVN} diff --diff-cmd diff -x "-c -p -N"
-    RESULT_VARIABLE svn_result 
-    ERROR_VARIABLE svn_err
-    OUTPUT_FILE "${DIFF_FILE}")
-  if (svn_result OR svn_err)
-    message(FATAL_ERROR "*** ${SVN} diff failed: ***\n${svn_err}")
-  endif (svn_result OR svn_err)
-
-  file(READ ${NOTES} string)
+  file(READ "${NOTES}" string)
   string(REGEX REPLACE "^.*\ntoreview:\r?\n" "" pubnotes "${string}")
+  string(REGEX REPLACE "\n:endreview\r?\n.*" "\n" pubnotes "${pubnotes}")
   string(REGEX REPLACE "^toreview:\r?\n" "" pubnotes "${pubnotes}")
   if ("${string}" STREQUAL "${pubnotes}")
     message(FATAL_ERROR "${NOTES} is missing \"toreview:\" marker")
   endif ("${string}" STREQUAL "${pubnotes}")
+  string(REGEX MATCH "^[^\n]*" first_line "${pubnotes}")
 
-  # Do "wc -l" ourselves
+  # Create the diff
+  # Support git-svn
+  if (EXISTS ".git")
+    find_program(GIT git DOC "git client")
+    if (NOT GIT)
+      message(FATAL_ERROR "git not found")
+    endif (NOT GIT)
+    execute_process(COMMAND ${GIT} diff ${DIFFARGS}
+      RESULT_VARIABLE svn_result 
+      ERROR_VARIABLE svn_err
+      OUTPUT_FILE "${DIFF_FILE}")
+    if (svn_result OR svn_err)
+      message(FATAL_ERROR "*** ${GIT} diff ${DIFFARGS} failed: ***\n${svn_err}")
+    endif (svn_result OR svn_err)
+  else (EXISTS ".git")
+    # We want context diffs with procedure names for better readability
+    # svn diff does show new files for us but we pass -N just in case
+    execute_process(COMMAND ${SVN} diff --diff-cmd diff -x "-c -p -N" ${DIFFARGS}
+      RESULT_VARIABLE svn_result 
+      ERROR_VARIABLE svn_err
+      OUTPUT_FILE "${DIFF_FILE}")
+    if (svn_result OR svn_err)
+      message(FATAL_ERROR "*** ${SVN} diff ${DIFFARGS} failed: ***\n${svn_err}")
+    endif (svn_result OR svn_err)
+  endif (EXISTS ".git")
+
+  # Read into string var
   file(READ "${DIFF_FILE}" string)
-  string(REGEX MATCHALL "\n" newlines "${string}")
-  list(LENGTH newlines lines )
 
   ##################################################
   # i#78: coding style checks
@@ -281,7 +313,7 @@ else (REVERT)
   if (bad)
     message("${ugly} clean TABs w/ M-x untabify (cat -T | grep \"\^I\" to see)")
   endif (bad)
-  string(REGEX MATCH " *(if|while) *[^{\n]*\r?\n[^;\n]*\r?\n" bad "${string}")
+  string(REGEX MATCH " *(if|while) +[^{\n]*\r?\n[^;\n]*\r?\n" bad "${string}")
   if (bad)
     message("${ugly} use {} for multi-line body: \"${bad}\"")
   endif (bad)
@@ -365,7 +397,7 @@ else (REVERT)
   endif (bad)
   # only a few false positives, but numerous violations (even allowing for usage
   # inside /* */ comments)
-  string(REGEX MATCH "//" bad "${string}")
+  string(REGEX MATCH "[^:]//" bad "${string}") # rule out http://
   if (bad)
     message("${ugly} use C style comments: \"${bad}\"")
   endif (bad)
@@ -398,21 +430,58 @@ else (REVERT)
   #
   ##################################################
 
-  # We commit the diff to review/ using special syntax to auto-generate
-  # an Issue that covers performing the review
-  file(WRITE "${NOTES_FILE}"
-    "new review:\nowner: ${REVIEWER}\nsummary: ${AUTHOR}/${year}/${LABEL}.diff\n")
-  file(APPEND "${NOTES_FILE}" "${pubnotes}")
-  file(APPEND "${NOTES_FILE}" "\nstats: ${lines} diff lines\n")
-  if (EXISTS "${DIFFSTAT}")
+  # Do "wc -l" ourselves
+  string(REGEX MATCHALL "\n" newlines "${string}")
+  list(LENGTH newlines lines )
+
+  if (DIFFSTAT)
     execute_process(COMMAND ${DIFFSTAT} "${DIFF_FILE}"
       ERROR_QUIET OUTPUT_VARIABLE diffstat_out)
-    file(APPEND "${NOTES_FILE}" "${diffstat_out}")
-  endif (EXISTS "${DIFFSTAT}")
-  message(STATUS "ready to commit")
+  endif (DIFFSTAT)
 
+  # We used to create a separate .notes file but it's simpler to
+  # put the notes at the top of the .diff file
+  if (DR_ISSUE)
+    # We commit to review/ using special syntax
+    # to auto-generate an Issue that covers performing the review
+    file(WRITE "${DIFF_FILE}"
+      "new review:\nowner: ${REVIEWER}\nsummary: ${AUTHOR}/${year}/${LABEL}.diff\n")
+    file(APPEND "${DIFF_FILE}" "${pubnotes}")
+  else (DR_ISSUE)
+    file(WRITE "${DIFF_FILE}" "DynamoRIO code review: ${AUTHOR}/${year}/${LABEL}.diff\n")
+    file(APPEND "${DIFF_FILE}" "Reviewer: ${REVIEWER}\n\n")
+    file(APPEND "${DIFF_FILE}" "Description:\n${pubnotes}")
+  endif (DR_ISSUE)
+
+ if (COMMIT)
+    # Upload to Rietveld with notes as description
+    execute_process(COMMAND "make/upload.py"
+      -e "${AUTHOR}" -r "${REVIEWER}" -m "${first_line}" -f "${DIFF_FILE}"
+      --send_mail --cc=dynamorio-devs@googlegroups.com
+      ${cur_issue} ${DIFFARGS}
+      RESULT_VARIABLE cmd_result
+      ERROR_VARIABLE cmd_err
+      OUTPUT_VARIABLE cmd_out)
+    if (cmd_result OR cmd_err)
+      message(FATAL_ERROR "*** upload.py failed: ***\n${cmd_out}\n${cmd_err}")
+    endif (cmd_result OR cmd_err)
+    string(REGEX MATCHALL "http://codereview.appspot.com/[0-9]*" issue "${cmd_out}")
+    message(STATUS "Issue is uploaded to: ${issue}")
+  endif (COMMIT)
+  # Save issue for next time
+  file(APPEND "${DIFF_FILE}" "\n${issue}\n")
+
+  # Append stats
+  file(APPEND "${DIFF_FILE}" "\nstats: ${lines} diff lines\n")
+  if (DIFFSTAT)
+    file(APPEND "${DIFF_FILE}" "${diffstat_out}")
+  endif (DIFFSTAT)
+  # Append diff proper
+  file(APPEND "${DIFF_FILE}" "\n${string}")
+
+  message(STATUS "ready to commit to ${REVIEWS}")
   if (COMMIT)
-    run_svn("commit;--force-log;-F;${NOTES_LOCAL}")
+    run_svn("commit;-m;${first_line}")
     message(STATUS "committed")
   endif (COMMIT)
 
