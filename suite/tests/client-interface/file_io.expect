@@ -7,5 +7,6 @@ dummy_func is rx
 writable_buf is rw
 read_only_buf is r
 dr_safe_read() check
+DR_TRY_EXCEPT check
 dr_safe_write() check
 done

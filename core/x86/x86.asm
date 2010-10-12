@@ -215,7 +215,10 @@ DECL_EXTERN(sig_should_swap_stack)
 DECL_EXTERN(fixup_rtframe_pointers)
 # define CLONE_AND_SWAP_STRUCT_SIZE 2*ARG_SZ
 #endif
-     
+#ifdef LINUX
+DECL_EXTERN(dr_setjmp_sigmask)
+#endif
+    
 /* non-functions: these make us non-PIC! (PR 212290) */
 DECL_EXTERN(exiting_thread_count)
 DECL_EXTERN(initstack)
@@ -1379,12 +1382,36 @@ GLOBAL_LABEL(back_from_native:)
 
 /* Our version of setjmp & long jmp.  We don't want to modify app state like
  * SEH or do unwinding which is done by standard versions.
+ */
+
+#ifdef CLIENT_INTERFACE
+/* Front-end for client use where we don't want to expose our struct layouts,
+ * yet we must call dr_setjmp directly w/o a call frame in between for
+ * a proper restore point.
  *
- * int cdecl dr_setjmp(dr_jmp_buf *buf);
+ * int dr_try_start(try_except_context_t *cxt) ;
+ */
+# define TRY_CXT_SETJMP_OFFS 0 /* offsetof(try_except_context_t, context) */
+        DECLARE_EXPORTED_FUNC(dr_try_start)
+GLOBAL_LABEL(dr_try_start:)
+        add      ARG1, TRY_CXT_SETJMP_OFFS
+        jmp      dr_setjmp
+        END_FUNC(dr_try_start)
+#endif /* CLIENT_INTERFACE */
+
+/* int cdecl dr_setjmp(dr_jmp_buf *buf);
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
+#ifdef LINUX
+        /* PR 206278: for try/except we need to save the signal mask */
         mov      REG_XDX, ARG1
+        push     REG_XDX /* preserve */
+        CALLC1(dr_setjmp_sigmask, REG_XDX)
+        pop      REG_XDX /* preserve */
+#else
+        mov      REG_XDX, ARG1
+#endif
         mov      [       0 + REG_XDX], REG_XBX
         mov      [  ARG_SZ + REG_XDX], REG_XCX
         mov      [2*ARG_SZ + REG_XDX], REG_XDI

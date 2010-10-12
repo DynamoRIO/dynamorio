@@ -2334,6 +2334,46 @@ dr_safe_write(void *base, size_t size, const void *in_buf, size_t *bytes_written
 }
 
 DR_API
+void
+dr_try_setup(void *drcontext, void **try_cxt)
+{
+    /* Yes we're duplicating the code from the TRY() macro but this
+     * provides better abstraction and lets us change our impl later
+     * vs exposing that macro
+     */
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    try_except_context_t *try_state;
+    ASSERT(dcontext != NULL && dcontext == get_thread_private_dcontext());
+    ASSERT(try_cxt != NULL);
+    /* We allocate on the heap to avoid having to expose the try_except_context_t
+     * and dr_jmp_buf_t structs and be tied to their exact layouts.
+     * The client is likely to allocate memory inside the try anyway
+     * if doing a decode or something.
+     */
+    try_state = (try_except_context_t *)
+        HEAP_TYPE_ALLOC(dcontext, try_except_context_t, ACCT_CLIENT, PROTECTED);
+    *try_cxt = try_state;
+    try_state->prev_context = dcontext->try_except_state;
+    dcontext->try_except_state = try_state;
+}
+
+/* dr_try_start() is in x86.asm since we can't have an extra frame that's
+ * going to be torn down between the longjmp and the restore point
+ */
+
+DR_API
+void
+dr_try_stop(void *drcontext, void *try_cxt)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    try_except_context_t *try_state = (try_except_context_t *) try_cxt;
+    ASSERT(dcontext != NULL && dcontext == get_thread_private_dcontext());
+    ASSERT(try_state != NULL);
+    POP_TRY_BLOCK(dcontext, *try_state); 
+    HEAP_TYPE_FREE(dcontext, try_state, try_except_context_t, ACCT_CLIENT, PROTECTED);
+}
+
+DR_API
 bool
 dr_memory_is_dr_internal(const byte *pc)
 {

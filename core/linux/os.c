@@ -4456,47 +4456,13 @@ sync_all_memory_areas(void)
     }
 }
 
-void
-update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
+/* caller should call sync_all_memory_areas first */
+static void
+add_all_memory_area(app_pc start, app_pc end, uint prot, int type)
 {
     allmem_info_t *info;
-    app_pc end = (app_pc) ALIGN_FORWARD(end_in, PAGE_SIZE);
     ASSERT(ALIGNED(start, PAGE_SIZE));
-    /* all_memory_areas lock is held higher up the call chain to avoid rank
-     * order violation with heap_unit_lock */
     ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
-    sync_all_memory_areas();
-
-    if (vmvector_overlap(all_memory_areas, start, end)) {
-        bool removed;
-        if (type == -1) {
-            /* we assume the entire region is the same type, if -1 passed in */
-            if (vmvector_lookup_data(all_memory_areas, start,
-                                     NULL, NULL, (void **) &info)) {
-                type = info->type;
-                DODEBUG({
-                    /* [start..end_in) may cross multiple different-prot regions,
-                     * but should all be same type
-                     */
-                    ASSERT(vmvector_lookup_data(all_memory_areas, end_in - 1,
-                                                NULL, NULL, (void **) &info));
-                    ASSERT(info->type == type);
-                });
-            } else
-                ASSERT_NOT_REACHED();
-        }
-        LOG(THREAD_GET, LOG_VMAREAS|LOG_SYSCALLS, 4,
-            "update_all_memory_areas: overlap found, removing and adding: "
-            PFX"-"PFX" prot=%d\n", start, end, prot);
-        /* New region to be added overlaps with one or more existing
-         * regions.  Split already existing region(s) accordingly and add
-         * the new region */
-        removed = vmvector_remove(all_memory_areas, start, end);
-        ASSERT(removed);
-    } else {
-        /* can't pass in -1 when no existing entry */
-        ASSERT(type >= 0);
-    }
     LOG(THREAD_GET, LOG_VMAREAS|LOG_SYSCALLS, 3,
         "update_all_memory_areas: adding: "PFX"-"PFX" prot=%d type=%d\n",
         start, end, prot, type);
@@ -4505,6 +4471,79 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
     ASSERT(type >= 0);
     info->type = type;
     vmvector_add(all_memory_areas, start, end, (void *)info);
+}
+
+void
+update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
+{
+    allmem_info_t *info;
+    app_pc end = (app_pc) ALIGN_FORWARD(end_in, PAGE_SIZE);
+    bool removed;
+    ASSERT(ALIGNED(start, PAGE_SIZE));
+    /* all_memory_areas lock is held higher up the call chain to avoid rank
+     * order violation with heap_unit_lock */
+    ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
+    sync_all_memory_areas();
+    DODEBUG({
+        LOG(GLOBAL, LOG_VMAREAS, 4,
+            "update_all_memory_areas "PFX"-"PFX" %d %d\n",
+            start, end_in, prot, type);
+        DOLOG(5, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
+    });
+
+    if (type == -1) {
+        /* to preserve existing types we must iterate b/c we cannot
+         * merge images into data
+         */
+        app_pc pc, sub_start, sub_end, next_add = start;
+        pc = start;
+        while (pc < end && pc >= start/*overflow*/ &&
+               vmvector_lookup_data(all_memory_areas, pc, &sub_start, &sub_end,
+                                    (void **) &info)) {
+            if (info->type == DR_MEMTYPE_IMAGE) {
+                app_pc overlap_end;
+                /* process prior to image */
+                if (next_add < sub_start) {
+                    vmvector_remove(all_memory_areas, next_add, pc);
+                    add_all_memory_area(next_add, pc, prot, DR_MEMTYPE_DATA);
+                }
+                next_add = sub_end;
+                /* change image prot */
+                ASSERT(pc == start || sub_start == pc);
+                overlap_end = (sub_end > end) ? end : sub_end;
+                if (sub_start == pc && sub_end == overlap_end)
+                    info->prot = prot;
+                else {
+                    vmvector_remove(all_memory_areas, pc, overlap_end);
+                    add_all_memory_area(pc, overlap_end, prot, info->type);
+                }
+            }
+            pc = sub_end;
+        }
+        /* process after last image */
+        if (next_add < end) {
+            vmvector_remove(all_memory_areas, next_add, end);
+            add_all_memory_area(next_add, end, prot, DR_MEMTYPE_DATA);
+        }
+    } else {
+        if (vmvector_overlap(all_memory_areas, start, end)) {
+            LOG(THREAD_GET, LOG_VMAREAS|LOG_SYSCALLS, 4,
+                "update_all_memory_areas: overlap found, removing and adding: "
+                PFX"-"PFX" prot=%d\n", start, end, prot);
+            /* New region to be added overlaps with one or more existing
+             * regions.  Split already existing region(s) accordingly and add
+             * the new region */
+            removed = vmvector_remove(all_memory_areas, start, end);
+            ASSERT(removed);
+        }
+        add_all_memory_area(start, end, prot, type);
+    }
+    DODEBUG({
+        LOG(GLOBAL, LOG_VMAREAS, 5,
+            "update_all_memory_areas "PFX"-"PFX" %d %d: post:\n",
+            start, end_in, prot, type);
+        DOLOG(5, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
+    });
 }
 
 bool
@@ -5026,9 +5065,8 @@ post_system_call(dcontext_t *dcontext)
         if (!success) {
             uint memprot = 0;
             /* Revert the prot bits if needed. */
-            DEBUG_DECLARE(ok =)
-                get_memory_info_from_os(base, NULL, NULL, &memprot);
-            ASSERT(ok);
+            if (!get_memory_info_from_os(base, NULL, NULL, &memprot))
+                memprot = PROT_NONE;
             LOG(THREAD, LOG_SYSCALLS, 3,
                 "syscall: mprotect failed: "PFX"-"PFX" prot->%d\n",
                 base, base+size, osprot_to_memprot(prot));

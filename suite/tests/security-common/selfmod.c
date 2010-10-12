@@ -54,7 +54,7 @@ main()
 #endif
 
     /* make foo code writable */
-    protect_mem(code_self_mod, PAGE_SIZE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(code_self_mod, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     // Note that main and the exception handler __except_handler3 are on this page too
 
     foo(0xabcd);

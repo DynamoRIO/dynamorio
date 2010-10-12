@@ -1770,13 +1770,7 @@ dr_longjmp(dr_jmp_buf_t *buf, int val);
 int 
 dr_setjmp(dr_jmp_buf_t *buf);
 
-#ifdef LINUX
-/* PR 206278: for try/except we need to save the signal mask */
-void dr_setjmp_sigmask(dr_jmp_buf_t *buf);
-# define DR_SETJMP(buf) (dr_setjmp_sigmask(buf), dr_setjmp(buf))
-#else 
-# define DR_SETJMP(buf) (dr_setjmp(buf))
-#endif
+#define DR_SETJMP(buf) (dr_setjmp(buf))
 
 #define DR_LONGJMP(buf, val)          \
     do {                              \

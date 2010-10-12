@@ -96,6 +96,7 @@ void dr_init(client_id_t id)
     size_t size;
     size_t bytes_read, bytes_written;
     byte *edge;
+    bool ok;
 
     /* The Makefile will pass a full absolute path (for Windows and Linux) as the client
      * option to a dummy file in the which we use to exercise the file api routines.
@@ -190,6 +191,17 @@ void dr_init(client_id_t id)
         dr_fprintf(STDERR, "ERROR in overlap dr_safe_read()\n");
     }
     dr_fprintf(STDERR, "dr_safe_read() check\n");
+
+    /* test DR_TRY_EXCEPT */
+    DR_TRY_EXCEPT(dr_get_current_drcontext(), {
+        ok = false;
+        *((int *)4) = 37;
+    }, { /* EXCEPT */
+        ok = true;
+    });
+    if (!ok)
+        dr_fprintf(STDERR, "ERROR in DR_TRY_EXCEPT\n");
+    dr_fprintf(STDERR, "DR_TRY_EXCEPT check\n");
 
     memset(safe_buf, 0xcd, sizeof(safe_buf));
     if (!dr_safe_write(writable_buf, 1000, safe_buf, &bytes_written) ||

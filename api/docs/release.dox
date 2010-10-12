@@ -112,6 +112,7 @@ are not backward compatible: see below for details.
 The changes between version 2.1.0 and 2.0.0 are:
 
  - Added Windows 7 support
+ - Added DR_TRY_EXCEPT() (Issue 52)
  - Added dr_client_thread_set_suspendable()
  - Added dr_get_random_value(), dr_set_random_seed(), and dr_get_random_seed()
  - Added dr_file_exists() and dr_directory_exists() for Linux

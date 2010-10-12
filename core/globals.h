@@ -587,6 +587,7 @@ typedef struct try_except_context_t {
      * small so minimal risk of dstack pressure.  Alternatively, we
      * can disallow nesting and have a single buffer per dcontext.
      */
+    /* N.B.: offsetof(try_except_context_t, context) is hardcoded in x86.asm */
     dr_jmp_buf_t context;
 
     struct try_except_context_t *prev_context;

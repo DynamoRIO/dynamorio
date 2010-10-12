@@ -4679,12 +4679,16 @@ intercept_exception(app_state_at_intercept_t *state)
              */
             SYSLOG_INTERNAL_WARNING("Handling our fault in a TRY at "PFX, cxt->CXT_XIP);
 
-            ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP));
+            ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP) ||
+                   is_on_initstack((byte *)cxt->CXT_XSP) ||
+                   !dynamo_initialized);
+# ifndef CLIENT_INTERFACE /* clients may use for other purposes */
             ASSERT(pExcptRec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION);
             ASSERT_CURIOSITY((pExcptRec->NumberParameters >= 2) && 
                              (pExcptRec->ExceptionInformation[0] == 
                               EXCEPTION_INFORMATION_READ_EXECUTE_FAULT
                               && "currently only racy reads"));
+# endif
 
             if (TEST(DUMPCORE_TRY_EXCEPT, DYNAMO_OPTION(dumpcore_mask)))
                 os_dump_core("try/except fault");

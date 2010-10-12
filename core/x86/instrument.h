@@ -1132,7 +1132,8 @@ DR_API
  *
  * DR will not raise a signal event for a SIGSEGV or SIGBUS
  * raised by a client code fault rather than the application.  Use
- * dr_safe_read() or dr_safe_write() to prevent such faults.
+ * dr_safe_read(), dr_safe_write(), or DR_TRY_EXCEPT() to prevent such
+ * faults.
  *
  * \note \p siginfo->fault_fragment_info data is provided 
  * with \p siginfo->raw_mcontext. It is valid only if 
@@ -1644,12 +1645,12 @@ DR_API
 /**
  * Checks to see that all bytes with addresses in the range [\p pc, \p pc + \p size - 1]
  * are readable and that reading from that range won't generate an exception (see also
- * dr_safe_read()).
+ * dr_safe_read() and DR_TRY_EXCEPT()).
  * \note Nothing guarantees that the memory will stay readable for any length of time.
  * \note On Linux, especially if the app is in the middle of loading a library
  * and has not properly set up the .bss yet, a page that seems readable can still
- * generate SIGBUS if beyond the end of an mmapped file.  Use dr_safe_read() to
- * avoid such problems.
+ * generate SIGBUS if beyond the end of an mmapped file.  Use dr_safe_read() or
+ * DR_TRY_EXCEPT() to avoid such problems.
  */
 bool
 dr_memory_is_readable(const byte *pc, size_t size);
@@ -1710,6 +1711,7 @@ DR_API
  * out_buf.  Reading is done without the possibility of an exception
  * occurring.  Optionally returns the actual number of bytes copied
  * into \p bytes_read.  Returns true if successful.  
+ * \note See also DR_TRY_EXCEPT().
  */
 bool
 dr_safe_read(const void *base, size_t size, void *out_buf, size_t *bytes_read);
@@ -1720,9 +1722,57 @@ DR_API
  * base.  Writing is done without the possibility of an exception
  * occurring.  Optionally returns the actual number of bytes copied
  * into \p bytes_written.  Returns true if successful.
+ * \note See also DR_TRY_EXCEPT().
  */
 bool
 dr_safe_write(void *base, size_t size, const void *in_buf, size_t *bytes_written);
+
+DR_API
+/** Do not call this directly: use the DR_TRY_EXCEPT macro instead. */
+void
+dr_try_setup(void *drcontext, void **try_cxt);
+
+DR_API
+/** Do not call this directly: use the DR_TRY_EXCEPT macro instead. */
+int 
+dr_try_start(void *buf);
+
+DR_API
+/** Do not call this directly: use the DR_TRY_EXCEPT macro instead. */
+void
+dr_try_stop(void *drcontext, void *try_cxt);
+
+/* DR_API EXPORT BEGIN */
+/** 
+ * Simple try..except support for executing operations that might
+ * fault and recovering if they do.  Be careful with this feature
+ * as it has some limitations:
+ * - do not use a return within a try statement (we do not have
+ *   language support)
+ * - any automatic variables that you want to use in the except
+ *   block should be declared volatile
+ * - no locks should be grabbed in a try statement (because
+ *   there is no finally support to release them)
+ * - nesting is supported, but finally statements are not
+ *   supported
+ *
+ * For fault-free reads or writes in isolation, use dr_safe_read() or
+ * dr_safe_write() instead, although on Windows those operations
+ * invoke a system call and this construct can be more performant.
+ */
+#define DR_TRY_EXCEPT(drcontext, try_statement, except_statement) do {\
+    void *try_cxt;                                                    \
+    dr_try_setup(drcontext, &try_cxt);                                \
+    if (dr_try_start(try_cxt) == 0) {                                 \
+        try_statement                                                 \
+        dr_try_stop(drcontext, try_cxt);                              \
+    } else {                                                          \
+        /* roll back first in case except faults or returns */        \
+        dr_try_stop(drcontext, try_cxt);                              \
+        except_statement                                              \
+    }                                                                 \
+} while (0)
+/* DR_API EXPORT END */
 
 DR_API
 /**

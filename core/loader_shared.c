@@ -359,7 +359,7 @@ privload_load(const char *filename, privmod_t *dependent)
     size_t size;
     privmod_t *privmod;
 
-    /* i#232: it would be nice to have nested try/except support:
+    /* i#350: it would be nice to have no-dcontext try/except support:
      * then we could wrap the whole load process, like ntdll!Ldr does
      */
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);

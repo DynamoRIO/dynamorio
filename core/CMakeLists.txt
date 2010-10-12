@@ -403,8 +403,6 @@ else (UNIX)
   else (X64)
     set(LD_FLAGS "${LD_FLAGS} /machine:I386")
   endif (X64)
-  # make sure to export dynamo_auto_start (it's now in x86.s and so
-  # we can't just say __declspec(dllexport))
   set(dynamorio_link_flags 
     "${LD_FLAGS} ${dynamorio_link_flags} /dll /incremental:no")
   set(dynamorio_link_flags 
@@ -415,14 +413,17 @@ else (UNIX)
   get_filename_component(drname ${drout} NAME_WE)
   set(dynamorio_link_flags 
     "${dynamorio_link_flags} /map:\"${drpath}/${drname}.map\" /mapinfo:exports")
-  # make sure to export dynamo_auto_start (it's now in x86.s and so
-  # we can't just say __declspec(dllexport))
+  # export functions in x86.asm where we can't just say __declspec(dllexport))
   set(dynamorio_link_flags 
     "${dynamorio_link_flags} /export:dynamo_auto_start /export:dynamorio_app_take_over")
   if (APP_EXPORTS)
     set(dynamorio_link_flags 
       "${dynamorio_link_flags} /export:dr_app_start /export:dr_app_take_over")
   endif (APP_EXPORTS)
+  if (CLIENT_INTERFACE)
+    set(dynamorio_link_flags 
+      "${dynamorio_link_flags} /export:dr_try_start")
+  endif (CLIENT_INTERFACE)
 
   set_target_properties(dynamorio PROPERTIES LINK_FLAGS "${dynamorio_link_flags}")
   # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm

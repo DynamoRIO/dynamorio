@@ -1251,7 +1251,7 @@ extern mutex_t do_threshold_mutex;
 
 /* internal helper */
 #define POP_TRY_BLOCK(cur_dcontext, state)                          \
-        ASSERT(cur_dcontext->try_except_state == &state);           \
+        ASSERT(cur_dcontext->try_except_state == &(state));         \
         cur_dcontext->try_except_state =                            \
                   cur_dcontext->try_except_state->prev_context;
 

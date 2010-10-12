@@ -41,7 +41,7 @@
  * - in particular, redirect Ldr*, or at least kernel32!*W
  * - we'll redirect any additional routines as transparency issues come up
  *
- * i#232: nested try/except:749
+ * i#350: no-dcontext try/except:749
  * - then we can check readability of everything more easily: today
  *   not checking everything in the name of performance
  *
@@ -755,7 +755,7 @@ privload_process_imports(privmod_t *mod)
             mod->name, impname);
 
         /* walk the lookup table and address table in lockstep */
-        /* FIXME: should check readability: if had nested try (i#232) could just
+        /* FIXME: should check readability: if had no-dcontext try (i#350) could just
          * do try/except around whole thing
          */
         lookup = (IMAGE_THUNK_DATA *) RVA_TO_VA(mod->base, imports->OriginalFirstThunk);
@@ -848,7 +848,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
          *   export tables
          */
         const char *forwarder;
-        /* expensive to check is_readable for name: really we want nested try (i#232) */
+        /* expensive to check is_readable for name: really we want no-dcxt try (i#350) */
         generic_func_t func =
             get_proc_address_ex(impmod->base, (const char *) name->Name, &forwarder);
         /* Set these to first-level names for use below in case no forwarder */
