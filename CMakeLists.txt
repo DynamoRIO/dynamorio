@@ -175,7 +175,8 @@ endif (INTERNAL OR DEBUG)
 # collisions on linux!  Longer term we do our own backtrace with symbols.
 #
 if (INTERNAL AND DEBUG AND NOT VMKERNEL)
-  set(KEEP_SYMBOLS_DEFAULT ON)
+  # Now that INTERNAL is the exported debug build, turning off by default
+  set(KEEP_SYMBOLS_DEFAULT OFF)
 else (INTERNAL AND DEBUG AND NOT VMKERNEL)
   set(KEEP_SYMBOLS_DEFAULT OFF)
 endif (INTERNAL AND DEBUG AND NOT VMKERNEL)
