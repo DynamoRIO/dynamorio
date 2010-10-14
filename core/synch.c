@@ -372,13 +372,15 @@ translate_mcontext(thread_record_t *trec, dr_mcontext_t *mcontext,
         trec->id);
     success = recreate_app_state(trec->dcontext, mcontext, restore_memory);
     if (success != RECREATE_SUCCESS_STATE) {
-        /* should never happen right? */
+        /* should never happen right?
+         * actually it does when deciding whether can deliver a signal
+         * immediately (PR 213040).
+         */
         LOG(THREAD_GET, LOG_SYNCH, 1, 
             "translate context, thread %d unable to translate context at pc"
             " = "PFX"\n", trec->id, mcontext->pc);
-        ASSERT_NOT_REACHED();
-        /* at least get pc right */
-        ASSERT(success == RECREATE_SUCCESS_PC);
+        SYSLOG_INTERNAL_WARNING_ONCE("failed to translate");
+        return false;
     }
     return true;
 }

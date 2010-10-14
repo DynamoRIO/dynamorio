@@ -95,6 +95,7 @@
 #else
     RSTATS_DEF("Total signals delivered", num_signals)
     RSTATS_DEF("Signals dropped", num_signals_dropped)
+    RSTATS_DEF("Signals in coarse units delayed", num_signals_coarse_delayed)
 #endif
     STATS_DEF("Exceptions in decoding app memory", num_exceptions_decode)
     RSTATS_DEF("System calls, pre", pre_syscall)

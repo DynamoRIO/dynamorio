@@ -491,6 +491,9 @@ typedef struct _thread_itimer_info_t {
  */
 #define NUM_ITIMERS 3
 
+/* Don't try to translate every alarm if they're piling up (PR 213040) */
+#define SKIP_ALARM_XL8_MAX 3
+
 typedef struct _thread_sig_info_t {
     /* we use kernel_sigaction_t so we don't have to translate back and forth
      * between it and libc version.
@@ -533,6 +536,10 @@ typedef struct _thread_sig_info_t {
     kernel_sigset_t app_sigblocked;
     /* for returning the old mask (xref PR 523394) */
     kernel_sigset_t pre_syscall_app_sigblocked;
+    /* for alarm signals arriving in coarse units we only attempt to xl8
+     * every nth signal since coarse translation is expensive (PR 213040)
+     */
+    uint skip_alarm_xl8;
 
     /* to handle sigsuspend we have to save blocked set */
     bool in_sigsuspend;
@@ -2136,6 +2143,18 @@ safe_is_in_fcache(dcontext_t *dcontext, app_pc pc, app_pc xsp)
 }
 
 static bool
+safe_is_in_coarse_stubs(dcontext_t *dcontext, app_pc pc, app_pc xsp)
+{
+    if (dcontext->whereami != WHERE_FCACHE ||
+        IF_CLIENT_INTERFACE(is_in_client_lib(pc) ||)
+        is_in_dynamo_dll(pc) ||
+        is_on_initstack(xsp))
+        return false;
+    /* Reasonably certain not in DR code, so no locks should be held */
+    return in_coarse_stubs(pc);
+}
+
+static bool
 is_on_alt_stack(dcontext_t *dcontext, byte *sp)
 {
 #ifdef HAVE_SIGALTSTACK
@@ -2201,9 +2220,13 @@ mcontext_to_sigcontext(struct sigcontext *sc, dr_mcontext_t *mc)
 #endif
 }
 
-static void
-translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc)
+/* Returns whether successful.  If avoid_failure, tries to translate
+ * at least pc if not successful.
+ */
+static bool
+translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc, bool avoid_failure)
 {
+    bool success = false;
     dr_mcontext_t mcontext;
  
     /* FIXME: what about floating-point state?  mmx regs? */
@@ -2226,20 +2249,24 @@ translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc)
      */
     if (translate_mcontext(dcontext->thread_record, &mcontext, true/*restore memory*/)) {
         mcontext_to_sigcontext(sc, &mcontext);
+        success = true;
     } else {
-        ASSERT_NOT_REACHED(); /* is ok to break things, is LINUX :) */
-        /* FIXME : what to do? reg state might be wrong at least get pc */
-        if (safe_is_in_fcache(dcontext, (cache_pc)sc->SC_XIP, (app_pc)sc->SC_XSP)) {
-            sc->SC_XIP = (ptr_uint_t)recreate_app_pc(dcontext, mcontext.pc, NULL);
-            ASSERT(sc->SC_XIP != (ptr_uint_t)NULL);
-        } else {
-            /* FIXME : can't even get pc right, what do we do here? */
-            sc->SC_XIP = 0;
+        if (avoid_failure) {
+            ASSERT_NOT_REACHED(); /* is ok to break things, is LINUX :) */
+            /* FIXME : what to do? reg state might be wrong at least get pc */
+            if (safe_is_in_fcache(dcontext, (cache_pc)sc->SC_XIP, (app_pc)sc->SC_XSP)) {
+                sc->SC_XIP = (ptr_uint_t)recreate_app_pc(dcontext, mcontext.pc, NULL);
+                ASSERT(sc->SC_XIP != (ptr_uint_t)NULL);
+            } else {
+                /* FIXME : can't even get pc right, what do we do here? */
+                sc->SC_XIP = 0;
+            }
         }
     }
     mutex_unlock(&thread_initexit_lock);
     LOG(THREAD, LOG_ASYNCH, 3,
         "\ttranslate_sigcontext: just set frame's eip to "PFX"\n", sc->SC_XIP);
+    return success;
 }
 
 /* Takes an os-specific context */
@@ -2869,8 +2896,10 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
     bool changed = false;
     /* may not be linked if trace_relink or something */
     if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
-        /* FIXME PR 213040: we can't unlink it so we need some other scheme
-         * For now we don't have any bound on delivery...
+        /* XXX PR 213040: we don't support unlinking coarse, so we try
+         * not to come here, but for indirect branch and other spots
+         * where we don't yet support translation (since can't fault)
+         * we end up w/ no bound on delivery...
          */
     } else if (TEST(FRAG_LINKED_OUTGOING, f->flags)) {
         LOG(THREAD, LOG_ASYNCH, 3,
@@ -3027,29 +3056,56 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * unlink cur frag, wait for dispatch
              */
             fragment_t wrapper;
-            fragment_t *f = fragment_pclookup(dcontext, pc, &wrapper);
-            ASSERT(f != NULL);
-            LOG(THREAD, LOG_ASYNCH, 2, "\tdelaying until exit F%d\n", f->id);
-            if (interrupted_inlined_syscall(dcontext, f, pc)) {
-                /* PR 596147: if delayable signal arrives after syscall-skipping
-                 * jmp, either at syscall or post-syscall, we deliver
-                 * immediately, since we can't bound the delay
+            fragment_t *f = NULL;
+            /* check for coarse first to avoid cost of coarse pclookup */
+            if (get_fcache_coarse_info(pc) != NULL) {
+                /* PR 213040: we can't unlink coarse.  If we fail to translate
+                 * we'll switch back to delaying, below.
                  */
-                receive_now = true;
-                LOG(THREAD, LOG_ASYNCH, 2,
-                    "signal interrupted pre or post syscall itself so delivering now\n");
-            } else {
-                /* could get another signal but should be in same fragment */
-                ASSERT(info->interrupted == NULL || info->interrupted == f);
-                if (unlink_fragment_for_signal(dcontext, f, pc)) {
-                    info->interrupted = f;
-                    info->interrupted_pc = pc;
-                } else {
-                    /* either was unlinked for trace creation, or we got another
-                     * signal before exiting cache to handle 1st
+                if (sig_is_alarm_signal(sig) && 
+                    info->sigpending[sig] != NULL &&
+                    info->sigpending[sig]->next != NULL &&
+                    info->skip_alarm_xl8 > 0) {
+                    /* Translating coarse fragments is very expensive so we
+                     * avoid doing it when we're having trouble keeping up w/
+                     * the alarm frequency (PR 213040), but we make sure we try
+                     * every once in a while to avoid unbounded signal delay
                      */
-                    ASSERT(info->interrupted == NULL ||
-                           info->interrupted == f);
+                    info->skip_alarm_xl8--;
+                    STATS_INC(num_signals_coarse_delayed);
+                } else {
+                    if (sig_is_alarm_signal(sig))
+                        info->skip_alarm_xl8 = SKIP_ALARM_XL8_MAX;
+                    receive_now = true;
+                    LOG(THREAD, LOG_ASYNCH, 2,
+                        "signal interrupted coarse fragment so delivering now\n");
+                }
+            } else {
+                f = fragment_pclookup(dcontext, pc, &wrapper);
+                ASSERT(f != NULL);
+                ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags)); /* checked above */
+                LOG(THREAD, LOG_ASYNCH, 2, "\tdelaying until exit F%d\n", f->id);
+                if (interrupted_inlined_syscall(dcontext, f, pc)) {
+                    /* PR 596147: if delayable signal arrives after syscall-skipping
+                     * jmp, either at syscall or post-syscall, we deliver
+                     * immediately, since we can't bound the delay
+                     */
+                    receive_now = true;
+                    LOG(THREAD, LOG_ASYNCH, 2,
+                        "signal interrupted pre/post syscall itself so delivering now\n");
+                } else {
+                    /* could get another signal but should be in same fragment */
+                    ASSERT(info->interrupted == NULL || info->interrupted == f);
+                    if (unlink_fragment_for_signal(dcontext, f, pc)) {
+                        info->interrupted = f;
+                        info->interrupted_pc = pc;
+                    } else {
+                        /* either was unlinked for trace creation, or we got another
+                         * signal before exiting cache to handle 1st
+                         */
+                        ASSERT(info->interrupted == NULL ||
+                               info->interrupted == f);
+                    }
                 }
             }
         } else {
@@ -3057,7 +3113,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             receive_now = true;
             LOG(THREAD, LOG_ASYNCH, 2, "\tnot certain can delay so handling now\n");
         }
-    } else if (in_generated_routine(dcontext, pc)) {
+    } else if (in_generated_routine(dcontext, pc) ||
+               /* XXX: should also check fine stubs */
+               safe_is_in_coarse_stubs(dcontext, pc, xsp)) {
         /* Assumption: dynamo errors have been caught already inside
          * the master_signal_handler, thus any error in a generated routine
          * is an asynch signal that can be delayed
@@ -3069,7 +3127,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * if indirect_branch_lookup prior to getting target...?!?
          */
         LOG(THREAD, LOG_ASYNCH, 2,
-            "record_pending_signal(%d) from gen routine "PFX"\n", sig, pc);
+            "record_pending_signal(%d) from gen routine or stub "PFX"\n", sig, pc);
         /* This could come from another thread's SYS_kill (via our gen do_syscall) */
         DOLOG(1, LOG_ASYNCH, {
             if (!is_after_syscall_address(dcontext, pc) &&
@@ -3103,10 +3161,22 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         /* we need to translate sc before we know whether client wants to
          * suppress, so we need a backup copy
          */
+        bool xl8_success;
         sc_orig = *sc;
-
         ASSERT(!forged);
-        translate_sigcontext(dcontext, sc);
+        xl8_success = translate_sigcontext(dcontext, sc, !can_always_delay[sig]);
+
+        if (can_always_delay[sig] && !xl8_success) {
+            /* delay: we expect this for coarse fragments if alarm arrives
+             * in middle of ind branch region or sthg (PR 213040)
+             */
+            LOG(THREAD, LOG_ASYNCH, 2,
+                "signal is in un-translatable spot in coarse fragment: delaying\n");
+            receive_now = false;
+        }
+    }
+
+    if (receive_now) {
 
         /* N.B.: since we abandon the old context for synchronous signals,
          * we do not need to mark this fragment as FRAG_CANNOT_DELETE
@@ -3144,7 +3214,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             safe_is_in_fcache(dcontext, pc, xsp)) {
             dr_signal_action_t action;
             sc_orig = *sc;
-            translate_sigcontext(dcontext, sc);
+            translate_sigcontext(dcontext, sc, true/*shouldn't fail*/);
             action = send_signal_to_client(dcontext, sig, frame, &sc_orig,
                                            access_address, true/*blocked*/);
             /* For blocked signal early event we disallow BYPASS (xref i#182/PR 449996) */
@@ -3167,7 +3237,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                    default_action[sig] == DEFAULT_TERMINATE_CORE);
             LOG(THREAD, LOG_ASYNCH, 1,
                 "blocked fatal signal %d cannot be delayed: terminating\n", sig);
-            translate_sigcontext(dcontext, sc);
+            translate_sigcontext(dcontext, sc, true/*shouldn't fail*/);
             execute_default_from_cache(dcontext, sig, frame);
         }
         
@@ -5063,6 +5133,10 @@ handle_pre_setitimer(dcontext_t *dcontext,
         (*info->itimer)[which].app_saved = (*info->itimer)[which].app;
         (*info->itimer)[which].app.interval = timeval_to_usec(&val.it_interval);
         (*info->itimer)[which].app.value = timeval_to_usec(&val.it_value);
+        LOG(THREAD, LOG_ASYNCH, 2,
+            "app setitimer type=%d interval="SZFMT" value="SZFMT"\n",
+            which, (*info->itimer)[which].app.interval,
+            (*info->itimer)[which].app.value);
         itimer_new_settings(dcontext, which, true/*app*/);
         if (info->shared_itimer)
             release_recursive_lock(info->shared_itimer_lock);
