@@ -92,7 +92,25 @@ bool opnd_is_instr(opnd_t opnd) {
 }
 bool opnd_is_near_instr(opnd_t opnd) { return opnd.kind == INSTR_kind; }
 bool opnd_is_far_instr(opnd_t opnd) { return opnd.kind == FAR_INSTR_kind; }
-bool opnd_is_base_disp(opnd_t opnd) { return opnd.kind == BASE_DISP_kind; }
+
+/* Though we have "protected" visibility, gcc still does not inline
+ * these exported routines.  We can get noticeably better performance by
+ * forcing an inline (PR 622253).  I also found that using macros
+ * produces better code than having gcc inline these functions: with
+ * inlining there are extra local var slots and memory traffic to them.
+ *
+ * XXX: figure out how to get as-fast code with inlining for better
+ * debuggability!  For now going with macros as the speed difference
+ * is noticeable; these macros uses are confined to this file as well.
+ * I'm including some sanity type checks in the macros.
+ */
+#define inlined_opnd_is_base_disp(opnd) \
+    (IF_DEBUG_(CLIENT_ASSERT(sizeof(opnd) == sizeof(opnd_t), "invalid type")) \
+     (opnd).kind == BASE_DISP_kind)
+bool opnd_is_base_disp(opnd_t opnd) { return inlined_opnd_is_base_disp(opnd); }
+/* in rest of file, directly de-reference for performance (PR 622253) */
+#define opnd_is_base_disp inlined_opnd_is_base_disp
+
 bool opnd_is_near_base_disp(opnd_t opnd) {
     return opnd.kind == BASE_DISP_kind && opnd.seg.segment == REG_NULL; 
 }
@@ -500,14 +518,18 @@ opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_
         CLIENT_ASSERT(false, "opnd_set_disp_ex called on invalid opnd type"); 
 }
 
+#define inlined_opnd_get_index(opnd) \
+    (IF_DEBUG_(CLIENT_ASSERT(sizeof(opnd) == sizeof(opnd_t), "invalid type")) \
+     (opnd_is_base_disp(opnd) ? (opnd).value.base_disp.index_reg : \
+      (IF_DEBUG_(CLIENT_ASSERT(false, "opnd_get_index called on invalid opnd type")) \
+       REG_INVALID)))
 reg_id_t
 opnd_get_index(opnd_t opnd)
 {
-    if (opnd_is_base_disp(opnd))
-        return opnd.value.base_disp.index_reg;
-    CLIENT_ASSERT(false, "opnd_get_index called on invalid opnd type");
-    return REG_INVALID;
+    return inlined_opnd_get_index(opnd);
 }
+/* in rest of file, directly de-reference for performance (PR 622253) */
+#define opnd_get_index inlined_opnd_get_index
 
 int
 opnd_get_scale(opnd_t opnd)
@@ -522,15 +544,19 @@ opnd_get_scale(opnd_t opnd)
     return -1;
 }
 
+#define inlined_opnd_get_segment(opnd) \
+    (IF_DEBUG_(CLIENT_ASSERT(sizeof(opnd) == sizeof(opnd_t), "invalid type")) \
+     ((opnd_is_base_disp(opnd) IF_X64(|| opnd_is_abs_addr(opnd) || \
+       opnd_is_rel_addr(opnd))) ? (opnd).seg.segment : \
+      (IF_DEBUG_(CLIENT_ASSERT(false, "opnd_get_segment called on invalid opnd type")) \
+       REG_INVALID)))
 reg_id_t
 opnd_get_segment(opnd_t opnd)
 {
-    if (opnd_is_base_disp(opnd)
-        IF_X64(|| opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)))
-        return opnd.seg.segment;
-    CLIENT_ASSERT(false, "opnd_get_segment called on invalid opnd type");
-    return REG_INVALID;
+    return inlined_opnd_get_segment(opnd);
 }
+/* in rest of file, directly de-reference for performance (PR 622253) */
+#define opnd_get_segment inlined_opnd_get_segment
 
 opnd_t 
 opnd_create_abs_addr(void *addr, opnd_size_t data_size)
@@ -1850,13 +1876,18 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     return len;
 }
 
+#define inlined_instr_get_opcode(instr) \
+    (IF_DEBUG_(CLIENT_ASSERT(sizeof(*instr) == sizeof(instr_t), "invalid type")) \
+     (((instr)->opcode == OP_UNDECODED) ? \
+      (instr_decode_opcode(get_thread_private_dcontext(), instr), (instr)->opcode) : \
+      (instr)->opcode))
 int
 instr_get_opcode(instr_t *instr)
 {
-    if (instr->opcode == OP_UNDECODED)
-        instr_decode_opcode(get_thread_private_dcontext(), instr);
-    return instr->opcode;
+    return inlined_instr_get_opcode(instr);
 }
+/* in rest of file, directly de-reference for performance (PR 622253) */
+#define instr_get_opcode inlined_instr_get_opcode
 
 static inline void
 instr_being_modified(instr_t *instr, bool raw_bits_valid)

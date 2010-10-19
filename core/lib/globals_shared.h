@@ -359,12 +359,14 @@ typedef struct {
 #ifdef DEBUG
 # define IF_DEBUG(x) x
 # define _IF_DEBUG(x) , x
+# define IF_DEBUG_(x) x ,
 # define IF_DEBUG_ELSE(x, y) x
 # define IF_DEBUG_ELSE_0(x) (x)
 # define IF_DEBUG_ELSE_NULL(x) (x)
 #else
 # define IF_DEBUG(x)
 # define _IF_DEBUG(x)
+# define IF_DEBUG_(x)
 # define IF_DEBUG_ELSE(x, y) y
 # define IF_DEBUG_ELSE_0(x) 0
 # define IF_DEBUG_ELSE_NULL(x) (NULL)

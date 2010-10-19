@@ -107,10 +107,8 @@ bool ignore_assert(const char *assert_file_line, const char *expr);
 
 /* only support apicheck for exported api's */
 #if defined(CLIENT_INTERFACE) || defined(DR_APP_EXPORTS)
-# define apicheck(x, msg) do {                   \
-    if (!(x))                                    \
-        external_error(__FILE__, __LINE__, msg); \
-} while (0)
+# define apicheck(x, msg) \
+    ((void)((!(x)) ? (external_error(__FILE__, __LINE__, msg), 0) : 0))
 void external_error(char *file, int line, char *msg);
 #endif
 
