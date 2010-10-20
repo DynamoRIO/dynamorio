@@ -97,7 +97,8 @@ START_FILE
 #else
 # define NUM_XMM_SLOTS 8 /* xmm0-7 */
 #endif
-#define XMM_SAVED_SIZE ((NUM_XMM_SLOTS)*16) /* xmm0-5/15 for PR 264138/PR 302107 */
+/* xmm0-5/7/15 for PR 264138/i#139/PR 302107 */
+#define XMM_SAVED_SIZE ((NUM_XMM_SLOTS)*16) 
 
 /* Should we generate all of our asm code instead of having it static?
  * As it is we're duplicating insert_push_all_registers(), dr_insert_call(), etc.,

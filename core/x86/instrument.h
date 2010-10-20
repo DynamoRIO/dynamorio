@@ -3211,7 +3211,8 @@ dr_insert_ubr_instrumentation(void *drcontext, instrlist_t *ilist,
 DR_API
 /**
  * Returns true if the xmm0 through xmm5 for Windows, or xmm0 through
- * xmm15 for Linux, fields in dr_mcontext_t are valid for this process
+ * xmm15 for 64-bit Linux, or xmm0 through xmm7 for 32-bit Linux, 
+ * fields in dr_mcontext_t are valid for this process
  * (i.e., whether this process is 64-bit or WOW64, and the processor
  * supports SSE).
  */

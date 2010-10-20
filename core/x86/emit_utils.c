@@ -3162,6 +3162,8 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
         RESTORE_FROM_UPCONTEXT xmm_OFFSET+3*16,%xmm3
         RESTORE_FROM_UPCONTEXT xmm_OFFSET+4*16,%xmm4
         RESTORE_FROM_UPCONTEXT xmm_OFFSET+5*16,%xmm5
+        RESTORE_FROM_UPCONTEXT xmm_OFFSET+6*16,%xmm6  # 32-bit Linux
+        RESTORE_FROM_UPCONTEXT xmm_OFFSET+7*16,%xmm7  # 32-bit Linux
     endif
     ifdef X64
         RESTORE_FROM_UPCONTEXT r8_OFFSET,%r8
@@ -3570,6 +3572,8 @@ append_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist)
         SAVE_TO_UPCONTEXT %xmm3,xmm_OFFSET+3*16
         SAVE_TO_UPCONTEXT %xmm4,xmm_OFFSET+4*16
         SAVE_TO_UPCONTEXT %xmm5,xmm_OFFSET+5*16
+        SAVE_TO_UPCONTEXT %xmm6,xmm_OFFSET+6*16  # 32-bit Linux
+        SAVE_TO_UPCONTEXT %xmm7,xmm_OFFSET+7*16  # 32-bit Linux
     endif
 
         # switch to clean dstack

@@ -172,9 +172,10 @@ acts on a float, even printing one with %%f.
 
 The XMM (128-bit) registers are saved by \DynamoRIO on context switches and
 clean calls only for a 64-bit Windows kernel (whether in a 32-bit process
-(WOW64) or a 64-bit process) or for 64-bit Linux applications.  For a
+(WOW64) or a 64-bit process) or for 32-bit and 64-bit Linux applications. For a
 64-bit Windows kernel, xmm0 through xmm5 are preserved; for a 64-bit Linux
-application, xmm0 through xmm15 are preserved.  For all other platforms, it
+application, xmm0 through xmm15 are preserved; for a 32-bit Linux application, 
+xmm0 through xmm7 are preserved. For all other platforms, it
 is up to the \client to preserve the xmm registers, and for 64-bit Windows
 kernels, to preserve the rest of the xmm registers beyond xmm5, if any code
 is invoked that modifies them.  See also the dr_mcontext_xmm_fields_valid()

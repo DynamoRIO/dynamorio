@@ -455,7 +455,7 @@ else (REVERT)
 
  if (COMMIT)
     # Upload to Rietveld with notes as description
-    execute_process(COMMAND "make/upload.py"
+    execute_process(COMMAND "make/upload.py" -y
       -e "${AUTHOR}" -r "${REVIEWER}" -m "${first_line}" -f "${DIFF_FILE}"
       --send_mail --cc=dynamorio-devs@googlegroups.com
       ${cur_issue} ${DIFFARGS}

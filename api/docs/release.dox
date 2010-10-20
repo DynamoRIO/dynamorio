@@ -139,6 +139,10 @@ The changes between version 2.1.0 and 2.0.0 are:
  - Fixed handling of "data32 rex.w call"
  - Fixed Issue 320: a problem with thread-private cache resizing
  - Fixed Issue 319: decode movlhps and movhlps properly
+ - Fixed Issue 139: add xmm0-7 preservation for 32-bit Linux applications, 
+   which may have noticeable impacts on DR clients calling clean calls:
+   e.g., pushing bbs over the max size limit or having a noticeable
+   performance hit.
 
 The changes between version 2.0.0 and 1.5.0 are:
 

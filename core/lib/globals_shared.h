@@ -1483,10 +1483,22 @@ enum {
  * so we have no alignment declarations there at the moment either.
  */
 
-/* PR 306394: for 32-bit xmm0-7 are caller-saved, yet we don't expect
- * them to be touched by DR, client, kernel, or libraries DR/client
- * call: so for now we just leave space for future use.
- * In particular for LOL64 we should be careful about kernel use.
+/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
+ * libc routines invoked by DR in some Linux systems (xref i#139),
+ * so they should be saved in 32-bit Linux.
+ */
+/* Xref i#139:
+ * XMM register preservation will cause extra runtime overhead.
+ * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows 
+ * that DR with xmm preservation adds negligible overhead over DR without 
+ * xmm preservation.
+ * It means xmm preservation would have little performance impact over 
+ * DR base system. This is mainly because DR's own operations' overhead 
+ * is much higher than the context switch overhead.
+ * However, if a program is running with a DR client which performs many 
+ * clean calls (one or more per basic block), xmm preservation may
+ * have noticable impacts, i.e. pushing bbs over the max size limit, 
+ * and could have a noticeable performance hit.
  */
 #ifdef WINDOWS
 # define NUM_XMM_SAVED 6 /* xmm0-5; for 32-bit we have space for xmm0-7 */
@@ -1494,7 +1506,8 @@ enum {
 # ifdef X64
 #  define NUM_XMM_SAVED 16 /* xmm0-15 */
 # else
-#  define NUM_XMM_SAVED 0 /* we have space for xmm0-7, but not saved right now */
+/* i#139: save xmm0-7 registers in 32-bit Linux. */
+#  define NUM_XMM_SAVED 8 /* xmm0-7 */
 # endif
 #endif
 

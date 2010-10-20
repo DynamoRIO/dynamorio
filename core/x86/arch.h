@@ -147,10 +147,11 @@ preserve_xmm_caller_saved(void)
     /* PR 264138: we must preserve xmm0-5 if on a 64-bit Windows kernel.
      * PR 302107: we must preserve xmm0-15 for 64-bit Linux apps.
      * PR 306394: for now we do not preserve xmm0-7, which are technically
-     * caller-saved, for 32-bit Windows or Linux (including LOL64).
+     * caller-saved, for 32-bit Windows.
      */
     return IF_X64_ELSE(true,
-                       IF_WINDOWS_ELSE(is_wow64_process(NT_CURRENT_PROCESS), false)) &&
+                       /* i#139: we save xmm0-7 in 32-bit Linux. */
+                       IF_WINDOWS_ELSE(is_wow64_process(NT_CURRENT_PROCESS), true)) &&
         proc_has_feature(FEATURE_SSE) /* do xmm registers exist? */;
 }
 
