@@ -261,7 +261,7 @@ set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
 # resources when packaging
 # N.B.: once VERSION_NUMBER crosses 3.x we'll need to update the
 # symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER_DEFAULT "2.0.0")
+set(VERSION_NUMBER_DEFAULT "2.1.0")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")

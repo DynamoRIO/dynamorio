@@ -248,6 +248,19 @@ foreach $file (@headers) {
         if ($_ =~ /\r$/) { chop; };
         $l = $_;
 
+        if ($output_routine || $output_directly || $output_verbatim) {
+            # Enforce the rename to DR_REG_ and DR_SEG_
+            if (($l =~ /[^_]REG_/ || $l =~ /[^_]SEG_/) &&
+                # We have certain exceptions
+                ($l !~ /^# define [RS]EG_/ &&
+                 $l !~ /DR_REG_ENUM_COMPATIBILITY/ &&
+                 $l !~ /conflict/ &&
+                 $l !~ /compatibility/ &&
+                 $l !~ /weird errors/)) {
+                die "Error: update to DR_{REG,SEG} constants:\n$l\n";
+            }
+        }
+
         if ($l =~ /^DR_API/) {
             $output_routine = 1;
             $did_output_something = 1;
@@ -450,10 +463,10 @@ foreach $file (@headers) {
                     # remove pointers into decode tables
                     $l =~ s/(OP_[a-zA-Z0-9_]*,) *\/\*[^\*]*\*\/(.*)/\1\2/;
                 }
-                # PR 227381: auto-insert doxygen comments for REG_ enum lines without any
+                # PR 227381: auto-insert doxygen comments for DR_REG_ enum lines w/o any
                 if ($file =~ "/instr.h" &&
-                    $l =~ /^ *[RS]EG_/ && $l !~ /\/\*\*</) {
-                    $l =~ s|([RS]EG_)(\w+), *|\1\2, /**< The "\L\2" register. */\n    |g;
+                    $l =~ /^ *DR_[RS]EG_/ && $l !~ /\/\*\*</) {
+                    $l =~ s|(DR_[RS]EG_)(\w+), *|\1\2, /**< The "\L\2" register. */\n    |g;
                 }
                 # Strip out FIXME comments
                 $l =~ s/\/\* FIXME.*\*\///;

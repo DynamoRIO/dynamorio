@@ -112,7 +112,7 @@ are not backward compatible: see below for details.
 The changes between version 2.1.0 and 2.0.0 are:
 
  - Added Windows 7 support
- - Added DR_TRY_EXCEPT() (Issue 52)
+ - Added DR_TRY_EXCEPT() (Issue 51)
  - Added dr_client_thread_set_suspendable()
  - Added dr_get_random_value(), dr_set_random_seed(), and dr_get_random_seed()
  - Added dr_file_exists() and dr_directory_exists() for Linux
@@ -126,6 +126,11 @@ The changes between version 2.1.0 and 2.0.0 are:
  - Added drsym_enumerate_symbols() to the \p drsyms Extension
  - Added limited support for printing to the cmd window (Issue 261) via the
    \p drsyms Extension: drsym_write_to_console() and drsym_using_console() 
+ - Renamed the REG_ constants to DR_REG_ to avoid conflicts with system
+   headers (Issue 34).  \Clients should set(DynamoRIO_REG_COMPATIBILITY ON)
+   prior to configure_DynamoRIO_client() to use the old constants and avoid
+   any source changes; this will happen automatically if the \client
+   targets version 2.0 or earlier.  Binary compatibility is unaffected.
  - Deprecated dr_request_synchronized_exit() and replaced it with
    dr_set_process_exit_behavior().  Now a full thread synch is performed
    at exit time in release build if a process exit event or thread exit

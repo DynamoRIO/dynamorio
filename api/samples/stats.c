@@ -591,7 +591,7 @@ insert_inc(void *drcontext, instrlist_t *bb, instr_t *where,
         immed = OPND_CREATE_INT8(incby);
     else /* unlikely but possible */
         immed = OPND_CREATE_INT32(incby);
-    inc = INSTR_CREATE_add(drcontext, OPND_CREATE_MEM32(REG_NULL, (int)addr), immed);
+    inc = INSTR_CREATE_add(drcontext, OPND_CREATE_MEM32(DR_REG_NULL, (int)addr), immed);
     /* make it thread-safe (only works if it doesn't straddle a cache line) */
     instr_set_prefix_flag(inc, PREFIX_LOCK);
     DR_ASSERT((((ptr_uint_t)addr) & 0x3) == 0); /* 4-aligned => single cache line */

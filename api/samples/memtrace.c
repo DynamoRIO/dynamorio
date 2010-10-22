@@ -308,7 +308,7 @@ code_cache_init(void)
     ilist = instrlist_create(drcontext);
     /* The lean procecure simply performs a clean call, and then jump back */
     /* jump back to the DR's code cache */
-    where = INSTR_CREATE_jmp_ind(drcontext, opnd_create_reg(REG_XCX));
+    where = INSTR_CREATE_jmp_ind(drcontext, opnd_create_reg(DR_REG_XCX));
     instrlist_meta_append(ilist, where);
     /* clean call */
     dr_insert_clean_call(drcontext, ilist, where, (void *)clean_call, false, 0);
@@ -344,8 +344,8 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     instr_t *instr, *call, *restore;
     opnd_t   ref, opnd1, opnd2;
-    reg_id_t reg1 = REG_XBX; /* We can optimize it by picking dead reg */
-    reg_id_t reg2 = REG_XCX; /* reg2 must be ECX or RCX for jecxz */
+    reg_id_t reg1 = DR_REG_XBX; /* We can optimize it by picking dead reg */
+    reg_id_t reg2 = DR_REG_XCX; /* reg2 must be ECX or RCX for jecxz */
     per_thread_t *data;
     
     data = dr_get_tls_field(drcontext);
@@ -409,7 +409,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
 
     /* Increment reg value by pointer size using lea instr */
     opnd1 = opnd_create_reg(reg2);
-    opnd2 = opnd_create_base_disp(reg2, REG_NULL, 0, 
+    opnd2 = opnd_create_base_disp(reg2, DR_REG_NULL, 0, 
                                   sizeof(mem_ref_t), 
                                   OPSZ_lea);
     instr = INSTR_CREATE_lea(drcontext, opnd1, opnd2);
@@ -453,7 +453,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
      * clean call invocation. This is to reduce the code cache size. 
      */
     instrlist_meta_preinsert(ilist, where, call);
-    /* mov restore REG_XCX */
+    /* mov restore DR_REG_XCX */
     opnd1 = opnd_create_reg(reg2);
     /* this is the return address for jumping back from lean procedure */
     opnd2 = opnd_create_instr(restore);

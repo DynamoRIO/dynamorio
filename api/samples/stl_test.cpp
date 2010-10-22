@@ -42,6 +42,11 @@
 #include <list>
 #include <map>
 
+#ifdef LINUX
+/* included as a test of i#34 */
+# include <signal.h>
+#endif
+
 using namespace std;
 
 

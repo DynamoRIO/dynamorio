@@ -3033,8 +3033,8 @@ DR_API
  * \note For 64-bit mode, variable-sized argument operands may not work
  * properly.
  *
- * \note Arguments that reference sub-register portions of REG_XSP are
- * not supported (full REG_XSP is supported).
+ * \note Arguments that reference sub-register portions of DR_REG_XSP are
+ * not supported (full DR_REG_XSP is supported).
  */
 void 
 dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -3085,7 +3085,7 @@ DR_API
  * \note For 64-bit mode, variable-sized argument operands may not work
  * properly.
  *
- * \note Arguments that reference REG_XSP are not supported in 64-bit mode.
+ * \note Arguments that reference DR_REG_XSP are not supported in 64-bit mode.
  */
 void 
 dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -3102,9 +3102,9 @@ DR_API
  * instrumentation routine should call proc_save_fpstate() to save and
  * then proc_restore_fpstate() to restore (or use dr_insert_clean_call()).
  *
- * \note The preparation modifies the REG_XSP and REG_XAX registers
+ * \note The preparation modifies the DR_REG_XSP and DR_REG_XAX registers
  * (after saving them).  Use dr_insert_clean_call() instead if an
- * argument to the subsequent call that references REG_XAX is
+ * argument to the subsequent call that references DR_REG_XAX is
  * desired.
  *
  * \note The stack used to save the state is limited to

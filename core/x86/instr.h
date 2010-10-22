@@ -47,6 +47,9 @@
 # pragma warning( disable : 4214)
 #endif
 
+/* to avoid changing all our internal REG_ constants we define this for DR itself */
+#define DR_REG_ENUM_COMPATIBILITY 1
+
 /* can't include decode.h, it includes us, just declare struct */
 struct instr_info_t;
 
@@ -72,12 +75,21 @@ struct instr_info_t;
  * @brief Functions and defines to create and manipulate instruction operands.
  */
 
+/* DR_API EXPORT END */
+/* DR_API EXPORT VERBATIM */
+/* Catch conflicts if ucontext.h is included before us */
+#if defined(DR_REG_ENUM_COMPATIBILITY) && (defined(REG_EAX) || defined(REG_RAX))
+# error REG_ enum conflict between DR and ucontext.h!  Use DR_REG_ constants instead.
+#endif
+/* DR_API EXPORT END */
+/* DR_API EXPORT BEGIN */
+
 #ifdef AVOID_API_EXPORT
 /* We encode this enum plus the OPSZ_ extensions in bytes, so we can have
- * at most 256 total REG_ plus OPSZ_ values.  Currently there are 165-odd.
+ * at most 256 total DR_REG_ plus OPSZ_ values.  Currently there are 165-odd.
  * Decoder assumes 32-bit, 16-bit, and 8-bit are in specific order
  * corresponding to modrm encodings.
- * We also assume that the SEG_ constants are invalid as pointers for
+ * We also assume that the DR_SEG_ constants are invalid as pointers for
  * our use in instr_info_t.code.
  * Also, reg_names array in encode.c corresponds to this enum order.
  * Plus, reg_fixer array in instr.c.
@@ -91,60 +103,77 @@ enum {
     /* compiler gives weird errors for "REG_NONE" */
     /* PR 227381: genapi.pl auto-inserts doxygen comments for lines without any! */
 #endif
-    REG_NULL, /**< Sentinel value indicating no register, for address modes. */
+    DR_REG_NULL, /**< Sentinel value indicating no register, for address modes. */
     /* 64-bit general purpose */
-    REG_RAX,  REG_RCX,  REG_RDX,  REG_RBX,  REG_RSP,  REG_RBP,  REG_RSI,  REG_RDI,
-    REG_R8,   REG_R9,   REG_R10,  REG_R11,  REG_R12,  REG_R13,  REG_R14,  REG_R15,
+    DR_REG_RAX,  DR_REG_RCX,  DR_REG_RDX,  DR_REG_RBX,
+    DR_REG_RSP,  DR_REG_RBP,  DR_REG_RSI,  DR_REG_RDI,
+    DR_REG_R8,   DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
+    DR_REG_R12,  DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
     /* 32-bit general purpose */
-    REG_EAX,  REG_ECX,  REG_EDX,  REG_EBX,  REG_ESP,  REG_EBP,  REG_ESI,  REG_EDI,
-    REG_R8D,  REG_R9D,  REG_R10D, REG_R11D, REG_R12D, REG_R13D, REG_R14D, REG_R15D,
+    DR_REG_EAX,  DR_REG_ECX,  DR_REG_EDX,  DR_REG_EBX,
+    DR_REG_ESP,  DR_REG_EBP,  DR_REG_ESI,  DR_REG_EDI,
+    DR_REG_R8D,  DR_REG_R9D,  DR_REG_R10D, DR_REG_R11D,
+    DR_REG_R12D, DR_REG_R13D, DR_REG_R14D, DR_REG_R15D,
     /* 16-bit general purpose */
-    REG_AX,   REG_CX,   REG_DX,   REG_BX,   REG_SP,   REG_BP,   REG_SI,   REG_DI,
-    REG_R8W,  REG_R9W,  REG_R10W, REG_R11W, REG_R12W, REG_R13W, REG_R14W, REG_R15W,
+    DR_REG_AX,   DR_REG_CX,   DR_REG_DX,   DR_REG_BX,
+    DR_REG_SP,   DR_REG_BP,   DR_REG_SI,   DR_REG_DI,
+    DR_REG_R8W,  DR_REG_R9W,  DR_REG_R10W, DR_REG_R11W,
+    DR_REG_R12W, DR_REG_R13W, DR_REG_R14W, DR_REG_R15W,
     /* 8-bit general purpose */
-    REG_AL,   REG_CL,   REG_DL,   REG_BL,   REG_AH,   REG_CH,   REG_DH,   REG_BH,
-    REG_R8L,  REG_R9L,  REG_R10L, REG_R11L, REG_R12L, REG_R13L, REG_R14L, REG_R15L,
-    REG_SPL,  REG_BPL,  REG_SIL,  REG_DIL,
+    DR_REG_AL,   DR_REG_CL,   DR_REG_DL,   DR_REG_BL,
+    DR_REG_AH,   DR_REG_CH,   DR_REG_DH,   DR_REG_BH,
+    DR_REG_R8L,  DR_REG_R9L,  DR_REG_R10L, DR_REG_R11L,
+    DR_REG_R12L, DR_REG_R13L, DR_REG_R14L, DR_REG_R15L,
+    DR_REG_SPL,  DR_REG_BPL,  DR_REG_SIL,  DR_REG_DIL,
     /* 64-BIT MMX */
-    REG_MM0,  REG_MM1,  REG_MM2,  REG_MM3,  REG_MM4,  REG_MM5,  REG_MM6,  REG_MM7,
+    DR_REG_MM0,  DR_REG_MM1,  DR_REG_MM2,  DR_REG_MM3,
+    DR_REG_MM4,  DR_REG_MM5,  DR_REG_MM6,  DR_REG_MM7,
     /* 128-BIT XMM */
-    REG_XMM0, REG_XMM1, REG_XMM2, REG_XMM3, REG_XMM4, REG_XMM5, REG_XMM6, REG_XMM7,
-    REG_XMM8, REG_XMM9, REG_XMM10,REG_XMM11,REG_XMM12,REG_XMM13,REG_XMM14,REG_XMM15,
+    DR_REG_XMM0, DR_REG_XMM1, DR_REG_XMM2, DR_REG_XMM3,
+    DR_REG_XMM4, DR_REG_XMM5, DR_REG_XMM6, DR_REG_XMM7,
+    DR_REG_XMM8, DR_REG_XMM9, DR_REG_XMM10,DR_REG_XMM11,
+    DR_REG_XMM12,DR_REG_XMM13,DR_REG_XMM14,DR_REG_XMM15,
     /* floating point registers */
-    REG_ST0,  REG_ST1,  REG_ST2,  REG_ST3,  REG_ST4,  REG_ST5,  REG_ST6,  REG_ST7,
+    DR_REG_ST0,  DR_REG_ST1,  DR_REG_ST2,  DR_REG_ST3,
+    DR_REG_ST4,  DR_REG_ST5,  DR_REG_ST6,  DR_REG_ST7,
     /* segments (order from "Sreg" description in Intel manual) */
-    SEG_ES,   SEG_CS,   SEG_SS,   SEG_DS,   SEG_FS,   SEG_GS,
+    DR_SEG_ES,   DR_SEG_CS,   DR_SEG_SS,   DR_SEG_DS,   DR_SEG_FS,   DR_SEG_GS,
     /* debug & control registers (privileged access only; 8-15 for future processors) */
-    REG_DR0,  REG_DR1,  REG_DR2,  REG_DR3,  REG_DR4,  REG_DR5,  REG_DR6,  REG_DR7,
-    REG_DR8,  REG_DR9,  REG_DR10, REG_DR11, REG_DR12, REG_DR13, REG_DR14, REG_DR15, 
+    DR_REG_DR0,  DR_REG_DR1,  DR_REG_DR2,  DR_REG_DR3,
+    DR_REG_DR4,  DR_REG_DR5,  DR_REG_DR6,  DR_REG_DR7,
+    DR_REG_DR8,  DR_REG_DR9,  DR_REG_DR10, DR_REG_DR11,
+    DR_REG_DR12, DR_REG_DR13, DR_REG_DR14, DR_REG_DR15, 
     /* cr9-cr15 do not yet exist on current x64 hardware */
-    REG_CR0,  REG_CR1,  REG_CR2,  REG_CR3,  REG_CR4,  REG_CR5,  REG_CR6,  REG_CR7, 
-    REG_CR8,  REG_CR9,  REG_CR10, REG_CR11, REG_CR12, REG_CR13, REG_CR14, REG_CR15,
-    REG_INVALID, /**< Sentinel value indicating an invalid register. */
+    DR_REG_CR0,  DR_REG_CR1,  DR_REG_CR2,  DR_REG_CR3,
+    DR_REG_CR4,  DR_REG_CR5,  DR_REG_CR6,  DR_REG_CR7, 
+    DR_REG_CR8,  DR_REG_CR9,  DR_REG_CR10, DR_REG_CR11,
+    DR_REG_CR12, DR_REG_CR13, DR_REG_CR14, DR_REG_CR15,
+    DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
 };
+
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */
-typedef byte reg_id_t; /* contains a REG_ enum value */
-typedef byte opnd_size_t; /* contains a REG_ or OPSZ_ enum value */
+typedef byte reg_id_t; /* contains a DR_REG_ enum value */
+typedef byte opnd_size_t; /* contains a DR_REG_ or OPSZ_ enum value */
 
 /* Platform-independent full-register specifiers */
 #ifdef X64
-# define REG_XAX REG_RAX  /**< Platform-independent way to refer to rax/eax. */
-# define REG_XCX REG_RCX  /**< Platform-independent way to refer to rcx/ecx. */
-# define REG_XDX REG_RDX  /**< Platform-independent way to refer to rdx/edx. */
-# define REG_XBX REG_RBX  /**< Platform-independent way to refer to rbx/ebx. */
-# define REG_XSP REG_RSP  /**< Platform-independent way to refer to rsp/esp. */
-# define REG_XBP REG_RBP  /**< Platform-independent way to refer to rbp/ebp. */
-# define REG_XSI REG_RSI  /**< Platform-independent way to refer to rsi/esi. */
-# define REG_XDI REG_RDI  /**< Platform-independent way to refer to rdi/edi. */
+# define DR_REG_XAX DR_REG_RAX  /**< Platform-independent way to refer to rax/eax. */
+# define DR_REG_XCX DR_REG_RCX  /**< Platform-independent way to refer to rcx/ecx. */
+# define DR_REG_XDX DR_REG_RDX  /**< Platform-independent way to refer to rdx/edx. */
+# define DR_REG_XBX DR_REG_RBX  /**< Platform-independent way to refer to rbx/ebx. */
+# define DR_REG_XSP DR_REG_RSP  /**< Platform-independent way to refer to rsp/esp. */
+# define DR_REG_XBP DR_REG_RBP  /**< Platform-independent way to refer to rbp/ebp. */
+# define DR_REG_XSI DR_REG_RSI  /**< Platform-independent way to refer to rsi/esi. */
+# define DR_REG_XDI DR_REG_RDI  /**< Platform-independent way to refer to rdi/edi. */
 #else
-# define REG_XAX REG_EAX  /**< Platform-independent way to refer to rax/eax. */
-# define REG_XCX REG_ECX  /**< Platform-independent way to refer to rcx/ecx. */
-# define REG_XDX REG_EDX  /**< Platform-independent way to refer to rdx/edx. */
-# define REG_XBX REG_EBX  /**< Platform-independent way to refer to rbx/ebx. */
-# define REG_XSP REG_ESP  /**< Platform-independent way to refer to rsp/esp. */
-# define REG_XBP REG_EBP  /**< Platform-independent way to refer to rbp/ebp. */
-# define REG_XSI REG_ESI  /**< Platform-independent way to refer to rsi/esi. */
-# define REG_XDI REG_EDI  /**< Platform-independent way to refer to rdi/edi. */
+# define DR_REG_XAX DR_REG_EAX  /**< Platform-independent way to refer to rax/eax. */
+# define DR_REG_XCX DR_REG_ECX  /**< Platform-independent way to refer to rcx/ecx. */
+# define DR_REG_XDX DR_REG_EDX  /**< Platform-independent way to refer to rdx/edx. */
+# define DR_REG_XBX DR_REG_EBX  /**< Platform-independent way to refer to rbx/ebx. */
+# define DR_REG_XSP DR_REG_ESP  /**< Platform-independent way to refer to rsp/esp. */
+# define DR_REG_XBP DR_REG_EBP  /**< Platform-independent way to refer to rbp/ebp. */
+# define DR_REG_XSI DR_REG_ESI  /**< Platform-independent way to refer to rsi/esi. */
+# define DR_REG_XDI DR_REG_EDI  /**< Platform-independent way to refer to rdi/edi. */
 #endif
 
 /* DR_API EXPORT END */
@@ -153,38 +182,224 @@ extern const char * const * const reg_names;
 extern const reg_id_t reg_fixer[];
 /* DR_API EXPORT BEGIN */
 
-#define REG_START_64      REG_RAX   /**< Start of 64-bit general register enum values. */
-#define REG_STOP_64       REG_R15   /**< End of 64-bit general register enum values. */  
-#define REG_START_32      REG_EAX   /**< Start of 32-bit general register enum values. */
-#define REG_STOP_32       REG_R15D  /**< End of 32-bit general register enum values. */  
-#define REG_START_16      REG_AX    /**< Start of 16-bit general register enum values. */
-#define REG_STOP_16       REG_R15W  /**< End of 16-bit general register enum values. */  
-#define REG_START_8       REG_AL    /**< Start of 8-bit general register enum values. */
-#define REG_STOP_8        REG_DIL   /**< End of 8-bit general register enum values. */  
-#define REG_START_8HL     REG_AL    /**< Start of 8-bit high-low register enum values. */
-#define REG_STOP_8HL      REG_BH    /**< End of 8-bit high-low register enum values. */  
-#define REG_START_x86_8   REG_AH    /**< Start of 8-bit x86-only register enum values. */
-#define REG_STOP_x86_8    REG_BH    /**< Stop of 8-bit x86-only register enum values. */
-#define REG_START_x64_8   REG_SPL   /**< Start of 8-bit x64-only register enum values. */
-#define REG_STOP_x64_8    REG_DIL   /**< Stop of 8-bit x64-only register enum values. */
-#define REG_START_MMX     REG_MM0   /**< Start of mmx register enum values. */
-#define REG_STOP_MMX      REG_MM7   /**< End of mmx register enum values. */  
-#define REG_START_XMM     REG_XMM0  /**< Start of xmm register enum values. */
-#define REG_STOP_XMM      REG_XMM15 /**< End of xmm register enum values. */  
-#define REG_START_FLOAT   REG_ST0   /**< Start of floating-point-register enum values. */
-#define REG_STOP_FLOAT    REG_ST7   /**< End of floating-point-register enum values. */  
-#define REG_START_SEGMENT SEG_ES    /**< Start of segment register enum values. */
-#define REG_STOP_SEGMENT  SEG_GS    /**< End of segment register enum values. */  
-#define REG_START_DR      REG_DR0   /**< Start of debug register enum values. */
-#define REG_STOP_DR       REG_DR15  /**< End of debug register enum values. */  
-#define REG_START_CR      REG_CR0   /**< Start of control register enum values. */
-#define REG_STOP_CR       REG_CR15  /**< End of control register enum values. */  
-#define REG_LAST_VALID_ENUM REG_CR15  /**< Last valid register enum value. */
-#define REG_LAST_ENUM     REG_INVALID /**< Last register enum value. */
+#define DR_REG_START_64    DR_REG_RAX  /**< Start of 64-bit general register enum values */
+#define DR_REG_STOP_64     DR_REG_R15  /**< End of 64-bit general register enum values */  
+#define DR_REG_START_32    DR_REG_EAX  /**< Start of 32-bit general register enum values */
+#define DR_REG_STOP_32     DR_REG_R15D /**< End of 32-bit general register enum values */  
+#define DR_REG_START_16    DR_REG_AX   /**< Start of 16-bit general register enum values */
+#define DR_REG_STOP_16     DR_REG_R15W /**< End of 16-bit general register enum values */  
+#define DR_REG_START_8     DR_REG_AL   /**< Start of 8-bit general register enum values */
+#define DR_REG_STOP_8      DR_REG_DIL  /**< End of 8-bit general register enum values */  
+#define DR_REG_START_8HL   DR_REG_AL   /**< Start of 8-bit high-low register enum values */
+#define DR_REG_STOP_8HL    DR_REG_BH   /**< End of 8-bit high-low register enum values */  
+#define DR_REG_START_x86_8 DR_REG_AH   /**< Start of 8-bit x86-only register enum values */
+#define DR_REG_STOP_x86_8  DR_REG_BH   /**< Stop of 8-bit x86-only register enum values */
+#define DR_REG_START_x64_8 DR_REG_SPL  /**< Start of 8-bit x64-only register enum values */
+#define DR_REG_STOP_x64_8  DR_REG_DIL  /**< Stop of 8-bit x64-only register enum values */
+#define DR_REG_START_MMX   DR_REG_MM0  /**< Start of mmx register enum values */
+#define DR_REG_STOP_MMX    DR_REG_MM7  /**< End of mmx register enum values */  
+#define DR_REG_START_XMM   DR_REG_XMM0 /**< Start of xmm register enum values */
+#define DR_REG_STOP_XMM    DR_REG_XMM15/**< End of xmm register enum values */  
+#define DR_REG_START_FLOAT DR_REG_ST0  /**< Start of floating-point-register enum values */
+#define DR_REG_STOP_FLOAT  DR_REG_ST7  /**< End of floating-point-register enum values */  
+#define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
+#define DR_REG_STOP_SEGMENT  DR_SEG_GS /**< End of segment register enum values */  
+#define DR_REG_START_DR    DR_REG_DR0  /**< Start of debug register enum values */
+#define DR_REG_STOP_DR     DR_REG_DR15 /**< End of debug register enum values */  
+#define DR_REG_START_CR    DR_REG_CR0  /**< Start of control register enum values */
+#define DR_REG_STOP_CR     DR_REG_CR15 /**< End of control register enum values */  
+#define DR_REG_LAST_VALID_ENUM DR_REG_CR15  /**< Last valid register enum value */
+#define DR_REG_LAST_ENUM   DR_REG_INVALID /**< Last register enum value */
 /* DR_API EXPORT END */
-#define REG_START_SPILL   REG_XAX
-#define REG_STOP_SPILL    REG_XDI
+#define REG_START_SPILL   DR_REG_XAX
+#define REG_STOP_SPILL    DR_REG_XDI
 #define REG_SPILL_NUM     (REG_STOP_SPILL - REG_START_SPILL + 1)
+
+/* DR_API EXPORT VERBATIM */
+/* Backward compatibility with REG_ constants (we now use DR_REG_ to avoid
+ * conflicts with the REG_ enum in <sys/ucontext.h>: i#34).
+ * Clients should set(DynamoRIO_REG_COMPATIBILITY ON) prior to
+ * configure_DynamoRIO_client() to set this define.
+ */
+#ifdef DR_REG_ENUM_COMPATIBILITY
+# define REG_NULL            DR_REG_NULL
+# define REG_RAX             DR_REG_RAX
+# define REG_RCX             DR_REG_RCX
+# define REG_RDX             DR_REG_RDX
+# define REG_RBX             DR_REG_RBX
+# define REG_RSP             DR_REG_RSP
+# define REG_RBP             DR_REG_RBP
+# define REG_RSI             DR_REG_RSI
+# define REG_RDI             DR_REG_RDI
+# define REG_R8              DR_REG_R8
+# define REG_R9              DR_REG_R9
+# define REG_R10             DR_REG_R10
+# define REG_R11             DR_REG_R11
+# define REG_R12             DR_REG_R12
+# define REG_R13             DR_REG_R13
+# define REG_R14             DR_REG_R14
+# define REG_R15             DR_REG_R15
+# define REG_EAX             DR_REG_EAX
+# define REG_ECX             DR_REG_ECX
+# define REG_EDX             DR_REG_EDX
+# define REG_EBX             DR_REG_EBX
+# define REG_ESP             DR_REG_ESP
+# define REG_EBP             DR_REG_EBP
+# define REG_ESI             DR_REG_ESI
+# define REG_EDI             DR_REG_EDI
+# define REG_R8D             DR_REG_R8D
+# define REG_R9D             DR_REG_R9D
+# define REG_R10D            DR_REG_R10D
+# define REG_R11D            DR_REG_R11D
+# define REG_R12D            DR_REG_R12D
+# define REG_R13D            DR_REG_R13D
+# define REG_R14D            DR_REG_R14D
+# define REG_R15D            DR_REG_R15D
+# define REG_AX              DR_REG_AX
+# define REG_CX              DR_REG_CX
+# define REG_DX              DR_REG_DX
+# define REG_BX              DR_REG_BX
+# define REG_SP              DR_REG_SP
+# define REG_BP              DR_REG_BP
+# define REG_SI              DR_REG_SI
+# define REG_DI              DR_REG_DI
+# define REG_R8W             DR_REG_R8W
+# define REG_R9W             DR_REG_R9W
+# define REG_R10W            DR_REG_R10W
+# define REG_R11W            DR_REG_R11W
+# define REG_R12W            DR_REG_R12W
+# define REG_R13W            DR_REG_R13W
+# define REG_R14W            DR_REG_R14W
+# define REG_R15W            DR_REG_R15W
+# define REG_AL              DR_REG_AL
+# define REG_CL              DR_REG_CL
+# define REG_DL              DR_REG_DL
+# define REG_BL              DR_REG_BL
+# define REG_AH              DR_REG_AH
+# define REG_CH              DR_REG_CH
+# define REG_DH              DR_REG_DH
+# define REG_BH              DR_REG_BH
+# define REG_R8L             DR_REG_R8L
+# define REG_R9L             DR_REG_R9L
+# define REG_R10L            DR_REG_R10L
+# define REG_R11L            DR_REG_R11L
+# define REG_R12L            DR_REG_R12L
+# define REG_R13L            DR_REG_R13L
+# define REG_R14L            DR_REG_R14L
+# define REG_R15L            DR_REG_R15L
+# define REG_SPL             DR_REG_SPL
+# define REG_BPL             DR_REG_BPL
+# define REG_SIL             DR_REG_SIL
+# define REG_DIL             DR_REG_DIL
+# define REG_MM0             DR_REG_MM0
+# define REG_MM1             DR_REG_MM1
+# define REG_MM2             DR_REG_MM2
+# define REG_MM3             DR_REG_MM3
+# define REG_MM4             DR_REG_MM4
+# define REG_MM5             DR_REG_MM5
+# define REG_MM6             DR_REG_MM6
+# define REG_MM7             DR_REG_MM7
+# define REG_XMM0            DR_REG_XMM0
+# define REG_XMM1            DR_REG_XMM1
+# define REG_XMM2            DR_REG_XMM2
+# define REG_XMM3            DR_REG_XMM3
+# define REG_XMM4            DR_REG_XMM4
+# define REG_XMM5            DR_REG_XMM5
+# define REG_XMM6            DR_REG_XMM6
+# define REG_XMM7            DR_REG_XMM7
+# define REG_XMM8            DR_REG_XMM8
+# define REG_XMM9            DR_REG_XMM9
+# define REG_XMM10           DR_REG_XMM10
+# define REG_XMM11           DR_REG_XMM11
+# define REG_XMM12           DR_REG_XMM12
+# define REG_XMM13           DR_REG_XMM13
+# define REG_XMM14           DR_REG_XMM14
+# define REG_XMM15           DR_REG_XMM15
+# define REG_ST0             DR_REG_ST0
+# define REG_ST1             DR_REG_ST1
+# define REG_ST2             DR_REG_ST2
+# define REG_ST3             DR_REG_ST3
+# define REG_ST4             DR_REG_ST4
+# define REG_ST5             DR_REG_ST5
+# define REG_ST6             DR_REG_ST6
+# define REG_ST7             DR_REG_ST7
+# define SEG_ES              DR_SEG_ES
+# define SEG_CS              DR_SEG_CS
+# define SEG_SS              DR_SEG_SS
+# define SEG_DS              DR_SEG_DS
+# define SEG_FS              DR_SEG_FS
+# define SEG_GS              DR_SEG_GS
+# define REG_DR0             DR_REG_DR0
+# define REG_DR1             DR_REG_DR1
+# define REG_DR2             DR_REG_DR2
+# define REG_DR3             DR_REG_DR3
+# define REG_DR4             DR_REG_DR4
+# define REG_DR5             DR_REG_DR5
+# define REG_DR6             DR_REG_DR6
+# define REG_DR7             DR_REG_DR7
+# define REG_DR8             DR_REG_DR8
+# define REG_DR9             DR_REG_DR9
+# define REG_DR10            DR_REG_DR10
+# define REG_DR11            DR_REG_DR11
+# define REG_DR12            DR_REG_DR12
+# define REG_DR13            DR_REG_DR13
+# define REG_DR14            DR_REG_DR14
+# define REG_DR15            DR_REG_DR15
+# define REG_CR0             DR_REG_CR0
+# define REG_CR1             DR_REG_CR1
+# define REG_CR2             DR_REG_CR2
+# define REG_CR3             DR_REG_CR3
+# define REG_CR4             DR_REG_CR4
+# define REG_CR5             DR_REG_CR5
+# define REG_CR6             DR_REG_CR6
+# define REG_CR7             DR_REG_CR7
+# define REG_CR8             DR_REG_CR8
+# define REG_CR9             DR_REG_CR9
+# define REG_CR10            DR_REG_CR10
+# define REG_CR11            DR_REG_CR11
+# define REG_CR12            DR_REG_CR12
+# define REG_CR13            DR_REG_CR13
+# define REG_CR14            DR_REG_CR14
+# define REG_CR15            DR_REG_CR15
+# define REG_INVALID         DR_REG_INVALID
+# define REG_XAX             DR_REG_XAX
+# define REG_XCX             DR_REG_XCX
+# define REG_XDX             DR_REG_XDX
+# define REG_XBX             DR_REG_XBX
+# define REG_XSP             DR_REG_XSP
+# define REG_XBP             DR_REG_XBP
+# define REG_XSI             DR_REG_XSI
+# define REG_XDI             DR_REG_XDI
+# define REG_START_64        DR_REG_START_64
+# define REG_STOP_64         DR_REG_STOP_64
+# define REG_START_32        DR_REG_START_32
+# define REG_STOP_32         DR_REG_STOP_32
+# define REG_START_16        DR_REG_START_16
+# define REG_STOP_16         DR_REG_STOP_16
+# define REG_START_8         DR_REG_START_8
+# define REG_STOP_8          DR_REG_STOP_8
+# define REG_START_8HL       DR_REG_START_8HL
+# define REG_STOP_8HL        DR_REG_STOP_8HL
+# define REG_START_x86_8     DR_REG_START_x86_8
+# define REG_STOP_x86_8      DR_REG_STOP_x86_8
+# define REG_START_x64_8     DR_REG_START_x64_8
+# define REG_STOP_x64_8      DR_REG_STOP_x64_8
+# define REG_START_MMX       DR_REG_START_MMX
+# define REG_STOP_MMX        DR_REG_STOP_MMX
+# define REG_START_XMM       DR_REG_START_XMM
+# define REG_STOP_XMM        DR_REG_STOP_XMM
+# define REG_START_FLOAT     DR_REG_START_FLOAT
+# define REG_STOP_FLOAT      DR_REG_STOP_FLOAT
+# define REG_START_SEGMENT   DR_REG_START_SEGMENT
+# define REG_STOP_SEGMENT    DR_REG_STOP_SEGMENT
+# define REG_START_DR        DR_REG_START_DR
+# define REG_STOP_DR         DR_REG_STOP_DR
+# define REG_START_CR        DR_REG_START_CR
+# define REG_STOP_CR         DR_REG_STOP_CR
+# define REG_LAST_VALID_ENUM DR_REG_LAST_VALID_ENUM
+# define REG_LAST_ENUM       DR_REG_LAST_ENUM
+#endif /* DR_REG_ENUM_COMPATIBILITY */
+/* DR_API EXPORT END */
 
 #define REG_SPECIFIER_BITS 8
 #define SCALE_SPECIFIER_BITS 4
@@ -226,7 +441,7 @@ struct _opnd_t {
          */
         app_pc pc;             /* PC_kind and FAR_PC_kind */
         /* For FAR_PC_kind and FAR_INSTR_kind, we use pc/instr, and keep the
-         * segment selector (which is NOT a SEG_constant) in far_pc_seg_selector
+         * segment selector (which is NOT a DR_SEG_ constant) in far_pc_seg_selector
          * above, to save space.
          */
         instr_t *instr;         /* INSTR_kind and FAR_INSTR_kind */
@@ -265,7 +480,7 @@ enum {
     PC_kind,
     INSTR_kind,
     REG_kind,
-    BASE_DISP_kind, /* optional SEG_ reg + base reg + scaled index reg + disp */
+    BASE_DISP_kind, /* optional DR_SEG_ reg + base reg + scaled index reg + disp */
     FAR_PC_kind,    /* a segment is specified as a selector value */
     FAR_INSTR_kind, /* a segment is specified as a selector value */
 #ifdef X64
@@ -283,7 +498,7 @@ opnd_t
 opnd_create_null(void);
 
 DR_API
-/** Returns a register operand (\p r must be a REG_ constant). */
+/** Returns a register operand (\p r must be a DR_REG_ constant). */
 opnd_t 
 opnd_create_reg(reg_id_t r);
 
@@ -308,7 +523,7 @@ opnd_create_pc(app_pc pc);
 DR_API
 /**
  * Returns a far program address operand with value \p seg_selector:pc.
- * \p seg_selector is a segment selector, not a SEG_ constant.
+ * \p seg_selector is a segment selector, not a DR_SEG_ constant.
  */
 opnd_t 
 opnd_create_far_pc(ushort seg_selector, app_pc pc);
@@ -321,7 +536,7 @@ opnd_create_instr(instr_t *instr);
 DR_API
 /**
  * Returns a far instr_t pointer address with value \p seg_selector:instr.
- * \p seg_selector is a segment selector, not a SEG_ constant.
+ * \p seg_selector is a segment selector, not a DR_SEG_ constant.
  */
 opnd_t 
 opnd_create_far_instr(ushort seg_selector, instr_t *instr);
@@ -335,7 +550,7 @@ DR_API
  * - base_reg + index_reg*scale + disp
  *
  * The operand has data size data_size (must be a OPSZ_ constant).
- * Both \p base_reg and \p index_reg must be REG_ constants.
+ * Both \p base_reg and \p index_reg must be DR_REG_ constants.
  * \p scale must be either 1, 2, 4, or 8.
  */
 opnd_t 
@@ -351,7 +566,7 @@ DR_API
  * - base_reg + index_reg*scale + disp
  *
  * The operand has data size \p data_size (must be a OPSZ_ constant).
- * Both \p base_reg and \p index_reg must be REG_ constants.
+ * Both \p base_reg and \p index_reg must be DR_REG_ constants.
  * \p scale must be either 1, 2, 4, or 8.
  * Gives control over encoding optimizations:
  * -# If \p encode_zero_disp, a zero value for disp will not be omitted;
@@ -378,8 +593,8 @@ DR_API
  * - seg : base_reg + index_reg*scale + disp
  *
  * The operand has data size \p data_size (must be a OPSZ_ constant).
- * \p seg must be a SEG_ constant.
- * Both \p base_reg and \p index_reg must be REG_ constants.
+ * \p seg must be a DR_SEG_ constant.
+ * Both \p base_reg and \p index_reg must be DR_REG_ constants.
  * \p scale must be either 1, 2, 4, or 8.
  */
 opnd_t 
@@ -395,8 +610,8 @@ DR_API
  * - seg : base_reg + index_reg*scale + disp
  *
  * The operand has data size \p data_size (must be a OPSZ_ constant).
- * \p seg must be a SEG_ constant.
- * Both \p base_reg and \p index_reg must be REG_ constants.
+ * \p seg must be a DR_SEG_ constant.
+ * Both \p base_reg and \p index_reg must be DR_REG_ constants.
  * scale must be either 1, 2, 4, or 8.
  * Gives control over encoding optimizations:
  * -# If \p encode_zero_disp, a zero value for disp will not be omitted;
@@ -421,7 +636,7 @@ DR_API
  *
  * If \p addr <= 2^32 (which is always true in 32-bit mode), this routine
  * is equivalent to
- * opnd_create_base_disp(REG_NULL, REG_NULL, 0, (int)addr, data_size).
+ * opnd_create_base_disp(DR_REG_NULL, DR_REG_NULL, 0, (int)addr, data_size).
  *
  * Otherwise, this routine creates a separate operand type with an
  * absolute 64-bit memory address.  Note that such an operand can only be
@@ -438,7 +653,7 @@ DR_API
  *
  * If \p addr <= 2^32 (which is always true in 32-bit mode), this routine
  * is equivalent to
- * opnd_create_far_base_disp(seg, REG_NULL, REG_NULL, 0, (int)addr, data_size).
+ * opnd_create_far_base_disp(seg, DR_REG_NULL, DR_REG_NULL, 0, (int)addr, data_size).
  *
  * Otherwise, this routine creates a separate operand type with an
  * absolute 64-bit memory address.  Note that such an operand can only be
@@ -675,7 +890,7 @@ DR_API
  * Return the data size of \p opnd as a OPSZ_ constant.
  * Assumes \p opnd is a register, immediate integer, or memory reference.
  * If \p opnd is a register returns the result of opnd_reg_get_size()
- * called on the REG_ constant.
+ * called on the DR_REG_ constant.
  * Returns OPSZ_NA if \p opnd does not have a valid size.
  */
 opnd_size_t
@@ -692,7 +907,7 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize);
 DR_API
 /** 
  * Assumes \p opnd is a register operand.
- * Returns the register it refers to (a REG_ constant).
+ * Returns the register it refers to (a DR_REG_ constant).
  */
 reg_id_t  
 opnd_get_reg(opnd_t opnd);
@@ -715,7 +930,7 @@ opnd_get_pc(opnd_t opnd);
 DR_API
 /** 
  * Assumes \p opnd is a far program address.
- * Returns \p opnd's segment, a segment selector (not a SEG_ constant).
+ * Returns \p opnd's segment, a segment selector (not a DR_SEG_ constant).
  */
 ushort    
 opnd_get_segment_selector(opnd_t opnd);
@@ -728,7 +943,7 @@ opnd_get_instr(opnd_t opnd);
 DR_API
 /**
  * Assumes \p opnd is a (near or far) base+disp memory reference.  Returns the base
- * register (a REG_ constant).
+ * register (a DR_REG_ constant).
  */
 reg_id_t
 opnd_get_base(opnd_t opnd);
@@ -768,7 +983,7 @@ opnd_is_disp_short_addr(opnd_t opnd);
 DR_API
 /** 
  * Assumes \p opnd is a (near or far) base+disp memory reference.
- * Returns the index register (a REG_ constant).
+ * Returns the index register (a DR_REG_ constant).
  */
 reg_id_t
 opnd_get_index(opnd_t opnd);
@@ -781,7 +996,7 @@ opnd_get_scale(opnd_t opnd);
 DR_API
 /** 
  * Assumes \p opnd is a (near or far) memory reference of any type.
- * Returns \p opnd's segment (a SEG_ constant), or REG_NULL if it is a near
+ * Returns \p opnd's segment (a DR_SEG_ constant), or DR_REG_NULL if it is a near
  * memory reference.
  */
 reg_id_t    
@@ -823,7 +1038,7 @@ reg_check_reg_fixer(void);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ 32-bit register constant.
+ * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the string name for \p reg.
  */
 const char *
@@ -831,7 +1046,7 @@ get_register_name(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ 32-bit register constant.
+ * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the 16-bit version of \p reg.
  */
 reg_id_t
@@ -839,11 +1054,11 @@ reg_32_to_16(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ 32-bit register constant.
+ * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the 8-bit version of \p reg (the least significant byte:
- * REG_AL instead of REG_AH if passed REG_EAX, e.g.).  For 32-bit DR
- * builds, returns REG_NULL if passed REG_ESP, REG_EBP, REG_ESI, or
- * REG_EDI.
+ * DR_REG_AL instead of DR_REG_AH if passed DR_REG_EAX, e.g.).  For 32-bit DR
+ * builds, returns DR_REG_NULL if passed DR_REG_ESP, DR_REG_EBP, DR_REG_ESI, or
+ * DR_REG_EDI.
  */
 reg_id_t
 reg_32_to_8(reg_id_t reg);
@@ -853,7 +1068,7 @@ reg_32_to_8(reg_id_t reg);
 /* DR_API EXPORT END */
 DR_API
 /** 
- * Assumes that \p reg is a REG_ 32-bit register constant.
+ * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the 64-bit version of \p reg.
  *
  * \note For 64-bit DR builds only.
@@ -863,7 +1078,7 @@ reg_32_to_64(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ 64-bit register constant.
+ * Assumes that \p reg is a DR_REG_ 64-bit register constant.
  * Returns the 32-bit version of \p reg.
  *
  * \note For 64-bit DR builds only.
@@ -886,7 +1101,7 @@ reg_is_extended(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ 32-bit register constant.
+ * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * If \p sz == OPSZ_2, returns the 16-bit version of \p reg.
  * For 64-bit versions of this library, if \p sz == OPSZ_8, returns 
  * the 64-bit version of \p reg.
@@ -896,7 +1111,7 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz);
 
 DR_API
 /**  
- * Assumes that \p reg is a REG_ register constant.
+ * Assumes that \p reg is a DR_REG_ register constant.
  * If reg is used as part of the calling convention, returns which
  * parameter ordinal it matches (0-based); otherwise, returns -1.
  */
@@ -905,7 +1120,7 @@ reg_parameter_num(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a General Purpose Register,
  * i.e., rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi, or a subset.
  */
@@ -914,8 +1129,8 @@ reg_is_gpr(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
- * Returns true iff it refers to a segment (i.e., it's really a SEG_
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a segment (i.e., it's really a DR_SEG_
  * constant).
  */
 bool
@@ -923,7 +1138,7 @@ reg_is_segment(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to an xmm (128-bit SSE/SSE2) register.
  */
 bool 
@@ -931,7 +1146,7 @@ reg_is_xmm(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to an mmx (64-bit) register.
  */
 bool 
@@ -939,7 +1154,7 @@ reg_is_mmx(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a floating-point register.
  */
 bool 
@@ -947,7 +1162,7 @@ reg_is_fp(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a 32-bit general-purpose register.
  */
 bool 
@@ -963,7 +1178,7 @@ opnd_is_reg_32bit(opnd_t opnd);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a 64-bit general-purpose register.
  */
 bool 
@@ -979,7 +1194,7 @@ opnd_is_reg_64bit(opnd_t opnd);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a pointer-sized general-purpose register.
  */
 bool 
@@ -987,7 +1202,7 @@ reg_is_pointer_sized(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ 32-bit register constant.
+ * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the pointer-sized version of \p reg.
  */
 reg_id_t
@@ -1010,16 +1225,16 @@ opnd_get_reg_mcontext_offs(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p r1 and \p r2 are both REG_ constants.
+ * Assumes that \p r1 and \p r2 are both DR_REG_ constants.
  * Returns true iff \p r1's register overlaps \p r2's register
- * (e.g., if \p r1 == REG_AX and \p r2 == REG_EAX).
+ * (e.g., if \p r1 == DR_REG_AX and \p r2 == DR_REG_EAX).
  */
 bool 
 reg_overlap(reg_id_t r1, reg_id_t r2);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns \p reg's representation as 3 bits in a modrm byte
  * (the 3 bits are the lower-order bits in the return value).
  */
@@ -1028,18 +1243,18 @@ reg_get_bits(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns the OPSZ_ constant corresponding to the register size.
- * Returns OPSZ_NA if reg is not a REG_ constant.
+ * Returns OPSZ_NA if reg is not a DR_REG_ constant.
  */
 opnd_size_t 
 reg_get_size(reg_id_t reg);
 
 DR_API
 /** 
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff \p opnd refers to reg directly or refers to a register
- * that overlaps \p reg (e.g., REG_AX overlaps REG_EAX).
+ * that overlaps \p reg (e.g., DR_REG_AX overlaps DR_REG_EAX).
  */
 bool 
 opnd_uses_reg(opnd_t opnd, reg_id_t reg);
@@ -1065,7 +1280,7 @@ opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_
 
 DR_API
 /** 
- * Assumes that both \p old_reg and \p new_reg are REG_ constants.
+ * Assumes that both \p old_reg and \p new_reg are DR_REG_ constants.
  * Replaces all occurrences of \p old_reg in \p *opnd with \p new_reg.
  */
 bool 
@@ -1106,8 +1321,8 @@ opnd_defines_use(opnd_t def, opnd_t use);
 
 DR_API
 /** 
- * Assumes \p size is a OPSZ_ or a REG_ constant.
- * If \p size is a REG_ constant, first calls reg_get_size(\p size)
+ * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
+ * If \p size is a DR_REG_ constant, first calls reg_get_size(\p size)
  * to get a OPSZ_ constant.
  * Returns the number of bytes the OPSZ_ constant represents.
  */
@@ -1906,7 +2121,7 @@ DR_API
 /**
  * Shrinks all registers not used as addresses, and all immed integer and
  * address sizes, to 16 bits.
- * Does not shrink REG_ESI or REG_EDI used in string instructions.
+ * Does not shrink DR_REG_ESI or DR_REG_EDI used in string instructions.
  */
 void 
 instr_shrink_to_16_bits(instr_t *instr);
@@ -1929,7 +2144,7 @@ instr_shrink_to_32_bits(instr_t *instr);
 
 DR_API
 /**
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's operands references a
  * register that overlaps \p reg.
  */
@@ -1946,7 +2161,7 @@ instr_uses_fp_reg(instr_t *instr);
 
 DR_API
 /**
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's source operands references \p reg.
  *
  * \note Use instr_reads_from_reg() to also consider addressing
@@ -1957,7 +2172,7 @@ instr_reg_in_src(instr_t *instr, reg_id_t reg);
 
 DR_API
 /**
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's destination operands references \p reg.
  */
 bool 
@@ -1965,7 +2180,7 @@ instr_reg_in_dst(instr_t *instr, reg_id_t reg);
 
 DR_API
 /**
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's destination operands is
  * a register operand for a register that overlaps \p reg.
  */
@@ -1974,7 +2189,7 @@ instr_writes_to_reg(instr_t *instr, reg_id_t reg);
 
 DR_API
 /**
- * Assumes that reg is a REG_ constant.
+ * Assumes that reg is a DR_REG_ constant.
  * Returns true iff at least one of instr's operands reads
  * from a register that overlaps reg (checks both source operands
  * and addressing registers used in destination operands).
@@ -1984,7 +2199,7 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg);
 
 DR_API 
 /**
- * Assumes that \p reg is a REG_ constant.
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's destination operands is
  * the same register (not enough to just overlap) as \p reg.
  */

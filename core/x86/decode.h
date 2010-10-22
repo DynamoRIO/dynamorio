@@ -389,15 +389,15 @@ enum {
 /* DR_API EXPORT BEGIN */
 
 /* Memory operand sizes (with Intel's corresponding size names noted).
- * For register operands, the REG_ constants are used, which implicitly
- * state a size (e.g., REG_CX is 2 bytes).
+ * For register operands, the DR_REG_ constants are used, which implicitly
+ * state a size (e.g., DR_REG_CX is 2 bytes).
  * Use the type opnd_size_t for these values (we avoid typedef-ing the
  * enum, as its storage size is compiler-specific).  opnd_size_t is a
  * byte, so the largest value here needs to be <= 255.
  */
 enum {
     /* register enum values are used for TYPE_*REG */
-    OPSZ_NA = REG_LAST_ENUM+1, /**< Sentinel value: not a valid size. */ /* = 139 */
+    OPSZ_NA = DR_REG_LAST_ENUM+1, /**< Sentinel value: not a valid size. */ /* = 139 */
     OPSZ_0,  /**< Intel 'm': "sizeless": used for both start addresses
               * (lea, invlpg) and implicit constants (rol, fldl2e, etc.) */
     OPSZ_1,  /**< Intel 'b': 1 byte */

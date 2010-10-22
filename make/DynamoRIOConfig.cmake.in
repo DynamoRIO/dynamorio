@@ -109,6 +109,11 @@
 #
 #  set(DynamoRIO_VISATT ON)
 #
+# To request the old REG_ enum symbols (which were changed to DR_REG_ to
+# avoid conflicts with system headers) set this variable:
+#
+#  set(DynamoRIO_REG_COMPATIBILITY ON)
+#
 ###########################################################################
 
 if (UNIX)
@@ -369,6 +374,10 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
       endif (tgt_cxx)
     endif (is_client)
   endif (UNIX)
+
+  if (DynamoRIO_REG_COMPATIBILITY)
+    set(tgt_cflags "${tgt_cflags} -DDR_REG_ENUM_COMPATIBILITY")
+  endif (DynamoRIO_REG_COMPATIBILITY)
 
   # DynamoRIOTarget.cmake added the "dynamorio" imported target
   target_link_libraries(${target} dynamorio)

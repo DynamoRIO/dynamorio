@@ -535,6 +535,8 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   endif (NOT "${source}" MATCHES "\\.runall$")
 
   add_library(${test}.dll SHARED ${client_source})
+  # to avoid changing all the REG_ constants we ask for compatibility
+  set(DynamoRIO_REG_COMPATIBILITY ON)
   configure_DynamoRIO_client(${test}.dll)
   add_dependencies(${test}.dll api_headers)
   get_target_property(client_path ${test}.dll LOCATION)
@@ -554,6 +556,8 @@ function(tobuild_api test source dr_ops exe_ops)
   get_target_property(pre_lflags ${test} LINK_FLAGS)
   # disable the default rpath for standalone apps
   set(DynamoRIO_RPATH OFF)
+  # to avoid changing all the REG_ constants we ask for compatibility
+  set(DynamoRIO_REG_COMPATIBILITY ON)
   configure_DynamoRIO_standalone(${test})
   # we don't set -DUSE_DYNAMO on the target to avoid setting
   # it for tools.c and thus adding dependencies on api headers

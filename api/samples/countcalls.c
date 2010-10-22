@@ -176,11 +176,11 @@ insert_counter_update(void *drcontext, instrlist_t *bb, instr_t *where, int offs
         /* We spill xbx to use a scratch register (we could do a liveness
          * analysis to try and find a dead register to use). Note that xax
          * is currently holding the saved eflags. */
-        dr_save_reg(drcontext, bb, where, REG_XBX, SPILL_SLOT_2);
-        dr_insert_read_tls_field(drcontext, bb, where, REG_XBX);
+        dr_save_reg(drcontext, bb, where, DR_REG_XBX, SPILL_SLOT_2);
+        dr_insert_read_tls_field(drcontext, bb, where, DR_REG_XBX);
         instrlist_meta_preinsert(bb, where,
-            INSTR_CREATE_inc(drcontext, OPND_CREATE_MEM32(REG_XBX, offset)));
-        dr_restore_reg(drcontext, bb, where, REG_XBX, SPILL_SLOT_2);
+            INSTR_CREATE_inc(drcontext, OPND_CREATE_MEM32(DR_REG_XBX, offset)));
+        dr_restore_reg(drcontext, bb, where, DR_REG_XBX, SPILL_SLOT_2);
     }
 
     /* restore flags */

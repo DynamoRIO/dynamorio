@@ -32,23 +32,31 @@
 
 set(PACKAGE_VERSION @VERSION_NUMBER@)
 
-if("${PACKAGE_FIND_VERSION_MAJOR}" EQUAL 0)
+if ("${PACKAGE_FIND_VERSION_MAJOR}" EQUAL 0)
   # No version specified: assume compatible
   set(PACKAGE_VERSION_COMPATIBLE 1)
-elseif("${PACKAGE_FIND_VERSION_MAJOR}" LESS @VERSION_NUMBER_MAJOR@)
+elseif ("${PACKAGE_FIND_VERSION_MAJOR}" LESS @VERSION_NUMBER_MAJOR@)
   # Asking for lesser major version == backward compatible
   set(PACKAGE_VERSION_COMPATIBLE 1)
-elseif("${PACKAGE_FIND_VERSION_MAJOR}" EQUAL @VERSION_NUMBER_MAJOR@)
+elseif ("${PACKAGE_FIND_VERSION_MAJOR}" EQUAL @VERSION_NUMBER_MAJOR@)
   # Asking for lesser version == backward compatible
-  if("${PACKAGE_FIND_VERSION_MINOR}" EQUAL @VERSION_NUMBER_MINOR@)
+  if ("${PACKAGE_FIND_VERSION_MINOR}" EQUAL @VERSION_NUMBER_MINOR@)
     set(PACKAGE_VERSION_EXACT 1)
-  elseif("${PACKAGE_FIND_VERSION_MINOR}" LESS @VERSION_NUMBER_MINOR@)
+  elseif ("${PACKAGE_FIND_VERSION_MINOR}" LESS @VERSION_NUMBER_MINOR@)
     set(PACKAGE_VERSION_COMPATIBLE 1)
-  else()
+  else ()
     # We are relatively forward compatible except features we added
     # but better err on the side of caution
     set(PACKAGE_VERSION_UNSUITABLE 1)
-  endif()
-else()
+  endif ()
+else ()
   set(PACKAGE_VERSION_UNSUITABLE 1)
-endif()
+endif ()
+
+# Compatibility with particular versions
+if (NOT "${PACKAGE_FIND_VERSION_MAJOR}" EQUAL 0)
+  if ("${PACKAGE_FIND_VERSION_MAJOR}.${PACKAGE_FIND_VERSION_MINOR}" STRLESS "2.1")
+    # Automatically use the older constants if client targets older version
+    set(DynamoRIO_REG_COMPATIBILITY ON PARENT_SCOPE)
+  endif ()
+endif ()
