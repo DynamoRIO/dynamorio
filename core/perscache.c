@@ -2842,7 +2842,8 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
 
     /* Take flags from info */
     pers->flags = info->flags;
-    pers->flags |= PERSCACHE_X86_32; /* FIXME: see above: should be set earlier */
+    /* FIXME: see above: should be set earlier */
+    pers->flags |= IF_X64_ELSE(PERSCACHE_X86_64, PERSCACHE_X86_32);
     if (option_level == OP_PCACHE_LOCAL) {
         ASSERT(option_string != NULL);
         pers->flags |= PERSCACHE_EXEMPTION_OPTIONS;
@@ -3621,8 +3622,9 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
         goto coarse_unit_load_exit;
     }
 
-    if (!TEST(PERSCACHE_X86_32, pers->flags)) {
-        LOG(THREAD, LOG_CACHE, 1, "  invalid architecture: not IA-32 %s\n", filename);
+    if (!TEST(IF_X64_ELSE(PERSCACHE_X86_64, PERSCACHE_X86_32), pers->flags)) {
+        LOG(THREAD, LOG_CACHE, 1, "  invalid architecture: not %s %s\n",
+            IF_X64_ELSE("AMD64", "IA-32"), filename);
         STATS_INC(perscache_version_mismatch);
         SYSLOG_INTERNAL_WARNING_ONCE("persistent cache architecture mismatch");
         goto coarse_unit_load_exit;
@@ -3678,7 +3680,8 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     if (modbase != pers->modinfo.base) {
 #ifdef LINUX
         /* for linux, we can trust lack of textrel flag as guaranteeing no text relocs */
-        if (DYNAMO_OPTION(persist_trust_textrel) && !module_has_text_relocs(modbase)) {
+        if (DYNAMO_OPTION(persist_trust_textrel) &&
+            !module_has_text_relocs(modbase, true/*raw file mapped*/)) {
             LOG(THREAD, LOG_CACHE, 1, "  module base mismatch "PFX" vs persisted "PFX
                 ", but no text relocs so ok\n", modbase, pers->modinfo.base);
         } else {

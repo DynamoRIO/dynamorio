@@ -2633,10 +2633,20 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
             bool copy_on_write, bool image, bool fixed)
 {
     int flags;
+#ifndef X64
     uint pg_offs;
     ASSERT_TRUNCATE(pg_offs, uint, offs / PAGE_SIZE);
     pg_offs = (uint) (offs / PAGE_SIZE);
+#endif
+#ifdef VMX86_SERVER
+    flags = MAP_PRIVATE; /* MAP_SHARED not supported yet */
+#else
     flags = copy_on_write ? MAP_PRIVATE : MAP_SHARED;
+#endif
+#ifdef X64 /* allocate memory from reachable range for image */
+    if (image && !fixed)
+        flags |= MAP_32BIT;
+#endif
     /* Allows memory request instead of mapping a file, 
      * so we can request memory from a particular address with fixed argument */
     if (f == -1)
@@ -2644,9 +2654,14 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
     if (fixed)
         flags |= MAP_FIXED;
     byte *map = mmap_syscall(addr, *size, memprot_to_osprot(prot),
-                             flags, f, pg_offs);
-    if (!mmap_syscall_succeeded(map))
+                             flags, f,
+                             /* mmap in X64 uses offset instead of page offset */
+                             IF_X64_ELSE(offs, pg_offs));
+    if (!mmap_syscall_succeeded(map)) {
+        LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n",
+            __func__, map);
         map = NULL;
+    }
     return map;
 }
 

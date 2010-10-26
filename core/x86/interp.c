@@ -2633,8 +2633,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     } else
         ASSERT(dynamo_exited);
     
-    if (bb->record_translation || !bb->for_cache ||
-        IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(full_decode), false))
+    if (bb->record_translation || !bb->for_cache
+        /* to split riprel, need to decode every instr */
+        IF_X64(|| DYNAMO_OPTION(coarse_split_riprel))
+        IF_CLIENT_INTERFACE(|| INTERNAL_OPTION(full_decode)))
         bb->full_decode = true;
     else {
 #if defined(STEAL_REGISTER) || defined(CHECK_RETURNS_SSE2)
@@ -2921,6 +2923,23 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             }
         }
 #endif /* RETURN_AFTER_CALL */
+
+#ifdef X64
+        /* must be prior to mbr check since mbr location could be rip-rel */
+        if (DYNAMO_OPTION(coarse_split_riprel) && DYNAMO_OPTION(coarse_units) && 
+            TEST(FRAG_COARSE_GRAIN, bb->flags) &&
+            instr_has_rel_addr_reference(bb->instr)) {
+            if (instrlist_first(bb->ilist) != bb->instr) {
+                /* have ref be in its own bb */
+                bb_stop_prior_to_instr(dcontext, bb, true/*appended already*/);
+                break; /* stop bb */
+            } else {
+                /* single-instr fine-grained bb */
+                bb->flags &= ~FRAG_COARSE_GRAIN;
+                STATS_INC(coarse_prevent_riprel);
+            }
+        }
+#endif
 
         if (instr_is_call_direct(bb->instr)) {
             if (!bb_process_call_direct(dcontext, bb)) {

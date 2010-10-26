@@ -1862,6 +1862,10 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
      */
     PC_OPTION_DEFAULT(bool, coarse_split_calls, false,
         "make all calls fine-grained and in own bbs")
+#ifdef X64
+    PC_OPTION_DEFAULT(bool, coarse_split_riprel, false,
+        "make all rip-relative references fine-grained and in own bbs")
+#endif
 #ifdef LINUX
     OPTION_DEFAULT(bool, persist_trust_textrel, true,
         "if textrel flag is not set, assume module has no text relocs")

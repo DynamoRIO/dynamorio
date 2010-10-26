@@ -4041,6 +4041,8 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
 
 #ifdef X64
     if (TEST(PERSCACHE_X86_32, info->flags)) {
+        /* XXX: this won't work b/c opnd size will be wrong */
+        ASSERT_NOT_IMPLEMENTED(false && "must pass opnd size to SAVE_TO_TLS");
         fcache_ret_prefix = SAVE_TO_TLS(dcontext, REG_ECX, MANGLE_XCX_SPILL_SLOT);
         APP(&ilist, fcache_ret_prefix);
         /* We assume all our data structures are <4GB which is guaranteed for

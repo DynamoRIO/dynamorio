@@ -566,6 +566,9 @@
     STATS_DEF("Fine-grain fragments in coarse-grain regions", num_fine_in_coarse)
     STATS_DEF("Coarse prevented by overlap w/ fine region", coarse_overlap_with_fine)
     STATS_DEF("Coarse prevented by non-exit cti", coarse_prevent_cti)
+#ifdef X64
+    STATS_DEF("Coarse prevented by rip-rel", coarse_prevent_riprel)
+#endif
     STATS_DEF("Coarse prevented by privateness", coarse_prevent_private)
     STATS_DEF("Coarse prevented by ind call conversion", coarse_prevent_indcall)
     STATS_DEF("Coarse prevented by system call", coarse_prevent_syscall)

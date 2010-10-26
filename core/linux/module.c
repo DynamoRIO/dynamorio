@@ -1105,9 +1105,9 @@ file_is_elf64(file_t f)
  * relocations?  then don't need -persist_trust_textrel option.
  */
 bool
-module_has_text_relocs(app_pc base)
+module_has_text_relocs(app_pc base, bool at_map)
 {
-    app_pc mod_base;
+    app_pc mod_base, mod_end;
     ssize_t offset; /* offset loaded at relative to base */
     uint i;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
@@ -1117,19 +1117,21 @@ module_has_text_relocs(app_pc base)
     ASSERT(is_elf_so_header(base, 0));
     /* walk program headers to get mod_base */
     mod_base = module_vaddr_from_prog_header(base + elf_hdr->e_phoff,
-                                             elf_hdr->e_phnum, NULL);
+                                             elf_hdr->e_phnum, &mod_end);
     offset = base - mod_base;
     /* walk program headers to get dynamic section pointer */
     prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)(base + elf_hdr->e_phoff);
     for (i = 0; i < elf_hdr->e_phnum; i++) {
         if (prog_hdr->p_type == PT_DYNAMIC) {
-            dyn = (ELF_DYNAMIC_ENTRY_TYPE *)(prog_hdr->p_vaddr + offset);
+            dyn = (ELF_DYNAMIC_ENTRY_TYPE *)
+                ((at_map ? prog_hdr->p_offset : prog_hdr->p_vaddr) + offset);
             break;
         }
         prog_hdr++;
     }
     if (dyn == NULL)
         return false;
+    ASSERT((app_pc)dyn > mod_base && (app_pc)dyn < mod_end + offset);
     while (dyn->d_tag != DT_NULL) {
         /* Older binaries have a separate DT_TEXTREL entry */
         if (dyn->d_tag == DT_TEXTREL)

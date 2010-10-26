@@ -259,7 +259,7 @@ void free_module_names(module_names_t *mod_names HEAPACCT(which_heap_t which));
 
 #ifdef LINUX
 /* returns true if the module is marked as having text relocations */
-bool module_has_text_relocs(app_pc base);
+bool module_has_text_relocs(app_pc base, bool at_map);
 #endif
 
 
