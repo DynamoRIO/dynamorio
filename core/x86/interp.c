@@ -310,6 +310,41 @@ static void
 report_native_module(dcontext_t *dcontext, app_pc modpc);
 #endif
 
+/***************************************************************************
+ * Image entry
+ */
+
+static bool reached_image_entry = false;
+
+static INLINE_FORCED bool
+check_for_image_entry(app_pc bb_start)
+{
+    if (!reached_image_entry && bb_start == get_image_entry()) {
+        LOG(THREAD_GET, LOG_ALL, 1, "Reached image entry point "PFX"\n", bb_start);
+        set_reached_image_entry();
+        return true;
+    }
+    return false;
+}
+
+void
+set_reached_image_entry()
+{
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    reached_image_entry = true;
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
+
+bool
+reached_image_entry_yet()
+{
+    return reached_image_entry;
+}
+
+/***************************************************************************
+ * Whether to inline or elide callees
+ */
+
 /* return true if pc is a call target that should NOT be inlined */
 #if defined(DEBUG) || !defined(WINDOWS)
 /* cl.exe non-debug won't let other modules use it if inlined */
@@ -4036,23 +4071,17 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     fragment_t *f;
     build_bb_t bb;
     where_am_i_t wherewasi = dcontext->whereami;
-#ifdef WINDOWS
     bool image_entry;
-#endif
     KSTART(bb_building);
     dcontext->whereami = WHERE_INTERP;
 
     /* Neither thin_client nor hotp_only should be building any bbs. */
     ASSERT(!RUNNING_WITHOUT_CODE_CACHE());
 
-#ifdef WINDOWS
     /* ASSUMPTION: image entry is reached via indirect transfer and
      * so will be the start of a bb
-     * FIXME: ensure compiler inlines this so we don't make the call
-     * if we've already reached the entry point
      */
     image_entry = check_for_image_entry(start);
-#endif
 
     init_interp_build_bb(dcontext, &bb, start, initial_flags
                          _IF_CLIENT(for_trace) _IF_CLIENT(unmangled_ilist));
@@ -4084,13 +4113,11 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
             build_native_exec_bb(dcontext, &bb);
         }
     }
-#ifdef WINDOWS
     /* case 9652: we do not want to persist the image entry point, so we keep
      * it fine-grained
      */
     if (image_entry)
         bb.flags &= ~FRAG_COARSE_GRAIN;
-#endif
 
     /* emit fragment into fcache */
     KSTART(bb_emit);

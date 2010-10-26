@@ -108,8 +108,6 @@ app_pc vsyscall_syscall_end_pc = NULL;
 /* atomic variable to prevent multiple threads from trying to detach at the same time */
 DECLARE_CXTSWPROT_VAR(static volatile int dynamo_detaching_flag, LOCK_FREE_STATE);
 
-static bool reached_image_entry = false;
-
 #ifdef PROFILE_RDTSC
 uint kilo_hertz; /* cpu clock speed */
 #endif
@@ -2903,33 +2901,6 @@ get_image_entry()
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     }
     return image_entry_point;
-}
-
-bool
-check_for_image_entry(app_pc bb_start)
-{
-    if (!reached_image_entry && bb_start == get_image_entry()) {
-        LOG(THREAD_GET, LOG_ALL, 1, "Reached image entry point "PFX"\n", bb_start);
-        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-        reached_image_entry = true;
-        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-        return true;
-    }
-    return false;
-}
-
-void
-set_reached_image_entry()
-{
-    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-    reached_image_entry = true;
-    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-}
-
-bool
-reached_image_entry_yet()
-{
-    return reached_image_entry;
 }
 
 /* converts a local_state_t offset to a segment offset */

@@ -720,6 +720,11 @@ write_options(opt_info_t *opt_info, WCHAR *wbuf)
             break;
 #endif
         default:
+#ifndef CLIENT_INTERFACE
+            /* no API's so no added options */
+            mode_str = "";
+            break;
+#endif
             DO_ASSERT(false);
     }
 

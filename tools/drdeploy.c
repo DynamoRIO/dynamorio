@@ -297,10 +297,12 @@ bool register_proc(const char *process,
     if (_access(dr_root, 0) == -1) {
         usage("cannot access DynamoRIO root directory %s", dr_root);
     }
+#ifdef CLIENT_INTERFACE
     if (dr_mode == DR_MODE_NONE) {
         usage("you must provide a DynamoRIO mode");
     }
-    
+#endif
+
     /* warn if the DR root directory doesn't look right */
     if (!check_dr_root(dr_root, debug, dr_platform, false))
         return false;
@@ -451,7 +453,11 @@ int main(int argc, char *argv[])
     dr_operation_mode_t dr_mode = DR_MODE_NONE;
 #else
     /* only one choice so no -mode */
+# ifdef CLIENT_INTERFACE
     dr_operation_mode_t dr_mode = DR_MODE_CODE_MANIPULATION;
+# else
+    dr_operation_mode_t dr_mode = DR_MODE_NONE;
+# endif
 #endif
     char *extra_ops = NULL;
     action_t action = action_none;

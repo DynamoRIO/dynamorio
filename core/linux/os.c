@@ -181,6 +181,8 @@ static char dynamorio_alt_arch_path[MAXIMUM_PATH];
 static app_pc dynamo_dll_start = NULL;
 static app_pc dynamo_dll_end = NULL; /* open-ended */
 
+static app_pc executable_start = NULL;
+
 /* does the kernel provide tids that must be used to distinguish threads in a group? */
 static bool kernel_thread_groups;
 
@@ -587,7 +589,6 @@ get_application_name_helper(bool ignore_cache)
 }
 
 /* get application name, (cached), used for event logging */
-/* FIXME : Not yet implemented */
 char *
 get_application_name(void)
 {
@@ -5486,6 +5487,10 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
     app_pc min_vaddr =
         module_vaddr_from_prog_header((app_pc)info->dlpi_phdr, info->dlpi_phnum, NULL);
     app_pc base = info->dlpi_addr + min_vaddr;
+    /* Note that dl_iterate_phdr doesn't give a name for the executable or
+     * ld-linux.so presumably b/c those are mapped by the kernel so the
+     * user-space loader doesn't need to know their file paths.
+     */
     LOG(GLOBAL, LOG_VMAREAS, 2,
         "dl_iterate_get_path_cb: addr="PFX" hdrs="PFX" base="PFX" name=%s\n",
         info->dlpi_addr, info->dlpi_phdr, base, info->dlpi_name);
@@ -5744,6 +5749,58 @@ get_dynamo_library_bounds(void)
     return res;
 }
 
+#ifdef HAVE_PROC_MAPS
+/* Get full path+name of executable file.
+ * We only use this for finding executable_start and it's
+ * used in concert w/ walking /proc/self/maps.
+ * For !HAVE_PROC_MAPS we use dl_iterate_phdr to find executable_start.
+ */
+static char *
+get_executable_path(void)
+{
+    static char exepath[MAXIMUM_PATH];
+    static bool tried = false;
+    if (!tried) {
+        tried = true;
+        /* assume we have /proc/self/exe symlink: could add HAVE_PROC_EXE
+         * but we have no alternative solution except assuming the first
+         * /proc/self/maps entry is the executable
+         */
+        ssize_t res;
+        DEBUG_DECLARE(int len = )
+            snprintf(exepath, BUFFER_SIZE_ELEMENTS(exepath),
+                     "/proc/%d/exe", get_process_id());
+        ASSERT(len > 0);
+        NULL_TERMINATE_BUFFER(exepath);
+        res = dynamorio_syscall(SYS_readlink, 3, exepath, exepath,
+                                BUFFER_SIZE_BYTES(exepath));
+        ASSERT(res > 0);
+        NULL_TERMINATE_BUFFER(exepath);
+    }
+    return exepath;
+}
+#endif
+
+app_pc
+get_image_entry()
+{
+    static app_pc image_entry_point = NULL;
+    if (image_entry_point == NULL && executable_start != NULL) {
+        module_area_t *ma;
+        os_get_module_info_lock();
+        ma = module_pc_lookup(executable_start);
+        ASSERT(ma != NULL);
+        if (ma != NULL) {
+            ASSERT(executable_start == ma->start);
+            SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+            image_entry_point = ma->entry_point;
+            SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+        }
+        os_get_module_info_unlock();
+    }
+    return image_entry_point;
+}
+
 #ifdef DEBUG
 void
 mem_stats_snapshot()
@@ -5821,6 +5878,15 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
         "dl_iterate_get_areas_cb: addr="PFX" hdrs="PFX" base="PFX" name=%s\n",
         info->dlpi_addr, info->dlpi_phdr, modbase, info->dlpi_name);
     ASSERT(info->dlpi_phnum == module_num_program_headers(modbase));
+
+    ASSERT(count != NULL);
+    if (*count == 0) {
+        /* since we don't get a name for the executable, for now we
+         * assume that the first iter is the executable itself.
+         * XXX: this seems to hold, but there's no guarantee: can we do better?
+         */
+        executable_start = modbase;
+    }
 
 # ifndef X64
     if (modsize == PAGE_SIZE && info->dlpi_name[0] == '\0') {
@@ -6146,6 +6212,8 @@ find_executable_vm_areas(void)
                    is_elf_so_header(iter.vm_start, size)) {
             size_t image_size = size;
             app_pc mod_base, mod_end;
+            char *exec_match;
+            bool found_exec = false;
             image = true;
             DODEBUG({ map_type = "ELF SO"; });
             LOG(GLOBAL, LOG_VMAREAS, 2,
@@ -6166,6 +6234,28 @@ find_executable_vm_areas(void)
                 "Found already mapped module total module :\n"
                 "\t"PFX"-"PFX" inode="UINT64_FORMAT_STRING" name=%s\n",
                 iter.vm_start, iter.vm_start+image_size, iter.inode, iter.comment);
+
+            /* look for executable */
+            exec_match = get_executable_path();
+            if (exec_match != NULL && exec_match[0] != '\0')
+                found_exec = (strcmp(iter.comment, exec_match) == 0);
+            else {
+                /* fall back on looking for app name: though if running a
+                 * symlink or something we won't find it!
+                 * XXX: take 1st entry, then?  for now we rely on
+                 * get_executable_path() succeeding
+                 */
+                exec_match = strstr(iter.comment, get_application_name());
+                found_exec = (exec_match != NULL && exec_match == iter.comment +
+                              strlen(iter.comment) - strlen(get_application_name()));
+            }
+            if (found_exec) {
+                executable_start = iter.vm_start;
+                LOG(GLOBAL, LOG_VMAREAS, 2,
+                    "Found executable %s @"PFX"-"PFX" %s\n", get_application_name(),
+                    iter.vm_start, iter.vm_start+image_size, iter.comment);
+            }
+
             module_list_add(iter.vm_start, image_size, false, iter.comment, iter.inode);
         } else if (iter.inode != 0) {
             DODEBUG({ map_type = "Mapped File"; });
@@ -6267,13 +6357,24 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
 initial_call_stack_status_t
 at_initial_stack_bottom(dcontext_t *dcontext, app_pc target_pc)
 {
-    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
-    if (target_pc == ostd->stack_bottom_pc) {
-        return INITIAL_STACK_BOTTOM_REACHED;
+    /* We can't rely exclusively on finding the true stack bottom
+     * b/c we can't always walk the call stack (PR 608990) so we
+     * use the image entry as our primary trigger
+     */
+    if (executable_start != NULL/*defensive*/ && reached_image_entry_yet()) {
+        return INITIAL_STACK_EMPTY;
     } else {
-        return INITIAL_STACK_BOTTOM_NOT_REACHED;
+        /* If our stack walk ends early we could have false positives, but
+         * that's better than false negatives if we miss the image entry
+         * or we were unable to find the executable_start
+         */
+        os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+        if (target_pc == ostd->stack_bottom_pc) {
+            return INITIAL_STACK_BOTTOM_REACHED;
+        } else {
+            return INITIAL_STACK_BOTTOM_NOT_REACHED;
+        }
     }
-    /* we never start with an INITIAL_STACK_EMPTY */
 }
 #endif /* RETURN_AFTER_CALL */
 

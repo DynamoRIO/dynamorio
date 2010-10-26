@@ -83,9 +83,6 @@ dump_mbi(file_t file, MEMORY_BASIC_INFORMATION *mbi, bool dump_xml);
 void
 dump_mbi_addr(file_t file, app_pc target, bool dump_xml);
 
-void
-set_reached_image_entry(void);
-
 bool
 prot_is_writable(uint prot);
 

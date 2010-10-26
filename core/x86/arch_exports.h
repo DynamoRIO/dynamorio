@@ -1289,6 +1289,12 @@ bool app_bb_overlaps(dcontext_t *dcontext, byte *start_pc, uint flags,
 bool
 on_native_exec_list(app_pc modbase, const char *name);
 
+bool
+reached_image_entry_yet(void);
+
+void
+set_reached_image_entry(void);
+
 /* in decode.c, needed here for ref in arch.h */
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */

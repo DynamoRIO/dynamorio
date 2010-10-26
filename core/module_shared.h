@@ -507,4 +507,7 @@ get_shared_lib_name(app_pc map, size_t size);
 
 #endif /* WINDOWS */
 
+app_pc
+get_image_entry(void);
+
 #endif /* MODULE_LIST_H */

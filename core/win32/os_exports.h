@@ -199,10 +199,6 @@ thread_set_context(thread_record_t *tr, CONTEXT *context);
 void print_dynamo_regions(void);
 #endif
 
-app_pc get_image_entry(void);
-bool check_for_image_entry(app_pc bb_start);
-bool reached_image_entry_yet(void);
-
 size_t get_allocation_size(byte *pc, byte **base_pc);
 byte *get_allocation_base(byte *pc);
 void mark_page_as_guard(byte *pc);

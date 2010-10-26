@@ -2,7 +2,7 @@ starting up
 #if !defined(PROGRAM_SHEPHERDING) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1))
 // nothing
 #else
-#  if defined(no_executable_if_flush) || (defined(X)
+#  if defined(no_executable_if_flush) || defined(X)
 #    if !defined(executable_heap) && !defined(executable_if_dot_data) && !defined(executable_if_image)
 #      if !defined(detect_mode)
          SEC_VIO_AUTO_STOP
