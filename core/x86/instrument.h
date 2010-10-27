@@ -1624,6 +1624,17 @@ __wrap_realloc(void *mem, size_t size);
 
 DR_API
 /**
+ * Allocates memory from DR's global memory pool, but mimics the
+ * behavior of calloc.  Memory must be freed with __wrap_free().  The
+ * __wrap routines are intended to be used with ld's -wrap option; see
+ * __wrap_malloc() for more information.
+ * \note Currently Linux only.
+ */
+void *
+__wrap_calloc(size_t nmemb, size_t size);
+
+DR_API
+/**
  * Frees memory from DR's global memory pool.  Memory must have been
  * allocated with __wrap_malloc(). The __wrap routines are intended to
  * be used with ld's -wrap option; see __wrap_malloc() for more

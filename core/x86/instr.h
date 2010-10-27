@@ -404,12 +404,14 @@ extern const reg_id_t reg_fixer[];
 #define REG_SPECIFIER_BITS 8
 #define SCALE_SPECIFIER_BITS 4
 
-#define INT8_MIN   SCHAR_MIN
-#define INT8_MAX   SCHAR_MAX
-#define INT16_MIN  SHRT_MIN
-#define INT16_MAX  SHRT_MAX
-#define INT32_MIN  INT_MIN
-#define INT32_MAX  INT_MAX
+#ifndef INT8_MIN
+# define INT8_MIN   SCHAR_MIN
+# define INT8_MAX   SCHAR_MAX
+# define INT16_MIN  SHRT_MIN
+# define INT16_MAX  SHRT_MAX
+# define INT32_MIN  INT_MIN
+# define INT32_MAX  INT_MAX
+#endif
 
 /* typedef is in globals.h */
 struct _opnd_t {

@@ -58,6 +58,7 @@
 #include "../synch.h"
 #ifdef LINUX
 # include <sys/time.h> /* ITIMER_* */
+# include "../linux/module.h" /* redirect_* functions */
 #endif
 
 #ifdef CLIENT_INTERFACE
@@ -2178,16 +2179,7 @@ DR_API
 void *
 __wrap_malloc(size_t size)
 {
-    void *mem;
-    ASSERT(sizeof(size_t) >= HEAP_ALIGNMENT);
-    size += sizeof(size_t);
-    mem = global_heap_alloc(size HEAPACCT(ACCT_CLIENT));
-    if (mem == NULL) {
-        CLIENT_ASSERT(false, "malloc failed: out of memory");
-        return NULL;
-    }
-    *((size_t *)mem) = size;
-    return mem + sizeof(size_t);
+    return redirect_malloc(size);
 }
 
 DR_API
@@ -2199,17 +2191,19 @@ DR_API
 void *
 __wrap_realloc(void *mem, size_t size)
 {
-    void *buf = NULL;
-    if (size > 0) {
-        buf = __wrap_malloc(size);
-        if (buf != NULL) {
-            size_t old_size = *((size_t *)(mem - sizeof(size_t)));
-            size_t min_size = MIN(old_size, size);
-            memcpy(buf, mem, min_size);
-        }
-    }
-    __wrap_free(mem);
-    return buf;
+    return redirect_realloc(mem, size);
+}
+
+DR_API
+/* With ld's -wrap option, we can supply a replacement for calloc.
+ * This routine allocates memory from DR's global memory pool. Unlike
+ * dr_global_alloc(), however, we store the size of the allocation in
+ * the first few bytes so __wrap_free() can retrieve it.
+ */
+void *
+__wrap_calloc(size_t nmemb, size_t size)
+{
+    return redirect_calloc(nmemb, size);
 }
 
 DR_API
@@ -2220,13 +2214,7 @@ DR_API
 void
 __wrap_free(void *mem)
 {
-    /* PR 200203: must_not_be_inlined() is assuming this routine calls
-     * no other DR routines besides global_heap_free!
-     */
-    if (mem != NULL) {
-        mem -= sizeof(size_t);
-        global_heap_free(mem, *((size_t *)mem) HEAPACCT(ACCT_CLIENT));
-    }
+    redirect_free(mem);
 }
 #endif
 

@@ -33,24 +33,75 @@
 #ifndef MODULE_H
 #define MODULE_H
 
+#include <elf.h> /* for ELF types */
+
 /* FIXME - can we have 32bit and 64bit elf files in the same process like we see in
  * windows WOW?  What if anything should we do to accommodate that? */
 #ifdef X64
 # define ELF_HEADER_TYPE Elf64_Ehdr
 # define ELF_PROGRAM_HEADER_TYPE Elf64_Phdr
+# define ELF_SECTION_HEADER_TYPE Elf64_Shdr
 # define ELF_DYNAMIC_ENTRY_TYPE Elf64_Dyn
 # define ELF_ADDR Elf64_Addr
+# define ELF_WORD Elf64_Xword
+# define ELF_HALF Elf64_Half
 # define ELF_SYM_TYPE Elf64_Sym
 # define ELF_ST_TYPE ELF64_ST_TYPE
 # define ELF_WORD_SIZE 64 /* __ELF_NATIVE_CLASS */
+# define ELF_ST_BIND ELF64_ST_BIND
+# define ELF_ST_VISIBILITY ELF64_ST_VISIBILITY
+# define ELF_REL_TYPE Elf64_Rel
+# define ELF_RELA_TYPE Elf64_Rela
 #else
 # define ELF_HEADER_TYPE Elf32_Ehdr
 # define ELF_PROGRAM_HEADER_TYPE Elf32_Phdr
+# define ELF_SECTION_HEADER_TYPE Elf32_Shdr
 # define ELF_DYNAMIC_ENTRY_TYPE Elf32_Dyn
 # define ELF_ADDR Elf32_Addr
+# define ELF_WORD Elf32_Word
+# define ELF_HALF Elf32_Half
 # define ELF_SYM_TYPE Elf32_Sym
 # define ELF_ST_TYPE ELF32_ST_TYPE
 # define ELF_WORD_SIZE 32 /* __ELF_NATIVE_CLASS */
+# define ELF_ST_BIND ELF32_ST_BIND
+# define ELF_ST_VISIBILITY ELF32_ST_VISIBILITY
+# define ELF_REL_TYPE Elf32_Rel
+# define ELF_RELA_TYPE Elf32_Rela
+#endif
+
+#ifdef X64 
+/* AMD x86-64 relocations.  */
+# define ELF_R_TYPE   ELF64_R_TYPE
+# define ELF_R_SYM    ELF64_R_SYM
+# define ELF_R_INFO   ELF64_R_INFO
+/* relocation type */
+# define ELF_R_NONE      R_X86_64_NONE        /* No reloc */
+# define ELF_R_DIRECT    R_X86_64_64          /* Direct 64 bit */
+# define ELF_R_PC32      R_X86_64_PC32        /* PC relative 32-bit signed */
+# define ELF_R_COPY      R_X86_64_COPY        /* copy symbol at runtime */
+# define ELF_R_GLOB_DAT  R_X86_64_GLOB_DAT    /* GOT entry */
+# define ELF_R_JUMP_SLOT R_X86_64_JUMP_SLOT   /* PLT entry */
+# define ELF_R_RELATIVE  R_X86_64_RELATIVE    /* Adjust by program delta */
+/* TLS hanlding */
+# define ELF_R_TLS_DTPMOD   R_X86_64_DTPMOD64 /* Module ID */
+# define ELF_R_TLS_TPOFF    R_X86_64_TPOFF64  /* Offset in module's TLS block */
+# define ELF_R_TLS_DTPOFF   R_X86_64_DTPOFF64 /* Offset in initial TLS block */
+#else /* 32-bit */
+# define ELF_R_TYPE   ELF32_R_TYPE
+# define ELF_R_SYM    ELF32_R_SYM
+# define ELF_R_INFO   ELF32_R_INFO
+/* relocation type */
+# define ELF_R_NONE      R_386_NONE      /* No reloc */
+# define ELF_R_DIRECT    R_386_32        /* Direct 32 bit */
+# define ELF_R_PC32      R_386_PC32      /* PC relative 32 bit */ 
+# define ELF_R_COPY      R_386_COPY      /* Copy symbol at runtime */
+# define ELF_R_GLOB_DAT  R_386_GLOB_DAT  /* GOT entry */
+# define ELF_R_JUMP_SLOT R_386_JMP_SLOT  /* PLT entry */
+# define ELF_R_RELATIVE  R_386_RELATIVE  /* Adjust by program delta */
+/* tls related */
+# define ELF_R_TLS_DTPMOD  R_386_TLS_DTPMOD32 /* Module ID */
+# define ELF_R_TLS_TPOFF   R_386_TLS_TPOFF  /* Negated offsets in static TLS block */
+# define ELF_R_TLS_DTPOFF  R_386_TLS_DTPOFF32 /* Offset in TLS block */
 #endif
 
 /* used only in our own routines here which use PF_* converted to MEMPROT_* */
@@ -107,5 +158,90 @@ typedef struct _os_module_data_t {
     uint alloc_segments; /* capacity of segments array */
     module_segment_t *segments;
 } os_module_data_t;
+
+/* data structure for loading and relocating private client,
+ * most from PT_DYNAMIC segment 
+ */
+typedef struct _privload_data_t {
+    os_module_data_t os_data;
+    ELF_DYNAMIC_ENTRY_TYPE *dyn;
+    ptr_int_t      load_delta;  /* delta from preferred base */
+    const char    *soname;
+    ELF_ADDR       pltgot;
+    size_t         pltrelsz;
+    ELF_WORD       pltrel;
+    bool           textrel;
+    app_pc         jmprel;
+    ELF_REL_TYPE * rel;
+    size_t         relsz;
+    size_t         relent;
+    ELF_RELA_TYPE *rela;
+    size_t         relasz;
+    size_t         relaent;
+    app_pc         verneed;
+    int            verneednum;
+    int            relcount;
+    ELF_HALF      *versym;
+    /* initialization/finalization function */
+    app_pc         init;
+    app_pc         fini;
+    app_pc        *init_array;
+    app_pc        *fini_array;
+    size_t         init_arraysz;
+    size_t         fini_arraysz;
+    /* tls info */
+    uint           tls_block_size;
+    uint           tls_align;
+    uint           tls_modid;
+    uint           tls_offset;
+    uint           tls_image_size;
+    uint           tls_first_byte;
+    app_pc         tls_image;
+} privload_data_t;
+
+void
+module_get_privload_data(app_pc base, size_t size,
+                         OUT privload_data_t *pd);
+
+ELF_ADDR 
+module_get_section_with_name(app_pc image, size_t img_size,
+                             const char *sec_name);
+
+void
+module_relocate_rel(app_pc modbase,
+                    privload_data_t *pd,
+                    ELF_REL_TYPE *start,
+                    ELF_REL_TYPE *end);
+                         
+void
+module_relocate_rela(app_pc modbase,
+                     privload_data_t *pd,
+                     ELF_RELA_TYPE *start,
+                     ELF_RELA_TYPE *end);
+
+bool
+module_read_os_data(app_pc base,
+                    OUT ptr_int_t *delta,
+                    OUT os_module_data_t *os_data,
+                    OUT char **soname);
+
+char *
+get_shared_lib_soname(app_pc map);
+
+/* Redirected functions for loaded module,
+ * they are also used by __wrap_* functions in instrument.c
+ */
+
+void *
+redirect_calloc(size_t nmemb, size_t size);
+
+void *
+redirect_malloc(size_t size);
+
+void  
+redirect_free(void *ptr);
+
+void *
+redirect_realloc(void *ptr, size_t size);
 
 #endif /* MODULE_H */
