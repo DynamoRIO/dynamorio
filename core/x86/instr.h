@@ -3204,15 +3204,23 @@ extern const reg_id_t regparms[];
  * This enum corresponds with the array in decode_table.c
  * IF YOU CHANGE ONE YOU MUST CHANGE THE OTHER
  * The Perl script tools/x86opnums.pl is useful for re-numbering these
- * if you add or delete in the middle (feed it the array from decode_table.c)
+ * if you add or delete in the middle (feed it the array from decode_table.c).
+ * When adding new instructions, be sure to update all of these places:
+ *   1) decode_table op_instr array
+ *   2) decode_table decoding table entries
+ *   3) OP_ enum (here) via x86opnums.pl
+ *   4) update OP_LAST at end of enum here
+ *   5) decode_fast tables if necessary (they are conservative)
+ *   6) instr_create macros
+ *   7) suite/tests/api/ir* tests
  */
 #endif
 /** Opcode constants for use in the instr_t data structure. */
 enum {
-/*   0 */     OP_INVALID,  /* NULL, */ /**< Indicates an invalid instr_t. */
-/*   1 */     OP_UNDECODED,/* NULL, */ /**< Indicates an undecoded instr_t. */
-/*   2 */     OP_CONTD,    /* NULL, */ /**< Used internally only. */
-/*   3 */     OP_LABEL,    /* NULL, */ /**< A label is used for instr_t branch targets. */
+/*   0 */     OP_INVALID,  /* NULL, */ /**< INVALID opcode */
+/*   1 */     OP_UNDECODED,  /* NULL, */ /**< UNDECODED opcode */
+/*   2 */     OP_CONTD,    /* NULL, */ /**< CONTD opcode */
+/*   3 */     OP_LABEL,    /* NULL, */ /**< LABEL opcode */
 
 /*   4 */     OP_add,      /* &first_byte[0x05], */ /**< add opcode */
 /*   5 */     OP_or,       /* &first_byte[0x0d], */ /**< or opcode */
@@ -3273,7 +3281,7 @@ enum {
      * hopefully time taken considering them doesn't offset that */
 /*  55 */     OP_mov_ld,      /* &first_byte[0xa1], */ /**< mov_ld opcode */
 /*  56 */     OP_mov_st,      /* &first_byte[0xa3], */ /**< mov_st opcode */
-    /* note that store of immed is mov_st not mov_imm, even though can be immed->reg,
+    /* PR 250397: store of immed is mov_st not mov_imm, even though can be immed->reg,
      * which we address by sharing part of the mov_st template chain */
 /*  57 */     OP_mov_imm,     /* &first_byte[0xb8], */ /**< mov_imm opcode */
 /*  58 */     OP_mov_seg,     /* &first_byte[0x8e], */ /**< mov_seg opcode */
@@ -3503,8 +3511,8 @@ enum {
 /* 270 */     OP_verw,          /* &extensions[13][5], */ /**< verw opcode */
 /* 271 */     OP_sgdt,          /* &mod_extensions[0][0], */ /**< sgdt opcode */
 /* 272 */     OP_sidt,          /* &mod_extensions[1][0], */ /**< sidt opcode */
-/* 273 */     OP_lgdt,          /* &extensions[14][2], */ /**< lgdt opcode */
-/* 274 */     OP_lidt,          /* &extensions[14][3], */ /**< lidt opcode */
+/* 273 */     OP_lgdt,          /* &mod_extensions[5][0], */ /**< lgdt opcode */
+/* 274 */     OP_lidt,          /* &mod_extensions[4][0], */ /**< lidt opcode */
 /* 275 */     OP_smsw,          /* &extensions[14][4], */ /**< smsw opcode */
 /* 276 */     OP_lmsw,          /* &extensions[14][6], */ /**< lmsw opcode */
 /* 277 */     OP_invlpg,        /* &mod_extensions[2][0], */ /**< invlpg opcode */
@@ -3513,8 +3521,8 @@ enum {
 /* 280 */     OP_fxrstor,       /* &extensions[22][1], */ /**< fxrstor opcode */
 /* 281 */     OP_ldmxcsr,       /* &extensions[22][2], */ /**< ldmxcsr opcode */
 /* 282 */     OP_stmxcsr,       /* &extensions[22][3], */ /**< stmxcsr opcode */
-/* 283 */     OP_lfence,        /* &extensions[22][5], */ /**< lfence opcode */
-/* 284 */     OP_mfence,        /* &extensions[22][6], */ /**< mfence opcode */
+/* 283 */     OP_lfence,        /* &mod_extensions[6][1], */ /**< lfence opcode */
+/* 284 */     OP_mfence,        /* &mod_extensions[7][1], */ /**< mfence opcode */
 /* 285 */     OP_clflush,       /* &mod_extensions[3][0], */ /**< clflush opcode */
 /* 286 */     OP_sfence,        /* &mod_extensions[3][1], */ /**< sfence opcode */
 /* 287 */     OP_prefetchnta,   /* &extensions[23][0], */ /**< prefetchnta opcode */
@@ -3613,7 +3621,7 @@ enum {
 /* 378 */     OP_cvtdq2pd,    /* &prefix_extensions[77][1], */ /**< cvtdq2pd opcode */
 /* 379 */     OP_cvttpd2dq,   /* &prefix_extensions[77][2], */ /**< cvttpd2dq opcode */
 /* 380 */     OP_cvtpd2dq,    /* &prefix_extensions[77][3], */ /**< cvtpd2dq opcode */
-/* 381 */     OP_nop,         /* &prefix_extensions[103][0], */ /**< nop opcode */
+/* 381 */     OP_nop,         /* &rex_extensions[0][0], */ /**< nop opcode */
 /* 382 */     OP_pause,       /* &prefix_extensions[103][1], */ /**< pause opcode */
 
 /* 383 */     OP_ins,          /* &rep_extensions[1][0], */ /**< ins opcode */
@@ -3784,7 +3792,7 @@ enum {
 /* 537 */     OP_pabsd,          /* &prefix_extensions[132][0], */ /**< pabsd opcode */
 /* 538 */     OP_palignr,        /* &prefix_extensions[133][0], */ /**< palignr opcode */
 
-    /* SSE4 (incl AMD and Intel-specific extensions */
+    /* SSE4 (incl AMD (SSE4A) and Intel-specific (SSE4.1, SSE4.2) extensions */
 /* 539 */     OP_popcnt,         /* &second_byte[0xb8], */ /**< popcnt opcode */
 /* 540 */     OP_movntss,        /* &prefix_extensions[11][1], */ /**< movntss opcode */
 /* 541 */     OP_movntsd,        /* &prefix_extensions[11][3], */ /**< movntsd opcode */
@@ -3822,7 +3830,7 @@ enum {
 /* 573 */     OP_pmaxud,         /* &third_byte_38[44], */ /**< pmaxud opcode */
 /* 574 */     OP_pmulld,         /* &third_byte_38[45], */ /**< pmulld opcode */
 /* 575 */     OP_phminposuw,     /* &third_byte_38[46], */ /**< phminposuw opcode */
-/* 576 */     OP_crc32,          /* &third_byte_38[48], */ /**< crc32 opcode */
+/* 576 */     OP_crc32,          /* &prefix_extensions[139][3], */ /**< crc32 opcode */
 /* 577 */     OP_pextrb,         /* &third_byte_3a[2], */ /**< pextrb opcode */
 /* 578 */     OP_pextrd,         /* &third_byte_3a[4], */ /**< pextrd opcode */
 /* 579 */     OP_extractps,      /* &third_byte_3a[5], */ /**< extractps opcode */
@@ -3865,6 +3873,41 @@ enum {
 /* 610 */     OP_salc,           /* &first_byte[0xd6], */ /**< salc opcode */
 /* 611 */     OP_ffreep,         /* &float_high_modrm[7][0x00], */ /**< ffreep opcode */
 
+    /* AMD SVM */
+/* 612 */     OP_vmrun,          /* &rm_extensions[3][0], */ /**< vmrun opcode */
+/* 613 */     OP_vmmcall,        /* &rm_extensions[3][1], */ /**< vmmcall opcode */
+/* 614 */     OP_vmload,         /* &rm_extensions[3][2], */ /**< vmload opcode */
+/* 615 */     OP_vmsave,         /* &rm_extensions[3][3], */ /**< vmsave opcode */
+/* 616 */     OP_stgi,           /* &rm_extensions[3][4], */ /**< stgi opcode */
+/* 617 */     OP_clgi,           /* &rm_extensions[3][5], */ /**< clgi opcode */
+/* 618 */     OP_skinit,         /* &rm_extensions[3][6], */ /**< skinit opcode */
+/* 619 */     OP_invlpga,        /* &rm_extensions[3][7], */ /**< invlpga opcode */
+    /* AMD though not part of SVM */
+/* 620 */     OP_rdtscp,         /* &rm_extensions[2][1], */ /**< rdtscp opcode */
+
+    /* Intel VMX additions */
+/* 621 */     OP_invept,         /* &third_byte_38[49], */ /**< invept opcode */
+/* 622 */     OP_invvpid,        /* &third_byte_38[50], */ /**< invvpid opcode */
+
+    /* added in Intel Westmere */
+/* 623 */     OP_pclmulqdq,      /* &third_byte_3a[23], */ /**< pclmulqdq opcode */
+/* 624 */     OP_aesimc,         /* &third_byte_38[51], */ /**< aesimc opcode */
+/* 625 */     OP_aesenc,         /* &third_byte_38[52], */ /**< aesenc opcode */
+/* 626 */     OP_aesenclast,     /* &third_byte_38[53], */ /**< aesenclast opcode */
+/* 627 */     OP_aesdec,         /* &third_byte_38[54], */ /**< aesdec opcode */
+/* 628 */     OP_aesdeclast,     /* &third_byte_38[55], */ /**< aesdeclast opcode */
+/* 629 */     OP_aeskeygenassist, /* &third_byte_3a[24], */ /**< aeskeygenassist opcode */
+
+    /* added in Intel Atom */
+/* 630 */     OP_movbe,          /* &prefix_extensions[138][0], */ /**< movbe opcode */
+
+    /* added in Intel Sandy Bridge */
+/* 631 */     OP_xgetbv,         /* &rm_extensions[4][0], */ /**< xgetbv opcode */
+/* 632 */     OP_xsetbv,         /* &rm_extensions[4][0], */ /**< xsetbv opcode */
+/* 633 */     OP_xsave,          /* &extensions[22][4], */ /**< xsave opcode */
+/* 634 */     OP_xrstor,         /* &mod_extensions[6][0], */ /**< xrstor opcode */
+/* 635 */     OP_xsaveopt,       /* &mod_extensions[7][0], */ /**< xsaveopt opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
 /* 612 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
@@ -3875,7 +3918,7 @@ enum {
 #ifdef IA32_ON_IA64
     OP_LAST = OP_jmpe_abs, /**< Last real opcode. */
 #else
-    OP_LAST = OP_ffreep,   /**< Last real opcode. */
+    OP_LAST = OP_xsaveopt, /**< Last real opcode. */
 #endif
 };
 

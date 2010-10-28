@@ -51,6 +51,10 @@
  *
  * I don't list %eflags as a source or dest operand, but the particular
  * flags written are encoded.
+ *
+ * XXX: some day it may be worth adding flags indicating which instrs
+ * are valid on which models of which processors: for now though we do
+ * not rely on being able to predict which instrs are invalid.
  */
 
 /****************************************************************************
@@ -356,8 +360,8 @@ const instr_info_t * const op_instr[] =
     /* OP_verw         */   &extensions[13][5],
     /* OP_sgdt         */   &mod_extensions[0][0],
     /* OP_sidt         */   &mod_extensions[1][0],
-    /* OP_lgdt         */   &extensions[14][2],
-    /* OP_lidt         */   &extensions[14][3],
+    /* OP_lgdt         */   &mod_extensions[5][0],
+    /* OP_lidt         */   &mod_extensions[4][0],
     /* OP_smsw         */   &extensions[14][4],
     /* OP_lmsw         */   &extensions[14][6],
     /* OP_invlpg       */   &mod_extensions[2][0],
@@ -366,8 +370,8 @@ const instr_info_t * const op_instr[] =
     /* OP_fxrstor      */   &extensions[22][1],
     /* OP_ldmxcsr      */   &extensions[22][2],
     /* OP_stmxcsr      */   &extensions[22][3],
-    /* OP_lfence       */   &extensions[22][5],
-    /* OP_mfence       */   &extensions[22][6],
+    /* OP_lfence       */   &mod_extensions[6][1],
+    /* OP_mfence       */   &mod_extensions[7][1],
     /* OP_clflush      */   &mod_extensions[3][0],
     /* OP_sfence       */   &mod_extensions[3][1],
     /* OP_prefetchnta  */   &extensions[23][0],
@@ -637,7 +641,7 @@ const instr_info_t * const op_instr[] =
     /* OP_pabsd         */   &prefix_extensions[132][0],
     /* OP_palignr       */   &prefix_extensions[133][0],
 
-    /* SSE4 (incl AMD and Intel-specific extensions */
+    /* SSE4 (incl AMD (SSE4A) and Intel-specific (SSE4.1, SSE4.2) extensions */
     /* OP_popcnt        */   &second_byte[0xb8],
     /* OP_movntss       */   &prefix_extensions[11][1],
     /* OP_movntsd       */   &prefix_extensions[11][3],
@@ -675,7 +679,7 @@ const instr_info_t * const op_instr[] =
     /* OP_pmaxud        */   &third_byte_38[44],
     /* OP_pmulld        */   &third_byte_38[45],
     /* OP_phminposuw    */   &third_byte_38[46],
-    /* OP_crc32         */   &third_byte_38[48],
+    /* OP_crc32         */   &prefix_extensions[139][3],
     /* OP_pextrb        */   &third_byte_3a[2],
     /* OP_pextrd        */   &third_byte_3a[4],
     /* OP_extractps     */   &third_byte_3a[5],
@@ -718,6 +722,41 @@ const instr_info_t * const op_instr[] =
     /* OP_salc          */   &first_byte[0xd6],
     /* OP_ffreep        */   &float_high_modrm[7][0x00],
 
+    /* AMD SVM */
+    /* OP_vmrun         */   &rm_extensions[3][0],
+    /* OP_vmmcall       */   &rm_extensions[3][1],
+    /* OP_vmload        */   &rm_extensions[3][2],
+    /* OP_vmsave        */   &rm_extensions[3][3],
+    /* OP_stgi          */   &rm_extensions[3][4],
+    /* OP_clgi          */   &rm_extensions[3][5],
+    /* OP_skinit        */   &rm_extensions[3][6],
+    /* OP_invlpga       */   &rm_extensions[3][7],
+    /* AMD though not part of SVM */
+    /* OP_rdtscp        */   &rm_extensions[2][1],
+
+    /* Intel VMX additions */
+    /* OP_invept        */   &third_byte_38[49],
+    /* OP_invvpid       */   &third_byte_38[50],
+
+    /* added in Intel Westmere */
+    /* OP_pclmulqdq     */   &third_byte_3a[23],
+    /* OP_aesimc        */   &third_byte_38[51],
+    /* OP_aesenc        */   &third_byte_38[52],
+    /* OP_aesenclast    */   &third_byte_38[53],
+    /* OP_aesdec        */   &third_byte_38[54],
+    /* OP_aesdeclast    */   &third_byte_38[55],
+    /* OP_aeskeygenassist*/  &third_byte_3a[24],
+
+    /* added in Intel Atom */
+    /* OP_movbe         */   &prefix_extensions[138][0],
+
+    /* added in Intel Sandy Bridge */
+    /* OP_xgetbv        */   &rm_extensions[4][0],
+    /* OP_xsetbv        */   &rm_extensions[4][1],
+    /* OP_xsave         */   &extensions[22][4],
+    /* OP_xrstor        */   &mod_extensions[6][0],
+    /* OP_xsaveopt      */   &mod_extensions[7][0],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
     /* OP_jmpe      */   &extensions[13][6],
@@ -754,6 +793,7 @@ const instr_info_t * const op_instr[] =
 #define Gz  TYPE_G, OPSZ_4_short2
 #define Gd  TYPE_G, OPSZ_4
 #define Gd_q TYPE_G, OPSZ_4_rex8
+#define Gr  TYPE_G, OPSZ_4x8
 #define Ib  TYPE_I, OPSZ_1
 #define Iw  TYPE_I, OPSZ_2
 #define Iv  TYPE_I, OPSZ_4_rex8_short2
@@ -811,12 +851,14 @@ const instr_info_t * const op_instr[] =
 #define Mw  TYPE_M, OPSZ_2
 #define Mm  TYPE_M, OPSZ_lea
 #define Me  TYPE_M, OPSZ_512
+#define Mxsave TYPE_M, OPSZ_xsave
 #define Mps  TYPE_M, OPSZ_16
 #define Mpd  TYPE_M, OPSZ_16
 #define Mss  TYPE_M, OPSZ_16
 #define Msd  TYPE_M, OPSZ_16
 #define Mq  TYPE_M, OPSZ_8
 #define Mdq  TYPE_M, OPSZ_16
+#define Mv  TYPE_M, OPSZ_4_rex8_short2
 #define Zb  TYPE_XLAT, OPSZ_1
 #define Bq  TYPE_MASKMOVQ, OPSZ_8
 #define Bdq  TYPE_MASKMOVQ, OPSZ_16
@@ -883,6 +925,7 @@ const instr_info_t * const op_instr[] =
 /* string ops use addr16 */
 #define axSI TYPE_VAR_ADDR_XREG, REG_ESI
 #define axDI TYPE_VAR_ADDR_XREG, REG_EDI
+#define axAX TYPE_VAR_ADDR_XREG, REG_EAX
 
 /* 8-bit implicit registers (not from modrm) that can be exteded via rex.r */
 #define al_x TYPE_REG_EX, REG_AL
@@ -1834,8 +1877,8 @@ const instr_info_t extensions[][8] = {
   { /* extensions[14] */
     {MOD_EXT, 0x0f0130, "(group 7 mod ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {MOD_EXT, 0x0f0131, "(group 7 mod ext 1)", xx, xx, xx, xx, xx, no, x, 1},
-    {OP_lgdt, 0x0f0132, "lgdt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
-    {OP_lidt, 0x0f0133, "lidt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
+    {MOD_EXT, 0x0f0132, "(group 7 mod ext 5)", xx, xx, xx, xx, xx, no, x, 5},
+    {MOD_EXT, 0x0f0133, "(group 7 mod ext 4)", xx, xx, xx, xx, xx, no, x, 4},
     {OP_smsw, 0x0f0134, "smsw",  Ew, xx, xx, xx, xx, mrm, x, END_LIST},
     {INVALID, 0x0f0135, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_lmsw, 0x0f0136, "lmsw",  xx, xx, Ew, xx, xx, mrm, x, END_LIST},
@@ -1927,10 +1970,10 @@ const instr_info_t extensions[][8] = {
     {OP_fxrstor, 0x0fae31, "fxrstor", xx, xx, Me, xx, xx, mrm, x, END_LIST},
     {OP_ldmxcsr, 0x0fae32, "ldmxcsr", xx, xx, Md, xx, xx, mrm, x, END_LIST},
     {OP_stmxcsr, 0x0fae33, "stmxcsr", Md, xx, xx, xx, xx, mrm, x, END_LIST},
-    {INVALID, 0x0fae34, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_lfence, 0x0fae35, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME PR 239920: newer gdb thinks it's "lfence (bad)"?*/
-    {OP_mfence, 0x0fae36, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
-    {MOD_EXT,   0x0fae37, "(group 7 mod ext 3)", xx, xx, xx, xx, xx, no, x, 3},
+    {OP_xsave,   0x0fae34, "xsave", Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
+    {MOD_EXT,    0x0fae35, "(group 15 mod ext 6)", xx, xx, xx, xx, xx, no, x, 6},
+    {MOD_EXT,    0x0fae36, "(group 15 mod ext 7)", xx, xx, xx, xx, xx, no, x, 7},
+    {MOD_EXT,    0x0fae37, "(group 15 mod ext 3)", xx, xx, xx, xx, xx, no, x, 3},
  },
   /* group 16 (first bytes 0f 18) */
   { /* extensions[23] */
@@ -2965,6 +3008,25 @@ const instr_info_t prefix_extensions[][4] = {
     {OP_vmclear,   0x660fc736, "vmclear", Mq, xx, xx, xx, xx, mrm|o64, x, END_LIST},
     {INVALID,      0xf20fc736, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },
+  { /* prefix extension 138 */
+    {OP_movbe,   0x38f018, "movbe", Gv, xx, Mv, xx, xx, mrm, x, tpe[139][0]},
+    {INVALID,  0xf338f018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    /* really this is regular data-size prefix */
+    {OP_movbe, 0x6638f018, "movbe", Gw, xx, Mw, xx, xx, mrm, x, tpe[139][2]},
+    {OP_crc32, 0xf238f018, "crc32", Gv, xx, Eb, Gv, xx, mrm, x, END_LIST},
+  },
+  { /* prefix extension 139 */
+    {OP_movbe,   0x38f118, "movbe", Mv, xx, Gv, xx, xx, mrm, x, tpe[138][2]},
+    {INVALID,  0xf338f118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    /* really this is regular data-size prefix */
+    {OP_movbe, 0x6638f118, "movbe", Mw, xx, Gw, xx, xx, mrm, x, END_LIST},
+    {OP_crc32, 0xf238f118, "crc32", Gv, xx, Ev, Gv, xx, mrm, x, tpe[138][3]},
+    /* XXX: Intel Vol2B Sep2010 decode table claims crc32 has Gd
+     * instead of Gv, and that f2 f1 has Ey instead of Ev, and that
+     * there is a separate instruction with both 66 and f2 prefixes!
+     * But detail page doesn't corroborate that...
+     */
+  },
 };
 
 /****************************************************************************
@@ -2989,6 +3051,23 @@ const instr_info_t mod_extensions[][2] = {
   { /* mod extension 3 */
     {OP_clflush, 0x380fae77, "clflush", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
     {OP_sfence,  0xf80fae77, "sfence",  xx, xx, xx, xx, xx, mrm, x, END_LIST},
+  },
+  { /* mod extension 4 */
+    {OP_lidt, 0x180f0173, "lidt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
+    {RM_EXT,    0x0f0173, "(group 7 mod + rm ext 3)", xx, xx, xx, xx, xx, mrm, x, 3},
+  },
+  { /* mod extension 5 */
+    {OP_lgdt, 0x100f0172, "lgdt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
+    {RM_EXT,    0x0f0172, "(group 7 mod + rm ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
+  },
+  { /* mod extension 6 */
+    {OP_xrstor, 0x280fae75, "xrstor", xx, xx, Mxsave, edx, eax, mrm, x, END_LIST},
+    /* note that gdb thinks e9-ef are "lfence (bad)" (PR 239920) */
+    {OP_lfence, 0xe80fae75, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+  },
+  { /* mod extension 7 */
+    {OP_xsaveopt, 0x300fae76, "xsaveopt", Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
+    {OP_mfence,   0xf00fae76, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
 };
 
@@ -3016,6 +3095,26 @@ const instr_info_t rm_extensions[][8] = {
   },
   { /* rm extension 2 */
     {OP_swapgs, 0xf80f0177, "swapgs", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
+    {OP_rdtscp, 0xf90f0177, "rdtscp", edx, eax, xx, xx, xx, mrm, x, exop[10]},/*AMD-only*/
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* rm extension 3 */
+    {OP_vmrun,  0xd80f0173, "vmrun", xx, xx, axAX, xx, xx, mrm, x, END_LIST},
+    {OP_vmmcall,0xd90f0173, "vmmcall", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_vmload, 0xda0f0173, "vmload", xx, xx, axAX, xx, xx, mrm, x, END_LIST},
+    {OP_vmsave, 0xdb0f0173, "vmsave", xx, xx, axAX, xx, xx, mrm, x, END_LIST},
+    {OP_stgi,   0xdc0f0173, "stgi", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_clgi,   0xdd0f0173, "clgi", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_skinit, 0xde0f0173, "skinit", xx, xx, eax, xx, xx, mrm, x, END_LIST},
+    {OP_invlpga,0xdf0f0173, "invlpga", xx, xx, axAX, ecx, xx, mrm, x, END_LIST},
+  },
+  { /* rm extension 4 */
+    {OP_xgetbv, 0xd00f0172, "xgetbv", edx, eax, ecx, xx, xx, mrm, x, END_LIST},
+    {OP_xsetbv, 0xd10f0172, "xsetbv", xx, xx, ecx, edx, eax, mrm, x, END_LIST},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -3135,12 +3234,12 @@ const byte third_byte_38_index[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 6 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
+    49,50, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 9 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* A */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* B */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0,51, 52,53,54,55,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
     47,48, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
 };
@@ -3198,8 +3297,17 @@ const instr_info_t third_byte_38[] = {
   {OP_pmulld,   0x66384018, "pmulld",   Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},/*45*/
   {OP_phminposuw,0x66384118,"phminposuw",Vdq,xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},/*46*/
   /* f0 */
-  {OP_crc32, 0xf238f018, "crc32", Gv, xx, Eb, Gv, xx, mrm|reqp, x, END_LIST},        /*47*/
-  {OP_crc32, 0xf238f118, "crc32", Gv, xx, Ev, Gv, xx, mrm|reqp, x, t38[47]},         /*48*/
+  {PREFIX_EXT,  0x38f018,   "(prefix ext 138)", xx, xx, xx, xx, xx, mrm, x, 138},/*47*/
+  {PREFIX_EXT,  0x38f118,   "(prefix ext 139)", xx, xx, xx, xx, xx, mrm, x, 139},/*48*/
+  /* 80 */
+  {OP_invept,   0x66388018, "invept",   xx, xx, Gr, Mdq, xx, mrm|reqp, x, END_LIST},/*49*/
+  {OP_invvpid,  0x66388118, "invvpid",  xx, xx, Gr, Mdq, xx, mrm|reqp, x, END_LIST},/*50*/
+  /* db-df */
+  {OP_aesimc,  0x6638db18, "aesimc",  Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},/*51*/
+  {OP_aesenc,  0x6638dc18, "aesenc",  Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},/*52*/
+  {OP_aesenclast,0x6638dd18,"aesenclast",Vdq,xx,Wdq,Vdq,xx, mrm|reqp, x, END_LIST},/*53*/
+  {OP_aesdec,  0x6638de18, "aesdec",  Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},/*54*/
+  {OP_aesdeclast,0x6638df18,"aesdeclast",Vdq,xx,Wdq,Vdq,xx, mrm|reqp, x, END_LIST},/*55*/
 };
 
 const byte third_byte_3a_index[256] = {
@@ -3208,7 +3316,7 @@ const byte third_byte_3a_index[256] = {
      0, 0, 0, 0,  2, 3, 4, 5,  6, 7, 8, 9, 10,11,12, 0,  /* 1 */
     13,14,15, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
-     0,16,17,18,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
+    16,17,18, 0, 23, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
     19,20,21,22,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 6 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
@@ -3217,7 +3325,7 @@ const byte third_byte_3a_index[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* A */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* B */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0,24,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
 };
@@ -3244,14 +3352,16 @@ const instr_info_t third_byte_3a[] = {
   {OP_insertps, 0x663a2118, "insertps", Vdq,xx,Udq_Md,Ib, xx, mrm|reqp, x, END_LIST},/*14*/
   {OP_pinsrd,   0x663a2218, "pinsrd",   Vdq, xx, Ed_q,Ib, xx, mrm|reqp, x, END_LIST},/*15*//*"pinsrq" with rex.w*/
   /* 40 */
-  {OP_dpps,     0x663a4118, "dpps",     Vdq, xx, Eb,  Ib, Vdq,mrm|reqp, x, END_LIST},/*16*/
-  {OP_dppd,     0x663a4218, "dppd",     Vdq, xx, Eb,  Ib, Vdq,mrm|reqp, x, END_LIST},/*17*/
-  {OP_mpsadbw,  0x663a4318, "mpsadbw",  Vdq, xx, Eb,  Ib, Vdq,mrm|reqp, x, END_LIST},/*18*/
+  {OP_dpps,     0x663a4018, "dpps",     Vdq, xx, Eb,  Ib, Vdq,mrm|reqp, x, END_LIST},/*16*/
+  {OP_dppd,     0x663a4118, "dppd",     Vdq, xx, Eb,  Ib, Vdq,mrm|reqp, x, END_LIST},/*17*/
+  {OP_mpsadbw,  0x663a4218, "mpsadbw",  Vdq, xx, Eb,  Ib, Vdq,mrm|reqp, x, END_LIST},/*18*/
   /* 60 */
   {OP_pcmpestrm,0x663a6018, "pcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|reqp, fW6, exop[8]},/*19*/
   {OP_pcmpestri,0x663a6118, "pcmpestri",ecx, xx, Vdq, Wdq, Ib, mrm|reqp, fW6, exop[9]},/*20*/
   {OP_pcmpistrm,0x663a6218, "pcmpistrm",xmm0, xx, Vdq, Wdq, Ib, mrm|reqp, fW6, END_LIST},/*21*/
   {OP_pcmpistri,0x663a6318, "pcmpistri",ecx, xx, Vdq, Wdq, Ib, mrm|reqp, fW6, END_LIST},/*22*/
+  {OP_pclmulqdq,0x663a4418, "pclmulqdq", Vdq, xx, Wdq, Ib, Vdq,mrm|reqp, x, END_LIST},/*23*/
+  {OP_aeskeygenassist,0x663adf18,"aeskeygenassist",Vdq,xx,Wdq,Ib,xx,mrm|reqp,x,END_LIST},/*24*/
 };
 
 /****************************************************************************
@@ -4084,7 +4194,9 @@ const instr_info_t extra_operands[] =
     {OP_CONTD, 0x000000, "<cpuid cont'd>", ecx, edx, xx, xx, xx, no, x, END_LIST},
     /* 0x07 */
     {OP_CONTD, 0x000000, "<cmpxchg8b cont'd>", eDX, xx, eCX, eBX, xx, mrm, fWZ, END_LIST},
-    {OP_pcmpestrm,0x663a6018, "pcmpestrm", xx, xx, eax, edx, xx, mrm|reqp, fW6, END_LIST},
-    {OP_pcmpestri,0x663a6018, "pcmpestri", xx, xx, eax, edx, xx, mrm|reqp, fW6, END_LIST},
+    {OP_CONTD,0x663a6018, "<pcmpestrm cont'd", xx, xx, eax, edx, xx, mrm|reqp, fW6, END_LIST},
+    {OP_CONTD,0x663a6018, "<pcmpestri cont'd", xx, xx, eax, edx, xx, mrm|reqp, fW6, END_LIST},
+    /* 10 */
+    {OP_CONTD,0xf90f0177, "<rdtscp cont'd>", ecx, xx, xx, xx, xx, mrm, x, END_LIST},
 };
 

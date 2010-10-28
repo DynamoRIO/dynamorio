@@ -170,6 +170,12 @@
 /** Create a memory reference operand appropriately sized for OP_fxrstor. */
 #define OPND_CREATE_MEM_fxrstor(base, index, scale, disp) \
     opnd_create_base_disp(base, index, scale, disp, OPSZ_fxrstor)
+/**
+ * Create a memory reference operand appropriately sized for OP_xsave,
+ * OP_xsaveopt, or OP_xrstor.
+ */
+#define OPND_CREATE_MEM_xsave(base, index, scale, disp) \
+    opnd_create_base_disp(base, index, scale, disp, OPSZ_xsave)
 
 /* Macros for building instructions, one for each opcode.
  * Each INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -227,6 +233,9 @@
 #define INSTR_CREATE_vmlaunch(dc) instr_create_0dst_0src((dc), OP_vmlaunch)
 #define INSTR_CREATE_vmresume(dc) instr_create_0dst_0src((dc), OP_vmresume)
 #define INSTR_CREATE_vmxoff(dc)   instr_create_0dst_0src((dc), OP_vmxoff)
+#define INSTR_CREATE_vmmcall(dc)  instr_create_0dst_0src((dc), OP_vmmcall)
+#define INSTR_CREATE_stgi(dc)     instr_create_0dst_0src((dc), OP_stgi)
+#define INSTR_CREATE_clgi(dc)     instr_create_0dst_0src((dc), OP_clgi)
 /* @} */ /* end doxygen group */
 /**
  * Creates an instr_t with opcode OP_LABEL.  An OP_LABEL instruction can be used as a
@@ -447,6 +456,14 @@
   instr_create_0dst_1src((dc), OP_fxam, opnd_create_reg(DR_REG_ST0))
 #define INSTR_CREATE_sahf(dc) \
   instr_create_0dst_1src((dc), OP_sahf, opnd_create_reg(DR_REG_AH))
+#define INSTR_CREATE_vmrun(dc) \
+  instr_create_0dst_1src((dc), OP_vmrun, opnd_create_reg(DR_REG_XAX))
+#define INSTR_CREATE_vmload(dc) \
+  instr_create_0dst_1src((dc), OP_vmload, opnd_create_reg(DR_REG_XAX))
+#define INSTR_CREATE_vmsave(dc) \
+  instr_create_0dst_1src((dc), OP_vmsave, opnd_create_reg(DR_REG_XAX))
+#define INSTR_CREATE_skinit(dc) \
+  instr_create_0dst_1src((dc), OP_skinit, opnd_create_reg(DR_REG_EAX))
 /* @} */ /* end doxygen group */
 
 /* no destination, 2 explicit sources */
@@ -493,6 +510,10 @@
   instr_create_0dst_2src((dc), OP_comiss, (s1), (s2))
 #define INSTR_CREATE_comisd(dc, s1, s2) \
   instr_create_0dst_2src((dc), OP_comisd, (s1), (s2))
+#define INSTR_CREATE_invept(dc, s1, s2) \
+  instr_create_0dst_2src((dc), OP_invept, (s1), (s2))
+#define INSTR_CREATE_invvpid(dc, s1, s2) \
+  instr_create_0dst_2src((dc), OP_invvpid, (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* no destination, 2 sources: 1 implicit */
@@ -556,6 +577,9 @@
 #define INSTR_CREATE_mwait(dc) \
   instr_create_0dst_2src((dc), OP_mwait, opnd_create_reg(DR_REG_EAX), \
       opnd_create_reg(DR_REG_ECX))
+#define INSTR_CREATE_invlpga(dc) \
+  instr_create_0dst_2src((dc), OP_invlpga, opnd_create_reg(DR_REG_XAX), \
+      opnd_create_reg(DR_REG_ECX))
 /* no destination, 3 implicit sources */
 #define INSTR_CREATE_wrmsr(dc) \
   instr_create_0dst_3src((dc), OP_wrmsr, opnd_create_reg(DR_REG_EDX), \
@@ -563,6 +587,23 @@
 #define INSTR_CREATE_monitor(dc) \
   instr_create_0dst_3src((dc), OP_monitor, opnd_create_reg(DR_REG_EAX), \
       opnd_create_reg(DR_REG_ECX), opnd_create_reg(DR_REG_EDX))
+#define INSTR_CREATE_xsetbv(dc) \
+  instr_create_0dst_3src((dc), OP_xsetbv, opnd_create_reg(DR_REG_ECX), \
+    opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX))
+/* @} */ /* end doxygen group */
+
+/** @name No destination, 3 sources: 1 implicit */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s The opnd_t explicit source operand for the instruction, which can be
+ * created with OPND_CREATE_MEM_xsave() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_xrstor(dc, s)                                          \
+  instr_create_0dst_3src((dc), OP_xrstor, (s), opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX))
 /* @} */ /* end doxygen group */
 
 /* floating-point */
@@ -947,6 +988,10 @@
   instr_create_1dst_1src((dc), OP_vmwrite, (d), (s))
 #define INSTR_CREATE_movsxd(dc, d, s) \
   instr_create_1dst_1src((dc), OP_movsxd, (d), (s))
+#define INSTR_CREATE_movbe(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_movbe, (d), (s))
+#define INSTR_CREATE_aesimc(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_aesimc, (d), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
@@ -1242,6 +1287,8 @@
   instr_create_1dst_2src((dc), OP_insertps, (d), (s), (i))
 #define INSTR_CREATE_pinsrd(dc, d, s, i) \
   instr_create_1dst_2src((dc), OP_pinsrd, (d), (s), (i))
+#define INSTR_CREATE_aeskeygenassist(dc, d, s, i) \
+  instr_create_1dst_2src((dc), OP_aeskeygenassist, (d), (s), (i))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -1584,6 +1631,14 @@
   instr_create_1dst_2src((dc), OP_pmuldq, (d), (s), (d))
 #define INSTR_CREATE_pmulld(dc, d, s) \
   instr_create_1dst_2src((dc), OP_pmulld, (d), (s), (d))
+#define INSTR_CREATE_aesenc(dc, d, s) \
+  instr_create_1dst_2src((dc), OP_aesenc, (d), (s), (d))
+#define INSTR_CREATE_aesenclast(dc, d, s) \
+  instr_create_1dst_2src((dc), OP_aesenclast, (d), (s), (d))
+#define INSTR_CREATE_aesdec(dc, d, s) \
+  instr_create_1dst_2src((dc), OP_aesdec, (d), (s), (d))
+#define INSTR_CREATE_aesdeclast(dc, d, s) \
+  instr_create_1dst_2src((dc), OP_aesdeclast, (d), (s), (d))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 explicit register-or-immediate source */
@@ -1863,6 +1918,24 @@
 #define INSTR_CREATE_insertq_imm(dc, d, r, i1, i2) \
   instr_create_1dst_3src((dc), OP_insertq, (d), (r), (i1), (i2))
 
+/* 1 destination, 2 implicit sources */
+/** @name 1 destination, 2 implicit sources */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction, which can be
+ * created with OPND_CREATE_MEM_xsave() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_xsave(dc, d) \
+  instr_create_1dst_2src((dc), OP_xsave, (d), opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xsaveopt(dc, d) \
+  instr_create_1dst_2src((dc), OP_xsaveopt, (d), opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX))
+/* @} */ /* end doxygen group */
+
 /* 1 implicit destination, 2 sources: 1 explicit, 1 implicit */
 /** @name 1 implicit destination, 2 sources: 1 explicit, 1 implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
@@ -1950,6 +2023,17 @@
   instr_create_1dst_3src((dc), OP_shld, (d), (s), (ri), (d))
 #define INSTR_CREATE_shrd(dc, d, s, ri) \
   instr_create_1dst_3src((dc), OP_shrd, (d), (s), (ri), (d))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param s The opnd_t explicit source operand for the instruction.
+ * \param i The opnd_t explicit second source operand for the instruction, which
+ * must be an immediate integer (opnd_create_immed_int()).
+ */
+#define INSTR_CREATE_pclmulqdq(dc, d, s, i) \
+  instr_create_1dst_3src((dc), OP_pclmulqdq, (d), (s), (i), (d))
 /* @} */ /* end doxygen group */
 /** @name 1 explicit destination, 2 explicit sources */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
@@ -2114,6 +2198,9 @@
     opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_ECX))
 #define INSTR_CREATE_rdpmc(dc) \
   instr_create_2dst_1src((dc), OP_rdpmc, opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_ECX))
+#define INSTR_CREATE_xgetbv(dc) \
+  instr_create_2dst_1src((dc), OP_xgetbv, opnd_create_reg(DR_REG_EDX), \
     opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_ECX))
 /* @} */ /* end doxygen group */
 
@@ -2485,6 +2572,11 @@
 /* FIXME - size is wrong, xref PR 214976/10541 */
 /* WARNING: actually performs multiple stack operations (not reflected in size) */
 #define INSTR_CREATE_pusha(dc)  instr_create_pusha((dc))
+
+/* 3 implicit destinations, no sources */
+#define INSTR_CREATE_rdtscp(dc) \
+  instr_create_3dst_0src((dc), OP_rdtscp, opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_ECX))
 
 /* 3 implicit destinations, 1 source */
 #define INSTR_CREATE_cpuid(dc) \

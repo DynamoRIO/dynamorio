@@ -105,6 +105,9 @@ OPCODE(vmptrst, vmptrst, X64_ONLY, MEMARG(OPSZ_8))
 OPCODE(vmptrld, vmptrld, X64_ONLY, MEMARG(OPSZ_8))
 OPCODE(vmxon, vmxon, X64_ONLY, MEMARG(OPSZ_8))
 OPCODE(vmclear, vmclear, X64_ONLY, MEMARG(OPSZ_8))
+OPCODE(xsave, xsave, 0, MEMARG(OPSZ_xsave))
+OPCODE(xrstor, xrstor, 0, MEMARG(OPSZ_xsave))
+OPCODE(xsaveopt, xsaveopt, 0, MEMARG(OPSZ_xsave))
 
 /****************************************************************************/
 /* single immed argument */

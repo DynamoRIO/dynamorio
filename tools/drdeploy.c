@@ -884,17 +884,18 @@ int main(int argc, char *argv[])
         write_pid_to_file(pidfile, dr_inject_get_process_id(inject_data));
 
 # ifdef DRRUN
-    if (inject) {
-        process = dr_inject_get_image_name(inject_data);
-        if (!register_proc(process, dr_inject_get_process_id(inject_data), global,
-                           dr_root, dr_mode, use_debug, dr_platform, extra_ops))
+    /* even if !inject we create a config file, for use running standalone API
+     * apps.  if user doesn't want a config file, should use "drinject -noinject".
+     */
+    process = dr_inject_get_image_name(inject_data);
+    if (!register_proc(process, dr_inject_get_process_id(inject_data), global,
+                       dr_root, dr_mode, use_debug, dr_platform, extra_ops))
+        goto error;
+    for (j=0; j<num_clients; j++) {
+        if (!register_client(process, dr_inject_get_process_id(inject_data), global,
+                             dr_platform, client_ids[j],
+                             (char *)client_paths[j], client_options[j]))
             goto error;
-        for (j=0; j<num_clients; j++) {
-            if (!register_client(process, dr_inject_get_process_id(inject_data), global,
-                                 dr_platform, client_ids[j],
-                                 (char *)client_paths[j], client_options[j]))
-                goto error;
-        }
     }
 # endif
 

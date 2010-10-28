@@ -850,6 +850,16 @@ standalone_init(void)
         print_file(main_logfile, "\n");
     }
 #endif
+
+    /* since we do not export any dr_standalone_exit(), we clean up any .1config
+     * file right now.  the only loss if that we can't synch options: but that
+     * should be less important for standalone.  we disabling synching.
+     */
+    /* options are never made read-only for standalone */
+    dynamo_options.dynamic_options = false;
+    /* make sure to delete .1config */
+    config_exit();
+
     dynamo_initialized = true;
 
     return dcontext;
@@ -859,6 +869,8 @@ void
 standalone_exit(void)
 {
     /* should clean up here */
+    /* make sure to delete .1config */
+    config_exit();
 }
 #endif
 

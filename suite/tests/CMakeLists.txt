@@ -817,11 +817,18 @@ endfunction(rundr_cmd)
 function(torun test key exe source native dr_ops exe_ops)
   get_filename_component(srcbase ${source} NAME_WE)
   get_filename_component(srcpath ${source} PATH)
-  if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runall)
+  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runall")
     set(is_runall ON)
   else ()
     set(is_runall OFF)
   endif ()
+  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runcmp")
+    set(is_runcmp ON)
+  else ()
+    set(is_runcmp OFF)
+  endif ()
+
+  set(ALREADY_REGEX OFF)
 
   rundr_cmd(rundr runops ${native} "${dr_ops}" ${is_runall})
   get_target_property(exepath ${exe} LOCATION)
@@ -868,11 +875,23 @@ function(torun test key exe source native dr_ops exe_ops)
       -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
       -D clear=${clear_arg}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
-  else(is_runall)
+  elseif (is_runcmp)
+    # Some apps have enough output that ctest runs out of memory when
+    # doing its built-in regex cmp so we use a separate script
+    set(cmd_with_at ${rundr} ${exepath} ${exe_ops})
+    # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
+    # to get around the pain of trying to quote everything just right:
+    # much simpler this way.
+    string(REGEX REPLACE " " "@@" cmd_with_at "${cmd_with_at}")
+    string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
+    add_test(${test} ${CMAKE_COMMAND} -D cmd=${cmd_with_at}
+      -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${srcbase}.expect
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake)
+    # No support for regex here (ctest can't handle large regex)
+    set(ALREADY_REGEX ON)
+  else (is_runcmp)
     add_test(${test} ${rundr} ${exepath} ${exe_ops})
   endif (is_runall)
-
-  set(ALREADY_REGEX OFF)
 
   if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
     file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect expect)
@@ -919,12 +938,6 @@ function(torun test key exe source native dr_ops exe_ops)
     message(FATAL_ERROR "no .expect or .template or .templatex for ${srcpath}/${srcbase}")
   endif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
 
-  # FIXME i#65 NOT YET COMPLETED: api/dis output is too long => ctest
-  # runs out of memory
-  # => need to have a script to run the app and then diff the results,
-  # since ctest supports only one command per test.
-  # We can use the same script to get runtime generation of .expect.
-
   if (NOT ALREADY_REGEX)
     # turn regex chars into literals
     # \\] somehow messes up the match though $expect looks identical
@@ -940,10 +953,13 @@ function(torun test key exe source native dr_ops exe_ops)
     string(REGEX REPLACE "\n" "\r?\n" expect "${expect}")
   endif (WIN32)    
 
-  # match whole output
-  set(expect "^${expect}$")
-
-  set_tests_properties(${test} PROPERTIES PASS_REGULAR_EXPRESSION "${expect}")
+  if (is_runcmp)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${srcbase}.expect" "${expect}")
+  else ()
+    # match whole output
+    set(expect "^${expect}$")
+    set_tests_properties(${test} PROPERTIES PASS_REGULAR_EXPRESSION "${expect}")
+  endif ()
 
   if (WIN32)
     # With i#265/PR 486139 we use local one-time config files instead of
@@ -989,7 +1005,7 @@ function(torun_api name test ops)
 endfunction(torun_api)
 
 function(torun_runall name test ops)
-  # FIXME NYI i#65
+  # FIXME NYI i#120
 endfunction(torun_runall)
 
 ###########################################################################
@@ -1060,9 +1076,8 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
   tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
-  # FIXME i#65 NOT YET COMPLETED: enable once resolve cmake out-of-memory issues
-  #tobuild_api(api.dis api/dis.c "-syntax_intel"
-  #  "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw")
+  tobuild_api(api.dis api/dis.c "-syntax_intel"
+    "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw")
   tobuild_api(api.ir api/ir.c "" "")
   tobuild_api(api.startstop api/startstop.c "" "")
 endif (CLIENT_INTERFACE)

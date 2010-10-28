@@ -73,3 +73,6 @@ OPCODE(pcmpistrm, pcmpistrm, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(pcmpistri, pcmpistri, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(pcmpestrm, pcmpestrm, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(pcmpestri, pcmpestri, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+
+OPCODE(pclmulqdq, pclmulqdq, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(aeskeygenassist, aeskeygenassist, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))

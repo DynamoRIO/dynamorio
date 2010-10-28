@@ -466,13 +466,16 @@ enum {
     OPSZ_4_short2xi4,   /**< Intel 'f64': 4_short2 for 32-bit or 64-bit AMD,
                          *   always 4 for 64-bit Intel */
     /**
-     * The following sizes differ based on whether the modrm chooses a
+     * The following 3 sizes differ based on whether the modrm chooses a
      * register or memory.
      */
     OPSZ_1_reg4,  /**< Intel Rd/Mb: zero-extends if reg; used by pextrb */
     OPSZ_2_reg4,  /**< Intel Rd/Mw: zero-extends if reg; used by pextrw */
     OPSZ_4_reg16, /**< Intel Udq/Md: sub-xmm but we consider that whole xmm;
                    *   used by insertps. */
+    /* Sizes used by new instructions */
+    OPSZ_xsave, /**< Size is > 512 bytes: use cpuid to determine.
+                 * Used for FPU, MMX, XMM, etc. state by xsave and xrstor. */
     OPSZ_LAST,
 };
 

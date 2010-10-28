@@ -36,6 +36,7 @@
  * Disassembles a binary file containing nothing but code.
  */
 
+#include "configure.h"
 #include "dr_api.h"
 #include <assert.h>
 
@@ -50,7 +51,7 @@ read_data(file_t f, void *drcontext)
 {
     byte sbuf[BUF_SIZE];
     byte *pc, *prev_pc;
-    int len, prev_buf_len = 0;
+    ssize_t len, prev_buf_len = 0;
 
     /* FIXME: re-run 64-bit asking for 32-bit mode */
 
