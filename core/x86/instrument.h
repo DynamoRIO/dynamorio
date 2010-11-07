@@ -1816,6 +1816,44 @@ dr_memory_is_in_client(const byte *pc);
 /* DR_API EXPORT BEGIN */
 
 /**************************************************
+ * CLIENT AUXILIARY LIBRARIES
+ */
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Loads the library with the given path as an auxiliary client
+ * library.  The library is not treated as an application module but
+ * as an extension of DR.  The library will be included in
+ * dr_memory_is_in_client() and any faults in the library will be
+ * considered client faults.  The bounds of the loaded library are
+ * returned in the optional out variables.  On failure, returns NULL.
+ */
+dr_auxlib_handle_t
+dr_load_aux_library(const char *name,
+                    byte **lib_start /*OPTIONAL OUT*/,
+                    byte **lib_end /*OPTIONAL OUT*/);
+
+DR_API
+/**
+ * Looks up the exported routine with the given name in the given
+ * client auxiliary library loaded by dr_load_aux_library().  Returns
+ * NULL on failure.
+ */
+dr_auxlib_routine_ptr_t
+dr_lookup_aux_library_routine(dr_auxlib_handle_t lib, const char *name);
+
+DR_API
+/**
+ * Unloads the given library, which must have been loaded by
+ * dr_load_aux_library().  Returns whether successful.
+ */
+bool
+dr_unload_aux_library(dr_auxlib_handle_t lib);
+
+/* DR_API EXPORT BEGIN */
+
+/**************************************************
  * SIMPLE MUTEX SUPPORT
  */
 /* DR_API EXPORT END */

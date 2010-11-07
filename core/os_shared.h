@@ -267,24 +267,44 @@ int os_timeout(int time_in_milliseconds);
 void os_syslog(syslog_event_type_t priority, uint message_id, 
                uint substitutions_num, va_list args);
 
+/* DR_API EXPORT TOFILE dr_tools.h */
+/* DR_API EXPORT BEGIN */
+/**************************************************
+ * CLIENT AUXILIARY LIBRARY TYPES
+ */
+
 #if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
+/** 
+ * A handle to a loaded client auxiliary library.  This is a different
+ * type than module_handle_t and is not necessarily the base address.
+ */
+typedef void * dr_auxlib_handle_t;
+/** An exported routine in a loaded client auxiliary library. */
+typedef void (*dr_auxlib_routine_ptr_t)();
+/* DR_API EXPORT END */
+
 /* Note that this is NOT identical to module_handle_t: on Linux this
  * is a pointer to a loader data structure and NOT the base address
  * (xref PR 366195).
+ * XXX: we're duplicating these types above as dr_auxlib*
  */
 typedef void * shlib_handle_t;
 typedef void (*shlib_routine_ptr_t)();
 
-shlib_handle_t load_shared_library(char *name);
+shlib_handle_t load_shared_library(const char *name);
 #endif
 
 #if defined(CLIENT_INTERFACE)
-shlib_routine_ptr_t lookup_library_routine(shlib_handle_t lib, char *name);
+shlib_routine_ptr_t lookup_library_routine(shlib_handle_t lib, const char *name);
 void unload_shared_library(shlib_handle_t lib);
 void shared_library_error(char *buf, int maxlen);
-/* addr is any pointer known to lie within the library */
-bool shared_library_bounds(IN shlib_handle_t lib, IN byte *addr,
-                           OUT byte **start, OUT byte **end);
+/* addr is any pointer known to lie within the library
+ * for linux, one of addr or name is needed; for windows, neither is needed.
+ */
+bool
+shared_library_bounds(IN shlib_handle_t lib, IN byte *addr,
+                      IN const char *name,
+                      OUT byte **start, OUT byte **end);
 #endif
 
 /* DR_API EXPORT TOFILE dr_tools.h */

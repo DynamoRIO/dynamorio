@@ -433,6 +433,9 @@ enum {
     LOCK_RANK(modlist_areas), /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(privload_fls_lock), /* < dynamo_areas < global_alloc_lock */
 #endif    
+#ifdef CLIENT_INTERFACE
+    LOCK_RANK(client_aux_libs),
+#endif
     /* ADD HERE a lock around section that may allocate memory */
 
     /* N.B.: the order of allunits < global_alloc < heap_unit is relied on

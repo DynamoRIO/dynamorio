@@ -1041,6 +1041,7 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
   tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
   tobuild_ci(client.syscall client-interface/syscall.c "" "" "")
+  tobuild_ci(client.modules client-interface/modules.c "" "" "")
   if (UNIX)
     # just happens to not make as many traces.  also needs path for events*.so.
     tobuild_ci(client.events client-interface/events.c 
@@ -1053,7 +1054,6 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.events client-interface/events.c "" "" "")
     tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
     tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
-    tobuild_ci(client.modules client-interface/modules.c "" "" "")
     # FIXME i#120: enable these .runall tests once have .runall support
     #tobuild_ci_runall(client.cbr2 client-interface/cbr2.runall "" "" "")
     #tobuild_ci_runall(client.cbr client-interface/cbr.runall "" "" "")

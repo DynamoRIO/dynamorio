@@ -3526,7 +3526,7 @@ os_countdown_messagebox(char *message, int time_in_milliseconds) {
 
 #if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
 shlib_handle_t 
-load_shared_library(char *name)
+load_shared_library(const char *name)
 {
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         return (shlib_handle_t) load_private_library(name);
@@ -3541,7 +3541,7 @@ load_shared_library(char *name)
 
 #if defined(CLIENT_INTERFACE)
 shlib_routine_ptr_t
-lookup_library_routine(shlib_handle_t lib, char *name)
+lookup_library_routine(shlib_handle_t lib, const char *name)
 {
     return (shlib_routine_ptr_t)get_proc_address(lib, name);
 }
@@ -3566,8 +3566,12 @@ shared_library_error(char *buf, int maxlen)
     buf[0] = '\0';
 }
 
+/* addr is any pointer known to lie within the library
+ * for linux, one of addr or name is needed; for windows, neither is needed.
+ */
 bool
 shared_library_bounds(IN shlib_handle_t lib, IN byte *addr,
+                      IN const char *name,
                       OUT byte **start, OUT byte **end)
 {
     size_t sz = get_allocation_size(lib, start);

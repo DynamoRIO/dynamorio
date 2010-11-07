@@ -248,6 +248,8 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_thread_count_lock,
                       INIT_LOCK_FREE(client_thread_count_lock));
 #endif
 
+static vm_area_vector_t *client_aux_libs;
+
 /****************************************************************************/
 /* INTERNAL ROUTINES */
 
@@ -415,7 +417,7 @@ add_client_lib(char *path, char *id_str, char *options)
             client_libs[idx].id = id;
             client_libs[idx].lib = client_lib;
             DEBUG_DECLARE(ok =)
-                shared_library_bounds(client_lib, (byte *) uses_dr_version,
+                shared_library_bounds(client_lib, (byte *) uses_dr_version, NULL,
                                       &client_libs[idx].start, &client_libs[idx].end);
             ASSERT(ok);
 
@@ -490,8 +492,12 @@ instrument_load_client_libs(void)
 void
 instrument_init(void)
 {
-    /* Iterate over the client libs and call each dr_init */
     size_t i;
+
+    VMVECTOR_ALLOC_VECTOR(client_aux_libs, GLOBAL_DCONTEXT,
+                          VECTOR_SHARED, client_aux_libs);
+
+    /* Iterate over the client libs and call each dr_init */
     for (i=0; i<num_client_libs; i++) {
         void (*init)(client_id_t) = (void (*)(client_id_t))
             (lookup_library_routine(client_libs[i].lib, INSTRUMENT_INIT_NAME));
@@ -615,6 +621,7 @@ instrument_exit(void)
     free_all_callback_lists();
 #endif
 
+    vmvector_delete_vector(GLOBAL_DCONTEXT, client_aux_libs);
 #if defined(WINDOWS) || defined(CLIENT_SIDELINE)
     DELETE_LOCK(client_thread_count_lock);
 #endif
@@ -635,7 +642,8 @@ is_in_client_lib(app_pc addr)
             return true;
         }
     }
-
+    if (vmvector_overlap(client_aux_libs, addr, addr+1))
+        return true;
     return false;
 }
 
@@ -2373,6 +2381,83 @@ bool
 dr_memory_is_in_client(const byte *pc)
 {
     return is_in_client_lib((app_pc)pc);
+}
+
+
+/**************************************************
+ * CLIENT AUXILIARY LIBRARIES
+ */
+
+DR_API
+dr_auxlib_handle_t
+dr_load_aux_library(const char *name,
+                    byte **lib_start /*OPTIONAL OUT*/,
+                    byte **lib_end /*OPTIONAL OUT*/)
+{
+    byte *start, *end;
+    dr_auxlib_handle_t lib = load_shared_library(name);
+    if (shared_library_bounds(lib, NULL, name, &start, &end)) {
+        vmvector_add(client_aux_libs, start, end, (void*)lib);
+        if (lib_start != NULL)
+            *lib_start = start;
+        if (lib_end != NULL)
+            *lib_end = end;
+        all_memory_areas_lock();
+        update_all_memory_areas(start, end,
+                                /* XXX: see comment in instrument_init()
+                                 * on walking the sections and what prot to use
+                                 */
+                                MEMPROT_READ, DR_MEMTYPE_IMAGE);
+        all_memory_areas_unlock();
+    } else {
+        unload_shared_library(lib);
+        lib = NULL;
+    }
+    return lib;
+}
+
+DR_API
+dr_auxlib_routine_ptr_t
+dr_lookup_aux_library_routine(dr_auxlib_handle_t lib, const char *name)
+{
+    if (lib == NULL)
+        return NULL;
+    return lookup_library_routine(lib, name);
+}
+
+DR_API
+bool
+dr_unload_aux_library(dr_auxlib_handle_t lib)
+{
+    byte *start = NULL, *end = NULL;
+    /* unfortunately on linux w/ dlopen we cannot find the bounds w/o
+     * either the path or an address so we iterate.
+     * once we have our private loader we shouldn't need this:
+     * XXX i#157
+     */
+    vmvector_iterator_t vmvi;
+    dr_auxlib_handle_t found = NULL;
+    if (lib == NULL)
+        return false;
+    vmvector_iterator_start(client_aux_libs, &vmvi);
+    while (vmvector_iterator_hasnext(&vmvi)) {
+        found = (dr_auxlib_handle_t) vmvector_iterator_next(&vmvi, &start, &end);
+        if (found == lib)
+            break;
+    }
+    vmvector_iterator_stop(&vmvi);
+    if (found == lib) {
+        CLIENT_ASSERT(start != NULL && start < end, "logic error");
+        vmvector_remove(client_aux_libs, start, end);
+        unload_shared_library(lib);
+        all_memory_areas_lock();
+        update_all_memory_areas(start, end, MEMPROT_NONE, DR_MEMTYPE_FREE);
+        all_memory_areas_unlock();
+        return true;
+    } else {
+        CLIENT_ASSERT(false, "invalid aux lib");
+        return false;
+    }
 }
 
 

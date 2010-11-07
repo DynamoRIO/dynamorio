@@ -113,6 +113,9 @@ The changes between version 2.1.0 and 2.0.0 are:
 
  - Added Windows 7 support
  - Added DR_TRY_EXCEPT() (Issue 51)
+ - Added dynamic \client auxiliary library loading support
+   via dr_load_aux_library(), dr_lookup_aux_library_routine(), and
+   dr_unload_aux_library()
  - Added dr_client_thread_set_suspendable()
  - Added dr_get_random_value(), dr_set_random_seed(), and dr_get_random_seed()
  - Added dr_file_exists() and dr_directory_exists() for Linux

@@ -682,6 +682,7 @@ sec_trans_probe). \endif
  - Processor feature identification
  - Extra thread creation
  - Symbol lookup (currently Windows-only)
+ - Auxiliary library loading
 
 See dr_tools.h and dr_proc.h for specifics of each routine.
 

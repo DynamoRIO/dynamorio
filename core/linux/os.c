@@ -2359,7 +2359,7 @@ get_num_processors()
 
 #if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
 shlib_handle_t 
-load_shared_library(char *name)
+load_shared_library(const char *name)
 {
     return dlopen(name, RTLD_LAZY);
 }
@@ -2367,7 +2367,7 @@ load_shared_library(char *name)
 
 #if defined(CLIENT_INTERFACE)
 shlib_routine_ptr_t
-lookup_library_routine(shlib_handle_t lib, char *name)
+lookup_library_routine(shlib_handle_t lib, const char *name)
 {
     return dlsym(lib, name);
 }
@@ -2387,15 +2387,21 @@ shared_library_error(char *buf, int maxlen)
     buf[maxlen-1] = '\0'; /* strncpy won't put on trailing null if maxes out */
 }
 
-/* addr is any pointer known to lie within the library */
+/* addr is any pointer known to lie within the library.
+ * for linux, one of addr or name is needed; for windows, neither is needed.
+ */
 bool
 shared_library_bounds(IN shlib_handle_t lib, IN byte *addr,
+                      IN const char *name,
                       OUT byte **start, OUT byte **end)
 {
-    /* PR 366195: dlopen() handle truly is opaque, so we have to use addr */
     ASSERT(start != NULL && end != NULL);
+    /* PR 366195: dlopen() handle truly is opaque, so we have to use either
+     * addr or name
+     */
+    ASSERT(addr != NULL || name != NULL);
     *start = addr;
-    return (get_library_bounds(NULL, start, end, NULL, 0) > 0);
+    return (get_library_bounds(name, start, end, NULL, 0) > 0);
 }
 #endif /* defined(CLIENT_INTERFACE) */
 
@@ -5476,6 +5482,7 @@ maps_iterator_next(maps_iter_t *iter)
  */
 typedef struct _dl_iterate_data_t {
     app_pc target_addr;
+    const char *target_path;
     char *path_out;
     size_t path_size;
     app_pc mod_start;
@@ -5517,8 +5524,15 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
                                     PAGE_SIZE, 
                                     false, &pref_start, &pref_end, NULL, NULL)) {
         /* we're passed back start,end of preferred base */
-        if (iter_data->target_addr >= base &&
-            iter_data->target_addr < base + (pref_end - pref_start)) {
+        if ((iter_data->target_addr != NULL &&
+             iter_data->target_addr >= base &&
+             iter_data->target_addr < base + (pref_end - pref_start)) ||
+            (iter_data->target_path != NULL &&
+             /* if we're passed an ambiguous name, we return first hit.
+              * if passed full path, should normally be what was used to
+              * load, so should match.
+              */
+             strstr(info->dlpi_name, iter_data->target_path) != NULL)) {
             if (iter_data->path_size > 0) {
                 /* We want just the path, not the filename */
                 char *slash = rindex(info->dlpi_name, '/');
@@ -5573,12 +5587,12 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
 
 #ifndef HAVE_PROC_MAPS
     /* PR 361594: os-independent alternative to /proc/maps */
-    ASSERT(start != NULL);
     /* We don't have the base and we can't walk backwards (see comments above)
      * so we rely on dl_iterate_phdr() from glibc 2.2.4+, which will
      * also give us the path, needed for inject_library_path for execve.
      */
-    iter_data.target_addr = *start;
+    iter_data.target_addr = (start == NULL) ? NULL : *start;
+    iter_data.target_path = name;
     iter_data.path_out = fullpath;
     iter_data.path_size = (fullpath == NULL) ? 0 : path_size;
     DEBUG_DECLARE(int res = )
