@@ -1723,9 +1723,13 @@ account_for_memory(void *p, size_t size, uint prot, bool add_vm _IF_DEBUG(char *
 {
     STATS_ADD_PEAK(memory_capacity, size);
 
-    /* case 3045: areas inside the vmheap reservation are not added to the list */
-    if (vmm_is_reserved_unit(&heapmgt->vmheap, p, size))
+    /* case 3045: areas inside the vmheap reservation are not added to the list
+     * for clients that use DR-allocated memory, we have get_memory_info()
+     * query from the OS to see inside
+     */
+    if (vmm_is_reserved_unit(&heapmgt->vmheap, p, size)) {
         return;
+    }
 
     if (add_vm) {
         add_dynamo_vm_area(p, ((app_pc)p) + size, prot, false _IF_DEBUG(comment));
@@ -1747,9 +1751,13 @@ static void
 update_dynamo_areas_on_release(app_pc start, app_pc end, bool remove_vm)
 {
     if (!vm_areas_exited && !heap_exiting) { /* avoid problems when exiting */
-        /* case 3045: areas inside the vmheap reservation are not added to the list */
-        if (vmm_is_reserved_unit(&heapmgt->vmheap, start, end - start))
+        /* case 3045: areas inside the vmheap reservation are not added to the list
+         * for clients that use DR-allocated memory, we have get_memory_info()
+         * query from the OS to see inside
+         */
+        if (vmm_is_reserved_unit(&heapmgt->vmheap, start, end - start)) {
             return;
+        }
         if (remove_vm) {
             remove_dynamo_vm_area(start, end);
         } else {

@@ -7119,6 +7119,16 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             bool is_allocated_mem = get_memory_info(pc, &base_pc, &size, &prot);
             bool is_being_unloaded = false;
 
+#ifdef CLIENT_INTERFACE
+            /* clients are allowed to use DR-allocated memory as app code:
+             * we give up some robustness by allowing any DR-allocated memory.
+             * XXX: should we instead have some dr_appcode_alloc() or
+             * dr_appcode_mark() API?
+             */
+            if (is_in_dr && INTERNAL_OPTION(code_api))
+                is_in_dr = false;
+#endif
+
             if (!is_allocated_mem) {
                 /* case 9022 - Kaspersky sports JMPs to a driver in
                  * kernel address space e.g. jmp f7ab7d67
