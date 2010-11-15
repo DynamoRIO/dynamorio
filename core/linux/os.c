@@ -1045,7 +1045,7 @@ typedef struct _os_local_state_t {
     ASSERT(sizeof(var) == sizeof(void*));                   \
     ASSERT(sizeof(idx) == 2);                               \
     asm("mov %0, %%"ASM_XAX : : "m"((var)) : ASM_XAX);      \
-    asm("movzxw %0, %%"ASM_XDX"" : : "m"((idx)) : ASM_XDX);  \
+    asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XDX : : "m"((idx)) : ASM_XDX); \
     asm("mov %%"ASM_XAX", %"ASM_SEG":(%%"ASM_XDX")" : : : ASM_XAX, ASM_XDX);
 
 /* FIXME: get_thread_private_dcontext() is a bottleneck, so it would be
@@ -1055,7 +1055,7 @@ typedef struct _os_local_state_t {
 #define READ_TLS_SLOT(idx, var)                                    \
     ASSERT(sizeof(var) == sizeof(void*));                          \
     ASSERT(sizeof(idx) == 2);                                      \
-    asm("movzxw %0, %%"ASM_XAX : : "m"((idx)) : ASM_XAX);          \
+    asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XAX : : "m"((idx)) : ASM_XAX); \
     asm("mov %"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);  \
     asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
 
