@@ -1043,8 +1043,9 @@ typedef struct _os_local_state_t {
 #define WRITE_TLS_SLOT(idx, var)                            \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                  \
     ASSERT(sizeof(var) == sizeof(void*));                   \
+    ASSERT(sizeof(idx) == 2);                               \
     asm("mov %0, %%"ASM_XAX : : "m"((var)) : ASM_XAX);      \
-    asm("movzx %0, %%"ASM_XDX"" : : "m"((idx)) : ASM_XDX);  \
+    asm("movzxw %0, %%"ASM_XDX"" : : "m"((idx)) : ASM_XDX);  \
     asm("mov %%"ASM_XAX", %"ASM_SEG":(%%"ASM_XDX")" : : : ASM_XAX, ASM_XDX);
 
 /* FIXME: get_thread_private_dcontext() is a bottleneck, so it would be
@@ -1053,7 +1054,8 @@ typedef struct _os_local_state_t {
  */
 #define READ_TLS_SLOT(idx, var)                                    \
     ASSERT(sizeof(var) == sizeof(void*));                          \
-    asm("movzx %0, %%"ASM_XAX : : "m"((idx)) : ASM_XAX);           \
+    ASSERT(sizeof(idx) == 2);                                      \
+    asm("movzxw %0, %%"ASM_XAX : : "m"((idx)) : ASM_XAX);          \
     asm("mov %"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);  \
     asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
 
@@ -1382,7 +1384,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     /* We can't read from fs: as we can be called from other threads */
     /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
     os_local_state_t *os_tls = (os_local_state_t *)
-        ((byte*)local_state) - offsetof(os_local_state_t, state);
+        (((byte*)local_state) - offsetof(os_local_state_t, state));
     tls_type_t tls_type = os_tls->tls_type;
     int index = os_tls->ldt_index;
 
@@ -1424,7 +1426,7 @@ static int
 os_tls_get_gdt_index(dcontext_t *dcontext)
 {
     os_local_state_t *os_tls = (os_local_state_t *)
-        ((byte*)dcontext->local_state) - offsetof(os_local_state_t, state);
+        (((byte*)dcontext->local_state) - offsetof(os_local_state_t, state));
     if (os_tls->tls_type == TLS_TYPE_GDT)
         return os_tls->ldt_index;
     else
