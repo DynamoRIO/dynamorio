@@ -964,10 +964,11 @@ dynamo_shared_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
     mutex_unlock(&all_threads_lock);
    
 #ifdef WINDOWS
+# ifdef CLIENT_INTERFACE
     /* for -private_loader we do this here to catch more exit-time crashes */
-    if (!INTERNAL_OPTION(noasynch)
-        IF_CLIENT_INTERFACE(&& INTERNAL_OPTION(private_loader)))
+    if (!INTERNAL_OPTION(noasynch) && INTERNAL_OPTION(private_loader))
         callback_interception_unintercept();
+# endif
     /* callback_interception_exit must be after fragment exit for CLIENT_INTERFACE so
      * that fragment_exit->frees fragments->instrument_fragment_deleted->
      * hide_tag_from_fragment->is_intercepted_app_pc won't crash. xref PR 228156 */
