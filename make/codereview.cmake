@@ -64,6 +64,9 @@
 #   DR_ISSUE:BOOL   = Set to ON to create a DynamoRIO Issue to cover the review
 #                     task.  This is no longer recommended as we use Rietveld
 #                     and don't want to pollute the DR issue tracker.
+#   CR_ISSUE:STRING = Gives the codereview.appspot.com issue number to use, if
+#                     the diff was uploaded manually and thus the number is not
+#                     stored at the top of the diff itself.
 #
 # Examples:
 #
@@ -135,6 +138,11 @@ endif (NOT EXISTS ${REVIEWS})
 if (NOT EXISTS "make/upload.py")
   message(FATAL_ERROR "cannot find make/upload.py")
 endif ()
+
+find_program(PYTHON python DOC "subversion client")
+if (NOT PYTHON)
+  message(FATAL_ERROR "python not found")
+endif (NOT PYTHON)
 
 find_program(SVN svn DOC "subversion client")
 if (NOT SVN)
@@ -234,19 +242,28 @@ else (REVERT)
   # If someone manually created these files then this script
   # will fail: we assume not already there if haven't been
   # added to svn yet.
-  set(cur_issue )
+  if (CR_ISSUE)
+    set(cur_issue -i ${CR_ISSUE})
+  else (CR_ISSUE)
+    set(cur_issue )
+  endif (CR_ISSUE)
   if (NOT EXISTS "${DIFF_FILE}")
     file(WRITE "${DIFF_FILE}" "")
     run_svn("add;${DIFF_LOCAL}")
   else (NOT EXISTS "${DIFF_FILE}")
-    # Get Rietveld issue #
-    file(READ "${DIFF_FILE}" curdiff)
-    string(REGEX MATCHALL "http://codereview.appspot.com/[0-9]*" issue "${curdiff}")
-    string(REGEX REPLACE "http://codereview.appspot.com/" "" inum "${issue}")
-    if (NOT "${inum}" STREQUAL "")
-      set(cur_issue -i ${inum})
-    endif ()
+    if (NOT CR_ISSUE)
+      # Get Rietveld issue #
+      file(READ "${DIFF_FILE}" curdiff)
+      string(REGEX MATCH "http://codereview.appspot.com/[0-9]*" issue "${curdiff}")
+      string(REGEX REPLACE "http://codereview.appspot.com/" "" inum "${issue}")
+      if (NOT "${inum}" STREQUAL "")
+        set(cur_issue -i ${inum})
+      endif (NOT "${inum}" STREQUAL "")
+    endif (NOT CR_ISSUE)
   endif (NOT EXISTS "${DIFF_FILE}")
+  if ("${inum}" STREQUAL "")
+    set(issue "Not auto-uploaded to codereview.appspot.com")
+  endif ("${inum}" STREQUAL "")
 
   file(READ "${NOTES}" string)
   string(REGEX REPLACE "^.*\ntoreview:\r?\n" "" pubnotes "${string}")
@@ -455,18 +472,40 @@ else (REVERT)
 
  if (COMMIT)
     # Upload to Rietveld with notes as description
-    execute_process(COMMAND "make/upload.py" -y
+    # Unfortunately there's no way in CMake to execute upload.py when it
+    # asks for a password (it needs control over the terminal to do that)
+    # so we only automate when cookies are in place.
+    set(home "$ENV{HOME}")
+    if (WIN32 AND "${home}" STREQUAL "")
+      set(home "$ENV{USERPROFILE}")
+    endif ()
+    set(cookie_file "${home}/.codereview_upload_cookies")
+    set(upload_cmd "${PYTHON}" "make/upload.py" -y
       -e "${AUTHOR}" -r "${REVIEWER}" -m "${first_line}" -f "${DIFF_FILE}"
       --send_mail --cc=dynamorio-devs@googlegroups.com
-      ${cur_issue} ${DIFFARGS}
-      RESULT_VARIABLE cmd_result
-      ERROR_VARIABLE cmd_err
-      OUTPUT_VARIABLE cmd_out)
-    if (cmd_result OR cmd_err)
-      message(FATAL_ERROR "*** upload.py failed: ***\n${cmd_out}\n${cmd_err}")
-    endif (cmd_result OR cmd_err)
-    string(REGEX MATCHALL "http://codereview.appspot.com/[0-9]*" issue "${cmd_out}")
-    message(STATUS "Issue is uploaded to: ${issue}")
+      ${cur_issue} ${DIFFARGS})
+    # list to string
+    foreach(arg ${upload_cmd})
+      if (arg MATCHES " ")
+        set(upload_cmd_str "${upload_cmd_str} \"${arg}\"")
+      else (arg MATCHES " ")
+        set(upload_cmd_str "${upload_cmd_str} ${arg}")
+      endif (arg MATCHES " ")
+    endforeach(arg ${upload_cmd})
+    if (NOT EXISTS "${cookie_file}")
+      message(STATUS "It looks like upload.py does not have cookies in place and will prompt you for a password.  To do so you must run it separately (and then use -DCR_ISSUE=<issue#> arg with future invocations of this script in order to update the same issue).\nPlease run:\n\t${upload_cmd_str}")
+    else (NOT EXISTS "${cookie_file}")
+      message(STATUS "running ${upload_cmd_str}")
+      execute_process(COMMAND ${upload_cmd}
+        RESULT_VARIABLE cmd_result
+        OUTPUT_VARIABLE cmd_out
+        ERROR_VARIABLE cmd_err)
+      if (cmd_result OR cmd_err)
+        message(FATAL_ERROR "*** upload.py failed: ***\n${cmd_out}\n${cmd_err}.")
+      endif (cmd_result OR cmd_err)
+      string(REGEX MATCHALL "http://codereview.appspot.com/[0-9]*" issue "${cmd_out}")
+      message(STATUS "Issue is uploaded to: ${issue}")
+    endif (NOT EXISTS "${cookie_file}")
   endif (COMMIT)
   # Save issue for next time
   file(APPEND "${DIFF_FILE}" "\n${issue}\n")
