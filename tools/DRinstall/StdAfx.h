@@ -43,6 +43,7 @@
 #define _STDAFX_H_
 
 #define _WIN32_WINNT 0x0400 
+#define _WIN32_IE    0x0400 /* _WIN32_IE_IE40: MFC requires at least this */
 
 #if _MSC_VER > 1000
 #pragma once

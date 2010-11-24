@@ -40,6 +40,7 @@
 //
 
 #define _WIN32_WINNT 0x0400 //_WIN32_WINNT_NT4 /* ==0x0400; NTDDI_VERSION is set from this */
+#define _WIN32_IE    0x0400 /* _WIN32_IE_IE40: MFC requires at least this */
 
 // use _s secure versions
 #define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1
