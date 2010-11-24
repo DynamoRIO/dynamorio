@@ -40,8 +40,20 @@ if (WIN32 AND "${ImageMagick_mogrify_EXECUTABLE}" MATCHES "cygwin")
   # b, c, or g (haven't tracked down why those particular letters):
   #   % mogrify -resize 33% -format png c:/client.tiff[0]
   #   mogrify: Must specify image size `/client.tiff'.
-  string(REGEX REPLACE "^([a-zA-Z]):/" "/cygdrive/\\1/"
-    genimg_dirname_IM "${genimg_dirname}")
+  find_program(CYGPATH cygpath) # XXX: should share w/ Cmake_doxyfile.cmake
+  if (NOT CYGPATH)
+    message(FATAL_ERROR "cannot find cygpath: thus cannot use cygwin ImageMagick")
+  endif (NOT CYGPATH)
+  execute_process(COMMAND
+    ${CYGPATH} -u "${genimg_dirname}"
+    RESULT_VARIABLE cygpath_result
+    ERROR_VARIABLE cygpath_err
+    OUTPUT_VARIABLE genimg_dirname_IM
+    )
+  if (cygpath_result OR cygpath_err)
+    message(FATAL_ERROR "*** ${CYGPATH} failed: ***\n${cygpath_err}")
+  endif (cygpath_result OR cygpath_err)
+  string(REGEX REPLACE "[\r\n]" "" genimg_dirname_IM "${genimg_dirname_IM}")
 else (WIN32 AND "${ImageMagick_mogrify_EXECUTABLE}" MATCHES "cygwin")
   set(genimg_dirname_IM "${genimg_dirname}")
 endif (WIN32 AND "${ImageMagick_mogrify_EXECUTABLE}" MATCHES "cygwin")
