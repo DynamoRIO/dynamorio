@@ -256,13 +256,13 @@ function(testbuild_ex name is64 initial_cache build_args)
       endif (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
     else (is64)
       if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
-        string(REGEX REPLACE "(VC[/\\\\][Bb][Ii][Nn][/\\\\])amd64" "\\1"
+        string(REGEX REPLACE "(VC[/\\\\][Bb][Ii][Nn][/\\\\])[Aa][Mm][Dd]64" "\\1"
           newpath "$ENV{PATH}")
         set(ENV{PATH} "${newpath}")
-        string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\]amd64" "\\1"
+        string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Aa][Mm][Dd]64" "\\1"
           newlib "$ENV{LIB}")
         set(ENV{LIB} "${newlib}")
-        string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\]amd64" "\\1"
+        string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Aa][Mm][Dd]64" "\\1"
           newlibpath "$ENV{LIBPATH}")
         set(ENV{LIBPATH} "${newlibpath}")
       endif ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
