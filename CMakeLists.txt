@@ -358,12 +358,12 @@ else (UNIX)
   else (X64)
     # Newer WDK (7600.16385.1) does not have w2k so use wxp: if using
     # that WDK, won't be able to run on 2K or NT.
-    if (EXISTS "${DDK_ROOT}/w2k/i386")
+    if (EXISTS "${DDK_ROOT}/lib/w2k/i386")
       set(NTDLL_LIB_SUBPATH lib/w2k/i386)
-    else (EXISTS "${DDK_ROOT}/w2k/i386")
+    else (EXISTS "${DDK_ROOT}/lib/w2k/i386")
       message(STATUS "DDK/WDK is too recent: no support for Windows 2000 or earlier")
       set(NTDLL_LIB_SUBPATH lib/wxp/i386)
-    endif (EXISTS "${DDK_ROOT}/w2k/i386")
+    endif (EXISTS "${DDK_ROOT}/lib/w2k/i386")
   endif (X64)
   # Use find_library() and not find_path() in case on LIB env var or sthg
   find_library(NTDLL_LIBPATH ntdll.lib HINTS "${DDK_ROOT}/${NTDLL_LIB_SUBPATH}"
