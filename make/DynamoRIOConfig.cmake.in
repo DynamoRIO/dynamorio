@@ -196,6 +196,10 @@ function (get_size is_cxx x64_var)
     set(sizeof_void ${CMAKE_C_SIZEOF_DATA_PTR})
   endif (is_cxx)
 
+  if ("${sizeof_void}" STREQUAL "")
+    message(FATAL_ERROR "unable to determine bitwidth: did earlier ABI tests fail?  check CMakeFiles/CMakeError.log")
+  endif ("${sizeof_void}" STREQUAL "")
+
   if (${sizeof_void} EQUAL 8)
     set(${x64_var} ON PARENT_SCOPE)
   else (${sizeof_void} EQUAL 8)
