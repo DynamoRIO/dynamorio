@@ -267,10 +267,52 @@ foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS;
   set(${var} " ") # if "" defaults come back
 endforeach ()
 
+##################################################
 # resources when packaging
+
+# i#83: use timestamp of last commit as patchlevel ver# to distinguish
+# mid-release builds
+set(VERSION_NUMBER_PATCHLEVEL 0)
+if (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
+  find_program(SVN svn DOC "subversion client")
+  if (SVN)
+    execute_process(COMMAND ${SVN} info
+      WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+      RESULT_VARIABLE svn_result
+      ERROR_VARIABLE svn_err
+      OUTPUT_VARIABLE svn_out)
+    if (svn_result OR svn_err)
+      message(FATAL_ERROR "*** ${SVN} info failed: ***\n${svn_err}")
+    endif (svn_result OR svn_err)
+    string(REGEX MATCH "Last Changed Date: [0-9]+-[0-9]+-[0-9]+" svn_out "${svn_out}")
+    string(REGEX REPLACE "Last Changed Date: " "" svn_out "${svn_out}")
+    string(REGEX REPLACE "-" "" svn_out "${svn_out}")
+    set(VERSION_NUMBER_PATCHLEVEL "${svn_out}")
+  endif (SVN)
+else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
+  if (EXISTS "${PROJECT_SOURCE_DIR}/.git")
+    find_program(GIT git DOC "subversion client")
+    if (GIT)
+      # we go ahead and use the most recent commit even if local and not to svn
+      execute_process(COMMAND ${GIT} show --format=%ci HEAD
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        RESULT_VARIABLE git_result
+        ERROR_VARIABLE git_err
+        OUTPUT_VARIABLE git_out)
+      if (git_result OR git_err)
+        message(FATAL_ERROR "*** ${GIT} show failed: ***\n${git_err}")
+      endif (git_result OR git_err)
+      # date is on first line like this: 2010-11-24 17:20:10 +0000
+      string(REGEX REPLACE " [0-9]+:[0-9]+:[0-9]+.*" "" git_out "${git_out}")
+      string(REGEX REPLACE "-" "" git_out "${git_out}")
+      set(VERSION_NUMBER_PATCHLEVEL "${git_out}")
+    endif (GIT)
+  endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
+endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
+
 # N.B.: once VERSION_NUMBER crosses 3.x we'll need to update the
 # symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER_DEFAULT "2.1.0")
+set(VERSION_NUMBER_DEFAULT "2.0.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -278,6 +320,8 @@ if ("${VERSION_NUMBER}" STREQUAL "")
   set(VERSION_NUMBER ${VERSION_NUMBER_DEFAULT})
 endif()
 string(REGEX REPLACE "\\." "," VERSION_COMMA_DELIMITED "${VERSION_NUMBER}")
+message(STATUS "Version number: ${VERSION_NUMBER}")
+
 set(BUILD_NUMBER "0" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "0" CACHE STRING "Unique build number")
 set(CUSTOM_PRODUCT_NAME "" CACHE STRING "Custom product name")

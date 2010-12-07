@@ -55,7 +55,7 @@ endif ()
 
 # Compatibility with particular versions
 if (NOT "${PACKAGE_FIND_VERSION_MAJOR}" EQUAL 0)
-  if ("${PACKAGE_FIND_VERSION_MAJOR}.${PACKAGE_FIND_VERSION_MINOR}" STRLESS "2.1")
+  if ("${PACKAGE_FIND_VERSION_MAJOR}.${PACKAGE_FIND_VERSION_MINOR}.${PACKAGE_FIND_VERSION_PATCH}" STRLESS "2.0.1")
     # Automatically use the older constants if client targets older version
     set(DynamoRIO_REG_COMPATIBILITY ON PARENT_SCOPE)
   endif ()
