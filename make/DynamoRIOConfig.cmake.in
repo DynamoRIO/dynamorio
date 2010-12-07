@@ -525,8 +525,12 @@ function (use_DynamoRIO_extension target extname)
     # ${cwd}/../ext/cmake/*.cmake or something?
     include_directories(${cwd}/../ext/include)
   else (NOT DynamoRIO_INTERNAL)
-    # support building from build dir
-    if (EXISTS "${PROJECT_SOURCE_DIR}/ext")
+    # support building from build dir for our own samples, and from
+    # build dir for a client that includes our sources as a sub-project,
+    # in which case DynamoRIO_SOURCE_DIR will automatically be set:
+    if (EXISTS "${DynamoRIO_SOURCE_DIR}/ext")
+      include_directories(${DynamoRIO_SOURCE_DIR}/ext/${extname})
+    elseif (EXISTS "${PROJECT_SOURCE_DIR}/ext")
       include_directories(${PROJECT_SOURCE_DIR}/ext/${extname})
     elseif (EXISTS "${PROJECT_SOURCE_DIR}/../../ext")
       # A hack to support samples being a separate project: probably it

@@ -120,7 +120,7 @@ if (MFAPI_ENABLED)
     LINK_FLAGS "${libutil_ldflags}")
 endif (MFAPI_ENABLED)
 
-install(TARGETS drconfiglib
+DR_install(TARGETS drconfiglib
   EXPORT ${exported_targets_name}
   RUNTIME DESTINATION ${INSTALL_LIB_BASE} # .dll
   LIBRARY DESTINATION ${INSTALL_LIB_BASE} # .so
@@ -129,5 +129,5 @@ install(TARGETS drconfiglib
 export(TARGETS drconfiglib FILE
   ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake APPEND)
 # drinject.exe and company need a copy in the bin dir
-install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
+DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 

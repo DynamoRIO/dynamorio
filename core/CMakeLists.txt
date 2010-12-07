@@ -195,6 +195,10 @@ add_library(dynamorio SHARED
   # ditto: adding here for dependence
   ${CMAKE_CURRENT_SOURCE_DIR}/CMake_ldscript.cmake
   )
+set_target_properties(dynamorio PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}"
+  RUNTIME_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}"
+  ARCHIVE_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}")
 
 # rather than a separate BUILD_INCLUDES option we always build
 # include headers if building core (or if building docs or samples as
@@ -207,6 +211,10 @@ add_library(${PRELOAD_NAME} SHARED ${PRELOAD_SRCS})
 # b/c preload dynamically loads dynamorio by name and does not have a
 # static dependence.  Plus, by having a static dependence we hit issues
 # like PR 258636.  We also don't set rpath b/c that only applies to executables.
+set_target_properties(${PRELOAD_NAME} PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}"
+  RUNTIME_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}"
+  ARCHIVE_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}")
 
 ###########################################################################
 # linux build customization
@@ -290,7 +298,7 @@ if (UNIX)
       set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} ${curver_path}/${oldver})
       add_custom_command(TARGET dynamorio POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E create_symlink ${curver} ${oldver}
-        WORKING_DIRECTORY ${LIBRARY_OUTPUT_PATH}
+        WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_PATH}
         VERBATIM)
       math(EXPR verstart "${verstart} + 1")
     endwhile ()
@@ -504,7 +512,7 @@ set_target_properties(dynamorio PROPERTIES
   # Setting these isn't affecting anything but doing so anyway.
   IMPORTED_LINK_INTERFACE_LIBRARIES ""
   IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "")
-install(TARGETS dynamorio
+DR_install(TARGETS dynamorio
   EXPORT ${exported_targets_name}
   RUNTIME DESTINATION ${INSTALL_LIB} # .dll
   LIBRARY DESTINATION ${INSTALL_LIB} # .so
@@ -512,17 +520,17 @@ install(TARGETS dynamorio
   )
 export(TARGETS dynamorio FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake)
 if (UNIX)
-  install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
-  install(FILES ${COMPAT_SYMLINKS} DESTINATION ${INSTALL_LIB})
+  DR_install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
+  DR_install(FILES ${COMPAT_SYMLINKS} DESTINATION ${INSTALL_LIB})
 else (UNIX)
-  install(TARGETS drinjectlib EXPORT ${exported_targets_name}
+  DR_install(TARGETS drinjectlib EXPORT ${exported_targets_name}
     DESTINATION ${INSTALL_LIB_BASE})
   export(TARGETS drinjectlib FILE
     ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake APPEND)
   # we put drinjectlib into bin for use by our tools
-  install(TARGETS drinjectlib DESTINATION ${INSTALL_BIN})
-  install(TARGETS ${PRELOAD_NAME} RUNTIME DESTINATION ${INSTALL_LIB_BASE})
-  install(TARGETS drearlyhelp1 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
-  install(TARGETS drearlyhelp2 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
+  DR_install(TARGETS drinjectlib DESTINATION ${INSTALL_BIN})
+  DR_install(TARGETS ${PRELOAD_NAME} RUNTIME DESTINATION ${INSTALL_LIB_BASE})
+  DR_install(TARGETS drearlyhelp1 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
+  DR_install(TARGETS drearlyhelp2 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
 endif (UNIX)
 

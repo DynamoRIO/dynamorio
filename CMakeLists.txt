@@ -251,12 +251,21 @@ mark_as_advanced(
   GENERATE_PDBS
   DRGUI_DEMO
   )
-# replaced by our own DEBUG, INTERNAL, etc.
-# FIXME: or should we support and map these to ours?
+
+# we ignore CMAKE_BUILD_TYPE (replaced by our own DEBUG, INTERNAL, etc.)
+# we clear both base and build-type cflags and then use just base.
+# XXX: or should we support build type and auto-map to ours?
 # if we do support we'll need to remove flags like /MD coming from
 # the CMAKE_C_FLAGS_*, which are added to the base CMAKE_C_FLAGS.
-set(CMAKE_BUILD_TYPE "" CACHE INTERNAL
-  "build type: unused" FORCE)
+string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
+foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS;
+    CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
+    CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
+    CMAKE_EXE_LINKER_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
+    CMAKE_MODULE_LINKER_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
+    CMAKE_SHARED_LINKER_FLAGS_${CMAKE_BUILD_TYPE_UPPER})
+  set(${var} " ") # if "" defaults come back
+endforeach ()
 
 # resources when packaging
 # N.B.: once VERSION_NUMBER crosses 3.x we'll need to update the
@@ -683,13 +692,6 @@ endif (NOT DISABLE_WARNINGS)
 
 ###########################################################################
 
-# use a single path for easier installation of pdbs
-set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
-# if drinjectlib is built before any exe target this dir won't exist
-# and the "cmake -E copy" will fail (PR 549174)
-file(MAKE_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}")
-
 # Issue 20: cross-arch execve depends on these being distinct and not
 # subsets of each other (e.g., not "lib" and "lib64") and on the
 # release package using these same names.
@@ -711,7 +713,27 @@ set(INSTALL_INCLUDE include)
 set(INSTALL_DOCS docs)
 # samples are installed via api/samples/ separate CMake project
 set(INSTALL_CMAKE cmake)
-set(BUILD_INCLUDE ${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE})
+set(BUILD_INCLUDE "${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE}")
+
+# support DynamoRIO being included as a subdir inside a tool's project,
+# where the tool will likely want to suppress DR's install rules.
+if (NOT DEFINED DO_DR_INSTALL)
+  set(DO_DR_INSTALL ON)
+endif (NOT DEFINED DO_DR_INSTALL)
+macro(DR_install)
+  if (DO_DR_INSTALL)
+    install(${ARGV})
+  endif (DO_DR_INSTALL)
+endmacro(DR_install)
+
+# mirror install path for easier use from build dir
+# most libs go in base; DR and preload go in {debug,release} subdir
+set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}")
+set(DR_LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/${INSTALL_LIB}")
+set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
+# if drinjectlib is built before any exe target this dir won't exist
+# and the "cmake -E copy" will fail (PR 549174)
+file(MAKE_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}")
 
 # set var needed by configure.cmake.h
 string(REGEX REPLACE 
@@ -862,6 +884,9 @@ if (BUILD_DRGUI)
   add_subdirectory(tools/DRgui)
 endif (BUILD_DRGUI)
 
+# create empty logs dir for running out of build dir
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/logs")
+
 ###########################################################################
 
 # used by docs, samples, and tests, so here instead of in core/CMakeLists.txt
@@ -885,7 +910,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/core
     VERBATIM # recommended: p260
     )
-  install(DIRECTORY ${BUILD_INCLUDE} DESTINATION .)
+  DR_install(DIRECTORY ${BUILD_INCLUDE} DESTINATION .)
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
 if (CLIENT_INTERFACE OR APP_EXPORTS)
@@ -955,7 +980,7 @@ endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
 ###########################################################################
 
-install(FILES
+DR_install(FILES
   ${PROJECT_SOURCE_DIR}/README 
   ${PROJECT_SOURCE_DIR}/License.txt 
   ${PROJECT_SOURCE_DIR}/ACKNOWLEDGEMENTS
@@ -963,11 +988,11 @@ install(FILES
 
 # We put all our libs and exes in common dirs, making it easier
 # to copy our symbols.  It's a pain to construct the pdb name
-# counterparts for targets, so we use the install(DIRECTORY) commands
+# counterparts for targets, so we use the DR_install(DIRECTORY) commands
 # where we can use wildcards.
 # Slightly ugly to have hardcoded names: long-term CMake should
 # support auto-installing pdb files.
-install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
+DR_install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
   DESTINATION ${INSTALL_LIB_BASE}
   FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
   WORLD_READ WORLD_EXECUTE
@@ -979,7 +1004,7 @@ install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
   PATTERN "libdrpreload.so.debug" EXCLUDE # in ${INSTALL_LIB}
   PATTERN "policy_static.pdb" EXCLUDE
   )
-install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
+DR_install(DIRECTORY ${DR_LIBRARY_OUTPUT_PATH}/
   DESTINATION ${INSTALL_LIB}
   FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
   WORLD_READ WORLD_EXECUTE
@@ -989,7 +1014,7 @@ install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
   PATTERN "libdrpreload.so.debug" 
   )
 if (BUILD_TOOLS OR WIN32)
-  install(DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/
+  DR_install(DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/
     DESTINATION ${INSTALL_BIN}
     FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE
@@ -1003,9 +1028,9 @@ endif (BUILD_TOOLS OR WIN32)
 
 # create empty logs dir for release package
 # be sure to escape ",$ since evaluated at install time not configure time
-install(CODE "file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/logs\")")
+DR_install(CODE "file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/logs\")")
 # CPack seems to ignore empty dirs so add a README file
-install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
+DR_install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
 
 ###########################################################################
 
@@ -1019,7 +1044,7 @@ configure_file(
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfigVersion.cmake.in
   ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
   @ONLY)
-install(FILES
+DR_install(FILES
   ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake
   ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
   DESTINATION ${INSTALL_CMAKE}
@@ -1050,8 +1075,8 @@ if (BUILD_TESTS)
 endif (BUILD_TESTS)
 
 # Create the exported targets file.  This will include all targets added
-# in subdirectories via install(TARGETS ... EXPORT ${exported_targets_name}).
-install(EXPORT ${exported_targets_name} DESTINATION ${INSTALL_CMAKE})
+# in subdirectories via DR_install(TARGETS ... EXPORT ${exported_targets_name}).
+DR_install(EXPORT ${exported_targets_name} DESTINATION ${INSTALL_CMAKE})
 
 ###########################################################################
 # packaging

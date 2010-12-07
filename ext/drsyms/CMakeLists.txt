@@ -49,7 +49,7 @@ if (WIN32)
   
   export(TARGETS drsyms FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
     APPEND)
-  install(TARGETS drsyms EXPORT ${exported_targets_name} DESTINATION ${INSTALL_EXT_LIB})
-  install(FILES drsyms.h DESTINATION ${INSTALL_EXT_INCLUDE})
+  DR_install(TARGETS drsyms EXPORT ${exported_targets_name} DESTINATION ${INSTALL_EXT_LIB})
+  DR_install(FILES drsyms.h DESTINATION ${INSTALL_EXT_INCLUDE})
 
 endif (WIN32)

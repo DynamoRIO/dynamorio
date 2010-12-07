@@ -85,4 +85,4 @@ target_link_libraries(DRgui policy_static)
 set_target_properties(DRgui PROPERTIES LINK_FLAGS
   "/NODEFAULTLIB:libc.lib /ENTRY:wWinMainCRTStartup")
 
-install(TARGETS DRgui DESTINATION ${INSTALL_BIN})
+DR_install(TARGETS DRgui DESTINATION ${INSTALL_BIN})

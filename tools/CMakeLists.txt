@@ -71,7 +71,7 @@ if (UNIX)
     message(FATAL_ERROR "*** drdeploy symlink failed: ***\n${symlink_error}")
   endif (symlink_result OR symlink_error)
   # simpler to install all and exclude
-  install(DIRECTORY "${EXECUTABLE_OUTPUT_PATH}/"
+  DR_install(DIRECTORY "${EXECUTABLE_OUTPUT_PATH}/"
     DESTINATION "${INSTALL_BIN}"
     FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE 
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
@@ -79,7 +79,7 @@ if (UNIX)
     PATTERN "runstats*"
     EXCLUDE)
 
-  install(TARGETS nudgeunix DESTINATION ${INSTALL_BIN})
+  DR_install(TARGETS nudgeunix DESTINATION ${INSTALL_BIN})
 else (UNIX)
   # FIXME i#98: eventually upgrade to W4 with pragma exceptions.
   # W2 is default (we're using W3).  We should also replace
@@ -162,6 +162,6 @@ else (UNIX)
   # isn't runas admin which isn't quite as nice.  Disable for now.
   # $(MT) -manifest drdeploy.exe.manifest -outputresource:drdeploy.exe
 
-  install(TARGETS ${tgts} DESTINATION "${INSTALL_BIN}")
+  DR_install(TARGETS ${tgts} DESTINATION "${INSTALL_BIN}")
 
 endif (UNIX)

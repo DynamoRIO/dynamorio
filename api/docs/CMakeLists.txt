@@ -199,7 +199,7 @@ add_dependencies(htmldocs api_headers)
 ###########################################################################
 # install rules
 
-install(DIRECTORY
+DR_install(DIRECTORY
   ${CMAKE_CURRENT_BINARY_DIR}/html
   DESTINATION ${INSTALL_DOCS}
   )
@@ -207,7 +207,7 @@ install(DIRECTORY
 # IE for some reason won't initially load an .ico in a web page from a server,
 # though will show it via file: or after pointing straight at image from server.
 # doxygen fails to copy image referenced only in footer.html
-install(FILES
+DR_install(FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/images/favicon.png
   DESTINATION ${INSTALL_DOCS}/html
   )
