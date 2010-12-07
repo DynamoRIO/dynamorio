@@ -59,7 +59,7 @@ if (NOT DEFINED DynamoRIO_DIR)
     "DynamoRIO installation's cmake directory")
 endif (NOT DEFINED DynamoRIO_DIR)
 
-find_package(DynamoRIO ${VERSION_NUMBER})
+find_package(DynamoRIO ${VERSION_NUMBER_MAJOR}.${VERSION_NUMBER_MINOR})
 if (NOT DynamoRIO_FOUND)
   message(FATAL_ERROR "DynamoRIO package required to build")
 endif(NOT DynamoRIO_FOUND)
@@ -129,7 +129,7 @@ endforeach (src)
 # Should we add some install targets for users?
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt" string)
 string(REGEX REPLACE "# Strip out everything.*$" "" string "${string}")
-string(REGEX REPLACE "\\$\\{(VERSION_NUMBER[^}]*)\\}" "@\\1@" string "${string}")
+string(REGEX REPLACE "\\$\\{(VERSION_NUMBER[^\\}]*)\\}" "@\\1@" string "${string}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt.in" "${string}")
 configure_file("${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt.in"
   "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt"

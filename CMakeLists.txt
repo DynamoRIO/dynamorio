@@ -270,9 +270,14 @@ endforeach ()
 ##################################################
 # resources when packaging
 
-# i#83: use timestamp of last commit as patchlevel ver# to distinguish
-# mid-release builds
+# i#83: use svn revision of last commit as patchlevel ver# to distinguish
+# mid-release builds.
+# XXX: if we later switch to a non-linear version control system we'll
+# want to switch to a date or something, but be aware of timezone issues
+# so we may want a cron job that updates an official date in the sources.
 set(VERSION_NUMBER_PATCHLEVEL 0)
+# for now using a hack of running svn or git to get the ver#,
+# rather than having it stored in the sources and auto-updated
 if (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   find_program(SVN svn DOC "subversion client")
   if (SVN)
@@ -284,17 +289,15 @@ if (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
     if (svn_result OR svn_err)
       message(FATAL_ERROR "*** ${SVN} info failed: ***\n${svn_err}")
     endif (svn_result OR svn_err)
-    string(REGEX MATCH "Last Changed Date: [0-9]+-[0-9]+-[0-9]+" svn_out "${svn_out}")
-    string(REGEX REPLACE "Last Changed Date: " "" svn_out "${svn_out}")
-    string(REGEX REPLACE "-" "" svn_out "${svn_out}")
+    string(REGEX MATCH "Revision: [0-9]+" svn_out "${svn_out}")
+    string(REGEX REPLACE "Revision: " "" svn_out "${svn_out}")
     set(VERSION_NUMBER_PATCHLEVEL "${svn_out}")
   endif (SVN)
 else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   if (EXISTS "${PROJECT_SOURCE_DIR}/.git")
     find_program(GIT git DOC "subversion client")
     if (GIT)
-      # we go ahead and use the most recent commit even if local and not to svn
-      execute_process(COMMAND ${GIT} show --format=%ci HEAD
+      execute_process(COMMAND ${GIT} log
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
@@ -302,9 +305,9 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
       if (git_result OR git_err)
         message(FATAL_ERROR "*** ${GIT} show failed: ***\n${git_err}")
       endif (git_result OR git_err)
-      # date is on first line like this: 2010-11-24 17:20:10 +0000
-      string(REGEX REPLACE " [0-9]+:[0-9]+:[0-9]+.*" "" git_out "${git_out}")
-      string(REGEX REPLACE "-" "" git_out "${git_out}")
+      # look for first commit with git-svn-id
+      string(REGEX MATCH "git-svn-id: http[^@]*@[0-9]+" git_out "${git_out}")
+      string(REGEX REPLACE "git-svn-id: http[^@]*@" "" git_out "${git_out}")
       set(VERSION_NUMBER_PATCHLEVEL "${git_out}")
     endif (GIT)
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
