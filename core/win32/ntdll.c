@@ -182,8 +182,9 @@ static enum {
 #  define SYSNUM_OFFS 1
 # endif
 # define CHECK_SYSNUM_AT(pc, idx) \
-     ASSERT(*((int *)((pc) + SYSNUM_OFFS)) == syscalls[idx] || ALLOW_HOOKER(pc) || \
-            (idx == SYS_TestAlert && *(uint*)(pc) == 0xe9505050)); /* xref 9288 */
+     ASSERT(pc != NULL && \
+            (*((int *)((pc) + SYSNUM_OFFS)) == syscalls[idx] || ALLOW_HOOKER(pc) || \
+             (idx == SYS_TestAlert && *(uint*)(pc) == 0xe9505050))); /* xref 9288 */
 /* assuming relative CTI's are the only one's used by hookers */
 # define ALLOW_HOOKER(pc) (*(unsigned char*)(pc) == JMP_REL32_OPCODE ||      \
                            *(unsigned char*)(pc) == CALL_REL32_OPCODE)

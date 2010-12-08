@@ -259,23 +259,25 @@ get_module_exports_directory_check_common(app_pc base_addr,
     return exports;
 }
 
-/* FIXME - this walk is similar to that used in several other module.c
+/* XXX - this walk is similar to that used in several other module.c
  * functions, we should look into sharing. Also, like almost all of the
  * module.c routines this could be racy with app memory deallocations.
- * FIXME - we could also have a version that lookups by ordinal. We could
- * also allow wildcards and, if desired, extend it to return multiple
- * matching addresses.
+ * XXX - We could also allow wildcards and, if desired, extend it to
+ * return multiple matching addresses.
  */
 /* Interface is similar to msdn GetProcAddress, takes in a module_handle_t
- * (this is just the allocation base of the module) and a name and returns
- * the address of the export with said name.  Returns NULL on failure.
+ * (this is just the allocation base of the module) and either a name
+ * or an ordinal and returns the address of the export with said name
+ * or ordinal.  Returns NULL on failure.
+ * Only one of name and ordinal should be specified: the other should be
+ * NULL (name) or UINT_MAX (ordinal).
  * NOTE - will return NULL for forwarded exports, exports pointing outside of
  * the module and for exports not in a code section (FIXME - is this the
  * behavior we want?). Name is case insensitive.
  */ 
 static generic_func_t
-get_proc_address_common(module_handle_t lib, const char *name _IF_NOT_X64(bool ldr64),
-                        const char **forwarder OUT)
+get_proc_address_common(module_handle_t lib, const char *name, uint ordinal
+                        _IF_NOT_X64(bool ldr64), const char **forwarder OUT)
 {
     app_pc module_base;
     size_t exports_size;
@@ -284,6 +286,8 @@ get_proc_address_common(module_handle_t lib, const char *name _IF_NOT_X64(bool l
     PULONG functions; /* array of RVAs */
     PUSHORT ordinals;
     PULONG fnames; /* array of RVAs */
+    uint ord = UINT_MAX; /* the ordinal to use */
+    app_pc func;
 
     /* avoid non-core issues: we don't have get_allocation_size or dcontexts */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
@@ -291,8 +295,9 @@ get_proc_address_common(module_handle_t lib, const char *name _IF_NOT_X64(bool l
     dcontext_t *dcontext = get_thread_private_dcontext();
 #endif
 
-    ASSERT(name != NULL && *name != '\0'); /* verify valid args */
-    if (lib == NULL || name == NULL || name == '\0')
+    ASSERT((name != NULL && *name != '\0' && ordinal == UINT_MAX) ||
+           (name == NULL && ordinal < UINT_MAX)); /* verify valid args */
+    if (lib == NULL || (ordinal == UINT_MAX && (name == NULL || *name == '\0')))
         return NULL;
 
     /* avoid non-core issues: we don't have get_allocation_size or is_readable_pe_base */
@@ -330,96 +335,102 @@ get_proc_address_common(module_handle_t lib, const char *name _IF_NOT_X64(bool l
     ordinals = (PUSHORT)(module_base + exports->AddressOfNameOrdinals);
     fnames = (PULONG)(module_base + exports->AddressOfNames);
     
-    /* FIXME - linear walk, if this routine becomes performance critical we
-     * we should use a binary search. */
-    for (i = 0; i < exports->NumberOfNames; i++) {
-        char *export_name = (char *)(module_base + fnames[i]);
+    if (ordinal < UINT_MAX)
+        ord = ordinal;
+    else {
+        /* FIXME - linear walk, if this routine becomes performance critical we
+         * we should use a binary search. */
         bool match = false;
-        ASSERT_CURIOSITY((app_pc)export_name > module_base &&  /* sanity check */
-                         (app_pc)export_name < module_base + module_size ||
-                         EXEMPT_TEST("win32.partial_map.exe"));
-        /* FIXME - xref case 9717, we haven't verified that export_name string is
-         * safely readable (might not be the case for improperly formed or partially
-         * mapped module) and the try will only protect us if we have a thread_private
-         * dcontext. Could use is_string_readable_without_exception(), but that may be
-         * too much of a perf hit for the no private dcontext case. */
-        TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
-            match = (strcasecmp(name, export_name) == 0);
-        }, {
-            ASSERT_CURIOSITY_ONCE(false && "Exception during get_proc_address" ||
-                                  EXEMPT_TEST("win32.partial_map.exe"));
-        });
-        if (match) {
-            /* we have a match */
-            uint ord = ordinals[i];
-            app_pc func;
-            /* note - function array is indexed by ordinal */
-            if (ord >= exports->NumberOfFunctions) {
-                ASSERT_CURIOSITY(false && "invalid ordinal index");
-                return NULL;
+        for (i = 0; i < exports->NumberOfNames; i++) {
+            char *export_name = (char *)(module_base + fnames[i]);
+            ASSERT_CURIOSITY((app_pc)export_name > module_base &&  /* sanity check */
+                             (app_pc)export_name < module_base + module_size ||
+                             EXEMPT_TEST("win32.partial_map.exe"));
+            /* FIXME - xref case 9717, we haven't verified that export_name string is
+             * safely readable (might not be the case for improperly formed or partially
+             * mapped module) and the try will only protect us if we have a thread_private
+             * dcontext. Could use is_string_readable_without_exception(), but that may be
+             * too much of a perf hit for the no private dcontext case. */
+            TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
+                match = (strcasecmp(name, export_name) == 0);
+            }, {
+                ASSERT_CURIOSITY_ONCE(false && "Exception during get_proc_address" ||
+                                      EXEMPT_TEST("win32.partial_map.exe"));
+            });
+            if (match) {
+                /* we have a match */
+                ord = ordinals[i];
+                break;
             }
-            func = (app_pc)(module_base + functions[ord]);
-            if (func == module_base) {
-                /* entries can be 0 when no code/data is exported for that
-                 * ordinal */
-                ASSERT_CURIOSITY(false &&
-                                 "get_proc_addr of name with empty export");
-                return NULL;
-            }
-            /* avoid non-core issues: we don't have module_size */
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-            if (func < module_base || func >= module_base + module_size) {
-                /* FIXME - export isn't in the module, should we still return
-                 * it?  Will shimeng.dll or the like ever do this to replace
-                 * a function?  For now we return NULL. Xref case 9717, can also
-                 * happen for a partial map in which case NULL is the right thing
-                 * to return. */
-                ASSERT_CURIOSITY(false && "get_proc_addr export location "
-                                 "outside of module bounds" ||
-                                  EXEMPT_TEST("win32.partial_map.exe"));
-                return NULL;
-            }
-#endif
-            if (func >= (app_pc)exports &&
-                func < (app_pc)exports + exports_size) {
-                /* FIXME - is forwarded function, should we still return it
-                 * or return the target? Check - what does GetProcAddress do?
-                 * For now we return NULL. Looking up the target would require
-                 * a get_module_handle call which might not be safe here. 
-                 * With current and planned usage we shouldn' be looking these
-                 * up anyways. */
-                if (forwarder != NULL) {
-                    /* func should point at something like "NTDLL.strlen" */
-                    *forwarder = (const char *) func;
-                    return NULL;
-                } else {
-                    ASSERT_NOT_IMPLEMENTED(false &&
-                                           "get_proc_addr export is forwarded");
-                    return NULL;
-                }
-            }
-            /* avoid non-core issues: we don't have is_in_code_section */
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-# ifndef CLIENT_INTERFACE
-            /* CLIENT_INTERFACE uses a data export for versioning (PR 250952) */
-            /* FIXME - this check is also somewhat costly. */
-            if (!is_in_code_section(module_base, func, NULL, NULL)) {
-                /* FIXME - export isn't in a code section. Prob. a data
-                 * export?  For now we return NULL as all current users are
-                 * going to call or hook the returned value. */
-                ASSERT_CURIOSITY(false &&
-                                 "get_proc_addr export not in code section");
-                return NULL;
-            }
-# endif
-#endif
-            /* get around warnings converting app_pc to generic_func_t */
-            return convert_data_to_function(func);
+        }
+        if (!match) {
+            /* export name wasn't found */
+            return NULL;
         }
     }
 
-    /* export name wasn't found */
-    return NULL;
+    /* note - function array is indexed by ordinal */
+    if (ord >= exports->NumberOfFunctions) {
+        ASSERT_CURIOSITY(false && "invalid ordinal index");
+        return NULL;
+    }
+    func = (app_pc)(module_base + functions[ord]);
+    if (func == module_base) {
+        /* entries can be 0 when no code/data is exported for that
+         * ordinal */
+        ASSERT_CURIOSITY(false &&
+                         "get_proc_addr of name with empty export");
+        return NULL;
+    }
+    /* avoid non-core issues: we don't have module_size */
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+    if (func < module_base || func >= module_base + module_size) {
+        /* FIXME - export isn't in the module, should we still return
+         * it?  Will shimeng.dll or the like ever do this to replace
+         * a function?  For now we return NULL. Xref case 9717, can also
+         * happen for a partial map in which case NULL is the right thing
+         * to return. */
+        ASSERT_CURIOSITY(false && "get_proc_addr export location "
+                         "outside of module bounds" ||
+                         EXEMPT_TEST("win32.partial_map.exe"));
+        return NULL;
+    }
+#endif
+    if (func >= (app_pc)exports &&
+        func < (app_pc)exports + exports_size) {
+        /* FIXME - is forwarded function, should we still return it
+         * or return the target? Check - what does GetProcAddress do?
+         * For now we return NULL. Looking up the target would require
+         * a get_module_handle call which might not be safe here. 
+         * With current and planned usage we shouldn' be looking these
+         * up anyways. */
+        if (forwarder != NULL) {
+            /* func should point at something like "NTDLL.strlen" */
+            *forwarder = (const char *) func;
+            return NULL;
+        } else {
+            ASSERT_NOT_IMPLEMENTED(false &&
+                                   "get_proc_addr export is forwarded");
+            return NULL;
+        }
+    }
+    /* avoid non-core issues: we don't have is_in_code_section */
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+# ifndef CLIENT_INTERFACE
+    /* CLIENT_INTERFACE uses a data export for versioning (PR 250952) */
+    /* FIXME - this check is also somewhat costly. */
+    if (!is_in_code_section(module_base, func, NULL, NULL)) {
+        /* FIXME - export isn't in a code section. Prob. a data
+         * export?  For now we return NULL as all current users are
+         * going to call or hook the returned value. */
+        ASSERT_CURIOSITY(false &&
+                         "get_proc_addr export not in code section");
+        return NULL;
+    }
+# endif
+#endif
+    /* get around warnings converting app_pc to generic_func_t */
+    return convert_data_to_function(func);
 }
 
 IMAGE_EXPORT_DIRECTORY*
@@ -441,7 +452,7 @@ get_module_exports_directory_check(app_pc base_addr,
 generic_func_t
 get_proc_address(module_handle_t lib, const char *name)
 {
-    return get_proc_address_common(lib, name _IF_NOT_X64(false), NULL);
+    return get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(false), NULL);
 }
 
 #ifndef NOT_DYNAMORIO_CORE /* else need get_own_peb() alternate */
@@ -450,7 +461,14 @@ get_proc_address(module_handle_t lib, const char *name)
 generic_func_t
 get_proc_address_ex(module_handle_t lib, const char *name, const char **forwarder OUT)
 {
-    return get_proc_address_common(lib, name _IF_NOT_X64(false), forwarder);
+    return get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(false), forwarder);
+}
+
+/* could be linked w/ non-core but only used by loader.c so far */
+generic_func_t
+get_proc_address_by_ordinal(module_handle_t lib, uint ordinal, const char **forwarder OUT)
+{
+    return get_proc_address_common(lib, NULL, ordinal _IF_NOT_X64(false), forwarder);
 }
 
 /* returns NULL if no loader module is found
@@ -622,7 +640,7 @@ get_module_handle_64(wchar_t *name)
 void *
 get_proc_address_64(HANDLE lib, const char *name)
 {
-    return (void *) get_proc_address_common(lib, name _IF_NOT_X64(true), NULL);
+    return (void *) get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(true), NULL);
 }
 
 #endif /* !X64 */

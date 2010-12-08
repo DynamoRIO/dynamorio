@@ -46,7 +46,6 @@
  *   not checking everything in the name of performance
  *
  * i#233: advanced loader features:
- * - import by ordinal
  * - delay-load dlls
  * - bound imports
  * - import hint
@@ -832,14 +831,21 @@ static bool
 privload_process_one_import(privmod_t *mod, privmod_t *impmod,
                             IMAGE_THUNK_DATA *lookup, app_pc *address)
 {
-    
+    app_pc dst = NULL;
+    const char *forwarder;
+    generic_func_t func;
+    /* Set to first-level names for use below in case no forwarder */
+    privmod_t *forwmod = impmod;
+    const char *forwfunc = NULL;
+    const char *impfunc = NULL;
+
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     if (TEST(IMAGE_ORDINAL_FLAG, lookup->u1.Function)) {
-        /* FIXME i#233: support import by ordinal */
-        ASSERT_NOT_REACHED();
+        DWORD ord = (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG));
+        func = get_proc_address_by_ordinal(impmod->base, ord, &forwarder);
+        impfunc = "<ordinal>";
     } else {
         /* import by name */
-        app_pc dst = NULL;
         IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)
             RVA_TO_VA(mod->base, (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG)));
         /* FIXME optimization i#233:
@@ -847,55 +853,56 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
          * - build hashtables for quick lookup instead of repeatedly walking
          *   export tables
          */
-        const char *forwarder;
         /* expensive to check is_readable for name: really we want no-dcxt try (i#350) */
-        generic_func_t func =
-            get_proc_address_ex(impmod->base, (const char *) name->Name, &forwarder);
-        /* Set these to first-level names for use below in case no forwarder */
-        privmod_t *forwmod = impmod;
-        const char *forwfunc = (const char *) name->Name;
-        /* loop to handle sequence of forwarders */
-        while (func == NULL) {
-            if (forwarder == NULL) {
-                LOG(GLOBAL, LOG_LOADER, 1, "%s: import %s not found in %s\n",
-                    __FUNCTION__, name->Name, impmod->name);
-                return false;
-            }
-            forwfunc = strchr(forwarder, '.') + 1;
-            if (forwfunc - forwarder + strlen("dll") >=
-                BUFFER_SIZE_ELEMENTS(forwmodpath)) {
-                ASSERT_NOT_REACHED();
-                LOG(GLOBAL, LOG_LOADER, 1, "%s: import string %s too long\n",
+        func = get_proc_address_ex(impmod->base, (const char *) name->Name, &forwarder);
+        /* set to first-level names for use below in case no forwarder */
+        forwfunc = (const char *) name->Name;
+        impfunc = forwfunc;
+    }
+    /* loop to handle sequence of forwarders */
+    while (func == NULL) {
+        if (forwarder == NULL) {
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: import %s not found in %s\n",
+                __FUNCTION__, impfunc, impmod->name);
+            return false;
+        }
+        forwfunc = strchr(forwarder, '.') + 1;
+        if (forwfunc - forwarder + strlen("dll") >=
+            BUFFER_SIZE_ELEMENTS(forwmodpath)) {
+            ASSERT_NOT_REACHED();
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: import string %s too long\n",
+                __FUNCTION__, forwarder);
+            return false;
+        }
+        /* we use static buffer: may be clobbered by recursion below */
+        snprintf(forwmodpath, forwfunc - forwarder, "%s", forwarder);
+        snprintf(forwmodpath + (forwfunc - forwarder), strlen("dll"), "dll");
+        forwmodpath[forwfunc - forwarder + strlen(".dll")] = '\0';
+        LOG(GLOBAL, LOG_LOADER, 2, "\tforwarder %s => %s %s\n",
+            forwarder, forwmodpath, forwfunc);
+        forwmod = privload_lookup(forwmodpath);
+        if (forwmod == NULL) {
+            /* don't use forwmodpath past here: recursion may clobber it */
+            forwmod = privload_locate_and_load(forwmodpath, mod);
+            if (forwmod == NULL) {
+                LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forworder for %s\n"
                     __FUNCTION__, forwarder);
                 return false;
             }
-            /* we use static buffer: may be clobbered by recursion below */
-            snprintf(forwmodpath, forwfunc - forwarder, "%s", forwarder);
-            snprintf(forwmodpath + (forwfunc - forwarder), strlen("dll"), "dll");
-            forwmodpath[forwfunc - forwarder + strlen(".dll")] = '\0';
-            LOG(GLOBAL, LOG_LOADER, 2, "\tforwarder %s => %s %s\n",
-                forwarder, forwmodpath, forwfunc);
-            forwmod = privload_lookup(forwmodpath);
-            if (forwmod == NULL) {
-                /* don't use forwmodpath past here: recursion may clobber it */
-                forwmod = privload_locate_and_load(forwmodpath, mod);
-                if (forwmod == NULL) {
-                    LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forworder for %s\n"
-                        __FUNCTION__, forwarder);
-                    return false;
-                }
-            }
-            /* should be listed as import; don't want to inc ref count on each forw */
-            func = get_proc_address_ex(forwmod->base, forwfunc, &forwarder);
         }
-        /* write result into IAT */
-        LOG(GLOBAL, LOG_LOADER, 2, "\timport %s @ "PFX" => IAT "PFX"\n",
-            name->Name, func, address);
-        dst = privload_redirect_imports(forwmod, forwfunc);
-        if (dst == NULL)
-            dst = (app_pc) func;
-        *address = dst;
+        /* should be listed as import; don't want to inc ref count on each forw */
+        func = get_proc_address_ex(forwmod->base, forwfunc, &forwarder);
     }
+    /* write result into IAT */
+    LOG(GLOBAL, LOG_LOADER, 2, "\timport %s @ "PFX" => IAT "PFX"\n",
+        impfunc, func, address);
+    if (forwfunc != NULL) {
+        /* XXX i#233: support redirecting when imported by ordinal */
+        dst = privload_redirect_imports(forwmod, forwfunc);
+    }
+    if (dst == NULL)
+        dst = (app_pc) func;
+    *address = dst;
     return true;
 }
 

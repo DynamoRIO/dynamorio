@@ -88,4 +88,8 @@ typedef struct _os_module_data_t {
     size_t iat_len;
 } os_module_data_t;
 
+/* windows-specific */
+generic_func_t
+get_proc_address_by_ordinal(module_handle_t lib, uint ordinal, const char **forwarder OUT);
+
 #endif /* MODULE_H */
