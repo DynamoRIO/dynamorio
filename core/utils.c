@@ -2306,6 +2306,22 @@ strcasecmp_with_wildcards(const char *regexp, const char *consider)
     }
 }
 
+bool
+str_case_prefix(const char *str, const char *pfx)
+{
+    while (true) {
+        if (*pfx == '\0')
+            return true;
+        if (*str == '\0')
+            return false;
+        if (tolower(*str) != tolower(*pfx))
+            return false;
+        str++;
+        pfx++;
+    }
+    return false;
+}
+
 static bool
 check_filter_common(const char *filter, const char *short_name, bool wildcards) 
 {
@@ -2430,6 +2446,11 @@ create_log_dir(int dir_type)
                         char swap;
                         char *end = double_strchr(basedir, DIRSEP, ALT_DIRSEP);
                         bool res;
+#ifdef WINDOWS
+                        /* skip the drive */
+                        if (end != NULL && end > basedir && *(end - 1) == ':')
+                            end = double_strchr(++end, DIRSEP, ALT_DIRSEP);
+#endif
                         while (end) {
                             swap = *end;
                             *end = '\0';

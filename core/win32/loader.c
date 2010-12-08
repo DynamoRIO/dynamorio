@@ -725,6 +725,8 @@ privload_process_imports(privmod_t *mod)
         IMAGE_THUNK_DATA *lookup;
         IMAGE_THUNK_DATA *address;
         const char *impname = (const char *) RVA_TO_VA(mod->base, imports->Name);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s imports from %s\n", __FUNCTION__,
+            mod->name, impname);
 
         /* FIXME i#233: support bound imports: for now ignoring */
         if (imports->TimeDateStamp == -1) {
@@ -750,8 +752,6 @@ privload_process_imports(privmod_t *mod)
             }
         } else
             impmod->ref_count++;
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s imports from %s\n", __FUNCTION__,
-            mod->name, impname);
 
         /* walk the lookup table and address table in lockstep */
         /* FIXME: should check readability: if had no-dcontext try (i#350) could just
@@ -841,7 +841,10 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     if (TEST(IMAGE_ORDINAL_FLAG, lookup->u1.Function)) {
-        DWORD ord = (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG));
+        /* XXX: for 64-bit this is a 64-bit type: should we widen through
+         * get_proc_address_by_ordinal()?
+         */
+        DWORD ord = (DWORD) (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG));
         func = get_proc_address_by_ordinal(impmod->base, ord, &forwarder);
         impfunc = "<ordinal>";
     } else {
@@ -921,6 +924,97 @@ privload_call_entry(privmod_t *privmod, uint reason)
     return true;
 }
 
+/* Map API-set pseudo-dlls to real dlls.
+ * In Windows 7, dlls now import from pseudo-dlls that split up the
+ * API.  They are all named
+ * "API-MS-Win-<category>-<component>-L<layer>-<version>.dll".
+ * There is no such file: instead the loader uses a table in the special
+ * apisetschema.dll that is mapped into every process to map
+ * from the particular pseudo-dll to a real dll.
+ */
+static const char *
+map_api_set_dll(const char *name)
+{
+    /* Ideally we would read apisetschema.dll ourselves.
+     * It seems to be mapped in at 0x00040000.
+     * But this is simpler than trying to parse that dll's table.
+     * We ignore the version suffix ("-1-0", e.g.).
+     */
+    if (str_case_prefix(name, "API-MS-Win-Core-Console-L1"))
+        return "kernel32.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-DateTime-L1"))
+        return "kernel32.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-DelayLoad-L1"))
+        return "kernel32.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Debug-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-ErrorHandling-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Fibers-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-File-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Handle-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Heap-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Interlocked-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-IO-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Localization-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-LocalRegistry-L1"))
+        return "kernel32.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-LibraryLoader-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Memory-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Misc-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-NamedPipe-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessEnvironment-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessThreads-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Profile-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-RTLSupport-L1"))
+        return "kernel32.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-String-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Synch-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-SysInfo-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-ThreadPool-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-XState-L1"))
+        return "ntdll.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Util-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Security-Base-L1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Security-LSALookup-L1"))
+        return "sechost.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Security-SDDL-L1"))
+        return "sechost.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Service-Core-L1"))
+        return "sechost.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Service-Management-L1"))
+        return "sechost.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Service-Management-L2"))
+        return "sechost.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Service-Winsvc-L1"))
+        return "sechost.dll";
+    else {
+        SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
+        /* good guess */
+        return "kernelbase.dll";
+    }
+}
+
 static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent)
 {
@@ -938,6 +1032,19 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
      * we additionally support loading from the Extensions dir
      * (i#277/PR 540817, added to search_paths in privload_init_search_paths()).
      */
+
+    /* 0) on Windows 7, the API-set pseudo-dlls map to real dlls */
+    if (get_os_version() >= WINDOWS_VERSION_7 &&
+        str_case_prefix(impname, "API-MS-Win-")) {
+        IF_DEBUG(const char *apiname = impname;)
+        impname = map_api_set_dll(impname);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: mapped API-set dll %s to %s\n",
+            __FUNCTION__, apiname, impname);
+        /* currently caller must do lookup: privload_load does not */
+        mod = privload_lookup(impname);
+        if (mod != NULL)
+            return mod;
+    }
     
     /* 1) client lib dir(s) and Extensions dir */
     for (i = 0; i < search_paths_idx; i++) {
@@ -947,8 +1054,12 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
         if (os_file_exists(modpath, false/*!is_dir*/)) {
             mod = privload_load(modpath, dependent);
-            if (mod != NULL)
-                return mod;
+            /* if fails to load, don't keep searching: that seems the most
+             * reasonable semantics.  we could keep searching: then should
+             * relax the privload_recurse_cnt curiosity b/c won't be reset
+             * in between if many copies of same lib fail to load.
+             */
+            return mod;
         }
     }
     /* 2) cur dir: we do not support */
@@ -963,8 +1074,7 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
             set_loaded_windows_lib();
 #endif
             mod = privload_load(modpath, dependent);
-            if (mod != NULL)
-                return mod;
+            return mod; /* if fails to load, don't keep searching */
         }
         /* 4) windows dir */
         snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/%s",
@@ -976,8 +1086,7 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
             set_loaded_windows_lib();
 #endif
             mod = privload_load(modpath, dependent);
-            if (mod != NULL)
-                return mod;
+            return mod; /* if fails to load, don't keep searching */
         }
     }
     /* 5) dirs on PATH: FIXME: not supported yet */

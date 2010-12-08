@@ -1041,6 +1041,7 @@ const char * double_strrchr(const char *string, char c1, char c2);
 size_t wcsnlen(const wchar_t *str, size_t max);
 # endif
 #endif
+bool str_case_prefix(const char *str, const char *pfx);
 
 bool is_region_memset_to_char(byte *addr, size_t size, byte val);
 

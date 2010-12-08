@@ -493,6 +493,8 @@ if (UNIX)
   # having locals/temps share stack slots) but we use -fno-omit-frame-pointer to
   # keep things more easily debuggable (though gcc claims only omits when
   # debuggable).
+  # XXX: should use -O0 and optimize attributes on the few funcs that need higher
+  # opt, so we have better debuggability!  Even at -O not all vars are avail in gdb.
   # We disable strcmp intrinsic to avoid stack overflow in
   # set_dynamo_options(): case 7853.
   # FIXME: now that we have -O we may not need -fno-builtin-strcmp
