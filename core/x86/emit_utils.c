@@ -7411,7 +7411,8 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
      */
     APP(&ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XAX)));
     APP(&ilist, INSTR_CREATE_pushf(dcontext));
-    offset = insert_push_all_registers(dcontext, &ilist, NULL, IF_X64_ELSE(true, false));
+    offset = insert_push_all_registers(dcontext, NULL, &ilist, NULL, 
+                                       IF_X64_ELSE(true, false));
     ASSERT(ALIGNED(offset, 16));
     /* put pre-push xsp into dr_mcontext_t.xsp slot */
     ASSERT(offset + 2*XSP_SZ == sizeof(dr_mcontext_t));

@@ -1,6 +1,7 @@
-/* **********************************************************
+/* ******************************************************************************
+ * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
- * **********************************************************/
+ * ******************************************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -3366,21 +3367,88 @@ instrlist_meta_fault_append(instrlist_t *ilist, instr_t *inst)
     instrlist_append(ilist, inst);
 }
 
-/* dr_insert_* are used by general DR */
+static void
+convert_va_list_to_opnd(opnd_t *args, uint num_args, va_list ap)
+{
+    uint i;
+    CLIENT_ASSERT(num_args < MAX_NUM_ARGS, "Too many arguments");
+    /* There's no way to check num_args vs actual args passed in */
+    for (i = 0; i < num_args; i++) {
+        args[i] = va_arg(ap, opnd_t);
+        CLIENT_ASSERT(opnd_is_valid(args[i]),
+                      "Call argument: bad operand. Did you create a valid opnd_t?");
+    }
+}
 
+/* dr_insert_* are used by general DR */
 /* Inserts a complete call to callee with the passed-in arguments */
 void
 dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                void *callee, uint num_args, ...)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
+    opnd_t args[MAX_NUM_ARGS];
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call: drcontext cannot be NULL");
     /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
     va_start(ap, num_args);
-    insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/,
-                           callee, num_args, ap);
+    convert_va_list_to_opnd(args, num_args, ap);
     va_end(ap);
+    insert_meta_call_vargs(dcontext, NULL, ilist, where, false/*not clean*/,
+                           callee, num_args, args);
+}
+
+/* Internal utility routine for inserting context save for a clean call.
+ * Returns the size of the data stored on the DR stack 
+ * (in case the caller needs to align the stack pointer). 
+ * XSP and XAX are modified by this call.
+ */
+static uint
+prepare_for_call_ex(dcontext_t  *dcontext, clean_call_info_t *cci,
+                    instrlist_t *ilist, instr_t *where)
+{
+    instr_t *in;
+    uint dstack_offs;
+    in = (where == NULL) ? instrlist_last(ilist) : instr_get_prev(where);
+    dstack_offs = prepare_for_clean_call(dcontext, cci, ilist, where);
+    /* now go through and mark inserted instrs as meta */
+    if (in == NULL)
+        in = instrlist_first(ilist);
+    else
+        in = instr_get_next(in);
+    while (in != where) {
+        instr_set_ok_to_mangle(in, false);
+        in = instr_get_next(in);
+    }
+    return dstack_offs;
+}
+
+/* Internal utility routine for inserting context restore for a clean call. */
+static void
+cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
+                      instrlist_t *ilist, instr_t *where, uint sizeof_param_area)
+{
+    instr_t *in;
+    in = (where == NULL) ? instrlist_last(ilist) : instr_get_prev(where);
+    if (sizeof_param_area > 0) {
+        /* clean up the parameter area */
+        CLIENT_ASSERT(sizeof_param_area <= 127,
+                      "cleanup_after_call_ex: sizeof_param_area must be <= 127");
+        /* mark it meta down below */
+        instrlist_preinsert(ilist, where,
+            INSTR_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
+                             OPND_CREATE_INT8(sizeof_param_area)));
+    }
+    cleanup_after_clean_call(dcontext, cci, ilist, where);
+    /* now go through and mark inserted instrs as meta */
+    if (in == NULL)
+        in = instrlist_first(ilist);
+    else
+        in = instr_get_next(in);
+    while (in != where) {
+        instr_set_ok_to_mangle(in, false);
+        in = instr_get_next(in);
+    }
 }
 
 /* Inserts a complete call to callee with the passed-in arguments, wrapped
@@ -3398,15 +3466,29 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     uint dstack_offs, pad = 0;
     size_t buf_sz = 0;
+    clean_call_info_t cci; /* information for clean call insertion. */
+    opnd_t args[MAX_NUM_ARGS];
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
     va_start(ap, num_args);
-    dstack_offs = dr_prepare_for_call(dcontext, ilist, where);
+    convert_va_list_to_opnd(args, num_args, ap);
+    va_end(ap);
+    /* analyze the clean call, return true if clean call can be inlined. */
+    if (analyze_clean_call(dcontext, &cci, where, callee, 
+                           save_fpstate, num_args, args)) {
+        /* we can perform the inline optimization and return. */
+        insert_inline_clean_call(dcontext, &cci, ilist, where, args);
+        return;
+    }
+    dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where);
 #ifdef X64
     /* PR 218790: we assume that dr_prepare_for_call() leaves stack 16-byte
      * aligned, which is what insert_meta_call_vargs requires. */
-    CLIENT_ASSERT(ALIGNED(dstack_offs, 16), "internal error: bad stack alignment");
+    if (cci.should_align) {
+        CLIENT_ASSERT(ALIGNED(dstack_offs, 16),
+                      "internal error: bad stack alignment");
+    }
 #endif
     if (save_fpstate) {
         /* save on the stack: xref PR 202669 on clients using more stack */
@@ -3430,7 +3512,8 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
      * flag will disappear and translation will fail.
      */
     instrlist_set_our_mangling(ilist, true);
-    insert_meta_call_vargs(dcontext, ilist, where, true/*clean*/, callee, num_args, ap);
+    insert_meta_call_vargs(dcontext, &cci, ilist, where, true/*clean*/,
+                           callee, num_args, args);
     instrlist_set_our_mangling(ilist, false);
 
     if (save_fpstate) {
@@ -3440,8 +3523,7 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         MINSERT(ilist, where, INSTR_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
                                                OPND_CREATE_INT32(buf_sz + pad)));
     }
-    dr_cleanup_after_call(dcontext, ilist, where, 0);
-    va_end(ap);
+    cleanup_after_call_ex(dcontext, &cci, ilist, where, 0);
 }
 
 /* Utility routine for inserting a clean call to an instrumentation routine
@@ -3455,53 +3537,21 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 DR_API uint
 dr_prepare_for_call(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
-    instr_t *in = (where == NULL) ? instrlist_last(ilist) : instr_get_prev(where);
-    uint dstack_offs;
     CLIENT_ASSERT(drcontext != NULL, "dr_prepare_for_call: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_prepare_for_call: drcontext is invalid");
-    dstack_offs = prepare_for_clean_call(dcontext, ilist, where);
-    /* now go through and mark inserted instrs as meta */
-    if (in == NULL)
-        in = instrlist_first(ilist);
-    else
-        in = instr_get_next(in);
-    while (in != where) {
-        instr_set_ok_to_mangle(in, false);
-        in = instr_get_next(in);
-    }
-    return dstack_offs;
+    return prepare_for_call_ex((dcontext_t *)drcontext, NULL, ilist, where);
 }
 
 DR_API void
 dr_cleanup_after_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                        uint sizeof_param_area)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
-    instr_t *in = (where == NULL) ? instrlist_last(ilist) : instr_get_prev(where);
     CLIENT_ASSERT(drcontext != NULL, "dr_cleanup_after_call: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_cleanup_after_call: drcontext is invalid");
-    if (sizeof_param_area > 0) {
-        /* clean up the parameter area */
-        CLIENT_ASSERT(sizeof_param_area <= 127,
-                      "dr_cleanup_after_call: sizeof_param_area must be <= 127");
-        /* mark it meta down below */
-        instrlist_preinsert(ilist, where,
-            INSTR_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
-                             OPND_CREATE_INT8(sizeof_param_area)));
-    }
-    cleanup_after_clean_call(dcontext, ilist, where);
-    /* now go through and mark inserted instrs as meta */
-    if (in == NULL)
-        in = instrlist_first(ilist);
-    else
-        in = instr_get_next(in);
-    while (in != where) {
-        instr_set_ok_to_mangle(in, false);
-        in = instr_get_next(in);
-    }
+    cleanup_after_call_ex((dcontext_t *)drcontext, NULL, ilist, where, 
+                          sizeof_param_area);
 }
 
 #ifdef CLIENT_INTERFACE
@@ -4070,16 +4120,33 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
        push   %eax %esp -> %esp (%esp) 
      * We also assume all clean call instrs are expanded.
      */
+    /* Because the clean call might be optimized, we cannot assume the sequence.
+     * We assume that the clean call will not be inlined for having more than one
+     * arguments, so we scan to find either a call instr or a popf.
+     * if a popf, do as before.
+     * if a call, move back to right before push xbx or mov rbx => r3.
+     */
     if (app_flags_ok == NULL)
         app_flags_ok = instrlist_first(ilist);
     while (!instr_opcode_valid(app_flags_ok) ||
-           instr_get_opcode(app_flags_ok) != OP_popf) {
+           instr_get_opcode(app_flags_ok) != OP_call) {
         app_flags_ok = instr_get_next(app_flags_ok);
         CLIENT_ASSERT(app_flags_ok != NULL, 
-                      "dr_insert_cbr_instrumentation: cannot find eflags save");
+                      "dr_insert_cbr_instrumentation: cannot find call instr");
+        if (instr_get_opcode(app_flags_ok) == OP_popf)
+            break;
     }
-    /* put our code before the popf */
+    /* move a few instrs back till right before push xbx or mov rbx => r3 */
+    if (instr_get_opcode(app_flags_ok) == OP_call) {
+        while (app_flags_ok != NULL) {
+            if (instr_reg_in_src(app_flags_ok, DR_REG_XBX))
+                break;
+            app_flags_ok = instr_get_prev(app_flags_ok);
+        }
+        ASSERT(app_flags_ok != NULL);
+    }
 
+    /* put our code before the popf or use of xbx */
     opc = instr_get_opcode(instr);
     if (opc == OP_jecxz || opc == OP_loop || opc == OP_loope || opc == OP_loopne) {
         /* for 8-bit cbrs w/ multiple conditions and state, simpler to

@@ -72,6 +72,7 @@ typedef enum {
 # endif
     ACCT_LIBDUP, /* private copies of system libs => may leak */
     /* NOTE: Also update the whichheap_name in heap.c when adding here */
+    ACCT_CLEANCALL,
     ACCT_OTHER,
     ACCT_LAST
 } which_heap_t;

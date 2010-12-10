@@ -315,6 +315,19 @@
     OPTION_NAME_INTERNAL(bool, profile_counts, "prof_counts", "profiling via counters")
 # endif
 
+    /* i#42: Optimize and shrink clean call sequences */
+    /* optimization level:
+     * 0 - no optimization
+     * 1 - callee's register usage analysis, e.g. use of XMM registers
+     * 2 - simple callee inline optimization,
+     *     callee save reg analysis
+     *     aflags usage analysis and optimization on the instrumented ilist
+     * 3 - more aggressive callee inline optimization
+     * All the optimizations assume that clean callee will not be changed
+     * later.
+     */
+    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, 2,
+                            "optimization level on optimizing clean call sequences")
 # ifdef CLIENT_INTERFACE
     /* FIXME (xref PR 215082): make these external now that our product is our API? */
     OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING, 

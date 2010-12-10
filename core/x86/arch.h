@@ -227,6 +227,53 @@ typedef enum {
 # define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc)
 #endif
 
+#define NUM_XMM_REGS  NUM_XMM_SAVED
+#define NUM_GP_REGS   (1 + (IF_X64_ELSE(DR_REG_R15, DR_REG_XDI) - DR_REG_XAX))
+/* data structure of clean call callee function information. */
+typedef struct _func_info_t func_info_t;
+struct _func_info_t {
+    bool bailout;             /* if we bail out on function analysis */
+    int num_instrs;           /* total number of instructions of a function */
+    app_pc start;             /* entry point of a function  */
+    app_pc end;               /* last instr (return) of a function */
+    app_pc bwd_tgt;           /* earliest backward branch target */
+    app_pc fwd_tgt;           /* last forward branch target */
+    int num_xmms_used;        /* number of xmms used by callee */
+    bool xmm_used[NUM_XMM_REGS];  /* xmm registers usage */
+    int num_regs_used;        /* number of regs used by callee */
+    bool reg_used[NUM_GP_REGS];   /* general purpose registers usage */
+    int num_callee_save_regs; /* number of regs callee saved */
+    bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
+    bool has_locals;          /* if reference local via statck */
+    bool xbp_is_fp;           /* if xbp is used as frame point */
+    bool opt_inline;          /* can be inlined or not */
+    bool write_aflags;        /* if the function changes aflags */
+    bool read_aflags;         /* if the function reads aflags from caller */
+    instrlist_t *ilist;       /* instruction list of function for inline. */
+    func_info_t *next;        /* linked-list */
+};
+
+/* information about each individual clean call invocation site */
+#define MAX_NUM_ARGS 16u
+typedef struct _clean_call_info_t {
+    void *callee;
+    uint num_args;
+    bool save_fpstate;
+    bool opt_inline;
+    bool should_align;
+    bool skip_save_aflags;
+    bool skip_clear_eflags;
+    bool skip_push_pc;
+    bool skip_save_error;
+    bool skip_push_0;
+    uint num_xmms_skip;
+    bool xmm_skip[NUM_XMM_REGS];
+    uint num_regs_skip;
+    bool reg_skip[NUM_GP_REGS];
+    func_info_t *info;  /* callee information */
+    instrlist_t *ilist; /* instruction list for inline optimization */
+} clean_call_info_t;
+
 cache_pc get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                             ibl_source_fragment_type_t source_fragment_type,
                             ibl_branch_type_t branch_type _IF_X64(gencode_mode_t mode));
@@ -282,30 +329,49 @@ cache_pc trace_head_incr_shared_routine(IF_X64(gencode_mode_t mode));
 #endif
 
 /* in mangle.c but not exported to non-x86 files */
+/* clean call optimization */
+void
+func_info_init(func_info_t *info);
+void
+mangle_init(void);
+void
+mangle_exit(void);
+bool
+analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
+                   void *callee, bool save_fpstate, uint num_args, opnd_t *args);
+void
+insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
+                         instrlist_t *ilist, instr_t *where, opnd_t *args);
+
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                               instr_t *instr, bool skip
                               _IF_X64(gencode_mode_t mode));
 void
 set_selfmod_sandbox_offsets(dcontext_t *dcontext);
 uint
-insert_push_all_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
+                          instrlist_t *ilist, instr_t *instr,
                           bool stack_align16);
 void
-insert_pop_all_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                          bool stack_align16);
+insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
+                         instrlist_t *ilist, instr_t *instr,
+                         bool stack_align16);
 bool
 parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */
 void
-insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, void *callee, uint num_args, va_list ap);
+insert_meta_call_vargs(dcontext_t *dcontext, clean_call_info_t *cci,
+                       instrlist_t *ilist, instr_t *instr,
+                       bool clean_call, void *callee, uint num_args, opnd_t *args);
 void
 insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, 
                          instr_t *where, reg_id_t reg);
 uint
-prepare_for_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
+                       instrlist_t *ilist, instr_t *instr);
 void
-cleanup_after_clean_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
+                         instrlist_t *ilist, instr_t *instr);
 void convert_to_near_rel(dcontext_t *dcontext, instr_t *instr);
 instr_t *convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr);

@@ -567,7 +567,7 @@ insert_let_go_cleanup(dcontext_t *dcontext, instrlist_t *ilist, instr_t *decisio
                                                       sizeof(dr_mcontext_t)+XSP_SZ),
                                    opnd_create_reg(REG_XAX)));
     /* now restore everything */
-    insert_pop_all_registers(dcontext, ilist, NULL, false/*see push_all use*/);
+    insert_pop_all_registers(dcontext, NULL, ilist, NULL, false/*see push_all use*/);
     APP(ilist, INSTR_CREATE_RAW_popf(dcontext));
     APP(ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP), 
                                 opnd_create_base_disp(REG_XSP, REG_NULL, 0,
@@ -1063,7 +1063,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
      * PR 270115: However if already on dstack we may not be aligned: we play it
      * safe and use unaligned instrs, rather than add code to test and align.
      */
-    insert_push_all_registers(dcontext, &ilist, NULL, false);
+    insert_push_all_registers(dcontext, NULL, &ilist, NULL, false);
     /* clear eflags for callee's usage */
     APP(&ilist,
         INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));

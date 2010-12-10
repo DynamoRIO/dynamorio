@@ -529,6 +529,7 @@ arch_init()
         }
 #endif
     }
+    mangle_init();
 }
 
 #ifdef WINDOWS_PC_SAMPLE
@@ -647,6 +648,7 @@ arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
         heap_munmap(shared_code_x86, GENCODE_RESERVE_SIZE);
 #endif
     interp_exit();
+    mangle_exit();
 }
 
 static byte *

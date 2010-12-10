@@ -354,6 +354,7 @@ const char * whichheap_name[] = {
     "Client",
 # endif
     "Lib Dup",
+    "Clean Call",
     /* NOTE: Add your heap name here */
     "Other",
 };

@@ -1101,6 +1101,19 @@ Linux\endif.  See \ref sec_deploy.
    \ref op_enable "-enable_full_api option" and cannot be used with
    dr_unlink_flush_region().
 
+ - \b -opt_cleancall \e \<number\>: \anchor op_cleancall
+   Optimize (shrink or inline) the clean call sequences. 
+   Assuming that the clean call callee code will not be modified later during 
+   the execution, DR analyzes the callee and optimizes clean call invocation.
+   There are three optimization levels.
+   By default, the clean call optimization level is 2.
+   - 0: no optimization.
+   - 1: callee's register usage analysis and optimization on context switch.
+   - 2: simple callee inline optimization, callee-save register analysis, 
+        and aflags usage analysis and optimization on the instruction list 
+        to be inserted.
+   - 3: more aggressive, but potentially unsafe, optimizations.
+
 \if expose_opt_speed
  - \b -opt_speed: \anchor op_speed
    By default, \DynamoRIO provides a more straightforward code stream to
