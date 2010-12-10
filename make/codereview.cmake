@@ -493,7 +493,7 @@ else (REVERT)
       endif (arg MATCHES " ")
     endforeach(arg ${upload_cmd})
     if (NOT EXISTS "${cookie_file}")
-      message(STATUS "It looks like upload.py does not have cookies in place and will prompt you for a password.  To do so you must run it separately (and then use -DCR_ISSUE=<issue#> arg with future invocations of this script in order to update the same issue).\nPlease run:\n\t${upload_cmd_str}")
+      message(STATUS "It looks like upload.py does not have cookies in place and will prompt you for a password.  To do so you must run it separately (and then use -DCR_ISSUE=<issue#> arg with future invocations of this script in order to update the same issue).\nPlease run this command, but copy the header only\nof ${DIFF_FILE} to a new temp file and point -f at it:\n\t${upload_cmd_str}")
     else (NOT EXISTS "${cookie_file}")
       message(STATUS "running ${upload_cmd_str}")
       execute_process(COMMAND ${upload_cmd}
