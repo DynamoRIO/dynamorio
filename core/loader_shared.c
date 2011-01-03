@@ -366,7 +366,7 @@ privload_load(const char *filename, privmod_t *dependent)
     DODEBUG({
         /* we have limited stack but we don't expect deep recursion */
         privload_recurse_cnt++;
-        ASSERT_CURIOSITY(privload_recurse_cnt < 10);
+        ASSERT_CURIOSITY(privload_recurse_cnt < 20); /* win7 dbghelp gets to 12 */
     });
 
     LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s\n", __FUNCTION__, filename);

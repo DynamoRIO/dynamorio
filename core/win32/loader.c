@@ -100,7 +100,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
                             IMAGE_THUNK_DATA *lookup, app_pc *address);
 
 static privmod_t *
-privload_locate_and_load(const char *impname, privmod_t *dependent);
+privload_locate_and_load(const char *impname, privmod_t *dependent, privmod_t *immed_dep);
 
 /* Redirection of ntdll routines that for transparency reasons we can't
  * point at the real ntdll.  If we get a lot of these should switch to
@@ -120,6 +120,9 @@ redirect_ignore_arg4(void *arg1);
 
 static bool WINAPI
 redirect_ignore_arg8(void *arg1, void *arg2);
+
+static bool WINAPI
+redirect_ignore_arg12(void *arg1, void *arg2, void *arg3);
 
 static void * WINAPI
 redirect_RtlAllocateHeap(HANDLE heap, ULONG flags, SIZE_T size);
@@ -178,6 +181,7 @@ static const redirect_import_t redirect_ntdll[] = {
      * kernel32!_BaseDllInitialize calls certain ntdll routines to
      * set up these callbacks:
      */
+    /* LdrSetDllManifestProber has more args on win7: see redirect_ntdll_win7 */
     {"LdrSetDllManifestProber",           (app_pc)redirect_ignore_arg4},
     {"RtlSetThreadPoolStartFunc",         (app_pc)redirect_ignore_arg8},
     {"RtlSetUnhandledExceptionFilter",    (app_pc)redirect_ignore_arg4},
@@ -210,6 +214,16 @@ static const redirect_import_t redirect_ntdll[] = {
 #endif
 };
 #define REDIRECT_NTDLL_NUM (sizeof(redirect_ntdll)/sizeof(redirect_ntdll[0]))
+
+/* For ntdll redirections that differ on Windows 7.  Takes precedence over
+ * redirect_ntdll[].
+ */
+static const redirect_import_t redirect_ntdll_win7[] = {
+    /* win7 increases the #args */
+    {"LdrSetDllManifestProber",           (app_pc)redirect_ignore_arg12},
+};
+#define REDIRECT_NTDLL_WIN7_NUM \
+    (sizeof(redirect_ntdll_win7)/sizeof(redirect_ntdll_win7[0]))
 
 static const redirect_import_t redirect_kernel32[] = {
     /* To avoid the FlsCallback being interpreted */
@@ -744,7 +758,7 @@ privload_process_imports(privmod_t *mod)
 
         impmod = privload_lookup(impname);
         if (impmod == NULL) {
-            impmod = privload_locate_and_load(impname, mod);
+            impmod = privload_locate_and_load(impname, mod, mod);
             if (impmod == NULL) {
                 LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load import lib %s\n",
                     __FUNCTION__, impname);
@@ -836,6 +850,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
     generic_func_t func;
     /* Set to first-level names for use below in case no forwarder */
     privmod_t *forwmod = impmod;
+    privmod_t *last_forwmod = NULL;
     const char *forwfunc = NULL;
     const char *impfunc = NULL;
 
@@ -880,13 +895,15 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
         /* we use static buffer: may be clobbered by recursion below */
         snprintf(forwmodpath, forwfunc - forwarder, "%s", forwarder);
         snprintf(forwmodpath + (forwfunc - forwarder), strlen("dll"), "dll");
-        forwmodpath[forwfunc - forwarder + strlen(".dll")] = '\0';
+        forwmodpath[forwfunc - 1/*'.'*/ - forwarder + strlen(".dll")] = '\0';
         LOG(GLOBAL, LOG_LOADER, 2, "\tforwarder %s => %s %s\n",
             forwarder, forwmodpath, forwfunc);
+        last_forwmod = forwmod;
         forwmod = privload_lookup(forwmodpath);
         if (forwmod == NULL) {
             /* don't use forwmodpath past here: recursion may clobber it */
-            forwmod = privload_locate_and_load(forwmodpath, mod);
+            forwmod = privload_locate_and_load(forwmodpath, mod,
+                                               last_forwmod == NULL ? mod : last_forwmod);
             if (forwmod == NULL) {
                 LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forworder for %s\n"
                     __FUNCTION__, forwarder);
@@ -917,9 +934,22 @@ privload_call_entry(privmod_t *privmod, uint reason)
     /* get_module_entry adds base => returns base instead of NULL */
     if (entry != NULL && entry != privmod->base) {
         dllmain_t func = (dllmain_t) convert_data_to_function(entry);
+        bool res;
         LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s entry "PFX" for %d\n",
             __FUNCTION__, privmod->name, entry, reason);
-        return (*func)((HANDLE)privmod->base, reason, NULL);
+        res = (*func)((HANDLE)privmod->base, reason, NULL);
+        if (!res && get_os_version() >= WINDOWS_VERSION_7 &&
+            str_case_prefix(privmod->name, "kernel32")) {
+            /* i#364: win7 _BaseDllInitialize fails to initialize a new console
+             * (0xc0000041 (3221225537) - The NtConnectPort request is refused)
+             * which we ignore for now.  DR always had trouble writing to the
+             * console anyway (xref i#261).
+             */
+            LOG(GLOBAL, LOG_LOADER, 2,
+                "%s: ignoring failure of kernel32!_BaseDllInitialize\n", __FUNCTION__);
+            res = true;    
+        }
+        return res;
     }
     return true;
 }
@@ -933,7 +963,7 @@ privload_call_entry(privmod_t *privmod, uint reason)
  * from the particular pseudo-dll to a real dll.
  */
 static const char *
-map_api_set_dll(const char *name)
+map_api_set_dll(const char *name, privmod_t *dependent)
 {
     /* Ideally we would read apisetschema.dll ourselves.
      * It seems to be mapped in at 0x00040000.
@@ -948,9 +978,17 @@ map_api_set_dll(const char *name)
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-Debug-L1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-ErrorHandling-L1"))
-        return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-Fibers-L1"))
+    else if (str_case_prefix(name, "API-MS-Win-Core-ErrorHandling-L1")) {
+        /* This one includes {,Set}UnhandledExceptionFilter which are only in
+         * kernel32, but kernel32 itself imports GetLastError, etc.  which must come
+         * from kernelbase to avoid infinite loop.  XXX: what does apisetschema say?
+         * dependent on what's imported?
+         */
+        if (str_case_prefix(dependent->name, "kernel32"))
+            return "kernelbase.dll";
+        else
+            return "kernel32.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Core-Fibers-L1"))
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-File-L1"))
         return "kernelbase.dll";
@@ -976,9 +1014,17 @@ map_api_set_dll(const char *name)
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-ProcessEnvironment-L1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessThreads-L1"))
-        return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-Profile-L1"))
+    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessThreads-L1")) {
+        /* This one includes CreateProcessAsUserW which is only in
+         * kernel32, but kernel32 itself imports from here and its must come
+         * from kernelbase to avoid infinite loop.  XXX: see above: seeming
+         * more and more like it depends on what's imported.
+         */
+        if (str_case_prefix(dependent->name, "kernel32"))
+            return "kernelbase.dll";
+        else
+            return "kernel32.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Core-Profile-L1"))
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-RTLSupport-L1"))
         return "kernel32.dll";
@@ -1015,8 +1061,11 @@ map_api_set_dll(const char *name)
     }
 }
 
+/* If walking forwarder chain, immed_dep should be most recent walked.
+ * Else should equal dependent.
+ */
 static privmod_t *
-privload_locate_and_load(const char *impname, privmod_t *dependent)
+privload_locate_and_load(const char *impname, privmod_t *dependent, privmod_t *immed_dep)
 {
     privmod_t *mod = NULL;
     uint i;
@@ -1037,7 +1086,11 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
     if (get_os_version() >= WINDOWS_VERSION_7 &&
         str_case_prefix(impname, "API-MS-Win-")) {
         IF_DEBUG(const char *apiname = impname;)
-        impname = map_api_set_dll(impname);
+        /* We need immediate dependent to avoid infinite chain when hit
+         * kernel32 OpenProcessToken forwarder which needs to forward
+         * to kernelbase
+         */
+        impname = map_api_set_dll(impname, immed_dep);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: mapped API-set dll %s to %s\n",
             __FUNCTION__, apiname, impname);
         /* currently caller must do lookup: privload_load does not */
@@ -1149,6 +1202,13 @@ privload_redirect_imports(privmod_t *impmod, const char *name)
 {
     uint i;
     if (strcasecmp(impmod->name, "ntdll.dll") == 0) {
+        if (get_os_version() >= WINDOWS_VERSION_7) {
+            for (i = 0; i < REDIRECT_NTDLL_WIN7_NUM; i++) {
+                if (strcasecmp(name, redirect_ntdll_win7[i].name) == 0) {
+                    return redirect_ntdll_win7[i].func;
+                }
+            }
+        }
         for (i = 0; i < REDIRECT_NTDLL_NUM; i++) {
             if (strcasecmp(name, redirect_ntdll[i].name) == 0) {
                 return redirect_ntdll[i].func;
@@ -1172,6 +1232,12 @@ redirect_ignore_arg4(void *arg1)
 
 static bool WINAPI
 redirect_ignore_arg8(void *arg1, void *arg2)
+{
+    return true;
+}
+
+static bool WINAPI
+redirect_ignore_arg12(void *arg1, void *arg2, void *arg3)
 {
     return true;
 }
