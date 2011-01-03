@@ -212,6 +212,12 @@ resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
     case OPSZ_2_reg4:
     case OPSZ_4_reg16:
         return resolve_var_reg_size(sz, is_reg);
+    /* The _of_ types are not exposed to the user so convert here */
+    case OPSZ_4_of_8:
+    case OPSZ_4_of_16:
+        return OPSZ_4;
+    case OPSZ_8_of_16:
+        return OPSZ_8;
     }
     return sz;
 }

@@ -821,8 +821,8 @@ const instr_info_t * const op_instr[] =
 #define Vq_dq TYPE_V, OPSZ_8_of_16
 #define Vps TYPE_V, OPSZ_16
 #define Vpd TYPE_V, OPSZ_16
-#define Vss TYPE_V, OPSZ_16
-#define Vsd TYPE_V, OPSZ_16
+#define Vss TYPE_V, OPSZ_4_of_16
+#define Vsd TYPE_V, OPSZ_8_of_16
 #define Ups TYPE_V_MODRM, OPSZ_16
 #define Upd TYPE_V_MODRM, OPSZ_16
 #define Udq TYPE_V_MODRM, OPSZ_16
@@ -831,8 +831,8 @@ const instr_info_t * const op_instr[] =
 #define Wq_dq TYPE_W, OPSZ_8_of_16
 #define Wps TYPE_W, OPSZ_16
 #define Wpd TYPE_W, OPSZ_16
-#define Wss TYPE_W, OPSZ_16
-#define Wsd TYPE_W, OPSZ_16
+#define Wss TYPE_W, OPSZ_4_of_16
+#define Wsd TYPE_W, OPSZ_8_of_16
 #define Udq_Md TYPE_W, OPSZ_4_reg16
 #define Xb  TYPE_X, OPSZ_1
 #define Xv  TYPE_X, OPSZ_4_rex8_short2
@@ -854,8 +854,8 @@ const instr_info_t * const op_instr[] =
 #define Mxsave TYPE_M, OPSZ_xsave
 #define Mps  TYPE_M, OPSZ_16
 #define Mpd  TYPE_M, OPSZ_16
-#define Mss  TYPE_M, OPSZ_16
-#define Msd  TYPE_M, OPSZ_16
+#define Mss  TYPE_M, OPSZ_4
+#define Msd  TYPE_M, OPSZ_8
 #define Mq  TYPE_M, OPSZ_8
 #define Mdq  TYPE_M, OPSZ_16
 #define Mv  TYPE_M, OPSZ_4_rex8_short2
@@ -2148,9 +2148,9 @@ const instr_info_t prefix_extensions[][4] = {
   },
   /* prefix extension 15 */
   {
-    {OP_comiss,  0x0f2f10, "comiss",  xx, xx, Vps, Wps, xx, mrm, fW6, END_LIST},
+    {OP_comiss,  0x0f2f10, "comiss",  xx, xx, Vss, Wss, xx, mrm, fW6, END_LIST},
     {INVALID, 0xf30f2f10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_comisd,  0x660f2f10, "comisd",  xx, xx, Vpd, Wpd, xx, mrm, fW6, END_LIST},
+    {OP_comisd,  0x660f2f10, "comisd",  xx, xx, Vsd, Wsd, xx, mrm, fW6, END_LIST},
     {INVALID, 0xf20f2f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
   /* prefix extension 16 */

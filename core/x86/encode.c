@@ -148,17 +148,18 @@ const char * const size_names[] = {
     "OPSZ_8_short4",
     "OPSZ_28_short14",
     "OPSZ_108_short94",
-    "OPSZ_6x10",
     "OPSZ_4x8",
+    "OPSZ_6x10",
     "OPSZ_4x8_short2",
     "OPSZ_4x8_short2xi8",
     "OPSZ_4_short2xi4",
-    "OPSZ_4_of_8",
-    "OPSZ_4_of_16",
-    "OPSZ_8_of_16",
     "OPSZ_1_reg4",
     "OPSZ_2_reg4",
     "OPSZ_4_reg16",
+    "OPSZ_xsave",
+    "OPSZ_4_of_8",
+    "OPSZ_4_of_16",
+    "OPSZ_8_of_16",
 };
 
 /***************************************************************************
@@ -390,6 +391,28 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                   size_template != OPSZ_4_short2xi4 && size_template != OPSZ_4x8,
                   "internal encoding error in size_ok()");
 
+    /* register size checks go through reg_size_ok, so collapse sub-reg
+     * sizes to the true sizes
+     */
+    switch (size_op) {
+    case OPSZ_4_of_8:
+    case OPSZ_4_of_16:
+        size_op = OPSZ_4;
+        break;
+    case OPSZ_8_of_16:
+        size_op = OPSZ_8;
+        break;
+    }
+    switch (size_template) {
+    case OPSZ_4_of_8:
+    case OPSZ_4_of_16:
+        size_template = OPSZ_4;
+        break;
+    case OPSZ_8_of_16:
+        size_template = OPSZ_8;
+        break;
+    }
+
     /* First set/check rex.w or data prefix, if necessary
      * if identical size then don't need to set or check anything */
     if (size_op != size_template) { 
@@ -506,26 +529,6 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
     }
 
     /* prefix doesn't come into play below here: do a direct comparison */
-
-    switch (size_op) {
-    case OPSZ_4_of_8: 
-    case OPSZ_4_of_16: 
-        size_op = OPSZ_4;
-        break;
-    case OPSZ_8_of_16: 
-        size_op = OPSZ_8;
-        break;
-    }
-
-    switch (size_template) {
-    case OPSZ_4_of_8: 
-    case OPSZ_4_of_16: 
-        size_template = OPSZ_4;
-        break;
-    case OPSZ_8_of_16: 
-        size_template = OPSZ_8;
-        break;
-    }
 
     DOLOG(4, LOG_EMIT, {
         if (size_op != size_template) {

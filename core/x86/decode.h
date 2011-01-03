@@ -476,6 +476,7 @@ enum {
     /* Sizes used by new instructions */
     OPSZ_xsave, /**< Size is > 512 bytes: use cpuid to determine.
                  * Used for FPU, MMX, XMM, etc. state by xsave and xrstor. */
+    /* Add new size here.  Also update size_names[] in encode.c. */
     OPSZ_LAST,
 };
 
