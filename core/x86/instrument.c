@@ -4723,12 +4723,17 @@ dr_fragment_app_pc(void *tag)
         tag = get_app_pc_from_intercept_pc(tag);
     CLIENT_ASSERT(tag != NULL, "dr_fragment_app_pc shouldn't be NULL");
 
-    /* Without -hide our DllMain routine ends up in the cache (xref PR 223120).
-     * On Linux fini() ends up in the cache.
-     */
-    if (DYNAMO_OPTION(hide)) {
-        CLIENT_ASSERT(!is_dynamo_address(tag), "dr_fragment_app_pc shouldn't be DR pc");
-    }
+    DODEBUG({
+        /* Without -hide our DllMain routine ends up in the cache (xref PR 223120).
+         * On Linux fini() ends up in the cache.
+         */
+        if (DYNAMO_OPTION(hide) && is_dynamo_address(tag) &&
+            /* support client interpreting code out of its library */
+            !is_in_client_lib(tag)) {
+            /* downgraded from assert for client interpreting its own generated code */
+            SYSLOG_INTERNAL_WARNING_ONCE("dr_fragment_app_pc is a DR/client pc");
+        }
+    });
 #endif
     return tag;
 }
