@@ -52,8 +52,6 @@
 
 #define VERBOSE 0
 
-#define FP stderr
-
 /* just use single-arg handlers */
 typedef void (*handler_t)(int);
 typedef void (*handler_3_t)(int, struct siginfo *, void *);
@@ -74,6 +72,8 @@ static vmstats_t vmstats;
 static int limit; /* in seconds */
 struct timeval start, end;
 static int silent; /* whether to print anything */
+static int silent; /* whether to print anything */
+static FILE *FP;
 
 /***************************************************************************/
 /* /proc/self/status reader */
@@ -299,7 +299,7 @@ print_stats(struct timeval *start, struct timeval *end,
 int usage(char *us)
 {
     fprintf(FP, "Usage: %s [-s limit_sec | -m limit_min | -h limit_hr]\n"
-                "       [-silent] [-env var value] <program> <args...>\n", us);
+                "  [-f] [-silent] [-env var value] <program> <args...>\n", us);
     return 1;
 }
 
@@ -309,6 +309,7 @@ int main(int argc, char *argv[])
     struct itimerval t;
     struct rusage ru;
     int arg_offs = 1;
+    FP = stderr; /* default */
 
     if (argc < 2) {
         return usage(argv[0]);
@@ -334,6 +335,14 @@ int main(int argc, char *argv[])
             arg_offs += 1;
         } else if (strcmp(argv[arg_offs], "-silent") == 0) {
             silent = 1;
+            arg_offs += 1;
+        } else if (strcmp(argv[arg_offs], "-f") == 0) {
+            char fname[32];
+            int len = snprintf(fname, sizeof(fname)/sizeof(fname[0]),
+                               "runstats-%d", getpid());
+            if (len <= 0)
+                return 1;
+            FP = fopen(fname, "w");
             arg_offs += 1;
         } else if (strcmp(argv[arg_offs], "-env") == 0) {
             if (argc <= arg_offs+2)
