@@ -488,18 +488,24 @@ if (UNIX)
   set(DBG "-g3")
   # gcc doesn't change its optimizations based on -g
   set(OPT "-O3 ${DBG}")
-  # FIXME: core-specific: move to core/CMakeLists.txt?
-  # We use -O to avoid stack overflow in debug build (makes a huge difference by
-  # having locals/temps share stack slots) but we use -fno-omit-frame-pointer to
-  # keep things more easily debuggable (though gcc claims only omits when
-  # debuggable).
-  # XXX: should use -O0 and optimize attributes on the few funcs that need higher
-  # opt, so we have better debuggability!  Even at -O not all vars are avail in gdb.
+
+  # XXX: core-specific: move to core/CMakeLists.txt?
+  #
+  # XXX: i#374: we used to use -O to avoid stack overflow in debug
+  # build (makes a huge difference by having locals/temps share stack
+  # slots) and had -fno-omit-frame-pointer to keep things more easily
+  # debuggable (though gcc claims only omits when debuggable), but
+  # even then many locals were optimized away, and utils.c's first
+  # statsx.h expansion took over a minute to compile with some
+  # versions of gcc, so removing the -O (can't repro the stack
+  # overflows now anyway).  If we hit the overflows again, we should
+  # use -O0 and optimize attributes on the few funcs that need higher
+  # opt.
+  #
   # We disable strcmp intrinsic to avoid stack overflow in
   # set_dynamo_options(): case 7853.
-  # FIXME: now that we have -O we may not need -fno-builtin-strcmp
-  # FIXME: actually -O is making it annoying to debug: need better solution!
-  set(DBG_OPT "-O -fno-omit-frame-pointer -fno-builtin-strcmp")
+  set(DBG_OPT "-fno-omit-frame-pointer -fno-builtin-strcmp")
+
   set(CPP_KEEP_COMMENTS -C)
   set(CPP_NO_LINENUM -P)
   set(CMAKE_CPP_FLAGS "")
