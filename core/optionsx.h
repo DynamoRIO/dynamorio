@@ -960,7 +960,10 @@
 
     OPTION_DEFAULT_INTERNAL(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
     OPTION_DEFAULT_INTERNAL(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
-    OPTION_DEFAULT_INTERNAL(uint_size, max_heap_unit_size, 64*1024, "maximum heap unit size")
+    /* if this is too small then once past the vm reservation we have too many
+     * DR areas and subsequent problems with DR areas and allmem synch (i#369)
+     */
+    OPTION_DEFAULT_INTERNAL(uint_size, max_heap_unit_size, 256*1024, "maximum heap unit size")
     OPTION_DEFAULT(uint_size, heap_commit_increment, 4*1024, "heap commit increment")
     OPTION_DEFAULT(uint, cache_commit_increment, 4*1024, "cache commit increment")
 
