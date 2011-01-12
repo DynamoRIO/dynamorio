@@ -169,6 +169,10 @@ void external_error(char *file, int line, char *msg);
 #define ASSERT_TRUNCATE(var, type, val) ASSERT(sizeof(type) == sizeof(var) && \
                                                CHECK_TRUNCATE_TYPE_##type(val) && \
                                                "truncating "#var" to "#type)
+#define CURIOSITY_TRUNCATE(var, type, val) \
+    ASSERT_CURIOSITY(sizeof(type) == sizeof(var) && \
+                                               CHECK_TRUNCATE_TYPE_##type(val) && \
+                                               "truncating "#var" to "#type)
 #define CLIENT_ASSERT_TRUNCATE(var, type, val, msg) \
     CLIENT_ASSERT(sizeof(type) == sizeof(var) && CHECK_TRUNCATE_TYPE_##type(val), msg)
 
@@ -1331,7 +1335,7 @@ enum {LONGJMP_EXCEPTION = 1};
 
 #define XSTATS_ADD_DC(dcontext, stat, value) do {                                       \
         stats_int_t stats_add_dc__value = (stats_int_t) (value);                        \
-        ASSERT_TRUNCATE(stats_add_dc__value, stats_int_t, value);                       \
+        CURIOSITY_TRUNCATE(stats_add_dc__value, stats_int_t, value);                    \
         DO_THREAD_STATS(dcontext, THREAD_STAT(dcontext, stat) += stats_add_dc__value);  \
         DO_GLOBAL_STATS(XSTATS_ATOMIC_ADD(GLOBAL_STAT(stat), stats_add_dc__value));     \
     } while (0)
@@ -1341,7 +1345,7 @@ enum {LONGJMP_EXCEPTION = 1};
 #define XSTATS_SUB(stat, value) XSTATS_ADD(stat, -(stats_int_t)(value))
 #define XSTATS_ADD_ASSIGN_DC(dcontext, stat, var, value) do {               \
         stats_int_t stats_add_assign_dc__value = (stats_int_t) (value);     \
-        ASSERT_TRUNCATE(stats_add_assign_dc__value, stats_int_t, value);    \
+        CURIOSITY_TRUNCATE(stats_add_assign_dc__value, stats_int_t, value); \
         DO_THREAD_STATS(dcontext,                                           \
             THREAD_STAT(dcontext, stat) += stats_add_assign_dc__value);     \
         /* would normally DO_GLOBAL_STATS(), but need to assign var */      \
@@ -1377,7 +1381,7 @@ enum {LONGJMP_EXCEPTION = 1};
                       XSTATS_MAX_DC(stats_max__dcontext, stat_max, stat_cur))
 #define XSTATS_TRACK_MAX(stats_track_max, val) do {                      \
         stats_int_t stats_track_max__value = (stats_int_t) (val);        \
-        ASSERT_TRUNCATE(stats_track_max__value, stats_int_t, val);       \
+        CURIOSITY_TRUNCATE(stats_track_max__value, stats_int_t, val);    \
         XSTATS_WITH_DC(stats_track_max__dcontext,                        \
                       XSTATS_MAX_HELPER(stats_track_max__dcontext,       \
                                        stats_track_max,                  \
