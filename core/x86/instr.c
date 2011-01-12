@@ -3980,10 +3980,12 @@ bool instr_is_prefetch(instr_t *instr)
 {
     int opcode=instr_get_opcode(instr);
 
-    if ((opcode==OP_prefetchnta)||
-        (opcode==OP_prefetcht0)||
-        (opcode==OP_prefetcht1)||
-        (opcode==OP_prefetcht2))
+    if (opcode == OP_prefetchnta ||
+        opcode == OP_prefetcht0 ||
+        opcode == OP_prefetcht1 ||
+        opcode == OP_prefetcht2 ||
+        opcode == OP_prefetch ||
+        opcode == OP_prefetchw)
         return true;
 
     return false;
