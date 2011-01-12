@@ -287,7 +287,7 @@ if (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
       ERROR_VARIABLE svn_err
       OUTPUT_VARIABLE svn_out)
     if (svn_result OR svn_err)
-      message(FATAL_ERROR "*** ${SVN} info failed: ***\n${svn_err}")
+      message(FATAL_ERROR "*** ${SVN} info failed: ***\n${svn_result} ${svn_err}")
     endif (svn_result OR svn_err)
     string(REGEX MATCH "Revision: [0-9]+" svn_out "${svn_out}")
     string(REGEX REPLACE "Revision: " "" svn_out "${svn_out}")
