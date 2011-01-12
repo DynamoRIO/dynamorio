@@ -1927,6 +1927,8 @@ DECLARE_NEVERPROT_VAR(static char reportbuf[REPORT_MSG_MAX + REPORT_LEN_VERSION 
                                             REPORT_LEN_OPTIONS + REPORT_LEN_STACK + 1],
                       {0,});
 DECLARE_CXTSWPROT_VAR(static mutex_t report_buf_lock, INIT_LOCK_FREE(report_buf_lock));
+/* Avoid deadlock w/ nested reports */
+DECLARE_CXTSWPROT_VAR(static thread_id_t report_buf_lock_owner, 0);
 
 #define ASSERT_ROOM(reportbuf, curbuf, maxlen) \
     ASSERT(curbuf + maxlen < reportbuf + sizeof(reportbuf))
@@ -1989,7 +1991,12 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
     if (dcontext == NULL)
         dcontext = GLOBAL_DCONTEXT;
 
+    if (report_buf_lock_owner == get_thread_id()) {
+        /* nested report: can't do much except bail on inner */
+        return;
+    }
     mutex_lock(&report_buf_lock);
+    report_buf_lock_owner = get_thread_id();
     /* we assume the caller does a DO_ONCE to prevent hanging on a
      * fault in this routine, if called to report a fatal error.
      */
@@ -2083,6 +2090,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
             dump_dr_callstack(THREAD);
     });
 
+    report_buf_lock_owner = 0;
     mutex_unlock(&report_buf_lock);
 
     if (dumpcore_flag != DUMPCORE_CURIOSITY) {
