@@ -648,12 +648,17 @@ is_in_client_lib(app_pc addr)
     return false;
 }
 
-app_pc
-get_client_base(client_id_t client_id)
+bool
+get_client_bounds(client_id_t client_id,
+                  app_pc *start/*OUT*/, app_pc *end/*OUT*/)
 {
     if (client_id >= num_client_libs)
-        return NULL;
-    return (app_pc)client_libs[client_id].start;
+        return false;
+    if (start != NULL)
+        *start = (app_pc) client_libs[client_id].start;
+    if (end != NULL)
+        *end = (app_pc) client_libs[client_id].end;
+    return true;
 }
 
 const char *
