@@ -912,10 +912,10 @@ uint hashtable_num_bits(uint size);
 /* alignment helpers, alignment must be power of 2 */
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 #define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
+    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
 #define ALIGN_FORWARD_UINT(x, alignment) \
     ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
 #define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
 #define ALIGN_MOD(addr, size, alignment) \
     ((((ptr_uint_t)addr)+(size)-1) & ((alignment)-1))
