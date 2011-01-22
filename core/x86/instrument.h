@@ -2196,6 +2196,7 @@ DR_API
 void
 dr_syscall_invoke_another(void *drcontext);
 
+/* DR_API EXPORT BEGIN */
 /**************************************************
  * PLATFORM-INDEPENDENT FILE SUPPORT
  *
@@ -3571,6 +3572,27 @@ DR_API
  */
 app_pc
 dr_app_pc_from_cache_pc(byte *cache_pc);
+
+DR_API
+/**
+ * Swaps to the application version of any system state for the given
+ * thread.  This is meant to be used prior to examining application
+ * memory, when private libraries are in use and there are two
+ * versions of system state.  Invoking non-DR library routines while
+ * the application state is in place can lead to unpredictable
+ * results: call dr_switch_to_dr_state() before doing so.
+ */
+void
+dr_switch_to_app_state(void *drcontext);
+
+DR_API
+/**
+ * Should only be called after calling dr_switch_to_app_state().
+ * Swaps from the application version of system state for the given
+ * thread back to the DR and client version.
+ */
+void
+dr_switch_to_dr_state(void *drcontext);
 
 #ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */

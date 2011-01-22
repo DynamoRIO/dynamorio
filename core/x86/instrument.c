@@ -4774,6 +4774,30 @@ dr_app_pc_from_cache_pc(byte *cache_pc)
     return res;
 }
 
+DR_API
+void
+dr_switch_to_app_state(void *drcontext)
+{
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    /* i#249: swap PEB pointers */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        swap_peb_pointer(dcontext, false/*to app*/);
+#endif
+}
+
+DR_API
+void
+dr_switch_to_dr_state(void *drcontext)
+{
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    /* i#249: swap PEB pointers */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        swap_peb_pointer(dcontext, true/*to priv*/);
+#endif
+}
+
 /***************************************************************************
  * CUSTOM TRACES SUPPORT
  * *could use a method to unmark a trace head, would be nice if DR
