@@ -4572,7 +4572,13 @@ intercept_exception(app_state_at_intercept_t *state)
         
         /* grab parameters to native method */
 #ifdef X64
-        pExcptRec = (EXCEPTION_RECORD *) (state->mc.xsp + sizeof(CONTEXT));
+        if (get_os_version() >= WINDOWS_VERSION_7) {
+            /* XXX: there are 32 bytes worth of extra stuff between
+             * CONTEXT and EXCEPTION_RECORD.  Not sure what it is.
+             */
+            pExcptRec = (EXCEPTION_RECORD *) (state->mc.xsp + sizeof(CONTEXT) + 0x20);
+        } else
+            pExcptRec = (EXCEPTION_RECORD *) (state->mc.xsp + sizeof(CONTEXT));
         cxt = (CONTEXT *) state->mc.xsp;
 #else
         pExcptRec = *((EXCEPTION_RECORD **)(state->mc.xsp));

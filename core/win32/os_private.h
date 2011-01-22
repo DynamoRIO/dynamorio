@@ -253,7 +253,7 @@ os_rename_file_in_directory(IN HANDLE rootdir,
 /* thread-shared only needs 4 pages on 32-bit but -thread_private needs 5
  * in case we hook the image entry on an early cbret
  */
-#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(6*4096,5*4096)
+#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(7*4096,5*4096)
 
 void
 callback_init(void);

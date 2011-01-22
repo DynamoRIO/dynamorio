@@ -517,7 +517,8 @@ windows_version_init()
         /* WinNT or descendents */
         if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 1) {
             module_handle_t ntdllh = get_ntdll_base();
-            if (is_wow64_process(NT_CURRENT_PROCESS)) {
+            if (module_is_64bit(get_ntdll_base()) ||
+                is_wow64_process(NT_CURRENT_PROCESS)) {
                 syscalls = (int *) windows_7_x64_syscalls;
                 os_name = "Microsoft Windows 7 x64";
             } else {
