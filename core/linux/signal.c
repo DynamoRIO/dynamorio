@@ -3809,11 +3809,10 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             "** Received SIG%s at cache pc "PFX" in thread %d\n",
             (sig == SIGSEGV) ? "SEGV" : "BUS", pc, get_thread_id());
         ASSERT(syscall_signal || safe_is_in_fcache(dcontext, pc, (byte *)sc->SC_XSP));
-        /* if we were building a trace, kill it */
-        if (is_building_trace(dcontext)) {
-            LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
-            trace_abort(dcontext);
-        }
+        /* we do not call trace_abort() here since we may need to
+         * translate from a temp private bb (i#376): but all paths
+         * that deliver the signal or redirect will call it
+         */
         record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(target));
         break;
     }

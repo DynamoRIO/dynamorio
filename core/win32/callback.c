@@ -3656,6 +3656,10 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
         /* Cannot resume execution in cache (was flushed), go back to dispatch
          * via fcache_return
          */
+        if (is_building_trace(dcontext)) {
+            LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
+            trace_abort(dcontext);
+        }
         transfer_to_fcache_return(dcontext, cxt, next_pc,
                                   (linkstub_t *) get_selfmod_linkstub());
     }
@@ -4772,11 +4776,10 @@ intercept_exception(app_state_at_intercept_t *state)
         check_internal_exception(dcontext, cxt, pExcptRec, forged_exception_addr
                                  _IF_CLIENT(&raw_mcontext));
 
-        /* don't do this for DR exception in case it's exception in trace_abort! */
-        if (is_building_trace(dcontext)) {
-            LOG(THREAD, LOG_ASYNCH, 2, "intercept_exception: squashing old trace\n");
-            trace_abort(dcontext);
-        }
+        /* we do not call trace_abort() here since we may need to
+         * translate from a temp private bb (i#376): but all paths
+         * that do not return to the faulting instr will call it
+         */
 
         /* FIXME: we may want to distinguish the exception that we
          * have generated from interp from potential races that will
