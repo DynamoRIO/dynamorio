@@ -157,7 +157,8 @@ set(CTEST_CMAKE_COMMAND "${CMAKE_EXECUTABLE_NAME}")
 set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
 set(CTEST_PROJECT_NAME "DynamoRIO")
 find_program(MAKE_COMMAND make DOC "make command")
-set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j5")
+# XXX: with -j5 I see weird build failures on VS2008, but can't repro w/ VERBOSE=1.
+set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j4")
 set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
 
 if (UNIX)
@@ -249,6 +250,10 @@ function(testbuild_ex name is64 initial_cache build_args)
         set(ENV{PATH} "${newpath}")
         string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
           newlib "$ENV{LIB}")
+        # VS2008's SDKs/Windows/v6.0A uses "x64" instead of "amd64": grrr
+        string(REGEX REPLACE "(6.0A[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
+          "\\1x64" 
+          newlib "${newlib}")
         set(ENV{LIB} "${newlib}")
         string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
           newlibpath "$ENV{LIBPATH}")
@@ -261,6 +266,8 @@ function(testbuild_ex name is64 initial_cache build_args)
         set(ENV{PATH} "${newpath}")
         string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Aa][Mm][Dd]64" "\\1"
           newlib "$ENV{LIB}")
+        string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Xx]64" "\\1"
+          newlib "${newlib}")
         set(ENV{LIB} "${newlib}")
         string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Aa][Mm][Dd]64" "\\1"
           newlibpath "$ENV{LIBPATH}")
