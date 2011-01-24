@@ -236,6 +236,9 @@
 #define INSTR_CREATE_vmmcall(dc)  instr_create_0dst_0src((dc), OP_vmmcall)
 #define INSTR_CREATE_stgi(dc)     instr_create_0dst_0src((dc), OP_stgi)
 #define INSTR_CREATE_clgi(dc)     instr_create_0dst_0src((dc), OP_clgi)
+#define INSTR_CREATE_int3(dc) instr_create_0dst_0src((dc), OP_int3)
+#define INSTR_CREATE_into(dc) instr_create_0dst_0src((dc), OP_into)
+#define INSTR_CREATE_int1(dc) instr_create_0dst_0src((dc), OP_int1)
 /* @} */ /* end doxygen group */
 /**
  * Creates an instr_t with opcode OP_LABEL.  An OP_LABEL instruction can be used as a
@@ -406,6 +409,16 @@
  */
 #define INSTR_CREATE_clflush(dc, s) \
   instr_create_0dst_1src((dc), OP_clflush, (s))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param i The opnd_t explicit second source operand for the instruction, which
+ * must be an immediate integer (opnd_create_immed_int()).
+ */
+#define INSTR_CREATE_int(dc, i) \
+  instr_create_0dst_1src((dc), OP_int, (i))
+
 
 #ifdef IA32_ON_IA64
 /* DR_API EXPORT BEGIN */
@@ -1989,20 +2002,18 @@
   instr_create_1dst_2src((dc), OP_ret, opnd_create_reg(DR_REG_XSP), \
     opnd_create_reg(DR_REG_XSP), \
     opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_ret))
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
-/* FIXME - using OPSZ_STACK to get 64-bit size (32-bit is default for x64) */
+/* XXX: blindly asking for rex.w (b/c 32-bit is default for x64) but don't
+ * know x64 mode! */
 #define INSTR_CREATE_ret_far(dc) \
   instr_create_1dst_2src((dc), OP_ret_far, opnd_create_reg(DR_REG_XSP), \
     opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK))
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
-/* FIXME - must use OPSZ_STACK (OPSZ_REXVARSTACK is ambiguous => iretd in 64-bit mode) */
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, IF_X64_ELSE(OPSZ_16, OPSZ_8)))
+/* XXX: blindly asking for rex.w (b/c 32-bit is default for x64) but don't
+ * know x64 mode! */
 #define INSTR_CREATE_iret(dc) \
   instr_create_1dst_2src((dc), OP_iret, opnd_create_reg(DR_REG_XSP), \
     opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK))
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, IF_X64_ELSE(OPSZ_40, OPSZ_12)))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 3 sources: 1 implicit */
@@ -2102,13 +2113,12 @@
   instr_create_1dst_3src((dc), OP_ret, opnd_create_reg(DR_REG_XSP), (i), \
     opnd_create_reg(DR_REG_XSP), \
     opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_ret))
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
-/* FIXME - using OPSZ_STACK to get 64-bit size (32-bit is default for x64) */
+/* XXX: blindly asking for rex.w (b/c 32-bit is default for x64) but don't
+ * know x64 mode! */
 #define INSTR_CREATE_ret_far_imm(dc, i) \
   instr_create_1dst_3src((dc), OP_ret_far, opnd_create_reg(DR_REG_XSP), (i), \
     opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK))
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, IF_X64_ELSE(OPSZ_16,OPSZ_8)))
 /* @} */ /* end doxygen group */
 
 /* 1 implicit destination, 5 sources: 2 implicit */
@@ -2173,25 +2183,7 @@
  */
 #define INSTR_CREATE_pushf(dc) \
   instr_create_2dst_1src((dc), OP_pushf, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK), \
-    opnd_create_reg(DR_REG_XSP))
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
-#define INSTR_CREATE_int3(dc) \
-  instr_create_2dst_1src((dc), OP_int3, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK), \
-    opnd_create_reg(DR_REG_XSP))
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
-#define INSTR_CREATE_into(dc) \
-  instr_create_2dst_1src((dc), OP_into, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK), \
-    opnd_create_reg(DR_REG_XSP))
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
-#define INSTR_CREATE_int1(dc) \
-  instr_create_2dst_1src((dc), OP_int1, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK), \
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, IF_X64_ELSE(-8,-4), OPSZ_STACK), \
     opnd_create_reg(DR_REG_XSP))
 #define INSTR_CREATE_rdmsr(dc) \
   instr_create_2dst_1src((dc), OP_rdmsr, opnd_create_reg(DR_REG_EDX), \
@@ -2457,7 +2449,7 @@
  */
 #define INSTR_CREATE_call(dc, t) \
   instr_create_2dst_2src((dc), OP_call, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK), \
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, IF_X64_ELSE(-8,-4), OPSZ_STACK), \
     (t), opnd_create_reg(DR_REG_XSP))
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -2468,7 +2460,7 @@
  */
 #define INSTR_CREATE_call_ind(dc, t) \
   instr_create_2dst_2src((dc), OP_call_ind, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK), \
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, IF_X64_ELSE(-8,-4), OPSZ_STACK), \
     (t), opnd_create_reg(DR_REG_XSP))
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -2477,11 +2469,10 @@
  * \param t The opnd_t target operand for the instruction, which should be
  * a far pc operand created with opnd_create_far_pc().
  */
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
+/* note: unlike iret/ret_far, 32-bit is typical desired size even for 64-bit mode */
 #define INSTR_CREATE_call_far(dc, t) \
   instr_create_2dst_2src((dc), OP_call_far, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK), \
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -8, OPSZ_8), \
     (t), opnd_create_reg(DR_REG_XSP))
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -2490,12 +2481,10 @@
  * \param t The opnd_t target operand for the instruction, which should be
  * a far memory reference created with opnd_create_far_base_disp().
  */
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
-/* FIXME - unlike iret/ret_far, OPSZ_4 is typical desired size => OPSZ_REXVARSTACK */
+/* note: unlike iret/ret_far, 32-bit is typical desired size even for 64-bit mode */
 #define INSTR_CREATE_call_far_ind(dc, t) \
   instr_create_2dst_2src((dc), OP_call_far_ind, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_REXVARSTACK), \
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -8, OPSZ_8), \
     (t), opnd_create_reg(DR_REG_XSP))
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -2505,7 +2494,7 @@
  */
 #define INSTR_CREATE_push(dc, s) \
   instr_create_2dst_2src((dc), OP_push, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_VARSTACK), \
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, IF_X64_ELSE(-8,-4), OPSZ_VARSTACK), \
     (s), opnd_create_reg(DR_REG_XSP))
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
@@ -2516,22 +2505,7 @@
  */
 #define INSTR_CREATE_push_imm(dc, i) \
   instr_create_2dst_2src((dc), OP_push_imm, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_VARSTACK), \
-    (i), opnd_create_reg(DR_REG_XSP))
-
-/* 2 implicit destinations, 2 sources: 1 implicit */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
- * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param i The opnd_t explicit second source operand for the instruction, which
- * must be an immediate integer (opnd_create_immed_int()).
- */
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
-#define INSTR_CREATE_int(dc, i) \
-  instr_create_2dst_2src((dc), OP_int, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK), \
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, IF_X64_ELSE(-8,-4), OPSZ_VARSTACK), \
     (i), opnd_create_reg(DR_REG_XSP))
 
 /* 2 destinations: 1 implicit, 3 sources: 1 implicit */
@@ -2569,8 +2543,6 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
 /* 2 implicit destinations, 8 implicit sources */
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
 #define INSTR_CREATE_pusha(dc)  instr_create_pusha((dc))
 
 /* 3 implicit destinations, no sources */
@@ -2608,11 +2580,10 @@
  * \param i8 The opnd_t explicit second source operand for the instruction, which
  * must be an immediate integer (opnd_create_immed_int()) of OPSZ_1.
  */
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
+/* XXX: IR ignores non-zero immed for size+disp */
 #define INSTR_CREATE_enter(dc, i16, i8) \
   instr_create_3dst_4src((dc), OP_enter, opnd_create_reg(DR_REG_XSP), \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_STACK), \
+    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, IF_X64_ELSE(-8,-4), OPSZ_STACK), \
     opnd_create_reg(DR_REG_XBP), \
     (i16), (i8), opnd_create_reg(DR_REG_XSP), opnd_create_reg(DR_REG_XBP))
 
@@ -2622,8 +2593,6 @@
  * supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
-/* FIXME - size is wrong, xref PR 214976/10541 */
-/* WARNING: actually performs multiple stack operations (not reflected in size) */
 #define INSTR_CREATE_popa(dc)   instr_create_popa((dc))
 
 /****************************************************************************/

@@ -364,6 +364,29 @@ enum {
     TYPE_INDIR_VAR_XIREG, /* indirected register that varies (by addr prefix),
                            * with a base of 32/64 depending on the mode;
                            * indirected size varies w/ data prefix, except 64-bit Intel */
+    TYPE_INDIR_VAR_XREG_OFFS_1, /* TYPE_INDIR_VAR_XREG but with an offset of
+                                 * -1 * size */
+    TYPE_INDIR_VAR_XREG_OFFS_8, /* TYPE_INDIR_VAR_XREG but with an offset of
+                                 * -8 * size and a size of 8 stack slots */
+    TYPE_INDIR_VAR_XREG_OFFS_N, /* TYPE_INDIR_VAR_XREG but with an offset of
+                                 * -N * size and a size to match: i.e., it
+                                 * varies based on other operands */
+    TYPE_INDIR_VAR_XIREG_OFFS_1, /* TYPE_INDIR_VAR_XIREG but with an offset of
+                                  * -1 * size */
+    TYPE_INDIR_VAR_REG_OFFS_2,   /* TYPE_INDIR_VAR_REG but with an offset of
+                                  * -2 * size and a size of 2 stack slots */
+    /* we have to encode the memory size into the type b/c we use the size
+     * to store the base reg: but since most base regs are xsp we could
+     * encode that into the type and store the size in the size field
+     */
+    TYPE_INDIR_VAR_XREG_SIZEx8,  /* TYPE_INDIR_VAR_XREG but with a size of
+                                  * 8 * regular size */
+    TYPE_INDIR_VAR_REG_SIZEx2,   /* TYPE_INDIR_VAR_REG but with a size of
+                                  * 2 * regular size */
+    TYPE_INDIR_VAR_REG_SIZEx3x5, /* TYPE_INDIR_VAR_REG but with a size of
+                                  * 3 * regular size for 32-bit, 5 * regular
+                                  * size for 64-bit */
+    /* when adding new types, update type_names[] in encode.c */
 };
 
 
@@ -450,16 +473,8 @@ enum {
                       * Also 64-bit address-size specified operands, which are
                       * short4 rather than short2 in 64-bit mode (but short2 in
                       * 32-bit mode).
-                      * Note that this IR does not distinguish multiple stack
-                      * operations; dispatch by opcode must be used:
-                      *   X2 = far call/far ret
-                      *   X3 = int/iret
-                      *   X8 = pusha/popa
-                      *   X* = enter (dynamically varying amount)
-                      * Note that stack operations may also modify the stack
-                      * pointer prior to accessing the top of the stack, so
-                      * for example "(esp)" may in fact be "4(esp)" depending
-                      * on the opcode.
+                      * Note that this IR does not distinguish extra stack
+                      * operations performed by OP_enter w/ non-zero immed.
                       */
     OPSZ_4x8_short2xi8, /**< Intel 'f64': 4_short2 for 32-bit, 8_short2 for 64-bit AMD,
                          *   always 8 for 64-bit Intel */
@@ -476,6 +491,12 @@ enum {
     /* Sizes used by new instructions */
     OPSZ_xsave, /**< Size is > 512 bytes: use cpuid to determine.
                  * Used for FPU, MMX, XMM, etc. state by xsave and xrstor. */
+    OPSZ_12,    /**< 12 bytes: 32-bit iret */
+    OPSZ_32,    /**< 32 bytes: pusha/popa */
+    OPSZ_40,    /**< 40 bytes: 64-bit iret */
+    OPSZ_32_short16,      /**< unresolved pusha/popa */
+    OPSZ_8_rex16_short4,  /**< Intel 'v' * 2 (far call/ret) */
+    OPSZ_12_rex40_short6, /**< unresolved iret */
     /* Add new size here.  Also update size_names[] in encode.c. */
     OPSZ_LAST,
 };
@@ -533,6 +554,7 @@ enum {
 #define MODRM_BYTE(mod, reg, rm) ((byte) (((mod) << 6) | ((reg) << 3) | (rm)))
 
 /* in decode.c, not exported to non-x86 files */
+bool optype_is_indir_reg(int optype);
 opnd_size_t resolve_var_reg_size(opnd_size_t sz, bool is_reg);
 opnd_size_t resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
                                   opnd_size_t sz, bool is_reg);
@@ -544,7 +566,8 @@ reg_id_t resolve_var_reg(decode_info_t *di/*IN: x86_mode, prefixes*/,
                          _IF_X64(bool default_64) _IF_X64(bool can_grow)
                          _IF_X64(bool extendable));
 opnd_size_t resolve_addr_size(decode_info_t *di/*IN: x86_mode, prefixes*/);
-opnd_size_t indir_var_reg_size(int optype);
+opnd_size_t indir_var_reg_size(decode_info_t *di, int optype);
+int indir_var_reg_offs_factor(int optype);
 
 /* in encode.c, not exported to non-x86 files */
 const instr_info_t * get_encoding_info(instr_t *instr);

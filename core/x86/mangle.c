@@ -1561,6 +1561,44 @@ insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
 #endif
 }
 
+/* Far calls and rets have double total size */
+static opnd_size_t
+stack_entry_size(instr_t *instr, opnd_size_t opsize)
+{
+    if (instr_get_opcode(instr) == OP_call_far ||
+        instr_get_opcode(instr) == OP_call_far_ind ||
+        instr_get_opcode(instr) == OP_ret_far) {
+        /* cut OPSZ_8_rex16_short4 in half */
+        if (opsize == OPSZ_4)
+            return OPSZ_2;
+        else if (opsize == OPSZ_8)
+            return OPSZ_4;
+        else {
+#ifdef X64
+            ASSERT(opsize == OPSZ_16);
+            return OPSZ_8;
+#else
+            ASSERT_NOT_REACHED();
+#endif
+        }
+    } else if (instr_get_opcode(instr) == OP_iret) {
+        /* convert OPSZ_12_rex40_short6 */
+        if (opsize == OPSZ_6)
+            return OPSZ_2;
+        else if (opsize == OPSZ_12)
+            return OPSZ_4;
+        else {
+#ifdef X64
+            ASSERT(opsize == OPSZ_40);
+            return OPSZ_8;
+#else
+            ASSERT_NOT_REACHED();
+#endif
+        }
+    }
+    return opsize;
+}
+
 /* N.B.: keep in synch with instr_check_xsp_mangling() in arch.c */
 static void
 insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -1629,6 +1667,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     app_pc target = NULL;
     int len = instr_length(dcontext, instr);
     opnd_t pushop = instr_get_dst(instr, 1);
+    opnd_size_t pushsz = stack_entry_size(instr, opnd_get_size(pushop));
     if (opnd_is_near_pc(instr_get_target(instr)))
         target = opnd_get_pc(instr_get_target(instr));
     else if (opnd_is_instr(instr_get_target(instr))) {
@@ -1709,11 +1748,11 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              */
             SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct call");
             STATS_INC(num_far_dir_calls);
-            insert_push_cs(dcontext, ilist, instr, 0, opnd_get_size(pushop));
+            insert_push_cs(dcontext, ilist, instr, 0, pushsz);
         }
 
         /* convert a direct call to a push of the return address */
-        insert_push_retaddr(dcontext, ilist, instr, retaddr, opnd_get_size(pushop));
+        insert_push_retaddr(dcontext, ilist, instr, retaddr, pushsz);
         
         /* remove the call */
         instrlist_remove(ilist, instr);
@@ -1767,6 +1806,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_t *cleanup;
 #endif
     opnd_t pushop = instr_get_dst(instr, 1);
+    opnd_size_t pushsz = stack_entry_size(instr, opnd_get_size(pushop));
     reg_id_t reg_target = REG_XCX;
 
     if (!mangle_calls)
@@ -1797,7 +1837,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     if (TEST(INSTR_IND_CALL_DIRECT, instr->flags)) {
         /* convert the call to a push of the return address */
-        insert_push_retaddr(dcontext, ilist, instr, retaddr, opnd_get_size(pushop));
+        insert_push_retaddr(dcontext, ilist, instr, retaddr, pushsz);
         /* remove the call */
         instrlist_remove(ilist, instr);
         instr_destroy(dcontext, instr);
@@ -1812,12 +1852,12 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     if (instr_get_opcode(instr) == OP_call_far_ind) {
         /* goes right before the push of the ret addr */
-        insert_push_cs(dcontext, ilist, next_instr, 0, opnd_get_size(pushop));
+        insert_push_cs(dcontext, ilist, next_instr, 0, pushsz);
         /* see notes below -- we don't really support switching segments,
          * though we do go ahead and push cs, we won't pop into cs
          */
     }
-    insert_push_retaddr(dcontext, ilist, next_instr, retaddr, opnd_get_size(pushop));
+    insert_push_retaddr(dcontext, ilist, next_instr, retaddr, pushsz);
 #endif
     
     /* save away xcx so that we can use it */
@@ -1963,6 +2003,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     instr_t *pop;
     opnd_t retaddr;
+    opnd_size_t retsz;
 
 #ifdef NATIVE_RETURN
     native_ret_mangle_return(dcontext, ilist, instr, next_instr);
@@ -2003,10 +2044,11 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     /* the retaddr operand is always the final source for all OP_ret* instrs */
     retaddr = instr_get_src(instr, instr_num_srcs(instr) - 1);
+    retsz = stack_entry_size(instr, opnd_get_size(retaddr));
 
     if (X64_MODE_DC(dcontext) && 
         (instr_get_opcode(instr) == OP_iret || instr_get_opcode(instr) == OP_ret_far) &&
-        opnd_get_size(retaddr) == OPSZ_4) {
+        retsz == OPSZ_4) {
         /* N.B.: For some unfathomable reason iret and ret_far default to operand
          * size 4 in 64-bit mode (making them, along w/ call_far, the only stack
          * operation instructions to do so). So if we see an iret or far ret with
@@ -2025,15 +2067,18 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              opnd_create_base_disp(REG_XSP, REG_NULL, 0, 4, OPSZ_lea)));
     } else {
         /* change RET into a POP, keeping the operand size */
+        opnd_t memop = retaddr;
         pop = INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XCX));
-        instr_set_src(pop, 1, retaddr);
-        if (opnd_get_size(retaddr) == OPSZ_2)
+        /* need per-entry size, not total size (double for far ret) */
+        opnd_set_size(&memop, retsz);
+        instr_set_src(pop, 1, memop);
+        if (retsz == OPSZ_2)
             instr_set_dst(pop, 0, opnd_create_reg(REG_CX));
         /* We can't do a 4-byte pop in 64-bit mode, but excepting iretd and lretd
          * handled above we should never see one. */
-        ASSERT(!X64_MODE_DC(dcontext) || opnd_get_size(retaddr) != OPSZ_4);
+        ASSERT(!X64_MODE_DC(dcontext) || retsz != OPSZ_4);
         PRE(ilist, instr, pop);
-        if (opnd_get_size(retaddr) == OPSZ_2) {
+        if (retsz == OPSZ_2) {
             /* we need to zero out the top 2 bytes */
             PRE(ilist, instr, INSTR_CREATE_movzx
                 (dcontext,
@@ -2059,7 +2104,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
                              opnd_create_base_disp
                              (REG_XSP, REG_NULL, 0,
-                              opnd_size_in_bytes(opnd_get_size(retaddr)), OPSZ_lea)));
+                              opnd_size_in_bytes(retsz), OPSZ_lea)));
     }
 
     if (instr_get_opcode(instr) == OP_iret) {
@@ -2085,7 +2130,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, instr,
             INSTR_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
                              OPND_CREATE_INT8
-                             (opnd_size_in_bytes(opnd_get_size(retaddr)))));
+                             (opnd_size_in_bytes(retsz))));
 
         /* Next up is xflags, we use a popf. Popf should be setting the right flags 
          * (it's difficult to tell because in the docs iret lists the flags it does
@@ -2093,7 +2138,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * clear, but any flag that we or a user mode program would care about should
          * be right. */
         popf = INSTR_CREATE_popf(dcontext);
-        if (X64_MODE_DC(dcontext) && opnd_get_size(retaddr) == OPSZ_4) {
+        if (X64_MODE_DC(dcontext) && retsz == OPSZ_4) {
             /* We can't actually create a 32-bit popf and there's no easy way to
              * simulate one.  For now we'll do a 64-bit popf and fixup the stack offset.
              * If AMD/INTEL ever start using the top half of the rflags register then
@@ -2108,14 +2153,16 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                  (REG_XSP, REG_NULL, 0, -4, OPSZ_lea)));
         } else {
             /* get popf size right the same way we do it for the return address */
-            DODEBUG(if (opnd_get_size(retaddr) == OPSZ_2)
+            opnd_t memop = retaddr;
+            opnd_set_size(&memop, retsz);
+            DODEBUG(if (retsz == OPSZ_2)
                         ASSERT_NOT_TESTED(););
-            instr_set_src(popf, 1, retaddr);
+            instr_set_src(popf, 1, memop);
             PRE(ilist, instr, popf);
         }
 
         /* If the operand size is 64-bits iret additionally does pop->RSP and pop->ss. */
-        if (opnd_get_size(retaddr) == OPSZ_8) {
+        if (retsz == OPSZ_8) {
             PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_RSP)));
             /* We're ignoring the set of SS and since we just set RSP we don't need
              * to do anything to adjust the stack for the pop (since the pop would have

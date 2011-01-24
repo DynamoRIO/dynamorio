@@ -204,6 +204,14 @@ resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
     case OPSZ_6x10: return (X64_MODE(di) ? OPSZ_10 : OPSZ_6);
     case OPSZ_8_short2: return (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_2 : OPSZ_8);
     case OPSZ_8_short4: return (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_4 : OPSZ_8);
+    case OPSZ_8_rex16_short4: /* rex.w trumps data prefix */
+        return (TEST(PREFIX_REX_W, di->prefixes) ? OPSZ_16 :
+                (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_4 : OPSZ_8));
+    case OPSZ_12_rex40_short6: /* rex.w trumps data prefix */
+        return (TEST(PREFIX_REX_W, di->prefixes) ? OPSZ_40 :
+                (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_6 : OPSZ_12));
+    case OPSZ_32_short16:
+        return (TEST(PREFIX_DATA, di->prefixes) ?  OPSZ_16 : OPSZ_32);
     case OPSZ_28_short14:
         return (TEST(PREFIX_DATA, di->prefixes) ?  OPSZ_14 : OPSZ_28);
     case OPSZ_108_short94:
@@ -240,16 +248,74 @@ resolve_addr_size(decode_info_t *di/*IN: x86_mode, prefixes*/)
         return (X64_MODE(di) ? OPSZ_8 : OPSZ_4);
 }
 
-opnd_size_t
-indir_var_reg_size(int optype)
+bool
+optype_is_indir_reg(int optype)
 {
     switch (optype) {
-    case TYPE_INDIR_VAR_XREG: return OPSZ_VARSTACK;
-    case TYPE_INDIR_VAR_XIREG: return OPSZ_4x8_short2xi8;
-    case TYPE_INDIR_VAR_REG: return OPSZ_REXVARSTACK;
-    default: CLIENT_ASSERT(false, "internal error: indir_var_reg_size invalid param");
+    case TYPE_INDIR_VAR_XREG:
+    case TYPE_INDIR_VAR_XREG_OFFS_1:
+    case TYPE_INDIR_VAR_XREG_OFFS_N:
+    case TYPE_INDIR_VAR_XIREG:
+    case TYPE_INDIR_VAR_XIREG_OFFS_1:
+    case TYPE_INDIR_VAR_REG:
+    case TYPE_INDIR_VAR_REG_OFFS_2:
+    case TYPE_INDIR_VAR_REG_SIZEx2:
+    case TYPE_INDIR_VAR_XREG_OFFS_8:
+    case TYPE_INDIR_VAR_XREG_SIZEx8:
+    case TYPE_INDIR_VAR_REG_SIZEx3x5:
+        return true;
     }
-    return OPSZ_VARSTACK;
+    return false;
+}
+
+opnd_size_t
+indir_var_reg_size(decode_info_t *di, int optype)
+{
+    switch (optype) {
+    case TYPE_INDIR_VAR_XREG:
+    case TYPE_INDIR_VAR_XREG_OFFS_1:
+    case TYPE_INDIR_VAR_XREG_OFFS_N:
+        /* non-zero immed int adds additional, but we require client to handle that
+         * b/c our decoding and encoding can't see the rest of the operands
+         */
+        return OPSZ_VARSTACK;
+
+    case TYPE_INDIR_VAR_XIREG:
+    case TYPE_INDIR_VAR_XIREG_OFFS_1:
+        return OPSZ_ret;
+
+    case TYPE_INDIR_VAR_REG:
+        return OPSZ_REXVARSTACK;
+
+    case TYPE_INDIR_VAR_REG_OFFS_2:
+    case TYPE_INDIR_VAR_REG_SIZEx2:
+        return OPSZ_8_rex16_short4;
+
+    case TYPE_INDIR_VAR_XREG_OFFS_8:
+    case TYPE_INDIR_VAR_XREG_SIZEx8:
+        return OPSZ_32_short16;
+
+    case TYPE_INDIR_VAR_REG_SIZEx3x5:
+        return OPSZ_12_rex40_short6;
+
+    default: CLIENT_ASSERT(false, "internal error: invalid indir reg type");
+    }
+    return OPSZ_0;
+}
+
+/* Returns multiplier of the operand size to use as the base-disp offs */
+int
+indir_var_reg_offs_factor(int optype)
+{
+    switch (optype) {
+    case TYPE_INDIR_VAR_XREG_OFFS_1:
+    case TYPE_INDIR_VAR_XREG_OFFS_8:
+    case TYPE_INDIR_VAR_XREG_OFFS_N:
+    case TYPE_INDIR_VAR_XIREG_OFFS_1:
+    case TYPE_INDIR_VAR_REG_OFFS_2:
+        return -1;
+    }
+    return 0;
 }
 
 /****************************************************************************
@@ -1352,32 +1418,31 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
                               * opsize varies by rex and data16 */
     case TYPE_INDIR_VAR_XIREG: /* indirect reg varies by addr16 not data16, base is 4x8,
                                 * opsize varies by data16 except on 64-bit Intel */
+    case TYPE_INDIR_VAR_XREG_OFFS_1: /* TYPE_INDIR_VAR_XREG + an offset */
+    case TYPE_INDIR_VAR_XREG_OFFS_8: /* TYPE_INDIR_VAR_XREG + an offset + scale */
+    case TYPE_INDIR_VAR_XREG_OFFS_N: /* TYPE_INDIR_VAR_XREG + an offset + scale */
+    case TYPE_INDIR_VAR_XIREG_OFFS_1:/* TYPE_INDIR_VAR_XIREG + an offset + scale */
+    case TYPE_INDIR_VAR_REG_OFFS_2:  /* TYPE_INDIR_VAR_REG + offset + scale */
+    case TYPE_INDIR_VAR_XREG_SIZEx8: /* TYPE_INDIR_VAR_XREG + scale */
+    case TYPE_INDIR_VAR_REG_SIZEx2:  /* TYPE_INDIR_VAR_REG + scale */
+    case TYPE_INDIR_VAR_REG_SIZEx3x5:/* TYPE_INDIR_VAR_REG + scale */
         {
             reg_id_t reg =
                 resolve_var_reg(di, opsize, true/*addr*/, true/*shrinkable*/
                                 _IF_X64(true/*d64*/) _IF_X64(false/*!growable*/)
                                 _IF_X64(false/*!extendable*/));
-            /* FIXME - xref case 10541/PR 214976, this type is overused and could
-             * have different sizes. Right now TYPE_INDIR_VAR_XREG is used for
-             * push/pop/pushf/popf/call (for which
-             * OPSZ_VARSTACK == OPSZ_4x8_short2 is right), and
-             * TYPE_INDIR_VAR_XIREG is used for ret/ret_imm, which are
-             * correct.  However, TYPE_INDIR_VAR_XREG is also used
-             * for pusha/popa/call_far/enter/leave/ret_far/int which have
-             * different sizes, may access memory down instead of up from the address
-             * or at an offset to the address.  Currently iret, far ret, and
-             * far call use TPYE_INDIR_VAR_REG, and they do multiple pushes/pops
-             * as well (iret does 3 (or 5) pops of this size
-             * depending on the operand size (3 for 16 or 32-bit, 5 for 64-bit)).
-             * NOTE - needs to match size in opnd_type_ok() and instr_create.h */
-            *opnd = opnd_create_base_disp (reg, REG_NULL, 0, 0,
-                                           resolve_variable_size
-                                           (di, indir_var_reg_size(optype),
-                                            false/*not reg*/));
+            opnd_size_t sz =
+                resolve_variable_size(di, indir_var_reg_size(di, optype),
+                                      false/*not reg*/);
+            /* NOTE - needs to match size in opnd_type_ok() and instr_create.h */
+            *opnd = opnd_create_base_disp (reg, REG_NULL, 0,
+                                           indir_var_reg_offs_factor(optype) *
+                                           opnd_size_in_bytes(sz),
+                                           sz);
             return true;
         }
     case TYPE_INDIR_E:
-        /* FIXME: how mark as indirect? 
+        /* how best mark as indirect?
          * in current usage decode_modrm will be treated as indirect, becoming
          * a base_disp operand, vs. an immed, which becomes a pc operand
          * besides, Ap is just as indirect as i_Ep!

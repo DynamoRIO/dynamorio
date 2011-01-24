@@ -290,11 +290,11 @@ test_indirect_cti(void *dc)
     instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(REG_ECX));
     test_instr_encode(dc, instr, 2);
     instr = instr_create_2dst_2src(dc, OP_call_ind, opnd_create_reg(REG_ESP),
-                                   opnd_create_base_disp(REG_ESP, REG_NULL, 0, 0, OPSZ_2),
+                                   opnd_create_base_disp(REG_ESP, REG_NULL, 0, -2, OPSZ_2),
                                    opnd_create_reg(REG_CX), opnd_create_reg(REG_ESP));
     test_instr_encode(dc, instr, 3);
     instr = instr_create_2dst_2src(dc, OP_call_ind, opnd_create_reg(REG_SP),
-                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, 0, OPSZ_4_short2),
+                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, -4, OPSZ_4_short2),
                                    opnd_create_reg(REG_ECX), opnd_create_reg(REG_SP));
     test_instr_encode(dc, instr, 3);
 
@@ -303,13 +303,13 @@ test_indirect_cti(void *dc)
                                                                 OPSZ_6));
     test_instr_encode(dc, instr, 2);
     instr = instr_create_2dst_2src(dc, OP_call_far_ind, opnd_create_reg(REG_ESP),
-                                   opnd_create_base_disp(REG_ESP, REG_NULL, 0, 0, OPSZ_2),
+                                   opnd_create_base_disp(REG_ESP, REG_NULL, 0, -4, OPSZ_4),
                                    opnd_create_base_disp(REG_ECX, REG_NULL, 0, 0,
                                                          OPSZ_4),
                                    opnd_create_reg(REG_ESP));
     test_instr_encode(dc, instr, 3);
     instr = instr_create_2dst_2src(dc, OP_call_far_ind, opnd_create_reg(REG_SP),
-                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, 0, OPSZ_4_short2),
+                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, -8, OPSZ_8_rex16_short4),
                                    opnd_create_base_disp(REG_BX, REG_NULL, 0, 0,
                                                          OPSZ_6),
                                    opnd_create_reg(REG_SP));
@@ -471,17 +471,17 @@ test_size_changes(void *dc)
     instr_t *instr;
     /* push addr16 */
     instr = instr_create_2dst_2src(dc, OP_push, opnd_create_reg(REG_SP),
-                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, 0, OPSZ_4_short2),
+                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, -4, OPSZ_4_short2),
                                    opnd_create_reg(REG_ECX), opnd_create_reg(REG_SP));
     test_instr_encode(dc, instr, 2);
     /* push data16 */
     instr = instr_create_2dst_2src(dc, OP_push, opnd_create_reg(REG_ESP),
-                                   opnd_create_base_disp(REG_ESP, REG_NULL, 0, 0, OPSZ_2),
+                                   opnd_create_base_disp(REG_ESP, REG_NULL, 0, -2, OPSZ_2),
                                    opnd_create_reg(REG_CX), opnd_create_reg(REG_ESP));
     test_instr_encode(dc, instr, 2);
     /* push addr16 and data16 */
     instr = instr_create_2dst_2src(dc, OP_push, opnd_create_reg(REG_SP),
-                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, 0, OPSZ_2),
+                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, -2, OPSZ_2),
                                    opnd_create_reg(REG_CX), opnd_create_reg(REG_SP));
     test_instr_encode(dc, instr, 3);
     /* jecxz and jcxz */
@@ -501,7 +501,7 @@ test_size_changes(void *dc)
         (dc, OP_loopne, opnd_create_reg(REG_CX), opnd_create_pc(buf),
          opnd_create_reg(REG_CX));
     test_instr_encode(dc, instr, 3);
-    
+
 
     /*
      *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi %edi 
@@ -559,19 +559,19 @@ test_size_changes(void *dc)
      * (iretq on 64-bit, iretd on 32-bit). See PR 191977. */
     instr = INSTR_CREATE_iret(dc);
 #ifdef X64
-    test_instr_encode_and_decode(dc, instr, 2, true /*src*/, 1, OPSZ_8, 8);
+    test_instr_encode_and_decode(dc, instr, 2, true /*src*/, 1, OPSZ_40, 40);
     ASSERT(buf[0] == 0x48); /* check for rex.w prefix */
 #else
-    test_instr_encode_and_decode(dc, instr, 1, true /*src*/, 1, OPSZ_4, 4);
+    test_instr_encode_and_decode(dc, instr, 1, true /*src*/, 1, OPSZ_12, 12);
 #endif
     instr = instr_create_1dst_2src
         (dc, OP_iret, opnd_create_reg(REG_XSP), opnd_create_reg(REG_XSP),
-         opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_4));
-    test_instr_encode_and_decode(dc, instr, 1, true /*src*/, 1, OPSZ_4, 4);
+         opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_12));
+    test_instr_encode_and_decode(dc, instr, 1, true /*src*/, 1, OPSZ_12, 12);
     instr = instr_create_1dst_2src
         (dc, OP_iret, opnd_create_reg(REG_XSP), opnd_create_reg(REG_XSP),
-         opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_2));
-    test_instr_encode_and_decode(dc, instr, 2, true /*src*/, 1, OPSZ_2, 2);
+         opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_6));
+    test_instr_encode_and_decode(dc, instr, 2, true /*src*/, 1, OPSZ_6, 6);
     ASSERT(buf[0] == 0x66); /* check for data prefix */
 }
 

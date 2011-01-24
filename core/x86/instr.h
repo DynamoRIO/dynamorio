@@ -1327,6 +1327,9 @@ DR_API
  * If \p size is a DR_REG_ constant, first calls reg_get_size(\p size)
  * to get a OPSZ_ constant.
  * Returns the number of bytes the OPSZ_ constant represents.
+ * If OPSZ_ is a variable-sized size, returns the default size,
+ * which may or may not match the actual size decided up on at
+ * encoding time (that final size depends on other operands).
  */
 uint 
 opnd_size_in_bytes(opnd_size_t size);

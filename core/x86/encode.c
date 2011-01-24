@@ -99,6 +99,14 @@ const char * const type_names[] = {
     "TYPE_INDIR_VAR_XREG",
     "TYPE_INDIR_VAR_REG",
     "TYPE_INDIR_VAR_XIREG",
+    "TYPE_INDIR_VAR_XREG_OFFS_1",
+    "TYPE_INDIR_VAR_XREG_OFFS_8",
+    "TYPE_INDIR_VAR_XREG_OFFS_N",
+    "TYPE_INDIR_VAR_XIREG_OFFS_1",
+    "TYPE_INDIR_VAR_REG_OFFS_2",
+    "TYPE_INDIR_VAR_XREG_SIZEx8",
+    "TYPE_INDIR_VAR_REG_SIZEx2",
+    "TYPE_INDIR_VAR_REG_SIZEx3x5",
 };
 
 /* order corresponds to enum of REG_ and SEG_ constants */
@@ -157,6 +165,12 @@ const char * const size_names[] = {
     "OPSZ_2_reg4",
     "OPSZ_4_reg16",
     "OPSZ_xsave",
+    "OPSZ_12",
+    "OPSZ_32",
+    "OPSZ_40",
+    "OPSZ_32_short16",
+    "OPSZ_8_rex16_short4",
+    "OPSZ_12_rex40_short6",
     "OPSZ_4_of_8",
     "OPSZ_4_of_16",
     "OPSZ_8_of_16",
@@ -450,7 +464,7 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                 di->prefixes |= prefix_data_addr;
                 return true;
             }
-            if (size_template == OPSZ_8_short4) {
+            if (size_template == OPSZ_8_short4 || size_template == OPSZ_8_rex16_short4) {
                 di->prefixes |= prefix_data_addr;
                 return true;
             }
@@ -459,6 +473,10 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
             if (size_template == OPSZ_6_irex10_short4)
                 return !TEST(prefix_data_addr, di->prefixes) &&
                     (!TEST(PREFIX_REX_W, di->prefixes) || proc_get_vendor() == VENDOR_AMD);
+            if (size_template == OPSZ_12_rex40_short6) {
+                di->prefixes |= prefix_data_addr;
+                return true;
+            }
             return false;
         case OPSZ_8:
             if (X64_MODE(di) &&
@@ -468,6 +486,8 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             if (size_template == OPSZ_8_short4 || size_template == OPSZ_8_short2)
                 return !TEST(prefix_data_addr, di->prefixes);
+            if (size_template == OPSZ_8_rex16_short4)
+                return !TESTANY(prefix_data_addr|PREFIX_REX_W, di->prefixes);
             return false;
         case OPSZ_10:
             if (X64_MODE(di) && size_template == OPSZ_6_irex10_short4 &&
@@ -476,7 +496,19 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                 return true;
             }
             return false;
+        case OPSZ_12:
+            if (size_template == OPSZ_12_rex40_short6)
+                return !TESTANY(prefix_data_addr|PREFIX_REX_W, di->prefixes);
+            return false;
         case OPSZ_16:
+            if (X64_MODE(di) && size_template == OPSZ_8_rex16_short4) {
+                di->prefixes |= PREFIX_REX_W; /* rex.w trumps data prefix */
+                return true;
+            }
+            if (size_template == OPSZ_32_short16) {
+                di->prefixes |= prefix_data_addr;
+                return true;
+            }
             return false; /* no matching varsz, must be exact match */
         case OPSZ_14:
             if (size_template == OPSZ_28_short14) {
@@ -487,6 +519,16 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_28:
             if (size_template == OPSZ_28_short14)
                 return !TEST(prefix_data_addr, di->prefixes);
+            return false;
+        case OPSZ_32:
+            if (size_template == OPSZ_32_short16)
+                return !TEST(prefix_data_addr, di->prefixes);
+            return false;
+        case OPSZ_40:
+            if (X64_MODE(di) && size_template == OPSZ_12_rex40_short6) {
+                di->prefixes |= PREFIX_REX_W; /* rex.w trumps data prefix */
+                return true;
+            }
             return false;
         case OPSZ_94:
             if (size_template == OPSZ_108_short94) {
@@ -501,6 +543,16 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_512:
             return false; /* no variable sizes match, need identical request */
         /* We do support variable-sized requests */
+        case OPSZ_8_rex16_short4:
+        case OPSZ_12_rex40_short6:
+        case OPSZ_32_short16:
+            /* not supporting client asking for these when template is not identical
+             * (not worth the complexity).  similarly we don't support the client
+             * asking for other var sizes when the template is one of these.
+             */
+            CLIENT_ASSERT(false, "variable multi-stack-slot sizes not supported "
+                          "as general-purpose sizes");
+            break;
         case OPSZ_2_short1:
         case OPSZ_4_short2:
         case OPSZ_4_rex8_short2:
@@ -876,13 +928,27 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                               * opsize that varies by rex & data16 */
     case TYPE_INDIR_VAR_XIREG: /* indrect reg that varies (by addr16), base is 4x8,
                                 * opsize that varies by data16 except on 64-bit Intel */
+    case TYPE_INDIR_VAR_XREG_OFFS_1: /* TYPE_INDIR_VAR_XREG + an offset */
+    case TYPE_INDIR_VAR_XREG_OFFS_8: /* TYPE_INDIR_VAR_XREG + an offset + scale */
+    case TYPE_INDIR_VAR_XREG_OFFS_N: /* TYPE_INDIR_VAR_XREG + an offset + scale */
+    case TYPE_INDIR_VAR_XIREG_OFFS_1:/* TYPE_INDIR_VAR_XIREG + an offset + scale */
+    case TYPE_INDIR_VAR_REG_OFFS_2:  /* TYPE_INDIR_VAR_REG + offset + scale */
+    case TYPE_INDIR_VAR_XREG_SIZEx8: /* TYPE_INDIR_VAR_XREG + scale */
+    case TYPE_INDIR_VAR_REG_SIZEx2:  /* TYPE_INDIR_VAR_REG + scale */
+    case TYPE_INDIR_VAR_REG_SIZEx3x5:/* TYPE_INDIR_VAR_REG + scale */
         if (opnd_is_base_disp(opnd)) {
             reg_id_t base = opnd_get_base(opnd);
+            /* NOTE - size needs to match decode_operand() and instr_create.h. */
+            bool sz_ok = size_ok(di, opnd_get_size(opnd), indir_var_reg_size(di, optype),
+                                 false/*!addr*/);
+            /* must be after size_ok potentially sets di flags */
+            opnd_size_t sz =
+                resolve_variable_size(di, opnd_get_size(opnd), false/*not reg*/);
+            int disp = indir_var_reg_offs_factor(optype) * (int)opnd_size_in_bytes(sz);
             /* reg_size_ok will set PREFIX_ADDR if 16-bit reg is asked for.
              * these are all specified as 32-bit, so we hardcode OPSZ_VARSTACK
              * for reg_size_ok.
              * to generalize we'll want opsize_var_size(reg_get_size(opsize)) or sthg.
-             * also xref case 214976/10541.
              */
             CLIENT_ASSERT(reg_get_size(opsize) == OPSZ_4, "internal decoding error");
             return (reg_size_ok(di, base, optype, OPSZ_VARSTACK, true/*addr*/) &&
@@ -890,12 +956,13 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                                             true _IF_X64(true) _IF_X64(false)
                                             _IF_X64(false)) &&
                     opnd_get_index(opnd) == REG_NULL &&
-                    opnd_get_disp(opnd) == 0 &&
-                    /* FIXME: xref PR 214976: this is used for some instructions that
-                     * aren't actually OPSZ_VARSTACK.  NOTE - needs to match size in
-                     * decode_operand() and instr_create.h. */
-                    size_ok(di, opnd_get_size(opnd), indir_var_reg_size(optype),
-                            false/*!addr*/));
+                    /* we're forgiving here, rather than adding complexity
+                     * of a disp_equals_minus_size flag or sthg (i#164)
+                     */
+                    (opnd_get_disp(opnd) == disp ||
+                     opnd_get_disp(opnd) == disp/2 ||
+                     opnd_get_disp(opnd) == disp*2) &&
+                    sz_ok);
         } else {
             return false;
         }
@@ -1465,6 +1532,14 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     case TYPE_INDIR_VAR_XREG:
     case TYPE_INDIR_VAR_REG:
     case TYPE_INDIR_VAR_XIREG:
+    case TYPE_INDIR_VAR_XREG_OFFS_1:
+    case TYPE_INDIR_VAR_XREG_OFFS_8:
+    case TYPE_INDIR_VAR_XREG_OFFS_N:
+    case TYPE_INDIR_VAR_XIREG_OFFS_1:
+    case TYPE_INDIR_VAR_REG_OFFS_2:
+    case TYPE_INDIR_VAR_XREG_SIZEx8:
+    case TYPE_INDIR_VAR_REG_SIZEx2:
+    case TYPE_INDIR_VAR_REG_SIZEx3x5:
         return;
     case TYPE_REG_EX:
     case TYPE_VAR_REG_EX:

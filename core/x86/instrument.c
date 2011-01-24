@@ -4793,6 +4793,9 @@ dr_switch_to_dr_state(void *drcontext)
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     /* i#249: swap PEB pointers */
+    /* XXX: could add flag to ensure only called after dr_switch_to_app_state().
+     * swap_peb_pointer() can handle non-properly-paired.
+     */
     if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
         swap_peb_pointer(dcontext, true/*to priv*/);
 #endif

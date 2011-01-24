@@ -1168,6 +1168,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_4x8_short2: /* default size */
     case OPSZ_4x8_short2xi8: /* default size */
 #endif
+    case OPSZ_8_rex16_short4: /* default size */
         return 8;
     case OPSZ_16:
         return 16;
@@ -1176,11 +1177,19 @@ opnd_size_in_bytes(opnd_size_t size)
         return IF_X64_ELSE(6, 10);
     case OPSZ_10:
         return 10;
+    case OPSZ_12:
+    case OPSZ_12_rex40_short6: /* default size */
+        return 12;
     case OPSZ_14:
         return 14;
     case OPSZ_28_short14: /* default size */
     case OPSZ_28:
         return 28;
+    case OPSZ_32:
+    case OPSZ_32_short16: /* default size */
+        return 32;
+    case OPSZ_40:
+        return 40;
     case OPSZ_94:
         return 94;
     case OPSZ_108_short94: /* default size */
@@ -1188,6 +1197,8 @@ opnd_size_in_bytes(opnd_size_t size)
         return 108;
     case OPSZ_512:
         return 512;
+    case OPSZ_xsave:
+        return 0; /* > 512 bytes: use cpuid to determine */
     default:
         CLIENT_ASSERT(false, "opnd_size_in_bytes: invalid opnd type");
         return 0;
@@ -1208,7 +1219,7 @@ opnd_shrink_to_16_bits(opnd_t opnd)
         }
     }
     if ((opnd_is_immed_int(opnd) || opnd_is_memory_reference(opnd)) &&
-        opnd_get_size(opnd) == OPSZ_4)
+        opnd_get_size(opnd) == OPSZ_4) /* OPSZ_*_short2 will shrink at encode time */
         opnd_set_size(&opnd, OPSZ_2);
     return opnd;
 }
@@ -3196,10 +3207,7 @@ instr_shrink_to_16_bits(instr_t *instr)
          */
         optype = instr_info_opnd_type(info, false/*dst*/, i);
         if (!opnd_is_memory_reference(opnd) &&
-            optype != TYPE_VAR_ADDR_XREG &&
-            optype != TYPE_INDIR_VAR_XREG &&
-            optype != TYPE_INDIR_VAR_REG &&
-            optype != TYPE_INDIR_VAR_XIREG) {
+            !optype_is_indir_reg(optype)) {
             instr_set_dst(instr, i, opnd_shrink_to_16_bits(opnd));
         }
     }
@@ -3207,10 +3215,7 @@ instr_shrink_to_16_bits(instr_t *instr)
         opnd = instr_get_src(instr, i);
         optype = instr_info_opnd_type(info, true/*dst*/, i);
         if (!opnd_is_memory_reference(opnd) &&
-            optype != TYPE_VAR_ADDR_XREG &&
-            optype != TYPE_INDIR_VAR_XREG &&
-            optype != TYPE_INDIR_VAR_REG &&
-            optype != TYPE_INDIR_VAR_XIREG) {
+            !optype_is_indir_reg(optype)) {
             instr_set_src(instr, i, opnd_shrink_to_16_bits(opnd));
         }
     }
@@ -4407,11 +4412,7 @@ reg_is_fp(reg_id_t reg)
  * will an all-operand replacement work, or do some instrs have some
  * var-size regs but some const-size also?
  *
- * FIXME: what if want eflags or modrm info on constructed instr?!?
- *
- * FIXME: pusha/popa/leave/enter/interrupt i_eSP below are left as OPSZ_4_short2
- * but their size really varies...OPSZ_4_short2 is needed now to satisfy the encoder,
- * xref case 10541 on giving these their correct size.
+ * XXX: what if want eflags or modrm info on constructed instr?!?
  *
  * fld pushes onto top of stack, call that writing to ST0 or ST7?
  * f*p pops the stack -- not modeled at all!
@@ -4680,8 +4681,7 @@ instr_create_popa(dcontext_t *dcontext)
     instr_set_dst(in, 6, opnd_create_reg(REG_ESI));
     instr_set_dst(in, 7, opnd_create_reg(REG_EDI));
     instr_set_src(in, 0, opnd_create_reg(REG_ESP));
-    /* FIXME - size is wrong, xref case 10541 */
-    instr_set_src(in, 1, opnd_create_base_disp(REG_ESP, REG_NULL, 0, 0, OPSZ_4_short2));
+    instr_set_src(in, 1, opnd_create_base_disp(REG_ESP, REG_NULL, 0, 0, OPSZ_32_short16));
     return in;
 }
 
@@ -4690,8 +4690,8 @@ instr_create_pusha(dcontext_t *dcontext)
 {
     instr_t *in = instr_build(dcontext, OP_pusha, 2, 8);
     instr_set_dst(in, 0, opnd_create_reg(REG_ESP));
-    /* FIXME - size is wrong, xref case 10541 */
-    instr_set_dst(in, 1, opnd_create_base_disp(REG_ESP, REG_NULL, 0, 0, OPSZ_4_short2));
+    instr_set_dst(in, 1, opnd_create_base_disp(REG_ESP, REG_NULL, 0, -32,
+                                               OPSZ_32_short16));
     instr_set_src(in, 0, opnd_create_reg(REG_ESP));
     instr_set_src(in, 1, opnd_create_reg(REG_EAX));
     instr_set_src(in, 2, opnd_create_reg(REG_EBX));

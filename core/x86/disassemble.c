@@ -765,16 +765,14 @@ instr_opcode_name_suffix(instr_t *instr)
         /* add "b" or "d" suffix */
         switch (instr_get_opcode(instr)) {
         case OP_pushf: case OP_popf:
-        case OP_pusha: case OP_popa:
-        case OP_iret: case OP_xlat:
+        case OP_xlat:
         case OP_ins: case OP_rep_ins:
         case OP_outs: case OP_rep_outs:
         case OP_movs: case OP_rep_movs:
         case OP_stos: case OP_rep_stos:
         case OP_lods: case OP_rep_lods:
         case OP_cmps: case OP_rep_cmps: case OP_repne_cmps:
-        case OP_scas: case OP_rep_scas: case OP_repne_scas:
-            {
+        case OP_scas: case OP_rep_scas: case OP_repne_scas: {
                 uint sz = instr_memory_reference_size(instr);
                 if (sz == 1)
                     return "b";
@@ -784,7 +782,24 @@ instr_opcode_name_suffix(instr_t *instr)
                     return "d";
                 else if (sz == 8)
                     return "q";
-            }
+        }
+        case OP_pusha:
+        case OP_popa: {
+                uint sz = instr_memory_reference_size(instr);
+                if (sz == 16)
+                    return "w";
+                else if (sz == 32)
+                    return "d";
+        }
+        case OP_iret: {
+                uint sz = instr_memory_reference_size(instr);
+                if (sz == 6)
+                    return "w";
+                else if (sz == 12)
+                    return "d";
+                else if (sz == 40)
+                    return "q";
+        }
         }
     }
     return "";
