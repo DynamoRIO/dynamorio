@@ -1104,6 +1104,12 @@ DR_install(FILES
   ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
   DESTINATION ${INSTALL_CMAKE}
 )
+# export suite scripts even if not building tests
+DR_install(FILES
+  ${PROJECT_SOURCE_DIR}/suite/runsuite_common_pre.cmake
+  ${PROJECT_SOURCE_DIR}/suite/runsuite_common_post.cmake
+  DESTINATION ${INSTALL_CMAKE}
+)
 
 # Extensions (i#277/PR 540817)
 if (BUILD_EXT)

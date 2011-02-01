@@ -8,7 +8,7 @@ if (SUBMIT_LOCAL)
     # unix scp would) so we use a batch file.
     # Note that CTEST_SCP_COMMAND must be a single executable so we can't
     # use "cmake -E copy".  We could use cygwin "cp" but that requires cygwin.
-    set(CTEST_SCP_COMMAND "${CTEST_SCRIPT_DIRECTORY}/copy.bat")
+    set(CTEST_SCP_COMMAND "${CTEST_SCRIPT_DIRECTORY}/../make/copy.bat")
   else (WIN32)
     find_program(CTEST_SCP_COMMAND scp DOC "scp command for local copy of results")
   endif (WIN32)
