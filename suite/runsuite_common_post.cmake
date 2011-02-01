@@ -51,33 +51,42 @@ if (build_package)
   set(CTEST_BUILD_COMMAND "${MAKE_COMMAND} package")
   set(CTEST_BUILD_NAME "final package")
   set(CTEST_BINARY_DIRECTORY "${last_package_build_dir}")
+
+  # Remove results from prior build (else ctest_submit() will copy as
+  # though results from package build)
+  file(GLOB pre_package_res "${last_package_build_dir}/Testing/2*")
+  if (EXISTS "${pre_package_res}")
+    file(REMOVE_RECURSE "${pre_package_res}")
+  endif (EXISTS "${pre_package_res}")
+
   ctest_start(${SUITE_TYPE})
   ctest_build(BUILD "${CTEST_BINARY_DIRECTORY}")
   ctest_submit() # copy into xml dir
+else (build_package)
+  # workaround for http://www.cmake.org/Bug/view.php?id=9647
+  # it complains and returns error if CTEST_BINARY_DIRECTORY not set at
+  # global scope (we do all our real runs inside a function).
+  set(CTEST_BUILD_NAME "bug9647workaround")
+  set(CTEST_BINARY_DIRECTORY "${last_build_dir}")
+  set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
+  set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
+  # it tries to configure+build, but with a start command it does nothing,
+  # which is what we want:
+  ctest_start(${SUITE_TYPE})
+  # actually it still complains so I'm not sure what version I was using where
+  # just the start was enough: so we do a test w/ no tests that would match,
+  # which does work for cmake 2.6, but not for 2.8: grrr
+  # I tried doing a build w/ "make help" and doing a submit,
+  # but still says "Error in read script".
+  ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" INCLUDE notestwouldmatchthis)
 endif (build_package)
-
-# workaround for http://www.cmake.org/Bug/view.php?id=9647
-# it complains and returns error if CTEST_BINARY_DIRECTORY not set at
-# global scope (we do all our real runs inside a function).
-set(CTEST_BUILD_NAME "bug9647workaround")
-set(CTEST_BINARY_DIRECTORY "${last_build_dir}")
-set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
-set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
-# it tries to configure+build, but with a start command it does nothing,
-# which is what we want:
-ctest_start(${SUITE_TYPE})
-# actually it still complains so I'm not sure what version I was using where
-# just the start was enough: so we do a test w/ no tests that would match,
-# which does work for cmake 2.6, but not for 2.8: grrr
-ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" INCLUDE notestwouldmatchthis)
 
 set(outf "${BINARY_BASE}/results.txt")
 file(WRITE ${outf} "==================================================\nRESULTS\n\n")
 if (arg_already_built)
-  file(GLOB all_xml ${RESULTS_DIR}/*Test.xml)
+  file(GLOB all_xml ${RESULTS_DIR}/*Test.xml ${RESULTS_DIR}/*final*Build.xml)
 else (arg_already_built)
-  # final package sometimes has Configure.xml and sometimes not
-  file(GLOB all_xml ${RESULTS_DIR}/*32*Configure.xml ${RESULTS_DIR}/*final*Build.xml)
+  file(GLOB all_xml ${RESULTS_DIR}/*Configure.xml ${RESULTS_DIR}/*final*Build.xml)
 endif (arg_already_built)
 list(SORT all_xml)
 foreach (xml ${all_xml})
@@ -121,12 +130,14 @@ foreach (xml ${all_xml})
 
         # sanity check
         file(GLOB lastfailed build_${build}/Testing/Temporary/LastTestsFailed*.log)
-        file(READ ${lastfailed} faillist)
-        string(REGEX MATCHALL "\n" faillines "${faillist}")
-        list(LENGTH faillines failcount)
-        if (NOT failcount EQUAL num_errors)
-          message("WARNING: ${num_errors} errors != ${lastfailed} => ${failcount}")
-        endif (NOT failcount EQUAL num_errors)
+        if (EXISTS "${lastfailed}") # won't exist for package build
+          file(READ "${lastfailed}" faillist)
+          string(REGEX MATCHALL "\n" faillines "${faillist}")
+          list(LENGTH faillines failcount)
+          if (NOT failcount EQUAL num_errors)
+            message("WARNING: ${num_errors} errors != ${lastfailed} => ${failcount}")
+          endif (NOT failcount EQUAL num_errors)
+        endif (EXISTS "${lastfailed}")
 
         file(APPEND ${outf}
           "${build}: ${num_passed} tests passed, **** ${num_errors} tests failed: ****\n")

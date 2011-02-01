@@ -405,4 +405,8 @@ endfunction(testbuild_ex)
 function(testbuild name is64 initial_cache)
   # by default run all tests and do not include in package
   testbuild_ex(${name} ${is64} ${initial_cache} OFF OFF "")
+  # propagate
+  set(last_build_dir "${last_build_dir}" PARENT_SCOPE)
+  set(last_package_build_dir "${last_package_build_dir}" PARENT_SCOPE)
+  set(cpack_projects "${cpack_projects}" PARENT_SCOPE)
 endfunction(testbuild)
