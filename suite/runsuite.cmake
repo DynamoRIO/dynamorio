@@ -318,29 +318,33 @@ function(testbuild_ex name is64 initial_cache build_args)
   if (DO_UPDATE)
     ctest_update(SOURCE "${CTEST_SOURCE_DIRECTORY}")
   endif (DO_UPDATE)
-  ctest_configure(BUILD "${CTEST_BINARY_DIRECTORY}")
-  ctest_build(BUILD "${CTEST_BINARY_DIRECTORY}")
-  # to run a subset of tests add an INCLUDE regexp to ctest_test.  e.g.:
-  #   INCLUDE broadfun
-  if ("${cmake_ver_string}" STRLESS "2.8.")
-    # Parallel tests not supported
-    set(RUN_PARALLEL OFF)
-  elseif (WIN32 AND TEST_LONG)
-    # FIXME i#265: on Windows we can't run multiple instances of
-    # the same app b/c of global reg key conflicts: should support
-    # env vars and not require registry
-    set(RUN_PARALLEL OFF)
-  else ()
-    set(RUN_PARALLEL ON)
-  endif ()
-  if (RUN_PARALLEL)
-    # i#111: run tests in parallel, supported on CTest 2.8.0+
-    # Note that adding -j to CMAKE_COMMAND does not work, though invoking
-    # this script with -j does work, but we want parallel by default.
-    ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" PARALLEL_LEVEL 5)
-  else (RUN_PARALLEL)
-    ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}")
-  endif (RUN_PARALLEL)
+  ctest_configure(BUILD "${CTEST_BINARY_DIRECTORY}" RETURN_VALUE config_success)
+  if (config_success)
+    ctest_build(BUILD "${CTEST_BINARY_DIRECTORY}" RETURN_VALUE build_success)
+    if (build_success)
+      # to run a subset of tests add an INCLUDE regexp to ctest_test.  e.g.:
+      #   INCLUDE broadfun
+      if ("${cmake_ver_string}" STRLESS "2.8.")
+        # Parallel tests not supported
+        set(RUN_PARALLEL OFF)
+      elseif (WIN32 AND TEST_LONG)
+        # FIXME i#265: on Windows we can't run multiple instances of
+        # the same app b/c of global reg key conflicts: should support
+        # env vars and not require registry
+        set(RUN_PARALLEL OFF)
+      else ()
+        set(RUN_PARALLEL ON)
+      endif ()
+      if (RUN_PARALLEL)
+        # i#111: run tests in parallel, supported on CTest 2.8.0+
+        # Note that adding -j to CMAKE_COMMAND does not work, though invoking
+        # this script with -j does work, but we want parallel by default.
+        ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" PARALLEL_LEVEL 5)
+      else (RUN_PARALLEL)
+        ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}")
+      endif (RUN_PARALLEL)
+    endif (build_success)
+  endif (config_success)
   if (DO_SUBMIT)
     # include any notes via set(CTEST_NOTES_FILES )?
     ctest_submit()
