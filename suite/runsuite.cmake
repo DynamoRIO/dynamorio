@@ -42,6 +42,7 @@ set(arg_include "")   # cmake file to include up front
 set(arg_preload "")   # cmake file to include prior to each 32-bit build
 set(arg_preload64 "") # cmake file to include prior to each 64-bit build
 set(arg_site "")
+set(arg_use_nmake OFF) # use nmake even if gnu make is present
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "nightly")
@@ -65,6 +66,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "ssh")
     set(arg_ssh ON)
   endif (${arg} STREQUAL "ssh")
+  if (${arg} MATCHES "^use_nmake")
+    set(arg_use_nmake ON)
+  endif ()
 endforeach (arg)
 
 # allow setting the base cache variables via an include file
@@ -85,6 +89,22 @@ if (arg_long)
 else (arg_long)
   set(TEST_LONG OFF)
 endif (arg_long)
+
+if (WIN32 AND NOT arg_use_nmake)
+  find_program(MAKE_COMMAND make DOC "make command")
+  if (NOT make)
+    set(arg_use_nmake ON)
+  endif (NOT make)
+endif (WIN32 AND NOT arg_use_nmake)
+
+if (WIN32)
+  find_program(CYGPATH cygpath)
+  if (CYGPATH)
+    set(have_cygwin ON)
+  else (CYGPATH)
+    set(have_cygwin OFF)
+  endif (CYGPATH)
+endif (WIN32)
 
 get_filename_component(BINARY_BASE "." ABSOLUTE)
 
@@ -152,14 +172,24 @@ set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
 #   "CMake Error: Some required settings in the configuration file were missing:"
 # but we don't want to do another build so we just ignore the error.
 set(CTEST_CMAKE_COMMAND "${CMAKE_EXECUTABLE_NAME}")
-# FIXME: add support for NMake on Windows if devs want to use that
-# Doesn't support -j though
-set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
 set(CTEST_PROJECT_NAME "DynamoRIO")
-find_program(MAKE_COMMAND make DOC "make command")
-# XXX: with -j5 I see weird build failures on VS2008, but can't repro w/ VERBOSE=1.
-set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j4")
 set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
+if (UNIX OR NOT arg_use_nmake)
+  set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
+  find_program(MAKE_COMMAND make DOC "make command")
+  if (have_cygwin)
+    # seeing errors building in parallel: pdb collision?
+    # can't repro w/ VERBOSE=1
+    set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j2")
+  else (have_cygwin)
+    set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j5")
+  endif (have_cygwin)
+else (UNIX OR NOT arg_use_nmake)
+  set(CTEST_CMAKE_GENERATOR "NMake Makefiles")
+  find_program(MAKE_COMMAND nmake DOC "nmake command")
+  # no -j support
+  set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND}")
+endif (UNIX OR NOT arg_use_nmake)
 
 if (UNIX)
   # For cross-arch execve tests we need to run from an install dir

@@ -5,10 +5,10 @@ if (SUBMIT_LOCAL)
   set(CTEST_DROP_METHOD "scp")
   if (WIN32)
     # Cygwin scp won't take : later in path (and interprets drive as host like
-    # unix scp would) so we use cp, which is ok with drive-letter paths.
+    # unix scp would) so we use a batch file.
     # Note that CTEST_SCP_COMMAND must be a single executable so we can't
-    # use "cmake -E copy".
-    find_program(CTEST_SCP_COMMAND cp DOC "copy command for local copy of results")
+    # use "cmake -E copy".  We could use cygwin "cp" but that requires cygwin.
+    set(CTEST_SCP_COMMAND "${CTEST_SCRIPT_DIRECTORY}/copy.bat")
   else (WIN32)
     find_program(CTEST_SCP_COMMAND scp DOC "scp command for local copy of results")
   endif (WIN32)
