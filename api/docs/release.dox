@@ -112,6 +112,8 @@ are not backward compatible: see below for details.
 The changes between version 2.1.0 and 2.0.0 are:
 
  - Added Windows 7 support
+ - Added Windows child process following support for \clients: -follow_children
+   is now on by default for both Windows and Linux.
  - Added DR_TRY_EXCEPT() (Issue 51)
  - Added dynamic \client auxiliary library loading support
    via dr_load_aux_library(), dr_lookup_aux_library_routine(), and

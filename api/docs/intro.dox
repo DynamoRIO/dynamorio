@@ -419,9 +419,9 @@ bin32/drconfig.exe -unreg calc.exe
 Invoke any of the \c drconfig.exe, \c drrun.exe, or \c drinject.exe tools
 with no arguments to see the full list of options available.
 
-By default on Windows \DynamoRIO only follows into children that are
-configured (via \c drconfig.exe).  To follow all children, use the \ref
-op_children "-follow_children" runtime option.
+By default, \DynamoRIO follows into all child processes.  To instead only
+follow children that are configured (via \c drconfig.exe), use the
+\ref op_children "-no_follow_children" runtime option.
 
 To \ref sec_comm "nudge" all instances of \c calc.exe running under
 \DynamoRIO with argument "5", use:
@@ -487,7 +487,7 @@ under \DynamoRIO with the bbsize sample \client:
 \endcode
 Run \c drrun with no options to get a list of the options and
 environment variable shortcuts it supports.  To disable following across
-child execve calls, use the \ref op_no_children "-no_follow_children" runtime
+child execve calls, use the \ref op_children "-no_follow_children" runtime
 option.
 
 Use the scripts in \c bin32/ for 32-bit applications and the scripts in \c
@@ -1081,18 +1081,12 @@ are specified via \c drconfig.exe, \c drrun.exe, or dr_register_process()
 \if linux on Windows and via the \c drconfig and \c drrun scripts on
 Linux\endif.  See \ref sec_deploy.
 
- - \b -follow_children: \anchor op_children
-   This option only applies to Windows.  By default, \DynamoRIO follows
-   into only child processes configured via \c drconfig.exe.
-   When \p -follow_children is specified \DynamoRIO injects into
-   all child processes.
-
- - \b -no_follow_children: \anchor op_no_children
-   This option only applies to Linux.  By default, \DynamoRIO follows
-   into child processes across execve.  When \p -no_follow_children
-   is specified \DynamoRIO only injects across an execve if a configuration
-   file exists (typically created by \p drconfig: see \ref sec_deploy) for
-   the new application name.
+ - \b -no_follow_children: \anchor op_children
+   By default, \DynamoRIO follows all child processes.  When this option
+   is disabled via \p -no_follow_children, \DynamoRIO follows only
+   into child processes for which a configuration file exists (typically
+   created by \c drconfig; see \ref sec_deploy).  On Linux,
+   forked children are always followed and this option only affects execve.
 
  - \b -opt_memory: \anchor op_memory
    Reduce memory usage, but potentially at the cost of performance.  This

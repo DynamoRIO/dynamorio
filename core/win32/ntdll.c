@@ -351,7 +351,6 @@ GET_NTDLL(NtQueryInformationToken, (IN HANDLE TokenHandle,
                                     IN ULONG TokenInformationLength,
                                     OUT PULONG ReturnLength));
 
-
 /* routines that we may hook if specified in
  * syscall_requires_action[], all new routines can use GET_SYSCALL
  * instead of GET_NTDLL if we provide the syscall numbers - see
@@ -836,6 +835,31 @@ process_id_from_thread_handle(HANDLE h)
     else
         return (process_id_t) info.ClientId.UniqueProcess;
 }
+
+HANDLE
+process_handle_from_id(process_id_t pid)
+{
+    NTSTATUS res;
+    HANDLE h;
+    OBJECT_ATTRIBUTES oa;
+    CLIENT_ID cid;
+    GET_NTDLL(NtOpenProcess, (OUT PHANDLE ProcessHandle,
+                              IN ACCESS_MASK DesiredAccess,
+                              IN POBJECT_ATTRIBUTES ObjectAttributes,
+                              IN PCLIENT_ID ClientId));
+    InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, NULL, NULL);
+    memset(&cid, 0, sizeof(cid));
+    cid.UniqueProcess = (HANDLE) pid;
+    res = NtOpenProcess(&h, PROCESS_ALL_ACCESS, &oa, &cid);
+    if (!NT_SUCCESS(res)) {
+        NTPRINT("nt_open_process failed: %x\n", res);
+    }
+    if (!NT_SUCCESS(res))
+        return INVALID_HANDLE_VALUE;
+    else
+        return h;
+}
+
 
 /* PEB:
  * for a running thread this is stored at fs:[30h] 
@@ -1579,6 +1603,19 @@ nt_remote_allocate_virtual_memory(HANDLE process, void **base, size_t size,
     return res;
 }
 
+/* Decommit memory previously committed with nt_remote_allocate_virtual_memory()
+ * Note returns raw NTSTATUS.
+ */
+NTSTATUS
+nt_remote_free_virtual_memory(HANDLE process, void *base)
+{
+    NTSTATUS res;
+    SIZE_T sz = 0;                /* has to be 0 for MEM_RELEASE */
+    res = NT_SYSCALL(FreeVirtualMemory, process, &base, &sz, MEM_RELEASE);
+    NTPRINT("NtRemoteFreeVirtualMemory: freed "SZFMT" bytes\n", sz);
+    return res;
+}
+
 /* use base hint is present; will bump size up to PAGE_SIZE multiple
  * Note returns raw NTSTATUS.
  */
@@ -1741,7 +1778,7 @@ nt_read_virtual_memory(HANDLE process, const void *base, void *buffer,
 }
 
 int
-nt_write_virtual_memory(HANDLE process, void *base, const void *buffer, 
+nt_raw_write_virtual_memory(HANDLE process, void *base, const void *buffer,
                         size_t buffer_length, size_t *bytes_written)
 {
     NTSTATUS res;
@@ -1752,7 +1789,15 @@ nt_write_virtual_memory(HANDLE process, void *base, const void *buffer,
                     OUT PSIZE_T ReturnLength OPTIONAL);
     res = NT_SYSCALL(WriteVirtualMemory, process, base, buffer,
                      buffer_length, (SIZE_T*)bytes_written);
-    return NT_SUCCESS(res);
+    return res;
+}
+
+int
+nt_write_virtual_memory(HANDLE process, void *base, const void *buffer,
+                        size_t buffer_length, size_t *bytes_written)
+{
+    return NT_SUCCESS(nt_raw_write_virtual_memory
+                      (process, base, buffer, buffer_length, bytes_written));
 }
 
 /* There are no Win32 API routines to do this, so we use NtContinue */

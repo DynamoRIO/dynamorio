@@ -1105,6 +1105,9 @@ process_id_from_handle(HANDLE h);
 process_id_t
 process_id_from_thread_handle(HANDLE h);
 
+HANDLE
+process_handle_from_id(process_id_t pid);
+
 PEB *
 get_peb(HANDLE h);
 
@@ -1139,6 +1142,9 @@ NTSTATUS
 nt_remote_allocate_virtual_memory(HANDLE process, void **base, size_t size,
                                   uint prot, memory_commit_status_t commit);
 
+NTSTATUS
+nt_remote_free_virtual_memory(HANDLE process, void *base);
+
 /* will bump size up to PAGE_SIZE multiple 
  * keep in mind base is now IN/OUT value, a NULL value means no preference
  */
@@ -1168,6 +1174,11 @@ nt_read_virtual_memory(HANDLE process, const void *base, void *buffer,
 int
 nt_write_virtual_memory(HANDLE process, void *base, const void *buffer, 
                         size_t buffer_length, size_t *bytes_written);
+
+/* returns raw NTSTATUS */
+int
+nt_raw_write_virtual_memory(HANDLE process, void *base, const void *buffer,
+                            size_t buffer_length, size_t *bytes_written);
 
 void
 nt_continue(CONTEXT *cxt);
@@ -1543,6 +1554,8 @@ query_full_attributes_file(PCWSTR filename,
 
 /* needed for PR 233191 */
 #define STATUS_INVALID_INFO_CLASS        ((NTSTATUS)0xC0000003L)
+
+#define STATUS_PARTIAL_COPY              ((NTSTATUS)0x8000000DL)
 
 /* This is in VS2005 winnt.h but not in SDK winnt.h */
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION

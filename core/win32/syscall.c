@@ -890,8 +890,18 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
     LOG(THREAD, LOG_SYSCALLS, 1, "syscall: NtCreateUserProcess presys %.*S\n",
         MIN(MAXIMUM_PATH, thread_stuff->nt_path_to_exe.buffer_size),
         (wchar_t *)thread_stuff->nt_path_to_exe.buffer);
+
+    /* The thread can be resumed inside the kernel so ideally we would
+     * insert the DR env vars into the pp param here (i#349).
+     * However, no matter what I do, the syscall returns STATUS_INVALID_PARAMETER.
+     * I made a complete copy of pp and updated the unicode pointers so it's
+     * all contiguous, but still the error.  Perhaps it must be on the app heap?
+     * In any case, kernel32!CreateProcess is hardcoding that the thread be
+     * suspended (presumably to do its csrss and other inits safely) so we rely
+     * on seeing NtResumeThread.
+     */
 }
-#endif /* DEBUG */
+#endif
 
 /* NtCreateThread */
 static void
@@ -976,6 +986,284 @@ presys_CreateThreadEx(dcontext_t *dcontext, reg_t *param_base)
     });
 }
 #endif
+
+/* appends DR env vars in the target process PEB */
+static bool
+add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
+{
+    wchar_t *env;
+    size_t tot_sz = 0, app_sz, sz;
+    size_t got;
+    wchar_t *new_env = NULL;
+    wchar_t buf[MAX_REGISTRY_PARAMETER];
+    bool need_rununder = true, need_autoinject = true, need_options = true,
+        need_logdir = true;
+    size_t sz_rununder = 0, sz_autoinject = 0, sz_options = 0, sz_logdir = 0;
+    NTSTATUS res;
+    uint old_prot = PAGE_NOACCESS;
+
+    ASSERT(env_ptr != NULL);
+    env = *env_ptr;
+    if (!nt_read_virtual_memory(phandle, env_ptr, &env, sizeof(env), NULL))
+        goto add_dr_env_failure;
+    if (env != NULL) {
+        /* compute size of current env block, and check for existing DR vars */
+        while (true) {
+            /* for simplicity we do a syscall for each var.  if too long we're
+             * ok: DR vars will fit, and if longer we'll handle rest next iter.
+             */
+            if (!nt_read_virtual_memory(phandle, &env[tot_sz], buf, sizeof(buf), &got))
+                return false;
+            buf[got/sizeof(buf[0]) - 1] = '\0';
+            if (buf[0] == 0)
+                break;
+            tot_sz += wcslen(buf) + 1;
+            /* if already set we assume has right value */
+            if (wcscmp(L_DYNAMORIO_VAR_RUNUNDER, buf) == 0)
+                need_rununder = false;
+            if (wcscmp(L_DYNAMORIO_VAR_AUTOINJECT, buf) == 0)
+                need_autoinject = false;
+            if (wcscmp(L_DYNAMORIO_VAR_OPTIONS, buf) == 0)
+                need_options = false;
+            if (wcscmp(L_DYNAMORIO_VAR_LOGDIR, buf) == 0)
+                need_logdir = false;
+        }
+        tot_sz++; /* final 0 marking end */
+        /* from here on out, all *sz vars are total bytes, not wchar_t elements */
+        tot_sz *= sizeof(*env);
+    }
+    if (!need_rununder && !need_autoinject && !need_options && !need_logdir) {
+        LOG(THREAD, LOG_SYSCALLS, 2,
+            "%s: app env vars already contain DR env vars\n", __FUNCTION__);
+        return true; /* nothing to do */
+    }
+    app_sz = tot_sz;
+    LOG(THREAD, LOG_SYSCALLS, 2,
+        "%s: orig app env vars at "PFX"-"PFX"\n",
+        __FUNCTION__, env, env + app_sz/sizeof(*env));
+
+    /* calculate size needed for adding DR env vars.
+     * for each var, we truncate if too big for buf.
+     */
+    if (need_rununder) {
+        sz_rununder = wcslen(L_DYNAMORIO_VAR_RUNUNDER) +
+            strlen(get_config_val(DYNAMORIO_VAR_RUNUNDER)) + 2/*=+0*/;
+        sz_rununder = MIN(sz_rununder, BUFFER_SIZE_ELEMENTS(buf)) * sizeof(*env);
+        tot_sz += sz_rununder;
+    }
+    if (need_autoinject) {
+        sz_autoinject = wcslen(L_DYNAMORIO_VAR_AUTOINJECT) +
+            strlen(get_config_val(DYNAMORIO_VAR_AUTOINJECT)) + 2/*=+0*/;
+        sz_autoinject = MIN(sz_autoinject, BUFFER_SIZE_ELEMENTS(buf)) * sizeof(*env);
+        tot_sz += sz_autoinject;
+    }
+    if (need_options) {
+        sz_options = wcslen(L_DYNAMORIO_VAR_OPTIONS) +
+            strlen(get_config_val(DYNAMORIO_VAR_OPTIONS)) + 2/*=+0*/;
+        sz_options = MIN(sz_options, BUFFER_SIZE_ELEMENTS(buf)) * sizeof(*env);
+        tot_sz += sz_options;
+    }
+    if (need_logdir) {
+        sz_logdir = wcslen(L_DYNAMORIO_VAR_LOGDIR) +
+            strlen(get_config_val(DYNAMORIO_VAR_LOGDIR)) + 2/*=+0*/;
+        sz_logdir = MIN(sz_logdir, BUFFER_SIZE_ELEMENTS(buf)) * sizeof(*env);
+        tot_sz += sz_logdir;
+    }
+
+    /* allocate a new env block and copy over the old */
+    res = nt_remote_allocate_virtual_memory(phandle, &new_env, tot_sz,
+                                            PAGE_READWRITE, MEM_COMMIT);
+    if (!NT_SUCCESS(res)) {
+        LOG(THREAD, LOG_SYSCALLS, 2,
+            "%s: failed to allocate new env "PIFX"\n", __FUNCTION__, res);
+        goto add_dr_env_failure;
+    }
+    LOG(THREAD, LOG_SYSCALLS, 2,
+        "%s: new app env vars allocated at "PFX"-"PFX"\n",
+        __FUNCTION__, new_env, new_env + tot_sz/sizeof(*env));
+    sz = 0;
+    while (sz < app_sz) {
+        size_t toread = BUFFER_SIZE_BYTES(buf);
+        if (toread > app_sz - sz)
+            toread = app_sz - sz;
+        if (!nt_read_virtual_memory(phandle, env + sz/sizeof(*env), buf, toread, NULL))
+            goto add_dr_env_failure;
+        res = nt_raw_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
+                                          buf, toread, &got);
+        if (!NT_SUCCESS(res)) {
+            LOG(THREAD, LOG_SYSCALLS, 2,
+                "%s copy: got status "PFX", wrote "PIFX" vs requested "PIFX"\n",
+                __FUNCTION__, res, got, toread);
+            goto add_dr_env_failure;
+        }
+        sz += toread;
+    }
+
+    /* add DR env vars at the end.
+     * XXX: is alphabetical sorting relied upon?  adding to end is working.
+     */
+    sz = app_sz - sizeof(*env); /* before final 0 */
+    if (need_rununder) {
+        _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
+                   L_DYNAMORIO_VAR_RUNUNDER, get_config_val(DYNAMORIO_VAR_RUNUNDER));
+        NULL_TERMINATE_BUFFER(buf);
+        if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
+                                     buf, sz_rununder, &got))
+            goto add_dr_env_failure;
+        sz += sz_rununder;
+    }
+    if (need_autoinject) {
+        _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
+                   L_DYNAMORIO_VAR_AUTOINJECT, get_config_val(DYNAMORIO_VAR_AUTOINJECT));
+        NULL_TERMINATE_BUFFER(buf);
+        if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
+                                     buf, sz_autoinject, &got))
+            goto add_dr_env_failure;
+        sz += sz_autoinject;
+    }
+    if (need_options) {
+        _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
+                   L_DYNAMORIO_VAR_OPTIONS, get_config_val(DYNAMORIO_VAR_OPTIONS));
+        NULL_TERMINATE_BUFFER(buf);
+        if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
+                                     buf, sz_options, &got))
+            goto add_dr_env_failure;
+        sz += sz_options;
+    }
+    if (need_logdir) {
+        _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
+                   L_DYNAMORIO_VAR_LOGDIR, get_config_val(DYNAMORIO_VAR_LOGDIR));
+        NULL_TERMINATE_BUFFER(buf);
+        if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
+                                     buf, sz_logdir, &got))
+            goto add_dr_env_failure;
+        sz += sz_logdir;
+    }
+    /* write final 0 */
+    buf[0] = 0;
+    if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env), buf,
+                                 sizeof(*env), &got))
+        goto add_dr_env_failure;
+
+    /* install new env */
+    if (!nt_remote_protect_virtual_memory(phandle, (byte*)PAGE_START(env_ptr), PAGE_SIZE,
+                                          PAGE_READWRITE, &old_prot)) {
+        LOG(THREAD, LOG_SYSCALLS, 1,
+            "%s: failed to mark "PFX" writable\n", __FUNCTION__, env_ptr);
+        goto add_dr_env_failure;
+    }
+    if (!nt_write_virtual_memory(phandle, env_ptr, &new_env, sizeof(new_env), &got))
+        goto add_dr_env_failure;
+    if (!nt_remote_protect_virtual_memory(phandle, (byte*)PAGE_START(env_ptr), PAGE_SIZE,
+                                          old_prot, &old_prot)) {
+        LOG(THREAD, LOG_SYSCALLS, 1,
+            "%s: failed to restore "PFX" to "PIFX"\n", __FUNCTION__, env_ptr, old_prot);
+        /* not a fatal error */
+    }
+    /* XXX: free the original? on Vista+ it's part of the pp alloc and
+     * is on the app heap so we can't.  we could query and see if it's
+     * a separate alloc.  for now we just leave it be.
+     */
+    LOG(THREAD, LOG_SYSCALLS, 2,
+        "%s: installed new env "PFX" at "PFX"\n", __FUNCTION__, new_env, env_ptr);
+    return true;
+
+ add_dr_env_failure:
+    if (new_env != NULL) {
+        if (!NT_SUCCESS(nt_remote_free_virtual_memory(phandle, new_env))) {
+            LOG(THREAD, LOG_SYSCALLS, 2,
+                "%s: unable to free new env "PFX"\n", __FUNCTION__, new_env);
+        }
+        if (old_prot != PAGE_NOACCESS) {
+            if (!nt_remote_protect_virtual_memory(phandle, (byte*)PAGE_START(env_ptr),
+                                                  PAGE_SIZE, old_prot, &old_prot)) {
+                LOG(THREAD, LOG_SYSCALLS, 1, "%s: failed to restore "PFX" to "PIFX"\n",
+                    __FUNCTION__, env_ptr, old_prot);
+            }
+        }
+    }
+    return false;
+}
+
+/* If unable to find info, return false (i.e., assume it might be the
+ * first thread).  Retrieves context from thread handle.
+ */
+static bool
+not_first_thread_in_new_process(HANDLE process_handle, HANDLE thread_handle)
+{
+    CONTEXT cxt;
+    cxt.ContextFlags = CONTEXT_DR_STATE;
+    if (NT_SUCCESS(nt_get_context(thread_handle, &cxt)))
+        return !is_first_thread_in_new_process(process_handle, &cxt);
+    return false;
+}
+
+/* NtResumeThread */
+static void
+presys_ResumeThread(dcontext_t *dcontext, reg_t *param_base)
+{
+    HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
+    thread_id_t tid = thread_id_from_handle(thread_handle);
+    process_id_t pid = process_id_from_thread_handle(thread_handle);
+    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
+        "syscall: NtResumeThread pid=%d tid=%d\n", pid, tid);
+    if (DYNAMO_OPTION(follow_children) && pid != POINTER_MAX && !is_pid_me(pid)) {
+        /* For -follow_children we propagate env vars (current
+         * DYNAMORIO_RUNUNDER, DYNAMORIO_OPTIONS, DYNAMORIO_AUTOINJECT, and
+         * DYNAMORIO_LOGDIR) to the child to support a simple run-all-children
+         * model without requiring setting up config files for children.
+         *
+         * It's possible the app is explicitly resuming a thread in another
+         * process and this has nothing to do with a new process: but our env
+         * var insertion should be innocuous in that case.
+         *
+         * For pre-Vista, the initial thread is always suspended, and is either
+         * resumed inside kernel32!CreateProcessW or by the app, so we should
+         * always see a resume.  For Vista+ NtCreateUserProcess has suspend as a
+         * param and ideally we should replace the env pre-NtCreateUserProcess,
+         * but we have yet to get that to work, so for now we rely on
+         * Vista+ process creation going through the kernel32 routines,
+         * which do hardcode the thread as being suspended.
+         */
+        PEB *peb;
+        HANDLE process_handle = process_handle_from_id(pid);
+        RTL_USER_PROCESS_PARAMETERS *pp = NULL;
+        if (process_handle == INVALID_HANDLE_VALUE) {
+            LOG(THREAD, LOG_SYSCALLS, 1,
+                "WARNING: error acquiring process handle for pid="PIFX"\n", pid);
+            return;
+        }
+        if (not_first_thread_in_new_process(process_handle, thread_handle)) {
+            LOG(THREAD, LOG_SYSCALLS, 1,
+                "Not first thread so not setting DR env vars in pid="PIFX"\n", pid);
+            return;
+        }
+        peb = get_peb(process_handle);
+        if (peb == NULL) {
+            LOG(THREAD, LOG_SYSCALLS, 1,
+                "WARNING: error acquiring PEB for pid="PIFX"\n", pid);
+            close_handle(process_handle);
+            return;
+        }
+        if (!nt_read_virtual_memory(process_handle, &peb->ProcessParameters, &pp,
+                                    sizeof(pp), NULL) || pp == NULL) {
+            LOG(THREAD, LOG_SYSCALLS, 1,
+                "WARNING: error acquiring ProcessParameters for pid="PIFX"\n", pid);
+            close_handle(process_handle);
+            return;
+        }
+        LOG(THREAD, LOG_SYSCALLS, 2,
+            "inserting DR env vars to pid="PIFX" &pp->Environment="PFX"\n",
+            pid, &pp->Environment);
+        if (!add_dr_env_vars(dcontext, process_handle, (wchar_t**)&pp->Environment)) {
+            LOG(THREAD, LOG_SYSCALLS, 1,
+                "WARNING: unable to add DR env vars for child pid="PIFX"\n", pid);
+            close_handle(process_handle);
+            return;
+        }
+        close_handle(process_handle);
+    }
+}
 
 /* NtTerminateProcess */
 static bool /* returns whether to execute syscall */
@@ -2037,13 +2325,10 @@ pre_system_call(dcontext_t *dcontext)
             dcontext->ignore_enterexit = true;
         }
     }
-#ifdef DEBUG
     else if (sysnum == syscalls[SYS_ResumeThread]) {
-        HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
-        thread_id_t tid = thread_id_from_handle(thread_handle);
-        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
-            "syscall: NtResumeThread tid=%d\n", tid);
+        presys_ResumeThread(dcontext, param_base);
     }
+#ifdef DEBUG
     else if (sysnum == syscalls[SYS_AlertResumeThread]) {
         HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
         thread_id_t tid = thread_id_from_handle(thread_handle);
