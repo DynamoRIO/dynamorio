@@ -2436,11 +2436,13 @@ pre_system_call(dcontext_t *dcontext)
 static void
 postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
-    /* See notes in presys_CreateUserProcess for information on signature
+   /* See notes in presys_CreateUserProcess for information on signature
      * of NtCreateUserProcess. */
     dr_mcontext_t *mc = get_mcontext(dcontext);
-    HANDLE *process_handle = (HANDLE *) postsys_param(dcontext, param_base, 0);
+    HANDLE *proc_handle_ptr = (HANDLE *) postsys_param(dcontext, param_base, 0);
+    HANDLE *thread_handle_ptr = (HANDLE *) postsys_param(dcontext, param_base, 1);
     bool create_suspended = (bool) postsys_param(dcontext, param_base, 7);
+    HANDLE proc_handle, thread_handle;
     /* FIXME should have type for this */
     DEBUG_DECLARE(create_proc_thread_info_t *thread_stuff =
                   (create_proc_thread_info_t *) postsys_param(dcontext, param_base, 10);)
@@ -2461,15 +2463,45 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
         }
     });
 
-    if (success) {
-        /* FIXME - deref of app ptr process_handle, but success so should be ok. */
-        HANDLE proc_handle = *process_handle;
+    /* Even though syscall succeeded we use safe_read to be sure */
+    if (success &&
+        safe_read(proc_handle_ptr, sizeof(proc_handle), &proc_handle) &&
+        safe_read(thread_handle_ptr, sizeof(thread_handle), &thread_handle)) {
         ACCESS_MASK rights = nt_get_handle_access_rights(proc_handle);
         
         if (TESTALL(PROCESS_VM_OPERATION|PROCESS_VM_READ|
                     PROCESS_VM_WRITE|PROCESS_QUERY_INFORMATION, rights)) {
             if (create_suspended) {
-                maybe_inject_into_process(dcontext, proc_handle, NULL);
+                CONTEXT context;
+                CONTEXT *cxt = NULL;
+                int res;
+                if (get_os_version() >= WINDOWS_VERSION_VISTA &&
+                    is_wow64_process(proc_handle)) {
+                    /* We can't early inject 32-bit DR into a wow64 process as
+                     * there is no ntdll32.dll at early inject point, so we have
+                     * to do thread injection.  On Vista+ we don't see the
+                     * NtCreateThread so we do it here.  PR 215423.
+                     */
+                    context.ContextFlags = CONTEXT_DR_STATE;
+                    res = nt_get_context(thread_handle, &context);
+                    if (NT_SUCCESS(res))
+                        cxt = &context;
+                    else {
+                        LOG(THREAD, LOG_SYSCALLS, 1,
+                            "syscall: NtCreateUserProcess: WARNING: failed to get cxt of "
+                            "thread ("PIFX") so can't follow children on WOW64.\n");
+                    }
+                }
+                maybe_inject_into_process(dcontext, proc_handle, cxt);
+                if (cxt != NULL) {
+                    /* injection routine is assuming doesn't have to install cxt */
+                    res = nt_set_context(thread_handle, cxt);
+                    if (!NT_SUCCESS(res)) {
+                        LOG(THREAD, LOG_SYSCALLS, 1,
+                            "syscall: NtCreateUserProcess: WARNING: failed to set cxt of "
+                            "thread ("PIFX") so can't follow children on WOW64.\n");
+                    }
+                }
             } else {
                 LOG(THREAD, LOG_SYSCALLS, 1,
                     "syscall: NtCreateUserProcess first thread not suspended "

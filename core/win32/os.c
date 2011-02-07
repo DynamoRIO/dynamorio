@@ -1897,7 +1897,7 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
      * ntdll32.dll at early inject point, so thread injection only.  PR 215423.
      */
     if ((cxt == NULL && (DYNAMO_OPTION(inject_at_create_process) ||
-                         (get_os_version() == WINDOWS_VERSION_VISTA && 
+                         (get_os_version() >= WINDOWS_VERSION_VISTA &&
                           DYNAMO_OPTION(vista_inject_at_create_process)))
          && !is_wow64_process(process_handle)) ||
         (cxt != NULL && is_first_thread_in_new_process(process_handle, cxt))) {
@@ -6784,7 +6784,7 @@ early_inject_init()
      * early_inject_address is in ntdll */
     ASSERT(get_allocation_base(early_inject_address) == get_ntdll_base());
     LOG(GLOBAL, LOG_TOP, 1, "early_inject found address "PFX" to use\n",
-        early_inject_location);
+        early_inject_address);
 }
 
 #define SECURITY_MAX_SID_STRING_SIZE                            \
