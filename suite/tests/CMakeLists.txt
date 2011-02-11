@@ -245,14 +245,16 @@ else (WIN32)
 endif (WIN32)
 
 # put libs in same dir for tests that need to load them
-set(MAIN_EXECUTABLE_OUTPUT_PATH "${EXECUTABLE_OUTPUT_PATH}")
+set(MAIN_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 if (NOT TEST_LIB_PATH)
-  set(MAIN_LIBRARY_OUTPUT_PATH "${DR_LIBRARY_OUTPUT_PATH}")
+  set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}")
 else (NOT TEST_LIB_PATH)
-  set(MAIN_LIBRARY_OUTPUT_PATH "${TEST_LIB_PATH}")
+  set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${TEST_LIB_PATH}")
 endif (NOT TEST_LIB_PATH)
-set(LIBRARY_OUTPUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/bin")
-set(EXECUTABLE_OUTPUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/bin")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+set_per_config_ouput_to_match_single_config()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}) # tools.h
 include_directories(${PROJECT_SOURCE_DIR}/core/x86) # asm_defines.asm
@@ -355,18 +357,59 @@ endif (UNIX)
 
 # some tests need to link with tools.c and its embedded asm code
 set(tools_c ${CMAKE_CURRENT_SOURCE_DIR}/tools.c)
-set(tools_asm ${CMAKE_CURRENT_BINARY_DIR}/tools_asm.asm)
 set_source_files_properties(${tools_c} PROPERTIES
   COMPILE_FLAGS "${ORIG_CMAKE_C_FLAGS}")
-set_source_files_properties(${tools_asm} PROPERTIES
-  GENERATED ON COMPILE_FLAGS "-DASM_CODE_ONLY")
-add_custom_command(
-  OUTPUT ${tools_asm}
-  DEPENDS ${tools_c}
-  COMMAND ${CMAKE_COMMAND}
-  ARGS -E copy ${tools_c} ${tools_asm}
-  VERBATIM # recommended: p260
-  )
+
+# name should be .obj for VS, .asm for makefiles
+function (add_test_asm_tgt source name)
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # our CMAKE_ASM_COMPILE_OBJECT rule only applies to makefiles so we use
+    # a custom command.
+    set_source_files_properties(${name} PROPERTIES GENERATED true)
+    get_filename_component(namebase ${name} NAME_WE)
+    get_filename_component(namepath ${name} PATH)
+    set(namebase "${namepath}/${namebase}")
+    # we don't need ${defines} (=> list) b/c we include configure.h
+    add_custom_command(OUTPUT "${name}"
+      DEPENDS "${source}"
+        "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
+        "${PROJECT_BINARY_DIR}/configure.h)"
+      COMMAND ${CMAKE_COMMAND}
+        ARGS -E copy "${source}" "${namebase}.asm"
+      COMMAND "${CMAKE_C_COMPILER}" ARGS ${CMAKE_CPP_FLAGS}
+        /I "${PROJECT_BINARY_DIR}" /I "${PROJECT_SOURCE_DIR}/core/x86"
+        "-DASM_CODE_ONLY"
+        -E ${CPP_NO_LINENUM} "${namebase}.asm" ">" "${namebase}.s"
+      COMMAND "${CMAKE_COMMAND}" ARGS
+        -Dfile=${namebase}.s
+        -P "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
+      COMMAND "${CMAKE_ASM_COMPILER}" ARGS ${ASM_FLAGS} /c
+        /Fo "${name}" "${namebase}.s"
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      VERBATIM # recommended: p260
+      )
+  else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    set_source_files_properties(${name} PROPERTIES
+      GENERATED ON COMPILE_FLAGS "-DASM_CODE_ONLY")
+    add_custom_command(
+      OUTPUT ${name}
+      DEPENDS ${source}
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -E copy ${source} ${name}
+      VERBATIM # recommended: p260
+      )
+  endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+endfunction(add_test_asm_tgt)
+
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  set(tools_asm "${CMAKE_CURRENT_BINARY_DIR}/tools_asm.obj")
+  # for correct parallel builds we need a target to avoid
+  # duplicate and racy VS per-project rules
+  add_custom_target(generate_tools_asm DEPENDS "${tools_asm}")
+else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  set(tools_asm ${CMAKE_CURRENT_BINARY_DIR}/tools_asm.asm)
+endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+add_test_asm_tgt("${tools_c}" "${tools_asm}")
 
 if (WIN32)
   set_source_files_properties(${PROJECT_SOURCE_DIR}/core/win32/resources.rc
@@ -444,17 +487,13 @@ function(add_exe test source)
   if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
     # we rely on the asm rule doing preprocessing for us, so we just make
     # a copy and set the ASM_CODE_ONLY define
-    set(asm_source ${CMAKE_CURRENT_BINARY_DIR}/${srcpath}/${srcbase}_asm.asm)
+    if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+      set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath}/${srcbase}_asm.obj")
+    else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+      set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath}/${srcbase}_asm.asm")
+    endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    add_test_asm_tgt("${CMAKE_CURRENT_SOURCE_DIR}/${source}" "${asm_source}")
     set(test_srcs ${test_srcs} ${asm_source})
-    set_source_files_properties(${asm_source} PROPERTIES
-      GENERATED ON COMPILE_FLAGS "-DASM_CODE_ONLY")
-    add_custom_command(
-      OUTPUT ${asm_source}
-      DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${source}
-      COMMAND ${CMAKE_COMMAND}
-      ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${source} ${asm_source}
-      VERBATIM # recommended: p260
-      )
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
   add_executable(${test} ${test_srcs})
@@ -469,6 +508,11 @@ function(add_exe test source)
       target_link_libraries(${test} ${libpthread})
     endif ("${test}" MATCHES "^pthread")
   endif (UNIX)
+  if ("${srccode}" MATCHES "include \"tools\\.h\"" AND
+      "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # for correct parallel builds we need a target
+    add_dependencies(${test} generate_tools_asm)
+  endif ()
 endfunction(add_exe)
 
 # normal app
@@ -500,6 +544,11 @@ function(tobuild_dll test source dr_ops)
   endif ()
   add_library(${test}.dll SHARED ${lib_srcs})
   target_link_libraries(${test} ${test}.dll)
+  if ("${srccode}" MATCHES "include \"tools\\.h\"" AND
+      "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # for correct parallel builds we need a target
+    add_dependencies(${test}.dll generate_tools_asm)
+  endif ()
 
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
@@ -530,6 +579,11 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
         endif ()
         add_library(${test}.appdll SHARED ${lib_srcs})
         target_link_libraries(${test} ${test}.appdll)
+        if ("${srccode}" MATCHES "include \"tools\\.h\"" AND
+            "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+          # for correct parallel builds we need a target
+          add_dependencies(${test}.appdll generate_tools_asm)
+        endif ()
       endif (EXISTS "${dll_srcpath}")
     endif (WIN32)
   endif (NOT "${source}" MATCHES "\\.runall$")
@@ -539,7 +593,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   set(DynamoRIO_REG_COMPATIBILITY ON)
   configure_DynamoRIO_client(${test}.dll)
   add_dependencies(${test}.dll api_headers)
-  get_target_property(client_path ${test}.dll LOCATION)
+  get_target_property(client_path ${test}.dll LOCATION${location_suffix})
 
   set(testlist_ci ${testlist_ci} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
@@ -585,7 +639,7 @@ function(tobuild_api test source dr_ops exe_ops)
     # by re-copying for each test.
     add_custom_command(TARGET ${test} POST_BUILD
       COMMAND ${CMAKE_COMMAND}
-      ARGS -E copy ${MAIN_LIBRARY_OUTPUT_PATH}/dynamorio.dll
+      ARGS -E copy ${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
         ${CMAKE_CURRENT_BINARY_DIR}/dynamorio.dll
       VERBATIM)
   endif (WIN32)
@@ -605,7 +659,7 @@ function(torunonly test realtest source dr_ops exe_ops)
 endfunction(torunonly)
 
 function(tobind target)
-  get_target_property(binary ${target} LOCATION)
+  get_target_property(binary ${target} LOCATION${location_suffix})
   add_custom_command(TARGET ${target}
     POST_BUILD
     COMMAND ${BIND_EXECUTABLE}
@@ -621,7 +675,7 @@ endfunction(tobind)
 # If both are needed, "wine_exec_t" seems to do the trick.
 function(tochcon target type)
   if (UNIX AND SELINUXFOUND)
-    get_target_property(binary ${target} LOCATION)
+    get_target_property(binary ${target} LOCATION${location_suffix})
     add_custom_command(TARGET ${target}
       POST_BUILD
       COMMAND ${CHCON}
@@ -770,11 +824,11 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
     endif (is_runall)
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
-    set(cmd ${MAIN_EXECUTABLE_OUTPUT_PATH}/runstats -s ${TEST_SECONDS} -silent)
+    set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${TEST_SECONDS} -silent)
     # We set LD_LIBRARY_PATH even for native api/ apps since we're not setting
     # rpath (to make it easier to try different trees)
     set(cmd ${cmd}
-      -env LD_LIBRARY_PATH "${MAIN_LIBRARY_OUTPUT_PATH}:$ENV{LD_LIBRARY_PATH}")
+      -env LD_LIBRARY_PATH "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
     if (NOT native)
       # FIXME: should really use drrun to override any existing config file
       set(cmd ${cmd}
@@ -799,11 +853,11 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
     # but we take advantage of the new drrun tool
     # we pass -exit0 to avoid ctest from considering our segfault and other tests
     # to have failed (also xref PR 548997).
-    set(cmd ${MAIN_EXECUTABLE_OUTPUT_PATH}/drrun.exe -s ${TEST_SECONDS} -quiet -exit0)
+    set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun.exe -s ${TEST_SECONDS} -quiet -exit0)
     if (native)
       set(${outcmd} ${cmd} -ops "${dr_ops}" -noinject PARENT_SCOPE)
     else (native)
-      file(TO_NATIVE_PATH "${MAIN_LIBRARY_OUTPUT_PATH}/dynamorio.dll" dllpath)
+      file(TO_CMAKE_PATH "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll" dllpath)
       # forward slashes work fine: we just need drive-letter path
       # add dr_ops last to avoid needing extra \ on ;
       set(${outcmd} ${cmd} -ops "${dr_ops}" -use_dll ${dllpath} PARENT_SCOPE)
@@ -831,7 +885,7 @@ function(torun test key exe source native dr_ops exe_ops)
   set(ALREADY_REGEX OFF)
 
   rundr_cmd(rundr runops ${native} "${dr_ops}" ${is_runall})
-  get_target_property(exepath ${exe} LOCATION)
+  get_target_property(exepath ${exe} LOCATION${location_suffix})
   # support running binaries that are not targets of this build
   if (NOT exepath)
     set(exepath ${exe})
@@ -844,7 +898,7 @@ function(torun test key exe source native dr_ops exe_ops)
       # swap from runstats to run_in_bg to run the test in the background
       set(tmpfile "${CMAKE_CURRENT_BINARY_DIR}/${test}-out")
       string(REGEX REPLACE "^.*-env;LD_L" 
-        "${MAIN_EXECUTABLE_OUTPUT_PATH}/run_in_bg;-out;${tmpfile};-env;LD_L"
+        "${MAIN_RUNTIME_OUTPUT_DIRECTORY}/run_in_bg;-out;${tmpfile};-env;LD_L"
         rundr "${rundr}")
       set(clear_arg "")
       if ("${runall}" MATCHES "<reset>")
@@ -865,13 +919,13 @@ function(torun test key exe source native dr_ops exe_ops)
     endif (UNIX)
     # FIXME i#120: for Windows, get app name to run from .runall file.
     # For linux we always run linux.infloop.
-    set(cmd_with_at ${rundr} ${EXECUTABLE_OUTPUT_PATH}/linux.infloop ${exe_ops})
+    set(cmd_with_at ${rundr} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.infloop ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
     # to get around the pain of trying to quote everything just right:
     # much simpler this way.
     string(REGEX REPLACE " " "@@" cmd_with_at "${cmd_with_at}")
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
-    add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${MAIN_EXECUTABLE_OUTPUT_PATH}
+    add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${MAIN_RUNTIME_OUTPUT_DIRECTORY}
       -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
       -D clear=${clear_arg}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
@@ -1095,7 +1149,7 @@ if (UNIX)
       tobuild_ops(linux.execve64 linux/execve.c ""
         "${TEST_32BIT_PATH}/linux.execve-sub32")
       torunonly(linux.execve32 ${TEST_32BIT_PATH}/linux.execve32 linux/execve.c ""
-        "${EXECUTABLE_OUTPUT_PATH}/linux.execve-sub64")
+        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64")
     else (X64)
       add_exe(linux.execve-sub32 linux/execve-sub.c)
       add_exe(linux.execve32 linux/execve.c)
@@ -1105,7 +1159,7 @@ if (UNIX)
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)
   tobuild_ops(linux.execve-null linux/execve-null.c ""
-    "${EXECUTABLE_OUTPUT_PATH}/linux.execve-sub")
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
 
   tobuild(linux.execve-rec linux/execve-rec.c)
   tobuild(linux.exit linux/exit.c)
@@ -1146,7 +1200,7 @@ if (UNIX)
 
   # FIXME i#125: bugs in these, were disabled in the past
   tobuild_ops(linux.vfork linux/vfork.c ""
-    "${EXECUTABLE_OUTPUT_PATH}/linux.execve-sub")
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
 
   # runs of other builds with custom DR options
@@ -1278,11 +1332,11 @@ else (UNIX)
   # no relocations, so not sure what the warnings imply.  Did not check the others.
   tobuild_dll(security-win32.secalign-fixed security-win32/secalign-fixed.c "")
   set_target_properties(security-win32.secalign-fixed.dll PROPERTIES
-    LINK_FLAGS "/fixed")
+    LINK_FLAGS "/dynamicbase:no /fixed")
 
   tobuild_dll(security-win32.sec-fixed security-win32/sec-fixed.c "")
   set_target_properties(security-win32.sec-fixed.dll PROPERTIES
-    LINK_FLAGS "/fixed")
+    LINK_FLAGS "/dynamicbase:no /fixed")
 
   tobuild_dll(security-win32.sec-xdata security-win32/sec-xdata.c "")
   # PR 209235 covers re-enabling selfmod-threads

@@ -51,7 +51,6 @@ set(arg_no64 OFF)      # skip the 64-bit builds?
 # also takes args parsed by runsuite_common_pre.cmake, in particular:
 set(arg_preload "")    # cmake file to include prior to each 32-bit build
 set(arg_preload64 "")  # cmake file to include prior to each 64-bit build
-set(arg_use_nmake OFF) # use nmake even if gnu make is present
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} MATCHES "^build=")

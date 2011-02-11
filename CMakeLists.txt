@@ -47,7 +47,34 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-cmake_minimum_required(VERSION 2.6)
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for output dir name control
+  cmake_minimum_required(VERSION 2.8.2)
+else ()
+  cmake_minimum_required(VERSION 2.6)
+endif ()
+
+# for non-makefile-based generators (i.e., Visual Studio) there is no
+# CMAKE_BUILD_TYPE and instead there are multiple configs.
+# note that we would love cmake to support multi-config for makefiles too,
+# but given that it doesn't, and that we don't have full control
+# over the output dir names (until cmake 2.8.4), I'm collapsing
+# the VS generator configs to a single choice to match the makefiles.
+# this must be done prior to the project() command and the var
+# must be set in the cache.
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  if (DEBUG)
+    set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
+  else (DEBUG)
+    set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
+  endif (DEBUG)
+  # we want to use the _LOCATION_<config> property
+  string(TOUPPER "${CMAKE_CONFIGURATION_TYPES}" upper)
+  set(location_suffix "_${upper}")
+else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  set(location_suffix "")
+endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+
 set(cmake_ver_string
   "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
 if ("${cmake_ver_string}" STRLESS "2.6.4")
@@ -257,13 +284,20 @@ mark_as_advanced(
 # XXX: or should we support build type and auto-map to ours?
 # if we do support we'll need to remove flags like /MD coming from
 # the CMAKE_C_FLAGS_*, which are added to the base CMAKE_C_FLAGS.
+# XXX: could use CMAKE_USER_MAKE_RULES_OVERRIDE to set these but not any cleaner
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
-foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS;
-    CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
-    CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
-    CMAKE_EXE_LINKER_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
-    CMAKE_MODULE_LINKER_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
-    CMAKE_SHARED_LINKER_FLAGS_${CMAKE_BUILD_TYPE_UPPER})
+foreach (config ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+  string(TOUPPER "${config}" config_upper)
+  foreach (var
+      CMAKE_C_FLAGS_${config_upper};
+      CMAKE_CXX_FLAGS_${config_upper};
+      CMAKE_EXE_LINKER_FLAGS_${config_upper};
+      CMAKE_MODULE_LINKER_FLAGS_${config_upper};
+      CMAKE_SHARED_LINKER_FLAGS_${config_upper})
+    set(${var} " ") # if "" defaults come back
+  endforeach ()
+endforeach ()
+foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS)
   set(${var} " ") # if "" defaults come back
 endforeach ()
 
@@ -375,10 +409,30 @@ else (UNIX)
     # we use cl pragmas and intrinsics
     message(FATAL_ERROR "cl (Microsoft C++ compiler) is required to build")
   endif (NOT ${COMPILER_BASE_NAME} STREQUAL "cl")
-  set(CMAKE_CPP ${CMAKE_C_COMPILER})
 
   # CMake older than 2.6.3 does not automatically look for ml or ml64
-  get_filename_component(cl_path ${CMAKE_C_COMPILER} PATH)
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # CMAKE_C_COMPILER doesn't have full path, unless user has in PATH
+    if (MSVC10)
+      get_filename_component(vc_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\10.0\\Setup\\VC;ProductDir] REALPATH)
+    elseif (MSVC90)
+      get_filename_component(vc_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\9.0\\Setup\\VC;ProductDir] REALPATH)
+    elseif (MSVC80)
+      get_filename_component(vc_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\8.0\\Setup\\VC;ProductDir] REALPATH)
+    endif()
+    if (X64)
+      set(cl_path "${vc_dir}/bin/amd64")
+    else (X64)
+      set(cl_path "${vc_dir}/bin")
+    endif (X64)
+    # while we can get the cl path, we can't run cl b/c mspdb80.dll must
+    # be on the PATH: so even w/ VS generators we require PATH to be set.
+    if ("${CMAKE_C_COMPILER}" STREQUAL "cl")
+      set(CMAKE_C_COMPILER "${cl_path}/${CMAKE_C_COMPILER}")
+    endif ()
+  else ()
+    get_filename_component(cl_path ${CMAKE_C_COMPILER} PATH)
+  endif ()
   if (X64)
     find_program(CMAKE_ASM_COMPILER ml64.exe HINTS "${cl_path}" DOC "path to assembler")
   else (X64)
@@ -388,8 +442,21 @@ else (UNIX)
     message(FATAL_ERROR "assembler not found: required to build")
   endif (NOT CMAKE_ASM_COMPILER)
 
+  set(CMAKE_CPP ${CMAKE_C_COMPILER})
+
   # cmake has CMAKE_RC_COMPILER, but no message compiler
-  find_program(CMAKE_MC_COMPILER mc.exe DOC "path to message compiler")
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # this path is only present for 2008+, but we currently require PATH to
+    # be set up anyway
+    get_filename_component(sdk_dir "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows;CurrentInstallFolder]" REALPATH)
+    if (X64)
+      set(sdk_bindir "${sdk_dir}/bin/x64")
+    else (X64)
+      set(sdk_bindir "${sdk_dir}/bin")
+    endif (X64)
+  endif ()
+  find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}" 
+    DOC "path to message compiler")
   if (NOT CMAKE_MC_COMPILER)
     message(FATAL_ERROR "message compiler not found: required to build")
   endif (NOT CMAKE_MC_COMPILER)
@@ -512,6 +579,11 @@ if (UNIX)
 else (UNIX)
   # FIXME: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "/nologo")
+  # build in parallel, always.
+  # note that /MP is not officially supported on VS 2005 and others
+  # have seen occasional problems: we'll risk it.  we could check for
+  # "MSVC10 OR MSVC90".
+  set(BASE_CFLAGS "${BASE_CFLAGS} /MP")
   # read-only string pooling
   set(BASE_CFLAGS "${BASE_CFLAGS} /GF")
   # FIXME case 191729: we should try to enable this.
@@ -540,7 +612,9 @@ else (UNIX)
   # gets a little messed up, but is better than nothing
   set(OPT "/O2 ${DBG}")
   # do not use /O2 on windows, it messes up debug info!
-  set(DBG_OPT "")
+  # explicitly request /Od even though it's cl's default b/c VS has /O2 as default
+  # and cl 14.00 hangs compiling core/fragment.c with /Od and DEBUG.
+  set(DBG_OPT "/Od")
   set(CPP_KEEP_COMMENTS /C)
   set(CPP_NO_LINENUM /EP)
   set(CMAKE_CPP_FLAGS "/nologo")
@@ -783,12 +857,32 @@ endmacro(DR_install)
 
 # mirror install path for easier use from build dir
 # most libs go in base; DR and preload go in {debug,release} subdir
-set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}")
-set(DR_LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/${INSTALL_LIB}")
-set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
+set(DR_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/${INSTALL_LIB}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
 # if drinjectlib is built before any exe target this dir won't exist
 # and the "cmake -E copy" will fail (PR 549174)
-file(MAKE_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}")
+file(MAKE_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+
+function (set_per_config_ouput_to_match_single_config)
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # we don't want to support the Debug and Release subdirs so
+    # we rely on cmake 2.8.2's control over their names
+    # (up above we require 2.8.2+ for VS generators)
+    foreach (config ${CMAKE_CONFIGURATION_TYPES})
+      string(TOUPPER "${config}" config_upper)
+      set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${config_upper}
+        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" PARENT_SCOPE)
+      set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${config_upper}
+        "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}" PARENT_SCOPE)
+      set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${config_upper}
+        "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" PARENT_SCOPE)
+    endforeach ()
+  endif ()
+endfunction (set_per_config_ouput_to_match_single_config)
+
+set_per_config_ouput_to_match_single_config()
 
 # set var needed by configure.cmake.h
 string(REGEX REPLACE 
@@ -1047,7 +1141,7 @@ DR_install(FILES
 # where we can use wildcards.
 # Slightly ugly to have hardcoded names: long-term CMake should
 # support auto-installing pdb files.
-DR_install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
+DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   DESTINATION ${INSTALL_LIB_BASE}
   FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
   WORLD_READ WORLD_EXECUTE
@@ -1059,7 +1153,7 @@ DR_install(DIRECTORY ${LIBRARY_OUTPUT_PATH}/
   PATTERN "libdrpreload.so.debug" EXCLUDE # in ${INSTALL_LIB}
   PATTERN "policy_static.pdb" EXCLUDE
   )
-DR_install(DIRECTORY ${DR_LIBRARY_OUTPUT_PATH}/
+DR_install(DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}/
   DESTINATION ${INSTALL_LIB}
   FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
   WORLD_READ WORLD_EXECUTE
@@ -1069,7 +1163,7 @@ DR_install(DIRECTORY ${DR_LIBRARY_OUTPUT_PATH}/
   PATTERN "libdrpreload.so.debug" 
   )
 if (BUILD_TOOLS OR WIN32)
-  DR_install(DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/
+  DR_install(DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
     DESTINATION ${INSTALL_BIN}
     FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE

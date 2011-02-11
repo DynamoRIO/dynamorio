@@ -31,6 +31,64 @@
 ###########################################################################
 # sources and targets
 
+# we have no exe's here, and we want our dll's in the lib dir
+# (could use MODULE instead of SHARED if it would let us link)
+set(EXECUTABLE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
+set_per_config_ouput_to_match_single_config()
+
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # our CMAKE_ASM_COMPILE_OBJECT rule only applies to makefiles so we use
+  # a custom command.
+  # we need two versions: one for core and one for preinject+drinject.
+  # we've collapsed down to a single config type so we ignore config
+  # selection here (can't support multiple until cmake 2.8.4 anyway).
+  function (add_asm source suffix output_out tgt_out extradefs)
+    set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.s"
+      PROPERTIES GENERATED true)
+    # we don't need ${defines} (=> list) b/c we include configure.h
+    set(output "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.obj")
+    add_custom_command(OUTPUT "${output}"
+      DEPENDS "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm"
+        "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
+        "${PROJECT_BINARY_DIR}/configure.h)"
+      COMMAND "${CMAKE_C_COMPILER}" ARGS ${CMAKE_CPP_FLAGS}
+        /I "${PROJECT_BINARY_DIR}" ${extradefs}
+        -E ${CPP_NO_LINENUM} "${CMAKE_CURRENT_SOURCE_DIR}/${source}.asm"
+        ">" "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.s"
+      COMMAND "${CMAKE_COMMAND}" ARGS
+        -Dfile=${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.s
+        -P "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
+      COMMAND "${CMAKE_ASM_COMPILER}" ARGS ${ASM_FLAGS} /c
+        /Fo "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.obj"
+        "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.s"
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      VERBATIM # recommended: p260
+      )
+    get_filename_component(namebase "${source}" NAME_WE)
+    add_custom_target(generate_${namebase}${suffix} DEPENDS "${output}")
+    set(${output_out} "${output}" PARENT_SCOPE)
+    set(${tgt_out} generate_${namebase}${suffix} PARENT_SCOPE)
+  endfunction (add_asm)
+  add_asm(x86/x86 _core x86_core_asm_src x86_core_asm_tgt "")
+  add_asm(x86/x86 _noncore x86_noncore_asm_src x86_noncore_asm_tgt
+    -DNOT_DYNAMORIO_CORE_PROPER)
+  add_asm(x86/pre_inject_asm "" preinject_asm_src preinject_asm_tgt
+    -DNOT_DYNAMORIO_CORE_PROPER)
+else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  set(x86_core_asm_src "${CMAKE_CURRENT_SOURCE_DIR}/x86/x86.asm")
+  set(x86_noncore_asm_src "${CMAKE_CURRENT_SOURCE_DIR}/x86/x86.asm")
+  set(preinject_asm_src "${CMAKE_CURRENT_SOURCE_DIR}/x86/pre_inject_asm.asm")
+  # XXX: how get cmake to analyze #includes of my asm files?
+  set(asm_dependencies
+    ${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm
+    ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
+    ${PROJECT_BINARY_DIR}/configure.h)
+  set_source_files_properties(${x86_core_asm_src} ${x86_noncore_asm_src}
+    ${preinject_asm_src}
+    PROPERTIES OBJECT_DEPENDS "${asm_dependencies}")
+endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+
 set(CORE_SRCS
   options.c
   dynamo.c
@@ -88,7 +146,7 @@ set(ARCH_SRCS
   x86/steal_reg.c
   x86/x86_code.c
   x86/disassemble.c
-  x86/x86.asm
+  ${x86_core_asm_src}
   x86/decode_fast.c
   x86/optimize.c
   x86/sideline.c
@@ -120,7 +178,7 @@ if (UNIX)
     linux/preload.c
     config.c
     linux/os.c
-    x86/x86.asm
+    ${x86_noncore_asm_src}
     )
 else (UNIX)
   set(OSNAME win32)
@@ -145,8 +203,8 @@ else (UNIX)
     win32/ntdll.c
     win32/inject_shared.c
     win32/drmarker.c
-    x86/x86.asm
-    x86/pre_inject_asm.asm
+    ${x86_noncore_asm_src}
+    ${preinject_asm_src}
     win32/module_shared.c
     win32/resources.rc
     config.c
@@ -158,14 +216,18 @@ else (UNIX)
     win32/inject.c
     win32/ntdll.c
     win32/inject_shared.c
-    x86/x86.asm
+    ${x86_noncore_asm_src}
     win32/resources.rc
     config.c
     win32/os.c
     )
   add_library(drinjectlib SHARED ${INJECTOR_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # for parallel build correctness we need a target dependence
+    add_dependencies(drinjectlib ${x86_noncore_asm_tgt})
+  endif ()
 
-  add_library(drearlyhelp1 SHARED 
+  add_library(drearlyhelp1 SHARED
     win32/early_inject_helper1.c
     win32/resources.rc
     )
@@ -174,16 +236,6 @@ else (UNIX)
     win32/resources.rc
     )
 endif (UNIX)
-
-# FIXME: how get cmake to analyze #includes of my asm files?
-set(asm_dependencies
-  ${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm
-  ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
-  ${PROJECT_BINARY_DIR}/configure.h)
-set_source_files_properties(x86/x86.asm x86/pre_inject_asm.asm
-  PROPERTIES OBJECT_DEPENDS "${asm_dependencies}")
-
-# FIXME: compare flags to /work/opensource/dynamorio/compilation-buffer
 
 add_library(dynamorio SHARED 
   ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS}
@@ -196,9 +248,13 @@ add_library(dynamorio SHARED
   ${CMAKE_CURRENT_SOURCE_DIR}/CMake_ldscript.cmake
   )
 set_target_properties(dynamorio PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}"
-  RUNTIME_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}"
-  ARCHIVE_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}")
+  LIBRARY_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
+  ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for parallel build correctness we need a target dependence
+  add_dependencies(dynamorio ${x86_core_asm_tgt})
+endif ()
 
 # rather than a separate BUILD_INCLUDES option we always build
 # include headers if building core (or if building docs or samples as
@@ -212,9 +268,13 @@ add_library(${PRELOAD_NAME} SHARED ${PRELOAD_SRCS})
 # static dependence.  Plus, by having a static dependence we hit issues
 # like PR 258636.  We also don't set rpath b/c that only applies to executables.
 set_target_properties(${PRELOAD_NAME} PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}"
-  RUNTIME_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}"
-  ARCHIVE_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_PATH}")
+  LIBRARY_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
+  ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for parallel build correctness we need a target dependence
+  add_dependencies(${PRELOAD_NAME} ${x86_noncore_asm_tgt} ${preinject_asm_tgt})
+endif ()
 
 ###########################################################################
 # linux build customization
@@ -298,7 +358,7 @@ if (UNIX)
       set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} ${curver_path}/${oldver})
       add_custom_command(TARGET dynamorio POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E create_symlink ${curver} ${oldver}
-        WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_PATH}
+        WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
         VERBATIM)
       math(EXPR verstart "${verstart} + 1")
     endwhile ()
@@ -396,7 +456,7 @@ else (UNIX)
   if (X64)
     # Xref PR 215395, we currently require DynamoRIO to be loaded in a certain address
     # range.  To be double sure we compile it FIXED for now.
-    set(dynamorio_link_flags "${dynamorio_link_flags} /FIXED")
+    set(dynamorio_link_flags "${dynamorio_link_flags} /dynamicbase:no /FIXED")
   endif (X64)
   if (DEBUG)
     set(LD_FLAGS "${LINK_DBG} /release /opt:ref")
@@ -416,7 +476,7 @@ else (UNIX)
   set(dynamorio_link_flags 
     "${dynamorio_link_flags} ${NOLIBC_DLL_ENTRY} ${FORWARD_TO_NTDLL}")
   # cmake does /out, /implib, and /pdb for us, but we do want map file
-  get_target_property(drout dynamorio LOCATION)
+  get_target_property(drout dynamorio LOCATION${location_suffix})
   get_filename_component(drpath ${drout} PATH)
   get_filename_component(drname ${drout} NAME_WE)
   set(dynamorio_link_flags 
@@ -459,8 +519,8 @@ else (UNIX)
   target_link_libraries(drinjectlib ${WIN32_C_LIB} ntdll kernel32 advapi32 imagehlp)
   # drinject.exe needs a copy in the bin dir
   add_custom_command(TARGET drinjectlib POST_BUILD COMMAND ${CMAKE_COMMAND}
-    ARGS -E copy "${LIBRARY_OUTPUT_PATH}/drinjectlib.dll"
-    "${EXECUTABLE_OUTPUT_PATH}/" VERBATIM)
+    ARGS -E copy "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/drinjectlib.dll"
+    "${EXECUTABLE_OUTPUT_DIRECTORY}/" VERBATIM)
 
 
   set_target_properties(${PRELOAD_NAME} PROPERTIES

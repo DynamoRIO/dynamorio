@@ -94,13 +94,15 @@ set_target_properties(drconfiglib PROPERTIES
   # Since it's hard to pass spaces in defines (I can get a " through using
   # \\\\\\\" but no spaces) we put strings in resources.rc and select
   # using RC_ defines.
-  COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DRCONFIGLIB")
+  COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DRCONFIGLIB"
+  # put dll in lib dir
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set_target_properties(drconfiglib PROPERTIES
   LINK_FLAGS "${libutil_ldflags}")
 # drinject.exe needs a copy in the bin dir
 add_custom_command(TARGET drconfiglib POST_BUILD COMMAND ${CMAKE_COMMAND}
-  ARGS -E copy "${LIBRARY_OUTPUT_PATH}/drconfiglib.dll"
-  "${EXECUTABLE_OUTPUT_PATH}/" VERBATIM)
+  ARGS -E copy "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/drconfiglib.dll"
+  "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/" VERBATIM)
 
 add_executable(dumpevts dumpevts.c elm.c ${RESOURCES})
 set_target_properties(dumpevts PROPERTIES

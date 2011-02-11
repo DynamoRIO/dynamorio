@@ -66,7 +66,12 @@ set(arg_include "")   # cmake file to include up front
 set(arg_preload "")   # cmake file to include prior to each 32-bit build
 set(arg_preload64 "") # cmake file to include prior to each 64-bit build
 set(arg_ssh OFF)      # running over cygwin ssh: disable pdbs
-set(arg_use_nmake OFF) # use nmake even if gnu make is present
+set(arg_use_nmake OFF)# use nmake instead of devenv
+if (UNIX)
+  set(arg_use_make ON)  # use unix make
+else (UNIX)
+  set(arg_use_make OFF) # use unix make instead of devenv
+endif (UNIX)
 set(arg_long OFF)     # whether to run the long suite
 set(arg_already_built OFF) # for testing w/ already-built suite
 set(arg_exclude "")   # regex of tests to exclude
@@ -90,8 +95,11 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "ssh")
     set(arg_ssh ON)
   endif (${arg} STREQUAL "ssh")
-  if (${arg} MATCHES "^use_nmake")
+  if (${arg} STREQUAL "use_nmake")
     set(arg_use_nmake ON)
+  endif ()
+  if (${arg} STREQUAL "use_make")
+    set(arg_use_make ON)
   endif ()
   if (${arg} STREQUAL "long")
     set(arg_long ON)
@@ -118,12 +126,12 @@ if (arg_ssh)
     GENERATE_PDBS:BOOL=OFF")
 endif (arg_ssh)
 
-if (WIN32 AND NOT arg_use_nmake)
+if (arg_use_make)
   find_program(MAKE_COMMAND make DOC "make command")
   if (NOT MAKE_COMMAND)
-    set(arg_use_nmake ON)
+    message(FATAL_ERROR "make requested but make not found")
   endif (NOT MAKE_COMMAND)
-endif (WIN32 AND NOT arg_use_nmake)
+endif (arg_use_make)
 
 if (arg_long)
   set(TEST_LONG ON)
@@ -199,7 +207,8 @@ endif (arg_nightly)
 set(CTEST_CMAKE_COMMAND "${CMAKE_EXECUTABLE_NAME}")
 # outer file should set CTEST_PROJECT_NAME
 set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
-if (UNIX OR NOT arg_use_nmake)
+
+if (arg_use_make)
   set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
   find_program(MAKE_COMMAND make DOC "make command")
   if (have_cygwin)
@@ -209,12 +218,34 @@ if (UNIX OR NOT arg_use_nmake)
   else (have_cygwin)
     set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j5")
   endif (have_cygwin)
-else (UNIX OR NOT arg_use_nmake)
+elseif (arg_use_nmake)
   set(CTEST_CMAKE_GENERATOR "NMake Makefiles")
-  find_program(MAKE_COMMAND nmake DOC "nmake command")
-  # no -j support
-  set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND}")
-endif (UNIX OR NOT arg_use_nmake)
+else (arg_use_make)
+  get_filename_component(vs_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\10.0\\Setup\\VS;ProductDir] REALPATH)
+  # on failure getting weird results: "c:/registry", so we assume will have Studio
+  if ("${vs_dir}" MATCHES "Studio")
+    set(vs_generator "Visual Studio 10")
+  else ()
+    get_filename_component(vs_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\9.0\\Setup\\VS;ProductDir] REALPATH)
+    if ("${vs_dir}" MATCHES "Studio")
+      set(vs_generator "Visual Studio 9 2008")
+    else ()
+      get_filename_component(vs_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\8.0\\Setup\\VS;ProductDir] REALPATH)
+      if ("${vs_dir}" MATCHES "Studio")
+        set(vs_generator "Visual Studio 8 2005")
+      endif ()
+    endif ()
+  endif ()
+  message("Using ${vs_generator} generators")
+endif (arg_use_make)
+
+function(get_default_config config builddir)
+  file(READ "${builddir}/CMakeCache.txt" cache)
+  string(REGEX MATCH "CMAKE_CONFIGURATION_TYPES:STRING=([^\n]*)" cache "${cache}")
+  string(REGEX REPLACE "CMAKE_CONFIGURATION_TYPES:STRING=([^;]*)" "\\1"
+    cache "${cache}")
+  set(${config} ${cache} PARENT_SCOPE)
+endfunction(get_default_config)
 
 # Sets two vars in PARENT_SCOPE:
 # + returns the build dir in "last_build_dir"
@@ -225,8 +256,17 @@ endif (UNIX OR NOT arg_use_nmake)
 function(testbuild_ex name is64 initial_cache test_only_in_long 
     add_to_package build_args)
   set(CTEST_BUILD_NAME "${name}")
-  # support "make install"
-  set(CTEST_BUILD_COMMAND "${CTEST_BUILD_COMMAND_BASE} ${build_args}")
+  if (NOT arg_use_nmake AND NOT arg_use_make)
+    # we need a separate generator for 64-bit as well as the PATH
+    # env var changes below (since we run cl directly)
+    if (is64)
+      set(CTEST_CMAKE_GENERATOR "${vs_generator} Win64")
+    else (is64)
+      set(CTEST_CMAKE_GENERATOR "${vs_generator}")
+    endif (is64)
+    # we need to set this for the package build using the last build
+    set(CTEST_CMAKE_GENERATOR "${CTEST_CMAKE_GENERATOR}" PARENT_SCOPE)
+  endif ()
   set(CTEST_BINARY_DIRECTORY "${BINARY_BASE}/build_${CTEST_BUILD_NAME}")
   set(last_build_dir "${CTEST_BINARY_DIRECTORY}" PARENT_SCOPE)
 
@@ -333,7 +373,28 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
     endif (DO_UPDATE)
     ctest_configure(BUILD "${CTEST_BINARY_DIRECTORY}" RETURN_VALUE config_success)
     if (config_success EQUAL 0)
+
+      # support "make install"
+      if (DEFINED CTEST_BUILD_COMMAND_BASE)
+        set(CTEST_BUILD_COMMAND "${CTEST_BUILD_COMMAND_BASE} ${build_args}")
+      else () # else use default
+        if ("${CTEST_CMAKE_GENERATOR}" MATCHES "Visual Studio")
+          # workaround for cmake bug #11830 where assumes "Debug" is
+          # the default config
+          get_default_config(defconfig "${CTEST_BINARY_DIRECTORY}")
+          set(CTEST_BUILD_CONFIGURATION "${defconfig}")
+          message("building default config \"${defconfig}\"")
+          if (NOT "${build_args}" STREQUAL "")
+            set(CTEST_BUILD_FLAGS "-- ${build_args}")
+          endif ()
+        else ()
+          set(CTEST_BUILD_FLAGS "${build_args}")
+        endif ()
+        message("building with args \"${CTEST_BUILD_FLAGS}\"")
+      endif ()
+
       ctest_build(BUILD "${CTEST_BINARY_DIRECTORY}" RETURN_VALUE build_success)
+
     else (config_success EQUAL 0)
       set(build_success -1)
     endif (config_success EQUAL 0)

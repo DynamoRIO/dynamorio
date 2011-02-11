@@ -154,6 +154,7 @@ The changes between version 2.1.0 and 2.0.0 are:
    which may have noticeable impacts on \clients calling clean calls:
    e.g., pushing bbs over the max size limit or having a noticeable
    performance hit.
+ - Support building sources using Visual Studio
 
 The changes between version 2.0.0 and 1.5.0 are:
 

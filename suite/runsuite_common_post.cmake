@@ -46,11 +46,17 @@ if (build_package)
   # Plus, we use this for package.cmake now.
   # now package up all the builds
   message("building package in ${last_package_build_dir}")
-  file(APPEND "${last_package_build_dir}/CPackConfig.cmake"
-    "set(CPACK_INSTALL_CMAKE_PROJECTS\n  ${cpack_projects})")
-  set(CTEST_BUILD_COMMAND "${MAKE_COMMAND} package")
   set(CTEST_BUILD_NAME "final package")
   set(CTEST_BINARY_DIRECTORY "${last_package_build_dir}")
+  file(APPEND "${last_package_build_dir}/CPackConfig.cmake"
+    "set(CPACK_INSTALL_CMAKE_PROJECTS\n  ${cpack_projects})")
+  if ("${CTEST_CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    get_default_config(defconfig "${CTEST_BINARY_DIRECTORY}")
+    set(CTEST_BUILD_CONFIGURATION "${defconfig}")
+    set(CTEST_BUILD_TARGET "PACKAGE")
+  else ()
+    set(CTEST_BUILD_FLAGS "package")
+  endif ()
 
   # Remove results from prior build (else ctest_submit() will copy as
   # though results from package build)

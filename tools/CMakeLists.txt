@@ -50,20 +50,20 @@ if (UNIX)
   set(runapp 0)
   set(name "drconfig")
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in"
-    "${EXECUTABLE_OUTPUT_PATH}/${name}" @ONLY)
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${name}" @ONLY)
   set(config 1)
   set(runapp 1)
   set(name "drrun")
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in"
-    "${EXECUTABLE_OUTPUT_PATH}/${name}" @ONLY)
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${name}" @ONLY)
   set(config 0)
   set(runapp 1)
   set(name "drinject")
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in"
-    "${EXECUTABLE_OUTPUT_PATH}/${name}" @ONLY)
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${name}" @ONLY)
   # we leave drdeploy for backward compat w/ old script
   execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
-    "drrun" "${EXECUTABLE_OUTPUT_PATH}/drdeploy"
+    "drrun" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drdeploy"
     RESULT_VARIABLE symlink_result
     ERROR_VARIABLE symlink_error
     OUTPUT_QUIET)
@@ -71,7 +71,7 @@ if (UNIX)
     message(FATAL_ERROR "*** drdeploy symlink failed: ***\n${symlink_error}")
   endif (symlink_result OR symlink_error)
   # simpler to install all and exclude
-  DR_install(DIRECTORY "${EXECUTABLE_OUTPUT_PATH}/"
+  DR_install(DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
     DESTINATION "${INSTALL_BIN}"
     FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE 
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE

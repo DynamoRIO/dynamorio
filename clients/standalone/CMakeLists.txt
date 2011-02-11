@@ -32,8 +32,9 @@ cmake_minimum_required(VERSION 2.6)
 
 project(DynamoRIO_samples)
 
-set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
-set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
+set(LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
+set(ARCHIVE_OUTPUT_DIRECTORY "${LIBRARY_OUTPUT_DIRECTORY}")
+set(RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 
 option(SHOW_RESULTS
   "Display client results in pop-up (Windows) or console message (Linux)"
