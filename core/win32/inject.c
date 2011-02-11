@@ -368,6 +368,9 @@ enum {
 
     MOV_RM32_2_REG32      = 0x8b,
     MOV_ESP_2_EAX_RM      = 0xc4,
+    MOV_EAX_2_ECX_RM      = 0xc8,
+    MOV_EAX_2_EDX_RM      = 0xd0,
+    MOV_EAX_2_EAX_RM      = 0xc0,
     MOV_derefEAX_2_EAX_RM = 0x00,
     MOV_IMM8_2_RM8        = 0xc6,
     MOV_IMM32_2_RM32      = 0xc7,
@@ -378,12 +381,40 @@ enum {
     CMP_EAX_IMM32         = 0x3d,
     JZ_REL8               = 0x74,
     JNZ_REL8              = 0x75,
+
+#ifdef X64
+    REX_W                 = 0x48,
+    REX_B                 = 0x41,
+    REX_R                 = 0x44,
+#endif
 };
 
 #define DEBUG_LOOP 0
 
 #define ASSERT_ROOM(cur, buf, maxlen) \
     ASSERT(cur + maxlen < buf + sizeof(buf))
+
+/* i#142: 64-bit support only works if the hook location and the
+ * allocated remote_code_buffer are in lower 2GB of the address space.
+ * we ensure the latter, and ntdll seems to always be there, at least
+ * on Vista and Win7.  just haven't bothered to write full
+ * 64-bit-reachable code: partly b/c of next complaint:
+ *
+ * XXX: this is all really messy: these macros are too limited for
+ * inserting general instructions, so for x64 I hacked it by leaving
+ * in the pushes and copying from TOS into the register params.
+ * I would prefer to throw all this out and replace w/ IR or asm
+ * (and deal w/ linking into drinject).
+ */
+#ifdef X64
+# define CHECK_S64(val) \
+    ASSERT_NOT_IMPLEMENTED(CHECK_TRUNCATE_TYPE_int((ptr_int_t)(val)))
+# define CHECK_U64(val) \
+    ASSERT_NOT_IMPLEMENTED(CHECK_TRUNCATE_TYPE_uint((ptr_uint_t)(val)))
+#else
+# define CHECK_S64(val) /* nothing */
+# define CHECK_U64(val) /* nothing */
+#endif
 
 /* Early injection. */
 /* FIXME - like inject_into_thread we assume esp, but we could allocate our
@@ -478,7 +509,20 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
                                IN BOOLEAN TestAlert));
 
         /* get buffer for emitted code and data */
-        if (!NT_SUCCESS(nt_remote_allocate_virtual_memory(phandle, &remote_code_buffer,
+#ifdef X64
+        /* we require lower-2GB so pass a hint */
+        remote_code_buffer = (byte *)(ptr_int_t) 0x30000;
+        res = nt_remote_allocate_virtual_memory(phandle, &remote_code_buffer,
+                                                2*PAGE_SIZE, PAGE_READWRITE,
+                                                MEM_COMMIT);
+        if (res == STATUS_CONFLICTING_ADDRESSES) {
+            /* try again w/ no hint: often ends up in low GB, no guarantee though */
+            remote_code_buffer = NULL;
+        } else if (!NT_SUCCESS(res))
+            goto error;
+#endif
+        if (remote_code_buffer == NULL &&
+            !NT_SUCCESS(nt_remote_allocate_virtual_memory(phandle, &remote_code_buffer,
                                                           2*PAGE_SIZE, PAGE_READWRITE,
                                                           MEM_COMMIT))) {
             goto error;
@@ -551,6 +595,72 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
   *(int *)cur_local_pos = value;  \
   cur_local_pos += sizeof(int)
 
+#define INSERT_ADDR(value)              \
+  *(ptr_int_t *)cur_local_pos = (ptr_int_t)(value);       \
+  cur_local_pos += sizeof(ptr_int_t)
+
+#ifdef X64
+# define INSERT_PUSH_ALL_REG()     \
+  *cur_local_pos++ = PUSH_EAX;  \
+  *cur_local_pos++ = PUSH_ECX;  \
+  *cur_local_pos++ = 0x52; /* xdx */ \
+  *cur_local_pos++ = 0x53; /* xbx */ \
+  *cur_local_pos++ = 0x54; /* xsp */ \
+  *cur_local_pos++ = 0x55; /* xbp */ \
+  *cur_local_pos++ = 0x56; /* xsi */ \
+  *cur_local_pos++ = 0x57; /* xdi */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = PUSH_EAX; /* r8 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = PUSH_ECX; /* r9 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x52; /* r10 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x53; /* r11 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x54; /* r12 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x55; /* r13 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x56; /* r14 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x57; /* r15 */
+#else
+# define INSERT_PUSH_ALL_REG()     \
+  *cur_local_pos++ = PUSHA
+#endif
+
+#ifdef X64
+# define INSERT_POP_ALL_REG()     \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x5f; /* r15 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x5e; /* r14 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x5d; /* r13 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x5c; /* r12 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x5b; /* r11 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = 0x5a; /* r10 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = POP_ECX; /* r9 */ \
+  *cur_local_pos++ = REX_B;  \
+  *cur_local_pos++ = POP_EAX; /* r8 */ \
+  *cur_local_pos++ = 0x5f; /* xdi */ \
+  *cur_local_pos++ = 0x5e; /* xsi */ \
+  *cur_local_pos++ = 0x5d; /* xbp */ \
+  *cur_local_pos++ = 0x5b; /* xsp slot but popped into dead xbx */ \
+  *cur_local_pos++ = 0x5b; /* xbx */ \
+  *cur_local_pos++ = 0x5a; /* xdx */ \
+  *cur_local_pos++ = POP_ECX;  \
+  *cur_local_pos++ = POP_EAX
+#else
+# define INSERT_POP_ALL_REG()     \
+  *cur_local_pos++ = POPA
+#endif
+
 #define PUSH_IMMEDIATE(value)     \
   *cur_local_pos++ = PUSH_IMM32;  \
   INSERT_INT(value)
@@ -560,16 +670,77 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
   *cur_local_pos++ = value
 
 #define MOV_ESP_TO_EAX()                \
+  IF_X64(*cur_local_pos++ = REX_W;)     \
   *cur_local_pos++ = MOV_RM32_2_REG32;  \
   *cur_local_pos++ = MOV_ESP_2_EAX_RM
 
+#ifdef X64
+/* mov rax -> rcx */
+# define MOV_EAX_TO_PARAM_0()           \
+  *cur_local_pos++ = REX_W;             \
+  *cur_local_pos++ = MOV_RM32_2_REG32;  \
+  *cur_local_pos++ = MOV_EAX_2_ECX_RM
+/* mov rax -> rdx */
+# define MOV_EAX_TO_PARAM_1()           \
+  *cur_local_pos++ = REX_W;             \
+  *cur_local_pos++ = MOV_RM32_2_REG32;  \
+  *cur_local_pos++ = MOV_EAX_2_EDX_RM
+/* mov rax -> r8 */
+# define MOV_EAX_TO_PARAM_2()           \
+  *cur_local_pos++ = REX_R|REX_W;       \
+  *cur_local_pos++ = MOV_RM32_2_REG32;  \
+  *cur_local_pos++ = MOV_EAX_2_EAX_RM
+/* mov rax -> r9 */
+# define MOV_EAX_TO_PARAM_3()           \
+  *cur_local_pos++ = REX_R|REX_W;       \
+  *cur_local_pos++ = MOV_RM32_2_REG32;  \
+  *cur_local_pos++ = MOV_EAX_2_ECX_RM
+/* mov (rsp) -> rcx */
+# define MOV_TOS_TO_PARAM_0()           \
+  *cur_local_pos++ = REX_W;             \
+  *cur_local_pos++ = 0x8b;              \
+  *cur_local_pos++ = 0x0c;              \
+  *cur_local_pos++ = 0x24
+/* mov (rsp) -> rdx */
+# define MOV_TOS_TO_PARAM_1()           \
+  *cur_local_pos++ = REX_W;             \
+  *cur_local_pos++ = 0x8b;              \
+  *cur_local_pos++ = 0x14;              \
+  *cur_local_pos++ = 0x24
+/* mov (rsp) -> r8 */
+# define MOV_TOS_TO_PARAM_2()           \
+  *cur_local_pos++ = REX_R|REX_W;       \
+  *cur_local_pos++ = 0x8b;              \
+  *cur_local_pos++ = 0x04;              \
+  *cur_local_pos++ = 0x24
+/* mov (rsp) -> r9 */
+# define MOV_TOS_TO_PARAM_3()           \
+  *cur_local_pos++ = REX_R|REX_W;       \
+  *cur_local_pos++ = 0x8b;              \
+  *cur_local_pos++ = 0x0c;              \
+  *cur_local_pos++ = 0x24
+#endif /* X64 */
+
 /* FIXME - all values are small use imm8 version */
 #define ADD_TO_EAX(value)               \
+  IF_X64(*cur_local_pos++ = REX_W;)     \
   *cur_local_pos++ = ADD_EAX_IMM32;     \
   INSERT_INT(value)
 
+#define ADD_IMM8_TO_ESP(value)          \
+  IF_X64(*cur_local_pos++ = REX_W;)     \
+  *cur_local_pos++ = 0x83;              \
+  *cur_local_pos++ = 0xc4;              \
+  *cur_local_pos++ = (byte)(value);
+
+#define CMP_TO_EAX(value)               \
+  IF_X64(*cur_local_pos++ = REX_W;)     \
+  *cur_local_pos++ = CMP_EAX_IMM32;     \
+  INSERT_INT(value)
+
 #define INSERT_REL32_ADDRESS(target)    \
-  IF_X64(ASSERT_NOT_IMPLEMENTED(false)); \
+  IF_X64(ASSERT_NOT_IMPLEMENTED(REL32_REACHABLE( \
+    ((cur_local_pos - local_buf)+4)+cur_remote_pos, (byte *)(target)))); \
   INSERT_INT((int)(ptr_int_t)((byte *)target - \
                               (((cur_local_pos - local_buf)+4)+cur_remote_pos)))
 
@@ -578,13 +749,16 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
   INSERT_REL32_ADDRESS(target_func)
 
 /* ecx will hold OldProtection afterwards */
+/* for x64 we need the 4 stack slots anyway so we do the pushes */
 #define PROT_IN_ECX 0xbad15bad /* doesn't match a PAGE_* define */
 #define CHANGE_PROTECTION(start, size, new_protection)                \
   *cur_local_pos++ = PUSH_EAX; /* OldProtect slot */                  \
   MOV_ESP_TO_EAX(); /* get &OldProtect */                             \
-  IF_X64(ASSERT_NOT_IMPLEMENTED(false));                              \
+  CHECK_S64((ptr_int_t)ALIGN_FORWARD(start+size, PAGE_SIZE) -         \
+    (ptr_int_t)ALIGN_BACKWARD(start, PAGE_SIZE)); \
   PUSH_IMMEDIATE((int)(ALIGN_FORWARD(start+size, PAGE_SIZE) -         \
                  ALIGN_BACKWARD(start, PAGE_SIZE))); /* ProtectSize */ \
+  CHECK_U64(ALIGN_BACKWARD(start, PAGE_SIZE));                        \
   PUSH_IMMEDIATE((int)ALIGN_BACKWARD(start, PAGE_SIZE)); /* BaseAddress */ \
   *cur_local_pos++ = PUSH_EAX; /* arg 5 &OldProtect */                \
   if (new_protection == PROT_IN_ECX) {                                \
@@ -592,15 +766,20 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
   } else {                                                            \
       PUSH_IMMEDIATE(new_protection); /* arg 4 NewProtect */          \
   }                                                                   \
-  ADD_TO_EAX(-4); /* get &ProtectSize */                              \
+  IF_X64(MOV_TOS_TO_PARAM_3());                                       \
+  ADD_TO_EAX(-(int)XSP_SZ); /* get &ProtectSize */                         \
   *cur_local_pos++ = PUSH_EAX; /* arg 3 &ProtectSize */               \
-  ADD_TO_EAX(-4); /* get &BaseAddress */                              \
+  IF_X64(MOV_EAX_TO_PARAM_2());                                       \
+  ADD_TO_EAX(-(int)XSP_SZ); /* get &BaseAddress */                         \
   *cur_local_pos++ = PUSH_EAX; /* arg 2 &BaseAddress */               \
+  IF_X64(MOV_EAX_TO_PARAM_1());                                       \
   PUSH_IMMEDIATE((int)(ptr_int_t)NT_CURRENT_PROCESS); /* arg ProcessHandle */ \
+  IF_X64(MOV_TOS_TO_PARAM_0());                                       \
   CALL(NtProtectVirtualMemory);                                       \
   /* no error checking, can't really do anything about it, FIXME */   \
   /* stdcall so just the three slots we made for the ptr arguments    \
-   * left on the stack */                                             \
+   * left on the stack for 32-bit */                                  \
+  IF_X64(ADD_IMM8_TO_ESP(5*XSP_SZ)); /* clean up 5 slots */           \
   *cur_local_pos++ = POP_ECX; /* pop BaseAddress */                   \
   *cur_local_pos++ = POP_ECX; /* pop ProtectSize */                   \
   *cur_local_pos++ = POP_ECX /* pop OldProtect into ecx */
@@ -616,9 +795,8 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
         /* for inject_location INJECT_LOCATION_Ldr* we stick the address used
          * at the start of the code for the child's use */
         if (INJECT_LOCATION_IS_LDR(inject_location)) {
-            IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-            INSERT_INT((int)(ptr_int_t)inject_address);
-            hook_target = cur_remote_pos + 4;  /* skip the address */
+            INSERT_ADDR(inject_address);
+            hook_target = cur_remote_pos + sizeof(ptr_int_t);  /* skip the address */
         }
 
 #if DEBUG_LOOP
@@ -627,20 +805,28 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
 #endif
 
         /* save current state */
-        *cur_local_pos++ = PUSHA;
+        INSERT_PUSH_ALL_REG();
         *cur_local_pos++ = PUSHF;
 
         /* restore trampoline, first make writable */
         CHANGE_PROTECTION(hook_location, 5, PAGE_EXECUTE_READWRITE);
         *cur_local_pos++ = MOV_IMM32_2_RM32; /* restore first 4 bytes of hook */
         *cur_local_pos++ = MOV_IMM_RM_ABS;
-        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-        INSERT_INT((int)(ptr_int_t)hook_location);
+        CHECK_U64(hook_location);
+        CHECK_U64(cur_local_pos+8 - local_buf + cur_remote_pos);
+        INSERT_INT((int)(ptr_int_t)hook_location 
+                   /* rip-rel for x64 */
+                   IF_X64(- (int)(ptr_int_t)(cur_local_pos+8 - local_buf +
+                                             cur_remote_pos)));
         INSERT_INT(*(int *)hook_buf);
         *cur_local_pos++ = MOV_IMM8_2_RM8; /* restore 5th byte of the hook */
         *cur_local_pos++ = MOV_IMM_RM_ABS;
-        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-        INSERT_INT((int)(ptr_int_t)hook_location+4);
+        CHECK_U64((ptr_int_t)hook_location+4);
+        CHECK_U64(cur_local_pos+5 - local_buf + cur_remote_pos);
+        INSERT_INT((int)(ptr_int_t)hook_location+4
+                   /* rip-rel for x64 */
+                   IF_X64(- (int)(ptr_int_t)(cur_local_pos+5 - local_buf +
+                                             cur_remote_pos)));
         *cur_local_pos++ = hook_buf[4];
         /* hook restored, restore protection */
         CHANGE_PROTECTION(hook_location, 5, PROT_IN_ECX);
@@ -656,11 +842,16 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
         *cur_local_pos++ = PUSH_EAX; /* need slot for OUT hmodule*/
         MOV_ESP_TO_EAX();
         *cur_local_pos++ = PUSH_EAX; /* arg 4 OUT *hmodule */
-        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+        IF_X64(MOV_EAX_TO_PARAM_3());
+        CHECK_U64(mod_remote);
         PUSH_IMMEDIATE((int)(ptr_int_t)mod_remote); /* our library name */
+        IF_X64(MOV_TOS_TO_PARAM_2());
         PUSH_SHORT_IMMEDIATE(0x0); /* Flags OPTIONAL */
+        IF_X64(MOV_TOS_TO_PARAM_1());
         PUSH_SHORT_IMMEDIATE(0x0); /* PathToFile OPTIONAL */
+        IF_X64(MOV_TOS_TO_PARAM_0());
         CALL(LdrLoadDll); /* see signature at decleration above */
+        IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
 
         /* stdcall so removed args so top of stack is now the slot containing the
          * returned handle.  Use LdrGetProcedureAddress to get the address of the
@@ -670,39 +861,49 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
         *cur_local_pos++ = PUSH_ECX; /* need slot for out ProcedureAddress */
         MOV_ESP_TO_EAX();
         *cur_local_pos++ = PUSH_EAX; /* arg 4 OUT *ProcedureAddress */
+        IF_X64(MOV_EAX_TO_PARAM_3());
         PUSH_SHORT_IMMEDIATE(0x0); /* Ordinal OPTIONAL */
-        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+        IF_X64(MOV_TOS_TO_PARAM_2());
+        CHECK_U64(func_remote);
         PUSH_IMMEDIATE((int)(ptr_int_t)func_remote); /* func name */
+        IF_X64(MOV_TOS_TO_PARAM_1());
         *cur_local_pos++ = PUSH_ECX; /* module handle */
+        IF_X64(MOV_TOS_TO_PARAM_0());
         CALL(LdrGetProcedureAddress); /* see signature at decleration above */
+        IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
 
         /* Top of stack is now the dr init and takeover function (stdcall removed
          * args). Check for errors and bail (FIXME debug build report somehow?) */
-        *cur_local_pos++ = CMP_EAX_IMM32;
-        INSERT_INT(STATUS_SUCCESS);
+        CMP_TO_EAX(STATUS_SUCCESS);
         *cur_local_pos++ = POP_EAX; /* dr init_and_takeover function */
         *cur_local_pos++ = JNZ_REL8; /* FIXME - should check >= 0 instead? */
         jmp_fixup1 = cur_local_pos++; /* jmp to after call below */
         /* Xref case 8373, LdrGetProcedureAdderss sometimes returns an
          * address of 0xffbadd11 even though it returned STATUS_SUCCESS */
-        *cur_local_pos++ = CMP_EAX_IMM32;
-        INSERT_INT(GET_PROC_ADDR_BAD_ADDR);
+        CMP_TO_EAX(GET_PROC_ADDR_BAD_ADDR);
         *cur_local_pos++ = JZ_REL8; /* JZ == JE */
         jmp_fixup2 = cur_local_pos++; /* jmp to after call below */
-        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+        IF_X64(ADD_IMM8_TO_ESP(-2*(int)XSP_SZ)); /* need 4 slots total */
+        CHECK_U64(remote_code_buffer);
         PUSH_IMMEDIATE((int)(ptr_int_t)remote_code_buffer); /* arg to takeover func */
+        IF_X64(MOV_TOS_TO_PARAM_1());
         PUSH_IMMEDIATE(inject_location); /* arg to takeover func */
+        IF_X64(MOV_TOS_TO_PARAM_0());
         *cur_local_pos++ = CALL_RM32; /* call EAX */
         *cur_local_pos++ = CALL_EAX_RM;
+#ifdef X64
+        IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
+#else
         *cur_local_pos++ = POP_ECX; /* cdecl so pop arg */
         *cur_local_pos++ = POP_ECX; /* cdecl so pop arg */
+#endif
         /* Now patch the jnz above (if error) to go to here */
         ASSERT_TRUNCATE(*jmp_fixup1, byte, cur_local_pos - (jmp_fixup1+1));
         *jmp_fixup1 = (byte)(cur_local_pos - (jmp_fixup1+1)); /* target of jnz */
         ASSERT_TRUNCATE(*jmp_fixup2, byte, cur_local_pos - (jmp_fixup2+1));
         *jmp_fixup2 = (byte)(cur_local_pos - (jmp_fixup2+1)); /* target of jz */
         *cur_local_pos++ = POPF;
-        *cur_local_pos++ = POPA;
+        INSERT_POP_ALL_REG();
         if (inject_location != INJECT_LOCATION_KiUserException) {
             /* jmp back to the hook location to resume execution */
             *cur_local_pos++ = JMP_REL32;
@@ -713,9 +914,12 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
             *cur_local_pos++ = POP_EAX;  /* EXCEPTION_RECORD ** */
             *cur_local_pos++ = POP_EAX;  /* CONTEXT ** */
             PUSH_SHORT_IMMEDIATE(FALSE); /* arg 2 TestAlert */
+            IF_X64(MOV_TOS_TO_PARAM_1());
             *cur_local_pos++ = MOV_RM32_2_REG32;
             *cur_local_pos++ = MOV_derefEAX_2_EAX_RM; /* CONTEXT * -> EAX */
             *cur_local_pos++ = PUSH_EAX; /* push CONTEXT * (arg 1) */
+            IF_X64(MOV_EAX_TO_PARAM_0());
+            IF_X64(ADD_IMM8_TO_ESP(-4*(int)XSP_SZ)); /* 4 slots */
             CALL(NtContinue);
             /* should never get here, will be zeroed memory so will crash if
              * we do happen to get here, good enough reporting */
@@ -753,7 +957,8 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
     /* place hook */
     ASSERT(sizeof(hook_buf) == 5); /* standard 5 byte jmp rel32 hook */
     hook_buf[0] = JMP_REL32;
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+    IF_X64(ASSERT_NOT_IMPLEMENTED(REL32_REACHABLE
+                                  ((byte *)hook_location + 5, (byte*)hook_target)));
     *(int *)(&hook_buf[1]) = (int)((byte *)hook_target - ((byte *)hook_location + 5));
     if (!nt_remote_protect_virtual_memory(phandle, hook_location,
                                           sizeof(hook_buf),

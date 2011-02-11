@@ -1877,8 +1877,12 @@ is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
      * but no easy way to do either here.  FIXME 
      */
     process_id_t pid = process_id_from_handle(process_handle);
-    return (pid == 0 || 
-            (!is_pid_me(pid) && cxt->CXT_XBX == (ptr_uint_t)get_peb(process_handle)));
+    LOG(THREAD_GET, LOG_SYSCALLS|LOG_THREADS, 2,
+        "%s: pid="PIFX" vs me="PIFX", xbx="PFX" vs peb="PFX"\n",
+        __FUNCTION__, pid, get_process_id(), cxt->THREAD_START_ARG,
+        get_peb(process_handle));
+    return (pid == 0 || (!is_pid_me(pid) &&
+                         cxt->THREAD_START_ARG == (ptr_uint_t)get_peb(process_handle)));
 }
 
 /* Depending on registry and options maybe inject into child process with

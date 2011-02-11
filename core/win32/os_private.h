@@ -255,6 +255,10 @@ os_rename_file_in_directory(IN HANDLE rootdir,
  */
 #define INTERCEPTION_CODE_SIZE IF_X64_ELSE(7*4096,5*4096)
 
+/* see notes in intercept_new_thread() about these values */
+#define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)
+#define THREAD_START_ARG  IF_X64_ELSE(CXT_XDX, CXT_XBX)
+
 void
 callback_init(void);
 
