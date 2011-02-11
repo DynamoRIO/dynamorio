@@ -125,8 +125,18 @@ enable_language(CXX)
 
 # configurations that also have defines
 option(DEBUG "build with asserts and logging enabled")
-option(INTERNAL "for developer use")
 option(DRGUI_DEMO "build DRgui with a giant font for projecting")
+
+# INTERNAL option now matches DEBUG
+if (DEBUG)
+  set(INTERNAL_DEFAULT ON)
+else (DEBUG)
+  set(INTERNAL_DEFAULT 0FF)
+endif (DEBUG)
+set(INTERNAL "" CACHE STRING "for developer use: ON or OFF overrides default")
+if ("${INTERNAL}" STREQUAL "")
+  set(INTERNAL ${INTERNAL_DEFAULT})
+endif()
 
 # target
 if (UNIX)
