@@ -939,6 +939,13 @@ dynamo_shared_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
     instrument_exit();
 #endif
 
+#ifdef WINDOWS
+    /* we want dcontext around for loader_exit() */
+    if (get_thread_private_dcontext() != NULL)
+        loader_thread_exit(get_thread_private_dcontext());
+    loader_exit();
+#endif
+
     if (IF_WINDOWS_ELSE(!detach_stacked_callbacks, true)) {
         /* We don't fully free cur thread until after client exit event (PR 536058) */
         if (thread_lookup(get_thread_id()) == NULL) {
@@ -952,9 +959,6 @@ dynamo_shared_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
             dynamo_thread_exit();
         }
     }
-#ifdef WINDOWS
-    loader_exit();
-#endif
     /* now that the final thread is exited, free the all_threads memory */
     mutex_lock(&all_threads_lock);
     global_heap_free(all_threads,
@@ -2294,7 +2298,8 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
         instrument_thread_exit(dcontext);
 #endif
 #ifdef WINDOWS
-    loader_thread_exit(dcontext);
+    if (!dynamo_exited || other_thread) /* else already did this */
+        loader_thread_exit(dcontext);
 #endif
     fcache_thread_exit(dcontext);
     link_thread_exit(dcontext);

@@ -99,8 +99,11 @@ static bool
 privload_process_one_import(privmod_t *mod, privmod_t *impmod,
                             IMAGE_THUNK_DATA *lookup, app_pc *address);
 
+static const char *
+privload_map_name(const char *impname, privmod_t *immed_dep);
+
 static privmod_t *
-privload_locate_and_load(const char *impname, privmod_t *dependent, privmod_t *immed_dep);
+privload_locate_and_load(const char *impname, privmod_t *dependent);
 
 /* Redirection of ntdll routines that for transparency reasons we can't
  * point at the real ntdll.  If we get a lot of these should switch to
@@ -620,6 +623,7 @@ privload_unload_imports(privmod_t *mod)
 
     while (imports->OriginalFirstThunk != 0) {
         const char *impname = (const char *) RVA_TO_VA(mod->base, imports->Name);
+        impname = privload_map_name(impname, mod);
         impmod = privload_lookup(impname);
         /* If we hit an error in the middle of loading we may not have loaded
          * all imports for mod so impmod may not be found
@@ -741,6 +745,7 @@ privload_process_imports(privmod_t *mod)
         const char *impname = (const char *) RVA_TO_VA(mod->base, imports->Name);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: %s imports from %s\n", __FUNCTION__,
             mod->name, impname);
+        impname = privload_map_name(impname, mod);
 
         /* FIXME i#233: support bound imports: for now ignoring */
         if (imports->TimeDateStamp == -1) {
@@ -758,7 +763,7 @@ privload_process_imports(privmod_t *mod)
 
         impmod = privload_lookup(impname);
         if (impmod == NULL) {
-            impmod = privload_locate_and_load(impname, mod, mod);
+            impmod = privload_locate_and_load(impname, mod);
             if (impmod == NULL) {
                 LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load import lib %s\n",
                     __FUNCTION__, impname);
@@ -853,6 +858,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
     privmod_t *last_forwmod = NULL;
     const char *forwfunc = NULL;
     const char *impfunc = NULL;
+    const char *forwpath = NULL;
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     if (TEST(IMAGE_ORDINAL_FLAG, lookup->u1.Function)) {
@@ -899,11 +905,15 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
         LOG(GLOBAL, LOG_LOADER, 2, "\tforwarder %s => %s %s\n",
             forwarder, forwmodpath, forwfunc);
         last_forwmod = forwmod;
-        forwmod = privload_lookup(forwmodpath);
+        forwpath = privload_map_name(forwmodpath,
+                                     last_forwmod == NULL ? mod : last_forwmod);
+        forwmod = privload_lookup(forwpath);
         if (forwmod == NULL) {
             /* don't use forwmodpath past here: recursion may clobber it */
-            forwmod = privload_locate_and_load(forwmodpath, mod,
-                                               last_forwmod == NULL ? mod : last_forwmod);
+            /* XXX: should inc ref count: but then need to walk individual imports
+             * and dec on unload.  For now risking it.
+             */
+            forwmod = privload_locate_and_load(forwpath, mod);
             if (forwmod == NULL) {
                 LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forworder for %s\n"
                     __FUNCTION__, forwarder);
@@ -1062,10 +1072,29 @@ map_api_set_dll(const char *name, privmod_t *dependent)
 }
 
 /* If walking forwarder chain, immed_dep should be most recent walked.
- * Else should equal dependent.
+ * Else should be regular dependent.
  */
+static const char *
+privload_map_name(const char *impname, privmod_t *immed_dep)
+{
+    /* 0) on Windows 7, the API-set pseudo-dlls map to real dlls */
+    if (get_os_version() >= WINDOWS_VERSION_7 &&
+        str_case_prefix(impname, "API-MS-Win-")) {
+        IF_DEBUG(const char *apiname = impname;)
+        /* We need immediate dependent to avoid infinite chain when hit
+         * kernel32 OpenProcessToken forwarder which needs to forward
+         * to kernelbase
+         */
+        impname = map_api_set_dll(impname, immed_dep);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: mapped API-set dll %s to %s\n",
+            __FUNCTION__, apiname, impname);
+        return impname;
+    }
+    return impname;
+}
+
 static privmod_t *
-privload_locate_and_load(const char *impname, privmod_t *dependent, privmod_t *immed_dep)
+privload_locate_and_load(const char *impname, privmod_t *dependent)
 {
     privmod_t *mod = NULL;
     uint i;
@@ -1082,23 +1111,6 @@ privload_locate_and_load(const char *impname, privmod_t *dependent, privmod_t *i
      * (i#277/PR 540817, added to search_paths in privload_init_search_paths()).
      */
 
-    /* 0) on Windows 7, the API-set pseudo-dlls map to real dlls */
-    if (get_os_version() >= WINDOWS_VERSION_7 &&
-        str_case_prefix(impname, "API-MS-Win-")) {
-        IF_DEBUG(const char *apiname = impname;)
-        /* We need immediate dependent to avoid infinite chain when hit
-         * kernel32 OpenProcessToken forwarder which needs to forward
-         * to kernelbase
-         */
-        impname = map_api_set_dll(impname, immed_dep);
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: mapped API-set dll %s to %s\n",
-            __FUNCTION__, apiname, impname);
-        /* currently caller must do lookup: privload_load does not */
-        mod = privload_lookup(impname);
-        if (mod != NULL)
-            return mod;
-    }
-    
     /* 1) client lib dir(s) and Extensions dir */
     for (i = 0; i < search_paths_idx; i++) {
         snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/%s",
