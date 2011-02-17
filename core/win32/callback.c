@@ -4683,7 +4683,12 @@ intercept_exception(app_state_at_intercept_t *state)
              * recovering is a good thing, any unexpected faults
              * should be visible in debug builds.
              */
+# ifdef CLIENT_INTERFACE
+            SYSLOG_INTERNAL_WARNING_ONCE("Handling our fault in a TRY at "PFX,
+                                         cxt->CXT_XIP);
+# else
             SYSLOG_INTERNAL_WARNING("Handling our fault in a TRY at "PFX, cxt->CXT_XIP);
+# endif
 
             ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP) ||
                    is_on_initstack((byte *)cxt->CXT_XSP) ||
