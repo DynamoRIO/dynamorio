@@ -203,6 +203,70 @@ double_to_exp_str(double d, int exp, int decimal, char * buf, bool force_dot, bo
     return buf;
 }
 
+/* i#386: separated out to avoid floating-point instrs in our_vsnprintf */
+static char *
+our_vsnprintf_float(va_list ap, const char *c, char prefixbuf[3], char buf[BUF_SIZE],
+                    int decimal, bool space_flag, bool plus_flag, bool pound_flag)
+{
+    char *str;
+    bool caps = (*c == 'E') || (*c == 'G');
+    /* pretty sure will always be promoted to a double in arg list */
+    double val = va_arg(ap, double);
+    double d = val;
+    int exp = 0;
+    bool is_g = (*c == 'g' || *c == 'G'); 
+    /* check for NaN */
+    if (val != val) {
+        if (caps)
+            str = "NAN";
+        else
+            str = "nan";
+        if (space_flag)
+            prefixbuf[0] = ' ';
+        return str;
+    }
+    if (decimal == -1)
+        decimal = 6; /* default */
+    if (val >= 0 && space_flag)
+        prefixbuf[0] = ' '; /* get prefix */
+    if (val >= 0 && plus_flag)
+        prefixbuf[0] = '+';
+    if (val < 0)
+        prefixbuf[0] = '-';
+    /* check for inf */
+    if (val == pos_inf || val == neg_inf) {
+        if (caps)
+            str = "INF";
+        else
+            str = "inf";
+        return str;
+    }
+    if (*c == 'f') { /* ready to generate string now for f */
+        str = double_to_str(val, decimal, buf, pound_flag, false);
+        return str;
+    }
+    /* get exponent value */
+    while (d >= 10.0 || d <= -10.0) {
+        exp++;
+        d = d / 10.0;
+    }
+    while (d < 1.0 && d > -1.0 && d != 0.0) {
+        exp--;
+        d = d * 10.0;
+    }
+    
+    if (is_g)
+        decimal--; /* g/G precision is number of signifigant digits */
+    if (is_g && exp >= -4 && exp <= decimal) {
+        /* exp is small enough for f, print without exponent */
+        str = double_to_str(val, decimal, buf, pound_flag, !pound_flag);
+    } else {
+        /* print with exponent */
+        str = double_to_exp_str(d, exp, decimal, buf, pound_flag,
+                                is_g && !pound_flag, caps);
+    }
+    return str;
+}
 
 int
 our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
@@ -438,61 +502,8 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
             case 'E':
             case 'f':
                 {
-                    bool caps = (*c == 'E') || (*c == 'G');
-                    /* pretty sure will always be promoted to a double in arg list */
-                    double val = va_arg(ap, double);
-                    double d = val;
-                    int exp = 0;
-                    bool is_g = (*c == 'g' || *c == 'G'); 
-                    /* check for NaN */
-                    if (val != val) {
-                        if (caps)
-                            str = "NAN";
-                        else
-                            str = "nan";
-                        if (space_flag)
-                            prefixbuf[0] = ' ';
-                        break;
-                    }
-                    if (decimal == -1)
-                        decimal = 6; /* default */
-                    if (val >= 0 && space_flag)
-                        prefixbuf[0] = ' '; /* get prefix */
-                    if (val >= 0 && plus_flag)
-                        prefixbuf[0] = '+';
-                    if (val < 0)
-                        prefixbuf[0] = '-';
-                    /* check for inf */
-                    if (val == pos_inf || val == neg_inf) {
-                        if (caps)
-                            str = "INF";
-                        else
-                            str = "inf";
-                        break;
-                    }
-                    if (*c == 'f') { /* ready to generate string now for f */
-                        str = double_to_str(val, decimal, buf, pound_flag, false);
-                        break;
-                    }
-                    /* get exponent value */
-                    while (d >= 10.0 || d <= -10.0) {
-                        exp++;
-                        d = d / 10.0;
-                    }
-                    while (d < 1.0 && d > -1.0 && d != 0.0) {
-                        exp--;
-                        d = d * 10.0;
-                    }
-
-                    if (is_g)
-                        decimal--; /* g/G precision is number of signifigant digits */
-                    if (is_g && exp >= -4 && exp <= decimal) {
-                        /* exp is small enough for f, print without exponent */
-                        str = double_to_str(val, decimal, buf, pound_flag, !pound_flag);
-                        break;
-                    }
-                    /* print with exponent */
-                    str = double_to_exp_str(d, exp, decimal, buf, pound_flag, is_g && !pound_flag, caps);
+                    str = our_vsnprintf_float(ap, c, prefixbuf, buf, decimal,
+                                              space_flag, plus_flag, pound_flag);
                     break;
                 }
             case 'n':

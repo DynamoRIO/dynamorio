@@ -1304,10 +1304,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         return true;
     case TYPE_FLOATCONST:
         CLIENT_ASSERT(opsize == OPSZ_0, "internal decode inconsistency");
-        /* FIXME: we don't modify any floating point state, but we
-         * could cleanup the binary representation of 0.0f is 0x0
-         */
-        *opnd = opnd_create_immed_float(0.);
+        /* i#386: avoid floating-point instructions */
+        *opnd = opnd_create_immed_float_zero();
         return true;
     case TYPE_J:
         if (di->seg_override == SEG_JCC_NOT_TAKEN ||

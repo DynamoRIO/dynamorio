@@ -513,9 +513,17 @@ opnd_t
 opnd_create_immed_int(ptr_int_t i, opnd_size_t data_size);
 
 DR_API
-/** Returns an immediate float operand with value \p f. */
+/** 
+ * Returns an immediate float operand with value \p f.
+ * The caller's code should use proc_save_fpstate() or be inside a
+ * clean call that has requested to preserve the floating-point state.
+ */
 opnd_t 
 opnd_create_immed_float(float f);
+
+/* not exported */
+opnd_t
+opnd_create_immed_float_zero(void);
 
 DR_API
 /** Returns a program address operand with value \p pc. */
@@ -920,7 +928,11 @@ ptr_int_t
 opnd_get_immed_int(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is an immediate float, returns its value. */
+/** 
+ * Assumes \p opnd is an immediate float and returns its value. 
+ * The caller's code should use proc_save_fpstate() or be inside a
+ * clean call that has requested to preserve the floating-point state.
+ */
 float  
 opnd_get_immed_float(opnd_t opnd);
 

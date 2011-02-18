@@ -2489,6 +2489,9 @@ DR_API
  * an internal buffer size.  Use dr_write_file() to print large buffers.
  * \note On Linux this routine does not check for errors like EINTR.  Use
  * dr_write_file() if that is a concern.
+ * \note When printing floating-point values, the caller's code should
+ * use proc_save_fpstate() or be inside a clean call that
+ * has requested to preserve the floating-point state.
  */
 void
 dr_fprintf(file_t f, const char *fmt, ...);
@@ -2508,6 +2511,9 @@ DR_API
  * not support printing floating point values).
  * \note If the data to be printed is large it will be truncated to
  * an internal buffer size.
+ * \note When printing floating-point values, the caller's code should
+ * use proc_save_fpstate() or be inside a clean call that
+ * has requested to preserve the floating-point state.
  */
 int
 dr_snprintf(char *buf, size_t max, const char *fmt, ...);

@@ -282,15 +282,29 @@ opnd_create_immed_int(ptr_int_t i, opnd_size_t size)
     return opnd;
 }
 
+/* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
 opnd_t
 opnd_create_immed_float(float i)
 {
     opnd_t opnd;
     opnd.kind = IMMED_FLOAT_kind;
     /* note that manipulating floats is dangerous - see case 4360 
-     * this copy shouldn't require any fp state, though
+     * even this copy can end up using fp load/store instrs and could
+     * trigger a pending fp exception (i#386)
      */
     opnd.value.immed_float = i;
+    /* currently only used for implicit constants that have no size */
+    opnd.size = OPSZ_0;
+    return opnd;
+}
+
+opnd_t
+opnd_create_immed_float_zero(void)
+{
+    opnd_t opnd;
+    opnd.kind = IMMED_FLOAT_kind;
+    /* avoid any fp instrs (xref i#386) */
+    memset(&opnd.value.immed_float, sizeof(opnd.value.immed_float), 0);
     /* currently only used for implicit constants that have no size */
     opnd.size = OPSZ_0;
     return opnd;
