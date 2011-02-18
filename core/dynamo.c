@@ -2945,7 +2945,7 @@ protect_data_section(uint sec, bool writable)
             STATS_INC(datasec_prot_changes);
         } else
             STATS_INC(datasec_prot_wasted_calls);
-        DATASEC_WRITABLE_MOD(sec, ++);
+        (void)DATASEC_WRITABLE_MOD(sec, ++);
     }
     LOG(TEST(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? THREAD_GET : GLOBAL,
         LOG_VMAREAS, TEST(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? 3U : 2U,
@@ -2954,7 +2954,7 @@ protect_data_section(uint sec, bool writable)
         DATASEC_NAMES[sec], writable ? "rw" : "r", DATASEC_WRITABLE(sec));
     if (!writable) {
         ASSERT(DATASEC_WRITABLE(sec) > 0);
-        DATASEC_WRITABLE_MOD(sec, --);
+        (void)DATASEC_WRITABLE_MOD(sec, --);
         if (DATASEC_WRITABLE(sec) == 0) {
             make_unwritable(datasec_start[sec], datasec_end[sec] - datasec_start[sec]);
             STATS_INC(datasec_prot_changes);

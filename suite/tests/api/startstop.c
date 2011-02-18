@@ -44,7 +44,7 @@ void foo()
 {
 }
 
-main()
+int main(void)
 {
     double res = 0.;
     int i,j;

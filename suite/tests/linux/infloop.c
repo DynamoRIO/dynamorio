@@ -37,6 +37,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <assert.h>
+#include <string.h>
 /* just use single-arg handlers */
 typedef void (*handler_t)(int);
 typedef void (*handler_3_t)(int, struct siginfo *, void *);

@@ -34,9 +34,10 @@
  * test exiting one thread group while another remains
  */
 
+#include <unistd.h>
 #include <sys/types.h> /* for wait and mmap */
 #include <sys/wait.h>  /* for wait */
-#include <sched.h>     /* for __clone and CLONE_ flags */
+#include <sched.h>     /* for clone and CLONE_ flags */
 #include <time.h>      /* for nanosleep */
 #include <sys/mman.h>  /* for mmap */
 #include <assert.h>
@@ -201,11 +202,11 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool same_group)
         CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
     if (same_group)
         flags |= CLONE_THREAD;
-    newpid = __clone(fcn, my_stack, flags, arg);
+    newpid = clone(fcn, my_stack, flags, arg);
     /* this is really a tid if we passed CLONE_THREAD: child has same pid as us */
   
     if (newpid == -1) {
-        fprintf(stderr, "smp.c: Error calling __clone\n");
+        fprintf(stderr, "smp.c: Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
         return -1;
     }

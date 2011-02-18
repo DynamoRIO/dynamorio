@@ -458,7 +458,9 @@ proc_has_feature(feature_bit_t f)
 {
     uint bit, val = 0;
 
-    if (f >= 0 && f <= 31) {
+    /* Cast to int to avoid tautological comparison if feature_bit_t enum is
+     * unsigned. */
+    if ((int)f >= 0 && f <= 31) {
         val = features.flags_edx;
     } else if (f >= 32 && f <= 63) {
         val = features.flags_ecx;

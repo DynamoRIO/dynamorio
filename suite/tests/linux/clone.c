@@ -36,7 +36,7 @@
 
 #include <sys/types.h> /* for wait and mmap */
 #include <sys/wait.h>  /* for wait */
-#include <sched.h>     /* for __clone and CLONE_ flags */
+#include <sched.h>     /* for clone and CLONE_ flags */
 #include <time.h>      /* for nanosleep */
 #include <sys/mman.h>  /* for mmap */
 #include <assert.h>
@@ -140,10 +140,10 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
      * (the thread.c test tests CLONE_THREAD)
      */
     flags = SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
-    newpid = __clone(fcn, my_stack, flags, arg);
+    newpid = clone(fcn, my_stack, flags, arg);
   
     if (newpid == -1) {
-	printf("smp.c: Error calling __clone\n");
+	printf("smp.c: Error calling clone\n");
 	stack_free(my_stack, THREAD_STACK_SIZE);
 	return -1;
     }

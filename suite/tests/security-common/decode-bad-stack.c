@@ -44,7 +44,7 @@
 #endif
 
 /* asm routine */
-void jumpto(char *buf);
+void jumpto(unsigned char *buf);
 
 /* just use single-arg handlers */
 typedef void (*handler_t)(int);

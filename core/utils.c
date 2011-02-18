@@ -1618,7 +1618,7 @@ DECLARE_FREQPROT_VAR(static bool do_once_do_file_write, false);
 void 
 do_file_write(file_t f, const char *fmt, va_list ap)
 {
-    size_t size;
+    ssize_t size;
     char logbuf[MAX_LOG_LENGTH];
 
 #ifndef NOLIBC

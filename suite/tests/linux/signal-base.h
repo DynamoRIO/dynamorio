@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
 #if USE_LONGJMP
     res = setjmp(env);
     if (res == 0) {
-        *((int *)0) = 4;
+        *((volatile int *)0) = 4;
     }
 #else
     kill(getpid(), SIGSEGV);

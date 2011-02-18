@@ -572,7 +572,7 @@ int indir_var_reg_offs_factor(int optype);
 /* in encode.c, not exported to non-x86 files */
 const instr_info_t * get_encoding_info(instr_t *instr);
 const instr_info_t * instr_info_extra_opnds(const instr_info_t *info);
-byte instr_info_opnd_type(const instr_info_t *info, bool src, uint num);
+byte instr_info_opnd_type(const instr_info_t *info, bool src, int num);
 
 extern const instr_info_t invalid_instr;
 

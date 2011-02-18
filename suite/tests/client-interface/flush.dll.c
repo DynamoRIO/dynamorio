@@ -197,7 +197,7 @@ void callback(void *tag, app_pc next_pc)
             mcontext.pc = next_pc;
             dr_flush_region(tag, 1);
             dr_redirect_execution(&mcontext, errno);
-            *(uint *)NULL = 0; /* ASSERT_NOT_REACHED() */
+            *(volatile uint *)NULL = 0; /* ASSERT_NOT_REACHED() */
         } else if (use_unlink) {
             /* Test dr_unlink_flush_region() half the time (if available).
              * FIXME - extend once we add unlink callback. */

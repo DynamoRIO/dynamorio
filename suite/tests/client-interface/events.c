@@ -49,6 +49,7 @@
 # include <signal.h>
 # include <ucontext.h>
 # include <assert.h>
+# include <sys/wait.h> /* for wait */
 #endif
 
 

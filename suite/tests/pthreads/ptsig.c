@@ -40,6 +40,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <ucontext.h>
+#include <unistd.h>
 #include <assert.h>
 
 #ifdef USE_DYNAMO

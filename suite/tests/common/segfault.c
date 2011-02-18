@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 
     print("Segfault about to happen\n");
 
-    *((int *)0) = 4;
+    *((volatile int *)0) = 4;
 
     print("SHOULD NEVER GET HERE\n");
 

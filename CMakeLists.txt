@@ -395,6 +395,14 @@ set(INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 if (UNIX)
 
+  # Assume clang behaves like gcc.  CMake 2.6 won't detect clang and will set
+  # CMAKE_COMPILER_IS_GNUCC to TRUE, but 2.8 does not.  We prefer the 2.6
+  # behavior.
+  string(REGEX MATCH "clang" CMAKE_COMPILER_IS_CLANG "${CMAKE_C_COMPILER}")
+  if (CMAKE_COMPILER_IS_CLANG)
+    set(CMAKE_COMPILER_IS_GNUCC TRUE)
+  endif ()
+
   if (CYGWIN)
     message(FATAL_ERROR "building using gcc within cygwin is not supported")
   endif (CYGWIN)
@@ -709,25 +717,37 @@ if (UNIX)
   endif (NOT flag_present)
 
   # Check for -fvisibility
-  include(CheckCCompilerFlag)
-  CHECK_C_COMPILER_FLAG("-fvisibility=internal" HAVE_FVISIBILITY)
-  if (NOT HAVE_FVISIBILITY)
-    message("${CMAKE_C_COMPILER} missing flag -fvisibility, using linker script instead")
-  endif (NOT HAVE_FVISIBILITY)
+  # PR 262458: for gcc >= 3.4 we can use -fvisibility instead of a
+  # linker version script.  Note that we're still using a linker
+  # script to set our preferred base (PR 253624) and will need to
+  # for section ordering as well (PR 208267) but those are separate
+  # scripts.
+  # Only export functions so marked via attributes
+  # (For older gcc we use an ugly linker script and an auto-generated export list)
+  # Using "internal" instead of "hidden" b/c we don't need any indirect
+  # calls to our non-exported functions
   # For INTERNAL builds we keep our symbols visible, for better libc backtraces
-  if (HAVE_FVISIBILITY AND NOT KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
-    # PR 262458: for gcc >= 3.4 we can use -fvisibility instead of a
-    # linker version script.  Note that we're still using a linker
-    # script to set our preferred base (PR 253624) and will need to
-    # for section ordering as well (PR 208267) but those are separate
-    # scripts.
-    # Only export functions so marked via attributes
-    # (For older gcc we use an ugly linker script and an auto-generated export list)
-    # Using "internal" instead of "hidden" b/c we don't need any indirect
-    # calls to our non-exported functions
-    set(BASE_CFLAGS "${BASE_CFLAGS} -fvisibility=internal")
-    set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -fvisibility=internal")
-  endif (HAVE_FVISIBILITY AND NOT KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
+  if (NOT KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
+    include(CheckCCompilerFlag)
+    CHECK_C_COMPILER_FLAG("-fvisibility=internal" HAVE_FVISIBILITY_INTERNAL)
+    CHECK_C_COMPILER_FLAG("-fvisibility=hidden" HAVE_FVISIBILITY_HIDDEN)
+
+    if (HAVE_FVISIBILITY_INTERNAL)
+      set(VISIBILITY "internal")
+    elseif (HAVE_FVISIBILITY_HIDDEN)
+      set(VISIBILITY "hidden")
+    else (HAVE_FVISIBILITY_INTERNAL)
+      message("${CMAKE_C_COMPILER} missing flag -fvisibility, using linker "
+              "script instead")
+      set(VISIBILITY " ")
+    endif (HAVE_FVISIBILITY_INTERNAL)
+
+    if (VISIBILITY)
+      set(BASE_CFLAGS "${BASE_CFLAGS} -fvisibility=${VISIBILITY}")
+      set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -fvisibility=${VISIBILITY}")
+      set(HAVE_FVISIBILITY ON)
+    endif (VISIBILITY)
+  endif (NOT KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
 
   # Better to use -dT when passing linker options through gcc, but ld
   # prior to 2.18 only supports -T

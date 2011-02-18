@@ -1217,7 +1217,11 @@ if (UNIX)
     tobuild(security-linux.stacktest security-linux/stacktest.c)
     tochcon(security-linux.stacktest execmem_exec_t)
   endif (NOT X64)
-  tobuild(security-linux.trampoline security-linux/trampoline.c)
+  # Clang will likely never support gcc nested functions:
+  # http://llvm.org/PR9206
+  if (NOT CMAKE_COMPILER_IS_CLANG)
+    tobuild(security-linux.trampoline security-linux/trampoline.c)
+  endif (NOT CMAKE_COMPILER_IS_CLANG)
 
   # this app is used in nudge tests
   # XXX: should all these infloop tests be made cross-platform?

@@ -1133,7 +1133,7 @@ get_encoding_info(instr_t *instr)
 
 /* num is 0-based */
 byte
-instr_info_opnd_type(const instr_info_t *info, bool src, uint num)
+instr_info_opnd_type(const instr_info_t *info, bool src, int num)
 {
     if (num < 0) {
         CLIENT_ASSERT(false, "internal decode error");
