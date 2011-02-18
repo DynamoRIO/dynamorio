@@ -945,6 +945,10 @@ cl my-client.c /I$DYNAMORIO_HOME/include /GS- /DWINDOWS /DX86_64
 For 64-bit Linux \clients, setting the preferred base takes several steps.
 Refer to \p DynamoRIOConfig.cmake for details.
 
+To make clean call sequences more likely to be optimized, it is recommended
+to compile the \client with optimizations, \p -O2 for gcc or \p /O2 for cl.
+
+
 ***************************************************************************
 \section sec_extensions \DynamoRIO Extensions
 
@@ -1097,15 +1101,30 @@ Linux\endif.  See \ref sec_deploy.
 
  - \b -opt_cleancall \e \<number\>: \anchor op_cleancall
    Optimize (shrink or inline) the clean call sequences. 
-   Assuming that the clean call callee code will not be modified later during 
-   the execution, DR analyzes the callee and optimizes clean call invocation.
-   There are three optimization levels.
+   When \DynamoRIO analyzes the callee and optimizes each clean call invocation, 
+   it assumes that a \client will not modify the clean call callee or application
+   instructions after the inserted clean call.
+   If a \client changes application instructions after an inserted clean call, 
+   the \client may need to reduce the -opt_cleancall level to preserve correct 
+   execution.
+   The clean call will only be optimized if it is a leaf function.
+   Currently, the callee will be inlined only if it is small and has at most 
+   one argument.
+   Compiling the \client with optimizations makes clean call sequences more likely 
+   to be optimized.
+   The optimization results (e.g. whether the inserted clean call is inlined or not,
+   and which registers were saved on each context switch) are logged.
+   Users can run \DynamoRIO debug build with the runtime option 
+   "-loglevel 2 -logmask 0x02000000" (the logmask is optional but reduces the 
+   logfile size significantly) and grep for 
+   "CLEANCALL" in the log file to retrieve the information 
+   about clean call optimization.
+   There are four optimization levels.
    By default, the clean call optimization level is 2.
    - 0: no optimization.
-   - 1: callee's register usage analysis and optimization on context switch.
-   - 2: simple callee inline optimization, callee-save register analysis, 
-        and aflags usage analysis and optimization on the instruction list 
-        to be inserted.
+   - 1: callee register usage analysis and optimization on context switch.
+   - 2: simple callee inline optimization, callee-save register analysis,
+        and aflags usage analysis on the instruction list to be inserted.
    - 3: more aggressive, but potentially unsafe, optimizations.
 
 \if expose_opt_speed

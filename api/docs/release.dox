@@ -112,6 +112,7 @@ are not backward compatible: see below for details.
 The changes between version 2.1.0 and 2.0.0 are:
 
  - Added Windows 7 support
+ - Added clean call sequence optimization and auto-inlining.
  - Added Windows child process following support for \clients: -follow_children
    is now on by default for both Windows and Linux.
  - Added DR_TRY_EXCEPT() (Issue 51)

@@ -3066,6 +3066,9 @@ DR_API
  * argument that references application memory); such a fault will be
  * treated as an application exception.
  *
+ * The clean call sequence will be optimized based on the runtime option
+ * \ref op_cleancall "-opt_cleancall".
+ *
  * \note The stack used to save state and call \p callee is limited to
  * 20KB by default; this can be changed with the -stack_size DR runtime
  * parameter.  This stack cannot be used to store state that persists

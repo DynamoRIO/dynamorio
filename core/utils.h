@@ -440,7 +440,6 @@ enum {
 #ifdef CLIENT_INTERFACE
     LOCK_RANK(client_aux_libs),
 #endif
-    LOCK_RANK(clean_callees_lock),
     /* ADD HERE a lock around section that may allocate memory */
 
     /* N.B.: the order of allunits < global_alloc < heap_unit is relied on
@@ -1779,9 +1778,10 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #define LOG_HTABLE         0x00400000
 #define LOG_MODULEDB       0x00800000
 #define LOG_LOADER         0x01000000
+#define LOG_CLEANCALL      0x02000000
 
-#define LOG_ALL_RELEASE    0x01e0ffff
-#define LOG_ALL            0x01ffffff
+#define LOG_ALL_RELEASE    0x02e0ffff
+#define LOG_ALL            0x02ffffff
 
 #ifdef WINDOWS_PC_SAMPLE
 # define LOG_PROFILE       LOG_ALL

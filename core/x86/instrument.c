@@ -3376,7 +3376,6 @@ static void
 convert_va_list_to_opnd(opnd_t *args, uint num_args, va_list ap)
 {
     uint i;
-    CLIENT_ASSERT(num_args < MAX_NUM_ARGS, "Too many arguments");
     /* There's no way to check num_args vs actual args passed in */
     for (i = 0; i < num_args; i++) {
         args[i] = va_arg(ap, opnd_t);
@@ -3392,15 +3391,23 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                void *callee, uint num_args, ...)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    opnd_t args[MAX_NUM_ARGS];
+    opnd_t *args = NULL;
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call: drcontext cannot be NULL");
     /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
-    va_start(ap, num_args);
-    convert_va_list_to_opnd(args, num_args, ap);
-    va_end(ap);
-    insert_meta_call_vargs(dcontext, NULL, ilist, where, false/*not clean*/,
+    if (num_args != 0) {
+        args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args, 
+                                ACCT_CLEANCALL, UNPROTECTED);
+        va_start(ap, num_args);
+        convert_va_list_to_opnd(args, num_args, ap);
+        va_end(ap);
+    }
+    insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/,
                            callee, num_args, args);
+    if (num_args != 0) {
+        HEAP_ARRAY_FREE(drcontext, args, opnd_t, num_args,
+                        ACCT_CLEANCALL, UNPROTECTED);
+    }
 }
 
 /* Internal utility routine for inserting context save for a clean call.
@@ -3472,18 +3479,31 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     uint dstack_offs, pad = 0;
     size_t buf_sz = 0;
     clean_call_info_t cci; /* information for clean call insertion. */
-    opnd_t args[MAX_NUM_ARGS];
+    opnd_t *args = NULL;
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
-    /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
-    va_start(ap, num_args);
-    convert_va_list_to_opnd(args, num_args, ap);
+    STATS_INC(cleancall_inserted);
+    LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
+    if (num_args != 0) {
+        /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
+        va_start(ap, num_args);
+        /* allocate at least one argument opnd */
+        args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
+                                ACCT_CLEANCALL, UNPROTECTED);
+        convert_va_list_to_opnd(args, num_args, ap);
     va_end(ap);
+    }
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee, 
                            save_fpstate, num_args, args)) {
         /* we can perform the inline optimization and return. */
+        STATS_INC(cleancall_inlined);
+        LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: inlined callee "PFX"\n", callee);
         insert_inline_clean_call(dcontext, &cci, ilist, where, args);
+        if (num_args != 0) {
+            HEAP_ARRAY_FREE(drcontext, args, opnd_t, num_args,
+                            ACCT_CLEANCALL, UNPROTECTED);
+        }
         return;
     }
     dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where);
@@ -3517,8 +3537,12 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
      * flag will disappear and translation will fail.
      */
     instrlist_set_our_mangling(ilist, true);
-    insert_meta_call_vargs(dcontext, &cci, ilist, where, true/*clean*/,
+    insert_meta_call_vargs(dcontext, ilist, where, true/*clean*/,
                            callee, num_args, args);
+    if (num_args != 0) {
+        HEAP_ARRAY_FREE(drcontext, args, opnd_t, num_args, 
+                        ACCT_CLEANCALL, UNPROTECTED);
+    }
     instrlist_set_our_mangling(ilist, false);
 
     if (save_fpstate) {

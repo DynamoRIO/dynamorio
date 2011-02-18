@@ -1179,3 +1179,11 @@
     STATS_DEF("GBOP violations, BAD", gbop_violations)
     STATS_DEF("Nudges", num_nudges)
     STATS_DEF("Doubled-up nudges", num_pending_nudges)
+    /*  Clean Calls */
+    STATS_DEF("Clean Call analyzed", cleancall_analyzed)
+    STATS_DEF("Clean Call inserted", cleancall_inserted)
+    STATS_DEF("Clean Call inlined", cleancall_inlined)
+    STATS_DEF("Clean Call xmm skipped", cleancall_xmm_skipped)
+    STATS_DEF("Clean Call aflags save skipped", cleancall_aflags_save_skipped)
+    STATS_DEF("Clean Call aflags clear skipped", cleancall_aflags_clear_skipped)
+    STATS_DEF("Clean Call errno save skipped", cleancall_errno_save_skipped)
