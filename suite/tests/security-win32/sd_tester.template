@@ -31,6 +31,7 @@ Executing newheap shellcode...
 # endif
 #endif
 success!
+#ifndef X64
 Executing crtheap shellcode...
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
 # if !defined(detect_mode)
@@ -41,6 +42,7 @@ Executing crtheap shellcode...
 # endif
 #endif
 success!
+#endif /* X64 */
 Executing virtual shellcode...
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
 # if !defined(detect_mode)

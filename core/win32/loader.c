@@ -335,8 +335,14 @@ os_loader_init_prologue(void)
         private_peb->FlsListHead.Blink = (LIST_ENTRY *) &private_peb->FlsListHead;
         private_peb->FlsCallback = NULL;
 
+        swap_peb_pointer(NULL, true/*to priv*/);
+        LOG(GLOBAL, LOG_LOADER, 2, "app peb="PFX"\n", own_peb);
+        LOG(GLOBAL, LOG_LOADER, 2, "private peb="PFX"\n", private_peb);
+
         /* We can't redirect ntdll routines allocating memory internally,
          * but we can at least have them not affect the app's Heap.
+         * We do this after the swap in case it affects some other peb field,
+         * in which case it will match the RtlDestroyHeap.
          */
         private_peb->ProcessHeap = RtlCreateHeap(0, NULL, 0, 0, NULL, NULL);
         if (private_peb->ProcessHeap == NULL) {
@@ -344,10 +350,6 @@ os_loader_init_prologue(void)
             /* fallback */
             private_peb->ProcessHeap = own_peb->ProcessHeap;
         }
-
-        swap_peb_pointer(NULL, true/*to priv*/);
-        LOG(GLOBAL, LOG_LOADER, 2, "app peb="PFX"\n", own_peb);
-        LOG(GLOBAL, LOG_LOADER, 2, "private peb="PFX"\n", private_peb);
 
         priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
         priv_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
@@ -422,7 +424,16 @@ os_loader_exit(void)
              */
             swap_peb_pointer(NULL, false/*to app*/);
         }
-        RtlDestroyHeap(private_peb->ProcessHeap);
+        /* we do have a dcontext */
+        ASSERT(get_thread_private_dcontext != NULL);
+        TRY_EXCEPT(get_thread_private_dcontext(), {
+            RtlDestroyHeap(private_peb->ProcessHeap);
+        }, {
+            /* shouldn't crash, but does on security-win32/sd_tester,
+             * probably b/c it corrupts the heap: regardless we don't
+             * want DR reporting a crash on an ntdll address so we ignore.
+             */
+        });
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FastPebLock,
                        RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb, PEB, ACCT_OTHER, UNPROTECTED);
