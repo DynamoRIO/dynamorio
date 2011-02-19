@@ -1500,7 +1500,7 @@ static uint
 HTNAME(hashtable_,NAME_KEY,_unlinked_remove)(dcontext_t *dcontext,
                                              HTNAME(,NAME_KEY,_table_t) *table)
 {
-    int i;
+    uint i;
     ENTRY_TYPE e;
     uint entries_removed = 0;
 
