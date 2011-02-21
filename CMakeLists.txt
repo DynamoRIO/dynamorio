@@ -1207,9 +1207,10 @@ endif (BUILD_TOOLS OR WIN32)
 
 # create empty logs dir for release package
 # be sure to escape ",$ since evaluated at install time not configure time
-DR_install(CODE "file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/logs\")")
+# with DR_install macro we need double-escape for $
+DR_install(CODE "file(MAKE_DIRECTORY \"\\\${CMAKE_INSTALL_PREFIX}/logs\")")
 # CPack seems to ignore empty dirs so add a README file
-DR_install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
+DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
 
 ###########################################################################
 

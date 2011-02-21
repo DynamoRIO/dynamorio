@@ -267,10 +267,17 @@ add_library(${PRELOAD_NAME} SHARED ${PRELOAD_SRCS})
 # b/c preload dynamically loads dynamorio by name and does not have a
 # static dependence.  Plus, by having a static dependence we hit issues
 # like PR 258636.  We also don't set rpath b/c that only applies to executables.
+if (UNIX)
+  # we keep in {debug,release} subdir
+  set(preload_dest "${DR_LIBRARY_OUTPUT_DIRECTORY}")
+else (UNIX)
+  # we keep in lib{32,64} base dir
+  set(preload_dest "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
+endif (UNIX)
 set_target_properties(${PRELOAD_NAME} PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
-  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
-  ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
+  LIBRARY_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}"
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}"
+  ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}")
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
   add_dependencies(${PRELOAD_NAME} ${x86_noncore_asm_tgt} ${preinject_asm_tgt})

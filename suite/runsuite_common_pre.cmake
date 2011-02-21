@@ -459,6 +459,33 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
     set(cpack_projects 
       "\"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\"\n  ${cpack_projects}"
       PARENT_SCOPE)
+
+    if ("${CTEST_CMAKE_GENERATOR}" MATCHES "Visual Studio")
+      # i#390: workaround for cpack limitation where cpack is run w/
+      # one config and each build's install rules check only for their
+      # own config.  we change each config check to "TRUE OR <check>".
+      file(READ "${CTEST_BINARY_DIRECTORY}/cmake_install.cmake" str)
+      # grab first-level includes
+      string(REGEX MATCHALL "INCLUDE\\\(\"[^\"]+\"" includes "${str}")
+      string(REGEX REPLACE "INCLUDE\\\(\"([^\"]+)\"" "\\1" includes "${includes}")
+      # grab second-level includes
+      set(includes2nd )
+      foreach (config ${includes})
+        file(READ "${config}" str)
+        string(REGEX MATCHALL "INCLUDE\\\(\"[^\"]+\"" newincs "${str}")
+        string(REGEX REPLACE "INCLUDE\\\(\"([^\"]+)\"" "\\1" newincs "${newincs}")
+        set(includes2nd ${includes2nd} ${newincs})
+      endforeach (config)
+      # now process each
+      foreach (config "${CTEST_BINARY_DIRECTORY}/cmake_install.cmake"
+          ${includes} ${includes2nd})
+        file(READ "${config}" str)
+        string(REGEX REPLACE "IF\\\((\"\\\${CMAKE_INSTALL_CONFIG_NAME}\" MATCHES)"
+          "IF(TRUE OR \\1" str "${str}")
+        # set CMP0012 policy to treat TRUE as literal
+        file(WRITE "${config}" "cmake_policy(VERSION 2.8)\n${str}")
+      endforeach (config)
+    endif ()
   endif (add_to_package)
 
 endfunction(testbuild_ex)

@@ -99,12 +99,13 @@ if (arg_version)
     VERSION_NUMBER:STRING=${arg_version}")
 endif (arg_version)
 
-testbuild_ex("release-32" OFF "" OFF ON "")
 # open-source now, no reason for debug to not be internal as well
+testbuild_ex("release-32" OFF "" OFF ON "")
+# note that we do build TOOLS so our DynamoRIOTarget{32,64}.cmake files match
+# and the DynamoRIOTarget{32,64}-debug.cmake file is complete (i#390)
 testbuild_ex("debug-32" OFF "
   DEBUG:BOOL=ON
   INTERNAL:BOOL=ON
-  BUILD_TOOLS:BOOL=OFF
   BUILD_DOCS:BOOL=OFF
   BUILD_DRGUI:BOOL=OFF
   BUILD_SAMPLES:BOOL=OFF
@@ -114,7 +115,6 @@ if (NOT arg_no64)
   testbuild_ex("debug-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    BUILD_TOOLS:BOOL=OFF
     BUILD_DOCS:BOOL=OFF
     BUILD_DRGUI:BOOL=OFF
     BUILD_SAMPLES:BOOL=OFF
