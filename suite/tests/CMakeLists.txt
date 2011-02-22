@@ -685,6 +685,14 @@ function(tochcon target type)
   endif (UNIX AND SELINUXFOUND)
 endfunction(tochcon)
 
+function(mark_execstack target)
+  if (UNIX)
+    get_target_property(existing_flags ${target} LINK_FLAGS)
+    set_target_properties(${target} PROPERTIES LINK_FLAGS
+      "-z execstack ${existing_flags}")
+  endif (UNIX)
+endfunction(mark_execstack)
+
 ###########################################################################
 # RUNNING
 
@@ -1221,6 +1229,7 @@ if (UNIX)
     # FIXME i#16: these tests need to be fixed to compile for x64
     tobuild(security-linux.stacktest security-linux/stacktest.c)
     tochcon(security-linux.stacktest execmem_exec_t)
+    mark_execstack(security-linux.stacktest)
   endif (NOT X64)
   # Clang will likely never support gcc nested functions:
   # http://llvm.org/PR9206
@@ -1378,8 +1387,10 @@ endif (UNIX)
 
 tobuild(security-common.codemod security-common/codemod.c)
 tochcon(security-common.codemod execmem_exec_t)
+mark_execstack(security-common.codemod)
 tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
 tochcon(security-common.decode-bad-stack execmem_exec_t)
+mark_execstack(security-common.decode-bad-stack)
 tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
 tochcon(security-common.jmp_from_trace textrel_shlib_t)
 tobuild(security-common.retexisting security-common/retexisting.c)
@@ -1398,6 +1409,7 @@ tochcon(security-common.selfmod textrel_shlib_t)
 tobuild(security-common.TestAllocWE security-common/TestAllocWE.c)
 tobuild(security-common.TestMemProtChg security-common/TestMemProtChg.c)
 tochcon(security-common.TestMemProtChg wine_exec_t)
+mark_execstack(security-common.TestMemProtChg)
 
 ###########################################################################
 

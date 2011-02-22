@@ -6140,7 +6140,7 @@ dr_register_probes(
 
         vul = &tab[valid_probes];
         /* memset vul to 0 here because parse errors can leave freed pointers */
-        memset(vul, sizeof(hotp_vul_t), 0);
+        memset(vul, 0, sizeof(hotp_vul_t));
 
         /* TODO: remove this once support is added for exported functions
          * (PR 225654) & raw addresses (PR 225658); for now just prevent 

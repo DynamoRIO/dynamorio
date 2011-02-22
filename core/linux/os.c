@@ -5460,6 +5460,17 @@ maps_iterator_next(maps_iter_t *iter)
                  (unsigned long*)&iter->vm_start, (unsigned long*)&iter->vm_end,
                  perm, (unsigned long*)&iter->offset, &iter->inode,
                  iter->comment_buffer);
+    if (iter->vm_start == iter->vm_end) {
+        /* i#366: skip empty region: weird that the kernel puts it in */
+        LOG(GLOBAL, LOG_VMAREAS, 2, 
+            "maps_iterator_next: skipping empty region 0x%08x\n", iter->vm_start);
+        /* don't trigger the maps-file-changed check.
+         * slight risk of a race where we'll pass back earlier/overlapping
+         * region: we'll live with it.
+         */
+        iter->vm_start = NULL;
+        return maps_iterator_next(iter);
+    }
     if (iter->vm_start <= prev_start) {
         /* the maps file has expanded underneath us (presumably due to our
          * own committing while iterating): skip ahead */
