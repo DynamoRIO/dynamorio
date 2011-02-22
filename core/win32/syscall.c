@@ -3520,6 +3520,7 @@ void post_system_call(dcontext_t *dcontext)
         HANDLE section_handle = (HANDLE) postsys_param(dcontext, param_base, 5);
         HANDLE debug_handle = (HANDLE) postsys_param(dcontext, param_base, 6);
         HANDLE exception_handle = (HANDLE) postsys_param(dcontext, param_base, 7);
+        HANDLE proc_handle;
 
         DOLOG(1, LOG_SYSCALLS, {
             app_pc base = (app_pc) get_section_address(section_handle);
@@ -3527,8 +3528,8 @@ void post_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
                 "syscall post: NtCreateProcess section @"PFX"\n", base);
         });
-
-        maybe_inject_into_process(dcontext, *process_handle, NULL);
+        if (safe_read(process_handle, sizeof(proc_handle), &proc_handle)) 
+            maybe_inject_into_process(dcontext, proc_handle, NULL);
     }
     else if (sysnum == syscalls[SYS_CreateProcessEx]) {
         HANDLE *process_handle = (HANDLE *) postsys_param(dcontext, param_base, 0);
@@ -3539,6 +3540,7 @@ void post_system_call(dcontext_t *dcontext)
         HANDLE section_handle = (HANDLE) postsys_param(dcontext, param_base, 5);
         HANDLE debug_handle = (HANDLE) postsys_param(dcontext, param_base, 6);
         HANDLE exception_handle = (HANDLE) postsys_param(dcontext, param_base, 7);
+        HANDLE proc_handle;
 
         /* according to metasploit, others type as HANDLE unknown etc. */
         uint job_member_level = (uint) postsys_param(dcontext, param_base, 8);
@@ -3549,8 +3551,8 @@ void post_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
                 "syscall: NtCreateProcessEx section @"PFX"\n", base);
         });
-
-        maybe_inject_into_process(dcontext, *process_handle, NULL);
+        if (safe_read(process_handle, sizeof(proc_handle), &proc_handle)) 
+            maybe_inject_into_process(dcontext, proc_handle, NULL);
     }
     else if (sysnum == syscalls[SYS_CreateUserProcess]) {
         postsys_CreateUserProcess(dcontext, param_base, success);
