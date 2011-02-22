@@ -4314,7 +4314,7 @@ check_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc)
              * 2. call pic_func;
              *    and in pic_func: mov [%xsp] %r1; ret;
              */
-            if (INTERNAL_OPTION(opt_cleancall) > 1) {
+            if (INTERNAL_OPTION(opt_cleancall) >= 1) {
                 instr_t ins;
                 app_pc  tmp_pc;
                 opnd_t src = OPND_CREATE_INTPTR(next_pc);
@@ -4702,6 +4702,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
         LOG(THREAD, LOG_CLEANCALL, 1,
             "CLEANCALL: callee "PFX" cannot be inlined: opt_cleancall: %d.\n", 
             ci->start, INTERNAL_OPTION(opt_cleancall));
+        opt_inline = false;
     }
     if (ci->num_instrs > MAX_NUM_INLINE_INSTRS) {
         LOG(THREAD, LOG_CLEANCALL, 1,
