@@ -304,7 +304,7 @@ opnd_create_immed_float_zero(void)
     opnd_t opnd;
     opnd.kind = IMMED_FLOAT_kind;
     /* avoid any fp instrs (xref i#386) */
-    memset(&opnd.value.immed_float, sizeof(opnd.value.immed_float), 0);
+    memset(&opnd.value.immed_float, 0, sizeof(opnd.value.immed_float));
     /* currently only used for implicit constants that have no size */
     opnd.size = OPSZ_0;
     return opnd;
