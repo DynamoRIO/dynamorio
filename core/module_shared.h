@@ -393,6 +393,7 @@ typedef struct _privmod_t {
     app_pc base;
     size_t size;
     const char *name;
+    char path[MAXIMUM_PATH];
     uint ref_count;
     bool externally_loaded;
     struct _privmod_t *next;
@@ -442,8 +443,12 @@ privload_lookup(const char *name);
 privmod_t *
 privload_lookup_by_base(app_pc modbase);
 
+/* name is assumed to be in immutable persistent storage.
+ * a copy of path is made.
+ */
 privmod_t *
-privload_insert(privmod_t *after, app_pc base, size_t size, const char *name);
+privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
+                const char *path);
 
 /* ************************************************************************* *
  * os specific functions in loader.c, can be called from loader_shared.c     *

@@ -121,7 +121,8 @@ loader_init(void)
         mod = privload_insert(NULL,
                               privmod_static[i].base,
                               privmod_static[i].size,
-                              privmod_static[i].name);
+                              privmod_static[i].name,
+                              privmod_static[i].path);
         LOG(GLOBAL, LOG_LOADER, 1, "%s: processing imports for %s\n",
             __FUNCTION__, mod->name);
         if (!privload_load_finalize(mod)) {
@@ -305,9 +306,13 @@ privload_lookup_by_base(app_pc modbase)
     return NULL;
 }
 
-/* Insert privmod after *after */
+/* Insert privmod after *after
+ * name is assumed to be in immutable persistent storage.
+ * a copy of path is made.
+ */
 privmod_t *
-privload_insert(privmod_t *after, app_pc base, size_t size, const char *name)
+privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
+                const char *path)
 {
     privmod_t *mod;
     /* We load client libs before heap is initialized so we use a
@@ -331,6 +336,8 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name)
     mod->base = base;
     mod->size = size;
     mod->name = name;
+    strncpy(mod->path, path, BUFFER_SIZE_ELEMENTS(mod->path));
+    NULL_TERMINATE_BUFFER(mod->path);
     mod->ref_count = 1;
     mod->externally_loaded = false;
     /* do not add non-heap struct to list: in init() we'll move array to list */
@@ -396,7 +403,8 @@ privload_load(const char *filename, privmod_t *dependent)
      * don't need strdup
      */
     /* Add after its dependent to preserve forward-can-unload order */
-    privmod = privload_insert(dependent, map, size, get_shared_lib_name(map, size));
+    privmod = privload_insert(dependent, map, size, get_shared_lib_name(map, size),
+                              filename);
 
     /* If no heap yet, we'll call finalize later in loader_init() */
     if (privmod != NULL && privload_modlist_initialized()) {
@@ -513,8 +521,8 @@ privload_load_finalize(privmod_t *privmod)
         return false;
     }
 
-    LOG(GLOBAL, LOG_LOADER, 1, "%s: loaded %s @ "PFX"-"PFX"\n", __FUNCTION__,
-        privmod->name, privmod->base, privmod->base + privmod->size);
+    LOG(GLOBAL, LOG_LOADER, 1, "%s: loaded %s @ "PFX"-"PFX" from %s\n", __FUNCTION__,
+        privmod->name, privmod->base, privmod->base + privmod->size, privmod->path);
     return true;
 }
 

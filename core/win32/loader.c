@@ -76,7 +76,9 @@
 #endif
 
 
-/* Not persistent across code cache execution, so not protected */
+/* Not persistent across code cache execution, so not protected.
+ * Synchronized by privload_lock.
+ */
 DECLARE_NEVERPROT_VAR(static char modpath[MAXIMUM_PATH], {0});
 DECLARE_NEVERPROT_VAR(static char forwmodpath[MAXIMUM_PATH], {0});
 
@@ -116,7 +118,7 @@ typedef struct _redirect_import_t {
 
 
 static app_pc
-privload_redirect_imports(privmod_t *impmod, const char *name);
+privload_redirect_imports(privmod_t *impmod, const char *name, privmod_t *importer);
 
 static bool WINAPI
 redirect_ignore_arg0(void);
@@ -170,11 +172,23 @@ redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb);
 static HMODULE WINAPI
 redirect_GetModuleHandleA(const char *name);
 
+static HMODULE WINAPI
+redirect_GetModuleHandleW(const wchar_t *name);
+
 static FARPROC WINAPI
 redirect_GetProcAddress(app_pc modbase, const char *name);
 
 static HMODULE WINAPI
 redirect_LoadLibraryA(const char *name);
+
+static HMODULE WINAPI
+redirect_LoadLibraryW(const wchar_t *name);
+
+static DWORD WINAPI
+redirect_GetModuleFileNameA(HMODULE mod, char *buf, DWORD bufcnt);
+
+static DWORD WINAPI
+redirect_GetModuleFileNameW(HMODULE mod, wchar_t *buf, DWORD bufcnt);
 
 /* Since we can't easily have a 2nd copy of ntdll, our 2nd copy of kernel32,
  * etc. use the same ntdll as the app.  We then have to redirect ntdll imports
@@ -248,12 +262,16 @@ static const redirect_import_t redirect_kernel32[] = {
     {"FlsAlloc",                       (app_pc)redirect_FlsAlloc},
     /* As an initial interception of loader queries, but simpler than
      * intercepting Ldr*: plus, needed to intercept FlsAlloc called by msvcrt
-     * init routine.  Of course we're missing GetModuleHandle{W,ExA,ExW}
-     * and LoadLibraryW.
+     * init routine.
+     * XXX i#235: redirect GetModuleHandle{ExA,ExW} as well
      */
     {"GetModuleHandleA",               (app_pc)redirect_GetModuleHandleA},
+    {"GetModuleHandleW",               (app_pc)redirect_GetModuleHandleW},
     {"GetProcAddress",                 (app_pc)redirect_GetProcAddress},
     {"LoadLibraryA",                   (app_pc)redirect_LoadLibraryA},
+    {"LoadLibraryW",                   (app_pc)redirect_LoadLibraryW},
+    {"GetModuleFileNameA",             (app_pc)redirect_GetModuleFileNameA},
+    {"GetModuleFileNameW",             (app_pc)redirect_GetModuleFileNameW},
 };
 #define REDIRECT_KERNEL32_NUM (sizeof(redirect_kernel32)/sizeof(redirect_kernel32[0]))
 
@@ -270,10 +288,17 @@ DECLARE_CXTSWPROT_VAR(static mutex_t privload_fls_lock,
 /* Rather than statically linking to real kernel32 we want to invoke
  * routines in the private kernel32
  */
+static void (WINAPI *priv_SetLastError)(DWORD val); /* kernel32 or ntdll */
 static DWORD (WINAPI *priv_kernel32_FlsAlloc)(PFLS_CALLBACK_FUNCTION);
 static HMODULE (WINAPI *priv_kernel32_GetModuleHandleA)(const char *);
+static HMODULE (WINAPI *priv_kernel32_GetModuleHandleW)(const wchar_t *);
 static FARPROC (WINAPI *priv_kernel32_GetProcAddress)(HMODULE, const char *);
 static HMODULE (WINAPI *priv_kernel32_LoadLibraryA)(const char *);
+static HMODULE (WINAPI *priv_kernel32_LoadLibraryW)(const wchar_t *);
+static DWORD (WINAPI *priv_kernel32_GetModuleFileNameA)(HMODULE mod, char *buf,
+                                                        DWORD bufcnt);
+static DWORD (WINAPI *priv_kernel32_GetModuleFileNameW)(HMODULE mod, wchar_t *buf,
+                                                        DWORD bufcnt);
 
 #ifdef CLIENT_INTERFACE
 /* Isolate the app's PEB by making a copy for use by private libs (i#249) */
@@ -370,14 +395,17 @@ os_loader_init_prologue(void)
     /* We count on having at least one node that's never removed so we
      * don't have to unprot .data and write to modlist later
      */
+    snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/system32/%s",
+             systemroot, "ntdll.dll");
+    NULL_TERMINATE_BUFFER(modpath);
     mod = privload_insert(NULL, ntdll, get_allocation_size(ntdll, NULL),
-                          "ntdll.dll");
+                          "ntdll.dll", modpath);
     mod->externally_loaded = true;
     /* Once we have earliest injection and load DR via this private loader
      * (i#234/PR 204587) we can remove this
      */
     mod = privload_insert(NULL, drdll, get_allocation_size(drdll, NULL),
-                          DYNAMORIO_LIBRARY_NAME);
+                          DYNAMORIO_LIBRARY_NAME, get_dynamorio_library_path());
     mod->externally_loaded = true;
 
     /* FIXME i#235: loading a private user32.dll is problematic: it registers
@@ -386,8 +414,11 @@ os_loader_init_prologue(void)
      * duplicating but not worth checking for that.
      */
     if (user32 != NULL) {
+        snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/system32/%s",
+                 systemroot, "user32.dll");
+        NULL_TERMINATE_BUFFER(modpath);
         mod = privload_insert(NULL, user32, get_allocation_size(user32, NULL),
-                              "user32.dll");
+                              "user32.dll", modpath);
         mod->externally_loaded = true;
     }
 }
@@ -973,7 +1004,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
         impfunc, func, address);
     if (forwfunc != NULL) {
         /* XXX i#233: support redirecting when imported by ordinal */
-        dst = privload_redirect_imports(forwmod, forwfunc);
+        dst = privload_redirect_imports(forwmod, forwfunc, mod);
     }
     if (dst == NULL)
         dst = (app_pc) func;
@@ -1241,21 +1272,40 @@ privload_redirect_setup(privmod_t *mod)
     if (strcasecmp(mod->name, "kernel32.dll") == 0) {
         if (!dynamo_initialized)
             SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+
+        /* XP's kernel32!SetLastError is forwarded on xp64, and our
+         * get_proc_address_ex can't handle forwarded exports, so we directly
+         * invoke the Rtl version that it forwards to.  On win7 it's not
+         * forwarded but just calls the Rtl directly.  On 2K or earlier though
+         * there is no Rtl version (so we can't statically link).
+         */
+        priv_SetLastError = (void (WINAPI *)(DWORD))
+            get_proc_address_ex(get_ntdll_base(), "RtlSetLastWin32Error", NULL);
+        if (priv_SetLastError == NULL) {
+            priv_SetLastError = (void (WINAPI *)(DWORD))
+                get_proc_address_ex(mod->base, "SetLastError", NULL);
+            ASSERT(priv_SetLastError != NULL);
+        }
+
         priv_kernel32_FlsAlloc = (DWORD (WINAPI *)(PFLS_CALLBACK_FUNCTION))
             get_proc_address_ex(mod->base, "FlsAlloc", NULL);
         priv_kernel32_GetModuleHandleA = (HMODULE (WINAPI *)(const char *))
             get_proc_address_ex(mod->base, "GetModuleHandleA", NULL);
+        priv_kernel32_GetModuleHandleW = (HMODULE (WINAPI *)(const wchar_t *))
+            get_proc_address_ex(mod->base, "GetModuleHandleW", NULL);
         priv_kernel32_GetProcAddress = (FARPROC (WINAPI *)(HMODULE, const char *))
             get_proc_address_ex(mod->base, "GetProcAddress", NULL);
         priv_kernel32_LoadLibraryA = (HMODULE (WINAPI *)(const char *))
             get_proc_address_ex(mod->base, "LoadLibraryA", NULL);
+        priv_kernel32_LoadLibraryW = (HMODULE (WINAPI *)(const wchar_t *))
+            get_proc_address_ex(mod->base, "LoadLibraryW", NULL);
         if (!dynamo_initialized)
             SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     }
 }
 
 static app_pc
-privload_redirect_imports(privmod_t *impmod, const char *name)
+privload_redirect_imports(privmod_t *impmod, const char *name, privmod_t *importer)
 {
     uint i;
     if (strcasecmp(impmod->name, "ntdll.dll") == 0) {
@@ -1271,7 +1321,11 @@ privload_redirect_imports(privmod_t *impmod, const char *name)
                 return redirect_ntdll[i].func;
             }
         }
-    } else if (strcasecmp(impmod->name, "kernel32.dll") == 0) {
+    } else if (strcasecmp(impmod->name, "kernel32.dll") == 0 ||
+               /* we don't want to redirect kernel32.dll's calls to kernelbase */
+               ((importer == NULL ||
+                 strcasecmp(importer->name, "kernel32.dll") != 0) &&
+                strcasecmp(impmod->name, "kernelbase.dll") == 0)) {
         for (i = 0; i < REDIRECT_KERNEL32_NUM; i++) {
             if (strcasecmp(name, redirect_kernel32[i].name) == 0) {
                 return redirect_kernel32[i].func;
@@ -1643,6 +1697,29 @@ redirect_GetModuleHandleA(const char *name)
         return (HMODULE) res;
 }
 
+static HMODULE WINAPI
+redirect_GetModuleHandleW(const wchar_t *name)
+{
+    privmod_t *mod;
+    app_pc res = NULL;
+    char buf[MAXIMUM_PATH];
+    ASSERT(priv_kernel32_GetModuleHandleW != NULL);
+    if (_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", name) < 0)
+        return (*priv_kernel32_GetModuleHandleW)(name);
+    NULL_TERMINATE_BUFFER(buf);
+    acquire_recursive_lock(&privload_lock);
+    mod = privload_lookup(buf);
+    if (mod != NULL) {
+        res = mod->base;
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => "PFX"\n", __FUNCTION__, buf, res);
+    }
+    release_recursive_lock(&privload_lock);
+    if (mod == NULL)
+        return (*priv_kernel32_GetModuleHandleW)(name);
+    else
+        return (HMODULE) res;
+}
+
 static FARPROC WINAPI
 redirect_GetProcAddress(app_pc modbase, const char *name)
 {
@@ -1654,7 +1731,7 @@ redirect_GetProcAddress(app_pc modbase, const char *name)
     mod = privload_lookup_by_base(modbase);
     if (mod != NULL) {
         const char *forwarder;
-        res = privload_redirect_imports(mod, name);
+        res = privload_redirect_imports(mod, name, NULL);
         /* I assume GetProcAddress returns NULL for forwarded exports? */
         if (res == NULL)
             res = (app_pc) get_proc_address_ex(modbase, name, &forwarder);
@@ -1673,9 +1750,89 @@ redirect_LoadLibraryA(const char *name)
     app_pc res = NULL;
     ASSERT(priv_kernel32_LoadLibraryA != NULL);
     res = load_private_library(name);
-    if (res == NULL)
-        return (*priv_kernel32_LoadLibraryA)(name);
-    else
+    if (res == NULL) {
+        /* XXX: if private loader can't handle some feature (delay-load dll,
+         * bound imports, etc.), we could have the private kernel32 call the
+         * shared ntdll which will load the lib and put it in the private PEB's
+         * loader list.  there may be some loader data in ntdll itself which is
+         * shared though so there's a transparency risk: so better to just fail
+         * and if it's important add the feature to our loader.
+         */
+        /* XXX: should set more appropriate error code */
+        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        return NULL;
+    } else
         return (HMODULE) res;
 }
 
+static HMODULE WINAPI
+redirect_LoadLibraryW(const wchar_t *name)
+{
+    app_pc res = NULL;
+    char buf[MAXIMUM_PATH];
+    ASSERT(priv_kernel32_LoadLibraryW != NULL);
+    if (_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", name) < 0)
+        return (*priv_kernel32_LoadLibraryW)(name);
+    NULL_TERMINATE_BUFFER(buf);
+    res = load_private_library(buf);
+    if (res == NULL) {
+        /* XXX: should set more appropriate error code */
+        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        return NULL;
+    } else
+        return (HMODULE) res;
+}
+
+static DWORD WINAPI
+redirect_GetModuleFileNameA(HMODULE modbase, char *buf, DWORD bufcnt)
+{
+    privmod_t *mod;
+    DWORD cnt = 0;
+    ASSERT(priv_kernel32_GetModuleFileNameA != NULL);
+    acquire_recursive_lock(&privload_lock);
+    mod = privload_lookup_by_base((app_pc)modbase);
+    if (mod != NULL) {
+        cnt = (DWORD) strlen(mod->path);
+        if (cnt >= bufcnt) {
+            cnt = bufcnt;
+            (*priv_SetLastError)(ERROR_INSUFFICIENT_BUFFER);
+        }
+        strncpy(buf, mod->path, bufcnt);
+        buf[bufcnt-1] = '\0';
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX" => %s\n", __FUNCTION__, mod, mod->path);
+    }
+    release_recursive_lock(&privload_lock);
+    if (mod == NULL) {
+        /* XXX: should set more appropriate error code */
+        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        return NULL;
+    } else
+        return cnt;
+}
+
+static DWORD WINAPI
+redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
+{
+    privmod_t *mod;
+    DWORD cnt = 0;
+    ASSERT(priv_kernel32_GetModuleFileNameW != NULL);
+    acquire_recursive_lock(&privload_lock);
+    mod = privload_lookup_by_base((app_pc)modbase);
+    if (mod != NULL) {
+        cnt = (DWORD) strlen(mod->path);
+        if (cnt >= bufcnt) {
+            cnt = bufcnt;
+            (*priv_SetLastError)(ERROR_INSUFFICIENT_BUFFER);
+        }
+        _snwprintf(buf, bufcnt, L"%s", mod->path);
+        buf[bufcnt-1] = L'\0';
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX" => %s\n", __FUNCTION__, mod, mod->path);
+    }
+    release_recursive_lock(&privload_lock);
+    if (mod == NULL) {
+        /* XXX: should set more appropriate error code */
+        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        return NULL;
+    } else
+        return cnt;
+}
