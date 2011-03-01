@@ -4574,49 +4574,52 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
     /* for easy of comparison, create push xbp, pop xbp */
     push_xbp = INSTR_CREATE_push(dcontext, opnd_create_reg(DR_REG_XBP));
     pop_xbp  = INSTR_CREATE_pop(dcontext, opnd_create_reg(DR_REG_XBP));
-    /* Check if xbp is frame pointer */
-    if (instr_get_opcode(top) == OP_enter)
-        ci->xbp_is_fp = true;
-    else if (instr_same(top, push_xbp)) {
-        /* push xbp; mov xsp => xbp */
-        top = instr_get_next(top);
-        if (instr_num_srcs(top) == 1 && instr_num_dsts(top) == 1  &&
-            opnd_is_reg_pointer_sized(instr_get_src(top, 0)) &&
-            opnd_is_reg_pointer_sized(instr_get_dst(top, 0)) &&
-            opnd_get_reg(instr_get_src(top, 0)) == DR_REG_XSP &&
-            opnd_get_reg(instr_get_dst(top, 0)) == DR_REG_XBP)
+    /* Check enter/leave pair  */
+    if ((instr_get_opcode(top) == OP_enter || instr_same(push_xbp, top)) &&
+        (instr_get_opcode(bot) == OP_leave || instr_same(pop_xbp, top))  &&
+        (ci->bwd_tgt == NULL || instr_get_app_pc(top) <  ci->bwd_tgt) &&
+        (ci->fwd_tgt == NULL || instr_get_app_pc(bot) >= ci->fwd_tgt)) {
+        /* xbp is callee saved, remove from reg_used*/
+        ASSERT(ci->reg_used[DR_REG_XBP - DR_REG_XAX]);
+        ci->reg_used[DR_REG_XBP - DR_REG_XAX] = false;
+        ci->num_regs_used--;
+        /* check if xbp is fp */
+        instr = instr_get_next(top);
+        if (instr_get_opcode(top) == OP_enter) {
             ci->xbp_is_fp = true;
-    }
-    if (ci->xbp_is_fp) {
-        if (/* must be paired at bot */
-            !(instr_same(bot, pop_xbp) || instr_get_opcode(bot) == OP_leave) ||
-            /* setup code must be executed only once in callee. */
-            !(ci->bwd_tgt == NULL || instr_get_app_pc(top) <  ci->bwd_tgt)   ||
-            !(ci->fwd_tgt == NULL || instr_get_app_pc(bot) >= ci->fwd_tgt)) {
-            ci->xbp_is_fp = false;
-        } else {
-            /* remove the frame pointer setup code */
-            top = instr_get_next(top);
-            bot = instr_get_prev(bot);
-            for (instr  = instrlist_first(ilist);
-                 instr != top;
-                 instr  = instrlist_first(ilist)) {
-                instrlist_remove(ilist, instr);
-                instr_destroy(GLOBAL_DCONTEXT, instr);
-            }
-            for (instr  = instrlist_last(ilist);
-                 instr != bot;
-                 instr  = instrlist_last(ilist)) {
-                instrlist_remove(ilist, instr);
-                instr_destroy(GLOBAL_DCONTEXT, instr);
-            }
-            LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: callee "PFX" use XBP as frame pointer\n", ci->start);
-            /* xbp is callee saved, remove from reg_used*/
-            ASSERT(ci->reg_used[DR_REG_XBP - DR_REG_XAX]);
-            ci->reg_used[DR_REG_XBP - DR_REG_XAX] = false;
-            ci->num_regs_used--;
+        } else if (instr != NULL &&
+                   instr_num_srcs(instr) == 1 &&
+                   instr_num_dsts(instr) == 1 &&
+                   opnd_is_reg(instr_get_src(instr, 0)) &&
+                   opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_XSP &&
+                   opnd_is_reg(instr_get_dst(instr, 0)) &&
+                   opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_XBP) {
+            /* mov xsp => xbp */
+            ci->xbp_is_fp = true;
+            /* remove it */
+            instrlist_remove(ilist, instr);
+            instr_destroy(GLOBAL_DCONTEXT, instr);
         }
+        if (ci->xbp_is_fp) {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: callee "PFX" use XBP as frame pointer\n", ci->start);
+        } else {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: callee "PFX" callee-saves reg xbp at "PFX" and "PFX"\n",
+                ci->start, instr_get_app_pc(top), instr_get_app_pc(bot));
+            ci->callee_save_regs
+                [DR_REG_XBP - DR_REG_XAX] = true;
+            ci->num_callee_save_regs++;
+        }
+        /* remove top/bot pair */
+        instr = instr_get_next(top);
+        instrlist_remove(ilist, top);
+        instr_destroy(GLOBAL_DCONTEXT, top);
+        top   = instr;
+        instr = instr_get_prev(bot);
+        instrlist_remove(ilist, bot);
+        instr_destroy(GLOBAL_DCONTEXT, bot);
+        bot   = instr;
     }
     instr_destroy(dcontext, push_xbp);
     instr_destroy(dcontext, pop_xbp);
@@ -4630,8 +4633,9 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
             (ci->fwd_tgt != NULL && instr_get_app_pc(bot) <  ci->fwd_tgt) ||
             instr_is_cti(top) || instr_is_cti(bot))
             break;
-        /* if not push/pop pair, break */
-        if (instr_get_opcode(top) != OP_push || 
+        /* XXX: I saw some compiler inserts nop, need to handle. */
+        /* push/pop pair check */
+        if (instr_get_opcode(top) != OP_push ||
             instr_get_opcode(bot) != OP_pop  ||
             !opnd_same(instr_get_src(top, 0), instr_get_dst(bot, 0)) ||
             !opnd_is_reg(instr_get_src(top, 0)) ||
@@ -4744,6 +4748,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
     /* Now we need scan instructions in the list,
      * check if possible for inline, and convert memory reference
      */
+    ci->has_locals = false;
     for (instr  = instrlist_first(ci->ilist);
          instr != NULL;
          instr  = instr_get_next(instr)) {
@@ -4834,7 +4839,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                     LOG(THREAD, LOG_CLEANCALL, 1,
                         "CLEANCALL: callee "PFX" cannot be inlined: "
                         "more than one stack location is accessed "PFX".\n",
-                        ci->start);
+                        ci->start, instr_get_app_pc(instr));
                     break;
                 }
                 /* replace the stack location with the last scratch slot. */
@@ -4864,7 +4869,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                     LOG(THREAD, LOG_CLEANCALL, 1,
                         "CLEANCALL: callee "PFX" cannot be inlined: "
                         "more than one stack location is accessed "PFX".\n",
-                        ci->start);
+                        ci->start, instr_get_app_pc(instr));
                     break;
                 }
                 /* replace the stack location with the last scratch slot. */
