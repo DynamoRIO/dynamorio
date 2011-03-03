@@ -66,6 +66,7 @@ typedef enum {
     DRSYM_ERROR_SYMBOL_NOT_FOUND,   /**< Operation failed: symbol not found */
     DRSYM_ERROR_LINE_NOT_AVAILABLE, /**< Operation failed: line info not available */
     DRSYM_ERROR_NOT_IMPLEMENTED,    /**< Operation failed: not yet implemented */
+    DRSYM_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
 } drsym_error_t;
 
 /** Data structure that holds symbol information */
@@ -147,12 +148,13 @@ drsym_error_t
 drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs /*OUT*/);
 
 /** 
- * Type for drsym_enumerate_symbols callback function.
- * Returns whether to continue the enumeration.
+ * Type for drsym_enumerate_symbols and drsym_search_symbols callback function.
+ * Returns whether to continue the enumeration or search.
  *
  * @param[in] name    Name of the symbol.
  * @param[in] modoffs Offset of the symbol from the module base.
- * @param[in] data    User parameter passed to drsym_enumerate_symbols().
+ * @param[in] data    User parameter passed to drsym_enumerate_symbols() or
+ *                    drsym_search_symbols().
  */
 typedef bool (*drsym_enumerate_cb)(const char *name, size_t modoffs, void *data);
 
@@ -168,6 +170,37 @@ DR_EXPORT
  */
 drsym_error_t
 drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data);
+
+#ifdef WINDOWS
+DR_EXPORT
+/**
+ * Enumerates all symbol information matching a pattern for a given module.
+ * Calls the given callback function for each matching symbol.
+ * If the callback returns false, the enumeration will end.
+ *
+ * \note drsym_search_symbols() with full=false is significantly
+ * faster and uses less memory than drsym_enumerate_symbols(), and is
+ * faster than drsym_lookup_symbol(), but requires dbghelp.dll version
+ * 6.3 or higher.  If an earlier version is used, this function will
+ * fail with DRSYM_ERROR_FEATURE_NOT_AVAILABLE.
+ *
+ * @param[in] modpath   The full path to the module to be queried.
+ * @param[in] match     Regular expression describing the names of the symbols
+ *                      to be enumerated.  To specify a target module, use the
+ *                      "module_pattern!symbol_pattern" format.
+ * @param[in] full      Whether to search all symbols or (the default) just
+ *                      functions.  A full search takes significantly
+ *                      more time and memory and eliminates the
+ *                      performance advantage over other lookup
+ *                      methods.  A full search requires dbghelp.dll
+ *                      version 6.6 or higher.
+ * @param[in] callback  Function to call for each matching symbol found.
+ * @param[in] data      User parameter passed to callback.
+ */
+drsym_error_t
+drsym_search_symbols(const char *modpath, const char *match, bool full,
+                     drsym_enumerate_cb callback, void *data);
+#endif
 
 DR_EXPORT
 /**

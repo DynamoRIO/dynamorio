@@ -75,8 +75,12 @@ passed.
 
 Symbol lookup is supported in both directions: from an address to a symbol
 via drsym_lookup_address(), and from a symbol to an address via
-drsym_lookup_address().  All symbols in a given module can be enumerated
-via drsym_enumerate_symbols().
+drsym_lookup_symbol().  All symbols in a given module can be enumerated via
+drsym_enumerate_symbols(), though on Windows using drsym_search_symbols()
+for a particular match where a non-full search is not required (i.e., the
+search is only targeting function symbols) is significantly faster and uses
+less memory than a full enumeration.  In fact, drsym_search_symbols() is
+usually faster than drsym_lookup_symbol().
 
 For an example of usage see the \p instrcalls sample client distributed
 with DynamoRIO.
