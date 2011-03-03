@@ -513,10 +513,9 @@ typedef struct _fcache {
 } fcache_t;
 
 /**************************************************
- * per-thread structure: 
- * FIXME: give a better name to distinguish from heap.c's _thread_units_t
+ * per-thread structure
  */
-typedef struct _thread_units_t {
+typedef struct _fcache_thread_units_t {
     fcache_t *bb;    /* basic block fcache */
     fcache_t *trace; /* trace fcache */
     /* we delay unmapping units, but only one at a time: */
@@ -524,7 +523,7 @@ typedef struct _thread_units_t {
     size_t pending_unmap_size;
     /* are there units waiting to be flushed at a safe spot? */
     bool pending_flush;
-} thread_units_t;
+} fcache_thread_units_t;
 
 #define ALLOC_DC(dc, cache) ((cache)->is_shared ? GLOBAL_DCONTEXT : (dc))
 
@@ -1905,7 +1904,8 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         prev_u = NULL;
         while (u != NULL) {
             if (UNIT_RESERVED_SIZE(u) >= new_size) {
-                thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;
+                fcache_thread_units_t *tu = (fcache_thread_units_t *)
+                    dcontext->fcache_field;
                 /* remove from dead list */
                 if (prev_u == NULL)
                     allunits->dead = u->next_global;
@@ -2012,7 +2012,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
          * fcache_add_fragment, b/c the current ilist for being-added fragment
          * may reference memory in old cache
          */
-        thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;
+        fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
         ASSERT(tu->pending_unmap_pc == NULL);
         tu->pending_unmap_pc = unit->start_pc;
         tu->pending_unmap_size = UNIT_RESERVED_SIZE(unit);
@@ -2065,8 +2065,8 @@ fcache_thread_reset_init(dcontext_t *dcontext)
 void
 fcache_thread_init(dcontext_t *dcontext)
 {
-    thread_units_t *tu = (thread_units_t *) heap_alloc(dcontext, sizeof(thread_units_t)
-                                                 HEAPACCT(ACCT_OTHER));
+    fcache_thread_units_t *tu = (fcache_thread_units_t *)
+        heap_alloc(dcontext, sizeof(fcache_thread_units_t) HEAPACCT(ACCT_OTHER));
     dcontext->fcache_field = (void *) tu;
     /* don't build trace cache until we actually build a trace
      * this saves memory for both DYNAMO_OPTION(disable_traces) and for
@@ -2126,7 +2126,7 @@ void
 fcache_thread_exit_stats(dcontext_t *dcontext)
 {
     DOELOG(1, LOG_CACHE, {
-        thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;
+        fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
         if (tu->bb != NULL)
             fcache_cache_stats(dcontext, tu->bb);
         if (tu->trace != NULL)
@@ -2138,7 +2138,7 @@ fcache_thread_exit_stats(dcontext_t *dcontext)
 static void
 fcache_thread_reset_free(dcontext_t *dcontext)
 {
-    thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
     if (tu->pending_unmap_pc != NULL) {
         /* de-allocate old memory -- stats have already been taken care of */
         /* remove from interval data struct first to avoid races w/ it
@@ -2162,11 +2162,12 @@ fcache_thread_reset_free(dcontext_t *dcontext)
 void
 fcache_thread_exit(dcontext_t *dcontext)
 {
-    DEBUG_DECLARE(thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;)
+    DEBUG_DECLARE(fcache_thread_units_t *tu = 
+                  (fcache_thread_units_t *) dcontext->fcache_field;)
     fcache_thread_reset_free(dcontext);
     DODEBUG({
         /* for non-debug we do fast exit path and don't free local heap */
-        heap_free(dcontext, tu, sizeof(thread_units_t) HEAPACCT(ACCT_OTHER));
+        heap_free(dcontext, tu, sizeof(fcache_thread_units_t) HEAPACCT(ACCT_OTHER));
     });
 }
 
@@ -2512,7 +2513,8 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                 if (!check_regen_replace_ratio(dcontext, cache,
                                                0 /*not adding a fragment*/)) {
                     /* flush the oldest unit, at the end of the list */
-                    thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;
+                    fcache_thread_units_t *tu = (fcache_thread_units_t *)
+                        dcontext->fcache_field;
                     fcache_unit_t *oldest = cache->units, *prev = NULL;
                     ASSERT(oldest != NULL);
 
@@ -3504,7 +3506,7 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
 static fcache_t *
 get_cache_for_new_fragment(dcontext_t *dcontext, fragment_t *f)
 {
-    thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
     fcache_t *cache = NULL;
     if (TEST(FRAG_SHARED, f->flags)) {
         if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
@@ -3568,7 +3570,7 @@ get_cache_for_new_fragment(dcontext_t *dcontext, fragment_t *f)
 void 
 fcache_add_fragment(dcontext_t *dcontext, fragment_t *f)
 {
-    thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
     uint slot_size;
     fcache_t *cache = get_cache_for_new_fragment(dcontext, f);
     ASSERT(cache != NULL);
@@ -3684,7 +3686,7 @@ get_dcontext_for_fragment(fragment_t *f)
 bool
 fcache_is_flush_pending(dcontext_t *dcontext)
 {
-    thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
     return tu->pending_flush;
 }
 
@@ -3843,7 +3845,7 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
 bool
 fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed)
 {
-    thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
     fcache_unit_t *unit_flushed = NULL;
     fcache_unit_t *u, *local_to_flush;
     bool not_flushed = true;
@@ -4411,7 +4413,7 @@ fcache_low_on_memory()
 
 #if 0
     dcontext_t *dcontext = get_thread_private_dcontext();
-    thread_units_t *tu = (thread_units_t *) dcontext->fcache_field;
+    fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
     /* FIXME: we cannot reset the cache at arbitrary points -- and we can
      * be called at any alloc point!  If in middle of fragment creation,
      * we can't just go delete the fragment!
