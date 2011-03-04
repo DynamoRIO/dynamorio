@@ -1980,7 +1980,8 @@ heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded)
     void *p = get_guarded_real_memory(reserve_size, commit_size, prot, true, guarded
                                       _IF_DEBUG("heap_mmap"));
 #ifdef DEBUG_MEMORY
-    memset(p, HEAP_ALLOCATED_BYTE, commit_size);
+    if (TEST(MEMPROT_WRITE, prot))
+        memset(p, HEAP_ALLOCATED_BYTE, commit_size);
 #endif
     /* We rely on this for freeing _post_stack in absence of dcontext */
     ASSERT(!DYNAMO_OPTION(vm_reserve) ||
