@@ -690,7 +690,12 @@ dr_unregister_thread_init_event(void (*func)(void *drcontext));
 DR_API
 /**
  * Registers a callback function for the thread exit event.  DR calls
- * \p func whenever an application thread exits.
+ * \p func whenever an application thread exits.  The passed-in
+ * drcontext should be used instead of calling
+ * dr_get_current_drcontext(), as the thread exit event may be invoked
+ * from other threads, and using dr_get_current_drcontext() can result
+ * in failure to clean up the right resources, and at process exit
+ * time it may return NULL.
  *
  * See dr_set_process_exit_behavior() for options controlling performance
  * and whether thread exit events are invoked at process exit time in
