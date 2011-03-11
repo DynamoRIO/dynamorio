@@ -140,7 +140,7 @@ $thread_count = 0;
 $thread_with_hits = 0;
 $dll_base = 0;
 $delta = 0;
-$dr_pref_base = hex("0x15000000");
+$dr_pref_base = hex("0x71000000");
 while (<PROFILE>) {
 
     chop($_);

@@ -112,25 +112,29 @@ while (<SYMBOL_FILE>) {
             exit;
         }
         chop($_);
-        if ($verbose) {
-            print STDERR "Src line is $_\n";
-        }
         # The src line is something like:
         # utils.c(549)+0x2
-        if (/^(\w+)\.(\w+)\((\d+)\)/) {
-            $srcline = "$1.$2:$3";
-            $addr_to_srcline{$address} = $srcline;
-            $srcline_hits{$srcline} = 0;
+        if (/^\(/) {
+            # don't always have src line: already on symbol line
+        } else {
             if ($verbose) {
-                print STDERR "Addr $address -> $addr_to_srcline{$address}\n";
+                print STDERR "Src line is $_\n";
             }
+            if (/^(\w+)\.(\w+)\((\d+)\)/) {
+                $srcline = "$1.$2:$3";
+                $addr_to_srcline{$address} = $srcline;
+                $srcline_hits{$srcline} = 0;
+                if ($verbose) {
+                    print STDERR "Addr $address -> $addr_to_srcline{$address}\n";
+                }
+            }
+            
+            if ( !($_ = <SYMBOL_FILE>) ) {
+                print STDERR "ERROR -- out of data, expecting src info!\n";
+                exit;
+            }
+            chop($_);
         }
-
-        if ( !($_ = <SYMBOL_FILE>) ) {
-            print STDERR "ERROR -- out of data, expecting src info!\n";
-            exit;
-        }
-        chop($_);
         if ($verbose) {
             print STDERR "Symbol line is $_\n";
         }
