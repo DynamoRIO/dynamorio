@@ -190,6 +190,21 @@ redirect_GetModuleFileNameA(HMODULE mod, char *buf, DWORD bufcnt);
 static DWORD WINAPI
 redirect_GetModuleFileNameW(HMODULE mod, wchar_t *buf, DWORD bufcnt);
 
+static NTSTATUS WINAPI
+redirect_InitializeCriticalSection(RTL_CRITICAL_SECTION* crit);
+
+static NTSTATUS WINAPI
+redirect_InitializeCriticalSectionAndSpinCount(RTL_CRITICAL_SECTION* crit,
+                                               ULONG                 spincount);
+
+static NTSTATUS WINAPI
+redirect_InitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
+                                     ULONG                 spincount,
+                                     ULONG                 flags);
+
+static NTSTATUS WINAPI
+redirect_DeleteCriticalSection(RTL_CRITICAL_SECTION *crit);
+
 /* Since we can't easily have a 2nd copy of ntdll, our 2nd copy of kernel32,
  * etc. use the same ntdll as the app.  We then have to redirect ntdll imports
  * that use shared resources and could interfere with the app.  There is a LOT
@@ -233,6 +248,14 @@ static const redirect_import_t redirect_ntdll[] = {
     /* kernel32!LocalFree calls these */
     {"RtlLockHeap",                    (app_pc)redirect_RtlLockHeap},
     {"RtlUnlockHeap",                  (app_pc)redirect_RtlUnlockHeap},
+    /* We redirect these to our implementations to avoid their internal
+     * heap allocs that can end up mixing app and priv heap
+     */
+    {"RtlInitializeCriticalSection",   (app_pc)redirect_InitializeCriticalSection},
+    {"RtlInitializeCriticalSectionAndSpinCount",
+                                (app_pc)redirect_InitializeCriticalSectionAndSpinCount},
+    {"RtlInitializeCriticalSectionEx", (app_pc)redirect_InitializeCriticalSectionEx},
+    {"RtlDeleteCriticalSection",       (app_pc)redirect_DeleteCriticalSection},
     /* We don't redirect the creation but we avoid DR pointers being passed
      * to RtlFreeHeap and subsequent heap corruption by redirecting the frees,
      * since sometimes creation is by direct RtlAllocateHeap.
@@ -295,10 +318,6 @@ static HMODULE (WINAPI *priv_kernel32_GetModuleHandleW)(const wchar_t *);
 static FARPROC (WINAPI *priv_kernel32_GetProcAddress)(HMODULE, const char *);
 static HMODULE (WINAPI *priv_kernel32_LoadLibraryA)(const char *);
 static HMODULE (WINAPI *priv_kernel32_LoadLibraryW)(const wchar_t *);
-static DWORD (WINAPI *priv_kernel32_GetModuleFileNameA)(HMODULE mod, char *buf,
-                                                        DWORD bufcnt);
-static DWORD (WINAPI *priv_kernel32_GetModuleFileNameW)(HMODULE mod, wchar_t *buf,
-                                                        DWORD bufcnt);
 
 #ifdef CLIENT_INTERFACE
 /* Isolate the app's PEB by making a copy for use by private libs (i#249) */
@@ -1419,26 +1438,39 @@ redirect_RtlDestroyHeap(HANDLE base)
 
 void * WINAPI RtlAllocateHeap(HANDLE heap, ULONG flags, SIZE_T size);
 
+static void *
+wrapped_dr_alloc(ULONG flags, SIZE_T size)
+{
+    byte *mem;
+    ASSERT(sizeof(size_t) >= HEAP_ALIGNMENT);
+    size += sizeof(size_t);
+    mem = global_heap_alloc(size HEAPACCT(ACCT_LIBDUP));
+    if (mem == NULL) {
+        /* FIXME: support HEAP_GENERATE_EXCEPTIONS (xref PR 406742) */
+        ASSERT_NOT_REACHED();
+        return NULL;
+    }
+    *((size_t *)mem) = size;
+    if (TEST(HEAP_ZERO_MEMORY, flags))
+        memset(mem + sizeof(size_t), 0, size - sizeof(size_t));
+    return (void *) (mem + sizeof(size_t));
+}
+
+static void
+wrapped_dr_free(byte *ptr)
+{
+    ptr -= sizeof(size_t);
+    global_heap_free(ptr, *((size_t *)ptr) HEAPACCT(ACCT_LIBDUP));
+}
+
 static void * WINAPI
 redirect_RtlAllocateHeap(HANDLE heap, ULONG flags, SIZE_T size)
 {
     PEB *peb = get_peb(NT_CURRENT_PROCESS);
     if (redirect_heap_call(heap)) {
-        byte *mem;
-        ASSERT(sizeof(size_t) >= HEAP_ALIGNMENT);
-        size += sizeof(size_t);
-        mem = global_heap_alloc(size HEAPACCT(ACCT_LIBDUP));
-        if (mem == NULL) {
-            /* FIXME: support HEAP_GENERATE_EXCEPTIONS (xref PR 406742) */
-            ASSERT_NOT_REACHED();
-            return NULL;
-        }
-        *((size_t *)mem) = size;
-        if (TEST(HEAP_ZERO_MEMORY, flags))
-            memset(mem + sizeof(size_t), 0, size - sizeof(size_t));
-        LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX" "PIFX"\n", __FUNCTION__,
-            mem + sizeof(size_t), size);
-        return (void *) (mem + sizeof(size_t));
+        void *mem = wrapped_dr_alloc(flags, size);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX" "PIFX"\n", __FUNCTION__, mem, size);
+        return mem;
     } else {
         void *res = RtlAllocateHeap(heap, flags, size);
         LOG(GLOBAL, LOG_LOADER, 2, "native %s "PFX" "PIFX"\n", __FUNCTION__,
@@ -1499,8 +1531,7 @@ redirect_RtlFreeHeap(HANDLE heap, ULONG flags, byte *ptr)
         ASSERT(IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true));
         if (ptr != NULL) {
             LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX"\n", __FUNCTION__, ptr);
-            ptr -= sizeof(size_t);
-            global_heap_free(ptr, *((size_t *)ptr) HEAPACCT(ACCT_LIBDUP));
+            wrapped_dr_free(ptr);
             return true;
         } else
             return false;
@@ -1788,7 +1819,6 @@ redirect_GetModuleFileNameA(HMODULE modbase, char *buf, DWORD bufcnt)
 {
     privmod_t *mod;
     DWORD cnt = 0;
-    ASSERT(priv_kernel32_GetModuleFileNameA != NULL);
     acquire_recursive_lock(&privload_lock);
     mod = privload_lookup_by_base((app_pc)modbase);
     if (mod != NULL) {
@@ -1815,7 +1845,6 @@ redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
 {
     privmod_t *mod;
     DWORD cnt = 0;
-    ASSERT(priv_kernel32_GetModuleFileNameW != NULL);
     acquire_recursive_lock(&privload_lock);
     mod = privload_lookup_by_base((app_pc)modbase);
     if (mod != NULL) {
@@ -1835,4 +1864,96 @@ redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
         return NULL;
     } else
         return cnt;
+}
+
+/****************************************************************************
+ * Rtl*CriticalSection redirection
+ */
+
+#ifndef RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO
+# define RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO 0x1000000
+#endif
+#ifndef RTL_CRITICAL_SECTION_FLAG_STATIC_INIT
+# define RTL_CRITICAL_SECTION_FLAG_STATIC_INIT    0x4000000
+#endif
+
+static NTSTATUS WINAPI
+redirect_InitializeCriticalSection(RTL_CRITICAL_SECTION* crit)
+{
+    return redirect_InitializeCriticalSectionEx(crit, 0, 0);
+}
+
+static NTSTATUS WINAPI
+redirect_InitializeCriticalSectionAndSpinCount(RTL_CRITICAL_SECTION* crit,
+                                               ULONG                 spincount)
+{
+    return redirect_InitializeCriticalSectionEx(crit, spincount, 0);
+}
+
+static NTSTATUS WINAPI
+redirect_InitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
+                                     ULONG                 spincount,
+                                     ULONG                 flags)
+{
+    /* We cannot allow ntdll!RtlpAllocateDebugInfo to be called as it
+     * uses its own free list RtlCriticalSectionDebugSList which is
+     * shared w/ the app and can result in mixing app and private heap
+     * objects but with the wrong Heap handle, leading to crashes
+     * (xref Dr. Memory i#333).
+     */
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"\n", __FUNCTION__, crit);
+    ASSERT(get_own_teb()->ProcessEnvironmentBlock == private_peb);
+    if (crit == NULL)
+        return ERROR_INVALID_PARAMETER;
+    if (TEST(RTL_CRITICAL_SECTION_FLAG_STATIC_INIT, flags)) {
+        /* We don't support this.  We could call the real version but
+         * we'd have to distinguish on RtlDeleteCriticalSection.
+         * For now we keep going: it may well work.
+         */
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
+
+    memset(crit, 0, sizeof(*crit));
+    crit->LockCount = -1;
+    if (get_own_peb()->NumberOfProcessors < 2)
+        crit->SpinCount = 0;
+    else
+        crit->SpinCount = (spincount & ~0x80000000);
+
+    if (TEST(RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO, flags))
+        crit->DebugInfo = NULL;
+    else {
+        crit->DebugInfo = wrapped_dr_alloc(0, sizeof(*crit->DebugInfo));
+    }
+    if (crit->DebugInfo != NULL) {
+        memset(crit->DebugInfo, 0, sizeof(*crit->DebugInfo));
+        crit->DebugInfo->CriticalSection = crit;
+        crit->DebugInfo->ProcessLocksList.Blink = &(crit->DebugInfo->ProcessLocksList);
+        crit->DebugInfo->ProcessLocksList.Flink = &(crit->DebugInfo->ProcessLocksList);
+    }
+
+    return STATUS_SUCCESS;
+}
+
+static NTSTATUS WINAPI
+redirect_DeleteCriticalSection(RTL_CRITICAL_SECTION* crit)
+{
+    GET_NTDLL(RtlDeleteCriticalSection, (RTL_CRITICAL_SECTION *crit));
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"\n", __FUNCTION__, crit);
+    ASSERT(get_own_teb()->ProcessEnvironmentBlock == private_peb);
+    if (crit == NULL)
+        return ERROR_INVALID_PARAMETER;
+    if (crit->DebugInfo != NULL) {
+        if (is_dynamo_address((byte *)crit->DebugInfo))
+            wrapped_dr_free((byte *)crit->DebugInfo);
+        else {
+            /* somehow a critsec created elsewhere is being destroyed here! */
+            ASSERT_NOT_REACHED();
+            return RtlDeleteCriticalSection(crit);
+        }
+    }
+    close_handle(crit->LockSemaphore);
+    memset(crit, 0, sizeof(*crit));
+    crit->LockCount = -1;
+    return STATUS_SUCCESS;
 }
