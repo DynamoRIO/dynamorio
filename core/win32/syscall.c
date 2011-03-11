@@ -939,9 +939,11 @@ presys_CreateThread(dcontext_t *dcontext, reg_t *param_base)
         LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2, 
             "\tsymbol info for start address : %s\n", buf);
     });
-    /* if not early injecting, we will unsafely modify cxt (for late follow
-     * children) FIXME */
     ASSERT(cxt != NULL);
+    /* if not early injecting, we will unsafely modify cxt (for late follow
+     * children) FIXME
+     * if not injecting at all we won't change cxt.
+     */
     maybe_inject_into_process(dcontext, process_handle, cxt);
 }
 
@@ -1242,6 +1244,11 @@ presys_ResumeThread(dcontext_t *dcontext, reg_t *param_base)
         if (process_handle == INVALID_HANDLE_VALUE) {
             LOG(THREAD, LOG_SYSCALLS, 1,
                 "WARNING: error acquiring process handle for pid="PIFX"\n", pid);
+            return;
+        }
+        if (!should_inject_into_process(dcontext, process_handle, NULL, NULL)) {
+            LOG(THREAD, LOG_SYSCALLS, 1,
+                "Not injecting so not setting DR env vars in pid="PIFX"\n", pid);
             return;
         }
         if (not_first_thread_in_new_process(process_handle, thread_handle)) {
@@ -2503,8 +2510,8 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
                             "thread ("PIFX") so can't follow children on WOW64.\n");
                     }
                 }
-                maybe_inject_into_process(dcontext, proc_handle, cxt);
-                if (cxt != NULL) {
+                if (maybe_inject_into_process(dcontext, proc_handle, cxt) &&
+                    cxt != NULL) {
                     /* injection routine is assuming doesn't have to install cxt */
                     res = nt_set_context(thread_handle, cxt);
                     if (!NT_SUCCESS(res)) {

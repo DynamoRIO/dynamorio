@@ -70,7 +70,7 @@ extern dcontext_t *early_inject_load_helper_dcontext;
 bool
 is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt);
 
-void
+bool
 maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
                           CONTEXT *cxt);
 

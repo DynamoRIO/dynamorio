@@ -1889,7 +1889,7 @@ is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
  * handle process_handle.  Called by SYS_CreateThread in pre_system_call (in
  * which case cxt is non-NULL) and by CreateProcess[Ex] in post_system_call (in
  * which case cxt is NULL). */
-void
+bool
 maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
                           CONTEXT *cxt)
 {
@@ -1900,6 +1900,7 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
     /* Can't early inject 32-bit DR into a wow64 process as there is no
      * ntdll32.dll at early inject point, so thread injection only.  PR 215423.
      */
+    bool injected = false;
     if ((cxt == NULL && (DYNAMO_OPTION(inject_at_create_process) ||
                          (get_os_version() >= WINDOWS_VERSION_VISTA &&
                           DYNAMO_OPTION(vista_inject_at_create_process)))
@@ -1916,6 +1917,7 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
 
         if (should_inject_into_process(dcontext, process_handle,
                                        &rununder_mask, &should_inject)) {
+            injected = true; /* attempted, at least */
             ASSERT(cxt != NULL || DYNAMO_OPTION(early_inject));
             /* FIXME : if not -early_inject, we are going to read and write
              * to cxt, which may be unsafe */
@@ -1925,6 +1927,7 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
             }
         }
     }
+    return injected;
 }
 
 /* For case 8749: can't aslr dr for thin_client because cygwin apps will die. */
