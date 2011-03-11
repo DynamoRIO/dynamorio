@@ -719,6 +719,13 @@ write_options(opt_info_t *opt_info, WCHAR *wbuf)
             mode_str = "-probe_api -hotp_only";
             break;
 #endif
+        case DR_MODE_DO_NOT_RUN:
+            /* this is a mode b/c can't add dr_register_process param w/o breaking
+             * backward compat, so just ignore in terms of options, user has to
+             * re-reg anyway to re-enable and can specify mode then.
+             */
+            mode_str = "";
+            break;
         default:
 #ifndef CLIENT_INTERFACE
             /* no API's so no added options */
@@ -909,7 +916,7 @@ dr_register_process(const char *process_name,
 #endif
 
     /* set the rununder string */
-    _snwprintf(wbuf, MAX_PATH, L"1");
+    _snwprintf(wbuf, MAX_PATH, (dr_mode == DR_MODE_DO_NOT_RUN) ? L"0" : L"1");
     NULL_TERMINATE_BUFFER(wbuf);
     write_config_param(IF_REG_ELSE(proc_policy, f), PARAM_STR(DYNAMORIO_VAR_RUNUNDER),
                        wbuf);
@@ -1078,6 +1085,12 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, HANDLE f),
 
     if (dr_mode != NULL) {
         *dr_mode = opt_info.mode;
+        if (read_config_param(IF_REG_ELSE(proc_policy, f),
+                              PARAM_STR(DYNAMORIO_VAR_RUNUNDER),
+                              autoinject, BUFFER_SIZE_ELEMENTS(autoinject))) {
+            if (wcscmp(autoinject, L"0") == 0)
+                *dr_mode = DR_MODE_DO_NOT_RUN;
+        }
     }
 
     if (debug != NULL) {

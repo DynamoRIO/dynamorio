@@ -45,6 +45,10 @@
 ##  [-@archother@]                  Use @archother@-bit DynamoRIO (default is @archdefault@-bit).  This
 ##                           should match what the client library and executable
 ##                           being run were compiled for.
+##  [-norun]               Only for drconfig.  Requests that an application NOT be
+##                           run under DR control.  Useful for following all
+##                           child processes except a blacklist.
+##  [-unreg]               Only for drconfig.  Removes configuration file.
 ##  [-dr_home <path>]      Path to the DynamoRIO install.
 ##                           Defaults to .. from @name@; may also be omitted
 ##                           if DYNAMORIO_HOME is defined in the environment.
@@ -76,11 +80,21 @@ arch=@archdefault@
 config=@config@
 runapp=@runapp@
 
-usage="usage: $0 [-v] [-debug] [-32] [-64] [-dr_home <path>] [-ops <dr_options>] [-logdir <path>] [-client <path> <ID> \"<options>\"]* <executable> [args ...]"
+if [ "$config" = "1" ]
+then
+    extra="[-reg <executable>] [-unreg <executable] [-norun] "
+else
+    extra=""
+fi
+
+usage="usage: $0 [-v] [-debug] [-32] [-64] $extra[-dr_home <path>] [-ops <dr_options>] [-logdir <path>] [-client <path> <ID> \"<options>\"]* <executable> [args ...]"
 
 default_home_rel="`dirname $0`/.."
 default_home=`cd $default_home_rel ; pwd`
 client_list=""
+rununder=1
+unreg=0
+app=""
 
 if [ "$1" = "" ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ]
 then
@@ -94,7 +108,8 @@ fi
 # Read options
 while [ "$1" = "-v" ] || [ "$1" = "-debug" ] || [ "$1" = "-dr_home" ] || \
       [ "$1" = "-ops" ] || [ "$1" = "-logdir" ] || [ "$1" = "-client" ] || \
-      [ "$1" = "-32" ] || [ "$1" = "-64" ]
+      [ "$1" = "-32" ] || [ "$1" = "-64" ] || [ "$1" = "-norun" ] || \
+      [ "$1" = "-reg" ] || [ "$1" = "-unreg" ]
 do
 
 if [ "$1" = "-v" ] 
@@ -106,6 +121,27 @@ fi
 if [ "$1" = "-debug" ]
 then
     lib=debug
+    shift
+fi
+
+if [ "$1" = "-norun" ]
+then
+    rununder=0
+    shift
+fi
+
+if [ "$1" = "-reg" ] && [ "$config" = "1" ]
+then
+    shift
+    app="$1"
+    shift
+fi
+
+if [ "$1" = "-unreg" ] && [ "$config" = "1" ]
+then
+    unreg=1
+    shift
+    app="$1"
     shift
 fi
 
@@ -202,15 +238,18 @@ then
         lib=""
         dr_lib_path=$dr_lib_build_path
     else
-        echo "ERROR - libdynamorio.so not found in $dr_lib_path/$lib"
-        echo $usage
-        exit
+        if [ "$unreg" = "0" ] && [ "$rununder" = "1" ]
+        then
+            echo "ERROR - libdynamorio.so not found in $dr_lib_path/$lib"
+            echo $usage
+            exit
+        fi
     fi
 fi
 # convert to absolute path
 dr_lib_path=`cd "$dr_lib_path" ; pwd`
 
-if [ ! -n "$*" ]
+if [ ! -n "$*" ] && [ "$app" = "" ]
 then
     echo "ERROR - no application specified"
     echo $usage
@@ -229,9 +268,12 @@ then
 fi
 if [ ! -d $logdir ]
 then
-    echo "ERROR - logdir $logdir not found"
-    echo $usage
-    exit
+    if [ "$unreg" = "0" ] && [ "$rununder" = "1" ]
+    then
+        echo "ERROR - logdir $logdir not found"
+        echo $usage
+        exit
+    fi
 fi
 # convert to absolute path and export
 export DYNAMORIO_LOGDIR=`cd $logdir ; pwd`
@@ -266,8 +308,11 @@ then
     mkdir -p "$cfgdir"
 fi
 
-app="$1"
-shift
+if [ "$app" = "" ]
+then
+    app="$1"
+    shift
+fi
 # better to require bash and use ${app##*/}?
 name=`basename $app`
 
@@ -288,11 +333,21 @@ then
         cfgfile="$cfgdir/$name.config$arch"
         echo "# DynamoRIO config file" > $cfgfile
     fi
-    echo "DYNAMORIO_RUNUNDER=1" >> $cfgfile
-    echo "DYNAMORIO_OPTIONS=$DYNAMORIO_OPTIONS" >> $cfgfile
-    echo "DYNAMORIO_LOGDIR=$DYNAMORIO_LOGDIR" >> $cfgfile
-    echo "DYNAMORIO_AUTOINJECT=$dr_lib_path/$lib/libdynamorio.so" >> $cfgfile
-    echo "DYNAMORIO_HOME=$dr_lib_path" >> $cfgfile
+    if [ "$unreg" = "1" ]
+    then
+        rm $cfgfile
+        if [ "$verbose" = "yes" ]
+        then
+            echo "Removed config file $cfgfile"
+        fi
+        exit 0
+    else
+        echo "DYNAMORIO_RUNUNDER=${rununder}" >> $cfgfile
+        echo "DYNAMORIO_OPTIONS=$DYNAMORIO_OPTIONS" >> $cfgfile
+        echo "DYNAMORIO_LOGDIR=$DYNAMORIO_LOGDIR" >> $cfgfile
+        echo "DYNAMORIO_AUTOINJECT=$dr_lib_path/$lib/libdynamorio.so" >> $cfgfile
+        echo "DYNAMORIO_HOME=$dr_lib_path" >> $cfgfile
+    fi
 fi
 
 if [ "$runapp" = "1" ]

@@ -135,6 +135,9 @@ const char *usage_str =
     "                          config dir must be set up ahead of time.\n"
     "                          This option may require administrative privileges.\n"
     "                          If a local file already exists it will take precedence.\n"
+    "       -norun             Create a configuration that excludes the application\n"
+    "                          from running under DR control.  Useful for following\n"
+    "                          all child processes except a handful (blacklist).\n"
 #endif
     "       -debug             Use the DR debug library\n"
     "       -32                Target 32-bit or WOW64 applications\n"
@@ -303,8 +306,11 @@ bool register_proc(const char *process,
     }
 #endif
 
-    /* warn if the DR root directory doesn't look right */
-    if (!check_dr_root(dr_root, debug, dr_platform, false))
+    /* warn if the DR root directory doesn't look right, unless -norun,
+     * in which case don't bother
+     */
+    if (dr_mode != DR_MODE_DO_NOT_RUN &&
+        !check_dr_root(dr_root, debug, dr_platform, false))
         return false;
 
     if (dr_process_is_registered(process, pid, global, dr_platform,
@@ -401,7 +407,11 @@ list_process(char *name, bool global, dr_platform_t platform,
         return;
     }
 
-    printf("Process %s registered for %s\n", name, platform_name(platform));
+    if (dr_mode == DR_MODE_DO_NOT_RUN) {
+        printf("Process %s registered to NOT RUN on %s\n", name, platform_name(platform));
+    } else {
+        printf("Process %s registered for %s\n", name, platform_name(platform));
+    }
     printf("\tRoot=\"%s\" Debug=%s\n\tOptions=\"%s\"\n",
            root_dir_buf, debug ? "yes" : "no", dr_options);
     
@@ -559,6 +569,10 @@ int main(int argc, char *argv[])
             global = true;
             continue;
         }
+        else if (strcmp(argv[i], "-norun") == 0) {
+            dr_mode = DR_MODE_DO_NOT_RUN;
+            continue;
+        }
 #endif
         else if (strcmp(argv[i], "-32") == 0) {
 	    dr_platform = DR_PLATFORM_32BIT;
@@ -656,6 +670,8 @@ int main(int argc, char *argv[])
 # if defined(MF_API) || defined(PROBE_API)
         else if (strcmp(argv[i], "-mode") == 0) {
             char *mode_str = argv[++i];
+            if (dr_mode == DR_MODE_DO_NOT_RUN)
+                usage("cannot combine -norun with -mode");
             if (strcmp(mode_str, "code") == 0) {
                 dr_mode = DR_MODE_CODE_MANIPULATION;
             }

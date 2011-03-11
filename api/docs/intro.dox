@@ -1092,6 +1092,11 @@ Linux\endif.  See \ref sec_deploy.
    created by \c drconfig; see \ref sec_deploy).  On Linux,
    forked children are always followed and this option only affects execve.
 
+   To follow all children in general but exclude certain children, leave \p
+   -follow_children on (the default) and create config files that exclude
+   the desired applications by running \c drconfig with the \c -norun
+   option.
+
  - \b -opt_memory: \anchor op_memory
    Reduce memory usage, but potentially at the cost of performance.  This
    option can result in memory savings as high as 20%, and usually incurs

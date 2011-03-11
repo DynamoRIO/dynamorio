@@ -81,6 +81,13 @@ typedef enum {
 
 #endif
 
+    /**
+     * Do not run this application under DynamoRIO control.
+     * Useful for following all child processes except a handful
+     * (blacklist).
+     */
+    DR_MODE_DO_NOT_RUN = 4,
+
 } dr_operation_mode_t;
 
 /** Return status codes for process registration, unregistration and nudging. */
