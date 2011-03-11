@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -390,7 +391,8 @@ enum_cb(PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID Context)
 }
 
 static drsym_error_t
-drsym_enumerate_symbols_local(const char *modpath, drsym_enumerate_cb callback, void *data)
+drsym_enumerate_symbols_local(const char *modpath, const char *match,
+                              drsym_enumerate_cb callback, void *data)
 {
     DWORD64 base;
     drsym_error_t res = DRSYM_SUCCESS;
@@ -403,7 +405,7 @@ drsym_enumerate_symbols_local(const char *modpath, drsym_enumerate_cb callback, 
         info.cb = callback;
         info.data = data;
         info.base = base;
-        if (!SymEnumSymbols(GetCurrentProcess(), base, NULL, enum_cb, (PVOID) &info)) {
+        if (!SymEnumSymbols(GetCurrentProcess(), base, match, enum_cb, (PVOID) &info)) {
             NOTIFY("SymEnumSymbols error %d\n", GetLastError());
             res = DRSYM_ERROR_SYMBOL_NOT_FOUND;
         }
@@ -433,15 +435,15 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
          */
         HMODULE hmod = GetModuleHandle("dbghelp.dll");
         if (hmod == NULL) {
-            res = DRSYM_ERROR_FEATURE_NOT_AVAILABLE;
             dr_mutex_unlock(symbol_lock);
-            return res;
+            /* fall back to slower enum */
+            return drsym_enumerate_symbols_local(modpath, match, callback, data);
         }
         func = (func_SymSearch_t) GetProcAddress(hmod, "SymSearch");
         if (func == NULL) {
-            res = DRSYM_ERROR_FEATURE_NOT_AVAILABLE;
             dr_mutex_unlock(symbol_lock);
-            return res;
+            /* fall back to slower enum */
+            return drsym_enumerate_symbols_local(modpath, match, callback, data);
         }
     }
     base = lookup_or_load(modpath);
@@ -492,7 +494,7 @@ drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_enumerate_symbols_local(modpath, callback, data);
+        return drsym_enumerate_symbols_local(modpath, NULL, callback, data);
     }
 }
 

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -182,7 +183,7 @@ DR_EXPORT
  * faster and uses less memory than drsym_enumerate_symbols(), and is
  * faster than drsym_lookup_symbol(), but requires dbghelp.dll version
  * 6.3 or higher.  If an earlier version is used, this function will
- * fail with DRSYM_ERROR_FEATURE_NOT_AVAILABLE.
+ * use a slower mechanism to perform the search.
  *
  * @param[in] modpath   The full path to the module to be queried.
  * @param[in] match     Regular expression describing the names of the symbols
