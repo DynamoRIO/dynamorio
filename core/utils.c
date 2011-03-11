@@ -1812,7 +1812,9 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
      * we are going to just os_syslog, but it gets pretty ugly to do that */
     size = vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
     NULL_TERMINATE_BUFFER(msgbuf);         /* always NULL terminate */
-    ASSERT(size < BUFFER_SIZE_ELEMENTS(msgbuf));
+    /* not a good idea to assert here since we'll just die and lose original message,
+     * so we don't check size return value and just go ahead and truncate
+     */
     va_end(ap);
 
     LOG(GLOBAL, LOG_ALL, 1, "%s: %s\n", prefix, msgbuf);
@@ -2029,7 +2031,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
         GET_FRAME_PTR(report_ebp);
     }
     for (num = 0, pc = (ptr_uint_t *) report_ebp;
-         num <= REPORT_NUM_STACK && pc != NULL &&
+         num < REPORT_NUM_STACK && pc != NULL &&
              is_readable_without_exception_query_os((app_pc) pc, 2*sizeof(reg_t));
          num++, pc = (ptr_uint_t *) *pc) {
         len = snprintf(curbuf, REPORT_LEN_STACK_EACH, PFX" "PFX"\n",
