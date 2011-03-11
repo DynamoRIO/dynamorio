@@ -1012,8 +1012,19 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
             /* for simplicity we do a syscall for each var.  if too long we're
              * ok: DR vars will fit, and if longer we'll handle rest next iter.
              */
-            if (!nt_read_virtual_memory(phandle, &env[tot_sz], buf, sizeof(buf), &got))
-                return false;
+            if (!nt_read_virtual_memory(phandle, &env[tot_sz], buf, sizeof(buf), &got)) {
+                /* may have crossed page boundary */
+                byte *start = (byte *) &env[tot_sz];
+                if (PAGE_START(start) != PAGE_START(start + sizeof(buf))) {
+                    size_t toread = (byte *) ALIGN_FORWARD(start, PAGE_SIZE) - start;
+                    ASSERT(toread <= sizeof(buf));
+                    if (!nt_read_virtual_memory(phandle, &env[tot_sz], buf, toread,
+                                                &got)) {
+                        return false;
+                    }
+                } else
+                    return false;
+            }
             buf[got/sizeof(buf[0]) - 1] = '\0';
             if (buf[0] == 0)
                 break;
