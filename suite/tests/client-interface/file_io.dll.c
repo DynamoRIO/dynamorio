@@ -79,15 +79,28 @@ byte safe_buf[2*PAGE_SIZE+100] = {1};
 
 byte writable_buf[2*PAGE_SIZE] = {1};
 
+static file_t file;
+
 bool dummy_func()
 {
     return true;
 }
 
+static void
+event_exit(void)
+{
+    /* ensure our file was not closed by the app */
+    if (!dr_file_seek(file, 0, DR_SEEK_SET))
+        dr_fprintf(STDERR, "seek error in exit event\n");
+    dr_close_file(file);
+    dr_fprintf(STDERR, "file separation check\n");
+
+    dr_fprintf(STDERR, "done\n");
+}
+
 DR_EXPORT
 void dr_init(client_id_t id)
 {
-    file_t file;
     char buf[100];
     int64 pos;
     int i;
@@ -95,7 +108,7 @@ void dr_init(client_id_t id)
     byte *base_pc;
     size_t size;
     size_t bytes_read, bytes_written;
-    byte *edge;
+    byte *edge, *wbuf;
     bool ok;
 
     /* The Makefile will pass a full absolute path (for Windows and Linux) as the client
@@ -127,7 +140,10 @@ void dr_init(client_id_t id)
     memset(buf, 0, sizeof(buf));
     dr_read_file(file, buf, 6);
     dr_fprintf(STDERR, "%s\n", buf);
-    dr_close_file(file);
+    /* leave file open and check in exit event that it's still open after
+     * app tries to close it
+     */
+    dr_register_exit_event(event_exit);
 
     /* Test the memory query routines */
     dummy_func();
@@ -209,16 +225,20 @@ void dr_init(client_id_t id)
         !memchk(writable_buf+1000, 0, 1000)) {
         dr_fprintf(STDERR, "ERROR in plain dr_safe_write()\n");
     }
-    memset(writable_buf, 0, sizeof(writable_buf));
-    edge = find_prot_edge(writable_buf, DR_MEMPROT_WRITE);
+    /* so we don't clobber other global vars we use an allocated buffer here */
+    wbuf = dr_nonheap_alloc(PAGE_SIZE*3, DR_MEMPROT_READ|DR_MEMPROT_WRITE);
+    if (!dr_memory_protect(wbuf + PAGE_SIZE*2, PAGE_SIZE, DR_MEMPROT_READ))
+        dr_fprintf(STDERR, "ERROR in dr_memory_protect\n");
+    memset(wbuf, 0, sizeof(wbuf));
+    edge = find_prot_edge(wbuf, DR_MEMPROT_WRITE);
     bytes_written = 0xcdcdcdcd;
     if (dr_safe_write(edge - (PAGE_SIZE + 10), PAGE_SIZE+20, safe_buf, &bytes_written) ||
         bytes_written == 0xcdcdcdcd || bytes_written > PAGE_SIZE+10 ||
         !memchk(edge - (PAGE_SIZE + 10), 0xcd, bytes_written)) {
-        dr_fprintf(STDERR, "ERROR in overlap dr_safe_write() "PFX" "PFX" %d\n", writable_buf, edge, bytes_written);
+        dr_fprintf(STDERR, "ERROR in overlap dr_safe_write() "PFX" "PFX" %d\n",
+                   wbuf, edge, bytes_written);
     }
+    dr_nonheap_free(wbuf, PAGE_SIZE*3);
     dr_fprintf(STDERR, "dr_safe_write() check\n");
-
-    dr_fprintf(STDERR, "done\n");
 }
 

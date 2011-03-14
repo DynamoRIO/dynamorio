@@ -32,5 +32,13 @@
 
 int main()
 {
+#ifdef LINUX
+    /* test i#357 by trying to close the client's file */
+    int i;
+    for (i = 0; i < 2048; i++) {
+        dup2(0, i);
+        close(i);
+    }
+#endif
     return 0;
 }

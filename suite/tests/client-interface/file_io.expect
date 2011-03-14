@@ -9,4 +9,5 @@ read_only_buf is r
 dr_safe_read() check
 DR_TRY_EXCEPT check
 dr_safe_write() check
+file separation check
 done
