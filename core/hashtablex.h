@@ -1500,7 +1500,7 @@ static uint
 HTNAME(hashtable_,NAME_KEY,_unlinked_remove)(dcontext_t *dcontext,
                                              HTNAME(,NAME_KEY,_table_t) *table)
 {
-    uint i;
+    int i;
     ENTRY_TYPE e;
     uint entries_removed = 0;
 
@@ -1523,7 +1523,7 @@ HTNAME(hashtable_,NAME_KEY,_unlinked_remove)(dcontext_t *dcontext,
      * in order to keep all reachable.  We go in reverse order to
      * efficiently delete all entries
      */
-    i = table->capacity - 1 - 1 /* sentinel */;
+    i = (int) table->capacity - 1 - 1 /* sentinel */;
     while (i >= 0) {
         e = table->table[i];
         if (ENTRY_IS_INVALID(e)) {
@@ -1554,7 +1554,7 @@ HTNAME(hashtable_,NAME_KEY,_unlinked_remove)(dcontext_t *dcontext,
 #ifdef HASHTABLE_USE_LOOKUPTABLE
     DODEBUG({
         /* Check that there are no remnants of unlinked fragments in the table. */
-        for (i = 0; i < table->capacity; i++) {
+        for (i = 0; i < (int) table->capacity; i++) {
             ASSERT(!ENTRY_IS_INVALID(table->table[i]));
             ASSERT(!AUX_ENTRY_IS_INVALID(table->lookuptable[i]));
             ASSERT(!AUX_PAYLOAD_IS_INVALID(dcontext, table, table->lookuptable[i]));
@@ -1563,7 +1563,7 @@ HTNAME(hashtable_,NAME_KEY,_unlinked_remove)(dcontext_t *dcontext,
 #else
     DODEBUG({
         /* Check that there are no remnants of unlinked fragments in the table. */
-        for (i = 0; i < table->capacity; i++) {
+        for (i = 0; i < (int) table->capacity; i++) {
             ASSERT(!ENTRY_IS_INVALID(table->table[i]));
         }
     });
