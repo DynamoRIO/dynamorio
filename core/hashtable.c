@@ -107,7 +107,8 @@ static void
 hashtable_generic_free_entry(dcontext_t *dcontext, generic_table_t *htable,
                              generic_entry_t *entry)
 {
-    (*htable->free_payload_func)(entry->payload);
+    if (htable->free_payload_func != NULL)
+        (*htable->free_payload_func)(entry->payload);
     HEAP_TYPE_FREE(dcontext, entry, generic_entry_t, ACCT_OTHER, PROTECTED);
 }
 
@@ -179,6 +180,53 @@ generic_hash_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t ke
         return true;
     }
     return false;
+}
+
+/* pass 0 to start.  returns -1 when there are no more entries. */
+int
+generic_hash_iterate_next(dcontext_t *dcontext, generic_table_t *htable, int iter,
+                          OUT ptr_uint_t *key, OUT void **payload)
+{
+    int i;
+    generic_entry_t *e = NULL;
+    for (i = iter; i < (int) htable->capacity; i++) {
+        e = htable->table[i];
+        if (!GENERIC_ENTRY_IS_REAL(e))
+            continue;
+        else
+            break;
+    }
+    if (i >= (int) htable->capacity)
+        return -1;
+    ASSERT(e != NULL);
+    if (key != NULL)
+        *key = e->key;
+    if (payload != NULL)
+        *payload = e->payload;
+    return i+1;
+}
+
+/* removes from the hashtable in a safe way during iteration.  returns an
+ * updated iteration index to pass to generic_hash_iterate_next().
+ */
+int
+generic_hash_iterate_remove(dcontext_t *dcontext, generic_table_t *htable, int iter,
+                            ptr_uint_t key)
+{
+    generic_entry_t *e = hashtable_generic_lookup(dcontext, key, htable);
+    uint hindex;
+    generic_entry_t **rm = hashtable_generic_lookup_for_removal(e, htable, &hindex);
+    int res = iter;
+    if (rm != NULL) {
+        if (hashtable_generic_remove_helper(htable, hindex, rm)) {
+            /* pulled entry from start to here so skip it as we've already seen it */
+        } else {
+            /* pulled entry from below us, so step back */
+            res--;
+        }
+        hashtable_generic_free_entry(dcontext, htable, e);
+    }
+    return res;
 }
 
 /*******************************************************************************/

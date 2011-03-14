@@ -217,6 +217,18 @@ generic_hash_add(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key,
 bool
 generic_hash_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key);
 
+/* pass 0 to start.  returns -1 when there are no more entries. */
+int
+generic_hash_iterate_next(dcontext_t *dcontext, generic_table_t *htable, int iter,
+                          OUT ptr_uint_t *key, OUT void **payload);
+
+/* removes from the hashtable in a safe way during iteration.  returns an
+ * updated iteration index to pass to generic_hash_iterate_next().
+ */
+int
+generic_hash_iterate_remove(dcontext_t *dcontext, generic_table_t *htable, int iter,
+                            ptr_uint_t key);
+
 /*******************************************************************************/
 
 
