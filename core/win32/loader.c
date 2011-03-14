@@ -1906,11 +1906,10 @@ redirect_InitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
     if (crit == NULL)
         return ERROR_INVALID_PARAMETER;
     if (TEST(RTL_CRITICAL_SECTION_FLAG_STATIC_INIT, flags)) {
-        /* We don't support this.  We could call the real version but
-         * we'd have to distinguish on RtlDeleteCriticalSection.
-         * For now we keep going: it may well work.
+        /* We're supposed to use a static memory pool but it's not
+         * clear whether it really matters so we ignore this flag.
          */
-        ASSERT_NOT_IMPLEMENTED(false);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: ignoring static-init flag\n", __FUNCTION__);
     }
 
     memset(crit, 0, sizeof(*crit));
