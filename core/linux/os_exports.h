@@ -73,6 +73,7 @@ void *get_tls(ushort tls_offs);
 void set_tls(ushort tls_offs, void *value);
 
 /* in os.c */
+void os_file_init(void);
 void os_fork_init(dcontext_t *dcontext);
 void os_thread_stack_store(dcontext_t *dcontext);
 app_pc get_dynamorio_dll_end(void);

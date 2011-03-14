@@ -96,12 +96,12 @@ section_to_file_lookup(HANDLE section_handle)
 {
     section_to_file_t *s2f;
     const char *file = NULL;
-    TABLE_RWLOCK(section2file_table, write, lock);
+    TABLE_RWLOCK(section2file_table, read, lock);
     s2f = generic_hash_lookup(GLOBAL_DCONTEXT, section2file_table,
                               (ptr_uint_t)section_handle);
     if (s2f != NULL)
         file = dr_strdup(s2f->file_path HEAPACCT(ACCT_VMAREAS));
-    TABLE_RWLOCK(section2file_table, write, unlock);
+    TABLE_RWLOCK(section2file_table, read, unlock);
     return file;
 }
 

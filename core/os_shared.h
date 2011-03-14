@@ -572,12 +572,15 @@ bool remove_from_all_memory_areas(app_pc start, app_pc end);
 #define OS_SHARE_DELETE     0x20 /* only used on win32, currently */
 #define OS_OPEN_FORCE_OWNER 0x40 /* only used on win32, currently */
 #define OS_OPEN_ALLOW_LARGE 0x80 /* only used on linux32, currently */
+#define OS_OPEN_CLOSE_ON_FORK 0x100 /* only used on linux */
+#define OS_OPEN_RESERVED  0x10000000 /* used for fd_table on linux */
 /* always use OS_OPEN_REQUIRE_NEW when asking for OS_OPEN_WRITE, in
  * order to avoid hard link or symbolic link attacks if the file is in
  * a world writable locations and the process may have high
  * privileges.
  */
 file_t os_open(const char *fname, int os_open_flags);
+file_t os_open_protected(const char *fname, int os_open_flags);
 file_t os_open_directory(const char *fname, int os_open_flags);
 /* FIXME : os_file_exists always returns true on linux */
 bool os_file_exists(const char *fname, bool is_dir);
@@ -597,6 +600,7 @@ typedef enum {
 
 bool os_create_dir(const char *fname, create_directory_flags_t create_dir_flags);
 void os_close(file_t f);
+void os_close_protected(file_t f);
 /* returns number of bytes written, negative if failure */
 ssize_t os_write(file_t f, const void *buf, size_t count);
 /* returns number of bytes read, negative if failure */

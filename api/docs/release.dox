@@ -109,6 +109,10 @@ with releases from 1.0.0 (originally called 0.9.6: see below) onward.
 However, the configuration and deployment API and tools have changed and
 are not backward compatible: see below for details.
 
+The changes between version 2.2.0 and 2.1.0 are:
+
+ - Added isolation of \client-opened files from the application (Issue 357)
+
 The changes between version 2.1.0 and 2.0.0 are:
 
  - Added Windows 7 support

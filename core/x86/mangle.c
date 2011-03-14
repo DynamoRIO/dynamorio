@@ -186,10 +186,10 @@ static callee_info_t *
 callee_info_table_lookup(void *callee)
 {
     callee_info_t *ci;
-    TABLE_RWLOCK(callee_info_table, write, lock);
+    TABLE_RWLOCK(callee_info_table, read, lock);
     ci = generic_hash_lookup(GLOBAL_DCONTEXT, callee_info_table,
                              (ptr_uint_t)callee);
-    TABLE_RWLOCK(callee_info_table, write, unlock);
+    TABLE_RWLOCK(callee_info_table, read, unlock);
     /* We only delete the callee_info from the callee_info_table 
      * when destroy the table on exit, so we can keep the ci 
      * without holding the lock.

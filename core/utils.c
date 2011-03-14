@@ -737,20 +737,7 @@ utils_init()
     ASSERT(sizeof(reg_t) == sizeof(void *));
 
 #ifdef LINUX /* after options_init(), before we open logfile or call instrument_init() */
-        /* Problem: tcsh uses descriptors 3-5 for piping stdin, stdout, and
-         * stderr.  Those numbers are hardcoded, so if we open descriptor 3 for
-         * our logfile, it gets tied up with stdout!
-         * Hack to fix: open up 3 descriptors pointing to /dev/null at beginning so
-         * our log files start with 6, and let tcsh close the 3 bogus files.
-         * FIXME: close these on exit
-         */
-        if (DYNAMO_OPTION(open_tcsh_fds)) {
-            file_t foo = 0;
-            while (foo <= 5) {
-                foo = os_open("/dev/null", OS_OPEN_WRITE|OS_OPEN_APPEND);
-                ASSERT(foo != INVALID_FILE);
-            }
-        }
+    os_file_init();
 #endif
 }
 
@@ -2565,6 +2552,8 @@ get_log_dir(log_dir_t dir_type, char *buffer, uint *buffer_length)
  *  upon a fork.  Should we require a callback passed in to this routine?
  *  For clients we have a dynamorio_fork_init routine.  For internal modules,
  *  for now make your own fork_init routine.
+ *  For closing on fork, since could have many threads with their own files
+ *  open, we use our fd_table to close.
  *#endif
  */
 file_t
@@ -2573,6 +2562,8 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
     file_t file;
     char name[MAXIMUM_PATH];
     uint name_size = BUFFER_SIZE_ELEMENTS(name);
+    /* all logfiles are auto-closed on fork; we then make new ones */
+    uint flags = OS_OPEN_WRITE|OS_OPEN_ALLOW_LARGE|OS_OPEN_CLOSE_ON_FORK;
     name[0] = '\0';
 
     if (!get_log_dir(PROCESS_DIR, name, &name_size)) {
@@ -2591,10 +2582,10 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
     NULL_TERMINATE_BUFFER(name);
 #ifdef LINUX
     if (post_execve) /* reuse same log file */
-        file = os_open(name, OS_OPEN_WRITE|OS_OPEN_APPEND|OS_OPEN_ALLOW_LARGE);
+        file = os_open_protected(name, flags|OS_OPEN_APPEND);
     else
 #endif
-        file = os_open(name, OS_OPEN_WRITE|OS_OPEN_REQUIRE_NEW|OS_OPEN_ALLOW_LARGE);
+        file = os_open_protected(name, flags|OS_OPEN_REQUIRE_NEW);
     if (file == INVALID_FILE) {
         SYSLOG_INTERNAL_WARNING_ONCE("Cannot create log file %s", name);
         /* everything should work out fine, log statements will just fail to 
@@ -2609,7 +2600,7 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
              * since the caller won't have set it yet.  However, we will get
              * all thread log files logged here. */
             LOG(GLOBAL, LOG_THREADS, 1, 
-                "created log file %s\n", 
+                "created log file %d=%s\n", file,
                 double_strrchr(name, DIRSEP, ALT_DIRSEP) + 1);
         }
     if (finalname_with_path != NULL) {
@@ -2617,6 +2608,12 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
         finalname_with_path[maxlen-1]  = '\0'; /* if max no null */
     }
     return file;
+}
+
+void
+close_log_file(file_t f)
+{
+    os_close_protected(f);
 }
 
 /* Generalize further as needed
@@ -4038,7 +4035,7 @@ profile_callers_exit()
             print_file(file, "%d\n", entry->count);
             global_heap_free(entry, sizeof(profile_callers_t) HEAPACCT(ACCT_OTHER));
         }
-        os_close(file);
+        close_log_file(file);
         profcalls = NULL;
         mutex_unlock(&profile_callers_lock);
     }

@@ -7052,7 +7052,7 @@ exit_trace_file(per_thread_t *pt)
         }
     }
 #endif
-    os_close(pt->tracefile);
+    close_log_file(pt->tracefile);
 }
 
 /* Binary trace dump is used to save time and space.

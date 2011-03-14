@@ -2253,6 +2253,8 @@ dr_file_exists(const char *fname);
  * \note DR's log files and tracedump files are all created with this flag.
  */
 #define DR_FILE_ALLOW_LARGE       0x10
+/** Linux-only.  This file will be closed in the child of a fork. */
+#define DR_FILE_CLOSE_ON_FORK     0x20
 /* DR_API EXPORT END */
 
 DR_API 
@@ -2267,14 +2269,16 @@ DR_API
  * limited to user space via the Win32 API.  We may add limited
  * support for using the same current directory via Issue 298.)
  *
+ * On Linux, the file descriptor will be marked as close-on-exec.  The
+ * DR_FILE_CLOSE_ON_FORK flag can be used to automatically close a
+ * file on a fork.
+ *
  * \note No more then one write mode flag can be specified.
  *
- * \note DR does not hide files opened by clients from the
- * application, to allow clients to open application files and other
- * forms of interaction.  Some applications close all file
- * descriptors, and clients may want to watch for the close system
- * call and turn it into a nop (e.g., return -EBADF and not execute it
- * on Linux) if targeting a client-owned filed.
+ * \note On Linux, DR hides files opened by clients from the
+ * application by using file descriptors that are separate from the
+ * application's and preventing the application from closing
+ * client-opened files.
  */
 file_t
 dr_open_file(const char *fname, uint mode_flags);

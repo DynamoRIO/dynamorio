@@ -54,11 +54,28 @@
 #include <fcntl.h>
 #include <sched.h>              /* for CLONE_* */
 #include "../globals.h"
+#include "../hashtable.h"
 #include <string.h>
 #include <unistd.h> /* for write and usleep and _exit */
 #include <limits.h>
 #include <sys/sysinfo.h>        /* for get_nprocs_conf */
 #include <sys/vfs.h> /* for statfs */
+
+/* for getrlimit */
+#include <sys/time.h>
+#include <sys/resource.h>
+
+#ifndef F_DUPFD_CLOEXEC /* in linux 2.6.24+ */
+# define F_DUPFD_CLOEXEC 1030
+#endif
+
+#ifndef SYS_dup3
+# ifdef X64
+#  define SYS_dup3 292
+# else
+#  define SYS_dup3 330
+# endif
+#endif /* SYS_dup3 */
 
 /* must be after X64 is defined */
 #ifdef X64
@@ -203,6 +220,17 @@ static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
 DR_API file_t our_stdout = INVALID_FILE;
 DR_API file_t our_stderr = INVALID_FILE;
 DR_API file_t our_stdin = INVALID_FILE;
+
+/* we steal fds from the app */
+static struct rlimit app_rlimit_nofile;
+
+/* we store all DR files so we can prevent the app from changing them,
+ * and so we can close them in a child of fork.
+ * the table key is the fd and the payload is the set of DR_FILE_* flags.
+ */
+static generic_table_t *fd_table;
+#define INIT_HTABLE_SIZE_FD 6 /* should remain small */
+static void fd_table_add(file_t fd, uint flags);
 
 /* Track all memory regions seen by DR. We track these ourselves to prevent
  * repeated reads of /proc/self/maps (case 3771). An allmem_info_t struct is
@@ -550,6 +578,57 @@ os_init(void)
                           VECTOR_SHARED, all_memory_areas);
     vmvector_set_callbacks(all_memory_areas, allmem_info_free, allmem_info_dup,
                            allmem_should_merge, allmem_info_merge);
+
+    /* we didn't have heap in os_file_init() so create and add global logfile now */
+    fd_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_FD,
+                                   80 /* load factor: not perf-critical */,
+                                   HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
+                                   NULL _IF_DEBUG("fd table"));
+#ifdef DEBUG
+    if (GLOBAL != INVALID_FILE)
+        fd_table_add(GLOBAL, OS_OPEN_CLOSE_ON_FORK);
+#endif
+}
+
+/* called before any logfiles are opened */
+void
+os_file_init(void)
+{
+    /* We steal fds from the app for better transparency.  We lower the max file
+     * descriptor limit as viewed by the app, and block SYS_dup{2,3} and
+     * SYS_fcntl(F_DUPFD*) from creating a file explicitly in our space.  We do
+     * not try to stop incremental file opening from extending into our space:
+     * if the app really is running out of fds, we'll give it some of ours:
+     * after all we probably don't need all -steal_fds, and if we realy need fds
+     * we typically open them at startup.  We also don't bother watching all
+     * syscalls that take in fds from affecting our fds.
+     */
+    if (DYNAMO_OPTION(steal_fds) > 0) {
+        struct rlimit rlimit_nofile;
+        if (dynamorio_syscall(SYS_getrlimit, 2, RLIMIT_NOFILE, &rlimit_nofile) != 0) {
+            /* linux default is 1024 */
+            SYSLOG_INTERNAL_WARNING("getrlimit RLIMIT_NOFILE failed"); /* can't LOG yet */
+            rlimit_nofile.rlim_cur = 1024;
+            rlimit_nofile.rlim_max = 1024;
+        }
+        /* pretend the limit is lower and reserve the top spots for us.
+         * for simplicity and to give as much room as possible to app,
+         * raise soft limit to equal hard limit.
+         * if an app really depends on a low soft limit, they can run
+         * with -steal_fds 0.
+         */
+        if (rlimit_nofile.rlim_max > DYNAMO_OPTION(steal_fds)) {
+            app_rlimit_nofile.rlim_max = rlimit_nofile.rlim_max - DYNAMO_OPTION(steal_fds);
+            app_rlimit_nofile.rlim_cur = app_rlimit_nofile.rlim_max;
+
+            rlimit_nofile.rlim_cur = rlimit_nofile.rlim_max;
+            if (dynamorio_syscall(SYS_setrlimit, 2, RLIMIT_NOFILE, &rlimit_nofile) != 0)
+                SYSLOG_INTERNAL_WARNING("unable to raise RLIMIT_NOFILE soft limit");
+        } else /* not fatal: we'll just end up using fds in app space */
+            SYSLOG_INTERNAL_WARNING("unable to reserve fds");
+    }
+
+    /* we don't have heap set up yet so we init fd_table in os_init */
 }
 
 /* we need to re-cache after a fork */
@@ -705,6 +784,10 @@ void
 os_slow_exit(void)
 {
     signal_exit();
+
+    generic_hash_destroy(GLOBAL_DCONTEXT, fd_table);
+    fd_table = NULL;
+
     DELETE_LOCK(memory_info_buf_lock);
     DELETE_LOCK(maps_iter_buf_lock);
 #ifdef CLIENT_INTERFACE
@@ -1560,10 +1643,30 @@ os_thread_exit(dcontext_t *dcontext)
 void
 os_fork_init(dcontext_t *dcontext)
 {
+    int iter;
+    file_t fd;
+    ptr_uint_t flags;
+
     /* re-populate cached data that contains pid */
     pid_cached = get_process_id();
     get_application_pid_helper(true);
     get_application_name_helper(true);
+
+    /* close all copies of parent files */
+    TABLE_RWLOCK(fd_table, write, lock);
+    iter = 0;
+    do {
+         iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, fd_table, iter,
+                                          (ptr_uint_t *)&fd, (void **)&flags);
+         if (iter < 0)
+             break;
+         if (TEST(OS_OPEN_CLOSE_ON_FORK, flags)) {
+             close_syscall(fd);
+             iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, fd_table,
+                                                iter, (ptr_uint_t) fd);
+         }
+    } while (true);
+    TABLE_RWLOCK(fd_table, write, unlock);
 }
 
 void
@@ -2510,6 +2613,14 @@ write_syscall(int fd, const void *buf, size_t nbytes)
     return dynamorio_syscall(SYS_write, 3, fd, buf, nbytes);
 }
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+static int
+fcntl_syscall(int fd, int cmd, long arg)
+{
+    return dynamorio_syscall(SYS_fcntl, 3, fd, cmd, arg);
+}
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
 /* not easily accessible in header files */
 #ifdef X64
 /* not needed */
@@ -2518,7 +2629,11 @@ write_syscall(int fd, const void *buf, size_t nbytes)
 # define O_LARGEFILE    0100000
 #endif
 
-/* we assume that opening for writing wants to create file */
+/* we assume that opening for writing wants to create file.
+ * we also assume that nobody calling this is creating a persistent
+ * file: for that, use os_open_protected() to avoid leaking on exec
+ * and to separate from the app's files.
+ */
 file_t
 os_open(const char *fname, int os_open_flags)
 {
@@ -2538,6 +2653,7 @@ os_open(const char *fname, int os_open_flags)
     }
     if (res < 0)
         return INVALID_FILE;
+
     return res;
 }
 
@@ -2553,6 +2669,125 @@ os_close(file_t f)
 {
     close_syscall(f);
 }
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+/* dups curfd to a private fd.
+ * returns -1 if unsuccessful.
+ */
+static file_t
+fd_priv_dup(file_t curfd)
+{
+    file_t newfd = -1;
+    if (DYNAMO_OPTION(steal_fds) > 0) {
+        /* RLIMIT_NOFILES is 1 greater than max and F_DUPFD starts at given value */
+        /* XXX: if > linux 2.6.24, can use F_DUPFD_CLOEXEC to avoid later call:
+         * so how do we tell if the flag is supported?  try calling once at init?
+         */
+        newfd = fcntl_syscall(curfd, F_DUPFD, app_rlimit_nofile.rlim_cur);
+        if (newfd < 0) {
+            /* We probably ran out of fds, esp if debug build and there are
+             * lots of threads.  Should we track how many we've given out to
+             * avoid a failed syscall every time after?
+             */
+            SYSLOG_INTERNAL_WARNING_ONCE("ran out of stolen fd space");
+            /* Try again but this time in the app space, somewhere high up
+             * to avoid issues like tcsh assuming it can own fds 3-5 for
+             * piping std{in,out,err} (xref the old -open_tcsh_fds option).
+             */
+            newfd = fcntl_syscall(curfd, F_DUPFD, app_rlimit_nofile.rlim_cur/2);
+        }
+    }
+    return newfd;
+}
+
+static bool
+fd_mark_close_on_exec(file_t fd)
+{
+    /* we assume FD_CLOEXEC is the only flag and don't bother w/ F_GETFD */
+    if (fcntl_syscall(fd, F_SETFD, FD_CLOEXEC) != 0) {
+        SYSLOG_INTERNAL_WARNING("unable to mark file %d as close-on-exec", fd);
+        return false;
+    }
+    return true;
+}
+
+static void
+fd_table_add(file_t fd, uint flags)
+{
+    if (fd_table != NULL) {
+        TABLE_RWLOCK(fd_table, write, lock);
+        generic_hash_add(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)fd,
+                         /* store the flags, w/ a set bit to ensure not 0 */
+                         (void *)(ptr_uint_t)(flags|OS_OPEN_RESERVED));
+        TABLE_RWLOCK(fd_table, write, unlock);
+    } else {
+#ifdef DEBUG
+        static int num_pre_heap;
+        num_pre_heap++;
+        /* we add main_logfile in os_init() */
+        ASSERT(num_pre_heap == 1 && "only main_logfile should come here");
+#endif
+    }
+}
+
+static bool
+fd_is_dr_owned(file_t fd)
+{
+    ptr_uint_t flags;
+    ASSERT(fd_table != NULL);
+    TABLE_RWLOCK(fd_table, read, lock);
+    flags = (ptr_uint_t) generic_hash_lookup(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)fd);
+    TABLE_RWLOCK(fd_table, read, unlock);
+    return (flags != 0);
+}
+
+static bool
+fd_is_in_private_range(file_t fd)
+{
+    return (DYNAMO_OPTION(steal_fds) > 0 &&
+            app_rlimit_nofile.rlim_cur > 0 &&
+            fd >= app_rlimit_nofile.rlim_cur);
+}
+
+file_t
+os_open_protected(const char *fname, int os_open_flags)
+{
+    file_t dup;
+    file_t res = os_open(fname, os_open_flags);
+    if (res < 0)
+        return res;
+
+    /* we could have os_open() always switch to a private fd but it's probably
+     * not worth the extra syscall for temporary open/close sequences so we
+     * only use it for persistent files
+     */
+    dup = fd_priv_dup(res);
+    if (dup >= 0) {
+        close_syscall(res);
+        res = dup;
+        fd_mark_close_on_exec(res);
+    } /* else just keep original */
+
+    /* ditto here, plus for things like config.c opening files we can't handle
+     * grabbing locks and often don't have heap available so no fd_table
+     */
+    fd_table_add(res, os_open_flags);
+
+    return res;
+}
+
+void
+os_close_protected(file_t f)
+{
+    ASSERT(fd_table != NULL || dynamo_exited);
+    if (fd_table != NULL) {
+        TABLE_RWLOCK(fd_table, write, lock);
+        generic_hash_remove(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)f);
+        TABLE_RWLOCK(fd_table, write, unlock);
+    }
+    os_close(f);
+}
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 ssize_t
 os_write(file_t f, const void *buf, size_t count)
@@ -3148,6 +3383,11 @@ ignorable_system_call(int num)
     case SYS_setitimer:
     case SYS_getitimer:
     case SYS_close:
+    case SYS_dup2:
+    case SYS_dup3:
+    case SYS_fcntl:
+    case SYS_getrlimit:
+    case SYS_setrlimit:
         return false;
     default:
 #ifdef VMX86_SERVER
@@ -3663,6 +3903,62 @@ handle_execve_post(dcontext_t *dcontext)
         if (!dcontext->thread_record->execve)
             *sys_param_addr(dcontext, 2) = (reg_t) old_envp;
     }
+}
+
+/* returns whether to execute syscall */
+static bool
+handle_close_pre(dcontext_t *dcontext)
+{
+    /* in fs/open.c: asmlinkage long sys_close(unsigned int fd) */
+    uint fd = (uint) sys_param(dcontext, 0);
+    LOG(THREAD, LOG_SYSCALLS, 3, "syscall: close fd %d\n", fd);
+
+    /* prevent app from closing our files */
+    if (fd_is_dr_owned(fd)) {
+        SYSLOG_INTERNAL_WARNING_ONCE("app trying to close DR file(s)");
+        LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
+            "WARNING: app trying to close DR file %d!  Not allowing it.\n", fd);
+        SET_RETURN_VAL(dcontext, -EBADF);
+        DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+        return false; /* do not execute syscall */
+    }
+
+    /* Xref PR 258731 - duplicate STDOUT/STDERR when app closes them so we (or
+     * a client) can continue to use them for logging. */
+    if (DYNAMO_OPTION(dup_stdout_on_close) && fd == STDOUT) {
+        our_stdout = fd_priv_dup(fd);
+        if (our_stdout < 0) /* no private fd available */
+            our_stdout = dup_syscall(fd);
+        if (our_stdout >= 0)
+            fd_mark_close_on_exec(our_stdout);
+        fd_table_add(our_stdout, 0);
+        LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
+            "WARNING: app is closing stdout=%d - duplicating descriptor for "
+            "DynamoRIO usage got %d.\n", fd, our_stdout);
+    }
+    if (DYNAMO_OPTION(dup_stderr_on_close) && fd == STDERR) {
+        our_stderr = fd_priv_dup(fd);
+        if (our_stderr < 0) /* no private fd available */
+            our_stderr = dup_syscall(fd);
+        if (our_stderr >= 0)
+            fd_mark_close_on_exec(our_stderr);
+        fd_table_add(our_stderr, 0);
+        LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
+            "WARNING: app is closing stderr=%d - duplicating descriptor for "
+            "DynamoRIO usage got %d.\n", fd, our_stderr);
+    }
+    if (DYNAMO_OPTION(dup_stdin_on_close) && fd == STDIN) {
+        our_stdin = fd_priv_dup(fd);
+        if (our_stdin < 0) /* no private fd available */
+            our_stdin = dup_syscall(fd);
+        if (our_stdin >= 0)
+            fd_mark_close_on_exec(our_stdin);
+        fd_table_add(our_stdin, 0);
+        LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
+            "WARNING: app is closing stdin=%d - duplicating descriptor for "
+            "DynamoRIO usage got %d.\n", fd, our_stdin);
+    }
+    return true;
 }
 
 /* Used to obtain the pc of the syscall instr itself when the dcontext dc
@@ -4359,44 +4655,62 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
+    /****************************************************************************/
+    /* FILES */
+    /* prevent app from closing our files or opening a new file in our fd space.
+     * it's not worth monitoring all syscalls that take in fds from affecting ours.
+     */
+ 
     case SYS_close: {
-        /* in fs/open.c: asmlinkage long sys_close(unsigned int fd) */
-        uint fd = (uint) sys_param(dcontext, 0);
-        LOG(THREAD, LOG_SYSCALLS, 3, "syscall: close fd %d\n", fd);
-#ifdef DEBUG
-        if (stats->loglevel > 0) {
-            /* I assume other threads' files, and for that matter forked children's
-             * files, will not be completely closed just by us closing them
-             */
-            if (fd == main_logfile || fd == dcontext->logfile) {
-                LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
-                    "\tWARNING: app trying to close DynamoRIO file!  Not allowing it.\n");
-                execute_syscall = false;    /* PR 402766 - break, not return. */
-                SET_RETURN_VAL(dcontext, -EBADF);
-                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-                break;
-            }
-        }
-#endif
-        /* Xref PR 258731 - duplicate STDOUT/STDERR when app closes them so we (or
-         * a client) can continue to use them for logging. */
-        if (DYNAMO_OPTION(dup_stdout_on_close) && fd == STDOUT) {
-            our_stdout = dup_syscall(fd);
+        execute_syscall = handle_close_pre(dcontext);
+        break;
+    }
+
+    case SYS_dup2:
+    case SYS_dup3: {
+        file_t newfd = (file_t) sys_param(dcontext, 1);
+        if (fd_is_dr_owned(newfd) || fd_is_in_private_range(newfd)) {
+            SYSLOG_INTERNAL_WARNING_ONCE("app trying to dup-close DR file(s)");
             LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
-                "WARNING: app is closing stdout=%d - duplicating descriptor for "
-                "DynamoRIO usage got %d.\n", fd, our_stdout);
+                "WARNING: app trying to dup2/dup3 to %d.  Disallowing.\n", newfd);
+            SET_RETURN_VAL(dcontext, -EBADF);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
         }
-        if (DYNAMO_OPTION(dup_stderr_on_close) && fd == STDERR) {
-            our_stderr = dup_syscall(fd);
+        break;
+    }
+
+    case SYS_fcntl: {
+        int cmd = (int) sys_param(dcontext, 1);
+        long arg = (long) sys_param(dcontext, 2);
+        /* we only check for asking for min in private space: not min below
+         * but actual will be above (see notes in os_file_init())
+         */
+        if ((cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) && fd_is_in_private_range(arg)) {
+            SYSLOG_INTERNAL_WARNING_ONCE("app trying to open private fd(s)");
             LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
-                "WARNING: app is closing stderr=%d - duplicating descriptor for "
-                "DynamoRIO usage got %d.\n", fd, our_stderr);
+                "WARNING: app trying to dup to >= %d.  Disallowing.\n", arg);
+            SET_RETURN_VAL(dcontext, -EINVAL);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
         }
-        if (DYNAMO_OPTION(dup_stdin_on_close) && fd == STDIN) {
-            our_stdin = dup_syscall(fd);
-            LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
-                "WARNING: app is closing stdin=%d - duplicating descriptor for "
-                "DynamoRIO usage got %d.\n", fd, our_stdin);
+        break;
+    }
+
+    case SYS_getrlimit: {
+        /* save for post */
+        dcontext->sys_param0 = sys_param(dcontext, 0);
+        dcontext->sys_param1 = sys_param(dcontext, 1);
+        break;
+    }
+
+    case SYS_setrlimit: {
+        int resource = (int) sys_param(dcontext, 0);
+        if (resource == RLIMIT_NOFILE && DYNAMO_OPTION(steal_fds) > 0) {
+            /* don't let app change limits as that would mess up our fd space */
+            SET_RETURN_VAL(dcontext, -EPERM);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
         }
         break;
     }
@@ -5259,6 +5573,19 @@ post_system_call(dcontext_t *dcontext)
                               (struct itimerval *) dcontext->sys_param1);
         break;
 
+    case SYS_getrlimit: {
+        int resource = dcontext->sys_param0;
+        if (success && resource == RLIMIT_NOFILE) {
+            /* we stole some space: hide it from app */
+            struct rlimit *rlim = (struct rlimit *) dcontext->sys_param1;
+            safe_write_ex(&rlim->rlim_cur, sizeof(rlim->rlim_cur),
+                          &app_rlimit_nofile.rlim_cur, NULL);
+            safe_write_ex(&rlim->rlim_max, sizeof(rlim->rlim_max),
+                          &app_rlimit_nofile.rlim_max, NULL);
+        }
+        break;
+    }
+
 #ifdef VMX86_SERVER
     default:
         if (is_vmkuw_sysnum(sysnum)) {
@@ -5279,8 +5606,8 @@ post_system_call(dcontext_t *dcontext)
              */
             if (!(success || sysnum == SYS_close ||
                   dcontext->expect_last_syscall_to_fail)) {
-                SYSLOG_INTERNAL_ERROR_ONCE("Unexpected failure of non-ignorable"
-                                           " syscall (%d)", sysnum);
+                LOG(THREAD, LOG_SYSCALLS, 1,
+                    "Unexpected failure of non-ignorable syscall %d", sysnum);
             }
         }
     });

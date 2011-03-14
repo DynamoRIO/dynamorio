@@ -2773,15 +2773,18 @@ dr_open_file(const char *fname, uint mode_flags)
         CLIENT_ASSERT((flags == 0), "dr_open_file: multiple write modes selected"); 
         flags |= OS_OPEN_WRITE;
     }
-
     if (TEST(DR_FILE_READ, mode_flags))
         flags |= OS_OPEN_READ;
+    CLIENT_ASSERT((flags != 0), "dr_open_file: no mode selected"); 
 
     if (TEST(DR_FILE_ALLOW_LARGE, mode_flags))
         flags |= OS_OPEN_ALLOW_LARGE;
 
-    CLIENT_ASSERT((flags != 0), "dr_open_file: no mode selected"); 
-    return os_open(fname, flags);
+    if (TEST(DR_FILE_CLOSE_ON_FORK, mode_flags))
+        flags |= OS_OPEN_CLOSE_ON_FORK;
+
+    /* all client-opened files are protected */
+    return os_open_protected(fname, flags);
 }
 
 DR_API 
@@ -2790,7 +2793,8 @@ DR_API
 void
 dr_close_file(file_t f)
 {
-    os_close(f);
+    /* all client-opened files are protected */
+    os_close_protected(f);
 }
 
 DR_API 

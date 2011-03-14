@@ -199,7 +199,7 @@ dump_emitted_routines_to_file(dcontext_t *dcontext, const char *filename,
          * that only changes a few immeds
          */
         dump_emitted_routines(dcontext, file, label, code, stop_pc);
-        os_close(file);
+        close_log_file(file);
     } else
         ASSERT_NOT_REACHED();            
 }

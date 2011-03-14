@@ -4766,6 +4766,19 @@ os_close(file_t f)
     close_handle(f);
 }
 
+/* not isolating files on windows */
+file_t
+os_open_protected(const char *fname, int os_open_flags)
+{
+    return os_open(fname, os_open_flags);
+}
+
+void
+os_close_protected(file_t f)
+{
+    os_close(f);
+}
+
 /* We take in size_t count to match linux, but Nt{Read,Write}File only
  * takes in a ULONG (==uint), though they return a ULONG_PTR (size_t)
  */

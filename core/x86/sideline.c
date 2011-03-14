@@ -368,7 +368,7 @@ sideline_exit()
     destroy_event(paused_for_sideline_event);
     destroy_event(resume_from_sideline_event);
 
-    os_close(logfile);
+    close_log_file(logfile);
 
     DELETE_LOCK(sideline_lock);
     DELETE_LOCK(do_not_delete_lock);

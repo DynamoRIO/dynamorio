@@ -533,8 +533,6 @@
                    "show messages onto stderr")
 
 #ifdef LINUX
-    OPTION_DEFAULT(bool, open_tcsh_fds, true, "at startup open several file descriptors "
-                   "to avoid conflicts with hardcoded tcsh assumptions.")
     /* Xref PR 258731 - options to duplicate stdout/stderr for our or client logging if
      * application tries to close them. */
     OPTION_DEFAULT(bool, dup_stdout_on_close, true, "Duplicate stdout for DynamoRIO "
@@ -543,6 +541,8 @@
                    "or client usage if app tries to close it.")
     OPTION_DEFAULT(bool, dup_stdin_on_close, true, "Duplicate stdin for DynamoRIO "
                    "or client usage if app tries to close it.")
+    OPTION_DEFAULT(uint, steal_fds, 12,
+                   "number of fds to steal from the app outside the app's reach")
 
     /* Xref PR 308654 where calling dlclose on the client lib at exit time can lead
      * to an app crash. */

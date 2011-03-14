@@ -171,7 +171,7 @@ pcprofile_thread_exit(dcontext_t *dcontext)
     if (valid_symtab)
         symtab_exit();
 #endif
-    os_close(info->file);
+    close_log_file(info->file);
     special_heap_exit(info->special_heap);
 #ifdef DEBUG
     /* for non-debug we do fast exit path and don't free local heap */

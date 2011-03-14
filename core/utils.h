@@ -1073,7 +1073,11 @@ typedef enum {
 void enable_new_log_dir(void); /* enable creating a new base logdir (for a fork, e.g.) */
 void create_log_dir(int dir_type);
 bool get_log_dir(log_dir_t dir_type, char *buffer, uint *buffer_length);
+
+/* must use close_log_file() to close */
 file_t open_log_file(const char *basename, char *finalname_with_path, uint maxlen);
+void close_log_file(file_t f);
+
 file_t get_thread_private_logfile(void);
 bool get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen, bool open_directory, file_t *file);
 const char *get_app_name_for_path(void);

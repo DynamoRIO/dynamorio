@@ -136,7 +136,7 @@ interp_exit()
 {
 #ifdef INTERNAL
     if (INTERNAL_OPTION(bbdump_tags)) {
-        os_close(bbdump_file);
+        close_log_file(bbdump_file);
     }
 #endif
     DELETE_LOCK(bb_building_lock);

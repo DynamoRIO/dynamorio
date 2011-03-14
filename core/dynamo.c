@@ -416,6 +416,7 @@ dynamorio_app_init(void)
          */
         if (stats->loglevel > 0) {
             main_logfile = open_log_file(main_logfile_name(), NULL, 0);
+            LOG(GLOBAL, LOG_TOP, 1, "global log file fd=%d\n", main_logfile);
         } else {
             /* loglevel 0 means we don't create a log file!
              * if the loglevel is later raised, too bad!  it all goes to stderr!
@@ -725,7 +726,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
 # ifdef DEBUG
     /* just like dynamorio_app_init, create main_logfile before stats */
     if (stats->loglevel > 0) {
-        /* we want brand new log files */
+        /* we want brand new log files.  os_fork_init() closed inherited files. */
         main_logfile = open_log_file(main_logfile_name(), NULL, 0);
         print_file(main_logfile, "%s\n", dynamorio_version_string);
         print_file(main_logfile, "New log file for child %d forked by parent %d\n",
@@ -1044,7 +1045,7 @@ dynamo_shared_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
          * right now */
         file_t file_temp = main_logfile;
         main_logfile = INVALID_FILE;
-        os_close(file_temp);
+        close_log_file(file_temp);
     }
 #else
 # ifdef DEADLOCK_AVOIDANCE
@@ -1215,7 +1216,7 @@ dynamo_nullcalls_exit(void)
 
 #ifdef DEBUG
     if (main_logfile != STDERR) {
-        os_close(main_logfile);
+        close_log_file(main_logfile);
         main_logfile = INVALID_FILE;
     }
 #endif /* DEBUG */
@@ -2324,7 +2325,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
 #ifdef DEBUG
     if (dcontext->logfile != INVALID_FILE) {
         os_flush(dcontext->logfile);
-        os_close(dcontext->logfile);
+        close_log_file(dcontext->logfile);
     }
 #endif
 
