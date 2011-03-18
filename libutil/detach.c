@@ -116,7 +116,7 @@ get_kernel_thread_start_thunk()
 
     get_platform(&platform);
     DO_ASSERT(platform != 0 && platform != PLATFORM_VISTA);
-    if (platform == PLATFORM_VISTA)
+    if (platform >= PLATFORM_VISTA)
         return NULL;
 
     if (start_address == NULL) {
@@ -322,7 +322,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
      * place assuming there's room above esp. We do it irregardless of whether we
      * target api or not in case it's relied on elsewhere. */
 #define VISTA_THREAD_STACK_PAD 56
-    if (platform == PLATFORM_VISTA) {
+    if (platform >= PLATFORM_VISTA) {
         context.CXT_XSP -= VISTA_THREAD_STACK_PAD;
     }
     /* Anticipating x64 we align to 16 bytes everywhere */
@@ -341,7 +341,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
             written != arg_buf_size) {
             goto error;
         }
-        if (platform == PLATFORM_VISTA) {
+        if (platform >= PLATFORM_VISTA) {
             /* pad after our argument so RtlUserThreadStart won't clobber it */
             context.CXT_XSP -= VISTA_THREAD_STACK_PAD;
         }
@@ -350,7 +350,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
     /* set eip and argument */
 #ifndef X64
     if (target_api) {
-        if (platform == PLATFORM_VISTA) {
+        if (platform >= PLATFORM_VISTA) {
             context.CXT_XIP = (ptr_uint_t)GetProcAddress(GetModuleHandle(L"ntdll.dll"),
                                                "RtlUserThreadStart");
         } else {
