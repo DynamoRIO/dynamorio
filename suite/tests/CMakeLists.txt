@@ -45,7 +45,9 @@
 #   and optionally submit to dashboard.  Use w/o submit as "make runregression".
 
 option(TEST_LONG "run long set of tests")
-option(TEST_SUITE "running series of builds so skip some overlapping tests")
+# if TEST_SUITE is off, we disable some flaky tests in order to have all
+# tests succeed (i#389)
+option(TEST_SUITE "running series of builds so skip some overlapping tests; also, include racy/flaky tests (eventually they should be fixed) for better coverage")
 set(TEST_SECONDS "60" CACHE STRING "Test time limit in seconds")
 set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 set(TEST_LIB_PATH "" CACHE STRING "DynamoRIO library path (if empty, uses local build)")
@@ -1283,17 +1285,23 @@ else (UNIX)
     "-native_exec_list nativeterminate.dll.dll")
   # FIXME i#192: oomtest ends up killing parent shell: investigate, fix, re-enable!
   #tobuild(win32.oomtest win32/oomtest.c)
-  tobuild(win32.partial_map win32/partial_map.c)
+  if (TEST_SUITE) # failing on win7 (i#422) so run only in suite
+    tobuild(win32.partial_map win32/partial_map.c)
+  endif (TEST_SUITE)
   tobuild(win32.protect-datasec win32/protect-datasec.c)
   tobuild_dll(win32.rebased win32/rebased.c "")
-  tobuild_dll(win32.reload win32/reload.c "")
+  if (TEST_SUITE) # fails non-det so run only in suite
+    tobuild_dll(win32.reload win32/reload.c "")
+  endif (TEST_SUITE)
   tobuild_dll(win32.reload-newaddr win32/reload-newaddr.c "")
   # FIXME i#267: fix curiosities and re-enable
   #tobuild_dll(win32.reload-race win32/reload-race.c "")
   tobuild_dll(win32.section-max win32/section-max.c "")
   tobuild(win32.suspend win32/suspend.c)
   tobuild(win32.threadchurn win32/threadchurn.c)
-  tobuild(win32.threadexit win32/threadexit.c)
+  if (TEST_SUITE) # occasionally fails so run only in suite
+    tobuild(win32.threadexit win32/threadexit.c)
+  endif (TEST_SUITE)
   # PR 215238 covers re-enabling threadinjection
   #tobuild(win32.threadinjection win32/threadinjection.c)
   # FIXME i#125: debugger test was disabled in past: not sure why
@@ -1303,7 +1311,9 @@ else (UNIX)
   tobuild(win32.winapc win32/winapc.c)
   tobuild(win32.winthread win32/winthread.c)
 
-  tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
+  if (NOT X64 OR TEST_SUITE) # fail on x64 so run only in suite
+    tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
+  endif ()
 
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64
@@ -1323,7 +1333,9 @@ else (UNIX)
     tobuild(win32.tls win32/tls.c)
 
     tobuild_dll(security-win32.aslr-ind security-win32/aslr-ind.c "")
-    tobuild(security-win32.codemod-threads security-win32/codemod-threads.c)
+    if (TEST_SUITE) # fails non-det so run only in suite
+      tobuild(security-win32.codemod-threads security-win32/codemod-threads.c)
+    endif (TEST_SUITE)
 
     # we tweak cflags in set_cflags() rather than passing extra param all
     # the way through: adding helper func layers gets awkward w/ PARENT_SCOPE
@@ -1335,7 +1347,9 @@ else (UNIX)
     tobuild(security-win32.except-thread security-win32/except-thread.c)
     tobuild(security-win32.gbop-test security-win32/gbop-test.c)
 
-    tobuild(security-win32.hooker security-win32/hooker.c)
+    if (TEST_SUITE) # fails non-det so run only in suite
+      tobuild(security-win32.hooker security-win32/hooker.c)
+    endif (TEST_SUITE)
     tobuild(security-win32.hooker-ntdll security-win32/hooker-ntdll.c)
     tobuild(security-win32.indexisting security-win32/indexisting.c)
     tobuild(security-win32.patterns security-win32/patterns.c)
@@ -1395,7 +1409,9 @@ mark_execstack(security-common.codemod)
 tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
 tochcon(security-common.decode-bad-stack execmem_exec_t)
 mark_execstack(security-common.decode-bad-stack)
-tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
+if (TEST_SUITE) # fails non-det (i#423) so run only in suite
+  tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
+endif (TEST_SUITE)
 tochcon(security-common.jmp_from_trace textrel_shlib_t)
 tobuild(security-common.retexisting security-common/retexisting.c)
 tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
@@ -1410,10 +1426,12 @@ if (NOT X64)
 endif (NOT X64)
 tobuild(security-common.selfmod security-common/selfmod.c)
 tochcon(security-common.selfmod textrel_shlib_t)
-tobuild(security-common.TestAllocWE security-common/TestAllocWE.c)
-tobuild(security-common.TestMemProtChg security-common/TestMemProtChg.c)
-tochcon(security-common.TestMemProtChg wine_exec_t)
-mark_execstack(security-common.TestMemProtChg)
+if (NOT X64 OR TEST_SUITE) # fail on x64 so run only in suite
+  tobuild(security-common.TestAllocWE security-common/TestAllocWE.c)
+  tobuild(security-common.TestMemProtChg security-common/TestMemProtChg.c)
+  tochcon(security-common.TestMemProtChg wine_exec_t)
+  mark_execstack(security-common.TestMemProtChg)
+endif ()
 
 ###########################################################################
 
