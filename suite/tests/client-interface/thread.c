@@ -47,14 +47,15 @@ int main()
     } else {
         print("loaded library\n");
         /* PR 210591: test transparency by having client create a thread here
-         * and ensuring DllMain of the lib isn't notified
+         * and ensuring DllMain of the lib isn't notified.
+         * 7 nops isn't enough: win7's kernelbase!MultiByteToWideChar has 7.
          */
-        NOP; NOP; NOP; NOP; NOP; NOP; NOP;
+        NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;
         FreeLibrary(lib);
     }
 #else
     /* test creating thread here */
-    NOP; NOP; NOP; NOP; NOP; NOP; NOP;
+    NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;
 #endif
     print("thank you for testing the client interface\n");
 }

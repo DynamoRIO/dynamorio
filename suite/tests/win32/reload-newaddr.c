@@ -156,6 +156,15 @@ check_mem_usage(SIZE_T peakpage)
      * behavior, make vs raw being different, etc. etc. so just checking
      * for under 80KB
      */
+#ifdef X64
+    if (newpeak - peakpage < 140*1024)
+        print("Memory check: pagefile usage increase is < 140 KB\n");
+    else {
+        /* give actual number here so we can see how high it is */
+        print("Memory check: pagefile usage increase is %d KB >= 140 KB\n",
+              (newpeak - peakpage)/1024);
+    }
+#else
     if (newpeak - peakpage < 80*1024)
         print("Memory check: pagefile usage increase is < 80 KB\n");
     /* detect_dangling_fcache doesn't free fcache */
@@ -166,6 +175,7 @@ check_mem_usage(SIZE_T peakpage)
         print("Memory check: pagefile usage increase is %d KB >= 120 KB\n",
               (newpeak - peakpage)/1024);
     }
+#endif
 }
 
 static int

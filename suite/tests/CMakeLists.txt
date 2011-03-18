@@ -1108,7 +1108,7 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
   tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
   tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
-  tobuild_ci(client.syscall client-interface/syscall.c "" "" "")
+  tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
   tobuild_ci(client.modules client-interface/modules.c "" "" "")
   if (UNIX)
     # just happens to not make as many traces.  also needs path for events*.so.
@@ -1288,7 +1288,8 @@ else (UNIX)
   tobuild_dll(win32.rebased win32/rebased.c "")
   tobuild_dll(win32.reload win32/reload.c "")
   tobuild_dll(win32.reload-newaddr win32/reload-newaddr.c "")
-  tobuild_dll(win32.reload-race win32/reload-race.c "")
+  # FIXME i#267: fix curiosities and re-enable
+  #tobuild_dll(win32.reload-race win32/reload-race.c "")
   tobuild_dll(win32.section-max win32/section-max.c "")
   tobuild(win32.suspend win32/suspend.c)
   tobuild(win32.threadchurn win32/threadchurn.c)
@@ -1327,6 +1328,9 @@ else (UNIX)
     # we tweak cflags in set_cflags() rather than passing extra param all
     # the way through: adding helper func layers gets awkward w/ PARENT_SCOPE
     tobuild(security-win32.except-execution security-win32/except-execution.c)
+    # we match exe addresses in output so no ASLR
+    set_target_properties(security-win32.except-execution PROPERTIES
+      LINK_FLAGS "/dynamicbase:no")
     
     tobuild(security-win32.except-thread security-win32/except-thread.c)
     tobuild(security-win32.gbop-test security-win32/gbop-test.c)

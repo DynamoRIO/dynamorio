@@ -90,11 +90,8 @@ unsigned int dcontext_tls_offset;
 
 /*     0:001> dt getdc owning_thread    
  *        +0x05c owning_thread
- * PR 264138 added 0x60 to dr_mcontext_t Apr 17 2008
- * this is now 0x58 as of Mar 11 2006 (case 4837 commit)
- * this is now 0x5c as of Aug 15 2006 (case 5758 commit)
  */
-#define OWNING_THREAD_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x150,0x0dc)
+#define OWNING_THREAD_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x178,0x0f0)
 /* offset varies based on release/debug build (# of slots we need)
  * and cache line size (must be aligned) and the -ibl_table_in_tls
  * option being set to true

@@ -11,7 +11,7 @@ doublecheck flags
 VirtualQuery(0x00000000) = 28 GLE=00000000 prev=00000040 rwx-
  DEP => ok
 ready to hook
-#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_hook) && !defined(executable_if_text) && !defined(low) && !defined(client) && !defined(thin_client)
+#if !defined(handle_ntdll_modify) && defined(security) && defined(no_executable_if_hook) && !defined(executable_if_text) && !defined(low) && !defined(client) && !defined(thin_client)
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
 #  if !defined(internal_detach_mask)
@@ -31,7 +31,7 @@ VirtualQuery(0x00000000) = 28 GLE=00000000 prev=00000040 rwx-
  DEP => ok
 check consistency ...
 VirtualProtect(VirtualProtect[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00badcde
-#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(executable_if_x) && !defined(executable_if_text) && !defined(X) && !defined(low) && !defined(client) && !defined(thin_client)
+#if !defined(handle_ntdll_modify) && defined(security) && !defined(executable_heap) && !defined(executable_if_x) && !defined(executable_if_text) && !defined(X) && !defined(low) && !defined(client) && !defined(thin_client)
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
    STOP

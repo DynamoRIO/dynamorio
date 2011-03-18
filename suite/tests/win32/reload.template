@@ -67,7 +67,7 @@ Memory check: pagefile usage is < 900 KB
 // not freeing fcache => more usage
 Memory check: pagefile usage is >= 6000 KB, < 16384 KB
 # else
-#  if defined(DEBUG) && defined(prof_pcs)
+#  if (defined(DEBUG) && defined(prof_pcs)) || defined(X64)
 // DR profile bucket == DR dll size!
 Memory check: pagefile usage is >= 2816 KB, < 6000 KB
 #  else
