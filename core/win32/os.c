@@ -4344,6 +4344,7 @@ convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
      * 3) when find a match, replace \Device\HarddiskVolumeX with drive letter
      */
     /* We could cache the drive map but it can change so we re-create every time */
+    IF_X64(map.Flags = 0); /* required: i#419 */
     res = nt_get_drive_map(NT_CURRENT_PROCESS, &map);
     if (!NT_SUCCESS(res)) {
         LOG(THREAD_GET, LOG_NT, 2, "%s: drive map error 0x%x\n", __FUNCTION__, res);

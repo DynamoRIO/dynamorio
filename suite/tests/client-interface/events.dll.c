@@ -40,6 +40,8 @@
 # include <signal.h>
 #endif
 
+#define ALIGN_FORWARD(x, alignment) ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
+
 void *mutex;
 
 enum event_seq {
@@ -417,6 +419,10 @@ bool exception_event_redirect(void *dcontext, dr_exception_t *excpt)
         dr_fprintf(STDERR, "Couldn't find function redirect in events.exe\n");
         return true;
     }
+#ifdef X64
+    /* align properly in case redirect function relies on conventions (i#419) */
+    mcontext.xsp = ALIGN_FORWARD(mcontext.xsp, 16) - 8;
+#endif
     dr_redirect_execution(&mcontext, 0);
     dr_fprintf(STDERR, "should not be reached, dr_redirect_execution() should not return\n");
     return true;
