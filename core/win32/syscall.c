@@ -3786,6 +3786,10 @@ dr_syscall_invoke_another(void *drcontext)
         mc->xdx = mc->xsp;
     }
     else if (get_syscall_method() == SYSCALL_METHOD_WOW64) {
+        if (get_os_version() >= WINDOWS_VERSION_7) {
+            /* emulate win7's add 4,esp after the call* in the syscall wrapper */
+            mc->xsp += XSP_SZ;
+        }
         /* perform: lea edx,[esp+0x4] */
         mc->xdx = mc->xsp + XSP_SZ;
     }

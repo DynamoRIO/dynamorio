@@ -111,8 +111,8 @@ show_results(void)
     /* Note that using %f with dr_printf or dr_fprintf on Windows will print
      * garbage as they use ntdll._vsnprintf, so we must use snprintf.
      */
-    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                   "<Number of system calls seen: %d>", num_syscalls);
+    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                      "<Number of system calls seen: %d>", num_syscalls);
     DR_ASSERT(len > 0);
     msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
     DISPLAY_STRING(msg);
@@ -215,6 +215,9 @@ event_pre_syscall(void *drcontext, int sysnum)
         } else if (dr_syscall_get_param(drcontext, 0) == (reg_t) STDOUT) {
             if (!data->repeat) {
                 /* redirect stdout to stderr (unless it's our repeat) */
+#ifdef SHOW_RESULTS
+                dr_fprintf(STDERR, "  [%d] STDOUT => STDERR\n", sysnum);
+#endif
                 dr_syscall_set_param(drcontext, 0, (reg_t) STDERR);
             }
             /* we're going to repeat this syscall once */
@@ -241,6 +244,9 @@ event_post_syscall(void *drcontext, int sysnum)
         if (data->repeat) {
             /* repeat syscall with stdout */
             int i;
+#ifdef SHOW_RESULTS
+            dr_fprintf(STDERR, "  [%d] => repeating\n", sysnum);
+#endif
             dr_syscall_set_sysnum(drcontext, write_sysnum);
             dr_syscall_set_param(drcontext, 0, (reg_t) STDOUT);
             for (i = 1; i < SYS_MAX_ARGS; i++) 
