@@ -5864,6 +5864,7 @@ void
 detach_helper(int detach_type)
 {
     thread_record_t **threads;
+    thread_record_t *toexit;
     dcontext_t *my_dcontext = get_thread_private_dcontext();
     int i, num_threads, my_thread_index = -1;
     thread_id_t my_id;
@@ -6214,8 +6215,17 @@ detach_helper(int detach_type)
         }
     }
     /* now free the detaching thread's dcontext */
-    if (my_thread_index != -1)
-        dynamo_other_thread_exit(threads[my_thread_index], false);
+    if (my_thread_index != -1) {
+        /* we need dynamo_shared_exit() to exit the thread after the client's
+         * exit event
+         */
+        toexit = threads[my_thread_index];
+#ifdef DEBUG
+        /* pre-client thread cleanup (PR 536058) */
+        dynamo_thread_exit_pre_client(toexit->dcontext, toexit->id);
+#endif
+    } else
+        toexit = NULL;
 
     /* free list of threads and cleanup_tpc */
     global_heap_free(cleanup_tpc, num_threads*sizeof(bool) HEAPACCT(ACCT_OTHER));
@@ -6231,7 +6241,7 @@ detach_helper(int detach_type)
         "Detach :  Last message from detach, about to clean up some more memory and unload\n");
     SYSLOG_INTERNAL_INFO("Detaching from process, entering final cleanup");
     /* call dynamo exit routines */
-    res = dynamo_shared_exit(detach_stacked_callbacks); 
+    res = dynamo_shared_exit(toexit, detach_stacked_callbacks); 
     ASSERT(res == SUCCESS);
 
     /* we can free the initstack, it can't be our stack, we are specially created thread */

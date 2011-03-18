@@ -529,9 +529,12 @@ void dynamorio_fork_init(dcontext_t *dcontext);
 dr_statistics_t * get_dr_stats(void);
 
 /* functions needed by detach */
-int dynamo_shared_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void));
+int dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
+                       IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void));
 /* perform exit tasks that require full thread data structs */
 void dynamo_process_exit_with_thread_info(void);
+/* thread cleanup prior to clean exit event */
+void dynamo_thread_exit_pre_client(dcontext_t *dcontext, thread_id_t id);
 
 /* enter/exit DR hooks */
 void entering_dynamorio(void);
