@@ -39,6 +39,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include <string.h> /* memset */
 
 #ifdef LINUX
@@ -51,11 +52,15 @@
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_fprintf(STDERR, "%s\n", msg);
-# define ATOMIC_INC(var) _InterlockedIncrement(&var)
+# define ATOMIC_INC(var) _InterlockedIncrement((volatile LONG *)&var)
 #else
 # define DISPLAY_STRING(msg) dr_fprintf(STDERR, "%s\n", msg);
 # define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m" (var) : : "memory")
 #endif
+
+/***************************************************************************
+ * BELOW HERE SHOULD BE KEPT IDENTICAL TO api/samples/strace.c
+ */
 
 /* Some syscalls have more args, but this is the max we need for SYS_write/NtWriteFile */
 #ifdef WINDOWS
@@ -64,7 +69,12 @@
 # define SYS_MAX_ARGS 3
 #endif
 
-/* Thread-local data structure for storing system call parameters */
+/* Thread-context-local data structure for storing system call
+ * parameters.  Since this state spans application system call
+ * execution, thread-local data is not sufficient on Windows: we need
+ * thread-context-local, or "callback-local", provided by the drmgr
+ * extension.
+ */
 typedef struct {
     reg_t param[SYS_MAX_ARGS];
 #ifdef WINDOWS
@@ -73,6 +83,9 @@ typedef struct {
     bool repeat;
 } per_thread_t;
 
+/* Thread-context-local storage index from drmgr */
+static int tcls_idx;
+
 /* The system call number of SYS_write/NtWriteFile */
 static int write_sysnum;
 
@@ -80,8 +93,8 @@ static int num_syscalls;
 
 static int get_write_sysnum(void);
 static void event_exit(void);
-static void event_thread_init(void *drcontext);
-static void event_thread_exit(void *drcontext);
+static void event_thread_context_init(void *drcontext, bool new_depth);
+static void event_thread_context_exit(void *drcontext, bool process_exit);
 static bool event_filter_syscall(void *drcontext, int sysnum);
 static bool event_pre_syscall(void *drcontext, int sysnum);
 static void event_post_syscall(void *drcontext, int sysnum);
@@ -89,13 +102,15 @@ static void event_post_syscall(void *drcontext, int sysnum);
 DR_EXPORT void 
 dr_init(client_id_t id)
 {
+    drmgr_init();
     write_sysnum = get_write_sysnum();
-    dr_register_thread_init_event(event_thread_init);
-    dr_register_thread_exit_event(event_thread_exit);
     dr_register_filter_syscall_event(event_filter_syscall);
-    dr_register_pre_syscall_event(event_pre_syscall);
+    drmgr_register_pre_syscall_event(event_pre_syscall);
     dr_register_post_syscall_event(event_post_syscall);
     dr_register_exit_event(event_exit);
+    tcls_idx = drmgr_register_cls_field(event_thread_context_init,
+                                        event_thread_context_exit);
+    DR_ASSERT(tcls_idx != -1);
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on())
 	dr_fprintf(STDERR, "Client strace is running\n");
@@ -109,7 +124,7 @@ show_results(void)
     char msg[512];
     int len;
     /* Note that using %f with dr_printf or dr_fprintf on Windows will print
-     * garbage as they use ntdll._vsnprintf, so we must use snprintf.
+     * garbage as they use ntdll._vsnprintf, so we must use dr_snprintf.
      */
     len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
                       "<Number of system calls seen: %d>", num_syscalls);
@@ -123,25 +138,41 @@ static void
 event_exit(void)
 {
     show_results();
+    drmgr_unregister_cls_field(event_thread_context_init,
+                               event_thread_context_exit,
+                               tcls_idx);
+    drmgr_exit();
 }
 
 static void
-event_thread_init(void *drcontext)
+event_thread_context_init(void *drcontext, bool new_depth)
 {
-    /* create an instance of our data structure for this thread */
-    per_thread_t *data = (per_thread_t *)
-        dr_thread_alloc(drcontext, sizeof(per_thread_t));
+    /* create an instance of our data structure for this thread context */
+    per_thread_t *data;
+#ifdef SHOW_RESULTS
+    dr_fprintf(STDERR, "new thread context id=%d%s\n", dr_get_thread_id(drcontext),
+               new_depth ? " new depth" : "");
+#endif
+    if (new_depth) {
+        data = (per_thread_t *) dr_thread_alloc(drcontext, sizeof(per_thread_t));
+        drmgr_set_cls_field(drcontext, tcls_idx, data);
+    } else
+        data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);
     memset(data, 0, sizeof(*data));
-    /* store it in the slot provided in the drcontext */
-    dr_set_tls_field(drcontext, data);
 }
 
 static void 
-event_thread_exit(void *drcontext)
+event_thread_context_exit(void *drcontext, bool thread_exit)
 {
-    per_thread_t *data = (per_thread_t *) dr_get_tls_field(drcontext);
-    /* clean up memory */
-    dr_thread_free(drcontext, data, sizeof(per_thread_t));
+#ifdef SHOW_RESULTS
+    dr_fprintf(STDERR, "resuming prior thread context id=%d\n",
+               dr_get_thread_id(drcontext));
+#endif
+    if (thread_exit) {
+        per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);
+        dr_thread_free(drcontext, data, sizeof(per_thread_t));
+    }
+    /* else, nothing to do: we leave the struct for re-use on next context */
 }
 
 static bool
@@ -172,14 +203,13 @@ event_pre_syscall(void *drcontext, int sysnum)
 #endif
     if (sysnum == write_sysnum) {
         /* store params for access post-syscall */
-        per_thread_t *data = (per_thread_t *) dr_get_tls_field(drcontext);
         int i;
+        per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);
 #ifdef WINDOWS
         /* stderr and stdout are identical in our cygwin rxvt shell so for
          * our example we suppress output starting with 'H' instead
          */
         byte *output = (byte *) dr_syscall_get_param(drcontext, 5);
-        size_t len = dr_syscall_get_param(drcontext, 6);
         byte first;
         size_t read;
         bool ok = dr_safe_read(output, 1, &first, &read);
@@ -237,7 +267,7 @@ event_post_syscall(void *drcontext, int sysnum)
                (ptr_int_t)dr_syscall_get_result(drcontext));
 #endif
     if (sysnum == write_sysnum) {
-        per_thread_t *data = (per_thread_t *) dr_get_tls_field(drcontext);
+        per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);
         /* we repeat a write originally to stdout that we redirected to
          * stderr: on the repeat we use stdout
          */
@@ -292,15 +322,16 @@ decode_syscall_num(byte *entry)
             instr_free(drcontext, &instr);
             return -1;
         }
-        /* Note that we'll failed if somebody has hooked the wrapper */
+        /* Note that we'll fail if somebody has hooked the wrapper */
         if (opc == OP_mov_imm && opnd_is_reg(instr_get_dst(&instr, 0)) &&
-            opnd_get_reg(instr_get_dst(&instr, 0)) == REG_EAX) {
+            opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_EAX) {
             DR_ASSERT(opnd_is_immed_int(instr_get_src(&instr, 0)));
             num = (int) opnd_get_immed_int(instr_get_src(&instr, 0));
             break;
         }
         /* stop at call to vsyscall or at int itself */
-    } while (opc != OP_call_ind && opc != OP_int);
+    } while (opc != OP_call_ind && opc != OP_int &&
+             opc != OP_sysenter && opc != OP_syscall);
     instr_free(drcontext, &instr);
     DR_ASSERT(num > -1);
     return num;

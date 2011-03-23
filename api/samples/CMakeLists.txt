@@ -126,6 +126,9 @@ foreach (src ${srcs})
     if (SHOW_SYMBOLS AND "${tgt}" STREQUAL "instrcalls")
       use_DynamoRIO_extension(${tgt} drsyms)
     endif ()
+    if ("${tgt}" STREQUAL "strace")
+      use_DynamoRIO_extension(${tgt} drmgr)
+    endif ()
 
     get_target_property(tgtnm ${tgt} LOCATION)
     add_custom_command(TARGET ${tgt}
