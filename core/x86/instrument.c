@@ -2466,6 +2466,9 @@ dr_unload_aux_library(dr_auxlib_handle_t lib)
     }
 }
 
+/***************************************************************************
+ * LOCKS
+ */
 
 DR_API 
 /* Initializes a mutex
@@ -2537,6 +2540,71 @@ dr_mutex_trylock(void *mutex)
 {
     return mutex_trylock((mutex_t *) mutex);
 }
+
+DR_API
+void *
+dr_rwlock_create(void)
+{
+    void *rwlock = (void *) HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, read_write_lock_t,
+                                            ACCT_CLIENT, UNPROTECTED);
+    ASSIGN_INIT_READWRITE_LOCK_FREE(*((read_write_lock_t *)rwlock), dr_client_mutex);
+    return rwlock;
+}
+
+DR_API
+void
+dr_rwlock_destroy(void *rwlock)
+{
+    DELETE_READWRITE_LOCK(*((read_write_lock_t *) rwlock));
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, (read_write_lock_t *)rwlock, read_write_lock_t,
+                   ACCT_CLIENT, UNPROTECTED);
+}
+
+DR_API
+void
+dr_rwlock_read_lock(void *rwlock)
+{
+    read_lock((read_write_lock_t *)rwlock);
+}
+
+DR_API
+void
+dr_rwlock_read_unlock(void *rwlock)
+{
+    read_unlock((read_write_lock_t *)rwlock);
+}
+
+DR_API
+void
+dr_rwlock_write_lock(void *rwlock)
+{
+    write_lock((read_write_lock_t *)rwlock);
+}
+
+DR_API
+void
+dr_rwlock_write_unlock(void *rwlock)
+{
+    write_unlock((read_write_lock_t *)rwlock);
+}
+
+DR_API
+bool
+dr_rwlock_write_trylock(void *rwlock)
+{
+    return write_trylock((read_write_lock_t *)rwlock);
+}
+
+DR_API
+bool
+dr_rwlock_self_owns_write_lock(void *rwlock)
+{
+    return self_owns_write_lock((read_write_lock_t *)rwlock);
+}
+
+/***************************************************************************
+ * MODULES
+ */
 
 DR_API
 /* Looks up the module data containing pc.  Returns NULL if not found.

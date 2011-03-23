@@ -111,6 +111,7 @@ are not backward compatible: see below for details.
 
 The changes between version 2.2.0 and 2.1.0 are:
 
+ - Added read-write locks (Issue 406)
  - Added isolation of \client-opened files from the application (Issue 357)
 
 The changes between version 2.1.0 and 2.0.0 are:

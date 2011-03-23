@@ -1898,6 +1898,50 @@ DR_API
 bool
 dr_mutex_trylock(void *mutex);
 
+DR_API
+/**
+ * Creates and initializes a read-write lock.  A read-write lock allows
+ * multiple readers or alternatively a single writer.  The lock
+ * restrictions for mutexes apply (see dr_mutex_create()).
+ */
+void *
+dr_rwlock_create(void);
+
+DR_API
+/** Deletes \p rwlock. */
+void
+dr_rwlock_destroy(void *rwlock);
+
+DR_API
+/** Acquires a read lock on \p rwlock. */
+void
+dr_rwlock_read_lock(void *rwlock);
+
+DR_API
+/** Releases a read lock on \p rwlock. */
+void
+dr_rwlock_read_unlock(void *rwlock);
+
+DR_API
+/** Acquires a write lock on \p rwlock. */
+void
+dr_rwlock_write_lock(void *rwlock);
+
+DR_API
+/** Releases a write lock on \p rwlock. */
+void
+dr_rwlock_write_unlock(void *rwlock);
+
+DR_API
+/** Tries once to acquire a write lock on \p rwlock and returns whether successful. */
+bool
+dr_rwlock_write_trylock(void *rwlock);
+
+DR_API
+/** Returns whether the calling thread owns the write lock on \p rwlock. */
+bool
+dr_rwlock_self_owns_write_lock(void *rwlock);
+
 /* DR_API EXPORT BEGIN */
 /**************************************************
  * MODULE INFORMATION ROUTINES
