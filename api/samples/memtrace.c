@@ -113,6 +113,7 @@ static dr_emit_flags_t event_basic_block(void *drcontext,
                                          bool translating);
 
 static void clean_call(void);
+static void memtrace(void *drcontext);
 static void code_cache_init(void);
 static void code_cache_exit(void);
 static void instrument_mem(void        *drcontext, 
@@ -211,7 +212,7 @@ event_thread_exit(void *drcontext)
 {
     per_thread_t *data;
 
-    clean_call();
+    memtrace(drcontext);
     data = dr_get_tls_field(drcontext);
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
@@ -255,12 +256,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
-
-/* clean_call dumps the memory reference info to the log file */
 static void
-clean_call(void)
+memtrace(void *drcontext)
 {
-    void *drcontext;
     per_thread_t *data;
     int num_refs;
     mem_ref_t *mem_ref;
@@ -268,7 +266,6 @@ clean_call(void)
     int i;
 #endif
 
-    drcontext = dr_get_current_drcontext();
     data      = dr_get_tls_field(drcontext);
     mem_ref   = (mem_ref_t *)data->buf_base;
     num_refs  = (int)((mem_ref_t *)data->buf_ptr - mem_ref);
@@ -289,6 +286,13 @@ clean_call(void)
     data->buf_ptr   = data->buf_base;
 }
 
+/* clean_call dumps the memory reference info to the log file */
+static void
+clean_call(void)
+{
+    void *drcontext = dr_get_current_drcontext();
+    memtrace(drcontext);
+}
 
 static void
 code_cache_init(void)

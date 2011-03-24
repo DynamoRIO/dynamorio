@@ -4520,23 +4520,24 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     }
 
     /* check if callee read aflags from caller */
-    ci->read_aflags = true;
+    /* set it false for the case of empty callee. */
+    ci->read_aflags = false;
     for (instr  = instrlist_first(ilist);
          instr != NULL;
          instr  = instr_get_next(instr)) {
         uint flags = instr_get_arith_flags(instr);
-        if (TESTANY(EFLAGS_READ_6, flags))
-            break;
-        if (TESTALL(EFLAGS_WRITE_6, flags)) {
-            ci->read_aflags = false;
+        if (TESTANY(EFLAGS_READ_6, flags)) {
+            ci->read_aflags = true;
             break;
         }
-        if (instr_is_return(instr)) {
-            ci->read_aflags = false;
+        if (TESTALL(EFLAGS_WRITE_6, flags))
+            break;
+        if (instr_is_return(instr))
+            break;
+        if (instr_is_cti(instr)) {
+            ci->read_aflags = true;
             break;
         }
-        if (instr_is_cti(instr))
-            break;
     }
     if (ci->read_aflags) {
         LOG(THREAD, LOG_CLEANCALL, 2,
@@ -4571,6 +4572,10 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
      */
     top = instrlist_first(ilist);
     bot = instrlist_last(ilist);
+    if (top == bot) {
+        /* zero or one instruction only, no callee save */
+        return;
+    }
     /* for easy of comparison, create push xbp, pop xbp */
     push_xbp = INSTR_CREATE_push(dcontext, opnd_create_reg(DR_REG_XBP));
     pop_xbp  = INSTR_CREATE_pop(dcontext, opnd_create_reg(DR_REG_XBP));
@@ -4780,7 +4785,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                     opt_inline = false;
             } else if (opc == OP_sub || opc == OP_add) {
                 /* xsp +/- int => xsp */
-                if (!opnd_is_immed_int(instr_get_src(instr, 1)))
+                if (!opnd_is_immed_int(instr_get_src(instr, 0)))
                     opt_inline = false;
             } else {
                 /* other cases like push/pop are not allowed */
