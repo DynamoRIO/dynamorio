@@ -2015,6 +2015,15 @@ after_do_shared_syscall_addr(dcontext_t *dcontext)
     return (cache_pc) (code->do_syscall + code->do_syscall_offs);
 }
 
+static bool
+is_after_main_do_syscall_addr(dcontext_t *dcontext, cache_pc pc)
+{
+    generated_code_t *code = get_emitted_routines_code(dcontext
+                                                       _IF_X64(GENCODE_FROM_DCONTEXT));
+    ASSERT(code != NULL);
+    return (pc == (cache_pc) (code->do_syscall + code->do_syscall_offs));
+}
+
 bool
 is_after_do_syscall_addr(dcontext_t *dcontext, cache_pc pc)
 {
@@ -2043,6 +2052,27 @@ is_after_syscall_address(dcontext_t *dcontext, cache_pc pc)
     /* NOTE - we ignore global_do_syscall since that's only used in special
      * circumstances and is not something the callers (recreate_app_state)
      * really know how to handle. */
+}
+
+/* needed b/c linux can have sysenter as main syscall method but also
+ * has generated int syscall routines
+ */
+static bool
+is_after_syscall_that_rets(dcontext_t *dcontext, cache_pc pc)
+{
+#ifdef WINDOWS
+    return (is_after_syscall_address(dcontext, pc) &&
+            does_syscall_ret_to_callsite());
+#else
+    generated_code_t *code = get_emitted_routines_code(dcontext
+                                                       _IF_X64(GENCODE_FROM_DCONTEXT));
+    ASSERT(code != NULL);
+    return ((pc == (cache_pc) (code->do_syscall + code->do_syscall_offs) &&
+             does_syscall_ret_to_callsite()) ||
+            pc == (cache_pc) (code->do_int_syscall + code->do_int_syscall_offs)
+            IF_VMX86(|| pc == (cache_pc) (code->do_vmkuw_syscall +
+                                          code->do_vmkuw_syscall_offs)));
+#endif
 }
 
 #ifdef LINUX
@@ -2906,21 +2936,21 @@ recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
 #else
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER && 
         /* Even when the main syscall method is sysenter, we also have a
-         * do_int_syscall and do_clone_syscall that use int, so check both.
+         * do_int_syscall and do_clone_syscall that use int, so check only
+         * the main syscall routine.
          * Note that we don't modify the stack, so once we do sysenter syscalls
          * inlined in the cache (PR 288101) we'll need some mechanism to
          * distinguish those: but for now if a sysenter instruction is used it
          * has to be do_syscall since DR's own syscalls are ints.
          */
         (mcontext->pc == vsyscall_sysenter_return_pc ||
-         is_after_do_syscall_addr(tdcontext, mcontext->pc))) {
+         is_after_main_do_syscall_addr(tdcontext, mcontext->pc))) {
         LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
             "recreate_app no translation needed (at syscall)\n");
         return res;
     }
 #endif
-    else if (is_after_syscall_address(tdcontext, mcontext->pc) &&
-             does_syscall_ret_to_callsite()) {
+    else if (is_after_syscall_that_rets(tdcontext, mcontext->pc)) {
             /* suspended inside kernel at syscall
              * all registers have app values for syscall */
             LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
