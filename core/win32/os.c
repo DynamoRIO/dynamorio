@@ -358,7 +358,7 @@ get_dll_bounds(wchar_t *name, app_pc *start, app_pc *end)
     do {
         if (mbi.State == MEM_FREE || (app_pc) mbi.AllocationBase != *start)
             break;
-        if (pb + mbi.RegionSize < pb)
+        if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
             break;
         pb += mbi.RegionSize;
     } while (query_virtual_memory(pb, &mbi, sizeof(mbi)) == sizeof(mbi));
@@ -2081,7 +2081,7 @@ merge_writecopy_pages(app_pc start, app_pc end)
                 pc += PAGE_SIZE;
             }
         }
-        if (pb + mbi.RegionSize < pb)
+        if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
             break;
         pb += mbi.RegionSize;
     } while (query_virtual_memory(pb, &mbi, sizeof(mbi)) == sizeof(mbi));
@@ -2144,7 +2144,7 @@ find_dynamo_library_vm_areas()
                                                 ((app_pc)mbi.BaseAddress) +
                                                 mbi.RegionSize));
         }
-        if (pb + mbi.RegionSize < pb)
+        if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
             break;
         pb += mbi.RegionSize;
     } while (query_virtual_memory(pb, &mbi, sizeof(mbi)) == sizeof(mbi));
@@ -2178,7 +2178,7 @@ print_dynamo_regions()
                 ((app_pc)mbi.BaseAddress) + mbi.RegionSize,
                 prot_string(mbi.Protect));
         }
-        if (pb + mbi.RegionSize < pb)
+        if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
             break;
         pb += mbi.RegionSize;
     } while (query_virtual_memory(pb, &mbi, sizeof(mbi)) == sizeof(mbi));
@@ -2356,7 +2356,7 @@ mem_stats_snapshot()
                 r_ro += mbi.RegionSize;
             /* we don't add up no-access memory! */
         }
-        if (pb + mbi.RegionSize < pb)
+        if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
             break;
         pb += mbi.RegionSize;
     }
@@ -2818,7 +2818,7 @@ find_executable_vm_areas()
         }
         if (!skip && process_memory_region(NULL, &mbi, true/*init*/, true/*add*/))
             num_executable++;
-        if (pb + mbi.RegionSize < pb)
+        if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
             break;
         pb += mbi.RegionSize;
         if (!skip && image_base != NULL && pb >= image_base + view_size) {
@@ -2884,7 +2884,7 @@ process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add, const char 
             num_executable++;
             STATS_INC(num_app_code_modules);
         }
-        if (pb + mbi.RegionSize < pb) /* overflow check */
+        if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
             break;
         pb += mbi.RegionSize;
     }
@@ -3673,7 +3673,7 @@ get_allocation_size(byte *pc, byte **base_pc)
             break;
         ASSERT(mbi.RegionSize > 0); /* if > 0, we will NOT infinite loop */
         size += mbi.RegionSize;
-        if (pb + mbi.RegionSize < pb)
+        if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
             break;
         pb += mbi.RegionSize;
         /* WARNING: if app is changing memory at same time as we're examining
@@ -3686,7 +3686,8 @@ get_allocation_size(byte *pc, byte **base_pc)
     } while (num_blocks < MAX_QUERY_VM_BLOCKS);
     ASSERT_CURIOSITY(num_blocks < MAX_QUERY_VM_BLOCKS);
     /* size may push to overflow to 0 if at end of address space */
-    ASSERT((app_pc)region_base + size > pc || (app_pc)region_base + size == NULL);
+    ASSERT((ptr_uint_t)region_base + size > (ptr_uint_t)pc ||
+           (app_pc)region_base + size == NULL);
     if (base_pc != NULL)
         *base_pc = (byte *) region_base;
     return size;
@@ -3741,7 +3742,7 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
                     info->type = DR_MEMTYPE_DATA;
                 return true;
             }
-            if (pb + mbi.RegionSize < pb) /* overflow */
+            if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
                 break;
             pb += mbi.RegionSize;
             /* WARNING: if app is changing memory at same time as we're examining
@@ -5544,7 +5545,7 @@ os_dump_core_live_dump(const char *msg)
             os_write(dmp_file, mbi.BaseAddress, mbi.RegionSize);
         }
             
-        if (pb + mbi.RegionSize < pb)
+        if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
             break;
         pb += mbi.RegionSize;
     }

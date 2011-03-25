@@ -429,7 +429,7 @@ request_region_be_heap_reachable(byte *start, size_t size)
         "Existing allowed range "PFX"-"PFX"\n",
         start, start+size, must_reach_region_start, must_reach_region_end,
         heap_allowable_region_start, heap_allowable_region_end);
-    ASSERT(start + size >= start); /* overflow check */
+    ASSERT(!POINTER_OVERFLOW_ON_ADD(start, size));
 
     mutex_lock(&request_region_be_heap_reachable_lock);
     if (start < must_reach_region_start) {
@@ -730,7 +730,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
                  *VMM_BLOCK_SIZE);
     preferred = ALIGN_FORWARD(preferred, VMM_BLOCK_SIZE);
     /* overflow check: w/ vm_base shouldn't happen so debug-only check */
-    ASSERT(preferred + size > preferred);
+    ASSERT(!POINTER_OVERFLOW_ON_ADD(preferred, size));
 
     /* let's assume a single chunk is sufficient to reserve */
     vmh->start_addr = NULL;
@@ -781,7 +781,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
     }
 #ifdef X64
     ASSERT(vmh->start_addr >= heap_allowable_region_start &&
-           vmh->start_addr + size > vmh->start_addr /* overflow */ &&
+           !POINTER_OVERFLOW_ON_ADD(vmh->start_addr, size) &&
            vmh->start_addr + size <= heap_allowable_region_end);
     /* ensure future out-of-block heap allocations are reachable from this allocation */
     if (vmh->start_addr != NULL)
@@ -879,8 +879,7 @@ is_vmm_reserved_address(byte *pc, size_t size)
      */
     return (heapmgt != NULL && heapmgt->vmheap.start_addr != NULL &&
             pc >= heapmgt->vmheap.start_addr &&
-            /* i#14: workaround for gcc 4.3.0 bug */
-            (pc < ((byte *)POINTER_MAX) - size) /* no overflow */ &&
+            !POINTER_OVERFLOW_ON_ADD(pc, size) &&
             (pc + size) <= heapmgt->vmheap.end_addr);
 }
 
@@ -2765,7 +2764,7 @@ find_heap_unit(thread_units_t *tu, heap_pc p, size_t size)
      * every time instead of the very rare times now when we need a new unit.
      */
     heap_unit_t *unit;
-    ASSERT(p + size > p); /* should not overflow */
+    ASSERT(!POINTER_OVERFLOW_ON_ADD(p, size)); /* should not overflow */
     for (unit = tu->top_unit; 
          unit != NULL && (p < unit->start_pc || p+size > unit->end_pc);
          unit = unit->next_local);
@@ -3064,18 +3063,18 @@ common_heap_extend_commitment(heap_pc cur_pc, heap_pc end_pc, heap_pc reserved_e
                               size_t size_need, uint prot)
 {
     if (end_pc < reserved_end_pc &&
-        cur_pc + size_need > cur_pc /* overflow */) {
+        !POINTER_OVERFLOW_ON_ADD(cur_pc, size_need)) {
         /* extend commitment if have more reserved */
         size_t commit_size = DYNAMO_OPTION(heap_commit_increment);
         /* simpler to just not support taking very last page in address space */
-        if (end_pc + commit_size < end_pc /* overflow */)
+        if (POINTER_OVERFLOW_ON_ADD(end_pc, commit_size))
             return 0;
         if (cur_pc + size_need > end_pc + commit_size) {
             commit_size = ALIGN_FORWARD(cur_pc + size_need - (ptr_uint_t)end_pc,
                                         PAGE_SIZE);
         }
         if (end_pc + commit_size > reserved_end_pc ||
-            end_pc + commit_size < end_pc /* overflow: seen in PR 518644 */) {
+            POINTER_OVERFLOW_ON_ADD(end_pc, commit_size)/*overflow seen in PR 518644 */) {
             /* commit anyway before caller moves on to new unit so that
              * we keep an invariant that all units but the current one
              * are fully committed, so our algorithm for looking at the end
@@ -3083,7 +3082,7 @@ common_heap_extend_commitment(heap_pc cur_pc, heap_pc end_pc, heap_pc reserved_e
              */
             commit_size = reserved_end_pc - end_pc;
         }
-        ASSERT(end_pc + commit_size > end_pc /* overflow */ &&
+        ASSERT(!POINTER_OVERFLOW_ON_ADD(end_pc, commit_size) &&
                end_pc + commit_size <= reserved_end_pc);
         extend_commitment(end_pc, commit_size, prot, false /* extension */);
 #ifdef DEBUG_MEMORY
@@ -3254,7 +3253,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
         ASSERT(ALIGNED(u->cur_pc, HEAP_ALIGNMENT));
         ASSERT(ALIGNED(alloc_size, HEAP_ALIGNMENT));
         if (u->cur_pc + alloc_size > u->end_pc ||
-            u->cur_pc + alloc_size < u->cur_pc /* overflow: PR 495961 */) {
+            POINTER_OVERFLOW_ON_ADD(u->cur_pc, alloc_size)/*xref PR 495961*/) {
             /* We either have to extend the current unit or, failing that,
              * allocate a new unit. */
             if (!safe_to_allocate_or_free_heap_units()) {
@@ -3269,7 +3268,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
             heap_unit_extend_commitment(u, alloc_size, MEMPROT_READ|MEMPROT_WRITE);
             /* check again after extending commit */
             if (u->cur_pc + alloc_size > u->end_pc ||
-                u->cur_pc + alloc_size < u->cur_pc /* overflow: PR 495961 */) {
+                POINTER_OVERFLOW_ON_ADD(u->cur_pc, alloc_size)/*xref PR 495961*/) {
                 /* no room, look for room at end of previous units
                  * FIXME: instead should put end of unit space on free list!
                  */
@@ -3280,7 +3279,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                      * may be freed wholesale when primary alloc is freed
                      */
                     if (UNITALLOC(prev) <= HEAP_UNIT_MAX_SIZE &&
-                        prev->cur_pc + alloc_size > prev->cur_pc /*overflow*/ &&
+                        !POINTER_OVERFLOW_ON_ADD(prev->cur_pc, alloc_size) &&
                         prev->cur_pc + alloc_size <= prev->end_pc) {
                         tu->cur_unit = prev;
                         u = prev;
@@ -4210,7 +4209,7 @@ special_heap_calloc(void *special, uint num)
     if (!took_free) {
         /* no free blocks, grab a new one */
         if (u->cur_pc + su->block_size*num > u->end_pc ||
-            u->cur_pc + su->block_size*num < u->cur_pc /*overflow*/) {
+            POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size*num)) {
             /* simply extend commitment, if possible */
             DEBUG_DECLARE(size_t pre_commit_size = SPECIAL_UNIT_COMMIT_SIZE(u);)
             special_unit_extend_commitment(u, su->block_size*num, get_prot(su));
@@ -4218,7 +4217,7 @@ special_heap_calloc(void *special, uint num)
                            SPECIAL_UNIT_COMMIT_SIZE(u) - pre_commit_size);
             /* check again after extending commit */
             if (u->cur_pc + su->block_size*num > u->end_pc ||
-                u->cur_pc + su->block_size*num < u->cur_pc /*overflow*/) {
+                POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size*num)) {
                 /* no room, need new unit */
                 special_heap_unit_t *new_unit;
                 special_heap_unit_t *prev = su->top_unit;
@@ -4240,7 +4239,7 @@ special_heap_calloc(void *special, uint num)
                 su->cur_unit = new_unit;
                 u = new_unit;
                 ASSERT(u->cur_pc + su->block_size*num <= u->end_pc &&
-                       u->cur_pc + su->block_size*num > u->cur_pc /*overflow*/);
+                       !POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size*num));
             }
         }
 

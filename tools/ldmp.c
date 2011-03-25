@@ -1103,7 +1103,7 @@ main(DWORD argc, char *argv[], char *envp[])
     pb = NULL;
     while(VirtualQueryEx(hProc, pb, &mbi, sizeof(mbi)) == sizeof(mbi)) {
         if (mbi.State == MEM_FREE || get_original_addr(mbi.AllocationBase) != FAIL) {
-            if ((char *)mbi.BaseAddress + mbi.RegionSize < (char *)mbi.BaseAddress)
+            if ((uint)mbi.BaseAddress + mbi.RegionSize < (uint)mbi.BaseAddress)
                 break;
             pb = (char *)mbi.BaseAddress + mbi.RegionSize;
         } else {

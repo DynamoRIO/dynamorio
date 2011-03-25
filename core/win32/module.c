@@ -3085,7 +3085,7 @@ find_address_references_by_region(dcontext_t *dcontext,
             ASSERT(false && "error querying memory for rct analysis");
             break;
         }
-        if (pc + mbi.RegionSize < pc) /* overflow check */
+        if (POINTER_OVERFLOW_ON_ADD(pc, mbi.RegionSize))
             break;
         if (mbi.State == MEM_COMMIT) {
             /* safe to read */
