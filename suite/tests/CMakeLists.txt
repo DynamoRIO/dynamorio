@@ -1147,6 +1147,7 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
   tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
+  tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
 
   tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "")
   use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
