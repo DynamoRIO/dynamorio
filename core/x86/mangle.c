@@ -88,7 +88,6 @@ typedef struct _callee_info_t {
     bool bailout;             /* if we bail out on function analysis */
     int num_instrs;           /* total number of instructions of a function */
     app_pc start;             /* entry point of a function  */
-    app_pc end;               /* last instr (return) of a function */
     app_pc bwd_tgt;           /* earliest backward branch target */
     app_pc fwd_tgt;           /* last forward branch target */
     int num_xmms_used;        /* number of xmms used by callee */
@@ -4331,11 +4330,13 @@ check_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc)
                     disassemble_with_bytes(dcontext, tgt_pc, THREAD);
                 });
                 /* "pop %r1" or "mov [%rsp] %r1" */
-                if ((instr_get_opcode(&ins) != OP_pop &&
-                     instr_get_opcode(&ins) != OP_mov_ld) ||
-                    !opnd_is_reg(instr_get_dst(&ins, 0))  ||
-                    !opnd_same(instr_get_src(&ins, 0), 
-                               OPND_CREATE_MEMPTR(REG_XSP, 0))) {
+                if (!(((instr_get_opcode(&ins) == OP_pop &&
+                        opnd_same(instr_get_src(&ins, 1),
+                                  OPND_CREATE_MEMPTR(REG_XSP, 0))) ||
+                       (instr_get_opcode(&ins) == OP_mov_ld &&
+                        opnd_same(instr_get_src(&ins, 0),
+                                  OPND_CREATE_MEMPTR(REG_XSP, 0)))) &&
+                      opnd_is_reg(instr_get_dst(&ins, 0)))) {
                     LOG(THREAD, LOG_CLEANCALL, 2,
                         "CLEANCALL: callee calls out is not PIC code, bailout\n");
                     instr_free(dcontext, &ins);
@@ -4456,7 +4457,6 @@ decode_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
         cur_pc = decode_callee_instr(dcontext, ci, cur_pc);
         cur_pc = check_callee_instr(dcontext, ci, cur_pc);
     }
-    ci->end = cur_pc;
     check_callee_ilist(dcontext, ci);
 }
 
@@ -5353,4 +5353,3 @@ insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      * leave it for higher optimization level.
      */
 }
-
