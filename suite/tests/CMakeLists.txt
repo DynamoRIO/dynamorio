@@ -362,35 +362,13 @@ set(tools_c ${CMAKE_CURRENT_SOURCE_DIR}/tools.c)
 set_source_files_properties(${tools_c} PROPERTIES
   COMPILE_FLAGS "${ORIG_CMAKE_C_FLAGS}")
 
-# get_filename_component with NAME_WE doesn't handle .dll.c files very well, so
-# we roll our own basename regexp to chop the extension from the last dot.
-function (basename_noext path_base_out path_full)
-  get_filename_component(path_base "${path_full}" NAME)
-  string(REGEX REPLACE "\\.[^.]$" "" path_noext "${path_base}")
-  set(${path_base_out} "${path_noext}" PARENT_SCOPE)
-endfunction ()
-
-function (get_asm_source_name asm_source c_source)
-  basename_noext(srcbase "${c_source}")
-  get_filename_component(srcpath "${c_source}" PATH)
-  set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath}/${srcbase}_asm")
-
-  # name should be .obj for VS, .asm for makefiles
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    set(asm_source "${asm_source}.obj")
-  else ()
-    set(asm_source "${asm_source}.asm")
-  endif ()
-  set(asm_source "${asm_source}" PARENT_SCOPE)
-endfunction ()
-
 # name should be .obj for VS, .asm for makefiles
 function (add_test_asm_tgt source name)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # our CMAKE_ASM_COMPILE_OBJECT rule only applies to makefiles so we use
     # a custom command.
     set_source_files_properties(${name} PROPERTIES GENERATED true)
-    basename_noext(namebase "${name}")
+    get_filename_component(namebase ${name} NAME_WE)
     get_filename_component(namepath ${name} PATH)
     set(namebase "${namepath}/${namebase}")
     # we don't need ${defines} (=> list) b/c we include configure.h
@@ -433,7 +411,6 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   set(tools_asm ${CMAKE_CURRENT_BINARY_DIR}/tools_asm.asm)
 endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-#get_asm_source_name(tools_asm "${tools_c}")
 add_test_asm_tgt("${tools_c}" "${tools_asm}")
 
 if (WIN32)
@@ -512,7 +489,11 @@ function(add_exe test source)
   if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
     # we rely on the asm rule doing preprocessing for us, so we just make
     # a copy and set the ASM_CODE_ONLY define
-    get_asm_source_name(asm_source "${source}")
+    if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+      set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath}/${srcbase}_asm.obj")
+    else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+      set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath}/${srcbase}_asm.asm")
+    endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_test_asm_tgt("${CMAKE_CURRENT_SOURCE_DIR}/${source}" "${asm_source}")
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
@@ -615,42 +596,6 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   configure_DynamoRIO_client(${test}.dll)
   add_dependencies(${test}.dll api_headers)
   get_target_property(client_path ${test}.dll LOCATION${location_suffix})
-
-  # Some files use asm code, which must be separate for x64, but it's much
-  # more convenient to have it in the same source file and auto-split.
-  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/${client_source}" srccode)
-  if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
-    # we rely on the asm rule doing preprocessing for us, so we just make
-    # a copy and set the ASM_CODE_ONLY define
-    get_asm_source_name(asm_source "${client_source}")
-    add_test_asm_tgt("${CMAKE_CURRENT_SOURCE_DIR}/${client_source}"
-      "${asm_source}")
-
-    # Tweak the asm preprocessor flags.  This is done by creating a static
-    # library wrapping the single asm object file and adjusting the properties
-    # on it.
-    # TODO(rnk): This extra static library step is unecessary.  If there is a
-    # way to set the CFLAGS on the .o file instead of the .a file, that would be
-    # preferable.
-    add_library("${test}.dll.asm" STATIC "${asm_source}")
-    configure_DynamoRIO_client("${test}.dll.asm")
-    get_target_property(prop_cflags "${test}.dll.asm" COMPILE_FLAGS)
-
-    # Nuke configure defines, we get these from configure.h through
-    # asm_defines.h.
-    string(REGEX REPLACE "-DX64" "" prop_cflags "${prop_cflags}")
-    string(REGEX REPLACE "-DLINUX" "" prop_cflags "${prop_cflags}")
-    string(REGEX REPLACE "-DWINDOWS" "" prop_cflags "${prop_cflags}")
-    string(REGEX REPLACE "-DUSE_VISIBILITY_ATTRIBUTES" "" prop_cflags
-      "${prop_cflags}")
-
-    # -g3 in asm targets prevents macro expansion.  Workaround by removing it.
-    string(REGEX REPLACE "-g3" "" prop_cflags "${prop_cflags}")
-
-    set_target_properties("${test}.dll.asm" PROPERTIES
-      COMPILE_FLAGS "${prop_cflags}")
-    target_link_libraries(${test}.dll "${test}.dll.asm")
-  endif ()
 
   set(testlist_ci ${testlist_ci} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
@@ -1202,7 +1147,6 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
   tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
-  tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
 
   tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "")
   use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
