@@ -1,0 +1,20 @@
+thread.appdll process init
+  <pre-level0>
+in level0 42
+  <pre-level1>
+in level1 42 1111
+  <pre-makes_tailcall>
+  <pre-level2>
+in level2 1153
+  <post-level2>
+  <post-makes_tailcall>
+  <post-level1>
+level1 returned -4
+  <post-level0>
+level0 returned 42
+  <pre-skipme>
+skipme returned 7 and x=3
+replaceme returned 0 and x=6
+loaded library
+thank you for testing the client interface
+all done
