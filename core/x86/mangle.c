@@ -1,6 +1,7 @@
 /* ******************************************************************************
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
- * Copyright (c) 2000-2009 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*

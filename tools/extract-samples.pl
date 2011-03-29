@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 # **********************************************************
+# Copyright (c) 2011 Google, Inc.  All rights reserved.
 # Copyright (c) 2004-2005 VMware, Inc.  All rights reserved.
 # **********************************************************
 

@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 
 # **********************************************************
-# Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
+# Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -179,7 +179,8 @@ if ($header) {
 
 # PR 214947: VMware retroactively holds the copyright.
 $copyright = q+/* **********************************************************
- * Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
