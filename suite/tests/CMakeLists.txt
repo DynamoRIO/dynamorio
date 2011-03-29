@@ -253,6 +253,8 @@ if (NOT TEST_LIB_PATH)
 else (NOT TEST_LIB_PATH)
   set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${TEST_LIB_PATH}")
 endif (NOT TEST_LIB_PATH)
+string(REGEX REPLACE "/lib([36])" "/ext/lib\\1"
+  EXT_LIBRARY_OUTPUT_DIRECTORY "${MAIN_LIBRARY_OUTPUT_DIRECTORY}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
@@ -838,7 +840,7 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
     # We set LD_LIBRARY_PATH even for native api/ apps since we're not setting
     # rpath (to make it easier to try different trees)
     set(cmd ${cmd}
-      -env LD_LIBRARY_PATH "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
+      -env LD_LIBRARY_PATH "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
     if (NOT native)
       # FIXME: should really use drrun to override any existing config file
       set(cmd ${cmd}

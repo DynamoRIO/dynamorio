@@ -439,7 +439,9 @@ function (configure_DynamoRIO_client target)
     # experimental 64bit release and will be adressed in later releases.
     # Naturally for multiple clients different addresses should be used.
     # We suggest using the range 0x72000000-0x75000000.
-    set(PREFERRED_BASE 0x72000000)
+    if (NOT DEFINED PREFERRED_BASE)
+      set(PREFERRED_BASE 0x72000000)
+    endif ()
     if (UNIX)
       # We use a linker script to set the preferred base
       set(LD_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/ldscript)

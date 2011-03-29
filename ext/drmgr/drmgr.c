@@ -144,6 +144,8 @@ static bool tls_taken[MAX_NUM_TLS];
 static bool cls_taken[MAX_NUM_TLS];
 static void *tls_lock;
 
+static void *exit_lock;
+
 /* Thread event cbs and rwlock */
 static generic_event_entry_t *cblist_thread_init;
 static generic_event_entry_t *cblist_thread_exit;
@@ -189,13 +191,15 @@ drmgr_cls_presys_event(void *drcontext, int sysnum);
  * INIT
  */
 
+DR_EXPORT
 bool
 drmgr_init(void)
 {
     static bool initialized;
     if (initialized)
-        return false;
+        return true;
     initialized = true;
+    exit_lock = dr_mutex_create();
 
     bb_cb_lock = dr_rwlock_create();
     thread_event_lock = dr_rwlock_create();
@@ -210,9 +214,15 @@ drmgr_init(void)
     return true;
 }
 
+DR_EXPORT
 void
 drmgr_exit(void)
 {
+    static bool exited;
+    if (exited || !dr_mutex_trylock(exit_lock))
+        return;
+    exited = true;
+
     drmgr_bb_exit();
     drmgr_event_exit();
 
@@ -221,6 +231,9 @@ drmgr_exit(void)
     dr_mutex_destroy(tls_lock);
     dr_rwlock_destroy(thread_event_lock);
     dr_rwlock_destroy(bb_cb_lock);
+
+    dr_mutex_unlock(exit_lock);
+    dr_mutex_destroy(exit_lock);
 }
 
 /***************************************************************************
@@ -357,6 +370,7 @@ drmgr_bb_cb_add(cb_entry_t **list,
     return res;
 }
 
+DR_EXPORT
 bool
 drmgr_register_bb_app2app_event(drmgr_xform_cb_t func, drmgr_priority_t *priority)
 {
@@ -365,6 +379,7 @@ drmgr_register_bb_app2app_event(drmgr_xform_cb_t func, drmgr_priority_t *priorit
     return drmgr_bb_cb_add(&cblist_app2app, func, NULL, NULL, priority);
 }
 
+DR_EXPORT
 bool
 drmgr_register_bb_instrumentation_event(drmgr_analysis_cb_t analysis_func,
                                         drmgr_insertion_cb_t insertion_func,
@@ -376,6 +391,7 @@ drmgr_register_bb_instrumentation_event(drmgr_analysis_cb_t analysis_func,
                            insertion_func, priority);
 }
 
+DR_EXPORT
 bool
 drmgr_register_bb_instru2instru_event(drmgr_xform_cb_t func, drmgr_priority_t *priority)
 {
@@ -442,6 +458,7 @@ drmgr_bb_exit(void)
     drmgr_bb_cb_exit(cblist_instru2instru);
 }
 
+DR_EXPORT
 bool
 drmgr_unregister_bb_app2app_event(drmgr_xform_cb_t func)
 {
@@ -450,6 +467,7 @@ drmgr_unregister_bb_app2app_event(drmgr_xform_cb_t func)
     return drmgr_bb_cb_remove(&cblist_app2app, func, NULL);
 }
 
+DR_EXPORT
 bool
 drmgr_unregister_bb_instrumentation_event(drmgr_analysis_cb_t func)
 {
@@ -458,6 +476,7 @@ drmgr_unregister_bb_instrumentation_event(drmgr_analysis_cb_t func)
     return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, func);
 }
 
+DR_EXPORT
 bool
 drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func)
 {
@@ -540,6 +559,7 @@ drmgr_event_exit(void)
     drmgr_generic_event_exit(cblist_presys, presys_event_lock);
 }
 
+DR_EXPORT
 bool
 drmgr_register_thread_init_event(void (*func)(void *drcontext))
 {
@@ -547,6 +567,7 @@ drmgr_register_thread_init_event(void (*func)(void *drcontext))
                                    (void (*)(void)) func);
 }
 
+DR_EXPORT
 bool
 drmgr_unregister_thread_init_event(void (*func)(void *drcontext))
 {
@@ -554,6 +575,7 @@ drmgr_unregister_thread_init_event(void (*func)(void *drcontext))
                                       (void (*)(void)) func);
 }
 
+DR_EXPORT
 bool
 drmgr_register_thread_exit_event(void (*func)(void *drcontext))
 {
@@ -561,6 +583,7 @@ drmgr_register_thread_exit_event(void (*func)(void *drcontext))
                                    (void (*)(void)) func);
 }
 
+DR_EXPORT
 bool
 drmgr_unregister_thread_exit_event(void (*func)(void *drcontext))
 {
@@ -568,6 +591,7 @@ drmgr_unregister_thread_exit_event(void (*func)(void *drcontext))
                                       (void (*)(void)) func);
 }
 
+DR_EXPORT
 bool
 drmgr_register_pre_syscall_event(bool (*func)(void *drcontext, int sysnum))
 {
@@ -575,6 +599,7 @@ drmgr_register_pre_syscall_event(bool (*func)(void *drcontext, int sysnum))
                                    (void (*)(void)) func);
 }
 
+DR_EXPORT
 bool
 drmgr_unregister_pre_syscall_event(bool (*func)(void *drcontext, int sysnum))
 {
@@ -665,18 +690,21 @@ drmgr_unreserve_tls_cls_field(bool *taken, int idx)
     return res;
 }
 
+DR_EXPORT
 int
 drmgr_register_tls_field(void)
 {
     return drmgr_reserve_tls_cls_field(tls_taken);
 }
 
+DR_EXPORT
 bool
 drmgr_unregister_tls_field(int idx)
 {
     return drmgr_unreserve_tls_cls_field(tls_taken, idx);
 }
 
+DR_EXPORT
 void *
 drmgr_get_tls_field(void *drcontext, int idx)
 {
@@ -686,6 +714,7 @@ drmgr_get_tls_field(void *drcontext, int idx)
     return tls->tls[idx];
 }
 
+DR_EXPORT
 bool
 drmgr_set_tls_field(void *drcontext, int idx, void *value)
 {
@@ -696,6 +725,7 @@ drmgr_set_tls_field(void *drcontext, int idx, void *value)
     return true;
 }
 
+DR_EXPORT
 bool
 drmgr_insert_read_tls_field(void *drcontext, int idx,
                             instrlist_t *ilist, instr_t *where, reg_id_t reg)
@@ -713,6 +743,7 @@ drmgr_insert_read_tls_field(void *drcontext, int idx,
     return true;
 }
 
+DR_EXPORT
 bool
 drmgr_insert_write_tls_field(void *drcontext, int idx,
                              instrlist_t *ilist, instr_t *where, reg_id_t reg,
@@ -972,6 +1003,7 @@ drmgr_cls_presys_event(void *drcontext, int sysnum)
 }
 #endif /* WINDOWS */
 
+DR_EXPORT
 int
 drmgr_register_cls_field(void (*cb_init_func)(void *drcontext, bool new_depth),
                          void (*cb_exit_func)(void *drcontext, bool thread_exit))
@@ -991,6 +1023,7 @@ drmgr_register_cls_field(void (*cb_init_func)(void *drcontext, bool new_depth),
     return drmgr_reserve_tls_cls_field(cls_taken);
 }
 
+DR_EXPORT
 bool
 drmgr_unregister_cls_field(void (*cb_init_func)(void *drcontext, bool new_depth),
                            void (*cb_exit_func)(void *drcontext, bool thread_exit),
@@ -1004,6 +1037,7 @@ drmgr_unregister_cls_field(void (*cb_init_func)(void *drcontext, bool new_depth)
     return res;
 }
 
+DR_EXPORT
 void *
 drmgr_get_cls_field(void *drcontext, int idx)
 {
@@ -1013,6 +1047,7 @@ drmgr_get_cls_field(void *drcontext, int idx)
     return tls->cls[idx];
 }
 
+DR_EXPORT
 bool 
 drmgr_set_cls_field(void *drcontext, int idx, void *value)
 {
@@ -1023,6 +1058,7 @@ drmgr_set_cls_field(void *drcontext, int idx, void *value)
     return true;
 }
 
+DR_EXPORT
 bool
 drmgr_insert_read_cls_field(void *drcontext, int idx,
                             instrlist_t *ilist, instr_t *where, reg_id_t reg)
@@ -1040,6 +1076,7 @@ drmgr_insert_read_cls_field(void *drcontext, int idx,
     return true;
 }
 
+DR_EXPORT
 bool
 drmgr_insert_write_cls_field(void *drcontext, int idx,
                              instrlist_t *ilist, instr_t *where, reg_id_t reg,
@@ -1060,12 +1097,14 @@ drmgr_insert_write_cls_field(void *drcontext, int idx,
     return true;
 }
 
+DR_EXPORT
 bool
 drmgr_push_cls(void *drcontext)
 {
     return drmgr_cls_stack_push();
 }
 
+DR_EXPORT
 bool
 drmgr_pop_cls(void *drcontext)
 {

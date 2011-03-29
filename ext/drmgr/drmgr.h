@@ -135,6 +135,7 @@ typedef struct _drmgr_priority_t {
  * INIT
  */
 
+DR_EXPORT
 /**
  * Initializes the drmgr extension.  Must be called prior to any of the
  * other routines, and should only be called once.
@@ -143,6 +144,7 @@ typedef struct _drmgr_priority_t {
 bool
 drmgr_init(void);
 
+DR_EXPORT
 /**
  * Cleans up the drmgr extension.
  */
@@ -153,6 +155,7 @@ drmgr_exit(void);
  * BB EVENTS
  */
 
+DR_EXPORT
 /**
  * Registers a callback function for the first instrumentation stage:
  * application-to-application ("app2app") transformations on each
@@ -186,6 +189,7 @@ drmgr_exit(void);
 bool
 drmgr_register_bb_app2app_event(drmgr_xform_cb_t func, drmgr_priority_t *priority);
 
+DR_EXPORT
 /**
  * Unregisters a callback function for the first instrumentation stage.
  * \return true if unregistration is successful and false if it is not
@@ -197,6 +201,7 @@ drmgr_register_bb_app2app_event(drmgr_xform_cb_t func, drmgr_priority_t *priorit
 bool
 drmgr_unregister_bb_app2app_event(drmgr_xform_cb_t func);
 
+DR_EXPORT
 /**
  * Registers callback functions for the second and third
  * instrumentation stages: application analysis and instrumentation
@@ -243,6 +248,7 @@ drmgr_register_bb_instrumentation_event(drmgr_analysis_cb_t analysis_func,
                                         drmgr_insertion_cb_t insertion_func,
                                         drmgr_priority_t *priority);
 
+DR_EXPORT
 /**
  * Unregisters \p func and its corresponding insertion
  * callback from the second and third instrumentation stages.
@@ -256,6 +262,7 @@ bool
 drmgr_unregister_bb_instrumentation_event(drmgr_analysis_cb_t func);
 
 
+DR_EXPORT
 /**
  * Registers a callback function for the fourth instrumentation stage:
  * instrumentation-to-instrumentation transformations on each
@@ -278,6 +285,7 @@ drmgr_unregister_bb_instrumentation_event(drmgr_analysis_cb_t func);
 bool
 drmgr_register_bb_instru2instru_event(drmgr_xform_cb_t func, drmgr_priority_t *priority);
 
+DR_EXPORT
 /**
  * Unregisters a callback function for the fourth instrumentation stage.
  * \return true if unregistration is successful and false if it is not
@@ -294,6 +302,7 @@ drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func);
  * TLS
  */
 
+DR_EXPORT
 /**
  * Reserves a thread-local storage (tls) slot for every thread.
  * Returns the index of the slot, which should be passed to
@@ -306,6 +315,7 @@ drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func);
 int
 drmgr_register_tls_field(void);
 
+DR_EXPORT
 /**
  * Frees a previously reserved thread-local storage (tls) slot index.
  * Returns false if the slot was not actually reserved.
@@ -313,6 +323,7 @@ drmgr_register_tls_field(void);
 bool
 drmgr_unregister_tls_field(int idx);
 
+DR_EXPORT
 /**
  * Returns the user-controlled thread-local-storage field for the
  * given index, which was returned by drmgr_register_tls_field().  To
@@ -322,6 +333,7 @@ drmgr_unregister_tls_field(int idx);
 void *
 drmgr_get_tls_field(void *drcontext, int idx);
 
+DR_EXPORT
 /** 
  * Sets the user-controlled thread-local-storage field for the
  * given index, which was returned by drmgr_register_tls_field().  To
@@ -332,6 +344,7 @@ drmgr_get_tls_field(void *drcontext, int idx);
 bool 
 drmgr_set_tls_field(void *drcontext, int idx, void *value);
 
+DR_EXPORT
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to read
  * into the general-purpose full-size register \p reg from the
@@ -343,6 +356,7 @@ bool
 drmgr_insert_read_tls_field(void *drcontext, int idx,
                             instrlist_t *ilist, instr_t *where, reg_id_t reg);
 
+DR_EXPORT
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to
  * write the general-purpose full-size register \p reg to the
@@ -361,6 +375,7 @@ drmgr_insert_write_tls_field(void *drcontext, int idx,
  * CLS
  */
 
+DR_EXPORT
 /**
  * Reserves a callback-local storage (cls) slot.  Thread-local storage
  * (tls) is callback-shared.  Callbacks interrupt thread execution to
@@ -411,6 +426,7 @@ int
 drmgr_register_cls_field(void (*cb_init_func)(void *drcontext, bool new_depth),
                          void (*cb_exit_func)(void *drcontext, bool thread_exit));
 
+DR_EXPORT
 /**
  * Frees a previously reserved callback-local storage (cls) slot index and
  * unregisters its event callbacks.
@@ -421,6 +437,7 @@ drmgr_unregister_cls_field(void (*cb_init_func)(void *drcontext, bool new_depth)
                            void (*cb_exit_func)(void *drcontext, bool thread_exit),
                            int idx);
 
+DR_EXPORT
 /**
  * Returns the user-controlled callback-local-storage field for the
  * given index, which was returned by drmgr_register_cls_field().  To
@@ -430,6 +447,7 @@ drmgr_unregister_cls_field(void (*cb_init_func)(void *drcontext, bool new_depth)
 void *
 drmgr_get_cls_field(void *drcontext, int idx);
 
+DR_EXPORT
 /** 
  * Sets the user-controlled callback-local-storage field for the
  * given index, which was returned by drmgr_register_cls_field().  To
@@ -440,6 +458,7 @@ drmgr_get_cls_field(void *drcontext, int idx);
 bool 
 drmgr_set_cls_field(void *drcontext, int idx, void *value);
 
+DR_EXPORT
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to read
  * into the general-purpose full-size register \p reg from the
@@ -452,6 +471,7 @@ bool
 drmgr_insert_read_cls_field(void *drcontext, int idx,
                             instrlist_t *ilist, instr_t *where, reg_id_t reg);
 
+DR_EXPORT
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to
  * write the general-purpose full-size register \p reg to the
@@ -466,6 +486,7 @@ drmgr_insert_write_cls_field(void *drcontext, int idx,
                              instrlist_t *ilist, instr_t *where, reg_id_t reg,
                              reg_id_t scratch);
 
+DR_EXPORT
 /**
  * Pushes a new callback context onto the callback-local storage (cls)
  * context stack for the given thread.  This function is automatically
@@ -478,6 +499,7 @@ drmgr_insert_write_cls_field(void *drcontext, int idx,
 bool
 drmgr_push_cls(void *drcontext);
 
+DR_EXPORT
 /**
  * Pops a callback context from the callback-local storage (cls)
  * context stack for the given thread.  This function is automatically
@@ -496,6 +518,7 @@ drmgr_pop_cls(void *drcontext);
  * DR EVENT REPLACEMENTS WITH NO SEMANTIC CHANGES
  */
 
+DR_EXPORT
 /**
  * Registers a callback function for the thread initialization event.
  * drmgr calls \p func whenever the application creates a new thread.
@@ -504,6 +527,7 @@ drmgr_pop_cls(void *drcontext);
 bool
 drmgr_register_thread_init_event(void (*func)(void *drcontext));
 
+DR_EXPORT
 /**
  * Unregister a callback function for the thread initialization event.
  * \return true if unregistration is successful and false if it is not
@@ -512,6 +536,7 @@ drmgr_register_thread_init_event(void (*func)(void *drcontext));
 bool
 drmgr_unregister_thread_init_event(void (*func)(void *drcontext));
 
+DR_EXPORT
 /**
  * Registers a callback function for the thread exit event.  drmgr calls \p func
  * whenever DR would, when an application thread exits.  All the constraints of
@@ -520,6 +545,7 @@ drmgr_unregister_thread_init_event(void (*func)(void *drcontext));
 bool
 drmgr_register_thread_exit_event(void (*func)(void *drcontext));
 
+DR_EXPORT
 /**
  * Unregister a callback function for the thread exit event.
  * \return true if unregistration is successful and false if it is not
@@ -528,6 +554,7 @@ drmgr_register_thread_exit_event(void (*func)(void *drcontext));
 bool
 drmgr_unregister_thread_exit_event(void (*func)(void *drcontext));
 
+DR_EXPORT
 /**
  * Registers a callback function for the pre-syscall event, which
  * behaves just like DR's pre-syscall event
@@ -537,6 +564,7 @@ drmgr_unregister_thread_exit_event(void (*func)(void *drcontext));
 bool
 drmgr_register_pre_syscall_event(bool (*func)(void *drcontext, int sysnum));
 
+DR_EXPORT
 /**
  * Unregister a callback function for the pre-syscall event.
  * \return true if unregistration is successful and false if it is not

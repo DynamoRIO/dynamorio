@@ -33,17 +33,18 @@ cmake_minimum_required(VERSION 2.6)
 # DynamoRIO Multi-Instrumentation Manager: a mediator for combining
 # and coordinating multiple instrumentation passes.
 
-add_library(drmgr STATIC
+# Must be shared to ensure only one copy, since can be used by
+# the client and by multiple other libraries, some of which may
+# be shared: the whole point is to have one master drmgr.
+add_library(drmgr SHARED
   drmgr.c
   # add more here
   )
+# we don't have a solid 64-bit reachability solution and we rely on
+# the preferred base, so don't conflict w/ client
+# forthcoming private loader should fix this.
+set(PREFERRED_BASE 0x73000000)
 configure_DynamoRIO_client(drmgr)
-if (UNIX)
-  # static containers must be PIC to be linked into clients: else requires
-  # relocations that run afoul of security policies, etc.
-  get_target_property(cur_flags drmgr COMPILE_FLAGS)
-  set_target_properties(drmgr PROPERTIES COMPILE_FLAGS "${cur_flags} -fPIC")
-endif (UNIX)
 # ensure we rebuild if includes change
 add_dependencies(drmgr api_headers)
 

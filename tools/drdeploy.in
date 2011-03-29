@@ -220,23 +220,28 @@ then
     if [ -n "$DYNAMORIO_HOME" ]
     then
         dr_lib_path=$DYNAMORIO_HOME/lib$arch
+        dr_ext_path=$DYNAMORIO_HOME/ext/lib$arch
     else
         dr_lib_path=$default_home/lib$arch
+        dr_ext_path=$default_home/ext/lib$arch
     fi
 fi
 if [ ! -e "$dr_lib_path/$lib/libdynamorio.so" ]
 then
-    # Support running from build dir
+    # Support running from old build dir layout
     if [ -n "$DYNAMORIO_HOME" ]
     then
         dr_lib_build_path=$DYNAMORIO_HOME/lib
+        dr_ext_build_path=$DYNAMORIO_HOME/ext/lib
     else
         dr_lib_build_path=$default_home/lib
+        dr_ext_build_path=$default_home/ext/lib
     fi
     if [ -e "$dr_lib_build_path/libdynamorio.so" ]
     then
         lib=""
         dr_lib_path=$dr_lib_build_path
+        dr_ext_path=$dr_ext_build_path
     else
         if [ "$unreg" = "0" ] && [ "$rununder" = "1" ]
         then
@@ -248,6 +253,7 @@ then
 fi
 # convert to absolute path
 dr_lib_path=`cd "$dr_lib_path" ; pwd`
+dr_ext_path=`cd "$dr_ext_path" ; pwd`
 
 if [ ! -n "$*" ] && [ "$app" = "" ]
 then
@@ -352,7 +358,7 @@ fi
 
 if [ "$runapp" = "1" ]
 then
-    export LD_LIBRARY_PATH=$dr_lib_path/$lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$dr_lib_path/$lib:$dr_ext_path/$lib:$LD_LIBRARY_PATH
     export LD_PRELOAD="libdynamorio.so libdrpreload.so"
     
     # keep same pid for easier scripting
