@@ -966,6 +966,11 @@ Each Extension has its own documentation and has its functions and data
 structures documented separately from the main API.  See <a
 href="page_ext.html">the full list of Extensions here</a>.
 
+Be aware that some of the \DynamoRIO Extensions have LGPL licenses instead
+of the BSD license of the rest of \DynamoRIO.  Such Extensions are built as
+shared libraries, have their own license.txt files, and clearly identify
+their license in their documentation.
+
 ***************************************************************************
 \section sec_extlibs Using External Libraries
 

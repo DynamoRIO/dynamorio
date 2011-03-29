@@ -111,11 +111,14 @@ are not backward compatible: see below for details.
 
 The changes between version 2.2.0 and 2.1.0 are:
 
+ - Added \p drwrap Extension which provides function wrapping
+   and replacing
  - Added \p drmgr Extension: the \DynamoRIO Multi-Instrumentation Manager
    Extension, a mediator for combining and coordinating multiple
    instrumentation passes
  - Added read-write locks (Issue 406)
  - Added isolation of \client-opened files from the application (Issue 357)
+ - Several bug fixes
 
 The changes between version 2.1.0 and 2.0.0 are:
 
