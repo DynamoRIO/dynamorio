@@ -69,7 +69,10 @@ void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
     app_pc towrap = (app_pc)
         dr_get_proc_address(mod->start, IF_WINDOWS_ELSE("HeapAlloc", "malloc"));
     if (towrap != NULL) {
-        bool ok = drwrap_wrap(towrap, wrap_pre, wrap_post);
+#ifdef SHOW_RESULTS
+        bool ok =
+#endif
+            drwrap_wrap(towrap, wrap_pre, wrap_post);
 #ifdef SHOW_RESULTS
         if (ok)
             dr_fprintf(STDERR, "<wrapped HeapAlloc @"PFX"\n", towrap);
