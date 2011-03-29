@@ -60,6 +60,9 @@
 #  include "os_private.h" /* for is_readable_pe_base() */
 #  include "../module_shared.h" /* for is_in_code_section() */
 # endif
+# ifdef CLIENT_INTERFACE
+#  include "../x86/instrument.h" /* dr_lookup_module_by_name */
+# endif
 #endif
 
 #include "ntdll.h"
@@ -295,6 +298,8 @@ get_proc_address_common(module_handle_t lib, const char *name, uint ordinal
     dcontext_t *dcontext = get_thread_private_dcontext();
 #endif
 
+    if (forwarder != NULL)
+        *forwarder = NULL;
     ASSERT((name != NULL && *name != '\0' && ordinal == UINT_MAX) ||
            (name == NULL && ordinal < UINT_MAX)); /* verify valid args */
     if (lib == NULL || (ordinal == UINT_MAX && (name == NULL || *name == '\0')))
@@ -470,6 +475,59 @@ get_proc_address_by_ordinal(module_handle_t lib, uint ordinal, const char **forw
 {
     return get_proc_address_common(lib, NULL, ordinal _IF_NOT_X64(false), forwarder);
 }
+
+# if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+
+generic_func_t
+get_proc_address_resolve_forward(module_handle_t lib, const char *name)
+{
+    /* We match GetProcAddress and follow forwarded exports (i#428).
+     * Not doing this inside get_proc_address() b/c I'm not certain the core
+     * never relies on the answer being inside the asked-about module.
+     */
+    const char *forwarder, *forwfunc;
+    char forwmodpath[MAXIMUM_PATH];
+    generic_func_t func = get_proc_address_ex(lib, name, &forwarder);
+    module_data_t *forwmod;
+    /* XXX: this is based on loader.c's privload_process_one_import(): should
+     * try to share some of the code
+     */
+    while (func == NULL && forwarder != NULL) {
+        forwfunc = strchr(forwarder, '.') + 1;
+        /* XXX: forwarder string constraints are not documented and
+         * all I've seen look like this: "NTDLL.RtlAllocateHeap".
+         * so I've never seen a full filename or path.
+         * but there could still be extra dots somewhere: watch for them.
+         */
+        if (forwfunc == (char *)(ptr_int_t)1 || strchr(forwfunc+1, '.') != NULL) {
+            CLIENT_ASSERT(false, "unexpected forwarder string");
+            return NULL;
+        }
+        if (forwfunc - forwarder + strlen("dll") >=
+            BUFFER_SIZE_ELEMENTS(forwmodpath)) {
+            CLIENT_ASSERT(false, "import string too long");
+            LOG(GLOBAL, LOG_INTERP, 1, "%s: import string %s too long\n",
+                __FUNCTION__, forwarder);
+            return NULL;
+        }
+        snprintf(forwmodpath, forwfunc - forwarder, "%s", forwarder);
+        snprintf(forwmodpath + (forwfunc - forwarder), strlen("dll"), "dll");
+        forwmodpath[forwfunc - 1/*'.'*/ - forwarder + strlen(".dll")] = '\0';
+        LOG(GLOBAL, LOG_INTERP, 3, "\tforwarder %s => %s %s\n",
+            forwarder, forwmodpath, forwfunc);
+        forwmod = dr_lookup_module_by_name(forwmodpath);
+        if (forwmod == NULL) {
+            LOG(GLOBAL, LOG_INTERP, 1, "%s: unable to load forworder for %s\n"
+                __FUNCTION__, forwarder);
+            return NULL;
+        }
+        /* should be listed as import; don't want to inc ref count on each forw */
+        func = get_proc_address_ex(forwmod->start, forwfunc, &forwarder);
+        dr_free_module_data(forwmod);
+    }
+    return func;
+}
+# endif /* CLIENT_INTERFACE */
 
 /* returns NULL if no loader module is found
  * N.B.: walking loader data structures at random times is dangerous! See

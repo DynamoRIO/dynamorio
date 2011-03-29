@@ -2789,7 +2789,11 @@ DR_API
 generic_func_t
 dr_get_proc_address(module_handle_t lib, const char *name)
 {
+#ifdef WINDOWS
+    return get_proc_address_resolve_forward(lib, name);
+#else
     return get_proc_address(lib, name);
+#endif
 }
 
 DR_API

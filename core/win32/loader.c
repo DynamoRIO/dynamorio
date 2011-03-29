@@ -986,6 +986,15 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
             return false;
         }
         forwfunc = strchr(forwarder, '.') + 1;
+        /* XXX: forwarder string constraints are not documented and
+         * all I've seen look like this: "NTDLL.RtlAllocateHeap".
+         * so I've never seen a full filename or path.
+         * but there could still be extra dots somewhere: watch for them.
+         */
+        if (forwfunc == (char *)(ptr_int_t)1 || strchr(forwfunc+1, '.') != NULL) {
+            CLIENT_ASSERT(false, "unexpected forwarder string");
+            return NULL;
+        }
         if (forwfunc - forwarder + strlen("dll") >=
             BUFFER_SIZE_ELEMENTS(forwmodpath)) {
             ASSERT_NOT_REACHED();

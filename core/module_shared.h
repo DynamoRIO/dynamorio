@@ -283,6 +283,11 @@ get_proc_address(module_handle_t lib, const char *name);
  */
 generic_func_t
 get_proc_address_ex(module_handle_t lib, const char *name, bool *is_indirect_code OUT);
+#else
+# ifdef CLIENT_INTERFACE
+generic_func_t
+get_proc_address_resolve_forward(module_handle_t lib, const char *name);
+# endif
 #endif
 
 void print_modules(file_t f, bool dump_xml);
