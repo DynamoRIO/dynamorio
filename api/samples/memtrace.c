@@ -49,12 +49,13 @@
  *    We can can get segment base from opnd_compute_address()
  *    and either store for use in gencode or postprocess, w/
  *    complexities of monitoring changes in segment.
+ *    A forthcoming Extension will provide a utility routine for this.
  * 2) memory reference size 
  *    We did not record the memory reference size.
  *    It is easy to add size for static but a little more work 
- *    for OP_enter and string ops
- * 3) stack addrs: xref issue 164
- *    We expect DR to be fixed to solve this issue.
+ *    for OP_enter and string ops.  For string ops a forthcoming
+ *    Extension will support transforming string loops into
+ *    regular loops.
  */
 
 #include <string.h> /* for memset */

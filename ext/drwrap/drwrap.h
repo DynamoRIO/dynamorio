@@ -26,7 +26,7 @@
 #define _DRWRAP_H_ 1
 
 /**
- * \addtogroup dwrap Function Wrapping and Replacing
+ * \addtogroup drwrap Function Wrapping and Replacing
  */
 /*@{*/ /* begin doxygen group */
 
