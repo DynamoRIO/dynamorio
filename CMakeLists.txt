@@ -372,7 +372,7 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: once VERSION_NUMBER crosses 3.x we'll need to update the
 # symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER_DEFAULT "2.1.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "2.2.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
