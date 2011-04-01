@@ -43,11 +43,9 @@
 /* FIXME: failure modes should be more gracefull then failing asserts in most places */
 
 /* avoid depending on __isoc99_vsscanf which requires glibc >= 2.7 */
-#ifdef LINUX
-# define _GNU_SOURCE 1
-# include <stdio.h>
-# undef _GNU_SOURCE
-#endif
+#define _GNU_SOURCE 1
+#include <stdio.h>
+#undef _GNU_SOURCE
 
 #include "globals.h"
 #include <string.h>
