@@ -135,7 +135,7 @@ static void
 wrap_post(void *wrapcxt, void *user_data)
 {
     bool ok;
-    CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");
+    CHECK(wrapcxt != NULL, "invalid arg");
     if (drwrap_get_func(wrapcxt) == addr_level0) {
         dr_fprintf(STDERR, "  <post-level0>\n");
         CHECK(user_data == (void *)99, "user_data not preserved");
