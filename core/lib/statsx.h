@@ -1188,3 +1188,6 @@
     STATS_DEF("Clean Call aflags save skipped", cleancall_aflags_save_skipped)
     STATS_DEF("Clean Call aflags clear skipped", cleancall_aflags_clear_skipped)
     STATS_DEF("Clean Call errno save skipped", cleancall_errno_save_skipped)
+    /* i#107 handle application using same segment register */
+    STATS_DEF("App reference with FS/GS seg being mangled", app_seg_refs_mangled)
+    STATS_DEF("App access FS/GS seg being mangled", app_mov_seg_mangled)

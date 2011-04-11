@@ -5102,5 +5102,51 @@ dr_add_prefixes_to_basic_blocks(void)
 }
 #endif /* UNSUPPORTED_API */
 
+DR_API
+/* Insert code to get the segment base address pointed at by seg into
+ * register reg. In Linux, it is only supported with -mangle_app_seg option.
+ * In Windows, it only supports getting base address of the TLS segment.
+ */
+void
+dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                       reg_id_t seg, reg_id_t reg)
+{
+    CLIENT_ASSERT(reg_is_pointer_sized(reg),
+                  "dr_insert_get_seg_base: reg has wrong size\n");
+    CLIENT_ASSERT(reg_is_segment(seg),
+                  "dr_insert_get_seg_base: seg is not a segment register");
+#ifdef LINUX
+    CLIENT_ASSERT(INTERNAL_OPTION(mangle_app_seg),
+                  "dr_insert_get_seg_base is supported"
+                  "with -mangle_app_seg only");
+    /* FIXME: we should remove the constrain below by always mangling SEG_TLS,
+     * 1. Getting TLS base could be a common request by clients.
+     * 2. The TLS descriptor setup and selector setup can be separated,
+     * so we must intercept all descriptor setup. It will not be large 
+     * runtime overhead for keeping track of the app's TLS segment base.
+     */
+    CLIENT_ASSERT(INTERNAL_OPTION(private_loader) || seg != SEG_TLS,
+                  "dr_insert_get_seg_base support TLS seg"
+                  "only with -private_loader");
+    if (seg == SEG_FS || seg == SEG_GS) {
+        instrlist_meta_preinsert
+            (ilist, instr,
+             instr_create_restore_from_tls(drcontext, reg,
+                                           os_get_app_seg_base_offset(seg)));
+    } else {
+        instrlist_meta_preinsert
+            (ilist, instr,
+             INSTR_CREATE_mov_imm(drcontext, opnd_create_reg(reg),
+                                  OPND_CREATE_INTPTR(0)));
+    }
+#else
+    CLIENT_ASSERT(seg != SEG_TLS,
+                  "dr_insert_get_seg_base only support TLS seg in Windows");
+    instrlist_meta_preinsert
+        (ilist, instr,
+         instr_create_restore_from_tls(drcontext, reg, SELF_TIB_OFFSET));
+#endif /* LINUX */
+}
+
 #endif /* CLIENT_INTERFACE */
 

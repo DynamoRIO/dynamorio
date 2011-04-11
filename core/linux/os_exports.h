@@ -82,6 +82,7 @@ thread_id_t get_tls_thread_id(void);
 thread_id_t get_sys_thread_id(void);
 bool is_thread_terminated(dcontext_t *dcontext);
 void os_tls_pre_init(int gdt_index);
+ushort os_get_app_seg_base_offset(unsigned char seg);
 
 /* We do NOT want our libc routines wrapped by pthreads, so we use
  * our own syscall wrappers.
@@ -157,6 +158,9 @@ bool was_sigreturn_syscall(dcontext_t *dcontext);
 bool ignorable_system_call(int num);
 
 bool kernel_is_64bit(void);
+
+void
+os_handle_mov_seg(dcontext_t *dcontext, byte *pc);
 
 /* in arch.c */
 bool unhook_vsyscall(void);

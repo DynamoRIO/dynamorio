@@ -93,6 +93,13 @@ typedef struct _os_thread_data_t {
 
     /* PR 450670: for re-entrant suspend signals */
     int processing_signal;
+
+    /* i#107: mangle segment register usage conflicts between app and dr. */
+#ifdef X64
+    void *dr_fs_base;
+    void *dr_gs_base;
+#endif
+    void *app_thread_areas;
 } os_thread_data_t;
 
 /* in signal.c */

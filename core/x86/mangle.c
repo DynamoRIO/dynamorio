@@ -1948,6 +1948,62 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      instr_create_save_to_dcontext((dc), (reg), (dc_offs)))
 
 /***************************************************************************
+ * Mangle the memory reference operand that uses fs/gs semgents,
+ * get the segment base of fs/gs into reg, and 
+ * replace oldop with newop using reg instead of fs/gs
+ * The reg must not be used in the oldop, otherwise, the reg value
+ * is corrupted.
+ */
+static opnd_t
+mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
+                    instr_t *where, opnd_t oldop, reg_id_t reg)
+{
+    opnd_t newop;
+    reg_id_t seg;
+
+    ASSERT(opnd_is_far_base_disp(oldop));
+    seg = opnd_get_segment(oldop);
+    /* we only mangle fs/gs */
+    if (seg != SEG_GS && seg != SEG_FS)
+        return oldop;
+    /* we skip tls seg if not using private loader */
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), true)
+        && seg == IF_X64_ELSE(SEG_FS, SEG_GS))
+        return oldop;
+    /* The reg should not be used by the oldop*/
+    ASSERT(!opnd_uses_reg(oldop, reg));
+
+    /* get app's segment base into reg. */
+    PRE(ilist, where,
+        instr_create_restore_from_tls(dcontext, reg,
+                                      os_get_app_seg_base_offset(seg)));
+    if (opnd_get_index(oldop) != REG_NULL && 
+        opnd_get_base(oldop) != REG_NULL) {
+        /* if both base and index are used, use 
+         * lea [base, reg, 1] => reg 
+         * to get the base + seg_base into reg. 
+         */
+        PRE(ilist, where,
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(reg),
+                             opnd_create_base_disp(opnd_get_base(oldop),
+                                                   reg, 1, 0, OPSZ_lea)));
+    }
+    if (opnd_get_index(oldop) != REG_NULL) {
+        newop = opnd_create_base_disp(reg,
+                                      opnd_get_index(oldop),
+                                      opnd_get_scale(oldop),
+                                      opnd_get_disp(oldop),
+                                      opnd_get_size(oldop));
+    } else {
+        newop = opnd_create_base_disp(opnd_get_base(oldop),
+                                      reg, 1,
+                                      opnd_get_disp(oldop),
+                                      opnd_get_size(oldop));
+    }
+    return newop;
+}
+
+/***************************************************************************
  * INDIRECT CALL
  */
 static void
@@ -2051,7 +2107,6 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * we assume register operands are marked as invalid instrs long
          * before this point.
          */
-        /* FIXME: if it is a far base disp we assume 0 base */
         ASSERT(opnd_is_base_disp(target));
         /* Segment selector is the final 2 bytes.
          * We ignore it and assume DS base == target cti CS base.
@@ -2071,11 +2126,17 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             addr_size = OPSZ_2;
             reg_target = REG_XCX; /* we use movzx below so size doesn't have to match */
         }
-            
-        target = opnd_create_base_disp(opnd_get_base(target), opnd_get_index(target),
-                                       opnd_get_scale(target), opnd_get_disp(target),
-                                       addr_size);
+        opnd_set_size(&target, addr_size);
     }
+#ifdef LINUX
+    /* i#107, mangle the memory reference opnd that uses segment register. */
+    if (INTERNAL_OPTION(mangle_app_seg) && opnd_is_far_base_disp(target)) {
+        /* FIXME: we use REG_XCX to store the segment base, which might be used
+         * in target and cause assertion failure in mangle_seg_ref_opnd.
+         */
+        target = mangle_seg_ref_opnd(dcontext, ilist, instr, target, REG_XCX);
+    }
+#endif
     /* cannot call instr_reset, it will kill prev & next ptrs */
     instr_free(dcontext, instr);
     instr_set_num_opnds(dcontext, instr, 1, 1);
@@ -2374,7 +2435,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* opnd type is i_Ep, it's not a far base disp b/c segment is at
          * memory location, not specified as segment prefix on instr
          */
-        /* FIXME: if it is a far base disp we assume 0 base */
         ASSERT(opnd_is_base_disp(target));
         /* Segment selector is the final 2 bytes.
          * We ignore it and assume DS base == target cti CS base.
@@ -2394,11 +2454,17 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             addr_size = OPSZ_2;
             reg_target = REG_XCX; /* we use movzx below */
         }
-
-        target = opnd_create_base_disp(opnd_get_base(target), opnd_get_index(target),
-                                       opnd_get_scale(target), opnd_get_disp(target),
-                                       addr_size);
+        opnd_set_size(&target, addr_size);
     }
+#ifdef LINUX
+    /* i#107, mangle the memory reference opnd that uses segment register. */
+    if (INTERNAL_OPTION(mangle_app_seg) && opnd_is_far_base_disp(target)) {
+        /* FIXME: we use REG_XCX to store segment base, which might be used 
+         * in target and cause assertion failure in mangle_seg_ref_opnd.
+         */
+        target = mangle_seg_ref_opnd(dcontext, ilist, instr, target, REG_XCX);
+    }
+#endif
     /* cannot call instr_reset, it will kill prev & next ptrs */
     instr_free(dcontext, instr);
     instr_set_num_opnds(dcontext, instr, 1, 1);
@@ -3214,6 +3280,243 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 }
 #endif
 
+/***************************************************************************
+ * Reference with segment register (fs/gs)
+ */
+#ifdef LINUX
+static int
+instr_get_seg_ref_dst_idx(instr_t *instr)
+{
+    int i;
+    opnd_t opnd;
+    if (!instr_valid(instr))
+        return -1;
+    /* must go to level 3 operands */
+    for (i=0; i<instr_num_dsts(instr); i++) {
+        opnd = instr_get_dst(instr, i);
+        if (opnd_is_far_base_disp(opnd) && 
+            (opnd_get_segment(opnd) == SEG_GS ||
+             opnd_get_segment(opnd) == SEG_FS))
+            return i;
+    }
+    return -1;
+}
+
+static int
+instr_get_seg_ref_src_idx(instr_t *instr)
+{
+    int i;
+    opnd_t opnd;
+    if (!instr_valid(instr))
+        return -1;
+    /* must go to level 3 operands */
+    for (i=0; i<instr_num_srcs(instr); i++) {
+        opnd = instr_get_src(instr, i);
+        if (opnd_is_far_base_disp(opnd) && 
+            (opnd_get_segment(opnd) == SEG_GS ||
+             opnd_get_segment(opnd) == SEG_FS))
+            return i;
+    }
+    return -1;
+}
+
+static ushort tls_slots[4] = 
+    {TLS_XAX_SLOT, TLS_XCX_SLOT, TLS_XDX_SLOT, TLS_XBX_SLOT};
+
+/* mangle the instruction OP_mov_seg, i.e. the instruction that
+ * read/update the segment register.
+ */
+static void
+mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+               instr_t *next_instr)
+{
+    reg_id_t seg;
+    opnd_t opnd, dst;
+    opnd_size_t dst_sz;
+
+    ASSERT(instr_get_opcode(instr) == OP_mov_seg);
+    ASSERT(instr_num_srcs(instr) == 1);
+    ASSERT(instr_num_dsts(instr) == 1);
+
+    STATS_INC(app_mov_seg_mangled);
+    /* for update, we simply change it to a nop because we will
+     * update it when dynamorio entering code cache to execute 
+     * this basic block. 
+     */
+    dst = instr_get_dst(instr, 0);
+    if (opnd_is_reg(dst) && reg_is_segment(opnd_get_reg(dst))) {
+        seg = opnd_get_reg(dst);
+        if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true)
+            && seg == IF_X64_ELSE(SEG_FS, SEG_GS))
+            return;
+        /* cannot call instr_reset, will clear prev, next*/
+        instr_free(dcontext, instr);
+        instr_set_opcode(instr, OP_nop);
+        return;
+    }
+
+    /* for read seg, we mangle it */
+    opnd = instr_get_src(instr, 0);
+    ASSERT(opnd_is_reg(opnd));
+    seg = opnd_get_reg(opnd);
+    ASSERT(reg_is_segment(seg));
+    if (seg != SEG_FS && seg != SEG_GS)
+        return;
+    if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true)
+        && seg == IF_X64_ELSE(SEG_FS, SEG_GS))
+        return;
+
+    /* There are two possible mov_seg instructions:
+     * 8C/r           MOV r/m16,Sreg   Move segment register to r/m16
+     * REX.W + 8C/r   MOV r/m64,Sreg   Move zero extended 16-bit segment 
+     *                                 register to r/m64
+     * Note, In 32-bit mode, the assembler may insert the 16-bit operand-size 
+     * prefix with this instruction.
+     */
+    /* we cannot replace the instruction but only change it. */
+    dst = instr_get_dst(instr, 0);
+    dst_sz = opnd_get_size(dst);
+    opnd = opnd_create_sized_tls_slot
+        (os_tls_offset(os_get_app_seg_base_offset(seg)), dst_sz);
+    if (opnd_is_reg(dst)) { /* dst is a register */
+        /* mov %gs:off => reg */
+        instr_set_src(instr, 0, opnd);
+        instr_set_opcode(instr, OP_mov_ld);
+        if (IF_X64_ELSE((dst_sz == OPSZ_8), false))
+            instr_set_opcode(instr, OP_movzx);
+    } else { /* dst is memory, need steal a register. */
+        reg_id_t reg;
+        instr_t *ti;
+        for (reg = REG_XAX; reg < REG_XBX; reg++) {
+            if (!instr_uses_reg(instr, reg))
+                break;
+        }
+        /* We need save the register to corresponding slot for correct restore,
+         * so only use the first four registers.
+         */
+        ASSERT(reg <= REG_XBX);
+        /* save reg */
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, reg,
+                                     tls_slots[reg - REG_XAX]));
+        /* restore reg */
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, reg,
+                                          tls_slots[reg - REG_XAX]));
+        if (dst_sz == OPSZ_2) {
+# ifdef X64
+            reg = reg_32_to_16(reg_64_to_32(reg));
+# else
+            reg = reg_32_to_16(reg);
+# endif
+        }
+        /* mov %gs:off => reg */
+        ti = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg), opnd);
+        if (IF_X64_ELSE((dst_sz == OPSZ_8), false))
+            instr_set_opcode(ti, OP_movzx);
+        PRE(ilist, instr, ti);
+        /* change mov_seg to mov_st: mov reg => [mem] */
+        instr_set_src(instr, 0, opnd_create_reg(reg));
+        instr_set_opcode(instr, OP_mov_st);
+    }
+}
+
+/* mangle the instruction that reference memory via segment register */
+static void
+mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+               instr_t *next_instr)
+{
+    int si = -1, di = -1;
+    opnd_t segop, newop;
+    bool spill = true;
+    reg_id_t scratch_reg = REG_XAX, seg = REG_NULL;
+
+    /* exit cti won't be seg ref */
+    if (instr_is_exit_cti(instr)) 
+        return;
+    /* mbr will be handled separatly */
+    if (instr_is_mbr(instr))
+        return;
+    if (instr_get_opcode(instr) == OP_lea)
+        return;
+
+    /* XXX: maybe using decode_cti and then a check on prefix could be
+     * more efficient as it only examines a few byte and avoid fully decoding
+     * the instruction. For simplicity, we examine every operands instead.
+     */
+    /* 1. get ref opnd */
+    si = instr_get_seg_ref_src_idx(instr);
+    di = instr_get_seg_ref_dst_idx(instr);
+    if (si < 0 && di < 0)
+        return;
+    if (si >= 0) {
+        segop = instr_get_src(instr, si);
+        ASSERT(di < 0 || opnd_same(segop, instr_get_dst(instr, di)));
+    } else {
+        segop = instr_get_dst(instr, di);
+    }
+    seg = opnd_get_segment(segop);
+    if (seg != SEG_GS && seg != SEG_FS)
+        return;
+    if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true)
+        && seg == IF_X64_ELSE(SEG_FS, SEG_GS))
+        return;
+    STATS_INC(app_seg_refs_mangled);
+
+    DOLOG(3, LOG_INTERP, {
+        loginst(dcontext, 3, instr, "reference with fs/gs segment"); 
+    });
+    /* 2. decide the scratch reg */
+    /* Opt: if it's a load (OP_mov_ld, or OP_movzx, etc.), use dead reg */
+    if (si >= 0 && 
+        instr_num_srcs(instr) == 1 && /* src is the seg ref opnd */
+        instr_num_dsts(instr) == 1 && /* only one dest: a register */
+        opnd_is_reg(instr_get_dst(instr, 0))) {
+        reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
+        /* if target is 16 or 8 bit sub-register the whole reg is not dead
+         * (for 32-bit, top 32 bits are cleared) */
+        if (reg_is_gpr(reg) && (reg_is_32bit(reg) || reg_is_64bit(reg)) &&
+            !instr_reads_from_reg(instr, reg) /* mov [%fs:%xax] => %xax */) {
+            spill = false;
+            scratch_reg = reg;
+# ifdef X64
+            if (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_4)
+                scratch_reg = reg_32_to_64(reg);
+# endif
+        }
+    }
+    if (spill) {
+        /* we pick a scratch register from XAX, XBX, XCX, or XDX 
+         * that has direct TLS slots.
+         */
+        for (scratch_reg = REG_XAX; scratch_reg <= REG_XBX; scratch_reg++) {
+            if (!instr_reads_from_reg(instr, scratch_reg))
+                break;
+        }
+        ASSERT(scratch_reg <= REG_XBX);
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, scratch_reg,
+                                     tls_slots[scratch_reg - REG_XAX]));
+    }
+    newop = mangle_seg_ref_opnd(dcontext, ilist, instr, segop, scratch_reg);
+    if (si >= 0)
+        instr_set_src(instr, si, newop);
+    if (di >= 0)
+        instr_set_dst(instr, di, newop);
+    instr_set_our_mangling(instr, true);
+    /* FIXME: i#107 we should check the bound and raise signal if out of bound. */
+    DOLOG(3, LOG_INTERP, { 
+        loginst(dcontext, 3, instr, "re-wrote app tls reference"); 
+    });
+
+    if (spill) {
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, scratch_reg,
+                                          tls_slots[scratch_reg - REG_XAX]));
+    }
+}
+#endif /* LINUX */
+
 /* TOP-LEVEL MANGLE
  * This routine is responsible for mangling a fragment into the form
  * we'd like prior to placing it in the code cache
@@ -3241,6 +3544,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      * -- convert indirect calls as a combination of direct call and
      *    indirect branch conversion;
      * -- ifdef STEAL_REGISTER, steal edi for our own use. 
+     * -- ifdef LINUX, mangle seg ref and mov_seg
      */
 
     KSTART(mangling);
@@ -3260,7 +3564,20 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
             instrlist_set_translation_target(ilist, instr_get_raw_bits(instr));
         }
 
+#ifdef LINUX
+        if (INTERNAL_OPTION(mangle_app_seg) && instr_ok_to_mangle(instr)) {
+            /* The instr might be changed by client, and we cannot rely on 
+             * PREFIX_SEG_FS/GS. So we simply call mangle_seg_ref on every
+             * instruction and mangle it if necessary.
+             */
+            mangle_seg_ref(dcontext, ilist, instr, next_instr);
+            if (instr_get_opcode(instr) == OP_mov_seg)
+                mangle_mov_seg(dcontext, ilist, instr, next_instr);
+        }
+#endif
+
 #ifdef X64
+        /* FIXME: mangle_rel_addr might destroy the instr! */
         if (instr_has_rel_addr_reference(instr))
             mangle_rel_addr(dcontext, ilist, instr, next_instr);
 #endif
@@ -4671,6 +4988,7 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
 static void
 analyze_callee_errno(dcontext_t *dcontext, callee_info_t *ci)
 {
+#ifdef LINUX
     instr_t *instr;
     int i;
     ci->errno_used = false;
@@ -4681,13 +4999,13 @@ analyze_callee_errno(dcontext_t *dcontext, callee_info_t *ci)
         for (i = 0; i < instr_num_srcs(instr); i++) {
             opnd_t opnd = instr_get_src(instr, i);
             if (opnd_is_far_base_disp(opnd) &&
-                opnd_get_segment(opnd) == SEG_TLS)
+                opnd_get_segment(opnd) == IF_X64_ELSE(SEG_FS, SEG_GS))
                 ci->errno_used = true;
         }
         for (i = 0; i < instr_num_dsts(instr); i++) {
             opnd_t opnd = instr_get_dst(instr, i);
             if (opnd_is_far_base_disp(opnd) &&
-                opnd_get_segment(opnd) == SEG_TLS)
+                opnd_get_segment(opnd) == IF_X64_ELSE(SEG_FS, SEG_GS))
                 ci->errno_used = true;
         }
     }
@@ -4695,6 +5013,10 @@ analyze_callee_errno(dcontext_t *dcontext, callee_info_t *ci)
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: callee "PFX" access far memory\n", ci->start);
     }
+#else
+    /* FIXME: For Windows, we simply assume no */
+    ci->errno_used = false;
+#endif
 }
 
 static void

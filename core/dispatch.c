@@ -440,6 +440,17 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
                         get_short_name(get_application_name())));
 #endif
 
+#if defined(LINUX) && !defined(PROGRAM_SHEPHERDING)
+    /* i#107: handle segment register usage conflicts between app and dr:
+     * if the target fragment has an instr that updates the segment selector,
+     * update the corresponding information maintained by DR. 
+     */
+    if (INTERNAL_OPTION(mangle_app_seg) && 
+        TEST(FRAG_HAS_MOV_SEG, targetf->flags)) {
+        os_handle_mov_seg(dcontext, targetf->tag);
+    }
+#endif
+
     IF_X64(ASSERT(get_x86_mode(dcontext) == TEST(FRAG_32_BIT, targetf->flags)));
     if (TEST(FRAG_SHARED, targetf->flags))
         fcache_enter = get_fcache_enter_shared_routine(dcontext);

@@ -154,6 +154,30 @@ typedef struct _our_modify_ldt_t {
     unsigned int  seg_not_present:1;
     unsigned int  useable:1;
 } our_modify_ldt_t;
+#define GDT_NUM_TLS_SLOTS 3
+#ifdef X64
+/* Linux GDT layout in x86_64: 
+ * #define GDT_ENTRY_TLS_MIN 12
+ * #define GDT_ENTRY_TLS_MAX 14
+ * #define GDT_ENTRY_TLS 1
+ * TLS indexes for 64-bit, hardcode in arch_prctl
+ * #define FS_TLS 0
+ * #define GS_TLS 1
+ * #define GS_TLS_SEL ((GDT_ENTRY_TLS_MIN+GS_TLS)*8 + 3)
+ * #define FS_TLS_SEL ((GDT_ENTRY_TLS_MIN+FS_TLS)*8 + 3)
+ */
+# define FS_TLS 0 /* used in arch_prctl handling */
+# define GS_TLS 1 /* used in arch_prctl handling */
+# define GDT_ENTRY_TLS_MIN 12
+#else
+/* Linux GDT layout in x86_32
+ * 6 - TLS segment #1 0x33 [ glibc's TLS segment ]
+ * 7 - TLS segment #2 0x3b [ Wine's %fs Win32 segment ]
+ * 8 - TLS segment #3 0x43 
+ * FS and GS is not hardcode.
+ */
+# define GDT_ENTRY_TLS_MIN 6
+#endif 
 
 #ifndef HAVE_TLS
 /* We use a table lookup to find a thread's dcontext */
@@ -171,11 +195,11 @@ static tls_slot_t *tls_table;
 DECLARE_CXTSWPROT_VAR(mutex_t tls_lock, INIT_LOCK_FREE(tls_lock));
 #endif
 
+#define MAX_NUM_CLIENT_TLS 64
 #ifdef CLIENT_INTERFACE
 /* Should we place this in a client header?  Currently mentioned in
  * dr_raw_tls_calloc() docs.
  */
-# define MAX_NUM_CLIENT_TLS 64
 static bool client_tls_allocated[MAX_NUM_CLIENT_TLS];
 DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_lock));
 #endif
@@ -1078,6 +1102,15 @@ is_segment_register_initialized(void)
     return (read_selector(SEG_TLS) != 0);
 }
 
+/* i#107: handle segment reg usage conflicts */
+typedef struct _os_seg_info_t {
+#ifdef X64
+    void *dr_fs_base;
+    void *dr_gs_base;
+#endif
+    our_modify_ldt_t app_thread_areas[GDT_NUM_TLS_SLOTS];
+} os_seg_info_t;
+
 /* layout of our TLS */
 typedef struct _os_local_state_t {
     /* put state first to ensure that it is cache-line-aligned */
@@ -1092,9 +1125,19 @@ typedef struct _os_local_state_t {
     int ldt_index;
     /* tid needed to ensure children are set up properly */
     thread_id_t tid;
-#ifdef CLIENT_INTERFACE
-    void *client_tls[MAX_NUM_CLIENT_TLS];
-#endif
+    /* i#107 application's gs/fs value and pointed-at base */
+    ushort app_gs;
+    ushort app_fs;
+    void  *app_gs_base;
+    void  *app_fs_base;
+    union {
+        /* i#107: We use space in os_tls to store thread area information
+         * thread init. It will not conflict with the client_tls usage,
+         * so we put them into an union for saving space. 
+         */
+        os_seg_info_t os_seg_info;
+        void *client_tls[MAX_NUM_CLIENT_TLS];
+    };
 } os_local_state_t;
 
 #define TLS_LOCAL_STATE_OFFSET (offsetof(os_local_state_t, state))
@@ -1105,6 +1148,10 @@ typedef struct _os_local_state_t {
 #define TLS_SELF_OFFSET        (TLS_OS_LOCAL_STATE + offsetof(os_local_state_t, self))
 #define TLS_THREAD_ID_OFFSET   (TLS_OS_LOCAL_STATE + offsetof(os_local_state_t, tid))
 #define TLS_DCONTEXT_OFFSET    (TLS_OS_LOCAL_STATE + TLS_DCONTEXT_SLOT)
+
+/* they should be used with os_tls_offset, so do not need add TLS_OS_LOCAL_STATE here */
+#define TLS_APP_GS_BASE_OFFSET (offsetof(os_local_state_t, app_gs_base))
+#define TLS_APP_FS_BASE_OFFSET (offsetof(os_local_state_t, app_fs_base))
 
 /* N.B.: imm and idx are ushorts!
  * imm must be a preprocessor constant
@@ -1152,6 +1199,20 @@ os_tls_offset(ushort tls_offs)
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
     return (TLS_LOCAL_STATE_OFFSET + tls_offs);
 }
+
+ushort
+os_get_app_seg_base_offset(reg_id_t seg)
+{
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
+    ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
+    if (seg == SEG_FS)
+        return TLS_APP_FS_BASE_OFFSET;
+    else if (seg == SEG_GS)
+        return TLS_APP_GS_BASE_OFFSET;
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
 
 void *
 get_tls(ushort tls_offs)
@@ -1236,6 +1297,16 @@ get_segment_base(uint seg)
 }
 #endif
 
+static os_local_state_t *
+get_os_tls()
+{
+    os_local_state_t *os_tls;
+    ushort offs = TLS_SELF_OFFSET;
+    ASSERT(is_segment_register_initialized());
+    READ_TLS_SLOT(offs, os_tls);
+    return os_tls;
+}
+
 local_state_extended_t *
 get_local_state_extended()
 {
@@ -1254,6 +1325,91 @@ get_local_state()
 #else
     return NULL;
 #endif
+}
+
+void
+os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
+{
+    instr_t instr;
+    opnd_t opnd;
+    reg_id_t seg;
+    ushort sel;
+    our_modify_ldt_t *desc;
+    os_local_state_t *os_tls;
+    os_thread_data_t *ostd;
+
+    instr_init(dcontext, &instr);
+    decode_cti(dcontext, pc, &instr);
+    /* the first instr must be mov seg */
+    ASSERT(instr_get_opcode(&instr) == OP_mov_seg);
+    opnd = instr_get_dst(&instr, 0);
+    ASSERT(opnd_is_reg(opnd));
+    seg = opnd_get_reg(opnd);
+    ASSERT(reg_is_segment(seg));
+
+    ostd = (os_thread_data_t *)dcontext->os_field;
+    desc = (our_modify_ldt_t *)ostd->app_thread_areas;
+    os_tls = get_os_tls();
+
+    /* get the selector value */
+    opnd = instr_get_src(&instr, 0);
+    if (opnd_is_reg(opnd)) {
+        sel = (ushort)reg_get_value(opnd_get_reg(opnd), 
+                                    get_mcontext(dcontext));
+    } else {
+        void *ptr;
+        ptr = (ushort *)opnd_compute_address(opnd, get_mcontext(dcontext));
+        ASSERT(ptr != NULL);
+        if (!safe_read(ptr, sizeof(sel), &sel)) {
+            /* FIXME: if invalid address, should deliver a signal to user. */
+            ASSERT_NOT_IMPLEMENTED(false);
+        }
+    }
+    /* calculate the entry_number */
+    if (seg == SEG_GS) {
+        os_tls->app_gs = sel;
+        os_tls->app_gs_base = desc[SELECTOR_INDEX(sel)].base_addr;
+    } else {
+        os_tls->app_fs = sel;
+        os_tls->app_fs_base = desc[SELECTOR_INDEX(sel)].base_addr;
+    }
+    instr_free(dcontext, &instr);
+}
+
+/* initialization for mangle_app_seg, must be called before
+ * DR setup its own segment.
+ */
+static void
+os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
+{
+    int i;
+    our_modify_ldt_t *desc;
+    os_tls->app_fs = read_selector(SEG_FS);
+    os_tls->app_gs = read_selector(SEG_GS);
+    desc = &os_tls->os_seg_info.app_thread_areas[0];
+# ifdef X64
+    os_tls->app_fs_base = get_segment_base(SEG_FS);
+    if (os_tls->app_gs != 0)
+        os_tls->app_gs_base = get_segment_base(SEG_GS);
+    os_tls->os_seg_info.dr_gs_base = segment;
+    /* to be updated by private loader */
+    os_tls->os_seg_info.dr_fs_base = NULL;
+# else
+    os_tls->app_gs_base = get_segment_base(SEG_GS);
+    if (os_tls->app_fs != 0)
+        os_tls->app_fs_base = get_segment_base(SEG_FS);
+# endif
+    /* get all TLS thread area value,
+     * FIXME: is get_thread_area supported in 64-bit kernel?
+     * It has syscall number 211, but returns error on execution.
+     */
+    for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
+        int res;
+        initialize_ldt_struct(&desc[i], NULL, 0, i + GDT_ENTRY_TLS_MIN);
+        res = dynamorio_syscall(SYS_get_thread_area, 1, &desc[i]);
+        if (res < 0) 
+            initialize_ldt_struct(&desc[i], NULL, 0, -1);
+    }
 }
 
 void
@@ -1287,6 +1443,9 @@ os_tls_init()
     /* Verify that local_state_extended_t should indeed be used. */
     ASSERT(DYNAMO_OPTION(ibl_table_in_tls));
 
+    /* get application's GS/FS segment base before being replaced by DR. */
+    if (INTERNAL_OPTION(mangle_app_seg))
+        os_tls_app_seg_init(os_tls, segment);
     /* We have four different ways to obtain TLS, each with its own limitations:
      *
      * 1) Piggyback on the threading system (like we do on Windows): here that would
@@ -1615,6 +1774,23 @@ os_thread_init(dcontext_t *dcontext)
 
     signal_thread_init(dcontext);
 
+    /* i#107, initialize thread area information,
+     * the value was first get in os_tls_init and stored in os_tls
+     */
+    if (INTERNAL_OPTION(mangle_app_seg)) {
+        os_local_state_t *os_tls = get_os_tls();
+        ostd->app_thread_areas = 
+            heap_alloc(dcontext, sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS
+                       HEAPACCT(ACCT_OTHER));
+#ifdef X64
+        ostd->dr_gs_base = os_tls->os_seg_info.dr_gs_base;
+        ostd->dr_fs_base = os_tls->os_seg_info.dr_gs_base;
+#endif
+        memcpy(ostd->app_thread_areas,
+               os_tls->os_seg_info.app_thread_areas,
+               sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS);
+    }
+
     LOG(THREAD, LOG_THREADS, 1, "cur gs base is "PFX"\n", get_segment_base(SEG_GS));
     LOG(THREAD, LOG_THREADS, 1, "cur fs base is "PFX"\n", get_segment_base(SEG_FS));
 }
@@ -1636,6 +1812,11 @@ os_thread_exit(dcontext_t *dcontext)
 
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({
+        if (INTERNAL_OPTION(mangle_app_seg)) {
+            heap_free(dcontext, ostd->app_thread_areas, 
+                      sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS 
+                      HEAPACCT(ACCT_OTHER));
+        }
         heap_free(dcontext, ostd, sizeof(os_thread_data_t) HEAPACCT(ACCT_OTHER));
     });
 }
@@ -1735,7 +1916,11 @@ get_tls_thread_id(void)
         return INVALID_THREAD_ID;
     offs = TLS_THREAD_ID_OFFSET;
     READ_TLS_SLOT(offs, tid);
-    IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(tid)));
+    /* it reads 8-bytes into the memory, which includes app_gs and app_fs.
+     * 0x000000007127357b <get_tls_thread_id+37>:      mov    %gs:(%rax),%rax
+     * 0x000000007127357f <get_tls_thread_id+41>:      mov    %rax,-0x8(%rbp)
+     * so we remove the TRUNCATE check and trucate it on return.
+     */
     return (thread_id_t) tid;
 }
 
@@ -3389,6 +3574,15 @@ ignorable_system_call(int num)
     case SYS_fcntl:
     case SYS_getrlimit:
     case SYS_setrlimit:
+    /* i#107: syscall might change/query app's seg memory 
+     * need stop app from clobbering our GDT slot.
+     */
+#ifdef X64
+    case SYS_arch_prctl:
+#endif
+    case SYS_set_thread_area:
+    case SYS_get_thread_area:
+    /* FIXME: we might add SYS_modify_ldt later. */
         return false;
     default:
 #ifdef VMX86_SERVER
@@ -4060,6 +4254,50 @@ handle_exit(dcontext_t *dcontext)
                           sys_param(dcontext, 1), exit_process);
 }
 
+bool
+os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
+{
+    int i;
+    os_thread_data_t *ostd = dcontext->os_field;
+    our_modify_ldt_t *desc = (our_modify_ldt_t *)ostd->app_thread_areas;
+    if (user_desc->entry_number == -1) {
+        /* find a empty one to update */
+        for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
+            if (desc[i].entry_number == -1)
+                break;
+        }
+        if (i < GDT_NUM_TLS_SLOTS) {
+            user_desc->entry_number = GDT_SELECTOR(i + GDT_ENTRY_TLS_MIN);
+            memcpy(&desc[i], user_desc, sizeof(*user_desc));
+        } else
+            return false;
+    } else {
+        /* update the specific one */
+        i = user_desc->entry_number - GDT_ENTRY_TLS_MIN;
+        if (i < 0 || i >= GDT_NUM_TLS_SLOTS)
+            return false;
+        memcpy(&desc[i], user_desc, sizeof(*user_desc));
+    }
+    /* if not conflict with dr's tls, perform the syscall */
+    if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true) &&
+        GDT_SELECTOR(i + GDT_ENTRY_TLS_MIN) != read_selector(SEG_TLS))
+        return false;
+    return true;
+}
+
+bool
+os_get_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
+{
+    os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
+    our_modify_ldt_t *desc = (our_modify_ldt_t *)ostd->app_thread_areas;
+    int i = user_desc->entry_number - GDT_ENTRY_TLS_MIN;
+    if (i < 0 || i >= GDT_NUM_TLS_SLOTS)
+        return false;
+    if (desc[i].entry_number == -1)
+        return false;
+    return true;
+}
+
 /* System call interception: put any special handling here
  * Arguments come from the pusha right before the call
  */
@@ -4716,6 +4954,46 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
+    /* i#107 syscalls that might change/query app's segment */
+# ifdef X64
+    case SYS_arch_prctl: {
+        /* we handle arch_prctl in post_syscall */
+        dcontext->sys_param0 = sys_param(dcontext, 0);
+        dcontext->sys_param1 = sys_param(dcontext, 1);
+        break;
+    }
+# endif
+    case SYS_set_thread_area: {
+        our_modify_ldt_t desc;
+        if (INTERNAL_OPTION(mangle_app_seg) && 
+            safe_read((const void *)sys_param(dcontext, 0), 
+                      sizeof(desc), &desc)) {
+            if (os_set_app_thread_area(dcontext, &desc) &&
+                safe_write_ex((const void *)sys_param(dcontext, 0), 
+                              sizeof(desc), &desc, NULL)) {
+                /* check if the range is unlimited */
+                ASSERT_CURIOSITY(desc.limit == 0xfffff);
+                execute_syscall = false;
+                SET_RETURN_VAL(dcontext, 0);
+            }
+        }
+        break;
+    }
+    case SYS_get_thread_area: {
+        our_modify_ldt_t desc;
+        if (INTERNAL_OPTION(mangle_app_seg) && 
+            safe_read((const void *)sys_param(dcontext, 0), 
+                      sizeof(desc), &desc)) {
+            if (os_get_app_thread_area(dcontext, &desc) &&
+                safe_write_ex((const void *)sys_param(dcontext, 0), 
+                              sizeof(desc), &desc, NULL)) {
+                execute_syscall = false;
+                SET_RETURN_VAL(dcontext, 0);
+            }
+        }
+        break;
+    }
+
 #ifdef DEBUG
     case SYS_open: {
         dcontext->sys_param0 = sys_param(dcontext, 0);
@@ -5122,6 +5400,77 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         instrument_module_load_trigger(base);
 #endif
 }
+
+#ifdef X64
+void
+os_set_dr_seg(dcontext_t *dcontext, reg_id_t seg)
+{
+    int res;
+    os_thread_data_t *ostd = dcontext->os_field;
+    res = dynamorio_syscall(SYS_arch_prctl, 2, 
+                            seg == SEG_GS ? ARCH_SET_GS : ARCH_SET_FS,
+                            seg == SEG_GS ? 
+                            ostd->dr_gs_base : ostd->dr_fs_base);
+    ASSERT(res >= 0);
+}
+#endif
+
+#ifdef X64
+static void
+handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
+{
+    /* XXX: we can move it to pre_system_call to avoid system call. */
+    /* i#107 syscalls that might change/query app's segment */
+    os_local_state_t *os_tls = get_os_tls();
+    switch (code) {
+    case ARCH_SET_FS: {
+        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+            os_thread_data_t *ostd;
+            our_modify_ldt_t *desc;
+            /* update new value set by app */
+            os_tls->app_fs = read_selector(SEG_FS);
+            os_tls->app_fs_base = base;
+            /* update the app_thread_areas */
+            ostd = (os_thread_data_t *)dcontext->os_field;
+            desc = (our_modify_ldt_t *)ostd->app_thread_areas;
+            desc[FS_TLS].entry_number = GDT_ENTRY_TLS_MIN + FS_TLS;
+            dynamorio_syscall(SYS_get_thread_area, 1, &desc[FS_TLS]);
+            /* set it back to the value we are actually using. */
+            os_set_dr_seg(dcontext, SEG_FS);
+        }
+        break;
+    }
+    case ARCH_GET_FS: {
+        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
+            safe_write_ex(base, sizeof(void *), &os_tls->app_fs_base, NULL);
+        break;
+    }
+    case ARCH_SET_GS: {
+        os_thread_data_t *ostd;
+        our_modify_ldt_t *desc;
+        /* update new value set by app */
+        os_tls->app_gs = read_selector(SEG_GS);
+        os_tls->app_gs_base = base;
+        /* update the app_thread_areas */
+        ostd = (os_thread_data_t *)dcontext->os_field;
+        desc = ostd->app_thread_areas;
+        desc[GS_TLS].entry_number = GDT_ENTRY_TLS_MIN + GS_TLS;
+        dynamorio_syscall(SYS_get_thread_area, 1, &desc[GS_TLS]);
+        /* set the value back to the value we actually using */
+        os_set_dr_seg(dcontext, SEG_GS);
+        break;
+    }
+    case ARCH_GET_GS: {
+        safe_write_ex(base, sizeof(void *), &os_tls->app_gs_base, NULL);
+        break;
+    }
+    default: {
+        ASSERT_NOT_REACHED();
+        break;
+    }
+    } /* switch (dcontext->sys_param0) */
+}
+#endif
 
 /* Returns false if system call should NOT be executed
  * Returns true if system call should go ahead
@@ -5573,6 +5922,15 @@ post_system_call(dcontext_t *dcontext)
         handle_post_getitimer(dcontext, success, (int) dcontext->sys_param0,
                               (struct itimerval *) dcontext->sys_param1);
         break;
+#ifdef X64
+    case SYS_arch_prctl: {
+        if (success && INTERNAL_OPTION(mangle_app_seg))
+            handle_post_arch_prctl(dcontext, 
+                                   dcontext->sys_param0, 
+                                   dcontext->sys_param1);
+        break;
+    }
+#endif
 
     case SYS_getrlimit: {
         int resource = dcontext->sys_param0;

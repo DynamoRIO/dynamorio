@@ -100,6 +100,11 @@
 /* for now, only used to identify regions that fail our policies */
 #  define FRAG_DYNGEN_RESTRICTED    0x200000
 # endif
+#else
+/* i#107, for mangling mov_seg instruction,
+ * NOTE: mangle_app_seg cannot be used with program sepherding.
+ */
+# define FRAG_HAS_MOV_SEG           0x200000
 #endif
 
 #ifdef X64

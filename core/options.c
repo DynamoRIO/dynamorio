@@ -1825,6 +1825,19 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.validate_owner_dir = false;
         changed_options = true;
     }
+
+#ifdef PROGRAM_SHEPHERDING
+    if (INTERNAL_OPTION(mangle_app_seg)) {
+        /* i#107: -mangle_app_seg use a fragment flag FRAG_HAS_MOV_SEG
+         * that shares the same value with FRAG_DYNGEN_RESTRICTED used
+         * in program shepherding, so they cannot be used together. 
+         */
+        USAGE_ERROR("-mangle_app_seg not compatible with program sepherding\n"
+                    "setting to default");
+        SET_DEFAULT_VALUE(mangle_app_seg);
+        changed_options = true;
+    }
+#endif
     
 #ifndef NOT_DYNAMORIO_CORE
     /* fcache param checks rather involved, leave them in fcache.c */

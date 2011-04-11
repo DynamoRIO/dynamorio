@@ -683,7 +683,7 @@ static const byte interesting[256] = {
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
     1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, /* jcc_short */
 
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,1,0, /* mov_seg */
     0,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, /* call_far */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
@@ -1192,6 +1192,19 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
         return (pc + 1);
     }
+
+#ifdef LINUX
+    /* mov_seg instruction detection for i#107: mangling seg update/query. */
+    /* XXX: we cannot use INTERNAL_OPTION(mangle_app_seg) here because 
+     * we cannot use ASSERT.
+     */
+    if (byte0 == 0x8c || byte0 == 0x8e) {
+        instr_set_opcode(instr, OP_mov_seg);
+        instr_set_raw_bits(instr, start_pc, sz);
+        IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
+        return (start_pc + sz);
+    }
+#endif
 
     /* all non-pc-relative instructions */
     /* assumption: opcode already OP_UNDECODED */

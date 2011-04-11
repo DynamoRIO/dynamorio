@@ -1103,6 +1103,11 @@ is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l, fragme
     /* rarely set so we test it last */
     if (INTERNAL_OPTION(nolink))
         return false;
+#if defined(LINUX) && !defined(PROGRAM_SHEPHERDING)
+    /* i#107, fragment having a OP_mov_seg instr cannot be linked. */
+    if (TEST(FRAG_HAS_MOV_SEG, to_f->flags))
+        return false;
+#endif
     return true;
 }
 

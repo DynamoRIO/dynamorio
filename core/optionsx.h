@@ -329,6 +329,19 @@
      */
     OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, 2,
                             "optimization level on optimizing clean call sequences")
+    /* i#107: To handle app using same segment register that DR uses, we should
+     * mangle the app's segment usage. We disable it by default now. 
+     * Will enable it later when the code is more robust.
+     * It cannot be used with program shepherding.
+     */
+    /* FIXME: the off-by-default makes the mem addr API not work.
+     * Since the API is not in any release package but only in the 
+     * source code repository, it should be ok now. 
+     * However, we must turn the default value true before the next release.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg, IF_WINDOWS_ELSE(false, false),
+                            "mangle application's segment usage.")
+
 # ifdef CLIENT_INTERFACE
     /* FIXME (xref PR 215082): make these external now that our product is our API? */
     OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING, 

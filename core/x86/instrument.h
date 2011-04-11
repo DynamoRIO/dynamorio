@@ -3773,4 +3773,13 @@ void
 dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
                           opnd_t buf);
 
+DR_API
+/**
+ * Insert code to get the segment base address pointed to by seg into
+ * register reg. In Linux, it is only supported with -mangle_app_seg option.
+ * In Windows, it only supports getting base address of the TLS segment.
+ */
+void 
+dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                       reg_id_t seg, reg_id_t reg);
 #endif /* _INSTRUMENT_H_ */

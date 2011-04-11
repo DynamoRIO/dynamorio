@@ -1420,6 +1420,65 @@ bb_process_fs_ref(dcontext_t *dcontext, build_bb_t *bb)
 }
 #endif /* win32 */
 
+#if defined(LINUX) && !defined(PROGRAM_SHEPHERDING)
+/* The basic strategy for mangling mov_seg instruction is:
+ * For mov fs/gs => reg/[mem], simply mangle it to write
+ * the app's fs/gs selector value into dst. 
+ * For mov reg/mem => fs/gs, we make it as the first instruction
+ * of bb, and mark that bb not linked and has mov_seg instr, 
+ * and change that instruction to be a nop.
+ * Then whenever before entering code cache, we check if that's the bb 
+ * has mov_seg. If yes, we will update the information we maintained
+ * about the app's fs/gs.
+ */
+/* check if the basic block building should continue on a mov_seg instr. */
+static bool
+bb_process_mov_seg(dcontext_t *dcontext, build_bb_t *bb)
+{
+    reg_id_t seg;
+
+    if (!INTERNAL_OPTION(mangle_app_seg))
+        return true; /* continue bb */
+
+    /* if it is a read, we only need mangle the instruction. */
+    ASSERT(instr_num_srcs(bb->instr) == 1);
+    if (opnd_is_reg(instr_get_src(bb->instr, 0)) && 
+        reg_is_segment(opnd_get_reg(instr_get_src(bb->instr, 0))))
+        return true; /* continue bb */
+
+    /* it is an update, we need set to be the first instr of bb */
+    ASSERT(instr_num_dsts(bb->instr) == 1);
+    ASSERT(opnd_is_reg(instr_get_dst(bb->instr, 0)));
+    seg = opnd_get_reg(instr_get_dst(bb->instr, 0));
+    ASSERT(reg_is_segment(seg));
+    /* we only need handle fs/gs */
+    if (seg != SEG_GS && seg != SEG_FS)
+        return true; /* continue bb */
+    /* if no private loader, we only need mangle the non-tls seg */
+    if (seg == IF_X64_ELSE(SEG_FS, SEG_FS) &&
+        IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true))
+        return true; /* continue bb */
+    
+    if (bb->instr_start == bb->start_pc) {
+        /* the first instruction, we can continue build bb. */
+        /* this bb cannot be part of trace! */
+        bb->flags |= FRAG_CANNOT_BE_TRACE;
+        /* the flags field is used up, we use FRAG_HAS_SYSCALL instead. */
+        bb->flags |= FRAG_HAS_MOV_SEG;
+        return true; /* continue bb */
+    }
+    LOG(THREAD, LOG_INTERP, 3, "ending bb before mov_seg\n");
+    /* Set instr to NULL in order to get translation of exit cti correct. */
+    /* FIXME: should we free the memory allocated for bb->instr?
+     * It seems that bb_process_non_ignorable_syscall didn't. 
+     */
+    bb->instr = NULL;
+    /* this block must be the last one in a trace */
+    bb->flags |= FRAG_MUST_END_TRACE;
+    return false; /* stop bb here */
+}
+#endif /* LINUX */
+
 /* Returns true to indicate that ignorable syscall processing is completed
  * with *continue_bb indicating if the bb should be continued or not.
  * When returning false, continue_bb isn't pertinent.
@@ -2776,6 +2835,27 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break;
             }
 #endif
+#ifdef LINUX
+            if (INTERNAL_OPTION(mangle_app_seg) && 
+                instr_get_prefix_flag(bb->instr, PREFIX_SEG_FS | PREFIX_SEG_GS)) {
+                /* These segment prefix flags are not persistent and are 
+                 * only used as hints just after decoding. 
+                 * They are not accurate later and can be misleading.
+                 * This can only be used right after decoding for quick check,
+                 * and a walk of operands should be performed to look for 
+                 * actual far mem refs.
+                 */
+                /* i#107, mangle reference with segment register */
+                /* we up-decode the instr when !full_decode to make sure it will
+                 * pass the instr_opcode_valid check in mangle and be mangled.
+                 */
+                instr_get_opcode(bb->instr);
+                break;
+            }
+#endif
+            /* i#107, opcode mov_seg will be set in decode_cti, 
+             * so instr_opcode_valid(bb->instr) is true, and terminates the loop.
+             */
         } while (!instr_opcode_valid(bb->instr) &&
                  total_instrs <= DYNAMO_OPTION(max_bb_instrs));
 
@@ -2899,7 +2979,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         if (instr_get_prefix_flag(bb->instr,
                                   (SEG_TLS == SEG_GS) ? PREFIX_SEG_GS : PREFIX_SEG_FS)
             /* __errno_location is interpreted when global, though it's hidden in TOT */
-            IF_LINUX(&& !is_in_dynamo_dll(bb->instr_start))) {
+            IF_LINUX(&& !is_in_dynamo_dll(bb->instr_start)) &&
+            /* i#107 allows DR/APP using the same segment register. */
+            !INTERNAL_OPTION(mangle_app_seg)) {
             /* On linux we use a segment register and do not yet
              * support the application using the same register!
              */
@@ -3062,6 +3144,12 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         else if (instr_is_sse_or_sse2(bb->instr)) {
             FATAL_USAGE_ERROR(CHECK_RETURNS_SSE2_XMM_USED, 2, 
                               get_application_name(), get_application_pid());
+        }
+#endif
+#if defined(LINUX) && !defined(PROGRAM_SHEPHERDING)
+        else if (instr_get_opcode(bb->instr) == OP_mov_seg) {
+            if (!bb_process_mov_seg(dcontext, bb))
+                break;
         }
 #endif
 
