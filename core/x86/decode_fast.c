@@ -47,11 +47,9 @@
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
-# undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
 # undef ASSERT_TRUNCATE
 # undef ASSERT_BITFIELD_TRUNCATE
 # undef ASSERT_NOT_REACHED
-# define ASSERT DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
@@ -1195,10 +1193,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
 
 #ifdef LINUX
     /* mov_seg instruction detection for i#107: mangling seg update/query. */
-    /* XXX: we cannot use INTERNAL_OPTION(mangle_app_seg) here because 
-     * we cannot use ASSERT.
-     */
-    if (byte0 == 0x8c || byte0 == 0x8e) {
+    if (INTERNAL_OPTION(mangle_app_seg) && (byte0 == 0x8c || byte0 == 0x8e)) {
         instr_set_opcode(instr, OP_mov_seg);
         instr_set_raw_bits(instr, start_pc, sz);
         IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));

@@ -1420,7 +1420,7 @@ bb_process_fs_ref(dcontext_t *dcontext, build_bb_t *bb)
 }
 #endif /* win32 */
 
-#if defined(LINUX) && !defined(PROGRAM_SHEPHERDING)
+#if defined(LINUX) && !defined(DGC_DIAGNOSTICS)
 /* The basic strategy for mangling mov_seg instruction is:
  * For mov fs/gs => reg/[mem], simply mangle it to write
  * the app's fs/gs selector value into dst. 
@@ -1463,7 +1463,6 @@ bb_process_mov_seg(dcontext_t *dcontext, build_bb_t *bb)
         /* the first instruction, we can continue build bb. */
         /* this bb cannot be part of trace! */
         bb->flags |= FRAG_CANNOT_BE_TRACE;
-        /* the flags field is used up, we use FRAG_HAS_SYSCALL instead. */
         bb->flags |= FRAG_HAS_MOV_SEG;
         return true; /* continue bb */
     }
@@ -1473,7 +1472,10 @@ bb_process_mov_seg(dcontext_t *dcontext, build_bb_t *bb)
      * It seems that bb_process_non_ignorable_syscall didn't. 
      */
     bb->instr = NULL;
-    /* this block must be the last one in a trace */
+    /* this block must be the last one in a trace 
+     * breaking traces here shouldn't be a perf issue b/c this is so rare,
+     * it should happen only once per thread on setting up tls.
+     */
     bb->flags |= FRAG_MUST_END_TRACE;
     return false; /* stop bb here */
 }
@@ -3146,7 +3148,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                               get_application_name(), get_application_pid());
         }
 #endif
-#if defined(LINUX) && !defined(PROGRAM_SHEPHERDING)
+#if defined(LINUX) && !defined(DGC_DIAGNOSTICS)
         else if (instr_get_opcode(bb->instr) == OP_mov_seg) {
             if (!bb_process_mov_seg(dcontext, bb))
                 break;

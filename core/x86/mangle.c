@@ -1947,6 +1947,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          opnd_create_reg(reg)) :                                  \
      instr_create_save_to_dcontext((dc), (reg), (dc_offs)))
 
+#ifdef LINUX
 /***************************************************************************
  * Mangle the memory reference operand that uses fs/gs semgents,
  * get the segment base of fs/gs into reg, and 
@@ -1970,7 +1971,7 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), true)
         && seg == IF_X64_ELSE(SEG_FS, SEG_GS))
         return oldop;
-    /* The reg should not be used by the oldop*/
+    /* The reg should not be used by the oldop */
     ASSERT(!opnd_uses_reg(oldop, reg));
 
     /* get app's segment base into reg. */
@@ -2002,6 +2003,7 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
     }
     return newop;
 }
+#endif /* LINUX */
 
 /***************************************************************************
  * INDIRECT CALL
@@ -2134,6 +2136,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* FIXME: we use REG_XCX to store the segment base, which might be used
          * in target and cause assertion failure in mangle_seg_ref_opnd.
          */
+        ASSERT_BUG_NUM(107, !opnd_uses_reg(target, REG_XCX));
         target = mangle_seg_ref_opnd(dcontext, ilist, instr, target, REG_XCX);
     }
 #endif
@@ -2462,6 +2465,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* FIXME: we use REG_XCX to store segment base, which might be used 
          * in target and cause assertion failure in mangle_seg_ref_opnd.
          */
+        ASSERT_BUG_NUM(107, !opnd_uses_reg(target, REG_XCX));
         target = mangle_seg_ref_opnd(dcontext, ilist, instr, target, REG_XCX);
     }
 #endif
@@ -3577,7 +3581,11 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
 #endif
 
 #ifdef X64
-        /* FIXME: mangle_rel_addr might destroy the instr! */
+        /* FIXME: mangle_rel_addr might destroy the instr if it is a LEA,
+         * which makes instr points to freed memory.
+         * In such case, the control should skip later checks on the instr
+         * for exit_cti and syscall.
+         */
         if (instr_has_rel_addr_reference(instr))
             mangle_rel_addr(dcontext, ilist, instr, next_instr);
 #endif
@@ -5014,7 +5022,9 @@ analyze_callee_errno(dcontext_t *dcontext, callee_info_t *ci)
             "CLEANCALL: callee "PFX" access far memory\n", ci->start);
     }
 #else
-    /* FIXME: For Windows, we simply assume no */
+    /* XXX: For Windows, how do we know if it accessess errno?
+     * Now we simply assume no. 
+     */
     ci->errno_used = false;
 #endif
 }

@@ -156,6 +156,7 @@ typedef struct _our_modify_ldt_t {
     unsigned int  seg_not_present:1;
     unsigned int  useable:1;
 } our_modify_ldt_t;
+
 #define GDT_NUM_TLS_SLOTS 3
 #ifdef X64
 /* Linux GDT layout in x86_64: 
@@ -1135,7 +1136,7 @@ typedef struct _os_local_state_t {
     union {
         /* i#107: We use space in os_tls to store thread area information
          * thread init. It will not conflict with the client_tls usage,
-         * so we put them into an union for saving space. 
+         * so we put them into a union for saving space. 
          */
         os_seg_info_t os_seg_info;
         void *client_tls[MAX_NUM_CLIENT_TLS];
@@ -1329,6 +1330,10 @@ get_local_state()
 #endif
 }
 
+/* i#107: handle segment register usage conflicts between app and dr:
+ * os_handle_mov_seg updates the app's tls selector maintained by DR.
+ * It is called before entering code cache in dispatch_enter_fcache.
+ */
 void
 os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
 {

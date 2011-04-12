@@ -5119,7 +5119,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
     CLIENT_ASSERT(INTERNAL_OPTION(mangle_app_seg),
                   "dr_insert_get_seg_base is supported"
                   "with -mangle_app_seg only");
-    /* FIXME: we should remove the constrain below by always mangling SEG_TLS,
+    /* FIXME: we should remove the constraint below by always mangling SEG_TLS,
      * 1. Getting TLS base could be a common request by clients.
      * 2. The TLS descriptor setup and selector setup can be separated,
      * so we must intercept all descriptor setup. It will not be large 

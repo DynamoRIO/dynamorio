@@ -332,7 +332,7 @@
     /* i#107: To handle app using same segment register that DR uses, we should
      * mangle the app's segment usage. We disable it by default now. 
      * Will enable it later when the code is more robust.
-     * It cannot be used with program shepherding.
+     * It cannot be used with DGC_DIAGNOSTICS.
      */
     /* FIXME: the off-by-default makes the mem addr API not work.
      * Since the API is not in any release package but only in the 
