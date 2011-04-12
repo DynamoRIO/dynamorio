@@ -98,6 +98,8 @@ extern char **__environ;
 # include "instr.h" /* for get_segment_base() */
 #endif
 
+#include "decode_fast.h" /* decode_cti: maybe os_handle_mov_seg should be ifdef X86? */
+
 #ifndef HAVE_PROC_MAPS
 /* must be prior to including dlfcn.h */
 # define _GNU_SOURCE 1
@@ -1368,10 +1370,10 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
     /* calculate the entry_number */
     if (seg == SEG_GS) {
         os_tls->app_gs = sel;
-        os_tls->app_gs_base = desc[SELECTOR_INDEX(sel)].base_addr;
+        os_tls->app_gs_base = (void *)(ptr_uint_t) desc[SELECTOR_INDEX(sel)].base_addr;
     } else {
         os_tls->app_fs = sel;
-        os_tls->app_fs_base = desc[SELECTOR_INDEX(sel)].base_addr;
+        os_tls->app_fs_base = (void *)(ptr_uint_t) desc[SELECTOR_INDEX(sel)].base_addr;
     }
     instr_free(dcontext, &instr);
 }
@@ -4966,10 +4968,10 @@ pre_system_call(dcontext_t *dcontext)
     case SYS_set_thread_area: {
         our_modify_ldt_t desc;
         if (INTERNAL_OPTION(mangle_app_seg) && 
-            safe_read((const void *)sys_param(dcontext, 0), 
+            safe_read((void *)sys_param(dcontext, 0), 
                       sizeof(desc), &desc)) {
             if (os_set_app_thread_area(dcontext, &desc) &&
-                safe_write_ex((const void *)sys_param(dcontext, 0), 
+                safe_write_ex((void *)sys_param(dcontext, 0), 
                               sizeof(desc), &desc, NULL)) {
                 /* check if the range is unlimited */
                 ASSERT_CURIOSITY(desc.limit == 0xfffff);
@@ -4985,7 +4987,7 @@ pre_system_call(dcontext_t *dcontext)
             safe_read((const void *)sys_param(dcontext, 0), 
                       sizeof(desc), &desc)) {
             if (os_get_app_thread_area(dcontext, &desc) &&
-                safe_write_ex((const void *)sys_param(dcontext, 0), 
+                safe_write_ex((void *)sys_param(dcontext, 0), 
                               sizeof(desc), &desc, NULL)) {
                 execute_syscall = false;
                 SET_RETURN_VAL(dcontext, 0);
@@ -5429,7 +5431,7 @@ handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
             our_modify_ldt_t *desc;
             /* update new value set by app */
             os_tls->app_fs = read_selector(SEG_FS);
-            os_tls->app_fs_base = base;
+            os_tls->app_fs_base = (void *) base;
             /* update the app_thread_areas */
             ostd = (os_thread_data_t *)dcontext->os_field;
             desc = (our_modify_ldt_t *)ostd->app_thread_areas;
@@ -5442,7 +5444,7 @@ handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
     }
     case ARCH_GET_FS: {
         if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
-            safe_write_ex(base, sizeof(void *), &os_tls->app_fs_base, NULL);
+            safe_write_ex((void *)base, sizeof(void *), &os_tls->app_fs_base, NULL);
         break;
     }
     case ARCH_SET_GS: {
@@ -5450,7 +5452,7 @@ handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         our_modify_ldt_t *desc;
         /* update new value set by app */
         os_tls->app_gs = read_selector(SEG_GS);
-        os_tls->app_gs_base = base;
+        os_tls->app_gs_base = (void *) base;
         /* update the app_thread_areas */
         ostd = (os_thread_data_t *)dcontext->os_field;
         desc = ostd->app_thread_areas;
@@ -5461,7 +5463,7 @@ handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         break;
     }
     case ARCH_GET_GS: {
-        safe_write_ex(base, sizeof(void *), &os_tls->app_gs_base, NULL);
+        safe_write_ex((void*)base, sizeof(void *), &os_tls->app_gs_base, NULL);
         break;
     }
     default: {
