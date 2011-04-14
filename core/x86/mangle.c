@@ -1,6 +1,6 @@
 /* ******************************************************************************
- * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
 
@@ -441,6 +441,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          * guide says to use movlps+movhps for unaligned stores, but
          * for simplicity and smaller code I'm using movups anyway.
          */
+        /* FIXME i#433: need DR cxt switch and clean call to preserve ymm */
         uint opcode = (proc_has_feature(FEATURE_SSE2) ?
                        (stack_align16 ? OP_movdqa : OP_movdqu) :
                        (stack_align16 ? OP_movaps : OP_movups));
@@ -561,6 +562,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         int i;
         /* See discussion in emit_fcache_enter_shared on which opcode
          * is better. */
+        /* FIXME i#433: need DR cxt switch and clean call to preserve ymm */
         uint opcode = (proc_has_feature(FEATURE_SSE2) ?
                        (stack_align16 ? OP_movdqa : OP_movdqu) :
                        (stack_align16 ? OP_movaps : OP_movups));

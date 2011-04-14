@@ -150,6 +150,18 @@ enum {
     DR_REG_CR8,  DR_REG_CR9,  DR_REG_CR10, DR_REG_CR11,
     DR_REG_CR12, DR_REG_CR13, DR_REG_CR14, DR_REG_CR15,
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
+
+#ifdef AVOID_API_EXPORT
+    /* Below here overlaps with OPSZ_ enum but all cases where the two
+     * are used in the same field (instr_info_t operand sizes) have the type
+     * and distinguish properly.
+     */
+#endif
+    /* 256-BIT YMM */
+    DR_REG_YMM0, DR_REG_YMM1, DR_REG_YMM2, DR_REG_YMM3,
+    DR_REG_YMM4, DR_REG_YMM5, DR_REG_YMM6, DR_REG_YMM7,
+    DR_REG_YMM8, DR_REG_YMM9, DR_REG_YMM10,DR_REG_YMM11,
+    DR_REG_YMM12,DR_REG_YMM13,DR_REG_YMM14,DR_REG_YMM15,
 };
 
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */
@@ -179,7 +191,7 @@ typedef byte opnd_size_t; /* contains a DR_REG_ or OPSZ_ enum value */
 
 /* DR_API EXPORT END */
 /* indexed by enum */
-extern const char * const * const reg_names;
+extern const char * const reg_names[];
 extern const reg_id_t reg_fixer[];
 /* DR_API EXPORT BEGIN */
 
@@ -201,6 +213,8 @@ extern const reg_id_t reg_fixer[];
 #define DR_REG_STOP_MMX    DR_REG_MM7  /**< End of mmx register enum values */  
 #define DR_REG_START_XMM   DR_REG_XMM0 /**< Start of xmm register enum values */
 #define DR_REG_STOP_XMM    DR_REG_XMM15/**< End of xmm register enum values */  
+#define DR_REG_START_YMM   DR_REG_YMM0 /**< Start of ymm register enum values */
+#define DR_REG_STOP_YMM    DR_REG_YMM15/**< End of ymm register enum values */  
 #define DR_REG_START_FLOAT DR_REG_ST0  /**< Start of floating-point-register enum values */
 #define DR_REG_STOP_FLOAT  DR_REG_ST7  /**< End of floating-point-register enum values */  
 #define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
@@ -209,8 +223,12 @@ extern const reg_id_t reg_fixer[];
 #define DR_REG_STOP_DR     DR_REG_DR15 /**< End of debug register enum values */  
 #define DR_REG_START_CR    DR_REG_CR0  /**< Start of control register enum values */
 #define DR_REG_STOP_CR     DR_REG_CR15 /**< End of control register enum values */  
-#define DR_REG_LAST_VALID_ENUM DR_REG_CR15  /**< Last valid register enum value */
-#define DR_REG_LAST_ENUM   DR_REG_INVALID /**< Last register enum value */
+/**
+ * Last valid register enum value.  Note: DR_REG_INVALID is now smaller 
+ * than this value.
+ */
+#define DR_REG_LAST_VALID_ENUM DR_REG_YMM15
+#define DR_REG_LAST_ENUM   DR_REG_YMM15 /**< Last value of register enums */
 /* DR_API EXPORT END */
 #define REG_START_SPILL   DR_REG_XAX
 #define REG_STOP_SPILL    DR_REG_XDI
@@ -387,6 +405,8 @@ extern const reg_id_t reg_fixer[];
 # define REG_STOP_x64_8      DR_REG_STOP_x64_8
 # define REG_START_MMX       DR_REG_START_MMX
 # define REG_STOP_MMX        DR_REG_STOP_MMX
+# define REG_START_YMM       DR_REG_START_YMM
+# define REG_STOP_YMM        DR_REG_STOP_YMM
 # define REG_START_XMM       DR_REG_START_XMM
 # define REG_STOP_XMM        DR_REG_STOP_XMM
 # define REG_START_FLOAT     DR_REG_START_FLOAT
@@ -399,6 +419,22 @@ extern const reg_id_t reg_fixer[];
 # define REG_STOP_CR         DR_REG_STOP_CR
 # define REG_LAST_VALID_ENUM DR_REG_LAST_VALID_ENUM
 # define REG_LAST_ENUM       DR_REG_LAST_ENUM
+# define REG_YMM0            DR_REG_YMM0
+# define REG_YMM1            DR_REG_YMM1
+# define REG_YMM2            DR_REG_YMM2
+# define REG_YMM3            DR_REG_YMM3
+# define REG_YMM4            DR_REG_YMM4
+# define REG_YMM5            DR_REG_YMM5
+# define REG_YMM6            DR_REG_YMM6
+# define REG_YMM7            DR_REG_YMM7
+# define REG_YMM8            DR_REG_YMM8
+# define REG_YMM9            DR_REG_YMM9
+# define REG_YMM10           DR_REG_YMM10
+# define REG_YMM11           DR_REG_YMM11
+# define REG_YMM12           DR_REG_YMM12
+# define REG_YMM13           DR_REG_YMM13
+# define REG_YMM14           DR_REG_YMM14
+# define REG_YMM15           DR_REG_YMM15
 #endif /* DR_REG_ENUM_COMPATIBILITY */
 /* DR_API EXPORT END */
 
@@ -1154,10 +1190,19 @@ reg_is_segment(reg_id_t reg);
 DR_API
 /** 
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to an xmm (128-bit SSE/SSE2) register.
+ * Returns true iff it refers to an xmm (128-bit SSE/SSE2) register
+ * or a ymm (256-bit multimedia) register.
  */
 bool 
 reg_is_xmm(reg_id_t reg);
+
+DR_API
+/** 
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a ymm (256-bit multimedia) register.
+ */
+bool 
+reg_is_ymm(reg_id_t reg);
 
 DR_API
 /** 
@@ -3317,8 +3362,8 @@ enum {
 /*  70 */     OP_ret,       /* &first_byte[0xc2], */ /**< ret opcode */
 /*  71 */     OP_ret_far,   /* &first_byte[0xca], */ /**< ret_far opcode */
 
-/*  72 */     OP_les,      /* &first_byte[0xc4], */ /**< les opcode */
-/*  73 */     OP_lds,      /* &first_byte[0xc5], */ /**< lds opcode */
+/*  72 */     OP_les,      /* &vex_prefix_extensions[0][0], */ /**< les opcode */
+/*  73 */     OP_lds,      /* &vex_prefix_extensions[1][0], */ /**< lds opcode */
 /*  74 */     OP_enter,    /* &first_byte[0xc8], */ /**< enter opcode */
 /*  75 */     OP_leave,    /* &first_byte[0xc9], */ /**< leave opcode */
 /*  76 */     OP_int3,     /* &first_byte[0xcc], */ /**< int3 opcode */
@@ -3400,7 +3445,7 @@ enum {
 /* 148 */     OP_pcmpeqb,      /* &prefix_extensions[48][0], */ /**< pcmpeqb opcode */
 /* 149 */     OP_pcmpeqw,      /* &prefix_extensions[49][0], */ /**< pcmpeqw opcode */
 /* 150 */     OP_pcmpeqd,      /* &prefix_extensions[50][0], */ /**< pcmpeqd opcode */
-/* 151 */     OP_emms,         /* &second_byte[0x77], */ /**< emms opcode */
+/* 151 */     OP_emms,         /* &vex_L_extensions[0][0], */ /**< emms opcode */
 
 /* 152 */     OP_jo,       /* &second_byte[0x80], */ /**< jo opcode */
 /* 153 */     OP_jno,      /* &second_byte[0x81], */ /**< jno opcode */
@@ -3815,58 +3860,58 @@ enum {
 /* 542 */     OP_extrq,          /* &prefix_extensions[134][2], */ /**< extrq opcode */
 /* 543 */     OP_insertq,        /* &prefix_extensions[134][3], */ /**< insertq opcode */
 /* 544 */     OP_lzcnt,          /* &prefix_extensions[136][1], */ /**< lzcnt opcode */
-/* 545 */     OP_pblendvb,       /* &third_byte_38[16], */ /**< pblendvb opcode */
-/* 546 */     OP_blendvps,       /* &third_byte_38[17], */ /**< blendvps opcode */
-/* 547 */     OP_blendvpd,       /* &third_byte_38[18], */ /**< blendvpd opcode */
-/* 548 */     OP_ptest,          /* &third_byte_38[19], */ /**< ptest opcode */
-/* 549 */     OP_pmovsxbw,       /* &third_byte_38[20], */ /**< pmovsxbw opcode */
-/* 550 */     OP_pmovsxbd,       /* &third_byte_38[21], */ /**< pmovsxbd opcode */
-/* 551 */     OP_pmovsxbq,       /* &third_byte_38[22], */ /**< pmovsxbq opcode */
-/* 552 */     OP_pmovsxdw,       /* &third_byte_38[23], */ /**< pmovsxdw opcode */
-/* 553 */     OP_pmovsxwq,       /* &third_byte_38[24], */ /**< pmovsxwq opcode */
-/* 554 */     OP_pmovsxdq,       /* &third_byte_38[25], */ /**< pmovsxdq opcode */
-/* 555 */     OP_pmuldq,         /* &third_byte_38[26], */ /**< pmuldq opcode */
-/* 556 */     OP_pcmpeqq,        /* &third_byte_38[27], */ /**< pcmpeqq opcode */
-/* 557 */     OP_movntdqa,       /* &third_byte_38[28], */ /**< movntdqa opcode */
-/* 558 */     OP_packusdw,       /* &third_byte_38[29], */ /**< packusdw opcode */
-/* 559 */     OP_pmovzxbw,       /* &third_byte_38[30], */ /**< pmovzxbw opcode */
-/* 560 */     OP_pmovzxbd,       /* &third_byte_38[31], */ /**< pmovzxbd opcode */
-/* 561 */     OP_pmovzxbq,       /* &third_byte_38[32], */ /**< pmovzxbq opcode */
-/* 562 */     OP_pmovzxdw,       /* &third_byte_38[33], */ /**< pmovzxdw opcode */
-/* 563 */     OP_pmovzxwq,       /* &third_byte_38[34], */ /**< pmovzxwq opcode */
-/* 564 */     OP_pmovzxdq,       /* &third_byte_38[35], */ /**< pmovzxdq opcode */
-/* 565 */     OP_pcmpgtq,        /* &third_byte_38[36], */ /**< pcmpgtq opcode */
-/* 566 */     OP_pminsb,         /* &third_byte_38[37], */ /**< pminsb opcode */
-/* 567 */     OP_pminsd,         /* &third_byte_38[38], */ /**< pminsd opcode */
-/* 568 */     OP_pminuw,         /* &third_byte_38[39], */ /**< pminuw opcode */
-/* 569 */     OP_pminud,         /* &third_byte_38[40], */ /**< pminud opcode */
-/* 570 */     OP_pmaxsb,         /* &third_byte_38[41], */ /**< pmaxsb opcode */
-/* 571 */     OP_pmaxsd,         /* &third_byte_38[42], */ /**< pmaxsd opcode */
-/* 572 */     OP_pmaxuw,         /* &third_byte_38[43], */ /**< pmaxuw opcode */
-/* 573 */     OP_pmaxud,         /* &third_byte_38[44], */ /**< pmaxud opcode */
-/* 574 */     OP_pmulld,         /* &third_byte_38[45], */ /**< pmulld opcode */
-/* 575 */     OP_phminposuw,     /* &third_byte_38[46], */ /**< phminposuw opcode */
+/* 545 */     OP_pblendvb,       /* &vex_extensions[0][0], */ /**< pblendvb opcode */
+/* 546 */     OP_blendvps,       /* &vex_extensions[1][0], */ /**< blendvps opcode */
+/* 547 */     OP_blendvpd,       /* &vex_extensions[2][0], */ /**< blendvpd opcode */
+/* 548 */     OP_ptest,          /* &vex_extensions[3][0], */ /**< ptest opcode */
+/* 549 */     OP_pmovsxbw,       /* &vex_extensions[4][0], */ /**< pmovsxbw opcode */
+/* 550 */     OP_pmovsxbd,       /* &vex_extensions[5][0], */ /**< pmovsxbd opcode */
+/* 551 */     OP_pmovsxbq,       /* &vex_extensions[6][0], */ /**< pmovsxbq opcode */
+/* 552 */     OP_pmovsxdw,       /* &vex_extensions[7][0], */ /**< pmovsxdw opcode */
+/* 553 */     OP_pmovsxwq,       /* &vex_extensions[8][0], */ /**< pmovsxwq opcode */
+/* 554 */     OP_pmovsxdq,       /* &vex_extensions[9][0], */ /**< pmovsxdq opcode */
+/* 555 */     OP_pmuldq,         /* &vex_extensions[10][0], */ /**< pmuldq opcode */
+/* 556 */     OP_pcmpeqq,        /* &vex_extensions[11][0], */ /**< pcmpeqq opcode */
+/* 557 */     OP_movntdqa,       /* &vex_extensions[12][0], */ /**< movntdqa opcode */
+/* 558 */     OP_packusdw,       /* &vex_extensions[13][0], */ /**< packusdw opcode */
+/* 559 */     OP_pmovzxbw,       /* &vex_extensions[14][0], */ /**< pmovzxbw opcode */
+/* 560 */     OP_pmovzxbd,       /* &vex_extensions[15][0], */ /**< pmovzxbd opcode */
+/* 561 */     OP_pmovzxbq,       /* &vex_extensions[16][0], */ /**< pmovzxbq opcode */
+/* 562 */     OP_pmovzxdw,       /* &vex_extensions[17][0], */ /**< pmovzxdw opcode */
+/* 563 */     OP_pmovzxwq,       /* &vex_extensions[18][0], */ /**< pmovzxwq opcode */
+/* 564 */     OP_pmovzxdq,       /* &vex_extensions[19][0], */ /**< pmovzxdq opcode */
+/* 565 */     OP_pcmpgtq,        /* &vex_extensions[20][0], */ /**< pcmpgtq opcode */
+/* 566 */     OP_pminsb,         /* &vex_extensions[21][0], */ /**< pminsb opcode */
+/* 567 */     OP_pminsd,         /* &vex_extensions[22][0], */ /**< pminsd opcode */
+/* 568 */     OP_pminuw,         /* &vex_extensions[23][0], */ /**< pminuw opcode */
+/* 569 */     OP_pminud,         /* &vex_extensions[24][0], */ /**< pminud opcode */
+/* 570 */     OP_pmaxsb,         /* &vex_extensions[25][0], */ /**< pmaxsb opcode */
+/* 571 */     OP_pmaxsd,         /* &vex_extensions[26][0], */ /**< pmaxsd opcode */
+/* 572 */     OP_pmaxuw,         /* &vex_extensions[27][0], */ /**< pmaxuw opcode */
+/* 573 */     OP_pmaxud,         /* &vex_extensions[28][0], */ /**< pmaxud opcode */
+/* 574 */     OP_pmulld,         /* &vex_extensions[29][0], */ /**< pmulld opcode */
+/* 575 */     OP_phminposuw,     /* &vex_extensions[30][0], */ /**< phminposuw opcode */
 /* 576 */     OP_crc32,          /* &prefix_extensions[139][3], */ /**< crc32 opcode */
-/* 577 */     OP_pextrb,         /* &third_byte_3a[2], */ /**< pextrb opcode */
-/* 578 */     OP_pextrd,         /* &third_byte_3a[4], */ /**< pextrd opcode */
-/* 579 */     OP_extractps,      /* &third_byte_3a[5], */ /**< extractps opcode */
-/* 580 */     OP_roundps,        /* &third_byte_3a[6], */ /**< roundps opcode */
-/* 581 */     OP_roundpd,        /* &third_byte_3a[7], */ /**< roundpd opcode */
-/* 582 */     OP_roundss,        /* &third_byte_3a[8], */ /**< roundss opcode */
-/* 583 */     OP_roundsd,        /* &third_byte_3a[9], */ /**< roundsd opcode */
-/* 584 */     OP_blendps,        /* &third_byte_3a[10], */ /**< blendps opcode */
-/* 585 */     OP_blendpd,        /* &third_byte_3a[11], */ /**< blendpd opcode */
-/* 586 */     OP_pblendw,        /* &third_byte_3a[12], */ /**< pblendw opcode */
-/* 587 */     OP_pinsrb,         /* &third_byte_3a[13], */ /**< pinsrb opcode */
-/* 588 */     OP_insertps,       /* &third_byte_3a[14], */ /**< insertps opcode */
-/* 589 */     OP_pinsrd,         /* &third_byte_3a[15], */ /**< pinsrd opcode */
-/* 590 */     OP_dpps,           /* &third_byte_3a[16], */ /**< dpps opcode */
-/* 591 */     OP_dppd,           /* &third_byte_3a[17], */ /**< dppd opcode */
-/* 592 */     OP_mpsadbw,        /* &third_byte_3a[18], */ /**< mpsadbw opcode */
-/* 593 */     OP_pcmpestrm,      /* &third_byte_3a[19], */ /**< pcmpestrm opcode */
-/* 594 */     OP_pcmpestri,      /* &third_byte_3a[20], */ /**< pcmpestri opcode */
-/* 595 */     OP_pcmpistrm,      /* &third_byte_3a[21], */ /**< pcmpistrm opcode */
-/* 596 */     OP_pcmpistri,      /* &third_byte_3a[22], */ /**< pcmpistri opcode */
+/* 577 */     OP_pextrb,         /* &vex_extensions[36][0], */ /**< pextrb opcode */
+/* 578 */     OP_pextrd,         /* &vex_extensions[38][0], */ /**< pextrd opcode */
+/* 579 */     OP_extractps,      /* &vex_extensions[39][0], */ /**< extractps opcode */
+/* 580 */     OP_roundps,        /* &vex_extensions[40][0], */ /**< roundps opcode */
+/* 581 */     OP_roundpd,        /* &vex_extensions[41][0], */ /**< roundpd opcode */
+/* 582 */     OP_roundss,        /* &vex_extensions[42][0], */ /**< roundss opcode */
+/* 583 */     OP_roundsd,        /* &vex_extensions[43][0], */ /**< roundsd opcode */
+/* 584 */     OP_blendps,        /* &vex_extensions[44][0], */ /**< blendps opcode */
+/* 585 */     OP_blendpd,        /* &vex_extensions[45][0], */ /**< blendpd opcode */
+/* 586 */     OP_pblendw,        /* &vex_extensions[46][0], */ /**< pblendw opcode */
+/* 587 */     OP_pinsrb,         /* &vex_extensions[47][0], */ /**< pinsrb opcode */
+/* 588 */     OP_insertps,       /* &vex_extensions[48][0], */ /**< insertps opcode */
+/* 589 */     OP_pinsrd,         /* &vex_extensions[49][0], */ /**< pinsrd opcode */
+/* 590 */     OP_dpps,           /* &vex_extensions[50][0], */ /**< dpps opcode */
+/* 591 */     OP_dppd,           /* &vex_extensions[51][0], */ /**< dppd opcode */
+/* 592 */     OP_mpsadbw,        /* &vex_extensions[52][0], */ /**< mpsadbw opcode */
+/* 593 */     OP_pcmpestrm,      /* &vex_extensions[53][0], */ /**< pcmpestrm opcode */
+/* 594 */     OP_pcmpestri,      /* &vex_extensions[54][0], */ /**< pcmpestri opcode */
+/* 595 */     OP_pcmpistrm,      /* &vex_extensions[55][0], */ /**< pcmpistrm opcode */
+/* 596 */     OP_pcmpistri,      /* &vex_extensions[56][0], */ /**< pcmpistri opcode */
 
     /* x64 */
 /* 597 */     OP_movsxd,         /* &x64_extensions[16][1], */ /**< movsxd opcode */
@@ -3906,36 +3951,340 @@ enum {
 /* 622 */     OP_invvpid,        /* &third_byte_38[50], */ /**< invvpid opcode */
 
     /* added in Intel Westmere */
-/* 623 */     OP_pclmulqdq,      /* &third_byte_3a[23], */ /**< pclmulqdq opcode */
-/* 624 */     OP_aesimc,         /* &third_byte_38[51], */ /**< aesimc opcode */
-/* 625 */     OP_aesenc,         /* &third_byte_38[52], */ /**< aesenc opcode */
-/* 626 */     OP_aesenclast,     /* &third_byte_38[53], */ /**< aesenclast opcode */
-/* 627 */     OP_aesdec,         /* &third_byte_38[54], */ /**< aesdec opcode */
-/* 628 */     OP_aesdeclast,     /* &third_byte_38[55], */ /**< aesdeclast opcode */
-/* 629 */     OP_aeskeygenassist, /* &third_byte_3a[24], */ /**< aeskeygenassist opcode */
+/* 623 */     OP_pclmulqdq,      /* &vex_extensions[57][0], */ /**< pclmulqdq opcode */
+/* 624 */     OP_aesimc,         /* &vex_extensions[31][0], */ /**< aesimc opcode */
+/* 625 */     OP_aesenc,         /* &vex_extensions[32][0], */ /**< aesenc opcode */
+/* 626 */     OP_aesenclast,     /* &vex_extensions[33][0], */ /**< aesenclast opcode */
+/* 627 */     OP_aesdec,         /* &vex_extensions[34][0], */ /**< aesdec opcode */
+/* 628 */     OP_aesdeclast,     /* &vex_extensions[35][0], */ /**< aesdeclast opcode */
+/* 629 */     OP_aeskeygenassist, /* &vex_extensions[58][0], */ /**< aeskeygenassist opcode */
 
     /* added in Intel Atom */
 /* 630 */     OP_movbe,          /* &prefix_extensions[138][0], */ /**< movbe opcode */
 
     /* added in Intel Sandy Bridge */
 /* 631 */     OP_xgetbv,         /* &rm_extensions[4][0], */ /**< xgetbv opcode */
-/* 632 */     OP_xsetbv,         /* &rm_extensions[4][0], */ /**< xsetbv opcode */
+/* 632 */     OP_xsetbv,         /* &rm_extensions[4][1], */ /**< xsetbv opcode */
 /* 633 */     OP_xsave,          /* &extensions[22][4], */ /**< xsave opcode */
 /* 634 */     OP_xrstor,         /* &mod_extensions[6][0], */ /**< xrstor opcode */
 /* 635 */     OP_xsaveopt,       /* &mod_extensions[7][0], */ /**< xsaveopt opcode */
 
+    /* AVX */
+/* 636 */     OP_vmovss,         /* &mod_extensions[ 8][0], */ /**< vmovss opcode */
+/* 637 */     OP_vmovsd,         /* &mod_extensions[ 9][0], */ /**< vmovsd opcode */
+/* 638 */     OP_vmovups,        /* &prefix_extensions[ 0][4], */ /**< vmovups opcode */
+/* 639 */     OP_vmovupd,        /* &prefix_extensions[ 0][6], */ /**< vmovupd opcode */
+/* 640 */     OP_vmovlps,        /* &prefix_extensions[ 2][4], */ /**< vmovlps opcode */
+/* 641 */     OP_vmovsldup,      /* &prefix_extensions[ 2][5], */ /**< vmovsldup opcode */
+/* 642 */     OP_vmovlpd,        /* &prefix_extensions[ 2][6], */ /**< vmovlpd opcode */
+/* 643 */     OP_vmovddup,       /* &prefix_extensions[ 2][7], */ /**< vmovddup opcode */
+/* 644 */     OP_vunpcklps,      /* &prefix_extensions[ 4][4], */ /**< vunpcklps opcode */
+/* 645 */     OP_vunpcklpd,      /* &prefix_extensions[ 4][6], */ /**< vunpcklpd opcode */
+/* 646 */     OP_vunpckhps,      /* &prefix_extensions[ 5][4], */ /**< vunpckhps opcode */
+/* 647 */     OP_vunpckhpd,      /* &prefix_extensions[ 5][6], */ /**< vunpckhpd opcode */
+/* 648 */     OP_vmovhps,        /* &prefix_extensions[ 6][4], */ /**< vmovhps opcode */
+/* 649 */     OP_vmovshdup,      /* &prefix_extensions[ 6][5], */ /**< vmovshdup opcode */
+/* 650 */     OP_vmovhpd,        /* &prefix_extensions[ 6][6], */ /**< vmovhpd opcode */
+/* 651 */     OP_vmovaps,        /* &prefix_extensions[ 8][4], */ /**< vmovaps opcode */
+/* 652 */     OP_vmovapd,        /* &prefix_extensions[ 8][6], */ /**< vmovapd opcode */
+/* 653 */     OP_vcvtsi2ss,      /* &prefix_extensions[10][5], */ /**< vcvtsi2ss opcode */
+/* 654 */     OP_vcvtsi2sd,      /* &prefix_extensions[10][7], */ /**< vcvtsi2sd opcode */
+/* 655 */     OP_vmovntps,       /* &prefix_extensions[11][4], */ /**< vmovntps opcode */
+/* 656 */     OP_vmovntpd,       /* &prefix_extensions[11][6], */ /**< vmovntpd opcode */
+/* 657 */     OP_vcvttss2si,     /* &prefix_extensions[12][5], */ /**< vcvttss2si opcode */
+/* 658 */     OP_vcvttsd2si,     /* &prefix_extensions[12][7], */ /**< vcvttsd2si opcode */
+/* 659 */     OP_vcvtss2si,      /* &prefix_extensions[13][5], */ /**< vcvtss2si opcode */
+/* 660 */     OP_vcvtsd2si,      /* &prefix_extensions[13][7], */ /**< vcvtsd2si opcode */
+/* 661 */     OP_vucomiss,       /* &prefix_extensions[14][4], */ /**< vucomiss opcode */
+/* 662 */     OP_vucomisd,       /* &prefix_extensions[14][6], */ /**< vucomisd opcode */
+/* 663 */     OP_vcomiss,        /* &prefix_extensions[15][4], */ /**< vcomiss opcode */
+/* 664 */     OP_vcomisd,        /* &prefix_extensions[15][6], */ /**< vcomisd opcode */
+/* 665 */     OP_vmovmskps,      /* &prefix_extensions[16][4], */ /**< vmovmskps opcode */
+/* 666 */     OP_vmovmskpd,      /* &prefix_extensions[16][6], */ /**< vmovmskpd opcode */
+/* 667 */     OP_vsqrtps,        /* &prefix_extensions[17][4], */ /**< vsqrtps opcode */
+/* 668 */     OP_vsqrtss,        /* &prefix_extensions[17][5], */ /**< vsqrtss opcode */
+/* 669 */     OP_vsqrtpd,        /* &prefix_extensions[17][6], */ /**< vsqrtpd opcode */
+/* 670 */     OP_vsqrtsd,        /* &prefix_extensions[17][7], */ /**< vsqrtsd opcode */
+/* 671 */     OP_vrsqrtps,       /* &prefix_extensions[18][4], */ /**< vrsqrtps opcode */
+/* 672 */     OP_vrsqrtss,       /* &prefix_extensions[18][5], */ /**< vrsqrtss opcode */
+/* 673 */     OP_vrcpps,         /* &prefix_extensions[19][4], */ /**< vrcpps opcode */
+/* 674 */     OP_vrcpss,         /* &prefix_extensions[19][5], */ /**< vrcpss opcode */
+/* 675 */     OP_vandps,         /* &prefix_extensions[20][4], */ /**< vandps opcode */
+/* 676 */     OP_vandpd,         /* &prefix_extensions[20][6], */ /**< vandpd opcode */
+/* 677 */     OP_vandnps,        /* &prefix_extensions[21][4], */ /**< vandnps opcode */
+/* 678 */     OP_vandnpd,        /* &prefix_extensions[21][6], */ /**< vandnpd opcode */
+/* 679 */     OP_vorps,          /* &prefix_extensions[22][4], */ /**< vorps opcode */
+/* 680 */     OP_vorpd,          /* &prefix_extensions[22][6], */ /**< vorpd opcode */
+/* 681 */     OP_vxorps,         /* &prefix_extensions[23][4], */ /**< vxorps opcode */
+/* 682 */     OP_vxorpd,         /* &prefix_extensions[23][6], */ /**< vxorpd opcode */
+/* 683 */     OP_vaddps,         /* &prefix_extensions[24][4], */ /**< vaddps opcode */
+/* 684 */     OP_vaddss,         /* &prefix_extensions[24][5], */ /**< vaddss opcode */
+/* 685 */     OP_vaddpd,         /* &prefix_extensions[24][6], */ /**< vaddpd opcode */
+/* 686 */     OP_vaddsd,         /* &prefix_extensions[24][7], */ /**< vaddsd opcode */
+/* 687 */     OP_vmulps,         /* &prefix_extensions[25][4], */ /**< vmulps opcode */
+/* 688 */     OP_vmulss,         /* &prefix_extensions[25][5], */ /**< vmulss opcode */
+/* 689 */     OP_vmulpd,         /* &prefix_extensions[25][6], */ /**< vmulpd opcode */
+/* 690 */     OP_vmulsd,         /* &prefix_extensions[25][7], */ /**< vmulsd opcode */
+/* 691 */     OP_vcvtps2pd,      /* &prefix_extensions[26][4], */ /**< vcvtps2pd opcode */
+/* 692 */     OP_vcvtss2sd,      /* &prefix_extensions[26][5], */ /**< vcvtss2sd opcode */
+/* 693 */     OP_vcvtpd2ps,      /* &prefix_extensions[26][6], */ /**< vcvtpd2ps opcode */
+/* 694 */     OP_vcvtsd2ss,      /* &prefix_extensions[26][7], */ /**< vcvtsd2ss opcode */
+/* 695 */     OP_vcvtdq2ps,      /* &prefix_extensions[27][4], */ /**< vcvtdq2ps opcode */
+/* 696 */     OP_vcvttps2dq,     /* &prefix_extensions[27][5], */ /**< vcvttps2dq opcode */
+/* 697 */     OP_vcvtps2dq,      /* &prefix_extensions[27][6], */ /**< vcvtps2dq opcode */
+/* 698 */     OP_vsubps,         /* &prefix_extensions[28][4], */ /**< vsubps opcode */
+/* 699 */     OP_vsubss,         /* &prefix_extensions[28][5], */ /**< vsubss opcode */
+/* 700 */     OP_vsubpd,         /* &prefix_extensions[28][6], */ /**< vsubpd opcode */
+/* 701 */     OP_vsubsd,         /* &prefix_extensions[28][7], */ /**< vsubsd opcode */
+/* 702 */     OP_vminps,         /* &prefix_extensions[29][4], */ /**< vminps opcode */
+/* 703 */     OP_vminss,         /* &prefix_extensions[29][5], */ /**< vminss opcode */
+/* 704 */     OP_vminpd,         /* &prefix_extensions[29][6], */ /**< vminpd opcode */
+/* 705 */     OP_vminsd,         /* &prefix_extensions[29][7], */ /**< vminsd opcode */
+/* 706 */     OP_vdivps,         /* &prefix_extensions[30][4], */ /**< vdivps opcode */
+/* 707 */     OP_vdivss,         /* &prefix_extensions[30][5], */ /**< vdivss opcode */
+/* 708 */     OP_vdivpd,         /* &prefix_extensions[30][6], */ /**< vdivpd opcode */
+/* 709 */     OP_vdivsd,         /* &prefix_extensions[30][7], */ /**< vdivsd opcode */
+/* 710 */     OP_vmaxps,         /* &prefix_extensions[31][4], */ /**< vmaxps opcode */
+/* 711 */     OP_vmaxss,         /* &prefix_extensions[31][5], */ /**< vmaxss opcode */
+/* 712 */     OP_vmaxpd,         /* &prefix_extensions[31][6], */ /**< vmaxpd opcode */
+/* 713 */     OP_vmaxsd,         /* &prefix_extensions[31][7], */ /**< vmaxsd opcode */
+/* 714 */     OP_vpunpcklbw,     /* &prefix_extensions[32][6], */ /**< vpunpcklbw opcode */
+/* 715 */     OP_vpunpcklwd,     /* &prefix_extensions[33][6], */ /**< vpunpcklwd opcode */
+/* 716 */     OP_vpunpckldq,     /* &prefix_extensions[34][6], */ /**< vpunpckldq opcode */
+/* 717 */     OP_vpacksswb,      /* &prefix_extensions[35][6], */ /**< vpacksswb opcode */
+/* 718 */     OP_vpcmpgtb,       /* &prefix_extensions[36][6], */ /**< vpcmpgtb opcode */
+/* 719 */     OP_vpcmpgtw,       /* &prefix_extensions[37][6], */ /**< vpcmpgtw opcode */
+/* 720 */     OP_vpcmpgtd,       /* &prefix_extensions[38][6], */ /**< vpcmpgtd opcode */
+/* 721 */     OP_vpackuswb,      /* &prefix_extensions[39][6], */ /**< vpackuswb opcode */
+/* 722 */     OP_vpunpckhbw,     /* &prefix_extensions[40][6], */ /**< vpunpckhbw opcode */
+/* 723 */     OP_vpunpckhwd,     /* &prefix_extensions[41][6], */ /**< vpunpckhwd opcode */
+/* 724 */     OP_vpunpckhdq,     /* &prefix_extensions[42][6], */ /**< vpunpckhdq opcode */
+/* 725 */     OP_vpackssdw,      /* &prefix_extensions[43][6], */ /**< vpackssdw opcode */
+/* 726 */     OP_vpunpcklqdq,    /* &prefix_extensions[44][6], */ /**< vpunpcklqdq opcode */
+/* 727 */     OP_vpunpckhqdq,    /* &prefix_extensions[45][6], */ /**< vpunpckhqdq opcode */
+/* 728 */     OP_vmovd,          /* &prefix_extensions[46][6], */ /**< vmovd opcode */
+/* 729 */     OP_vpshufhw,       /* &prefix_extensions[47][5], */ /**< vpshufhw opcode */
+/* 730 */     OP_vpshufd,        /* &prefix_extensions[47][6], */ /**< vpshufd opcode */
+/* 731 */     OP_vpshuflw,       /* &prefix_extensions[47][7], */ /**< vpshuflw opcode */
+/* 732 */     OP_vpcmpeqb,       /* &prefix_extensions[48][6], */ /**< vpcmpeqb opcode */
+/* 733 */     OP_vpcmpeqw,       /* &prefix_extensions[49][6], */ /**< vpcmpeqw opcode */
+/* 734 */     OP_vpcmpeqd,       /* &prefix_extensions[50][6], */ /**< vpcmpeqd opcode */
+/* 735 */     OP_vmovq,          /* &prefix_extensions[51][5], */ /**< vmovq opcode */
+/* 736 */     OP_vcmpps,         /* &prefix_extensions[52][4], */ /**< vcmpps opcode */
+/* 737 */     OP_vcmpss,         /* &prefix_extensions[52][5], */ /**< vcmpss opcode */
+/* 738 */     OP_vcmppd,         /* &prefix_extensions[52][6], */ /**< vcmppd opcode */
+/* 739 */     OP_vcmpsd,         /* &prefix_extensions[52][7], */ /**< vcmpsd opcode */
+/* 740 */     OP_vpinsrw,        /* &prefix_extensions[53][6], */ /**< vpinsrw opcode */
+/* 741 */     OP_vpextrw,        /* &prefix_extensions[54][6], */ /**< vpextrw opcode */
+/* 742 */     OP_vshufps,        /* &prefix_extensions[55][4], */ /**< vshufps opcode */
+/* 743 */     OP_vshufpd,        /* &prefix_extensions[55][6], */ /**< vshufpd opcode */
+/* 744 */     OP_vpsrlw,         /* &prefix_extensions[56][6], */ /**< vpsrlw opcode */
+/* 745 */     OP_vpsrld,         /* &prefix_extensions[57][6], */ /**< vpsrld opcode */
+/* 746 */     OP_vpsrlq,         /* &prefix_extensions[58][6], */ /**< vpsrlq opcode */
+/* 747 */     OP_vpaddq,         /* &prefix_extensions[59][6], */ /**< vpaddq opcode */
+/* 748 */     OP_vpmullw,        /* &prefix_extensions[60][6], */ /**< vpmullw opcode */
+/* 749 */     OP_vpmovmskb,      /* &prefix_extensions[62][6], */ /**< vpmovmskb opcode */
+/* 750 */     OP_vpsubusb,       /* &prefix_extensions[63][6], */ /**< vpsubusb opcode */
+/* 751 */     OP_vpsubusw,       /* &prefix_extensions[64][6], */ /**< vpsubusw opcode */
+/* 752 */     OP_vpminub,        /* &prefix_extensions[65][6], */ /**< vpminub opcode */
+/* 753 */     OP_vpand,          /* &prefix_extensions[66][6], */ /**< vpand opcode */
+/* 754 */     OP_vpaddusb,       /* &prefix_extensions[67][6], */ /**< vpaddusb opcode */
+/* 755 */     OP_vpaddusw,       /* &prefix_extensions[68][6], */ /**< vpaddusw opcode */
+/* 756 */     OP_vpmaxub,        /* &prefix_extensions[69][6], */ /**< vpmaxub opcode */
+/* 757 */     OP_vpandn,         /* &prefix_extensions[70][6], */ /**< vpandn opcode */
+/* 758 */     OP_vpavgb,         /* &prefix_extensions[71][6], */ /**< vpavgb opcode */
+/* 759 */     OP_vpsraw,         /* &prefix_extensions[72][6], */ /**< vpsraw opcode */
+/* 760 */     OP_vpsrad,         /* &prefix_extensions[73][6], */ /**< vpsrad opcode */
+/* 761 */     OP_vpavgw,         /* &prefix_extensions[74][6], */ /**< vpavgw opcode */
+/* 762 */     OP_vpmulhuw,       /* &prefix_extensions[75][6], */ /**< vpmulhuw opcode */
+/* 763 */     OP_vpmulhw,        /* &prefix_extensions[76][6], */ /**< vpmulhw opcode */
+/* 764 */     OP_vcvtdq2pd,      /* &prefix_extensions[77][5], */ /**< vcvtdq2pd opcode */
+/* 765 */     OP_vcvttpd2dq,     /* &prefix_extensions[77][6], */ /**< vcvttpd2dq opcode */
+/* 766 */     OP_vcvtpd2dq,      /* &prefix_extensions[77][7], */ /**< vcvtpd2dq opcode */
+/* 767 */     OP_vmovntdq,       /* &prefix_extensions[78][6], */ /**< vmovntdq opcode */
+/* 768 */     OP_vpsubsb,        /* &prefix_extensions[79][6], */ /**< vpsubsb opcode */
+/* 769 */     OP_vpsubsw,        /* &prefix_extensions[80][6], */ /**< vpsubsw opcode */
+/* 770 */     OP_vpminsw,        /* &prefix_extensions[81][6], */ /**< vpminsw opcode */
+/* 771 */     OP_vpor,           /* &prefix_extensions[82][6], */ /**< vpor opcode */
+/* 772 */     OP_vpaddsb,        /* &prefix_extensions[83][6], */ /**< vpaddsb opcode */
+/* 773 */     OP_vpaddsw,        /* &prefix_extensions[84][6], */ /**< vpaddsw opcode */
+/* 774 */     OP_vpmaxsw,        /* &prefix_extensions[85][6], */ /**< vpmaxsw opcode */
+/* 775 */     OP_vpxor,          /* &prefix_extensions[86][6], */ /**< vpxor opcode */
+/* 776 */     OP_vpsllw,         /* &prefix_extensions[87][6], */ /**< vpsllw opcode */
+/* 777 */     OP_vpslld,         /* &prefix_extensions[88][6], */ /**< vpslld opcode */
+/* 778 */     OP_vpsllq,         /* &prefix_extensions[89][6], */ /**< vpsllq opcode */
+/* 779 */     OP_vpmuludq,       /* &prefix_extensions[90][6], */ /**< vpmuludq opcode */
+/* 780 */     OP_vpmaddwd,       /* &prefix_extensions[91][6], */ /**< vpmaddwd opcode */
+/* 781 */     OP_vpsadbw,        /* &prefix_extensions[92][6], */ /**< vpsadbw opcode */
+/* 782 */     OP_vmaskmovdqu,    /* &prefix_extensions[93][6], */ /**< vmaskmovdqu opcode */
+/* 783 */     OP_vpsubb,         /* &prefix_extensions[94][6], */ /**< vpsubb opcode */
+/* 784 */     OP_vpsubw,         /* &prefix_extensions[95][6], */ /**< vpsubw opcode */
+/* 785 */     OP_vpsubd,         /* &prefix_extensions[96][6], */ /**< vpsubd opcode */
+/* 786 */     OP_vpsubq,         /* &prefix_extensions[97][6], */ /**< vpsubq opcode */
+/* 787 */     OP_vpaddb,         /* &prefix_extensions[98][6], */ /**< vpaddb opcode */
+/* 788 */     OP_vpaddw,         /* &prefix_extensions[99][6], */ /**< vpaddw opcode */
+/* 789 */     OP_vpaddd,         /* &prefix_extensions[100][6], */ /**< vpaddd opcode */
+/* 790 */     OP_vpsrldq,        /* &prefix_extensions[101][6], */ /**< vpsrldq opcode */
+/* 791 */     OP_vpslldq,        /* &prefix_extensions[102][6], */ /**< vpslldq opcode */
+/* 792 */     OP_vmovdqu,        /* &prefix_extensions[112][5], */ /**< vmovdqu opcode */
+/* 793 */     OP_vmovdqa,        /* &prefix_extensions[112][6], */ /**< vmovdqa opcode */
+/* 794 */     OP_vhaddpd,        /* &prefix_extensions[114][6], */ /**< vhaddpd opcode */
+/* 795 */     OP_vhaddps,        /* &prefix_extensions[114][7], */ /**< vhaddps opcode */
+/* 796 */     OP_vhsubpd,        /* &prefix_extensions[115][6], */ /**< vhsubpd opcode */
+/* 797 */     OP_vhsubps,        /* &prefix_extensions[115][7], */ /**< vhsubps opcode */
+/* 798 */     OP_vaddsubpd,      /* &prefix_extensions[116][6], */ /**< vaddsubpd opcode */
+/* 799 */     OP_vaddsubps,      /* &prefix_extensions[116][7], */ /**< vaddsubps opcode */
+/* 800 */     OP_vlddqu,         /* &prefix_extensions[117][7], */ /**< vlddqu opcode */
+/* 801 */     OP_vpshufb,        /* &prefix_extensions[118][6], */ /**< vpshufb opcode */
+/* 802 */     OP_vphaddw,        /* &prefix_extensions[119][6], */ /**< vphaddw opcode */
+/* 803 */     OP_vphaddd,        /* &prefix_extensions[120][6], */ /**< vphaddd opcode */
+/* 804 */     OP_vphaddsw,       /* &prefix_extensions[121][6], */ /**< vphaddsw opcode */
+/* 805 */     OP_vpmaddubsw,     /* &prefix_extensions[122][6], */ /**< vpmaddubsw opcode */
+/* 806 */     OP_vphsubw,        /* &prefix_extensions[123][6], */ /**< vphsubw opcode */
+/* 807 */     OP_vphsubd,        /* &prefix_extensions[124][6], */ /**< vphsubd opcode */
+/* 808 */     OP_vphsubsw,       /* &prefix_extensions[125][6], */ /**< vphsubsw opcode */
+/* 809 */     OP_vpsignb,        /* &prefix_extensions[126][6], */ /**< vpsignb opcode */
+/* 810 */     OP_vpsignw,        /* &prefix_extensions[127][6], */ /**< vpsignw opcode */
+/* 811 */     OP_vpsignd,        /* &prefix_extensions[128][6], */ /**< vpsignd opcode */
+/* 812 */     OP_vpmulhrsw,      /* &prefix_extensions[129][6], */ /**< vpmulhrsw opcode */
+/* 813 */     OP_vpabsb,         /* &prefix_extensions[130][6], */ /**< vpabsb opcode */
+/* 814 */     OP_vpabsw,         /* &prefix_extensions[131][6], */ /**< vpabsw opcode */
+/* 815 */     OP_vpabsd,         /* &prefix_extensions[132][6], */ /**< vpabsd opcode */
+/* 816 */     OP_vpalignr,       /* &prefix_extensions[133][6], */ /**< vpalignr opcode */
+/* 817 */     OP_vpblendvb,      /* &vex_extensions[ 0][1], */ /**< vpblendvb opcode */
+/* 818 */     OP_vblendvps,      /* &vex_extensions[ 1][1], */ /**< vblendvps opcode */
+/* 819 */     OP_vblendvpd,      /* &vex_extensions[ 2][1], */ /**< vblendvpd opcode */
+/* 820 */     OP_vptest,         /* &vex_extensions[ 3][1], */ /**< vptest opcode */
+/* 821 */     OP_vpmovsxbw,      /* &vex_extensions[ 4][1], */ /**< vpmovsxbw opcode */
+/* 822 */     OP_vpmovsxbd,      /* &vex_extensions[ 5][1], */ /**< vpmovsxbd opcode */
+/* 823 */     OP_vpmovsxbq,      /* &vex_extensions[ 6][1], */ /**< vpmovsxbq opcode */
+/* 824 */     OP_vpmovsxdw,      /* &vex_extensions[ 7][1], */ /**< vpmovsxdw opcode */
+/* 825 */     OP_vpmovsxwq,      /* &vex_extensions[ 8][1], */ /**< vpmovsxwq opcode */
+/* 826 */     OP_vpmovsxdq,      /* &vex_extensions[ 9][1], */ /**< vpmovsxdq opcode */
+/* 827 */     OP_vpmuldq,        /* &vex_extensions[10][1], */ /**< vpmuldq opcode */
+/* 828 */     OP_vpcmpeqq,       /* &vex_extensions[11][1], */ /**< vpcmpeqq opcode */
+/* 829 */     OP_vmovntdqa,      /* &vex_extensions[12][1], */ /**< vmovntdqa opcode */
+/* 830 */     OP_vpackusdw,      /* &vex_extensions[13][1], */ /**< vpackusdw opcode */
+/* 831 */     OP_vpmovzxbw,      /* &vex_extensions[14][1], */ /**< vpmovzxbw opcode */
+/* 832 */     OP_vpmovzxbd,      /* &vex_extensions[15][1], */ /**< vpmovzxbd opcode */
+/* 833 */     OP_vpmovzxbq,      /* &vex_extensions[16][1], */ /**< vpmovzxbq opcode */
+/* 834 */     OP_vpmovzxdw,      /* &vex_extensions[17][1], */ /**< vpmovzxdw opcode */
+/* 835 */     OP_vpmovzxwq,      /* &vex_extensions[18][1], */ /**< vpmovzxwq opcode */
+/* 836 */     OP_vpmovzxdq,      /* &vex_extensions[19][1], */ /**< vpmovzxdq opcode */
+/* 837 */     OP_vpcmpgtq,       /* &vex_extensions[20][1], */ /**< vpcmpgtq opcode */
+/* 838 */     OP_vpminsb,        /* &vex_extensions[21][1], */ /**< vpminsb opcode */
+/* 839 */     OP_vpminsd,        /* &vex_extensions[22][1], */ /**< vpminsd opcode */
+/* 840 */     OP_vpminuw,        /* &vex_extensions[23][1], */ /**< vpminuw opcode */
+/* 841 */     OP_vpminud,        /* &vex_extensions[24][1], */ /**< vpminud opcode */
+/* 842 */     OP_vpmaxsb,        /* &vex_extensions[25][1], */ /**< vpmaxsb opcode */
+/* 843 */     OP_vpmaxsd,        /* &vex_extensions[26][1], */ /**< vpmaxsd opcode */
+/* 844 */     OP_vpmaxuw,        /* &vex_extensions[27][1], */ /**< vpmaxuw opcode */
+/* 845 */     OP_vpmaxud,        /* &vex_extensions[28][1], */ /**< vpmaxud opcode */
+/* 846 */     OP_vpmulld,        /* &vex_extensions[29][1], */ /**< vpmulld opcode */
+/* 847 */     OP_vphminposuw,    /* &vex_extensions[30][1], */ /**< vphminposuw opcode */
+/* 848 */     OP_vaesimc,        /* &vex_extensions[31][1], */ /**< vaesimc opcode */
+/* 849 */     OP_vaesenc,        /* &vex_extensions[32][1], */ /**< vaesenc opcode */
+/* 850 */     OP_vaesenclast,    /* &vex_extensions[33][1], */ /**< vaesenclast opcode */
+/* 851 */     OP_vaesdec,        /* &vex_extensions[34][1], */ /**< vaesdec opcode */
+/* 852 */     OP_vaesdeclast,    /* &vex_extensions[35][1], */ /**< vaesdeclast opcode */
+/* 853 */     OP_vpextrb,        /* &vex_extensions[36][1], */ /**< vpextrb opcode */
+/* 854 */     OP_vpextrd,        /* &vex_extensions[38][1], */ /**< vpextrd opcode */
+/* 855 */     OP_vextractps,     /* &vex_extensions[39][1], */ /**< vextractps opcode */
+/* 856 */     OP_vroundps,       /* &vex_extensions[40][1], */ /**< vroundps opcode */
+/* 857 */     OP_vroundpd,       /* &vex_extensions[41][1], */ /**< vroundpd opcode */
+/* 858 */     OP_vroundss,       /* &vex_extensions[42][1], */ /**< vroundss opcode */
+/* 859 */     OP_vroundsd,       /* &vex_extensions[43][1], */ /**< vroundsd opcode */
+/* 860 */     OP_vblendps,       /* &vex_extensions[44][1], */ /**< vblendps opcode */
+/* 861 */     OP_vblendpd,       /* &vex_extensions[45][1], */ /**< vblendpd opcode */
+/* 862 */     OP_vpblendw,       /* &vex_extensions[46][1], */ /**< vpblendw opcode */
+/* 863 */     OP_vpinsrb,        /* &vex_extensions[47][1], */ /**< vpinsrb opcode */
+/* 864 */     OP_vinsertps,      /* &vex_extensions[48][1], */ /**< vinsertps opcode */
+/* 865 */     OP_vpinsrd,        /* &vex_extensions[49][1], */ /**< vpinsrd opcode */
+/* 866 */     OP_vdpps,          /* &vex_extensions[50][1], */ /**< vdpps opcode */
+/* 867 */     OP_vdppd,          /* &vex_extensions[51][1], */ /**< vdppd opcode */
+/* 868 */     OP_vmpsadbw,       /* &vex_extensions[52][1], */ /**< vmpsadbw opcode */
+/* 869 */     OP_vpcmpestrm,     /* &vex_extensions[53][1], */ /**< vpcmpestrm opcode */
+/* 870 */     OP_vpcmpestri,     /* &vex_extensions[54][1], */ /**< vpcmpestri opcode */
+/* 871 */     OP_vpcmpistrm,     /* &vex_extensions[55][1], */ /**< vpcmpistrm opcode */
+/* 872 */     OP_vpcmpistri,     /* &vex_extensions[56][1], */ /**< vpcmpistri opcode */
+/* 873 */     OP_vpclmulqdq,     /* &vex_extensions[57][1], */ /**< vpclmulqdq opcode */
+/* 874 */     OP_vaeskeygenassist, /* &vex_extensions[58][1], */ /**< vaeskeygenassist opcode */
+/* 875 */     OP_vtestps,        /* &vex_extensions[59][1], */ /**< vtestps opcode */
+/* 876 */     OP_vtestpd,        /* &vex_extensions[60][1], */ /**< vtestpd opcode */
+/* 877 */     OP_vzeroupper,     /* &vex_L_extensions[0][1], */ /**< vzeroupper opcode */
+/* 878 */     OP_vzeroall,       /* &vex_L_extensions[0][2], */ /**< vzeroall opcode */
+
+    /* FMA */
+/* 879 */     OP_vfmadd132ps,    /* &vex_W_extensions[ 0][0], */ /**< vfmadd132ps opcode */
+/* 880 */     OP_vfmadd132pd,    /* &vex_W_extensions[ 0][1], */ /**< vfmadd132pd opcode */
+/* 881 */     OP_vfmadd213ps,    /* &vex_W_extensions[ 1][0], */ /**< vfmadd213ps opcode */
+/* 882 */     OP_vfmadd213pd,    /* &vex_W_extensions[ 1][1], */ /**< vfmadd213pd opcode */
+/* 883 */     OP_vfmadd231ps,    /* &vex_W_extensions[ 2][0], */ /**< vfmadd231ps opcode */
+/* 884 */     OP_vfmadd231pd,    /* &vex_W_extensions[ 2][1], */ /**< vfmadd231pd opcode */
+/* 885 */     OP_vfmadd132ss,    /* &vex_W_extensions[ 3][0], */ /**< vfmadd132ss opcode */
+/* 886 */     OP_vfmadd132sd,    /* &vex_W_extensions[ 3][1], */ /**< vfmadd132sd opcode */
+/* 887 */     OP_vfmadd213ss,    /* &vex_W_extensions[ 4][0], */ /**< vfmadd213ss opcode */
+/* 888 */     OP_vfmadd213sd,    /* &vex_W_extensions[ 4][1], */ /**< vfmadd213sd opcode */
+/* 889 */     OP_vfmadd231ss,    /* &vex_W_extensions[ 5][0], */ /**< vfmadd231ss opcode */
+/* 890 */     OP_vfmadd231sd,    /* &vex_W_extensions[ 5][1], */ /**< vfmadd231sd opcode */
+/* 891 */     OP_vfmaddsub132ps, /* &vex_W_extensions[ 6][0], */ /**< vfmaddsub132ps opcode */
+/* 892 */     OP_vfmaddsub132pd, /* &vex_W_extensions[ 6][1], */ /**< vfmaddsub132pd opcode */
+/* 893 */     OP_vfmaddsub213ps, /* &vex_W_extensions[ 7][0], */ /**< vfmaddsub213ps opcode */
+/* 894 */     OP_vfmaddsub213pd, /* &vex_W_extensions[ 7][1], */ /**< vfmaddsub213pd opcode */
+/* 895 */     OP_vfmaddsub231ps, /* &vex_W_extensions[ 8][0], */ /**< vfmaddsub231ps opcode */
+/* 896 */     OP_vfmaddsub231pd, /* &vex_W_extensions[ 8][1], */ /**< vfmaddsub231pd opcode */
+/* 897 */     OP_vfmsubadd132ps, /* &vex_W_extensions[ 9][0], */ /**< vfmsubadd132ps opcode */
+/* 898 */     OP_vfmsubadd132pd, /* &vex_W_extensions[ 9][1], */ /**< vfmsubadd132pd opcode */
+/* 899 */     OP_vfmsubadd213ps, /* &vex_W_extensions[10][0], */ /**< vfmsubadd213ps opcode */
+/* 900 */     OP_vfmsubadd213pd, /* &vex_W_extensions[10][1], */ /**< vfmsubadd213pd opcode */
+/* 901 */     OP_vfmsubadd231ps, /* &vex_W_extensions[11][0], */ /**< vfmsubadd231ps opcode */
+/* 902 */     OP_vfmsubadd231pd, /* &vex_W_extensions[11][1], */ /**< vfmsubadd231pd opcode */
+/* 903 */     OP_vfmsub132ps,    /* &vex_W_extensions[12][0], */ /**< vfmsub132ps opcode */
+/* 904 */     OP_vfmsub132pd,    /* &vex_W_extensions[12][1], */ /**< vfmsub132pd opcode */
+/* 905 */     OP_vfmsub213ps,    /* &vex_W_extensions[13][0], */ /**< vfmsub213ps opcode */
+/* 906 */     OP_vfmsub213pd,    /* &vex_W_extensions[13][1], */ /**< vfmsub213pd opcode */
+/* 907 */     OP_vfmsub231ps,    /* &vex_W_extensions[14][0], */ /**< vfmsub231ps opcode */
+/* 908 */     OP_vfmsub231pd,    /* &vex_W_extensions[14][1], */ /**< vfmsub231pd opcode */
+/* 909 */     OP_vfmsub132ss,    /* &vex_W_extensions[15][0], */ /**< vfmsub132ss opcode */
+/* 910 */     OP_vfmsub132sd,    /* &vex_W_extensions[15][1], */ /**< vfmsub132sd opcode */
+/* 911 */     OP_vfmsub213ss,    /* &vex_W_extensions[16][0], */ /**< vfmsub213ss opcode */
+/* 912 */     OP_vfmsub213sd,    /* &vex_W_extensions[16][1], */ /**< vfmsub213sd opcode */
+/* 913 */     OP_vfmsub231ss,    /* &vex_W_extensions[17][0], */ /**< vfmsub231ss opcode */
+/* 914 */     OP_vfmsub231sd,    /* &vex_W_extensions[17][1], */ /**< vfmsub231sd opcode */
+/* 915 */     OP_vfnmadd132ps,   /* &vex_W_extensions[18][0], */ /**< vfnmadd132ps opcode */
+/* 916 */     OP_vfnmadd132pd,   /* &vex_W_extensions[18][1], */ /**< vfnmadd132pd opcode */
+/* 917 */     OP_vfnmadd213ps,   /* &vex_W_extensions[19][0], */ /**< vfnmadd213ps opcode */
+/* 918 */     OP_vfnmadd213pd,   /* &vex_W_extensions[19][1], */ /**< vfnmadd213pd opcode */
+/* 919 */     OP_vfnmadd231ps,   /* &vex_W_extensions[20][0], */ /**< vfnmadd231ps opcode */
+/* 920 */     OP_vfnmadd231pd,   /* &vex_W_extensions[20][1], */ /**< vfnmadd231pd opcode */
+/* 921 */     OP_vfnmadd132ss,   /* &vex_W_extensions[21][0], */ /**< vfnmadd132ss opcode */
+/* 922 */     OP_vfnmadd132sd,   /* &vex_W_extensions[21][1], */ /**< vfnmadd132sd opcode */
+/* 923 */     OP_vfnmadd213ss,   /* &vex_W_extensions[22][0], */ /**< vfnmadd213ss opcode */
+/* 924 */     OP_vfnmadd213sd,   /* &vex_W_extensions[22][1], */ /**< vfnmadd213sd opcode */
+/* 925 */     OP_vfnmadd231ss,   /* &vex_W_extensions[23][0], */ /**< vfnmadd231ss opcode */
+/* 926 */     OP_vfnmadd231sd,   /* &vex_W_extensions[23][1], */ /**< vfnmadd231sd opcode */
+/* 927 */     OP_vfnmsub132ps,   /* &vex_W_extensions[24][0], */ /**< vfnmsub132ps opcode */
+/* 928 */     OP_vfnmsub132pd,   /* &vex_W_extensions[24][1], */ /**< vfnmsub132pd opcode */
+/* 929 */     OP_vfnmsub213ps,   /* &vex_W_extensions[25][0], */ /**< vfnmsub213ps opcode */
+/* 930 */     OP_vfnmsub213pd,   /* &vex_W_extensions[25][1], */ /**< vfnmsub213pd opcode */
+/* 931 */     OP_vfnmsub231ps,   /* &vex_W_extensions[26][0], */ /**< vfnmsub231ps opcode */
+/* 932 */     OP_vfnmsub231pd,   /* &vex_W_extensions[26][1], */ /**< vfnmsub231pd opcode */
+/* 933 */     OP_vfnmsub132ss,   /* &vex_W_extensions[27][0], */ /**< vfnmsub132ss opcode */
+/* 934 */     OP_vfnmsub132sd,   /* &vex_W_extensions[27][1], */ /**< vfnmsub132sd opcode */
+/* 935 */     OP_vfnmsub213ss,   /* &vex_W_extensions[28][0], */ /**< vfnmsub213ss opcode */
+/* 936 */     OP_vfnmsub213sd,   /* &vex_W_extensions[28][1], */ /**< vfnmsub213sd opcode */
+/* 937 */     OP_vfnmsub231ss,   /* &vex_W_extensions[29][0], */ /**< vfnmsub231ss opcode */
+/* 938 */     OP_vfnmsub231sd,   /* &vex_W_extensions[29][1], */ /**< vfnmsub231sd opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 612 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 613 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 939 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 940 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
-    OP_FIRST = OP_add, /**< First real opcode. */
-#ifdef IA32_ON_IA64
-    OP_LAST = OP_jmpe_abs, /**< Last real opcode. */
-#else
-    OP_LAST = OP_xsaveopt, /**< Last real opcode. */
-#endif
+    OP_AFTER_LAST,
+    OP_FIRST = OP_add,            /**< First real opcode. */
+    OP_LAST  = OP_AFTER_LAST - 1, /**< Last real opcode. */
 };
 
 #ifdef IA32_ON_IA64

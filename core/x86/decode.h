@@ -92,6 +92,13 @@
 #define PREFIX_SEG_FS         0x1000
 #define PREFIX_SEG_GS         0x2000
 
+/* First two are only used during initial decode so if running out of
+ * space could replace w/ byte value compare.
+ */
+#define PREFIX_VEX_2B    0x000004000
+#define PREFIX_VEX_3B    0x000008000
+#define PREFIX_VEX_L     0x000010000
+
 /* We encode some prefixes in the operands themselves, such that we shouldn't
  * consider the whole-instr_t flags when considering equality of Instrs
  */
@@ -168,9 +175,13 @@ typedef struct instr_info_t {
      *   1st nibble (ms) = if bit 1 (OPCODE_TWOBYTES) set, opcode has 2 bytes
      *                     if bit 2 (OPCODE_REG) set, opcode has /n
      *                     if bit 3 (OPCODE_MODRM) set, opcode based on entire modrm
-     *                       that modrm is stored as the byte 0
+     *                       that modrm is stored as the byte 0.
+     *                       if REQUIRES_VEX then this bit instead means that
+     *                       this instruction must have vex.W set.
      *                     if bit 4 (OPCODE_SUFFIX) set, opcode based on suffix byte
      *                       that byte is stored as the byte 0
+     *                       if REQUIRES_VEX then this bit instead means that
+     *                       this instruction must have vex.L set.
      *                     FIXME: so we do not support an instr that has an opcode
      *                     dependent on both a prefix and the entire modrm or suffix!
      *   2nd nibble (ls) = bits 1-3 hold /n for OPCODE_REG
@@ -180,7 +191,9 @@ typedef struct instr_info_t {
      */
     uint opcode;
     const char *name;
-    /* operands */
+    /* operands
+     * the opnd_size_t will instead be reg_id_t for TYPE_*REG*
+     */
     byte dst1_type;  opnd_size_t dst1_size;
     byte dst2_type;  opnd_size_t dst2_size;
     byte src1_type;  opnd_size_t src1_size;
@@ -230,10 +243,18 @@ enum {
     ESCAPE_3BYTE_3a,
     /* instructions differing if a rex prefix is present */
     REX_EXT,
+    /* instructions differing based on whether part of a vex prefix */
+    VEX_PREFIX_EXT,
+    /* instructions differing based on whether vex-encoded */
+    VEX_EXT,
+    /* instructions differing based on whether vex-encoded and vex.L */
+    VEX_L_EXT,
+    /* instructions differing based on vex.W */
+    VEX_W_EXT,
     /* else, from OP_ enum */
 };
 
-/* modrm/extra operands flags == single byte only! */
+/* instr_info_t modrm/extra operands flags == single byte only! */
 #define HAS_MODRM             0x01   /* else, no modrm */
 #define HAS_EXTRA_OPERANDS    0x02   /* else, <= 2 dsts, <= 3 srcs */
 /* if HAS_EXTRA_OPERANDS: */
@@ -245,6 +266,10 @@ enum {
 #define X64_INVALID           0x10
 /* to avoid needing a single-valid-entry subtable in prefix_extensions */
 #define REQUIRES_PREFIX       0x20
+/* instr must be encoded using vex.  if this flag is not present, this instruction
+ * is invalid if encoded using vex.
+ */
+#define REQUIRES_VEX          0x40
 
 /* instr_info_t is used for table entries, it holds info that is constant
  * for all instances of an instruction.
@@ -293,6 +318,12 @@ typedef struct decode_info_t {
 #endif
     /* PR 302353: support decoding as though somewhere else */
     byte *orig_pc;
+    /* these 3 prefixes may be part of opcode */
+    bool data_prefix;
+    bool rep_prefix;
+    bool repne_prefix;
+    byte vex_vvvv; /* vvvv bits for extra operand */
+    bool vex_encoded;
 } decode_info_t;
 
 
@@ -310,8 +341,10 @@ enum {
     TYPE_E, /* modrm selects reg or mem addr */
     /* I don't use type F, I have eflags info in separate field */
     TYPE_G, /* reg of modrm selects register */
+    TYPE_H, /* vex.vvvv field selects xmm/ymm register */
     TYPE_I, /* immediate */
     TYPE_J, /* immediate that is relative offset of EIP */
+    TYPE_L, /* top 4 bits of 8-bit immed select xmm/ymm register */
     TYPE_M, /* modrm select mem addr */
     TYPE_O, /* immediate that is memory offset */
     TYPE_P, /* reg of modrm selects MMX */
@@ -420,8 +453,14 @@ enum {
  * byte, so the largest value here needs to be <= 255.
  */
 enum {
-    /* register enum values are used for TYPE_*REG */
-    OPSZ_NA = DR_REG_LAST_ENUM+1, /**< Sentinel value: not a valid size. */ /* = 139 */
+    /* register enum values are used for TYPE_*REG but we only use them
+     * as opnd_size_t when we have the type available, so we can overlap
+     * the two enums by adding new registers consecutively to the reg enum.
+     * To maintain backward compatibility we keep the OPSZ_ constants
+     * starting at the same spot, now midway through the reg enum:
+     */
+    OPSZ_NA = DR_REG_INVALID+1, /**< Sentinel value: not a valid size. */ /* = 140 */
+    OPSZ_FIRST = OPSZ_NA,
     OPSZ_0,  /**< Intel 'm': "sizeless": used for both start addresses
               * (lea, invlpg) and implicit constants (rol, fldl2e, etc.) */
     OPSZ_1,  /**< Intel 'b': 1 byte */
@@ -493,11 +532,13 @@ enum {
     OPSZ_xsave, /**< Size is > 512 bytes: use cpuid to determine.
                  * Used for FPU, MMX, XMM, etc. state by xsave and xrstor. */
     OPSZ_12,    /**< 12 bytes: 32-bit iret */
-    OPSZ_32,    /**< 32 bytes: pusha/popa */
+    OPSZ_32,    /**< 32 bytes: pusha/popa
+                 * Also Intel 'qq','pd','ps','x': 32 bytes (256 bits) */
     OPSZ_40,    /**< 40 bytes: 64-bit iret */
     OPSZ_32_short16,      /**< unresolved pusha/popa */
     OPSZ_8_rex16_short4,  /**< Intel 'v' * 2 (far call/ret) */
     OPSZ_12_rex40_short6, /**< unresolved iret */
+    OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L */
     /* Add new size here.  Also update size_names[] in encode.c. */
     OPSZ_LAST,
 };
@@ -539,11 +580,16 @@ enum {
 /* DR_API EXPORT END */
 
 enum {
-    /* OPSZ_ constants not exposed to the user */
+    /* OPSZ_ constants not exposed to the user so ok to be shifted
+     * by additions above
+     */
     OPSZ_4_of_8 = OPSZ_LAST,  /* 32 bits, but can be half of MMX register */
     OPSZ_4_of_16, /* 32 bits, but can be part of XMM register */
     OPSZ_8_of_16, /* 64 bits, but can be half of XMM register */
-    OPSZ_LAST_ENUM /* note last is NOT inclusive */
+    OPSZ_8_of_16_vex32, /* 64 bits, but can be half of XMM register; if
+                         * vex.L then is 256 bits (YMM or memory)
+                         */
+    OPSZ_LAST_ENUM, /* note last is NOT inclusive */
 };
 
 #ifdef X64
@@ -722,11 +768,15 @@ decode_opcode_name(int opcode);
 extern const instr_info_t first_byte[];
 extern const instr_info_t second_byte[];
 extern const instr_info_t extensions[][8];
-extern const instr_info_t prefix_extensions[][4];
+extern const instr_info_t prefix_extensions[][8];
 extern const instr_info_t mod_extensions[][2];
 extern const instr_info_t rm_extensions[][8];
 extern const instr_info_t x64_extensions[][2];
 extern const instr_info_t rex_extensions[][2];
+extern const instr_info_t vex_prefix_extensions[][2];
+extern const instr_info_t vex_extensions[][2];
+extern const instr_info_t vex_L_extensions[][3];
+extern const instr_info_t vex_W_extensions[][2];
 extern const byte third_byte_38_index[256];
 extern const byte third_byte_3a_index[256];
 extern const instr_info_t third_byte_38[];

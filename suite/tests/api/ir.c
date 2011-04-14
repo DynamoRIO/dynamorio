@@ -88,8 +88,8 @@ test_all_opcodes(void *dc)
 #   define X86_ONLY    1
 #   define X64_ONLY    2
 
-#   define OPCODE(opc, icnm, ...) \
-    int len_##icnm;
+#   define OPCODE(name, opc, icnm, ...) \
+    int len_##name;
 #   include "ir_0args.h"
 #   include "ir_1args.h"
 #   include "ir_2args.h"
@@ -100,42 +100,42 @@ test_all_opcodes(void *dc)
     /* we can encode+fast-decode some instrs cross-platform but we
      * leave that testing to the regression run on that platform */ 
 
-#   define OPCODE(opc, icnm, flags) do { \
+#   define OPCODE(name, opc, icnm, flags) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc)); \
-        len_##icnm = instr_length(dc, instrlist_last(ilist)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
 #   include "ir_0args.h"
 #   undef OPCODE
 
-#   define OPCODE(opc, icnm, flags, arg1) do { \
+#   define OPCODE(name, opc, icnm, flags, arg1) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1)); \
-        len_##icnm = instr_length(dc, instrlist_last(ilist)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
 #   include "ir_1args.h"
 #   undef OPCODE
 
-#   define OPCODE(opc, icnm, flags, arg1, arg2) do { \
+#   define OPCODE(name, opc, icnm, flags, arg1, arg2) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
-        len_##icnm = instr_length(dc, instrlist_last(ilist)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
 #   include "ir_2args.h"
 #   undef OPCODE
 
-#   define OPCODE(opc, icnm, flags, arg1, arg2, arg3) do { \
+#   define OPCODE(name, opc, icnm, flags, arg1, arg2, arg3) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
-        len_##icnm = instr_length(dc, instrlist_last(ilist)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
 #   include "ir_3args.h"
 #   undef OPCODE
 
-#   define OPCODE(opc, icnm, flags, arg1, arg2, arg3, arg4) do { \
+#   define OPCODE(name, opc, icnm, flags, arg1, arg2, arg3, arg4) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
-        len_##icnm = instr_length(dc, instrlist_last(ilist)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
 #   include "ir_4args.h"
 #   undef OPCODE
@@ -145,12 +145,12 @@ test_all_opcodes(void *dc)
     instr = instr_create(dc);
     pc = buf;
 
-#   define OPCODE(opc, icnm, flags, ...) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0 && len_##icnm != 0) { \
+#   define OPCODE(name, opc, icnm, flags, ...) do { \
+    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0 && len_##name != 0) { \
         instr_reset(dc, instr); \
         next_pc = decode(dc, pc, instr); \
         ASSERT((next_pc - pc) == decode_sizeof(dc, pc, NULL _IF_X64(NULL))); \
-        ASSERT((next_pc - pc) == len_##icnm); \
+        ASSERT((next_pc - pc) == len_##name); \
         ASSERT(instr_get_opcode(instr) == OP_##opc); \
         pc = next_pc; \
     } } while (0);

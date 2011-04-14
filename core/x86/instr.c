@@ -207,7 +207,8 @@ opnd_t
 opnd_create_reg(reg_id_t r)
 {
     opnd_t opnd IF_DEBUG(= {0});  /* FIXME: Needed until i#417 is fixed. */
-    CLIENT_ASSERT(r < REG_LAST_VALID_ENUM, "opnd_create_reg: invalid register");
+    CLIENT_ASSERT(r <= REG_LAST_ENUM && r != REG_INVALID,
+                  "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;
     opnd.value.reg = r;
     return opnd;
@@ -228,6 +229,7 @@ opnd_get_size(opnd_t opnd)
     case REG_kind: 
         return reg_get_size(opnd_get_reg(opnd));
     case IMMED_INTEGER_kind:
+    case IMMED_FLOAT_kind:
     case BASE_DISP_kind:
 #ifdef X64
     case REL_ADDR_kind: 
@@ -791,14 +793,17 @@ const reg_id_t reg_fixer[]={
     REG_R8,   REG_R9,   REG_R10,  REG_R11,  REG_R12,  REG_R13,  REG_R14,  REG_R15,
     REG_XSP,  REG_XBP,  REG_XSI,  REG_XDI,  /* i#201 */
     REG_MM0,  REG_MM1,  REG_MM2,  REG_MM3,  REG_MM4,  REG_MM5,  REG_MM6,  REG_MM7,
-    REG_XMM0, REG_XMM1, REG_XMM2, REG_XMM3, REG_XMM4, REG_XMM5, REG_XMM6, REG_XMM7,
-    REG_XMM8, REG_XMM9, REG_XMM10,REG_XMM11,REG_XMM12,REG_XMM13,REG_XMM14,REG_XMM15,
+    REG_YMM0, REG_YMM1, REG_YMM2, REG_YMM3, REG_YMM4, REG_YMM5, REG_YMM6, REG_YMM7,
+    REG_YMM8, REG_YMM9, REG_YMM10,REG_YMM11,REG_YMM12,REG_YMM13,REG_YMM14,REG_YMM15,
     REG_ST0,  REG_ST1,  REG_ST2,  REG_ST3,  REG_ST4,  REG_ST5,  REG_ST6,  REG_ST7,
     SEG_ES,   SEG_CS,   SEG_SS,   SEG_DS,   SEG_FS,   SEG_GS,
     REG_DR0,  REG_DR1,  REG_DR2,  REG_DR3,  REG_DR4,  REG_DR5,  REG_DR6,  REG_DR7,
     REG_DR8,  REG_DR9,  REG_DR10, REG_DR11, REG_DR12, REG_DR13, REG_DR14, REG_DR15, 
     REG_CR0,  REG_CR1,  REG_CR2,  REG_CR3,  REG_CR4,  REG_CR5,  REG_CR6,  REG_CR7, 
     REG_CR8,  REG_CR9,  REG_CR10, REG_CR11, REG_CR12, REG_CR13, REG_CR14, REG_CR15,
+    REG_INVALID,
+    REG_YMM0, REG_YMM1, REG_YMM2, REG_YMM3, REG_YMM4, REG_YMM5, REG_YMM6, REG_YMM7,
+    REG_YMM8, REG_YMM9, REG_YMM10,REG_YMM11,REG_YMM12,REG_YMM13,REG_YMM14,REG_YMM15,
 };
 
 #ifdef DEBUG
@@ -806,7 +811,7 @@ void
 reg_check_reg_fixer(void)
 {
     /* ignore REG_INVALID, so should equal REG_LAST_ENUM */
-    CLIENT_ASSERT(sizeof(reg_fixer)/sizeof(reg_fixer[0]) == REG_LAST_ENUM,
+    CLIENT_ASSERT(sizeof(reg_fixer)/sizeof(reg_fixer[0]) == REG_LAST_ENUM + 1,
                   "internal register enum error");
 }
 #endif
@@ -1144,8 +1149,8 @@ bool opnd_defines_use(opnd_t def, opnd_t use)
 uint
 opnd_size_in_bytes(opnd_size_t size)
 {
-    /* allow REG_ constants, convert them to OPSZ_ constants */
-    if (size <= REG_LAST_ENUM)
+    /* allow some REG_ constants, convert them to OPSZ_ constants */
+    if (size < OPSZ_FIRST)
         size = reg_get_size(size);
     switch (size) {
     case OPSZ_0:
@@ -1175,6 +1180,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_6:
         return 6;
     case OPSZ_8_of_16:
+    case OPSZ_8_of_16_vex32:
     case OPSZ_8_short2:
     case OPSZ_8_short4:
     case OPSZ_8:
@@ -1186,6 +1192,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_8_rex16_short4: /* default size */
         return 8;
     case OPSZ_16:
+    case OPSZ_16_vex32:
         return 16;
     case OPSZ_6x10:
         /* table base + limit; w/ addr16, different format, but same total footprint */
@@ -1444,6 +1451,7 @@ reg_is_extended(reg_id_t reg)
             (reg >= REG_START_8+8   && reg <= REG_STOP_8) ||
             (reg >= REG_START_x64_8 && reg <= REG_STOP_x64_8) ||
             (reg >= REG_START_XMM+8 && reg <= REG_STOP_XMM) ||
+            (reg >= REG_START_YMM+8 && reg <= REG_STOP_YMM) ||
             (reg >= REG_START_DR+8  && reg <= REG_STOP_DR) ||
             (reg >= REG_START_CR+8  && reg <= REG_STOP_CR));
 }
@@ -1553,6 +1561,8 @@ reg_get_bits(reg_id_t reg)
         return (byte) ((reg - REG_START_MMX) % 8);
     if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
         return (byte) ((reg - REG_START_XMM) % 8);
+    if (reg >= REG_START_YMM && reg <= REG_STOP_YMM)
+        return (byte) ((reg - REG_START_YMM) % 8);
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return (byte) ((reg - REG_START_SEGMENT) % 8);
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)
@@ -1585,6 +1595,8 @@ reg_get_size(reg_id_t reg)
         return OPSZ_8;
     if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
         return OPSZ_16;
+    if (reg >= REG_START_YMM && reg <= REG_STOP_YMM)
+        return OPSZ_32;
     if (reg >= REG_START_SEGMENT && reg <= REG_STOP_SEGMENT)
         return OPSZ_2;
     if (reg >= REG_START_DR && reg <= REG_STOP_DR)
@@ -4402,9 +4414,16 @@ reg_is_segment(reg_id_t reg)
 }
 
 bool
+reg_is_ymm(reg_id_t reg)
+{
+    return (reg>=REG_START_YMM && reg<=REG_STOP_YMM);
+}
+
+bool
 reg_is_xmm(reg_id_t reg)
 {
-    return (reg>=REG_START_XMM && reg<=REG_STOP_XMM);
+    return (reg>=REG_START_XMM && reg<=REG_STOP_XMM) ||
+        reg_is_ymm(reg);
 }
 
 bool

@@ -179,6 +179,7 @@ typedef enum {
     FEATURE_PBE =       31,             /**< Pending Break Enable */
     /* features returned in ecx */
     FEATURE_SSE3 =      0 + 32,         /**< SSE3 Extensions supported */
+    FEATURE_PCLMULQDQ = 1 + 32,         /**< OP_pclmulqdq supported */
     FEATURE_MONITOR =   3 + 32,         /**< MONITOR/MWAIT instructions supported */
     FEATURE_DS_CPL =    4 + 32,         /**< CPL Qualified Debug Store */
     FEATURE_VMX =       5 + 32,         /**< Virtual Machine Extensions */
@@ -186,10 +187,17 @@ typedef enum {
     FEATURE_TM2 =       8 + 32,         /**< Thermal Monitor 2 */
     FEATURE_SSSE3 =     9 + 32,         /**< SSSE3 Extensions supported */
     FEATURE_CID =       10 + 32,        /**< Context ID */ 
+    FEATURE_FMA =       12 + 32,        /**< FMA instructions supported */
     FEATURE_CX16 =      13 + 32,        /**< CMPXCHG16B instruction supported */
     FEATURE_xPTR =      14 + 32,        /**< Send Task Priority Messages */
     FEATURE_SSE41 =     19 + 32,        /**< SSE4.1 Extensions supported */
     FEATURE_SSE42 =     20 + 32,        /**< SSE4.2 Extensions supported */
+    FEATURE_MOVBE =     22 + 32,        /**< OP_movbe supported */
+    FEATURE_POPCNT =    23 + 32,        /**< OP_popcnt supported */
+    FEATURE_AES =       25 + 32,        /**< AES instructions supported */
+    FEATURE_XSAVE =     26 + 32,        /**< OP_xsave supported */
+    FEATURE_OSXSAVE =   27 + 32,        /**< OP_xgetbv supported in user mode */
+    FEATURE_AVX =       28 + 32,        /**< AVX instructions supported */
     /* extended features returned in edx */
     FEATURE_SYSCALL =   11 + 64,        /**< SYSCALL/SYSRET instructions supported */
     FEATURE_XD_Bit =    20 + 64,        /**< Execution Disable bit */

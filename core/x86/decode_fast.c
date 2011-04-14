@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -212,6 +213,10 @@ static int sizeof_fp_op(dcontext_t *dcontext, byte *pc, bool addr16
                         _IF_X64(byte **rip_rel_pc));
 static int sizeof_escape(dcontext_t *dcontext, byte *pc, bool addr16
                          _IF_X64(byte **rip_rel_pc));
+static int sizeof_3byte_38(dcontext_t *dcontext, byte *pc, bool addr16, bool vex
+                           _IF_X64(byte **rip_rel_pc));
+static int sizeof_3byte_3a(dcontext_t *dcontext, byte *pc, bool addr16
+                           _IF_X64(byte **rip_rel_pc));
 
 enum {
     VARLEN_NONE,
@@ -379,6 +384,26 @@ static const byte threebyte_3a_fixed_length[256] = {
 };
 #endif
 
+/* Extra size when vex-encoded (from immeds) */
+static const byte threebyte_38_vex_extra[256] = {
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 0 */
+    1,0,0,0, 1,1,0,0, 0,0,0,0, 0,0,0,0,  /* 1 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 2 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 3 */ 
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 4 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 5 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 6 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 7 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 8 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 9 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* A */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* B */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* C */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* D */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* E */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0   /* F */
+};
+
 /* Returns the length of the instruction at pc.
  * If num_prefixes is non-NULL, returns the number of prefix bytes.
  * If rip_rel_pos is non-NULL, returns the offset into the instruction
@@ -449,6 +474,49 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
                 sz += 1;
                 /* up to caller to check for addr prefix! */
                 break;
+            case 0xc4:
+            case 0xc5: {
+                /* If 64-bit mode or mod selects for register, this is vex */
+                if (X64_MODE_DC(dcontext) || TESTALL(MODRM_BYTE(3, 0, 0), *(pc+1))) {
+                    /* Assumptions:
+                     * - no vex-encoded instr size differs based on vex.w,
+                     *   so we don't bother to set qword_operands
+                     * - no vex-encoded instr size differs based on prefixes,
+                     *   so we don't bother to decode vex.pp
+                     */
+                    bool vex3 = (opc == 0xc4);
+                    byte vex_mm = 0;
+                    opc = (uint)*(++pc); /* 2nd vex prefix byte */
+                    sz += 1;
+                    if (vex3) {
+                        vex_mm = (byte) (opc & 0x1f);
+                        opc = (uint)*(++pc); /* 3rd vex prefix byte */
+                        sz += 1;
+                    }
+                    opc = (uint)*(++pc); /* 1st opcode byte */
+                    sz += 1;
+                    if (num_prefixes != NULL)
+                        *num_prefixes = sz;
+                    if (vex3) {
+                        /* no prefixes after vex + already did full size, so goto end */
+                        if (vex_mm == 1) {
+                            sz += sizeof_escape(dcontext, pc, addr16
+                                                _IF_X64(&rip_rel_pc));
+                            goto decode_sizeof_done;
+                        } else if (vex_mm == 2) {
+                            sz += sizeof_3byte_38(dcontext, pc - 1, addr16, true
+                                                  _IF_X64(&rip_rel_pc));
+                            goto decode_sizeof_done;
+                        } else if (vex_mm == 3) {
+                            sz += sizeof_3byte_3a(dcontext, pc - 1, addr16
+                                                  _IF_X64(&rip_rel_pc));
+                            goto decode_sizeof_done;
+                        }
+                    }
+                } else
+                    found_prefix = false;
+                break;
+            }
             default:
                 found_prefix = false;
             }
@@ -498,6 +566,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
         sz += sizeof_escape(dcontext, pc+1, addr16 _IF_X64(&rip_rel_pc));
         /* special case: Intel and AMD added size-differing prefix-dependent instrs! */
         if (*(pc+1) == 0x78) {
+            /* XXX: if have rex.w prefix we clear word_operands: is that legal combo? */
             if (word_operands || rep_prefix) {
                 /* extrq, insertq: 2 1-byte immeds */
                 sz += 2;
@@ -519,6 +588,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
             sz += 4;    /* TEST El,il -- add size of immediate */
     }
 
+ decode_sizeof_done:
 #ifdef X64
     if (rip_rel_pos != NULL) {
         if (rip_rel_pc != NULL) {
@@ -535,6 +605,30 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
     return sz;
 }
 
+static int
+sizeof_3byte_38(dcontext_t *dcontext, byte *pc, bool addr16, bool vex
+                _IF_X64(byte **rip_rel_pc))
+{
+    int sz = 1; /* opcode past 0x0f 0x38 */
+    uint opc = *(++pc);
+    /* so far all 3-byte instrs have modrm bytes */
+    /* to be robust for future additions we don't actually
+     * use the threebyte_38_fixed_length[opc] entry and assume 1 */
+    if (vex)
+        sz += threebyte_38_vex_extra[opc];
+    sz += sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(rip_rel_pc));
+    return sz;
+}
+
+static int
+sizeof_3byte_3a(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_pc))
+{
+    pc++;
+    /* so far all 0f 3a 3-byte instrs have modrm bytes and 1-byte immeds */
+    /* to be robust for future additions we don't actually
+     * use the threebyte_3a_fixed_length[opc] entry and assume 1 */
+    return 1 + sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(rip_rel_pc)) + 1;
+}
 
 /* Two-byte opcode map (Tables A-4 and A-5).  You use this routine
  * when you have identified the primary opcode as 0x0f.  You pass this
@@ -556,18 +650,10 @@ sizeof_escape(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel
     if (varlen == VARLEN_MODRM)
         return sz + sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(rip_rel_pc));
     else if (varlen == VARLEN_3BYTE_38_ESCAPE) {
-        opc = *(++pc);
-        /* so far all 3-byte instrs have modrm bytes */
-        /* to be robust for future additions we don't actually
-         * use the threebyte_38_fixed_length[opc] entry and assume 1 */
-        return sz + 1 + sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(rip_rel_pc));
+        return sz + sizeof_3byte_38(dcontext, pc, addr16, false _IF_X64(rip_rel_pc));
     }
     else if (varlen == VARLEN_3BYTE_3A_ESCAPE) {
-        opc = *(++pc);
-        /* so far all 0f 3a 3-byte instrs have modrm bytes and 1-byte immeds */
-        /* to be robust for future additions we don't actually
-         * use the threebyte_3a_fixed_length[opc] entry and assume 1 */
-        return sz + 1 + sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(rip_rel_pc)) + 1;
+        return sz + sizeof_3byte_3a(dcontext, pc, addr16 _IF_X64(rip_rel_pc));
     }
     else
         CLIENT_ASSERT(varlen == VARLEN_NONE, "internal decoding error");
