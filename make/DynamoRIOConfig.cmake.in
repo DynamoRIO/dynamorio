@@ -82,6 +82,8 @@
 # - CMAKE_CXX_FLAGS
 # - CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}
 # - CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}
+# - CMAKE_C_FLAGS_${CMAKE_CONFIGURATION_TYPES} (for each, uppercase)
+# - CMAKE_CXX_FLAGS_${CMAKE_CONFIGURATION_TYPES} (for each, uppercase)
 #
 # None of the global changes occur on the find_package(); they are only
 # implemented on the first configure_DynamoRIO_*() call.  Optionally,
@@ -246,21 +248,26 @@ function (configure_DynamoRIO_global is_cxx)
     # Remove global C flags that are unsafe for a client library.
     # Since CMake does not support removing flags on a per-target basis,
     # we clear the base flags so we can add what we want to each target.
-    foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS;
-        CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
-        CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER})
-      set(ORIG_${var} "${${var}}" PARENT_SCOPE)
-      set(local_${var} "${${var}}")
-      if (WIN32)
-        # We could limit this global var changing to Windows,
-        # but it simplifies cross-platform uses to be symmetric
-        string(REGEX REPLACE "/M[TD]d?" "" local_${var} "${local_${var}}")
-        string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
-      endif (WIN32)
-      set(CLIENT_${var} "${local_${var}}" PARENT_SCOPE)
-      # If we set to "", the default values come back
-      set(${var} " " PARENT_SCOPE)
-    endforeach (var)
+    foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+      if ("${config}" STREQUAL "")
+        set(config_upper "")
+      else ("${config}" STREQUAL "")
+        string(TOUPPER "_${config}" config_upper)
+      endif ("${config}" STREQUAL "")
+      foreach (var CMAKE_C_FLAGS${config_upper};CMAKE_CXX_FLAGS${config_upper})
+        set(ORIG_${var} "${${var}}" PARENT_SCOPE)
+        set(local_${var} "${${var}}")
+        if (WIN32)
+          # We could limit this global var changing to Windows,
+          # but it simplifies cross-platform uses to be symmetric
+          string(REGEX REPLACE "/M[TD]d?" "" local_${var} "${local_${var}}")
+          string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
+        endif (WIN32)
+        set(CLIENT_${var} "${local_${var}}" PARENT_SCOPE)
+        # If we set to "", the default values come back
+        set(${var} " " PARENT_SCOPE)
+      endforeach (var)
+    endforeach (config)
 
   endif (NOT DynamoRIO_configured_globally)
 endfunction (configure_DynamoRIO_global)
@@ -279,15 +286,22 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
   if (just_configured)
     # get around lack of GLOBAL_SCOPE
     set(just_configured ON PARENT_SCOPE)
-    foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS;CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
-        CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER})
-      set(ORIG_${var} "${ORIG_${var}}" PARENT_SCOPE)
-      set(CLIENT_${var} "${CLIENT_${var}}" PARENT_SCOPE)
-      set(${var} "${${var}}" PARENT_SCOPE)
-    endforeach (var)
+    foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+      if ("${config}" STREQUAL "")
+        set(config_upper "")
+      else ("${config}" STREQUAL "")
+        string(TOUPPER "_${config}" config_upper)
+      endif ("${config}" STREQUAL "")
+      foreach (var CMAKE_C_FLAGS${config_upper};CMAKE_CXX_FLAGS${config_upper})
+        set(ORIG_${var} "${ORIG_${var}}" PARENT_SCOPE)
+        set(CLIENT_${var} "${CLIENT_${var}}" PARENT_SCOPE)
+        set(${var} "${${var}}" PARENT_SCOPE)
+      endforeach (var)
+    endforeach (config)
     set(DynamoRIO_configured_globally ${DynamoRIO_configured_globally} PARENT_SCOPE)
   endif (just_configured)
 
+  # we ignore per-config flags here
   if (is_client)
     if (tgt_cxx)
       set(tgt_cflags
@@ -424,12 +438,18 @@ function (configure_DynamoRIO_client target)
   if (just_configured)
     # get around lack of GLOBAL_SCOPE
     # do NOT set just_configured in global scope
-    foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS;CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
-        CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER})
-      set(ORIG_${var} "${ORIG_${var}}" PARENT_SCOPE)
-      set(CLIENT_${var} "${CLIENT_${var}}" PARENT_SCOPE)
-      set(${var} "${${var}}" PARENT_SCOPE)
-    endforeach (var)
+    foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+      if ("${config}" STREQUAL "")
+        set(config_upper "")
+      else ("${config}" STREQUAL "")
+        string(TOUPPER "_${config}" config_upper)
+      endif ("${config}" STREQUAL "")
+      foreach (var CMAKE_C_FLAGS${config_upper};CMAKE_CXX_FLAGS${config_upper})
+        set(ORIG_${var} "${ORIG_${var}}" PARENT_SCOPE)
+        set(CLIENT_${var} "${CLIENT_${var}}" PARENT_SCOPE)
+        set(${var} "${${var}}" PARENT_SCOPE)
+      endforeach (var)
+    endforeach (config)
     set(DynamoRIO_configured_globally ${DynamoRIO_configured_globally} PARENT_SCOPE)
   endif (just_configured)
 
@@ -495,12 +515,18 @@ endfunction (configure_DynamoRIO_client)
 function (configure_DynamoRIO_standalone target)
   configure_DynamoRIO_common(${target} OFF tgt_x64 tgt_cflags tgt_link_flags)
   # get around lack of GLOBAL_SCOPE
-  foreach (var CMAKE_C_FLAGS;CMAKE_CXX_FLAGS;CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER};
-      CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER})
-    set(ORIG_${var} "${ORIG_${var}}" PARENT_SCOPE)
-    set(CLIENT_${var} "${CLIENT_${var}}" PARENT_SCOPE)
-    set(${var} "${${var}}" PARENT_SCOPE)
-  endforeach (var)
+  foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+    if ("${config}" STREQUAL "")
+      set(config_upper "")
+    else ("${config}" STREQUAL "")
+      string(TOUPPER "_${config}" config_upper)
+    endif ("${config}" STREQUAL "")
+    foreach (var CMAKE_C_FLAGS${config_upper};CMAKE_CXX_FLAGS${config_upper})
+      set(ORIG_${var} "${ORIG_${var}}" PARENT_SCOPE)
+      set(CLIENT_${var} "${CLIENT_${var}}" PARENT_SCOPE)
+      set(${var} "${${var}}" PARENT_SCOPE)
+    endforeach (var)
+  endforeach (config)
   set(DynamoRIO_configured_globally ${DynamoRIO_configured_globally} PARENT_SCOPE)
 
   if (WIN32)
