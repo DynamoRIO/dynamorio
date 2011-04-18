@@ -340,6 +340,13 @@ app_pc vsyscall_syscall_end_pc = NULL;
 /* pc where kernel returns control after sysenter vsyscall */
 app_pc vsyscall_sysenter_return_pc = NULL;
 #define VSYSCALL_PAGE_START_HARDCODED ((app_pc)(ptr_uint_t) 0xffffe000)
+#ifdef X64
+/* i#430, in Red Hat Enterprise Server 5.6, vysycall region is marked 
+ * not executable
+ * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0  [vsyscall]
+ */
+# define VSYSCALL_REGION_MAPS_NAME "[vsyscall]"
+#endif
 
 /* The pthreads library keeps errno in its pthread_descr data structure,
  * which it looks up by dispatching on the stack pointer.  This doesn't work
@@ -6911,8 +6918,11 @@ find_executable_vm_areas(void)
          */
         if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
                     strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0
+            IF_X64_ELSE(|| strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
+                                   strlen(VSYSCALL_REGION_MAPS_NAME)) == 0,
             /* Older kernels do not label it as "[vdso]", but it is hardcoded there */
-            IF_NOT_X64(|| iter.vm_start == VSYSCALL_PAGE_START_HARDCODED)) {
+            /* 32-bit */
+                        || iter.vm_start == VSYSCALL_PAGE_START_HARDCODED)) { 
 # ifndef X64
             /* We assume no vsyscall page for x64; thus, checking the
              * hardcoded address shouldn't have any false positives.
@@ -6932,6 +6942,11 @@ find_executable_vm_areas(void)
             /* i#172
              * fix bugs for OS where vdso page is set unreadable as below
              * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vdso]
+             * but it is readable indeed.
+             */
+            /* i#430
+             * fix bugs for OS where vdso page is set unreadable as below
+             * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vsyscall]
              * but it is readable indeed.
              */
             if (!TESTALL((PROT_READ|PROT_EXEC), iter.prot))
