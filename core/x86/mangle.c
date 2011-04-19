@@ -3269,7 +3269,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             }
             ASSERT(!instr_reads_from_reg(instr, scratch_reg));
             ASSERT(!spill || !instr_writes_to_reg(instr, scratch_reg));
-            /* FIXME PR 253446: Optimize by looking ahead for dead registers, and
+            /* XXX PR 253446: Optimize by looking ahead for dead registers, and
              * sharing single spill across whole bb, or possibly building local code
              * cache to avoid unreachability: all depending on how many rip-rel
              * instrs we see.  We'll watch the stats.
@@ -3790,7 +3790,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
      *   restore flags and xax (xax used by stos)
      * if x64 && (start_pc > 4GB || end_pc > 4GB): restore xdx
      *   <rep instr> # doesn't use xbx
-     *     (FIXME PR 267764: restore xbx on cxt xl8 if this instr faults)
+     *     (PR 267764/i#398: we special-case restore xbx on cxt xl8 if this instr faults)
      *   mov xbx,xcx # we can use xcx, it's dead since 0 after rep
      *   restore xbx
      *   jecxz ok2  # if xbx was 1 we'll fall through and exit

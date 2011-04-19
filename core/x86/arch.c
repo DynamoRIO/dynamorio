@@ -2184,12 +2184,11 @@ set_fcache_target(dcontext_t *dcontext, cache_pc value)
  * FAULT TRANSLATION
  *
  * Current status:
- * After PR 214962, PR 267260, PR 263407, and PR 268372, we properly
- * translate indirect branch mangling and client modifications.
+ * After PR 214962, PR 267260, PR 263407, PR 268372, and PR 267764/i398, we
+ * properly translate indirect branch mangling and client modifications.
  * FIXME: However, we still do not properly translate for:
- * - PR 267764: translate selfmod-mangled code
  * - PR 303413: properly translate native_exec and windows sysenter mangling faults
- * - PR 208037: flushed fragments (need -safe_translate_flushed)
+ * - PR 208037/i#399: flushed fragments (need -safe_translate_flushed)
  * - PR 213251: hot patch fragments (b/c nudge can change whether patched => 
  *     should store translations for all hot patch fragments) 
  * - PR 372021: restore eflags if within window of ibl or trace-cmp eflags-are-dead 
@@ -2379,9 +2378,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          * handle all translation if it modifies our mangling regions:
          * we'll provide a query routine instr_is_DR_mangling()): our
          * spills are all local anyway, except
-         * for selfmod, which is NYI (FIXME: PR 267764: we should at least
-         * return failure today for selfmod thread relocation since won't
-         * match push/pop checks below).  Our trace cmp is the only
+         * for selfmod, which we hardcode rep-string support for (non-linear code
+         * isn't handled by general reg scan).  Our trace cmp is the only
          * instance (besides selfmod) where we have a cti in our mangling,
          * but it doesn't affect our linearity assumption.  We assume we
          * have no entry points in between a spill and a restore.  Our
@@ -2660,7 +2658,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
             if (!(res == RECREATE_SUCCESS_STATE /* clean call */ ||
                   tdcontext != get_thread_private_dcontext() ||
                   INTERNAL_OPTION(stress_recreate_pc) ||
-                  /* we can currently fail for selfmod (PR 267764) and flushed (PR 208037)
+                  /* we can currently fail for flushed code (PR 208037/i#399)
                    * (and hotpatch, native_exec, and sysenter: but too rare to check) */
                   TEST(FRAG_SELFMOD_SANDBOXED, flags) ||
                   TEST(FRAG_WAS_DELETED, flags))) {
@@ -2698,7 +2696,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
 static recreate_success_t
 recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
                               byte *start_app, byte *start_cache, byte *end_cache,
-                              dr_mcontext_t *mc, bool just_pc _IF_DEBUG(uint flags))
+                              dr_mcontext_t *mc, bool just_pc, uint flags)
 {
     byte *answer = NULL;
     byte *cpc, *prev_bytes;
@@ -2836,18 +2834,35 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
                     LOG(THREAD_GET, LOG_INTERP, 2,
                         "recreate_app -- found valid state pc "PFX"\n", answer);
                 } else {
-                    res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
-                    /* should only happen for thread synch, not a fault */
-                    ASSERT(tdcontext != get_thread_private_dcontext() ||
-                           INTERNAL_OPTION(stress_recreate_pc) ||
-                           /* we can currently fail for selfmod (PR 267764) and
-                            * flushed (PR 208037) (and hotpatch, native_exec, and
-                            * sysenter: but too rare to check) */
-                           TEST(FRAG_SELFMOD_SANDBOXED, flags) ||
-                           TEST(FRAG_WAS_DELETED, flags));
-                    LOG(THREAD_GET, LOG_INTERP, 2,
-                        "recreate_app -- not able to fully recreate "
-                        "context, pc is in added instruction from mangling\n");
+                    int op = instr_get_opcode(inst);
+                    if (TEST(FRAG_SELFMOD_SANDBOXED, flags) &&
+                        (op == OP_rep_ins || op == OP_rep_movs || op == OP_rep_stos)) {
+                        /* i#398: xl8 selfmod: rep string instrs have xbx spilled in
+                         * thread-private slot.  We assume no other selfmod mangling
+                         * has a reg spilled at time of app instr execution.
+                         */
+                        if (!just_pc) {
+                            walk.mc->xbx = get_mcontext(tdcontext)->xbx;
+                            LOG(THREAD_GET, LOG_INTERP, 2,
+                                "\trestoring spilled xbx to "PFX"\n", walk.mc->xbx);
+                            STATS_INC(recreate_spill_restores);
+                        }
+                        LOG(THREAD_GET, LOG_INTERP, 2,
+                            "recreate_app -- found valid state pc "PFX"\n", answer);
+                    } else {
+                        res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
+                        /* should only happen for thread synch, not a fault */
+                        ASSERT(tdcontext != get_thread_private_dcontext() ||
+                               INTERNAL_OPTION(stress_recreate_pc) ||
+                               /* we can currently fail for flushed code (PR 208037)
+                                * (and hotpatch, native_exec, and sysenter: but too
+                                * rare to check) */
+                               TEST(FRAG_SELFMOD_SANDBOXED, flags) ||
+                               TEST(FRAG_WAS_DELETED, flags));
+                        LOG(THREAD_GET, LOG_INTERP, 2,
+                            "recreate_app -- not able to fully recreate "
+                            "context, pc is in added instruction from mangling\n");
+                    }
                 }
             }
             if (!just_pc)
@@ -3113,7 +3128,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
             res = recreate_app_state_from_ilist(tdcontext, ilist, (byte *) f->tag,
                                                 (byte *) FCACHE_ENTRY_PC(f),
                                                 (byte *) f->start_pc + f->size,
-                                                mcontext, just_pc _IF_DEBUG(f->flags));
+                                                mcontext, just_pc, f->flags);
             STATS_INC(recreate_via_app_ilist);
         }
         IF_X64(set_x86_mode(tdcontext, old_mode));

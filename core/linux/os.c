@@ -1347,7 +1347,7 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
     instr_t instr;
     opnd_t opnd;
     reg_id_t seg;
-    ushort sel;
+    ushort sel = 0;
     our_modify_ldt_t *desc;
     os_local_state_t *os_tls;
     os_thread_data_t *ostd;
