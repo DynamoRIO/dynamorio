@@ -1082,7 +1082,9 @@ exit_cti_disp_pc(cache_pc branch_pc)
         length++;
         byte_ptr++;
         opcode = *byte_ptr;
-        /* branch hints are only valid with jcc instrs */
+        /* branch hints are only valid with jcc instrs, and if present on
+         * other ctis we strip them out during mangling (i#435)
+         */
         ASSERT(opcode == RAW_OPCODE_jcc_byte1);
     }
 

@@ -3135,17 +3135,32 @@ static void
 mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr)
 {
     uint prefixes = instr_get_prefixes(instr);
-    if (TESTANY(~(PREFIX_JCC_TAKEN|PREFIX_JCC_NOT_TAKEN), prefixes)) {
+    if (prefixes != 0) {
+        bool remove = false;
         /* Case 8738: while for transparency it would be best to maintain all
          * prefixes, our patching and other routines make assumptions about
          * the length of exit ctis.  Plus our elision removes the whole 
          * instr in any case.
          */
-        LOG(THREAD, LOG_INTERP, 4,
-            "\tremoving unknown prefixes "PFX" from "PFX"\n",
-            prefixes, instr_get_raw_bits(instr));
-        prefixes &= (PREFIX_JCC_TAKEN|PREFIX_JCC_NOT_TAKEN);
-        instr_set_prefixes(instr, prefixes);
+        if (instr_is_cbr(instr)) {
+            if (TESTANY(~(PREFIX_JCC_TAKEN|PREFIX_JCC_NOT_TAKEN), prefixes)) {
+                remove = true;
+                prefixes &= (PREFIX_JCC_TAKEN|PREFIX_JCC_NOT_TAKEN);
+            }
+        } else {
+            /* prefixes on ubr or mbr should be nops and for ubr will mess up
+             * our size assumptions so drop them (i#435)
+             */
+            remove = true;
+            prefixes = 0;
+        }
+        if (remove) {
+            LOG(THREAD, LOG_INTERP, 4,
+                "\tremoving unknown prefixes "PFX" from "PFX"\n",
+                prefixes, instr_get_raw_bits(instr));
+            ASSERT(instr_operands_valid(instr)); /* ensure will encode w/o raw bits */
+            instr_set_prefixes(instr, prefixes);
+        }
     }
 }
 
