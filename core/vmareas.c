@@ -2217,7 +2217,8 @@ free_written_area(void *data)
 
 /* Functions as a lookup routine if an entry is already present.
  * Returns true if an entry was already present, false if not, in which
- * case an entry for [start, end) is added.
+ * case an entry containing tag with suggested bounds of [start, end)
+ * (actual bounds may be smaller to avoid overlap) is added.
  */
 static bool
 add_written_area(vm_area_vector_t *v, app_pc tag, app_pc start,
@@ -2233,6 +2234,7 @@ add_written_area(vm_area_vector_t *v, app_pc tag, app_pc start,
     /* re-adding fails for written_areas since no merging, so lookup first */
     already = lookup_addr(v, tag, &a);
     if (!already) {
+        app_pc prev_start, next_start;
         LOG(GLOBAL, LOG_VMAREAS, 2,
             "new written executable vm area: "PFX"-"PFX"\n",
             start, end);
@@ -2242,6 +2244,20 @@ add_written_area(vm_area_vector_t *v, app_pc tag, app_pc start,
          * not critical.  In case of simultaneous overlap, we take counter from
          * first region, since that's how add_vm_area does the merge.
          */
+        /* we can't merge b/c we have hardcoded counter pointers in code
+         * in the cache, so we make sure to only add the non-overlap
+         */
+        DEBUG_DECLARE(ok = ) vmvector_lookup_prev_next(v, tag, &prev_start, &next_start);
+        ASSERT(ok); /* else already should be true */
+        if (prev_start != NULL) {
+            vm_area_t *prev_area = NULL;
+            DEBUG_DECLARE(ok = ) lookup_addr(v, prev_start, &prev_area);
+            ASSERT(ok); /* we hold the lock after all */
+            if (prev_area->end > start)
+                start = prev_area->end;
+        }
+        if (next_start < (app_pc) POINTER_MAX && end > next_start)
+            end = next_start;
         add_vm_area(v, start, end, /* no flags */ 0, 0, NULL _IF_DEBUG(""));
         DEBUG_DECLARE(ok = ) lookup_addr(v, tag, &a);
         ASSERT(ok && a != NULL);
