@@ -3166,7 +3166,8 @@ mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr)
 
 #ifdef X64
 /* PR 215397: re-relativize rip-relative data addresses */
-static void
+/* i#393, returned bool indicates if the instr is destroyed. */
+static bool
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr)
 {
@@ -3213,6 +3214,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instrlist_remove(ilist, instr);
         instr_destroy(dcontext, instr);
         STATS_INC(rip_rel_lea);
+        return true;
     } else {
         /* PR 251479 will automatically re-relativize if it reaches,
          * but if it doesn't we need to handle that here (since that
@@ -3298,6 +3300,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             STATS_INC(rip_rel_unreachable);
         }        
     }
+    return false;
 }
 #endif
 
@@ -3598,13 +3601,16 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
 #endif
 
 #ifdef X64
-        /* FIXME: mangle_rel_addr might destroy the instr if it is a LEA,
-         * which makes instr points to freed memory.
+        /* i#393: mangle_rel_addr might destroy the instr if it is a LEA,
+         * which makes instr point to freed memory.
          * In such case, the control should skip later checks on the instr
          * for exit_cti and syscall.
+         * skip the rest of the loop if instr is destroyed.
          */
-        if (instr_has_rel_addr_reference(instr))
-            mangle_rel_addr(dcontext, ilist, instr, next_instr);
+        if (instr_has_rel_addr_reference(instr)) {
+            if (mangle_rel_addr(dcontext, ilist, instr, next_instr))
+                continue;
+        }
 #endif
 
         if (instr_is_exit_cti(instr)) {
