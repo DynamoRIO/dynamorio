@@ -4929,7 +4929,7 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
     pop_xbp  = INSTR_CREATE_pop(dcontext, opnd_create_reg(DR_REG_XBP));
     /* Check enter/leave pair  */
     if ((instr_get_opcode(top) == OP_enter || instr_same(push_xbp, top)) &&
-        (instr_get_opcode(bot) == OP_leave || instr_same(pop_xbp, top))  &&
+        (instr_get_opcode(bot) == OP_leave || instr_same(pop_xbp, bot))  &&
         (ci->bwd_tgt == NULL || instr_get_app_pc(top) <  ci->bwd_tgt) &&
         (ci->fwd_tgt == NULL || instr_get_app_pc(bot) >= ci->fwd_tgt)) {
         /* xbp is callee saved, remove from reg_used*/
@@ -5055,7 +5055,7 @@ analyze_callee_errno(dcontext_t *dcontext, callee_info_t *ci)
 static void
 analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
 {
-    instr_t *instr;
+    instr_t *instr, *next_instr;
     opnd_t opnd, mem_ref, slot;
     bool opt_inline = true;
     int i;
@@ -5111,8 +5111,9 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
     ci->has_locals = false;
     for (instr  = instrlist_first(ci->ilist);
          instr != NULL;
-         instr  = instr_get_next(instr)) {
+         instr  = next_instr) {
         uint opc = instr_get_opcode(instr);
+        next_instr = instr_get_next(instr);
         /* sanity checks on stack usage */
         if (instr_writes_to_reg(instr, DR_REG_XBP) && ci->xbp_is_fp) {
             /* xbp must not be changed if xbp is used for frame pointer */
@@ -5146,7 +5147,14 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                 /* other cases like push/pop are not allowed */
                 opt_inline = false;
             }
-            if (!opt_inline) {
+            if (opt_inline) {
+                LOG(THREAD, LOG_CLEANCALL, 3,
+                    "CLEANCALL: removing frame adjustment at "PFX".\n",
+                    instr_get_app_pc(instr));
+                instrlist_remove(ci->ilist, instr);
+                instr_destroy(GLOBAL_DCONTEXT, instr);
+                continue;
+            } else {
                 LOG(THREAD, LOG_CLEANCALL, 1,
                     "CLEANCALL: callee "PFX" cannot be inlined: "
                     "complicated stack pointer update at "PFX".\n",
@@ -5277,8 +5285,10 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
     callee_info_t *ci = cci->callee_info;
     instr_t *instr;
 
-    cci->skip_save_aflags  = !ci->write_aflags;
+    /* If there's a flags read, we clear the flags.  If there's a write or read,
+     * we save them, because a read creates a clear which is a write. */
     cci->skip_clear_eflags = !ci->read_aflags;
+    cci->skip_save_aflags  = !(ci->write_aflags || ci->read_aflags);
     /* XXX: this is a more aggressive optimization by analyzing the ilist
      * to be instrumented. The client may change the ilist, which violate
      * the analysis result. For example, 

@@ -30,36 +30,39 @@
  * DAMAGE.
  */
 
-/* Most functions here need to be exported and not inlined no matter the build
- * mode so that we can find their addresses via symbol lookup for
- * instrumentation.
- */
+/* Export instrumented functions so we can easily find them in client.  */
 #ifdef WINDOWS
-#define EXPORT __declspec(dllexport)
-#define NOINLINE __declspec(noinline)
-#else
-#define EXPORT __attribute__((visibility("default")))
-#define NOINLINE __attribute__((noinline))
+# define EXPORT __declspec(dllexport)
+#else /* LINUX */
+# define EXPORT __attribute__((visibility("default")))
 #endif
 
-EXPORT NOINLINE void empty(void) {}
-EXPORT NOINLINE void inscount(void) {}
-EXPORT NOINLINE void callpic_pop(void) {}
-EXPORT NOINLINE void callpic_mov(void) {}
-EXPORT NOINLINE void cond_br(void) {}
-EXPORT NOINLINE void tls_clobber(void) {}
-EXPORT NOINLINE void nonleaf(void) {}
-EXPORT NOINLINE void aflags_clobber(void) {}
+/* List of instrumented functions. */
+#define FUNCTIONS() \
+        FUNCTION(empty) \
+        FUNCTION(inscount) \
+        FUNCTION(callpic_pop) \
+        FUNCTION(callpic_mov) \
+        FUNCTION(nonleaf) \
+        FUNCTION(cond_br) \
+        FUNCTION(tls_clobber) \
+        FUNCTION(aflags_clobber) \
+        LAST_FUNCTION()
+
+/* Definitions for every function. */
+#define FUNCTION(FUNCNAME) EXPORT void FUNCNAME(void) { }
+#define LAST_FUNCTION()
+FUNCTIONS()
+#undef FUNCTION
+#undef LAST_FUNCTION
 
 int
 main(void)
 {
-    empty();
-    inscount();
-    callpic_pop();
-    callpic_mov();
-    cond_br();
-    tls_clobber();
-    nonleaf();
-    aflags_clobber();
+    /* Calls to every function. */
+#define FUNCTION(FUNCNAME) FUNCNAME();
+#define LAST_FUNCTION()
+    FUNCTIONS()
+#undef FUNCTION
+#undef LAST_FUNCTION
 }
