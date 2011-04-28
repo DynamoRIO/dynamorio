@@ -622,10 +622,16 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
     set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
     LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
     if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT) {
-        /* We also swap TEB->FlsData and TEB->ReservedForNtRpc */
+        /* We preserve TEB->LastErrorValue and we swap TEB->FlsData and
+         * TEB->ReservedForNtRpc
+         */
         void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
         void *cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
         if (to_priv) {
+            /* note: two calls in a row will clobber app_errno w/ wrong value! */
+            dcontext->app_errno = (int)(ptr_int_t)
+                get_teb_field(dcontext, ERRNO_TIB_OFFSET);
+
             if (dcontext->priv_fls_data != cur_fls) { /* handle two calls in a row */
                 dcontext->app_fls_data = cur_fls;
                 set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->priv_fls_data);
@@ -635,6 +641,10 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
                 set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->priv_nt_rpc);
             }
         } else {
+            /* two calls in a row should be fine */
+            set_teb_field(dcontext, ERRNO_TIB_OFFSET,
+                          (void *)(ptr_int_t)dcontext->app_errno);
+
             if (dcontext->app_fls_data != cur_fls) { /* handle two calls in a row */
                 dcontext->priv_fls_data = cur_fls;
                 set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
@@ -671,6 +681,8 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
     ASSERT(dcontext != NULL && dcontext->teb_base != NULL);
     set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
     LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
+    set_teb_field(dcontext, ERRNO_TIB_OFFSET, (void *)(ptr_int_t) dcontext->app_errno);
+    LOG(THREAD, LOG_LOADER, 3, "restored app errno to "PIFX"\n", dcontext->app_errno);
     /* We also swap TEB->FlsData and TEB->ReservedForNtRpc */
     set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
     LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_fls_data);
@@ -1648,7 +1660,7 @@ private_lib_handle_cb(dcontext_t *dcontext, app_pc pc)
             "%s: comparing cb "PFX" to pc "PFX"\n",
             __FUNCTION__, e->cb, pc);
         if (e->cb != NULL/*head node*/ && (app_pc)e->cb == pc) {
-            dr_mcontext_t *mc = get_mcontext(dcontext);
+            priv_mcontext_t *mc = get_mcontext(dcontext);
             void *arg = NULL;
             app_pc retaddr;
             redirected = true;

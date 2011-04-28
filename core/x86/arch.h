@@ -64,32 +64,32 @@
  * unprotected are raw 0..sizeof(unprotected_context_t)
  * protected are raw + sizeof(unprotected_context_t)
  * (see the instr.c routines for dcontext instr building)
- * FIXME: we could get rid of this hack if unprotected_context_t == dr_mcontext_t
+ * FIXME: we could get rid of this hack if unprotected_context_t == priv_mcontext_t
  */
 #define PROT_OFFS         (sizeof(unprotected_context_t))
 #define MC_OFFS           (offsetof(unprotected_context_t, mcontext))
 
-#define XAX_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, xax)))
-#define XBX_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, xbx)))
-#define XCX_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, xcx)))
-#define XDX_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, xdx)))
-#define XSI_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, xsi)))
-#define XDI_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, xdi)))
-#define XBP_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, xbp)))
-#define XSP_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, xsp)))
-#define XFLAGS_OFFSET     ((MC_OFFS) + (offsetof(dr_mcontext_t, xflags)))
-#define PC_OFFSET         ((MC_OFFS) + (offsetof(dr_mcontext_t, pc)))
+#define XAX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xax)))
+#define XBX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xbx)))
+#define XCX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xcx)))
+#define XDX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xdx)))
+#define XSI_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xsi)))
+#define XDI_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xdi)))
+#define XBP_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xbp)))
+#define XSP_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
+#define XFLAGS_OFFSET     ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
+#define PC_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
 #ifdef X64
-# define R8_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, r8)))
-# define R9_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, r9)))
-# define R10_OFFSET       ((MC_OFFS) + (offsetof(dr_mcontext_t, r10)))
-# define R11_OFFSET       ((MC_OFFS) + (offsetof(dr_mcontext_t, r11)))
-# define R12_OFFSET       ((MC_OFFS) + (offsetof(dr_mcontext_t, r12)))
-# define R13_OFFSET       ((MC_OFFS) + (offsetof(dr_mcontext_t, r13)))
-# define R14_OFFSET       ((MC_OFFS) + (offsetof(dr_mcontext_t, r14)))
-# define R15_OFFSET       ((MC_OFFS) + (offsetof(dr_mcontext_t, r15)))
+# define R8_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r8)))
+# define R9_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r9)))
+# define R10_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r10)))
+# define R11_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r11)))
+# define R12_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r12)))
+# define R13_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r13)))
+# define R14_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
+# define R15_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r15)))
 #endif
-#define XMM_OFFSET        ((MC_OFFS) + (offsetof(dr_mcontext_t, xmm)))
+#define XMM_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, ymm)))
 
 #define ERRNO_OFFSET      (offsetof(unprotected_context_t, errno))
 #define AT_SYSCALL_OFFSET (offsetof(unprotected_context_t, at_syscall))
@@ -103,13 +103,13 @@
 # define RSTACK_OFFSET         ((PROT_OFFS)+offsetof(dcontext_t, rstack))
 # define TOP_OF_RSTACK_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, top_of_rstack))
 #endif
-#define APP_ERRNO_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, app_errno))
 
 #define FRAGMENT_FIELD_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, fragment_field))
 #define PRIVATE_CODE_OFFSET    ((PROT_OFFS)+offsetof(dcontext_t, private_code))
 
 #ifdef WINDOWS
 # ifdef CLIENT_INTERFACE
+#  define APP_ERRNO_OFFSET      ((PROT_OFFS)+offsetof(dcontext_t, app_errno))
 #  define APP_FLS_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, app_fls_data))
 #  define PRIV_FLS_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, priv_fls_data))
 #  define APP_RPC_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, app_nt_rpc))
@@ -141,7 +141,11 @@
 int
 reg_spill_tls_offs(reg_id_t reg);
 
+#define OPSZ_SAVED_XMM (YMM_ENABLED() ? OPSZ_32 : OPSZ_16)
+#define REG_SAVED_XMM0 (YMM_ENABLED() ? REG_YMM0 : REG_XMM0)
+
 /* Xref the partially overlapping CONTEXT_PRESERVE_XMM */
+/* This routine also determines whether ymm registers should be saved */
 static inline bool
 preserve_xmm_caller_saved(void)
 {
@@ -241,7 +245,6 @@ typedef struct _clean_call_info_t {
     bool save_all_regs;
     bool skip_save_aflags;
     bool skip_clear_eflags;
-    bool skip_save_errno;
     uint num_xmms_skip;
     bool xmm_skip[NUM_XMM_REGS];
     uint num_regs_skip;
@@ -325,11 +328,11 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext);
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
-                          bool stack_align16);
+                          uint alignment, instr_t *push_pc);
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
-                         bool stack_align16);
+                         uint alignment);
 bool
 parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */
@@ -724,13 +727,6 @@ emit_shared_syscall_dispatch(dcontext_t *dcontext, byte *pc);
 byte *
 emit_unlinked_shared_syscall_dispatch(dcontext_t *dcontext, byte *pc);
 
-void
-preinsert_get_last_error(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
-                         reg_id_t reg_result);
-void
-preinsert_set_last_error(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
-                         reg_id_t reg_errno /* saved errno */);
-
 # ifdef CLIENT_INTERFACE
 /* i#249: isolate app's PEB by keeping our own copy and swapping on cxt switch */
 void
@@ -836,11 +832,11 @@ void check_return_ra_mangled(dcontext_t *dcontext,
 void entering_native(void);
 
 #ifdef LINUX
-void new_thread_setup(dr_mcontext_t *mc);
+void new_thread_setup(priv_mcontext_t *mc);
 #endif
 
 void
-get_xmm_vals(dr_mcontext_t *mc);
+get_xmm_vals(priv_mcontext_t *mc);
 
 /* from x86.asm */
 /* Note these have specialized calling conventions and shouldn't be called from
@@ -856,12 +852,17 @@ void global_do_syscall_wow64_index0(void);
 #ifdef X64
 void global_do_syscall_syscall(void);
 #endif
-void get_xmm_caller_saved(dr_xmm_t *xmm_caller_saved_buf);
+void get_xmm_caller_saved(dr_ymm_t *xmm_caller_saved_buf);
+void get_ymm_caller_saved(dr_ymm_t *ymm_caller_saved_buf);
 
 /* in encode.c */
 byte *instr_encode_ignore_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc);
 byte *instr_encode_check_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc);
 byte *copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst_pc);
+
+/* in instr.c */
+uint
+move_mm_reg_opcode(bool aligned16, bool aligned32);
 
 #endif /* X86_ARCH_H */
 

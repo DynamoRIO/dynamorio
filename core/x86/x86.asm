@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -94,11 +95,14 @@ START_FILE
 # else
 #  define NUM_XMM_SLOTS 16 /* xmm0-15 */
 # endif
+# define PRE_XMM_PADDING 16
 #else
 # define NUM_XMM_SLOTS 8 /* xmm0-7 */
+# define PRE_XMM_PADDING 24
 #endif
+#define XMM_SAVED_REG_SIZE 32 /* for ymm */
 /* xmm0-5/7/15 for PR 264138/i#139/PR 302107 */
-#define XMM_SAVED_SIZE ((NUM_XMM_SLOTS)*16) 
+#define XMM_SAVED_SIZE ((NUM_XMM_SLOTS)*(XMM_SAVED_REG_SIZE)) 
 
 /* Should we generate all of our asm code instead of having it static?
  * As it is we're duplicating insert_push_all_registers(), dr_insert_call(), etc.,
@@ -106,15 +110,14 @@ START_FILE
  * than emit_utils.c-style code.
  */
 #ifdef X64
-/* push all registers in dr_mcontext_t order.  does NOT make xsp have a
- * pre-push value as no callers need that (they all use PUSH_DR_MCONTEXT).
+/* push GPR registers in priv_mcontext_t order.  does NOT make xsp have a
+ * pre-push value as no callers need that (they all use PUSH_PRIV_MCXT).
  * Leaves space for, but does NOT fill in, the xmm0-5 slots (PR 264138),
  * since it's hard to dynamically figure out during bootstrapping whether
  * movdqu or movups are legal instructions.  The caller is expected
  * to fill in the xmm values prior to any calls that may clobber them.
  */
-# define PUSHALL \
-        lea      rsp, [rsp - XMM_SAVED_SIZE] @N@\
+# define PUSHGPR \
         push     r15 @N@\
         push     r14 @N@\
         push     r13 @N@\
@@ -132,7 +135,7 @@ START_FILE
         push     rbp @N@\
         push     rsi @N@\
         push     rdi
-# define POPALL        \
+# define POPGPR        \
         pop      rdi @N@\
         pop      rsi @N@\
         pop      rbp @N@\
@@ -148,39 +151,39 @@ START_FILE
         pop      r12 @N@\
         pop      r13 @N@\
         pop      r14 @N@\
-        pop      r15 @N@\
-        lea      rsp, [rsp + XMM_SAVED_SIZE]
-# define DR_MCONTEXT_SIZE (18*ARG_SZ + XMM_SAVED_SIZE)
-# define dstack_OFFSET     (DR_MCONTEXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
+        pop      r15 @N@
+# define PRIV_MCXT_SIZE (18*ARG_SZ + PRE_XMM_PADDING + XMM_SAVED_SIZE)
+# define dstack_OFFSET     (PRIV_MCXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
+# define MCONTEXT_PC_OFFS  (17*ARG_SZ)
 #else
-# define PUSHALL \
-        lea      esp, [esp - XMM_SAVED_SIZE] @N@\
+# define PUSHGPR \
         pusha
-# define POPALL  \
-        popa @N@\
-        lea      esp, [esp + XMM_SAVED_SIZE]
-# define DR_MCONTEXT_SIZE (10*ARG_SZ + XMM_SAVED_SIZE)
-# define dstack_OFFSET     (DR_MCONTEXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
+# define POPGPR  \
+        popa
+# define PRIV_MCXT_SIZE (10*ARG_SZ + PRE_XMM_PADDING + XMM_SAVED_SIZE)
+# define dstack_OFFSET     (PRIV_MCXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
+# define MCONTEXT_PC_OFFS  (9*ARG_SZ)
 #endif
-#define is_exiting_OFFSET (dstack_OFFSET+3*ARG_SZ+4)
-#define PUSHALL_XSP_OFFS  (3*ARG_SZ)
-#define MCONTEXT_XSP_OFFS (PUSHALL_XSP_OFFS)
-#define MCONTEXT_PC_OFFS  (DR_MCONTEXT_SIZE-ARG_SZ)
+#define is_exiting_OFFSET (dstack_OFFSET+3*ARG_SZ)
+#define PUSHGPR_XSP_OFFS  (3*ARG_SZ)
+#define MCONTEXT_XSP_OFFS (PUSHGPR_XSP_OFFS)
+#define PUSH_PRIV_MCXT_PRE_PC_SHIFT (- XMM_SAVED_SIZE - PRE_XMM_PADDING)
 
-/* Pushes a dr_mcontext_t on the stack, with an xsp value equal to the
+/* Pushes a priv_mcontext_t on the stack, with an xsp value equal to the
  * xsp before the pushing.  Clobbers xax!
  * Does fill in xmm0-5, if necessary, for PR 264138.
  * Assumes that DR has been initialized (get_xmm_vals() checks proc feature bits).
  * Caller should ensure 16-byte stack alignment prior to the push (PR 306421).
  */
-#define PUSH_DR_MCONTEXT(pc)                              \
+#define PUSH_PRIV_MCXT(pc)                              \
+        lea      REG_XSP, [REG_XSP + PUSH_PRIV_MCXT_PRE_PC_SHIFT]  @N@\
         push     pc                                    @N@\
         PUSHF                                          @N@\
-        PUSHALL                                        @N@\
+        PUSHGPR                                        @N@\
         lea      REG_XAX, [REG_XSP]                    @N@\
         CALLC1(get_xmm_vals, REG_XAX)                  @N@\
-        lea      REG_XAX, [DR_MCONTEXT_SIZE + REG_XSP] @N@\
-        mov      [PUSHALL_XSP_OFFS + REG_XSP], REG_XAX
+        lea      REG_XAX, [PRIV_MCXT_SIZE + REG_XSP] @N@\
+        mov      [PUSHGPR_XSP_OFFS + REG_XSP], REG_XAX
 
 
 /****************************************************************************/
@@ -239,7 +242,7 @@ DECL_EXTERN(syscall_argsz)
 
 #ifdef WINDOWS
 /* dynamo_auto_start: used for non-early follow children.
- * Assumptions: The saved dr_mcontext_t for the start of the app is on
+ * Assumptions: The saved priv_mcontext_t for the start of the app is on
  * the stack, followed by a pointer to a region of memory to free
  * (which can be NULL) and its size.  This routine is reached by a jmp
  * so be aware of that for address calculation. This routine does
@@ -409,16 +412,16 @@ GLOBAL_LABEL(clone_and_swap_stack:)
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
 
-        /* grab exec state and pass as param in a dr_mcontext_t struct */
-        PUSH_DR_MCONTEXT([REG_XSP])  /* push return address as pc */
+        /* grab exec state and pass as param in a priv_mcontext_t struct */
+        PUSH_PRIV_MCXT([REG_XSP - PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
 
         /* do the rest in C */
-        lea      REG_XAX, [REG_XSP] /* stack grew down, so dr_mcontext_t at tos */
+        lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
         CALLC1(dr_app_start_helper, REG_XAX)
 
         /* if we come back, then DR is not taking control so 
          * clean up stack and return */
-        add      REG_XSP, DR_MCONTEXT_SIZE
+        add      REG_XSP, PRIV_MCXT_SIZE
         ret
         END_FUNC(dr_app_start)
 
@@ -440,16 +443,16 @@ GLOBAL_LABEL(dr_app_take_over:  )
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
 
-        /* grab exec state and pass as param in a dr_mcontext_t struct */
-        PUSH_DR_MCONTEXT([REG_XSP])  /* push return address as pc */
+        /* grab exec state and pass as param in a priv_mcontext_t struct */
+        PUSH_PRIV_MCXT([REG_XSP - PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
 
         /* do the rest in C */
-        lea      REG_XAX, [REG_XSP] /* stack grew down, so dr_mcontext_t at tos */
+        lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
         CALLC1(dynamorio_app_take_over_helper, REG_XAX)
 
         /* if we come back, then DR is not taking control so 
          * clean up stack and return */
-        add      REG_XSP, DR_MCONTEXT_SIZE
+        add      REG_XSP, PRIV_MCXT_SIZE
         ret
         END_FUNC(dynamorio_app_take_over)
         
@@ -1321,11 +1324,11 @@ GLOBAL_LABEL(nt_continue_dynamo_start:)
         /* assume valid esp  
          * FIXME: this routine should really not assume esp */
 
-        /* grab exec state and pass as param in a dr_mcontext_t struct */
-        PUSH_DR_MCONTEXT(0 /* for dr_mcontext_t.pc */)
-        lea      REG_XAX, [REG_XSP] /* stack grew down, so dr_mcontext_t at tos */
+        /* grab exec state and pass as param in a priv_mcontext_t struct */
+        PUSH_PRIV_MCXT(0 /* for priv_mcontext_t.pc */)
+        lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
 
-        /* Call nt_continue_setup passing the dr_mcontext_t.  It will 
+        /* Call nt_continue_setup passing the priv_mcontext_t.  It will 
          * obtain and initialize this thread's dcontext pointer and
          * begin execution with the passed-in state.
          */
@@ -1346,11 +1349,11 @@ GLOBAL_LABEL(back_from_native:)
         /* assume valid esp  
          * FIXME: more robust if don't use app's esp -- should use initstack
          */
-        /* grab exec state and pass as param in a dr_mcontext_t struct */
-        PUSH_DR_MCONTEXT(0 /* for dr_mcontext_t.pc */)
-        lea      REG_XAX, [REG_XSP] /* stack grew down, so dr_mcontext_t at tos */
+        /* grab exec state and pass as param in a priv_mcontext_t struct */
+        PUSH_PRIV_MCXT(0 /* for priv_mcontext_t.pc */)
+        lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
 
-        /* Call back_from_native_C passing the dr_mcontext_t.  It will 
+        /* Call back_from_native_C passing the priv_mcontext_t.  It will 
          * obtain this thread's dcontext pointer and
          * begin execution with the passed-in state.
          */
@@ -1688,28 +1691,29 @@ GLOBAL_LABEL(get_own_context_helper:)
         push     REG_XDI
 #ifdef  X64
         /* w/ retaddr, we're now at 16-byte alignment */
-        /* save argument register (PUSH_DR_MCONTEXT calls out to c code) */
+        /* save argument register (PUSH_PRIV_MCXT calls out to c code) */
         mov REG_XDI, ARG1
 #endif
         
-        /* grab exec state and pass as param in a dr_mcontext_t struct */
-        PUSH_DR_MCONTEXT([(3 * ARG_SZ) + REG_XSP] /* use retaddr for pc */)
+        /* grab exec state and pass as param in a priv_mcontext_t struct */
+        /* use retaddr for pc */
+        PUSH_PRIV_MCXT([(3 * ARG_SZ) + REG_XSP - PUSH_PRIV_MCXT_PRE_PC_SHIFT])
         /* we don't have enough registers to avoid parameter regs so we carefully
          * use the suggested register order
          */
-        lea      REG_XSI, [REG_XSP] /* stack grew down, so dr_mcontext_t at tos */
+        lea      REG_XSI, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
 #ifdef X64
         mov      REG_XAX, REG_XDI
 #else
         /* 4 * arg_sz = 3 callee saved registers pushed to stack plus return addr */
-        mov      REG_XAX, [DR_MCONTEXT_SIZE + (4 * ARG_SZ) + REG_XSP]
+        mov      REG_XAX, [PRIV_MCXT_SIZE + (4 * ARG_SZ) + REG_XSP]
 #endif
         xor      edi, edi
         mov      di, ss
         xor      ebx, ebx
         mov      bx, cs
         CALLC4(get_own_context_integer_control, REG_XAX, REG_XBX, REG_XDI, REG_XSI)
-        add      REG_XSP, DR_MCONTEXT_SIZE
+        add      REG_XSP, PRIV_MCXT_SIZE
         pop      REG_XDI
         pop      REG_XSI
         pop      REG_XBX
@@ -1730,28 +1734,81 @@ GLOBAL_LABEL(get_own_context_helper:)
         DECLARE_FUNC(get_xmm_caller_saved)
 GLOBAL_LABEL(get_xmm_caller_saved:)
         mov      REG_XAX, ARG1
-        movups   [REG_XAX + 0*16], xmm0
-        movups   [REG_XAX + 1*16], xmm1
-        movups   [REG_XAX + 2*16], xmm2
-        movups   [REG_XAX + 3*16], xmm3
-        movups   [REG_XAX + 4*16], xmm4
-        movups   [REG_XAX + 5*16], xmm5
-#if defined(LINUX) || !defined(X64)
-        movups   [REG_XAX + 6*16], xmm6
-        movups   [REG_XAX + 7*16], xmm7
+        movups   [REG_XAX + 0*XMM_SAVED_REG_SIZE], xmm0
+        movups   [REG_XAX + 1*XMM_SAVED_REG_SIZE], xmm1
+        movups   [REG_XAX + 2*XMM_SAVED_REG_SIZE], xmm2
+        movups   [REG_XAX + 3*XMM_SAVED_REG_SIZE], xmm3
+        movups   [REG_XAX + 4*XMM_SAVED_REG_SIZE], xmm4
+        movups   [REG_XAX + 5*XMM_SAVED_REG_SIZE], xmm5
+#ifdef LINUX
+        movups   [REG_XAX + 6*XMM_SAVED_REG_SIZE], xmm6
+        movups   [REG_XAX + 7*XMM_SAVED_REG_SIZE], xmm7
 #endif
 #if defined(LINUX) && defined(X64)
-        movups   [REG_XAX + 8*16], xmm8
-        movups   [REG_XAX + 9*16], xmm9
-        movups   [REG_XAX + 10*16], xmm10
-        movups   [REG_XAX + 11*16], xmm11
-        movups   [REG_XAX + 12*16], xmm12
-        movups   [REG_XAX + 13*16], xmm13
-        movups   [REG_XAX + 14*16], xmm14
-        movups   [REG_XAX + 15*16], xmm15
+        movups   [REG_XAX + 8*XMM_SAVED_REG_SIZE], xmm8
+        movups   [REG_XAX + 9*XMM_SAVED_REG_SIZE], xmm9
+        movups   [REG_XAX + 10*XMM_SAVED_REG_SIZE], xmm10
+        movups   [REG_XAX + 11*XMM_SAVED_REG_SIZE], xmm11
+        movups   [REG_XAX + 12*XMM_SAVED_REG_SIZE], xmm12
+        movups   [REG_XAX + 13*XMM_SAVED_REG_SIZE], xmm13
+        movups   [REG_XAX + 14*XMM_SAVED_REG_SIZE], xmm14
+        movups   [REG_XAX + 15*XMM_SAVED_REG_SIZE], xmm15
 #endif
         ret
         END_FUNC(get_xmm_caller_saved)
+
+/* void get_ymm_caller_saved(byte *ymm_caller_saved_buf)
+ *   stores the values of ymm0 through ymm5 consecutively into ymm_caller_saved_buf.
+ *   ymm_caller_saved_buf need not be 32-byte aligned.
+ *   for linux, also saves ymm6-15 (PR 302107).
+ *   caller must ensure that the underlying processor supports SSE!
+ */
+        DECLARE_FUNC(get_ymm_caller_saved)
+GLOBAL_LABEL(get_ymm_caller_saved:)
+        mov      REG_XAX, ARG1
+       /* VS2005 assembler doesn't know "vmovdqu".  Rather than generating from our IR,
+        * or not supporting VS2005 when building for future processors, we just put in
+        * the raw bytes for these 6 instrs:
+        *     c5 fe 7f 00             vmovdqu %ymm0,(%eax)
+        *     c5 fe 7f 48 20          vmovdqu %ymm1,0x20(%eax)
+        *     c5 fe 7f 50 40          vmovdqu %ymm2,0x40(%eax)
+        *     c5 fe 7f 58 60          vmovdqu %ymm3,0x60(%eax)
+        *     c5 fe 7f a0 80 00 00    vmovdqu %ymm4,0x80(%eax)
+        *     00 
+        *     c5 fe 7f a8 a0 00 00    vmovdqu %ymm5,0xa0(%eax)
+        *     00 
+        */
+#if defined(LINUX) || _MSC_VER >= 1600
+        vmovdqu  [REG_XAX + 0*XMM_SAVED_REG_SIZE], ymm0
+        vmovdqu  [REG_XAX + 1*XMM_SAVED_REG_SIZE], ymm1
+        vmovdqu  [REG_XAX + 2*XMM_SAVED_REG_SIZE], ymm2
+        vmovdqu  [REG_XAX + 3*XMM_SAVED_REG_SIZE], ymm3
+        vmovdqu  [REG_XAX + 4*XMM_SAVED_REG_SIZE], ymm4
+        vmovdqu  [REG_XAX + 5*XMM_SAVED_REG_SIZE], ymm5
+#else
+        RAW(c5) RAW(fe) RAW(7f) RAW(00)
+        RAW(c5) RAW(fe) RAW(7f) RAW(48) RAW(20)
+        RAW(c5) RAW(fe) RAW(7f) RAW(50) RAW(40)
+        RAW(c5) RAW(fe) RAW(7f) RAW(58) RAW(60)
+        RAW(c5) RAW(fe) RAW(7f) RAW(a0) RAW(80) RAW(00) RAW(00) RAW(00)
+        RAW(c5) RAW(fe) RAW(7f) RAW(a8) RAW(a0) RAW(00) RAW(00) RAW(00)
+#endif
+#ifdef LINUX
+        vmovdqu  [REG_XAX + 6*XMM_SAVED_REG_SIZE], ymm6
+        vmovdqu  [REG_XAX + 7*XMM_SAVED_REG_SIZE], ymm7
+# ifdef X64
+        vmovdqu  [REG_XAX + 8*XMM_SAVED_REG_SIZE], ymm8
+        vmovdqu  [REG_XAX + 9*XMM_SAVED_REG_SIZE], ymm9
+        vmovdqu  [REG_XAX + 10*XMM_SAVED_REG_SIZE], ymm10
+        vmovdqu  [REG_XAX + 11*XMM_SAVED_REG_SIZE], ymm11
+        vmovdqu  [REG_XAX + 12*XMM_SAVED_REG_SIZE], ymm12
+        vmovdqu  [REG_XAX + 13*XMM_SAVED_REG_SIZE], ymm13
+        vmovdqu  [REG_XAX + 14*XMM_SAVED_REG_SIZE], ymm14
+        vmovdqu  [REG_XAX + 15*XMM_SAVED_REG_SIZE], ymm15
+# endif
+#endif
+        ret
+        END_FUNC(get_ymm_caller_saved)
 
 /* void hashlookup_null_handler(void)
  * PR 305731: if the app targets NULL, it ends up here, which indirects
@@ -1812,7 +1869,7 @@ GLOBAL_LABEL(load_dynamo:)
                       | &GetProcAddr  |
                       | &dynamo_entry |___
                       |               |   |
-                      |(saved context)| dr_mcontext_t struct
+                      |(saved context)| priv_mcontext_t struct
                       | &code_alloc   |   | pointer to the code allocation
                       | sizeof(code_alloc)| size of the code allocation
                       |_______________|___| (possible padding for x64 xsp alignment)
@@ -1910,11 +1967,12 @@ GLOBAL_LABEL(load_dynamo_failure:)
         /* it's ok to write past app TOS since we're just overwriting part of 
          * the dynamo_entry string which is dead at this point, won't affect 
          * the popping of the saved context */
-        POPALL /* we assume xmm0-5 do not need to be restored */
+        POPGPR
         POPF
         /* we assume reading beyond TOS is ok here (no signals on windows) */
-         /* restore app xsp (POPALL doesn't): didn't pop pc, so +ARG_SZ */
-        mov      REG_XSP, [-DR_MCONTEXT_SIZE + MCONTEXT_XSP_OFFS + ARG_SZ + REG_XSP]
+        /* we assume xmm0-5 do not need to be restored */
+        /* restore app xsp (POPGPR doesn't): didn't pop pc, so +ARG_SZ */
+        mov      REG_XSP, [-PRIV_MCXT_SIZE + MCONTEXT_XSP_OFFS + ARG_SZ + REG_XSP]
         jmp      PTRSZ [-ARG_SZ + REG_XSP]      /* jmp to app start_pc */
 
         ret

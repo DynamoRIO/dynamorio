@@ -1269,7 +1269,7 @@ opnd_shrink_to_32_bits(opnd_t opnd)
 #endif
 
 static reg_t
-reg_get_value_helper(reg_id_t reg, dr_mcontext_t *mc)
+reg_get_value_helper(reg_id_t reg, priv_mcontext_t *mc)
 {
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "reg_get_value_helper(): internal error non-ptr sized reg");
@@ -1279,12 +1279,11 @@ reg_get_value_helper(reg_id_t reg, dr_mcontext_t *mc)
     return *(reg_t *)((byte *)mc + opnd_get_reg_mcontext_offs(reg));
 }
 
-DR_API
 /* Returns the value of the register reg, selected from the passed-in
  * register values.
  */
 reg_t
-reg_get_value(reg_id_t reg, dr_mcontext_t *mc)
+reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc)
 {
     if (reg == REG_NULL)
         return 0;
@@ -1314,17 +1313,24 @@ reg_get_value(reg_id_t reg, dr_mcontext_t *mc)
     /* mmx, xmm, and segment cannot be part of address 
      * if want to use this routine for more than just effective address
      * calculations, need to pass in mmx/xmm state, or need to grab it
-     * here
+     * here.  would then need to check dr_mcontext_t.size.
      */
     CLIENT_ASSERT(false, "reg_get_value: unsupported register");
     return 0;
 }
 
 DR_API
+reg_t
+reg_get_value(reg_id_t reg, dr_mcontext_t *mc)
+{
+    /* only supports GPRs so we ignore mc.size */
+    return reg_get_value_priv(reg, dr_mcontext_as_priv_mcontext(mc));
+}
+
 /* Sets the register reg in the passed in mcontext to value.  Currently only works
  * with ptr sized registers. FIXME - handle other sized registers. */
 void
-reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
+reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value)
 {
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "reg_get_value_helper(): internal error non-ptr sized reg");
@@ -1336,6 +1342,13 @@ reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
 }
 
 DR_API
+void
+reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
+{
+    /* only supports GPRs so we ignore mc.size */
+    reg_set_value_priv(reg, dr_mcontext_as_priv_mcontext(mc), value);
+}
+
 /* Returns the effective address of opnd, computed using the passed-in
  * register values.  If opnd is a far address, ignores that aspect
  * except for TLS references on Windows (fs: for 32-bit, gs: for 64-bit)
@@ -1343,7 +1356,7 @@ DR_API
  * calling thread's segment selector is used.
  */
 app_pc
-opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
+opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
 {
     reg_id_t base, index;
     int scale, disp;
@@ -1369,9 +1382,9 @@ opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
     scale = opnd_get_scale(opnd);
     disp = opnd_get_disp(opnd);
     logopnd(get_thread_private_dcontext(), 4, opnd, "opnd_compute_address for");
-    addr += reg_get_value(base, mc);
+    addr += reg_get_value_priv(base, mc);
     LOG(THREAD_GET, LOG_ALL, 4, "\tbase => "PFX"\n", addr);
-    addr += scale * reg_get_value(index, mc);
+    addr += scale * reg_get_value_priv(index, mc);
     LOG(THREAD_GET, LOG_ALL, 4, "\tindex,scale => "PFX"\n", addr);
     /* FIXME PR 332730: should disp with no base or index be unsigned
      * (only matters for x64 or seg_base != 0)?  Certainly not allowed
@@ -1381,6 +1394,14 @@ opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
     addr += disp;
     LOG(THREAD_GET, LOG_ALL, 4, "\tdisp => "PFX"\n", addr);
     return (app_pc) addr;
+}
+
+DR_API
+app_pc
+opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
+{
+    /* only uses GPRs so we ignore mc.size */
+    return opnd_compute_address_priv(opnd, dr_mcontext_as_priv_mcontext(mc));
 }
 
 /***************************************************************************
@@ -3561,13 +3582,12 @@ instr_set_our_mangling(instr_t *instr, bool ours)
         instr->flags &= ~INSTR_OUR_MANGLING;
 }
 
-DR_API
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.
  */
 bool
-instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
-                         OUT app_pc *addr, OUT bool *is_write)
+instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
+                              OUT app_pc *addr, OUT bool *is_write)
 {
     /* for string instr, even w/ rep prefix, assume want value at point of
      * register snapshot passed in
@@ -3600,25 +3620,42 @@ instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
     if (memcount != (int)index)
         return false;
     if (addr != NULL)
-        *addr = opnd_compute_address(curop, mc);
+        *addr = opnd_compute_address_priv(curop, mc);
     if (is_write != NULL)
         *is_write = write;
     return true;
 }
 
 DR_API
+bool
+instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
+                         OUT app_pc *addr, OUT bool *is_write)
+{
+    /* only supports GPRs so we ignore mc.size */
+    return instr_compute_address_ex_priv(instr, dr_mcontext_as_priv_mcontext(mc),
+                                         index, addr, is_write);
+}
+
 /* Returns NULL if none of instr's operands is a memory reference.
  * Otherwise, returns the effective address of the first memory operand
  * when the operands are considered in this order: destinations and then
  * sources.  The address is computed using the passed-in registers.
  */
 app_pc
-instr_compute_address(instr_t *instr, dr_mcontext_t *mc)
+instr_compute_address_priv(instr_t *instr, priv_mcontext_t *mc)
 {
     app_pc addr;
-    if (!instr_compute_address_ex(instr, mc, 0, &addr, NULL))
+    if (!instr_compute_address_ex_priv(instr, mc, 0, &addr, NULL))
         return NULL;
     return addr;
+}
+
+DR_API
+app_pc
+instr_compute_address(instr_t *instr, dr_mcontext_t *mc)
+{
+    /* only supports GPRs so we ignore mc.size */
+    return instr_compute_address_priv(instr, dr_mcontext_as_priv_mcontext(mc));
 }
 
 /* Calculates the size, in bytes, of the memory read or write of instr
@@ -4250,7 +4287,7 @@ instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,
  * if the state is before execution (pre == true) or after (pre == false).
  */
 bool
-instr_cbr_taken(instr_t *instr, dr_mcontext_t *mcontext, bool pre)
+instr_cbr_taken(instr_t *instr, priv_mcontext_t *mcontext, bool pre)
 {
     CLIENT_ASSERT(instr_is_cbr(instr), "instr_cbr_taken: instr not a cbr");
     if (instr_is_cti_loop(instr)) {
@@ -5258,7 +5295,7 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
         opnd_is_reg(regop)) {
         byte *pc = (byte *) opnd_get_disp(memop);
         byte *mc = (byte *) get_mcontext(dcontext);
-        if (pc >= mc && pc < mc + sizeof(dr_mcontext_t)) {
+        if (pc >= mc && pc < mc + sizeof(priv_mcontext_t)) {
             if (reg != NULL)
                 *reg = opnd_get_reg(regop);
             if (offs != NULL)
@@ -5360,3 +5397,18 @@ instr_is_wow64_syscall(instr_t *instr)
             opnd_get_disp(tgt) == WOW64_TIB_OFFSET);
 }
 #endif
+
+uint
+move_mm_reg_opcode(bool aligned16, bool aligned32)
+{
+    if (YMM_ENABLED()) {
+        /* must preserve ymm registers */
+        return (aligned32 ? OP_vmovdqa : OP_vmovdqu);
+    }
+    else if (proc_has_feature(FEATURE_SSE2)) {
+        return (aligned16 ? OP_movdqa : OP_movdqu);
+    } else {
+        CLIENT_ASSERT(proc_has_feature(FEATURE_SSE), "running on unsupported processor");
+        return (aligned16 ? OP_movaps : OP_movups);
+    }
+}

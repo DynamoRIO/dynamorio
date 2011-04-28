@@ -3312,7 +3312,7 @@ thread_terminate(thread_record_t *tr)
 }
 
 bool
-thread_get_mcontext(thread_record_t *tr, dr_mcontext_t *mc)
+thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
     CONTEXT cxt;
     cxt.ContextFlags = CONTEXT_DR_STATE;
@@ -3324,7 +3324,7 @@ thread_get_mcontext(thread_record_t *tr, dr_mcontext_t *mc)
 }
 
 bool
-thread_set_mcontext(thread_record_t *tr, dr_mcontext_t *mc)
+thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
     CONTEXT cxt;
     cxt.ContextFlags = CONTEXT_DR_STATE;
@@ -3353,9 +3353,9 @@ thread_set_self_context(void *cxt)
     ASSERT_NOT_REACHED();
 }
 
-/* Takes a dr_mcontext_t */
+/* Takes a priv_mcontext_t */
 void
-thread_set_self_mcontext(dr_mcontext_t *mc)
+thread_set_self_mcontext(priv_mcontext_t *mc)
 {
     CONTEXT cxt;
     cxt.ContextFlags = CONTEXT_DR_STATE;
@@ -5203,7 +5203,7 @@ os_unmap_file(byte *map, size_t size/*unused*/)
 bool
 translate_context(thread_record_t *trec, CONTEXT *cxt, bool restore_memory)
 {
-    dr_mcontext_t mc;
+    priv_mcontext_t mc;
     bool res;
     /* ensure we have eip and esp */
     ASSERT(TESTALL(CONTEXT_CONTROL/*2 bits so ALL*/, cxt->ContextFlags));
@@ -5228,7 +5228,7 @@ set_mcontext_for_syscall(dcontext_t *dcontext, int sys_enum,
 #endif
                          )
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
 #ifdef X64
     LOG(THREAD, LOG_SYSCALLS, 2,
         "issue_last_system_call_from_app(0x%x, "PFX" "PFX" "PFX")\n",

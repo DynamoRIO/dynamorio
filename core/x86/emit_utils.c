@@ -2930,70 +2930,42 @@ build_profile_call_buffer()
      instr_create_save_to_dc_via_reg((dc), reg_dr, (reg), (offs)))
 
 #ifdef WINDOWS
-/* LastError preservation routines, used in fcache_enter/return and shared_syscall */
+# ifdef CLIENT_INTERFACE
 
-/* inlined versions of save/restore last error by reading of TIB */
-/* If our inlined version fails on a later version of windows 
-   should verify [GS]etLastError matches the disassembly below.
-*/
-void
-preinsert_set_last_error(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
-                         reg_id_t reg_errno /* saved errno */)
-{
-/* Win2000: kernel32!SetLastError: */
-/*   77E87671: 55                 push        ebp */
-/*   77E87672: 8B EC              mov         ebp,esp */
-/*   77E87674: 64 A1 18 00 00 00  mov         eax,fs:[00000018] */
-/*   77E8767A: 8B 4D 08           mov         ecx,dword ptr [ebp+8] */
-/*   77E8767D: 89 48 34           mov         dword ptr [eax+34h],ecx */
-/*   77E87680: 5D                 pop         ebp */
-/*   77E87681: C2 04 00           ret         4 */
+/* Leaving in place old notes on LastError preservation: */
+    /* inlined versions of save/restore last error by reading of TIB */
+    /* If our inlined version fails on a later version of windows 
+       should verify [GS]etLastError matches the disassembly below.
+    */
+    /* Win2000: kernel32!SetLastError: */
+    /*   77E87671: 55                 push        ebp */
+    /*   77E87672: 8B EC              mov         ebp,esp */
+    /*   77E87674: 64 A1 18 00 00 00  mov         eax,fs:[00000018] */
+    /*   77E8767A: 8B 4D 08           mov         ecx,dword ptr [ebp+8] */
+    /*   77E8767D: 89 48 34           mov         dword ptr [eax+34h],ecx */
+    /*   77E87680: 5D                 pop         ebp */
+    /*   77E87681: C2 04 00           ret         4 */
 
-/* Win2003: ntdll!RtlSetLastWin32Error: optimized to */
-/*   77F45BB4: 64 A1 18 00 00 00  mov         eax,fs:[00000018] */
-/*   77F45BBA: 8B 4C 24 04        mov         ecx,dword ptr [esp+4] */
-/*   77F45BBE: 89 48 34           mov         dword ptr [eax+34h],ecx */
-/*   77F45BC1: C2 04 00           ret         4 */
+    /* Win2003: ntdll!RtlSetLastWin32Error: optimized to */
+    /*   77F45BB4: 64 A1 18 00 00 00  mov         eax,fs:[00000018] */
+    /*   77F45BBA: 8B 4C 24 04        mov         ecx,dword ptr [esp+4] */
+    /*   77F45BBE: 89 48 34           mov         dword ptr [eax+34h],ecx */
+    /*   77F45BC1: C2 04 00           ret         4 */
 
     /* See InsideWin2k, p. 329 SelfAddr fs:[18h] simply has the linear address of the TIB 
        while we're interested only in LastError which is at fs:[34h] */
-
     /* Therefore all we need is a single instruction! */
     /* 64 a1 34 00 00 00  mov         dword ptr fs:[34h],errno_register */
-
     /* Overall savings: 7 instructions, 5 data words */
-    /* Given the opportunity for optimization of the above code
-       we should definitely do it if this is on the critical path */
 
-    PRE(ilist, next,
-        INSTR_CREATE_mov_st(dcontext,
-                            opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0, 
-                                                      ERRNO_TIB_OFFSET, OPSZ_4),
-                            opnd_create_reg(reg_errno)));
-}
-
-void
-preinsert_get_last_error(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
-                         reg_id_t reg_result /* gets errno */)
-{
     /*kernel32!GetLastError:*/
     /*   77E87684: 64 A1 18 00 00 00  mov         eax,fs:[00000018] */
     /*   77E8768A: 8B 40 34           mov         eax,dword ptr [eax+34h] */
     /*   77E8768D: C3                 ret */
-    /* see comments in preinsert_set_last_error */
 
     /* All we need is a single instruction: */
     /*  77F45BBE: 89 48 34           mov         reg_result, dword ptr fs:[34h] */
 
-    PRE(ilist, next, 
-        INSTR_CREATE_mov_ld(dcontext,
-                            opnd_create_reg(reg_result),
-                            opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0, 
-                                                      ERRNO_TIB_OFFSET, OPSZ_4)
-                            ));
-}
-
-# ifdef CLIENT_INTERFACE
 /* i#249: isolate app's PEB+TEB by keeping our own copy and swapping on cxt switch */
 void
 preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
@@ -3003,6 +2975,7 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
      * and can use use absolute pointers known at init time
      */
     PEB *tgt_peb = to_priv ? get_private_peb() : get_own_peb();
+    reg_id_t scratch32 = IF_X64_ELSE(reg_64_to_32(reg_scratch), reg_scratch);
     ASSERT(INTERNAL_OPTION(private_peb) && should_swap_peb_pointer());
     ASSERT(reg_dr != REG_NULL && reg_scratch != REG_NULL);
     /* can't store 64-bit immed, so we use scratch reg, for 32-bit too since
@@ -3014,6 +2987,27 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
         (dcontext, opnd_create_far_base_disp
          (SEG_TLS, REG_NULL, REG_NULL, 0, PEB_TIB_OFFSET, OPSZ_PTR),
          opnd_create_reg(reg_scratch)));
+
+    /* Preserve app's TEB->LastErrorValue.  We used to do this separately b/c
+     * DR at one point long ago made some win32 API calls: now we only have to
+     * do this when loading private libraries.  We assume no private library
+     * code needs to preserve LastErrorCode across app execution.
+     */
+    if (to_priv) {
+        /* yes errno is 32 bits even on x64 */
+        PRE(ilist, next, INSTR_CREATE_mov_ld
+            (dcontext, opnd_create_reg(scratch32), opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, ERRNO_TIB_OFFSET, OPSZ_4)));
+        PRE(ilist, next, SAVE_TO_DC_VIA_REG
+            (absolute, dcontext, reg_dr, scratch32, APP_ERRNO_OFFSET));
+    } else {
+        PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+            (absolute, dcontext, reg_dr, scratch32, APP_ERRNO_OFFSET));
+        PRE(ilist, next, INSTR_CREATE_mov_st
+            (dcontext, opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, ERRNO_TIB_OFFSET, OPSZ_4),
+             opnd_create_reg(scratch32)));
+    }
 
     /* We also swap TEB->FlsData.  Unlike TEB->ProcessEnvironmentBlock, which is
      * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
@@ -3117,15 +3111,6 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
         RESTORE_FROM_UPCONTEXT PROT_OFFSET,%xsi
       endif
     endif  
-
-        # restore app's error code (32 bits even on x64)
-    .ifdef WINDOWS
-        RESTORE_FROM_DCONTEXT app_errno_OFFSET,%eax
-        mov     %eax, fs:ERRNO_TIB_OFFSET
-    .else
-        RESTORE_FROM_DCONTEXT app_errno_OFFSET,%eax
-        SAVE_TO_DCONTEXT %eax,errno_OFFSET
-    .endif
 
     if (!absolute)
         # put target somewhere we can be absolute about
@@ -3244,15 +3229,6 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XSI, PROT_OFFS));
     }
 
-    /* restore app's error code */
-#ifdef WINDOWS
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_EAX, APP_ERRNO_OFFSET));
-    preinsert_set_last_error(dcontext, &ilist, NULL, REG_EAX);
-#else
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_EAX, APP_ERRNO_OFFSET));
-    APP(&ilist, SAVE_TO_DC(dcontext, REG_EAX, ERRNO_OFFSET));
-#endif
-        
     if (!absolute) {
         /* put target into special slot that we can be absolute about */
         APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XAX, NEXT_TAG_OFFSET));
@@ -3334,14 +3310,18 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
          * to use movdqa when sse2 is available.
          * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
          */
+        /* FIXME i#438: once have SandyBridge processor need to measure
+         * cost of vmovdqu and whether worth arranging 32-byte alignment
+         */
         int i;
-        uint opcode = (proc_has_feature(FEATURE_SSE2) ? OP_movdqa : OP_movaps);
-        /* FIXME i#433: need DR cxt switch and clean call to preserve ymm */
+        uint opcode = move_mm_reg_opcode(true/*align32*/, true/*align16*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
         for (i=0; i<NUM_XMM_SAVED; i++) {
             APP(&ilist, instr_create_1dst_1src
-                (dcontext, opcode, opnd_create_reg(REG_XMM0 + (reg_id_t)i),
-                 OPND_DC_FIELD(absolute, dcontext, OPSZ_16, XMM_OFFSET + i*XMM_REG_SIZE)));
+                (dcontext, opcode, opnd_create_reg
+                 (REG_SAVED_XMM0 + (reg_id_t)i),
+                 OPND_DC_FIELD(absolute, dcontext,
+                               OPSZ_SAVED_XMM, XMM_OFFSET + i*XMM_SAVED_REG_SIZE)));
         }
     }
 #ifdef X64
@@ -3622,16 +3602,6 @@ append_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist)
         # save last_exit, currently in eax, into dcontext->last_exit
         SAVE_TO_DCONTEXT %xax,last_exit_OFFSET
 
-    .ifdef WINDOWS
-        # save app's error code (ok to use stack, it's dynamo's)
-        movl    fs:ERRNO_TIB_OFFSET,%eax
-        SAVE_TO_DCONTEXT %eax,app_errno_OFFSET
-    .else
-        # copy shared errno into app storage slot
-        RESTORE_FROM_DCONTEXT errno_OFFSET,%ebx
-        SAVE_TO_DCONTEXT %ebx,app_errno_OFFSET
-    .endif
-
     .ifdef SIDELINE
         # clear cur-trace field so we don't think cur trace is still running
         movl    $0, _sideline_trace
@@ -3760,13 +3730,14 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
          * we have stores instead of loads.
          */
         int i;
-        uint opcode = (proc_has_feature(FEATURE_SSE2) ? OP_movdqa : OP_movaps);
+        uint opcode = move_mm_reg_opcode(true/*align32*/, true/*align16*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
         for (i=0; i<NUM_XMM_SAVED; i++) {
             APP(ilist, instr_create_1dst_1src
                 (dcontext, opcode,
-                 OPND_DC_FIELD(absolute, dcontext, OPSZ_16, XMM_OFFSET + i*XMM_REG_SIZE),
-                 opnd_create_reg(REG_XMM0 + (reg_id_t)i)));
+                 OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
+                               XMM_OFFSET + i*XMM_SAVED_REG_SIZE),
+                 opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
         }
     }
 
@@ -3846,14 +3817,6 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
     APP(ilist, SAVE_TO_DC(dcontext, REG_XAX, LAST_EXIT_OFFSET));
 
 #ifdef WINDOWS
-    /* save app's error code */
-# ifdef KERNEL32_ERRNO
-    preinsert_get_last_error(dcontext, ilist, NULL, REG_EAX);
-    APP(ilist, SAVE_TO_DC(dcontext, REG_EAX, APP_ERRNO_OFFSET));
-# else
-    preinsert_get_last_error(dcontext, ilist, NULL, REG_EBX);
-    APP(ilist, SAVE_TO_DC(dcontext, REG_EBX, APP_ERRNO_OFFSET));
-# endif
 # ifdef CLIENT_INTERFACE
     /* i#249: isolate the PEB */
     if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
@@ -3861,10 +3824,6 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
                            REG_XAX/*scratch*/, true/*to priv*/);
     }
 # endif
-#else
-    /* copy shared errno into app storage slot */
-    APP(ilist, RESTORE_FROM_DC(dcontext, REG_EBX, ERRNO_OFFSET));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_EBX, APP_ERRNO_OFFSET));
 #endif
 
 #ifdef SIDELINE
@@ -7409,22 +7368,21 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
     APP(&ilist, INSTR_CREATE_xchg
         (dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(REG_XCX)));
 
-    /* grab exec state and pass as param in a dr_mcontext_t struct
+    /* grab exec state and pass as param in a priv_mcontext_t struct
      * new_thread_setup will restore real app xsp and xax
-     * we emulate x86.asm's PUSH_DR_MCONTEXT(REG_XAX) (for dr_mcontext_t.pc)
+     * we emulate x86.asm's PUSH_DR_MCONTEXT(REG_XAX) (for priv_mcontext_t.pc)
      */
-    APP(&ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XAX)));
-    APP(&ilist, INSTR_CREATE_pushf(dcontext));
-    offset = insert_push_all_registers(dcontext, NULL, &ilist, NULL, 
-                                       IF_X64_ELSE(true, false));
-    ASSERT(ALIGNED(offset, 16));
-    /* put pre-push xsp into dr_mcontext_t.xsp slot */
-    ASSERT(offset + 2*XSP_SZ == sizeof(dr_mcontext_t));
+    offset = insert_push_all_registers(dcontext, NULL, &ilist, NULL,
+                                       IF_X64_ELSE(16, 4),
+                                       INSTR_CREATE_push(dcontext,
+                                                         opnd_create_reg(REG_XAX)));
+    /* put pre-push xsp into priv_mcontext_t.xsp slot */
+    ASSERT(offset == sizeof(priv_mcontext_t));
     APP(&ilist, INSTR_CREATE_lea
         (dcontext, opnd_create_reg(REG_XAX),
-         OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, sizeof(dr_mcontext_t))));
+         OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, sizeof(priv_mcontext_t))));
     APP(&ilist, INSTR_CREATE_mov_st
-        (dcontext, OPND_CREATE_MEMPTR(REG_XSP, offsetof(dr_mcontext_t, xsp)),
+        (dcontext, OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xsp)),
          opnd_create_reg(REG_XAX)));
 
     /* We avoid get_thread_id syscall in get_thread_private_dcontext()
@@ -7437,7 +7395,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
         (dcontext, opnd_create_reg(REG_AX), OPND_CREATE_INT16(0)));
     APP(&ilist, INSTR_CREATE_mov_seg
         (dcontext, opnd_create_reg(SEG_TLS), opnd_create_reg(REG_AX)));
-    /* stack grew down, so dr_mcontext_t at tos */
+    /* stack grew down, so priv_mcontext_t at tos */
     APP(&ilist, INSTR_CREATE_lea
         (dcontext, opnd_create_reg(REG_XAX),
          OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, 0)));

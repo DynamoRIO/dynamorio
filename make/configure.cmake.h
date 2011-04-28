@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,6 +70,7 @@
 #cmakedefine VERSION_NUMBER ${VERSION_NUMBER}
 #cmakedefine VERSION_COMMA_DELIMITED ${VERSION_COMMA_DELIMITED}
 #cmakedefine VERSION_NUMBER_INTEGER ${VERSION_NUMBER_INTEGER}
+#cmakedefine OLDEST_COMPATIBLE_VERSION ${OLDEST_COMPATIBLE_VERSION}
 #cmakedefine BUILD_NUMBER ${BUILD_NUMBER}
 #cmakedefine UNIQUE_BUILD_NUMBER ${UNIQUE_BUILD_NUMBER}
 #cmakedefine CUSTOM_PRODUCT_NAME "${CUSTOM_PRODUCT_NAME}"

@@ -610,7 +610,7 @@ typedef struct _dr_restore_state_info_t {
      * cautioned when examining code cache instructions to not rely on
      * any details of code inserted other than their own.
      */
-    dr_mcontext_t raw_mcontext;
+    dr_mcontext_t *raw_mcontext;
     /**
      * Information about the code fragment inside the code cache
      * at the translation interruption point.
@@ -840,7 +840,7 @@ dr_unregister_module_unload_event(void (*func)(void *drcontext,
  * machine context and the Win32 exception record.
  */
 typedef struct _dr_exception_t {
-    dr_mcontext_t mcontext;   /**< Machine context at exception point. */
+    dr_mcontext_t *mcontext;   /**< Machine context at exception point. */
     EXCEPTION_RECORD *record; /**< Win32 exception record. */
     /** 
      * The raw pre-translated machine state at the exception interruption
@@ -848,8 +848,7 @@ typedef struct _dr_exception_t {
      * code cache instructions to not rely on any details of code inserted
      * other than their own.
      */
-    ALIGN_VAR(8)/*avoid differences in padding*/
-    dr_mcontext_t raw_mcontext;
+    dr_mcontext_t *raw_mcontext;
     /**
      * Information about the code fragment inside the code cache at
      * the exception interruption point. 
@@ -1050,14 +1049,14 @@ typedef struct _dr_siginfo_t {
     /** The context of the thread receiving the signal. */
     void *drcontext;
     /** The application machine state at the signal interruption point. */
-    dr_mcontext_t mcontext;
+    dr_mcontext_t *mcontext;
     /** 
      * The raw pre-translated machine state at the signal interruption
      * point inside the code cache.  NULL for delayable signals.  Clients
      * are cautioned when examining code cache instructions to not rely on
      * any details of code inserted other than their own.
      */
-    dr_mcontext_t raw_mcontext;
+    dr_mcontext_t *raw_mcontext;
     /** Whether raw_mcontext is valid. */
     bool raw_mcontext_valid;
     /**
@@ -1385,6 +1384,11 @@ int get_num_client_threads(void);
 void instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
                                    security_violation_t violation, action_type_t *action);
 #endif
+
+#endif /* CLIENT_INTERFACE */
+bool dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *mc);
+#ifdef CLIENT_INTERFACE
+
 bool dr_bb_hook_exists(void);
 bool dr_trace_hook_exists(void);
 bool dr_fragment_deleted_hook_exists(void);
@@ -2826,7 +2830,7 @@ DR_API
  *   timer fires.  It will be passed the context of the thread that
  *   received the itimer signal and its machine context, which has not
  *   been translated and so may contain raw code cache values.  The function
- *   will be called from a signal handler that may have interrupted
+ *   will be called from a signal handler that may have interrupted a
  *   lock holder or other critical code, so it must be careful in its
  *   operations.  If a general timer that does not interrupt client code
  *   is required, the client should create a separate thread via
@@ -3364,24 +3368,31 @@ DR_API
  * - A thread init event (dr_register_thread_init_event()) for all but
  *   the initial thread.
  *
- * Does NOT copy the pc field.  If \p app_errno is non-NULL copies the
- * saved application error code (value of GetLastError() on Windows; ignored
- * on Linux) to \p app_errno.
+ * Does NOT copy the pc field.
  *
  * Returns false if called from the init event or the initial thread's
  * init event; returns true otherwise (cannot distinguish whether the
  * caller is in a clean call so it is up to the caller to ensure it is
  * used properly).
  *
+ * The size field of \p context must be set to the size of the
+ * structure as known at compile time.  If the size field is invalid,
+ * this routine will return false.
+ *
  * \note NUM_XMM_SLOTS in the dr_mcontext_t.xmm array are filled in, but
  * only if dr_mcontext_fields_valid() returns true.
+ *
  * \note The context is the context saved at the dr_insert_clean_call() or
  * dr_prepare_for_call() points.  It does not correct for any registers saved
  * with dr_save_reg().  To access registers saved with dr_save_reg() from a
  * clean call use dr_read_saved_reg().
+ *
+ * \note System data structures are swapped to private versions prior to
+ * invoking clean calls or client events.  Use dr_switch_to_app_state()
+ * to examine the application version of system state.
  */
 bool
-dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno);
+dr_get_mcontext(void *drcontext, dr_mcontext_t *context);
 
 #ifdef CLIENT_INTERFACE
 DR_API
@@ -3397,18 +3408,20 @@ DR_API
  *   basic block callback parameters \p for_trace and \p translating are
  *   false, and for trace creation only when \p translating is false.
  *
- * Ignores the pc field.  If \p app_errno is non-NULL sets the
- * application error code (value of GetLastError() on Windows; ignored
- * on Linux) to be restored as well.
+ * Ignores the pc field.
  *
- * \note The xmm0 through xmm5 fields are only set for 64-bit or WOW64
- * processes where the underlying processor supports SSE.  For
- * dr_insert_clean_call() that requested \p save_fpstate, the xmm0
- * through xmm5 values set here override that saved state.
- * Use dr_mcontext_xmm_fields_valid() to determine whether the fields are valid.
+ * If the size field of \p context is invalid, this routine will
+ * return false.  A dr_mcontext_t obtained from DR will have the size field set.
+ *
+ * \return whether successful.
+ *
+ * \note The xmm fields are only set for processes where the underlying
+ * processor supports them.  For dr_insert_clean_call() that requested \p
+ * save_fpstate, the xmm values set here override that saved state.  Use
+ * dr_mcontext_xmm_fields_valid() to determine whether the xmm fields are valid.
  */
-void
-dr_set_mcontext(void *drcontext, dr_mcontext_t *context, const int *app_errno);
+bool
+dr_set_mcontext(void *drcontext, dr_mcontext_t *context);
 
 /* FIXME - combine with dr_set_mcontext()?  Implementation wise it's nice to split the
  * two since handling the pc with dr_set_mcontext() would complicate the clean call 
@@ -3417,26 +3430,31 @@ DR_API
 /**
  * Immediately resumes application execution from a clean call out of the cache (see
  * dr_insert_clean_call() or dr_prepare_for_call()) or an exception event with the
- * state specified in \p mcontext (including pc, and including the xmm0 through xmm5
- * values if dr_mcontext_xmm_fields_valid() returns true) and the application error
- * code (value of GetLastError() on Windows; ignored on Linux) specified by \p app_errno.
+ * state specified in \p mcontext (including pc, and including the xmm fields
+ * that are valid according to dr_mcontext_xmm_fields_valid()).
  *
- * \note dr_get_mcontext() can be used to get the register state (except pc) and the
- * \p app_errno value saved in dr_insert_clean_call() or dr_prepare_for_call()
+ * \note dr_get_mcontext() can be used to get the register state (except pc)
+ * saved in dr_insert_clean_call() or dr_prepare_for_call()
+ *
  * \note If floating point state was saved by dr_prepare_for_call() or
- * dr_insert_clean_call() it is not restored (other than xmm0 through xmm5, if
- * dr_mcontext_xmm_fields_valid()).  The caller should instead manually save and
- * restore the floating point state with proc_save_fpstate() and proc_restore_fpstate()
- * if necessary.
- * \note If the caller wishes to set any other state (such as xmm registers that are
- * not part of the mcontext) they may do so by just setting that state in the current
- * thread before making this call.
+ * dr_insert_clean_call() it is not restored (other than the valid xmm fields
+ * according to dr_mcontext_xmm_fields_valid()).  The caller should instead
+ * manually save and restore the floating point state with proc_save_fpstate()
+ * and proc_restore_fpstate() if necessary.
+ *
+ * \note If the caller wishes to set any other state (such as xmm
+ * registers that are not part of the mcontext) they may do so by just
+ * setting that state in the current thread before making this call.
+ * To set system data structures, use dr_switch_to_app_state(), make
+ * the changes, and then switch back with dr_switch_to_dr_state()
+ * before calling this routine.
+ *
  * \note This routine may only be called from a clean call from the cache. It can not be
  * called from any registered event callback.
- * \note This routine doesn't return.
+ * \return false if unsuccessful; if successful, does not return.
  */
-void
-dr_redirect_execution(dr_mcontext_t *mcontext, int app_errno);
+bool
+dr_redirect_execution(dr_mcontext_t *mcontext);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */
@@ -3514,16 +3532,21 @@ DR_API
  * \note This routine may not be called from any registered event callback other than
  * the nudge event or the pre- or post-system call event; clean calls
  * out of the cache may call this routine.
+ *
  * \note If called from a clean call, caller must continue execution by calling
  * dr_redirect_execution() after this routine, as the fragment containing the callout may
- * have been flushed. The context and app_errno to use can be obtained via
+ * have been flushed. The context to use can be obtained via
  * dr_get_mcontext() with the exception of the pc to continue at which must be passed as
  * an argument to the callout (see instr_get_app_pc()) or otherwise determined.
+ *
  * \note This routine may not be called while any locks are held that could block a thread
  * processing a registered event callback or cache callout.
+ *
  * \note dr_delay_flush_region() has fewer restrictions on use, but is less synchronous.
+ *
  * \note Use \p size == 1 to flush fragments containing the instruction at address 
  * \p start. A flush of \p size == 0 is not allowed.
+ *
  * \note As currently implemented, dr_delay_flush_region() with no completion callback
  * routine specified can be substantially more performant. 
  */

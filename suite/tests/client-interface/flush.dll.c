@@ -190,14 +190,13 @@ void callback(void *tag, app_pc next_pc)
     if (callback_count % 100 == 0) {
         if (callback_count % 200 == 0) {
             /* For windows test dr_flush_region() half the time */
-            dr_mcontext_t mcontext;
-            int errno;
+            dr_mcontext_t mcontext = {sizeof(mcontext),};
             
             dr_delay_flush_region((app_pc)tag - 20, 30, callback_count, flush_event);
-            dr_get_mcontext(dr_get_current_drcontext(), &mcontext, &errno);
+            dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
             mcontext.pc = next_pc;
             dr_flush_region(tag, 1);
-            dr_redirect_execution(&mcontext, errno);
+            dr_redirect_execution(&mcontext);
             *(volatile uint *)NULL = 0; /* ASSERT_NOT_REACHED() */
         } else if (use_unlink) {
             /* Test dr_unlink_flush_region() half the time (if available).

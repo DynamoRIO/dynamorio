@@ -413,13 +413,9 @@ endif
 
       # get the cached app xsp and write it to pusha location,
       # so that the handler gets the correct app xsp
-      mov sizeof(dr_mcontext_t)+XSP_SZ(xsp), xax
-      mov xax, offsetof(dr_mcontext_t, xsp)(xsp)
+      mov sizeof(priv_mcontext_t)+XSP_SZ(xsp), xax
+      mov xax, offsetof(priv_mcontext_t, xsp)(xsp)
 
-      # the 4 bytes of x64 app_state_at_intercept_t padding are
-      # handled by the 8-byte push of eax
-      mov fs:$ERRNO_TIB_OFFSET, eax  # instead of call GetLastError
-      push xax
 if (ENTER_DR_HOOK != NULL)
       call ENTER_DR_HOOK
 endif
@@ -474,15 +470,10 @@ if (!AFTER_INTERCEPT_TAKE_OVER)
  if (EXIT_DR_HOOK != NULL)
       call EXIT_DR_HOOK
  endif
-      pop xax # retrieve last error
-      mov eax, fs:$ERRNO_TIB_OFFSET # instead of call SetLastError
-      # the 4 bytes of x64 app_state_at_intercept_t padding are
-      # handled by the 8-byte pop of eax
-
       # get the xsp passed to the handler, which may have been
       # changed; store it in the xsp cache to restore at exit
-      mov offsetof(dr_mcontext_t, xsp)(xsp), xax
-      mov xax, sizeof(dr_mcontext_t)+XSP_SZ(xsp)
+      mov offsetof(priv_mcontext_t, xsp)(xsp), xax
+      mov xax, sizeof(priv_mcontext_t)+XSP_SZ(xsp)
       popa # or pop all regs on x64
       popf
       lea XSP_SZ(xsp), xsp # clear pc slot
@@ -516,7 +507,7 @@ endif (!AFTER_INTERCEPT_TAKE_OVER)
       <original app instructions>
 
 => handler signature, exported as typedef intercept_function_t:
-void handler(void *callee_arg, app_pc start_pc, int app_errno, reg_t eflags, regs...)
+void handler(app_state_at_intercept_t *args)
 
 if AFTER_INTERCEPT_TAKE_OVER, then asynch_take_over is called, with "false" for
 its save_dcontext parameter
@@ -547,32 +538,19 @@ insert_let_go_cleanup(dcontext_t *dcontext, instrlist_t *ilist, instr_t *decisio
         dr_insert_call((void *)dcontext, ilist, NULL/*append*/, (void *)EXIT_DR_HOOK, 0);
     }
 
-    /* must preserve the LastErrorCode (if call a Win32 API routine could
-     * overwrite the app's error code) */
-    /* saved error code is currently on the top of the stack */
-    APP(ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XAX)));
-    /* for x64, errno is still 32 bits */
-    preinsert_set_last_error(dcontext, ilist, NULL, REG_EAX);
-    /* the 4 bytes of x64 app_state_at_intercept_t padding are
-     * handled by the 8-byte pop of eax */
-
     /* Get the app xsp passed to the handler from the popa location and store
      * it in the app xsp cache; this is because the handler could have changed
      * the app xsp that was passed to it.  CAUTION: do this before the popa.
      */
     APP(ilist, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX),
                                    OPND_CREATE_MEMPTR(REG_XSP,
-                                                      offsetof(dr_mcontext_t, xsp))));
+                                                      offsetof(priv_mcontext_t, xsp))));
     APP(ilist, INSTR_CREATE_mov_st(dcontext,
                                    OPND_CREATE_MEMPTR(REG_XSP,
-                                                      sizeof(dr_mcontext_t)+XSP_SZ),
+                                                      sizeof(priv_mcontext_t)+XSP_SZ),
                                    opnd_create_reg(REG_XAX)));
     /* now restore everything */
-    insert_pop_all_registers(dcontext, NULL, ilist, NULL, false/*see push_all use*/);
-    APP(ilist, INSTR_CREATE_RAW_popf(dcontext));
-    APP(ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP), 
-                                opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                                      XSP_SZ, OPSZ_lea)));
+    insert_pop_all_registers(dcontext, NULL, ilist, NULL, XSP_SZ/*see push_all use*/);
         
     if (action_after == AFTER_INTERCEPT_DYNAMIC_DECISION) {
         /* now that instrs are there, take 1st */
@@ -1055,16 +1033,15 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         APP(&ilist, INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(3)));
     }
 
-    /* pc slot: not used: could use instead of state->start_pc */
-    APP(&ilist, INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));/*sign-extended*/
-    APP(&ilist, INSTR_CREATE_RAW_pushf(dcontext));
-    /* We assume that if !assume_xsp we've done two pushes on the stack,
-     * which combined w/ the push0 and pushf give us 16-byte alignment
-     * for 32-bit and 64-bit at this point.
+    /* We assume that if !assume_xsp we've done two pushes on the stack.
      * PR 270115: However if already on dstack we may not be aligned: we play it
      * safe and use unaligned instrs, rather than add code to test and align.
      */
-    insert_push_all_registers(dcontext, NULL, &ilist, NULL, false);
+    insert_push_all_registers(dcontext, NULL, &ilist, NULL, XSP_SZ,
+                              /* pc slot not used: could use instead of state->start_pc */
+                              /* sign-extended */
+                              INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));
+
     /* clear eflags for callee's usage */
     APP(&ilist,
         INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));
@@ -1076,21 +1053,12 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
     APP(&ilist,
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX),
                             OPND_CREATE_MEMPTR(REG_XSP, /* mcxt + stack type */
-                                               sizeof(dr_mcontext_t)+XSP_SZ)));
+                                               sizeof(priv_mcontext_t)+XSP_SZ)));
     APP(&ilist,
         INSTR_CREATE_mov_st(dcontext,
                             OPND_CREATE_MEMPTR(REG_XSP,
-                                               offsetof(dr_mcontext_t, xsp)),
+                                               offsetof(priv_mcontext_t, xsp)),
                             opnd_create_reg(REG_XAX)));
-
-    /* the 4 bytes of x64 app_state_at_intercept_t padding are
-     * handled by the 8-byte push of eax */
-    /* must preserve the LastErrorCode (if call a Win32 API routine could
-     * overwrite the app's error code) */
-    preinsert_get_last_error(dcontext, &ilist, NULL, REG_EAX); /* 32 bits for x64 too */
-    /* save errno on stack (top 32 bits zeroed for x64; can't push just eax) */
-    APP(&ilist,
-        INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XAX)));
 
     /* FIXME: don't want hooks for trampolines that run natively like
      * LdrLoadDll or image entry, right?
@@ -2513,7 +2481,7 @@ asynch_take_over(app_state_at_intercept_t *state)
         dcontext->whereami = WHERE_TRAMPOLINE;
     set_last_exit(dcontext, (linkstub_t *) get_asynch_linkstub());
 
-    transfer_to_dispatch(dcontext, state->app_errno, &state->mc);
+    transfer_to_dispatch(dcontext, &state->mc, false/*!full_DR_state*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -2547,7 +2515,7 @@ intercept_new_thread(CONTEXT *cxt)
     bool is_client = false;
 #endif
     byte *dstack = NULL;
-    dr_mcontext_t mc;
+    priv_mcontext_t mc;
     /* init apc, check init_apc_go_native to sync w/detach */
     if (init_apc_go_native) {
         /* need to wait after checking _go_native to avoid a thread 
@@ -3480,7 +3448,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
              * register values, since we're going back to dispatch
              */
             recreate_success_t res;
-            dr_mcontext_t mcontext;
+            priv_mcontext_t mcontext;
             context_to_mcontext(&mcontext, cxt);
             res = recreate_app_state(dcontext, &mcontext, true/*memory too*/);
             if (res == RECREATE_SUCCESS_STATE) {
@@ -3538,7 +3506,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
         app_pc prot_start = (app_pc) PAGE_START(target);
         uint write_size;
         size_t prot_size;
-        dr_mcontext_t mcontext;
+        priv_mcontext_t mcontext;
         bool ok;
         DEBUG_DECLARE(app_pc result =)
             decode_memory_reference_size(dcontext, translated_pc, &write_size);
@@ -3969,6 +3937,10 @@ dump_context_info(CONTEXT *context, file_t file, bool all)
             NEWLINE;
         }
     }
+    if (all || TESTALL(CONTEXT_YMM_FLAG, context->ContextFlags)) {
+        /* FIXME i#437: NYI.  See comments in context_to_mcontext(). */
+        ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm CONTEXT support yet");
+    }
 
     if (all || context->ContextFlags & CONTEXT_FLOATING_POINT) {
         LOG(THREAD_GET, LOG_ASYNCH, 2, "<floating point area>\n  ");
@@ -4284,7 +4256,7 @@ is_execution_exception(EXCEPTION_RECORD *pExcptRec)
 static void
 client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
                        EXCEPTION_RECORD * pExcptRec,
-                       dr_mcontext_t *raw_mcontext)
+                       priv_mcontext_t *raw_mcontext)
 {
     /* We cannot use the heap, as clients are allowed to call dr_redirect_execution()
      * and not come back.  So we use the stack, but we separate from
@@ -4294,19 +4266,23 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
      * plenty of stack space.
      */
     dr_exception_t einfo;
+    dr_mcontext_t xl8_dr_mcontext = {sizeof(dr_mcontext_t),};
+    dr_mcontext_t raw_dr_mcontext = {sizeof(dr_mcontext_t),};
     fragment_t *fragment;
     fragment_t  wrapper;
     bool pass_to_app;
     einfo.record = pExcptRec;
-    context_to_mcontext(&einfo.mcontext, cxt);
-    einfo.raw_mcontext = *raw_mcontext;
+    context_to_mcontext(dr_mcontext_as_priv_mcontext(&xl8_dr_mcontext), cxt);
+    einfo.mcontext = &xl8_dr_mcontext;
+    priv_mcontext_to_dr_mcontext(&raw_dr_mcontext, raw_mcontext);
+    einfo.raw_mcontext = &raw_dr_mcontext;
     /* i#207 fragment tag and fcache start pc on fault. */
     /* FIXME: we should avoid the fragment_pclookup since it is expensive
      * and pass in fragment found when translating
      */
     einfo.fault_fragment_info.tag = NULL;
     einfo.fault_fragment_info.cache_start_pc = NULL;
-    fragment = fragment_pclookup(dcontext, einfo.raw_mcontext.pc, &wrapper);
+    fragment = fragment_pclookup(dcontext, einfo.raw_mcontext->pc, &wrapper);
     if (fragment != NULL && !hide_tag_from_client(fragment->tag)) {
         einfo.fault_fragment_info.tag = fragment->tag;
         einfo.fault_fragment_info.cache_start_pc = FCACHE_ENTRY_PC(fragment);
@@ -4328,9 +4304,9 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
         swap_peb_pointer(dcontext, false/*to app*/);
 
     if (pass_to_app) {
-        mcontext_to_context(cxt, &einfo.mcontext);
+        mcontext_to_context(cxt, dr_mcontext_as_priv_mcontext(einfo.mcontext));
     } else {
-        mcontext_to_context(cxt, &einfo.raw_mcontext);
+        mcontext_to_context(cxt, dr_mcontext_as_priv_mcontext(einfo.raw_mcontext));
         /* Now re-execute the faulting instr, or go to
          * new context specified by client, skipping
          * app exception handlers.
@@ -4345,7 +4321,7 @@ static void
 check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
                          EXCEPTION_RECORD * pExcptRec,
                          app_pc forged_exception_addr
-                         _IF_CLIENT(dr_mcontext_t *raw_mcontext))
+                         _IF_CLIENT(priv_mcontext_t *raw_mcontext))
 {
     /* even though in_fcache is the much more common path (we hope! :)),
      * it grabs a lock, so we check for DR exceptions first, hoping to
@@ -4557,7 +4533,7 @@ intercept_exception(app_state_at_intercept_t *state)
 
     if (intercept_asynch_global() && 
         (dcontext != NULL || is_thread_known(get_thread_id()))) {
-        dr_mcontext_t mcontext;
+        priv_mcontext_t mcontext;
         app_pc forged_exception_addr;
         EXCEPTION_RECORD *pExcptRec;
         CONTEXT *cxt;
@@ -4567,7 +4543,7 @@ intercept_exception(app_state_at_intercept_t *state)
         bool takeover = intercept_asynch_for_self(false/*no unknown threads*/);
         bool thread_is_lost = false; /* temporarily native (UNDER_DYN_HACK) */
 #ifdef CLIENT_INTERFACE
-        dr_mcontext_t raw_mcontext;
+        priv_mcontext_t raw_mcontext;
 #endif
         DEBUG_DECLARE(bool known_source = false;)
         
@@ -4862,7 +4838,7 @@ intercept_exception(app_state_at_intercept_t *state)
 
                         /* for reporting purposes copy application
                          * context in our context, we don't need our
-                         * dr_mcontext_t at all otherwise
+                         * priv_mcontext_t at all otherwise
                          */
                         context_to_mcontext(get_mcontext(dcontext), cxt);
                         aslr_report_violation(execution_addr,
@@ -5697,7 +5673,7 @@ callback_setup(app_pc next_pc)
  * Do not need them as args!  You can pass me anything!
  */
 void
-callback_start_return(int app_errno, dr_mcontext_t *mc)
+callback_start_return(priv_mcontext_t *mc)
 {
     dcontext_t *cur_dcontext;
     dcontext_t *prev_dcontext;

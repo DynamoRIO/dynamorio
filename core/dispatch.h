@@ -51,7 +51,7 @@ void
 issue_last_system_call_from_app(dcontext_t *dcontext);
 
 void
-transfer_to_dispatch(dcontext_t *dcontext, int app_errno, dr_mcontext_t *mc);
+transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_state);
 
 /* hooks on entry/exit to/from DR */
 #define NO_HOOK ((void (*)(void)) NULL)

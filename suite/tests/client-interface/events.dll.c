@@ -405,7 +405,7 @@ static
 bool exception_event_redirect(void *dcontext, dr_exception_t *excpt)
 {
     app_pc addr;
-    dr_mcontext_t mcontext;
+    dr_mcontext_t mcontext = {sizeof(mcontext),};
     module_data_t *data = dr_lookup_module_by_name("client.events.exe");
     dr_fprintf(STDERR, "exception event redirect\n");
     if (data == NULL) {
@@ -414,7 +414,7 @@ bool exception_event_redirect(void *dcontext, dr_exception_t *excpt)
     }
     addr = (app_pc)dr_get_proc_address(data->handle, "redirect");
     dr_free_module_data(data);
-    mcontext = excpt->mcontext;
+    mcontext = *excpt->mcontext;
     mcontext.pc = addr;
     if (addr == NULL) {
         dr_fprintf(STDERR, "Couldn't find function redirect in events.exe\n");
@@ -424,7 +424,7 @@ bool exception_event_redirect(void *dcontext, dr_exception_t *excpt)
     /* align properly in case redirect function relies on conventions (i#419) */
     mcontext.xsp = ALIGN_FORWARD(mcontext.xsp, 16) - 8;
 #endif
-    dr_redirect_execution(&mcontext, 0);
+    dr_redirect_execution(&mcontext);
     dr_fprintf(STDERR, "should not be reached, dr_redirect_execution() should not return\n");
     return true;
 }
@@ -473,7 +473,7 @@ dr_signal_action_t signal_event_redirect(void *dcontext, dr_siginfo_t *info)
             dr_fprintf(STDERR, "Couldn't find function redirect in client.events\n");
             return DR_SIGNAL_DELIVER;
         }
-        info->mcontext.pc = addr;
+        info->mcontext->pc = addr;
         return DR_SIGNAL_REDIRECT;
     }
     return DR_SIGNAL_DELIVER;

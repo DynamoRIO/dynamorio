@@ -399,7 +399,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
         /* FIXME : we could put this synch point in enter_fcache but would need
          * to use SYSCALL_PC for syscalls (see issues with that in win32/os.c) 
          */
-        dr_mcontext_t *mcontext = get_mcontext(dcontext);
+        priv_mcontext_t *mcontext = get_mcontext(dcontext);
         cache_pc save_pc = mcontext->pc;
         /* FIXME : implementation choice, we could do recreate_app_pc 
          * (fairly expensive but this is rare) instead of using the tag 
@@ -1584,7 +1584,7 @@ handle_system_call(dcontext_t *dcontext)
     fcache_enter_func_t fcache_enter = get_fcache_enter_private_routine(dcontext);
     app_pc do_syscall = (app_pc) get_do_syscall_entry(dcontext);
 #ifdef CLIENT_INTERFACE 
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     bool execute_syscall = true;
 #endif
 #ifdef WINDOWS
@@ -1829,7 +1829,7 @@ handle_system_call(dcontext_t *dcontext)
 static void
 handle_post_system_call(dcontext_t *dcontext)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
 
     ASSERT(!is_couldbelinking(dcontext));
     ASSERT(get_at_syscall(dcontext));
@@ -1882,19 +1882,19 @@ handle_post_system_call(dcontext_t *dcontext)
 
 #ifdef WINDOWS
 /* in callback.c */
-extern void callback_start_return(int app_errno, dr_mcontext_t *mc);
+extern void callback_start_return(priv_mcontext_t *mc);
 /* used to execute an int 2b instruction in code cache */
 static void
 handle_callback_return(dcontext_t *dcontext)
 {
     dcontext_t *prev_dcontext;
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     fcache_enter_func_t fcache_enter = get_fcache_enter_indirect_routine(dcontext);
     LOG(THREAD, LOG_ASYNCH, 3, "handling a callback return\n");
     /* may have to abort trace -> local heap */
     SELF_PROTECT_LOCAL(dcontext, WRITABLE);
     KSWITCH(num_exits_dir_cbret);
-    callback_start_return(dcontext->app_errno, mc);
+    callback_start_return(mc);
     /* get the current, but now swapped out, dcontext */
     prev_dcontext = get_prev_swapped_dcontext(dcontext);
     SELF_PROTECT_LOCAL(dcontext, READONLY);
@@ -1957,18 +1957,17 @@ issue_last_system_call_from_app(dcontext_t *dcontext)
  * Does not return.
  */
 void
-transfer_to_dispatch(dcontext_t *dcontext, int app_errno, dr_mcontext_t *mc)
+transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_state)
 {
     app_pc cur_xsp;
     int using_initstack = 0;
     copy_mcontext(mc, get_mcontext(dcontext));
-    dcontext->app_errno = app_errno;
     GET_STACK_PTR(cur_xsp);
     if (is_on_initstack(cur_xsp))
         using_initstack = 1;
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-    /* i#249: swap PEB pointers */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+    /* i#249: swap PEB pointers unless already in DR state */
+    if (!full_DR_state && INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
         swap_peb_pointer(dcontext, true/*to priv*/);
 #endif
     LOG(THREAD, LOG_ASYNCH, 2,

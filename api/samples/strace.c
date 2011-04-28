@@ -214,8 +214,8 @@ event_pre_syscall(void *drcontext, int sysnum)
             return true; /* data unreadable: execute normally */
         if (dr_is_wow64()) {
             /* store the xcx emulation parameter for wow64 */
-            dr_mcontext_t mc;
-            dr_get_mcontext(drcontext, &mc, NULL);
+            dr_mcontext_t mc = {sizeof(mc),};
+            dr_get_mcontext(drcontext, &mc);
             data->xcx = mc.xcx;
         }
 #endif
@@ -286,10 +286,10 @@ event_post_syscall(void *drcontext, int sysnum)
                  * need to determine the parameter from the ntdll
                  * wrapper.
                  */
-                dr_mcontext_t mc;
-                dr_get_mcontext(drcontext, &mc, NULL);
+                dr_mcontext_t mc = {sizeof(mc),};
+                dr_get_mcontext(drcontext, &mc);
                 mc.xcx = data->xcx;
-                dr_set_mcontext(drcontext, &mc, NULL);
+                dr_set_mcontext(drcontext, &mc);
             }
 #endif
             dr_syscall_invoke_another(drcontext);

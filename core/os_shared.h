@@ -126,16 +126,16 @@ bool thread_terminate(thread_record_t *tr);
 
 bool is_thread_currently_native(thread_record_t *tr);
 
-/* If state beyond that in our dr_mcontext_t is needed, os-specific routines
- * must be used.  These only deal with dr_mcontext_t state.
+/* If state beyond that in our priv_mcontext_t is needed, os-specific routines
+ * must be used.  These only deal with priv_mcontext_t state.
  */
-bool thread_get_mcontext(thread_record_t *tr, dr_mcontext_t *mc);
-bool thread_set_mcontext(thread_record_t *tr, dr_mcontext_t *mc);
+bool thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
+bool thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
 
 /* Takes an os-specific context. Does not return. */
 void thread_set_self_context(void *cxt);
-/* Only sets the dr_mcontext_t state.  Does not return. */
-void thread_set_self_mcontext(dr_mcontext_t *mc);
+/* Only sets the priv_mcontext_t state.  Does not return. */
+void thread_set_self_mcontext(priv_mcontext_t *mc);
 
 dcontext_t *get_thread_private_dcontext(void);
 void set_thread_private_dcontext(dcontext_t *dcontext);
@@ -833,12 +833,7 @@ typedef enum {
 typedef struct {
     void *callee_arg;     /* Argument passed to the intercept routine. */
     app_pc start_pc; /* optimization: could use mc.pc instead */
-    int app_errno;
-#ifdef X64
-    /* 4 bytes of padding since dr_mcontext_t is 8-byte aligned, but it's handled
-     * naturally in emit_intercept_code() since pushes are all 8 bytes */ 
-#endif
-    dr_mcontext_t mc;
+    priv_mcontext_t mc;   /* note: 8-byte aligned */
 } app_state_at_intercept_t;
 
 /* note that only points intercepted with DYNAMIC_DECISION (currently only

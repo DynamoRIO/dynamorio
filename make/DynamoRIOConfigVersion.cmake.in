@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -41,8 +41,11 @@ if ("${PACKAGE_FIND_VERSION_MAJOR}" EQUAL 0)
   # No version specified: assume compatible
   set(PACKAGE_VERSION_COMPATIBLE 1)
 elseif ("${PACKAGE_FIND_VERSION_MAJOR}" LESS @VERSION_NUMBER_MAJOR@)
-  # Asking for lesser major version == backward compatible
-  set(PACKAGE_VERSION_COMPATIBLE 1)
+  if ("${PACKAGE_FIND_VERSION_MAJOR}" LESS 3)
+    # 3.0.0+ is incompabible with earlier versions
+  else ("${PACKAGE_FIND_VERSION_MAJOR}" LESS 3)
+    set(PACKAGE_VERSION_COMPATIBLE 1)
+  endif ("${PACKAGE_FIND_VERSION_MAJOR}" LESS 3)
 elseif ("${PACKAGE_FIND_VERSION_MAJOR}" EQUAL @VERSION_NUMBER_MAJOR@)
   # Asking for lesser version == backward compatible
   if ("${PACKAGE_FIND_VERSION_MINOR}" EQUAL @VERSION_NUMBER_MINOR@)

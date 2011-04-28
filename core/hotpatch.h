@@ -139,12 +139,12 @@ void hotp_spill_before_notify(dcontext_t *dcontext,
                               fragment_t *new_frag, const app_pc new_frag_tag,
                               app_pc *new_tag_spill /* OUT */, 
                               const app_pc new_tag,
-                              dr_mcontext_t *cxt_spill /* OUT */,
+                              priv_mcontext_t *cxt_spill /* OUT */,
                               const void *new_cxt, cxt_type_t cxt_type);
 void hotp_restore_after_notify(dcontext_t *dcontext,
                                const fragment_t *old_frag, 
                                const app_pc old_next_tag,
-                               const dr_mcontext_t *old_cxt);
+                               const priv_mcontext_t *old_cxt);
 
 #endif /* HOT_PATCHING_INTERFACE  Around the whole file */
 #endif /* _HOTPATCH_H_ 1 */

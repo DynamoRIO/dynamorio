@@ -509,7 +509,7 @@ void get_list_of_threads_ex(thread_record_t ***list, int *num, bool include_exec
 void mark_thread_execve(thread_record_t *tr, bool execve);
 #endif
 bool is_thread_initialized(void);
-int dynamo_thread_init(byte *dstack_in, dr_mcontext_t *mc
+int dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
                        _IF_CLIENT_INTERFACE(bool client_thread));
 int dynamo_thread_exit(void);
 void dynamo_thread_stack_free_and_exit(byte *stack);
@@ -602,9 +602,9 @@ typedef struct {
     /* WARNING: if you change the offsets of any of these fields, 
      * you must also change the offsets in <arch>/<arch.s> 
      */
-    dr_mcontext_t mcontext;        /* real machine context (in arch_exports.h) */
+    priv_mcontext_t mcontext;        /* real machine context (in arch_exports.h) */
 #ifdef LINUX
-    int            errno;           /* errno used for app and dynamo */
+    int            errno;           /* errno used for DR (no longer used for app) */
 #endif
     bool at_syscall;                /* for shared deletion syscalls_synch_flush,
                                      * as well as syscalls handled from dispatch,
@@ -612,7 +612,7 @@ typedef struct {
                                      */
 #ifdef X64
     /* For Windows, 4 bytes of padding to fill out the 4-byte at_syscall,
-     * since dr_mcontext_t is 8-byte aligned */
+     * since priv_mcontext_t is 8-byte aligned */
 #endif
 } unprotected_context_t;
 
@@ -675,11 +675,11 @@ struct _dcontext_t {
     byte *         rstack;          /* bottom of return stack */
     byte *         top_of_rstack;   /* top of return stack */
 #endif
-    int            app_errno;       /* storage for app's errno while in dynamo */
     bool           is_exiting;      /* flag for exiting thread */
 #ifdef WINDOWS
 # ifdef CLIENT_INTERFACE
     /* i#249: TEB field isolation */
+    int            app_errno;
     void *         app_fls_data;
     void *         priv_fls_data;
     void *         app_nt_rpc;
@@ -933,7 +933,7 @@ struct _dcontext_t {
 #define GLOBAL_DCONTEXT  ((dcontext_t *)PTR_UINT_MINUS_1)
 
 /* FIXME: why do we need to force the inline for this simple function? */
-static INLINE_FORCED dr_mcontext_t *
+static INLINE_FORCED priv_mcontext_t *
 get_mcontext(dcontext_t *dcontext)
 {
     if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))

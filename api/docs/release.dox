@@ -105,10 +105,53 @@ The following are part of the \DynamoRIO release distribution:
 \endhtmlonly
 \section sec_changes Changes Since Prior Releases
 
-The current version is \DR_VERSION.  Its \client API is backward compatible
-with releases from 1.0.0 (originally called 0.9.6: see below) onward.
-However, the configuration and deployment API and tools have changed and
-are not backward compatible: see below for details.
+The current version is \DR_VERSION.  Its \client API is mostly backward
+compatible with releases from 1.0.0 (originally called 0.9.6: see below)
+onward with the exception of functions that involve dr_mcontext_t.  The
+dr_mcontext_t struct and all structs that contain it have changed and are
+NOT backward compatible with releases prior to 3.0.0.
+
+A sample script for updating \client sources to the 3.0.0 API is as
+follows:
+
+\code
+perl -pi -e '\
+s|dr_mcontext_t (\w+);|dr_mcontext_t \1 = {sizeof(\1),};|;\
+s|(dr_[gs]et_mcontext\(\S+,\s+\S+),\s+[^\s\)]+\)|\1)|;\
+s|(dr_redirect_execution\(\S+),\s+\S+\)|\1)|;\
+s|^\s+int app_errno;\s*\n||ms;\
+s|raw_mcontext\.|raw_mcontext->|g;\
+s|info->mcontext\.|info->mcontext->|g;\
+s|excpt->mcontext\.|excpt->mcontext->|g;' *.c
+\endcode
+
+The script makes 3 main changes.  First, any dr_mcontext_t allocated by the
+\client must have its \p size field set.  Second, the \p app_errno
+parameter was removed from several functions; it required a local variable,
+so any local named \p app_errno is removed.  Third, the dr_mcontext_t
+fields in the fault, signal, and exception structs all became
+pointers.
+
+This script may not catch all cases.  Use your version control system to
+look at the diff after applying it to ensure it did not change anything it
+shouldn't have.  Run with debug build to catch other instances where
+dr_mcontext_t.size is not set.
+
+The changes between version \DR_VERSION and 2.2.0 are:
+
+ - Changed the #dr_mcontext_t structure field layout.  This is a binary
+   compatibility change with respect to versions prior to 3.0.0.
+ - Added a dr_mcontext_t.size field which must be set by the \client prior
+   to calling dr_get_mcontext().  This is a source compatibility change
+   with respect to versions prior to 3.0.0.
+ - Removed the app_errno parameter from dr_get_mcontext(),
+   dr_set_mcontext(), and dr_redirect_execution().  This is a source
+   compatibility change with respect to versions prior to 3.0.0.
+ - Changed all dr_mcontext_t fields in the dr_restore_state_info_t,
+   dr_exception_t, and dr_siginfo_t structs to be pointers.  This is a
+   source compatibility change with respect to versions prior to 3.0.0.
+ - Added return value to dr_redirect_execution() and dr_set_mcontext()
+ - Added support for the AVX and FMA ISA extensions
 
 The changes between version 2.2.0 and 2.1.0 are:
 
@@ -169,6 +212,8 @@ The changes between version 2.1.0 and 2.0.0 are:
    performance hit.
  - Support building sources using Visual Studio
 
+In version 2.0.0, the configuration and deployment API and tools changed and
+are not backward compatible with earlier versions: see below for details.
 The changes between version 2.0.0 and 1.5.0 are:
 
  - Changed the configuration and deployment model for both Linux and

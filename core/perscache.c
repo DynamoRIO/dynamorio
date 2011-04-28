@@ -441,12 +441,12 @@ perscache_slow_exit(void)
  * FROZEN UNITS
  */
 
-/* Separated out to keep dr_mcontext_t out of critical stack path */
+/* Separated out to keep priv_mcontext_t out of critical stack path */
 static void
 coarse_units_freeze_translate(thread_record_t *tr,
                               const thread_synch_state_t desired_state)
 {
-    dr_mcontext_t mc;
+    priv_mcontext_t mc;
     bool res;
     res = thread_get_mcontext(tr, &mc);
     ASSERT(res);
@@ -554,7 +554,7 @@ coarse_units_freeze_all(bool in_place)
                     LOG(GLOBAL, LOG_FRAGMENT, 2,
                         "\tat THREAD_SYNCH_NO_LOCKS_NO_XFER so no translation needed\n");
                 } else {
-                    /* subroutine to avoid dr_mcontext_t on our stack when we
+                    /* subroutine to avoid priv_mcontext_t on our stack when we
                      * freeze + merge&load */
                     coarse_units_freeze_translate(threads[i], desired_state);
                 }

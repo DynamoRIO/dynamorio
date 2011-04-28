@@ -244,241 +244,22 @@ foreach $file (@headers) {
     $prev_define = 0;
     $in_define = 0;
     while (<IN>) {
-        chop;
-        # handle DOS end-of-line:
-        if ($_ =~ /\r$/) { chop; };
-        $l = $_;
-
-        if ($output_routine || $output_directly || $output_verbatim) {
-            # Enforce the rename to DR_REG_ and DR_SEG_
-            if (($l =~ /[^_]REG_/ || $l =~ /[^_]SEG_/) &&
-                # We have certain exceptions
-                ($l !~ /^# define [RS]EG_/ &&
-                 $l !~ /DR_REG_ENUM_COMPATIBILITY/ &&
-                 $l !~ /conflict/ &&
-                 $l !~ /compatibility/ &&
-                 $l !~ /weird errors/)) {
-                die "Error: update to DR_{REG,SEG} constants:\n$l\n";
-            }
-        }
-
-        if ($l =~ /^DR_API/) {
-            $output_routine = 1;
-            $did_output_something = 1;
-            $type = "";
-        } elsif ($header && $l =~ /DR_API EXPORT TOFILE ([A-Za-z_0-9\.]+)/) {
-            $outfile_init = 1;
-            $outfile = $1;
-            if (!defined($files{$outfile})) {
-                $files{$outfile} = $outfile;
-                $wrapdef{$outfile} = $outfile;
-                $wrapdef{$outfile} =~ s/\./_/g;
-                $wrapdef{$outfile} = "_" . uc($wrapdef{$outfile}) . "_";
-                if (! -e "$dir/$outfile") {
-                    open(OUT, "> $dir/$outfile") ||
-                        die "Error: Couldn't open $dir/$outfile for output\n";
-                    print OUT "$copyright";
-                    print OUT "#ifndef $wrapdef{$outfile}\n#define $wrapdef{$outfile} 1\n\n";
-                } else {
-                    open(OUT, ">> $dir/$outfile") ||
-                        die "Error: Couldn't open $dir/$outfile for append\n";
+        # support mcxtx.h include.  can generalize if necessary.
+        if ($_ =~ /#include "mcxtx.h"/) {
+            open(INC, "< ./lib/mcxtx.h") || die "Error: couldn't open mcxtx.h\n";
+            my $start_inc = 0;
+            while (<INC>) {
+                # skip copyright and first comment
+                if (/START INCLUDE/) {
+                    $start_inc = 1;
+                    next;
                 }
-            } else {
-                # FIXME: should store original filehandle and re-use it
-                open(OUT, ">> $dir/$outfile") ||
-                    die "Error: Couldn't open $dir/$outfile for append\n";
+                next unless ($start_inc);
+                &process_header_line($_);
             }
-        } elsif ($header && $l =~ /DR_API EXPORT BEGIN/) {
-            $output_directly = 1;
-            $did_output_something = 1;
-        } elsif ($header && $l =~ /DR_API EXPORT VERBATIM/) {
-            $output_verbatim = 1;
-            $did_output_something = 1;
-        }
-        # if outputting verbatim, just output and grab the next line
-        # we can skip the following logic that interprets the #ifdefs,
-        # #ifndefs, etc.
-        elsif ($output_verbatim) {
-            if ($l =~ /DR_API EXPORT END/) {
-                $output_verbatim = 0;
-            }
-            else {
-                print OUT "$l\n";
-            }
-            next;
-        } 
-
-        # to handle defines (yes a hack...need a better solution):
-        # only a define on immediately prior line to DR_API or to
-        # EXPORT BEGIN will kill following output, until the very next
-        # endif
-        # assumption: only those defines passed to us count,
-        # and they're only used in simple "#ifdef" statements
-        # (can't use cpp b/c it also removes #if's around entire .h file,
-        # plus we want to keep #ifdef LINUX and #ifdef WINDOWS stuff)
-        if ($prev_define && ($output_routine || $output_directly)) {
-            $in_undefined = 1;
-            if ($debug) {
-                print stderr "\tSkipping!\n";
-            }
-        }
-        if ($in_undefined) {
-            if ($l =~ /^\#\s*endif/ || $l =~ /^\#\s*else/) {
-                $in_undefined = 0;
-                if ($l =~ /^\#\s*else/) {
-                    $kill_endif = 1;
-                }
-            }
-            # assumption: nothing else on endif line
-            $skip = 1;
-            # have to check for closings here
-            if ($output_routine && $l =~ /;/) {
-                $output_routine = 0;
-            }
-            if ($output_directly && $l =~ /DR_API EXPORT END/) {
-                $output_directly = 0;
-            }
+            close(INC);
         } else {
-            $skip = 0;
-        }
-        if ($kill_endif && $l =~ /^\#\s*endif/) {
-            $kill_endif = 0;
-            $skip = 1;
-        }
-        if ($in_define || $in_define_keep) {
-            if ($l =~ /^\#\s*endif/) {
-                # we only support keep-defines being innermost
-                if ($in_define_keep) {
-                    $in_define_keep = 0;
-                } else {
-                    $in_define = 0;
-                    $skip = 1;
-                }
-            }
-        }
-        if ($l =~ /^\#\s*ifdef (\S+)/ || $l =~ /^\#\s*if defined\((\S+)\)/) {
-            # we want to keep all WINDOWS, LINUX, and X64 defines, so ignore those.
-            if (&keep_define($1)) {
-                $in_define_keep = 1;
-            } else {
-                if ($debug) {
-                    print stderr "Found ifdef $1 => $defines{$1}\n";
-                }
-                if (!defined($defines{$1})) {
-                    $prev_define = 1;
-                } elsif ($output_routine || $output_directly) {
-                    $in_define = 1;
-                }
-                $skip = 1;
-            }
-        } elsif ($l =~ /^\#\s*ifndef (\S+)/) {
-            # we want to keep all WINDOWS, LINUX, and X64 defines, so ignore those.
-            if (&keep_define($1)) {
-                $in_define_keep = 1;
-            } else {
-                if ($debug) {
-                    print stderr "Found ifndef $1 => $defines{$1}\n";
-                }
-                if (defined($defines{$1})) {
-                    $prev_define = 1;
-                } elsif ($output_routine || $output_directly) {
-                    $in_define = 1;
-                }
-                $skip = 1;
-            }
-        } else {
-            $prev_define = 0;
-        }
-        if ($skip) {
-            next;
-        }
-
-        if ($output_routine) {
-            if ($filter) {
-                # only export these guys for DYNAMORIO_IR_EXPORTS
-                if (defined($defines{DYNAMORIO_IR_EXPORTS})) {
-                    # symbol export list (-filter option)
-                    if ($l =~ /^([A-Za-z0-9_]+)\s*\(/ ||
-                        # order is important: 2nd line might pick up _IF_X64
-                        # inside param list
-                        $l =~ /^[a-zA-Z_].*\s+([A-Za-z0-9_]+)\s*\(/) {
-                        print OUT "$1;\n";
-                    }
-                }
-                if ($l =~ /;\s*$/ &&
-                    $l !~ /^\s*\*/ && $l !~ /^\s*\/\*/) { # ignore ; inside comment
-                    $output_routine = 0;
-                }
-            } else {
-                if ($header && !$outfile_init) {
-                    die "Error: no initial output file specified\n";
-                }
-                unless ($debug) {
-                    $l =~ s/^DR_API\s*//;
-                }
-                if ($type eq "") {
-                    if ($l =~ /^\s*[A-Za-z_]+/) {
-                        $l =~ /^\s*([A-Za-z0-9_]+\s*\*?)/;
-                        $type = $1;
-                        $type =~ s/\s*$//;
-                    }
-                }
-                $l =~ s/dcontext_t *\*dcontext/void *drcontext/;
-                if ($l =~ /\);\s*$/) {
-                    $output_routine = 0;
-                    if ($debug || $header) {
-                        print OUT "$l\n";
-                    } else {
-                        $l =~ s/;//;
-                        print OUT "$l\n";
-                        if ($type =~ /\*/) {
-                            $ret = "\treturn NULL;\n";
-                        } elsif ($type eq "void") {
-                            $ret = "";
-                        } elsif ($type eq "bool") {
-                            $ret = "\treturn false;\n";
-                        } elsif ($type eq "float") {
-                            $ret = "\treturn 0.f;\n";
-                        } elsif ($type eq "int" || $type eq "uint") {
-                            $ret = "\treturn 0;\n";
-                        } else {
-                            # static to avoid "uninitialized var" compiler warnings
-                            $ret = "\tstatic $type bogus;\n\treturn bogus;\n";
-                        }
-                        print OUT "{\n$ret}\n";
-                    }
-                } else {
-                    print OUT "$l\n";
-                }
-            }
-        } elsif ($output_directly) {
-            # instr_create.h needs this in its raw output for x64, but keep var name
-            $l =~ s/dcontext_t *\*dcontext/void *dcontext/;
-            # let's keep blank lines if we didn't create them by stripping
-            # everything out
-            if ($l =~ /^\s*$/) {
-                print OUT "\n";
-            }
-            elsif ($l !~ /DR_API/) {
-                if ($l =~ /OP_/) {
-                    # remove pointers into decode tables
-                    $l =~ s/(OP_[a-zA-Z0-9_]*,) *\/\*[^\*]*\*\/(.*)/\1\2/;
-                }
-                # PR 227381: auto-insert doxygen comments for DR_REG_ enum lines w/o any
-                if ($file =~ "/instr.h" &&
-                    $l =~ /^ *DR_[RS]EG_/ && $l !~ /\/\*\*</) {
-                    $l =~ s|(DR_[RS]EG_)(\w+), *|\1\2, /**< The "\L\2" register. */\n    |g;
-                }
-                # Strip out FIXME comments
-                $l =~ s/\/\* FIXME.*\*\///;
-                if ($l !~ /^\s*$/) {
-                    print OUT "$l\n";
-                }
-            }
-            if ($l =~ /DR_API EXPORT END/) {
-                $output_directly = 0;
-                print OUT "\n";
-            }
+            &process_header_line($_);
         }
     }
     if ($did_output_something && !$filter) {
@@ -523,3 +304,243 @@ if ($header) {
     close(OUT);
 }
 
+###########################################################################
+sub process_header_line($)
+{
+    my ($l) = @_;
+    chop $l;
+    # handle DOS end-of-line:
+    if ($l =~ /\r$/) { chop; };
+
+    if ($output_routine || $output_directly || $output_verbatim) {
+        # Enforce the rename to DR_REG_ and DR_SEG_
+        if (($l =~ /[^_]REG_/ || $l =~ /[^_]SEG_/) &&
+            # We have certain exceptions
+            ($l !~ /^# define [RS]EG_/ &&
+             $l !~ /DR_REG_ENUM_COMPATIBILITY/ &&
+             $l !~ /conflict/ &&
+             $l !~ /compatibility/ &&
+             $l !~ /weird errors/)) {
+            die "Error: update to DR_{REG,SEG} constants:\n$l\n";
+        }
+    }
+
+    if ($l =~ /^DR_API/) {
+        $output_routine = 1;
+        $did_output_something = 1;
+        $type = "";
+    } elsif ($header && $l =~ /DR_API EXPORT TOFILE ([A-Za-z_0-9\.]+)/) {
+        $outfile_init = 1;
+        $outfile = $1;
+        if (!defined($files{$outfile})) {
+            $files{$outfile} = $outfile;
+            $wrapdef{$outfile} = $outfile;
+            $wrapdef{$outfile} =~ s/\./_/g;
+            $wrapdef{$outfile} = "_" . uc($wrapdef{$outfile}) . "_";
+            if (! -e "$dir/$outfile") {
+                open(OUT, "> $dir/$outfile") ||
+                    die "Error: Couldn't open $dir/$outfile for output\n";
+                print OUT "$copyright";
+                print OUT "#ifndef $wrapdef{$outfile}\n#define $wrapdef{$outfile} 1\n\n";
+            } else {
+                open(OUT, ">> $dir/$outfile") ||
+                    die "Error: Couldn't open $dir/$outfile for append\n";
+            }
+        } else {
+            # FIXME: should store original filehandle and re-use it
+            open(OUT, ">> $dir/$outfile") ||
+                die "Error: Couldn't open $dir/$outfile for append\n";
+        }
+    } elsif ($header && $l =~ /DR_API EXPORT BEGIN/) {
+        $output_directly = 1;
+        $did_output_something = 1;
+    } elsif ($header && $l =~ /DR_API EXPORT VERBATIM/) {
+        $output_verbatim = 1;
+        $did_output_something = 1;
+    }
+    # if outputting verbatim, just output and grab the next line
+    # we can skip the following logic that interprets the #ifdefs,
+    # #ifndefs, etc.
+    elsif ($output_verbatim) {
+        if ($l =~ /DR_API EXPORT END/) {
+            $output_verbatim = 0;
+        }
+        else {
+            print OUT "$l\n";
+        }
+        next;
+    } 
+
+    # to handle defines (yes a hack...need a better solution):
+    # only a define on immediately prior line to DR_API or to
+    # EXPORT BEGIN will kill following output, until the very next
+    # endif
+    # assumption: only those defines passed to us count,
+    # and they're only used in simple "#ifdef" statements
+    # (can't use cpp b/c it also removes #if's around entire .h file,
+    # plus we want to keep #ifdef LINUX and #ifdef WINDOWS stuff)
+    if ($prev_define && ($output_routine || $output_directly)) {
+        $in_undefined = 1;
+        if ($debug) {
+            print stderr "\tSkipping!\n";
+        }
+    }
+    if ($in_undefined) {
+        if ($l =~ /^\#\s*endif/ || $l =~ /^\#\s*else/) {
+            $in_undefined = 0;
+            if ($l =~ /^\#\s*else/) {
+                $kill_endif = 1;
+            }
+        }
+        # assumption: nothing else on endif line
+        $skip = 1;
+        # have to check for closings here
+        if ($output_routine && $l =~ /;/) {
+            $output_routine = 0;
+        }
+        if ($output_directly && $l =~ /DR_API EXPORT END/) {
+            $output_directly = 0;
+        }
+    } else {
+        $skip = 0;
+    }
+    if ($kill_endif && $l =~ /^\#\s*endif/) {
+        $kill_endif = 0;
+        $skip = 1;
+    }
+    if ($in_define || $in_define_keep) {
+        if ($l =~ /^\#\s*endif/) {
+            # we only support keep-defines being innermost
+            if ($in_define_keep) {
+                $in_define_keep = 0;
+            } else {
+                $in_define = 0;
+                $skip = 1;
+            }
+        }
+    }
+    if ($l =~ /^\#\s*ifdef (\S+)/ || $l =~ /^\#\s*if defined\((\S+)\)/) {
+        # we want to keep all WINDOWS, LINUX, and X64 defines, so ignore those.
+        if (&keep_define($1)) {
+            $in_define_keep = 1;
+        } else {
+            if ($debug) {
+                print stderr "Found ifdef $1 => $defines{$1}\n";
+            }
+            if (!defined($defines{$1})) {
+                $prev_define = 1;
+            } elsif ($output_routine || $output_directly) {
+                $in_define = 1;
+            }
+            $skip = 1;
+        }
+    } elsif ($l =~ /^\#\s*ifndef (\S+)/) {
+        # we want to keep all WINDOWS, LINUX, and X64 defines, so ignore those.
+        if (&keep_define($1)) {
+            $in_define_keep = 1;
+        } else {
+            if ($debug) {
+                print stderr "Found ifndef $1 => $defines{$1}\n";
+            }
+            if (defined($defines{$1})) {
+                $prev_define = 1;
+            } elsif ($output_routine || $output_directly) {
+                $in_define = 1;
+            }
+            $skip = 1;
+        }
+    } else {
+        $prev_define = 0;
+    }
+    if ($skip) {
+        next;
+    }
+
+    if ($output_routine) {
+        if ($filter) {
+            # only export these guys for DYNAMORIO_IR_EXPORTS
+            if (defined($defines{DYNAMORIO_IR_EXPORTS})) {
+                # symbol export list (-filter option)
+                if ($l =~ /^([A-Za-z0-9_]+)\s*\(/ ||
+                    # order is important: 2nd line might pick up _IF_X64
+                    # inside param list
+                    $l =~ /^[a-zA-Z_].*\s+([A-Za-z0-9_]+)\s*\(/) {
+                    print OUT "$1;\n";
+                }
+            }
+            if ($l =~ /;\s*$/ &&
+                $l !~ /^\s*\*/ && $l !~ /^\s*\/\*/) { # ignore ; inside comment
+                $output_routine = 0;
+            }
+        } else {
+            if ($header && !$outfile_init) {
+                die "Error: no initial output file specified\n";
+            }
+            unless ($debug) {
+                $l =~ s/^DR_API\s*//;
+            }
+            if ($type eq "") {
+                if ($l =~ /^\s*[A-Za-z_]+/) {
+                    $l =~ /^\s*([A-Za-z0-9_]+\s*\*?)/;
+                    $type = $1;
+                    $type =~ s/\s*$//;
+                }
+            }
+            $l =~ s/dcontext_t *\*dcontext/void *drcontext/;
+            if ($l =~ /\);\s*$/) {
+                $output_routine = 0;
+                if ($debug || $header) {
+                    print OUT "$l\n";
+                } else {
+                    $l =~ s/;//;
+                    print OUT "$l\n";
+                    if ($type =~ /\*/) {
+                        $ret = "\treturn NULL;\n";
+                    } elsif ($type eq "void") {
+                        $ret = "";
+                    } elsif ($type eq "bool") {
+                        $ret = "\treturn false;\n";
+                    } elsif ($type eq "float") {
+                        $ret = "\treturn 0.f;\n";
+                    } elsif ($type eq "int" || $type eq "uint") {
+                        $ret = "\treturn 0;\n";
+                    } else {
+                        # static to avoid "uninitialized var" compiler warnings
+                        $ret = "\tstatic $type bogus;\n\treturn bogus;\n";
+                    }
+                    print OUT "{\n$ret}\n";
+                }
+            } else {
+                print OUT "$l\n";
+            }
+        }
+    } elsif ($output_directly) {
+        # instr_create.h needs this in its raw output for x64, but keep var name
+        $l =~ s/dcontext_t *\*dcontext/void *dcontext/;
+        # let's keep blank lines if we didn't create them by stripping
+        # everything out
+        if ($l =~ /^\s*$/) {
+            print OUT "\n";
+        }
+        elsif ($l !~ /DR_API/) {
+            if ($l =~ /OP_/) {
+                # remove pointers into decode tables
+                $l =~ s/(OP_[a-zA-Z0-9_]*,) *\/\*[^\*]*\*\/(.*)/\1\2/;
+            }
+            # PR 227381: auto-insert doxygen comments for DR_REG_ enum lines w/o any
+            if ($file =~ "/instr.h" &&
+                $l =~ /^ *DR_[RS]EG_/ && $l !~ /\/\*\*</) {
+                $l =~ s|(DR_[RS]EG_)(\w+), *|\1\2, /**< The "\L\2" register. */\n    |g;
+            }
+            # Strip out FIXME comments
+            $l =~ s/\/\* FIXME.*\*\///;
+            if ($l !~ /^\s*$/) {
+                print OUT "$l\n";
+            }
+        }
+        if ($l =~ /DR_API EXPORT END/) {
+            $output_directly = 0;
+            print OUT "\n";
+        }
+    }
+}

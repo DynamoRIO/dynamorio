@@ -69,7 +69,7 @@ typedef struct _thread_synch_data_t {
      * contexts.  This use sometimes requires a full os-specific context, which
      * we hide behind a generic pointer and a size.
      */
-    dr_mcontext_t *set_mcontext;
+    priv_mcontext_t *set_mcontext;
     void *set_context;
     size_t set_context_size;
 #ifdef X64
@@ -88,7 +88,7 @@ DECLARE_CXTSWPROT_VAR(mutex_t all_threads_synch_lock,
 
 /* pass either mc or both cxt and cxt_size */
 static void
-free_setcontext(dr_mcontext_t *mc, void *cxt, size_t cxt_size _IF_X64(byte *cxt_alloc))
+free_setcontext(priv_mcontext_t *mc, void *cxt, size_t cxt_size _IF_X64(byte *cxt_alloc))
 {
     if (mc != NULL) {
         ASSERT(cxt == NULL);
@@ -297,7 +297,7 @@ is_native_thread_state_valid(dcontext_t *dcontext, app_pc pc, byte *esp)
  * Requires thread trec is at_safe_spot().
  */
 bool
-translate_mcontext(thread_record_t *trec, dr_mcontext_t *mcontext,
+translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
                    bool restore_memory)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) trec->dcontext->synch_field;
@@ -431,7 +431,7 @@ should_suspend_client_thread(dcontext_t *dcontext, thread_synch_state_t desired_
  * which case we can check for this situation directly
  */
 bool
-at_safe_spot(thread_record_t *trec, dr_mcontext_t *mc,
+at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
              thread_synch_state_t desired_state)
 {
     bool safe = false;
@@ -529,7 +529,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
     app_pc pc;
-    byte cxt[MAX(CONTEXT_HEAP_SIZE_OPAQUE, sizeof(dr_mcontext_t))];
+    byte cxt[MAX(CONTEXT_HEAP_SIZE_OPAQUE, sizeof(priv_mcontext_t))];
     bool set_context = false;
     bool set_mcontext = false;
     if (tsd->pending_synch_count == 0 || cur_state == THREAD_SYNCH_NONE) 
@@ -542,7 +542,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
     if (cur_state == THREAD_SYNCH_VALID_MCONTEXT) {
         ASSERT(!is_dynamo_address(pc));
         /* for detach must set this here and now */
-        IF_WINDOWS(set_last_error(dcontext->app_errno));
+        IF_WINDOWS(IF_CLIENT_INTERFACE(set_last_error(dcontext->app_errno)));
     }
     spinmutex_lock(tsd->synch_lock);
     tsd->synch_perm = cur_state;
@@ -596,7 +596,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
     if (tsd->set_mcontext != NULL || tsd->set_context != NULL) {
         IF_WINDOWS(ASSERT(!doing_detach));
         /* Make a local copy */
-        ASSERT(CONTEXT_HEAP_SIZE_OPAQUE >= sizeof(dr_mcontext_t));
+        ASSERT(CONTEXT_HEAP_SIZE_OPAQUE >= sizeof(priv_mcontext_t));
         if (tsd->set_mcontext != NULL) {
             set_mcontext = true;
             memcpy(cxt, tsd->set_mcontext, sizeof(*tsd->set_mcontext));
@@ -616,7 +616,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
          * being at the synch point vs in the cache.
          */
         if (set_mcontext)
-            thread_set_self_mcontext((dr_mcontext_t *)cxt);
+            thread_set_self_mcontext((priv_mcontext_t *)cxt);
         else
             thread_set_self_context((void *)cxt);
         ASSERT_NOT_REACHED();
@@ -646,7 +646,7 @@ adjust_wait_at_safe_spot(dcontext_t *dcontext, int amt)
 bool
 set_synched_thread_context(thread_record_t *trec, 
                            /* pass either mc or both cxt and cxt_size */
-                           dr_mcontext_t *mc, void *cxt, size_t cxt_size,
+                           priv_mcontext_t *mc, void *cxt, size_t cxt_size,
                            thread_synch_state_t desired_state
                            _IF_X64(byte *cxt_alloc)
                            _IF_WINDOWS(NTSTATUS *status/*OUT*/))
@@ -778,7 +778,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
     int expect_exiting = 0;
     thread_record_t *my_tr = thread_lookup(my_id), *trec = NULL;
     dcontext_t *dcontext = NULL;
-    dr_mcontext_t mc;
+    priv_mcontext_t mc;
     thread_synch_result_t res = THREAD_SYNCH_RESULT_NOT_SAFE;
     bool first_loop = true;
     IF_LINUX(bool actually_suspended = true;)
@@ -1476,8 +1476,8 @@ void
 translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t synch_state)
 {
     bool res;
-    /* we do not have to align dr_mcontext_t */
-    dr_mcontext_t *mc = global_heap_alloc(sizeof(*mc) HEAPACCT(ACCT_OTHER));
+    /* we do not have to align priv_mcontext_t */
+    priv_mcontext_t *mc = global_heap_alloc(sizeof(*mc) HEAPACCT(ACCT_OTHER));
     bool free_cxt = true;
     dcontext_t *dcontext = tr->dcontext;
     app_pc pre_translation;

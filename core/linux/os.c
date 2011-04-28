@@ -1368,11 +1368,11 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
     /* get the selector value */
     opnd = instr_get_src(&instr, 0);
     if (opnd_is_reg(opnd)) {
-        sel = (ushort)reg_get_value(opnd_get_reg(opnd), 
-                                    get_mcontext(dcontext));
+        sel = (ushort)reg_get_value_priv(opnd_get_reg(opnd), 
+                                         get_mcontext(dcontext));
     } else {
         void *ptr;
-        ptr = (ushort *)opnd_compute_address(opnd, get_mcontext(dcontext));
+        ptr = (ushort *)opnd_compute_address_priv(opnd, get_mcontext(dcontext));
         ASSERT(ptr != NULL);
         if (!safe_read(ptr, sizeof(sel), &sel)) {
             /* FIXME: if invalid address, should deliver a signal to user. */
@@ -2519,7 +2519,7 @@ is_thread_terminated(dcontext_t *dcontext)
 }
 
 bool
-thread_get_mcontext(thread_record_t *tr, dr_mcontext_t *mc)
+thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
     /* PR 212090: only works when target is suspended by us, and
      * we then take the signal context
@@ -2535,7 +2535,7 @@ thread_get_mcontext(thread_record_t *tr, dr_mcontext_t *mc)
 }
 
 bool
-thread_set_mcontext(thread_record_t *tr, dr_mcontext_t *mc)
+thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
     /* PR 212090: only works when target is suspended by us, and
      * we then replace the signal context
@@ -3620,7 +3620,7 @@ static inline reg_t *
 sys_param_addr(dcontext_t *dcontext, int num)
 {
     /* we force-inline get_mcontext() and so don't take it as a param */
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
 #ifdef X64
     switch (num) {
     case 0: return &mc->xdi;
@@ -3717,7 +3717,7 @@ void
 dr_syscall_set_sysnum(void *drcontext, int new_num)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
                   dcontext->client_data->in_post_syscall,
                   "dr_syscall_set_sysnum() can only be called from a syscall event");
@@ -3734,7 +3734,7 @@ dr_syscall_invoke_another(void *drcontext)
     LOG(THREAD, LOG_SYSCALLS, 2, "invoking additional syscall on client request\n");
     dcontext->client_data->invoke_another_syscall = true;
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
-        dr_mcontext_t *mc = get_mcontext(dcontext);
+        priv_mcontext_t *mc = get_mcontext(dcontext);
         /* restore xbp to xsp */
         mc->xbp = mc->xsp;
     }
@@ -3753,7 +3753,7 @@ is_clone_thread_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
 bool
 is_clone_thread_syscall(dcontext_t *dcontext)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     return is_clone_thread_syscall_helper(mc->xax, sys_param(dcontext, 0));
 }
 
@@ -3774,7 +3774,7 @@ is_sigreturn_syscall_helper(int sysnum)
 bool
 is_sigreturn_syscall(dcontext_t *dcontext)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     return is_sigreturn_syscall_helper(mc->xax);
 }
 
@@ -4184,7 +4184,7 @@ handle_close_pre(dcontext_t *dcontext)
 static void
 handle_exit(dcontext_t *dcontext)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     bool exit_process = false;
 
     if (mc->xax == SYS_exit_group) {
@@ -4212,7 +4212,7 @@ handle_exit(dcontext_t *dcontext)
         if (!exit_process) {
             /* We need to clean up the other threads in our group here. */
             thread_id_t myid = get_thread_id();
-            dr_mcontext_t mcontext;
+            priv_mcontext_t mcontext;
             DEBUG_DECLARE(thread_synch_result_t synch_res;)
             LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
                 "SYS_exit_group %d not final group: %d cleaning up just "
@@ -4332,7 +4332,7 @@ os_get_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
 bool
 pre_system_call(dcontext_t *dcontext)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     bool execute_syscall = true;
     where_am_i_t old_whereami = dcontext->whereami;
     dcontext->whereami = WHERE_SYSCALL_HANDLER;
@@ -5494,7 +5494,7 @@ handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
 void
 post_system_call(dcontext_t *dcontext)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     /* registers have been clobbered, so sysnum is kept in dcontext */
     int sysnum = dcontext->sys_num;
     /* We expect most syscall failures to return < 0, so >= 0 is success.

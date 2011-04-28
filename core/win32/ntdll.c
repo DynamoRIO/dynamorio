@@ -940,7 +940,7 @@ is_in_ntdll(app_pc pc)
 }
 #endif
 
-/* routines for conversion between CONTEXT and dr_mcontext_t */
+/* routines for conversion between CONTEXT and priv_mcontext_t */
 /* assumes our segment registers are the same as the app and that
    we never touch floating-point state and debug registers 
 */
@@ -948,9 +948,11 @@ is_in_ntdll(app_pc pc)
  * and for PR 264138 we need the XMM registers
  */
 void
-context_to_mcontext(dr_mcontext_t *mcontext, CONTEXT* cxt)
+context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt)
 {
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE) /* see below */
     ASSERT(TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags));
+#endif
     /* CONTEXT_INTEGER */
     mcontext->xax    = cxt->CXT_XAX;
     mcontext->xbx    = cxt->CXT_XBX;
@@ -970,8 +972,29 @@ context_to_mcontext(dr_mcontext_t *mcontext, CONTEXT* cxt)
 #endif
     if (CONTEXT_PRESERVE_XMM) { /* no harm done if no sse support */
         /* CONTEXT_FLOATING_POINT or CONTEXT_EXTENDED_REGISTERS */
-        memcpy(&mcontext->xmm[0], CXT_XMM(cxt, 0), XMM_SAVED_SIZE);
+        int i;
+        for (i = 0; i < NUM_XMM_SLOTS; i++)
+            memcpy(&mcontext->ymm[i], CXT_XMM(cxt, i), XMM_REG_SIZE);
     }
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+    /* no proc_has_feature() for non-core: once have this implemented
+     * should just blindly do this for non-core?  for now disabling.
+     */
+    if (CONTEXT_PRESERVE_YMM) {
+        /* FIXME i#437: ymm are inside XSTATE cstruct which should be
+         * laid out like this: {CONTEXT, CONTEXT_EX, XSTATE}, but
+         * should read CONTEXT_EX fields to verify.
+         * All of our CONTEXT structs need to be extended to get
+         * the extra state.
+         * XSTATE has xsave format minus first 512 bytes, so ymm0 should
+         * be at offset 64, but should use LocateXStateFeature() to locate,
+         * or cpuid to find Ext_Save_Area_2.
+         * Should be able to eliminate the xmm memcpy calls above and
+         * replace with a single memcpy here.
+         */
+        ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm CONTEXT support yet");
+    }
+#endif
     /* CONTEXT_CONTROL without the segments */
     mcontext->xbp    = cxt->CXT_XBP;
     mcontext->xsp    = cxt->CXT_XSP;
@@ -980,9 +1003,11 @@ context_to_mcontext(dr_mcontext_t *mcontext, CONTEXT* cxt)
 }
 
 void
-mcontext_to_context(CONTEXT* cxt, dr_mcontext_t *mcontext)
+mcontext_to_context(CONTEXT* cxt, priv_mcontext_t *mcontext)
 {
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE) /* see above */
     ASSERT(TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags));
+#endif
     /* CONTEXT_INTEGER */
     cxt->CXT_XAX    = mcontext->xax;
     cxt->CXT_XBX    = mcontext->xbx;
@@ -1002,8 +1027,16 @@ mcontext_to_context(CONTEXT* cxt, dr_mcontext_t *mcontext)
 #endif
     if (CONTEXT_PRESERVE_XMM) { /* no harm done if no sse support */
         /* CONTEXT_FLOATING_POINT or CONTEXT_EXTENDED_REGISTERS */
-        memcpy(CXT_XMM(cxt, 0), &mcontext->xmm[0], XMM_SAVED_SIZE);
+        int i;
+        for (i = 0; i < NUM_XMM_SLOTS; i++)
+            memcpy(CXT_XMM(cxt, i), &mcontext->ymm[i], XMM_REG_SIZE);
     }
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE) /* see above */
+    if (CONTEXT_PRESERVE_YMM) {
+        /* FIXME i#437: see above */
+        ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm CONTEXT support yet");
+    }
+#endif
     /* CONTEXT_CONTROL without the segments */
     cxt->CXT_XBP    = mcontext->xbp;
     cxt->CXT_XSP    = mcontext->xsp;
@@ -1021,7 +1054,7 @@ mcontext_to_context(CONTEXT* cxt, dr_mcontext_t *mcontext)
 /* unstatic for use by GET_OWN_CONTEXT macro */
 void
 get_own_context_integer_control(CONTEXT *cxt, reg_t cs, reg_t ss,
-                                dr_mcontext_t *mc)
+                                priv_mcontext_t *mc)
 {
     /* We could change the parameter types to cxt_seg_t, but the args
      * passed by get_own_context_helper() in x86.asm are best simply

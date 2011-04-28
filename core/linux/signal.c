@@ -484,7 +484,9 @@ typedef struct _thread_itimer_info_t {
     itimer_info_t app_saved;
     itimer_info_t dr;
     itimer_info_t actual;
-    void (*cb)(dcontext_t *, dr_mcontext_t *);
+    void (*cb)(dcontext_t *, priv_mcontext_t *);
+    /* version for clients */
+    void (*cb_api)(dcontext_t *, dr_mcontext_t *);
 } thread_itimer_info_t;
 
 /* We use all 3: ITIMER_REAL for clients (i#283/PR 368737), ITIMER_VIRTUAL
@@ -847,11 +849,21 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
     for (i=0; i<NUM_XMM_SAVED; i++) {
         /* we assume no padding */
 #ifdef X64
-        memcpy(sc->fpstate->xmm_space, get_mcontext(dcontext)->xmm,
-               NUM_XMM_SLOTS*XMM_REG_SIZE);
+        /* __u32 xmm_space[64] */
+        memcpy(&sc->fpstate->xmm_space[i*4], &get_mcontext(dcontext)->ymm[i],
+               XMM_REG_SIZE);
+        if (YMM_ENABLED()) {
+            /* FIXME i#437: ymm top halves are inside struct _xstate.
+             * We should augment sigpending_t and X64_FRAME_EXTRA to
+             * store _xstate and not just _fpstate, and update save_xmm()
+             * and sigcontext_to_mcontext() (and vice versa).
+             */
+            ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm sig context support yet");
+        }
 #else
-        memcpy(sc->fpstate->_xmm, get_mcontext(dcontext)->xmm,
-               NUM_XMM_SLOTS*XMM_REG_SIZE);
+        memcpy(&sc->fpstate->_xmm[i], &get_mcontext(dcontext)->ymm[i], XMM_REG_SIZE);
+        if (YMM_ENABLED())
+            ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm sig context support yet");
 #endif
     }
 }
@@ -912,7 +924,7 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
         memcpy(sc->fpstate, &temp->fsave, sizeof(struct i387_fsave_struct));
     }
 
-    /* the app's xmm registers may be saved away in dr_mcontext_t, in which
+    /* the app's xmm registers may be saved away in priv_mcontext_t, in which
      * case we need to copy those values instead of using what was in
      * the physical xmm registers
      */
@@ -1103,13 +1115,13 @@ get_clone_record(reg_t xsp)
     ASSERT(is_dynamo_address((app_pc) xsp));
 
     /* The (size of the clone record +
-     *      stack used by new_thread_start (only for setting up dr_mcontext_t) +
+     *      stack used by new_thread_start (only for setting up priv_mcontext_t) +
      *      stack used by new_thread_setup before calling get_clone_record())
      * is less than a page.  This is verified by the assert below.  If it does
      * exceed a page, it won't happen at random during runtime, but in a
      * predictable way during development, which will be caught by the assert.
      * The current usage is about 800 bytes for clone_record +
-     * sizeof(dr_mcontext_t) + few words in new_thread_setup before
+     * sizeof(priv_mcontext_t) + few words in new_thread_setup before
      * get_clone_record() is called.
      */
     dstack_base = (byte *) ALIGN_FORWARD(xsp, PAGE_SIZE);
@@ -1535,7 +1547,7 @@ signal_thread_exit(dcontext_t *dcontext)
 #ifdef PAPI
     /* use SIGPROF for updating gui so it can be distinguished from SIGVTALRM */
     set_itimer_callback(dcontext, ITIMER_PROF, 500,
-                        (void (*func)(dcontext_t *, dr_mcontext_t *))
+                        (void (*func)(dcontext_t *, priv_mcontext_t *))
                         perfctr_update_gui());
 #endif
 }
@@ -2170,7 +2182,7 @@ is_on_alt_stack(dcontext_t *dcontext, byte *sp)
 
 /* FIXME: should copy xmm here too for client access; xref save_xmm() */
 void
-sigcontext_to_mcontext(dr_mcontext_t *mc, struct sigcontext *sc)
+sigcontext_to_mcontext(priv_mcontext_t *mc, struct sigcontext *sc)
 {
     ASSERT(mc != NULL && sc != NULL);
     mc->xax = sc->SC_XAX;
@@ -2197,7 +2209,7 @@ sigcontext_to_mcontext(dr_mcontext_t *mc, struct sigcontext *sc)
 
 /* FIXME: should copy xmm here too for client access; xref save_xmm() */
 void
-mcontext_to_sigcontext(struct sigcontext *sc, dr_mcontext_t *mc)
+mcontext_to_sigcontext(struct sigcontext *sc, priv_mcontext_t *mc)
 {
     sc->SC_XAX = mc->xax;
     sc->SC_XBX = mc->xbx;
@@ -2228,7 +2240,7 @@ static bool
 translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc, bool avoid_failure)
 {
     bool success = false;
-    dr_mcontext_t mcontext;
+    priv_mcontext_t mcontext;
  
     /* FIXME: what about floating-point state?  mmx regs? */
     sigcontext_to_mcontext(&mcontext, sc);
@@ -2307,9 +2319,9 @@ thread_set_self_context(void *cxt)
     ASSERT_NOT_REACHED();
 }
 
-/* Takes a dr_mcontext_t */
+/* Takes a priv_mcontext_t */
 void
-thread_set_self_mcontext(dr_mcontext_t *mc)
+thread_set_self_mcontext(priv_mcontext_t *mc)
 {
     struct sigcontext sc;
     mcontext_to_sigcontext(&sc, mc);
@@ -2744,64 +2756,68 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                       bool blocked)
 {
     struct sigcontext *sc = (struct sigcontext *) &(frame->uc.uc_mcontext);
-    /* It's safe to allocate since we do not send signals that interrupt DR.
-     * With dr_mcontext_t x2 that's a little big for stack alloc.
-     */
-    dr_siginfo_t *si;
+    dr_siginfo_t si;
     dr_signal_action_t action;
     if (!dr_signal_hook_exists())
         return DR_SIGNAL_DELIVER;
     LOG(THREAD, LOG_ASYNCH, 2, "sending signal to client\n");
-    si = heap_alloc(dcontext, sizeof(*si) HEAPACCT(ACCT_OTHER));
-    si->sig = sig;
-    si->drcontext = (void *) dcontext;
+    si.sig = sig;
+    si.drcontext = (void *) dcontext;
+    /* It's safe to allocate since we do not send signals that interrupt DR.
+     * With priv_mcontext_t x2 that's a little big for stack alloc.
+     */
+    si.mcontext = heap_alloc(dcontext, sizeof(*si.mcontext) HEAPACCT(ACCT_OTHER));
+    si.raw_mcontext = heap_alloc(dcontext, sizeof(*si.raw_mcontext) HEAPACCT(ACCT_OTHER));
+    si.mcontext->size = sizeof(*si.mcontext);
+    si.raw_mcontext->size = sizeof(*si.raw_mcontext);
     /* i#207: fragment tag and fcache start pc on fault. */
-    si->fault_fragment_info.tag = NULL;
-    si->fault_fragment_info.cache_start_pc = NULL;
+    si.fault_fragment_info.tag = NULL;
+    si.fault_fragment_info.cache_start_pc = NULL;
     /* i#182/PR 449996: we provide the pre-translation context */
     if (raw_sc != NULL) {
         fragment_t *fragment;
         fragment_t  wrapper;
-        si->raw_mcontext_valid = true;
-        sigcontext_to_mcontext(&si->raw_mcontext, raw_sc);
+        si.raw_mcontext_valid = true;
+        sigcontext_to_mcontext(dr_mcontext_as_priv_mcontext(si.raw_mcontext), raw_sc);
         /* i#207: fragment tag and fcache start pc on fault. */
         /* FIXME: we should avoid the fragment_pclookup since it is expensive 
          * and since we already did the work of a lookup when translating 
          */
-        fragment = fragment_pclookup(dcontext, si->raw_mcontext.pc, &wrapper);
+        fragment = fragment_pclookup(dcontext, si.raw_mcontext->pc, &wrapper);
         if (fragment != NULL && !hide_tag_from_client(fragment->tag)) {
-            si->fault_fragment_info.tag = fragment->tag;
-            si->fault_fragment_info.cache_start_pc = FCACHE_ENTRY_PC(fragment);
-            si->fault_fragment_info.is_trace = TEST(FRAG_IS_TRACE, 
+            si.fault_fragment_info.tag = fragment->tag;
+            si.fault_fragment_info.cache_start_pc = FCACHE_ENTRY_PC(fragment);
+            si.fault_fragment_info.is_trace = TEST(FRAG_IS_TRACE, 
                                                     fragment->flags);
-            si->fault_fragment_info.app_code_consistent = 
+            si.fault_fragment_info.app_code_consistent = 
                 !TESTANY(FRAG_WAS_DELETED|FRAG_SELFMOD_SANDBOXED, 
                          fragment->flags);
         }
     } else
-        si->raw_mcontext_valid = false;
+        si.raw_mcontext_valid = false;
     /* The client has no way to calculate this when using
      * instrumentation that deliberately faults (to shift a rare event
      * out of the fastpath) so we provide it.  When raw_mcontext is
      * available the client can calculate it, but we provide it as a
      * convenience anyway.
      */
-    si->access_address = access_address;
-    si->blocked = blocked;
-    sigcontext_to_mcontext(&si->mcontext, sc);
+    si.access_address = access_address;
+    si.blocked = blocked;
+    sigcontext_to_mcontext(dr_mcontext_as_priv_mcontext(si.mcontext), sc);
     /* We disallow the client calling dr_redirect_execution(), so we
      * will not leak si
      */
-    action = instrument_signal(dcontext, si);
+    action = instrument_signal(dcontext, &si);
     if (action == DR_SIGNAL_DELIVER ||
         action == DR_SIGNAL_REDIRECT) {
         /* propagate client changes */
-        mcontext_to_sigcontext(sc, &si->mcontext);
+        mcontext_to_sigcontext(sc, dr_mcontext_as_priv_mcontext(si.mcontext));
     } else if (action == DR_SIGNAL_SUPPRESS && raw_sc != NULL) {
         /* propagate client changes */
-        mcontext_to_sigcontext(raw_sc, &si->raw_mcontext);
+        mcontext_to_sigcontext(raw_sc, dr_mcontext_as_priv_mcontext(si.raw_mcontext));
     }
-    heap_free(dcontext, si, sizeof(*si) HEAPACCT(ACCT_OTHER));
+    heap_free(dcontext, si.mcontext, sizeof(*si.mcontext) HEAPACCT(ACCT_OTHER));
+    heap_free(dcontext, si.raw_mcontext, sizeof(*si.raw_mcontext) HEAPACCT(ACCT_OTHER));
     return action;
 }
 
@@ -3334,7 +3350,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
 {
     byte *target = NULL;
     instr_t instr;
-    dr_mcontext_t mc;
+    priv_mcontext_t mc;
     uint memopidx;
     bool found_target = false;
     bool in_maps;
@@ -3362,7 +3378,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     ASSERT(write != NULL);
     /* i#115/PR 394984: consider all memops */
     for (memopidx = 0;
-         instr_compute_address_ex(&instr, &mc, memopidx, &target, write);
+         instr_compute_address_ex_priv(&instr, &mc, memopidx, &target, write);
          memopidx++) {
         in_maps = get_memory_info_from_os(target, NULL, NULL, &prot);
         if ((!in_maps || !TEST(MEMPROT_READ, prot)) ||
@@ -3987,7 +4003,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     handler_t handler;
     byte *xsp = get_sigstack_frame_ptr(dcontext, sig, NULL);
     sigframe_rt_t *frame = &(info->sigpending[sig]->rt_frame);
-    dr_mcontext_t *mcontext = get_mcontext(dcontext);
+    priv_mcontext_t *mcontext = get_mcontext(dcontext);
     struct sigcontext *sc;
     kernel_sigset_t blocked;
 
@@ -4572,6 +4588,7 @@ os_forge_exception(app_pc target_pc, exception_type_t type)
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     sigframe_rt_t frame;
     int sig;
+    where_am_i_t cur_whereami = dcontext->whereami;
     switch (type) {
     case ILLEGAL_INSTRUCTION_EXCEPTION: sig = SIGILL; break;
     case UNREADABLE_MEMORY_EXECUTION_EXCEPTION: sig = SIGSEGV; break;
@@ -4625,7 +4642,10 @@ os_forge_exception(app_pc target_pc, exception_type_t type)
     set_last_exit(dcontext, (linkstub_t *) get_sigreturn_linkstub());
     if (is_couldbelinking(dcontext))
         enter_nolinking(dcontext, NULL, false);
-    transfer_to_dispatch(dcontext, dcontext->app_errno, get_mcontext(dcontext));
+    transfer_to_dispatch(dcontext, get_mcontext(dcontext),
+                         cur_whereami != WHERE_FCACHE &&
+                         cur_whereami != WHERE_SIGNAL_HANDLER
+                         /*full_DR_state*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -4928,12 +4948,17 @@ itimer_new_settings(dcontext_t *dcontext, int which, bool app_changed)
 
 bool
 set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,
-                    void (*func)(dcontext_t *, dr_mcontext_t *))
+                    void (*func)(dcontext_t *, priv_mcontext_t *),
+                    void (*func_api)(dcontext_t *, dr_mcontext_t *))
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     bool rc;
     if (which < 0 || which >= NUM_ITIMERS) {
         CLIENT_ASSERT(false, "invalid itimer type");
+        return false;
+    }
+    if (func == NULL && func_api == NULL) {
+        CLIENT_ASSERT(false, "invalid function");
         return false;
     }
     ASSERT(info != NULL && info->itimer != NULL);
@@ -4942,6 +4967,7 @@ set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,
     (*info->itimer)[which].dr.interval = ((uint64)millisec)*1000;
     (*info->itimer)[which].dr.value = (*info->itimer)[which].dr.interval;
     (*info->itimer)[which].cb = func;
+    (*info->itimer)[which].cb_api = func_api;
     rc = itimer_new_settings(dcontext, which, false/*us*/);
     if (info->shared_itimer)
         release_recursive_lock(info->shared_itimer_lock);
@@ -5037,9 +5063,14 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
 
     if (invoke_cb) {
         /* invoke after setting new itimer value */
-        dr_mcontext_t mc;
-        sigcontext_to_mcontext(&mc, sc);
-        (*(*info->itimer)[which].cb)(dcontext, &mc);
+        /* we save stack space by allocating superset dr_mcontext_t */
+        dr_mcontext_t dmc = {sizeof(dmc),};
+        priv_mcontext_t *mc = dr_mcontext_as_priv_mcontext(&dmc);
+        sigcontext_to_mcontext(mc, sc);
+        if ((*info->itimer)[which].cb != NULL)
+            (*(*info->itimer)[which].cb)(dcontext, mc);
+        else
+            (*(*info->itimer)[which].cb_api)(dcontext, &dmc);
     }
     if (info->shared_itimer && acquired_lock)
         release_recursive_lock(info->shared_itimer_lock);

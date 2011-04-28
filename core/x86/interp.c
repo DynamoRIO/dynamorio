@@ -1313,7 +1313,7 @@ bb_process_fs_ref_opnd(dcontext_t *dcontext, build_bb_t *bb, opnd_t dst,
          * even when not for cache (for recreation etc.). */
         if (bb->app_interp) {
             /* check is write to fs:[0] */
-            if (opnd_compute_address(dst, get_mcontext(dcontext)) == NULL) {
+            if (opnd_compute_address_priv(dst, get_mcontext(dcontext)) == NULL) {
                 /* we have new mov to fs:[0] */
                 *is_to_fs0 = true;
             }
@@ -1370,7 +1370,7 @@ bb_process_fs_ref(dcontext_t *dcontext, build_bb_t *bb)
                 if (opnd_is_immed_int(src)) {
                     value = opnd_get_immed_int(src);
                 } else if (opnd_is_reg(src)) {
-                    value = reg_get_value(opnd_get_reg(src), get_mcontext(dcontext));
+                    value = reg_get_value_priv(opnd_get_reg(src), get_mcontext(dcontext));
                 } else {
                     ASSERT_NOT_REACHED();
                 }
@@ -7055,7 +7055,7 @@ add_profile_call(dcontext_t *dcontext)
  * returns NULL if failed or not yet implemented, else returns the pc of the next instr.
  */
 app_pc
-emulate(dcontext_t *dcontext, app_pc pc, dr_mcontext_t *mc)
+emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
 {
     instr_t instr;
     app_pc next_pc = NULL;
@@ -7079,9 +7079,9 @@ emulate(dcontext_t *dcontext, app_pc pc, dr_mcontext_t *mc)
             next_pc = NULL;
             goto emulate_failure;
         }
-        target = (reg_t *) opnd_compute_address(dst, mc);
+        target = (reg_t *) opnd_compute_address_priv(dst, mc);
         if (opnd_is_reg(src)) {
-            val = reg_get_value(opnd_get_reg(src), mc);
+            val = reg_get_value_priv(opnd_get_reg(src), mc);
         } else if (opnd_is_immed_int(src)) {
             val = (reg_t) opnd_get_immed_int(src);
         } else {
@@ -7111,8 +7111,8 @@ emulate(dcontext_t *dcontext, app_pc pc, dr_mcontext_t *mc)
         }
         /* FIXME: handle changing register value */
         ASSERT(opnd_is_memory_reference(src));
-        /* FIXME: change these to take in dr_mcontext_t* ? */
-        target = (reg_t *) opnd_compute_address(src, mc);
+        /* FIXME: change these to take in priv_mcontext_t* ? */
+        target = (reg_t *) opnd_compute_address_priv(src, mc);
         DODEBUG({
             uint prot;
             ASSERT(get_memory_info((app_pc)target, NULL, NULL, &prot));

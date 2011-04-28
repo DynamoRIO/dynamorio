@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1329,7 +1330,7 @@ at_pushregret_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_pc
         && instr_is_return(iret) && instr_num_srcs(iret) == 2 /* no ret immed */) {
         /* sanity check: is reg value the ret target? */
         reg_id_t reg = opnd_get_reg(instr_get_src(ipush, 0));
-        reg_t val = reg_get_value(reg, get_mcontext(dcontext));
+        reg_t val = reg_get_value_priv(reg, get_mcontext(dcontext));
         LOG(GLOBAL, LOG_INTERP, 3,
             "RCT: at_pushregret_exception: push %d reg == "PFX"; ret\n",
             reg, val);

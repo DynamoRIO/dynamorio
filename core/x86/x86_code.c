@@ -45,14 +45,17 @@
 #include <string.h> /* for memcpy */
 
 /* Helper routine for the x86.asm PUSH_DR_MCONTEXT, to fill in the xmm0-5 values
- * only if necessary.
+ * (or all for linux) (or ymm) only if necessary.
  */
 void
-get_xmm_vals(dr_mcontext_t *mc)
+get_xmm_vals(priv_mcontext_t *mc)
 {
     if (preserve_xmm_caller_saved()) {
         ASSERT(proc_has_feature(FEATURE_SSE));
-        get_xmm_caller_saved(&mc->xmm[0]);
+        if (YMM_ENABLED())
+            get_ymm_caller_saved(&mc->ymm[0]);
+        else
+            get_xmm_caller_saved(&mc->ymm[0]);
     }
 }
 
@@ -72,9 +75,9 @@ thread_starting(dcontext_t *dcontext)
 
 /* Initializes a dcontext with the supplied state and calls dispatch */
 void
-dynamo_start(dr_mcontext_t *mc)
+dynamo_start(priv_mcontext_t *mc)
 {
-    dr_mcontext_t *mcontext;
+    priv_mcontext_t *mcontext;
     dcontext_t *dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
     thread_starting(dcontext);
@@ -110,7 +113,7 @@ dynamo_start(dr_mcontext_t *mc)
  * our own go-native path separate from load_dynamo (we could still have
  * this by dynamo_auto_start and jump to an asm routine for go-native,
  * but keeping the entry in asm is more flexible).
- * Assumptions: The saved dr_mcontext_t for the start of the app is on
+ * Assumptions: The saved priv_mcontext_t for the start of the app is on
  * the stack, followed by a pointer to a region of memory to free
  * (which can be NULL) and its size.  If we decide not to take over
  * this process, this routine returns; otherwise it does not return.
@@ -119,15 +122,15 @@ void
 auto_setup(ptr_uint_t appstack)
 {
     dcontext_t *dcontext;
-    dr_mcontext_t *mcontext;
+    priv_mcontext_t *mcontext;
     byte *pappstack;
     byte        *addr;
 
     pappstack = (byte *)appstack;
 
-    /* Our parameter points at a dr_mcontext_t struct, beyond which are
+    /* Our parameter points at a priv_mcontext_t struct, beyond which are
      * two other fields:
-       pappstack --> +0  dr_mcontext_t struct
+       pappstack --> +0  priv_mcontext_t struct
                      +x  addr of memory to free (can be NULL)
                      +y  sizeof memory to free
     */
@@ -156,8 +159,8 @@ auto_setup(ptr_uint_t appstack)
 
     /* copy over the app state into mcontext */
     mcontext = get_mcontext(dcontext);
-    *mcontext = *((dr_mcontext_t *)pappstack);
-    pappstack += sizeof(dr_mcontext_t);
+    *mcontext = *((priv_mcontext_t *)pappstack);
+    pappstack += sizeof(priv_mcontext_t);
     dcontext->next_tag = mcontext->pc;
     ASSERT(dcontext->next_tag != NULL);
 
@@ -208,7 +211,7 @@ auto_setup(ptr_uint_t appstack)
  *          makes assumptions about the usage of stack being less than a page.
  */
 void
-new_thread_setup(dr_mcontext_t *mc)
+new_thread_setup(priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
     app_pc next_tag;
@@ -265,7 +268,7 @@ new_thread_setup(dr_mcontext_t *mc)
  * This routine is also used by NtSetContextThread.
  */
 void
-nt_continue_setup(dr_mcontext_t *mc)
+nt_continue_setup(priv_mcontext_t *mc)
 {
     app_pc next_pc;
     dcontext_t *dcontext;
@@ -357,7 +360,7 @@ entering_native()
 /* work that's easier to do in C code than in the asm routine back_from_native()
  */
 void
-back_from_native_C(dr_mcontext_t *mc)
+back_from_native_C(priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
     ENTERING_DR();

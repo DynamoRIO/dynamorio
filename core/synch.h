@@ -224,19 +224,19 @@ void
 check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_state);
 
 bool
-at_safe_spot(thread_record_t *trec, dr_mcontext_t *mc,
+at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
              thread_synch_state_t desired_state);
 
 bool
 set_synched_thread_context(thread_record_t *trec,
                            /* pass either mc or both cxt and cxt_size */
-                           dr_mcontext_t *mc, void *cxt, size_t cxt_size,
+                           priv_mcontext_t *mc, void *cxt, size_t cxt_size,
                            thread_synch_state_t desired_state
                            _IF_X64(byte *cxt_alloc)
                            _IF_WINDOWS(NTSTATUS *status/*OUT*/));
 
 bool
-translate_mcontext(thread_record_t *trec, dr_mcontext_t *mc, bool restore_memory);
+translate_mcontext(thread_record_t *trec, priv_mcontext_t *mc, bool restore_memory);
 
 /* resets a thread to start interpreting anew */
 void

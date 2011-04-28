@@ -65,11 +65,6 @@
 
 #include <string.h> /* for memset */
 
-#ifdef WINDOWS
-/* in callback.c */
-extern void callback_start_return(void);
-#endif
-
 /* make code more readable by shortening long lines
  * we mark everything we add as a meta-instr to avoid hitting
  * client asserts on setting translation fields
@@ -92,7 +87,7 @@ typedef struct _callee_info_t {
     app_pc bwd_tgt;           /* earliest backward branch target */
     app_pc fwd_tgt;           /* last forward branch target */
     int num_xmms_used;        /* number of xmms used by callee */
-    bool xmm_used[NUM_XMM_REGS];  /* xmm registers usage */
+    bool xmm_used[NUM_XMM_REGS];  /* xmm/ymm registers usage */
     int num_regs_used;        /* number of regs used by callee */
     bool reg_used[NUM_GP_REGS];   /* general purpose registers usage */
     int num_callee_save_regs; /* number of regs callee saved */
@@ -102,7 +97,7 @@ typedef struct _callee_info_t {
     bool opt_inline;          /* can be inlined or not */
     bool write_aflags;        /* if the function changes aflags */
     bool read_aflags;         /* if the function reads aflags from caller */
-    bool errno_used;          /* application's errno is accessed */
+    bool tls_used;            /* application accesses TLS (errno, etc.) */
     instrlist_t *ilist;       /* instruction list of function for inline. */
 } callee_info_t;
 static callee_info_t     default_callee_info;
@@ -124,7 +119,7 @@ callee_info_init(callee_info_t *ci)
     ci->has_locals   = true;
     ci->write_aflags = true;
     ci->read_aflags  = true;
-    ci->errno_used   = true;
+    ci->tls_used   = true;
     /* We use loop here and memset in analyze_callee_regs_usage later.
      * We could reverse the logic and use memset to set the value below,
      * but then later in analyze_callee_regs_usage, we have to use the loop.
@@ -413,9 +408,13 @@ remangle_short_rewrite(dcontext_t *dcontext,
     return (pc+CTI_SHORT_REWRITE_LENGTH);
 }
 
-/* Returns the amount of data pushed.  Does NOT fix up the xsp value pushed
+/* Pushes not only the GPRs but also xmm/ymm, xip, and xflags, in
+ * priv_mcontext_t order.
+ * The current stack pointer alignment should be passed.  Use 1 if
+ * unknown (NOT 0).
+ * Returns the amount of data pushed.  Does NOT fix up the xsp value pushed
  * to be the value prior to any pushes for x64 as no caller needs that
- * currently (they all build a dr_mcontext_t and have to do further xsp
+ * currently (they all build a priv_mcontext_t and have to do further xsp
  * fixups anyway).
  * Includes xmm0-5 for PR 264138.
  * If stack_align16 is true, assumes the stack pointer is currently aligned
@@ -424,14 +423,17 @@ remangle_short_rewrite(dcontext_t *dcontext,
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, 
                           instrlist_t *ilist, instr_t *instr,
-                          bool stack_align16)
+                          uint alignment, instr_t *push_pc)
 {
+    uint dstack_offs = 0;
     if (cci == NULL)
         cci = &default_clean_call_info;
     if (cci->num_xmms_skip != NUM_XMM_REGS) {
         PRE(ilist, instr, INSTR_CREATE_lea
             (dcontext, opnd_create_reg(REG_XSP),
-             OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, - XMM_SLOTS_SIZE)));
+             OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
+                                 - XMM_SLOTS_SIZE - PRE_XMM_PADDING)));
+        dstack_offs += XMM_SLOTS_SIZE + PRE_XMM_PADDING;
     }
     if (preserve_xmm_caller_saved()) {
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel */
@@ -441,25 +443,38 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          * guide says to use movlps+movhps for unaligned stores, but
          * for simplicity and smaller code I'm using movups anyway.
          */
-        /* FIXME i#433: need DR cxt switch and clean call to preserve ymm */
-        uint opcode = (proc_has_feature(FEATURE_SSE2) ?
-                       (stack_align16 ? OP_movdqa : OP_movdqu) :
-                       (stack_align16 ? OP_movaps : OP_movups));
+        /* FIXME i#438: once have SandyBridge processor need to measure
+         * cost of vmovdqu and whether worth arranging 32-byte alignment
+         * for all callers.  B/c we put ymm at end of priv_mcontext_t, we do
+         * currently have 32-byte alignment for clean calls.
+         */
+        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 32), ALIGNED(alignment, 16));
         ASSERT(proc_has_feature(FEATURE_SSE));
         for (i=0; i<NUM_XMM_SAVED; i++) {
             if (!cci->xmm_skip[i]) {
                 PRE(ilist, instr, instr_create_1dst_1src
                     (dcontext, opcode,
                      opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                           i*XMM_REG_SIZE, OPSZ_16),
-                     opnd_create_reg(REG_XMM0 + (reg_id_t)i)));
+                                           PRE_XMM_PADDING + i*XMM_SAVED_REG_SIZE,
+                                           OPSZ_SAVED_XMM),
+                     opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
             }
         }
-        ASSERT(i*XMM_REG_SIZE == XMM_SAVED_SIZE);
+        ASSERT(i*XMM_SAVED_REG_SIZE == XMM_SAVED_SIZE);
         ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
     }
+
+    if (!cci->skip_save_aflags) {
+        PRE(ilist, instr, push_pc);
+        dstack_offs += XSP_SZ;
+        PRE(ilist, instr, INSTR_CREATE_pushf(dcontext));
+        dstack_offs += XSP_SZ;
+    } else {
+        instr_destroy(dcontext, push_pc);
+    }
+
 #ifdef X64
-    /* keep dr_mcontext_t order */
+    /* keep priv_mcontext_t order */
     if (!cci->reg_skip[REG_R15 - REG_XAX])
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_R15)));
     if (!cci->reg_skip[REG_R14 - REG_XAX])
@@ -493,32 +508,28 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_RSI)));
     if (!cci->reg_skip[REG_RDI - REG_XAX])
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_RDI)));
-    if (cci->num_xmms_skip != NUM_XMM_REGS)
-        return (NUM_GP_REGS - cci->num_regs_skip) * XSP_SZ + XMM_SLOTS_SIZE;
-    else
-        return (NUM_GP_REGS - cci->num_regs_skip) * XSP_SZ;
+    dstack_offs += (NUM_GP_REGS - cci->num_regs_skip) * XSP_SZ;
 #else
     PRE(ilist, instr, INSTR_CREATE_pusha(dcontext));
-    if (cci->num_xmms_skip != NUM_XMM_REGS)
-        return 8*XSP_SZ + XMM_SLOTS_SIZE;
-    else
-        return 8*XSP_SZ;
+    dstack_offs += 8 * XSP_SZ;
 #endif
+    return dstack_offs;
 }
 
-/* If stack_align16 is true, assumes the stack pointer is currently aligned
- * on a 16-byte boundary.
+/* User should pass the alignment from insert_push_all_registers: i.e., the
+ * alignment at the end of all the popping, not the alignment prior to
+ * the popping.
  */
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
-                         bool stack_align16)
+                         uint alignment)
 {
     if (cci == NULL)
         cci = &default_clean_call_info;
 
 #ifdef X64
-    /* in dr_mcontext_t order */
+    /* in priv_mcontext_t order */
     if (!cci->reg_skip[REG_RDI - REG_XAX])
         PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_RDI)));
     if (!cci->reg_skip[REG_RSI - REG_XAX])
@@ -557,31 +568,40 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 #else
     PRE(ilist, instr, INSTR_CREATE_popa(dcontext));
 #endif
+    if (!cci->skip_save_aflags)
+        PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
+    if (cci->num_xmms_skip == NUM_XMM_REGS) {
+        PRE(ilist, instr, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP), 
+                                           opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                                                 XSP_SZ, OPSZ_lea)));
+    } /* else we combine w/ xmm lea below */
+
     if (preserve_xmm_caller_saved()) {
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel */
         int i;
         /* See discussion in emit_fcache_enter_shared on which opcode
          * is better. */
-        /* FIXME i#433: need DR cxt switch and clean call to preserve ymm */
-        uint opcode = (proc_has_feature(FEATURE_SSE2) ?
-                       (stack_align16 ? OP_movdqa : OP_movdqu) :
-                       (stack_align16 ? OP_movaps : OP_movups));
+        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 32), ALIGNED(alignment, 16));
         ASSERT(proc_has_feature(FEATURE_SSE));
         for (i=0; i<NUM_XMM_SAVED; i++) {
             if (!cci->xmm_skip[i]) {
                 PRE(ilist, instr, instr_create_1dst_1src
-                    (dcontext, opcode, opnd_create_reg(REG_XMM0 + (reg_id_t)i),
+                    (dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                      opnd_create_base_disp(REG_XSP, REG_NULL, 0, 
-                                           i*XMM_REG_SIZE, OPSZ_16)));
+                                           /* add the pc slot */
+                                           PRE_XMM_PADDING + i*XMM_SAVED_REG_SIZE + XSP_SZ,
+                                           OPSZ_SAVED_XMM)));
             }
         }
-        ASSERT(i*XMM_REG_SIZE == XMM_SAVED_SIZE);
+        ASSERT(i*XMM_SAVED_REG_SIZE == XMM_SAVED_SIZE);
         ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
     }
     if (cci->num_xmms_skip != NUM_XMM_REGS) {
         PRE(ilist, instr, INSTR_CREATE_lea
             (dcontext, opnd_create_reg(REG_XSP),
-             OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, XMM_SLOTS_SIZE)));
+             /* include the pc slot */
+             OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
+                                 PRE_XMM_PADDING + XMM_SLOTS_SIZE + XSP_SZ)));
     }
 }
 
@@ -592,9 +612,10 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
  * first swap stacks to DynamoRIO stack:
  *      SAVE_TO_UPCONTEXT %xsp,xsp_OFFSET
  *      RESTORE_FROM_DCONTEXT dstack_OFFSET,%xsp
+ * swap peb/teb fields
  * now save app eflags and registers, being sure to lay them out on
- * the stack in dr_mcontext_t order:
- *      push $0 # for dr_mcontext_t.pc; wasted, for now
+ * the stack in priv_mcontext_t order:
+ *      push $0 # for priv_mcontext_t.pc; wasted, for now
  *      pushf
  *      pusha # xsp is dstack-XSP_SZ*2; rest are app values
  * clear the eflags for our usage
@@ -602,29 +623,13 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
  *                                    and clearing, not preserving, is good enough
  *      push   $0
  *      popf
- * save app errno
- *      .ifdef WINDOWS
- *      call  _GetLastError@0
- *      push  %eax  # put errno on top of stack
- *      .else
- *      RESTORE_FROM_DCONTEXT errno_OFFSET,%eax
- *      push  %eax  # for symmetry w/ win32, rather than -> app_errno_OFFSET
- *      .endif
  * make the call
  *      call routine
- * restore app errno
- *      .ifdef WINDOWS
- *      # errno is on top of stack as 1st param
- *      call  _SetLastError@4
- *      # win32 API functions use __stdcall = callee clears args!
- *      .else
- *      pop    %eax
- *      SAVE_TO_DCONTEXT %eax,errno_OFFSET
- *      .endif
  * restore app regs and eflags
  *      popa
  *      popf
- *      lea XSP_SZ(xsp),xsp # clear dr_mcontext_t.pc slot
+ *      lea XSP_SZ(xsp),xsp # clear priv_mcontext_t.pc slot
+ * swap peb/teb fields
  * restore app stack
  *      RESTORE_FROM_UPCONTEXT xsp_OFFSET,%xsp
  */
@@ -645,11 +650,11 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,
     }
 }
 
-/* What prepare_for_clean_call() adds to xsp beyond sizeof(dr_mcontext_t) */
+/* What prepare_for_clean_call() adds to xsp beyond sizeof(priv_mcontext_t) */
 static inline int
 clean_call_beyond_mcontext(void)
 {
-    return XSP_SZ/*errno*/ IF_X64(+ XSP_SZ/*align*/);
+    return 0; /* no longer adding anything */
 }
 
 /* prepare_for and cleanup_after assume that the stack looks the same after
@@ -682,7 +687,7 @@ clean_call_beyond_mcontext(void)
  * and xax and no other registers.
  */
 /* number of extra slots in addition to register slots. */
-#define NUM_EXTRA_SLOTS 3 /* pc, aflags, errno */
+#define NUM_EXTRA_SLOTS 2 /* pc, aflags */
 uint
 prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
                        instrlist_t *ilist, instr_t *instr)
@@ -714,6 +719,9 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         /* i#249: swap PEB pointers while we have dcxt in reg.  We risk "silent
          * death" by using xsp as scratch but don't have simple alternative.
          */
+        /* XXX: should use clean callee analysis to remove pieces of this
+         * such as errno preservation
+         */
         if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
             preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
                                REG_XAX/*dc*/, REG_XSP/*scratch*/, true/*to priv*/);
@@ -731,31 +739,18 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr, instr_create_restore_dynamo_stack(dcontext));
     }
 
-    /* Save flags and all registers, in dr_mcontext_t order. */
-    if (!cci->skip_save_aflags) {
-        /* FIXME PR 218131: we could have a special dstack+XSP_SZ field that we
-         * start from, and avoid this push; should do that if we start adding more
-         * fields to dr_mcontext_t, like a flags field, that are not set here.
-         */
-        /* for alignment, we save pc and aflags at same time. */
-        PRE(ilist, instr, INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));
-        dstack_offs += XSP_SZ;
-        PRE(ilist, instr, INSTR_CREATE_pushf(dcontext));
-        dstack_offs += XSP_SZ;
-    }
-    /* XMM slot must be 16-byte aligned */
-    ASSERT(cci->num_xmms_skip == NUM_XMM_REGS || dstack_offs == (2 * XSP_SZ));
-    /* Base of dstack is 16-byte aligned, and we've done 2 pushes, so we're
-     * 16-byte aligned for x64
+    /* Save flags and all registers, in priv_mcontext_t order.
+     * We're at base of dstack so should be nicely aligned.
      */
-    dstack_offs += insert_push_all_registers(dcontext, cci, ilist, instr,
-                                             IF_X64_ELSE(true, false));
-
+    ASSERT(ALIGNED(dcontext->dstack, PAGE_SIZE));
+    dstack_offs +=
+        insert_push_all_registers(dcontext, cci, ilist, instr, PAGE_SIZE,
+                                  INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));
     /* Note that we do NOT bother to put the correct pre-push app xsp value on the
      * stack here, as an optimization for callees who never ask for it: instead we
      * rely on dr_[gs]et_mcontext() to fix it up if asked for.  We can get away w/
      * this while hotpatching cannot (hotp_inject_gateway_call() fixes it up every
-     * time) b/c the callee has to ask for the dr_mcontext_t.
+     * time) b/c the callee has to ask for the priv_mcontext_t.
      */
 
     /* clear eflags for callee's usage */
@@ -765,40 +760,12 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
     }
 
-    if (!cci->skip_save_errno) {
-#ifdef WINDOWS
-        /* must preserve the LastErrorCode (if call a Win32 API routine could
-         * overwrite the app's error code) */
-        preinsert_get_last_error(dcontext, ilist, instr, REG_EAX);
+    /* We no longer need to preserve the app's errno on Windows except
+     * when using private libraries, so its preservation is in
+     * preinsert_swap_peb().
+     * We do not need to preserve DR's Linux errno across app execution.
+     */
 
-        /* by pushing errno onto stack, it's then in place to be an argument
-         * to SetLastError for cleanup!
-         */
-        /* FIXME: no longer necessary, update this and cleanup_after_clean_call.
-         * All cleanup_call users most importantly, pre_system_call and 
-         * post_system_call would need not to reserve room for errno:
-         * except for our private loader w/ client-dependent libs we do need
-         * to handle and isolate (limited) Win32 API usage
-         */
-#else
-        /* put shared errno on stack, for symmetry w/ win32, rather than
-         * into app storage slot */
-        if (SCRATCH_ALWAYS_TLS()) {
-            /* eax is dead here (already saved to stack) */
-            ASSERT(!cci->reg_skip[REG_XAX - REG_XAX]);
-            insert_get_mcontext_base(dcontext, ilist, instr, REG_XAX);
-            PRE(ilist, instr, instr_create_restore_from_dc_via_reg
-                (dcontext, REG_XAX, REG_EAX, ERRNO_OFFSET));
-        } else {
-            PRE(ilist, instr, instr_create_restore_from_dcontext
-                (dcontext, REG_EAX, ERRNO_OFFSET));
-        }
-#endif
-        PRE(ilist, instr,
-            /* top 32 bits were zeroed on x64 */
-            INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XAX)));
-        dstack_offs += XSP_SZ;
-    }
 #ifdef X64
     /* PR 218790: maintain 16-byte rsp alignment.
      * insert_parameter_preparation() currently assumes we leave rsp aligned.
@@ -806,8 +773,6 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     /* check if need adjust stack for alignment. */
     if (cci->should_align) {
         uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
-        if (cci->skip_save_errno)
-            num_slots--;
         if (cci->skip_save_aflags)
             num_slots -= 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
@@ -823,10 +788,9 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 #endif
     ASSERT(cci->skip_save_aflags   ||
-           cci->skip_save_errno    ||
            cci->num_xmms_skip != 0 ||
            cci->num_regs_skip != 0 ||
-           dstack_offs == sizeof(dr_mcontext_t) + clean_call_beyond_mcontext());
+           dstack_offs == sizeof(priv_mcontext_t) + clean_call_beyond_mcontext());
     return dstack_offs;
 }
 
@@ -842,8 +806,6 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
     if (cci->should_align) {
         uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
-        if (cci->skip_save_errno)
-            num_slots--;
         if (cci->skip_save_aflags)
             num_slots += 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
@@ -854,35 +816,11 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         }
     }
 #endif
-    /* restore app's error code */
-    if (!cci->skip_save_errno) {
-        PRE(ilist, instr,
-            /* top 32 bits were zeroed on x64 */
-            INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XAX)));
-#ifdef WINDOWS
-        /* must preserve the LastErrorCode (if call a Win32 API routine could
-         * overwrite the app's error code) */
-        preinsert_set_last_error(dcontext, ilist, instr, REG_EAX);
-#else
-        if (SCRATCH_ALWAYS_TLS()) {
-            /* make sure xbx is saved */
-            ASSERT(!cci->reg_skip[REG_XBX - REG_XAX]);
-            insert_get_mcontext_base(dcontext, ilist, instr, REG_XBX);
-            PRE(ilist, instr, instr_create_save_to_dc_via_reg
-                (dcontext, REG_XBX, REG_EAX, ERRNO_OFFSET));
-        } else {
-            PRE(ilist, instr,
-                instr_create_save_to_dcontext(dcontext, REG_EAX, ERRNO_OFFSET));
-        }
-#endif
-    }
 
     /* now restore everything */
     insert_pop_all_registers(dcontext, cci, ilist, instr,
                              /* see notes in prepare_for_clean_call() */
-                             IF_X64_ELSE(true, false));
-    if (!cci->skip_save_aflags)
-        PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
+                             PAGE_SIZE);
 
     /* Swap stacks back.  For thread-shared, we need to get the dcontext
      * dynamically.  Save xax in TLS so we can use it as scratch.
@@ -1000,7 +938,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 
     ASSERT(num_args == 0 || args != NULL);
     /* We can get away w/ one pass, except for PR 250976 we want calling conv
-     * regs to be able to refer to dr_mcontext_t as well as potentially being
+     * regs to be able to refer to priv_mcontext_t as well as potentially being
      * pushed: but we need to know the total # pushes ahead of time (since hard
      * to mark for post-patching)
      */
@@ -1077,7 +1015,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     for (i = 0; i < num_args; i++) {
         /* FIXME PR 302951: we need to handle state restoration if any
          * of these args references app memory.  We should pull the state from
-         * the dr_mcontext_t on the stack if in a clean call.  FIXME: what if not?
+         * the priv_mcontext_t on the stack if in a clean call.  FIXME: what if not?
          */
         opnd_t arg = args[i];
         CLIENT_ASSERT(opnd_get_size(arg) == OPSZ_PTR || opnd_is_immed_int(arg)
@@ -1094,8 +1032,8 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                  reg_overlap(used, REG_XSP)) {
                 int disp = 0;
                 if (clean_call && opnd_is_reg(arg)) {
-                    /* We can point at the dr_mcontext_t slot.
-                     * dr_mcontext_t is at the base of dstack: compute offset
+                    /* We can point at the priv_mcontext_t slot.
+                     * priv_mcontext_t is at the base of dstack: compute offset
                      * from xsp to the field we want and replace arg.
                      */
                     disp += opnd_get_reg_dcontext_offs(opnd_get_reg(arg));
@@ -5017,12 +4955,14 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
 }
 
 static void
-analyze_callee_errno(dcontext_t *dcontext, callee_info_t *ci)
+analyze_callee_tls(dcontext_t *dcontext, callee_info_t *ci)
 {
-#ifdef LINUX
+    /* access to TLS means we do need to swap/preserve TEB/PEB fields
+     * for library isolation (errno, etc.)
+     */
     instr_t *instr;
     int i;
-    ci->errno_used = false;
+    ci->tls_used = false;
     for (instr  = instrlist_first(ci->ilist);
          instr != NULL;
          instr  = instr_get_next(instr)) {
@@ -5030,26 +4970,20 @@ analyze_callee_errno(dcontext_t *dcontext, callee_info_t *ci)
         for (i = 0; i < instr_num_srcs(instr); i++) {
             opnd_t opnd = instr_get_src(instr, i);
             if (opnd_is_far_base_disp(opnd) &&
-                opnd_get_segment(opnd) == IF_X64_ELSE(SEG_FS, SEG_GS))
-                ci->errno_used = true;
+                opnd_get_segment(opnd) == LIB_SEG_TLS)
+                ci->tls_used = true;
         }
         for (i = 0; i < instr_num_dsts(instr); i++) {
             opnd_t opnd = instr_get_dst(instr, i);
             if (opnd_is_far_base_disp(opnd) &&
-                opnd_get_segment(opnd) == IF_X64_ELSE(SEG_FS, SEG_GS))
-                ci->errno_used = true;
+                opnd_get_segment(opnd) == LIB_SEG_TLS)
+                ci->tls_used = true;
         }
     }
-    if (ci->errno_used) {
+    if (ci->tls_used) {
         LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: callee "PFX" access far memory\n", ci->start);
+            "CLEANCALL: callee "PFX" accesses far memory\n", ci->start);
     }
-#else
-    /* XXX: For Windows, how do we know if it accessess errno?
-     * Now we simply assume no. 
-     */
-    ci->errno_used = false;
-#endif
 }
 
 static void
@@ -5086,9 +5020,9 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
             ci->start);
         opt_inline = false;
     }
-    if (ci->errno_used) {
+    if (ci->tls_used) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined: access errno.\n",
+            "CLEANCALL: callee "PFX" cannot be inlined: accesses TLS.\n",
             ci->start);
         opt_inline = false;
     }
@@ -5273,7 +5207,7 @@ analyze_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
         ci->ilist = NULL;
     } else {
         analyze_callee_save_reg(dcontext, ci);
-        analyze_callee_errno(dcontext, ci);
+        analyze_callee_tls(dcontext, ci);
         analyze_callee_inline(dcontext, ci);
     }
 }
@@ -5309,9 +5243,6 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
                 break;
             }
         }
-    }
-    if (INTERNAL_OPTION(opt_cleancall) > 1) {
-        cci->skip_save_errno = !ci->errno_used;
     }
 }
 
@@ -5369,8 +5300,8 @@ analyze_clean_call_args(dcontext_t *dcontext,
 
     num_regparm = cci->num_args < NUM_REGPARM ? cci->num_args : NUM_REGPARM;
     /* If a param uses a reg, DR need restore register value, which assumes
-     * the full context switch with dr_mcontext_t layout,
-     * in which case we need keep dr_mcontext_t layout.
+     * the full context switch with priv_mcontext_t layout,
+     * in which case we need keep priv_mcontext_t layout.
      */
     cci->save_all_regs = false;
     for (i = 0; i < cci->num_args; i++) {
@@ -5384,11 +5315,10 @@ analyze_clean_call_args(dcontext_t *dcontext,
     if (cci->save_all_regs) {
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: inserting clean call "PFX
-            ", save all regs in dr_mcontext_t layout.\n",
+            ", save all regs in priv_mcontext_t layout.\n",
             ci->start);
         cci->num_regs_skip = 0;
         memset(cci->reg_skip, 0, sizeof(bool) * NUM_GP_REGS);
-        cci->skip_save_errno = false;
         cci->should_align = true;
     }
 }
@@ -5466,19 +5396,6 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
                 }
             }
         }
-#ifdef LINUX
-        /* we need save xbx for restore error */
-        if (!cci->skip_save_errno && SCRATCH_ALWAYS_TLS()) {
-            if (cci->reg_skip[REG_XBX - REG_XAX]) {
-                cci->reg_skip[REG_XBX - REG_XAX] = false;
-                LOG(THREAD, LOG_CLEANCALL, 3,
-                    "CLEANCALL: if inserting clean call "PFX
-                    ", cannot skip saving xbx.\n",
-                    info->start);
-                cci->num_regs_skip--;
-            }
-        }
-#endif
         if (cci->num_xmms_skip == NUM_XMM_REGS) {
             STATS_INC(cleancall_xmm_skipped);
         }
@@ -5487,9 +5404,6 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
         }
         if (cci->skip_clear_eflags) {
             STATS_INC(cleancall_aflags_clear_skipped);
-        }
-        if (cci->skip_save_errno) {
-            STATS_INC(cleancall_errno_save_skipped);
         }
     } else {
         cci->ilist = instrlist_clone(dcontext, info->ilist);

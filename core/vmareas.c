@@ -7253,8 +7253,8 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                     if (is_couldbelinking(dcontext))
                         enter_nolinking(dcontext, NULL, false);
                     KSTART(fcache_default);
-                    transfer_to_dispatch(dcontext, dcontext->app_errno,
-                                         get_mcontext(dcontext));
+                    transfer_to_dispatch(dcontext, get_mcontext(dcontext),
+                                         true/*full_DR_state*/);
                     ASSERT_NOT_REACHED();
                 }
                 CLIENT_ASSERT(false, "privately-loaded library executed by app: "

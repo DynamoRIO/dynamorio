@@ -795,7 +795,7 @@ void
 aslr_pre_process_mapview(dcontext_t *dcontext)
 {
     reg_t *param_base = dcontext->sys_param_base;
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     
     HANDLE section_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 1);
@@ -6856,7 +6856,7 @@ gbop_validate_and_act(app_state_at_intercept_t *state,
 #ifdef PROGRAM_SHEPHERDING
         app_pc old_next_tag;
         fragment_t src_frag = {0}, *old_last_frag;
-        dr_mcontext_t old_mc = {0};
+        priv_mcontext_t old_mc = {0};
 #endif
 
         STATS_INC(gbop_violations);

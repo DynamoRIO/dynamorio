@@ -1410,10 +1410,11 @@ create_new_dynamo_context(bool initial, byte *dstack_in)
          global_heap_alloc(alloc HEAPACCT(ACCT_OTHER)));
     dcontext = (dcontext_t*) proc_bump_to_end_of_cache_line((ptr_uint_t)alloc_start);
     ASSERT(proc_is_cache_aligned(dcontext));
-    /* 264138: ensure xmm0-5 are aligned so we can use movdqa */
-    ASSERT(ALIGNED(get_mcontext(dcontext)->xmm, 16));
+    /* 264138: ensure xmm/ymm slots are aligned so we can use vmovdqa */
+    ASSERT(ALIGNED(get_mcontext(dcontext)->ymm, YMM_REG_SIZE));
     /* also ensure we don't have extra padding beyond x86.asm defines */
-    ASSERT(sizeof(dr_mcontext_t) == IF_X64_ELSE(18,10)*sizeof(reg_t) + XMM_SLOTS_SIZE);
+    ASSERT(sizeof(priv_mcontext_t) == IF_X64_ELSE(18,10)*sizeof(reg_t) +
+           PRE_XMM_PADDING + XMM_SLOTS_SIZE);
 
     /* Put here all one-time dcontext field initialization 
      * Make sure to update create_callback_dcontext to shared
@@ -1986,7 +1987,7 @@ DECLARE_FREQPROT_VAR(static bool reset_at_nth_thread_triggered, false);
  * returns -1 if current thread has already been initialized
  */
 int
-dynamo_thread_init(byte *dstack_in, dr_mcontext_t *mc
+dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
                    _IF_CLIENT_INTERFACE(bool client_thread))
 {
     dcontext_t *dcontext;
@@ -2435,7 +2436,7 @@ dynamo_thread_stack_free_and_exit(byte *stack)
 }
 
 /* defined in x86/x86_code.c */
-extern void dynamo_start(dr_mcontext_t *mc);
+extern void dynamo_start(priv_mcontext_t *mc);
 
 #ifdef DR_APP_EXPORTS
 /* API routine to initialize DR */
@@ -2458,7 +2459,7 @@ dr_app_cleanup(void)
 
 /* Called by dr_app_start in arch-specific assembly file */
 void
-dr_app_start_helper(dr_mcontext_t *mc)
+dr_app_start_helper(priv_mcontext_t *mc)
 {
     apicheck(dynamo_initialized, PRODUCT_NAME" not initialized");
     if (!INTERNAL_OPTION(nullcalls)) {
@@ -2529,7 +2530,7 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
 
 /* Called by dynamorio_app_take_over in arch-specific assembly file */
 void
-dynamorio_app_take_over_helper(dr_mcontext_t *mc)
+dynamorio_app_take_over_helper(priv_mcontext_t *mc)
 {
     static bool have_taken_over = false; /* ASSUMPTION: not an actual write */
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);

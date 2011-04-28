@@ -219,9 +219,9 @@ free_instrumentation_funcs(void)
 ptr_uint_t count;
 static uint callee_inlined;
 
-static dr_mcontext_t before_mcontext;
+static dr_mcontext_t before_mcontext = {sizeof(before_mcontext),};
 static int before_errno;
-static dr_mcontext_t after_mcontext;
+static dr_mcontext_t after_mcontext = {sizeof(after_mcontext),};
 static int after_errno;
 
 static void
@@ -255,7 +255,7 @@ before_callee(app_pc func, const char *func_name)
 
     /* Save mcontext before call. */
     dc = dr_get_current_drcontext();
-    dr_get_mcontext(dc, &before_mcontext, &before_errno);
+    dr_get_mcontext(dc, &before_mcontext);
 
     /* Patch the callee to be:
      * push xax
@@ -326,7 +326,7 @@ after_callee(bool inline_expected, const char *func_name)
 
     /* Save mcontext after call. */
     dc = dr_get_current_drcontext();
-    dr_get_mcontext(dc, &after_mcontext, &after_errno);
+    dr_get_mcontext(dc, &after_mcontext);
 
 #if defined(WINDOWS) && !defined(X64)
     /* For a 32-bit build on a 32-bit Windows kernel, no xmm registers are
@@ -336,9 +336,16 @@ after_callee(bool inline_expected, const char *func_name)
      */
     xmm_uninit = dr_is_wow64() ? 6 : 0;
     num_uninit = NUM_XMM_SLOTS - xmm_uninit;
-    memset(&before_mcontext.xmm[xmm_uninit], 0, num_uninit * sizeof(dr_xmm_t));
-    memset(&after_mcontext.xmm[xmm_uninit], 0, num_uninit * sizeof(dr_xmm_t));
+    memset(&before_mcontext.ymm[xmm_uninit], 0, num_uninit * sizeof(dr_ymm_t));
+    memset(&after_mcontext.ymm[xmm_uninit], 0, num_uninit * sizeof(dr_ymm_t));
 #endif
+    if (!proc_has_feature(FEATURE_AVX)) {
+        /* top bits of ymm slots will be uninitialized */
+        for (i = 0; i < NUM_XMM_SLOTS; i++) {
+            memset(&before_mcontext.ymm[i].u32[4], 0, sizeof(dr_xmm_t));
+            memset(&after_mcontext.ymm[i].u32[4], 0, sizeof(dr_xmm_t));
+        }
+    }
 
     /* Compare mcontexts. */
     if (before_errno != after_errno) {
@@ -362,19 +369,30 @@ after_callee(bool inline_expected, const char *func_name)
 
         dr_fprintf(STDERR, "Printing XMM regs:\n");
         for (i = 0; i < NUM_XMM_SLOTS; i++) {
-            dr_xmm_t before_reg = before_mcontext.xmm[i];
-            dr_xmm_t  after_reg =  after_mcontext.xmm[i];
+            dr_ymm_t before_reg = before_mcontext.ymm[i];
+            dr_ymm_t  after_reg =  after_mcontext.ymm[i];
+            size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_xmm_t) :
+                sizeof(dr_ymm_t);
             const char *diff_str =
-                    (memcmp(&before_reg, &after_reg, sizeof(dr_xmm_t)) == 0 ?
-                     "" : " <- DIFFERS");
-            dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x "
-                       "after: %08x%08x%08x%08x%s\n",
+                (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
+            dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x",
                        i,
                        before_reg.u32[0], before_reg.u32[1],
-                       before_reg.u32[2], before_reg.u32[3],
+                       before_reg.u32[2], before_reg.u32[3]);
+            if (proc_has_feature(FEATURE_AVX)) {
+                dr_fprintf(STDERR, "%08x%08x%08x%08x",
+                           before_reg.u32[4], before_reg.u32[5],
+                           before_reg.u32[6], before_reg.u32[7]);
+            }
+            dr_fprintf(STDERR, " after: %08x%08x%08x%08x",
                        after_reg.u32[0], after_reg.u32[1],
-                       after_reg.u32[2], after_reg.u32[3],
-                       diff_str);
+                       after_reg.u32[2], after_reg.u32[3]);
+            if (proc_has_feature(FEATURE_AVX)) {
+                dr_fprintf(STDERR, "%08x%08x%08x%08x",
+                           after_reg.u32[4], after_reg.u32[5],
+                           after_reg.u32[6], after_reg.u32[7]);
+            }
+            dr_fprintf(STDERR, "%s\n", diff_str);
         }
     }
 

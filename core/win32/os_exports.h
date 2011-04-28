@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -56,7 +57,8 @@ typedef ushort cxt_seg_t;
 /* It looks like both CONTEXT.Xmm0 and CONTEXT.FltSave.XmmRegisters[0] are filled in.
  * We use the latter so that we don't have to hardcode the index.
  */
-# define CXT_XMM(cxt, idx) ((dr_xmm_t*)&((cxt)->FltSave.XmmRegisters[idx]))
+# define CXT_XMM(cxt, idx) ((dr_ymm_t*)&((cxt)->FltSave.XmmRegisters[idx]))
+/* FIXME i#437: need CXT_YMM */
 /* they kept the 32-bit EFlags field; sure, the upper 32 bits of Rflags
  * are undefined right now, but doesn't seem very forward-thinking. */
 # define CXT_XFLAGS EFlags
@@ -78,11 +80,11 @@ typedef DWORD cxt_seg_t;
  */
 # define FXSAVE_XMM0_OFFSET 160
 # define CXT_XMM(cxt, idx) \
-    ((dr_xmm_t*)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
+    ((dr_ymm_t*)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
 #endif
 
 #include "../os_shared.h"
-#include "arch_exports.h"       /* for dr_mcontext_t */
+#include "arch_exports.h"       /* for priv_mcontext_t */
 #include "aslr.h"               /* for aslr_context */
 
 /* you can rely on these increasing with later versions */
@@ -131,8 +133,10 @@ enum {
 
 #ifdef X64
 # define SEG_TLS SEG_GS
+# define LIB_SEG_TLS SEG_GS /* win32 lib tls */
 #else
 # define SEG_TLS SEG_FS /* x86 and WOW64 */
+# define LIB_SEG_TLS SEG_FS /* win32 lib tls */
 #endif
 
 static inline void *

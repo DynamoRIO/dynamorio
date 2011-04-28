@@ -114,7 +114,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
     LPVOID              load_dynamo_code = NULL; /* = base of code allocation */
     ptr_uint_t          addr;
     reg_t               *bufptr;
-    char                buf[MAX_PATH];
+    char                buf[MAX_PATH*2];
     uint                old_prot;
 
     ASSERT(cxt != NULL);
@@ -143,7 +143,8 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         reg_t app_xsp;
         if (thandle != NULL) {
             /* grab the context of the app's main thread */                 
-            cxt->ContextFlags = CONTEXT_DR_STATE;
+            /* we can't use proc_has_feature() so no CONTEXT_DR_STATE */
+            cxt->ContextFlags = CONTEXT_DR_STATE_ALLPROC;
             if (!NT_SUCCESS(nt_get_context(thandle, cxt))) {
                 display_error("GetThreadContext failed");
                 goto error;
@@ -203,8 +204,9 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         }
 
         /* copy the current context to the app's stack. Only need the
-         * control registers, so we use a dr_mcontext_t layout.
+         * control registers, so we use a priv_mcontext_t layout.
          */
+        ASSERT(BUFFER_SIZE_BYTES(buf) >= sizeof(priv_mcontext_t));
         bufptr = (reg_t*) buf;
         *bufptr++ = cxt->CXT_XDI;
         *bufptr++ = cxt->CXT_XSI;
@@ -224,6 +226,9 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         *bufptr++ = cxt->R14;
         *bufptr++ = cxt->R15;
 #endif
+        *bufptr++ = cxt->CXT_XFLAGS;
+        *bufptr++ = cxt->CXT_XIP;
+        bufptr += PRE_XMM_PADDING/sizeof(*bufptr);
         /* It would be nice to use preserve_xmm_caller_saved(), but we'd need to
          * link proc.c and deal w/ messy dependencies to get it into arch_exports.h,
          * so we do our own check.  We go ahead and put in the xmm slots even
@@ -238,24 +243,26 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
                 for (j = 0; j < IF_X64_ELSE(2,4); j++) {
                     *bufptr++ = CXT_XMM(cxt, i)->reg[j];
                 }
+                /* FIXME i#437: save ymm fields.  For now we assume we're
+                 * not saving and we just skip the upper 128 bits.
+                 */
+                bufptr += IF_X64_ELSE(2,4);
             }
         } else {
             /* skip xmm slots */
             bufptr += XMM_SLOTS_SIZE/sizeof(*bufptr);
         }
-        *bufptr++ = cxt->CXT_XFLAGS;
-        *bufptr++ = cxt->CXT_XIP;
-        ASSERT((char *)bufptr - (char *)buf == sizeof(dr_mcontext_t));
+        ASSERT((char *)bufptr - (char *)buf == sizeof(priv_mcontext_t));
         *bufptr++ = (ptr_uint_t)load_dynamo_code;
         *bufptr++ = SIZE_OF_LOAD_DYNAMO;
-        nbytes = sizeof(dr_mcontext_t) + 2*sizeof(reg_t);
+        nbytes = sizeof(priv_mcontext_t) + 2*sizeof(reg_t);
         cxt->CXT_XSP -= nbytes;
 #ifdef X64
         /* We need xsp to be aligned prior to each call, but we can only pad
          * before the context as all later users assume the info they need is
          * at TOS.
          */
-        cxt->CXT_XSP = ALIGN_BACKWARD(cxt->CXT_XSP, XMM_ALIGN);
+        cxt->CXT_XSP = ALIGN_BACKWARD(cxt->CXT_XSP, 16);
 #endif
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
                                      buf, nbytes, &nbytes)) {

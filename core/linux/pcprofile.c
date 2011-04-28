@@ -103,7 +103,7 @@ static pc_profile_entry_t *pcprofile_add_entry(thread_pc_info_t *info, void *pc,
 static pc_profile_entry_t *pcprofile_lookup(thread_pc_info_t *info, void *pc);
 static void pcprofile_reset(thread_pc_info_t *info);
 static void pcprofile_results(thread_pc_info_t *info);
-static void pcprofile_alarm(dcontext_t *dcontext, dr_mcontext_t *mcontext);
+static void pcprofile_alarm(dcontext_t *dcontext, priv_mcontext_t *mcontext);
 
 /* initialization */
 void
@@ -147,7 +147,7 @@ pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_inf
                                            false /* no locks */,
                                            false /* -x */, true /* persistent */);
 
-    set_itimer_callback(dcontext, ITIMER_VIRTUAL, ALARM_FREQUENCY, pcprofile_alarm);
+    set_itimer_callback(dcontext, ITIMER_VIRTUAL, ALARM_FREQUENCY, pcprofile_alarm, NULL);
 }
 
 /* cleanup: only called for thread-shared itimer for last thread in group */
@@ -159,7 +159,7 @@ pcprofile_thread_exit(dcontext_t *dcontext)
     /* don't want any alarms while holding lock for printing results
      * (see notes under pcprofile_cache_flush below)
      */
-    set_itimer_callback(dcontext, ITIMER_VIRTUAL, 0, NULL);
+    set_itimer_callback(dcontext, ITIMER_VIRTUAL, 0, NULL, NULL);
 
     pcprofile_results(info);
     size = HASHTABLE_SIZE(HASH_BITS) * sizeof(pc_profile_entry_t*);
@@ -190,7 +190,7 @@ pcprofile_fork_init(dcontext_t *dcontext)
     info->thread_shared = false;
     pcprofile_reset(info);
     info->file = open_log_file("pcsamples", NULL, 0);
-    set_itimer_callback(dcontext, ITIMER_VIRTUAL, ALARM_FREQUENCY, pcprofile_alarm);
+    set_itimer_callback(dcontext, ITIMER_VIRTUAL, ALARM_FREQUENCY, pcprofile_alarm, NULL);
 }
 
 #if 0
@@ -227,7 +227,7 @@ pcprof_dump_callstack(dcontext_t *dcontext, app_pc cur_pc, app_pc ebp, file_t ou
  * the only bad things that could happen, both are dealt with.
  */
 static void
-pcprofile_alarm(dcontext_t *dcontext, dr_mcontext_t *mcontext)
+pcprofile_alarm(dcontext_t *dcontext, priv_mcontext_t *mcontext)
 {               
     thread_pc_info_t *info = (thread_pc_info_t *) dcontext->pcprofile_field;
     pc_profile_entry_t *entry;

@@ -231,8 +231,7 @@ void insert(hash_table_t table, app_pc addr, cbr_state_t state)
 /* Clean call for the 'taken' case */
 static void at_taken(app_pc src, app_pc targ)
 {
-    int app_errno;
-    dr_mcontext_t mcontext;
+    dr_mcontext_t mcontext = {sizeof(mcontext),};
     void *drcontext = dr_get_current_drcontext();
 
     /* 
@@ -249,16 +248,15 @@ static void at_taken(app_pc src, app_pc targ)
      * redirect execution to the target address.
      */
     dr_flush_region(src, 1);
-    dr_get_mcontext(drcontext, &mcontext, &app_errno);
+    dr_get_mcontext(drcontext, &mcontext);
     mcontext.pc = targ;
-    dr_redirect_execution(&mcontext, app_errno);
+    dr_redirect_execution(&mcontext);
 }
 
 /* Clean call for the 'not taken' case */
 static void at_not_taken(app_pc src, app_pc fall)
 {
-    int app_errno;
-    dr_mcontext_t mcontext;
+    dr_mcontext_t mcontext = {sizeof(mcontext),};
     void *drcontext = dr_get_current_drcontext();
 
     /* 
@@ -275,9 +273,9 @@ static void at_not_taken(app_pc src, app_pc fall)
      * redirect execution to the fallthrough address.
      */
     dr_flush_region(src, 1);
-    dr_get_mcontext(drcontext, &mcontext, &app_errno);
+    dr_get_mcontext(drcontext, &mcontext);
     mcontext.pc = fall;
-    dr_redirect_execution(&mcontext, app_errno);
+    dr_redirect_execution(&mcontext);
 }
 
 

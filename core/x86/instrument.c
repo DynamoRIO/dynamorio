@@ -94,7 +94,7 @@ extern void do_file_write(file_t f, const char *fmt, va_list ap);
  * Also, if we change this, need to change the symlink generation
  * in core/CMakeLists.txt: at that point should share single define.
  */
-#define OLDEST_COMPATIBLE_VERSION  96 /* 0.9.6 == 1.0.0 through 1.2.0 */
+/* OLDEST_COMPATIBLE_VERSION now comes from configure.h */
 /* The 3rd version number, the bugfix/patch number, should not affect
  * compatibility, so our version check number simply uses:
  *   major*100 + minor
@@ -1746,8 +1746,12 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
     dr_security_violation_action_t dr_action, dr_action_original;
     app_pc source_pc = NULL;
     fragment_t *last;
+    dr_mcontext_t dr_mcontext = {sizeof(dr_mcontext_t),};
 
     if (security_violation_callbacks.num == 0)
+        return;
+
+    if (!priv_mcontext_to_dr_mcontext(&dr_mcontext, get_mcontext(dcontext)))
         return;
 
     /* FIXME - the source_tag, source_pc, and context can all be incorrect if the
@@ -1826,7 +1830,7 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
              int (*)(void *, void *, app_pc, app_pc, dr_security_violation_type_t,
                       dr_mcontext_t *, dr_security_violation_action_t *),
              (void *)dcontext, last->tag, source_pc, target_pc,
-             dr_violation, get_mcontext(dcontext), &dr_action);
+             dr_violation, &dr_mcontext, &dr_action);
 
     if (dr_action != dr_action_original) {
         switch(dr_action) {
@@ -3398,7 +3402,9 @@ dr_set_itimer(int which, uint millisec,
               void (*func)(void *drcontext, dr_mcontext_t *mcontext))
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
-    return set_itimer_callback(dcontext, which, millisec,
+    if (func == NULL)
+        return false;
+    return set_itimer_callback(dcontext, which, millisec, NULL,
                                (void (*)(dcontext_t *, dr_mcontext_t *))func);
 }
 
@@ -3582,7 +3588,7 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
                                 ACCT_CLEANCALL, UNPROTECTED);
         convert_va_list_to_opnd(args, num_args, ap);
-    va_end(ap);
+        va_end(ap);
     }
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee, 
@@ -3884,7 +3890,7 @@ dr_read_saved_reg(void *drcontext, dr_spill_slot_t slot)
         return *(reg_t *)(((byte *)&dcontext->local_state->spill_space) + offs);
     } else {
         reg_id_t reg_slot = SPILL_SLOT_MC_REG[slot - NUM_TLS_SPILL_SLOTS];
-        return reg_get_value(reg_slot, get_mcontext(dcontext));
+        return reg_get_value_priv(reg_slot, get_mcontext(dcontext));
     }
 }
 
@@ -3911,7 +3917,7 @@ dr_write_saved_reg(void *drcontext, dr_spill_slot_t slot, reg_t value)
         *(reg_t *)(((byte *)&dcontext->local_state->spill_space) + offs) = value;
     } else {
         reg_id_t reg_slot = SPILL_SLOT_MC_REG[slot - NUM_TLS_SPILL_SLOTS];
-        reg_set_value(reg_slot, get_mcontext(dcontext), value);
+        reg_set_value_priv(reg_slot, get_mcontext(dcontext), value);
     }
 }
 
@@ -4332,14 +4338,23 @@ dr_mcontext_xmm_fields_valid(void)
 #endif /* CLIENT_INTERFACE */
 /* dr_get_mcontext() needed for translating clean call arg errors */
 
-DR_API bool
-dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno)
+/* Fills in whichever of dmc or mc is non-NULL */
+bool
+dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *mc)
 {
     char *state;
-    dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
-    CLIENT_ASSERT(context != NULL, "invalid context");
+    if (mc == NULL) {
+        CLIENT_ASSERT(dmc != NULL, "invalid context");
+        /* catch uses that forget to set size: perhaps in a few releases,
+         * when most old clients have been converted, remove this (we'll
+         * still return false)
+         */
+        CLIENT_ASSERT(dmc->size == sizeof(dr_mcontext_t),
+                      "dr_mcontext_t.size field not set properly");
+    } else
+        CLIENT_ASSERT(dmc == NULL, "invalid internal params");
 
 #ifdef CLIENT_INTERFACE
     /* i#117/PR 395156: support getting mcontext from events where mcontext is
@@ -4361,9 +4376,10 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno)
     if (dcontext->client_data->mcontext_in_dcontext ||
         dcontext->client_data->in_pre_syscall ||
         dcontext->client_data->in_post_syscall) {
-        *context = *get_mcontext(dcontext);
-        if (app_errno != NULL)
-            *app_errno = dcontext->app_errno;
+        if (mc != NULL)
+            *mc = *get_mcontext(dcontext);
+        else if (!priv_mcontext_to_dr_mcontext(dmc, get_mcontext(dcontext)))
+            return false;
         return true;
     }
 #endif
@@ -4374,23 +4390,33 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *context, int *app_errno)
      * fields are not valid otherwise.  so, we just have to copy the
      * state from the dstack.
      */
-    state = (char *)dcontext->dstack - sizeof(dr_mcontext_t);
-    *context = *((dr_mcontext_t *)state);
-    if (app_errno != NULL) {
-        state -= sizeof(int);
-        *app_errno = *((int *)state);
-    }
+    state = (char *)dcontext->dstack - sizeof(priv_mcontext_t);
+    if (mc != NULL)
+        *mc = *(priv_mcontext_t *)state;
+    else if (!priv_mcontext_to_dr_mcontext(dmc, (priv_mcontext_t *)state))
+        return false;
 
     /* esp is a dstack value -- get the app stack's esp from the dcontext */
-    context->xsp = get_mcontext(dcontext)->xsp;
+    if (mc != NULL)
+        mc->xsp = get_mcontext(dcontext)->xsp;
+    else
+        dmc->xsp = get_mcontext(dcontext)->xsp;
 
-    /* FIXME: should we set the pc field? */
+    /* XXX: should we set the pc field? */
+
     return true;
 }
 
+DR_API bool
+dr_get_mcontext(void *drcontext, dr_mcontext_t *dmc)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    return dr_get_mcontext_priv(dcontext, dmc, NULL);
+}
+
 #ifdef CLIENT_INTERFACE
-DR_API void
-dr_set_mcontext(void *drcontext, dr_mcontext_t *context, const int *app_errno)
+DR_API bool
+dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
 {
     char *state;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
@@ -4403,32 +4429,30 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context, const int *app_errno)
     if (dcontext->client_data->mcontext_in_dcontext ||
         dcontext->client_data->in_pre_syscall ||
         dcontext->client_data->in_post_syscall) {
-        *get_mcontext(dcontext) = *context;
-        if (app_errno != NULL)
-            dcontext->app_errno = *app_errno;
-        return;
+        if (!dr_mcontext_to_priv_mcontext(get_mcontext(dcontext), context))
+            return false;
+        return true;
     }
 
     /* copy the machine context to the dstack area created with 
      * dr_prepare_for_call().  note that xmm0-5 copied there
      * will override any save_fpstate xmm values, as desired.
      */
-    state = (char *)dcontext->dstack - sizeof(dr_mcontext_t);
-    *((dr_mcontext_t *)state) = *context;
-    if (app_errno != NULL) {
-        state -= sizeof(int);
-        *((int *)state) = *app_errno;
-    }
+    state = (char *)dcontext->dstack - sizeof(priv_mcontext_t);
+    if (!dr_mcontext_to_priv_mcontext((priv_mcontext_t *)state, context))
+        return false;
 
     /* esp will be restored from a field in the dcontext */
     get_mcontext(dcontext)->xsp = context->xsp;
 
-    /* FIXME: should we support setting the pc field? */
+    /* XXX: should we support setting the pc field? */
+
+    return true;
 }
 
 DR_API
-void
-dr_redirect_execution(dr_mcontext_t *mcontext, int app_errno)
+bool
+dr_redirect_execution(dr_mcontext_t *mcontext)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
 
@@ -4443,13 +4467,11 @@ dr_redirect_execution(dr_mcontext_t *mcontext, int app_errno)
 
     dcontext->next_tag = mcontext->pc;
     dcontext->whereami = WHERE_FCACHE;
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-    /* The swap in fcache_return blindly copies into app fls: so swap to app now (i#25) */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
-        swap_peb_pointer(dcontext, false/*to app*/);
-#endif
     set_last_exit(dcontext, (linkstub_t *)get_client_linkstub());
-    transfer_to_dispatch(dcontext, app_errno, mcontext);
+    transfer_to_dispatch(dcontext, dr_mcontext_as_priv_mcontext(mcontext),
+                         true/*full_DR_state*/);
+    /* on success we won't get here */
+    return false;
 }
 
 /***************************************************************************

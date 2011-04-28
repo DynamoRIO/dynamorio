@@ -127,10 +127,10 @@ void handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set
 void handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set,
                        size_t sigsetsize);
 void
-sigcontext_to_mcontext(dr_mcontext_t *mc, struct sigcontext *sc);
+sigcontext_to_mcontext(priv_mcontext_t *mc, struct sigcontext *sc);
 
 void
-mcontext_to_sigcontext(struct sigcontext *sc, dr_mcontext_t *mc);
+mcontext_to_sigcontext(struct sigcontext *sc, priv_mcontext_t *mc);
 
 bool
 set_default_signal_action(int sig);

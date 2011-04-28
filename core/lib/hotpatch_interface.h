@@ -84,7 +84,7 @@ typedef enum {
     HOTP_EXEC_ABORTED                   = 0x00000800
 } hotp_exec_status_t;
 
-typedef dr_mcontext_t hotp_context_t;
+typedef priv_mcontext_t hotp_context_t;
 
 /* TODO: may have to define one for detector & one for protector because their 
  *       interface types will be different once the protector logging is done.

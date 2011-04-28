@@ -377,14 +377,8 @@ if (UNIX)
     "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
   set_target_properties(dynamorio PROPERTIES
     VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
-  # Note that if we ever increase OLDEST_COMPATIBLE_VERSION in 
-  # x86/instrument.c to be > 104 we need to update this var and
-  # should then share a common define.
-  set(COMPAT_SOVERSION 104)
-  set(stop1 "106") # +1 since loop is <
-  generate_soversions(${COMPAT_SOVERSION} ${stop1})
-  # We assume we're still on 2.x
-  generate_soversions("200" ${VERSION_NUMBER_INTEGER})
+  # We assume we're still on 3.x
+  generate_soversions(${OLDEST_COMPATIBLE_VERSION} ${VERSION_NUMBER_INTEGER})
 
   # Note that we can't locate readelf inside CMake_readelf.cmake as that
   # would disallow pointing externally at a readelf location, so we make it

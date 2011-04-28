@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1466,6 +1467,7 @@ enum {
  *   - clean call layout of dr_mcontext_t on the stack in x86/mangle.c
  *   - interception layout of dr_mcontext_t on the stack in win32/callback.c
  *   - context_to_mcontext (and vice versa) in win32/ntdll.c
+ *   - sigcontext_to_mcontext (and vice versa) in linux/signal.c
  *   - dump_mcontext in x86/arch.c
  *   - inject_into_thread in win32/inject.c
  * Also, hotp_context_t exposes the dr_mcontext_t struct to hot patches,
@@ -1515,20 +1517,38 @@ enum {
 /* DR_API EXPORT BEGIN */
 /** 128-bit XMM register. */
 typedef union _dr_xmm_t {
+#ifdef X64
+    uint64 u64[2]; /**< Representation as 2 64-bit integers. */
+#endif
+    uint   u32[4]; /**< Representation as 4 32-bit integers. */
+    byte   u8[16]; /**< Representation as 16 8-bit integers. */
+    reg_t  reg[IF_X64_ELSE(2,4)]; /**< Representation as 2 or 4 registers. */
+} dr_xmm_t;
+
+/** 256-bit YMM register. */
+typedef union _dr_ymm_t {
 #ifdef AVOID_API_EXPORT
     /* We avoid having 8-byte-aligned fields here for 32-bit: they cause
      * cl to add padding in app_state_at_intercept_t and unprotected_context_t,
      * which messes up our interception stack layout and our x86.asm offsets.
      * We don't access these very often, so we just omit this field.
+     *
+     * With the new dr_mcontext_t's size field pushing its ymm field to 0x44
+     * having an 8-byte-aligned field here adds 4 bytes padding.
+     * We could shrink PRE_XMM_PADDING for client header files but simpler
+     * to just have u64 only be there for 64-bit for clients.
+     * We do the same thing for dr_xmm_t just to look consistent.
      */
 #endif
 #ifdef API_EXPORT_ONLY
-    uint64 u64[2]; /**< Representation as 2 64-bit integers. */
+#ifdef X64
+    uint64 u64[4]; /**< Representation as 4 64-bit integers. */
 #endif
-    uint   u32[4]; /**< Representation as 4 32-bit integers. */
-    byte   u8[16]; /**< Representation as 8 8-bit integers. */
-    reg_t  reg[IF_X64_ELSE(2,4)]; /**< Representation as 2 or 4 registers. */
-} dr_xmm_t;
+#endif
+    uint   u32[8]; /**< Representation as 8 32-bit integers. */
+    byte   u8[32]; /**< Representation as 32 8-bit integers. */
+    reg_t  reg[IF_X64_ELSE(4,8)]; /**< Representation as 4 or 8 registers. */
+} dr_ymm_t;
 
 #ifdef AVOID_API_EXPORT
 /* If this is increased, you'll probably need to increase the size of
@@ -1538,111 +1558,32 @@ typedef union _dr_xmm_t {
 #endif
 #ifdef X64
 # ifdef WINDOWS
-#  define NUM_XMM_SLOTS 6 /** Number of xmm reg slots in dr_mcontext_t */ /* xmm0-5 */
+#  define NUM_XMM_SLOTS 6 /**< Number of [xy]mm reg slots in dr_mcontext_t */ /*xmm0-5*/
 # else
-#  define NUM_XMM_SLOTS 16 /** Number of xmm reg slots in dr_mcontext_t */ /* xmm0-15 */
+#  define NUM_XMM_SLOTS 16 /**< Number of [xy]mm reg slots in dr_mcontext_t */ /*xmm0-15*/
 # endif
+# define PRE_XMM_PADDING 16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
 #else
-# define NUM_XMM_SLOTS 8 /** Number of xmm reg slots in dr_mcontext_t */ /* xmm0-7 */
+# define NUM_XMM_SLOTS 8 /**< Number of [xy]mm reg slots in dr_mcontext_t */ /*xmm0-7*/
+# define PRE_XMM_PADDING 24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
 #endif
 
 /**
  * Machine context structure.
  */
 typedef struct _dr_mcontext_t {
-#ifdef AVOID_API_EXPORT
-    /* FIXME: have special comment syntax instead of bogus ifdef to
-     * get genapi to strip out internal-only comments? */
-    /* Our inlined ibl uses eax-edx, so we place them together to fit
-     * on the same 32-byte cache line; yet we also want to simplify
-     * things by keeping this in pusha order.  Whether on a 32-bit or
-     * 64-bit machine, or a 32-byte or 64-byte cache line, they will
-     * still be on the same line, assuming this struct is
-     * cache-line-aligned (which it is if in dcontext).
-     * Any changes in order here must be mirrored in x86/x86.asm offsets.
-     */
-#endif
-    union {
-        reg_t xdi; /**< platform-independent name for full rdi/edi register */
-        reg_t IF_X64_ELSE(rdi, edi); /**< platform-dependent name for rdi/edi register */
-    }; /* anonymous union of alternative names for rdi/edi register */
-    union {
-        reg_t xsi; /**< platform-independent name for full rsi/esi register */
-        reg_t IF_X64_ELSE(rsi, esi); /**< platform-dependent name for rsi/esi register */
-    }; /* anonymous union of alternative names for rsi/esi register */
-    union {
-        reg_t xbp; /**< platform-independent name for full rbp/ebp register */
-        reg_t IF_X64_ELSE(rbp, ebp); /**< platform-dependent name for rbp/ebp register */
-    }; /* anonymous union of alternative names for rbp/ebp register */
-    union {
-        reg_t xsp; /**< platform-independent name for full rsp/esp register */
-        reg_t IF_X64_ELSE(rsp, esp); /**< platform-dependent name for rsp/esp register */
-    }; /* anonymous union of alternative names for rsp/esp register */
-    union {
-        reg_t xbx; /**< platform-independent name for full rbx/ebx register */
-        reg_t IF_X64_ELSE(rbx, ebx); /**< platform-dependent name for rbx/ebx register */
-    }; /* anonymous union of alternative names for rbx/ebx register */
-    union {
-        reg_t xdx; /**< platform-independent name for full rdx/edx register */
-        reg_t IF_X64_ELSE(rdx, edx); /**< platform-dependent name for rdx/edx register */
-    }; /* anonymous union of alternative names for rdx/edx register */
-    union {
-        reg_t xcx; /**< platform-independent name for full rcx/ecx register */
-        reg_t IF_X64_ELSE(rcx, ecx); /**< platform-dependent name for rcx/ecx register */
-    }; /* anonymous union of alternative names for rcx/ecx register */
-    union {
-        reg_t xax; /**< platform-independent name for full rax/eax register */
-        reg_t IF_X64_ELSE(rax, eax); /**< platform-dependent name for rax/eax register */
-    }; /* anonymous union of alternative names for rax/eax register */
-#ifdef X64
-    reg_t r8;  /**< r8 register. \note For 64-bit DR builds only. */
-    reg_t r9;  /**< r9 register. \note For 64-bit DR builds only. */
-    reg_t r10; /**< r10 register. \note For 64-bit DR builds only. */
-    reg_t r11; /**< r11 register. \note For 64-bit DR builds only. */
-    reg_t r12; /**< r12 register. \note For 64-bit DR builds only. */
-    reg_t r13; /**< r13 register. \note For 64-bit DR builds only. */
-    reg_t r14; /**< r14 register. \note For 64-bit DR builds only. */
-    reg_t r15; /**< r15 register. \note For 64-bit DR builds only. */
-#endif
     /**
-     * The SSE registers xmm0-xmm5 (-xmm15 on Linux) are volatile
-     * (caller-saved) for 64-bit and WOW64, and are actually zeroed out on
-     * Windows system calls.  These fields are ignored for 32-bit processes
-     * that are not WOW64, or if the underlying processor does not support
-     * SSE.  Use dr_mcontext_xmm_fields_valid() to determine whether the
-     * fields are valid.
+     * The size of this structure.  This field must be set prior to filling
+     * in the fields to support forward compatibility.
      */
-#ifdef AVOID_API_EXPORT
-    /* PR 264138: we must preserve xmm0-5 if on a 64-bit Windows kernel,
-     * and xmm0-15 if in a 64-bit Linux app (PR 302107).  (Note that
-     * mmx0-7 are also caller-saved on linux but we assume they're not
-     * going to be used by DR, libc, or client routines: overlap w/
-     * floating point).  For Windows we assume that none of our routines
-     * (or libc routines that we call, except the floating-point ones,
-     * where we explicitly save state) clobber beyond xmm0-5.  Rather than
-     * have a separate WOW64 build, we have them in the struct but ignored
-     * for normal 32-bit.
-     * PR 306394: for now we leave space for preserving xmm0-7 for 32-bit,
-     * but we do not currently save them.
-     */
-#endif
-    dr_xmm_t xmm[NUM_XMM_SLOTS];
-    union {
-        reg_t xflags; /**< platform-independent name for full rflags/eflags register */
-        reg_t IF_X64_ELSE(rflags, eflags); /**< platform-dependent name for
-                                                rflags/eflags register */
-    }; /* anonymous union of alternative names for rflags/eflags register */
-    /*
-     * Anonymous union of alternative names for the program counter / 
-     * instruction pointer (eip/rip).  This field is not always set or 
-     * read by all API routines.
-     */ 
-    union {
-        byte *xip; /**< platform-independent name for full rip/eip register */
-        byte *pc; /**< platform-independent alt name for full rip/eip register */
-        byte *IF_X64_ELSE(rip, eip); /**< platform-dependent name for rip/eip register */
-    };
+    size_t size;
+#include "mcxtx.h"
 } dr_mcontext_t;
 /* DR_API EXPORT END */
+
+/* Internal machine context structure */
+typedef struct _priv_mcontext_t {
+#include "mcxtx.h"
+} priv_mcontext_t;
 
 #endif /* ifndef _GLOBALS_SHARED_H_ */

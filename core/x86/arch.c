@@ -492,13 +492,13 @@ arch_init()
 #endif
 
     /* Ensure we have no unexpected padding inside structs that include
-     * dr_mcontext_t (app_state_at_intercept_t and dcontext_t) */
-    ASSERT(offsetof(dr_mcontext_t, pc) + sizeof(byte*) == sizeof(dr_mcontext_t));
+     * priv_mcontext_t (app_state_at_intercept_t and dcontext_t) */
+    ASSERT(offsetof(priv_mcontext_t, pc) + sizeof(byte*) + PRE_XMM_PADDING ==
+           offsetof(priv_mcontext_t, ymm));
     ASSERT(offsetof(app_state_at_intercept_t, mc) ==
-           offsetof(app_state_at_intercept_t, app_errno) + sizeof(int)
-           IF_X64(+ 4/*padding*/));
+           offsetof(app_state_at_intercept_t, start_pc) + sizeof(void*));
     /* Try to catch errors in x86.asm offsets for dcontext_t */
-    ASSERT(sizeof(unprotected_context_t) == sizeof(dr_mcontext_t) + 
+    ASSERT(sizeof(unprotected_context_t) == sizeof(priv_mcontext_t) + 
            IF_WINDOWS_ELSE(IF_X64_ELSE(8, 4), 8));
 
     interp_init();
@@ -2196,7 +2196,7 @@ set_fcache_target(dcontext_t *dcontext, cache_pc value)
 
 typedef struct _translate_walk_t {
     /* The context we're translating */
-    dr_mcontext_t *mc;
+    priv_mcontext_t *mc;
     /* The code cache span of the containing fragment */
     byte *start_cache;
     byte *end_cache;
@@ -2220,7 +2220,7 @@ typedef struct _translate_walk_t {
 
 static void
 translate_walk_init(translate_walk_t *walk, byte *start_cache, byte *end_cache,
-                    dr_mcontext_t *mc)
+                    priv_mcontext_t *mc)
 {
     memset(walk, 0, sizeof(*walk));
     walk->mc = mc;
@@ -2360,7 +2360,7 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         /* PR 302951: we recognize a clean call by its NULL translation.
          * We do not track any stack or spills: we assume we will only
          * fault on an argument that references app memory, in which case
-         * we restore to the dr_mcontext_t on the stack.
+         * we restore to the priv_mcontext_t on the stack.
          */
         if (walk->translation == NULL) {
             DOLOG(4, LOG_INTERP, {
@@ -2513,12 +2513,12 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
                 value = *(reg_t *)(((byte*)&tdcontext->local_state->spill_space) +
                                    reg_spill_tls_offs(reg));
             } else {
-                value = reg_get_value(reg, get_mcontext(tdcontext));
+                value = reg_get_value_priv(reg, get_mcontext(tdcontext));
             }
             LOG(THREAD_GET, LOG_INTERP, 2,
                 "\trestoring spilled %s to "PFX"\n", reg_names[reg], value);
             STATS_INC(recreate_spill_restores);
-            reg_set_value(reg, walk->mc, value);
+            reg_set_value_priv(reg, walk->mc, value);
         }
     }
     /* PR 267260: Restore stack-adjust mangling of ctis.
@@ -2539,10 +2539,10 @@ translate_restore_clean_call(dcontext_t *tdcontext, translate_walk_t *walk)
 {
     /* PR 302951: we recognize a clean call by its combination of
      * our-mangling and NULL translation.
-     * We restore to the dr_mcontext_t that was pushed on the stack.
+     * We restore to the priv_mcontext_t that was pushed on the stack.
      */
     LOG(THREAD_GET, LOG_INTERP, 2, "\ttranslating clean call arg crash\n");
-    dr_get_mcontext(tdcontext, walk->mc, NULL/*errno should be unchanged*/);
+    dr_get_mcontext_priv(tdcontext, NULL, walk->mc);
     /* walk->mc->pc will be fixed up by caller */
 
     /* PR 306410: up to caller to shift signal or SEH frame from dstack
@@ -2561,7 +2561,7 @@ translate_restore_clean_call(dcontext_t *tdcontext, translate_walk_t *walk)
 static recreate_success_t
 recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *info, 
                              byte *start_cache, byte *end_cache,
-                             dr_mcontext_t *mc, bool just_pc _IF_DEBUG(uint flags))
+                             priv_mcontext_t *mc, bool just_pc _IF_DEBUG(uint flags))
 {
     byte *answer = NULL;
     byte *cpc, *prev_cpc;
@@ -2696,7 +2696,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
 static recreate_success_t
 recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
                               byte *start_app, byte *start_cache, byte *end_cache,
-                              dr_mcontext_t *mc, bool just_pc, uint flags)
+                              priv_mcontext_t *mc, bool just_pc, uint flags)
 {
     byte *answer = NULL;
     byte *cpc, *prev_bytes;
@@ -2923,7 +2923,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
 /* Also see NOTEs at recreate_app_state() about lock usage, and lack of full stack
  * translation. */
 static recreate_success_t
-recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
+recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                             bool just_pc, fragment_t *owning_f, bool restore_memory)
 {
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
@@ -3026,6 +3026,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
         bool alloc = false;
 #ifdef CLIENT_INTERFACE
         dr_restore_state_info_t client_info;
+        dr_mcontext_t xl8_mcontext = {sizeof(dr_mcontext_t),};
+        dr_mcontext_t raw_mcontext = {sizeof(dr_mcontext_t),};
 #endif
         IF_X64(bool old_mode;)
 
@@ -3112,7 +3114,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
         /* now recreate the state */
 #ifdef CLIENT_INTERFACE
         /* keep a copy of the pre-translation state */
-        client_info.raw_mcontext = *mcontext;
+        priv_mcontext_to_dr_mcontext(&raw_mcontext, mcontext);
+        client_info.raw_mcontext = &raw_mcontext;
         client_info.raw_mcontext_valid = true;
 #endif
         if (ilist == NULL) {
@@ -3146,7 +3149,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
             /* PR 214962: if the client has a restore callback, invoke it to
              * fix up the state (and pc).
              */
-            client_info.mcontext = mcontext;
+            priv_mcontext_to_dr_mcontext(&xl8_mcontext, mcontext);
+            client_info.mcontext = &xl8_mcontext;
             client_info.fragment_info.tag = (void *) f->tag;
             client_info.fragment_info.cache_start_pc = FCACHE_ENTRY_PC(f);
             client_info.fragment_info.is_trace = TEST(FRAG_IS_TRACE, f->flags);
@@ -3155,6 +3159,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
             /* i#220/PR 480565: client has option of failing the translation */
             if (!instrument_restore_state(tdcontext, restore_memory, &client_info))
                 res = RECREATE_FAILURE;
+            dr_mcontext_to_priv_mcontext(mcontext, &xl8_mcontext);
         }
 #endif
 
@@ -3195,7 +3200,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
 app_pc
 recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
 {
-    dr_mcontext_t mc;
+    priv_mcontext_t mc;
     recreate_success_t res;
 
     LOG(THREAD_GET, LOG_INTERP, 2,
@@ -3254,7 +3259,7 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
  */
 /* Use THREAD_GET instead of THREAD so log messages go to calling thread */
 recreate_success_t
-recreate_app_state(dcontext_t *tdcontext, dr_mcontext_t *mcontext,
+recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                    bool restore_memory)
 {
     recreate_success_t res;
@@ -3573,7 +3578,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
 void
 stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist)
 {
-    dr_mcontext_t mc;
+    priv_mcontext_t mc;
     bool res;
     cache_pc cpc;
     instr_t *in;
@@ -4161,18 +4166,50 @@ ret_tgt_cache_to_app(dcontext_t *dcontext, cache_pc pc)
 #endif
 
 void
-copy_mcontext(dr_mcontext_t *src, dr_mcontext_t *dst)
+copy_mcontext(priv_mcontext_t *src, priv_mcontext_t *dst)
 {
     /* FIXME: do we need this? */
     *dst = *src;
 }
 
+bool
+dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
+{
+    /* we assume fields from xdi onward are identical.
+     * if we append to dr_mcontext_t in the future we'll need
+     * to check src->size here.
+     */
+    if (src->size != sizeof(dr_mcontext_t))
+        return false;
+    *dst = *(priv_mcontext_t*)(&src->xdi);
+    return true;
+}
+
+bool
+priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
+{
+    /* we assume fields from xdi onward are identical.
+     * if we append to dr_mcontext_t in the future we'll need
+     * to check dst->size here.
+     */
+    if (dst->size != sizeof(dr_mcontext_t))
+        return false;
+    *(priv_mcontext_t*)(&dst->xdi) = *src;
+    return true;
+}
+
+priv_mcontext_t *
+dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
+{
+    return (priv_mcontext_t*)(&mc->xdi);
+}
+
 /* dumps the context */
 void
-dump_mcontext(dr_mcontext_t *context, file_t f, bool dump_xml)
+dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 {
     print_file(f, dump_xml ? 
-               "\t<dr_mcontext_t value=\"@"PFX"\""
+               "\t<priv_mcontext_t value=\"@"PFX"\""
                "\n\t\txax=\""PFX"\"\n\t\txbx=\""PFX"\""
                "\n\t\txcx=\""PFX"\"\n\t\txdx=\""PFX"\""
                "\n\t\txsi=\""PFX"\"\n\t\txdi=\""PFX"\""
@@ -4184,7 +4221,7 @@ dump_mcontext(dr_mcontext_t *context, file_t f, bool dump_xml)
                "\n\t\tr14=\""PFX"\"\n\t\tr15=\""PFX"\""
 #endif
                : 
-               "dr_mcontext_t @"PFX"\n"
+               "priv_mcontext_t @"PFX"\n"
                "\txax = "PFX"\n\txbx = "PFX"\n\txcx = "PFX"\n\txdx = "PFX"\n"
                "\txsi = "PFX"\n\txdi = "PFX"\n\txbp = "PFX"\n\txsp = "PFX"\n"
 #ifdef X64
@@ -4203,11 +4240,18 @@ dump_mcontext(dr_mcontext_t *context, file_t f, bool dump_xml)
     if (preserve_xmm_caller_saved()) {
         int i, j;
         for (i=0; i<NUM_XMM_SAVED; i++) {
-            print_file(f, dump_xml ? "\t\txmm%d= \"0x" : "\txmm%d= 0x", i);
-            /* This would be simpler if we had uint64 fields in dr_xmm_t but
-             * that complicates our struct layouts */
-            for (j = 0; j < 4; j++) {
-                print_file(f, "%08x", context->xmm[i].u32[j]);
+            if (YMM_ENABLED()) {
+                print_file(f, dump_xml ? "\t\tymm%d= \"0x" : "\tymm%d= 0x", i);
+                for (j = 0; j < 8; j++) {
+                    print_file(f, "%08x", context->ymm[i].u32[j]);
+                }
+            } else {
+                print_file(f, dump_xml ? "\t\txmm%d= \"0x" : "\txmm%d= 0x", i);
+                /* This would be simpler if we had uint64 fields in dr_xmm_t but
+                 * that complicates our struct layouts */
+                for (j = 0; j < 4; j++) {
+                    print_file(f, "%08x", context->ymm[i].u32[j]);
+                }
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
         }

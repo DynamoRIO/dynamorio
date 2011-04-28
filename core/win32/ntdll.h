@@ -1826,7 +1826,7 @@ create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
  * Xref PR 264138 where we have to preserve xmm registers: however, no
  * current uses need to get our own xmm registers, so we don't.  
  * PR 266070: If any future use uses this context to either set a
- * dr_mcontext_t or passes it to nt_set_context() we'll have to add
+ * priv_mcontext_t or passes it to nt_set_context() we'll have to add
  * the xmm regs.
  */
 /* NOTE : we use a macro so that we get the register state of the calling
@@ -1844,7 +1844,7 @@ create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
 /* unstatic for use by GET_OWN_CONTEXT macro */
 void
 get_own_context_integer_control(CONTEXT *cxt, reg_t cs, reg_t ss,
-                                dr_mcontext_t *mc);
+                                priv_mcontext_t *mc);
 
 /* don't call this directly, use GET_OWN_CONTEXT macro instead (it fills
  * in CONTEXT_INTEGER and CONTEXT_CONTROL values, this fills the rest) */

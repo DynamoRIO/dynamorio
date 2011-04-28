@@ -193,7 +193,7 @@ sys_param_addr(dcontext_t *dcontext, reg_t *param_base, int num)
 {
 #ifdef X64
     /* we force-inline get_mcontext() and so don't take it as a param */
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     switch (num) {
     case 0: return &mc->xcx;
     case 1: return &mc->xdx;
@@ -290,7 +290,7 @@ void
 remove_image_entry_trampoline(void);
 
 void
-callback_start_return(int app_errno, dr_mcontext_t *mc);
+callback_start_return(priv_mcontext_t *mc);
 
 void
 intercept_nt_continue(CONTEXT *cxt, int flag);
@@ -321,10 +321,10 @@ void
 retakeover_after_native(thread_record_t *tr, retakeover_point_t where);
 
 void
-context_to_mcontext(dr_mcontext_t *mcontext, CONTEXT* cxt);
+context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt);
 
 void
-mcontext_to_context(CONTEXT* cxt, dr_mcontext_t *mcontext);
+mcontext_to_context(CONTEXT* cxt, priv_mcontext_t *mcontext);
 
 #ifdef DEBUG
 void dump_context_info(CONTEXT *context, file_t file, bool all);
@@ -332,7 +332,7 @@ void dump_context_info(CONTEXT *context, file_t file, bool all);
 
 /* PR 264138: we need to preserve xmm0-5 for x64 and wow64.
  * These flags must be used for any CONTEXT that is being used
- * to set a dr_mcontext_t for executing by DR, or if the CONTEXT
+ * to set a priv_mcontext_t for executing by DR, or if the CONTEXT
  * will be passed to nt_set_context() and the thread in question
  * will execute DR code in between.
  * Although winnt.h mentions CONTEXT_MMX_REGISTERS, there is no such
@@ -345,10 +345,18 @@ void dump_context_info(CONTEXT *context, file_t file, bool all);
  * Since this affects only what we request from the kernel, asking
  * for floating point w/o underlying sse support is not a problem.
  */
+#ifndef CONTEXT_XSTATE /* defined in VS2008+ */
+# define CONTEXT_XSTATE (IF_X64_ELSE(CONTEXT_AMD64,CONTEXT_i386) | 0x20L)
+#endif
 #define CONTEXT_XMM_FLAG IF_X64_ELSE(CONTEXT_FLOATING_POINT, CONTEXT_EXTENDED_REGISTERS)
+#define CONTEXT_YMM_FLAG CONTEXT_XSTATE
 #define CONTEXT_PRESERVE_XMM IF_X64_ELSE(true, is_wow64_process(NT_CURRENT_PROCESS))
+#define CONTEXT_PRESERVE_YMM (YMM_ENABLED())
 #define CONTEXT_DR_STATE (CONTEXT_INTEGER | CONTEXT_CONTROL | \
-                          (CONTEXT_PRESERVE_XMM ? CONTEXT_XMM_FLAG : 0U))
+                          (CONTEXT_PRESERVE_XMM ? CONTEXT_XMM_FLAG : 0U) |\
+                          (CONTEXT_PRESERVE_YMM ? CONTEXT_YMM_FLAG : 0U))
+#define CONTEXT_DR_STATE_ALLPROC (CONTEXT_INTEGER | CONTEXT_CONTROL | \
+                                  CONTEXT_XMM_FLAG | CONTEXT_YMM_FLAG)
 
 enum {
       EXCEPTION_INFORMATION_READ_EXECUTE_FAULT = 0,

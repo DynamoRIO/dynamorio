@@ -77,7 +77,7 @@ dr_signal_action_t signal_event(void *dcontext, dr_siginfo_t *info)
         return DR_SIGNAL_SUPPRESS;
     } else if (info->sig == SIGUSR2) {
         ASSERT(redirect_tag != NULL);
-        info->mcontext.xip = redirect_tag;
+        info->mcontext->xip = redirect_tag;
         return DR_SIGNAL_REDIRECT;
     } else if (info->sig == SIGSEGV) {
         /* test non-delayable signal */
@@ -89,7 +89,7 @@ dr_signal_action_t signal_event(void *dcontext, dr_siginfo_t *info)
             /* test mcontext changes on delivery.
              * fix up to avoid crash on re-execution.
              */
-            info->mcontext.xax = info->mcontext.xcx;
+            info->mcontext->xax = info->mcontext->xcx;
             return DR_SIGNAL_DELIVER;
         }
     }

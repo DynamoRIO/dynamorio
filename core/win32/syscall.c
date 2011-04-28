@@ -459,7 +459,7 @@ syscall_while_native(app_state_at_intercept_t *state)
         dcontext->whereami = WHERE_TRAMPOLINE;
         set_last_exit(dcontext, (linkstub_t *) get_native_exec_syscall_linkstub());
         /* assumption: no special cleanup from tail of trampoline needed */
-        transfer_to_dispatch(dcontext, state->app_errno, &state->mc);
+        transfer_to_dispatch(dcontext, &state->mc, false/*!full_DR_state*/);
         ASSERT_NOT_REACHED();
     }
 
@@ -770,7 +770,7 @@ is_newly_created_process(HANDLE process_handle)
  */
 
 static reg_t *
-pre_system_call_param_base(dr_mcontext_t *mc)
+pre_system_call_param_base(priv_mcontext_t *mc)
 {
 #ifdef X64
     reg_t *param_base = (reg_t *) mc->xsp;
@@ -785,7 +785,7 @@ pre_system_call_param_base(dr_mcontext_t *mc)
 static void
 presys_CreateProcess(dcontext_t *dcontext, reg_t *param_base, bool ex)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE *process_handle = (HANDLE *) sys_param(dcontext, param_base, 0);
     uint access_mask = (uint) sys_param(dcontext, param_base, 1);
     uint attributes  = (uint) sys_param(dcontext, param_base, 2);
@@ -872,7 +872,7 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
      * #endif
      * }
      */
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     ACCESS_MASK proc_access_mask = (uint) sys_param(dcontext, param_base, 2);
     ACCESS_MASK thread_access_mask = (uint) sys_param(dcontext, param_base, 3);
     bool create_suspended = (bool) sys_param(dcontext, param_base, 7);
@@ -908,7 +908,7 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
 static void
 presys_CreateThread(dcontext_t *dcontext, reg_t *param_base)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE *thread_handle= (HANDLE *) sys_param(dcontext, param_base, 0);
     uint access_mask   = (uint) sys_param(dcontext, param_base, 1);
     uint attributes    = (uint) sys_param(dcontext, param_base, 2);
@@ -969,7 +969,7 @@ presys_CreateThreadEx(dcontext_t *dcontext, reg_t *param_base)
      *   IN SIZE_T StackReserveSize,
      *   INOUT create_thread_info_t *thread_info [ see ntdll.h ])
      */
-    DEBUG_DECLARE(dr_mcontext_t *mc = get_mcontext(dcontext);)
+    DEBUG_DECLARE(priv_mcontext_t *mc = get_mcontext(dcontext);)
     DEBUG_DECLARE(HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 3);)
     DEBUG_DECLARE(byte *start_addr = (byte *) sys_param(dcontext, param_base, 4);)
     DEBUG_DECLARE(void *start_parameter = (void *) sys_param(dcontext, param_base, 5);)
@@ -1288,7 +1288,7 @@ presys_ResumeThread(dcontext_t *dcontext, reg_t *param_base)
 static bool /* returns whether to execute syscall */
 presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     NTSTATUS exit_status = (NTSTATUS) sys_param(dcontext, param_base, 1);
     LOG(THREAD, LOG_SYSCALLS, 1,
@@ -1300,7 +1300,7 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         NTSTATUS return_val;
         thread_record_t **threads;
         int num_threads;
-        dr_mcontext_t mcontext;
+        priv_mcontext_t mcontext;
         DEBUG_DECLARE(bool ok;)
         /* this thread won't be terminated! */
         LOG(THREAD, LOG_SYSCALLS, 2, "terminating all other threads, not this one\n");
@@ -1368,7 +1368,7 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
 static void
 presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE thread_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     /* need to determine which thread is being terminated
      * it's harder than you'd think -- we can get its handle but
@@ -1387,7 +1387,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
         /* probably invalid handle, do nothing for now */
         /* FIXME: case 2573 about adding ASSERT_CURIOSITY replacing the ASSERT we had */
     } else if (tid != tr->id) {
-        dr_mcontext_t mcontext;
+        priv_mcontext_t mcontext;
         DEBUG_DECLARE(thread_synch_result_t synch_res;)
 
         copy_mcontext(mc, &mcontext);
@@ -1442,7 +1442,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
 static bool
 presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE thread_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     CONTEXT *cxt = (CONTEXT *) sys_param(dcontext, param_base, 1);
     thread_id_t tid = thread_id_from_handle(thread_handle);
@@ -1455,7 +1455,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
         thread_handle, tid, cxt->CXT_XIP);
     mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
     if (intercept_asynch_for_thread(tid, false/*no unknown threads*/)) {
-        dr_mcontext_t mcontext;
+        priv_mcontext_t mcontext;
         thread_record_t *tr = thread_lookup(tid);
         CONTEXT *my_cxt;
         NTSTATUS res;
@@ -1573,7 +1573,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
 bool
 is_cb_return_syscall(dcontext_t *dcontext)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     if (mc->xax == (reg_t) syscalls[SYS_CallbackReturn]) {
         reg_t *param_base = pre_system_call_param_base(mc);
         if ((NTSTATUS)sys_param(dcontext, param_base, 2) != STATUS_CALLBACK_POP_STACK)
@@ -1594,7 +1594,7 @@ presys_CallbackReturn(dcontext_t *dcontext, reg_t *param_base)
      * people doing the int 2b in user32 set ecx and edx to what they want, then
      * call a routine that simply pulls first arg into eax and then does int 2b.
      */
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     NTSTATUS status = (NTSTATUS) sys_param(dcontext, param_base, 2);
     if (status == STATUS_CALLBACK_POP_STACK) {
         /* case 10579: this status code instructs the kernel to only
@@ -1616,7 +1616,7 @@ presys_CallbackReturn(dcontext_t *dcontext, reg_t *param_base)
          */
         LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtCallbackReturn\n");
-        callback_start_return(0, mc);
+        callback_start_return(mc);
     }
 }
 
@@ -1656,7 +1656,7 @@ check_for_stack_free(dcontext_t *dcontext, byte *base, size_t size)
 static void
 presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     void **pbase = (void **) sys_param(dcontext, param_base, 1);
     uint type = (uint) sys_param(dcontext, param_base, 4);
@@ -1725,7 +1725,7 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
 static void
 presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     void **pbase = (void **) sys_param(dcontext, param_base, 1);
     size_t *psize = (size_t *) sys_param(dcontext, param_base, 2);
@@ -1853,7 +1853,7 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
 static bool /* returns whether to execute syscall */
 presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     void **pbase = (void **) sys_param(dcontext, param_base, 1);
     size_t *psize = (size_t *) sys_param(dcontext, param_base, 2);
@@ -2007,7 +2007,7 @@ static void
 presys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
 {
     DODEBUG({
-        dr_mcontext_t *mc = get_mcontext(dcontext);
+        priv_mcontext_t *mc = get_mcontext(dcontext);
         HANDLE section_handle = (HANDLE) sys_param(dcontext, param_base, 0);
         /* trying to make sure we're tracking properly all section
          * handles
@@ -2050,7 +2050,7 @@ static void
 presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
 {
     /* This is what actually removes a dll from memory */
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     app_pc base = (app_pc) sys_param(dcontext, param_base, 1);
     app_pc real_base;
@@ -2120,7 +2120,7 @@ presys_FlushInstructionCache(dcontext_t *dcontext, reg_t *param_base)
     /* This syscall is from the days when Windows ran on multiple
      * architectures, but many apps still use it
      */
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     app_pc base = (app_pc) sys_param(dcontext, param_base, 1);
     size_t size = (size_t) sys_param(dcontext, param_base, 2);
@@ -2160,7 +2160,7 @@ static void
 presys_CreateSection(dcontext_t *dcontext, reg_t *param_base)
 {
     /* a section is an object that can be mmapped */
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE *section_handle = (HANDLE*) sys_param(dcontext, param_base, 0);
     uint access_mask = (uint) sys_param(dcontext, param_base, 1);
     POBJECT_ATTRIBUTES obj = (POBJECT_ATTRIBUTES) sys_param(dcontext, param_base, 2);
@@ -2206,7 +2206,7 @@ presys_Close(dcontext_t *dcontext, reg_t *param_base)
 static void
 presys_OpenFile(dcontext_t *dcontext, reg_t *param_base)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE *file_handle = (HANDLE*) sys_param(dcontext, param_base, 0);
     uint access_mask = (uint) sys_param(dcontext, param_base, 1);
     POBJECT_ATTRIBUTES obj = (POBJECT_ATTRIBUTES) sys_param(dcontext, param_base, 2);
@@ -2236,7 +2236,7 @@ bool
 pre_system_call(dcontext_t *dcontext)
 {
     bool execute_syscall = true;
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     int sysnum = (int) mc->xax;
     reg_t *param_base = pre_system_call_param_base(mc);
     where_am_i_t old_whereami = dcontext->whereami;
@@ -2457,7 +2457,7 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
    /* See notes in presys_CreateUserProcess for information on signature
      * of NtCreateUserProcess. */
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE *proc_handle_ptr = (HANDLE *) postsys_param(dcontext, param_base, 0);
     HANDLE *thread_handle_ptr = (HANDLE *) postsys_param(dcontext, param_base, 1);
     bool create_suspended = (bool) postsys_param(dcontext, param_base, 7);
@@ -2549,7 +2549,7 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
 static void
 postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
     CONTEXT *cxt = (CONTEXT *) postsys_param(dcontext, param_base, 1);
     thread_record_t *trec;
@@ -2671,9 +2671,19 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                 cxt->R15 = xlate_cxt->R15;
 #endif
             }
-            if (TESTALL(CONTEXT_XMM_FLAG, cxt->ContextFlags) && preserve_xmm_caller_saved()) {
+            if (TESTALL(CONTEXT_XMM_FLAG, cxt->ContextFlags) &&
+                preserve_xmm_caller_saved()) {
                 /* PR 264138 */
                 memcpy(CXT_XMM(cxt, 0), CXT_XMM(xlate_cxt, 0), XMM_SAVED_SIZE);
+            }
+            if (TESTALL(CONTEXT_YMM_FLAG, cxt->ContextFlags) &&
+                preserve_xmm_caller_saved()) {
+                /* FIXME i#437: ymm are inside XSTATE cstruct which should be
+                 * laid out like this: {CONTEXT, CONTEXT_EX, XSTATE}, but
+                 * should read CONTEXT_EX fields to verify.
+                 * See also comments in context_to_mcontext().
+                 */
+                ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm CONTEXT support yet");
             }
         }
         SELF_PROTECT_LOCAL(trec->dcontext, READONLY);
@@ -2685,7 +2695,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 static void
 postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE thread_handle= (HANDLE) postsys_param(dcontext, param_base, 0);
     /* ignoring 2nd argument (OUT PULONG PreviousSuspendCount OPTIONAL) */
     thread_id_t tid = thread_id_from_handle(thread_handle);
@@ -2729,7 +2739,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                  * synch_with_thread will take care of the last case at
                  * least so we fall through to that. */
             } else if (thread_get_context(tr, &cxt)) {
-                dr_mcontext_t mc;
+                priv_mcontext_t mc;
                 context_to_mcontext(&mc, &cxt);
                 SELF_PROTECT_LOCAL(tr->dcontext, WRITABLE);
                 if (at_safe_spot(tr, &mc, 
@@ -2764,7 +2774,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 
     /* do synch */
     {
-        dr_mcontext_t mcontext;
+        priv_mcontext_t mcontext;
         thread_synch_result_t synch_res;
         copy_mcontext(mc, &mcontext);
         mc->pc = POST_SYSCALL_PC(dcontext);
@@ -2831,7 +2841,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 static void
 postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
     void **pbase = (void **) postsys_param(dcontext, param_base, 1);
     uint zerobits = (uint) postsys_param(dcontext, param_base, 2);
@@ -2962,7 +2972,7 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
     /* we intercept this for transparency wrt the executable regions
      * that we mark as read-only
      */
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
     app_pc base = (app_pc) postsys_param(dcontext, param_base, 1);
     uint class = (uint) postsys_param(dcontext, param_base, 2);
@@ -3260,7 +3270,7 @@ static void
 postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     /* This is what actually allocates a dll into memory */
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE section_handle;  /* 0 */
     HANDLE process_handle;  /* 1 */
     void **pbase_unsafe;    /* 2 */
@@ -3478,7 +3488,7 @@ void post_system_call(dcontext_t *dcontext)
      */
     int sysnum = dcontext->sys_num;
     reg_t *param_base = dcontext->sys_param_base;
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     bool success = NT_SUCCESS(mc->xax);
     where_am_i_t old_whereami = dcontext->whereami;
     KSTART(post_syscall);
@@ -3702,7 +3712,7 @@ reg_t
 dr_syscall_get_param(void *drcontext, int param_num)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     /* if we supported this from post-syscall we would need to
      * get dcontext->sys_param_base() and call postsys_param() -- but
      * then it would be confusing vs client checking its set param
@@ -3718,7 +3728,7 @@ void
 dr_syscall_set_param(void *drcontext, int param_num, reg_t new_value)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     reg_t *param_base;
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
                   dcontext->client_data->in_post_syscall,
@@ -3756,7 +3766,7 @@ void
 dr_syscall_set_sysnum(void *drcontext, int new_num)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
                   dcontext->client_data->in_post_syscall,
                   "dr_syscall_set_sysnum() can only be called from a syscall event");
@@ -3768,7 +3778,7 @@ void
 dr_syscall_invoke_another(void *drcontext)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    dr_mcontext_t *mc = get_mcontext(dcontext);
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     CLIENT_ASSERT(dcontext->client_data->in_post_syscall,
                   "dr_syscall_invoke_another() can only be called from post-syscall event");
     LOG(THREAD, LOG_SYSCALLS, 2, "invoking additional syscall on client request\n");

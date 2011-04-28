@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,11 +47,16 @@
 /* stack slot width */
 #define XSP_SZ (sizeof(reg_t))
 
-/* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel */
+/* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
+ * On Linux we must preserve all xmm registers.
+ * If AVX is enabled we save ymm.
+ */
 #define XMM_REG_SIZE  16
-#define XMM_SLOTS_SIZE  (NUM_XMM_SLOTS*XMM_REG_SIZE)
-#define XMM_SAVED_SIZE  (NUM_XMM_SAVED*XMM_REG_SIZE)
-#define XMM_ALIGN     16
+#define YMM_REG_SIZE  32
+#define XMM_SAVED_REG_SIZE  YMM_REG_SIZE /* space in priv_mcontext_t for xmm/ymm */
+#define XMM_SLOTS_SIZE  (NUM_XMM_SLOTS*XMM_SAVED_REG_SIZE)
+#define XMM_SAVED_SIZE  (NUM_XMM_SAVED*XMM_SAVED_REG_SIZE)
+#define YMM_ENABLED() (proc_has_feature(FEATURE_AVX))
 
 typedef enum {
     IBL_NONE = -1,
@@ -652,7 +658,7 @@ typedef enum {
 } recreate_success_t;
 
 recreate_success_t 
-recreate_app_state(dcontext_t *tdcontext, dr_mcontext_t *mcontext, bool restore_memory);
+recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext, bool restore_memory);
 
 void translation_info_free(dcontext_t *tdcontext, translation_info_t *info);
 translation_info_t *record_translation_info(dcontext_t *dcontext, fragment_t *f,
@@ -668,9 +674,11 @@ bool in_context_switch_code(dcontext_t *dcontext, cache_pc pc);
 bool in_indirect_branch_lookup_code(dcontext_t *dcontext, cache_pc pc);
 cache_pc get_fcache_target(dcontext_t *dcontext);
 void set_fcache_target(dcontext_t *dcontext, cache_pc value);
-void copy_mcontext(dr_mcontext_t *src, dr_mcontext_t *dst);
-void dump_dr_mcontext(dr_mcontext_t *context, file_t f, bool dump_xml);
-void dump_mcontext(dr_mcontext_t *context, file_t f, bool dump_xml);
+void copy_mcontext(priv_mcontext_t *src, priv_mcontext_t *dst);
+bool dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src);
+bool priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src);
+priv_mcontext_t *dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc);
+void dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml);
 const char *get_branch_type_name(ibl_branch_type_t branch_type);
 ibl_branch_type_t get_ibl_branch_type(instr_t *instr);
 
@@ -1244,7 +1252,7 @@ void shift_ctis_in_fragment(dcontext_t *dcontext, fragment_t *f, ssize_t shift,
 #ifdef PROFILE_RDTSC
 void add_profile_call(dcontext_t *dcontext);
 #endif
-app_pc emulate(dcontext_t *dcontext, app_pc pc, dr_mcontext_t *mc);
+app_pc emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc);
 
 typedef struct {
     app_pc region_start;
@@ -1742,7 +1750,7 @@ convert_data_to_function(void *data_ptr)
 /* Our version of setjmp & longjmp.  Currently used only for handling hot patch
  * exceptions and to implement an internal generic try-catch mechanism
  * later on (case 1800).
- * We could use a dr_mcontext_t here, but that has 4 extra fields that aren't
+ * We could use a priv_mcontext_t here, but that has 4 extra fields that aren't
  * used here.  TODO: we could use it and live with the wastage?
  * Espcially in light of the merging from PR 218131.
  *

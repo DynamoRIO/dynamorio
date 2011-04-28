@@ -5107,7 +5107,7 @@ hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
     security_violation_t violation_type = INVALID_VIOLATION, res;
     dcontext_t *dcontext = get_thread_private_dcontext();
     fragment_t src_frag = {0}, *old_last_frag;
-    dr_mcontext_t old_mc;
+    priv_mcontext_t old_mc;
 
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
     ASSERT(inject_point != NULL && hotp_cxt != NULL);
@@ -5221,10 +5221,10 @@ hotp_spill_before_notify(dcontext_t *dcontext,
                          fragment_t *new_frag, const app_pc new_frag_tag,
                          app_pc *new_tag_spill /* OUT */,
                          const app_pc new_next_tag,
-                         dr_mcontext_t *cxt_spill /* OUT */,
+                         priv_mcontext_t *cxt_spill /* OUT */,
                          const void *new_cxt, cxt_type_t cxt_type)
 {
-    dr_mcontext_t *mc;
+    priv_mcontext_t *mc;
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
     ASSERT(frag_spill != NULL && new_frag != NULL && new_frag_tag != NULL);
     ASSERT(new_tag_spill != NULL && new_next_tag != NULL);
@@ -5275,9 +5275,9 @@ hotp_spill_before_notify(dcontext_t *dcontext,
 void
 hotp_restore_after_notify(dcontext_t *dcontext, const fragment_t *old_frag, 
                          const app_pc old_next_tag,
-                         const dr_mcontext_t *old_cxt)
+                         const priv_mcontext_t *old_cxt)
 {
-    dr_mcontext_t *mc;
+    priv_mcontext_t *mc;
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
     ASSERT (old_cxt != NULL);
 
@@ -5409,22 +5409,13 @@ static void
 hotp_change_control_flow(const hotp_context_t *app_reg_ptr, const app_pc target)
 {
     dcontext_t *dcontext;
-    int app_errno;
-    dr_mcontext_t mc = *app_reg_ptr;
+    priv_mcontext_t mc = *app_reg_ptr;
 
     /* TODO: Eventually, must assert that target is in some module. */
     ASSERT(app_reg_ptr != NULL && target != NULL);
 
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
-
-    /* Get errno from the state that was spilled during clean call. 
-     * This is the only reliable place to get it from.  The ones in the
-     * mcontext might be stale if the control flow was inside the fcache for
-     * a while.  FIXME: should we use app_state_at_intercept_t, which
-     * has app_errno, for hotp_context_t?
-     */
-    app_errno = *(((uint*)app_reg_ptr) - CLEAN_CALL_ERRNO_OFFSET);
 
     dcontext->next_tag = target;    /* Set up actual control flow change. */
     dcontext->whereami = WHERE_FCACHE;
@@ -5433,7 +5424,7 @@ hotp_change_control_flow(const hotp_context_t *app_reg_ptr, const app_pc target)
 
     STATS_INC(hotp_num_cflow_change);
     LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Changing control flow to "PFX"\n", target);
-    transfer_to_dispatch(dcontext, app_errno, &mc);
+    transfer_to_dispatch(dcontext, &mc, true/*full_DR_state*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -5933,9 +5924,9 @@ typedef struct {
      *
      * The callback function itself should have this signature:
      *
-     *   dr_probe_return_t probe_callback(dr_mcontext_t *mc);
+     *   dr_probe_return_t probe_callback(priv_mcontext_t *mc);
      *
-     * Note that the \p xip field of the \p dr_mcontext_t passed in will
+     * Note that the \p xip field of the \p priv_mcontext_t passed in will
      * NOT be set.
      */
     dr_probe_location_t callback_func;

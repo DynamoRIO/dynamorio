@@ -65,9 +65,11 @@
 #ifdef X64
 # define SEG_TLS SEG_GS
 # define ASM_SEG "%gs"
+# define LIB_SEG_TLS SEG_FS /* libc+loader tls */
 #else
 # define SEG_TLS SEG_FS
 # define ASM_SEG "%fs"
+# define LIB_SEG_TLS SEG_GS /* libc+loader tls */
 #endif
 
 void *get_tls(ushort tls_offs);
@@ -238,7 +240,8 @@ signal_fork_init(dcontext_t *dcontext);
 
 bool
 set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,
-                    void (*func)(dcontext_t *, dr_mcontext_t *));
+                    void (*func)(dcontext_t *, priv_mcontext_t *),
+                    void (*func_api)(dcontext_t *, dr_mcontext_t *));
 
 uint
 get_itimer_frequency(dcontext_t *dcontext, int which);

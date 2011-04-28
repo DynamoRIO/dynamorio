@@ -151,18 +151,16 @@ post_call_entry_free(void *v)
 typedef struct _drwrap_context_t {
     app_pc func;
     dr_mcontext_t *mc;
-    int app_errno;
     app_pc retaddr;
     bool mc_modified;
 } drwrap_context_t;
 
 static void
 drwrap_context_init(drwrap_context_t *wrapcxt, app_pc func, dr_mcontext_t *mc,
-                    int app_errno, app_pc retaddr)
+                    app_pc retaddr)
 {
     wrapcxt->func = func;
     wrapcxt->mc = mc;
-    wrapcxt->app_errno = app_errno;
     wrapcxt->retaddr = retaddr;
     wrapcxt->mc_modified = false;
 }
@@ -576,7 +574,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
              * we have to redirect execution to the callee again.
              */
             wrapcxt->mc->xip = pc;
-            dr_redirect_execution(wrapcxt->mc, wrapcxt->app_errno);
+            dr_redirect_execution(wrapcxt->mc);
             ASSERT(false, "dr_redirect_execution should not return");
         }
         e->existing_instrumented = true;
@@ -591,14 +589,14 @@ drwrap_in_callee(app_pc pc)
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     wrap_entry_t *wrap, *e;
-    dr_mcontext_t mc;
+    dr_mcontext_t mc = {sizeof(mc),};
     uint idx;
     drwrap_context_t wrapcxt;
     ASSERT(pc != NULL, "drwrap_in_callee: pc is NULL!");
     ASSERT(pt != NULL, "drwrap_in_callee: pt is NULL!");
 
-    dr_get_mcontext(drcontext, &mc, &wrapcxt.app_errno);
-    drwrap_context_init(&wrapcxt, pc, &mc, wrapcxt.app_errno, get_retaddr_at_entry(&mc));
+    dr_get_mcontext(drcontext, &mc);
+    drwrap_context_init(&wrapcxt, pc, &mc, get_retaddr_at_entry(&mc));
 
     hashtable_lock(&wrap_table);
 
@@ -650,11 +648,11 @@ drwrap_in_callee(app_pc pc)
     hashtable_unlock(&wrap_table);
     if (pt->skip[pt->wrap_level]) {
         /* drwrap_skip_call already adjusted the stack and pc */
-        dr_redirect_execution(wrapcxt.mc, wrapcxt.app_errno);
+        dr_redirect_execution(wrapcxt.mc);
         ASSERT(false, "dr_redirect_execution should not return");
     }
     if (wrapcxt.mc_modified)
-        dr_set_mcontext(drcontext, wrapcxt.mc, &wrapcxt.app_errno);
+        dr_set_mcontext(drcontext, wrapcxt.mc);
 }
 
 /* called via clean call at return address(es) of callee */
@@ -664,14 +662,14 @@ drwrap_after_callee(app_pc pc, app_pc retaddr)
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     wrap_entry_t *wrap;
-    dr_mcontext_t mc;
+    dr_mcontext_t mc = {sizeof(mc),};
     uint idx;
     drwrap_context_t wrapcxt;
     ASSERT(pc != NULL, "drwrap_after_callee: pc is NULL!");
     ASSERT(pt != NULL, "drwrap_after_callee: pt is NULL!");
 
-    dr_get_mcontext(drcontext, &mc, &wrapcxt.app_errno);
-    drwrap_context_init(&wrapcxt, pc, &mc, wrapcxt.app_errno, retaddr);
+    dr_get_mcontext(drcontext, &mc);
+    drwrap_context_init(&wrapcxt, pc, &mc, retaddr);
 
     if (pt->wrap_level >= MAX_WRAP_NESTING) {
         pt->wrap_level--;
@@ -734,7 +732,7 @@ drwrap_after_callee(app_pc pc, app_pc retaddr)
     } 
     hashtable_unlock(&wrap_table);
     if (wrapcxt.mc_modified)
-        dr_set_mcontext(drcontext, wrapcxt.mc, &wrapcxt.app_errno);
+        dr_set_mcontext(drcontext, wrapcxt.mc);
 
     dr_thread_free(drcontext, pt->user_data[pt->wrap_level],
                    sizeof(void*)*pt->user_data_count[pt->wrap_level]);
@@ -776,10 +774,10 @@ drwrap_check_for_tailcall(void *drcontext, instrlist_t *bb, instr_t *inst)
     /* Look for tail call */
     bool is_tail_call = false;
     app_pc target;
-    dr_mcontext_t mc;
+    dr_mcontext_t mc = {sizeof(mc),};
     if (instr_get_opcode(inst) != OP_jmp)
         return;
-    if (!dr_get_mcontext(drcontext, &mc, NULL)) {
+    if (!dr_get_mcontext(drcontext, &mc)) {
         ASSERT(false, "unable to get mc");
         return;
     }
