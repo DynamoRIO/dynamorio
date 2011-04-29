@@ -1778,7 +1778,14 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
         *     c5 fe 7f a8 a0 00 00    vmovdqu %ymm5,0xa0(%eax)
         *     00 
         */
-#if defined(LINUX) || _MSC_VER >= 1600
+       /* i#441: GNU C Compiler earlier than 4.4 doesn't know "vmovdqu".
+        * We use __GNUC__ and __GNUC_MINOR__ to check the version.
+        * If later we end up w/ any more complexity here, we should either
+        * switch to a "try-assemble" that sets HAVE_AVX or just always
+        * use raw encodings.
+        */
+       /* 64/32 use the exact same encoding, except for rax or eax */
+#if (defined(LINUX) && __GNUC__ >= 4 && __GNUC_MINOR__ >= 4) || _MSC_VER >= 1600
         vmovdqu  [REG_XAX + 0*XMM_SAVED_REG_SIZE], ymm0
         vmovdqu  [REG_XAX + 1*XMM_SAVED_REG_SIZE], ymm1
         vmovdqu  [REG_XAX + 2*XMM_SAVED_REG_SIZE], ymm2
@@ -1794,9 +1801,10 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
         RAW(c5) RAW(fe) RAW(7f) RAW(a8) RAW(a0) RAW(00) RAW(00) RAW(00)
 #endif
 #ifdef LINUX
+# if (__GNUC__ >= 4 && __GNUC_MINOR__ >= 4)
         vmovdqu  [REG_XAX + 6*XMM_SAVED_REG_SIZE], ymm6
         vmovdqu  [REG_XAX + 7*XMM_SAVED_REG_SIZE], ymm7
-# ifdef X64
+#  ifdef X64
         vmovdqu  [REG_XAX + 8*XMM_SAVED_REG_SIZE], ymm8
         vmovdqu  [REG_XAX + 9*XMM_SAVED_REG_SIZE], ymm9
         vmovdqu  [REG_XAX + 10*XMM_SAVED_REG_SIZE], ymm10
@@ -1805,7 +1813,35 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
         vmovdqu  [REG_XAX + 13*XMM_SAVED_REG_SIZE], ymm13
         vmovdqu  [REG_XAX + 14*XMM_SAVED_REG_SIZE], ymm14
         vmovdqu  [REG_XAX + 15*XMM_SAVED_REG_SIZE], ymm15
-# endif
+#  endif /* X64 */
+# else /* (__GNUC__ >= 4 && __GNUC_MINOR__ >= 4) */
+       /*
+        * c5 fe 7f b0 c0 00 00 00   vmovdqu %ymm6,0xc0(%xax)
+        * c5 fe 7f b8 e0 00 00 00   vmovdqu %ymm7,0xe0(%xax)
+        */
+        RAW(c5) RAW(fe) RAW(7f) RAW(b0) RAW(c0) RAW(00) RAW(00) RAW(00)
+        RAW(c5) RAW(fe) RAW(7f) RAW(b8) RAW(e0) RAW(00) RAW(00) RAW(00)
+#  ifdef X64
+       /*
+        * c5 7e 7f 80 00 01 00 00   vmovdqu %ymm8, 0x100(%xax)
+        * c5 7e 7f 88 20 01 00 00   vmovdqu %ymm9, 0x120(%xax)
+        * c5 7e 7f 90 40 01 00 00   vmovdqu %ymm10,0x140(%xax)
+        * c5 7e 7f 98 60 01 00 00   vmovdqu %ymm11,0x160(%xax)
+        * c5 7e 7f a0 80 01 00 00   vmovdqu %ymm12,0x180(%xax)
+        * c5 7e 7f a8 a0 01 00 00   vmovdqu %ymm13,0x1a0(%xax)
+        * c5 7e 7f b0 c0 01 00 00   vmovdqu %ymm14,0x1c0(%xax)
+        * c5 7e 7f b8 e0 01 00 00   vmovdqu %ymm15,0x1e0(%xax)
+        */
+        RAW(c5) RAW(7e) RAW(7f) RAW(80) RAW(00) RAW(01) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(88) RAW(20) RAW(01) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(90) RAW(40) RAW(01) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(98) RAW(60) RAW(01) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(a0) RAW(80) RAW(01) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(a8) RAW(a0) RAW(01) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(b0) RAW(c0) RAW(01) RAW(00) RAW(00)
+        RAW(c5) RAW(7e) RAW(7f) RAW(b8) RAW(e0) RAW(01) RAW(00) RAW(00)
+#  endif
+# endif /* (__GNUC__ >= 4 && __GNUC_MINOR__ >= 4) */
 #endif
         ret
         END_FUNC(get_ymm_caller_saved)
