@@ -1766,62 +1766,29 @@ GLOBAL_LABEL(get_xmm_caller_saved:)
         DECLARE_FUNC(get_ymm_caller_saved)
 GLOBAL_LABEL(get_ymm_caller_saved:)
         mov      REG_XAX, ARG1
-       /* VS2005 assembler doesn't know "vmovdqu".  Rather than generating from our IR,
-        * or not supporting VS2005 when building for future processors, we just put in
-        * the raw bytes for these 6 instrs:
-        *     c5 fe 7f 00             vmovdqu %ymm0,(%eax)
-        *     c5 fe 7f 48 20          vmovdqu %ymm1,0x20(%eax)
-        *     c5 fe 7f 50 40          vmovdqu %ymm2,0x40(%eax)
-        *     c5 fe 7f 58 60          vmovdqu %ymm3,0x60(%eax)
-        *     c5 fe 7f a0 80 00 00    vmovdqu %ymm4,0x80(%eax)
-        *     00 
-        *     c5 fe 7f a8 a0 00 00    vmovdqu %ymm5,0xa0(%eax)
-        *     00 
+       /* i#441: some compilers like gcc 4.3 and VS2005 do not know "vmovdqu".
+        * We just put in the raw bytes for these instrs:
+        * Note the 64/32 bit have the same encoding for either rax or eax.
+        * c5 fe 7f 00               vmovdqu %ymm0,0x00(%xax)
+        * c5 fe 7f 48 20            vmovdqu %ymm1,0x20(%xax)
+        * c5 fe 7f 50 40            vmovdqu %ymm2,0x40(%xax)
+        * c5 fe 7f 58 60            vmovdqu %ymm3,0x60(%xax)
+        * c5 fe 7f a0 80 00 00 00   vmovdqu %ymm4,0x80(%xax)
+        * c5 fe 7f a8 a0 00 00 00   vmovdqu %ymm5,0xa0(%xax)
         */
-       /* i#441: GNU C Compiler earlier than 4.4 doesn't know "vmovdqu".
-        * We use __GNUC__ and __GNUC_MINOR__ to check the version.
-        * If later we end up w/ any more complexity here, we should either
-        * switch to a "try-assemble" that sets HAVE_AVX or just always
-        * use raw encodings.
-        */
-       /* 64/32 use the exact same encoding, except for rax or eax */
-#if (defined(LINUX) && __GNUC__ >= 4 && __GNUC_MINOR__ >= 4) || _MSC_VER >= 1600
-        vmovdqu  [REG_XAX + 0*XMM_SAVED_REG_SIZE], ymm0
-        vmovdqu  [REG_XAX + 1*XMM_SAVED_REG_SIZE], ymm1
-        vmovdqu  [REG_XAX + 2*XMM_SAVED_REG_SIZE], ymm2
-        vmovdqu  [REG_XAX + 3*XMM_SAVED_REG_SIZE], ymm3
-        vmovdqu  [REG_XAX + 4*XMM_SAVED_REG_SIZE], ymm4
-        vmovdqu  [REG_XAX + 5*XMM_SAVED_REG_SIZE], ymm5
-#else
         RAW(c5) RAW(fe) RAW(7f) RAW(00)
         RAW(c5) RAW(fe) RAW(7f) RAW(48) RAW(20)
         RAW(c5) RAW(fe) RAW(7f) RAW(50) RAW(40)
         RAW(c5) RAW(fe) RAW(7f) RAW(58) RAW(60)
         RAW(c5) RAW(fe) RAW(7f) RAW(a0) RAW(80) RAW(00) RAW(00) RAW(00)
         RAW(c5) RAW(fe) RAW(7f) RAW(a8) RAW(a0) RAW(00) RAW(00) RAW(00)
-#endif
 #ifdef LINUX
-# if (__GNUC__ >= 4 && __GNUC_MINOR__ >= 4)
-        vmovdqu  [REG_XAX + 6*XMM_SAVED_REG_SIZE], ymm6
-        vmovdqu  [REG_XAX + 7*XMM_SAVED_REG_SIZE], ymm7
-#  ifdef X64
-        vmovdqu  [REG_XAX + 8*XMM_SAVED_REG_SIZE], ymm8
-        vmovdqu  [REG_XAX + 9*XMM_SAVED_REG_SIZE], ymm9
-        vmovdqu  [REG_XAX + 10*XMM_SAVED_REG_SIZE], ymm10
-        vmovdqu  [REG_XAX + 11*XMM_SAVED_REG_SIZE], ymm11
-        vmovdqu  [REG_XAX + 12*XMM_SAVED_REG_SIZE], ymm12
-        vmovdqu  [REG_XAX + 13*XMM_SAVED_REG_SIZE], ymm13
-        vmovdqu  [REG_XAX + 14*XMM_SAVED_REG_SIZE], ymm14
-        vmovdqu  [REG_XAX + 15*XMM_SAVED_REG_SIZE], ymm15
-#  endif /* X64 */
-# else /* (__GNUC__ >= 4 && __GNUC_MINOR__ >= 4) */
        /*
         * c5 fe 7f b0 c0 00 00 00   vmovdqu %ymm6,0xc0(%xax)
         * c5 fe 7f b8 e0 00 00 00   vmovdqu %ymm7,0xe0(%xax)
         */
         RAW(c5) RAW(fe) RAW(7f) RAW(b0) RAW(c0) RAW(00) RAW(00) RAW(00)
         RAW(c5) RAW(fe) RAW(7f) RAW(b8) RAW(e0) RAW(00) RAW(00) RAW(00)
-#  ifdef X64
        /*
         * c5 7e 7f 80 00 01 00 00   vmovdqu %ymm8, 0x100(%xax)
         * c5 7e 7f 88 20 01 00 00   vmovdqu %ymm9, 0x120(%xax)
@@ -1840,8 +1807,6 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
         RAW(c5) RAW(7e) RAW(7f) RAW(a8) RAW(a0) RAW(01) RAW(00) RAW(00)
         RAW(c5) RAW(7e) RAW(7f) RAW(b0) RAW(c0) RAW(01) RAW(00) RAW(00)
         RAW(c5) RAW(7e) RAW(7f) RAW(b8) RAW(e0) RAW(01) RAW(00) RAW(00)
-#  endif
-# endif /* (__GNUC__ >= 4 && __GNUC_MINOR__ >= 4) */
 #endif
         ret
         END_FUNC(get_ymm_caller_saved)
