@@ -355,8 +355,11 @@ void dump_context_info(CONTEXT *context, file_t file, bool all);
 #define CONTEXT_DR_STATE (CONTEXT_INTEGER | CONTEXT_CONTROL | \
                           (CONTEXT_PRESERVE_XMM ? CONTEXT_XMM_FLAG : 0U) |\
                           (CONTEXT_PRESERVE_YMM ? CONTEXT_YMM_FLAG : 0U))
+/* FIXME i#444: including CONTEXT_YMM_FLAG blindly results in STATUS_NOT_SUPPORTED in
+ * inject_into_thread()'s NtGetContextThread so for now we remove it:
+ */
 #define CONTEXT_DR_STATE_ALLPROC (CONTEXT_INTEGER | CONTEXT_CONTROL | \
-                                  CONTEXT_XMM_FLAG | CONTEXT_YMM_FLAG)
+                                  CONTEXT_XMM_FLAG | 0/*CONTEXT_YMM_FLAG: see above*/)
 
 enum {
       EXCEPTION_INFORMATION_READ_EXECUTE_FAULT = 0,
