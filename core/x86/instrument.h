@@ -3368,7 +3368,8 @@ DR_API
  * - A thread init event (dr_register_thread_init_event()) for all but
  *   the initial thread.
  *
- * Does NOT copy the pc field.
+ * Does NOT copy the pc field, except for system call events, when it
+ * will point at the post-syscall address.
  *
  * Returns false if called from the init event or the initial thread's
  * init event; returns true otherwise (cannot distinguish whether the

@@ -162,6 +162,7 @@ The changes between version 2.2.0 and 2.1.0 are:
    instrumentation passes
  - Added read-write locks (Issue 406)
  - Added isolation of \client-opened files from the application (Issue 357)
+ - Added dr_mcontext_t.xip for syscall events (Issue 442)
  - Several bug fixes
 
 The changes between version 2.1.0 and 2.0.0 are:

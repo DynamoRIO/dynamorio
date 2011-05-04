@@ -1619,6 +1619,10 @@ handle_system_call(dcontext_t *dcontext)
      * after sysenter handling but it's not clear which is better: we'll
      * assert if client changes xsp/xdx but that's fine.
      */
+    /* set pc so client can tell where syscall invoked from.
+     * note that this is pc _after_ syscall instr.
+     */
+    get_mcontext(dcontext)->xip = get_fcache_target(dcontext);
     /* i#202: ignore native syscalls in early_inject_init() */
     if (IF_WINDOWS(dynamo_initialized &&)
         !instrument_pre_syscall(dcontext, (int) mc->xax)) {
