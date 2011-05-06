@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -410,7 +411,7 @@ parse_liststring_t(liststring_t *var, void *value) {
          */
         OPTION_PARSE_ERROR(ERROR_OPTION_TOO_LONG_TO_PARSE, 4,
                            get_application_name(), get_application_pid(), 
-                           *var, IF_DEBUG_ELSE("Terminating", "Continuing"));
+                           *var, IF_DEBUG_ELSE("list Terminating", "Continuing"));
     }
     /* truncate if max (strncpy doesn't put NULL, even though strncat does) */
     (*var)[MAX_LIST_OPTION_LENGTH-1] = '\0';

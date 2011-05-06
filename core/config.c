@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -81,11 +82,13 @@
 # undef ASSERT_NOT_TESTED
 # undef ASSERT_NOT_REACHED
 # undef FATAL_USAGE_ERROR
+# undef USAGE_ERROR
 # define ASSERT(x) /* nothing */
 # define ASSERT_NOT_IMPLEMENTED(x) /* nothing */
 # define ASSERT_NOT_TESTED(x) /* nothing */
 # define ASSERT_NOT_REACHED() /* nothing */
 # define FATAL_USAGE_ERROR(x, ...) /* nothing */
+# define USAGE_ERROR(x, ...) /* nothing */
 # ifdef WINDOWS
 #  if VERBOSE
 extern void display_verbose_message(char *format, ...);
@@ -148,7 +151,7 @@ static const wchar_t *const w_config_var[] = {
  * is static
  */
 typedef struct _config_val_t {
-    char val[MAX_REGISTRY_PARAMETER];
+    char val[MAX_CONFIG_VALUE];
     /* distinguish set to "" from never set */
     bool has_value;
     /* identify which level: app-specific, default, from env */
@@ -190,7 +193,7 @@ my_getenv(IF_WINDOWS_ELSE_NP(const wchar_t *, const char *) var, char *buf, size
 #ifdef LINUX
     return getenv(var);
 #else
-    wchar_t wbuf[MAX_REGISTRY_PARAMETER];
+    wchar_t wbuf[MAX_CONFIG_VALUE];
     if (env_get_value(var, wbuf, BUFFER_SIZE_BYTES(wbuf))) {
         NULL_TERMINATE_BUFFER(wbuf);
         snprintf(buf, bufsz, "%ls", wbuf);
@@ -234,7 +237,7 @@ static void
 set_config_from_env(config_info_t *cfg)
 {
     uint i;
-    char buf[MAX_REGISTRY_PARAMETER];
+    char buf[MAX_CONFIG_VALUE];
     /* perf: we could stick the names in a hashtable */
     for (i = 0; i < NUM_CONFIG_VAR; i++) {
         /* env vars set any unset vars (lower priority than config file) */
@@ -264,6 +267,10 @@ process_config_line(char *line, config_info_t *cfg, bool app_specific, bool over
             if (val != NULL &&
                 /* see comment below */
                 val == line + strlen(cfg->query)) {
+                if (strlen(val + 1) >= BUFFER_SIZE_ELEMENTS(cfg->u.q.answer.val)) {
+                    /* not FATAL so release build will continue */
+                    USAGE_ERROR("Config value for %s too long: truncating", cfg->query);
+                }
                 strncpy(cfg->u.q.answer.val, val + 1,
                         BUFFER_SIZE_ELEMENTS(cfg->u.q.answer.val));
                 cfg->u.q.answer.app_specific = app_specific;
@@ -284,10 +291,15 @@ process_config_line(char *line, config_info_t *cfg, bool app_specific, bool over
                  */
                 val != line + strlen(config_var[i])) {
                 if (cfg->query == NULL) { /* only complain about this process */
-                    FATAL_USAGE_ERROR(ERROR_CONFIG_FILE_INVALID, 3, line);
+                    FATAL_USAGE_ERROR(ERROR_CONFIG_FILE_INVALID, 3,
+                                      get_application_name(), get_application_pid(), line);
                     ASSERT_NOT_REACHED();
                 }
             } else if (!cfg->u.v->vals[i].has_value || overwrite) {
+                if (strlen(val + 1) >= BUFFER_SIZE_ELEMENTS(cfg->u.v->vals[i].val)) {
+                    /* not FATAL so release build will continue */
+                    USAGE_ERROR("Config value for %s too long: truncating", config_var[i]);
+                }
                 strncpy(cfg->u.v->vals[i].val, val + 1,
                         BUFFER_SIZE_ELEMENTS(cfg->u.v->vals[i].val));
                 cfg->u.v->vals[i].has_value = true;
@@ -310,7 +322,7 @@ read_config_file(file_t f, config_info_t *cfg, bool app_specific, bool overwrite
      * buffer needs to hold at least one full line: we assume var name plus
      * '=' plus newline chars < 128.
      */
-#   define BUFSIZE (MAX_REGISTRY_PARAMETER+128)
+#   define BUFSIZE (MAX_CONFIG_VALUE+128)
     char buf[BUFSIZE];
 
     char *line, *newline = NULL;
@@ -319,7 +331,7 @@ read_config_file(file_t f, config_info_t *cfg, bool app_specific, bool overwrite
 
     while (true) {
         /* break file into lines */
-        if (newline == NULL) {
+        if (newline == NULL || newline == &BUFFER_LAST_ELEMENT(buf)) {
             bufwant = BUFSIZE-1;
             bufread = os_read(f, buf, bufwant);
             ASSERT(bufread <= bufwant);
@@ -351,7 +363,12 @@ read_config_file(file_t f, config_info_t *cfg, bool app_specific, bool overwrite
             }
         }
         /* buffer is big enough to hold at least one line */
-        ASSERT(newline != NULL);
+        if (newline == NULL) {
+            /* only complain in debug build */
+            USAGE_ERROR("Config file line \"%.20s...\" too long: truncating", line);
+            NULL_TERMINATE_BUFFER(buf);
+            newline = &BUFFER_LAST_ELEMENT(buf);
+        }
         *newline = '\0';
         /* handle \r\n line endings */
         if (newline > line && *(newline-1) == '\r')
@@ -522,7 +539,8 @@ get_config_val_other(const char *appname, process_id_t pid, const char *sfx,
                      bool *app_specific, bool *from_env)
 {
     /* Can't use heap very easily since used by preinject, injector, and DR
-     * so we use a stack var.  WARNING: this is about 1K!
+     * so we use a stack var.  WARNING: this is about 1.5K, and config_read
+     * uses another 1.2K.
      */
     config_info_t info;
     memset(&info, 0, sizeof(info));

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,6 +55,7 @@ DECLARE_NEVERPROT_VAR(static DIAGNOSTICS_KEY_VALUE_FULL_INFORMATION diagnostic_v
 DECLARE_NEVERPROT_VAR(static char keyinfo_name[DIAGNOSTICS_MAX_KEY_NAME_SIZE], {0});
 DECLARE_NEVERPROT_VAR(static char keyinfo_data[DIAGNOSTICS_MAX_NAME_AND_DATA_SIZE], {0});
 DECLARE_NEVERPROT_VAR(static wchar_t diagnostic_keyname[DIAGNOSTICS_MAX_KEY_NAME_SIZE], {0});
+DECLARE_NEVERPROT_VAR(static char optstring_buf[MAX_OPTIONS_STRING], {0});
 
 /* Enforces unique access to shared reg data structures */
 DECLARE_CXTSWPROT_VAR(static mutex_t reg_mutex, INIT_LOCK_FREE(diagnost_reg_mutex));
@@ -447,11 +449,6 @@ report_internal_data_structures(IN file_t diagnostics_file,
                                 IN security_violation_t violation_type)
 {
     dcontext_t *dcontext;
-    char optstring_buf[MAX_OPTIONS_STRING];
-    /* make sure this is changed to a protected static buf if gets too long
-     * report_registry_settings has already used more than this (552 bytes
-     * per invocation & recurses up to 5 times) so no risk of overflow */
-    ASSERT(MAX_OPTIONS_STRING <= 512);
 
     print_file(diagnostics_file, "<internal-data-structures>\n"
                "automatic_startup  : %d\ncontrol_all_threads: %d\n" 
@@ -510,10 +507,12 @@ report_internal_data_structures(IN file_t diagnostics_file,
     }
 #endif
 
+    mutex_lock(&reg_mutex);
     get_dynamo_options_string(&dynamo_options, optstring_buf,
                               BUFFER_SIZE_ELEMENTS(optstring_buf), true);
     NULL_TERMINATE_BUFFER(optstring_buf);
     print_file(diagnostics_file, "option string = \"%s\"\n", optstring_buf);
+    mutex_unlock(&reg_mutex);
 
     DOLOG(1, LOG_ALL, {
         uchar test_buf[UCHAR_MAX+2];

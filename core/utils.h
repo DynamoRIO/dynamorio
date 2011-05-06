@@ -1000,7 +1000,12 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
  /* longest message we would put in a log or messagebox 
   * 512 is too short for internal exception w/ app + options + callstack
   */
-#define MAX_LOG_LENGTH IF_X64_ELSE(1280, 768)
+#if defined(PARAMS_IN_REGISTRY) || !defined(CLIENT_INTERFACE)
+# define MAX_LOG_LENGTH IF_X64_ELSE(1280, 768)
+#else
+/* need more space for printing out longer option strings */
+# define MAX_LOG_LENGTH 1384
+#endif
 #define MAX_LOG_LENGTH_MINUS_ONE (MAX_LOG_LENGTH-1) /* for splitting long buffers */
 
 #ifdef DEBUG

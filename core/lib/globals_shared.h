@@ -704,14 +704,25 @@ typedef int stats_int_t;
 /* Maximum length of any registry parameter. Note that some are further
  * restricted to MAXIMUM_PATH from their usage. */
 #define MAX_REGISTRY_PARAMETER 512
+#if defined(PARAMS_IN_REGISTRY) || !defined(CLIENT_INTERFACE)
 /* Maximum length of option string in the registry */
-#define MAX_OPTIONS_STRING     512
+# define MAX_OPTIONS_STRING     512
+# define MAX_CONFIG_VALUE       MAX_REGISTRY_PARAMETER
+#else
+/* Maximum length of option string from config file.
+ * For CLIENT_INTERFACE we need more than 512 bytes to fit multiple options
+ * w/ paths.  However, we have stack buffers in config.c and options.c
+ * (look for MAX_OPTION_LENGTH there), so we can't make this too big.
+ */
+# define MAX_OPTIONS_STRING    1024
+# define MAX_CONFIG_VALUE      MAX_OPTIONS_STRING
+#endif
 /* Maximum length of any individual list option's string */
-#define MAX_LIST_OPTION_LENGTH 512
+#define MAX_LIST_OPTION_LENGTH MAX_OPTIONS_STRING
 /* Maximum length of the path secified by a path option */
 #define MAX_PATH_OPTION_LENGTH MAXIMUM_PATH
 /* Maximum length of any individual option. */
-#define MAX_OPTION_LENGTH      512
+#define MAX_OPTION_LENGTH      MAX_OPTIONS_STRING
 
 #define MAX_PARAMNAME_LENGTH 64
 
