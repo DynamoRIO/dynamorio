@@ -211,8 +211,8 @@ thread_init_event(void *drcontext)
 #ifdef WINDOWS
         IF_X64_ELSE(__writegsqword,__writefsdword)(idx, val);
 #else
-        asm("mov %0, %%"ASM_XAX : : "m"((val)) : ASM_XAX);
-        asm("movzb %0, %%"ASM_XDX"" : : "m"((idx)) : ASM_XDX);
+        asm("mov %0, %%"ASM_XAX: : "m"((val)) : ASM_XAX);
+        asm("mov %0, %%edx" : : "m"((idx)) : ASM_XDX);
         asm("mov %%"ASM_XAX", %%"ASM_SEG":(%%"ASM_XDX")" : : : ASM_XAX, ASM_XDX);
 #endif
     }
@@ -228,7 +228,7 @@ thread_exit_event(void *drcontext)
 #ifdef WINDOWS
         val = IF_X64_ELSE(__readgsqword,__readfsdword)(idx);
 #else
-        asm("movzb %0, %%"ASM_XAX : : "m"((idx)) : ASM_XAX);
+        asm("mov %0, %%eax": : "m"((idx)) : ASM_XAX);
         asm("mov %%"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);
         asm("mov %%"ASM_XAX", %0" : "=m"((val)) : : ASM_XAX);
 #endif
