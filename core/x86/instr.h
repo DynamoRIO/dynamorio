@@ -2222,8 +2222,10 @@ DR_API
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's operands references a
  * register that overlaps \p reg.
+ *
+ * Returns false for multi-byte nops with an operand using reg.
  */
-bool 
+bool
 instr_uses_reg(instr_t *instr, reg_id_t reg);
 
 DR_API
@@ -2239,10 +2241,12 @@ DR_API
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's source operands references \p reg.
  *
+ * Returns false for multi-byte nops with a source operand using reg.
+ *
  * \note Use instr_reads_from_reg() to also consider addressing
  * registers in destination operands.
  */
-bool 
+bool
 instr_reg_in_src(instr_t *instr, reg_id_t reg);
 
 DR_API
@@ -2268,6 +2272,8 @@ DR_API
  * Returns true iff at least one of instr's operands reads
  * from a register that overlaps reg (checks both source operands
  * and addressing registers used in destination operands).
+ *
+ * Returns false for multi-byte nops with an operand using reg.
  */
 bool 
 instr_reads_from_reg(instr_t *instr, reg_id_t reg);
@@ -2298,8 +2304,12 @@ bool
 instr_same(instr_t *instr1, instr_t *instr2);
 
 DR_API
-/** Returns true iff any of \p instr's source operands is a memory reference. */
-bool 
+/**
+ * Returns true iff any of \p instr's source operands is a memory reference.
+ *
+ * Returns false for multi-byte nops with a memory operand.
+ */
+bool
 instr_reads_memory(instr_t *instr);
 
 DR_API
@@ -2737,6 +2747,8 @@ DR_API
 /**
  * Returns true if \p instr is one of a class of common nops.
  * currently checks:
+ * - nop
+ * - nop reg/mem
  * - xchg reg, reg
  * - mov reg, reg
  * - lea reg, (reg)

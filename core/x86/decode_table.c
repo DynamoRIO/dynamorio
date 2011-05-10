@@ -1768,7 +1768,7 @@ const instr_info_t second_byte[] = {
   /* xref case 9862/PR 214297 : 0f19-0f1e are "HINT_NOP": valid on P6+.
    * we treat them the same as 0f1f but do not put on encoding chain.
    * The operand is ignored but to support encoding it we must list it.
-   * FIXME PR 305265: should treat as NOT a mem/reg read for analysis routines. */
+   * i453: analysis routines now special case nop_modrm to ignore src opnd */
   {OP_nop_modrm, 0x0f1910, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
   {OP_nop_modrm, 0x0f1a10, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
   {OP_nop_modrm, 0x0f1b10, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},

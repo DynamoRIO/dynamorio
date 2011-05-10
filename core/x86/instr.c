@@ -3308,9 +3308,12 @@ bool instr_reg_in_dst(instr_t *instr, reg_id_t reg)
     return false;
 }
 
-bool instr_reg_in_src(instr_t *instr, reg_id_t reg)
+bool
+instr_reg_in_src(instr_t *instr, reg_id_t reg)
 {
     int i;
+    if (instr_get_opcode(instr) == OP_nop_modrm)
+        return false;
     for (i =0; i<instr_num_srcs(instr); i++)
         if (opnd_uses_reg(instr_get_src(instr, i), reg))
             return true;
@@ -3421,9 +3424,13 @@ bool instr_reads_memory(instr_t *instr)
 {
     int a;
     opnd_t curop;
+    int opc = instr_get_opcode(instr);
 
     /* lea has a mem_ref source operand, but doesn't actually read */
-    if (instr_get_opcode(instr) == OP_lea)
+    if (opc == OP_lea)
+        return false;
+    /* The multi-byte nop has a mem/reg operand, but it does not read. */
+    if (opc == OP_nop_modrm)
         return false;
 
     for (a=0; a<instr_num_srcs(instr); a++) {
@@ -4922,9 +4929,9 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 bool 
 instr_is_nop(instr_t *inst)
 {
-    /* FIXME : could check raw bits for 0x90 to avoid the decoding if raw */
+    /* XXX: could check raw bits for 0x90 to avoid the decoding if raw */
     int opcode = instr_get_opcode(inst);
-    if (opcode == OP_nop)
+    if (opcode == OP_nop || opcode == OP_nop_modrm)
         return true;
     if ((opcode == OP_mov_ld || opcode == OP_mov_st) && 
         opnd_same(instr_get_src(inst, 0), instr_get_dst(inst, 0))
