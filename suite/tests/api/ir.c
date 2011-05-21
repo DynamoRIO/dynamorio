@@ -60,7 +60,7 @@
 
 #define BOOLS_MATCH(b1, b2) (((b1) && (b2)) || (!(b1) && !(b2)))
 
-static byte buf[4096];
+static byte buf[8192];
 
 /* make sure the following are consistent (though they could still all be wrong :))
  * with respect to instr length and opcode:

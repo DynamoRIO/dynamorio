@@ -1,7 +1,8 @@
-/* **********************************************************
+/* *******************************************************************************
+ * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
- * **********************************************************/
+ * *******************************************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -316,32 +317,6 @@
     OPTION_NAME_INTERNAL(bool, profile_counts, "prof_counts", "profiling via counters")
 # endif
 
-    /* i#42: Optimize and shrink clean call sequences */
-    /* optimization level:
-     * 0 - no optimization
-     * 1 - callee's register usage analysis, e.g. use of XMM registers
-     * 2 - simple callee inline optimization,
-     *     callee save reg analysis
-     *     aflags usage analysis and optimization on the instrumented ilist
-     * 3 - more aggressive callee inline optimization
-     * All the optimizations assume that clean callee will not be changed
-     * later.
-     */
-    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, 2,
-                            "optimization level on optimizing clean call sequences")
-    /* i#107: To handle app using same segment register that DR uses, we should
-     * mangle the app's segment usage. We disable it by default now. 
-     * Will enable it later when the code is more robust.
-     * It cannot be used with DGC_DIAGNOSTICS.
-     */
-    /* FIXME: the off-by-default makes the mem addr API not work.
-     * Since the API is not in any release package but only in the 
-     * source code repository, it should be ok now. 
-     * However, we must turn the default value true before the next release.
-     */
-    OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg, IF_WINDOWS_ELSE(false, false),
-                            "mangle application's segment usage.")
-
 # ifdef CLIENT_INTERFACE
     /* FIXME (xref PR 215082): make these external now that our product is our API? */
     OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING, 
@@ -484,6 +459,32 @@
     OPTION_INTERNAL(bool, full_decode, "decode all instrs to level 3 during bb building")
 # endif
 #endif /* EXPOSE_INTERNAL_OPTIONS */
+
+    /* i#42: Optimize and shrink clean call sequences */
+    /* optimization level:
+     * 0 - no optimization
+     * 1 - callee's register usage analysis, e.g. use of XMM registers
+     * 2 - simple callee inline optimization,
+     *     callee save reg analysis
+     *     aflags usage analysis and optimization on the instrumented ilist
+     * 3 - more aggressive callee inline optimization
+     * All the optimizations assume that clean callee will not be changed
+     * later.
+     */
+    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, 2,
+                            "optimization level on optimizing clean call sequences")
+    /* i#107: To handle app using same segment register that DR uses, we should
+     * mangle the app's segment usage. We disable it by default now. 
+     * Will enable it later when the code is more robust.
+     * It cannot be used with DGC_DIAGNOSTICS.
+     */
+    /* FIXME: the off-by-default makes the mem addr API not work.
+     * Since the API is not in any release package but only in the 
+     * source code repository, it should be ok now. 
+     * However, we must turn the default value true before the next release.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg, false,
+                            "mangle application's segment usage.")
 
 #ifdef WINDOWS_PC_SAMPLE
      OPTION_DEFAULT(uint, prof_pcs_DR, 2, "PC profile dynamorio.dll, value is bit shift to use, < 2 or > 32 disables, requires -prof_pcs")
