@@ -938,21 +938,20 @@ is_in_ntdll(app_pc pc)
     }
     return (pc >= base && pc < ntdll_end);
 }
-#endif
 
 /* routines for conversion between CONTEXT and priv_mcontext_t */
 /* assumes our segment registers are the same as the app and that
-   we never touch floating-point state and debug registers 
-*/
+ * we never touch floating-point state and debug registers.
+ * Note that this code will not compile for non-core (no proc_has_feature())
+ * but is not currently used there.
+ */
 /* all we need is CONTEXT_INTEGER and non-segment CONTEXT_CONTROL,
  * and for PR 264138 we need the XMM registers
  */
 void
-context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt)
+context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT *cxt)
 {
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE) /* see below */
     ASSERT(TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags));
-#endif
     /* CONTEXT_INTEGER */
     mcontext->xax    = cxt->CXT_XAX;
     mcontext->xbx    = cxt->CXT_XBX;
@@ -976,10 +975,6 @@ context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt)
         for (i = 0; i < NUM_XMM_SLOTS; i++)
             memcpy(&mcontext->ymm[i], CXT_XMM(cxt, i), XMM_REG_SIZE);
     }
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-    /* no proc_has_feature() for non-core: once have this implemented
-     * should just blindly do this for non-core?  for now disabling.
-     */
     if (CONTEXT_PRESERVE_YMM) {
         /* FIXME i#437: ymm are inside XSTATE cstruct which should be
          * laid out like this: {CONTEXT, CONTEXT_EX, XSTATE}, but
@@ -994,7 +989,6 @@ context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt)
          */
         ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm CONTEXT support yet");
     }
-#endif
     /* CONTEXT_CONTROL without the segments */
     mcontext->xbp    = cxt->CXT_XBP;
     mcontext->xsp    = cxt->CXT_XSP;
@@ -1003,11 +997,9 @@ context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt)
 }
 
 void
-mcontext_to_context(CONTEXT* cxt, priv_mcontext_t *mcontext)
+mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext)
 {
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE) /* see above */
     ASSERT(TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags));
-#endif
     /* CONTEXT_INTEGER */
     cxt->CXT_XAX    = mcontext->xax;
     cxt->CXT_XBX    = mcontext->xbx;
@@ -1028,15 +1020,28 @@ mcontext_to_context(CONTEXT* cxt, priv_mcontext_t *mcontext)
     if (CONTEXT_PRESERVE_XMM) { /* no harm done if no sse support */
         /* CONTEXT_FLOATING_POINT or CONTEXT_EXTENDED_REGISTERS */
         int i;
+        /* We can't set just xmm and not the rest of the fp state
+         * so we fill in w/ the current (unchanged by DR) values
+         * (i#462, i#457)
+         */
+        byte fpstate_buf[MAX_FP_STATE_SIZE];
+        byte *fpstate = (byte*)ALIGN_FORWARD(fpstate_buf, 16);
+        size_t written = proc_save_fpstate(fpstate);
+#ifdef X64
+        ASSERT(sizeof(cxt->FltSave) == written);
+        memcpy(&cxt->FltSave, fpstate, written);
+#else
+        ASSERT(MAXIMUM_SUPPORTED_EXTENSION == written);
+        memcpy(&cxt->ExtendedRegisters, fpstate, written);
+#endif
+        /* Now update w/ the xmm values from mcontext */
         for (i = 0; i < NUM_XMM_SLOTS; i++)
             memcpy(CXT_XMM(cxt, i), &mcontext->ymm[i], XMM_REG_SIZE);
     }
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE) /* see above */
     if (CONTEXT_PRESERVE_YMM) {
         /* FIXME i#437: see above */
         ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm CONTEXT support yet");
     }
-#endif
     /* CONTEXT_CONTROL without the segments */
     cxt->CXT_XBP    = mcontext->xbp;
     cxt->CXT_XSP    = mcontext->xsp;
@@ -1044,6 +1049,8 @@ mcontext_to_context(CONTEXT* cxt, priv_mcontext_t *mcontext)
     cxt->CXT_XFLAGS = (uint) mcontext->xflags;
     cxt->CXT_XIP    = (ptr_uint_t)mcontext->pc; /* including XIP */
 }
+#endif /* core proper */
+
 #endif /* !NOT_DYNAMORIO_CORE */
 /****************************************************************************/
 
