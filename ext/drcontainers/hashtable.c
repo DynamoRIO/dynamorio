@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -305,12 +306,18 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
 {
     uint hindex = hash_key(table, key);
     hash_entry_t *e;
-    if (hashtable_lookup(table, key) != NULL) {
-        /* we have a use where payload != existing entry so we don't assert on that */
-        return false;
-    }
     /* if payload is null can't tell from lookup miss */
     ASSERT(payload != NULL, "hashtable_add internal error");
+    if (table->synch)
+        dr_mutex_lock(table->lock);
+    for (e = table->table[hindex]; e != NULL; e = e->next) {
+        if (keys_equal(table, e->key, key)) {
+            /* we have a use where payload != existing entry so we don't assert on that */
+            if (table->synch)
+                dr_mutex_unlock(table->lock);
+            return false;
+        }
+    }
     e = (hash_entry_t *) hash_alloc(sizeof(*e));
     if (table->str_dup) {
         const char *s = (const char *) key;
@@ -319,8 +326,6 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
     } else
         e->key = key;
     e->payload = payload;
-    if (table->synch)
-        dr_mutex_lock(table->lock);
     e->next = table->table[hindex];
     table->table[hindex] = e;
     table->entries++;
