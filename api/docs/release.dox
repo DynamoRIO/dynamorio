@@ -152,6 +152,7 @@ The changes between version \DR_VERSION and 2.2.0 are:
    source compatibility change with respect to versions prior to 3.0.0.
  - Added return value to dr_redirect_execution() and dr_set_mcontext()
  - Added support for the AVX and FMA ISA extensions
+ - Increased maximum option string from 512 to 1024 (Issue 363)
 
 The changes between version 2.2.0 and 2.1.0 are:
 
