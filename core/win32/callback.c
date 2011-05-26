@@ -1915,12 +1915,14 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                           byte *fpo_stack_adjustment /* OUT OPTIONAL */)
 {
     byte *pc, *emit_pc, *ret_pc, *after_hook_target, *entrance_pc, *tgt_pc;
+    byte *after_mov_immed;
     instr_t *instr, *hook_return_instr = NULL;
     instrlist_t ilist;
     bool changed_prot;
     int opcode;
     dcontext_t *dcontext = get_thread_private_dcontext();
-    int native_sys_num = syscalls[(ptr_uint_t)callee_arg];
+    int sys_enum = (int)(ptr_uint_t)callee_arg;
+    int native_sys_num = syscalls[sys_enum];
     bool ok;
     DEBUG_DECLARE(bool is_hooked = false;)
 
@@ -1937,6 +1939,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
     DOLOG(3, LOG_ASYNCH, { disassemble_with_bytes(dcontext, pc, main_logfile); });
     instr = instr_create(dcontext);
     pc = decode(dcontext, pc, instr);
+    after_mov_immed = pc;
     /* FIXME: handle other hookers gracefully by chaining!
      * Note that moving trampoline point 5 bytes in could help here (see above).
      */
@@ -2110,15 +2113,69 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
         /* third instr is a lea */
         instr = instr_create(dcontext);
         pc = decode(dcontext, pc, instr);
-        ASSERT(instr_get_opcode(instr) == OP_lea);
-        instrlist_append(&ilist, instr);
 
-        /* fourth instr is a call*, what we consider the system call instr */
-        after_hook_target = pc;
-        instr = instr_create(dcontext);
-        ret_pc = decode(dcontext, pc, instr); /* skip call* to skip syscall */
-        ASSERT(instr_get_opcode(instr) == OP_call_ind);
-        instr_destroy(dcontext, instr);
+        if (instr_get_opcode(instr) == OP_jmp_ind) {
+            /* Handle chrome hooks (i#464) via targeted handling since these
+             * don't look like any other hooks we've seen.  We can generalize if
+             * we later find similar-looking hooks elsewhere.
+             * They look like this:
+             *    ntdll!NtMapViewOfSection:
+             *    77aafbe0 b825000000       mov     eax,0x25
+             *    77aafbe5 ba28030a00       mov     edx,0xa0328
+             *    77aafbea ffe2             jmp     edx
+             *    77aafbec c215c0           ret     0xc015
+             *    77aafbef 90               nop
+             *    77aafbf0 0000             add     [eax],al
+             *    77aafbf2 83c404           add     esp,0x4
+             *    77aafbf5 c22800           ret     0x28
+             * We put in the native instrs in our hook so our stuff
+             * operates correctly, and assume the native state change
+             * won't affect the chrome hook code.  We resume
+             * right after the 1st mov-imm-eax instr.  These are the native
+             * instrs for all chrome hooks in ntdll (Nt{,Un}MapViewOfSection),
+             * which are put in place from the parent, so they're there when we
+             * initialize and aren't affected by -handle_ntdll_modify:
+             *    77aafbe5 33c9             xor     ecx,ecx
+             *    77aafbe7 8d542404         lea     edx,[esp+0x4]
+             */
+            instr_t *tmp = instrlist_last(&ilist);
+            instrlist_remove(&ilist, tmp);
+            instr_destroy(dcontext, tmp);
+            if (wow64_index[sys_enum] == 0) {
+                instrlist_append
+                    (&ilist, INSTR_CREATE_xor
+                     (dcontext, opnd_create_reg(REG_XCX), opnd_create_reg(REG_XCX)));
+            } else {
+                instrlist_append
+                    (&ilist, INSTR_CREATE_mov_imm
+                     (dcontext, opnd_create_reg(REG_XCX),
+                      OPND_CREATE_INT32(wow64_index[sys_enum])));
+            }
+            instrlist_append
+                (&ilist, INSTR_CREATE_lea
+                 (dcontext, opnd_create_reg(REG_XDX),
+                  opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0x4, OPSZ_lea)));
+            after_hook_target = after_mov_immed;
+            /* skip chrome hook to skip syscall: target "add esp,0x4" */
+#           define CHROME_HOOK_DISTANCE_JMP_TO_SKIP 6
+            ret_pc = pc + CHROME_HOOK_DISTANCE_JMP_TO_SKIP;
+            DODEBUG({
+                instr = instr_create(dcontext);
+                decode(dcontext, ret_pc, instr);
+                ASSERT(instr_get_opcode(instr) == OP_add);
+                instr_destroy(dcontext, instr);
+            });
+        } else {
+            ASSERT(instr_get_opcode(instr) == OP_lea);
+            instrlist_append(&ilist, instr);
+
+            /* fourth instr is a call*, what we consider the system call instr */
+            after_hook_target = pc;
+            instr = instr_create(dcontext);
+            ret_pc = decode(dcontext, pc, instr); /* skip call* to skip syscall */
+            ASSERT(instr_get_opcode(instr) == OP_call_ind);
+            instr_destroy(dcontext, instr);
+        }
     } else if (opcode == OP_mov_imm) {
         ptr_int_t immed = opnd_get_immed_int(instr_get_src(instr, 0));
         ASSERT(PAGE_START(immed) == (ptr_uint_t) VSYSCALL_PAGE_START_BOOTSTRAP_VALUE);
