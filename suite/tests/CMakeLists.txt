@@ -707,9 +707,10 @@ endfunction(tochcon)
 
 function(mark_execstack target)
   if (UNIX)
+    # Use -Wl escaping because CMake invokes the compiler to link.
     get_target_property(existing_flags ${target} LINK_FLAGS)
     set_target_properties(${target} PROPERTIES LINK_FLAGS
-      "-z execstack ${existing_flags}")
+      "-Wl,-z,execstack ${existing_flags}")
   endif (UNIX)
 endfunction(mark_execstack)
 

@@ -128,6 +128,7 @@ int __attribute__((constructor))
 so_init(void)
 {
     run_tests();
+    return 0;
 }
 #endif
 
@@ -151,7 +152,9 @@ DECL_EXTERN(level2)
         DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 # if defined(LINUX) && defined(X64)
+        push     REG_XBP  /* Needed only to maintain 16-byte alignment. */
         call     PTRSZ SYMREF(level2_ptr)
+        pop      REG_XBP
         ret
 # else
         jmp      level2

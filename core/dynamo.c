@@ -1074,7 +1074,7 @@ dynamorio_app_exit(void)
  * does not resume the threads but does release the thread_initexit_lock.
  */
 static void
-synch_with_threads_at_exit(thread_synch_result_t synch_res)
+synch_with_threads_at_exit(thread_synch_state_t synch_res)
 {
     int num_threads;
     thread_record_t **threads;

@@ -52,7 +52,7 @@ char *get_systemroot(char** env)
     return "C:\\WINDOWS";
 }
 #else
-# define EXPORT
+# define EXPORT __attribute__((visibility("default")))
 #endif
 
 EXPORT

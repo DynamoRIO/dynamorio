@@ -33,22 +33,22 @@
 #include <stdio.h>
 
 #ifdef WINDOWS
-# define NOP __nop()
+# define NOP_NOP_CALL(tgt) __nop(); __nop(); tgt()
 #else /* LINUX */
-# define NOP asm("nop")
+# define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
 #endif
 
-static void foo(void)
+void foo(void)
 {
     fprintf(stderr, "called foo()\n");
 }
 
-static void bar(void)
+void bar(void)
 {
     fprintf(stderr, "called bar()\n");
 }
 
-int main()
+int main(void)
 {
     /* Kind of a hack, but seems to work: Use a nop to mark a call
      * instruction whose target address we can steal, and another nop
@@ -56,9 +56,7 @@ int main()
      * row followed by a direct call (on Linux some libc code has 
      * nop; call direct; already).
      */
-    NOP; NOP;
-    foo();
-    NOP; NOP;
-    bar();
+    NOP_NOP_CALL(foo);
+    NOP_NOP_CALL(bar);
     return 0;
 }

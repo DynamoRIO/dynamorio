@@ -434,6 +434,10 @@ if (UNIX)
   endif (NOT CMAKE_CPP)
   mark_as_advanced(CMAKE_CPP)
 
+  # Detect clang, which masquerades as gcc.  CMake 2.6 doesn't know how to
+  # detect it.
+  string(REGEX MATCH "clang" CMAKE_COMPILER_IS_CLANG "${CMAKE_C_COMPILER}")
+
 else (UNIX)
 
   if (NOT ${COMPILER_BASE_NAME} STREQUAL "cl")

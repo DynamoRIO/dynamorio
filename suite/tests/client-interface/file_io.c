@@ -31,6 +31,10 @@
  * DAMAGE.
  */
 
+#ifdef LINUX
+# include <unistd.h>
+#endif
+
 int main()
 {
 #ifdef LINUX

@@ -1583,8 +1583,11 @@ set_our_handler_sigact(kernel_sigaction_t *act, int sig)
     kernel_sigdelset(&act->mask, SIGSEGV);
     if (sig == SUSPEND_SIGNAL || sig == SIGSEGV)
         act->flags |= SA_NODEFER;
+    /* Sigset is a 1 or 2 elt array of longs on X64/X86.  Treat as 2 elt of
+     * uint32. */
+    IF_DEBUG(uint32 *mask_sig = (uint32*)&act->mask.sig[0]);
     LOG(THREAD_GET, LOG_ASYNCH, 3,
-        "mask for our handler is "PFX" "PFX"\n", act->mask.sig[0], act->mask.sig[1]);
+        "mask for our handler is "PFX" "PFX"\n", mask_sig[0], mask_sig[1]);
 }
 
 /* Set up master_signal_handler as the handler for signal "sig",
