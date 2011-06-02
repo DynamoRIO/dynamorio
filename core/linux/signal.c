@@ -4960,7 +4960,7 @@ set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,
         CLIENT_ASSERT(false, "invalid itimer type");
         return false;
     }
-    if (func == NULL && func_api == NULL) {
+    if (func == NULL && func_api == NULL && millisec != 0) {
         CLIENT_ASSERT(false, "invalid function");
         return false;
     }
@@ -5004,6 +5004,11 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
     int which = 0;
     bool invoke_cb = false, pass_to_app = false, reset_timer_manually = false;
     bool acquired_lock = false;
+
+    /* i#471: suppress alarms coming in after exit */
+    if (dynamo_exited)
+        return pass_to_app;
+
     if (sig == SIGALRM)
         which = ITIMER_REAL;
     else if (sig == SIGVTALRM)
