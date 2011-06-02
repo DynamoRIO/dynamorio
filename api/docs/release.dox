@@ -135,7 +135,10 @@ pointers.
 This script may not catch all cases.  Use your version control system to
 look at the diff after applying it to ensure it did not change anything it
 shouldn't have.  Run with debug build to catch other instances where
-dr_mcontext_t.size is not set.
+dr_mcontext_t.size is not set.  Also note that using the dr_mcontext_t
+initialization syntax in the script will end up calling memset; for
+performance-critical situations, instead initialize only the size field
+separately.
 
 The changes between version \DR_VERSION and 2.2.0 are:
 
