@@ -587,6 +587,11 @@ if (UNIX)
   endif (X64)
   # there's no cmake warning control so we hardcode it
   set(WARN "-Wall -Werror")
+  if (NOT CMAKE_COMPILER_IS_CLANG)
+    # Old gcc's ignore unknown -W flags, but -Wall -Werror causes clang to
+    # complain that it doesn't recognize it.
+    set(WARN "${WARN} -Wno-unused-but-set-variable")
+  endif ()
   set(DBG "-g3")
   # gcc doesn't change its optimizations based on -g
   set(OPT "-O3 ${DBG}")

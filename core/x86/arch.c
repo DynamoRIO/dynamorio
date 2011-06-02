@@ -464,7 +464,8 @@ arch_init()
 {
     ASSERT(sizeof(opnd_t) == EXPECTED_SIZEOF_OPND);
     /* ensure our flag sharing is done properly */
-    ASSERT(LINK_FINAL_INSTR_SHARED_FLAG < INSTR_FIRST_NON_LINK_SHARED_FLAG);
+    ASSERT((uint)LINK_FINAL_INSTR_SHARED_FLAG <
+           (uint)INSTR_FIRST_NON_LINK_SHARED_FLAG);
     ASSERT_TRUNCATE(byte, byte, OPSZ_LAST_ENUM);
     DODEBUG({ reg_check_reg_fixer(); });
 

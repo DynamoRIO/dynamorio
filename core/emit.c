@@ -127,7 +127,7 @@ stress_test_recreate(dcontext_t *dcontext, fragment_t *f,
     LOG(THREAD, LOG_MONITOR, 2, "Testing recreating Fragment #%d recreated_pc="PFX"\n",
         GLOBAL_STAT(num_fragments), recreated_pc);
 
-    ASSERT(recreate_app_pc != NULL);
+    ASSERT(recreated_pc != NULL);
 
     if (INTERNAL_OPTION(stress_recreate_state) && ilist != NULL)
         stress_test_recreate_state(dcontext, f, ilist);

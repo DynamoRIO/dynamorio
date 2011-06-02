@@ -121,8 +121,10 @@ enum {
 #define THREAD_SYNCH_IS_TERMINATED(desired_synch_state) (              \
      desired_synch_state == THREAD_SYNCH_TERMINATED_AND_CLEANED        \
      )
+/* desired_perm can be a thread_synch_state_t.  The enums are designed to be
+ * comparable. */
 #define THREAD_SYNCH_SAFE(synch_perm, desired_perm) (                  \
-     synch_perm >= desired_perm                                        \
+     synch_perm >= (thread_synch_permission_t)desired_perm             \
      )
 
 void

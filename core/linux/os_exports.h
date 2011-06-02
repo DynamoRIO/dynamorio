@@ -131,9 +131,16 @@ int our_unsetenv(const char *name);
      asm(".section "name", \"a"wx"\", @progbits"); \
      asm(".align 0x1000");
 
+/* XXX i#465: It's unclear what section we should switch to after our section
+ * declarations.  gcc 4.3 seems to switch back to text at the start of every
+ * function, while gcc >= 4.6 seems to emit all code together without extra
+ * section switches.  Since earlier versions of gcc do their own switching and
+ * the latest versions expect .text, we choose to switch to the text section.
+ */
 #define END_DATA_SECTION_DECLARATIONS() \
      asm(".section .data"); \
-     asm(".align 0x1000");
+     asm(".align 0x1000"); \
+     asm(".text");
 
 /* the VAR_IN_SECTION macro change where each var goes */
 #define START_DATA_SECTION(name, wx) /* nothing */

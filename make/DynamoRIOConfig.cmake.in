@@ -148,9 +148,12 @@ if (UNIX)
     -print-file-name=libstdc++.a
     -print-file-name=libgcc.a
     -print-file-name=libgcc_eh.a)
+  # CMAKE_CXX_FLAGS is a space-separated string, we need a list so that
+  # execute_process gets the escaping right.
+  string(REPLACE " " ";" cxx_flags "${CMAKE_CXX_FLAGS}")
   foreach (lib ${CXX_LIBS})  
     execute_process(COMMAND
-      ${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} ${lib} 
+      ${CMAKE_CXX_COMPILER} ${cxx_flags} ${lib}
       RESULT_VARIABLE cxx_result
       ERROR_VARIABLE cxx_error
       OUTPUT_VARIABLE string)
