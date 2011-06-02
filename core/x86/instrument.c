@@ -2810,7 +2810,7 @@ dr_get_proc_address_ex(module_handle_t lib, const char *name,
     if (info == NULL || info_len < sizeof(*info))
         return false;
 #ifdef WINDOWS
-    info->address = get_proc_address(lib, name);
+    info->address = get_proc_address_resolve_forward(lib, name);
     info->is_indirect_code = false;
 #else
     info->address = get_proc_address_ex(lib, name, &info->is_indirect_code);
