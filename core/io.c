@@ -211,13 +211,11 @@ double_to_exp_str(double d, int exp, int decimal, char * buf, bool force_dot, bo
 
 /* i#386: separated out to avoid floating-point instrs in our_vsnprintf */
 static char *
-our_vsnprintf_float(va_list ap, const char *c, char prefixbuf[3], char buf[BUF_SIZE],
+our_vsnprintf_float(double val, const char *c, char prefixbuf[3], char buf[BUF_SIZE],
                     int decimal, bool space_flag, bool plus_flag, bool pound_flag)
 {
     char *str;
     bool caps = (*c == 'E') || (*c == 'G');
-    /* pretty sure will always be promoted to a double in arg list */
-    double val = va_arg(ap, double);
     double d = val;
     int exp = 0;
     bool is_g = (*c == 'g' || *c == 'G'); 
@@ -508,7 +506,9 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
             case 'E':
             case 'f':
                 {
-                    str = our_vsnprintf_float(ap, c, prefixbuf, buf, decimal,
+                    /* pretty sure will always be promoted to a double in arg list */
+                    double val = va_arg(ap, double);
+                    str = our_vsnprintf_float(val, c, prefixbuf, buf, decimal,
                                               space_flag, plus_flag, pound_flag);
                     break;
                 }
