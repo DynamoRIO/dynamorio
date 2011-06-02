@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -129,12 +130,14 @@ hashtable_init(hashtable_t *table, uint num_bits, hash_type_t hashtype, bool str
  * @param[in]  free_payload_func   A callback for freeing each payload.
  *   Leave it NULL if no callback is needed.
  * @param[in]  hash_key_func       A callback for hashing a key.
- *   Leave it NULL if no callback is needed.
+ *   Leave it NULL if no callback is needed and the default is to be used.
+ *   For HASH_CUSTOM, a callback must be provided.
  *   The hash operation can return a full uint, as its result will be
  *   truncated via a mod of the hash key bit size.  This allows for resizing
  *   the table without changing the hash operation.
  * @param[in]  cmp_key_func        A callback for comparing two keys.
- *   Leave it NULL if no callback is needed.
+ *   Leave it NULL if no callback is needed and the default is to be used.
+ *   For HASH_CUSTOM, a callback must be provided.
  */
 void
 hashtable_init_ex(hashtable_t *table, uint num_bits, hash_type_t hashtype,

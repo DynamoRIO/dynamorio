@@ -155,7 +155,9 @@ static uint
 hash_key(hashtable_t *table, void *key)
 {
     uint hash = 0;
-    if (table->hashtype == HASH_STRING || table->hashtype == HASH_STRING_NOCASE) {
+    if (table->hash_key_func != NULL) {
+        hash = table->hash_key_func(key);
+    } else if (table->hashtype == HASH_STRING || table->hashtype == HASH_STRING_NOCASE) {
         const char *s = (const char *) key;
         char c;
         for (c = *s; c != '\0'; c = *(s++)) {
@@ -163,29 +165,30 @@ hash_key(hashtable_t *table, void *key)
                 c = (char) tolower(c);
             hash ^= (c << (((s - (const char *)key) %4) * 8));
         }
-    } else if (table->hashtype == HASH_INTPTR) {
+    } else {
+        /* HASH_INTPTR, or fallback for HASH_CUSTOM in release build */
+        ASSERT(table->hashtype == HASH_INTPTR,
+               "hashtable.c hash_key internal error: invalid hash type");
         hash = (uint)(ptr_uint_t) key;
-    } else if (table->hashtype == HASH_CUSTOM) {
-        hash = table->hash_key_func(key);
-    } else
-        ASSERT(false, "hashtable.c hash_key internal error: invalid hash type");
+    }
     return HASH_FUNC_BITS(hash, table->table_bits);
 }
 
 static bool
 keys_equal(hashtable_t *table, void *key1, void *key2)
 {
-    if (table->hashtype == HASH_STRING)
+    if (table->cmp_key_func != NULL)
+        return table->cmp_key_func(key1, key2);
+    else if (table->hashtype == HASH_STRING)
         return strcmp((const char *) key1, (const char *) key2) == 0;
     else if (table->hashtype == HASH_STRING_NOCASE)
         return stri_eq((const char *) key1, (const char *) key2);
-    else if (table->hashtype == HASH_INTPTR)
+    else {
+        /* HASH_INTPTR, or fallback for HASH_CUSTOM in release build */
+        ASSERT(table->hashtype == HASH_INTPTR,
+               "hashtable.c keys_equal internal error: invalid hash type");
         return key1 == key2;
-    else if (table->hashtype == HASH_CUSTOM)
-        return table->cmp_key_func(key1, key2);
-    else
-        ASSERT(false, "hashtable.c keys_equal internal error: invalid hash type");
-    return false;
+    }
 }
 
 void
