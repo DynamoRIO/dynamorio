@@ -159,20 +159,21 @@ typedef struct _os_module_data_t {
     module_segment_t *segments;
 } os_module_data_t;
 
+typedef void (*fp_t)(int argc, char **argv, char **env);
 /* data structure for loading and relocating private client,
  * most from PT_DYNAMIC segment 
  */
-typedef struct _privload_data_t {
+typedef struct _os_privmod_data_t {
     os_module_data_t os_data;
     ELF_DYNAMIC_ENTRY_TYPE *dyn;
     ptr_int_t      load_delta;  /* delta from preferred base */
-    const char    *soname;
+    char          *soname;
     ELF_ADDR       pltgot;
     size_t         pltrelsz;
     ELF_WORD       pltrel;
     bool           textrel;
     app_pc         jmprel;
-    ELF_REL_TYPE * rel;
+    ELF_REL_TYPE  *rel;
     size_t         relsz;
     size_t         relent;
     ELF_RELA_TYPE *rela;
@@ -183,25 +184,21 @@ typedef struct _privload_data_t {
     int            relcount;
     ELF_HALF      *versym;
     /* initialization/finalization function */
-    app_pc         init;
-    app_pc         fini;
-    app_pc        *init_array;
-    app_pc        *fini_array;
+    fp_t           init;
+    fp_t           fini;
+    fp_t          *init_array;  /* an array of init func ptrs */
+    fp_t          *fini_array;  /* an array of fini func ptrs */
     size_t         init_arraysz;
     size_t         fini_arraysz;
     /* tls info */
-    uint           tls_block_size;
-    uint           tls_align;
-    uint           tls_modid;
-    uint           tls_offset;
-    uint           tls_image_size;
-    uint           tls_first_byte;
-    app_pc         tls_image;
-} privload_data_t;
-
-void
-module_get_privload_data(app_pc base, size_t size,
-                         OUT privload_data_t *pd);
+    uint           tls_block_size; /* tls variables size in memory */
+    uint           tls_align;      /* alignment for tls variables  */
+    uint           tls_modid;      /* module id for get tls addr lookup */
+    uint           tls_offset;     /* offset in the TLS segment */
+    uint           tls_image_size; /* tls variables size in the file */
+    uint           tls_first_byte; /* aligned addr of the first tls variable */
+    app_pc         tls_image;      /* tls block address in memory */
+} os_privmod_data_t;
 
 ELF_ADDR 
 module_get_section_with_name(app_pc image, size_t img_size,
@@ -209,13 +206,13 @@ module_get_section_with_name(app_pc image, size_t img_size,
 
 void
 module_relocate_rel(app_pc modbase,
-                    privload_data_t *pd,
+                    os_privmod_data_t *pd,
                     ELF_REL_TYPE *start,
                     ELF_REL_TYPE *end);
                          
 void
 module_relocate_rela(app_pc modbase,
-                     privload_data_t *pd,
+                     os_privmod_data_t *pd,
                      ELF_RELA_TYPE *start,
                      ELF_RELA_TYPE *end);
 
@@ -243,5 +240,37 @@ redirect_free(void *ptr);
 
 void *
 redirect_realloc(void *ptr, size_t size);
+
+uint 
+module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr);
+
+void
+module_get_os_privmod_data(app_pc base, size_t size,
+                           OUT os_privmod_data_t *pd);
+
+ELF_ADDR 
+module_get_text_section(app_pc file_map, size_t file_size);
+
+app_pc
+get_proc_address_from_os_data(os_module_data_t *os_data,
+                              ptr_int_t delta,
+                              const char *name,
+                              bool *is_indirect_code OUT);
+
+app_pc
+get_private_library_address(app_pc modbase, const char *name);
+
+bool
+get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end);
+
+
+shlib_routine_ptr_t get_lib_routine(app_pc base, size_t size, char *name);
+
+extern struct _IO_FILE  **privmod_stdout;
+extern struct _IO_FILE  **privmod_stderr;
+extern struct _IO_FILE  **privmod_stdin;
+
+/* loader.c */
+bool  privload_redirect_sym(ELF_ADDR *r_addr, const char *name);
 
 #endif /* MODULE_H */

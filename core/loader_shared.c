@@ -35,18 +35,11 @@
  *
  * original case: i#157
  */
-/* XXX: Very interesting thing, 
- * the compiler reports error of translation unit is empty
- * when using #ifdef WINDOWS
- */
 
 #include "globals.h"
 #include "module_shared.h"
 
 #include <string.h>
-
-#ifdef WINDOWS
-/* around the entire file, to be removed later when Linux loader is added */
 
 /* ok to be in .data w/ no sentinel head node b/c never empties out
  * .ntdll always there for Windows, so no need to unprot.
@@ -104,17 +97,15 @@ loader_init(void)
     uint i;
     privmod_t *mod;
 
-    /* os specific loader initialization prologue before finalize the load, 
-     * will also acquire privload_lock.
-     */
-    os_loader_init_prologue();
-
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    acquire_recursive_lock(&privload_lock);
     VMVECTOR_ALLOC_VECTOR(modlist_areas, GLOBAL_DCONTEXT,
                           VECTOR_SHARED | VECTOR_NEVER_MERGE
                           /* protected by privload_lock */
                           | VECTOR_NO_LOCK,
                           modlist_areas);
+    /* os specific loader initialization prologue before finalize the load */
+    os_loader_init_prologue();
+
     /* Process client libs we loaded early but did not finalize */
     for (i = 0; i < privmod_static_idx; i++) {
         /* Transfer to real list so we can do normal processing */
@@ -134,14 +125,13 @@ loader_init(void)
 #endif
         }
     }
-    /* os specific loader initialization epilogue after finalize the load, 
-     * will release privload_lock.
-     */
+    /* os specific loader initialization epilogue after finalize the load */
     os_loader_init_epilogue();
     /* FIXME i#338: call loader_thread_init here once get
      * loader_init called after dynamo_thread_init but in a way that
      * works with Windows
      */
+    release_recursive_lock(&privload_lock);
 }
 
 void
@@ -167,11 +157,13 @@ loader_thread_init(dcontext_t *dcontext)
     privmod_t *mod;
 
     if (modlist == NULL) {
+#ifdef WINDOWS 
         /* FIXME i#338: once restore order this will become nop */
         /* os specific thread initilization prologue for loader with no lock */
         os_loader_thread_init_prologue(dcontext);
         /* os specific thread initilization epilogue for loader with no lock */
         os_loader_thread_init_epilogue(dcontext);
+#endif /* WINDOWS */
     } else {
         /* os specific thread initilization prologue for loader with no lock */
         os_loader_thread_init_prologue(dcontext);
@@ -403,7 +395,7 @@ privload_load(const char *filename, privmod_t *dependent)
      * don't need strdup
      */
     /* Add after its dependent to preserve forward-can-unload order */
-    privmod = privload_insert(dependent, map, size, get_shared_lib_name(map, size),
+    privmod = privload_insert(dependent, map, size, get_shared_lib_name(map),
                               filename);
 
     /* If no heap yet, we'll call finalize later in loader_init() */
@@ -537,4 +529,17 @@ privload_modlist_initialized(void)
 {
     return dynamo_heap_initialized;
 }
-#endif /* WINDOWS */
+
+privmod_t *
+privload_next_module(privmod_t *mod)
+{
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    return mod->next;
+}
+
+privmod_t *
+privload_first_module(void)
+{
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    return modlist;
+}

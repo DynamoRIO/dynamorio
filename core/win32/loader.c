@@ -409,7 +409,7 @@ os_loader_init_prologue(void)
     fls_cb_list->cb = NULL;
     fls_cb_list->next = NULL;
 
-    acquire_recursive_lock(&privload_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     privload_init_search_paths();
     /* We count on having at least one node that's never removed so we
      * don't have to unprot .data and write to modlist later
@@ -451,7 +451,6 @@ os_loader_init_epilogue(void)
         swap_peb_pointer(NULL, false/*to app*/);
     }
 #endif
-    release_recursive_lock(&privload_lock);
 }
 
 void

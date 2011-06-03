@@ -307,6 +307,7 @@ shared_library_bounds(IN shlib_handle_t lib, IN byte *addr,
                       IN const char *name,
                       OUT byte **start, OUT byte **end);
 #endif
+char *get_dynamorio_library_path(void);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */
@@ -935,7 +936,6 @@ byte *alloc_landing_pad(app_pc addr_to_hook);
 void landing_pads_to_executable_areas(bool add);
 
 /* in loader_shared.c */
-#ifdef WINDOWS
 app_pc load_private_library(const char *filename);
 bool unload_private_library(app_pc modbase);
 void loader_init(void);
@@ -943,6 +943,5 @@ void loader_exit(void);
 void loader_thread_init(dcontext_t *dcontext);
 void loader_thread_exit(dcontext_t *dcontext);
 bool in_private_library(app_pc pc);
-#endif /* WINDOWS */
 
 #endif /* OS_SHARED_H */

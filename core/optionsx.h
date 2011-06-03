@@ -327,9 +327,15 @@
      * regular loader list
      */
     /* i#157: Linux private loader is not stable enough yet, so disabled by default. */
-    OPTION_DEFAULT_INTERNAL(bool, private_loader, IF_WINDOWS_ELSE(true, false),
+    OPTION_DEFAULT_INTERNAL(bool, private_loader, true,
                             "use private loader for clients and dependents")
-
+# ifdef LINUX
+    /* We cannot know the total tls size when allocating tls in os_tls_init,
+     * so use the runtime option to control the tls size.
+     */
+    OPTION_DEFAULT_INTERNAL(uint, client_lib_tls_size, 1,
+                            "number of pages used for client libraries' TLS memory")
+# endif
 # ifdef WINDOWS
     /* Heap isolation for private dll copies.  Valid only with -private_loader. */
     OPTION_DEFAULT_INTERNAL(bool, privlib_privheap, true,
@@ -474,16 +480,10 @@
     OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, 2,
                             "optimization level on optimizing clean call sequences")
     /* i#107: To handle app using same segment register that DR uses, we should
-     * mangle the app's segment usage. We disable it by default now. 
-     * Will enable it later when the code is more robust.
+     * mangle the app's segment usage. 
      * It cannot be used with DGC_DIAGNOSTICS.
      */
-    /* FIXME: the off-by-default makes the mem addr API not work.
-     * Since the API is not in any release package but only in the 
-     * source code repository, it should be ok now. 
-     * However, we must turn the default value true before the next release.
-     */
-    OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg, false,
+    OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg, IF_WINDOWS_ELSE(false, true),
                             "mangle application's segment usage.")
 
 #ifdef WINDOWS_PC_SAMPLE

@@ -918,6 +918,11 @@ function(torun test key exe source native dr_ops exe_ops)
 
   set(ALREADY_REGEX OFF)
 
+  # disable private loader for test common.protect-dstack
+  if (${test} STREQUAL "code_api|common.protect-dstack")
+    set(dr_ops "-no_mangle_app_seg -no_private_loader ${dr_ops} ")
+  endif ()
+
   rundr_cmd(rundr runops ${native} "${dr_ops}" ${is_runall})
   get_target_property(exepath ${exe} LOCATION${location_suffix})
   # support running binaries that are not targets of this build

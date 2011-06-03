@@ -66,10 +66,12 @@
 # define SEG_TLS SEG_GS
 # define ASM_SEG "%gs"
 # define LIB_SEG_TLS SEG_FS /* libc+loader tls */
+# define LIB_ASM_SEG "%fs"
 #else
 # define SEG_TLS SEG_FS
 # define ASM_SEG "%fs"
 # define LIB_SEG_TLS SEG_GS /* libc+loader tls */
+# define LIB_ASM_SEG "%gs"
 #endif
 
 void *get_tls(ushort tls_offs);
@@ -84,7 +86,13 @@ thread_id_t get_tls_thread_id(void);
 thread_id_t get_sys_thread_id(void);
 bool is_thread_terminated(dcontext_t *dcontext);
 void os_tls_pre_init(int gdt_index);
+/* XXX: reg_id_t is not defined here, use unsigned char instead */
 ushort os_get_app_seg_base_offset(unsigned char seg);
+ushort os_get_app_seg_offset(unsigned char seg);
+void *os_get_dr_seg_base(dcontext_t *dcontext, unsigned char seg);
+void *os_get_app_seg_base(dcontext_t *dcontext, unsigned char seg);
+bool  os_set_tls_seg_base(unsigned char seg, app_pc base);
+bool os_file_has_elf_so_header(const char *filename);
 
 /* We do NOT want our libc routines wrapped by pthreads, so we use
  * our own syscall wrappers.
@@ -264,5 +272,10 @@ void pcprofile_thread_exit(dcontext_t *dcontext);
 void stackdump(void);
 /* use backtrace feature of glibc for quick but sometimes incomplete trace */
 void glibc_stackdump(int fd);
+
+/* loader.c */
+void *privload_tls_init(void *app_tp);
+void  privload_tls_exit(void *dr_tp);
+void  privload_switch_lib_tls(dcontext_t *dcontext, bool to_app);
 
 #endif /* _OS_EXPORTS_H_ */

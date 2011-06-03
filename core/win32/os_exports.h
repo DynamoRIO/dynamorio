@@ -207,8 +207,6 @@ size_t get_allocation_size(byte *pc, byte **base_pc);
 byte *get_allocation_base(byte *pc);
 void mark_page_as_guard(byte *pc);
 
-char *get_dynamorio_library_path(void);
-
 void merge_writecopy_pages(app_pc start, app_pc end);
 
 bool is_pid_me(process_id_t pid);

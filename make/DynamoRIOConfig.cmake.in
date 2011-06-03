@@ -141,32 +141,6 @@ if (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
   set(DynamoRIO_INCLUDE_DIRS "${cwd}/../include")
 endif (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
 
-if (UNIX)
-  # Wrapping for C++ clients
-  # We export the flags as a variable in case client wants to use in custom way
-  set(CXX_LIBS
-    -print-file-name=libstdc++.a
-    -print-file-name=libgcc.a
-    -print-file-name=libgcc_eh.a)
-  # CMAKE_CXX_FLAGS is a space-separated string, we need a list so that
-  # execute_process gets the escaping right.
-  string(REPLACE " " ";" cxx_flags "${CMAKE_CXX_FLAGS}")
-  foreach (lib ${CXX_LIBS})  
-    execute_process(COMMAND
-      ${CMAKE_CXX_COMPILER} ${cxx_flags} ${lib}
-      RESULT_VARIABLE cxx_result
-      ERROR_VARIABLE cxx_error
-      OUTPUT_VARIABLE string)
-    if (cxx_result OR cxx_error)
-      message(FATAL_ERROR "*** ${CMAKE_CXX_COMPILER} failed: ***\n${cxx_error}")
-    endif (cxx_result OR cxx_error)
-    string(REGEX REPLACE "[\r\n]" "" string "${string}")
-    set(DynamoRIO_CXX_LINK_FLAGS "${DynamoRIO_CXX_LINK_FLAGS} ${string}")
-  endforeach (lib)
-  set(DynamoRIO_CXX_LINK_FLAGS
-    "${DynamoRIO_CXX_LINK_FLAGS} -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free")
-endif (UNIX)
-
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
 
 ###########################################################################
@@ -354,12 +328,14 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
         set(tgt_cflags "${tgt_cflags} -DUSE_VISIBILITY_ATTRIBUTES")
       endif (DynamoRIO_VISATT)
       if (tgt_cxx)
-        set(tgt_link_flags "${tgt_link_flags} ${DynamoRIO_CXX_LINK_FLAGS}")
+        set(tgt_link_flags "${tgt_link_flags}")
       endif (tgt_cxx)
 
       # avoid SElinux text relocation security violations by explicitly requesting PIC
+      # i#157, when enable private loader, symbols from default libraries and startfiles
+      # are required, so -nostartfiles and -nodefaultlibs should be removed
       set(tgt_link_flags 
-        "${tgt_link_flags} -fPIC -shared -nostartfiles -nodefaultlibs -lgcc")
+        "${tgt_link_flags} -fPIC -shared -lgcc")
 
       # i#163: avoid stack-check feature that relies on separate library
       execute_process(COMMAND

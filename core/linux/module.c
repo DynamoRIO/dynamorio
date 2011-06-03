@@ -42,23 +42,6 @@ typedef union _elf_generic_header_t {
     Elf32_Ehdr elf32;
 } elf_generic_header_t;
 
-typedef struct _redirect_import_t {
-    const char *name;
-    app_pc func;
-} redirect_import_t;
-
-static const redirect_import_t redirect_imports[] = {
-    {"calloc",  (app_pc)redirect_calloc},
-    {"malloc",  (app_pc)redirect_malloc},
-    {"free",    (app_pc)redirect_free},
-    {"realloc", (app_pc)redirect_realloc},
-    /* FIXME: we should also redirect functions including:
-     * malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
-     * Any other functions need to be redirected?
-     */
-};
-#define REDIRECT_IMPORTS_NUM (sizeof(redirect_imports)/sizeof(redirect_imports[0]))
-
 /* In case want to build w/o gnu headers and use that to run recent gnu elf */
 #ifndef DT_GNU_HASH
 # define DT_GNU_HASH 0x6ffffef5
@@ -67,6 +50,10 @@ static const redirect_import_t redirect_imports[] = {
 #ifndef STT_GNU_IFUNC
 # define STT_GNU_IFUNC STT_LOOS
 #endif
+
+/* forward declarison */
+static void
+module_hashtab_init(os_module_data_t *os_data);
 
 /* Question : how is the size of the initial map determined?  There seems to be no better
  * way than to walk the program headers and find the largest virtual offset.  You'd think
@@ -126,6 +113,16 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
          * file (e.g., .o file) we don't want to treat as a module
          */
         (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)) {
+#ifdef CLIENT_INTERFACE
+        /* i#157, we do more check to make sure we load the right modules,
+         * i.e. 32/64-bit libraries. 
+         */
+        if (INTERNAL_OPTION(private_loader) &&
+            ((elf_header.e_version != 1) || 
+             (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
+             (memory && elf_header.e_machine != IF_X64_ELSE(EM_X86_64, EM_386))))
+            return false;
+#endif
         /* FIXME - should we add any of these to the check? For real 
          * modules all of these should hold. */
         ASSERT_CURIOSITY(elf_header.e_version == 1);
@@ -199,7 +196,7 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size,
     return tgt;
 }
 
-static uint
+uint
 module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
 {
     uint segment_prot = 0;
@@ -360,6 +357,10 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                 ASSERT_NOT_REACHED();
             }
         }
+        /* we put module_hashtab_init here since it should always be called
+         * together with module_fill_os_data and it updates os_data.
+         */
+        module_hashtab_init(out_data);
     } , { /* EXCEPT */
         ASSERT_CURIOSITY(false && "crashed while walking dynamic header");
         *soname = NULL;
@@ -592,7 +593,6 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
         "%s: hashtab="PFX", dynsym="PFX", dynstr="PFX", strsz="SZFMT", symsz="SZFMT"\n",
         __func__, ma->os_data.hashtab, ma->os_data.dynsym, ma->os_data.dynstr,
         ma->os_data.dynstr_size, ma->os_data.symentry_size); 
-    module_hashtab_init(&ma->os_data);
 
     /* expect to map whole module */
     /* XREF 307599 on rounding module end to the next PAGE boundary */
@@ -850,7 +850,7 @@ elf_hash_lookup(const char   *name,
 }
 
 /* get the address by using the hashtable information in os_module_data_t */
-static app_pc
+app_pc
 get_proc_address_from_os_data(os_module_data_t *os_data,
                               ptr_int_t load_delta,
                               const char *name,
@@ -1196,11 +1196,11 @@ module_has_text_relocs(app_pc base, bool at_map)
     return false;
 }
 
-/* check if module has text relocations by checking privload_data's 
+/* check if module has text relocations by checking os_privmod_data's 
  * textrel field.
  */
 bool
-module_has_text_relocs_ex(app_pc base, privload_data_t *pd)
+module_has_text_relocs_ex(app_pc base, os_privmod_data_t *pd)
 {
     ASSERT(pd != NULL);
     return pd->textrel;
@@ -1262,7 +1262,6 @@ module_read_os_data(app_pc base,
             module_fill_os_data(prog_hdr, v_base, v_end,
                                 base, 0, false, *load_delta,
                                 soname, os_data);
-            module_hashtab_init(os_data);
             return true;
         }
     }
@@ -1284,8 +1283,8 @@ get_shared_lib_name(app_pc map)
  * We assume the segments are mapped into memory, not mapped file.
  */
 void
-module_get_privload_data(app_pc base, size_t size, 
-                         OUT privload_data_t *pd)
+module_get_os_privmod_data(app_pc base, size_t size, 
+                           OUT os_privmod_data_t *pd)
 {
     app_pc mod_base, mod_end;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
@@ -1313,16 +1312,18 @@ module_get_privload_data(app_pc base, size_t size,
         if (prog_hdr->p_type == PT_DYNAMIC) {
             dyn = (ELF_DYNAMIC_ENTRY_TYPE *)(prog_hdr->p_vaddr + load_delta);
             pd->dyn = dyn;
-            break;
         } else if (prog_hdr->p_type == PT_TLS && prog_hdr->p_memsz > 0) {
             /* TLS (Thread Local Storage) relocation information */
             pd->tls_block_size = prog_hdr->p_memsz;
             pd->tls_align      = prog_hdr->p_align;
             pd->tls_image      = (app_pc)prog_hdr->p_vaddr + load_delta;
             pd->tls_image_size = prog_hdr->p_filesz;
-            pd->tls_modid      = 0;
-            pd->tls_first_byte = 
-                prog_hdr->p_vaddr & (prog_hdr->p_align - 1);
+            if (pd->tls_align == 0)
+                pd->tls_first_byte = 0;
+            else {
+                /* the first tls variable's offset of the alignment. */
+                pd->tls_first_byte = prog_hdr->p_vaddr & (pd->tls_align - 1);
+            }
         }
         ++prog_hdr;
     }
@@ -1387,19 +1388,19 @@ module_get_privload_data(app_pc base, size_t size,
             pd->relcount = dyn->d_un.d_val;
             break;
         case DT_INIT:
-            pd->init = (app_pc)(dyn->d_un.d_ptr + load_delta);
+            pd->init = (fp_t)(dyn->d_un.d_ptr + load_delta);
             break;
         case DT_FINI:
-            pd->fini = (app_pc)(dyn->d_un.d_ptr + load_delta);
+            pd->fini = (fp_t)(dyn->d_un.d_ptr + load_delta);
             break;
         case DT_INIT_ARRAY:
-            pd->init_array = (app_pc *)(dyn->d_un.d_ptr + load_delta);
+            pd->init_array = (fp_t *)(dyn->d_un.d_ptr + load_delta);
             break;
         case DT_INIT_ARRAYSZ:
             pd->init_arraysz = dyn->d_un.d_val;
             break;
         case DT_FINI_ARRAY:
-            pd->fini_array = (app_pc *)(dyn->d_un.d_ptr + load_delta);
+            pd->fini_array = (fp_t *)(dyn->d_un.d_ptr + load_delta);
             break;
         case DT_FINI_ARRAYSZ:
             pd->fini_arraysz = dyn->d_un.d_val;
@@ -1412,17 +1413,19 @@ module_get_privload_data(app_pc base, size_t size,
 }
 
 static app_pc
-module_lookup_symbol(ELF_SYM_TYPE *sym, privload_data_t *pd)
+module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
 {
     app_pc res;
     const char *name;
+    privmod_t *mod;
+
     /* no name, do not search */
     if (sym->st_name == 0)
         return NULL;
 
     if (pd != NULL) {
         name = (char *)pd->os_data.dynstr + sym->st_name;
-        LOG(GLOBAL, LOG_LOADER, 2, "sym lookup for %s from %s\n", 
+        LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s\n", 
             name, pd->soname);
         /* check my current module */
         res = get_proc_address_from_os_data(&pd->os_data,
@@ -1432,20 +1435,34 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, privload_data_t *pd)
             return res;
     }
 
-    /* FIXME: if we did not find the symbol in my own module,
-     * we should iterate over all modules for the symbol.
-     * To be added later.
+    /* If not find the symbol in current module, iterate over all modules
+     * in the dependency order.
+     * FIXME: i#461 We do not tell weak/global, but return on the first we see.
      */
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    mod = privload_first_module();
+    while (mod != NULL) {
+        pd = mod->os_privmod_data;
+        ASSERT(pd != NULL && name != NULL);
+        LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s\n", 
+            name, pd->soname);
+        res = get_proc_address_from_os_data(&pd->os_data,
+                                            pd->load_delta,
+                                            name, NULL);
+        if (res != NULL)
+            return res;
+        mod = privload_next_module(mod);
+    }
     return NULL;
 }
 
 static void
 module_relocate_symbol(ELF_REL_TYPE *rel,
-                       privload_data_t *pd,
+                       os_privmod_data_t *pd,
                        bool is_rela)
 {
     ELF_ADDR *r_addr;
-    uint r_type, r_sym, i;
+    uint r_type, r_sym;
     ELF_SYM_TYPE *sym;
     app_pc res = NULL;
     reg_t addend;
@@ -1479,13 +1496,11 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
     r_sym = (uint)ELF_R_SYM(rel->r_info);
     sym   = &((ELF_SYM_TYPE *)pd->os_data.dynsym)[r_sym];
     name  = (char *)pd->os_data.dynstr + sym->st_name;
-    /* handle indirects here */
-    for (i = 0; i < REDIRECT_IMPORTS_NUM; i++) {
-        if (strcmp(redirect_imports[i].name, name) == 0) {
-            *r_addr = (ELF_ADDR)redirect_imports[i].func;
-            return;
-        }
-    }
+
+#ifdef CLIENT_INTERFACE
+    if (INTERNAL_OPTION(private_loader) && privload_redirect_sym(r_addr, name))
+        return;
+#endif
     
     resolved = true;
     /* handle syms that do not need symbol lookup */
@@ -1514,13 +1529,11 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
     default:
         resolved = false;
     }
-    if (resolved == true)
+    if (resolved)
         return;
 
     res = module_lookup_symbol(sym, pd);
-    if (res == NULL)
-        return;
-
+    LOG(GLOBAL, LOG_LOADER, 3, "symbol lookup for %s %p\n", name, res);
     switch (r_type) {
     case ELF_R_GLOB_DAT:
     case ELF_R_JUMP_SLOT:
@@ -1550,7 +1563,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
 
 void
 module_relocate_rel(app_pc modbase,
-                    privload_data_t *pd,
+                    os_privmod_data_t *pd,
                     ELF_REL_TYPE *start,
                     ELF_REL_TYPE *end)
 {
@@ -1562,7 +1575,7 @@ module_relocate_rel(app_pc modbase,
 
 void
 module_relocate_rela(app_pc modbase,
-                     privload_data_t *pd,
+                     os_privmod_data_t *pd,
                      ELF_RELA_TYPE *start,
                      ELF_RELA_TYPE *end)
 {
@@ -1570,6 +1583,33 @@ module_relocate_rela(app_pc modbase,
 
     for (rela = start; rela < end; rela++)
         module_relocate_symbol((ELF_REL_TYPE *)rela, pd, true);
+}
+
+/* Get the module text section from the mapped image file, 
+ * Note that it must be the image file, not the loaded module.
+ */
+ELF_ADDR
+module_get_text_section(app_pc file_map, size_t file_size)
+{
+    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *) file_map;
+    ELF_SECTION_HEADER_TYPE *sec_hdr;
+    char *strtab;
+    uint i;
+    ASSERT(is_elf_so_header(file_map, file_size));
+    ASSERT(elf_hdr->e_shoff < file_size);
+    ASSERT(elf_hdr->e_shentsize == sizeof(ELF_SECTION_HEADER_TYPE));
+    ASSERT(elf_hdr->e_shoff + elf_hdr->e_shentsize * elf_hdr->e_shnum
+           <= file_size);
+    sec_hdr = (ELF_SECTION_HEADER_TYPE *)(file_map + elf_hdr->e_shoff);
+    strtab = (char *)(file_map + sec_hdr[elf_hdr->e_shstrndx].sh_offset);
+    for (i = 0; i < elf_hdr->e_shnum; i++) {
+        if (strcmp(".text", strtab + sec_hdr->sh_name) == 0)
+            return sec_hdr->sh_addr;
+        ++sec_hdr;
+    }
+    /* ELF doesn't require that there's a section named ".text". */
+    ASSERT_CURIOSITY(false);
+    return 0;
 }
 
 /* This routine allocates memory from DR's global memory pool.  Unlike

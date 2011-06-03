@@ -41,6 +41,7 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <iostream>
 
 #ifdef LINUX
 /* included as a test of i#34 */
@@ -49,6 +50,21 @@
 
 using namespace std;
 
+#ifdef LINUX
+__thread int tls_var;
+#endif
+
+static void
+event_exit(void)
+{
+#ifdef SHOW_RESULTS
+# ifdef LINUX
+    cout << "value of tls_var on exit: " << tls_var << endl;
+# endif
+    cout << "Exit..." << endl;
+#endif
+}
+
 
 DR_EXPORT void
 dr_init(client_id_t client_id)
@@ -56,11 +72,19 @@ dr_init(client_id_t client_id)
     int i;
     bool success = true;
 
+    cout << "Start..." << endl;
+    dr_register_exit_event(event_exit);
+#ifdef LINUX
+    cout << "input a tls value" << endl;
+    cin >> tls_var;
+    cout << "Set tls var to " << tls_var << endl;
+#endif
+
     //
     // Put values in a vector and read them out
     //
 #ifdef SHOW_RESULTS
-    dr_printf("testing vector...");
+    cout << "testing vector...";
 #endif
 
     vector<int>* v = new vector<int>();
@@ -70,7 +94,7 @@ dr_init(client_id_t client_id)
     
     for (i=0; i<5; i++) {
 #ifdef SHOW_RESULTS
-        dr_printf("%d ", (*v)[i]);
+        cout << (*v)[i];
 #endif
         if ((*v)[i] != i) {
             success = false;
@@ -82,7 +106,7 @@ dr_init(client_id_t client_id)
     // Put values in a list and read them out
     //
 #ifdef SHOW_RESULTS
-    dr_printf("\ntesting list...");
+    cout << "\ntesting list...";
 #endif
 
     list<int> l;
@@ -93,7 +117,7 @@ dr_init(client_id_t client_id)
     i = 0;
     for (list<int>::iterator l_iter = l.begin(); l_iter != l.end(); l_iter++) {
 #ifdef SHOW_RESULTS
-        dr_printf("%d ", *l_iter);
+        cout << *l_iter;
 #endif
         if (*l_iter != i) {
             success = false;
@@ -105,7 +129,7 @@ dr_init(client_id_t client_id)
     // Put values in a map and read them out
     //
 #ifdef SHOW_RESULTS
-    dr_printf("\ntesting map...");
+    cout << "\ntesting map...";
 #endif
 
     map<int,int> m;
@@ -115,7 +139,7 @@ dr_init(client_id_t client_id)
 
     for (i=0; i<5; i++) {
 #ifdef SHOW_RESULTS
-        dr_printf("%d ", m[i]);
+        cout << m[i];
 #endif
         if (m[i] != i) {
             success = false;
@@ -130,14 +154,14 @@ dr_init(client_id_t client_id)
 # ifdef WINDOWS
         dr_messagebox("SUCCESS");
 # else
-        dr_printf("\nSUCCESS\n");
+        cout << "\nSUCCESS\n";
 # endif
     }
     else {
 # ifdef WINDOWS
         dr_messagebox("FAILURE");
 # else
-        dr_printf("\nFAILURE\n");
+        cout << "\nFAILURE\n";
 # endif
     }
 #endif

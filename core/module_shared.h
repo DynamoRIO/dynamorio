@@ -386,7 +386,6 @@ module_digests_equal(const module_digest_t *calculated_digest,
 /* DR's custom loader related data structure and functions,
  * which should be used by loader only.
  */
-#ifdef WINDOWS
 
 /* List of privately-loaded modules.
  * We assume there will only be a handful of privately-loaded modules,
@@ -404,6 +403,9 @@ typedef struct _privmod_t {
     bool externally_loaded;
     struct _privmod_t *next;
     struct _privmod_t *prev;
+#ifdef LINUX
+    os_privmod_data_t *os_privmod_data;
+#endif
 } privmod_t;
 
 
@@ -486,6 +488,12 @@ privload_remove_areas(privmod_t *privmod);
 void
 privload_add_drext_path(void);
 
+privmod_t *
+privload_next_module(privmod_t *mod);
+
+privmod_t *
+privload_first_module(void);
+
 /* os specific loader initialization prologue before finalize the load, 
  * will also acquire privload_lock.
  */
@@ -514,9 +522,7 @@ void
 os_loader_thread_exit(dcontext_t *dcontext);
 
 char *
-get_shared_lib_name(app_pc map, size_t size);
-
-#endif /* WINDOWS */
+get_shared_lib_name(app_pc map);
 
 app_pc
 get_image_entry(void);

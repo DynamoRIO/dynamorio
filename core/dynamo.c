@@ -489,13 +489,11 @@ dynamorio_app_init(void)
         proc_init();
         modules_init(); /* before vm_areas_init() */
         os_init();
-#ifdef WINDOWS
-        /* loader initialization, finalize the private lib load. 
+        /* loader initialization, finalize the private lib load.
          * FIXME i#338: this must be before arch_init() for Windows, but Linux
          * wants it later.
          */
         loader_init();
-#endif
         arch_init();
         synch_init();
 
@@ -939,12 +937,12 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     instrument_exit();
 #endif
 
-#ifdef WINDOWS
     /* we want dcontext around for loader_exit() */
     if (get_thread_private_dcontext() != NULL)
         loader_thread_exit(get_thread_private_dcontext());
     loader_exit();
 
+#ifdef WINDOWS
     if (toexit != NULL) {
         /* free detaching thread's dcontext */
         mutex_lock(&thread_initexit_lock);
@@ -2113,9 +2111,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     fcache_thread_init(dcontext);
     link_thread_init(dcontext);
     fragment_thread_init(dcontext);
-#ifdef WINDOWS
     loader_thread_init(dcontext);
-#endif
 
     if (!DYNAMO_OPTION(thin_client)) {
 #ifdef CLIENT_INTERFACE
@@ -2306,13 +2302,11 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     if (!DYNAMO_OPTION(thin_client))
         instrument_thread_exit(dcontext);
 #endif
-#ifdef WINDOWS
     if (!dynamo_exited ||
         (other_thread &&
-         (!doing_detach ||
+         (IF_WINDOWS_ELSE(!doing_detach, true) ||
           dcontext->owning_thread != get_thread_id()))) /* else already did this */
         loader_thread_exit(dcontext);
-#endif
     fcache_thread_exit(dcontext);
     link_thread_exit(dcontext);
     monitor_thread_exit(dcontext);

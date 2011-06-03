@@ -1839,6 +1839,27 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 #endif
+
+#if defined(LINUX) && defined(CLIENT_INTERFACE)
+    if (INTERNAL_OPTION(private_loader)) {
+        if (!INTERNAL_OPTION(mangle_app_seg)) {
+            USAGE_ERROR("-private_loader requires -mangle_app_seg");
+            dynamo_options.mangle_app_seg = true;
+            changed_options = true;
+        }
+        if (INTERNAL_OPTION(client_lib_tls_size) < 1) {
+            USAGE_ERROR("client_lib_tls_size is too small, set back to default");
+            dynamo_options.client_lib_tls_size = 1;
+            changed_options = true;
+        }
+# define MAX_NUM_LIB_TLS_PAGES 4
+        if (INTERNAL_OPTION(client_lib_tls_size) > MAX_NUM_LIB_TLS_PAGES) {
+            USAGE_ERROR("client_lib_tls_size is too big, set to be maximum");
+            dynamo_options.client_lib_tls_size = MAX_NUM_LIB_TLS_PAGES;
+            changed_options = true;
+        }
+    }
+#endif
     
 #ifndef NOT_DYNAMORIO_CORE
     /* fcache param checks rather involved, leave them in fcache.c */

@@ -433,9 +433,9 @@ enum {
     LOCK_RANK(suspend_lock),
     LOCK_RANK(shared_lock),
 #endif
-#ifdef WINDOWS
     LOCK_RANK(privload_lock), /* < modlist_areas */
     LOCK_RANK(modlist_areas), /* < dynamo_areas < global_alloc_lock */
+#ifdef WINDOWS
     LOCK_RANK(privload_fls_lock), /* < dynamo_areas < global_alloc_lock */
 #endif    
 #ifdef CLIENT_INTERFACE

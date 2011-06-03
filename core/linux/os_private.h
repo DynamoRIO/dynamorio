@@ -95,11 +95,9 @@ typedef struct _os_thread_data_t {
     int processing_signal;
 
     /* i#107: mangle segment register usage conflicts between app and dr. */
-#ifdef X64
     void *dr_fs_base;
     void *dr_gs_base;
-#endif
-    void *app_thread_areas;
+    void *app_thread_areas; /* data structure for app's thread area info */
 } os_thread_data_t;
 
 /* in signal.c */

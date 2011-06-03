@@ -1907,10 +1907,10 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
     /* we only mangle fs/gs */
     if (seg != SEG_GS && seg != SEG_FS)
         return oldop;
-    /* we skip tls seg if not using private loader */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), true)
-        && seg == IF_X64_ELSE(SEG_FS, SEG_GS))
+#ifdef CLIENT_INTERFACE
+    if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
         return oldop;
+#endif
     /* The reg should not be used by the oldop */
     ASSERT(!opnd_uses_reg(oldop, reg));
 
@@ -3308,9 +3308,10 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     dst = instr_get_dst(instr, 0);
     if (opnd_is_reg(dst) && reg_is_segment(opnd_get_reg(dst))) {
         seg = opnd_get_reg(dst);
-        if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true)
-            && seg == IF_X64_ELSE(SEG_FS, SEG_GS))
+#ifdef CLIENT_INTERFACE
+        if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
             return;
+#endif
         /* cannot call instr_reset, will clear prev, next*/
         instr_free(dcontext, instr);
         instr_set_opcode(instr, OP_nop);
@@ -3324,9 +3325,10 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(reg_is_segment(seg));
     if (seg != SEG_FS && seg != SEG_GS)
         return;
-    if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true)
-        && seg == IF_X64_ELSE(SEG_FS, SEG_GS))
+#ifdef CLIENT_INTERFACE
+    if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
         return;
+#endif
 
     /* There are two possible mov_seg instructions:
      * 8C/r           MOV r/m16,Sreg   Move segment register to r/m16
@@ -3339,7 +3341,7 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     dst = instr_get_dst(instr, 0);
     dst_sz = opnd_get_size(dst);
     opnd = opnd_create_sized_tls_slot
-        (os_tls_offset(os_get_app_seg_base_offset(seg)), dst_sz);
+        (os_tls_offset(os_get_app_seg_offset(seg)), dst_sz);
     if (opnd_is_reg(dst)) { /* dst is a register */
         /* mov %gs:off => reg */
         instr_set_src(instr, 0, opnd);
@@ -3420,9 +3422,10 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     seg = opnd_get_segment(segop);
     if (seg != SEG_GS && seg != SEG_FS)
         return;
-    if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true)
-        && seg == IF_X64_ELSE(SEG_FS, SEG_GS))
+#ifdef CLIENT_INTERFACE
+    if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
         return;
+#endif
     STATS_INC(app_seg_refs_mangled);
 
     DOLOG(3, LOG_INTERP, {
@@ -3452,7 +3455,11 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * that has direct TLS slots.
          */
         for (scratch_reg = REG_XAX; scratch_reg <= REG_XBX; scratch_reg++) {
-            if (!instr_reads_from_reg(instr, scratch_reg))
+            /* the register must not be used by the instr, either read or write,
+             * because we will mangle it when executing the instr (no read from),
+             * and restore it after that instr (no write to).
+             */
+            if (!instr_uses_reg(instr, scratch_reg))
                 break;
         }
         ASSERT(scratch_reg <= REG_XBX);

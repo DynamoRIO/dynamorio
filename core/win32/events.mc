@@ -527,4 +527,15 @@ Application %1!s! (%2!s!). Error loading or using vmklib library: %s.
 .
 ;#endif
 
+
+;#ifdef CLIENT_INTERFACE
+MessageId =
+Severity = ERROR
+Facility = DRCore
+SymbolicName = MSG_TOO_MANY_TLS_MODS
+Language=English
+Max number of modules with tls variables exceeded.
+.
+;#endif
+
 ;// ADD NEW MESSAGES HERE
