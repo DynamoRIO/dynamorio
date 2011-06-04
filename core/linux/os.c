@@ -4506,7 +4506,7 @@ os_get_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
 static bool
 os_switch_lib_tls(dcontext_t *dcontext, bool to_app)
 {
-    int res, index;
+    int res;
     app_pc base;
     os_local_state_t *os_tls = get_os_tls();
 
@@ -4527,7 +4527,7 @@ os_switch_lib_tls(dcontext_t *dcontext, bool to_app)
 # endif
     case TLS_TYPE_GDT: {
         our_modify_ldt_t desc;
-        uint index, selector;
+        uint index;
         os_local_state_t *os_tls = get_os_tls();
         index = SELECTOR_INDEX(IF_X64_ELSE(os_tls->app_fs, os_tls->app_gs));
         if (to_app) {
