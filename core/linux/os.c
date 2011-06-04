@@ -4549,6 +4549,7 @@ os_switch_lib_tls(dcontext_t *dcontext, bool to_app)
     default:
         /* not support ldt yet. */
         ASSERT_NOT_IMPLEMENTED(false);
+        return false;
     }
     /* FIXME: We do not support using ldt yet. */
     return (res >= 0);
