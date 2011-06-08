@@ -169,7 +169,7 @@ int os_countdown_messagebox(char *message, int time_in_milliseconds);
 /* raise an exception in the application context */
 void os_raise_exception(dcontext_t *dcontext, 
                         EXCEPTION_RECORD* pexcrec, CONTEXT* pcontext);
-bool exception_frame_chain_depth(dcontext_t *dcontext);
+int exception_frame_chain_depth(dcontext_t *dcontext);
 
 /* PR 263338: we have to pad for alignment */
 #define CONTEXT_HEAP_SIZE(cxt) (sizeof(cxt) IF_X64(+8)/*heap is 8-aligned already*/)

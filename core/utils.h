@@ -1079,8 +1079,8 @@ region_intersection(app_pc *intersection_start /* OUT */,
                     const app_pc region1_start, size_t region1_len,
                     const app_pc region2_start, size_t region2_len);
 
-int check_filter(const char *filter, const char *short_name);
-int check_filter_with_wildcards(const char *filter, const char *short_name);
+bool check_filter(const char *filter, const char *short_name);
+bool check_filter_with_wildcards(const char *filter, const char *short_name);
 
 typedef enum {
     BASE_DIR,   /* Only creates directory specified in env */
