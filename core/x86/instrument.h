@@ -1395,6 +1395,7 @@ bool dr_fragment_deleted_hook_exists(void);
 bool dr_end_trace_hook_exists(void);
 bool dr_thread_exit_hook_exists(void);
 bool dr_exit_hook_exists(void);
+bool dr_xl8_hook_exists(void);
 bool hide_tag_from_client(app_pc tag);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
@@ -3084,6 +3085,8 @@ DR_API
 /**
  * Inserts \p instr as a non-application instruction that can fault (see
  * instr_set_meta_may_fault()) into \p ilist prior to \p where. 
+ *
+ * \deprecated Essentially equivalent to instrlist_meta_preinsert()
  */
 void 
 instrlist_meta_fault_preinsert(instrlist_t *ilist, instr_t *where, instr_t *instr);
@@ -3092,6 +3095,8 @@ DR_API
 /**
  * Inserts \p instr as a non-application instruction that can fault (see
  * instr_set_meta_may_fault()) into \p ilist after \p where. 
+ *
+ * \deprecated Essentially equivalent to instrlist_meta_postinsert()
  */
 void
 instrlist_meta_fault_postinsert(instrlist_t *ilist, instr_t *where, instr_t *instr);
@@ -3100,6 +3105,8 @@ DR_API
 /**
  * Inserts \p instr as a non-application instruction that can fault (see
  * instr_set_meta_may_fault()) onto the end of \p ilist. 
+ *
+ * \deprecated Essentially equivalent to instrlist_meta_append()
  */
 void
 instrlist_meta_fault_append(instrlist_t *ilist, instr_t *instr);

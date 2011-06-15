@@ -1172,6 +1172,13 @@ dr_exit_hook_exists(void)
 }
 
 bool
+dr_xl8_hook_exists(void)
+{
+    return (restore_state_callbacks.num > 0 ||
+            restore_state_ex_callbacks.num > 0);
+}
+
+bool
 hide_tag_from_client(app_pc tag)
 {
 #ifdef WINDOWS
@@ -1232,12 +1239,12 @@ check_ilist_translations(instrlist_t *ilist)
             DOLOG(LOG_INTERP, 1, {
                 if (instr_get_translation(in) != NULL &&
                     !instr_is_our_mangling(in) &&
-                    restore_state_callbacks.num == 0)
+                    !dr_xl8_hook_exists())
                     loginst(get_thread_private_dcontext(), 1, in, "translation != NULL");
             });
             CLIENT_ASSERT(instr_get_translation(in) == NULL ||
                           instr_is_our_mangling(in) ||
-                          restore_state_callbacks.num > 0,
+                          dr_xl8_hook_exists(),
                           /* FIXME: if multiple clients, we need to check that this
                            * particular client has the callback: but we have
                            * no way to do that other than looking at library

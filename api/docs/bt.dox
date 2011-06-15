@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -366,13 +367,13 @@ dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
 \endcode
 
 ********************
-\subsection sec_Meta Meta-Instructions
+\subsection sec_Meta Meta Instructions
 
 \DynamoRIO performs some processing on the basic block after the
 \client has finished with it, primarily modifying branches to ensure
 that \DynamoRIO retains control after execution.  It is important that
 the \client mark any control-flow instructions it does not want treated
-as application instructions as \e meta-instructions. Doing so informs
+as application instructions as \e meta instructions. Doing so informs
 \DynamoRIO that these instructions should execute natively rather than
 being trapped and redirected to new basic block fragments.
 Meta instructions are marked using these API routines:
@@ -389,8 +390,11 @@ or make a call to a native routine that will not be brought into the code
 cache by \DynamoRIO.  However, such native calls need to be careful to
 remain transparent (see \ref sec_clean_call).
 
-Meta-instructions are considered observational and should not fault.  See
-\ref sec_translation for more information on fault handling.
+Meta instructions are normally observational, in which case they should not
+fault and should have a NULL translation field.  It is possible to use meta
+instructions that deliberately fault, or that could fault by accessing
+application memory addresses, but only if the \client handles all such
+faults.  See \ref sec_translation for more information on fault handling.
 
 While \DynamoRIO attempts to support arbitrary code transformations, its
 internal operation requires that we impose the following limitations:
@@ -944,25 +948,21 @@ set to a non-NULL value, the \client should be willing to also restore the
 rest of the machine state at that point (restore spilled registers, etc.)
 via #dr_register_restore_state_event() or
 #dr_register_restore_state_ex_event().  This is necessary for meta
-instructions that reference application memory.  \DynamoRIO takes care of
+instructions that reference application memory or that may deliberately fault
+when accessing \client memory.  \DynamoRIO takes care of
 such potentially-faulting instructions added by its own API routines
 (#dr_insert_clean_call() arguments that reference application data,
 #dr_insert_mbr_instrumentation()'s read of application indirect branch
 data, etc.)
 
-For meta-instructions that can fault but only in deliberate ways (typically
-by accessing \client memory) and never access application memory, the
-"meta-instruction that can fault" property can be set via \ref
-instr_set_meta_may_fault() to avoid incurring the potential cost of added
-sandboxing checks that look for changes to application code.  The
-instrlist_meta_fault_preinsert() and related routines make this a simpler
-process.  Here is an example:
+Here is an example of using the INSTR_XL8 macro to set the translation
+field for a meta instruction:
 
 \code
-#define PREXL8M instrlist_meta_fault_preinsert
+#define PREM instrlist_meta_preinsert
 
 app_pc xl8 = instr_get_app_pc(inst);
-PREXL8M(bb, inst, INSTR_XL8(INSTR_CREATE_mov_st(drcontext, dst, src), xl8));
+PREM(bb, inst, INSTR_XL8(INSTR_CREATE_mov_st(drcontext, dst, src), xl8));
 \endcode
 
 \ifnot vmsafe

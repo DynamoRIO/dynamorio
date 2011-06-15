@@ -2663,8 +2663,8 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
                    * (and hotpatch, native_exec, and sysenter: but too rare to check) */
                   TEST(FRAG_SELFMOD_SANDBOXED, flags) ||
                   TEST(FRAG_WAS_DELETED, flags))) {
-                CLIENT_ASSERT(false, "meta-instr faulted?  should mark as non-meta"
-                              " and set translation!");
+                CLIENT_ASSERT(false, "meta-instr faulted?  must set translation"
+                              " field and handle fault!");
             }
         });
         if (answer == NULL) {
@@ -2813,8 +2813,8 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
                           INTERNAL_OPTION(stress_recreate_pc)
                           IF_CLIENT_INTERFACE(||
                                               tdcontext->client_data->is_translating))) {
-                        CLIENT_ASSERT(false, "meta-instr faulted?  should mark as "
-                                      "non-meta and set translation!");
+                        CLIENT_ASSERT(false, "meta-instr faulted?  must set translation "
+                                      "field and handle fault!");
                     }
                 });
                 if (prev_ok == NULL) {
@@ -2879,7 +2879,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
             DOLOG(5, LOG_INTERP, loginst(get_thread_private_dcontext(), 
                                          5, prev_ok, "\tok instr"););
             prev_bytes = instr_get_translation(inst);
-            if (!instr_is_meta_may_fault(inst)) {
+            if (instr_ok_to_mangle(inst)) {
                 /* we really want the pc after the translation target since we'll 
                  * use this if we pass up the target without hitting it:
                  * unless this is a meta instr in which case we assume the

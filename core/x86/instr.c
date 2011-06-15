@@ -2297,16 +2297,17 @@ instr_set_ok_to_mangle(instr_t *instr, bool val)
 bool
 instr_is_meta_may_fault(instr_t *instr)
 {
-    return TEST(INSTR_META_MAY_FAULT, instr->flags);
+    /* no longer using a special flag (i#496) */
+    return !instr_ok_to_mangle(instr) && instr_get_translation(instr) != NULL;
 }
 
 void
 instr_set_meta_may_fault(instr_t *instr, bool val)
 {
-    if (val)
-        instr->flags |= INSTR_META_MAY_FAULT;
-    else
-        instr->flags &= ~INSTR_META_MAY_FAULT;
+    /* no longer using a special flag (i#496) */
+    instr_set_ok_to_mangle(instr, false);
+    CLIENT_ASSERT(instr_get_translation(instr) != NULL,
+                  "meta_may_fault instr must have translation");
 }
 
 /* convenience routine */

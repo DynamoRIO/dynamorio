@@ -4351,9 +4351,6 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
             next = instr_get_next_expanded(dcontext, ilist, instr);
             if (!instr_ok_to_mangle(instr))
                 continue;
-            /* don't mangle "meta-instruction that can fault" (xref PR 472190) */
-            if (instr_is_meta_may_fault(instr))
-                continue;
             if (record_translation) {
                 /* make sure inserted instrs translate to the proper original instr */
                 instrlist_set_translation_target(ilist, instr_get_raw_bits(instr));
@@ -5596,11 +5593,13 @@ insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     instr = instrlist_first(callee);
     while (instr != NULL) {
         instrlist_remove(callee, instr);
-        instr_set_translation(instr, NULL);
-        /* The inlined code might cause access violation, so set to may fault.
-         * XXX: anything else we should do?
+        /* XXX: if client has a xl8 handler we assume it will handle any faults
+         * in the callee (which should already have a translation set to the
+         * callee): and if not we assume there will be no such faults.
+         * We can't have a translation with no handler.
          */
-        instr_set_meta_may_fault(instr, true);
+        if (IF_CLIENT_INTERFACE_ELSE(!dr_xl8_hook_exists(), true))
+            instr_set_translation(instr, NULL);
         instrlist_meta_preinsert(ilist, where, instr);
         instr = instrlist_first(callee);
     }
