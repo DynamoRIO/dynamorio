@@ -119,6 +119,8 @@ endif ()
 enable_language(C)
 enable_language(CXX)
 
+include(CheckCCompilerFlag)
+
 ###########################################################################
 # configuration options
 
@@ -590,7 +592,11 @@ if (UNIX)
   if (NOT CMAKE_COMPILER_IS_CLANG)
     # Old gcc's ignore unknown -W flags, but -Wall -Werror causes clang to
     # complain that it doesn't recognize it.
-    set(WARN "${WARN} -Wno-unused-but-set-variable")
+    # Actually this is not true: gcc 4.1.2 aborts on unknown -W so we check
+    CHECK_C_COMPILER_FLAG("-Wno-unused-but-set-variable" nounused_avail)
+    if (nounused_avail)
+      set(WARN "${WARN} -Wno-unused-but-set-variable")
+    endif (nounused_avail)
   endif ()
   set(DBG "-g3")
   # gcc doesn't change its optimizations based on -g
@@ -750,7 +756,6 @@ if (UNIX)
   # calls to our non-exported functions
   # For INTERNAL builds we keep our symbols visible, for better libc backtraces
   if (NOT KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
-    include(CheckCCompilerFlag)
     CHECK_C_COMPILER_FLAG("-fvisibility=internal" HAVE_FVISIBILITY_INTERNAL)
     CHECK_C_COMPILER_FLAG("-fvisibility=hidden" HAVE_FVISIBILITY_HIDDEN)
 
