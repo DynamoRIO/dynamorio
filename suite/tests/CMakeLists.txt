@@ -918,11 +918,6 @@ function(torun test key exe source native dr_ops exe_ops)
 
   set(ALREADY_REGEX OFF)
 
-  # disable private loader for test common.protect-dstack
-  if (${test} STREQUAL "code_api|common.protect-dstack")
-    set(dr_ops "-no_mangle_app_seg -no_private_loader ${dr_ops} ")
-  endif ()
-
   rundr_cmd(rundr runops ${native} "${dr_ops}" ${is_runall})
   get_target_property(exepath ${exe} LOCATION${location_suffix})
   # support running binaries that are not targets of this build
@@ -1118,7 +1113,17 @@ endif (WIN32)
 tobuild(common.eflags common/eflags.c)
 tobuild(common.fib common/fib.c)
 tobuild(common.getretaddr common/getretaddr.c)
-tobuild(common.protect-dstack common/protect-dstack.c)
+
+# app seg mangling makes dstack test fail so we disable such mangling
+if (UNIX)
+  # private loader requires the mangling
+  tobuild_ops(common.protect-dstack common/protect-dstack.c
+    "-no_mangle_app_seg -no_private_loader" "")
+else (UNIX)
+  tobuild_ops(common.protect-dstack common/protect-dstack.c
+    "-no_mangle_app_seg" "")
+endif (UNIX)
+
 tobuild(common.segfault common/segfault.c)
 # PR 217255: these 4 removed to shorten the regression suite since not
 # adding much value in terms of testing corner cases
