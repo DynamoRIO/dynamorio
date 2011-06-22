@@ -79,6 +79,8 @@ if (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   string(REGEX REPLACE "[^;]*stats.c" "" srcs "${srcs}")
 endif (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 
+set(DynamoRIO_REG_COMPATIBILITY ON)
+
 foreach (src ${srcs})
   get_filename_component(tgt ${src} NAME_WE)
   
@@ -90,6 +92,10 @@ foreach (src ${srcs})
   # DynamoRIOConfig.cmake sets for standalone but not lib.
   set(DynamoRIO_RPATH OFF)
   configure_DynamoRIO_standalone(${tgt})
+
+  if ("${tgt}" STREQUAL "winsysnums")
+    use_DynamoRIO_extension(${tgt} drsyms)
+  endif ("${tgt}" STREQUAL "winsysnums")
 
   target_link_libraries(${tgt} imagehlp.lib)
 

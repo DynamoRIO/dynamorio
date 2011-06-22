@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,29 +35,41 @@
 
 /* winsysnums.c: analyzes a dll's exported routines, looking for system call
  * numbers or Ki* routines -- typically pointed at a new ntdll.dll
+ *
+ * now additionally uses drsyms to analyze all symbols and thus locate
+ * system call wrappers that are not exported.
  */
 
 /* Uses the DR CLIENT_INTERFACE API, using DR as a standalone library, rather than
  * being a client library working with DR on a target program.
  *
- * To build:
- * 1) Build DR w/ CLIENT_INTERFACE=1
- * 2) cl winsysnums.c /I$DYNAMORIO_HOME/include /link /libpath:$DYNAMORIO_HOME/lib32/debug dynamorio.lib imagehlp.lib
+ * To build, use cmake.  Something like:
+ *   % mkdir ~/dr/git/build_winsysnums
+ *   % cd !$
+ *   % cmake -DDynamoRIO_DIR=e:/src/dr/git/exports/cmake ../src/clients/standalone
+ *   % cmake --build .
  *
- * To run, you need to put dynamorio.dll into either the current directory
- * or system32.
+ * To run, you need to put dynamorio.dll, drsyms.dll, and dbghelp.dll into the
+ * same directory as winsysnums.exe.
  */
 
 #include "dr_api.h"
+#include "drsyms.h"
 #include <assert.h>
 #include <imagehlp.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #ifdef LINUX
 # define EXPORT
 #else
 # define EXPORT __declspec(dllexport)
 #endif
+
+#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
+#define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
 /* global params */
 static bool expect_int2e = false;
@@ -273,6 +286,103 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
 }
 
 static void
+process_syscall_wrapper(void *dcontext, byte *addr, const char *string,
+                        const char *type)
+{
+    syscall_info_t sysinfo;
+    if (decode_syscall_num(dcontext, addr, &sysinfo)) {
+        if (sysinfo.sysnum == -1) {
+            /* we expect this sometimes */
+            if (strcmp(string, "KiFastSystemCall") != 0 &&
+                strcmp(string, "KiIntSystemCall") != 0) {
+                print("ERROR: unknown syscall #: %s\n", string);
+            }
+        } else {
+            if (expect_wow) {
+                print("syscall # 0x%04x %-6s %2d args fixup 0x%02x = %s\n",
+                      sysinfo.sysnum, type, sysinfo.num_args,
+                      sysinfo.fixup_index, string);
+            } else if (expect_x64) {
+                print("%ssyscall # 0x%04x %-6s = %s\n",
+                      sysinfo.sysnum, type, string);
+            } else {
+                print("syscall # 0x%04x %-6s %2d args = %s\n",
+                      sysinfo.sysnum, type, sysinfo.num_args, string);
+            }
+        }
+    }
+}
+
+typedef struct _search_data_t {
+    void *dcontext;
+    LOADED_IMAGE *img;
+} search_data_t;
+
+/* not only do we have NtUser*, NtWow64*, etc., but also user32!UserContectToServer,
+ * so we go through all symbols
+ */
+#define SYM_PATTERN "*"
+
+static bool
+search_syms_cb(const char *name, size_t modoffs, void *data)
+{
+    search_data_t *sd = (search_data_t *) data;
+    byte *addr = ImageRvaToVa(sd->img->FileHeader, sd->img->MappedAddress,
+                              modoffs, NULL);
+    verbose_print("Found symbol \"%s\" at offs "PIFX" => "PFX"\n", name, modoffs, addr);
+    process_syscall_wrapper(sd->dcontext, addr, name, "pdb");
+    return true; /* keep iterating */
+}
+
+static void
+process_symbols(void *dcontext, char *dllname, LOADED_IMAGE *img)
+{
+    /* We have to specify the module via "modname!symname".
+     * We must use the same modname as in full_path.
+     */
+# define MAX_SYM_WITH_MOD_LEN 256
+    char sym_with_mod[MAX_SYM_WITH_MOD_LEN];
+    size_t modoffs;
+    drsym_error_t symres;
+    char *fname = NULL, *c;
+    search_data_t sd;
+
+    if (drsym_init(NULL) != DRSYM_SUCCESS) {
+        print("WARNING: unable to initialize symbol engine\n");
+        return;
+    }
+
+    if (dllname == NULL)
+        return;
+    for (c = dllname; *c != '\0'; c++) {
+        if (*c == '/' || *c == '\\')
+            fname = c + 1;
+    }
+    assert(fname != NULL && "unable to get fname for module");
+    if (fname == NULL)
+        return;
+    /* now get rid of extension */
+    for (; c > fname && *c != '.'; c--)
+        ; /* nothing */
+
+    assert(c - fname < BUFFER_SIZE_ELEMENTS(sym_with_mod) && "sizes way off");
+    modoffs = dr_snprintf(sym_with_mod, c - fname, "%s", fname);
+    assert(modoffs > 0 && "error printing modname!symname");
+    modoffs = dr_snprintf(sym_with_mod + modoffs,
+                          BUFFER_SIZE_ELEMENTS(sym_with_mod) - modoffs,
+                          "!%s", SYM_PATTERN);
+    assert(modoffs > 0 && "error printing modname!symname");
+
+    sd.dcontext = dcontext;
+    sd.img = img;
+    verbose_print("Searching \"%s\" for \"%s\"\n", dllname, sym_with_mod);
+    symres = drsym_search_symbols(dllname, sym_with_mod, true, search_syms_cb, &sd);
+    if (symres != DRSYM_SUCCESS)
+        print("Error %d searching \"%s\" for \"%s\"\n", dllname, sym_with_mod);
+    drsym_exit();
+}
+
+static void
 process_exports(void *dcontext, char *dllname)
 {
     LOADED_IMAGE img;
@@ -283,10 +393,10 @@ process_exports(void *dcontext, char *dllname)
     const char *string;
     uint size;
     BOOL res;
-    int i;
+    uint i;
     byte *addr, *start_exports, *end_exports;
-    syscall_info_t sysinfo;
 
+    verbose_print("Processing exports of \"%s\"\n", dllname);
     res = MapAndLoad(dllname, NULL, &img, FALSE, TRUE);
     if (!res) {
         print("Error loading %s\n", dllname);
@@ -366,30 +476,15 @@ process_exports(void *dcontext, char *dllname)
             }
         } else if (list_syscalls) {
             if (!ignore_Zw || string[0] != 'Z' || string[1] != 'w') {
-                if (decode_syscall_num(dcontext, addr, &sysinfo)) {
-                    if (sysinfo.sysnum == -1) {
-                        /* we expect this sometimes */
-                        if (strcmp(string, "KiFastSystemCall") != 0 &&
-                            strcmp(string, "KiIntSystemCall") != 0) {
-                            print("ERROR: unknown syscall #: %s\n", string);
-                        }
-                    } else {
-                        if (expect_wow) {
-                            print("syscall # 0x%04x %2d args fixup 0x%02x = %s\n",
-                                  sysinfo.sysnum, sysinfo.num_args,
-                                  sysinfo.fixup_index, string);
-                        } else if (expect_x64) {
-                            print("syscall # 0x%04x = %s\n",
-                                  sysinfo.sysnum, string);
-                        } else {
-                            print("syscall # 0x%04x %2d args = %s\n",
-                                  sysinfo.sysnum, sysinfo.num_args, string);
-                        }
-                    }
-                }
+                process_syscall_wrapper(dcontext, addr, string, "export");
             }
         }
     }
+
+    if (list_syscalls)
+        process_symbols(dcontext, dllname, &img);
+
+    UnMapAndLoad(&img);
 }
 
 static void
@@ -404,7 +499,6 @@ int
 main(int argc, char *argv[])
 {
     void *dcontext = dr_standalone_init();
-    OSVERSIONINFO version;
     int res;
     char *dll;
     bool forced = false;
