@@ -68,6 +68,7 @@ int
 main(int argc, const char *argv[])
 {
     int arg_offs = 1;
+    long long counter = 0;
     while (arg_offs < argc && argv[arg_offs][0] == '-') {
         if (strcmp(argv[arg_offs], "-v") == 0) {
             /* enough verbosity to satisfy runall.cmake: needs an initial and a
@@ -83,6 +84,12 @@ main(int argc, const char *argv[])
     while (1) {
         /* workaround for PR 213040: prevent loop from being coarse */
         volatile int x = getpid();
+        /* don't spin forever to avoid hosing machines if test harness somehow
+         * fails to kill.  15 billion syscalls takes ~ 1 minute.
+         */
+        counter++;
+        if (counter > 15*1024*1024*1024LL)
+            break;
     }
     return 0;
 }
