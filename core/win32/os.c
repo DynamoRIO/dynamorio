@@ -4394,6 +4394,7 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
                         IN size_t buf_len/*# elements*/)
 {
     bool is_UNC = false;
+    bool is_device = false;
     const char *name = fname;
     uint i;
     /* need nt file path, prepend \??\ so is \??\c:\.... make sure everyone
@@ -4403,7 +4404,9 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
      * so we should handle all possible file name prefixes, we've seen - 
      * c:\ \??\c:\ \\?\c:\ \\server \??\UNC\server \\?\UNC\server */
     /* FIXME - could we ever get any other path formats here (xref case 9146 and the
-     * reactos src.  See DEVICE_PATH \\.\foo, UNC_DOT_PATH \\., etc. */ 
+     * reactos src.  See DEVICE_PATH \\.\foo, UNC_DOT_PATH \\., etc. 
+     * For i#499 we now convert \\.\foo to \\??\foo.
+     */ 
     /* CHECK - at the api level, paths longer then MAX_PATH require \\?\ prefix, unclear
      * if we would need to use that at this level instead of \??\ for long paths (not
      * that it matters since our buffer in this routine limits us to MAX_PATH anyways).
@@ -4416,7 +4419,12 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
     if (name[0] == '\\') {
         name += 1; /* eat the first \ */
         if (name[0] == '\\') {
-            if (name[1] == '?') {
+            if (name[1] == '.' && name[2] == '\\') {
+                /* convert \\.\foo to \\??\foo (i#499) */
+                is_UNC = false;
+                is_device = true;
+                name += 2;
+            } else if (name[1] == '?') {
                 /* is \\?\UNC\server or \\?\c:\ type,
                  * chop off the \\?\ and we'll check for the UNC later */
                 ASSERT_CURIOSITY(name[2] == '\\' && "create file invalid name");
@@ -4442,7 +4450,7 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
                 return false;
             } 
         }
-        if (!is_UNC) {
+        if (!is_UNC && !is_device) {
             /* we've eaten the initial \\?\ or \??\ check for UNC */
             if ((name[0] == 'U' || name[0] == 'u') &&
                 (name[1] == 'N' || name[1] == 'n') &&
