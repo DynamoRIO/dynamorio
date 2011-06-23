@@ -204,7 +204,7 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
      * this to work on 32bit machines.  Hack fix based on the wrapper pattern, we skip
      * the first instruction (mov r10, rcx) here, the rest should decode ok.
      * Xref PR 236203. */
-    if (expect_x64 && *pc == 0x4c && *pc+1 == 0x8b && *pc+2 == 0xd1)
+    if (expect_x64 && *pc == 0x4c && *(pc+1) == 0x8b && *(pc+2) == 0xd1)
         pc += 3;
     while (true) {
         instr_reset(dcontext, instr);
@@ -303,7 +303,7 @@ process_syscall_wrapper(void *dcontext, byte *addr, const char *string,
                       sysinfo.sysnum, type, sysinfo.num_args,
                       sysinfo.fixup_index, string);
             } else if (expect_x64) {
-                print("%ssyscall # 0x%04x %-6s = %s\n",
+                print("syscall # 0x%04x %-6s = %s\n",
                       sysinfo.sysnum, type, string);
             } else {
                 print("syscall # 0x%04x %-6s %2d args = %s\n",
@@ -508,7 +508,7 @@ main(int argc, char *argv[])
             expect_sysenter = true;
             forced = true;
         } else if (strcmp(argv[res], "-int2e") == 0) {
-            expect_int2e = false;
+            expect_int2e = true;
             forced = true;
         } else if (strcmp(argv[res], "-wow") == 0) {
             expect_wow = true;
