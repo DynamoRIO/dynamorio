@@ -557,6 +557,13 @@ void dr_init(client_id_t id)
      * doesn't currently support.
      */
     int i;
+
+#ifdef WINDOWS
+    dr_os_version_info_t info = {sizeof(info),};
+    if (!dr_get_os_version(&info))
+        dr_fprintf(STDERR, "dr_get_os_version failed!\n");
+#endif
+
     for (i = 0; i < EVENT_last; i++)
         counts[i] = 0;
     mutex = dr_mutex_create();

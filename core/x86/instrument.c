@@ -2099,6 +2099,30 @@ dr_get_parent_id(void)
 
 #ifdef WINDOWS
 DR_API
+/** 
+ * Returns information about the version of the operating system.
+ * Returns whether successful.
+ */
+bool
+dr_get_os_version(dr_os_version_info_t *info)
+{
+    if (info->size > offsetof(dr_os_version_info_t, version)) {
+        int ver = get_os_version();
+        switch (ver) {
+        case WINDOWS_VERSION_7:     info->version = DR_WINDOWS_VERSION_7;     break;
+        case WINDOWS_VERSION_VISTA: info->version = DR_WINDOWS_VERSION_VISTA; break;
+        case WINDOWS_VERSION_2003:  info->version = DR_WINDOWS_VERSION_2003;  break;
+        case WINDOWS_VERSION_XP:    info->version = DR_WINDOWS_VERSION_XP;    break;
+        case WINDOWS_VERSION_2000:  info->version = DR_WINDOWS_VERSION_2000;  break;
+        case WINDOWS_VERSION_NT:    info->version = DR_WINDOWS_VERSION_NT;    break;
+        default: CLIENT_ASSERT(false, "unsupported windows version");
+        };
+        return true;
+    }
+    return false;
+}
+
+DR_API
 bool
 dr_is_wow64(void)
 {

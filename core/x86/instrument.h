@@ -1500,6 +1500,34 @@ dr_get_parent_id(void);
 #endif
 
 #ifdef WINDOWS
+/* DR_API EXPORT BEGIN */
+/** Windows versions */
+typedef enum {
+    DR_WINDOWS_VERSION_7     = 61,
+    DR_WINDOWS_VERSION_VISTA = 60,
+    DR_WINDOWS_VERSION_2003  = 52,
+    DR_WINDOWS_VERSION_XP    = 51,
+    DR_WINDOWS_VERSION_2000  = 50,
+    DR_WINDOWS_VERSION_NT    = 40,
+} dr_os_version_t;
+
+/** Data structure used with dr_get_os_version() */
+typedef struct _dr_os_version_info_t {
+    /** The size of this structure.  Set this to sizeof(dr_os_version_info_t). */
+    size_t size;
+    /** The operating system version */
+    dr_os_version_t version;
+} dr_os_version_info_t;
+/* DR_API EXPORT END */
+
+DR_API
+/** 
+ * Returns information about the version of the operating system.
+ * Returns whether successful.
+ */
+bool
+dr_get_os_version(dr_os_version_info_t *info);
+
 DR_API
 /** 
  * Returns true if this process is a 32-bit process operating on a
