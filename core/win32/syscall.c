@@ -1006,7 +1006,6 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
     uint old_prot = PAGE_NOACCESS;
 
     ASSERT(env_ptr != NULL);
-    env = *env_ptr;
     if (!nt_read_virtual_memory(phandle, env_ptr, &env, sizeof(env), NULL))
         goto add_dr_env_failure;
     if (env != NULL) {
