@@ -3996,7 +3996,7 @@ dump_context_info(CONTEXT *context, file_t file, bool all)
     }
     if (all || TESTALL(CONTEXT_YMM_FLAG, context->ContextFlags)) {
         /* FIXME i#437: NYI.  See comments in context_to_mcontext(). */
-        ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm CONTEXT support yet");
+        ASSERT_NOT_IMPLEMENTED(all && "i#437: no ymm CONTEXT support yet");
     }
 
     if (all || context->ContextFlags & CONTEXT_FLOATING_POINT) {
@@ -4823,7 +4823,13 @@ intercept_exception(app_state_at_intercept_t *state)
          * generate (and even handle) one of these exceptions. Of course,
          * judging by the need for the filter, doesn't even look like it needs
          * to be native. */
-        ASSERT_CURIOSITY(pExcptRec->ExceptionCode != STATUS_ILLEGAL_INSTRUCTION ||
+        /* Do not assert when a client is present: it may be using
+         * ud2a or something for its own purposes (i#503).  This
+         * curiosity is really to find errors in core DR.
+         */
+        ASSERT_CURIOSITY(IF_CLIENT_INTERFACE(dr_bb_hook_exists() ||
+                                             dr_trace_hook_exists() ||)
+                         pExcptRec->ExceptionCode != STATUS_ILLEGAL_INSTRUCTION ||
                          check_filter("common.decode-bad.exe;common.decode.exe;"
                                       "security-common.decode-bad-stack.exe;"
                                       "security-win32.gbop-test.exe",
