@@ -330,6 +330,14 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     mod->name = name;
     strncpy(mod->path, path, BUFFER_SIZE_ELEMENTS(mod->path));
     NULL_TERMINATE_BUFFER(mod->path);
+    /* i#489 DT_SONAME is optional and name passed in could be NULL.
+     * If so, we get libname from path instead.
+     */
+    if (IF_LINUX_ELSE(mod->name == NULL, false)) {
+        mod->name = double_strrchr(mod->path, DIRSEP, ALT_DIRSEP);
+        if (mod->name == NULL)
+            mod->name = mod->path;
+    }
     mod->ref_count = 1;
     mod->externally_loaded = false;
     /* do not add non-heap struct to list: in init() we'll move array to list */

@@ -296,6 +296,8 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
         int soname_index = -1;
         char *dynstr = NULL;
         size_t sz = mod_end - mod_base;
+        /* i#489, DT_SONAME is optional, init soname to NULL first */
+        *soname = NULL;
         while (dyn->d_tag != DT_NULL) {
             if (dyn->d_tag == DT_SONAME) {
                 soname_index = dyn->d_un.d_val;

@@ -61,6 +61,7 @@ static const char *system_lib_paths[] = {
     "/usr/lib",
     "/lib",
 #ifndef X64
+    "/lib/i386-linux-gnu",  /* 32-bit Ubuntu */
     "/lib32/tls/i686/cmov",
     "/usr/lib32",
     "/lib32",
@@ -426,7 +427,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
 
 #ifdef DEBUG
     /* Add debugging comment about how to get symbol information in gdb. */
-    SYSLOG_INTERNAL_INFO("In GDB, using add-symbol-file %s %p"
+    SYSLOG_INTERNAL_INFO("In GDB, use add-symbol-file %s %p"
                          " to add symbol information",
                          filename, 
                          delta + module_get_text_section(file_map, file_size));
