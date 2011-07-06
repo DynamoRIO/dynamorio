@@ -1420,21 +1420,30 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
     app_pc res;
     const char *name;
     privmod_t *mod;
+    bool is_ifunc;
+    dcontext_t *dcontext = get_thread_private_dcontext();
 
     /* no name, do not search */
-    if (sym->st_name == 0)
+    if (sym->st_name == 0 || pd == NULL)
         return NULL;
 
-    if (pd != NULL) {
-        name = (char *)pd->os_data.dynstr + sym->st_name;
-        LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s\n", 
-            name, pd->soname);
-        /* check my current module */
-        res = get_proc_address_from_os_data(&pd->os_data,
-                                            pd->load_delta,
-                                            name, NULL);
-        if (res != NULL)
-            return res;
+    name = (char *)pd->os_data.dynstr + sym->st_name;
+    LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s\n", 
+        name, pd->soname);
+    /* check my current module */
+    res = get_proc_address_from_os_data(&pd->os_data,
+                                        pd->load_delta,
+                                        name, &is_ifunc);
+    if (res != NULL) {
+        if (is_ifunc) {
+            TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
+                res = ((app_pc (*) (void)) (res)) ();
+            }, { /* EXCEPT */
+                ASSERT_CURIOSITY(false && "crashed while executing ifunc");
+                res = NULL;
+            });
+        }
+        return res;
     }
 
     /* If not find the symbol in current module, iterate over all modules
@@ -1450,9 +1459,18 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
             name, pd->soname);
         res = get_proc_address_from_os_data(&pd->os_data,
                                             pd->load_delta,
-                                            name, NULL);
-        if (res != NULL)
+                                            name, &is_ifunc);
+        if (res != NULL) {
+            if (is_ifunc) {
+                TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
+                    res = ((app_pc (*) (void)) (res)) ();
+                }, { /* EXCEPT */
+                    ASSERT_CURIOSITY(false && "crashed while executing ifunc");
+                    res = NULL;
+                });
+            }
             return res;
+        }
         mod = privload_next_module(mod);
     }
     return NULL;
