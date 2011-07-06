@@ -222,6 +222,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_
 
 /* forward decl */
 static void handle_execve_post(dcontext_t *dcontext);
+static bool os_switch_lib_tls(dcontext_t *dcontext, bool to_app);
 
 /* full path to our own library, used for execve */
 static char dynamorio_library_path[MAXIMUM_PATH];
@@ -2758,6 +2759,9 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * signal_thread_inherit gets the right syscall info
      */
     set_clone_record_fields(crec, (reg_t) arg, (app_pc) func, SYS_clone, flags);
+    /* i#501 switch to app's tls before creating client thread */
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
+            os_switch_lib_tls(dcontext, true /* to app */);
 #ifndef X64
     /* For the TCB we simply share the parent's.  On Linux we could just inherit
      * the same selector but not for VMX86_SERVER so we specify for both for
@@ -2778,6 +2782,9 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
         xsp, get_clone_record_dstack(crec));
     thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, IF_X64_ELSE(NULL, &desc),
                                          NULL, client_thread_run);
+    /* i#501 switch to app's tls before creating client thread */
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
+            os_switch_lib_tls(dcontext, false /* to app */);
     if (newpid < 0) {
         LOG(THREAD, LOG_ALL, 1, "client thread creation failed: %d\n", newpid);
         return false;
