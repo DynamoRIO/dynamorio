@@ -85,6 +85,7 @@ app_pc get_dynamorio_dll_end(void);
 thread_id_t get_tls_thread_id(void);
 thread_id_t get_sys_thread_id(void);
 bool is_thread_terminated(dcontext_t *dcontext);
+void os_wait_thread_terminated(dcontext_t *dcontext);
 void os_tls_pre_init(int gdt_index);
 /* XXX: reg_id_t is not defined here, use unsigned char instead */
 ushort os_get_app_seg_base_offset(unsigned char seg);

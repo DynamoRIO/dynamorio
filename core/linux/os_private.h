@@ -82,14 +82,24 @@ typedef struct _os_thread_data_t {
     /* We would use event_t's here except we can't use mutexes in
      * our signal handler 
      */
-    bool suspended;
-    bool wakeup;
-    bool resumed;
+    /* volatile int rather than bool since these are used as futexes.
+     * 0 is unset, 1 is set, and no other value is used.
+     * Any function that sets these flags must also notify possibly waiting
+     * thread(s). See i#96/PR 295561.
+     */
+    volatile int suspended;
+    volatile int wakeup;
+    volatile int resumed;
     struct sigcontext *suspended_sigcxt;
 
     /* PR 297902: for thread termination */
     bool terminate;
-    bool terminated;
+    /* volatile int rather than bool since this is used as a futex.
+     * 0 is unset, 1 is set, and no other value is used.
+     * Any function that sets this flag must also notify possibly waiting
+     * thread(s). See i#96/PR 295561.
+     */
+    volatile int terminated;
 
     /* PR 450670: for re-entrant suspend signals */
     int processing_signal;
@@ -178,6 +188,14 @@ bool module_read_program_header(app_pc base,
 
 void os_request_live_coredump(const char *msg);
 bool file_is_elf64(file_t f);
+
+/* helper routines for using futex(2). See i#96/PR 295561. in os.c */
+ptr_int_t 
+futex_wait(volatile int *futex, int mustbe);
+ptr_int_t 
+futex_wake(volatile int *futex);
+ptr_int_t 
+futex_wake_all(volatile int *futex);
 
 #ifdef VMX86_SERVER
 #  include "vmkuw.h"

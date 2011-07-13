@@ -5256,8 +5256,9 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     if (ostd->terminate) {
         /* PR 297902: exit this thread, without using any stack */
         LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: exiting\n");
-        ostd->terminated = true;
-        /* can't use stack once set terminated to true */
+        ostd->terminated = 1;
+        futex_wake_all(&ostd->terminated);
+        /* can't use stack once set terminated to 1 */
         asm("jmp dynamorio_sys_exit");
         ASSERT_NOT_REACHED();
         return false;
@@ -5300,11 +5301,20 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     /* Notify thread_suspend that it can now return, as this thread is
      * officially suspended now and is ready for thread_{get,set}_mcontext.
      */
-    ASSERT(!ostd->suspended);
-    ostd->suspended = true;
-    /* FIXME i#96/PR 295561: use futex */
-    while (!ostd->wakeup)
-        thread_yield();
+    ASSERT(ostd->suspended == 0);
+    ostd->suspended = 1;
+    futex_wake_all(&ostd->suspended);
+    /* i#96/PR 295561: use futex(2) if available */
+    while (ostd->wakeup == 0) {
+        /* Waits only if the wakeup flag is not set as 1. Return value
+         * doesn't matter because the flag will be re-checked. 
+         */
+        futex_wait(&ostd->wakeup, 0);
+        if (ostd->wakeup == 0) {
+            /* If it still has to wait, give up the cpu. */
+            thread_yield();
+        }
+    }
     LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: awake now\n");
 
     /* re-block so our exit from master_signal_handler is not interrupted */
@@ -5314,8 +5324,9 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     /* Notify thread_resume that it can return now, which (assuming
      * suspend_count is back to 0) means it's then safe to re-suspend. 
      */
-    ostd->suspended = false; /* reset prior to signalling thread_resume */
-    ostd->resumed = true;
+    ostd->suspended = 0; /* reset prior to signalling thread_resume */
+    ostd->resumed = 1;
+    futex_wake_all(&ostd->resumed);
 
     return false; /* do not pass to app */
 }
