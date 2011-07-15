@@ -4458,7 +4458,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
 #ifdef CLIENT_INTERFACE
             if (mangle_at_end) {
                 md.blk_info[i].bounds.end_pc =
-                    instr_get_translation(last) + instr_length(dcontext, last);
+                    decode_next_pc(dcontext, instr_get_translation(last));
             }
 #endif
 
@@ -5261,6 +5261,13 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace,
                         break;
                     } else {
                         /* need to search for targeting jmp */
+                        DOLOG(4, LOG_MONITOR, {
+                            loginst(dcontext, 4, inst, "exit==targeter?");
+                        });
+                        LOG(THREAD, LOG_MONITOR, 4,
+                            "target_tag = "PFX", next_tag = "PFX"\n",
+                            target_tag, next_tag);
+
                         if (target_tag == next_tag) {
                             targeter = inst;
                             break;
@@ -5847,8 +5854,12 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
 #endif
 
         /* in case no exit ctis in last block, find last non-meta fall-through */
-        if (blk == md->num_blks - 1)
-            fallthrough = instr_get_translation(inst) + instr_length(dcontext, inst);
+        if (blk == md->num_blks - 1) {
+            /* Do not call instr_length() on this inst: use length
+             * of translation! (i#509)
+             */
+            fallthrough = decode_next_pc(dcontext, instr_get_translation(inst));
+        }
 
         /* PR 299808: identify bb boundaries.  We can't go by translations alone, as
          * ubrs can point at their targets and theoretically the entire trace could
@@ -5882,7 +5893,10 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
                     target = get_ibl_routine(dcontext, IBL_LINKED, DEFAULT_IBL_TRACE(), 
                                              get_ibl_branch_type(inst));
                 } else if (instr_is_cbr(inst)) {
-                    target = instr_get_translation(inst) + instr_length(dcontext, inst);
+                    /* Do not call instr_length() on this inst: use length
+                     * of translation! (i#509)
+                     */
+                    target = decode_next_pc(dcontext, instr_get_translation(inst));
                 } else {
                     target = opnd_get_pc(instr_get_target(inst));
                 }
