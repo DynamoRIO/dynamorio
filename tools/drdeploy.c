@@ -239,6 +239,7 @@ static bool check_dr_root(const char *dr_root, bool debug,
     int i;
     char buf[MAX_PATH];
     bool ok = true;
+    bool nowarn = false;
 
     const char *checked_files[] = {
         "lib32\\drpreinject.dll",
@@ -260,6 +261,14 @@ static bool check_dr_root(const char *dr_root, bool debug,
         return true;
     }
 
+    /* don't warn if running from a build dir (i#458) which we attempt to detect
+     * by looking for CMakeCache.txt in the root dir
+     * (warnings can also be suppressed via -quiet)
+     */
+    sprintf_s(buf, _countof(buf), "%s/%s", dr_root, "CMakeCache.txt");
+    if (_access(buf, 0) == 0)
+        nowarn = true;
+
     for (i=0; i<_countof(checked_files); i++) {
         sprintf_s(buf, _countof(buf), "%s/%s", dr_root, checked_files[i]);
         if (_access(buf, 0) == -1) {
@@ -275,12 +284,12 @@ static bool check_dr_root(const char *dr_root, bool debug,
                 error("cannot find required file %s\n"
                       "Use -root to specify a proper DynamoRIO root directory.", buf);
                 return false;
-            } else {
+            } else if (!nowarn) {
                 warn("cannot find %s: is this an incomplete installation?", buf);
             }
         }
     }
-    if (!ok)
+    if (!ok && !nowarn)
         warn("%s does not appear to be a valid DynamoRIO root", dr_root);
     return true;
 }
