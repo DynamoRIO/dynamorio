@@ -255,6 +255,8 @@ convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
     }
 
     if (OP_loopne <= opcode && opcode <= OP_jecxz) {
+        uint mangled_sz;
+        uint offs;
         /*
          * from "info as" on GNU/linux system:
        Note that the `jcxz', `jecxz', `loop', `loopz', `loope', `loopnz'
@@ -332,20 +334,35 @@ convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
          * special since the target must be obtained from src0 and not
          * from the raw bits (since that might not reach).
          */
-        /* need 9 bytes */
-        instr_allocate_raw_bits(dcontext, instr, CTI_SHORT_REWRITE_LENGTH);
+        /* need 9 bytes + possible addr prefix */
+        mangled_sz = CTI_SHORT_REWRITE_LENGTH;
+        if (!reg_is_pointer_sized(opnd_get_reg(instr_get_src(instr, 1))))
+            mangled_sz++; /* need addr prefix */
+        instr_allocate_raw_bits(dcontext, instr, mangled_sz);
+        offs = 0;
+        if (mangled_sz > CTI_SHORT_REWRITE_LENGTH) {
+            instr_set_raw_byte(instr, offs, ADDR_PREFIX_OPCODE);
+            offs++;
+        }
         /* first 2 bytes: jecxz 8-bit-offset */
-        instr_set_raw_byte(instr, 0, decode_first_opcode_byte(opcode));
+        instr_set_raw_byte(instr, offs, decode_first_opcode_byte(opcode));
+        offs++;
         /* remember pc-relative offsets are from start of next instr */
-        instr_set_raw_byte(instr, 1, (byte)2);
+        instr_set_raw_byte(instr, offs, (byte)2);
+        offs++;
         /* next 2 bytes: jmp-short 8-bit-offset */
-        instr_set_raw_byte(instr, 2, decode_first_opcode_byte(OP_jmp_short));
-        instr_set_raw_byte(instr, 3, (byte)5);
+        instr_set_raw_byte(instr, offs, decode_first_opcode_byte(OP_jmp_short));
+        offs++;
+        instr_set_raw_byte(instr, offs, (byte)5);
+        offs++;
         /* next 5 bytes: jmp 32-bit-offset */
-        instr_set_raw_byte(instr, 4, decode_first_opcode_byte(OP_jmp));
+        instr_set_raw_byte(instr, offs, decode_first_opcode_byte(OP_jmp));
+        offs++;
         /* for x64 we may not reach, but we go ahead and try */
-        instr_set_raw_word(instr, 5, (int)
-                           (target - (instr->bytes + CTI_SHORT_REWRITE_LENGTH)));
+        instr_set_raw_word(instr, offs, (int)
+                           (target - (instr->bytes + mangled_sz)));
+        offs += sizeof(int);
+        ASSERT(offs == mangled_sz);
         LOG(THREAD, LOG_INTERP, 2, "convert_to_near_rel: jecxz/loop* opcode\n");
         /* original target operand is still valid */
         instr_set_operands_valid(instr, true);
@@ -386,26 +403,29 @@ byte *
 remangle_short_rewrite(dcontext_t *dcontext,
                        instr_t *instr, byte *pc, app_pc target)
 {
+    uint mangled_sz = CTI_SHORT_REWRITE_LENGTH;
     ASSERT(instr_is_cti_short_rewrite(instr, pc));
+    if (*pc == ADDR_PREFIX_OPCODE)
+        mangled_sz++;
 
     /* first set the target in the actual operand src0 */
     if (target == NULL) {
         /* acquire existing absolute target */
-        int rel_target = *((int *)(pc+5));
-        target = pc + CTI_SHORT_REWRITE_LENGTH + rel_target;
+        int rel_target = *((int *)(pc + mangled_sz - 4));
+        target = pc + mangled_sz + rel_target;
     }
     instr_set_target(instr, opnd_create_pc(target));
     /* now set up the bundle of raw instructions
      * we've already read the first 2-byte instruction, jecxz/loop*
-     * they all take up CTI_SHORT_REWRITE_LENGTH bytes
+     * they all take up mangled_sz bytes
      */
-    instr_allocate_raw_bits(dcontext, instr, CTI_SHORT_REWRITE_LENGTH);
-    instr_set_raw_bytes(instr, pc, CTI_SHORT_REWRITE_LENGTH);
+    instr_allocate_raw_bits(dcontext, instr, mangled_sz);
+    instr_set_raw_bytes(instr, pc, mangled_sz);
     /* for x64 we may not reach, but we go ahead and try */
-    instr_set_raw_word(instr, 5, (int)(target - (pc + CTI_SHORT_REWRITE_LENGTH)));
+    instr_set_raw_word(instr, mangled_sz - 4, (int)(target - (pc + mangled_sz)));
     /* now make operands valid */
     instr_set_operands_valid(instr, true);
-    return (pc+CTI_SHORT_REWRITE_LENGTH);
+    return (pc+mangled_sz);
 }
 
 /* Pushes not only the GPRs but also xmm/ymm, xip, and xflags, in

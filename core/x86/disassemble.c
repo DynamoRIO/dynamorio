@@ -752,7 +752,8 @@ instr_opcode_name(instr_t *instr, const instr_info_t *info)
         }
     }
 #ifdef X64
-    if (!instr_get_x86_mode(instr) && instr_get_opcode(instr) == OP_jecxz) {
+    if (!instr_get_x86_mode(instr) && instr_get_opcode(instr) == OP_jecxz &&
+        reg_is_pointer_sized(opnd_get_reg(instr_get_src(instr, 1)))) {
         return "jrcxz";
     }
 #endif

@@ -2233,8 +2233,8 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *pc,
     opc = instr_get_opcode(instr);
     if ((instr_is_cbr(instr) &&
          (!instr_is_cti_loop(instr) ||
-          /* no data16 */
-          reg_is_32bit(opnd_get_reg(instr_get_src(instr, 1))))) ||
+          /* no addr16 */
+          reg_is_pointer_sized(opnd_get_reg(instr_get_src(instr, 1))))) ||
         /* no indirect or far */
         opc == OP_jmp_short || opc == OP_jmp || opc == OP_call) {
         if (!TESTANY(~(PREFIX_JCC_TAKEN|PREFIX_JCC_NOT_TAKEN), instr->prefixes)) {

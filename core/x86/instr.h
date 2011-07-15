@@ -3230,7 +3230,7 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
     SIB_DISP32           = 0x25, /* see vol.2 Table 2-1 for modR/M */
 };
 
-/* length of our mangling of jecxz/loop* */
+/* length of our mangling of jecxz/loop*, beyond a possible addr prefix byte */
 #define CTI_SHORT_REWRITE_LENGTH 9
 
 /* This should be kept in sync w/ the defines in x86/x86.asm */

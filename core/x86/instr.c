@@ -3949,9 +3949,15 @@ instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
      * just like ours: instr_convert_short_meta_jmp_to_long() (PR 266292).
      */
     if (pc == NULL) {
-        if (!instr_has_allocated_bits(instr) || instr->length != CTI_SHORT_REWRITE_LENGTH)
+        if (!instr_has_allocated_bits(instr))
             return false;
         pc = instr_get_raw_bits(instr);
+        if (*pc == ADDR_PREFIX_OPCODE) {
+            pc++;
+            if (instr->length != CTI_SHORT_REWRITE_LENGTH + 1)
+                return false;
+        } else if (instr->length != CTI_SHORT_REWRITE_LENGTH)
+            return false;
     }
     if (instr_opcode_valid(instr)) {
         int opc = instr_get_opcode(instr);

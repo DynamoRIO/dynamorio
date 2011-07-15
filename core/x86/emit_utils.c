@@ -1087,6 +1087,11 @@ exit_cti_disp_pc(cache_pc branch_pc)
          */
         ASSERT(opcode == RAW_OPCODE_jcc_byte1);
     }
+    if (opcode == ADDR_PREFIX_OPCODE) { /* used w/ jecxz/loop* */
+        length++;
+        byte_ptr++;
+        opcode = *byte_ptr;
+    }
 
     if (opcode >= RAW_OPCODE_loop_start && opcode <= RAW_OPCODE_loop_end) {
         /* assume that this is a mangled jcxz/loop*
