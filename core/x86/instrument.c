@@ -5160,7 +5160,7 @@ DR_API
  * register reg. In Linux, it is only supported with -mangle_app_seg option.
  * In Windows, it only supports getting base address of the TLS segment.
  */
-void
+bool
 dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                        reg_id_t seg, reg_id_t reg)
 {
@@ -5179,8 +5179,11 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
      * runtime overhead for keeping track of the app's TLS segment base.
      */
     CLIENT_ASSERT(INTERNAL_OPTION(private_loader) || seg != SEG_TLS,
-                  "dr_insert_get_seg_base support TLS seg"
+                  "dr_insert_get_seg_base supports TLS seg"
                   "only with -private_loader");
+    if (!INTERNAL_OPTION(mangle_app_seg) ||
+        !(INTERNAL_OPTION(private_loader) || seg != SEG_TLS))
+        return false;
     if (seg == SEG_FS || seg == SEG_GS) {
         instrlist_meta_preinsert
             (ilist, instr,
@@ -5193,12 +5196,20 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                                   OPND_CREATE_INTPTR(0)));
     }
 #else
-    CLIENT_ASSERT(seg != SEG_TLS,
-                  "dr_insert_get_seg_base only support TLS seg in Windows");
-    instrlist_meta_preinsert
-        (ilist, instr,
-         instr_create_restore_from_tls(drcontext, reg, SELF_TIB_OFFSET));
+    if (seg == SEG_TLS) {
+        instrlist_meta_preinsert
+            (ilist, instr,
+             instr_create_restore_from_tls(drcontext, reg, SELF_TIB_OFFSET));
+    } else if (seg == SEG_CS || seg == SEG_DS || seg == SEG_ES) {
+        /* XXX: we assume flat address space */
+        instrlist_meta_preinsert
+            (ilist, instr,
+             INSTR_CREATE_mov_imm(drcontext, opnd_create_reg(reg),
+                                  OPND_CREATE_INTPTR(0)));
+    } else
+        return false;
 #endif /* LINUX */
+    return true;
 }
 
 #endif /* CLIENT_INTERFACE */

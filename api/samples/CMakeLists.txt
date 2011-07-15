@@ -89,6 +89,19 @@ if (WIN32)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif (WIN32)
 
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  if (DEBUG)
+    set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
+  else (DEBUG)
+    set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
+  endif (DEBUG)
+  # we want to use the _LOCATION_<config> property
+  string(TOUPPER "${CMAKE_CONFIGURATION_TYPES}" upper)
+  set(location_suffix "_${upper}")
+else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  set(location_suffix "")
+endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+
 file(GLOB srcs *.c *.cpp)
 # Not all clients are supported on all plaforms
 string(REGEX REPLACE "[^;]*MF_moduledb.c" "" srcs "${srcs}")
@@ -133,8 +146,12 @@ foreach (src ${srcs})
     if ("${tgt}" STREQUAL "wrap")
       use_DynamoRIO_extension(${tgt} drwrap)
     endif ()
+    if ("${tgt}" STREQUAL "memtrace")
+      use_DynamoRIO_extension(${tgt} drmgr)
+      use_DynamoRIO_extension(${tgt} drutil)
+    endif ()
 
-    get_target_property(tgtnm ${tgt} LOCATION)
+    get_target_property(tgtnm ${tgt} LOCATION${location_suffix})
     add_custom_command(TARGET ${tgt}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
