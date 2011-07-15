@@ -709,7 +709,8 @@ void *
 drmgr_get_tls_field(void *drcontext, int idx)
 {
     tls_array_t *tls = (tls_array_t *) dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
+    /* no need to check for tls_taken since would return NULL anyway (i#484) */
+    if (idx < 0 || idx > MAX_NUM_TLS || tls == NULL)
         return NULL;
     return tls->tls[idx];
 }
@@ -719,8 +720,12 @@ bool
 drmgr_set_tls_field(void *drcontext, int idx, void *value)
 {
     tls_array_t *tls = (tls_array_t *) dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
+    if (idx < 0 || idx > MAX_NUM_TLS || tls == NULL)
         return false;
+    /* going DR's traditional route of efficiency over safety: making this
+     * a debug-only check to avoid cost in release build
+     */
+    ASSERT(tls_taken[idx], "usage error: setting tls index that is not reserved");
     tls->tls[idx] = value;
     return true;
 }
