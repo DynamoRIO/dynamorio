@@ -43,6 +43,15 @@
 #ifndef _DRSYMS_H_
 #define _DRSYMS_H_ 1
 
+/**
+ * @file drsyms.h
+ * @brief Header for DRSyms DynamoRIO Extension
+ */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Our API routines take the full path to the module in every query,
  * both for simplicity of use and to allow for flexibility in
  * implementation: can unload symbol data if running out of space
@@ -237,5 +246,9 @@ bool
 drsym_write_to_console(const char *fmt, ...);
 
 /*@}*/ /* end doxygen group */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _DRSYMS_H_ */

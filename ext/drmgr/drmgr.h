@@ -38,6 +38,15 @@
 #define _DRMGR_H_ 1
 
 /**
+ * @file drmgr.h
+ * @brief Header for DynamoRIO Multi-Instrumentation Manager Extension
+ */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
  * \addtogroup drmgr Multi-Instrumentation Manager
  */
 /*@{*/ /* begin doxygen group */
@@ -575,5 +584,9 @@ drmgr_unregister_pre_syscall_event(bool (*func)(void *drcontext, int sysnum));
 
 
 /*@}*/ /* end doxygen group */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _DRMGR_H_ */

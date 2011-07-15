@@ -26,6 +26,15 @@
 #define _DRWRAP_H_ 1
 
 /**
+ * @file drwrap.h
+ * @brief Header for DynamoRIO Function Wrapping and Replacing Extension
+ */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
  * \addtogroup drwrap Function Wrapping and Replacing
  */
 /*@{*/ /* begin doxygen group */
@@ -237,5 +246,9 @@ drwrap_skip_call(void *wrapcxt, void *retval, size_t stdcall_args_size);
 
 
 /*@}*/ /* end doxygen group */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _DRWRAP_H_ */

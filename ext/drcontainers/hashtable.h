@@ -36,6 +36,15 @@
 #ifndef _HASHTABLE_H_
 #define _HASHTABLE_H_ 1
 
+/**
+ * @file hashtable.h
+ * @brief Header for DynamoRIO Hashtable Extension
+ */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /***************************************************************************
  * HASHTABLE
  */
@@ -194,5 +203,9 @@ void
 hashtable_unlock(hashtable_t *table);
 
 /*@}*/ /* end doxygen group */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _HASHTABLE_H_ */
