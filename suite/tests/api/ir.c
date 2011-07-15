@@ -502,7 +502,13 @@ test_size_changes(void *dc)
         (dc, OP_loopne, opnd_create_reg(REG_CX), opnd_create_pc(buf),
          opnd_create_reg(REG_CX));
     test_instr_encode(dc, instr, 3);
-
+#ifdef X64
+    /* FIXME: this func not even called for x64!
+    /* test non-default count register size (requires addr prefix) */
+    instr = instr_create_0dst_2src
+        (dc, OP_jecxz, opnd_create_pc(buf), opnd_create_reg(REG_ECX));
+    test_instr_encode(dc, instr, 3);
+#endif
 
     /*
      *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi %edi 
