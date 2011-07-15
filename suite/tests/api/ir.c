@@ -179,7 +179,8 @@ test_disp_control_helper(void *dc, int disp,
     uint len;
     instr_t *instr = INSTR_CREATE_mov_ld
         (dc, opnd_create_reg(REG_ECX),
-         opnd_create_base_disp_ex(disp16 ? REG_BX : REG_EBX, REG_NULL, 0,
+         opnd_create_base_disp_ex(disp16 ? IF_X64_ELSE(REG_EBX, REG_BX) :
+                                  REG_XBX, REG_NULL, 0,
                                   disp, OPSZ_4,
                                   encode_zero_disp, force_full_disp, disp16));
     pc = instr_encode(dc, instr, buf);
@@ -220,7 +221,7 @@ test_disp_control(void *dc)
     test_disp_control_helper(dc, 0x7f, false, false, false, 3);
     test_disp_control_helper(dc, 0x7f, false, true,  false,  6);
     test_disp_control_helper(dc, 0x7f, false, false, true,  4);
-    test_disp_control_helper(dc, 0x7f, false, true,  true,  5);
+    test_disp_control_helper(dc, 0x7f, false, true,  true,  IF_X64_ELSE(7,5));
 }
 
 /* emits the instruction to buf (for tests that wish to do additional checks on
@@ -288,32 +289,42 @@ test_indirect_cti(void *dc)
     0x00427794   67 ff 1f             addr16 lcall  (%bx) %sp -> %sp (%sp) 
     */
     instr_t *instr;
-    instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(REG_ECX));
+    instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(REG_XCX));
     test_instr_encode(dc, instr, 2);
-    instr = instr_create_2dst_2src(dc, OP_call_ind, opnd_create_reg(REG_ESP),
-                                   opnd_create_base_disp(REG_ESP, REG_NULL, 0, -2, OPSZ_2),
-                                   opnd_create_reg(REG_CX), opnd_create_reg(REG_ESP));
+#ifndef X64 /* only on AMD can we shorten, so we don't test it */
+    instr = instr_create_2dst_2src(dc, OP_call_ind, opnd_create_reg(REG_XSP),
+                                   opnd_create_base_disp(REG_XSP, REG_NULL, 0, -2, OPSZ_2),
+                                   opnd_create_reg(REG_CX), opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 3);
-    instr = instr_create_2dst_2src(dc, OP_call_ind, opnd_create_reg(REG_SP),
-                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, -4, OPSZ_4_short2),
-                                   opnd_create_reg(REG_ECX), opnd_create_reg(REG_SP));
+#endif
+    instr = instr_create_2dst_2src(dc, OP_call_ind,
+                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)),
+                                   opnd_create_base_disp(IF_X64_ELSE(REG_ESP, REG_SP),
+                                                         REG_NULL, 0, -(int)sizeof(void*),
+                                                         OPSZ_ret),
+                                   /* only on AMD can we shorten, so we don't test it */
+                                   opnd_create_reg(REG_XCX),
+                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)));
     test_instr_encode(dc, instr, 3);
 
     /* invalid to have far call go through reg since needs 6 bytes */
-    instr = INSTR_CREATE_call_far_ind(dc, opnd_create_base_disp(REG_ECX, REG_NULL, 0, 0,
+    instr = INSTR_CREATE_call_far_ind(dc, opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0,
                                                                 OPSZ_6));
     test_instr_encode(dc, instr, 2);
-    instr = instr_create_2dst_2src(dc, OP_call_far_ind, opnd_create_reg(REG_ESP),
-                                   opnd_create_base_disp(REG_ESP, REG_NULL, 0, -4, OPSZ_4),
-                                   opnd_create_base_disp(REG_ECX, REG_NULL, 0, 0,
+    instr = instr_create_2dst_2src(dc, OP_call_far_ind, opnd_create_reg(REG_XSP),
+                                   opnd_create_base_disp(REG_XSP, REG_NULL, 0, -4, OPSZ_4),
+                                   opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0,
                                                          OPSZ_4),
-                                   opnd_create_reg(REG_ESP));
+                                   opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 3);
-    instr = instr_create_2dst_2src(dc, OP_call_far_ind, opnd_create_reg(REG_SP),
-                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, -8, OPSZ_8_rex16_short4),
-                                   opnd_create_base_disp(REG_BX, REG_NULL, 0, 0,
-                                                         OPSZ_6),
-                                   opnd_create_reg(REG_SP));
+    instr = instr_create_2dst_2src(dc, OP_call_far_ind,
+                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)),
+                                   opnd_create_base_disp(IF_X64_ELSE(REG_ESP, REG_SP),
+                                                         REG_NULL, 0, -8,
+                                                         OPSZ_8_rex16_short4),
+                                   opnd_create_base_disp(IF_X64_ELSE(REG_EBX, REG_BX),
+                                                         REG_NULL, 0, 0, OPSZ_6),
+                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)));
     test_instr_encode(dc, instr, 3);
 
     /* case 10710: make sure we can encode these guys
@@ -329,15 +340,19 @@ test_indirect_cti(void *dc)
          0x00428844   0f a1                pop    %esp (%esp) -> %fs %esp 
          0x00428844   0f a9                pop    %esp (%esp) -> %gs %esp 
      */
+#ifndef X64
     test_instr_encode(dc, INSTR_CREATE_push(dc, opnd_create_reg(SEG_CS)), 1);
     test_instr_encode(dc, INSTR_CREATE_push(dc, opnd_create_reg(SEG_DS)), 1);
     test_instr_encode(dc, INSTR_CREATE_push(dc, opnd_create_reg(SEG_SS)), 1);
     test_instr_encode(dc, INSTR_CREATE_push(dc, opnd_create_reg(SEG_ES)), 1);
+#endif
     test_instr_encode(dc, INSTR_CREATE_push(dc, opnd_create_reg(SEG_FS)), 2);
     test_instr_encode(dc, INSTR_CREATE_push(dc, opnd_create_reg(SEG_GS)), 2);
+#ifndef X64
     test_instr_encode(dc, INSTR_CREATE_pop(dc, opnd_create_reg(SEG_DS)), 1);
     test_instr_encode(dc, INSTR_CREATE_pop(dc, opnd_create_reg(SEG_SS)), 1);
     test_instr_encode(dc, INSTR_CREATE_pop(dc, opnd_create_reg(SEG_ES)), 1);
+#endif
     test_instr_encode(dc, INSTR_CREATE_pop(dc, opnd_create_reg(SEG_FS)), 2);
     test_instr_encode(dc, INSTR_CREATE_pop(dc, opnd_create_reg(SEG_GS)), 2);
 }
@@ -356,15 +371,17 @@ test_cti_prefixes(void *dc)
     buf[4] = 0xef;
     buf[5] = 0x12;
     /* data16 (0x66) == 4 bytes, while addr16 (0x67) == 6 bytes */
-    ASSERT(decode_next_pc(dc, buf) == (byte *) &buf[4]);
-#if VERBOSE
+#ifndef X64 /* no jmp16 for x64 */
+# if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
+# endif
+    ASSERT(decode_next_pc(dc, buf) == (byte *) &buf[4]);
 #endif
     buf[0] = 0x67;
-    ASSERT(decode_next_pc(dc, buf) == (byte *) &buf[6]);
 #if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
 #endif
+    ASSERT(decode_next_pc(dc, buf) == (byte *) &buf[6]);
 }
 
 static void
@@ -471,44 +488,45 @@ test_size_changes(void *dc)
      */
     instr_t *instr;
     /* push addr16 */
-    instr = instr_create_2dst_2src(dc, OP_push, opnd_create_reg(REG_SP),
-                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, -4, OPSZ_4_short2),
-                                   opnd_create_reg(REG_ECX), opnd_create_reg(REG_SP));
+    instr = instr_create_2dst_2src(dc, OP_push,
+                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)),
+                                   opnd_create_base_disp(IF_X64_ELSE(REG_ESP, REG_SP),
+                                                         REG_NULL, 0, -(int)sizeof(void*),
+                                                         OPSZ_ret),
+                                   opnd_create_reg(REG_XCX),
+                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)));
     test_instr_encode(dc, instr, 2);
+#ifndef X64 /* can only shorten on AMD */
     /* push data16 */
-    instr = instr_create_2dst_2src(dc, OP_push, opnd_create_reg(REG_ESP),
-                                   opnd_create_base_disp(REG_ESP, REG_NULL, 0, -2, OPSZ_2),
-                                   opnd_create_reg(REG_CX), opnd_create_reg(REG_ESP));
+    instr = instr_create_2dst_2src(dc, OP_push,
+                                   opnd_create_reg(REG_XSP),
+                                   opnd_create_base_disp(REG_XSP, REG_NULL, 0, -2, OPSZ_2),
+                                   opnd_create_reg(REG_CX), opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 2);
     /* push addr16 and data16 */
     instr = instr_create_2dst_2src(dc, OP_push, opnd_create_reg(REG_SP),
                                    opnd_create_base_disp(REG_SP, REG_NULL, 0, -2, OPSZ_2),
                                    opnd_create_reg(REG_CX), opnd_create_reg(REG_SP));
     test_instr_encode(dc, instr, 3);
+#endif
     /* jecxz and jcxz */
     test_instr_encode(dc, INSTR_CREATE_jecxz(dc, opnd_create_pc(buf)), 2);
-    instr = instr_create_0dst_2src
-        (dc, OP_jecxz, opnd_create_pc(buf), opnd_create_reg(REG_CX));
-    test_instr_encode(dc, instr, 3);
-    instr = instr_create_1dst_2src
-        (dc, OP_loop, opnd_create_reg(REG_CX), opnd_create_pc(buf),
-         opnd_create_reg(REG_CX));
-    test_instr_encode(dc, instr, 3);
-    instr = instr_create_1dst_2src
-        (dc, OP_loope, opnd_create_reg(REG_CX), opnd_create_pc(buf),
-         opnd_create_reg(REG_CX));
-    test_instr_encode(dc, instr, 3);
-    instr = instr_create_1dst_2src
-        (dc, OP_loopne, opnd_create_reg(REG_CX), opnd_create_pc(buf),
-         opnd_create_reg(REG_CX));
-    test_instr_encode(dc, instr, 3);
-#ifdef X64
-    /* FIXME: this func not even called for x64!
     /* test non-default count register size (requires addr prefix) */
     instr = instr_create_0dst_2src
-        (dc, OP_jecxz, opnd_create_pc(buf), opnd_create_reg(REG_ECX));
+        (dc, OP_jecxz, opnd_create_pc(buf), opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
     test_instr_encode(dc, instr, 3);
-#endif
+    instr = instr_create_1dst_2src
+        (dc, OP_loop, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
+         opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+    test_instr_encode(dc, instr, 3);
+    instr = instr_create_1dst_2src
+        (dc, OP_loope, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
+         opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+    test_instr_encode(dc, instr, 3);
+    instr = instr_create_1dst_2src
+        (dc, OP_loopne, opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)), opnd_create_pc(buf),
+         opnd_create_reg(IF_X64_ELSE(REG_ECX, REG_CX)));
+    test_instr_encode(dc, instr, 3);
 
     /*
      *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi %edi 
@@ -523,23 +541,28 @@ test_size_changes(void *dc)
      */
     test_instr_encode(dc, INSTR_CREATE_cmps_1(dc), 1);
     instr = instr_create_2dst_4src
-        (dc, OP_cmps, opnd_create_reg(REG_SI), opnd_create_reg(REG_DI),
-         opnd_create_far_base_disp(SEG_DS, REG_SI, REG_NULL, 0, 0, OPSZ_1),
-         opnd_create_far_base_disp(SEG_ES, REG_DI, REG_NULL, 0, 0, OPSZ_1),
-         opnd_create_reg(REG_SI), opnd_create_reg(REG_DI));
+        (dc, OP_cmps, opnd_create_reg(IF_X64_ELSE(REG_ESI, REG_SI)),
+         opnd_create_reg(IF_X64_ELSE(REG_EDI, REG_DI)),
+         opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_ESI, REG_SI),
+                                   REG_NULL, 0, 0, OPSZ_1),
+         opnd_create_far_base_disp(SEG_ES, IF_X64_ELSE(REG_EDI, REG_DI),
+                                   REG_NULL, 0, 0, OPSZ_1),
+         opnd_create_reg(IF_X64_ELSE(REG_ESI, REG_SI)),
+         opnd_create_reg(IF_X64_ELSE(REG_EDI, REG_DI)));
     test_instr_encode(dc, instr, 2);
 
     instr = instr_create_2dst_4src
-        (dc, OP_cmps, opnd_create_reg(REG_ESI), opnd_create_reg(REG_EDI),
-         opnd_create_far_base_disp(SEG_DS, REG_ESI, REG_NULL, 0, 0, OPSZ_2),
-         opnd_create_far_base_disp(SEG_ES, REG_EDI, REG_NULL, 0, 0, OPSZ_2),
-         opnd_create_reg(REG_ESI), opnd_create_reg(REG_EDI));
+        (dc, OP_cmps, opnd_create_reg(REG_XSI), opnd_create_reg(REG_XDI),
+         opnd_create_far_base_disp(SEG_DS, REG_XSI, REG_NULL, 0, 0, OPSZ_2),
+         opnd_create_far_base_disp(SEG_ES, REG_XDI, REG_NULL, 0, 0, OPSZ_2),
+         opnd_create_reg(REG_XSI), opnd_create_reg(REG_XDI));
     test_instr_encode_and_decode(dc, instr, 2, true/*src*/, 0, OPSZ_2, 2);
 
     test_instr_encode(dc, INSTR_CREATE_xlat(dc), 1);
     instr = instr_create_1dst_1src
         (dc, OP_xlat, opnd_create_reg(REG_AL),
-         opnd_create_far_base_disp(SEG_DS, REG_BX, REG_AL, 1, 0, OPSZ_1));
+         opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EBX, REG_BX),
+                                   REG_AL, 1, 0, OPSZ_1));
     test_instr_encode(dc, instr, 2);
 
     instr = INSTR_CREATE_maskmovq(dc, opnd_create_reg(REG_MM0),
@@ -547,7 +570,8 @@ test_size_changes(void *dc)
     test_instr_encode(dc, instr, 3);
     instr = instr_create_1dst_2src
         (dc, OP_maskmovq, 
-         opnd_create_far_base_disp(SEG_DS, REG_DI, REG_NULL, 0, 0, OPSZ_8),
+         opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
+                                   REG_NULL, 0, 0, OPSZ_8),
          opnd_create_reg(REG_MM0), opnd_create_reg(REG_MM1));
     test_instr_encode(dc, instr, 4);
 
@@ -556,7 +580,8 @@ test_size_changes(void *dc)
     test_instr_encode(dc, instr, 4);
     instr = instr_create_1dst_2src
         (dc, OP_maskmovdqu, 
-         opnd_create_far_base_disp(SEG_DS, REG_DI, REG_NULL, 0, 0, OPSZ_16),
+         opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
+                                   REG_NULL, 0, 0, OPSZ_16),
          opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1));
     test_instr_encode(dc, instr, 5);
 
@@ -641,19 +666,17 @@ main(int argc, char *argv[])
 
     test_all_opcodes(dcontext);
 
-#ifdef X64
-    /* FIXME: NYI */
-#else
     test_disp_control(dcontext);
 
     test_indirect_cti(dcontext);
 
     test_cti_prefixes(dcontext);
 
+#ifndef X64
     test_modrm16(dcontext);
+#endif
 
     test_size_changes(dcontext);
-#endif
 
     test_nop_xchg(dcontext);
 
