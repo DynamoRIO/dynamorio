@@ -64,6 +64,25 @@ if (WIN32)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif (WIN32)
 
+# Extensions don't include configure.h so they don't get DR defines
+foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+  if ("${config}" STREQUAL "")
+    set(config_upper "")
+  else ("${config}" STREQUAL "")
+    string(TOUPPER "_${config}" config_upper)
+  endif ("${config}" STREQUAL "")
+  foreach (var CMAKE_C_FLAGS${config_upper};CMAKE_CXX_FLAGS${config_upper})
+    if (DEBUG)
+      set(${var} "${${var}} -DDEBUG")
+    endif (DEBUG)
+    # we're used to X64 instead of X86_64
+    if (X64)
+      set(${var} "${${var}} -DX64")
+    endif (X64)
+  endforeach (var)
+endforeach (config)
+
+
 file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})
   get_filename_component(dir ${dir} PATH)

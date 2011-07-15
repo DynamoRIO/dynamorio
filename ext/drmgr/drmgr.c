@@ -58,7 +58,7 @@
  * input from user) but perhaps we shouldn't since this is a library
  */
 #ifdef DEBUG
-# define ASSERT(x, msg) DR_ASSERT(x, msg)
+# define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #else
 # define ASSERT(x, msg) /* nothing */
 #endif

@@ -39,7 +39,7 @@
  * input from user)
  */
 #ifdef DEBUG
-# define ASSERT(x, msg) DR_ASSERT(x, msg)
+# define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #else
 # define ASSERT(x, msg) /* nothing */
 #endif
