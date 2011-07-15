@@ -38,7 +38,7 @@
 ##
 ## DynamoRIO @name@ script for Linux
 ## 
-## usage: @name@ [-v] [-debug] [-dr_home <path>] [-ops <dr_options>]
+## usage: @name@ [-v] [-debug] [-dr_home <path>] [-ops <dr_options>]*
 ##                 [-logdir <path>] -client <path> <executable> [args ...]
 ##
 ##  [-v]                   Verbose output
@@ -56,6 +56,7 @@
 ##  [-ops <dr_options>]    DynamoRIO options (such as -stderr_mask 0xc
 ##                           or -opt_memory: see docs). Can also be specified
 ##                           with DYNAMORIO_OPTIONS in the environment.
+##                           Can be repeated.
 ##  [-logdir <path>]       Path to logging directory.  Defaults to ../logs from
 ##                           @name@; may also be omitted if DYNAMORIO_LOGDIR
 ##                           is defined in the environment.
@@ -88,7 +89,7 @@ else
     extra=""
 fi
 
-usage="usage: $0 [-v] [-debug] [-32] [-64] $extra[-dr_home <path>] [-ops <dr_options>] [-logdir <path>] [-client <path> <ID> \"<options>\"]* <executable> [args ...]"
+usage="usage: $0 [-v] [-debug] [-32] [-64] $extra[-dr_home <path>] [-ops <dr_options>]* [-logdir <path>] [-client <path> <ID> \"<options>\"]* <executable> [args ...]"
 
 default_home_rel="`dirname $0`/.."
 default_home=`cd $default_home_rel ; pwd`
@@ -169,7 +170,12 @@ if [ "$1" = "-ops" ]
 then
     shift
     specified_ops=yes
-    ops=$1
+    if [ -n "$ops" ]
+    then
+        ops="$ops $1"
+    else
+        ops="$1"
+    fi
     shift
 fi
 

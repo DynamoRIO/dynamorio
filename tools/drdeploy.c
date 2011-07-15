@@ -147,7 +147,7 @@ const char *usage_str =
     "\n"
     "       -ops \"<options>\"   Additional DR control options.  When specifying\n"
     "                          multiple options, enclose the entire list of\n"
-    "                          options in quotes.\n"
+    "                          options in quotes, or repeat the -ops.\n"
     "\n"
     "       -client <path> <ID> \"<options>\"\n"
     "                          Register one or more clients to run alongside DR.\n"
@@ -470,7 +470,7 @@ int main(int argc, char *argv[])
     dr_operation_mode_t dr_mode = DR_MODE_NONE;
 # endif
 #endif
-    char *extra_ops = NULL;
+    char extra_ops[MAX_OPTIONS_STRING];
     action_t action = action_none;
     bool use_debug = false;
     dr_platform_t dr_platform = DR_PLATFORM_DEFAULT;
@@ -512,6 +512,7 @@ int main(int argc, char *argv[])
     char *drlib_path = NULL;
 
     memset(client_paths, 0, sizeof(client_paths));
+    extra_ops[0] = '\0';
 
     /* default root: we assume this tool is in <root>/bin{32,64}/dr*.exe */
     GetFullPathName(argv[0], BUFFER_SIZE_ELEMENTS(buf), buf, NULL);
@@ -713,7 +714,11 @@ int main(int argc, char *argv[])
             }
         }
         else if (strcmp(argv[i], "-ops") == 0) {
-            extra_ops = argv[++i];
+            /* support repeating the option (i#477) */
+            _snprintf(extra_ops + strlen(extra_ops),
+                      BUFFER_SIZE_ELEMENTS(extra_ops) - strlen(extra_ops),
+                      "%s%s", (extra_ops[0] == '\0') ? "" : " ", argv[++i]);
+            NULL_TERMINATE_BUFFER(extra_ops);
 	}
 #endif
 #if defined(DRRUN) || defined(DRINJECT)
