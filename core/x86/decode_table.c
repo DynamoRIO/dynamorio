@@ -4064,26 +4064,26 @@ const instr_info_t vex_extensions[][2] = {
     {OP_extractps, 0x663a1718, "extractps", Ed, xx, Vdq, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vextractps,0x663a1718, "vextractps", Ed, xx, Vdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 40 */
-    {OP_roundps,  0x663a1818, "roundps",  Vdq, xx, Wdq, Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vroundps, 0x663a1818, "vroundps",  Vvdq, xx, Wvdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
+    {OP_roundps,  0x663a0818, "roundps",  Vdq, xx, Wdq, Ib, xx, mrm|reqp, x, END_LIST},
+    {OP_vroundps, 0x663a0818, "vroundps",  Vvdq, xx, Wvdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 41 */
-    {OP_roundpd,  0x663a1918, "roundpd",  Vdq, xx, Wdq, Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vroundpd, 0x663a1918, "vroundpd",  Vvdq, xx, Wvdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
+    {OP_roundpd,  0x663a0918, "roundpd",  Vdq, xx, Wdq, Ib, xx, mrm|reqp, x, END_LIST},
+    {OP_vroundpd, 0x663a0918, "vroundpd",  Vvdq, xx, Wvdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 42 */
-    {OP_roundss,  0x663a1a18, "roundss",  Vss, xx, Wss, Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vroundss, 0x663a1a18, "vroundss",  Vss, xx, Hss, Wss, Ib, mrm|vex|reqp, x, END_LIST},
+    {OP_roundss,  0x663a0a18, "roundss",  Vss, xx, Wss, Ib, xx, mrm|reqp, x, END_LIST},
+    {OP_vroundss, 0x663a0a18, "vroundss",  Vss, xx, Hss, Wss, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 43 */
-    {OP_roundsd,  0x663a1b18, "roundsd",  Vsd, xx, Wsd, Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vroundsd, 0x663a1b18, "vroundsd",  Vsd, xx, Hss, Wsd, Ib, mrm|vex|reqp, x, END_LIST},
+    {OP_roundsd,  0x663a0b18, "roundsd",  Vsd, xx, Wsd, Ib, xx, mrm|reqp, x, END_LIST},
+    {OP_vroundsd, 0x663a0b18, "vroundsd",  Vsd, xx, Hss, Wsd, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 44 */
-    {OP_blendps,  0x663a1c18, "blendps",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
-    {OP_vblendps, 0x663a1c18, "vblendps",  Vvdq, xx, Hvdq, Wvdq, Ib, mrm|vex|reqp, x, END_LIST},
+    {OP_blendps,  0x663a0c18, "blendps",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
+    {OP_vblendps, 0x663a0c18, "vblendps",  Vvdq, xx, Hvdq, Wvdq, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 45 */
-    {OP_blendpd,  0x663a1d18, "blendpd",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
-    {OP_vblendpd, 0x663a1d18, "vblendpd",  Vvdq, xx, Hvdq, Wvdq, Ib, mrm|vex|reqp, x, END_LIST},
+    {OP_blendpd,  0x663a0d18, "blendpd",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
+    {OP_vblendpd, 0x663a0d18, "vblendpd",  Vvdq, xx, Hvdq, Wvdq, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 46 */
-    {OP_pblendw,  0x663a1e18, "pblendw",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
-    {OP_vpblendw, 0x663a1e18, "vpblendw",  Vdq, xx, Hdq, Wdq, Ib, mrm|vex|reqp, x, END_LIST},
+    {OP_pblendw,  0x663a0e18, "pblendw",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
+    {OP_vpblendw, 0x663a0e18, "vpblendw",  Vdq, xx, Hdq, Wdq, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 47 */
   /* pinsrb only writes one byte of the dest: but we don't distinguish that
    * (OPSZ_4_of_16 is there for instrs that also take gprs: this one only takes xmm) */
@@ -4492,8 +4492,8 @@ const instr_info_t third_byte_38[] = {
 
 const byte third_byte_3a_index[256] = {
   /* 0  1  2  3   4  5  6  7   8  9  A  B   C  D  E  F */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1,  /* 0 */
-     0, 0, 0, 0,  2, 3, 4, 5,  6, 7, 8, 9, 10,11,12, 0,  /* 1 */
+     0, 0, 0, 0,  0, 0, 0, 0,  6, 7, 8, 9, 10,11,12, 1,  /* 0 */
+     0, 0, 0, 0,  2, 3, 4, 5,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
     13,14,15, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
     16,17,18, 0, 23, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
@@ -4518,13 +4518,13 @@ const instr_info_t third_byte_3a[] = {
   {VEX_EXT,  0x663a1518, "(vex ext 37)", xx, xx, xx, xx, xx, mrm, x, 37},/* 3*/
   {VEX_EXT,  0x663a1618, "(vex ext 38)", xx, xx, xx, xx, xx, mrm, x, 38},/* 4*/
   {VEX_EXT,  0x663a1718, "(vex ext 39)", xx, xx, xx, xx, xx, mrm, x, 39},/* 5*/
-  {VEX_EXT,  0x663a1818, "(vex ext 40)", xx, xx, xx, xx, xx, mrm, x, 40},/* 6*/
-  {VEX_EXT,  0x663a1918, "(vex ext 41)", xx, xx, xx, xx, xx, mrm, x, 41},/* 7*/
-  {VEX_EXT,  0x663a1a18, "(vex ext 42)", xx, xx, xx, xx, xx, mrm, x, 42},/* 8*/
-  {VEX_EXT,  0x663a1b18, "(vex ext 43)", xx, xx, xx, xx, xx, mrm, x, 43},/* 9*/
-  {VEX_EXT,  0x663a1c18, "(vex ext 44)", xx, xx, xx, xx, xx, mrm, x, 44},/*10*/
-  {VEX_EXT,  0x663a1d18, "(vex ext 45)", xx, xx, xx, xx, xx, mrm, x, 45},/*11*/
-  {VEX_EXT,  0x663a1e18, "(vex ext 46)", xx, xx, xx, xx, xx, mrm, x, 46},/*12*/
+  {VEX_EXT,  0x663a0818, "(vex ext 40)", xx, xx, xx, xx, xx, mrm, x, 40},/* 6*/
+  {VEX_EXT,  0x663a0918, "(vex ext 41)", xx, xx, xx, xx, xx, mrm, x, 41},/* 7*/
+  {VEX_EXT,  0x663a0a18, "(vex ext 42)", xx, xx, xx, xx, xx, mrm, x, 42},/* 8*/
+  {VEX_EXT,  0x663a0b18, "(vex ext 43)", xx, xx, xx, xx, xx, mrm, x, 43},/* 9*/
+  {VEX_EXT,  0x663a0c18, "(vex ext 44)", xx, xx, xx, xx, xx, mrm, x, 44},/*10*/
+  {VEX_EXT,  0x663a0d18, "(vex ext 45)", xx, xx, xx, xx, xx, mrm, x, 45},/*11*/
+  {VEX_EXT,  0x663a0e18, "(vex ext 46)", xx, xx, xx, xx, xx, mrm, x, 46},/*12*/
   /* 20 */
   {VEX_EXT,  0x663a2018, "(vex ext 47)", xx, xx, xx, xx, xx, mrm, x, 47},/*13*/
   {VEX_EXT,  0x663a2118, "(vex ext 48)", xx, xx, xx, xx, xx, mrm, x, 48},/*14*/
