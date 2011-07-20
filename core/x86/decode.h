@@ -536,6 +536,7 @@ enum {
                  * Also Intel 'qq','pd','ps','x': 32 bytes (256 bits) */
     OPSZ_40,    /**< 40 bytes: 64-bit iret */
     OPSZ_32_short16,      /**< unresolved pusha/popa */
+    OPSZ_8_rex16,         /**< cmpxcgh8b/cmpxchg16b */
     OPSZ_8_rex16_short4,  /**< Intel 'v' * 2 (far call/ret) */
     OPSZ_12_rex40_short6, /**< unresolved iret */
     OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L */

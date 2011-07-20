@@ -1189,6 +1189,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_4x8_short2: /* default size */
     case OPSZ_4x8_short2xi8: /* default size */
 #endif
+    case OPSZ_8_rex16: /* default size */
     case OPSZ_8_rex16_short4: /* default size */
         return 8;
     case OPSZ_16:

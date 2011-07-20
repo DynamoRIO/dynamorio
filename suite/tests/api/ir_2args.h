@@ -439,6 +439,8 @@ OPCODE(vmovsd_ld, vmovsd, vmovsd, 0, REGARG(XMM0), MEMARG(OPSZ_8))
 OPCODE(vmovss_st, vmovss, vmovss, 0, MEMARG(OPSZ_4), REGARG(XMM0))
 OPCODE(vmovsd_st, vmovsd, vmovsd, 0, MEMARG(OPSZ_8), REGARG(XMM0))
 OPCODE(vmaskmovdqu, vmaskmovdqu, vmaskmovdqu, 0, REGARG(XMM0), REGARG(XMM1))
+OPCODE(vcvtph2ps, vcvtph2ps, vcvtph2ps, 0, REGARG(XMM0), MEMARG(OPSZ_16))
+OPCODE(vbroadcastss, vbroadcastss, vbroadcastss, 0, REGARG(XMM0), MEMARG(OPSZ_4))
 
 /* AVX 256-bit */
 OPCODE(vmovups_ld_256, vmovups, vmovups, 0, REGARG(YMM0), MEMARG(OPSZ_32))
@@ -475,6 +477,10 @@ OPCODE(vlddqu_256, vlddqu, vlddqu, 0, REGARG(YMM0), MEMARG(OPSZ_32))
 OPCODE(vptest_256, vptest, vptest, 0, REGARG(YMM0), MEMARG(OPSZ_32))
 OPCODE(vtestps_256, vtestps, vtestps, 0, REGARG(YMM0), MEMARG(OPSZ_32))
 OPCODE(vtestpd_256, vtestpd, vtestpd, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vcvtph2ps_256, vcvtph2ps, vcvtph2ps, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vbroadcastss_256, vbroadcastss, vbroadcastss, 0, REGARG(YMM0), MEMARG(OPSZ_4))
+OPCODE(vbroadcastsd, vbroadcastsd, vbroadcastsd, 0, REGARG(YMM0), MEMARG(OPSZ_8))
+OPCODE(vbroadcastf128, vbroadcastf128, vbroadcastf128, 0, REGARG(YMM0), MEMARG(OPSZ_16))
 
 /* random extended reg tests */
 OPCODE(vmovdqu_256_ext, vmovdqu, vmovdqu, X64_ONLY, REGARG(YMM11), MEMARG(OPSZ_32))

@@ -369,8 +369,8 @@ const instr_info_t * const op_instr[] =
     /* OP_cmpxchg8b    */   &extensions[16][1],
     /* OP_fxsave       */   &extensions[22][0],
     /* OP_fxrstor      */   &extensions[22][1],
-    /* OP_ldmxcsr      */   &extensions[22][2],
-    /* OP_stmxcsr      */   &extensions[22][3],
+    /* OP_ldmxcsr      */   &vex_extensions[61][0],
+    /* OP_stmxcsr      */   &vex_extensions[62][0],
     /* OP_lfence       */   &mod_extensions[6][1],
     /* OP_mfence       */   &mod_extensions[7][1],
     /* OP_clflush      */   &mod_extensions[3][0],
@@ -649,9 +649,9 @@ const instr_info_t * const op_instr[] =
     /* OP_extrq         */   &prefix_extensions[134][2],
     /* OP_insertq       */   &prefix_extensions[134][3],
     /* OP_lzcnt         */   &prefix_extensions[136][1],
-    /* OP_pblendvb      */   &vex_extensions[0][0],
-    /* OP_blendvps      */   &vex_extensions[1][0],
-    /* OP_blendvpd      */   &vex_extensions[2][0],
+    /* OP_pblendvb      */   &third_byte_38[16],
+    /* OP_blendvps      */   &third_byte_38[17],
+    /* OP_blendvpd      */   &third_byte_38[18],
     /* OP_ptest         */   &vex_extensions[3][0],
     /* OP_pmovsxbw      */   &vex_extensions[4][0],
     /* OP_pmovsxbd      */   &vex_extensions[5][0],
@@ -940,9 +940,9 @@ const instr_info_t * const op_instr[] =
     /* OP_vpabsw        */  &prefix_extensions[131][6],
     /* OP_vpabsd        */  &prefix_extensions[132][6],
     /* OP_vpalignr      */  &prefix_extensions[133][6],
-    /* OP_vpblendvb     */  &vex_extensions[ 0][1],
-    /* OP_vblendvps     */  &vex_extensions[ 1][1],
-    /* OP_vblendvpd     */  &vex_extensions[ 2][1],
+    /* OP_vpblendvb     */  &vex_extensions[ 2][1],
+    /* OP_vblendvps     */  &vex_extensions[ 0][1],
+    /* OP_vblendvpd     */  &vex_extensions[ 1][1],
     /* OP_vptest        */  &vex_extensions[ 3][1],
     /* OP_vpmovsxbw     */  &vex_extensions[ 4][1],
     /* OP_vpmovsxbd     */  &vex_extensions[ 5][1],
@@ -1002,6 +1002,20 @@ const instr_info_t * const op_instr[] =
     /* OP_vtestpd       */  &vex_extensions[60][1],
     /* OP_vzeroupper    */  &vex_L_extensions[0][1],
     /* OP_vzeroall      */  &vex_L_extensions[0][2],
+    /* OP_vldmxcsr      */  &vex_extensions[61][1],
+    /* OP_vstmxcsr      */  &vex_extensions[62][1],
+    /* OP_vbroadcastss  */  &vex_extensions[64][1],
+    /* OP_vbroadcastsd  */  &vex_extensions[65][1],
+    /* OP_vbroadcastf128*/  &vex_extensions[66][1],
+    /* OP_vmaskmovps    */  &vex_extensions[67][1],
+    /* OP_vmaskmovpd    */  &vex_extensions[68][1],
+    /* OP_vpermilps     */  &vex_extensions[71][1],
+    /* OP_vpermilpd     */  &vex_extensions[72][1],
+    /* OP_vperm2f128    */  &vex_extensions[73][1],
+    /* OP_vinsertf128   */  &vex_extensions[74][1],
+    /* OP_vextractf128  */  &vex_extensions[75][1],
+    /* OP_vcvtph2ps     */  &vex_extensions[63][1],
+    /* OP_vcvtps2ph     */  &vex_extensions[76][1],
 
     /* FMA */
     /* OP_vfmadd132ps   */  &vex_W_extensions[ 0][0],
@@ -1153,6 +1167,7 @@ const instr_info_t * const op_instr[] =
 #define Vvs TYPE_V, OPSZ_16_vex32
 #define Vvd TYPE_V, OPSZ_16_vex32
 #define Vvdq TYPE_V, OPSZ_16_vex32
+#define Vqq TYPE_V, OPSZ_32
 #define Wvs TYPE_W, OPSZ_16_vex32
 #define Wvd TYPE_W, OPSZ_16_vex32
 #define Wvdq TYPE_W, OPSZ_16_vex32
@@ -1191,6 +1206,7 @@ const instr_info_t * const op_instr[] =
 #define Msd  TYPE_M, OPSZ_8
 #define Mq  TYPE_M, OPSZ_8
 #define Mdq  TYPE_M, OPSZ_16
+#define Mq_dq TYPE_M, OPSZ_8_rex16
 #define Mv  TYPE_M, OPSZ_4_rex8_short2
 #define Zb  TYPE_XLAT, OPSZ_1
 #define Bq  TYPE_MASKMOVQ, OPSZ_8
@@ -1419,6 +1435,7 @@ const instr_info_t * const op_instr[] =
 #define exop (ptr_int_t)&extra_operands
 #define t64e (ptr_int_t)&x64_extensions
 #define trex (ptr_int_t)&rex_extensions
+#define tvex (ptr_int_t)&vex_extensions
 
 /* point at this when you need a canonical invalid instr 
  * type is OP_INVALID so can be copied to instr->opcode
@@ -2243,7 +2260,7 @@ const instr_info_t extensions[][8] = {
   /* group 9 (first bytes 0f c7) */
   { /* extensions[16] */
     {INVALID, 0x0fc730, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_cmpxchg8b, 0x0fc731, "cmpxchg8b", Mq, eAX, Mq, eAX, eDX, mrm_xop, fWZ, exop[0x07]},/*"cmpxchg16b" w/ rex.w*/
+    {OP_cmpxchg8b, 0x0fc731, "cmpxchg8b", Mq_dq, eAX, Mq_dq, eAX, eDX, mrm_xop, fWZ, exop[0x07]},/*"cmpxchg16b" w/ rex.w*/
     {INVALID, 0x0fc732, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x0fc733, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x0fc734, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -2313,8 +2330,8 @@ const instr_info_t extensions[][8] = {
     /* Intel tables imply they may add opcodes in the mod=3 (non-mem) space in future */
     {OP_fxsave,  0x0fae30, "fxsave",  Me, xx, xx, xx, xx, mrm, x, END_LIST},
     {OP_fxrstor, 0x0fae31, "fxrstor", xx, xx, Me, xx, xx, mrm, x, END_LIST},
-    {OP_ldmxcsr, 0x0fae32, "ldmxcsr", xx, xx, Md, xx, xx, mrm, x, END_LIST},
-    {OP_stmxcsr, 0x0fae33, "stmxcsr", Md, xx, xx, xx, xx, mrm, x, END_LIST},
+    {VEX_EXT, 0x0fae32, "(vex ext 61)", xx, xx, xx, xx, xx, mrm, x, 61},
+    {VEX_EXT, 0x0fae33, "(vex ext 62)", xx, xx, xx, xx, xx, mrm, x, 62},
     {OP_xsave,   0x0fae34, "xsave", Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
     {MOD_EXT,    0x0fae35, "(group 15 mod ext 6)", xx, xx, xx, xx, xx, no, x, 6},
     {MOD_EXT,    0x0fae36, "(group 15 mod ext 7)", xx, xx, xx, xx, xx, no, x, 7},
@@ -3943,15 +3960,15 @@ const instr_info_t prefix_extensions[][8] = {
  * so there's nothing inherent here about prefixes.
  */
 const instr_info_t vex_extensions[][2] = {
-  {   /* vex ext  0 */
-    {OP_pblendvb, 0x66381018, "pblendvb", Vdq, xx, Wdq,xmm0,Vdq, mrm|reqp, x, END_LIST},
-    {OP_vpblendvb, 0x66381018, "vpblendvb", Vdq, xx, Hdq,Wdq,Ldq, mrm|vex|reqp, x, END_LIST},
+  {    /* vex ext  0 */
+    {INVALID,   0x663a4a18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vblendvps,0x663a4a18, "vblendvps", Vvdq, xx, Hvdq,Wvdq,Lvdq, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext  1 */
-    {OP_blendvps, 0x66381418, "blendvps", Vdq, xx, Wdq,xmm0,Vdq, mrm|reqp, x, END_LIST},
-    {OP_vblendvps,0x66381418, "vblendvps", Vvdq, xx, Hvdq,Wvdq,Lvdq, mrm|vex|reqp, x, END_LIST},
+    {INVALID,   0x663a4b18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vblendvpd,0x663a4b18, "vblendvpd", Vvdq, xx, Hvdq,Wvdq,Lvdq, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext  2 */
-    {OP_blendvpd, 0x66381518, "blendvpd", Vdq, xx, Wdq,xmm0,Vdq, mrm|reqp, x, END_LIST},
-    {OP_vblendvpd,0x66381518, "vblendvpd", Vvdq, xx, Hvdq,Wvdq,Lvdq, mrm|vex|reqp, x, END_LIST},
+    {INVALID,   0x663a4c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpblendvb, 0x663a4c18, "vpblendvb", Vdq, xx, Hdq,Wdq,Ldq, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext  3 */
     {OP_ptest,    0x66381718, "ptest",    xx, xx,  Vdq,Wdq, xx, mrm|reqp, fW6, END_LIST},
     {OP_vptest,   0x66381718, "vptest",    xx, xx,  Vvdq,Wvdq, xx, mrm|vex|reqp, fW6, END_LIST},
@@ -4128,6 +4145,60 @@ const instr_info_t vex_extensions[][2] = {
   }, { /* vex ext 60 */
     {INVALID,   0x66380f18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vtestpd, 0x66380f18, "vtestpd", xx, xx, Vvdq,Wvdq, xx, mrm|vex|reqp, fW6, END_LIST},
+  }, { /* vex ext 61 */
+    {OP_ldmxcsr, 0x0fae32, "ldmxcsr", xx, xx, Md, xx, xx, mrm, x, END_LIST},
+    {OP_vldmxcsr, 0x0fae32, "vldmxcsr", xx, xx, Md, xx, xx, mrm|vex, x, END_LIST},
+  }, { /* vex ext 62 */
+    {OP_stmxcsr, 0x0fae33, "stmxcsr", Md, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_vstmxcsr, 0x0fae33, "vstmxcsr", Md, xx, xx, xx, xx, mrm|vex, x, END_LIST},
+  }, { /* vex ext 63 */
+    {INVALID,   0x66381318, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vcvtph2ps, 0x66381318, "vcvtph2ps", Vvdq, xx, Wvdq, xx, xx, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 64 */
+    {INVALID,   0x66381818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbroadcastss, 0x66381818, "vbroadcastss", Vvdq, xx, Md, xx, xx, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 65 */
+    {INVALID,   0x66381918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbroadcastsd, 0x66381918, "vbroadcastsd", Vqq, xx, Mq, xx, xx, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 66 */
+    {INVALID,   0x66381a18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbroadcastf128, 0x66381a18, "vbroadcastf128", Vqq, xx, Mdq, xx, xx, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 67 */
+    {INVALID,   0x66382c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmaskmovps, 0x66382c18, "vmaskmovps", Vvdq, xx, Hvdq,Mvdq, xx, mrm|vex|reqp, x, tvex[69][1]},
+  }, { /* vex ext 68 */
+    {INVALID,   0x66382d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmaskmovpd, 0x66382d18, "vmaskmovpd", Vvdq, xx, Hvdq,Mvdq, xx, mrm|vex|reqp, x, tvex[70][1]},
+  }, { /* vex ext 69 */
+    {INVALID,   0x66382e18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmaskmovps, 0x66382e18, "vmaskmovps", Mvdq, xx, Hvdq,Vvdq, xx, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 70 */
+    {INVALID,   0x66382f18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmaskmovpd, 0x66382f18, "vmaskmovpd", Mvdq, xx, Hvdq,Vvdq, xx, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 71 */
+    {INVALID,   0x663a0418, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpermilps, 0x663a0418, "vpermilps", Vvdq, xx, Wvdq, Ib, xx, mrm|vex|reqp, x, tvex[77][1]},
+  }, { /* vex ext 72 */
+    {INVALID,   0x663a0518, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpermilpd, 0x663a0518, "vpermilpd", Vvdq, xx, Wvdq, Ib, xx, mrm|vex|reqp, x, tvex[78][1]},
+  }, { /* vex ext 73 */
+    {INVALID,   0x663a0618, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vperm2f128, 0x663a0618, "vperm2f128", Vvdq, xx, Hvdq,Wvdq, Ib, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 74 */
+    {INVALID,   0x663a1818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vinsertf128, 0x663a1818, "vinsertf128", Vvdq, xx, Hvdq,Wvdq, Ib, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 75 */
+    {INVALID,   0x663a1918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vextractf128, 0x663a1918, "vextractf128", Wvdq, xx, Vvdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 76 */
+    {INVALID,   0x663a1d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", Wvdq, xx, Vvdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 77 */
+    {INVALID,   0x66380c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpermilps, 0x66380c18, "vpermilps", Vvdq, xx, Hvdq,Wvdq, xx, mrm|vex|reqp, x, END_LIST},
+  }, { /* vex ext 78 */
+    {INVALID,   0x66380d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpermilpd, 0x66380d18, "vpermilpd", Vvdq, xx, Hvdq,Wvdq, xx, mrm|vex|reqp, x, END_LIST},
   },
 };
 
@@ -4370,9 +4441,9 @@ const instr_info_t rex_extensions[][2] = {
  */
 const byte third_byte_38_index[256] = {
   /* 0  1  2  3   4  5  6  7   8  9  A  B   C  D  E  F */
-     1, 2, 3, 4,  5, 6, 7, 8,  9,10,11,12,  0, 0,56,57,  /* 0 */
-    16, 0, 0, 0, 17,18, 0,19,  0, 0, 0, 0, 13,14,15, 0,  /* 1 */
-    20,21,22,23, 24,25, 0, 0, 26,27,28,29,  0, 0, 0, 0,  /* 2 */
+     1, 2, 3, 4,  5, 6, 7, 8,  9,10,11,12, 96,97,56,57,  /* 0 */
+    16, 0, 0,88, 17,18, 0,19, 89,90,91, 0, 13,14,15, 0,  /* 1 */
+    20,21,22,23, 24,25, 0, 0, 26,27,28,29, 92,93,94,95,  /* 2 */
     30,31,32,33, 34,35, 0,36, 37,38,39,40, 41,42,43,44,  /* 3 */
     45,46, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
@@ -4406,9 +4477,9 @@ const instr_info_t third_byte_38[] = {
   {PREFIX_EXT,  0x381d18,   "(prefix ext 131)", xx, xx, xx, xx, xx, mrm, x, 131},/*14*/
   {PREFIX_EXT,  0x381e18,   "(prefix ext 132)", xx, xx, xx, xx, xx, mrm, x, 132},/*15*/
   /**** SSE4 ****/
-  {VEX_EXT,  0x66381018, "(vex ext  0)", xx, xx, xx, xx, xx, mrm, x,  0},/*16*/
-  {VEX_EXT,  0x66381418, "(vex ext  1)", xx, xx, xx, xx, xx, mrm, x,  1},/*17*/
-  {VEX_EXT,  0x66381518, "(vex ext  2)", xx, xx, xx, xx, xx, mrm, x,  2},/*18*/
+  {OP_pblendvb, 0x66381018, "pblendvb", Vdq, xx, Wdq,xmm0,Vdq, mrm|reqp,x, END_LIST},/*16*/
+  {OP_blendvps, 0x66381418, "blendvps", Vdq, xx, Wdq,xmm0,Vdq, mrm|reqp,x, END_LIST},/*17*/
+  {OP_blendvpd, 0x66381518, "blendvpd", Vdq, xx, Wdq,xmm0,Vdq, mrm|reqp,x, END_LIST},/*18*/
   {VEX_EXT,  0x66381718, "(vex ext  3)", xx, xx, xx, xx, xx, mrm, x,  3},/*19*/
   /* 20 */
   {VEX_EXT,  0x66382018, "(vex ext  4)", xx, xx, xx, xx, xx, mrm, x,  4},/*20*/
@@ -4488,15 +4559,26 @@ const instr_info_t third_byte_38[] = {
   {VEX_W_EXT, 0x6638bd18, "(vex_W ext 23)", xx, xx, xx, xx, xx, mrm, x, 23},/*85*/
   {VEX_W_EXT, 0x6638be18, "(vex_W ext 26)", xx, xx, xx, xx, xx, mrm, x, 26},/*86*/
   {VEX_W_EXT, 0x6638bf18, "(vex_W ext 29)", xx, xx, xx, xx, xx, mrm, x, 29},/*87*/
+  /* AVX overlooked in original pass */
+  {VEX_EXT, 0x66381318, "(vex ext 63)", xx, xx, xx, xx, xx, mrm, x, 63},/*88*/
+  {VEX_EXT, 0x66381818, "(vex ext 64)", xx, xx, xx, xx, xx, mrm, x, 64},/*89*/
+  {VEX_EXT, 0x66381918, "(vex ext 65)", xx, xx, xx, xx, xx, mrm, x, 65},/*90*/
+  {VEX_EXT, 0x66381a18, "(vex ext 66)", xx, xx, xx, xx, xx, mrm, x, 66},/*91*/
+  {VEX_EXT, 0x66382c18, "(vex ext 67)", xx, xx, xx, xx, xx, mrm, x, 67},/*92*/
+  {VEX_EXT, 0x66382d18, "(vex ext 68)", xx, xx, xx, xx, xx, mrm, x, 68},/*93*/
+  {VEX_EXT, 0x66382e18, "(vex ext 69)", xx, xx, xx, xx, xx, mrm, x, 69},/*94*/
+  {VEX_EXT, 0x66382f18, "(vex ext 70)", xx, xx, xx, xx, xx, mrm, x, 70},/*95*/
+  {VEX_EXT, 0x66380c18, "(vex ext 77)", xx, xx, xx, xx, xx, mrm, x, 77},/*96*/
+  {VEX_EXT, 0x66380d18, "(vex ext 78)", xx, xx, xx, xx, xx, mrm, x, 78},/*97*/
 };
 
 const byte third_byte_3a_index[256] = {
   /* 0  1  2  3   4  5  6  7   8  9  A  B   C  D  E  F */
-     0, 0, 0, 0,  0, 0, 0, 0,  6, 7, 8, 9, 10,11,12, 1,  /* 0 */
-     0, 0, 0, 0,  2, 3, 4, 5,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
+     0, 0, 0, 0, 28,29,30, 0,  6, 7, 8, 9, 10,11,12, 1,  /* 0 */
+     0, 0, 0, 0,  2, 3, 4, 5, 31,32, 0, 0,  0,33, 0, 0,  /* 1 */
     13,14,15, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
-    16,17,18, 0, 23, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
+    16,17,18, 0, 23, 0, 0, 0,  0, 0,25,26, 27, 0, 0, 0,  /* 4 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
     19,20,21,22,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 6 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
@@ -4540,6 +4622,16 @@ const instr_info_t third_byte_3a[] = {
   {VEX_EXT,  0x663a6318, "(vex ext 56)", xx, xx, xx, xx, xx, mrm, x, 56},/*22*/
   {VEX_EXT,  0x663a4418, "(vex ext 57)", xx, xx, xx, xx, xx, mrm, x, 57},/*23*/
   {VEX_EXT,  0x663adf18, "(vex ext 58)", xx, xx, xx, xx, xx, mrm, x, 58},/*24*/
+  /* AVX overlooked in original pass */
+  {VEX_EXT,  0x663a4a18, "(vex ext  0)", xx, xx, xx, xx, xx, mrm, x,  0},/*25*/
+  {VEX_EXT,  0x663a4b18, "(vex ext  1)", xx, xx, xx, xx, xx, mrm, x,  1},/*26*/
+  {VEX_EXT,  0x663a4c18, "(vex ext  2)", xx, xx, xx, xx, xx, mrm, x,  2},/*27*/
+  {VEX_EXT,  0x663a0418, "(vex ext 71)", xx, xx, xx, xx, xx, mrm, x, 71},/*28*/
+  {VEX_EXT,  0x663a0518, "(vex ext 72)", xx, xx, xx, xx, xx, mrm, x, 72},/*29*/
+  {VEX_EXT,  0x663a0618, "(vex ext 73)", xx, xx, xx, xx, xx, mrm, x, 73},/*30*/
+  {VEX_EXT,  0x663a1818, "(vex ext 74)", xx, xx, xx, xx, xx, mrm, x, 74},/*31*/
+  {VEX_EXT,  0x663a1918, "(vex ext 75)", xx, xx, xx, xx, xx, mrm, x, 75},/*32*/
+  {VEX_EXT,  0x663a1d18, "(vex ext 76)", xx, xx, xx, xx, xx, mrm, x, 76},/*33*/
 };
 
 /****************************************************************************

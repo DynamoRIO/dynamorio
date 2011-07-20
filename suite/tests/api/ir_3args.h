@@ -238,6 +238,24 @@ OPCODE(vaeskeygenassist, vaeskeygenassist, vaeskeygenassist, 0, REGARG(XMM0), RE
        IMMARG(OPSZ_1))
 OPCODE(vmovss_NDS, vmovss, vmovss_NDS, 0, REGARG(XMM0), REGARG(XMM1), REGARG(XMM2))
 OPCODE(vmovsd_NDS, vmovsd, vmovsd_NDS, 0, REGARG(XMM0), REGARG(XMM1), REGARG(XMM2))
+OPCODE(vcvtps2ph, vcvtps2ph, vcvtps2ph, 0, MEMARG(OPSZ_16), REGARG(XMM0),
+       IMMARG(OPSZ_1))
+OPCODE(vmaskmovps_ld, vmaskmovps, vmaskmovps, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16))
+OPCODE(vmaskmovps_st, vmaskmovps, vmaskmovps, 0, MEMARG(OPSZ_16), REGARG(XMM0),
+       REGARG(XMM1))
+OPCODE(vmaskmovpd_ld, vmaskmovpd, vmaskmovpd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16))
+OPCODE(vmaskmovpd_st, vmaskmovpd, vmaskmovpd, 0, MEMARG(OPSZ_16), REGARG(XMM0),
+       REGARG(XMM1))
+OPCODE(vpermilps, vpermilps, vpermilps, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpermilpd, vpermilpd, vpermilpd, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpermilps_noimm, vpermilps, vpermilps, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16))
+OPCODE(vpermilpd_noimm, vpermilpd, vpermilpd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16))
+OPCODE(vextractf128, vextractf128, vextractf128, 0, MEMARG(OPSZ_16), REGARG(XMM0),
+       IMMARG(OPSZ_1))
 
 /* AVX 256-bit */
 OPCODE(vunpcklps_256, vunpcklps, vunpcklps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
@@ -279,6 +297,26 @@ OPCODE(vpcmpestri, vpcmpestri, vpcmpestri, 0, REGARG(XMM0), MEMARG(OPSZ_16),
 OPCODE(vpcmpistrm, vpcmpistrm, vpcmpistrm, 0, REGARG(XMM0), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
 OPCODE(vpcmpistri, vpcmpistri, vpcmpistri, 0, REGARG(XMM0), MEMARG(OPSZ_16),
+       IMMARG(OPSZ_1))
+OPCODE(vcvtps2ph_256, vcvtps2ph, vcvtps2ph, 0, MEMARG(OPSZ_32), REGARG(YMM0),
+       IMMARG(OPSZ_1))
+OPCODE(vmaskmovps_ld_256, vmaskmovps, vmaskmovps, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
+OPCODE(vmaskmovps_st_256, vmaskmovps, vmaskmovps, 0, MEMARG(OPSZ_32), REGARG(YMM0),
+       REGARG(YMM1))
+OPCODE(vmaskmovpd_ld_256, vmaskmovpd, vmaskmovpd, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
+OPCODE(vmaskmovpd_st_256, vmaskmovpd, vmaskmovpd, 0, MEMARG(OPSZ_32), REGARG(YMM0),
+       REGARG(YMM1))
+OPCODE(vpermilp_256s, vpermilps, vpermilps, 0, REGARG(YMM0), MEMARG(OPSZ_32),
+       IMMARG(OPSZ_1))
+OPCODE(vpermilpd_256, vpermilpd, vpermilpd, 0, REGARG(YMM0), MEMARG(OPSZ_32),
+       IMMARG(OPSZ_1))
+OPCODE(vpermilps_noimm_256, vpermilps, vpermilps, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
+OPCODE(vpermilpd_noimm_256, vpermilpd, vpermilpd, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
+OPCODE(vextractf128_256, vextractf128, vextractf128, 0, MEMARG(OPSZ_32), REGARG(YMM0),
        IMMARG(OPSZ_1))
 
 /****************************************************************************/

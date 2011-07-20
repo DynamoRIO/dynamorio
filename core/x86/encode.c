@@ -247,6 +247,7 @@ const char * const size_names[] = {
     "OPSZ_32",
     "OPSZ_40",
     "OPSZ_32_short16",
+    "OPSZ_8_rex16",
     "OPSZ_8_rex16_short4",
     "OPSZ_12_rex40_short6",
     "OPSZ_16_vex32",
@@ -607,7 +608,8 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             if (size_template == OPSZ_8_short4 || size_template == OPSZ_8_short2)
                 return !TEST(prefix_data_addr, di->prefixes);
-            if (size_template == OPSZ_8_rex16_short4)
+            if (size_template == OPSZ_8_rex16 ||
+                size_template == OPSZ_8_rex16_short4)
                 return !TESTANY(prefix_data_addr|PREFIX_REX_W, di->prefixes);
             if (size_template == OPSZ_8_of_16_vex32)
                 return !TEST(PREFIX_VEX_L, di->prefixes);
@@ -624,7 +626,9 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                 return !TESTANY(prefix_data_addr|PREFIX_REX_W, di->prefixes);
             return false;
         case OPSZ_16:
-            if (X64_MODE(di) && size_template == OPSZ_8_rex16_short4) {
+            if (X64_MODE(di) &&
+                (size_template == OPSZ_8_rex16 ||
+                 size_template == OPSZ_8_rex16_short4)) {
                 di->prefixes |= PREFIX_REX_W; /* rex.w trumps data prefix */
                 return true;
             }
@@ -673,6 +677,7 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_512:
             return false; /* no variable sizes match, need identical request */
         /* We do support variable-sized requests */
+        case OPSZ_8_rex16:
         case OPSZ_8_rex16_short4:
         case OPSZ_12_rex40_short6:
         case OPSZ_32_short16:

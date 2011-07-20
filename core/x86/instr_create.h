@@ -378,6 +378,8 @@
   instr_create_0dst_1src((dc), OP_fxrstor, (s))
 #define INSTR_CREATE_ldmxcsr(dc, s) \
   instr_create_0dst_1src((dc), OP_ldmxcsr, (s))
+#define INSTR_CREATE_vldmxcsr(dc, s) \
+  instr_create_0dst_1src((dc), OP_vldmxcsr, (s))
 #define INSTR_CREATE_nop_modrm(dc, s) \
   instr_create_0dst_1src((dc), OP_nop_modrm, (s))
 /* @} */ /* end doxygen group */
@@ -751,6 +753,8 @@
   instr_create_1dst_0src((dc), OP_fxsave, (d))
 #define INSTR_CREATE_stmxcsr(dc, d) \
   instr_create_1dst_0src((dc), OP_stmxcsr, (d))
+#define INSTR_CREATE_vstmxcsr(dc, d) \
+  instr_create_1dst_0src((dc), OP_vstmxcsr, (d))
 /* @} */ /* end doxygen group */
 
 /* floating-point */
@@ -1136,6 +1140,14 @@
   instr_create_1dst_1src((dc), OP_vmovss, (d), (s))
 #define INSTR_CREATE_vmovsd(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vmovsd, (d), (s))
+#define INSTR_CREATE_vcvtph2ps(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vcvtph2ps, (d), (s))
+#define INSTR_CREATE_vbroadcastss(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vbroadcastss, (d), (s))
+#define INSTR_CREATE_vbroadcastsd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vbroadcastsd, (d), (s))
+#define INSTR_CREATE_vbroadcastf128(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vbroadcastf128, (d), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
@@ -1753,6 +1765,18 @@
   instr_create_1dst_2src((dc), OP_vmovss, (d), (s1), (s2))
 #define INSTR_CREATE_vmovsd_NDS(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vmovsd, (d), (s1), (s2))
+#define INSTR_CREATE_vcvtps2ph(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vcvtps2ph, (d), (s1), (s2))
+#define INSTR_CREATE_vmaskmovps(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vmaskmovps, (d), (s1), (s2))
+#define INSTR_CREATE_vmaskmovpd(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vmaskmovpd, (d), (s1), (s2))
+#define INSTR_CREATE_vpermilps(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpermilps, (d), (s1), (s2))
+#define INSTR_CREATE_vpermilpd(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpermilpd, (d), (s1), (s2))
+#define INSTR_CREATE_vextractf128(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vextractf128, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -2539,6 +2563,10 @@
   instr_create_1dst_3src((dc), OP_vroundss, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vroundsd(dc, d, s1, s2, i) \
   instr_create_1dst_3src((dc), OP_vroundsd, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vperm2f128(dc, d, s1, s2, i) \
+  instr_create_1dst_3src((dc), OP_vperm2f128, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vinsertf128(dc, d, s1, s2, i) \
+  instr_create_1dst_3src((dc), OP_vinsertf128, (d), (s1), (s2), (i))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 3 sources: 1 implicit */

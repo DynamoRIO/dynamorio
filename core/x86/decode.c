@@ -166,6 +166,7 @@ is_variable_size(opnd_size_t sz)
     case OPSZ_2_reg4:
     case OPSZ_4_reg16:
     case OPSZ_32_short16:
+    case OPSZ_8_rex16:
     case OPSZ_8_rex16_short4:
     case OPSZ_12_rex40_short6:
     case OPSZ_16_vex32:
@@ -223,6 +224,7 @@ resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
     case OPSZ_6x10: return (X64_MODE(di) ? OPSZ_10 : OPSZ_6);
     case OPSZ_8_short2: return (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_2 : OPSZ_8);
     case OPSZ_8_short4: return (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_4 : OPSZ_8);
+    case OPSZ_8_rex16: return (TEST(PREFIX_REX_W, di->prefixes) ? OPSZ_16 : OPSZ_8);
     case OPSZ_8_rex16_short4: /* rex.w trumps data prefix */
         return (TEST(PREFIX_REX_W, di->prefixes) ? OPSZ_16 :
                 (TEST(PREFIX_DATA, di->prefixes) ? OPSZ_4 : OPSZ_8));
@@ -831,12 +833,6 @@ read_instruction(byte *pc, byte *orig_pc,
         pc++;
         DEBUG_DECLARE(post_suffix_pc = pc;)
     }
-    else if (info->type == VEX_EXT) {
-        /* discard old info, get new one */
-        int code = (int) info->code;
-        int idx = (di->vex_encoded ? 1 : 0);
-        info = &vex_extensions[code][idx];
-    }
     else if (info->type == VEX_L_EXT) {
         /* discard old info, get new one */
         int code = (int) info->code;
@@ -872,6 +868,12 @@ read_instruction(byte *pc, byte *orig_pc,
             int idx = (TEST(PREFIX_REX_B, di->prefixes) ? 1 : 0);
             info = &rex_extensions[code][idx];
         }
+    }
+    else if (info->type == VEX_EXT) {
+        /* discard old info, get new one */
+        int code = (int) info->code;
+        int idx = (di->vex_encoded ? 1 : 0);
+        info = &vex_extensions[code][idx];
     }
 
     /* can occur AFTER above checks (PREFIX_EXT, in particular) */

@@ -3602,8 +3602,8 @@ enum {
 /* 278 */     OP_cmpxchg8b,     /* &extensions[16][1], */ /**< cmpxchg8b opcode */
 /* 279 */     OP_fxsave,        /* &extensions[22][0], */ /**< fxsave opcode */
 /* 280 */     OP_fxrstor,       /* &extensions[22][1], */ /**< fxrstor opcode */
-/* 281 */     OP_ldmxcsr,       /* &extensions[22][2], */ /**< ldmxcsr opcode */
-/* 282 */     OP_stmxcsr,       /* &extensions[22][3], */ /**< stmxcsr opcode */
+/* 281 */     OP_ldmxcsr,       /* &vex_extensions[61][0], */ /**< ldmxcsr opcode */
+/* 282 */     OP_stmxcsr,       /* &vex_extensions[62][0], */ /**< stmxcsr opcode */
 /* 283 */     OP_lfence,        /* &mod_extensions[6][1], */ /**< lfence opcode */
 /* 284 */     OP_mfence,        /* &mod_extensions[7][1], */ /**< mfence opcode */
 /* 285 */     OP_clflush,       /* &mod_extensions[3][0], */ /**< clflush opcode */
@@ -3882,9 +3882,9 @@ enum {
 /* 542 */     OP_extrq,          /* &prefix_extensions[134][2], */ /**< extrq opcode */
 /* 543 */     OP_insertq,        /* &prefix_extensions[134][3], */ /**< insertq opcode */
 /* 544 */     OP_lzcnt,          /* &prefix_extensions[136][1], */ /**< lzcnt opcode */
-/* 545 */     OP_pblendvb,       /* &vex_extensions[0][0], */ /**< pblendvb opcode */
-/* 546 */     OP_blendvps,       /* &vex_extensions[1][0], */ /**< blendvps opcode */
-/* 547 */     OP_blendvpd,       /* &vex_extensions[2][0], */ /**< blendvpd opcode */
+/* 545 */     OP_pblendvb,       /* &third_byte_38[16], */ /**< pblendvb opcode */
+/* 546 */     OP_blendvps,       /* &third_byte_38[17], */ /**< blendvps opcode */
+/* 547 */     OP_blendvpd,       /* &third_byte_38[18], */ /**< blendvpd opcode */
 /* 548 */     OP_ptest,          /* &vex_extensions[3][0], */ /**< ptest opcode */
 /* 549 */     OP_pmovsxbw,       /* &vex_extensions[4][0], */ /**< pmovsxbw opcode */
 /* 550 */     OP_pmovsxbd,       /* &vex_extensions[5][0], */ /**< pmovsxbd opcode */
@@ -4235,73 +4235,87 @@ enum {
 /* 876 */     OP_vtestpd,        /* &vex_extensions[60][1], */ /**< vtestpd opcode */
 /* 877 */     OP_vzeroupper,     /* &vex_L_extensions[0][1], */ /**< vzeroupper opcode */
 /* 878 */     OP_vzeroall,       /* &vex_L_extensions[0][2], */ /**< vzeroall opcode */
+/* 879 */     OP_vldmxcsr,       /* &vex_extensions[61][1], */ /**< vldmxcsr opcode */
+/* 880 */     OP_vstmxcsr,       /* &vex_extensions[62][1], */ /**< vstmxcsr opcode */
+/* 881 */     OP_vbroadcastss,   /* &vex_extensions[64][1], */ /**< vbroadcastss opcode */
+/* 882 */     OP_vbroadcastsd,   /* &vex_extensions[65][1], */ /**< vbroadcastsd opcode */
+/* 883 */     OP_vbroadcastf128, /* &vex_extensions[66][1], */ /**< vbroadcastf128 opcode */
+/* 884 */     OP_vmaskmovps,     /* &vex_extensions[67][1], */ /**< vmaskmovps opcode */
+/* 885 */     OP_vmaskmovpd,     /* &vex_extensions[68][1], */ /**< vmaskmovpd opcode */
+/* 886 */     OP_vpermilps,      /* &vex_extensions[71][1], */ /**< vpermilps opcode */
+/* 887 */     OP_vpermilpd,      /* &vex_extensions[72][1], */ /**< vpermilpd opcode */
+/* 888 */     OP_vperm2f128,     /* &vex_extensions[73][1], */ /**< vperm2f128 opcode */
+/* 889 */     OP_vinsertf128,    /* &vex_extensions[74][1], */ /**< vinsertf128 opcode */
+/* 890 */     OP_vextractf128,   /* &vex_extensions[75][1], */ /**< vextractf128 opcode */
+/* 891 */     OP_vcvtph2ps,      /* &vex_extensions[63][1], */ /**< vcvtph2ps opcode */
+/* 892 */     OP_vcvtps2ph,      /* &vex_extensions[76][1], */ /**< vcvtps2ph opcode */
 
     /* FMA */
-/* 879 */     OP_vfmadd132ps,    /* &vex_W_extensions[ 0][0], */ /**< vfmadd132ps opcode */
-/* 880 */     OP_vfmadd132pd,    /* &vex_W_extensions[ 0][1], */ /**< vfmadd132pd opcode */
-/* 881 */     OP_vfmadd213ps,    /* &vex_W_extensions[ 1][0], */ /**< vfmadd213ps opcode */
-/* 882 */     OP_vfmadd213pd,    /* &vex_W_extensions[ 1][1], */ /**< vfmadd213pd opcode */
-/* 883 */     OP_vfmadd231ps,    /* &vex_W_extensions[ 2][0], */ /**< vfmadd231ps opcode */
-/* 884 */     OP_vfmadd231pd,    /* &vex_W_extensions[ 2][1], */ /**< vfmadd231pd opcode */
-/* 885 */     OP_vfmadd132ss,    /* &vex_W_extensions[ 3][0], */ /**< vfmadd132ss opcode */
-/* 886 */     OP_vfmadd132sd,    /* &vex_W_extensions[ 3][1], */ /**< vfmadd132sd opcode */
-/* 887 */     OP_vfmadd213ss,    /* &vex_W_extensions[ 4][0], */ /**< vfmadd213ss opcode */
-/* 888 */     OP_vfmadd213sd,    /* &vex_W_extensions[ 4][1], */ /**< vfmadd213sd opcode */
-/* 889 */     OP_vfmadd231ss,    /* &vex_W_extensions[ 5][0], */ /**< vfmadd231ss opcode */
-/* 890 */     OP_vfmadd231sd,    /* &vex_W_extensions[ 5][1], */ /**< vfmadd231sd opcode */
-/* 891 */     OP_vfmaddsub132ps, /* &vex_W_extensions[ 6][0], */ /**< vfmaddsub132ps opcode */
-/* 892 */     OP_vfmaddsub132pd, /* &vex_W_extensions[ 6][1], */ /**< vfmaddsub132pd opcode */
-/* 893 */     OP_vfmaddsub213ps, /* &vex_W_extensions[ 7][0], */ /**< vfmaddsub213ps opcode */
-/* 894 */     OP_vfmaddsub213pd, /* &vex_W_extensions[ 7][1], */ /**< vfmaddsub213pd opcode */
-/* 895 */     OP_vfmaddsub231ps, /* &vex_W_extensions[ 8][0], */ /**< vfmaddsub231ps opcode */
-/* 896 */     OP_vfmaddsub231pd, /* &vex_W_extensions[ 8][1], */ /**< vfmaddsub231pd opcode */
-/* 897 */     OP_vfmsubadd132ps, /* &vex_W_extensions[ 9][0], */ /**< vfmsubadd132ps opcode */
-/* 898 */     OP_vfmsubadd132pd, /* &vex_W_extensions[ 9][1], */ /**< vfmsubadd132pd opcode */
-/* 899 */     OP_vfmsubadd213ps, /* &vex_W_extensions[10][0], */ /**< vfmsubadd213ps opcode */
-/* 900 */     OP_vfmsubadd213pd, /* &vex_W_extensions[10][1], */ /**< vfmsubadd213pd opcode */
-/* 901 */     OP_vfmsubadd231ps, /* &vex_W_extensions[11][0], */ /**< vfmsubadd231ps opcode */
-/* 902 */     OP_vfmsubadd231pd, /* &vex_W_extensions[11][1], */ /**< vfmsubadd231pd opcode */
-/* 903 */     OP_vfmsub132ps,    /* &vex_W_extensions[12][0], */ /**< vfmsub132ps opcode */
-/* 904 */     OP_vfmsub132pd,    /* &vex_W_extensions[12][1], */ /**< vfmsub132pd opcode */
-/* 905 */     OP_vfmsub213ps,    /* &vex_W_extensions[13][0], */ /**< vfmsub213ps opcode */
-/* 906 */     OP_vfmsub213pd,    /* &vex_W_extensions[13][1], */ /**< vfmsub213pd opcode */
-/* 907 */     OP_vfmsub231ps,    /* &vex_W_extensions[14][0], */ /**< vfmsub231ps opcode */
-/* 908 */     OP_vfmsub231pd,    /* &vex_W_extensions[14][1], */ /**< vfmsub231pd opcode */
-/* 909 */     OP_vfmsub132ss,    /* &vex_W_extensions[15][0], */ /**< vfmsub132ss opcode */
-/* 910 */     OP_vfmsub132sd,    /* &vex_W_extensions[15][1], */ /**< vfmsub132sd opcode */
-/* 911 */     OP_vfmsub213ss,    /* &vex_W_extensions[16][0], */ /**< vfmsub213ss opcode */
-/* 912 */     OP_vfmsub213sd,    /* &vex_W_extensions[16][1], */ /**< vfmsub213sd opcode */
-/* 913 */     OP_vfmsub231ss,    /* &vex_W_extensions[17][0], */ /**< vfmsub231ss opcode */
-/* 914 */     OP_vfmsub231sd,    /* &vex_W_extensions[17][1], */ /**< vfmsub231sd opcode */
-/* 915 */     OP_vfnmadd132ps,   /* &vex_W_extensions[18][0], */ /**< vfnmadd132ps opcode */
-/* 916 */     OP_vfnmadd132pd,   /* &vex_W_extensions[18][1], */ /**< vfnmadd132pd opcode */
-/* 917 */     OP_vfnmadd213ps,   /* &vex_W_extensions[19][0], */ /**< vfnmadd213ps opcode */
-/* 918 */     OP_vfnmadd213pd,   /* &vex_W_extensions[19][1], */ /**< vfnmadd213pd opcode */
-/* 919 */     OP_vfnmadd231ps,   /* &vex_W_extensions[20][0], */ /**< vfnmadd231ps opcode */
-/* 920 */     OP_vfnmadd231pd,   /* &vex_W_extensions[20][1], */ /**< vfnmadd231pd opcode */
-/* 921 */     OP_vfnmadd132ss,   /* &vex_W_extensions[21][0], */ /**< vfnmadd132ss opcode */
-/* 922 */     OP_vfnmadd132sd,   /* &vex_W_extensions[21][1], */ /**< vfnmadd132sd opcode */
-/* 923 */     OP_vfnmadd213ss,   /* &vex_W_extensions[22][0], */ /**< vfnmadd213ss opcode */
-/* 924 */     OP_vfnmadd213sd,   /* &vex_W_extensions[22][1], */ /**< vfnmadd213sd opcode */
-/* 925 */     OP_vfnmadd231ss,   /* &vex_W_extensions[23][0], */ /**< vfnmadd231ss opcode */
-/* 926 */     OP_vfnmadd231sd,   /* &vex_W_extensions[23][1], */ /**< vfnmadd231sd opcode */
-/* 927 */     OP_vfnmsub132ps,   /* &vex_W_extensions[24][0], */ /**< vfnmsub132ps opcode */
-/* 928 */     OP_vfnmsub132pd,   /* &vex_W_extensions[24][1], */ /**< vfnmsub132pd opcode */
-/* 929 */     OP_vfnmsub213ps,   /* &vex_W_extensions[25][0], */ /**< vfnmsub213ps opcode */
-/* 930 */     OP_vfnmsub213pd,   /* &vex_W_extensions[25][1], */ /**< vfnmsub213pd opcode */
-/* 931 */     OP_vfnmsub231ps,   /* &vex_W_extensions[26][0], */ /**< vfnmsub231ps opcode */
-/* 932 */     OP_vfnmsub231pd,   /* &vex_W_extensions[26][1], */ /**< vfnmsub231pd opcode */
-/* 933 */     OP_vfnmsub132ss,   /* &vex_W_extensions[27][0], */ /**< vfnmsub132ss opcode */
-/* 934 */     OP_vfnmsub132sd,   /* &vex_W_extensions[27][1], */ /**< vfnmsub132sd opcode */
-/* 935 */     OP_vfnmsub213ss,   /* &vex_W_extensions[28][0], */ /**< vfnmsub213ss opcode */
-/* 936 */     OP_vfnmsub213sd,   /* &vex_W_extensions[28][1], */ /**< vfnmsub213sd opcode */
-/* 937 */     OP_vfnmsub231ss,   /* &vex_W_extensions[29][0], */ /**< vfnmsub231ss opcode */
-/* 938 */     OP_vfnmsub231sd,   /* &vex_W_extensions[29][1], */ /**< vfnmsub231sd opcode */
+/* 893 */     OP_vfmadd132ps,    /* &vex_W_extensions[ 0][0], */ /**< vfmadd132ps opcode */
+/* 894 */     OP_vfmadd132pd,    /* &vex_W_extensions[ 0][1], */ /**< vfmadd132pd opcode */
+/* 895 */     OP_vfmadd213ps,    /* &vex_W_extensions[ 1][0], */ /**< vfmadd213ps opcode */
+/* 896 */     OP_vfmadd213pd,    /* &vex_W_extensions[ 1][1], */ /**< vfmadd213pd opcode */
+/* 897 */     OP_vfmadd231ps,    /* &vex_W_extensions[ 2][0], */ /**< vfmadd231ps opcode */
+/* 898 */     OP_vfmadd231pd,    /* &vex_W_extensions[ 2][1], */ /**< vfmadd231pd opcode */
+/* 899 */     OP_vfmadd132ss,    /* &vex_W_extensions[ 3][0], */ /**< vfmadd132ss opcode */
+/* 900 */     OP_vfmadd132sd,    /* &vex_W_extensions[ 3][1], */ /**< vfmadd132sd opcode */
+/* 901 */     OP_vfmadd213ss,    /* &vex_W_extensions[ 4][0], */ /**< vfmadd213ss opcode */
+/* 902 */     OP_vfmadd213sd,    /* &vex_W_extensions[ 4][1], */ /**< vfmadd213sd opcode */
+/* 903 */     OP_vfmadd231ss,    /* &vex_W_extensions[ 5][0], */ /**< vfmadd231ss opcode */
+/* 904 */     OP_vfmadd231sd,    /* &vex_W_extensions[ 5][1], */ /**< vfmadd231sd opcode */
+/* 905 */     OP_vfmaddsub132ps, /* &vex_W_extensions[ 6][0], */ /**< vfmaddsub132ps opcode */
+/* 906 */     OP_vfmaddsub132pd, /* &vex_W_extensions[ 6][1], */ /**< vfmaddsub132pd opcode */
+/* 907 */     OP_vfmaddsub213ps, /* &vex_W_extensions[ 7][0], */ /**< vfmaddsub213ps opcode */
+/* 908 */     OP_vfmaddsub213pd, /* &vex_W_extensions[ 7][1], */ /**< vfmaddsub213pd opcode */
+/* 909 */     OP_vfmaddsub231ps, /* &vex_W_extensions[ 8][0], */ /**< vfmaddsub231ps opcode */
+/* 910 */     OP_vfmaddsub231pd, /* &vex_W_extensions[ 8][1], */ /**< vfmaddsub231pd opcode */
+/* 911 */     OP_vfmsubadd132ps, /* &vex_W_extensions[ 9][0], */ /**< vfmsubadd132ps opcode */
+/* 912 */     OP_vfmsubadd132pd, /* &vex_W_extensions[ 9][1], */ /**< vfmsubadd132pd opcode */
+/* 913 */     OP_vfmsubadd213ps, /* &vex_W_extensions[10][0], */ /**< vfmsubadd213ps opcode */
+/* 914 */     OP_vfmsubadd213pd, /* &vex_W_extensions[10][1], */ /**< vfmsubadd213pd opcode */
+/* 915 */     OP_vfmsubadd231ps, /* &vex_W_extensions[11][0], */ /**< vfmsubadd231ps opcode */
+/* 916 */     OP_vfmsubadd231pd, /* &vex_W_extensions[11][1], */ /**< vfmsubadd231pd opcode */
+/* 917 */     OP_vfmsub132ps,    /* &vex_W_extensions[12][0], */ /**< vfmsub132ps opcode */
+/* 918 */     OP_vfmsub132pd,    /* &vex_W_extensions[12][1], */ /**< vfmsub132pd opcode */
+/* 919 */     OP_vfmsub213ps,    /* &vex_W_extensions[13][0], */ /**< vfmsub213ps opcode */
+/* 920 */     OP_vfmsub213pd,    /* &vex_W_extensions[13][1], */ /**< vfmsub213pd opcode */
+/* 921 */     OP_vfmsub231ps,    /* &vex_W_extensions[14][0], */ /**< vfmsub231ps opcode */
+/* 922 */     OP_vfmsub231pd,    /* &vex_W_extensions[14][1], */ /**< vfmsub231pd opcode */
+/* 923 */     OP_vfmsub132ss,    /* &vex_W_extensions[15][0], */ /**< vfmsub132ss opcode */
+/* 924 */     OP_vfmsub132sd,    /* &vex_W_extensions[15][1], */ /**< vfmsub132sd opcode */
+/* 925 */     OP_vfmsub213ss,    /* &vex_W_extensions[16][0], */ /**< vfmsub213ss opcode */
+/* 926 */     OP_vfmsub213sd,    /* &vex_W_extensions[16][1], */ /**< vfmsub213sd opcode */
+/* 927 */     OP_vfmsub231ss,    /* &vex_W_extensions[17][0], */ /**< vfmsub231ss opcode */
+/* 928 */     OP_vfmsub231sd,    /* &vex_W_extensions[17][1], */ /**< vfmsub231sd opcode */
+/* 929 */     OP_vfnmadd132ps,   /* &vex_W_extensions[18][0], */ /**< vfnmadd132ps opcode */
+/* 930 */     OP_vfnmadd132pd,   /* &vex_W_extensions[18][1], */ /**< vfnmadd132pd opcode */
+/* 931 */     OP_vfnmadd213ps,   /* &vex_W_extensions[19][0], */ /**< vfnmadd213ps opcode */
+/* 932 */     OP_vfnmadd213pd,   /* &vex_W_extensions[19][1], */ /**< vfnmadd213pd opcode */
+/* 933 */     OP_vfnmadd231ps,   /* &vex_W_extensions[20][0], */ /**< vfnmadd231ps opcode */
+/* 934 */     OP_vfnmadd231pd,   /* &vex_W_extensions[20][1], */ /**< vfnmadd231pd opcode */
+/* 935 */     OP_vfnmadd132ss,   /* &vex_W_extensions[21][0], */ /**< vfnmadd132ss opcode */
+/* 936 */     OP_vfnmadd132sd,   /* &vex_W_extensions[21][1], */ /**< vfnmadd132sd opcode */
+/* 937 */     OP_vfnmadd213ss,   /* &vex_W_extensions[22][0], */ /**< vfnmadd213ss opcode */
+/* 938 */     OP_vfnmadd213sd,   /* &vex_W_extensions[22][1], */ /**< vfnmadd213sd opcode */
+/* 939 */     OP_vfnmadd231ss,   /* &vex_W_extensions[23][0], */ /**< vfnmadd231ss opcode */
+/* 940 */     OP_vfnmadd231sd,   /* &vex_W_extensions[23][1], */ /**< vfnmadd231sd opcode */
+/* 941 */     OP_vfnmsub132ps,   /* &vex_W_extensions[24][0], */ /**< vfnmsub132ps opcode */
+/* 942 */     OP_vfnmsub132pd,   /* &vex_W_extensions[24][1], */ /**< vfnmsub132pd opcode */
+/* 943 */     OP_vfnmsub213ps,   /* &vex_W_extensions[25][0], */ /**< vfnmsub213ps opcode */
+/* 944 */     OP_vfnmsub213pd,   /* &vex_W_extensions[25][1], */ /**< vfnmsub213pd opcode */
+/* 945 */     OP_vfnmsub231ps,   /* &vex_W_extensions[26][0], */ /**< vfnmsub231ps opcode */
+/* 946 */     OP_vfnmsub231pd,   /* &vex_W_extensions[26][1], */ /**< vfnmsub231pd opcode */
+/* 947 */     OP_vfnmsub132ss,   /* &vex_W_extensions[27][0], */ /**< vfnmsub132ss opcode */
+/* 948 */     OP_vfnmsub132sd,   /* &vex_W_extensions[27][1], */ /**< vfnmsub132sd opcode */
+/* 949 */     OP_vfnmsub213ss,   /* &vex_W_extensions[28][0], */ /**< vfnmsub213ss opcode */
+/* 950 */     OP_vfnmsub213sd,   /* &vex_W_extensions[28][1], */ /**< vfnmsub213sd opcode */
+/* 951 */     OP_vfnmsub231ss,   /* &vex_W_extensions[29][0], */ /**< vfnmsub231ss opcode */
+/* 952 */     OP_vfnmsub231sd,   /* &vex_W_extensions[29][1], */ /**< vfnmsub231sd opcode */
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 939 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 940 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 953 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 954 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,
