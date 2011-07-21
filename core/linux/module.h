@@ -264,8 +264,6 @@ bool
 get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end);
 
 
-shlib_routine_ptr_t get_lib_routine(app_pc base, size_t size, char *name);
-
 extern struct _IO_FILE  **privmod_stdout;
 extern struct _IO_FILE  **privmod_stderr;
 extern struct _IO_FILE  **privmod_stdin;
