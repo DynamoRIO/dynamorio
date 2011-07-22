@@ -1273,6 +1273,7 @@ if (UNIX)
     "-reset_at_fragment_count 100" "")
 
   tobuild(pthreads.pthreads pthreads/pthreads.c)
+  tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
   tobuild(pthreads.ptsig pthreads/ptsig.c)
 
   if (NOT X64)

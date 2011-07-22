@@ -7860,54 +7860,60 @@ mutex_wait_contended_lock(mutex_t *lock)
                         ((mutex_t *)dcontext->client_data->client_grab_mutex == lock));
 #endif
     
-    /* i#96/PR 295561: use futex(2) if available.
-     * Tries futex wait first and then falls back to busy-wait lock if fails. 
-     */
-    volatile int v = lock->lock_requests;
-    if (v != LOCK_SET_STATE) {
-        ptr_int_t res;
-#ifdef CLIENT_INTERFACE
-        if (set_client_safe_for_synch)
-            dcontext->client_data->client_thread_safe_for_synch = true;
-#endif
-        /* Waits only if there exists at least one thread that is holding the lock
-         * or waiting for the lock so that it can wake me (v != LOCK_SET_STATE),
-         * and lock->lock_requests value has NOT been changed since this thread
-         * read the value. 
+    /* i#96/PR 295561: use futex(2) if available */
+    if (kernel_futex_support) {
+        /* Try to get the lock.  If already held, it's fine to store any value
+         * > LOCK_SET_STATE (we don't rely on paired incs/decs) so that
+         * the next unlocker will call mutex_notify_released_lock().
          */
-        res = futex_wait(&lock->lock_requests, v);
+        ptr_int_t res;
+        while (atomic_exchange_int(&lock->lock_requests, LOCK_CONTENDED_STATE) !=
+               LOCK_FREE_STATE) {
 #ifdef CLIENT_INTERFACE
-        if (set_client_safe_for_synch)
-            dcontext->client_data->client_thread_safe_for_synch = false;
+            if (set_client_safe_for_synch)
+                dcontext->client_data->client_thread_safe_for_synch = true;
 #endif
-        /* Returns only if it is woken by lock releasing thread. */
-        if (res == 0) {
-            return;
+            /* We'll abort the wait if lock_requests has changed at all.
+             * We can't have a series of changes that result in no apparent
+             * change w/o someone acquiring the lock, b/c
+             * mutex_notify_released_lock() sets lock_requests to LOCK_FREE_STATE.
+             */
+            res = futex_wait(&lock->lock_requests, LOCK_CONTENDED_STATE);
+            if (res != 0 && res != -EWOULDBLOCK)
+                thread_yield();
+#ifdef CLIENT_INTERFACE
+            if (set_client_safe_for_synch)
+                dcontext->client_data->client_thread_safe_for_synch = false;
+#endif
+            /* we don't care whether properly woken (res==0), var mismatch
+             * (res==-EWOULDBLOCK), or error: regardless, someone else
+             * could have acquired the lock, so we try again
+             */
         }
-    }
-
-    /* Now, falls back to busy-wait lock. We have to undo our earlier request. */
-    atomic_dec_and_test(&lock->lock_requests);
-
-    while (!mutex_trylock(lock)) {
+    } else {
+        /* we now have to undo our earlier request */
+        atomic_dec_and_test(&lock->lock_requests);
+        
+        while (!mutex_trylock(lock)) {
 #ifdef CLIENT_INTERFACE
-        if (set_client_safe_for_synch)
-            dcontext->client_data->client_thread_safe_for_synch = true;
+            if (set_client_safe_for_synch)
+                dcontext->client_data->client_thread_safe_for_synch = true;
 #endif
-        thread_yield();
+            thread_yield();
 #ifdef CLIENT_INTERFACE
-        if (set_client_safe_for_synch)
-            dcontext->client_data->client_thread_safe_for_synch = false;
+            if (set_client_safe_for_synch)
+                dcontext->client_data->client_thread_safe_for_synch = false;
 #endif
-    }
+        }
 
 #ifdef DEADLOCK_AVOIDANCE
-    /* HACK: trylock's success causes it to do DEADLOCK_AVOIDANCE_LOCK, so to
-     * avoid two in a row (causes assertion on owner) we unlock here
-     * In the future we will remove the trylock here and this will go away.
-     */
-    deadlock_avoidance_unlock(lock, true);
+        /* HACK: trylock's success causes it to do DEADLOCK_AVOIDANCE_LOCK, so to
+         * avoid two in a row (causes assertion on owner) we unlock here
+         * In the future we will remove the trylock here and this will go away.
+         */
+        deadlock_avoidance_unlock(lock, true);
 #endif
+    }
 
     return;
     
@@ -7917,7 +7923,14 @@ void
 mutex_notify_released_lock(mutex_t *lock)
 {
     /* i#96/PR 295561: use futex(2) if available. */
-    futex_wake(&lock->lock_requests);
+    if (kernel_futex_support) {
+        /* Set to LOCK_FREE_STATE to avoid concurrent lock attempts from
+         * resulting in a futex_wait value match w/o anyone owning the lock
+         */
+        lock->lock_requests = LOCK_FREE_STATE;
+        /* No reason to wake multiple threads: just one */
+        futex_wake(&lock->lock_requests);
+    } /* else nothing to do */
 }
 
 /* read_write_lock_t implementation doesn't expect the contention path

@@ -409,6 +409,11 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 # else
 #  define ATOMIC_COMPARE_EXCHANGE_PTR ATOMIC_COMPARE_EXCHANGE
 # endif
+# define ATOMIC_EXCHANGE(var, newval, result)     \
+    __asm __volatile ("xchgl %0, %1"              \
+                      : "=r" (result), "=m" (var) \
+                      : "0" (newval), "m" (var))
+
 # define SPINLOCK_PAUSE()   __asm__ __volatile__("pause")
 # define RDTSC_LL(llval)                        \
     __asm__ __volatile__                        \
@@ -483,6 +488,15 @@ static inline bool atomic_compare_exchange_int(volatile int *var,
     /* FIXME: we add an extra memory reference to a local, 
        although we could put the return value in EAX ourselves */
     return c == 0;
+}
+
+/* exchanges *var with newval and returns original *var */
+static inline int
+atomic_exchange_int(volatile int *var, int newval)
+{
+    int result;
+    ATOMIC_EXCHANGE(*var, newval, result);
+    return result;
 }
 
 /* returns true if var was equal to compare, and now is equal to exchange, 

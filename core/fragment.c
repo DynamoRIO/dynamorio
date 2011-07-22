@@ -5797,9 +5797,6 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
 {
     per_thread_t *pt = (per_thread_t *) dcontext->fragment_field;
     bool not_flushed = true;
-#ifdef CLIENT_INTERFACE
-    client_flush_req_t *req;
-#endif
 
     /*case 7966: has no pt, no flushing either */
     if (RUNNING_WITHOUT_CODE_CACHE())
@@ -5883,18 +5880,21 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
                                   true/*flush*/);
     dcontext->client_data->flush_list = NULL;
     /* global list */
-    mutex_lock(&client_flush_request_lock);
-    req = client_flush_requests;
-    client_flush_requests = NULL;
-    mutex_unlock(&client_flush_request_lock);
-    /* NOTE - we must release the lock before doing the flush. */
-    process_client_flush_requests(dcontext, GLOBAL_DCONTEXT, req, true/*flush*/);
-    /* FIXME - this is an ugly, yet effective, hack.  The problem is there is no
-     * good way to tell currently if we flushed was_I_flushed.  Since it could be
-     * gone by now we pretend that it was flushed if we did any flushing at all.
-     * Dispatch should refind the fragment if it wasn't flushed. */
-    if (req != NULL)
-        return false;
+    if (client_flush_requests != NULL) { /* avoid acquiring lock every cxt switch */
+        client_flush_req_t *req;
+        mutex_lock(&client_flush_request_lock);
+        req = client_flush_requests;
+        client_flush_requests = NULL;
+        mutex_unlock(&client_flush_request_lock);
+        /* NOTE - we must release the lock before doing the flush. */
+        process_client_flush_requests(dcontext, GLOBAL_DCONTEXT, req, true/*flush*/);
+        /* FIXME - this is an ugly, yet effective, hack.  The problem is there is no
+         * good way to tell currently if we flushed was_I_flushed.  Since it could be
+         * gone by now we pretend that it was flushed if we did any flushing at all.
+         * Dispatch should refind the fragment if it wasn't flushed. */
+        if (req != NULL)
+            not_flushed = false;
+    }
 #endif
 
     return not_flushed;
