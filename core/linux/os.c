@@ -246,7 +246,7 @@ static bool kernel_thread_groups;
 /* Does the kernel support SYS_futex syscall? Safe to initialize assuming 
  * no futex support.
  */
-static bool kernel_futex_support = false;
+bool kernel_futex_support = false;
 
 static bool kernel_64bit;
 

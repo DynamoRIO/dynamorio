@@ -1122,6 +1122,36 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
         jmp      unexpected_return
         END_FUNC(dynamorio_sys_exit)
         
+/* we need to call futex_wakeall without using any stack, to support
+ * THREAD_SYNCH_TERMINATED_AND_CLEANED.
+ * takes int* futex in xax.
+ */
+        DECLARE_FUNC(dynamorio_futex_wake_and_exit)
+GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
+#ifdef X64
+        mov      ARG6, 0
+        mov      ARG5, 0
+        mov      ARG4, 0
+        mov      ARG3, 0x7fffffff /* arg3 = INT_MAX */
+        mov      ARG2, 1 /* arg2 = FUTEX_WAKE */
+        mov      ARG1, rax /* &futex, passed in rax */
+        mov      rax, 202 /* SYS_futex */
+        mov      r10, rcx
+        syscall
+#else
+        mov      ebp, 0 /* arg6 */
+        mov      edi, 0 /* arg5 */
+        mov      esi, 0 /* arg4 */
+        mov      edx, 0x7fffffff /* arg3 = INT_MAX */
+        mov      ecx, 1 /* arg2 = FUTEX_WAKE */
+        mov      ebx, eax /* arg1 = &futex, passed in eax */
+        mov      eax, 240 /* SYS_futex */
+        /* PR 254280: we assume int$80 is ok even for LOL64 */
+        int      HEX(80)
+#endif
+        jmp dynamorio_sys_exit
+        END_FUNC(dynamorio_futex_wake_and_exit)
+
 /* exit entire group without using any stack, in case something like
  * SYS_kill via cleanup_and_terminate fails
  */

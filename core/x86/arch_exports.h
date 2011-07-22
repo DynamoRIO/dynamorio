@@ -838,6 +838,7 @@ void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec
 ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
 void dynamorio_sigreturn(void);
 void dynamorio_sys_exit(void);
+void dynamorio_futex_wake_and_exit(volatile int *futex);
 # ifndef X64
 void dynamorio_nonrt_sigreturn(void);
 # endif

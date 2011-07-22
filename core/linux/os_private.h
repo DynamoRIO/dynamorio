@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -196,6 +197,8 @@ ptr_int_t
 futex_wake(volatile int *futex);
 ptr_int_t 
 futex_wake_all(volatile int *futex);
+
+extern bool kernel_futex_support;
 
 #ifdef VMX86_SERVER
 #  include "vmkuw.h"

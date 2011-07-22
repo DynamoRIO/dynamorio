@@ -5254,12 +5254,21 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     ASSERT(ostd != NULL);
 
     if (ostd->terminate) {
-        /* PR 297902: exit this thread, without using any stack */
+         /* PR 297902: exit this thread, without using any stack */
         LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: exiting\n");
-        ostd->terminated = 1;
-        futex_wake_all(&ostd->terminated);
-        /* can't use stack once set terminated to 1 */
-        asm("jmp dynamorio_sys_exit");
+        if (kernel_futex_support) {
+            /* can't use stack once set terminated to 1 so in asm we do:
+             *   ostd->terminated = 1;
+             *   futex_wake_all(&ostd->terminated);
+             */
+            volatile int *term = &ostd->terminated;
+            asm("mov %0, %%"ASM_XAX : : "m"(term));
+            asm("movl $1,(%"ASM_XAX")");
+            asm("jmp dynamorio_futex_wake_and_exit");
+        } else {
+            ostd->terminated = 1;
+            asm("jmp dynamorio_sys_exit");
+        }
         ASSERT_NOT_REACHED();
         return false;
     }
