@@ -59,6 +59,10 @@ static const uint BAD_WRITE = 0x40;
  *   WM_NCCALCSIZE                   0x0083
  *   WM_CREATE                       0x0001
  * and then our 2 custom messages that we send.
+ *
+ * On Windows 7 we also get (i#520):
+ *   WM_DWMNCRENDERINGCHANGED        0x031F
+ * and we avoid printing anything about it to simplify the test suite.
  */
 LRESULT CALLBACK
 wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -107,7 +111,8 @@ wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         return MSG_SUCCESS;
     } else {
         /* lParam varies so don't make template nondet */
-        print("in wnd_callback "PFX" %d\n", message, wParam);
+        if (message != WM_DWMNCRENDERINGCHANGED)
+            print("in wnd_callback "PFX" %d\n", message, wParam);
         return DefWindowProc(hwnd, message, wParam, lParam);
     }
 }
@@ -139,7 +144,8 @@ run_func(void * arg)
         __try {
             if (GetMessage(&msg, NULL, 0, 0)) {
                 /* Messages not auto-sent to callbacks are processed here */
-                if (msg.message != MSG_CUSTOM || msg.wParam != WP_NOP) {
+                if ((msg.message != MSG_CUSTOM || msg.wParam != WP_NOP) &&
+                    msg.message != WM_DWMNCRENDERINGCHANGED) {
                     print("Got message "PFX" %d %d\n",
                           msg.message, msg.wParam, msg.lParam);
                 }
