@@ -213,7 +213,7 @@ main(int argc, char **argv)
     int argidx=1;
 
     WCHAR wbuf[MAX_PATH];
-    ConfigGroup *policy, *working_group;
+    ConfigGroup *policy = NULL, *working_group;
 
     if (argc < 2) 
         usage();
@@ -528,12 +528,78 @@ main(int argc, char **argv)
         checked_operation("create registry", setup_installation(wbuf, FALSE));
     }
 
-    checked_operation("read config",
-                      read_config_group(&policy, L_PRODUCT_NAME, TRUE));
-    
     /* ensure we init dynamorio_home, case 4009 */
     get_dynamorio_home(); /* ignore return value */
 
+    if (nudge) {
+        if (verbose)
+            printf("-nudge %d -pid %d %s\n", nudge_action_mask, pid, all ? "all" : "");
+        if (pid == -1)           /* explicitly set */
+            all = 1;
+
+        if (all)
+            checked_operation("nudge all", 
+                              generic_nudge_all(nudge_action_mask, nudge_client_arg,
+                                                timeout_ms, delay_ms_all));
+        else
+            checked_operation("nudge", 
+                              generic_nudge(pid, TRUE,
+                                            nudge_action_mask,
+                                            0, /* client ID (ignored here) */
+                                            nudge_client_arg,
+                                            timeout_ms));
+        goto finished;
+    }
+
+    if (detachall) {
+        checked_operation("detach all", 
+                          detach_all(timeout_ms));
+        goto finished;
+    }
+    if (detachpid) {
+        checked_operation("detach", 
+                          detach(detachpid, TRUE, timeout_ms));
+        goto finished;
+    }
+
+    if (detach_exename) {
+        _snwprintf(wbuf, MAX_PATH, L"%S", detach_exename);
+        NULL_TERMINATE_BUFFER(wbuf);
+        checked_operation("detach-exe", 
+                          detach_exe(wbuf, timeout_ms));
+        goto finished;
+    }
+
+    
+    if (hotp_nudge_pid) {
+        checked_operation("hot patch update", 
+                          hotp_notify_defs_update(hotp_nudge_pid, TRUE,
+                                                  timeout_ms));
+        goto finished;
+    }
+
+    if (hotp_modes_nudge_pid) {
+        checked_operation("hot patch modes update", 
+                          hotp_notify_modes_update(hotp_modes_nudge_pid, TRUE,
+                                                   timeout_ms));
+        goto finished;
+    }
+
+    if (hotp_nudge_all) {
+        checked_operation("hot patch nudge all", 
+                          hotp_notify_all_defs_update(timeout_ms));
+        goto finished;
+    }
+
+    if (hotp_modes_nudge_all) {
+        checked_operation("hot patch modes nudge all", 
+                          hotp_notify_all_modes_update(timeout_ms));
+        goto finished;
+    }
+
+    checked_operation("read config",
+                      read_config_group(&policy, L_PRODUCT_NAME, TRUE));
+    
     if (reset) {
         remove_children(policy);
         policy->should_clear = TRUE;
@@ -633,72 +699,6 @@ main(int argc, char **argv)
         _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S", eventlog);
         NULL_TERMINATE_BUFFER(wbuf);
         checked_operation("create eventlog", create_eventlog(wbuf));
-    }
-
-    if (nudge) {
-        if (verbose)
-            printf("-nudge %d -pid %d %s\n", nudge_action_mask, pid, all ? "all" : "");
-        if (pid == -1)           /* explicitly set */
-            all = 1;
-
-        if (all)
-            checked_operation("nudge all", 
-                              generic_nudge_all(nudge_action_mask, nudge_client_arg,
-                                                timeout_ms, delay_ms_all));
-        else
-            checked_operation("nudge", 
-                              generic_nudge(pid, TRUE,
-                                            nudge_action_mask,
-                                            0, /* client ID (ignored here) */
-                                            nudge_client_arg,
-                                            timeout_ms));
-        goto finished;
-    }
-
-    if (detachall) {
-        checked_operation("detach all", 
-                          detach_all(timeout_ms));
-        goto finished;
-    }
-    if (detachpid) {
-        checked_operation("detach", 
-                          detach(detachpid, TRUE, timeout_ms));
-        goto finished;
-    }
-
-    if (detach_exename) {
-        _snwprintf(wbuf, MAX_PATH, L"%S", detach_exename);
-        NULL_TERMINATE_BUFFER(wbuf);
-        checked_operation("detach-exe", 
-                          detach_exe(wbuf, timeout_ms));
-        goto finished;
-    }
-
-    
-    if (hotp_nudge_pid) {
-        checked_operation("hot patch update", 
-                          hotp_notify_defs_update(hotp_nudge_pid, TRUE,
-                                                  timeout_ms));
-        goto finished;
-    }
-
-    if (hotp_modes_nudge_pid) {
-        checked_operation("hot patch modes update", 
-                          hotp_notify_modes_update(hotp_modes_nudge_pid, TRUE,
-                                                   timeout_ms));
-        goto finished;
-    }
-
-    if (hotp_nudge_all) {
-        checked_operation("hot patch nudge all", 
-                          hotp_notify_all_defs_update(timeout_ms));
-        goto finished;
-    }
-
-    if (hotp_modes_nudge_all) {
-        checked_operation("hot patch modes nudge all", 
-                          hotp_notify_all_modes_update(timeout_ms));
-        goto finished;
     }
 
     /* configuration */
@@ -813,7 +813,8 @@ main(int argc, char **argv)
     }
 
  finished:
-    free_config_group(policy);
+    if (policy != NULL)
+        free_config_group(policy);
 
     return 0;
 
