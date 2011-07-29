@@ -967,7 +967,7 @@ typedef bitmap_element_t bitmap_t[];
 static inline bool
 bitmap_test(bitmap_t b, uint i)
 {
-    return b[BITMAP_INDEX(i)] & BITMAP_MASK(i);
+    return ((b[BITMAP_INDEX(i)] & BITMAP_MASK(i)) != 0);
 }
 
 static inline void

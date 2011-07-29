@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1964,11 +1965,11 @@ void
 transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_state)
 {
     app_pc cur_xsp;
-    int using_initstack = 0;
+    bool using_initstack = false;
     copy_mcontext(mc, get_mcontext(dcontext));
     GET_STACK_PTR(cur_xsp);
     if (is_on_initstack(cur_xsp))
-        using_initstack = 1;
+        using_initstack = true;
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)
     /* i#249: swap PEB pointers unless already in DR state */
     if (!full_DR_state && INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())

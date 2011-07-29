@@ -386,8 +386,8 @@ static BOOL CALLBACK
 enum_cb(PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID Context) 
 {
     enum_info_t *info = (enum_info_t *) Context;
-    return (*info->cb)(pSymInfo->Name, (size_t) (pSymInfo->Address - info->base),
-                       info->data);
+    return (BOOL) (*info->cb)(pSymInfo->Name, (size_t) (pSymInfo->Address - info->base),
+                              info->data);
 }
 
 static drsym_error_t

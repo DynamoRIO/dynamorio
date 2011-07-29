@@ -143,8 +143,8 @@ separately.
 
 The changes between version \DR_VERSION and 2.2.0 are:
 
- - Added a private loader on Linux for better support for library usage
-   by \clients
+ - Added a private loader on Linux for better support for C++ \clients and
+   third-party library usage by \clients
  - Changed the #dr_mcontext_t structure field layout.  This is a binary
    compatibility change with respect to versions prior to 3.0.0.
  - Added a dr_mcontext_t.size field which must be set by the \client prior
@@ -156,6 +156,9 @@ The changes between version \DR_VERSION and 2.2.0 are:
  - Changed all dr_mcontext_t fields in the dr_restore_state_info_t,
    dr_exception_t, and dr_siginfo_t structs to be pointers.  This is a
    source compatibility change with respect to versions prior to 3.0.0.
+ - Changed the bool typedef from int to char for C++ compatibility.
+   This is a binary compatibility change with respect to versions
+   prior to 3.0.0.
  - Added \p drutil Extension which provides memory address retrieval
    and string loop expansion (note: LGPL license)
  - Added dr_insert_get_seg_base()

@@ -68,6 +68,7 @@
 #pragma warning( disable : 4702) //unreachable code (should be disabled DEBUG=0, e.g. for INTERNAL_OPTION test)
 #pragma warning( disable : 4324) // structure was padded due to __declspec(align())
 #pragma warning( disable : 4709) // comma operator within array index expression
+#pragma warning( disable : 4214) // nonstandard extension used : bit field types other than int
 
 /**************************************************/
 /* warnings on compiling with VC 8.0, all on VC or PlatformSDK header files */

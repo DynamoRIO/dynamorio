@@ -385,7 +385,7 @@ read_config_ex(HANDLE f, const char *var, wchar_t *val, size_t val_len,
                bool elide)
 {
     bool found = false;
-    bool ok;
+    BOOL ok;
     /* could use _open_osfhandle() to get fd and _fdopen() to get FILE* and then
      * use fgets: but then have to close with fclose on FILE and thus messy w/
      * callers holding HANDLE instead.  already have code for line reading so
@@ -510,7 +510,7 @@ read_config_ex(HANDLE f, const char *var, wchar_t *val, size_t val_len,
 static void
 write_config_param(HANDLE f, const char *var, const wchar_t *val)
 {
-    bool ok;
+    BOOL ok;
     DWORD written;
     char buf[MAX_REGISTRY_PARAMETER];
     DO_ASSERT(f != INVALID_HANDLE_VALUE);
@@ -855,7 +855,7 @@ dr_syswide_is_on(dr_platform_t dr_platform,
     set_dr_platform(dr_platform);
     /* Set the appinit key */
     get_syswide_path(wbuf, dr_root_dir);
-    return is_custom_autoinjection_set(wbuf);
+    return CAST_TO_bool(is_custom_autoinjection_set(wbuf));
 }
 
 dr_config_status_t

@@ -559,6 +559,18 @@ if (UNIX) # unlikely to be an issue on Windows
   CHECK_TYPE_SIZE(int64 DR_DO_NOT_DEFINE_int64)
   # we could do CHECK_SYMBOL_EXISTS for MAX and MIN but they're not
   # in standard headers so up to user to define if an issue
+  if (DR_DO_NOT_DEFINE_bool)
+    # i#488: ensure bool compatibility with C++
+    if (NOT ${DR_DO_NOT_DEFINE_bool} EQUAL 1)
+      message(FATAL_ERROR "incompatible pre-defined \"bool\" type is larger than 1 byte")
+    endif (NOT ${DR_DO_NOT_DEFINE_bool} EQUAL 1)
+  endif (DR_DO_NOT_DEFINE_bool)
+  CHECK_TYPE_SIZE(_Bool DR__Bool_EXISTS)
+  if (DR__Bool_EXISTS)
+    if (NOT ${DR__Bool_EXISTS} EQUAL 1)
+      message(FATAL_ERROR "incompatible \"_Bool\" type is larger than 1 byte")
+    endif (NOT ${DR__Bool_EXISTS} EQUAL 1)
+  endif (DR__Bool_EXISTS)
 endif (UNIX)
 
 ###########################################################################

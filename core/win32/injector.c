@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -502,7 +503,7 @@ static DWORD debugger_key_value_size = BUFFER_SIZE_BYTES(debugger_key_value);
 static BOOL (*debug_stop_function)(int); 
 
 DYNAMORIO_EXPORT
-BOOL
+bool
 using_debugger_key_injection(const TCHAR *image_name)
 {
     int res;
@@ -521,7 +522,7 @@ using_debugger_key_injection(const TCHAR *image_name)
     res = RegOpenKeyEx(DEBUGGER_INJECTION_HIVE, debugger_key_full_name, 
                        0, KEY_QUERY_VALUE + KEY_SET_VALUE, &debugger_key);
     if (ERROR_SUCCESS != res) 
-        return FALSE;
+        return false;
     res = RegQueryValueEx(debugger_key, _TEXT(DEBUGGER_INJECTION_VALUE_NAME),
                           NULL, NULL, (BYTE *) debugger_key_value, 
                           &debugger_key_value_size);
@@ -530,14 +531,14 @@ using_debugger_key_injection(const TCHAR *image_name)
          * what was in the registry value, instead of looking for drinject */
         _tcsstr(debugger_key_value, _TEXT(DRINJECT_NAME)) == 0) {
         RegCloseKey(debugger_key);
-        return FALSE;
+        return false;
     }
 
-    /* since returning TRUE, we don't close the debugger_key (it will be 
+    /* since returning true, we don't close the debugger_key (it will be 
      * needed by the unset and restore functions). The restore function will
      * close it */
 
-    return TRUE;
+    return true;
 }
 
 static
@@ -602,7 +603,7 @@ dr_inject_process_create(const char *app_name, const char *app_cmdline,
     dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
     STARTUPINFO si;
     int errcode = 0;
-    bool res;
+    BOOL res;
     if (data == NULL)
         return ERROR_INVALID_PARAMETER;
     

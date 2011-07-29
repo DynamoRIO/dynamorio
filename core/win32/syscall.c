@@ -790,7 +790,7 @@ presys_CreateProcess(dcontext_t *dcontext, reg_t *param_base, bool ex)
     uint access_mask = (uint) sys_param(dcontext, param_base, 1);
     uint attributes  = (uint) sys_param(dcontext, param_base, 2);
     uint inherit_from_process = (uint) sys_param(dcontext, param_base, 3);
-    bool inherit_handles_only = (uint) sys_param(dcontext, param_base, 4);
+    BOOLEAN inherit_handles_only = (BOOLEAN) sys_param(dcontext, param_base, 4);
     HANDLE section_handle = (HANDLE) sys_param(dcontext, param_base, 5);
     HANDLE debug_handle = (HANDLE) sys_param(dcontext, param_base, 6);
     HANDLE exception_handle = (HANDLE) sys_param(dcontext, param_base, 7);
@@ -875,7 +875,8 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     ACCESS_MASK proc_access_mask = (uint) sys_param(dcontext, param_base, 2);
     ACCESS_MASK thread_access_mask = (uint) sys_param(dcontext, param_base, 3);
-    bool create_suspended = (bool) sys_param(dcontext, param_base, 7);
+    /* might be BOOLEAN instead?  though separate param should zero out rest */
+    BOOL create_suspended = (BOOL) sys_param(dcontext, param_base, 7);
     create_proc_thread_info_t *thread_stuff = (void *) sys_param(dcontext, param_base, 10);
     ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
 
@@ -916,7 +917,7 @@ presys_CreateThread(dcontext_t *dcontext, reg_t *param_base)
     uint *client_id    = (uint*) sys_param(dcontext, param_base, 4);
     CONTEXT *cxt         = (CONTEXT *) sys_param(dcontext, param_base, 5);
     USER_STACK *stack    = (USER_STACK *) sys_param(dcontext, param_base, 6);
-    bool   suspended     = (uint) sys_param(dcontext, param_base, 7);
+    BOOLEAN suspended     = (BOOLEAN) sys_param(dcontext, param_base, 7);
     DEBUG_DECLARE(process_id_t pid = process_id_from_handle(process_handle);)
     LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
         "syscall: NtCreateThread pid="PFX" suspended=%d\n",
@@ -2459,7 +2460,7 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE *proc_handle_ptr = (HANDLE *) postsys_param(dcontext, param_base, 0);
     HANDLE *thread_handle_ptr = (HANDLE *) postsys_param(dcontext, param_base, 1);
-    bool create_suspended = (bool) postsys_param(dcontext, param_base, 7);
+    BOOL create_suspended = (BOOL) postsys_param(dcontext, param_base, 7);
     HANDLE proc_handle, thread_handle;
     /* FIXME should have type for this */
     DEBUG_DECLARE(create_proc_thread_info_t *thread_stuff =
@@ -3544,7 +3545,7 @@ void post_system_call(dcontext_t *dcontext)
         uint access_mask = (uint) postsys_param(dcontext, param_base, 1);
         uint attributes  = (uint) postsys_param(dcontext, param_base, 2);
         uint inherit_from= (uint) postsys_param(dcontext, param_base, 3);
-        bool   inherit     = (uint) postsys_param(dcontext, param_base, 4);
+        BOOLEAN inherit     = (BOOLEAN) postsys_param(dcontext, param_base, 4);
         HANDLE section_handle = (HANDLE) postsys_param(dcontext, param_base, 5);
         HANDLE debug_handle = (HANDLE) postsys_param(dcontext, param_base, 6);
         HANDLE exception_handle = (HANDLE) postsys_param(dcontext, param_base, 7);
@@ -3564,7 +3565,7 @@ void post_system_call(dcontext_t *dcontext)
         uint access_mask = (uint) postsys_param(dcontext, param_base, 1);
         uint attributes  = (uint) postsys_param(dcontext, param_base, 2);
         uint inherit_from= (uint) postsys_param(dcontext, param_base, 3);
-        bool   inherit     = (uint) postsys_param(dcontext, param_base, 4);
+        BOOLEAN inherit = (BOOLEAN) postsys_param(dcontext, param_base, 4);
         HANDLE section_handle = (HANDLE) postsys_param(dcontext, param_base, 5);
         HANDLE debug_handle = (HANDLE) postsys_param(dcontext, param_base, 6);
         HANDLE exception_handle = (HANDLE) postsys_param(dcontext, param_base, 7);

@@ -2573,7 +2573,7 @@ void dynamorio_app_take_over(void);
 DYNAMORIO_EXPORT void
 dynamorio_app_init_and_early_takeover(uint inject_location, void *restore_code)
 {
-    bool res;
+    int res;
     ASSERT(!dynamo_initialized && !dynamo_exited);
     /* This routine combines dynamorio_app_init() and dynamrio_app_takeover into
      * a single routine that also handles any early injection cleanup needed. */

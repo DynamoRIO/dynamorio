@@ -1361,8 +1361,9 @@ HTNAME(hashtable_,NAME_KEY,_remove_helper)(HTNAME(,NAME_KEY,_table_t) *htable,
     /* Non-trivial for open addressed scheme */
     /* just setting elements to null will make unreachable any following elements */
     /* better solution is to move entries that would become unreachable  */
-    bool wrapped = 
+    int iwrapped = 
         HTNAME(hashtable_,NAME_KEY,_remove_helper_open_address)(htable, hindex, prevg);
+    bool wrapped = CAST_TO_bool(iwrapped);
 
 #ifdef HASHTABLE_USE_LOOKUPTABLE
     /* Don't sync the lookup table for unlinked fragments -- see the comments

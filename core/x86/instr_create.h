@@ -3357,6 +3357,10 @@ INSTR_CREATE_nop2byte_reg(dcontext_t *dcontext, reg_id_t reg)
     /* 32-bit register target zeroes out the top bits, so we use the Intel
      * and AMD recommended 0x66 0x90 */
     instr_t *in = instr_build_bits(dcontext, OP_nop, 2);
+# ifdef WINDOWS
+    /* avoid warning C4100: 'reg' : unreferenced formal parameter */
+    UNREFERENCED_PARAMETER(reg);
+# endif
     instr_set_raw_byte(in, 0, 0x66);
     instr_set_raw_byte(in, 1, 0x90);
     instr_set_operands_valid(in, true);

@@ -1208,7 +1208,7 @@ tls_mark_taken_block_sequence(byte *rtl_bitmap, int bitmap_size,
  * which may be safer than acquiring the lock, though when there's only a single
  * thread it shouldn't make any difference (it's a recursive lock).
  */
-static int
+static bool
 tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots, 
                  uint alignment, uint tls_flags)
 {
@@ -1223,7 +1223,7 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
         /* TlsAlloc calls RtlAcquirePebLock which calls RtlEnterCriticalSection */
         res = RtlEnterCriticalSection(peb->FastPebLock);
         if (!NT_SUCCESS(res))
-            return 0;
+            return false;
     }
 
     /* we align the fs offset and assume that the fs base is page-aligned */
@@ -1405,7 +1405,7 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
     if (synch) {
         res = RtlLeaveCriticalSection(peb->FastPebLock);
         if (!NT_SUCCESS(res))
-            return 0;
+            return false;
     }
 
     /* ntdll seems to grab slot 0 of the TlsBitmap before loading
@@ -1415,10 +1415,10 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
      */
     ASSERT(start > 0);
 
-    return start;
+    return (start > 0);
 }
 
-int
+bool
 tls_alloc(int synch, uint *teb_offs /* OUT */)
 {
     return tls_alloc_helper(synch, teb_offs, 1, 0/* any alignment */, 
@@ -1429,14 +1429,14 @@ tls_alloc(int synch, uint *teb_offs /* OUT */)
 /* Allocates num tls slots aligned with particular alignment
  * Alignment must be sub-page
  */
-int
+bool
 tls_calloc(int synch, uint *teb_offs /* OUT */, int num, uint alignment)
 {
     return tls_alloc_helper(synch, teb_offs, num, alignment, 
                             DYNAMO_OPTION(tls_flags));
 }
 
-static int
+static bool
 tls_free_helper(int synch, uint teb_offs, int num)
 {
     PEB *peb = get_own_peb();
@@ -1466,7 +1466,7 @@ tls_free_helper(int synch, uint teb_offs, int num)
         res = RtlTryEnterCriticalSection(peb->FastPebLock);
         ASSERT_CURIOSITY(NT_SUCCESS(res));
         if (!NT_SUCCESS(res))
-            return 0;
+            return false;
     }
     
     ASSERT(peb->TlsBitmap != NULL);
@@ -1496,19 +1496,19 @@ tls_free_helper(int synch, uint teb_offs, int num)
         res = RtlLeaveCriticalSection(peb->FastPebLock);
         ASSERT(NT_SUCCESS(res));
         if (!NT_SUCCESS(res))
-            return 0;
+            return false;
     }
 
-    return 1;
+    return true;
 }
 
-int
+bool
 tls_free(int synch, uint teb_offs)
 {
     return tls_free_helper(synch, teb_offs, 1);
 }
 
-int
+bool
 tls_cfree(int synch, uint teb_offs, int num)
 {
     return tls_free_helper(synch, teb_offs, num);
@@ -1517,7 +1517,7 @@ tls_cfree(int synch, uint teb_offs, int num)
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 /***************************************************************************/
 
-int
+bool
 get_process_mem_stats(HANDLE h, VM_COUNTERS *info)
 {
     NTSTATUS res;
@@ -1579,12 +1579,13 @@ get_process_load(HANDLE h)
  * FIXME: do we still have the restriction of not returning a bool for ntdll.c
  * routines?!?
  */
-int
+bool
 is_wow64_process(HANDLE h)
 {
     /* since this is called a lot we remember the result for the current process */
-    static int self_is_wow64 = -1; /* uninitialized */
-    if (self_is_wow64 == -1 || h != NT_CURRENT_PROCESS) {
+    static bool self_init = false;
+    static bool self_is_wow64 = false;
+    if (!self_init || h != NT_CURRENT_PROCESS) {
         ptr_uint_t is_wow64;
         NTSTATUS res;
         ULONG len = 0;
@@ -1605,6 +1606,7 @@ is_wow64_process(HANDLE h)
             ASSERT(!dynamo_initialized); /* .data should be writable */
 #endif
             self_is_wow64 = (is_wow64 != 0);
+            self_init = true;
         }
         return (is_wow64 != 0);
     }
@@ -1720,7 +1722,7 @@ nt_free_virtual_memory(void *base)
  * pass NT_CURRENT_PROCESS to nt_remote_protect_virtual_memory()
  * instead to avoid the extra function call, especially with self-protection on
  */
-int
+bool
 protect_virtual_memory(void *base, size_t size, uint prot, uint *old_prot)
 {
     NTSTATUS res;
@@ -1733,7 +1735,7 @@ protect_virtual_memory(void *base, size_t size, uint prot, uint *old_prot)
     return NT_SUCCESS(res);
 }
 
-int
+bool
 nt_remote_protect_virtual_memory(HANDLE process, 
                                  void *base, size_t size, uint prot, uint *old_prot)
 {
@@ -1803,7 +1805,7 @@ get_mapped_file_name(const byte *pc, PWSTR buf, USHORT buf_bytes)
     return res;
 }
 
-int
+bool
 nt_read_virtual_memory(HANDLE process, const void *base, void *buffer, 
                        size_t buffer_length, size_t *bytes_read)
 {
@@ -1818,7 +1820,7 @@ nt_read_virtual_memory(HANDLE process, const void *base, void *buffer,
     return NT_SUCCESS(res);
 }
 
-int
+NTSTATUS
 nt_raw_write_virtual_memory(HANDLE process, void *base, const void *buffer,
                         size_t buffer_length, size_t *bytes_written)
 {
@@ -1833,7 +1835,7 @@ nt_raw_write_virtual_memory(HANDLE process, void *base, const void *buffer,
     return res;
 }
 
-int
+bool
 nt_write_virtual_memory(HANDLE process, void *base, const void *buffer,
                         size_t buffer_length, size_t *bytes_written)
 {
@@ -1885,7 +1887,7 @@ nt_set_context(HANDLE hthread, CONTEXT *cxt)
     return NT_SYSCALL(SetContextThread, hthread, cxt);
 }
 
-int
+bool
 nt_thread_suspend(HANDLE hthread, int *previous_suspend_count)
 {
     NTSTATUS res;
@@ -1900,7 +1902,7 @@ nt_thread_suspend(HANDLE hthread, int *previous_suspend_count)
     return NT_SUCCESS(res);
 }
 
-int
+bool
 nt_thread_resume(HANDLE hthread, int *previous_suspend_count)
 {
     NTSTATUS res;
@@ -1910,7 +1912,7 @@ nt_thread_resume(HANDLE hthread, int *previous_suspend_count)
     return NT_SUCCESS(res);
 }
 
-int
+bool
 nt_terminate_thread(HANDLE hthread, NTSTATUS exit_code)
 {
     NTSTATUS res;
@@ -1925,7 +1927,7 @@ nt_terminate_thread(HANDLE hthread, NTSTATUS exit_code)
     return NT_SUCCESS(res);
 }
 
-int 
+bool 
 nt_terminate_process(HANDLE hprocess, NTSTATUS exit_code)
 {
     NTSTATUS res;
@@ -1949,7 +1951,7 @@ nt_terminate_process_for_app(HANDLE hprocess, NTSTATUS exit_code)
     return NT_SYSCALL(TerminateProcess, hprocess, exit_code);
 }
 
-int
+bool
 am_I_sole_thread(HANDLE hthread, int *amI /*OUT*/)
 {
     NTSTATUS res;
@@ -1959,14 +1961,14 @@ am_I_sole_thread(HANDLE hthread, int *amI /*OUT*/)
 }
 
 /* checks current thread, and turns errors into false */
-int
+bool
 check_sole_thread()
 {
     int amI;
     if (!am_I_sole_thread(NT_CURRENT_THREAD, &amI))
-        return 0;
+        return false;
     else
-        return amI;
+        return (amI != 0);
 }
 
 HANDLE
@@ -2001,7 +2003,7 @@ nt_create_and_set_timer(PLARGE_INTEGER due_time, LONG period)
     return htimer;
 }
 
-int
+bool
 nt_sleep(PLARGE_INTEGER due_time) 
 {
     NTSTATUS res;
@@ -2036,7 +2038,7 @@ get_section_address(HANDLE h)
 /* returns true if attributes can be read and sets them,
  * otherwise the values are not modified
  */
-int
+bool
 get_section_attributes(HANDLE h, uint *section_attributes /* OUT */,
                        LARGE_INTEGER* section_size /* OPTIONAL OUT */)
 {
@@ -2063,7 +2065,7 @@ get_section_attributes(HANDLE h, uint *section_attributes /* OUT */,
     }
 }
 
-int
+bool
 close_handle(HANDLE h)
 {
     NTSTATUS res;
@@ -2157,7 +2159,7 @@ char_to_ansi(PANSI_STRING dst, const char *str)
  * Returns 1 if successful; 0 otherwise.
  * (Using bool is problematic for non-core users.)
  */
-int
+bool
 query_full_attributes_file(IN PCWSTR filename,
                            OUT PFILE_NETWORK_OPEN_INFORMATION info)
 {
@@ -2240,14 +2242,14 @@ reg_open_key(PCWSTR keyname, ACCESS_MASK rights)
 }
 
 
-int
+bool
 reg_close_key(HANDLE hkey)
 {
     return close_handle(hkey);
 }
 
 
-int
+bool
 reg_delete_key(HANDLE hkey)
 {
     NTSTATUS res;
@@ -2317,7 +2319,7 @@ GET_RAW_SYSCALL(SetValueKey,
                 IN PVOID Data,
                 IN ULONG DataSize);
 
-int
+bool
 reg_set_key_value(HANDLE hkey, PCWSTR subkey, PCWSTR val)
 {
     UNICODE_STRING name;
@@ -2336,7 +2338,7 @@ reg_set_key_value(HANDLE hkey, PCWSTR subkey, PCWSTR val)
     return NT_SUCCESS(res);
 }
 
-int
+bool
 reg_set_dword_key_value(HANDLE hkey, PCWSTR subkey, DWORD value)
 {
     UNICODE_STRING name;
@@ -2355,7 +2357,7 @@ reg_set_dword_key_value(HANDLE hkey, PCWSTR subkey, DWORD value)
  *              only if registry IO fails, i.e., this function shouldn't fail
  *              for most cases.
  */
-int
+bool
 reg_flush_key(HANDLE hkey)
 {
     NTSTATUS res;
@@ -2377,7 +2379,7 @@ reg_flush_key(HANDLE hkey)
  *
  * Returns 1 on success, 0 otherwise.
  */
-int
+bool
 reg_enum_key(IN PCWSTR keyname,
              IN ULONG index,
              IN KEY_INFORMATION_CLASS info_class,
@@ -2396,7 +2398,7 @@ reg_enum_key(IN PCWSTR keyname,
                                OUT PULONG bytes_received));
 
     if (hkey == NULL)
-        return 0;
+        return false;
 
     result = NtEnumerateKey(hkey, index, info_class, key_info, 
                             key_info_size, &received);
@@ -2417,7 +2419,7 @@ reg_enum_key(IN PCWSTR keyname,
  * then check for null and skip over it if nec. to find the data start.
  * Returns 1 on success, 0 otherwise.
  */
-int
+bool
 reg_enum_value(IN PCWSTR keyname,
                IN ULONG index,
                IN KEY_VALUE_INFORMATION_CLASS info_class,
@@ -2436,7 +2438,7 @@ reg_enum_value(IN PCWSTR keyname,
                                     OUT PULONG bytes_received));
 
     if (hkey == NULL)
-        return 0;
+        return false;
 
     result = NtEnumerateValueKey(hkey, index, info_class, key_info, 
                                  key_info_size, &bytes_received);
@@ -2448,7 +2450,7 @@ reg_enum_value(IN PCWSTR keyname,
 /* queries the process env vars: NOT the separate copies used in the C
  * library and in other libraries
  */
-int
+bool
 env_get_value(PCWSTR var, wchar_t *val, size_t valsz)
 {
     PEB *peb = get_own_peb();
@@ -2460,7 +2462,7 @@ env_get_value(PCWSTR var, wchar_t *val, size_t valsz)
                                               PUNICODE_STRING Value));
     res = wchar_to_unicode(&var_us, var);
     if (!NT_SUCCESS(res))
-        return 0;
+        return false;
     val_us.Length = 0;
     val_us.MaximumLength = (USHORT) valsz;
     val_us.Buffer = val;
@@ -2995,7 +2997,7 @@ create_file(PCWSTR filename, bool is_dir, ACCESS_MASK rights,
 
 #if 0
 /* FIXME : enable and test once we have a use for it */
-int
+bool
 delete_file(PCWSTR filename)
 {
     NTSTATUS res;
@@ -3006,7 +3008,7 @@ delete_file(PCWSTR filename)
     
     res = wchar_to_unicode(&objname, filename);
     if (!NT_SUCCESS(res))
-        return 0;
+        return false;
     
     InitializeObjectAttributes(&attr, &objname,
                                OBJ_CASE_INSENSITIVE,
@@ -3018,7 +3020,7 @@ delete_file(PCWSTR filename)
 }
 #endif
 
-int
+bool
 flush_file_buffers(HANDLE file_handle)
 {
     NTSTATUS res;
@@ -3041,7 +3043,7 @@ VOID
                           IN ULONG Reserved
                           );
 
-int
+bool
 read_file(HANDLE file_handle, void *buffer, uint num_bytes_to_read, 
           IN uint64* file_byte_offset OPTIONAL,
           OUT size_t *num_bytes_read)
@@ -3078,7 +3080,7 @@ read_file(HANDLE file_handle, void *buffer, uint num_bytes_to_read,
     return NT_SUCCESS(res);
 }
 
-int
+bool
 write_file(HANDLE file_handle, const void *buffer, uint num_bytes_to_write, 
            OPTIONAL uint64* file_byte_offset,
            OUT size_t *num_bytes_written)
@@ -3116,7 +3118,7 @@ write_file(HANDLE file_handle, const void *buffer, uint num_bytes_to_write,
     return NT_SUCCESS(res);
 }
 
-int
+bool
 close_file(HANDLE hfile)
 {
     return close_handle(hfile);
@@ -3251,7 +3253,7 @@ open_pipe(PCWSTR pipename, HANDLE hsync)
 
 #define STATUS_SHOW_MESSAGEBOX_UNDOCUMENTED (NTSTATUS)0x50000018L
 
-int
+bool
 nt_messagebox(wchar_t *msg, wchar_t *title)
 {
     UNICODE_STRING m, t;
@@ -3294,7 +3296,7 @@ nt_messagebox(wchar_t *msg, wchar_t *title)
     return NT_SUCCESS(res);
 }
 
-int
+bool
 nt_raise_exception(EXCEPTION_RECORD* pexcrec, CONTEXT* pcontext)
 {
     NTSTATUS res;
@@ -3618,7 +3620,7 @@ get_thread_impersonation_token(HANDLE hthread)
 
 /* sets impersonation token, returns 0 on failure  */
 static
-uint
+bool
 set_thread_impersonation_token(HANDLE hthread, HANDLE himptoken)
 {
     NTSTATUS res;
@@ -3633,9 +3635,9 @@ set_thread_impersonation_token(HANDLE hthread, HANDLE himptoken)
 
     if (!NT_SUCCESS(res)) {
         NTPRINT("Error 0x%x in set thread token\n", res);
-        return 0;
+        return false;
     } else
-        return 1;
+        return true;
 }
 
 #endif /* PURE_NTDLL */

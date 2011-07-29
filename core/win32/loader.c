@@ -86,7 +86,7 @@ DECLARE_NEVERPROT_VAR(static char forwmodpath[MAXIMUM_PATH], {0});
 static char systemroot[MAXIMUM_PATH];
 
 /* PE entry points take 3 args */
-typedef bool (WINAPI *dllmain_t)(HANDLE, DWORD, LPVOID);
+typedef BOOL (WINAPI *dllmain_t)(HANDLE, DWORD, LPVOID);
 
 /* forward decls */
 
@@ -120,23 +120,23 @@ typedef struct _redirect_import_t {
 static app_pc
 privload_redirect_imports(privmod_t *impmod, const char *name, privmod_t *importer);
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_ignore_arg0(void);
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_ignore_arg4(void *arg1);
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_ignore_arg8(void *arg1, void *arg2);
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_ignore_arg12(void *arg1, void *arg2, void *arg3);
 
 static HANDLE WINAPI
 redirect_RtlCreateHeap(ULONG flags, void *base, size_t reserve_sz,
                        size_t commit_sz, void *lock, void *params);
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_RtlDestroyHeap(HANDLE base);
 
 static void * WINAPI
@@ -145,16 +145,16 @@ redirect_RtlAllocateHeap(HANDLE heap, ULONG flags, SIZE_T size);
 static void * WINAPI
 redirect_RtlReAllocateHeap(HANDLE heap, ULONG flags, PVOID ptr, SIZE_T size);
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_RtlFreeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 
 static SIZE_T WINAPI
 redirect_RtlSizeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_RtlLockHeap(HANDLE heap);
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_RtlUnlockHeap(HANDLE heap);
 
 static void WINAPI
@@ -335,7 +335,7 @@ static bool loaded_windows_lib;
 HANDLE WINAPI RtlCreateHeap(ULONG flags, void *base, size_t reserve_sz,
                             size_t commit_sz, void *lock, void *params);
 
-bool WINAPI RtlDestroyHeap(HANDLE base);
+BOOL WINAPI RtlDestroyHeap(HANDLE base);
 
 
 void 
@@ -1059,7 +1059,7 @@ privload_call_entry(privmod_t *privmod, uint reason)
     /* get_module_entry adds base => returns base instead of NULL */
     if (entry != NULL && entry != privmod->base) {
         dllmain_t func = (dllmain_t) convert_data_to_function(entry);
-        bool res;
+        BOOL res;
         LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s entry "PFX" for %d\n",
             __FUNCTION__, privmod->name, entry, reason);
         res = (*func)((HANDLE)privmod->base, reason, NULL);
@@ -1072,9 +1072,9 @@ privload_call_entry(privmod_t *privmod, uint reason)
              */
             LOG(GLOBAL, LOG_LOADER, 2,
                 "%s: ignoring failure of kernel32!_BaseDllInitialize\n", __FUNCTION__);
-            res = true;    
+            res = TRUE;    
         }
-        return res;
+        return CAST_TO_bool(res);
     }
     return true;
 }
@@ -1374,28 +1374,28 @@ privload_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
     return NULL;
 }
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_ignore_arg0(void)
 {
-    return true;
+    return TRUE;
 }
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_ignore_arg4(void *arg1)
 {
-    return true;
+    return TRUE;
 }
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_ignore_arg8(void *arg1, void *arg2)
 {
-    return true;
+    return TRUE;
 }
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_ignore_arg12(void *arg1, void *arg2, void *arg3)
 {
-    return true;
+    return TRUE;
 }
 
 /****************************************************************************
@@ -1440,7 +1440,7 @@ redirect_heap_call(HANDLE heap)
             is_dynamo_address((byte*)heap));
 }
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_RtlDestroyHeap(HANDLE base)
 {
     if (redirect_heap_call(base)) {
@@ -1451,7 +1451,7 @@ redirect_RtlDestroyHeap(HANDLE base)
          */
         LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX"\n", __FUNCTION__, base);
         global_heap_free((byte *)base, 1 HEAPACCT(ACCT_LIBDUP));
-        return true;
+        return TRUE;
     } else
         return RtlDestroyHeap(base);
 }
@@ -1535,15 +1535,15 @@ redirect_RtlReAllocateHeap(HANDLE heap, ULONG flags, byte *ptr, SIZE_T size)
     }
 }
 
-bool WINAPI RtlFreeHeap(HANDLE heap, ULONG flags, PVOID ptr);
+BOOL WINAPI RtlFreeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 
 SIZE_T WINAPI RtlSizeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 
-bool WINAPI RtlLockHeap(HANDLE heap);
+BOOL WINAPI RtlLockHeap(HANDLE heap);
 
-bool WINAPI RtlUnlockHeap(HANDLE heap);
+BOOL WINAPI RtlUnlockHeap(HANDLE heap);
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_RtlFreeHeap(HANDLE heap, ULONG flags, byte *ptr)
 {
     PEB *peb = get_peb(NT_CURRENT_PROCESS);
@@ -1552,9 +1552,9 @@ redirect_RtlFreeHeap(HANDLE heap, ULONG flags, byte *ptr)
         if (ptr != NULL) {
             LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX"\n", __FUNCTION__, ptr);
             wrapped_dr_free(ptr);
-            return true;
+            return TRUE;
         } else
-            return false;
+            return FALSE;
     } else {
         LOG(GLOBAL, LOG_LOADER, 2, "native %s "PFX" "PIFX"\n", __FUNCTION__,
             ptr, (ptr == NULL ? 0 : RtlSizeHeap(heap, flags, ptr)));
@@ -1578,7 +1578,7 @@ redirect_RtlSizeHeap(HANDLE heap, ULONG flags, byte *ptr)
 }
 
 /* These are called by LocalFree, passing kernel32!BaseHeap == peb->ProcessHeap */
-static bool WINAPI
+static BOOL WINAPI
 redirect_RtlLockHeap(HANDLE heap)
 {
     PEB *peb = get_peb(NT_CURRENT_PROCESS);
@@ -1587,13 +1587,13 @@ redirect_RtlLockHeap(HANDLE heap)
      */
     if (redirect_heap_call(heap)) {
         /* nop */
-        return true;
+        return TRUE;
     } else {
         return RtlLockHeap(heap);
     }
 }
 
-static bool WINAPI
+static BOOL WINAPI
 redirect_RtlUnlockHeap(HANDLE heap)
 {
     PEB *peb = get_peb(NT_CURRENT_PROCESS);
@@ -1602,7 +1602,7 @@ redirect_RtlUnlockHeap(HANDLE heap)
      */
     if (redirect_heap_call(heap)) {
         /* nop */
-        return true;
+        return TRUE;
     } else {
         return RtlUnlockHeap(heap);
     }

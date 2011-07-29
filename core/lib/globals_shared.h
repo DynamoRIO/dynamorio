@@ -142,11 +142,26 @@
 
 #ifndef __cplusplus
 #  ifndef DR_DO_NOT_DEFINE_bool
-typedef int bool;
+#    ifdef DR__Bool_EXISTS
+/* prefer _Bool as it avoids truncation casting non-zero to zero */
+typedef _Bool bool;
+#    else
+/* char-sized for compatibility with C++ */
+typedef char bool;
+#    endif
 #  endif
-#  define true  (1)
-#  define false (0)
+#  ifndef true
+#    define true  (1)
+#  endif
+#  ifndef false
+#    define false (0)
+#  endif
 #endif
+
+/* on Windows where bool is char casting can truncate non-zero to zero
+ * so we use this macro
+ */
+#define CAST_TO_bool(x) (!!(x))
 
 #ifndef DR_DO_NOT_DEFINE_uint
 typedef unsigned int uint;

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,6 +51,10 @@
 # define NT_SUCCESS(status) (status >= 0)
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef USE_DYNAMO
 /* to avoid non-api tests depending on dr_api headers we rely on test
  * including dr_api.h before tools.h (though then must include
@@ -59,7 +64,9 @@
 #  error "must include dr_api.h before tools.h"
 # endif
 #else
+#ifndef __cplusplus
 typedef unsigned int bool;
+#endif
 # ifdef LINUX
 typedef unsigned int uint;
 typedef unsigned long long int uint64;
@@ -177,7 +184,7 @@ static void VERBOSE_PRINT(char *fmt, ...) {}
  * right output, esp. with ctest -j where fprintf(stderr) is buffered.
  */
 static void
-print(char *fmt, ...)
+print(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -331,7 +338,7 @@ static HANDLE ntdll_handle = NULL;
         ntdll_handle = GetModuleHandle((LPCTSTR)"ntdll.dll"); \
     if (func == NULL) {                      \
         assert(ntdll_handle != NULL);        \
-        func = (type) GetProcAddress(ntdll_handle, (LPCSTR)name); \
+        func = (type) GetProcAddress((HMODULE)ntdll_handle, (LPCSTR)name); \
         assert(func != NULL);                \
     }                                        \
 } while (0)
@@ -410,7 +417,8 @@ typedef struct _VM_COUNTERS {
 static int
 get_process_mem_stats(HANDLE h, VM_COUNTERS *info)
 {
-    int i, len = 0;
+    int i;
+    ULONG len = 0;
     /* could share w/ other process info routines... */
     GET_NTDLL(NtQueryInformationProcess,
               (IN HANDLE ProcessHandle,
@@ -483,7 +491,7 @@ protect_mem(void *start, size_t len, int prot)
         print("Error on mprotect: %d\n", errno);
     }
 #else
-    int old;
+    DWORD old;
     if (VirtualProtect(start, len, get_os_prot_word(prot), &old) == 0) {
         print("Error on VirtualProtect\n");
     }
@@ -497,7 +505,7 @@ protect_mem_check(void *start, size_t len, int prot, int expected)
     /* FIXME : add check */
     protect_mem(start, len, prot);
 #else 
-    int old;
+    DWORD old;
     if (VirtualProtect(start, len, get_os_prot_word(prot), &old) == 0) {
         print("Error on VirtualProtect\n");
     }
@@ -601,7 +609,7 @@ our_exception_filter(struct _EXCEPTION_POINTERS * pExceptionInfo)
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
-static
+static void
 set_global_filter()
 {
     // Set the global unhandled exception filter to the exception filter
@@ -642,7 +650,7 @@ get_drmarker_field(uint offset)
      */
     byte *field;
     HANDLE ntdll_handle = GetModuleHandle("ntdll.dll");
-    byte *cbd = (byte *) GetProcAddress(ntdll_handle, "KiUserCallbackDispatcher");
+    byte *cbd = (byte *) GetProcAddress((HMODULE)ntdll_handle, "KiUserCallbackDispatcher");
     byte *drmarker, *landing_pad;
     if (*cbd != 0xe9) /* no jmp there */
         return NULL;
@@ -681,6 +689,11 @@ __asm {             \
     __asm _emit 't' \
     __asm _emit '$' \
     __asm foo:      \
+}
+#endif
+
+
+#ifdef __cplusplus
 }
 #endif
 

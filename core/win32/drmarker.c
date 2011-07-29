@@ -93,10 +93,10 @@ is_wow64_process(HANDLE hProcess)
         /* should be NT or 2K */
         return false;
     } else {
-        bool res;
+        BOOL res;
         if (!IsWow64Process(hProcess, &res))
             return false;
-        return res;
+        return CAST_TO_bool(res);
     }
 }
 #endif

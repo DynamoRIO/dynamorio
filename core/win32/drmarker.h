@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -111,9 +112,7 @@ int
 read_and_verify_dr_marker_64(HANDLE process, dr_marker_t *marker);
 #endif
 
-#ifndef bool
-typedef int bool;
-#endif
+/* up to includer to ensure "bool" is defined as a char-sized type */
 
 bool
 dr_marker_verify(HANDLE process, dr_marker_t *marker);

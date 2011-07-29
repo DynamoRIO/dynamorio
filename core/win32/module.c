@@ -4896,7 +4896,7 @@ restore_unreadable_section(app_pc module_base, IMAGE_SECTION_HEADER *sec,
                            IMAGE_NT_HEADERS *nt, uint restore_prot,
                            app_pc view_start, size_t view_len)
 {
-    int ok;
+    bool ok;
     app_pc intersection_start;
     size_t intersection_len;
     uint old_prot;

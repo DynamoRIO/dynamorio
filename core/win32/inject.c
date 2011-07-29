@@ -103,12 +103,12 @@ inject_init()
  *   Get/SetThreadContext to get the context -- you must still pass
  *   in a pointer to a cxt
  */
-BOOL
+bool
 inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
                    char *dynamo_path)
 {
     size_t              nbytes;
-    BOOL                success = FALSE;
+    bool                success = false;
     ptr_uint_t          dynamo_entry_esp;
     ptr_uint_t          dynamo_path_esp;
     LPVOID              load_dynamo_code = NULL; /* = base of code allocation */
@@ -340,7 +340,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
             }
         }
 
-        success = TRUE;
+        success = true;
     }
     error:
         /* we do not recover any changes in the child's address space */

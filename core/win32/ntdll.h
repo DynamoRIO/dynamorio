@@ -36,8 +36,7 @@
 /*
  * ntdll.h
  * Routines for calling Windows system calls via the ntdll.dll wrappers.
- * We return a boolean (but type int) instead of NTSTATUS, for most cases.
- * 1 indicates success, 0 indicates an error.
+ * We return a bool instead of NTSTATUS, for most cases.
  * 
  * New routines however should return the raw NTSTATUS and leave to
  * the callers to report or act on some specific failure.  Should use
@@ -473,7 +472,7 @@ typedef struct _PROCESS_DEVICEMAP_INFORMATION {
 
 #if defined(NOT_DYNAMORIO_CORE)
 # ifndef bool
-typedef int bool;
+typedef char bool;
 # endif /* bool */
 typedef unsigned __int64 uint64;
 #endif /* NOT_DYNAMORIO_CORE */
@@ -1080,7 +1079,7 @@ ntdll_init(void);
 void
 ntdll_exit(void);
 
-int
+bool
 close_handle(HANDLE h);
 
 /* from winddk.h used by cygwin */
@@ -1161,23 +1160,23 @@ nt_decommit_virtual_memory(void *base, size_t size);
 NTSTATUS
 nt_free_virtual_memory(void *base);
 
-int
+bool
 protect_virtual_memory(void *base, size_t size, uint prot, uint *old_prot);
 
-int
+bool
 nt_remote_protect_virtual_memory(HANDLE process,
                        void *base, size_t size, uint prot, uint *old_prot);
 
-int
+bool
 nt_read_virtual_memory(HANDLE process, const void *base, void *buffer, 
                        size_t buffer_length, size_t *bytes_read);
 
-int
+bool
 nt_write_virtual_memory(HANDLE process, void *base, const void *buffer, 
                         size_t buffer_length, size_t *bytes_written);
 
 /* returns raw NTSTATUS */
-int
+NTSTATUS
 nt_raw_write_virtual_memory(HANDLE process, void *base, const void *buffer,
                             size_t buffer_length, size_t *bytes_written);
 
@@ -1190,26 +1189,26 @@ nt_get_context(HANDLE hthread, CONTEXT *cxt);
 NTSTATUS
 nt_set_context(HANDLE hthread, CONTEXT *cxt);
 
-int
+bool
 nt_thread_suspend(HANDLE hthread, int *previous_suspend_count);
 
-int
+bool
 nt_thread_resume(HANDLE hthread, int *previous_suspend_count);
 
-int
+bool
 nt_terminate_thread(HANDLE hthread, NTSTATUS exit_code);
 
-int 
+bool 
 nt_terminate_process(HANDLE hprocess, NTSTATUS exit_code);
 
 NTSTATUS
 nt_terminate_process_for_app(HANDLE hprocess, NTSTATUS exit_code);
 
-int
+bool
 am_I_sole_thread(HANDLE hthread, int *amI /*OUT*/);
 
 /* checks current thread, and turns errors into false */
-int
+bool
 check_sole_thread(void);
 
 /* creates a waitable timer */
@@ -1217,32 +1216,32 @@ HANDLE
 nt_create_and_set_timer(PLARGE_INTEGER due_time, LONG period);
 
 /* thread sleeps for given relative or absolute time */
-int
+bool
 nt_sleep(PLARGE_INTEGER due_time);
 
 void
 nt_yield(void);
 
-int
+bool
 nt_raise_exception(EXCEPTION_RECORD* pexcrec, CONTEXT* pcontext);
 
-int
+bool
 nt_messagebox(wchar_t *msg, wchar_t *title);
 
-int
+bool
 tls_alloc(int synch, uint *teb_offs /* OUT */);
 
 /* Allocates num tls slots aligned with alignment align */
-int
+bool
 tls_calloc(int synch, uint *teb_offs /* OUT */, int num, uint alignment);
 
-int
+bool
 tls_free(int synch, uint teb_offs);
 
-int
+bool
 tls_cfree(int synch, uint teb_offs, int num);
 
-int
+bool
 get_process_mem_stats(HANDLE h, VM_COUNTERS *info);
 
 NTSTATUS
@@ -1254,7 +1253,7 @@ get_process_handle_count(HANDLE ph, ULONG *handle_count);
 int
 get_process_load(HANDLE h);
 
-int
+bool
 is_wow64_process(HANDLE h);
 
 NTSTATUS
@@ -1275,7 +1274,7 @@ get_section_address(HANDLE h);
 #define SEC_BASED_UNSUPPORTED     0x00200000
 #define SEC_NO_CHANGE_UNSUPPORTED 0x00400000
 
-int
+bool
 get_section_attributes(HANDLE h, uint *section_attributes /* OUT */,
                        LARGE_INTEGER* section_size /* OUT OPTIONAL */);
 
@@ -1286,10 +1285,10 @@ reg_create_key(HANDLE parent, PCWSTR keyname, ACCESS_MASK rights);
 HANDLE
 reg_open_key(PCWSTR keyname, ACCESS_MASK rights);
 
-int
+bool
 reg_close_key(HANDLE hkey);
 
-int
+bool
 reg_delete_key(HANDLE hkey);
 
 typedef enum _reg_query_value_result {
@@ -1303,23 +1302,23 @@ reg_query_value(PCWSTR hkey, PCWSTR subkey,
                 KEY_VALUE_INFORMATION_CLASS key_class, PVOID info, ULONG info_size,
                 ACCESS_MASK rights);
 
-int
+bool
 reg_set_key_value(HANDLE hkey, PCWSTR subkey, PCWSTR val);
-int
+bool
 reg_set_dword_key_value(HANDLE hkey, PCWSTR subkey, DWORD val);
 
-int
+bool
 reg_flush_key(HANDLE hkey);
 
-int
+bool
 reg_enum_key(PCWSTR keyname, ULONG index, KEY_INFORMATION_CLASS info_class,
              PVOID key_info, ULONG key_info_size);
 
-int
+bool
 reg_enum_value(PCWSTR keyname, ULONG index, KEY_VALUE_INFORMATION_CLASS key_class,
                PVOID key_info, ULONG key_info_length);
 
-int
+bool
 env_get_value(PCWSTR var, wchar_t *val, size_t valsz);
 
 #define LengthRequiredSID(subauthorities)                                       \
@@ -1373,7 +1372,7 @@ query_win32_start_addr(HANDLE hthread, PVOID start_addr);
 NTSTATUS 
 query_system_info(SYSTEM_INFORMATION_CLASS info_class, int info_size, PVOID info);
 
-int
+bool
 query_full_attributes_file(PCWSTR filename,                           
                            PFILE_NETWORK_OPEN_INFORMATION info);
 
@@ -1573,25 +1572,25 @@ nt_create_file(OUT HANDLE *file_handle,
 /* note synch must be true if you are ever going to use read_file or write_file
  * on the returned handle */
 HANDLE
-create_file(PCWSTR filename, int is_dir, ACCESS_MASK rights, uint sharing,
-            uint create_disposition, int synch);
+create_file(PCWSTR filename, bool is_dir, ACCESS_MASK rights, uint sharing,
+            uint create_disposition, bool synch);
 
-int
+bool
 delete_file(PCWSTR filename);
 
-int
+bool
 flush_file_buffers(HANDLE file_handle);
 
-int
+bool
 read_file(HANDLE file_handle, void *buffer, uint num_bytes_to_read, 
           IN uint64* file_byte_offset OPTIONAL,
           OUT size_t *num_bytes_read);
-int
+bool
 write_file(HANDLE file_handle, const void *buffer, uint num_bytes_to_write, 
            OPTIONAL uint64* file_byte_offset,
            OUT size_t *num_bytes_written);
 
-int
+bool
 close_file(HANDLE hfile);
 
 
@@ -1893,7 +1892,7 @@ typedef void * module_handle_t;
 module_handle_t
 load_library(wchar_t *lib_name);
 
-int
+bool
 free_library(module_handle_t lib);
 
 module_handle_t

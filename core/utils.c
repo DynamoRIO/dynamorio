@@ -2912,13 +2912,13 @@ dump_buffer_as_ascii(file_t logfile, char *buffer, size_t len)
 void
 dump_buffer_as_bytes (file_t logfile, void *buffer, size_t len, int flags)
 {
-    bool octal = flags & DUMP_OCTAL;
-    bool raw = flags & DUMP_RAW;
-    bool usechars = !raw && !(flags & DUMP_NO_CHARS);
-    bool replayable = usechars && !(flags & DUMP_NO_QUOTING);
-    bool dword = flags & DUMP_DWORD;
-    bool prepend_address = flags & DUMP_ADDRESS;
-    bool append_ascii = flags & DUMP_APPEND_ASCII;
+    bool octal = TEST(DUMP_OCTAL, flags);
+    bool raw = TEST(DUMP_RAW, flags);
+    bool usechars = !raw && !TEST(DUMP_NO_CHARS, flags);
+    bool replayable = usechars && !TEST(DUMP_NO_QUOTING, flags);
+    bool dword = TEST(DUMP_DWORD, flags);
+    bool prepend_address = TEST(DUMP_ADDRESS, flags);
+    bool append_ascii = TEST(DUMP_APPEND_ASCII, flags);
 
     unsigned char *buf = (unsigned char*) buffer;
 

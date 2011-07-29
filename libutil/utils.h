@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +39,7 @@
 
 #ifndef __cplusplus
 # ifndef bool
-typedef int bool;
+typedef char bool;
 # endif /* !bool */
 #endif /* __cplusplus */
 

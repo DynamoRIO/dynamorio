@@ -365,7 +365,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
 #endif /* !X64 */
        {
         void *buf[2];
-        bool res;
+        BOOL res;
         SIZE_T written;
         /* directly targeting the start_address */
         context.CXT_XIP = (ptr_uint_t)start_addr;

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -447,7 +448,7 @@ DWORD
 delete_file_on_boot(WCHAR *filename)
 {
     DWORD res;
-    bool success = 
+    BOOL success = 
         MoveFileEx(filename, NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
 
     /* reboot removal adds an entry to

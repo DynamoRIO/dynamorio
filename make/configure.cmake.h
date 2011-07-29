@@ -88,6 +88,7 @@
 #cmakedefine DR_DO_NOT_DEFINE_uint32
 #cmakedefine DR_DO_NOT_DEFINE_uint64
 #cmakedefine DR_DO_NOT_DEFINE_ushort
+#cmakedefine DR__Bool_EXISTS
 
 /* Issue 20: we need to know lib dirs for cross-arch execve */
 #define LIBDIR_X64 ${INSTALL_LIB_X64}

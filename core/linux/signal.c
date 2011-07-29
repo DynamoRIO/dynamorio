@@ -313,9 +313,9 @@ bool kernel_sigismember(kernel_sigset_t *set, int _sig)
 {
     int sig = _sig - 1; /* go to 0-based */
     if (_NSIG_WORDS == 1)
-        return 1 & (set->sig[0] >> sig);
+        return CAST_TO_bool(1 & (set->sig[0] >> sig));
     else
-        return 1 & (set->sig[sig / _NSIG_BPW] >> (sig % _NSIG_BPW));
+        return CAST_TO_bool(1 & (set->sig[sig / _NSIG_BPW] >> (sig % _NSIG_BPW)));
 }
 
 /* FIXME: how does libc do this? */

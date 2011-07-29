@@ -194,7 +194,7 @@ get_process_load_ex(HANDLE h, int *cpu, int *user)
     return 1;
 }
 
-static int
+static bool
 get_process_mem_stats(HANDLE h, VM_COUNTERS *info)
 {
     int i, len = 0;
@@ -213,7 +213,7 @@ get_process_mem_stats(HANDLE h, VM_COUNTERS *info)
     }
     else
         assert(len == sizeof(VM_COUNTERS));
-    return TRUE;
+    return true;
 }
 
 #endif /* NTDLL_H */

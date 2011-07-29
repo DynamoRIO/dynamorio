@@ -64,7 +64,7 @@ typedef struct _thread_synch_data_t {
     /* Only valid while holding all_threads_synch_lock and thread_initexit_lock.  Set
      * to whether synch_with_all_threads was successful in synching this thread.
      */
-    int synch_with_success;
+    bool synch_with_success;
     /* Case 10101: allows threads waiting_at_safe_spot() to set their own
      * contexts.  This use sometimes requires a full os-specific context, which
      * we hide behind a generic pointer and a size.

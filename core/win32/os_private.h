@@ -269,7 +269,7 @@ callback_exit(void);
 dr_marker_t*
 get_drmarker(void);
 
-#define UNDER_DYN_HACK 0xabcd
+#define UNDER_DYN_HACK 0xab
 
 byte *
 intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */, 

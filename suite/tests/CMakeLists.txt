@@ -96,10 +96,10 @@ set(vmap_run_list
   # our main configuration
   "SHORT::-code_api"
   # sanity check: run single app to make sure these options aren't totally broken
-  "SHORT::ONLY::client.events::-code_api -opt_memory"
-  "SHORT::ONLY::client.events::-code_api -thread_private"
-  "SHORT::ONLY::client.events::-code_api -disable_traces"
-  "SHORT::ONLY::client.events::-code_api -thread_private -disable_traces"
+  "SHORT::ONLY::client.events$::-code_api -opt_memory"
+  "SHORT::ONLY::client.events$::-code_api -thread_private"
+  "SHORT::ONLY::client.events$::-code_api -disable_traces"
+  "SHORT::ONLY::client.events$::-code_api -thread_private -disable_traces"
   # maybe this should be SHORT as -coarse_units will eventually be the default?
   "-code_api -opt_memory"
   "-code_api -thread_private"
@@ -431,9 +431,9 @@ function (set_cflags source)
   else ()
     set(cflags "${ORIG_CMAKE_C_FLAGS}")
   endif ()
-  if ("${source}" MATCHES ".dll.c$")
+  if ("${source}" MATCHES ".dll.(c|cpp)$")
     # do nothing
-  else ("${source}" MATCHES ".dll.c$")
+  else ("${source}" MATCHES ".dll.(c|cpp)$")
     # We only do it for the executable, not the dll
     # Xref i#230, removes "-fvisibility=internal" option.
     string(REGEX REPLACE "-fvisibility=internal" "" cflags "${cflags}")
@@ -441,7 +441,7 @@ function (set_cflags source)
     if (WIN32)
       string(REGEX REPLACE "/O2" "" cflags "${cflags}")
     endif (WIN32)
-  endif ("${source}" MATCHES ".dll.c$")
+  endif ("${source}" MATCHES ".dll.(c|cpp)$")
   # We can't set the target properties COMPILE_FLAGS as that will
   # pass -g3 to cpp which ends up not expanding macros!
   # So we set properties on source files only.
@@ -538,7 +538,7 @@ endfunction(tobuild_ops)
 
 # normal app that has a dll and an executable
 function(tobuild_dll test source dr_ops)
-  string(REGEX REPLACE "\\.c$" ".dll.c" dll_source "${source}")
+  string(REGEX REPLACE "\\.(c|cpp)$" ".dll.c" dll_source "${source}")
 
   add_exe(${test} ${source})
 
@@ -565,7 +565,7 @@ endfunction(tobuild_dll)
 # and calls this one w/ "" "" "" b/c the PARENT_SCOPE won't make
 # it all the way back then: would need to chain.
 function(tobuild_ci test source client_ops dr_ops exe_ops)
-  string(REGEX REPLACE "\\.c$" ".dll.c" client_source "${source}")
+  string(REGEX REPLACE "\\.(c|cpp)$" ".dll.\\1" client_source "${source}")
   string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
 
   if (NOT "${source}" MATCHES "\\.runall$")
@@ -573,9 +573,9 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
 
     # support a test with a library
     get_filename_component(srcpath ${source} ABSOLUTE)
-    string(REGEX REPLACE "\\.c$" ".appdll.c" dll_srcpath "${srcpath}")
+    string(REGEX REPLACE "\\.(c|cpp)$" ".appdll.\\1" dll_srcpath "${srcpath}")
     if (EXISTS "${dll_srcpath}")
-      string(REGEX REPLACE "\\.c$" ".appdll.c" dll_source "${source}")
+      string(REGEX REPLACE "\\.(c|cpp)$" ".appdll.\\1" dll_source "${source}")
       set(lib_srcs ${dll_source})
       set_cflags(${dll_source}) # sets srccode var
       if ("${srccode}" MATCHES "include \"tools\\.h\"")
@@ -609,8 +609,10 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   endif (NOT "${source}" MATCHES "\\.runall$")
 
   add_library(${test}.dll SHARED ${client_source})
-  # to avoid changing all the REG_ constants we ask for compatibility
-  set(DynamoRIO_REG_COMPATIBILITY ON)
+  if (NOT "${source}" MATCHES "cpp\\.cpp")
+    # to avoid changing all the REG_ constants we ask for compatibility
+    set(DynamoRIO_REG_COMPATIBILITY ON)
+  endif (NOT "${source}" MATCHES "cpp\\.cpp")
   configure_DynamoRIO_client(${test}.dll)
   add_dependencies(${test}.dll api_headers)
   get_target_property(client_path ${test}.dll LOCATION${location_suffix})
@@ -1145,12 +1147,15 @@ if (CLIENT_INTERFACE)
     # just happens to not make as many traces.  also needs path for events*.so.
     tobuild_ci(client.events client-interface/events.c 
       "" "-trace_threshold 5" "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/")
+    tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
+      "" "-trace_threshold 5" "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/")
     tobuild_ci(client.signal client-interface/signal.c "" "" "")
     tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
     tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
     tobuild_ci(client.timer client-interface/timer.c "" "" "")
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c "" "" "")
+    tobuild_ci(client.events_cpp client-interface/events_cpp.cpp "" "" "")
     tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
     tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
     # FIXME i#120: enable these .runall tests once have .runall support

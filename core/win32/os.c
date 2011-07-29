@@ -5879,6 +5879,7 @@ detach_helper(int detach_type)
     int i, num_threads, my_thread_index = -1;
     thread_id_t my_id;
     bool res;
+    int exit_res;
     bool *cleanup_tpc;
     bool translate_cxt;
     bool detach_stacked_callbacks;
@@ -6251,8 +6252,8 @@ detach_helper(int detach_type)
         "Detach :  Last message from detach, about to clean up some more memory and unload\n");
     SYSLOG_INTERNAL_INFO("Detaching from process, entering final cleanup");
     /* call dynamo exit routines */
-    res = dynamo_shared_exit(toexit, detach_stacked_callbacks); 
-    ASSERT(res == SUCCESS);
+    exit_res = dynamo_shared_exit(toexit, detach_stacked_callbacks);
+    ASSERT(exit_res == SUCCESS);
 
     /* we can free the initstack, it can't be our stack, we are specially created thread */
     stack_free(initstack, DYNAMORIO_STACK_SIZE);

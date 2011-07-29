@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -59,6 +60,7 @@
 .hidden symbol
 # define GLOBAL_LABEL(label) label
 # define ADDRTAKEN_LABEL(label) label
+# define BYTE byte ptr
 # define WORD word ptr
 # define DWORD dword ptr
 # define QWORD qword ptr
@@ -105,6 +107,7 @@ ASSUME fs:_DATA @N@\
 # define DECLARE_GLOBAL(symbol) 
 # define GLOBAL_LABEL(label) 
 # define ADDRTAKEN_LABEL(label) label
+# define BYTE byte ptr
 # define WORD word ptr
 # define DWORD dword ptr
 # define QWORD qword ptr
@@ -139,6 +142,7 @@ ASSUME fs:_DATA @N@\
 # define END_FUNC(symbol) /* nothing */
 # define DECLARE_GLOBAL(symbol) global symbol
 # define GLOBAL_LABEL(label) label
+# define BYTE byte
 # define WORD word
 # define DWORD dword
 # define QWORD qword
