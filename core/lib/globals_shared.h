@@ -100,6 +100,10 @@
 #ifdef WINDOWS
 /* allow nameless struct/union */
 #  pragma warning(disable: 4201)
+/* VS2005 warns about comparison operator results being cast to bool (i#523) */
+#  if _MSC_VER >= 1400 && _MSC_VER < 1500
+#    pragma warning(disable: 4244)
+#  endif
 #endif
 
 #ifdef WINDOWS

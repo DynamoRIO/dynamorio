@@ -53,6 +53,10 @@ static const WPARAM WP_CRASH = 3;
 
 static const uint BAD_WRITE = 0x40;
 
+#ifndef WM_DWMNCRENDERINGCHANGED
+# define WM_DWMNCRENDERINGCHANGED 0x031F
+#endif
+
 /* This is where all our callbacks come.  We get 4 default messages:
  *   WM_GETMINMAXINFO                0x0024
  *   WM_NCCREATE                     0x0081
