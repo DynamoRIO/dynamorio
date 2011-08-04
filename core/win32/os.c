@@ -850,7 +850,9 @@ os_init(void)
     get_own_unqualified_name();
     get_own_short_qualified_name();
     get_own_short_unqualified_name();
+    get_application_name();
     get_application_short_name();
+    get_application_short_unqualified_name();
     get_process_primary_SID();
     get_process_SID_string();
     get_process_owner_SID();
