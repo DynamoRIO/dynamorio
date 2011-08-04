@@ -3772,7 +3772,7 @@ get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot)
          * want: we have to loop for that information (i#345)
          */
         dr_mem_info_t info;
-        if (!query_memory_ex(pc, &info))
+        if (!query_memory_ex(pc, &info) || info.type == DR_MEMTYPE_FREE)
             return false;
         if (base_pc != NULL)
             *base_pc = info.base_pc;

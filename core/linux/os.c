@@ -7642,7 +7642,7 @@ get_memory_info(const byte *pc, byte **base_pc, size_t *size,
                 uint *prot /* OUT optional, returns MEMPROT_* value */)
 {
     dr_mem_info_t info;
-#if defined(LINUX) && defined(CLIENT_INTERFACE)
+#ifdef CLIENT_INTERFACE
     if (is_vmm_reserved_address((byte*)pc, 1)) {
         if (!query_memory_ex_from_os(pc, &info) || info.type == DR_MEMTYPE_FREE)
             return false;
