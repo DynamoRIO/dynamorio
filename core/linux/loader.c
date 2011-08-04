@@ -118,9 +118,6 @@ privload_delete_os_privmod_data(privmod_t *privmod);
 static void
 privload_mod_tls_init(privmod_t *mod);
 
-static void
-privload_set_tls_offset(void);
-
 /***************************************************************************/
 
 /* os specific loader initialization prologue before finalizing the load. */
@@ -150,7 +147,6 @@ os_loader_init_prologue(void)
 void
 os_loader_init_epilogue(void)
 {
-    privload_set_tls_offset();
 }
 
 void
@@ -867,13 +863,15 @@ typedef struct _tcb_head_t {
 
 #define TCB_TLS_ALIGN 32
 /* The size we reserved for App's libc tls. */
-#define APP_LIBC_TLS_SIZE 0x100
+#define APP_LIBC_TLS_SIZE 0x200
 
 /* FIXME: add description here to talk how TLS is setup. */
 static void
 privload_mod_tls_init(privmod_t *mod)
 {
     os_privmod_data_t *opd;
+    size_t offset;
+    int first_byte;
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     opd = mod->os_privmod_data;
@@ -885,6 +883,26 @@ privload_mod_tls_init(privmod_t *mod)
     }
     tls_info.mods[tls_info.num_mods] = mod;
     opd->tls_modid = tls_info.num_mods;
+    offset = (opd->tls_modid == 0) ? APP_LIBC_TLS_SIZE : tls_info.offset;
+    /* decide the offset of each module in the TLS segment from 
+     * thread pointer.  
+     * Because the tls memory is located before thread pointer, we use
+     * [tp - offset] to get the tls block for each module later.
+     * so the first_byte that obey the alignment is calculated by
+     * -opd->tls_first_byte & (opd->tls_align - 1);
+     */
+    first_byte = -opd->tls_first_byte & (opd->tls_align - 1);
+    /* increase offset size by adding current mod's tls size:
+     * 1. increase the tls_block_size with the right alignment
+     *    using ALIGN_FORWARD()
+     * 2. add first_byte to make the first byte with right alighment.
+     */
+    offset = first_byte + 
+        ALIGN_FORWARD(offset + opd->tls_block_size + first_byte,
+                      opd->tls_align);
+    opd->tls_offset = offset;
+    tls_info.offs[tls_info.num_mods] = offset;
+    tls_info.offset = offset;
     tls_info.num_mods++;
     if (opd->tls_align > tls_info.max_align) {
         tls_info.max_align = opd->tls_align;
@@ -912,6 +930,7 @@ privload_tls_init(void *app_tp)
      * so we assume the tcb is until the end of a page.
      */
     tcb_size = ALIGN_FORWARD(app_tp, PAGE_SIZE) - (reg_t)app_tp;
+    ASSERT(tls_info.offset <= max_client_tls_size - tcb_size);
     dr_tp = dr_tp + max_client_tls_size - tcb_size;
     LOG(GLOBAL, LOG_LOADER, 2, "%s adjust thread pointer to "PFX"\n",
         __FUNCTION__, dr_tp);
@@ -935,14 +954,15 @@ privload_tls_init(void *app_tp)
         void *dest;
         /* now copy the tls memory from the image */
         dest = dr_tp - tls_info.offs[i];
-        dest = memcpy(dest, opd->tls_image, opd->tls_image_size);
+        memcpy(dest, opd->tls_image, opd->tls_image_size);
         /* set all 0 to the rest of memory. 
          * tls_block_size refers to the size in memory, and
          * tls_image_size refers to the size in file. 
          * We use the same way as libc to name them. 
          */
         ASSERT(opd->tls_block_size >= opd->tls_image_size);
-        memset(dest, 0, opd->tls_block_size - opd->tls_image_size);
+        memset(dest + opd->tls_image_size, 0, 
+               opd->tls_block_size - opd->tls_image_size);
     }
     return dr_tp;
 }
@@ -955,44 +975,6 @@ privload_tls_exit(void *dr_tp)
     dr_tp = (app_pc)ALIGN_FORWARD(dr_tp, PAGE_SIZE) - max_client_tls_size;
     heap_munmap(dr_tp, max_client_tls_size);
 }
-
-/* Calculate the module's tls offset. */
-static void
-privload_set_tls_offset(void)
-{
-    size_t offset = APP_LIBC_TLS_SIZE;
-    int i;
-
-    if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true))
-        return;
-    max_client_tls_size = IF_CLIENT_INTERFACE_ELSE
-        (INTERNAL_OPTION(client_lib_tls_size) * PAGE_SIZE, PAGE_SIZE);
-    for (i = 0; i < tls_info.num_mods; i++) {
-        os_privmod_data_t *opd = tls_info.mods[i]->os_privmod_data;
-        /* decide the offset of each module in the TLS segment from 
-         * thread pointer.  
-         * Because the tls memory is located before thread pointer, we use
-         * [tp - offset] to get the tls block for each module later.
-         * so the first_byte that obey the alignment is calculated by
-         * -opd->tls_first_byte & (opd->tls_align - 1);
-         */
-        int first_byte = -opd->tls_first_byte & (opd->tls_align - 1);
-        /* increase offset size by adding current mod's tls size:
-         * 1. increase the tls_block_size with the right alignment
-         *    using ALIGN_FORWARD()
-         * 2. add first_byte to make the first byte with right alighment.
-         */
-        offset = first_byte + 
-            ALIGN_FORWARD(offset + opd->tls_block_size + first_byte,
-                          opd->tls_align);
-        tls_info.offs[i] = offset;
-    }
-    /* offset is to be extend for future dynamically loaded libraries */
-    tls_info.offset = offset;
-    /* the lowest offset of static tls in any module */
-    ASSERT(offset <= max_client_tls_size - tcb_size);
-}
-
 
 /****************************************************************************
  *                         Function Redirection Code                        *
