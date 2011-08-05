@@ -3590,7 +3590,7 @@ safe_write_ex(void *base, size_t size, const void *in_buf, size_t *bytes_written
 static bool
 is_readable_without_exception_internal(const byte *pc, size_t size, bool query_os)
 {
-    uint prot;
+    uint prot = MEMPROT_NONE;
     byte *check_pc = (byte *) ALIGN_BACKWARD(pc, PAGE_SIZE);
     if (size > ((byte *)POINTER_MAX - pc))
         size = (byte *)POINTER_MAX - pc;
