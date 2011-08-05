@@ -153,7 +153,7 @@ struct _local_state_extended_t *get_local_state_extended(void);
  * Assumes that cs, ss, ds, and es are flat.
  */
 byte *
-get_segment_base(uint seg);
+get_app_segment_base(uint seg);
 #endif
 
 #ifdef CLIENT_INTERFACE

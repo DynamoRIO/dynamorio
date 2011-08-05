@@ -100,7 +100,7 @@ extern char **__environ;
 
 #ifdef X86
 /* must be prior to <link.h> => <elf.h> => INT*_{MIN,MAX} */
-# include "instr.h" /* for get_segment_base() */
+# include "instr.h" /* for get_app_segment_base() */
 #endif
 
 #include "decode_fast.h" /* decode_cti: maybe os_handle_mov_seg should be ifdef X86? */
@@ -1347,7 +1347,7 @@ set_tls(ushort tls_offs, void *value)
  * Should we export this to clients?  For now they can get
  * this information via opnd_compute_address().
  */
-byte *
+static byte *
 get_segment_base(uint seg)
 {
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
@@ -1408,6 +1408,20 @@ get_segment_base(uint seg)
 # endif /* HAVE_TLS */
     }
     return (byte *) POINTER_MAX;
+}
+
+/* i#572: handle opnd_compute_address to return the application 
+ * segment base value.
+ */
+byte *
+get_app_segment_base(uint seg)
+{
+    if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
+        return NULL;
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        return get_tls(os_get_app_seg_base_offset(seg));
+    }
+    return get_segment_base(seg);
 }
 #endif
 

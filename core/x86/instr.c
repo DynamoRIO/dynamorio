@@ -1367,7 +1367,7 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
                   "opnd_compute_address: must pass memory reference");
     if (opnd_is_far_base_disp(opnd)) {
 #ifdef X86
-        seg_base = (ptr_uint_t) get_segment_base(opnd_get_segment(opnd));
+        seg_base = (ptr_uint_t) get_app_segment_base(opnd_get_segment(opnd));
         if (seg_base == POINTER_MAX) /* failure */
             seg_base = 0;
 #endif
