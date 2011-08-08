@@ -1857,8 +1857,11 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
     }
     
     if (!res) {
-        SYSLOG_INTERNAL_ERROR("ERROR: injection into child process failed");
-        ASSERT_NOT_REACHED();
+        SYSLOG_INTERNAL_ERROR("ERROR: injection from pid=%d of %s into child "
+                              "process %d failed", get_process_id(), library,
+                              process_id_from_handle(process_handle));
+        /* FIXME i#49: this can happen for a 64-bit child of a 32-bit parent */
+        ASSERT_CURIOSITY(false && "injection into child failed: 32 to 64?");
         return false;       /* for compilation correctness and release builds */
     }
     return true;

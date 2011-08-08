@@ -1608,7 +1608,8 @@ instrument_module_load_trigger(app_pc modbase)
             os_get_module_info_unlock();
             instrument_module_load(client_data, false /*loading now*/);
             dr_free_module_data(client_data);
-        }
+        } else
+            os_get_module_info_unlock();
     }
 }
 
