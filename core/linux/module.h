@@ -82,6 +82,7 @@
 # define ELF_R_GLOB_DAT  R_X86_64_GLOB_DAT    /* GOT entry */
 # define ELF_R_JUMP_SLOT R_X86_64_JUMP_SLOT   /* PLT entry */
 # define ELF_R_RELATIVE  R_X86_64_RELATIVE    /* Adjust by program delta */
+# define ELF_R_IRELATIVE R_X86_64_IRELATIVE   /* Adjust indirectly by program base */
 /* TLS hanlding */
 # define ELF_R_TLS_DTPMOD   R_X86_64_DTPMOD64 /* Module ID */
 # define ELF_R_TLS_TPOFF    R_X86_64_TPOFF64  /* Offset in module's TLS block */
@@ -98,6 +99,7 @@
 # define ELF_R_GLOB_DAT  R_386_GLOB_DAT  /* GOT entry */
 # define ELF_R_JUMP_SLOT R_386_JMP_SLOT  /* PLT entry */
 # define ELF_R_RELATIVE  R_386_RELATIVE  /* Adjust by program delta */
+# define ELF_R_IRELATIVE R_386_IRELATIVE /* Adjust indirectly by program base */
 /* tls related */
 # define ELF_R_TLS_DTPMOD  R_386_TLS_DTPMOD32 /* Module ID */
 # define ELF_R_TLS_TPOFF   R_386_TLS_TPOFF  /* Negated offsets in static TLS block */
