@@ -1347,7 +1347,7 @@ set_tls(ushort tls_offs, void *value)
  * Should we export this to clients?  For now they can get
  * this information via opnd_compute_address().
  */
-static byte *
+byte *
 get_segment_base(uint seg)
 {
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)

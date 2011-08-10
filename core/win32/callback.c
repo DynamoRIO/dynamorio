@@ -7779,7 +7779,7 @@ insert_jmp_at_tramp_entry(byte *trampoline, byte *target)
 /* Returns POINTER_MAX on failure.
  * Assumes that cs, ss, ds, and es are flat.
  */
-static byte *
+byte *
 get_segment_base(uint seg)
 {
     if (seg == SEG_TLS)

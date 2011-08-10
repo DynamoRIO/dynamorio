@@ -3244,6 +3244,12 @@ dr_set_tls_field(void *drcontext, void *value)
     dcontext->client_data->user_field = value;
 }
 
+DR_API void *
+dr_get_dr_segment_base(IN reg_id_t seg)
+{
+    return get_segment_base(seg);
+}
+
 DR_API
 bool
 dr_raw_tls_calloc(OUT reg_id_t *segment_register,
