@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -82,6 +83,9 @@
 # define ELF_R_GLOB_DAT  R_X86_64_GLOB_DAT    /* GOT entry */
 # define ELF_R_JUMP_SLOT R_X86_64_JUMP_SLOT   /* PLT entry */
 # define ELF_R_RELATIVE  R_X86_64_RELATIVE    /* Adjust by program delta */
+# ifndef R_X86_64_IRELATIVE
+#  define R_X86_64_IRELATIVE 37
+# endif
 # define ELF_R_IRELATIVE R_X86_64_IRELATIVE   /* Adjust indirectly by program base */
 /* TLS hanlding */
 # define ELF_R_TLS_DTPMOD   R_X86_64_DTPMOD64 /* Module ID */
@@ -99,6 +103,9 @@
 # define ELF_R_GLOB_DAT  R_386_GLOB_DAT  /* GOT entry */
 # define ELF_R_JUMP_SLOT R_386_JMP_SLOT  /* PLT entry */
 # define ELF_R_RELATIVE  R_386_RELATIVE  /* Adjust by program delta */
+# ifndef R_386_IRELATIVE
+#  define R_386_IRELATIVE 42
+# endif
 # define ELF_R_IRELATIVE R_386_IRELATIVE /* Adjust indirectly by program base */
 /* tls related */
 # define ELF_R_TLS_DTPMOD  R_386_TLS_DTPMOD32 /* Module ID */
