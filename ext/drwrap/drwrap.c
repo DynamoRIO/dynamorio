@@ -454,7 +454,10 @@ drwrap_replace(app_pc original, app_pc replacement, bool override)
         } else
             res = hashtable_add(&replace_table, (void *)original, (void *)replacement);
     }
-    /* XXX: we're assuming void* tag == pc */
+    /* XXX: we're assuming void* tag == pc
+     * XXX: dr_fragment_exists_at only looks at the tag, so with traces
+     * we could miss a post-call (if different instr stream, not a post-call)
+     */
     if (flush || dr_fragment_exists_at(dr_get_current_drcontext(), original)) {
         /* we do not guarantee faster than a lazy flush */
         if (!dr_unlink_flush_region(original, 1))
@@ -859,37 +862,15 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     return DR_EMIT_DEFAULT;
 }
 
-/* removes all entries with key in [start..end)
- * hashtable must use caller-synch
- * XXX: add to drcontainers
- */
-static void
-hashtable_remove_range(hashtable_t *table, byte *start, byte *end)
-{
-    uint i;
-    hashtable_lock(table);
-    for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
-        hash_entry_t *he, *nxt;
-        for (he = table->table[i]; he != NULL; he = nxt) {
-            /* support hashtable_remove() while iterating */
-            nxt = he->next;
-            if ((byte *)he->key >= start && (byte *)he->key < end) {
-                hashtable_remove(table, he->key);
-            }
-        }
-    }
-    hashtable_unlock(table);
-}
-
 static void
 drwrap_event_module_unload(void *drcontext, const module_data_t *info)
 {
-    /* XXX i#114: should also remove from post_call_table and call_site_table
+    /* XXX: should also remove from post_call_table and call_site_table
      * on other code modifications: for now we assume no such
-     * changes to app code.
+     * changes to app code that's being targeted for wrapping.
      */
-    hashtable_remove_range(&call_site_table, info->start, info->end);
-    hashtable_remove_range(&post_call_table, info->start, info->end);
+    hashtable_remove_range(&call_site_table, (void *)info->start, (void *)info->end);
+    hashtable_remove_range(&post_call_table, (void *)info->start, (void *)info->end);
 }
 
 DR_EXPORT

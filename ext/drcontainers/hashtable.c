@@ -411,6 +411,37 @@ hashtable_remove(hashtable_t *table, void *key)
     return res;
 }
 
+bool
+hashtable_remove_range(hashtable_t *table, void *start, void *end)
+{
+    bool res = false;
+    uint i;
+    hash_entry_t *e, *prev_e, *next_e;
+    if (table->synch)
+        hashtable_lock(table);
+    for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
+        for (e = table->table[i], prev_e = NULL; e != NULL; prev_e = e, e = next_e) {
+            next_e = e->next;
+            if (e->key >= start && e->key < end) {
+                if (prev_e == NULL)
+                    table->table[i] = e->next;
+                else
+                    prev_e->next = e->next;
+                if (table->str_dup)
+                    hash_free(e->key, strlen((const char *)e->key) + 1);
+                if (table->free_payload_func != NULL)
+                    (table->free_payload_func)(e->payload);
+                hash_free(e, sizeof(*e));
+                table->entries--;
+                res = true;
+            }
+        }
+    }
+    if (table->synch)
+        hashtable_unlock(table);
+    return res;
+}
+
 void
 hashtable_delete(hashtable_t *table)
 {

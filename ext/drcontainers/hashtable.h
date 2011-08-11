@@ -188,6 +188,14 @@ bool
 hashtable_remove(hashtable_t *table, void *key);
 
 /**
+ * Removes all entries with key in [start..end).  If free_payload_func
+ * was specified calls it for each payload being removed.  Returns
+ * false if no such entry exists.
+ */
+bool
+hashtable_remove_range(hashtable_t *table, void *start, void *end);
+
+/**
  * Destroys all storage for the table.  If free_payload_func was specified
  * calls it for each payload. 
  */
