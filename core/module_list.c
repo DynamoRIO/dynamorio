@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 20011 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -307,7 +308,16 @@ module_list_remove(app_pc base, size_t view_size)
         client_data = copy_module_area_to_module_data(ma);
         inform_client = true;
     }
+    os_get_module_info_write_unlock();
+    if (inform_client) {
+        instrument_module_unload(client_data);
+        dr_free_module_data(client_data);
+    }
+    os_get_module_info_write_lock();
+    ma = (module_area_t *) vmvector_lookup(loaded_module_areas, base);
+    ASSERT_CURIOSITY(ma != NULL); /* loader can't have a race */
 #endif
+
     /* defensively checking */
     if (ma != NULL) {
         /* os_module_area_reset() calls module_list_remove_mapping() to
@@ -317,12 +327,6 @@ module_list_remove(app_pc base, size_t view_size)
     }
     ASSERT(!vmvector_overlap(loaded_module_areas, base, base+view_size));
     os_get_module_info_write_unlock();
-#ifdef CLIENT_INTERFACE
-    if (inform_client) {
-        instrument_module_unload(client_data);
-        dr_free_module_data(client_data);
-    }
-#endif
 }
 
 
