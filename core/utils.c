@@ -2021,16 +2021,14 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
     ASSERT_ROOM(reportbuf, curbuf, REPORT_MSG_MAX);
     va_start(ap, fmt);
     len = vsnprintf(curbuf, REPORT_MSG_MAX, fmt, ap);
-    curbuf += (len < 0 ? 0 : len); /* any error, even if at max, and we squash */
-    //NOCHECKIN: seems a bad idea: end up w/ blank msgs
-    //NOCHECKIN: switch to print_to_buffer
+    curbuf += (len == -1 ? REPORT_MSG_MAX : (len < 0 ? 0 : len));
     va_end(ap);
 
     /* don't use dynamorio_version_string, we don't need copyright notice */
     ASSERT_ROOM(reportbuf, curbuf, REPORT_LEN_VERSION);
     len = snprintf(curbuf, REPORT_LEN_VERSION, "\n%s, %s\n",
                        VERSION_NUMBER_STRING, BUILD_NUMBER_STRING);
-    curbuf += (len < 0 ? 0 : len); /* any error, even if at max, and we squash */
+    curbuf += (len == -1 ? REPORT_LEN_VERSION : (len < 0 ? 0 : len));
                 
     ASSERT_ROOM(reportbuf, curbuf, REPORT_LEN_OPTIONS);
     /* leave room for newline */
@@ -2050,7 +2048,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
          num++, pc = (ptr_uint_t *) *pc) {
         len = snprintf(curbuf, REPORT_LEN_STACK_EACH, PFX" "PFX"\n",
                        pc, *(pc+1));
-        curbuf += (len < 0 ? 0 : len); /* any error, even if at max, and we squash */
+        curbuf += (len == -1 ? REPORT_LEN_STACK_EACH : (len < 0 ? 0 : len));
     }
 
     /* SYSLOG_INTERNAL and diagnostics expect no trailing newline */
