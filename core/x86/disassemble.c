@@ -93,6 +93,21 @@
  * Printing of instructions
  */
 
+/* for printing to buffers */
+#define MAX_OPND_DIS_SZ   32
+/* Long example:
+ * "<RAW>  <raw 0x00007f85922c0877-0x00007f85922c0882 == 48 63 f8 48 89 d6 b8 05 00 ...>"
+ */
+#define MAX_INSTR_DIS_SZ  96
+/* Here's a pretty long one, 
+ * "  0x00007f859277d63a  48 83 05 4e 63 21 00 add    $0x0000000000000001 <rel> 0x00007f8592993990 -> <rel> 0x00007f8592993990 \n                     01 "
+ */
+#define MAX_PC_DIS_SZ    192
+ 
+static void
+internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                           dcontext_t *dcontext, instr_t *instr);
+
 static inline const char *
 immed_prefix(void)
 {
@@ -106,35 +121,39 @@ postop_suffix(void)
 }
 
 static void
-reg_disassemble(file_t outfile, reg_id_t reg, const char *prefix, const char *suffix)
+reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                reg_id_t reg, const char *prefix, const char *suffix)
 {
-    print_file(outfile, DYNAMO_OPTION(syntax_intel) ? "%s%s%s" : "%s%%%s%s",
-               prefix, reg_names[reg], suffix);
+    print_to_buffer(buf, bufsz, sofar,
+                    DYNAMO_OPTION(syntax_intel) ? "%s%s%s" : "%s%%%s%s",
+                    prefix, reg_names[reg], suffix);
 }
 
 static void
-opnd_mem_disassemble_prefix(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
+opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT,
+                            dcontext_t *dcontext, opnd_t opnd)
 {
     if (DYNAMO_OPTION(syntax_intel)) {
         int sz =  opnd_size_in_bytes(opnd_get_size(opnd));
         if (sz == 1)
-            print_file(outfile, "byte ptr [");
+            print_to_buffer(buf, bufsz, sofar, "byte ptr [");
         else if (sz == 2)
-            print_file(outfile, "word ptr [");
+            print_to_buffer(buf, bufsz, sofar, "word ptr [");
         else if (sz == 4)
-            print_file(outfile, "dword ptr [");
+            print_to_buffer(buf, bufsz, sofar, "dword ptr [");
         else if (sz == 8)
-            print_file(outfile, "qword ptr [");
+            print_to_buffer(buf, bufsz, sofar, "qword ptr [");
         else if (sz == 10)
-            print_file(outfile, "tbyte ptr [");
+            print_to_buffer(buf, bufsz, sofar, "tbyte ptr [");
         else /* assume size implied by opcode */
-            print_file(outfile, "[");
+            print_to_buffer(buf, bufsz, sofar, "[");
     }
 
 }
 
 static void
-opnd_base_disp_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
+opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                           dcontext_t *dcontext, opnd_t opnd)
 {
     reg_id_t seg = opnd_get_segment(opnd);
     reg_id_t base = opnd_get_base(opnd);
@@ -142,18 +161,18 @@ opnd_base_disp_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
     reg_id_t index = opnd_get_index(opnd);
     int scale = opnd_get_scale(opnd);
 
-    opnd_mem_disassemble_prefix(dcontext, opnd, outfile);
+    opnd_mem_disassemble_prefix(buf, bufsz, sofar, dcontext, opnd);
 
     if (seg != REG_NULL)
-        reg_disassemble(outfile, seg, "", ":");
+        reg_disassemble(buf, bufsz, sofar, seg, "", ":");
 
     if (DYNAMO_OPTION(syntax_intel)) {
         if (base != REG_NULL)
-            reg_disassemble(outfile, base, "", "");
+            reg_disassemble(buf, bufsz, sofar, base, "", "");
         if (index != REG_NULL) {
-            reg_disassemble(outfile, index, base == REG_NULL ? "" : "+", "");
+            reg_disassemble(buf, bufsz, sofar, index, base == REG_NULL ? "" : "+", "");
             if (scale > 1)
-                print_file(outfile, "*%d", scale);
+                print_to_buffer(buf, bufsz, sofar, "*%d", scale);
         }
     }
 
@@ -165,40 +184,41 @@ opnd_base_disp_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
              */
             if (IF_X64_ELSE(disp < 0, (disp & 0xff000000) == 0xff000000)) {
                 disp = -disp;
-                print_file(outfile, "-");
+                print_to_buffer(buf, bufsz, sofar, "-");
             } else if (base != REG_NULL || index != REG_NULL)
-                print_file(outfile, "+");
+                print_to_buffer(buf, bufsz, sofar, "+");
         }
         if (disp >= INT8_MIN && disp <= INT8_MAX &&
             !opnd_is_disp_force_full(opnd))
-            print_file(outfile, "0x%02x", disp);
+            print_to_buffer(buf, bufsz, sofar, "0x%02x", disp);
         else if (opnd_is_disp_short_addr(opnd))                    
-            print_file(outfile, "0x%04x", disp);
+            print_to_buffer(buf, bufsz, sofar, "0x%04x", disp);
         else /* there are no 64-bit displacements */
-            print_file(outfile, "0x%08x", disp);
+            print_to_buffer(buf, bufsz, sofar, "0x%08x", disp);
     }
 
     if (!DYNAMO_OPTION(syntax_intel)) {
         if (base != REG_NULL || index != REG_NULL) {
-            print_file(outfile, "(");
+            print_to_buffer(buf, bufsz, sofar, "(");
             if (base != REG_NULL)
-                reg_disassemble(outfile, base, "", "");
+                reg_disassemble(buf, bufsz, sofar, base, "", "");
             if (index != REG_NULL) {
-                reg_disassemble(outfile, index, ",", "");
+                reg_disassemble(buf, bufsz, sofar, index, ",", "");
                 if (scale != 0)
-                    print_file(outfile, ",%d", scale);
+                    print_to_buffer(buf, bufsz, sofar, ",%d", scale);
             }
-            print_file(outfile, ")");
+            print_to_buffer(buf, bufsz, sofar, ")");
         }
     }
     
     if (DYNAMO_OPTION(syntax_intel))
-        print_file(outfile, "]");
-    print_file(outfile, "%s", postop_suffix());
+        print_to_buffer(buf, bufsz, sofar, "]");
+    print_to_buffer(buf, bufsz, sofar, "%s", postop_suffix());
 }
 
-void
-opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
+static void
+internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                          dcontext_t *dcontext, opnd_t opnd)
 {
     switch (opnd.kind) {
     case NULL_kind:
@@ -211,18 +231,18 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
              * size to sign-extend to match the size of adjacent operands.
              */
             if (sz == OPSZ_1 || sz == OPSZ_0) {
-                print_file(outfile, "%s0x%02x%s", immed_prefix(),
-                           (uint)((byte)opnd_get_immed_int(opnd)), postop_suffix());
+                print_to_buffer(buf, bufsz, sofar, "%s0x%02x%s", immed_prefix(),
+                                (uint)((byte)opnd_get_immed_int(opnd)), postop_suffix());
             } else if (sz == OPSZ_2) {
-                print_file(outfile, "%s0x%04x%s", immed_prefix(),
-                           (uint)((unsigned short)opnd_get_immed_int(opnd)),
-                           postop_suffix());
+                print_to_buffer(buf, bufsz, sofar, "%s0x%04x%s", immed_prefix(),
+                                (uint)((unsigned short)opnd_get_immed_int(opnd)),
+                                postop_suffix());
             } else if (sz == OPSZ_4) {
-                print_file(outfile, "%s0x%08x%s", immed_prefix(),
-                           (uint)opnd_get_immed_int(opnd), postop_suffix());
+                print_to_buffer(buf, bufsz, sofar, "%s0x%08x%s", immed_prefix(),
+                                (uint)opnd_get_immed_int(opnd), postop_suffix());
             } else {
-                print_file(outfile, "%s0x"ZHEX64_FORMAT_STRING"%s", immed_prefix(),
-                           opnd_get_immed_int(opnd), postop_suffix());
+                print_to_buffer(buf, bufsz, sofar, "%s0x"ZHEX64_FORMAT_STRING"%s", immed_prefix(),
+                                opnd_get_immed_int(opnd), postop_suffix());
             }
         }
         break;
@@ -234,8 +254,8 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
                 char *sign;
                 double_print(opnd_get_immed_float(opnd), 6, 
                              &top, &bottom, &sign);
-                print_file(outfile, "%s%s%u.%.6u%s", immed_prefix(), sign, top, bottom,
-                           postop_suffix());
+                print_to_buffer(buf, bufsz, sofar, "%s%s%u.%.6u%s",
+                                immed_prefix(), sign, top, bottom, postop_suffix());
             });
             break;
         }
@@ -246,10 +266,12 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
 
             /* symbolic addresses */
             if (ENTER_DR_HOOK != NULL && target == (app_pc) ENTER_DR_HOOK) {
-                print_file(outfile, "$"PFX" <enter_dynamorio_hook> ", target);
+                print_to_buffer(buf, bufsz, sofar,
+                                "$"PFX" <enter_dynamorio_hook> ", target);
                 printed = true;
             } else if (EXIT_DR_HOOK != NULL && target == (app_pc) EXIT_DR_HOOK) {
-                print_file(outfile, "$"PFX" <exit_dynamorio_hook> ", target);
+                print_to_buffer(buf, bufsz, sofar,
+                                "$"PFX" <exit_dynamorio_hook> ", target);
                 printed = true;
             } else if (dcontext != NULL && dynamo_initialized
 # if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
@@ -291,7 +313,8 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
 # endif
                 if (ibl_name) {
                     /* can't use gencode_routine since need two strings here */
-                    print_file(outfile, "$"PFX" <%s_%s>", target, ibl_name, ibl_brtype);
+                    print_to_buffer(buf, bufsz, sofar, "$"PFX" <%s_%s>",
+                                    target, ibl_name, ibl_brtype);
                     printed = true;
                 } else if (SHARED_FRAGMENTS_ENABLED() && target ==
                            fcache_return_shared_routine(IF_X64(GENCODE_X64)))
@@ -338,7 +361,8 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
 #endif
 
                 if (gencode_routine != NULL) {
-                    print_file(outfile, "$"PFX" <%s> ", target, gencode_routine);
+                    print_to_buffer(buf, bufsz, sofar, "$"PFX" <%s> ",
+                                    target, gencode_routine);
                     printed = true;
                 } else if (!printed && fragment_initialized(dcontext)) {
                     /* see if target is in a fragment */
@@ -381,11 +405,11 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
                             FCACHE_PREFIX_ENTRY_PC(fragment) == (cache_pc)target ||
                             FCACHE_IBT_ENTRY_PC(fragment) == (cache_pc)target) {
 #ifdef DEBUG
-                            print_file(outfile, "$"PFX" <fragment %d> ",
-                                       target, fragment->id);
+                            print_to_buffer(buf, bufsz, sofar, "$"PFX" <fragment %d> ",
+                                            target, fragment->id);
 #else
-                            print_file(outfile, "$"PFX" <fragment "PFX"> ",
-                                       target, fragment->tag);
+                            print_to_buffer(buf, bufsz, sofar, "$"PFX" <fragment "PFX"> ",
+                                            target, fragment->tag);
 #endif
                             printed = true;
                         } else if (!TEST(FRAG_FAKE, fragment->flags)) {
@@ -396,8 +420,9 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
                                           "opnd_disassemble: invalid target");
                             for (ls=FRAGMENT_EXIT_STUBS(fragment); ls; ls=LINKSTUB_NEXT_EXIT(ls)) {
                                 if (target == EXIT_STUB_PC(dcontext, fragment, ls)) {
-                                    print_file(outfile, "$"PFX" <exit stub %d> ",
-                                               target, ls_num);
+                                    print_to_buffer(buf, bufsz, sofar,
+                                                    "$"PFX" <exit stub %d> ",
+                                                    target, ls_num);
                                     printed = true;
                                     break;
                                 }
@@ -407,8 +432,9 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
                         if (alloc)
                             fragment_free(dcontext, fragment);
                     } else if (coarse_is_entrance_stub(target)) {
-                        print_file(outfile, "$"PFX" <entrance stub for "PFX"> ",
-                                   target, entrance_stub_target_tag(target));
+                        print_to_buffer(buf, bufsz, sofar,
+                                        "$"PFX" <entrance stub for "PFX"> ",
+                                        target, entrance_stub_target_tag(target));
                         printed = true;
                     }                        
                 }
@@ -417,61 +443,83 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
                        && !standalone_library
 # endif
                        ) {
-                    print_file(outfile, "NULL DCONTEXT! ");
+                print_to_buffer(buf, bufsz, sofar, "NULL DCONTEXT! ");
             }
             if (!printed) {
-                print_file(outfile, "%s"PFX"%s", immed_prefix(), target,
-                           postop_suffix());
+                print_to_buffer(buf, bufsz, sofar, "%s"PFX"%s", immed_prefix(), target,
+                                postop_suffix());
             }
             break;
         }
     case FAR_PC_kind:
         /* constant is selector and not a SEG_constant */
-        print_file(outfile, "0x%04x:"PFX"%s",
-                   (ushort)opnd_get_segment_selector(opnd), opnd_get_pc(opnd),
-                   postop_suffix());
+        print_to_buffer(buf, bufsz, sofar, "0x%04x:"PFX"%s",
+                        (ushort)opnd_get_segment_selector(opnd), opnd_get_pc(opnd),
+                        postop_suffix());
         break;
     case INSTR_kind:
-        print_file(outfile, "instr_ptr%s", postop_suffix());
+        print_to_buffer(buf, bufsz, sofar, "instr_ptr%s", postop_suffix());
         break;
     case FAR_INSTR_kind:
         /* constant is selector and not a SEG_constant */
-        print_file(outfile, "0x%04x:"PFX"%s",
-                   (ushort)opnd_get_segment_selector(opnd), opnd_get_pc(opnd),
-                   postop_suffix());
-        print_file(outfile, "instr_ptr ");
+        print_to_buffer(buf, bufsz, sofar, "0x%04x:"PFX"%s",
+                        (ushort)opnd_get_segment_selector(opnd), opnd_get_pc(opnd),
+                        postop_suffix());
+        print_to_buffer(buf, bufsz, sofar, "instr_ptr ");
         break;
     case REG_kind:
-        reg_disassemble(outfile, opnd_get_reg(opnd), "", postop_suffix());
+        reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), "", postop_suffix());
         break;
     case BASE_DISP_kind:
-        opnd_base_disp_disassemble(dcontext, opnd, outfile);
+        opnd_base_disp_disassemble(buf, bufsz, sofar, dcontext, opnd);
         break;
 #ifdef X64
     case REL_ADDR_kind:
-        print_file(outfile, "<rel> ");
+        print_to_buffer(buf, bufsz, sofar, "<rel> ");
         /* fall-through */
     case ABS_ADDR_kind:
-        opnd_mem_disassemble_prefix(dcontext, opnd, outfile);
+        opnd_mem_disassemble_prefix(buf, bufsz, sofar, dcontext, opnd);
         if (opnd_get_segment(opnd) != REG_NULL)
-            reg_disassemble(outfile, opnd_get_segment(opnd), "", ":");
-        print_file(outfile, PFX"%s%s", opnd_get_addr(opnd),
-                   DYNAMO_OPTION(syntax_intel) ? "]" : "",
-                   postop_suffix());
+            reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), "", ":");
+        print_to_buffer(buf, bufsz, sofar, PFX"%s%s", opnd_get_addr(opnd),
+                        DYNAMO_OPTION(syntax_intel) ? "]" : "",
+                        postop_suffix());
         break;
 #endif
     default:
-        print_file(outfile, "UNKNOWN OPERAND TYPE %d\n", opnd.kind);
+        print_to_buffer(buf, bufsz, sofar, "UNKNOWN OPERAND TYPE %d\n", opnd.kind);
         CLIENT_ASSERT(false, "opnd_disassemble: invalid opnd type");
     }
 }
 
-/* Disassembles the instruction at pc and prints the result to outfile
+void
+opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
+{
+    char buf[MAX_OPND_DIS_SZ];
+    size_t sofar = 0;
+    internal_opnd_disassemble(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar, dcontext, opnd);
+    /* not propagating bool return vals of print_to_buffer but should be plenty big */
+    CLIENT_ASSERT(sofar < BUFFER_SIZE_ELEMENTS(buf) - 1, "internal buffer too small");
+    os_write(outfile, buf, sofar);
+}
+
+size_t
+opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd,
+                           char *buf, size_t bufsz)
+                           
+{
+    size_t sofar = 0;
+    internal_opnd_disassemble(buf, bufsz, &sofar, dcontext, opnd);
+    return sofar;
+}
+
+/* Disassembles the instruction at pc and prints the result to buf.
  * Returns a pointer to the pc of the next instruction.
  * Returns NULL if the instruction at pc is invalid.
  */
 static byte *
-internal_disassemble(dcontext_t *dcontext, byte *pc, byte *orig_pc, file_t outfile,
+internal_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                     dcontext_t *dcontext, byte *pc, byte *orig_pc,
                      bool with_pc, bool with_bytes, const char *extra_bytes_prefix)
 {
     int i, sz = 0, extra_sz = 0;
@@ -496,7 +544,7 @@ internal_disassemble(dcontext_t *dcontext, byte *pc, byte *orig_pc, file_t outfi
     }
     
     if (with_pc)
-        print_file(outfile, "  "PFX" ", orig_pc);
+        print_to_buffer(buf, bufsz, sofar, "  "PFX" ", orig_pc);
 
     if (with_bytes) {
         sz = (int) (next_pc - pc);
@@ -506,36 +554,57 @@ internal_disassemble(dcontext_t *dcontext, byte *pc, byte *orig_pc, file_t outfi
         } else
             extra_sz = 0;
         for (i = 0; i < sz; i++)
-            print_file(outfile, " %02x", *(pc + i));
+            print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + i));
         if (!instr_valid(&instr)) {
-            print_file(outfile, "...?? ");
+            print_to_buffer(buf, bufsz, sofar, "...?? ");
             sz += 2;
         }
         for (i = sz; i < 7; i++)
-            print_file(outfile, "   ");
-        print_file(outfile, " ");
+            print_to_buffer(buf, bufsz, sofar, "   ");
+        print_to_buffer(buf, bufsz, sofar, " ");
     }
 
-    instr_disassemble(dcontext, &instr, outfile);
+    internal_instr_disassemble(buf, bufsz, sofar, dcontext, &instr);
 
-    print_file(outfile, "\n");
+    /* XXX: should we give caller control over whether \n or \r\n? */
+    print_to_buffer(buf, bufsz, sofar, "\n");
 
     if (with_bytes) {
         if (extra_sz > 0) {
             if (with_pc) {
-                print_file(outfile, IF_X64_ELSE("%21s","%13s")"%s"," ",
-                           extra_bytes_prefix);
+                print_to_buffer(buf, bufsz, sofar, IF_X64_ELSE("%21s","%13s")"%s"," ",
+                                extra_bytes_prefix);
             } else
-                print_file(outfile, "    %s", extra_bytes_prefix);
+                print_to_buffer(buf, bufsz, sofar, "    %s", extra_bytes_prefix);
             for (i = 0; i < extra_sz; i++)
-                print_file(outfile, " %02x", *(pc + 7 + i));
-            print_file(outfile, "\n");
+                print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + 7 + i));
+            print_to_buffer(buf, bufsz, sofar, "\n");
         }
     }
 
     instr_free(dcontext, &instr);
 
     return (valid ? next_pc : NULL);
+}
+
+/* Disassembles the instruction at pc and prints the result to outfile.
+ * Returns a pointer to the pc of the next instruction.
+ * Returns NULL if the instruction at pc is invalid.
+ */
+static byte *
+internal_disassemble_to_file(dcontext_t *dcontext, byte *pc, byte *orig_pc,
+                             file_t outfile, bool with_pc, bool with_bytes,
+                             const char *extra_bytes_prefix)
+{
+    char buf[MAX_PC_DIS_SZ];
+    size_t sofar = 0;
+    byte *next = internal_disassemble(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar,
+                                      dcontext, pc, orig_pc, with_pc, with_bytes,
+                                      extra_bytes_prefix);
+    /* not propagating bool return vals of print_to_buffer but should be plenty big */
+    CLIENT_ASSERT(sofar < BUFFER_SIZE_ELEMENTS(buf) - 1, "internal buffer too small");
+    os_write(outfile, buf, sofar);
+    return next;
 }
 
 /****************************************************************************
@@ -549,7 +618,7 @@ internal_disassemble(dcontext_t *dcontext, byte *pc, byte *orig_pc, file_t outfi
 byte *
 disassemble(dcontext_t *dcontext, byte *pc, file_t outfile)
 {
-    return internal_disassemble(dcontext, pc, pc, outfile, true, false, "");
+    return internal_disassemble_to_file(dcontext, pc, pc, outfile, true, false, "");
 }
 
 /* Disassembles a single instruction and prints its pc and
@@ -563,7 +632,8 @@ disassemble(dcontext_t *dcontext, byte *pc, file_t outfile)
 byte *
 disassemble_with_bytes(dcontext_t *dcontext, byte *pc, file_t outfile)
 {
-    byte *next_pc = internal_disassemble(dcontext, pc, pc, outfile, true, true, "");
+    byte *next_pc = internal_disassemble_to_file(dcontext, pc, pc, outfile,
+                                                 true, true, "");
     if (next_pc == NULL) {
         next_pc = decode_next_pc(dcontext, pc);
         if (next_pc == NULL)
@@ -583,7 +653,8 @@ byte *
 disassemble_with_info(dcontext_t *dcontext, byte *pc, file_t outfile,
                       bool show_pc, bool show_bytes)
 {
-    return internal_disassemble(dcontext, pc, pc, outfile, show_pc, show_bytes, "");
+    return internal_disassemble_to_file(dcontext, pc, pc, outfile,
+                                        show_pc, show_bytes, "");
 }
 
 /*
@@ -599,8 +670,21 @@ byte *
 disassemble_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc,
                       file_t outfile, bool show_pc, bool show_bytes)
 {
-    return internal_disassemble(dcontext, copy_pc, orig_pc, outfile,
-                                show_pc, show_bytes, "");
+    return internal_disassemble_to_file(dcontext, copy_pc, orig_pc, outfile,
+                                        show_pc, show_bytes, "");
+}
+
+byte *
+disassemble_to_buffer(dcontext_t *dcontext, byte *pc, byte *orig_pc,
+                      bool show_pc, bool show_bytes, char *buf, size_t bufsz,
+                      int *printed OUT)
+{
+    size_t sofar = 0;
+    byte *next = internal_disassemble(buf, bufsz, &sofar, dcontext,
+                                      pc, orig_pc, show_pc, show_bytes, "");
+    if (printed != NULL)
+        *printed = (int) sofar;
+    return next;
 }
 
 static bool
@@ -621,7 +705,8 @@ instr_implicit_reg(instr_t *instr)
 }
 
 static bool
-opnd_disassemble_intel(dcontext_t *dcontext, file_t outfile, instr_t *instr,
+opnd_disassemble_intel(char *buf, size_t bufsz, size_t *sofar INOUT,
+                       dcontext_t *dcontext, instr_t *instr,
                        byte optype, opnd_t opnd, bool prev, bool multiple_encodings)
 {
     switch (optype) {
@@ -661,8 +746,8 @@ opnd_disassemble_intel(dcontext_t *dcontext, file_t outfile, instr_t *instr,
     case TYPE_FLOATMEM:
     case TYPE_1:
         if (prev)
-            print_file(outfile, ", ");
-        opnd_disassemble(dcontext, opnd, outfile);
+            print_to_buffer(buf, bufsz, sofar, ", ");
+        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd);
         return true;
     case TYPE_X:
     case TYPE_XLAT:
@@ -670,8 +755,9 @@ opnd_disassemble_intel(dcontext_t *dcontext, file_t outfile, instr_t *instr,
         if (opnd_get_segment(opnd) != SEG_DS) {
             /* FIXME: really we should put before opcode */
             if (prev)
-                print_file(outfile, ", ");
-            reg_disassemble(outfile, opnd_get_segment(opnd), "", postop_suffix());
+                print_to_buffer(buf, bufsz, sofar, ", ");
+            reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), "",
+                            postop_suffix());
             return true;
         }
     default:
@@ -682,7 +768,8 @@ opnd_disassemble_intel(dcontext_t *dcontext, file_t outfile, instr_t *instr,
 }
 
 static void
-instr_disassemble_opnds_intel(dcontext_t *dcontext, instr_t *instr, file_t outfile)
+instr_disassemble_opnds_intel(char *buf, size_t bufsz, size_t *sofar INOUT,
+                              dcontext_t *dcontext, instr_t *instr)
 {
     /* We need to find the non-implicit operands */
     const instr_info_t *info;
@@ -698,14 +785,15 @@ instr_disassemble_opnds_intel(dcontext_t *dcontext, instr_t *instr, file_t outfi
 
     info = get_encoding_info(instr);
     if (info == NULL) {
-        print_file(outfile, "<INVALID>");
+        print_to_buffer(buf, bufsz, sofar, "<INVALID>");
         return;
     }
     for (i=0; i<instr_num_dsts(instr); i++) {
         bool printing;
         opnd = instr_get_dst(instr, i);
         optype = instr_info_opnd_type(info, false/*dst*/, i);
-        printing = opnd_disassemble_intel(dcontext, outfile, instr, optype, opnd, prev,
+        printing = opnd_disassemble_intel(buf, bufsz, sofar, dcontext,
+                                          instr, optype, opnd, prev,
                                           multiple_encodings);
         if (printing) {
             /* w/o the "printing" check we suppress "push esp" => "push" */
@@ -731,7 +819,8 @@ instr_disassemble_opnds_intel(dcontext_t *dcontext, instr_t *instr, file_t outfi
         if ((optype != dst0type && optype != dst1type) ||
             /* Don't suppress 2nd of st* if FP ALU */
             (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd)))) {
-            prev = opnd_disassemble_intel(dcontext, outfile, instr, optype, opnd, prev,
+            prev = opnd_disassemble_intel(buf, bufsz, sofar, dcontext,
+                                          instr, optype, opnd, prev,
                                           multiple_encodings)
                 || prev;
         }
@@ -813,18 +902,19 @@ instr_opcode_name_suffix(instr_t *instr)
  * and does not check that the instruction has a valid encoding.
  * Prints each operand with leading zeros indicating the size.
  */
-void
-instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
+static void
+internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                           dcontext_t *dcontext, instr_t *instr)
 {
     int i, sz;
     const instr_info_t * info;
     const char * name;
     int name_width = 6;
     if (!instr_valid(instr)) {
-        print_file(outfile, "<INVALID>");
+        print_to_buffer(buf, bufsz, sofar, "<INVALID>");
         return;
     } else if (instr_is_label(instr)) {
-        print_file(outfile, "<label>");
+        print_to_buffer(buf, bufsz, sofar, "<label>");
         return;
     } else if (instr_opcode_valid(instr)) {
         info = instr_get_instr_info(instr);
@@ -833,7 +923,7 @@ instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
         name = "<RAW>";
 
     if ((instr->prefixes & PREFIX_LOCK) != 0)
-        print_file(outfile, "lock ");
+        print_to_buffer(buf, bufsz, sofar, "lock ");
     /* Note that we do not try to figure out data16 or addr16 prefixes
      * if they are not already set from a recent decode;
      * we don't want to enforce a valid encoding at this point.
@@ -845,25 +935,27 @@ instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
      */
     if (!DYNAMO_OPTION(syntax_intel)) {
         if (TEST(PREFIX_DATA, instr->prefixes))
-            print_file(outfile, "data16 ");
-        if (TEST(PREFIX_ADDR, instr->prefixes))
-            print_file(outfile, X64_MODE_DC(dcontext) ? "addr32 " : "addr16 ");
+            print_to_buffer(buf, bufsz, sofar, "data16 ");
+        if (TEST(PREFIX_ADDR, instr->prefixes)) {
+            print_to_buffer(buf, bufsz, sofar,
+                            X64_MODE_DC(dcontext) ? "addr32 " : "addr16 ");
+        }
 #if 0 /* disabling for PR 256226 */
         if (TEST(PREFIX_REX_W, instr->prefixes))
-            print_file(outfile, "rex.w ");
+            print_to_buffer(buf, bufsz, sofar, "rex.w ");
 #endif
     }
 
-    print_file(outfile, "%s%s", name, instr_opcode_name_suffix(instr));
+    print_to_buffer(buf, bufsz, sofar, "%s%s", name, instr_opcode_name_suffix(instr));
 
     if (TEST(PREFIX_JCC_TAKEN, instr->prefixes)) {
-        print_file(outfile, ",pt ");
+        print_to_buffer(buf, bufsz, sofar, ",pt ");
         name_width -= 3;
     } else if (TEST(PREFIX_JCC_NOT_TAKEN, instr->prefixes)) {
-        print_file(outfile, ",pn ");
+        print_to_buffer(buf, bufsz, sofar, ",pn ");
         name_width -= 3;
     } else
-        print_file(outfile, " ");
+        print_to_buffer(buf, bufsz, sofar, " ");
 
     /* FIXME: AT&T suffix */
 
@@ -871,7 +963,7 @@ instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
                          "instr_disassemble: internal truncation error"));
     sz = (int) strlen(name) + (int) strlen(instr_opcode_name_suffix(instr));
     for (i=sz; i<name_width; i++)
-        print_file(outfile, " ");
+        print_to_buffer(buf, bufsz, sofar, " ");
 
     /* operands */
     if (!instr_operands_valid(instr)) {
@@ -879,17 +971,17 @@ instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
         byte *raw = instr_get_raw_bits(instr);
         uint len = instr_length(dcontext, instr);
         byte *b;
-        print_file(outfile, "<raw "PFX"-"PFX" ==", raw, raw + len);
+        print_to_buffer(buf, bufsz, sofar, "<raw "PFX"-"PFX" ==", raw, raw + len);
         for (b = raw; b < raw + len && b < raw + 9; b++)
-            print_file(outfile, " %02x", *b);
+            print_to_buffer(buf, bufsz, sofar, " %02x", *b);
         if (len > 9)
-            print_file(outfile, " ...");
-        print_file(outfile, ">");
+            print_to_buffer(buf, bufsz, sofar, " ...");
+        print_to_buffer(buf, bufsz, sofar, ">");
         return;
     }
 
     if (DYNAMO_OPTION(syntax_intel)) {
-        instr_disassemble_opnds_intel(dcontext, instr, outfile);
+        instr_disassemble_opnds_intel(buf, bufsz, sofar, dcontext, instr);
         return;
     }
 
@@ -939,13 +1031,54 @@ instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
                 opnd_set_size(&src, opsz);
         }
 
-        opnd_disassemble(dcontext, src, outfile);
+        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src);
     }
     if (instr_num_dsts(instr) > 0) {
-        print_file(outfile, "-> ");
-        for (i=0; i<instr_num_dsts(instr); i++)
-            opnd_disassemble(dcontext, instr_get_dst(instr, i), outfile);
+        print_to_buffer(buf, bufsz, sofar, "-> ");
+        for (i=0; i<instr_num_dsts(instr); i++) {
+            internal_opnd_disassemble(buf, bufsz, sofar,
+                                      dcontext, instr_get_dst(instr, i));
+        }
     }
+}
+
+/*
+ * Prints the instruction instr to file outfile. 
+ * Does not print addr16 or data16 prefixes for other than just-decoded instrs,
+ * and does not check that the instruction has a valid encoding.
+ * Prints each operand with leading zeros indicating the size.
+ */
+void
+instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
+{
+    char buf[MAX_INSTR_DIS_SZ];
+    size_t sofar = 0;
+    internal_instr_disassemble(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar, dcontext, instr);
+    /* not propagating bool return vals of print_to_buffer but should be plenty big */
+    CLIENT_ASSERT(sofar < BUFFER_SIZE_ELEMENTS(buf) - 1, "internal buffer too small");
+    os_write(outfile, buf, sofar);
+}
+
+/*
+ * Prints the instruction \p instr to the buffer \p buf.
+ * Always null-terminates, and will not print more than \p bufsz characters,
+ * which includes the final null character.
+ * Returns the number of characters printed, not including the final null.
+ *
+ * Does not print address-size or data-size prefixes for other than
+ * just-decoded instrs, and does not check that the instruction has a
+ * valid encoding.  Prints each operand with leading zeros indicating
+ * the size.
+ * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
+ * "-syntax_intel" runtime option is specified.
+ */
+size_t
+instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr,
+                            char *buf, size_t bufsz)
+{
+    size_t sofar = 0;
+    internal_instr_disassemble(buf, bufsz, &sofar, dcontext, instr);
+    return sofar;
 }
 
 static inline char*
@@ -1240,8 +1373,8 @@ instrlist_disassemble(dcontext_t *dcontext,
          */
         while (len) {
             print_file(outfile, " +%-4d L%d ", offs, level);
-            next_addr = internal_disassemble(dcontext, addr, addr, outfile, false, true,
-                                             "      ");
+            next_addr = internal_disassemble_to_file(dcontext, addr, addr, outfile,
+                                                     false, true, "      ");
             if (next_addr == NULL)
                 break;
             sz = (int) (next_addr - addr);

@@ -3168,12 +3168,11 @@ dr_snprintf(char *buf, size_t max, const char *fmt, ...)
     /* PR 219380: we use our_vsnprintf instead of ntdll._vsnprintf b/c the
      * latter does not support floating point (while ours does not support
      * wide chars: but we also forward _snprintf to ntdll for clients).
+     * Plus, our_vsnprintf returns -1 for > max chars (matching Windows
+     * behavior, but which Linux libc version does not do).
      */
     res = our_vsnprintf(buf, max, fmt, ap);
     va_end(ap);
-    /* Normalize Linux behavior to match Windows */
-    if ((size_t)res > max)
-        res = -1;
     return res;
 }
 

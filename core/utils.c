@@ -1627,7 +1627,7 @@ do_file_write(file_t f, const char *fmt, va_list ap)
      * size == -1), use double_print() or divide_uint64_print() as needed */
     DODEBUG({
         /* we have our own do-once to avoid infinite recursion w/ protect_data_section */
-        if (size < 0 || size >= sizeof(logbuf)) {
+        if (size < 0 || size >= BUFFER_SIZE_ELEMENTS(logbuf)) {
             if (!do_once_do_file_write) {
                 do_once_do_file_write = true;
                 ASSERT_CURIOSITY(size >= 0 && size < sizeof(logbuf));
@@ -1635,7 +1635,7 @@ do_file_write(file_t f, const char *fmt, va_list ap)
         }
     });
     /* handle failure values */
-    if (size >= sizeof(logbuf) || size < 0)
+    if (size >= BUFFER_SIZE_ELEMENTS(logbuf) || size < 0)
         size = strlen(logbuf);
     os_write(f, logbuf, size);
 }
@@ -1739,6 +1739,30 @@ print_file(file_t f, char *fmt, ...)
     va_start(ap, fmt);
     do_file_write(f, fmt, ap);
     va_end(ap);
+}
+
+/* For repeated appending to a buffer.  The "sofar" var should be set
+ * to 0 by the caller before the first call to print_to_buffer.
+ * Returns false if there was not room for the string plus a null,
+ * but still prints the maximum that will fit plus a null.
+ */
+bool
+print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...)
+{
+    /* in io.c */
+    extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
+    ssize_t len;
+    va_list ap;
+    bool ok;
+    va_start(ap, fmt);
+    /* we use our_vsnprintf for consistent return value and to handle floats */
+    len = our_vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
+    va_end(ap);
+    ok = (len > 0 && len < (ssize_t)(bufsz - *sofar));
+    *sofar += (len == -1 ? (bufsz - *sofar - 1) : (len < 0 ? 0 : len));
+    /* be paranoid: though usually many calls in a row and could delay until end */
+    buf[bufsz-1] = '\0';
+    return ok;
 }
 
 /* N.B.: this routine is duplicated in instrument.c's dr_log!
@@ -1998,6 +2022,8 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
     va_start(ap, fmt);
     len = vsnprintf(curbuf, REPORT_MSG_MAX, fmt, ap);
     curbuf += (len < 0 ? 0 : len); /* any error, even if at max, and we squash */
+    //NOCHECKIN: seems a bad idea: end up w/ blank msgs
+    //NOCHECKIN: switch to print_to_buffer
     va_end(ap);
 
     /* don't use dynamorio_version_string, we don't need copyright notice */

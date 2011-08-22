@@ -272,6 +272,10 @@ our_vsnprintf_float(double val, const char *c, char prefixbuf[3], char buf[BUF_S
     return str;
 }
 
+/* Returns number of chars printed.  If number is larger than max,
+ * prints max (without null) and returns -1.
+ * (Thus, matches Windows snprintf, not Linux.)
+ */
 int
 our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
 {
@@ -380,6 +384,17 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
                     c++;
                     ASSERT(*c);
                 }
+            } else if (*c == 'I') { /* %I64 or %I32, to match Win32 */
+                if (*(c+1)=='6' && *(c+2)=='4') {
+                    ll_type = true;
+                    c += 3;
+                    ASSERT(*c);
+                } else if (*(c+1)=='3' && *(c+2)=='2') {
+                    l_type = true;
+                    c += 3;
+                    ASSERT(*c);
+                } else
+                    ASSERT(false && "unsupported printf code");
             }
 
             /* dispatch */
@@ -414,20 +429,6 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
                         abval = val;
                     }
                     str = ulong_to_str(abval, 10, buf, decimal, false); /* generate string */
-                    break;
-                }
-            case 'I': 
-                { /* %I64, to match Win32 */
-                    uint64 val;
-                    /* must be %I64u */
-                    ASSERT(*(c+1)=='6' && *(c+2)=='4' && *(c+3)=='u');
-                    if (decimal == -1)
-                        decimal = 1;
-                    else
-                        filler = ' ';
-                    c += 3;
-                    val = (uint64)va_arg(ap, uint64);
-                    str = uint64_to_str(val, 10, buf, decimal, false);
                     break;
                 }
             case 'u':
@@ -467,9 +468,13 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
                     if (*c == 'x' || *c == 'X' || *c == 'p')
                         base = 16;
                     ASSERT(sizeof(void *) == sizeof(val));
-                    if (*c == 'p')
+                    if (*c == 'p') {
                         val = (ptr_uint_t) va_arg(ap, void *);  /* get val */
-                    else if (l_type)
+#ifdef X64
+                        str = uint64_to_str((uint64)val, base, buf, decimal, caps);
+                        break;
+#endif
+                    } else if (l_type)
                         val = (ptr_uint_t) va_arg(ap, ulong);
                     else if (h_type)
                         val = (ptr_uint_t) va_arg(ap, uint); /* ushort promoted */
@@ -479,8 +484,9 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
                         break;
                     } else
                         val = (ptr_uint_t) va_arg(ap, uint);
-                    ASSERT(sizeof(val) == sizeof(ulong));
-                    str = ulong_to_str((ulong)val, base, buf, decimal, caps);  /* generate string */
+                    /* generate string */
+                    ASSERT(sizeof(val) >= sizeof(ulong));
+                    str = ulong_to_str((ulong)val, base, buf, decimal, caps);
                     break;
                 }
             case 'c':
@@ -620,12 +626,18 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
     if (max == 0 || (size_t)(s - start) < max)
       *s = '\0';
 
- max_reached:
     /* yes, snprintf on all platforms returns int, not ssize_t */
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(s - start)));
     return (int) (s - start);
+
+ max_reached:
+    return -1;
 }
 
+/* Returns number of chars printed.  If number is larger than max,
+ * prints max (without null) and returns -1.
+ * (Thus, matches Windows snprintf, not Linux.)
+ */
 int
 our_snprintf(char *s, size_t max, const char *fmt, ...)
 {

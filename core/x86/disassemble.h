@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 20011 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -96,6 +97,28 @@ byte *
 disassemble_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc,
                       file_t outfile, bool show_pc, bool show_bytes);
 
+DR_API
+/**
+ * Decodes the instruction at address \p pc as though
+ * it were located at address \p orig_pc, and then prints the
+ * instruction to the buffer \p buf.
+ * Always null-terminates, and will not print more than \p bufsz characters,
+ * which includes the final null character.
+ * Indicates the number of characters printed, not including the final null,
+ * in \p printed, if \p printed is non-NULL.
+ *
+ * Prior to the instruction the address \p orig_pc is printed if \p show_pc and the raw
+ * bytes are printed if \p show_bytes.
+ * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
+ * "-syntax_intel" runtime option is specified.
+ * Returns the address of the subsequent instruction after the copy at
+ * \p copy_pc, or NULL if the instruction at \p copy_pc is invalid.
+ */
+byte *
+disassemble_to_buffer(dcontext_t *dcontext, byte *pc, byte *orig_pc,
+                      bool show_pc, bool show_bytes, char *buf, size_t bufsz,
+                      int *printed OUT);
+
 
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 DR_API
@@ -111,6 +134,24 @@ DR_API
 void 
 instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile);
 
+DR_API
+/**
+ * Prints the instruction \p instr to the buffer \p buf.
+ * Always null-terminates, and will not print more than \p bufsz characters,
+ * which includes the final null character.
+ * Returns the number of characters printed, not including the final null.
+ *
+ * Does not print address-size or data-size prefixes for other than
+ * just-decoded instrs, and does not check that the instruction has a
+ * valid encoding.  Prints each operand with leading zeros indicating
+ * the size.
+ * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
+ * "-syntax_intel" runtime option is specified.
+ */
+size_t
+instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr,
+                            char *buf, size_t bufsz);
+
 /* DR_API EXPORT TOFILE dr_ir_opnd.h */
 DR_API
 /**
@@ -120,6 +161,18 @@ DR_API
  */
 void 
 opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile);
+
+DR_API
+/**
+ * Prints the operand \p opnd to the buffer \p buf.
+ * Always null-terminates, and will not print more than \p bufsz characters,
+ * which includes the final null character.
+ * Returns the number of characters printed, not including the final null.
+ * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
+ * "-syntax_intel" runtime option is specified.
+ */
+size_t
+opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd, char *buf, size_t bufsz);
 
 #endif /* INTERNAL || DEBUG || CLIENT_INTERFACE */
 

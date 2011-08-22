@@ -1050,6 +1050,11 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 void print_log(file_t logfile, uint mask, uint level, char *fmt, ...);
 void print_file(file_t f, char *fmt, ...);
 
+/* For repeated appending to a buffer.  The "sofar" var should be set
+ * to 0 by the caller before the first call to print_to_buffer.
+ */
+bool print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...);
+
 char *memprot_string(uint prot);
 
 char * double_strchr(char *string, char c1, char c2);
