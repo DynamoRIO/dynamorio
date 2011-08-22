@@ -1915,7 +1915,8 @@ DR_API
  * instructions (i.e., non meta-instructions: see
  * #instr_ok_to_mangle), the translation should always be set.  Pick
  * the application address that if executed will be equivalent to
- * restarting \p instr.
+ * restarting \p instr.  Currently the translation address must lie
+ * within the existing bounds of the containing code block.
  * Returns the supplied \p instr (for easy chaining).  Use
  * #instr_get_app_pc to see the current value of the translation.
  */

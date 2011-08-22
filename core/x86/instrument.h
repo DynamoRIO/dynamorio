@@ -641,7 +641,7 @@ DR_API
  *   the translation.  When DR is translating not for a fault but for
  *   thread relocation, the \p restore_memory parameter will be false.
  *   Such translation can target a meta-instruction that can fault
- *   (see instr_set_meta_may_fault()).  For that scenario, a client
+ *   (i.e., it has a non-NULL translation field).  For that scenario, a client
  *   can choose not to translate.  Such instructions do not always
  *   require full translation for faults, and allowing translation
  *   failure removes the requirement that a client must translate at

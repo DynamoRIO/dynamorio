@@ -369,21 +369,28 @@ dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
 ********************
 \subsection sec_Meta Meta Instructions
 
-\DynamoRIO performs some processing on the basic block after the
-\client has finished with it, primarily modifying branches to ensure
-that \DynamoRIO retains control after execution.  It is important that
-the \client mark any control-flow instructions it does not want treated
-as application instructions as \e meta instructions. Doing so informs
-\DynamoRIO that these instructions should execute natively rather than
-being trapped and redirected to new basic block fragments.
+Changes to the instruction stream made by a \client fall into two
+categories: changes or additions that should be considered part of the
+application's behavior, versus additions that are observational in nature
+and are not acting on the application's behalf.  The latter are called \e
+meta instructions.
+
 Meta instructions are marked using these API routines:
 
 \code
-instr_set_ok_to_mangle()
+instr_set_ok_to_mangle(,false)
 instrlist_meta_preinsert()
 instrlist_meta_postinsert()
 instrlist_meta_append()
 \endcode
+
+\DynamoRIO performs some processing on the basic block after the
+\client has finished with it, primarily modifying branches to ensure
+that \DynamoRIO retains control after execution.  It is important that
+the \client mark any control-flow instructions that it does not want treated
+as application instructions as \e meta instructions. Doing so informs
+\DynamoRIO that these instructions should execute natively rather than
+being trapped and redirected to new basic block fragments.
 
 Through meta instructions, a \client can add its own internal control flow
 or make a call to a native routine that will not be brought into the code
@@ -407,6 +414,12 @@ internal operation requires that we impose the following limitations:
    a basic block, and it must be the final non-meta branch in the block.
  - The exit control-flow of a block ending in a system call cannot be
    changed.
+
+Application instructions, or non-meta instructions, in addition to being
+processed (and followed if control flow), are also considered safe points
+for relocation for the rare times when \DynamoRIO must move threads
+around.  Thus a \client should ensure that it is safe to re-start a
+non-meta instruction at the translation field address provided.
 
 ********************
 \subsection sec_events_trace Trace Creation
@@ -898,10 +911,13 @@ If a \client is performing modifications, then in order for \DynamoRIO to
 properly translate a code cache address the \client must use
 instr_set_translation() (chainable via INSTR_XL8()) in the basic block and
 trace creation callbacks to set the corresponding application address for
-each modified instruction and each added non-meta instruction.  The
+each added meta instruction that can fault, each modified instruction, and
+each added non-meta instruction.  The 
 translation value is the application address that should be presented to
 the application as the faulting address, or the application address that
-should be restarted after a suspend.
+should be restarted after a suspend.  Currently the translation address
+must be within the existing range of source addresses for the basic block
+or trace.
 
 There are two methods for using the translated addresses:
 
@@ -926,7 +942,7 @@ There are two methods for using the translated addresses:
    modifications are deterministic and idempotent, but it saves memory.
    Naturally, global state changes triggered by block creation should be
    wrapped in checks for \p translating being false.  Even in this case,
-   instr_set_translation() should be called for non-meta instructions even
+   instr_set_translation() should be called for appropriate instructions even
    when \p translating is false, as \DynamoRIO may decide to store the
    translations at creation time for reasons of its own.
 
