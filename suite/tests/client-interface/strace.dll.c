@@ -41,6 +41,8 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "client_tools.h"
+
 #include <string.h> /* memset */
 
 #ifdef LINUX
@@ -51,11 +53,12 @@
  * so we leave SHOW_RESULTS undefined
  */
 
+/* Unlike in api sample, always print to stderr. */
+#define DISPLAY_STRING(msg) dr_fprintf(STDERR, "%s\n", msg);
+
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_fprintf(STDERR, "%s\n", msg);
 # define ATOMIC_INC(var) _InterlockedIncrement((volatile LONG *)&var)
 #else
-# define DISPLAY_STRING(msg) dr_fprintf(STDERR, "%s\n", msg);
 # define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m" (var) : : "memory")
 #endif
 

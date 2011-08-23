@@ -31,22 +31,9 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 
 #define MINSERT instrlist_meta_preinsert
-
-#ifdef WINDOWS
-# define ASSERT(x)                                        \
-  if (!(x)) {                                             \
-    dr_messagebox("ASSERT failed on line %d", __LINE__);  \
-    dr_abort();                                           \
-  }
-#else /* LINUX */
-# define ASSERT(x)                                            \
-  if (!(x)) {                                                 \
-    dr_fprintf(STDERR, "ASSERT failed on line %d", __LINE__); \
-    dr_abort();                                               \
-  }
-#endif
 
 #ifdef X64
 /* we use this for clean call base-disp refs */

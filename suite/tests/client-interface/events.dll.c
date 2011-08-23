@@ -37,11 +37,11 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
+
 #ifdef LINUX
 # include <signal.h>
 #endif
-
-#define ALIGN_FORWARD(x, alignment) ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
 
 void *mutex;
 

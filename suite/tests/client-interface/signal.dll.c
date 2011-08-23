@@ -35,21 +35,8 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include <signal.h>
-
-#ifdef WINDOWS
-# define ASSERT(x)                                        \
-  if (!(x)) {                                             \
-    dr_messagebox("ASSERT failed on line %d", __LINE__);  \
-    dr_abort();                                           \
-  }
-#else /* LINUX */
-# define ASSERT(x)                                             \
-  if (!(x)) {                                                  \
-    dr_fprintf(STDERR, "ASSERT failed on line %d\n", __LINE__);\
-    dr_abort();                                                \
-  }
-#endif
 
 static app_pc redirect_tag;
 

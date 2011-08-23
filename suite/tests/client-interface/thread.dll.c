@@ -32,6 +32,7 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #ifdef LINUX
 # include <sys/time.h>
 #endif
@@ -66,13 +67,6 @@ static uint tls_offs;
 # define ASM_XSP "esp"
 # define ASM_SEG "fs"
 #endif
-
-/* we don't want msgboxes for regressions */
-#define ASSERT(x) \
-    ((void)((!(x)) ? \
-        (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s\n", \
-                    __FILE__,  __LINE__, #x), \
-         dr_abort(), 0) : 0))
 
 static bool child_alive;
 static bool child_continue;

@@ -51,6 +51,7 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 
 #define MINSERT instrlist_meta_preinsert
 #define inline __inline
@@ -61,15 +62,6 @@
  * guess it makes this client easily extendable.
  */
 #define HASH_TABLE_SIZE 7919
-
-#define ASSERT(x) \
-    do {                                                        \
-        if (!(x)) {                                             \
-            dr_fprintf(STDERR, "ASSERT failed on line %d", __LINE__);    \
-            dr_flush_file(dr_get_stdout_file());                \
-            dr_abort();                                         \
-        }                                                       \
-    } while (0)                             
 
 typedef enum {
     CBR_NONE      = 0x00,

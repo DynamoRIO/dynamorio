@@ -33,13 +33,10 @@
 /* Test the clean call inliner. */
 
 #include "dr_api.h"
+#include "client_tools.h"
+
 #include <stddef.h> /* offsetof */
 #include <string.h> /* memset */
-
-#define ALIGN_BACKWARD(x, alignment) \
-        (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
-#define ALIGN_FORWARD(x, alignment) \
-        ((((ptr_uint_t)x) + (((ptr_uint_t)alignment)-1)) & (~(((ptr_uint_t)alignment)-1)))
 
 #define CALLEE_ALIGNMENT 64
 
