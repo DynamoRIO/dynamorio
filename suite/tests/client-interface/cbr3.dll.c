@@ -50,6 +50,7 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 
 #define MINSERT instrlist_meta_preinsert
 
