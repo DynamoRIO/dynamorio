@@ -270,6 +270,7 @@ dr_marker_t*
 get_drmarker(void);
 
 #define UNDER_DYN_HACK 0xab
+#define IS_UNDER_DYN_HACK(val) ((byte)(val) == UNDER_DYN_HACK)
 
 byte *
 intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */, 

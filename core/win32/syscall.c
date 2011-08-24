@@ -348,7 +348,7 @@ syscall_while_native(app_state_at_intercept_t *state)
     if (dcontext == NULL) {
         /* unknown thread */
         return AFTER_INTERCEPT_LET_GO; /* do syscall natively */
-    } else if (dcontext->thread_record->under_dynamo_control == UNDER_DYN_HACK) {
+    } else if (IS_UNDER_DYN_HACK(dcontext->thread_record->under_dynamo_control)) {
         /* this trampoline is our ticket to taking control again prior
          * to the image entry point
          * we often hit this on NtAllocateVirtualMemory from HeapCreate for

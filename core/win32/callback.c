@@ -210,7 +210,7 @@ intercept_asynch_common(thread_record_t *tr, bool intercept_unknown)
      * 4) fully under DR
      */
     DOSTATS({
-        if (tr->under_dynamo_control == UNDER_DYN_HACK)
+        if (IS_UNDER_DYN_HACK(tr->under_dynamo_control))
             STATS_INC(num_asynch_while_lost);
     });
     return (tr->under_dynamo_control || IS_CLIENT_THREAD(tr->dcontext));
@@ -2488,7 +2488,7 @@ asynch_retakeover_if_native()
 {
     thread_record_t *tr = thread_lookup(get_thread_id());
     ASSERT(tr != NULL);
-    if (tr->under_dynamo_control == UNDER_DYN_HACK) {
+    if (IS_UNDER_DYN_HACK(tr->under_dynamo_control)) {
         ASSERT(!reached_image_entry_yet());
         /* must do a complete takeover-after-native */
         retakeover_after_native(tr, INTERCEPT_EARLY_ASYNCH);
@@ -3147,7 +3147,7 @@ intercept_apc(app_state_at_intercept_t *state)
                 *((app_pc *)cxt->CXT_XSP) = (app_pc)get_mcontext(dcontext)->xsi;
             } else {
                 /* should only get here w/ non-DR-mangled syscall if was native! */
-                ASSERT(dcontext->thread_record->under_dynamo_control == UNDER_DYN_HACK);
+                ASSERT(IS_UNDER_DYN_HACK(dcontext->thread_record->under_dynamo_control));
             }
         } else if (cxt->CXT_XIP == (ptr_uint_t) nt_continue_dynamo_start) {
             /* NtContinue entered kernel and was interrupted for another APC
@@ -4638,7 +4638,7 @@ intercept_exception(app_state_at_intercept_t *state)
          * code) don't support a native thread that we want to retakeover (ref
          * case 6069). So, we just treat the thread as a native_exec thread
          * and wait for a later retakeover point to regain control. */
-        if (takeover == UNDER_DYN_HACK) {
+        if (IS_UNDER_DYN_HACK(takeover)) {
             STATS_INC(num_except_while_lost);
             thread_is_lost = true;
             takeover = false;
@@ -6079,7 +6079,7 @@ intercept_load_dll(app_state_at_intercept_t *state)
             ASSERT_CURIOSITY(false);
         }
         return AFTER_INTERCEPT_LET_GO;
-    } else if (control_all_threads && tr->under_dynamo_control == UNDER_DYN_HACK) {
+    } else if (control_all_threads && IS_UNDER_DYN_HACK(tr->under_dynamo_control)) {
         dcontext_t *dcontext = get_thread_private_dcontext();
         /* trying to open debugbox causes IIS to fail, so don't SYSLOG_INTERNAL */
         LOG(THREAD, LOG_ASYNCH, 1, "ERROR: load_dll: we lost control of thread %d\n",
@@ -6134,8 +6134,8 @@ intercept_unload_dll(app_state_at_intercept_t *state)
             ASSERT_CURIOSITY(false);
         }
         return AFTER_INTERCEPT_LET_GO;
-    } else if (tr->under_dynamo_control != UNDER_DYN_HACK &&
-        !intercept_asynch_for_self(false/*no unknown threads*/)) {
+    } else if (!IS_UNDER_DYN_HACK(tr->under_dynamo_control) &&
+               !intercept_asynch_for_self(false/*no unknown threads*/)) {
         LOG(GLOBAL, LOG_VMAREAS, 1, "WARNING: no-asynch thread unloading a dll\n");
         return AFTER_INTERCEPT_LET_GO;
     }
@@ -6221,7 +6221,7 @@ intercept_unload_dll(app_state_at_intercept_t *state)
      * unloaded in the syscall NtUnmapViewOfSection
      * (there are many unload calls that do not end up unmapping)
      */
-    if (control_all_threads && tr->under_dynamo_control == UNDER_DYN_HACK)
+    if (control_all_threads && IS_UNDER_DYN_HACK(tr->under_dynamo_control))
         retakeover_after_native(tr, INTERCEPT_UNLOAD_DLL);
     return AFTER_INTERCEPT_TAKE_OVER;
 }
@@ -6231,7 +6231,7 @@ intercept_unload_dll(app_state_at_intercept_t *state)
 void
 retakeover_after_native(thread_record_t *tr, retakeover_point_t where)
 {
-    ASSERT(tr->under_dynamo_control == UNDER_DYN_HACK || 
+    ASSERT(IS_UNDER_DYN_HACK(tr->under_dynamo_control) || 
            dr_injected_secondary_thread);
     tr->under_dynamo_control = true;
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -6527,14 +6527,14 @@ intercept_image_entry(app_state_at_intercept_t *state)
             return AFTER_INTERCEPT_LET_GO;
         }
 
-        ASSERT(thread_lookup(get_thread_id())->under_dynamo_control != UNDER_DYN_HACK); 
+        ASSERT(IS_UNDER_DYN_HACK(thread_lookup(get_thread_id())->under_dynamo_control));
     }
 
     if (dynamo_initialized) {
         thread_record_t *tr = thread_lookup(get_thread_id());
         /* FIXME: we must unprot .data here and again for retakeover: worth optimizing? */
         set_reached_image_entry();
-        if ((tr != NULL && tr->under_dynamo_control == UNDER_DYN_HACK)
+        if ((tr != NULL && IS_UNDER_DYN_HACK(tr->under_dynamo_control))
             || dr_injected_secondary_thread) {
             LOG(THREAD_GET, LOG_ASYNCH, 1, "inside intercept_image_entry\n");
             /* we were native, retakeover */

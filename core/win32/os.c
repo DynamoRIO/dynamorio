@@ -5997,7 +5997,7 @@ detach_helper(int detach_type)
     {
         bool did_unhook = false;
         for (i = 0; i < num_threads; i++) {
-            if (threads[i]->under_dynamo_control == UNDER_DYN_HACK) {
+            if (IS_UNDER_DYN_HACK(threads[i]->under_dynamo_control)) {
                 LOG(GLOBAL, LOG_ALL, 1, 
                     "Detach : unpatching image entry point (from thread %d)\n",
                     threads[i]->id);
@@ -6067,8 +6067,8 @@ detach_helper(int detach_type)
         }
         res = thread_get_context(threads[i], &cxt);
         ASSERT(res);
-        /* FIXME : callback UNDER_DYN_HACK hack again */
-        if (threads[i]->under_dynamo_control == UNDER_DYN_HACK) {
+        /* XXX : callback UNDER_DYN_HACK hack again */
+        if (IS_UNDER_DYN_HACK(threads[i]->under_dynamo_control)) {
             LOG(GLOBAL, LOG_ALL, 1, 
                 "Detach : thread %d running natively since lost control at callback "
                 "return and have not regained it, no need to translate context\n", 
@@ -6316,7 +6316,7 @@ bool
 is_thread_currently_native(thread_record_t *tr)
 {
     return (!tr->under_dynamo_control ||
-            tr->under_dynamo_control == UNDER_DYN_HACK);
+            IS_UNDER_DYN_HACK(tr->under_dynamo_control));
 }
 
 /* contended path of mutex operations */
