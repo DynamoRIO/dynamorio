@@ -1,6 +1,7 @@
-/* **********************************************************
+/* *******************************************************************************
+ * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
- * **********************************************************/
+ * *******************************************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -891,13 +892,34 @@ get_proc_address_ex(module_handle_t lib, const char *name, bool *is_indirect_cod
 {
     app_pc res = NULL;
     module_area_t *ma;
+    bool is_ifunc;
     os_get_module_info_lock();
     ma = module_pc_lookup((app_pc)lib);
     if (ma != NULL) {
         res = get_proc_address_from_os_data(&ma->os_data,
                                             ma->start - 
                                             ma->os_data.base_address,
-                                            name, is_indirect_code);
+                                            name, &is_ifunc);
+        /* XXX: for the case of is_indirect_code being true, should we call
+         * the ifunc to get the real symbol location?
+         * Current solution is:
+         * If the caller asking about is_indirect_code, i.e. passing a not-NULL,
+         * we assume it knows about the ifunc, and leave it to decide to call 
+         * the ifunc or not.
+         * If is_indirect_code is NULL, we will call the ifunc for caller.
+         */
+        if (is_indirect_code != NULL) {
+            *is_indirect_code = is_ifunc;
+        } else if (res != NULL) {
+            if (is_ifunc) {
+                TRY_EXCEPT_ALLOW_NO_DCONTEXT(get_thread_private_dcontext(), {
+                    res = ((app_pc (*) (void)) (res)) ();
+                }, { /* EXCEPT */
+                    ASSERT_CURIOSITY(false && "crashed while executing ifunc");
+                    res = NULL;
+                });
+            }
+        }
     }
     os_get_module_info_unlock();
     LOG(GLOBAL, LOG_SYMBOLS, 2, "%s: %s => "PFX"\n", __func__, name, res);
@@ -1512,7 +1534,8 @@ module_relocate_symbol(app_pc modbase,
         else
             *r_addr += pd->load_delta;
         return;
-    }
+    } else if (r_type == ELF_R_NONE)
+        return;
 
     r_sym = (uint)ELF_R_SYM(rel->r_info);
     sym   = &((ELF_SYM_TYPE *)pd->os_data.dynsym)[r_sym];
@@ -1527,29 +1550,37 @@ module_relocate_symbol(app_pc modbase,
     /* handle syms that do not need symbol lookup */
     switch (r_type) {
     case ELF_R_TLS_DTPMOD:
+        /* XXX: Is it possible it ask for a module id not itself? */
         *r_addr = pd->tls_modid;
         break;
     case ELF_R_TLS_TPOFF:
         /* The offset is negative, forward from the thread pointer. */
-        if (sym != NULL)
-            *r_addr = sym->st_value + addend - pd->tls_offset;
+        if (sym != NULL) {
+            *r_addr = sym->st_value + (is_rela ? addend : *r_addr) 
+                - pd->tls_offset;
+        }
         break;
     case ELF_R_TLS_DTPOFF:
-        *r_addr = sym->st_value + addend;
+        /* During relocation all TLS symbols are defined and used.
+           Therefore the offset is already correct. 
+        */
+        if (sym != NULL)
+            *r_addr = sym->st_value + addend;
+        break;
+    case ELF_R_TLS_DESC:
+        /* FIXME: TLS descriptor, not implemented */
+        ASSERT_NOT_IMPLEMENTED(false);
         break;
 #ifndef X64
     case R_386_TLS_TPOFF32:
-        /* offset is pos */
+        /* offset is positive, backward from the thread pointer */
         if (sym != NULL)
-            *r_addr = pd->tls_offset - sym->st_value + addend;
+            *r_addr += pd->tls_offset - sym->st_value;
         break;
 #endif
     case ELF_R_IRELATIVE:
-        res = modbase + addend;
+        res = modbase + (is_rela ? addend : *r_addr);
         *r_addr =  ((ELF_ADDR (*) (void)) res) ();
-        break;
-    case ELF_R_NONE:
-        /* do nothing */
         break;
     default:
         resolved = false;
@@ -1562,8 +1593,10 @@ module_relocate_symbol(app_pc modbase,
     switch (r_type) {
     case ELF_R_GLOB_DAT:
     case ELF_R_JUMP_SLOT:
-    case ELF_R_DIRECT:
         *r_addr = (reg_t)res + addend;
+        break;
+    case ELF_R_DIRECT:
+        *r_addr = (reg_t)res + (is_rela ? addend : *r_addr);
         break;
     case ELF_R_COPY:
         if (sym != NULL)

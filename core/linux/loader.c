@@ -996,6 +996,21 @@ redirect___tls_get_addr(tls_index_t *ti)
             tls_info.offs[ti->ti_module] + ti->ti_offset);
 }
 
+static void *
+redirect____tls_get_addr()
+{
+    tls_index_t *ti;
+    /* XXX: in some version of ___tls_get_addr, ti is passed via xax 
+     * How can I generalize it?
+     */
+    asm("mov %%"ASM_XAX", %0" : "=m"((ti)) : : ASM_XAX);
+    LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
+        ti->ti_module, ti->ti_offset);
+    ASSERT(ti->ti_module < tls_info.num_mods);
+    return (os_get_dr_seg_base(NULL, LIB_SEG_TLS) - 
+            tls_info.offs[ti->ti_module] + ti->ti_offset);
+}
+
 typedef struct _redirect_import_t {
     const char *name;
     app_pc func;
@@ -1011,6 +1026,7 @@ static const redirect_import_t redirect_imports[] = {
      * Any other functions need to be redirected?
      */
     {"__tls_get_addr", (app_pc)redirect___tls_get_addr},
+    {"___tls_get_addr", (app_pc)redirect____tls_get_addr},
 };
 #define REDIRECT_IMPORTS_NUM (sizeof(redirect_imports)/sizeof(redirect_imports[0]))
 
