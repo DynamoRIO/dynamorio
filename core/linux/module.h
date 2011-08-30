@@ -95,10 +95,10 @@
 #  define R_X86_64_TLSDESC   36
 # endif
 # define ELF_R_TLS_DESC     R_X86_64_TLSDESC  /* TLS descriptor containing
-                                                 pointer to code and to
-                                                 argument, returning the TLS
-                                                 offset for the symbol. 
-                                              */
+                                               * pointer to code and to
+                                               * argument, returning the TLS
+                                               * offset for the symbol. 
+                                               */
 #else /* 32-bit */
 # define ELF_R_TYPE   ELF32_R_TYPE
 # define ELF_R_SYM    ELF32_R_SYM
@@ -119,10 +119,14 @@
 # define ELF_R_TLS_DTPMOD  R_386_TLS_DTPMOD32 /* Module ID */
 # define ELF_R_TLS_TPOFF   R_386_TLS_TPOFF    /* Negated offsets in static TLS block */
 # define ELF_R_TLS_DTPOFF  R_386_TLS_DTPOFF32 /* Offset in TLS block */
+# ifndef R_386_TLS_DESC
+#  define R_386_TLS_DESC   41
+# endif
 # define ELF_R_TLS_DESC    R_386_TLS_DESC     /* TLS descriptor containing
-                                                 pointer to code and to
-                                                 argument, returning the TLS
-                                                 offset for the symbol.  */
+                                               * pointer to code and to
+                                               * argument, returning the TLS
+                                               * offset for the symbol.
+                                               */
 #endif
 
 /* used only in our own routines here which use PF_* converted to MEMPROT_* */
