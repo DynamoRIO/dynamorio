@@ -382,7 +382,10 @@ bool register_client(const char *process_name,
                                 priority, path, options);
 
     if (status != DR_SUCCESS) {
-        error("client registration failed with error code %d", status);
+        if (status == DR_CONFIG_STRING_TOO_LONG)
+            error("client registration failed: option string too long");
+        else
+            error("client registration failed with error code %d", status);
         return false;
     }
     return true;

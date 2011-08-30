@@ -391,7 +391,7 @@ read_config_ex(HANDLE f, const char *var, wchar_t *val, size_t val_len,
      * callers holding HANDLE instead.  already have code for line reading so
      * sticking w/ HANDLE.  FIXME: share code w/ core/config.c
      */
-#   define BUFSIZE (MAX_REGISTRY_PARAMETER+128)
+#   define BUFSIZE (MAX_CONFIG_VALUE+128)
     char buf[BUFSIZE];
     char *line, *newline = NULL;
     ssize_t bufread = 0, bufwant;
@@ -507,17 +507,25 @@ read_config_ex(HANDLE f, const char *var, wchar_t *val, size_t val_len,
 /* for simplest coexistence with PARAMS_IN_REGISTRY taking in wchar_t and
  * converting to char.  not very efficient though.
  */
-static void
+static dr_config_status_t
 write_config_param(HANDLE f, const char *var, const wchar_t *val)
 {
     BOOL ok;
     DWORD written;
-    char buf[MAX_REGISTRY_PARAMETER];
+    int len;
+    char buf[MAX_CONFIG_VALUE];
     DO_ASSERT(f != INVALID_HANDLE_VALUE);
-    _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s=%S\n", var, val);
-    NULL_TERMINATE_BUFFER(buf);
+    len = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s=%S\n", var, val);
+    /* don't remove the newline: better to truncate options than to have none (i#547) */
+    buf[BUFFER_SIZE_ELEMENTS(buf) - 2] = '\n';
+    buf[BUFFER_SIZE_ELEMENTS(buf) - 1] = '\0';
     ok = WriteFile(f, buf, (DWORD)strlen(buf), &written, NULL);
     DO_ASSERT(ok && written == strlen(buf));
+    if (len < 0)
+        return DR_CONFIG_STRING_TOO_LONG;
+    if (!ok)
+        return DR_CONFIG_FILE_WRITE_FAILED;
+    return DR_SUCCESS;
 }
 
 static bool
@@ -528,10 +536,11 @@ read_config_param(HANDLE f, const char *var, wchar_t *val, size_t val_len)
 
 #else /* !PARAMS_IN_REGISTRY */
 
-static void
+static dr_config_status_t
 write_config_param(ConfigGroup *policy, const wchar_t *var, const wchar_t *val)
 {
     set_config_group_parameter(policy, var, val);
+    return DR_SUCCESS;
 }
 
 static bool
@@ -552,7 +561,7 @@ read_config_param(HANDLE f, const char *var, const wchar_t *val, size_t val_len)
 static dr_config_status_t
 read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, HANDLE f))
 {
-    WCHAR buf[MAX_REGISTRY_PARAMETER];
+    WCHAR buf[MAX_CONFIG_VALUE];
     WCHAR *ptr, token[DR_MAX_OPTIONS_LENGTH], tmp[DR_MAX_OPTIONS_LENGTH];
     opt_info_t null_opt_info = {0,};
     size_t len;
@@ -876,6 +885,7 @@ dr_register_process(const char *process_name,
     WCHAR wbuf[MAX(MAX_PATH,DR_MAX_OPTIONS_LENGTH)];
     DWORD platform;
     opt_info_t opt_info = {0,};
+    dr_config_status_t status;
 
 #ifdef PARAMS_IN_REGISTRY
     /* PR 244206: set the registry view before any registry access.
@@ -919,8 +929,10 @@ dr_register_process(const char *process_name,
     /* set the rununder string */
     _snwprintf(wbuf, MAX_PATH, (dr_mode == DR_MODE_DO_NOT_RUN) ? L"0" : L"1");
     NULL_TERMINATE_BUFFER(wbuf);
-    write_config_param(IF_REG_ELSE(proc_policy, f), PARAM_STR(DYNAMORIO_VAR_RUNUNDER),
-                       wbuf);
+    status = write_config_param(IF_REG_ELSE(proc_policy, f),
+                                PARAM_STR(DYNAMORIO_VAR_RUNUNDER), wbuf);
+    if (status != DR_SUCCESS)
+        return status;
 
     /* set the autoinject string (i.e., path to dynamorio.dll */
     if (debug) {
@@ -935,22 +947,28 @@ dr_register_process(const char *process_name,
             _snwprintf(wbuf, MAX_PATH, L"%S"RELEASE64_DLL, dr_root_dir);
     }
     NULL_TERMINATE_BUFFER(wbuf);
-    write_config_param(IF_REG_ELSE(proc_policy, f), PARAM_STR(DYNAMORIO_VAR_AUTOINJECT),
-                       wbuf);
+    status = write_config_param(IF_REG_ELSE(proc_policy, f),
+                                PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), wbuf);
+    if (status != DR_SUCCESS)
+        return status;
 
     /* set the logdir string */
     _snwprintf(wbuf, MAX_PATH, L"%S"LOG_SUBDIR, dr_root_dir);
     NULL_TERMINATE_BUFFER(wbuf);
-    write_config_param(IF_REG_ELSE(proc_policy, f), PARAM_STR(DYNAMORIO_VAR_LOGDIR),
-                       wbuf);
+    status = write_config_param(IF_REG_ELSE(proc_policy, f),
+                                PARAM_STR(DYNAMORIO_VAR_LOGDIR), wbuf);
+    if (status != DR_SUCCESS)
+        return status;
 
     /* set the options string last for faster updating w/ config files */
     opt_info.mode = dr_mode;
     add_extra_option_char(&opt_info, dr_options);
     write_options(&opt_info, wbuf);
-    write_config_param(IF_REG_ELSE(proc_policy, f), PARAM_STR(DYNAMORIO_VAR_OPTIONS),
-                       wbuf);
+    status = write_config_param(IF_REG_ELSE(proc_policy, f),
+                                PARAM_STR(DYNAMORIO_VAR_OPTIONS), wbuf);
     free_opt_info(&opt_info);
+    if (status != DR_SUCCESS)
+        return status;
 
 #ifdef PARAMS_IN_REGISTRY
     /* write the registry */
@@ -1033,7 +1051,7 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, HANDLE f),
                     bool *debug /* OUT */,
                     char *dr_options /* OUT */)
 {
-    WCHAR autoinject[MAX_REGISTRY_PARAMETER];
+    WCHAR autoinject[MAX_CONFIG_VALUE];
     opt_info_t opt_info;
     
     if (dr_mode != NULL)
@@ -1514,8 +1532,10 @@ dr_register_client(const char *process_name,
     /* shift rest of file up, overwriting old value, so we can append new value */
     read_config_ex(f, DYNAMORIO_VAR_OPTIONS, NULL, 0, true);
 #endif
-    write_config_param(IF_REG_ELSE(proc_policy, f), PARAM_STR(DYNAMORIO_VAR_OPTIONS),
-                       new_opts);
+    status = write_config_param(IF_REG_ELSE(proc_policy, f),
+                                PARAM_STR(DYNAMORIO_VAR_OPTIONS), new_opts);
+    if (status != DR_SUCCESS)
+        goto exit;
 
 #ifdef PARAMS_IN_REGISTRY
     if (write_config_group(policy) != ERROR_SUCCESS) {

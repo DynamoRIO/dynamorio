@@ -53,7 +53,7 @@
  */
 
 /** Maximum length of a registered process's options string */
-#define DR_MAX_OPTIONS_LENGTH 512
+#define DR_MAX_OPTIONS_LENGTH 1024
 
 /** Specifies DynamoRIO's operation mode. */
 typedef enum {
@@ -119,6 +119,12 @@ typedef enum {
 
     /** Nudge operation timed out waiting for target process to finish handling a nudge.*/
     DR_NUDGE_TIMEOUT,
+
+    /** Field length exceeded, probably due to a too-long option string */
+    DR_CONFIG_STRING_TOO_LONG,
+
+    /** Failed to write to the config file. */
+    DR_CONFIG_FILE_WRITE_FAILED,
 
 } dr_config_status_t;
 
