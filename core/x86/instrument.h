@@ -2434,6 +2434,69 @@ DR_API
 file_t
 dr_dup_file_handle(file_t f);
 
+DR_API
+/**
+ * Determines the size of the file \p fd.
+ * On success, returns the size in \p size.
+ * \return whether successful.
+ */
+bool
+dr_file_size(file_t fd, OUT uint64 *size);
+
+/* The extra BEGIN END is to get spacing nice. */
+/* DR_API EXPORT BEGIN */
+/* DR_API EXPORT END */
+/* DR_API EXPORT BEGIN */
+/* flags for use with dr_map_file() */
+/**
+ * If set, changes to mapped memory are private to the mapping process and
+ * are not reflected in the underlying file.  If not set, changes are visible
+ * to other processes that map the same file, and will be propagated
+ * to the file itself.
+ */
+#define DR_MAP_PRIVATE               0x1
+#ifdef LINUX
+/**
+ * If set, indicates that the passed-in start address is required rather than a
+ * hint.  On Linux, this has the same semantics as mmap with MAP_FIXED: i.e.,
+ * any existing mapping in [addr,addr+size) will be unmapped.  This flags is not
+ * supported on Windows.
+ */
+#define DR_MAP_FIXED                 0x2
+#endif
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Memory-maps \p size bytes starting at offset \p offs from the file \p f
+ * at address \p addr with privileges \p prot.
+ *
+ * @param[in] f The file to map.
+ * @param[in,out] size The requested size to map.  Upon successful return,
+ *   contains the actual mapped size.
+ * @param[in] offs The offset within the file at which to start the map.
+ * @param[in] addr The requested start address of the map.  Unless \p fixed
+ *   is true, this is just a hint and may not be honored.
+ * @param[in] prot The access privileges of the mapping, composed of
+ *   the DR_MEMPROT_READ, DR_MEMPROT_WRITE, and DR_MEMPROT_EXEC bits.
+ * @param[in] flags Optional DR_MAP_* flags.
+ *
+ * \note Mapping image files for execution is not supported.
+ *
+ * \return the start address of the mapping, or NULL if unsuccessful.
+ */
+void *
+dr_map_file(file_t f, INOUT size_t *size, uint64 offs, app_pc addr, uint prot,
+            uint flags);
+
+DR_API
+/**
+ * Unmaps a portion of a file mapping previously created by dr_map_file().
+ * \return whether successful.
+ */
+bool
+dr_unmap_file(void *map, size_t size);
+
 /* TODO add delete_file, rename/move_file, copy_file, get_file_size, truncate_file etc.
  * All should be easy though at some point should perhaps tell people to just use the raw
  * systemcalls, esp for linux where they're documented and let them provide their own

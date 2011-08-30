@@ -2990,6 +2990,31 @@ dr_dup_file_handle(file_t f)
 }
 
 DR_API
+bool
+dr_file_size(file_t fd, OUT uint64 *size)
+{
+    return os_get_file_size_by_handle(fd, size);
+}
+
+DR_API
+void *
+dr_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+            uint flags)
+{
+    return (void *) map_file(f, size, offs, addr, prot,
+                             TEST(DR_MAP_PRIVATE, flags),
+                             false/*!image*/,
+                             IF_WINDOWS_ELSE(false, TEST(DR_MAP_FIXED, flags)));
+}
+
+DR_API
+bool
+dr_unmap_file(void *map, size_t size)
+{
+    return unmap_file((byte *) map, size);
+}
+
+DR_API
 void
 dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...)
 {
