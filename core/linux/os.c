@@ -3722,9 +3722,7 @@ change_protection(byte *pc, size_t length, bool writable)
     return set_protection(pc, length, flags);
 }
 
-/* make pc's page writable
- * FIXME: how get current protection?  would like to keep old read/exec flags
- */
+/* make pc's page writable */
 bool
 make_writable(byte *pc, size_t size)
 {
@@ -3732,6 +3730,12 @@ make_writable(byte *pc, size_t size)
     app_pc start_page = (app_pc) PAGE_START(pc);
     size_t prot_size = (size == 0) ? PAGE_SIZE : size;
     uint prot = PROT_EXEC|PROT_READ|PROT_WRITE;
+    /* if can get current protection then keep old read/exec flags.
+     * this is crucial on modern linux kernels which refuse to mark stack +x.
+     */
+    if (!is_in_dynamo_dll(pc)/*avoid allmem assert*/ &&
+        get_memory_info(pc, NULL, NULL, &prot))
+        prot |= PROT_WRITE;
 
     ASSERT(start_page == pc && ALIGN_FORWARD(size, PAGE_SIZE) == size);
 #ifdef IA32_ON_IA64
@@ -3772,9 +3776,7 @@ bool make_copy_on_writable(byte *pc, size_t size)
     return make_writable(pc, size);
 }
 
-/* make pc's page unwritable 
- * FIXME: how get current protection?  would like to keep old read/exec flags
- */
+/* make pc's page unwritable */
 void
 make_unwritable(byte *pc, size_t size)
 {
@@ -3782,6 +3784,12 @@ make_unwritable(byte *pc, size_t size)
     app_pc start_page = (app_pc) PAGE_START(pc);
     size_t prot_size = (size == 0) ? PAGE_SIZE : size;
     uint prot = PROT_EXEC|PROT_READ;
+    /* if can get current protection then keep old read/exec flags.
+     * this is crucial on modern linux kernels which refuse to mark stack +x.
+     */
+    if (!is_in_dynamo_dll(pc)/*avoid allmem assert*/ &&
+        get_memory_info(pc, NULL, NULL, &prot))
+        prot &= ~PROT_WRITE;
 
     ASSERT(start_page == pc && ALIGN_FORWARD(size, PAGE_SIZE) == size);
     /* inc stats before making unwritable, in case messing w/ data segment */
