@@ -1148,6 +1148,10 @@
   instr_create_1dst_1src((dc), OP_vbroadcastsd, (d), (s))
 #define INSTR_CREATE_vbroadcastf128(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vbroadcastf128, (d), (s))
+#define INSTR_CREATE_movq2dq(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_movq2dq, (d), (s))
+#define INSTR_CREATE_movdq2q(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_movdq2q, (d), (s))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */

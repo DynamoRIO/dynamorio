@@ -1079,6 +1079,9 @@ const instr_info_t * const op_instr[] =
     /* OP_vfnmsub231ss  */  &vex_W_extensions[29][0],
     /* OP_vfnmsub231sd  */  &vex_W_extensions[29][1],
 
+    /* OP_movq2dq       */  &prefix_extensions[61][1],
+    /* OP_movdq2q       */  &prefix_extensions[61][3],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
     /* OP_jmpe      */   &extensions[13][6],
@@ -1148,6 +1151,7 @@ const instr_info_t * const op_instr[] =
 #define Ups TYPE_V_MODRM, OPSZ_16
 #define Upd TYPE_V_MODRM, OPSZ_16
 #define Udq TYPE_V_MODRM, OPSZ_16
+#define Uq_dq TYPE_V_MODRM, OPSZ_8_of_16
 #define Wq  TYPE_W, OPSZ_8
 #define Wdq TYPE_W, OPSZ_16
 #define Wq_dq TYPE_W, OPSZ_8_of_16
@@ -3080,9 +3084,9 @@ const instr_info_t prefix_extensions[][8] = {
   /* prefix extension 61 */
   {
     {INVALID,   0x0fd610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30fd610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_movq2dq, 0xf30fd610, "movq2dq", Vdq, xx, Nq, xx, xx, mrm, x, END_LIST},
     {OP_movq, 0x660fd610, "movq", Wq_dq, xx, Vq_dq, xx, xx, mrm, x, END_LIST},
-    {INVALID, 0xf20fd610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_movdq2q, 0xf20fd610, "movdq2q", Pq, xx, Uq_dq, xx, xx, mrm, x, END_LIST},
     {INVALID,   0x0fd610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fd610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vmovq, 0x660fd610, "vmovq", Wq_dq, xx, Vq_dq, xx, xx, mrm|vex, x, END_LIST},

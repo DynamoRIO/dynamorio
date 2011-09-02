@@ -4313,10 +4313,13 @@ enum {
 /* 951 */     OP_vfnmsub231ss,   /* &vex_W_extensions[29][0], */ /**< vfnmsub231ss opcode */
 /* 952 */     OP_vfnmsub231sd,   /* &vex_W_extensions[29][1], */ /**< vfnmsub231sd opcode */
 
+/* 953 */     OP_movq2dq,        /* &prefix_extensions[61][1], */ /**< movq2dq opcode */
+/* 954 */     OP_movdq2q,        /* &prefix_extensions[61][3], */ /**< movdq2q opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 953 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 954 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 955 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 956 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,

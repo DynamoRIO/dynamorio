@@ -122,6 +122,9 @@ OPCODE(cvtdq2pd, cvtdq2pd, cvtdq2pd, 0, REGARG(XMM0), MEMARG(OPSZ_8))
 OPCODE(cvttpd2dq, cvttpd2dq, cvttpd2dq, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(cvtpd2dq, cvtpd2dq, cvtpd2dq, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 
+OPCODE(movq2dq, movq2dq, movq2dq, 0, REGARG(XMM0), REGARG(MM0))
+OPCODE(movdq2q, movdq2q, movdq2q, 0, REGARG(MM0), REGARG(XMM0))
+
 OPCODE(movmskps, movmskps, movmskps, 0, REGARG(XAX), REGARG(XMM0))
 OPCODE(movmskpd, movmskpd, movmskpd, 0, REGARG(XAX), REGARG(XMM0))
 OPCODE(movddup, movddup, movddup, 0, REGARG(XMM0), MEMARG(OPSZ_8))
