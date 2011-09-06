@@ -3996,7 +3996,7 @@ dump_context_info(CONTEXT *context, file_t file, bool all)
     }
     if (all || TESTALL(CONTEXT_YMM_FLAG, context->ContextFlags)) {
         /* FIXME i#437: NYI.  See comments in context_to_mcontext(). */
-        ASSERT_NOT_IMPLEMENTED(all && "i#437: no ymm CONTEXT support yet");
+        ASSERT_NOT_IMPLEMENTED(!YMM_ENABLED() && "i#437: no ymm CONTEXT support yet");
     }
 
     if (all || context->ContextFlags & CONTEXT_FLOATING_POINT) {
