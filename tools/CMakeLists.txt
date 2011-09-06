@@ -166,3 +166,14 @@ else (UNIX)
   DR_install(TARGETS ${tgts} DESTINATION "${INSTALL_BIN}")
 
 endif (UNIX)
+
+if (X64)
+  set(SYMSFX "64")
+else (X64)
+  set(SYMSFX "")
+endif (X64)
+
+DR_install(FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/windbg-scripts/load_syms${SYMSFX}"
+  DESTINATION "${INSTALL_BIN}"
+  RENAME "load_syms${SYMSFX}.txt")

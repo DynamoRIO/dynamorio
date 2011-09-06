@@ -6821,6 +6821,9 @@ callback_interception_init_start(void)
      * after client init, and that leaving interception_code off exec areas
      * and writable during client init is ok
      */
+
+    /* now that drmarker is set up, fill in windbg commands (i#522) */
+    privload_add_windbg_cmds();
 }
 
 void

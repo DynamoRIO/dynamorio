@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -1976,3 +1977,72 @@ redirect_DeleteCriticalSection(RTL_CRITICAL_SECTION* crit)
     crit->LockCount = -1;
     return STATUS_SUCCESS;
 }
+
+/***************************************************************************/
+#ifdef WINDOWS
+/* i#522: windbg commands for viewing symbols for private libs */
+
+static bool
+add_mod_to_drmarker(dr_marker_t *marker, const char *path, const char *modname,
+                    byte *base, size_t *sofar)
+{
+    const char *last_dir = double_strrchr(path, DIRSEP, ALT_DIRSEP);
+    int res;
+    if (last_dir == NULL) {
+        SYSLOG_INTERNAL_WARNING_ONCE("drmarker windbg cmd: invalid path");
+        return false;
+    }
+    /* We have to use .block{} b/c .sympath eats up all chars until the end
+     * of the "line", which for as /c is the entire command output, but it
+     * does stop at the }.
+     * Sample:
+     *   .block{.sympath+ c:\src\dr\git\build_x86_dbg\api\samples\bin};
+     *   .reload bbcount.dll=74ad0000;.echo "Loaded bbcount.dll";
+     * 
+     */
+#define WINDBG_ADD_PATH ".block{.sympath+ "
+    if (*sofar + strlen(WINDBG_ADD_PATH) + (last_dir - path) < WINDBG_CMD_MAX_LEN) {
+        res = _snprintf(marker->windbg_cmds + *sofar,
+                        strlen(WINDBG_ADD_PATH) + last_dir - path,
+                        "%s%s", WINDBG_ADD_PATH, path);
+        ASSERT(res == -1);
+        *sofar += strlen(WINDBG_ADD_PATH) + last_dir - path;
+        return print_to_buffer(marker->windbg_cmds, WINDBG_CMD_MAX_LEN, sofar,
+                               "};\n.reload %s="PFMT";.echo \"Loaded %s\";\n",
+                               modname, base, modname);
+    } else {
+        SYSLOG_INTERNAL_WARNING_ONCE("drmarker windbg cmds out of space");
+        return false;
+    }
+}
+
+void
+privload_add_windbg_cmds(void)
+{
+    /* i#522: print windbg commands to locate DR and priv libs */
+    dr_marker_t *marker = get_drmarker();
+    size_t sofar;
+    privmod_t *mod;
+    sofar = strlen(marker->windbg_cmds);
+
+    /* dynamorio.dll is in the list on windows right now.
+     * if not we'd add with get_dynamorio_library_path(), DYNAMORIO_LIBRARY_NAME,
+     * and marker->dr_base_addr
+     */
+
+    /* XXX: currently only adding those on the list at init time: ignoring
+     * later load or unload
+     */
+
+    acquire_recursive_lock(&privload_lock);
+    for (mod = privload_first_module(); mod != NULL; mod = privload_next_module(mod)) {
+        /* user32 and ntdll are not private */
+        if (strcasecmp(mod->name, "user32.dll") != 0 &&
+            strcasecmp(mod->name, "ntdll.dll") != 0) {
+            if (!add_mod_to_drmarker(marker, mod->path, mod->name, mod->base, &sofar))
+                break;
+        }
+    }
+    release_recursive_lock(&privload_lock);
+}
+#endif /* WINDOWS */

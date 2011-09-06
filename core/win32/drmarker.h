@@ -70,6 +70,9 @@ enum {
 };
 
 #define DR_MARKER_VERSION_1 1
+#define DR_MARKER_VERSION_2 2
+
+#define WINDBG_CMD_MAX_LEN 2048
 
 /* CAUTION: This structure is shared across processes, so any changes to it
  *          should only be field addtions.  NO DELETIONS ALLOWED; to obsolete
@@ -91,6 +94,10 @@ typedef struct _dr_marker_t {
     void *dr_generic_nudge_target;
     void *dr_hotp_policy_status_table;
     struct _dr_statistics_t *stats;
+    /* For auto-loading private lib symbols (i#522).
+     * tools/windbg-scripts/load_syms hardcodes the offset of this field.
+     */
+    char windbg_cmds[WINDBG_CMD_MAX_LEN];
     /* future fields */
     /* NOTE: rct_known_targets_init needs to be updated if new targets
      * into DR are added */

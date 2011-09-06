@@ -1318,7 +1318,10 @@ Options aiding in debugging:
     By default, \DynamoRIO hides itself from the Windows module list, for
     transparency.  However, this makes it more difficult to debug a process
     under \DynamoRIO's control.  The option -no_hide turns off this module
-    hiding. \if linux This option is for Windows only. \endif
+    hiding.  However, note that we provide a windbg script that can locate
+    \DynamoRIO, the \client library, and all of its dependences, so this
+    option should no longer be necessary (see \ref sec_debugging).
+   \if linux This option is for Windows only. \endif
 \endif
 
 Options available only in the debug build of \DynamoRIO:
@@ -1378,7 +1381,7 @@ href="http://code.google.com/p/dynamorio/wiki/BugReporting">a detailed
 description</a> of the problem (is it an application crash?  a \DynamoRIO
 crash?  a hang?  a debug build assert?) and how to reproduce it.
 
-\subsection sec_diagnosing Debugging Tips
+\subsection sec_diagnosing Troubleshooting
 
  - \DynamoRIO disables itself when Windows is booted in safe mode (without
 networking).  Thus, if a crash occurs in a Windows service under
@@ -1405,51 +1408,66 @@ networking).  Thus, if a crash occurs in a Windows service under
    be replaced by a ; separated lists of individual asserts to
    suppress as so "-ignore_assert_list 'foo.c:333;bar.c:12'".
 
-\ifnot vmsafe
- - A process under control of \DynamoRIO can be executed within a
-   debugger.  On Windows it is best to set the \ref op_no_hide "-no_hide"
-   option so the debugger can see the \DynamoRIO library.
-
-   \par
-   To attach to a process on Windows, use the \ref op_msgbox_mask
-   "-msgbox_mask" option and attach the debugger while the dialog box has
-   paused the application.  On Linux, the same option can be used and
-   the debugger attached while the application waits for enter to be
-   pressed.  Since this may not work for applications that themselves
-   read from standard input, an alternative exists: the \ref op_pause
-   "-pause_on_error" option allows attaching a debugger when a problem
-   occurs.  To run an application on Linux under a debugger from the start
-   you can perform the work of the \c drrun script by setting the
-   LD_LIBRARY_PATH and LD_PRELOAD environment variables from within the
-   debugger.
-
-   \par
-   For debugging on Windows we recommend using windbg version 6.3.0017
-   (\b not the newer versions 6.4 through 6.8, as they have problems
-   displaying callstacks involving \DynamoRIO code).
-
-   \par
-   Take care when setting breakpoints in an application running under
-   \DynamoRIO.  If the debugger inserts \c int3 it can find its way into
-   the code cache and cause errors as the debugger will not realize that
-   the resulting trap is from a breakpoint.  Use read watchpoints on the
-   code in question instead.
-
-   \par 
-   On Linux, gdb sets a hidden breakpoint in __nptl_create_event.  This
-   causes \DynamoRIO to put an \c int3 into the code cache.  The debugger
-   then hits a trap on every pthread_create and other related calls.
-   The debugger handles these traps so this is just an annoyance.
-   See http://code.google.com/p/dynamorio/issues/detail?id=490.
-
-   \par
-   On Windows, if an application invokes OuputDebugString() while under a
-   debugger, \DynamoRIO can end up losing control of the application.
-\endif
-
  - The \DynamoRIO header files have typedefs that may conflict with other
    header files wrapped in ifndef DR_DO_NOT_DEFINE_<type> to make it
    easier to work around such conflicts.
+
+\ifnot vmsafe
+\subsection sec_using_debugger Using Debuggers
+
+A process under control of \DynamoRIO can be executed within a debugger.
+For debugging on Windows we recommend using windbg version 6.3.0017 (\b not
+the newer versions, as they have problems displaying callstacks involving
+\DynamoRIO code).
+
+Normally, the debugger will not be aware of the \DynamoRIO library or the
+\client library.  We provide a windbg script that locates the \DynamoRIO
+library, the \client library, and any privately-loaded dependent libraries.
+The script is in \c bin32/load_syms.txt and \c bin64/load_syms64.txt.  To
+load it from windbg, execute the following command:
+
+\code
+  $><c:\path\to\DR\bin32\load_syms.txt
+\endcode
+When debugging often, modify the shortcut that launches windbg
+to include this command as a -c argument.  E.g.:
+
+\code
+"C:\Program Files (x86)\Debugging Tools for Windows\windbg.exe" -pt 1 -c "$><c:\tools\DynamoRIO\bin32\load_syms.txt"
+\endcode
+
+On Windows, the \ref op_no_hide "-no_hide" option can alternatively be
+used so the debugger can see the \DynamoRIO library, but the debugger
+will still not be able to see the \client library or any of its
+dependent libraries.  We recommend using our script.
+
+To attach to a process on Windows, use the \ref op_msgbox_mask
+"-msgbox_mask" option and attach the debugger while the dialog box has
+paused the application.  On Linux, the same option can be used and
+the debugger attached while the application waits for enter to be
+pressed.  Since this may not work for applications that themselves
+read from standard input, an alternative exists: the \ref op_pause
+"-pause_on_error" option allows attaching a debugger when a problem
+occurs.  To run an application on Linux under a debugger from the start
+you can perform the work of the \c drrun script by setting the
+LD_LIBRARY_PATH and LD_PRELOAD environment variables from within the
+debugger.
+
+Take care when setting breakpoints in an application running under
+\DynamoRIO.  If the debugger inserts \c int3 it can find its way into
+the code cache and cause errors as the debugger will not realize that
+the resulting trap is from a breakpoint.  Use read watchpoints on the
+code in question instead.
+
+On Linux, gdb sets a hidden breakpoint in __nptl_create_event.  This
+causes \DynamoRIO to put an \c int3 into the code cache.  The debugger
+then hits a trap on every pthread_create and other related calls.
+The debugger handles these traps so this is just an annoyance.
+See http://code.google.com/p/dynamorio/issues/detail?id=490.
+
+On Windows, if an application invokes OuputDebugString() while under a
+debugger, \DynamoRIO can end up losing control of the application.
+\endif
 
 ****************************************************************************
 ****************************************************************************

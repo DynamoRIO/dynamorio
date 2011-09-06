@@ -161,6 +161,8 @@ The changes between version \DR_VERSION and 2.2.0 are:
    prior to 3.0.0.
  - Added \p drutil Extension which provides memory address retrieval
    and string loop expansion (note: LGPL license)
+ - Added a windbg script for auto-locating libraries for easier
+   debugging
  - Added dr_map_file(), dr_unmap_file(), and dr_file_size() (Issue 542)
  - Added routines to disassemble to a buffer rather than a file (Issue 524)
  - Added dr_insert_get_seg_base()

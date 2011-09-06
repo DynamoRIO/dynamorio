@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,7 +58,7 @@
 
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 # define READ_FUNC nt_read_virtual_memory
-# define DR_MARKER_VERSION_CURRENT DR_MARKER_VERSION_1
+# define DR_MARKER_VERSION_CURRENT DR_MARKER_VERSION_2
 #else /* NOT_DYNAMORIO_CORE */
 # pragma warning( disable : 4054) /* from function pointer 'void (__cdecl *)(void )' to data pointer 'unsigned char *' */
 /* complains about size_t* vs SIZE_T* */
@@ -225,14 +226,14 @@ extern read_write_lock_t *hotp_get_lock(void);  /* See FIXME above. */
 void
 init_dr_marker(dr_marker_t *marker)
 {
-    memset(marker, 0, sizeof(dr_marker_t));
+    /* not calling memset b/c windbg_cmds is large */
 # ifdef DEBUG
-    marker->flags |= DR_MARKER_DEBUG_BUILD;
+    marker->flags = DR_MARKER_DEBUG_BUILD;
 # else
-    marker->flags |= DR_MARKER_RELEASE_BUILD;
+    marker->flags = DR_MARKER_RELEASE_BUILD;
 # endif
 # ifdef PROFILE
-    marker->flags |= DR_MARKER_PROFILE_BUILD;
+    marker->flags = DR_MARKER_PROFILE_BUILD;
 # endif
     /* make sure we set one of the above flags and not more then one */
     ASSERT(TESTANY(DR_MARKER_BUILD_TYPES, marker->flags) &&
@@ -244,10 +245,13 @@ init_dr_marker(dr_marker_t *marker)
     marker->dr_generic_nudge_target = (void *)generic_nudge_target;
 # ifdef HOT_PATCHING_INTERFACE
     marker->dr_hotp_policy_status_table = (void *)hotp_policy_status_table;
+# else
+    marker->dr_hotp_policy_status_table = NULL;
 # endif
     marker->dr_marker_version = DR_MARKER_VERSION_CURRENT;
     marker->stats = get_dr_stats();
     dr_marker_magic_init(NT_CURRENT_PROCESS, marker);
+    marker->windbg_cmds[0] = '\0';
 }
 
 # ifdef HOT_PATCHING_INTERFACE
