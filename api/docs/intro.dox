@@ -1435,6 +1435,13 @@ networking).  Thus, if a crash occurs in a Windows service under
    the resulting trap is from a breakpoint.  Use read watchpoints on the
    code in question instead.
 
+   \par 
+   On Linux, gdb sets a hidden breakpoint in __nptl_create_event.  This
+   causes \DynamoRIO to put an \c int3 into the code cache.  The debugger
+   then hits a trap on every pthread_create and other related calls.
+   The debugger handles these traps so this is just an annoyance.
+   See http://code.google.com/p/dynamorio/issues/detail?id=490.
+
    \par
    On Windows, if an application invokes OuputDebugString() while under a
    debugger, \DynamoRIO can end up losing control of the application.
