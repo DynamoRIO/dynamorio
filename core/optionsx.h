@@ -335,6 +335,12 @@
      */
     OPTION_DEFAULT_INTERNAL(uint, client_lib_tls_size, 1,
                             "number of pages used for client libraries' TLS memory")
+    /* Controls whether we register symbol files with gdb.  This has very low
+     * overhead if gdb is not attached, and if it is, we probably want to have
+     * symbols anyway.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, privload_register_gdb, true,
+                            "register private loader DLLs with gdb")
 # endif
 # ifdef WINDOWS
     /* Heap isolation for private dll copies.  Valid only with -private_loader. */
