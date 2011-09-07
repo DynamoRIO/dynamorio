@@ -512,7 +512,7 @@ int main(int argc, char *argv[])
     int wait_result;
     time_t start_time, end_time;
     bool success;
-    bool exit0;
+    bool exit0 = false;
 #endif
     int i;
 #ifndef DRINJECT
