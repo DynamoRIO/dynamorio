@@ -448,7 +448,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
 
     ELF_ADDR text_addr =
         delta + module_get_text_section(file_map, file_size);
-    if (INTERNAL_OPTION(privload_register_gdb)) {
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privload_register_gdb), false)) {
         dr_gdb_add_symbol_file(filename, text_addr);
     } else {
         /* Add debugging comment about how to get symbol information in gdb. */
