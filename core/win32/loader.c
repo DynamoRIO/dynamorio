@@ -69,6 +69,9 @@
 #include "ntdll.h"
 #include "os_private.h"
 #include "diagnost.h" /* to read systemroot reg key */
+#include "arch.h"
+#include "instr.h"
+#include "decode.h"
 
 #ifdef X64
 # define IMAGE_ORDINAL_FLAG IMAGE_ORDINAL_FLAG64
@@ -1070,8 +1073,10 @@ privload_call_entry(privmod_t *privmod, uint reason)
              * (0xc0000041 (3221225537) - The NtConnectPort request is refused)
              * which we ignore for now.  DR always had trouble writing to the
              * console anyway (xref i#261).
+             * Update: for i#440, this should now succeed, but we leave this
+             * in place just in case.
              */
-            LOG(GLOBAL, LOG_LOADER, 2,
+            LOG(GLOBAL, LOG_LOADER, 1,
                 "%s: ignoring failure of kernel32!_BaseDllInitialize\n", __FUNCTION__);
             res = TRUE;    
         }
@@ -1303,6 +1308,121 @@ privload_init_search_paths(void)
         ASSERT_NOT_REACHED();
 }
 
+/* i#440: win7 private kernel32 tries to init the console w/ csrss and
+ * not only gets back an error, but csrss then refuses any future
+ * console ops from either DR or the app itself!
+ * Our workaround here is to disable the ConnectConsoleInternal call
+ * from the private kernel32.  We leave the rest alone, and it
+ * seems to work: or at least, printing to the console works for
+ * both the app and the private kernel32.
+ */
+static bool
+privload_disable_console_init(privmod_t *mod)
+{
+    app_pc pc, entry;
+    instr_t instr;
+    dcontext_t *dcontext = GLOBAL_DCONTEXT;
+    bool prev_push_2 = false;
+    bool success = false;
+    static const uint MAX_DECODE = 1024;
+
+    ASSERT(mod != NULL);
+    ASSERT(strcasecmp(mod->name, "kernel32.dll") == 0);
+    if (get_os_version() < WINDOWS_VERSION_7)
+        return true; /* nothing to do */
+
+    /* We want to turn the call to ConnectConsoleInternal from ConDllInitialize,
+     * which is called from the entry routine _BaseDllInitialize,
+     * into a nop.  Unfortunately none of these are exported.  We rely on the
+     * fact that the 1st param to ConDllInitialize is 2:
+     *    kernel32!_BaseDllInitialize+0x8a:
+     *    53               push    ebx
+     *    6a02             push    0x2
+     *    e83c000000       call    kernel32!ConDllInitialize (75043683)
+     */
+    instr_init(dcontext, &instr);
+    entry = get_module_entry(mod->base);
+    for (pc = entry; pc < entry + MAX_DECODE; ) {
+        instr_reset(dcontext, &instr);
+        pc = decode(dcontext, pc, &instr);
+        if (!instr_valid(&instr) || instr_is_return(&instr))
+            break; /* bail */
+        if (instr_get_opcode(&instr) == OP_push_imm &&
+            opnd_get_immed_int(instr_get_src(&instr, 0)) == 2/*magic constant*/) {
+            prev_push_2 = true;
+            continue;
+        }
+        if (prev_push_2 &&
+            instr_get_opcode(&instr) == OP_call) {
+            app_pc tgt = opnd_get_pc(instr_get_target(&instr));
+            app_pc prev_pc;
+            uint prev_lea = 0;
+            bool first_jcc = false;
+            uint orig_prot;
+            /* Now we're in ConDllInitialize.  The call to ConnectConsoleInternal
+             * has several lea's in front of it:
+             *
+             *   8d85d7f9ffff     lea     eax,[ebp-0x629]
+             *   50               push    eax
+             *   8d85d8f9ffff     lea     eax,[ebp-0x628]
+             *   50               push    eax
+             *   56               push    esi
+             *   e84c000000    call KERNEL32_620000!ConnectConsoleInternal (00636582)
+             *
+             * Unfortunately ConDllInitialize is not straight-line code.
+             * For now we follow the first je which is a little fragile.
+             * XXX: build full CFG.
+             */
+            for (pc = tgt; pc < tgt + MAX_DECODE; ) {
+                instr_reset(dcontext, &instr);
+                prev_pc = pc;
+                pc = decode(dcontext, pc, &instr);
+                if (!instr_valid(&instr) || instr_is_return(&instr))
+                    break; /* bail */
+                if (!first_jcc && instr_is_cbr(&instr)) {
+                    /* See above: a fragile hack to get to rest of routine */
+                    tgt = opnd_get_pc(instr_get_target(&instr));
+                    pc = tgt;
+                    first_jcc = true;
+                    continue;
+                }
+                if (instr_get_opcode(&instr) == OP_lea &&
+                    opnd_is_base_disp(instr_get_src(&instr, 0)) &&
+                    opnd_get_disp(instr_get_src(&instr, 0)) < -0x400) {
+                    prev_lea++;
+                    continue;
+                }
+                if (prev_lea >= 2 &&
+                    instr_get_opcode(&instr) == OP_call) {
+                    /* found a call preceded by a large lea and maybe some pushes.
+                     * replace the call:
+                     *   e84c000000    call KERNEL32_620000!ConnectConsoleInternal
+                     * =>
+                     *   b800000000    mov eax,0x0
+                     */
+                    if (!protect_virtual_memory((void *)PAGE_START(prev_pc), PAGE_SIZE,
+                                                PAGE_READWRITE, &orig_prot))
+                        break; /* bail */
+                    *(prev_pc) = MOV_IMM2XAX_OPCODE;
+                    *((uint *)(prev_pc+1)) = 0;
+                    protect_virtual_memory((void *)PAGE_START(prev_pc), PAGE_SIZE,
+                                           orig_prot, &orig_prot);
+                    success = true;
+                    break; /* done */
+                }
+                if (prev_lea > 0 &&
+                    instr_get_opcode(&instr) != OP_push &&
+                    instr_get_opcode(&instr) != OP_push_imm)
+                    prev_lea = 0;
+            }
+            break; /* bailed, or done */
+        }
+        prev_push_2 = false;
+    }
+    instr_free(dcontext, &instr);
+    return success;
+}
+
 /* Rather than statically linking to real kernel32 we want to invoke
  * routines in the private kernel32
  */
@@ -1341,6 +1461,11 @@ privload_redirect_setup(privmod_t *mod)
             get_proc_address_ex(mod->base, "LoadLibraryW", NULL);
         if (!dynamo_initialized)
             SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+
+        if (privload_disable_console_init(mod))
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: fixed console setup\n", __FUNCTION__);
+        else /* we want to know about it: may well happen in future version of dll */
+            SYSLOG_INTERNAL_WARNING("unable to fix console setup");
     }
 }
 
