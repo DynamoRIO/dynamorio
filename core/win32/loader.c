@@ -1319,12 +1319,14 @@ privload_init_search_paths(void)
 static bool
 privload_disable_console_init(privmod_t *mod)
 {
-    app_pc pc, entry;
+    app_pc pc, entry, prev_pc, protect;
     instr_t instr;
     dcontext_t *dcontext = GLOBAL_DCONTEXT;
-    bool prev_push_2 = false;
+    bool prev_marks_call = false;
     bool success = false;
-    static const uint MAX_DECODE = 1024;
+    app_pc push1 = NULL, push2 = NULL, push3 = NULL;
+    uint orig_prot;
+    static const uint MAX_DECODE = IF_X64_ELSE(1200,1024);
 
     ASSERT(mod != NULL);
     ASSERT(strcasecmp(mod->name, "kernel32.dll") == 0);
@@ -1334,7 +1336,8 @@ privload_disable_console_init(privmod_t *mod)
     /* We want to turn the call to ConnectConsoleInternal from ConDllInitialize,
      * which is called from the entry routine _BaseDllInitialize,
      * into a nop.  Unfortunately none of these are exported.  We rely on the
-     * fact that the 1st param to ConDllInitialize is 2:
+     * fact that the 1st param to the first ConDllInitialize call (not actually
+     * the one we care about, but same callee) is 2 (DLL_THREAD_ATTACH):
      *    kernel32!_BaseDllInitialize+0x8a:
      *    53               push    ebx
      *    6a02             push    0x2
@@ -1344,21 +1347,38 @@ privload_disable_console_init(privmod_t *mod)
     entry = get_module_entry(mod->base);
     for (pc = entry; pc < entry + MAX_DECODE; ) {
         instr_reset(dcontext, &instr);
+        prev_pc = pc;
         pc = decode(dcontext, pc, &instr);
         if (!instr_valid(&instr) || instr_is_return(&instr))
             break; /* bail */
-        if (instr_get_opcode(&instr) == OP_push_imm &&
-            opnd_get_immed_int(instr_get_src(&instr, 0)) == 2/*magic constant*/) {
-            prev_push_2 = true;
+#ifdef X64
+        /* For x64 we don't have a very good way to identify.  There is no
+         * ConDllInitialize, but the call to ConnectConsoleInternal from
+         * BaseDllInitialize is preceded by a rip-rel mov rax to memory.
+         */
+        if (instr_get_opcode(&instr) == OP_mov_st &&
+            opnd_is_reg(instr_get_src(&instr, 0)) &&
+            opnd_get_reg(instr_get_src(&instr, 0)) == REG_RAX &&
+            opnd_is_rel_addr(instr_get_dst(&instr, 0))) {
+            prev_marks_call = true;
             continue;
         }
-        if (prev_push_2 &&
+#else
+        if (instr_get_opcode(&instr) == OP_push_imm &&
+            opnd_get_immed_int(instr_get_src(&instr, 0)) == DLL_THREAD_ATTACH) {
+            prev_marks_call = true;
+            continue;
+        }
+#endif
+        if (prev_marks_call &&
             instr_get_opcode(&instr) == OP_call) {
+            /* For 32-bit we need to continue scanning.  For 64-bit we're there. */
+#ifdef X64
+            protect = prev_pc;
+#else
             app_pc tgt = opnd_get_pc(instr_get_target(&instr));
-            app_pc prev_pc;
             uint prev_lea = 0;
             bool first_jcc = false;
-            uint orig_prot;
             /* Now we're in ConDllInitialize.  The call to ConnectConsoleInternal
              * has several lea's in front of it:
              *
@@ -1394,30 +1414,52 @@ privload_disable_console_init(privmod_t *mod)
                 }
                 if (prev_lea >= 2 &&
                     instr_get_opcode(&instr) == OP_call) {
+                    protect = push1;
+#endif
                     /* found a call preceded by a large lea and maybe some pushes.
                      * replace the call:
                      *   e84c000000    call KERNEL32_620000!ConnectConsoleInternal
                      * =>
-                     *   b800000000    mov eax,0x0
+                     *   b801000000    mov eax,0x1
+                     * and change the 3 pushes to nops (this is stdcall).
                      */
-                    if (!protect_virtual_memory((void *)PAGE_START(prev_pc), PAGE_SIZE,
+                    /* 2 pages in case our code crosses a page */
+                    if (!protect_virtual_memory((void *)PAGE_START(protect), PAGE_SIZE*2,
                                                 PAGE_READWRITE, &orig_prot))
                         break; /* bail */
+                    if (push1 != NULL)
+                        *push1 = RAW_OPCODE_nop;
+                    if (push2 != NULL)
+                        *push2 = RAW_OPCODE_nop;
+                    if (push3 != NULL)
+                        *push3 = RAW_OPCODE_nop;
                     *(prev_pc) = MOV_IMM2XAX_OPCODE;
-                    *((uint *)(prev_pc+1)) = 0;
-                    protect_virtual_memory((void *)PAGE_START(prev_pc), PAGE_SIZE,
+                    *((uint *)(prev_pc+1)) = 1;
+                    protect_virtual_memory((void *)PAGE_START(protect), PAGE_SIZE*2,
                                            orig_prot, &orig_prot);
                     success = true;
                     break; /* done */
+#ifndef X64
                 }
-                if (prev_lea > 0 &&
-                    instr_get_opcode(&instr) != OP_push &&
-                    instr_get_opcode(&instr) != OP_push_imm)
-                    prev_lea = 0;
+                if (prev_lea > 0) {
+                    if (instr_get_opcode(&instr) == OP_push) {
+                        if (push1 != NULL) {
+                            if (push2 != NULL)
+                                push3 = prev_pc;
+                            else
+                                push2 = prev_pc;
+                        } else
+                            push1 = prev_pc;
+                    } else {
+                        push1 = push2 = push3 = NULL;
+                        prev_lea = 0;
+                    }
+                }
             }
             break; /* bailed, or done */
+#endif
         }
-        prev_push_2 = false;
+        prev_marks_call = false;
     }
     instr_free(dcontext, &instr);
     return success;

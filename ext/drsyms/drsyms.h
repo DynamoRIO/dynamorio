@@ -231,9 +231,10 @@ DR_EXPORT
  * Unfortunately there are significant limitations to this console
  * printing support:
  * 
- *  - It does not work from the exit event.  Once the application terminates
- *    its state with csrss (toward the very end of ExitProcess), no output
- *    will show up on the console.  We have no good solution here yet as exiting
+ *  - On Windows versions prior to Vista, it does not work from
+ *    the exit event.  Once the application terminates its state with
+ *    csrss (toward the very end of ExitProcess), no output will show
+ *    up on the console.  We have no good solution here yet as exiting
  *    early is not ideal.
  *  - It does not work at all from graphical applications, even when they are
  *    launched from a console.
