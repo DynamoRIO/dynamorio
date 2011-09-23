@@ -178,6 +178,7 @@ int default_action[] = {
     /* 61 */ DEFAULT_TERMINATE,
     /* 62 */ DEFAULT_TERMINATE,
     /* 63 */ DEFAULT_TERMINATE,
+    /* 64 */ DEFAULT_TERMINATE,
 };
 
 /* We know that many signals are always asynchronous.
@@ -253,6 +254,7 @@ bool can_always_delay[] = {
     /* 61 */                       true,
     /* 62 */                       true,
     /* 63 */                       true,
+    /* 64 */                       true,
 };
 
 static inline bool
@@ -331,7 +333,7 @@ void copy_kernel_sigset_to_sigset(kernel_sigset_t *kset, sigset_t *uset)
     /* do this the slow way...I don't want to make assumptions about
      * structure of user sigset_t
      */
-    for (sig=1; sig<MAX_SIGNUM; sig++) {
+    for (sig=1; sig<=MAX_SIGNUM; sig++) {
         if (kernel_sigismember(kset, sig))
             sigaddset(uset, sig);
     }
@@ -346,7 +348,7 @@ void copy_sigset_to_kernel_sigset(sigset_t *uset, kernel_sigset_t *kset)
     /* do this the slow way...I don't want to make assumptions about
      * structure of user sigset_t
      */
-    for (sig=1; sig<MAX_SIGNUM; sig++) {
+    for (sig=1; sig<=MAX_SIGNUM; sig++) {
         if (sigismember(uset, sig))
             kernel_sigaddset(kset, sig);
     }
@@ -529,11 +531,11 @@ typedef struct _thread_sig_info_t {
     thread_itimer_info_t (*itimer)[NUM_ITIMERS];
 
     /* cache restorer validity.  not shared: inheriter will re-populate. */
-    int restorer_valid[MAX_SIGNUM];
+    int restorer_valid[SIGARRAY_SIZE];
 
     /* rest of app state */
     stack_t app_sigstack;
-    sigpending_t *sigpending[MAX_SIGNUM];
+    sigpending_t *sigpending[SIGARRAY_SIZE];
     /* "lock" to prevent interrupting signal from messing up sigpending array */
     bool accessing_sigpending;
     kernel_sigset_t app_sigblocked;
@@ -1189,7 +1191,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             mutex_lock(info->shared_lock);
             (*info->shared_refcount)++;
 #ifdef DEBUG
-            for (i = 0; i < MAX_SIGNUM; i++) {
+            for (i = 1; i <= MAX_SIGNUM; i++) {
                 if (info->app_sigaction[i] != NULL) {
                     LOG(THREAD, LOG_ASYNCH, 2, "\thandler for signal %d is "PFX"\n",
                         i, info->app_sigaction[i]->handler);
@@ -1203,7 +1205,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             info->app_sigaction = (kernel_sigaction_t **)
                 handler_alloc(dcontext, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
             memset(info->app_sigaction, 0, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
-            for (i = 0; i < MAX_SIGNUM; i++) {
+            for (i = 1; i <= MAX_SIGNUM; i++) {
                 ASSERT(record->info.restorer_valid[i] == -1);
                 if (record->info.app_sigaction[i] != NULL) {
                     info->app_sigaction[i] = (kernel_sigaction_t *)
@@ -1271,11 +1273,11 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         }
 
         info->app_sigaction = (kernel_sigaction_t **)
-            handler_alloc(dcontext, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
-        memset(info->app_sigaction, 0, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
-        memset(&info->restorer_valid, -1, MAX_SIGNUM * sizeof(info->restorer_valid[0]));
-        info->we_intercept = (bool *) handler_alloc(dcontext, MAX_SIGNUM * sizeof(bool));
-        memset(info->we_intercept, 0, MAX_SIGNUM * sizeof(bool));
+            handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
+        memset(info->app_sigaction, 0, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
+        memset(&info->restorer_valid, -1, SIGARRAY_SIZE * sizeof(info->restorer_valid[0]));
+        info->we_intercept = (bool *) handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(bool));
+        memset(info->we_intercept, 0, SIGARRAY_SIZE * sizeof(bool));
                 
         info->shared_itimer = false; /* we'll set to true if a child is created */
         init_itimer(dcontext, true/*first*/);
@@ -1286,7 +1288,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
              * we always intercept all signals.  We also check here
              * for handlers the app registered before our init.
              */
-            for (i=1; i<MAX_SIGNUM; i++) {
+            for (i=1; i<=MAX_SIGNUM; i++) {
                 /* cannot intercept KILL or STOP */
                 if (i != SIGKILL && i != SIGSTOP &&
                     /* FIXME PR 297033: we don't support intercepting DEFAULT_STOP /
@@ -1324,7 +1326,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             intercept_signal(dcontext, info, NUDGESIG_SIGNUM);
         
             /* process any handlers app registered before our init */
-            for (i=1; i<MAX_SIGNUM; i++) {
+            for (i=1; i<=MAX_SIGNUM; i++) {
                 if (info->we_intercept[i]) {
                     /* intercept_signal already stored pre-existing handler */
                     continue;
@@ -1409,7 +1411,7 @@ signal_fork_init(dcontext_t *dcontext)
         init_itimer(dcontext, true/*first*/);
     }
     info->num_unstarted_children = 0;
-    for (i = 0; i < MAX_SIGNUM; i++) {
+    for (i = 1; i <= MAX_SIGNUM; i++) {
         /* "A child created via fork(2) initially has an empty pending signal set" */
         dcontext->signals_pending = false;
         while (info->sigpending[i] != NULL) {
@@ -1456,7 +1458,7 @@ signal_thread_exit(dcontext_t *dcontext)
     }
     if (!info->shared_app_sigaction || *info->shared_refcount == 0) {
         LOG(THREAD, LOG_ASYNCH, 2, "signal handler cleanup:\n");
-        for (i = 0; i < MAX_SIGNUM; i++) {
+        for (i = 1; i <= MAX_SIGNUM; i++) {
             if (info->app_sigaction[i] != NULL) {
                 /* restore to old handler, but not if exiting whole
                  * process: else may get itimer during cleanup, so we
@@ -1480,8 +1482,8 @@ signal_thread_exit(dcontext_t *dcontext)
                 }
             }
         }
-        handler_free(dcontext, info->app_sigaction, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
-        handler_free(dcontext, info->we_intercept, MAX_SIGNUM * sizeof(bool));
+        handler_free(dcontext, info->app_sigaction, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
+        handler_free(dcontext, info->we_intercept, SIGARRAY_SIZE * sizeof(bool));
         if (info->shared_lock != NULL) {
             DELETE_LOCK(*info->shared_lock);
             global_heap_free(info->shared_lock, sizeof(mutex_t) HEAPACCT(ACCT_OTHER));
@@ -1516,7 +1518,7 @@ signal_thread_exit(dcontext_t *dcontext)
                              HEAPACCT(ACCT_OTHER));
         }
     }
-    for (i = 0; i < MAX_SIGNUM; i++) {
+    for (i = 1; i <= MAX_SIGNUM; i++) {
         /* pending queue is per-thread and not shared */
         while (info->sigpending[i] != NULL) {
             sigpending_t *temp = info->sigpending[i];
@@ -1601,7 +1603,7 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
     int rc;
     kernel_sigaction_t act;
     kernel_sigaction_t oldact;
-    ASSERT(sig < MAX_SIGNUM);
+    ASSERT(sig <= MAX_SIGNUM);
 
     set_our_handler_sigact(&act, sig);
     /* arm the signal */
@@ -1728,7 +1730,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     kernel_sigaction_t *save;
     kernel_sigaction_t *non_const_act = (kernel_sigaction_t *) act;
-    ASSERT(sig < MAX_SIGNUM);
+    ASSERT(sig <= MAX_SIGNUM);
 
     if (act != NULL) {
         /* app is installing a new action */
@@ -1811,7 +1813,7 @@ handle_post_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *a
                       kernel_sigaction_t *oact, size_t sigsetsize)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
-    ASSERT(sig < MAX_SIGNUM);
+    ASSERT(sig <= MAX_SIGNUM);
     if (oact != NULL) {
         /* FIXME: hold lock across the syscall?!?
          * else could be modified and get wrong old action?
@@ -1882,7 +1884,7 @@ set_blocked(dcontext_t *dcontext, kernel_sigset_t *set, bool absolute)
         /* discard current blocked signals, re-set from new mask */
         kernel_sigemptyset(&info->app_sigblocked);
     } /* else, OR in the new set */
-    for (i=0; i<MAX_SIGNUM; i++) {
+    for (i=1; i<=MAX_SIGNUM; i++) {
         if (info->we_intercept[i] && kernel_sigismember(set, i)) {
             kernel_sigaddset(&info->app_sigblocked, i);
         }
@@ -1893,6 +1895,31 @@ set_blocked(dcontext_t *dcontext, kernel_sigset_t *set, bool absolute)
         dump_sigset(dcontext, &info->app_sigblocked);
     }
 #endif
+}
+
+/* Scans over info->sigpending to see if there are any unblocked, pending
+ * signals, and sets dcontext->signals_pending if there are.  Do this after
+ * modifying the set of signals blocked by the application.
+ */
+static void
+check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
+{
+    int i;
+
+    if (dcontext->signals_pending)
+        return;
+
+    for (i=1; i<=MAX_SIGNUM; i++) {
+        if (info->sigpending[i] != NULL &&
+            !kernel_sigismember(&info->app_sigblocked, i)) {
+            /* We only update the application's set of blocked signals from
+             * syscall handlers, so we know we'll go back to dispatch and see
+             * this flag right away.
+             */
+            dcontext->signals_pending = true;
+            break;
+        }
+    }
 }
 
 void
@@ -1909,7 +1936,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
             /* The set of blocked signals is the union of the current
              * set and the set argument.
              */
-            for (i=0; i<MAX_SIGNUM; i++) {
+            for (i=1; i<=MAX_SIGNUM; i++) {
                 if (info->we_intercept[i] && kernel_sigismember(set, i)) {
                     kernel_sigaddset(&info->app_sigblocked, i);
                     kernel_sigdelset(set, i);
@@ -1919,7 +1946,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
             /* The signals in set are removed from the current set of
              *  blocked signals.
              */
-            for (i=0; i<MAX_SIGNUM; i++) {
+            for (i=1; i<=MAX_SIGNUM; i++) {
                 if (info->we_intercept[i] && kernel_sigismember(set, i)) {
                     kernel_sigdelset(&info->app_sigblocked, i);
                     kernel_sigdelset(set, i);
@@ -1928,7 +1955,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
         } else if (how == SIG_SETMASK) {
             /* The set of blocked signals is set to the argument set. */
             kernel_sigemptyset(&info->app_sigblocked);
-            for (i=0; i<MAX_SIGNUM; i++) {
+            for (i=1; i<=MAX_SIGNUM; i++) {
                 if (info->we_intercept[i] && kernel_sigismember(set, i)) {
                     kernel_sigaddset(&info->app_sigblocked, i);
                     kernel_sigdelset(set, i);
@@ -1950,18 +1977,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
          * get w/o dynamo?  This goes away if we deliver signals
          * prior to letting app do a syscall.
          */
-        if (!dcontext->signals_pending) {
-            for (i=0; i<MAX_SIGNUM; i++) {
-                if (info->sigpending[i] != NULL &&
-                    !kernel_sigismember(&info->app_sigblocked, i)) {
-                    /* since we're now in DR syscall handler, we know we'll
-                     * go back to dispatch and see this flag right away
-                     */
-                    dcontext->signals_pending = true;
-                    break;
-                }
-            }
-        }
+        check_signals_pending(dcontext, info);
     }
 }
 
@@ -1973,7 +1989,7 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
     if (oset != NULL) {
-        for (i=0; i<MAX_SIGNUM; i++) {
+        for (i=1; i<=MAX_SIGNUM; i++) {
             if (info->we_intercept[i] &&
                 /* use the pre-syscall value: do not take into account changes
                  * from this syscall itself! (PR 523394)
@@ -1996,7 +2012,7 @@ handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set,
     info->in_sigsuspend = true;
     info->app_sigblocked_save = info->app_sigblocked;
     kernel_sigemptyset(&info->app_sigblocked);
-    for (i=0; i<MAX_SIGNUM; i++) {
+    for (i=1; i<=MAX_SIGNUM; i++) {
         if (info->we_intercept[i] && kernel_sigismember(set, i)) {
             kernel_sigaddset(&info->app_sigblocked, i);
             kernel_sigdelset(set, i);
@@ -2130,7 +2146,7 @@ static void
 dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set)
 {
     int sig;
-    for (sig=1; sig<MAX_SIGNUM; sig++) {
+    for (sig=1; sig<=MAX_SIGNUM; sig++) {
         if (kernel_sigismember(set, sig))
             LOG(THREAD, LOG_ASYNCH, 1, "\t%d = blocked\n", sig);
     }
@@ -3270,7 +3286,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 
             /* special heap alloc always uses sizeof(sigpending_t) blocks */
             pend = special_heap_alloc(info->sigheap);
-            ASSERT(sig > 0 && sig < MAX_SIGNUM);
+            ASSERT(sig > 0 && sig <= MAX_SIGNUM);
 
             /* to avoid accumulating signals if we're slow in presence of
              * a high-rate itimer we only keep 2 alarm signals (PR 596768)
@@ -4355,7 +4371,7 @@ receive_pending_signal(dcontext_t *dcontext)
     info->accessing_sigpending = true;
     /* barrier to prevent compiler from moving the above write below the loop */
     __asm__ __volatile__("" : : : "memory");
-    for (sig = 0; sig < MAX_SIGNUM; sig++) {
+    for (sig = 1; sig <= MAX_SIGNUM; sig++) {
         if (info->sigpending[sig] != NULL) {
             bool executing = true;
             if (kernel_sigismember(&info->app_sigblocked, sig)) {
@@ -4378,7 +4394,7 @@ receive_pending_signal(dcontext_t *dcontext)
     info->accessing_sigpending = false;
 
     /* we only clear this on a call to us where we find NO pending signals */
-    if (sig == MAX_SIGNUM) {
+    if (sig > MAX_SIGNUM) {
         LOG(THREAD, LOG_ASYNCH, 3, "\tclearing signals_pending flag\n");
         dcontext->signals_pending = false;
     }
@@ -4422,7 +4438,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
         if (frame->sig != sig)
             LOG(THREAD, LOG_ASYNCH, 1, "WARNING: app sig handler clobbered sig param\n");
 #endif
-        ASSERT(sig > 0 && sig < MAX_SIGNUM && IS_RT_FOR_APP(info, sig));
+        ASSERT(sig > 0 && sig <= MAX_SIGNUM && IS_RT_FOR_APP(info, sig));
         /* FIXME: what if handler called sigaction and requested rt
          * when itself was non-rt?
          */
@@ -4447,7 +4463,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
             sig, frame->sig);
         if (frame->sig != sig)
             LOG(THREAD, LOG_ASYNCH, 1, "WARNING: app sig handler clobbered sig param\n");
-        ASSERT(sig > 0 && sig < MAX_SIGNUM && !IS_RT_FOR_APP(info, sig));
+        ASSERT(sig > 0 && sig <= MAX_SIGNUM && !IS_RT_FOR_APP(info, sig));
         sc = get_sigcontext_from_app_frame(info, sig, (void *) frame);
         /* discard blocked signals, re-set from prev mask stored in frame */
         prevset.sig[0] = frame->sc.oldmask;
@@ -4455,6 +4471,10 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
             memcpy(&prevset.sig[1], &frame->extramask, sizeof(frame->extramask));
         set_blocked(dcontext, &prevset, true/*absolute*/);
     }
+
+    /* Make sure we deliver pending signals that are now unblocked.
+     */
+    check_signals_pending(dcontext, info);
 
     /* We abandoned the previous context, so we need to start
      * interpreting anew.  Regardless of whether we handled the signal

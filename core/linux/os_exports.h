@@ -188,11 +188,14 @@ bool unhook_vsyscall(void);
 
 /* defines and typedefs exported for dr_jmp_buf_t */
 
-#define NUM_NONRT   32 /* include 0 to make offsets simple */
-#define NUM_RT      32
+#define NUM_NONRT   32 /* includes 0 */
 #define OFFS_RT     32
-/* FIXME: PR 362835: actually 64, not 63, is the highest valid signum */
-#define MAX_SIGNUM  ((OFFS_RT) + (NUM_RT))
+#define NUM_RT      33 /* RT signals are [32..64] inclusive, hence 33. */
+/* MAX_SIGNUM is the highest valid signum. */
+#define MAX_SIGNUM  ((OFFS_RT) + (NUM_RT) - 1)
+/* i#336: MAX_SIGNUM is a valid signal, so we must allocate space for it.
+ */
+#define SIGARRAY_SIZE (MAX_SIGNUM + 1)
 
 /* size of long */
 #ifdef X64
