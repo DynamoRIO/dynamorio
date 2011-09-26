@@ -156,6 +156,9 @@ static SIZE_T WINAPI
 redirect_RtlSizeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 
 static BOOL WINAPI
+redirect_RtlValidateHeap(HANDLE heap, DWORD flags, void *ptr);
+
+static BOOL WINAPI
 redirect_RtlLockHeap(HANDLE heap);
 
 static BOOL WINAPI
@@ -249,6 +252,7 @@ static const redirect_import_t redirect_ntdll[] = {
     {"RtlReAllocateHeap",              (app_pc)redirect_RtlReAllocateHeap},
     {"RtlFreeHeap",                    (app_pc)redirect_RtlFreeHeap},
     {"RtlSizeHeap",                    (app_pc)redirect_RtlSizeHeap},
+    {"RtlValidateHeap",                (app_pc)redirect_RtlValidateHeap},
     /* kernel32!LocalFree calls these */
     {"RtlLockHeap",                    (app_pc)redirect_RtlLockHeap},
     {"RtlUnlockHeap",                  (app_pc)redirect_RtlUnlockHeap},
@@ -1731,6 +1735,8 @@ BOOL WINAPI RtlFreeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 
 SIZE_T WINAPI RtlSizeHeap(HANDLE heap, ULONG flags, PVOID ptr);
 
+BOOL WINAPI RtlValidateHeap(HANDLE heap, DWORD flags, void *ptr);
+
 BOOL WINAPI RtlLockHeap(HANDLE heap);
 
 BOOL WINAPI RtlUnlockHeap(HANDLE heap);
@@ -1766,6 +1772,17 @@ redirect_RtlSizeHeap(HANDLE heap, ULONG flags, byte *ptr)
             return 0;
     } else {
         return RtlSizeHeap(heap, flags, ptr);
+    }
+}
+
+static BOOL WINAPI
+redirect_RtlValidateHeap(HANDLE heap, DWORD flags, void *ptr)
+{
+    if (redirect_heap_call(heap)) {
+        /* nop: we assume no caller expects false */
+        return TRUE;
+    } else {
+        return RtlValidateHeap(heap, flags, ptr);
     }
 }
 
