@@ -827,6 +827,38 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
     return map;
 }
 
+privmod_t *
+privload_lookup_locate_and_load(const char *name, privmod_t *name_dependent,
+                                privmod_t *load_dependent, bool inc_refcnt)
+{
+    privmod_t *newmod = NULL;
+    const char *path;
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    path = privload_map_name(name, name_dependent);
+    newmod = privload_lookup(path);
+    if (newmod == NULL)
+        newmod = privload_locate_and_load(path, load_dependent);
+    else if (inc_refcnt)
+        newmod->ref_count++;
+    return newmod;
+}
+
+/* Does a search for the name, whereas load_private_library() assumes you're
+ * passing it the whole path (i#486).
+ */
+app_pc
+privload_load_private_library(const char *name)
+{
+    privmod_t *newmod;
+    app_pc res = NULL;
+    acquire_recursive_lock(&privload_lock);
+    newmod = privload_lookup_locate_and_load(name, NULL, NULL, true/*inc refcnt*/);
+    if (newmod != NULL)
+        res = newmod->base;
+    release_recursive_lock(&privload_lock);
+    return res;
+}
+
 bool
 privload_process_imports(privmod_t *mod)
 {
@@ -855,7 +887,6 @@ privload_process_imports(privmod_t *mod)
         const char *impname = (const char *) RVA_TO_VA(mod->base, imports->Name);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: %s imports from %s\n", __FUNCTION__,
             mod->name, impname);
-        impname = privload_map_name(impname, mod);
 
         /* FIXME i#233: support bound imports: for now ignoring */
         if (imports->TimeDateStamp == -1) {
@@ -871,16 +902,12 @@ privload_process_imports(privmod_t *mod)
                 __FUNCTION__, mod->name);
         }
 
-        impmod = privload_lookup(impname);
+        impmod = privload_lookup_locate_and_load(impname, mod, mod, true/*inc refcnt*/);
         if (impmod == NULL) {
-            impmod = privload_locate_and_load(impname, mod);
-            if (impmod == NULL) {
-                LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load import lib %s\n",
-                    __FUNCTION__, impname);
-                return false;
-            }
-        } else
-            impmod->ref_count++;
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load import lib %s\n",
+                __FUNCTION__, impname);
+            return false;
+        }
 
         /* walk the lookup table and address table in lockstep */
         /* FIXME: should check readability: if had no-dcontext try (i#350) could just
@@ -1024,20 +1051,17 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
         LOG(GLOBAL, LOG_LOADER, 2, "\tforwarder %s => %s %s\n",
             forwarder, forwmodpath, forwfunc);
         last_forwmod = forwmod;
-        forwpath = privload_map_name(forwmodpath,
-                                     last_forwmod == NULL ? mod : last_forwmod);
-        forwmod = privload_lookup(forwpath);
+        /* don't use forwmodpath past here: recursion may clobber it */
+        /* XXX: should inc ref count: but then need to walk individual imports
+         * and dec on unload.  For now risking it.
+         */
+        forwmod = privload_lookup_locate_and_load
+            (forwmodpath, last_forwmod == NULL ? mod : last_forwmod,
+             mod, false/*!inc refcnt*/);
         if (forwmod == NULL) {
-            /* don't use forwmodpath past here: recursion may clobber it */
-            /* XXX: should inc ref count: but then need to walk individual imports
-             * and dec on unload.  For now risking it.
-             */
-            forwmod = privload_locate_and_load(forwpath, mod);
-            if (forwmod == NULL) {
-                LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forworder for %s\n"
-                    __FUNCTION__, forwarder);
-                return false;
-            }
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forworder for %s\n"
+                __FUNCTION__, forwarder);
+            return false;
         }
         /* should be listed as import; don't want to inc ref count on each forw */
         func = get_proc_address_ex(forwmod->base, forwfunc, &forwarder);
@@ -1968,7 +1992,7 @@ redirect_LoadLibraryA(const char *name)
 {
     app_pc res = NULL;
     ASSERT(priv_kernel32_LoadLibraryA != NULL);
-    res = load_private_library(name);
+    res = privload_load_private_library(name);
     if (res == NULL) {
         /* XXX: if private loader can't handle some feature (delay-load dll,
          * bound imports, etc.), we could have the private kernel32 call the
@@ -1993,7 +2017,7 @@ redirect_LoadLibraryW(const wchar_t *name)
     if (_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", name) < 0)
         return (*priv_kernel32_LoadLibraryW)(name);
     NULL_TERMINATE_BUFFER(buf);
-    res = load_private_library(buf);
+    res = privload_load_private_library(buf);
     if (res == NULL) {
         /* XXX: should set more appropriate error code */
         (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
