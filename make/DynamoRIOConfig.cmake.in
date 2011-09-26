@@ -366,7 +366,21 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
       if (tgt_cxx)
         # Take advantage of the Windows private loader: no longer need
         # /nodefaultlib or /noentry.  We only do so for C++ clients for now.
-        set(tgt_link_flags "${tgt_link_flags}")
+        set(tgt_link_flags "${tgt_link_flags} /nodefaultlib:libcmt")
+        # i#233: we require static libc for VS2005 and VS2008 to avoid SxS.
+        # For simplicity we just require them regardless.
+        # XXX: better to re-instantiate /MT in cflags?
+        # No: that puts libcmt at the end and we have dup def problems.
+        # Note that any client linking with ntdll will have to add it
+        # AFTER these are added if any forwarded routines are used.
+        if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+          set(static_libc libcpmtd libcmtd)
+          # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
+          set(tgt_cflags "${tgt_cflags} -D_DEBUG")
+        else ()
+          set(static_libc libcpmt libcmt)
+        endif ()
+        target_link_libraries(${target} ${static_libc})
       else (tgt_cxx)
         set(tgt_link_flags "${tgt_link_flags} /nodefaultlib /noentry")
       endif (tgt_cxx)
