@@ -647,7 +647,8 @@ is_in_client_lib(app_pc addr)
             return true;
         }
     }
-    if (vmvector_overlap(client_aux_libs, addr, addr+1))
+    if (client_aux_libs != NULL &&
+        vmvector_overlap(client_aux_libs, addr, addr+1))
         return true;
     return false;
 }

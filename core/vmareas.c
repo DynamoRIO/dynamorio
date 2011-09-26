@@ -5836,7 +5836,9 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     if (dynamo_vm_area_overlap(base, base + size)) {
         LOG(GLOBAL, LOG_VMAREAS, 2, "\t<dynamorio region>\n");
         /* assumption: preload/preinject library is not on DR area list since unloaded */
-        if (!is_in_dynamo_dll(base)) /* our own text section is ok */
+        if (!is_in_dynamo_dll(base) /* our own text section is ok */
+            /* client lib text section is ok (xref i#487) */
+            IF_CLIENT_INTERFACE(&& !is_in_client_lib(base)))
             return false;
     }
 

@@ -2790,7 +2790,9 @@ find_executable_vm_areas()
          * on our mod list or executable area list
          */
         bool skip = dynamo_vm_area_overlap(pb, pb + mbi.RegionSize) &&
-            !is_in_dynamo_dll(pb); /* our own text section is ok */
+            !is_in_dynamo_dll(pb) /* our own text section is ok */
+            /* client lib text section is ok (xref i#487) */
+            IF_CLIENT_INTERFACE(&& !is_in_client_lib(pb));
         ASSERT(pb == mbi.BaseAddress);
         DOLOG(2, LOG_VMAREAS, {
             if (skip) {
