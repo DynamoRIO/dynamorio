@@ -439,6 +439,9 @@ os_loader_init_prologue(void)
      * callbacks that KiUserCallbackDispatcher invokes.  For now we do not
      * duplicate it.  If the app loads it dynamically later we will end up
      * duplicating but not worth checking for that.
+     * If client private lib loads user32 when app does not statically depend
+     * on it, we'll have a private copy and no app copy: this may cause
+     * problems later but waiting to see.
      */
     if (user32 != NULL) {
         snprintf(modpath, BUFFER_SIZE_ELEMENTS(modpath), "%s/system32/%s",
