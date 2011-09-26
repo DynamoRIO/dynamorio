@@ -1203,8 +1203,8 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             /* copy handlers */
             LOG(THREAD, LOG_ASYNCH, 2, "inheriting signal handlers from parent\n");
             info->app_sigaction = (kernel_sigaction_t **)
-                handler_alloc(dcontext, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
-            memset(info->app_sigaction, 0, MAX_SIGNUM * sizeof(kernel_sigaction_t *));
+                handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
+            memset(info->app_sigaction, 0, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
             for (i = 1; i <= MAX_SIGNUM; i++) {
                 ASSERT(record->info.restorer_valid[i] == -1);
                 if (record->info.app_sigaction[i] != NULL) {
@@ -1217,9 +1217,9 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                 }
             }
             info->we_intercept = (bool *)
-                handler_alloc(dcontext, MAX_SIGNUM * sizeof(bool));
+                handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(bool));
             memcpy(info->we_intercept, record->info.we_intercept,
-                   MAX_SIGNUM * sizeof(bool));
+                   SIGARRAY_SIZE * sizeof(bool));
             mutex_lock(&record->info.child_lock);
             record->info.num_unstarted_children--;
             mutex_unlock(&record->info.child_lock);
