@@ -497,21 +497,19 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
                     sz += 1;
                     if (num_prefixes != NULL)
                         *num_prefixes = sz;
-                    if (vex3) {
-                        /* no prefixes after vex + already did full size, so goto end */
-                        if (vex_mm == 1) {
-                            sz += sizeof_escape(dcontext, pc, addr16
-                                                _IF_X64(&rip_rel_pc));
-                            goto decode_sizeof_done;
-                        } else if (vex_mm == 2) {
-                            sz += sizeof_3byte_38(dcontext, pc - 1, addr16, true
-                                                  _IF_X64(&rip_rel_pc));
-                            goto decode_sizeof_done;
-                        } else if (vex_mm == 3) {
-                            sz += sizeof_3byte_3a(dcontext, pc - 1, addr16
-                                                  _IF_X64(&rip_rel_pc));
-                            goto decode_sizeof_done;
-                        }
+                    /* no prefixes after vex + already did full size, so goto end */
+                    if (!vex3 || (vex3 && (vex_mm == 1))) {
+                        sz += sizeof_escape(dcontext, pc, addr16
+                                            _IF_X64(&rip_rel_pc));
+                        goto decode_sizeof_done;
+                    } else if (vex_mm == 2) {
+                        sz += sizeof_3byte_38(dcontext, pc - 1, addr16, true
+                                              _IF_X64(&rip_rel_pc));
+                        goto decode_sizeof_done;
+                    } else if (vex_mm == 3) {
+                        sz += sizeof_3byte_3a(dcontext, pc - 1, addr16
+                                              _IF_X64(&rip_rel_pc));
+                        goto decode_sizeof_done;
                     }
                 } else
                     found_prefix = false;

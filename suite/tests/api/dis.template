@@ -144,8 +144,8 @@
 +0x014c   2c e0                sub    al, 0xe0
 +0x014e   9b                   fwait  
 +0x014f   16...??              <INVALID>
-+0x0150   c5 c5 a8 7b...??     <INVALID>
-+0x0151   c5 a8 7b cc...??     <INVALID>
++0x0150   c5 c5 a8...??     <INVALID>
++0x0151   c5 a8...??     <INVALID>
 +0x0152   a8 7b                test   al, 0x7b
 +0x0154   cc                   int3   
 +0x0155   a7                   cmpsd  
@@ -1262,8 +1262,8 @@
 +0x0c22   f6 5e ad             neg    byte ptr [rsi-0x53]
 +0x0c25   5a                   pop    rdx
 +0x0c26   1c 3f                sbb    al, 0x3f
-+0x0c28   c5 b9 56...??        <INVALID>
-+0x0c29   b9 56 43 a8 af       mov    ecx, 0xafa84356
++0x0c28   c5 b9 56 43 a8       vorpd xmm0, xmm8, [rbx-0x58]
++0x0c2d   af                   scasd
 +0x0c2e   90                   nop    
 +0x0c2f   b0 b5                mov    al, 0xb5
 +0x0c31   80 48 71 43          or     byte ptr [rax+0x71], 0x43
@@ -1302,7 +1302,8 @@
      93 cd
 +0x0c8f   3c 63                cmp    al, 0x63
 +0x0c91   b9 e3 df 9b d8       mov    ecx, 0xd89bdfe3
-+0x0c96   c5 f0 f0 8f f1...??  <INVALID>
++0x0c96   c5 f0 f0 8f f1 86 e8...??  <INVALID>
+     05
 +0x0c97   f0 f0 8f f1...??     <INVALID>
 +0x0c98   f0 8f f1...??        <INVALID>
 +0x0c99   8f f1...??           <INVALID>
@@ -1954,7 +1955,8 @@
 +0x1311   00 f9                add    cl, bh
 +0x1313   16...??              <INVALID>
 +0x1314   48 c3                ret    
-+0x1316   c5 bf 93...??        <INVALID>
++0x1316   c5 bf 93 bc a0 9a dd...?? <INVALID>
+     55 a0
 +0x1317   bf 93 bc a0 9a       mov    edi, 0x9aa0bc93
 +0x131c   dd 55 a0             fst    qword ptr [rbp-0x60]
 +0x131f   32 69 f4             xor    ch, byte ptr [rcx-0x0c]
@@ -2314,7 +2316,7 @@
 +0x16c7   f6 23                mul    ax, byte ptr [rbx]
 +0x16c9   c1 75 13 62          shl    dword ptr [rbp+0x13], 0x62
 +0x16cd   ae                   scasb  
-+0x16ce   c5 77 b8 6f 92 53 e6...??  <INVALID>
++0x16ce   c5 77 b8 6f 92...??  <INVALID>
 +0x16cf   77 b8                jnbe   0x000000000fffffba
 +0x16d1   6f                   outsd  
 +0x16d2   92                   xchg   edx, eax
@@ -2583,10 +2585,8 @@
 +0x19a4   89 8c 1c 35 ae 79 d6 mov    dword ptr [rsp+rbx-0x298651cb], ecx
 +0x19ab   ed                   in     eax, dx
 +0x19ac   30 6b 2f             xor    byte ptr [rbx+0x2f], ch
-+0x19af   c5 fe 52...??        <INVALID>
-+0x19b0   fe 52 84...??        <INVALID>
-+0x19b1   52                   push   rdx
-+0x19b2   84 be d2 80 4e a2    test   byte ptr [rsi-0x5db17f2e], bh
++0x19af   c5 fe 52 84 be d2 80 vrsqrtss xmm0, xmm0, dword ptr [rsi+rdi*4-0x5db17f2e]
+     4e a2
 +0x19b8   6f                   outsd  
 +0x19b9   aa                   stosb  
 +0x19ba   64 00 14 20          add    byte ptr [fs:rax], dl
@@ -2969,7 +2969,7 @@
 +0x1d5f   fd                   std    
 +0x1d60   ac                   lodsb  
 +0x1d61   19 aa 2b c6 6c 20    sbb    dword ptr [rdx+0x206cc62b], ebp
-+0x1d67   c5 2e 9c...??        <INVALID>
++0x1d67   c5 2e 9c eb...??        <INVALID>
 +0x1d68   2e 9c                pushfq 
 +0x1d6a   eb d2                jmp    0x000000000fffffd4
 +0x1d6c   06...??              <INVALID>
@@ -3228,7 +3228,7 @@
 +0x014c   2c e0                sub    al, 0xe0
 +0x014e   9b                   fwait  
 +0x014f   16                   push   ss
-+0x0150   c5 c5 a8 7b...??     <INVALID>
++0x0150   c5 c5 a8...??     <INVALID>
 +0x0151   c5 a8 7b cc a7 e4    lds    ebp, [eax+0xe4a7cc7b]
 +0x0157   ac                   lodsb  
 +0x0158   b2 d8                mov    dl, 0xd8
@@ -4407,7 +4407,8 @@
 +0x0c8d   93                   xchg   ebx, eax
 +0x0c8e   cd 3c                int    0x3c
 +0x0c90   63 b9 e3 df 9b d8    arpl   word ptr [ecx+0xd89bdfe3], di
-+0x0c96   c5 f0 f0 8f f1...??  <INVALID>
++0x0c96   c5 f0 f0 8f f1 86 e8...??  <INVALID>
+     05
 +0x0c97   f0 f0 8f f1...??     <INVALID>
 +0x0c98   f0 8f f1...??        <INVALID>
 +0x0c99   8f f1...??           <INVALID>
@@ -5726,10 +5727,8 @@
 +0x19a4   89 8c 1c 35 ae 79 d6 mov    dword ptr [esp+ebx+0xd679ae35], ecx
 +0x19ab   ed                   in     eax, dx
 +0x19ac   30 6b 2f             xor    byte ptr [ebx+0x2f], ch
-+0x19af   c5 fe 52...??        <INVALID>
-+0x19b0   fe 52 84...??        <INVALID>
-+0x19b1   52                   push   edx
-+0x19b2   84 be d2 80 4e a2    test   byte ptr [esi+0xa24e80d2], bh
++0x19af   c5 fe 52 84 be d2 80 vrsqrtss xmm0, xmm0, dword ptr [esi+edi*4+0xa24e80d2]
+     4e a2
 +0x19b8   6f                   outsd  
 +0x19b9   aa                   stosb  
 +0x19ba   64 00 14 20          add    byte ptr [fs:eax], dl

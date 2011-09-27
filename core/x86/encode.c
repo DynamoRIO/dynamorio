@@ -1986,7 +1986,8 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
          * size but I'm assuming faster decode in processor for 0x0f
          */
         TEST(OPCODE_THREEBYTES, info->opcode) ||
-        ((info->opcode & 0x00ff0000) >> 16) == 0x0f) {
+        /* 2-byte requires leading 0x0f */
+        ((info->opcode & 0x00ff0000) >> 16) != 0x0f) {
         /* need 3-byte vex */
         *output_initial_opcode = true;
         /* first vex byte */
@@ -2030,6 +2031,9 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
         val = encode_vex_final_prefix_byte(val, di, info);
         *field_ptr = val;
         field_ptr++;
+        /* 2-byte requires leading implied 0x0f */
+        ASSERT(((info->opcode & 0x00ff0000) >> 16) == 0x0f);
+        *output_initial_opcode = true;
     }
     return field_ptr;
 }

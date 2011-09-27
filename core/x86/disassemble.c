@@ -731,6 +731,7 @@ opnd_disassemble_intel(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_D:
     case TYPE_E:
     case TYPE_G:
+    case TYPE_H:
     case TYPE_I:
     case TYPE_J:
     case TYPE_M:
