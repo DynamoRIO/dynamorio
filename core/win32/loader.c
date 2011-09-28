@@ -1356,8 +1356,9 @@ privload_disable_console_init(privmod_t *mod)
     bool prev_marks_call = false;
     bool success = false;
     app_pc push1 = NULL, push2 = NULL, push3 = NULL;
-    uint orig_prot;
+    uint orig_prot, count = 0;
     static const uint MAX_DECODE = IF_X64_ELSE(1200,1024);
+    static const uint MAX_INSTR_COUNT = 1024;
 
     ASSERT(mod != NULL);
     ASSERT(strcasecmp(mod->name, "kernel32.dll") == 0);
@@ -1377,11 +1378,18 @@ privload_disable_console_init(privmod_t *mod)
     instr_init(dcontext, &instr);
     entry = get_module_entry(mod->base);
     for (pc = entry; pc < entry + MAX_DECODE; ) {
+        if (count++ > MAX_INSTR_COUNT)
+            break; /* bail */
         instr_reset(dcontext, &instr);
         prev_pc = pc;
         pc = decode(dcontext, pc, &instr);
         if (!instr_valid(&instr) || instr_is_return(&instr))
             break; /* bail */
+        /* follow direct jumps.  MAX_INSTR_COUNT avoids infinite loop on backward jmp. */
+        if (instr_is_ubr(&instr)) {
+            pc = opnd_get_pc(instr_get_target(&instr));
+            continue;
+        }
 #ifdef X64
         /* For x64 we don't have a very good way to identify.  There is no
          * ConDllInitialize, but the call to ConnectConsoleInternal from
