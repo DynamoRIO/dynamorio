@@ -1076,6 +1076,19 @@ syscall_0args:
         /* return val is in eax for us */
         ret
         END_FUNC(dynamorio_syscall)
+
+/* FIXME: this function should be in #ifdef CLIENT_INTERFACE
+ * However, the compiler complains about it in
+ * vps-debug-internal-32 build, so we remove the ifdef now.
+ */
+/* i#555: to avoid client use app's vsyscall, we enforce all clients 
+ * use int 0x80 for system call.
+ */
+        DECLARE_FUNC(client_int_syscall)
+GLOBAL_LABEL(client_int_syscall:)
+        int      HEX(80)
+        ret
+        END_FUNC(client_int_syscall)
 #endif /* LINUX */
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 #ifdef LINUX

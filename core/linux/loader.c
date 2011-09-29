@@ -883,10 +883,20 @@ static tls_info_t tls_info;
  * libc source code, not a standard header file, cannot include but calculate.
  */
 static size_t tcb_size;  /* thread control block size */
+/* thread control block header type from 
+ * nptl/sysdeps/x86_64/tls.h and nptl/sysdeps/i386/tls.h 
+ */
 typedef struct _tcb_head_t {
     void *tcb;
     void *dtv;
     void *self;
+    int multithread;
+#ifdef X64
+    int gscope_flag;
+#endif
+    ptr_uint_t sysinfo;
+    ptr_uint_t stack_guard;
+    ptr_uint_t pointer_guard;
 } tcb_head_t;
 
 #define TCB_TLS_ALIGN 32
@@ -976,6 +986,8 @@ privload_tls_init(void *app_tp)
            PAGE_SIZE);
     ((tcb_head_t *)dr_tp)->tcb  = dr_tp;
     ((tcb_head_t *)dr_tp)->self = dr_tp;
+    /* i#555: replace app's vsyscall with DR's int0x80 syscall */
+    ((tcb_head_t *)dr_tp)->sysinfo = (ptr_uint_t)client_int_syscall;
 
     for (i = 0; i < tls_info.num_mods; i++) {
         os_privmod_data_t *opd = tls_info.mods[i]->os_privmod_data;
