@@ -266,6 +266,10 @@ DECLARE_FREQPROT_VAR(static bool do_once_DllMain, false);
 /* DLL entry point 
  * N.B.: dynamo interprets this routine!
  */
+/* get_nth_stack_frames_call_target() assumes that DllMain has a frame pointer
+ * so we cannot optimize it (i#566)
+ */
+START_DO_NOT_OPTIMIZE
 bool WINAPI /* get link warning 4216 if export via APIENTRY */
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
@@ -332,6 +336,7 @@ DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
     }
     return true;
 }
+END_DO_NOT_OPTIMIZE
 
 #ifdef WINDOWS_PC_SAMPLE
 static profile_t *global_profile = NULL;

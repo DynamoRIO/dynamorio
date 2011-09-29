@@ -198,6 +198,8 @@ thread_set_context(thread_record_t *tr, CONTEXT *context);
 #define START_DATA_SECTION(name, prot) ACTUAL_PRAGMA( data_seg(name) )
 #define VAR_IN_SECTION(name) /* nothing */
 #define END_DATA_SECTION() ACTUAL_PRAGMA( data_seg() )
+#define START_DO_NOT_OPTIMIZE ACTUAL_PRAGMA( optimize("g", off) )
+#define END_DO_NOT_OPTIMIZE ACTUAL_PRAGMA( optimize("g", on) )
 
 #ifdef DEBUG
 void print_dynamo_regions(void);
