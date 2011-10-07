@@ -999,7 +999,7 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
     size_t tot_sz = 0, app_sz, sz;
     size_t got;
     wchar_t *new_env = NULL;
-    wchar_t buf[MAX_REGISTRY_PARAMETER];
+    wchar_t buf[MAX_OPTIONS_STRING];
     bool need_rununder = true, need_autoinject = true, need_options = true,
         need_logdir = true;
     size_t sz_rununder = 0, sz_autoinject = 0, sz_options = 0, sz_logdir = 0;
@@ -1062,25 +1062,41 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
     if (need_rununder) {
         sz_rununder = wcslen(L_DYNAMORIO_VAR_RUNUNDER) +
             strlen(get_config_val(DYNAMORIO_VAR_RUNUNDER)) + 2/*=+0*/;
-        sz_rununder = MIN(sz_rununder, BUFFER_SIZE_ELEMENTS(buf)) * sizeof(*env);
+        if (sz_rununder > BUFFER_SIZE_ELEMENTS(buf)) {
+            SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
+            sz_rununder = BUFFER_SIZE_ELEMENTS(buf);
+        }
+        sz_rununder *= sizeof(*env);
         tot_sz += sz_rununder;
     }
     if (need_autoinject) {
         sz_autoinject = wcslen(L_DYNAMORIO_VAR_AUTOINJECT) +
             strlen(get_config_val(DYNAMORIO_VAR_AUTOINJECT)) + 2/*=+0*/;
-        sz_autoinject = MIN(sz_autoinject, BUFFER_SIZE_ELEMENTS(buf)) * sizeof(*env);
+        if (sz_autoinject > BUFFER_SIZE_ELEMENTS(buf)) {
+            SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
+            sz_autoinject = BUFFER_SIZE_ELEMENTS(buf);
+        }
+        sz_autoinject *= sizeof(*env);
         tot_sz += sz_autoinject;
     }
     if (need_options) {
         sz_options = wcslen(L_DYNAMORIO_VAR_OPTIONS) +
             strlen(get_config_val(DYNAMORIO_VAR_OPTIONS)) + 2/*=+0*/;
-        sz_options = MIN(sz_options, BUFFER_SIZE_ELEMENTS(buf)) * sizeof(*env);
+        if (sz_options > BUFFER_SIZE_ELEMENTS(buf)) {
+            SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
+            sz_options = BUFFER_SIZE_ELEMENTS(buf);
+        }
+        sz_options *= sizeof(*env);
         tot_sz += sz_options;
     }
     if (need_logdir) {
         sz_logdir = wcslen(L_DYNAMORIO_VAR_LOGDIR) +
             strlen(get_config_val(DYNAMORIO_VAR_LOGDIR)) + 2/*=+0*/;
-        sz_logdir = MIN(sz_logdir, BUFFER_SIZE_ELEMENTS(buf)) * sizeof(*env);
+        if (sz_logdir > BUFFER_SIZE_ELEMENTS(buf)) {
+            SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
+            sz_logdir = BUFFER_SIZE_ELEMENTS(buf);
+        }
+        sz_logdir *= sizeof(*env);
         tot_sz += sz_logdir;
     }
 
@@ -3812,4 +3828,3 @@ dr_syscall_invoke_another(void *drcontext)
 # endif
 }
 #endif /* CLIENT_INTERFACE */
-
