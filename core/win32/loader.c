@@ -1640,10 +1640,12 @@ redirect_heap_call(HANDLE heap)
     peb = get_peb(NT_CURRENT_PROCESS);
     /* either default heap, or one whose creation we intercepted */
     return (heap == peb->ProcessHeap ||
+#ifdef CLIENT_INTERFACE
             /* check both current and private: should be same, but
              * handle case where didn't swap
              */
             heap == private_peb->ProcessHeap ||
+#endif
             is_dynamo_address((byte*)heap));
 }
 
@@ -2142,7 +2144,7 @@ redirect_InitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
      * (xref Dr. Memory i#333).
      */
     LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"\n", __FUNCTION__, crit);
-    ASSERT(get_own_teb()->ProcessEnvironmentBlock == private_peb);
+    IF_CLIENT_INTERFACE(ASSERT(get_own_teb()->ProcessEnvironmentBlock == private_peb));
     if (crit == NULL)
         return ERROR_INVALID_PARAMETER;
     if (TEST(RTL_CRITICAL_SECTION_FLAG_STATIC_INIT, flags)) {
@@ -2179,7 +2181,7 @@ redirect_DeleteCriticalSection(RTL_CRITICAL_SECTION* crit)
 {
     GET_NTDLL(RtlDeleteCriticalSection, (RTL_CRITICAL_SECTION *crit));
     LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"\n", __FUNCTION__, crit);
-    ASSERT(get_own_teb()->ProcessEnvironmentBlock == private_peb);
+    IF_CLIENT_INTERFACE(ASSERT(get_own_teb()->ProcessEnvironmentBlock == private_peb));
     if (crit == NULL)
         return ERROR_INVALID_PARAMETER;
     if (crit->DebugInfo != NULL) {

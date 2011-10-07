@@ -116,11 +116,8 @@ set(CORE_SRCS
   synch.c
   buildmark.c
   loader_shared.c
+  io.c
   )
-if (UNIX OR CLIENT_INTERFACE)
-  # PR 219380: ntdll._vnsprintf doesn't support printing floats so we export ours
-  set(CORE_SRCS ${CORE_SRCS} io.c)
-endif (UNIX OR CLIENT_INTERFACE)
 
 if (WIN32 AND NOT X64)
   # PR 219380: to avoid __ftol2_sse from libc
@@ -261,7 +258,9 @@ endif ()
 # rather than a separate BUILD_INCLUDES option we always build
 # include headers if building core (or if building docs or samples as
 # they have real dependencies)
-add_dependencies(dynamorio api_headers)
+if (CLIENT_INTERFACE OR APP_EXPORTS)
+  add_dependencies(dynamorio api_headers)
+endif ()
 
 add_library(${PRELOAD_NAME} SHARED ${PRELOAD_SRCS})
 # We do not issue:

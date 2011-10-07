@@ -1528,7 +1528,9 @@ initialize_dynamo_context(dcontext_t *dcontext)
 #endif
     dcontext->sys_num = 0;
 #ifdef WINDOWS
+#ifdef CLIENT_INTERFACE
     dcontext->app_errno = 0;
+#endif
     dcontext->sys_param_base = NULL;
     /* always initialize aslr_context */
     dcontext->aslr_context.sys_aslr_clobbered = 0;
