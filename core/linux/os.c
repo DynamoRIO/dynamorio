@@ -1127,6 +1127,11 @@ clear_ldt_entry(uint index)
     asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"ASM_SEG";" \
                  : : "m" ((val)) : ASM_XAX);
 
+#define WRITE_GS(val) \
+    ASSERT(sizeof(val) == sizeof(reg_t));                               \
+    asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"LIB_ASM_SEG";" \
+                 : : "m" ((val)) : ASM_XAX);
+
 static uint
 read_selector(reg_id_t seg)
 {
@@ -1725,6 +1730,9 @@ os_tls_init()
                 initialize_ldt_struct(&desc, base, GDT_NO_SIZE_LIMIT, index);
                 res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
                 ASSERT(res >= 0);
+                /* i558 update lib seg reg to enforce the segment changes */
+                selector = GDT_SELECTOR(index);
+                WRITE_GS(selector);
             }
 # endif
         } else {
@@ -4663,6 +4671,7 @@ os_switch_lib_tls(dcontext_t *dcontext, bool to_app)
     case TLS_TYPE_GDT: {
         our_modify_ldt_t desc;
         uint index;
+        uint selector;
         os_local_state_t *os_tls = get_os_tls();
         index = SELECTOR_INDEX(IF_X64_ELSE(os_tls->app_fs, os_tls->app_gs));
         if (to_app) {
@@ -4676,6 +4685,9 @@ os_switch_lib_tls(dcontext_t *dcontext, bool to_app)
         }
         res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
         ASSERT(res >= 0);
+        /* i558 update lib seg reg to enforce the segment changes */
+        selector = GDT_SELECTOR(index);
+        WRITE_GS(selector);
         LOG(THREAD, LOG_LOADER, 2,
             "os_switch_lib_tls: set_thread_area successful "
             "for base "PFX"\n", base);
