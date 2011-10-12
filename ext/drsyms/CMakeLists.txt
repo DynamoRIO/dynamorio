@@ -31,26 +31,41 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+# symbol access library
+
 if (WIN32)
-  # symbol access library
   add_library(drsyms SHARED drsyms_windows.c)
   configure_DynamoRIO_client(drsyms)
   target_link_libraries(drsyms dbghelp)
-  use_DynamoRIO_extension(drsyms drcontainers)
-  # ensure we rebuild if includes change
-  add_dependencies(drsyms api_headers)
-  if (GENERATE_PDBS)
-    # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
-    # In any case we make sure to add it (for release and debug, to get pdb):
-    get_target_property(cur_flags drsyms LINK_FLAGS)
-    set_target_properties(drsyms PROPERTIES LINK_FLAGS "${cur_flags} /debug")
-  endif (GENERATE_PDBS)
+elseif (UNIX)
+  add_library(drsyms SHARED drsyms_linux.c)
+  configure_DynamoRIO_client(drsyms)
+  if (X64)
+    set(BITS "64")
+  else ()
+    set(BITS "32")
+  endif ()
+  target_link_libraries(drsyms
+    "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelf.a"
+    "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libdwarf.a"
+    "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelftc.a")
+  include_directories("${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/include")
+endif ()
 
-  # documentation is put into main DR docs/ dir
-  
-  export(TARGETS drsyms FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
-    APPEND)
-  DR_install(TARGETS drsyms EXPORT ${exported_targets_name} DESTINATION ${INSTALL_EXT_LIB})
-  DR_install(FILES drsyms.h DESTINATION ${INSTALL_EXT_INCLUDE})
+use_DynamoRIO_extension(drsyms drcontainers)
 
-endif (WIN32)
+# ensure we rebuild if includes change
+add_dependencies(drsyms api_headers)
+
+if (WIN32 AND GENERATE_PDBS)
+  # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
+  # In any case we make sure to add it (for release and debug, to get pdb):
+  get_target_property(cur_flags drsyms LINK_FLAGS)
+  set_target_properties(drsyms PROPERTIES LINK_FLAGS "${cur_flags} /debug")
+endif ()
+
+# documentation is put into main DR docs/ dir
+export(TARGETS drsyms FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
+  APPEND)
+DR_install(TARGETS drsyms EXPORT ${exported_targets_name} DESTINATION ${INSTALL_EXT_LIB})
+DR_install(FILES drsyms.h DESTINATION ${INSTALL_EXT_INCLUDE})

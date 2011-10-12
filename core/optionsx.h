@@ -364,7 +364,7 @@
             /* PR 202669: larger stack size since we're saving a 512-byte
              * buffer on the stack when saving fp state.
              */
-            options->stack_size = 20*1024;
+            options->stack_size = MAX(options->stack_size, 20*1024);
 
             /* For CI builds we'll disable elision by default since we
              * expect most CI users will prefer a view of the

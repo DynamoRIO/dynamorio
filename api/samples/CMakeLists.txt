@@ -56,17 +56,14 @@ if (SHOW_RESULTS)
   add_definitions(-DSHOW_RESULTS)
 endif (SHOW_RESULTS)
 
-if (WIN32)
-  # DRSyms symbol access Extension Not yet implemented on Linux
-  option(SHOW_SYMBOLS "Use symbol lookup in clients that support it" ON)
-  if (SHOW_SYMBOLS)
-    add_definitions(-DSHOW_SYMBOLS)
-  endif (SHOW_SYMBOLS)
-  if (NOT DEFINED GENERATE_PDBS)
-    # support running tests over ssh where pdb building is problematic
-    set(GENERATE_PDBS ON)
-  endif (NOT DEFINED GENERATE_PDBS)
-endif (WIN32)
+option(SHOW_SYMBOLS "Use symbol lookup in clients that support it" ON)
+if (SHOW_SYMBOLS)
+  add_definitions(-DSHOW_SYMBOLS)
+endif (SHOW_SYMBOLS)
+if (NOT DEFINED GENERATE_PDBS)
+  # support running tests over ssh where pdb building is problematic
+  set(GENERATE_PDBS ON)
+endif (NOT DEFINED GENERATE_PDBS)
 
 if (NOT DEFINED DynamoRIO_DIR)
   set(DynamoRIO_DIR "${PROJECT_SOURCE_DIR}/../cmake" CACHE PATH

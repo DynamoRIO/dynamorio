@@ -36,9 +36,10 @@
 ***************************************************************************
 \page page_drsyms Symbol Access Library
 
-The \p drsyms DynamoRIO Extension provides symbol information.  Currently
-it is only available for Windows PDB symbols but Linux and Cygwin support
-is in the works.
+The \p drsyms DynamoRIO Extension provides symbol information.  Currently drsyms
+supports reading symbol information from Windows PDB files and Linux ELF files
+with DWARF2 line information.  Eventually we intend to add support for Cygwin,
+but it is not tested currently.
 
  - \ref sec_drsyms_setup
  - \ref sec_drsyms_api
@@ -63,6 +64,14 @@ More recent versions of \p dbghlp.dll on Windows can use significant
 amounts of stack space.  We recommend raising the stack size when using \p
 drsyms on Windows from the default 20KB to 36KB via the DynamoRIO runtime
 option <tt>-stack_size 36K</tt>.
+
+The \p drsyms library on Linux uses bundled copies of \p libelf, \p libdwarf,
+and \p libelftc built from the
+<a href="http://elftoolchain.sourceforge.net">elftoolchain</a> project and
+requires no setup.
+
+\warning The Linux support is considered experimental, and may give you the
+wrong address when doing symbol lookup.
 
 \section sec_drsyms_api API
 

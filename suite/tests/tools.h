@@ -93,6 +93,16 @@ typedef __int64 int64;
 # endif
 #endif
 
+/* Function attributes. */
+#ifdef WINDOWS
+# define EXPORT __declspec(dllexport)
+# define NOINLINE __declspec(noinline)
+#else /* LINUX */
+# define EXPORT __attribute__((visibility("default")))
+# define NOINLINE __attribute__((noinline))
+#endif
+
+
 /* some tests include dr_api.h and tools.h, so avoid duplicating */
 #ifndef IF_X64
 #  ifdef X64

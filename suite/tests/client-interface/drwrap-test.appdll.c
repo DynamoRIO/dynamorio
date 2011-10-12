@@ -39,16 +39,6 @@
 
 #include "tools.h"
 
-#ifdef WINDOWS
-# define EXPORT __declspec(dllexport)
-#else
-#  ifdef USE_VISIBILITY_ATTRIBUTES
-#    define EXPORT __attribute__ ((visibility ("default")))
-#  else
-#    define EXPORT
-#  endif
-#endif
-
 int EXPORT makes_tailcall(int x); /* in asm */
 
 int EXPORT
@@ -164,4 +154,3 @@ GLOBAL_LABEL(FUNCNAME:)
 
 END_FILE
 #endif /* ASM_CODE_ONLY */
-

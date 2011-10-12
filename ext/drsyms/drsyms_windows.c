@@ -66,6 +66,8 @@
  */
 #include "dr_api.h"
 
+#include "drsyms_private.h"
+
 #include <windows.h>
 #include <dbghelp.h>
 #include <stdio.h> /* _vsnprintf */
@@ -101,25 +103,10 @@ static hashtable_t modtable;
 /* For debugging */
 static bool verbose = false;
 
-#undef NOTIFY /* from DrMem utils.h */
-#define NOTIFY(...) do { \
-    if (verbose) { \
-        dr_fprintf(STDERR, __VA_ARGS__); \
-    } \
-} while (0)
-
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
-
 /* Sideline server support */
-static IF_WINDOWS_ELSE(const wchar_t *, int) shmid;
+static const wchar_t *shmid;
 
 #define IS_SIDELINE (shmid != 0)
-
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
 /* We assume that the DWORD64 type used by dbghelp for module base addresses
  * is fine to be truncated to a 32-bit void* for 32-bit code
@@ -137,7 +124,7 @@ modtable_entry_free(void *p)
 
 DR_EXPORT
 drsym_error_t
-drsym_init(IF_WINDOWS_ELSE(const wchar_t *, int) shmid_in)
+drsym_init(const wchar_t *shmid_in)
 {
     shmid = shmid_in;
 
@@ -288,14 +275,15 @@ static drsym_error_t
 drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *out INOUT)
 {
     DWORD64 base;
-    char buf[sizeof(SYMBOL_INFO) +
-             MAX_SYM_NAME*sizeof(TCHAR) - 1/*1 char already in Name[1] in struct*/];
-    PSYMBOL_INFO info = (PSYMBOL_INFO) buf;
+    PSYMBOL_INFO info;  /* Too large to stack allocate. */
+    size_t info_size = (sizeof(SYMBOL_INFO) + MAX_SYM_NAME*sizeof(TCHAR) - 1
+                        /*1 char already in Name[1] in struct*/);
     DWORD64 disp;
     IMAGEHLP_LINE64 line;
     DWORD line_disp;
+    void *dc = dr_get_current_drcontext();
 
-    if (out == NULL)
+    if (modpath == NULL || out == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
     /* If we add fields in the future we would dispatch on out->struct_size */
     if (out->struct_size != sizeof(*out))
@@ -308,6 +296,7 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *ou
         return DRSYM_ERROR_LOAD_FAILED;
     }
 
+    info = dr_thread_alloc(dc, info_size);
     info->SizeOfStruct = sizeof(SYMBOL_INFO);
     info->MaxNameLen = MAX_SYM_NAME;
     if (SymFromAddr(GetCurrentProcess(), base + modoffs, &disp, info)) {
@@ -321,9 +310,11 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *ou
         out->name_available_size = info->NameLen*sizeof(char);
     } else {
         NOTIFY("SymFromAddr error %d\n", GetLastError());
+        dr_thread_free(dc, info, info_size);
         dr_mutex_unlock(symbol_lock);
         return DRSYM_ERROR_SYMBOL_NOT_FOUND;
     }
+    dr_thread_free(dc, info, info_size);
 
     line.SizeOfStruct = sizeof(line);
     if (SymGetLineFromAddr64(GetCurrentProcess(), base + modoffs, &line_disp, &line)) {
@@ -345,11 +336,12 @@ static drsym_error_t
 drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modoffs OUT)
 {
     DWORD64 base;
-    char buf[sizeof(SYMBOL_INFO) +
-             MAX_SYM_NAME*sizeof(TCHAR) - 1/*1 char already in Name[1] in struct*/];
-    PSYMBOL_INFO info = (PSYMBOL_INFO) buf;
+    PSYMBOL_INFO info;
+    size_t info_size;
+    drsym_error_t r;
+    void *dc = dr_get_current_drcontext();
 
-    if (modoffs == NULL)
+    if (modpath == NULL || symbol == NULL || modoffs == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
     
     dr_mutex_lock(symbol_lock);
@@ -359,6 +351,11 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modof
         return DRSYM_ERROR_LOAD_FAILED;
     }
 
+    /* Too large to stack allocate on dstack. */
+    info_size = (sizeof(SYMBOL_INFO) + MAX_SYM_NAME*sizeof(TCHAR) - 1
+                 /*1 char already in Name[1] in struct*/);
+    info = (PSYMBOL_INFO) dr_thread_alloc(dc, info_size);
+
     /* the only thing identifying the target module is the symbol name,
      * which should be of "modname!symname" format
      */
@@ -367,13 +364,14 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modof
     if (SymFromName(GetCurrentProcess(), (char *)symbol, info)) {
         NOTIFY("0x%I64x\n", info->Address);
         *modoffs = (size_t) (info->Address - base);
+        r = DRSYM_SUCCESS;
     } else {
         NOTIFY("SymFromName error %d %s\n", GetLastError(), symbol);
-        dr_mutex_unlock(symbol_lock);
-        return DRSYM_ERROR_SYMBOL_NOT_FOUND;
+        r = DRSYM_ERROR_SYMBOL_NOT_FOUND;
     }
+    dr_thread_free(dc, info, info_size);
     dr_mutex_unlock(symbol_lock);
-    return DRSYM_SUCCESS;
+    return r;
 }
 
 typedef struct _enum_info_t {
@@ -396,6 +394,10 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
 {
     DWORD64 base;
     drsym_error_t res = DRSYM_SUCCESS;
+
+    if (modpath == NULL || callback == NULL)
+        return DRSYM_ERROR_INVALID_PARAMETER;
+
     dr_mutex_lock(symbol_lock);
     base = lookup_or_load(modpath);
     if (base == 0)
@@ -427,6 +429,9 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
      * headers and lib have only 6.1, so we dynamically look it up
      */
     static func_SymSearch_t func;
+
+    if (modpath == NULL || callback == NULL)
+        return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_mutex_lock(symbol_lock);
     if (func == NULL) {
@@ -556,4 +561,3 @@ drsym_write_to_console(const char *fmt, ...)
     va_end(ap);
     return res;
 }
-

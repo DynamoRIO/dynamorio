@@ -1098,6 +1098,13 @@ function(torun_runall name test ops)
   # FIXME NYI i#120
 endfunction(torun_runall)
 
+function(disable_optimizations_for_file source_file)
+  get_source_file_property(cflags "${source_file}" COMPILE_FLAGS)
+  string(REGEX REPLACE "[/-]O[1-9]" "" cflags "${cflags}")
+  set_source_files_properties("${source_file}" PROPERTIES
+    COMPILE_FLAGS "${cflags}")
+endfunction(disable_optimizations_for_file)
+
 ###########################################################################
 # tests
 
@@ -1203,6 +1210,24 @@ if (CLIENT_INTERFACE)
     set_target_properties(client.drwrap-test.appdll PROPERTIES LINK_FLAGS
       "/export:makes_tailcall")
   endif (WIN32)
+
+  tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
+    "-stack_size 36K"
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libclient.drsyms-test.appdll.so")
+  # Disable optimizations for the exe and appdll to allow stack tracing.
+  disable_optimizations_for_file(client-interface/drsyms-test.cpp)
+  disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
+  use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
+  use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+  if (WINDOWS)
+    # XXX: Needed to generate PDBs in test suite.  See i#567.
+    get_target_property(client.drsyms-test link_flags LINK_FLAGS)
+    set_target_properties(client.drsyms-test PROPERTIES
+      LINK_FLAGS "${link_flags} /DEBUG")
+    get_target_property(client.drsyms-test.appdll link_flags LINK_FLAGS)
+    set_target_properties(client.drsyms-test.appdll PROPERTIES
+      LINK_FLAGS "${link_flags} /DEBUG")
+  endif ()
 
   tobuild_api(api.dis api/dis.c "-syntax_intel"
     "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw")

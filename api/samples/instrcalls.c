@@ -69,7 +69,7 @@ dr_init(client_id_t id)
     dr_register_thread_init_event(event_thread_init);
     dr_register_thread_exit_event(event_thread_exit);
 #ifdef SHOW_SYMBOLS
-    if (drsym_init(NULL) != DRSYM_SUCCESS) {
+    if (drsym_init(0) != DRSYM_SUCCESS) {
         dr_log(NULL, LOG_ALL, 1, "WARNING: unable to initialize symbol translation\n");
     }
 #endif
