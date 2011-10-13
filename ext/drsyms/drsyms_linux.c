@@ -53,6 +53,8 @@
 #include <stdio.h> /* _vsnprintf */
 #include <stdarg.h> /* va_list */
 #include <string.h> /* strlen */
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "dwarf.h"
 #include "libdwarf.h"
@@ -221,8 +223,8 @@ load_module(const char *modpath)
      */
     static int load_module_depth;
 
-    if (load_module_depth > 3) {
-        NOTIFY("drsyms: Refusing to follow .gnu_debuglink more than 3 times.\n");
+    if (load_module_depth >= 2) {
+        NOTIFY("drsyms: Refusing to follow .gnu_debuglink more than 2 times.\n");
         return NULL;
     }
     load_module_depth++;
@@ -279,51 +281,95 @@ error:
     return NULL;
 }
 
+/* Returns true if the two paths have the same inode.  Returns false if there
+ * was an error or they are different.
+ *
+ * XXX: Generally, making syscalls without going through DynamoRIO isn't safe,
+ * but 'stat' isn't likely to cause resource conflicts with the app or mess up
+ * DR's vm areas tracking.
+ */
+static bool
+is_same_file(const char *path1, const char *path2)
+{
+    struct stat stat1;
+    struct stat stat2;
+    int r;
+
+    r = stat(path1, &stat1);
+    if (r != 0)
+        return false;
+    r = stat(path2, &stat2);
+    if (r != 0)
+        return false;
+
+    return stat1.st_ino == stat2.st_ino;
+}
+
 /* Construct a hybrid dbg_module_t that loads debug information from the
  * debuglink path.
  *
- * FIXME i#576: Implement the search algorithm for finding the debug info file
- * documented here:
+ * Gdb's search algorithm for finding debug info files is documented here:
  * http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
- * Rather than a single debug search path as in gdb, we should use the libsearch
- * list in postprocess.pl.
+ *
+ * FIXME: We should allow the user to register additional search directories.
+ * XXX: We may need to support the --build-id debug file mechanism documented at
+ * the above URL, but for now, .gnu_debuglink seems to work for most Linux
+ * systems.
  */
 static dbg_module_t *
 follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink)
 {
-    dbg_module_t *debug_mod;
-    void *dc = dr_get_current_drcontext();
-    size_t debuglink_len = strlen(debuglink) + 1;
-    size_t modpath_len = strlen(modpath) + 1;
-    size_t maxpathlen = (modpath_len + debuglink_len);
-    char *debug_modpath = dr_thread_alloc(dc, maxpathlen);
-    char *insert_point;
+    char mod_dir[MAXIMUM_PATH];
+    char debug_modpath[MAXIMUM_PATH];
+    char *last_slash;
 
-    /* If the debuglink is absolute, the insert point is the beginning.
-     * Otherwise, it is just after the last slash.
+    /* Get the module's directory. */
+    strncpy(mod_dir, modpath, MAXIMUM_PATH);
+    NULL_TERMINATE_BUFFER(mod_dir);
+    last_slash = strrchr(mod_dir, '/');
+    if (last_slash != NULL)
+        *last_slash = '\0';
+
+    /* 1. Check $mod_dir/$debuglink */
+    dr_snprintf(debug_modpath, MAXIMUM_PATH,
+                "%s/%s", mod_dir, debuglink);
+    NULL_TERMINATE_BUFFER(debug_modpath);
+    /* If debuglink is the basename of modpath, this can point to the same file.
+     * Infinite recursion is prevented with a depth check, but we would fail to
+     * test the other paths, so we check here if these paths resolve to the same
+     * file, ignoring hard and soft links and other path quirks.
      */
-    memcpy(debug_modpath, modpath, modpath_len);
-    if (debuglink[0] == '/') {
-        insert_point = debug_modpath;
-    } else {
-        insert_point = strrchr(debug_modpath, '/');
-        if (insert_point == NULL) {
-            dr_thread_free(dc, debug_modpath, maxpathlen);
-            return NULL;
-        } else {
-            insert_point++;
-        }
-    }
-    memcpy(insert_point, debuglink, debuglink_len);
+    if (dr_file_exists(debug_modpath) && !is_same_file(modpath, debug_modpath))
+        goto found;
 
-    debug_mod = load_module(debug_modpath);
-    dr_thread_free(dc, debug_modpath, maxpathlen);
+    /* 2. Check $mod_dir/.debug/$debuglink */
+    dr_snprintf(debug_modpath, MAXIMUM_PATH,
+                "%s/.debug/%s", mod_dir, debuglink);
+    NULL_TERMINATE_BUFFER(debug_modpath);
+    if (dr_file_exists(debug_modpath))
+        goto found;
+
+    /* 3. Check /usr/lib/debug/$mod_dir/$debuglink */
+    dr_snprintf(debug_modpath, MAXIMUM_PATH,
+                "/usr/lib/debug%s/%s", mod_dir, debuglink);
+    NULL_TERMINATE_BUFFER(debug_modpath);
+    if (dr_file_exists(debug_modpath))
+        goto found;
+
+    /* We couldn't find the debug file, so we make do with the original module
+     * instead.
+     *
+     * XXX: We should parse the .dynsym section so this is actually useful.
+     * Right now clients use a mix of dr_get_proc_address and drsyms, when we
+     * could handle all of that for them.
+     */
+    return mod;
+
+found:
+    /* debuglink points into the mapped module, so we can't free until now. */
     unload_module(mod);
 
-    /* Return debug_mod, we've already initialized libdwarf from the
-     * recursive call.
-     */
-    return debug_mod;
+    return load_module(debug_modpath);
 }
 
 /* Free all resources associated with the debug module and the object itself.

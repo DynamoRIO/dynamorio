@@ -59,6 +59,9 @@ static void lookup_dll_syms(void *dc, const module_data_t *dll_data,
                             bool loaded);
 static void check_enumerate_dll_syms(void *dc, const char *dll_path);
 static bool enum_sym_cb(const char *name, size_t modoffs, void *data);
+#ifdef LINUX
+static void lookup_glibc_syms(void *dc, const module_data_t *dll_data);
+#endif
 
 extern "C" DR_EXPORT void
 dr_init(client_id_t id)
@@ -250,6 +253,13 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     dll_path = dll_data->full_path;
     dll_base = dll_data->start;
 
+#ifdef LINUX
+    if (strstr(dll_path, "/libc-")) {
+        lookup_glibc_syms(dc, dll_data);
+        return;
+    }
+#endif
+
     /* Avoid running on any module other than the appdll. */
     if (!strstr(dll_path, "appdll"))
         return;
@@ -318,6 +328,61 @@ enum_sym_cb(const char *name, size_t modoffs, void *data)
         syms_found->stack_trace_found = true;
     return true;
 }
+
+#ifdef LINUX
+/* Test if we can look up glibc symbols.  This only works if the user is using
+ * glibc (and not some other libc) and is has debug info installed for it, so we
+ * avoid making assertions if we can't find the symbols.  The purpose of this
+ * test is really to see if we can follow the .gnu_debuglink section into
+ * /usr/lib/debug/$mod_dir/$debuglink.
+ */
+static void
+lookup_glibc_syms(void *dc, const module_data_t *dll_data)
+{
+    const char *libc_path;
+    app_pc libc_base;
+    size_t malloc_offs;
+    size_t gi_malloc_offs;
+    drsym_error_t r;
+
+    /* i#479: DR loads a private copy of libc.  The result should be the same
+     * both times, so avoid running twice.
+     */
+    static bool already_called = false;
+    if (already_called) {
+        return;
+    }
+    already_called = true;
+
+    libc_path = dll_data->full_path;
+    libc_base = dll_data->start;
+
+    /* FIXME: When drsyms can read .dynsym we should always find malloc. */
+    malloc_offs = 0;
+    r = drsym_lookup_symbol(libc_path, "libc!malloc", &malloc_offs);
+    if (r == DRSYM_SUCCESS)
+        ASSERT(malloc_offs != 0);
+
+    /* __GI___libc_malloc is glibc's internal reference to malloc.  They use
+     * these internal symbols so that glibc calls to exported functions are
+     * never pre-empted by other libraries.
+     */
+    gi_malloc_offs = 0;
+    r = drsym_lookup_symbol(libc_path, "libc!__GI___libc_malloc",
+                            &gi_malloc_offs);
+    /* We can't compare the offsets because the exported offset and internal
+     * offset are probably going to be different.
+     */
+    if (r == DRSYM_SUCCESS)
+        ASSERT(gi_malloc_offs != 0);
+
+    if (malloc_offs != 0 && gi_malloc_offs != 0) {
+        dr_fprintf(STDERR, "found glibc malloc and __GI___libc_malloc.\n");
+    } else {
+        dr_fprintf(STDERR, "couldn't find glibc malloc or __GI___libc_malloc.\n");
+    }
+}
+#endif /* LINUX */
 
 static void
 event_exit(void)
