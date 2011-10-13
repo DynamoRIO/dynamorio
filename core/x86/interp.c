@@ -968,11 +968,10 @@ bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
                 bb->cur_pc = callee;
                 BBPRINT(bb, 4, "      continuing in callee at "PFX"\n", bb->cur_pc);
                 return true; /* keep bb going */
-            } else {
-                BBPRINT(bb, 3, "        NOT following direct call from "PFX" to "PFX"\n",
-                        bb->instr_start, callee);
             }
         }
+        BBPRINT(bb, 3, "        NOT following direct call from "PFX" to "PFX"\n",
+                bb->instr_start, callee);
         /* End this bb now */
         bb->exit_target = callee;
         return false; /* end bb now */
@@ -3262,6 +3261,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         bb->flags = FRAG_SELFMOD_SANDBOXED; /* lose all other flags */
         bb->full_decode = true; /* full decode -- see comment at top of routine */
         bb->follow_direct = false; 
+        bb->exit_type = 0; /* i#577 */
         /* overlap info will be reset by check_new_page_start */
         build_bb_ilist(dcontext, bb);
         return;
