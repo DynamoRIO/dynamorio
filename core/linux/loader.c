@@ -1,4 +1,5 @@
 /* *******************************************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -60,15 +61,21 @@ static const char *system_lib_paths[] = {
     "/lib/tls/i686/cmov",
     "/usr/lib",
     "/lib",
+    "/usr/local/lib",       /* Ubuntu: /etc/ld.so.conf.d/libc.conf */
 #ifndef X64
-    "/lib/i386-linux-gnu",  /* 32-bit Ubuntu */
     "/lib32/tls/i686/cmov",
     "/usr/lib32",
     "/lib32",
+    /* 32-bit Ubuntu */
+    "/lib/i386-linux-gnu",
+    "/usr/lib/i386-linux-gnu",
 #else
     "/lib64/tls/i686/cmov",
     "/usr/lib64",
     "/lib64",
+    /* 64-bit Ubuntu */
+    "/lib/x86_64-linux-gnu",     /* /etc/ld.so.conf.d/x86_64-linux-gnu.conf */
+    "/usr/lib/x86_64-linux-gnu", /* /etc/ld.so.conf.d/x86_64-linux-gnu.conf */
 #endif
 };
 #define NUM_SYSTEM_LIB_PATHS \
@@ -636,6 +643,11 @@ privload_locate(const char *name, privmod_t *dep,
             os_file_has_elf_so_header(filename))
             return true;
     }
+
+    /* Cannot find the library */
+    SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4,
+           get_application_name(), get_application_pid(), name,
+           "\n\tUnable to locate library! Try adding path to LD_LIBRARY_PATH");
     return false;
 }
 

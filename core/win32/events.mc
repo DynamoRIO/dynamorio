@@ -28,6 +28,7 @@
 ;// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 ;// DAMAGE.
 
+;// Copyright (c) 2011 Google, Inc.
 ;// Copyright (c) 2003-2007 Determina Corp.
 
 ;// events.mc messages for Event logging
@@ -325,7 +326,7 @@ Severity = ERROR
 Facility = DRCore
 SymbolicName = MSG_BAD_OS_VERSION
 Language=English
-Application %1!s! (%2!s!) %3!%s! does not run on %4!s!
+Application %1!s! (%2!s!) %3!s! does not run on %4!s!
 .
 
 MessageId = 
@@ -475,7 +476,7 @@ Severity = ERROR
 Facility = DRCore
 SymbolicName = MSG_CLIENT_LIBRARY_UNLOADABLE
 Language=English
-Application %1!s! (%2!s!). Unable to load client library: %s.
+Application %1!s! (%2!s!). Unable to load client library: %3!s!. %4!s!.
 .
 ;#endif
 
@@ -523,7 +524,7 @@ Severity = ERROR
 Facility = DRCore
 SymbolicName = MSG_DRVMKLIB_UNLOADABLE
 Language=English
-Application %1!s! (%2!s!). Error loading or using vmklib library: %s.
+Application %1!s! (%2!s!). Error loading or using vmklib library: %3!s!.
 .
 ;#endif
 

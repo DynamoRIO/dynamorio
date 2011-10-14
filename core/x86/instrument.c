@@ -400,8 +400,8 @@ add_client_lib(char *path, char *id_str, char *options)
         if (strstr(err, "wrong ELF class") == NULL)
 #endif
             CLIENT_ASSERT(false, msg);
-        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 3, 
-               get_application_name(), get_application_pid(), msg);
+        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4,
+               get_application_name(), get_application_pid(), path, msg);
     }
     else {
         /* PR 250952: version check */
