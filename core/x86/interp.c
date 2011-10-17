@@ -3587,6 +3587,7 @@ mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             bb->flags = FRAG_SELFMOD_SANDBOXED; /* lose all other flags */
             bb->full_decode = true; /* full decode this time! */
             bb->follow_direct = false; 
+            bb->exit_type = 0; /* i#577 */
             /* overlap info will be reset by check_new_page_start */
             return false;
         }

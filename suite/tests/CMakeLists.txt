@@ -309,9 +309,17 @@ if (UNIX)
     set(ARCH_CFLAGS "-m32")
   endif (X64)
   set(ARCH_LDFLAGS "${ARCH_CFLAGS}")
+  set(ARCH_DEBUG "${ARCH_CFLAGS}") # somehow not being propagated so we set here
 else (UNIX)
   set(ARCH_CFLAGS "")
+  # we don't add /debug here (=> SHARED_LINKER flags) since can't remove
   set(ARCH_LDFLAGS "")
+  if (RUNNING_OVER_SSH)
+    set(ARCH_DEBUG "")
+  else (RUNNING_OVER_SSH)
+    # ensure we get proper debugging (i#567)
+    set(ARCH_DEBUG "/debug")
+  endif (RUNNING_OVER_SSH)
 endif (UNIX)
 
 if (NOT DEFINED DynamoRIO_DIR)
@@ -502,8 +510,9 @@ function(add_exe test source)
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
   add_executable(${test} ${test_srcs})
+
   set_target_properties(${test} PROPERTIES
-    LINK_FLAGS "${ARCH_CFLAGS}"
+    LINK_FLAGS "${ARCH_DEBUG}"
     # we don't want the default rpath of <builddir>/lib as it makes
     # it hard to use other DR builds w/ these apps
     SKIP_BUILD_RPATH ON)
@@ -548,6 +557,7 @@ function(tobuild_dll test source dr_ops)
     set(lib_srcs ${lib_srcs} ${tools_c} ${tools_asm})
   endif ()
   add_library(${test}.dll SHARED ${lib_srcs})
+  set_target_properties(${test}.dll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
   target_link_libraries(${test} ${test}.dll)
   if ("${srccode}" MATCHES "include \"tools\\.h\"" AND
       "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
@@ -598,6 +608,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
         endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
         add_library(${test}.appdll SHARED ${lib_srcs})
+        set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
         # so far these are all dynamically loaded so we don't bother
         # with "target_link_libraries(${test} ${test}.appdll)"
         if ("${srccode}" MATCHES "include \"tools\\.h\"" AND
@@ -609,6 +620,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   endif (NOT "${source}" MATCHES "\\.runall$")
 
   add_library(${test}.dll SHARED ${client_source})
+  set_target_properties(${test}.dll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
   if (NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
     set(DynamoRIO_REG_COMPATIBILITY ON)
@@ -715,6 +727,24 @@ function(mark_execstack target)
       "-Wl,-z,execstack ${existing_flags}")
   endif (UNIX)
 endfunction(mark_execstack)
+
+function(append_link_flags target newflags)
+  get_target_property(cur_ldflags ${target} LINK_FLAGS)
+  # cmake should add an APPEND option
+  set_target_properties(${target} PROPERTIES
+    LINK_FLAGS "${cur_ldflags} ${newflags}")
+endfunction(append_link_flags)
+
+function(remove_debug_flag target)
+  if (WIN32)
+    # for years we had no /debug.  we added it recently in i#567 and it broke
+    # a few tests.  removing it from those to get them passing until we can
+    # take a deeper look.
+    get_target_property(cur_ldflags ${target} LINK_FLAGS)
+    string(REGEX REPLACE "/debug" "" cur_ldflags ${cur_ldflags})
+    set_target_properties(${target} PROPERTIES LINK_FLAGS "${cur_ldflags}")
+  endif (WIN32)
+endfunction(remove_debug_flag)
 
 ###########################################################################
 # RUNNING
@@ -1207,8 +1237,7 @@ if (CLIENT_INTERFACE)
   tochcon(client.drwrap-test.appdll textrel_shlib_t)
   if (WIN32)
     # export from asm code
-    set_target_properties(client.drwrap-test.appdll PROPERTIES LINK_FLAGS
-      "/export:makes_tailcall")
+    append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
   endif (WIN32)
 
   tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
@@ -1219,15 +1248,6 @@ if (CLIENT_INTERFACE)
   disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
-  if (WINDOWS)
-    # XXX: Needed to generate PDBs in test suite.  See i#567.
-    get_target_property(client.drsyms-test link_flags LINK_FLAGS)
-    set_target_properties(client.drsyms-test PROPERTIES
-      LINK_FLAGS "${link_flags} /DEBUG")
-    get_target_property(client.drsyms-test.appdll link_flags LINK_FLAGS)
-    set_target_properties(client.drsyms-test.appdll PROPERTIES
-      LINK_FLAGS "${link_flags} /DEBUG")
-  endif ()
 
   tobuild_api(api.dis api/dis.c "-syntax_intel"
     "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw")
@@ -1356,8 +1376,7 @@ else (UNIX)
   tobuild(win32.crtprcs win32/crtprcs.c)
 
   tobuild_dll(win32.delaybind win32/delaybind.c "")
-  set_target_properties(win32.delaybind PROPERTIES
-    LINK_FLAGS "/delayload:win32.delaybind.dll.dll /delay:unload")
+  append_link_flags(win32.delaybind "/delayload:win32.delaybind.dll.dll /delay:unload")
   tobind(win32.delaybind)
   tobind(win32.delaybind.dll)
 
@@ -1380,7 +1399,10 @@ else (UNIX)
   tobuild_dll(win32.reload-newaddr win32/reload-newaddr.c "")
   # FIXME i#267: fix curiosities and re-enable
   #tobuild_dll(win32.reload-race win32/reload-race.c "")
+
   tobuild_dll(win32.section-max win32/section-max.c "")
+  remove_debug_flag(win32.section-max.dll) # i#567: breaks w/ /debug
+
   tobuild(win32.suspend win32/suspend.c)
   tobuild(win32.threadchurn win32/threadchurn.c)
   if (TEST_SUITE) # occasionally fails so run only in suite
@@ -1425,8 +1447,7 @@ else (UNIX)
     # the way through: adding helper func layers gets awkward w/ PARENT_SCOPE
     tobuild(security-win32.except-execution security-win32/except-execution.c)
     # we match exe addresses in output so no ASLR
-    set_target_properties(security-win32.except-execution PROPERTIES
-      LINK_FLAGS "/dynamicbase:no")
+    append_link_flags(security-win32.except-execution "/dynamicbase:no")
     
     tobuild(security-win32.except-thread security-win32/except-thread.c)
     tobuild(security-win32.gbop-test security-win32/gbop-test.c)
@@ -1442,6 +1463,7 @@ else (UNIX)
 
   tobuild(security-win32.sd_tester security-win32/sd_tester.c)
   tobuild(security-win32.sec-adata security-win32/sec-adata.c)
+  remove_debug_flag(security-win32.sec-adata) # i#567: breaks w/ /debug
 
   # FIXME: getting warnings from pragmas in src code:
   #   secalign-fixed.dll.c.obj : warning LNK4229: invalid directive '/fixed' encountered; ignored
@@ -1451,17 +1473,19 @@ else (UNIX)
   # I checked secalign-fixed.dll.dll and it does have 0x2000 alignment and has
   # no relocations, so not sure what the warnings imply.  Did not check the others.
   tobuild_dll(security-win32.secalign-fixed security-win32/secalign-fixed.c "")
-  set_target_properties(security-win32.secalign-fixed.dll PROPERTIES
-    LINK_FLAGS "/dynamicbase:no /fixed")
+  append_link_flags(security-win32.secalign-fixed.dll "/dynamicbase:no /fixed")
 
   tobuild_dll(security-win32.sec-fixed security-win32/sec-fixed.c "")
-  set_target_properties(security-win32.sec-fixed.dll PROPERTIES
-    LINK_FLAGS "/dynamicbase:no /fixed")
+  append_link_flags(security-win32.sec-fixed.dll "/dynamicbase:no /fixed")
 
   tobuild_dll(security-win32.sec-xdata security-win32/sec-xdata.c "")
+  remove_debug_flag(security-win32.sec-xdata) # i#567: breaks w/ /debug
+  remove_debug_flag(security-win32.sec-xdata.dll) # i#567: breaks w/ /debug
+
   # PR 209235 covers re-enabling selfmod-threads
   #tobuild(security-win32.selfmod-threads security-win32/selfmod-threads.c)
   tobuild(security-win32.TestNTFlush security-win32/TestNTFlush.c)
+  remove_debug_flag(security-win32.TestNTFlush) # i#567: breaks w/ /debug
 
   # FIXME: enable once have .runall support
   #tobuild_runall(runall.calc-detach runall/calc-detach.runall "")
@@ -1512,7 +1536,9 @@ tobuild(security-common.selfmod security-common/selfmod.c)
 tochcon(security-common.selfmod textrel_shlib_t)
 if (NOT X64 OR TEST_SUITE) # fail on x64 so run only in suite
   tobuild(security-common.TestAllocWE security-common/TestAllocWE.c)
+  remove_debug_flag(security-common.TestAllocWE) # i#567: breaks w/ /debug
   tobuild(security-common.TestMemProtChg security-common/TestMemProtChg.c)
+  remove_debug_flag(security-common.TestMemProtChg) # i#567: breaks w/ /debug
   tochcon(security-common.TestMemProtChg wine_exec_t)
   mark_execstack(security-common.TestMemProtChg)
 endif ()

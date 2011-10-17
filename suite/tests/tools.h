@@ -233,6 +233,13 @@ size(Code_Snippet func)
     default:
         return 0;
     }
+    /* support ILT indirection where these are jmps to the real code
+     * (adding /debug for i#567 causes ILT usage == table of jmps)
+     */
+    if (*(unsigned char *)val1 == 0xe9/*jmp*/)
+        val1 = val1 + 5 + *(int*)(val1+1); /* resolve jmp target */
+    if (*(unsigned char *)val2 == 0xe9/*jmp*/)
+        val2 = val2 + 5 + *(int*)(val2+1); /* resolve jmp target */
     ret_val = val2 - val1;
     if (ret_val < 0) {
         print("Code layout assumption violation");
