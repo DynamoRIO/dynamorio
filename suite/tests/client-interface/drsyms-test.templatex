@@ -1,4 +1,6 @@
+#if defined(LINUX)
 (found|couldn.t find) glibc malloc (and|or) __GI___libc_malloc.
+#endif
 stack trace:
 #if defined(WINDOWS)
 drsyms-test\.appdll\.cpp:44!dll_static
