@@ -38,7 +38,7 @@ if (WIN32)
   configure_DynamoRIO_client(drsyms)
   target_link_libraries(drsyms dbghelp)
 elseif (UNIX)
-  add_library(drsyms SHARED drsyms_linux.c)
+  add_library(drsyms SHARED drsyms_linux.c demangle.cc)
   configure_DynamoRIO_client(drsyms)
   if (X64)
     set(BITS "64")
@@ -56,6 +56,10 @@ use_DynamoRIO_extension(drsyms drcontainers)
 
 # ensure we rebuild if includes change
 add_dependencies(drsyms api_headers)
+
+add_executable(drsyms_bench drsyms_bench.c)
+configure_DynamoRIO_standalone(drsyms_bench)
+use_DynamoRIO_extension(drsyms_bench drsyms)
 
 if (WIN32 AND GENERATE_PDBS)
   # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?

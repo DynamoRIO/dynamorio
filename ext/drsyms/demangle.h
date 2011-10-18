@@ -29,6 +29,8 @@
 //
 // Author: Satoru Takabayashi
 //
+// Retreived from http://code.google.com/p/google-glog/ at r91.
+//
 // An async-signal-safe and thread-safe demangler for Itanium C++ ABI
 // (aka G++ V3 ABI).
 
@@ -70,14 +72,30 @@
 #ifndef BASE_DEMANGLE_H_
 #define BASE_DEMANGLE_H_
 
-#include "config.h"
+/* Modifications for use in drsyms:
+ * - Deleted #include "config.h".
+ * - Defined away _START_GOOGLE_NAMESPACE_ and _END_GOOGLE_NAMESPACE_ macros.
+ * - Added extern "C" to call from C.
+ * - demangle.h uses C++ // comments, but does not need to compile as C89 under
+ *   MSVC, so they were left as-is.
+ */
+#define _START_GOOGLE_NAMESPACE_
+#define _END_GOOGLE_NAMESPACE_
 
 _START_GOOGLE_NAMESPACE_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // Demangle "mangled".  On success, return true and write the
 // demangled symbol name to "out".  Otherwise, return false.
 // "out" is modified even if demangling is unsuccessful.
 bool Demangle(const char *mangled, char *out, int out_size);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 _END_GOOGLE_NAMESPACE_
 

@@ -29,6 +29,8 @@
 //
 // Author: Satoru Takabayashi
 //
+// Retreived from http://code.google.com/p/google-glog/ at r91.
+//
 // For reference check out:
 // http://www.codesourcery.com/public/cxx-abi/abi.html#mangling
 //
@@ -397,7 +399,7 @@ static void MaybeCancelLastSeparator(State *state) {
 // namespace.
 static bool IdentifierIsAnonymousNamespace(State *state) {
   const char anon_prefix[] = "_GLOBAL__N_";
-  return (state->number > sizeof(anon_prefix) - 1 &&  // Should be longer.
+  return (state->number > (int)sizeof(anon_prefix) - 1 &&  // Should be longer.
           StrPrefix(state->mangled_cur, anon_prefix));
 }
 

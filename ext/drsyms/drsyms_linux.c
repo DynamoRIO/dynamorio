@@ -59,6 +59,7 @@
 #include "dwarf.h"
 #include "libdwarf.h"
 #include "libelf.h"
+#include "demangle.h"
 
 /* Guards our internal state and libdwarf's modifications of mod->dbg. */
 void *symbol_lock;
@@ -80,6 +81,12 @@ static bool verbose = false;
 #define NOTIFY_DWARF(de) do { \
     if (verbose) { \
         dr_fprintf(STDERR, "drsyms: Dwarf error: %s\n", dwarf_errmsg(de)); \
+    } \
+} while (0)
+
+#define NOTIFY_ELF() do { \
+    if (verbose) { \
+        dr_fprintf(STDERR, "drsyms: Elf error: %s\n", elf_errmsg(elf_errno())); \
     } \
 } while (0)
 
@@ -142,15 +149,20 @@ find_elf_section_by_name(Elf *elf, const char *match_name)
     size_t shstrndx;  /* Means "section header string table section index" */
 
     if (elf_getshdrstrndx(elf, &shstrndx) != 0) {
-        NOTIFY("elf_getshdrstrndx failed\n");
+        NOTIFY_ELF();
         return NULL;
     }
 
     for (scn = elf_getscn(elf, 0); scn != NULL; scn = elf_nextscn(elf, scn)) {
         Elf_Shdr *section_header = elf_getshdr(scn);
-        const char *sec_name = elf_strptr(elf, shstrndx, section_header->sh_name);
+        const char *sec_name;
+        if (section_header == NULL) {
+            NOTIFY_ELF();
+            continue;
+        }
+        sec_name = elf_strptr(elf, shstrndx, section_header->sh_name);
         if (sec_name == NULL) {
-            NOTIFY("drsyms: Elf error\n");
+            NOTIFY_ELF();
         }
         if (strcmp(sec_name, match_name) == 0) {
             return scn;
@@ -170,8 +182,10 @@ find_debuglink_section(void *map_base, Elf *elf)
 {
     Elf_Shdr *section_header =
         elf_getshdr(find_elf_section_by_name(elf, ".gnu_debuglink"));
-    if (section_header == NULL)
+    if (section_header == NULL) {
+        NOTIFY_ELF();
         return NULL;
+    }
     return ((char*) map_base) + section_header->sh_offset;
 }
 
@@ -189,6 +203,11 @@ find_load_base(Elf *elf)
     uint i;
     ptr_uint_t load_base = 0;
     bool found_pt_load = false;
+
+    if (ehdr == NULL || phdr == NULL) {
+        NOTIFY_ELF();
+        return 0;
+    }
 
     for (i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD) {
@@ -436,34 +455,41 @@ get_elf_syms(dbg_module_t *mod, int *strtab_idx OUT, int *num_syms OUT)
 }
 
 static drsym_error_t
-symsearch_symtab(dbg_module_t *mod, const char *match,
-                 drsym_enumerate_cb callback, void *data)
+symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback, void *data)
 {
     Elf_Sym *syms;
     int strtab_idx;
     int num_syms;
     int i;
     bool keep_searching = true;
+    char *symbol_buf;
+    size_t symbol_buf_size = 1024;  /* C++ symbols can be quite long. */
+    void *dc = dr_get_current_drcontext();
 
     syms = get_elf_syms(mod, &strtab_idx, &num_syms);
     if (syms == NULL)
         return DRSYM_ERROR;
 
+    symbol_buf = dr_thread_alloc(dc, symbol_buf_size);
+
     for (i = 0; keep_searching && i < num_syms; i++) {
-        const char *sym_name = elf_strptr(mod->elf, strtab_idx, syms[i].st_name);
-        /* FIXME: strstr is the *wrong* matching alrogithm to use here, and
-         * basically makes this not functional.  For example, a user looking for
-         * "malloc" will find the first symbol with "malloc" as a substring.  We
-         * only use it so we can look up C++ symbols, which even for simple
-         * functions are always prefixed with _Z.  When we have name mangling
-         * (i#545) we'll be able to do exact matching.
-         */
-        if (match == NULL || strstr(sym_name, match)) {
-            size_t modoffs = syms[i].st_value - mod->load_base;
-            NOTIFY("Found symtab symbol: %s, %08lx\n", sym_name, modoffs);
-            keep_searching = callback(sym_name, modoffs, data);
+        const char *mangled = elf_strptr(mod->elf, strtab_idx, syms[i].st_name);
+        const char *unmangled = mangled;  /* Points at mangled or symbol_buf. */
+        size_t modoffs = syms[i].st_value - mod->load_base;
+        bool ok;
+
+        ok = Demangle(mangled, symbol_buf, symbol_buf_size);
+        if (ok) {
+            unmangled = symbol_buf;
         }
+        /* XXX: If Demangle could tell us when it overflowed, we could resize
+         * and continue.
+         */
+
+        keep_searching = callback(unmangled, modoffs, data);
     }
+
+    dr_thread_free(dc, symbol_buf, symbol_buf_size);
 
     return DRSYM_SUCCESS;
 }
@@ -485,7 +511,6 @@ addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info INOUT)
         size_t hi_offs = lo_offs + syms[i].st_size;
         if (lo_offs <= modoffs && modoffs < hi_offs) {
             const char *sym_name = elf_strptr(mod->elf, strtab_idx, syms[i].st_name);
-            NOTIFY("Found symtab address: %s, %08lx\n", sym_name, lo_offs);
 
             strncpy(info->name, sym_name, info->name_size);
             info->name[info->name_size - 1] = '\0';
@@ -639,12 +664,11 @@ search_addr2line(Dwarf_Debug dbg, Dwarf_Addr pc, drsym_info_t *sym_info INOUT)
  */
 
 static drsym_error_t
-drsym_enumerate_symbols_local(const char *modpath, const char *match,
-                              drsym_enumerate_cb callback, void *data)
+drsym_enumerate_symbols_local(const char *modpath, drsym_enumerate_cb callback,
+                              void *data)
 {
     dbg_module_t *mod;
     drsym_error_t r;
-    const char *sym_no_mod;
 
     if (modpath == NULL || callback == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
@@ -656,7 +680,54 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
         return DRSYM_ERROR_LOAD_FAILED;
     }
 
-    if (match == NULL) {
+    r = symsearch_symtab(mod, callback, data);
+
+    dr_mutex_unlock(symbol_lock);
+    return r;
+}
+
+/* Params to sym_lookup_cb passed through data. */
+typedef struct _sym_lookup_params_t {
+    const char *search_sym;
+    size_t search_sym_len;
+    size_t *modoffs;
+} sym_lookup_params_t;
+
+/* Symbol enumeration callback for doing a single lookup.
+ */
+static bool
+sym_lookup_cb(const char *sym, size_t modoffs, void *data INOUT)
+{
+    sym_lookup_params_t *p = (sym_lookup_params_t*)data;
+
+    if (strncmp(sym, p->search_sym, p->search_sym_len) == 0 &&
+        strlen(sym) >= p->search_sym_len &&
+        (sym[p->search_sym_len] == '\0' ||
+         /* Left paren means the beginning of the parameter list.  Since the
+          * parameter list starts where our search string ends, we assume the
+          * user doesn't care about possible overloads.
+          */
+         sym[p->search_sym_len] == '(')) {
+        NOTIFY("Looked up symbol: %s %s\n", p->search_sym, sym);
+        *p->modoffs = modoffs;
+        /* Stop after the first match. */
+        return false;
+    }
+    return true;
+}
+
+static drsym_error_t
+drsym_lookup_symbol_local(const char *modpath, const char *symbol,
+                          size_t *modoffs OUT)
+{
+    drsym_error_t r;
+    sym_lookup_params_t params;
+    const char *sym_no_mod;
+
+    if (modpath == NULL || symbol == NULL || modoffs == NULL)
+        return DRSYM_ERROR_INVALID_PARAMETER;
+
+    if (symbol == NULL) {
         sym_no_mod = NULL;
     } else {
         /* Ignore the module portion of the match string.  We search the module
@@ -665,40 +736,19 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
          * FIXME #574: Change the interface for both Linux and Windows
          * implementations to not include the module name.
          */
-        sym_no_mod = strchr(match, '!');
+        sym_no_mod = strchr(symbol, '!');
         if (sym_no_mod != NULL) {
             sym_no_mod++;
         } else {
-            sym_no_mod = match;
+            sym_no_mod = symbol;
         }
     }
 
-    r = symsearch_symtab(mod, sym_no_mod, callback, data);
-
-    dr_mutex_unlock(symbol_lock);
-    return r;
-}
-
-static bool
-sym_lookup_cb(const char *sym_name, size_t modoffs, void *data OUT)
-{
-    size_t *modoffs_p = (size_t*)data;
-    *modoffs_p = modoffs;
-    /* Stop after the first match. */
-    return false;
-}
-
-static drsym_error_t
-drsym_lookup_symbol_local(const char *modpath, const char *symbol,
-                          size_t *modoffs OUT)
-{
-    drsym_error_t r;
-
-    if (modpath == NULL || symbol == NULL || modoffs == NULL)
-        return DRSYM_ERROR_INVALID_PARAMETER;
-
     *modoffs = 0;
-    r = drsym_enumerate_symbols_local(modpath, symbol, sym_lookup_cb, modoffs);
+    params.search_sym = sym_no_mod;
+    params.search_sym_len = strlen(sym_no_mod);
+    params.modoffs = modoffs;
+    r = drsym_enumerate_symbols_local(modpath, sym_lookup_cb, &params);
     if (r != DRSYM_SUCCESS)
         return r;
     if (*modoffs == 0)
@@ -814,6 +864,6 @@ drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_enumerate_symbols_local(modpath, NULL, callback, data);
+        return drsym_enumerate_symbols_local(modpath, callback, data);
     }
 }
