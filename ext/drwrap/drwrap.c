@@ -25,9 +25,10 @@
  *
  * Handles tailcalls made via direct jump.
  *
- * XXX: does not handle tailcalls made via indirect jump: so if the
- * containing call and the indirect tailcall target are both wrapped,
- * the indirect post cb will be missed.
+ * XXX: does not handle tailcalls made via indirect jump that are not
+ * via a simple address table: so if the containing call and the
+ * indirect tailcall target are both wrapped, the indirect post cb
+ * will be missed.
  */
 
 #include "dr_api.h"
@@ -329,6 +330,9 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
 static void
 drwrap_event_module_unload(void *drcontext, const module_data_t *info);
 
+static void
+drwrap_fragment_delete(void *dc/*may be NULL*/, void *tag);
+
 
 /***************************************************************************
  * INIT
@@ -367,6 +371,7 @@ drwrap_init(void)
                       false/*!str_dup*/, false/*!synch*/, post_call_entry_free,
                       NULL, NULL);
     dr_register_module_unload_event(drwrap_event_module_unload);
+    dr_register_delete_event(drwrap_fragment_delete);
 
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1)
@@ -779,37 +784,48 @@ drwrap_check_for_tailcall(void *drcontext, instrlist_t *bb, instr_t *inst)
 {
     /* Look for tail call */
     bool is_tail_call = false;
-    app_pc target;
+    app_pc target = NULL;
     dr_mcontext_t mc = {sizeof(mc),};
-    if (instr_get_opcode(inst) != OP_jmp)
+    instr_t callee;
+    instr_t *check_ind = inst;
+    bool free_callee = false;
+    if (instr_get_opcode(inst) != OP_jmp &&
+        instr_get_opcode(inst) != OP_jmp_ind)
         return;
     if (!dr_get_mcontext(drcontext, &mc)) {
         ASSERT(false, "unable to get mc");
         return;
     }
-    target = opnd_get_pc(instr_get_target(inst));
-    if (is_wrapped_routine(target)) {
-        is_tail_call = true;
-    } else {
-        /* May jmp to plt jmp* */
-        instr_t callee;
-        instr_init(drcontext, &callee);
-        if (decode(drcontext, target, &callee) != NULL &&
-            instr_get_opcode(&callee) == OP_jmp_ind) {
-            opnd_t opnd = instr_get_target(&callee);
-            size_t read;
-            if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) == DR_REG_NULL &&
-                opnd_get_index(opnd) == DR_REG_NULL) {
-                if (dr_safe_read(opnd_compute_address(opnd, &mc), sizeof(target),
-                                 &target, &read) && 
-                    read == sizeof(target) &&
-                    is_wrapped_routine(target))
-                    is_tail_call = true;
+    if (instr_get_opcode(inst) == OP_jmp) {
+        target = opnd_get_pc(instr_get_target(inst));
+        if (is_wrapped_routine(target)) {
+            is_tail_call = true;
+        } else {
+            /* May jmp to plt jmp* */
+            instr_init(drcontext, &callee);
+            free_callee = true;
+            if (decode(drcontext, target, &callee) != NULL &&
+                instr_get_opcode(&callee) == OP_jmp_ind) {
+                check_ind = &callee; /* check below */
             }
         }
-        instr_free(drcontext, &callee);
     }
-    if (is_tail_call) {
+    if (instr_get_opcode(check_ind) == OP_jmp_ind) {
+        /* We do see indirect tailcalls (i#637) with /MD and operator {new,delete} */
+        opnd_t opnd = instr_get_target(check_ind);
+        size_t read;
+        if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) == DR_REG_NULL &&
+            opnd_get_index(opnd) == DR_REG_NULL) {
+            if (dr_safe_read(opnd_compute_address(opnd, &mc), sizeof(target),
+                             &target, &read) && 
+                read == sizeof(target) &&
+                is_wrapped_routine(target))
+                is_tail_call = true;
+        }
+    }
+    if (free_callee)
+        instr_free(drcontext, &callee);
+    if (is_tail_call && target != NULL) {
         /* at runtime we'll record the tailcall so we can process it post-caller */
         app_pc post_call = instr_get_app_pc(inst) + instr_length(drcontext, inst);
         dr_insert_clean_call(drcontext, bb, inst, (void *)drwrap_handle_tailcall,
@@ -871,6 +887,25 @@ drwrap_event_module_unload(void *drcontext, const module_data_t *info)
      */
     hashtable_remove_range(&call_site_table, (void *)info->start, (void *)info->end);
     hashtable_remove_range(&post_call_table, (void *)info->start, (void *)info->end);
+}
+
+static void
+drwrap_fragment_delete(void *dc/*may be NULL*/, void *tag)
+{
+    /* For post_call_table, just like in our use of dr_fragment_exists_at, we
+     * assume no traces and that we only care about fragments starting there.
+     *
+     * XXX: if we had DRi#409 we could avoid doing this removal on
+     * non-cache-consistency deletion: though usually if we remove on our
+     * own flush we should re-mark as post-call w/o another flush since in
+     * most cases the post-call is reached via the call.
+     *
+     * An alternative would be to not remove here, to store the
+     * pre-call bytes, and to check on new bbs whether they changed.
+     */
+    hashtable_lock(&post_call_table);
+    hashtable_remove(&post_call_table, tag);
+    hashtable_unlock(&post_call_table);
 }
 
 DR_EXPORT
