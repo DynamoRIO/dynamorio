@@ -44,6 +44,9 @@
 #include <assert.h>
 #include <signal.h>
 #include <stdio.h>
+#include <sys/syscall.h> /* for SYS_* */
+
+#include "tools.h"  /* for nolibc_* wrappers. */
 
 #ifdef USE_DYNAMO
 #include "dynamorio.h"
@@ -54,22 +57,6 @@
 #define CLONE_THREAD    0x00010000      /* Same thread group? */
 #define CLONE_CHILD_CLEARTID 0x00200000      /* clear the TID in the child */
 
-#ifdef __i386__
-# define __NR_set_tid_address 258
-# define __NR_gettid 224
-# define __NR_exit_group 252
-#else
-# define __NR_set_tid_address 218
-# define __NR_gettid 186
-# define __NR_exit_group 231
-#endif
-#define SYS_set_tid_address __NR_set_tid_address
-#define SYS_gettid __NR_gettid
-#define SYS_exit_group __NR_exit_group
-
-#define false (0)
-#define true (1)
-typedef int bool;
 #define THREAD_STACK_SIZE   (32*1024)
 
 #define NUM_THREADS 8
@@ -131,7 +118,8 @@ int main()
 #endif
 }
 
-/* Procedure executed by sideline threads
+/* Procedure executed by sideline threads.
+ * XXX i#500: Cannot use libc routines (printf) in the child process.
  */
 int run(void *arg)
 {
@@ -140,10 +128,10 @@ int run(void *arg)
     /* for CLONE_CHILD_CLEARTID for signaling parent.  if we used raw
      * clone system call we could get kernel to do this for us. 
      */
-    child[threadnum] = syscall(SYS_gettid);
-    syscall(SYS_set_tid_address, &child[threadnum]);
+    child[threadnum] = nolibc_syscall(SYS_gettid, 0);
+    nolibc_syscall(SYS_set_tid_address, 1, &child[threadnum]);
     child_started[threadnum] = true;
-    fprintf(stderr, "Sideline thread started\n");
+    nolibc_print("Sideline thread started\n");
     while (true) {
         /* do nothing for now */
         i++;
@@ -151,13 +139,13 @@ int run(void *arg)
             break;
     }
     while (!child_exit[threadnum])
-        nanosleep(&sleeptime, NULL);
-    fprintf(stderr, "Sideline thread finished, exiting whole group\n");
+        nolibc_nanosleep(&sleeptime);
+    nolibc_print("Sideline thread finished, exiting whole group\n");
     /* We deliberately bring down the whole group.  Note that this is
      * the default on x64 on returning for some reason which seems
      * like a bug in _clone() (xref i#94).
      */
-    syscall(SYS_exit_group);
+    nolibc_syscall(SYS_exit_group, 0);
     return 0;
 }
 
@@ -256,4 +244,3 @@ stack_free(void *p, int size)
     munmap((void*) sp, PAGE_SIZE);
 #endif 
 }
-

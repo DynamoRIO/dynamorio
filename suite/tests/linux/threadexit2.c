@@ -44,6 +44,9 @@
 #include <assert.h>
 #include <signal.h>
 #include <stdio.h>
+#include <sys/syscall.h> /* for SYS_* */
+
+#include "tools.h"  /* for nolibc_* wrappers. */
 
 #ifdef USE_DYNAMO
 #include "dynamorio.h"
@@ -54,22 +57,6 @@
 #define CLONE_THREAD    0x00010000      /* Same thread group? */
 #define CLONE_CHILD_CLEARTID 0x00200000      /* clear the TID in the child */
 
-#ifdef __i386__
-# define __NR_set_tid_address 258
-# define __NR_gettid 224
-# define __NR_exit_group 252
-#else
-# define __NR_set_tid_address 218
-# define __NR_gettid 186
-# define __NR_exit_group 231
-#endif
-#define SYS_set_tid_address __NR_set_tid_address
-#define SYS_gettid __NR_gettid
-#define SYS_exit_group __NR_exit_group
-
-#define false (0)
-#define true (1)
-typedef int bool;
 #define THREAD_STACK_SIZE   (32*1024)
 
 #define NUM_THREADS 8
@@ -139,6 +126,7 @@ int main()
 }
 
 /* Procedure executed by sideline threads
+ * XXX i#500: Cannot use libc routines (printf) in the child process.
  */
 int run(void *arg)
 {
@@ -147,20 +135,21 @@ int run(void *arg)
     /* for CLONE_CHILD_CLEARTID for signaling parent.  if we used raw
      * clone system call we could get kernel to do this for us. 
      */
-    child[threadnum] = syscall(SYS_gettid);
-    syscall(SYS_set_tid_address, &child[threadnum]);
+    child[threadnum] = nolibc_syscall(SYS_gettid, 0);
+    nolibc_syscall(SYS_set_tid_address, 1, &child[threadnum]);
 
     if (threadnum == 0) {
         /* first child creates rest of group */
         int j;
         for (j = 1; j < NUM_THREADS; j++) {
             child[j] = create_thread(run, (void *)(long)j, &stack[j], true);
-            assert(child[j] > -1);
+            if (child[j] < 0)
+                nolibc_print("failed to create child thread\n");
         }
     }
 
     child_started[threadnum] = true;
-    fprintf(stderr, "Sideline thread started\n");
+    nolibc_print("Sideline thread started\n");
 
     while (true) {
         /* do nothing for now */
@@ -169,14 +158,14 @@ int run(void *arg)
             break;
     }
     while (!child_exit[threadnum])
-        nanosleep(&sleeptime, NULL);
-    fprintf(stderr, "Sideline thread finished, exiting whole group\n");
+        nolibc_nanosleep(&sleeptime);
+    nolibc_print("Sideline thread finished, exiting whole group\n");
     child_done[threadnum] = true;
     /* We deliberately bring down the whole group.  Note that this is
      * the default on x64 on returning for some reason which seems
      * like a bug in _clone() (xref i#94).
      */
-    syscall(SYS_exit_group);
+    nolibc_syscall(SYS_exit_group, 0);
     return 0;
 }
 
@@ -203,11 +192,16 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool same_group)
         CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
     if (same_group)
         flags |= CLONE_THREAD;
+    /* XXX: Using libc clone in the child here really worries me, but it seems
+     * to work.  My theory is that the parent has to call clone, which invokes
+     * the loader to fill in the PLT entry, so when the child calls clone it
+     * doesn't go into the loader and avoiding the races like we saw in i#500.
+     */
     newpid = clone(fcn, my_stack, flags, arg);
     /* this is really a tid if we passed CLONE_THREAD: child has same pid as us */
   
     if (newpid == -1) {
-        fprintf(stderr, "smp.c: Error calling clone\n");
+        nolibc_print("smp.c: Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
         return -1;
     }
@@ -221,9 +215,9 @@ delete_thread(pid_t pid, void *stack)
 {
     pid_t result;
     /* do not print out pids to make diff easy */
-    fprintf(stderr, "Waiting for child to exit\n");
+    nolibc_print("Waiting for child to exit\n");
     result = waitpid(pid, NULL, 0);
-    fprintf(stderr, "Child has exited\n");
+    nolibc_print("Child has exited\n");
     if (result == -1 || result != pid) {
         /* somehow getting errors: ignoring for now since works */
 #if VERBOSE
@@ -243,16 +237,18 @@ stack_alloc(int size)
 
 #if STACK_OVERFLOW_PROTECT
     /* allocate an extra page and mark it non-accessible to trap stack overflow */
-    q = mmap(0, PAGE_SIZE, PROT_NONE, MAP_ANON|MAP_PRIVATE, -1, 0);
-    assert(q);
+    q = nolibc_mmap(0, PAGE_SIZE, PROT_NONE, MAP_ANON|MAP_PRIVATE, -1, 0);
+    if (q == NULL || q == MAP_FAILED)
+        nolibc_print("mmap failed\n");
     stack_redzone_start = (size_t) q;
-#endif 
+#endif
 
-    p = mmap(q, size, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
-    assert(p);
+    p = nolibc_mmap(q, size, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
+    if (p == NULL || p == MAP_FAILED)
+        nolibc_print("mmap failed\n");
 #ifdef DEBUG
-    memset(p, 0xab, size);
-#endif 
+    nolibc_memset(p, 0xab, size);
+#endif
 
     /* stack grows from high to low addresses, so return a ptr to the top of the
        allocated region */
@@ -268,13 +264,12 @@ stack_free(void *p, int size)
     size_t sp = (size_t)p - size;
 
 #ifdef DEBUG
-    memset((void *)sp, 0xcd, size);
-#endif 
-    munmap((void *)sp, size);
+    nolibc_memset((void *)sp, 0xcd, size);
+#endif
+    nolibc_munmap((void *)sp, size);
 
 #if STACK_OVERFLOW_PROTECT
     sp = sp - PAGE_SIZE;
-    munmap((void*) sp, PAGE_SIZE);
-#endif 
+    nolibc_munmap((void*) sp, PAGE_SIZE);
+#endif
 }
-

@@ -44,6 +44,9 @@
 #include <assert.h>
 #include <signal.h>
 #include <stdio.h>
+#include <sys/syscall.h> /* for SYS_* */
+
+#include "tools.h"  /* for nolibc_* wrappers */
 
 #ifdef USE_DYNAMO
 #include "dynamorio.h"
@@ -54,22 +57,6 @@
 #define CLONE_THREAD	0x00010000	/* Same thread group? */
 #define CLONE_CHILD_CLEARTID 0x00200000      /* clear the TID in the child */
 
-#ifdef __i386__
-# define __NR_set_tid_address 258
-# define __NR_gettid 224
-# define __NR_exit 1
-#else
-# define __NR_set_tid_address 218
-# define __NR_gettid 186
-# define __NR_exit 60
-#endif
-#define SYS_set_tid_address __NR_set_tid_address
-#define SYS_gettid __NR_gettid
-#define SYS_exit __NR_exit
-
-#define false (0)
-#define true (1)
-typedef int bool;
 #define THREAD_STACK_SIZE   (32*1024)
 
 /* forward declarations */
@@ -122,6 +109,7 @@ int main()
 }
 
 /* Procedure executed by sideline threads
+ * XXX i#500: Cannot use libc routines (printf) in the child process.
  */
 int run(void *arg)
 {
@@ -129,26 +117,29 @@ int run(void *arg)
     /* for CLONE_CHILD_CLEARTID for signaling parent.  if we used raw
      * clone system call we could get kernel to do this for us. 
      */
-    child = syscall(SYS_gettid);
-    syscall(SYS_set_tid_address, &child);
-    fprintf(stderr, "Sideline thread started\n");
+    child = nolibc_syscall(SYS_gettid, 0);
+    nolibc_syscall(SYS_set_tid_address, 1, &child);
+    nolibc_print("Sideline thread started\n");
     while (true) {
-	/* do nothing for now */
-	i++;
-	if (i % 2500000 == 0)
-	    fprintf(stderr, "i = %d\n", i);
-	if (i % 25000000 == 0)
-	    break;
+        /* do nothing for now */
+        i++;
+        if (i % 2500000 == 0) {
+            nolibc_print("i = ");
+            nolibc_print_int(i);
+            nolibc_print("\n");
+        }
+        if (i % 25000000 == 0)
+            break;
     }
     while (!child_exit)
         nanosleep(&sleeptime, NULL);
-    fprintf(stderr, "Sideline thread finished\n");
+    nolibc_print("Sideline thread finished\n");
     child_done = true;
 #ifdef X64
     /* FIXME: returning here invokes SYS_exit_group and takes down the
      * parent...what's up with that?  Xref i#94.
      */
-    syscall(SYS_exit);
+    nolibc_syscall(SYS_exit, 0);
 #endif
     return 0;
 }
@@ -248,4 +239,3 @@ stack_free(void *p, int size)
     munmap((void*) sp, PAGE_SIZE);
 #endif 
 }
-

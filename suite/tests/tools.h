@@ -643,6 +643,7 @@ typedef HANDLE thread_handle;
 typedef unsigned int (__stdcall *fptr)(void *);
 #endif
 
+#ifdef WINDOWS
 /* Thread related functions */
 thread_handle
 create_thread(fptr f);
@@ -657,6 +658,7 @@ join_thread(thread_handle th);
 
 void
 thread_yield();
+#endif
 
 #ifdef WINDOWS
 static byte *
@@ -709,6 +711,22 @@ __asm {             \
 }
 #endif
 
+#ifdef LINUX
+/* Forward decl for nanosleep. */
+struct timespec;
+
+/* Staticly linked versions of libc routines that don't touch globals or errno.
+ */
+ptr_int_t nolibc_syscall(uint sysnum, uint num_args, ...);
+void nolibc_print(const char *str);
+void nolibc_print_int(int d);
+void nolibc_nanosleep(struct timespec *req);
+int  nolibc_strlen(const char *str);
+void *nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd,
+                off_t offset);
+void nolibc_munmap(void *addr, size_t length);
+void nolibc_memset(void *dst, int val, size_t size);
+#endif
 
 #ifdef __cplusplus
 }

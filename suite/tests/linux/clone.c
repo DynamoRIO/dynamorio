@@ -43,15 +43,22 @@
 #include <assert.h>
 #include <signal.h>
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+#include "tools.h"  /* for nolibc_* wrappers. */
 
 #ifdef USE_DYNAMO
 #include "dynamorio.h"
 #endif
 
-#define false (0)
-#define true (1)
-typedef int bool;
 #define THREAD_STACK_SIZE   (32*1024)
+
+#ifdef X64
+# define APP_TLS_SEG "fs"
+#else
+# define APP_TLS_SEG "gs"
+#endif
 
 /* forward declarations */
 static pid_t create_thread(int (*fcn)(void *), void *arg, void **stack);
@@ -103,25 +110,31 @@ int main()
 }
 
 /* Procedure executed by sideline threads
+ * XXX i#500: Cannot use libc routines (printf) in the child process.
  */
 int run(void *arg)
 {
     int i = 0;
-    printf("Sideline thread started\n");
+    nolibc_print("Sideline thread started\n");
     while (true) {
-	/* do nothing for now */
-	i++;
-	if (i % 2500000 == 0)
-	    printf("i = %d\n", i);
-	if (i % 25000000 == 0)
-	    break;
+        /* do nothing for now */
+        i++;
+        if (i % 2500000 == 0) {
+            nolibc_print("i = ");
+            nolibc_print_int(i);
+            nolibc_print("\n");
+        }
+        if (i % 25000000 == 0)
+            break;
     }
     while (!child_exit)
-        nanosleep(&sleeptime, NULL);
-    printf("Sideline thread finished\n");
+        nolibc_nanosleep(&sleeptime);
+    nolibc_print("Sideline thread finished\n");
     child_done = true;
     return 0;
 }
+
+void *p_tid, *c_tid;
 
 /* Create a new thread. It should be passed "fcn", a function which
  * takes two arguments, (the second one is a dummy, always 4). The
@@ -133,20 +146,21 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
     pid_t newpid; 
     int flags;
     void *my_stack;
-    
+
     my_stack = stack_alloc(THREAD_STACK_SIZE);
+
     /* need SIGCHLD so parent will get that signal when child dies,
      * else have errors doing a wait */
     /* we're not doing CLONE_THREAD => child has its own pid
      * (the thread.c test tests CLONE_THREAD)
      */
-    flags = SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
-    newpid = clone(fcn, my_stack, flags, arg);
-  
+    flags = (SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
+    newpid = clone(fcn, my_stack, flags, arg, &p_tid, NULL, &c_tid);
+
     if (newpid == -1) {
-	printf("smp.c: Error calling clone\n");
-	stack_free(my_stack, THREAD_STACK_SIZE);
-	return -1;
+        print("smp.c: Error calling clone\n");
+        stack_free(my_stack, THREAD_STACK_SIZE);
+        return -1;
     }
 
     *stack = my_stack;
@@ -158,9 +172,9 @@ delete_thread(pid_t pid, void *stack)
 {
     pid_t result;
     /* do not print out pids to make diff easy */
-    printf("Waiting for child to exit\n");
+    print("Waiting for child to exit\n");
     result = waitpid(pid, NULL, 0);
-    printf("Child has exited\n");
+    print("Child has exited\n");
     if (result == -1 || result != pid)
 	perror("delete_thread waitpid");
     stack_free(stack, THREAD_STACK_SIZE);
@@ -210,4 +224,3 @@ stack_free(void *p, int size)
     munmap((void*) sp, PAGE_SIZE);
 #endif 
 }
-

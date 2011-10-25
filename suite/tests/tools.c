@@ -33,6 +33,10 @@
 #ifndef ASM_CODE_ONLY /* C code */
 #include "tools.h"
 
+#ifdef LINUX
+# include <sys/syscall.h> /* for SYS_* numbers */
+#endif
+
 #define ASSERT_NOT_IMPLEMENTED() do { print("NYI\n"); abort();} while (0)
 
 #ifdef WINDOWS
@@ -283,6 +287,107 @@ get_cache_line_size()
     return cache_line_size;
 }
 
+#ifdef LINUX
+/******************************************************************************
+ * Staticly linked and stateless versions of libc routines.
+ */
+
+/* Safe strlen.
+ */
+int
+nolibc_strlen(const char *str)
+{
+    int i;
+    for (i = 0; str[i] != '\0'; i++) {
+        /* pass */
+    }
+    return i;
+}
+
+/* Safe print syscall.
+ */
+void
+nolibc_print(const char *str)
+{
+    nolibc_syscall(SYS_write, 3, stderr->_fileno, str, nolibc_strlen(str));
+}
+
+/* Safe print int syscall.
+ */
+void
+nolibc_print_int(int n)
+{
+    char buf[12];  /* 2 ** 31 has 10 digits, plus sign and nul. */
+    int i = 0;
+    int m;
+    int len;
+
+    /* Sign. */
+    if (n < 0) {
+        buf[i++] = '-';
+        n = -n;
+    }
+
+    /* Go forward by the number of digits we'll need. */
+    m = n;
+    while (m > 0) {
+        m /= 10;
+        i++;
+    }
+    len = i;
+    assert(len <= sizeof(buf));
+
+    /* Go backward for each digit. */
+    while (n > 0) {
+        buf[--i] = '0' + (n % 10);
+        n /= 10;
+    }
+
+    buf[len] = '\0';
+
+    nolibc_print(buf);
+}
+
+/* Safe nanosleep.
+ */
+void
+nolibc_nanosleep(struct timespec *req)
+{
+    nolibc_syscall(SYS_nanosleep, 2, req, NULL);
+}
+
+/* Safe mmap.
+ */
+void *
+nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
+{
+#ifdef X64
+    int sysnum = SYS_mmap;
+#else
+    int sysnum = SYS_mmap2;
+#endif
+    return (void*)nolibc_syscall(sysnum, 6, addr, length, prot, flags, fd,
+                               offset);
+}
+
+/* Safe munmap.
+ */
+void
+nolibc_munmap(void *addr, size_t length)
+{
+    nolibc_syscall(SYS_munmap, 2, addr, length);
+}
+
+void
+nolibc_memset(void *dst, int val, size_t size)
+{
+    size_t i;
+    char *buf = (char*)dst;
+    for (i = 0; i < size; i++) {
+        buf[i] = (char)val;
+    }
+}
+#endif /* LINUX */
 
 #else /* asm code *************************************************************/
 /*
@@ -343,6 +448,92 @@ GLOBAL_LABEL(FUNCNAME:)
         mov  REG_XAX, 1
         ret
         END_FUNC(FUNCNAME)
+
+#ifdef LINUX
+/* Raw system call adapter for Linux.  Useful for threading and clone tests that
+ * need to avoid using libc routines.  Using libc routines can enter the loader
+ * and/or touch global state and TLS state.  Our tests use CLONE_VM and don't
+ * initialize TLS segments, so the TLS is actually *shared* with the parent
+ * (xref i#500).
+ *
+ * Copied from core/x86/x86.asm dynamorio_syscall.
+ */
+#undef FUNCNAME
+#define FUNCNAME nolibc_syscall
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* x64 kernel doesn't clobber all the callee-saved registers */
+        push     REG_XBX
+# ifdef X64
+        /* reverse order so we don't clobber earlier args */
+        mov      REG_XBX, ARG2 /* put num_args where we can reference it longer */
+        mov      rax, ARG1 /* sysnum: only need eax, but need rax to use ARG1 (or movzx) */
+        cmp      REG_XBX, 0
+        je       syscall_ready
+        mov      ARG1, ARG3
+        cmp      REG_XBX, 1
+        je       syscall_ready
+        mov      ARG2, ARG4
+        cmp      REG_XBX, 2
+        je       syscall_ready
+        mov      ARG3, ARG5
+        cmp      REG_XBX, 3
+        je       syscall_ready
+        mov      ARG4, ARG6
+        cmp      REG_XBX, 4
+        je       syscall_ready
+        mov      ARG5, [2*ARG_SZ + REG_XSP] /* arg7: above xbx and retaddr */
+        cmp      REG_XBX, 5
+        je       syscall_ready
+        mov      ARG6, [3*ARG_SZ + REG_XSP] /* arg8: above arg7, xbx, retaddr */
+syscall_ready:
+        mov      r10, rcx
+        syscall
+# else
+        push     REG_XBP
+        push     REG_XSI
+        push     REG_XDI
+        /* add 16 to skip the 4 pushes
+         * FIXME: rather than this dispatch, could have separate routines
+         * for each #args, or could just blindly read upward on the stack.
+         * for dispatch, if assume size of mov instr can do single ind jmp */
+        mov      ecx, [16+ 8 + esp] /* num_args */
+        cmp      ecx, 0
+        je       syscall_0args
+        cmp      ecx, 1
+        je       syscall_1args
+        cmp      ecx, 2
+        je       syscall_2args
+        cmp      ecx, 3
+        je       syscall_3args
+        cmp      ecx, 4
+        je       syscall_4args
+        cmp      ecx, 5
+        je       syscall_5args
+        mov      ebp, [16+32 + esp] /* arg6 */
+syscall_5args:
+        mov      edi, [16+28 + esp] /* arg5 */
+syscall_4args:
+        mov      esi, [16+24 + esp] /* arg4 */
+syscall_3args:
+        mov      edx, [16+20 + esp] /* arg3 */
+syscall_2args:
+        mov      ecx, [16+16 + esp] /* arg2 */
+syscall_1args:
+        mov      ebx, [16+12 + esp] /* arg1 */
+syscall_0args:
+        mov      eax, [16+ 4 + esp] /* sysnum */
+        /* PR 254280: we assume int$80 is ok even for LOL64 */
+        int      HEX(80)
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+# endif /* X64 */
+        pop      REG_XBX
+        /* return val is in eax for us */
+        ret
+        END_FUNC(FUNCNAME)
+#endif /* LINUX */
 
 END_FILE
 #endif

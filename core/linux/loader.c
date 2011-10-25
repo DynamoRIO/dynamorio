@@ -979,7 +979,10 @@ privload_tls_init(void *app_tp)
      * and then uses memory at the end of the last page for tcb, 
      * so we assume the tcb is until the end of a page.
      */
-    tcb_size = ALIGN_FORWARD(app_tp, PAGE_SIZE) - (reg_t)app_tp;
+    /* When app_tp is page aligned, assume tcb_size is PAGE_SIZE instead of 0,
+     * so add 1 before aligning forward.
+     */
+    tcb_size = ALIGN_FORWARD(app_tp + 1, PAGE_SIZE) - (reg_t)app_tp;
     ASSERT(tls_info.offset <= max_client_tls_size - tcb_size);
     dr_tp = dr_tp + max_client_tls_size - tcb_size;
     LOG(GLOBAL, LOG_LOADER, 2, "%s adjust thread pointer to "PFX"\n",
@@ -1095,4 +1098,3 @@ privload_redirect_sym(ELF_ADDR *r_addr, const char *name)
     }
     return false;
 }
-
