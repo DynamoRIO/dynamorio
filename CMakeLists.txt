@@ -839,15 +839,15 @@ if (UNIX)
         # directory components are removed, so "../lib/" is fine
         "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
         # We can't strip everything since a client's _USES_DR_VERSION_ will be
-        # removed, so we only strip debug (-g) and local (-x), and preserve
-        # file attributes (-p):
-        "${CMAKE_STRIP} -g -x -p <TARGET>"
+        # removed, so we only strip debug (-g) and local (-x):
+        # i#572: We used to pass -p here, but that floors the mtime.
+        "${CMAKE_STRIP} -g -x <TARGET>"
         )
       SET(CMAKE_C_LINK_EXECUTABLE
         "<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> <OBJECTS>  -o <TARGET> <LINK_LIBRARIES>"
         "${CMAKE_OBJCOPY} --only-keep-debug <TARGET> <TARGET>.debug"
         "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
-        "${CMAKE_STRIP} -g -x -p <TARGET>"
+        "${CMAKE_STRIP} -g -x <TARGET>"
         )
       set(CMAKE_CXX_CREATE_SHARED_LIBRARY
         # standard rule
@@ -858,15 +858,15 @@ if (UNIX)
         # directory components are removed, so "../lib/" is fine
         "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
         # We can't strip everything since a client's _USES_DR_VERSION_ will be
-        # removed, so we only strip debug (-g) and local (-x), and preserve
-        # file attributes (-p):
-        "${CMAKE_STRIP} -g -x -p <TARGET>"
+        # removed, so we only strip debug (-g) and local (-x):
+        # i#572: We used to pass -p here, but that floors the mtime.
+        "${CMAKE_STRIP} -g -x <TARGET>"
         )
       SET(CMAKE_CXX_LINK_EXECUTABLE
         "<CMAKE_CXX_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS>  -o <TARGET> <LINK_LIBRARIES>"
         "${CMAKE_OBJCOPY} --only-keep-debug <TARGET> <TARGET>.debug"
         "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
-        "${CMAKE_STRIP} -g -x -p <TARGET>"
+        "${CMAKE_STRIP} -g -x <TARGET>"
         )
     endif (NOT flag_present)
   endif (EXISTS ${CMAKE_OBJCOPY} AND EXISTS ${CMAKE_STRIP})
