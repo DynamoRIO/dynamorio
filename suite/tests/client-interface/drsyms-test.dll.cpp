@@ -62,6 +62,7 @@ static bool enum_sym_cb(const char *name, size_t modoffs, void *data);
 #ifdef LINUX
 static void lookup_glibc_syms(void *dc, const module_data_t *dll_data);
 #endif
+static void test_demangle(void);
 
 extern "C" DR_EXPORT void
 dr_init(client_id_t id)
@@ -72,6 +73,7 @@ dr_init(client_id_t id)
 
     lookup_exe_syms();
     dr_register_module_load_event(lookup_dll_syms);
+    test_demangle();
 }
 
 /* Count intercepted calls. */
@@ -122,7 +124,12 @@ pre_stack_trace(void *wrapcxt, void **user_data)
 
         mod = dr_lookup_module(frame->ret_addr);
         modoffs = frame->ret_addr - mod->start;
-        r = drsym_lookup_address(mod->full_path, modoffs, sym_info);
+        /* gcc says the next line starts at the return address.  Back up one to
+         * get the line that the call was on.
+         */
+        modoffs--;
+        r = drsym_lookup_address(mod->full_path, modoffs, sym_info,
+                                 DRSYM_DEMANGLE);
         dr_free_module_data(mod);
         ASSERT(r == DRSYM_SUCCESS);
         basename = (sym_info->file ?
@@ -175,19 +182,38 @@ get_real_proc_addr(void *mod_handle, const char *symbol)
     return export_addr;
 }
 
+static size_t
+lookup_and_wrap(const char *modpath, app_pc modbase, const char *modname, const
+                char *symbol, int flags)
+{
+    drsym_error_t r;
+    size_t modoffs = 0;
+    bool ok;
+    char lookup_str[256];
+
+    dr_snprintf(lookup_str, sizeof(lookup_str), "%s!%s", modname, symbol);
+    r = drsym_lookup_symbol(modpath, lookup_str, &modoffs, flags);
+    if (r != DRSYM_SUCCESS || modoffs == 0) {
+        dr_fprintf(STDERR, "Failed to lookup %s\n", symbol);
+    } else {
+        ok = drwrap_wrap(modbase + modoffs, pre_func, post_func);
+        ASSERT(ok);
+    }
+    return modoffs;
+}
+
 /* Lookup symbols in the exe and wrap them. */
 static void
 lookup_exe_syms(void)
 {
-    drsym_error_t r;
     module_data_t *exe_data;
     const char *exe_path;
     app_pc exe_base;
     app_pc exe_export_addr;
     size_t exe_export_offs;
-    size_t exe_static_offs;
-    bool ok;
+    size_t exe_public_offs;
     drsym_info_t unused_info;
+    drsym_error_t r;
 
     exe_data = dr_lookup_module_by_name("client.drsyms-test" EXE_SUFFIX);
     ASSERT(exe_data != NULL);
@@ -195,44 +221,32 @@ lookup_exe_syms(void)
     exe_base = exe_data->start;
 
     exe_export_addr = get_real_proc_addr(exe_data->handle, "exe_export");
-    exe_export_offs = 0;
-    r = drsym_lookup_symbol(exe_path, "client.drsyms-test!exe_export",
-                            &exe_export_offs);
-    ASSERT(r == DRSYM_SUCCESS && exe_export_offs != 0);
+    exe_export_offs = lookup_and_wrap(exe_path, exe_base, "client.drsyms-test",
+                                      "exe_export", DRSYM_DEFAULT_FLAGS);
     ASSERT(exe_export_addr == exe_base + exe_export_offs);
-    ok = drwrap_wrap(exe_export_addr, pre_func, post_func);
-    ASSERT(ok);
 
-    /* exe_static is a static function in the exe we wouldn't be able to find
-     * without drsyms and debug info.
+    /* exe_public is a function in the exe we wouldn't be able to find without
+     * drsyms and debug info.
      */
-    r = drsym_lookup_symbol(exe_path, "client.drsyms-test!exe_static",
-                            &exe_static_offs);
-    ASSERT(r == DRSYM_SUCCESS);
-    ok = drwrap_wrap(exe_base + exe_static_offs, pre_func, post_func);
-    ASSERT(ok);
+    (void)lookup_and_wrap(exe_path, exe_base, "client.drsyms-test",
+                          "exe_public", DRSYM_DEFAULT_FLAGS);
 
     /* Test symbol not found error handling. */
-    r = drsym_lookup_symbol(exe_path, "nonexistant_sym", &exe_static_offs);
+    r = drsym_lookup_symbol(exe_path, "nonexistant_sym", &exe_public_offs,
+                            DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_ERROR_SYMBOL_NOT_FOUND);
 
     /* Test invalid parameter errors. */
-    r = drsym_lookup_symbol(NULL, "malloc", &exe_static_offs);
+    r = drsym_lookup_symbol(NULL, "malloc", &exe_public_offs, DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_ERROR_INVALID_PARAMETER);
-    r = drsym_lookup_symbol(exe_path, NULL, &exe_static_offs);
+    r = drsym_lookup_symbol(exe_path, NULL, &exe_public_offs, DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_ERROR_INVALID_PARAMETER);
-    r = drsym_enumerate_symbols(exe_path, NULL, NULL);
+    r = drsym_enumerate_symbols(exe_path, NULL, NULL, DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_ERROR_INVALID_PARAMETER);
-    r = drsym_lookup_address(NULL, 0xDEADBEEFUL, &unused_info);
+    r = drsym_lookup_address(NULL, 0xDEADBEEFUL, &unused_info, DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_ERROR_INVALID_PARAMETER);
-
-    /* FIXME: Lookup C++ symbols and do demangling. */
 
     /* FIXME: Test glob matching. */
-
-    /* FIXME: Test looking up malloc in libc.  libc's .gnu_debuglink section
-     * relies on searching paths other than the current directory.
-     */
 
     dr_free_module_data(exe_data);
 }
@@ -245,7 +259,6 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     app_pc dll_base;
     app_pc dll_export_addr;
     size_t dll_export_offs;
-    size_t dll_static_offs;
     size_t stack_trace_offs;
     drsym_error_t r;
     bool ok;
@@ -265,28 +278,22 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
         return;
 
     dll_export_addr = get_real_proc_addr(dll_data->handle, "dll_export");
-    dll_export_offs = 0;
-    r = drsym_lookup_symbol(dll_path, "client.drsyms-test.appdll!dll_export",
-                            &dll_export_offs);
-    ASSERT(r == DRSYM_SUCCESS && dll_export_offs != 0);
+    dll_export_offs = lookup_and_wrap(dll_path, dll_base,
+                                      "client.drsyms-test.appdll",
+                                      "dll_export", DRSYM_DEFAULT_FLAGS);
     ASSERT(dll_export_addr == dll_base + dll_export_offs);
-    ok = drwrap_wrap(dll_export_addr, pre_func, post_func);
-    ASSERT(ok);
 
-    /* dll_static is a static function in the dll we wouldn't be able to find
-     * without drsyms and debug info.
+    /* dll_public is a function in the dll we wouldn't be able to find without
+     * drsyms and debug info.
      */
-    r = drsym_lookup_symbol(dll_path, "client.drsyms-test.appdll!dll_static",
-                            &dll_static_offs);
-    ASSERT(r == DRSYM_SUCCESS);
-    ok = drwrap_wrap(dll_base + dll_static_offs, pre_func, post_func);
-    ASSERT(ok);
+    (void)lookup_and_wrap(dll_path, dll_base, "client.drsyms-test.appdll",
+                          "dll_public", DRSYM_DEFAULT_FLAGS);
 
     /* stack_trace is a static function in the DLL that we use to get PCs of all
      * the functions we've looked up so far.
      */
     r = drsym_lookup_symbol(dll_path, "client.drsyms-test.appdll!stack_trace",
-                            &stack_trace_offs);
+                            &stack_trace_offs, DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_SUCCESS);
     ok = drwrap_wrap(dll_base + stack_trace_offs, pre_stack_trace, post_func);
     ASSERT(ok);
@@ -297,6 +304,7 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
 typedef struct _dll_syms_found_t {
     bool dll_export_found;
     bool dll_static_found;
+    bool dll_public_found;
     bool stack_trace_found;
 } dll_syms_found_t;
 
@@ -309,10 +317,12 @@ check_enumerate_dll_syms(void *dc, const char *dll_path)
     dll_syms_found_t syms_found;
     drsym_error_t r;
     memset(&syms_found, 0, sizeof(syms_found));
-    r = drsym_enumerate_symbols(dll_path, enum_sym_cb, &syms_found);
+    r = drsym_enumerate_symbols(dll_path, enum_sym_cb, &syms_found,
+                                DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_SUCCESS);
     ASSERT(syms_found.dll_export_found &&
-           syms_found.dll_static_found &&
+           syms_found.dll_static_found &&  /* Enumerate should find private syms. */
+           syms_found.dll_public_found &&
            syms_found.stack_trace_found);
 }
 
@@ -324,6 +334,8 @@ enum_sym_cb(const char *name, size_t modoffs, void *data)
         syms_found->dll_export_found = true;
     if (strstr(name, "dll_static"))
         syms_found->dll_static_found = true;
+    if (strstr(name, "dll_public"))
+        syms_found->dll_public_found = true;
     if (strstr(name, "stack_trace"))
         syms_found->stack_trace_found = true;
     return true;
@@ -359,7 +371,8 @@ lookup_glibc_syms(void *dc, const module_data_t *dll_data)
 
     /* FIXME: When drsyms can read .dynsym we should always find malloc. */
     malloc_offs = 0;
-    r = drsym_lookup_symbol(libc_path, "libc!malloc", &malloc_offs);
+    r = drsym_lookup_symbol(libc_path, "libc!malloc", &malloc_offs,
+                            DRSYM_DEFAULT_FLAGS);
     if (r == DRSYM_SUCCESS)
         ASSERT(malloc_offs != 0);
 
@@ -369,7 +382,7 @@ lookup_glibc_syms(void *dc, const module_data_t *dll_data)
      */
     gi_malloc_offs = 0;
     r = drsym_lookup_symbol(libc_path, "libc!__GI___libc_malloc",
-                            &gi_malloc_offs);
+                            &gi_malloc_offs, DRSYM_DEFAULT_FLAGS);
     /* We can't compare the offsets because the exported offset and internal
      * offset are probably going to be different.
      */
@@ -383,6 +396,159 @@ lookup_glibc_syms(void *dc, const module_data_t *dll_data)
     }
 }
 #endif /* LINUX */
+
+typedef struct {
+    const char *mangled;
+    const char *dem_full;
+    const char *demangled;
+} cpp_name_t;
+
+/* Table of mangled and unmangled symbols taken as a random sample from a
+ * 32-bit Linux Chromium binary.
+ */
+static cpp_name_t symbols[] = {
+#ifdef LINUX
+    {"_ZN4baseL9kDeadTaskE",
+     "base::kDeadTask",
+     "base::kDeadTask"},
+    {"xmlRelaxNGParseImportRefs",
+     "xmlRelaxNGParseImportRefs",
+     "xmlRelaxNGParseImportRefs"},
+    {"_ZL16piOverFourDouble",
+     "piOverFourDouble",
+     "piOverFourDouble"},
+    {"_ZL8kint8min",
+     "kint8min",
+     "kint8min"},
+    {"_ZZN7WebCore19SVGAnimatedProperty20LookupOrCreateHelperINS_32SVGAnimatedStaticPropertyTearOffIbEEbLb1EE21lookupOrCreateWrapperEPNS_10SVGElementEPKNS_15SVGPropertyInfoERbE19__PRETTY_FUNCTION__",
+     "WebCore::SVGAnimatedProperty::LookupOrCreateHelper<WebCore::SVGAnimatedStaticPropertyTearOff<bool>, bool, true, E>::lookupOrCreateWrapper(WebCore::SVGElement*, WebCore::SVGPropertyInfo const*, bool&)::__PRETTY_FUNCTION__",
+     "WebCore::SVGAnimatedProperty::LookupOrCreateHelper<>::lookupOrCreateWrapper()::__PRETTY_FUNCTION__"},
+    {"_ZL26GrNextArrayAllocationCounti",
+     "GrNextArrayAllocationCount(int)",
+     "GrNextArrayAllocationCount()"},
+    {"_ZN18safe_browsing_util25GeneratePhishingReportUrlERKSsS1_b",
+     "safe_browsing_util::GeneratePhishingReportUrl(std::string const&, std::string, bool)",
+     "safe_browsing_util::GeneratePhishingReportUrl()"},
+    {"_ZN9__gnu_cxx8hash_mapIjPN10disk_cache9EntryImplENS_4hashIjEESt8equal_toIjESaIS3_EE4findERKj",
+     "__gnu_cxx::hash_map<unsigned int, disk_cache::EntryImpl*, __gnu_cxx::hash<unsigned int>, std::equal_to<unsigned int>, std::allocator<disk_cache::EntryImpl*> >::find(unsigned int const&)",
+     "__gnu_cxx::hash_map<>::find()"},
+    {"_ZN18shortcuts_provider8ShortcutC2ERKSbItN4base20string16_char_traitsESaItEERK4GURLS6_RKSt6vectorIN17AutocompleteMatch21ACMatchClassificationESaISC_EES6_SG_",
+     "shortcuts_provider::Shortcut::Shortcut(std::basic_string<unsigned short, base::string16_char_traits, std::allocator<unsigned short> > const&, GURL const&, std::basic_string<unsigned short, base::string16_char_traits, std::allocator<unsigned short> > const, std::vector<AutocompleteMatch::ACMatchClassification, std::allocator<AutocompleteMatch> > const&, std::basic_string<unsigned short, base::string16_char_traits, std::allocator<unsigned short> > const, std::vector<AutocompleteMatch::ACMatchClassification, std::allocator<AutocompleteMatch> > const)",
+     "shortcuts_provider::Shortcut::Shortcut()"},
+    /* FIXME: We should teach libelftc how to demangle this. */
+    {"_ZN10linked_ptrIN12CrxInstaller14WhitelistEntryEE4copyIS1_EEvPKS_IT_E",
+     "_ZN10linked_ptrIN12CrxInstaller14WhitelistEntryEE4copyIS1_EEvPKS_IT_E",
+     "linked_ptr<>::copy<>()"},
+    {"_ZN27ScopedRunnableMethodFactoryIN6webkit5ppapi18PPB_Scrollbar_ImplEED1Ev",
+     "ScopedRunnableMethodFactory<webkit::ppapi::PPB_Scrollbar_Impl>::~ScopedRunnableMethodFactory(void)",
+     "ScopedRunnableMethodFactory<>::~ScopedRunnableMethodFactory()"},
+    {"_ZN2v88internal9HashTableINS0_21StringDictionaryShapeEPNS0_6StringEE9FindEntryEPNS0_7IsolateES4_",
+     "v8::internal::HashTable<v8::internal::StringDictionaryShape, v8::internal::String*>::FindEntry(v8::internal::Isolate*, v8::internal::HashTable<v8::internal::StringDictionaryShape, v8::internal::String*>)",
+     "v8::internal::HashTable<>::FindEntry()"},
+    {"_ZNK7WebCore8Settings19localStorageEnabledEv",
+     "WebCore::Settings::localStorageEnabled(void) const",
+     "WebCore::Settings::localStorageEnabled()"},
+    {"_ZNSt4listIPN5media12VideoCapture12EventHandlerESaIS3_EE14_M_create_nodeERKS3_",
+     "std::list<media::VideoCapture::EventHandler*, std::allocator<media::VideoCapture::EventHandler*> >::_M_create_node(media::VideoCapture::EventHandler* const&)",
+     "std::list<>::_M_create_node()"},
+    {"_ZNK9__gnu_cxx13new_allocatorISt13_Rb_tree_nodeISt4pairIKiP20RenderWidgetHostViewEEE8max_sizeEv",
+     "__gnu_cxx::new_allocator<std::_Rb_tree_node<std::pair<int const, RenderWidgetHostView*> >>::max_size(void) const",
+     "__gnu_cxx::new_allocator<>::max_size()"},
+#else
+    {"?synchronizeRequiredExtensions@SVGSVGElement@WebCore@@EAEXXZ",
+     "WebCore::SVGSVGElement::synchronizeRequiredExtensions(void)",
+     "WebCore::SVGSVGElement::synchronizeRequiredExtensions"},
+    {"??$?0$04@WebString@WebKit@@QAE@AAY04$$CBD@Z",
+     "WebKit::WebString::WebString<5>(char const (&)[5])",
+     "WebKit::WebString::WebString<5>"},
+    {"?createParser@PluginDocument@WebCore@@EAE?AV?$PassRefPtr@VDocumentParser@WebCore@@@WTF@@XZ",
+     "WebCore::PluginDocument::createParser(void)",
+     "WebCore::PluginDocument::createParser"},
+    {"?_Compat@?$_Vector_const_iterator@V?$_Iterator@$00@?$list@U?$pair@$$CBHPAVWebIDBCursor@WebKit@@@std@@V?$allocator@U?$pair@$$CBHPAVWebIDBCursor@WebKit@@@std@@@2@@std@@V?$allocator@V?$_Iterator@$00@?$list@U?$pair@$$CBHPAVWebIDBCursor@WebKit@@@std@@V?$allocator@U?$pair@$$CBHPAVWebIDBCursor@WebKit@@@std@@@2@@std@@@3@@std@@QBEXABV12@@Z",
+     "std::_Vector_const_iterator<class std::list<struct std::pair<int const ,class WebKit::WebIDBCursor *>,class std::allocator<struct std::pair<int const ,class WebKit::WebIDBCursor *> > >::_Iterator<1>,class std::allocator<class std::list<struct std::pair<int const ,class WebKit::WebIDBCursor *>,class std::allocator<struct std::pair<int const ,class WebKit::WebIDBCursor *> > >::_Iterator<1> > >::_Compat(class std::_Vector_const_iterator<class std::list<struct std::pair<int const ,class WebKit::WebIDBCursor *>,class std::allocator<struct std::pair<int const ,class WebKit::WebIDBCursor *> > >::_Iterator<1>,class std::allocator<class std::list<struct std::pair<int const ,class WebKit::WebIDBCursor *>,class std::allocator<struct std::pair<int const ,class WebKit::WebIDBCursor *> > >::_Iterator<1> > > const &)const ",
+     "std::_Vector_const_iterator<std::list<std::pair<int const ,WebKit::WebIDBCursor *>,std::allocator<std::pair<int const ,WebKit::WebIDBCursor *> > >::_Iterator<1>,std::allocator<std::list<std::pair<int const ,WebKit::WebIDBCursor *>,std::allocator<std::pair<int const ,WebKit::WebIDBCursor *> > >::_Iterator<1> > >::_Compat"},
+    {"??$MatchAndExplain@VNotificationDetails@@@?$PropertyMatcher@V?$Details@$$CBVAutofillCreditCardChange@@@@PBVAutofillCreditCardChange@@@internal@testing@@QBE_NABVNotificationDetails@@PAVMatchResultListener@2@@Z",
+     "testing::internal::PropertyMatcher<class Details<class AutofillCreditCardChange const >,class AutofillCreditCardChange const *>::MatchAndExplain<class NotificationDetails>(class NotificationDetails const &,class testing::MatchResultListener *)const ",
+     "testing::internal::PropertyMatcher<Details<AutofillCreditCardChange const >,AutofillCreditCardChange const *>::MatchAndExplain<NotificationDetails>"},
+    {"?MD5Sum@base@@YAXPBXIPAUMD5Digest@1@@Z",
+     "base::MD5Sum(void const *,unsigned int,struct base::MD5Digest *)",
+     "base::MD5Sum"},
+    {"?create@EntryCallbacks@WebCore@@SA?AV?$PassOwnPtr@VEntryCallbacks@WebCore@@@WTF@@V?$PassRefPtr@VEntryCallback@WebCore@@@4@V?$PassRefPtr@VErrorCallback@WebCore@@@4@V?$PassRefPtr@VDOMFileSystemBase@WebCore@@@4@ABVString@4@_N@Z",
+     "WebCore::EntryCallbacks::create(class WTF::PassRefPtr<class WebCore::EntryCallback>,class WTF::PassRefPtr<class WebCore::ErrorCallback>,class WTF::PassRefPtr<class WebCore::DOMFileSystemBase>,class WTF::String const &,bool)",
+     "WebCore::EntryCallbacks::create"},
+    {"?ReadReplyParam@ClipboardHostMsg_ReadAsciiText@@SA_NPBVMessage@IPC@@PAU?$Tuple1@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@@@Z",
+     "ClipboardHostMsg_ReadAsciiText::ReadReplyParam(class IPC::Message const *,struct Tuple1<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > *)",
+     "ClipboardHostMsg_ReadAsciiText::ReadReplyParam"},
+    {"?begin@?$HashMap@PAVValue@v8@@PAVGlobalHandleInfo@WebCore@@U?$PtrHash@PAVValue@v8@@@WTF@@U?$HashTraits@PAVValue@v8@@@6@U?$HashTraits@PAVGlobalHandleInfo@WebCore@@@6@@WTF@@QAE?AU?$HashTableIteratorAdapter@V?$HashTable@PAVValue@v8@@U?$pair@PAVValue@v8@@PAVGlobalHandleInfo@WebCore@@@std@@U?$PairFirstExtractor@U?$pair@PAVValue@v8@@PAVGlobalHandleInfo@WebCore@@@std@@@WTF@@U?$PtrHash@PAVValue@v8@@@6@U?$PairHashTraits@U?$HashTraits@PAVValue@v8@@@WTF@@U?$HashTraits@PAVGlobalHandleInfo@WebCore@@@2@@6@U?$HashTraits@PAVValue@v8@@@6@@WTF@@U?$pair@PAVValue@v8@@PAVGlobalHandleInfo@WebCore@@@std@@@2@XZ",
+     "WTF::HashMap<class v8::Value *,class WebCore::GlobalHandleInfo *,struct WTF::PtrHash<class v8::Value *>,struct WTF::HashTraits<class v8::Value *>,struct WTF::HashTraits<class WebCore::GlobalHandleInfo *> >::begin(void)",
+     "WTF::HashMap<v8::Value *,WebCore::GlobalHandleInfo *,WTF::PtrHash<v8::Value *>,WTF::HashTraits<v8::Value *>,WTF::HashTraits<WebCore::GlobalHandleInfo *> >::begin"},
+    {"??D?$_Deque_iterator@V?$linked_ptr@V?$CallbackRunner@U?$Tuple1@H@@@@@@V?$allocator@V?$linked_ptr@V?$CallbackRunner@U?$Tuple1@H@@@@@@@std@@$00@std@@QBEAAV?$linked_ptr@V?$CallbackRunner@U?$Tuple1@H@@@@@@XZ",
+     "std::_Deque_iterator<class linked_ptr<class CallbackRunner<struct Tuple1<int> > >,class std::allocator<class linked_ptr<class CallbackRunner<struct Tuple1<int> > > >,1>::operator*(void)const ",
+     "std::_Deque_iterator<linked_ptr<CallbackRunner<Tuple1<int> > >,std::allocator<linked_ptr<CallbackRunner<Tuple1<int> > > >,1>::operator*"},
+    {"??$PerformAction@$$A6AXABVFilePath@@0PBVDictionaryValue@base@@PBVExtension@@@Z@?$ActionResultHolder@X@internal@testing@@SAPAV012@ABV?$Action@$$A6AXABVFilePath@@0PBVDictionaryValue@base@@PBVExtension@@@Z@2@ABV?$tuple@ABVFilePath@@ABV1@PBVDictionaryValue@base@@PBVExtension@@XXXXXX@tr1@std@@@Z",
+     "testing::internal::ActionResultHolder<void>::PerformAction<void (class FilePath const &,class FilePath const &,class base::DictionaryValue const *,class Extension const *)>(class testing::Action<void (class FilePath const &,class FilePath const &,class base::DictionaryValue const *,class Extension const *)> const &,class std::tr1::tuple<class FilePath const &,class FilePath const &,class base::DictionaryValue const *,class Extension const *,void,void,void,void,void,void> const &)",
+     "testing::internal::ActionResultHolder<void>::PerformAction<void __cdecl(FilePath const &,FilePath const &,base::DictionaryValue const *,Extension const *)>"},
+    {"?ClassifyInputEvent@ppapi@webkit@@YA?AW4PP_InputEvent_Class@@W4Type@WebInputEvent@WebKit@@@Z",
+     "webkit::ppapi::ClassifyInputEvent(enum WebKit::WebInputEvent::Type)",
+     "webkit::ppapi::ClassifyInputEvent"},
+#endif
+};
+
+static void
+test_demangle(void)
+{
+    char sym_buf[2048];
+    unsigned i;
+    size_t len;
+
+    for (i = 0; i < BUFFER_SIZE_ELEMENTS(symbols); i += 2) {
+        cpp_name_t *sym = &symbols[i];
+
+        /* Full demangling. */
+        len = drsym_demangle_symbol(sym_buf, sizeof(sym_buf), sym->mangled,
+                                    DRSYM_DEMANGLE_FULL);
+        if (len == 0 || len >= sizeof(sym_buf)) {
+            dr_fprintf(STDERR, "Failed to unmangle %s\n", sym->mangled);
+        } else if (strcmp(sym_buf, sym->dem_full) != 0) {
+            dr_fprintf(STDERR, "Unexpected unmangling:\n"
+                       " actual: %s\n expected: %s\n",
+                       sym_buf, sym->dem_full);
+        }
+
+        /* Short demangling (no templates or overloads). */
+        len = drsym_demangle_symbol(sym_buf, sizeof(sym_buf), sym->mangled,
+                                    DRSYM_DEMANGLE);
+        if (len == 0 || len >= sizeof(sym_buf)) {
+            dr_fprintf(STDERR, "Failed to unmangle %s\n", sym->mangled);
+        } else if (strcmp(sym_buf, sym->demangled) != 0) {
+            dr_fprintf(STDERR, "Unexpected unmangling:\n"
+                       " actual: %s\n expected: %s\n",
+                       sym_buf, sym->demangled);
+        }
+    }
+
+    /* Test overflow. */
+    len = drsym_demangle_symbol(sym_buf, 6, symbols[0].mangled, DRSYM_DEMANGLE_FULL);
+    if (len == 0) {
+        dr_fprintf(STDERR, "got error instead of overflow\n");
+    } else if (len <= 6) {
+        dr_fprintf(STDERR, "unexpected demangling success\n");
+    } else {
+        size_t old_len = 6;
+        dr_fprintf(STDERR, "got correct overflow\n");
+        /* Resize the buffer in a loop until it demangles correctly. */
+        while (len > old_len && len < sizeof(sym_buf)) {
+            old_len = len;
+            len = drsym_demangle_symbol(sym_buf, old_len, symbols[0].mangled,
+                                        DRSYM_DEMANGLE_FULL);
+        }
+        if (strcmp(sym_buf, symbols[0].dem_full) != 0) {
+            dr_fprintf(STDERR, "retrying with demangle return value failed.\n");
+        }
+    }
+
+    dr_fprintf(STDERR, "finished unmangling.\n");
+}
 
 static void
 event_exit(void)

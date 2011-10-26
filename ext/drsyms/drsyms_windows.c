@@ -138,8 +138,11 @@ drsym_init(const wchar_t *shmid_in)
         hashtable_init_ex(&modtable, MODTABLE_HASH_BITS, HASH_STRING_NOCASE,
                           true/*strdup*/, false/*!synch: using symbol_lock*/,
                           modtable_entry_free, NULL, NULL);
-        
-        SymSetOptions(SYMOPT_LOAD_LINES | SymGetOptions());
+
+        SymSetOptions((SymGetOptions() |
+                       SYMOPT_LOAD_LINES) &
+                      ~SYMOPT_UNDNAME);
+
         if (!SymInitialize(GetCurrentProcess(), NULL, FALSE)) {
             NOTIFY("SymInitialize error %d\n", GetLastError());
             return DRSYM_ERROR;
@@ -272,7 +275,8 @@ lookup_or_load(const char *modpath)
 }
 
 static drsym_error_t
-drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *out INOUT)
+drsym_lookup_address_local(const char *modpath, size_t modoffs,
+                           drsym_info_t *out INOUT, drsym_flags_t flags)
 {
     DWORD64 base;
     PSYMBOL_INFO info;  /* Too large to stack allocate. */
@@ -288,12 +292,31 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *ou
     /* If we add fields in the future we would dispatch on out->struct_size */
     if (out->struct_size != sizeof(*out))
         return DRSYM_ERROR_INVALID_SIZE;
-    
+
+    /* FIXME i#588: Searching all symbols means we cannot support
+     * DRSYM_DEMANGLE_FULL or DRSYM_LEAVE_MANGLED.
+     */
+    if (TEST(DRSYM_DEMANGLE_FULL, flags) ||
+        !TEST(DRSYM_DEMANGLE, flags)) {
+        NOTIFY("Cannot lookup fully demangled names or fully mangled names.\n");
+        return DRSYM_ERROR_INVALID_PARAMETER;
+    }
+
     dr_mutex_lock(symbol_lock);
     base = lookup_or_load(modpath);
     if (base == 0) {
         dr_mutex_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
+    }
+
+    /* Turn off SYMOPT_PUBLICS_ONLY and SYMOPT_NO_PUBLICS to search all
+     * symbols.  This function is usually used in stack trace symbolizers, so
+     * we want private symbols as well as public.
+     */
+    SymSetOptions(SymGetOptions() & ~(SYMOPT_PUBLICS_ONLY |
+                                      SYMOPT_NO_PUBLICS));
+    if (TEST(DRSYM_DEMANGLE, flags)) {
+        SymSetOptions(SymGetOptions() | SYMOPT_UNDNAME);
     }
 
     info = dr_thread_alloc(dc, info_size);
@@ -306,7 +329,6 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *ou
         out->end_offs = (size_t) ((info->Address + info->Size) - base);
         strncpy(out->name, info->Name, out->name_size);
         out->name[out->name_size - 1] = '\0';
-        /* Should we return an error when name gets truncated? */
         out->name_available_size = info->NameLen*sizeof(char);
     } else {
         NOTIFY("SymFromAddr error %d\n", GetLastError());
@@ -333,7 +355,8 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *ou
 }
 
 static drsym_error_t
-drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modoffs OUT)
+drsym_lookup_symbol_local(const char *modpath, const char *symbol,
+                          size_t *modoffs OUT, drsym_flags_t flags)
 {
     DWORD64 base;
     PSYMBOL_INFO info;
@@ -343,12 +366,28 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modof
 
     if (modpath == NULL || symbol == NULL || modoffs == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
-    
+
+    /* We will never be able to lookup symbols keyed with a fully demangled
+     * name, such as "operator new(with overloads)" because we have no way to
+     * control how dbghelp.dll does the demangling beyond SYMOPT_UNDNAME.
+     */
+    if (TEST(DRSYM_DEMANGLE_FULL, flags)) {
+        NOTIFY("Cannot lookup fully demangled names.\n");
+        return DRSYM_ERROR_INVALID_PARAMETER;
+    }
+
     dr_mutex_lock(symbol_lock);
     base = lookup_or_load(modpath);
     if (base == 0) {
         dr_mutex_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
+    }
+
+    /* FIXME i#588: We should support looking up private symbols.
+     */
+    SymSetOptions(SymGetOptions() | SYMOPT_PUBLICS_ONLY & ~SYMOPT_NO_PUBLICS);
+    if (TEST(DRSYM_DEMANGLE, flags)) {
+        SymSetOptions(SymGetOptions() | SYMOPT_UNDNAME);
     }
 
     /* Too large to stack allocate on dstack. */
@@ -378,46 +417,118 @@ typedef struct _enum_info_t {
     drsym_enumerate_cb cb;
     void *data;
     DWORD64 base;
+    /* Only used by enum_demangle_cb. */
+    char *name_buf;
+    size_t name_buf_sz;
+    uint flags;
+    bool found_match;
 } enum_info_t;
 
 static BOOL CALLBACK
 enum_cb(PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID Context) 
 {
     enum_info_t *info = (enum_info_t *) Context;
+    info->found_match = true;
     return (BOOL) (*info->cb)(pSymInfo->Name, (size_t) (pSymInfo->Address - info->base),
+                              info->data);
+}
+
+static BOOL CALLBACK
+enum_demangle_cb(PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID Context) 
+{
+    enum_info_t *info = (enum_info_t *) Context;
+    /* Undecorate the name, first.  If an error occurs, drsym_demangle_symbol
+     * does the right truncation or provides the decorated name.
+     */
+    size_t len;
+    info->found_match = true;
+    while ((len = drsym_demangle_symbol(info->name_buf, info->name_buf_sz,
+                                        pSymInfo->Name, info->flags))
+            > info->name_buf_sz) {
+        dr_global_free(info->name_buf, info->name_buf_sz);
+        info->name_buf_sz = len;
+        info->name_buf = dr_global_alloc(info->name_buf_sz);
+    }
+    return (BOOL) (*info->cb)(info->name_buf,
+                              (size_t) (pSymInfo->Address - info->base),
                               info->data);
 }
 
 static drsym_error_t
 drsym_enumerate_symbols_local(const char *modpath, const char *match,
-                              drsym_enumerate_cb callback, void *data)
+                              drsym_enumerate_cb callback, void *data,
+                              drsym_flags_t flags)
 {
     DWORD64 base;
-    drsym_error_t res = DRSYM_SUCCESS;
+    enum_info_t info;
 
     if (modpath == NULL || callback == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_mutex_lock(symbol_lock);
     base = lookup_or_load(modpath);
-    if (base == 0)
-        res = DRSYM_ERROR_LOAD_FAILED;
-    else {
-        enum_info_t info;
-        info.cb = callback;
-        info.data = data;
-        info.base = base;
+
+    /* FIXME i#588: Currently we only enumerate public names, since we can't
+     * control the mangling of private names.
+     */
+    if (TEST(DRSYM_DEMANGLE, flags) && !TEST(DRSYM_DEMANGLE_FULL, flags)) {
+        SymSetOptions(SymGetOptions() | SYMOPT_UNDNAME);
+    } else {
+        /* If a full demangling was requested, we still turn off SYMOPT_UNDNAME,
+         * because we have to do the demangling ourselves.
+         */
+        SymSetOptions(SymGetOptions() & ~SYMOPT_UNDNAME);
+    }
+
+    if (base == 0) {
+        dr_mutex_unlock(symbol_lock);
+        return DRSYM_ERROR_LOAD_FAILED;
+    }
+
+    info.cb = callback;
+    info.data = data;
+    info.base = base;
+    info.found_match = false;
+
+    /* First pass: Do publics only. */
+    SymSetOptions(SymGetOptions() | SYMOPT_PUBLICS_ONLY);
+    SymSetOptions(SymGetOptions() & ~SYMOPT_NO_PUBLICS);
+    if (TEST(DRSYM_DEMANGLE_FULL, flags)) {
+        /* Use the slower callback for DRSYM_DEMANGLE_FULL. */
+        info.name_buf_sz = 1024;
+        info.name_buf = dr_global_alloc(info.name_buf_sz);
+        if (!SymEnumSymbols(GetCurrentProcess(), base, match, enum_demangle_cb,
+                            (PVOID) &info)) {
+            NOTIFY("SymEnumSymbols error %d\n", GetLastError());
+        }
+        dr_global_free(info.name_buf, info.name_buf_sz);
+    } else {
+        /* Use the faster callback if we don't need to demangle or if dbghelp is
+         * handling it for us.
+         */
         if (!SymEnumSymbols(GetCurrentProcess(), base, match, enum_cb, (PVOID) &info)) {
             NOTIFY("SymEnumSymbols error %d\n", GetLastError());
-            res = DRSYM_ERROR_SYMBOL_NOT_FOUND;
         }
     }
+
+    /* Second pass: Do everything but public, no demangling (we can't get any). */
+    SymSetOptions(SymGetOptions() | SYMOPT_NO_PUBLICS);
+    SymSetOptions(SymGetOptions() & ~SYMOPT_PUBLICS_ONLY);
+    if (!SymEnumSymbols(GetCurrentProcess(), base, match, enum_cb, (PVOID) &info)) {
+        NOTIFY("SymEnumSymbols error %d\n", GetLastError());
+    }
+
     dr_mutex_unlock(symbol_lock);
-    return res;
+    if (!info.found_match)
+        return DRSYM_ERROR_SYMBOL_NOT_FOUND;
+    return DRSYM_SUCCESS;
 }
 
 /* SymSearch (w/ default flags) is much faster than SymEnumSymbols or even
  * SymFromName so we export it separately for Windows (Dr. Memory i#313).
+ *
+ * FIXME: Investigate searching mangled or fully-demangled symbols for a perf
+ * boost on Windows.
  */
 static drsym_error_t
 drsym_search_symbols_local(const char *modpath, const char *match, bool full,
@@ -442,13 +553,15 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
         if (hmod == NULL) {
             dr_mutex_unlock(symbol_lock);
             /* fall back to slower enum */
-            return drsym_enumerate_symbols_local(modpath, match, callback, data);
+            return drsym_enumerate_symbols_local(modpath, match, callback,
+                                                 data, DRSYM_DEFAULT_FLAGS);
         }
         func = (func_SymSearch_t) GetProcAddress(hmod, "SymSearch");
         if (func == NULL) {
             dr_mutex_unlock(symbol_lock);
             /* fall back to slower enum */
-            return drsym_enumerate_symbols_local(modpath, match, callback, data);
+            return drsym_enumerate_symbols_local(modpath, match, callback,
+                                                 data, DRSYM_DEFAULT_FLAGS);
         }
     }
     base = lookup_or_load(modpath);
@@ -472,34 +585,37 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
 
 DR_EXPORT
 drsym_error_t
-drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *out INOUT)
+drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *out INOUT,
+                     uint flags)
 {
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_lookup_address_local(modpath, modoffs, out);
+        return drsym_lookup_address_local(modpath, modoffs, out, flags);
     }
 }
 
 DR_EXPORT
 drsym_error_t
-drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs OUT)
+drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs OUT,
+                    uint flags)
 {
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_lookup_symbol_local(modpath, symbol, modoffs);
+        return drsym_lookup_symbol_local(modpath, symbol, modoffs, flags);
     }
 }
 
 DR_EXPORT
 drsym_error_t
-drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data)
+drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data,
+                        uint flags)
 {
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_enumerate_symbols_local(modpath, NULL, callback, data);
+        return drsym_enumerate_symbols_local(modpath, NULL, callback, data, flags);
     }
 }
 
@@ -515,6 +631,60 @@ drsym_search_symbols(const char *modpath, const char *match, bool full,
     }
 }
 
+DR_EXPORT
+size_t
+drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
+                      uint flags)
+{
+    DWORD undec_flags;
+    size_t len;
+
+    if (TEST(DRSYM_DEMANGLE_FULL, flags)) {
+        /* FIXME: I'd like to suppress "class" from the types, but I can't find
+         * an option to control it other than UNDNAME_NAME_ONLY, which
+         * suppresses overloads, which we want.
+         */
+        undec_flags = (UNDNAME_COMPLETE |
+                       UNDNAME_NO_ALLOCATION_LANGUAGE |
+                       UNDNAME_NO_ALLOCATION_MODEL |
+                       UNDNAME_NO_MEMBER_TYPE |
+                       UNDNAME_NO_FUNCTION_RETURNS |
+                       UNDNAME_NO_ACCESS_SPECIFIERS |
+                       UNDNAME_NO_MS_KEYWORDS);
+    } else {
+        /* FIXME i#587: This still expands templates.
+         */
+        undec_flags = UNDNAME_NAME_ONLY;
+    }
+
+    len = (size_t)UnDecorateSymbolName(mangled, dst, dst_sz, undec_flags);
+
+    /* The truncation behavior is not documented, but testing shows dbghelp
+     * truncates and returns the number of characters written, not how many it
+     * would take to hold the buffer.  It also returns 2 less than dst_sz if
+     * truncating, one for the nul byte and it's not clear what the other is
+     * for.
+     */
+    if (len != 0 && len + 2 < dst_sz) {
+        return len;  /* Success. */
+    } else if (len == 0) {
+        /* The docs say the contents of dst are undetermined, so we cannot rely
+         * on it being truncated.
+         */
+        strncpy(dst, mangled, dst_sz);
+        dst[dst_sz-1] = '\0';
+        NOTIFY("UnDecorateSymbolName error %d\n", GetLastError());
+    } else if (len + 2 >= dst_sz) {
+        NOTIFY("UnDecorateSymbolName overflowed\n");
+        /* FIXME: This return value is made up and may not be large enough.
+         * It will work eventually if the caller reallocates their buffer
+         * and retries in a loop, or if they just want to detect truncation.
+         */
+        len = dst_sz * 2;
+    }
+
+    return len;
+}
 
 /***************************************************************************/
 

@@ -55,11 +55,13 @@
 #include <string.h> /* strlen */
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 
+#include "demangle.h"
 #include "dwarf.h"
 #include "libdwarf.h"
 #include "libelf.h"
-#include "demangle.h"
+#include "libelftc.h"
 
 /* Guards our internal state and libdwarf's modifications of mod->dbg. */
 void *symbol_lock;
@@ -455,7 +457,8 @@ get_elf_syms(dbg_module_t *mod, int *strtab_idx OUT, int *num_syms OUT)
 }
 
 static drsym_error_t
-symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback, void *data)
+symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback, void *data,
+                 uint flags)
 {
     Elf_Sym *syms;
     int strtab_idx;
@@ -476,15 +479,22 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback, void *data)
         const char *mangled = elf_strptr(mod->elf, strtab_idx, syms[i].st_name);
         const char *unmangled = mangled;  /* Points at mangled or symbol_buf. */
         size_t modoffs = syms[i].st_value - mod->load_base;
-        bool ok;
 
-        ok = Demangle(mangled, symbol_buf, symbol_buf_size);
-        if (ok) {
-            unmangled = symbol_buf;
+        if (TEST(DRSYM_DEMANGLE, flags)) {
+            size_t len;
+            /* Resize until it's big enough. */
+            while ((len = drsym_demangle_symbol(symbol_buf, symbol_buf_size,
+                                                mangled, flags))
+                   > symbol_buf_size) {
+                dr_thread_free(dc, symbol_buf, symbol_buf_size);
+                symbol_buf_size = len;
+                symbol_buf = dr_thread_alloc(dc, symbol_buf_size);
+            }
+            if (len != 0) {
+                /* Success. */
+                unmangled = symbol_buf;
+            }
         }
-        /* XXX: If Demangle could tell us when it overflowed, we could resize
-         * and continue.
-         */
 
         keep_searching = callback(unmangled, modoffs, data);
     }
@@ -495,7 +505,8 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback, void *data)
 }
 
 static drsym_error_t
-addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info INOUT)
+addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info INOUT,
+                  uint flags)
 {
     Elf_Sym *syms;
     int strtab_idx;
@@ -510,11 +521,21 @@ addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info INOUT)
         size_t lo_offs = syms[i].st_value - mod->load_base;
         size_t hi_offs = lo_offs + syms[i].st_size;
         if (lo_offs <= modoffs && modoffs < hi_offs) {
-            const char *sym_name = elf_strptr(mod->elf, strtab_idx, syms[i].st_name);
+            const char *symbol = elf_strptr(mod->elf, strtab_idx, syms[i].st_name);
+            size_t name_len = 0;
 
-            strncpy(info->name, sym_name, info->name_size);
-            info->name[info->name_size - 1] = '\0';
-            info->name_available_size = strlen(info->name) + 1;
+            if (TEST(DRSYM_DEMANGLE, flags)) {
+                name_len = drsym_demangle_symbol(info->name, info->name_size,
+                                                 symbol, flags);
+            }
+            if (name_len == 0) {
+                /* Demangling either failed or was not requested. */
+                name_len = strlen(symbol) + 1;
+                strncpy(info->name, symbol, info->name_size);
+                info->name[info->name_size - 1] = '\0';
+            }
+
+            info->name_available_size = name_len;
             info->start_offs = lo_offs;
             info->end_offs = hi_offs;
 
@@ -665,7 +686,7 @@ search_addr2line(Dwarf_Debug dbg, Dwarf_Addr pc, drsym_info_t *sym_info INOUT)
 
 static drsym_error_t
 drsym_enumerate_symbols_local(const char *modpath, drsym_enumerate_cb callback,
-                              void *data)
+                              void *data, uint flags)
 {
     dbg_module_t *mod;
     drsym_error_t r;
@@ -680,7 +701,7 @@ drsym_enumerate_symbols_local(const char *modpath, drsym_enumerate_cb callback,
         return DRSYM_ERROR_LOAD_FAILED;
     }
 
-    r = symsearch_symtab(mod, callback, data);
+    r = symsearch_symtab(mod, callback, data, flags);
 
     dr_mutex_unlock(symbol_lock);
     return r;
@@ -718,7 +739,7 @@ sym_lookup_cb(const char *sym, size_t modoffs, void *data INOUT)
 
 static drsym_error_t
 drsym_lookup_symbol_local(const char *modpath, const char *symbol,
-                          size_t *modoffs OUT)
+                          size_t *modoffs OUT, uint flags)
 {
     drsym_error_t r;
     sym_lookup_params_t params;
@@ -748,7 +769,7 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
     params.search_sym = sym_no_mod;
     params.search_sym_len = strlen(sym_no_mod);
     params.modoffs = modoffs;
-    r = drsym_enumerate_symbols_local(modpath, sym_lookup_cb, &params);
+    r = drsym_enumerate_symbols_local(modpath, sym_lookup_cb, &params, flags);
     if (r != DRSYM_SUCCESS)
         return r;
     if (*modoffs == 0)
@@ -758,7 +779,7 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
 
 static drsym_error_t
 drsym_lookup_address_local(const char *modpath, size_t modoffs,
-                           drsym_info_t *out INOUT)
+                           drsym_info_t *out INOUT, uint flags)
 {
     dbg_module_t *mod;
     drsym_error_t r;
@@ -776,7 +797,7 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
         return DRSYM_ERROR_LOAD_FAILED;
     }
 
-    r = addrsearch_symtab(mod, modoffs, out);
+    r = addrsearch_symtab(mod, modoffs, out, flags);
 
     /* If we did find an address for the symbol, go look for its line number
      * information.
@@ -837,33 +858,82 @@ drsym_exit(void)
 
 DR_EXPORT
 drsym_error_t
-drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *out INOUT)
+drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *out INOUT,
+                     uint flags)
 {
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_lookup_address_local(modpath, modoffs, out);
+        return drsym_lookup_address_local(modpath, modoffs, out, flags);
     }
 }
 
 DR_EXPORT
 drsym_error_t
-drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs OUT)
+drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs OUT,
+                    uint flags)
 {
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_lookup_symbol_local(modpath, symbol, modoffs);
+        return drsym_lookup_symbol_local(modpath, symbol, modoffs, flags);
     }
 }
 
 DR_EXPORT
 drsym_error_t
-drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data)
+drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data,
+                        uint flags)
 {
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_enumerate_symbols_local(modpath, callback, data);
+        return drsym_enumerate_symbols_local(modpath, callback, data, flags);
     }
+}
+
+DR_EXPORT
+size_t
+drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
+                      uint flags)
+{
+    int status;
+
+    if (!TEST(DRSYM_DEMANGLE_FULL, flags)) {
+        /* The demangle.cc implementation is fast and replaces template args and
+         * overloads with <> and () respectively.  Use it if the user doesn't
+         * want either of those.  Its return value always follows our
+         * conventions.
+         */
+        int len = Demangle(mangled, dst, dst_sz, DEMANGLE_DEFAULT);
+        if (len > 0) {
+            return len;  /* Success or truncation. */
+        }
+    } else {
+        /* If the user wants template arguments or overloads, we use the
+         * libelftc demangler which is slower, but can properly demangle
+         * template arguments.
+         */
+        status = elftc_demangle(mangled, dst, dst_sz, ELFTC_DEM_GNU3);
+        if (status == 0) {
+            return strlen(dst) + 1;
+        } else if (errno == ENAMETOOLONG) {
+            /* FIXME: libelftc actually doesn't copy the output into dst and
+             * truncate it, so we do the next best thing and put the truncated
+             * mangled name in there.
+             */
+            strncpy(dst, mangled, dst_sz);
+            dst[dst_sz-1] = '\0';
+            /* FIXME: This return value is made up and may not be large enough.
+             * It will work eventually if the caller reallocates their buffer
+             * and retries in a loop, or if they just want to detect truncation.
+             */
+            return dst_sz * 2;
+        }
+    }
+
+    /* If the demangling failed, copy the mangled symbol into the output. */
+    strncpy(dst, mangled, dst_sz);
+    dst[dst_sz-1] = '\0';
+    return 0;
 }

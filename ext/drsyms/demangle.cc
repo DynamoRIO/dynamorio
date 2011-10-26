@@ -29,12 +29,24 @@
 //
 // Author: Satoru Takabayashi
 //
-// Retreived from http://code.google.com/p/google-glog/ at r91.
-//
 // For reference check out:
 // http://www.codesourcery.com/public/cxx-abi/abi.html#mangling
 //
 // Note that we only have partial C++0x support yet.
+
+// DynamoRIO inclusion notes:
+//
+// Retreived from http://code.google.com/p/google-glog/ at r91, and altered
+// since to better fit our use cases in drsyms.
+//
+// This file is more or less straight C99, but because eventually we want to use
+// this for demangling Cygwin names, we will need to compile this with MSVC,
+// which only accepts C89.  Rather than rewrite this file to make it conform to
+// C89, we continue to compile this as C++.  It does *not* use STL or even libc,
+// so it won't create resource conflicts with the application.
+//
+// We also left this file with 2 space indentation to allow us to integrate
+// future modifications from Google.
 
 #include <stdio.h>  // for NULL
 #include "demangle.h"
@@ -155,7 +167,12 @@ typedef struct {
   int number;               // Remember the previous number.
   bool append;              // Append flag.
   bool overflowed;          // True if output gets overflowed.
+  unsigned short options;   // Bitfield of options passed to initial Demangle call.
 } State;
+
+// Forward declarations of utility functions.
+static void MaybeAppendWithLength(State *state, const char * const str,
+                                  const int length);
 
 // We don't use strlen() in libc since it's not guaranteed to be async
 // signal safe.
@@ -245,7 +262,12 @@ static bool Optional(bool status) {
 typedef bool (*ParseFunc)(State *);
 static bool OneOrMore(ParseFunc parse_func, State *state) {
   if (parse_func(state)) {
+    MaybeAppendWithLength(state, ", ", 2);
     while (parse_func(state)) {
+      MaybeAppendWithLength(state, ", ", 2);
+    }
+    if (state->append) {
+      state->out_cur -= 2;
     }
     return true;
   }
@@ -257,6 +279,10 @@ static bool OneOrMore(ParseFunc parse_func, State *state) {
 // terminating sequence not handled by parse_func (e.g. ParseChar(state, 'E')).
 static bool ZeroOrMore(ParseFunc parse_func, State *state) {
   while (parse_func(state)) {
+    MaybeAppendWithLength(state, ", ", 2);
+  }
+  if (state->append) {
+    state->out_cur -= 2;
   }
   return true;
 }
@@ -269,11 +295,11 @@ static void Append(State *state, const char * const str, const int length) {
   for (i = 0; i < length; ++i) {
     if (state->out_cur + 1 < state->out_end) {  // +1 for '\0'
       *state->out_cur = str[i];
-      ++state->out_cur;
     } else {
       state->overflowed = true;
-      break;
     }
+    // Update out_cur regardless of overflow to track how much space is needed.
+    ++state->out_cur;
   }
   if (!state->overflowed) {
     *state->out_cur = '\0';  // Terminate it with '\0'
@@ -326,13 +352,23 @@ static void MaybeAppendWithLength(State *state, const char * const str,
   if (state->append && length > 0) {
     // Append a space if the output buffer ends with '<' and "str"
     // starts with '<' to avoid <<<.
-    if (str[0] == '<' && state->out_begin < state->out_cur  &&
-        state->out_cur[-1] == '<') {
+    if (str[0] == '<' &&
+        state->out_begin < state->out_cur &&
+        // If we've overflowed, we can't check if the buffer ends in '<'.
+        // Assume it does to get an upper bound on the size needed to hold the
+        // demangled name.
+        (state->out_cur > state->out_end ||
+         state->out_cur[-1] == '<')) {
       Append(state, " ", 1);
     }
     // Remember the last identifier name for ctors/dtors.
     if (IsAlpha(str[0]) || str[0] == '_') {
-      state->prev_name = state->out_cur;
+      // We point prev_name at str here instead of state->out_cur because
+      // we might not have space in the output buffer for str.  This relies on
+      // us never appending temporary strings, which is true currently, as we
+      // append either string literals, strings in tables, or strings embedded
+      // in the mangled name.
+      state->prev_name = str;
       state->prev_name_length = length;
     }
     Append(state, str, length);
@@ -391,7 +427,9 @@ static void MaybeCancelLastSeparator(State *state) {
   if (state->nest_level >= 1 && state->append &&
       state->out_begin <= state->out_cur - 2) {
     state->out_cur -= 2;
-    *state->out_cur = '\0';
+    if (state->out_cur < state->out_end) {
+      *state->out_cur = '\0';
+    }
   }
 }
 
@@ -1025,10 +1063,15 @@ static bool ParseFunctionType(State *state) {
 // <bare-function-type> ::= <(signature) type>+
 static bool ParseBareFunctionType(State *state) {
   State copy = *state;
-  DisableAppend(state);
+  MaybeAppend(state, "(");
+  if (!(state->options & DEMANGLE_KEEP_OVERLOADS)) {
+    DisableAppend(state);
+  }
   if (OneOrMore(ParseType, state)) {
-    RestoreAppend(state, copy.append);
-    MaybeAppend(state, "()");
+    if (!(state->options & DEMANGLE_KEEP_OVERLOADS)) {
+      RestoreAppend(state, copy.append);
+    }
+    MaybeAppend(state, ")");
     return true;
   }
   *state = copy;
@@ -1098,15 +1141,23 @@ static bool ParseTemplateTemplateParam(State *state) {
 // <template-args> ::= I <template-arg>+ E
 static bool ParseTemplateArgs(State *state) {
   State copy = *state;
-  DisableAppend(state);
+  MaybeAppend(state, "<");
+  if (!(state->options & DEMANGLE_KEEP_TEMPLATES)) {
+    DisableAppend(state);
+  }
   if (ParseChar(state, 'I') &&
       OneOrMore(ParseTemplateArg, state) &&
       ParseChar(state, 'E')) {
-    RestoreAppend(state, copy.append);
-    MaybeAppend(state, "<>");
+    if (!(state->options & DEMANGLE_KEEP_TEMPLATES)) {
+      RestoreAppend(state, copy.append);
+    }
+    MaybeAppend(state, ">");
     return true;
   }
   *state = copy;
+  if (state->out_cur < state->out_end) {
+    *state->out_cur = '\0';  // Cancel append.
+  }
   return false;
 }
 
@@ -1296,12 +1347,16 @@ static bool ParseSubstitution(State *state) {
 }
 
 // The demangler entry point.
-bool Demangle(const char *mangled, char *out, int out_size) {
+int Demangle(const char *mangled, char *out, int out_size, unsigned short options) {
   State state;
   InitState(&state, mangled, out, out_size);
-  return (ParseMangledName(&state) &&
-          state.overflowed == false &&
-          RemainingLength(&state) == 0);
+  state.options = options;
+  if (!ParseMangledName(&state))
+    return 0;
+  // Always null terminate.
+  out[out_size-1] = '\0';
+  // Return the size necessary to avoid truncation.
+  return (int)((size_t)state.out_cur - (size_t)state.out_begin);
 }
 
 _END_GOOGLE_NAMESPACE_

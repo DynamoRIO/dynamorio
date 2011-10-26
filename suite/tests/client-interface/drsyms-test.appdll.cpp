@@ -32,16 +32,22 @@
 
 #include "tools.h"
 
-static NOINLINE void
+NOINLINE void
 stack_trace(void)
 {
+}
+
+NOINLINE int
+dll_public(int a)
+{
+    stack_trace();
+    return a+1;
 }
 
 static NOINLINE int
 dll_static(int a)
 {
-    stack_trace();
-    return a+1;
+    return dll_public(a+1);
 }
 
 extern "C" EXPORT int

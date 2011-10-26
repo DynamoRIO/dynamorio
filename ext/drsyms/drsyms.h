@@ -77,7 +77,23 @@ typedef enum {
     DRSYM_ERROR_LINE_NOT_AVAILABLE, /**< Operation failed: line info not available */
     DRSYM_ERROR_NOT_IMPLEMENTED,    /**< Operation failed: not yet implemented */
     DRSYM_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
+    DRSYM_ERROR_TRUNCATED,          /**< Operation succeeded: output truncated */
 } drsym_error_t;
+
+/** Bitfield of options to each DRSyms operation. */
+typedef enum {
+    DRSYM_LEAVE_MANGLED = 0x00,     /**< Do not demangle C++ symbols. */
+    /**
+     * Demangle C++ symbols, omitting templates and parameter types.  On Linux,
+     * both templates and parameters are collapsed to <> and () respectively.
+     * On Windows, templates are still expanded, and parameters are omitted
+     * without parentheses.
+     */
+    DRSYM_DEMANGLE      = 0x01,
+    /** Demangle template arguments and parameter types. */
+    DRSYM_DEMANGLE_FULL = 0x02,
+    DRSYM_DEFAULT_FLAGS = DRSYM_DEMANGLE,   /**< Default flags. */
+} drsym_flags_t;
 
 /** Data structure that holds symbol information */
 typedef struct _drsym_info_t {
@@ -139,13 +155,19 @@ DR_EXPORT
  * @param[in] modoffs The offset from the base of the module specifying the address
  *   to be queried.
  * @param[in,out] info Information about the symbol at the queried address.
+ * @param[in]  flags   Options for the operation.  Does not support
+ *   DRSYM_DEMANGLE_FULL on Windows.
  */
 drsym_error_t
-drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *info /*INOUT*/);
+drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *info /*INOUT*/,
+                     uint flags);
 
 DR_EXPORT
 /**
  * Retrieves the address for a given symbol name.
+ *
+ * On Windows, we don't support the DRSYM_DEMANGLE_FULL flag.  Also on Windows,
+ * if DRSYM_DEMANGLE is set, \p symbol must include the template arguments.
  *
  * @param[in] modpath The full path to the module to be queried.
  * @param[in] symbol The name of the symbol being queried.
@@ -153,18 +175,20 @@ DR_EXPORT
  *   string to look up.
  * @param[out] modoffs The offset from the base of the module specifying the address
  *   of the specified symbol.
+ * @param[in]  flags   Options for the operation.
  */
 drsym_error_t
-drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs /*OUT*/);
+drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs /*OUT*/,
+                    uint flags);
 
 /** 
  * Type for drsym_enumerate_symbols and drsym_search_symbols callback function.
  * Returns whether to continue the enumeration or search.
  *
- * @param[in] name    Name of the symbol.
- * @param[in] modoffs Offset of the symbol from the module base.
- * @param[in] data    User parameter passed to drsym_enumerate_symbols() or
- *                    drsym_search_symbols().
+ * @param[in]  name    Name of the symbol.
+ * @param[out] modoffs Offset of the symbol from the module base.
+ * @param[in]  data    User parameter passed to drsym_enumerate_symbols() or
+ *                     drsym_search_symbols().
  */
 typedef bool (*drsym_enumerate_cb)(const char *name, size_t modoffs, void *data);
 
@@ -177,9 +201,34 @@ DR_EXPORT
  * @param[in] modpath   The full path to the module to be queried.
  * @param[in] callback  Function to call for each symbol found.
  * @param[in] data      User parameter passed to callback.
+ * @param[in] flags     Options for the operation.  Demangling flags will not be
+ *   honored for private symbols on Windows.
  */
 drsym_error_t
-drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data);
+drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data,
+                        uint flags);
+
+DR_EXPORT
+/**
+ * Given a mangled or decorated C++ symbol, outputs the source name into \p dst.
+ * If the unmangled name requires more than \p dst_sz bytes, it is truncated and
+ * null-terminated to fit into \p dst.  If the unmangling fails, \p symbol is
+ * copied as-is into \p dst, and truncated and null-terminated to fit.
+ * Returns zero if the name could not be unmangled, and the number of characters
+ * required to store the name if it succeeded.  If there was overflow, the
+ * return value may be an estimate of the required size, so a second attempt
+ * with the return value is not guaranteed to be successful.  If the caller
+ * needs the full name, they may need to make multiple attempts with a larger
+ * buffer.
+ *
+ * @param[out] dst      Output buffer for demangled name.
+ * @param[in]  dst_sz   Size of the output buffer in bytes.
+ * @param[in]  mangled  Mangled C++ symbol to demangle.
+ * @param[in]  flags    Options for the operation.  DRSYM_DEMANGLE is implied.
+ */
+size_t
+drsym_demangle_symbol(char *dst, size_t dst_sz, const char *mangled,
+                      uint flags);
 
 #ifdef WINDOWS
 DR_EXPORT

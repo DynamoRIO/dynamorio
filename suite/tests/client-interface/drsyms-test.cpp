@@ -62,10 +62,16 @@ exe_export(int a)
     return f.Bar(a+1);
 }
 
+NOINLINE int
+exe_public(int a)
+{
+    return exe_export(a+1);
+}
+
 static NOINLINE int
 exe_static(int a)
 {
-    return exe_export(a+1);
+    return exe_public(a+1);
 }
 
 int

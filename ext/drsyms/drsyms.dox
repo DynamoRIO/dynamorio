@@ -54,13 +54,13 @@ To use \p drsyms with your client simply include this line in your client's
 
 That will automatically set up the include path and library dependence.
 
-The \p drsyms library on Windows relies on the \p dbghlp.dll library from
+The \p drsyms library on Windows relies on the \p dbghelp.dll library from
 Microsoft.  You will need to download the Debugging Tools for Windows
 package from http://www.microsoft.com/whdc/devtools/debugging/default.mspx
 and place the \p dbghelp.dll in the same directory as either \p drsyms.dll
 or as your client library.
 
-More recent versions of \p dbghlp.dll on Windows can use significant
+More recent versions of \p dbghelp.dll on Windows can use significant
 amounts of stack space.  We recommend raising the stack size when using \p
 drsyms on Windows from the default 20KB to 36KB via the DynamoRIO runtime
 option <tt>-stack_size 36K</tt>.
@@ -69,9 +69,6 @@ The \p drsyms library on Linux uses bundled copies of \p libelf, \p libdwarf,
 and \p libelftc built from the
 <a href="http://elftoolchain.sourceforge.net">elftoolchain</a> project and
 requires no setup.
-
-\warning The Linux support is considered experimental, and may give you the
-wrong address when doing symbol lookup.
 
 \section sec_drsyms_api API
 
@@ -91,6 +88,32 @@ for a particular match where a non-full search is not required (i.e., the
 search is only targeting function symbols) is significantly faster and uses
 less memory than a full enumeration.  In fact, drsym_search_symbols() is
 usually faster than drsym_lookup_symbol().
+
+For C++ applications, each routine that handles symbols accepts a \p flags
+argument that controls how or whether C++ symbols are demangled or undecorated.
+Currently there are three modes:
+
+- \p DRSYM_LEAVE_MANGLED: Matches against or returns the mangled C++ symbol.
+- \p DRSYM_DEMANGLE: Matches against or returns the demangled C++ symbol without
+  template arguments or parameter types, such as \p __gnu_cxx::hashmap<>::find().
+- \p DRSYM_DEMANGLE_FULL: Matches against or returns the fully demangled C++
+  symbol with template arguments and parameter types.
+
+\p DRSYM_DEFAULT_FLAGS enables demangling by default.
+
+On Windows, however, this functionality is reduced due to the limitations of
+\p dbghelp.dll.  The Visual C++ compiler only stores a partially qualified
+demangled name in the PDB file for "private" names, which include symbols for
+static functions.  Currently, each routine handles this problem differently.
+drsym_enumerate_symbols() enumerates both public and private symbols, but cannot
+provide either the mangled name or the fully demangled name for private symbols.
+drsym_lookup_symbol() and drsym_lookup_address() do not support \p
+DRSYM_DEMANGLE_FULL.
+
+Furthermore, \p dbghelp.dll does not have any arguments to its demangler to
+suppress template argument expansion.  Therefore the names we produce with
+\p DRSYM_DEMANGLE include template arguments, but do not include function
+parameters.
 
 For an example of usage see the \p instrcalls sample client distributed
 with DynamoRIO.

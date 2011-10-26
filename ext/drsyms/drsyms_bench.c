@@ -38,6 +38,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "dr_api.h"
 #include "drsyms.h"
@@ -52,47 +53,77 @@ usage(const char *msg)
     return 1;
 }
 
+static char sym_buf[4096];
+
+/* The work done in this callback is minimal.  Right now it prints out a
+ * sampling of mangled, demangled, and fully demangled names.
+ */
 static bool
 sym_callback(const char *name, size_t modoffs, void *data)
 {
     uint64 *count = (uint64*)data;
     *count += 1;
     if (*count % 50000 == 0) {
-        dr_printf("sym: %s\n", name);
+        dr_printf("{\"%s\",\n", name);
+        memset(sym_buf, 0, sizeof(sym_buf));
+        if (drsym_demangle_symbol(sym_buf, sizeof(sym_buf), name,
+                                  DRSYM_DEMANGLE_FULL) != 0) {
+            dr_printf(" \"%s\",\n", sym_buf);
+        }
+        memset(sym_buf, 0, sizeof(sym_buf));
+        if (drsym_demangle_symbol(sym_buf, sizeof(sym_buf), name,
+                                  DRSYM_DEMANGLE) != 0) {
+            dr_printf(" \"%s\"},\n", sym_buf);
+        }
     }
     return true;
 }
 
-int
-main(int argc, char **argv)
+static void
+enumerate_with_flags(const char *modpath, drsym_flags_t flags)
 {
     uint64 start, end, time;
-    const char *modpath;
     uint64 sym_count = 0;
 
-    dr_app_setup();
-    drsym_init(0);
-
-    if (argc != 2) {
-        return usage(NULL);
-    }
-    modpath = argv[1];
-    if (!dr_file_exists(modpath)) {
-        return usage("Path does not exist.");
-    }
-
-    dr_printf("Beginning symbol enumeration.\n");
+    dr_printf("Beginning symbol enumeration\n");
     /* Should use clock_gettime with CLOCK_MONOTONIC instead. */
-    /* XXX: Once we have a flag for toggling demangling, we can time both. */
     start = dr_get_milliseconds();
-    drsym_enumerate_symbols(modpath, sym_callback, &sym_count);
+    drsym_enumerate_symbols(modpath, sym_callback, &sym_count, flags);
     end = dr_get_milliseconds();
     dr_printf("Finished symbol enumeration.\n");
 
     time = end - start;
 
     dr_printf("Took %d.%03d seconds.\n", (int)(time / 1000), (int)(time % 1000));
+}
+
+int
+main(int argc, char **argv)
+{
+    const char *modpath;
+#ifdef WINDOWS
+    char full_path[2048];
+#endif
+
+    dr_standalone_init();
+    drsym_init(0);
+
+    if (argc != 2) {
+        return usage(NULL);
+    }
+    modpath = argv[1];
+#ifdef WINDOWS
+    /* Work around i#289. */
+    if (GetFullPathName(modpath, sizeof(full_path), full_path, NULL) == 0) {
+        return usage("GetFullPathName failed.\n");
+    }
+    modpath = full_path;
+#endif
+    if (!dr_file_exists(modpath)) {
+        return usage("Path does not exist.");
+    }
+
+    enumerate_with_flags(modpath, DRSYM_LEAVE_MANGLED);
 
     drsym_exit();
-    dr_app_cleanup();
 }

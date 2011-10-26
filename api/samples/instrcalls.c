@@ -147,7 +147,8 @@ print_address(file_t f, app_pc addr, const char *prefix)
     sym = (drsym_info_t *) sbuf;
     sym->struct_size = sizeof(*sym);
     sym->name_size = MAX_SYM_RESULT;
-    symres = drsym_lookup_address(data->full_path, addr - data->start, sym);
+    symres = drsym_lookup_address(data->full_path, addr - data->start, sym,
+                                  DRSYM_DEFAULT_FLAGS);
     if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
         const char *modname = dr_module_preferred_name(data);
         if (modname == NULL)

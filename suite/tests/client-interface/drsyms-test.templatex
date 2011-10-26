@@ -1,21 +1,16 @@
-#if defined(LINUX)
+got correct overflow
+finished unmangling.
+#ifdef LINUX
 (found|couldn.t find) glibc malloc (and|or) __GI___libc_malloc.
 #endif
 stack trace:
-#if defined(WINDOWS)
-drsyms-test\.appdll\.cpp:44!dll_static
-drsyms-test\.appdll\.cpp:50!dll_export
-drsyms-test\.cpp:55!.anonymous namespace.::Foo::Bar
-drsyms-test\.cpp:63!exe_export
-drsyms-test\.cpp:68!exe_static
-drsyms-test\.cpp:98!main
-#else
-drsyms-test\.appdll\.cpp:44!_ZL10dll_statici
-drsyms-test\.appdll\.cpp:51!dll_export
-drsyms-test\.cpp:56!_ZN12_GLOBAL__N_13Foo3BarEi
-drsyms-test\.cpp:63!exe_export
-drsyms-test\.cpp:69!_ZL10exe_statici
-drsyms-test\.cpp:98!main
-#endif
-app num_calls: 5
+drsyms-test\.appdll\.cpp:43!dll_public(\(\))?
+drsyms-test\.appdll\.cpp:50!dll_static(\(\))?
+drsyms-test\.appdll\.cpp:56!dll_export
+drsyms-test\.cpp:55!.anonymous namespace.::Foo::Bar(\(\))?
+drsyms-test\.cpp:62!exe_export
+drsyms-test\.cpp:68!exe_public(\(\))?
+drsyms-test\.cpp:74!exe_static(\(\))?
+drsyms-test\.cpp:104!main
+app num_calls: 7
 all done
