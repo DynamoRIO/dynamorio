@@ -1,6 +1,4 @@
 #ifdef LINUX
-// two libc are loaded when private loader is on
-found libc
 found libc
 starting syscall monitoring
 # ifdef X64

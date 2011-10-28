@@ -7327,6 +7327,11 @@ find_executable_vm_areas(void)
     while (maps_iterator_next(&iter)) {
         bool image = false;
         size_t size = iter.vm_end - iter.vm_start;
+        /* i#479, hide private module and match Windows's behavior */
+        bool skip = dynamo_vm_area_overlap(iter.vm_start, iter.vm_end) &&
+            !is_in_dynamo_dll(iter.vm_start) /* our own text section is ok */
+            /* client lib text section is ok (xref i#487) */
+            IF_CLIENT_INTERFACE(&& !is_in_client_lib(iter.vm_start));
         DEBUG_DECLARE(char *map_type = "Private");
         /* we can't really tell what's a stack and what's not, but we rely on
          * our passing NULL preventing rwx regions from being added to executable
@@ -7348,7 +7353,11 @@ find_executable_vm_areas(void)
          * ld.so we now gracefully handle other objects like vdso in gaps in
          * module, but it's simpler to leave this ordering here.
          */
-        if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
+        if (skip) {
+            /* i#479, hide private module and match Windows's behavior */
+            LOG(GLOBAL, LOG_VMAREAS, 2, PFX"-"PFX" skipping: internal DR region\n",
+                iter.vm_start, iter.vm_end);            
+        } else if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
                     strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0
             IF_X64_ELSE(|| strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
                                    strlen(VSYSCALL_REGION_MAPS_NAME)) == 0,
@@ -7456,7 +7465,8 @@ find_executable_vm_areas(void)
          * it has no way of determining if this is a stack b/c we don't have
          * a dcontext at this point -- so we just don't pass the stack
          */
-        if (app_memory_allocation(NULL, iter.vm_start, (iter.vm_end - iter.vm_start),
+        if (!skip /* i#479, hide private module and match Windows's behavior */ &&
+            app_memory_allocation(NULL, iter.vm_start, (iter.vm_end - iter.vm_start),
                                   iter.prot, image _IF_DEBUG(map_type))) {
             count++;
         }
