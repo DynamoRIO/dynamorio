@@ -5,6 +5,7 @@ finished unmangling.
 #endif
 stack trace:
 drsyms-test\.appdll\.cpp:43!dll_public(\(\))?
+#if !(defined(WINDOWS) && defined(X64))
 drsyms-test\.appdll\.cpp:50!dll_static(\(\))?
 drsyms-test\.appdll\.cpp:56!dll_export
 drsyms-test\.cpp:55!.anonymous namespace.::Foo::Bar(\(\))?
@@ -12,5 +13,6 @@ drsyms-test\.cpp:62!exe_export
 drsyms-test\.cpp:68!exe_public(\(\))?
 drsyms-test\.cpp:74!exe_static(\(\))?
 drsyms-test\.cpp:104!main
+#endif
 app num_calls: 7
 all done

@@ -107,7 +107,14 @@ pre_stack_trace(void *wrapcxt, void **user_data)
     /* This should use safe_read and all that, but this is a test case. */
     dr_fprintf(STDERR, "stack trace:\n");
     frame = &inner_frame;
+    /* It's impossible to get frame pointers on Win x64, so we only print one
+     * frame.
+     */
+#if defined(WINDOWS) && defined(X64)
+    frame->parent = NULL;
+#else
     frame->parent = (frame_base_t*)mc->xbp;
+#endif
     frame->ret_addr = *(app_pc*)mc->xsp;
     depth = 0;
     while (frame != NULL) {

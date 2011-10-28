@@ -657,7 +657,8 @@ drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
         undec_flags = UNDNAME_NAME_ONLY;
     }
 
-    len = (size_t)UnDecorateSymbolName(mangled, dst, dst_sz, undec_flags);
+    len = (size_t)UnDecorateSymbolName(mangled, dst, (DWORD)dst_sz,
+                                       undec_flags);
 
     /* The truncation behavior is not documented, but testing shows dbghelp
      * truncates and returns the number of characters written, not how many it
