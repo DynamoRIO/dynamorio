@@ -3434,15 +3434,31 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size HEAPACCT(which_he
     ASSERT(size > 0); /* we don't want to pay check cost in release */
     ASSERT(p != NULL);
 #ifdef DEBUG_MEMORY
-    /* FIXME: this is risky...will we ever see data that's first or last 
-     * word == HEAP_UNALLOCATED_UINT?
-     * In fact this does happen in case 8802: app's eax is 0xcdcdcdcd (from an
-     * app dbg memset) and we have dcontext->allocated_start==dcontext.  We
-     * relax to allow one of the first two words to match.
+    /* FIXME i#417: This curiosity assertion is trying to make sure we don't
+     * perform a double free, but it can fire if we ever free a data structure
+     * that has the 0xcdcdcdcd bitpattern in the first or last 4 bytes.  This
+     * has happened a few times:
+     *
+     * - case 8802: App's eax is 0xcdcdcdcd (from an app dbg memset) and we have
+     *   dcontext->allocated_start==dcontext.
+     * - i#417: On Linux x64 we get rax == 0xcdcdcdcd from a memset, and
+     *   opnd_create_reg() only updates part of the register before returning by
+     *   value in RAX:RDX.  We initialize to zero in debug mode to work around
+     *   this.
+     * - i#540: On Win7 x64 we see this assert when running the TSan tests in
+     *   NegativeTests.WindowsRegisterWaitForSingleObjectTest.
+     *
+     * For now, we've downgraded this to a curiosity, but if it fires too much
+     * in the future we should maintain a separate data structure in debug mode
+     * to perform this check.  We accept objects that start with 0xcdcdcdcd so
+     * long as the second four bytes are not also 0xcdcdcdcd.
      */
-    ASSERT((*(uint *)p != HEAP_UNALLOCATED_UINT ||
-            (size >= 2*sizeof(uint) && *(((uint *)p)+1) != HEAP_UNALLOCATED_UINT)) && 
-           *(uint *)(p+size-sizeof(int)) != HEAP_UNALLOCATED_UINT);
+    ASSERT_CURIOSITY(
+        (*(uint *)p != HEAP_UNALLOCATED_UINT ||
+         (size >= 2*sizeof(uint) && *(((uint *)p)+1) != HEAP_UNALLOCATED_UINT)) &&
+        *(uint *)(p+size-sizeof(int)) != HEAP_UNALLOCATED_UINT &&
+        "attempting to free memory containing HEAP_UNALLOCATED pattern, "
+        "possible double free!");
 #endif
 
     while (aligned_size > BLOCK_SIZES[bucket])
