@@ -1942,6 +1942,16 @@ DR_API
 bool
 dr_mutex_trylock(void *mutex);
 
+#ifdef DEBUG
+DR_API
+/**
+ * Returns true iff \p mutex is owned by the calling thread.
+ * This routine is only available in debug builds.
+ */
+bool
+dr_mutex_self_owns(void *mutex);
+#endif
+
 DR_API
 /**
  * Creates and initializes a read-write lock.  A read-write lock allows
@@ -1985,6 +1995,40 @@ DR_API
 /** Returns whether the calling thread owns the write lock on \p rwlock. */
 bool
 dr_rwlock_self_owns_write_lock(void *rwlock);
+
+DR_API
+/**
+ * Creates and initializes a recursive lock.  A recursive lock allows
+ * the same thread to acquire it multiple times.  The lock
+ * restrictions for mutexes apply (see dr_mutex_create()).
+ */
+void *
+dr_recurlock_create(void);
+
+DR_API
+/** Deletes \p reclock. */
+void
+dr_recurlock_destroy(void *reclock);
+
+DR_API
+/** Acquires \p reclock, or increments the ownership count if already owned. */
+void
+dr_recurlock_lock(void *reclock);
+
+DR_API
+/** Decrements the ownership count of \p reclock and releases if zero. */
+void
+dr_recurlock_unlock(void *reclock);
+
+DR_API
+/** Tries once to acquire \p reclock and returns whether successful. */
+bool
+dr_recurlock_trylock(void *reclock);
+
+DR_API
+/** Returns whether the calling thread owns \p reclock. */
+bool
+dr_recurlock_self_owns(void *reclock);
 
 /* DR_API EXPORT BEGIN */
 /**************************************************
