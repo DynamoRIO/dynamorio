@@ -2983,7 +2983,8 @@ DR_API
  *   been translated and so may contain raw code cache values.  The function
  *   will be called from a signal handler that may have interrupted a
  *   lock holder or other critical code, so it must be careful in its
- *   operations.  If a general timer that does not interrupt client code
+ *   operations: keep it as simple as possible, and avoid lock usage or
+ *   I/O operations. If a general timer that does not interrupt client code
  *   is required, the client should create a separate thread via
  *   dr_create_client_thread() (which is guaranteed to have a private
  *   itimer) and set the itimer there, where the callback function can

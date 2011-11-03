@@ -522,6 +522,12 @@ enum {
     LOCK_RANK(eventlog_mutex), /* < datasec_selfprot_lock only for hello_message */
     LOCK_RANK(datasec_selfprot_lock),
     LOCK_RANK(thread_stats_lock),
+#ifdef LINUX
+    /* shared_itimer_lock is used in timer signal handling, which could happen at
+     * anytime, so we put it at the innermost.
+     */
+    LOCK_RANK(shared_itimer_lock), 
+#endif
     LOCK_RANK(innermost_lock), /* innermost internal lock, head of all locks list */
 };
 

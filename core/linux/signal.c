@@ -1716,7 +1716,7 @@ handle_clone(dcontext_t *dcontext, uint flags)
             *info->shared_itimer_underDR = 1;
             info->shared_itimer_lock = (recursive_lock_t *)
                 global_heap_alloc(sizeof(*info->shared_itimer_lock) HEAPACCT(ACCT_OTHER));
-            ASSIGN_INIT_RECURSIVE_LOCK_FREE(*info->shared_itimer_lock, shared_lock);
+            ASSIGN_INIT_RECURSIVE_LOCK_FREE(*info->shared_itimer_lock, shared_itimer_lock);
         } /* else, some ancestor already created */
     }
 }

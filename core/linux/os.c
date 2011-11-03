@@ -405,6 +405,35 @@ __errno_location(void) {
     }
 }
 
+
+#if defined(HAVE_TLS) && defined(CLIENT_INTERFACE)
+/* i#598 
+ * (gdb) x/20i (*(errno_loc_t)0xf721e413)
+ * 0xf721e413 <__errno_location>:       push   %ebp
+ * 0xf721e414 <__errno_location+1>:     mov    %esp,%ebp
+ * 0xf721e416 <__errno_location+3>:     call   <__x86.get_pc_thunk.cx>
+ * 0xf721e41b <__errno_location+8>:     add    $0x166bd9,%ecx
+ * 0xf721e421 <__errno_location+14>:    mov    -0x1c(%ecx),%eax
+ * 0xf721e427 <__errno_location+20>:    add    %gs:0x0,%eax
+ * 0xf721e42e <__errno_location+27>:    pop    %ebp
+ * 0xf721e42f <__errno_location+28>:    ret
+ *
+ * __errno_location calcuates the errno location by adding
+ * TLS's base with errno's offset in TLS.
+ * However, because the TLS has been switched in os_tls_init,
+ * the calculated address is wrong.
+ * We first get the errno offset in TLS at init time and
+ * calculate correct address by adding the app's tls base.
+ */
+static int libc_errno_tls_offs;
+static int *
+our_libc_errno_loc(void)
+{
+    void *app_tls = os_get_app_seg_base(NULL, LIB_SEG_TLS);
+    return (int *)(app_tls + libc_errno_tls_offs);
+}
+#endif
+
 /* i#238/PR 499179: libc errno preservation
  *
  * Errno location is per-thread so we store the
@@ -460,6 +489,15 @@ get_libc_errno_location(bool do_init)
             }
         }
         module_iterator_stop(mi);
+#if defined(HAVE_TLS) && defined(CLIENT_INTERFACE)
+        /* i#598, init the libc errno's offset */
+        if (INTERNAL_OPTION(private_loader)) {
+            void *dr_lib_tls_base = os_get_dr_seg_base(NULL, LIB_SEG_TLS);
+            ASSERT(dr_lib_tls_base != NULL && libc_errno_loc != NULL);
+            libc_errno_tls_offs = (void *)libc_errno_loc() - dr_lib_tls_base;
+            libc_errno_loc = &our_libc_errno_loc;
+        }
+#endif
     }
     return libc_errno_loc;
 }
