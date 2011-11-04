@@ -6619,15 +6619,39 @@ maps_iterator_next(maps_iter_t *iter)
                  perm, (unsigned long*)&iter->offset, &iter->inode,
                  iter->comment_buffer);
     if (iter->vm_start == iter->vm_end) {
-        /* i#366: skip empty region: weird that the kernel puts it in */
-        LOG(GLOBAL, LOG_VMAREAS, 2, 
-            "maps_iterator_next: skipping empty region 0x%08x\n", iter->vm_start);
+        /* i#366 & i#599: Merge an empty regions caused by stack guard pages
+         * into the stack region if the stack region is less than one page away.
+         * Otherwise skip it.  Some Linux kernels (2.6.32 has been observed)
+         * have empty entries for the stack guard page.  We drop the permissions
+         * on the guard page, because Linux always insists that it has rwxp
+         * perms, no matter how we change the protections.  The actual stack
+         * region has the perms we expect.
+         * XXX: We could get more accurate info if we looked at
+         * /proc/self/smaps, which has a Size: 4k line for these "empty"
+         * regions.
+         */
+        app_pc empty_start = iter->vm_start;
+        bool r;
+        LOG(GLOBAL, LOG_VMAREAS, 2,
+            "maps_iterator_next: skipping or merging empty region 0x%08x\n",
+            iter->vm_start);
         /* don't trigger the maps-file-changed check.
          * slight risk of a race where we'll pass back earlier/overlapping
          * region: we'll live with it.
          */
         iter->vm_start = NULL;
-        return maps_iterator_next(iter);
+        r = maps_iterator_next(iter);
+        /* We could check to see if we're combining with the [stack] section,
+         * but that doesn't work if there are multiple stacks or the stack is
+         * split into multiple maps entries, so we merge any empty region within
+         * one page of the next region.
+         */
+        if (empty_start <= iter->vm_start &&
+            iter->vm_start <= empty_start + PAGE_SIZE) {
+            /* Merge regions if the next region was zero or one page away. */
+            iter->vm_start = empty_start;
+        }
+        return r;
     }
     if (iter->vm_start <= prev_start) {
         /* the maps file has expanded underneath us (presumably due to our
