@@ -176,6 +176,9 @@ The changes between version \DR_VERSION and 2.2.0 are:
    instr_is_meta_may_fault(), instr_set_meta_may_fault(),
    instrlist_meta_fault_preinsert(), instrlist_meta_fault_postinsert(),
    and instrlist_meta_fault_append().
+ - Added a \p flags argument to most of the routines in the \p drsyms extension
+   to control demangling, and added drsym_demangle_symbol().
+ - Added Linux support for \p drsyms.
 
 The changes between version 2.2.0 and 2.1.0 are:
 

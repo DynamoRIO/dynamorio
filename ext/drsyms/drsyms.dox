@@ -94,29 +94,22 @@ argument that controls how or whether C++ symbols are demangled or undecorated.
 Currently there are three modes:
 
 - \p DRSYM_LEAVE_MANGLED: Matches against or returns the mangled C++ symbol.
-- \p DRSYM_DEMANGLE: Matches against or returns the demangled C++ symbol without
-  template arguments or parameter types, such as \p __gnu_cxx::hashmap<>::find().
+- \p DRSYM_DEMANGLE: Matches against or returns a "short" demangled C++ symbol.
+  On Linux, both templates and parameters are collapsed to <> and ()
+  respectively.  On Windows, templates are still expanded, and parameters are
+  omitted without parentheses.
 - \p DRSYM_DEMANGLE_FULL: Matches against or returns the fully demangled C++
-  symbol with template arguments and parameter types.
+  symbol with both template arguments and parameter types.
+- \p DRSYM_DEFAULT_FLAGS: This is equivalent to \p DRSYM_DEMANGLE.
 
-\p DRSYM_DEFAULT_FLAGS enables demangling by default.
+On Windows, this functionality is reduced due to the limitations of \p
+dbghelp.dll.  For all routines except drsym_demangle_symbol(), no matter what
+flags the user passes, all symbols returned or searched use the default
+demangling on Windows, which includes template arguments and excludes parameter
+types.
 
-On Windows, however, this functionality is reduced due to the limitations of
-\p dbghelp.dll.  The Visual C++ compiler only stores a partially qualified
-demangled name in the PDB file for "private" names, which include symbols for
-static functions.  Currently, each routine handles this problem differently.
-drsym_enumerate_symbols() enumerates both public and private symbols, but cannot
-provide either the mangled name or the fully demangled name for private symbols.
-drsym_lookup_symbol() and drsym_lookup_address() do not support \p
-DRSYM_DEMANGLE_FULL.
-
-Furthermore, \p dbghelp.dll does not have any arguments to its demangler to
-suppress template argument expansion.  Therefore the names we produce with
-\p DRSYM_DEMANGLE include template arguments, but do not include function
-parameters.
-
-For an example of usage see the \p instrcalls sample client distributed
-with DynamoRIO.
+For an example of usage see the \p instrcalls sample client distributed with
+DynamoRIO.
 
 When finished with the library, call drsym_exit().
 

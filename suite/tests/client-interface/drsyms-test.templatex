@@ -3,6 +3,9 @@ finished unmangling.
 #ifdef LINUX
 (found|couldn.t find) glibc malloc (and|or) __GI___libc_malloc.
 #endif
+enumerating with DRSYM_LEAVE_MANGLED
+enumerating with DRSYM_DEMANGLE
+enumerating with DRSYM_DEMANGLE_FULL
 stack trace:
 drsyms-test\.appdll\.cpp:43!dll_public(\(\))?
 #if !(defined(WINDOWS) && defined(X64))

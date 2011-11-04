@@ -155,8 +155,7 @@ DR_EXPORT
  * @param[in] modoffs The offset from the base of the module specifying the address
  *   to be queried.
  * @param[in,out] info Information about the symbol at the queried address.
- * @param[in]  flags   Options for the operation.  Does not support
- *   DRSYM_DEMANGLE_FULL on Windows.
+ * @param[in]  flags   Options for the operation.  Ignored on Windows.
  */
 drsym_error_t
 drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *info /*INOUT*/,
@@ -175,7 +174,7 @@ DR_EXPORT
  *   string to look up.
  * @param[out] modoffs The offset from the base of the module specifying the address
  *   of the specified symbol.
- * @param[in]  flags   Options for the operation.
+ * @param[in]  flags   Options for the operation.  Ignored on Windows.
  */
 drsym_error_t
 drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs /*OUT*/,
@@ -201,8 +200,7 @@ DR_EXPORT
  * @param[in] modpath   The full path to the module to be queried.
  * @param[in] callback  Function to call for each symbol found.
  * @param[in] data      User parameter passed to callback.
- * @param[in] flags     Options for the operation.  Demangling flags will not be
- *   honored for private symbols on Windows.
+ * @param[in] flags     Options for the operation.  Ignored on Windows.
  */
 drsym_error_t
 drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data,

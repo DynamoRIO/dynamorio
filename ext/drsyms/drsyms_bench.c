@@ -123,7 +123,11 @@ main(int argc, char **argv)
         return usage("Path does not exist.");
     }
 
-    enumerate_with_flags(modpath, DRSYM_LEAVE_MANGLED);
+    /* The first enumeration populates dbghelp's symbol cache.  We mostly care
+     * about how long the second enumeration takes.
+     */
+    enumerate_with_flags(modpath, DRSYM_DEFAULT_FLAGS);
+    enumerate_with_flags(modpath, DRSYM_DEFAULT_FLAGS);
 
     drsym_exit();
 }

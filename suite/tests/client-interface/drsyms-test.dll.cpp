@@ -57,8 +57,7 @@ static void event_exit(void);
 static void lookup_exe_syms(void);
 static void lookup_dll_syms(void *dc, const module_data_t *dll_data,
                             bool loaded);
-static void check_enumerate_dll_syms(void *dc, const char *dll_path);
-static bool enum_sym_cb(const char *name, size_t modoffs, void *data);
+static void check_enumerate_dll_syms(const char *dll_path);
 #ifdef LINUX
 static void lookup_glibc_syms(void *dc, const module_data_t *dll_data);
 #endif
@@ -305,47 +304,142 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     ok = drwrap_wrap(dll_base + stack_trace_offs, pre_stack_trace, post_func);
     ASSERT(ok);
 
-    check_enumerate_dll_syms(dc, dll_path);
+    check_enumerate_dll_syms(dll_path);
 }
 
-typedef struct _dll_syms_found_t {
-    bool dll_export_found;
-    bool dll_static_found;
-    bool dll_public_found;
-    bool stack_trace_found;
+static const char *dll_syms[] = {
+    "dll_export",
+    "dll_static",
+    "dll_public",
+    "stack_trace",
+    NULL
+};
+
+/* FIXME: We don't support getting mangled or fully demangled symbols on
+ * Windows.
+ */
+static const char *dll_syms_mangled[] = {
+#ifdef WINDOWS
+    "dll_export",
+    "dll_static",
+    "dll_public",
+    "stack_trace",
+#else
+    "dll_export",
+    "_ZL10dll_statici",
+    "_Z10dll_publici",
+    "_Z11stack_tracev",
+#endif
+    NULL
+};
+
+static const char *dll_syms_short[] = {
+#ifdef WINDOWS
+    "dll_export",
+    "dll_static",
+    "dll_public",
+    "stack_trace",
+#else
+    "dll_export",
+    "dll_static()",
+    "dll_public()",
+    "stack_trace()",
+#endif
+    NULL
+};
+
+static const char *dll_syms_full[] = {
+#ifdef WINDOWS
+    "dll_export",
+    "dll_static",
+    "dll_public",
+    "stack_trace",
+#else
+    "dll_export",
+    "dll_static(int)",
+    "dll_public(int)",
+    "stack_trace(void)",
+#endif
+    NULL
+};
+
+typedef struct {
+    bool syms_found[BUFFER_SIZE_ELEMENTS(dll_syms) - 1];
+    const char **syms_expected;
 } dll_syms_found_t;
 
-/* Enumerate all symbols in the dll and verify that we at least find the ones
- * we expected to be there.
+/* If this was a symbol we expected that we haven't found yet, mark it found,
+ * and check the mangling to see if it matches our expected mangling.
  */
-static void
-check_enumerate_dll_syms(void *dc, const char *dll_path)
-{
-    dll_syms_found_t syms_found;
-    drsym_error_t r;
-    memset(&syms_found, 0, sizeof(syms_found));
-    r = drsym_enumerate_symbols(dll_path, enum_sym_cb, &syms_found,
-                                DRSYM_DEFAULT_FLAGS);
-    ASSERT(r == DRSYM_SUCCESS);
-    ASSERT(syms_found.dll_export_found &&
-           syms_found.dll_static_found &&  /* Enumerate should find private syms. */
-           syms_found.dll_public_found &&
-           syms_found.stack_trace_found);
-}
-
 static bool
 enum_sym_cb(const char *name, size_t modoffs, void *data)
 {
     dll_syms_found_t *syms_found = (dll_syms_found_t*)data;
-    if (strstr(name, "dll_export"))
-        syms_found->dll_export_found = true;
-    if (strstr(name, "dll_static"))
-        syms_found->dll_static_found = true;
-    if (strstr(name, "dll_public"))
-        syms_found->dll_public_found = true;
-    if (strstr(name, "stack_trace"))
-        syms_found->stack_trace_found = true;
+    uint i;
+    for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found->syms_found); i++) {
+        if (syms_found->syms_found[i])
+            continue;
+        if (strstr(name, dll_syms[i]) != NULL) {
+            syms_found->syms_found[i] = true;
+            /* Ignore () at function end. */
+            if (strcmp(name, syms_found->syms_expected[i]) != 0) {
+                dr_fprintf(STDERR, "symbol had wrong mangling:\n"
+                           " expected: %s\n actual: %s\n",
+                           syms_found->syms_expected[i], name);
+            }
+        }
+    }
     return true;
+}
+
+static void
+enum_syms_with_flags(const char *dll_path, const char **syms_expected,
+                     uint flags)
+{
+    dll_syms_found_t syms_found;
+    drsym_error_t r;
+    uint i;
+
+    memset(&syms_found, 0, sizeof(syms_found));
+    syms_found.syms_expected = syms_expected;
+    r = drsym_enumerate_symbols(dll_path, enum_sym_cb, &syms_found, flags);
+    ASSERT(r == DRSYM_SUCCESS);
+    for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++)
+        if (!syms_found.syms_found[i])
+            dr_fprintf(STDERR, "failed to find symbol for %s!\n", dll_syms[i]);
+
+#ifdef WINDOWS
+    /* drsym_search_symbols should find the same symbols with the short
+     * mangling, regardless of the flags used by the previous enumerations.
+     */
+    memset(&syms_found, 0, sizeof(syms_found));
+    syms_found.syms_expected = dll_syms_short;
+    r = drsym_search_symbols(dll_path, "*!*dll_*", false, enum_sym_cb,
+                             &syms_found);
+    ASSERT(r == DRSYM_SUCCESS);
+    r = drsym_search_symbols(dll_path, "*!*stack_trace*", false, enum_sym_cb,
+                             &syms_found);
+    ASSERT(r == DRSYM_SUCCESS);
+    for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++)
+        if (!syms_found.syms_found[i])
+            dr_fprintf(STDERR, "failed to find symbol for %s!\n", dll_syms[i]);
+#endif
+}
+
+
+/* Enumerate all symbols in the dll and verify that we at least find the ones
+ * we expected to be there, and that DRSYM_LEAVE_MANGLED was respected.
+ */
+static void
+check_enumerate_dll_syms(const char *dll_path)
+{
+    dr_fprintf(STDERR, "enumerating with DRSYM_LEAVE_MANGLED\n");
+    enum_syms_with_flags(dll_path, dll_syms_mangled, DRSYM_LEAVE_MANGLED);
+    dr_fprintf(STDERR, "enumerating with DRSYM_DEMANGLE\n");
+    enum_syms_with_flags(dll_path, dll_syms_short,   DRSYM_DEMANGLE);
+    dr_fprintf(STDERR, "enumerating with DRSYM_DEMANGLE_FULL\n");
+    enum_syms_with_flags(dll_path, dll_syms_full,    (DRSYM_DEMANGLE|
+                                                      DRSYM_DEMANGLE_FULL));
 }
 
 #ifdef LINUX
