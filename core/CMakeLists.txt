@@ -52,7 +52,8 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_custom_command(OUTPUT "${output}"
       DEPENDS "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm"
         "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-        "${PROJECT_BINARY_DIR}/configure.h)"
+        "${PROJECT_BINARY_DIR}/configure.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/${source}.asm"
       COMMAND "${CMAKE_C_COMPILER}" ARGS ${CMAKE_CPP_FLAGS}
         /I "${PROJECT_BINARY_DIR}" ${extradefs}
         -E ${CPP_NO_LINENUM} "${CMAKE_CURRENT_SOURCE_DIR}/${source}.asm"

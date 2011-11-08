@@ -1706,19 +1706,19 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
 # define REG_XAX_SEGWIDTH eax
 #endif
 GLOBAL_LABEL(get_segments_defg:)
-        xor      eax, eax
-        mov      REG_XBX, ARG1
+        xor      eax, eax           /* Zero XAX, use it for reading segments. */
+        mov      REG_XCX, ARG1      /* XCX is always volatile. */
         mov      ax, ds
-        mov      [REG_XBX], REG_XAX_SEGWIDTH
-        mov      REG_XBX, ARG2
+        mov      [REG_XCX], REG_XAX_SEGWIDTH
+        mov      REG_XCX, ARG2
         mov      ax, es
-        mov      [REG_XBX], REG_XAX_SEGWIDTH
-        mov      REG_XBX, ARG3
+        mov      [REG_XCX], REG_XAX_SEGWIDTH
+        mov      REG_XCX, ARG3
         mov      ax, fs
-        mov      [REG_XBX], REG_XAX_SEGWIDTH
-        mov      REG_XBX, ARG4
+        mov      [REG_XCX], REG_XAX_SEGWIDTH
+        mov      REG_XCX, ARG4
         mov      ax, gs
-        mov      [REG_XBX], REG_XAX_SEGWIDTH
+        mov      [REG_XCX], REG_XAX_SEGWIDTH
         ret
         END_FUNC(get_segments_defg)
 #undef REG_XAX_SEGWIDTH
