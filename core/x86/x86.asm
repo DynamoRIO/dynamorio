@@ -1705,22 +1705,33 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
 #else
 # define REG_XAX_SEGWIDTH eax
 #endif
+/* Need a second volatile register for any calling convention.  In all
+ * conventions, XCX is volatile, but it's ARG4 on Lin64 and ARG1 on Win64.
+ * Using XCX on Win64 is fine, but on Lin64 it clobbers ARG4 so we use XDI as
+ * the free reg instead.
+ */
+#if defined(LINUX) && defined(X64)
+# define FREE_REG rdi
+#else
+# define FREE_REG REG_XCX
+#endif
 GLOBAL_LABEL(get_segments_defg:)
         xor      eax, eax           /* Zero XAX, use it for reading segments. */
-        mov      REG_XCX, ARG1      /* XCX is always volatile. */
+        mov      FREE_REG, ARG1
         mov      ax, ds
-        mov      [REG_XCX], REG_XAX_SEGWIDTH
-        mov      REG_XCX, ARG2
+        mov      [FREE_REG], REG_XAX_SEGWIDTH
+        mov      FREE_REG, ARG2
         mov      ax, es
-        mov      [REG_XCX], REG_XAX_SEGWIDTH
-        mov      REG_XCX, ARG3
+        mov      [FREE_REG], REG_XAX_SEGWIDTH
+        mov      FREE_REG, ARG3
         mov      ax, fs
-        mov      [REG_XCX], REG_XAX_SEGWIDTH
-        mov      REG_XCX, ARG4
+        mov      [FREE_REG], REG_XAX_SEGWIDTH
+        mov      FREE_REG, ARG4
         mov      ax, gs
-        mov      [REG_XCX], REG_XAX_SEGWIDTH
+        mov      [FREE_REG], REG_XAX_SEGWIDTH
         ret
         END_FUNC(get_segments_defg)
+#undef FREE_REG
 #undef REG_XAX_SEGWIDTH
 
 /* void get_own_context_helper(CONTEXT *cxt)
