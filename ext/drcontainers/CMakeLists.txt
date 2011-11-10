@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -35,6 +35,7 @@ cmake_minimum_required(VERSION 2.6)
 # and synchronization
 add_library(drcontainers STATIC
   hashtable.c
+  drvector.c
   # add more here
   )
 configure_DynamoRIO_client(drcontainers)

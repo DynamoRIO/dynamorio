@@ -99,6 +99,7 @@ DR_EXPORT
  * Wraps the application function that starts at the address \p original
  * by calling \p pre_func_cb prior to every invocation of \p original
  * and calling \p post_func_cb after every invocation of \p original.
+ * One of the callbacks can be NULL, but not both.
  *
  * Multiple wrap requests are allowed for one \p original function.
  * Their callbacks are called sequentially in the reverse order of
@@ -120,14 +121,18 @@ drwrap_wrap(app_pc func,
 
 DR_EXPORT
 /**
- * Removes a previously-requested wrap for the function \p original
- * and the callback \p pre_func_cb.
+ * Removes a previously-requested wrap for the function \p func
+ * and the callback pair \p pre_func_cb and \p post_func_cb.
+ * This must be the same pair that was passed to \p dr_wrap.
+ *
+ * This routine can be called from \p pre_func_cb or \p post_func_cb.
  *
  * \return whether successful.
  */
 bool
 drwrap_unwrap(app_pc func,
-              void (*pre_func_cb)(void *wrapcxt, OUT void **user_data));
+              void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+              void (*post_func_cb)(void *wrapcxt, void *user_data));
 
 DR_EXPORT
 /**

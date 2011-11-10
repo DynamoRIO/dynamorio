@@ -42,6 +42,31 @@
 int EXPORT makes_tailcall(int x); /* in asm */
 
 int EXPORT
+runlots(int *x)
+{
+    if (*x == 1024)
+        print("in runlots 1024\n");
+    (*x)++;
+    return *x;
+}
+
+int EXPORT
+preonly(int *x)
+{
+    print("in preonly\n");
+    *x = 6;
+    return -1;
+}
+
+int EXPORT
+postonly(int *x)
+{
+    print("in postonly\n");
+    *x = 6;
+    return -1;
+}
+
+int EXPORT
 replaceme(int *x)
 {
     print("in replaceme\n");
@@ -94,6 +119,16 @@ run_tests(void)
     print("skipme returned %d and x=%d\n", res, x);
     res = replaceme(&x);
     print("replaceme returned %d and x=%d\n", res, x);
+    preonly(&x);
+    postonly(&x);
+
+    skipme(&x);
+    postonly(&x);
+
+    /* test delayed flushing that doesn't flush until 1024 executions */
+    x = 0;
+    for (res = 0; res < 2048; res++)
+        runlots(&x);
 }
 
 #ifdef WINDOWS

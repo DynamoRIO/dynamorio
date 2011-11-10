@@ -53,14 +53,18 @@ static app_pc addr_level1;
 static app_pc addr_level2;
 static app_pc addr_tailcall;
 static app_pc addr_skipme;
+static app_pc addr_preonly;
+static app_pc addr_postonly;
+static app_pc addr_runlots;
 
 static void
-wrap_addr(OUT app_pc *addr, const char *name, const module_data_t *mod)
+wrap_addr(OUT app_pc *addr, const char *name, const module_data_t *mod,
+          bool pre, bool post)
 {
     bool ok;
     *addr = (app_pc) dr_get_proc_address(mod->start, name);
     CHECK(*addr != NULL, "cannot find lib export");
-    ok = drwrap_wrap(*addr, wrap_pre, wrap_post);
+    ok = drwrap_wrap(*addr, pre ? wrap_pre : NULL, post ? wrap_post : NULL);
     CHECK(ok, "wrap failed");
 }
 
@@ -75,11 +79,14 @@ void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         ok = drwrap_replace(toreplace, (app_pc) replacewith, false);
         CHECK(ok, "replace failed");
 
-        wrap_addr(&addr_level0, "level0", mod);
-        wrap_addr(&addr_level1, "level1", mod);
-        wrap_addr(&addr_level2, "level2", mod);
-        wrap_addr(&addr_tailcall, "makes_tailcall", mod);
-        wrap_addr(&addr_skipme, "skipme", mod);
+        wrap_addr(&addr_level0, "level0", mod, true, true);
+        wrap_addr(&addr_level1, "level1", mod, true, true);
+        wrap_addr(&addr_level2, "level2", mod, true, true);
+        wrap_addr(&addr_tailcall, "makes_tailcall", mod, true, true);
+        wrap_addr(&addr_skipme, "skipme", mod, true, true);
+        wrap_addr(&addr_preonly, "preonly", mod, true, false);
+        wrap_addr(&addr_postonly, "postonly", mod, false, true);
+        wrap_addr(&addr_runlots, "runlots", mod, false, true);
     }
 }
 
@@ -127,6 +134,8 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
     } else if (drwrap_get_func(wrapcxt) == addr_skipme) {
         dr_fprintf(STDERR, "  <pre-skipme>\n");
         drwrap_skip_call(wrapcxt, (void *) 7, 0);
+    } else if (drwrap_get_func(wrapcxt) == addr_preonly) {
+        dr_fprintf(STDERR, "  <pre-preonly>\n");
     } else
         CHECK(false, "invalid wrap");
 }
@@ -150,6 +159,13 @@ wrap_post(void *wrapcxt, void *user_data)
         dr_fprintf(STDERR, "  <post-level2>\n");
     } else if (drwrap_get_func(wrapcxt) == addr_skipme) {
         CHECK(false, "should have skipped!");
+    } else if (drwrap_get_func(wrapcxt) == addr_postonly) {
+        dr_fprintf(STDERR, "  <post-postonly>\n");
+        drwrap_unwrap(addr_skipme, wrap_pre, wrap_post);
+        drwrap_unwrap(addr_postonly, NULL, wrap_post);
+        drwrap_unwrap(addr_runlots, NULL, wrap_post);
+    } else if (drwrap_get_func(wrapcxt) == addr_runlots) {
+        dr_fprintf(STDERR, "  <post-runlots>\n");
     } else
         CHECK(false, "invalid wrap");
 }

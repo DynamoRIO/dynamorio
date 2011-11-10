@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,6 +41,7 @@ that use the DR API for memory allocation and synchronization.
 
  - \ref sec_drcontainers_setup
  - \ref sec_drcontainers_hashtable
+ - \ref sec_drcontainers_vector
 
 \section sec_drcontainers_setup Setup
 
@@ -55,5 +57,9 @@ That will automatically set up the include path and library dependence.
 The hashtable supports integer, string, and custom hash keys, and has
 synchronization and memory allocation and deallocation parametrized for
 flexible usage.  See hashtable_init_ex() and related functions.
+
+\section sec_drcontainers_vector DrVector
+
+The DrVector is a simple resizable array.
 
 */

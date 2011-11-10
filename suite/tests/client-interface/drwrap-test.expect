@@ -15,6 +15,13 @@ level0 returned 42
   <pre-skipme>
 skipme returned 7 and x=3
 replaceme returned 0 and x=6
+  <pre-preonly>
+in preonly
+in postonly
+  <post-postonly>
+in skipme
+in postonly
+in runlots 1024
 loaded library
 thank you for testing the client interface
 all done

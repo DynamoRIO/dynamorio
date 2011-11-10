@@ -108,9 +108,10 @@ The following are part of the \DynamoRIO release distribution:
 
 The current version is \DR_VERSION.  Its \client API is mostly backward
 compatible with releases from 1.0.0 (originally called 0.9.6: see below)
-onward with the exception of functions that involve dr_mcontext_t.  The
-dr_mcontext_t struct and all structs that contain it have changed and are
-NOT backward compatible with releases prior to 3.0.0.
+onward with the exception of functions that involve dr_mcontext_t and
+several other source and binary compatibility changes since version 2.2.0
+described below.  The dr_mcontext_t struct and all structs that contain it
+have changed and are NOT backward compatible with releases prior to 3.0.0.
 
 A sample script for updating \client sources to the 3.0.0 API is as
 follows:
@@ -159,8 +160,12 @@ The changes between version \DR_VERSION and 2.2.0 are:
  - Changed the bool typedef from int to char for C++ compatibility.
    This is a binary compatibility change with respect to versions
    prior to 3.0.0.
+ - Changed the signature of drwrap_unwrap(), in order to allow one of the
+   pre or post hooks to be optional (Issue 562).  This is a source
+   compatibility change.
  - Added \p drutil Extension which provides memory address retrieval
    and string loop expansion (note: LGPL license)
+ - Added \p drvector to drcontainers Extension: simple resizable vector
  - Added a windbg script for auto-locating libraries for easier
    debugging
  - Added dr_mutex_self_owns() and recursive lock support (dr_recurlock_*)
