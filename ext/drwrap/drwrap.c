@@ -87,16 +87,6 @@ wrap_entry_free(void *v)
     }
 }
 
-static bool
-is_wrapped_routine(app_pc pc)
-{
-    bool res;
-    dr_recurlock_lock(wrap_lock);
-    res = (hashtable_lookup(&wrap_table, (void *)pc) != NULL);
-    dr_recurlock_unlock(wrap_lock);
-    return res;
-}
-
 /* TLS.  OK to be callback-shared: just more nesting. */
 static int tls_idx;
 
@@ -115,9 +105,8 @@ typedef struct _per_thread_t {
     int wrap_level;
     /* record which wrap routine */
     app_pc last_wrap_func[MAX_WRAP_NESTING];
-    /* handle nested tailcalls */
-    app_pc tailcall_target[MAX_WRAP_NESTING];
-    app_pc tailcall_post_call[MAX_WRAP_NESTING];
+    /* record app esp to handle tailcalls, etc. */
+    reg_t app_esp[MAX_WRAP_NESTING];
     /* user_data for passing between pre and post cbs */
     size_t user_data_count[MAX_WRAP_NESTING];
     void **user_data[MAX_WRAP_NESTING];
@@ -150,7 +139,6 @@ typedef struct _post_call_entry_t {
      * says "please add instru for this callee" and one saying "all
      * existing fragments have instru"
      */
-    app_pc callee;
     bool existing_instrumented;
 } post_call_entry_t;
 
@@ -603,7 +591,6 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
     if (e == NULL || !e->existing_instrumented) {
         if (e == NULL) {
             e = (post_call_entry_t *) dr_global_alloc(sizeof(*e));
-            e->callee = pc;
             e->existing_instrumented = false;
             hashtable_add(&post_call_table, (void*)retaddr, (void*)e);
         }
@@ -689,12 +676,21 @@ drwrap_in_callee(app_pc pc)
     }
 
     pt->wrap_level++;
+    ASSERT(pt->wrap_level >= 0, "wrapping level corrupted");
     ASSERT(pt->wrap_level < MAX_WRAP_NESTING, "max wrapped nesting reached");
     if (pt->wrap_level >= MAX_WRAP_NESTING) {
         dr_recurlock_unlock(wrap_lock);
         return; /* we'll have to skip stuff */
     }
     pt->last_wrap_func[pt->wrap_level] = pc;
+    pt->app_esp[pt->wrap_level] = mc.xsp;
+#ifdef DEBUG
+    for (idx = 0; idx < (uint) pt->wrap_level; idx++) {
+        ASSERT(pt->app_esp[idx] >= pt->app_esp[pt->wrap_level],
+               "stack pointer off: may miss post-wrap points");
+    }
+#endif
+    
     /* because the list could change between pre and post events we count
      * and store here instead of maintaining count in wrap_table
      */
@@ -734,12 +730,11 @@ drwrap_in_callee(app_pc pc)
 
 /* called via clean call at return address(es) of callee */
 static void
-drwrap_after_callee(app_pc pc, app_pc retaddr)
+drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
+                         app_pc pc, app_pc retaddr)
 {
-    void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     wrap_entry_t *wrap, *next;
-    dr_mcontext_t mc = {sizeof(mc),};
     uint idx;
     drwrap_context_t wrapcxt;
     drvector_t toflush = {0,};
@@ -747,8 +742,7 @@ drwrap_after_callee(app_pc pc, app_pc retaddr)
     ASSERT(pc != NULL, "drwrap_after_callee: pc is NULL!");
     ASSERT(pt != NULL, "drwrap_after_callee: pt is NULL!");
 
-    dr_get_mcontext(drcontext, &mc);
-    drwrap_context_init(&wrapcxt, pc, &mc, retaddr);
+    drwrap_context_init(&wrapcxt, pc, mc, retaddr);
 
     if (pt->wrap_level >= MAX_WRAP_NESTING) {
         pt->wrap_level--;
@@ -758,38 +752,6 @@ drwrap_after_callee(app_pc pc, app_pc retaddr)
         pt->skip[pt->wrap_level] = false;
         pt->wrap_level--;
         return; /* skip the post-func cbs */
-    }
-
-    /* process any skipped post-tailcall events */
-    while (pt->wrap_level > 0 &&
-           /* tailcall was recorded at cur level minus one */
-           pt->tailcall_target[pt->wrap_level - 1] != NULL) {
-        /* We've missed the return from a tailcalled alloc routine,
-         * so process that now before this "outer" return.  PR 418138.
-         */
-        app_pc inner_func = pt->tailcall_target[pt->wrap_level - 1];
-        app_pc inner_post = pt->tailcall_post_call[pt->wrap_level - 1];
-        /* If the tailcall was not an exit from the outer (e.g., it's
-         * an exit from a helper routine) just clear and proceed.
-         * We assume no self-recursive tailcalls.
-         */
-        pt->tailcall_target[pt->wrap_level - 1] = NULL;
-        pt->tailcall_post_call[pt->wrap_level - 1] = NULL;
-        if (inner_func != pc) {
-            /* tailcall bypassed inner_func before outer func */
-            ASSERT(pt->wrap_level > 1, "tailcall mistake");
-            drwrap_after_callee(inner_func, inner_post);
-        }
-    }
-    if (pt->wrap_level < MAX_WRAP_NESTING &&
-        pt->last_wrap_func[pt->wrap_level] != pc) {
-        /* a jump or other transfer to a post-call site, where the
-         * transfer happens inside a heap routine and so we can't use
-         * the wrap_level==0 check above.  we distinguish
-         * from a real post-call by comparing the last_wrap_func.
-         * this was hit in PR 465516.
-         */
-        return;
     }
 
     dr_recurlock_lock(wrap_lock);
@@ -881,81 +843,40 @@ drwrap_after_callee(app_pc pc, app_pc retaddr)
     pt->wrap_level--;
 }
 
-/* called via clean call at tailcall jmp
- * post_call is the address after the jmp instr
- */
+/* called via clean call at return address(es) of callee */
 static void
-drwrap_handle_tailcall(app_pc callee, app_pc post_call)
+drwrap_after_callee(app_pc retaddr)
 {
-    /* For a func that uses a tailcall to call an alloc routine, we have
-     * to get the retaddr dynamically.
-     */
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    /* ignore tailcall at very outer: we'll process at subsequent retaddr */
-    if (pt->wrap_level >= 0) {
-        /* Store the target so we can process both this and the "outer"
-         * alloc routine at the outer's post-call point (PR 418138).
-         */
-        ASSERT(pt->tailcall_target[pt->wrap_level] == NULL,
-               "tailcall var not cleaned up");
-        pt->tailcall_target[pt->wrap_level] = callee;
-        pt->tailcall_post_call[pt->wrap_level] = post_call;
-    }
-}
-
-static void
-drwrap_check_for_tailcall(void *drcontext, instrlist_t *bb, instr_t *inst)
-{
-    /* Look for tail call */
-    bool is_tail_call = false;
-    app_pc target = NULL;
     dr_mcontext_t mc = {sizeof(mc),};
-    instr_t callee;
-    instr_t *check_ind = inst;
-    bool free_callee = false;
-    if (instr_get_opcode(inst) != OP_jmp &&
-        instr_get_opcode(inst) != OP_jmp_ind)
-        return;
-    if (!dr_get_mcontext(drcontext, &mc)) {
-        ASSERT(false, "unable to get mc");
+    ASSERT(pt != NULL, "drwrap_after_callee: pt is NULL!");
+    dr_get_mcontext(drcontext, &mc);
+
+    if (pt->wrap_level < 0) {
+        /* jump or other method of targeting post-call site w/o executing
+         * call; or, did an indirect call that no longer matches */
         return;
     }
-    if (instr_get_opcode(inst) == OP_jmp) {
-        target = opnd_get_pc(instr_get_target(inst));
-        if (is_wrapped_routine(target)) {
-            is_tail_call = true;
-        } else {
-            /* May jmp to plt jmp* */
-            instr_init(drcontext, &callee);
-            free_callee = true;
-            if (decode(drcontext, target, &callee) != NULL &&
-                instr_get_opcode(&callee) == OP_jmp_ind) {
-                check_ind = &callee; /* check below */
-            }
-        }
-    }
-    if (instr_get_opcode(check_ind) == OP_jmp_ind) {
-        /* We do see indirect tailcalls (i#637) with /MD and operator {new,delete} */
-        opnd_t opnd = instr_get_target(check_ind);
-        size_t read;
-        if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) == DR_REG_NULL &&
-            opnd_get_index(opnd) == DR_REG_NULL) {
-            if (dr_safe_read(opnd_compute_address(opnd, &mc), sizeof(target),
-                             &target, &read) && 
-                read == sizeof(target) &&
-                is_wrapped_routine(target))
-                is_tail_call = true;
-        }
-    }
-    if (free_callee)
-        instr_free(drcontext, &callee);
-    if (is_tail_call && target != NULL) {
-        /* at runtime we'll record the tailcall so we can process it post-caller */
-        app_pc post_call = instr_get_app_pc(inst) + instr_length(drcontext, inst);
-        dr_insert_clean_call(drcontext, bb, inst, (void *)drwrap_handle_tailcall,
-                             false, 2, OPND_CREATE_INTPTR((ptr_int_t)target),
-                             OPND_CREATE_INTPTR((ptr_int_t)post_call));
+
+    /* process post for all funcs whose frames we bypassed.
+     * we assume they were all bypassed b/c of tailcalls and that their
+     * posts should be called (on an exception we clear out our data
+     * and won't come here; for longjmp we assume we want to call the post
+     * although the retval won't be there...XXX).
+     *
+     * we no longer store the callee for a post-call site b/c there
+     * can be multiple and it's complex to control which one is used
+     * (outer or inner or middle) consistently.  we don't need the
+     * callee to distinguish a jump or other transfer to a post-call
+     * site where the transfer happens inside a wrapped routine (passing
+     * the wrap_level==0 check above) b/c our stack
+     * check will identify whether we've left any wrapped routines we
+     * entered.
+     */
+    while (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < mc.xsp) {
+        drwrap_after_callee_func(drcontext, &mc,
+                                 pt->last_wrap_func[pt->wrap_level], retaddr);
     }
 }
 
@@ -991,14 +912,12 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     hashtable_lock(&post_call_table);
     post = (post_call_entry_t *) hashtable_lookup(&post_call_table, (void*)pc);
     if (post != NULL) {
+        post->existing_instrumented = true;
         dr_insert_clean_call(drcontext, bb, inst, (void *)drwrap_after_callee,
-                             false, 2,
-                             OPND_CREATE_INTPTR((ptr_int_t)post->callee),
+                             false, 1,
                              OPND_CREATE_INTPTR((ptr_int_t)pc));
     }
     hashtable_unlock(&post_call_table);
-
-    drwrap_check_for_tailcall(drcontext, bb, inst);
 
     return DR_EMIT_DEFAULT;
 }
