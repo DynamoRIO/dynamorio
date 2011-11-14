@@ -1516,34 +1516,6 @@ enum {
  * so we have no alignment declarations there at the moment either.
  */
 
-/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
- * libc routines invoked by DR in some Linux systems (xref i#139),
- * so they should be saved in 32-bit Linux.
- */
-/* Xref i#139:
- * XMM register preservation will cause extra runtime overhead.
- * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows 
- * that DR with xmm preservation adds negligible overhead over DR without 
- * xmm preservation.
- * It means xmm preservation would have little performance impact over 
- * DR base system. This is mainly because DR's own operations' overhead 
- * is much higher than the context switch overhead.
- * However, if a program is running with a DR client which performs many 
- * clean calls (one or more per basic block), xmm preservation may
- * have noticable impacts, i.e. pushing bbs over the max size limit, 
- * and could have a noticeable performance hit.
- */
-#ifdef WINDOWS
-# define NUM_XMM_SAVED 6 /* xmm0-5; for 32-bit we have space for xmm0-7 */
-#else
-# ifdef X64
-#  define NUM_XMM_SAVED 16 /* xmm0-15 */
-# else
-/* i#139: save xmm0-7 registers in 32-bit Linux. */
-#  define NUM_XMM_SAVED 8 /* xmm0-7 */
-# endif
-#endif
-
 /* DR_API EXPORT TOFILE dr_defines.h */
 /* DR_API EXPORT BEGIN */
 /** 128-bit XMM register. */
@@ -1616,5 +1588,30 @@ typedef struct _dr_mcontext_t {
 typedef struct _priv_mcontext_t {
 #include "mcxtx.h"
 } priv_mcontext_t;
+
+/* DR_API EXPORT END */
+
+/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
+ * libc routines invoked by DR in some Linux systems (xref i#139),
+ * so they should be saved in 32-bit Linux.
+ */
+/* Xref i#139:
+ * XMM register preservation will cause extra runtime overhead.
+ * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows 
+ * that DR with xmm preservation adds negligible overhead over DR without 
+ * xmm preservation.
+ * It means xmm preservation would have little performance impact over 
+ * DR base system. This is mainly because DR's own operations' overhead 
+ * is much higher than the context switch overhead.
+ * However, if a program is running with a DR client which performs many 
+ * clean calls (one or more per basic block), xmm preservation may
+ * have noticable impacts, i.e. pushing bbs over the max size limit, 
+ * and could have a noticeable performance hit.
+ */
+/* We now save everything but we keep separate NUM_XMM_SLOTS vs NUM_XMM_SAVED
+ * in case we go back to not saving some slots in the future: e.g., w/o
+ * CLIENT_INTERFACE we could control our own libs enough to avoid some saves.
+ */
+#define NUM_XMM_SAVED NUM_XMM_SLOTS
 
 #endif /* ifndef _GLOBALS_SHARED_H_ */
