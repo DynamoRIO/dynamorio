@@ -76,6 +76,7 @@
 #include "hashtable.h"
 
 #include "drsyms.h"
+#include "wininc/dia2.h"  /* for BasicType and SymTagEnum */
 
 /* SymSearch is not present in VS2005sp1 headers */
 typedef BOOL (__stdcall *func_SymSearch_t)
@@ -282,18 +283,39 @@ lookup_or_load(const char *modpath)
     return base;
 }
 
+enum {
+    SYMBOL_INFO_SIZE = (sizeof(SYMBOL_INFO) + MAX_SYM_NAME*sizeof(TCHAR) - 1
+                        /*1 char already in Name[1] in struct*/)
+};
+
+/* Allocates a SYMBOL_INFO struct.  Initializes the SizeOfStruct and MaxNameLen
+ * fields.
+ */
+static PSYMBOL_INFO
+alloc_symbol_info(void *dc)
+{
+    PSYMBOL_INFO info = (PSYMBOL_INFO)dr_thread_alloc(dc, SYMBOL_INFO_SIZE);
+    info->SizeOfStruct = sizeof(SYMBOL_INFO);
+    info->MaxNameLen = MAX_SYM_NAME;
+    return info;
+}
+
+static void
+free_symbol_info(void *dc, PSYMBOL_INFO info)
+{
+    dr_thread_free(dc, info, SYMBOL_INFO_SIZE);
+}
+
 static drsym_error_t
 drsym_lookup_address_local(const char *modpath, size_t modoffs,
                            drsym_info_t *out INOUT, uint flags)
 {
     DWORD64 base;
-    PSYMBOL_INFO info;  /* Too large to stack allocate. */
-    size_t info_size = (sizeof(SYMBOL_INFO) + MAX_SYM_NAME*sizeof(TCHAR) - 1
-                        /*1 char already in Name[1] in struct*/);
     DWORD64 disp;
     IMAGEHLP_LINE64 line;
     DWORD line_disp;
     void *dc = dr_get_current_drcontext();
+    PSYMBOL_INFO info;
 
     if (modpath == NULL || out == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
@@ -308,9 +330,7 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
         return DRSYM_ERROR_LOAD_FAILED;
     }
 
-    info = dr_thread_alloc(dc, info_size);
-    info->SizeOfStruct = sizeof(SYMBOL_INFO);
-    info->MaxNameLen = MAX_SYM_NAME;
+    info = alloc_symbol_info(dc);
     if (SymFromAddr(GetCurrentProcess(), base + modoffs, &disp, info)) {
         out->start_offs = (size_t) (info->Address - base);
         out->end_offs = (size_t) ((info->Address + info->Size) - base);
@@ -321,11 +341,11 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
                disp, info->Address, info->Address + info->Size);
     } else {
         NOTIFY("SymFromAddr error %d\n", GetLastError());
-        dr_thread_free(dc, info, info_size);
+        free_symbol_info(dc, info);
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_SYMBOL_NOT_FOUND;
     }
-    dr_thread_free(dc, info, info_size);
+    free_symbol_info(dc, info);
 
     line.SizeOfStruct = sizeof(line);
     if (SymGetLineFromAddr64(GetCurrentProcess(), base + modoffs, &line_disp, &line)) {
@@ -348,10 +368,9 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
                           size_t *modoffs OUT, uint flags)
 {
     DWORD64 base;
-    PSYMBOL_INFO info;
-    size_t info_size;
     drsym_error_t r;
     void *dc = dr_get_current_drcontext();
+    PSYMBOL_INFO info;
 
     if (modpath == NULL || symbol == NULL || modoffs == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
@@ -363,16 +382,10 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
         return DRSYM_ERROR_LOAD_FAILED;
     }
 
-    /* Too large to stack allocate on dstack. */
-    info_size = (sizeof(SYMBOL_INFO) + MAX_SYM_NAME*sizeof(TCHAR) - 1
-                 /*1 char already in Name[1] in struct*/);
-    info = (PSYMBOL_INFO) dr_thread_alloc(dc, info_size);
-
     /* the only thing identifying the target module is the symbol name,
      * which should be of "modname!symname" format
      */
-    info->SizeOfStruct = sizeof(SYMBOL_INFO);
-    info->MaxNameLen = MAX_SYM_NAME;
+    info = alloc_symbol_info(dc);
     if (SymFromName(GetCurrentProcess(), (char *)symbol, info)) {
         NOTIFY("0x%I64x\n", info->Address);
         *modoffs = (size_t) (info->Address - base);
@@ -381,7 +394,7 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
         NOTIFY("SymFromName error %d %s\n", GetLastError(), symbol);
         r = DRSYM_ERROR_SYMBOL_NOT_FOUND;
     }
-    dr_thread_free(dc, info, info_size);
+    free_symbol_info(dc, info);
     dr_recurlock_unlock(symbol_lock);
     return r;
 }
@@ -546,6 +559,219 @@ demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
     return len;
 }
 
+/***************************************************************************
+ * Dbghelp type information decoding routines.
+ */
+
+static drsym_error_t decode_func_type(mempool_t *pool, DWORD64 base, ULONG type_idx,
+                                    drsym_type_t **type_out OUT);
+static drsym_error_t decode_ptr_type (mempool_t *pool, DWORD64 base, ULONG type_idx,
+                                    drsym_type_t **type_out OUT);
+static drsym_error_t decode_base_type(mempool_t *pool, DWORD64 base, ULONG type_idx,
+                                    drsym_type_t **type_out OUT);
+static drsym_error_t decode_typedef(mempool_t *pool, DWORD64 base, ULONG type_idx,
+                                    drsym_type_t **type_out OUT);
+static drsym_error_t decode_arg_type (mempool_t *pool, DWORD64 base, ULONG type_idx,
+                                    drsym_type_t **type_out OUT);
+static drsym_error_t decode_type   (mempool_t *pool, DWORD64 base, ULONG type_idx,
+                                    drsym_type_t **type_out OUT);
+static drsym_error_t make_unknown(mempool_t *pool, drsym_type_t **type_out OUT);
+
+static bool
+get_type_info(DWORD64 base, ULONG type_idx, IMAGEHLP_SYMBOL_TYPE_INFO property,
+              void *arg)
+{
+    bool r = CAST_TO_bool(SymGetTypeInfo(GetCurrentProcess(), base, type_idx,
+                                         property, arg));
+    if (verbose && !r) {
+        dr_fprintf(STDERR,
+                   "drsyms: Error getting property %d of type index %d\n",
+                   (int)property, (int)type_idx);
+    }
+    return r;
+}
+
+static drsym_error_t
+decode_func_type(mempool_t *pool, DWORD64 base, ULONG type_idx,
+               drsym_type_t **type_out OUT)
+{
+    drsym_func_type_t *func_type;
+    DWORD arg_count;
+    TI_FINDCHILDREN_PARAMS *children;
+    uint i;
+    drsym_error_t r;
+    ULONG ret_type_idx;
+
+    if (!get_type_info(base, type_idx, TI_GET_CHILDRENCOUNT, &arg_count))
+        return DRSYM_ERROR;
+
+    /* One element is included in struct, so use arg_count - 1. */
+    children = POOL_ALLOC_SIZE(pool, TI_FINDCHILDREN_PARAMS,
+                               (sizeof(*children) +
+                                (arg_count-1) * sizeof(ULONG)));
+    if (children == NULL)
+        return DRSYM_ERROR_NOMEM;
+
+    children->Count = arg_count;
+    children->Start = 0;
+    if (!get_type_info(base, type_idx, TI_FINDCHILDREN, children))
+        return DRSYM_ERROR;
+
+    func_type = POOL_ALLOC_SIZE(pool, drsym_func_type_t,
+                              (sizeof(*func_type) +
+                               arg_count * sizeof(func_type->arg_types[0])));
+    if (func_type == NULL)
+        return DRSYM_ERROR_NOMEM;
+
+    func_type->type.kind = DRSYM_TYPE_FUNC;
+    func_type->type.size = 0;  /* Not valid. */
+    func_type->num_args = arg_count;
+    if (!get_type_info(base, type_idx, TI_GET_TYPE, &ret_type_idx))
+        return DRSYM_ERROR;
+    r = decode_type(pool, base, ret_type_idx, &func_type->ret_type);
+    if (r != DRSYM_SUCCESS)
+        return r;
+    for (i = 0; i < children->Count; i++) {
+        r = decode_type(pool, base, children->ChildId[i], &func_type->arg_types[i]);
+        if (r != DRSYM_SUCCESS)
+            return r;
+    }
+
+    *type_out = &func_type->type;
+    return DRSYM_SUCCESS;
+}
+
+static drsym_error_t
+decode_ptr_type(mempool_t *pool, DWORD64 base, ULONG type_idx,
+              drsym_type_t **type_out OUT)
+{
+    drsym_ptr_type_t *ptr_type;
+    ULONG64 length;
+    ULONG elt_type_idx;
+
+    ptr_type = POOL_ALLOC(pool, drsym_ptr_type_t);
+    if (ptr_type == NULL)
+        return DRSYM_ERROR_NOMEM;
+    ptr_type->type.kind = DRSYM_TYPE_PTR;
+    if (!get_type_info(base, type_idx, TI_GET_LENGTH, &length))
+        return DRSYM_ERROR;
+    ptr_type->type.size = (size_t)length;
+    if (!get_type_info(base, type_idx, TI_GET_TYPE, &elt_type_idx))
+        return DRSYM_ERROR;
+    *type_out = &ptr_type->type;
+    /* Tail call reduces stack usage. */
+    return decode_type(pool, base, elt_type_idx, &ptr_type->elt_type);
+}
+
+static drsym_error_t
+decode_base_type(mempool_t *pool, DWORD64 base, ULONG type_idx,
+               drsym_type_t **type_out OUT)
+{
+    DWORD base_type;  /* BasicType */
+    bool is_signed;
+    ULONG64 length;
+    drsym_int_type_t *int_type;
+
+    if (!get_type_info(base, type_idx, TI_GET_BASETYPE, &base_type))
+        return DRSYM_ERROR;
+    /* See if this base type is an int and if it's signed. */
+    switch (base_type) {
+    case btChar:
+    case btWChar:
+    case btUInt:
+    case btBool:
+    case btULong:
+        is_signed = false;
+    case btInt:
+    case btLong:
+        is_signed = true;
+        break;
+    default:
+        return make_unknown(pool, type_out);
+    }
+    if (!get_type_info(base, type_idx, TI_GET_LENGTH, &length))
+        return DRSYM_ERROR;
+    int_type = POOL_ALLOC(pool, drsym_int_type_t);
+    if (int_type == NULL)
+        return DRSYM_ERROR_NOMEM;
+    int_type->type.kind = DRSYM_TYPE_INT;
+    int_type->type.size = (size_t)length;
+    int_type->is_signed = is_signed;
+
+    *type_out = &int_type->type;
+    return DRSYM_SUCCESS;
+}
+
+static drsym_error_t
+decode_typedef(mempool_t *pool, DWORD64 base, ULONG type_idx,
+               drsym_type_t **type_out OUT)
+{
+    /* Go through typedefs. */
+    ULONG base_type_idx;
+    if (!get_type_info(base, type_idx, TI_GET_TYPE, &base_type_idx))
+        return DRSYM_ERROR;
+    return decode_type(pool, base, base_type_idx, type_out);
+}
+
+static drsym_error_t
+decode_arg_type(mempool_t *pool, DWORD64 base, ULONG type_idx,
+              drsym_type_t **type_out OUT)
+{
+    ULONG base_type_idx;
+    if (!get_type_info(base, type_idx, TI_GET_TYPE, &base_type_idx))
+        return DRSYM_ERROR;
+    return decode_type(pool, base, base_type_idx, type_out);
+}
+
+static drsym_error_t
+make_unknown(mempool_t *pool, drsym_type_t **type_out OUT)
+{
+    drsym_type_t *type = POOL_ALLOC(pool, drsym_type_t);
+    if (type == NULL)
+        return DRSYM_ERROR_NOMEM;
+    type->kind = DRSYM_TYPE_OTHER;
+    type->size = 0;
+    *type_out = type;
+    return DRSYM_SUCCESS;
+}
+
+/* Return an error code or success, store a pointer to the type created in
+ * *type_out.
+ */
+static drsym_error_t
+decode_type(mempool_t *pool, DWORD64 base, ULONG type_idx,
+            drsym_type_t **type_out OUT)
+{
+    DWORD tag;  /* SymTagEnum */
+    if (!get_type_info(base, type_idx, TI_GET_SYMTAG, &tag)) {
+        return DRSYM_ERROR;
+    }
+    if (verbose) {
+        switch (tag) {
+        case SymTagFunctionType:    dr_fprintf(STDERR, "SymTagFunctionType\n"); break;
+        case SymTagPointerType:     dr_fprintf(STDERR, "SymTagPointerType\n");  break;
+        case SymTagBaseType:        dr_fprintf(STDERR, "SymTagBaseType\n");     break;
+        case SymTagTypedef:         dr_fprintf(STDERR, "SymTagTypedef\n");      break;
+        case SymTagFunctionArgType: dr_fprintf(STDERR, "SymTagFunctionArgType\n"); break;
+        default:
+            dr_fprintf(STDERR, "unknown: %d\n", tag);
+        }
+    }
+    switch (tag) {
+    case SymTagFunctionType:    return decode_func_type(pool, base, type_idx, type_out);
+    case SymTagPointerType:     return decode_ptr_type(pool, base, type_idx, type_out);
+    case SymTagBaseType:        return decode_base_type(pool, base, type_idx, type_out);
+    case SymTagTypedef:         return decode_typedef(pool, base, type_idx, type_out);
+    case SymTagFunctionArgType: return decode_arg_type(pool, base, type_idx, type_out);
+    default:
+        return make_unknown(pool, type_out);
+    }
+}
+
+/***************************************************************************
+ * Exported routines.
+ */
+
 DR_EXPORT
 drsym_error_t
 drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *out INOUT,
@@ -603,6 +829,57 @@ drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
     dr_recurlock_lock(symbol_lock);
     r = demangle_symbol(dst, dst_sz, mangled, flags);
     dr_recurlock_unlock(symbol_lock);
+    return r;
+}
+
+DR_EXPORT
+drsym_error_t
+drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
+                    size_t buf_sz, drsym_func_type_t **func_type OUT)
+{
+    DWORD64 base;
+    ULONG type_index;
+    mempool_t pool;
+    drsym_error_t r;
+    void *dc = dr_get_current_drcontext();
+    PSYMBOL_INFO info;
+
+    if (modpath == NULL || buf == NULL || func_type == NULL)
+        return DRSYM_ERROR_INVALID_PARAMETER;
+
+    dr_recurlock_lock(symbol_lock);
+    base = lookup_or_load(modpath);
+    if (base == 0) {
+        dr_recurlock_unlock(symbol_lock);
+        return DRSYM_ERROR_LOAD_FAILED;
+    }
+
+    /* XXX: For a perf boost, we could expose the concept of a
+     * cursor/handle/index/whatever that refers to a given symbol and skip this
+     * address lookup.  DWARF should have a similar construct we could expose.
+     * However, that would break backwards compat.  We assume that the client is
+     * not a debugger, and that they just want type info for a handful of
+     * interesting symbols.  Therefore we can afford the overhead of the address
+     * lookup.
+     */
+    info = alloc_symbol_info(dc);
+    if (SymFromAddr(GetCurrentProcess(), base + modoffs, NULL, info)) {
+        type_index = info->TypeIndex;
+    } else {
+        NOTIFY("SymFromAddr error %d\n", GetLastError());
+        free_symbol_info(dc, info);
+        dr_recurlock_unlock(symbol_lock);
+        return DRSYM_ERROR_SYMBOL_NOT_FOUND;
+    }
+    free_symbol_info(dc, info);
+
+    pool_init(&pool, buf, buf_sz);
+    r = decode_type(&pool, base, type_index, (drsym_type_t**)func_type);
+    dr_recurlock_unlock(symbol_lock);
+
+    if ((*func_type)->type.kind != DRSYM_TYPE_FUNC)
+        return DRSYM_ERROR;
+
     return r;
 }
 

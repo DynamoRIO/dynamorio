@@ -64,4 +64,28 @@
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
+/* Memory pool that uses externally allocated memory.
+ */
+typedef struct _mempool_t {
+    char *base;
+    size_t size;
+    char *cur;
+} mempool_t;
+
+/* Initialize the memory pool to point at an external sized buffer.  This pool
+ * does not perform heap allocations to initialize or grow the pool, and hence
+ * does not require any finalization.
+ */
+void pool_init(mempool_t *pool, char *buf, size_t sz);
+
+/* Returned memory is 8-byte aligned on all platforms.
+ * Good for everything except floats or SSE.
+ */
+void *pool_alloc(mempool_t *pool, size_t sz);
+
+#define POOL_ALLOC(pool, type) \
+    ((type*)pool_alloc(pool, sizeof(type)))
+#define POOL_ALLOC_SIZE(pool, type, size) \
+    ((type*)pool_alloc(pool, (size)))
+
 #endif /* DRSYMS_PRIVATE_H */

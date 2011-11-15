@@ -1,3 +1,6 @@
+#ifdef WINDOWS
+found all overloads
+#endif
 got correct overflow
 finished unmangling.
 #ifdef LINUX
@@ -15,7 +18,10 @@ drsyms-test\.cpp:55!.anonymous namespace.::Foo::Bar(\(\))?
 drsyms-test\.cpp:62!exe_export
 drsyms-test\.cpp:68!exe_public(\(\))?
 drsyms-test\.cpp:74!exe_static(\(\))?
-drsyms-test\.cpp:104!main
+drsyms-test\.cpp:108!main
 #endif
+overloaded: 1
+overloaded: 2
+overloaded: 4
 app num_calls: 7
 all done

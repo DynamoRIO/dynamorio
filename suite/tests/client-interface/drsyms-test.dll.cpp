@@ -62,6 +62,9 @@ static void check_enumerate_dll_syms(const char *dll_path);
 static void lookup_glibc_syms(void *dc, const module_data_t *dll_data);
 #endif
 static void test_demangle(void);
+#ifdef WINDOWS
+static void lookup_overloads(const char *exe_path);
+#endif
 
 extern "C" DR_EXPORT void
 dr_init(client_id_t id)
@@ -252,10 +255,76 @@ lookup_exe_syms(void)
     r = drsym_lookup_address(NULL, 0xDEADBEEFUL, &unused_info, DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_ERROR_INVALID_PARAMETER);
 
-    /* FIXME: Test glob matching. */
+#ifdef WINDOWS
+    lookup_overloads(exe_path);
+#endif
 
     dr_free_module_data(exe_data);
 }
+
+#ifdef WINDOWS
+typedef struct _overloaded_params_t {
+    const char *exe_path;
+    bool overloaded_char;
+    bool overloaded_wchar;
+    bool overloaded_int;
+} overloaded_params_t;
+
+static bool
+overloaded_cb(const char *name, size_t modoffs, void *data)
+{
+    overloaded_params_t *p = (overloaded_params_t*)data;
+    drsym_func_type_t *func_type;
+    static char buf[4096];
+    drsym_error_t r;
+
+    if (strcmp(name, "overloaded") != 0)
+        return true;
+    r = drsym_get_func_type(p->exe_path, modoffs, buf, sizeof(buf), &func_type);
+    if (r != DRSYM_SUCCESS) {
+        dr_fprintf(STDERR, "drsym_get_func_type failed: %d\n", (int)r);
+        return true;
+    }
+    if (func_type->num_args == 1 &&
+        func_type->arg_types[0]->kind == DRSYM_TYPE_PTR) {
+        drsym_ptr_type_t *arg_type = (drsym_ptr_type_t*)func_type->arg_types[0];
+        size_t arg_int_size = arg_type->elt_type->size;
+        if (arg_type->elt_type->kind != DRSYM_TYPE_INT)
+            dr_printf("overloaded() arg points to non-integer type!\n");
+        switch (arg_int_size) {
+        case 1: p->overloaded_char = true;  break;
+        case 2: p->overloaded_wchar = true; break;
+        case 4: p->overloaded_int = true;   break;
+        default: break;
+        }
+    }
+
+    return true;
+}
+
+static void
+lookup_overloads(const char *exe_path)
+{
+    overloaded_params_t p;
+    drsym_error_t r;
+
+    p.exe_path = exe_path;
+    p.overloaded_char = false;
+    p.overloaded_wchar = false;
+    p.overloaded_int = false;
+    r = drsym_enumerate_symbols(exe_path, overloaded_cb, &p,
+                                DRSYM_DEFAULT_FLAGS);
+    ASSERT(r == DRSYM_SUCCESS);
+    if (!p.overloaded_char)  dr_fprintf(STDERR, "overloaded_char missing!\n");
+    if (!p.overloaded_wchar) dr_fprintf(STDERR, "overloaded_wchar missing!\n");
+    if (!p.overloaded_int)   dr_fprintf(STDERR, "overloaded_int missing!\n");
+    if (p.overloaded_char &&
+        p.overloaded_wchar &&
+        p.overloaded_int) {
+        dr_fprintf(STDERR, "found all overloads\n");
+    }
+}
+#endif /* WINDOWS */
 
 /* Lookup symbols in the appdll and wrap them. */
 static void

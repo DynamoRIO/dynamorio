@@ -34,11 +34,11 @@ cmake_minimum_required(VERSION 2.6)
 # symbol access library
 
 if (WIN32)
-  add_library(drsyms SHARED drsyms_windows.c)
+  add_library(drsyms SHARED drsyms_windows.c drsyms_common.c)
   configure_DynamoRIO_client(drsyms)
   target_link_libraries(drsyms dbghelp)
 elseif (UNIX)
-  add_library(drsyms SHARED drsyms_linux.c demangle.cc)
+  add_library(drsyms SHARED drsyms_linux.c demangle.cc drsyms_common.c)
   configure_DynamoRIO_client(drsyms)
   if (X64)
     set(BITS "64")

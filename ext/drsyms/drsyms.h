@@ -77,7 +77,7 @@ typedef enum {
     DRSYM_ERROR_LINE_NOT_AVAILABLE, /**< Operation failed: line info not available */
     DRSYM_ERROR_NOT_IMPLEMENTED,    /**< Operation failed: not yet implemented */
     DRSYM_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
-    DRSYM_ERROR_TRUNCATED,          /**< Operation succeeded: output truncated */
+    DRSYM_ERROR_NOMEM,              /**< Operation failed: not enough memory */
 } drsym_error_t;
 
 /** Bitfield of options to each DRSyms operation. */
@@ -160,6 +160,69 @@ DR_EXPORT
 drsym_error_t
 drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *info /*INOUT*/,
                      uint flags);
+
+enum {
+    DRSYM_TYPE_OTHER,  /**< Unknown type, cannot downcast. */
+    DRSYM_TYPE_INT,    /**< Integer, cast to drsym_int_type_t. */
+    DRSYM_TYPE_PTR,    /**< Pointer, cast to drsym_ptr_type_t. */
+    DRSYM_TYPE_FUNC,   /**< Function, cast to drsym_func_type_t. */
+    /* Additional type kinds will be added as needed. */
+};
+
+/**
+ * Base type information.
+ * Use the 'kind' member to downcast to a more specific type.
+ */
+typedef struct _drsym_type_t {
+    uint kind;      /**< Type kind, i.e. DRSYM_TYPE_INT or DRSYM_TYPE_PTR. */
+    size_t size;    /**< Type size. */
+} drsym_type_t;
+
+#ifdef _MSC_VER
+# pragma warning(push)
+# pragma warning(disable : 4200)
+#endif
+
+typedef struct _drsym_func_type_t {
+    drsym_type_t type;
+    drsym_type_t *ret_type;
+    int num_args;
+    drsym_type_t *arg_types[0];  /**< Flexible array of size num_args. */
+} drsym_func_type_t;
+
+#ifdef _MSC_VER
+# pragma warning(pop)
+#endif
+
+typedef struct _drsym_int_type_t {
+    drsym_type_t type;
+    bool is_signed;
+} drsym_int_type_t;
+
+typedef struct _drsym_ptr_type_t {
+    drsym_type_t type;
+    drsym_type_t *elt_type;
+} drsym_ptr_type_t;
+
+DR_EXPORT
+/**
+ * Retrieves function type information for a given module offset.  After a
+ * successful execution, \p *func_type points to the function type.  All memory
+ * used to represent the types comes from \p buf, so the caller only needs to
+ * dispose \p buf to free them.  Returns DRSYM_ERROR_NOMEM if the buffer is not
+ * big enough.
+ *
+ * @param[in] modpath    The full path to the module to be queried.
+ * @param[in] modoffs    The offset from the base of the module specifying
+ *                       the start address of the function.
+ * @param[out] buf       Memory used for the types.
+ * @param[in] buf_sz     Number of bytes in \p buf.
+ * @param[out] func_type Pointer to the type of the function.
+ */
+drsym_error_t
+drsym_get_func_type(const char *modpath, size_t modoffs,
+                    char *buf, size_t buf_sz,
+                    drsym_func_type_t **func_type /*OUT*/);
 
 DR_EXPORT
 /**

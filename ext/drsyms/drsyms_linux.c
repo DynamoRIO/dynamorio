@@ -893,6 +893,14 @@ drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *
 }
 
 DR_EXPORT
+drsym_error_t
+drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
+                    size_t buf_sz, drsym_func_type_t **func_type OUT)
+{
+    return DRSYM_ERROR_NOT_IMPLEMENTED;
+}
+
+DR_EXPORT
 size_t
 drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
                       uint flags)

@@ -74,6 +74,10 @@ exe_static(int a)
     return exe_public(a+1);
 }
 
+int overloaded(char *a)    { return 1; }
+int overloaded(wchar_t *a) { return 2; }
+int overloaded(int *a)     { return 4; }
+
 int
 main(int argc, char **argv)
 {
@@ -102,6 +106,10 @@ main(int argc, char **argv)
      * PCs from the stack trace.
      */
     num_calls = exe_static(0);
+
+    print("overloaded: %d\n", overloaded((char   *)NULL));
+    print("overloaded: %d\n", overloaded((wchar_t*)NULL));
+    print("overloaded: %d\n", overloaded((int    *)NULL));
 
 #ifdef WINDOWS
     FreeLibrary(lib);
