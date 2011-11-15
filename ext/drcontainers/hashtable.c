@@ -420,7 +420,7 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end)
     if (table->synch)
         hashtable_lock(table);
     for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
-        for (e = table->table[i], prev_e = NULL; e != NULL; prev_e = e, e = next_e) {
+        for (e = table->table[i], prev_e = NULL; e != NULL; e = next_e) {
             next_e = e->next;
             if (e->key >= start && e->key < end) {
                 if (prev_e == NULL)
@@ -434,7 +434,8 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end)
                 hash_free(e, sizeof(*e));
                 table->entries--;
                 res = true;
-            }
+            } else
+                prev_e = e;
         }
     }
     if (table->synch)
