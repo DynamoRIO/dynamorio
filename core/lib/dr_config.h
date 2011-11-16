@@ -34,11 +34,8 @@
 #ifndef _DR_CONFIG_H_
 #define _DR_CONFIG_H_ 1
 
-#ifdef WINDOWS
-
 /* DR_API EXPORT TOFILE dr_config.h */
 /* DR_API EXPORT BEGIN */
-#ifdef WINDOWS
 /****************************************************************************
  * Deployment API
  */
@@ -54,6 +51,8 @@
 
 /** Maximum length of a registered process's options string */
 #define DR_MAX_OPTIONS_LENGTH 1024
+
+#ifdef WINDOWS
 
 /** Specifies DynamoRIO's operation mode. */
 typedef enum {
@@ -875,7 +874,5 @@ dr_nudge_all(client_id_t client_id,
 #endif /* WINDOWS */
 
 /* DR_API EXPORT END */
-
-#endif /* WINDOWS */
 
 #endif /* _DR_CONFIG_H_ */
