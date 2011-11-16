@@ -619,7 +619,7 @@ decode_func_type(mempool_t *pool, DWORD64 base, ULONG type_idx,
 
     func_type = POOL_ALLOC_SIZE(pool, drsym_func_type_t,
                               (sizeof(*func_type) +
-                               arg_count * sizeof(func_type->arg_types[0])));
+                               (arg_count-1) * sizeof(func_type->arg_types[0])));
     if (func_type == NULL)
         return DRSYM_ERROR_NOMEM;
 
@@ -877,7 +877,7 @@ drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
     r = decode_type(&pool, base, type_index, (drsym_type_t**)func_type);
     dr_recurlock_unlock(symbol_lock);
 
-    if ((*func_type)->type.kind != DRSYM_TYPE_FUNC)
+    if (r == DRSYM_SUCCESS && (*func_type)->type.kind != DRSYM_TYPE_FUNC)
         return DRSYM_ERROR;
 
     return r;

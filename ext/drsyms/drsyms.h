@@ -187,7 +187,10 @@ typedef struct _drsym_func_type_t {
     drsym_type_t type;
     drsym_type_t *ret_type;
     int num_args;
-    drsym_type_t *arg_types[0];  /**< Flexible array of size num_args. */
+    /* We want to maintain C89 compat for exported headers so we avoid [0] and
+     * waste the space on a zero-arg func type
+     */
+    drsym_type_t *arg_types[1];  /**< Flexible array of size num_args. */
 } drsym_func_type_t;
 
 #ifdef _MSC_VER
