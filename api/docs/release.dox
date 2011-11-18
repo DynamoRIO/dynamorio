@@ -185,6 +185,8 @@ The changes between version \DR_VERSION and 2.2.0 are:
    to control demangling, and added drsym_demangle_symbol().  This is a source
    compatibility change with respect to versions prior to 3.0.0.
  - Added Linux support for \p drsyms.
+ - Added dr_using_app_state()
+ - Several bug fixes
 
 The changes between version 2.2.0 and 2.1.0 are:
 

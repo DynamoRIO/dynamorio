@@ -5034,6 +5034,18 @@ dr_app_pc_from_cache_pc(byte *cache_pc)
 }
 
 DR_API
+bool
+dr_using_app_state(void *drcontext)
+{
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        return is_using_app_peb(dcontext);
+#endif
+    return true;
+}
+
+DR_API
 void
 dr_switch_to_app_state(void *drcontext)
 {

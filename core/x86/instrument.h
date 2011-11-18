@@ -3830,6 +3830,15 @@ dr_app_pc_from_cache_pc(byte *cache_pc);
 
 DR_API
 /**
+ * Returns whether the given thread indicated by \p drcontext
+ * is currently using the application version of its system state.
+ * \sa dr_switch_to_dr_state(), dr_switch_to_app_state()
+ */
+bool
+dr_using_app_state(void *drcontext);
+
+DR_API
+/**
  * Swaps to the application version of any system state for the given
  * thread.  This is meant to be used prior to examining application
  * memory, when private libraries are in use and there are two

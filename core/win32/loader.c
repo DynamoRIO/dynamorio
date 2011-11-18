@@ -621,6 +621,32 @@ set_teb_field(dcontext_t *dcontext, ushort offs, void *value)
     }
 }
 
+bool
+is_using_app_peb(dcontext_t *dcontext)
+{
+    /* don't use get_own_peb() as we want what's actually pointed at by TEB */
+    PEB *cur_peb = get_teb_field(dcontext, PEB_TIB_OFFSET);
+    void *cur_fls;
+    void *cur_rpc;
+    ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
+    if (!INTERNAL_OPTION(private_peb) ||
+        !dynamo_initialized ||
+        !should_swap_peb_pointer())
+        return true;
+    ASSERT(cur_peb != NULL);
+    cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
+    cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
+    if (cur_peb == get_private_peb()) {
+        ASSERT(cur_fls == dcontext->priv_fls_data);
+        ASSERT(cur_rpc == dcontext->priv_nt_rpc);
+        return false;
+    } else {
+        ASSERT(cur_fls == dcontext->app_fls_data);
+        ASSERT(cur_rpc == dcontext->app_nt_rpc);
+        return true;
+    }
+}
+
 /* C version of preinsert_swap_peb() */
 void
 swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
@@ -630,7 +656,7 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
     ASSERT(!dynamo_initialized || should_swap_peb_pointer());
     ASSERT(tgt_peb != NULL);
     set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
-    LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
+    LOG(THREAD, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
     if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT) {
         /* We preserve TEB->LastErrorValue and we swap TEB->FlsData and
          * TEB->ReservedForNtRpc
@@ -670,10 +696,10 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
          * that priv_fls_data is either NULL or a DR address: but on
          * notepad w/ drinject it's neither: need to investigate.
          */
-        LOG(THREAD, LOG_LOADER, 3, "app fls="PFX", priv fls="PFX"\n",
-            dcontext->app_fls_data, dcontext->priv_fls_data);
-        LOG(THREAD, LOG_LOADER, 3, "app rpc="PFX", priv rpc="PFX"\n",
-            dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
+        LOG(THREAD, LOG_LOADER, 3, "cur fls="PFX", app fls="PFX", priv fls="PFX"\n",
+            cur_fls, dcontext->app_fls_data, dcontext->priv_fls_data);
+        LOG(THREAD, LOG_LOADER, 3, "cur rpc="PFX", app rpc="PFX", priv rpc="PFX"\n",
+            cur_rpc, dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
     }
 }
 

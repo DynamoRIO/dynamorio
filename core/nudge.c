@@ -104,6 +104,14 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
     nudge_arg_t safe_arg = {0};
     uint nudge_action_mask = 0;
 
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* this routine is run natively via must_not_be_inlined() so there's no
+     * cxt switch that swapped for us
+     */
+    if (dcontext != NULL && INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        swap_peb_pointer(dcontext, true/*to priv*/);
+#endif
+
     /* To be extra safe we use safe_read() to access the nudge argument, though once
      * we get past the checks below we are trusting its content. */
     ASSERT(arg_dont_use != NULL && "invalid nudge argument");
@@ -194,6 +202,11 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
      *
      * dynamo_thread_exit_common() is where the app stack is actually freed, not here.
      */
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    if (dcontext != NULL && INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        swap_peb_pointer(dcontext, false/*to app*/);
+#endif
 
     if (dynamo_exited || !dynamo_initialized || dcontext == NULL) {
         /* FIXME - no cleanup so we'll leak any memory allocated for this thread
