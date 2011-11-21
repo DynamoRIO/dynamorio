@@ -265,6 +265,10 @@ add_callback(callback_list_t *vec, void (*func)(void), bool unprotect)
         CLIENT_ASSERT(false, "trying to register a NULL callback");
         return;
     }
+    if (standalone_library) {
+        CLIENT_ASSERT(false, "events not supported in standalone library mode");
+        return;
+    }
 
     write_lock(&callback_registration_lock);
     /* Although we're receiving a pointer to a callback_list_t, we're
@@ -610,7 +614,8 @@ instrument_exit(void)
     /* Note - currently own initexit lock when this is called (see PR 227619). */
 
     /* support dr_get_mcontext() from the exit event */
-    get_thread_private_dcontext()->client_data->mcontext_in_dcontext = true;
+    if (!standalone_library)
+        get_thread_private_dcontext()->client_data->mcontext_in_dcontext = true;
     call_all(exit_callbacks, int (*)(),
              /* It seems the compiler is confused if we pass no var args
               * to the call_all macro.  Bogus NULL arg */
@@ -1877,6 +1882,7 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
 {
     size_t i;
 
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT &&
            dcontext == get_thread_private_dcontext());
     /* synch_with_all_threads and flush API assume that client nudge threads
@@ -2299,6 +2305,7 @@ dr_memory_protect(void *base, size_t size, uint new_prot)
      * the patch_proof_list: and maybe it is safer to disallow client
      * from putting hooks in ntdll.
      */
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     if (!dynamo_vm_area_overlap(base, ((byte *)base) + size)) {
         uint mod_prot = new_prot;
         uint res = app_memory_protection_change(get_thread_private_dcontext(),
@@ -2400,6 +2407,7 @@ dr_try_setup(void *drcontext, void **try_cxt)
      */
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     try_except_context_t *try_state;
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL && dcontext == get_thread_private_dcontext());
     ASSERT(try_cxt != NULL);
     /* We allocate on the heap to avoid having to expose the try_except_context_t
@@ -2424,6 +2432,7 @@ dr_try_stop(void *drcontext, void *try_cxt)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     try_except_context_t *try_state = (try_except_context_t *) try_cxt;
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL && dcontext == get_thread_private_dcontext());
     ASSERT(try_state != NULL);
     POP_TRY_BLOCK(dcontext, *try_state); 
@@ -3207,6 +3216,7 @@ dr_messagebox(const char *fmt, ...)
     char msg[MAX_LOG_LENGTH];
     wchar_t wmsg[MAX_LOG_LENGTH];
     va_list ap;
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     va_start(ap, fmt);
     vsnprintf(msg, BUFFER_SIZE_ELEMENTS(msg), fmt, ap);
     NULL_TERMINATE_BUFFER(msg);
@@ -3292,6 +3302,7 @@ void *
 dr_get_current_drcontext(void)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     return (void *) dcontext;
 }
 
@@ -3359,6 +3370,7 @@ void
 dr_thread_yield(void)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = true;
     thread_yield();
@@ -3372,6 +3384,7 @@ void
 dr_sleep(int time_ms)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = true;
     thread_sleep(time_ms);
@@ -3386,6 +3399,7 @@ dr_client_thread_set_suspendable(bool suspendable)
 {
     /* see notes in synch_with_all_threads() */
     dcontext_t *dcontext = get_thread_private_dcontext();
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     if (!IS_CLIENT_THREAD(dcontext))
         return false;
     dcontext->client_data->suspendable = suspendable;
@@ -3405,6 +3419,7 @@ dr_suspend_all_other_threads(OUT void ***drcontexts,
     dcontext_t *my_dcontext = get_thread_private_dcontext();
     int i;
 
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     CLIENT_ASSERT(thread_owns_no_locks(my_dcontext),
                   "dr_suspend_all_other_threads cannot be called while holding a lock");
     CLIENT_ASSERT(drcontexts != NULL && num_suspended != NULL,
@@ -3524,6 +3539,7 @@ dr_set_itimer(int which, uint millisec,
               void (*func)(void *drcontext, dr_mcontext_t *mcontext))
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     if (func == NULL)
         return false;
     return set_itimer_callback(dcontext, which, millisec, NULL,
@@ -3534,6 +3550,7 @@ uint
 dr_get_itimer(int which)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     return get_itimer_frequency(dcontext, which);
 }
 # endif /* LINUX */
@@ -3995,6 +4012,7 @@ reg_t
 dr_read_saved_reg(void *drcontext, dr_spill_slot_t slot)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     CLIENT_ASSERT(drcontext != NULL, "dr_read_saved_reg: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_read_saved_reg: drcontext is invalid");
@@ -4022,6 +4040,7 @@ void
 dr_write_saved_reg(void *drcontext, dr_spill_slot_t slot, reg_t value)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     CLIENT_ASSERT(drcontext != NULL, "dr_write_saved_reg: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_write_saved_reg: drcontext is invalid");
@@ -4577,6 +4596,8 @@ bool
 dr_redirect_execution(dr_mcontext_t *mcontext)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
+    ASSERT(dcontext != NULL);
 
     /* PR 352429: squash current trace.
      * FIXME: will clients use this so much that this will be a perf issue?
@@ -4626,6 +4647,7 @@ dr_delete_fragment(void *drcontext, void *tag)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
     bool deletable = false;
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     CLIENT_ASSERT(!SHARED_FRAGMENTS_ENABLED(),
                   "dr_delete_fragment() only valid with -thread_private");
     CLIENT_ASSERT(drcontext != NULL, "dr_delete_fragment(): drcontext cannot be NULL");
@@ -4687,6 +4709,7 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     bool frag_found;
     fragment_t * f;
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     CLIENT_ASSERT(!SHARED_FRAGMENTS_ENABLED(),
                   "dr_replace_fragment() only valid with -thread_private");
     CLIENT_ASSERT(drcontext != NULL, "dr_replace_fragment(): drcontext cannot be NULL");
@@ -4791,6 +4814,7 @@ bool
 dr_flush_region(app_pc start, size_t size)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL);
 
     /* Flush requires !couldbelinking. FIXME - not all event callbacks to the client are
@@ -4830,6 +4854,7 @@ bool
 dr_unlink_flush_region(app_pc start, size_t size)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL);
 
     /* This routine won't work with coarse_units */
@@ -5021,7 +5046,10 @@ dr_app_pc_from_cache_pc(byte *cache_pc)
 {
     app_pc res = NULL;
     dcontext_t *dcontext = get_thread_private_dcontext();
-    bool waslinking = is_couldbelinking(dcontext);
+    bool waslinking;
+    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
+    ASSERT(dcontext != NULL);
+    waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
     /* suppress asserts about faults in meta instrs */

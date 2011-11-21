@@ -110,7 +110,7 @@ set_x86_mode(dcontext_t *dcontext, bool x86)
         dcontext = get_thread_private_dcontext();
     /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!dynamo_initialized || dynamo_exited);
+        ASSERT(!dynamo_initialized || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
         old_mode = initexit_x86_mode;
         initexit_x86_mode = x86;
     } else {
@@ -133,7 +133,7 @@ get_x86_mode(dcontext_t *dcontext)
         dcontext = get_thread_private_dcontext();
     /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!dynamo_initialized || dynamo_exited);
+        ASSERT(!dynamo_initialized || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
         return initexit_x86_mode;
     } else
         return dcontext->x86_mode;

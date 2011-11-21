@@ -67,6 +67,9 @@
 
 #define BOOLS_MATCH(b1, b2) (((b1) && (b2)) || (!(b1) && !(b2)))
 
+#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+
 static byte buf[8192];
 
 /* make sure the following are consistent (though they could still all be wrong :))
@@ -674,6 +677,36 @@ test_nop_xchg(void *dc)
 #endif
 }
 
+#ifdef X64
+static void
+test_x86_mode(void *dc)
+{
+    byte *pc, *end;
+    instr_t *instr;
+
+    /* create instr that looks different in x86 vs x64 */
+    instr = INSTR_CREATE_add(dc, opnd_create_reg(REG_RAX), OPND_CREATE_INT32(42));
+    end = instr_encode(dc, instr, buf);
+    ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
+
+    /* read back in */
+    set_x86_mode(dc, false/*64-bit*/);
+    instr_reset(dc, instr);
+    pc = decode(dc, buf, instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_get_opcode(instr) == OP_add);
+
+    /* now interpret as 32-bit where rex will be an inc */
+    set_x86_mode(dc, true/*32-bit*/);
+    instr_reset(dc, instr);
+    pc = decode(dc, buf, instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_get_opcode(instr) == OP_dec);
+
+    instr_free(dc, instr);
+}
+#endif
+
 int
 main(int argc, char *argv[])
 {
@@ -681,6 +714,12 @@ main(int argc, char *argv[])
     void *dcontext = GLOBAL_DCONTEXT;
 #else
     void *dcontext = dr_standalone_init();
+
+    /* simple test of deadlock_avoidance, etc. being disabled in standalone */
+    void *x = dr_mutex_create();
+    dr_mutex_lock(x);
+    dr_mutex_unlock(x);
+    dr_mutex_destroy(x);
 #endif
 
     test_all_opcodes(dcontext);
@@ -698,6 +737,10 @@ main(int argc, char *argv[])
     test_size_changes(dcontext);
 
     test_nop_xchg(dcontext);
+
+#ifdef X64
+    test_x86_mode(dcontext);
+#endif
 
     print("all done\n");
     return 0;

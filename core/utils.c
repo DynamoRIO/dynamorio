@@ -651,7 +651,8 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
         return;
 
     ASSERT(lock->owner == get_thread_id());
-    if (INTERNAL_OPTION(deadlock_avoidance) && lock->owning_dcontext != NULL)
+    if (INTERNAL_OPTION(deadlock_avoidance) && lock->owning_dcontext != NULL &&
+        lock->owning_dcontext != GLOBAL_DCONTEXT)
         {
             dcontext_t *dcontext = get_thread_private_dcontext();
             if (dcontext == NULL) {

@@ -1495,7 +1495,7 @@ enum {LONGJMP_EXCEPTION = 1};
         (dcontext->thread_stats)->stat##_thread
 #   define THREAD_STATS_ON(dcontext)                                    \
         (dcontext != NULL && INTERNAL_OPTION(thread_stats) &&           \
-         dcontext->thread_stats != NULL)
+         dcontext != GLOBAL_DCONTEXT && dcontext->thread_stats != NULL)
 #   define DO_THREAD_STATS(dcontext, statement) do {                    \
         if (THREAD_STATS_ON(dcontext)) {                                \
             statement;                                                  \

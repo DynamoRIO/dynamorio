@@ -1518,13 +1518,21 @@ GLOBAL_DCONTEXT can be used as the drcontext for a thread running under
 \DynamoRIO as a library of routines for IA-32 instruction manipulation or
 other purposes.
 
-In standalone mode, the set_x86_mode routine operates globally rather
+In standalone mode, the set_x86_mode() routine operates globally rather
 than per-thread.
 
 Runtime options are ignored in standalone mode.  Disassembly style can be
 controlled via disassemble_set_syntax().  The processor to use will not be
 automatically set and will be assumed to be \p VENDOR_INTEL.  Use
 proc_set_vendor() to set to \p VENDOR_AMD instead.
+
+Some \DynamoRIO API routines are not supported in standalone mode.  These
+include all event registration routines, module iteration,
+dr_memory_protect(), dr_messagebox(), dr_get_current_drcontext(),
+dr_get_thread_id(), tls fields, dr_thread_yield(), dr_sleep(), \client
+threads, suspending threads, itimers, register spilling and restoring,
+dr_redirect_execution(), try/except, and code cache routines (e.g.,
+dr_delete_fragment() or flush routines).
 
 When using the \p drdecode library, no API routines other than those
 involving decoding, encoding, disassembling, instruction lists,

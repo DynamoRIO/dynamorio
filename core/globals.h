@@ -356,7 +356,8 @@ typedef struct _client_flush_req_t {
 /* for -thin_client we don't allocate client_data currently, also client_data could be
  * NULL during thread startup or teardown (i.e. mutex_wait_contended_lock() usage) */
 #define IS_CLIENT_THREAD(dcontext) \
-    ((dcontext) != NULL && (dcontext)->client_data != NULL && \
+    ((dcontext) != NULL && dcontext != GLOBAL_DCONTEXT && \
+     (dcontext)->client_data != NULL && \
      (dcontext)->client_data->is_client_thread)
 
 /* Client interface-specific data for dcontexts */

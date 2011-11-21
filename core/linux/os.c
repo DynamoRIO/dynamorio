@@ -2169,7 +2169,7 @@ get_thread_private_dcontext(void)
      * thread's initialization (see comments below on that).
      */
     if (!is_segment_register_initialized())
-        return NULL;
+        return (IF_CLIENT_INTERFACE(standalone_library ? GLOBAL_DCONTEXT :) NULL);
     /* We used to check tid and return NULL to distinguish parent from child, but
      * that was affecting performance (xref PR 207366: but I'm leaving the assert in
      * for now so debug build will still incur it).  So we fixed the cases that

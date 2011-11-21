@@ -808,10 +808,10 @@ standalone_init(void)
     standalone_library = true;
     /* We have release-build stats now so this is not just DEBUG */
     stats = &nonshared_stats;
-    /* FIXME: I believe we only need dcontext for the heap.
-     * Nothing else should fail, unless client calls something that's
-     * not initialized...for now we blame client if that happens.
-     */
+#ifdef INTERNAL
+    /* avoid issues w/ GLOBAL_DCONTEXT instead of thread dcontext */
+    dynamo_options.deadlock_avoidance = false;
+#endif
 #ifdef WINDOWS
     /* MUST do this before making any system calls */
     syscalls_init();
@@ -825,6 +825,7 @@ standalone_init(void)
     proc_init();
     os_init();
 
+#ifdef STANDALONE_UNIT_TEST
     os_tls_init();
     dcontext = create_new_dynamo_context(true/*initial*/, NULL);
     set_thread_private_dcontext(dcontext);
@@ -832,7 +833,7 @@ standalone_init(void)
     ASSERT(get_thread_private_dcontext() == dcontext);
 
     heap_thread_init(dcontext);
-#ifdef STANDALONE_UNIT_TEST
+
     /* FIXME: share code w/ main init routine? */
     nonshared_stats.logmask = LOG_ALL;
     options_init();
@@ -846,6 +847,11 @@ standalone_init(void)
         SYSLOG_INTERNAL_INFO("Initial options = %s", initial_options);
         print_file(main_logfile, "\n");
     }
+#else
+    /* rather than ask the user to call some thread-init routine in
+     * every thread, we just use global dcontext everywhere (i#548)
+     */
+    dcontext = GLOBAL_DCONTEXT;
 #endif
 
     /* since we do not export any dr_standalone_exit(), we clean up any .1config

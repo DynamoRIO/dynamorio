@@ -820,8 +820,10 @@ os_init(void)
         TLS_NUM_SLOTS, IF_X64_ELSE("gs", "fs"), tls_local_state_offs);
     ASSERT_CURIOSITY(proc_is_cache_aligned(get_local_state()) || 
                      DYNAMO_OPTION(tls_align != 0));
-    tls_dcontext_offs = os_tls_offset(TLS_DCONTEXT_SLOT);
-    ASSERT(tls_dcontext_offs != TLS_UNINITIALIZED);
+    if (IF_CLIENT_INTERFACE_ELSE(!standalone_library, true)) {
+        tls_dcontext_offs = os_tls_offset(TLS_DCONTEXT_SLOT);
+        ASSERT(tls_dcontext_offs != TLS_UNINITIALIZED);
+    }
 
     DOLOG(1, LOG_VMAREAS, { print_modules(GLOBAL, DUMP_NOT_XML); });
     DOLOG(2, LOG_TOP, { print_mem_quota(); });
@@ -2948,11 +2950,11 @@ get_local_state_extended()
 
 /* returns the thread-private dcontext pointer for the calling thread */
 dcontext_t*
-get_thread_private_dcontext()
+get_thread_private_dcontext(void)
 {
     /* This routine cannot be used before processwide os_init sets up the TLS index. */
     if (tls_dcontext_offs == TLS_UNINITIALIZED)
-        return NULL;
+        return (IF_CLIENT_INTERFACE(standalone_library ? GLOBAL_DCONTEXT :) NULL);
     /*
      * We don't need to check whether this thread has been initialized under us - 
      * Windows sets the value to 0 for us, so we'll just return NULL.
