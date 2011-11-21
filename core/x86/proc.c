@@ -48,11 +48,10 @@
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
-# undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
+/* we can't undef ASSERT b/c of DYNAMO_OPTION */
 # undef ASSERT_TRUNCATE
 # undef ASSERT_BITFIELD_TRUNCATE
 # undef ASSERT_NOT_REACHED
-# define ASSERT DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
@@ -430,6 +429,23 @@ uint
 proc_get_vendor(void)
 {
     return vendor;
+}
+
+DR_API
+int
+proc_set_vendor(uint new_vendor)
+{
+    if (new_vendor == VENDOR_INTEL ||
+        new_vendor == VENDOR_AMD) {
+        uint old_vendor = vendor;
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        vendor = new_vendor;
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+        return old_vendor;
+    } else {
+        CLIENT_ASSERT(false, "invalid vendor");
+        return -1;
+    }
 }
 
 uint

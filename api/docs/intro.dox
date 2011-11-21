@@ -1486,8 +1486,8 @@ disassembly, decoding, encoding, and general instruction manipulation,
 independently of controlling a target application.  When used in this way,
 all aspects of \DynamoRIO's API routines that apply to instrumentation or
 application control are not applicable; however, the full, rich instruction
-set API is enabled.  For further information see the following sections of
-the Code Manipulation API:
+set API is enabled.  For further information on the instruction set API see
+the following sections of the Code Manipulation API:
 
  - \ref sec_IR
  - \ref sec_decode
@@ -1495,17 +1495,50 @@ the Code Manipulation API:
 \section sec_standalone Using \DynamoRIO as a Standalone Library
 
 \DynamoRIO can be used as a regular third-party library for a standalone
-application (instead of a \client that operates on a target program).  In
-order to use the \DynamoRIO API in such a situation, a dummy context must
-be created.  This routine creates such a context, and initializes
-\DynamoRIO for standalone use:
+application (instead of a \client that operates on a target program).  Two
+options are provided: using the regular \DynamoRIO shared library, or using
+a special static library \p drdecode.  The shared library provides not only
+decoding routines but also cross-platform resources such as file
+manipulation.
+
+When using the \DynamoRIO shared library, this initialization routine must
+be called prior to using any API routines:
 
 \code dr_standalone_init() \endcode
 
-Note that the returned context cannot be used as the drcontext for a thread
-running under \DynamoRIO control!  It is only for standalone programs that
-wish to use \DynamoRIO as a library of routines for IA-32 instruction
-manipulation or other purposes.
+This routine returns a dummy context that can be passed to API routines.
+
+When using \p drdecode, the special context \p GLOBAL_DCONTEXT should be
+used whenever a context is required.  The \p drdecode library does not
+require initialization.
+
+Neither the context returned by dr_standalone_init() nor \p
+GLOBAL_DCONTEXT can be used as the drcontext for a thread running under
+\DynamoRIO control!  It is only for standalone programs that wish to use
+\DynamoRIO as a library of routines for IA-32 instruction manipulation or
+other purposes.
+
+In standalone mode, the set_x86_mode routine operates globally rather
+than per-thread.
+
+Runtime options are ignored in standalone mode.  Disassembly style can be
+controlled via disassemble_set_syntax().  The processor to use will not be
+automatically set and will be assumed to be \p VENDOR_INTEL.  Use
+proc_set_vendor() to set to \p VENDOR_AMD instead.
+
+When using the \p drdecode library, no API routines other than those
+involving decoding, encoding, disassembling, instruction lists,
+instructions, or operands are supported.  The various compute_address
+routines can be used by manually filling in \p dr_mcontext_t, although far
+memory references will have their segment base ignored.  Other API routines
+are simply not present in the static library.  There is no separate set of
+headers for use with \p drdecode.
+
+When using \DynamoRIO's CMake support, use the configure_DynamoRIO_decoder()
+function to set up include directories and to link with \p drdecode.  The
+next section describes how to link with the \DynamoRIO shared library.
+
+\section sec_standalone_shared \DynamoRIO Shared Library Issues
 
 Since the \DynamoRIO library on Windows includes or forwards
 implementations of certain C library routines (see 
@@ -1531,7 +1564,7 @@ When building an application that uses \DynamoRIO as a standalone library,
 follow the steps for \ref sec_build to include the header files and link
 with the \DynamoRIO library, but omit the linker flags requesting no
 standard libraries or startup files.  \DynamoRIO's CMake support does this
-automatically via the \p configure_DynamoRIO_standalone() function.
+automatically via the configure_DynamoRIO_standalone() function.
 
 \endif
 

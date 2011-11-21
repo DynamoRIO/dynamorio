@@ -43,6 +43,24 @@
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
+/* DR_API EXPORT BEGIN */
+/**
+ * Flags controlling disassembly style
+ */
+typedef enum {
+    DR_DISASM_ATT          =    0, /**< AT&T syntax */
+    DR_DISASM_INTEL        =    1, /**< Intel syntax */
+} dr_disasm_flags_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Sets the disassembly style.  Setting DR_DISASM_INTEL sets the same
+ * option that is controlled by the runtime option \p -syntax_intel.
+ */
+void
+disassemble_set_syntax(dr_disasm_flags_t flags);
+
 DR_API
 /** 
  * Decodes and then prints the instruction at address \p pc to file \p outfile.

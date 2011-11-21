@@ -108,7 +108,8 @@ set_x86_mode(dcontext_t *dcontext, bool x86)
     /* We would disallow but some early init routines need to use global heap */
     if (dcontext == GLOBAL_DCONTEXT)
         dcontext = get_thread_private_dcontext();
-    if (dcontext == NULL) {
+    /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
         ASSERT(!dynamo_initialized || dynamo_exited);
         old_mode = initexit_x86_mode;
         initexit_x86_mode = x86;
@@ -130,7 +131,8 @@ get_x86_mode(dcontext_t *dcontext)
     /* We would disallow but some early init routines need to use global heap */
     if (dcontext == GLOBAL_DCONTEXT)
         dcontext = get_thread_private_dcontext();
-    if (dcontext == NULL) {
+    /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
         ASSERT(!dynamo_initialized || dynamo_exited);
         return initexit_x86_mode;
     } else
@@ -143,7 +145,7 @@ get_x86_mode(dcontext_t *dcontext)
  * Developer's Manual,'' Volume 2: Instruction Set Reference, 2001.
  */
 
-#ifdef DEBUG /* currently only used in ASSERTs */
+#if defined(DEBUG) && !defined(STANDALONE_DECODER) /* currently only used in ASSERTs */
 static bool
 is_variable_size(opnd_size_t sz)
 {
@@ -1749,7 +1751,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
     return pc + sz;
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(STANDALONE_DECODER)
 /* PR 215143: we must resolve variable sizes at decode time */
 static bool
 check_is_variable_size(opnd_t op)
@@ -2062,3 +2064,4 @@ int main()
 }
 
 #endif /* DECODE_UNIT_TEST */
+

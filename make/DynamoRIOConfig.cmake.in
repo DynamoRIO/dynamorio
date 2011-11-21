@@ -71,6 +71,16 @@
 #
 ###########
 #
+# Decoder usage:
+#
+# If instead of a client you are using DynamoRIO's static decoder library,
+# use the configure_DynamoRIO_decoder() function:
+#
+#  add_executable(myapp myapp.c)
+#  configure_DynamoRIO_decoder(myapp)
+#
+###########
+#
 # Global changes:
 #
 # Due to CMake limitations, this file must set some global values:
@@ -90,6 +100,9 @@
 # they can be triggered earlier by calling configure_DynamoRIO_global().
 # The original cflag values are saved in variables with the prefix ORIG_
 # followed by the variable name (e.g., ORIG_CMAKE_C_FLAGS).
+#
+# The compiler flags are not changed when using
+# configure_DynamoRIO_decoder().
 #
 # Various properties of the targets passed to configure_DynamoRIO_*()
 # are set, so any prior values will be lost, and if later values are
@@ -192,7 +205,7 @@ endfunction (get_size)
 # or per-target include dirs or link dirs, so we have to make global changes.
 # We don't want find_package() to incur those changes: only if a target
 # is actually configured.
-function (configure_DynamoRIO_global is_cxx)
+function (configure_DynamoRIO_global is_cxx change_flags)
   # Should only be done once, but not done at all if no target configured
   if (NOT DynamoRIO_configured_globally)
     # Parent must execute this as well b/c there's no GLOBAL_SCOPE
@@ -222,33 +235,55 @@ function (configure_DynamoRIO_global is_cxx)
       endif (is_x64)
     endif (NOT DynamoRIO_INTERNAL)
 
-    # Remove global C flags that are unsafe for a client library.
-    # Since CMake does not support removing flags on a per-target basis,
-    # we clear the base flags so we can add what we want to each target.
-    foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
-      if ("${config}" STREQUAL "")
-        set(config_upper "")
-      else ("${config}" STREQUAL "")
-        string(TOUPPER "_${config}" config_upper)
-      endif ("${config}" STREQUAL "")
-      foreach (var CMAKE_C_FLAGS${config_upper};CMAKE_CXX_FLAGS${config_upper})
-        set(ORIG_${var} "${${var}}" PARENT_SCOPE)
-        set(local_${var} "${${var}}")
-        if (WIN32)
-          # We could limit this global var changing to Windows,
-          # but it simplifies cross-platform uses to be symmetric
-          string(REGEX REPLACE "/M[TD]d?" "" local_${var} "${local_${var}}")
-          string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
-        endif (WIN32)
-        set(CLIENT_${var} "${local_${var}}" PARENT_SCOPE)
-        # If we set to "", the default values come back
-        set(${var} " " PARENT_SCOPE)
-      endforeach (var)
-    endforeach (config)
+    if (change_flags)
+      # Remove global C flags that are unsafe for a client library.
+      # Since CMake does not support removing flags on a per-target basis,
+      # we clear the base flags so we can add what we want to each target.
+      foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+        if ("${config}" STREQUAL "")
+          set(config_upper "")
+        else ("${config}" STREQUAL "")
+          string(TOUPPER "_${config}" config_upper)
+        endif ("${config}" STREQUAL "")
+        foreach (var CMAKE_C_FLAGS${config_upper};CMAKE_CXX_FLAGS${config_upper})
+          set(ORIG_${var} "${${var}}" PARENT_SCOPE)
+          set(local_${var} "${${var}}")
+          if (WIN32)
+            # We could limit this global var changing to Windows,
+            # but it simplifies cross-platform uses to be symmetric
+            string(REGEX REPLACE "/M[TD]d?" "" local_${var} "${local_${var}}")
+            string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
+          endif (WIN32)
+          set(CLIENT_${var} "${local_${var}}" PARENT_SCOPE)
+          # If we set to "", the default values come back
+          set(${var} " " PARENT_SCOPE)
+        endforeach (var)
+      endforeach (config)
+    endif (change_flags)
 
   endif (NOT DynamoRIO_configured_globally)
 endfunction (configure_DynamoRIO_global)
 
+function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
+  if (DynamoRIO_REG_COMPATIBILITY)
+    set(extra_cflags "${extra_cflags} -DDR_REG_ENUM_COMPATIBILITY")
+  endif (DynamoRIO_REG_COMPATIBILITY)
+
+  get_size(${tgt_cxx} tgt_x64)
+  if (tgt_x64)
+    set(extra_cflags "${extra_cflags} -DX86_64")
+  else (tgt_x64)
+    set(extra_cflags "${extra_cflags} -DX86_32")
+  endif (tgt_x64)
+
+  if (UNIX)
+    set(extra_cflags "${extra_cflags} -DLINUX")
+  else (UNIX)
+    set(extra_cflags "${extra_cflags} -DWINDOWS")
+  endif (UNIX)
+
+  set(${flags_out} "${extra_cflags}" PARENT_SCOPE)
+endfunction (DynamoRIO_extra_cflags)
 
 function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
   get_lang(${target} tgt_lang)
@@ -259,7 +294,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
   endif (${tgt_lang} MATCHES CXX)
 
   set(nested_scope ON) # for propagation
-  configure_DynamoRIO_global(${tgt_cxx})
+  configure_DynamoRIO_global(${tgt_cxx} ON)
   if (just_configured)
     # get around lack of GLOBAL_SCOPE
     set(just_configured ON PARENT_SCOPE)
@@ -308,14 +343,9 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
   endif (is_client)
 
   get_size(${tgt_cxx} tgt_x64)
-  if (tgt_x64)
-    set(tgt_cflags "${tgt_cflags} -DX86_64")
-  else (tgt_x64)
-    set(tgt_cflags "${tgt_cflags} -DX86_32")
-  endif (tgt_x64)
+  DynamoRIO_extra_cflags(tgt_cflags "${tgt_cflags}" ${tgt_cxx})
 
   if (UNIX)
-    set(tgt_cflags "${tgt_cflags} -DLINUX")
     if (is_client)
 
       if (NOT DEFINED DynamoRIO_VISATT)
@@ -355,7 +385,6 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
     # gcc is invoked for the link step so we have to repeat cflags as well
     set(tgt_link_flags "${tgt_cflags} ${tgt_link_flags}")
   else (UNIX)
-    set(tgt_cflags "${tgt_cflags} -DWINDOWS")
     if (tgt_cxx)
       set(tgt_cflags "${tgt_cflags} /EHsc")
     endif (tgt_cxx)
@@ -386,10 +415,6 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
       endif (tgt_cxx)
     endif (is_client)
   endif (UNIX)
-
-  if (DynamoRIO_REG_COMPATIBILITY)
-    set(tgt_cflags "${tgt_cflags} -DDR_REG_ENUM_COMPATIBILITY")
-  endif (DynamoRIO_REG_COMPATIBILITY)
 
   # DynamoRIOTarget.cmake added the "dynamorio" imported target
   target_link_libraries(${target} dynamorio)
@@ -533,6 +558,35 @@ function (configure_DynamoRIO_standalone target)
     LINK_FLAGS "${tgt_link_flags}")
 
 endfunction (configure_DynamoRIO_standalone)
+
+
+function (configure_DynamoRIO_decoder target)
+  get_lang(${target} tgt_lang)
+  if (${tgt_lang} MATCHES CXX)
+    set(tgt_cxx ON)
+  else (${tgt_lang} MATCHES CXX)
+    set(tgt_cxx OFF)
+  endif (${tgt_lang} MATCHES CXX)
+
+  set(nested_scope ON) # for propagation
+  configure_DynamoRIO_global(${tgt_cxx} OFF)
+  if (just_configured)
+    # get around lack of GLOBAL_SCOPE
+    set(just_configured ON PARENT_SCOPE)
+    set(DynamoRIO_configured_globally ${DynamoRIO_configured_globally} PARENT_SCOPE)
+  endif (just_configured)
+
+  get_target_property(cur_cflags ${target} COMPILE_FLAGS)
+  if (NOT cur_cflags)
+    set(cur_cflags "") 
+  endif (NOT cur_cflags)
+  DynamoRIO_extra_cflags(cur_cflags "${cur_cflags}" ${tgt_cxx})
+  set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur_cflags}")
+
+  # DynamoRIOTarget.cmake added the "drdecode" imported target
+  target_link_libraries(${target} drdecode)
+
+endfunction (configure_DynamoRIO_decoder)
 
 ###########################################################################
 #

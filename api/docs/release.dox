@@ -186,6 +186,7 @@ The changes between version \DR_VERSION and 2.2.0 are:
    compatibility change with respect to versions prior to 3.0.0.
  - Added Linux support for \p drsyms.
  - Added dr_using_app_state()
+ - Added a static library for decoding and encoding
  - Several bug fixes
 
 The changes between version 2.2.0 and 2.1.0 are:

@@ -1422,6 +1422,14 @@ dr_standalone_init(void);
 
 /* DR_API EXPORT BEGIN */
 
+#ifdef API_EXPORT_ONLY
+/**
+ * Use this dcontext for use with the standalone static decoder library.
+ * Pass it whenever a decoding-related API routine asks for a context.
+ */
+#define GLOBAL_DCONTEXT  ((void *)-1)
+#endif
+
 /**************************************************
  * UTILITY ROUTINES
  */

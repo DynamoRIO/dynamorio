@@ -47,7 +47,7 @@
 #endif
 /* avoid mistake of lower-case assert */
 #define assert assert_no_good_use_ASSERT_instead
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(STANDALONE_DECODER)
 # ifdef INTERNAL
 /* cast to void to avoid gcc warning "statement with no effect" when used as
  * a statement and x is a compile-time false
@@ -1015,7 +1015,7 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #endif
 #define MAX_LOG_LENGTH_MINUS_ONE (MAX_LOG_LENGTH-1) /* for splitting long buffers */
 
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(STANDALONE_DECODER)
 # define LOG(file, mask, level, ...) do {        \
   if (stats != NULL &&                           \
       stats->loglevel >= (level) &&              \
@@ -1037,6 +1037,7 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #  define DOLOG DOELOG
 #  define LOG_DECLARE(declaration) declaration
 # else
+/* XXX: this means LOG_DECLARE and LOG are different for non-INTERNAL */
 #  define DOLOG(level, mask, statement)
 #  define LOG_DECLARE(declaration)
 # endif /* INTERNAL */
@@ -1462,7 +1463,16 @@ enum {LONGJMP_EXCEPTION = 1};
 #   define DODEBUGINT(statement) /* nothing */
 #endif
 
-#ifdef DEBUG
+/* for use in CLIENT_ASSERT or elsewhere that exists even if
+ * STANDALONE_DECODER is defined, unless CLIENT_INTERFACE is off
+ */
+#if defined(DEBUG) && (defined(CLIENT_INTERFACE) || !defined(STANDALONE_DECODER))
+#   define DEBUG_EXT_DECLARE(declaration) declaration
+#else
+#   define DEBUG_EXT_DECLARE(declaration)
+#endif
+
+#if defined(DEBUG) && !defined(STANDALONE_DECODER)
 #   define DODEBUG(statement) do { statement } while (0)
 #   define DEBUG_DECLARE(declaration) declaration
 #   define DOSTATS(statement) do { statement } while (0)
@@ -1718,7 +1728,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #define SYSLOG_NO_OPTION_SYNCH(type, id, sub, ...) \
     SYSLOG_COMMON(false, type, id, sub, __VA_ARGS__) 
 
-#ifdef INTERNAL
+#if defined(INTERNAL) && !defined(STANDALONE_DECODER)
 # define SYSLOG_INTERNAL(type, ...) \
       SYSLOG_INTERNAL_COMMON(true, type, __VA_ARGS__)
 # define SYSLOG_INTERNAL_NO_OPTION_SYNCH(type, ...) \

@@ -93,6 +93,19 @@
  * Printing of instructions
  */
 
+DR_API
+void
+disassemble_set_syntax(dr_disasm_flags_t flags)
+{
+#ifndef STANDALONE_DECODER
+    options_make_writable();
+#endif
+    dynamo_options.syntax_intel = TEST(DR_DISASM_INTEL, flags);
+#ifndef STANDALONE_DECODER
+    options_restore_readonly();
+#endif
+}
+
 /* for printing to buffers */
 #define MAX_OPND_DIS_SZ   32
 /* Long example:
@@ -264,6 +277,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             app_pc target = opnd_get_pc(opnd);
             bool printed = false;
 
+#ifndef STANDALONE_DECODER
             /* symbolic addresses */
             if (ENTER_DR_HOOK != NULL && target == (app_pc) ENTER_DR_HOOK) {
                 print_to_buffer(buf, bufsz, sofar,
@@ -445,6 +459,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                        ) {
                 print_to_buffer(buf, bufsz, sofar, "NULL DCONTEXT! ");
             }
+#endif /* !STANDALONE_DECODER */
             if (!printed) {
                 print_to_buffer(buf, bufsz, sofar, "%s"PFX"%s", immed_prefix(), target,
                                 postop_suffix());
@@ -1083,6 +1098,7 @@ instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr,
     return sofar;
 }
 
+#ifndef STANDALONE_DECODER
 static inline char*
 exit_stub_type_desc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
@@ -1285,7 +1301,7 @@ common_disassemble_fragment(dcontext_t *dcontext,
         fragment_free(dcontext, f);
 }
 
-#ifdef DEBUG /* because uses dcontext->logfile */
+#ifdef DEBUG
 void
 disassemble_fragment(dcontext_t *dcontext, fragment_t *f, bool just_header)
 {
@@ -1316,6 +1332,9 @@ disassemble_app_bb(dcontext_t *dcontext, app_pc tag, file_t outfile)
     instrlist_t *ilist = build_app_bb_ilist(dcontext, tag, outfile);
     instrlist_clear_and_destroy(dcontext, ilist);
 }
+
+#endif /* !STANDALONE_DECODER */
+/***************************************************************************/
 
 /* Two entry points to the disassembly routines: */
 
@@ -1385,10 +1404,9 @@ instrlist_disassemble(dcontext_t *dcontext,
             addr += sz;
             offs += sz;
         }
-#ifdef DEBUG
-        if (stats->loglevel >= 5)
+        DOLOG(5, LOG_ALL, {
             print_file(outfile, "---- multi-instr boundary ----\n");
-#endif
+        });
 
 #ifdef CUSTOM_EXIT_STUBS
         /* custom exit stub? */
@@ -1409,6 +1427,9 @@ instrlist_disassemble(dcontext_t *dcontext,
 
 #endif /* INTERNAL || CLIENT_INTERFACE */
 
+
+/***************************************************************************/
+#ifndef STANDALONE_DECODER
 
 static void
 internal_dump_callstack(app_pc cur_pc, app_pc ebp, file_t outfile, bool dump_xml)
@@ -1480,3 +1501,6 @@ dump_dr_callstack(file_t outfile)
     internal_dump_callstack(NULL /* don't care about cur pc */, our_ebp,
                             outfile, DUMP_NOT_XML);
 }
+
+#endif /* !STANDALONE_DECODER */
+/***************************************************************************/

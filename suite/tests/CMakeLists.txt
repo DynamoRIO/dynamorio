@@ -332,7 +332,7 @@ if (NOT DynamoRIO_FOUND)
 endif(NOT DynamoRIO_FOUND)
 
 # Force global changes now, and set ORIG_CMAKE_C_FLAGS
-configure_DynamoRIO_global(OFF)
+configure_DynamoRIO_global(OFF ON)
 
 # configure_DynamoRIO_global() cleared the absolute flags for us.
 # We now use PROPERTIES to set for each test.
@@ -638,7 +638,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
 endfunction(tobuild_ci)
 
 # client interface standalone app
-function(tobuild_api test source dr_ops exe_ops)
+function(tobuild_api test source dr_ops exe_ops decoder)
   add_exe(${test} ${source})
   # save property since configure_DynamoRIO_standalone will clobber it
   get_target_property(pre_lflags ${test} LINK_FLAGS)
@@ -646,14 +646,24 @@ function(tobuild_api test source dr_ops exe_ops)
   set(DynamoRIO_RPATH OFF)
   # to avoid changing all the REG_ constants we ask for compatibility
   set(DynamoRIO_REG_COMPATIBILITY ON)
-  configure_DynamoRIO_standalone(${test})
+  if (decoder)
+    configure_DynamoRIO_decoder(${test})
+    set(extra_flags "-DSTANDALONE_DECODER")
+  else ()
+    configure_DynamoRIO_standalone(${test})
+    set(extra_flags "-DSTANDALONE")
+  endif ()
+  # append to properties set by configure_DynamoRIO_standalone
+  get_target_property(prop_cflags ${test} COMPILE_FLAGS)
+  if (NOT prop_cflags)
+    set(prop_cflags "")
+  endif ()
+  set(prop_cflags "${prop_cflags} ${extra_flags}")
   # we don't set -DUSE_DYNAMO on the target to avoid setting
   # it for tools.c and thus adding dependencies on api headers
   # to other tests
   set_source_files_properties(${source} PROPERTIES
     COMPILE_FLAGS "-DUSE_DYNAMO")
-  # append to properties set by configure_DynamoRIO_standalone
-  get_target_property(prop_cflags ${test} COMPILE_FLAGS)
   # since we're including configure.h we do not want any default defines
   string(REGEX REPLACE "-DX64" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DLINUX" "" prop_cflags "${prop_cflags}")
@@ -792,7 +802,8 @@ function(template2expect outexpect template runops)
   # we need a list: else passed as a single arg in quotes
   string(REGEX REPLACE " " ";" deflist "${defines} ${rundefs}")
   execute_process(COMMAND
-    ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${deflist} -E ${CPP_NO_LINENUM} ${template}
+    ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${deflist} -E ${CPP_NO_LINENUM}
+      ${CPP_KEEP_WHITESPACE} ${template}
     RESULT_VARIABLE cpp_result
     ERROR_VARIABLE cpp_err
     OUTPUT_VARIABLE cpp_out
@@ -807,6 +818,11 @@ function(template2expect outexpect template runops)
     message(FATAL_ERROR "*** ${CMAKE_CPP} failed: ***\n${cpp_err}")
   endif (cpp_result OR cpp_err)
 
+  # remove // comments since we use -traditional-cpp to preserve whitespace
+  # on linux
+  string(REGEX REPLACE "(\r?\n)//[^\n]*" "" cpp_out "${cpp_out}")
+  string(REGEX REPLACE "^//[^\n]*" "" cpp_out "${cpp_out}")
+  
   # remove blank lines left by cpp directives
   string(REGEX REPLACE
     "(\r?\n)+"
@@ -1250,9 +1266,12 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
 
   tobuild_api(api.dis api/dis.c "-syntax_intel"
-    "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw")
-  tobuild_api(api.ir api/ir.c "" "")
-  tobuild_api(api.startstop api/startstop.c "" "")
+    "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
+  tobuild_api(api.ir api/ir.c "" "" OFF)
+  tobuild_api(api.startstop api/startstop.c "" "" OFF)
+  # test static decoder library
+  tobuild_api(api.ir-static api/ir.c "" "" ON)
+  tobuild_api(api.static api/static.c "" "" ON)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)

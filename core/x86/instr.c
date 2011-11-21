@@ -56,7 +56,7 @@
 # include "vmkuw.h" /* VMKUW_SYSCALL_GATEWAY */
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(STANDALONE_DECODER)
 /* case 10450: give messages to clients */
 # undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
 # undef ASSERT_TRUNCATE
@@ -1367,9 +1367,13 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
                   "opnd_compute_address: must pass memory reference");
     if (opnd_is_far_base_disp(opnd)) {
 #ifdef X86
+# ifdef STANDALONE_DECODER
+        seg_base = 0; /* not supported */
+# else
         seg_base = (ptr_uint_t) get_app_segment_base(opnd_get_segment(opnd));
         if (seg_base == POINTER_MAX) /* failure */
             seg_base = 0;
+# endif
 #endif
     }
 #ifdef X64
@@ -2621,7 +2625,7 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
 instr_t * 
 instr_set_translation(instr_t *instr, app_pc addr)
 {
-#ifdef WINDOWS
+#if defined(WINDOWS) && !defined(STANDALONE_DECODER)
     /* The first jump (to the trampoline) in a landing pad is never interpreted
      * (see must_not_be_elided(), so we come here only for the second jump
      * (back to the instruction after the hook, which is always 32-bit.  For
@@ -3032,7 +3036,7 @@ instr_decode_cti(dcontext_t *dcontext, instr_t *instr)
         byte *next_pc;
         /* decode_cti() will use the dcontext mode, but we want the instr mode */
         IF_X64(bool old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr));)
-        DEBUG_DECLARE(int old_len = instr->length;)
+        DEBUG_EXT_DECLARE(int old_len = instr->length;)
         CLIENT_ASSERT(instr_raw_bits_valid(instr),
                       "instr_decode_cti: raw bits are invalid");
         instr_reuse(dcontext, instr);
@@ -3061,7 +3065,7 @@ instr_decode_opcode(dcontext_t *dcontext, instr_t *instr)
         /* decode_opcode() will use the dcontext mode, but we want the instr mode */
         bool old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr));
 #endif
-        DEBUG_DECLARE(int old_len = instr->length;)
+        DEBUG_EXT_DECLARE(int old_len = instr->length;)
         CLIENT_ASSERT(instr_raw_bits_valid(instr),
                       "instr_decode_opcode: raw bits are invalid");
         instr_reuse(dcontext, instr);
@@ -3093,7 +3097,7 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
         /* decode() will use the current dcontext mode, but we want the instr mode */
         bool old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr));
 #endif
-        DEBUG_DECLARE(int old_len = instr->length;)
+        DEBUG_EXT_DECLARE(int old_len = instr->length;)
         CLIENT_ASSERT(instr_raw_bits_valid(instr), "instr_decode: raw bits are invalid");
         instr_reuse(dcontext, instr);
         next_pc = decode(dcontext, instr_get_raw_bits(instr), instr);
@@ -4036,6 +4040,31 @@ instr_is_syscall(instr_t *instr)
     return false;
 }
 
+#ifdef WINDOWS
+DR_API
+bool
+instr_is_wow64_syscall(instr_t *instr)
+{
+    opnd_t tgt;
+# ifdef STANDALONE_DECODER
+    if (instr_get_opcode(instr) != OP_call_ind)
+        return false;
+# else
+    if (!is_wow64_process(NT_CURRENT_PROCESS) ||
+        instr_get_opcode(instr) != OP_call_ind)
+        return false;
+    CLIENT_ASSERT(get_syscall_method() == SYSCALL_METHOD_WOW64,
+                  "wow64 system call inconsistency");
+# endif
+    tgt = instr_get_target(instr);
+    return (opnd_is_far_base_disp(tgt) &&
+            opnd_get_segment(tgt) == SEG_FS &&
+            opnd_get_base(tgt) == REG_NULL &&
+            opnd_get_index(tgt) == REG_NULL &&
+            opnd_get_disp(tgt) == WOW64_TIB_OFFSET);
+}
+#endif
+
 /* looks for mov_imm and mov_st and xor w/ src==dst,
  * returns the constant they set their dst to
  */
@@ -4190,6 +4219,7 @@ instr_is_undefined(instr_t *instr)
              instr_get_opcode(instr) == OP_ud2b));
 }
 
+DR_API
 /* Given a cbr, change the opcode (and potentially branch hint
  * prefixes) to that of the inverted branch condition.
  */
@@ -4965,6 +4995,7 @@ instr_is_nop(instr_t *inst)
     return false;
 }
 
+#ifndef STANDALONE_DECODER
 /****************************************************************************/
 /* dcontext convenience routines */
 
@@ -5394,25 +5425,6 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end)
 }
 #endif
 
-#ifdef WINDOWS
-bool
-instr_is_wow64_syscall(instr_t *instr)
-{
-    opnd_t tgt;
-    if (!is_wow64_process(NT_CURRENT_PROCESS) ||
-        instr_get_opcode(instr) != OP_call_ind)
-        return false;
-    CLIENT_ASSERT(get_syscall_method() == SYSCALL_METHOD_WOW64,
-                  "wow64 system call inconsistency");
-    tgt = instr_get_target(instr);
-    return (opnd_is_far_base_disp(tgt) &&
-            opnd_get_segment(tgt) == SEG_FS &&
-            opnd_get_base(tgt) == REG_NULL &&
-            opnd_get_index(tgt) == REG_NULL &&
-            opnd_get_disp(tgt) == WOW64_TIB_OFFSET);
-}
-#endif
-
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32)
 {
@@ -5427,3 +5439,6 @@ move_mm_reg_opcode(bool aligned16, bool aligned32)
         return (aligned16 ? OP_movaps : OP_movups);
     }
 }
+
+#endif /* !STANDALONE_DECODER */
+/****************************************************************************/

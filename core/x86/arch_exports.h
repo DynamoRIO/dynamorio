@@ -887,6 +887,10 @@ instrlist_disassemble(dcontext_t *dcontext, app_pc tag,
 static inline bool
 use_addr_prefix_on_short_disp(void)
 {
+#ifdef STANDALONE_DECODER
+    /* Not worth providing control over this.  Go w/ most likely best choice. */
+    return false;
+#else
     /* -ibl_addr_prefix => addr prefix everywhere */
     return (DYNAMO_OPTION(ibl_addr_prefix) || 
             /* PR 212807, PR 209709: addr prefix is noticeably worse
@@ -918,6 +922,7 @@ use_addr_prefix_on_short_disp(void)
      * - enter/exit - speed?
      * - interception routines - speed?
      */
+#endif /* STANDALONE_DECODER */
 }
 
 /* Merge w/ _LENGTH enum below? */

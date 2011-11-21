@@ -76,6 +76,7 @@
 extern int num_fragments;
 #endif
 
+#ifndef STANDALONE_DECODER
 /****************************************************************************
  * clean call callee info table for i#42 and i#43
  */
@@ -228,6 +229,8 @@ clean_call_info_init(clean_call_info_t *cci, void *callee,
     cci->should_align  = true;
     cci->callee_info   = &default_callee_info;
 }
+#endif /* !STANDALONE_DECODER */
+/***************************************************************************/
 
 /* Convert a short-format CTI into an equivalent one using
  * near-rel-format.
@@ -427,6 +430,9 @@ remangle_short_rewrite(dcontext_t *dcontext,
     instr_set_operands_valid(instr, true);
     return (pc+mangled_sz);
 }
+
+/***************************************************************************/
+#ifndef STANDALONE_DECODER
 
 /* Pushes not only the GPRs but also xmm/ymm, xip, and xflags, in
  * priv_mcontext_t order.
@@ -5486,7 +5492,7 @@ static void
 insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
                        instrlist_t *ilist, instr_t *where, opnd_t *args)
 {
-    IF_DEBUG(callee_info_t *info = cci->callee_info;)
+    DEBUG_DECLARE(callee_info_t *info = cci->callee_info;)
     int i;
 
     /* Spill XSP to TLS_XAX_SLOT because it's not exposed to the client. */
@@ -5641,4 +5647,7 @@ insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      * leave it for higher optimization level.
      */
 }
+
+#endif /* !STANDALONE_DECODER */
+/***************************************************************************/
 

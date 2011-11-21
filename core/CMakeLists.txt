@@ -285,6 +285,21 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(${PRELOAD_NAME} ${x86_noncore_asm_tgt} ${preinject_asm_tgt})
 endif ()
 
+# static decoding library
+add_library(drdecode
+  instrlist.c
+  x86/decode.c
+  x86/decode_table.c
+  x86/encode.c
+  x86/instr.c
+  x86/disassemble.c
+  x86/decode_fast.c
+  x86/mangle.c
+  x86/decodelib.c
+  )
+set_target_properties(drdecode PROPERTIES
+  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
+
 ###########################################################################
 # linux build customization
 
@@ -597,3 +612,5 @@ else (UNIX)
   DR_install(TARGETS drearlyhelp2 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
 endif (UNIX)
 
+DR_install(TARGETS drdecode EXPORT ${exported_targets_name}
+  DESTINATION ${INSTALL_LIB})

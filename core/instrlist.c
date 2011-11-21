@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,7 +42,7 @@
 #include "instr.h"
 #include <string.h>
 
-#ifdef DEBUG
+#if defined(DEBUG) && defined(CLIENT_INTERFACE)
 /* case 10450: give messages to clients */
 # undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
 # undef ASSERT_TRUNCATE

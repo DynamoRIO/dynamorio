@@ -257,7 +257,7 @@ const char * const size_names[] = {
     "OPSZ_8_of_16_vex32",
 };
 
-#if defined(DEBUG) && defined(INTERNAL)
+#if defined(DEBUG) && defined(INTERNAL) && !defined(STANDALONE_DECODER)
 /* These operand types store a reg_id_t as their operand "size" */
 static bool
 template_optype_is_reg(int optype)
@@ -1170,9 +1170,7 @@ instr_info_extra_opnds(const instr_info_t *info)
 static bool
 encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t * ii)
 {
-#ifdef DEBUG
-    dcontext_t *dcontext = get_thread_private_dcontext();
-#endif
+    DEBUG_DECLARE(dcontext_t *dcontext = get_thread_private_dcontext();)
     /* make sure multiple operands aren't using same modrm bits */
     opnd_t using_reg_bits = opnd_create_null();
     opnd_t using_modrm_bits = opnd_create_null();
@@ -1222,9 +1220,7 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t * ii)
 static bool
 encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
 {
-#ifdef DEBUG
-    dcontext_t *dcontext = get_thread_private_dcontext();
-#endif
+    DEBUG_DECLARE(dcontext_t *dcontext = get_thread_private_dcontext();)
     if (ii == NULL || in == NULL)
         return false;
     LOG(THREAD, LOG_EMIT, ENC_LEVEL, "\nencoding_possible on "PFX"\n", ii->opcode);
@@ -2279,11 +2275,11 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *pc,
         info = get_next_instr_info(info);
         /* stop when hit end of list or when hit extra operand tables (OP_CONTD) */
         if (info == NULL || info->opcode == OP_CONTD) {
-#ifdef DEBUG
-            LOG(THREAD, LOG_EMIT, 1, "ERROR: Could not find encoding for: ");
-            instr_disassemble(dcontext, instr, THREAD);
-            LOG(THREAD, LOG_EMIT, 1, "\n");
-#endif
+            DOLOG(1, LOG_EMIT, {
+                LOG(THREAD, LOG_EMIT, 1, "ERROR: Could not find encoding for: ");
+                instr_disassemble(dcontext, instr, THREAD);
+                LOG(THREAD, LOG_EMIT, 1, "\n");
+            });
             CLIENT_ASSERT(false, "instr_encode error: no encoding found");
             /* FIXME: since labels (case 4468) have a legal length 0
              * we may want to return a separate status code for failure.
