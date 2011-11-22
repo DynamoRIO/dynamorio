@@ -731,10 +731,11 @@ typedef int stats_int_t;
 /* Maximum length of option string from config file.
  * For CLIENT_INTERFACE we need more than 512 bytes to fit multiple options
  * w/ paths.  However, we have stack buffers in config.c and options.c
- * (look for MAX_OPTION_LENGTH there), so we can't make this too big.
+ * (look for MAX_OPTION_LENGTH there), so we can't make this too big
+ * unless we increase the default -stack_size even further.
  * N.B.: there is a separate define in dr_config.h, DR_MAX_OPTIONS_LENGTH.
  */
-# define MAX_OPTIONS_STRING    1024
+# define MAX_OPTIONS_STRING    2048
 # define MAX_CONFIG_VALUE      MAX_OPTIONS_STRING
 #endif
 /* Maximum length of any individual list option's string */

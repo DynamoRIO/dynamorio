@@ -1148,7 +1148,7 @@ Linux\endif.  See \ref sec_deploy.
 \endif
 
  - \b -stack_size \e \<number\>: \anchor op_stack_size 
-   \DynamoRIO's per-thread stack is limited to 20KB by default (this may
+   \DynamoRIO's per-thread stack is limited to 56KB by default (this may
    seem small, but this is much larger than its size when no \client is
    present).  This parameter can be used to increase the size; however,
    larger stack sizes use significantly more memory when targeting

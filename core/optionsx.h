@@ -363,8 +363,17 @@
         if (options->code_api) {
             /* PR 202669: larger stack size since we're saving a 512-byte
              * buffer on the stack when saving fp state.
+             * Also, C++ RTL initialization (even when a C++
+             * client does little else) can take a lot of stack space.
+             * Furthermore, dbghelp.dll usage via drsyms has been observed
+             * to require 36KB, which is already beyond the minimum to
+             * share gencode in the same 64K alloc as the stack.
+             *
+             * XXX: if we raise this beyond 56KB we should adjust the
+             * logic in heap_mmap_reserve_post_stack() to handle sharing the
+             * tail end of a multi-64K-region stack.
              */
-            options->stack_size = MAX(options->stack_size, 20*1024);
+            options->stack_size = MAX(options->stack_size, 56*1024);
 
             /* For CI builds we'll disable elision by default since we
              * expect most CI users will prefer a view of the
@@ -596,7 +605,14 @@
         IF_DEBUG_ELSE_0(60)*3*1000, /* disabled in release */
         "timeout (in ms) before assuming a deadlock had occurred (0 to disable)")
 
-    OPTION_DEFAULT(uint_size, stack_size, IF_X64_ELSE(20*1024,12*1024),
+    OPTION_DEFAULT(uint_size, stack_size,
+                   /* the CI build has a larger MAX_OPTIONS_STRING so we need
+                    * a larger stack even w/ no client present.
+                    * 32KB is the max that will still allow sharing per-thread
+                    * gencode in the same 64KB alloc as the stack: we stay
+                    * under that w/ no client.
+                    */
+                   IF_CLIENT_INTERFACE_ELSE(24*1024,IF_X64_ELSE(20*1024,12*1024)),
                    "size of thread-private stacks, in KB")
     /* PR 415959: smaller vmm block size makes this both not work and not needed
      * on Linux.

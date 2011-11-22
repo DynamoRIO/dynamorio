@@ -61,9 +61,10 @@ and place the \p dbghelp.dll in the same directory as either \p drsyms.dll
 or as your client library.
 
 More recent versions of \p dbghelp.dll on Windows can use significant
-amounts of stack space.  We recommend raising the stack size when using \p
-drsyms on Windows from the default 20KB to 36KB via the DynamoRIO runtime
-option <tt>-stack_size 36K</tt>.
+amounts of stack space.  We have observed usage of 36KB.  This is within
+the default stack size for a DynamoRIO client, but be aware if trying to
+trim the stack size via the DynamoRIO runtime option <tt>-stack_size</tt>
+that anything lower than 36KB is likely to be problematic on Windows.
 
 The \p drsyms library on Linux uses bundled copies of \p libelf, \p libdwarf,
 and \p libelftc built from the

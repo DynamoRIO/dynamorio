@@ -50,7 +50,7 @@
  */
 
 /** Maximum length of a registered process's options string */
-#define DR_MAX_OPTIONS_LENGTH 1024
+#define DR_MAX_OPTIONS_LENGTH 2048
 
 #ifdef WINDOWS
 
