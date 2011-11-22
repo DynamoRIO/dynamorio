@@ -2989,6 +2989,25 @@ dr_close_file(file_t f)
     os_close_protected(f);
 }
 
+DR_API
+/* Renames the file src to dst. */
+bool
+dr_rename_file(const char *src, const char *dst, bool replace)
+{
+    return os_rename_file(src, dst, replace);
+}
+
+DR_API
+/* Deletes a file. */
+bool
+dr_delete_file(const char *filename)
+{
+    /* os_delete_mapped_file should be a superset of os_delete_file, so we use
+     * it.
+     */
+    return os_delete_mapped_file(filename);
+}
+
 DR_API 
 /* Flushes any buffers for file f
  */
@@ -5344,4 +5363,3 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
 }
 
 #endif /* CLIENT_INTERFACE */
-

@@ -33,6 +33,16 @@
 
 #include "dr_api.h"
 
+#include "client_tools.h" /* For BUFFER_SIZE_ELEMENTS */
+
+#include <string.h>
+
+#ifdef WINDOWS
+# include <windows.h>
+#else
+# include <stdlib.h>
+#endif
+
 /* check if all bits in mask are set in var */
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 /* check if any bit in mask is set in var */
@@ -40,10 +50,7 @@
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
-#if LINUX
-/* Need to declare memset.  It's intrinsic so should be ok. */
-void *memset(void *s, int c, size_t n);
-#endif
+static void test_dr_rename_delete(void);
 
 byte * find_prot_edge(const byte *start, uint prot_flag)
 {
@@ -146,6 +153,9 @@ void dr_init(client_id_t id)
      */
     dr_register_exit_event(event_exit);
 
+    /* Test dr_rename_file. */
+    test_dr_rename_delete();
+
     /* Test the memory query routines */
     dummy_func();
     if (!dr_memory_is_readable((byte *)dummy_func, 1) ||
@@ -243,3 +253,89 @@ void dr_init(client_id_t id)
     dr_fprintf(STDERR, "dr_safe_write() check\n");
 }
 
+/* Creates a closed, unique temporary file and returns its filename.
+ * XXX: Uses the private loader for OS temp file facilities, so this test cannot
+ * be run with -no_private_loader.
+ */
+static void
+get_temp_filename(char filename_out[MAXIMUM_PATH])
+{
+#ifdef WINDOWS
+    char tmppath_buf[MAXIMUM_PATH];
+    filename_out[0] = '\0';  /* Empty on failure. */
+    if (!GetTempPath(BUFFER_SIZE_ELEMENTS(tmppath_buf), tmppath_buf)) {
+        dr_printf("Failed to create temp file.\n");
+        return;
+    }
+    /* A uuid of 0 causes the OS to generate one for us. */
+    if (!GetTempFileName(tmppath_buf, "tmp_file_io", /*uuid*/0, filename_out)) {
+        dr_printf("Failed to create temp file.\n");
+        return;
+    }
+#else
+    int fd;
+    strcpy(filename_out, "tmp_file_io_XXXXXX");
+    fd = mkstemp(filename_out);
+    close(fd);
+#endif
+}
+
+static void
+test_dr_rename_delete(void)
+{
+    char tmp_src[MAXIMUM_PATH];
+    char tmp_dst[MAXIMUM_PATH];
+    const char *contents = "abcdefg";
+    char contents_buf[100];
+    file_t fd;
+    ssize_t bytes_read, bytes_left;
+    bool success;
+    char *cur;
+
+    get_temp_filename(tmp_src);
+    get_temp_filename(tmp_dst);
+    fd = dr_open_file(tmp_src, DR_FILE_WRITE_OVERWRITE);
+    dr_write_file(fd, contents, strlen(contents));
+    dr_close_file(fd);
+
+    /* Should fail, dst exists. */
+    success = dr_rename_file(tmp_src, tmp_dst, /*replace*/false);
+    if (success)
+        dr_fprintf(STDERR, "rename replaced an existing file!\n");
+
+    /* Should succeed. */
+    success = dr_rename_file(tmp_src, tmp_dst, /*replace*/true);
+    if (!success)
+        dr_fprintf(STDERR, "rename failed to replace existing file!\n");
+
+    /* Contents should match. */
+    fd = dr_open_file(tmp_dst, DR_FILE_READ);
+    cur = &contents_buf[0];
+    bytes_left = BUFFER_SIZE_ELEMENTS(contents_buf);
+    while ((bytes_read = dr_read_file(fd, cur, bytes_left)) > 0) {
+        cur += bytes_read;
+        bytes_left -= bytes_read;
+    }
+    dr_close_file(fd);
+    if (strncmp(contents, contents_buf, strlen(contents)) != 0) {
+        dr_fprintf(STDERR, "renamed file contents don't match!\n"
+                   " expected: %s\n actual: %s\n",
+                   contents, contents_buf);
+    }
+
+    /* Rename back should succeed. */
+    success = dr_rename_file(tmp_dst, tmp_src, /*replace*/false);
+    if (!success)
+        dr_fprintf(STDERR, "rename back to tmp_src failed!\n");
+
+    /* Deleting src should succeed. */
+    success = dr_delete_file(tmp_src);
+    if (!success)
+        dr_fprintf(STDERR, "deleting tmp_src failed!\n");
+
+    /* Try to delete any files still existing. */
+    if (dr_file_exists(tmp_src))
+        dr_delete_file(tmp_src);
+    if (dr_file_exists(tmp_dst))
+        dr_delete_file(tmp_dst);
+}

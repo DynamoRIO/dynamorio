@@ -2428,6 +2428,28 @@ DR_API
 void
 dr_close_file(file_t f);
 
+DR_API
+/**
+ * Renames the file \p src to \p dst, replacing an existing file named \p dst if
+ * \p replace is true.
+ * Atomic if \p src and \p dst are on the same filesystem.
+ * Returns true if successful.
+ */
+bool
+dr_rename_file(const char *src, const char *dst, bool replace);
+
+DR_API
+/**
+ * Deletes the file referred to by \p filename.
+ * Returns true if successful.
+ * On both Linux and Windows, if filename refers to a symlink, the symlink will
+ * be deleted and not the target of the symlink.
+ * On Windows, this will fail to delete any file was not opened with
+ * FILE_SHARE_DELETE and is still open.
+ */
+bool
+dr_delete_file(const char *filename);
+
 DR_API 
 /** Flushes any buffers for file \p f. */
 void
@@ -2549,7 +2571,7 @@ DR_API
 bool
 dr_unmap_file(void *map, size_t size);
 
-/* TODO add delete_file, rename/move_file, copy_file, get_file_size, truncate_file etc.
+/* TODO add copy_file, truncate_file etc.
  * All should be easy though at some point should perhaps tell people to just use the raw
  * systemcalls, esp for linux where they're documented and let them provide their own
  * wrappers. */
