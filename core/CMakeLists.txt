@@ -263,7 +263,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   add_dependencies(dynamorio api_headers)
 endif ()
 
-add_library(${PRELOAD_NAME} SHARED ${PRELOAD_SRCS})
+add_library(${PRELOAD_NAME} SHARED ${PRELOAD_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
 # We do not issue:
 #   target_link_libraries(${PRELOAD_NAME} dynamorio)
 # b/c preload dynamically loads dynamorio by name and does not have a
@@ -296,6 +296,8 @@ add_library(drdecode
   x86/decode_fast.c
   x86/mangle.c
   x86/decodelib.c
+  ${SYSLOG_SRCS}
+  ${EVENTS_SRCS}
   )
 set_target_properties(drdecode PROPERTIES
   COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
