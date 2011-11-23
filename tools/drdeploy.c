@@ -99,6 +99,8 @@ const char *usage_str =
     "usage: "TOOLNAME" [options]\n"
 #elif defined(DRRUN) || defined (DRINJECT)
     "usage: "TOOLNAME" [options] <app and args to run>\n"
+    "   or: "TOOLNAME" [options] [DR options] -- <app and args to run>\n"
+    "\n"
 #endif
     "       -v                 Display version information\n"
     "       -verbose           Display additional information\n"
@@ -148,6 +150,9 @@ const char *usage_str =
     "       -ops \"<options>\"   Additional DR control options.  When specifying\n"
     "                          multiple options, enclose the entire list of\n"
     "                          options in quotes, or repeat the -ops.\n"
+    "                          Alternatively, if the application is separated\n"
+    "                          by \"--\", the -ops may be omitted and DR options\n"
+    "                          specified prior to \"--\" without quotes.\n"
     "\n"
     "       -client <path> <ID> \"<options>\"\n"
     "                          Register one or more clients to run alongside DR.\n"
@@ -761,6 +766,26 @@ int main(int argc, char *argv[])
                 usage("invalid time");
 	}
 #endif
+#if defined(DRCONFIG) || defined(DRRUN)
+        /* if there are still options, assume user is using -- to separate and pass
+         * through options to DR.  we do not handle mixing DR options with tool
+         * options: DR must come last.  we would need to generate code here from
+         * optionsx.h to do otherwise, or to sanity check the DR options here.
+         */
+        else if (argv[i][0] == '-') {
+            while (i<argc) {
+                if (strcmp(argv[i], "--") == 0) {
+                    i++;
+                    goto done_with_options;
+                }
+                _snprintf(extra_ops + strlen(extra_ops),
+                          BUFFER_SIZE_ELEMENTS(extra_ops) - strlen(extra_ops),
+                          "%s%s", (extra_ops[0] == '\0') ? "" : " ", argv[i]);
+                NULL_TERMINATE_BUFFER(extra_ops);
+                i++;
+            }
+	}
+#endif
         else {
 #ifdef DRCONFIG
             usage("unknown option: %s", argv[i]);
@@ -770,6 +795,10 @@ int main(int argc, char *argv[])
 #endif
         }
     }
+
+#if defined(DRCONFIG) || defined(DRRUN)
+ done_with_options:
+#endif
 
 #if defined(DRRUN) || defined(DRINJECT)
     if (i >= argc)
@@ -811,6 +840,9 @@ int main(int argc, char *argv[])
     NULL_TERMINATE_BUFFER(app_cmdline);
     assert(c - app_cmdline < BUFFER_SIZE_ELEMENTS(app_cmdline));
     info("app cmdline: %s", app_cmdline);
+#else
+    if (i < argc)
+        usage("%s", "invalid extra arguments specified");
 #endif
 
     /* PR 244206: set the registry view before any registry access */

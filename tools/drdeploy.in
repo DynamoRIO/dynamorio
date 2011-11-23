@@ -41,6 +41,9 @@
 ## usage: @name@ [-v] [-debug] [-dr_home <path>] [-ops <dr_options>]*
 ##                 [-logdir <path>] -client <path> <executable> [args ...]
 ##
+## alternate usage: @name@ [-v] [-debug] [-dr_home <path>] [<dr_options>]*
+##                     [-logdir <path>] -client <path> -- <executable> [args ...]
+##
 ##  [-v]                   Verbose output
 ##  [-debug]               Use debug build of DynamoRIO (release is default)
 ##  [-@archother@]                  Use @archother@-bit DynamoRIO (default is @archdefault@-bit).  This
@@ -57,6 +60,8 @@
 ##                           or -opt_memory: see docs). Can also be specified
 ##                           with DYNAMORIO_OPTIONS in the environment.
 ##                           Can be repeated.
+##                           If the application is separated by "--", the
+##                           "-ops" is not required.
 ##  [-logdir <path>]       Path to logging directory.  Defaults to ../logs from
 ##                           @name@; may also be omitted if DYNAMORIO_LOGDIR
 ##                           is defined in the environment.
@@ -89,7 +94,15 @@ else
     extra=""
 fi
 
-usage="usage: $0 [-v] [-debug] [-32] [-64] $extra[-dr_home <path>] [-ops <dr_options>]* [-logdir <path>] [-client <path> <ID> \"<options>\"]* <executable> [args ...]"
+usage="USAGE: $0 [-v] [-debug] [-32] [-64] $extra
+  [-dr_home <path>] [-ops <dr_options>]* [-logdir <path>]
+  [-client <path> <ID> \"<options>\"]* <executable> [args ...]
+
+OR, inline DR options after script options and use -- to separate executable:
+
+$0 [-v] [-debug] [-32] [-64] $extra
+  [-dr_home <path>] [-logdir <path>] [-client <path> <ID> \"<options>\"]*
+  [<dr_options>]* -- <executable> [args ...]"
 
 default_home_rel="`dirname $0`/.."
 default_home=`cd $default_home_rel ; pwd`
@@ -100,10 +113,10 @@ app=""
 
 if [ "$1" = "" ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ]
 then
-    echo $usage
+    echo "$usage"
     echo
     # sed would be more precise but may not be available
-    head -n 69 $0 | tail -n 34
+    head -n 80 $0 | tail -n 44
     exit
 fi
 
@@ -199,13 +212,13 @@ then
     if [ ! -n "$client" ] || [ ! -n "$client_id" ]
     then
         echo "ERROR - client not fully specified"
-        echo $usage
+        echo "$usage"
         exit
     fi
     if [ ! -e $client ]
     then
         echo "ERROR - client lib $client not found"
-        echo $usage
+        echo "$usage"
         exit
     fi
     # convert to absolute path
@@ -220,6 +233,30 @@ then
 fi
 
 done
+
+# if there are still options, assume user is using -- to separate and
+# pass through options to DR.  we do not handle mixing DR options with
+# script options: DR must come last.  we would need to generate
+# code here from optionsx.h to do otherwise, or to sanity check
+# the DR options here.
+if [ "${1:0:1}" = "-" ]
+then
+    specified_ops=yes
+    while [ "$1" != "--" ] && [ "$1" != "" ]
+    do
+        if [ -n "$ops" ]
+        then
+            ops="$ops $1"
+        else
+            ops="$1"
+        fi
+        shift
+    done
+    if [ "$1" = "--" ]
+    then
+        shift
+    fi
+fi
 
 # Setup lib path
 if [ ! -n "$dr_lib_path" ]
@@ -253,7 +290,7 @@ then
         if [ "$unreg" = "0" ] && [ "$rununder" = "1" ]
         then
             echo "ERROR - libdynamorio.so not found in $dr_lib_path/$lib"
-            echo $usage
+            echo "$usage"
             exit
         fi
     fi
@@ -265,7 +302,7 @@ dr_ext_path=`cd "$dr_ext_path" ; pwd`
 if [ ! -n "$*" ] && [ "$app" = "" ]
 then
     echo "ERROR - no application specified"
-    echo $usage
+    echo "$usage"
     exit
 fi
 
@@ -284,7 +321,7 @@ then
     if [ "$unreg" = "0" ] && [ "$rununder" = "1" ]
     then
         echo "ERROR - logdir $logdir not found"
-        echo $usage
+        echo "$usage"
         exit
     fi
 fi
@@ -312,7 +349,7 @@ fi
 if [ ! -n "$HOME" ]
 then
     echo "ERROR - $HOME must exist"
-    echo $usage
+    echo "$usage"
     exit
 fi
 cfgdir="$HOME/.dynamorio"
