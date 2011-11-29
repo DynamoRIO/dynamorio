@@ -239,6 +239,15 @@ static client_lib_t client_libs[MAX_CLIENT_LIBS] = {{0,}};
 static size_t num_client_libs = 0;
 
 #ifdef WINDOWS
+/* private kernel32 lib, used to print to console */
+static bool print_to_console;
+static shlib_handle_t priv_kernel32;
+typedef BOOL (WINAPI *kernel32_WriteFile_t)
+    (HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED);
+static kernel32_WriteFile_t kernel32_WriteFile;
+#endif
+
+#ifdef WINDOWS
 /* used for nudge support */
 static bool block_client_nudge_threads = false;
 DECLARE_CXTSWPROT_VAR(static int num_client_nudge_threads, 0);
@@ -3248,14 +3257,93 @@ dr_messagebox(const char *fmt, ...)
         dcontext->client_data->client_thread_safe_for_synch = false;
     va_end(ap);
 }
-#endif
+
+static bool
+dr_write_to_console(bool to_stdout, const char *fmt, va_list ap)
+{
+    bool res = true;
+    char msg[MAX_LOG_LENGTH];
+    uint written;
+    int len;
+    HANDLE std;
+    ASSERT(priv_kernel32 != NULL &&
+           kernel32_WriteFile != NULL);
+    /* kernel32!GetStdHandle(STD_OUTPUT_HANDLE) == our PEB-based get_stdout_handle */
+    std = (to_stdout ? get_stdout_handle() : get_stderr_handle());
+    if (std == INVALID_HANDLE_VALUE)
+        return false;
+    len = vsnprintf(msg, BUFFER_SIZE_ELEMENTS(msg), fmt, ap);
+    /* Let user know if message was truncated */
+    if (len < 0 || len == BUFFER_SIZE_ELEMENTS(msg))
+        res = false;
+    NULL_TERMINATE_BUFFER(msg);
+    /* Make this routine work in all kinds of windows by going through
+     * kernel32!WriteFile, which will call WriteConsole for us.
+     */
+    res = res &&
+        kernel32_WriteFile(std, msg, (DWORD) strlen(msg), (LPDWORD) &written, NULL);
+    return res;
+}
+
+DR_API
+bool
+dr_using_console(void)
+{
+    /* We detect cmd window using what kernel32!WriteFile uses: a handle
+     * having certain bits set.
+     */
+    return (((ptr_int_t)get_stderr_handle() & 0x10000003) == 0x3);
+}
+
+DR_API
+bool
+dr_enable_console_printing(void)
+{
+    /* b/c private loader sets cxt sw code up front based on whether have windows
+     * priv libs or not, this can only be called during dr_init()
+     */
+    if (dynamo_initialized) {
+        CLIENT_ASSERT(false, "dr_enable_console_printing() must be called from dr_init");
+        return false;
+    }
+    if (!dr_using_console())
+        return true;
+    if (!INTERNAL_OPTION(private_loader))
+        return false;
+    if (!print_to_console) {
+        if (priv_kernel32 == NULL) {
+            /* Not using load_shared_library() b/c it won't search paths
+             * for us.  XXX: should add os-shared interface for
+             * locate-and-load.
+             */
+            priv_kernel32 = (shlib_handle_t) privload_load_private_library("kernel32.dll");
+        }
+        if (priv_kernel32 != NULL && kernel32_WriteFile == NULL) {
+            kernel32_WriteFile = (kernel32_WriteFile_t)
+                lookup_library_routine(priv_kernel32, "WriteFile");
+        }
+        /* We go ahead and cache whether dr_using_console().  If app really
+         * changes its console, client could call this routine again
+         * as a workaround.  Seems unlikely: better to have better perf.
+         */
+        print_to_console = (priv_kernel32 != NULL &&
+                            kernel32_WriteFile != NULL);
+    }
+    return print_to_console;
+}
+#endif /* WINDOWS */
 
 DR_API void
 dr_printf(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    do_file_write(STDOUT, fmt, ap);
+#ifdef WINDOWS
+    if (print_to_console)
+        dr_write_to_console(true/*stdout*/, fmt, ap);
+    else
+#endif
+        do_file_write(STDOUT, fmt, ap);
     va_end(ap);
 }
 
@@ -3264,7 +3352,12 @@ dr_fprintf(file_t f, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    do_file_write(f, fmt, ap);
+#ifdef WINDOWS
+    if ((f == STDOUT || f == STDERR) && print_to_console)
+        dr_write_to_console(f == STDOUT, fmt, ap);
+    else
+#endif
+        do_file_write(f, fmt, ap);
     va_end(ap);
 }
 

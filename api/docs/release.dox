@@ -165,6 +165,12 @@ The changes between version 3.0.0 and 2.2.0 are:
  - Changed the signature of drwrap_unwrap(), in order to allow one of the
    pre or post hooks to be optional (Issue 562).  This is a source
    compatibility change.
+ - Moved console printing support from the drsyms Extension to core DR.  The
+   drsym_write_to_console() and drsym_using_console() are no longer
+   supported.  Instead, call dr_enable_console_printing() in dr_init(),
+   which then enables dr_printf() and dr_fprintf() to print to the console
+   (with some limitations: see dr_enable_console_printing() documentation).
+   This is a source compatibility change.
  - Added \p drutil Extension which provides memory address retrieval
    and string loop expansion (note: LGPL license)
  - Added \p drvector to drcontainers Extension: simple resizable vector

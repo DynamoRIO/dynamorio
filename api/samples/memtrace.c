@@ -155,8 +155,13 @@ dr_init(client_id_t id)
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'memtrace' initializing\n");
 #ifdef SHOW_RESULTS
-    if (dr_is_notify_on())
-        dr_fprintf(STDERR, "<client memtrace is running>\n");
+    if (dr_is_notify_on()) {
+# ifdef WINDOWS
+        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        dr_enable_console_printing();
+# endif
+        dr_fprintf(STDERR, "Client memtrace is running\n");
+    }
 #endif
 }
 

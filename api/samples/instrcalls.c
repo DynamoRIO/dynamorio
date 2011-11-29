@@ -61,8 +61,13 @@ dr_init(client_id_t id)
     dr_log(NULL, LOG_ALL, 1, "Client 'instrcalls' initializing\n");
     /* also give notification to stderr */
 #ifdef SHOW_RESULTS
-    if (dr_is_notify_on())
+    if (dr_is_notify_on()) {
+# ifdef WINDOWS
+        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        dr_enable_console_printing();
+# endif
         dr_fprintf(STDERR, "Client instrcalls is running\n");
+    }
 #endif
     dr_register_exit_event(event_exit);
     dr_register_bb_event(event_basic_block);

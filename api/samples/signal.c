@@ -62,8 +62,13 @@ dr_init(client_id_t id)
 #endif
     dr_register_exit_event(event_exit);
 #ifdef SHOW_RESULTS
-    if (dr_is_notify_on())
-	dr_fprintf(STDERR, "Client signal is running\n");
+    if (dr_is_notify_on()) {
+# ifdef WINDOWS
+        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        dr_enable_console_printing();
+# endif
+        dr_fprintf(STDERR, "Client signal is running\n");
+    }
 #endif
 }
 

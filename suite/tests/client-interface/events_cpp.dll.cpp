@@ -570,6 +570,12 @@ void dr_init(client_id_t id)
 
 #ifdef WINDOWS
     dr_os_version_info_t info = {sizeof(info),};
+    /* a sanity check for console printing: no easy way to ensure it really
+     * prints to cmd w/o redirecting to a file which then ruins the test so we
+     * just make sure it doesn't mess up our broadest test, events.
+     */
+    if (dr_is_notify_on())
+        dr_enable_console_printing();
     if (!dr_get_os_version(&info))
         dr_fprintf(STDERR, "dr_get_os_version failed!\n");
 #endif

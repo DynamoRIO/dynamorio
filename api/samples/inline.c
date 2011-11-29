@@ -206,8 +206,13 @@ dr_init(client_id_t id)
     dr_log(NULL, LOG_ALL, 1, "Client 'inline' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
-    if (dr_is_notify_on())
-	dr_fprintf(STDERR, "Client inline is running\n");
+    if (dr_is_notify_on()) {
+# ifdef WINDOWS
+        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        dr_enable_console_printing();
+# endif
+        dr_fprintf(STDERR, "Client inline is running\n");
+    }
     num_complete_inlines = 0;
 #endif
 }

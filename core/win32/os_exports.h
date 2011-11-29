@@ -455,6 +455,11 @@ void swap_peb_pointer(dcontext_t *dcontext, bool to_priv);
  * or swap private values.  Up to caller to synchronize w/ other thread.
  */
 void restore_peb_pointer_for_thread(dcontext_t *dcontext);
+/* searches in standard paths instead of requiring abs path.
+ * exported for dr_enable_console_printing().
+ * XXX: should have an os-shared version.
+ */
+app_pc privload_load_private_library(const char *name);
 #endif
 
 

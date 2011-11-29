@@ -2698,13 +2698,14 @@ DR_API
 /**
  * Stdout printing that won't interfere with the
  * application's own printing.  Currently non-buffered.
- * \note On Windows, this routine is not able to print to the cmd window
- * (issue 261).  The drsym_write_to_console() routine in the \p drsyms
- * Extension can be used to accomplish that.
+ * \note On Windows, this routine is not able to print to the \p cmd window
+ * unless dr_enable_console_printing() is called ahead of time, and
+ * even then there are limitations: see dr_enable_console_printing().
  * \note On Windows, this routine does not support printing floating
  * point values.  Use dr_snprintf() instead.
  * \note If the data to be printed is large it will be truncated to
- * an internal buffer size.
+ * an internal buffer size.  Use dr_snprintf() and dr_write_file() for
+ * large output.
  */
 void 
 dr_printf(const char *fmt, ...);
@@ -2713,14 +2714,15 @@ DR_API
 /**
  * Printing to a file that won't interfere with the
  * application's own printing.  Currently non-buffered.
- * \note On Windows, this routine is not able to print to STDOUT
- * or STDERR in the cmd window (issue 261).  The
- * drsym_write_to_console() routine in the \p drsyms Extension can be
- * used to accomplish that.
+ * \note On Windows, this routine is not able to print to STDOUT or
+ * STDERR in the \p cmd window unless dr_enable_console_printing() is
+ * called ahead of time, and even then there are limitations: see
+ * dr_enable_console_printing().
  * \note On Windows, this routine does not support printing floating
  * point values.  Use dr_snprintf() instead.
  * \note If the data to be printed is large it will be truncated to
- * an internal buffer size.  Use dr_write_file() to print large buffers.
+ * an internal buffer size.  Use dr_snprintf() and dr_write_file() for
+ * large output.
  * \note On Linux this routine does not check for errors like EINTR.  Use
  * dr_write_file() if that is a concern.
  * \note When printing floating-point values, the caller's code should
@@ -2729,6 +2731,61 @@ DR_API
  */
 void
 dr_fprintf(file_t f, const char *fmt, ...);
+
+#ifdef WINDOWS
+DR_API
+/**
+ * Enables dr_printf() and dr_fprintf() to work with a console window
+ * (viz., \p cmd).  Loads a private copy of kernel32.dll (if not
+ * already loaded) in order to accomplish this.  To keep the default
+ * DR lean and mean, loading kernel32.dll is not performed by default.
+ *
+ * This routine must be called during client initialization (\p dr_init()).
+ * If called later, it will fail.
+ *
+ * Without calling this routine, dr_printf() and dr_fprintf() will not
+ * print anything in a console window.
+ *
+ * Even after calling this routine, there are significant limitations
+ * to console printing support in DR:
+ * 
+ *  - On Windows versions from Vista onward, it does not work for
+ *    64-bit applications.
+ *  - On Windows versions prior to Vista, it does not work from
+ *    the exit event.  Once the application terminates its state with
+ *    csrss (toward the very end of ExitProcess), no output will show
+ *    up on the console.  We have no good solution here yet as exiting
+ *    early is not ideal.
+ *  - It does not work at all from graphical applications, even when they are
+ *    launched from a console.
+ *  - In the future, with earliest injection (Issue 234), writing to the
+ *    console may not work from the client init event.
+ *
+ * These limitations stem from the complex arrangement of the console
+ * window in Windows, where printing to it involves sending a message
+ * in an undocumented format to the \p csrss process, rather than a
+ * simple write to a file handle.  We recommend using a terminal
+ * window such as cygwin's \p rxvt rather than the \p cmd window, or
+ * alternatively redirecting all output to a file, which will solve
+ * all of the above limitations.
+ *
+ * Returns whether successful.
+ */
+bool
+dr_enable_console_printing(void);
+
+DR_API
+/**
+ * Returns true if the current standard error handle belongs to a
+ * console window (viz., \p cmd).  DR's dr_printf() and dr_fprintf()
+ * do not work with such console windows unless
+ * dr_enable_console_printing() is called ahead of time, and even then
+ * there are limitations detailed in dr_enable_console_printing().
+ * This routine may result in loading a private copy of kernel32.dll.
+ */
+bool
+dr_using_console(void);
+#endif
 
 DR_API
 /**

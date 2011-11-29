@@ -336,6 +336,8 @@ static void *priv_fls_data;
 static void *priv_nt_rpc;
 /* Only swap peb and teb fields if we've loaded WinAPI libraries */
 static bool loaded_windows_lib;
+/* Used to handle loading windows lib later during init */
+static bool swapped_to_app_peb;
 #endif
 
 /***************************************************************************/
@@ -460,6 +462,7 @@ os_loader_init_epilogue(void)
     if (INTERNAL_OPTION(private_peb) && !should_swap_peb_pointer()) {
         /* Not going to be swapping so restore permanently to app */
         swap_peb_pointer(NULL, false/*to app*/);
+        swapped_to_app_peb = true;
     }
 #endif
 }
@@ -586,8 +589,17 @@ set_loaded_windows_lib(void)
             loaded_windows_lib = true;
             LOG(GLOBAL, LOG_LOADER, 1,
                 "loaded a Windows system library => isolating PEB+TEB\n");
+#ifdef CLIENT_INTERFACE
+            if (INTERNAL_OPTION(private_peb) && swapped_to_app_peb &&
+                should_swap_peb_pointer()) {
+                /* os_loader_init_epilogue() already swapped to app */
+                swap_peb_pointer(NULL, true/*to priv*/);
+            }
+#endif
             /* attempt to catch init re-ordering (see comment below and i#338) */
+#ifndef CLIENT_INTERFACE /* dr_enable_console_printing() loads kernel32.dll */
             ASSERT(get_thread_private_dcontext() == NULL);
+#endif
         } else {
             /* We've already emitted context switch code that does not swap peb/teb.
              * Basically we don't support this.  (Should really check for post-emit.)

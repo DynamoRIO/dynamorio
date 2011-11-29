@@ -1011,7 +1011,10 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 # define MAX_LOG_LENGTH IF_X64_ELSE(1280, 768)
 #else
 /* need more space for printing out longer option strings */
-# define MAX_LOG_LENGTH 1384
+/* CLIENT_INTERFACE build has larger stack and 2048 option length so go bigger
+ * so clients don't have dr_printf truncated as often
+ */
+# define MAX_LOG_LENGTH IF_CLIENT_INTERFACE_ELSE(2048,1384)
 #endif
 #define MAX_LOG_LENGTH_MINUS_ONE (MAX_LOG_LENGTH-1) /* for splitting long buffers */
 
