@@ -1932,7 +1932,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
 #ifdef X64
         instr_set_rip_rel_valid(instr, rip_rel_valid);
 #endif
-        copy_and_re_relativize_raw_instr(dcontext, instr, tmp);
+        copy_and_re_relativize_raw_instr(dcontext, instr, tmp, tmp);
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }

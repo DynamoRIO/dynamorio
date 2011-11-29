@@ -106,7 +106,9 @@ The following are part of the \DynamoRIO release distribution:
 \endhtmlonly
 \section sec_changes Changes Since Prior Releases
 
-The current version is \DR_VERSION.  Its \client API is mostly backward
+The current version is \DR_VERSION.  
+
+The 3.0.0 and onward \client API is mostly backward
 compatible with releases from 1.0.0 (originally called 0.9.6: see below)
 onward with the exception of functions that involve dr_mcontext_t and
 several other source and binary compatibility changes since version 2.2.0
@@ -142,7 +144,7 @@ initialization syntax in the script will end up calling memset; for
 performance-critical situations, instead initialize only the size field
 separately.
 
-The changes between version \DR_VERSION and 2.2.0 are:
+The changes between version 3.0.0 and 2.2.0 are:
 
  - Added a private loader on Linux for better support for C++ \clients and
    third-party library usage by \clients
@@ -188,6 +190,7 @@ The changes between version \DR_VERSION and 2.2.0 are:
  - Added Linux support for \p drsyms.
  - Added dr_using_app_state()
  - Added a static library for decoding and encoding
+ - Added instr_encode_to_copy() and instrlist_encode_to_copy()
  - Several bug fixes
 
 The changes between version 2.2.0 and 2.1.0 are:

@@ -2039,10 +2039,10 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
  * it can handle loop/jecxz but it does NOT check for data16!
  */
 static byte *
-encode_cti(instr_t *instr, byte *start_pc, bool check_reachable
+encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
            _IF_DEBUG(bool assert_reachable))
 {
-    byte *pc = start_pc;
+    byte *pc = copy_pc;
     const instr_info_t * info = instr_get_instr_info(instr);
     opnd_t opnd;
     ptr_uint_t target;
@@ -2080,7 +2080,7 @@ encode_cti(instr_t *instr, byte *start_pc, bool check_reachable
         target = (ptr_uint_t) opnd_get_pc(opnd);
     } else if (opnd_is_near_instr(opnd)) {
         instr_t *in = opnd_get_instr(opnd);
-        target = (ptr_uint_t)start_pc + ((ptr_uint_t)in->note - (ptr_uint_t)instr->note);
+        target = (ptr_uint_t)final_pc + ((ptr_uint_t)in->note - (ptr_uint_t)instr->note);
     } else {
         target = 0; /* avoid compiler warning */
         CLIENT_ASSERT(false, "encode_cti error: opnd must be near pc or near instr");
@@ -2093,7 +2093,7 @@ encode_cti(instr_t *instr, byte *start_pc, bool check_reachable
         CLIENT_ASSERT(!instr_is_cti_short_rewrite(instr, NULL),
                       "encode_cti error: jecxz/loop already mangled");
         /* offset is from start of next instr */
-        offset = target - ((ptr_int_t)pc + 1);
+        offset = target - ((ptr_int_t)(pc + 1 - copy_pc + final_pc));
         if (check_reachable && !(offset >= INT8_MIN && offset <= INT8_MAX)) {
             CLIENT_ASSERT(!assert_reachable,
                           "encode_cti error: target beyond 8-bit reach");
@@ -2104,7 +2104,7 @@ encode_cti(instr_t *instr, byte *start_pc, bool check_reachable
     } else {
         /* 32-bit offset */
         /* offset is from start of next instr */
-        ptr_int_t offset = target - ((ptr_int_t)pc + 4);
+        ptr_int_t offset = target - ((ptr_int_t)(pc + 4 - copy_pc + final_pc));
 #ifdef X64
         if (check_reachable && !REL32_REACHABLE_OFFS(offset)) {
             CLIENT_ASSERT(!assert_reachable,
@@ -2126,7 +2126,8 @@ encode_cti(instr_t *instr, byte *start_pc, bool check_reachable
  * Returns NULL on failure to encode (due to reachability).
  */
 byte *
-copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst_pc)
+copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
+                                 byte *dst_pc, byte *final_pc)
 {
     byte *orig_dst_pc = dst_pc;
     ASSERT(instr_raw_bits_valid(instr));
@@ -2142,11 +2143,11 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
         target = opnd_get_pc(instr_get_target(instr));
         memcpy(dst_pc, instr->bytes, instr->length - 4);
         dst_pc += instr->length - 4;
-        if (!REL32_REACHABLE(dst_pc + 4, target)) {
+        if (!REL32_REACHABLE(final_pc + instr->length, target)) {
             CLIENT_ASSERT(false, "mangled jecxz/loop*: target out of 32-bit reach");
             return NULL;
         }
-        *((int *)dst_pc) = (int) (target - (dst_pc + 4));
+        *((int *)dst_pc) = (int) (target - (final_pc + instr->length));
     }
 #ifdef X64
     /* We test the flag directly to support cases where the raw bits are
@@ -2161,7 +2162,7 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
         ASSERT(!instr_is_level_0(instr));
         DEBUG_DECLARE(ok =) instr_get_rel_addr_target(instr, &target);
         ASSERT(ok);
-        new_offs = target - (dst_pc + instr->length);
+        new_offs = target - (final_pc + instr->length);
         /* PR 253327: we don't record whether addr32 so we have to deduce it now */
         if ((ptr_uint_t)target <= INT_MAX) {
             int num_prefixes;
@@ -2214,14 +2215,14 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst
  * Else, if reachable != NULL, *reachable is set to true.
  */
 static byte *
-instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *pc,
+instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc,
                     bool check_reachable _IF_DEBUG(bool assert_reachable))
 {
     const instr_info_t * info;
     decode_info_t di;
 
     /* pointer to and into the instruction binary */
-    byte *cache_pc = pc;
+    byte *cache_pc = copy_pc;
     byte *field_ptr = cache_pc;
     byte *disp_relativize_at = NULL;
     uint opc;
@@ -2232,7 +2233,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *pc,
         CLIENT_ASSERT(check_reachable, "internal encode error: cannot encode raw "
                       "bits and ignore reachability");
         /* copy raw bits, possibly re-relativizing */
-        return copy_and_re_relativize_raw_instr(dcontext, instr, cache_pc);
+        return copy_and_re_relativize_raw_instr(dcontext, instr, cache_pc, final_pc);
     }
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
     opc = instr_get_opcode(instr);
@@ -2244,7 +2245,8 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *pc,
         opc == OP_jmp_short || opc == OP_jmp || opc == OP_call) {
         if (!TESTANY(~(PREFIX_JCC_TAKEN|PREFIX_JCC_NOT_TAKEN), instr->prefixes)) {
             /* encode_cti cannot handle funny prefixes or indirect branches or rets */
-            return encode_cti(instr, pc, check_reachable _IF_DEBUG(assert_reachable));
+            return encode_cti(instr, copy_pc, final_pc, check_reachable
+                              _IF_DEBUG(assert_reachable));
         }
     } 
 
@@ -2252,7 +2254,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *pc,
     info = instr_get_instr_info(instr);
     if (info == NULL) {
         CLIENT_ASSERT(instr_is_label(instr), "instr_encode: invalid instr");
-        return (instr_is_label(instr) ? pc : NULL);
+        return (instr_is_label(instr) ? copy_pc : NULL);
     }
 
     /* first, walk through instr list to find format that matches
@@ -2502,14 +2504,15 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *pc,
     if (disp_relativize_at != NULL) {
         CLIENT_ASSERT(X64_MODE(&di), "encode error: no rip-relative in x86 mode!");
         if (check_reachable &&
-            !CHECK_TRUNCATE_TYPE_int(di.disp_abs - field_ptr) &&
+            !CHECK_TRUNCATE_TYPE_int(di.disp_abs - (field_ptr - copy_pc + final_pc)) &&
             /* PR 253327: we auto-add addr prefix for out-of-reach low tgt */
             (!TEST(PREFIX_ADDR, di.prefixes) || (ptr_uint_t)di.disp_abs > INT_MAX)) {
             CLIENT_ASSERT(!assert_reachable,
                           "encode error: rip-relative reference out of 32-bit reach");
             return NULL;
         }
-        *((int *)disp_relativize_at) = (int) (di.disp_abs - field_ptr);
+        *((int *)disp_relativize_at) = (int)
+            (di.disp_abs - (field_ptr - copy_pc + final_pc));
         /* in case caller is caching these bits (in particular,
          * private_instr_encode()), set rip_rel_pos */
         CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_byte(disp_relativize_at - di.start_pc),
@@ -2590,20 +2593,26 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *pc,
 byte *
 instr_encode_ignore_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc)
 {
-    return instr_encode_common(dcontext, instr, pc, false _IF_DEBUG(false));
+    return instr_encode_common(dcontext, instr, pc, pc, false _IF_DEBUG(false));
 }
 
 /* just like instr_encode but doesn't assert on reachability failures */
 byte *
 instr_encode_check_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc)
 {
-    return instr_encode_common(dcontext, instr, pc, true _IF_DEBUG(false));
+    return instr_encode_common(dcontext, instr, pc, pc, true _IF_DEBUG(false));
+}
+
+byte *
+instr_encode_to_copy(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc)
+{
+    return instr_encode_common(dcontext, instr, copy_pc, final_pc, true _IF_DEBUG(true));
 }
 
 byte *
 instr_encode(dcontext_t *dcontext, instr_t *instr, byte *pc)
 {
-    return instr_encode_common(dcontext, instr, pc, true _IF_DEBUG(true));
+    return instr_encode_to_copy(dcontext, instr, pc, pc);
 }
 
 /* If has_instr_jmp_targets is true, this routine trashes the note field
@@ -2611,23 +2620,35 @@ instr_encode(dcontext_t *dcontext, instr_t *instr, byte *pc)
  * the relative pc for an instr_t jump target
  */
 byte *
-instrlist_encode(dcontext_t *dcontext, instrlist_t *ilist, byte *pc,
-                 bool has_instr_jmp_targets)
+instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc,
+                         byte *final_pc, byte *max_pc, bool has_instr_jmp_targets)
 {
     instr_t *inst;
     int len = 0;
-    if (has_instr_jmp_targets) {
-        /* must set note fields first with offset */
+    if (has_instr_jmp_targets || max_pc != NULL) {
+        /* must set note fields first with offset, or compute length */
         for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
-            instr_set_note(inst, (void *)(ptr_int_t)len);
+            if (has_instr_jmp_targets)
+                instr_set_note(inst, (void *)(ptr_int_t)len);
             len += instr_length(dcontext, inst);
         }
     }
-    for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
-        pc = instr_encode(dcontext, inst, pc);
+    if (max_pc != NULL &&
+        (copy_pc + len > max_pc || POINTER_OVERFLOW_ON_ADD(copy_pc, len)))
+        return NULL;
+    for (inst = instrlist_first(ilist); inst != NULL; inst = instr_get_next(inst)) {
+        byte *pc = instr_encode_to_copy(dcontext, inst, copy_pc, final_pc);
         if (pc == NULL)
             return NULL;
+        final_pc += pc - copy_pc;
+        copy_pc = pc;
     }
-    return pc;
+    return copy_pc;
 }
 
+byte *
+instrlist_encode(dcontext_t *dcontext, instrlist_t *ilist, byte *pc,
+                 bool has_instr_jmp_targets)
+{
+    return instrlist_encode_to_copy(dcontext, ilist, pc, pc, NULL, has_instr_jmp_targets);
+}
