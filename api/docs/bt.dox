@@ -42,6 +42,7 @@ executes.  Modifications are not limited to trampoline insertion and can
 include arbitrary changes.  We divide the API description into the
 following sections:
 
+\ifnot vmsafe
  - \ref sec_IR
  - \ref sec_events_bt
  - \ref sec_decode
@@ -49,7 +50,15 @@ following sections:
  - \ref sec_IR_utils
  - \ref sec_translation
  - \ref bt_examples
-\ifnot vmsafe - \ref sec_startstop
+ - \ref sec_startstop
+\else
+ - \ref sec_IR
+ - \ref sec_events_bt
+ - \ref sec_decode
+ - \ref sec_64bit
+ - \ref sec_IR_utils
+ - \ref sec_translation
+ - \ref bt_examples
 \endif
 
 ***************************************************************************
