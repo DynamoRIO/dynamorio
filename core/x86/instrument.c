@@ -1318,6 +1318,13 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb,
 
     dcontext->client_data->mcontext_in_dcontext = false;
 
+    if (IF_DEBUG_ELSE(for_trace, false)) {
+        CLIENT_ASSERT(instrlist_get_return_target(bb) == NULL &&
+                      instrlist_get_fall_through_target(bb) == NULL,
+                      "instrlist_set_return/fall_through_target"
+                      " cannot be used on traces");
+    }
+
 #ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\nafter instrumentation:\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_INTERP) != 0)
@@ -1377,6 +1384,11 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace,
                  (void *)dcontext, (void *)tag, trace, translating);
 
     DODEBUG({ check_ilist_translations(trace); });
+
+    CLIENT_ASSERT(instrlist_get_return_target(trace) == NULL &&
+                  instrlist_get_fall_through_target(trace) == NULL,
+                  "instrlist_set_return/fall_through_target"
+                  " cannot be used on traces");
 
     dcontext->client_data->mcontext_in_dcontext = false;
 

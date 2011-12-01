@@ -73,6 +73,9 @@ instrlist_init(instrlist_t *ilist)
     ilist->first = ilist->last = NULL;
     ilist->flags = 0;   /* no flags set */
     ilist->translation_target = NULL;
+#ifdef CLIENT_INTERFACE
+    ilist->fall_through_bb = NULL;
+#endif
 }
 
 /* frees the instrlist_t object */
@@ -102,6 +105,44 @@ instrlist_clear_and_destroy(dcontext_t *dcontext, instrlist_t *ilist)
     instrlist_clear(dcontext,ilist);
     instrlist_destroy(dcontext,ilist);
 }
+
+#ifdef CLIENT_INTERFACE
+/* Specifies the fall-through target of a basic block if its last 
+ * instruction is a conditional branch instruction. 
+ * It can only be called in basic block building event callbacks
+ * and has NO EFFECT in other cases, e.g. trace.
+ */
+bool
+instrlist_set_fall_through_target(instrlist_t *bb, app_pc tgt)
+{
+    bb->fall_through_bb = tgt;
+    return true;
+}
+
+app_pc
+instrlist_get_fall_through_target(instrlist_t *bb)
+{
+    return bb->fall_through_bb;
+}
+
+/* Specifies the return target of a basic block if its last 
+ * instruction is a call instruction. 
+ * It can only be called in basic block building event callbacks 
+ * and has NO EFFECT in other cases.
+ */
+bool
+instrlist_set_return_target(instrlist_t *bb, app_pc tgt)
+{
+    bb->fall_through_bb = tgt;
+    return true;
+}
+
+app_pc
+instrlist_get_return_target(instrlist_t *bb)
+{
+    return bb->fall_through_bb;
+}
+#endif /* CLIENT_INTERFACE */
 
 /* All future Instrs inserted into ilist that do not have raw bits
  * will have instr_set_translation called with pc as the target
@@ -368,7 +409,9 @@ instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
         /* restore note field */
         instr_set_note(inst, instr_get_note(copy));
     }
-
+#ifdef CLIENT_INTERFACE
+    newlist->fall_through_bb = old->fall_through_bb;
+#endif
     return newlist;
 }
 

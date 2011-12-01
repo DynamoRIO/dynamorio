@@ -44,6 +44,17 @@ struct _instr_list_t {
     instr_t *last;
     int flags;
     app_pc translation_target;
+#ifdef CLIENT_INTERFACE
+    /* i#620: provide API for setting fall-throught/return target in bb */
+    /* XXX: can this be unioned with traslation_target for saving space?
+     * looks no, as traslation_target will be used in mangle and trace,
+     * which conflicts with our checks in trace and return address mangling. 
+     * XXX: There are several possible ways to implement i#620, for example,
+     * adding a dr_register_bb_event() OUT param. 
+     * However, we do here to avoid breaking backward compatibility
+     */
+    app_pc fall_through_bb;
+#endif /* CLIENT_INTERFACE */
 }; /* instrlist_t */
 
 /* DR_API EXPORT TOFILE dr_ir_instrlist.h */
@@ -184,5 +195,41 @@ DR_API
 /** Removes (does not destroy) \p instr from \p ilist. */
 void   
 instrlist_remove(instrlist_t *ilist, instr_t *instr);
+
+# ifdef CLIENT_INTERFACE
+DR_API
+/**
+ * Specifies the fall-through target of a basic block if its last 
+ * instruction is a conditional branch instruction. 
+ * It can only be called in basic block building event callbacks 
+ * when the \p for_trace parameter is false,
+ * and has NO EFFECT in other cases.
+ */
+bool
+instrlist_set_fall_through_target(instrlist_t *bb, app_pc tgt);
+
+/* Get the fall-through target of a basic block if it is set
+ * by a client, return NULL otherwise. 
+ */
+app_pc
+instrlist_get_fall_through_target(instrlist_t *bb);
+
+DR_API
+/**
+ * Specifies the return target of a basic block if its last 
+ * instruction is a call instruction. 
+ * It can only be called in basic block building event callbacks
+ * when the \p for_trace parameter is false,
+ * and has NO EFFECT in other cases.
+ */
+bool
+instrlist_set_return_target(instrlist_t *bb, app_pc tgt);
+
+/* Get the return target of a basic block if it is set by a client,
+ * return NULL otherwise. 
+ */
+app_pc
+instrlist_get_return_target(instrlist_t *bb);
+# endif /* CLIENT_INTERFACE */
 
 #endif /* _INSTRLIST_H_ */

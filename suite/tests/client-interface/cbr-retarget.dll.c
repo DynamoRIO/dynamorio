@@ -1,5 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,36 +31,39 @@
  * DAMAGE.
  */
 
-#include <stdio.h>
+#include "dr_api.h"
 
-#ifdef WINDOWS
-# define NOP_NOP_CALL(tgt) __nop(); __nop(); tgt()
-# define NOP_NOP_NOP       __nop(); __nop(); __nop()
-#else /* LINUX */
-# define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
-# define NOP_NOP_NOP      asm("nop\n nop\n nop\n")
-#endif
-
-void foo(void)
+static
+dr_emit_flags_t bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool translating)
 {
-    fprintf(stderr, "called foo()\n");
+    instr_t *instr, *next_instr, *next_next_instr, *cbr;
+    app_pc target = NULL;
+    
+    /* Look for pattern: nop; nop; call direct; */
+    for (instr = instrlist_first(bb);
+         instr != NULL; instr = next_instr) {
+        next_instr = instr_get_next(instr);
+        if (next_instr != NULL)
+            next_next_instr = instr_get_next(next_instr);
+        else
+            next_next_instr = NULL;
+
+        if (instr_is_nop(instr) && 
+            next_instr != NULL && instr_is_nop(next_instr) &&
+            instr_is_nop(next_next_instr)) {
+            cbr = instrlist_last(bb);
+            target = opnd_get_pc(instr_get_target(cbr));
+            /* makes the fall-though the same as the taken target */
+            instrlist_set_fall_through_target(bb, target);
+            break;
+        }
+    }
+
+    return DR_EMIT_DEFAULT;
 }
 
-void bar(void)
+DR_EXPORT
+void dr_init(client_id_t id)
 {
-    fprintf(stderr, "called bar()\n");
-}
-
-int main(void)
-{
-    /* Kind of a hack, but seems to work: Use a nop to mark a call
-     * instruction whose target address we can steal, and another nop
-     * to mark the instruction we want to retarget.  We recognize 2 NOPS in
-     * row followed by a direct call (on Linux some libc code has 
-     * nop; call direct; already).
-     */
-    NOP_NOP_CALL(foo);
-    NOP_NOP_CALL(bar);
-    NOP_NOP_NOP;
-    return 0;
+    dr_register_bb_event(bb_event);
 }

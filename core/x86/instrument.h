@@ -292,6 +292,17 @@ DR_API
  * thread-private basic blocks (e.g., self-modifying code).  In this
  * case, clients should be prepared to see duplicate tags without an
  * intermediate deletion.
+ * 
+ * \note A client can change the control flow of the application by 
+ * changing the control transfer instruction at end of the basic block.
+ * If a basic block is ended with a non-control transfer instruction,
+ * a non-meta jump instruction can be inserted. 
+ * If a basic block is ended with a conditional branch,
+ * \p instrlist_set_fall_through_target can be used to change the
+ * fall-through target.
+ * If a basic block is ended with a call instruction, 
+ * \p instrlist_set_return_target can be used to change the return 
+ * target of the call. 
  */
 void
 dr_register_bb_event(dr_emit_flags_t (*func)

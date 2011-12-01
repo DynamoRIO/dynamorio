@@ -3293,6 +3293,16 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
 #ifdef CLIENT_INTERFACE
     client_process_bb(dcontext, bb);
+    /* i#620: provide API to set fall-through and retaddr targets at end of bb */
+    if (instrlist_get_return_target(bb->ilist) != NULL ||
+        instrlist_get_fall_through_target(bb->ilist) != NULL) {
+        CLIENT_ASSERT(instr_is_cbr(instrlist_last(bb->ilist)) ||
+                      instr_is_call(instrlist_last(bb->ilist)),
+                      "instr_set_return_target/instr_set_fall_through_target"
+                      " can only be used in a bb ending with call/cbr");
+        /* the bb cannot be added to a trace */
+        bb->flags |= FRAG_CANNOT_BE_TRACE;
+    }
     if (bb->unmangled_ilist != NULL)
         *bb->unmangled_ilist = instrlist_clone(dcontext, bb->ilist);
 #endif
@@ -3303,7 +3313,19 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
      * will get mangled into a non-cti)
      */
     if (bb->exit_target == NULL) { /* not set by ind branch, etc. */
-        bb->exit_target = (cache_pc) bb->cur_pc; /* fall-through pc */
+        /* fall-through pc */
+#ifdef CLIENT_INTERFACE
+        /* i#620: provide API to set fall-through target at end of bb */
+        bb->exit_target = instrlist_get_fall_through_target(bb->ilist);
+#endif /* CLIENT_INTERFACE */
+        if (bb->exit_target == NULL)
+            bb->exit_target = (cache_pc) bb->cur_pc;
+#ifdef CLIENT_INTERFACE
+        else {
+            LOG(THREAD, LOG_INTERP, 3,
+                "set fall-throught target "PFX" by client\n", bb->exit_target);
+        }
+#endif /* CLIENT_INTERFACE */
         if (bb->instr != NULL && instr_opcode_valid(bb->instr) &&
             instr_is_cbr(bb->instr) &&
             (int) (bb->exit_target - bb->start_pc) <= SHRT_MAX &&

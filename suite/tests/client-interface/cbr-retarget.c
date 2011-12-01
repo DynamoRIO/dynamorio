@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,10 +34,8 @@
 #include <stdio.h>
 
 #ifdef WINDOWS
-# define NOP_NOP_CALL(tgt) __nop(); __nop(); tgt()
 # define NOP_NOP_NOP       __nop(); __nop(); __nop()
 #else /* LINUX */
-# define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
 # define NOP_NOP_NOP      asm("nop\n nop\n nop\n")
 #endif
 
@@ -52,14 +51,25 @@ void bar(void)
 
 int main(void)
 {
-    /* Kind of a hack, but seems to work: Use a nop to mark a call
-     * instruction whose target address we can steal, and another nop
-     * to mark the instruction we want to retarget.  We recognize 2 NOPS in
-     * row followed by a direct call (on Linux some libc code has 
-     * nop; call direct; already).
+    /* Kind of a hack, but seems to work: Use three nops to mark a cbr
+     * instruction whose fall-through address we can change.
      */
-    NOP_NOP_CALL(foo);
-    NOP_NOP_CALL(bar);
     NOP_NOP_NOP;
+#ifdef WINDOWS
+    __asm {
+        mov ecx, 0x0
+        cmp ecx, 0x0
+        jne skip
+        call foo
+        skip:
+    };
+#else
+    __asm("movl $0x0, %ecx");
+    __asm("cmp $0x0, %ecx");
+    __asm("jne skip");
+    __asm("call foo");
+    __asm("skip:");
+#endif
+    bar();
     return 0;
 }

@@ -197,6 +197,8 @@ The changes between version 3.0.0 and 2.2.0 are:
  - Added dr_using_app_state()
  - Added a static library for decoding and encoding
  - Added instr_encode_to_copy() and instrlist_encode_to_copy()
+ - Added instrlist_set_fall_through_target() and
+   instrlist_set_return_target()
  - Several bug fixes
 
 The changes between version 2.2.0 and 2.1.0 are:
