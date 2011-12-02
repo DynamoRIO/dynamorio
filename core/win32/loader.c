@@ -2267,7 +2267,10 @@ add_mod_to_drmarker(dr_marker_t *marker, const char *path, const char *modname,
         ASSERT(res == -1);
         *sofar += strlen(WINDBG_ADD_PATH) + last_dir - path;
         return print_to_buffer(marker->windbg_cmds, WINDBG_CMD_MAX_LEN, sofar,
-                               "};\n.reload %s="PFMT";.echo \"Loaded %s\";\n",
+                               /* XXX i#631: for 64-bit, windbg fails to successfully
+                                * load (has start==end) so we use /i as workaround
+                                */
+                               "};\n.reload /i %s="PFMT";.echo \"Loaded %s\";\n",
                                modname, base, modname);
     } else {
         SYSLOG_INTERNAL_WARNING_ONCE("drmarker windbg cmds out of space");
