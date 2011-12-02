@@ -443,7 +443,7 @@ add_client_lib(char *path, char *id_str, char *options)
                 path, client_libs[idx].start, client_libs[idx].end);
 #ifdef X64
             /* provide a better error message than the heap assert */
-            CLIENT_ASSERT(client_libs[idx].start < (app_pc)(ptr_int_t)INT_MAX,
+            CLIENT_ASSERT(client_libs[idx].start < MAX_LOW_2GB,
                           "64-bit client library must have base in lower 2GB");
             request_region_be_heap_reachable(client_libs[idx].start,
                                              client_libs[idx].end -

@@ -668,18 +668,7 @@ not supported.
     x64 (service pack 2), Vista x64 (service packs 0-1), and Windows 7 x64
     (service pack 0). Windows Server 2008 is likely to work but has not
     been tested.  \DynamoRIO does not
-    support any Itanium based Windows systems.  For 64-bit
-    applications \clients must be compiled for 64-bit with a
-    fixed preferred address in the lower 2GB of the address space (e.g.,
-    with the link options /base:"0x72000000" /FIXED), and multiple
-    \clients with conflicting base addresses aren't supported.  See <a
-    href="../../cmake/DynamoRIOConfig.cmake">../../cmake/DynamoRIOConfig.cmake</a>
-    for an example.  The target application may fail to initialize properly
-    or load \DynamoRIO if there is an address conflict with the preferred
-    bases of the \client or \DynamoRIO dlls, but given the choice of
-    bases and the fact that \DynamoRIO is loaded quite early we expect
-    this to only very rarely be a problem.  This limitation will be
-    addressed in future releases.
+    support any Itanium based Windows systems.
   - This release does not fully support applications that mix 32-bit and
     64-bit code.  Future releases will support such mixtures.
   - When running a cygwin application under control of \DynamoRIO,
@@ -689,21 +678,13 @@ not supported.
     NT.  Statistics still work, but the graphical application itself will
     not run on NT.
 \if linux
-  - This release of \DynamoRIO has support for most 32-bit Linux
+  - This release of \DynamoRIO has support for most 32-bit and
+    64-bit Linux
     distributions running on Intel-compatible hardware, including
-    Ubuntu 7.04, Ubuntu 8.04, and Fedora 9.  It may not support
-    applications using segment registers beyond the standard threading
-    library usage.  Future releases will match the Windows version in
-    comprehensive support.
+    Ubuntu and Fedora.
   - This release of \DynamoRIO has support for running 32-bit
     Linux applications on 64-bit Linux operating systems on
     AMD64-compatible hardware.
-  - This release of \DynamoRIO has support for running 64-bit
-    Linux applications, using the 64-bit \DynamoRIO build.  Similarly to
-    64-bit Windows, \clients must set a preferred base address in the lower
-    2GB of the address space, and multiple \clients with conflicting base
-    addresses aren't supported.  See \ref sec_build.
-    This limitation will be addressed in future releases.
   - Cross-architecture execve (e.g., a 32-bit process performing execve of
     a 64-bit executable) may stop working if the paths to the
     libdynamrio.so and libdrpreload.so libraries are renamed.

@@ -472,10 +472,9 @@ function (configure_DynamoRIO_client target)
   endif (just_configured)
 
   if (tgt_x64)
-    # It's currently required on 64bit that a client library have a
-    # preferred base address in the lower 2GB, to be reachable by our
-    # library and code cache.  This is due to limitations in the current
-    # experimental 64bit release and will be adressed in later releases.
+    # While we now have private loaders that mean we don't need a preferred
+    # base in the lower 2GB, on Windows it's more efficient to avoid
+    # relocation by doing so.
     # Naturally for multiple clients different addresses should be used.
     # We suggest using the range 0x72000000-0x75000000.
     if (NOT DEFINED PREFERRED_BASE)

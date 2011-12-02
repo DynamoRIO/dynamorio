@@ -40,9 +40,8 @@ add_library(drmgr SHARED
   drmgr.c
   # add more here
   )
-# we don't have a solid 64-bit reachability solution and we rely on
-# the preferred base, so don't conflict w/ client
-# forthcoming private loader should fix this.
+# while private loader means preferred base is not required, more efficient
+# to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x73000000)
 configure_DynamoRIO_client(drmgr)
 # ensure we rebuild if includes change

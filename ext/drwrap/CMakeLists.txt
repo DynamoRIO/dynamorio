@@ -28,9 +28,8 @@ add_library(drwrap SHARED
   drwrap.c
   # add more here
   )
-# we don't have a solid 64-bit reachability solution and we rely on
-# the preferred base, so don't conflict w/ client.
-# forthcoming private loader should fix this.
+# while private loader means preferred base is not required, more efficient
+# to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x74000000)
 configure_DynamoRIO_client(drwrap)
 use_DynamoRIO_extension(drwrap drmgr)

@@ -918,6 +918,8 @@ uint hashtable_num_bits(uint size);
     (((reachable_region_start) < ((byte *)POINTER_MAX) - INT_MAX) ?          \
      (reachable_region_start) + INT_MAX : (byte *)POINTER_MAX)
 
+#define MAX_LOW_2GB ((byte*)(ptr_uint_t)INT_MAX)
+
 /* alignment helpers, alignment must be power of 2 */
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 #define ALIGN_FORWARD(x, alignment) \

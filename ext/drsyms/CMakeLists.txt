@@ -35,6 +35,9 @@ cmake_minimum_required(VERSION 2.6)
 
 if (WIN32)
   add_library(drsyms SHARED drsyms_windows.c drsyms_common.c)
+  # while private loader means preferred base is not required, more efficient
+  # to avoid rebase so we avoid conflict w/ client and other exts
+  set(PREFERRED_BASE 0x76000000)
   configure_DynamoRIO_client(drsyms)
   target_link_libraries(drsyms dbghelp)
 elseif (UNIX)

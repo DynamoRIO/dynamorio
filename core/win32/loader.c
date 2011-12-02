@@ -838,19 +838,59 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
     /* On Windows, SEC_IMAGE => the kernel sets up the different segments w/
      * proper protections for us, all on this single map syscall
      */
-    /* If libs should be in lower 2GB or 4GB, they should have a preferred base
-     * there: here we simply pass NULL and let the kernel decide.
-     */
+    /* First map: let kernel pick base */
     map = (*map_func)(fd, size, 0/*offs*/, NULL/*base*/,
                       /* Ask for max, then restrict pieces */
                       MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
-                      /* case 9599: asking for COW commits pagefile space
-                       * up front, so we map two separate views later: see below
-                       */
                       true/*writes should not change file*/, true/*image*/,
                       false/*!fixed*/);
+#ifdef X64
+    /* Client libs need to be in lower 2GB.  DynamoRIOConfig.cmake tries to ensure
+     * that.  Other libs that clients use don't need to be, but we add them as DR
+     * areas, so DR will assert if they're not: so we match the Linux private loader
+     * and get everything in the lower 2GB.  We search for the client too in
+     * case built w/o preferred or conflict w/ executable.
+     */
+    if (map >= MAX_LOW_2GB) {
+        MEMORY_BASIC_INFORMATION mbi;
+        byte *cur = (byte *)(ptr_uint_t)VM_ALLOCATION_BOUNDARY;
+        size_t fsz = *size;
+        bool reloc = module_file_relocatable(map);
+        (*unmap_func)(map, fsz);
+        map = NULL;
+        if (!reloc) {
+            os_close(fd);
+            return NULL; /* failed */
+        }
+        /* Query to find a big enough region */
+        while (cur + fsz <= MAX_LOW_2GB &&
+               query_virtual_memory(cur, &mbi, sizeof(mbi)) == sizeof(mbi)) { 
+            if (mbi.State == MEM_FREE &&
+                mbi.RegionSize - (cur - (byte *)mbi.BaseAddress) >= fsz) {
+                map = (*map_func)(fd, size, 0/*offs*/, cur,
+                                  MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
+                                  true/*COW*/, true/*image*/, false/*!fixed*/);
+                if (map != NULL) {
+                    if (map >= MAX_LOW_2GB) {
+                        /* try again: could be a race or sthg */
+                        (*unmap_func)(map, fsz);
+                        map = NULL;
+                    } else
+                        break; /* done */
+                }
+            }
+            cur = (byte *)ALIGN_FORWARD((byte *)mbi.BaseAddress + mbi.RegionSize,
+                                        VM_ALLOCATION_BOUNDARY);
+            /* check for overflow or 0 region size to prevent infinite loop */
+            if (cur <= (byte *)mbi.BaseAddress)
+                break; /* give up */
+        }
+    }
+#endif
     os_close(fd); /* no longer needed */
     fd = INVALID_FILE;
+    if (map == NULL)
+        return NULL; /* failed */
 
     pref = get_module_preferred_base(map);
     if (pref != map) {
