@@ -69,6 +69,10 @@ The following are part of the \DynamoRIO release distribution:
    32-bit and 64-bit. 
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
+ - Four different IA-32/AMD64 decoding static libraries: debug and release
+   for each of 32-bit and 64-bit. 
+   The debug library enables assertion messages to more easily diagnose
+   API usage errors.
  - The \DynamoRIO configuration and execution libraries and command-line
    utilities \c drconfiglib.dll, \c drinjectlib.dll, \c drconfig.exe,
    \c drrun.exe, and \c drinject.exe.
@@ -78,7 +82,7 @@ The following are part of the \DynamoRIO release distribution:
    \if linux Windows package only. \endif
 \if linux
  - The \c drconfig, \c drrun, and \c drinject scripts for configuring and
-   running applications under \DynamoRIO on Linux (Linux package only).
+   running applications under \DynamoRIO on Linux.  Linux package only.
 \endif
  - Header files for the \DynamoRIO APIs.
  - This documentation.
@@ -108,15 +112,26 @@ The following are part of the \DynamoRIO release distribution:
 
 The current version is \DR_VERSION.  
 
-The 3.0.0 and onward \client API is mostly backward
+The changes between version 3.0.0 and 2.2.0 include the following major
+features:
+
+ - Added a private loader on Linux for better support for C++ \clients and
+   third-party library usage by \clients
+ - Added Linux support for \p drsyms to enable symbol processing in 
+   Linux \clients
+ - Added \p drutil Extension which provides memory address retrieval
+   and string loop expansion (note: LGPL license)
+ - Added a static library for decoding and encoding
+
+\b IMPORTANT: The 3.0.0 and onward \client API is mostly backward
 compatible with releases from 1.0.0 (originally called 0.9.6: see below)
 onward with the exception of functions that involve dr_mcontext_t and
 several other source and binary compatibility changes since version 2.2.0
 described below.  The dr_mcontext_t struct and all structs that contain it
 have changed and are NOT backward compatible with releases prior to 3.0.0.
 
-A sample script for updating \client sources to the 3.0.0 API is as
-follows:
+A sample script for updating \client sources to the 3.0.0 API's version of
+dr_mcontext_t and related functions is as follows:
 
 \code
 perl -pi -e '\
@@ -144,10 +159,9 @@ initialization syntax in the script will end up calling memset; for
 performance-critical situations, instead initialize only the size field
 separately.
 
-The changes between version 3.0.0 and 2.2.0 are:
+\b IMPORTANT: Further changes between version 3.0.0 and 2.2.0 include the following that
+affect source and/or binary compatibilty:
 
- - Added a private loader on Linux for better support for C++ \clients and
-   third-party library usage by \clients
  - Changed the #dr_mcontext_t structure field layout.  This is a binary
    compatibility change with respect to versions prior to 3.0.0.
  - Added a dr_mcontext_t.size field which must be set by the \client prior
@@ -164,15 +178,20 @@ The changes between version 3.0.0 and 2.2.0 are:
    prior to 3.0.0.
  - Changed the signature of drwrap_unwrap(), in order to allow one of the
    pre or post hooks to be optional (Issue 562).  This is a source
-   compatibility change.
+   compatibility change with respect to versions prior to 3.0.0.
  - Moved console printing support from the drsyms Extension to core DR.  The
    drsym_write_to_console() and drsym_using_console() are no longer
    supported.  Instead, call dr_enable_console_printing() in dr_init(),
    which then enables dr_printf() and dr_fprintf() to print to the console
    (with some limitations: see dr_enable_console_printing() documentation).
-   This is a source compatibility change.
- - Added \p drutil Extension which provides memory address retrieval
-   and string loop expansion (note: LGPL license)
+   This is a source compatibility change with respect to versions
+   prior to 3.0.0.
+ - Added a \p flags argument to most of the routines in the \p drsyms extension
+   to control demangling, and added drsym_demangle_symbol().  This is a source
+   compatibility change with respect to versions prior to 3.0.0.
+
+Additional changes between version 3.0.0 and 2.2.0 include the following:
+
  - Added \p drvector to drcontainers Extension: simple resizable vector
  - Added a windbg script for auto-locating libraries for easier
    debugging
@@ -181,22 +200,22 @@ The changes between version 3.0.0 and 2.2.0 are:
  - Added dr_map_file(), dr_unmap_file(), and dr_file_size() (Issue 542)
  - Added dr_rename_file() and dr_delete_file().
  - Added routines to disassemble to a buffer rather than a file (Issue 524)
+ - Added support for the AVX and FMA ISA extensions
  - Added dr_insert_get_seg_base()
  - Added return value to dr_redirect_execution() and dr_set_mcontext()
- - Added support for the AVX and FMA ISA extensions
- - Increased maximum option string from 512 to 1024 (Issue 363)
+ - Increased maximum option string from 512 to 2048 (Issue 363)
+ - Increased default stack size from 20KB to 56KB to make it easier to use
+   C++ and external libraries with larger stack usage
  - Added dr_get_os_version() (Issue 304)
  - Deprecated the "meta-instruction that can fault" property and
    instr_is_meta_may_fault(), instr_set_meta_may_fault(),
    instrlist_meta_fault_preinsert(), instrlist_meta_fault_postinsert(),
    and instrlist_meta_fault_append().
- - Added a \p flags argument to most of the routines in the \p drsyms extension
-   to control demangling, and added drsym_demangle_symbol().  This is a source
-   compatibility change with respect to versions prior to 3.0.0.
- - Added Linux support for \p drsyms.
  - Added dr_using_app_state()
- - Added a static library for decoding and encoding
  - Added instr_encode_to_copy() and instrlist_encode_to_copy()
+ - Added disassemble_set_syntax() for -syntax_intel control without
+   runtime options and proc_set_vendor() to control vendor-specific
+   ISA details when decoding or encoding
  - Added instrlist_set_fall_through_target() and
    instrlist_set_return_target()
  - Several bug fixes
@@ -611,7 +630,7 @@ provide private loading that makes some use of system libraries safe, but
 global resource conflicts can still occur and \clients are cautioned from
 using system-interacting library routines.
 See \ref sec_extlibs for further details.
-  - Currently communication API provided by \DynamoRIO is limited to file
+  - Currently, the communication API provided by \DynamoRIO is limited to file
 I/O and nudges.
 \if vmsafe
   - The security agent on the security monitor VM has no direct
@@ -647,15 +666,15 @@ not supported.
     Windows systems : NT (all service packs), 2000 (all service
     packs), XP (32-bit, service packs 0-3), 2003 (32-bit, service
     packs 0-2), Vista (32-bit, service packs 0-1), and Windows 7 (32-bit,
-    service pack 0). It does not support Windows 95, 98, or ME.
+    service packs 0-1). It does not support Windows 95, 98, or ME.
     Windows Server 2008 is likely to work but has not been tested.
   - This release of \DynamoRIO has limited support for running 32-bit
     Windows applications on the following 64-bit Windows operating
     systems : Windows XP Professional x64 (service pack 2), Windows 2003
     x64 (service pack 2), Vista x64 (service packs 0-1), and Windows 7
-    (service pack 0).  Windows Server 2008 is likely to work but has not
+    (service packs 0-1).  Windows Server 2008 is likely to work but has not
     been tested.  Only the 32-bit
-    code will be seen, and children processes created will not be injected
+    code will be seen, and child processes created will not be injected
     into.  On 64-bit Windows 32-bit applications are automatically run
     through the Windows-On-Windows or WOW64 emulator so system call and
     indirect call processing \clients must be aware of
@@ -666,9 +685,9 @@ not supported.
     the following 64-bit Windows systems: Windows XP Professional x64
     (service pack 2), Windows 2003
     x64 (service pack 2), Vista x64 (service packs 0-1), and Windows 7 x64
-    (service pack 0). Windows Server 2008 is likely to work but has not
-    been tested.  \DynamoRIO does not
-    support any Itanium based Windows systems.
+    (service packs 0-1). Windows Server 2008 is likely to work but has not
+    been tested.
+  - \DynamoRIO does not support any Itanium based Windows systems.
   - This release does not fully support applications that mix 32-bit and
     64-bit code.  Future releases will support such mixtures.
   - When running a cygwin application under control of \DynamoRIO,
@@ -729,7 +748,7 @@ not supported.
   - On Windows 7 and Windows Server 2008 R2, the digital signature
     requirement for AppInit_DLLs libraries is disabled when systemwide
     injection is requested.  This can be a security concern.    
-  - Cygwin processes do not work with \DynamoRIO due to cygwin's
+  - Cygwin processes may not work with \DynamoRIO due to cygwin's
     implementation of fork being incompatible with \DynamoRIO.
   - Though \DynamoRIO supports running on Windows NT, the provided
     installer will only run on Windows 2000 and higher.  After
@@ -769,7 +788,7 @@ not supported.
     certain dlls (found mostly in services) and the code subsequently
     called from those dlls is run natively and is not visible to the
     instrumentation APIs.  This only applies to dlls that have a .pexe
-    section (only 13 dlls have such a section is a standard Vista
+    section (only 13 dlls have such a section in a standard Vista
     install) which seems to be associated with a likely obfuscation
     method involving kernel side components that this release has no
     other workaround for.
@@ -797,15 +816,15 @@ not supported.
 
 We hope to include the following major features in future releases:
 
- - Persistent and process-shared code caches
- - Auto-inlining of instrumentation callouts
- - \Client threads
-
-We also plan to add a number of secondary features, including:
-
+ - Libraries to facilitate building tools that use shadow memory, examine
+   system calls, and insert heavyweight instrumentation
+ - Earliest Windows injection.  Today drinject injects fairly late; from a
+   parent process, injection is very early (before kernel32.dll is loaded),
+   but we plan to provide injection at the very first user-mode instruction
+   in the future.
  - More flexible (earlier, or later via attach) Linux injection
+ - Persistent and process-shared code caches
  - Full control over trace building
- - \Client exception event for \client fault recovery/remediation
 
 To discuss current and future features, join the <a
 href="http://groups.google.com/group/dynamorio-users/">\DynamoRIO Users

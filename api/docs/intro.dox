@@ -100,6 +100,7 @@ sections:
 - \subpage page_standalone
   <br>\DynamoRIO can be used as a standalone library for IA-32/AMD64
   disassembly, decoding, encoding, and general instruction manipulation.
+  A separate static library is provided for this purpose.
 \endif
 
 - \subpage API_tutorial
@@ -1041,19 +1042,16 @@ g++ -o my-client.so -I<header dir> \
 
 \subsection subsec_cpp C++ \Clients
 
-On Windows, when using the Microsoft Visual C++ compiler, simply use the \p
-/MT compiler flag.  The \client will still use the \p kernel32.dll library
-but our private loader will load a separate copy of that library and
-redirect heap allocation automatically.  Our private loader does not yet
-support locating SxS libraries, so using \p /MD will most likely not work
-unless using an older version of the compiler.
+The 3.0 version of \DynamoRIO added experimental full support for C++
+\clients using the STL and other libraries.
 
-Be aware that we have successfully built and tested several small C++
-\clients using the gcc toolchain, but have not performed extensive testing.
-Our \clients successfully compile and run linked with the g++ libraries
-included in Red Hat Enterprise Linux 4, but on later distributions the
-pre-built libraries may not work and you may need to build static versions
-from the gcc sources with the appropriate flags (including -fPIC).
+On Windows, when using the Microsoft Visual C++ compiler, we recommend
+using the \p /MT compiler flag to request a static C library.  The \client
+will still use the \p kernel32.dll library but our private loader will load
+a separate copy of that library and redirect heap allocation automatically.
+Our private loader does not yet support locating SxS (side-by-side)
+libraries, so using \p /MD will most likely not work unless using a
+version of the Visual Studio compiler other than 2005 or 2008.
 
 We do not recommend that a \client or its libraries invoke their own system
 calls as this bypasses \DynamoRIO's monitoring of changes to the process
@@ -1243,7 +1241,8 @@ they want to shrink memory usage
 
  - \b -syntax_intel: \anchor op_syntax_intel
     This option causes \DynamoRIO to output all disassembly using Intel
-    syntax rather than the default AT&T-style syntax.
+    syntax rather than the default AT&T-style syntax.  This can also be set
+    using disassemble_set_syntax().
 
 \ifnot vmsafe
  - \b -tracedump_text and \b -tracedump_binary:
@@ -1319,7 +1318,8 @@ Options aiding in debugging:
     By default, \DynamoRIO hides itself from the Windows module list, for
     transparency.  However, this makes it more difficult to debug a process
     under \DynamoRIO's control.  The option -no_hide turns off this module
-    hiding.  However, note that we provide a windbg script that can locate
+    hiding.  However, the \client library and any libraries it imports from
+    will still be hidden.  We provide a windbg script that can locate
     \DynamoRIO, the \client library, and all of its dependences, so this
     option should no longer be necessary (see \ref sec_debugging).
    \if linux This option is for Windows only. \endif
