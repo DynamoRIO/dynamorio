@@ -347,7 +347,8 @@ void dump_context_info(CONTEXT *context, file_t file, bool all);
  * for floating point w/o underlying sse support is not a problem.
  */
 #ifndef CONTEXT_XSTATE /* defined in VS2008+ */
-# define CONTEXT_XSTATE (IF_X64_ELSE(CONTEXT_AMD64,CONTEXT_i386) | 0x20L)
+/* FIXME: win7sp1+ both should be 0x40 */
+# define CONTEXT_XSTATE (IF_X64_ELSE((CONTEXT_AMD64 | 0x20L), (CONTEXT_i386 | 0x40L))
 #endif
 #define CONTEXT_XMM_FLAG IF_X64_ELSE(CONTEXT_FLOATING_POINT, CONTEXT_EXTENDED_REGISTERS)
 #define CONTEXT_YMM_FLAG CONTEXT_XSTATE
