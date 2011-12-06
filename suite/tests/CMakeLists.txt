@@ -1335,8 +1335,6 @@ if (UNIX)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.thread linux/thread.c)
-
-  # FIXME TOFILE: nondet failures: still some races or sthg
   tobuild(linux.threadexit linux/threadexit.c)
   tobuild(linux.threadexit2 linux/threadexit2.c)
 
@@ -1353,7 +1351,7 @@ if (UNIX)
 
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
-  tobuild(pthreads.ptsig pthreads/ptsig.c)
+  tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
 
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64
@@ -1374,7 +1372,7 @@ if (UNIX)
   torunonly(linux.reset linux/infloop linux/reset.runall "" "-v")
   if (NOT X64)
     # XXX: 64-bit support not quite there yet
-    torunonly(linux.freeze linux/infloop linux/freeze.runall
+    torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall
       "-coarse_units -coarse_enable_freeze" "-v")
   endif (NOT X64)
 
@@ -1383,13 +1381,13 @@ if (UNIX)
   file(MAKE_DIRECTORY "${PCACHE_SHARED_DIR}")
   if (NOT X64)
     # XXX: 64-bit support not quite there yet
-    torunonly(linux.persist linux/infloop linux/persist.runall
+    torunonly(linux.persist_FLAKY linux/infloop linux/persist.runall
       "-coarse_units -coarse_split_calls -coarse_enable_freeze -coarse_freeze_min_size 0 -no_persist_per_user -no_validate_owner_dir" "-v")
-    torunonly(linux.persist-use linux/infloop linux/persist-use.runall
+    torunonly(linux.persist-use_FLAKY linux/infloop linux/persist-use.runall
       "-use_persisted -coarse_units -coarse_split_calls -no_persist_per_user -no_validate_owner_dir" "-v")
   endif (NOT X64)
   # when running tests in parallel: have to generate pcaches first
-  set(linux.persist-use_depends linux.persist)
+  set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 else (UNIX)
   if (VPS)
     # too flaky across platforms so we limit to VPS only: not too useful
@@ -1413,12 +1411,12 @@ else (UNIX)
   # FIXME i#192: oomtest ends up killing parent shell: investigate, fix, re-enable!
   #tobuild(win32.oomtest win32/oomtest.c)
   if (TEST_SUITE) # failing on win7 (i#422) so run only in suite
-    tobuild(win32.partial_map win32/partial_map.c)
+    tobuild(win32.partial_map_FLAKY win32/partial_map.c)
   endif (TEST_SUITE)
   tobuild(win32.protect-datasec win32/protect-datasec.c)
   tobuild_dll(win32.rebased win32/rebased.c "")
   if (TEST_SUITE) # fails non-det so run only in suite
-    tobuild_dll(win32.reload win32/reload.c "")
+    tobuild_dll(win32.reload_FLAKY win32/reload.c "")
   endif (TEST_SUITE)
   tobuild_dll(win32.reload-newaddr win32/reload-newaddr.c "")
   # FIXME i#267: fix curiosities and re-enable
@@ -1430,7 +1428,7 @@ else (UNIX)
   tobuild(win32.suspend win32/suspend.c)
   tobuild(win32.threadchurn win32/threadchurn.c)
   if (TEST_SUITE) # occasionally fails so run only in suite
-    tobuild(win32.threadexit win32/threadexit.c)
+    tobuild(win32.threadexit_FLAKY win32/threadexit.c)
   endif (TEST_SUITE)
   # PR 215238 covers re-enabling threadinjection
   #tobuild(win32.threadinjection win32/threadinjection.c)
@@ -1441,8 +1439,12 @@ else (UNIX)
   tobuild(win32.winapc win32/winapc.c)
   tobuild(win32.winthread win32/winthread.c)
 
+  set(apc_shellcode security-win32.apc-shellcode)
+  if (X64)
+    set(apc_shellcode "${apc_shellcode}_FLAKY")
+  endif ()
   if (NOT X64 OR TEST_SUITE) # fail on x64 so run only in suite
-    tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
+    tobuild("${apc_shellcode}" security-win32/apc-shellcode.c)
   endif ()
 
   if (NOT X64)
@@ -1464,7 +1466,7 @@ else (UNIX)
 
     tobuild_dll(security-win32.aslr-ind security-win32/aslr-ind.c "")
     if (TEST_SUITE) # fails non-det so run only in suite
-      tobuild(security-win32.codemod-threads security-win32/codemod-threads.c)
+      tobuild(security-win32.codemod-threads_FLAKY security-win32/codemod-threads.c)
     endif (TEST_SUITE)
 
     # we tweak cflags in set_cflags() rather than passing extra param all
@@ -1472,12 +1474,12 @@ else (UNIX)
     tobuild(security-win32.except-execution security-win32/except-execution.c)
     # we match exe addresses in output so no ASLR
     append_link_flags(security-win32.except-execution "/dynamicbase:no")
-    
+
     tobuild(security-win32.except-thread security-win32/except-thread.c)
     tobuild(security-win32.gbop-test security-win32/gbop-test.c)
 
     if (TEST_SUITE) # fails non-det so run only in suite
-      tobuild(security-win32.hooker security-win32/hooker.c)
+      tobuild(security-win32.hooker_FLAKY security-win32/hooker.c)
     endif (TEST_SUITE)
     tobuild(security-win32.hooker-ntdll security-win32/hooker-ntdll.c)
     tobuild(security-win32.indexisting security-win32/indexisting.c)
@@ -1542,9 +1544,9 @@ tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
 tochcon(security-common.decode-bad-stack execmem_exec_t)
 mark_execstack(security-common.decode-bad-stack)
 if (TEST_SUITE) # fails non-det (i#423) so run only in suite
-  tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
+  tobuild(security-common.jmp_from_trace_FLAKY security-common/jmp_from_trace.c)
+  tochcon(security-common.jmp_from_trace_FLAKY textrel_shlib_t)
 endif (TEST_SUITE)
-tochcon(security-common.jmp_from_trace textrel_shlib_t)
 tobuild(security-common.retexisting security-common/retexisting.c)
 tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
 tobuild(security-common.retnonexisting security-common/retnonexisting.c)
@@ -1558,14 +1560,21 @@ if (NOT X64)
 endif (NOT X64)
 tobuild(security-common.selfmod security-common/selfmod.c)
 tochcon(security-common.selfmod textrel_shlib_t)
-if (NOT X64 OR TEST_SUITE) # fail on x64 so run only in suite
-  tobuild(security-common.TestAllocWE security-common/TestAllocWE.c)
-  remove_debug_flag(security-common.TestAllocWE) # i#567: breaks w/ /debug
-  tobuild(security-common.TestMemProtChg security-common/TestMemProtChg.c)
-  remove_debug_flag(security-common.TestMemProtChg) # i#567: breaks w/ /debug
-  tochcon(security-common.TestMemProtChg wine_exec_t)
-  mark_execstack(security-common.TestMemProtChg)
+
+set(TestAllocWE "security-common.TestAllocWE")
+set(TestMemProtChg "security-common.TestMemProtChg")
+if (X64) # fail on x64
+  set(TestAllocWE "${TestAllocWE}_FLAKY")
+  set(TestMemProtChg "${TestMemProtChg}_FLAKY")
 endif ()
+if (NOT X64 OR TEST_SUITE) # fail on x64 so run only in suite
+  tobuild(${TestAllocWE} security-common/TestAllocWE.c)
+  remove_debug_flag(${TestAllocWE}) # i#567: breaks w/ /debug
+  tobuild(${TestMemProtChg} security-common/TestMemProtChg.c)
+  remove_debug_flag(${TestMemProtChg}) # i#567: breaks w/ /debug
+  tochcon(${TestMemProtChg} wine_exec_t)
+  mark_execstack(${TestMemProtChg})
+endif (NOT X64 OR TEST_SUITE)
 
 ###########################################################################
 

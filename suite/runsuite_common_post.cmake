@@ -145,8 +145,7 @@ foreach (xml ${all_xml})
           endif (NOT failcount EQUAL num_errors)
         endif (EXISTS "${lastfailed}")
 
-        file(APPEND ${outf}
-          "${build}: ${num_passed} tests passed, **** ${num_errors} tests failed: ****\n")
+        set(summary "")
         # avoid ; messing up interp as list
         string(REGEX REPLACE "&[^;]+;" "" string "${string}")
         string(REGEX REPLACE ";" ":" string "${string}")
@@ -156,12 +155,25 @@ foreach (xml ${all_xml})
         string(REGEX MATCHALL "Status=\"failed\">[^%]*%</Measurement>"
           failures "${string}")
         # FIXME: have a list of known failures and label w/ " (known: i#XX)"
+        set(num_flaky 0)
         foreach (failure ${failures})
           # show key failures like crashes and asserts
           string(REGEX REPLACE "^.*<Name>([^<]+)<.*$" "\\1" name "${failure}")
           error_string("${failure}" reason)
-          file(APPEND ${outf} "\t${name} ${reason}\n")
+          set(summary "${summary}\t${name} ${reason}\n")
+          if ("${name}" MATCHES "_FLAKY$")
+            math(EXPR num_flaky "${num_flaky} + 1")
+          endif ()
         endforeach (failure)
+
+        # Append summary.
+        file(APPEND ${outf} "${build}: ${num_passed} tests passed, ")
+        file(APPEND ${outf} "**** ${num_errors} tests failed")
+        if (${num_flaky} GREATER 0)
+          file(APPEND ${outf} ", of which ${num_flaky} were flaky")
+        endif ()
+        file(APPEND ${outf} ": ****\n")
+        file(APPEND ${outf} "${summary}")
       else (test_errors)
         if (passed)
           file(APPEND ${outf} "${build}: all ${num_passed} tests passed\n")
