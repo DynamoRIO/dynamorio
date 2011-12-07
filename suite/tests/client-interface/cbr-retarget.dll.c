@@ -52,9 +52,11 @@ dr_emit_flags_t bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_t
             next_instr != NULL && instr_is_nop(next_instr) &&
             instr_is_nop(next_next_instr)) {
             cbr = instrlist_last(bb);
-            target = opnd_get_pc(instr_get_target(cbr));
-            /* makes the fall-though the same as the taken target */
-            instrlist_set_fall_through_target(bb, target);
+            if (instr_is_cbr(cbr)) {
+                target = opnd_get_pc(instr_get_target(cbr));
+                /* makes the fall-though the same as the taken target */
+                instrlist_set_fall_through_target(bb, target);
+            }
             break;
         }
     }
