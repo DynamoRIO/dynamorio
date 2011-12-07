@@ -1411,7 +1411,9 @@ else (UNIX)
   # FIXME i#192: oomtest ends up killing parent shell: investigate, fix, re-enable!
   #tobuild(win32.oomtest win32/oomtest.c)
   if (TEST_SUITE) # failing on win7 (i#422) so run only in suite
-    tobuild(win32.partial_map_FLAKY win32/partial_map.c)
+    # Keep exe name same, is checked in DR.
+    add_exe(win32.partial_map win32/partial_map.c)
+    torunonly(win32.partial_map_FLAKY win32.partial_map win32/partial_map.c "" "")
   endif (TEST_SUITE)
   tobuild(win32.protect-datasec win32/protect-datasec.c)
   tobuild_dll(win32.rebased win32/rebased.c "")
