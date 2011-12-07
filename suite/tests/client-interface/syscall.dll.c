@@ -46,7 +46,7 @@ static void
 at_syscall()
 {
     if (monitoring) {
-        dr_mcontext_t mcontext = {sizeof(mcontext),};
+        dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
         void *drcontext = dr_get_current_drcontext();
         dr_get_mcontext(drcontext, &mcontext);
         dr_fprintf(STDERR, PFX"\n", mcontext.xax);

@@ -3025,12 +3025,14 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         instrlist_t *ilist = NULL;
         fragment_t *f = owning_f;
         bool alloc = false;
+        IF_X64(bool old_mode;)
 #ifdef CLIENT_INTERFACE
         dr_restore_state_info_t client_info;
-        dr_mcontext_t xl8_mcontext = {sizeof(dr_mcontext_t),};
-        dr_mcontext_t raw_mcontext = {sizeof(dr_mcontext_t),};
+        dr_mcontext_t xl8_mcontext;
+        dr_mcontext_t raw_mcontext;
+        dr_mcontext_init(&xl8_mcontext);
+        dr_mcontext_init(&raw_mcontext);
 #endif
-        IF_X64(bool old_mode;)
 
         /* Rather than storing a mapping table, we re-build the fragment
          * containing the code cache pc whenever we can.  For pending-deletion
@@ -4182,7 +4184,23 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
      */
     if (src->size != sizeof(dr_mcontext_t))
         return false;
-    *dst = *(priv_mcontext_t*)(&src->xdi);
+    if (TESTALL(DR_MC_ALL, src->flags))
+        *dst = *(priv_mcontext_t*)(&src->xdi);
+    else {
+        if (TEST(DR_MC_INTEGER, src->flags)) {
+            memcpy(&dst->xdi, &src->xdi, offsetof(priv_mcontext_t, xsp));
+            memcpy(&dst->xbx, &src->xbx, offsetof(priv_mcontext_t, xflags) -
+                   offsetof(priv_mcontext_t, xbx));
+        }
+        if (TEST(DR_MC_CONTROL, src->flags)) {
+            dst->xsp = src->xsp;
+            dst->xflags = src->xflags;
+            dst->xip = src->xip;
+        }
+        if (TEST(DR_MC_MULTIMEDIA, src->flags)) {
+            memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm));
+        }
+    }
     return true;
 }
 
@@ -4195,14 +4213,42 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
      */
     if (dst->size != sizeof(dr_mcontext_t))
         return false;
-    *(priv_mcontext_t*)(&dst->xdi) = *src;
+    if (TESTALL(DR_MC_ALL, dst->flags))
+        *(priv_mcontext_t*)(&dst->xdi) = *src;
+    else {
+        if (TEST(DR_MC_INTEGER, dst->flags)) {
+            memcpy(&dst->xdi, &src->xdi, offsetof(priv_mcontext_t, xsp));
+            memcpy(&dst->xbx, &src->xbx, offsetof(priv_mcontext_t, xflags) -
+                   offsetof(priv_mcontext_t, xbx));
+        }
+        if (TEST(DR_MC_CONTROL, dst->flags)) {
+            dst->xsp = src->xsp;
+            dst->xflags = src->xflags;
+            dst->xip = src->xip;
+        }
+        if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
+            memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm));
+        }
+    }
     return true;
 }
 
 priv_mcontext_t *
 dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
 {
+    /* We allow not selected xmm fields since clients may legitimately
+     * emulate a memref w/ just GPRs
+     */
+    CLIENT_ASSERT(TESTALL(DR_MC_CONTROL|DR_MC_INTEGER, mc->flags),
+                  "dr_mcontext_t.flags must include DR_MC_CONTROL and DR_MC_INTEGER");
     return (priv_mcontext_t*)(&mc->xdi);
+}
+
+void
+dr_mcontext_init(dr_mcontext_t *mc)
+{
+    mc->size = sizeof(dr_mcontext_t);
+    mc->flags = DR_MC_ALL;
 }
 
 /* dumps the context */

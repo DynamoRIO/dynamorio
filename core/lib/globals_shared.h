@@ -1572,6 +1572,31 @@ typedef union _dr_ymm_t {
 # define PRE_XMM_PADDING 24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
 #endif
 
+/** Values for the flags field of dr_mcontext_t */
+typedef enum {
+    /**
+     * Selects the xdi, xsi, xbp, xbx, xdx, xcx, xax, and r8-r15 fields (i.e.,
+     * all of the general-purpose registers excluding xsp, xip, and xflags).
+     */
+    DR_MC_INTEGER    = 0x01,
+    /**
+     * Selects the xsp, xflags, and xip fields.
+     * \note: The xip field is only honored as an input for
+     * dr_redirect_execution(), and as an output for system call
+     * events.
+     */
+    DR_MC_CONTROL    = 0x02,
+    /**
+     * Selects the ymm (and xmm) fields.  This flag is ignored unless
+     * dr_mcontext_xmm_fields_valid() returns true.  If
+     * dr_mcontext_xmm_fields_valid() returns false, the application values of
+     * the multimedia registers remain in the registers themselves.
+     */
+    DR_MC_MULTIMEDIA = 0x04,
+    /** Selects all fields */
+    DR_MC_ALL        = (DR_MC_INTEGER | DR_MC_CONTROL | DR_MC_MULTIMEDIA),
+} dr_mcontext_flags_t;
+
 /**
  * Machine context structure.
  */
@@ -1581,6 +1606,15 @@ typedef struct _dr_mcontext_t {
      * in the fields to support forward compatibility.
      */
     size_t size;
+    /**
+     * The valid fields of this structure.  This field must be set prior to
+     * filling in the fields.  For input requests (dr_get_mcontext()), this
+     * indicates which fields should be written.  Writing the multimedia fields
+     * frequently can incur a performance hit.  For output requests
+     * (dr_set_mcontext() and dr_redirect_execution()), this indicates which
+     * fields will be copied to the actual context.
+     */
+    dr_mcontext_flags_t flags;
 #include "mcxtx.h"
 } dr_mcontext_t;
 /* DR_API EXPORT END */
@@ -1589,8 +1623,6 @@ typedef struct _dr_mcontext_t {
 typedef struct _priv_mcontext_t {
 #include "mcxtx.h"
 } priv_mcontext_t;
-
-/* DR_API EXPORT END */
 
 /* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
  * libc routines invoked by DR in some Linux systems (xref i#139),

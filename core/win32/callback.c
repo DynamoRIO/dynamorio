@@ -4323,11 +4323,13 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
      * plenty of stack space.
      */
     dr_exception_t einfo;
-    dr_mcontext_t xl8_dr_mcontext = {sizeof(dr_mcontext_t),};
-    dr_mcontext_t raw_dr_mcontext = {sizeof(dr_mcontext_t),};
+    dr_mcontext_t xl8_dr_mcontext;
+    dr_mcontext_t raw_dr_mcontext;
     fragment_t *fragment;
     fragment_t  wrapper;
     bool pass_to_app;
+    dr_mcontext_init(&xl8_dr_mcontext);
+    dr_mcontext_init(&raw_dr_mcontext);
     einfo.record = pExcptRec;
     context_to_mcontext(dr_mcontext_as_priv_mcontext(&xl8_dr_mcontext), cxt);
     einfo.mcontext = &xl8_dr_mcontext;
@@ -4361,8 +4363,12 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
         swap_peb_pointer(dcontext, false/*to app*/);
 
     if (pass_to_app) {
+        CLIENT_ASSERT(einfo.mcontext->flags == DR_MC_ALL,
+                      "exception mcontext flags cannot be changed");
         mcontext_to_context(cxt, dr_mcontext_as_priv_mcontext(einfo.mcontext));
     } else {
+        CLIENT_ASSERT(einfo.raw_mcontext->flags == DR_MC_ALL,
+                      "exception mcontext flags cannot be changed");
         mcontext_to_context(cxt, dr_mcontext_as_priv_mcontext(einfo.raw_mcontext));
         /* Now re-execute the faulting instr, or go to
          * new context specified by client, skipping

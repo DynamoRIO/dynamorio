@@ -1784,7 +1784,8 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
     dr_security_violation_action_t dr_action, dr_action_original;
     app_pc source_pc = NULL;
     fragment_t *last;
-    dr_mcontext_t dr_mcontext = {sizeof(dr_mcontext_t),};
+    dr_mcontext_t dr_mcontext;
+    dr_mcontext_init(&dr_mcontext);
 
     if (security_violation_callbacks.num == 0)
         return;
@@ -4618,6 +4619,8 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
          */
         CLIENT_ASSERT(dmc->size == sizeof(dr_mcontext_t),
                       "dr_mcontext_t.size field not set properly");
+        CLIENT_ASSERT(dmc->flags != 0 && (dmc->flags & ~(DR_MC_ALL)) == 0,
+                      "dr_mcontext_t.flags field not set properly");
     } else
         CLIENT_ASSERT(dmc == NULL, "invalid internal params");
 
@@ -4664,7 +4667,7 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     /* esp is a dstack value -- get the app stack's esp from the dcontext */
     if (mc != NULL)
         mc->xsp = get_mcontext(dcontext)->xsp;
-    else
+    else if (TEST(DR_MC_CONTROL, dmc->flags))
         dmc->xsp = get_mcontext(dcontext)->xsp;
 
     /* XXX: should we set the pc field? */
@@ -4688,6 +4691,10 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
     CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
     CLIENT_ASSERT(context != NULL, "invalid context");
+    CLIENT_ASSERT(context->size == sizeof(dr_mcontext_t),
+                  "dr_mcontext_t.size field not set properly");
+    CLIENT_ASSERT(context->flags != 0 && (context->flags & ~(DR_MC_ALL)) == 0,
+                  "dr_mcontext_t.flags field not set properly");
 
     /* i#117/PR 395156: allow dr_[gs]et_mcontext where accurate */
     /* PR 207947: support mcontext access from syscall events */
@@ -4707,8 +4714,10 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
     if (!dr_mcontext_to_priv_mcontext((priv_mcontext_t *)state, context))
         return false;
 
-    /* esp will be restored from a field in the dcontext */
-    get_mcontext(dcontext)->xsp = context->xsp;
+    if (TEST(DR_MC_CONTROL, context->flags)) {
+        /* esp will be restored from a field in the dcontext */
+        get_mcontext(dcontext)->xsp = context->xsp;
+    }
 
     /* XXX: should we support setting the pc field? */
 
@@ -4722,6 +4731,10 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
     dcontext_t *dcontext = get_thread_private_dcontext();
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL);
+    CLIENT_ASSERT(mcontext->size == sizeof(dr_mcontext_t),
+                  "dr_mcontext_t.size field not set properly");
+    CLIENT_ASSERT(mcontext->flags == DR_MC_ALL,
+                  "dr_mcontext_t.flags must be DR_MC_ALL");
 
     /* PR 352429: squash current trace.
      * FIXME: will clients use this so much that this will be a perf issue?

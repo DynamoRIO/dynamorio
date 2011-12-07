@@ -548,7 +548,8 @@ DR_API
  * placed in the code cache.  This guarantee varies depending on the
  * type of cache consistency being used by DR.
  *
- * The client can update \p mcontext.pc in this callback.
+ * The client can update \p mcontext.pc in this callback.  The client
+ * should not change \p mcontext.flags: it should remain DR_MC_ALL.
  *
  * \note The passed-in \p drcontext may correspond to a different thread
  * than the thread executing the callback.  Do not assume that the
@@ -611,7 +612,12 @@ typedef struct _dr_fault_fragment_info_t {
  * information.
  */
 typedef struct _dr_restore_state_info_t {
-    /** The application machine state at the translation point. */
+    /**
+     * The application machine state at the translation point.
+     * The client can update register values and the program counter
+     * by changing this context.  The client should not change \p
+     * mcontext.flags: it should remain DR_MC_ALL.
+     */
     dr_mcontext_t *mcontext;
     /** Whether raw_mcontext is valid. */
     bool raw_mcontext_valid;
@@ -620,6 +626,7 @@ typedef struct _dr_restore_state_info_t {
      * interruption point inside the code cache.  Clients are
      * cautioned when examining code cache instructions to not rely on
      * any details of code inserted other than their own.
+     * Modifying this context will not affect the translation.
      */
     dr_mcontext_t *raw_mcontext;
     /**
@@ -851,13 +858,19 @@ dr_unregister_module_unload_event(void (*func)(void *drcontext,
  * machine context and the Win32 exception record.
  */
 typedef struct _dr_exception_t {
-    dr_mcontext_t *mcontext;   /**< Machine context at exception point. */
+    /**
+     * Machine context at exception point.  The client should not
+     * change \p mcontext.flags: it should remain DR_MC_ALL.
+     */
+    dr_mcontext_t *mcontext;
     EXCEPTION_RECORD *record; /**< Win32 exception record. */
     /** 
      * The raw pre-translated machine state at the exception interruption
      * point inside the code cache.  Clients are cautioned when examining
      * code cache instructions to not rely on any details of code inserted
      * other than their own.
+     * The client should not change \p raw_mcontext.flags: it should
+     * remain DR_MC_ALL.
      */
     dr_mcontext_t *raw_mcontext;
     /**
@@ -1059,13 +1072,19 @@ typedef struct _dr_siginfo_t {
     int sig;
     /** The context of the thread receiving the signal. */
     void *drcontext;
-    /** The application machine state at the signal interruption point. */
+    /**
+     * The application machine state at the signal interruption point.
+     * The client should not change \p mcontext.flags: it should
+     * remain DR_MC_ALL.
+     */
     dr_mcontext_t *mcontext;
     /** 
      * The raw pre-translated machine state at the signal interruption
      * point inside the code cache.  NULL for delayable signals.  Clients
      * are cautioned when examining code cache instructions to not rely on
      * any details of code inserted other than their own.
+     * The client should not change \p mcontext.flags: it should
+     * remain DR_MC_ALL.
      */
     dr_mcontext_t *raw_mcontext;
     /** Whether raw_mcontext is valid. */
@@ -3599,6 +3618,9 @@ DR_API
  * fields in dr_mcontext_t are valid for this process
  * (i.e., whether this process is 64-bit or WOW64, and the processor
  * supports SSE).
+ * \note If DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
+ * the xmm fields will not be filled in regardless of the return value
+ * of this routine.
  */
 bool
 dr_mcontext_xmm_fields_valid(void);
@@ -3608,7 +3630,9 @@ dr_mcontext_xmm_fields_valid(void);
 
 DR_API
 /**
- * Copies the current application machine context to \p context.
+ * Copies the fields of the current application machine context selected
+ * by the \p flags field of \p context into \p context.
+ *
  * This routine may only be called from:
  * - A clean call invoked by dr_insert_clean_call() or dr_prepare_for_call() 
  * - A pre- or post-syscall event (dr_register_pre_syscall_event(), 
@@ -3624,8 +3648,9 @@ DR_API
  * - A thread init event (dr_register_thread_init_event()) for all but
  *   the initial thread.
  *
- * Does NOT copy the pc field, except for system call events, when it
- * will point at the post-syscall address.
+ * Even when DR_MC_CONTROL is specified, does NOT copy the pc field,
+ * except for system call events, when it will point at the
+ * post-syscall address.
  *
  * Returns false if called from the init event or the initial thread's
  * init event; returns true otherwise (cannot distinguish whether the
@@ -3636,8 +3661,14 @@ DR_API
  * structure as known at compile time.  If the size field is invalid,
  * this routine will return false.
  *
- * \note NUM_XMM_SLOTS in the dr_mcontext_t.xmm array are filled in, but
- * only if dr_mcontext_fields_valid() returns true.
+ * The flags field of \p context must be set to the desired amount of
+ * information using the dr_mcontext_flags_t values.  Asking for
+ * multimedia registers incurs a higher performance cost.  An invalid
+ * flags value will return false.
+ *
+ * \note NUM_XMM_SLOTS in the dr_mcontext_t.xmm array are filled in,
+ * but only if dr_mcontext_xmm_fields_valid() returns true and
+ * DR_MC_MULTIMEDIA is set in the flags field.
  *
  * \note The context is the context saved at the dr_insert_clean_call() or
  * dr_prepare_for_call() points.  It does not correct for any registers saved
@@ -3654,7 +3685,9 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *context);
 #ifdef CLIENT_INTERFACE
 DR_API
 /**
- * Sets the application machine context to \p context.
+ * Sets the fields of the application machine context selected by the
+ * flags field of \p context to the values in \p context.
+ *
  * This routine may only be called from:
  * - A clean call invoked by dr_insert_clean_call() or dr_prepare_for_call() 
  * - A pre- or post-syscall event (dr_register_pre_syscall_event(), 
@@ -3670,10 +3703,16 @@ DR_API
  * If the size field of \p context is invalid, this routine will
  * return false.  A dr_mcontext_t obtained from DR will have the size field set.
  *
+ * The flags field of \p context must be set to select the desired
+ * fields for copying, using the dr_mcontext_flags_t values.  Asking
+ * to copy multimedia registers incurs a higher performance cost.  An
+ * invalid flags value will return false.
+ *
  * \return whether successful.
  *
  * \note The xmm fields are only set for processes where the underlying
- * processor supports them.  For dr_insert_clean_call() that requested \p
+ * processor supports them (and when DR_MC_MULTIMEDIA is set in the flags field).
+ * For dr_insert_clean_call() that requested \p
  * save_fpstate, the xmm values set here override that saved state.  Use
  * dr_mcontext_xmm_fields_valid() to determine whether the xmm fields are valid.
  */
@@ -3689,15 +3728,18 @@ DR_API
  * dr_insert_clean_call() or dr_prepare_for_call()) or an exception event with the
  * state specified in \p mcontext (including pc, and including the xmm fields
  * that are valid according to dr_mcontext_xmm_fields_valid()).
+ * The flags field of \p context must contain DR_MC_ALL; using a partial set
+ * of fields is not suported.
  *
  * \note dr_get_mcontext() can be used to get the register state (except pc)
  * saved in dr_insert_clean_call() or dr_prepare_for_call()
  *
  * \note If floating point state was saved by dr_prepare_for_call() or
- * dr_insert_clean_call() it is not restored (other than the valid xmm fields
- * according to dr_mcontext_xmm_fields_valid()).  The caller should instead
- * manually save and restore the floating point state with proc_save_fpstate()
- * and proc_restore_fpstate() if necessary.
+ * dr_insert_clean_call() it is not restored (other than the valid xmm
+ * fields according to dr_mcontext_xmm_fields_valid(), if
+ * DR_MC_MULTIMEDIA is specified in the flags field).  The caller
+ * should instead manually save and restore the floating point state
+ * with proc_save_fpstate() and proc_restore_fpstate() if necessary.
  *
  * \note If the caller wishes to set any other state (such as xmm
  * registers that are not part of the mcontext) they may do so by just
@@ -3711,7 +3753,7 @@ DR_API
  * \return false if unsuccessful; if successful, does not return.
  */
 bool
-dr_redirect_execution(dr_mcontext_t *mcontext);
+dr_redirect_execution(dr_mcontext_t *context);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */

@@ -190,7 +190,7 @@ void callback(void *tag, app_pc next_pc)
     if (callback_count % 100 == 0) {
         if (callback_count % 200 == 0) {
             /* For windows test dr_flush_region() half the time */
-            dr_mcontext_t mcontext = {sizeof(mcontext),};
+            dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
             
             dr_delay_flush_region((app_pc)tag - 20, 30, callback_count, flush_event);
             dr_get_mcontext(dr_get_current_drcontext(), &mcontext);

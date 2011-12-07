@@ -135,7 +135,7 @@ dr_mcontext_t and related functions is as follows:
 
 \code
 perl -pi -e '\
-s|dr_mcontext_t (\w+);|dr_mcontext_t \1 = {sizeof(\1),};|;\
+s|dr_mcontext_t (\w+);|dr_mcontext_t \1 = {sizeof(\1),DR_MC_ALL,};|;\
 s|(dr_[gs]et_mcontext\(\S+,\s+\S+),\s+[^\s\)]+\)|\1)|;\
 s|(dr_redirect_execution\(\S+),\s+\S+\)|\1)|;\
 s|^\s+int app_errno;\s*\n||ms;\
@@ -145,7 +145,7 @@ s|excpt->mcontext\.|excpt->mcontext->|g;' *.c
 \endcode
 
 The script makes 3 main changes.  First, any dr_mcontext_t allocated by the
-\client must have its \p size field set.  Second, the \p app_errno
+\client must have its \p size and \p flags fields set.  Second, the \p app_errno
 parameter was removed from several functions; it required a local variable,
 so any local named \p app_errno is removed.  Third, the dr_mcontext_t
 fields in the fault, signal, and exception structs all became
@@ -156,8 +156,10 @@ look at the diff after applying it to ensure it did not change anything it
 shouldn't have.  Run with debug build to catch other instances where
 dr_mcontext_t.size is not set.  Also note that using the dr_mcontext_t
 initialization syntax in the script will end up calling memset; for
-performance-critical situations, instead initialize only the size field
-separately.
+performance-critical situations, instead initialize only the size and flags
+fields separately.  Also note that if the xmm or ymm registers are not
+needed, asking for DR_MC_CONTROL and/or DR_MC_INTEGER is more performant
+than DR_MC_ALL.
 
 \b IMPORTANT: Further changes between version 3.0.0 and 2.2.0 include the following that
 affect source and/or binary compatibilty:
@@ -165,8 +167,13 @@ affect source and/or binary compatibilty:
  - Changed the #dr_mcontext_t structure field layout.  This is a binary
    compatibility change with respect to versions prior to 3.0.0.
  - Added a dr_mcontext_t.size field which must be set by the \client prior
-   to calling dr_get_mcontext().  This is a source compatibility change
-   with respect to versions prior to 3.0.0.
+   to calling dr_get_mcontext(), dr_set_mcontext(), or
+   dr_redirect_execution.  This is a source compatibility change with
+   respect to versions prior to 3.0.0.
+ - Added a dr_mcontext_t.flags field which must be set by the \client prior
+   to calling dr_get_mcontext(), dr_set_mcontext(), or
+   dr_redirect_execution.  This is a source compatibility change with
+   respect to versions prior to 3.0.0.
  - Removed the app_errno parameter from dr_get_mcontext(),
    dr_set_mcontext(), and dr_redirect_execution().  This is a source
    compatibility change with respect to versions prior to 3.0.0.

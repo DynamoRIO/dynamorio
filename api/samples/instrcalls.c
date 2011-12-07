@@ -176,7 +176,7 @@ static void
 at_call(app_pc instr_addr, app_pc target_addr)
 {
     file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
-    dr_mcontext_t mc = {sizeof(mc),};
+    dr_mcontext_t mc = {sizeof(mc),DR_MC_CONTROL/*only need xsp*/};
     dr_get_mcontext(dr_get_current_drcontext(), &mc);
 #ifdef SHOW_SYMBOLS
     print_address(f, instr_addr, "CALL @ ");

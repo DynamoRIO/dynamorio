@@ -2787,8 +2787,8 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
      */
     si.mcontext = heap_alloc(dcontext, sizeof(*si.mcontext) HEAPACCT(ACCT_OTHER));
     si.raw_mcontext = heap_alloc(dcontext, sizeof(*si.raw_mcontext) HEAPACCT(ACCT_OTHER));
-    si.mcontext->size = sizeof(*si.mcontext);
-    si.raw_mcontext->size = sizeof(*si.raw_mcontext);
+    dr_mcontext_init(si.mcontext);
+    dr_mcontext_init(si.raw_mcontext);
     /* i#207: fragment tag and fcache start pc on fault. */
     si.fault_fragment_info.tag = NULL;
     si.fault_fragment_info.cache_start_pc = NULL;
@@ -2830,9 +2830,13 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     if (action == DR_SIGNAL_DELIVER ||
         action == DR_SIGNAL_REDIRECT) {
         /* propagate client changes */
+        CLIENT_ASSERT(si.mcontext->flags == DR_MC_ALL,
+                      "signal mcontext flags cannot be changed");
         mcontext_to_sigcontext(sc, dr_mcontext_as_priv_mcontext(si.mcontext));
     } else if (action == DR_SIGNAL_SUPPRESS && raw_sc != NULL) {
         /* propagate client changes */
+        CLIENT_ASSERT(si.raw_mcontext->flags == DR_MC_ALL,
+                      "signal mcontext flags cannot be changed");
         mcontext_to_sigcontext(raw_sc, dr_mcontext_as_priv_mcontext(si.raw_mcontext));
     }
     heap_free(dcontext, si.mcontext, sizeof(*si.mcontext) HEAPACCT(ACCT_OTHER));
@@ -5092,8 +5096,10 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
     if (invoke_cb) {
         /* invoke after setting new itimer value */
         /* we save stack space by allocating superset dr_mcontext_t */
-        dr_mcontext_t dmc = {sizeof(dmc),};
-        priv_mcontext_t *mc = dr_mcontext_as_priv_mcontext(&dmc);
+        dr_mcontext_t dmc;
+        priv_mcontext_t *mc;
+        dr_mcontext_init(&dmc);
+        mc = dr_mcontext_as_priv_mcontext(&dmc);
         sigcontext_to_mcontext(mc, sc);
         if ((*info->itimer)[which].cb != NULL)
             (*(*info->itimer)[which].cb)(dcontext, mc);

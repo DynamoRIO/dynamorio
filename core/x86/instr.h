@@ -1422,6 +1422,7 @@ DR_API
 /** 
  * Returns the value of the register \p reg, selected from the passed-in
  * register values.  Supports only general-purpose registers.
+ * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  */
 reg_t
 reg_get_value(reg_id_t reg, dr_mcontext_t *mc);
@@ -1433,6 +1434,7 @@ reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc);
 DR_API
 /**
  * Sets the register \p reg in the passed in mcontext \p mc to \p value.
+ * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  * \note Current release is limited to setting pointer-sized registers only
  * (no sub-registers, and no non-general-purpose registers).
  */
@@ -1450,6 +1452,7 @@ DR_API
  * except for TLS references on Windows (fs: for 32-bit, gs: for 64-bit)
  * or typical fs: or gs: references on Linux.  For far addresses the
  * calling thread's segment selector is used.
+ * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  */
 app_pc
 opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc);
@@ -2403,6 +2406,7 @@ DR_API
  * Otherwise, returns the effective address of the first memory operand
  * when the operands are considered in this order: destinations and then
  * sources.  The address is computed using the passed-in registers.
+ * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  */
 app_pc
 instr_compute_address(instr_t *instr, dr_mcontext_t *mc);
@@ -2421,6 +2425,7 @@ DR_API
  * instr_compute_address() and returned in \p addr; whether it is a
  * write is returned in \p is_write.  Either or both OUT variables can
  * be NULL.
+ * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  */
 bool
 instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,

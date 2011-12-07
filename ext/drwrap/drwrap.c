@@ -642,9 +642,11 @@ drwrap_in_callee(app_pc pc)
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     wrap_entry_t *wrap, *e;
-    dr_mcontext_t mc = {sizeof(mc),};
+    dr_mcontext_t mc;
     uint idx;
     drwrap_context_t wrapcxt;
+    mc.size = sizeof(mc);
+    mc.flags = DR_MC_ALL; /* b/c we might call dr_redirect_execution() */
     ASSERT(pc != NULL, "drwrap_in_callee: pc is NULL!");
     ASSERT(pt != NULL, "drwrap_in_callee: pt is NULL!");
 
@@ -849,7 +851,9 @@ drwrap_after_callee(app_pc retaddr)
 {
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    dr_mcontext_t mc = {sizeof(mc),};
+    dr_mcontext_t mc;
+    mc.size = sizeof(mc);
+    mc.flags = DR_MC_ALL; /* client might examine multimedia regs */
     ASSERT(pt != NULL, "drwrap_after_callee: pt is NULL!");
     dr_get_mcontext(drcontext, &mc);
 

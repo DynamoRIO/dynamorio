@@ -216,9 +216,9 @@ free_instrumentation_funcs(void)
 ptr_uint_t count;
 static uint callee_inlined;
 
-static dr_mcontext_t before_mcontext = {sizeof(before_mcontext),};
+static dr_mcontext_t before_mcontext = {sizeof(before_mcontext),DR_MC_ALL,};
 static int before_errno;
-static dr_mcontext_t after_mcontext = {sizeof(after_mcontext),};
+static dr_mcontext_t after_mcontext = {sizeof(after_mcontext),DR_MC_ALL,};
 static int after_errno;
 
 static void
