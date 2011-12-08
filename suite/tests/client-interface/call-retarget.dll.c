@@ -61,49 +61,9 @@ dr_emit_flags_t bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_t
                  */
                 else {
                     instr_set_branch_target_pc(next_next_instr, target);
+                    /* set the return target as the call instr to call bar */
+                    instrlist_set_return_target(bb, instr_get_app_pc(next_next_instr));
                 }
-            } else if (target != NULL && instr_is_nop(next_next_instr)) {
-                /* We do see code like:
-                 * interp: start_pc = 0x000007fefd6f2054
-                 * check_thread_vm_area: pc = 0x000007fefd6f2054
-                 *   0x000007fefd6f2054  66 0f 1f 04 00       data16 nop    (%rax,%rax,1) 
-                 *   0x000007fefd6f2059  90                   nop    
-                 *   0x000007fefd6f205a  90                   nop    
-                 *   0x000007fefd6f205b  90                   nop    
-                 *   0x000007fefd6f205c  90                   nop    
-                 *   0x000007fefd6f205d  90                   nop    
-                 *   0x000007fefd6f205e  90                   nop    
-                 *   0x000007fefd6f205f  90                   nop    
-                 *   0x000007fefd6f2060  0f b6 03             movzx  (%rbx) -> %eax 
-                 *   0x000007fefd6f2063  ff ca                dec    %edx -> %edx 
-                 *   wrote overflow flag before reading it!
-                 *   0x000007fefd6f2065  48 83 c7 02          add    $0x0000000000000002 %rdi -> %rdi 
-                 *   wrote all 6 flags now!
-                 *   0x000007fefd6f2069  0f b7 0c 46          movzx  (%rsi,%rax,2) -> %ecx 
-                 *   0x000007fefd6f206d  48 ff c3             inc    %rbx -> %rbx 
-                 *   0x000007fefd6f2070  66 89 4f fe          data16 mov    %cx -> 0xfffffffe(%rdi) 
-                 *   0x000007fefd6f2074  85 d2                test   %edx %edx 
-                 *   0x000007fefd6f2076  7f e8                jnle   $0x000007fefd6f2060 
-                 * end_pc = 0x000007fefd6f2078
-                 * So we use target value as help too.
-                 */
-                /* add a call */
-                app_pc pc = instr_get_app_pc(next_next_instr);
-                instr_t *call = INSTR_CREATE_call(drcontext,
-                                                  opnd_create_pc(target));
-                INSTR_XL8(call, pc);
-                instrlist_postinsert(bb, next_next_instr, call);
-                for (instr  = instr_get_next(call); 
-                     instr != NULL;
-                     instr  = instr_get_next(call)) {
-                    instrlist_remove(bb, instr);
-                    instr_destroy(drcontext, instr);
-                }
-                /* set return target to be the next instr of next_next_instr */
-                instrlist_set_return_target(bb,
-                                            pc + instr_length(drcontext,
-                                                              next_next_instr));
-                target = NULL;
             }
             break;
         }

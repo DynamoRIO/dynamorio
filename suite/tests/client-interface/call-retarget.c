@@ -34,10 +34,8 @@
 
 #ifdef WINDOWS
 # define NOP_NOP_CALL(tgt) __nop(); __nop(); tgt()
-# define NOP_NOP_NOP       __nop(); __nop(); __nop()
 #else /* LINUX */
 # define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
-# define NOP_NOP_NOP      asm("nop\n nop\n nop\n")
 #endif
 
 void foo(void)
@@ -60,6 +58,5 @@ int main(void)
      */
     NOP_NOP_CALL(foo);
     NOP_NOP_CALL(bar);
-    NOP_NOP_NOP;
     return 0;
 }
