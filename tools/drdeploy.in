@@ -239,24 +239,25 @@ done
 # script options: DR must come last.  we would need to generate
 # code here from optionsx.h to do otherwise, or to sanity check
 # the DR options here.
-if [ "${1:0:1}" = "-" ]
-then
-    specified_ops=yes
-    while [ "$1" != "--" ] && [ "$1" != "" ]
-    do
-        if [ -n "$ops" ]
-        then
-            ops="$ops $1"
-        else
-            ops="$1"
-        fi
-        shift
-    done
-    if [ "$1" = "--" ]
-    then
-        shift
-    fi
-fi
+case "$1" in
+    -*)
+      specified_ops=yes
+      while [ "$1" != "--" ] && [ "$1" != "" ]
+      do
+          if [ -n "$ops" ]
+          then
+              ops="$ops $1"
+          else
+              ops="$1"
+          fi
+          shift
+      done
+      if [ "$1" = "--" ]
+      then
+          shift
+      fi
+      ;;
+esac
 
 # Setup lib path
 if [ ! -n "$dr_lib_path" ]
