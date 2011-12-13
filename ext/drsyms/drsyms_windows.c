@@ -176,13 +176,18 @@ drsym_exit(void)
     return res;
 }
 
-static void
-query_available(HANDLE proc, DWORD64 base)
+/* Queries the available debug information for a module.
+ * kind_p is optional.  Returns true on success.
+ */
+static bool
+query_available(HANDLE proc, DWORD64 base, drsym_debug_kind_t *kind_p)
 {
+    drsym_debug_kind_t kind;
     IMAGEHLP_MODULE64 info; 
     memset(&info, 0, sizeof(info)); 
     info.SizeOfStruct = sizeof(info); 
     if (SymGetModuleInfo64(GetCurrentProcess(), base, &info)) {
+        kind = 0;
         switch(info.SymType) {
         case SymNone: 
             NOTIFY("No symbols found\n");
@@ -192,6 +197,7 @@ query_available(HANDLE proc, DWORD64 base)
             break; 
         case SymPdb: 
             NOTIFY("Loaded pdb symbols from %s\n", info.LoadedPdbName);
+            kind |= DRSYM_SYMBOLS | DRSYM_PDB;
             break;
         case SymDeferred: 
             NOTIFY("Symbol load deferred\n");
@@ -207,12 +213,23 @@ query_available(HANDLE proc, DWORD64 base)
             NOTIFY("Symbols in unknown format.\n");
             break; 
         }
-        
-        /* could print out info.ImageName and info.LoadedImageName 
-         * and whether info.LineNumbers
+
+        if (info.LineNumbers) {
+            NOTIFY("  module has line number information.\n");
+            kind |= DRSYM_LINE_NUMS;
+        }
+
+        /* could print out info.ImageName and info.LoadedImageName
          * and warn if info.PdbUnmatched or info.DbgUnmatched
          */
+    } else {
+        return false;
     }
+
+    if (kind_p != NULL)
+        *kind_p = kind;
+
+    return true;
 }
 
 static DWORD64
@@ -256,7 +273,7 @@ load_module(HANDLE proc, const char *path)
     }
     if (verbose) {
         NOTIFY("loaded %s at 0x%I64x\n", path, base);
-        query_available(GetCurrentProcess(), base);
+        query_available(GetCurrentProcess(), base, NULL);
     }
     return base;
 }
@@ -359,6 +376,11 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LINE_NOT_AVAILABLE;
     }
+
+    if (!query_available(GetCurrentProcess(), base, &out->debug_kind)) {
+        out->debug_kind = 0;
+    }
+
     dr_recurlock_unlock(symbol_lock);
     return DRSYM_SUCCESS;
 }
@@ -883,3 +905,32 @@ drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
     return r;
 }
 
+DR_EXPORT
+drsym_error_t
+drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind OUT)
+{
+    if (IS_SIDELINE) {
+        return DRSYM_ERROR_NOT_IMPLEMENTED;
+    } else {
+        DWORD64 base;
+        drsym_error_t r;
+
+        if (modpath == NULL || kind == NULL)
+            return DRSYM_ERROR_INVALID_PARAMETER;
+
+        dr_recurlock_lock(symbol_lock);
+        base = lookup_or_load(modpath);
+        if (base == 0) {
+            r = DRSYM_ERROR_LOAD_FAILED;
+        } else {
+            if (query_available(GetCurrentProcess(), base, kind)) {
+                r = DRSYM_SUCCESS;
+            } else {
+                r = DRSYM_ERROR;
+            }
+        }
+        dr_recurlock_unlock(symbol_lock);
+
+        return r;
+    }
+}

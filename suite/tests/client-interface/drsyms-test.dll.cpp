@@ -95,6 +95,15 @@ typedef struct _frame_base_t {
     app_pc ret_addr;
 } frame_base_t;
 
+#ifdef WINDOWS
+# define FULL_DEBUG_KIND \
+        (DRSYM_SYMBOLS | DRSYM_LINE_NUMS | DRSYM_PDB)
+#else
+# define FULL_DEBUG_KIND \
+        (DRSYM_SYMBOLS | DRSYM_LINE_NUMS | \
+         DRSYM_ELF_SYMTAB | DRSYM_DWARF_LINE)
+#endif
+
 #define MAX_FUNC_LEN 1024
 /* Take and symbolize a stack trace.  Assumes no frame pointer omission.
  */
@@ -141,6 +150,10 @@ pre_stack_trace(void *wrapcxt, void **user_data)
                                  DRSYM_DEMANGLE);
         dr_free_module_data(mod);
         ASSERT(r == DRSYM_SUCCESS);
+        if (!TESTALL(FULL_DEBUG_KIND, sym_info->debug_kind)) {
+            dr_fprintf(STDERR, "unexpected debug_kind: %x\n",
+                       sym_info->debug_kind);
+        }
         basename = (sym_info->file ?
                     strrchr(sym_info->file, IF_WINDOWS_ELSE('\\', '/')) :
                     "/<unknown>");
@@ -223,11 +236,19 @@ lookup_exe_syms(void)
     size_t exe_public_offs;
     drsym_info_t unused_info;
     drsym_error_t r;
+    drsym_debug_kind_t debug_kind;
 
     exe_data = dr_lookup_module_by_name("client.drsyms-test" EXE_SUFFIX);
     ASSERT(exe_data != NULL);
     exe_path = exe_data->full_path;
     exe_base = exe_data->start;
+
+    /* We expect to have full debug info for this module. */
+    r = drsym_get_module_debug_kind(exe_path, &debug_kind);
+    ASSERT(r == DRSYM_SUCCESS);
+    if (!TESTALL(FULL_DEBUG_KIND, debug_kind)) {
+        dr_fprintf(STDERR, "unexpected debug_kind: %x\n", debug_kind);
+    }
 
     exe_export_addr = get_real_proc_addr(exe_data->handle, "exe_export");
     exe_export_offs = lookup_and_wrap(exe_path, exe_base, "client.drsyms-test",
@@ -337,6 +358,7 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     size_t stack_trace_offs;
     drsym_error_t r;
     bool ok;
+    drsym_debug_kind_t debug_kind;
 
     dll_path = dll_data->full_path;
     dll_base = dll_data->start;
@@ -351,6 +373,13 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     /* Avoid running on any module other than the appdll. */
     if (!strstr(dll_path, "appdll"))
         return;
+
+    /* We expect to have full debug info for this module. */
+    r = drsym_get_module_debug_kind(dll_path, &debug_kind);
+    ASSERT(r == DRSYM_SUCCESS);
+    if (!TESTALL(FULL_DEBUG_KIND, debug_kind)) {
+        dr_fprintf(STDERR, "unexpected debug_kind: %x\n", debug_kind);
+    }
 
     dll_export_addr = get_real_proc_addr(dll_data->handle, "dll_export");
     dll_export_offs = lookup_and_wrap(dll_path, dll_base,

@@ -66,4 +66,11 @@
 #define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
 #define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
+/* check if all bits in mask are set in var */
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
+/* check if any bit in mask is set in var */
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+/* check if a single bit is set in var */
+#define TEST TESTANY
+
 #endif /* DR_CLIENT_TOOLS_H */

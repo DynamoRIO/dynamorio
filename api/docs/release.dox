@@ -196,6 +196,11 @@ affect source and/or binary compatibilty:
  - Added a \p flags argument to most of the routines in the \p drsyms extension
    to control demangling, and added drsym_demangle_symbol().  This is a source
    compatibility change with respect to versions prior to 3.0.0.
+ - Added drsym_get_module_debug_kind() and a \p debug_kind field to the \p
+   drsym_info_t struct written by drsym_lookup_address().  These additions allow
+   drsyms users to determine what kind of debug info is available for a module.
+   The \p debug_kind field creates a binary compatibility change for users of \p
+   drsym_info_t with respect to versions prior to 3.0.0.
 
 Additional changes between version 3.0.0 and 2.2.0 include the following:
 

@@ -95,6 +95,21 @@ typedef enum {
     DRSYM_DEFAULT_FLAGS = DRSYM_DEMANGLE,   /**< Default flags. */
 } drsym_flags_t;
 
+/**
+ * Bitfield indicating the availability of different kinds of debugging
+ * information for a module.  The first 8 bits are reserved for platform
+ * independent qualities of the debug info, while the rest indicate exactly
+ * which kind of debug information is present.
+ */
+typedef enum {
+    DRSYM_SYMBOLS    = (1 <<  0), /**< Any symbol information beyond exports. */
+    DRSYM_LINE_NUMS  = (1 <<  1), /**< Any line number info. */
+    /* Platform-dependent types. */
+    DRSYM_ELF_SYMTAB = (1 <<  8), /**< ELF .symtab symbol names. */
+    DRSYM_DWARF_LINE = (1 <<  9), /**< DWARF line info. */
+    DRSYM_PDB        = (1 << 10), /**< Windows PDB files. */
+} drsym_debug_kind_t;
+
 /** Data structure that holds symbol information */
 typedef struct _drsym_info_t {
     /* INPUTS */
@@ -113,6 +128,9 @@ typedef struct _drsym_info_t {
     size_t start_offs;
     /** Output: offset from module base of end of symbol */
     size_t end_offs;
+    /** Output: type of the debug info available for this module */
+    drsym_debug_kind_t debug_kind;
+
     /**
      * Output: size of data available for name.  Only name_size bytes will be
      * copied to name.
@@ -293,6 +311,18 @@ DR_EXPORT
 size_t
 drsym_demangle_symbol(char *dst, size_t dst_sz, const char *mangled,
                       uint flags);
+
+DR_EXPORT
+/**
+ * Outputs the kind of debug information available for the module \p modpath in
+ * \p *kind if the operation succeeds.
+ *
+ * @param[in]  modpath   The full path to the module to be queried.
+ * @param[out] kind      The kind of debug information available.
+ */
+drsym_error_t
+drsym_get_module_debug_kind(const char *modpath,
+                            drsym_debug_kind_t *kind /*OUT*/);
 
 #ifdef WINDOWS
 DR_EXPORT

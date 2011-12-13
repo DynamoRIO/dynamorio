@@ -108,6 +108,7 @@ typedef struct _dbg_module_t {
     Elf *elf;
     Dwarf_Debug dbg;
     ptr_uint_t load_base;
+    drsym_debug_kind_t debug_kind;
 } dbg_module_t;
 
 /******************************************************************************
@@ -291,6 +292,15 @@ load_module(const char *modpath)
             NOTIFY_DWARF(de);
             goto error;
         }
+    }
+
+    /* Figure out what kind of debug info is available for this module.  */
+    mod->debug_kind = 0;
+    if (find_elf_section_by_name(mod->elf, ".symtab") != NULL) {
+        mod->debug_kind |= DRSYM_SYMBOLS | DRSYM_ELF_SYMTAB;
+    }
+    if (find_elf_section_by_name(mod->elf, ".debug_line") != NULL) {
+        mod->debug_kind |= DRSYM_LINE_NUMS | DRSYM_DWARF_LINE;
     }
 
     load_module_depth--;
@@ -812,6 +822,8 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
         }
     }
 
+    out->debug_kind = mod->debug_kind;
+
     dr_mutex_unlock(symbol_lock);
     return r;
 }
@@ -944,4 +956,30 @@ drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
     strncpy(dst, mangled, dst_sz);
     dst[dst_sz-1] = '\0';
     return 0;
+}
+
+DR_EXPORT
+drsym_error_t
+drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind OUT)
+{
+    if (IS_SIDELINE) {
+        return DRSYM_ERROR_NOT_IMPLEMENTED;
+    } else {
+        dbg_module_t *mod;
+        drsym_error_t r;
+
+        if (modpath == NULL || kind == NULL)
+            return DRSYM_ERROR_INVALID_PARAMETER;
+
+        dr_mutex_lock(symbol_lock);
+        mod = lookup_or_load(modpath);
+        if (mod != NULL) {
+            *kind = mod->debug_kind;
+            r = DRSYM_SUCCESS;
+        } else {
+            r = DRSYM_ERROR_LOAD_FAILED;
+        }
+        dr_mutex_unlock(symbol_lock);
+        return r;
+    }
 }
