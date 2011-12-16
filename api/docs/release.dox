@@ -230,6 +230,7 @@ Additional changes between version 3.0.0 and 2.2.0 include the following:
    ISA details when decoding or encoding
  - Added instrlist_set_fall_through_target() and
    instrlist_set_return_target()
+ - Added hashtable_clear() to the drcontainers Extension
  - Several bug fixes
 
 The changes between version 2.2.0 and 2.1.0 are:

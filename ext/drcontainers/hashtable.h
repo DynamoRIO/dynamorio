@@ -196,8 +196,16 @@ bool
 hashtable_remove_range(hashtable_t *table, void *start, void *end);
 
 /**
- * Destroys all storage for the table.  If free_payload_func was specified
- * calls it for each payload. 
+ * Removes all entries from the table.  If free_payload_func was specified
+ * calls it for each payload.
+ */
+void
+hashtable_clear(hashtable_t *table);
+
+/**
+ * Destroys all storage for the table, including all entries and the
+ * table itself.  If free_payload_func was specified calls it for each
+ * payload.
  */
 void
 hashtable_delete(hashtable_t *table);

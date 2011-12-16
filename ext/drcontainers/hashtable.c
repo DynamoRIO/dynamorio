@@ -443,12 +443,10 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end)
     return res;
 }
 
-void
-hashtable_delete(hashtable_t *table)
+static void
+hashtable_clear_internal(hashtable_t *table)
 {
     uint i;
-    if (table->synch)
-        dr_mutex_lock(table->lock);
     for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
         hash_entry_t *e = table->table[i];
         while (e != NULL) {
@@ -461,6 +459,25 @@ hashtable_delete(hashtable_t *table)
             e = nexte;
         }
     }
+    table->entries = 0;
+}
+ 
+void
+hashtable_clear(hashtable_t *table)
+{
+    if (table->synch)
+        dr_mutex_lock(table->lock);
+    hashtable_clear_internal(table);
+    if (table->synch)
+        dr_mutex_unlock(table->lock);
+}
+ 
+void
+hashtable_delete(hashtable_t *table)
+{
+    if (table->synch)
+        dr_mutex_lock(table->lock);
+    hashtable_clear_internal(table);
     hash_free(table->table, (size_t)HASHTABLE_SIZE(table->table_bits) *
               sizeof(hash_entry_t*));
     table->table = NULL;
