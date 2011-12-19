@@ -109,6 +109,11 @@ typedef struct _dbg_module_t {
     Dwarf_Debug dbg;
     ptr_uint_t load_base;
     drsym_debug_kind_t debug_kind;
+    /* Sometimes we need to have both original and debuglink loaded.
+     * mod_with_dwarf points at the one w/ DWARF info in that case,
+     * while the primary mod has symtab+strtab.
+     */
+    struct _dbg_module_t *mod_with_dwarf;
 } dbg_module_t;
 
 /******************************************************************************
@@ -116,8 +121,8 @@ typedef struct _dbg_module_t {
  */
 
 static void unload_module(dbg_module_t *mod);
-static dbg_module_t *follow_debuglink(const char * modpath, dbg_module_t *mod,
-                                      const char *debuglink);
+static bool follow_debuglink(const char * modpath, dbg_module_t *mod,
+                             const char *debuglink, char debug_modpath[MAXIMUM_PATH]);
 
 /******************************************************************************
  * ELF helpers.
@@ -145,6 +150,7 @@ static dbg_module_t *follow_debuglink(const char * modpath, dbg_module_t *mod,
 # define Elf_Sym  Elf32_Sym
 #endif
 
+/* Looks for a section with real data, not just a section with a header */
 static Elf_Scn *
 find_elf_section_by_name(Elf *elf, const char *match_name)
 {
@@ -168,6 +174,14 @@ find_elf_section_by_name(Elf *elf, const char *match_name)
             NOTIFY_ELF();
         }
         if (strcmp(sec_name, match_name) == 0) {
+            /* For our purposes, we want to treat a no-data section
+             * type as if it didn't exist.  This happens sometimes in
+             * debuglink files where some sections like .symtab are
+             * present b/c the headers mirror the original ELF file, but
+             * there's no data there.  Xref i#642.
+             */
+            if (TEST(SHT_NOBITS, section_header->sh_type))
+                return NULL;
             return scn;
         }
     }
@@ -278,12 +292,40 @@ load_module(const char *modpath)
     if (mod->elf == NULL)
         goto error;
 
+    /* Figure out what kind of debug info is available for this module.  */
+    mod->debug_kind = 0;
+    if (find_elf_section_by_name(mod->elf, ".symtab") != NULL) {
+        mod->debug_kind |= DRSYM_SYMBOLS | DRSYM_ELF_SYMTAB;
+    }
+    if (find_elf_section_by_name(mod->elf, ".debug_line") != NULL) {
+        mod->debug_kind |= DRSYM_LINE_NUMS | DRSYM_DWARF_LINE;
+    }
+
     /* If there is a .gnu_debuglink section, then all the debug info we care
-     * about is in the file it points to.
+     * about is in the file it points to (except maybe .symtab: see below).
      */
     debuglink = find_debuglink_section(mod->map_base, mod->elf);
     if (debuglink != NULL) {
-        mod = follow_debuglink(modpath, mod, debuglink);
+        char debug_modpath[MAXIMUM_PATH];
+        if (follow_debuglink(modpath, mod, debuglink, debug_modpath)) {
+            dbg_module_t *newmod = load_module(debug_modpath);
+            if (newmod != NULL) {
+                /* We expect that DWARF sections will all be in
+                 * newmod, but .symtab may be empty in newmod and we
+                 * may need to keep mod for that (i#642).
+                 */
+                if (!TEST(DRSYM_ELF_SYMTAB, newmod->debug_kind) &&
+                    TEST(DRSYM_ELF_SYMTAB, mod->debug_kind)) {
+                    /* We need both */
+                    mod->mod_with_dwarf = newmod;
+                    mod->debug_kind |= newmod->debug_kind;
+                } else {
+                    /* Debuglink is all we need */
+                    unload_module(mod);
+                    mod = newmod;
+                }
+            } /* else stick with mod */
+        } /* else stick with mod */
     } else {
         /* If there is no .gnu_debuglink, initialize parsing. */
         mod->load_base = find_load_base(mod->elf);
@@ -294,19 +336,10 @@ load_module(const char *modpath)
         }
     }
 
-    /* Figure out what kind of debug info is available for this module.  */
-    mod->debug_kind = 0;
-    if (find_elf_section_by_name(mod->elf, ".symtab") != NULL) {
-        mod->debug_kind |= DRSYM_SYMBOLS | DRSYM_ELF_SYMTAB;
-    }
-    if (find_elf_section_by_name(mod->elf, ".debug_line") != NULL) {
-        mod->debug_kind |= DRSYM_LINE_NUMS | DRSYM_DWARF_LINE;
-    }
-
     load_module_depth--;
     return mod;
 
-error:
+ error:
     unload_module(mod);
     load_module_depth--;
     return NULL;
@@ -347,11 +380,11 @@ is_same_file(const char *path1, const char *path2)
  * the above URL, but for now, .gnu_debuglink seems to work for most Linux
  * systems.
  */
-static dbg_module_t *
-follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink)
+static bool
+follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
+                 char debug_modpath[MAXIMUM_PATH])
 {
     char mod_dir[MAXIMUM_PATH];
-    char debug_modpath[MAXIMUM_PATH];
     char *last_slash;
 
     /* Get the module's directory. */
@@ -364,28 +397,28 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink)
     /* 1. Check $mod_dir/$debuglink */
     dr_snprintf(debug_modpath, MAXIMUM_PATH,
                 "%s/%s", mod_dir, debuglink);
-    NULL_TERMINATE_BUFFER(debug_modpath);
+    debug_modpath[MAXIMUM_PATH-1] = '\0';
     /* If debuglink is the basename of modpath, this can point to the same file.
      * Infinite recursion is prevented with a depth check, but we would fail to
      * test the other paths, so we check here if these paths resolve to the same
      * file, ignoring hard and soft links and other path quirks.
      */
     if (dr_file_exists(debug_modpath) && !is_same_file(modpath, debug_modpath))
-        goto found;
+        return true;
 
     /* 2. Check $mod_dir/.debug/$debuglink */
     dr_snprintf(debug_modpath, MAXIMUM_PATH,
                 "%s/.debug/%s", mod_dir, debuglink);
-    NULL_TERMINATE_BUFFER(debug_modpath);
+    debug_modpath[MAXIMUM_PATH-1] = '\0';
     if (dr_file_exists(debug_modpath))
-        goto found;
+        return true;
 
     /* 3. Check /usr/lib/debug/$mod_dir/$debuglink */
     dr_snprintf(debug_modpath, MAXIMUM_PATH,
                 "/usr/lib/debug%s/%s", mod_dir, debuglink);
-    NULL_TERMINATE_BUFFER(debug_modpath);
+    debug_modpath[MAXIMUM_PATH-1] = '\0';
     if (dr_file_exists(debug_modpath))
-        goto found;
+        return true;
 
     /* We couldn't find the debug file, so we make do with the original module
      * instead.
@@ -394,13 +427,7 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink)
      * Right now clients use a mix of dr_get_proc_address and drsyms, when we
      * could handle all of that for them.
      */
-    return mod;
-
-found:
-    /* debuglink points into the mapped module, so we can't free until now. */
-    unload_module(mod);
-
-    return load_module(debug_modpath);
+    return false;
 }
 
 /* Free all resources associated with the debug module and the object itself.
@@ -416,6 +443,8 @@ unload_module(dbg_module_t *mod)
         dr_unmap_file(mod->map_base, mod->file_size);
     if (mod->fd != INVALID_FILE)
         dr_close_file(mod->fd);
+    if (mod->mod_with_dwarf != NULL)
+        unload_module(mod->mod_with_dwarf);
     dr_global_free(mod, sizeof(*mod));
 }
 
@@ -817,7 +846,10 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
          * report success even if we only get partial line information we at
          * least have the name of the function.
          */
-        if (!search_addr2line(mod->dbg, mod->load_base + modoffs, out)) {
+        dbg_module_t *mod4line = mod;
+        if (mod->mod_with_dwarf != NULL)
+            mod4line = mod->mod_with_dwarf;
+        if (!search_addr2line(mod4line->dbg, mod4line->load_base + modoffs, out)) {
             r = DRSYM_ERROR_LINE_NOT_AVAILABLE;
         }
     }
