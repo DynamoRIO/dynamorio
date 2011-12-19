@@ -389,6 +389,9 @@ typedef struct sigframe {
     char *pretcode;
     int sig;
     struct sigcontext sc;
+    /* Since 2.6.28, this fpstate has been unused and the real fpstate
+     * is at the end of the struct so it can include xstate
+     */
     struct _fpstate fpstate;
     unsigned long extramask[_NSIG_WORDS-1];
     char retcode[RETCODE_SIZE];
@@ -403,6 +406,7 @@ typedef struct sigframe {
      * UPDATE: actually we do invoke SYS_*sigreturn
      */
     int sig_noclobber;
+    /* In 2.6.28+, fpstate/xstate goes here */
 } sigframe_plain_t;
 
 /* the rt frame is used for SA_SIGINFO signals */
@@ -422,9 +426,16 @@ typedef struct rt_sigframe {
     void *puc;
     struct siginfo info;
     kernel_ucontext_t uc;
-    struct _fpstate fpstate;
+    /* Prior to 2.6.28, "struct _fpstate fpstate" was here.  Rather than
+     * try to reproduce that exact layout and detect the underlying kernel
+     * (the safest way would be to send ourselves a signal and examine the
+     * frame, rather than relying on uname, to handle backports), we use
+     * the new layout even on old kernels.  The app should use the fpstate
+     * pointer in the sigcontext anyway.
+     */
     char retcode[RETCODE_SIZE];
 #endif
+    /* In 2.6.28+, fpstate/xstate goes here */
 } sigframe_rt_t;
 
 
@@ -442,6 +453,13 @@ typedef struct rt_sigframe {
 #define APP_HAS_SIGSTACK(info) \
   ((info)->app_sigstack.ss_sp != NULL && (info)->app_sigstack.ss_flags != SS_DISABLE)
 
+/* even though we don't execute xsave ourselves, kernel will do xrestore on sigreturn
+ * so we have to obey alignment for avx
+ */
+#define AVX_ALIGNMENT 64
+#define FPSTATE_ALIGNMENT 16
+#define XSTATE_ALIGNMENT (YMM_ENABLED() ? AVX_ALIGNMENT : FPSTATE_ALIGNMENT)
+
 /* we have to queue up both rt and non-rt signals because we delay
  * their delivery.
  * PR 304708: we now leave in rt form right up until we copy to the
@@ -450,12 +468,11 @@ typedef struct rt_sigframe {
  */
 typedef struct _sigpending_t {
     sigframe_rt_t rt_frame;
-#ifdef X64
     /* fpstate is no longer kept inside the frame, and is not always present.
      * if we delay we need to ensure we have room for it.
+     * we statically keep room for full xstate in case we need it.
      */
-    struct _fpstate __attribute__ ((aligned (16))) fpstate;
-#endif
+    struct _xstate __attribute__ ((aligned (AVX_ALIGNMENT))) xstate;
 #ifdef CLIENT_INTERFACE
     /* i#182/PR 449996: we provide the faulting access address for SIGSEGV, etc. */
     byte *access_address;
@@ -463,13 +480,17 @@ typedef struct _sigpending_t {
     struct _sigpending_t *next;
 } sigpending_t;
 
-#ifdef X64
 /* Extra space needed to put the signal frame on the app stack.
- * We assume the stack pointer is 8-aligned already, so at most we
- * need another 8 to align to 16.
+ * We assume the stack pointer is 4-aligned already.
  */
-# define X64_FRAME_EXTRA (sizeof(struct _fpstate) + 8)
-#endif
+/* An extra 4 for trailing FP_XSTATE_MAGIC2 */
+#define AVX_FRAME_EXTRA (sizeof(struct _xstate) + AVX_ALIGNMENT - 4 + 4)
+#define FPSTATE_FRAME_EXTRA (sizeof(struct _fpstate) + FPSTATE_ALIGNMENT - 4)
+#define XSTATE_FRAME_EXTRA (YMM_ENABLED() ? AVX_FRAME_EXTRA : FPSTATE_FRAME_EXTRA)
+
+#define AVX_DATA_SIZE (sizeof(struct _xstate) + 4)
+#define FPSTATE_DATA_SIZE (sizeof(struct _fpstate))
+#define XSTATE_DATA_SIZE (YMM_ENABLED() ? AVX_DATA_SIZE : FPSTATE_DATA_SIZE)
 
 /* PR 204556: DR/clients use itimers so we need to emulate the app's usage */
 typedef struct _itimer_info_t {
@@ -841,10 +862,21 @@ convert_fxsave_to_fpstate(struct _fpstate *fpstate,
 static void
 save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
 {
+    /* see comments at call site: can't just do xsave */
     int i;
     struct sigcontext *sc = get_sigcontext_from_rt_frame(frame);
+    struct _xstate *xstate = (struct _xstate *) sc->fpstate;
     if (!preserve_xmm_caller_saved())
         return;
+    if (YMM_ENABLED()) {
+        /* all ymm regs are in our mcontext.  the only other thing
+         * in xstate is the xgetbv.
+         */
+        uint bv_high, bv_low;
+        asm volatile("mov $0, %%ecx; xgetbv; mov %%edx, %0; mov %%eax, %1"
+                     : "=m" (bv_high), "=m" (bv_low) : : "eax","edx","ecx");
+        xstate->xstate_hdr.xstate_bv = (((uint64)bv_high)<<32) | bv_low;
+    }
     for (i=0; i<NUM_XMM_SAVED; i++) {
         /* we assume no padding */
 #ifdef X64
@@ -852,22 +884,26 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         memcpy(&sc->fpstate->xmm_space[i*4], &get_mcontext(dcontext)->ymm[i],
                XMM_REG_SIZE);
         if (YMM_ENABLED()) {
-            /* FIXME i#437: ymm top halves are inside struct _xstate.
-             * We should augment sigpending_t and X64_FRAME_EXTRA to
-             * store _xstate and not just _fpstate, and update save_xmm()
-             * and sigcontext_to_mcontext() (and vice versa).
-             */
-            ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm sig context support yet");
+            /* i#637: ymm top halves are inside struct _xstate */
+            memcpy(&xstate->ymmh.ymmh_space[i * 4], 
+                   ((void *)&get_mcontext(dcontext)->ymm[i]) + XMM_REG_SIZE,
+                   YMMH_REG_SIZE);
         }
 #else
         memcpy(&sc->fpstate->_xmm[i], &get_mcontext(dcontext)->ymm[i], XMM_REG_SIZE);
-        if (YMM_ENABLED())
-            ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm sig context support yet");
+        if (YMM_ENABLED()) {
+            /* i#637: ymm top halves are inside struct _xstate */
+            memcpy(&xstate->ymmh.ymmh_space[i * 4], 
+                   ((void *)&get_mcontext(dcontext)->ymm[i]) + XMM_REG_SIZE,
+                   YMMH_REG_SIZE);
+        }
 #endif
     }
 }
 
-/* We can't tell whether the app has used fpstate yet so we preserve every time */
+/* We can't tell whether the app has used fpstate yet so we preserve every time
+ * (i#641 covers optimizing that)
+ */
 static void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 {
@@ -880,20 +916,15 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
     struct sigcontext *sc = get_sigcontext_from_rt_frame(frame);
     LOG(THREAD, LOG_ASYNCH, 3, "save_fpstate\n");
     if (sc->fpstate == NULL) {
-#ifdef X64
-        /* fpstate is not inlined, so before getting here someone (copy_frame_to_*,
-         * or thread_set_self_context) is supposed to lay it out and point at it
+        /* Nothing to do: there was no fpstate to save at the time the kernel
+         * gave us this frame.
+         * It's possible that by the time we deliver the signal
+         * there is some state: but it's up to the caller to set up room
+         * for fpstate and point at it in that case.
          */
-        ASSERT_NOT_REACHED();
-        return; /* just continue w/o saving */
-#else
-        /* may be NULL due to lazy fp state saving by kernel */
-        sc->fpstate = &frame->fpstate;
-#endif
+        return;
     } else {
-        LOG(THREAD, LOG_ASYNCH, 3,
-            "ptr="PFX", struct="PFX"\n",
-            sc->fpstate, IF_X64_ELSE(NULL, &frame->fpstate));
+        LOG(THREAD, LOG_ASYNCH, 3, "ptr="PFX"\n", sc->fpstate);
     }
     if (proc_has_feature(FEATURE_FXSR)) {
         LOG(THREAD, LOG_ASYNCH, 3, "\ttemp="PFX"\n", temp);
@@ -925,7 +956,12 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 
     /* the app's xmm registers may be saved away in priv_mcontext_t, in which
      * case we need to copy those values instead of using what was in
-     * the physical xmm registers
+     * the physical xmm registers.
+     * because of this, we can't just execute "xsave".  we still need to
+     * execute xgetbv though.  xsave is very expensive so not worth doing
+     * when xgetbv is all we need; if in the future they add status words,
+     * etc. we can't get any other way then we'll have to do it, but best
+     * to avoid for now.
      */
     save_xmm(dcontext, frame);
 }
@@ -969,7 +1005,7 @@ os_itimers_thread_shared(void)
 void
 signal_init()
 {
-    IF_X64(ASSERT(ALIGNED(offsetof(sigpending_t, fpstate), 16)));
+    IF_X64(ASSERT(ALIGNED(offsetof(sigpending_t, xstate), AVX_ALIGNMENT)));
     os_itimers_thread_shared();
 }
 
@@ -2090,6 +2126,21 @@ dump_fpstate(dcontext_t *dcontext, struct _fpstate *fp)
     }
 #endif
     /* ignore padding */
+    if (YMM_ENABLED()) {
+        struct _xstate *xstate = (struct _xstate *) fp;
+        if (fp->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
+            ASSERT(fp->sw_reserved.xstate_size >= sizeof(*xstate));
+            ASSERT(TEST(XCR0_AVX, fp->sw_reserved.xstate_bv));
+            LOG(THREAD, LOG_ASYNCH, 1, "\txstate_bv = 0x"HEX64_FORMAT_STRING"\n",
+                xstate->xstate_hdr.xstate_bv);
+            for (i=0; i<NUM_XMM_SLOTS; i++) {
+                LOG(THREAD, LOG_ASYNCH, 1, "\tymmh%d = ", i);
+                for (j=0; j<4; j++)
+                    LOG(THREAD, LOG_ASYNCH, 1, "%04x ", xstate->ymmh.ymmh_space[i*4+j]);
+                LOG(THREAD, LOG_ASYNCH, 1, "\n");
+            }
+        }
+    }
 }
 
 static void
@@ -2196,7 +2247,6 @@ is_on_alt_stack(dcontext_t *dcontext, byte *sp)
 #endif
 }
 
-/* FIXME: should copy xmm here too for client access; xref save_xmm() */
 void
 sigcontext_to_mcontext(priv_mcontext_t *mc, struct sigcontext *sc)
 {
@@ -2221,9 +2271,32 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, struct sigcontext *sc)
     mc->r14 = sc->r14;
     mc->r15 = sc->r15;
 #endif
+    if (sc->fpstate != NULL) {
+        int i;
+        for (i=0; i<NUM_XMM_SLOTS; i++) {
+            memcpy(&mc->ymm[i], &sc->fpstate->IF_X64_ELSE(xmm_space[i*4],_xmm[i]),
+                   XMM_REG_SIZE);
+        }
+        if (YMM_ENABLED()) {
+            struct _xstate *xstate = (struct _xstate *) sc->fpstate;
+            if (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
+                ASSERT(sc->fpstate->sw_reserved.xstate_size >= sizeof(*xstate));
+                ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
+                for (i=0; i<NUM_XMM_SLOTS; i++) {
+                    memcpy(&mc->ymm[i].u32[4], &xstate->ymmh.ymmh_space[i*4],
+                           YMMH_REG_SIZE);
+                }
+            }
+        }
+    }
 }
 
-/* FIXME: should copy xmm here too for client access; xref save_xmm() */
+/* Note that unlike mcontext_to_context(), this routine does not fill in
+ * any state that is not present in the mcontext: in particular, it assumes
+ * the sigcontext already contains the native fpstate.  If the caller
+ * is generating a synthetic sigcontext, the caller should call
+ * save_fpstate() before calling this routine.
+ */
 void
 mcontext_to_sigcontext(struct sigcontext *sc, priv_mcontext_t *mc)
 {
@@ -2247,6 +2320,24 @@ mcontext_to_sigcontext(struct sigcontext *sc, priv_mcontext_t *mc)
     sc->r14 = mc->r14;
     sc->r15 = mc->r15;
 #endif
+    if (sc->fpstate != NULL) {
+        int i;
+        for (i=0; i<NUM_XMM_SLOTS; i++) {
+            memcpy(&sc->fpstate->IF_X64_ELSE(xmm_space[i*4],_xmm[i]), &mc->ymm[i],
+                   XMM_REG_SIZE);
+        }
+        if (YMM_ENABLED()) {
+            struct _xstate *xstate = (struct _xstate *) sc->fpstate;
+            if (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
+                ASSERT(sc->fpstate->sw_reserved.xstate_size >= sizeof(*xstate));
+                ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
+                for (i=0; i<NUM_XMM_SLOTS; i++) {
+                    memcpy(&xstate->ymmh.ymmh_space[i*4], &mc->ymm[i].u32[4],
+                           YMMH_REG_SIZE);
+                }
+            }
+        }
+    }
 }
 
 /* Returns whether successful.  If avoid_failure, tries to translate
@@ -2258,7 +2349,6 @@ translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc, bool avoid_fa
     bool success = false;
     priv_mcontext_t mcontext;
  
-    /* FIXME: what about floating-point state?  mmx regs? */
     sigcontext_to_mcontext(&mcontext, sc);
     /* FIXME: if cannot find exact match, we're in trouble!
      * probably ok to delay, since that indicates not a synchronous
@@ -2306,16 +2396,19 @@ thread_set_self_context(void *cxt)
     /* Unlike Windows we can't say "only set this subset of the
      * full machine state", so we need to get the rest of the state,
      */
-    sigframe_rt_t frame; /* for x64, 440 bytes */
+    sigframe_rt_t frame;
     struct sigcontext *sc = (struct sigcontext *) cxt;
     app_pc xsp_for_sigreturn;
 #ifdef VMX86_SERVER
     ASSERT_NOT_IMPLEMENTED(false); /* PR 405694: can't use regular sigreturn! */
 #endif
-#ifdef X64
-    struct _fpstate __attribute__ ((aligned (16))) fpstate; /* 512 bytes */
-    frame.uc.uc_mcontext.fpstate = &fpstate;
-#endif
+    /* We need room for full xstate if nec (this is x86=944, x64=832 bytes).
+     * A real signal frame would be var-sized but we don't want to dynamically
+     * allocate, and only the kernel looks at this, so no risk of some
+     * app seeing a weird frame size.
+     */
+    struct _xstate __attribute__ ((aligned (AVX_ALIGNMENT))) xstate;
+    frame.uc.uc_mcontext.fpstate = &xstate.fpstate;
     memset(&frame, 0, sizeof(frame));
     frame.uc.uc_mcontext = *sc;
     save_fpstate(dcontext, &frame);
@@ -2431,8 +2524,10 @@ get_sigcontext_from_pending(thread_sig_info_t *info, int sig)
 }
 
 /* Returns the address on the appropriate signal stack where we should copy
- * the frame.  Includes spaces for fpstate for x64.
- * If frame is NULL, assumes signal happened while in DR.
+ * the frame.
+ * If frame is NULL, assumes signal happened while in DR and has been delayed,
+ * and thus we need to provide fpstate regardless of whether the original
+ * had it.  If frame is non-NULL, matches frame's amount of fpstate.
  */
 static byte *
 get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
@@ -2478,9 +2573,29 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
     /* now get frame pointer: need to go down to first field of frame */
     sp = (byte *) (((ptr_uint_t)(sp - get_app_frame_size(info, sig)))
                    & IF_X64_ELSE(-16ul, -8ul));
-#ifdef X64
-    sp -= X64_FRAME_EXTRA;
-#endif
+    if (frame == NULL) {
+        /* XXX i#641: we always include space for full xstate,
+         * even if we don't use it all, which does not match what the
+         * kernel does, but we're not tracking app actions to know whether
+         * we can skip lazy fpstate on the delay
+         */
+        sp -= XSTATE_FRAME_EXTRA;
+    } else {
+        if (sc->fpstate != NULL) {
+            /* The kernel doesn't seem to lazily include avx, so we don't either,
+             * which simplifies all our frame copying: if YMM_ENABLED() and the
+             * fpstate pointer is non-NULL, then we assume there's space for
+             * full xstate
+             */
+            sp -= XSTATE_FRAME_EXTRA;
+            DODEBUG({
+                if (YMM_ENABLED()) {
+                    ASSERT_CURIOSITY(sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1);
+                    ASSERT(sc->fpstate->sw_reserved.extended_size <= XSTATE_FRAME_EXTRA);
+                }
+            });
+        }
+    }
     /* PR 369907: don't forget the redzone */
     sp -= REDZONE_SIZE;
     return sp;
@@ -2491,10 +2606,17 @@ static void
 convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
                        sigframe_plain_t *f_new)
 {
+    struct sigcontext *sc_old = get_sigcontext_from_rt_frame(f_old);
     f_new->pretcode = f_old->pretcode;
     f_new->sig = f_old->sig;
     memcpy(&f_new->sc, &f_old->uc.uc_mcontext, sizeof(struct sigcontext));
-    memcpy(&f_new->fpstate, &f_old->fpstate, sizeof(struct _fpstate));
+    if (sc_old->fpstate != NULL) {
+        /* up to caller to include enough space for fpstate at end */
+        byte *new_fpstate = (byte *)
+            ALIGN_FORWARD(((byte *)f_new) + sizeof(*f_new), XSTATE_ALIGNMENT);
+        memcpy(new_fpstate, sc_old->fpstate, XSTATE_DATA_SIZE);
+        f_new->sc.fpstate = (struct _fpstate *) new_fpstate;
+    }
     f_new->sc.oldmask = f_old->uc.uc_sigmask.sig[0];
     memcpy(&f_new->extramask, &f_old->uc.uc_sigmask.sig[1],
            (_NSIG_WORDS-1) * sizeof(uint));
@@ -2509,9 +2631,10 @@ static void
 convert_frame_to_nonrt_partial(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
                                sigframe_plain_t *f_new, size_t size)
 {
-    sigframe_plain_t f_plain;
-    convert_frame_to_nonrt(dcontext, sig, f_old, &f_plain);
-    memcpy(f_new, &f_plain, size);
+    char frame_plus_xstate[sizeof(sigframe_plain_t) + AVX_FRAME_EXTRA];
+    sigframe_plain_t *f_plain = (sigframe_plain_t *) frame_plus_xstate;
+    convert_frame_to_nonrt(dcontext, sig, f_old, f_plain);
+    memcpy(f_new, f_plain, size);
 }
 #endif
 
@@ -2566,15 +2689,12 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
 #ifndef X64
     f_new->pinfo = &(f_new->info);
     f_new->puc = &(f_new->uc);
-    /* if fpstate ptr is not NULL, update it to new frame's fpstate struct */
-    if (f_new->uc.uc_mcontext.fpstate != NULL)
-        f_new->uc.uc_mcontext.fpstate = &f_new->fpstate;
-#else
+#endif
     if (f_old->uc.uc_mcontext.fpstate != NULL) {
         uint frame_size = get_app_frame_size(info, sig);
         byte *frame_end = ((byte *)f_new) + frame_size;
-        byte *tgt = (byte *) ALIGN_FORWARD(frame_end, 16);
-        ASSERT(tgt - frame_end <= X64_FRAME_EXTRA);
+        byte *tgt = (byte *) ALIGN_FORWARD(frame_end, XSTATE_ALIGNMENT);
+        ASSERT(tgt - frame_end <= XSTATE_FRAME_EXTRA);
         memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(struct _fpstate));
         f_new->uc.uc_mcontext.fpstate = (struct _fpstate *) tgt;
         LOG(THREAD, LOG_ASYNCH, level+1, "\tfpstate old="PFX" new="PFX"\n",
@@ -2583,11 +2703,11 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         /* if fpstate is not set up, we're delivering signal immediately,
          * and we shouldn't need an fpstate since DR code won't modify it;
          * only if we delayed will we need it, and when delaying we make
-         * room and set up the pointer in copy_frame_to_pending
+         * room and set up the pointer in copy_frame_to_pending.
+         * xref i#641.
          */
         LOG(THREAD, LOG_ASYNCH, level+1, "\tno fpstate needed\n");
     }
-#endif
     LOG(THREAD, LOG_ASYNCH, level, "\tretaddr = "PFX"\n", f_new->pretcode);
 #ifdef RETURN_AFTER_CALL
     info->signal_restorer_retaddr = (app_pc) f_new->pretcode;
@@ -2615,10 +2735,8 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 #endif
     byte *check_pc;
     uint size = frame_size;
-#ifdef X64
-    size += X64_FRAME_EXTRA;
-    ASSERT(rtframe);
-#endif
+    struct sigcontext *sc = get_sigcontext_from_rt_frame(frame);
+    size += (sc->fpstate == NULL ? 0 : XSTATE_FRAME_EXTRA);
 
     LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_stack: rt=%d, src="PFX", sp="PFX"\n",
         rtframe, frame, sp);
@@ -2714,9 +2832,11 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
             LOG(THREAD, LOG_ASYNCH, 3, "\tleaving pretcode with old value\n");
 # endif
         }
-        /* if fpstate ptr is not NULL, update it to new frame's fpstate struct */
-        if (f_new->sc.fpstate != NULL)
-            f_new->sc.fpstate = &f_new->fpstate;
+        /* convert_frame_to_nonrt*() should have updated fpstate pointer.
+         * The inlined fpstate is no longer used on new kernels, and we do that
+         * as well on older kernels.
+         */
+        ASSERT(f_new->sc.fpstate != &f_new->fpstate);
         LOG(THREAD, LOG_ASYNCH, 3, "\tretaddr = "PFX"\n", f_new->pretcode);
 # ifdef RETURN_AFTER_CALL
         info->signal_restorer_retaddr = (app_pc) f_new->pretcode;
@@ -2745,19 +2865,23 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
     }
 #endif
     memcpy(dst, frame, sizeof(*dst));
-#ifdef X64
+
+    /* For lazy fpstate, it's possible there was no fpstate when the kernel
+     * sent us the frame, but in between then and now the app executed some
+     * fp or xmm/ymm instrs.  Today we always add fpstate just in case.
+     * XXX i#641 optimization: track whether any fp/xmm/ymm
+     * instrs happened and avoid this.
+     */
     /* we'll fill in updated fpstate at delivery time, but we go ahead and
      * copy now in case our own retrieval somehow misses some fields
      */
     if (frame->uc.uc_mcontext.fpstate != NULL) {
-        memcpy(&info->sigpending[sig]->fpstate, frame->uc.uc_mcontext.fpstate,
-               sizeof(info->sigpending[sig]->fpstate));
+        memcpy(&info->sigpending[sig]->xstate, frame->uc.uc_mcontext.fpstate,
+               /* XXX: assuming full xstate if avx is enabled */
+               XSTATE_DATA_SIZE);
     }
     /* we must set the pointer now so that later save_fpstate, etc. work */
-    dst->uc.uc_mcontext.fpstate = &info->sigpending[sig]->fpstate;        
-#else
-    dst->uc.uc_mcontext.fpstate = &dst->fpstate;
-#endif
+    dst->uc.uc_mcontext.fpstate = (struct _fpstate *) &info->sigpending[sig]->xstate;        
 #ifdef CLIENT_INTERFACE
     info->sigpending[sig]->access_address = access_address;
 #endif
@@ -3523,11 +3647,9 @@ sig_should_swap_stack(struct clone_and_swap_args *args, kernel_ucontext_t *ucxt)
          * copy to dstack from the tos at the signal interruption point.
          */
         args->stack = dcontext->dstack;
-# ifdef X64
         /* leave room for fpstate */
-        args->stack -= X64_FRAME_EXTRA;
-        args->stack = (byte *) ALIGN_BACKWARD(args->stack, 16);
-# endif
+        args->stack -= XSTATE_FRAME_EXTRA;
+        args->stack = (byte *) ALIGN_BACKWARD(args->stack, XSTATE_ALIGNMENT);
         args->tos = (byte *) sc->SC_XSP;
         return true;
     } else
@@ -4079,6 +4201,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* FIXME: we should clear fpstate for app handler itself as that's
      * how our own handler is executed.
      */
+    ASSERT(sc->fpstate != NULL); /* not doing i#641 yet */
     save_fpstate(dcontext, frame);
 #ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
@@ -4610,7 +4733,8 @@ os_forge_exception(app_pc target_pc, exception_type_t type)
      */
     dcontext_t *dcontext = get_thread_private_dcontext();
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
-    sigframe_rt_t frame;
+    char frame_plus_xstate[sizeof(sigframe_rt_t) + AVX_FRAME_EXTRA];
+    sigframe_rt_t *frame = (sigframe_rt_t *) frame_plus_xstate;
     int sig;
     where_am_i_t cur_whereami = dcontext->whereami;
     switch (type) {
@@ -4625,16 +4749,17 @@ os_forge_exception(app_pc target_pc, exception_type_t type)
     /* since we always delay delivery, we always want an rt frame.  we'll convert
      * to a plain frame on delivery.
      */
-    memset(&frame, 0, sizeof(frame));
-    frame.info.si_signo = sig;
+    memset(frame, 0, sizeof(frame));
+    frame->info.si_signo = sig;
 #ifndef X64
-    frame.sig = sig;
-    frame.pinfo = &frame.info;
-    frame.puc = (void *) &frame.uc;
-    frame.uc.uc_mcontext.fpstate = &frame.fpstate;
+    frame->sig = sig;
+    frame->pinfo = &frame->info;
+    frame->puc = (void *) &frame->uc;
 #endif
-    mcontext_to_sigcontext(&frame.uc.uc_mcontext, get_mcontext(dcontext));
-    frame.uc.uc_mcontext.SC_XIP = (reg_t) target_pc;
+    frame->uc.uc_mcontext.fpstate = (struct _fpstate *)
+        ALIGN_FORWARD(frame_plus_xstate + sizeof(*frame), XSTATE_ALIGNMENT);
+    mcontext_to_sigcontext(&frame->uc.uc_mcontext, get_mcontext(dcontext));
+    frame->uc.uc_mcontext.SC_XIP = (reg_t) target_pc;
     /* we'll fill in fpstate at delivery time
      * FIXME: it seems to work w/o filling in the other state:
      * I'm leaving segments, cr2, etc. all zero.
@@ -4644,15 +4769,15 @@ os_forge_exception(app_pc target_pc, exception_type_t type)
      * Windows.  Or we can switch to approach #2.
      */
     if (sig_has_restorer(info, sig))
-        frame.pretcode = (char *) info->app_sigaction[sig]->restorer;
+        frame->pretcode = (char *) info->app_sigaction[sig]->restorer;
     else
-        frame.pretcode = (char *) dynamorio_sigreturn;
+        frame->pretcode = (char *) dynamorio_sigreturn;
 
     /* We assume that we do not need to translate the context when forged.
      * If we did, we'd move this below enter_nolinking() (and update
      * record_pending_signal() to do the translation).
      */
-    record_pending_signal(dcontext, sig, &frame.uc, &frame, true/*forged*/
+    record_pending_signal(dcontext, sig, &frame->uc, frame, true/*forged*/
                           _IF_CLIENT(NULL));
 
     /* For most callers this is not necessary and we only do it to match

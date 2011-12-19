@@ -57,6 +57,7 @@
 #define XMM_SLOTS_SIZE  (NUM_XMM_SLOTS*XMM_SAVED_REG_SIZE)
 #define XMM_SAVED_SIZE  (NUM_XMM_SAVED*XMM_SAVED_REG_SIZE)
 #define YMM_ENABLED() (proc_has_feature(FEATURE_AVX))
+#define YMMH_REG_SIZE (YMM_REG_SIZE/2) /* upper half */
 
 typedef enum {
     IBL_NONE = -1,

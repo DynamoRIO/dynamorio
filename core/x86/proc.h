@@ -235,6 +235,11 @@ extern size_t cache_line_size;
 
 #define CACHE_LINE_SIZE() cache_line_size
 
+/* xcr0 and xstate_bv feature bits */
+#define XCR0_AVX 4
+#define XCR0_SSE 2
+#define XCR0_FP  1
+
 void proc_init(void);
 
 DR_API
