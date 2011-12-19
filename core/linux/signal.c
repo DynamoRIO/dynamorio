@@ -41,13 +41,10 @@
 
 #include <unistd.h>
 
-/* For FC8:
- * We do not want bits/sigcontext.h from signal.h, since we want X86_FXSR_MAGIC
- * from asm/sigcontext.h, which duplicates many struct defs from bits/sigcontext.h
+/* We want to build on older toolchains so we have our own copy of signal
+ * data structures
  */
-#define _BITS_SIGCONTEXT_H  1
-#include <signal.h>
-#include <asm/sigcontext.h> /* for X86_FXSR_MAGIC */
+#include "include/sigcontext.h"
 
 #include <sys/time.h>
 #include <sys/types.h>
