@@ -69,7 +69,7 @@
 START_FILE
 
 #ifdef LINUX
-# include "syscall.h"
+# include "../linux/include/syscall.h"
 #endif
         
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) mov dest, PTRSZ [offs + reg]

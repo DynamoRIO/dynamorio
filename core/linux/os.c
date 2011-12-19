@@ -125,7 +125,7 @@ extern char **__environ;
 #ifdef RCT_IND_BRANCH
 #  include "../rct.h"
 #endif
-#include "syscall.h"            /* our own local copy */
+#include "include/syscall.h"            /* our own local copy */
 #include "../module_shared.h"
 #include "os_private.h"
 #include "../synch.h"

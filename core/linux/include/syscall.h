@@ -1,47 +1,21 @@
-/* **********************************************************
- * Copyright (c) 2008 VMware, Inc.  All rights reserved.
- * **********************************************************/
-
-/*
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 
- * * Redistributions of source code must retain the above copyright notice,
- *   this list of conditions and the following disclaimer.
- * 
- * * Redistributions in binary form must reproduce the above copyright notice,
- *   this list of conditions and the following disclaimer in the documentation
- *   and/or other materials provided with the distribution.
- * 
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
- *   used to endorse or promote products derived from this software without
- *   specific prior written permission.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
- * DAMAGE.
- */
-
-/*
- * syscall.h - SYS and NR defines
- */
+/****************************************************************************
+ ****************************************************************************
+ ***
+ ***   This header was generated from glibc headers to make
+ ***   information necessary for userspace to call into the Linux
+ ***   kernel available to DynamoRIO.  It contains only constants,
+ ***   structures, and macros generated from the original header, and
+ ***   thus, contains no copyrightable information.
+ ***
+ ****************************************************************************
+ ****************************************************************************/
 
 #ifndef _SYSCALL_H_
 #define _SYSCALL_H_ 1
 
 #ifdef X64
 
-/* Copied from FC 8's /usr/include/asm/unistd_64.h 
- * I stripped out the __SYSCALL__ lines and blank lines
- */
+/* From FC 8's /usr/include/asm/unistd_64.h */
 # define __NR_read                              0
 # define __NR_write                             1
 # define __NR_open                              2
@@ -361,7 +335,7 @@
 
 #else
 
-/* Copied from FC 8's /usr/include/asm/unistd_32.h */
+/* From FC 8's /usr/include/asm/unistd_32.h */
 # define __NR_restart_syscall      0
 # define __NR_exit                 1
 # define __NR_fork                 2
@@ -689,7 +663,7 @@
 # define __NR_fallocate          324
 #endif
 
-/* Copied from FC 8's /usr/include/bits/syscall.h */
+/* From FC 8's /usr/include/bits/syscall.h */
 #define SYS__sysctl __NR__sysctl
 #define SYS_access __NR_access
 #define SYS_acct __NR_acct
