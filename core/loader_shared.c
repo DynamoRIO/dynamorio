@@ -110,6 +110,7 @@ loader_init(void)
     /* Process client libs we loaded early but did not finalize */
     for (i = 0; i < privmod_static_idx; i++) {
         /* Transfer to real list so we can do normal processing */
+        char name_copy[MAXIMUM_PATH];
         mod = privload_insert(NULL,
                               privmod_static[i].base,
                               privmod_static[i].size,
@@ -117,11 +118,15 @@ loader_init(void)
                               privmod_static[i].path);
         LOG(GLOBAL, LOG_LOADER, 1, "%s: processing imports for %s\n",
             __FUNCTION__, mod->name);
+        /* save a copy for error msg, b/c mod will be unloaded (i#643) */
+        snprintf(name_copy, BUFFER_SIZE_ELEMENTS(name_copy), "%s", mod->name);
+        NULL_TERMINATE_BUFFER(name_copy);
         if (!privload_load_finalize(mod)) {
+            mod = NULL; /* it's been unloaded! */
             CLIENT_ASSERT(false, "failure to process imports of client library");
 #ifdef CLIENT_INTERFACE
             SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4,
-                   get_application_name(), get_application_pid(), mod->name,
+                   get_application_name(), get_application_pid(), name_copy,
                    "\n\tUnable to process imports of client library");
 #endif
         }
