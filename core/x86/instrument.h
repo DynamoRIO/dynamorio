@@ -1980,15 +1980,14 @@ DR_API
 bool
 dr_mutex_trylock(void *mutex);
 
-#ifdef DEBUG
 DR_API
 /**
  * Returns true iff \p mutex is owned by the calling thread.
  * This routine is only available in debug builds.
+ * In release builds it always returns true.
  */
 bool
 dr_mutex_self_owns(void *mutex);
-#endif
 
 DR_API
 /**

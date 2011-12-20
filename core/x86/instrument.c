@@ -2627,14 +2627,12 @@ dr_mutex_trylock(void *mutex)
     return mutex_trylock((mutex_t *) mutex);
 }
 
-#ifdef DEBUG
 DR_API
 bool
 dr_mutex_self_owns(void *mutex)
 {
-    return OWN_MUTEX((mutex_t *)mutex);
+    return IF_DEBUG_ELSE(OWN_MUTEX((mutex_t *)mutex), true);
 }
-#endif
 
 DR_API
 void *
