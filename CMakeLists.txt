@@ -687,6 +687,11 @@ else (UNIX)
   set(BASE_CXXFLAGS "${BASE_CFLAGS}")
 endif (UNIX)
 
+if (UNIX)
+ # i#646: cmake 2.8.5 requires ASM-ATT to find as: but we don't want to change
+ # all our vars to have -ATT suffix so we set the search list instead
+ set(CMAKE_ASM_COMPILER_INIT gas as)
+endif (UNIX)
 enable_language(ASM)
 # note that I had to fix a bug in /usr/share/cmake/Modules/CMakeASMInformation.cmake
 # where @VAR@ expansion was used, which only works for configure_file()
