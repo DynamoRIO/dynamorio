@@ -15,6 +15,13 @@
 
 /* Avoid <bits/sigcontext.h> from <signal.h> */
 #define _BITS_SIGCONTEXT_H  1
+/* Avoid <asm/sigcontext.h> from <signal.h> on 32-bit Ubuntu (i#648)
+ * and anywhere else it manages to sneak in, just in case
+ */
+#define _ASM_X86_SIGCONTEXT_H 1
+#define _ASMi386_SIGCONTEXT_H 1
+#define _ASM_X86_64_SIGCONTEXT_H 1
+#define _ASM_X86_SIGCONTEXT32_H 1
 
 #include <linux/types.h>
 
