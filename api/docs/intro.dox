@@ -1,6 +1,6 @@
 /* ******************************************************************************
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
 
@@ -513,6 +513,10 @@ on local files.
 If a target application executes an \c execve that discards the \c $HOME
 environment variable, the resulting process will not run under \DynamoRIO
 control.  Use global configuration files to handle this situation.
+
+If a target application binary has suid or sgid bits set, \p drrun will be
+unable to inject into it.  You'll need to use /etc/ld.so.preload as
+described in the \ref limits_linux_preload "Limitations" section.
 
 To \ref sec_comm "nudge" a process with pid \c targetpid running under
 \DynamoRIO and pass argument "5" to the nudge callback, use the \c

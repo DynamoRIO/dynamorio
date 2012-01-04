@@ -1,6 +1,6 @@
 /* ******************************************************************************
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
 
@@ -810,11 +810,16 @@ not supported.
   - On Linux, the only provided deployment method in this release (aside
     from the \ref sec_startstop "app_start() app_stop()" interface, which
     requires soure code modification) is LD_PRELOAD.  This means that
-    static binaries cannot be injected into.  Also, suid-root binaries
+    static binaries cannot be injected into.  Also, binaries with the suid
+    or sgid permission bits set
     disallow absolute paths in LD_PRELOAD and ignore LD_LIBRARY_PATH, so
     alternate methods of specifying the path are needed there.  One method
     is to place libdrpreload.so's full path in /etc/ld.so.preload and copy
     libdynamorio.so to /usr/lib or some other system search directory.
+    You'll need to use a \ref lin_deploy "separate configure step approach".
+    Don't forget to run drconfig to create a configuration for the
+    application first; otherwise, libdrpreload.so will refuse to take
+    control.
 \endif
 
 \ifnot vmsafe 
