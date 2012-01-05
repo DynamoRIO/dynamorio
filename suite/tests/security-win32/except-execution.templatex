@@ -11,7 +11,7 @@ Inside first filter eax=badcdef0
 #if defined(RUNREGRESSION_NT) 
   ContextFlags=0x0001001f 
 #else
-  ContextFlags=0x0001003f 
+  ContextFlags=0x000100.f 
 #endif
   Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
   Edx=0xddcdcdcd Ecx=0xcccdcdcd 
@@ -32,7 +32,7 @@ Inside 3rd filter
 #if defined(RUNREGRESSION_NT) 
   ContextFlags=0x0001001f 
 #else
-  ContextFlags=0x0001003f 
+  ContextFlags=0x000100.f 
 #endif
   Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
   Edx=0xdeadbeef Ecx=0xcccdcdcd 
@@ -69,7 +69,7 @@ DATA VIOLATION: Inside first filter eax=0
 #if defined(RUNREGRESSION_NT) 
   ContextFlags=0x0001001f 
 #else
-  ContextFlags=0x0001003f 
+  ContextFlags=0x000100.f 
 #endif
   Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
   Edx=0xddcdcdcd Ecx=0xcccdcdcd 
@@ -98,7 +98,7 @@ DATA: Expected execution violation!
 #if defined(RUNREGRESSION_NT) 
   ContextFlags=0x0001001f 
 #else
-  ContextFlags=0x0001003f 
+  ContextFlags=0x000100.f 
 #endif
   Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
   Edx=0xddcdcdcd Ecx=0xcccdcdcd 

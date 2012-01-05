@@ -158,7 +158,7 @@ int main(int argc, char** argv)
     hThread = _beginthreadex(NULL, 0, run_func, event, 0, &i);
 
     for (i=0; i<ITERS; i++) {
-        lib = LoadLibrary("win32.reload.dll.dll");
+        lib = LoadLibrary("win32.reload_FLAKY.dll.dll");
         if (lib == NULL) {
             print("error loading library\n");
             break;

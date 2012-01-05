@@ -1558,6 +1558,9 @@ typedef union _dr_ymm_t {
 /* If this is increased, you'll probably need to increase the size of
  * inject_into_thread's buf and INTERCEPTION_CODE_SIZE (for Windows).
  * Also, update NUM_XMM_SLOTS in x86.asm and get_xmm_caller_saved.
+ * i#437: YMM is an extension of XMM from 128-bit to 256-bit without
+ * adding new ones, so code operating on XMM often also operates on YMM,
+ * and thus some *XMM* macros also apply to *YMM*.
  */
 #endif
 #ifdef X64

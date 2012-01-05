@@ -3984,6 +3984,7 @@ dump_context_info(CONTEXT *context, file_t file, bool all)
     /* For PR 264138 */
     if (all || TESTALL(CONTEXT_XMM_FLAG, context->ContextFlags)) {
         int i, j;
+        byte *ymmh_area;
         for (i=0; i<NUM_XMM_SAVED; i++) {
             LOG(file, LOG_ASYNCH, 2, "xmm%d=0x", i);
             /* This would be simpler if we had uint64 fields in dr_xmm_t but
@@ -3992,11 +3993,16 @@ dump_context_info(CONTEXT *context, file_t file, bool all)
                 LOG(file, LOG_ASYNCH, 2, "%08x", CXT_XMM(context, i)->u32[j]);
             }
             NEWLINE;
+            if (TESTALL(CONTEXT_YMM_FLAG, context->ContextFlags)) {
+                ymmh_area = context_ymmh_saved_area(context);
+                LOG(file, LOG_ASYNCH, 2, "ymmh%d=0x", i);
+                for (j = 0; j < 4; j++) {
+                    LOG(file, LOG_ASYNCH, 2, "%08x",
+                        YMMH_AREA(ymmh_area, i).u32[j]);
+                }
+                NEWLINE;
+            }
         }
-    }
-    if (all || TESTALL(CONTEXT_YMM_FLAG, context->ContextFlags)) {
-        /* FIXME i#437: NYI.  See comments in context_to_mcontext(). */
-        ASSERT_NOT_IMPLEMENTED(!YMM_ENABLED() && "i#437: no ymm CONTEXT support yet");
     }
 
     if (all || context->ContextFlags & CONTEXT_FLOATING_POINT) {

@@ -57,7 +57,7 @@ typedef ushort cxt_seg_t;
 /* It looks like both CONTEXT.Xmm0 and CONTEXT.FltSave.XmmRegisters[0] are filled in.
  * We use the latter so that we don't have to hardcode the index.
  */
-# define CXT_XMM(cxt, idx) ((dr_ymm_t*)&((cxt)->FltSave.XmmRegisters[idx]))
+# define CXT_XMM(cxt, idx) ((dr_xmm_t*)&((cxt)->FltSave.XmmRegisters[idx]))
 /* FIXME i#437: need CXT_YMM */
 /* they kept the 32-bit EFlags field; sure, the upper 32 bits of Rflags
  * are undefined right now, but doesn't seem very forward-thinking. */
@@ -80,7 +80,7 @@ typedef DWORD cxt_seg_t;
  */
 # define FXSAVE_XMM0_OFFSET 160
 # define CXT_XMM(cxt, idx) \
-    ((dr_ymm_t*)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
+    ((dr_xmm_t*)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
 #endif
 
 #include "../os_shared.h"

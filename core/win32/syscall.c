@@ -1221,10 +1221,10 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
 static bool
 not_first_thread_in_new_process(HANDLE process_handle, HANDLE thread_handle)
 {
-    CONTEXT cxt;
-    cxt.ContextFlags = CONTEXT_DR_STATE;
-    if (NT_SUCCESS(nt_get_context(thread_handle, &cxt)))
-        return !is_first_thread_in_new_process(process_handle, &cxt);
+    char buf[MAX_CONTEXT_SIZE];
+    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    if (NT_SUCCESS(nt_get_context(thread_handle, cxt)))
+        return !is_first_thread_in_new_process(process_handle, cxt);
     return false;
 }
 
@@ -1496,21 +1496,21 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
              * FIXME: this isn't transparent as we have to clobber
              * fields in the app cxt: should restore in post-syscall.
              */
-            CONTEXT alt_cxt;
-            alt_cxt.ContextFlags = CONTEXT_DR_STATE;
+            char buf[MAX_CONTEXT_SIZE];
+            CONTEXT *alt_cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
             STATS_INC(num_app_setcontext_no_control);
-            if (thread_get_context(tr, &alt_cxt) &&
-                translate_context(tr, &alt_cxt, true/*set memory*/)) {
+            if (thread_get_context(tr, alt_cxt) &&
+                translate_context(tr, alt_cxt, true/*set memory*/)) {
                 LOG(THREAD, LOG_SYSCALLS, 2, "no CONTROL flag on original cxt:\n");
                 DOLOG(3, LOG_SYSCALLS, { dump_context_info(cxt, THREAD, true); });
                 cxt->ContextFlags |= CONTEXT_CONTROL;
-                cxt->CXT_XIP = alt_cxt.CXT_XIP;
-                cxt->CXT_XFLAGS = alt_cxt.CXT_XFLAGS;
-                cxt->CXT_XSP = alt_cxt.CXT_XSP;
-                cxt->CXT_XBP = alt_cxt.CXT_XBP;
+                cxt->CXT_XIP = alt_cxt->CXT_XIP;
+                cxt->CXT_XFLAGS = alt_cxt->CXT_XFLAGS;
+                cxt->CXT_XSP = alt_cxt->CXT_XSP;
+                cxt->CXT_XBP = alt_cxt->CXT_XBP;
                 IF_X64(ASSERT_NOT_IMPLEMENTED(false)); /* Rbp not part of CONTROL */
-                cxt->SegCs = alt_cxt.SegCs;
-                cxt->SegSs = alt_cxt.SegSs;
+                cxt->SegCs = alt_cxt->SegCs;
+                cxt->SegSs = alt_cxt->SegSs;
                 LOG(THREAD, LOG_SYSCALLS, 3, "changed cxt:\n");
                 DOLOG(3, LOG_SYSCALLS, { dump_context_info(cxt, THREAD, true); });
                 /* don't care about other regs -- if app didn't
@@ -2507,7 +2507,8 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
         if (TESTALL(PROCESS_VM_OPERATION|PROCESS_VM_READ|
                     PROCESS_VM_WRITE|PROCESS_QUERY_INFORMATION, rights)) {
             if (create_suspended) {
-                CONTEXT context;
+                char buf[MAX_CONTEXT_SIZE];
+                CONTEXT *context;
                 CONTEXT *cxt = NULL;
                 int res;
                 if (get_os_version() >= WINDOWS_VERSION_VISTA &&
@@ -2517,10 +2518,10 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
                      * to do thread injection.  On Vista+ we don't see the
                      * NtCreateThread so we do it here.  PR 215423.
                      */
-                    context.ContextFlags = CONTEXT_DR_STATE;
-                    res = nt_get_context(thread_handle, &context);
+                    context = nt_initialize_context(buf, CONTEXT_DR_STATE);
+                    res = nt_get_context(thread_handle, context);
                     if (NT_SUCCESS(res))
-                        cxt = &context;
+                        cxt = context;
                     else {
                         LOG(THREAD, LOG_SYSCALLS, 1,
                             "syscall: NtCreateUserProcess: WARNING: failed to get cxt of "
@@ -2570,7 +2571,8 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     CONTEXT *cxt = (CONTEXT *) postsys_param(dcontext, param_base, 1);
     thread_record_t *trec;
     thread_id_t tid = thread_id_from_handle(thread_handle);
-    CONTEXT alt_cxt;
+    char buf[MAX_CONTEXT_SIZE];
+    CONTEXT *alt_cxt;
     CONTEXT *xlate_cxt;
     LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
         "syscall: NtGetContextThread handle="PFX" (tid=%d) flags=0x%x"
@@ -2623,22 +2625,22 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
              * no further permissions are needed to acquire them so we
              * get our own context w/ them.
              */
-            alt_cxt.ContextFlags = CONTEXT_DR_STATE;
+            alt_cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
             /* if asking for own context, thread_get_context() will point at
              * dynamorio_syscall_* and we'll fail to translate so we special-case
              */
             if (tid == get_thread_id()) {
-                mcontext_to_context(&alt_cxt, mc);
-                alt_cxt.CXT_XIP = (ptr_uint_t) dcontext->asynch_target;
+                mcontext_to_context(alt_cxt, mc);
+                alt_cxt->CXT_XIP = (ptr_uint_t) dcontext->asynch_target;
                 translate = false;
-            } else if (!thread_get_context(trec, &alt_cxt)) {
+            } else if (!thread_get_context(trec, alt_cxt)) {
                 ASSERT_NOT_REACHED();
                 /* FIXME: just don't translate -- right now won't hurt us since
                  * we don't translate other than the pc anyway.
                  */
                 return;
             }
-            xlate_cxt = &alt_cxt;
+            xlate_cxt = alt_cxt;
         }
 
         SELF_PROTECT_LOCAL(trec->dcontext, WRITABLE);
@@ -2694,12 +2696,9 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             }
             if (TESTALL(CONTEXT_YMM_FLAG, cxt->ContextFlags) &&
                 preserve_xmm_caller_saved()) {
-                /* FIXME i#437: ymm are inside XSTATE cstruct which should be
-                 * laid out like this: {CONTEXT, CONTEXT_EX, XSTATE}, but
-                 * should read CONTEXT_EX fields to verify.
-                 * See also comments in context_to_mcontext().
-                 */
-                ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm CONTEXT support yet");
+                byte *ymmh_area = context_ymmh_saved_area(cxt);
+                ASSERT(ymmh_area != NULL);
+                memcpy(ymmh_area, context_ymmh_saved_area(xlate_cxt), YMMH_SAVED_SIZE);
             }
         }
         SELF_PROTECT_LOCAL(trec->dcontext, READONLY);
@@ -2741,9 +2740,9 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
      * synch, use trylocks in case suspended thread is holding any locks */
     if (mutex_trylock(&thread_initexit_lock)) {
         if (!mutex_testlock(&all_threads_lock)) {
-            CONTEXT cxt;
+            char buf[MAX_CONTEXT_SIZE];
+            CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
             thread_record_t *tr;
-            cxt.ContextFlags = CONTEXT_DR_STATE;
             /* know thread isn't holding any of the locks we will need */
             LOG(THREAD, LOG_SYNCH, 2, 
                 "SuspendThread got necessary locks to test if thread %d suspended at good spot without resuming\n", 
@@ -2754,9 +2753,9 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                  * a thread that is in the process of exiting. 
                  * synch_with_thread will take care of the last case at
                  * least so we fall through to that. */
-            } else if (thread_get_context(tr, &cxt)) {
+            } else if (thread_get_context(tr, cxt)) {
                 priv_mcontext_t mc;
-                context_to_mcontext(&mc, &cxt);
+                context_to_mcontext(&mc, cxt);
                 SELF_PROTECT_LOCAL(tr->dcontext, WRITABLE);
                 if (at_safe_spot(tr, &mc, 
                                  THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT)) {

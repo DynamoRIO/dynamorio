@@ -100,6 +100,7 @@ process_id_t win32_pid = 0;
 /* we store here to enable TEB.ProcessEnvironmentBlock as a spill slot */
 void *peb_ptr;
 static int os_version;
+static int os_sp_ver;
 static const char *os_name;
 app_pc vsyscall_page_start = NULL;
 /* pc kernel will claim app is at while in syscall */
@@ -497,6 +498,26 @@ exit_global_profiles()
  **
  ****************************************************************************/
 
+bool
+os_supports_avx()
+{
+    /* XXX: what about the WINDOWS Server 2008 R2? */
+    if (os_version == WINDOWS_VERSION_7 && os_sp_ver == 1)
+        return true;
+    return false;
+}
+
+static uint
+get_context_xstate_flag(void)
+{
+    /* i#437: AVX is supported on Windows 7 SP1 and Windows Server 2008 R2 SP1
+     * win7sp1+ both should be 0x40.
+     */
+    if (os_supports_avx())
+        return (IF_X64_ELSE(CONTEXT_AMD64, CONTEXT_i386) | 0x40L);
+    return IF_X64_ELSE((CONTEXT_AMD64 | 0x20L), (CONTEXT_i386 | 0x40L));
+}
+
 /* FIXME: Right now error reporting will work here, but once we have our
  * error reporting syscalls going through wrappers and requiring this
  * init routine, we'll have to have a fallback here that dynamically
@@ -523,13 +544,26 @@ windows_version_init()
         /* WinNT or descendents */
         if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 1) {
             module_handle_t ntdllh = get_ntdll_base();
-            if (module_is_64bit(get_ntdll_base()) ||
-                is_wow64_process(NT_CURRENT_PROCESS)) {
-                syscalls = (int *) windows_7_x64_syscalls;
-                os_name = "Microsoft Windows 7 x64";
+            /* i#437: ymm/avx is supported after Win-7 SP1 */
+            if (get_proc_address(ntdllh, "RtlCopyContext") != NULL) {
+                os_sp_ver = 1;
+                if (module_is_64bit(get_ntdll_base()) ||
+                    is_wow64_process(NT_CURRENT_PROCESS)) {
+                    syscalls = (int *) windows_7_x64_syscalls;
+                    os_name = "Microsoft Windows 7 x64 SP1";
+                } else {
+                    syscalls = (int *) windows_7_syscalls;
+                    os_name = "Microsoft Windows 7 SP1";
+                }
             } else {
-                syscalls = (int *) windows_7_syscalls;
-                os_name = "Microsoft Windows 7";
+                if (module_is_64bit(get_ntdll_base()) ||
+                    is_wow64_process(NT_CURRENT_PROCESS)) {
+                    syscalls = (int *) windows_7_x64_syscalls;
+                    os_name = "Microsoft Windows 7 x64 SP0";
+                } else {
+                    syscalls = (int *) windows_7_syscalls;
+                    os_name = "Microsoft Windows 7 SP0";
+                }
             }
             os_version = WINDOWS_VERSION_7;
         } else if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 0) {
@@ -538,6 +572,7 @@ windows_version_init()
              * the existence of NtReplacePartitionUnit to detect sp1 - see
              * PR 246402.  They also differ for 32-bit vs 64-bit/wow64. */
             if (get_proc_address(ntdllh, "NtReplacePartitionUnit") != NULL) {
+                os_sp_ver = 1;
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *) windows_vista_sp1_x64_syscalls;
@@ -645,6 +680,8 @@ windows_version_init()
         FATAL_USAGE_ERROR(BAD_OS_VERSION, 4, get_application_name(),
                           get_application_pid(), PRODUCT_NAME, os_name);
     }
+    /* i#437: get the context_xstate after os version is determined */
+    context_xstate = get_context_xstate_flag();
 }
 
 /* Note that assigning a process to a Job is done only after it has
@@ -3328,10 +3365,10 @@ thread_terminate(thread_record_t *tr)
 bool
 thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
-    CONTEXT cxt;
-    cxt.ContextFlags = CONTEXT_DR_STATE;
-    if (thread_get_context(tr, &cxt)) {
-        context_to_mcontext(mc, &cxt);
+    char buf[MAX_CONTEXT_SIZE];
+    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    if (thread_get_context(tr, cxt)) {
+        context_to_mcontext(mc, cxt);
         return true;
     }
     return false;
@@ -3340,10 +3377,10 @@ thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 bool
 thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
-    CONTEXT cxt;
-    cxt.ContextFlags = CONTEXT_DR_STATE;
-    mcontext_to_context(&cxt, mc);
-    return thread_set_context(tr, &cxt);
+    char buf[MAX_CONTEXT_SIZE];
+    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    mcontext_to_context(cxt, mc);
+    return thread_set_context(tr, cxt);
 }
 
 bool
@@ -3371,10 +3408,10 @@ thread_set_self_context(void *cxt)
 void
 thread_set_self_mcontext(priv_mcontext_t *mc)
 {
-    CONTEXT cxt;
-    cxt.ContextFlags = CONTEXT_DR_STATE;
-    mcontext_to_context(&cxt, mc);
-    thread_set_self_context(&cxt);
+    char buf[MAX_CONTEXT_SIZE];
+    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    mcontext_to_context(cxt, mc);
+    thread_set_self_context(cxt);
     ASSERT_NOT_REACHED();
 }
 
@@ -5897,7 +5934,8 @@ detach_helper(int detach_type)
     bool *cleanup_tpc;
     bool translate_cxt;
     bool detach_stacked_callbacks;
-    CONTEXT cxt;
+    char buf[MAX_CONTEXT_SIZE];
+    CONTEXT *cxt;
     DEBUG_DECLARE(bool ok;)
 
     /* Caller (generic_nudge_handler) should have already checked these and
@@ -5939,7 +5977,7 @@ detach_helper(int detach_type)
 
     ASSERT(dynamo_initialized);
     ASSERT(!dynamo_exited);
-    cxt.ContextFlags = CONTEXT_DR_STATE;
+    cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
     my_id = get_thread_id();
 
     ASSERT(detach_type < DETACH_NORMAL_TYPE || 
@@ -6074,7 +6112,7 @@ detach_helper(int detach_type)
             my_thread_index = i;
             continue;
         }
-        res = thread_get_context(threads[i], &cxt);
+        res = thread_get_context(threads[i], cxt);
         ASSERT(res);
         /* XXX : callback UNDER_DYN_HACK hack again */
         if (IS_UNDER_DYN_HACK(threads[i]->under_dynamo_control)) {
@@ -6084,15 +6122,15 @@ detach_helper(int detach_type)
                 threads[i]->id);
             /* We don't expect to be at do_syscall (and therefore require translation
              * even though native) since we should've re-taken over by then. */
-            ASSERT(!is_at_do_syscall(dcontext, (app_pc)cxt.CXT_XIP,
-                                     (byte *)cxt.CXT_XSP));
+            ASSERT(!is_at_do_syscall(dcontext, (app_pc)cxt->CXT_XIP,
+                                     (byte *)cxt->CXT_XSP));
             translate_cxt = false;
         }
         if (translate_cxt) {
             LOG(GLOBAL, LOG_ALL, 1, 
-                "Detach : recreating address for "PFX"\n", cxt.CXT_XIP);
+                "Detach : recreating address for "PFX"\n", cxt->CXT_XIP);
             /* fine to call this for native thread, will return cxt right back */
-            res = translate_context(threads[i], &cxt, true/*restore memory*/);
+            res = translate_context(threads[i], cxt, true/*restore memory*/);
             ASSERT(res);
             if (!threads[i]->under_dynamo_control) {
                 LOG(GLOBAL, LOG_ALL, 1, 
@@ -6137,15 +6175,15 @@ detach_helper(int detach_type)
             /* handle special case of vsyscall, need to hack the return address
              * on the stack as part of the translation */
             if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
-                cxt.CXT_XIP == (ptr_uint_t) vsyscall_after_syscall) {
+                cxt->CXT_XIP == (ptr_uint_t) vsyscall_after_syscall) {
                 ASSERT(get_os_version() >= WINDOWS_VERSION_XP);
                 /* handle special case of vsyscall */
                 /* case 5441 Sygate hack means after_syscall will be at
                  * esp+4 (esp will point to sysenter_ret_address in ntdll) */
-                if (*(cache_pc *)(cxt.CXT_XSP+
+                if (*(cache_pc *)(cxt->CXT_XSP+
                                   (DYNAMO_OPTION(sygate_sysenter) ? XSP_SZ : 0)) ==
                     after_do_syscall_code(dcontext) ||
-                    *(cache_pc *)(cxt.CXT_XSP+
+                    *(cache_pc *)(cxt->CXT_XSP+
                                   (DYNAMO_OPTION(sygate_sysenter) ? XSP_SZ : 0)) ==
                     after_shared_syscall_code(dcontext)) {
                     LOG(GLOBAL, LOG_ALL, 1, 
@@ -6154,8 +6192,8 @@ detach_helper(int detach_type)
                         threads[i]->id, POST_SYSCALL_PC(dcontext));
                     /* need to restore sysenter_storage for Sygate hack */
                     if (DYNAMO_OPTION(sygate_sysenter))
-                        *(app_pc *)(cxt.CXT_XSP+XSP_SZ) = dcontext->sysenter_storage;
-                    *(app_pc *)cxt.CXT_XSP = POST_SYSCALL_PC(dcontext);
+                        *(app_pc *)(cxt->CXT_XSP+XSP_SZ) = dcontext->sysenter_storage;
+                    *(app_pc *)cxt->CXT_XSP = POST_SYSCALL_PC(dcontext);
                 } else {
                     LOG(GLOBAL, LOG_ALL, 1,
                         "Detach, thread %d suspended at vsyscall with ret to "
@@ -6164,9 +6202,9 @@ detach_helper(int detach_type)
                 }
             }
             LOG(GLOBAL, LOG_ALL, 1, 
-                "Detach : pc = "PFX" for thread %d\n", cxt.CXT_XIP, threads[i]->id);
-            ASSERT(!is_dynamo_address((app_pc)cxt.CXT_XIP)&&
-                   !in_fcache((app_pc)cxt.CXT_XIP));
+                "Detach : pc = "PFX" for thread %d\n", cxt->CXT_XIP, threads[i]->id);
+            ASSERT(!is_dynamo_address((app_pc)cxt->CXT_XIP)&&
+                   !in_fcache((app_pc)cxt->CXT_XIP));
             /* FIXME case 7457: if the thread is suspended after it
              * received a fault but before the kernel copied the faulting
              * context to the user mode structures for the handler, it could
@@ -6175,7 +6213,7 @@ detach_helper(int detach_type)
             /* FIXME: switch to using set_synched_thread_context() once we address
              * the context storage issue
              */
-            res = thread_set_context(threads[i], &cxt);
+            res = thread_set_context(threads[i], cxt);
             ASSERT(res);
 #ifdef CLIENT_INTERFACE
             /* i#249: restore app's PEB pointer */

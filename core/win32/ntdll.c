@@ -97,6 +97,10 @@ void display_verbose_message(char *format, ...);
 # define NTPRINT(...)
 #endif
 
+/* i#437 support ymm */
+uint context_xstate = 0;
+bool avx_supported = false;
+
 /* needed for injector and preinject, to avoid them requiring asm and syscalls */
 #if defined(NOT_DYNAMORIO_CORE_PROPER) || defined(NOT_DYNAMORIO_CORE)
 /* use ntdll wrappers for simplicity, to keep ntdll.c standalone */
@@ -430,6 +434,31 @@ GET_RAW_SYSCALL(CreateFile,
                 IN PVOID  EaBuffer  OPTIONAL,
                 IN ULONG  EaLength);
 
+/* the same structure as _CONTEXT_EX in winnt.h */
+typedef struct _context_chunk_t {
+    LONG offset;
+    DWORD length;
+} context_chunk_t;
+
+/* the same structure as _CONTEXT_CHUNK in winnt.h */
+typedef struct _context_ex_t {
+    context_chunk_t all;
+    context_chunk_t legacy;
+    context_chunk_t xstate;
+} context_ex_t;
+
+/* XXX, the function below can be statically-linked if all versions of
+ * ntdll have the corresponding routine, which need to be checked, so we use
+ * get_proc_address to get instead here.
+ */
+typedef int (WINAPI *ntdll_RtlGetExtendedContextLength_t)(DWORD, int *);
+typedef int (WINAPI *ntdll_RtlInitializeExtendedContext_t)
+    (PVOID, DWORD, context_ex_t **);
+typedef CONTEXT* (WINAPI *ntdll_RtlLocateLegacyContext_t)(context_ex_t *, DWORD);
+ntdll_RtlGetExtendedContextLength_t ntdll_RtlGetExtendedContextLength   = NULL;
+ntdll_RtlInitializeExtendedContext_t ntdll_RtlInitializeExtendedContext = NULL;
+ntdll_RtlLocateLegacyContext_t ntdll_RtlLocateLegacyContext = NULL;
+
 /***************************************************************************
  * Implementation
  */
@@ -599,6 +628,25 @@ use_ki_syscall_routines()
     }
     return (ki_fastsyscall_addr != NULL);
 }
+
+static void
+nt_get_context_extended_functions(app_pc base)
+{
+    if (os_supports_avx() && YMM_ENABLED()) {
+        ntdll_RtlGetExtendedContextLength = (ntdll_RtlGetExtendedContextLength_t)
+            get_proc_address(base, "RtlGetExtendedContextLength");
+        ntdll_RtlInitializeExtendedContext = 
+            (ntdll_RtlInitializeExtendedContext_t)
+            get_proc_address(base, "RtlInitializeExtendedContext");
+        ntdll_RtlLocateLegacyContext = (ntdll_RtlLocateLegacyContext_t)
+            get_proc_address(base, "RtlLocateLegacyContext");
+        ASSERT(ntdll_RtlGetExtendedContextLength  != NULL &&
+               ntdll_RtlInitializeExtendedContext != NULL &&
+               ntdll_RtlLocateLegacyContext       != NULL);
+        avx_supported = true;
+    }
+}
+
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 void
@@ -611,6 +659,9 @@ ntdll_init()
     /* Ensure we have all our other types right */
     ASSERT(sizeof(TEB) == TEB_SIZE);
     ASSERT(sizeof(PEB) == PEB_SIZE);
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+    nt_get_context_extended_functions((app_pc)get_ntdll_base());
+#endif
 }
 
 /* note that this function is called even on the release fast exit path 
@@ -939,6 +990,43 @@ is_in_ntdll(app_pc pc)
     return (pc >= base && pc < ntdll_end);
 }
 
+/* get the ymm saved area from CONTEXT extended area
+ * returns NULL if the extended area is not initialized. 
+ */
+byte *
+context_ymmh_saved_area(CONTEXT *cxt)
+{
+    /* i#437: ymm are inside XSTATE construct which should be
+     * laid out like this: {CONTEXT, CONTEXT_EX, XSTATE}.
+     * The gap between CONTEXT_EX and XSTATE varies due to 
+     * alignment, should read CONTEXT_EX fields to get it.
+     */
+    ptr_uint_t p = (ptr_uint_t)cxt;
+    context_ex_t our_cxt_ex;
+    context_ex_t *cxt_ex = (context_ex_t *)(p + sizeof(*cxt));
+    ASSERT(avx_supported);
+    /* verify the dr_cxt_ex is correct */
+    if (safe_read(cxt_ex, sizeof(*cxt_ex), &our_cxt_ex)) {
+        if (our_cxt_ex.all.offset    != -(LONG)sizeof(*cxt) ||
+            our_cxt_ex.legacy.offset != -(LONG)sizeof(*cxt) ||
+            our_cxt_ex.legacy.length != (DWORD)sizeof(*cxt)) {
+            ASSERT_CURIOSITY(false && "CONTEXT_EX is not setup correctly");
+            return NULL;
+        }
+    } else {
+        ASSERT_CURIOSITY(false && "fail to read CONTEXT_EX");
+    }
+    /* XXX: XSTATE has xsave format minus first 512 bytes, so ymm0
+     * should be at offset 64. 
+     * Should we use kernel32!LocateXStateFeature() or 
+     * ntdll!RtlLocateExtendedFeature() to locate,
+     * or cpuid to find Ext_Save_Area_2?
+     * Currently, use hardcode XSTATE_HEADER_SIZE. 
+     */
+    p = p + sizeof(*cxt) + cxt_ex->xstate.offset + XSTATE_HEADER_SIZE;
+    return (byte *)p;
+}
+
 /* routines for conversion between CONTEXT and priv_mcontext_t */
 /* assumes our segment registers are the same as the app and that
  * we never touch floating-point state and debug registers.
@@ -951,7 +1039,14 @@ is_in_ntdll(app_pc pc)
 void
 context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT *cxt)
 {
-    ASSERT(TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags));
+    /* i#437: cxt might come from kernel where XSTATE is not set */
+    /* FIXME: This opens us up to a bug in DR where DR requests a CONTEXT but
+     * forgets to set XSTATE even though app has used it and we then mess up
+     * the app's ymm state. Any way we can detect that?
+     * One way is to pass a flag to indicate if the context is from kernel or 
+     * set by DR, but it requires update a chain of calls. 
+     */
+    ASSERT(TESTALL(CONTEXT_DR_STATE_NO_YMM, cxt->ContextFlags));
     /* CONTEXT_INTEGER */
     mcontext->xax    = cxt->CXT_XAX;
     mcontext->xbx    = cxt->CXT_XBX;
@@ -975,20 +1070,21 @@ context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT *cxt)
         for (i = 0; i < NUM_XMM_SLOTS; i++)
             memcpy(&mcontext->ymm[i], CXT_XMM(cxt, i), XMM_REG_SIZE);
     }
-    if (CONTEXT_PRESERVE_YMM) {
-        /* FIXME i#437: ymm are inside XSTATE cstruct which should be
-         * laid out like this: {CONTEXT, CONTEXT_EX, XSTATE}, but
-         * should read CONTEXT_EX fields to verify.
-         * All of our CONTEXT structs need to be extended to get
-         * the extra state.
-         * XSTATE has xsave format minus first 512 bytes, so ymm0 should
-         * be at offset 64, but should use LocateXStateFeature() to locate,
-         * or cpuid to find Ext_Save_Area_2.
-         * Should be able to eliminate the xmm memcpy calls above and
-         * replace with a single memcpy here.
-         */
-        ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm CONTEXT support yet");
+    /* if XSTATE is NOT set, the app has NOT used any ymm state and
+     * thus it's fine if we do not copy dr_mcontext_t ymm value.
+     */
+    if (CONTEXT_PRESERVE_YMM && TESTALL(CONTEXT_XSTATE, cxt->ContextFlags)) {
+        byte *ymmh_area = context_ymmh_saved_area(cxt);
+        if (ymmh_area != NULL) {
+            int i;
+            for (i = 0; i < NUM_XMM_SLOTS; i++) {
+                memcpy(&mcontext->ymm[i].u32[4],
+                       &YMMH_AREA(ymmh_area, i).u32[0],
+                       YMMH_REG_SIZE);
+            }
+        }
     }
+
     /* CONTEXT_CONTROL without the segments */
     mcontext->xbp    = cxt->CXT_XBP;
     mcontext->xsp    = cxt->CXT_XSP;
@@ -999,7 +1095,8 @@ context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT *cxt)
 void
 mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext)
 {
-    ASSERT(TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags));
+    /* xref comment in context_to_mcontext */
+    ASSERT(TESTALL(CONTEXT_DR_STATE_NO_YMM, cxt->ContextFlags));
     /* CONTEXT_INTEGER */
     cxt->CXT_XAX    = mcontext->xax;
     cxt->CXT_XBX    = mcontext->xbx;
@@ -1038,9 +1135,37 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext)
         for (i = 0; i < NUM_XMM_SLOTS; i++)
             memcpy(CXT_XMM(cxt, i), &mcontext->ymm[i], XMM_REG_SIZE);
     }
-    if (CONTEXT_PRESERVE_YMM) {
-        /* FIXME i#437: see above */
-        ASSERT_NOT_IMPLEMENTED(false && "i#437: no ymm CONTEXT support yet");
+    if (CONTEXT_PRESERVE_YMM && TESTALL(CONTEXT_XSTATE, cxt->ContextFlags)) {
+        byte *ymmh_area = context_ymmh_saved_area(cxt);
+        if (ymmh_area != NULL) {
+            int i;
+#ifndef X64
+            /* In 32-bit Windows mcontext, we do not preserve xmm/ymm 6 and 7, 
+             * which are callee saved registers, so we must fill them.
+             */
+            dr_ymm_t ymms[2];
+            dr_ymm_t *ymm_ptr = ymms;
+            __asm { mov ecx, ymm_ptr}
+            /* Some supported (old) compilers do not support/understand AVX
+             * instructions, so we use RAW bit here instead.
+             */
+# define HEX(n) 0##n##h
+# define RAW(n) __asm _emit 0x##n
+            /* c5 fc 11 71 00       vmovups %ymm6 -> 0x00(%XCX)
+             * c5 fc 11 79 20       vmovups %ymm7 -> 0x20(%XCX)
+             */
+            RAW(c5)  RAW(fc)  RAW(11)  RAW(71)  RAW(00);
+            RAW(c5)  RAW(fc)  RAW(11)  RAW(79)  RAW(20);
+            /* XMM6/7 has been copied above, so only copy ymmh here */
+            memcpy(&YMMH_AREA(ymmh_area, 6).u32[0], &ymms[0].u32[4], YMMH_REG_SIZE);
+            memcpy(&YMMH_AREA(ymmh_area, 7).u32[0], &ymms[1].u32[4], YMMH_REG_SIZE);
+#endif
+            for (i = 0; i < NUM_XMM_SLOTS; i++) {
+                memcpy(&YMMH_AREA(ymmh_area, i).u32[0],
+                       &mcontext->ymm[i].u32[4],
+                       YMMH_REG_SIZE);
+            }
+        }
     }
     /* CONTEXT_CONTROL without the segments */
     cxt->CXT_XBP    = mcontext->xbp;
@@ -1074,7 +1199,7 @@ get_own_context_integer_control(CONTEXT *cxt, reg_t cs, reg_t ss,
     cxt->SegSs = (WORD) ss;
     /* avoid assert in mcontext_to_context about not having xmm flags.
      * get rid of this once we implement PR 266070. */
-    DODEBUG({ cxt->ContextFlags = CONTEXT_DR_STATE; });
+    DODEBUG({ cxt->ContextFlags = CONTEXT_DR_STATE_NO_YMM; });
     mcontext_to_context(cxt, mc);
     DODEBUG({ cxt->ContextFlags = origflags; });
 }
@@ -4879,5 +5004,55 @@ initialize_known_SID(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
     pSid->SubAuthority[0] = SubAuthority0;
 }
 
+/* Initialize the buffer as CONTEXT with extension and return the pointer
+ * pointing to the start of CONTEXT. 
+ * Assume buffer size is MAX_CONTEXT_SIZE;
+ */
+CONTEXT *
+nt_initialize_context(char *buf, DWORD flags)
+{
+    /* Ideally, kernel32!InitializeContext is used to setup context.
+     * However, DR should NEVER use kernel32. DR never uses anything in 
+     * any user library other than ntdll.
+     */
+    CONTEXT *cxt;
+    if (TESTALL(CONTEXT_XSTATE, flags)) {
+        context_ex_t *cxt_ex;
+        int len, res;
+        ASSERT(avx_supported);
+        /* 8d450c          lea     eax,[ebp+0Ch]
+         * 50              push    eax
+         * 57              push    edi
+         * ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
+         */
+        res = ntdll_RtlGetExtendedContextLength(flags, &len);
+        ASSERT(res >= 0 && len <= MAX_CONTEXT_SIZE);
+        /* 8d45fc          lea     eax,[ebp-4]
+         * 50              push    eax
+         * 57              push    edi
+         * ff7508          push    dword ptr [ebp+8] 
+         * ff15b4007a76    call    dword ptr [_imp__RtlInitializeExtendedContext]
+         */
+        res = ntdll_RtlInitializeExtendedContext((PVOID)buf, flags,
+                                                 (PVOID)&cxt_ex);
+        ASSERT(res == 0);
+        /* 6a00            push    0
+         * ff75fc          push    dword ptr [ebp-4]
+         * ff15b8007a76    call    dword ptr [_imp__RtlLocateLegacyContext]
+         */
+        cxt = (CONTEXT *)ntdll_RtlLocateLegacyContext(cxt_ex, 0);
+        ASSERT(cxt_ex->all.offset    == -(LONG)sizeof(*cxt) &&
+               cxt_ex->legacy.offset == -(LONG)sizeof(*cxt) &&
+               cxt_ex->legacy.length == (DWORD)sizeof(*cxt));
+        ASSERT(cxt != NULL && 
+               (char *)cxt >= buf && 
+               (char *)cxt + cxt_ex->all.length < buf + MAX_CONTEXT_SIZE);
+    } else {
+        /* make it 16-byte aligned */
+        cxt = (CONTEXT *)(ALIGN_FORWARD(buf, 0x10));
+    }
+    cxt->ContextFlags = flags;
+    return cxt;
+}
 
 #endif /* NOT_DYNAMORIO_CORE_PROPER */
