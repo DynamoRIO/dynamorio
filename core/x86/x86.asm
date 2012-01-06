@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -2027,8 +2027,8 @@ GLOBAL_LABEL(load_dynamo_failure:)
         POPF
         /* we assume reading beyond TOS is ok here (no signals on windows) */
         /* we assume xmm0-5 do not need to be restored */
-        /* restore app xsp (POPGPR doesn't): didn't pop pc, so +ARG_SZ */
-        mov      REG_XSP, [-PRIV_MCXT_SIZE + MCONTEXT_XSP_OFFS + ARG_SZ + REG_XSP]
+        /* restore app xsp (POPGPR doesn't) */
+        mov      REG_XSP, [-MCONTEXT_PC_OFFS + MCONTEXT_XSP_OFFS + REG_XSP]
         jmp      PTRSZ [-ARG_SZ + REG_XSP]      /* jmp to app start_pc */
 
         ret
