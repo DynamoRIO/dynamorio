@@ -1,4 +1,4 @@
-Copyright (c) 2010-2011 Google, Inc. licensed under the terms of the BSD.  All other rights reserved.
+Copyright (c) 2010-2012 Google, Inc. licensed under the terms of the BSD.  All other rights reserved.
 Copyright (c) 2000-2010 VMware, Inc. licensed under the terms of the BSD.  All other rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -80,10 +80,14 @@ This requires administrative privileges:
 64-bit:
   % bin64/drconfig.exe -reg calc.exe -syswide_on -client samples/bin64/bbsize.dll 0x1 ""
 Now run the application however you normally would, with the mouse or from
-the command line:
+the command line.  From a cygwin shell this will run 32-bit calc:
   % cmd /c start calc
 
 Now close calc and a messagebox should pop up produced by the bbsize client.
+
+Note that if you use cygwin unzip to extract files from the release package
+.zip file, you'll need to mark all the .dll and .exe files as ugo+rx in
+order to execute them.
 
 ************************************************************
 Instructions for building:

@@ -1,4 +1,5 @@
 // **********************************************************
+// Copyright (c) 2012 Google, Inc.  All rights reserved.
 // Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
 // **********************************************************
 
@@ -237,7 +238,7 @@ FONT 8, "MS Sans Serif"
 BEGIN
     LTEXT           "${PRODUCT_NAME} Version ${VERSION_NUMBER}",IDC_STATIC,63,82,102,11,
                     SS_NOPREFIX
-    LTEXT           "Copyright (C) 2007-2009",IDC_STATIC,67,98,78,8
+    LTEXT           "Copyright (C) 2007-2012",IDC_STATIC,67,98,78,8
     DEFPUSHBUTTON   "OK",IDOK,81,118,50,14,WS_GROUP
     CONTROL         157,IDC_STATIC,"Static",SS_BITMAP,70,7,71,66
 END
@@ -469,7 +470,7 @@ BEGIN
             VALUE "FileDescription", "DynamoRIO GUI\0"
             VALUE "FileVersion", "${VERSION_COMMA_DELIMITED},${BUILD_NUMBER}\0"
             VALUE "InternalName", "DynamoRIO GUI\0"
-            VALUE "LegalCopyright", "Copyright (C) 2002-2009\0"
+            VALUE "LegalCopyright", "Copyright (C) 2002-2012\0"
             VALUE "OriginalFilename", "DRgui.EXE\0"
             VALUE "ProductName", "DynamoRIO GUI\0"
             VALUE "ProductVersion", "${VERSION_COMMA_DELIMITED},${BUILD_NUMBER}\0"

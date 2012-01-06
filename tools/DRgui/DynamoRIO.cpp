@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -56,7 +57,7 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-#define HELP_PATH          _T("\\doc\\index.html")
+#define HELP_PATH          _T("\\docs\\html\\index.html")
 
 // FIXME: these are duplicated with the installation wizard, so
 // that the GUI can set env vars for new users (installer can only 

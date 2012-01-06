@@ -1,6 +1,6 @@
 /* ******************************************************************************
- * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
 
@@ -100,6 +100,14 @@ The following are part of the \DynamoRIO release distribution:
    sec_standalone).
 \endif
 
+When unpacking the release package on Windows, be aware that the Cygwin
+unzip utility does not preserve executable permissions properly.  After
+unzipping, add ugo+rx permissions to all of the .dll and .exe files in the
+resulting directory tree:
+\code
+find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx {} \;
+\endcode
+
 \ifnot vmsafe
 ***************************************************************************
 \htmlonly
@@ -111,6 +119,9 @@ The following are part of the \DynamoRIO release distribution:
 \section sec_changes Changes Since Prior Releases
 
 The current version is \DR_VERSION.  
+
+Version 3.0.0 was a development version.  3.1.0 is the first official
+released version of the 3.x series.
 
 The changes between version 3.0.0 and 2.2.0 include the following major
 features:
