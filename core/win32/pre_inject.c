@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -455,7 +456,7 @@ process_attach()
      * x64 configuration takes precedence over wow64.
      */
     if (is_wow64_process(NT_CURRENT_PROCESS)) {
-        should_inject = systemwide_should_inject_64(NULL, &rununder_mask);
+        should_inject = systemwide_should_preinject_64(NULL, &rununder_mask);
         if (((INJECT_TRUE & should_inject) != 0) &&
             ((INJECT_EXPLICIT & should_inject) == 0) &&
             !is_safe_mode() &&
@@ -473,7 +474,7 @@ process_attach()
 #endif
 #endif /* 0 */
     if (takeover) {
-        should_inject = systemwide_should_inject(NULL, &rununder_mask);
+        should_inject = systemwide_should_preinject(NULL, &rununder_mask);
         if (((INJECT_TRUE & should_inject) == 0) ||
             ((INJECT_EXPLICIT & should_inject) != 0) ||
             is_safe_mode() ||

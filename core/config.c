@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -161,7 +161,6 @@ typedef struct _config_val_t {
 
 typedef struct _config_vals_t {
     config_val_t vals[NUM_CONFIG_VAR];
-    bool has_1config;
 } config_vals_t;
 
 typedef struct _config_info_t {
@@ -181,6 +180,7 @@ typedef struct _config_info_t {
         } q;
         config_vals_t *v;
     } u;
+    bool has_1config;
 } config_info_t;
 
 static config_vals_t myvals;
@@ -422,8 +422,8 @@ config_read(config_info_t *cfg, const char *appname_in, process_id_t pid, const 
             NULL_TERMINATE_BUFFER(cfg->fname_app);
             INFO(2, "trying config file %s", cfg->fname_app);
             f_app = os_open(cfg->fname_app, OS_OPEN_READ);
-            if (f_app != INVALID_FILE && cfg->query == NULL)
-                cfg->u.v->has_1config = true; /* one-time file */
+            if (f_app != INVALID_FILE)
+                cfg->has_1config = true; /* one-time file */
         }
         /* 2) <local>/appname.config */
         if (f_app == INVALID_FILE) {
@@ -536,7 +536,7 @@ config_reread(void)
 static bool
 get_config_val_other(const char *appname, process_id_t pid, const char *sfx,
                      const char *var, char *val, size_t valsz,
-                     bool *app_specific, bool *from_env)
+                     bool *app_specific, bool *from_env, bool *from_1config)
 {
     /* Can't use heap very easily since used by preinject, injector, and DR
      * so we use a stack var.  WARNING: this is about 1.5K, and config_read
@@ -555,6 +555,8 @@ get_config_val_other(const char *appname, process_id_t pid, const char *sfx,
             *app_specific = info.u.q.answer.app_specific;
         if (from_env != NULL)
             *from_env = info.u.q.answer.from_env;
+        if (from_1config != NULL)
+            *from_1config = info.has_1config;
     }
     return info.u.q.have_answer;
 }
@@ -562,18 +564,18 @@ get_config_val_other(const char *appname, process_id_t pid, const char *sfx,
 bool
 get_config_val_other_app(const char *appname, process_id_t pid,
                          const char *var, char *val, size_t valsz,
-                         bool *app_specific, bool *from_env)
+                         bool *app_specific, bool *from_env, bool *from_1config)
 {
     return get_config_val_other(appname, pid, CFG_SFX, var, val, valsz,
-                                app_specific, from_env);
+                                app_specific, from_env, from_1config);
 }
 
 bool
 get_config_val_other_arch(const char *var, char *val, size_t valsz,
-                          bool *app_specific, bool *from_env)
+                          bool *app_specific, bool *from_env, bool *from_1config)
 {
     return get_config_val_other(NULL, 0, IF_X64_ELSE(CFG_SFX_32, CFG_SFX_64),
-                                var, val, valsz, app_specific, from_env);
+                                var, val, valsz, app_specific, from_env, from_1config);
 }
 
 void
@@ -591,7 +593,7 @@ config_exit(void)
     /* if core, then we're done with 1-time config file.
      * we can't delete this up front b/c we want to support synch ops
      */
-    if (config_initialized && config.u.v->has_1config) {
+    if (config_initialized && config.has_1config) {
         INFO(2, "deleting config file %s", config.fname_app);
         os_delete_file(config.fname_app);
     }

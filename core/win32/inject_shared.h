@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -147,11 +148,16 @@ check_for_run_once(HANDLE process, int rununder_mask);
 
 #ifndef X64
 inject_setting_mask_t
-systemwide_should_inject_64(HANDLE process, int *mask);
+systemwide_should_preinject_64(HANDLE process, int *mask);
 #endif
 
+/* this is being used to mean "should_inject", ignoring systemwide */
 inject_setting_mask_t
 systemwide_should_inject(HANDLE process, int *mask);
+
+/* this ignores 1config files */
+inject_setting_mask_t
+systemwide_should_preinject(HANDLE process, int *mask);
 
 int
 get_remote_process_ldr_status(HANDLE process_handle);

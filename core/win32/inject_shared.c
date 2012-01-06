@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1025,12 +1026,13 @@ get_parameter_from_registry(const wchar_t *name, char *value, /* OUT */
 
 # ifndef NOT_DYNAMORIO_CORE
 /* get parameter for a different process */
-int
-get_process_parameter(HANDLE phandle, const char *name, char *value, int maxlen)
+static int
+get_process_parameter_ex(HANDLE phandle, const char *name, char *value, int maxlen,
+                         bool consider_1config)
 {
     wchar_t short_unqual_name[MAXIMUM_PATH];
     char appname[MAXIMUM_PATH];
-    bool app_specific;
+    bool app_specific, from_1config;
     process_id_t pid;
     if (phandle == NULL) {
 #  if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
@@ -1047,11 +1049,18 @@ get_process_parameter(HANDLE phandle, const char *name, char *value, int maxlen)
     snprintf(appname, BUFFER_SIZE_ELEMENTS(appname), "%ls", short_unqual_name);
     NULL_TERMINATE_BUFFER(appname);
     if (!get_config_val_other_app(appname, pid, name, value, maxlen,
-                                  &app_specific, NULL))
+                                  &app_specific, NULL, &from_1config) ||
+        (!consider_1config && from_1config))
         return GET_PARAMETER_FAILURE;
     if (!app_specific)
         return GET_PARAMETER_NOAPPSPECIFIC;
     return GET_PARAMETER_SUCCESS;
+}
+
+int
+get_process_parameter(HANDLE phandle, const char *name, char *value, int maxlen)
+{
+    return get_process_parameter_ex(phandle, name, value, maxlen, true);
 }
 # endif /* NOT_DYNAMORIO_CORE */
 
@@ -1059,7 +1068,7 @@ get_process_parameter(HANDLE phandle, const char *name, char *value, int maxlen)
 int
 get_parameter_64(const char *name, char *value, int maxlen)
 {
-    return get_config_val_other_arch(name, value, maxlen, NULL, NULL);
+    return get_config_val_other_arch(name, value, maxlen, NULL, NULL, NULL);
 }
 # endif
 
@@ -1257,7 +1266,8 @@ check_commandline_match(HANDLE process)
  *   systemwide_inject_enabled()
  */
 static inject_setting_mask_t
-systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichreg)
+systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichreg,
+                                bool consider_1config)
 {
     char runvalue[MAX_RUNVALUE_LENGTH];
 #ifdef PARAMS_IN_REGISTRY
@@ -1277,8 +1287,14 @@ systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichr
     if (IS_GET_PARAMETER_FAILURE(err))
         return INJECT_FALSE;
 #else
-    err = get_process_parameter(process, DYNAMORIO_VAR_RUNUNDER,
-                                runvalue, sizeof(runvalue));
+    /* Instead of a new GET_PARAMETER_PID_SPECIFIC success value which would require
+     * changing several get_process_parameter callers who check specific return values,
+     * we add a new _ex() routine that allows excluding 1config files.
+     * For syswide we do NOT want to inject if there is a 1config file, to avoid
+     * double injection.
+     */
+    err = get_process_parameter_ex(process, DYNAMORIO_VAR_RUNUNDER,
+                                   runvalue, sizeof(runvalue), consider_1config);
     if (IS_GET_PARAMETER_FAILURE(err))
         return INJECT_FALSE;
 #endif
@@ -1343,16 +1359,22 @@ systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichr
 
 #ifndef X64
 inject_setting_mask_t
-systemwide_should_inject_64(HANDLE process, int *mask)
+systemwide_should_preinject_64(HANDLE process, int *mask)
 {
-    return systemwide_should_inject_common(process, mask, REGISTRY_64);
+    return systemwide_should_inject_common(process, mask, REGISTRY_64, false);
 }
 #endif
 
 inject_setting_mask_t
 systemwide_should_inject(HANDLE process, int *mask)
 {
-    return systemwide_should_inject_common(process, mask, REGISTRY_DEFAULT);
+    return systemwide_should_inject_common(process, mask, REGISTRY_DEFAULT, true);
+}
+
+inject_setting_mask_t
+systemwide_should_preinject(HANDLE process, int *mask)
+{
+    return systemwide_should_inject_common(process, mask, REGISTRY_DEFAULT, false);
 }
 
 /* Description: If RUNUNDER_ONCE flag exists in the given mask, the RUNUNDER_ON 
