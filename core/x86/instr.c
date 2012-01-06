@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -781,7 +781,7 @@ const reg_id_t regparms[] = {
 };
 
 /* Maps sub-registers to their containing register. */
-const reg_id_t reg_fixer[]={
+const reg_id_t dr_reg_fixer[]={
     REG_NULL,
     REG_XAX,  REG_XCX,  REG_XDX,  REG_XBX,  REG_XSP,  REG_XBP,  REG_XSI,  REG_XDI,
     REG_R8,   REG_R9,   REG_R10,  REG_R11,  REG_R12,  REG_R13,  REG_R14,  REG_R15,
@@ -811,7 +811,7 @@ void
 reg_check_reg_fixer(void)
 {
     /* ignore REG_INVALID, so should equal REG_LAST_ENUM */
-    CLIENT_ASSERT(sizeof(reg_fixer)/sizeof(reg_fixer[0]) == REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(dr_reg_fixer)/sizeof(dr_reg_fixer[0]) == REG_LAST_ENUM + 1,
                   "internal register enum error");
 }
 #endif
@@ -839,17 +839,17 @@ opnd_uses_reg(opnd_t opnd, reg_id_t reg)
         return false;
 
     case REG_kind: 
-        return (reg_fixer[reg] == reg_fixer[opnd_get_reg(opnd)]);
+        return (dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_reg(opnd)]);
 
     case BASE_DISP_kind: 
-        return (reg_fixer[reg] == reg_fixer[opnd_get_base(opnd)] || 
-                reg_fixer[reg] == reg_fixer[opnd_get_index(opnd)] ||
-                reg_fixer[reg] == reg_fixer[opnd_get_segment(opnd)]);
+        return (dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_base(opnd)] || 
+                dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_index(opnd)] ||
+                dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_segment(opnd)]);
 
 #ifdef X64
     case REL_ADDR_kind:
     case ABS_ADDR_kind:
-        return (reg_fixer[reg] == reg_fixer[opnd_get_segment(opnd)]);
+        return (dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_segment(opnd)]);
 #endif
 
     default: 
@@ -1292,7 +1292,7 @@ reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc)
     if (reg >= REG_START_64 && reg <= REG_STOP_64)
         return reg_get_value_helper(reg, mc);
     if (reg >= REG_START_32 && reg <= REG_STOP_32) {
-        reg_t val = reg_get_value_helper(reg_fixer[reg], mc);
+        reg_t val = reg_get_value_helper(dr_reg_fixer[reg], mc);
         return (val & 0x00000000ffffffff);
     }
 #else
@@ -1301,14 +1301,14 @@ reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc)
     }
 #endif
     if (reg >= REG_START_8 && reg <= REG_STOP_8) {
-        reg_t val = reg_get_value_helper(reg_fixer[reg], mc);
+        reg_t val = reg_get_value_helper(dr_reg_fixer[reg], mc);
         if (reg >= REG_AH && reg <= REG_BH)
             return ((val & 0x0000ff00) >> 8);
         else /* all others are the lower 8 bits */
             return (val & 0x000000ff);
     }
     if (reg >= REG_START_16 && reg <= REG_STOP_16) {
-        reg_t val = reg_get_value_helper(reg_fixer[reg], mc);
+        reg_t val = reg_get_value_helper(dr_reg_fixer[reg], mc);
         return (val & 0x0000ffff);
     }
     /* mmx, xmm, and segment cannot be part of address 
@@ -1422,7 +1422,7 @@ get_register_name(reg_id_t reg)
 reg_id_t
 reg_to_pointer_sized(reg_id_t reg)
 {
-    return reg_fixer[reg];
+    return dr_reg_fixer[reg];
 }
 
 reg_id_t
@@ -1553,13 +1553,13 @@ reg_overlap(reg_id_t r1, reg_id_t r2)
     if (r1 == REG_NULL || r2 == REG_NULL)
         return false;
     /* The XH registers do NOT overlap with the XL registers; else, the
-     * reg_fixer is the answer.
+     * dr_reg_fixer is the answer.
      */
     if ((r1 >= REG_START_8HL && r1 <= REG_STOP_8HL) &&
         (r2 >= REG_START_8HL && r2 <= REG_STOP_8HL) &&
         r1 != r2)
         return false;
-    return (reg_fixer[r1] == reg_fixer[r2]);
+    return (dr_reg_fixer[r1] == dr_reg_fixer[r2]);
 }
 
 /* returns the register's representation as 3 bits in a modrm byte,
@@ -3352,7 +3352,7 @@ bool instr_writes_to_reg(instr_t *instr, reg_id_t reg)
 
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd=instr_get_dst(instr, i);
-        if (opnd_is_reg(opnd)&&(reg_fixer[opnd_get_reg(opnd)]==reg_fixer[reg]))
+        if (opnd_is_reg(opnd)&&(dr_reg_fixer[opnd_get_reg(opnd)]==dr_reg_fixer[reg]))
             return true;
     }
     return false;
@@ -5373,7 +5373,7 @@ instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
     if (dcontext != GLOBAL_DCONTEXT &&
         instr_check_mcontext_spill_restore(dcontext, instr, spill,
                                            reg, &check_disp)) {
-        int offs = opnd_get_reg_dcontext_offs(reg_fixer[*reg]);
+        int offs = opnd_get_reg_dcontext_offs(dr_reg_fixer[*reg]);
         if (offs != -1 && check_disp == offs) {
             if (tls != NULL)
                 *tls = false;

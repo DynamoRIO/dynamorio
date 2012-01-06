@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1483,7 +1484,7 @@ instr_replace_reg_with_const_in_src(dcontext_t *dcontext,instr_t *in,int reg,int
     for (a=0; a<instr_num_srcs(in); a++) {
         oldop = op = instr_get_src(in, a);
 
-        if (opnd_is_reg(op)&&!opnd_is_reg_32bit(op)&&(reg_fixer[opnd_get_reg(op)]==reg_fixer[reg])) {
+        if (opnd_is_reg(op)&&!opnd_is_reg_32bit(op)&&(dr_reg_fixer[opnd_get_reg(op)]==dr_reg_fixer[reg])) {
             LOG(THREAD, LOG_OPTS,3,"problems with sub registers\n");
             return false; //if its a sub register of reg, then we can't do anything and need the immed
         }

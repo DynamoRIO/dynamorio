@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -136,7 +136,7 @@ const char * const reg_names[] = {
     "<invalid>",
     "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7",
     "ymm8", "ymm9", "ymm10","ymm11","ymm12","ymm13","ymm14","ymm15",
-    /* XXX: when you update here, update reg_fixer[] in instr.c too */
+    /* XXX: when you update here, update dr_reg_fixer[] in instr.c too */
 };
 
 const char * const size_names[] = {

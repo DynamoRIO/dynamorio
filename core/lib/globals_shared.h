@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -302,17 +302,18 @@ extern file_t our_stdin;
 typedef uint client_id_t;
 
 #ifdef API_EXPORT_ONLY
+#ifndef DR_FAST_IR
 /**
  * Internal structure of opnd_t is below abstraction layer.
  * But compiler needs to know field sizes to copy it around
  */
 typedef struct {
-#ifdef X64
+# ifdef X64
     uint black_box_uint;
     uint64 black_box_uint64;
-#else
+# else
     uint black_box_uint[3];
-#endif
+# endif
 } opnd_t;
 
 /**
@@ -321,12 +322,18 @@ typedef struct {
  * instead of always allocated on the heap.
  */
 typedef struct {
-#ifdef X64
+# ifdef X64
     uint black_box_uint[26];
-#else
+# else
     uint black_box_uint[16];
-#endif
+# endif
 } instr_t;
+#else
+struct _opnd_t;
+typedef struct _opnd_t opnd_t;
+struct _instr_t;
+typedef struct _instr_t instr_t;
+#endif /* !DR_FAST_IR */
 #endif /* API_EXPORT_ONLY */
 
 #ifndef IN

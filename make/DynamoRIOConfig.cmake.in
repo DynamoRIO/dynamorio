@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -129,6 +129,10 @@
 # avoid conflicts with system headers) set this variable:
 #
 #  set(DynamoRIO_REG_COMPATIBILITY ON)
+#
+# To request fast IR access (at the cost of binary compatibility):
+#
+#  set(DynamoRIO_FAST_IR ON)
 #
 ###########################################################################
 
@@ -265,10 +269,6 @@ function (configure_DynamoRIO_global is_cxx change_flags)
 endfunction (configure_DynamoRIO_global)
 
 function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
-  if (DynamoRIO_REG_COMPATIBILITY)
-    set(extra_cflags "${extra_cflags} -DDR_REG_ENUM_COMPATIBILITY")
-  endif (DynamoRIO_REG_COMPATIBILITY)
-
   get_size(${tgt_cxx} tgt_x64)
   if (tgt_x64)
     set(extra_cflags "${extra_cflags} -DX86_64")
@@ -281,6 +281,14 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   else (UNIX)
     set(extra_cflags "${extra_cflags} -DWINDOWS")
   endif (UNIX)
+
+  if (DynamoRIO_REG_COMPATIBILITY)
+    set(extra_cflags "${extra_cflags} -DDR_REG_ENUM_COMPATIBILITY")
+  endif (DynamoRIO_REG_COMPATIBILITY)
+
+  if (DynamoRIO_FAST_IR)
+    set(extra_cflags "${extra_cflags} -DDR_FAST_IR")
+  endif (DynamoRIO_FAST_IR)
 
   set(${flags_out} "${extra_cflags}" PARENT_SCOPE)
 endfunction (DynamoRIO_extra_cflags)

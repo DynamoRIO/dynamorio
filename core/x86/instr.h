@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,6 +51,9 @@
 /* to avoid changing all our internal REG_ constants we define this for DR itself */
 #define DR_REG_ENUM_COMPATIBILITY 1
 
+/* to avoid duplicating code we use our own exported macros */
+#define DR_FAST_IR 1
+
 /* can't include decode.h, it includes us, just declare struct */
 struct instr_info_t;
 
@@ -93,7 +96,7 @@ struct instr_info_t;
  * We also assume that the DR_SEG_ constants are invalid as pointers for
  * our use in instr_info_t.code.
  * Also, reg_names array in encode.c corresponds to this enum order.
- * Plus, reg_fixer array in instr.c.
+ * Plus, dr_reg_fixer array in instr.c.
  * Lots of optimizations assume same ordering of registers among
  * 32, 16, and 8  i.e. eax same position (first) in each etc.
  * reg_rm_selectable() assumes the GPR registers, mmx, and xmm are all in a row.
@@ -192,7 +195,7 @@ typedef byte opnd_size_t; /* contains a DR_REG_ or OPSZ_ enum value */
 /* DR_API EXPORT END */
 /* indexed by enum */
 extern const char * const reg_names[];
-extern const reg_id_t reg_fixer[];
+extern const reg_id_t dr_reg_fixer[];
 /* DR_API EXPORT BEGIN */
 
 #define DR_REG_START_64    DR_REG_RAX  /**< Start of 64-bit general register enum values */
@@ -451,6 +454,20 @@ extern const reg_id_t reg_fixer[];
 #endif
 
 /* typedef is in globals.h */
+/* deliberately NOT adding doxygen comments to opnd_t fields b/c users
+ * should use our macros
+ */
+/* DR_API EXPORT BEGIN */
+
+#ifdef DR_FAST_IR
+/**
+ * opnd_t type exposed for optional "fast IR" access.  Note that DynamoRIO
+ * reserves the right to change this structure across releases and does
+ * not guarantee binary or source compatibility when this structure's fields
+ * are directly accessed.  If the OPND_ macros are used, DynamoRIO does
+ * guarantee source compatibility, but not binary compatibility.  If binary
+ * compatibility is desired, do not use the fast IR feature.
+ */
 struct _opnd_t {
     byte kind;
     /* size field only used for immed_ints and addresses
@@ -500,6 +517,8 @@ struct _opnd_t {
         void *addr;             /* REL_ADDR_kind and ABS_ADDR_kind */
     } value;
 };
+#endif /* DR_FAST_IR */
+/* DR_API EXPORT END */
 
 /* We assert that our fields are packed properly in arch_init().
  * We could use #pragma pack to shrink x64 back down to 12 bytes (it's at 16
@@ -511,7 +530,10 @@ struct _opnd_t {
  */
 #define EXPECTED_SIZEOF_OPND (3*sizeof(uint) IF_X64(+4/*struct size padding*/))
 
-/* x86 operand kinds */
+/* deliberately NOT adding doxygen comments b/c users should use our macros */
+/* DR_API EXPORT BEGIN */
+#ifdef DR_FAST_IR
+/** x86 operand kinds */
 enum {
     NULL_kind,
     IMMED_INTEGER_kind,
@@ -528,6 +550,8 @@ enum {
 #endif
     LAST_kind,      /* sentinal; not a valid opnd kind */
 };
+#endif /* DR_FAST_IR */
+/* DR_API EXPORT END */
 
 /* functions to build an operand */
 
@@ -1579,8 +1603,21 @@ enum {
     INSTR_OUR_MANGLING          = 0x80000000,
 };
 
+/* DR_API EXPORT TOFILE dr_ir_instr.h */
+
 /* FIXME: could shrink prefixes, eflags, opcode, and flags fields
  * this struct isn't a memory bottleneck though b/c it isn't persistent
+ */
+/* DR_API EXPORT BEGIN */
+
+#ifdef DR_FAST_IR
+/**
+ * instr_t type exposed for optional "fast IR" access.  Note that DynamoRIO
+ * reserves the right to change this structure across releases and does
+ * not guarantee binary or source compatibility when this structure's fields
+ * are directly accessed.  If the instr_ accessor routines are used, DynamoRIO does
+ * guarantee source compatibility, but not binary compatibility.  If binary
+ * compatibility is desired, do not use the fast IR feature.
  */
 struct _instr_t {
     /* flags contains the constants defined above */
@@ -1629,8 +1666,8 @@ struct _instr_t {
     instr_t   *next;
 
 }; /* instr_t */
-
-/* DR_API EXPORT TOFILE dr_ir_instr.h */
+#endif /* DR_FAST_IR */
+/* DR_API EXPORT END */
 
 /* functions to inspect and manipulate the fields of an instr_t 
  * NB: a number of instr_ routines are declared in arch_exports.h.

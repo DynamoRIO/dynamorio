@@ -120,6 +120,14 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 
 The current version is \DR_VERSION.  
 
+The changes between version \DR_VERSION and 3.1.0 are:
+
+ - Added optional direct IR data structure access to improve performance.
+   Set DynamoRIO_FAST_IR to enable, and use the macros provided to maintain
+   source compatible.  Binary compatibility is sacrificed when using this
+   feature as the IR data structures are subject to change across
+   releases.
+
 Version 3.0.0 was a development version.  3.1.0 is the first official
 released version of the 3.x series.
 

@@ -1,6 +1,7 @@
 #!/usr/local/bin/perl
 
 # **********************************************************
+# Copyright (c) 2012 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -228,7 +229,8 @@ sub keep_define($)
 {
     my ($def) = @_;
     return ($def eq "WINDOWS" || $def eq "LINUX" || $def eq "X64" ||
-            $def eq "X86_64" || $def eq "USE_VISIBILITY_ATTRIBUTES");
+            $def eq "X86_64" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
+            $def eq "DR_FAST_IR");
 }
 
 foreach $file (@headers) {
@@ -318,6 +320,8 @@ sub process_header_line($)
             # We have certain exceptions
             ($l !~ /^# define [RS]EG_/ &&
              $l !~ /DR_REG_ENUM_COMPATIBILITY/ &&
+             $l !~ /REG_SPECIFIER_BITS/ &&
+             $l !~ /REG_kind/ &&
              $l !~ /conflict/ &&
              $l !~ /compatibility/ &&
              $l !~ /weird errors/)) {
