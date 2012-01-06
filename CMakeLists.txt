@@ -1258,6 +1258,11 @@ if (BUILD_TOOLS OR WIN32)
     )
 endif (BUILD_TOOLS OR WIN32)
 
+if (DO_DR_INSTALL AND BUILD_DOCS)
+  # cannot use DR_install because it breaks at ; 
+  install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/docs/DynamoRIO.html\" \"<html>\n<head>\n<meta http-equiv=\\\"refresh\\\" content=\\\"0; URL=./html/index.html\\\">\n</head><body></body>\")")
+endif (DO_DR_INSTALL AND BUILD_DOCS)
+
 # create empty logs dir for release package
 # be sure to escape ",$ since evaluated at install time not configure time
 # with DR_install macro we need double-escape for $
