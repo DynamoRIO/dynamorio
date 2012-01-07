@@ -222,7 +222,10 @@ DECL_EXTERN(fixup_rtframe_pointers)
 #ifdef LINUX
 DECL_EXTERN(dr_setjmp_sigmask)
 #endif
-    
+#ifdef WINDOWS
+DECL_EXTERN(dynamorio_earliest_init_takeover_C)
+#endif
+
 /* non-functions: these make us non-PIC! (PR 212290) */
 DECL_EXTERN(exiting_thread_count)
 DECL_EXTERN(initstack)
@@ -2034,6 +2037,44 @@ GLOBAL_LABEL(load_dynamo_failure:)
         ret
         END_FUNC(load_dynamo_failure)
         
+# ifndef NOT_DYNAMORIO_CORE_PROPER
+/* void dynamorio_earliest_init_takeover(void)
+ *
+ * Called from hook code for earliest injection.
+ * Since we want to resume at the hooked app code as though nothing
+ * happened w/o going first to hooking code to restore regs, caller
+ * passed us args pointed at by xax.  We then preserve regs and call
+ * C code.  C code takes over when it returns to use.  We restore
+ * regs and return to app code.
+ * Executes on app stack but we assume app stack is fine at this point.
+ */
+        DECLARE_EXPORTED_FUNC(dynamorio_earliest_init_takeover)
+GLOBAL_LABEL(dynamorio_earliest_init_takeover:)
+        PUSHGPR
+# ifdef EARLIEST_INIT_DEBUGBREAK
+        /* giant loop so can attach debugger, then change ebx to 1
+         * to step through rest of code */
+        mov      ebx, HEX(7fffffff)
+dynamorio_earliest_init_repeat_outer:
+        mov      esi, HEX(7fffffff)
+dynamorio_earliest_init_repeatme:
+        dec      esi
+        cmp      esi, 0
+        jg       dynamorio_earliest_init_repeatme
+        dec      ebx
+        cmp      ebx, 0
+        jg       dynamorio_earliest_init_repeat_outer
+# endif
+        /* args are pointed at by xax */
+        CALLC1(dynamorio_earliest_init_takeover_C, REG_XAX)
+        /* we will either be under DR control or running natively at this point */
+
+        /* restore */
+        POPGPR
+        ret
+        END_FUNC(dynamorio_earliest_init_takeover)
+# endif /* NOT_DYNAMORIO_CORE_PROPER */
+
 #endif /* WINDOWS */
 
 END_FILE

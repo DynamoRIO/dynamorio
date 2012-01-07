@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -833,13 +833,14 @@ void dr_fxsave(byte *buf_aligned);
 void dr_fnsave(byte *buf_aligned);
 void dr_fxrstor(byte *buf_aligned);
 void dr_frstor(byte *buf_aligned);
-#ifdef STACK_GUARD_PAGE
+# ifdef STACK_GUARD_PAGE
 /* PR203701: If the dstack is exhausted we'll use this function to
  * call internal_exception_info() with a separate exception stack.
  */
 void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
                                CONTEXT *cxt, byte *stack);
-#endif
+# endif
+void dynamorio_earliest_init_takeover(void);
 #else /* LINUX */
 void client_int_syscall(void);
 ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);

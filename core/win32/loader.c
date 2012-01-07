@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -2347,4 +2347,205 @@ privload_add_windbg_cmds(void)
     }
     release_recursive_lock(&privload_lock);
 }
+
+/***************************************************************************/
+/* early injection bootstrapping
+ *
+ * dynamorio.dll has been mapped in by the parent but its imports are
+ * not set up.  We do that here.  We can't make any library calls
+ * since those require imports.  We could try to share code with
+ * privload_get_import_descriptor(), privload_process_imports(),
+ * privload_process_one_import(), and get_proc_address_ex(), but IMHO
+ * the code duplication is worth the simplicity of not having a param
+ * or sthg that is checked on every LOG or ASSERT.
+ */
+
+typedef NTSTATUS (NTAPI *nt_protect_t)(IN HANDLE, IN OUT PVOID *, IN OUT PSIZE_T,
+                                       IN ULONG, OUT PULONG);
+static nt_protect_t bootstrap_ProtectVirtualMemory;
+
+/* exported for earliest_inject_init() */
+bool
+bootstrap_protect_virtual_memory(void *base, size_t size, uint prot, uint *old_prot)
+{
+    NTSTATUS res;
+    SIZE_T sz = size;
+    if (bootstrap_ProtectVirtualMemory == NULL)
+        return false;
+    res = bootstrap_ProtectVirtualMemory(NT_CURRENT_PROCESS, &base, &sz,
+                                         prot, (ULONG*)old_prot);
+    return (NT_SUCCESS(res) && sz == size);
+}
+
+static char
+bootstrap_tolower(char c)
+{
+    if (c >= 'A' && c <= 'Z')
+        return c - 'A' + 'a';
+    else
+        return c;
+}
+
+static int
+bootstrap_strcmp(const char *s1, const char *s2, bool ignore_case)
+{
+    char c1, c2;
+    while (true) {
+        if (*s1 == '\0') {
+            if (*s2 == '\0')
+                return 0;
+            return -1;
+        } else if (*s2 == '\0')
+            return 1;
+        c1 = (char) *s1;
+        c2 = (char) *s2;
+        if (ignore_case) {
+            c1 = bootstrap_tolower(c1);
+            c2 = bootstrap_tolower(c2);
+        }
+        if (c1 != c2) {
+            if (c1 < c2)
+                return -1;
+            else
+                return 1;
+        }
+        s1++;
+        s2++;
+    }
+}
+
+
+/* Does not handle forwarders!  Assumed to be called on ntdll only. */
+static generic_func_t
+privload_bootstrap_get_export(byte *modbase, const char *name)
+{
+    size_t exports_size;
+    uint i;
+    IMAGE_EXPORT_DIRECTORY *exports;
+    PULONG functions; /* array of RVAs */
+    PUSHORT ordinals;
+    PULONG fnames; /* array of RVAs */
+    uint ord = UINT_MAX; /* the ordinal to use */
+    app_pc func;
+    bool match = false;
+
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) modbase;
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *) (modbase + dos->e_lfanew);
+    IMAGE_DATA_DIRECTORY *expdir;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE ||
+        nt == NULL || nt->Signature != IMAGE_NT_SIGNATURE)
+        return NULL;
+    expdir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_EXPORT;
+    if (expdir == NULL || expdir->Size <= 0)
+        return NULL;
+    exports = (IMAGE_EXPORT_DIRECTORY *) (modbase + expdir->VirtualAddress);
+    exports_size = expdir->Size;
+    if (exports == NULL || exports->NumberOfNames == 0 || exports->AddressOfNames == 0)
+        return NULL;
+
+    functions = (PULONG)(modbase + exports->AddressOfFunctions);
+    ordinals = (PUSHORT)(modbase + exports->AddressOfNameOrdinals);
+    fnames = (PULONG)(modbase + exports->AddressOfNames);
+
+    for (i = 0; i < exports->NumberOfNames; i++) {
+        char *export_name = (char *)(modbase + fnames[i]);
+        match = (bootstrap_strcmp(name, export_name, false) == 0);
+        if (match) {
+            /* we have a match */
+            ord = ordinals[i];
+            break;
+        }
+    }
+    if (!match || ord >=exports->NumberOfFunctions)
+        return NULL;
+    func = (app_pc)(modbase + functions[ord]);
+    if (func == modbase)
+        return NULL;
+    if (func >= (app_pc)exports &&
+        func < (app_pc)exports + exports_size) {
+        /* forwarded */
+        return NULL;
+    }
+    /* get around warnings converting app_pc to generic_func_t */
+    return convert_data_to_function(func);
+}
+
+bool
+privload_bootstrap_dynamorio_imports(byte *dr_base, byte *ntdll_base)
+{
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) dr_base;
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *) (dr_base + dos->e_lfanew);
+    IMAGE_DATA_DIRECTORY *dir;
+    IMAGE_IMPORT_DESCRIPTOR *imports;
+    byte *iat, *imports_end;
+    uint orig_prot;
+    generic_func_t func;
+
+    /* first, get the one library routine we require */
+    bootstrap_ProtectVirtualMemory = (nt_protect_t)
+        privload_bootstrap_get_export(ntdll_base, "NtProtectVirtualMemory");
+    if (bootstrap_ProtectVirtualMemory == NULL)
+        return false;
+
+    /* get import descriptor (modeled on privload_get_import_descriptor()) */
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE ||
+        nt == NULL || nt->Signature != IMAGE_NT_SIGNATURE)
+        return false;
+    dir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_IMPORT;
+    if (dir == NULL || dir->Size <= 0)
+        return false;
+    imports = (IMAGE_IMPORT_DESCRIPTOR *) RVA_TO_VA(dr_base, dir->VirtualAddress);
+    imports_end = dr_base + dir->VirtualAddress + dir->Size;
+
+    /* walk imports (modeled on privload_process_imports()) */
+    while (imports->OriginalFirstThunk != 0) {
+        IMAGE_THUNK_DATA *lookup;
+        IMAGE_THUNK_DATA *address;
+        const char *impname = (const char *) RVA_TO_VA(dr_base, imports->Name);
+        if (bootstrap_strcmp(impname, "ntdll.dll", true) != 0)
+            return false; /* should only import from ntdll */
+        /* DR shouldn't have bound imports so ignoring TimeDateStamp */
+
+        /* walk the lookup table and address table in lockstep */
+        lookup = (IMAGE_THUNK_DATA *) RVA_TO_VA(dr_base, imports->OriginalFirstThunk);
+        address = (IMAGE_THUNK_DATA *) RVA_TO_VA(dr_base, imports->FirstThunk);
+        iat = (app_pc) address;
+        if (!bootstrap_protect_virtual_memory((void *)PAGE_START(iat),
+                                              PAGE_SIZE, PAGE_READWRITE, &orig_prot))
+            return false;
+        while (lookup->u1.Function != 0) {
+            IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)
+                RVA_TO_VA(dr_base, (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG)));
+            if (TEST(IMAGE_ORDINAL_FLAG, lookup->u1.Function))
+                return false; /* no ordinal support */
+
+            func = privload_bootstrap_get_export(ntdll_base, (const char *) name->Name);
+            if (func == NULL)
+                return false;
+            *(byte **)address = (byte *) func;
+
+            lookup++;
+            address++;
+            if (PAGE_START(address) != PAGE_START(iat)) {
+                if (!bootstrap_protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE,
+                                                      orig_prot, &orig_prot))
+                    return false;
+                iat = (app_pc) address;
+                if (!bootstrap_protect_virtual_memory((void *)PAGE_START(iat), PAGE_SIZE,
+                                                      PAGE_READWRITE, &orig_prot))
+                    return false;
+            }
+        }
+        if (!bootstrap_protect_virtual_memory((void *)PAGE_START(iat),
+                                              PAGE_SIZE, orig_prot, &orig_prot))
+            return false;
+
+        imports++;
+        if ((byte *)(imports+1) > imports_end)
+            return false;
+    }
+
+    return true;
+}
+
 #endif /* WINDOWS */

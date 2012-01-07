@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -67,6 +67,17 @@ extern app_pc dynamo_dll_start;
 extern app_pc dynamo_dll_end;
 
 extern dcontext_t *early_inject_load_helper_dcontext;
+
+/* passed to early injection init by parent */
+typedef struct {
+    byte *dr_base;
+    byte *ntdll_base;
+    byte *tofree_base;
+    byte *hook_location;
+    char dynamorio_lib_path[MAX_PATH];
+} earliest_args_t;
+
+#define EARLY_INJECT_HOOK_SIZE 5
 
 bool
 is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt);
@@ -678,8 +689,23 @@ os_supports_avx();
 byte *
 context_ymmh_saved_area(CONTEXT *cxt);
 
+bool
+convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
+                        IN size_t buf_len/*# elements*/);
+
 /* in loader.c */
 void
 privload_add_windbg_cmds(void);
+
+/* early injection bootstrapping */
+bool
+privload_bootstrap_dynamorio_imports(byte *dr_base, byte *ntdll_base);
+
+bool
+bootstrap_protect_virtual_memory(void *base, size_t size, uint prot, uint *old_prot);
+
+/* in ntdll.c, set via arg from parent for earliest inj */
+void
+set_ntdll_base(app_pc base);
 
 #endif /* _OS_PRIVATE_H_ */

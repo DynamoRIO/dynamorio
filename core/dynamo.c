@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -90,6 +90,7 @@ bool    control_all_threads = false;
 #ifdef WINDOWS
 bool    dr_early_injected = false;
 int     dr_early_injected_location = INJECT_LOCATION_Invalid;
+bool    dr_earliest_injected = false;
 
 /* should be set if we are controlling the primary thread, either by
  * injecting initially (!dr_injected_secondary_thread), or by retaking
@@ -2585,10 +2586,6 @@ dynamorio_app_init_and_early_takeover(uint inject_location, void *restore_code)
     ASSERT(!dynamo_initialized && !dynamo_exited);
     /* This routine combines dynamorio_app_init() and dynamrio_app_takeover into
      * a single routine that also handles any early injection cleanup needed. */
-    /* FIXME for apc early hook, need special handling in callback.c to replace
-     * the early hook and then touch up the hook code to handle any queued
-     * up threads (and be finally early remote thread safe).
-     */
     ASSERT_NOT_IMPLEMENTED(inject_location != INJECT_LOCATION_KiUserApc);
     /* currently only Ldr* hook points are known to work */
     ASSERT_CURIOSITY(INJECT_LOCATION_IS_LDR(inject_location));
@@ -2609,15 +2606,47 @@ dynamorio_app_init_and_early_takeover(uint inject_location, void *restore_code)
     /* FIXME - restore code needs to be freed, but we have to return through it
      * first... could instead duplicate its tail here if we wrap this
      * routine in asm or eqv. pass the continuation state in as args. */
-    /* FIXME - NOTE app_takeover sets preinjected for rct (should prob. rename)
-     * which needs to be done whenever we takeover not at the bottom of the
-     * callstack.  INJECT_LOCATION_KiUserApc won't need to set this if we takeover
-     * in such a way as to handle the return back to our hook code without a
-     * violation. */
     ASSERT(inject_location != INJECT_LOCATION_KiUserApc);
     dynamorio_app_take_over();
 }
-#endif
+
+/* Called with DR library mapped in but without its imports processed.
+ */
+void
+dynamorio_earliest_init_takeover_C(byte *arg_ptr)
+{
+    int res;
+
+    /* Windows-specific code for the most part */
+    earliest_inject_init(arg_ptr);
+
+    /* Initialize now that DR dll imports are hooked up */
+    dr_earliest_injected = true;
+    res = dynamorio_app_init();
+    ASSERT(res == SUCCESS);
+    ASSERT(dynamo_initialized && !dynamo_exited);
+    LOG(GLOBAL, LOG_TOP, 1, "dynamorio_earliest_init_takeover\n");
+
+    /* Now that DR is set up, clean up hook, etc. */
+    earliest_inject_cleanup(arg_ptr);
+
+    /* Take over at retaddr
+     *
+     * XXX i#626: app_takeover sets preinjected for rct (should prob. rename)
+     * which needs to be done whenever we takeover not at the bottom of the
+     * callstack.  For earliest won't need to set this if we takeover
+     * in such a way as to handle the return back to our hook code without a
+     * violation -- though currently we will see 3 rets (return from
+     * dynamorio_app_take_over(), return from here, and return from
+     * dynamorio_earliest_init_takeover() to app hook code).
+     * Should we have dynamorio_earliest_init_takeover() set up an
+     * mcontext that we can go to directly instead of interpreting
+     * the returns in our own code?  That would make tools that shadow
+     * callstacks simpler too.
+     */
+    dynamorio_app_take_over();
+}
+#endif /* WINDOWS */
 
 /***************************************************************************
  * SELF-PROTECTION

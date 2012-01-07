@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1761,7 +1761,7 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
     }
 
     if (!is_phandle_me(process_handle)) {
-        IPC_ALERT("ERROR: FreeVirtualMemory %s "PFX" "PIFX" on another process\n",
+        IPC_ALERT("ERROR: FreeVirtualMemory %s "PFX" "PIFX" on another process",
                   type == MEM_DECOMMIT ? "MEM_DECOMMIT" : "MEM_RELEASE",
                   base, size);
         return;
@@ -2076,7 +2076,7 @@ presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
         "syscall: NtUnmapViewOfSection "PFX" size="PIFX"\n", base, size);
         
     if (!is_phandle_me(process_handle)) {
-        IPC_ALERT("ERROR: UnmapViewOfSection on another process\n");
+        IPC_ALERT("ERROR: UnmapViewOfSection on another process");
         return;
     }
 
@@ -2965,7 +2965,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
             process_handle, process_id_from_handle(process_handle));
         DODEBUG({
             if (prot_is_executable(prot)) {
-                IPC_ALERT("NtAllocateVirtualMemory for process "PFX" %d prot=%s\n",
+                IPC_ALERT("NtAllocateVirtualMemory for process "PFX" %d prot=%s",
                           process_handle, process_id_from_handle(process_handle), 
                           prot_string(prot));
             }
@@ -3076,7 +3076,7 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
             }
         }
     } else {
-        IPC_ALERT("Warning: QueryVirtualMemory on another process\n");
+        IPC_ALERT("Warning: QueryVirtualMemory on another process");
     }
 }
 
@@ -3427,7 +3427,7 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
                 dr_strfree(file HEAPACCT(ACCT_VMAREAS));
         }
     } else {
-        IPC_ALERT("WARNING: MapViewOfSection on another process\n");
+        IPC_ALERT("WARNING: MapViewOfSection on another process");
     }
 }
 
@@ -3490,7 +3490,7 @@ postsys_DuplicateObject(dcontext_t *dcontext, reg_t *param_base, bool success)
                 dr_strfree(file HEAPACCT(ACCT_VMAREAS));
             }
         } else {
-            IPC_ALERT("WARNING: handle via IPC may mess up section-to-handle mapping\n");
+            IPC_ALERT("WARNING: handle via IPC may mess up section-to-handle mapping");
         }
     }
 }

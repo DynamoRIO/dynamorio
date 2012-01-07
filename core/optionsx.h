@@ -1,6 +1,6 @@
 /* *******************************************************************************
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
 
@@ -1306,11 +1306,19 @@
     /* FIXME - do we want to make any of the -early_inject* options dynamic?
      * if so be sure we update os.c:early_inject_location on change etc. */
     OPTION_DEFAULT(bool, early_inject, true, "inject early")
-    OPTION_DEFAULT(bool, early_inject_map, false, "inject early via map NYI")
+#if 0 /* FIXME i#234 NYI: not ready to enable just yet */
+    OPTION_DEFAULT(bool, early_inject_map, true, "inject earliest via map")
+    /* see enum definition is os_shared.h for notes on what works with which
+     * os version */
+    OPTION_DEFAULT(uint, early_inject_location, 5 /* INJECT_LOCATION_KiUserApc */,
+        "where to hook for early_injection.  default is earliest injection: anything else will be later.")
+#else
+    OPTION_DEFAULT(bool, early_inject_map, false, "inject earliest via map")
     /* see enum definition is os_shared.h for notes on what works with which
      * os version */
     OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
-        "where to hook for early_injection, LdrDefault picks the best location for this OS version, see enum for rest")
+        "where to hook for early_injection.  default is earliest injection: anything else will be later.")
+#endif
     OPTION_DEFAULT(uint_addr, early_inject_address, 0,
         "specify the address to hook at for INJECT_LOCATION_LdrCustom")
 #ifdef WINDOWS /* probably the surrounding options should also be under this ifdef */

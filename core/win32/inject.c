@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,6 +50,10 @@
 
 #include "ntdll.h"  /* for get/set context etc. */
 #include "os_private.h"  /* for load_dynamo */
+
+#include "instr.h"
+#include "instr_create.h"
+#include "decode.h"
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 # include "os_private.h" /* for get_proc_address() */
@@ -355,7 +359,11 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
  * possibility is to export this from a special/standalone build of dr that
  * injector can load, that would also make it easier for injector to find
  * Ldr* addresses. At the very least we should combine all these enums (instr.h
- * os_shared.h, emit_utils.c etc.) in one place. */
+ * os_shared.h, emit_utils.c etc.) in one place.
+ *
+ * UPDATE: with drdecode (i#617) for use in drinject, we can use DR's
+ * IR and should for any future code.
+ */
 enum {
     PUSHF                 = 0x9c,
     POPF                  = 0x9d,
@@ -424,180 +432,150 @@ enum {
 # define CHECK_U64(val) /* nothing */
 #endif
 
-/* Early injection. */
-/* FIXME - like inject_into_thread we assume esp, but we could allocate our
- * own stack in the child and swap to that for transparency. */
-bool
-inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
-                        uint inject_location, void *inject_address)
+static byte *
+allocate_remote_code_buffer(HANDLE phandle, size_t size)
 {
-    void *hook_target = NULL, *hook_location = NULL;
-    uint old_prot; 
-    size_t num_bytes_out;
-    byte hook_buf[5];
-
-    /* Possible child hook points */
-    GET_NTDLL(KiUserApcDispatcher, (IN PVOID Unknown1, 
-                                    IN PVOID Unknown2, 
-                                    IN PVOID Unknown3, 
-                                    IN PVOID ContextStart, 
-                                    IN PVOID ContextBody));
-    GET_NTDLL(KiUserExceptionDispatcher, (IN PVOID Unknown1, 
-                                          IN PVOID Unknown2));
-
-    /* Only ones that work, though I have hopes for KiUserException if can
-     * find a better spot to trigger the exception, or we should implement
-     * KiUserApc map requirement. */
-    ASSERT_NOT_IMPLEMENTED(INJECT_LOCATION_IS_LDR(inject_location));
-    switch(inject_location) {
-    case INJECT_LOCATION_LdrLoadDll:
-    case INJECT_LOCATION_LdrpLoadDll:
-    case INJECT_LOCATION_LdrCustom:
-    case INJECT_LOCATION_LdrpLoadImportModule:
-    case INJECT_LOCATION_LdrDefault:
-        /* caller provides the ldr address to use */
-        ASSERT(inject_address != NULL);
-        hook_location = inject_address;
-        if (hook_location == NULL) {
-            goto error;
-        }
-        break;
-    case INJECT_LOCATION_KiUserApc:
-        hook_location = (void *)KiUserApcDispatcher;
-        ASSERT(map);
-        break;
-    case INJECT_LOCATION_KiUserException:
-        hook_location = (void *)KiUserExceptionDispatcher;
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-        goto error;
-    }
-
-    /* read in code at hook */
-    if (!nt_read_virtual_memory(phandle, hook_location, hook_buf,
-                                sizeof(hook_buf), &num_bytes_out) ||
-        num_bytes_out != sizeof(hook_buf)) {
-        goto error;
-    }
-
-    if (map) {
-        hook_target = NULL; /* for compiler */
-        /* NYI see case 102, plan is to remote map in our dll, link and rebase if
-         * necessary and hook to a routine in our dll */
-        ASSERT_NOT_IMPLEMENTED(false);
-    } else {
-        byte *remote_code_buffer = NULL, *remote_data_buffer;
-        /* max usage for local_buf is for writing the dr library name
-         * 2*MAX_PATH (unicode) + sizoef(UNICODE_STRING) + 2, round up to
-         * 3*MAX_PATH to be safe */
-        byte local_buf[3*MAX_PATH];
-        byte *cur_local_pos, *cur_remote_pos, *jmp_fixup1, *jmp_fixup2;
-        char *takeover_func = "dynamorio_app_init_and_early_takeover";
-        PUNICODE_STRING mod, mod_remote;
-        PANSI_STRING func, func_remote;
-        int res;
-        size_t num_bytes_in;
-
-        GET_NTDLL(LdrLoadDll, (IN PCWSTR PathToFile OPTIONAL,
-                               IN PULONG Flags OPTIONAL,
-                               IN PUNICODE_STRING ModuleFileName,
-                               OUT PHANDLE ModuleHandle));
-        GET_NTDLL(LdrGetProcedureAddress, (IN HANDLE ModuleHandle,
-                                           IN PANSI_STRING ProcedureName OPTIONAL,
-                                           IN ULONG Ordinal OPTIONAL,
-                                           OUT FARPROC *ProcedureAddress));
-#define GET_PROC_ADDR_BAD_ADDR 0xffbadd11
-        GET_NTDLL(NtProtectVirtualMemory, (IN HANDLE ProcessHandle,
-                                           IN OUT PVOID *BaseAddress,
-                                           IN OUT PULONG ProtectSize,
-                                           IN ULONG NewProtect,
-                                           OUT PULONG OldProtect));
-        GET_NTDLL(NtContinue, (IN PCONTEXT Context,
-                               IN BOOLEAN TestAlert));
-
-        /* get buffer for emitted code and data */
+    byte *buf = NULL;
 #ifdef X64
-        /* we require lower-2GB so pass a hint */
-        remote_code_buffer = (byte *)(ptr_int_t) 0x30000;
-        res = nt_remote_allocate_virtual_memory(phandle, &remote_code_buffer,
-                                                2*PAGE_SIZE, PAGE_READWRITE,
-                                                MEM_COMMIT);
-        if (res == STATUS_CONFLICTING_ADDRESSES) {
-            /* try again w/ no hint: often ends up in low GB, no guarantee though */
-            remote_code_buffer = NULL;
-        } else if (!NT_SUCCESS(res))
-            goto error;
+    /* we require lower-2GB so pass a hint */
+    NTSTATUS res;
+    buf = (byte *)(ptr_int_t) 0x30000;
+    res = nt_remote_allocate_virtual_memory(phandle, &buf, size,
+                                            PAGE_EXECUTE_READWRITE,
+                                            MEM_COMMIT);
+    if (/* try again w/ no hint: often ends up in low GB, no guarantee though */
+        res == STATUS_CONFLICTING_ADDRESSES ||
+        /* try again too: I'm seeing STATUS_INVALID_PAGE_PROTECTION on win7
+         * on conflicting address in some cases
+         */
+        !NT_SUCCESS(res)) {
+        buf = NULL;
+    }
 #endif
-        if (remote_code_buffer == NULL &&
-            !NT_SUCCESS(nt_remote_allocate_virtual_memory(phandle, &remote_code_buffer,
-                                                          2*PAGE_SIZE, PAGE_READWRITE,
-                                                          MEM_COMMIT))) {
-            goto error;
+    if (buf == NULL) {
+        NTSTATUS res = nt_remote_allocate_virtual_memory(phandle, &buf, size,
+                                                         PAGE_EXECUTE_READWRITE,
+                                                         MEM_COMMIT);
+        if (!NT_SUCCESS(res)
+            IF_X64(|| buf > MAX_LOW_2GB)) {
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+            SYSLOG_INTERNAL_ERROR("failed to allocate child memory for injection");
+#endif
+            return NULL;
         }
-        remote_data_buffer = remote_code_buffer + PAGE_SIZE;
-        
-        /* write data */
-        /* FIXME the two writes are similar (unicode vs ascii), could combine */
-        /* First UNICODE_STRING to library */
-        cur_remote_pos = remote_data_buffer;
-        cur_local_pos = local_buf;
-        ASSERT_ROOM(cur_local_pos, local_buf, sizeof(UNICODE_STRING));
-        mod = (PUNICODE_STRING)cur_local_pos;
-        memset(mod, 0, sizeof(UNICODE_STRING));
-        cur_local_pos += sizeof(UNICODE_STRING);
-        mod->Buffer = (wchar_t *)(cur_remote_pos + (cur_local_pos - local_buf));
-        ASSERT_ROOM(cur_local_pos, local_buf, 2*MAX_PATH+2 /* plus null */);
-        res = snwprintf((wchar_t *)cur_local_pos, 2*MAX_PATH, L"%hs", dynamo_path);
-        ASSERT(res > 0);
-        if (res > 0) {
-            cur_local_pos += (2*res);
-            ASSERT_TRUNCATE(mod->Length, ushort, 2*res);
-            mod->Length = (ushort)(2*res);
-            mod->MaximumLength = (ushort)(2*res);
-        }
-        /* ensure NULL termination, just in case */
-        *(wchar_t *)cur_local_pos = L'\0';
-        cur_local_pos += sizeof(wchar_t);
-        /* write to remote process */
-        num_bytes_in = cur_local_pos - local_buf;
-        if (!nt_write_virtual_memory(phandle, cur_remote_pos, local_buf,
-                                     num_bytes_in, &num_bytes_out) ||
-            num_bytes_out != num_bytes_in) {
-            goto error;
-        }
-        mod_remote = (PUNICODE_STRING)cur_remote_pos;
-        cur_remote_pos += num_bytes_out;
+    }
+    return buf;
+}
 
-        /* now write init/takeover func */
-        cur_local_pos = local_buf;
-        ASSERT_ROOM(cur_local_pos, local_buf, sizeof(ANSI_STRING));
-        func = (PANSI_STRING)cur_local_pos;
-        memset(func, 0, sizeof(ANSI_STRING));
-        cur_local_pos += sizeof(ANSI_STRING);
-        func->Buffer = (PCHAR) cur_remote_pos + (cur_local_pos - local_buf);
-        ASSERT_ROOM(cur_local_pos, local_buf, strlen(takeover_func)+1);
-        strncpy((char *)cur_local_pos, takeover_func, strlen(takeover_func));
-        cur_local_pos += strlen(takeover_func);
-        ASSERT_TRUNCATE(func->Length, ushort, strlen(takeover_func));
-        func->Length = (ushort)strlen(takeover_func);
-        func->MaximumLength = (ushort)strlen(takeover_func);
-        *cur_local_pos++ = '\0'; /* ensure NULL termination, just in case */
-        /* write to remote_process */
-        num_bytes_in = cur_local_pos - local_buf;
-        if (!nt_write_virtual_memory(phandle, cur_remote_pos, local_buf,
-                                     num_bytes_in, &num_bytes_out) ||
-            num_bytes_out != num_bytes_in) {
-            goto error;
-        }
-        func_remote = (PANSI_STRING)cur_remote_pos;
-        cur_remote_pos += num_bytes_out;
-        
-        /* now make data page read only */
-        res = nt_remote_protect_virtual_memory(phandle, remote_data_buffer, 
-                                               PAGE_SIZE, PAGE_READONLY,
-                                               &old_prot);
-        ASSERT(res);
+static bool
+free_remote_code_buffer(HANDLE phandle, byte *base)
+{
+    NTSTATUS res = nt_remote_free_virtual_memory(phandle, base);
+    return NT_SUCCESS(res);
+}
+
+static void *
+inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
+                      void *inject_address, void *hook_location, byte hook_buf[5])
+{
+    void *hook_target;
+    byte *remote_code_buffer = NULL, *remote_data_buffer;
+    /* max usage for local_buf is for writing the dr library name
+     * 2*MAX_PATH (unicode) + sizoef(UNICODE_STRING) + 2, round up to
+     * 3*MAX_PATH to be safe */
+    byte local_buf[3*MAX_PATH];
+    byte *cur_local_pos, *cur_remote_pos, *jmp_fixup1, *jmp_fixup2;
+    char *takeover_func = "dynamorio_app_init_and_early_takeover";
+    PUNICODE_STRING mod, mod_remote;
+    PANSI_STRING func, func_remote;
+    int res;
+    size_t num_bytes_in, num_bytes_out;
+    uint old_prot;
+
+    GET_NTDLL(LdrLoadDll, (IN PCWSTR PathToFile OPTIONAL,
+                           IN PULONG Flags OPTIONAL,
+                           IN PUNICODE_STRING ModuleFileName,
+                           OUT PHANDLE ModuleHandle));
+    GET_NTDLL(LdrGetProcedureAddress, (IN HANDLE ModuleHandle,
+                                       IN PANSI_STRING ProcedureName OPTIONAL,
+                                       IN ULONG Ordinal OPTIONAL,
+                                       OUT FARPROC *ProcedureAddress));
+#define GET_PROC_ADDR_BAD_ADDR 0xffbadd11
+    GET_NTDLL(NtProtectVirtualMemory, (IN HANDLE ProcessHandle,
+                                       IN OUT PVOID *BaseAddress,
+                                       IN OUT PULONG ProtectSize,
+                                       IN ULONG NewProtect,
+                                       OUT PULONG OldProtect));
+    GET_NTDLL(NtContinue, (IN PCONTEXT Context,
+                           IN BOOLEAN TestAlert));
+
+    /* get buffer for emitted code and data */
+    remote_code_buffer = allocate_remote_code_buffer(phandle, 2*PAGE_SIZE);
+    if (remote_code_buffer == NULL)
+        goto error;
+    remote_data_buffer = remote_code_buffer + PAGE_SIZE;
+
+    /* write data */
+    /* FIXME the two writes are similar (unicode vs ascii), could combine */
+    /* First UNICODE_STRING to library */
+    cur_remote_pos = remote_data_buffer;
+    cur_local_pos = local_buf;
+    ASSERT_ROOM(cur_local_pos, local_buf, sizeof(UNICODE_STRING));
+    mod = (PUNICODE_STRING)cur_local_pos;
+    memset(mod, 0, sizeof(UNICODE_STRING));
+    cur_local_pos += sizeof(UNICODE_STRING);
+    mod->Buffer = (wchar_t *)(cur_remote_pos + (cur_local_pos - local_buf));
+    ASSERT_ROOM(cur_local_pos, local_buf, 2*MAX_PATH+2 /* plus null */);
+    res = snwprintf((wchar_t *)cur_local_pos, 2*MAX_PATH, L"%hs", dynamo_path);
+    ASSERT(res > 0);
+    if (res > 0) {
+        cur_local_pos += (2*res);
+        ASSERT_TRUNCATE(mod->Length, ushort, 2*res);
+        mod->Length = (ushort)(2*res);
+        mod->MaximumLength = (ushort)(2*res);
+    }
+    /* ensure NULL termination, just in case */
+    *(wchar_t *)cur_local_pos = L'\0';
+    cur_local_pos += sizeof(wchar_t);
+    /* write to remote process */
+    num_bytes_in = cur_local_pos - local_buf;
+    if (!nt_write_virtual_memory(phandle, cur_remote_pos, local_buf,
+                                 num_bytes_in, &num_bytes_out) ||
+        num_bytes_out != num_bytes_in) {
+        goto error;
+    }
+    mod_remote = (PUNICODE_STRING)cur_remote_pos;
+    cur_remote_pos += num_bytes_out;
+
+    /* now write init/takeover func */
+    cur_local_pos = local_buf;
+    ASSERT_ROOM(cur_local_pos, local_buf, sizeof(ANSI_STRING));
+    func = (PANSI_STRING)cur_local_pos;
+    memset(func, 0, sizeof(ANSI_STRING));
+    cur_local_pos += sizeof(ANSI_STRING);
+    func->Buffer = (PCHAR) cur_remote_pos + (cur_local_pos - local_buf);
+    ASSERT_ROOM(cur_local_pos, local_buf, strlen(takeover_func)+1);
+    strncpy((char *)cur_local_pos, takeover_func, strlen(takeover_func));
+    cur_local_pos += strlen(takeover_func);
+    ASSERT_TRUNCATE(func->Length, ushort, strlen(takeover_func));
+    func->Length = (ushort)strlen(takeover_func);
+    func->MaximumLength = (ushort)strlen(takeover_func);
+    *cur_local_pos++ = '\0'; /* ensure NULL termination, just in case */
+    /* write to remote_process */
+    num_bytes_in = cur_local_pos - local_buf;
+    if (!nt_write_virtual_memory(phandle, cur_remote_pos, local_buf,
+                                 num_bytes_in, &num_bytes_out) ||
+        num_bytes_out != num_bytes_in) {
+        goto error;
+    }
+    func_remote = (PANSI_STRING)cur_remote_pos;
+    cur_remote_pos += num_bytes_out;
+
+    /* now make data page read only */
+    res = nt_remote_protect_virtual_memory(phandle, remote_data_buffer,
+                                           PAGE_SIZE, PAGE_READONLY,
+                                           &old_prot);
+    ASSERT(res);
         
 #define INSERT_INT(value)         \
   *(int *)cur_local_pos = value;  \
@@ -793,163 +771,163 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
   *cur_local_pos++ = POP_ECX /* pop OldProtect into ecx */
 
 
-        /* write code */
-        /* xref case 3821, first call to a possibly hooked routine should be
-         * more then 5 bytes into the page, which is satisfied (though is not
-         * clear if any hookers would manage to get in first). */
-        cur_remote_pos = remote_code_buffer;
-        cur_local_pos = local_buf;
-        hook_target = cur_remote_pos;
-        /* for inject_location INJECT_LOCATION_Ldr* we stick the address used
-         * at the start of the code for the child's use */
-        if (INJECT_LOCATION_IS_LDR(inject_location)) {
-            INSERT_ADDR(inject_address);
-            hook_target = cur_remote_pos + sizeof(ptr_int_t);  /* skip the address */
-        }
+    /* write code */
+    /* xref case 3821, first call to a possibly hooked routine should be
+     * more then 5 bytes into the page, which is satisfied (though is not
+     * clear if any hookers would manage to get in first). */
+    cur_remote_pos = remote_code_buffer;
+    cur_local_pos = local_buf;
+    hook_target = cur_remote_pos;
+    /* for inject_location INJECT_LOCATION_Ldr* we stick the address used
+     * at the start of the code for the child's use */
+    if (INJECT_LOCATION_IS_LDR(inject_location)) {
+        INSERT_ADDR(inject_address);
+        hook_target = cur_remote_pos + sizeof(ptr_int_t);  /* skip the address */
+    }
 
 #if DEBUG_LOOP
-        *cur_local_pos++ = JMP_REL8;
-        *cur_local_pos++ = 0xfe;
+    *cur_local_pos++ = JMP_REL8;
+    *cur_local_pos++ = 0xfe;
 #endif
 
-        /* save current state */
-        INSERT_PUSH_ALL_REG();
-        *cur_local_pos++ = PUSHF;
+    /* save current state */
+    INSERT_PUSH_ALL_REG();
+    *cur_local_pos++ = PUSHF;
 
-        /* restore trampoline, first make writable */
-        CHANGE_PROTECTION(hook_location, 5, PAGE_EXECUTE_READWRITE);
-        *cur_local_pos++ = MOV_IMM32_2_RM32; /* restore first 4 bytes of hook */
-        *cur_local_pos++ = MOV_IMM_RM_ABS;
-        CHECK_U64(hook_location);
-        CHECK_U64(cur_local_pos+8 - local_buf + cur_remote_pos);
-        INSERT_INT((int)(ptr_int_t)hook_location 
-                   /* rip-rel for x64 */
-                   IF_X64(- (int)(ptr_int_t)(cur_local_pos+8 - local_buf +
-                                             cur_remote_pos)));
-        INSERT_INT(*(int *)hook_buf);
-        *cur_local_pos++ = MOV_IMM8_2_RM8; /* restore 5th byte of the hook */
-        *cur_local_pos++ = MOV_IMM_RM_ABS;
-        CHECK_U64((ptr_int_t)hook_location+4);
-        CHECK_U64(cur_local_pos+5 - local_buf + cur_remote_pos);
-        INSERT_INT((int)(ptr_int_t)hook_location+4
-                   /* rip-rel for x64 */
-                   IF_X64(- (int)(ptr_int_t)(cur_local_pos+5 - local_buf +
-                                             cur_remote_pos)));
-        *cur_local_pos++ = hook_buf[4];
-        /* hook restored, restore protection */
-        CHANGE_PROTECTION(hook_location, 5, PROT_IN_ECX);
+    /* restore trampoline, first make writable */
+    CHANGE_PROTECTION(hook_location, 5, PAGE_EXECUTE_READWRITE);
+    *cur_local_pos++ = MOV_IMM32_2_RM32; /* restore first 4 bytes of hook */
+    *cur_local_pos++ = MOV_IMM_RM_ABS;
+    CHECK_U64(hook_location);
+    CHECK_U64(cur_local_pos+8 - local_buf + cur_remote_pos);
+    INSERT_INT((int)(ptr_int_t)hook_location
+               /* rip-rel for x64 */
+               IF_X64(- (int)(ptr_int_t)(cur_local_pos+8 - local_buf +
+                                         cur_remote_pos)));
+    INSERT_INT(*(int *)hook_buf);
+    *cur_local_pos++ = MOV_IMM8_2_RM8; /* restore 5th byte of the hook */
+    *cur_local_pos++ = MOV_IMM_RM_ABS;
+    CHECK_U64((ptr_int_t)hook_location+4);
+    CHECK_U64(cur_local_pos+5 - local_buf + cur_remote_pos);
+    INSERT_INT((int)(ptr_int_t)hook_location+4
+               /* rip-rel for x64 */
+               IF_X64(- (int)(ptr_int_t)(cur_local_pos+5 - local_buf +
+                                         cur_remote_pos)));
+    *cur_local_pos++ = hook_buf[4];
+    /* hook restored, restore protection */
+    CHANGE_PROTECTION(hook_location, 5, PROT_IN_ECX);
 
-        if (inject_location == INJECT_LOCATION_KiUserException) {
-            /* Making the first page of the image unreadable triggers an exception
-             * to early to use the loader, might try pointing the import table ptr
-             * to bad memory instead TOTRY, whatever we do should fixup here */
-            ASSERT_NOT_IMPLEMENTED(false);
-        }
+    if (inject_location == INJECT_LOCATION_KiUserException) {
+        /* Making the first page of the image unreadable triggers an exception
+         * to early to use the loader, might try pointing the import table ptr
+         * to bad memory instead TOTRY, whatever we do should fixup here */
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
         
-        /* call LdrLoadDll to load dr library */
-        *cur_local_pos++ = PUSH_EAX; /* need slot for OUT hmodule*/
-        MOV_ESP_TO_EAX();
-        *cur_local_pos++ = PUSH_EAX; /* arg 4 OUT *hmodule */
-        IF_X64(MOV_EAX_TO_PARAM_3());
-        CHECK_U64(mod_remote);
-        PUSH_IMMEDIATE((int)(ptr_int_t)mod_remote); /* our library name */
-        IF_X64(MOV_TOS_TO_PARAM_2());
-        PUSH_SHORT_IMMEDIATE(0x0); /* Flags OPTIONAL */
-        IF_X64(MOV_TOS_TO_PARAM_1());
-        PUSH_SHORT_IMMEDIATE(0x0); /* PathToFile OPTIONAL */
-        IF_X64(MOV_TOS_TO_PARAM_0());
-        CALL(LdrLoadDll); /* see signature at decleration above */
-        IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
+    /* call LdrLoadDll to load dr library */
+    *cur_local_pos++ = PUSH_EAX; /* need slot for OUT hmodule*/
+    MOV_ESP_TO_EAX();
+    *cur_local_pos++ = PUSH_EAX; /* arg 4 OUT *hmodule */
+    IF_X64(MOV_EAX_TO_PARAM_3());
+    CHECK_U64(mod_remote);
+    PUSH_IMMEDIATE((int)(ptr_int_t)mod_remote); /* our library name */
+    IF_X64(MOV_TOS_TO_PARAM_2());
+    PUSH_SHORT_IMMEDIATE(0x0); /* Flags OPTIONAL */
+    IF_X64(MOV_TOS_TO_PARAM_1());
+    PUSH_SHORT_IMMEDIATE(0x0); /* PathToFile OPTIONAL */
+    IF_X64(MOV_TOS_TO_PARAM_0());
+    CALL(LdrLoadDll); /* see signature at decleration above */
+    IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
 
-        /* stdcall so removed args so top of stack is now the slot containing the
-         * returned handle.  Use LdrGetProcedureAddress to get the address of the
-         * dr init and takeover function. Is ok to call even if LdrLoadDll failed,
-         * so we check for errors afterwards. */
-        *cur_local_pos++ = POP_ECX; /* dr module handle */
-        *cur_local_pos++ = PUSH_ECX; /* need slot for out ProcedureAddress */
-        MOV_ESP_TO_EAX();
-        *cur_local_pos++ = PUSH_EAX; /* arg 4 OUT *ProcedureAddress */
-        IF_X64(MOV_EAX_TO_PARAM_3());
-        PUSH_SHORT_IMMEDIATE(0x0); /* Ordinal OPTIONAL */
-        IF_X64(MOV_TOS_TO_PARAM_2());
-        CHECK_U64(func_remote);
-        PUSH_IMMEDIATE((int)(ptr_int_t)func_remote); /* func name */
-        IF_X64(MOV_TOS_TO_PARAM_1());
-        *cur_local_pos++ = PUSH_ECX; /* module handle */
-        IF_X64(MOV_TOS_TO_PARAM_0());
-        CALL(LdrGetProcedureAddress); /* see signature at decleration above */
-        IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
+    /* stdcall so removed args so top of stack is now the slot containing the
+     * returned handle.  Use LdrGetProcedureAddress to get the address of the
+     * dr init and takeover function. Is ok to call even if LdrLoadDll failed,
+     * so we check for errors afterwards. */
+    *cur_local_pos++ = POP_ECX; /* dr module handle */
+    *cur_local_pos++ = PUSH_ECX; /* need slot for out ProcedureAddress */
+    MOV_ESP_TO_EAX();
+    *cur_local_pos++ = PUSH_EAX; /* arg 4 OUT *ProcedureAddress */
+    IF_X64(MOV_EAX_TO_PARAM_3());
+    PUSH_SHORT_IMMEDIATE(0x0); /* Ordinal OPTIONAL */
+    IF_X64(MOV_TOS_TO_PARAM_2());
+    CHECK_U64(func_remote);
+    PUSH_IMMEDIATE((int)(ptr_int_t)func_remote); /* func name */
+    IF_X64(MOV_TOS_TO_PARAM_1());
+    *cur_local_pos++ = PUSH_ECX; /* module handle */
+    IF_X64(MOV_TOS_TO_PARAM_0());
+    CALL(LdrGetProcedureAddress); /* see signature at decleration above */
+    IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
 
-        /* Top of stack is now the dr init and takeover function (stdcall removed
-         * args). Check for errors and bail (FIXME debug build report somehow?) */
-        CMP_TO_EAX(STATUS_SUCCESS);
-        *cur_local_pos++ = POP_EAX; /* dr init_and_takeover function */
-        *cur_local_pos++ = JNZ_REL8; /* FIXME - should check >= 0 instead? */
-        jmp_fixup1 = cur_local_pos++; /* jmp to after call below */
-        /* Xref case 8373, LdrGetProcedureAdderss sometimes returns an
-         * address of 0xffbadd11 even though it returned STATUS_SUCCESS */
-        CMP_TO_EAX(GET_PROC_ADDR_BAD_ADDR);
-        *cur_local_pos++ = JZ_REL8; /* JZ == JE */
-        jmp_fixup2 = cur_local_pos++; /* jmp to after call below */
-        IF_X64(ADD_IMM8_TO_ESP(-2*(int)XSP_SZ)); /* need 4 slots total */
-        CHECK_U64(remote_code_buffer);
-        PUSH_IMMEDIATE((int)(ptr_int_t)remote_code_buffer); /* arg to takeover func */
-        IF_X64(MOV_TOS_TO_PARAM_1());
-        PUSH_IMMEDIATE(inject_location); /* arg to takeover func */
-        IF_X64(MOV_TOS_TO_PARAM_0());
-        *cur_local_pos++ = CALL_RM32; /* call EAX */
-        *cur_local_pos++ = CALL_EAX_RM;
+    /* Top of stack is now the dr init and takeover function (stdcall removed
+     * args). Check for errors and bail (FIXME debug build report somehow?) */
+    CMP_TO_EAX(STATUS_SUCCESS);
+    *cur_local_pos++ = POP_EAX; /* dr init_and_takeover function */
+    *cur_local_pos++ = JNZ_REL8; /* FIXME - should check >= 0 instead? */
+    jmp_fixup1 = cur_local_pos++; /* jmp to after call below */
+    /* Xref case 8373, LdrGetProcedureAdderss sometimes returns an
+     * address of 0xffbadd11 even though it returned STATUS_SUCCESS */
+    CMP_TO_EAX(GET_PROC_ADDR_BAD_ADDR);
+    *cur_local_pos++ = JZ_REL8; /* JZ == JE */
+    jmp_fixup2 = cur_local_pos++; /* jmp to after call below */
+    IF_X64(ADD_IMM8_TO_ESP(-2*(int)XSP_SZ)); /* need 4 slots total */
+    CHECK_U64(remote_code_buffer);
+    PUSH_IMMEDIATE((int)(ptr_int_t)remote_code_buffer); /* arg to takeover func */
+    IF_X64(MOV_TOS_TO_PARAM_1());
+    PUSH_IMMEDIATE(inject_location); /* arg to takeover func */
+    IF_X64(MOV_TOS_TO_PARAM_0());
+    *cur_local_pos++ = CALL_RM32; /* call EAX */
+    *cur_local_pos++ = CALL_EAX_RM;
 #ifdef X64
-        IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
+    IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
 #else
-        *cur_local_pos++ = POP_ECX; /* cdecl so pop arg */
-        *cur_local_pos++ = POP_ECX; /* cdecl so pop arg */
+    *cur_local_pos++ = POP_ECX; /* cdecl so pop arg */
+    *cur_local_pos++ = POP_ECX; /* cdecl so pop arg */
 #endif
-        /* Now patch the jnz above (if error) to go to here */
-        ASSERT_TRUNCATE(*jmp_fixup1, byte, cur_local_pos - (jmp_fixup1+1));
-        *jmp_fixup1 = (byte)(cur_local_pos - (jmp_fixup1+1)); /* target of jnz */
-        ASSERT_TRUNCATE(*jmp_fixup2, byte, cur_local_pos - (jmp_fixup2+1));
-        *jmp_fixup2 = (byte)(cur_local_pos - (jmp_fixup2+1)); /* target of jz */
-        *cur_local_pos++ = POPF;
-        INSERT_POP_ALL_REG();
-        if (inject_location != INJECT_LOCATION_KiUserException) {
-            /* jmp back to the hook location to resume execution */
-            *cur_local_pos++ = JMP_REL32;
-            INSERT_REL32_ADDRESS(hook_location);
-        } else {
-            /* we triggered the exception, so do an NtContinue back */
-            /* see callback.c, esp+4 holds CONTEXT ** */
-            *cur_local_pos++ = POP_EAX;  /* EXCEPTION_RECORD ** */
-            *cur_local_pos++ = POP_EAX;  /* CONTEXT ** */
-            PUSH_SHORT_IMMEDIATE(FALSE); /* arg 2 TestAlert */
-            IF_X64(MOV_TOS_TO_PARAM_1());
-            *cur_local_pos++ = MOV_RM32_2_REG32;
-            *cur_local_pos++ = MOV_derefEAX_2_EAX_RM; /* CONTEXT * -> EAX */
-            *cur_local_pos++ = PUSH_EAX; /* push CONTEXT * (arg 1) */
-            IF_X64(MOV_EAX_TO_PARAM_0());
-            IF_X64(ADD_IMM8_TO_ESP(-4*(int)XSP_SZ)); /* 4 slots */
-            CALL(NtContinue);
-            /* should never get here, will be zeroed memory so will crash if
-             * we do happen to get here, good enough reporting */
-        }
+    /* Now patch the jnz above (if error) to go to here */
+    ASSERT_TRUNCATE(*jmp_fixup1, byte, cur_local_pos - (jmp_fixup1+1));
+    *jmp_fixup1 = (byte)(cur_local_pos - (jmp_fixup1+1)); /* target of jnz */
+    ASSERT_TRUNCATE(*jmp_fixup2, byte, cur_local_pos - (jmp_fixup2+1));
+    *jmp_fixup2 = (byte)(cur_local_pos - (jmp_fixup2+1)); /* target of jz */
+    *cur_local_pos++ = POPF;
+    INSERT_POP_ALL_REG();
+    if (inject_location != INJECT_LOCATION_KiUserException) {
+        /* jmp back to the hook location to resume execution */
+        *cur_local_pos++ = JMP_REL32;
+        INSERT_REL32_ADDRESS(hook_location);
+    } else {
+        /* we triggered the exception, so do an NtContinue back */
+        /* see callback.c, esp+4 holds CONTEXT ** */
+        *cur_local_pos++ = POP_EAX;  /* EXCEPTION_RECORD ** */
+        *cur_local_pos++ = POP_EAX;  /* CONTEXT ** */
+        PUSH_SHORT_IMMEDIATE(FALSE); /* arg 2 TestAlert */
+        IF_X64(MOV_TOS_TO_PARAM_1());
+        *cur_local_pos++ = MOV_RM32_2_REG32;
+        *cur_local_pos++ = MOV_derefEAX_2_EAX_RM; /* CONTEXT * -> EAX */
+        *cur_local_pos++ = PUSH_EAX; /* push CONTEXT * (arg 1) */
+        IF_X64(MOV_EAX_TO_PARAM_0());
+        IF_X64(ADD_IMM8_TO_ESP(-4*(int)XSP_SZ)); /* 4 slots */
+        CALL(NtContinue);
+        /* should never get here, will be zeroed memory so will crash if
+         * we do happen to get here, good enough reporting */
+    }
 
-        /* Our emitted code above is much less then the sizeof local_buf,
-         * but we'll add a check here (after the fact so not robust if really
-         * overflowed) that we didn't even come close (someon adding large amounts
-         * of code should hit this. FIXME - do better? */
-        ASSERT_ROOM(cur_local_pos, local_buf, MAX_PATH);
-        num_bytes_in = cur_local_pos - local_buf;
-        if (!nt_write_virtual_memory(phandle, cur_remote_pos, local_buf,
-                                     num_bytes_in, &num_bytes_out) ||
-            num_bytes_out != num_bytes_in) {
-            goto error;
-        }
-        cur_remote_pos += num_bytes_out;
-        /* now make code page rx */
-        res = nt_remote_protect_virtual_memory(phandle, remote_code_buffer, 
-                                               PAGE_SIZE, PAGE_EXECUTE_READ,
-                                               &old_prot);
-        ASSERT(res);
+    /* Our emitted code above is much less then the sizeof local_buf,
+     * but we'll add a check here (after the fact so not robust if really
+     * overflowed) that we didn't even come close (someon adding large amounts
+     * of code should hit this. FIXME - do better? */
+    ASSERT_ROOM(cur_local_pos, local_buf, MAX_PATH);
+    num_bytes_in = cur_local_pos - local_buf;
+    if (!nt_write_virtual_memory(phandle, cur_remote_pos, local_buf,
+                                 num_bytes_in, &num_bytes_out) ||
+        num_bytes_out != num_bytes_in) {
+        goto error;
+    }
+    cur_remote_pos += num_bytes_out;
+    /* now make code page rx */
+    res = nt_remote_protect_virtual_memory(phandle, remote_code_buffer,
+                                           PAGE_SIZE, PAGE_EXECUTE_READ,
+                                           &old_prot);
+    ASSERT(res);
 
 #undef INSERT_INT
 #undef PUSH_IMMEDIATE
@@ -960,7 +938,265 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
 #undef CALL
 #undef PROT_IN_ECX
 #undef CHANGE_PROTECTION
+
+    return hook_target;
+
+ error:
+    return NULL;
+}
+
+/* make gencode easier to read */
+#define APP  instrlist_append
+#define GDC  GLOBAL_DCONTEXT
+
+/* i#234: earliest injection so we see every single user-mode instruction
+ * XXX i#625: not supporting rebasing: assuming no conflict w/ executable
+ */
+static void *
+inject_gencode_earliest(HANDLE phandle, char *dynamo_path, void *hook_location,
+                        byte hook_buf[5])
+{
+    bool success = false;
+    NTSTATUS res;
+    HANDLE file = INVALID_HANDLE_VALUE;
+    HANDLE section = INVALID_HANDLE_VALUE;
+    byte *map = NULL;
+    size_t view_size = 0;
+    wchar_t dllpath[MAX_PATH];
+    instrlist_t ilist;
+    byte *remote_code_buf = NULL, *local_code_buf = NULL, *pc, *remote_data;
+    static const size_t remote_alloc_sz = 2*PAGE_SIZE; /* one code, one data */
+    static const size_t code_sz = PAGE_SIZE;
+    size_t num_bytes_out;
+    uint old_prot;
+    earliest_args_t args;
+
+    /* map DR dll into child
+     *
+     * FIXME i#625: check memory in child for conflict w/ DR from executable
+     * (PEB->ImageBaseAddress doesn't seem to be set by kernel so how
+     * locate executable easily?) and fall back to late injection.
+     * Eventually we'll have to support rebasing from parent, or from
+     * contains-no-relocation code in DR.
+     */
+    if (!convert_to_NT_file_path(dllpath, dynamo_path, BUFFER_SIZE_ELEMENTS(dllpath)))
+        goto done;
+    NULL_TERMINATE_BUFFER(dllpath);
+    res = nt_create_module_file(&file, dllpath, NULL, FILE_EXECUTE | FILE_READ_DATA,
+                                FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, 0);
+    if (!NT_SUCCESS(res))
+        goto done;
+    res = nt_create_section(&section, SECTION_ALL_ACCESS, NULL, /* full file size */
+                            PAGE_EXECUTE_WRITECOPY, SEC_IMAGE, file,
+                            /* XXX: do we need security options to put in other process? */
+                            NULL /* unnamed */, 0, NULL, NULL);
+    if (!NT_SUCCESS(res))
+        goto done;
+    res = nt_map_view_of_section(section, /* 0 */
+                                 phandle, /* 1 */
+                                 &map, /* 2 */
+                                 0, /* 3 */
+                                 0 /* not page-file-backed */, /* 4 */
+                                 NULL, /* 5 */
+                                 (PSIZE_T) &view_size, /* 6 */
+                                 ViewUnmap, /* 7 */
+                                 0 /* no special top-down or anything */, /* 8 */
+                                 PAGE_EXECUTE_WRITECOPY); /* 9 */
+    if (!NT_SUCCESS(res))
+        goto done;
+
+    /* generate code and data */
+    remote_code_buf = allocate_remote_code_buffer(phandle, remote_alloc_sz);
+    if (remote_code_buf == NULL)
+        goto done;
+
+    /* see below on why it's easier to point at args in memory */
+    remote_data = remote_code_buf + code_sz;
+    ASSERT(sizeof(args) < PAGE_SIZE);
+    args.dr_base = map;
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+    /* FIXME i#234 NYI: pass in ntdll_base */
+#endif
+    /* FIXME i#234 NYI: for wow64 pick proper ntdll */
+    args.ntdll_base = get_ntdll_base();
+    args.tofree_base = remote_code_buf;
+    args.hook_location = hook_location;
+    strncpy(args.dynamorio_lib_path, dynamo_path,
+            BUFFER_SIZE_ELEMENTS(args.dynamorio_lib_path));
+    NULL_TERMINATE_BUFFER(args.dynamorio_lib_path);
+    if (!nt_write_virtual_memory(phandle, remote_data, &args,
+                                 sizeof(args), &num_bytes_out) ||
+        num_bytes_out != sizeof(args)) {
+        goto done;
     }
+
+    /* we can't use heap_mmap() in drinjectlib */
+    local_code_buf = allocate_remote_code_buffer(NT_CURRENT_PROCESS, code_sz);
+    instrlist_init(&ilist);
+
+    /* restore hook rather than trying to pass contents to C code
+     * (we leave hooked page writable for this and C code restores)
+     */
+    APP(&ilist, INSTR_CREATE_mov_imm
+        (GDC, opnd_create_reg(REG_XAX), OPND_CREATE_INTPTR((ptr_uint_t)hook_location)));
+    APP(&ilist, INSTR_CREATE_mov_st
+        (GDC, OPND_CREATE_MEM32(REG_XAX, 0), OPND_CREATE_INT32(*(int*)hook_buf)));
+    APP(&ilist, INSTR_CREATE_mov_st
+        (GDC, OPND_CREATE_MEM8(REG_XAX, 4), OPND_CREATE_INT8((char)hook_buf[4])));
+
+    /* Call DR earliest-takeover routine w/ retaddr pointing at hooked
+     * location.  DR will free remote_code_buf.
+     * If we passed regular args to a C routine, we'd clobber the args to
+     * the routine we hooked.  We would then need to return here to restore,
+     * it would be more complicated to free remote_code_buf, and we'd want
+     * dr_insert_call() in drdecodelib, etc.  So we instead only touch
+     * xax here and we target an asm routine in DR that will preserve the
+     * other regs, enabling returning to the hooked routine w/ the
+     * original state (except xax which is scratch and xbx which kernel
+     * isn't counting on of course).
+     * We pass our args in memory pointed at by xax stored in the 2nd page.
+     */
+    APP(&ilist, INSTR_CREATE_mov_imm
+        (GDC, opnd_create_reg(REG_XAX), OPND_CREATE_INTPTR((ptr_uint_t)remote_data)));
+    /* we can't use dr_insert_call() b/c it's not avail in drdecode for drinject,
+     * and its main value is passing params and we can't use regular param regs.
+     * we don't even want the 4 stack slots for x64 here b/c we don't want to
+     * clean them up.
+     */
+    APP(&ilist, INSTR_CREATE_push_imm
+        (GDC, OPND_CREATE_INT32((int)(ptr_int_t)hook_location)));
+#ifdef X64
+    /* push is sign-extended, so we can skip top half if nothing in top 33 bits */
+    if ((ptr_uint_t)hook_location >= 0x80000000) {
+        APP(&ilist, INSTR_CREATE_mov_st
+            (GDC, OPND_CREATE_MEM32(REG_XSP, 4),
+             OPND_CREATE_INT32((int)((ptr_int_t)hook_location >> 32))));
+    }
+#endif
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+    /* FIXME i#234 NYI: need to pass in offset of dynamorio_earliest_init_takeover
+     * or could look it up here: either link in module.c, or export
+     * privload_bootstrap_get_export()
+     */
+    pc = 0 + map;
+#else
+    pc = (byte *)dynamorio_earliest_init_takeover - get_dynamorio_dll_start() + map;
+#endif
+    APP(&ilist, INSTR_CREATE_jmp(GDC, opnd_create_pc(pc)));
+
+    /* can't use copy_and_re_relativize_raw_instr b/c don't have direct access:
+     * need to finalize and then do direct copy to child process
+     */
+    pc = instrlist_encode_to_copy(GDC, &ilist, local_code_buf,
+                                  remote_code_buf, local_code_buf + code_sz,
+                                  false);
+    ASSERT(pc != NULL && pc < local_code_buf + code_sz);
+    instrlist_clear(GDC, &ilist);
+
+    /* copy local buffer to child process */
+    if (!nt_write_virtual_memory(phandle, remote_code_buf, local_code_buf,
+                                 pc - local_code_buf, &num_bytes_out) ||
+        num_bytes_out != (size_t)(pc - local_code_buf)) {
+        goto done;
+    }
+    if (!nt_remote_protect_virtual_memory(phandle, remote_code_buf, remote_alloc_sz,
+                                          PAGE_EXECUTE_READ, &old_prot)) {
+        ASSERT_NOT_REACHED();
+        goto done;
+    }
+    success = true;
+
+ done:
+    close_handle(file);
+    close_handle(section);
+    if (local_code_buf != NULL)
+        free_remote_code_buffer(NT_CURRENT_PROCESS, local_code_buf);
+    if (!success) {
+        if (remote_code_buf != NULL)
+            free_remote_code_buffer(phandle, remote_code_buf);
+        return NULL;
+    } else
+        return (void *) remote_code_buf;
+}
+
+/* Early injection. */
+/* FIXME - like inject_into_thread we assume esp, but we could allocate our
+ * own stack in the child and swap to that for transparency. */
+bool
+inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
+                        uint inject_location, void *inject_address)
+{
+    void *hook_target = NULL, *hook_location = NULL;
+    uint old_prot;
+    size_t num_bytes_out;
+    byte hook_buf[EARLY_INJECT_HOOK_SIZE];
+
+    /* Possible child hook points */
+    GET_NTDLL(KiUserApcDispatcher, (IN PVOID Unknown1,
+                                    IN PVOID Unknown2,
+                                    IN PVOID Unknown3,
+                                    IN PVOID ContextStart,
+                                    IN PVOID ContextBody));
+    GET_NTDLL(KiUserExceptionDispatcher, (IN PVOID Unknown1,
+                                          IN PVOID Unknown2));
+
+    switch(inject_location) {
+    case INJECT_LOCATION_LdrLoadDll:
+    case INJECT_LOCATION_LdrpLoadDll:
+    case INJECT_LOCATION_LdrCustom:
+    case INJECT_LOCATION_LdrpLoadImportModule:
+    case INJECT_LOCATION_LdrDefault:
+        /* caller provides the ldr address to use */
+        ASSERT(inject_address != NULL);
+        hook_location = inject_address;
+        if (hook_location == NULL) {
+            goto error;
+        }
+        break;
+    case INJECT_LOCATION_KiUserApc: {
+        /* FIXME i#234 NYI: for wow64 need to hook ntdll64 NtMapViewOfSection */
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+        PEB *peb = get_own_peb();
+        if (peb->OSMajorVersion >= 6) {
+#else
+        if (get_os_version() >= WINDOWS_VERSION_VISTA) {
+#endif
+            /* LdrInitializeThunk isn't in our ntdll.lib but it is
+             * exported on 2K+
+             */
+            HANDLE ntdll_base = get_module_handle(L"ntdll.dll");
+            ASSERT(ntdll_base != NULL);
+            hook_location = (void *) GET_PROC_ADDR(ntdll_base, "LdrInitializeThunk");
+            ASSERT(hook_location != NULL);
+        } else
+            hook_location = (void *)KiUserApcDispatcher;
+        ASSERT(map);
+        break;
+    }
+    case INJECT_LOCATION_KiUserException:
+        hook_location = (void *)KiUserExceptionDispatcher;
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+        goto error;
+    }
+
+    /* read in code at hook */
+    if (!nt_read_virtual_memory(phandle, hook_location, hook_buf,
+                                sizeof(hook_buf), &num_bytes_out) ||
+        num_bytes_out != sizeof(hook_buf)) {
+        goto error;
+    }
+
+    if (map) {
+        hook_target = inject_gencode_earliest(phandle, dynamo_path, hook_location,
+                                              hook_buf);
+    } else {
+        hook_target = inject_gencode_at_ldr(phandle, dynamo_path, inject_location,
+                                            inject_address, hook_location, hook_buf);
+    }
+    if (hook_target == NULL)
+        goto error;
 
     /* place hook */
     ASSERT(sizeof(hook_buf) == 5); /* standard 5 byte jmp rel32 hook */
@@ -978,10 +1214,17 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
         num_bytes_out != sizeof(hook_buf)) {
         goto error;
     }
-    if (!nt_remote_protect_virtual_memory(phandle, hook_location,
-                                          sizeof(hook_buf),
-                                          old_prot, &old_prot)) {
-        goto error;
+    if (!map) {
+        /* For map we restore the hook from gencode to avoid having to pass
+         * the displaced code around.  But, we can't invoke lib routines easily,
+         * so we can't mark +w from gencode easily: so we just leave it +w
+         * and restore to +rx in dynamorio_earliest_init_takeover_C().
+         */
+        if (!nt_remote_protect_virtual_memory(phandle, hook_location,
+                                              sizeof(hook_buf),
+                                              old_prot, &old_prot)) {
+            goto error;
+        }
     }
 
     return true;

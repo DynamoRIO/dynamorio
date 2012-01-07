@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -964,12 +964,15 @@ get_own_teb()
     return (TEB *) get_tls(SELF_TIB_OFFSET);
 }
 
-/* FIXME: this can be done by simply walking the PEB */
+static app_pc ntdll_base;
+
 void *
 get_ntdll_base(void)
 {
-    static app_pc ntdll_base;
     if (ntdll_base == NULL) {
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+        ASSERT(!dr_earliest_injected); /* Ldr not initialized yet */
+#endif
         ntdll_base = (app_pc)get_module_handle(L"ntdll.dll");
         ASSERT(ntdll_base != NULL);
     }
@@ -977,6 +980,14 @@ get_ntdll_base(void)
 }
 
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+/* for early injection we can't use get_module_handle() to find it */
+void
+set_ntdll_base(app_pc base)
+{
+    if (ntdll_base == NULL)
+        ntdll_base = base;
+}
+
 /* get_allocation_size() in os.c */
 bool
 is_in_ntdll(app_pc pc)
@@ -2876,6 +2887,10 @@ get_application_name()
 {
     static char exename[MAXIMUM_PATH];
     if (!exename[0]) {
+        /* FIXME i#234: for earliest injection wchart_t-to-char conversion
+         * via ntdll _snprintf crashes b/c locale or sthg not init: need to
+         * have our_snprintf handle %ls
+         */
         snprintf(exename, BUFFER_SIZE_ELEMENTS(exename), "%ls",
                  get_own_qualified_name());
         NULL_TERMINATE_BUFFER(exename);
@@ -4681,8 +4696,6 @@ nt_get_symlink_target(IN HANDLE              directory_handle,
     return res;
 }
 
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-
 /* General notes about sharing memory */
 /* section<PAGE_EXECUTE, SEC_IMAGE, app_file> gives us CoW in each
  * process, and we can't share the relocation information
@@ -4752,6 +4765,8 @@ nt_create_section(OUT PHANDLE SectionHandle,
     return res;
 }
 
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+
 /* complete wrapper around NtOpenSection */
 /* note that section_name is required and is case insensitive to
  * support normal Windows case insensitivity of DLL lookup.  
@@ -4813,6 +4828,8 @@ are_mapped_files_the_same(app_pc addr1, app_pc addr2)
     return false;
 }
 
+#endif /* !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE) */
+
 /* Mostly a wrapper around NtCreateFile, geared to opening existing
  * module files.  See the DDK and SDK for complete argument documentation.
  *
@@ -4856,8 +4873,6 @@ nt_create_module_file(OUT HANDLE *file_handle,
     }
     return res;
 }
-
-#endif /* !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE) */
 
 /* thin wrapper around ZwQueryInformationFile - 
  * see DDK for documented information classes */

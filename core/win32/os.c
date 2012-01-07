@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -532,6 +532,7 @@ void
 windows_version_init()
 {
     PEB *peb = get_own_peb();
+
     /* choose appropriate syscall array (the syscall numbers change from
      * one version of windows to the next!
      * they may even change at different patch levels)
@@ -1747,6 +1748,7 @@ get_dynamorio_library_path()
         app_pc pb = (app_pc)&get_dynamorio_library_path;
 
         /* here's where we set the library path */
+        ASSERT(!dr_earliest_injected); /* should be already set for earliest */
         get_module_name(pb, dynamorio_library_path, MAXIMUM_PATH);
     }
     return dynamorio_library_path;
@@ -1885,7 +1887,8 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
      * ntdll32.dll at early inject point, so thread injection only.  PR 215423.
      */
     if (DYNAMO_OPTION(early_inject) && !is_wow64_process(process_handle)) {
-        ASSERT(early_inject_address != NULL);
+        ASSERT(early_inject_address != NULL ||
+               !INJECT_LOCATION_IS_LDR(early_inject_location));
         /* FIXME if early_inject_address == NULL then early_inject_init failed
          * to find the correct address to use.  Don't expect that to happen,
          * but if it does could fall back to late injection (though we can't
@@ -4440,7 +4443,7 @@ convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
     return false;
 }
 
-static bool
+bool
 convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
                         IN size_t buf_len/*# elements*/)
 {
@@ -4841,6 +4844,7 @@ os_close_protected(file_t f)
     os_close(f);
 }
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER /* so drinject can use drdecode's copy */
 /* We take in size_t count to match linux, but Nt{Read,Write}File only
  * takes in a ULONG (==uint), though they return a ULONG_PTR (size_t)
  */
@@ -4863,6 +4867,7 @@ os_write(file_t f, const void *buf, size_t count)
     }
     return out;
 }
+#endif
 
 /* We take in size_t count to match linux, but Nt{Read,Write}File only
  * takes in a ULONG (==uint), though they return a ULONG_PTR (size_t)
@@ -6879,6 +6884,62 @@ early_inject_init()
     ASSERT(get_allocation_base(early_inject_address) == get_ntdll_base());
     LOG(GLOBAL, LOG_TOP, 1, "early_inject found address "PFX" to use\n",
         early_inject_address);
+}
+
+/* Called with DR library mapped in but without its imports processed.
+ * DR is not initialized at all so be careful what you call here.
+ */
+void
+earliest_inject_init(byte *arg_ptr)
+{
+    earliest_args_t *args = (earliest_args_t *) arg_ptr;
+
+    /* Set up imports w/o making any library calls */
+    if (!privload_bootstrap_dynamorio_imports(args->dr_base, args->ntdll_base)) {
+        /* XXX: how handle failure?  too early to ASSERT.  how bail?
+         * should we just silently go native?
+         */
+    } else {
+        /* Restore +rx to hook location before DR init scans it */
+        uint old_prot;
+        if (!bootstrap_protect_virtual_memory(args->hook_location,
+                                              EARLY_INJECT_HOOK_SIZE,
+                                              PAGE_EXECUTE_READ, &old_prot)) {
+            /* XXX: again, how handle failure? */
+        }
+    }
+
+    /* We can't walk Ldr list to get this so set it from parent args */
+    set_ntdll_base(args->ntdll_base);
+
+    /* We can't get DR path from Ldr list b/c DR won't be in there even once
+     * it's initialized so we pass it in from parent.
+     * Imports are set up so we can call strncpy now.
+     */
+    strncpy(dynamorio_library_path, args->dynamorio_lib_path,
+            BUFFER_SIZE_ELEMENTS(dynamorio_library_path));
+    NULL_TERMINATE_BUFFER(dynamorio_library_path);
+
+    /* XXX i#627: handle extra early threads
+     *   "for apc early hook, need special handling in callback.c to replace
+     *   the early hook and then touch up the hook code to handle any queued
+     *   up threads (and be finally early remote thread safe)."
+     * which implies the hook should have 1st thread invoke DR and the others
+     * spin in some fashion: for now not handling super-early threads
+     */
+}
+
+/* For cleanup we can't do before DR syscalls are set up */
+void
+earliest_inject_cleanup(byte *arg_ptr)
+{
+    earliest_args_t *args = (earliest_args_t *) arg_ptr;
+    byte *tofree = args->tofree_base;
+    NTSTATUS res;
+
+    /* Free tofree (which contains args) */
+    res = nt_remote_free_virtual_memory(NT_CURRENT_PROCESS, tofree);
+    ASSERT(NT_SUCCESS(res));
 }
 
 #define SECURITY_MAX_SID_STRING_SIZE                            \

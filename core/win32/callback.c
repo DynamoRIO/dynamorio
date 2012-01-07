@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2871,8 +2871,9 @@ intercept_ldr_init(app_state_at_intercept_t *state)
                 return AFTER_INTERCEPT_LET_GO;
         } else {
             /* ntdll!LdrInitializeThunk is only used for initializing new
-             * threads so we should never get here */
-            ASSERT_NOT_REACHED();
+             * threads so we should never get here unless early injected
+             */
+            ASSERT(dr_earliest_injected);
         }
         asynch_retakeover_if_native(); /* FIXME - this is unneccesary */
         state->callee_arg = (void *) false /* use cur dcontext */;

@@ -512,6 +512,10 @@ else (UNIX)
     set(dynamorio_link_flags 
       "${dynamorio_link_flags} /export:dr_try_start")
   endif (CLIENT_INTERFACE)
+  if (WINDOWS)
+    set(dynamorio_link_flags
+      "${dynamorio_link_flags} /export:dynamorio_earliest_init_takeover")
+  endif (WINDOWS)
 
   set_target_properties(dynamorio PROPERTIES LINK_FLAGS "${dynamorio_link_flags}")
   # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
@@ -536,7 +540,8 @@ else (UNIX)
     # not bothering with map files
     "${LD_FLAGS} /incremental:no /subsystem:console /NODEFAULTLIB")
   set_target_properties(drinjectlib PROPERTIES LINK_FLAGS "${drinjectlib_link_flags}")
-  target_link_libraries(drinjectlib ${WIN32_C_LIB} ntdll kernel32 advapi32 imagehlp)
+  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB} ntdll
+    kernel32 advapi32 imagehlp)
   # drinject.exe needs a copy in the bin dir
   add_custom_command(TARGET drinjectlib POST_BUILD COMMAND ${CMAKE_COMMAND}
     ARGS -E copy "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/drinjectlib.dll"

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -376,6 +376,8 @@ void detach_helper(int detach_type); /* needs to be exported for nudge.c */
 extern bool doing_detach;
 
 void early_inject_init(void);
+void earliest_inject_init(byte *arg_ptr);
+void earliest_inject_cleanup(byte *arg_ptr);
 
 /* in module.c */
 app_pc get_module_preferred_base_safe(app_pc pc);

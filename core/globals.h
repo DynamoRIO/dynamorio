@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -470,6 +470,7 @@ bool is_currently_on_dstack(dcontext_t *dcontext);
 #ifdef WINDOWS
 extern bool    dr_early_injected;
 extern int     dr_early_injected_location;
+extern bool    dr_earliest_injected;
 extern bool    dr_injected_primary_thread;
 extern bool    dr_injected_secondary_thread;
 extern bool    dr_late_injected_primary_thread;
