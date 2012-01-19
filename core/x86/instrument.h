@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2837,6 +2837,13 @@ DR_API
  */
 int
 dr_snprintf(char *buf, size_t max, const char *fmt, ...);
+
+DR_API
+/**
+ * Identical to dr_snprintf() but exposes va_list.
+ */
+int
+dr_vsnprintf(char *buf, size_t max, const char *fmt, va_list ap);
 
 DR_API 
 /** Prints \p msg followed by the instruction \p instr to file \p f. */

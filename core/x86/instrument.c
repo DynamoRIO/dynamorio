@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -3389,6 +3389,14 @@ dr_snprintf(char *buf, size_t max, const char *fmt, ...)
     res = our_vsnprintf(buf, max, fmt, ap);
     va_end(ap);
     return res;
+}
+
+DR_API int
+dr_vsnprintf(char *buf, size_t max, const char *fmt, va_list ap)
+{
+    /* in io.c */
+    extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
+    return our_vsnprintf(buf, max, fmt, ap);
 }
 
 DR_API void 

@@ -89,6 +89,7 @@
 #  include <stdio.h>
 #  include <stdlib.h>
 #endif
+#include <stdarg.h> /* for varargs */
 #endif
 /* DR_API EXPORT END */
 #include <limits.h>  /* for USHRT_MAX */

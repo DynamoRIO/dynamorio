@@ -127,6 +127,8 @@ The changes between version \DR_VERSION and 3.1.0 are:
    source compatible.  Binary compatibility is sacrificed when using this
    feature as the IR data structures are subject to change across
    releases.
+ - Added dr_vsnprintf()
+ - Several bug fixes
 
 Version 3.0.0 was a development version.  3.1.0 is the first official
 released version of the 3.x series.
