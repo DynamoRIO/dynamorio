@@ -4380,6 +4380,7 @@ convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
     PROCESS_DEVICEMAP_INFORMATION map;
     uint i, len;
     NTSTATUS res;
+    bool ans = false;
     const wchar_t *lanman = L"\\Device\\LanmanRedirector\\";
 
     LOG(THREAD_GET, LOG_NT, 3, "%s: converting %S\n", __FUNCTION__, fname);
@@ -4436,11 +4437,13 @@ convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
                 _snwprintf(buf, buf_len, L"%s%s", drive, fname+wcslen(ustr.Buffer));
                 buf[buf_len - 1] = L'\0';
                 LOG(THREAD_GET, LOG_NT, 3, "%s: result %S\n", __FUNCTION__, buf);
-                return true;
+                ans = true;
+                break;
             }
         }
     }
-    return false;
+    close_handle(objdir);
+    return ans;
 }
 
 bool
