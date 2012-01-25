@@ -1543,7 +1543,7 @@ dr_get_parent_id(void);
 typedef enum {
     DR_WINDOWS_VERSION_7     = 61,
     DR_WINDOWS_VERSION_VISTA = 60,
-    DR_WINDOWS_VERSION_2003  = 52,
+    DR_WINDOWS_VERSION_2003  = 52, /**< 64-bit XP is this version as well */
     DR_WINDOWS_VERSION_XP    = 51,
     DR_WINDOWS_VERSION_2000  = 50,
     DR_WINDOWS_VERSION_NT    = 40,
@@ -1555,6 +1555,10 @@ typedef struct _dr_os_version_info_t {
     size_t size;
     /** The operating system version */
     dr_os_version_t version;
+    /** The service pack major number */
+    uint service_pack_major;
+    /** The service pack minor number */
+    uint service_pack_minor;
 } dr_os_version_info_t;
 /* DR_API EXPORT END */
 

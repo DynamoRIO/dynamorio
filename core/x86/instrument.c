@@ -2139,8 +2139,10 @@ DR_API
 bool
 dr_get_os_version(dr_os_version_info_t *info)
 {
+    int ver;
+    uint sp_major, sp_minor;
+    get_os_version_ex(&ver, &sp_major, &sp_minor);
     if (info->size > offsetof(dr_os_version_info_t, version)) {
-        int ver = get_os_version();
         switch (ver) {
         case WINDOWS_VERSION_7:     info->version = DR_WINDOWS_VERSION_7;     break;
         case WINDOWS_VERSION_VISTA: info->version = DR_WINDOWS_VERSION_VISTA; break;
@@ -2151,6 +2153,12 @@ dr_get_os_version(dr_os_version_info_t *info)
         default: CLIENT_ASSERT(false, "unsupported windows version");
         };
         return true;
+    }
+    if (info->size > offsetof(dr_os_version_info_t, service_pack_major)) {
+        info->service_pack_major = sp_major;
+        if (info->size > offsetof(dr_os_version_info_t, service_pack_minor)) {
+            info->service_pack_minor = sp_minor;
+        }
     }
     return false;
 }

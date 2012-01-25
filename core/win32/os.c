@@ -100,7 +100,8 @@ process_id_t win32_pid = 0;
 /* we store here to enable TEB.ProcessEnvironmentBlock as a spill slot */
 void *peb_ptr;
 static int os_version;
-static int os_sp_ver;
+static uint os_service_pack_major;
+static uint os_service_pack_minor;
 static const char *os_name;
 app_pc vsyscall_page_start = NULL;
 /* pc kernel will claim app is at while in syscall */
@@ -502,7 +503,7 @@ bool
 os_supports_avx()
 {
     /* XXX: what about the WINDOWS Server 2008 R2? */
-    if (os_version == WINDOWS_VERSION_7 && os_sp_ver == 1)
+    if (os_version == WINDOWS_VERSION_7 && os_service_pack_major >= 1)
         return true;
     return false;
 }
@@ -541,13 +542,20 @@ windows_version_init()
 
     DODEBUG({ check_syscall_array_sizes(); });
 
+    /* In at least 2K, XP, XP64, Vista, and Win7, the service pack is
+     * stored in peb->OSCSDVersion, major in the top byte:
+     */
+    os_service_pack_major = (peb->OSCSDVersion & 0xff00) >> 8;
+    os_service_pack_minor = (peb->OSCSDVersion & 0xff);
+
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 1) {
             module_handle_t ntdllh = get_ntdll_base();
             /* i#437: ymm/avx is supported after Win-7 SP1 */
-            if (get_proc_address(ntdllh, "RtlCopyContext") != NULL) {
-                os_sp_ver = 1;
+            if (os_service_pack_major >= 1) {
+                /* Sanity check on our SP ver retrieval */
+                ASSERT(get_proc_address(ntdllh, "RtlCopyContext") != NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *) windows_7_x64_syscalls;
@@ -557,6 +565,7 @@ windows_version_init()
                     os_name = "Microsoft Windows 7 SP1";
                 }
             } else {
+                ASSERT(get_proc_address(ntdllh, "RtlCopyContext") == NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *) windows_7_x64_syscalls;
@@ -569,11 +578,13 @@ windows_version_init()
             os_version = WINDOWS_VERSION_7;
         } else if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 0) {
             module_handle_t ntdllh = get_ntdll_base();
-            /* Vista system call number differ between service packs, we use
-             * the existence of NtReplacePartitionUnit to detect sp1 - see
-             * PR 246402.  They also differ for 32-bit vs 64-bit/wow64. */
-            if (get_proc_address(ntdllh, "NtReplacePartitionUnit") != NULL) {
-                os_sp_ver = 1;
+            if (os_service_pack_major >= 1) {
+                /* Vista system call number differ between service packs, we use
+                 * the existence of NtReplacePartitionUnit as a sanity check
+                 * for sp1 - see PR 246402.  They also differ for
+                 * 32-bit vs 64-bit/wow64.
+                 */
+                ASSERT(get_proc_address(ntdllh, "NtReplacePartitionUnit") != NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *) windows_vista_sp1_x64_syscalls;
@@ -583,6 +594,7 @@ windows_version_init()
                     os_name = "Microsoft Windows Vista SP1";
                 }
             } else {
+                ASSERT(get_proc_address(ntdllh, "NtReplacePartitionUnit") == NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *) windows_vista_sp0_x64_syscalls;
@@ -763,7 +775,8 @@ os_init(void)
 
     /* windows_version_init should have already been called */
     ASSERT(syscalls != NULL);
-    LOG(GLOBAL, LOG_TOP, 1, "Running on %s\n", os_name);
+    LOG(GLOBAL, LOG_TOP, 1, "Running on %s == %d SP%d.%d\n",
+        os_name, os_version, os_service_pack_major, os_service_pack_minor);
 
     ntdll_init();
     callback_init();
@@ -1492,6 +1505,18 @@ int
 get_os_version()
 {
     return os_version;
+}
+
+void
+get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
+                  uint *service_pack_minor OUT)
+{
+    if (version != NULL)
+        *version = os_version;
+    if (service_pack_major != NULL)
+        *service_pack_major = os_service_pack_major;
+    if (service_pack_minor != NULL)
+        *service_pack_minor = os_service_pack_minor;
 }
 
 bool

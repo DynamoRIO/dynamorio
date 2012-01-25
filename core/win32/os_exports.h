@@ -95,6 +95,8 @@ typedef DWORD cxt_seg_t;
 #define WINDOWS_VERSION_2000   50
 #define WINDOWS_VERSION_NT     40
 int get_os_version(void);
+void get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
+                       uint *service_pack_minor OUT);
 
 /* TEB offsets
  * we'd like to use offsetof(TEB, field) but that would require
