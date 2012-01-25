@@ -2152,15 +2152,15 @@ dr_get_os_version(dr_os_version_info_t *info)
         case WINDOWS_VERSION_NT:    info->version = DR_WINDOWS_VERSION_NT;    break;
         default: CLIENT_ASSERT(false, "unsupported windows version");
         };
-        return true;
-    }
+    } else
+        return false; /* struct too small for any info */
     if (info->size > offsetof(dr_os_version_info_t, service_pack_major)) {
         info->service_pack_major = sp_major;
         if (info->size > offsetof(dr_os_version_info_t, service_pack_minor)) {
             info->service_pack_minor = sp_minor;
         }
     }
-    return false;
+    return true;
 }
 
 DR_API
