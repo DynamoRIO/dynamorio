@@ -958,12 +958,6 @@ get_teb(HANDLE h)
         return (TEB *)info.TebBaseAddress;
 }
 
-TEB *
-get_own_teb()
-{
-    return (TEB *) get_tls(SELF_TIB_OFFSET);
-}
-
 static app_pc ntdll_base;
 
 void *

@@ -1117,9 +1117,6 @@ get_own_peb(void);
 TEB *
 get_teb(HANDLE h);
 
-TEB *
-get_own_teb(void);
-
 void *
 get_ntdll_base(void);
 
