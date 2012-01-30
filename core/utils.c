@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3775,6 +3775,8 @@ check_low_disk_threshold(file_t f, uint64 new_file_size)
         /* impersonated thread may not have rights to even query */
         /* or we have an invalid path */
         /* do nothing */
+        LOG(THREAD_GET, LOG_SYSCALLS|LOG_THREADS, 2,
+            "unable to retrieve available disk space\n");
     }
     return ok;
 }

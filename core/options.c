@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1544,7 +1544,7 @@ check_option_compatibility_helper(int recurse_count)
 # endif /* CLIENT_INTERFACE */
 #endif /* HOT_PATCHING_INTERFACE */
 #ifdef CLIENT_INTERFACE
-    /* PR 226578 - Probe API doesn't flush pcaches conflicting with hotpatches. */
+    /* i#660/PR 226578 - Probe API doesn't flush pcaches conflicting with hotpatches. */
     if (DYNAMO_OPTION(probe_api) && DYNAMO_OPTION(use_persisted)) {
         USAGE_ERROR("-probe_api and -use_persisted aren't compatible");
         dynamo_options.use_persisted = false;

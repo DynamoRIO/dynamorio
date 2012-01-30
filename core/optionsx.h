@@ -437,6 +437,11 @@
             IF_GBOP(options->gbop = 0;)
         }
      }, "enable Probe API", STATIC, OP_PCACHE_NOP)
+#   define DISABLE_PROBE_API(prefix)                 \
+    {                                                \
+            (prefix)->probe_api = false;             \
+            IF_HOTP((prefix)->hot_patching = false;) \
+    }
 
     /* PR 326610: provide -opt_speed option.  In future we may want to
      * expose these separately (PR 225139), and fully support their
@@ -466,8 +471,7 @@
     /* We turned -coarse_units off by default due to PR 326815 */
     OPTION_COMMAND(bool, opt_memory, false, "opt_memory", {
         if (options->opt_memory) {
-            options->coarse_units = true;
-            options->indirect_stubs = true; /* required until we fix PR 213262 */
+            ENABLE_COARSE_UNITS(options);
         }
      }, "enable memory savings at potential loss in performance", STATIC, OP_PCACHE_NOP)
 
@@ -592,8 +596,12 @@
         "Warn on unsupported (but workable) operating system versions greater than max_supported_os_version")
 
     OPTION_DEFAULT(uint, os_aslr, 
-        /* case 8225 - for now we disable our own ASLR and persistent caches */
-         0x3 /* OS_ASLR_DISABLE_ASLR_ALL | OS_ASLR_DISABLE_PCACHE_ALL */,
+        /* case 8225 - for now we disable our own ASLR.
+         * we do not disable persistent caches b/c they're off by default
+         * anyway and if someone turns them on then up to him/her to understand
+         * that we don't have relocation support (i#661)
+         */
+         0x1 /* OS_ASLR_DISABLE_ASLR_ALL */,
          "disable selectively pcache or our ASLR when OS provides ASLR on most modules")
     OPTION_DEFAULT_INTERNAL(uint, os_aslr_version, 60, /* WINDOWS_VERSION_VISTA, Vista RTM+ */
         "minimal OS version to assume ASLR may be provided by OS")
@@ -1800,12 +1808,18 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
                    "validate owner of persisted cache or ASLR, on each file")
 
     /* PR 326815: off until we fix gcc+gap perf */
+#   define ENABLE_COARSE_UNITS(prefix)                                         \
+    {                                                                          \
+            (prefix)->coarse_units = true;                                     \
+            /* PR 326610: we turned off -indirect_stubs by default, but        \
+             * -coarse_units doesn't support that yet (that's i#659/PR 213262).\
+             * XXX: duplicated in -persist                                     \
+             */                                                                \
+            (prefix)->indirect_stubs = true;                                   \
+    }
     OPTION_COMMAND(bool, coarse_units, false, "coarse_units", {
         if (options->coarse_units) {
-            /* PR 326610: we turned off -indirect_stubs by default, but
-             * -coarse_units doesn't support that yet (that's PR 213262).
-             */
-            options->indirect_stubs = true;
+            ENABLE_COARSE_UNITS(options);
         }
     }, "use coarse-grain code cache management when possible", STATIC, OP_PCACHE_GLOBAL)
 
@@ -1931,6 +1945,27 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT(bool, persist_trust_textrel, true,
         "if textrel flag is not set, assume module has no text relocs")
 #endif
+    /* the DYNAMORIO_VAR_PERSCACHE_ROOT config var takes precedence over this */
+    OPTION_DEFAULT(pathstring_t, persist_dir, EMPTY_STRING,
+        "base per-user directory for persistent caches")
+    /* the DYNAMORIO_VAR_PERSCACHE_SHARED config var takes precedence over this */
+    OPTION_DEFAULT(pathstring_t, persist_shared_dir, EMPTY_STRING,
+        "base shared directory for persistent caches")
+    /* convenience option */
+    OPTION_COMMAND(bool, persist, false, "persist", {
+        if (options->persist) {
+            ENABLE_COARSE_UNITS(options);
+            options->coarse_enable_freeze = true;
+            options->coarse_freeze_at_exit = true;
+            options->coarse_freeze_at_unload = true;
+            options->use_persisted = true;
+            /* FIXME: i#660: not compatible w/ Probe API */
+            IF_CLIENT_INTERFACE(DISABLE_PROBE_API(options);)
+        } else {
+            options->coarse_enable_freeze = false;
+            options->use_persisted = false;
+        }
+     }, "generate and use persisted caches", STATIC, OP_PCACHE_GLOBAL)
 
     /* case 10339: tuned for boot and memory performance, not steady-state */
     OPTION_COMMAND(bool, desktop, false, "desktop", {

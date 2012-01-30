@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2073,26 +2074,56 @@ extern bool seen_Borland_SEH;
 #endif
 
 /* get global or per-user directory name */
+bool
+perscache_dirname(char *directory /* OUT */, uint directory_len)
+{
+    int retval;
+    bool param_ok = false;
+    /* Support specifying the pcache dir from either a config param (historical
+     * from ASLR piggyback) or runtime option, though config param gets precedence.
+     */
+    const char *param_name = DYNAMO_OPTION(persist_per_user) ? 
+        PARAM_STR(DYNAMORIO_VAR_PERSCACHE_ROOT) : 
+        PARAM_STR(DYNAMORIO_VAR_PERSCACHE_SHARED);
+    retval = get_parameter(param_name, directory, directory_len);
+    if (IS_GET_PARAMETER_FAILURE(retval)) {
+        string_option_read_lock();
+        if (DYNAMO_OPTION(persist_per_user) && !IS_STRING_OPTION_EMPTY(persist_dir)) {
+            strncpy(directory, DYNAMO_OPTION(persist_dir), directory_len);
+            param_ok = true;
+        } else if (!IS_STRING_OPTION_EMPTY(persist_shared_dir)) {
+            strncpy(directory, DYNAMO_OPTION(persist_shared_dir), directory_len);
+            param_ok = true;
+        } else {
+            /* use log dir by default
+             * XXX: create subdir "logs/cache"?  default is per-user so currently
+             * user dirs will be in logs/ which seems sufficient.
+             */
+            uint len = directory_len;
+            create_log_dir(BASE_DIR);
+            if (get_log_dir(BASE_DIR, directory, &len) && len <= directory_len)
+                param_ok = true;
+        }
+        string_option_read_unlock();
+    } else
+        param_ok = true;
+    if (param_ok)
+        directory[directory_len - 1] = '\0';
+    return param_ok;
+}
+
+/* get global or per-user directory name */
 static bool
 get_persist_dir(char *directory /* OUT */,
                 uint directory_len,
                 bool create)
 {
-    int retval;
-
-    retval = get_parameter((DYNAMO_OPTION(persist_per_user) ? 
-                            PARAM_STR(DYNAMORIO_VAR_PERSCACHE_ROOT) : 
-                            PARAM_STR(DYNAMORIO_VAR_PERSCACHE_SHARED)),
-                           directory, directory_len);
-    if (IS_GET_PARAMETER_FAILURE(retval) || strchr(directory, DIRSEP) == NULL) {
-        SYSLOG_INTERNAL_ERROR_ONCE("%s not set!"
-                                   " Persistent cache will not operate.",
-                                   (DYNAMO_OPTION(persist_per_user) ? 
-                                    DYNAMORIO_VAR_PERSCACHE_ROOT : 
-                                    DYNAMORIO_VAR_PERSCACHE_SHARED));
+    if (!perscache_dirname(directory, directory_len) ||
+        double_strchr(directory, DIRSEP, ALT_DIRSEP) == NULL) {
+        SYSLOG_INTERNAL_ERROR_ONCE("Persistent cache root dir is invalid. "
+                                   "Persistent cache will not operate.");
         return false;
     }
-    directory[directory_len - 1] = '\0';
 
     if (DYNAMO_OPTION(persist_per_user)) {
         bool res = os_current_user_directory(directory, directory_len,
@@ -2100,7 +2131,7 @@ get_persist_dir(char *directory /* OUT */,
         /* null terminated */
         if (!res) {
             /* directory name may be set even on failure */
-            LOG(GLOBAL, LOG_CACHE, 2, "\terror opening per-user dir %s\n", directory);
+            LOG(THREAD_GET, LOG_CACHE, 2, "\terror opening per-user dir %s\n", directory);
             return false;
         }
     }
@@ -2122,7 +2153,8 @@ coarse_unit_check_persist_space(file_t fd_in/*OPTIONAL*/, size_t size_needed)
                                   * even if never persisting */
                             )) {
             fd = os_open_directory(dir, 0);
-        }
+        } else
+            LOG(THREAD_GET, LOG_CACHE, 2, "\terror finding persist dir\n");
     }
     if (fd != INVALID_FILE) {
         room = check_low_disk_threshold(fd, (uint64)size_needed);
@@ -2130,7 +2162,8 @@ coarse_unit_check_persist_space(file_t fd_in/*OPTIONAL*/, size_t size_needed)
             /* FIXME: cache the handle, combine with -validate_owner_dir */
             os_close(fd);
         }
-    }
+    } else
+        LOG(THREAD_GET, LOG_CACHE, 2, "\terror opening persist dir\n");
     return room;
 }
 

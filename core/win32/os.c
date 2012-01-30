@@ -59,6 +59,7 @@
 #include "events.h"             /* event log messages */
 #include "aslr.h"
 #include "../synch.h"
+#include "../perscache.h"
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 # undef ASSERT
@@ -7179,14 +7180,21 @@ open_trusted_cache_root_directory(void)
     char base_directory[MAXIMUM_PATH];
     wchar_t wbuf[MAXIMUM_PATH];
     HANDLE directory_handle;
-    int retval;
+    bool param_ok = false;
 
-    retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT),
-                           base_directory, sizeof(base_directory));
-    if (IS_GET_PARAMETER_FAILURE(retval) || 
-        (strchr(base_directory, DIRSEP) == NULL &&
-         strchr(base_directory, ALT_DIRSEP) == NULL)) {
-        SYSLOG_INTERNAL_WARNING("%s not set!", DYNAMORIO_VAR_CACHE_ROOT);
+    if (DYNAMO_OPTION(aslr) != 0 || DYNAMO_OPTION(aslr_cache) != 0) {
+        /* only use cache config var */
+        int retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT),
+                                   base_directory, BUFFER_SIZE_ELEMENTS(base_directory));
+        param_ok = !IS_GET_PARAMETER_FAILURE(retval);
+    } else {
+        /* no aslr so this is just for pcache */
+        ASSERT(strcmp(DYNAMORIO_VAR_CACHE_ROOT, DYNAMORIO_VAR_PERSCACHE_ROOT) == 0);
+        param_ok = perscache_dirname(base_directory, BUFFER_SIZE_ELEMENTS(base_directory));
+    }
+    if (!param_ok ||
+        double_strchr(base_directory, DIRSEP, ALT_DIRSEP) == NULL) {
+        SYSLOG_INTERNAL_WARNING("%s not correctly set!", DYNAMORIO_VAR_CACHE_ROOT);
         return INVALID_HANDLE_VALUE;
     }
     NULL_TERMINATE_BUFFER(base_directory);

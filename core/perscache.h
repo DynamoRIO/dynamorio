@@ -277,6 +277,9 @@ perscache_fast_exit(void);
 void
 perscache_slow_exit(void);
 
+bool
+perscache_dirname(char *directory /* OUT */, uint directory_len);
+
 void
 coarse_units_freeze_all(bool in_place);
 
