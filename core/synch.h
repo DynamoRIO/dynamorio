@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -238,7 +239,8 @@ set_synched_thread_context(thread_record_t *trec,
                            _IF_WINDOWS(NTSTATUS *status/*OUT*/));
 
 bool
-translate_mcontext(thread_record_t *trec, priv_mcontext_t *mc, bool restore_memory);
+translate_mcontext(thread_record_t *trec, priv_mcontext_t *mc, bool restore_memory,
+                   fragment_t *f);
 
 /* resets a thread to start interpreting anew */
 void

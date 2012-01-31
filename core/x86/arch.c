@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3047,6 +3047,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         if (f == NULL)
             f = fragment_pclookup_with_linkstubs(tdcontext, mcontext->pc, &alloc);
 
+        /* If the passed-in fragment is fake, we need to get the linkstubs */
+        if (f != NULL && TEST(FRAG_FAKE, f->flags)) {
+            ASSERT(TEST(FRAG_COARSE_GRAIN, f->flags));
+            f = fragment_recreate_with_linkstubs(tdcontext, f);
+            alloc = true;
+        }
+
         /* Whether a bb or trace, this routine will recreate the entire ilist. */
         if (f == NULL)
             ilist = recreate_fragment_ilist(tdcontext, mcontext->pc, &f, &alloc,
@@ -3054,9 +3061,11 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         else if (FRAGMENT_TRANSLATION_INFO(f) == NULL) {
             /* NULL for pc indicates that f is valid */
             bool new_alloc;
+            DEBUG_DECLARE(fragment_t *pre_f = f;)
             ilist = recreate_fragment_ilist(tdcontext, NULL, &f, &new_alloc,
                                             true/*mangle*/ _IF_CLIENT(true/*client*/));
-            ASSERT(owning_f == NULL || f == owning_f);
+            ASSERT(owning_f == NULL || f == owning_f ||
+                   (TEST(FRAG_COARSE_GRAIN, owning_f->flags) && f == pre_f));
             ASSERT(!new_alloc);
         }
         if (ilist == NULL && (f == NULL || FRAGMENT_TRANSLATION_INFO(f) == NULL)) {
@@ -3244,6 +3253,10 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
  * it may not execute properly if left at its current location (it
  * could be in the middle of client code in the cache).
  *
+ * If caller knows which fragment pc belongs to, caller should pass in f
+ * to avoid work and avoid lock rank issues as pclookup acquires shared_cache_lock;
+ * else, pass in NULL for f.
+ *
  * FIXME: does not undo stack mangling for sysenter
  */
 /* NOTE - Can be called with a thread suspended at an arbitrary place by synch 
@@ -3263,7 +3276,7 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
 /* Use THREAD_GET instead of THREAD so log messages go to calling thread */
 recreate_success_t
 recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
-                   bool restore_memory)
+                   bool restore_memory, fragment_t *f)
 {
     recreate_success_t res;
 
@@ -3275,7 +3288,7 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
     }
 #endif
 
-    res = recreate_app_state_internal(tdcontext, mcontext, false, NULL, restore_memory);
+    res = recreate_app_state_internal(tdcontext, mcontext, false, f, restore_memory);
         
 #ifdef DEBUG
     if (res) {
@@ -3642,7 +3655,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             mc.pc = cpc;
             LOG(THREAD, LOG_INTERP, 3,
                 "  restoring cpc="PFX", xsp="PFX"\n", mc.pc, mc.xsp);
-            res = recreate_app_state(dcontext, &mc, false/*just registers*/);
+            res = recreate_app_state(dcontext, &mc, false/*just registers*/, NULL);
             LOG(THREAD, LOG_INTERP, 3,
                 "  restored res=%d pc="PFX", xsp="PFX" vs "PFX", xcx="PFX" vs "PFX"\n",
                 res, mc.pc, mc.xsp, STRESS_XSP_INIT -/*negate*/ xsp_adjust,

@@ -3473,7 +3473,7 @@ enum {
 /* exported since we can't do inline asm anymore and must call from x86.asm */
 void
 found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
-                    CONTEXT *cxt, app_pc target, uint flags)
+                    CONTEXT *cxt, app_pc target, uint flags, fragment_t *f)
 {
     app_pc next_pc = NULL;
     cache_pc instr_cache_pc = (app_pc) pExcptRec->ExceptionAddress;
@@ -3499,7 +3499,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
         /* FIXME: currently this will fail for a pc inside a pending-deletion
          * fragment!  == case 3567
          */
-        translated_pc = recreate_app_pc(dcontext, instr_cache_pc, NULL);
+        translated_pc = recreate_app_pc(dcontext, instr_cache_pc, f);
 #ifdef CLIENT_INTERFACE
         {
             /* we must translate the full state in case a client changed
@@ -3508,7 +3508,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
             recreate_success_t res;
             priv_mcontext_t mcontext;
             context_to_mcontext(&mcontext, cxt);
-            res = recreate_app_state(dcontext, &mcontext, true/*memory too*/);
+            res = recreate_app_state(dcontext, &mcontext, true/*memory too*/, f);
             if (res == RECREATE_SUCCESS_STATE) {
                 mcontext_to_context(cxt, &mcontext);
             } else {
@@ -3657,7 +3657,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
         }
     } else {
         next_pc = handle_modified_code(dcontext, instr_cache_pc, 
-                                       translated_pc, target);
+                                       translated_pc, target, f);
     }
     /* if !takeover, re-execute the write no matter what -- the assumption
      * is that the write is native */
@@ -3719,7 +3719,7 @@ is_dstack_overflow(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
  */
 static void
 check_for_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
-                        CONTEXT *cxt, uint flags)
+                        CONTEXT *cxt, uint flags, fragment_t *f)
 {
     /* special case: we expect a seg fault for executable regions
      * that were writable and marked read-only by us
@@ -3776,7 +3776,7 @@ check_for_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
             if (emulate_write)
                 mod_flags |= MOD_CODE_EMULATE_WRITE;
             call_modcode_alt_stack(dcontext, pExcptRec, cxt, target,
-                                   mod_flags, is_on_initstack(cur_esp));
+                                   mod_flags, is_on_initstack(cur_esp), f);
             ASSERT_NOT_REACHED();
         }
 #ifdef DGC_DIAGNOSTICS
@@ -3801,7 +3801,7 @@ check_for_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
                  * initexit lock is easier
                  */
                 mutex_lock(&thread_initexit_lock);
-                translated_pc = recreate_app_pc(dcontext, instr_cache_pc, NULL);
+                translated_pc = recreate_app_pc(dcontext, instr_cache_pc, f);
                 ASSERT(translated_pc != NULL);
                 mutex_unlock(&thread_initexit_lock);
                 LOG(THREAD, LOG_ASYNCH, 2, "\tinto "PFX"\n", translated_pc);
@@ -4320,7 +4320,8 @@ is_execution_exception(EXCEPTION_RECORD *pExcptRec)
 static void
 client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
                        EXCEPTION_RECORD * pExcptRec,
-                       priv_mcontext_t *raw_mcontext)
+                       priv_mcontext_t *raw_mcontext,
+                       fragment_t *fragment)
 {
     /* We cannot use the heap, as clients are allowed to call dr_redirect_execution()
      * and not come back.  So we use the stack, but we separate from
@@ -4332,7 +4333,6 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
     dr_exception_t einfo;
     dr_mcontext_t xl8_dr_mcontext;
     dr_mcontext_t raw_dr_mcontext;
-    fragment_t *fragment;
     fragment_t  wrapper;
     bool pass_to_app;
     dr_mcontext_init(&xl8_dr_mcontext);
@@ -4343,12 +4343,10 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
     priv_mcontext_to_dr_mcontext(&raw_dr_mcontext, raw_mcontext);
     einfo.raw_mcontext = &raw_dr_mcontext;
     /* i#207 fragment tag and fcache start pc on fault. */
-    /* FIXME: we should avoid the fragment_pclookup since it is expensive
-     * and pass in fragment found when translating
-     */
     einfo.fault_fragment_info.tag = NULL;
     einfo.fault_fragment_info.cache_start_pc = NULL;
-    fragment = fragment_pclookup(dcontext, einfo.raw_mcontext->pc, &wrapper);
+    if (fragment == NULL)
+        fragment = fragment_pclookup(dcontext, einfo.raw_mcontext->pc, &wrapper);
     if (fragment != NULL && !hide_tag_from_client(fragment->tag)) {
         einfo.fault_fragment_info.tag = fragment->tag;
         einfo.fault_fragment_info.cache_start_pc = FCACHE_ENTRY_PC(fragment);
@@ -4448,7 +4446,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
                 if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
                     /* raw_mcontext equals mcontext */
                     context_to_mcontext(raw_mcontext, cxt);
-                    client_exception_event(dcontext, cxt, pExcptRec, raw_mcontext);
+                    client_exception_event(dcontext, cxt, pExcptRec, raw_mcontext, NULL);
                 }
 #endif
                 is_DR_exception = true;
@@ -4798,7 +4796,7 @@ intercept_exception(app_state_at_intercept_t *state)
             STATS_INC(num_reset_setcontext_at_fault);
             SYSLOG_INTERNAL_WARNING("reset SetContext at faulting instruction");
             check_for_modified_code(dcontext, pExcptRec, cxt,
-                                    MOD_CODE_TAKEOVER | MOD_CODE_APP_CXT);
+                                    MOD_CODE_TAKEOVER | MOD_CODE_APP_CXT, NULL);
             /* now handle the fault just like RaiseException */
             DODEBUG({ known_source = true; });
         } else if ((app_pc) pExcptRec->ExceptionAddress == 
@@ -4854,6 +4852,10 @@ intercept_exception(app_state_at_intercept_t *state)
         /* if !takeover, the thread could be native and not in fcache */
         if (!takeover || in_fcache((void *)(pExcptRec->ExceptionAddress))) {
             recreate_success_t res;
+            fragment_t *f = NULL;
+            fragment_t wrapper;
+            /* cache the fragment since pclookup is expensive for coarse (i#658) */
+            f = fragment_pclookup(dcontext, pExcptRec->ExceptionAddress, &wrapper);
             /* special case: we expect a seg fault for executable regions
              * that were writable and marked read-only by us.
              * if it is modified code, routine won't return to us
@@ -4865,7 +4867,7 @@ intercept_exception(app_state_at_intercept_t *state)
              */
             if (!DYNAMO_OPTION(thin_client)) {
                 check_for_modified_code(dcontext, pExcptRec, cxt,
-                                        takeover ? MOD_CODE_TAKEOVER : 0);
+                                        takeover ? MOD_CODE_TAKEOVER : 0, f);
             }
             if (!takeover) {
 #ifdef CLIENT_INTERFACE
@@ -4873,7 +4875,7 @@ intercept_exception(app_state_at_intercept_t *state)
                 if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
                     /* raw_mcontext equals mcontext */
                     context_to_mcontext(&raw_mcontext, cxt);
-                    client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext);
+                    client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, f);
                 }
 #endif
 #ifdef PROGRAM_SHEPHERDING
@@ -4973,10 +4975,6 @@ intercept_exception(app_state_at_intercept_t *state)
             LOG(THREAD, LOG_ASYNCH, 1, "Exception is in code cache\n");
             ASSERT(!RUNNING_WITHOUT_CODE_CACHE());
             DOLOG(2, LOG_ASYNCH, {
-                fragment_t wrapper;
-                fragment_t *f;
-                f = fragment_pclookup(dcontext,
-                                      (void *)(pExcptRec->ExceptionAddress), &wrapper);
                 LOG(THREAD, LOG_ASYNCH, 2, "Exception is in this fragment:\n");
                 /* We might not find the fragment since if it is shared and
                  * pending deletion for flush, may have already been removed
@@ -5011,7 +5009,7 @@ intercept_exception(app_state_at_intercept_t *state)
                  * just want pc for exceptionaddress.
                  */
                 app_pc translated_pc = 
-                    recreate_app_pc(dcontext, pExcptRec->ExceptionAddress, NULL);
+                    recreate_app_pc(dcontext, pExcptRec->ExceptionAddress, f);
                 ASSERT(translated_pc != NULL);
                 LOG(THREAD, LOG_ASYNCH, 2, "Translated ExceptionAddress "
                     PFX" to "PFX"\n",
@@ -5019,7 +5017,7 @@ intercept_exception(app_state_at_intercept_t *state)
                 pExcptRec->ExceptionAddress = (PVOID) translated_pc;
             }
             context_to_mcontext(&mcontext, cxt);
-            res = recreate_app_state(dcontext, &mcontext, true/*memory too*/);
+            res = recreate_app_state(dcontext, &mcontext, true/*memory too*/, f);
             if (res != RECREATE_SUCCESS_STATE) {
                 /* We don't expect to get here: means an exception from an
                  * instruction we added.  FIXME: today we do have some
@@ -5113,7 +5111,7 @@ intercept_exception(app_state_at_intercept_t *state)
 #ifdef CLIENT_INTERFACE
             /* Inform client of exceptions */
             if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
-                client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext);
+                client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, f);
             }
 #endif
             /* Fixme : we could do this higher up in the function (before

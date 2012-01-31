@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -290,6 +291,7 @@ is_native_thread_state_valid(dcontext_t *dcontext, app_pc pc, byte *esp)
  * caller should always relocate the translated thread, as it may not
  * execute properly if left at its current location (it could be in the
  * middle of client code in the cache).
+ * If recreate_app_state() is called, f will be passed through to it.
  * 
  * Like any instance where a thread_record_t is used by a thread other than its
  * owner, the caller must hold the thread_initexit_lock to ensure that it
@@ -298,7 +300,7 @@ is_native_thread_state_valid(dcontext_t *dcontext, app_pc pc, byte *esp)
  */
 bool
 translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
-                   bool restore_memory)
+                   bool restore_memory, fragment_t *f)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) trec->dcontext->synch_field;
     bool res;
@@ -370,7 +372,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
     LOG(THREAD_GET, LOG_SYNCH, 2, 
         "translate context, thread %d at pc_recreatable spot translating\n", 
         trec->id);
-    success = recreate_app_state(trec->dcontext, mcontext, restore_memory);
+    success = recreate_app_state(trec->dcontext, mcontext, restore_memory, f);
     if (success != RECREATE_SUCCESS_STATE) {
         /* should never happen right?
          * actually it does when deciding whether can deliver a signal
@@ -479,7 +481,7 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
                                          (byte *)mc->xsp)) {
             safe = true;
             /* we should always be able to translate a valid native state */
-            ASSERT(translate_mcontext(trec, mc, false/*just querying*/));
+            ASSERT(translate_mcontext(trec, mc, false/*just querying*/, NULL));
         }   
     } else if ((!WRITE_LOCK_HELD(&fcache_unit_areas->lock) &&
                 /* even though we only need the read lock, if our target holds it
@@ -487,7 +489,7 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
                  * ask for the read lock (case 7493)
                  */
                 !READ_LOCK_HELD(&fcache_unit_areas->lock)) &&
-               recreate_app_state(trec->dcontext, mc, false/*just query*/) ==
+               recreate_app_state(trec->dcontext, mc, false/*just query*/, NULL) ==
                RECREATE_SUCCESS_STATE &&
                /* is ok to call is_dynamo_address even though it grabs many 
                 * locks because recreate_app_state succeeded */
@@ -1516,7 +1518,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
                pre_translation == IF_WINDOWS_ELSE(vsyscall_after_syscall,
                                                   vsyscall_sysenter_return_pc));
     } else {
-        res = translate_mcontext(tr, mc, true/*restore memory*/);
+        res = translate_mcontext(tr, mc, true/*restore memory*/, NULL);
         ASSERT(res);
         if (!thread_synch_successful(tr) || mc->xip == 0) {
             /* Better to risk failure on accessing a freed cache than

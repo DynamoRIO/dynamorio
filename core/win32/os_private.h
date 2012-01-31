@@ -441,7 +441,7 @@ nt_continue_dynamo_start(void);
 /* x86.asm custom routine used only for check_for_modified_code() */
 void call_modcode_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
                             CONTEXT *cxt, app_pc target, uint flags,
-                            bool using_initstack);
+                            bool using_initstack, fragment_t *fragment);
 
 /* x86.asm routine used for injection */
 void load_dynamo(void);

@@ -3630,7 +3630,7 @@ dr_suspend_all_other_threads(OUT void ***drcontexts,
                     res = thread_get_mcontext(threads[i], get_mcontext(dcontext));
                     CLIENT_ASSERT(res, "failed to get mcontext of suspended thread");
                     res = translate_mcontext(threads[i], get_mcontext(dcontext),
-                                             false/*do not restore memory*/);
+                                             false/*do not restore memory*/, NULL);
                     CLIENT_ASSERT(res, "failed to xl8 mcontext of suspended thread");
                     CLIENT_ASSERT(!dcontext->client_data->mcontext_in_dcontext,
                                   "internal inconsistency in where mcontext is");

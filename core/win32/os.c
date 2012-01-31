@@ -5303,7 +5303,7 @@ translate_context(thread_record_t *trec, CONTEXT *cxt, bool restore_memory)
     /* really we should have the full state */
     ASSERT(TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags));
     context_to_mcontext(&mc, cxt);
-    res = translate_mcontext(trec, &mc, restore_memory);
+    res = translate_mcontext(trec, &mc, restore_memory, NULL);
     if (res)
         mcontext_to_context(cxt, &mc);
     return res;

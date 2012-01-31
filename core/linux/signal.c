@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -615,7 +615,7 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig);
 
 static void
 execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
-                           struct sigcontext *sc_orig
+                           struct sigcontext *sc_orig, fragment_t *f
                            _IF_CLIENT(byte *access_address));
 
 static bool
@@ -2341,10 +2341,11 @@ mcontext_to_sigcontext(struct sigcontext *sc, priv_mcontext_t *mc)
 }
 
 /* Returns whether successful.  If avoid_failure, tries to translate
- * at least pc if not successful.
+ * at least pc if not successful.  Pass f if known.
  */
 static bool
-translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc, bool avoid_failure)
+translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc, bool avoid_failure,
+                     fragment_t *f)
 {
     bool success = false;
     priv_mcontext_t mcontext;
@@ -2366,7 +2367,8 @@ translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc, bool avoid_fa
     /* PR 214962: we assume we're going to relocate to this stored context,
      * so we restore memory now 
      */
-    if (translate_mcontext(dcontext->thread_record, &mcontext, true/*restore memory*/)) {
+    if (translate_mcontext(dcontext->thread_record, &mcontext,
+                           true/*restore memory*/, f)) {
         mcontext_to_sigcontext(sc, &mcontext);
         success = true;
     } else {
@@ -2374,7 +2376,7 @@ translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc, bool avoid_fa
             ASSERT_NOT_REACHED(); /* is ok to break things, is LINUX :) */
             /* FIXME : what to do? reg state might be wrong at least get pc */
             if (safe_is_in_fcache(dcontext, (cache_pc)sc->SC_XIP, (app_pc)sc->SC_XSP)) {
-                sc->SC_XIP = (ptr_uint_t)recreate_app_pc(dcontext, mcontext.pc, NULL);
+                sc->SC_XIP = (ptr_uint_t)recreate_app_pc(dcontext, mcontext.pc, f);
                 ASSERT(sc->SC_XIP != (ptr_uint_t)NULL);
             } else {
                 /* FIXME : can't even get pc right, what do we do here? */
@@ -2893,7 +2895,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
 static dr_signal_action_t
 send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                       struct sigcontext *raw_sc, byte *access_address,
-                      bool blocked)
+                      bool blocked, fragment_t *fragment)
 {
     struct sigcontext *sc = (struct sigcontext *) &(frame->uc.uc_mcontext);
     dr_siginfo_t si;
@@ -2915,7 +2917,6 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     si.fault_fragment_info.cache_start_pc = NULL;
     /* i#182/PR 449996: we provide the pre-translation context */
     if (raw_sc != NULL) {
-        fragment_t *fragment;
         fragment_t  wrapper;
         si.raw_mcontext_valid = true;
         sigcontext_to_mcontext(dr_mcontext_as_priv_mcontext(si.raw_mcontext), raw_sc);
@@ -2923,7 +2924,8 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
         /* FIXME: we should avoid the fragment_pclookup since it is expensive 
          * and since we already did the work of a lookup when translating 
          */
-        fragment = fragment_pclookup(dcontext, si.raw_mcontext->pc, &wrapper);
+        if (fragment == NULL)
+            fragment = fragment_pclookup(dcontext, si.raw_mcontext->pc, &wrapper);
         if (fragment != NULL && !hide_tag_from_client(fragment->tag)) {
             si.fault_fragment_info.tag = fragment->tag;
             si.fault_fragment_info.cache_start_pc = FCACHE_ENTRY_PC(fragment);
@@ -3149,6 +3151,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     bool receive_now = false;
     bool blocked = false;
     sigpending_t *pend;
+    fragment_t *f = NULL;
+    fragment_t wrapper;
 
     /* We no longer block SUSPEND_SIGNAL (i#184/PR 450670) or SIGSEGV (i#193/PR 287309).
      * But we can have re-entrancy issues in this routine if the app uses the same
@@ -3325,7 +3329,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         bool xl8_success;
         sc_orig = *sc;
         ASSERT(!forged);
-        xl8_success = translate_sigcontext(dcontext, sc, !can_always_delay[sig]);
+        /* cache the fragment since pclookup is expensive for coarse (i#658) */
+        f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
+        xl8_success = translate_sigcontext(dcontext, sc, !can_always_delay[sig], f);
 
         if (can_always_delay[sig] && !xl8_success) {
             /* delay: we expect this for coarse fragments if alarm arrives
@@ -3345,8 +3351,6 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 #ifdef DEBUG
         if (stats->loglevel >= 2 && (stats->logmask & LOG_ASYNCH) != 0 &&
             safe_is_in_fcache(dcontext, pc, xsp)) {
-            fragment_t wrapper;
-            fragment_t *f = fragment_pclookup(dcontext, pc, &wrapper);
             ASSERT(f != NULL);
             LOG(THREAD, LOG_ASYNCH, 2,
                 "Got signal at pc "PFX" in this fragment:\n", pc);
@@ -3360,7 +3364,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * we'll copy the context to the app stack and then adjust the
          * original on our stack so we take over.
          */
-        execute_handler_from_cache(dcontext, sig, frame, &sc_orig
+        execute_handler_from_cache(dcontext, sig, frame, &sc_orig, f
                                    _IF_CLIENT(access_address));
 
     } else {
@@ -3374,10 +3378,12 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         if (blocked && !forged && !can_always_delay[sig] &&
             safe_is_in_fcache(dcontext, pc, xsp)) {
             dr_signal_action_t action;
+            /* cache the fragment since pclookup is expensive for coarse (i#658) */
+            f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
             sc_orig = *sc;
-            translate_sigcontext(dcontext, sc, true/*shouldn't fail*/);
+            translate_sigcontext(dcontext, sc, true/*shouldn't fail*/, f);
             action = send_signal_to_client(dcontext, sig, frame, &sc_orig,
-                                           access_address, true/*blocked*/);
+                                           access_address, true/*blocked*/, f);
             /* For blocked signal early event we disallow BYPASS (xref i#182/PR 449996) */
             CLIENT_ASSERT(action != DR_SIGNAL_BYPASS,
                           "cannot bypass a blocked signal event");
@@ -3398,7 +3404,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                    default_action[sig] == DEFAULT_TERMINATE_CORE);
             LOG(THREAD, LOG_ASYNCH, 1,
                 "blocked fatal signal %d cannot be delayed: terminating\n", sig);
-            translate_sigcontext(dcontext, sc, true/*shouldn't fail*/);
+            translate_sigcontext(dcontext, sc, true/*shouldn't fail*/, NULL);
             execute_default_from_cache(dcontext, sig, frame);
         }
         
@@ -3570,18 +3576,22 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
          * return to signal pc!
          */
         app_pc next_pc, translated_pc;
+        fragment_t *f = NULL;
+        fragment_t wrapper;
         ASSERT((cache_pc)sc->SC_XIP == instr_cache_pc);
         /* For safe recreation we need to either be couldbelinking or hold 
          * the initexit lock (to keep someone from flushing current 
          * fragment), the initexit lock is easier
          */
         mutex_lock(&thread_initexit_lock);
-        translated_pc = recreate_app_pc(dcontext, instr_cache_pc, NULL);
+        /* cache the fragment since pclookup is expensive for coarse units (i#658) */
+        f = fragment_pclookup(dcontext, instr_cache_pc, &wrapper);
+        translated_pc = recreate_app_pc(dcontext, instr_cache_pc, f);
         ASSERT(translated_pc != NULL);
         mutex_unlock(&thread_initexit_lock);
         next_pc =
             handle_modified_code(dcontext, instr_cache_pc, translated_pc,
-                                 target);
+                                 target, f);
 
         /* going to exit from middle of fragment (at the write) so will mess up
          * trace building
@@ -3899,7 +3909,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
                  */
                 dr_signal_action_t action =
                     send_signal_to_client(dcontext, sig, frame, sc,
-                                          target, false/*!blocked*/);
+                                          target, false/*!blocked*/, NULL);
                 if (!handle_client_action_from_cache(dcontext, sig, action, frame,
                                                      sc, false/*!blocked*/)) {
                     /* client handled fault */
@@ -4033,7 +4043,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 
 static void
 execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
-                           struct sigcontext *sc_orig
+                           struct sigcontext *sc_orig, fragment_t *f
                            _IF_CLIENT(byte *access_address))
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
@@ -4051,7 +4061,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
 #ifdef CLIENT_INTERFACE
     dr_signal_action_t action = 
         send_signal_to_client(dcontext, sig, our_frame, sc_orig, access_address,
-                              false/*not blocked*/);
+                              false/*not blocked*/, f);
     if (!handle_client_action_from_cache(dcontext, sig, action, our_frame, sc_orig,
                                          false/*!blocked*/))
         return;
@@ -4224,7 +4234,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 #ifdef CLIENT_INTERFACE
     action = send_signal_to_client(dcontext, sig, frame, NULL,
                                    info->sigpending[sig]->access_address,
-                                   false/*not blocked*/);
+                                   false/*not blocked*/, NULL);
     /* in order to pass to the client, we come all the way here for signals
      * the app has no handler for
      */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -182,7 +182,9 @@ ASSUME fs:_DATA @N@\
 #  define ARG4 r9
 #  define ARG5 QWORD [40 + esp] /* includes ret addr */
 #  define ARG6 QWORD [48 + esp]
+#  define ARG7 QWORD [56 + esp]
 #  define ARG5_NORETADDR QWORD [32 + esp]
+#  define ARG6_NORETADDR QWORD [40 + esp]
 # else
 /* Arguments are passed in: rdi, rsi, rdx, rcx, r8, r9, then on stack right-to-left,
  * without leaving any space on stack for the 1st 6.
@@ -194,6 +196,8 @@ ASSUME fs:_DATA @N@\
 #  define ARG5 r8
 #  define ARG5_NORETADDR ARG5
 #  define ARG6 r9
+#  define ARG6_NORETADDR ARG6
+#  define ARG7 QWORD [esp]
 # endif
 # define ARG_SZ 8
 # define PTRSZ QWORD
@@ -216,6 +220,7 @@ ASSUME fs:_DATA @N@\
 # define ARG4 DWORD [16 + esp]
 # define ARG5 DWORD [20 + esp]
 # define ARG6 DWORD [24 + esp]
+# define ARG7 DWORD [28 + esp]
 #endif
 
 #ifdef X64
@@ -297,6 +302,16 @@ ASSUME fs:_DATA @N@\
         SETARG(ARG1, p1)                   @N@\
         call     callee                    @N@\
         STACK_UNPAD(5, 1)
+#define CALLC6(callee, p1, p2, p3, p4, p5, p6)\
+        STACK_PAD(6, 2)                    @N@\
+        SETARG(ARG6_NORETADDR, p6)         @N@\
+        SETARG(ARG5_NORETADDR, p5)         @N@\
+        SETARG(ARG4, p4)                   @N@\
+        SETARG(ARG3, p3)                   @N@\
+        SETARG(ARG2, p2)                   @N@\
+        SETARG(ARG1, p1)                   @N@\
+        call     callee                    @N@\
+        STACK_UNPAD(6, 2)
 
 /* For stdcall callees */
 #ifdef X64

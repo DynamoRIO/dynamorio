@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -9865,7 +9865,7 @@ thread_vm_area_overlap(dcontext_t *dcontext, app_pc start, app_pc end)
  */
 app_pc
 handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                     app_pc instr_app_pc, app_pc target)
+                     app_pc instr_app_pc, app_pc target, fragment_t *f)
 {
     /* FIXME: for Linux, this is all happening inside signal handler...
      * flushing could take a while, and signals are blocked the entire time!
@@ -9881,13 +9881,13 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
     app_pc bb_pstart = NULL, bb_pend = NULL; /* pages occupied by instr's bb */
     vm_area_t *a = NULL;
     fragment_t wrapper;
-    fragment_t *f = (instr_cache_pc == NULL) ? NULL :
-        fragment_pclookup(dcontext, instr_cache_pc, &wrapper);
     /* get the "region" size (don't use exec list, it merges regions),
      * the os merges regions too, and we might have changed the protections
      * on the region and caused it do so, so below we take the intersection
      * with the enclosing executable_areas region if it exists */
     bool ok = get_memory_info(target, &base_pc, &size, &prot);
+    if (f == NULL && instr_cache_pc != NULL)
+        f = fragment_pclookup(dcontext, instr_cache_pc, &wrapper);
     /* FIXME: what if seg fault is b/c target is unreadable?  then should have
      * app die, not us trigger assertion!
      */

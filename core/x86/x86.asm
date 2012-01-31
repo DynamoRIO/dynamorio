@@ -1625,7 +1625,7 @@ GLOBAL_LABEL(dr_frstor:)
  * void call_modcode_alt_stack(dcontext_t *dcontext,
  *                             EXCEPTION_RECORD *pExcptRec,
  *                             CONTEXT *cxt, app_pc target, uint flags,
- *                             bool using_initstack)
+ *                             bool using_initstack, fragment_t *f)
  * custom routine used to transfer control from check_for_modified_code()
  * to found_modified_code() win32/callback.c.
  */
@@ -1635,6 +1635,7 @@ GLOBAL_LABEL(dr_frstor:)
 #define target          ARG4
 #define flags           ARG5
 #define using_initstack ARG6
+#define fragment        ARG7
         DECLARE_FUNC(call_modcode_alt_stack)
 GLOBAL_LABEL(call_modcode_alt_stack:)
         mov      REG_XAX, dcontext /* be careful not to clobber other in-reg params */
@@ -1642,13 +1643,14 @@ GLOBAL_LABEL(call_modcode_alt_stack:)
         mov      REG_XDI, cxt
         mov      REG_XSI, target
         mov      REG_XDX, flags
+        mov      REG_XCX, fragment
         /* bool is byte-sized but rest should be zeroed as separate param */
         cmp      using_initstack, 0
         je       call_modcode_alt_stack_no_free
         mov      DWORD SYMREF(initstack_mutex), 0 /* rip-relative on x64 */
 call_modcode_alt_stack_no_free:
         RESTORE_FROM_DCONTEXT_VIA_REG(REG_XAX,dstack_OFFSET,REG_XSP)
-        CALLC5(found_modified_code, REG_XAX, REG_XBX, REG_XDI, REG_XSI, REG_XDX)
+        CALLC6(found_modified_code, REG_XAX, REG_XBX, REG_XDI, REG_XSI, REG_XDX, REG_XCX)
         /* should never return */
         jmp      unexpected_return
         ret

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -719,11 +720,12 @@ thread_vm_area_overlap(dcontext_t *dcontext, app_pc start, app_pc end);
 
 /* Returns NULL if should re-execute the faulting write
  * Else returns the target pc for a new basic block -- caller should
- * return to dispatch rather than the code cache
+ * return to dispatch rather than the code cache.
+ * Pass in the fragment containing instr_cache_pc if known: else pass NULL.
  */
 app_pc
 handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                     app_pc instr_app_pc, app_pc target);
+                     app_pc instr_app_pc, app_pc target, fragment_t *f);
 
 /* Returns the counter a selfmod fragment should execute for -sandbox2ro_threshold */
 uint *
