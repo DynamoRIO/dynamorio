@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -97,6 +98,9 @@ struct _coarse_info_t {
     void *htable; /* opaque htable mapping app pc -> stub/cache entry point */
     void *th_htable; /* opaque htable mapping trace head app pc -> cache entry point */
     
+    /* cache pclookups to avoid htable walk (i#658) */
+    void *pclookup_last_htable; /* opaque htable caching recent non-entry pclookups */
+
     void *stubs; /* opaque special heap */
 
     cache_pc fcache_return_prefix;

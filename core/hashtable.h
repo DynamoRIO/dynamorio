@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -207,6 +207,9 @@ generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
 
 void
 generic_hash_destroy(dcontext_t *dcontext, generic_table_t *htable);
+
+void
+generic_hash_clear(dcontext_t *dcontext, generic_table_t *htable);
 
 void *
 generic_hash_lookup(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key);

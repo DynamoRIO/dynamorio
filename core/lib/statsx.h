@@ -632,6 +632,7 @@
     STATS_DEF("Coarse units marked valid", coarse_marked_valid)
     STATS_DEF("Coarse units executed while invalid", coarse_executed_invalid)
     STATS_DEF("Coarse region merged with IAT post-rebind", coarse_merge_IAT)
+    STATS_DEF("Coarse pclookup cached entries", coarse_pclookup_cached)
 
     STATS_DEF("Hotpatch match requiring persisted cache flush", hotp_persist_flush)
 

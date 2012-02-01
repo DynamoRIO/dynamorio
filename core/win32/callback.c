@@ -3499,6 +3499,10 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
         /* FIXME: currently this will fail for a pc inside a pending-deletion
          * fragment!  == case 3567
          */
+        /* We use the passed-in fragment_t pointer.  Perhaps it could have
+         * been flushed, but it can't have been freed b/c this thread
+         * didn't reach a safe point.
+         */
         translated_pc = recreate_app_pc(dcontext, instr_cache_pc, f);
 #ifdef CLIENT_INTERFACE
         {
@@ -3767,16 +3771,21 @@ check_for_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
              * methods, so we have to free the initstack mutex, but
              * we need a stack -- so, we use a separate method to avoid
              * stack conflicts, and switch to dstack now.
-             * FIXME: the TOS dstack offset constant (12 or 84) is hardcoded below.
-             * use an asm routine to make use of existing x86.asm constants?
              */
             GET_STACK_PTR(cur_esp);
             /* prepare flags param for found_modified_code */
             mod_flags = flags;
             if (emulate_write)
                 mod_flags |= MOD_CODE_EMULATE_WRITE;
-            call_modcode_alt_stack(dcontext, pExcptRec, cxt, target,
-                                   mod_flags, is_on_initstack(cur_esp), f);
+            /* don't switch to base of dstack if already on it b/c we'll end
+             * up clobbering the fragment_t wrapper local from parent
+             */
+            if (is_on_dstack(dcontext, cur_esp)) {
+                found_modified_code(dcontext, pExcptRec, cxt, target, mod_flags, f);
+            } else {
+                call_modcode_alt_stack(dcontext, pExcptRec, cxt, target,
+                                       mod_flags, is_on_initstack(cur_esp), f);
+            }
             ASSERT_NOT_REACHED();
         }
 #ifdef DGC_DIAGNOSTICS

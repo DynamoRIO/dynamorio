@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -128,6 +128,12 @@ generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
                            _IF_DEBUG("section-to-file table"));
     table->free_payload_func = free_payload_func;
     return table;
+}
+
+void
+generic_hash_clear(dcontext_t *dcontext, generic_table_t *htable)
+{
+    hashtable_generic_clear(dcontext, htable);
 }
 
 void

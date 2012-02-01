@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -7827,6 +7827,10 @@ fragment_coarse_htable_free(coarse_info_t *info)
     study_and_free_coarse_htable(info, (coarse_table_t *) info->th_htable, false
                                  _IF_DEBUG("tracehead"));
     info->th_htable = NULL;
+    if (info->pclookup_last_htable != NULL) {
+        generic_hash_destroy(GLOBAL_DCONTEXT, info->pclookup_last_htable);
+        info->pclookup_last_htable = NULL;
+    }
     if (info->pclookup_htable != NULL) {
         ASSERT(DYNAMO_OPTION(coarse_pclookup_table));
         study_and_free_coarse_htable(info, (coarse_table_t *) info->pclookup_htable,
@@ -8287,6 +8291,33 @@ fragment_coarse_replace(dcontext_t *dcontext, coarse_info_t *info, app_pc tag,
     return res;
 }
 
+/**************************************************
+ * PC LOOKUP
+ */
+
+/* Table for storing results of prior coarse pclookups (i#658) */
+#define PCLOOKUP_LAST_HTABLE_INIT_SIZE 6 /*should remain small*/
+
+/* Alarm signals can result in many pclookups from a variety of places
+ * (unlike usual DGC patterns) so we bound the size of the table.
+ * We want to err on the side of using more memory, since failing to
+ * cache all the instrs that are writing DGC can result in 2x slowdowns.
+ * It's not worth fancy replacement: we just clear the table if it gets
+ * really large and start over.  Remember that this is per-coarse-unit.
+ */
+#define PCLOOKUP_LAST_HTABLE_MAX_ENTRIES 8192
+
+typedef struct _pclookup_last_t {
+    app_pc tag;
+    cache_pc entry;
+} pclookup_last_t;
+
+static void
+pclookup_last_free(pclookup_last_t *last)
+{
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, last, pclookup_last_t, ACCT_FRAG_TABLE, PROTECTED);
+}
+
 /* Returns the tag for the coarse fragment whose body contains pc.
  * If that returned tag != NULL, also returns the body pc in the optional OUT param.
  * FIXME: verify not called too often: watch the kstat.
@@ -8297,6 +8328,8 @@ fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
 {
     app_to_cache_t a2c;
     coarse_table_t *htable;
+    generic_table_t *pc_htable;
+    pclookup_last_t *last;
     cache_pc body_pc;
     ssize_t closest_distance = SSIZE_T_MAX;
     app_pc closest = NULL;
@@ -8306,24 +8339,90 @@ fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
         return NULL;
     KSTART(coarse_pclookup);
     htable = (coarse_table_t *) info->htable;
-    TABLE_RWLOCK(htable, read, lock);
-    for (i = 0; i < htable->capacity; i++) {
-        a2c = htable->table[i];
-        /* must check for sentinel */
-        if (A2C_ENTRY_IS_REAL(a2c)) {
-            ASSERT(BOOLS_MATCH(info->frozen, info->cache_start_pc != NULL));
-            /* for frozen, htable only holds body pc */
-            a2c.cache += (ptr_uint_t) info->cache_start_pc;
-            /* We have no body length so we must walk entire table */
-            coarse_body_from_htable_entry(dcontext, info, a2c.app,
-                                          a2c.cache, NULL, &body_pc);
-            if (body_pc != NULL && body_pc <= pc && (pc - body_pc) < closest_distance) {
-                closest_distance = pc - body_pc;
-                closest = a2c.app;
+
+    if (info->pclookup_last_htable == NULL) {
+        /* lazily allocate table of all pclookups to avoid htable walk
+         * on frequent codemod instrs (i#658).
+         * I tried using a small array instead but chrome v8 needs at least
+         * 12 entries, and rather than LFU or LRU to avoid worst-case,
+         * it seems reasonable to simply store all lookups.
+         * Then the worst case is some extra memory, not 4x slowdowns.
+         */
+        mutex_lock(&info->lock);
+        if (info->pclookup_last_htable == NULL) {
+            /* coarse_table_t isn't quite enough b/c we need the body pc,
+             * which would require an extra lookup w/ coarse_table_t
+             */
+            pc_htable = generic_hash_create(GLOBAL_DCONTEXT,
+                                            PCLOOKUP_LAST_HTABLE_INIT_SIZE,
+                                            80 /* load factor: not perf-critical */,
+                                            HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
+                                            HASHTABLE_RELAX_CLUSTER_CHECKS,
+                                            (void(*)(void*)) pclookup_last_free
+                                            _IF_DEBUG("pclookup last table"));
+            /* Only when fully initialized can we set it, as we hold no lock for it */
+            info->pclookup_last_htable = (void *) pc_htable;
+        }
+        mutex_unlock(&info->lock);
+    }
+
+    pc_htable = (generic_table_t *) info->pclookup_last_htable;
+    ASSERT(pc_htable != NULL);
+    TABLE_RWLOCK(pc_htable, read, lock);
+    last = (pclookup_last_t *) generic_hash_lookup(GLOBAL_DCONTEXT, pc_htable,
+                                                   (ptr_uint_t)pc);
+    if (last != NULL) {
+        closest = last->tag;
+        ASSERT(pc >= last->entry);
+        closest_distance = pc - last->entry;
+    }
+    TABLE_RWLOCK(pc_htable, read, unlock);
+
+    if (closest == NULL) {
+        /* do the htable walk */
+        TABLE_RWLOCK(htable, read, lock);
+        for (i = 0; i < htable->capacity; i++) {
+            a2c = htable->table[i];
+            /* must check for sentinel */
+            if (A2C_ENTRY_IS_REAL(a2c)) {
+                ASSERT(BOOLS_MATCH(info->frozen, info->cache_start_pc != NULL));
+                /* for frozen, htable only holds body pc */
+                a2c.cache += (ptr_uint_t) info->cache_start_pc;
+                /* We have no body length so we must walk entire table */
+                coarse_body_from_htable_entry(dcontext, info, a2c.app,
+                                              a2c.cache, NULL, &body_pc);
+                if (body_pc != NULL &&
+                    body_pc <= pc && (pc - body_pc) < closest_distance) {
+                    closest_distance = pc - body_pc;
+                    closest = a2c.app;
+                }
             }
         }
+        if (closest != NULL) {
+            /* Update the cache of results. Note that since this is coarse we
+             * don't have to do anything special to invalidate on codemod as the
+             * whole coarse unit will be thrown out.
+             */
+            TABLE_RWLOCK(pc_htable, write, lock);
+            last = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, pclookup_last_t,
+                                   ACCT_FRAG_TABLE, PROTECTED);
+            last->tag = closest;
+            last->entry = pc - closest_distance;
+
+            if (pc_htable->entries >= PCLOOKUP_LAST_HTABLE_MAX_ENTRIES) {
+                /* See notes above: we don't want an enormous table.
+                 * We just clear rather than a fancy replacement policy.
+                 */
+                generic_hash_clear(GLOBAL_DCONTEXT, pc_htable);
+            }
+
+            generic_hash_add(GLOBAL_DCONTEXT, pc_htable, (ptr_uint_t)pc, (void *)last);
+            STATS_INC(coarse_pclookup_cached);
+            TABLE_RWLOCK(pc_htable, write, unlock);
+        }
+        TABLE_RWLOCK(htable, read, unlock);
     }
-    TABLE_RWLOCK(htable, read, unlock);
+
     if (body_out != NULL)
         *body_out = pc - closest_distance;
     KSTOP(coarse_pclookup);

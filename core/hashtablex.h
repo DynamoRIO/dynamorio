@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1431,6 +1431,48 @@ HTNAME(hashtable_,NAME_KEY,_replace)
     }
 
     return false;
+}
+
+/* removes all entries and resets the table but keeps the same capacity */
+/* not static b/c not used by all tables */
+void
+HTNAME(hashtable_,NAME_KEY,_clear)(dcontext_t *dcontext,
+                                   HTNAME(,NAME_KEY,_table_t) *table)
+{
+    uint i;
+    ENTRY_TYPE e;
+
+    ASSERT(!TEST(HASHTABLE_READ_ONLY, table->table_flags));
+    if (TEST(HASHTABLE_READ_ONLY, table->table_flags))
+        return;
+    LOG(THREAD, LOG_HTABLE, 2, "hashtable_"KEY_STRING"_clear\n");
+    DOLOG(2, LOG_HTABLE|LOG_STATS, {
+        HTNAME(hashtable_,NAME_KEY,_load_statistics)(dcontext, table);
+    });
+
+    for (i = 0; i < table->capacity; i++) {
+        e = table->table[i];
+        /* must check for sentinel */
+        if (ENTRY_IS_REAL(e)) {
+            HTNAME(hashtable_,NAME_KEY,_free_entry)(dcontext, table, e);
+        }
+        table->table[i] = ENTRY_EMPTY;
+    }
+#ifdef HASHTABLE_USE_LOOKUPTABLE
+    memset(table->lookuptable, 0, table->capacity*sizeof(AUX_ENTRY_TYPE));
+#endif
+#ifdef HASHTABLE_STATISTICS
+# ifdef HASHTABLE_ENTRY_STATS
+    table->added_since_dumped = 0;
+    if (INTERNAL_OPTION(hashtable_ibl_entry_stats) && table->entry_stats != NULL) {
+        if (TEST(HASHTABLE_USE_ENTRY_STATS, table->table_flags)) {
+            memset(table->entry_stats, 0, table->capacity*sizeof(fragment_stat_entry_t));
+        }
+    }
+# endif
+#endif
+    table->entries = 0;
+    table->unlinked_entries = 0;
 }
 
 /* removes all entries within a specified range of tags
