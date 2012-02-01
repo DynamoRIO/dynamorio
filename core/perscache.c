@@ -2195,7 +2195,7 @@ persist_get_relevant_options(dcontext_t *dcontext, char *option_buf,
                              uint buf_len, op_pcache_t level)
 {
     if (level == OP_PCACHE_NOP)
-        return NULL;
+        return "";
     get_pcache_dynamo_options_string(&dynamo_options, option_buf, buf_len, level);
     option_buf[buf_len - 1] = '\0';
     LOG(THREAD, LOG_CACHE, 2, "Pcache-affecting options = %s\n", option_buf);
@@ -2972,7 +2972,7 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
 
     /* Add new data section here */
 
-    pers->option_string_len = option_string == NULL ? 0 :
+    pers->option_string_len = (option_string == NULL || option_string[0] == '\0') ? 0 :
         (ALIGN_FORWARD((strlen(option_string)+1/*include NULL*/)*sizeof(char),
                        OPTION_STRING_ALIGNMENT));
     x_offs += pers->option_string_len;
@@ -3368,6 +3368,7 @@ persist_check_option_compat(dcontext_t *dcontext, coarse_persisted_info_t *pers,
                             const char *option_string)
 {
     const char *pers_options;
+    ASSERT(option_string != NULL);
 
     if (os_tls_offset(0) != pers->tls_offs_base) {
         /* Bail out 
@@ -3410,7 +3411,10 @@ persist_check_option_compat(dcontext_t *dcontext, coarse_persisted_info_t *pers,
     if (DYNAMO_OPTION(persist_check_options)) {
         /* Option string is 1st data section; we persisted a NULL so we can
          * point directly at it. */
-        pers_options = (const char *) (((byte *)pers) + pers->header_len);
+        if (pers->option_string_len == 0)
+            pers_options = "";
+        else
+            pers_options = (const char *) (((byte *)pers) + pers->header_len);
         LOG(THREAD, LOG_CACHE, 2, "  checking pcache options \"%s\" vs current \"%s\"\n",
             pers_options, option_string);
         if (strcmp(option_string, pers_options) != 0) {
