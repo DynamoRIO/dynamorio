@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -93,7 +93,7 @@ typedef struct _callee_info_t {
     bool reg_used[NUM_GP_REGS];   /* general purpose registers usage */
     int num_callee_save_regs; /* number of regs callee saved */
     bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
-    bool has_locals;          /* if reference local via statck */
+    bool has_locals;          /* if reference local via stack */
     bool xbp_is_fp;           /* if xbp is used as frame pointer */
     bool opt_inline;          /* can be inlined or not */
     bool write_aflags;        /* if the function changes aflags */
@@ -5179,7 +5179,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                     (opnd_get_base(opnd) != DR_REG_XBP || !ci->xbp_is_fp))
                     continue;
                 if (!ci->has_locals) {
-                    /* We see the first one, rembmer it. */
+                    /* We see the first one, remember it. */
                     mem_ref = opnd;
                     ci->has_locals = true;
                 } else if (!opnd_same(opnd, mem_ref)) {
@@ -5586,10 +5586,19 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
                         instrlist_t *ilist, instr_t *where, opnd_t *args)
 {
     reg_id_t reg;
-    DEBUG_DECLARE(callee_info_t *ci = cci->callee_info;)
+    callee_info_t *ci = cci->callee_info;
+    ci = ci; /* avoid unused warning for X64 release */
 
     if (cci->num_args == 0)
         return;
+#ifndef X64
+    /* the arg is not referenced at all, so skip the setup.
+     * XXX: if we re-add it, be sure to add in a lea to adjust esp,
+     * which is currently missing in this case (i#668)
+     */
+    if (!ci->has_locals)
+        return;
+#endif
     ASSERT(cci->num_args == 1);
     reg = shrink_reg_for_param(IF_X64_ELSE(regparms[0], DR_REG_XAX), args[0]);
     LOG(THREAD, LOG_CLEANCALL, 2,
