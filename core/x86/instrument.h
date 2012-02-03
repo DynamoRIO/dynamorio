@@ -1518,6 +1518,14 @@ const char *
 dr_get_client_path(client_id_t client_id);
 
 DR_API 
+/**
+ * Returns the base address of the client library.  \p client_id is
+ * the client ID passed to a client's dr_init() function.
+ */
+byte *
+dr_get_client_base(client_id_t client_id);
+
+DR_API 
 /** Returns the image name (without path) of the current application. */
 const char *
 dr_get_application_name(void);

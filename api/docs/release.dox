@@ -122,6 +122,7 @@ The current version is \DR_VERSION.
 
 The changes between version \DR_VERSION and 3.1.0 are:
 
+ - Added dr_get_client_base()
  - Added optional direct IR data structure access to improve performance.
    Set DynamoRIO_FAST_IR to enable, and use the macros provided to maintain
    source compatible.  Binary compatibility is sacrificed when using this

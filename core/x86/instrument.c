@@ -2105,6 +2105,21 @@ dr_get_client_path(client_id_t id)
     return NULL;
 }
 
+DR_API 
+byte *
+dr_get_client_base(client_id_t id)
+{
+    size_t i;
+    for (i=0; i<num_client_libs; i++) {
+        if (client_libs[i].id == id) {
+            return client_libs[i].start;
+        }
+    }
+
+    CLIENT_ASSERT(false, "dr_get_client_base(): invalid client id");
+    return NULL;
+}
+
 DR_API const char *
 dr_get_application_name(void)
 {
