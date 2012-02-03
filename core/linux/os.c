@@ -289,6 +289,7 @@ IF_DEBUG_ELSE(,static) vm_area_vector_t *all_memory_areas;
 typedef struct _allmem_info_t {
     uint prot;
     dr_mem_type_t type;
+    bool shareable;
 } allmem_info_t;
 
 static void allmem_info_free(void *data);
@@ -5498,7 +5499,8 @@ allmem_should_merge(bool adjacent, void *data1, void *data2)
      * fragmenting our list
      */
     return (i1->prot == i2->prot &&
-            i1->type == i2->type);
+            i1->type == i2->type &&
+            i1->shareable == i2->shareable);
 }
 
 static void *
@@ -5508,7 +5510,8 @@ allmem_info_merge(void *dst_data, void *src_data)
       allmem_info_t *src = (allmem_info_t *) src_data;
       allmem_info_t *dst = (allmem_info_t *) dst_data;
       ASSERT(src->prot == dst->prot &&
-             src->type == dst->type);
+             src->type == dst->type &&
+             src->shareable == dst->shareable);
     });
     allmem_info_free(src_data);
     return dst_data;
@@ -5529,18 +5532,19 @@ sync_all_memory_areas(void)
 
 /* caller should call sync_all_memory_areas first */
 static void
-add_all_memory_area(app_pc start, app_pc end, uint prot, int type)
+add_all_memory_area(app_pc start, app_pc end, uint prot, int type, bool shareable)
 {
     allmem_info_t *info;
     ASSERT(ALIGNED(start, PAGE_SIZE));
     ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
-    LOG(THREAD_GET, LOG_VMAREAS|LOG_SYSCALLS, 3,
-        "update_all_memory_areas: adding: "PFX"-"PFX" prot=%d type=%d\n",
-        start, end, prot, type);
+    LOG(GLOBAL, LOG_VMAREAS|LOG_SYSCALLS, 3,
+        "update_all_memory_areas: adding: "PFX"-"PFX" prot=%d type=%d share=%d\n",
+        start, end, prot, type, shareable);
     info = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, allmem_info_t, ACCT_MEM_MGT, PROTECTED);
     info->prot = prot;
     ASSERT(type >= 0);
     info->type = type;
+    info->shareable = shareable;
     vmvector_add(all_memory_areas, start, end, (void *)info);
 }
 
@@ -5573,20 +5577,36 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
                                     (void **) &info)) {
             if (info->type == DR_MEMTYPE_IMAGE) {
                 app_pc overlap_end;
+                dr_mem_type_t info_type = info->type;
                 /* process prior to image */
                 if (next_add < sub_start) {
                     vmvector_remove(all_memory_areas, next_add, pc);
-                    add_all_memory_area(next_add, pc, prot, DR_MEMTYPE_DATA);
+                    add_all_memory_area(next_add, pc, prot, DR_MEMTYPE_DATA, false);
                 }
                 next_add = sub_end;
                 /* change image prot */
                 ASSERT(pc == start || sub_start == pc);
                 overlap_end = (sub_end > end) ? end : sub_end;
-                if (sub_start == pc && sub_end == overlap_end)
-                    info->prot = prot;
-                else {
+                if (sub_start == pc && sub_end == overlap_end) {
+                    /* XXX: we should read maps to fully handle COW but for
+                     * now we do some simple checks to prevent merging
+                     * private with shareable regions
+                     */
+                    /* We assume a writable transition is accompanied by an actual
+                     * write => COW => no longer shareable (i#669)
+                     */
+                    bool shareable = info->shareable;
+                    if (TEST(MEMPROT_WRITE, prot) != TEST(MEMPROT_WRITE, info->prot))
+                        shareable = false;
+                    /* re-add so we can merge w/ adjacent non-shareable */
+                    vmvector_remove(all_memory_areas, sub_start, sub_end);
+                    add_all_memory_area(sub_start, sub_end, prot, info_type, shareable);
+                } else {
                     vmvector_remove(all_memory_areas, pc, overlap_end);
-                    add_all_memory_area(pc, overlap_end, prot, info->type);
+                    /* assume we're here b/c was written and now marked +rx or sthg
+                     * so no sharing
+                     */
+                    add_all_memory_area(pc, overlap_end, prot, info_type, false);
                 }
             }
             pc = sub_end;
@@ -5594,7 +5614,7 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
         /* process after last image */
         if (next_add < end) {
             vmvector_remove(all_memory_areas, next_add, end);
-            add_all_memory_area(next_add, end, prot, DR_MEMTYPE_DATA);
+            add_all_memory_area(next_add, end, prot, DR_MEMTYPE_DATA, false);
         }
     } else {
         if (vmvector_overlap(all_memory_areas, start, end)) {
@@ -5607,7 +5627,7 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
             removed = vmvector_remove(all_memory_areas, start, end);
             ASSERT(removed);
         }
-        add_all_memory_area(start, end, prot, type);
+        add_all_memory_area(start, end, prot, type, type == DR_MEMTYPE_IMAGE);
     }
     DODEBUG({
         LOG(GLOBAL, LOG_VMAREAS, 5,

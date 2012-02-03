@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1720,7 +1720,8 @@ report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
 
 /* update statistics for committed memory, and add to vm_areas */
 static inline void
-account_for_memory(void *p, size_t size, uint prot, bool add_vm _IF_DEBUG(char *comment))
+account_for_memory(void *p, size_t size, uint prot, bool add_vm, bool image
+                   _IF_DEBUG(char *comment))
 {
     STATS_ADD_PEAK(memory_capacity, size);
 
@@ -1733,7 +1734,7 @@ account_for_memory(void *p, size_t size, uint prot, bool add_vm _IF_DEBUG(char *
     }
 
     if (add_vm) {
-        add_dynamo_vm_area(p, ((app_pc)p) + size, prot, false _IF_DEBUG(comment));
+        add_dynamo_vm_area(p, ((app_pc)p) + size, prot, image _IF_DEBUG(comment));
     } else {
         /* due to circular dependencies bet vmareas and global heap we do not call
          * add_dynamo_vm_area here, instead we indicate that something has changed
@@ -1822,7 +1823,7 @@ get_real_memory(size_t size, uint prot, bool add_vm _IF_DEBUG(char *comment))
                                      "emergency free.");
     }
 
-    account_for_memory(p, size, prot, add_vm _IF_DEBUG(comment));
+    account_for_memory(p, size, prot, add_vm, false _IF_DEBUG(comment));
     dynamo_vm_areas_unlock();
 
     return p;
@@ -1932,7 +1933,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
      * add guard pages in by assuming one page on each side of every heap unit
      * if dynamo_options.guard_pages
      */
-    account_for_memory((void *)p, reserve_size, prot, add_vm _IF_DEBUG(comment));
+    account_for_memory((void *)p, reserve_size, prot, add_vm, false _IF_DEBUG(comment));
     dynamo_vm_areas_unlock();
 
     STATS_ADD_PEAK(reserved_memory_capacity, reserve_size);
@@ -2143,7 +2144,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
         STATS_INC(mmap_no_share_stack_region);
         return heap_mmap_reserve(reserve_size, commit_size);
     }
-    account_for_memory(p, reserve_size, prot, true/*add now*/
+    account_for_memory(p, reserve_size, prot, true/*add now*/, false
                        _IF_DEBUG("heap_mmap_reserve_post_stack"));
     dynamo_vm_areas_unlock();
     /* We rely on this for freeing in absence of dcontext */
@@ -2325,7 +2326,7 @@ map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
     view = os_map_file(f, size, offs, addr, prot, copy_on_write, image, fixed);
     if (view != NULL) {
         STATS_ADD_PEAK(file_map_capacity, *size);
-        account_for_memory((void *)view, *size, prot, true/*add now*/
+        account_for_memory((void *)view, *size, prot, true/*add now*/, true/*image*/
                            _IF_DEBUG("map_file"));
     }
     dynamo_vm_areas_unlock();
