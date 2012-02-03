@@ -3718,7 +3718,10 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
 #ifdef LINUX
         /* for linux, we can trust lack of textrel flag as guaranteeing no text relocs */
         if (DYNAMO_OPTION(persist_trust_textrel) &&
-            !module_has_text_relocs(modbase, true/*raw file mapped*/)) {
+            /* XXX: may not be at_map if re-add coarse post-load (e.g., IAT or other
+             * special cases): how know?
+             */
+            !module_has_text_relocs(modbase, dynamo_initialized/*at_map*/)) {
             LOG(THREAD, LOG_CACHE, 1, "  module base mismatch "PFX" vs persisted "PFX
                 ", but no text relocs so ok\n", modbase, pers->modinfo.base);
         } else {

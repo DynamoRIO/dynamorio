@@ -1,6 +1,6 @@
 /* *******************************************************************************
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
 
@@ -8296,11 +8296,26 @@ os_current_user_directory(char *directory_prefix /* INOUT */,
                           uint directory_len,
                           bool create)
 {
-#if 0
-    /* FIXME: case 9922 */
-    ASSERT_NOT_IMPLEMENTED(true);
-#endif
-    return false;
+    /* XXX: could share some of this code w/ corresponding windows routine */
+    uid_t uid = dynamorio_syscall(SYS_getuid, 0);
+    char *directory = directory_prefix;
+    char *dirend = directory_prefix + strlen(directory_prefix);
+    snprintf(dirend, directory_len - (dirend - directory_prefix), "%cdpc-%d",
+             DIRSEP, uid);
+    directory_prefix[directory_len - 1] = '\0';
+    if (!os_file_exists(directory, true/*is dir*/) && create) {
+        /* XXX: we should ensure we do not follow symlinks */
+        /* XXX: should add support for CREATE_DIR_FORCE_OWNER */
+        if (!os_create_dir(directory, CREATE_DIR_REQUIRE_NEW)) {
+            LOG(GLOBAL, LOG_CACHE, 2, 
+                "\terror creating per-user dir %s\n", directory);
+            return false;
+        } else {
+            LOG(GLOBAL, LOG_CACHE, 2, 
+                "\tcreated per-user dir %s\n", directory);
+        }
+    }
+    return true;
 }
 
 bool

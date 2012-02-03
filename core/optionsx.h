@@ -1801,8 +1801,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
      /* case 8812 - owner validation possible only on Win32 */
      /* Note that we expect correct ACLs to prevent anyone other than
       * owner to have overwritten the files.
+      * XXX: not supported on linux
       */
-    OPTION_DEFAULT(bool, validate_owner_dir, true,
+    OPTION_DEFAULT(bool, validate_owner_dir, IF_WINDOWS_ELSE(true, false),
                    "validate owner of persisted cache or ASLR directory")
     OPTION_DEFAULT(bool, validate_owner_file, false,
                    "validate owner of persisted cache or ASLR, on each file")
@@ -1959,6 +1960,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
             options->coarse_freeze_at_exit = true;
             options->coarse_freeze_at_unload = true;
             options->use_persisted = true;
+            IF_LINUX(options->coarse_split_calls = true;)
             /* FIXME: i#660: not compatible w/ Probe API */
             IF_CLIENT_INTERFACE(DISABLE_PROBE_API(options);)
         } else {
