@@ -130,6 +130,11 @@
 #
 #  set(DynamoRIO_REG_COMPATIBILITY ON)
 #
+# To request a preferred base even when not targeting 64-bit:
+# (the actual base will use PREFERRED_BASE if set)
+#
+#  set(DynamoRIO_SET_PREFERRED_BASE ON)
+#
 # To request fast IR access (at the cost of binary compatibility):
 #
 #  set(DynamoRIO_FAST_IR ON)
@@ -479,7 +484,7 @@ function (configure_DynamoRIO_client target)
     set(DynamoRIO_configured_globally ${DynamoRIO_configured_globally} PARENT_SCOPE)
   endif (just_configured)
 
-  if (tgt_x64)
+  if (tgt_x64 OR DynamoRIO_SET_PREFERRED_BASE)
     # While we now have private loaders that mean we don't need a preferred
     # base in the lower 2GB, on Windows it's more efficient to avoid
     # relocation by doing so.
@@ -522,10 +527,10 @@ function (configure_DynamoRIO_client target)
       set(LD_SCRIPT_OPTION "-T")
       set(PREFERRED_BASE_FLAGS "-Xlinker ${LD_SCRIPT_OPTION} -Xlinker \"${LD_SCRIPT}\"")
     else (UNIX)
-      set(PREFERRED_BASE_FLAGS "/base:${PREFERRED_BASE} /dynamicbase:no /fixed")
+      set(PREFERRED_BASE_FLAGS "/base:${PREFERRED_BASE} /dynamicbase:no")
     endif (UNIX)
     set(tgt_link_flags "${tgt_link_flags} ${PREFERRED_BASE_FLAGS}")
-  endif (tgt_x64)
+  endif (tgt_x64 OR DynamoRIO_SET_PREFERRED_BASE)
 
   set_target_properties(${target} PROPERTIES
     COMPILE_FLAGS "${tgt_cflags}"

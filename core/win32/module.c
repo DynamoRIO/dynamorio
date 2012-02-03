@@ -4708,6 +4708,12 @@ module_rebase(app_pc module_base, size_t module_size,
         if (!ok) 
             return false;
     } else {
+        if (TESTALL(IMAGE_FILE_DLL | IMAGE_FILE_RELOCS_STRIPPED,
+                    get_module_characteristics(module_base))) {
+            /* /FIXED dll: can't rebase! */
+            return false;
+        }
+
         /* for example xpsp2res.dll */
         /* no relocations needed - even better for us */
 
