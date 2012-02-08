@@ -3424,8 +3424,11 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
 #else
     flags = copy_on_write ? MAP_PRIVATE : MAP_SHARED;
 #endif
-#ifdef X64 /* allocate memory from reachable range for image */
-    if (image && !fixed)
+#ifdef X64
+    /* allocate memory from reachable range for image: or anything (pcache
+     * in particular)
+     */
+    if (!fixed)
         flags |= MAP_32BIT;
 #endif
     /* Allows memory request instead of mapping a file, 

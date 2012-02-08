@@ -1960,7 +1960,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
             options->coarse_freeze_at_exit = true;
             options->coarse_freeze_at_unload = true;
             options->use_persisted = true;
+            /* these two are for correctness */
             IF_LINUX(options->coarse_split_calls = true;)
+            IF_X64(options->coarse_split_riprel = true;)
             /* FIXME: i#660: not compatible w/ Probe API */
             IF_CLIENT_INTERFACE(DISABLE_PROBE_API(options);)
         } else {
