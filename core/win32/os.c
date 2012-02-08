@@ -921,7 +921,8 @@ os_init(void)
     get_dynamorio_dll_preferred_base();
     get_image_entry();
     get_system_basic_info();
-    os_user_directory_supports_ownership();
+    if (IF_CLIENT_INTERFACE_ELSE(!standalone_library, true))
+        os_user_directory_supports_ownership();
     is_wow64_process(NT_CURRENT_PROCESS);
     is_in_ntdll(get_ntdll_base());
 }
