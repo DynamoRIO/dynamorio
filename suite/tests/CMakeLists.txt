@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -637,6 +637,20 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
 endfunction(tobuild_ci)
 
+function(torunonly_ci test realtest source client_ops dr_ops exe_ops)
+  get_target_property(client_path ${realtest}.dll LOCATION${location_suffix})
+
+  # note that b/c of cmake's ridiculous scoping we can't easily share this code
+  # w/ tobuild_ci: still have to propagate out of there, so we dup.
+  set(testlist_ci ${testlist_ci} ${test} PARENT_SCOPE)
+  set(${test}_realtest ${realtest} PARENT_SCOPE)
+  set(${test}_source ${source} PARENT_SCOPE)
+  set(${test}_client_ops ${client_ops} PARENT_SCOPE)
+  set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
+  set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
+  set(${test}_client_path ${client_path} PARENT_SCOPE)
+endfunction(torunonly_ci)
+
 # client interface standalone app
 function(tobuild_api test source dr_ops exe_ops decoder)
   add_exe(${test} ${source})
@@ -949,8 +963,14 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
 endfunction(rundr_cmd)
 
 # if test != exe we assume exe is already added as a build target
-# key is the test name without the options, and is used to look up ${key}_realtest
-function(torun test key exe source native dr_ops exe_ops)
+# key is the test name without the options, and is used to look up ${key}_expectbase
+function(torun test key source native dr_ops exe_ops)
+  if (DEFINED ${key}_realtest)
+    set(exe ${${key}_realtest})
+  else (DEFINED ${key}_realtest)
+    set(exe ${key})
+  endif (DEFINED ${key}_realtest)
+
   get_filename_component(srcbase ${source} NAME_WE)
   get_filename_component(srcpath ${source} PATH)
   if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runall")
@@ -1029,12 +1049,18 @@ function(torun test key exe source native dr_ops exe_ops)
     add_test(${test} ${rundr} ${exepath} ${exe_ops})
   endif (is_runall)
 
-  if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
-    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect expect)
+  if (DEFINED ${key}_expectbase)
+    set(expectbase ${${key}_expectbase})
+  else ()
+    set(expectbase ${srcbase})
+  endif ()
+
+  if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
+    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect expect)
     # add dependence so cmake will reconfigure if file changes
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect
       ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
-  elseif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.template)
+  elseif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template)
     # We convert .template at configure time and use CTest's built-in
     # PASS_REGULAR_EXPRESSION to diff the output.
     #
@@ -1053,26 +1079,27 @@ function(torun test key exe source native dr_ops exe_ops)
     # * We could support extra runtime options via env var DYNAMORIO_OPTIONS,
     #   but while that might be useful it could also be confusing.
     template2expect(expect
-      ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.template
+      ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template
       ${runops})
     # add dependence so cmake will reconfigure if file changes
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.template
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template
       ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
-  elseif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.templatex)
+  elseif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.templatex)
     # A .templatex is a .template that is treated directly as a regex:
     # so any regex chars inside are not converted to literals.
     # We separate the two so that we don't have to escape everything in
     # regular templates where we want a literal match.
     template2expect(expect
-      ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.templatex
+      ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.templatex
       ${runops})
     # add dependence so cmake will reconfigure if file changes
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.templatex
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.templatex
       ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
     set(ALREADY_REGEX ON)
-  else (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
-    message(FATAL_ERROR "no .expect or .template or .templatex for ${srcpath}/${srcbase}")
-  endif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.expect)
+  else (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
+    message(FATAL_ERROR
+      "no .expect or .template or .templatex for ${srcpath}/${expectbase} for ${key}")
+  endif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
 
   if (NOT ALREADY_REGEX)
     # turn regex chars into literals
@@ -1090,7 +1117,7 @@ function(torun test key exe source native dr_ops exe_ops)
   endif (WIN32)    
 
   if (is_runcmp)
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${srcbase}.expect" "${expect}")
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect" "${expect}")
   else ()
     # match whole output
     set(expect "^${expect}$")
@@ -1105,12 +1132,7 @@ function(torun test key exe source native dr_ops exe_ops)
 endfunction(torun)
 
 function(torun_normal name test ops)
-  if (DEFINED ${test}_realtest)
-    set(exe ${${test}_realtest})
-  else (DEFINED ${test}_realtest)
-    set(exe ${test})
-  endif (DEFINED ${test}_realtest)
-  torun("${name}" ${test} ${exe} ${${test}_source} OFF "${${test}_dr_ops} ${ops}"
+  torun("${name}" ${test} ${${test}_source} OFF "${${test}_dr_ops} ${ops}"
     "${${test}_exe_ops}")
   if (DEFINED ${test}_depends)
     ops2testprefix(prefix "${ops}")
@@ -1131,12 +1153,16 @@ function(torun_ci name test ops)
     endif ()
   endif ("${test}" MATCHES "client\\.flush")
   # note that we cannot use double quotes as they'll be stripped out
-  torun("${name}" ${test} ${test} ${${test}_source} OFF
+  torun("${name}" ${test} ${${test}_source} OFF
     " -code_api -client_lib '${${test}_client_path}\;0\;${cli_ops}' ${${test}_dr_ops} ${ops}" "${${test}_exe_ops}")
+  if (DEFINED ${test}_depends)
+    ops2testprefix(prefix "${ops}")
+    set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${${test}_depends}")
+  endif (DEFINED ${test}_depends)
 endfunction(torun_ci)
 
 function(torun_api name test ops)
-  torun("${name}" ${test} ${test} ${${test}_source} ON
+  torun("${name}" ${test} ${${test}_source} ON
     "${${test}_dr_ops} ${ops}" "${${test}_exe_ops}")
 endfunction(torun_api)
 
@@ -1270,6 +1296,24 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
 
+  # We need to load w/ the same base so the test passes
+  set(DynamoRIO_SET_PREFERRED_BASE ON)
+  set(PREFERRED_BASE 0x6f000000)
+  # Pass extra options to first run so this will pass when run repeatedly in local
+  # build dir w/o loading any pcache
+  tobuild_ci(client.pcache client-interface/pcache.c ""
+    "-persist -no_use_persisted -no_coarse_disk_merge -no_coarse_lone_merge" "")
+  if (WIN32)
+    append_link_flags(client.pcache "/dynamicbase:no")
+  endif ()
+  set(DynamoRIO_SET_PREFERRED_BASE OFF)
+  torunonly_ci(client.pcache-use client.pcache client-interface/pcache.c "" "-persist" "")
+  # XXX: we should have the key be the default for the .expect but
+  # currently that's not the case (thread-reset, etc.).
+  set(client.pcache-use_expectbase "pcache-use")
+  # when running tests in parallel: have to generate pcaches first
+  set(client.pcache-use_depends client.pcache)
+
   tobuild_api(api.dis api/dis.c "-syntax_intel"
     "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
   tobuild_api(api.ir api/ir.c "" "" OFF)
@@ -1377,7 +1421,7 @@ if (UNIX)
       "-coarse_units -coarse_enable_freeze" "-v")
   endif (NOT X64)
 
-  # persistent cache tests
+  # persistent cache nudge tests with shared cache
   file(MAKE_DIRECTORY "${PCACHE_DIR}")
   file(MAKE_DIRECTORY "${PCACHE_SHARED_DIR}")
   if (NOT X64)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,6 +49,7 @@ following sections:
  - \ref sec_64bit
  - \ref sec_IR_utils
  - \ref sec_translation
+ - \ref sec_pcache
  - \ref bt_examples
  - \ref sec_startstop
 \else
@@ -354,7 +355,10 @@ dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
 The return value of the basic block callback should generally be
 DR_EMIT_DEFAULT; however, time-varying instrumentation or complex code
 transformations may need to return DR_EMIT_STORE_TRANSLATIONS.  See \ref
-sec_translation for further details.
+sec_translation for further details.  A tool that wants to persist its code
+to a file for fast re-use on subsequent runs can include the
+DR_EMIT_PERSISTABLE flag in its return value.  See \ref sec_pcache for more
+information.
 
 To iterate over instructions in an \c instrlist_t, use the \ref
 instrlist_first(), \ref instrlist_last(), and \ref instr_get_next()
@@ -991,6 +995,76 @@ PREM(bb, inst, INSTR_XL8(INSTR_CREATE_mov_st(drcontext, dst, src), xl8));
 \endcode
 
 \ifnot vmsafe
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_pcache Persisting Code
+
+Decoding, instrumenting, and emitting code into the code cache takes time.
+Short-running applications, or applications that execute large amounts of
+code with little code re-use, can incur noticeable overhead when run under
+\DynamoRIO.  One solution is to write the code cache to a file for fast
+re-use on subsequent runs by simply loading the file.  \DynamoRIO provides
+support for tools to persist their instrumented code.
+
+First, the \ref op_persist "-persist" runtime option, and optionally \p
+-persist_dir, must be set in order for any caches to be persisted.  Only
+basic block persistence is supported: no traces.  In the presence of a
+\client, basic blocks by default are not persisted.  Only if the return
+value of the basic block event callback includes the DR_EMIT_PERSISTABLE
+flag is a block eligible for persistence.  Even then, there are further
+constraints on persistence, as only simple blocks are persistable.
+
+Persisted caches end in the extension \p .dpc, for \DynamoRIO Persisted
+Cache, and are stored in the directory specified by the \p -persist_dir
+runtime option, or the log directory if unspecified, inside a per-user
+subdirectory.
+
+A \client may need to store data in the persisted file in order to
+determine whether it is re-usable when loaded again, or to provide
+generated code or other auxiliary data or code that the persisted code
+requires.  A set of events are provided for this purpose.  These events
+allow a \client to store three types of data in a persisted file, beyond
+instrumented code inside each basic block: read-only data, executed code
+(outside of basic blocks), and writable data.  The types of data are
+separated because the file is laid out in different protection zones.
+Read-only data can be added using dr_register_persist_ro(), executable code
+using dr_register_persist_rx(), and writable data using
+dr_register_persist_rw().  Additionally, the basic blocks to be persisted
+can be patched using dr_register_persist_patch().
+
+Whenever code is about to be persisted, \DynamoRIO will call all of the
+registered events for that module.  A user data parameter can be used to
+share information across the event callbacks.
+
+\Clients are cautioned to ensure their instrumentation is either
+position-independent or properly patched to operate correctly when the
+\client library base or the persisted code addresses change.  For example,
+if inserted instrumentation includes calls or jumps into the \client
+library, these can be persisted unchanged if the \client also stores its
+base address in the read-only section and in the resurrection callback
+checks it against its current base address.  On a mismatch, the persisted
+file must be rejected.  A more sophisticated approach requires indirection,
+position independence in the code, or patching.
+
+\DynamoRIO itself ensures that a persisted file is only re-used if its
+application module has not changed, if the set of \clients in use is
+identical to those present on creation of the file, and that the TLS offset
+is identical.  The application module check currently includes the base
+address on Windows, which precludes re-using persisted files for libraries
+loaded at different addresses via ASLR.  (In the future we plan to provide
+application relocation support, but it is not there today.).  The \client
+check is based on the absolute paths.  If a \client needs to validate based
+on its runtime options, or do a version check based on its own changing
+instrumentation, it must do that on its own in the event callbacks.  The
+TLS check ensures that TLS scratch slots are identical.  \DynamoRIO also
+ensures that any runtime options that affect persistent code (such as
+whether traces are enabled) are identical.
+
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>

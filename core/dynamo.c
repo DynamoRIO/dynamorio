@@ -619,6 +619,10 @@ dynamorio_app_init(void)
          *       DllMain.
          */
         instrument_init();
+        /* To give clients a chance to process pcaches as we load them, we
+         * delay the loading until we've initialized the clients.
+         */
+        vm_area_delay_load_coarse_units();
 #endif
 
 #ifdef WINDOWS

@@ -2533,6 +2533,75 @@ add_executable_vm_area_helper(app_pc start, app_pc end, uint vm_flags, uint frag
     });
 }
 
+static coarse_info_t *
+vm_area_load_coarse_unit(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
+                         bool delayed _IF_DEBUG(char *comment))
+{
+    coarse_info_t *info;
+    /* We load persisted cache files at mmap time primarily for RCT
+     * tables; but to avoid duplicated code, and for simplicity, we do
+     * so if -use_persisted even if not -use_persisted_rct.
+     */
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    ASSERT_OWN_WRITE_LOCK(true, &executable_areas->lock);
+    /* FIXME: we're called before 1st thread is set up.  Only a problem
+     * right now for rac_entries_resurrect() w/ private after-call
+     * which won't happen w/ -coarse_units that requires shared bbs.
+     */
+    info = coarse_unit_load(dcontext == NULL ? GLOBAL_DCONTEXT : dcontext,
+                            start, end, true/*for execution*/);
+    if (info != NULL) {
+        ASSERT(info->base_pc >= start && info->end_pc <= end);
+        LOG(GLOBAL, LOG_VMAREAS, 1,
+            "using persisted coarse unit %s "PFX"-"PFX" for "PFX"-"PFX"\n",
+            info->module, info->base_pc, info->end_pc, start, end);
+        /* Case 8640/9653/8639: adjust region bounds so that a
+         * cache consistency event outside the persisted region
+         * does not invalidate it (mainly targeting loader rebinding).
+         * We count on FRAG_COARSE_GRAIN preventing any merging of regions.
+         * We could delay this until code validation, as RCT tables don't care,
+         * and then we could avoid splitting the region in case validation
+         * fails: but our plan for lazy per-page validation (case 10601)
+         * means we can fail post-split even that way.  So we go ahead and split
+         * up front here.  For 4.4 we should move this to 1st exec.
+         */
+        if (delayed && (info->base_pc > start || info->end_pc < end)) {
+            /* we already added a region for the whole range earlier */
+            remove_vm_area(executable_areas, start, end, false/*leave writability*/);
+            add_executable_vm_area_helper(info->base_pc, info->end_pc,
+                                          vm_flags, frag_flags, info
+                                          _IF_DEBUG(comment));
+        }
+        if (info->base_pc > start) {
+            add_executable_vm_area_helper(start, info->base_pc,
+                                          vm_flags, frag_flags, NULL
+                                          _IF_DEBUG(comment));
+            start = info->base_pc;
+        }
+        if (info->end_pc < end) {
+            add_executable_vm_area_helper(info->end_pc, end,
+                                          vm_flags, frag_flags, NULL
+                                          _IF_DEBUG(comment));
+            end = info->end_pc;
+        }
+        /* if !delayed we'll add the region for the unit in caller */
+        ASSERT(info->frozen && info->persisted);
+        vm_flags |= VM_PERSISTED_CACHE;
+        /* For 4.4 we would mark as PERSCACHE_CODE_INVALID here and
+         * mark valid only at 1st execution when we do md5 checks;
+         * for 4.3 we're valid until a rebind action.
+         */
+        ASSERT(!TEST(PERSCACHE_CODE_INVALID, info->flags));
+        /* We must add to shared_data, but we cannot here due to lock
+         * rank issues (shared_vm_areas lock is higher rank than
+         * executable_areas, and we have callers doing flushes and
+         * already holding executable_areas), so we delay.
+         */
+        vm_flags |= VM_ADD_TO_SHARED_DATA;
+    }
+    return info;
+}
+
 /* NOTE : caller is responsible for ensuring that consistency conditions are
  * met, thus if the region is writable the caller must either mark it read
  * only or pass in the VM_DELAY_READONLY flag in which case 
@@ -2587,59 +2656,11 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
 #endif
         ASSERT(!RUNNING_WITHOUT_CODE_CACHE());
         if (TEST(FRAG_COARSE_GRAIN, frag_flags) && DYNAMO_OPTION(use_persisted) &&
-            info == NULL) {
-            /* We load persisted cache files at mmap time primarily for RCT
-             * tables; but to avoid duplicated code, and for simplicity, we do
-             * so if -use_persisted even if not -use_persisted_rct.
-             */
-            dcontext_t *dcontext = get_thread_private_dcontext();
-            /* FIXME: we're called before 1st thread is set up.  Only a problem
-             * right now for rac_entries_resurrect() w/ private after-call
-             * which won't happen w/ -coarse_units that requires shared bbs.
-             */
-            info = coarse_unit_load(dcontext == NULL ? GLOBAL_DCONTEXT : dcontext,
-                                    start, end, true/*for execution*/);
-            if (info != NULL) {
-                ASSERT(info->base_pc >= start && info->end_pc <= end);
-                LOG(GLOBAL, LOG_VMAREAS, 1,
-                    "using persisted coarse unit %s "PFX"-"PFX" for "PFX"-"PFX"\n",
-                    info->module, info->base_pc, info->end_pc, start, end);
-                /* Case 8640/9653/8639: adjust region bounds so that a
-                 * cache consistency event outside the persisted region
-                 * does not invalidate it (mainly targeting loader rebinding).
-                 * We count on FRAG_COARSE_GRAIN preventing any merging of regions.
-                 * We could delay this until code validation, as RCT tables don't care,
-                 * and then we could avoid splitting the region in case validation
-                 * fails: but our plan for lazy per-page validation (case 10601)
-                 * means we can fail post-split even that way.  So we go ahead and split
-                 * up front here.  For 4.4 we should move this to 1st exec.
-                 */
-                if (info->base_pc > start) {
-                    add_executable_vm_area_helper(start, info->base_pc,
-                                                  vm_flags, frag_flags, NULL
-                                                  _IF_DEBUG(comment));
-                    start = info->base_pc;
-                }
-                if (info->end_pc < end) {
-                    add_executable_vm_area_helper(info->end_pc, end,
-                                                  vm_flags, frag_flags, NULL
-                                                  _IF_DEBUG(comment));
-                    end = info->end_pc;
-                }
-                ASSERT(info->frozen && info->persisted);
-                vm_flags |= VM_PERSISTED_CACHE;
-                /* For 4.4 we would mark as PERSCACHE_CODE_INVALID here and
-                 * mark valid only at 1st execution when we do md5 checks;
-                 * for 4.3 we're valid until a rebind action.
-                 */
-                ASSERT(!TEST(PERSCACHE_CODE_INVALID, info->flags));
-                /* We must add to shared_data, but we cannot here due to lock
-                 * rank issues (shared_vm_areas lock is higher rank than
-                 * executable_areas, and we have callers doing flushes and
-                 * already holding executable_areas), so we delay.
-                 */
-                vm_flags |= VM_ADD_TO_SHARED_DATA;
-            }
+            info == NULL
+            /* if clients are present, don't load until after they're initialized */
+            IF_CLIENT_INTERFACE(&& IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))) {
+            info = vm_area_load_coarse_unit(start, end, vm_flags, frag_flags, false
+                                            _IF_DEBUG(comment));
         }
     }
 
@@ -2724,6 +2745,47 @@ remove_executable_region(app_pc start, size_t size, bool have_writelock)
 {
     return remove_executable_vm_area(start, start+size, have_writelock);
 }
+
+#ifdef CLIENT_INTERFACE
+/* To give clients a chance to process pcaches as we load them, we
+ * delay the loading until we've initialized the clients.
+ */
+void
+vm_area_delay_load_coarse_units(void)
+{
+    int i;
+    ASSERT(!dynamo_initialized);
+    if (!DYNAMO_OPTION(use_persisted) ||
+        /* we already loaded if there's no client */
+        IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))
+        return;
+    write_lock(&executable_areas->lock);
+    for (i = 0; i < executable_areas->length; i++) {
+        if (TEST(FRAG_COARSE_GRAIN, executable_areas->buf[i].frag_flags)) {
+            vm_area_t *a = &executable_areas->buf[i];
+            /* store cur_info b/c a might be blown away */
+            coarse_info_t *cur_info = (coarse_info_t *) a->custom.client;
+            if (cur_info == NULL || !cur_info->frozen) {
+                coarse_info_t *info =
+                    vm_area_load_coarse_unit(a->start, a->end, a->vm_flags,
+                                             a->frag_flags, true _IF_DEBUG(a->comment));
+                if (info != NULL) {
+                    /* re-acquire a and i */
+                    DEBUG_DECLARE(bool ok = )
+                        binary_search(executable_areas, info->base_pc,
+                                      info->base_pc+1/*open end*/, &a, &i, false);
+                    ASSERT(ok);
+                    if (cur_info != NULL)
+                        info->non_frozen = cur_info;
+                    a->custom.client = (void *) info;
+                }
+            } else
+                ASSERT_NOT_REACHED(); /* shouldn't have been loaded already */
+        }
+    }
+    write_unlock(&executable_areas->lock);
+}
+#endif
 
 /* case 10995: we have to delay freeing un-executed coarse units until
  * we can release the exec areas lock when we flush an un-executed region.

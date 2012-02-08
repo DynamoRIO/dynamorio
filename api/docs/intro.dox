@@ -1,6 +1,6 @@
 /* ******************************************************************************
- * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
 
@@ -1233,9 +1233,19 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    synchronization the -multi_thread_exit option must also be set.  These
    options can also be enabled programmatically via
    dr_set_process_exit_behavior().
-\if pcache
-FIXME: expose -desktop and pcache location configuration
-\endif
+
+ - \b -persist:\anchor op_persist
+   Enables persisting of code caches to disk and re-use on subsequent runs.
+   Caches are persisted in units that correspond to application libraries,
+   or sometimes smaller units.  Each unit is persisted to its own file
+   in a subdirectory of the base directory specified by \p -persist_dir.
+   See \ref sec_pcache for more details.
+
+ - \b -persist_dir:
+   Sets the base directory for persistent code cache files.  If unset,
+   the default base directory is the log directory.  A different
+   sub-directory will be created for each user inside the specified
+   directory.
 
 \if cache_sizing
 FIXME: users may want control over adaptive wset cache management,

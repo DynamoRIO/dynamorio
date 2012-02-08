@@ -319,6 +319,10 @@
 
 # ifdef CLIENT_INTERFACE
     /* FIXME (xref PR 215082): make these external now that our product is our API? */
+    /* XXX: note that this does affect pcaches, but we don't want the
+     * client option strings to matter, so we check this separately
+     * from the general -persist_check_options
+     */
     OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING, 
                             ";-separated string containing client "
                             "lib paths, IDs, and options")
@@ -1943,7 +1947,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "make all rip-relative references fine-grained and in own bbs")
 #endif
 #ifdef LINUX
-    OPTION_DEFAULT(bool, persist_trust_textrel, true,
+    OPTION_DEFAULT(bool, persist_trust_textrel, false/*XXX i#670: broken*/,
         "if textrel flag is not set, assume module has no text relocs")
 #endif
     /* the DYNAMORIO_VAR_PERSCACHE_ROOT config var takes precedence over this */

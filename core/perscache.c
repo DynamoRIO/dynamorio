@@ -50,6 +50,9 @@
 #include "module_shared.h"
 #include <string.h>  /* for memset */
 #include <stddef.h> /* for offsetof */
+#ifdef CLIENT_INTERFACE
+# include "instrument.h"
+#endif
 
 #ifdef DEBUG
 # include "disassemble.h"
@@ -59,6 +62,8 @@
 /* case 10823: align option string to keep hashtable data aligned.
  * we're not using a cache-line-aligned lookuptable. */
 #define OPTION_STRING_ALIGNMENT (sizeof(app_pc))
+/* in general we want new data sections aligned to keep hashtable aligned */
+#define CLIENT_ALIGNMENT (sizeof(app_pc))
 
 /* Forward decls */
 static void
@@ -2911,14 +2916,91 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
     pers->end_offs = info->end_pc - modbase;
     pers->tls_offs_base = os_tls_offset(0);
 
-    /* We always write the footer regardless of whether we calculate the
-     * MD5.  Otherwise we'd need a new flag; not really worth it.
-     * Plus, we have our magic field as an always-on extra check.
-     * Note that we do not set the total file size up front (which could make
-     * our writes faster), so we know if the footer is there then it was
-     * actually written.
+    /* We need to go in forward order so we can tell the client the current offset */
+    x_offs += pers->header_len;
+
+    pers->option_string_len = (option_string == NULL || option_string[0] == '\0') ? 0 :
+        (ALIGN_FORWARD((strlen(option_string)+1/*include NULL*/)*sizeof(char),
+                       OPTION_STRING_ALIGNMENT));
+    x_offs += pers->option_string_len;
+
+#ifdef CLIENT_INTERFACE
+    pers->instrument_ro_len =
+        ALIGN_FORWARD(instrument_persist_ro_size(dcontext, info->base_pc, info->end_pc,
+                                                 x_offs), CLIENT_ALIGNMENT);
+#else
+    pers->instrument_ro_len = 0;
+#endif
+    x_offs += pers->instrument_ro_len;
+
+    /* Add new data section here */
+
+#ifdef HOT_PATCHING_INTERFACE
+    pers->hotp_patch_list_len = sizeof(app_rva_t) * info->hotp_ppoint_vec_num;
+    x_offs += pers->hotp_patch_list_len;
+#endif
+
+    /* FIXME case 9581 NYI: need to add to coarse_unit_calculate_persist_info()
+     * and coarse_unit_merge_persist_info() as well.
      */
-    pers->data_len += sizeof(persisted_footer_t);
+    pers->reloc_len = 0;
+    x_offs += pers->reloc_len;
+
+#ifdef RETURN_AFTER_CALL
+    pers->rac_htable_len = rct_table_persist_size(dcontext, info->rac_table);
+#else
+    pers->rac_htable_len = 0;
+#endif
+    x_offs += pers->rac_htable_len;
+#ifdef RCT_IND_BRANCH
+    pers->rct_htable_len = rct_table_persist_size(dcontext, info->rct_table);
+#else
+    pers->rct_htable_len = 0;
+#endif
+    x_offs += pers->rct_htable_len;
+
+    pers->stub_htable_len =
+        fragment_coarse_htable_persist_size(dcontext, info, false/*stub table*/);
+    x_offs += pers->stub_htable_len;
+    pers->cache_htable_len =
+        fragment_coarse_htable_persist_size(dcontext, info, true/*cache table*/);
+    x_offs += pers->cache_htable_len;
+
+    /* end of read-only, start of +rx */
+    pers->data_len += (x_offs - pers->header_len);
+    /* We need to pad out the data before the +x boundary to get a new page */
+    pers->pad_len = ALIGN_FORWARD(x_offs, PAGE_SIZE) - x_offs;
+    pers->data_len += pers->pad_len;
+
+#ifdef CLIENT_INTERFACE
+    pers->instrument_rx_len =
+        ALIGN_FORWARD(instrument_persist_rx_size(dcontext, info->base_pc, info->end_pc,
+                                                 x_offs + pers->pad_len),
+                      CLIENT_ALIGNMENT);
+#else
+    pers->instrument_rx_len = 0;
+#endif
+    pers->data_len += pers->instrument_rx_len;
+
+    /* calculate cache_len so we can calculate padding.  we need 2 different pads
+     * b/c of instrument_rx needing to know its offset.
+     */
+    pers->cache_len = info->fcache_return_prefix - info->cache_start_pc;
+
+    if (DYNAMO_OPTION(persist_map_rw_separate)) {
+        /* We need the cache/stub split to be on a file view map boundary,
+         * yet have cache+stubs adjacent
+         */
+        size_t rwx_offs = x_offs + pers->pad_len + pers->cache_len
+            IF_CLIENT_INTERFACE(+ pers->instrument_rx_len);
+        pers->view_pad_len = ALIGN_FORWARD(rwx_offs, MAP_FILE_VIEW_ALIGNMENT) - rwx_offs;
+        pers->flags |= PERSCACHE_MAP_RW_SEPARATE;
+    }
+    pers->data_len += pers->view_pad_len;
+
+    pers->post_cache_pad_len = info->fcache_return_prefix - info->cache_end_pc;
+    pers->data_len += pers->cache_len; /* includes post_cache_pad_len */
+    STATS_ADD(coarse_code_persisted, info->cache_end_pc - info->cache_start_pc);
 
     pers->stubs_len = info->stubs_end_pc - info->stubs_start_pc;
     pers->data_len += pers->stubs_len;
@@ -2934,67 +3016,30 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
     pers->fcache_return_prefix_len =
         info->trace_head_return_prefix - info->fcache_return_prefix;
     pers->data_len += pers->fcache_return_prefix_len;
-    pers->cache_len = info->fcache_return_prefix - info->cache_start_pc;
-    pers->post_cache_pad_len = info->fcache_return_prefix - info->cache_end_pc;
-    pers->data_len += pers->cache_len; /* includes post_cache_pad_len */
-    STATS_ADD(coarse_code_persisted, info->cache_end_pc - info->cache_start_pc);
 
-    pers->stub_htable_len =
-        fragment_coarse_htable_persist_size(dcontext, info, false/*stub table*/);
-    x_offs += pers->stub_htable_len;
-    pers->cache_htable_len =
-        fragment_coarse_htable_persist_size(dcontext, info, true/*cache table*/);
-    x_offs += pers->cache_htable_len;
-
-#ifdef RCT_IND_BRANCH
-    pers->rct_htable_len = rct_table_persist_size(dcontext, info->rct_table);
+#ifdef CLIENT_INTERFACE
+    pers->instrument_rw_len =
+        ALIGN_FORWARD(instrument_persist_rw_size(dcontext, info->base_pc, info->end_pc,
+                                                 pers->header_len + pers->data_len),
+                      CLIENT_ALIGNMENT);
 #else
-    pers->rct_htable_len = 0;
+    pers->instrument_rw_len = 0;
 #endif
-    x_offs += pers->rct_htable_len;
-#ifdef RETURN_AFTER_CALL
-    pers->rac_htable_len = rct_table_persist_size(dcontext, info->rac_table);
-#else
-    pers->rac_htable_len = 0;
-#endif
-    x_offs += pers->rac_htable_len;
+    pers->data_len += pers->instrument_rw_len;
 
-    /* FIXME case 9581 NYI: need to add to coarse_unit_calculate_persist_info()
-     * and coarse_unit_merge_persist_info() as well.
+    /* We always write the footer regardless of whether we calculate the
+     * MD5.  Otherwise we'd need a new flag; not really worth it.
+     * Plus, we have our magic field as an always-on extra check.
+     * Note that we do not set the total file size up front (which could make
+     * our writes faster), so we know if the footer is there then it was
+     * actually written.
      */
-    pers->reloc_len = 0;
-    x_offs += pers->reloc_len;
+    pers->data_len += sizeof(persisted_footer_t);
 
-#ifdef HOT_PATCHING_INTERFACE
-    pers->hotp_patch_list_len = sizeof(app_rva_t) * info->hotp_ppoint_vec_num;
-    x_offs += pers->hotp_patch_list_len;
-#endif
-
-    /* Add new data section here */
-
-    pers->option_string_len = (option_string == NULL || option_string[0] == '\0') ? 0 :
-        (ALIGN_FORWARD((strlen(option_string)+1/*include NULL*/)*sizeof(char),
-                       OPTION_STRING_ALIGNMENT));
-    x_offs += pers->option_string_len;
-
-    /* We need to pad out the data before the +x boundary to get a new page */
-    pers->data_len += x_offs;
-    x_offs += pers->header_len;
-    pers->pad_len = ALIGN_FORWARD(x_offs, PAGE_SIZE) - x_offs;
-    if (DYNAMO_OPTION(persist_map_rw_separate)) {
-        pers->flags |= PERSCACHE_MAP_RW_SEPARATE;
-        /* We need the cache/stub split to be on a file view map boundary,
-         * yet have cache+stubs adjacent
-         */
-        pers->pad_len += ALIGN_FORWARD(x_offs + pers->pad_len + pers->cache_len,
-                                      MAP_FILE_VIEW_ALIGNMENT)
-            - (x_offs + pers->pad_len + pers->cache_len);
-    }
-    pers->data_len += pers->pad_len;
     /* Our relative jmps require that we do not exceed 32-bit reachability */
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(pers->data_len)));
     LOG(THREAD, LOG_CACHE, 2, "  header="SZFMT", data="SZFMT", pad="SZFMT"\n",
-        pers->header_len, pers->data_len, pers->pad_len);
+        pers->header_len, pers->data_len, pers->pad_len+pers->view_pad_len);
 }
 
 /* Separated from coarse_unit_persist() to keep the stack space on the
@@ -3049,6 +3094,35 @@ coarse_unit_persist_rename(dcontext_t *dcontext, const char *filename,
     }
     return success;
 }
+
+#ifdef CLIENT_INTERFACE
+bool
+instrument_persist_section(dcontext_t *dcontext, file_t fd, coarse_info_t *info,
+                           size_t len,
+                           bool (*persist_func)(dcontext_t *, app_pc, app_pc, file_t))
+{
+    if (len > 0) {
+        /* keep aligned */
+        int64 post_pos, pre_pos = os_tell(fd);
+        if (!persist_func(dcontext, info->base_pc, info->end_pc, fd)) {
+            LOG(THREAD, LOG_CACHE, 1, "  unable to write client data to file\n");
+            SYSLOG_INTERNAL_WARNING_ONCE("unable to write client data to pcache file");
+            STATS_INC(coarse_units_persist_error);
+            return false;
+        }
+        post_pos = os_tell(fd);
+        if (pre_pos == -1 || post_pos == -1) {
+            SYSLOG_INTERNAL_WARNING_ONCE("unable to tell pcache file position");
+            STATS_INC(coarse_units_persist_error);
+            return false;
+        }
+        /* pad out to the alignment we added to len */
+        if (!pad_persist_file(dcontext, fd, len - (size_t)(post_pos - pre_pos), info))
+            return false; /* logs, stats in write_persist_file */
+    }
+    return true;
+}
+#endif
 
 /* Unlinks all inter-unit stubs.  Can still use info afterward, as
  * lazy linking should soon re-link them.
@@ -3202,6 +3276,20 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         goto coarse_unit_persist_exit;
     }
 
+#ifdef CLIENT_INTERFACE
+    /* Give clients a chance to patch the cache mmap before we write it to
+     * the file.  We do it here at a clean point between the size and persist
+     * calls, rather than in the middle of the persist (must be before persist_rw).
+     */
+    if (!instrument_persist_patch(dcontext, info->base_pc, info->end_pc,
+                                  info->cache_start_pc, info->cache_end_pc)) {
+        LOG(THREAD, LOG_CACHE, 1, "  client unable to patch module %s: not persisting\n",
+            info->module);
+        STATS_INC(coarse_units_persist_nopatch);
+        goto coarse_unit_persist_exit;
+    }
+#endif
+
     /* Write the headers */
     if (!write_persist_file(dcontext, fd, &pers, pers.header_len))
         goto coarse_unit_persist_exit; /* logs, stats are in write_persist_file */
@@ -3218,6 +3306,12 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
     }
 
     /* New data section goes here */
+
+#ifdef CLIENT_INTERFACE
+    if (!instrument_persist_section(dcontext, fd, info, pers.instrument_ro_len,
+                                    instrument_persist_ro))
+        goto coarse_unit_persist_exit;
+#endif
 
 #ifdef HOT_PATCHING_INTERFACE
     if (pers.hotp_patch_list_len > 0) {
@@ -3274,6 +3368,17 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
             goto coarse_unit_persist_exit; /* logs, stats in write_persist_file */
     }
 
+#ifdef CLIENT_INTERFACE
+    if (!instrument_persist_section(dcontext, fd, info, pers.instrument_rx_len,
+                                    instrument_persist_rx))
+        goto coarse_unit_persist_exit;
+#endif
+
+    if (pers.view_pad_len > 0) {
+        if (!pad_persist_file(dcontext, fd, pers.view_pad_len, info))
+            goto coarse_unit_persist_exit; /* logs, stats in write_persist_file */
+    }
+
     /* Write the cache + stubs.  We omit the guard pages of course. 
      * FIXME: when freezing and persisting at once, more efficient to
      * make our cache+stubs mmap backed by the file from the start.
@@ -3281,6 +3386,12 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
     if (!write_persist_file(dcontext, fd, info->cache_start_pc,
                             info->stubs_end_pc - info->cache_start_pc))
         goto coarse_unit_persist_exit; /* logs, stats are in write_persist_file */
+
+#ifdef CLIENT_INTERFACE
+    if (!instrument_persist_section(dcontext, fd, info, pers.instrument_rw_len,
+                                    instrument_persist_rw))
+        goto coarse_unit_persist_exit;
+#endif
 
     if (TESTANY(PERSCACHE_GENFILE_MD5_SHORT|PERSCACHE_GENFILE_MD5_COMPLETE,
                 DYNAMO_OPTION(persist_gen_validation))) {
@@ -3479,6 +3590,76 @@ pcache_dir_check_permissions(dcontext_t *dcontext, const char *filename)
 }
 #endif
 
+static file_t
+persist_get_name_and_open(dcontext_t *dcontext, app_pc modbase,
+                          char *filename OUT, uint filename_sz,
+                          char *option_buf OUT, uint option_buf_sz,
+                          const char **option_string OUT,
+                          op_pcache_t *option_level OUT,
+                          persisted_module_info_t *modinfo OUT
+                          _IF_DEBUG(app_pc start) _IF_DEBUG(app_pc end))
+{
+    file_t fd = INVALID_FILE;
+
+    /* case 9799: pcache-affecting options are part of name.
+     * if -persist_check_exempted_options we must first try w/ the local
+     * options and then the global, hence the do-while loop.
+     */
+    *option_level = persist_get_options_level(modbase, NULL, true/*force local*/);
+
+    do {
+        *option_string = persist_get_relevant_options(dcontext, option_buf,
+                                                      option_buf_sz, *option_level);
+        memset(modinfo, 0, sizeof(*modinfo));
+        if (!get_persist_filename(filename, filename_sz, modbase,
+                                  false/*read*/, modinfo, *option_string)) {
+            LOG(THREAD, LOG_CACHE, 1,
+                "  error computing name/excluded for "PFX"-"PFX"\n", start, end);
+            STATS_INC(perscache_load_noname);
+            return fd;
+        }
+        LOG(THREAD, LOG_CACHE, 1, "  persisted filename = %s\n", filename);
+        
+        if (DYNAMO_OPTION(validate_owner_dir)) {
+            ASSERT(DYNAMO_OPTION(persist_per_user));
+            if (perscache_user_directory == INVALID_FILE) {
+                /* there is no alternative location to test - currently
+                 * only single per-user directories supported 
+                 */
+                LOG(THREAD, LOG_CACHE, 1, 
+                    "  directory is unsafe, cannot use persistent cache\n");
+                return fd;
+            }
+            
+            DODEBUG({
+                pcache_dir_check_permissions(dcontext, filename);
+            });
+        }
+
+        /* On win32 OS_EXECUTE is required to create a section w/ rwx
+         * permissions, which is in turn required to map a view w/ rwx
+         */
+        fd = os_open(filename, OS_OPEN_READ | OS_EXECUTE |
+                     /* Case 9964: we want to allow renaming while holding
+                      * the file handle */
+                     OS_SHARE_DELETE);
+        if (fd == INVALID_FILE && *option_level == OP_PCACHE_LOCAL) {
+            ASSERT(DYNAMO_OPTION(persist_check_exempted_options));
+            LOG(THREAD, LOG_CACHE, 1, "  local-options file not found %s\n", filename);
+            *option_level = OP_PCACHE_GLOBAL;
+            /* try again */
+        } else
+            break;
+    } while (true);
+
+    if (fd == INVALID_FILE) {
+        LOG(THREAD, LOG_CACHE, 1, "  error opening file %s\n", filename);
+        STATS_INC(perscache_load_nofile);
+    }
+
+    return fd;
+}
+
 /* It's up to the caller to do the work of mark_executable_area_coarse_frozen().
  * Caller must hold read lock hotp_get_lock().
  */
@@ -3489,8 +3670,8 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     coarse_persisted_info_t *pers;
     persisted_footer_t *footer;
     coarse_info_t *info = NULL;
-    char filename[MAXIMUM_PATH];
     char option_buf[MAX_PCACHE_OPTIONS_STRING];
+    char filename[MAXIMUM_PATH];
     const char *option_string;
     op_pcache_t option_level;
     file_t fd = INVALID_FILE;
@@ -3501,6 +3682,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     byte *pc, *rx_pc, *rwx_pc;
     persisted_module_info_t modinfo;
     app_pc modbase = get_module_base(start);
+    bool success = false;
     DEBUG_DECLARE(bool ok;)
 
     KSTART(persisted_load);
@@ -3520,60 +3702,14 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     ASSERT_OWN_READWRITE_LOCK(DYNAMO_OPTION(hot_patching), hotp_get_lock());
 #endif
 
-    /* case 9799: pcache-affecting options are part of name.
-     * if -persist_check_exempted_options we must first try w/ the local
-     * options and then the global, hence the do-while loop.
-     */
-    option_level = persist_get_options_level(modbase, NULL, true/*force local*/);
-    do {
-        option_string = persist_get_relevant_options(dcontext, option_buf,
-                                                     BUFFER_SIZE_ELEMENTS(option_buf),
-                                                     option_level);
-        memset(&modinfo, 0, sizeof(modinfo));
-        if (!get_persist_filename(filename, BUFFER_SIZE_ELEMENTS(filename), modbase,
-                                  false/*read*/, &modinfo, option_string)) {
-            LOG(THREAD, LOG_CACHE, 1,
-                "  error computing name/excluded for "PFX"-"PFX"\n", start, end);
-            STATS_INC(perscache_load_noname);
-            goto coarse_unit_load_exit;
-        }
-        LOG(THREAD, LOG_CACHE, 1, "  persisted filename = %s\n", filename);
-        
-        if (DYNAMO_OPTION(validate_owner_dir)) {
-            ASSERT(DYNAMO_OPTION(persist_per_user));
-            if (perscache_user_directory == INVALID_FILE) {
-                /* there is no alternative location to test - currently
-                 * only single per-user directories supported 
-                 */
-                LOG(THREAD, LOG_CACHE, 1, 
-                    "  directory is unsafe, cannot use persistent cache\n");
-                goto coarse_unit_load_exit;
-            }
-            
-            DODEBUG({
-                pcache_dir_check_permissions(dcontext, filename);
-            });
-        }
-
-        /* On win32 OS_EXECUTE is required to create a section w/ rwx
-         * permissions, which is in turn required to map a view w/ rwx
-         */
-        fd = os_open(filename, OS_OPEN_READ | OS_EXECUTE |
-                     /* Case 9964: we want to allow renaming while holding
-                      * the file handle */
-                     OS_SHARE_DELETE);
-        if (fd == INVALID_FILE && option_level == OP_PCACHE_LOCAL) {
-            ASSERT(DYNAMO_OPTION(persist_check_exempted_options));
-            LOG(THREAD, LOG_CACHE, 1, "  local-options file not found %s\n", filename);
-            option_level = OP_PCACHE_GLOBAL;
-            /* try again */
-        } else
-            break;
-    } while (true);
+    fd = persist_get_name_and_open(dcontext, modbase,
+                                   filename, BUFFER_SIZE_ELEMENTS(filename),
+                                   option_buf, BUFFER_SIZE_ELEMENTS(option_buf),
+                                   &option_string, &option_level, &modinfo
+                                   _IF_DEBUG(start) _IF_DEBUG(end));
 
     if (fd == INVALID_FILE) {
-        LOG(THREAD, LOG_CACHE, 1, "  error opening file %s\n", filename);
-        STATS_INC(perscache_load_nofile);
+        /* stats done in persist_get_name_and_open */
         goto coarse_unit_load_exit;
     }
     if (DYNAMO_OPTION(validate_owner_file)) {
@@ -3765,7 +3901,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
         ro_size = (size_t)file_size/*un-aligned*/ - map2_size;
         ASSERT(ro_size == ALIGN_FORWARD(pers->header_len + pers->data_len
                                         - stubs_and_prefixes_len
-                                        - pers->pad_len
+                                        - pers->view_pad_len
                                         - sizeof(persisted_footer_t),
                                         MAP_FILE_VIEW_ALIGNMENT));
         LOG(THREAD, LOG_CACHE, 2,
@@ -3824,7 +3960,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     }
 
     /* We assume that once info!=NULL we have been successful, though we do
-     * abort for hotp conflicts below */
+     * abort for hotp or client conflicts below */
     info = coarse_unit_create(modbase + pers->start_offs, modbase + pers->end_offs,
                               &modinfo.module_md5, for_execution);
     info->frozen = true;
@@ -3857,8 +3993,16 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     /* Process data sections (other than option string) in reverse order */
     pc = map + pers->header_len + pers->data_len; /* end of file */
     pc -= sizeof(persisted_footer_t);
-    info->stubs_end_pc = pc;
 
+    pc -= pers->instrument_rw_len;
+#ifdef CLIENT_INTERFACE
+    if (pers->instrument_rw_len > 0) {
+        if (!instrument_resurrect_rw(GLOBAL_DCONTEXT, info->base_pc, info->end_pc, pc))
+            goto coarse_unit_load_exit;
+    }
+#endif
+
+    info->stubs_end_pc = pc;
     pc -= stubs_and_prefixes_len;
     info->fcache_return_prefix = pc;        
     rwx_pc = info->fcache_return_prefix;
@@ -3914,11 +4058,19 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     info->cache_end_pc = pc - pers->post_cache_pad_len;
     pc -= pers->cache_len;
     info->cache_start_pc = pc;
-    rx_pc = info->cache_start_pc;
+    pc -= pers->instrument_rx_len;
+    rx_pc = pc;
     ASSERT(ALIGNED(rx_pc, PAGE_SIZE));
     fcache_coarse_init_frozen(dcontext, info, info->cache_start_pc,
                               info->fcache_return_prefix - info->cache_start_pc);
 
+    pc -= pers->view_pad_len; /* just skip it */
+#ifdef CLIENT_INTERFACE
+    if (pers->instrument_rx_len > 0) {
+        if (!instrument_resurrect_rx(GLOBAL_DCONTEXT, info->base_pc, info->end_pc, pc))
+            goto coarse_unit_load_exit;
+    }
+#endif
     pc -= pers->pad_len; /* just skip it */
 
     pc -= pers->stub_htable_len;
@@ -4021,18 +4173,22 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
          * is that we've already loaded the RCT entries, which the error does
          * not invalidate.
          */
-        coarse_unit_reset_free_internal(dcontext, info, false/*no locks*/,
-                                        false/*not linked yet*/,
-                                        true/*give up primary*/,
-                                        /* case 11064: avoid rank order */
-                                        false/*local, no info lock needed*/);
-        coarse_unit_free(dcontext, info);
-        info = NULL;
-        map = NULL; /* reset_free unmapped for us */
-        map2 = NULL; /* reset_free unmapped for us */
         goto coarse_unit_load_exit;
     }
 #endif
+
+    /* we go ahead and check offset here, but we inserted fields above to keep
+     * in a sane order and bumped the version.  currently no backcompat anyway.
+     */
+    if (offsetof(coarse_persisted_info_t, instrument_ro_len) < pers->header_len) {
+        pc -= pers->instrument_ro_len;
+#ifdef CLIENT_INTERFACE
+        if (pers->instrument_ro_len > 0) {
+            if (!instrument_resurrect_ro(GLOBAL_DCONTEXT, info->base_pc, info->end_pc, pc))
+                goto coarse_unit_load_exit;
+        }
+#endif
+    }
 
     ASSERT(pc - map >= (int)pers->header_len);
 
@@ -4049,15 +4205,30 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
      * end-aligned to 64KB.
      */
     RSTATS_INC(perscache_loaded);
+    success = true;
 
  coarse_unit_load_exit:
-    if (info == NULL /* error! */) {
-        if (map != NULL)
-            unmap_file(map, map_size);
-        if (map2 != NULL)
-            unmap_file(map2, map2_size);
-        if (fd != INVALID_FILE)
-            os_close(fd);
+    if (!success) {
+        if (info != NULL) {
+            /* XXX: see hotp notes above: better to determine invalidation
+             * prior to creating info.  Note that RCT entries are not reset here.
+             */
+            coarse_unit_reset_free_internal(dcontext, info, false/*no locks*/,
+                                            false/*not linked yet*/,
+                                            true/*give up primary*/,
+                                            /* case 11064: avoid rank order */
+                                            false/*local, no info lock needed*/);
+            coarse_unit_free(dcontext, info);
+            /* reset_free unmaps map and map2 for us */
+            info = NULL;
+        } else {
+            if (map != NULL)
+                unmap_file(map, map_size);
+            if (map2 != NULL)
+                unmap_file(map2, map2_size);
+            if (fd != INVALID_FILE)
+                os_close(fd);
+        }
     }
     KSTOP(persisted_load);
     return info;

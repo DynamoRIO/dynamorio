@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2437,6 +2437,9 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
              * since decode_fragment(), used for state recreation, can't
              * distinguish from exit cti.
              */
+            /* FIXME i#665: we need to allow at least some types of ctis
+             * to make persistence usable for clients
+             */
             bb->flags &= ~FRAG_COARSE_GRAIN;
             STATS_INC(coarse_prevent_client);
         }
@@ -2606,6 +2609,17 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         bb->flags |= FRAG_HAS_TRANSLATION_INFO;
         /* if we didn't have record on from start, can't store translation info */
         ASSERT(bb->record_translation && bb->full_decode);
+    }
+
+    if (DYNAMO_OPTION(coarse_enable_freeze)) {
+        /* If we're not persisting, ignore the presence or absence of the flag
+         * so we avoid undoing savings from -opt_memory with a tool that
+         * doesn't support persistence.
+         */
+        if (!TEST(DR_EMIT_PERSISTABLE, emitflags)) {
+            bb->flags &= ~FRAG_COARSE_GRAIN;
+            STATS_INC(coarse_prevent_client);
+        }
     }
 }
 #endif /* CLIENT_INTERFACE */

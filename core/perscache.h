@@ -313,7 +313,7 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
 
 enum {
     PERSISTENT_CACHE_MAGIC = 0x244f4952, /* RIO$ */
-    PERSISTENT_CACHE_VERSION = 8,
+    PERSISTENT_CACHE_VERSION = 9,
 };
 
 /* Global flags we need to process if present in a persisted cache */
@@ -466,6 +466,9 @@ typedef struct _coarse_persisted_info_t {
     /* Now we store the lengths of each data section, in reverse
      * order, to allow for expansion */
 
+    /* +rw data sections */
+    size_t instrument_rw_len;
+
     /* +rwx data sections */
     size_t stubs_len;
     size_t ibl_jmp_prefix_len;
@@ -478,7 +481,9 @@ typedef struct _coarse_persisted_info_t {
     size_t cache_len;
     size_t post_cache_pad_len; /* included in cache_len, this lets us know the
                               * end of actual instrs in the cache */
-    size_t pad_len;
+    size_t pad_len; /* padding to get +rx onto new page */
+    size_t instrument_rx_len;
+    size_t view_pad_len; /* padding to get cache|stubs on map boundary */
 
     /* +r data sections */
     size_t stub_htable_len;
@@ -489,6 +494,7 @@ typedef struct _coarse_persisted_info_t {
 #ifdef HOT_PATCHING_INTERFACE
     size_t hotp_patch_list_len; /* in bytes, like all the other *_len fields */
 #endif
+    size_t instrument_ro_len;
 
     /* Case 9799: pcache-affecting options that differ from default values */
     size_t option_string_len;
@@ -501,6 +507,8 @@ typedef struct _coarse_persisted_info_t {
     /* option_string is the 1st data section; it may be padded to a 4-byte alignment */
 
     /* Add new data section here (data grows upward across versions) */
+
+    /* Client data */
 
 #ifdef HOT_PATCHING_INTERFACE
     /* Hotp patch points matched at persist time to avoid flushing if
@@ -537,6 +545,8 @@ typedef struct _coarse_persisted_info_t {
 
     /* Padding to get +x section on new page */
 
+    /* Client +x gencode */
+
     /****** Begin offset-sensitive sequence */
     /* We have one single contiguous piece of memory containing our cache and
      * stubs which must be kept together, as they contain relative jmps to each
@@ -561,6 +571,8 @@ typedef struct _coarse_persisted_info_t {
      *   stubs
      *
      ****** End offset-sensitive sequence */
+
+    /* Client writable data */
 
     /* persisted_footer_t here */
 

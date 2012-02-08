@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -602,6 +602,7 @@
     STATS_DEF("Coarse grain units not persisted: too small", persist_too_small)
     STATS_DEF("Coarse grain code small, persisted anyway", persist_code_small)
     STATS_DEF("Coarse grain units not persist: no space", coarse_units_persist_nospace)
+    STATS_DEF("Coarse grain units not persist: can't patch", coarse_units_persist_nopatch)
     STATS_DEF("Coarse grain units not persist: duplicate", coarse_units_persist_dup)
     STATS_DEF("Coarse grain units not persist: file/name error",
               coarse_units_persist_error)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -549,6 +549,32 @@ restore_state_ex_event2(void *drcontext, bool restore_memory,
     return true;
 }
 
+static size_t
+event_persist_size(void *drcontext, app_pc start, app_pc end, size_t file_offs,
+                   void **user_data OUT)
+{
+    return 0;
+}
+
+static bool
+event_persist_patch(void *drcontext, app_pc start, app_pc end,
+                    byte *bb_start, byte *bb_end, void *user_data)
+{
+    return true;
+}
+
+static bool
+event_persist(void *drcontext, app_pc start, app_pc end, file_t fd, void *user_data)
+{
+    return true;
+}
+
+static bool
+event_resurrect(void *drcontext, app_pc start, app_pc end, byte **map INOUT)
+{
+    return true;
+}
+
 DR_EXPORT
 void dr_init(client_id_t id)
 {
@@ -613,4 +639,21 @@ void dr_init(client_id_t id)
     dr_register_signal_event(signal_event1);
     dr_register_signal_event(signal_event2);
 #endif
+
+    if (!dr_register_persist_ro(event_persist_size, event_persist, event_resurrect))
+        dr_fprintf(STDERR, "failed to register for persist ro events");
+    if (!dr_register_persist_rx(event_persist_size, event_persist, event_resurrect))
+        dr_fprintf(STDERR, "failed to register for persist rx events");
+    if (!dr_register_persist_rw(event_persist_size, event_persist, event_resurrect))
+        dr_fprintf(STDERR, "failed to register for persist rw events");
+    if (!dr_register_persist_patch(event_persist_patch))
+        dr_fprintf(STDERR, "failed to register for persist patch event");
+    if (!dr_unregister_persist_ro(event_persist_size, event_persist, event_resurrect))
+        dr_fprintf(STDERR, "failed to unregister for persist ro events");
+    if (!dr_unregister_persist_rx(event_persist_size, event_persist, event_resurrect))
+        dr_fprintf(STDERR, "failed to unregister for persist rx events");
+    if (!dr_unregister_persist_rw(event_persist_size, event_persist, event_resurrect))
+        dr_fprintf(STDERR, "failed to unregister for persist rw events");
+    if (!dr_unregister_persist_patch(event_persist_patch))
+        dr_fprintf(STDERR, "failed to unregister for persist patch event");
 }

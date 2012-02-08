@@ -133,6 +133,8 @@ typedef struct _callback_list_t {
  * for 5 or fewer registered callbacks and stack-allocate the temp
  * list.  Otherwise, we'll heap-allocate the temp.
  *
+ * We allow the args to use the var "idx" to access the client index.
+ *
  * We consider the first registered callback to have the highest
  * priority and call it last.  If we gave the last registered callback
  * the highest priority, a client could re-register a routine to
@@ -212,6 +214,16 @@ static callback_list_t signal_callbacks = {0,};
 #ifdef PROGRAM_SHEPHERDING
 static callback_list_t security_violation_callbacks = {0,};
 #endif
+static callback_list_t persist_ro_size_callbacks = {0,};
+static callback_list_t persist_ro_callbacks = {0,};
+static callback_list_t resurrect_ro_callbacks = {0,};
+static callback_list_t persist_rx_size_callbacks = {0,};
+static callback_list_t persist_rx_callbacks = {0,};
+static callback_list_t resurrect_rx_callbacks = {0,};
+static callback_list_t persist_rw_size_callbacks = {0,};
+static callback_list_t persist_rw_callbacks = {0,};
+static callback_list_t resurrect_rw_callbacks = {0,};
+static callback_list_t persist_patch_callbacks = {0,};
 
 /* An array of client libraries.  We use a static array instead of a
  * heap-allocated list so we can load the client libs before
@@ -237,6 +249,8 @@ typedef struct _client_lib_t {
  */
 static client_lib_t client_libs[MAX_CLIENT_LIBS] = {{0,}};
 static size_t num_client_libs = 0;
+
+static void *persist_user_data[MAX_CLIENT_LIBS];
 
 #ifdef WINDOWS
 /* private kernel32 lib, used to print to console */
@@ -613,6 +627,16 @@ void free_all_callback_lists()
 #ifdef PROGRAM_SHEPHERDING
     free_callback_list(&security_violation_callbacks);
 #endif
+    free_callback_list(&persist_ro_size_callbacks);
+    free_callback_list(&persist_ro_callbacks);
+    free_callback_list(&resurrect_ro_callbacks);
+    free_callback_list(&persist_rx_size_callbacks);
+    free_callback_list(&persist_rx_callbacks);
+    free_callback_list(&resurrect_rx_callbacks);
+    free_callback_list(&persist_rw_size_callbacks);
+    free_callback_list(&persist_rw_callbacks);
+    free_callback_list(&resurrect_rw_callbacks);
+    free_callback_list(&persist_patch_callbacks);
 }
 #endif /* DEBUG */
 
@@ -5507,6 +5531,380 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
         return false;
 #endif /* LINUX */
     return true;
+}
+
+/***************************************************************************
+ * PERSISTENCE
+ */
+
+/* Up to caller to synchronize. */
+uint
+instrument_persist_ro_size(dcontext_t *dcontext, app_pc start, app_pc end,
+                           size_t file_offs)
+{
+    size_t sz = 0;
+    size_t i;
+
+    /* Store the set of clients in use as we require the same set in order
+     * to validate the pcache on use.  Note that we can't just have -client_lib
+     * be OP_PCACHE_GLOBAL b/c it contains client options too.
+     * We have no unique guids for clients so we store the full path.
+     * We ignore ids.  We do care about priority order: clients must
+     * be in the same order in addition to having the same path.
+     *
+     * XXX: we could go further and store client library checksum, etc. hashes,
+     * but that precludes clients from doing their own proper versioning.
+     *
+     * XXX: we could also put the set of clients into the pcache namespace to allow
+     * simultaneous use of pcaches with different sets of clients (empty set
+     * vs under tool, in particular): but doesn't really seem useful enough
+     * for the trouble
+     */
+    for (i=0; i<num_client_libs; i++) {
+        sz += strlen(client_libs[i].path) + 1/*NULL*/;
+    }
+    sz++; /* double NULL ends it */
+
+    /* Now for clients' own data.
+     * For user_data, we assume each sequence of <size, patch, persist> is
+     * atomic: caller holds a mutex across the sequence.  Thus, we can use
+     * global storage.
+     */
+    if (persist_ro_size_callbacks.num > 0) {
+        call_all_ret(sz, +=, , persist_ro_size_callbacks,
+                     size_t (*)(void *, app_pc, app_pc, size_t, void **),
+                     (void *)dcontext, start, end, file_offs + sz,
+                     &persist_user_data[idx]);
+    }
+    /* using size_t for API w/ clients in case we want to widen in future */
+    CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(sz), "persisted cache size too large");
+    return (uint) sz;
+}
+
+/* Up to caller to synchronize.
+ * Returns true iff all writes succeeded.
+ */
+bool
+instrument_persist_ro(dcontext_t *dcontext, app_pc start, app_pc end, file_t fd)
+{
+    bool res = true;
+    size_t i;
+    char nul = '\0';
+    ASSERT(fd != INVALID_FILE);
+
+    for (i=0; i<num_client_libs; i++) {
+        size_t sz = strlen(client_libs[i].path) + 1/*NULL*/;
+        if (os_write(fd, client_libs[i].path, sz) != (ssize_t)sz)
+            return false;
+    }
+    /* double NULL ends it */
+    if (os_write(fd, &nul, sizeof(nul)) != (ssize_t)sizeof(nul))
+        return false;
+
+    /* Now for clients' own data */
+    if (persist_ro_size_callbacks.num > 0) {
+        call_all_ret(res, = res &&, , persist_ro_callbacks,
+                     bool (*)(void *, app_pc, app_pc, file_t, void *),
+                     (void *)dcontext, start, end, fd, persist_user_data[idx]);
+    }
+    return res;
+}
+
+/* Returns true if successfully validated and de-serialized */
+bool
+instrument_resurrect_ro(dcontext_t *dcontext, app_pc start, app_pc end, byte *map)
+{
+    bool res = true;
+    size_t i;
+    const char *c;
+    ASSERT(map != NULL);
+
+    /* Ensure we have the same set of tools (see comments above) */
+    i = 0;
+    c = (const char *) map;
+    while (*c != '\0') {
+        if (i >= num_client_libs)
+            return false; /* too many clients */
+        if (strcmp(client_libs[i].path, c) != 0)
+            return false; /* client path mismatch */
+        c += strlen(c) + 1;
+        i++;
+    }
+    if (i < num_client_libs)
+        return false; /* too few clients */
+    c++;
+
+    /* Now for clients' own data */
+    if (resurrect_ro_callbacks.num > 0) {
+        call_all_ret(res, = res &&, , resurrect_ro_callbacks,
+                     bool (*)(void *, app_pc, app_pc, byte **),
+                     (void *)dcontext, start, end, (byte **) &c);
+    }
+    return res;
+}
+
+/* Up to caller to synchronize. */
+uint
+instrument_persist_rx_size(dcontext_t *dcontext, app_pc start, app_pc end,
+                           size_t file_offs)
+{
+    size_t sz = 0;
+    if (persist_rx_size_callbacks.num == 0)
+        return 0;
+    call_all_ret(sz, +=, , persist_rx_size_callbacks,
+                 size_t (*)(void *, app_pc, app_pc, size_t, void **),
+                 (void *)dcontext, start, end, file_offs + sz,
+                 &persist_user_data[idx]);
+    /* using size_t for API w/ clients in case we want to widen in future */
+    CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(sz), "persisted cache size too large");
+    return (uint) sz;
+}
+
+/* Up to caller to synchronize.
+ * Returns true iff all writes succeeded.
+ */
+bool
+instrument_persist_rx(dcontext_t *dcontext, app_pc start, app_pc end, file_t fd)
+{
+    bool res = true;
+    ASSERT(fd != INVALID_FILE);
+    if (persist_rx_callbacks.num == 0)
+        return true;
+    call_all_ret(res, = res &&, , persist_rx_callbacks,
+                 bool (*)(void *, app_pc, app_pc, file_t, void *),
+                 (void *)dcontext, start, end, fd, persist_user_data[idx]);
+    return res;
+}
+
+/* Returns true if successfully validated and de-serialized */
+bool
+instrument_resurrect_rx(dcontext_t *dcontext, app_pc start, app_pc end, byte *map)
+{
+    bool res = true;
+    ASSERT(map != NULL);
+    if (resurrect_rx_callbacks.num == 0)
+        return true;
+    call_all_ret(res, = res &&, , resurrect_rx_callbacks,
+                 bool (*)(void *, app_pc, app_pc, byte **),
+                 (void *)dcontext, start, end, &map);
+    return res;
+}
+
+/* Up to caller to synchronize. */
+uint
+instrument_persist_rw_size(dcontext_t *dcontext, app_pc start, app_pc end,
+                           size_t file_offs)
+{
+    size_t sz = 0;
+    if (persist_rw_size_callbacks.num == 0)
+        return 0;
+    call_all_ret(sz, +=, , persist_rw_size_callbacks,
+                 size_t (*)(void *, app_pc, app_pc, size_t, void **),
+                 (void *)dcontext, start, end, file_offs + sz,
+                 &persist_user_data[idx]);
+    /* using size_t for API w/ clients in case we want to widen in future */
+    CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(sz), "persisted cache size too large");
+    return (uint) sz;
+}
+
+/* Up to caller to synchronize.
+ * Returns true iff all writes succeeded.
+ */
+bool
+instrument_persist_rw(dcontext_t *dcontext, app_pc start, app_pc end, file_t fd)
+{
+    bool res = true;
+    ASSERT(fd != INVALID_FILE);
+    if (persist_rw_callbacks.num == 0)
+        return true;
+    call_all_ret(res, = res &&, , persist_rw_callbacks,
+                 bool (*)(void *, app_pc, app_pc, file_t, void *),
+                 (void *)dcontext, start, end, fd, persist_user_data[idx]);
+    return res;
+}
+
+/* Returns true if successfully validated and de-serialized */
+bool
+instrument_resurrect_rw(dcontext_t *dcontext, app_pc start, app_pc end, byte *map)
+{
+    bool res = true;
+    ASSERT(map != NULL);
+    if (resurrect_rw_callbacks.num == 0)
+        return true;
+    call_all_ret(res, = res &&, , resurrect_rx_callbacks,
+                 bool (*)(void *, app_pc, app_pc, byte **),
+                 (void *)dcontext, start, end, &map);
+    return res;
+}
+
+bool
+instrument_persist_patch(dcontext_t *dcontext, app_pc start, app_pc end,
+                         byte *bb_start, byte *bb_end)
+{
+    bool res = true;
+    if (persist_patch_callbacks.num == 0)
+        return true;
+    call_all_ret(res, = res &&, , persist_patch_callbacks,
+                 bool (*)(void *, app_pc, app_pc, byte *, byte*, void *),
+                 (void *)dcontext, start, end, bb_start, bb_end,
+                 persist_user_data[idx]);
+    return res;
+}
+
+DR_API
+bool
+dr_register_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+                                           size_t file_offs, void **user_data OUT),
+                       bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                                            file_t fd, void *user_data),
+                       bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                                              byte **map INOUT))
+{
+    if (func_size == NULL || func_persist == NULL || func_resurrect == NULL)
+        return false;
+    add_callback(&persist_ro_size_callbacks, (void (*)(void))func_size, true);
+    add_callback(&persist_ro_callbacks, (void (*)(void))func_persist, true);
+    add_callback(&resurrect_ro_callbacks, (void (*)(void))func_resurrect, true);
+    return true;
+}
+
+DR_API
+bool
+dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+                                             size_t file_offs, void **user_data OUT),
+                         bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                                              file_t fd, void *user_data),
+                         bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                                                byte **map INOUT))
+{
+    bool res = true;
+    if (func_size != NULL) {
+        res = remove_callback(&persist_ro_size_callbacks, (void (*)(void))func_size, true)
+            && res;
+    } else
+        res = false;
+    if (func_persist != NULL) {
+        res = remove_callback(&persist_ro_callbacks, (void (*)(void))func_persist, true)
+            && res;
+    } else
+        res = false;
+    if (func_resurrect != NULL) {
+        res = remove_callback(&resurrect_ro_callbacks, (void (*)(void))func_resurrect,
+                              true) && res;
+    } else
+        res = false;
+    return res;
+}
+
+DR_API
+bool
+dr_register_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+                                           size_t file_offs, void **user_data OUT),
+                       bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                                            file_t fd, void *user_data),
+                       bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                                              byte **map INOUT))
+{
+    if (func_size == NULL || func_persist == NULL || func_resurrect == NULL)
+        return false;
+    add_callback(&persist_rx_size_callbacks, (void (*)(void))func_size, true);
+    add_callback(&persist_rx_callbacks, (void (*)(void))func_persist, true);
+    add_callback(&resurrect_rx_callbacks, (void (*)(void))func_resurrect, true);
+    return true;
+}
+
+DR_API
+bool
+dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+                                             size_t file_offs, void **user_data OUT),
+                         bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                                              file_t fd, void *user_data),
+                         bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                                                byte **map INOUT))
+{
+    bool res = true;
+    if (func_size != NULL) {
+        res = remove_callback(&persist_rx_size_callbacks, (void (*)(void))func_size, true)
+            && res;
+    } else
+        res = false;
+    if (func_persist != NULL) {
+        res = remove_callback(&persist_rx_callbacks, (void (*)(void))func_persist, true)
+            && res;
+    } else
+        res = false;
+    if (func_resurrect != NULL) {
+        res = remove_callback(&resurrect_rx_callbacks, (void (*)(void))func_resurrect,
+                              true) && res;
+    } else
+        res = false;
+    return res;
+}
+
+DR_API
+bool
+dr_register_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+                                           size_t file_offs, void **user_data OUT),
+                       bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                                            file_t fd, void *user_data),
+                       bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                                              byte **map INOUT))
+{
+    if (func_size == NULL || func_persist == NULL || func_resurrect == NULL)
+        return false;
+    add_callback(&persist_rw_size_callbacks, (void (*)(void))func_size, true);
+    add_callback(&persist_rw_callbacks, (void (*)(void))func_persist, true);
+    add_callback(&resurrect_rw_callbacks, (void (*)(void))func_resurrect, true);
+    return true;
+}
+
+DR_API
+bool
+dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+                                             size_t file_offs, void **user_data OUT),
+                         bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                                              file_t fd, void *user_data),
+                         bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                                                byte **map INOUT))
+{
+    bool res = true;
+    if (func_size != NULL) {
+        res = remove_callback(&persist_rw_size_callbacks, (void (*)(void))func_size, true)
+            && res;
+    } else
+        res = false;
+    if (func_persist != NULL) {
+        res = remove_callback(&persist_rw_callbacks, (void (*)(void))func_persist, true)
+            && res;
+    } else
+        res = false;
+    if (func_resurrect != NULL) {
+        res = remove_callback(&resurrect_rw_callbacks, (void (*)(void))func_resurrect,
+                              true) && res;
+    } else
+        res = false;
+    return res;
+}
+
+DR_API
+bool
+dr_register_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, app_pc end,
+                                             byte *bb_start, byte *bb_end,
+                                             void *user_data))
+{
+    if (func_patch == NULL)
+        return false;
+    add_callback(&persist_patch_callbacks, (void (*)(void))func_patch, true);
+    return true;
+}
+
+DR_API
+bool
+dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, app_pc end,
+                                               byte *bb_start, byte *bb_end,
+                                               void *user_data))
+{
+    return remove_callback(&persist_patch_callbacks, (void (*)(void))func_patch, true);
 }
 
 #endif /* CLIENT_INTERFACE */
