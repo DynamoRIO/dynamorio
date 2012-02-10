@@ -1296,6 +1296,12 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
 
+  tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
+  use_DynamoRIO_extension(client.drutil-test.dll drutil)
+  if (UNIX)
+    target_link_libraries(client.drutil-test ${libpthread})
+  endif (UNIX)
+
   # We need to load w/ the same base so the test passes
   set(DynamoRIO_SET_PREFERRED_BASE ON)
   set(PREFERRED_BASE 0x6f000000)

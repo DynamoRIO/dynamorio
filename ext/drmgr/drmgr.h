@@ -177,16 +177,21 @@ DR_EXPORT
  * The app2app passes are allowed to modify and insert non-meta (i.e.,
  * application) instructions and are intended for application code
  * transformations.  These passes should avoid adding meta
- * instructions; if they must be added, such instructions should be
- * ignorable by all later passes and should be treatable as
- * application instructions for the purposes of register stealing.
- * Such meta instructions should only be needed for internal control
- * flow.  Because other components may have alread acted on the
- * instruction list, be aware that meta instructions may have already
- * been added when processing the list and should normally be ignored.
+ * instructions other than label instructions.
  *
  * All instrumentation must follow the guidelines for
- * #dr_register_bb_event().
+ * #dr_register_bb_event() with the exception that multiple
+ * application control transfer instructions are supported so long as
+ * all but one have intra-block \p instr_t targets.  This is to
+ * support internal control flow that may be necessary for some
+ * application-to-application transformations.  These control transfer
+ * instructions should have a translation set so that later passes
+ * know which application address they correspond to.  \p drmgr will
+ * mark all of the extra non-meta control transfers as meta, and clear
+ * their translation fields, right before passing to DynamoRIO, in
+ * order to satisfy DynamoRIO's constraints.  This allows all of the
+ * instrumentation passes to see these instructions as application
+ * instructions, which is how they should be treated.
  *
  * \return false if the given priority request cannot be satisfied
  * (e.g., \p priority->before is already ordered after \p
@@ -220,10 +225,12 @@ DR_EXPORT
  * The first stage performed any changes to the original application
  * code, and later stages are not allowed to change application code.
  * Application analysis passes in the second stage are not allowed to
- * add to or change the instruction list and are intended for analysis
- * of application code either for immediate use or for use by the
- * third stage.  Be aware that meta instructions may have been added
- * by the first stage and should normally be ignored.
+ * add to or change the instruction list other than adding label
+ * instructions, and are intended for analysis of application code
+ * either for immediate use or for use by the third stage.  Label
+ * instructions can be used to store data for use in subsequent stages
+ * with custom tags inserted as notes via drmgr_reserve_note_range()
+ * and custom data stored via instr_get_label_data_area().
  *
  * The third instrumentation stage is instrumentation insertion.
  * Unlike the other stages, this one passes only one instruction to

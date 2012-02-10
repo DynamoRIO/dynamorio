@@ -246,6 +246,31 @@ drmgr_exit(void)
  * BB EVENTS
  */
 
+/* To support multiple non-meta ctis in app2app phase, we mark them meta
+ * before handing to DR to satisfy its bb constraints
+ */
+static void
+drmgr_fix_app_ctis(void *drcontext, instrlist_t *bb)
+{
+    instr_t *inst;
+    for (inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
+        /* Any CTI with an instr target must have an intra-bb target and thus
+         * we assume it should not be mangled.  We mark it meta.
+         */
+        if (instr_ok_to_mangle(inst) && 
+            instr_is_cti(inst) &&
+            opnd_is_instr(instr_get_target(inst))) {
+            instr_set_ok_to_mangle(inst, false);
+            /* instrumentation passes should set the translation field
+             * so other passes can see what app pc these app instrs
+             * correspond to: but DR complains if there's a meta instr
+             * w/ a translation but no restore_state event
+             */
+            instr_set_translation(inst, NULL);
+        }
+    }
+}
+
 static dr_emit_flags_t
 drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                bool for_trace, bool translating)
@@ -287,6 +312,9 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     for (e = cblist_instru2instru; e != NULL; e = e->next) {
         res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
     }
+
+    /* Pass 5: our private pass to support multiple non-meta ctis in app2app phase */
+    drmgr_fix_app_ctis(drcontext, bb);
 
     dr_rwlock_read_unlock(bb_cb_lock);
 

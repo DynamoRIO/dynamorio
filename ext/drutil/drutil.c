@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -263,25 +263,26 @@ drutil_expand_rep_string(void *drcontext, instrlist_t *bb)
         iter = INSTR_CREATE_label(drcontext);
 
         /* A rep string instr does check for 0 up front.  DR limits us
-         * to 1 cbr so we have to make a meta cbr.  If ecx is uninit
+         * to 1 cbr but drmgr will mark the extras as meta later.  If ecx is uninit
          * the loop* will catch it so we're ok not instrumenting this.
          * I would just jecxz to loop, but w/ instru it can't reach so
-         * I have to add yet more meta-jmps that will execute each
+         * I have to add yet more internal jmps that will execute each
          * iter.  Grrr.
          *
-         * XXX: these meta-cbrs and non-linear code can complicate
-         * subsequent analysis routines.  Perhaps we should consider
-         * splitting into multiple bbs, or changing DR's bb limits
-         * (perhaps by disabling traces)?
+         * XXX: this non-linear code can complicate subsequent
+         * analysis routines.  Perhaps we should consider splitting
+         * into multiple bbs?
          */
         jecxz = INSTR_CREATE_jecxz(drcontext, opnd_create_instr(zero));
         /* be sure to match the same counter reg width */
         instr_set_src(jecxz, 1, xcx);
-        PRE(bb, inst, jecxz);
-        PRE(bb, inst, INSTR_CREATE_jmp_short(drcontext, opnd_create_instr(iter)));
-        PRE(bb, inst, zero);
+        PREXL8(bb, inst, INSTR_XL8(jecxz, xl8));
+        PREXL8(bb, inst, INSTR_XL8
+               (INSTR_CREATE_jmp_short(drcontext, opnd_create_instr(iter)), xl8));
+        PREXL8(bb, inst, INSTR_XL8(zero, xl8));
         /* target the instrumentation for the loop, not loop itself */
-        PRE(bb, inst, INSTR_CREATE_jmp(drcontext, opnd_create_instr(pre_loop)));
+        PREXL8(bb, inst, INSTR_XL8
+               (INSTR_CREATE_jmp(drcontext, opnd_create_instr(pre_loop)), xl8));
         PRE(bb, inst, iter);
 
         PREXL8(bb, inst, INSTR_XL8(create_nonloop_stringop(drcontext, inst), xl8));
