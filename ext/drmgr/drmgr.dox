@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,7 @@ composed and combined.
  - \ref sec_drmgr_setup
  - \ref sec_drmgr_stages
  - \ref sec_drmgr_tls
+ - \ref sec_drmgr_notes
 
 \section sec_drmgr_setup Setup
 
@@ -102,7 +103,7 @@ order among identical placement once named ordering is resolved.
 Some ordering rules do apply.  For example, function replacing should occur
 before most other application transformations.  Ordering of instrumentation
 insertion and especially instrumentation-to-instrumentation transformations
-can be highly dependent on exact transformation.  Care should be taken when
+can be highly dependent on exact transformations involved.  Care should be taken when
 ordering passes within each stage.
 
 \subsection sec_drmgr_traces Traces
@@ -156,5 +157,20 @@ contexts for any other purpose such as layered wrapped functions.
 These push and pop functions are automatically called on Windows
 callback entry and exit.
 
+\section sec_drmgr_notes Instruction Note Fields
+
+Instrumentation passes often need to mark instructions with information for
+later passes.  One method of doing this is to use the \p note field built
+in to the \p instr_t type.  For example, labels can be inserted with \p
+note field corresponding to pre-defined constants to indicate insertion
+points.  In order to avoid these \p note constants from overlapping and
+conflicting among different passes, \p drmgr provides mediation of the
+\note namespace.
+
+\p drmgr does not make use of its \p note mediation mandatory and does not
+override instr_set_note() or instr_get_note().  Instrumentation passes
+should feel free to use pointer values in the \p note field.  The \p note
+constant value mediation is intended for small constants that will note be
+confused with pointer values.
 
 */

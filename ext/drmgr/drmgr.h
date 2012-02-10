@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -521,6 +521,25 @@ DR_EXPORT
  */
 bool
 drmgr_pop_cls(void *drcontext);
+
+
+/***************************************************************************
+ * INSTRUCTION NOTE FIELD
+ */
+
+enum {
+    DRMGR_NOTE_NONE,
+};
+
+DR_EXPORT
+/**
+ * Reserves \p size values in the namespace for use in the \p note
+ * field of instructions.  The reserved range starts at the return
+ * value and is contiguous.  Returns DRMGR_NOTE_NONE on failure.
+ * Un-reserving is not supported.
+ */
+ptr_uint_t
+drmgr_reserve_note_range(size_t size);
 
 
 /***************************************************************************

@@ -145,6 +145,7 @@ static bool cls_taken[MAX_NUM_TLS];
 static void *tls_lock;
 
 static void *exit_lock;
+static void *note_lock;
 
 /* Thread event cbs and rwlock */
 static generic_event_entry_t *cblist_thread_init;
@@ -200,6 +201,7 @@ drmgr_init(void)
         return true;
     initialized = true;
     exit_lock = dr_mutex_create();
+    note_lock = dr_mutex_create();
 
     bb_cb_lock = dr_rwlock_create();
     thread_event_lock = dr_rwlock_create();
@@ -234,6 +236,7 @@ drmgr_exit(void)
     dr_mutex_destroy(tls_lock);
     dr_rwlock_destroy(thread_event_lock);
     dr_rwlock_destroy(bb_cb_lock);
+    dr_mutex_destroy(note_lock);
 
     dr_mutex_unlock(exit_lock);
     dr_mutex_destroy(exit_lock);
@@ -1126,4 +1129,39 @@ bool
 drmgr_pop_cls(void *drcontext)
 {
     return drmgr_cls_stack_pop();
+}
+
+/***************************************************************************
+ * INSTRUCTION NOTE FIELD
+ */
+
+enum {
+    /* reserve some values in case we want them in the future */
+    DRMGR_NOTE_RESERVED_1 = DRMGR_NOTE_NONE + 1,
+    DRMGR_NOTE_RESERVED_2,
+    DRMGR_NOTE_RESERVED_3,
+    DRMGR_NOTE_RESERVED_4,
+    DRMGR_NOTE_RESERVED_5,
+    DRMGR_NOTE_FIRST_FREE,
+};
+
+static ptr_uint_t note_next = DRMGR_NOTE_FIRST_FREE;
+
+/* un-reserving is not supported (would require interval tree to impl) */
+DR_EXPORT
+ptr_uint_t
+drmgr_reserve_note_range(size_t size)
+{
+    ptr_uint_t res;
+    if (size == 0)
+        return DRMGR_NOTE_NONE;
+    dr_mutex_lock(note_lock);
+    if (note_next + size < note_next)
+        res = DRMGR_NOTE_NONE;
+    else {
+        res = note_next;
+        note_next += size;
+    }
+    dr_mutex_unlock(note_lock);
+    return res;
 }
