@@ -1610,6 +1610,15 @@ enum {
  */
 /* DR_API EXPORT BEGIN */
 
+/**
+ * Data slots available in a label (instr_create_label()) instruction
+ * for storing client-controlled data.  Accessible via
+ * instr_get_label_data_area().
+ */
+typedef struct _dr_instr_label_data_t {
+    ptr_uint_t data[4]; /**< Generic fields for storing user-controlled data */
+} dr_instr_label_data_t;
+
 #ifdef DR_FAST_IR
 /**
  * instr_t type exposed for optional "fast IR" access.  Note that DynamoRIO
@@ -1644,13 +1653,19 @@ struct _instr_t {
     byte    num_dsts;
     byte    num_srcs;
 
-    opnd_t    *dsts;
-    /* for efficiency everyone has a 1st src opnd, since we often just
-     * decode jumps, which all have a single source (==target)
-     * yes this is an extra 10 bytes, but the whole struct is still < 64 bytes!
-     */
-    opnd_t    src0;
-    opnd_t    *srcs; /* this array has 2nd src and beyond */
+    union {
+        struct {
+            /* for efficiency everyone has a 1st src opnd, since we often just
+             * decode jumps, which all have a single source (==target)
+             * yes this is an extra 10 bytes, but the whole struct is still < 64 bytes!
+             */
+            opnd_t    src0;
+            opnd_t    *srcs; /* this array has 2nd src and beyond */
+            opnd_t    *dsts;
+        };
+        dr_instr_label_data_t label_data;
+    };
+
     uint    prefixes; /* data size, addr size, or lock prefix info */
     uint    eflags;   /* contains EFLAGS_ bits, but amount of info varies
                        * depending on how instr was decoded/built */
@@ -1682,6 +1697,8 @@ DR_API
 /**
  * Returns a copy of \p orig with separately allocated memory for
  * operands and raw bytes if they were present in \p orig.
+ * Cloning an instruction with a non-zero \p note field is not
+ * supported.
  */
 instr_t *
 instr_clone(dcontext_t *dcontext, instr_t *orig);
@@ -2480,6 +2497,16 @@ DR_API
  */
 uint
 instr_memory_reference_size(instr_t *instr);
+
+DR_API
+/** 
+ * \return a pointer to user-controlled data fields in a label instruction.
+ * These fields are available for use by clients for their own purposes.
+ * Returns NULL if \p instr is not a label instruction.
+ * \note These data fields are copied (shallowly) across instr_clone().
+ */
+dr_instr_label_data_t *
+instr_get_label_data_area(instr_t *instr);
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */

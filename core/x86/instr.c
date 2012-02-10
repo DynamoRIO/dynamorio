@@ -1692,21 +1692,23 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
     } 
     else /* disable normal dst cloning */
 #endif
-    if (orig->dsts != NULL) {
+    if (orig->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
         instr->dsts = (opnd_t *) heap_alloc(dcontext, instr->num_dsts*sizeof(opnd_t)
                                           HEAPACCT(ACCT_IR));
         memcpy((void *)instr->dsts, (void *)orig->dsts,
                instr->num_dsts*sizeof(opnd_t));
     }
-    if (orig->srcs != NULL) {
+    if (orig->num_srcs > 1) { /* checking num_src, not srcs, b/c of label data */
         instr->srcs = (opnd_t *) heap_alloc(dcontext,
                                           (instr->num_srcs-1)*sizeof(opnd_t)
                                           HEAPACCT(ACCT_IR));
         memcpy((void *)instr->srcs, (void *)orig->srcs,
                (instr->num_srcs-1)*sizeof(opnd_t));
     }
-    /* make sure nobody expects us to clone custom data structs pointed to by note */
-    CLIENT_ASSERT(orig->note == 0, "instr_clone: cloning note field not supported");
+    /* copy note (we make no guarantee, and have no way, to do a deep clone) */
+    instr->note = orig->note;
+    if (instr_is_label(orig))
+        memcpy(&instr->label_data, &orig->label_data, sizeof(instr->label_data));
     return instr;
 }
 
@@ -1738,13 +1740,13 @@ instr_free(dcontext_t *dcontext, instr_t *instr)
         instr->dsts = NULL;
     }
 #endif
-    if (instr->dsts != NULL) {
+    if (instr->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
         heap_free(dcontext, instr->dsts, instr->num_dsts*sizeof(opnd_t)
                   HEAPACCT(ACCT_IR));
         instr->dsts = NULL;
         instr->num_dsts = 0;
     }
-    if (instr->srcs != NULL) {
+    if (instr->num_srcs > 1) { /* checking num_src, not src, b/c of label data */
         /* remember one src is static, rest are dynamic */
         heap_free(dcontext, instr->srcs, (instr->num_srcs-1)*sizeof(opnd_t)
                   HEAPACCT(ACCT_IR));
@@ -3712,6 +3714,17 @@ decode_memory_reference_size(dcontext_t *dcontext, app_pc pc, uint *size_in_byte
     *size_in_bytes = instr_memory_reference_size(&instr);
     instr_free(dcontext, &instr);
     return next_pc;
+}
+
+DR_API
+dr_instr_label_data_t *
+instr_get_label_data_area(instr_t *instr)
+{
+    CLIENT_ASSERT(instr != NULL, "invalid arg");
+    if (instr_is_label(instr))
+        return &instr->label_data;
+    else
+        return NULL;
 }
 
 /* return the branch type of the (branch) inst */

@@ -135,6 +135,7 @@ The changes between version \DR_VERSION and 3.1.0 are:
  - Added dr_vsnprintf()
  - Added service pack version to dr_get_os_version()
  - Added mediation of note fields to drmgr
+ - Added custom storage in label instructions via instr_get_label_data_area()
  - Added support for multiple non-meta control transfer instructions
    with intra-block targets in one basic block to drmgr
  - Several bug fixes
