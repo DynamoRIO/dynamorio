@@ -6186,19 +6186,7 @@ post_system_call(dcontext_t *dcontext)
             /* We don't expect an existing entry for the new region. */
             all_memory_areas_lock();
             
-            /* i#175
-             * there are cases that base = mremap(old_base, old_size, size),
-             * where old_base = base, and old_size > size, 
-             * they do overlap and should not cause assertion failure.
-             * So if the new mremaped memory fall into old memory region,
-             * assertion success.
-             */
-            ASSERT((base >= old_base             && 
-                    base < (old_base + old_size) &&
-                    (base + size) > old_base     && 
-                    (base + size) <= (old_base + size)) ||
-                   !vmvector_overlap(all_memory_areas, base, base + size) ||
-                   are_dynamo_vm_areas_stale());
+            /* i#175: overlap w/ existing regions is not an error */
             DEBUG_DECLARE(ok =)
                 remove_from_all_memory_areas(old_base, old_base+old_size);
             ASSERT(ok);
