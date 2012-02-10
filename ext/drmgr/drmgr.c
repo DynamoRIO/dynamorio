@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -972,9 +972,17 @@ drmgr_cls_init(void)
     /* For callback init we watch for KiUserCallbackDispatcher.
      * For callback exit we watch for NtCallbackReturn or int 0x2b.
      */
+    static int cls_initialized; /* 0=not tried; >0=success; <0=failure */
     module_data_t *data;
     byte *ntdll_lib, *addr_cbret;
     drmgr_priority_t priority = {sizeof(priority), "drmgr_cls", NULL, NULL, 0};
+
+    if (cls_initialized > 0)
+        return true;
+    else if (cls_initialized < 0)
+        return false;
+    cls_initialized = -1;
+
     if (!drmgr_register_bb_instrumentation_event(drmgr_event_bb_analysis,
                                                  drmgr_event_bb_insert,
                                                  &priority))
@@ -1001,6 +1009,7 @@ drmgr_cls_init(void)
     sysnum_NtCallbackReturn = drmgr_decode_sysnum_from_wrapper(addr_cbret);
     if (sysnum_NtCallbackReturn == -1)
         return false; /* should not happen */
+    cls_initialized = 1;
     return true;
 }
 #else
