@@ -71,12 +71,21 @@
 typedef struct _cb_entry_t {
     const char *name;
     int priority;
+    bool has_quartet;
     union {
         drmgr_xform_cb_t xform_cb;
         struct {
             drmgr_analysis_cb_t analysis_cb;
             drmgr_insertion_cb_t insertion_cb;
         } pair;
+
+        /* quartet */
+        drmgr_app2app_ex_cb_t app2app_ex_cb;
+        struct {
+            drmgr_ilist_ex_cb_t analysis_ex_cb;
+            drmgr_insertion_cb_t insertion_ex_cb;
+        } pair_ex;
+        drmgr_ilist_ex_cb_t instru2instru_ex_cb;
     } cb;
     struct _cb_entry_t *next;
 } cb_entry_t;
@@ -110,8 +119,9 @@ static cb_entry_t *cblist_app2app;
 static cb_entry_t *cblist_instrumentation;
 static cb_entry_t *cblist_instru2instru;
 
-/* Length of cblist_instrumentation; protected by bb_cb_lock */
-static uint instrulist_count;
+/* Count of callbacks needing user_data, protected by bb_cb_lock */
+static uint pair_count;
+static uint quartet_count;
 
 static dr_emit_flags_t
 drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
@@ -278,43 +288,79 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     cb_entry_t *e;
     dr_emit_flags_t res = DR_EMIT_DEFAULT;
     instr_t *inst, *next_inst;
-    void **user_data;
-    uint i;
+    void **pair_data = NULL, **quartet_data = NULL;
+    uint pair_idx, quartet_idx;
 
     dr_rwlock_read_lock(bb_cb_lock);
 
+    /* We need per-thread user_data */
+    if (pair_count > 0)
+        pair_data = (void **) dr_thread_alloc(drcontext, sizeof(void*)*pair_count);
+    if (quartet_count > 0)
+        quartet_data = (void **) dr_thread_alloc(drcontext, sizeof(void*)*quartet_count);
+
     /* Pass 1: app2app */
-    for (e = cblist_app2app; e != NULL; e = e->next) {
-        res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
+    for (quartet_idx = 0, e = cblist_app2app; e != NULL; e = e->next) {
+        if (e->has_quartet) {
+            res |= (*e->cb.app2app_ex_cb)
+                (drcontext, tag, bb, for_trace, translating, &quartet_data[quartet_idx]);
+            quartet_idx++;
+        } else
+            res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
     }
 
     /* Pass 2: analysis */
-    /* We need per-thread user_data */
-    user_data = (void **) dr_thread_alloc(drcontext, sizeof(void*)*instrulist_count);
-    for (i = 0, e = cblist_instrumentation; e != NULL; i++, e = e->next) {
-        res |= (*e->cb.pair.analysis_cb)
-            (drcontext, tag, bb, for_trace, translating, &user_data[i]);
+    for (quartet_idx = 0, pair_idx = 0, e = cblist_instrumentation; e != NULL;
+         e = e->next) {
+        if (e->has_quartet) {
+            res |= (*e->cb.pair_ex.analysis_ex_cb)
+                (drcontext, tag, bb, for_trace, translating, quartet_data[quartet_idx]);
+            quartet_idx++;
+        } else {
+            res |= (*e->cb.pair.analysis_cb)
+                (drcontext, tag, bb, for_trace, translating, &pair_data[pair_idx]);
+            pair_idx++;
+        }
         /* XXX: add checks that cb followed the rules */
     }
 
     /* Pass 3: instru, per instr */
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
-        for (i = 0, e = cblist_instrumentation; e != NULL; i++, e = e->next) {
-            res |= (*e->cb.pair.insertion_cb)
-                (drcontext, tag, bb, inst, for_trace, translating, user_data[i]);
+        for (quartet_idx = 0, pair_idx = 0, e = cblist_instrumentation; e != NULL;
+             e = e->next) {
+            if (e->has_quartet) {
+                res |= (*e->cb.pair_ex.insertion_ex_cb)
+                    (drcontext, tag, bb, inst, for_trace, translating,
+                     quartet_data[quartet_idx]);
+                quartet_idx++;
+            } else {
+                res |= (*e->cb.pair.insertion_cb)
+                    (drcontext, tag, bb, inst, for_trace, translating,
+                     pair_data[pair_idx]);
+                pair_idx++;
+            }
             /* XXX: add checks that cb followed the rules */
         }
     }
-    dr_thread_free(drcontext, user_data, sizeof(void*)*instrulist_count);
 
     /* Pass 4: final */
-    for (e = cblist_instru2instru; e != NULL; e = e->next) {
-        res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
+    for (quartet_idx = 0, e = cblist_instru2instru; e != NULL; e = e->next) {
+        if (e->has_quartet) {
+            res |= (*e->cb.instru2instru_ex_cb)
+                (drcontext, tag, bb, for_trace, translating, quartet_data[quartet_idx]);
+            quartet_idx++;
+        } else
+            res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
     }
 
     /* Pass 5: our private pass to support multiple non-meta ctis in app2app phase */
     drmgr_fix_app_ctis(drcontext, bb);
+
+    if (pair_count > 0)
+        dr_thread_free(drcontext, pair_data, sizeof(void*)*pair_count);
+    if (quartet_count > 0)
+        dr_thread_free(drcontext, quartet_data, sizeof(void*)*quartet_count);
 
     dr_rwlock_read_unlock(bb_cb_lock);
 
@@ -326,14 +372,31 @@ drmgr_bb_cb_add(cb_entry_t **list,
                 drmgr_xform_cb_t xform_func,
                 drmgr_analysis_cb_t analysis_func,
                 drmgr_insertion_cb_t insertion_func,
+                /* for quartet (also uses insertion_func) */
+                drmgr_app2app_ex_cb_t app2app_ex_func,
+                drmgr_ilist_ex_cb_t analysis_ex_func,
+                drmgr_ilist_ex_cb_t instru2instru_ex_func,
                 drmgr_priority_t *priority)
 {
     cb_entry_t *e, *prev_e, *new_e;
     bool past_after; /* are we past the "after" constraint */
     bool res = true;
     ASSERT(list != NULL && priority != NULL, "invalid internal params");
-    ASSERT((xform_func != NULL && analysis_func == NULL && insertion_func == NULL) ||
-           (xform_func == NULL && analysis_func != NULL && insertion_func != NULL),
+    ASSERT(((xform_func != NULL && analysis_func == NULL && insertion_func == NULL &&
+             app2app_ex_func == NULL && analysis_ex_func == NULL &&
+             instru2instru_ex_func == NULL) ||
+            (xform_func == NULL && analysis_func != NULL && insertion_func != NULL &&
+             app2app_ex_func == NULL && analysis_ex_func == NULL &&
+             instru2instru_ex_func == NULL) ||
+            (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
+             app2app_ex_func != NULL && analysis_ex_func == NULL &&
+             instru2instru_ex_func == NULL) ||
+            (xform_func == NULL && analysis_func == NULL && insertion_func != NULL &&
+             app2app_ex_func == NULL && analysis_ex_func != NULL &&
+             instru2instru_ex_func == NULL) ||
+            (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
+             app2app_ex_func == NULL && analysis_ex_func == NULL &&
+             instru2instru_ex_func != NULL)),
            "invalid internal params");
     if (priority == NULL || priority->name == NULL)
         return false; /* must have a name */
@@ -344,11 +407,24 @@ drmgr_bb_cb_add(cb_entry_t **list,
     new_e = (cb_entry_t *) dr_global_alloc(sizeof(*new_e));
     new_e->name = priority->name;
     new_e->priority = priority->priority;
-    if (xform_func != NULL)
-        new_e->cb.xform_cb = xform_func;
-    else {
-        new_e->cb.pair.analysis_cb = analysis_func;
-        new_e->cb.pair.insertion_cb = insertion_func;
+    if (app2app_ex_func != NULL) {
+        new_e->has_quartet = true;
+        new_e->cb.app2app_ex_cb = app2app_ex_func;
+    } else if (analysis_ex_func != NULL) {
+        new_e->has_quartet = true;
+        new_e->cb.pair_ex.analysis_ex_cb = analysis_ex_func;
+        new_e->cb.pair_ex.insertion_ex_cb = insertion_func;
+    } else if (instru2instru_ex_func != NULL) {
+        new_e->has_quartet = true;
+        new_e->cb.instru2instru_ex_cb = instru2instru_ex_func;
+    } else {
+        new_e->has_quartet = false;
+        if (xform_func != NULL) {
+            new_e->cb.xform_cb = xform_func;
+        } else {
+            new_e->cb.pair.analysis_cb = analysis_func;
+            new_e->cb.pair.insertion_cb = insertion_func;
+        }
     }
 
     dr_rwlock_write_lock(bb_cb_lock);
@@ -392,8 +468,10 @@ drmgr_bb_cb_add(cb_entry_t **list,
             prev_e->next = new_e;
         new_e->next = e;
 
-        if (xform_func == NULL)
-            instrulist_count++;
+        if (new_e->has_quartet)
+            quartet_count++;
+        else if (xform_func == NULL)
+            pair_count++;
     } else {
         /* cannot satisfy both the before and after requests */
         res = false;
@@ -410,7 +488,8 @@ drmgr_register_bb_app2app_event(drmgr_xform_cb_t func, drmgr_priority_t *priorit
 {
     if (func == NULL || priority == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_add(&cblist_app2app, func, NULL, NULL, priority);
+    return drmgr_bb_cb_add(&cblist_app2app, func, NULL, NULL,
+                           NULL, NULL, NULL, priority);
 }
 
 DR_EXPORT
@@ -422,7 +501,7 @@ drmgr_register_bb_instrumentation_event(drmgr_analysis_cb_t analysis_func,
     if (analysis_func == NULL || insertion_func == NULL || priority == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_add(&cblist_instrumentation, NULL, analysis_func,
-                           insertion_func, priority);
+                           insertion_func, NULL, NULL, NULL, priority);
 }
 
 DR_EXPORT
@@ -431,13 +510,39 @@ drmgr_register_bb_instru2instru_event(drmgr_xform_cb_t func, drmgr_priority_t *p
 {
     if (func == NULL || priority == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_add(&cblist_instru2instru, func, NULL, NULL, priority);
+    return drmgr_bb_cb_add(&cblist_instru2instru, func, NULL, NULL,
+                           NULL, NULL, NULL, priority);
+}
+
+DR_EXPORT
+bool
+drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
+                                           drmgr_ilist_ex_cb_t analysis_func,
+                                           drmgr_insertion_cb_t insertion_func,
+                                           drmgr_ilist_ex_cb_t instru2instru_func,
+                                           drmgr_priority_t *priority)
+{
+    bool ok = true;
+    if (app2app_func == NULL || analysis_func == NULL || insertion_func == NULL ||
+        instru2instru_func == NULL || priority == NULL)
+        return false; /* invalid params */
+    ok = drmgr_bb_cb_add(&cblist_app2app, NULL, NULL, NULL, app2app_func,
+                         NULL, NULL, priority) && ok;
+    ok = drmgr_bb_cb_add(&cblist_instrumentation, NULL, NULL, insertion_func,
+                         NULL, analysis_func, NULL, priority) && ok;
+    ok = drmgr_bb_cb_add(&cblist_instru2instru, NULL, NULL, NULL,
+                         NULL, NULL, instru2instru_func, priority) && ok;
+    return ok;
 }
 
 static bool
 drmgr_bb_cb_remove(cb_entry_t **list,
                    drmgr_xform_cb_t xform_func,
-                   drmgr_analysis_cb_t analysis_func)
+                   drmgr_analysis_cb_t analysis_func,
+                   /* for quartet */
+                   drmgr_app2app_ex_cb_t app2app_ex_func,
+                   drmgr_ilist_ex_cb_t analysis_ex_func,
+                   drmgr_ilist_ex_cb_t instru2instru_ex_func)
 {
     bool res = false;
     cb_entry_t *e, *prev_e;
@@ -449,7 +554,12 @@ drmgr_bb_cb_remove(cb_entry_t **list,
 
     for (prev_e = NULL, e = *list; e != NULL; prev_e = e, e = e->next) {
         if ((xform_func != NULL && xform_func == e->cb.xform_cb) ||
-            (analysis_func != NULL && analysis_func == e->cb.pair.analysis_cb))
+            (analysis_func != NULL && analysis_func == e->cb.pair.analysis_cb) ||
+            (app2app_ex_func != NULL && app2app_ex_func == e->cb.app2app_ex_cb) ||
+            (analysis_ex_func != NULL &&
+             analysis_ex_func == e->cb.pair_ex.analysis_ex_cb) ||
+            (instru2instru_ex_func != NULL &&
+             instru2instru_ex_func == e->cb.instru2instru_ex_cb))
             break;
     }
     if (e != NULL) {
@@ -460,8 +570,10 @@ drmgr_bb_cb_remove(cb_entry_t **list,
             prev_e->next = e->next;
         dr_global_free(e, sizeof(*e));
 
-        if (xform_func == NULL)
-            instrulist_count--;
+        if (e->has_quartet)
+            quartet_count--;
+        else if (xform_func == NULL)
+            pair_count--;
 
         bb_event_count--;
         if (bb_event_count == 0)
@@ -498,7 +610,7 @@ drmgr_unregister_bb_app2app_event(drmgr_xform_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_app2app, func, NULL);
+    return drmgr_bb_cb_remove(&cblist_app2app, func, NULL, NULL, NULL, NULL);
 }
 
 DR_EXPORT
@@ -507,7 +619,7 @@ drmgr_unregister_bb_instrumentation_event(drmgr_analysis_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, func);
+    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, func, NULL, NULL, NULL);
 }
 
 DR_EXPORT
@@ -516,9 +628,28 @@ drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_instru2instru, func, NULL);
+    return drmgr_bb_cb_remove(&cblist_instru2instru, func, NULL, NULL, NULL, NULL);
 }
 
+DR_EXPORT
+bool
+drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
+                                             drmgr_ilist_ex_cb_t analysis_func,
+                                             drmgr_insertion_cb_t insertion_func,
+                                             drmgr_ilist_ex_cb_t instru2instru_func)
+{
+    bool ok = true;
+    if (app2app_func == NULL || analysis_func == NULL || insertion_func == NULL ||
+        instru2instru_func == NULL)
+        return false; /* invalid params */
+    ok = drmgr_bb_cb_remove(&cblist_app2app, NULL, NULL, app2app_func,
+                            NULL, NULL) && ok;
+    ok = drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, NULL,
+                            analysis_func, NULL) && ok;
+    ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL,
+                            NULL, instru2instru_func) && ok;
+    return ok;
+}
 
 /***************************************************************************
  * WRAPPED EVENTS

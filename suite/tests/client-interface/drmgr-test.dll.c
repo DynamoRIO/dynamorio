@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -72,10 +72,24 @@ static dr_emit_flags_t event_bb_insert(void *drcontext, void *tag, instrlist_t *
                                        instr_t *inst, bool for_trace, bool translating,
                                        void *user_data);
 
+static dr_emit_flags_t event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb,
+                                         bool for_trace, bool translating,
+                                         OUT void **user_data);
+static dr_emit_flags_t event_bb4_analysis(void *drcontext, void *tag, instrlist_t *bb,
+                                          bool for_trace, bool translating,
+                                          void *user_data);
+static dr_emit_flags_t event_bb4_insert(void *drcontext, void *tag, instrlist_t *bb,
+                                       instr_t *inst, bool for_trace, bool translating,
+                                       void *user_data);
+static dr_emit_flags_t event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
+                                               bool for_trace, bool translating,
+                                               void *user_data);
+
 DR_EXPORT void 
 dr_init(client_id_t id)
 {
     drmgr_priority_t priority = {sizeof(priority), "drmgr-test", NULL, NULL, 0};
+    drmgr_priority_t priority4 = {sizeof(priority), "drmgr-test4", NULL, NULL, 0};
     bool ok;
 
     drmgr_init();
@@ -87,6 +101,13 @@ dr_init(client_id_t id)
                                                  event_bb_insert,
                                                  &priority);
     CHECK(ok, "drmgr register bb failed");
+
+    /* test data passing among all 4 phases */
+    ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app,
+                                                    event_bb4_analysis,
+                                                    event_bb4_insert,
+                                                    event_bb4_instru2instru,
+                                                    &priority4);
 
     tls_idx = drmgr_register_tls_field();
     CHECK(tls_idx != 1, "drmgr_register_tls_field failed");
@@ -249,4 +270,40 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
     return DR_EMIT_DEFAULT;
 }
 
+/* test data passed among all 4 phases */
+static dr_emit_flags_t
+event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating,
+                  OUT void **user_data)
+{
+    *user_data = (void *) ((ptr_uint_t)tag + 1);
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb4_analysis(void *drcontext, void *tag, instrlist_t *bb,
+                                          bool for_trace, bool translating,
+                                          void *user_data)
+{
+    CHECK(user_data == (void *) ((ptr_uint_t)tag + 1), "user data not preserved");
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb4_insert(void *drcontext, void *tag, instrlist_t *bb,
+                 instr_t *inst, bool for_trace, bool translating,
+                 void *user_data)
+{
+    CHECK(user_data == (void *) ((ptr_uint_t)tag + 1), "user data not preserved");
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
+                        bool for_trace, bool translating,
+                        void *user_data)
+{
+    CHECK(user_data == (void *) ((ptr_uint_t)tag + 1), "user data not preserved");
+    return DR_EMIT_DEFAULT;
+}
 

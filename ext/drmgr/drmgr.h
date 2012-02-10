@@ -99,6 +99,25 @@ typedef dr_emit_flags_t (*drmgr_analysis_cb_t)
      bool for_trace, bool translating, OUT void **user_data);
 
 /**
+ * Callback function for the first stage when using a user data parameter:
+ * app2app transformations on instruction list.
+ */
+typedef drmgr_analysis_cb_t drmgr_app2app_ex_cb_t;
+
+/**
+ * Callback function for the second and last stages when using a user
+ * data parameter for all four: analysis and instru2instru
+ * transformations on the whole instruction list.
+ *
+ * See #dr_emit_flags_t for an explanation of the return value.  If
+ * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
+ * will be stored.
+ */
+typedef dr_emit_flags_t (*drmgr_ilist_ex_cb_t)
+    (void *drcontext, void *tag, instrlist_t *bb,
+     bool for_trace, bool translating, void *user_data);
+
+/**
  * Callback function for the third stage: instrumentation insertion.
  *
  * The \p user_data parameter contains data passed from the second
@@ -313,6 +332,40 @@ DR_EXPORT
 bool
 drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func);
 
+
+DR_EXPORT
+/**
+ * Registers callbacks for all four instrumentation passes at once, with a \p
+ * user_data parameter passed among them all, enabling data sharing for all
+ * four.  See the documentation for drmgr_register_bb_app2app_event(),
+ * drmgr_register_bb_instrumentation_event(), and
+ * drmgr_register_bb_instru2instru_event() for further details of each pass.
+ * The aforemented routines are identical to this with the exception of the
+ * extra \p user_data parameter, which is an OUT parameter to the \p
+ * app2app_func and passed in to the three subsequent callbacks.
+ */
+bool
+drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
+                                           drmgr_ilist_ex_cb_t analysis_func,
+                                           drmgr_insertion_cb_t insertion_func,
+                                           drmgr_ilist_ex_cb_t instru2instru_func,
+                                           drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Unregisters the given four callbacks that
+ * were registered via drmgr_register_bb_instrumentation_ex_event().
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ *
+ * The recommendations for #dr_unregister_bb_event() about when it
+ * is safe to unregister apply here as well.
+ */
+bool
+drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
+                                             drmgr_ilist_ex_cb_t analysis_func,
+                                             drmgr_insertion_cb_t insertion_func,
+                                             drmgr_ilist_ex_cb_t instru2instru_func);
 
 /***************************************************************************
  * TLS
