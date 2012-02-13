@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,18 @@
  * DAMAGE.
  */
 
-#include "tools.h"
+#include "configure.h"
+#if defined(LINUX) || defined(_MSC_VER)
+# include "tools.h"
+#else /* cygwin/mingw */
+# include <windows.h>
+# include <stdio.h>
+# include <assert.h>
+# define print(...) fprintf(stderr, __VA_ARGS__)
+/* we want PE exports so dr_get_proc_addr finds them */
+# define EXPORT __declspec(dllexport)
+# define NOINLINE __declspec(noinline)
+#endif
 
 #ifdef LINUX
 # include "dlfcn.h"
@@ -83,20 +94,23 @@ main(int argc, char **argv)
 {
     int num_calls;
 #ifdef WINDOWS
-    HMODULE lib = LoadLibrary("client.drsyms-test.appdll.dll");
-    if (lib == NULL) {
-        print("error loading library\n");
-    } else {
-        dll_export = (int (*)(int))GetProcAddress(lib, "dll_export");
-    }
+    HMODULE lib;
 #else
     void *lib;
-
+#endif
     /* Get appdll path. */
     if (argc < 2) {
         print("need to pass in appdll path.\n");
         return 1;
     }
+#ifdef WINDOWS
+    lib = LoadLibrary(argv[1]);
+    if (lib == NULL) {
+        print("error loading library %s\n", argv[1]);
+    } else {
+        dll_export = (int (*)(int))GetProcAddress(lib, "dll_export");
+    }
+#else
     lib = dlopen(argv[1], RTLD_LAZY|RTLD_LOCAL);
     dll_export = (int (*)(int))dlsym(lib, "dll_export");
 #endif

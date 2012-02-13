@@ -5236,7 +5236,7 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
     LARGE_INTEGER li_offs;
     li_offs.QuadPart = offs;
 
-    if (copy_on_write) {
+    if (copy_on_write && TEST(MEMPROT_WRITE, prot)) {
         /* Ask for COW for both the section and the view, though we should only
          * need it for the view (except on win98, according to Richter p604)
          */

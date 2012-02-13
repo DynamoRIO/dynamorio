@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,6 +64,11 @@ amounts of stack space.  We have observed usage of 36KB.  This is within
 the default stack size for a DynamoRIO client, but be aware if trying to
 trim the stack size via the DynamoRIO runtime option <tt>-stack_size</tt>
 that anything lower than 36KB is likely to be problematic on Windows.
+
+On Windows, \p drsyms does support Cygwin and MinGW symbols, and will find
+file and line information if in DWARF2 format.  The \p stabs format is not
+supported.  Cygwin and MinGW gcc versions prior to 4.3 use \p stabs by
+default; pass the \p -ggdb flag to request DWARF2.
 
 The \p drsyms library on Linux uses bundled copies of \p libelf, \p libdwarf,
 and \p libelftc built from the

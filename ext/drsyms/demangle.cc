@@ -212,7 +212,7 @@ static void InitState(State *state, const char *mangled,
 
 // Calculates the remaining length of the mangled name.
 static int RemainingLength(State *state) {
-  return state->mangled_end - state->mangled_cur;
+  return (int) (state->mangled_end - state->mangled_cur);
 }
 
 // Returns true and advances "mangled_cur" if we find "c" at
@@ -378,7 +378,7 @@ static void MaybeAppendWithLength(State *state, const char * const str,
 // A convenient wrapper arount MaybeAppendWithLength().
 static bool MaybeAppend(State *state, const char * const str) {
   if (state->append) {
-    int length = StrLen(str);
+    int length = (int) StrLen(str);
     MaybeAppendWithLength(state, str, length);
   }
   return true;

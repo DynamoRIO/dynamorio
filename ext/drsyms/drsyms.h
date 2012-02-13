@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,10 +34,15 @@
 /* DRSyms DynamoRIO Extension 
  *
  * Symbol lookup support (Issue 44).
- * Currently only supports Windows PDB symbols: no Cygwin support or Linux
- * support yet.
+ * Currently supports Windows PDB, ELF symtab, Windows PECOFF, and DWARF on
+ * both Windows and Linux.  No stabs support yet.
+ *
  * This API will eventually support both sideline (via a separate
  * process) and online use.  Today only online use is supported.
+ * Although there are new proposals that do not need sideline and rely
+ * on using pre-populated symbol caches for symbols needed to run correctly
+ * combined with post-processing for symbols only needed for presentation
+ * that are gaining favor, making sideline no longer a certainty.
  */
 
 #ifndef _DRSYMS_H_
@@ -84,10 +89,11 @@ typedef enum {
 typedef enum {
     DRSYM_LEAVE_MANGLED = 0x00,     /**< Do not demangle C++ symbols. */
     /**
-     * Demangle C++ symbols, omitting templates and parameter types.  On Linux,
+     * Demangle C++ symbols, omitting templates and parameter types.
+     * On Linux (DRSYM_ELF_SYMTAB) and Windows non-PDB (DRSYM_PECOFF_SYMTAB),
      * both templates and parameters are collapsed to <> and () respectively.
-     * On Windows, templates are still expanded, and parameters are omitted
-     * without parentheses.
+     * For Windows PDB (DRSYM_PDB), templates are still expanded, and
+     * parameters are omitted without parentheses.
      */
     DRSYM_DEMANGLE      = 0x01,
     /** Demangle template arguments and parameter types. */
@@ -108,6 +114,7 @@ typedef enum {
     DRSYM_ELF_SYMTAB = (1 <<  8), /**< ELF .symtab symbol names. */
     DRSYM_DWARF_LINE = (1 <<  9), /**< DWARF line info. */
     DRSYM_PDB        = (1 << 10), /**< Windows PDB files. */
+    DRSYM_PECOFF_SYMTAB = (1 <<  11), /**< PE COFF (Cygwin or MinGW) symbol table names.*/
 } drsym_debug_kind_t;
 
 /** Data structure that holds symbol information */
@@ -126,7 +133,12 @@ typedef struct _drsym_info_t {
     size_t line_offs;
     /** Output: offset from module base of start of symbol */
     size_t start_offs;
-    /** Output: offset from module base of end of symbol */
+    /**
+     * Output: offset from module base of end of symbol.
+     * \note For DRSYM_PECOFF_SYMTAB (Cygwin or MinGW) symbols, the end offset
+     * is not known precisely.
+     * The start address of the subsequent symbol will be stored here.
+     **/
     size_t end_offs;
     /** Output: type of the debug info available for this module */
     drsym_debug_kind_t debug_kind;
@@ -173,7 +185,7 @@ DR_EXPORT
  * @param[in] modoffs The offset from the base of the module specifying the address
  *   to be queried.
  * @param[in,out] info Information about the symbol at the queried address.
- * @param[in]  flags   Options for the operation.  Ignored on Windows.
+ * @param[in]  flags   Options for the operation.  Ignored for Windows PDB (DRSYM_PDB).
  */
 drsym_error_t
 drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *info /*INOUT*/,
@@ -233,6 +245,9 @@ DR_EXPORT
  * dispose \p buf to free them.  Returns DRSYM_ERROR_NOMEM if the buffer is not
  * big enough.
  *
+ * \note This function is currently implemented only for Windows PDB
+ * symbols (DRSYM_PDB).
+ *
  * @param[in] modpath    The full path to the module to be queried.
  * @param[in] modoffs    The offset from the base of the module specifying
  *                       the start address of the function.
@@ -249,8 +264,9 @@ DR_EXPORT
 /**
  * Retrieves the address for a given symbol name.
  *
- * On Windows, we don't support the DRSYM_DEMANGLE_FULL flag.  Also on Windows,
- * if DRSYM_DEMANGLE is set, \p symbol must include the template arguments.
+ * For Windows PDB symbols (DRSYM_PDB), we don't support the
+ * DRSYM_DEMANGLE_FULL flag.  Also for Windows PDB, if DRSYM_DEMANGLE is
+ * set, \p symbol must include the template arguments.
  *
  * @param[in] modpath The full path to the module to be queried.
  * @param[in] symbol The name of the symbol being queried.
@@ -258,7 +274,7 @@ DR_EXPORT
  *   string to look up.
  * @param[out] modoffs The offset from the base of the module specifying the address
  *   of the specified symbol.
- * @param[in]  flags   Options for the operation.  Ignored on Windows.
+ * @param[in]  flags   Options for the operation.  Ignored for Window PDB (DRSYM_PDB).
  */
 drsym_error_t
 drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs /*OUT*/,
@@ -284,7 +300,7 @@ DR_EXPORT
  * @param[in] modpath   The full path to the module to be queried.
  * @param[in] callback  Function to call for each symbol found.
  * @param[in] data      User parameter passed to callback.
- * @param[in] flags     Options for the operation.  Ignored on Windows.
+ * @param[in] flags     Options for the operation.  Ignored for Windows PDB (DRSYM_PDB).
  */
 drsym_error_t
 drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data,
@@ -296,12 +312,20 @@ DR_EXPORT
  * If the unmangled name requires more than \p dst_sz bytes, it is truncated and
  * null-terminated to fit into \p dst.  If the unmangling fails, \p symbol is
  * copied as-is into \p dst, and truncated and null-terminated to fit.
- * Returns zero if the name could not be unmangled, and the number of characters
- * required to store the name if it succeeded.  If there was overflow, the
- * return value may be an estimate of the required size, so a second attempt
- * with the return value is not guaranteed to be successful.  If the caller
- * needs the full name, they may need to make multiple attempts with a larger
- * buffer.
+ * Returns zero if the name could not be unmangled; else returns the number of
+ * characters in the unmangled name, including the terminating null.
+ *
+ * If the unmangling is successful but \p dst is too small to hold it, returns
+ * the number of characters required to store the name, including the
+ * terminating null, just as in a successful case.  On Linux or for Windows PDB,
+ * \p symbol is copied as-is into \p dst just like for unmangling failure; for
+ * Windows PECOFF, the unmangled name is copied, truncated to fit, and
+ * null-terminated.
+ *
+ * If there was overflow, the return value may be an estimate of the required
+ * size, so a second attempt with the return value is not guaranteed to be
+ * successful.  If the caller needs the full name, they may need to make
+ * multiple attempts with a larger buffer.
  *
  * @param[out] dst      Output buffer for demangled name.
  * @param[in]  dst_sz   Size of the output buffer in bytes.
@@ -330,6 +354,8 @@ DR_EXPORT
  * Enumerates all symbol information matching a pattern for a given module.
  * Calls the given callback function for each matching symbol.
  * If the callback returns false, the enumeration will end.
+ *
+ * This routine is only supported for PDB symbols (DRSYM_PDB).
  *
  * \note drsym_search_symbols() with full=false is significantly
  * faster and uses less memory than drsym_enumerate_symbols(), and is

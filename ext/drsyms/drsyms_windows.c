@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -94,8 +94,17 @@ typedef BOOL (__stdcall *func_SymSearch_t)
 # define SYMSEARCH_ALLITEMS 0x08
 #endif
 
+typedef struct _mod_entry_t {
+    /* whether to use pecoff table + unix-style debug info, or use dbghelp */
+    bool use_pecoff_symtable;
+    union {
+        void *pecoff_data;
+        DWORD64 load_base; /* for dbghelp */
+    } u;
+} mod_entry_t;
+
 /* All dbghelp routines are un-synchronized so we provide our own synch */
-void *symbol_lock;
+static void *symbol_lock;
 
 /* Hashtable for mapping module paths to addresses */
 #define MODTABLE_HASH_BITS 8
@@ -122,7 +131,12 @@ demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags);
 static void
 modtable_entry_free(void *p)
 {
-    unload_module(GetCurrentProcess(), (DWORD64)p);
+    mod_entry_t *mod = (mod_entry_t *) p;
+    if (mod->use_pecoff_symtable)
+        drsym_unix_unload(mod->u.pecoff_data);
+    else
+        unload_module(GetCurrentProcess(), mod->u.load_base);
+    dr_global_free(mod, sizeof(*mod));
 }
 
 DR_EXPORT
@@ -157,6 +171,9 @@ drsym_init(const wchar_t *shmid_in)
             return DRSYM_ERROR;
         }
     }
+
+    drsym_unix_init();
+
     return DRSYM_SUCCESS;
 }
 
@@ -173,6 +190,7 @@ drsym_exit(void)
         }
     }
     dr_recurlock_destroy(symbol_lock);
+
     return res;
 }
 
@@ -286,18 +304,29 @@ unload_module(HANDLE proc, DWORD64 base)
     }
 }
 
-static DWORD64
+static mod_entry_t *
 lookup_or_load(const char *modpath)
 {
-    DWORD64 base = (DWORD64) hashtable_lookup(&modtable, (void *)modpath);
-    if (base == 0) {
-        base = load_module(GetCurrentProcess(), modpath);
-        if (base != 0) {
-            /* See comment at top of file about truncation of base being ok */
-            hashtable_add(&modtable, (void *)modpath, (void *)(ptr_uint_t)base);
+    mod_entry_t *mod = (mod_entry_t *) hashtable_lookup(&modtable, (void *)modpath);
+    if (mod == NULL) {
+        mod = dr_global_alloc(sizeof(*mod));
+        memset(mod, 0, sizeof(*mod));
+        /* First, see whether the module has pecoff symbols */
+        mod->u.pecoff_data = drsym_unix_load(modpath);
+        if (mod->u.pecoff_data == NULL) {
+            /* If no pecoff, use dbghelp */
+            mod->use_pecoff_symtable = false;
+            mod->u.load_base = load_module(GetCurrentProcess(), modpath);
+            if (mod->u.load_base == 0) {
+                dr_global_free(mod, sizeof(*mod));
+                return NULL;
+            }
+        } else {
+            mod->use_pecoff_symtable = true;
         }
+        hashtable_add(&modtable, (void *)modpath, (void *)mod);
     }
-    return base;
+    return mod;
 }
 
 enum {
@@ -327,6 +356,7 @@ static drsym_error_t
 drsym_lookup_address_local(const char *modpath, size_t modoffs,
                            drsym_info_t *out INOUT, uint flags)
 {
+    mod_entry_t *mod;
     DWORD64 base;
     DWORD64 disp;
     IMAGEHLP_LINE64 line;
@@ -341,12 +371,19 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
         return DRSYM_ERROR_INVALID_SIZE;
 
     dr_recurlock_lock(symbol_lock);
-    base = lookup_or_load(modpath);
-    if (base == 0) {
+    mod = lookup_or_load(modpath);
+    if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
     }
+    if (mod->use_pecoff_symtable) {
+        drsym_error_t symerr =
+            drsym_unix_lookup_address(mod->u.pecoff_data, modoffs, out, flags);
+        dr_recurlock_unlock(symbol_lock);
+        return symerr;
+    }
 
+    base = mod->u.load_base;
     info = alloc_symbol_info(dc);
     if (SymFromAddr(GetCurrentProcess(), base + modoffs, &disp, info)) {
         out->start_offs = (size_t) (info->Address - base);
@@ -389,7 +426,7 @@ static drsym_error_t
 drsym_lookup_symbol_local(const char *modpath, const char *symbol,
                           size_t *modoffs OUT, uint flags)
 {
-    DWORD64 base;
+    mod_entry_t *mod;
     drsym_error_t r;
     void *dc = dr_get_current_drcontext();
     PSYMBOL_INFO info;
@@ -398,10 +435,16 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    base = lookup_or_load(modpath);
-    if (base == 0) {
+    mod = lookup_or_load(modpath);
+    if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
+    }
+    if (mod->use_pecoff_symtable) {
+        drsym_error_t symerr =
+            drsym_unix_lookup_symbol(mod->u.pecoff_data, symbol, modoffs, flags);
+        dr_recurlock_unlock(symbol_lock);
+        return symerr;
     }
 
     /* the only thing identifying the target module is the symbol name,
@@ -410,7 +453,7 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
     info = alloc_symbol_info(dc);
     if (SymFromName(GetCurrentProcess(), (char *)symbol, info)) {
         NOTIFY("0x%I64x\n", info->Address);
-        *modoffs = (size_t) (info->Address - base);
+        *modoffs = (size_t) (info->Address - mod->u.load_base);
         r = DRSYM_SUCCESS;
     } else {
         NOTIFY("SymFromName error %d %s\n", GetLastError(), symbol);
@@ -442,25 +485,30 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
                               drsym_enumerate_cb callback, void *data,
                               uint flags)
 {
-    DWORD64 base;
+    mod_entry_t *mod;
     enum_info_t info;
 
     if (modpath == NULL || callback == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    base = lookup_or_load(modpath);
-
-    if (base == 0) {
+    mod = lookup_or_load(modpath);
+    if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
+    }
+    if (mod->use_pecoff_symtable) {
+        drsym_error_t symerr =
+            drsym_unix_enumerate_symbols(mod->u.pecoff_data, callback, data, flags);
+        dr_recurlock_unlock(symbol_lock);
+        return symerr;
     }
 
     info.cb = callback;
     info.data = data;
-    info.base = base;
+    info.base = mod->u.load_base;
     info.found_match = false;
-    if (!SymEnumSymbols(GetCurrentProcess(), base, match, enum_cb,
+    if (!SymEnumSymbols(GetCurrentProcess(), mod->u.load_base, match, enum_cb,
                         (PVOID) &info)) {
         NOTIFY("SymEnumSymbols error %d\n", GetLastError());
     }
@@ -478,7 +526,7 @@ static drsym_error_t
 drsym_search_symbols_local(const char *modpath, const char *match, bool full,
                            drsym_enumerate_cb callback, void *data)
 {
-    DWORD64 base;
+    mod_entry_t *mod;
     drsym_error_t res = DRSYM_SUCCESS;
     /* dbghelp.dll 6.3+ is required for SymSearch, but the VS2005sp1
      * headers and lib have only 6.1, so we dynamically look it up
@@ -489,34 +537,34 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    if (func == NULL) {
-        /* if we fail to find it we'll pay the lookup cost every time,
-         * but if we succeed we'll cache it
-         */
-        HMODULE hmod = GetModuleHandle("dbghelp.dll");
-        if (hmod == NULL) {
-            dr_recurlock_unlock(symbol_lock);
-            /* fall back to slower enum */
-            return drsym_enumerate_symbols_local(modpath, match, callback,
-                                                 data, DRSYM_DEFAULT_FLAGS);
-        }
-        func = (func_SymSearch_t) GetProcAddress(hmod, "SymSearch");
-        if (func == NULL) {
-            dr_recurlock_unlock(symbol_lock);
-            /* fall back to slower enum */
-            return drsym_enumerate_symbols_local(modpath, match, callback,
-                                                 data, DRSYM_DEFAULT_FLAGS);
-        }
-    }
-    base = lookup_or_load(modpath);
-    if (base == 0)
+    mod = lookup_or_load(modpath);
+    if (mod == NULL)
         res = DRSYM_ERROR_LOAD_FAILED;
+    else if (mod->use_pecoff_symtable)
+        /* pecoff doesn't support search, and the enumerate impl in
+         * drsyms_unix.c doesn't take a pattern
+         */
+        res = DRSYM_ERROR_NOT_IMPLEMENTED;
     else {
         enum_info_t info;
+        if (func == NULL) {
+            /* if we fail to find it we'll pay the lookup cost every time,
+             * but if we succeed we'll cache it
+             */
+            HMODULE hmod = GetModuleHandle("dbghelp.dll");
+            if (hmod != NULL)
+                func = (func_SymSearch_t) GetProcAddress(hmod, "SymSearch");
+            if (func == NULL) {
+                dr_recurlock_unlock(symbol_lock);
+                /* fall back to slower enum */
+                return drsym_enumerate_symbols_local(modpath, match, callback,
+                                                     data, DRSYM_DEFAULT_FLAGS);
+            }
+        }
         info.cb = callback;
         info.data = data;
-        info.base = base;
-        if (!(*func)(GetCurrentProcess(), base, 0, 0, match, 0,
+        info.base = mod->u.load_base;
+        if (!(*func)(GetCurrentProcess(), mod->u.load_base, 0, 0, match, 0,
                      enum_cb, (PVOID) &info,
                      full ? SYMSEARCH_ALLITEMS : 0)) {
             NOTIFY("SymSearch error %d\n", GetLastError());
@@ -849,7 +897,11 @@ drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
 {
     size_t r;
     dr_recurlock_lock(symbol_lock);
-    r = demangle_symbol(dst, dst_sz, mangled, flags);
+    /* Assume dbghelp is what we want unless it's Itanium "_Z" style */
+    if (mangled[0] == '_' && mangled[1] == 'Z')
+        r = drsym_unix_demangle_symbol(dst, dst_sz, mangled, flags);
+    else
+        r = demangle_symbol(dst, dst_sz, mangled, flags);
     dr_recurlock_unlock(symbol_lock);
     return r;
 }
@@ -859,7 +911,7 @@ drsym_error_t
 drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
                     size_t buf_sz, drsym_func_type_t **func_type OUT)
 {
-    DWORD64 base;
+    mod_entry_t *mod;
     ULONG type_index;
     mempool_t pool;
     drsym_error_t r;
@@ -870,10 +922,17 @@ drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    base = lookup_or_load(modpath);
-    if (base == 0) {
+    mod = lookup_or_load(modpath);
+    if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
+    }
+    if (mod->use_pecoff_symtable) {
+        drsym_error_t symerr =
+            drsym_unix_get_func_type(mod->u.pecoff_data, modoffs, buf, buf_sz,
+                                       func_type);
+        dr_recurlock_unlock(symbol_lock);
+        return symerr;
     }
 
     /* XXX: For a perf boost, we could expose the concept of a
@@ -885,7 +944,7 @@ drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
      * lookup.
      */
     info = alloc_symbol_info(dc);
-    if (SymFromAddr(GetCurrentProcess(), base + modoffs, NULL, info)) {
+    if (SymFromAddr(GetCurrentProcess(), mod->u.load_base + modoffs, NULL, info)) {
         type_index = info->TypeIndex;
     } else {
         NOTIFY("SymFromAddr error %d\n", GetLastError());
@@ -896,7 +955,7 @@ drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
     free_symbol_info(dc, info);
 
     pool_init(&pool, buf, buf_sz);
-    r = decode_type(&pool, base, type_index, (drsym_type_t**)func_type);
+    r = decode_type(&pool, mod->u.load_base, type_index, (drsym_type_t**)func_type);
     dr_recurlock_unlock(symbol_lock);
 
     if (r == DRSYM_SUCCESS && (*func_type)->type.kind != DRSYM_TYPE_FUNC)
@@ -912,18 +971,20 @@ drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind OUT)
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        DWORD64 base;
+        mod_entry_t *mod;
         drsym_error_t r;
 
         if (modpath == NULL || kind == NULL)
             return DRSYM_ERROR_INVALID_PARAMETER;
 
         dr_recurlock_lock(symbol_lock);
-        base = lookup_or_load(modpath);
-        if (base == 0) {
+        mod = lookup_or_load(modpath);
+        if (mod == NULL) {
             r = DRSYM_ERROR_LOAD_FAILED;
+        } else if (mod->use_pecoff_symtable) {
+            r = drsym_unix_get_module_debug_kind(mod->u.pecoff_data, kind);
         } else {
-            if (query_available(GetCurrentProcess(), base, kind)) {
+            if (query_available(GetCurrentProcess(), mod->u.load_base, kind)) {
                 r = DRSYM_SUCCESS;
             } else {
                 r = DRSYM_ERROR;

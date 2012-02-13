@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,16 @@
  * DAMAGE.
  */
 
-#include "tools.h"
+#include "configure.h"
+#if defined(LINUX) || defined(_MSC_VER)
+# include "tools.h"
+#else /* cygwin/mingw */
+# include <windows.h>
+# define print(...) fprintf(stderr, __VA_ARGS__)
+/* we want PE exports so dr_get_proc_addr finds them */
+# define EXPORT __declspec(dllexport)
+# define NOINLINE __declspec(noinline)
+#endif
 
 NOINLINE void
 stack_trace(void)

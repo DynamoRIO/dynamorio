@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -33,27 +33,34 @@ cmake_minimum_required(VERSION 2.6)
 
 # symbol access library
 
+if (X64)
+  set(BITS "64")
+else ()
+  set(BITS "32")
+endif ()
+
 if (WIN32)
-  add_library(drsyms SHARED drsyms_windows.c drsyms_common.c)
+  add_library(drsyms SHARED
+    drsyms_windows.c drsyms_unix.c drsyms_pecoff.c
+    drsyms_dwarf.c demangle.cc drsyms_common.c)
   # while private loader means preferred base is not required, more efficient
   # to avoid rebase so we avoid conflict w/ client and other exts
   set(PREFERRED_BASE 0x76000000)
   configure_DynamoRIO_client(drsyms)
-  target_link_libraries(drsyms dbghelp)
+  target_link_libraries(drsyms dbghelp
+    "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-pecoff/lib${BITS}/dwarf.lib"
+    "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-pecoff/lib${BITS}/elftc.lib")
 elseif (UNIX)
-  add_library(drsyms SHARED drsyms_linux.c demangle.cc drsyms_common.c)
+  add_library(drsyms SHARED
+    drsyms_linux.c drsyms_unix.c drsyms_elf.c
+    drsyms_dwarf.c demangle.cc drsyms_common.c)
   configure_DynamoRIO_client(drsyms)
-  if (X64)
-    set(BITS "64")
-  else ()
-    set(BITS "32")
-  endif ()
   target_link_libraries(drsyms
     "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelf.a"
     "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libdwarf.a"
     "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelftc.a")
-  include_directories("${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/include")
 endif ()
+include_directories("${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/include")
 
 use_DynamoRIO_extension(drsyms drcontainers)
 
@@ -63,6 +70,9 @@ add_dependencies(drsyms api_headers)
 add_executable(drsyms_bench drsyms_bench.c)
 configure_DynamoRIO_standalone(drsyms_bench)
 use_DynamoRIO_extension(drsyms_bench drsyms)
+# we don't want drsyms_bench installed so we avoid the standard location
+set_target_properties(drsyms_bench PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/ext")
 
 if (WIN32 AND GENERATE_PDBS)
   # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?

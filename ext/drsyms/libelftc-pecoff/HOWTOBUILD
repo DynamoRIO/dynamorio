@@ -1,0 +1,61 @@
+HOW TO BUILD ELFTC.LIB AND DWARF.LIB FOR PECOFF
+by Derek Bruening
+
+To build, you will need a Cygwin installation, as I use Cygwin m4 and point
+at certain Cygwin header files.
+
+Note that if you build with VS2008, you will break the VS2005 build as the
+VS2008 pdb is not supported by VS2005.
+
+I never did set up the Makefile properly or set up CMake.
+
+My build commands are for a Cygwin shell (I'm using bash syntax) with its
+environment set up for invoking "cl" and "lib" directly.
+
+1) Check out the subversion sources.  My patch was tested on r2311.
+Later I updated the patch for r2396.
+
+svn checkout http://elftoolchain.svn.sourceforge.net/svnroot/elftoolchain/trunk
+
+2) Apply the patch
+
+cd trunk
+patch -p0 < ~/dr/git/src/ext/drsyms/libelftc-pecoff/libelftc-pecoff.patch
+
+3) Update Cygwin location, if not "c:/cygwin"
+
+perl -pi -e 's|c:/cygwin|f:/cygwin|' common/ar.h common/sys/param.h common/sys/queue.h 
+
+4) Build libdwarf/dwarf.{lib,pdb}:
+
+cd libdwarf/
+m4 -D SRCDIR=$PWD dwarf_funcs.m4 > dwarf_funcs.c
+m4 -D SRCDIR=$PWD dwarf_pro_funcs.m4 > dwarf_pro_funcs.c
+m4 -D SRCDIR=$PWD dwarf_pro_pubnames.m4 > dwarf_pro_pubnames.c
+m4 -D SRCDIR=$PWD dwarf_pro_types.m4 > dwarf_pro_types.c
+m4 -D SRCDIR=$PWD dwarf_pro_vars.m4 > dwarf_pro_vars.c
+m4 -D SRCDIR=$PWD dwarf_pro_weaks.m4 > dwarf_pro_weaks.c
+m4 -D SRCDIR=$PWD dwarf_pubnames.m4 > dwarf_pubnames.c
+m4 -D SRCDIR=$PWD dwarf_pubtypes.m4 > dwarf_pubtypes.c
+m4 -D SRCDIR=$PWD dwarf_types.m4 > dwarf_types.c
+m4 -D SRCDIR=$PWD dwarf_vars.m4 > dwarf_vars.c
+m4 -D SRCDIR=$PWD dwarf_weaks.m4 > dwarf_weaks.c
+for i in `ls -1 *.c | grep -vE 'libdwarf_elf'`; do cl /nologo /Zi /Fddwarf.pdb /O2 /MT /I. -I../common -I../libelf /c $i || break; done
+lib /out:dwarf.lib /name:dwarf *.obj
+cd ..
+
+5) Build libelftc/elftc.{lib,pdb}:
+
+cd libelftc/
+for i in *.c; do cl /nologo /Zi /Fdelftc.pdb /O2 /MT /I. -I../common -I../libelf /c $i || break; done
+lib /out:elftc.lib /name:elftc *.obj
+cd ..
+
+6) Copy out the static libraries and pdbs
+
+cp libdwarf/dwarf.{lib,pdb} libelftc/elftc.{lib,pdb} ~/dr/git/src/ext/drsyms/libelftc-pecoff/lib32/
+
+7) Repeat for 64-bit: just change the environment to use 64-bit cl and lib,
+remove all the prior .{obj,lib,pdb} files (or make new dirs), and copy the
+results to lib64/
+

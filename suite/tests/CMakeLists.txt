@@ -231,6 +231,12 @@ if (WIN32)
   endif (NOT BIND_EXECUTABLE)
   message(STATUS "Found bind.exe: ${BIND_EXECUTABLE}")
   mark_as_advanced(BIND_EXECUTABLE)
+
+  # if cygwin or mingw gcc is available, we do some extra tests
+  find_program(GCC gcc.exe DOC "path to gcc.exe")
+  if (NOT GCC)
+    message(STATUS "gcc not found: some Windows tests will be disabled")
+  endif (NOT GCC)
 else (WIN32)
   # i#215: if chcon exists then we'll mark tests w/ text relocations to
   # avoid violating selinux policies.  On Ubuntu, chcon is part of coreutils
@@ -580,43 +586,6 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
 
   if (NOT "${source}" MATCHES "\\.runall$")
     add_exe(${test} ${source})
-
-    # support a test with a library
-    get_filename_component(srcpath ${source} ABSOLUTE)
-    string(REGEX REPLACE "\\.(c|cpp)$" ".appdll.\\1" dll_srcpath "${srcpath}")
-    if (EXISTS "${dll_srcpath}")
-      string(REGEX REPLACE "\\.(c|cpp)$" ".appdll.\\1" dll_source "${source}")
-      set(lib_srcs ${dll_source})
-      set_cflags(${dll_source}) # sets srccode var
-      if ("${srccode}" MATCHES "include \"tools\\.h\"")
-        set(lib_srcs ${lib_srcs} ${tools_c} ${tools_asm})
-      endif ()
-      
-      if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
-        # we rely on the asm rule doing preprocessing for us, so we just make
-        # a copy and set the ASM_CODE_ONLY define
-        get_filename_component(srcbase ${dll_srcpath} NAME_WE)
-        set(srcbase "${srcbase}.appdll") # NAME_WE took this off
-        get_filename_component(srcpath_rel ${source} PATH)
-        if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-          set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath_rel}/${srcbase}_asm.obj")
-        else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-          set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath_rel}/${srcbase}_asm.asm")
-        endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-        add_test_asm_tgt("${dll_srcpath}" "${asm_source}")
-        set(lib_srcs ${lib_srcs} ${asm_source})
-        endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
-
-        add_library(${test}.appdll SHARED ${lib_srcs})
-        set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
-        # so far these are all dynamically loaded so we don't bother
-        # with "target_link_libraries(${test} ${test}.appdll)"
-        if ("${srccode}" MATCHES "include \"tools\\.h\"" AND
-            "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-          # for correct parallel builds we need a target
-          add_dependencies(${test}.appdll generate_tools_asm)
-        endif ()
-      endif (EXISTS "${dll_srcpath}")
   endif (NOT "${source}" MATCHES "\\.runall$")
 
   add_library(${test}.dll SHARED ${client_source})
@@ -637,13 +606,67 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
 endfunction(tobuild_ci)
 
-function(torunonly_ci test realtest source client_ops dr_ops exe_ops)
-  get_target_property(client_path ${realtest}.dll LOCATION${location_suffix})
+# adds a library target ${test}.appdll built from ${source}.appdll.c
+function(tobuild_appdll test source)
+  # support a test with a library
+  get_filename_component(srcpath ${source} ABSOLUTE)
+  string(REGEX REPLACE "\\.(c|cpp)$" ".appdll.\\1" dll_srcpath "${srcpath}")
+  if (EXISTS "${dll_srcpath}")
+    string(REGEX REPLACE "\\.(c|cpp)$" ".appdll.\\1" dll_source "${source}")
+    set(lib_srcs ${dll_source})
+    set_cflags(${dll_source}) # sets srccode var
+    if ("${srccode}" MATCHES "include \"tools\\.h\"")
+      set(lib_srcs ${lib_srcs} ${tools_c} ${tools_asm})
+    endif ()
+    
+    if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
+      # we rely on the asm rule doing preprocessing for us, so we just make
+      # a copy and set the ASM_CODE_ONLY define
+      get_filename_component(srcbase ${dll_srcpath} NAME_WE)
+      set(srcbase "${srcbase}.appdll") # NAME_WE took this off
+      get_filename_component(srcpath_rel ${source} PATH)
+      if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+        set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath_rel}/${srcbase}_asm.obj")
+      else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+        set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath_rel}/${srcbase}_asm.asm")
+      endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+      add_test_asm_tgt("${dll_srcpath}" "${asm_source}")
+      set(lib_srcs ${lib_srcs} ${asm_source})
+    endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
+    
+    add_library(${test}.appdll SHARED ${lib_srcs})
+    set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
+    # so far these are all dynamically loaded so we don't bother
+    # with "target_link_libraries(${test} ${test}.appdll)"
+    if ("${srccode}" MATCHES "include \"tools\\.h\"" AND
+        "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+      # for correct parallel builds we need a target
+      add_dependencies(${test}.appdll generate_tools_asm)
+    endif ()
+  endif (EXISTS "${dll_srcpath}")
+endfunction(tobuild_appdll)
+
+function(tobuild_gcc exe source depender extra_args)
+  add_custom_target(target_${exe} DEPENDS ${exe})
+  add_custom_command(OUTPUT ${exe} DEPENDS ${source}
+    COMMAND ${CMAKE_COMMAND}
+    # to work around i#84 be sure to put a space after -D for 1st arg at least
+    ARGS -D exename=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${exe}
+       -D source=${CMAKE_CURRENT_SOURCE_DIR}/${source}
+       -D args=${extra_args}
+       -P ${CMAKE_CURRENT_SOURCE_DIR}/rungcc.cmake
+    VERBATIM # recommended: p260
+    )
+  add_dependencies(${depender} target_${exe})
+endfunction(tobuild_gcc)
+
+function(torunonly_ci test realexe realclient source client_ops dr_ops exe_ops)
+  get_target_property(client_path ${realclient}.dll LOCATION${location_suffix})
 
   # note that b/c of cmake's ridiculous scoping we can't easily share this code
   # w/ tobuild_ci: still have to propagate out of there, so we dup.
   set(testlist_ci ${testlist_ci} ${test} PARENT_SCOPE)
-  set(${test}_realtest ${realtest} PARENT_SCOPE)
+  set(${test}_realtest ${realexe} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
   set(${test}_client_ops ${client_ops} PARENT_SCOPE)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
@@ -1263,6 +1286,7 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.strace client-interface/strace.c "" "" "")
   use_DynamoRIO_extension(client.strace.dll drmgr)
   tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
+  tobuild_appdll(client.thread client-interface/thread.c)
   tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
   tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
@@ -1278,8 +1302,9 @@ if (CLIENT_INTERFACE)
     target_link_libraries(client.drmgr-test ${libpthread})
   endif (UNIX)
 
-  tobuild_ci(client.drwrap-test client-interface/drwrap-test.c
-    "" "" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libclient.drwrap-test.appdll.so")
+  tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
+  get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
+  tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
   use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
   tochcon(client.drwrap-test.appdll textrel_shlib_t)
   if (WIN32)
@@ -1287,14 +1312,31 @@ if (CLIENT_INTERFACE)
     append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
   endif (WIN32)
 
+  tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
+  get_target_property(drsyms_libpath client.drsyms-test.appdll LOCATION${location_suffix})
   tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
-    "-stack_size 36K"
-    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libclient.drsyms-test.appdll.so")
+    "-stack_size 36K" "${drsyms_libpath}")
   # Disable optimizations for the exe and appdll to allow stack tracing.
   disable_optimizations_for_file(client-interface/drsyms-test.cpp)
   disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+
+  if (WIN32 AND GCC AND NOT X64)
+    # test drsyms dwarf-on-windows capabilities.
+    # cmake doesn't support a new compiler so we do a simple build here.
+    # we disable this for X64 b/c there is no 64-bit Cygwin and 64-bit MinGW
+    # is in beta.
+    tobuild_gcc(client.drsyms-testgcc.exe
+      client-interface/drsyms-test.cpp client.drsyms-test "")
+    tobuild_gcc(client.drsyms-testgcc.appdll.dll
+      client-interface/drsyms-test.appdll.cpp client.drsyms-test "-shared")
+    torunonly_ci(client.drsyms-testgcc
+      ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.exe
+      client.drsyms-test client-interface/drsyms-test.cpp "" "-stack_size 36K"
+      "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.appdll.dll")
+    set(client.drsyms-testgcc_expectbase "drsyms-testgcc")
+  endif (WIN32 AND GCC AND NOT X64)
 
   tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
   use_DynamoRIO_extension(client.drutil-test.dll drutil)
@@ -1313,7 +1355,8 @@ if (CLIENT_INTERFACE)
     append_link_flags(client.pcache "/dynamicbase:no")
   endif ()
   set(DynamoRIO_SET_PREFERRED_BASE OFF)
-  torunonly_ci(client.pcache-use client.pcache client-interface/pcache.c "" "-persist" "")
+  torunonly_ci(client.pcache-use client.pcache client.pcache
+    client-interface/pcache.c "" "-persist" "")
   # XXX: we should have the key be the default for the .expect but
   # currently that's not the case (thread-reset, etc.).
   set(client.pcache-use_expectbase "pcache-use")

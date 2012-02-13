@@ -1,10 +1,4 @@
-#ifdef WINDOWS
-found all overloads
-#endif
-#ifdef LINUX
-Failed to unmangle xmlRelaxNGParseImportRefs
-Failed to unmangle xmlRelaxNGParseImportRefs
-#endif
+// no overloads for cygwin syms
 Failed to unmangle _ZN10linked_ptrIN12CrxInstaller14WhitelistEntryEE4copyIS1_EEvPKS_IT_E
 #ifdef WINDOWS
 got correct overflow
@@ -32,4 +26,4 @@ overloaded: 1
 overloaded: 2
 overloaded: 4
 app num_calls: 7
-all done
+// we don't get an "all done" b/c cygwin somehow messes up output

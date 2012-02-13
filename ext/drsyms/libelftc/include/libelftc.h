@@ -29,6 +29,16 @@
 #ifndef	_LIBELFTC_H_
 #define	_LIBELFTC_H_
 
+#ifdef _WIN32
+# ifdef __cplusplus
+#  define __BEGIN_DECLS extern "C" {
+#  define __END_DECLS }
+# else
+#  define __BEGIN_DECLS /* nothing */
+#  define __END_DECLS /* nothing */
+# endif
+#endif
+
 typedef struct _Bfd_Target Bfd_Target;
 
 /* Target types. */

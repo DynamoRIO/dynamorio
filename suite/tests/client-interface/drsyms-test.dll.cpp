@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,12 +47,6 @@
 # pragma warning( disable : 4100 )  /* Unreferenced formal parameter. */
 #endif
 
-#ifdef WINDOWS
-# define EXE_SUFFIX ".exe"
-#else
-# define EXE_SUFFIX
-#endif
-
 static void event_exit(void);
 static void lookup_exe_syms(void);
 static void lookup_dll_syms(void *dc, const module_data_t *dll_data,
@@ -96,13 +90,28 @@ typedef struct _frame_base_t {
 } frame_base_t;
 
 #ifdef WINDOWS
-# define FULL_DEBUG_KIND \
+# define FULL_PDB_DEBUG_KIND \
         (DRSYM_SYMBOLS | DRSYM_LINE_NUMS | DRSYM_PDB)
+# define FULL_PECOFF_DEBUG_KIND \
+        (DRSYM_SYMBOLS | DRSYM_LINE_NUMS | \
+         DRSYM_PECOFF_SYMTAB | DRSYM_DWARF_LINE)
 #else
 # define FULL_DEBUG_KIND \
         (DRSYM_SYMBOLS | DRSYM_LINE_NUMS | \
          DRSYM_ELF_SYMTAB | DRSYM_DWARF_LINE)
 #endif
+
+static bool
+debug_kind_is_full(drsym_debug_kind_t debug_kind)
+{
+    return 
+#ifdef WINDOWS
+        TESTALL(FULL_PDB_DEBUG_KIND, debug_kind) ||
+        TESTALL(FULL_PECOFF_DEBUG_KIND, debug_kind);
+#else
+        TESTALL(FULL_DEBUG_KIND, debug_kind);
+#endif
+}
 
 #define MAX_FUNC_LEN 1024
 /* Take and symbolize a stack trace.  Assumes no frame pointer omission.
@@ -150,13 +159,19 @@ pre_stack_trace(void *wrapcxt, void **user_data)
                                  DRSYM_DEMANGLE);
         dr_free_module_data(mod);
         ASSERT(r == DRSYM_SUCCESS);
-        if (!TESTALL(FULL_DEBUG_KIND, sym_info->debug_kind)) {
+        if (!debug_kind_is_full(sym_info->debug_kind)) {
             dr_fprintf(STDERR, "unexpected debug_kind: %x\n",
                        sym_info->debug_kind);
         }
-        basename = (sym_info->file ?
-                    strrchr(sym_info->file, IF_WINDOWS_ELSE('\\', '/')) :
-                    "/<unknown>");
+        if (sym_info->file == NULL)
+            basename = "/<unknown>";
+        else {
+            basename = strrchr(sym_info->file, IF_WINDOWS_ELSE('\\', '/'));
+#ifdef WINDOWS
+            if (basename == NULL)
+                basename = strrchr(sym_info->file, '/');
+#endif
+        }
         ASSERT(basename != NULL);
         basename++;
         dr_fprintf(STDERR, "%s:%d!%s\n",
@@ -216,7 +231,7 @@ lookup_and_wrap(const char *modpath, app_pc modbase, const char *modname, const
     dr_snprintf(lookup_str, sizeof(lookup_str), "%s!%s", modname, symbol);
     r = drsym_lookup_symbol(modpath, lookup_str, &modoffs, flags);
     if (r != DRSYM_SUCCESS || modoffs == 0) {
-        dr_fprintf(STDERR, "Failed to lookup %s\n", symbol);
+        dr_fprintf(STDERR, "Failed to lookup %s => %d\n", lookup_str, r);
     } else {
         ok = drwrap_wrap(modbase + modoffs, pre_func, post_func);
         ASSERT(ok);
@@ -237,8 +252,18 @@ lookup_exe_syms(void)
     drsym_info_t unused_info;
     drsym_error_t r;
     drsym_debug_kind_t debug_kind;
+    const char *appname = dr_get_application_name();
+    char appbase[MAXIMUM_PATH];
+    size_t len;
 
-    exe_data = dr_lookup_module_by_name("client.drsyms-test" EXE_SUFFIX);
+    len = dr_snprintf(appbase, BUFFER_SIZE_ELEMENTS(appbase), "%s", appname);
+    ASSERT(len > 0);
+#ifdef WINDOWS
+    /* blindly assuming ends in .exe */
+    appbase[strlen(appname) - 4/*subtract .exe*/] = '\0';
+#endif
+
+    exe_data = dr_lookup_module_by_name(appname);
     ASSERT(exe_data != NULL);
     exe_path = exe_data->full_path;
     exe_base = exe_data->start;
@@ -246,23 +271,23 @@ lookup_exe_syms(void)
     /* We expect to have full debug info for this module. */
     r = drsym_get_module_debug_kind(exe_path, &debug_kind);
     ASSERT(r == DRSYM_SUCCESS);
-    if (!TESTALL(FULL_DEBUG_KIND, debug_kind)) {
+    if (!debug_kind_is_full(debug_kind)) {
         dr_fprintf(STDERR, "unexpected debug_kind: %x\n", debug_kind);
     }
 
     exe_export_addr = get_real_proc_addr(exe_data->handle, "exe_export");
-    exe_export_offs = lookup_and_wrap(exe_path, exe_base, "client.drsyms-test",
+    exe_export_offs = lookup_and_wrap(exe_path, exe_base, appbase,
                                       "exe_export", DRSYM_DEFAULT_FLAGS);
     ASSERT(exe_export_addr == exe_base + exe_export_offs);
 
     /* exe_public is a function in the exe we wouldn't be able to find without
      * drsyms and debug info.
      */
-    (void)lookup_and_wrap(exe_path, exe_base, "client.drsyms-test",
+    (void)lookup_and_wrap(exe_path, exe_base, appbase,
                           "exe_public", DRSYM_DEFAULT_FLAGS);
 
     /* Test symbol not found error handling. */
-    r = drsym_lookup_symbol(exe_path, "nonexistant_sym", &exe_public_offs,
+    r = drsym_lookup_symbol(exe_path, "nonexistent_sym", &exe_public_offs,
                             DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_ERROR_SYMBOL_NOT_FOUND);
 
@@ -277,7 +302,8 @@ lookup_exe_syms(void)
     ASSERT(r == DRSYM_ERROR_INVALID_PARAMETER);
 
 #ifdef WINDOWS
-    lookup_overloads(exe_path);
+    if (TEST(DRSYM_PDB, debug_kind)) /* else NYI */
+        lookup_overloads(exe_path);
 #endif
 
     dr_free_module_data(exe_data);
@@ -359,6 +385,9 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     drsym_error_t r;
     bool ok;
     drsym_debug_kind_t debug_kind;
+    const char *dll_name = dr_module_preferred_name(dll_data);
+    char base_name[MAXIMUM_PATH];
+    size_t len;
 
     dll_path = dll_data->full_path;
     dll_base = dll_data->start;
@@ -374,30 +403,40 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     if (!strstr(dll_path, "appdll"))
         return;
 
+    len = dr_snprintf(base_name, BUFFER_SIZE_ELEMENTS(base_name), "%s", dll_name);
+    ASSERT(len > 0);
+#ifdef WINDOWS
+    /* blindly assuming ends in .dll */
+    base_name[strlen(dll_name) - 4/*subtract .dll*/] = '\0';
+#else
+    /* blindly assuming ends in .so */
+    base_name[strlen(dll_name) - 3/*subtract .so*/] = '\0';
+#endif
+
     /* We expect to have full debug info for this module. */
     r = drsym_get_module_debug_kind(dll_path, &debug_kind);
     ASSERT(r == DRSYM_SUCCESS);
-    if (!TESTALL(FULL_DEBUG_KIND, debug_kind)) {
+    if (!debug_kind_is_full(debug_kind)) {
         dr_fprintf(STDERR, "unexpected debug_kind: %x\n", debug_kind);
     }
 
     dll_export_addr = get_real_proc_addr(dll_data->handle, "dll_export");
-    dll_export_offs = lookup_and_wrap(dll_path, dll_base,
-                                      "client.drsyms-test.appdll",
+    dll_export_offs = lookup_and_wrap(dll_path, dll_base, base_name,
                                       "dll_export", DRSYM_DEFAULT_FLAGS);
     ASSERT(dll_export_addr == dll_base + dll_export_offs);
 
     /* dll_public is a function in the dll we wouldn't be able to find without
      * drsyms and debug info.
      */
-    (void)lookup_and_wrap(dll_path, dll_base, "client.drsyms-test.appdll",
+    (void)lookup_and_wrap(dll_path, dll_base, base_name,
                           "dll_public", DRSYM_DEFAULT_FLAGS);
 
     /* stack_trace is a static function in the DLL that we use to get PCs of all
      * the functions we've looked up so far.
      */
-    r = drsym_lookup_symbol(dll_path, "client.drsyms-test.appdll!stack_trace",
-                            &stack_trace_offs, DRSYM_DEFAULT_FLAGS);
+    dr_snprintf(base_name + strlen(base_name),
+                BUFFER_SIZE_ELEMENTS(base_name) - strlen(base_name), "!stack_trace");
+    r = drsym_lookup_symbol(dll_path, base_name, &stack_trace_offs, DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_SUCCESS);
     ok = drwrap_wrap(dll_base + stack_trace_offs, pre_stack_trace, post_func);
     ASSERT(ok);
@@ -414,50 +453,64 @@ static const char *dll_syms[] = {
 };
 
 /* FIXME: We don't support getting mangled or fully demangled symbols on
- * Windows.
+ * Windows PDB.
  */
-static const char *dll_syms_mangled[] = {
-#ifdef WINDOWS
+static const char *dll_syms_mangled_pdb[] = {
     "dll_export",
     "dll_static",
     "dll_public",
     "stack_trace",
-#else
+    NULL
+
+};
+
+static const char *dll_syms_mangled[] = {
     "dll_export",
+    /* x64 MinGW gcc 4.7 matches linux.
+     * XXX: will 32-bit MinGW/Cygwin gcc 4.7 also?  For now leaving as X64.
+     */
+#if defined(LINUX) || defined(X64)
+    /* the L is a GNU extension to the Itanium mangling spec which isn't used
+     * by MinGW 32-bit through 4.6.1
+     */
     "_ZL10dll_statici",
+#else
+    "_Z10dll_statici",
+#endif
     "_Z10dll_publici",
     "_Z11stack_tracev",
-#endif
+    NULL
+};
+
+static const char *dll_syms_short_pdb[] = {
+    "dll_export",
+    "dll_static",
+    "dll_public",
+    "stack_trace",
     NULL
 };
 
 static const char *dll_syms_short[] = {
-#ifdef WINDOWS
-    "dll_export",
-    "dll_static",
-    "dll_public",
-    "stack_trace",
-#else
     "dll_export",
     "dll_static()",
     "dll_public()",
     "stack_trace()",
-#endif
     NULL
 };
 
-static const char *dll_syms_full[] = {
-#ifdef WINDOWS
+static const char *dll_syms_full_pdb[] = {
     "dll_export",
     "dll_static",
     "dll_public",
     "stack_trace",
-#else
+    NULL
+};
+
+static const char *dll_syms_full[] = {
     "dll_export",
     "dll_static(int)",
     "dll_public(int)",
     "stack_trace(void)",
-#endif
     NULL
 };
 
@@ -497,6 +550,9 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
     dll_syms_found_t syms_found;
     drsym_error_t r;
     uint i;
+    drsym_debug_kind_t debug_kind;
+    r = drsym_get_module_debug_kind(dll_path, &debug_kind);
+    ASSERT(r == DRSYM_SUCCESS);
 
     memset(&syms_found, 0, sizeof(syms_found));
     syms_found.syms_expected = syms_expected;
@@ -507,20 +563,22 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
             dr_fprintf(STDERR, "failed to find symbol for %s!\n", dll_syms[i]);
 
 #ifdef WINDOWS
-    /* drsym_search_symbols should find the same symbols with the short
-     * mangling, regardless of the flags used by the previous enumerations.
-     */
-    memset(&syms_found, 0, sizeof(syms_found));
-    syms_found.syms_expected = dll_syms_short;
-    r = drsym_search_symbols(dll_path, "*!*dll_*", false, enum_sym_cb,
-                             &syms_found);
-    ASSERT(r == DRSYM_SUCCESS);
-    r = drsym_search_symbols(dll_path, "*!*stack_trace*", false, enum_sym_cb,
-                             &syms_found);
-    ASSERT(r == DRSYM_SUCCESS);
-    for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++)
-        if (!syms_found.syms_found[i])
-            dr_fprintf(STDERR, "failed to find symbol for %s!\n", dll_syms[i]);
+    if (TEST(DRSYM_PDB, debug_kind)) {
+        /* drsym_search_symbols should find the same symbols with the short
+         * mangling, regardless of the flags used by the previous enumerations.
+         */
+        memset(&syms_found, 0, sizeof(syms_found));
+        syms_found.syms_expected = dll_syms_short_pdb;
+        r = drsym_search_symbols(dll_path, "*!*dll_*", false, enum_sym_cb,
+                                 &syms_found);
+        ASSERT(r == DRSYM_SUCCESS);
+        r = drsym_search_symbols(dll_path, "*!*stack_trace*", false, enum_sym_cb,
+                                 &syms_found);
+        ASSERT(r == DRSYM_SUCCESS);
+        for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++)
+            if (!syms_found.syms_found[i])
+                dr_fprintf(STDERR, "failed to find symbol for %s!\n", dll_syms[i]);
+    }
 #endif
 }
 
@@ -531,13 +589,19 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
 static void
 check_enumerate_dll_syms(const char *dll_path)
 {
+    drsym_debug_kind_t debug_kind;
+    drsym_error_t r = drsym_get_module_debug_kind(dll_path, &debug_kind);
+    ASSERT(r == DRSYM_SUCCESS);
+
     dr_fprintf(STDERR, "enumerating with DRSYM_LEAVE_MANGLED\n");
-    enum_syms_with_flags(dll_path, dll_syms_mangled, DRSYM_LEAVE_MANGLED);
+    enum_syms_with_flags(dll_path, TEST(DRSYM_PDB, debug_kind) ? dll_syms_mangled_pdb :
+                         dll_syms_mangled, DRSYM_LEAVE_MANGLED);
     dr_fprintf(STDERR, "enumerating with DRSYM_DEMANGLE\n");
-    enum_syms_with_flags(dll_path, dll_syms_short,   DRSYM_DEMANGLE);
+    enum_syms_with_flags(dll_path, TEST(DRSYM_PDB, debug_kind) ? dll_syms_short_pdb :
+                         dll_syms_short,   DRSYM_DEMANGLE);
     dr_fprintf(STDERR, "enumerating with DRSYM_DEMANGLE_FULL\n");
-    enum_syms_with_flags(dll_path, dll_syms_full,    (DRSYM_DEMANGLE|
-                                                      DRSYM_DEMANGLE_FULL));
+    enum_syms_with_flags(dll_path, TEST(DRSYM_PDB, debug_kind) ? dll_syms_full_pdb :
+                         dll_syms_full,    (DRSYM_DEMANGLE|DRSYM_DEMANGLE_FULL));
 }
 
 #ifdef LINUX
@@ -605,8 +669,7 @@ typedef struct {
 /* Table of mangled and unmangled symbols taken as a random sample from a
  * 32-bit Linux Chromium binary.
  */
-static cpp_name_t symbols[] = {
-#ifdef LINUX
+static cpp_name_t symbols_unix[] = {
     {"_ZN4baseL9kDeadTaskE",
      "base::kDeadTask",
      "base::kDeadTask"},
@@ -653,7 +716,10 @@ static cpp_name_t symbols[] = {
     {"_ZNK9__gnu_cxx13new_allocatorISt13_Rb_tree_nodeISt4pairIKiP20RenderWidgetHostViewEEE8max_sizeEv",
      "__gnu_cxx::new_allocator<std::_Rb_tree_node<std::pair<int const, RenderWidgetHostView*> >>::max_size(void) const",
      "__gnu_cxx::new_allocator<>::max_size()"},
-#else
+};
+
+#ifdef WINDOWS
+static cpp_name_t symbols_pdb[] = {
     {"?synchronizeRequiredExtensions@SVGSVGElement@WebCore@@EAEXXZ",
      "WebCore::SVGSVGElement::synchronizeRequiredExtensions(void)",
      "WebCore::SVGSVGElement::synchronizeRequiredExtensions"},
@@ -690,17 +756,17 @@ static cpp_name_t symbols[] = {
     {"?ClassifyInputEvent@ppapi@webkit@@YA?AW4PP_InputEvent_Class@@W4Type@WebInputEvent@WebKit@@@Z",
      "webkit::ppapi::ClassifyInputEvent(enum WebKit::WebInputEvent::Type)",
      "webkit::ppapi::ClassifyInputEvent"},
-#endif
 };
+#endif
 
 static void
-test_demangle(void)
+test_demangle_symbols(cpp_name_t *symbols, size_t symbols_sz)
 {
     char sym_buf[2048];
     unsigned i;
     size_t len;
 
-    for (i = 0; i < BUFFER_SIZE_ELEMENTS(symbols); i += 2) {
+    for (i = 0; i < symbols_sz; i++) {
         cpp_name_t *sym = &symbols[i];
 
         /* Full demangling. */
@@ -745,7 +811,15 @@ test_demangle(void)
             dr_fprintf(STDERR, "retrying with demangle return value failed.\n");
         }
     }
+}
 
+static void
+test_demangle(void)
+{
+    test_demangle_symbols(symbols_unix, BUFFER_SIZE_ELEMENTS(symbols_unix));
+#ifdef WINDOWS
+    test_demangle_symbols(symbols_pdb, BUFFER_SIZE_ELEMENTS(symbols_pdb));
+#endif
     dr_fprintf(STDERR, "finished unmangling.\n");
 }
 

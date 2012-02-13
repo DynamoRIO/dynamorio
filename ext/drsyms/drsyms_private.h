@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,8 @@
 #ifndef DRSYMS_PRIVATE_H
 #define DRSYMS_PRIVATE_H
 
+#include "drsyms.h"
+
 #define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 #define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
@@ -47,7 +49,6 @@
 
 #define IS_SIDELINE (shmid != 0)
 
-#undef NOTIFY /* from DrMem utils.h */
 #define NOTIFY(...) do { \
     if (verbose) { \
         dr_fprintf(STDERR, __VA_ARGS__); \
@@ -87,5 +88,45 @@ void *pool_alloc(mempool_t *pool, size_t sz);
     ((type*)pool_alloc(pool, sizeof(type)))
 #define POOL_ALLOC_SIZE(pool, type, size) \
     ((type*)pool_alloc(pool, (size)))
+
+/***************************************************************************
+ * Cygwin interface from Unix to Windows
+ * For all of these, the caller is responsible for synchronization
+ */
+
+void
+drsym_unix_init(void);
+
+void
+drsym_unix_exit(void);
+
+void *
+drsym_unix_load(const char *modpath);
+
+void
+drsym_unix_unload(void *p);
+
+drsym_error_t
+drsym_unix_lookup_address(void *moddata, size_t modoffs,
+                          drsym_info_t *out INOUT, uint flags);
+
+drsym_error_t
+drsym_unix_lookup_symbol(void *moddata, const char *symbol, size_t *modoffs OUT,
+                         uint flags);
+
+drsym_error_t
+drsym_unix_enumerate_symbols(void *moddata, drsym_enumerate_cb callback, void *data,
+                             uint flags);
+
+size_t
+drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
+                           uint flags);
+
+drsym_error_t
+drsym_unix_get_func_type(void *moddata, size_t modoffs, char *buf,
+                         size_t buf_sz, drsym_func_type_t **func_type OUT);
+
+drsym_error_t
+drsym_unix_get_module_debug_kind(void *moddata, drsym_debug_kind_t *kind OUT);
 
 #endif /* DRSYMS_PRIVATE_H */
