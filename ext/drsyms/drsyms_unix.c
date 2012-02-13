@@ -57,7 +57,7 @@ typedef struct _dbg_module_t {
     size_t map_size;
     void *map_base;
     void *obj_info;
-    Dwarf_Debug dbg;
+    void *dwarf_info;
     drsym_debug_kind_t debug_kind;
     /* Sometimes we need to have both original and debuglink loaded.
      * mod_with_dwarf points at the one w/ DWARF info in that case,
@@ -161,13 +161,16 @@ load_module(const char *modpath)
         } /* else stick with mod */
     }
     if (newmod == NULL) {
+        Dwarf_Debug dbg;
         /* If there is no .gnu_debuglink, initialize parsing. */
         if (!drsym_obj_mod_init_post(mod->obj_info))
             goto error;
-        if (!TEST(DRSYM_DWARF_LINE, mod->debug_kind) ||
-            !drsym_obj_dwarf_init(mod->obj_info, &mod->dbg)) {
+        if (TEST(DRSYM_DWARF_LINE, mod->debug_kind) &&
+            drsym_obj_dwarf_init(mod->obj_info, &dbg)) {
+            mod->dwarf_info = drsym_dwarf_init(dbg);
+        } else {
             NOTIFY("%s: failed to init DWARF for %s\n", __FUNCTION__, modpath);
-            mod->dbg = NULL;
+            mod->dwarf_info = NULL;
         }
     }
 
@@ -247,8 +250,8 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
 static void
 unload_module(dbg_module_t *mod)
 {
-    if (mod->dbg != NULL)
-        dwarf_finish(mod->dbg, NULL);
+    if (mod->dwarf_info != NULL)
+        drsym_dwarf_exit(mod->dwarf_info);
     if (mod->obj_info != NULL)
         drsym_obj_mod_exit(mod->obj_info);
     if (mod->map_base != NULL)
@@ -471,8 +474,9 @@ drsym_unix_lookup_address(void *mod_in, size_t modoffs,
         dbg_module_t *mod4line = mod;
         if (mod->mod_with_dwarf != NULL)
             mod4line = mod->mod_with_dwarf;
-        if (!drsym_dwarf_search_addr2line
-            (mod4line->dbg, (Dwarf_Addr)(ptr_uint_t)
+        if (mod4line->dwarf_info == NULL ||
+            !drsym_dwarf_search_addr2line
+            (mod4line->dwarf_info, (Dwarf_Addr)(ptr_uint_t)
              (drsym_obj_load_base(mod->obj_info) + modoffs), out)) {
             r = DRSYM_ERROR_LINE_NOT_AVAILABLE;
         }

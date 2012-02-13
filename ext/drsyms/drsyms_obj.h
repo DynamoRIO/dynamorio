@@ -92,7 +92,13 @@ drsym_obj_debug_path(void);
  * DWARF
  */
 
+void *
+drsym_dwarf_init(Dwarf_Debug dbg);
+
+void
+drsym_dwarf_exit(void *mod_in);
+
 bool
-drsym_dwarf_search_addr2line(Dwarf_Debug dbg, Dwarf_Addr pc, drsym_info_t *sym_info INOUT);
+drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info INOUT);
 
 #endif /* DRSYMS_ARCH_H */

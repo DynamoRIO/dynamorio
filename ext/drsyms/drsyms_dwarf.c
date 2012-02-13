@@ -41,6 +41,8 @@
 #include "dwarf.h"
 #include "libdwarf.h"
 
+#include <stdlib.h> /* qsort */
+
 /* For debugging */
 static bool verbose = false;
 
@@ -49,6 +51,14 @@ static bool verbose = false;
         dr_fprintf(STDERR, "drsyms: Dwarf error: %s\n", dwarf_errmsg(de)); \
     } \
 } while (0)
+
+typedef struct _dwarf_module_t {
+    Dwarf_Debug dbg;
+    /* we cache the last CU we looked up */
+    Dwarf_Die lines_cu;
+    Dwarf_Line *lines;
+    Dwarf_Signed num_lines;
+} dwarf_module_t;
 
 /******************************************************************************
  * DWARF parsing code.
@@ -131,11 +141,29 @@ find_cu_die(Dwarf_Debug dbg, Dwarf_Addr pc)
     return cu_die;
 }
 
+static int
+compare_lines(const void *a_in, const void *b_in)
+{
+    const Dwarf_Line a = *(const Dwarf_Line *)a_in;
+    const Dwarf_Line b = *(const Dwarf_Line *)b_in;
+    Dwarf_Addr addr_a, addr_b;
+    Dwarf_Error de = {0};
+    if (dwarf_lineaddr(a, &addr_a, &de) != DW_DLV_OK ||
+        dwarf_lineaddr(b, &addr_b, &de) != DW_DLV_OK)
+        return 0;
+    if (addr_a > addr_b)
+        return 1;
+    if (addr_a < addr_b)
+        return -1;
+    return 0;
+}
+
 /* Given a function DIE and a PC, fill out sym_info with line information.
  */
 bool
-drsym_dwarf_search_addr2line(Dwarf_Debug dbg, Dwarf_Addr pc, drsym_info_t *sym_info INOUT)
+drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info INOUT)
 {
+    dwarf_module_t *mod = (dwarf_module_t *) mod_in;
     Dwarf_Error de = {0};
     Dwarf_Die cu_die;
     Dwarf_Line *lines;
@@ -154,15 +182,29 @@ drsym_dwarf_search_addr2line(Dwarf_Debug dbg, Dwarf_Addr pc, drsym_info_t *sym_i
     /* First cut down the search space by finding the CU (ie the .c file) that
      * this function belongs to.
      */
-    cu_die = find_cu_die(dbg, pc);
+    cu_die = find_cu_die(mod->dbg, pc);
     if (cu_die == NULL) {
         NOTIFY("%s: failed to find die for "PFX"\n", __FUNCTION__, pc);
         return false;
     }
 
-    if (dwarf_srclines(cu_die, &lines, &num_lines, &de) != DW_DLV_OK) {
-        NOTIFY_DWARF(de);
-        return false;
+    if (mod->lines_cu == cu_die) {
+        lines = mod->lines;
+        num_lines = mod->num_lines;
+    } else {
+        if (dwarf_srclines(cu_die, &lines, &num_lines, &de) != DW_DLV_OK) {
+            NOTIFY_DWARF(de);
+            return false;
+        }
+        /* XXX: we should fix libelftc to sort as it builds the table but for now
+         * it's easier to sort and store here
+         */
+        qsort(lines, (size_t)num_lines, sizeof(*lines), compare_lines);
+        /* Save for next query */
+        dwarf_srclines_dealloc(mod->dbg, mod->lines, mod->num_lines);
+        mod->lines_cu = cu_die;
+        mod->lines = lines;
+        mod->num_lines = num_lines;
     }
 
     /* We could binary search this, but we assume dwarf_srclines is the
@@ -205,7 +247,26 @@ drsym_dwarf_search_addr2line(Dwarf_Debug dbg, Dwarf_Addr pc, drsym_info_t *sym_i
         }
     }
 
-    dwarf_srclines_dealloc(dbg, lines, num_lines);
     return success;
+}
+
+void *
+drsym_dwarf_init(Dwarf_Debug dbg)
+{
+    dwarf_module_t *mod = (dwarf_module_t *) dr_global_alloc(sizeof(*mod));
+    mod->dbg = dbg;
+    mod->lines_cu = NULL;
+    mod->lines = NULL;
+    return mod;
+}
+
+void
+drsym_dwarf_exit(void *mod_in)
+{
+    dwarf_module_t *mod = (dwarf_module_t *) mod_in;
+    if (mod->lines != NULL)
+        dwarf_srclines_dealloc(mod->dbg, mod->lines, mod->num_lines);
+    dwarf_finish(mod->dbg, NULL);
+    dr_global_free(mod, sizeof(*mod));
 }
 
