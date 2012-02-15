@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -116,7 +116,9 @@ disassemble_set_syntax(dr_disasm_flags_t flags)
  * "  0x00007f859277d63a  48 83 05 4e 63 21 00 add    $0x0000000000000001 <rel> 0x00007f8592993990 -> <rel> 0x00007f8592993990 \n                     01 "
  */
 #define MAX_PC_DIS_SZ    192
- 
+
+#define BYTES_PER_LINE 7
+
 static void
 internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                            dcontext_t *dcontext, instr_t *instr);
@@ -473,14 +475,16 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         postop_suffix());
         break;
     case INSTR_kind:
-        print_to_buffer(buf, bufsz, sofar, "instr_ptr%s", postop_suffix());
+        print_to_buffer(buf, bufsz, sofar, "@"PFX"%s", opnd_get_instr(opnd),
+                        postop_suffix());
         break;
     case FAR_INSTR_kind:
         /* constant is selector and not a SEG_constant */
         print_to_buffer(buf, bufsz, sofar, "0x%04x:"PFX"%s",
                         (ushort)opnd_get_segment_selector(opnd), opnd_get_pc(opnd),
                         postop_suffix());
-        print_to_buffer(buf, bufsz, sofar, "instr_ptr ");
+        print_to_buffer(buf, bufsz, sofar, "@"PFX"%s", opnd_get_instr(opnd),
+                        postop_suffix());
         break;
     case REG_kind:
         reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), "", postop_suffix());
@@ -528,6 +532,67 @@ opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd,
     return sofar;
 }
 
+static int
+print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
+                      byte *pc, byte *next_pc, bool valid)
+{
+    int sz = (int) (next_pc - pc);
+    int i, extra_sz;
+    if (sz > BYTES_PER_LINE) {
+        extra_sz = sz - BYTES_PER_LINE;
+        sz = BYTES_PER_LINE;
+    } else
+        extra_sz = 0;
+    for (i = 0; i < sz; i++)
+        print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + i));
+    if (!valid) {
+        print_to_buffer(buf, bufsz, sofar, "...?? ");
+        sz += 2;
+    }
+    for (i = sz; i < BYTES_PER_LINE; i++)
+        print_to_buffer(buf, bufsz, sofar, "   ");
+    print_to_buffer(buf, bufsz, sofar, " ");
+    return extra_sz;
+}
+
+static void
+print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
+                            byte *pc, byte *next_pc, int extra_sz,
+                            const char *extra_bytes_prefix)
+{
+    int i;
+    if (extra_sz > 0) {
+        print_to_buffer(buf, bufsz, sofar, "%s", extra_bytes_prefix);
+        for (i = 0; i < extra_sz; i++)
+            print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + BYTES_PER_LINE + i));
+        print_to_buffer(buf, bufsz, sofar, "\n");
+    }
+}
+
+static int
+print_bytes_to_file(file_t outfile, byte *pc, byte *next_pc, bool valid)
+{
+    char buf[MAX_PC_DIS_SZ];
+    size_t sofar = 0;
+    int extra_sz = print_bytes_to_buffer(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar,
+                                         pc, next_pc, valid);
+    CLIENT_ASSERT(sofar < BUFFER_SIZE_ELEMENTS(buf) - 1, "internal buffer too small");
+    os_write(outfile, buf, sofar);
+    return extra_sz;
+}
+
+static void
+print_extra_bytes_to_file(file_t outfile, byte *pc, byte *next_pc, int extra_sz,
+                          const char *extra_bytes_prefix)
+{
+    char buf[MAX_PC_DIS_SZ];
+    size_t sofar = 0;
+    print_extra_bytes_to_buffer(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar,
+                                pc, next_pc, extra_sz, extra_bytes_prefix);
+    CLIENT_ASSERT(sofar < BUFFER_SIZE_ELEMENTS(buf) - 1, "internal buffer too small");
+    os_write(outfile, buf, sofar);
+}
+
 /* Disassembles the instruction at pc and prints the result to buf.
  * Returns a pointer to the pc of the next instruction.
  * Returns NULL if the instruction at pc is invalid.
@@ -537,7 +602,7 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                      dcontext_t *dcontext, byte *pc, byte *orig_pc,
                      bool with_pc, bool with_bytes, const char *extra_bytes_prefix)
 {
-    int i, sz = 0, extra_sz = 0;
+    int extra_sz = 0;
     byte * next_pc;
     instr_t instr;
     bool valid = true;
@@ -562,21 +627,8 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         print_to_buffer(buf, bufsz, sofar, "  "PFX" ", orig_pc);
 
     if (with_bytes) {
-        sz = (int) (next_pc - pc);
-        if (sz > 7) {
-            extra_sz = sz - 7;
-            sz = 7;
-        } else
-            extra_sz = 0;
-        for (i = 0; i < sz; i++)
-            print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + i));
-        if (!instr_valid(&instr)) {
-            print_to_buffer(buf, bufsz, sofar, "...?? ");
-            sz += 2;
-        }
-        for (i = sz; i < 7; i++)
-            print_to_buffer(buf, bufsz, sofar, "   ");
-        print_to_buffer(buf, bufsz, sofar, " ");
+        extra_sz = print_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc,
+                                         instr_valid(&instr));
     }
 
     internal_instr_disassemble(buf, bufsz, sofar, dcontext, &instr);
@@ -584,17 +636,11 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     /* XXX: should we give caller control over whether \n or \r\n? */
     print_to_buffer(buf, bufsz, sofar, "\n");
 
-    if (with_bytes) {
-        if (extra_sz > 0) {
-            if (with_pc) {
-                print_to_buffer(buf, bufsz, sofar, IF_X64_ELSE("%21s","%13s")"%s"," ",
-                                extra_bytes_prefix);
-            } else
-                print_to_buffer(buf, bufsz, sofar, "    %s", extra_bytes_prefix);
-            for (i = 0; i < extra_sz; i++)
-                print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + 7 + i));
-            print_to_buffer(buf, bufsz, sofar, "\n");
-        }
+    if (with_bytes && extra_sz > 0) {
+        if (with_pc)
+            print_to_buffer(buf, bufsz, sofar, IF_X64_ELSE("%21s","%13s")," ");
+        print_extra_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc, extra_sz,
+                                    extra_bytes_prefix);
     }
 
     instr_free(dcontext, &instr);
@@ -1392,10 +1438,28 @@ instrlist_disassemble(dcontext_t *dcontext,
         /* Print out individual instructions.  Remember that multiple
          * instructions may be packed into a single instr.
          */
+        if (level > 3) {
+            /* for L4 we want to see instr targets and don't care
+             * as much about raw bytes
+             */
+            int extra_sz;
+            print_file(outfile, " +%-4d L%d @"PFX" ", offs, level, instr);
+            extra_sz = print_bytes_to_file(outfile, addr, addr+len, instr_valid(instr));
+            instr_disassemble(dcontext, instr, outfile);
+            print_file(outfile, "\n");
+            if (extra_sz > 0) {
+                print_file(outfile, IF_X64_ELSE("%30s","%22s"), " " );
+                print_extra_bytes_to_file(outfile, addr, addr+len, extra_sz, "");
+            }
+            offs += len;
+            len = 0; /* skip loop */
+        }
         while (len) {
-            print_file(outfile, " +%-4d L%d ", offs, level);
-            next_addr = internal_disassemble_to_file(dcontext, addr, addr, outfile,
-                                                     false, true, "      ");
+            print_file(outfile, " +%-4d L%d "IF_X64_ELSE("%20s","%12s"),
+                       offs, level, " ");
+            next_addr = internal_disassemble_to_file
+                (dcontext, addr, addr, outfile, false, true,
+                 IF_X64_ELSE("                               ","                       "));
             if (next_addr == NULL)
                 break;
             sz = (int) (next_addr - addr);
