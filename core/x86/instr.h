@@ -2485,9 +2485,22 @@ bool
 instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
                          OUT app_pc *addr, OUT bool *write);
 
+DR_API
+/**
+ * Performs address calculation in the same manner as
+ * instr_compute_address_ex() with additional information
+ * of which opnd is used for address computation returned
+ * in \p pos. If \p pos is NULL, it is the same as 
+ * instr_compute_address_ex().
+ */
+bool
+instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
+                             OUT app_pc *addr, OUT bool *is_write,
+                             OUT uint *pos);
+
 bool
 instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
-                              OUT app_pc *addr, OUT bool *write);
+                              OUT app_pc *addr, OUT bool *write, OUT uint *pos);
 
 DR_API
 /**

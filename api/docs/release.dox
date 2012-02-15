@@ -126,6 +126,8 @@ The changes between version \DR_VERSION and 3.1.0 are:
    dr_register_persist_ro(), dr_register_persist_rx(), 
    dr_register_persist_rw(), dr_register_persist_patch(), and
    #DR_EMIT_PERSISTABLE.
+ - Added instr_compute_address_ex_pos() for instrs with multiple memory
+   operands.
  - Added dr_get_client_base()
  - Added optional direct IR data structure access to improve performance.
    Set DynamoRIO_FAST_IR to enable, and use the macros provided to maintain

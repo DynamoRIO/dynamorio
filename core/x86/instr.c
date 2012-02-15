@@ -3602,7 +3602,8 @@ instr_set_our_mangling(instr_t *instr, bool ours)
  */
 bool
 instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
-                              OUT app_pc *addr, OUT bool *is_write)
+                              OUT app_pc *addr, OUT bool *is_write,
+                              OUT uint *pos)
 {
     /* for string instr, even w/ rep prefix, assume want value at point of
      * register snapshot passed in
@@ -3638,6 +3639,8 @@ instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
         *addr = opnd_compute_address_priv(curop, mc);
     if (is_write != NULL)
         *is_write = write;
+    if (pos != 0)
+        *pos = i;
     return true;
 }
 
@@ -3648,7 +3651,19 @@ instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
 {
     /* only supports GPRs so we ignore mc.size */
     return instr_compute_address_ex_priv(instr, dr_mcontext_as_priv_mcontext(mc),
-                                         index, addr, is_write);
+                                         index, addr, is_write, NULL);
+}
+
+/* i#682: add pos so that the caller knows which opnd is used. */
+DR_API
+bool
+instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
+                             OUT app_pc *addr, OUT bool *is_write,
+                             OUT uint *pos)
+{
+    /* only supports GPRs so we ignore mc.size */
+    return instr_compute_address_ex_priv(instr, dr_mcontext_as_priv_mcontext(mc),
+                                         index, addr, is_write, pos);
 }
 
 /* Returns NULL if none of instr's operands is a memory reference.
@@ -3660,7 +3675,7 @@ app_pc
 instr_compute_address_priv(instr_t *instr, priv_mcontext_t *mc)
 {
     app_pc addr;
-    if (!instr_compute_address_ex_priv(instr, mc, 0, &addr, NULL))
+    if (!instr_compute_address_ex_priv(instr, mc, 0, &addr, NULL, NULL))
         return NULL;
     return addr;
 }

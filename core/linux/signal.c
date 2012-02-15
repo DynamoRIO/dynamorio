@@ -3528,7 +3528,8 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     ASSERT(write != NULL);
     /* i#115/PR 394984: consider all memops */
     for (memopidx = 0;
-         instr_compute_address_ex_priv(&instr, &mc, memopidx, &target, write);
+         instr_compute_address_ex_priv(&instr, &mc, memopidx, 
+                                       &target, write, NULL);
          memopidx++) {
         in_maps = get_memory_info_from_os(target, NULL, NULL, &prot);
         if ((!in_maps || !TEST(MEMPROT_READ, prot)) ||
