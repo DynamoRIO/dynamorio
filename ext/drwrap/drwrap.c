@@ -156,10 +156,12 @@ static hashtable_t call_site_table;
 
 /* Hashtable so we can remember post-call pcs (since
  * post-cti-instrumentation is not supported by DR).
- * Synchronized externally to safeguard the externally-allocated payload.
+ * Synchronized externally to safeguard the externally-allocated payload,
+ * using an rwlock b/c read on every instruction.
  */
 #define POST_CALL_TABLE_HASH_BITS 10
 static hashtable_t post_call_table;
+static void *post_call_rwlock;
 
 typedef struct _post_call_entry_t {
     /* PR 454616: we need two flags in the post_call_table: one that
@@ -193,6 +195,7 @@ static post_call_entry_t *
 post_call_entry_add(app_pc postcall, bool instrumented, bool from_symcache)
 {
     post_call_entry_t *e = (post_call_entry_t *) dr_global_alloc(sizeof(*e));
+    ASSERT(dr_rwlock_self_owns_write_lock(post_call_rwlock), "must hold write lock");
     e->existing_instrumented = false;
     if (!fast_safe_read(postcall - POST_CALL_PRIOR_BYTES_STORED,
                         POST_CALL_PRIOR_BYTES_STORED, e->prior)) {
@@ -229,17 +232,24 @@ post_call_lookup(app_pc pc)
 {
     bool res = false;
     post_call_entry_t *e;
-    hashtable_lock(&post_call_table);
+    dr_rwlock_read_lock(post_call_rwlock);
     e = (post_call_entry_t *) hashtable_lookup(&post_call_table, (void*)pc);
     if (e != NULL) {
         res = post_call_consistent(pc, e);
         if (!res) {
+            /* need the write lock */
+            dr_rwlock_read_unlock(post_call_rwlock);
+            e = NULL; /* no longer safe */
+            dr_rwlock_write_lock(post_call_rwlock);
+            /* might not be found now if racily removed: but that's fine */
             hashtable_remove(&post_call_table, (void *)pc);
+            dr_rwlock_write_unlock(post_call_rwlock);
+            return res;
         } else {
             e->existing_instrumented = true;
         }
     }
-    hashtable_unlock(&post_call_table);
+    dr_rwlock_read_unlock(post_call_rwlock);
     return res;
 }
 
@@ -469,6 +479,7 @@ drwrap_init(void)
     hashtable_init_ex(&post_call_table, POST_CALL_TABLE_HASH_BITS, HASH_INTPTR,
                       false/*!str_dup*/, false/*!synch*/, post_call_entry_free,
                       NULL, NULL);
+    post_call_rwlock = dr_rwlock_create();
     wrap_lock = dr_recurlock_create();
     dr_register_module_unload_event(drwrap_event_module_unload);
     dr_register_delete_event(drwrap_fragment_delete);
@@ -499,6 +510,7 @@ drwrap_exit(void)
     hashtable_delete(&wrap_table);
     hashtable_delete(&call_site_table);
     hashtable_delete(&post_call_table);
+    dr_rwlock_destroy(post_call_rwlock);
     dr_recurlock_destroy(wrap_lock);
     drmgr_exit();
 
@@ -674,7 +686,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
      * know size though but can be pretty sure.
      */
     /* Ensure we have the retaddr instrumented for post-call events */
-    hashtable_lock(&post_call_table);
+    dr_rwlock_write_lock(post_call_rwlock);
     e = (post_call_entry_t *) hashtable_lookup(&post_call_table, (void*)retaddr);
     /* PR 454616: we may have added an entry and started a flush
      * but not finished the flush, so we check not just the entry
@@ -691,7 +703,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
         if (dr_fragment_exists_at(drcontext, (void *)retaddr)) {
             /* I'd use dr_unlink_flush_region but it requires -enable_full_api */
             /* unlock for the flush */
-            hashtable_unlock(&post_call_table);
+            dr_rwlock_write_unlock(post_call_rwlock);
             if (!enabled) {
                 /* We have to continue to instrument post-wrap points
                  * to avoid unbalanced pre vs post hooks, but these flushes
@@ -707,12 +719,12 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
             dr_flush_region(retaddr, 1);
             /* now we are guaranteed no thread is inside the fragment */
             /* another thread may have done a racy competing flush: should be fine */
-            hashtable_lock(&post_call_table);
+            dr_rwlock_read_lock(post_call_rwlock);
             e = (post_call_entry_t *)
                 hashtable_lookup(&post_call_table, (void*)retaddr);
             if (e != NULL) /* selfmod could disappear once have PR 408529 */
                 e->existing_instrumented = true;
-            hashtable_unlock(&post_call_table);
+            dr_rwlock_read_unlock(post_call_rwlock);
             /* Since the flush may remove the fragment we're already in,
              * we have to redirect execution to the callee again.
              */
@@ -722,7 +734,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
         }
         e->existing_instrumented = true;
     }
-    hashtable_unlock(&post_call_table);
+    dr_rwlock_write_unlock(post_call_rwlock);
 }
 
 /* called via clean call at the top of callee */
@@ -749,21 +761,21 @@ drwrap_in_callee(app_pc pc)
     wrap = hashtable_lookup(&wrap_table, (void *)pc);
     if (wrap != NULL) {
         if (wrapcxt.retaddr != NULL) {
-            hashtable_lock(&post_call_table);
+            dr_rwlock_read_lock(post_call_rwlock);
             if (hashtable_lookup(&post_call_table, (void*)wrapcxt.retaddr) == NULL) {
                 bool enabled = wrap->enabled;
                 /* this function may not return: but in that case it will redirect
                  * and we'll come back here to do the wrapping.
                  * release all locks.
                  */
-                hashtable_unlock(&post_call_table);
+                dr_rwlock_read_unlock(post_call_rwlock);
                 dr_recurlock_unlock(wrap_lock);
                 drwrap_mark_retaddr_for_instru(drcontext, pc, &wrapcxt, enabled);
                 /* if we come back, re-lookup */
                 dr_recurlock_lock(wrap_lock);
                 wrap = hashtable_lookup(&wrap_table, (void *)pc);
             } else
-                hashtable_unlock(&post_call_table);
+                dr_rwlock_read_unlock(post_call_rwlock);
         }
     }
 
@@ -1019,7 +1031,10 @@ drwrap_event_module_unload(void *drcontext, const module_data_t *info)
      * changes to app code that's being targeted for wrapping.
      */
     hashtable_remove_range(&call_site_table, (void *)info->start, (void *)info->end);
+
+    dr_rwlock_write_lock(post_call_rwlock);
     hashtable_remove_range(&post_call_table, (void *)info->start, (void *)info->end);
+    dr_rwlock_write_unlock(post_call_rwlock);
 }
 
 static void
