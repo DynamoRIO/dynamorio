@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -117,6 +117,33 @@ typedef struct _per_thread_t {
 } per_thread_t;
 
 /***************************************************************************
+ * UTILITIES
+ */
+
+/* XXX: should DR provide this variant of dr_safe_read?  DrMem uses this too. */
+bool
+fast_safe_read(void *base, size_t size, void *out_buf)
+{
+#ifdef WINDOWS
+    /* For all of our uses, a failure is rare, so we do not want
+     * to pay the cost of the syscall (DrMemi#265).
+     */
+    bool res = true;
+    DR_TRY_EXCEPT(dr_get_current_drcontext(), {
+        memcpy(out_buf, base, size);
+    }, { /* EXCEPT */
+        res = false;
+    });
+    return res;
+#else
+    /* dr_safe_read() uses try/except */
+    size_t bytes_read = 0;
+    return (dr_safe_read(base, size, out_buf, &bytes_read) &&
+            bytes_read == size);
+#endif
+}
+
+/***************************************************************************
  * WRAPPING INSTRUMENTATION TRACKING
  */
 
@@ -140,6 +167,17 @@ typedef struct _post_call_entry_t {
      * existing fragments have instru"
      */
     bool existing_instrumented;
+    /* There seems to be no easy solution to correctly removing from
+     * the table without extra removals from our own non-consistency
+     * flushes: with delayed deletion we can easily have races, and if
+     * conservative we have performance problems where one tag's flush
+     * removes a whole buch of post-call, delayed deletion causes
+     * table removal after re-instrumentation, and then the next
+     * retaddr check causes another flush.
+     * Xref DrMemi#673, DRi#409, DrMemi#114, DrMemi#260.
+     */
+# define POST_CALL_PRIOR_BYTES_STORED 6 /* max normal call size */
+    byte prior[POST_CALL_PRIOR_BYTES_STORED];
 } post_call_entry_t;
 
 static void
@@ -150,6 +188,60 @@ post_call_entry_free(void *v)
     dr_global_free(e, sizeof(*e));
 }
 
+/* caller must hold write lock */
+static post_call_entry_t *
+post_call_entry_add(app_pc postcall, bool instrumented, bool from_symcache)
+{
+    post_call_entry_t *e = (post_call_entry_t *) dr_global_alloc(sizeof(*e));
+    e->existing_instrumented = false;
+    if (!fast_safe_read(postcall - POST_CALL_PRIOR_BYTES_STORED,
+                        POST_CALL_PRIOR_BYTES_STORED, e->prior)) {
+        /* notify client somehow?  we'll carry on and invalidate on next bb */
+        memset(e->prior, 0, sizeof(e->prior));
+    }
+    hashtable_add(&post_call_table, (void*)postcall, (void*)e);
+    return e;
+}
+
+/* caller must hold post_call_rwlock read lock or write lock */
+static bool
+post_call_consistent(app_pc postcall, post_call_entry_t *e)
+{
+    byte cur[POST_CALL_PRIOR_BYTES_STORED];
+    ASSERT(e != NULL, "invalid param");
+    /* i#673: to avoid all the problems w/ invalidating on delete, we instead
+     * invalidate on lookup.  We store the prior 6 bytes which is the call
+     * instruction, which is what we care about.  Note that it's ok for us
+     * to not be 100% accurate b/c we now use stored-esp on
+     * post-call and so make no assumptions about post-call sites.
+     */
+    if (!fast_safe_read(postcall - POST_CALL_PRIOR_BYTES_STORED,
+                        POST_CALL_PRIOR_BYTES_STORED, cur)) {
+        /* notify client somehow? */
+        return false;
+    }
+    return (memcmp(e->prior, cur, POST_CALL_PRIOR_BYTES_STORED) == 0);
+}
+
+/* marks as having instrumentation if it finds the entry */
+static bool
+post_call_lookup(app_pc pc)
+{
+    bool res = false;
+    post_call_entry_t *e;
+    hashtable_lock(&post_call_table);
+    e = (post_call_entry_t *) hashtable_lookup(&post_call_table, (void*)pc);
+    if (e != NULL) {
+        res = post_call_consistent(pc, e);
+        if (!res) {
+            hashtable_remove(&post_call_table, (void *)pc);
+        } else {
+            e->existing_instrumented = true;
+        }
+    }
+    hashtable_unlock(&post_call_table);
+    return res;
+}
 
 /***************************************************************************
  * WRAPPING CONTEXT
@@ -590,9 +682,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
      */
     if (e == NULL || !e->existing_instrumented) {
         if (e == NULL) {
-            e = (post_call_entry_t *) dr_global_alloc(sizeof(*e));
-            e->existing_instrumented = false;
-            hashtable_add(&post_call_table, (void*)retaddr, (void*)e);
+            e = post_call_entry_add(retaddr, false, false);
         }
         /* now that we have an entry in the synchronized post_call_table
          * any new code coming in will be instrumented
@@ -898,7 +988,6 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
 {
     /* XXX: if we had dr_bbs_cross_ctis() query (i#427) we could just check 1st instr */
     wrap_entry_t *wrap;
-    post_call_entry_t *post;
     app_pc pc = instr_get_app_pc(inst);
 
     /* Strategy: we don't bother to look at call sites; we wait for the callee
@@ -913,15 +1002,11 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     }
     dr_recurlock_unlock(wrap_lock);
 
-    hashtable_lock(&post_call_table);
-    post = (post_call_entry_t *) hashtable_lookup(&post_call_table, (void*)pc);
-    if (post != NULL) {
-        post->existing_instrumented = true;
+    if (post_call_lookup(pc)) {
         dr_insert_clean_call(drcontext, bb, inst, (void *)drwrap_after_callee,
                              false, 1,
                              OPND_CREATE_INTPTR((ptr_int_t)pc));
     }
-    hashtable_unlock(&post_call_table);
 
     return DR_EMIT_DEFAULT;
 }
@@ -940,20 +1025,7 @@ drwrap_event_module_unload(void *drcontext, const module_data_t *info)
 static void
 drwrap_fragment_delete(void *dc/*may be NULL*/, void *tag)
 {
-    /* For post_call_table, just like in our use of dr_fragment_exists_at, we
-     * assume no traces and that we only care about fragments starting there.
-     *
-     * XXX: if we had DRi#409 we could avoid doing this removal on
-     * non-cache-consistency deletion: though usually if we remove on our
-     * own flush we should re-mark as post-call w/o another flush since in
-     * most cases the post-call is reached via the call.
-     *
-     * An alternative would be to not remove here, to store the
-     * pre-call bytes, and to check on new bbs whether they changed.
-     */
-    hashtable_lock(&post_call_table);
-    hashtable_remove(&post_call_table, tag);
-    hashtable_unlock(&post_call_table);
+    /* switched to checking consistency at lookup time (DrMemi#673) */
 }
 
 DR_EXPORT
@@ -981,13 +1053,12 @@ drwrap_wrap(app_pc func,
         wrap_entry_t *e;
         /* things will break down w/ duplicate cbs */
         for (e = wrap_cur; e != NULL; e = e->next) {
-            if ((e->pre_cb != NULL && e->pre_cb == pre_func_cb) ||
-                (e->post_cb != NULL && e->post_cb == post_func_cb)) {
+            if (e->pre_cb == pre_func_cb && e->post_cb == post_func_cb) {
                 /* matches existing request: re-enable if necessary */
                 e->enabled = true;
                 dr_global_free(wrap_new, sizeof(*wrap_new));
                 dr_recurlock_unlock(wrap_lock);
-                return false;
+                return true;
             }
         }
         wrap_new->next = wrap_cur;
