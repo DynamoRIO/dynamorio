@@ -22,13 +22,6 @@
  */
 
 /* DynamoRIO Function Wrapping and Replacing Extension
- *
- * Handles tailcalls made via direct jump.
- *
- * XXX: does not handle tailcalls made via indirect jump that are not
- * via a simple address table: so if the containing call and the
- * indirect tailcall target are both wrapped, the indirect post cb
- * will be missed.
  */
 
 #include "dr_api.h"
@@ -194,6 +187,15 @@ typedef struct _post_call_entry_t {
     byte prior[POST_CALL_PRIOR_BYTES_STORED];
 } post_call_entry_t;
 
+/* Support for external post-call caching */
+typedef struct _post_call_notify_t {
+    void (*cb)(app_pc);
+    struct _post_call_notify_t *next;
+} post_call_notify_t;
+
+/* protected by post_call_rwlock */
+post_call_notify_t *post_call_notify_list;
+
 static void
 post_call_entry_free(void *v)
 {
@@ -204,7 +206,7 @@ post_call_entry_free(void *v)
 
 /* caller must hold write lock */
 static post_call_entry_t *
-post_call_entry_add(app_pc postcall, bool instrumented, bool from_symcache)
+post_call_entry_add(app_pc postcall, bool external)
 {
     post_call_entry_t *e = (post_call_entry_t *) dr_global_alloc(sizeof(*e));
     ASSERT(dr_rwlock_self_owns_write_lock(post_call_rwlock), "must hold write lock");
@@ -215,6 +217,13 @@ post_call_entry_add(app_pc postcall, bool instrumented, bool from_symcache)
         memset(e->prior, 0, sizeof(e->prior));
     }
     hashtable_add(&post_call_table, (void*)postcall, (void*)e);
+    if (!external && post_call_notify_list != NULL) {
+        post_call_notify_t *cb = post_call_notify_list;
+        while (cb != NULL) {
+            cb->cb(postcall);
+            cb = cb->next;
+        }
+    }
     return e;
 }
 
@@ -272,6 +281,63 @@ post_call_lookup(app_pc pc)
      */
     dr_rwlock_read_unlock(post_call_rwlock);
     return res;
+}
+
+DR_EXPORT
+bool
+drwrap_register_post_call_notify(void (*cb)(app_pc pc))
+{
+    post_call_notify_t *e;
+    if (cb == NULL)
+        return false;
+    e = dr_global_alloc(sizeof(*e));
+    e->cb = cb;
+    dr_rwlock_write_lock(post_call_rwlock);
+    e->next = post_call_notify_list;
+    post_call_notify_list = e;
+    dr_rwlock_write_unlock(post_call_rwlock);
+    return true;
+}
+
+DR_EXPORT
+bool
+drwrap_unregister_post_call_notify(void (*cb)(app_pc pc))
+{
+    post_call_notify_t *e, *prev_e;
+    bool res;
+    if (cb == NULL)
+        return false;
+    dr_rwlock_write_lock(post_call_rwlock);
+    for (prev_e = NULL, e = post_call_notify_list; e != NULL; prev_e = e, e = e->next) {
+        if (e->cb == cb)
+            break;
+    }
+    if (e != NULL) {
+        if (prev_e == NULL)
+            post_call_notify_list = e->next;
+        else
+            prev_e->next = e->next;
+        dr_global_free(e, sizeof(*e));
+        res = true;
+    } else
+        res = false;
+    dr_rwlock_write_unlock(post_call_rwlock);
+    return res;
+}
+
+DR_EXPORT
+bool
+drwrap_mark_as_post_call(app_pc pc)
+{
+    /* XXX: a tool adding a whole bunch of these would be better off acquiring
+     * the lock just once.  Should we export lock+unlock routines?
+     */
+    if (pc == NULL)
+        return false;
+    dr_rwlock_write_lock(post_call_rwlock);
+    post_call_entry_add(pc, true);
+    dr_rwlock_write_unlock(post_call_rwlock);
+    return true;
 }
 
 /***************************************************************************
@@ -593,6 +659,12 @@ drwrap_exit(void)
     dr_recurlock_destroy(wrap_lock);
     drmgr_exit();
 
+    while (post_call_notify_list != NULL) {
+        post_call_notify_t *tmp = post_call_notify_list->next;
+        dr_global_free(post_call_notify_list, sizeof(*post_call_notify_list));
+        post_call_notify_list = tmp;
+    }
+
     dr_mutex_unlock(exit_lock);
     dr_mutex_destroy(exit_lock);
 }
@@ -789,7 +861,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
      */
     if (e == NULL || !e->existing_instrumented) {
         if (e == NULL) {
-            e = post_call_entry_add(retaddr, false, false);
+            e = post_call_entry_add(retaddr, false);
         }
         /* now that we have an entry in the synchronized post_call_table
          * any new code coming in will be instrumented

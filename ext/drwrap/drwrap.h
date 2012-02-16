@@ -257,6 +257,48 @@ DR_EXPORT
 bool
 drwrap_skip_call(void *wrapcxt, void *retval, size_t stdcall_args_size);
 
+DR_EXPORT
+/**
+ * Registers a callback \p cb to be called every time a new post-call
+ * address is encountered.  The intended use is for tools that want
+ * faster start-up time by avoiding flushes for inserting wrap
+ * instrumentation at post-call sites.  A tool can use this callback
+ * to record all of the post-call addresses to disk, and use
+ * drwrap_mark_as_post_call() during module load of the next
+ * execution.  It is up to the tool to verify that the module has not
+ * changed since its addresses were recorded.
+
+ * \return whether successful.
+ */
+bool
+drwrap_register_post_call_notify(void (*cb)(app_pc pc));
+
+DR_EXPORT
+/**
+ * Unregisters a callback registered with drwrap_register_post_call_notify().
+ * \return whether successful.
+ */
+bool
+drwrap_unregister_post_call_notify(void (*cb)(app_pc pc));
+
+DR_EXPORT
+/**
+ * Records the address \p pc as a post-call address for
+ * instrumentation for post-call function wrapping purposes.
+ *
+ * \note Only call this when the code leading up to \p pc is
+ * legitimate, as that code will be stored for consistency purposes
+ * and the post-call entry will be invalidated if it changes.  This
+ * means that when using this routine for the performance purposes
+ * described in the drwrap_register_post_call_notify() documentation,
+ * the tool should wait for a newly loaded module to be relocated
+ * before calling this routine.  A good approach is to wait for the
+ * first execution of code from the new module.
+ *
+ * \return whether successful.
+ */
+bool
+drwrap_mark_as_post_call(app_pc pc);
 
 /** Values for the flags parameter to drwrap_set_global_flags() */
 typedef enum {
