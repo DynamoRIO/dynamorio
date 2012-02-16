@@ -258,6 +258,39 @@ bool
 drwrap_skip_call(void *wrapcxt, void *retval, size_t stdcall_args_size);
 
 
+/** Values for the flags parameter to drwrap_set_global_flags() */
+typedef enum {
+    /**
+     * By default the return address is read directly.  A more
+     * conservative and safe approach would use a safe read to avoid
+     * crashing when the stack is unsafe to access.  This flag will
+     * cause the return address to be read safely.  If any call to
+     * drwrap_set_global_flags() sets this flag, no later call can
+     * remove it.
+     */
+    DRWRAP_SAFE_READ_RETADDR    = 0x01,
+    /**
+     * By default function arguments stored in memory are read and
+     * written directly.  A more conservative and safe approach would
+     * use a safe read or write to avoid crashing when the stack is
+     * unsafe to access.  This flag will cause all arguments in
+     * memory to be read and written safely.  If any call to
+     * drwrap_set_global_flags() sets this flag, no later call can
+     * remove it.
+     */
+    DRWRAP_SAFE_READ_ARGS       = 0x02,
+} drwrap_flags_t;
+
+DR_EXPORT
+/**
+ * Sets flags that affect the global behavior of the drwrap module.
+ * This can be called at any time and it will affect future behavior.
+ * \return whether the flags were changed.
+ */
+bool
+drwrap_set_global_flags(drwrap_flags_t flags);
+
+
 /*@}*/ /* end doxygen group */
 
 #ifdef __cplusplus

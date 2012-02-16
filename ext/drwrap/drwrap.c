@@ -55,6 +55,9 @@
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
+/* protected by wrap_lock */
+static drwrap_flags_t global_flags;
+
 /***************************************************************************
  * REQUEST TRACKING
  */
@@ -408,7 +411,12 @@ drwrap_get_arg(void *wrapcxt_opaque, int arg)
     reg_t *addr = drwrap_arg_addr(wrapcxt, arg);
     if (addr == NULL)
         return NULL;
-    else
+    else if (TEST(DRWRAP_SAFE_READ_ARGS, global_flags)) {
+        void *arg;
+        if (!fast_safe_read(addr, sizeof(arg), &arg))
+            return NULL;
+        return arg;
+    } else
         return (void *) *addr;
 }
 
@@ -421,12 +429,21 @@ drwrap_set_arg(void *wrapcxt_opaque, int arg, void *val)
     if (addr == NULL)
         return false;
     else {
+        bool in_memory = true;
 #ifdef X64
-        wrapcxt->mc_modified = true;
+        in_memory = !(addr >= (reg_t*)wrapcxt->mc && addr < (reg_t*)(wrapcxt->mc + 1));
+        if (!in_memory)
+            wrapcxt->mc_modified = true;
 #endif
-        *addr = (reg_t) val;
-        return true;
+        if (in_memory && TEST(DRWRAP_SAFE_READ_ARGS, global_flags)) {
+            size_t written;
+            if (!dr_safe_write((void *)addr, sizeof(val), val, &written) ||
+                written != sizeof(val))
+                return false;
+        } else
+            *addr = (reg_t) val;
     }
+    return true;
 }
 
 DR_EXPORT
@@ -620,6 +637,23 @@ drwrap_thread_exit(void *drcontext)
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 
+DR_EXPORT
+bool
+drwrap_set_global_flags(drwrap_flags_t flags)
+{
+    drwrap_flags_t old_flags;
+    bool res;
+    dr_recurlock_lock(wrap_lock);
+    /* if anyone asks for safe, be safe.
+     * since today the only 2 flags ask for safe, we can accomplish that
+     * by simply or-ing in each request.
+     */
+    old_flags = global_flags;
+    global_flags |= flags;
+    res = (global_flags != old_flags);
+    dr_recurlock_unlock(wrap_lock);
+    return res;
+}
 
 /***************************************************************************
  * FUNCTION REPLACING
@@ -727,12 +761,11 @@ static app_pc
 get_retaddr_at_entry(reg_t xsp)
 {
     app_pc retaddr = NULL;
-    size_t read;
-    if (!dr_safe_read((void *)xsp, sizeof(retaddr), &retaddr, &read) ||
-        read != sizeof(retaddr)) {
-        ASSERT(false, "error reading retaddr at func entry");
-        return NULL;
-    }
+    if (TEST(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
+        if (!fast_safe_read((void *)xsp, sizeof(retaddr), &retaddr))
+            return NULL;
+    } else
+        retaddr = *(app_pc*)xsp;
     return retaddr;
 }
 
