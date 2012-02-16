@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -152,6 +152,14 @@ DR_EXPORT
  */
 dr_mcontext_t *
 drwrap_get_mcontext(void *wrapcxt);
+
+DR_EXPORT
+/**
+ * Identical to drwrap_get_mcontext() but only fills in the state
+ * indicated by \p flags.
+ */
+dr_mcontext_t *
+drwrap_get_mcontext_ex(void *wrapcxt, dr_mcontext_flags_t flags);
 
 DR_EXPORT
 /**

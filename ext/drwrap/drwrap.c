@@ -32,10 +32,12 @@
  */
 
 #include "dr_api.h"
+#include "drwrap.h"
 #include "drmgr.h"
 #include "hashtable.h"
 #include "drvector.h"
 #include <string.h>
+#include <stddef.h> /* offsetof */
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user)
@@ -45,6 +47,13 @@
 #else
 # define ASSERT(x, msg) /* nothing */
 #endif
+
+/* check if all bits in mask are set in var */
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
+/* check if any bit in mask is set in var */
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+/* check if a single bit is set in var */
+#define TEST TESTANY
 
 /***************************************************************************
  * REQUEST TRACKING
@@ -249,6 +258,15 @@ post_call_lookup(app_pc pc)
             e->existing_instrumented = true;
         }
     }
+    /* N.B.: we don't need DrMem i#559's storage of postcall points and
+     * check here to see if our postcall was flushed from underneath us,
+     * b/c we use invalidation on bb creation rather than deletion.
+     * So the postcall entry will be removed only if the code changed:
+     * and if it did, we don't want to re-add the entry or instru.
+     * In that case we'll miss the post-hook at the post-call point, but
+     * we'll execute it along w/ the next post-hook b/c of our stored esp.
+     * That seems sufficient.
+     */
     dr_rwlock_read_unlock(post_call_rwlock);
     return res;
 }
@@ -259,6 +277,7 @@ post_call_lookup(app_pc pc)
 
 /* An opaque pointer we pass to callbacks and the user passes back for queries */
 typedef struct _drwrap_context_t {
+    void *drcontext;
     app_pc func;
     dr_mcontext_t *mc;
     app_pc retaddr;
@@ -266,9 +285,10 @@ typedef struct _drwrap_context_t {
 } drwrap_context_t;
 
 static void
-drwrap_context_init(drwrap_context_t *wrapcxt, app_pc func, dr_mcontext_t *mc,
-                    app_pc retaddr)
+drwrap_context_init(void *drcontext, drwrap_context_t *wrapcxt, app_pc func,
+                    dr_mcontext_t *mc, app_pc retaddr)
 {
+    wrapcxt->drcontext = drcontext;
     wrapcxt->func = func;
     wrapcxt->mc = mc;
     wrapcxt->retaddr = retaddr;
@@ -297,12 +317,44 @@ drwrap_get_retaddr(void *wrapcxt_opaque)
 
 DR_EXPORT
 dr_mcontext_t *
-drwrap_get_mcontext(void *wrapcxt_opaque)
+drwrap_get_mcontext_ex(void *wrapcxt_opaque, dr_mcontext_flags_t flags)
 {
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
+    dr_mcontext_t tmp;
     if (wrapcxt == NULL)
         return NULL;
+    flags &= DR_MC_ALL; /* throw away invalid flags */
+    /* lazily fill in info if more is requested than we have so far.
+     * unfortunately, dr_get_mcontext() clobbers what was there, so we
+     * can't just re-get whenever we see a new flag.  the xmm/ymm regs
+     * are the bottleneck, so we just separate that out.
+     */
+    if (!TESTALL(flags, wrapcxt->mc->flags)) {
+        dr_mcontext_flags_t old_flags = wrapcxt->mc->flags;
+        wrapcxt->mc->flags |= flags | DR_MC_INTEGER | DR_MC_CONTROL;
+        if (old_flags == 0) /* nothing to clobber */
+            dr_get_mcontext(wrapcxt->drcontext, wrapcxt->mc);
+        else {
+            ASSERT(TEST(DR_MC_MULTIMEDIA, flags) && !TEST(DR_MC_MULTIMEDIA, old_flags) &&
+                   TESTALL(DR_MC_INTEGER|DR_MC_CONTROL, old_flags), "logic error");
+            /* the pre-ymm is smaller than ymm so we make a temp copy and then
+             * restore afterward.  ugh, too many copies: but should be worth it
+             * for the typical case of not needing multimedia at all and thus
+             * having a faster dr_get_mcontext() call above
+             */
+            memcpy(&tmp, wrapcxt->mc, offsetof(dr_mcontext_t, padding));
+            dr_get_mcontext(wrapcxt->drcontext, wrapcxt->mc);
+            memcpy(wrapcxt->mc, &tmp, offsetof(dr_mcontext_t, padding));
+        }
+    }
     return wrapcxt->mc;
+}
+
+DR_EXPORT
+dr_mcontext_t *
+drwrap_get_mcontext(void *wrapcxt_opaque)
+{
+    return drwrap_get_mcontext_ex(wrapcxt_opaque, DR_MC_ALL);
 }
 
 DR_EXPORT
@@ -322,6 +374,8 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
     if (wrapcxt == NULL || wrapcxt->mc == NULL)
         return NULL;
 #ifdef X64
+    /* ensure we have the info we need. note that we always have xsp. */
+    drwrap_get_mcontext_ex(wrapcxt, DR_MC_INTEGER);
 # ifdef LINUX
     switch (arg) {
     case 0: return &wrapcxt->mc->rdi;
@@ -367,7 +421,9 @@ drwrap_set_arg(void *wrapcxt_opaque, int arg, void *val)
     if (addr == NULL)
         return false;
     else {
+#ifdef X64
         wrapcxt->mc_modified = true;
+#endif
         *addr = (reg_t) val;
         return true;
     }
@@ -380,6 +436,8 @@ drwrap_get_retval(void *wrapcxt_opaque)
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
     if (wrapcxt == NULL || wrapcxt->mc == NULL)
         return NULL;
+    /* ensure we have the info we need */
+    drwrap_get_mcontext_ex(wrapcxt_opaque, DR_MC_INTEGER);
     return (void *) wrapcxt->mc->xax;
 }
 
@@ -390,6 +448,8 @@ drwrap_set_retval(void *wrapcxt_opaque, void *val)
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
     if (wrapcxt == NULL || wrapcxt->mc == NULL)
         return false;
+    /* ensure we have the info we need */
+    drwrap_get_mcontext_ex(wrapcxt_opaque, DR_MC_INTEGER);
     wrapcxt->mc->xax = (reg_t) val;
     wrapcxt->mc_modified = true;
     return true;
@@ -404,6 +464,8 @@ drwrap_skip_call(void *wrapcxt_opaque, void *retval, size_t stdcall_args_size)
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
     if (wrapcxt == NULL || wrapcxt->mc == NULL || wrapcxt->retaddr == NULL)
         return false;
+    /* ensure we have the info we need */
+    drwrap_get_mcontext_ex(wrapcxt_opaque, DR_MC_INTEGER|DR_MC_CONTROL);
     if (!drwrap_set_retval(wrapcxt_opaque, retval))
         return false;
     wrapcxt->mc->xsp += stdcall_args_size + sizeof(void*)/*retaddr*/;
@@ -662,11 +724,11 @@ drwrap_flush_func(app_pc func)
 }
 
 static app_pc
-get_retaddr_at_entry(dr_mcontext_t *mc)
+get_retaddr_at_entry(reg_t xsp)
 {
     app_pc retaddr = NULL;
     size_t read;
-    if (!dr_safe_read((void *)mc->xsp, sizeof(retaddr), &retaddr, &read) ||
+    if (!dr_safe_read((void *)xsp, sizeof(retaddr), &retaddr, &read) ||
         read != sizeof(retaddr)) {
         ASSERT(false, "error reading retaddr at func entry");
         return NULL;
@@ -728,6 +790,8 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
             /* Since the flush may remove the fragment we're already in,
              * we have to redirect execution to the callee again.
              */
+            /* ensure we have DR_MC_ALL */
+            drwrap_get_mcontext_ex((void*)wrapcxt, DR_MC_ALL);
             wrapcxt->mc->xip = pc;
             dr_redirect_execution(wrapcxt->mc);
             ASSERT(false, "dr_redirect_execution should not return");
@@ -739,7 +803,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
 
 /* called via clean call at the top of callee */
 static void
-drwrap_in_callee(app_pc pc)
+drwrap_in_callee(app_pc pc, reg_t xsp)
 {
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
@@ -748,12 +812,14 @@ drwrap_in_callee(app_pc pc)
     uint idx;
     drwrap_context_t wrapcxt;
     mc.size = sizeof(mc);
-    mc.flags = DR_MC_ALL; /* b/c we might call dr_redirect_execution() */
+    /* we use a passed-in xsp to avoid dr_get_mcontext */
+    mc.xsp = xsp;
+    mc.flags = 0; /* if anything else is asked for, lazily initialize */
+
     ASSERT(pc != NULL, "drwrap_in_callee: pc is NULL!");
     ASSERT(pt != NULL, "drwrap_in_callee: pt is NULL!");
 
-    dr_get_mcontext(drcontext, &mc);
-    drwrap_context_init(&wrapcxt, pc, &mc, get_retaddr_at_entry(&mc));
+    drwrap_context_init(drcontext, &wrapcxt, pc, &mc, get_retaddr_at_entry(xsp));
 
     dr_recurlock_lock(wrap_lock);
 
@@ -825,7 +891,8 @@ drwrap_in_callee(app_pc pc)
     dr_recurlock_unlock(wrap_lock);
     if (pt->skip[pt->wrap_level]) {
         /* drwrap_skip_call already adjusted the stack and pc */
-        dr_redirect_execution(wrapcxt.mc);
+        /* ensure we have DR_MC_ALL */
+        dr_redirect_execution(drwrap_get_mcontext_ex((void*)&wrapcxt, DR_MC_ALL));
         ASSERT(false, "dr_redirect_execution should not return");
     }
     if (wrapcxt.mc_modified)
@@ -846,7 +913,7 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
     ASSERT(pc != NULL, "drwrap_after_callee: pc is NULL!");
     ASSERT(pt != NULL, "drwrap_after_callee: pt is NULL!");
 
-    drwrap_context_init(&wrapcxt, pc, mc, retaddr);
+    drwrap_context_init(drcontext, &wrapcxt, pc, mc, retaddr);
 
     if (pt->wrap_level >= MAX_WRAP_NESTING) {
         pt->wrap_level--;
@@ -949,15 +1016,17 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
 
 /* called via clean call at return address(es) of callee */
 static void
-drwrap_after_callee(app_pc retaddr)
+drwrap_after_callee(app_pc retaddr, reg_t xsp)
 {
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     dr_mcontext_t mc;
     mc.size = sizeof(mc);
-    mc.flags = DR_MC_ALL; /* client might examine multimedia regs */
+    /* we use a passed-in xsp to avoid dr_get_mcontext */
+    mc.xsp = xsp;
+    mc.flags = 0; /* if anything else is asked for, lazily initialize */
+
     ASSERT(pt != NULL, "drwrap_after_callee: pt is NULL!");
-    dr_get_mcontext(drcontext, &mc);
 
     if (pt->wrap_level < 0) {
         /* jump or other method of targeting post-call site w/o executing
@@ -1010,14 +1079,18 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     wrap = hashtable_lookup(&wrap_table, (void *)pc);
     if (wrap != NULL) {
         dr_insert_clean_call(drcontext, bb, inst, (void *)drwrap_in_callee,
-                             false, 1, OPND_CREATE_INTPTR((ptr_int_t)pc));
+                             false, 2, OPND_CREATE_INTPTR((ptr_int_t)pc),
+                             /* pass in xsp to avoid dr_get_mcontext */
+                             opnd_create_reg(DR_REG_XSP));
     }
     dr_recurlock_unlock(wrap_lock);
 
     if (post_call_lookup(pc)) {
         dr_insert_clean_call(drcontext, bb, inst, (void *)drwrap_after_callee,
-                             false, 1,
-                             OPND_CREATE_INTPTR((ptr_int_t)pc));
+                             false, 2,
+                             OPND_CREATE_INTPTR((ptr_int_t)pc),
+                             /* pass in xsp to avoid dr_get_mcontext */
+                             opnd_create_reg(DR_REG_XSP));
     }
 
     return DR_EMIT_DEFAULT;
