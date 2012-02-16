@@ -213,7 +213,8 @@ create_nonloop_stringop(void *drcontext, instr_t *inst)
 
 DR_EXPORT
 bool
-drutil_expand_rep_string(void *drcontext, instrlist_t *bb)
+drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT,
+                            instr_t **stringop OUT)
 {
     /* XXX: maybe should add drmgr_is_in_app2app() so can check */
     instr_t *inst, *next_inst;
@@ -244,9 +245,41 @@ drutil_expand_rep_string(void *drcontext, instrlist_t *bb)
     inst = instrlist_first(bb);
     opc = instr_get_opcode(inst);
     if (opc_is_stringop_loop(opc)) {
+        /* A rep string instr does check for 0 up front.  DR limits us
+         * to 1 cbr but drmgr will mark the extras as meta later.  If ecx is uninit
+         * the loop* will catch it so we're ok not instrumenting this.
+         * I would just jecxz to loop, but w/ instru it can't reach so
+         * I have to add yet more internal jmps that will execute each
+         * iter.  We use drmgr's feature of allowing extra non-meta instrs.
+         * Our "mov $1,ecx" will remain non-meta.
+         * Note that we do not want any of the others to have xl8 as its
+         * translation as that could trigger duplicate clean calls from
+         * other passes looking for post-call or other addresses so we use
+         * xl8+1 which will always be mid-instr.  NULL is another possibility,
+         * but it results in meta-may-fault instrs that need a translation
+         * and naturally want to use the app instr's translation.
+         *
+         * So we have:
+         *    rep movs
+         * =>
+         *    jecxz  zero
+         *    jmp    iter
+         *  zero:
+         *    mov    $0x00000001 -> %ecx 
+         *    jmp    pre_loop
+         *  iter:
+         *    movs   %ds:(%esi) %esi %edi -> %es:(%edi) %esi %edi
+         *  pre_loop:
+         *    loop
+         *
+         * XXX: this non-linear code can complicate subsequent
+         * analysis routines.  Perhaps we should consider splitting
+         * into multiple bbs?
+         */
         app_pc xl8 = instr_get_app_pc(inst);
+        app_pc fake_xl8 = xl8 + 1;
         opnd_t xcx = instr_get_dst(inst, instr_num_dsts(inst) - 1);
-        instr_t *loop, *pre_loop, *jecxz, *zero, *iter;
+        instr_t *loop, *pre_loop, *jecxz, *zero, *iter, *string;
         ASSERT(opnd_uses_reg(xcx, DR_REG_XCX), "rep string opnd order mismatch");
         ASSERT(inst == instrlist_last(bb), "repstr not alone in bb");
 
@@ -262,30 +295,22 @@ drutil_expand_rep_string(void *drcontext, instrlist_t *bb)
         }
         iter = INSTR_CREATE_label(drcontext);
 
-        /* A rep string instr does check for 0 up front.  DR limits us
-         * to 1 cbr but drmgr will mark the extras as meta later.  If ecx is uninit
-         * the loop* will catch it so we're ok not instrumenting this.
-         * I would just jecxz to loop, but w/ instru it can't reach so
-         * I have to add yet more internal jmps that will execute each
-         * iter.  Grrr.
-         *
-         * XXX: this non-linear code can complicate subsequent
-         * analysis routines.  Perhaps we should consider splitting
-         * into multiple bbs?
-         */
         jecxz = INSTR_CREATE_jecxz(drcontext, opnd_create_instr(zero));
         /* be sure to match the same counter reg width */
         instr_set_src(jecxz, 1, xcx);
-        PREXL8(bb, inst, INSTR_XL8(jecxz, xl8));
+        PREXL8(bb, inst, INSTR_XL8(jecxz, fake_xl8));
         PREXL8(bb, inst, INSTR_XL8
-               (INSTR_CREATE_jmp_short(drcontext, opnd_create_instr(iter)), xl8));
-        PREXL8(bb, inst, INSTR_XL8(zero, xl8));
+               (INSTR_CREATE_jmp_short(drcontext, opnd_create_instr(iter)), fake_xl8));
+        PREXL8(bb, inst, INSTR_XL8(zero, fake_xl8));
         /* target the instrumentation for the loop, not loop itself */
         PREXL8(bb, inst, INSTR_XL8
-               (INSTR_CREATE_jmp(drcontext, opnd_create_instr(pre_loop)), xl8));
+               (INSTR_CREATE_jmp(drcontext, opnd_create_instr(pre_loop)), fake_xl8));
         PRE(bb, inst, iter);
 
-        PREXL8(bb, inst, INSTR_XL8(create_nonloop_stringop(drcontext, inst), xl8));
+        string = INSTR_XL8(create_nonloop_stringop(drcontext, inst), xl8);
+        if (stringop != NULL)
+            *stringop = string;
+        PREXL8(bb, inst, string);
 
         PRE(bb, inst, pre_loop);
         if (opc == OP_rep_cmps || opc == OP_rep_scas) {
@@ -298,12 +323,23 @@ drutil_expand_rep_string(void *drcontext, instrlist_t *bb)
         /* be sure to match the same counter reg width */
         instr_set_src(loop, 1, xcx);
         instr_set_dst(loop, 0, xcx);
-        PREXL8(bb, inst, INSTR_XL8(loop, xl8));
+        PREXL8(bb, inst, INSTR_XL8(loop, fake_xl8));
 
         /* now throw out the orig instr */
         instrlist_remove(bb, inst);
         instr_destroy(drcontext, inst);
-    }
+
+        if (expanded != NULL)
+            *expanded = true;
+    } else if (expanded != NULL)
+        *expanded = false;
+
     return true;
 }
 
+DR_EXPORT
+bool
+drutil_expand_rep_string(void *drcontext, instrlist_t *bb)
+{
+    return drutil_expand_rep_string_ex(drcontext, bb, NULL, NULL);
+}

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drutil: DynamoRIO Instrumentation Utilities
@@ -103,9 +103,14 @@ DR_EXPORT
  * instructions after the loop) and then exanding it into a
  * multi-instruction loop.
  *
- * WARNING: The added multi-instruction loop contains meta
+ * WARNING: The added multi-instruction loop contains several
  * control-transfer instructions and is not straight-line code, which
  * can complicate subsequent analysis routines.
+ *
+ * WARNING: The added instructions have translations that are in the
+ * middle of the original string loop instruction.  This is to prevent
+ * passes that match exact addresses from having multiple hits and
+ * doing something like inserting 6 clean calls.
  *
  * The client must use the \p drmgr Extension to order its
  * instrumentation in order to use this function.  This function must
@@ -119,6 +124,21 @@ DR_EXPORT
  */
 bool
 drutil_expand_rep_string(void *drcontext, instrlist_t *bb);
+
+DR_EXPORT
+/**
+ * Identical to drutil_expand_rep_string() but returns additional information.
+ *
+ * @param[in]  drcontext   The opaque context
+ * @param[in]  bb          Instruction list passed to the app2app event
+ * @param[out] expanded    Whether any expansion occurred
+ * @param[out] stringop    The string instruction in the expanded loop
+ *
+ * \return whether successful.
+ */
+bool
+drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded,
+                            OUT instr_t **stringop);
 
 
 /*@}*/ /* end doxygen group */
