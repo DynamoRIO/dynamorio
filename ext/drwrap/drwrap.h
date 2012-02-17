@@ -65,6 +65,21 @@ drwrap_exit(void);
  * FUNCTION REPLACING
  */
 
+/**
+ * Priorities of drmgr instrumentation passes used by drwrap.  Users
+ * of drwrap can use the name DRMGR_PRIORITY_NAME_DRWRAP in the
+ * drmgr_priority_t.before field or can use these numeric priorities
+ * in the drmgr_priority_t.priority field to ensure proper
+ * instrumentation pass ordering.
+ */
+enum {
+    DRMGR_PRIORITY_APP2APP_DRWRAP  = -500, /**< Priority of drwap_replace() */
+    DRMGR_PRIORITY_INSERT_DRWRAP   =  500, /**< Priority of drwrap_wrap() */
+};
+
+/** Name of drmgr instrumentation pass priorities for both app2app and insert */
+#define DRMGR_PRIORITY_NAME_DRWRAP "drwrap"
+
 DR_EXPORT
 /**
  * Replaces the application function that starts at the address \p original
@@ -83,6 +98,10 @@ DR_EXPORT
  * replacement mirrors the calling convention and other semantics of the
  * original function.  The replacement code will be executed as application
  * code, NOT as client code.
+ *
+ * \note The priority of the app2app pass used here is
+ * DRMGR_PRIORITY_APP2APP_DRWRAP and its name is
+ * DRMGR_PRIORITY_NAME_DRWRAP.
  *
  * \return whether successful.
  */
@@ -117,6 +136,10 @@ DR_EXPORT
  * to NULL.  Since there is no post-call environment, it does not make
  * sense to query the return value or arguments.  The call is invoked to
  * allow for cleanup of state allocated in \p pre_func_cb.
+ *
+ * \note The priority of the app2app pass used here is
+ * DRMGR_PRIORITY_INSERT_DRWRAP and its name is
+ * DRMGR_PRIORITY_NAME_DRWRAP.
  *
  * \return whether successful.
  */

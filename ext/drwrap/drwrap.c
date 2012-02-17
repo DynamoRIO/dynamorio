@@ -637,7 +637,11 @@ DR_EXPORT
 bool
 drwrap_init(void)
 {
-    drmgr_priority_t priority = {sizeof(priority), "drwrap", NULL, NULL, 0};
+    /* make sure replace goes before app2app so use negative priority */
+    drmgr_priority_t pri_replace = {sizeof(pri_replace), DRMGR_PRIORITY_NAME_DRWRAP,
+                                    NULL, NULL, DRMGR_PRIORITY_APP2APP_DRWRAP};
+    drmgr_priority_t pri_insert = {sizeof(pri_insert), DRMGR_PRIORITY_NAME_DRWRAP,
+                                   NULL, NULL, DRMGR_PRIORITY_INSERT_DRWRAP};
 #ifdef WINDOWS
     module_data_t *ntdll;
 #endif
@@ -649,11 +653,11 @@ drwrap_init(void)
     exit_lock = dr_mutex_create();
 
     drmgr_init();
-    if (!drmgr_register_bb_app2app_event(drwrap_event_bb_app2app, &priority))
+    if (!drmgr_register_bb_app2app_event(drwrap_event_bb_app2app, &pri_replace))
         return false;
     if (!drmgr_register_bb_instrumentation_event(drwrap_event_bb_analysis,
                                                  drwrap_event_bb_insert,
-                                                 &priority))
+                                                 &pri_insert))
         return false;
 
     hashtable_init(&replace_table, REPLACE_TABLE_HASH_BITS,
@@ -813,12 +817,14 @@ drwrap_replace(app_pc original, app_pc replacement, bool override)
             res = hashtable_add(&replace_table, (void *)original, (void *)replacement);
     }
     /* XXX: we're assuming void* tag == pc
-     * XXX: dr_fragment_exists_at only looks at the tag, so with traces
-     * we could miss a post-call (if different instr stream, not a post-call)
+     * XXX: we're assuming the replace target is not in the middle of a trace
      */
     if (flush || dr_fragment_exists_at(dr_get_current_drcontext(), original)) {
-        /* we do not guarantee faster than a lazy flush */
-        if (!dr_unlink_flush_region(original, 1))
+        /* we do not guarantee faster than a lazy flush.
+         * we can't use dr_unlink_flush_region() unless we require that
+         * caller hold no locks and be in clean call or syscall event.
+         */
+        if (!dr_delay_flush_region(original, 1, 0, NULL))
             ASSERT(false, "replace update flush failed");
     }
     return res;
