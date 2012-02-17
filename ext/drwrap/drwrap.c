@@ -916,6 +916,11 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
     dr_mcontext_t mc;
     uint idx;
     drwrap_context_t wrapcxt;
+    /* Do we care about the post wrapper?  If not we can save a lot (b/c our
+     * call site method causes a lot of instrumentation when there's high fan-in)
+     */
+    bool intercept_post = false;
+
     mc.size = sizeof(mc);
     /* we use a passed-in xsp to avoid dr_get_mcontext */
     mc.xsp = xsp;
@@ -931,7 +936,13 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
     /* ensure we have post-call instru */
     wrap = hashtable_lookup(&wrap_table, (void *)pc);
     if (wrap != NULL) {
-        if (wrapcxt.retaddr != NULL) {
+        for (e = wrap; e != NULL; e = e->next) {
+            if (e->enabled && e->post_cb != NULL) {
+                intercept_post = true;
+                break; /* we do need a post-call hook */
+            }
+        }
+        if (intercept_post && wrapcxt.retaddr != NULL) {
             dr_rwlock_read_lock(post_call_rwlock);
             if (hashtable_lookup(&post_call_table, (void*)wrapcxt.retaddr) == NULL) {
                 bool enabled = wrap->enabled;
@@ -1002,6 +1013,13 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
     }
     if (wrapcxt.mc_modified)
         dr_set_mcontext(drcontext, wrapcxt.mc);
+    if (!intercept_post) {
+        /* we won't decrement in post so decrement now.  we needed to increment
+         * to set up for pt->skip, etc.
+         */
+        drwrap_free_user_data(drcontext, pt, pt->wrap_level);
+        pt->wrap_level--;
+    }
 }
 
 /* called via clean call at return address(es) of callee */
