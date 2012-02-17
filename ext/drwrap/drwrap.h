@@ -344,6 +344,24 @@ bool
 drwrap_set_global_flags(drwrap_flags_t flags);
 
 
+DR_EXPORT
+/**
+ * \return whether \p func is currently wrapped with \p pre_func_cb
+ * and \p post_func_cb.
+ */
+bool
+drwrap_is_wrapped(app_pc func,
+                  void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+                  void (*post_func_cb)(void *wrapcxt, void *user_data));
+
+DR_EXPORT
+/**
+ * \return whether \p pc is currently considered a post-wrap point, for any
+ * wrap request.
+ */
+bool
+drwrap_is_post_wrap(app_pc pc);
+
 /*@}*/ /* end doxygen group */
 
 #ifdef __cplusplus

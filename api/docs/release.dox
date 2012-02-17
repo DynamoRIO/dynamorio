@@ -127,6 +127,7 @@ The changes between version \DR_VERSION and 3.1.0 are:
    dr_register_persist_rw(), dr_register_persist_patch(), and
    #DR_EMIT_PERSISTABLE.
  - Added drwrap_wrap_ex() to pass initial constant user data
+ - Added drwrap_is_wrapped() and drwrap_is_post_wrap()
  - Added drwrap_set_global_flags() to control safety of
    application memory accesses
  - Added drwrap_get_mcontext_ex() to avoid the cost of copying

@@ -66,6 +66,8 @@ wrap_addr(OUT app_pc *addr, const char *name, const module_data_t *mod,
     CHECK(*addr != NULL, "cannot find lib export");
     ok = drwrap_wrap(*addr, pre ? wrap_pre : NULL, post ? wrap_post : NULL);
     CHECK(ok, "wrap failed");
+    CHECK(drwrap_is_wrapped(*addr, pre ? wrap_pre : NULL, post ? wrap_post : NULL),
+          "drwrap_is_wrapped query failed");
 }
 
 static
@@ -162,8 +164,14 @@ wrap_post(void *wrapcxt, void *user_data)
     } else if (drwrap_get_func(wrapcxt) == addr_postonly) {
         dr_fprintf(STDERR, "  <post-postonly>\n");
         drwrap_unwrap(addr_skipme, wrap_pre, wrap_post);
+        CHECK(!drwrap_is_wrapped(addr_skipme, wrap_pre, wrap_post),
+              "drwrap_is_wrapped query failed");
         drwrap_unwrap(addr_postonly, NULL, wrap_post);
+        CHECK(!drwrap_is_wrapped(addr_postonly, NULL, wrap_post),
+              "drwrap_is_wrapped query failed");
         drwrap_unwrap(addr_runlots, NULL, wrap_post);
+        CHECK(!drwrap_is_wrapped(addr_runlots, NULL, wrap_post),
+              "drwrap_is_wrapped query failed");
     } else if (drwrap_get_func(wrapcxt) == addr_runlots) {
         dr_fprintf(STDERR, "  <post-runlots>\n");
     } else

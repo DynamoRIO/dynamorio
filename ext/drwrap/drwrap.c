@@ -1341,3 +1341,42 @@ drwrap_unwrap(app_pc func,
     dr_recurlock_unlock(wrap_lock);
     return res;
 }
+
+DR_EXPORT
+bool
+drwrap_is_wrapped(app_pc func,
+                  void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+                  void (*post_func_cb)(void *wrapcxt, void *user_data))
+{
+    wrap_entry_t *wrap;
+    bool res = false;
+
+    if (func == NULL ||
+        (pre_func_cb == NULL && post_func_cb == NULL))
+        return false;
+
+    dr_recurlock_lock(wrap_lock);
+    wrap = hashtable_lookup(&wrap_table, (void *)func);
+    for (; wrap != NULL; wrap = wrap->next) {
+        if (wrap->enabled && wrap->pre_cb == pre_func_cb &&
+            wrap->post_cb == post_func_cb) {
+            res = true;
+            break;
+        }
+    }
+    dr_recurlock_unlock(wrap_lock);
+    return res;
+}
+
+DR_EXPORT
+bool
+drwrap_is_post_wrap(app_pc pc)
+{
+    bool res = false;
+    if (pc == NULL)
+        return false;
+    dr_rwlock_read_lock(post_call_rwlock);
+    res = (hashtable_lookup(&post_call_table, (void*)pc) != NULL);
+    dr_rwlock_read_unlock(post_call_rwlock);
+    return res;
+}
