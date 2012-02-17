@@ -601,6 +601,19 @@ DR_EXPORT
 ptr_uint_t
 drmgr_reserve_note_range(size_t size);
 
+/***************************************************************************
+ * UTILITIES
+ */
+
+#ifdef WINDOWS
+DR_EXPORT
+/**
+ * Given a system call wrapper routine \p entry of the Native API variety,
+ * decodes the routine and returns the system call number.
+ */
+int
+drmgr_decode_sysnum_from_wrapper(app_pc entry);
+#endif
 
 /***************************************************************************
  * DR EVENT REPLACEMENTS WITH NO SEMANTIC CHANGES

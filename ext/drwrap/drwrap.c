@@ -48,8 +48,18 @@
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
+#ifdef WINDOWS
+# define IF_WINDOWS(x) x
+#else
+# define IF_WINDOWS(x) /* nothing */
+#endif
+
 /* protected by wrap_lock */
 static drwrap_flags_t global_flags;
+
+#ifdef WINDOWS
+static int sysnum_NtContinue = -1;
+#endif
 
 /***************************************************************************
  * REQUEST TRACKING
@@ -120,6 +130,10 @@ typedef struct _per_thread_t {
     void **user_data_post_cb[MAX_WRAP_NESTING];
     /* whether to skip */
     bool skip[MAX_WRAP_NESTING];
+#ifdef WINDOWS
+    /* did we see an exception while in a wrapped routine? */
+    bool hit_exception;
+#endif
 } per_thread_t;
 
 /***************************************************************************
@@ -248,9 +262,19 @@ post_call_consistent(app_pc postcall, post_call_entry_t *e)
     return (memcmp(e->prior, cur, POST_CALL_PRIOR_BYTES_STORED) == 0);
 }
 
-/* marks as having instrumentation if it finds the entry */
 static bool
 post_call_lookup(app_pc pc)
+{
+    bool res = false;
+    dr_rwlock_read_lock(post_call_rwlock);
+    res = (hashtable_lookup(&post_call_table, (void*)pc) != NULL);
+    dr_rwlock_read_unlock(post_call_rwlock);
+    return res;
+}
+
+/* marks as having instrumentation if it finds the entry */
+static bool
+post_call_lookup_for_instru(app_pc pc)
 {
     bool res = false;
     post_call_entry_t *e;
@@ -588,6 +612,20 @@ drwrap_event_module_unload(void *drcontext, const module_data_t *info);
 static void
 drwrap_fragment_delete(void *dc/*may be NULL*/, void *tag);
 
+#ifdef WINDOWS
+static bool
+drwrap_event_filter_syscall(void *drcontext, int sysnum);
+
+static bool
+drwrap_event_pre_syscall(void *drcontext, int sysnum);
+
+bool
+drwrap_event_exception(void *drcontext, dr_exception_t *excpt);
+#endif
+
+static void
+drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
+                         app_pc pc, app_pc retaddr);
 
 /***************************************************************************
  * INIT
@@ -600,6 +638,9 @@ bool
 drwrap_init(void)
 {
     drmgr_priority_t priority = {sizeof(priority), "drwrap", NULL, NULL, 0};
+#ifdef WINDOWS
+    module_data_t *ntdll;
+#endif
 
     static bool initialized;
     if (initialized)
@@ -637,6 +678,23 @@ drwrap_init(void)
         return false;
     if (!drmgr_register_thread_exit_event(drwrap_thread_exit))
         return false;
+
+#ifdef WINDOWS
+    ntdll = dr_lookup_module_by_name("ntdll.dll");
+    ASSERT(ntdll != NULL, "failed to find ntdll");
+    if (ntdll != NULL) {
+        app_pc wrapper = (app_pc) dr_get_proc_address(ntdll->handle, "NtContinue");
+        ASSERT(wrapper != NULL, "failed to find NtContinue wrapper");
+        if (wrapper != NULL) {
+            sysnum_NtContinue = drmgr_decode_sysnum_from_wrapper(wrapper);
+            ASSERT(sysnum_NtContinue != -1, "error decoding NtContinue");
+            dr_register_filter_syscall_event(drwrap_event_filter_syscall);
+            drmgr_register_pre_syscall_event(drwrap_event_pre_syscall);
+        }
+        dr_free_module_data(ntdll);
+    }
+    dr_register_exception_event(drwrap_event_exception);
+#endif
     return true;
 }
 
@@ -941,6 +999,45 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
 
     drwrap_context_init(drcontext, &wrapcxt, pc, &mc, get_retaddr_at_entry(xsp));
 
+    /* Try to handle an SEH unwind or longjmp that unrolled the stack.
+     * The stack may have been extended again since then, and we don't know
+     * the high-water point: so even if we're currently further down the
+     * stack than any recorded prior call, we verify all entries if we
+     * had an exception.
+     * XXX: should we verify all the time, to handle any longjmp?
+     * But our retaddr check is not bulletproof and might have issues
+     * in both directions (though we don't really support wrapping
+     * functions that change their retaddrs: still, it's not sufficient
+     * due to stale values).
+     */
+    if (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < mc.xsp
+        IF_WINDOWS(|| pt->hit_exception)) {
+        IF_WINDOWS(pt->hit_exception = false;)
+        while (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < mc.xsp) {
+            drwrap_after_callee_func(drcontext, &mc,
+                                     pt->last_wrap_func[pt->wrap_level], NULL);
+        }
+        /* Try to clean up entries we unrolled past and then came back
+         * down past in the other direction.  Note that there's a
+         * decent chance retaddrs weren't clobbered though so this is
+         * not guaranteed.
+         */
+        while (pt->wrap_level >= 0) {
+            app_pc ret;
+            if (TEST(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
+                if (!fast_safe_read((void *)pt->app_esp[pt->wrap_level],
+                                    sizeof(ret), &ret))
+                    ret = NULL;
+            } else
+                ret = *(app_pc*)pt->app_esp[pt->wrap_level];
+            if ((pt->wrap_level > 0 && ret == pt->last_wrap_func[pt->wrap_level - 1]) ||
+                post_call_lookup(ret))
+                break;
+            drwrap_after_callee_func(drcontext, &mc,
+                                     pt->last_wrap_func[pt->wrap_level], NULL);
+        }
+    }
+
     dr_recurlock_lock(wrap_lock);
 
     /* ensure we have post-call instru */
@@ -982,6 +1079,9 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
     pt->app_esp[pt->wrap_level] = mc.xsp;
 #ifdef DEBUG
     for (idx = 0; idx < (uint) pt->wrap_level; idx++) {
+        /* note that this should no longer fire at all b/c of the check above but
+         * leaving as a sanity check
+         */
         ASSERT(pt->app_esp[idx] >= pt->app_esp[pt->wrap_level],
                "stack pointer off: may miss post-wrap points");
     }
@@ -1084,7 +1184,8 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
              */
             idx = tmp; /* reset */
         } else if (wrap->post_cb != NULL) {
-            (*wrap->post_cb)(&wrapcxt, pt->user_data[pt->wrap_level][idx]);
+            (*wrap->post_cb)(retaddr == NULL ? NULL : &wrapcxt,
+                             pt->user_data[pt->wrap_level][idx]);
             /* note that at this point wrap might be deleted */
         }
     } 
@@ -1220,7 +1321,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     }
     dr_recurlock_unlock(wrap_lock);
 
-    if (post_call_lookup(pc)) {
+    if (post_call_lookup_for_instru(pc)) {
         dr_insert_clean_call(drcontext, bb, inst, (void *)drwrap_after_callee,
                              false, 2,
                              OPND_CREATE_INTPTR((ptr_int_t)pc),
@@ -1380,3 +1481,49 @@ drwrap_is_post_wrap(app_pc pc)
     dr_rwlock_read_unlock(post_call_rwlock);
     return res;
 }
+
+#ifdef WINDOWS
+/* several different approaches to try and handle SEH unwind */
+static bool
+drwrap_event_filter_syscall(void *drcontext, int sysnum)
+{
+    return sysnum == sysnum_NtContinue;
+}
+
+static bool
+drwrap_event_pre_syscall(void *drcontext, int sysnum)
+{
+    if (sysnum == sysnum_NtContinue) {
+        /* XXX: we assume the syscall will succeed */
+        per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+        if (pt->wrap_level >= 0) {
+            CONTEXT *cxt = (CONTEXT *) dr_syscall_get_param(drcontext, 0);
+            reg_t tgt_xsp = (reg_t) cxt->IF_X64_ELSE(Rsp,Esp);
+            dr_mcontext_t mc;
+            mc.size = sizeof(mc);
+            mc.flags = DR_MC_CONTROL | DR_MC_INTEGER;
+            dr_get_mcontext(drcontext, &mc);
+            ASSERT(pt != NULL, "pt is NULL in pre-syscall");
+            /* Call post-call for every one we're skipping in our target, but
+             * pass NULL for wrapcxt to indicate this is not a normal post-call
+             */
+            while (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < tgt_xsp) {
+                drwrap_after_callee_func(drcontext, &mc,
+                                         pt->last_wrap_func[pt->wrap_level], NULL);
+            }
+        }
+    }
+    return true;
+}
+
+bool
+drwrap_event_exception(void *drcontext, dr_exception_t *excpt)
+{
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    /* record whether we should check all the levels in the next hook */
+    if (pt->wrap_level >= 0)
+        pt->hit_exception = true;
+    return true;
+}
+#endif
+

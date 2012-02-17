@@ -112,6 +112,12 @@ DR_EXPORT
  * original's return value.  The opaque pointer \p wrapcxt passed to
  * each callback should be passed to these routines.
  *
+ * On Windows, when an exception handler is executed, all post-calls
+ * that would be missed will still be invoked, but with \p wrapcxt set
+ * to NULL.  Since there is no post-call environment, it does not make
+ * sense to query the return value or arguments.  The call is invoked to
+ * allow for cleanup of state allocated in \p pre_func_cb.
+ *
  * \return whether successful.
  */
 bool

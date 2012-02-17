@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,7 @@
 
 #include "dr_api.h"
 #include "drwrap.h"
+#include "drmgr.h"
 #include <string.h> /* memset */
 
 #define CHECK(x, msg) do {               \
@@ -46,7 +47,11 @@
 static void event_exit(void);
 static void wrap_pre(void *wrapcxt, OUT void **user_data);
 static void wrap_post(void *wrapcxt, void *user_data);
+static void wrap_unwindtest_pre(void *wrapcxt, OUT void **user_data);
+static void wrap_unwindtest_post(void *wrapcxt, void *user_data);
 static int replacewith(int *x);
+
+static int tls_idx;
 
 static app_pc addr_level0;
 static app_pc addr_level1;
@@ -56,6 +61,12 @@ static app_pc addr_skipme;
 static app_pc addr_preonly;
 static app_pc addr_postonly;
 static app_pc addr_runlots;
+
+static app_pc addr_long0;
+static app_pc addr_long1;
+static app_pc addr_long2;
+static app_pc addr_long3;
+static app_pc addr_longdone;
 
 static void
 wrap_addr(OUT app_pc *addr, const char *name, const module_data_t *mod,
@@ -67,6 +78,18 @@ wrap_addr(OUT app_pc *addr, const char *name, const module_data_t *mod,
     ok = drwrap_wrap(*addr, pre ? wrap_pre : NULL, post ? wrap_post : NULL);
     CHECK(ok, "wrap failed");
     CHECK(drwrap_is_wrapped(*addr, pre ? wrap_pre : NULL, post ? wrap_post : NULL),
+          "drwrap_is_wrapped query failed");
+}
+
+static void
+wrap_unwindtest_addr(OUT app_pc *addr, const char *name, const module_data_t *mod)
+{
+    bool ok;
+    *addr = (app_pc) dr_get_proc_address(mod->start, name);
+    CHECK(*addr != NULL, "cannot find lib export");
+    ok = drwrap_wrap(*addr, wrap_unwindtest_pre, wrap_unwindtest_post);
+    CHECK(ok, "wrap failed");
+    CHECK(drwrap_is_wrapped(*addr, wrap_unwindtest_pre, wrap_unwindtest_post),
           "drwrap_is_wrapped query failed");
 }
 
@@ -89,6 +112,14 @@ void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         wrap_addr(&addr_preonly, "preonly", mod, true, false);
         wrap_addr(&addr_postonly, "postonly", mod, false, true);
         wrap_addr(&addr_runlots, "runlots", mod, false, true);
+
+        /* test longjmp */
+        wrap_unwindtest_addr(&addr_long0, "long0", mod);
+        wrap_unwindtest_addr(&addr_long1, "long1", mod);
+        wrap_unwindtest_addr(&addr_long2, "long2", mod);
+        wrap_unwindtest_addr(&addr_long3, "long3", mod);
+        wrap_unwindtest_addr(&addr_longdone, "longdone", mod);
+        drmgr_set_tls_field(drcontext, tls_idx, (void *)(ptr_uint_t)0);
     }
 }
 
@@ -98,11 +129,14 @@ dr_init(client_id_t id)
     drwrap_init();
     dr_register_exit_event(event_exit);
     dr_register_module_load_event(module_load_event);
+    tls_idx = drmgr_register_tls_field();
+    CHECK(tls_idx > -1, "unable to reserve TLS field");
 }
 
 static void 
 event_exit(void)
 {
+    drmgr_unregister_tls_field(tls_idx);
     drwrap_exit();
     dr_fprintf(STDERR, "all done\n");
 }
@@ -178,3 +212,33 @@ wrap_post(void *wrapcxt, void *user_data)
         CHECK(false, "invalid wrap");
 }
 
+static void
+wrap_unwindtest_pre(void *wrapcxt, OUT void **user_data)
+{
+    if (drwrap_get_func(wrapcxt) != addr_longdone) {
+        void *drcontext = dr_get_current_drcontext();
+        ptr_uint_t val = (ptr_uint_t) drmgr_get_tls_field(drcontext, tls_idx);
+        dr_fprintf(STDERR, "  <pre-long%d>\n", val);
+        /* increment per level of regular calls on way up */
+        val++;
+        drmgr_set_tls_field(drcontext, tls_idx, (void *)val);
+    }
+}
+
+static void
+wrap_unwindtest_post(void *wrapcxt, void *user_data)
+{
+    void *drcontext = dr_get_current_drcontext();
+    ptr_uint_t val = (ptr_uint_t) drmgr_get_tls_field(drcontext, tls_idx);
+    if (drwrap_get_func(wrapcxt) == addr_longdone) {
+        /* ensure our post-calls were all called and we got back to 0 */
+        CHECK(val == 0, "post-calls were bypassed");
+    } else {
+        /* decrement on way down */
+        val--;
+        dr_fprintf(STDERR, "  <post-long%d%s>\n", val,
+                   wrapcxt == NULL ? " abnormal" : "");
+        drmgr_set_tls_field(drcontext, tls_idx, (void *)val);
+    }
+}
+ 

@@ -1097,8 +1097,12 @@ drmgr_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
  * Returns -1 on error.
  * FIXME: does not handle somebody hooking the wrapper.
  */
-static int
-drmgr_decode_sysnum_from_wrapper(byte *entry)
+/* XXX: exporting this so drwrap can use it but I might prefer to have
+ * this in drutil or the upcoming drsys
+ */
+DR_EXPORT
+int
+drmgr_decode_sysnum_from_wrapper(app_pc entry)
 {
     void *drcontext = dr_get_current_drcontext();
     int num = -1;

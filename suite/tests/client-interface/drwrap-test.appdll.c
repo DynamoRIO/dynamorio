@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,9 @@
 #ifndef ASM_CODE_ONLY /* C code */
 
 #include "tools.h"
+
+#include <setjmp.h>
+jmp_buf mark;
 
 int EXPORT makes_tailcall(int x); /* in asm */
 
@@ -107,6 +110,54 @@ level0(int x)
 
 void *level2_ptr;
 
+/***************************************************************************
+ * test longjmp
+ */
+
+void EXPORT
+long3(void)
+{
+    print("long3 A\n");
+    longjmp(mark, 1);
+    print("  long3 B\n");
+}
+
+void EXPORT
+long2(void)
+{
+    print("long2 A\n");
+    long3();
+    print("  long2 B\n");
+}
+
+void EXPORT
+long1(void)
+{
+    print("long1 A\n");
+    long2();
+    print("  long1 B\n");
+}
+
+void EXPORT
+long0(void)
+{
+    print("long0 A\n");
+    long1();
+    print("  long0 B\n");
+}
+
+void EXPORT
+longstart(void)
+{
+    long0();
+}
+
+void EXPORT
+longdone(void)
+{
+    print("longdone\n");
+}
+
 void
 run_tests(void)
 {
@@ -129,6 +180,11 @@ run_tests(void)
     x = 0;
     for (res = 0; res < 2048; res++)
         runlots(&x);
+
+    /* test longjmp recovery on pre not post so we call from non-wrapped routine */
+    if (setjmp(mark) == 0)
+        longstart();
+    longdone();
 }
 
 #ifdef WINDOWS

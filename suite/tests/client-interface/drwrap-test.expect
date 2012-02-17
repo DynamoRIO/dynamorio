@@ -22,6 +22,19 @@ in postonly
 in skipme
 in postonly
 in runlots 1024
+  <pre-long0>
+long0 A
+  <pre-long1>
+long1 A
+  <pre-long2>
+long2 A
+  <pre-long3>
+long3 A
+  <post-long3 abnormal>
+  <post-long2 abnormal>
+  <post-long1 abnormal>
+  <post-long0 abnormal>
+longdone
 loaded library
 thank you for testing the client interface
 all done
