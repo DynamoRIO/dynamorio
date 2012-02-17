@@ -68,6 +68,7 @@ typedef struct _wrap_entry_t {
      * to NULL instead b/c we want to support re-wrapping.
      */
     bool enabled;
+    void *user_data;
     struct _wrap_entry_t *next;
 } wrap_entry_t;
 
@@ -865,10 +866,18 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
         }
         /* now that we have an entry in the synchronized post_call_table
          * any new code coming in will be instrumented
+         * we assume we only care about fragments starting at retaddr:
+         * other than traces, nothing should cross it unless there's some
+         * weird mid-call-instr target in which case it's not post-call.
+         *
+         * XXX: if callee is entirely inside a trace we'll miss the post-call!
+         * will only happen w/ wrapping requests after trace is built.
          */
         /* XXX: we're assuming void* tag == pc */
         if (dr_fragment_exists_at(drcontext, (void *)retaddr)) {
-            /* I'd use dr_unlink_flush_region but it requires -enable_full_api */
+            /* XXX: I'd use dr_unlink_flush_region but it requires -enable_full_api.
+             * should we dynamically check and use it if we can?
+             */
             /* unlock for the flush */
             dr_rwlock_write_unlock(post_call_rwlock);
             if (!enabled) {
@@ -881,7 +890,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
                 dr_recurlock_unlock(wrap_lock);
             }
             /* XXX: have a STATS mechanism to count flushes and add call
-             * site analysis if too many flushes
+             * site analysis if too many flushes.
              */
             dr_flush_region(retaddr, 1);
             /* now we are guaranteed no thread is inside the fragment */
@@ -891,6 +900,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
                 hashtable_lookup(&post_call_table, (void*)retaddr);
             if (e != NULL) /* selfmod could disappear once have PR 408529 */
                 e->existing_instrumented = true;
+            /* XXX DrMem i#553: if e==NULL, recursion count could get off */
             dr_rwlock_read_unlock(post_call_rwlock);
             /* Since the flush may remove the fragment we're already in,
              * we have to redirect execution to the callee again.
@@ -998,8 +1008,10 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
             disabled_count++;
             continue;
         }
-        if (wrap->pre_cb != NULL)
+        if (wrap->pre_cb != NULL) {
+            pt->user_data[pt->wrap_level][idx] = wrap->user_data;
             (*wrap->pre_cb)(&wrapcxt, &pt->user_data[pt->wrap_level][idx]);
+        }
         /* was there a request to skip? */
         if (pt->skip[pt->wrap_level])
             break;
@@ -1241,9 +1253,10 @@ drwrap_fragment_delete(void *dc/*may be NULL*/, void *tag)
 
 DR_EXPORT
 bool
-drwrap_wrap(app_pc func,
-            void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
-            void (*post_func_cb)(void *wrapcxt, void *user_data))
+drwrap_wrap_ex(app_pc func,
+               void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
+               void (*post_func_cb)(void *wrapcxt, void *user_data),
+               void *user_data)
 {
     wrap_entry_t *wrap_cur, *wrap_new;
 
@@ -1256,6 +1269,7 @@ drwrap_wrap(app_pc func,
     wrap_new->pre_cb = pre_func_cb;
     wrap_new->post_cb = post_func_cb;
     wrap_new->enabled = true;
+    wrap_new->user_data = user_data;
 
     dr_recurlock_lock(wrap_lock);
     wrap_cur = hashtable_lookup(&wrap_table, (void *)func);
@@ -1286,6 +1300,15 @@ drwrap_wrap(app_pc func,
     }
     dr_recurlock_unlock(wrap_lock);
     return true;
+}
+
+DR_EXPORT
+bool
+drwrap_wrap(app_pc func,
+            void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+            void (*post_func_cb)(void *wrapcxt, void *user_data))
+{
+    return drwrap_wrap_ex(func, pre_func_cb, post_func_cb, NULL);
 }
 
 DR_EXPORT

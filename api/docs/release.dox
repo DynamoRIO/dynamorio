@@ -126,10 +126,12 @@ The changes between version \DR_VERSION and 3.1.0 are:
    dr_register_persist_ro(), dr_register_persist_rx(), 
    dr_register_persist_rw(), dr_register_persist_patch(), and
    #DR_EMIT_PERSISTABLE.
+ - Added drwrap_wrap_ex() to pass initial constant user data
  - Added drwrap_set_global_flags() to control safety of
    application memory accesses
  - Added drwrap_get_mcontext_ex() to avoid the cost of copying
    multimedia register values when not necessary
+ - Added drwrap interface for caching post-call addresses
  - Added drutil_expand_rep_string_ex() that returns additional
    information about string loop expansion
  - Added improved instrlist disassembly that includes labels and

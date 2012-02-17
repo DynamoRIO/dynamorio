@@ -121,6 +121,17 @@ drwrap_wrap(app_pc func,
 
 DR_EXPORT
 /**
+ * Identical to drwrap_wrap(), but takes an additional \p user_data parameter
+ * that is passed as the initial value of *user_data to \p pre_func_cb.
+ */
+bool
+drwrap_wrap_ex(app_pc func,
+               void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
+               void (*post_func_cb)(void *wrapcxt, void *user_data),
+               void *user_data);
+
+DR_EXPORT
+/**
  * Removes a previously-requested wrap for the function \p func
  * and the callback pair \p pre_func_cb and \p post_func_cb.
  * This must be the same pair that was passed to \p dr_wrap.
