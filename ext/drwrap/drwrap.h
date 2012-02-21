@@ -131,11 +131,17 @@ DR_EXPORT
  * original's return value.  The opaque pointer \p wrapcxt passed to
  * each callback should be passed to these routines.
  *
- * On Windows, when an exception handler is executed, all post-calls
- * that would be missed will still be invoked, but with \p wrapcxt set
- * to NULL.  Since there is no post-call environment, it does not make
- * sense to query the return value or arguments.  The call is invoked to
- * allow for cleanup of state allocated in \p pre_func_cb.
+ * When an abnormal stack unwind, such as longjmp or a Windows
+ * exception, occurs, drwrap does its best to detect it.  All
+ * post-calls that would be missed will still be invoked, but with \p
+ * wrapcxt set to NULL.  Since there is no post-call environment, it
+ * does not make sense to query the return value or arguments.  The
+ * call is invoked to allow for cleanup of state allocated in \p
+ * pre_func_cb.  However, detection of a stack unwind is not
+ * guaranteed.  When wrapping a series of functions that do not
+ * themselves contain exception handlers, pass the
+ * DRWRAP_UNWIND_ON_EXCEPTION flag to drwrap_wrap_ex() to ensure that
+ * all post-call callbacks will be called on an exception.
  *
  * \note The priority of the app2app pass used here is
  * DRMGR_PRIORITY_INSERT_DRWRAP and its name is
@@ -148,16 +154,31 @@ drwrap_wrap(app_pc func,
             void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
             void (*post_func_cb)(void *wrapcxt, void *user_data));
 
+/** Values for the flags parameter to drwrap_wrap_ex() */
+typedef enum {
+    /**
+     * If this flag is set, then when a Windows exception occurs, all
+     * post-call callbacks for all live wrapped functions on the wrap
+     * stack for which \p unwind_on_exception is true are called.  If
+     * this flag is not set (the default), each post-call callback
+     * will still be called if drwrap's heuristics later detect that
+     * that particular callback has been bypassed, but those
+     * heuristics are not guaranteed.
+     */
+    DRWRAP_UNWIND_ON_EXCEPTION    = 0x01,
+} drwrap_wrap_flags_t;
+
 DR_EXPORT
 /**
- * Identical to drwrap_wrap(), but takes an additional \p user_data parameter
- * that is passed as the initial value of *user_data to \p pre_func_cb.
+ * Identical to drwrap_wrap() except for two additional parameters: \p
+ * user_data, which is passed as the initial value of *user_data to \p
+ * pre_func_cb, and \p flags.
  */
 bool
 drwrap_wrap_ex(app_pc func,
                void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
                void (*post_func_cb)(void *wrapcxt, void *user_data),
-               void *user_data);
+               void *user_data, drwrap_wrap_flags_t flags);
 
 DR_EXPORT
 /**
@@ -361,7 +382,7 @@ typedef enum {
      * remove it.
      */
     DRWRAP_SAFE_READ_ARGS       = 0x02,
-} drwrap_flags_t;
+} drwrap_global_flags_t;
 
 DR_EXPORT
 /**
@@ -370,7 +391,7 @@ DR_EXPORT
  * \return whether the flags were changed.
  */
 bool
-drwrap_set_global_flags(drwrap_flags_t flags);
+drwrap_set_global_flags(drwrap_global_flags_t flags);
 
 
 DR_EXPORT

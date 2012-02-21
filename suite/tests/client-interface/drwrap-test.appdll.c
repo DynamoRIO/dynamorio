@@ -118,7 +118,17 @@ void EXPORT
 long3(void)
 {
     print("long3 A\n");
+#ifdef WINDOWS
+    /* test SEH */
+    __try {
+        *(int *)4 = 42;
+    } __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ?
+                EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+        longjmp(mark, 1);
+    }
+#else
     longjmp(mark, 1);
+#endif
     print("  long3 B\n");
 }
 

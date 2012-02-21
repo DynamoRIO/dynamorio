@@ -49,6 +49,8 @@ static void wrap_pre(void *wrapcxt, OUT void **user_data);
 static void wrap_post(void *wrapcxt, void *user_data);
 static void wrap_unwindtest_pre(void *wrapcxt, OUT void **user_data);
 static void wrap_unwindtest_post(void *wrapcxt, void *user_data);
+static void wrap_unwindtest_seh_pre(void *wrapcxt, OUT void **user_data);
+static void wrap_unwindtest_seh_post(void *wrapcxt, void *user_data);
 static int replacewith(int *x);
 
 static int tls_idx;
@@ -120,6 +122,25 @@ void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         wrap_unwindtest_addr(&addr_long3, "long3", mod);
         wrap_unwindtest_addr(&addr_longdone, "longdone", mod);
         drmgr_set_tls_field(drcontext, tls_idx, (void *)(ptr_uint_t)0);
+#ifdef WINDOWS
+        /* test SEH */
+        ok = drwrap_wrap_ex(addr_long0, wrap_unwindtest_seh_pre, wrap_unwindtest_seh_post,
+                            NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+        CHECK(ok, "wrap failed");
+        ok = drwrap_wrap_ex(addr_long1, wrap_unwindtest_seh_pre, wrap_unwindtest_seh_post,
+                            NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+        CHECK(ok, "wrap failed");
+        ok = drwrap_wrap_ex(addr_long2, wrap_unwindtest_seh_pre, wrap_unwindtest_seh_post,
+                            NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+        CHECK(ok, "wrap failed");
+        ok = drwrap_wrap_ex(addr_long3, wrap_unwindtest_seh_pre, wrap_unwindtest_seh_post,
+                            NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+        CHECK(ok, "wrap failed");
+        ok = drwrap_wrap_ex(addr_longdone, wrap_unwindtest_seh_pre,
+                            wrap_unwindtest_seh_post,
+                            NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+        CHECK(ok, "wrap failed");
+#endif
     }
 }
 
@@ -241,4 +262,15 @@ wrap_unwindtest_post(void *wrapcxt, void *user_data)
         drmgr_set_tls_field(drcontext, tls_idx, (void *)val);
     }
 }
- 
+
+static void
+wrap_unwindtest_seh_pre(void *wrapcxt, OUT void **user_data)
+{
+    wrap_unwindtest_pre(wrapcxt, user_data);
+}
+
+static void
+wrap_unwindtest_seh_post(void *wrapcxt, void *user_data)
+{
+    wrap_unwindtest_post(wrapcxt, user_data);
+}

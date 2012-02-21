@@ -22,6 +22,7 @@ in postonly
 in skipme
 in postonly
 in runlots 1024
+#ifdef LINUX
   <pre-long0>
 long0 A
   <pre-long1>
@@ -34,6 +35,28 @@ long3 A
   <post-long2 abnormal>
   <post-long1 abnormal>
   <post-long0 abnormal>
+#else
+  <pre-long0>
+  <pre-long1>
+long0 A
+  <pre-long2>
+  <pre-long3>
+long1 A
+  <pre-long4>
+  <pre-long5>
+long2 A
+  <pre-long6>
+  <pre-long7>
+long3 A
+  <post-long7 abnormal>
+  <post-long6 abnormal>
+  <post-long5 abnormal>
+  <post-long4 abnormal>
+  <post-long3 abnormal>
+  <post-long2 abnormal>
+  <post-long1 abnormal>
+  <post-long0 abnormal>
+#endif
 longdone
 loaded library
 thank you for testing the client interface

@@ -54,8 +54,19 @@
 # define IF_WINDOWS(x) /* nothing */
 #endif
 
+#ifdef DEBUG
+static uint verbose = 0;
+# define NOTIFY(level, ...) do {         \
+    if (verbose >= (level)) {            \
+        dr_fprintf(STDERR, __VA_ARGS__); \
+    }                                    \
+} while (0)
+#else
+# define NOTIFY(...) /* nothing */
+#endif
+
 /* protected by wrap_lock */
-static drwrap_flags_t global_flags;
+static drwrap_global_flags_t global_flags;
 
 #ifdef WINDOWS
 static int sysnum_NtContinue = -1;
@@ -78,6 +89,7 @@ typedef struct _wrap_entry_t {
      * to NULL instead b/c we want to support re-wrapping.
      */
     bool enabled;
+    drwrap_wrap_flags_t flags;
     void *user_data;
     struct _wrap_entry_t *next;
 } wrap_entry_t;
@@ -612,6 +624,9 @@ drwrap_event_module_unload(void *drcontext, const module_data_t *info);
 static void
 drwrap_fragment_delete(void *dc/*may be NULL*/, void *tag);
 
+static void
+drwrap_in_callee_check_unwind(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc);
+
 #ifdef WINDOWS
 static bool
 drwrap_event_filter_syscall(void *drcontext, int sysnum);
@@ -625,7 +640,8 @@ drwrap_event_exception(void *drcontext, dr_exception_t *excpt);
 
 static void
 drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
-                         app_pc pc, app_pc retaddr);
+                         app_pc pc, app_pc retaddr,
+                         bool unwind, bool only_requested_unwind);
 
 /***************************************************************************
  * INIT
@@ -774,9 +790,9 @@ drwrap_thread_exit(void *drcontext)
 
 DR_EXPORT
 bool
-drwrap_set_global_flags(drwrap_flags_t flags)
+drwrap_set_global_flags(drwrap_global_flags_t flags)
 {
-    drwrap_flags_t old_flags;
+    drwrap_global_flags_t old_flags;
     bool res;
     dr_recurlock_lock(wrap_lock);
     /* if anyone asks for safe, be safe.
@@ -1003,46 +1019,11 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
     ASSERT(pc != NULL, "drwrap_in_callee: pc is NULL!");
     ASSERT(pt != NULL, "drwrap_in_callee: pt is NULL!");
 
+    NOTIFY(2, "%s: level %d function "PFX"\n", __FUNCTION__, pt->wrap_level+1, pc);
+
     drwrap_context_init(drcontext, &wrapcxt, pc, &mc, get_retaddr_at_entry(xsp));
 
-    /* Try to handle an SEH unwind or longjmp that unrolled the stack.
-     * The stack may have been extended again since then, and we don't know
-     * the high-water point: so even if we're currently further down the
-     * stack than any recorded prior call, we verify all entries if we
-     * had an exception.
-     * XXX: should we verify all the time, to handle any longjmp?
-     * But our retaddr check is not bulletproof and might have issues
-     * in both directions (though we don't really support wrapping
-     * functions that change their retaddrs: still, it's not sufficient
-     * due to stale values).
-     */
-    if (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < mc.xsp
-        IF_WINDOWS(|| pt->hit_exception)) {
-        IF_WINDOWS(pt->hit_exception = false;)
-        while (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < mc.xsp) {
-            drwrap_after_callee_func(drcontext, &mc,
-                                     pt->last_wrap_func[pt->wrap_level], NULL);
-        }
-        /* Try to clean up entries we unrolled past and then came back
-         * down past in the other direction.  Note that there's a
-         * decent chance retaddrs weren't clobbered though so this is
-         * not guaranteed.
-         */
-        while (pt->wrap_level >= 0) {
-            app_pc ret;
-            if (TEST(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
-                if (!fast_safe_read((void *)pt->app_esp[pt->wrap_level],
-                                    sizeof(ret), &ret))
-                    ret = NULL;
-            } else
-                ret = *(app_pc*)pt->app_esp[pt->wrap_level];
-            if ((pt->wrap_level > 0 && ret == pt->last_wrap_func[pt->wrap_level - 1]) ||
-                post_call_lookup(ret))
-                break;
-            drwrap_after_callee_func(drcontext, &mc,
-                                     pt->last_wrap_func[pt->wrap_level], NULL);
-        }
-    }
+    drwrap_in_callee_check_unwind(drcontext, pt, &mc);
 
     dr_recurlock_lock(wrap_lock);
 
@@ -1140,10 +1121,13 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
     }
 }
 
-/* called via clean call at return address(es) of callee */
+/* called via clean call at return address(es) of callee
+ * if retaddr is NULL then this is a "fake" cleanup on abnormal stack unwind
+ */
 static void
 drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
-                         app_pc pc, app_pc retaddr)
+                         app_pc pc, app_pc retaddr,
+                         bool unwind, bool only_requested_unwind)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     wrap_entry_t *wrap, *next;
@@ -1151,8 +1135,13 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
     drwrap_context_t wrapcxt;
     drvector_t toflush = {0,};
     bool do_flush = false;
+    bool unwound_all = true;
     ASSERT(pc != NULL, "drwrap_after_callee: pc is NULL!");
     ASSERT(pt != NULL, "drwrap_after_callee: pt is NULL!");
+    ASSERT(!only_requested_unwind || unwind, "only_requested_unwind implies unwind");
+
+    NOTIFY(2, "%s: level %d function "PFX"%s\n", __FUNCTION__, pt->wrap_level, pc,
+           unwind ? " abnormal" : "");
 
     drwrap_context_init(drcontext, &wrapcxt, pc, mc, retaddr);
 
@@ -1190,8 +1179,21 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
              */
             idx = tmp; /* reset */
         } else if (wrap->post_cb != NULL) {
-            (*wrap->post_cb)(retaddr == NULL ? NULL : &wrapcxt,
-                             pt->user_data[pt->wrap_level][idx]);
+            if (!unwind) {
+                (*wrap->post_cb)(&wrapcxt, pt->user_data[pt->wrap_level][idx]);
+            } else if (!only_requested_unwind ||
+                       TEST(DRWRAP_UNWIND_ON_EXCEPTION, wrap->flags)) {
+                /* don't double-call those that we presumably already called
+                 * that had the flag set.  there might have been a longjmp and no
+                 * exception (e.g., any longjmp on linux): but that's too bad:
+                 * current impl doesn't handle that.
+                 */
+                if (only_requested_unwind ||
+                    !TEST(DRWRAP_UNWIND_ON_EXCEPTION, wrap->flags)) {
+                    (*wrap->post_cb)(NULL, pt->user_data[pt->wrap_level][idx]);
+                }
+            } else
+                unwound_all = false;
             /* note that at this point wrap might be deleted */
         }
     } 
@@ -1237,7 +1239,7 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
         disabled_count = 0;
     }
     dr_recurlock_unlock(wrap_lock);
-    if (wrapcxt.mc_modified)
+    if (wrapcxt.mc_modified && !unwind)
         dr_set_mcontext(drcontext, wrapcxt.mc);
 
     if (do_flush) {
@@ -1250,10 +1252,12 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
         drvector_delete(&toflush);
     }
 
-    drwrap_free_user_data(drcontext, pt, pt->wrap_level);
+    if (unwound_all) {
+        drwrap_free_user_data(drcontext, pt, pt->wrap_level);
 
-    ASSERT(pt->wrap_level >= 0, "internal wrapping error");
-    pt->wrap_level--;
+        ASSERT(pt->wrap_level >= 0, "internal wrapping error");
+        pt->wrap_level--;
+    } /* else, hopefully our unwind detection heuristics will */
 }
 
 /* called via clean call at return address(es) of callee */
@@ -1292,8 +1296,8 @@ drwrap_after_callee(app_pc retaddr, reg_t xsp)
      * entered.
      */
     while (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < mc.xsp) {
-        drwrap_after_callee_func(drcontext, &mc,
-                                 pt->last_wrap_func[pt->wrap_level], retaddr);
+        drwrap_after_callee_func(drcontext, &mc, pt->last_wrap_func[pt->wrap_level],
+                                 retaddr, false, false);
     }
 }
 
@@ -1363,7 +1367,7 @@ bool
 drwrap_wrap_ex(app_pc func,
                void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
                void (*post_func_cb)(void *wrapcxt, void *user_data),
-               void *user_data)
+               void *user_data, drwrap_wrap_flags_t flags)
 {
     wrap_entry_t *wrap_cur, *wrap_new;
 
@@ -1377,6 +1381,7 @@ drwrap_wrap_ex(app_pc func,
     wrap_new->post_cb = post_func_cb;
     wrap_new->enabled = true;
     wrap_new->user_data = user_data;
+    wrap_new->flags = flags;
 
     dr_recurlock_lock(wrap_lock);
     wrap_cur = hashtable_lookup(&wrap_table, (void *)func);
@@ -1415,7 +1420,7 @@ drwrap_wrap(app_pc func,
             void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
             void (*post_func_cb)(void *wrapcxt, void *user_data))
 {
-    return drwrap_wrap_ex(func, pre_func_cb, post_func_cb, NULL);
+    return drwrap_wrap_ex(func, pre_func_cb, post_func_cb, NULL, 0);
 }
 
 DR_EXPORT
@@ -1488,8 +1493,65 @@ drwrap_is_post_wrap(app_pc pc)
     return res;
 }
 
+/***************************************************************************
+ * Several different approaches to try and handle SEH/longjmp unwind
+ */
+
+static void
+drwrap_in_callee_check_unwind(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc)
+{
+    /* Try to handle an SEH unwind or longjmp that unrolled the stack.
+     * The stack may have been extended again since then, and we don't know
+     * the high-water point: so even if we're currently further down the
+     * stack than any recorded prior call, we verify all entries if we
+     * had an exception.
+     * XXX: should we verify all the time, to handle any longjmp?
+     * But our retaddr check is not bulletproof and might have issues
+     * in both directions (though we don't really support wrapping
+     * functions that change their retaddrs: still, it's not sufficient
+     * due to stale values).
+     */
+    if (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < mc->xsp
+        IF_WINDOWS(|| pt->hit_exception)) {
+        NOTIFY(1, "%s: checking for bypass @ xsp="PFX"\n", __FUNCTION__, mc->xsp);
+        while (pt->wrap_level >= 0 &&
+               (pt->app_esp[pt->wrap_level] < mc->xsp
+                /* if we hit an exception, look for same xsp, b/c longjmp
+                 * or handler may be at same level as aborted callee.
+                 * we thus give up on correctly handling
+                 * an exception in a tailcall sequence: but that's really
+                 * hard anyway.
+                 */
+                IF_WINDOWS(|| (pt->hit_exception &&
+                               pt->app_esp[pt->wrap_level] <= mc->xsp)))) {
+            drwrap_after_callee_func(drcontext, mc, pt->last_wrap_func[pt->wrap_level],
+                                     NULL, true, false);
+        }
+        /* Try to clean up entries we unrolled past and then came back
+         * down past in the other direction.  Note that there's a
+         * decent chance retaddrs weren't clobbered though so this is
+         * not guaranteed.
+         */
+        while (pt->wrap_level >= 0) {
+            app_pc ret;
+            if (TEST(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
+                if (!fast_safe_read((void *)pt->app_esp[pt->wrap_level],
+                                    sizeof(ret), &ret))
+                    ret = NULL;
+            } else
+                ret = *(app_pc*)pt->app_esp[pt->wrap_level];
+            if ((pt->wrap_level > 0 && ret == pt->last_wrap_func[pt->wrap_level - 1]) ||
+                post_call_lookup(ret))
+                break;
+            NOTIFY(2, "%s: found clobbered retaddr "PFX"\n", __FUNCTION__, ret);
+            drwrap_after_callee_func(drcontext, mc, pt->last_wrap_func[pt->wrap_level],
+                                     NULL, true, false);
+        }
+        IF_WINDOWS(pt->hit_exception = false;)
+    }
+}
+
 #ifdef WINDOWS
-/* several different approaches to try and handle SEH unwind */
 static bool
 drwrap_event_filter_syscall(void *drcontext, int sysnum)
 {
@@ -1513,9 +1575,13 @@ drwrap_event_pre_syscall(void *drcontext, int sysnum)
             /* Call post-call for every one we're skipping in our target, but
              * pass NULL for wrapcxt to indicate this is not a normal post-call
              */
+            NOTIFY(1, "%s: unwinding those we'll bypass @ target xsp="PFX"\n",
+                   __FUNCTION__, tgt_xsp);
             while (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < tgt_xsp) {
+                NOTIFY(2, "%s: level %d\n", __FUNCTION__, pt->wrap_level);
                 drwrap_after_callee_func(drcontext, &mc,
-                                         pt->last_wrap_func[pt->wrap_level], NULL);
+                                         pt->last_wrap_func[pt->wrap_level], NULL,
+                                         true, false);
             }
         }
     }
@@ -1526,9 +1592,21 @@ bool
 drwrap_event_exception(void *drcontext, dr_exception_t *excpt)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    /* record whether we should check all the levels in the next hook */
-    if (pt->wrap_level >= 0)
+    if (pt->wrap_level >= 0) {
+        int idx;
+        /* record whether we should check all the levels in the next hook
+         * if using heuristics
+         */
         pt->hit_exception = true;
+        /* forcibly unwind those that requested it */
+        NOTIFY(1, "%s: notifying those who requested\n", __FUNCTION__);
+        /* might not decrement pt->wrap_level so we use a for loop */
+        for (idx = pt->wrap_level; idx >= 0; idx--) {
+            NOTIFY(2, "%s: level %d\n", __FUNCTION__, idx);
+            drwrap_after_callee_func(drcontext, excpt->mcontext, pt->last_wrap_func[idx],
+                                     NULL, true, true);
+        }
+    }
     return true;
 }
 #endif
