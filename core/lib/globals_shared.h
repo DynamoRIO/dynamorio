@@ -535,6 +535,12 @@ typedef struct _instr_t instr_t;
 # define IF_KSTATS(x)
 #endif
 
+#ifdef STANDALONE_UNIT_TEST
+# define IF_UNIT_TEST_ELSE(x,y) x
+#else
+# define IF_UNIT_TEST_ELSE(x,y) y
+#endif
+
 /* DR_API EXPORT TOFILE dr_defines.h */
 /* DR_API EXPORT BEGIN */
 #ifdef X64
@@ -1064,6 +1070,10 @@ enum DLL_TYPE {
         DLL_PATHHAS
 };
 #endif /* WINDOWS */
+
+#ifdef STANDALONE_UNIT_TEST
+# define UNIT_TEST_EXE_NAME "unit_test_" STRINGIFY(UNIT_TEST_NAME) IF_WINDOWS(".exe")
+#endif
 
 /* DYNAMORIO_RUNUNDER controls the injection technique and process naming, 
  *  it is a bitmask of the values below:

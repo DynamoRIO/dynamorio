@@ -872,7 +872,7 @@ os_init(void)
         TLS_NUM_SLOTS, IF_X64_ELSE("gs", "fs"), tls_local_state_offs);
     ASSERT_CURIOSITY(proc_is_cache_aligned(get_local_state()) || 
                      DYNAMO_OPTION(tls_align != 0));
-    if (IF_CLIENT_INTERFACE_ELSE(!standalone_library, true)) {
+    if (IF_CLIENT_INTERFACE_ELSE(IF_UNIT_TEST_ELSE(true, !standalone_library), true)) {
         tls_dcontext_offs = os_tls_offset(TLS_DCONTEXT_SLOT);
         ASSERT(tls_dcontext_offs != TLS_UNINITIALIZED);
     }

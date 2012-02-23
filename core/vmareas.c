@@ -11034,6 +11034,8 @@ aslr_report_violation(app_pc execution_fault_pc,
 #endif /* PROGRAM_SHEPHERDING */
 
 #ifdef VMAREAS_UNIT_TEST
+# define INT_TO_PC(x) ((app_pc)(ptr_uint_t)(x))
+
 static void
 print_vector_msg(vm_area_vector_t *v, file_t f, char *msg)
 {
@@ -11061,30 +11063,32 @@ vmvector_tests()
     bool res;
     app_pc start, end;
     /* FIXME: not tested */
-    vmvector_add(&v, (app_pc)0x100, (app_pc)0x103, NULL);
-    vmvector_add(&v, (app_pc)0x200, (app_pc)0x203, NULL);
+    vmvector_add(&v, INT_TO_PC(0x100), INT_TO_PC(0x103), NULL);
+    vmvector_add(&v, INT_TO_PC(0x200), INT_TO_PC(0x203), NULL);
     vmvector_print(&v, STDERR);
-    vmvector_add(&v, (app_pc)0x202, (app_pc)0x210, NULL); /* should complain */
-    vmvector_add(&v, (app_pc)0x203, (app_pc)0x221, NULL);
+#if 0 /* this raises no-merge assert: no mechanism to test that it fires though */
+    vmvector_add(&v, INT_TO_PC(0x202), INT_TO_PC(0x210), NULL); /* should complain */
+#endif
+    vmvector_add(&v, INT_TO_PC(0x203), INT_TO_PC(0x221), NULL);
     vmvector_print(&v, STDERR);
-    check_vec(&v, 2, (app_pc)0x203, (app_pc)0x221, 0, 0, NULL);
+    check_vec(&v, 2, INT_TO_PC(0x203), INT_TO_PC(0x221), 0, 0, NULL);
 
-    res = vmvector_remove_containing_area(&v, (app_pc)0x103, NULL, NULL); /* not in */
+    res = vmvector_remove_containing_area(&v, INT_TO_PC(0x103), NULL, NULL); /* not in */
     EXPECT(res, false);
-    check_vec(&v, 0, (app_pc)0x100, (app_pc)0x103, 0, 0, NULL);
-    res = vmvector_remove_containing_area(&v, (app_pc)0x100, NULL, &end);
+    check_vec(&v, 0, INT_TO_PC(0x100), INT_TO_PC(0x103), 0, 0, NULL);
+    res = vmvector_remove_containing_area(&v, INT_TO_PC(0x100), NULL, &end);
     EXPECT(end, 0x103);
     EXPECT(res, true);
     vmvector_print(&v, STDERR);
-    check_vec(&v, 0, (app_pc)0x200, (app_pc)0x203, 0, 0, NULL);
-    res = vmvector_remove_containing_area(&v, (app_pc)0x100, NULL, NULL); /* not in */
+    check_vec(&v, 0, INT_TO_PC(0x200), INT_TO_PC(0x203), 0, 0, NULL);
+    res = vmvector_remove_containing_area(&v, INT_TO_PC(0x100), NULL, NULL); /* not in */
     EXPECT(res, false);
     vmvector_print(&v, STDERR);
-    res = vmvector_remove_containing_area(&v, (app_pc)0x202, &start, NULL); /* not in */
-    EXPECT(res, false);
+    res = vmvector_remove_containing_area(&v, INT_TO_PC(0x202), &start, NULL);
+    EXPECT(res, true);
     EXPECT(start, 0x200);
     vmvector_print(&v, STDERR);
-    res = vmvector_remove(&v, (app_pc)0x20, (app_pc)0x210); /* truncation allowed? */
+    res = vmvector_remove(&v, INT_TO_PC(0x20), INT_TO_PC(0x210)); /* truncation allowed? */
     EXPECT(res, true);
     vmvector_print(&v, STDERR);
 }
@@ -11102,90 +11106,90 @@ main() {
 
     /* TEST 1: merge a bunch of areas
      */
-    add_vm_area(&v, (app_pc)1, (app_pc)3, 0, 0, NULL _IF_DEBUG("A"));
-    add_vm_area(&v, (app_pc)5, (app_pc)7, 0, 0, NULL _IF_DEBUG("B"));
-    add_vm_area(&v, (app_pc)9, (app_pc)11, 0, 0, NULL _IF_DEBUG("C"));
+    add_vm_area(&v, INT_TO_PC(1), INT_TO_PC(3), 0, 0, NULL _IF_DEBUG("A"));
+    add_vm_area(&v, INT_TO_PC(5), INT_TO_PC(7), 0, 0, NULL _IF_DEBUG("B"));
+    add_vm_area(&v, INT_TO_PC(9), INT_TO_PC(11), 0, 0, NULL _IF_DEBUG("C"));
     print_vector_msg(&v, STDERR, "after adding areas");
-    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, 0, NULL);
-    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, 0, NULL);
-    check_vec(&v, 2, (app_pc)9, (app_pc)11, 0, 0, NULL);
+    check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(3), 0, 0, NULL);
+    check_vec(&v, 1, INT_TO_PC(5), INT_TO_PC(7), 0, 0, NULL);
+    check_vec(&v, 2, INT_TO_PC(9), INT_TO_PC(11), 0, 0, NULL);
 
-    add_vm_area(&v, (app_pc)0, (app_pc)12, 0, 0, NULL _IF_DEBUG("D"));
+    add_vm_area(&v, INT_TO_PC(0), INT_TO_PC(12), 0, 0, NULL _IF_DEBUG("D"));
     print_vector_msg(&v, STDERR, "after merging with D");
-    check_vec(&v, 0, (app_pc)0, (app_pc)12, 0, 0, NULL);
+    check_vec(&v, 0, INT_TO_PC(0), INT_TO_PC(12), 0, 0, NULL);
 
     /* clear for next test */
-    remove_vm_area(&v, (app_pc)0, UNIVERSAL_REGION_END, false);
+    remove_vm_area(&v, INT_TO_PC(0), UNIVERSAL_REGION_END, false);
     print_file(STDERR, "\n");
 
     /* TEST 2: add an area that covers several smaller ones, including one
      * that cannot be merged
      */
-    add_vm_area(&v, (app_pc)1, (app_pc)3, 0, 0, NULL _IF_DEBUG("A"));
-    add_vm_area(&v, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("B"));
-    add_vm_area(&v, (app_pc)9, (app_pc)11, 0, 0, NULL _IF_DEBUG("C"));
+    add_vm_area(&v, INT_TO_PC(1), INT_TO_PC(3), 0, 0, NULL _IF_DEBUG("A"));
+    add_vm_area(&v, INT_TO_PC(5), INT_TO_PC(7), 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("B"));
+    add_vm_area(&v, INT_TO_PC(9), INT_TO_PC(11), 0, 0, NULL _IF_DEBUG("C"));
     print_vector_msg(&v, STDERR, "after adding areas");
-    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, 0, NULL);
-    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL);
-    check_vec(&v, 2, (app_pc)9, (app_pc)11, 0, 0, NULL);
+    check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(3), 0, 0, NULL);
+    check_vec(&v, 1, INT_TO_PC(5), INT_TO_PC(7), 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 2, INT_TO_PC(9), INT_TO_PC(11), 0, 0, NULL);
 
-    add_vm_area(&v, (app_pc)2, (app_pc)10, 0, NULL, 0 _IF_DEBUG("D"));
+    add_vm_area(&v, INT_TO_PC(2), INT_TO_PC(10), 0, 0, NULL _IF_DEBUG("D"));
     print_vector_msg(&v, STDERR, "after merging with D");
-    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, 0, NULL);
-    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL);
-    check_vec(&v, 2, (app_pc)7, (app_pc)11, 0, 0, NULL);
+    check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(5), 0, 0, NULL);
+    check_vec(&v, 1, INT_TO_PC(5), INT_TO_PC(7), 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 2, INT_TO_PC(7), INT_TO_PC(11), 0, 0, NULL);
 
-    remove_vm_area(&v, (app_pc)6, (app_pc)8, false);
+    remove_vm_area(&v, INT_TO_PC(6), INT_TO_PC(8), false);
     print_vector_msg(&v, STDERR, "after removing 6-8");
-    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, 0, NULL);
-    check_vec(&v, 1, (app_pc)5, (app_pc)6, 0, FRAG_SELFMOD_SANDBOXED, NULL);
-    check_vec(&v, 2, (app_pc)8, (app_pc)11, 0, 0, NULL);
+    check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(5), 0, 0, NULL);
+    check_vec(&v, 1, INT_TO_PC(5), INT_TO_PC(6), 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 2, INT_TO_PC(8), INT_TO_PC(11), 0, 0, NULL);
 
     /* clear for next test */
-    remove_vm_area(&v, (app_pc)0, UNIVERSAL_REGION_END, false);
+    remove_vm_area(&v, INT_TO_PC(0), UNIVERSAL_REGION_END, false);
     print_file(STDERR, "\n");
 
     /* TEST 3: add an area that covers several smaller ones, including two
      * that cannot be merged
      */
-    add_vm_area(&v, (app_pc)1, (app_pc)3, 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("A"));
-    add_vm_area(&v, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("B"));
-    add_vm_area(&v, (app_pc)9, (app_pc)11, 0, 0, NULL _IF_DEBUG("C"));
+    add_vm_area(&v, INT_TO_PC(1), INT_TO_PC(3), 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("A"));
+    add_vm_area(&v, INT_TO_PC(5), INT_TO_PC(7), 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("B"));
+    add_vm_area(&v, INT_TO_PC(9), INT_TO_PC(11), 0, 0, NULL _IF_DEBUG("C"));
     print_vector_msg(&v, STDERR, "after adding areas");
-    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, FRAG_SELFMOD_SANDBOXED, NULL);
-    check_vec(&v, 1, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL);
-    check_vec(&v, 2, (app_pc)9, (app_pc)11, 0, 0, NULL);
+    check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(3), 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 1, INT_TO_PC(5), INT_TO_PC(7), 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 2, INT_TO_PC(9), INT_TO_PC(11), 0, 0, NULL);
 
-    add_vm_area(&v, (app_pc)2, (app_pc)12, 0, 0, NULL _IF_DEBUG("D"));
+    add_vm_area(&v, INT_TO_PC(2), INT_TO_PC(12), 0, 0, NULL _IF_DEBUG("D"));
     print_vector_msg(&v, STDERR, "after merging with D");
-    check_vec(&v, 0, (app_pc)1, (app_pc)3, 0, FRAG_SELFMOD_SANDBOXED, NULL);
-    check_vec(&v, 1, (app_pc)3, (app_pc)5, 0, 0, NULL);
-    check_vec(&v, 2, (app_pc)5, (app_pc)7, 0, FRAG_SELFMOD_SANDBOXED, NULL);
-    check_vec(&v, 3, (app_pc)7, (app_pc)12, 0, 0, NULL);
+    check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(3), 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 1, INT_TO_PC(3), INT_TO_PC(5), 0, 0, NULL);
+    check_vec(&v, 2, INT_TO_PC(5), INT_TO_PC(7), 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 3, INT_TO_PC(7), INT_TO_PC(12), 0, 0, NULL);
 
-    remove_vm_area(&v, (app_pc)2, (app_pc)11, false);
+    remove_vm_area(&v, INT_TO_PC(2), INT_TO_PC(11), false);
     print_vector_msg(&v, STDERR, "after removing 2-11");
-    check_vec(&v, 0, (app_pc)1, (app_pc)2, 0, FRAG_SELFMOD_SANDBOXED, NULL);
-    check_vec(&v, 1, (app_pc)11, (app_pc)12, 0, 0, NULL);
+    check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(2), 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 1, INT_TO_PC(11), INT_TO_PC(12), 0, 0, NULL);
 
     /* FIXME: would be nice to be able to test that an assert is generated... 
      * say, for this:
-     * add_vm_area(&v, (app_pc)7, (app_pc)12, 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("E"));
+     * add_vm_area(&v, INT_TO_PC(7), INT_TO_PC(12), 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("E"));
      */
 
     /* clear for next test */
-    remove_vm_area(&v, (app_pc)0, UNIVERSAL_REGION_END, false);
+    remove_vm_area(&v, INT_TO_PC(0), UNIVERSAL_REGION_END, false);
     print_file(STDERR, "\n");
 
     /* TEST 4: add an area completely inside one that cannot be merged
      */
-    add_vm_area(&v, (app_pc)1, (app_pc)5, 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("A"));
+    add_vm_area(&v, INT_TO_PC(1), INT_TO_PC(5), 0, FRAG_SELFMOD_SANDBOXED, NULL _IF_DEBUG("A"));
     print_vector_msg(&v, STDERR, "after adding areas");
-    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(5), 0, FRAG_SELFMOD_SANDBOXED, NULL);
 
-    add_vm_area(&v, (app_pc)3, (app_pc)4, 0, 0, NULL _IF_DEBUG("B"));
+    add_vm_area(&v, INT_TO_PC(3), INT_TO_PC(4), 0, 0, NULL _IF_DEBUG("B"));
     print_vector_msg(&v, STDERR, "after merging with B");
-    check_vec(&v, 0, (app_pc)1, (app_pc)5, 0, FRAG_SELFMOD_SANDBOXED, NULL);
+    check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(5), 0, FRAG_SELFMOD_SANDBOXED, NULL);
 
     vmvector_tests();
 

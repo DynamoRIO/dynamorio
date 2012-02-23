@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -256,6 +256,58 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(dynamorio ${x86_core_asm_tgt})
 endif ()
 
+if (UNIX)
+  # We always use a script for our own library bounds (PR 361594).
+  # We could build this at configure time instead of build time as
+  # it does not depend on the source files.
+  # FIXME: this is duplicated in DynamoRIOConfig.cmake
+  set(ld_script ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
+  set_directory_properties(PROPERTIES
+    ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
+endif (UNIX)
+
+function (use_ldscript target)
+  add_custom_command(TARGET ${target}
+    PRE_LINK
+    COMMAND ${CMAKE_COMMAND}
+    # script does not inherit any vars so we must pass them all in
+    # to work around i#84 be sure to put a space after -D for 1st arg at least
+    ARGS -D outfile=${ld_script}
+         -DCMAKE_LINKER=${CMAKE_LINKER}
+         -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
+         -DLD_FLAGS=${LD_FLAGS}
+         -Dset_preferred=${SET_PREFERRED_BASE}
+         -Dpreferred_base=${preferred_base}
+         -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_ldscript.cmake
+    VERBATIM # recommended: p260
+    )
+endfunction (use_ldscript)
+
+function (add_unit_test name)
+  string(TOUPPER "${name}" name_upper)
+  add_executable(unit_test_${name}
+    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
+  set_target_properties(unit_test_${name} PROPERTIES
+    COMPILE_FLAGS "-D${name_upper}_UNIT_TEST -DRC_IS_TEST -DUNIT_TEST_NAME=${name}"
+    RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
+  if (UNIX)
+    set_target_properties(unit_test_${name} PROPERTIES
+      LINK_FLAGS "-Xlinker ${ld_script_option} -Xlinker \"${ld_script}\"")
+    target_link_libraries(unit_test_${name} c dl m)
+    use_ldscript(unit_test_${name})
+  else (UNIX)
+    target_link_libraries(unit_test_${name} libcmtd ntdll)
+    set_target_properties(unit_test_${name} PROPERTIES
+      LINK_FLAGS "/base:${preferred_base}")
+  endif (UNIX)
+  add_test(unit_test_${name} "${EXECUTABLE_OUTPUT_DIRECTORY}/unit_test_${name}")
+endfunction (add_unit_test)
+
+if (STANDALONE_UNIT_TEST)
+  add_unit_test(options)
+  add_unit_test(vmareas)
+endif (STANDALONE_UNIT_TEST)
+
 # rather than a separate BUILD_INCLUDES option we always build
 # include headers if building core (or if building docs or samples as
 # they have real dependencies)
@@ -334,29 +386,9 @@ if (UNIX)
       "${dynamorio_link_flags} -Xlinker --version-script -Xlinker ${export_list}")
   endif (NOT HAVE_FVISIBILITY)
 
-  # We always use a script for our own library bounds (PR 361594).
-  # We could build this at configure time instead of build time as
-  # it does not depend on the source files.
-  # FIXME: this is duplicated in DynamoRIOConfig.cmake
-  set(ld_script ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
-  set_directory_properties(PROPERTIES
-    ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
   set(dynamorio_link_flags 
     "${dynamorio_link_flags} -Xlinker ${ld_script_option} -Xlinker \"${ld_script}\"")
-  add_custom_command(TARGET dynamorio
-    PRE_LINK
-    COMMAND ${CMAKE_COMMAND}
-    # script does not inherit any vars so we must pass them all in
-    # to work around i#84 be sure to put a space after -D for 1st arg at least
-    ARGS -D outfile=${ld_script}
-         -DCMAKE_LINKER=${CMAKE_LINKER}
-         -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
-         -DLD_FLAGS=${LD_FLAGS}
-         -Dset_preferred=${SET_PREFERRED_BASE}
-         -Dpreferred_base=${preferred_base}
-         -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_ldscript.cmake
-    VERBATIM # recommended: p260
-    )
+  use_ldscript(dynamorio)
 
   set_target_properties(dynamorio PROPERTIES
     LINK_FLAGS "${dynamorio_link_flags}")

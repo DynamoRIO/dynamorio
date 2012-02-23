@@ -510,6 +510,7 @@ get_libc_errno_location(bool do_init)
 int
 get_libc_errno(void)
 {
+#ifndef STANDALONE_UNIT_TEST
     errno_loc_t func = get_libc_errno_location(false);
     ASSERT(func != NULL || !dynamo_initialized);
     if (func != NULL) {
@@ -519,6 +520,7 @@ get_libc_errno(void)
         if (loc != NULL)
             return *loc;
     }
+#endif
     return 0;
 }
 
@@ -529,6 +531,7 @@ get_libc_errno(void)
 void
 set_libc_errno(int val)
 {
+#ifndef STANDALONE_UNIT_TEST
     errno_loc_t func = get_libc_errno_location(false);
     ASSERT(func != NULL || !dynamo_initialized);
     if (func != NULL) {
@@ -537,6 +540,7 @@ set_libc_errno(int val)
         if (loc != NULL)
             *loc = val;
     }
+#endif
 }
 
 
@@ -6833,7 +6837,7 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
             strncpy(libname, iter.comment, BUFFER_SIZE_ELEMENTS(libname));
             NULL_TERMINATE_BUFFER(libname);
         }
-
+ 
         if ((name_cmp != NULL && strstr(iter.comment, name_cmp) != NULL) ||
             (name == NULL && *start >= iter.vm_start && *start < iter.vm_end)) {
             if (!found_library) {
@@ -6952,7 +6956,7 @@ get_dynamo_library_bounds(void)
 #ifndef HAVE_PROC_MAPS
     check_start = dynamo_dll_start;
 #endif
-    res = get_library_bounds(DYNAMORIO_LIBRARY_NAME,
+    res = get_library_bounds(IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME,DYNAMORIO_LIBRARY_NAME),
                              &check_start, &check_end,
                              dynamorio_library_path,
                              BUFFER_SIZE_ELEMENTS(dynamorio_library_path));

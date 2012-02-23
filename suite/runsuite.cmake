@@ -90,26 +90,16 @@ testbuild_ex("debug-internal-64" ON "
   ${use_lib64_debug_cache}
   TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
   " OFF ON "${install_build_args}")
-testbuild("debug-external-32" OFF "
+testbuild("debug-unit-tests-32" OFF "
   DEBUG:BOOL=ON
-  INTERNAL:BOOL=OFF
+  INTERNAL:BOOL=ON
+  STANDALONE_UNIT_TEST:BOOL=ON
   ")
-testbuild("debug-external-64" ON "
+testbuild("debug-unit-tests-64" ON "
   DEBUG:BOOL=ON
-  INTERNAL:BOOL=OFF
+  INTERNAL:BOOL=ON
+  STANDALONE_UNIT_TEST:BOOL=ON
   ")
-testbuild_ex("release-external-32" OFF "
-  DEBUG:BOOL=OFF
-  INTERNAL:BOOL=OFF
-  ${install_path_cache}
-  " OFF OFF "${install_build_args}")
-testbuild_ex("release-external-64" ON "
-  DEBUG:BOOL=OFF
-  INTERNAL:BOOL=OFF
-  ${install_path_cache}
-  ${use_lib64_release_cache}
-  TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
-  " OFF OFF "${install_build_args}")
 # ensure extensions built as static libraries work
 # no tests needed: we ensure instrcalls and drsyms_bench build
 testbuild("debug-i32-static-ext" OFF "
@@ -121,6 +111,29 @@ testbuild("debug-i32-static-ext" OFF "
   DR_EXT_DRSYMS_STATIC:BOOL=ON
   ${install_path_cache}
   ")
+# just one external build in pre-commit suite
+testbuild("debug-external-64" ON "
+  DEBUG:BOOL=ON
+  INTERNAL:BOOL=OFF
+  ")
+if (DO_ALL_BUILDS)
+  testbuild("debug-external-32" OFF "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=OFF
+    ")
+  testbuild_ex("release-external-32" OFF "
+    DEBUG:BOOL=OFF
+    INTERNAL:BOOL=OFF
+    ${install_path_cache}
+    " OFF OFF "${install_build_args}")
+  testbuild_ex("release-external-64" ON "
+    DEBUG:BOOL=OFF
+    INTERNAL:BOOL=OFF
+    ${install_path_cache}
+    ${use_lib64_release_cache}
+    TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
+    " OFF OFF "${install_build_args}")
+endif ()
 # we don't really use internal release builds for anything, but keep it working
 if (DO_ALL_BUILDS)
   testbuild("release-internal-32" OFF "

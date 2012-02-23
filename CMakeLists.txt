@@ -1099,7 +1099,13 @@ if (BUILD_TESTS)
 endif (BUILD_TESTS)
 
 if (BUILD_CORE)
+  if (STANDALONE_UNIT_TEST)
+    enable_testing()
+  endif (STANDALONE_UNIT_TEST)
   add_subdirectory(core)
+  if (STANDALONE_UNIT_TEST)
+    include(CTest)
+  endif (STANDALONE_UNIT_TEST)
 endif (BUILD_CORE)
 
 if (BUILD_TOOLS OR BUILD_DRGUI)

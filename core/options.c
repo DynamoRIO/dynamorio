@@ -2081,7 +2081,6 @@ get_process_options(HANDLE process_handle)
 
 #ifdef OPTIONS_UNIT_TEST
 
-/* FIXME: not supported yet, try it out in UNIT_TEST */
 static void
 show_dynamo_options(bool minimal)
 {
@@ -2089,7 +2088,8 @@ show_dynamo_options(bool minimal)
 
     get_dynamo_options_string(&dynamo_options, opstring,
                               sizeof(opstring), minimal);
-    print_file(STDERR, "%s\n", opstring);
+    /* we exceed write_file's internal buffer size */
+    os_write(STDERR, opstring, strlen(opstring));
 }
 
 /* USAGE Show descriptions of all available options */
@@ -2098,7 +2098,7 @@ show_dynamo_option_descriptions()
 {
 #define OPTION_COMMAND(type, name, default_value,                       \
                        command_line_option, statement,                  \
-                       description, flag)                               \
+                       description, flag, pcache)                       \
     if (command_line_option[0] != ' ') { /* not synthethic */           \
         print_file(STDERR, "-%-20s %s\n", command_line_option, description);        \
     }
@@ -2126,16 +2126,16 @@ main() {
     show_dynamo_options(false);
     print_file(STDERR, "after---\n");
     set_dynamo_options(&dynamo_options,
-                       "-stats -loglevel 1 -logmask 0x10 -exempt_text_list 'mylib.dll;evilbad.dll;really_long_name_for_a_dll.dll' -stderr_mask 12");
+                       "-loglevel 1 -logmask 0x10 -block_mod_load_list 'mylib.dll;evilbad.dll;really_long_name_for_a_dll.dll' -stderr_mask 12");
     show_dynamo_options(true);
 
     set_dynamo_options(&dynamo_options,
-                       "-logmask 17 -cache_bb_max 20 -cache_trace_max 20M -timeout 3m -diagnostics");
+                       "-logmask 17 -cache_bb_max 20 -cache_trace_max 20M -svchost_timeout 3m");
     show_dynamo_options(true);
 
     set_dynamo_options_defaults(&new_options);
     set_dynamo_options(&new_options,
-                       "-logmask 7 -cache_bb_max 20 -cache_trace_max 20M -timeout 3m -detect_mode");
+                       "-logmask 7 -cache_bb_max 20 -cache_trace_max 20M -svchost_timeout 3m");
     updated = update_dynamic_options(&dynamo_options, &new_options);
     print_file(STDERR, "updated %d\n", updated);
     show_dynamo_options(true);

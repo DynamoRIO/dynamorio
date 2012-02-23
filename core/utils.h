@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2041,12 +2041,12 @@ void profile_callers_exit(void);
 
 /* an ASSERT replacement for use in unit tests */
 #define EXPECT(expr, expected) do {                             \
-    ptr_uint_t value_once = expr;                               \
+    ptr_uint_t value_once = (ptr_uint_t) expr;                  \
     EXPECT_RELATION_INTERNAL(#expr, value_once, ==, expected);  \
 } while (0)
 
 #define EXPECT_RELATION(expr, REL, expected) do {               \
-    ptr_uint_t value_once = expr;                               \
+    ptr_uint_t value_once = (ptr_uint_t) expr;                  \
     EXPECT_RELATION_INTERNAL(#expr, value_once, REL, expected); \
 } while (0)
 
