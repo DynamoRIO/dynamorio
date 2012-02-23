@@ -126,6 +126,7 @@ The changes between version \DR_VERSION and 3.1.0 are:
    dr_register_persist_ro(), dr_register_persist_rx(), 
    dr_register_persist_rw(), dr_register_persist_patch(), and
    #DR_EMIT_PERSISTABLE.
+ - Added support for linking C \clients with libc via DynamoRIO_USE_LIBC
  - Added drwrap notification on exceptions bypassing post-hooks
  - Added drwrap_wrap_ex() to pass initial constant user data
  - Added drwrap_is_wrapped() and drwrap_is_post_wrap()

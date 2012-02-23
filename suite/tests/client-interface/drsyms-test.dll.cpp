@@ -207,6 +207,14 @@ get_real_proc_addr(void *mod_handle, const char *symbol)
     app_pc export_addr = (app_pc)dr_get_proc_address(mod_handle, symbol);
     void *dc = dr_get_current_drcontext();
 
+#ifdef WINDOWS
+    /* use a symbol forwarded by DR to ntdll that's not an intrinsic to test
+     * duplicate link issues vs libcmt
+     */
+    if (isdigit(symbol[0]))
+        next_pc = next_pc; /* avoid warning about empty statement */
+#endif
+
     instr_init(dc, &instr);
     if (export_addr != NULL)
         next_pc = decode(dc, export_addr, &instr);

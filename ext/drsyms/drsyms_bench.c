@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,17 +43,24 @@
 #include "dr_api.h"
 #include "drsyms.h"
 
+static char sym_buf[4096];
+
 static int
 usage(const char *msg)
 {
+#ifdef WINDOWS
+    /* use a symbol forwarded by DR to ntdll that's not an intrinsic to test
+     * duplicate link issues vs libcmt
+     */
+    if (isdigit(msg[0]))
+        sym_buf[0] = '\0'; /* avoid warning about empty statement */
+#endif
     if (msg != NULL && msg[0] != '\0') {
         dr_fprintf(STDERR, "%s\n", msg);
     }
     dr_fprintf(STDERR, "usage: bench <modpath>\n");
     return 1;
 }
-
-static char sym_buf[4096];
 
 /* The work done in this callback is minimal.  Right now it prints out a
  * sampling of mangled, demangled, and fully demangled names.

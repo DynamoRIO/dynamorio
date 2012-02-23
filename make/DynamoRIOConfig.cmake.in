@@ -135,6 +135,12 @@
 #
 #  set(DynamoRIO_SET_PREFERRED_BASE ON)
 #
+# On Windows, by default, standalone clients and C++ clients link with
+# the C library, but C clients do not.  To link with the C library for
+# a C client, set this variable:
+#
+#  set(DynamoRIO_USE_LIBC ON)
+#
 # To request fast IR access (at the cost of binary compatibility):
 #
 #  set(DynamoRIO_FAST_IR ON)
@@ -260,7 +266,7 @@ function (configure_DynamoRIO_global is_cxx change_flags)
           if (WIN32)
             # We could limit this global var changing to Windows,
             # but it simplifies cross-platform uses to be symmetric
-            string(REGEX REPLACE "/M[TD]d?" "" local_${var} "${local_${var}}")
+            string(REGEX REPLACE "/M[TD]" "/MT" local_${var} "${local_${var}}")
             string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
           endif (WIN32)
           set(CLIENT_${var} "${local_${var}}" PARENT_SCOPE)
@@ -344,14 +350,12 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
         "${ORIG_CMAKE_C_FLAGS} ${ORIG_CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
     endif (tgt_cxx)
     if (WIN32)
-      # For standalone, we explicitly link in static libc prior to
-      # dynamorio.lib to avoid conflicts w/ ntdll forwards, so we don't
-      # support dynamic libc (xref PR 305100)
-      if ("${tgt_cflags}" MATCHES "/MD")
-        string(REGEX REPLACE "/MD" "/MT" tgt_cflags "${tgt_cflags}")
-      else ("${tgt_cflags}" MATCHES "/MD")
-        set(tgt_cflags "${tgt_cflags} /MT")
-      endif ("${tgt_cflags}" MATCHES "/MD")
+      # For standalone we want the original flags, but we need to
+      # explicitly link in static libc prior to dynamorio.lib to avoid
+      # conflicts w/ ntdll forwards, so we don't support dynamic libc
+      # (xref i#686) (or /MT since it puts libc last but we manipulate
+      # that later).
+      string(REGEX REPLACE "/MD" "/MT" tgt_cflags "${tgt_cflags}")
     endif (WIN32)
   endif (is_client)
 
@@ -405,28 +409,46 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
       # Avoid bringing in libc and/or kernel32 for stack checks
       set(tgt_cflags "${tgt_cflags} /GS-")
       # FIXME: why isn't /debug showing up: is it
-      if (tgt_cxx)
-        # Take advantage of the Windows private loader: no longer need
-        # /nodefaultlib or /noentry.  We only do so for C++ clients for now.
-        set(tgt_link_flags "${tgt_link_flags} /nodefaultlib:libcmt")
-        # i#233: we require static libc for VS2005 and VS2008 to avoid SxS.
-        # For simplicity we just require them regardless.
-        # XXX: better to re-instantiate /MT in cflags?
-        # No: that puts libcmt at the end and we have dup def problems.
-        # Note that any client linking with ntdll will have to add it
-        # AFTER these are added if any forwarded routines are used.
-        if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
-          set(static_libc libcpmtd libcmtd)
-          # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
-          set(tgt_cflags "${tgt_cflags} -D_DEBUG")
-        else ()
-          set(static_libc libcpmt libcmt)
-        endif ()
-        target_link_libraries(${target} ${static_libc})
-      else (tgt_cxx)
-        set(tgt_link_flags "${tgt_link_flags} /nodefaultlib /noentry")
-      endif (tgt_cxx)
     endif (is_client)
+    if (DynamoRIO_USE_LIBC OR tgt_cxx OR NOT is_client)
+      # Take advantage of the Windows private loader: no longer need
+      # /nodefaultlib or /noentry.
+      #
+      # However, for i#233, we require static libc for VS2005 and VS2008
+      # to avoid SxS.  For simplicity we just require them regardless.
+      #
+      # Plus, we can't use /MT for clients or standalone (i#686) b/c it
+      # puts libcmt at the end and we hit dup def problems.  We need
+      # libcmt to come in before dynamorio to avoid conflicts w/
+      # forwarded routines.
+      #
+      # Note that any client linking with ntdll will have to add it
+      # AFTER these are added if any forwarded routines are used.
+      #
+      # Note that when using a static drsyms library, /noentry
+      # results in weird "missing _main" even when linking "/dll"
+      if (tgt_cxx)
+        set(tgt_link_flags "${tgt_link_flags} /nodefaultlib:libcmt")
+      else (tgt_cxx)
+        set(tgt_link_flags "${tgt_link_flags} /nodefaultlib")
+      endif (tgt_cxx)
+      if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+        set(static_libc libcmtd)
+        if (tgt_cxx)
+          set(static_libc libcpmtd ${static_libc})
+        endif ()
+        # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
+        set(tgt_cflags "${tgt_cflags} -D_DEBUG")
+      else ()
+        set(static_libc libcmt)
+        if (tgt_cxx)
+          set(static_libc libcpmt ${static_libc})
+        endif ()
+      endif ()
+      target_link_libraries(${target} ${static_libc})
+    else ()
+      set(tgt_link_flags "${tgt_link_flags} /nodefaultlib /noentry")
+    endif ()
   endif (UNIX)
 
   # DynamoRIOTarget.cmake added the "dynamorio" imported target
@@ -558,12 +580,6 @@ function (configure_DynamoRIO_standalone target)
     endforeach (var)
   endforeach (config)
   set(DynamoRIO_configured_globally ${DynamoRIO_configured_globally} PARENT_SCOPE)
-
-  if (WIN32)
-    # PR 305100: must list libc before dynamorio.lib to avoid complaints about
-    # the ntdll forwards conflicting w/ libc
-    set(tgt_link_flags "libcmt.lib ${tgt_link_flags}")
-  endif (WIN32)
 
   set_target_properties(${target} PROPERTIES
     COMPILE_FLAGS "${tgt_cflags} -DDYNAMORIO_STANDALONE"

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -38,6 +38,9 @@ if (X64)
 else ()
   set(BITS "32")
 endif ()
+
+# we need libc b/c our elftoolchain libraries use it
+set(DynamoRIO_USE_LIBC ON)
 
 if (WIN32)
   add_library(drsyms SHARED
