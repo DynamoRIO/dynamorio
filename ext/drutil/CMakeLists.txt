@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drutil: DynamoRIO Function Wrapping and Replacing Extension
@@ -23,8 +23,16 @@ cmake_minimum_required(VERSION 2.6)
 
 # DynamoRIO Function Wrapping and Replacing Extension
 
-# since LGPL, must be SHARED and not STATIC
-add_library(drutil SHARED
+# since LGPL, must be SHARED and not STATIC by default.
+# SHARED is also required if multiple separate components all want to
+# use this same extension.
+option(DR_EXT_DRUTIL_STATIC "create drutil as a static, not shared, library (N.B.: ensure the LGPL license implications are acceptable for your tool, as well as ensuring no separately-linked components of your tool also use drutil, before enabling as a static library)")
+if (DR_EXT_DRUTIL_STATIC)
+  set(libtype STATIC)
+else()
+  set(libtype SHARED)
+endif ()
+add_library(drutil ${libtype}
   drutil.c
   # add more here
   )

@@ -1312,6 +1312,10 @@ if (CLIENT_INTERFACE)
     append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
   endif (WIN32)
 
+  if (DR_EXT_DRSYMS_STATIC)
+    # required for using drsyms built as a static library
+    set(DynamoRIO_USE_LIBC ON)
+  endif ()
   tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
   get_target_property(drsyms_libpath client.drsyms-test.appdll LOCATION${location_suffix})
   tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
@@ -1321,6 +1325,9 @@ if (CLIENT_INTERFACE)
   disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+  if (DR_EXT_DRSYMS_STATIC)
+    set(DynamoRIO_USE_LIBC OFF) # reset
+  endif ()
 
   if (WIN32 AND GCC AND NOT X64)
     # test drsyms dwarf-on-windows capabilities.

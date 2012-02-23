@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -110,6 +110,17 @@ testbuild_ex("release-external-64" ON "
   ${use_lib64_release_cache}
   TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
   " OFF OFF "${install_build_args}")
+# ensure extensions built as static libraries work
+# no tests needed: we ensure instrcalls and drsyms_bench build
+testbuild("debug-i32-static-ext" OFF "
+  DEBUG:BOOL=ON
+  INTERNAL:BOOL=ON
+  DR_EXT_DRWRAP_STATIC:BOOL=ON
+  DR_EXT_DRUTIL_STATIC:BOOL=ON
+  DR_EXT_DRMGR_STATIC:BOOL=ON
+  DR_EXT_DRSYMS_STATIC:BOOL=ON
+  ${install_path_cache}
+  ")
 # we don't really use internal release builds for anything, but keep it working
 if (DO_ALL_BUILDS)
   testbuild("release-internal-32" OFF "

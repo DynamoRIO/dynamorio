@@ -270,3 +270,21 @@ drsym_dwarf_exit(void *mod_in)
     dr_global_free(mod, sizeof(*mod));
 }
 
+#if defined(WINDOWS) && defined(STATIC_LIB)
+/* if we build as a static library with "/MT /link /nodefaultlib libcmt.lib",
+ * somehow we're missing strdup
+ */
+char *
+strdup(const char *s)
+{
+    char *res;
+    size_t len;
+    if (s == NULL)
+        return NULL;
+    len = strlen(s) + 1;
+    res = (char *) malloc(strlen(s) + 1);
+    strncpy(res, s, len);
+    res[len - 1] = '\0';
+    return res;
+}
+#endif

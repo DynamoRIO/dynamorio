@@ -137,7 +137,8 @@
 #
 # On Windows, by default, standalone clients and C++ clients link with
 # the C library, but C clients do not.  To link with the C library for
-# a C client, set this variable:
+# a C client (which is required if using a static library build of
+# the drsyms Extension), set this variable:
 #
 #  set(DynamoRIO_USE_LIBC ON)
 #
@@ -237,17 +238,38 @@ function (configure_DynamoRIO_global is_cxx change_flags)
     # support a user calling us prior to setting up any targets
     get_size(${is_cxx} is_x64)
 
+    if (is_x64)
+      set(bits 64)
+    else (is_x64)
+      set(bits 32)
+    endif (is_x64)
+
+    if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+      set(type debug)
+    else ()
+      set(type release)
+    endif ()
+
     if (NOT DynamoRIO_INTERNAL)
+      # if we were built w/ static drsyms, clients need dependent static libs too
+      if (UNIX AND EXISTS "${cwd}/../ext/lib${bits}/${type}/libdwarf.a")
+        add_library(elf STATIC IMPORTED)
+        set_property(TARGET elf PROPERTY
+          IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/libelf.a")
+        add_library(dwarf STATIC IMPORTED)
+        set_property(TARGET dwarf PROPERTY
+          IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/libdwarf.a")
+        add_library(elftc STATIC IMPORTED)
+        set_property(TARGET elftc PROPERTY
+          IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/libelftc.a")
+      endif ()
+
       # Define imported target for DynamoRIO library, to allow dependencies on
       # the library and trigger client rebuild on DynamoRIO upgrade:
       # We always link to release build.  At runtime debug build can be
       # swapped in instead.
       # We assume is_x64 can have only one value per configuration.
-      if (is_x64)
-        include(${cwd}/DynamoRIOTarget64.cmake)
-      else (is_x64)
-        include(${cwd}/DynamoRIOTarget32.cmake)
-      endif (is_x64)
+      include(${cwd}/DynamoRIOTarget${bits}.cmake)
     endif (NOT DynamoRIO_INTERNAL)
 
     if (change_flags)
@@ -417,7 +439,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
       # However, for i#233, we require static libc for VS2005 and VS2008
       # to avoid SxS.  For simplicity we just require them regardless.
       #
-      # Plus, we can't use /MT for clients or standalone (i#686) b/c it
+      # Plus, we can't use just /MT for clients or standalone (i#686) b/c it
       # puts libcmt at the end and we hit dup def problems.  We need
       # libcmt to come in before dynamorio to avoid conflicts w/
       # forwarded routines.
@@ -427,6 +449,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
       #
       # Note that when using a static drsyms library, /noentry
       # results in weird "missing _main" even when linking "/dll"
+      # so we no longer use it
       if (tgt_cxx)
         set(tgt_link_flags "${tgt_link_flags} /nodefaultlib:libcmt")
       else (tgt_cxx)

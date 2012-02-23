@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -132,10 +132,17 @@ foreach (src ${srcs})
       VERBATIM)
   else ("${tgt}" STREQUAL "tracedump")
     add_library(${tgt} SHARED ${src})
+    if (SHOW_SYMBOLS AND "${tgt}" STREQUAL "instrcalls" AND DR_EXT_DRSYMS_STATIC)
+      # required for using drsyms built as a static library
+      set(DynamoRIO_USE_LIBC ON)
+    endif ()
     configure_DynamoRIO_client(${tgt})
 
     if (SHOW_SYMBOLS AND "${tgt}" STREQUAL "instrcalls")
       use_DynamoRIO_extension(${tgt} drsyms)
+      if (DR_EXT_DRSYMS_STATIC)
+        set(DynamoRIO_USE_LIBC OFF) # reset
+      endif ()
     endif ()
     if ("${tgt}" STREQUAL "strace")
       use_DynamoRIO_extension(${tgt} drmgr)

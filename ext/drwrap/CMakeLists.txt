@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -23,8 +23,16 @@ cmake_minimum_required(VERSION 2.6)
 
 # DynamoRIO Function Wrapping and Replacing Extension
 
-# since LGPL, must be SHARED and not STATIC
-add_library(drwrap SHARED
+# since LGPL, must be SHARED and not STATIC by default.
+# SHARED is also required if multiple separate components all want to
+# use this same extension.
+option(DR_EXT_DRWRAP_STATIC "create drwrap as a static, not shared, library (N.B.: ensure the LGPL license implications are acceptable for your tool, as well as ensuring no separately-linked components of your tool also use drwrap, before enabling as a static library)")
+if (DR_EXT_DRWRAP_STATIC)
+  set(libtype STATIC)
+else()
+  set(libtype SHARED)
+endif ()
+add_library(drwrap ${libtype}
   drwrap.c
   # add more here
   )

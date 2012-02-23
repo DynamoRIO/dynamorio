@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,13 @@ cmake_minimum_required(VERSION 2.6)
 # Must be shared to ensure only one copy, since can be used by
 # the client and by multiple other libraries, some of which may
 # be shared: the whole point is to have one master drmgr.
-add_library(drmgr SHARED
+option(DR_EXT_DRMGR_STATIC "create drmgr as a static, not shared, library (N.B.: ensure no separately-linked components of your tool also use drmgr before enabling as a static library)")
+if (DR_EXT_DRMGR_STATIC)
+  set(libtype STATIC)
+else()
+  set(libtype SHARED)
+endif ()
+add_library(drmgr ${libtype}
   drmgr.c
   # add more here
   )
@@ -46,6 +52,12 @@ set(PREFERRED_BASE 0x73000000)
 configure_DynamoRIO_client(drmgr)
 # ensure we rebuild if includes change
 add_dependencies(drmgr api_headers)
+if (UNIX)
+  # static libs must be PIC to be linked into clients: else requires
+  # relocations that run afoul of security policies, etc.
+  get_target_property(cur_flags drmgr COMPILE_FLAGS)
+  set_target_properties(drmgr PROPERTIES COMPILE_FLAGS "${cur_flags} -fPIC")
+endif (UNIX)
 
 if (WIN32 AND GENERATE_PDBS)
   # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
