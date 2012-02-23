@@ -276,14 +276,13 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback, void *data,
     bool keep_searching = true;
     char *symbol_buf;
     size_t symbol_buf_size = 1024;  /* C++ symbols can be quite long. */
-    void *dc = dr_get_current_drcontext();
     drsym_error_t res = DRSYM_SUCCESS;
 
     num_syms = drsym_obj_num_symbols(mod->obj_info);
     if (num_syms == 0)
         return DRSYM_ERROR;
 
-    symbol_buf = dr_thread_alloc(dc, symbol_buf_size);
+    symbol_buf = dr_global_alloc(symbol_buf_size);
 
     for (i = 0; keep_searching && i < num_syms; i++) {
         const char *mangled = drsym_obj_symbol_name(mod->obj_info, i);
@@ -302,9 +301,9 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback, void *data,
             while ((len = drsym_demangle_symbol(symbol_buf, symbol_buf_size,
                                                 mangled, flags))
                    > symbol_buf_size) {
-                dr_thread_free(dc, symbol_buf, symbol_buf_size);
+                dr_global_free(symbol_buf, symbol_buf_size);
                 symbol_buf_size = len;
-                symbol_buf = dr_thread_alloc(dc, symbol_buf_size);
+                symbol_buf = dr_global_alloc(symbol_buf_size);
             }
             if (len != 0) {
                 /* Success. */
@@ -315,7 +314,7 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback, void *data,
         keep_searching = callback(unmangled, modoffs, data);
     }
 
-    dr_thread_free(dc, symbol_buf, symbol_buf_size);
+    dr_global_free(symbol_buf, symbol_buf_size);
 
     return res;
 }

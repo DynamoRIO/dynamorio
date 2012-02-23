@@ -338,18 +338,22 @@ enum {
  * fields.
  */
 static PSYMBOL_INFO
-alloc_symbol_info(void *dc)
+alloc_symbol_info(void)
 {
-    PSYMBOL_INFO info = (PSYMBOL_INFO)dr_thread_alloc(dc, SYMBOL_INFO_SIZE);
+    /* N.B.: we do not call dr_get_current_drcontext() and use dr_thread_alloc()
+     * b/c that's not supported in standalone mode and we want standalone
+     * tools to be able to use drsyms
+     */
+    PSYMBOL_INFO info = (PSYMBOL_INFO)dr_global_alloc(SYMBOL_INFO_SIZE);
     info->SizeOfStruct = sizeof(SYMBOL_INFO);
     info->MaxNameLen = MAX_SYM_NAME;
     return info;
 }
 
 static void
-free_symbol_info(void *dc, PSYMBOL_INFO info)
+free_symbol_info(PSYMBOL_INFO info)
 {
-    dr_thread_free(dc, info, SYMBOL_INFO_SIZE);
+    dr_global_free(info, SYMBOL_INFO_SIZE);
 }
 
 static drsym_error_t
@@ -361,7 +365,6 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
     DWORD64 disp;
     IMAGEHLP_LINE64 line;
     DWORD line_disp;
-    void *dc = dr_get_current_drcontext();
     PSYMBOL_INFO info;
 
     if (modpath == NULL || out == NULL)
@@ -384,7 +387,7 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
     }
 
     base = mod->u.load_base;
-    info = alloc_symbol_info(dc);
+    info = alloc_symbol_info();
     if (SymFromAddr(GetCurrentProcess(), base + modoffs, &disp, info)) {
         out->start_offs = (size_t) (info->Address - base);
         out->end_offs = (size_t) ((info->Address + info->Size) - base);
@@ -395,11 +398,11 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
                disp, info->Address, info->Address + info->Size);
     } else {
         NOTIFY("SymFromAddr error %d\n", GetLastError());
-        free_symbol_info(dc, info);
+        free_symbol_info(info);
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_SYMBOL_NOT_FOUND;
     }
-    free_symbol_info(dc, info);
+    free_symbol_info(info);
 
     line.SizeOfStruct = sizeof(line);
     if (SymGetLineFromAddr64(GetCurrentProcess(), base + modoffs, &line_disp, &line)) {
@@ -428,7 +431,6 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
 {
     mod_entry_t *mod;
     drsym_error_t r;
-    void *dc = dr_get_current_drcontext();
     PSYMBOL_INFO info;
 
     if (modpath == NULL || symbol == NULL || modoffs == NULL)
@@ -450,7 +452,7 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
     /* the only thing identifying the target module is the symbol name,
      * which should be of "modname!symname" format
      */
-    info = alloc_symbol_info(dc);
+    info = alloc_symbol_info();
     if (SymFromName(GetCurrentProcess(), (char *)symbol, info)) {
         NOTIFY("0x%I64x\n", info->Address);
         *modoffs = (size_t) (info->Address - mod->u.load_base);
@@ -459,7 +461,7 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
         NOTIFY("SymFromName error %d %s\n", GetLastError(), symbol);
         r = DRSYM_ERROR_SYMBOL_NOT_FOUND;
     }
-    free_symbol_info(dc, info);
+    free_symbol_info(info);
     dr_recurlock_unlock(symbol_lock);
     return r;
 }
@@ -915,7 +917,6 @@ drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
     ULONG type_index;
     mempool_t pool;
     drsym_error_t r;
-    void *dc = dr_get_current_drcontext();
     PSYMBOL_INFO info;
 
     if (modpath == NULL || buf == NULL || func_type == NULL)
@@ -943,16 +944,16 @@ drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
      * interesting symbols.  Therefore we can afford the overhead of the address
      * lookup.
      */
-    info = alloc_symbol_info(dc);
+    info = alloc_symbol_info();
     if (SymFromAddr(GetCurrentProcess(), mod->u.load_base + modoffs, NULL, info)) {
         type_index = info->TypeIndex;
     } else {
         NOTIFY("SymFromAddr error %d\n", GetLastError());
-        free_symbol_info(dc, info);
+        free_symbol_info(info);
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_SYMBOL_NOT_FOUND;
     }
-    free_symbol_info(dc, info);
+    free_symbol_info(info);
 
     pool_init(&pool, buf, buf_sz);
     r = decode_type(&pool, mod->u.load_base, type_index, (drsym_type_t**)func_type);
