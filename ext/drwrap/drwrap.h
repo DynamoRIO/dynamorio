@@ -211,6 +211,8 @@ DR_EXPORT
  * of the pre-function or post-function wrap callback.
  * In order for any changes to the returned context to take
  * effect, drwrap_set_mcontext() must be called.
+ * \note if the #DRWRAP_FAST_CLEANCALLS flag is set,
+ * the fields controlled by #DR_MC_MULTIMEDIA will not be filled in.
  */
 dr_mcontext_t *
 drwrap_get_mcontext(void *wrapcxt);
@@ -219,6 +221,8 @@ DR_EXPORT
 /**
  * Identical to drwrap_get_mcontext() but only fills in the state
  * indicated by \p flags.
+ * \note if the #DRWRAP_FAST_CLEANCALLS flag is set,
+ * #DR_MC_MULTIMEDIA is not a valid flag.
  */
 dr_mcontext_t *
 drwrap_get_mcontext_ex(void *wrapcxt, dr_mcontext_flags_t flags);
@@ -402,6 +406,19 @@ typedef enum {
      * Once set, this flag cannot be unset.
      */
     DRWRAP_NO_FRILLS            = 0x04,
+    /**
+     * If this flag is set, then a leaner clean call is used to invoke
+     * wrap pre callbacks.  This clean call assumes that all wrap requests
+     * are for function entrances points and that standard ABI
+     * calling conventions are used for those functions.
+     * It furthermore disallows accessing xmm or ymm registers
+     * from drwrap_get_mcontext().
+     * Only set this flag if you are certain that all uses of wrapping
+     * in your client and all libraries it uses can abide the above
+     * restrictions.
+     * Once set, this flag cannot be unset.
+     */
+    DRWRAP_FAST_CLEANCALLS      = 0x08,
 } drwrap_global_flags_t;
 
 DR_EXPORT

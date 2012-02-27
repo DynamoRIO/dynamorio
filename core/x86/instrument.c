@@ -3885,27 +3885,26 @@ cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
  * dr_prepare_for_clean_call(). We guarantee to clients that all other slots
  * (except the XAX mcontext slot) will remain untouched.
  */
-void
-dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
-                     void *callee, bool save_fpstate, uint num_args, ...)
+void 
+dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where,
+                             void *callee, dr_cleancall_save_t save_flags,
+                             uint num_args, va_list ap)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     uint dstack_offs, pad = 0;
     size_t buf_sz = 0;
     clean_call_info_t cci; /* information for clean call insertion. */
     opnd_t *args = NULL;
-    va_list ap;
+    bool save_fpstate = TEST(DR_CLEANCALL_SAVE_FLOAT, save_flags);
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
     if (num_args != 0) {
         /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
-        va_start(ap, num_args);
         /* allocate at least one argument opnd */
         args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
                                 ACCT_CLEANCALL, UNPROTECTED);
         convert_va_list_to_opnd(args, num_args, ap);
-        va_end(ap);
     }
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee, 
@@ -3919,6 +3918,55 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                             ACCT_CLEANCALL, UNPROTECTED);
         }
         return;
+    }
+    /* honor requests from caller */
+    if (TEST(DR_CLEANCALL_NOSAVE_FLAGS, save_flags)) {
+        /* even if we remove flag saves we want to keep mcontext shape */
+        cci.preserve_mcontext = true;
+        cci.skip_save_aflags = true;
+        /* we assume this implies DF should be 0 already */
+        cci.skip_clear_eflags = true;
+        /* XXX: should also provide DR_CLEANCALL_NOSAVE_NONAFLAGS to
+         * preserve just arith flags on return from a call
+         */
+    }
+    if (TESTANY(DR_CLEANCALL_NOSAVE_XMM |
+                DR_CLEANCALL_NOSAVE_XMM_NONPARAM |
+                DR_CLEANCALL_NOSAVE_XMM_NONRET, save_flags)) {
+        uint i;
+        /* even if we remove xmm saves we want to keep mcontext shape */
+        cci.preserve_mcontext = true;
+        /* start w/ all */
+#if defined(X64) && defined(WINDOWS)
+        cci.num_xmms_skip = 6;
+#else
+        /* all 8 (or 16) are scratch */
+        cci.num_xmms_skip = NUM_XMM_REGS;
+#endif
+        for (i=0; i<cci.num_xmms_skip; i++)
+            cci.xmm_skip[i] = true;
+        /* now remove those used for param/retval */
+#ifdef X64
+        if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {
+            /* xmm0-3 (-7 for linux) are used for params */
+# ifdef LINUX
+            for (i=0; i<7; i++)
+# else
+            for (i=0; i<3; i++)
+# endif
+                cci.xmm_skip[i] = false;
+            cci.num_xmms_skip -= i;
+        }
+        if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONRET, save_flags)) {
+            /* xmm0 (and xmm1 for linux) are used for retvals */
+            cci.xmm_skip[0] = false;
+            cci.num_xmms_skip--;
+# ifdef LINUX
+            cci.xmm_skip[1] = false;
+            cci.num_xmms_skip--;
+# endif
+        }
+#endif         
     }
     dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where);
 #ifdef X64
@@ -3967,6 +4015,30 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                                                OPND_CREATE_INT32(buf_sz + pad)));
     }
     cleanup_after_call_ex(dcontext, &cci, ilist, where, 0);
+}
+
+void 
+dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        void *callee, dr_cleancall_save_t save_flags,
+                        uint num_args, ...)
+{
+    va_list ap;
+    va_start(ap, num_args);
+    dr_insert_clean_call_ex_varg(drcontext, ilist, where, callee, save_flags,
+                                 num_args, ap);
+    va_end(ap);
+}
+
+DR_API
+void 
+dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
+                     void *callee, bool save_fpstate, uint num_args, ...)
+{
+    va_list ap;
+    dr_cleancall_save_t flags = (save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0);
+    va_start(ap, num_args);
+    dr_insert_clean_call_ex_varg(drcontext, ilist, where, callee, flags, num_args, ap);
+    va_end(ap);
 }
 
 /* Utility routine for inserting a clean call to an instrumentation routine

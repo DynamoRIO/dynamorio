@@ -432,6 +432,9 @@ drwrap_get_mcontext_ex(void *wrapcxt_opaque, dr_mcontext_flags_t flags)
     dr_mcontext_t tmp;
     if (wrapcxt == NULL)
         return NULL;
+    if (TEST(DRWRAP_FAST_CLEANCALLS, global_flags) &&
+        TEST(DR_MC_MULTIMEDIA, flags))
+        return NULL; /* invalid combination */
     flags &= DR_MC_ALL; /* throw away invalid flags */
     /* lazily fill in info if more is requested than we have so far.
      * unfortunately, dr_get_mcontext() clobbers what was there, so we
@@ -463,7 +466,9 @@ DR_EXPORT
 dr_mcontext_t *
 drwrap_get_mcontext(void *wrapcxt_opaque)
 {
-    return drwrap_get_mcontext_ex(wrapcxt_opaque, DR_MC_ALL);
+    return drwrap_get_mcontext_ex(wrapcxt_opaque,
+                                  TEST(DRWRAP_FAST_CLEANCALLS, global_flags) ?
+                                  (DR_MC_INTEGER | DR_MC_CONTROL) : DR_MC_ALL);
 }
 
 DR_EXPORT
@@ -1400,20 +1405,36 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     wrap = hashtable_lookup(&wrap_table, (void *)pc);
     if (wrap != NULL) {
         void *arg1 = TEST(DRWRAP_NO_FRILLS, global_flags) ? (void *)wrap : (void *) pc;
-        dr_insert_clean_call(drcontext, bb, inst, (void *)drwrap_in_callee,
-                             false, 2,
-                             OPND_CREATE_INTPTR((ptr_int_t)arg1),
-                             /* pass in xsp to avoid dr_get_mcontext */
-                             opnd_create_reg(DR_REG_XSP));
+        /* i#690: do not bother saving registers that should be scratch at
+         * function entry, if requested by user.
+         * I considered building a custom context switch but that would require
+         * having DR expose PEB/TEB swapping code and duplicating
+         * stack alignment code; plus, skipping preservation was already
+         * mostly in place for clean call auto opt.
+         */
+        dr_cleancall_save_t flags = TEST(DRWRAP_FAST_CLEANCALLS, global_flags) ?
+            (DR_CLEANCALL_NOSAVE_FLAGS|DR_CLEANCALL_NOSAVE_XMM_NONPARAM) : 0;
+        dr_insert_clean_call_ex(drcontext, bb, inst, (void *)drwrap_in_callee,
+                                flags, 2,
+                                OPND_CREATE_INTPTR((ptr_int_t)arg1),
+                                /* pass in xsp to avoid dr_get_mcontext */
+                                opnd_create_reg(DR_REG_XSP));
     }
     dr_recurlock_unlock(wrap_lock);
 
     if (post_call_lookup_for_instru(pc)) {
-        dr_insert_clean_call(drcontext, bb, inst, (void *)drwrap_after_callee,
-                             false, 2,
-                             OPND_CREATE_INTPTR((ptr_int_t)pc),
-                             /* pass in xsp to avoid dr_get_mcontext */
-                             opnd_create_reg(DR_REG_XSP));
+        /* XXX: for DRWRAP_FAST_CLEANCALLS we must preserve state b/c
+         * our post-call points can be reached through non-return paths.
+         * We could insert an inline check for "pt->wrap_level >= 0" but
+         * that requires spilling a GPR and flags and gets messy w/o drreg
+         * vs other components' spill slots.
+         */
+        dr_cleancall_save_t flags = 0;
+        dr_insert_clean_call_ex(drcontext, bb, inst, (void *)drwrap_after_callee,
+                                flags, 2,
+                                OPND_CREATE_INTPTR((ptr_int_t)pc),
+                                /* pass in xsp to avoid dr_get_mcontext */
+                                opnd_create_reg(DR_REG_XSP));
     }
 
     return DR_EMIT_DEFAULT;

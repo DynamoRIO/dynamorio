@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -249,6 +249,7 @@ typedef struct _clean_call_info_t {
     bool xmm_skip[NUM_XMM_REGS];
     uint num_regs_skip;
     bool reg_skip[NUM_GP_REGS];
+    bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
     void *callee_info;  /* callee information */
     instrlist_t *ilist; /* instruction list for inline optimization */
 } clean_call_info_t;

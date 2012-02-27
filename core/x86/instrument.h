@@ -3487,6 +3487,39 @@ void
 dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                      void *callee, bool save_fpstate, uint num_args, ...);
 
+/* DR_API EXPORT BEGIN */
+/** Flags to request non-default preservation of state in a clean call */
+typedef enum {
+    /** Save floating-point state. */
+    DR_CLEANCALL_SAVE_FLOAT             = 0x0001,
+    /**
+     * Skip saving the flags and skip clearing the flags (especially
+     * DF) for client execution. 
+     */
+    DR_CLEANCALL_NOSAVE_FLAGS           = 0x0002,
+    /** Skip saving any XMM or YMM registers. */
+    DR_CLEANCALL_NOSAVE_XMM             = 0x0004,
+    /** Skip saving any XMM or YMM registers that are never used as parameters. */
+    DR_CLEANCALL_NOSAVE_XMM_NONPARAM    = 0x0008,
+    /** Skip saving any XMM or YMM registers that are never used as return values. */
+    DR_CLEANCALL_NOSAVE_XMM_NONRET      = 0x0010,
+} dr_cleancall_save_t;
+/* DR_API EXPORT END */
+
+/**
+ * Identical to dr_insert_clean_call() except it takes in \p
+ * save_flags which allows requests to not save certain state.  This
+ * is intended for use at application call entry points or other
+ * contexts where a client is comfortable making assumptions.  Keep in
+ * mind that any register that is not saved will not be present in a
+ * context obtained from dr_get_mcontext().
+ */
+DR_API
+void 
+dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        void *callee, dr_cleancall_save_t save_flags,
+                        uint num_args, ...);
+
 DR_API
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to set
