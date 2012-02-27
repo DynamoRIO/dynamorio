@@ -226,6 +226,13 @@ typedef struct _post_call_notify_t {
 /* protected by post_call_rwlock */
 post_call_notify_t *post_call_notify_list;
 
+/* FIFO cache read w/o a lock (which we assume is fine b/c it's word-aligned
+ * and thus does not cross a cache line) and written under post_call_rwlock
+ */
+static uint postcall_cache_idx;
+#define POSTCALL_CACHE_SIZE 8
+static app_pc postcall_cache[POSTCALL_CACHE_SIZE];
+
 static void
 post_call_entry_free(void *v)
 {
@@ -298,12 +305,18 @@ post_call_lookup_for_instru(app_pc pc)
     if (e != NULL) {
         res = post_call_consistent(pc, e);
         if (!res) {
+            int i;
             /* need the write lock */
             dr_rwlock_read_unlock(post_call_rwlock);
             e = NULL; /* no longer safe */
             dr_rwlock_write_lock(post_call_rwlock);
             /* might not be found now if racily removed: but that's fine */
             hashtable_remove(&post_call_table, (void *)pc);
+            /* invalidate cache */
+            for (i = 0; i < POSTCALL_CACHE_SIZE; i++) {
+                if (pc == postcall_cache[i])
+                    postcall_cache[i] = NULL;
+            }
             dr_rwlock_write_unlock(post_call_rwlock);
             return res;
         } else {
@@ -1013,14 +1026,30 @@ static void
 drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
                        drwrap_context_t *wrapcxt, app_pc pc)
 {
-    dr_rwlock_read_lock(post_call_rwlock);
-    if (hashtable_lookup(&post_call_table, (void*)wrapcxt->retaddr) == NULL) {
+    app_pc retaddr = wrapcxt->retaddr;
+    int i;
+    /* avoid lock and hashtable lookup by caching prior retaddrs */
+    for (i = 0; i < POSTCALL_CACHE_SIZE; i++) {
+        if (retaddr == postcall_cache[i])
+            return;
+    }
+
+    /* to write to the cache we need a write lock */
+    dr_rwlock_write_lock(post_call_rwlock);
+
+    /* add to FIFO cache */
+    postcall_cache_idx++;
+    if (postcall_cache_idx >= POSTCALL_CACHE_SIZE)
+        postcall_cache_idx = 0;
+    postcall_cache[postcall_cache_idx] = retaddr;
+
+    if (hashtable_lookup(&post_call_table, (void*)retaddr) == NULL) {
         bool enabled = wrap->enabled;
         /* this function may not return: but in that case it will redirect
          * and we'll come back here to do the wrapping.
          * release all locks.
          */
-        dr_rwlock_read_unlock(post_call_rwlock);
+        dr_rwlock_write_unlock(post_call_rwlock);
         if (!TEST(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_unlock(wrap_lock);
         drwrap_mark_retaddr_for_instru(drcontext, pc, wrapcxt, enabled);
@@ -1029,7 +1058,7 @@ drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
             dr_recurlock_lock(wrap_lock);
         wrap = hashtable_lookup(&wrap_table, (void *)pc);
     } else
-        dr_rwlock_read_unlock(post_call_rwlock);
+        dr_rwlock_write_unlock(post_call_rwlock);
 }
 
 /* called via clean call at the top of callee */
