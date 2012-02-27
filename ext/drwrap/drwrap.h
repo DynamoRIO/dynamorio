@@ -120,7 +120,8 @@ DR_EXPORT
  * and calling \p post_func_cb after every invocation of \p original.
  * One of the callbacks can be NULL, but not both.
  *
- * Multiple wrap requests are allowed for one \p original function.
+ * Multiple wrap requests are allowed for one \p original function
+ * (unless #DRWRAP_NO_FRILLS is set).
  * Their callbacks are called sequentially in the reverse order of
  * registration.
  *
@@ -382,6 +383,25 @@ typedef enum {
      * remove it.
      */
     DRWRAP_SAFE_READ_ARGS       = 0x02,
+    /**
+     * If this flag is set, then a leaner wrapping mechanism is used
+     * with lower overhead.  However, several features are not
+     * supported with this flag:
+     * - Only one wrap request per address is allowed.  A second request
+     *   will fail, even if an earlier request was unwrapped, unless
+     *   the same pre and post callback functions are used.
+     * - Wrapping should occur prior to any execution (e.g., at startup
+     *   or module load time).  A new wrap request that occurs between
+     *   the pre and post wrap points may have its post callback called
+     *   even though its pre callback was never called.
+     * - Unwrapping should only happen on module unload.  It is not
+     *   supported between a pre and post callback.
+     * Only set this flag if you are certain that all uses of wrapping
+     * in your client and all libraries it uses can abide the above
+     * restrictions.
+     * Once set, this flag cannot be unset.
+     */
+    DRWRAP_NO_FRILLS            = 0x04,
 } drwrap_global_flags_t;
 
 DR_EXPORT

@@ -129,6 +129,7 @@ The changes between version \DR_VERSION and 3.1.0 are:
  - Added support for building extensions as static libraries (subject to
    licensing constraints) via DR_EXT_{DRWRAP,DRUTIL,DRMGR,DRSYMS}_STATIC
  - Added support for linking C \clients with libc via DynamoRIO_USE_LIBC
+ - Added a no-frills drwrap mode for faster but constrained wrapping
  - Added drwrap notification on exceptions bypassing post-hooks
  - Added drwrap_wrap_ex() to pass initial constant user data
  - Added drwrap_is_wrapped() and drwrap_is_post_wrap()

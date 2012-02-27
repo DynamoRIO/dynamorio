@@ -133,6 +133,9 @@ typedef struct _per_thread_t {
     int wrap_level;
     /* record which wrap routine */
     app_pc last_wrap_func[MAX_WRAP_NESTING];
+    /* for no-frills we store wrap_entry_t */
+    wrap_entry_t *last_wrap_entry[MAX_WRAP_NESTING];
+    void *user_data_nofrills[MAX_WRAP_NESTING];
     /* record app esp to handle tailcalls, etc. */
     reg_t app_esp[MAX_WRAP_NESTING];
     /* user_data for passing between pre and post cbs */
@@ -640,7 +643,7 @@ drwrap_event_exception(void *drcontext, dr_exception_t *excpt);
 
 static void
 drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
-                         app_pc pc, app_pc retaddr,
+                         int level, app_pc retaddr,
                          bool unwind, bool only_requested_unwind);
 
 /***************************************************************************
@@ -798,6 +801,8 @@ drwrap_set_global_flags(drwrap_global_flags_t flags)
     /* if anyone asks for safe, be safe.
      * since today the only 2 flags ask for safe, we can accomplish that
      * by simply or-ing in each request.
+     * we now have DRWRAP_NO_FRILLS but it's documented as not being removable
+     * so we can continue or-ing.
      */
     old_flags = global_flags;
     global_flags |= flags;
@@ -996,16 +1001,43 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
     dr_rwlock_write_unlock(post_call_rwlock);
 }
 
+/* assumes that if TEST(DRWRAP_NO_FRILLS, global_flags) then
+ * wrap_lock is held
+ */
+static void
+drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
+                       drwrap_context_t *wrapcxt, app_pc pc)
+{
+    dr_rwlock_read_lock(post_call_rwlock);
+    if (hashtable_lookup(&post_call_table, (void*)wrapcxt->retaddr) == NULL) {
+        bool enabled = wrap->enabled;
+        /* this function may not return: but in that case it will redirect
+         * and we'll come back here to do the wrapping.
+         * release all locks.
+         */
+        dr_rwlock_read_unlock(post_call_rwlock);
+        if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+            dr_recurlock_unlock(wrap_lock);
+        drwrap_mark_retaddr_for_instru(drcontext, pc, wrapcxt, enabled);
+        /* if we come back, re-lookup */
+        if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+            dr_recurlock_lock(wrap_lock);
+        wrap = hashtable_lookup(&wrap_table, (void *)pc);
+    } else
+        dr_rwlock_read_unlock(post_call_rwlock);
+}
+
 /* called via clean call at the top of callee */
 static void
-drwrap_in_callee(app_pc pc, reg_t xsp)
+drwrap_in_callee(void *arg1, reg_t xsp)
 {
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    wrap_entry_t *wrap, *e;
+    wrap_entry_t *wrap = NULL, *e;
     dr_mcontext_t mc;
     uint idx;
     drwrap_context_t wrapcxt;
+    app_pc pc;
     /* Do we care about the post wrapper?  If not we can save a lot (b/c our
      * call site method causes a lot of instrumentation when there's high fan-in)
      */
@@ -1016,8 +1048,14 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
     mc.xsp = xsp;
     mc.flags = 0; /* if anything else is asked for, lazily initialize */
 
-    ASSERT(pc != NULL, "drwrap_in_callee: pc is NULL!");
+    ASSERT(arg1 != NULL, "drwrap_in_callee: arg1 is NULL!");
     ASSERT(pt != NULL, "drwrap_in_callee: pt is NULL!");
+
+    if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
+        wrap = (wrap_entry_t *) arg1;
+        pc = wrap->func;
+    } else
+        pc = (app_pc) arg1;
 
     NOTIFY(2, "%s: level %d function "PFX"\n", __FUNCTION__, pt->wrap_level+1, pc);
 
@@ -1025,10 +1063,12 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
 
     drwrap_in_callee_check_unwind(drcontext, pt, &mc);
 
-    dr_recurlock_lock(wrap_lock);
+    if (!TEST(DRWRAP_NO_FRILLS, global_flags)) {
+        dr_recurlock_lock(wrap_lock);
+        wrap = hashtable_lookup(&wrap_table, (void *)pc);
+    }
 
     /* ensure we have post-call instru */
-    wrap = hashtable_lookup(&wrap_table, (void *)pc);
     if (wrap != NULL) {
         for (e = wrap; e != NULL; e = e->next) {
             if (e->enabled && e->post_cb != NULL) {
@@ -1036,33 +1076,21 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
                 break; /* we do need a post-call hook */
             }
         }
-        if (intercept_post && wrapcxt.retaddr != NULL) {
-            dr_rwlock_read_lock(post_call_rwlock);
-            if (hashtable_lookup(&post_call_table, (void*)wrapcxt.retaddr) == NULL) {
-                bool enabled = wrap->enabled;
-                /* this function may not return: but in that case it will redirect
-                 * and we'll come back here to do the wrapping.
-                 * release all locks.
-                 */
-                dr_rwlock_read_unlock(post_call_rwlock);
-                dr_recurlock_unlock(wrap_lock);
-                drwrap_mark_retaddr_for_instru(drcontext, pc, &wrapcxt, enabled);
-                /* if we come back, re-lookup */
-                dr_recurlock_lock(wrap_lock);
-                wrap = hashtable_lookup(&wrap_table, (void *)pc);
-            } else
-                dr_rwlock_read_unlock(post_call_rwlock);
-        }
+        if (intercept_post && wrapcxt.retaddr != NULL)
+            drwrap_ensure_postcall(drcontext, wrap, &wrapcxt, pc);
     }
 
     pt->wrap_level++;
     ASSERT(pt->wrap_level >= 0, "wrapping level corrupted");
     ASSERT(pt->wrap_level < MAX_WRAP_NESTING, "max wrapped nesting reached");
     if (pt->wrap_level >= MAX_WRAP_NESTING) {
-        dr_recurlock_unlock(wrap_lock);
+        if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+            dr_recurlock_unlock(wrap_lock);
         return; /* we'll have to skip stuff */
     }
     pt->last_wrap_func[pt->wrap_level] = pc;
+    if (TEST(DRWRAP_NO_FRILLS, global_flags))
+        pt->last_wrap_entry[pt->wrap_level] = wrap;
     pt->app_esp[pt->wrap_level] = mc.xsp;
 #ifdef DEBUG
     for (idx = 0; idx < (uint) pt->wrap_level; idx++) {
@@ -1074,36 +1102,49 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
     }
 #endif
     
-    /* because the list could change between pre and post events we count
-     * and store here instead of maintaining count in wrap_table
-     */
-    for (idx = 0, e = wrap; e != NULL; idx++, e = e->next)
-        ; /* nothing */
-    /* if we skipped the postcall we didn't free prior data yet */
-    drwrap_free_user_data(drcontext, pt, pt->wrap_level);
-    pt->user_data_count[pt->wrap_level] = idx;
-    pt->user_data[pt->wrap_level] = dr_thread_alloc(drcontext, sizeof(void*)*idx);
-    /* we have to keep both b/c we allow one to be null (i#562) */
-    pt->user_data_pre_cb[pt->wrap_level] = dr_thread_alloc(drcontext, sizeof(void*)*idx);
-    pt->user_data_post_cb[pt->wrap_level] = dr_thread_alloc(drcontext, sizeof(void*)*idx);
-
-    for (idx = 0; wrap != NULL; idx++, wrap = wrap->next) {
-        /* if the list does change try to match up in post */
-        pt->user_data_pre_cb[pt->wrap_level][idx] = (void *) wrap->pre_cb;
-        pt->user_data_post_cb[pt->wrap_level][idx] = (void *) wrap->post_cb;
+    if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
         if (!wrap->enabled) {
+            dr_recurlock_lock(wrap_lock);
             disabled_count++;
-            continue;
+            dr_recurlock_unlock(wrap_lock);
+        } else if (wrap->pre_cb != NULL) {
+            pt->user_data_nofrills[pt->wrap_level] = wrap->user_data;
+            (*wrap->pre_cb)(&wrapcxt, &pt->user_data_nofrills[pt->wrap_level]);
         }
-        if (wrap->pre_cb != NULL) {
-            pt->user_data[pt->wrap_level][idx] = wrap->user_data;
-            (*wrap->pre_cb)(&wrapcxt, &pt->user_data[pt->wrap_level][idx]);
-        }
-        /* was there a request to skip? */
-        if (pt->skip[pt->wrap_level])
-            break;
-    } 
-    dr_recurlock_unlock(wrap_lock);
+    } else {
+        /* because the list could change between pre and post events we count
+         * and store here instead of maintaining count in wrap_table
+         */
+        for (idx = 0, e = wrap; e != NULL; idx++, e = e->next)
+            ; /* nothing */
+        /* if we skipped the postcall we didn't free prior data yet */
+        drwrap_free_user_data(drcontext, pt, pt->wrap_level);
+        pt->user_data_count[pt->wrap_level] = idx;
+        pt->user_data[pt->wrap_level] = dr_thread_alloc(drcontext, sizeof(void*)*idx);
+        /* we have to keep both b/c we allow one to be null (i#562) */
+        pt->user_data_pre_cb[pt->wrap_level] =
+            dr_thread_alloc(drcontext, sizeof(void*)*idx);
+        pt->user_data_post_cb[pt->wrap_level] =
+            dr_thread_alloc(drcontext, sizeof(void*)*idx);
+
+        for (idx = 0; wrap != NULL; idx++, wrap = wrap->next) {
+            /* if the list does change try to match up in post */
+            pt->user_data_pre_cb[pt->wrap_level][idx] = (void *) wrap->pre_cb;
+            pt->user_data_post_cb[pt->wrap_level][idx] = (void *) wrap->post_cb;
+            if (!wrap->enabled) {
+                disabled_count++;
+                continue;
+            }
+            if (wrap->pre_cb != NULL) {
+                pt->user_data[pt->wrap_level][idx] = wrap->user_data;
+                (*wrap->pre_cb)(&wrapcxt, &pt->user_data[pt->wrap_level][idx]);
+            }
+            /* was there a request to skip? */
+            if (pt->skip[pt->wrap_level])
+                break;
+        } 
+        dr_recurlock_unlock(wrap_lock);
+    }
     if (pt->skip[pt->wrap_level]) {
         /* drwrap_skip_call already adjusted the stack and pc */
         /* ensure we have DR_MC_ALL */
@@ -1116,7 +1157,8 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
         /* we won't decrement in post so decrement now.  we needed to increment
          * to set up for pt->skip, etc.
          */
-        drwrap_free_user_data(drcontext, pt, pt->wrap_level);
+        if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+            drwrap_free_user_data(drcontext, pt, pt->wrap_level);
         pt->wrap_level--;
     }
 }
@@ -1126,7 +1168,7 @@ drwrap_in_callee(app_pc pc, reg_t xsp)
  */
 static void
 drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
-                         app_pc pc, app_pc retaddr,
+                         int level, app_pc retaddr,
                          bool unwind, bool only_requested_unwind)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
@@ -1136,51 +1178,73 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
     drvector_t toflush = {0,};
     bool do_flush = false;
     bool unwound_all = true;
+    app_pc pc = pt->last_wrap_func[level];
     ASSERT(pc != NULL, "drwrap_after_callee: pc is NULL!");
     ASSERT(pt != NULL, "drwrap_after_callee: pt is NULL!");
     ASSERT(!only_requested_unwind || unwind, "only_requested_unwind implies unwind");
 
-    NOTIFY(2, "%s: level %d function "PFX"%s\n", __FUNCTION__, pt->wrap_level, pc,
+    NOTIFY(2, "%s: level %d function "PFX"%s\n", __FUNCTION__, level, pc,
            unwind ? " abnormal" : "");
 
     drwrap_context_init(drcontext, &wrapcxt, pc, mc, retaddr);
 
-    if (pt->wrap_level >= MAX_WRAP_NESTING) {
-        pt->wrap_level--;
+    if (level >= MAX_WRAP_NESTING) {
+        if (level == pt->wrap_level)
+            pt->wrap_level--;
         return; /* we skipped the wrap */
     }
-    if (pt->skip[pt->wrap_level]) {
-        pt->skip[pt->wrap_level] = false;
-        pt->wrap_level--;
+    if (pt->skip[level]) {
+        pt->skip[level] = false;
+        if (level == pt->wrap_level)
+            pt->wrap_level--;
+        else {
+            /* doing an SEH unwind and didn't clear earlier on stack */
+            pt->last_wrap_func[level] = NULL;
+        }
         return; /* skip the post-func cbs */
     }
 
-    dr_recurlock_lock(wrap_lock);
-    wrap = hashtable_lookup(&wrap_table, (void *)pc);
+    if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
+        wrap = pt->last_wrap_entry[level];
+    } else {
+        dr_recurlock_lock(wrap_lock);
+        wrap = hashtable_lookup(&wrap_table, (void *)pc);
+    }
     for (idx = 0; wrap != NULL; idx++, wrap = next) {
         /* handle the list changing between pre and post events */
         uint tmp = idx;
+        void *user_data = NULL;
         /* handle drwrap_unwrap being called in post_cb */
         next = wrap->next;
         if (!wrap->enabled) {
+            if (TEST(DRWRAP_NO_FRILLS, global_flags))
+                dr_recurlock_lock(wrap_lock);
             disabled_count++;
+            if (TEST(DRWRAP_NO_FRILLS, global_flags))
+                dr_recurlock_unlock(wrap_lock);
             continue;
         }
-        /* we may have to skip some entries */
-        for (; idx < pt->user_data_count[pt->wrap_level]; idx++) {
-            /* we have to check both b/c we allow one to be null (i#562) */
-            if (wrap->pre_cb == pt->user_data_pre_cb[pt->wrap_level][idx] &&
-                wrap->post_cb == pt->user_data_post_cb[pt->wrap_level][idx])
-                break; /* all set */
+        if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
+            user_data = pt->user_data_nofrills[level];
+        } else {
+            /* we may have to skip some entries */
+            for (; idx < pt->user_data_count[level]; idx++) {
+                /* we have to check both b/c we allow one to be null (i#562) */
+                if (wrap->pre_cb == pt->user_data_pre_cb[level][idx] &&
+                    wrap->post_cb == pt->user_data_post_cb[level][idx])
+                    break; /* all set */
+            }
+            user_data = pt->user_data[level][idx];
         }
-        if (idx == pt->user_data_count[pt->wrap_level]) {
+        if (!TEST(DRWRAP_NO_FRILLS, global_flags) &&
+            idx == pt->user_data_count[level]) {
             /* we didn't find it, it must be new, so had no pre => skip post
              * (even if only has post, to be consistent w/ timing)
              */
             idx = tmp; /* reset */
         } else if (wrap->post_cb != NULL) {
             if (!unwind) {
-                (*wrap->post_cb)(&wrapcxt, pt->user_data[pt->wrap_level][idx]);
+                (*wrap->post_cb)(&wrapcxt, user_data);
             } else if (!only_requested_unwind ||
                        TEST(DRWRAP_UNWIND_ON_EXCEPTION, wrap->flags)) {
                 /* don't double-call those that we presumably already called
@@ -1190,7 +1254,7 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
                  */
                 if (only_requested_unwind ||
                     !TEST(DRWRAP_UNWIND_ON_EXCEPTION, wrap->flags)) {
-                    (*wrap->post_cb)(NULL, pt->user_data[pt->wrap_level][idx]);
+                    (*wrap->post_cb)(NULL, user_data);
                 }
             } else
                 unwound_all = false;
@@ -1206,13 +1270,14 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
          */
         uint i;
         drvector_init(&toflush, 10, false/*no synch: wrapcxt-local*/, NULL);
+        if (TEST(DRWRAP_NO_FRILLS, global_flags))
+            dr_recurlock_lock(wrap_lock);
         for (i = 0; i < HASHTABLE_SIZE(wrap_table.table_bits); i++) {
             hash_entry_t *he, *next_he;
             for (he = wrap_table.table[i]; he != NULL; he = next_he) {
                 wrap_entry_t *prev = NULL, *next;
                 next_he = he->next; /* allow removal */
-                for (wrap = (wrap_entry_t *) he->payload; wrap != NULL;
-                     prev = wrap, wrap = next) {
+                for (wrap = (wrap_entry_t *) he->payload; wrap != NULL; wrap = next) {
                     next = wrap->next;
                     if (!wrap->enabled) {
                         if (prev == NULL) {
@@ -1229,16 +1294,21 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
                             }
                         } else
                             prev->next = next;
-                        if (wrap != NULL)
+                        if (wrap != NULL) {
                             dr_global_free(wrap, sizeof(*wrap));
-                    }
+                        }
+                    } else
+                        prev = wrap;
                 }
             }
         }
         do_flush = true;
         disabled_count = 0;
+        if (TEST(DRWRAP_NO_FRILLS, global_flags))
+            dr_recurlock_unlock(wrap_lock);
     }
-    dr_recurlock_unlock(wrap_lock);
+    if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+        dr_recurlock_unlock(wrap_lock);
     if (wrapcxt.mc_modified && !unwind)
         dr_set_mcontext(drcontext, wrapcxt.mc);
 
@@ -1253,10 +1323,16 @@ drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
     }
 
     if (unwound_all) {
-        drwrap_free_user_data(drcontext, pt, pt->wrap_level);
+        if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+            drwrap_free_user_data(drcontext, pt, level);
 
-        ASSERT(pt->wrap_level >= 0, "internal wrapping error");
-        pt->wrap_level--;
+        if (level == pt->wrap_level) {
+            ASSERT(pt->wrap_level >= 0, "internal wrapping error");
+            pt->wrap_level--;
+        } else {
+            /* doing an SEH unwind and didn't clear earlier on stack */
+            pt->last_wrap_func[level] = NULL;
+        }
     } /* else, hopefully our unwind detection heuristics will */
 }
 
@@ -1296,8 +1372,7 @@ drwrap_after_callee(app_pc retaddr, reg_t xsp)
      * entered.
      */
     while (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < mc.xsp) {
-        drwrap_after_callee_func(drcontext, &mc, pt->last_wrap_func[pt->wrap_level],
-                                 retaddr, false, false);
+        drwrap_after_callee_func(drcontext, &mc, pt->wrap_level, retaddr, false, false);
     }
 }
 
@@ -1324,8 +1399,10 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     dr_recurlock_lock(wrap_lock);
     wrap = hashtable_lookup(&wrap_table, (void *)pc);
     if (wrap != NULL) {
+        void *arg1 = TEST(DRWRAP_NO_FRILLS, global_flags) ? (void *)wrap : (void *) pc;
         dr_insert_clean_call(drcontext, bb, inst, (void *)drwrap_in_callee,
-                             false, 2, OPND_CREATE_INTPTR((ptr_int_t)pc),
+                             false, 2,
+                             OPND_CREATE_INTPTR((ptr_int_t)arg1),
                              /* pass in xsp to avoid dr_get_mcontext */
                              opnd_create_reg(DR_REG_XSP));
     }
@@ -1391,12 +1468,25 @@ drwrap_wrap_ex(app_pc func,
         /* things will break down w/ duplicate cbs */
         for (e = wrap_cur; e != NULL; e = e->next) {
             if (e->pre_cb == pre_func_cb && e->post_cb == post_func_cb) {
-                /* matches existing request: re-enable if necessary */
-                e->enabled = true;
+                /* no-frills requires 1st entry to be the live one */
+                if (!TEST(DRWRAP_NO_FRILLS, global_flags) || e == wrap_cur) {
+                    /* matches existing request: re-enable if necessary */
+                    e->enabled = true;
+                    dr_global_free(wrap_new, sizeof(*wrap_new));
+                    dr_recurlock_unlock(wrap_lock);
+                    return true;
+                } /* else continue */
+            } else if (TEST(DRWRAP_NO_FRILLS, global_flags) && e->enabled) {
+                /* more than one wrap of same address is not allowed */
                 dr_global_free(wrap_new, sizeof(*wrap_new));
                 dr_recurlock_unlock(wrap_lock);
-                return true;
+                return false;
             }
+        }
+        if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
+            /* free whole chain of disabled entries */
+            wrap_entry_free(wrap_cur);
+            wrap_cur = NULL;
         }
         wrap_new->next = wrap_cur;
         hashtable_add_replace(&wrap_table, (void *)func, (void *)wrap_new);
@@ -1524,8 +1614,7 @@ drwrap_in_callee_check_unwind(void *drcontext, per_thread_t *pt, dr_mcontext_t *
                  */
                 IF_WINDOWS(|| (pt->hit_exception &&
                                pt->app_esp[pt->wrap_level] <= mc->xsp)))) {
-            drwrap_after_callee_func(drcontext, mc, pt->last_wrap_func[pt->wrap_level],
-                                     NULL, true, false);
+            drwrap_after_callee_func(drcontext, mc, pt->wrap_level, NULL, true, false);
         }
         /* Try to clean up entries we unrolled past and then came back
          * down past in the other direction.  Note that there's a
@@ -1544,8 +1633,7 @@ drwrap_in_callee_check_unwind(void *drcontext, per_thread_t *pt, dr_mcontext_t *
                 post_call_lookup(ret))
                 break;
             NOTIFY(2, "%s: found clobbered retaddr "PFX"\n", __FUNCTION__, ret);
-            drwrap_after_callee_func(drcontext, mc, pt->last_wrap_func[pt->wrap_level],
-                                     NULL, true, false);
+            drwrap_after_callee_func(drcontext, mc, pt->wrap_level, NULL, true, false);
         }
         IF_WINDOWS(pt->hit_exception = false;)
     }
@@ -1579,8 +1667,7 @@ drwrap_event_pre_syscall(void *drcontext, int sysnum)
                    __FUNCTION__, tgt_xsp);
             while (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < tgt_xsp) {
                 NOTIFY(2, "%s: level %d\n", __FUNCTION__, pt->wrap_level);
-                drwrap_after_callee_func(drcontext, &mc,
-                                         pt->last_wrap_func[pt->wrap_level], NULL,
+                drwrap_after_callee_func(drcontext, &mc, pt->wrap_level, NULL,
                                          true, false);
             }
         }
@@ -1603,8 +1690,7 @@ drwrap_event_exception(void *drcontext, dr_exception_t *excpt)
         /* might not decrement pt->wrap_level so we use a for loop */
         for (idx = pt->wrap_level; idx >= 0; idx--) {
             NOTIFY(2, "%s: level %d\n", __FUNCTION__, idx);
-            drwrap_after_callee_func(drcontext, excpt->mcontext, pt->last_wrap_func[idx],
-                                     NULL, true, true);
+            drwrap_after_callee_func(drcontext, excpt->mcontext, idx, NULL, true, true);
         }
     }
     return true;

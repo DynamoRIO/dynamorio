@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,31 +35,44 @@
 # include "dlfcn.h"
 #endif
 
-int
-main(int argc, char *argv[])
+static void
+load_library(const char *path)
 {
 #ifdef WINDOWS
-    HANDLE lib = LoadLibrary("client.drwrap-test.appdll.dll");
+    HANDLE lib = LoadLibrary(path);
     if (lib == NULL) {
-        print("error loading library\n");
+        print("error loading library %s\n", path);
     } else {
         print("loaded library\n");
         FreeLibrary(lib);
     }
 #else
-    /* We don't have "." on LD_LIBRARY_PATH path so we take in abs path */
-    void *lib;
-    if (argc < 2) {
-        print("need to pass in lib path\n");
-        return 1;
-    }
-    lib = dlopen(argv[1], RTLD_LAZY|RTLD_LOCAL);
+    void *lib = dlopen(path, RTLD_LAZY|RTLD_LOCAL);
     if (lib == NULL) {
-        print("error loading library %s: %s\n", argv[1], dlerror());
+        print("error loading library %s: %s\n", path, dlerror());
     } else {
         print("loaded library\n");
 	dlclose(lib);
     }
+#endif
+}
+
+int
+main(int argc, char *argv[])
+{
+#ifdef WINDOWS
+    load_library("client.drwrap-test.appdll.dll");
+    /* load again */
+    load_library("client.drwrap-test.appdll.dll");
+#else
+    /* We don't have "." on LD_LIBRARY_PATH path so we take in abs path */
+    if (argc < 2) {
+        print("need to pass in lib path\n");
+        return 1;
+    }
+    load_library(argv[1]);
+    /* load again */
+    load_library(argv[1]);
 #endif
     print("thank you for testing the client interface\n");
     return 0;

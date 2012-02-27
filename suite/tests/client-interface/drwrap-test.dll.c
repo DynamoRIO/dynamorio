@@ -53,7 +53,11 @@ static void wrap_unwindtest_seh_pre(void *wrapcxt, OUT void **user_data);
 static void wrap_unwindtest_seh_post(void *wrapcxt, void *user_data);
 static int replacewith(int *x);
 
+static uint load_count;
+
 static int tls_idx;
+
+static app_pc addr_replace;
 
 static app_pc addr_level0;
 static app_pc addr_level1;
@@ -84,26 +88,54 @@ wrap_addr(OUT app_pc *addr, const char *name, const module_data_t *mod,
 }
 
 static void
+unwrap_addr(app_pc addr, const char *name, const module_data_t *mod,
+          bool pre, bool post)
+{
+    bool ok;
+    ok = drwrap_unwrap(addr, pre ? wrap_pre : NULL, post ? wrap_post : NULL);
+    CHECK(ok, "unwrap failed");
+    CHECK(!drwrap_is_wrapped(addr, pre ? wrap_pre : NULL, post ? wrap_post : NULL),
+          "drwrap_is_wrapped query failed");
+}
+
+static void
 wrap_unwindtest_addr(OUT app_pc *addr, const char *name, const module_data_t *mod)
 {
     bool ok;
     *addr = (app_pc) dr_get_proc_address(mod->start, name);
     CHECK(*addr != NULL, "cannot find lib export");
     ok = drwrap_wrap(*addr, wrap_unwindtest_pre, wrap_unwindtest_post);
-    CHECK(ok, "wrap failed");
+    CHECK(ok, "wrap unwindtest failed");
     CHECK(drwrap_is_wrapped(*addr, wrap_unwindtest_pre, wrap_unwindtest_post),
           "drwrap_is_wrapped query failed");
 }
 
-static
-void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
+static void
+unwrap_unwindtest_addr(app_pc addr, const char *name, const module_data_t *mod)
+{
+    bool ok;
+    ok = drwrap_unwrap(addr, wrap_unwindtest_pre, wrap_unwindtest_post);
+    CHECK(ok, "unwrap failed");
+    CHECK(!drwrap_is_wrapped(addr, wrap_unwindtest_pre, wrap_unwindtest_post),
+          "drwrap_is_wrapped query failed");
+}
+
+static void
+module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 {
     if (strstr(dr_module_preferred_name(mod),
                "client.drwrap-test.appdll.") != NULL) {
-        app_pc toreplace = (app_pc) dr_get_proc_address(mod->start, "replaceme");
         bool ok;
-        CHECK(toreplace != NULL, "cannot find lib export");
-        ok = drwrap_replace(toreplace, (app_pc) replacewith, false);
+
+        load_count++;
+        if (load_count == 2) {
+            /* test no-frills */
+            drwrap_set_global_flags(DRWRAP_NO_FRILLS);
+        }
+
+        addr_replace = (app_pc) dr_get_proc_address(mod->start, "replaceme");
+        CHECK(addr_replace != NULL, "cannot find lib export");
+        ok = drwrap_replace(addr_replace, (app_pc) replacewith, false);
         CHECK(ok, "replace failed");
 
         wrap_addr(&addr_level0, "level0", mod, true, true);
@@ -124,22 +156,75 @@ void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         drmgr_set_tls_field(drcontext, tls_idx, (void *)(ptr_uint_t)0);
 #ifdef WINDOWS
         /* test SEH */
-        ok = drwrap_wrap_ex(addr_long0, wrap_unwindtest_seh_pre, wrap_unwindtest_seh_post,
-                            NULL, DRWRAP_UNWIND_ON_EXCEPTION);
-        CHECK(ok, "wrap failed");
-        ok = drwrap_wrap_ex(addr_long1, wrap_unwindtest_seh_pre, wrap_unwindtest_seh_post,
-                            NULL, DRWRAP_UNWIND_ON_EXCEPTION);
-        CHECK(ok, "wrap failed");
-        ok = drwrap_wrap_ex(addr_long2, wrap_unwindtest_seh_pre, wrap_unwindtest_seh_post,
-                            NULL, DRWRAP_UNWIND_ON_EXCEPTION);
-        CHECK(ok, "wrap failed");
-        ok = drwrap_wrap_ex(addr_long3, wrap_unwindtest_seh_pre, wrap_unwindtest_seh_post,
-                            NULL, DRWRAP_UNWIND_ON_EXCEPTION);
-        CHECK(ok, "wrap failed");
-        ok = drwrap_wrap_ex(addr_longdone, wrap_unwindtest_seh_pre,
-                            wrap_unwindtest_seh_post,
-                            NULL, DRWRAP_UNWIND_ON_EXCEPTION);
-        CHECK(ok, "wrap failed");
+        /* we can't do this test for no-frills b/c only one wrap per addr */
+        if (load_count == 1) {
+            ok = drwrap_wrap_ex(addr_long0, wrap_unwindtest_seh_pre,
+                                wrap_unwindtest_seh_post,
+                                NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+            CHECK(ok, "wrap failed");
+            ok = drwrap_wrap_ex(addr_long1, wrap_unwindtest_seh_pre,
+                                wrap_unwindtest_seh_post,
+                                NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+            CHECK(ok, "wrap failed");
+            ok = drwrap_wrap_ex(addr_long2, wrap_unwindtest_seh_pre,
+                                wrap_unwindtest_seh_post,
+                                NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+            CHECK(ok, "wrap failed");
+            ok = drwrap_wrap_ex(addr_long3, wrap_unwindtest_seh_pre,
+                                wrap_unwindtest_seh_post,
+                                NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+            CHECK(ok, "wrap failed");
+            ok = drwrap_wrap_ex(addr_longdone, wrap_unwindtest_seh_pre,
+                                wrap_unwindtest_seh_post,
+                                NULL, DRWRAP_UNWIND_ON_EXCEPTION);
+            CHECK(ok, "wrap failed");
+        }
+#endif
+    }
+}
+
+static void
+module_unload_event(void *drcontext, const module_data_t *mod)
+{
+    if (strstr(dr_module_preferred_name(mod),
+               "client.drwrap-test.appdll.") != NULL) {
+        bool ok;
+        ok = drwrap_replace(addr_replace, NULL, true);
+        CHECK(ok, "un-replace failed");
+
+        unwrap_addr(addr_level0, "level0", mod, true, true);
+        unwrap_addr(addr_level1, "level1", mod, true, true);
+        unwrap_addr(addr_level2, "level2", mod, true, true);
+        unwrap_addr(addr_tailcall, "makes_tailcall", mod, true, true);
+        unwrap_addr(addr_preonly, "preonly", mod, true, false);
+        /* skipme, postonly, and runlots were already unwrapped */
+
+        /* test longjmp */
+        unwrap_unwindtest_addr(addr_long0, "long0", mod);
+        unwrap_unwindtest_addr(addr_long1, "long1", mod);
+        unwrap_unwindtest_addr(addr_long2, "long2", mod);
+        unwrap_unwindtest_addr(addr_long3, "long3", mod);
+        unwrap_unwindtest_addr(addr_longdone, "longdone", mod);
+        drmgr_set_tls_field(drcontext, tls_idx, (void *)(ptr_uint_t)0);
+#ifdef WINDOWS
+        /* test SEH */
+        if (load_count == 1) {
+            ok = drwrap_unwrap(addr_long0, wrap_unwindtest_seh_pre,
+                               wrap_unwindtest_seh_post);
+            CHECK(ok, "unwrap failed");
+            ok = drwrap_unwrap(addr_long1, wrap_unwindtest_seh_pre,
+                               wrap_unwindtest_seh_post);
+            CHECK(ok, "unwrap failed");
+            ok = drwrap_unwrap(addr_long2, wrap_unwindtest_seh_pre,
+                               wrap_unwindtest_seh_post);
+            CHECK(ok, "unwrap failed");
+            ok = drwrap_unwrap(addr_long3, wrap_unwindtest_seh_pre,
+                               wrap_unwindtest_seh_post);
+            CHECK(ok, "unwrap failed");
+            ok = drwrap_unwrap(addr_longdone, wrap_unwindtest_seh_pre,
+                               wrap_unwindtest_seh_post);
+        }
+        CHECK(ok, "unwrap failed");
 #endif
     }
 }
@@ -150,6 +235,7 @@ dr_init(client_id_t id)
     drwrap_init();
     dr_register_exit_event(event_exit);
     dr_register_module_load_event(module_load_event);
+    dr_register_module_unload_event(module_unload_event);
     tls_idx = drmgr_register_tls_field();
     CHECK(tls_idx > -1, "unable to reserve TLS field");
 }
@@ -204,7 +290,8 @@ wrap_post(void *wrapcxt, void *user_data)
     CHECK(wrapcxt != NULL, "invalid arg");
     if (drwrap_get_func(wrapcxt) == addr_level0) {
         dr_fprintf(STDERR, "  <post-level0>\n");
-        CHECK(user_data == (void *)99, "user_data not preserved");
+        /* not preserved for no-frills */
+        CHECK(load_count == 2 || user_data == (void *)99, "user_data not preserved");
         CHECK(drwrap_get_retval(wrapcxt) == (void *) 42, "get_retval error");
     } else if (drwrap_get_func(wrapcxt) == addr_level1) {
         dr_fprintf(STDERR, "  <post-level1>\n");
