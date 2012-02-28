@@ -3493,8 +3493,10 @@ typedef enum {
     /** Save floating-point state. */
     DR_CLEANCALL_SAVE_FLOAT             = 0x0001,
     /**
-     * Skip saving the flags and skip clearing the flags (especially
-     * DF) for client execution. 
+     * Skip saving the flags and skip clearing the flags (including
+     * DF) for client execution.  Note that this can cause problems
+     * if dr_redirect_execution() is called from a clean call,
+     * as an uninitialized flags value can cause subtle errors.
      */
     DR_CLEANCALL_NOSAVE_FLAGS           = 0x0002,
     /** Skip saving any XMM or YMM registers. */

@@ -219,8 +219,10 @@ DR_EXPORT
  * of the pre-function or post-function wrap callback.
  * In order for any changes to the returned context to take
  * effect, drwrap_set_mcontext() must be called.
- * \note if the #DRWRAP_FAST_CLEANCALLS flag is set,
- * the fields controlled by #DR_MC_MULTIMEDIA will not be filled in.
+ *
+ * \note if the #DRWRAP_FAST_CLEANCALLS flag is set, caller-saved
+ * register values in the fields controlled by #DR_MC_MULTIMEDIA will
+ * not contain valid values.
  */
 dr_mcontext_t *
 drwrap_get_mcontext(void *wrapcxt);
@@ -229,8 +231,6 @@ DR_EXPORT
 /**
  * Identical to drwrap_get_mcontext() but only fills in the state
  * indicated by \p flags.
- * \note if the #DRWRAP_FAST_CLEANCALLS flag is set,
- * #DR_MC_MULTIMEDIA is not a valid flag.
  */
 dr_mcontext_t *
 drwrap_get_mcontext_ex(void *wrapcxt, dr_mcontext_flags_t flags);
@@ -239,6 +239,12 @@ DR_EXPORT
 /**
  * Propagates any changes made to the dr_mcontext_t pointed by
  * drwrap_get_mcontext() back to the application.
+ *
+ * \note if the #DRWRAP_FAST_CLEANCALLS flag is set, caller-saved
+ * register values in the fields controlled by #DR_MC_MULTIMEDIA will
+ * not contain valid values, but this should be fine because
+ * their values were scratch according to the ABI at the
+ * wrap point..
  */
 bool
 drwrap_set_mcontext(void *wrapcxt);
@@ -417,10 +423,17 @@ typedef enum {
     /**
      * If this flag is set, then a leaner clean call is used to invoke
      * wrap pre callbacks.  This clean call assumes that all wrap requests
-     * are for function entrances points and that standard ABI
+     * are for function entrance points and that standard ABI
      * calling conventions are used for those functions.
-     * It furthermore disallows accessing xmm or ymm registers
-     * from drwrap_get_mcontext().
+     * This means that caller-saved registers may not be saved and
+     * thus will have invalid values in drwrap_get_mcontext().  When
+     * using this setting and skipping a function via
+     * drwrap_skip_call() (or calling dr_redirect_execution()
+     * directly), setting xmm registers (in particular those used as
+     * return values) will work correctly (of course, be sure to
+     * retrieve the existing xmm values via drwrap_get_mcontext() or
+     * drwrap_get_mcontext_ex(DR_MC_ALL) first).
+     *
      * Only set this flag if you are certain that all uses of wrapping
      * in your client and all libraries it uses can abide the above
      * restrictions.

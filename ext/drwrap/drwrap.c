@@ -447,17 +447,10 @@ drwrap_get_retaddr(void *wrapcxt_opaque)
     return wrapcxt->retaddr;
 }
 
-DR_EXPORT
-dr_mcontext_t *
-drwrap_get_mcontext_ex(void *wrapcxt_opaque, dr_mcontext_flags_t flags)
+static dr_mcontext_t *
+drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flags)
 {
-    drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
     dr_mcontext_t tmp;
-    if (wrapcxt == NULL)
-        return NULL;
-    if (TEST(DRWRAP_FAST_CLEANCALLS, global_flags) &&
-        TEST(DR_MC_MULTIMEDIA, flags))
-        return NULL; /* invalid combination */
     flags &= DR_MC_ALL; /* throw away invalid flags */
     /* lazily fill in info if more is requested than we have so far.
      * unfortunately, dr_get_mcontext() clobbers what was there, so we
@@ -481,8 +474,41 @@ drwrap_get_mcontext_ex(void *wrapcxt_opaque, dr_mcontext_flags_t flags)
             dr_get_mcontext(wrapcxt->drcontext, wrapcxt->mc);
             memcpy(wrapcxt->mc, &tmp, offsetof(dr_mcontext_t, padding));
         }
+        if (TEST(DRWRAP_FAST_CLEANCALLS, global_flags)) {
+            /* N.B: it's fine to have garbage in the xmm slots we didn't save
+             * (which is all but the x64 param ones) since we only redirect
+             * to start of callee where they're scratch or to retaddr on a
+             * skip where client should have retrieved param xmm (should happen
+             * automatically on get) and then filled in any xmm retvals.
+             */
+            if (TEST(DR_MC_CONTROL, flags)) {
+                /* we need a sane eflags for redirect, but we also need to preserve
+                 * trap flag or other flags so instead of zeroing we copy cur flags
+                 * (xref i#806).
+                 */
+#ifdef WINDOWS
+                wrapcxt->mc->xflags = __readeflags();
+#else
+                ptr_uint_t val;
+                __asm__ __volatile__("pushf"IF_X64_ELSE("q","l")"; pop"
+                                     IF_X64_ELSE("q","l")" %0" : "=m"(val));
+                wrapcxt->mc->xflags = val;
+#endif
+                ASSERT(!TEST(EFLAGS_DF, wrapcxt->mc->xflags), "DF not cleared");
+            }
+        }
     }
     return wrapcxt->mc;
+}
+
+DR_EXPORT
+dr_mcontext_t *
+drwrap_get_mcontext_ex(void *wrapcxt_opaque, dr_mcontext_flags_t flags)
+{
+    drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
+    if (wrapcxt == NULL)
+        return NULL;
+    return drwrap_get_mcontext_internal(wrapcxt, flags);
 }
 
 DR_EXPORT
@@ -512,7 +538,7 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
         return NULL;
 #ifdef X64
     /* ensure we have the info we need. note that we always have xsp. */
-    drwrap_get_mcontext_ex(wrapcxt, DR_MC_INTEGER);
+    drwrap_get_mcontext_internal(wrapcxt, DR_MC_INTEGER);
 # ifdef LINUX
     switch (arg) {
     case 0: return &wrapcxt->mc->rdi;
@@ -588,7 +614,7 @@ drwrap_get_retval(void *wrapcxt_opaque)
     if (wrapcxt == NULL || wrapcxt->mc == NULL)
         return NULL;
     /* ensure we have the info we need */
-    drwrap_get_mcontext_ex(wrapcxt_opaque, DR_MC_INTEGER);
+    drwrap_get_mcontext_internal(wrapcxt_opaque, DR_MC_INTEGER);
     return (void *) wrapcxt->mc->xax;
 }
 
@@ -600,7 +626,7 @@ drwrap_set_retval(void *wrapcxt_opaque, void *val)
     if (wrapcxt == NULL || wrapcxt->mc == NULL)
         return false;
     /* ensure we have the info we need */
-    drwrap_get_mcontext_ex(wrapcxt_opaque, DR_MC_INTEGER);
+    drwrap_get_mcontext_internal(wrapcxt_opaque, DR_MC_INTEGER);
     wrapcxt->mc->xax = (reg_t) val;
     wrapcxt->mc_modified = true;
     return true;
@@ -616,7 +642,7 @@ drwrap_skip_call(void *wrapcxt_opaque, void *retval, size_t stdcall_args_size)
     if (wrapcxt == NULL || wrapcxt->mc == NULL || wrapcxt->retaddr == NULL)
         return false;
     /* ensure we have the info we need */
-    drwrap_get_mcontext_ex(wrapcxt_opaque, DR_MC_INTEGER|DR_MC_CONTROL);
+    drwrap_get_mcontext_internal(wrapcxt_opaque, DR_MC_INTEGER|DR_MC_CONTROL);
     if (!drwrap_set_retval(wrapcxt_opaque, retval))
         return false;
     wrapcxt->mc->xsp += stdcall_args_size + sizeof(void*)/*retaddr*/;
@@ -1014,7 +1040,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
              * we have to redirect execution to the callee again.
              */
             /* ensure we have DR_MC_ALL */
-            drwrap_get_mcontext_ex((void*)wrapcxt, DR_MC_ALL);
+            drwrap_get_mcontext_internal((void*)wrapcxt, DR_MC_ALL);
             wrapcxt->mc->xip = pc;
             dr_redirect_execution(wrapcxt->mc);
             ASSERT(false, "dr_redirect_execution should not return");
@@ -1187,7 +1213,7 @@ drwrap_in_callee(void *arg1, reg_t xsp)
     if (pt->skip[pt->wrap_level]) {
         /* drwrap_skip_call already adjusted the stack and pc */
         /* ensure we have DR_MC_ALL */
-        dr_redirect_execution(drwrap_get_mcontext_ex((void*)&wrapcxt, DR_MC_ALL));
+        dr_redirect_execution(drwrap_get_mcontext_internal((void*)&wrapcxt, DR_MC_ALL));
         ASSERT(false, "dr_redirect_execution should not return");
     }
     if (wrapcxt.mc_modified)
