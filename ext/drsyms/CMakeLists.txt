@@ -103,6 +103,10 @@ elseif (UNIX)
   else (DR_EXT_DRSYMS_STATIC)
     target_link_libraries(drsyms
       "${dwarf_libpath}" "${elf_libpath}" "${elftc_libpath}")
+    # i#693: CMake will try to export the path to the static libs we use via
+    # IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG, but they won't exist on the
+    # user's machine.  Clearing this property prevents that.
+    set_target_properties(drsyms PROPERTIES LINK_INTERFACE_LIBRARIES "")
   endif (DR_EXT_DRSYMS_STATIC)
 endif ()
 include_directories("${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/include")
