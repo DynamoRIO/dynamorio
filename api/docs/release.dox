@@ -131,6 +131,7 @@ The changes between version \DR_VERSION and 3.1.0 are:
  - Added support for linking C \clients with libc via DynamoRIO_USE_LIBC
  - Added dr_insert_clean_call_ex()
  - Added a no-frills drwrap mode for faster but constrained wrapping
+ - Added drwrap_get_drcontext() for performance
  - Added drwrap notification on exceptions bypassing post-hooks
  - Added drwrap_wrap_ex() to pass initial constant user data
  - Added drwrap_is_wrapped() and drwrap_is_post_wrap()

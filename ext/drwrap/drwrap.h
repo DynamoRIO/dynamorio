@@ -198,6 +198,14 @@ drwrap_unwrap(app_pc func,
 
 DR_EXPORT
 /**
+ * Returns the DynamoRIO context.  This routine can be faster than
+ * dr_get_current_drcontext() but should return the same result.
+ */
+app_pc
+drwrap_get_drcontext(void *wrapcxt);
+
+DR_EXPORT
+/**
  * Returns the address of the wrapped function represented by
  * \p wrapcxt.
  */

@@ -419,6 +419,16 @@ drwrap_context_init(void *drcontext, drwrap_context_t *wrapcxt, app_pc func,
 
 DR_EXPORT
 app_pc
+drwrap_get_drcontext(void *wrapcxt_opaque)
+{
+    drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
+    if (wrapcxt == NULL)
+        return NULL;
+    return wrapcxt->drcontext;
+}
+
+DR_EXPORT
+app_pc
 drwrap_get_func(void *wrapcxt_opaque)
 {
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
@@ -495,7 +505,7 @@ drwrap_set_mcontext(void *wrapcxt_opaque)
     return true;
 }
 
-static reg_t *
+static inline reg_t *
 drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
 {
     if (wrapcxt == NULL || wrapcxt->mc == NULL)
@@ -645,7 +655,7 @@ drwrap_event_module_unload(void *drcontext, const module_data_t *info);
 static void
 drwrap_fragment_delete(void *dc/*may be NULL*/, void *tag);
 
-static void
+static inline void
 drwrap_in_callee_check_unwind(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc);
 
 #ifdef WINDOWS
@@ -658,11 +668,6 @@ drwrap_event_pre_syscall(void *drcontext, int sysnum);
 bool
 drwrap_event_exception(void *drcontext, dr_exception_t *excpt);
 #endif
-
-static void
-drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
-                         int level, app_pc retaddr,
-                         bool unwind, bool only_requested_unwind);
 
 /***************************************************************************
  * INIT
@@ -1022,7 +1027,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
 /* assumes that if TEST(DRWRAP_NO_FRILLS, global_flags) then
  * wrap_lock is held
  */
-static void
+static inline void
 drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
                        drwrap_context_t *wrapcxt, app_pc pc)
 {
@@ -1201,11 +1206,10 @@ drwrap_in_callee(void *arg1, reg_t xsp)
  * if retaddr is NULL then this is a "fake" cleanup on abnormal stack unwind
  */
 static void
-drwrap_after_callee_func(void *drcontext, dr_mcontext_t *mc,
+drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc,
                          int level, app_pc retaddr,
                          bool unwind, bool only_requested_unwind)
 {
-    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     wrap_entry_t *wrap, *next;
     uint idx;
     drwrap_context_t wrapcxt;
@@ -1406,7 +1410,8 @@ drwrap_after_callee(app_pc retaddr, reg_t xsp)
      * entered.
      */
     while (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < mc.xsp) {
-        drwrap_after_callee_func(drcontext, &mc, pt->wrap_level, retaddr, false, false);
+        drwrap_after_callee_func(drcontext, pt, &mc, pt->wrap_level,
+                                 retaddr, false, false);
     }
 }
 
@@ -1637,7 +1642,7 @@ drwrap_is_post_wrap(app_pc pc)
  * Several different approaches to try and handle SEH/longjmp unwind
  */
 
-static void
+static inline void
 drwrap_in_callee_check_unwind(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc)
 {
     /* Try to handle an SEH unwind or longjmp that unrolled the stack.
@@ -1664,7 +1669,7 @@ drwrap_in_callee_check_unwind(void *drcontext, per_thread_t *pt, dr_mcontext_t *
                  */
                 IF_WINDOWS(|| (pt->hit_exception &&
                                pt->app_esp[pt->wrap_level] <= mc->xsp)))) {
-            drwrap_after_callee_func(drcontext, mc, pt->wrap_level, NULL, true, false);
+            drwrap_after_callee_func(drcontext, pt, mc, pt->wrap_level, NULL, true, false);
         }
         /* Try to clean up entries we unrolled past and then came back
          * down past in the other direction.  Note that there's a
@@ -1683,7 +1688,7 @@ drwrap_in_callee_check_unwind(void *drcontext, per_thread_t *pt, dr_mcontext_t *
                 post_call_lookup(ret))
                 break;
             NOTIFY(2, "%s: found clobbered retaddr "PFX"\n", __FUNCTION__, ret);
-            drwrap_after_callee_func(drcontext, mc, pt->wrap_level, NULL, true, false);
+            drwrap_after_callee_func(drcontext, pt, mc, pt->wrap_level, NULL, true, false);
         }
         IF_WINDOWS(pt->hit_exception = false;)
     }
@@ -1717,7 +1722,7 @@ drwrap_event_pre_syscall(void *drcontext, int sysnum)
                    __FUNCTION__, tgt_xsp);
             while (pt->wrap_level >= 0 && pt->app_esp[pt->wrap_level] < tgt_xsp) {
                 NOTIFY(2, "%s: level %d\n", __FUNCTION__, pt->wrap_level);
-                drwrap_after_callee_func(drcontext, &mc, pt->wrap_level, NULL,
+                drwrap_after_callee_func(drcontext, pt, &mc, pt->wrap_level, NULL,
                                          true, false);
             }
         }
@@ -1740,7 +1745,8 @@ drwrap_event_exception(void *drcontext, dr_exception_t *excpt)
         /* might not decrement pt->wrap_level so we use a for loop */
         for (idx = pt->wrap_level; idx >= 0; idx--) {
             NOTIFY(2, "%s: level %d\n", __FUNCTION__, idx);
-            drwrap_after_callee_func(drcontext, excpt->mcontext, idx, NULL, true, true);
+            drwrap_after_callee_func(drcontext, pt, excpt->mcontext, idx,
+                                     NULL, true, true);
         }
     }
     return true;
