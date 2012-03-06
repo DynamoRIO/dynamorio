@@ -1480,7 +1480,7 @@ then hits a trap on every pthread_create and other related calls.
 The debugger handles these traps so this is just an annoyance.
 See http://code.google.com/p/dynamorio/issues/detail?id=490.
 
-On Windows, if an application invokes OuputDebugString() while under a
+On Windows, if an application invokes OutputDebugString() while under a
 debugger, \DynamoRIO can end up losing control of the application.
 \endif
 
