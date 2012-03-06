@@ -999,6 +999,18 @@ global callbacks.  In this release it should be considered a beta feature.
 Please file reports on any transparency problems observed when using the
 private loader.
 
+By default, a Windows C \client will not link with libc and will instead
+use the libc subset of routines forwarded from the \DynamoRIO library to \p
+ntdll.dll.  This keeps \clients more lightweight and is usually sufficient
+for most C code.  To request that a C \client link with libc, set this
+variable prior to invoking configure_DynamoRIO_client():
+
+\code
+  set(DynamoRIO_USE_LIBC ON)
+\endcode
+
+C++ \clients and standalone \clients link with libc by default.
+
 \subsection subsec_no_loader When Private Loader is Disabled
 
 \if linux
@@ -1031,8 +1043,11 @@ static version of the library on the gcc command line.  gcc's
   g++ -print-file-name=libstdc++.a
 \endcode
 
-A full gcc command line for building a C++ \client might look something like
-this: 
+A full gcc command line for building a C++ \client when disabling the
+private loader (which is not the default) might look something like this
+(note that this requires static versions of the standard libraries that
+were built PIC, which is not the case in modern binary distributions and
+often requires building from source):
 
 \code
 g++ -o my-client.so -I<header dir> \

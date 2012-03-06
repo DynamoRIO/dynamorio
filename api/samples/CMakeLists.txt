@@ -31,6 +31,23 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+# To match Makefiles and have just one build type per configured build
+# dir, we collapse VS generator configs to a single choice.
+# This must be done prior to the project() command and the var
+# must be set in the cache.
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  if (DEBUG)
+    set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
+  else (DEBUG)
+    set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
+  endif (DEBUG)
+  # we want to use the _LOCATION_<config> property
+  string(TOUPPER "${CMAKE_CONFIGURATION_TYPES}" upper)
+  set(location_suffix "_${upper}")
+else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  set(location_suffix "")
+endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+
 project(DynamoRIO_samples)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
@@ -85,19 +102,6 @@ if (WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CL_CFLAGS}")
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif (WIN32)
-
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  if (DEBUG)
-    set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
-  else (DEBUG)
-    set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
-  endif (DEBUG)
-  # we want to use the _LOCATION_<config> property
-  string(TOUPPER "${CMAKE_CONFIGURATION_TYPES}" upper)
-  set(location_suffix "_${upper}")
-else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  set(location_suffix "")
-endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
 file(GLOB srcs *.c *.cpp)
 # Not all clients are supported on all plaforms
