@@ -4480,7 +4480,8 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
     bool is_UNC = false;
     bool is_device = false;
     const char *name = fname;
-    uint i;
+    int i, size;
+    ASSERT(buf != NULL && buf_len != 0);
     /* need nt file path, prepend \??\ so is \??\c:\.... make sure everyone
      * gives us a fullly qualified absolute path, no . .. relative etc.
      * For UNC names(//server/name), the path should be \??\UNC\server\name. */
@@ -4559,12 +4560,14 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
     }
 
     /* should now have either ("c:\" and !is_UNC) or ("\server" and is_UNC) */ 
-    snwprintf(buf, buf_len, L"\\??\\%ls%hs",
-              is_UNC ? L"UNC" : L"", name);
+    size = snwprintf(buf, buf_len, L"\\??\\%ls%hs",
+                     is_UNC ? L"UNC" : L"", name);
     buf[buf_len-1] = L'\0';
+    if (size < 0 || size == (int)buf_len)
+        return false;
     /* change / to \ */
-    for (i = 0; i < buf_len; i++) { 
-        if (L'/' == buf[i]) 
+    for (i = 0; i < size; i++) {
+        if (buf[i] == L'/') 
             buf[i] = L'\\';
     }
     return true;
