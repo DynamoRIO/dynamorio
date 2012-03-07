@@ -455,7 +455,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     if (cci == NULL)
         cci = &default_clean_call_info;
     if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_XMM_REGS) {
-        ssize_t offs = XMM_SLOTS_SIZE + PRE_XMM_PADDING;
+        int offs = XMM_SLOTS_SIZE + PRE_XMM_PADDING;
         if (cci->preserve_mcontext && cci->skip_save_aflags)
             offs += 2*XSP_SZ; /* pc and flags */
         PRE(ilist, instr, INSTR_CREATE_lea
@@ -627,7 +627,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
     }
     if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_XMM_REGS) {
-        ssize_t offs = PRE_XMM_PADDING + XMM_SLOTS_SIZE + XSP_SZ;
+        int offs = PRE_XMM_PADDING + XMM_SLOTS_SIZE + XSP_SZ;
         if (cci->preserve_mcontext && cci->skip_save_aflags)
             offs += XSP_SZ;
         PRE(ilist, instr, INSTR_CREATE_lea
