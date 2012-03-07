@@ -1772,7 +1772,6 @@ wrapped_dr_free(byte *ptr)
 static void * WINAPI
 redirect_RtlAllocateHeap(HANDLE heap, ULONG flags, SIZE_T size)
 {
-    PEB *peb = get_peb(NT_CURRENT_PROCESS);
     if (redirect_heap_call(heap)) {
         void *mem = wrapped_dr_alloc(flags, size);
         LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX" "PIFX"\n", __FUNCTION__, mem, size);
@@ -1790,7 +1789,6 @@ void * WINAPI RtlReAllocateHeap(HANDLE heap, ULONG flags, PVOID ptr, SIZE_T size
 static void * WINAPI
 redirect_RtlReAllocateHeap(HANDLE heap, ULONG flags, byte *ptr, SIZE_T size)
 {
-    PEB *peb = get_peb(NT_CURRENT_PROCESS);
     /* FIXME i#235: on x64 using dbghelp, SymLoadModule64 calls
      * kernel32!CreateFileW which calls
      * ntdll!RtlDosPathNameToRelativeNtPathName_U_WithStatus which calls
@@ -1834,7 +1832,6 @@ BOOL WINAPI RtlUnlockHeap(HANDLE heap);
 static BOOL WINAPI
 redirect_RtlFreeHeap(HANDLE heap, ULONG flags, byte *ptr)
 {
-    PEB *peb = get_peb(NT_CURRENT_PROCESS);
     if (redirect_heap_call(heap) && is_dynamo_address(ptr)/*see above*/) {
         ASSERT(IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true));
         if (ptr != NULL) {
@@ -1853,7 +1850,6 @@ redirect_RtlFreeHeap(HANDLE heap, ULONG flags, byte *ptr)
 static SIZE_T WINAPI
 redirect_RtlSizeHeap(HANDLE heap, ULONG flags, byte *ptr)
 {
-    PEB *peb = get_peb(NT_CURRENT_PROCESS);
     if (redirect_heap_call(heap) && is_dynamo_address(ptr)/*see above*/) {
         ASSERT(IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true));
         if (ptr != NULL)
@@ -1880,7 +1876,6 @@ redirect_RtlValidateHeap(HANDLE heap, DWORD flags, void *ptr)
 static BOOL WINAPI
 redirect_RtlLockHeap(HANDLE heap)
 {
-    PEB *peb = get_peb(NT_CURRENT_PROCESS);
     /* If the main heap, we assume any subsequent alloc/free will be through
      * DR heap, so we nop this
      */
@@ -1895,7 +1890,6 @@ redirect_RtlLockHeap(HANDLE heap)
 static BOOL WINAPI
 redirect_RtlUnlockHeap(HANDLE heap)
 {
-    PEB *peb = get_peb(NT_CURRENT_PROCESS);
     /* If the main heap, we assume any prior alloc/free was through
      * DR heap, so we nop this
      */
