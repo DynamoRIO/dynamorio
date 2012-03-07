@@ -1710,20 +1710,19 @@ redirect_RtlCreateHeap(ULONG flags, void *base, size_t reserve_sz,
 static bool
 redirect_heap_call(HANDLE heap)
 {
-    PEB *peb;
 #ifdef CLIENT_INTERFACE
     if (!INTERNAL_OPTION(privlib_privheap))
         return false;
 #endif
-    peb = get_peb(NT_CURRENT_PROCESS);
     /* either default heap, or one whose creation we intercepted */
-    return (heap == peb->ProcessHeap ||
+    return (
 #ifdef CLIENT_INTERFACE
             /* check both current and private: should be same, but
              * handle case where didn't swap
              */
             heap == private_peb->ProcessHeap ||
 #endif
+            get_peb(NT_CURRENT_PROCESS)->ProcessHeap ||
             is_dynamo_address((byte*)heap));
 }
 
