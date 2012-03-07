@@ -1553,6 +1553,9 @@ drwrap_wrap_ex(app_pc func,
                 if (!TEST(DRWRAP_NO_FRILLS, global_flags) || e == wrap_cur) {
                     /* matches existing request: re-enable if necessary */
                     e->enabled = true;
+                    /* be sure to update all fields (xref drmem i#816) */
+                    e->user_data = user_data;
+                    e->flags = flags;
                     dr_global_free(wrap_new, sizeof(*wrap_new));
                     dr_recurlock_unlock(wrap_lock);
                     return true;
