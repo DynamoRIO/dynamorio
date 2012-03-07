@@ -5741,6 +5741,7 @@ check_safe_for_flush_synch(dcontext_t *dcontext)
     /* FIXME: will fail w/ -single_thread_in_DR, along w/ the other similar
      * asserts for flushing and cache entering
      */
+# ifdef DEADLOCK_AVOIDANCE
     ASSERT(thread_owns_no_locks(dcontext) ||
            /* if thread exits while a trace is in progress (case 8055) we're
             * holding thread_initexit_lock, which prevents any flusher from
@@ -5753,8 +5754,9 @@ check_safe_for_flush_synch(dcontext_t *dcontext)
             */
            thread_owns_two_locks(dcontext, &thread_initexit_lock,
                                  &all_threads_synch_lock));
+# endif /* DEADLOCK_AVOIDANCE */
 }
-#endif
+#endif /* DEBUG */
 
 #ifdef CLIENT_INTERFACE
 static void

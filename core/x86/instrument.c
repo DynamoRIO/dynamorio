@@ -3598,7 +3598,7 @@ dr_suspend_all_other_threads(OUT void ***drcontexts,
     int i;
 
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
-    CLIENT_ASSERT(thread_owns_no_locks(my_dcontext),
+    CLIENT_ASSERT(OWN_NO_LOCKS(my_dcontext),
                   "dr_suspend_all_other_threads cannot be called while holding a lock");
     CLIENT_ASSERT(drcontexts != NULL && num_suspended != NULL,
                   "dr_suspend_all_other_threads invalid params");
@@ -5089,7 +5089,7 @@ dr_flush_region(app_pc start, size_t size)
      * dr locks (see PR 227619) so can't call this routine.  Since we are going to use
      * a synchall flush, holding client locks is disallowed too (could block a thread
      * at an unsafe spot for synch). */
-    CLIENT_ASSERT(thread_owns_no_locks(dcontext), "dr_flush_region: caller owns a client "
+    CLIENT_ASSERT(OWN_NO_LOCKS(dcontext), "dr_flush_region: caller owns a client "
                   "lock or was called from an event callback that doesn't support "
                   "calling this routine; see header file for restrictions.");
     CLIENT_ASSERT(size != 0, "dr_flush_region: 0 is invalid size for flush");
@@ -5135,7 +5135,7 @@ dr_unlink_flush_region(app_pc start, size_t size)
      * are couldbelinking (see PR 227619) so can't allow the caller to hold any client
      * locks that could block threads in one of those events (otherwise we don't need
      * to care about client locks) */
-    CLIENT_ASSERT(thread_owns_no_locks(dcontext), "dr_flush_region: caller owns a client "
+    CLIENT_ASSERT(OWN_NO_LOCKS(dcontext), "dr_flush_region: caller owns a client "
                   "lock or was called from an event callback that doesn't support "
                   "calling this routine, see header file for restrictions.");
     CLIENT_ASSERT(size != 0, "dr_unlink_flush_region: 0 is invalid size for flush");

@@ -739,9 +739,11 @@ void wait_broadcast_event_helper(broadcast_event_t *be);
     ASSERT(!(pred) || OWN_MUTEX(m))
 # define ASSERT_DO_NOT_OWN_MUTEX(pred, m) \
     ASSERT(!(pred) || !OWN_MUTEX(m))
-# define ASSERT_OWN_NO_LOCKS() \
-    ASSERT(get_thread_private_dcontext() == NULL /* no way to tell */ || \
-           thread_owns_no_locks(get_thread_private_dcontext()))
+# define OWN_NO_LOCKS(dc) thread_owns_no_locks(dc)
+# define ASSERT_OWN_NO_LOCKS() do { \
+    dcontext_t *dc = get_thread_private_dcontext(); \
+    ASSERT(dc == NULL /* no way to tell */ || OWN_NO_LOCKS(dc)); \
+} while (0)
 #else
 /* don't know for sure: imprecise in a conservative direction */
 # define OWN_MUTEX(m) (mutex_testlock(m))
@@ -749,6 +751,7 @@ void wait_broadcast_event_helper(broadcast_event_t *be);
     ASSERT(!(pred) || OWN_MUTEX(m))
 # define ASSERT_DO_NOT_OWN_MUTEX(pred, m) \
     ASSERT(!(pred) || true/*no way to tell*/)
+# define OWN_NO_LOCKS(dc) true /* no way to tell */
 # define ASSERT_OWN_NO_LOCKS() /* no way to tell */
 #endif
 #define ASSERT_OWN_WRITE_LOCK(pred, rw) \

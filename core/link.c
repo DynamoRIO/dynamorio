@@ -1701,8 +1701,9 @@ link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
     /* ensure some higher-level lock is held if f is shared
      * no links across caches so only checking f's sharedness is enough
      */
-    ASSERT_OWN_MUTEX(NEED_SHARED_LOCK(f->flags) ||
-                     (new_fragment && SHARED_FRAGMENTS_ENABLED()), &change_linking_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(
+        NEED_SHARED_LOCK(f->flags) ||
+        (new_fragment && SHARED_FRAGMENTS_ENABLED()), &change_linking_lock);
     ASSERT(!TEST(FRAG_LINKED_INCOMING, f->flags));
     f->flags |= FRAG_LINKED_INCOMING;
 
@@ -1753,8 +1754,9 @@ link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
     /* ensure some higher-level lock is held if f is shared
      * no links across caches so only checking f's sharedness is enough
      */
-    ASSERT_OWN_MUTEX(NEED_SHARED_LOCK(f->flags) ||
-                     (new_fragment && SHARED_FRAGMENTS_ENABLED()), &change_linking_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(
+        NEED_SHARED_LOCK(f->flags) ||
+        (new_fragment && SHARED_FRAGMENTS_ENABLED()), &change_linking_lock);
     ASSERT(!TEST(FRAG_LINKED_OUTGOING, f->flags));
     f->flags |= FRAG_LINKED_OUTGOING;
 

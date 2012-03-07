@@ -684,7 +684,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
     ASSERT(dynamo_all_threads_synched);
 
     ASSERT(info != NULL);
-    ASSERT_OWN_MUTEX(true, &change_linking_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(true, &change_linking_lock);
     mutex_lock(&info->lock);
     ASSERT(info->cache != NULL); /* don't freeze empty units */
     ASSERT(!info->frozen); /* don't freeze already frozen units */
@@ -2596,7 +2596,7 @@ coarse_unit_calculate_persist_info(dcontext_t *dcontext, coarse_info_t *info)
     /* we need real dcontext for rac_entries_in_region() */
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
 
-    ASSERT_OWN_MUTEX(true, &change_linking_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(true, &change_linking_lock);
 #ifdef HOT_PATCHING_INTERFACE
     ASSERT_OWN_READ_LOCK(DYNAMO_OPTION(hot_patching), hotp_get_lock());
 #endif
@@ -2863,7 +2863,7 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
     size_t x_offs = 0; /* offs of start of +x section */
 
     /* We do not need to freeze the world: merely the state of outgoing links. */
-    ASSERT_OWN_MUTEX(true, &change_linking_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(true, &change_linking_lock);
 #ifdef HOT_PATCHING_INTERFACE
     ASSERT_OWN_READ_LOCK(DYNAMO_OPTION(hot_patching), hotp_get_lock());
 #endif

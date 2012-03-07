@@ -393,7 +393,8 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                      * For !DEADLOCK_AVOIDANCE, OWN_MUTEX's conservative imprecision
                      * is fine.
                      */
-                    if ((SHARED_FRAGMENTS_ENABLED() && OWN_MUTEX(&change_linking_lock))
+                    if ((SHARED_FRAGMENTS_ENABLED() &&
+                         self_owns_recursive_lock(&change_linking_lock))
                         /* HACK to avoid recursion if the pclookup invokes
                          * decode_fragment() (for coarse target) and it then invokes
                          * disassembly

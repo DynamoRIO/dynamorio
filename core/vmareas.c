@@ -9370,7 +9370,7 @@ vm_area_flush_coarse_unit(dcontext_t *dcontext, coarse_info_t *info_in,
 {
     coarse_info_t *info = info_in, *next_info;
     ASSERT(info != NULL);
-    ASSERT_OWN_MUTEX(true, &change_linking_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(true, &change_linking_lock);
 #ifdef HOT_PATCHING_INTERFACE
     ASSERT_OWN_READWRITE_LOCK(DYNAMO_OPTION(hot_patching), hotp_get_lock());
 #endif
@@ -9746,7 +9746,7 @@ vm_area_coarse_region_freeze(dcontext_t *dcontext, coarse_info_t *info,
         return;
     ASSERT(!RUNNING_WITHOUT_CODE_CACHE());
     ASSERT(info != NULL);
-    ASSERT_OWN_MUTEX(true, &change_linking_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(true, &change_linking_lock);
 #ifdef HOT_PATCHING_INTERFACE
     ASSERT_OWN_READWRITE_LOCK(DYNAMO_OPTION(hot_patching), hotp_get_lock());
 #endif
