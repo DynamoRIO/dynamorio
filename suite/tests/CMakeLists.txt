@@ -1377,6 +1377,14 @@ if (CLIENT_INTERFACE)
   # test static decoder library
   tobuild_api(api.ir-static api/ir.c "" "" ON)
   tobuild_api(api.static api/static.c "" "" ON)
+
+  if (NOT X64)
+    # i#696: Use -thread_private and small fcache units to trigger shifts.  x64
+    # does not support fcache unit resizing and won't allow 4k unit sizes, so
+    # skip it.
+    tobuild_ci(client.fcache_shift client-interface/fcache_shift.c
+      "" "-thread_private -cache_bb_unit_init 4K" "")
+  endif ()
 endif (CLIENT_INTERFACE)
 
 if (UNIX)

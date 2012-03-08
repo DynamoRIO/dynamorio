@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,6 +52,7 @@
 #include <limits.h> /* for UCHAR_MAX */
 #include "perscache.h"
 #include "synch.h"
+#include "x86/instrument.h"
 
 /* A code cache is made up of multiple separate mmapped units
  * We grow a unit by resizing, shifting, and relinking, up to a maximum size,
@@ -1860,6 +1861,9 @@ cache_extend_commitment(fcache_unit_t *unit, size_t commit_size)
  * make the private-configuration caches larger.  We could even get
  * rid of the fcache shifting.
  */
+/* i#696: We're not getting rid of fcache shifting yet, but it is incompatible
+ * with labels-as-values since we can't patch those absolute addresses.
+ */
 static void
 fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                      uint slot_size)
@@ -1869,6 +1873,9 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     ssize_t shift;
     size_t new_size = unit->size;
     size_t commit_size;
+    /* i#696: Incompatible with clients that use labels-as-values. */
+    IF_CLIENT_INTERFACE(ASSERT(!dr_bb_hook_exists() &&
+                               !dr_trace_hook_exists()));
     /* we shouldn't come here if we have reservation room */
     ASSERT(unit->reserved_end_pc == unit->end_pc);
     if (new_size*4 <= cache->max_quadrupled_unit_size)
@@ -2494,9 +2501,14 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     if (cache->max_size == 0 || cache->size + slot_size <= cache->max_size) {
         LOG(THREAD, LOG_CACHE, 1, "max size = %d, cur size = %d\n",
             cache->max_size/1024, cache->size/1024);
-        /* at larger sizes better to create separate units to avoid expensive
-         * re-linking when resize */
-        if (unit->size >= cache->max_unit_size) {
+        /* At larger sizes better to create separate units to avoid expensive
+         * re-linking when resize.
+         * i#696: Don't try to resize fcache units when clients are present.
+         * They may use labels to insert absolute fragment PCs.
+         */
+        if (unit->size >= cache->max_unit_size
+            IF_CLIENT_INTERFACE(|| dr_bb_hook_exists()
+                                || dr_trace_hook_exists())) {
             fcache_unit_t *newunit;
             size_t newsize;
             ASSERT(!USE_FIFO_FOR_CACHE(cache) ||
