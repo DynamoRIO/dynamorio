@@ -1626,7 +1626,7 @@ do_file_write(file_t f, const char *fmt, va_list ap)
     NULL_TERMINATE_BUFFER(logbuf); /* always NULL terminate */
     /* note that we can't print %f on windows with NOLIBC (returns error 
      * size == -1), use double_print() or divide_uint64_print() as needed */
-    DODEBUG({
+    DOCHECK(1, {
         /* we have our own do-once to avoid infinite recursion w/ protect_data_section */
         if (size < 0 || size >= BUFFER_SIZE_ELEMENTS(logbuf)) {
             if (!do_once_do_file_write) {

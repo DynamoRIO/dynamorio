@@ -263,7 +263,7 @@
             stats->loglevel = options->stats_loglevel; 
     },"set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
     /* Note that these are not truly DYNAMIC, and they don't get synchronized before each LOG */
-    OPTION_DEFAULT(uint, checklevel, 0, "level of extra consistency checks (PR 211887)")
+    OPTION_DEFAULT(uint, checklevel, 2, "level of asserts/consistency checks (PR 211887)")
 
     OPTION_DEFAULT_INTERNAL(bool, thread_stats, true, "enable thread local statistics")
     OPTION_DEFAULT_INTERNAL(bool, global_stats, true, "enable global statistics")

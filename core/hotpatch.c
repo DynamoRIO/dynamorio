@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -754,7 +754,7 @@ hotp_ppoint_areas_remove(app_pc pc)
     ppoint_desc = (hotp_offset_match_t *)
                   vmvector_lookup(hotp_patch_point_areas, pc); 
 
-    DODEBUG({
+    DOCHECK(1, {
         hotp_module_t *module;
         hotp_patch_point_t *ppoint;
 
@@ -2263,7 +2263,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                          image_size != PE_IMAGE_SIZE_IGNORE);
     }
 #ifdef WINDOWS
-    DODEBUG({
+    DOCHECK(1, {
         if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
             TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache))) {
             /* case 8507 - the timestamp and possibly checksum of the current mapping,
@@ -4643,7 +4643,7 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
     app_pc gbop_bad_addr = NULL;
     app_pc ppoint_addr;     /* Fix for case 6054.  Exposed for gbop. */
 
-    DODEBUG({
+    DOCHECK(1, {
         dcontext_t *dcontext = get_thread_private_dcontext();
         ASSERT_CURIOSITY(dcontext != NULL && dcontext != GLOBAL_DCONTEXT 
                          && "unknown thread");

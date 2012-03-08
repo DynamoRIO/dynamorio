@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -720,7 +720,7 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
     uint start_shift = 0;
     /* if emitting prefix_size isn't set up yet */
     cache_pc starting_pc = f->start_pc + fragment_prefix_size(f->flags);
-    DODEBUG({ASSERT(emitting || f->prefix_size == fragment_prefix_size(f->flags));});
+    ASSERT(emitting || f->prefix_size == fragment_prefix_size(f->flags));
 
     ASSERT(PAD_FRAGMENT_JMPS(f->flags)); /* shouldn't call this otherwise */
 
@@ -1869,7 +1869,7 @@ coarse_is_entrance_stub(cache_pc stub)
     if (info != NULL) {
         res = ALIGNED(stub, coarse_stub_alignment(info)) &&
             *entrance_stub_jmp(stub) == JMP_OPCODE;
-        DODEBUG({
+        DOCHECK(1, {
             if (res) {
                 cache_pc tgt = entrance_stub_jmp_target(stub);
                 ASSERT(!in_fcache(stub));
@@ -4389,7 +4389,7 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
     } else {
         /* restore XBX through INDIRECT_STUB_SPILL_SLOT */
         APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XBX, INDIRECT_STUB_SPILL_SLOT));
-        DODEBUG({
+        DOCHECK(1, {
             if (!SHARED_IB_TARGETS())
                 ASSERT(only_spill_state_in_tls);
         });
@@ -6176,7 +6176,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     init_patch_list(patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_XDI);
     /* We should generate some thread-shared code when
      * shared_fragment_shared_syscalls=true. */
-    DODEBUG({
+    DOCHECK(1, {
         if (DYNAMO_OPTION(shared_fragment_shared_syscalls))
             ASSERT(!absolute);
     });

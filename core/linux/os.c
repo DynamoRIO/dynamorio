@@ -1439,7 +1439,7 @@ get_segment_base(uint seg)
 #  endif /* X64 */
             if (selector == 0)
                 return NULL;
-            DODEBUGINT({
+            DOCHECKINT(1, {
                 uint max_idx =
                     IF_VMX86_ELSE(tls_gdt_index,
                                   (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT));
@@ -2202,7 +2202,7 @@ get_thread_private_dcontext(void)
      * Xref PR 192231.
      */
     /* PR 307698: this assert causes large slowdowns (also xref PR 207366) */ 
-    DOCHECK(1, {
+    DOCHECK(CHKLVL_DEFAULT+1, {
         ASSERT(get_tls_thread_id() == get_sys_thread_id() ||
                /* ok for fork as mentioned above */
                pid_cached != get_process_id());
@@ -2286,7 +2286,7 @@ replace_thread_id(thread_id_t old, thread_id_t new)
     ushort offs = TLS_THREAD_ID_OFFSET;
     ptr_int_t new_tid = new; /* can't use thread_id_t since it's 32-bits */
     ASSERT(is_segment_register_initialized());
-    DODEBUG({
+    DOCHECK(1, {
         ptr_int_t old_tid; /* can't use thread_id_t since it's 32-bits */
         READ_TLS_SLOT(offs, old_tid);
         IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(old_tid)));
@@ -4953,7 +4953,7 @@ pre_system_call(dcontext_t *dcontext)
         ASSERT(ok);
         dcontext->sys_param3 = info.prot;
         dcontext->sys_param4 = info.type;
-        DODEBUG({
+        DOCHECK(1, {
             /* we don't expect to see remappings of modules */
             os_get_module_info_lock();
             ASSERT_CURIOSITY(!module_overlaps(addr, old_len));
@@ -5009,7 +5009,7 @@ pre_system_call(dcontext_t *dcontext)
              * spans 2 or more vmareas with dissimilar protection (xref 
              * PR 410921) or has unallocated regions in between (PR 413109).
              */
-            DODEBUG(dcontext->mprot_multi_areas = (addr + len) > end ? true : false;);
+            DOCHECK(1, dcontext->mprot_multi_areas = (addr + len) > end ? true : false;);
         }
 
         res = app_memory_protection_change(dcontext, addr, len, 
@@ -5513,7 +5513,7 @@ allmem_should_merge(bool adjacent, void *data1, void *data2)
 static void *
 allmem_info_merge(void *dst_data, void *src_data)
 {
-    DODEBUG({
+    DOCHECK(1, {
       allmem_info_t *src = (allmem_info_t *) src_data;
       allmem_info_t *dst = (allmem_info_t *) dst_data;
       ASSERT(src->prot == dst->prot &&
@@ -5566,12 +5566,10 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
      * order violation with heap_unit_lock */
     ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
     sync_all_memory_areas();
-    DODEBUG({
-        LOG(GLOBAL, LOG_VMAREAS, 4,
-            "update_all_memory_areas "PFX"-"PFX" %d %d\n",
-            start, end_in, prot, type);
-        DOLOG(5, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
-    });
+    LOG(GLOBAL, LOG_VMAREAS, 4,
+        "update_all_memory_areas "PFX"-"PFX" %d %d\n",
+        start, end_in, prot, type);
+    DOLOG(5, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
 
     if (type == -1) {
         /* to preserve existing types we must iterate b/c we cannot
@@ -5636,12 +5634,10 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
         }
         add_all_memory_area(start, end, prot, type, type == DR_MEMTYPE_IMAGE);
     }
-    DODEBUG({
-        LOG(GLOBAL, LOG_VMAREAS, 5,
-            "update_all_memory_areas "PFX"-"PFX" %d %d: post:\n",
-            start, end_in, prot, type);
-        DOLOG(5, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
-    });
+    LOG(GLOBAL, LOG_VMAREAS, 5,
+        "update_all_memory_areas "PFX"-"PFX" %d %d: post:\n",
+        start, end_in, prot, type);
+    DOLOG(5, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
 }
 
 bool
@@ -5696,7 +5692,7 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
             ASSERT_CURIOSITY(inode == 0 /*see above comment*/|| base+size <= ma->end);
         }
         ASSERT_CURIOSITY(ma->names.inode == inode || inode == 0 /* for .bss */);
-        DODEBUG({
+        DOCHECK(1, {
             if (readable && is_elf_so_header(base, size)) {
                 /* Case 8879: For really small modules, to save disk space, the same
                  * disk page could hold both RO and .data, occupying just 1 page of
@@ -6168,17 +6164,17 @@ post_system_call(dcontext_t *dcontext)
              */
             info.prot = dcontext->sys_param3;
             info.type = dcontext->sys_param4;
-            DODEBUG({
-                    /* we don't expect to see remappings of modules */
-                    os_get_module_info_lock();
-                    ASSERT_CURIOSITY(!module_overlaps(base, size));
-                    os_get_module_info_unlock();
-                });
+            DOCHECK(1, {
+                /* we don't expect to see remappings of modules */
+                os_get_module_info_lock();
+                ASSERT_CURIOSITY(!module_overlaps(base, size));
+                os_get_module_info_unlock();
+            });
             /* Verify that the current prot on the new region (according to
              * the os) is the same as what the prot used to be for the old
              * region.
              */
-            DODEBUG({
+            DOCHECK(1, {
                 uint memprot;
                 ok = get_memory_info_from_os(base, NULL, NULL, &memprot);
                 ASSERT(memprot == info.prot);
@@ -7552,10 +7548,8 @@ find_executable_vm_areas(void)
     maps_iterator_stop(&iter);
 #endif /* HAVE_PROC_MAPS */
 
-    DODEBUG({
-        LOG(GLOBAL, LOG_VMAREAS, 4, "init: all memory areas:\n");
-        DOLOG(4, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
-    });
+    LOG(GLOBAL, LOG_VMAREAS, 4, "init: all memory areas:\n");
+    DOLOG(4, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
 
     /* now that we've walked memory print all modules */
     LOG(GLOBAL, LOG_VMAREAS, 2, "Module list after memory walk\n");
@@ -7665,7 +7659,7 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
         out_info->prot = info->prot;
         out_info->type = info->type;
 #ifdef HAVE_PROC_MAPS
-        DODEBUG({
+        DOCHECK(2, {
             byte *from_os_base_pc;
             size_t from_os_size;
             uint from_os_prot;
@@ -7691,18 +7685,17 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
                  * r--, where /proc/maps lists it as r-x.  Infact, all regions listed in
                  * /proc/maps are executable, even guard pages --x (see case 8821)
                  */
-                DODEBUG({
-                    /* we add the whole client lib as a single entry */
-                    if (IF_CLIENT_INTERFACE_ELSE(!is_in_client_lib(start) ||
-                                                 !is_in_client_lib(end - 1), true)) {
-                        SYSLOG_INTERNAL_WARNING("get_memory_info mismatch! "
-                            "(can happen if os combines entries in /proc/pid/maps)\n"
-                            "\tos says: "PFX"-"PFX" prot="PFX"\n"
-                            "\tcache says: "PFX"-"PFX" prot="PFX"\n",
-                            from_os_base_pc, from_os_base_pc + from_os_size,
-                            from_os_prot, start, end, info->prot);
-                    }
-                });
+                /* we add the whole client lib as a single entry */
+                if (IF_CLIENT_INTERFACE_ELSE(!is_in_client_lib(start) ||
+                                             !is_in_client_lib(end - 1), true)) {
+                    SYSLOG_INTERNAL_WARNING
+                        ("get_memory_info mismatch! "
+                         "(can happen if os combines entries in /proc/pid/maps)\n"
+                         "\tos says: "PFX"-"PFX" prot="PFX"\n"
+                         "\tcache says: "PFX"-"PFX" prot="PFX"\n",
+                         from_os_base_pc, from_os_base_pc + from_os_size,
+                         from_os_prot, start, end, info->prot);
+                }
             }
         });
 #endif

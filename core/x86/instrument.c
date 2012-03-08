@@ -1338,7 +1338,7 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb,
                  (void *)dcontext, (void *)tag, bb, for_trace, translating);
     if (emitflags != NULL)
         *emitflags = ret;
-    DODEBUG({ check_ilist_translations(bb); });
+    DOCHECK(1, { check_ilist_translations(bb); });
 
     dcontext->client_data->mcontext_in_dcontext = false;
 
@@ -1407,7 +1407,7 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace,
                  int (*)(void *, void *, instrlist_t *, bool),
                  (void *)dcontext, (void *)tag, trace, translating);
 
-    DODEBUG({ check_ilist_translations(trace); });
+    DOCHECK(1, { check_ilist_translations(trace); });
 
     CLIENT_ASSERT(instrlist_get_return_target(trace) == NULL &&
                   instrlist_get_fall_through_target(trace) == NULL,

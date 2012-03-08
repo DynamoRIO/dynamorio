@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -600,7 +601,7 @@ last_exit_deleted(dcontext_t *dcontext)
     ASSERT(LINKSTUB_FAKE(&ldata->linkstub_deleted));
     ASSERT(linkstub_fragment(dcontext, &ldata->linkstub_deleted) ==
            &ldata->linkstub_deleted_fragment);
-    DODEBUG({
+    DOCHECK(1, {
         /* easier to clear these and ensure whole thing is 0 for the fragment */
         ldata->linkstub_deleted_fragment.tag = 0;
         ldata->linkstub_deleted_fragment.flags = 0;
@@ -1658,7 +1659,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     LOG(THREAD, LOG_LINKS, 4,
         "    adding future fragment for deleted F%d("PFX")\n",
         f->id, f->tag);
-    DODEBUG({
+    DOCHECK(1, {
         if (TEST(FRAG_SHARED, f->flags))
             ASSERT(fragment_lookup_future(dcontext, f->tag) == NULL);
         else
@@ -1958,7 +1959,7 @@ link_new_fragment(dcontext_t *dcontext, fragment_t *f)
         }
         fragment_delete_future(dcontext, future);
     }
-    DODEBUG({
+    DOCHECK(1, {
         if (TEST(FRAG_SHARED, f->flags))
             ASSERT(fragment_lookup_future(dcontext, f->tag) == NULL);
         else
@@ -2416,7 +2417,7 @@ coarse_stubs_create(coarse_info_t *info, cache_pc pc, size_t size)
     ASSERT(end_pc - info->fcache_return_prefix <=
            (int)(COARSE_STUB_ALLOC_SIZE(COARSE_32_FLAG(info))*
                  num_coarse_stubs_for_prefix(info)));
-    DODEBUG({
+    DOCHECK(1, {
         SET_TO_NOPS(end_pc, info->fcache_return_prefix +
                     COARSE_STUB_ALLOC_SIZE(COARSE_32_FLAG(info))*
                     num_coarse_stubs_for_prefix(info) - end_pc);
@@ -2549,7 +2550,7 @@ entrance_stub_create(dcontext_t *dcontext, coarse_info_t *info,
         "created new entrance stub @"PFX" for "PFX" w/ source F%d("PFX")."PFX"\n",
         stub_pc, EXIT_TARGET_TAG(dcontext, f, l), f->id, f->tag, FCACHE_ENTRY_PC(f));
     ASSERT(emit_sz <= stub_size);
-    DODEBUG({
+    DOCHECK(1, {
         SET_TO_NOPS(stub_pc + emit_sz, stub_size - emit_sz);
     });
     STATS_ADD(separate_shared_bb_entrance_stubs, stub_size);
@@ -2618,7 +2619,7 @@ prepend_new_coarse_incoming(coarse_info_t *info, cache_pc coarse, linkstub_t *fi
         LOG(THREAD_GET, LOG_LINKS, 4,
             "created new coarse_incoming_t "PFX" fine from "PFX"\n",
             entry, entry->in.fine_l);
-        DODEBUG({
+        DOCHECK(1, {
             linkstub_t *l;
             for (l = fine; l != NULL; l = LINKSTUB_NEXT_INCOMING(l))
                 ASSERT(!TEST(LINK_FAKE, l->flags));
@@ -3080,7 +3081,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
     if (orig_stub == NULL)
         fragment_coarse_add(dcontext, info, f->tag, self_stub);
     else {
-        DODEBUG({
+        DOCHECK(1, {
             /* Stub was added by earlier target of this tag */
             fragment_coarse_lookup_in_unit(dcontext, info, f->tag,
                                            &local_stub, &local_body);
@@ -3477,7 +3478,7 @@ coarse_lazy_link(dcontext_t *dcontext, fragment_t *targetf)
                 STATS_INC(lazy_links_from_fine);
                 DODEBUG({ linked = true; });
             } else {
-                DOCHECK(1, { /* PR 307698: perf hit */
+                DOCHECK(CHKLVL_DEFAULT+1, { /* PR 307698: perf hit */
                     ASSERT(incoming_link_exists(dcontext, f, l, targetf) ||
                            /* case 8786: another thread could have built a
                             * shared trace to replace this coarse fragment and
@@ -3514,7 +3515,7 @@ fcache_return_coarse_prefix(cache_pc stub_pc, coarse_info_t *info /*OPTIONAL*/)
     if (info == NULL)
         info = (coarse_info_t *) vmvector_lookup(coarse_stub_areas, stub_pc);
     else {
-        DOCHECK(1, { /* PR 307698: perf hit */
+        DOCHECK(CHKLVL_DEFAULT+1, { /* PR 307698: perf hit */
             ASSERT(info == vmvector_lookup(coarse_stub_areas, stub_pc));
         });
     }
@@ -3531,7 +3532,7 @@ trace_head_return_coarse_prefix(cache_pc stub_pc, coarse_info_t *info /*OPTIONAL
     if (info == NULL)
         info = (coarse_info_t *) vmvector_lookup(coarse_stub_areas, stub_pc);
     else {
-        DOCHECK(1, { /* PR 307698: perf hit */
+        DOCHECK(CHKLVL_DEFAULT+1, { /* PR 307698: perf hit */
             ASSERT(info == vmvector_lookup(coarse_stub_areas, stub_pc));
         });
     }
@@ -3672,7 +3673,7 @@ coarse_update_outgoing(dcontext_t *dcontext, cache_pc old_stub, cache_pc new_stu
     /* ASSUMPTION: coarse-grain are always shared and cannot target private */
     fragment_t *targetf = fragment_lookup_same_sharing(dcontext, target_tag,
                                                      FRAG_SHARED);
-    DOCHECK(1, { /* PR 307698: perf hit */
+    DOCHECK(CHKLVL_DEFAULT+1, { /* PR 307698: perf hit */
         ASSERT(entrance_stub_linked(new_stub, NULL/*may not point to src_info*/));
     });
     if (targetf != NULL) {

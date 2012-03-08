@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1226,8 +1227,6 @@ aslr_post_process_mapview(dcontext_t *dcontext)
     /* retries to recover private ASLR from range conflict */
     uint retries_left = DYNAMO_OPTION(aslr_retry) + 1 /* must fallback to native */;
 
-    DEBUG_DECLARE(uint section_attributes = 0;)
-
     ASSERT(dcontext->aslr_context.sys_aslr_clobbered);
 
     /* unlikely that a dynamic option change happened in-between */
@@ -1243,11 +1242,15 @@ aslr_post_process_mapview(dcontext_t *dcontext)
     /* expected attributes only when we have decided to clobber,
      * under ASLR_DLL it is only loader objects.
      */
-    DODEBUG(get_section_attributes(section_handle, &section_attributes, NULL););
-    ASSERT_CURIOSITY(section_attributes == 0 || 
-                     TESTALL(SEC_IMAGE | SEC_FILE, section_attributes));
-    ASSERT_CURIOSITY(section_attributes == 0 || /* no Query access */
-                     !TESTANY(~(SEC_IMAGE | SEC_FILE | GENERIC_EXECUTE), section_attributes));
+    DOCHECK(1, {
+        uint section_attributes;
+        get_section_attributes(section_handle, &section_attributes, NULL);
+        ASSERT_CURIOSITY(section_attributes == 0 || 
+                         TESTALL(SEC_IMAGE | SEC_FILE, section_attributes));
+        ASSERT_CURIOSITY(section_attributes == 0 || /* no Query access */
+                         !TESTANY(~(SEC_IMAGE | SEC_FILE | GENERIC_EXECUTE),
+                                  section_attributes));
+    });
 
     ASSERT_CURIOSITY(status == STATUS_SUCCESS || 
                      status == STATUS_IMAGE_NOT_AT_BASE || 
@@ -1591,7 +1594,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                NT_SUCCESS(status));
     }
 
-    DODEBUG({
+    DOCHECK(1, {
         if (dcontext->aslr_context.sys_aslr_clobbered
             && NT_SUCCESS(status)) {
             /* really handle success later, after safe read of base and size */

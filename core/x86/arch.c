@@ -212,7 +212,7 @@ byte *
 code_align_forward(byte *pc, size_t alignment)
 {
     byte *new_pc = (byte *) ALIGN_FORWARD(pc, alignment);
-    DODEBUG({
+    DOCHECK(1, {
         SET_TO_NOPS(pc, new_pc - pc);
     });
     return new_pc;
@@ -2494,7 +2494,7 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
         LOG(THREAD_GET, LOG_INTERP, 2,
             "\ttranslation "PFX" is post-walk "PFX" so not fixing xsp\n",
             translate_pc, walk->translation);
-        DODEBUG({
+        DOCHECK(1, {
             for (r = 0; r < REG_SPILL_NUM; r++)
                 ASSERT(!walk->reg_spilled[r]);
         });
@@ -2655,7 +2655,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
         else
             res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
         /* should only happen for thread synch, not a fault */
-        DODEBUG({
+        DOCHECK(1, {
             if (!(res == RECREATE_SUCCESS_STATE /* clean call */ ||
                   tdcontext != get_thread_private_dcontext() ||
                   INTERNAL_OPTION(stress_recreate_pc) ||
@@ -2807,7 +2807,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
                 else
                     res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
                 /* should only happen for thread synch, not a fault */
-                DODEBUG({
+                DOCHECK(1, {
                     if (!(instr_is_our_mangling(inst) /* PR 302951 */ ||
                           tdcontext != get_thread_private_dcontext() ||
                           INTERNAL_OPTION(stress_recreate_pc)
@@ -4011,7 +4011,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
                 instr_get_raw_bits(instr), vsyscall_page_start,
                 IF_WINDOWS_ELSE(vsyscall_after_syscall, vsyscall_syscall_end_pc));
             /* make sure system call numbers match */
-            IF_WINDOWS(DODEBUG({ check_syscall_numbers(dcontext); }));
+            IF_WINDOWS(DOCHECK(1, { check_syscall_numbers(dcontext); }));
             SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
         });
     } else {
@@ -4038,7 +4038,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
                               is_wow64_process(NT_CURRENT_PROCESS) &&
                               "Unexpected WOW64 syscall method"));
             /* make sure system call numbers match */
-            DODEBUG({ check_syscall_numbers(dcontext); });
+            DOCHECK(1, { check_syscall_numbers(dcontext); });
             SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
         });
 #else

@@ -118,8 +118,8 @@ set(vmap_run_list
   "ONLY::^common::-code_api -tracedump_text -tracedump_origins"
   "ONLY::^common::-code_api -tracedump_text -tracedump_origins -syntax_intel"
   "ONLY::^common::-code_api -thread_private -tracedump_binary"
-  # make sure we at least sometimes exercise -checklevel > 0
-  "DEBUG::-checklevel 2"
+  # make sure we at least sometimes exercise non-default -checklevel
+  "DEBUG::-checklevel 4"
 
   # pcache tests: per-user so each app will merge w/ previous, plus merge
   # w/ at-unload persists from earlier -desktop run 

@@ -2590,7 +2590,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
              * full xstate
              */
             sp -= XSTATE_FRAME_EXTRA;
-            DODEBUG({
+            DOCHECK(1, {
                 if (YMM_ENABLED()) {
                     ASSERT_CURIOSITY(sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1);
                     ASSERT(sc->fpstate->sw_reserved.extended_size <= XSTATE_FRAME_EXTRA);

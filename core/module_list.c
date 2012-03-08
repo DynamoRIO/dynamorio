@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 20011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -865,7 +865,7 @@ module_calculate_digest(OUT module_digest_t *digest,
     if (full_digest) 
         MD5Final(digest->full_MD5, &md5_full_cxt);
 
-    DODEBUG({
+    DOCHECK(1, {
         if (full_digest && short_digest && 
             (short_digest_size == 0 ||
              short_digest_size * 2 > module_size)) {

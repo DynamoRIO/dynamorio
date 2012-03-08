@@ -47,6 +47,7 @@
 # define ASSERT_NOT_REACHED()
 # define ASSERT_NOT_IMPLEMENTED(x)
 # define DODEBUG(x)
+# define DOCHECK(n, x)
 # define DEBUG_DECLARE(x)
 # pragma warning(disable : 4210) //nonstandard extension used : function given file scope
 # pragma warning( disable : 4204) //nonstandard extension used : non-constant aggregate initializer
@@ -561,7 +562,7 @@ syscalls_init()
         wow64_index = (int *) windows_XP_wow64_index;
         ASSERT(*((uint *)(int_target+5)) == 0xc015ff64);
         ASSERT(*((uint *)(int_target+8)) == WOW64_TIB_OFFSET);
-        DODEBUG({
+        DOCHECK(1, {
             /* We assume syscalls go through teb->WOW32Reserved */
             TEB *teb = get_own_teb();
             ASSERT(teb != NULL && teb->WOW32Reserved != NULL);
@@ -595,7 +596,7 @@ syscalls_init()
     /* quick sanity check that the syscall numbers we care about are what's
      * in our static array.  we still do our later full-decode sanity checks.
      */
-    DODEBUG({
+    DOCHECK(1, {
         int i;
         HMODULE h = get_ntdll_base();
         ASSERT(h != NULL);
@@ -1383,7 +1384,7 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
      */
     ASSERT(&peb->TlsBitmapBits == (void*)peb->TlsBitmap->BitMapBuffer);
 
-    DODEBUG({
+    DOCHECK(1, {
         int first_available = tls_find_free_block_sequence(peb->TlsBitmap->BitMapBuffer, 
                                                            peb->TlsBitmap->SizeOfBitMap,
                                                            1, /* single */
@@ -1511,7 +1512,7 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
         NTPRINT("Taking %d tls slot(s) %d-%d at offset 0x%x\n", num_slots, start, start + num_slots, *teb_offs);
     }
 
-    DODEBUG({
+    DOCHECK(1, {
         int first_available = 
             tls_find_free_block_sequence(peb->TlsBitmap->BitMapBuffer, 
                                          peb->TlsBitmap->SizeOfBitMap,
@@ -3690,7 +3691,7 @@ nt_pipe_transceive(HANDLE hpipe, void *input, uint input_size,
                         NTLOG(THREAD_GET, LOG_NT, 1, 
                               "pipe transceive 2nd try FAILED!\n");
                         /* DO_ONCE to avoid an infinite recursion here */
-                        DODEBUG({
+                        DOCHECK(1, {
                             /* custom DO_ONCE to avoid selfprot link issues with NOT_DYNAMORIO_CORE_PROPER */
                             if (!do_once_nt_pipe_transceive) {
                                 do_once_nt_pipe_transceive = true;

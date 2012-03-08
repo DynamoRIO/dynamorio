@@ -2363,7 +2363,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* get popf size right the same way we do it for the return address */
             opnd_t memop = retaddr;
             opnd_set_size(&memop, retsz);
-            DODEBUG(if (retsz == OPSZ_2)
+            DOCHECK(1, if (retsz == OPSZ_2)
                         ASSERT_NOT_TESTED(););
             instr_set_src(popf, 1, memop);
             PRE(ilist, instr, popf);
@@ -2960,7 +2960,7 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
     ASSERT(pc != NULL); /* our own code! */
     ASSERT(instr_get_opcode(&instr) == OP_jmp_short);
     ASSERT(pc <= cti_pc); /* could be nops */
-    DODEBUG({
+    DOCHECK(1, {
         pc = decode(dcontext, cti_pc, &cti);
         ASSERT(pc != NULL); /* our own code! */
         ASSERT(instr_get_opcode(&cti) == OP_jmp);

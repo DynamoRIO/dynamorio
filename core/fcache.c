@@ -842,7 +842,7 @@ void
 fcache_init()
 {
     ASSERT(offsetof(fragment_t, flags) == offsetof(empty_slot_t, flags));
-    DODEBUG({
+    DOCHECK(1, {
         /* ensure flag in ushort is at same spot as in uint */
         static free_list_header_t free;
         free.flags = FRAG_FAKE | FRAG_FCACHE_FREE_LIST;

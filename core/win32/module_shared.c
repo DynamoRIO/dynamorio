@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,6 +48,7 @@
 # define ASSERT_NOT_REACHED()
 # define ASSERT_NOT_IMPLEMENTED(x)
 # define DODEBUG(x)
+# define DOCHECK(n, x)
 # define DECLARE_NEVERPROT_VAR(var, ...) var = __VA_ARGS__;
 # define ALIGN_BACKWARD(x, alignment) (((ULONG_PTR)x) & (~((alignment)-1)))
 # define PAGE_SIZE 4096
@@ -167,7 +168,8 @@ get_module_exports_directory_common(app_pc base_addr,
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     DODEBUG({
         MEMORY_BASIC_INFORMATION mbi;
-        ASSERT(query_virtual_memory(base_addr, &mbi, sizeof(mbi)) == sizeof(mbi));
+        size_t len = query_virtual_memory(base_addr, &mbi, sizeof(mbi));
+        ASSERT(len == sizeof(mbi));
         /* We do see MEM_MAPPED PE files: case 7947 */
         if (mbi.Type != MEM_IMAGE) {
             LOG(THREAD_GET, LOG_SYMBOLS, 1, 

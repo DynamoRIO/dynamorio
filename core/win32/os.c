@@ -541,7 +541,7 @@ windows_version_init()
      */
     syscalls = NULL;
 
-    DODEBUG({ check_syscall_array_sizes(); });
+    DOCHECK(1, { check_syscall_array_sizes(); });
 
     /* In at least 2K, XP, XP64, Vista, and Win7, the service pack is
      * stored in peb->OSCSDVersion, major in the top byte:
@@ -1361,7 +1361,7 @@ os_thread_stack_exit(dcontext_t *dcontext)
             ostd->stack_base, ostd->stack_top);
 
         ASSERT(ostd->stack_top != NULL);
-        DODEBUG({
+        DOCHECK(1, {
             /* ASSERT that os region matches region stored in ostd */
             byte *alloc_base;
             size_t size = get_allocation_size(ostd->stack_base, &alloc_base);

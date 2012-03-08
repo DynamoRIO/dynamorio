@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3353,7 +3353,7 @@ rct_analyze_module_at_load(dcontext_t *dcontext,
                            ssize_t relocation_delta)
 {
     ASSERT(module_size != 0 && is_readable_pe_base(module_base));
-    DODEBUG({
+    DOCHECK(1, {
         MEMORY_BASIC_INFORMATION mbi;
         /* xref case 8192, expect to only be analyzing IMAGE memory */
         ASSERT(query_virtual_memory(module_base, &mbi, sizeof(mbi)) == sizeof(mbi) &&
@@ -4124,7 +4124,7 @@ module_area_free_IAT(module_area_t *ma)
 {
     ASSERT(os_get_module_info_write_locked());
     if (ma != NULL && ma->os_data.iat_code != NULL /* no double free */) {
-        DODEBUG({
+        DOCHECK(1, {
             app_pc IAT_start;
             app_pc IAT_end;
             get_IAT_section_bounds(ma->start, &IAT_start, &IAT_end);
@@ -5542,7 +5542,7 @@ get_module_resource_version_data(app_pc mod_base, size_t *version_size)
         get_resource_directory_entry_by_id(subdir, (uint)VS_VERSION_INFO,
                                            (byte *)resource_base, rsrc_dir_size);
     if (ver_entry == NULL) {
-        DODEBUG({
+        DOCHECK(1, {
             const char *short_name = get_dll_short_name(mod_base);
             /* xref case 9099 for detoured.dll exemption */
             if (short_name == NULL || strcmp(short_name, "detoured.dll") != 0)
@@ -6106,7 +6106,7 @@ get_module_resource_version_info(app_pc mod_base, version_info_t *info_out)
         if ((byte*)ver_info.string_or_var_info + sizeof(DWORD) >=
             ((byte*)version_rsrc) + size) {
 #ifdef INTERNAL
-            DODEBUG({
+            DOCHECK(1, {
                 DWORD val;
                 ASSERT_CURIOSITY(safe_read(ver_info.string_or_var_info,
                                            sizeof(val), &val) &&

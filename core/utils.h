@@ -47,6 +47,20 @@
 #endif
 /* avoid mistake of lower-case assert */
 #define assert assert_no_good_use_ASSERT_instead
+
+/* we provide a less-than-default level of checking */
+#define CHKLVL_ASSERTS 1
+#define CHKLVL_DEFAULT 2
+#if defined(INTERNAL) && \
+    !defined(NOT_DYNAMORIO_CORE_PROPER) && \
+    !defined(NOT_DYNAMORIO_CORE) && \
+    !defined(STANDALONE_DECODER)
+/* we can't use DYNAMO_OPTION() b/c that has an assert inside it */
+# define DEBUG_CHECKS(level) (dynamo_options.checklevel >= (level))
+#else
+# define DEBUG_CHECKS(level) true
+#endif
+
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)
 # ifdef INTERNAL
 /* cast to void to avoid gcc warning "statement with no effect" when used as
@@ -55,11 +69,12 @@
  * unrolled in some optionsx or other expansion we could have stack problems!
  */
 #   define ASSERT(x) \
-        ((void)((!(x)) ? (internal_error(__FILE__, __LINE__, #x), 0) : 0))
+        ((void)((DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x)) ? \
+         (internal_error(__FILE__, __LINE__, #x), 0) : 0))
 /* make type void to avoid gcc 4.1 warnings about "value computed is not used"
  * (case 7851).  can also use statement expr ({;}) but only w/ gcc, not w/ cl.
  */
-#   define ASSERT_MESSAGE(msg, x) ((!(x)) ? \
+#   define ASSERT_MESSAGE(level, msg, x) ((DEBUG_CHECKS(level) && !(x)) ? \
         (internal_error(msg " @" __FILE__, __LINE__, #x), (void)0) : (void)0)
 #   define REPORT_CURIOSITY(x) do {                                                   \
             if (!ignore_assert(__FILE__":"STRINGIFY(__LINE__), "curiosity : "#x)) {   \
@@ -69,20 +84,23 @@
             }                                                                         \
         } while (0)
 #   define ASSERT_CURIOSITY(x) do {                                                   \
-           if (!(x)) {                                                                \
+           if (DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x)) {                            \
                REPORT_CURIOSITY(x);                                                   \
            }                                                                          \
        } while (0)  
 #   define ASSERT_CURIOSITY_ONCE(x) do {                                              \
-           if (!(x)) {                                                                \
+           if (DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x)) {                            \
                DO_ONCE({REPORT_CURIOSITY(x);});                                       \
            }                                                                          \
        } while (0)  
 # else 
 /* cast to void to avoid gcc warning "statement with no effect" */
 #   define ASSERT(x) \
-        ((void)((!(x)) ? (internal_error(__FILE__, __LINE__, ""), 0) : 0))
-#   define ASSERT_MESSAGE(msg, x) ((void)((!(x)) ? (internal_error(__FILE__, __LINE__, ""), 0) : 0))
+        ((void)((DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x)) ? \
+         (internal_error(__FILE__, __LINE__, ""), 0) : 0))
+#   define ASSERT_MESSAGE(level, msg, x) \
+        ((void)((DEBUG_CHECKS(level) && !(x)) ? \
+         (internal_error(__FILE__, __LINE__, ""), 0) : 0))
 #   define ASSERT_CURIOSITY(x) ((void) 0)
 #   define ASSERT_CURIOSITY_ONCE(x) ((void) 0)
 # endif /* INTERNAL */
@@ -90,15 +108,15 @@
                                                           __FILE__, __LINE__)
 #else
 # define ASSERT(x)         ((void) 0)
-# define ASSERT_MESSAGE(msg, x) ASSERT(x)
+# define ASSERT_MESSAGE(level, msg, x) ASSERT(x)
 # define ASSERT_NOT_TESTED() ASSERT(true)
 # define ASSERT_CURIOSITY(x) ASSERT(true)
 # define ASSERT_CURIOSITY_ONCE(x) ASSERT(true)
 #endif /* DEBUG */
 
 #define ASSERT_NOT_REACHED() ASSERT(false)
-#define ASSERT_BUG_NUM(num, x) ASSERT_MESSAGE("Bug #"#num, x)
-#define ASSERT_NOT_IMPLEMENTED(x) ASSERT_MESSAGE("Not implemented", x)
+#define ASSERT_BUG_NUM(num, x) ASSERT_MESSAGE(CHKLVL_ASSERTS, "Bug #"#num, x)
+#define ASSERT_NOT_IMPLEMENTED(x) ASSERT_MESSAGE(CHKLVL_ASSERTS, "Not implemented", x)
 #define EXEMPT_TEST(tests) check_filter(tests, get_short_name(get_application_name()))
 
 #if defined(INTERNAL) || defined(DEBUG)
@@ -109,7 +127,8 @@ bool ignore_assert(const char *assert_file_line, const char *expr);
 /* only support apicheck for exported api's */
 #if defined(CLIENT_INTERFACE) || defined(DR_APP_EXPORTS)
 # define apicheck(x, msg) \
-    ((void)((!(x)) ? (external_error(__FILE__, __LINE__, msg), 0) : 0))
+    ((void)((DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x)) ? \
+     (external_error(__FILE__, __LINE__, msg), 0) : 0))
 void external_error(char *file, int line, char *msg);
 #endif
 
@@ -120,13 +139,13 @@ void external_error(char *file, int line, char *msg);
 #  define CLIENT_ASSERT(x, msg) /* PR 215261: nothing in release builds */
 # endif
 #else
-# define CLIENT_ASSERT(x, msg) ASSERT_MESSAGE(msg, x)
+# define CLIENT_ASSERT(x, msg) ASSERT_MESSAGE(CHKLVL_ASSERTS, msg, x)
 #endif
 
 #ifdef DR_APP_EXPORTS
 # define APP_EXPORT_ASSERT(x, msg) apicheck(x, msg)
 #else
-# define APP_EXPORT_ASSERT(x, msg) ASSERT_MESSAGE(msg, x)
+# define APP_EXPORT_ASSERT(x, msg) ASSERT_MESSAGE(CHKLVL_ASSERTS, msg, x)
 #endif
 
 /* truncation assert - should be used wherever addressing cl warning 4244 */
@@ -1037,9 +1056,10 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
       (stats->logmask & (mask)) != 0)           \
     statement                                   \
   } while (0)
-# define DOCHECK(level, statement) do {     \
-  if (DYNAMO_OPTION(checklevel) >= (level)) \
-    statement                               \
+/* not using DYNAMO_OPTION b/c it contains ASSERT */
+# define DOCHECK(level, statement) do { \
+    if (DEBUG_CHECKS(level))            \
+        statement                       \
   } while (0)
 # ifdef INTERNAL
 #  define DOLOG DOELOG
@@ -1466,9 +1486,11 @@ enum {LONGJMP_EXCEPTION = 1};
 #define RSTATS_ADD_PEAK XSTATS_ADD_PEAK
 
 #if defined(DEBUG) && defined(INTERNAL)
-#   define DODEBUGINT(statement) do { statement } while (0)
+#   define DODEBUGINT DODEBUG
+#   define DOCHECKINT DOCHECK
 #else
 #   define DODEBUGINT(statement) /* nothing */
+#   define DOCHECKINT(level, statement) /* nothing */
 #endif
 
 /* for use in CLIENT_ASSERT or elsewhere that exists even if
@@ -2057,7 +2079,7 @@ void profile_callers_exit(void);
     LOG(GLOBAL, LOG_ALL, 1, "%s = %d [expected "#REL" %d] %s\n",        \
         exprstr, value_once, expected,                                  \
         value_once REL expected ? "good" : "BAD");                      \
-    ASSERT_MESSAGE(exprstr, value_once REL expected);                   \
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, exprstr, value_once REL expected);\
 } while (0)
 
 #define TESTRUN(test) do {                              \

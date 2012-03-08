@@ -948,7 +948,7 @@ push_pending_freeze(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info,
         /* Leave stub */
         pending->entrance_stub = true;
         pending->cur_pc = exit_tgt;
-        DODEBUG({
+        DOCHECK(1, {
             cache_pc body;
             /* A rank order violation (grabbing src htable read lock while
              * holding frozen htable write lock) prevents us from calling the
@@ -1609,7 +1609,7 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
                                                 (next_pc - src_body) -
                                                 (ptr_uint_t)freeze_info->cache_start_pc +
                                                 cache_offs);
-                            DODEBUG({
+                            DOCHECK(1, {
                                 /* We should NOT need to add a stub like we might
                                  * for the entry point add above: fall-through
                                  * cannot be trace head! */
@@ -3631,7 +3631,7 @@ persist_get_name_and_open(dcontext_t *dcontext, app_pc modbase,
                 return fd;
             }
             
-            DODEBUG({
+            DOCHECK(1, {
                 pcache_dir_check_permissions(dcontext, filename);
             });
         }
@@ -3727,7 +3727,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
          * validate file with DYNAMO_OPTION(validate_owner_file) here.
          * of course it doesn't hurt to check both.
          */
-        DODEBUG({
+        DOCHECK(1, {
             ASSERT_CURIOSITY((!DYNAMO_OPTION(validate_owner_file) ||
                               os_validate_user_owned(fd)) && "impostor not detected!");
         });
@@ -4013,7 +4013,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     info->stubs_start_pc = coarse_stubs_create(info, info->fcache_return_prefix,
                                                stubs_and_prefixes_len);
     /* We could omit these from the file and assume their sizes */
-    DODEBUG({
+    DOCHECK(1, {
         byte *check = info->fcache_return_prefix;
         check += pers->fcache_return_prefix_len;
         ASSERT(check == info->trace_head_return_prefix);

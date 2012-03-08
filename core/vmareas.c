@@ -654,7 +654,7 @@ vm_make_unwritable(byte *pc, size_t size)
      * is a non-text region.
      */
     ASSERT(!DYNAMO_OPTION(sandbox_writable));
-    DODEBUG({
+    DOCHECK(1, {
         if (DYNAMO_OPTION(sandbox_non_text)) {
             app_pc modbase = get_module_base(pc);
             ASSERT(modbase != NULL && is_range_in_code_section(modbase, pc,
@@ -2335,7 +2335,7 @@ add_executable_vm_area_check_IAT(app_pc *start /*IN/OUT*/, app_pc *end /*IN/OUT*
                 orig_start, IAT_start, orig_start, orig_end);
             *delay_start = orig_start;
             *delay_end = IAT_start;
-            DODEBUG({
+            DOCHECK(1, {
                 /* When IAT is in the middle of +rx region we expect .orpc */
                 app_pc orpc_start = NULL;
                 app_pc orpc_end = NULL;
@@ -2446,7 +2446,7 @@ add_executable_vm_area_check_IAT(app_pc *start /*IN/OUT*/, app_pc *end /*IN/OUT*
                 LOG(GLOBAL, LOG_VMAREAS, 2,
                     "NOT merging IAT-containing "PFX"-"PFX": abuts non-inv-coarse\n",
                     orig_start, orig_end);
-                DODEBUG({
+                DOCHECK(1, {
                     if (all_new && area != NULL &&
                         TEST(FRAG_COARSE_GRAIN, area->frag_flags) &&
                         TEST(VM_EXECUTED_FROM, area->vm_flags)) {
@@ -6663,8 +6663,8 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                     os_module_free_IAT_code(base);
                 DEBUG_DECLARE(app_pc text_start;)
                 DEBUG_DECLARE(app_pc text_end;)
-                DEBUG_DECLARE(app_pc iat_start;)
-                DEBUG_DECLARE(app_pc iat_end;)
+                DEBUG_DECLARE(app_pc iat_start = NULL;)
+                DEBUG_DECLARE(app_pc iat_end = NULL;)
                 /* calculate IAT bounds */
                 ASSERT(is_IAT(base, base+size, true/*page-align*/,
                               &iat_start, &iat_end));
@@ -7877,7 +7877,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     result = true;
     
     /* we are building a real bb, assert consistency checks */
-    DODEBUG({
+    DOCHECK(1, {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
         ASSERT(!ok || !TEST(MEMPROT_WRITE, prot2) || 

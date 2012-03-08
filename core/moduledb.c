@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -249,7 +250,7 @@ moduledb_init()
         global_heap_alloc(exempt_array_size HEAPACCT(ACCT_OTHER));
     ASSERT(exemption_lists != NULL);
     memset(exemption_lists, 0, exempt_array_size);
-    DODEBUG({
+    DOCHECK(1, {
         int i;
         for (i = 0; i < MODULEDB_EXEMPT_NUM_LISTS; i++)
             ASSERT(exempt_list_names[i] != NULL);

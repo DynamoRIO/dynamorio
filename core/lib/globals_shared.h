@@ -584,7 +584,8 @@ typedef enum {
   /* Internal option value can be set on the command line only in INTERNAL builds */
   /* We should remove the ASSERT if we convert an internal option into non-internal */
 # define INTERNAL_OPTION(opt) ((IS_OPTION_INTERNAL(opt)) ? (DYNAMO_OPTION(opt)) : \
-                               (ASSERT_MESSAGE("non-internal option argument "#opt, false), \
+                               (ASSERT_MESSAGE(CHKLVL_ASSERTS, \
+                                "non-internal option argument "#opt, false), \
                                 DYNAMO_OPTION(opt)))
 #else
   /* Use only for experimental non-release options, 

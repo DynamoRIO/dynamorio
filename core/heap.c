@@ -57,6 +57,11 @@
 # endif
 #endif
 
+#ifdef DEBUG_MEMORY
+/* on by default but higher than general asserts */
+# define CHKLVL_MEMFILL CHKLVL_DEFAULT
+#endif
+
 extern bool vm_areas_exited;
 
 /***************************************************************************
@@ -1022,7 +1027,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable)
             DO_ONCE({
                 if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit))
                     schedule_reset(RESET_ALL);
-                DODEBUG({
+                DOCHECK(1, {
                     if (!INTERNAL_OPTION(vm_use_last)) {
                         ASSERT_CURIOSITY(false && "running low on vm reserve");
                     }
@@ -2170,7 +2175,7 @@ heap_munmap_post_stack(dcontext_t *dcontext, void *p, size_t reserve_size)
     /* We would require a valid dcontext and compare to the stack reserve end,
      * but on detach we have no dcontext, so we instead use block alignment.
      */
-    DODEBUG({
+    DOCHECK(1, {
         if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT &&
             DYNAMO_OPTION(vm_reserve) && DYNAMO_OPTION(stack_shares_gencode)) {
             bool at_stack_end = (p == dcontext->dstack + GUARD_PAGE_ADJUSTMENT/2);
@@ -2656,7 +2661,8 @@ heap_create_unit(thread_units_t *tu, size_t size, bool must_be_new)
     dynamo_vm_areas_unlock();
 
 #ifdef DEBUG_MEMORY
-    memset(u->start_pc, HEAP_UNALLOCATED_BYTE, u->end_pc - u->start_pc);
+    DOCHECK(CHKLVL_MEMFILL,
+            memset(u->start_pc, HEAP_UNALLOCATED_BYTE, u->end_pc - u->start_pc););
 #endif
     return u;
 }
@@ -2678,17 +2684,19 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
      * not on the unit itself - FIXME: case 10434.  Maybe we should embed the
      * special heap unit header in the first special heap unit itself. */
     /* The hotp_only leak relaxation below is for case 9588 & 9593.  */
-    CLIENT_ASSERT(IF_HOTP(hotp_only_contains_leaked_trampoline
-                          (unit->start_pc, unit->end_pc - unit->start_pc) ||)
-                  /* i#157: private loader => system lib allocs come here =>
-                   * they don't always clean up.  we have to relax here, but our
-                   * threadunits_exit checks should find all leaks anyway.
-                   */
-                  heapmgt->global_units.acct.cur_usage[ACCT_LIBDUP] > 0 ||
-                  is_region_memset_to_char(unit->start_pc, 
-                                           unit->end_pc - unit->start_pc,
-                                           HEAP_UNALLOCATED_BYTE),
-                  "memory leak detected");
+    DOCHECK(CHKLVL_MEMFILL, {
+        CLIENT_ASSERT(IF_HOTP(hotp_only_contains_leaked_trampoline
+                              (unit->start_pc, unit->end_pc - unit->start_pc) ||)
+                      /* i#157: private loader => system lib allocs come here =>
+                       * they don't always clean up.  we have to relax here, but our
+                       * threadunits_exit checks should find all leaks anyway.
+                       */
+                      heapmgt->global_units.acct.cur_usage[ACCT_LIBDUP] > 0 ||
+                      is_region_memset_to_char(unit->start_pc, 
+                                               unit->end_pc - unit->start_pc,
+                                               HEAP_UNALLOCATED_BYTE),
+                      "memory leak detected");
+    });
 #endif
     /* modifying heap list and DR areas must be atomic, and must grab
      * DR area lock before heap_unit_lock
@@ -2903,18 +2911,20 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
             next_p = *(heap_pc *)p;
             /* clear the pointer to the next free for later asserts */
             *(heap_pc *)p = (heap_pc) HEAP_UNALLOCATED_PTR_UINT;
-            if (i < BLOCK_TYPES-1) {
-                CLIENT_ASSERT(is_region_memset_to_char(p, BLOCK_SIZES[i], 
-                                                       HEAP_UNALLOCATED_BYTE),
-                              "memory corruption detected");
-            } else {
-                /* variable sized blocks */
-                CLIENT_ASSERT(is_region_memset_to_char(p, VARIABLE_SIZE(p),
-                                                       HEAP_UNALLOCATED_BYTE),
-                              "memory corruption detected");
-                /* clear the header for later asserts */
-                MEMSET_HEADER(p, HEAP_UNALLOCATED);
-            }
+            DOCHECK(CHKLVL_MEMFILL, {
+                if (i < BLOCK_TYPES-1) {
+                    CLIENT_ASSERT(is_region_memset_to_char(p, BLOCK_SIZES[i], 
+                                                           HEAP_UNALLOCATED_BYTE),
+                                  "memory corruption detected");
+                } else {
+                    /* variable sized blocks */
+                    CLIENT_ASSERT(is_region_memset_to_char(p, VARIABLE_SIZE(p),
+                                                           HEAP_UNALLOCATED_BYTE),
+                                  "memory corruption detected");
+                    /* clear the header for later asserts */
+                    MEMSET_HEADER(p, HEAP_UNALLOCATED);
+                }
+            });
         }
         tu->free_list[i] = NULL;
     }
@@ -3379,25 +3389,30 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
 #ifdef DEBUG_MEMORY
     if (bucket == BLOCK_TYPES-1 && check_alloc_size <= MAXROOM) {
         /* verify is unallocated memory, skip possible free list next pointer */
-        CLIENT_ASSERT(is_region_memset_to_char
-                      (p+sizeof(heap_pc *), (alloc_size-HEADER_SIZE)-sizeof(heap_pc *),
-                       HEAP_UNALLOCATED_BYTE), "memory corruption detected");
+        DOCHECK(CHKLVL_MEMFILL, {
+            CLIENT_ASSERT(is_region_memset_to_char
+                          (p+sizeof(heap_pc *), (alloc_size-HEADER_SIZE)-sizeof(heap_pc *),
+                           HEAP_UNALLOCATED_BYTE), "memory corruption detected");
+        });
         LOG(THREAD, LOG_HEAP, 6,
             "\nalloc var "PFX"-"PFX" %d bytes, ret "PFX"-"PFX" %d bytes\n",
             p-HEADER_SIZE, p-HEADER_SIZE+alloc_size, alloc_size, p, p+size, size);
         /* there can only be extra padding if we took off of the free list */
-        memset(p+size, HEAP_PAD_BYTE, (alloc_size-HEADER_SIZE)-size);
+        DOCHECK(CHKLVL_MEMFILL,
+                memset(p+size, HEAP_PAD_BYTE, (alloc_size-HEADER_SIZE)-size););
     } else {
         /* verify is unallocated memory, skip possible free list next pointer */
-        CLIENT_ASSERT(is_region_memset_to_char
-                      (p+sizeof(heap_pc *), alloc_size-sizeof(heap_pc *), 
-                       HEAP_UNALLOCATED_BYTE), "memory corruption detected");
+        DOCHECK(CHKLVL_MEMFILL, {
+            CLIENT_ASSERT(is_region_memset_to_char
+                          (p+sizeof(heap_pc *), alloc_size-sizeof(heap_pc *), 
+                           HEAP_UNALLOCATED_BYTE), "memory corruption detected");
+        });
         LOG(THREAD, LOG_HEAP, 6,
             "\nalloc fix or oversize "PFX"-"PFX" %d bytes, ret "PFX"-"PFX" %d bytes\n",
             p, p+alloc_size, alloc_size, p, p+size, size);
-        memset(p+size, HEAP_PAD_BYTE, alloc_size-size);
+        DOCHECK(CHKLVL_MEMFILL, memset(p+size, HEAP_PAD_BYTE, alloc_size-size););
     }
-    memset(p, HEAP_ALLOCATED_BYTE, size);
+    DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_ALLOCATED_BYTE, size););
 # ifdef HEAP_ACCOUNTING
     LOG(THREAD, LOG_HEAP, 6, "\t%s\n", whichheap_name[which]);
 # endif
@@ -3454,12 +3469,14 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size HEAPACCT(which_he
      * to perform this check.  We accept objects that start with 0xcdcdcdcd so
      * long as the second four bytes are not also 0xcdcdcdcd.
      */
-    ASSERT_CURIOSITY(
-        (*(uint *)p != HEAP_UNALLOCATED_UINT ||
-         (size >= 2*sizeof(uint) && *(((uint *)p)+1) != HEAP_UNALLOCATED_UINT)) &&
-        *(uint *)(p+size-sizeof(int)) != HEAP_UNALLOCATED_UINT &&
-        "attempting to free memory containing HEAP_UNALLOCATED pattern, "
-        "possible double free!");
+    DOCHECK(CHKLVL_MEMFILL, {
+        ASSERT_CURIOSITY(
+            (*(uint *)p != HEAP_UNALLOCATED_UINT ||
+             (size >= 2*sizeof(uint) && *(((uint *)p)+1) != HEAP_UNALLOCATED_UINT)) &&
+            *(uint *)(p+size-sizeof(int)) != HEAP_UNALLOCATED_UINT &&
+            "attempting to free memory containing HEAP_UNALLOCATED pattern, "
+            "possible double free!");
+    });
 #endif
 
     while (aligned_size > BLOCK_SIZES[bucket])
@@ -3504,7 +3521,7 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size HEAPACCT(which_he
             u->id, size/1024);
         /* go ahead and set unallocated, even though we are just going to free
          * the unit, is needed for an assert in heap_free_unit anyways */
-        memset(p, HEAP_UNALLOCATED_BYTE, size);
+        DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE, size););
 #endif
         ASSERT(size <= UNITROOM(u));
         heap_free_unit(u, tu->dcontext);
@@ -3522,12 +3539,14 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size HEAPACCT(which_he
         LOG(THREAD, LOG_HEAP, 6,
             "\nfree var "PFX"-"PFX" %d bytes, asked "PFX"-"PFX" %d bytes\n",
             p-HEADER_SIZE, p-HEADER_SIZE+alloc_size, alloc_size, p, p+size, size);
-        ASSERT(is_region_memset_to_char(p+size, (alloc_size-HEADER_SIZE)-size,
-                                        HEAP_PAD_BYTE));
+        ASSERT_MESSAGE(CHKLVL_MEMFILL, "heap overflow",
+                       is_region_memset_to_char(p+size, (alloc_size-HEADER_SIZE)-size,
+                                                HEAP_PAD_BYTE));
         /* ensure we are freeing memory in a proper unit */
         ASSERT(find_heap_unit(tu, p, alloc_size - HEADER_SIZE) != NULL);
         /* set used and padding memory back to unallocated */
-        memset(p, HEAP_UNALLOCATED_BYTE, alloc_size-HEADER_SIZE);
+        DOCHECK(CHKLVL_MEMFILL,
+                memset(p, HEAP_UNALLOCATED_BYTE, alloc_size-HEADER_SIZE););
 # endif
         STATS_SUB(heap_headers, HEADER_SIZE);
     } else {
@@ -3535,12 +3554,12 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size HEAPACCT(which_he
         LOG(THREAD, LOG_HEAP, 6,
             "\nfree fix "PFX"-"PFX" %d bytes, asked "PFX"-"PFX" %d bytes\n",
             p, p+alloc_size, alloc_size, p, p+size, size);
-        ASSERT(is_region_memset_to_char(p+size, alloc_size-size,
-                                        HEAP_PAD_BYTE));
+        ASSERT_MESSAGE(CHKLVL_MEMFILL, "heap overflow",
+                       is_region_memset_to_char(p+size, alloc_size-size, HEAP_PAD_BYTE));
         /* ensure we are freeing memory in a proper unit */
         ASSERT(find_heap_unit(tu, p, alloc_size) != NULL);
         /* set used and padding memory back to unallocated */
-        memset(p, HEAP_UNALLOCATED_BYTE, alloc_size);
+        DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE, alloc_size););
 # endif
         STATS_SUB(heap_bucket_pad, (alloc_size - aligned_size));
     }
@@ -3927,8 +3946,10 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
 
 #ifdef DEBUG_MEMORY
     /* Don't clobber already-allocated memory */
-    if (pc == NULL)
-        memset(u->start_pc, HEAP_UNALLOCATED_BYTE, u->end_pc - u->start_pc);
+    DOCHECK(CHKLVL_MEMFILL, {
+        if (pc == NULL)
+            memset(u->start_pc, HEAP_UNALLOCATED_BYTE, u->end_pc - u->start_pc);
+    });
 #endif
     return u;
 }
@@ -4273,7 +4294,7 @@ special_heap_calloc(void *special, uint num)
         mutex_unlock(&su->lock);
 
 #ifdef DEBUG_MEMORY
-    memset(p, HEAP_ALLOCATED_BYTE, su->block_size*num);
+    DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_ALLOCATED_BYTE, su->block_size*num););
 #endif
     ASSERT(p != NULL);
     return (void*)p;
@@ -4297,7 +4318,7 @@ special_heap_cfree(void *special, void *p, uint num)
         mutex_lock(&su->lock);
 #ifdef DEBUG_MEMORY
     /* FIXME: ensure that p is in allocated state */
-    memset(p, HEAP_UNALLOCATED_BYTE, su->block_size*num);
+    DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE, su->block_size*num););
 #endif
     if (num == 1) {
         /* write next pointer */
@@ -4350,7 +4371,7 @@ bool
 special_heap_iterator_hasnext(special_heap_iterator_t *shi)
 {
     ASSERT(shi != NULL);
-    DODEBUG({
+    DOCHECK(1, {
         special_units_t *su = (special_units_t *) shi->heap;
         ASSERT(su != NULL);
         ASSERT_OWN_MUTEX(true, &su->lock);

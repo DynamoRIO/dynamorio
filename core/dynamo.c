@@ -1696,7 +1696,7 @@ create_callback_dcontext(dcontext_t *old_dcontext)
      * a bug because hot patches can't do system calls, let alone one with 
      * callbacks.
      */
-    DODEBUG({
+    DOCHECK(1, {
         dr_jmp_buf_t empty;
         memset(&empty, -1, sizeof(dr_jmp_buf_t));
         ASSERT(memcmp(&old_dcontext->hotp_excpt_state, &empty,
@@ -2921,7 +2921,7 @@ data_section_init(void)
             get_data_section_bounds(i);
         }
     }
-    DODEBUG({
+    DOCHECK(1, {
         /* ensure no overlaps */
         uint j;
         for (i=0; i<DATASEC_NUM; i++) {

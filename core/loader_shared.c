@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -376,7 +376,7 @@ privload_load(const char *filename, privmod_t *dependent)
      * then we could wrap the whole load process, like ntdll!Ldr does
      */
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    DODEBUG({
+    DOCHECK(1, {
         /* we have limited stack but we don't expect deep recursion */
         privload_recurse_cnt++;
         ASSERT_CURIOSITY(privload_recurse_cnt < 20); /* win7 dbghelp gets to 12 */

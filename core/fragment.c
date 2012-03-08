@@ -850,7 +850,7 @@ fragment_add_to_hashtable(dcontext_t *dcontext, fragment_t *e, fragment_table_t 
      * What is likely a safe point to assert is when there is only a single
      * thread in the process.
      */
-    DODEBUG({
+    DOCHECK(1, {
         if (TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags) &&
             get_num_threads() == 1)
             ASSERT(!TEST(FRAG_IS_TRACE_HEAD, e->flags));
@@ -3008,7 +3008,7 @@ fragment_add(dcontext_t *dcontext, fragment_t *f)
     /* no future frags! */
     ASSERT(!TEST(FRAG_IS_FUTURE, f->flags));
 
-    DOCHECK(0, {
+    DOCHECK(1, {
         fragment_t *existing = fragment_lookup(dcontext, f->tag);
         ASSERT(existing == NULL ||
                IF_CUSTOM_TRACES(/* we create and persist shadowed trace heads */
@@ -4124,7 +4124,7 @@ dump_lookup_table(dcontext_t *dcontext, ibl_table_t *ftable)
                     ftable->table[i].start_pc_fragment);
             }
         }
-        DODEBUG({ hashtable_ibl_check_consistency(dcontext, ftable, i); });
+        DOCHECK(1, { hashtable_ibl_check_consistency(dcontext, ftable, i); });
     }
     TABLE_RWLOCK(ftable, read, unlock);
 }
@@ -4801,7 +4801,7 @@ rct_table_invalidate_range(dcontext_t *dcontext, rct_type_t which,
             hashtable_app_pc_range_remove(dcontext, permod->live_table, 
                                           (ptr_uint_t)text_start, (ptr_uint_t)text_end);
 
-        DODEBUG({
+        DOCHECK(1, {
             uint second_pass =
                 hashtable_app_pc_range_remove(dcontext, permod->live_table, 
                                               (ptr_uint_t)text_start,
@@ -5804,7 +5804,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
     if (RUNNING_WITHOUT_CODE_CACHE())
         return true;
 
-    DODEBUG({ check_safe_for_flush_synch(dcontext); });
+    DOCHECK(1, { check_safe_for_flush_synch(dcontext); });
 
     /* FIXME: once we have this working correctly, come up with scheme
      * that avoids synch in common case
@@ -5913,7 +5913,7 @@ enter_couldbelinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache
     if (RUNNING_WITHOUT_CODE_CACHE())
         return true;
 
-    DODEBUG({ check_safe_for_flush_synch(dcontext); });
+    DOCHECK(1, { check_safe_for_flush_synch(dcontext); });
 
     mutex_lock(&pt->linking_lock);
     ASSERT(!pt->could_be_linking);
@@ -7865,7 +7865,7 @@ fragment_coarse_add(dcontext_t *dcontext, coarse_info_t *info,
     ASSERT(info != NULL && info->htable != NULL);
     htable = (coarse_table_t *) info->htable;
 
-    DODEBUG({
+    DOCHECK(1, {
         /* We have lock rank order problems b/c this lookup may acquire
          * the th table read lock, and we can't split its rank from
          * the main table's.  So we live w/ a racy assert that could
@@ -8023,7 +8023,7 @@ coarse_body_from_htable_entry(dcontext_t *dcontext, coarse_info_t *info,
         }
     } else {
         /* In a non-frozen unit, htable entries are always stubs */
-        DOCHECK(1, { ASSERT(coarse_is_entrance_stub(res)); });
+        DOCHECK(CHKLVL_DEFAULT+1, { ASSERT(coarse_is_entrance_stub(res)); });
         stub_pc = res;
         if (body_pc_out != NULL) {
             /* keep the th table entry and stub link status linked atomically */
@@ -8048,7 +8048,7 @@ coarse_body_from_htable_entry(dcontext_t *dcontext, coarse_info_t *info,
                         body_pc = NULL;
                 } else
                     body_pc = NULL;
-                DOCHECK(1, {
+                DOCHECK(CHKLVL_DEFAULT+1, {
                     ASSERT(!coarse_is_trace_head(res) ||
                            /* allow targeting trace head in another unit */
                            body_pc == NULL);

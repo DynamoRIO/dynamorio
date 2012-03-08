@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -335,7 +336,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 l->cti_offset = (ushort) (pc - f->start_pc);
             }
 
-            DODEBUG({
+            DOCHECK(1, {
                 /* ensure LINK_ flags were transferred via instr_exit_branch_type */
                 if (instr_branch_selfmod_exit(inst)) {
                     ASSERT(!LINKSTUB_INDIRECT(l->flags) &&
@@ -343,7 +344,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 }
             });
 #ifdef UNSUPPORTED_API
-            DODEBUG({
+            DOCHECK(1, {
                 if (instr_branch_targets_prefix(inst))
                     ASSERT(TEST(LINK_TARGET_PREFIX, l->flags));
             });
@@ -367,7 +368,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 "exit_branch_type=0x%x target="PFX" l->flags=0x%x\n",
                 instr_exit_branch_type(inst), target, l->flags);
 
-            DODEBUG({
+            DOCHECK(1, {
                 if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
                     ASSERT(!frag_offs_at_end);
                     /* FIXME: indirect stubs should be separated
@@ -953,7 +954,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
         } else
             fragment_add(dcontext, f);
 
-        DODEBUG({
+        DOCHECK(1, {
             if (TEST(FRAG_SHARED, flags))
                 ASSERT(fragment_lookup_future(dcontext, tag) == NULL);
             else

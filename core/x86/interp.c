@@ -1492,7 +1492,7 @@ bb_process_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb,
     BBPRINT(bb, 3, "found ignorable system call 0x%04x\n", sysnum);
 #ifdef WINDOWS
     if (get_syscall_method() != SYSCALL_METHOD_SYSENTER) {
-        DODEBUG({
+        DOCHECK(1, {
             if (get_syscall_method() == SYSCALL_METHOD_WOW64)
                 ASSERT_NOT_TESTED();
         });
@@ -7139,8 +7139,8 @@ emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
             next_pc = NULL;
             goto emulate_failure;
         }
-        DODEBUG({
-            uint prot;
+        DOCHECK(1, {
+            uint prot = 0;
             ASSERT(get_memory_info((app_pc)target, NULL, NULL, &prot));
             ASSERT(TEST(MEMPROT_WRITE, prot));
         });
@@ -7164,8 +7164,8 @@ emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
         ASSERT(opnd_is_memory_reference(src));
         /* FIXME: change these to take in priv_mcontext_t* ? */
         target = (reg_t *) opnd_compute_address_priv(src, mc);
-        DODEBUG({
-            uint prot;
+        DOCHECK(1, {
+            uint prot = 0;
             ASSERT(get_memory_info((app_pc)target, NULL, NULL, &prot));
             ASSERT(TEST(MEMPROT_WRITE, prot));
         });

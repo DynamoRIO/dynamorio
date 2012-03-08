@@ -269,7 +269,7 @@ opnd_create_immed_int(ptr_int_t i, opnd_size_t size)
     CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_immed_int: invalid size");
     opnd.size = size;
     opnd.value.immed_int = i;
-    DODEBUG({
+    DOCHECK(1, {
         uint sz = opnd_size_in_bytes(size);
         if (sz == 1) {
             CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_sbyte(i),

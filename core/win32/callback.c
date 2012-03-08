@@ -774,7 +774,7 @@ copy_app_code(dcontext_t *dcontext, const byte *start_pc,
          * (estimating where the relative offset will be encoded at).
          * PR 250294's heap pad proposal will solve this.
          */
-        DODEBUG({
+        DOCHECK(1, {
             app_pc target;
             instr_get_rel_addr_target(instr, &target);
             ASSERT_NOT_IMPLEMENTED
@@ -1834,7 +1834,7 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
 #ifdef X64
         ASSERT(length == 11);
 #else
-        DODEBUG({
+        DOCHECK(1, {
             if (get_os_version() <= WINDOWS_VERSION_2000) {
                 ASSERT((length == 14 && arg_bytes > 0) ||
                        (length == 12 && arg_bytes == 0));
@@ -2159,7 +2159,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
             /* skip chrome hook to skip syscall: target "add esp,0x4" */
 #           define CHROME_HOOK_DISTANCE_JMP_TO_SKIP 6
             ret_pc = pc + CHROME_HOOK_DISTANCE_JMP_TO_SKIP;
-            DODEBUG({
+            DOCHECK(1, {
                 instr = instr_create(dcontext);
                 decode(dcontext, ret_pc, instr);
                 ASSERT(instr_get_opcode(instr) == OP_add);
@@ -6441,7 +6441,7 @@ intercept_image_entry(app_state_at_intercept_t *state)
         /* we finally took over the primary thread */
         SYSLOG_INTERNAL_WARNING("image entry point - should be in primary thread\n");
 
-        DODEBUG({
+        DOCHECK(1, {
             /* check other threads don't reach image entry point for some reason */
             app_pc win32_start_addr = 0;
             NTSTATUS res = query_win32_start_addr(NT_CURRENT_THREAD, &win32_start_addr);
