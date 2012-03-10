@@ -111,31 +111,32 @@ testbuild("debug-i32-static-ext" OFF "
   DR_EXT_DRSYMS_STATIC:BOOL=ON
   ${install_path_cache}
   ")
-# just one external build in pre-commit suite
-testbuild("debug-external-64" ON "
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=OFF
-  ")
-if (DO_ALL_BUILDS)
+# we don't really support debug-external anymore
+if (DO_ALL_BUILDS_NOT_SUPPORTED)
+  testbuild("debug-external-64" ON "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=OFF
+    ")
   testbuild("debug-external-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=OFF
     ")
-  testbuild_ex("release-external-32" OFF "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ${install_path_cache}
-    " OFF OFF "${install_build_args}")
-  testbuild_ex("release-external-64" ON "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ${install_path_cache}
-    ${use_lib64_release_cache}
-    TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
-    " OFF OFF "${install_build_args}")
 endif ()
-# we don't really use internal release builds for anything, but keep it working
+testbuild_ex("release-external-32" OFF "
+  DEBUG:BOOL=OFF
+  INTERNAL:BOOL=OFF
+  ${install_path_cache}
+  " OFF OFF "${install_build_args}")
+testbuild_ex("release-external-64" ON "
+  DEBUG:BOOL=OFF
+  INTERNAL:BOOL=OFF
+  ${install_path_cache}
+  ${use_lib64_release_cache}
+  TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
+  " OFF OFF "${install_build_args}")
 if (DO_ALL_BUILDS)
+  # we rarely use internal release builds but keep them working in long
+  # suite (not much burden) in case we need to tweak internal options
   testbuild("release-internal-32" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=ON
@@ -145,13 +146,17 @@ if (DO_ALL_BUILDS)
     INTERNAL:BOOL=ON
     ")
 endif (DO_ALL_BUILDS)
-# non-official-API builds
-testbuild("vmsafe-debug-internal-32" OFF "
-  VMAP:BOOL=OFF
-  VMSAFE:BOOL=ON
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=ON
-  ")
+# non-official-API builds but no longer in pre-commit suite on Windows
+# where building is slow: we'll rely on bots to catch breakage in these 
+# builds on Windows
+if (UNIX OR DO_ALL_BUILDS)
+  testbuild("vmsafe-debug-internal-32" OFF "
+    VMAP:BOOL=OFF
+    VMSAFE:BOOL=ON
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    ")
+endif ()
 if (DO_ALL_BUILDS)
   testbuild("vmsafe-release-external-32" OFF "
     VMAP:BOOL=OFF
@@ -160,12 +165,14 @@ if (DO_ALL_BUILDS)
     INTERNAL:BOOL=OFF
     ")
 endif (DO_ALL_BUILDS)
-testbuild("vps-debug-internal-32" OFF "
-  VMAP:BOOL=OFF
-  VPS:BOOL=ON
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=ON
-  ")
+if (UNIX OR DO_ALL_BUILDS)
+  testbuild("vps-debug-internal-32" OFF "
+    VMAP:BOOL=OFF
+    VPS:BOOL=ON
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    ")
+endif ()
 if (DO_ALL_BUILDS)
   testbuild("vps-release-external-32" OFF "
     VMAP:BOOL=OFF

@@ -51,7 +51,7 @@
 /* we provide a less-than-default level of checking */
 #define CHKLVL_ASSERTS 1
 #define CHKLVL_DEFAULT 2
-#if defined(INTERNAL) && \
+#if defined(DEBUG) && \
     !defined(NOT_DYNAMORIO_CORE_PROPER) && \
     !defined(NOT_DYNAMORIO_CORE) && \
     !defined(STANDALONE_DECODER)
