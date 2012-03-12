@@ -3443,7 +3443,12 @@ transfer_to_fcache_return(dcontext_t *dcontext, CONTEXT *cxt, app_pc next_pc,
      * still go to the private fcache_return for simplicity.
      */
     cxt->CXT_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
+#ifdef X64
+    /* x64 always uses shared gencode */
+    get_local_state_extended()->spill_space.xax = cxt->CXT_XAX;
+#else
     get_mcontext(dcontext)->xax = cxt->CXT_XAX;
+#endif
     cxt->CXT_XAX = (ptr_uint_t) last_exit;
     /* fcache_return will save rest of state */
     dcontext->next_tag = next_pc;

@@ -1672,20 +1672,13 @@ endif (NOT X64)
 tobuild(security-common.selfmod security-common/selfmod.c)
 tochcon(security-common.selfmod textrel_shlib_t)
 
-set(TestAllocWE "security-common.TestAllocWE")
-set(TestMemProtChg "security-common.TestMemProtChg")
-if (X64) # fail on x64
-  set(TestAllocWE "${TestAllocWE}_FLAKY")
-  set(TestMemProtChg "${TestMemProtChg}_FLAKY")
-endif ()
-if (NOT X64 OR TEST_SUITE) # fail on x64 so run only in suite
-  tobuild(${TestAllocWE} security-common/TestAllocWE.c)
-  remove_debug_flag(${TestAllocWE}) # i#567: breaks w/ /debug
-  tobuild(${TestMemProtChg} security-common/TestMemProtChg.c)
-  remove_debug_flag(${TestMemProtChg}) # i#567: breaks w/ /debug
-  tochcon(${TestMemProtChg} wine_exec_t)
-  mark_execstack(${TestMemProtChg})
-endif (NOT X64 OR TEST_SUITE)
+tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
+remove_debug_flag("security-common.TestAllocWE") # i#567: breaks w/ /debug
+
+tobuild("security-common.TestMemProtChg" security-common/TestMemProtChg.c)
+remove_debug_flag("security-common.TestMemProtChg") # i#567: breaks w/ /debug
+tochcon("security-common.TestMemProtChg" wine_exec_t)
+mark_execstack("security-common.TestMemProtChg")
 
 ###########################################################################
 
