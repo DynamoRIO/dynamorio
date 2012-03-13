@@ -1699,7 +1699,7 @@ redirect_realloc(void *mem, size_t size)
     void *buf = NULL;
     if (size > 0) {
         buf = redirect_malloc(size);
-        if (buf != NULL) {
+        if (buf != NULL && mem != NULL) {
             size_t old_size = *((size_t *)(mem - sizeof(size_t)));
             size_t min_size = MIN(old_size, size);
             memcpy(buf, mem, min_size);
