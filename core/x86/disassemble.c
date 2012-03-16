@@ -451,7 +451,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                     } else if (coarse_is_entrance_stub(target)) {
                         print_to_buffer(buf, bufsz, sofar,
                                         "$"PFX" <entrance stub for "PFX"> ",
-                                        target, entrance_stub_target_tag(target));
+                                        target, entrance_stub_target_tag(target, NULL));
                         printed = true;
                     }                        
                 }

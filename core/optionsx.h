@@ -1947,7 +1947,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "make all rip-relative references fine-grained and in own bbs")
 #endif
 #ifdef LINUX
-    OPTION_DEFAULT(bool, persist_trust_textrel, false/*XXX i#670: broken*/,
+    OPTION_DEFAULT(bool, persist_trust_textrel, true,
         "if textrel flag is not set, assume module has no text relocs")
 #endif
     /* the DYNAMORIO_VAR_PERSCACHE_ROOT config var takes precedence over this */

@@ -6572,7 +6572,8 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             uint frag_flags = 0;
             DEBUG_DECLARE(char *comment = "";)
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
-                "WARNING: data region "PFX" is being made executable\n", base);
+                "WARNING: data region "PFX"-"PFX" is being made executable\n",
+                base, base+size);
 #ifdef PROGRAM_SHEPHERDING
             /* if on future, no reason to add to exec list now
              * if once-only, no reason to add to exec list and remove from future
@@ -6638,7 +6639,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                     is_IAT(base, base+size, true/*page-align*/, NULL, NULL))
                     free_iat = true;
                 LOG(THREAD, LOG_VMAREAS, 2,
-                    "IAT is being made rx again "PFX"-"PFX"\n", base, base+size);
+                    ".text or IAT is being made rx again "PFX"-"PFX"\n", base, base+size);
                 if (!RUNNING_WITHOUT_CODE_CACHE()) {
                     /* case 8640: let add_executable_vm_area() decide whether to
                      * keep the coarse-grain flag

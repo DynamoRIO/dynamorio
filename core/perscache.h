@@ -201,6 +201,8 @@ struct _coarse_info_t {
      * so we're comparing the in-memory image at a consistent point.
      */
     module_digest_t module_md5;
+    /* persisted base minus cur base */
+    ssize_t mod_shift;
     
     /* Only add a field here if it should be preserved across coarse_unit_reset_free */
 
@@ -313,7 +315,7 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
 
 enum {
     PERSISTENT_CACHE_MAGIC = 0x244f4952, /* RIO$ */
-    PERSISTENT_CACHE_VERSION = 9,
+    PERSISTENT_CACHE_VERSION = 10,
 };
 
 /* Global flags we need to process if present in a persisted cache */

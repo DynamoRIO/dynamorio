@@ -7585,6 +7585,44 @@ hashtable_coarse_free_entry(dcontext_t *dcontext, coarse_table_t *htable,
     /* nothing to do, data is inlined */
 }
 
+/* i#670: To handle differing app addresses from different module
+ * bases across different executions, we store the persist-time abs
+ * addrs in our tables and always shift on lookup.  For frozen exit
+ * stubs, we have the frozen fcache return convert to a cur-base abs
+ * addr so this shift will then restore to persist-time.
+ *
+ * XXX: this is needed for -persist_trust_textrel, but for Windows
+ * bases will only be different when we need to apply relocations, and
+ * there we could just add an extra relocation per exit stub, which
+ * would end up being lower overhead for long-running apps, but may be
+ * higher than the overhead of shifting for short-running.  For now,
+ * I'm enabling this as cross-platform, and we can do perf
+ * measurements later if desired.
+ *
+ * Storing persist-time abs addr versus storing module offsets: note
+ * that whatever we do we want a frozen-unit-only solution so we don't
+ * want to, say, always store module offsets for non-frozen units.
+ * This is because we support mixing coarse and fine and we have to
+ * use abs addrs in fine tables b/c they're not per-module.  We could
+ * store offsets in frozen only, but then we'd have to do extra work
+ * when freezing.  Plus, by storing absolute, when the module base
+ * lines up we can avoid the shift on the exit stubs (although today
+ * we only avoid exit stub overhead for trace heads when the base
+ * matches).
+ */
+static inline app_to_cache_t
+coarse_lookup_internal(dcontext_t *dcontext, app_pc tag, coarse_table_t *table)
+{
+    app_to_cache_t a2c =
+        hashtable_coarse_lookup(dcontext, (ptr_uint_t)(tag + table->mod_shift), table);
+    if (table->mod_shift != 0 && A2C_ENTRY_IS_REAL(a2c))
+        a2c.app -= table->mod_shift;
+    return a2c;
+}
+/* I would #define hashtable_coarse_lookup as DO_NOT_USE but we have to use for
+ * pclookup
+ */
+
 /* Pass 0 for the initial capacity to use the default.
  * Initial capacities are number of entires and NOT bits in mask or anything.
  */
@@ -7618,6 +7656,7 @@ fragment_coarse_htable_create(coarse_info_t *info, uint init_capacity,
                           HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                           HASHTABLE_RELAX_CLUSTER_CHECKS
                           _IF_DEBUG("coarse htable"));
+    htable->mod_shift = 0;
     info->htable = (void *) htable;
 
     /* We could create th_htable lazily independently of htable but not worth it */
@@ -7637,6 +7676,7 @@ fragment_coarse_htable_create(coarse_info_t *info, uint init_capacity,
                           HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                           HASHTABLE_RELAX_CLUSTER_CHECKS
                           _IF_DEBUG("coarse th htable"));
+    th_htable->mod_shift = 0;
     /* We give th table a lower lock rank for coarse_body_from_htable_entry().
      * FIXME: add param to init() that takes in lock rank?
      */
@@ -7662,7 +7702,7 @@ fragment_coarse_htable_merge_helper(dcontext_t *dcontext,
     for (i = 0; i < stable->capacity; i++) {
         a2c = stable->table[i];
         if (A2C_ENTRY_IS_REAL(a2c)) {
-            look_a2c = hashtable_coarse_lookup(dcontext, (ptr_uint_t)a2c.app, dtable);
+            look_a2c = coarse_lookup_internal(dcontext, a2c.app, dtable);
             if (A2C_ENTRY_IS_EMPTY(look_a2c)) {
                 a2c.cache += dst_cache_offset;
                 if (!dst->frozen) { /* adjust absolute value */
@@ -7923,7 +7963,7 @@ fragment_coarse_th_lookup(dcontext_t *dcontext, coarse_info_t *info, app_pc tag)
     ASSERT(info->htable != NULL);
     htable = (coarse_table_t *) info->th_htable;
     ASSERT(TABLE_PROTECTED(htable));
-    a2c = hashtable_coarse_lookup(dcontext, (ptr_uint_t)tag, htable);
+    a2c = coarse_lookup_internal(dcontext, tag, htable);
     if (!A2C_ENTRY_IS_EMPTY(a2c)) {
         ASSERT(BOOLS_MATCH(info->frozen, info->stubs_start_pc != NULL));
         /* for frozen, th_htable only holds stubs */
@@ -8091,8 +8131,11 @@ fragment_coarse_lookup_in_unit(dcontext_t *dcontext, coarse_info_t *info, app_pc
         goto coarse_lookup_return;
     htable = (coarse_table_t *) info->htable;
     TABLE_RWLOCK(htable, read, lock);
-    a2c = hashtable_coarse_lookup(dcontext, (ptr_uint_t)tag, htable);
+    a2c = coarse_lookup_internal(dcontext, tag, htable);
     if (!A2C_ENTRY_IS_EMPTY(a2c)) {
+        LOG(THREAD, LOG_FRAGMENT, 5, "%s: %s %s tag="PFX" => app="PFX" cache="PFX"\n",
+            __FUNCTION__, info->module, info->frozen ? "frozen" : "",
+            tag, a2c.app, a2c.cache);
         ASSERT(BOOLS_MATCH(info->frozen, info->cache_start_pc != NULL));
         /* for frozen, htable only holds body pc */
         res = ((ptr_uint_t)a2c.cache) + info->cache_start_pc;
@@ -8471,6 +8514,7 @@ fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_
                                   HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                                   HASHTABLE_RELAX_CLUSTER_CHECKS
                                   _IF_DEBUG("coarse pclookup htable"));
+            pc_htable->mod_shift = 0;
             /* We give pc table a lower lock rank so we can add below
              * while holding the lock, though the table is still local
              * while we hold info->lock and do not write it out to its
@@ -8504,7 +8548,7 @@ fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_
                                                          (ptr_uint_t)body_pc, pc_htable);
                         if (A2C_ENTRY_IS_EMPTY(pc_a2c)) {
                             pc_a2c.app = body_pc;
-                            pc_a2c.cache = main_a2c.app;
+                            pc_a2c.cache = main_a2c.app - main_htable->mod_shift;
                             hashtable_coarse_add(dcontext, pc_a2c, pc_htable);
                         } else {
                             ASSERT(DYNAMO_OPTION(unsafe_freeze_elide_sole_ubr));
@@ -8555,7 +8599,7 @@ fragment_coarse_entry_freeze(dcontext_t *dcontext, coarse_freeze_info_t *freeze_
         frozen_htable = (coarse_table_t *) freeze_info->dst_info->htable;
     }
     ASSERT_OWN_WRITE_LOCK(!frozen_htable->is_local, &frozen_htable->rwlock);
-    looka2c = hashtable_coarse_lookup(dcontext, (ptr_uint_t)pending->tag, frozen_htable);
+    looka2c = coarse_lookup_internal(dcontext, pending->tag, frozen_htable);
     if (A2C_ENTRY_IS_EMPTY(looka2c)) {
         frozen_a2c.app = pending->tag;
         if (pending->entrance_stub) {
@@ -8787,6 +8831,7 @@ fragment_coarse_htable_resurrect(dcontext_t *dcontext,  coarse_info_t *info,
                                          _IF_DEBUG(cache_table ?
                                                    "persisted cache htable" :
                                                    "persisted stub htable"));
+    (*htable)->mod_shift = info->mod_shift;
     /* generally want to keep basic alignment */
     ASSERT_CURIOSITY(ALIGNED((*htable)->table, sizeof(app_pc)));
 }

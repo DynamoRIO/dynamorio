@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,6 +45,7 @@
 #include "fcache.h"
 #include "monitor.h"
 #include "synch.h"
+#include "perscache.h"
 #include <string.h> /* for strstr */
 
 #ifdef CLIENT_INTERFACE
@@ -705,9 +706,20 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                                                  dcontext->last_exit);
         } else {
             /* get src info from coarse ibl exit into the right place */
-            if (DYNAMO_OPTION(coarse_units) &&
-                is_ibl_sourceless_linkstub((const linkstub_t*)dcontext->last_exit))
-                set_coarse_ibl_exit(dcontext);
+            if (DYNAMO_OPTION(coarse_units)) {
+                if (is_ibl_sourceless_linkstub((const linkstub_t*)dcontext->last_exit))
+                    set_coarse_ibl_exit(dcontext);
+                else if (DYNAMO_OPTION(use_persisted) &&
+                         dcontext->last_exit == get_coarse_exit_linkstub()) {
+                    /* i#670: for frozen unit, shift from persist-time mod base
+                     * to use-time mod base
+                     */
+                    coarse_info_t *info = dcontext->coarse_exit.dir_exit;
+                    ASSERT(info != NULL);
+                    if (info->mod_shift != 0)
+                        dcontext->next_tag -= info->mod_shift;
+                }
+            }
         }
 
         dispatch_exit_fcache_stats(dcontext);

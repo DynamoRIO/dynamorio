@@ -2362,7 +2362,7 @@ coarse_stubs_free()
 static inline uint
 num_coarse_stubs_for_prefix(coarse_info_t *info)
 {
-    uint prefix_size = coarse_exit_prefix_size(COARSE_32_FLAG(info));
+    uint prefix_size = coarse_exit_prefix_size(info);
     size_t stub_size = COARSE_STUB_ALLOC_SIZE(COARSE_32_FLAG(info));
     ASSERT(CHECK_TRUNCATE_TYPE_uint(ALIGN_FORWARD(prefix_size, stub_size)));
     return (uint) (ALIGN_FORWARD(prefix_size, stub_size) / stub_size);
@@ -2729,7 +2729,7 @@ coarse_link_direct(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     cache_pc coarse_tgt = NULL;
     fragment_t *target_f = NULL;
     ASSERT(self_owns_recursive_lock(&change_linking_lock));
-    ASSERT(entrance_stub_target_tag(stub) == target_tag);
+    ASSERT(entrance_stub_target_tag(stub, src_info) == target_tag);
     /* Note that it is common for stub to already be linked (b/c we have
      * entrance stubs shared by multiple sources), yet we still need to call
      * is_linkable
@@ -3136,7 +3136,7 @@ coarse_remove_incoming(dcontext_t *dcontext, fragment_t *src_f, linkstub_t *src_
 void
 coarse_remove_outgoing(dcontext_t *dcontext, cache_pc stub, coarse_info_t *src_info)
 {
-    cache_pc target_tag = entrance_stub_target_tag(stub);
+    cache_pc target_tag = entrance_stub_target_tag(stub, src_info);
     /* ASSUMPTION: coarse-grain are always shared and cannot target private */
     fragment_t *targetf = fragment_lookup_same_sharing(dcontext, target_tag,
                                                      FRAG_SHARED);
@@ -3625,6 +3625,8 @@ coarse_frozen_stub_size(dcontext_t *dcontext, coarse_info_t *info,
     coarse_stubs_iterator_start(info, &csi);
     /* we do include the prefix size here */
     size += stub_size*num_coarse_stubs_for_prefix(info);
+    LOG(THREAD, LOG_LINKS, 2,
+        "coarse_frozen_stub_size %s: %d prefix\n", info->module, size);
     for (pc = coarse_stubs_iterator_next(&csi); pc != NULL;
          pc = coarse_stubs_iterator_next(&csi)) {
         if (entrance_stub_linked(pc, info)) {
@@ -3669,7 +3671,7 @@ void
 coarse_update_outgoing(dcontext_t *dcontext, cache_pc old_stub, cache_pc new_stub,
                        coarse_info_t *src_info, bool replace)
 {
-    cache_pc target_tag = entrance_stub_target_tag(new_stub);
+    cache_pc target_tag = entrance_stub_target_tag(new_stub, src_info);
     /* ASSUMPTION: coarse-grain are always shared and cannot target private */
     fragment_t *targetf = fragment_lookup_same_sharing(dcontext, target_tag,
                                                      FRAG_SHARED);
@@ -3767,7 +3769,7 @@ coarse_unit_shift_links(dcontext_t *dcontext, coarse_info_t *info)
         new_tgt = NULL;
         if (e->coarse) {
             /* coarse never have incoming structs for unlinked links */
-            app_pc tag = entrance_stub_target_tag(e->in.stub_pc);
+            app_pc tag = entrance_stub_target_tag(e->in.stub_pc, info);
             fragment_coarse_lookup_in_unit(dcontext, info, tag, NULL, &new_tgt);
             ASSERT(new_tgt != NULL);
             link_entrance_stub(dcontext, e->in.stub_pc, new_tgt, hot_patch, NULL);

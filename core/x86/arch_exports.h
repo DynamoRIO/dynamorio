@@ -1129,8 +1129,8 @@ cache_pc
 entrance_stub_jmp(cache_pc stub);
 cache_pc
 entrance_stub_jmp_target(cache_pc stub);
-cache_pc
-entrance_stub_target_tag(cache_pc stub);
+app_pc
+entrance_stub_target_tag(cache_pc stub, coarse_info_t *info);
 bool
 coarse_is_indirect_stub(cache_pc stub);
 cache_pc
@@ -1153,7 +1153,7 @@ cache_pc
 entrance_stub_from_cti(cache_pc cti);
 
 uint
-coarse_exit_prefix_size(uint flags);
+coarse_exit_prefix_size(coarse_info_t *info);
 
 byte *
 emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info);

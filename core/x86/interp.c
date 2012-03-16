@@ -6652,7 +6652,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
             instr_tgt = opnd_get_pc(instr_get_target(instr));
             ASSERT(TEST(FRAG_COARSE_GRAIN, f->flags));
             if (cti == NULL && coarse_is_entrance_stub(instr_tgt)) {
-                target_tag = entrance_stub_target_tag(instr_tgt);
+                target_tag = entrance_stub_target_tag(instr_tgt, info);
                 l_flags = LINK_DIRECT;
                 /* FIXME; try to get LINK_JMP vs LINK_CALL vs fall-through? */
                 LOG(THREAD, LOG_MONITOR, DF_LOGLEVEL(dcontext)-1,

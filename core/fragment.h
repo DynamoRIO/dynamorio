@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -819,7 +820,8 @@ typedef struct _app_to_cache_t {
 #define NAME_KEY coarse
 #define ENTRY_TYPE app_to_cache_t
 /* not defining HASHTABLE_USE_LOOKUPTABLE */
-#define CUSTOM_FIELDS /* none */
+#define CUSTOM_FIELDS \
+    ssize_t mod_shift;
 #define HASHTABLEX_HEADER 1
 #include "hashtablex.h"
 #undef HASHTABLEX_HEADER

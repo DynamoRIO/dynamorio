@@ -753,6 +753,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
     frozen->stubs_start_pc = freeze_info->stubs_start_pc;
     ASSERT(frozen->fcache_return_prefix ==
            freeze_info->cache_start_pc + frozen_cache_size);
+#if 0
     ASSERT(frozen->trace_head_return_prefix == frozen->fcache_return_prefix +
            (info->trace_head_return_prefix - info->fcache_return_prefix));
     ASSERT(frozen->ibl_ret_prefix == frozen->fcache_return_prefix +
@@ -761,6 +762,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
            (info->ibl_call_prefix - info->fcache_return_prefix));
     ASSERT(frozen->ibl_jmp_prefix == frozen->fcache_return_prefix +
            (info->ibl_jmp_prefix - info->fcache_return_prefix));
+#endif
 
     fragment_coarse_htable_create(frozen, num_fragments, num_stubs);
 
@@ -935,7 +937,7 @@ push_pending_freeze(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info,
     pending = HEAP_TYPE_ALLOC(dcontext, pending_freeze_t,
                               ACCT_MEM_MGT/*appropriate?*/, UNPROTECTED);
     ASSERT(coarse_is_entrance_stub(exit_tgt));
-    pending->tag = entrance_stub_target_tag(exit_tgt);
+    pending->tag = entrance_stub_target_tag(exit_tgt, freeze_info->src_info);
     stub_target = entrance_stub_jmp_target(exit_tgt);
     if (entrance_stub_linked(exit_tgt, freeze_info->src_info) &&
         get_fcache_coarse_info(stub_target) == freeze_info->src_info) {
@@ -1271,7 +1273,7 @@ coarse_merge_process_stub(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
     ASSERT(dynamo_all_threads_synched); /* thus NOT_HOT_PATCHABLE */
     ASSERT((dst_cache_pc == NULL && cti_len == 0) || cti_len > 4);
     patch_pc = dst_cache_pc + cti_len - 4;
-    old_stub_tgt = entrance_stub_target_tag(old_stub);
+    old_stub_tgt = entrance_stub_target_tag(old_stub, freeze_info->src_info);
     fragment_coarse_lookup_in_unit(dcontext, freeze_info->dst_info,
                                    old_stub_tgt, &dst_stub, &dst_body);
     /* We need to know for sure whether a trace head as we're not doing
@@ -1472,9 +1474,10 @@ coarse_merge_update_jmps(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
                  * the other mergee, so we must rule that out here.
                  * the only internally-untargeted stubs we need to add are
                  * those for our own bodies. */
-                fragment_coarse_lookup_in_unit(dcontext, freeze_info->src_info,
-                                               entrance_stub_target_tag(pc),
-                                               NULL, &src_body);
+                fragment_coarse_lookup_in_unit
+                    (dcontext, freeze_info->src_info,
+                     entrance_stub_target_tag(pc, freeze_info->src_info),
+                     NULL, &src_body);
                 if (src_body != NULL) {
                     ASSERT(!DYNAMO_OPTION(disable_traces));
                     coarse_merge_process_stub(dcontext, freeze_info, pc,
@@ -3966,6 +3969,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     info->frozen = true;
     info->persisted = true;
     info->has_persist_info = true;
+    info->mod_shift = (pers->modinfo.base - modbase);
     info->mmap_pc = map;
     if (map2 != NULL) {
         info->mmap_ro_size = map_size;

@@ -1892,7 +1892,7 @@ HTNAME(hashtable_,NAME_KEY,_dump_table)(dcontext_t *dcontext,
         if (ENTRY_IS_INVALID(htable->table[i])) {
             LOG(THREAD, LOG_HTABLE, 1, "%6x *** unlinked marker ***\n", i);
         }
-        else if (!ENTRY_IS_EMPTY(htable->table[i])) {
+        else if (ENTRY_IS_REAL(htable->table[i])) {
             uint preferred = HASH_FUNC(ENTRY_TAG(htable->table[i]), htable);
             uint collision_len = (preferred <= i) ? i - preferred /* collision */
                 : (htable->capacity + i - preferred)    /* with overwrap */;

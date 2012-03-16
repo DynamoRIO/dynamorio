@@ -1909,10 +1909,11 @@ entrance_stub_jmp_target(cache_pc stub)
     return tgt;
 }
 
-cache_pc
-entrance_stub_target_tag(cache_pc stub)
+app_pc
+entrance_stub_target_tag(cache_pc stub, coarse_info_t *info)
 {
     cache_pc jmp = entrance_stub_jmp(stub);
+    app_pc tag;
     /* find the immed that is put into tls: at end of pre-jmp instr */
 #ifdef X64
     /* To identify whether 32-bit: we could look up the coarse_info_t
@@ -1929,10 +1930,21 @@ entrance_stub_target_tag(cache_pc stub)
         ptr_uint_t high32 = (ptr_uint_t) *((uint *)(jmp-4));
         ptr_uint_t low32 = (ptr_uint_t)
             *((uint *)(jmp - (SIZE64_MOV_PTR_IMM_TO_TLS/2) - 4));
-        return (cache_pc) ((high32 << 32) | low32);
-    } /* else fall-through to 32-bit case */
+        tag = (cache_pc) ((high32 << 32) | low32);
+    } else { /* else fall-through to 32-bit case */
 #endif
-    return *((cache_pc *)(jmp-4));
+        tag = *((cache_pc *)(jmp-4));
+#ifdef X64
+    }
+#endif
+    /* if frozen, this could be a persist-time app pc (i#670).
+     * we take in info so we can know mod_shift (we can decode to find it
+     * for unlinked but not for linked)
+     */
+    if (info == NULL)
+        info = get_stub_coarse_info(stub);
+    tag -= info->mod_shift;
+    return tag;
 }
 
 bool
@@ -3945,8 +3957,11 @@ emit_trace_head_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte
  * easier to patch when persisting/sharing.
  */
 uint
-coarse_exit_prefix_size(uint flags)
+coarse_exit_prefix_size(coarse_info_t *info)
 {
+#ifdef X64
+    uint flags = COARSE_32_FLAG(info);
+#endif
     /* FIXME: would be nice to use size calculated in emit_coarse_exit_prefix(),
      * but we need to know size before we emit and would have to do a throwaway
      * emit, or else set up a template to be patched w/ specific info field.
@@ -4007,12 +4022,14 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
     /* entrance stub has put target_tag into xax-slot so we use xcx-slot */
     ASSERT(DIRECT_STUB_SPILL_SLOT != MANGLE_XCX_SPILL_SLOT);
 
+    fcache_ret_prefix = INSTR_CREATE_label(dcontext);
+    APP(&ilist, fcache_ret_prefix);
+
 #ifdef X64
     if (TEST(PERSCACHE_X86_32, info->flags)) {
         /* XXX: this won't work b/c opnd size will be wrong */
         ASSERT_NOT_IMPLEMENTED(false && "must pass opnd size to SAVE_TO_TLS");
-        fcache_ret_prefix = SAVE_TO_TLS(dcontext, REG_ECX, MANGLE_XCX_SPILL_SLOT);
-        APP(&ilist, fcache_ret_prefix);
+        APP(&ilist, SAVE_TO_TLS(dcontext, REG_ECX, MANGLE_XCX_SPILL_SLOT));
         /* We assume all our data structures are <4GB which is guaranteed for
          * WOW64 processes.
          */
@@ -4021,8 +4038,7 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
                                          OPND_CREATE_INT32((int)(ptr_int_t)info)));
     } else { /* default code */
 #endif
-        fcache_ret_prefix = SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT);
-        APP(&ilist, fcache_ret_prefix);
+        APP(&ilist, SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
         APP(&ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
                                          OPND_CREATE_INTPTR((ptr_int_t)info)));
 #ifdef X64
@@ -4033,16 +4049,23 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
                                               FRAG_SHARED | FRAG_COARSE_GRAIN |
                                               COARSE_32_FLAG(info)))));
 
-    if (DYNAMO_OPTION(disable_traces)) {
+    APP(&ilist, INSTR_CREATE_label(dcontext));
+    add_patch_marker(&patch, instrlist_last(&ilist), PATCH_ASSEMBLE_ABSOLUTE,
+                     0 /* start of instr */,
+                     (ptr_uint_t*)&info->trace_head_return_prefix);
+    if (DYNAMO_OPTION(disable_traces) ||
+        /* i#670: the stub stored the abs addr at persist time.  we need
+         * to adjust to the use-time mod base which we do in dispatch
+         * but we need to set the dcontext->coarse_exit so we go through
+         * the fcache return
+         */
+        (info->frozen && info->mod_shift != 0)) {
         /* trace_t heads need to store the info ptr for lazy linking */
         APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(fcache_ret_prefix)));
     } else {
         APP(&ilist, INSTR_CREATE_jmp
             (dcontext, opnd_create_pc(trace_head_return_coarse_routine(IF_X64(mode)))));
     }
-    add_patch_marker(&patch, instrlist_last(&ilist), PATCH_ASSEMBLE_ABSOLUTE,
-                     0 /* start of instr */,
-                     (ptr_uint_t*)&info->trace_head_return_prefix);
 
     ibl = get_ibl_routine_ex(dcontext, IBL_LINKED,
                              get_source_fragment_type(dcontext,
@@ -4072,7 +4095,7 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
     pc += encode_with_patch_list(dcontext, &patch, &ilist, pc);
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
-    ASSERT((size_t)(pc - start_pc) == coarse_exit_prefix_size(COARSE_32_FLAG(info)));
+    ASSERT((size_t)(pc - start_pc) == coarse_exit_prefix_size(info));
 
     DOLOG(3, LOG_EMIT, {
         byte *dpc = start_pc;
