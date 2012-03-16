@@ -89,10 +89,6 @@ event_resurrect_ro(void *drcontext, app_pc start, app_pc end, byte **map INOUT)
     *map += sizeof(base);
     /* this test relies on having a preferred base and getting it both runs */
     if (base != mybase) {
-        /* XXX: need to fix -persist_trust_textrel on linux (i#670)
-         * (or add relocation support): currently only successfully
-         * loading the executable's pcache
-         */
         if (verbose) {
             dr_fprintf(STDERR, "persisted base="PFX" does not match cur base="PFX"\n",
                        base, mybase);
@@ -108,8 +104,26 @@ event_resurrect_ro(void *drcontext, app_pc start, app_pc end, byte **map INOUT)
 static dr_emit_flags_t
 event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
+    /* test abs ref */
     dr_insert_clean_call(drcontext, bb, instrlist_first(bb), at_bb, false, 1,
                          OPND_CREATE_INTPTR((ptr_uint_t)dr_fragment_app_pc(tag)));
+
+    /* test intra-bb cti (i#665)
+     * XXX: test in automated fashion whether these bbs are truly persisted.
+     * using the client-walk patch API I can do that: but consensus is it's better
+     * to switch to having DR do the cache walk, making it not clear how to test
+     * this other than adding to every single bb which will result in no
+     * pcaches at all if this intra-bb cti isn't handled.
+     */
+    {
+        instr_t *skip = INSTR_CREATE_label(drcontext);
+        instr_t *inst = instrlist_last(bb);
+        instrlist_meta_preinsert(bb, inst, INSTR_CREATE_jmp
+                                 (drcontext, opnd_create_instr(skip)));
+        instrlist_meta_preinsert(bb, inst, INSTR_CREATE_ud2a(drcontext));
+        instrlist_meta_preinsert(bb, inst, skip);
+    }
+
     return DR_EMIT_DEFAULT | DR_EMIT_PERSISTABLE;
 }
 

@@ -685,6 +685,12 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
 
     ASSERT(info != NULL);
     ASSERT_OWN_RECURSIVE_LOCK(true, &change_linking_lock);
+
+    /* trigger lazy initialize to avoid deadlock on calling 
+     * coarse_cti_is_intra_fragment() during shifting
+     */
+    fragment_coarse_entry_pclookup(dcontext, info, info->cache_start_pc);
+
     mutex_lock(&info->lock);
     ASSERT(info->cache != NULL); /* don't freeze empty units */
     ASSERT(!info->frozen); /* don't freeze already frozen units */
@@ -1026,11 +1032,13 @@ transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
         ASSERT(pc - body <= MAX_FRAGMENT_SIZE);
         next_pc = decode_cti(dcontext, pc, instr);
         /* Case 8711: we can't distinguish exit ctis from others,
-         * so we must assume that any cti is an exit cti.
+         * so we must assume that any cti is an exit cti, although
+         * we do now support intra-fragment ctis (i#665).
          * Assumption: coarse-grain bbs have 1 ind exit or 2 direct,
          * and no code beyond the last exit!
          */
-    } while (!instr_opcode_valid(instr) || !instr_is_cti(instr));
+    } while (!instr_opcode_valid(instr) || !instr_is_cti(instr) ||
+             coarse_cti_is_intra_fragment(dcontext, freeze_info->src_info, instr, body));
 
     /* copy body of fragment, up to start of cti */
     sz = pc - body;
@@ -1165,7 +1173,10 @@ coarse_unit_shift_jmps_internal(dcontext_t *dcontext, coarse_info_t *info,
         instr_reset(dcontext, instr);
         pc = next_pc;
         next_pc = decode_cti(dcontext, pc, instr);
-        /* Case 8711: we can't distinguish exit ctis from others */
+        /* Case 8711: we can't distinguish exit ctis from others.
+         * Note that we don't need to distinguish intra-fragment ctis here
+         * b/c we want to shift them by the same amount (xref i#665).
+         */
         if (instr_opcode_valid(instr) && instr_is_cti(instr)) {
             if (instr_is_cti_short_rewrite(instr, pc))
                 next_pc = remangle_short_rewrite(dcontext, instr, pc, 0/*same target*/);

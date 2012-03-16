@@ -1133,6 +1133,9 @@ app_pc
 entrance_stub_target_tag(cache_pc stub, coarse_info_t *info);
 bool
 coarse_is_indirect_stub(cache_pc stub);
+bool
+coarse_cti_is_intra_fragment(dcontext_t *dcontext, coarse_info_t *info,
+                             instr_t *inst, cache_pc start_pc);
 cache_pc
 coarse_indirect_stub_jmp_target(cache_pc stub);
 uint

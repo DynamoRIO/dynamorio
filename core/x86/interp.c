@@ -2436,12 +2436,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             /* PR 213005: coarse_units can't handle added ctis (meta or not)
              * since decode_fragment(), used for state recreation, can't
              * distinguish from exit cti.
-             */
-            /* FIXME i#665: we need to allow at least some types of ctis
+             * i#665: we now support intra-fragment meta ctis
              * to make persistence usable for clients
              */
-            bb->flags &= ~FRAG_COARSE_GRAIN;
-            STATS_INC(coarse_prevent_client);
+            if (!opnd_is_instr(instr_get_target(inst)) || instr_ok_to_mangle(inst)) {
+                bb->flags &= ~FRAG_COARSE_GRAIN;
+                STATS_INC(coarse_prevent_client);
+            }
         }
 
         if (!instr_ok_to_mangle(inst))
@@ -6424,6 +6425,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                 if (instr_opcode_valid(instr) && instr_is_cti(instr)) {
                     bool separate_cti = false;
                     bool re_relativize = false;
+                    bool intra_target = true;
                     DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
                         loginst(dcontext, 4, instr, "decode_fragment: found non-exit cti");
                     });
@@ -6433,25 +6435,41 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                          * Thus we have to assume that any cti is an exit cti, and
                          * make all fragments for which that is not true into
                          * fine-grained.
+                         * Except that we want to support intra-fragment ctis for
+                         * clients (i#665), so we use some heuristics.
                          */
-                        /* Process this cti as an exit cti.  FIXME: we will then
-                         * re-copy the raw bytes from this cti to the end of the
-                         * fragment at the top of the next loop iter, but for
-                         * coarse-grain bbs that should be just one instr for cbr bbs
-                         * or none for others, so not worth doing anything about.
-                         */
-                        stop_pc = prev_pc;
-                        pc = stop_pc;
-                        break;
-                    }
-                    if (instr_is_return(instr) ||
-                        !opnd_is_near_pc(instr_get_target(instr))) {
+                        if (!coarse_cti_is_intra_fragment(dcontext, info,
+                                                          instr, start_pc)) {
+                            /* Process this cti as an exit cti.  FIXME: we will then
+                             * re-copy the raw bytes from this cti to the end of the
+                             * fragment at the top of the next loop iter, but for
+                             * coarse-grain bbs that should be just one instr for cbr bbs
+                             * or none for others, so not worth doing anything about.
+                             */
+                            DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
+                                loginst(dcontext, DF_LOGLEVEL(dcontext), instr,
+                                        "\tcoarse exit cti");
+                            });
+                            intra_target = false;
+                            stop_pc = prev_pc;
+                            pc = stop_pc;
+                            break;
+                        } else {
+                            /* we'll make it to intra_target if() below */
+                            DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
+                                loginst(dcontext, DF_LOGLEVEL(dcontext), instr,
+                                        "\tcoarse intra-fragment cti");
+                            });
+                        }
+                    } else if (instr_is_return(instr) ||
+                               !opnd_is_near_pc(instr_get_target(instr))) {
                         /* just leave it undecoded */
 #ifdef NATIVE_RETURN
                         /* need to be able to find ret for fixup_last_cti */
                         if (instr_is_return(instr))
                             separate_cti = true;
 #endif
+                        intra_target = false;
                     } else if (instr_is_cti_short_rewrite(instr, prev_pc)) {
                         /* Cti-short should only occur as exit ctis, which are
                          * separated out unless we're decoding a fake fragment.  We
@@ -6462,14 +6480,17 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                         ASSERT_NOT_REACHED();
                         separate_cti = true;
                         re_relativize = true;
+                        intra_target = false;
                     } else if (opnd_get_pc(instr_get_target(instr)) < start_pc ||
                                opnd_get_pc(instr_get_target(instr)) > start_pc+f->size) {
                         separate_cti = true;
                         re_relativize = true;
+                        intra_target = false;
                         DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
                             loginst(dcontext, 4, instr, "\tcti has off-fragment target");
                         });
-                    } else {
+                    }
+                    if (intra_target) {
                         /* intra-fragment target: we'll change its target operand
                          * from pc to instr_t in second pass, so remember it here
                          */

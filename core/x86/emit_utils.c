@@ -1954,6 +1954,41 @@ coarse_is_indirect_stub(cache_pc pc)
     return instr_raw_is_tls_spill(pc, REG_XBX, INDIRECT_STUB_SPILL_SLOT);
 }
 
+/* caller should call fragment_coarse_entry_pclookup() ahead of time
+ * to avoid deadlock if caller holds info->lock
+ */
+bool
+coarse_cti_is_intra_fragment(dcontext_t *dcontext, coarse_info_t *info,
+                             instr_t *inst, cache_pc start_pc)
+{
+    /* We don't know the size of the fragment but we want to support
+     * intra-fragment ctis for clients (i#665) so we use some
+     * heuristics.  A real cti is either linked to a target within the
+     * same coarse unit (where its target will be an entry point) or
+     * points at a stub of some kind (frozen exit prefix or separate
+     * entrance stub or inlined indirect stub).
+     */
+    cache_pc tgt = opnd_get_pc(instr_get_target(inst));
+    if (tgt < start_pc ||
+        tgt >= start_pc + MAX_FRAGMENT_SIZE ||
+        /* if tgt is an entry, then it's a linked exit cti
+         * XXX: this may acquire info->lock if it's never been called before
+         */
+        fragment_coarse_entry_pclookup(dcontext, info, tgt) != NULL ||
+        /* these lookups can get expensive but should only hit them
+         * when have clients adding intra-fragment ctis.
+         * XXX: is there a min distance we could use to rule out
+         * being in stubs?  for frozen though prefixes are
+         * right after cache.
+         */
+        coarse_is_indirect_stub(tgt) ||
+        in_coarse_stubs(tgt) ||
+        in_coarse_stub_prefixes(tgt)) {
+        return false;
+    } else
+        return true;
+}
+
 cache_pc
 coarse_indirect_stub_jmp_target(cache_pc stub)
 {
