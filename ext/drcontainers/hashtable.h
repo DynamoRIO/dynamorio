@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -160,10 +160,6 @@ hashtable_configure(hashtable_t *table, hashtable_config_t *config);
 /** Returns the payload for the given key, or NULL if the key is not found */
 void *
 hashtable_lookup(hashtable_t *table, void *key);
-
-/** Like hashtable_lookup but does not unlock the hashtable lock */
-void *
-hashtable_lookup_keep_locked(hashtable_t *table, void *key);
 
 /**
  * Adds a new entry.  Returns false if an entry for \p key already exists.
