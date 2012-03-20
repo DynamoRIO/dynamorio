@@ -1356,13 +1356,14 @@ dynamo_process_exit(void)
         mutex_unlock(&thread_initexit_lock);
     }
 
+    /* PR 522783: must be before we clear dcontext (if CLIENT_INTERFACE)! */
+    /* must also be prior to fragment_exit so we actually freeze pcaches (i#703) */
+    dynamo_process_exit_with_thread_info();
+
     /* FIXME: separate trace dump from rest of fragment cleanup code.  For client
      * interface we need to call fragment_exit to get all the fragment deleted events. */
     if (TRACEDUMP_ENABLED() IF_CLIENT_INTERFACE(|| dr_fragment_deleted_hook_exists()))
         fragment_exit();
-
-    /* PR 522783: must be before we clear dcontext (if CLIENT_INTERFACE)! */
-    dynamo_process_exit_with_thread_info();
 
     /* Inform client of process exit */
 #ifdef CLIENT_INTERFACE
