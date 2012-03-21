@@ -493,7 +493,7 @@
 +0x049d   bc da 32 14 8c       mov    esp, 0x8c1432da
 +0x04a2   7a 0b                jp     0x000000001000000d
 +0x04a4   61...??              <INVALID>
-+0x04a5   46 ff ab 15 27 eb f6 jmp    
++0x04a5   46 ff ab 15 27 eb f6 jmp    [rbx-0x0914d8eb]
 +0x04ac   cd bb                int    0xbb
 +0x04ae   4f 6f                outsd  
 +0x04b0   b2 55                mov    dl, 0x55
@@ -845,7 +845,7 @@
 +0x0818   b9 40 b7 f2 3f       mov    ecx, 0x3ff2b740
 +0x081d   15 6a 7f cf b4       adc    eax, 0xb4cf7f6a
 +0x0822   63 9e 7b 50 bd bb    movsxd ebx, dword ptr [rsi-0x4442af85]
-+0x0828   ff 1c 3d e9 61 a4 63 call   
++0x0828   ff 1c 3d e9 61 a4 63 call   [rdi+0x63a461e9]
 +0x082f   8b 45 4d             mov    eax, dword ptr [rbp+0x4d]
 +0x0832   56                   push   rsi
 +0x0833   60...??              <INVALID>
@@ -2029,7 +2029,7 @@
 +0x13c2   09 23                or     dword ptr [rbx], esp
 +0x13c4   61...??              <INVALID>
 +0x13c5   7a a9                jp     0x000000000fffffab
-+0x13c7   ff 9c ca 96 7f 41 9a call   
++0x13c7   ff 9c ca 96 7f 41 9a call   [rdx+rcx*8-0x65be806a]
 +0x13ce   be 0e 14 ba e6       mov    esi, 0xe6ba140e
 +0x13d3   e1 8a                loope  0x000000000fffff8c
 +0x13d5   f1                   int1   
@@ -2281,7 +2281,7 @@
 +0x1672   27...??              <INVALID>
 +0x1673   a2 e7 ff 5e 90 93 c8 mov    byte ptr [0x1efcc893905effe7], al
      fc 1e
-+0x167c   ff d4                call   
++0x167c   ff d4                call   rsp
 +0x167e   ba e0 9e e9 a5       mov    edx, 0xa5e99ee0
 +0x1683   d6...??              <INVALID>
 +0x1684   68 48 85 ec 67       push   0x67ec8548
@@ -2417,7 +2417,7 @@
 +0x17e0   69 d4 6e a7 0c bb    imul   edx, esp, 0xbb0ca76e
 +0x17e6   78 ce                js     0x000000000fffffd0
 +0x17e8   74 01                jz     0x0000000010000003
-+0x17ea   4c ff 69 f6          jmp    
++0x17ea   4c ff 69 f6          jmp    tbyte ptr [rcx-0x0a]
 +0x17ee   a1 ef 7e 39 a1 76 76 mov    eax, dword ptr [0x9d9f7676a1397eef]
      9f 9d
 +0x17f7   a3 c8 f5 35 5b a8 e9 mov    dword ptr [0xa095e9a85b35f5c8], eax
@@ -2626,11 +2626,11 @@
 +0x1a02   64 57                push   rdi
 +0x1a04   56                   push   rsi
 +0x1a05   56                   push   rsi
-+0x1a06   ff a4 32 68 0a 11 78 jmp    
++0x1a06   ff a4 32 68 0a 11 78 jmp    qword ptr [rdx+rsi+0x78110a68]
 +0x1a0d   19 c3                sbb    ebx, eax
 +0x1a0f   d0 4f c8             ror    byte ptr [rdi-0x38], 0x01
 +0x1a12   d3 23                shl    dword ptr [rbx], cl
-+0x1a14   ff 9c 51 f7 08 0c be call   
++0x1a14   ff 9c 51 f7 08 0c be call   [rcx+rdx*2-0x41f3f709]
 +0x1a1b   80 3c 9d c8 f9 79 92 cmp    byte ptr [rbx*4-0x6d860638], 0x49
      49
 +0x1a23   4e 70 29             jo     0x000000001000002c
@@ -2740,7 +2740,7 @@
 +0x1b1d   14 91                adc    al, 0x91
 +0x1b1f   b0 09                mov    al, 0x09
 +0x1b21   e9 06 1c b2 f0       jmp    0x0000000000b21c0b
-+0x1b26   ff 12                call   
++0x1b26   ff 12                call   qword ptr [rdx]
 +0x1b28   05 bb 8c 44 1b       add    eax, 0x1b448cbb
 +0x1b2d   1f...??              <INVALID>
 +0x1b2e   2e b5 79             mov    ch, 0x79
@@ -3575,7 +3575,7 @@
 +0x04a2   7a 0b                jp     0x1000000d
 +0x04a4   61                   popad  
 +0x04a5   46                   inc    esi
-+0x04a6   ff ab 15 27 eb f6    jmp    
++0x04a6   ff ab 15 27 eb f6    jmp    [ebx+0xf6eb2715]
 +0x04ac   cd bb                int    0xbb
 +0x04ae   4f                   dec    edi
 +0x04af   6f                   outsd  
@@ -3942,7 +3942,7 @@
 +0x0818   b9 40 b7 f2 3f       mov    ecx, 0x3ff2b740
 +0x081d   15 6a 7f cf b4       adc    eax, 0xb4cf7f6a
 +0x0822   63 9e 7b 50 bd bb    arpl   word ptr [esi+0xbbbd507b], bx
-+0x0828   ff 1c 3d e9 61 a4 63 call   
++0x0828   ff 1c 3d e9 61 a4 63 call   [edi+0x63a461e9]
 +0x082f   8b 45 4d             mov    eax, dword ptr [ebp+0x4d]
 +0x0832   56                   push   esi
 +0x0833   60                   pushad 
@@ -5141,7 +5141,7 @@
 +0x13c2   09 23                or     dword ptr [ebx], esp
 +0x13c4   61                   popad  
 +0x13c5   7a a9                jp     0x0fffffab
-+0x13c7   ff 9c ca 96 7f 41 9a call   
++0x13c7   ff 9c ca 96 7f 41 9a call   [edx+ecx*8+0x9a417f96]
 +0x13ce   be 0e 14 ba e6       mov    esi, 0xe6ba140e
 +0x13d3   e1 8a                loope  0x0fffff8c
 +0x13d5   f1                   int1   
@@ -5556,7 +5556,7 @@
 +0x17e6   78 ce                js     0x0fffffd0
 +0x17e8   74 01                jz     0x10000003
 +0x17ea   4c                   dec    esp
-+0x17eb   ff 69 f6             jmp    
++0x17eb   ff 69 f6             jmp    [ecx-0x0a]
 +0x17ee   a1 ef 7e 39 a1       mov    eax, dword ptr [0xa1397eef]
 +0x17f3   76 76                jbe    0x10000078
 +0x17f5   9f                   lahf   
@@ -5768,11 +5768,11 @@
 +0x1a02   64 57                push   edi
 +0x1a04   56                   push   esi
 +0x1a05   56                   push   esi
-+0x1a06   ff a4 32 68 0a 11 78 jmp    
++0x1a06   ff a4 32 68 0a 11 78 jmp    dword ptr [edx+esi+0x78110a68]
 +0x1a0d   19 c3                sbb    ebx, eax
 +0x1a0f   d0 4f c8             ror    byte ptr [edi-0x38], 0x01
 +0x1a12   d3 23                shl    dword ptr [ebx], cl
-+0x1a14   ff 9c 51 f7 08 0c be call   
++0x1a14   ff 9c 51 f7 08 0c be call   [ecx+edx*2+0xbe0c08f7]
 +0x1a1b   80 3c 9d c8 f9 79 92 cmp    byte ptr [ebx*4+0x9279f9c8], 0x49
      49
 +0x1a23   4e                   dec    esi
@@ -5882,7 +5882,7 @@
 +0x1b1d   14 91                adc    al, 0x91
 +0x1b1f   b0 09                mov    al, 0x09
 +0x1b21   e9 06 1c b2 f0       jmp    0x00b21c0b
-+0x1b26   ff 12                call   
++0x1b26   ff 12                call   dword ptr [edx]
 +0x1b28   05 bb 8c 44 1b       add    eax, 0x1b448cbb
 +0x1b2d   1f                   pop    ds
 +0x1b2e   2e b5 79             mov    ch, 0x79

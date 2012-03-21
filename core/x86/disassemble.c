@@ -792,6 +792,7 @@ opnd_disassemble_intel(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_C:
     case TYPE_D:
     case TYPE_E:
+    case TYPE_INDIR_E:
     case TYPE_G:
     case TYPE_H:
     case TYPE_I:
@@ -824,9 +825,25 @@ opnd_disassemble_intel(char *buf, size_t bufsz, size_t *sofar INOUT,
                             postop_suffix());
             return true;
         }
-    default:
+    case TYPE_Y:
+    case TYPE_FLOATCONST:
+    case TYPE_VAR_ADDR_XREG:
+    case TYPE_INDIR_REG:
+    case TYPE_INDIR_VAR_XREG:
+    case TYPE_INDIR_VAR_REG:
+    case TYPE_INDIR_VAR_XIREG:
+    case TYPE_INDIR_VAR_XREG_OFFS_1:
+    case TYPE_INDIR_VAR_XREG_OFFS_8:
+    case TYPE_INDIR_VAR_XREG_OFFS_N:
+    case TYPE_INDIR_VAR_XIREG_OFFS_1:
+    case TYPE_INDIR_VAR_REG_OFFS_2:
+    case TYPE_INDIR_VAR_XREG_SIZEx8:
+    case TYPE_INDIR_VAR_REG_SIZEx2:
+    case TYPE_INDIR_VAR_REG_SIZEx3x5:
         /* implicit operand */
         return false;
+    default:
+        CLIENT_ASSERT(false, "missing decode type"); /* catch any missing types */
     }
     return false;
 }
