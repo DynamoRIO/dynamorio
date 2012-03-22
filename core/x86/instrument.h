@@ -1439,20 +1439,20 @@ bool dr_exit_hook_exists(void);
 bool dr_xl8_hook_exists(void);
 bool hide_tag_from_client(app_pc tag);
 
-uint instrument_persist_ro_size(dcontext_t *dcontext, app_pc start, app_pc end,
+uint instrument_persist_ro_size(dcontext_t *dcontext, app_pc start, size_t size,
                                 size_t file_offs);
-bool instrument_persist_ro(dcontext_t *dcontext, app_pc start, app_pc end, file_t fd);
-bool instrument_resurrect_ro(dcontext_t *dcontext, app_pc start, app_pc end, byte *map);
-uint instrument_persist_rx_size(dcontext_t *dcontext, app_pc start, app_pc end,
+bool instrument_persist_ro(dcontext_t *dcontext, app_pc start, size_t size, file_t fd);
+bool instrument_resurrect_ro(dcontext_t *dcontext, app_pc start, size_t size, byte *map);
+uint instrument_persist_rx_size(dcontext_t *dcontext, app_pc start, size_t size,
                                 size_t file_offs);
-bool instrument_persist_rx(dcontext_t *dcontext, app_pc start, app_pc end, file_t fd);
-bool instrument_resurrect_rx(dcontext_t *dcontext, app_pc start, app_pc end, byte *map);
-uint instrument_persist_rw_size(dcontext_t *dcontext, app_pc start, app_pc end,
+bool instrument_persist_rx(dcontext_t *dcontext, app_pc start, size_t size, file_t fd);
+bool instrument_resurrect_rx(dcontext_t *dcontext, app_pc start, size_t size, byte *map);
+uint instrument_persist_rw_size(dcontext_t *dcontext, app_pc start, size_t size,
                                 size_t file_offs);
-bool instrument_persist_rw(dcontext_t *dcontext, app_pc start, app_pc end, file_t fd);
-bool instrument_resurrect_rw(dcontext_t *dcontext, app_pc start, app_pc end, byte *map);
-bool instrument_persist_patch(dcontext_t *dcontext, app_pc start, app_pc end,
-                              byte *bb_start, byte *bb_end);
+bool instrument_persist_rw(dcontext_t *dcontext, app_pc start, size_t size, file_t fd);
+bool instrument_resurrect_rw(dcontext_t *dcontext, app_pc start, size_t size, byte *map);
+bool instrument_persist_patch(dcontext_t *dcontext, app_pc start, size_t size,
+                              byte *bb_start, size_t bb_size);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */
@@ -4212,7 +4212,7 @@ DR_API
  * Upon loading a previously-written persisted cache file, DR calls \p
  * func_resurrect to validate and read back in data from the persisted file.
  *
- * For each callback, the \p start and \p end parameters indicate the
+ * For each callback, the \p start and \p size parameters indicate the
  * region of application code that is being persisted.
  *
  * @param[in] func_size The function to call to determine the size needed for
@@ -4246,11 +4246,11 @@ DR_API
  * \return whether successful.
  */
 bool
-dr_register_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_register_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                            size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                             file_t fd, void *user_data),
-                       bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                               byte **map INOUT));
 
 DR_API
@@ -4260,11 +4260,11 @@ DR_API
  * (e.g., one of the functions was not registered).
  */
 bool
-dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                              size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                               file_t fd, void *user_data),
-                         bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                                 byte **map INOUT));
 
 DR_API
@@ -4277,7 +4277,7 @@ DR_API
  * persisted cache file, DR calls \p func_resurrect to validate and read back in
  * code from the persisted file.
  *
- * For each callback, the \p start and \p end parameters indicate the
+ * For each callback, the \p start and \p size parameters indicate the
  * region of application code that is being persisted.
  *
  * @param[in] func_size  The function to call to determine the size needed
@@ -4311,11 +4311,11 @@ DR_API
  * \return whether successful.
  */
 bool
-dr_register_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_register_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                            size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                             file_t fd, void *user_data),
-                       bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                               byte **map INOUT));
 
 DR_API
@@ -4325,11 +4325,11 @@ DR_API
  * (e.g., one of the functions was not registered).
  */
 bool
-dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                              size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                               file_t fd, void *user_data),
-                         bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                                 byte **map INOUT));
 
 DR_API
@@ -4341,7 +4341,7 @@ DR_API
  * Upon loading a previously-written persisted cache file, DR calls \p
  * func_resurrect to validate and read back in data from the persisted file.
  *
- * For each callback, the \p start and \p end parameters indicate the
+ * For each callback, the \p start and \p size parameters indicate the
  * region of application code that is being persisted.
  *
  * @param[in] func_size  The function to call to determine the size needed
@@ -4375,11 +4375,11 @@ DR_API
  * \return whether successful.
  */
 bool
-dr_register_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_register_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                            size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                             file_t fd, void *user_data),
-                       bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                               byte **map INOUT));
 
 DR_API
@@ -4389,11 +4389,11 @@ DR_API
  * (e.g., one of the functions was not registered).
  */
 bool
-dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                              size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                               file_t fd, void *user_data),
-                         bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                                 byte **map INOUT));
 
 DR_API
@@ -4411,17 +4411,17 @@ DR_API
  *
  * @param[in] func_patch  The function to call to perform any necessary
  *   patching of the to-be-persisted basic block code.  The function
- *   should decode from \p bb_start to \p bb_end and look for call or
+ *   should decode up to \p bb_size bytes from \p bb_start and look for call or
  *   jump displacements or rip-relative data references that need to
  *   be updated to use data in the persisted file.  There is no padding
  *   between instructions, so a simple decode loop will find every instruction.
- *   The \p start and \p end parameters indicate the
+ *   The \p start and \p size parameters indicate the
  *   region of application code that is being persisted.
  * \return whether successful.
  */
 bool
-dr_register_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, app_pc end,
-                                             byte *bb_start, byte *bb_end,
+dr_register_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, size_t size,
+                                             byte *bb_start, size_t bb_size,
                                              void *user_data));
 
 DR_API
@@ -4431,8 +4431,8 @@ DR_API
  * (e.g., the function was not registered).
  */
 bool
-dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, app_pc end,
-                                               byte *bb_start, byte *bb_end,
+dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, size_t size,
+                                               byte *bb_start, size_t bb_size,
                                                void *user_data));
 
 #endif /* _INSTRUMENT_H_ */

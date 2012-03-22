@@ -55,15 +55,15 @@ void at_bb(app_pc bb_addr)
  */
 
 static size_t
-event_persist_ro_size(void *drcontext, app_pc start, app_pc end, size_t file_offs,
+event_persist_ro_size(void *drcontext, app_pc start, size_t size, size_t file_offs,
                       void **user_data OUT)
 {
     return sizeof(mybase);
 }
 
 static bool
-event_persist_patch(void *drcontext, app_pc start, app_pc end,
-                    byte *bb_start, byte *bb_end, void *user_data)
+event_persist_patch(void *drcontext, app_pc start, size_t size,
+                    byte *bb_start, size_t bb_size, void *user_data)
 {
     /* XXX: add more sophisticated example that needs patching.
      * For that, we want cti's to be allowed, which is i#665.  Then
@@ -75,7 +75,7 @@ event_persist_patch(void *drcontext, app_pc start, app_pc end,
 }
 
 static bool
-event_persist_ro(void *drcontext, app_pc start, app_pc end, file_t fd, void *user_data)
+event_persist_ro(void *drcontext, app_pc start, size_t size, file_t fd, void *user_data)
 {
     if (dr_write_file(fd, &mybase, sizeof(mybase)) != (ssize_t)sizeof(mybase))
         return false;
@@ -83,7 +83,7 @@ event_persist_ro(void *drcontext, app_pc start, app_pc end, file_t fd, void *use
 }
 
 static bool
-event_resurrect_ro(void *drcontext, app_pc start, app_pc end, byte **map INOUT)
+event_resurrect_ro(void *drcontext, app_pc start, size_t size, byte **map INOUT)
 {
     byte *base = *(byte **)(*map);
     *map += sizeof(base);

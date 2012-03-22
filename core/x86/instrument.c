@@ -5611,7 +5611,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
 
 /* Up to caller to synchronize. */
 uint
-instrument_persist_ro_size(dcontext_t *dcontext, app_pc start, app_pc end,
+instrument_persist_ro_size(dcontext_t *dcontext, app_pc start, size_t size,
                            size_t file_offs)
 {
     size_t sz = 0;
@@ -5644,8 +5644,8 @@ instrument_persist_ro_size(dcontext_t *dcontext, app_pc start, app_pc end,
      */
     if (persist_ro_size_callbacks.num > 0) {
         call_all_ret(sz, +=, , persist_ro_size_callbacks,
-                     size_t (*)(void *, app_pc, app_pc, size_t, void **),
-                     (void *)dcontext, start, end, file_offs + sz,
+                     size_t (*)(void *, app_pc, size_t, size_t, void **),
+                     (void *)dcontext, start, size, file_offs + sz,
                      &persist_user_data[idx]);
     }
     /* using size_t for API w/ clients in case we want to widen in future */
@@ -5657,7 +5657,7 @@ instrument_persist_ro_size(dcontext_t *dcontext, app_pc start, app_pc end,
  * Returns true iff all writes succeeded.
  */
 bool
-instrument_persist_ro(dcontext_t *dcontext, app_pc start, app_pc end, file_t fd)
+instrument_persist_ro(dcontext_t *dcontext, app_pc start, size_t size, file_t fd)
 {
     bool res = true;
     size_t i;
@@ -5676,15 +5676,15 @@ instrument_persist_ro(dcontext_t *dcontext, app_pc start, app_pc end, file_t fd)
     /* Now for clients' own data */
     if (persist_ro_size_callbacks.num > 0) {
         call_all_ret(res, = res &&, , persist_ro_callbacks,
-                     bool (*)(void *, app_pc, app_pc, file_t, void *),
-                     (void *)dcontext, start, end, fd, persist_user_data[idx]);
+                     bool (*)(void *, app_pc, size_t, file_t, void *),
+                     (void *)dcontext, start, size, fd, persist_user_data[idx]);
     }
     return res;
 }
 
 /* Returns true if successfully validated and de-serialized */
 bool
-instrument_resurrect_ro(dcontext_t *dcontext, app_pc start, app_pc end, byte *map)
+instrument_resurrect_ro(dcontext_t *dcontext, app_pc start, size_t size, byte *map)
 {
     bool res = true;
     size_t i;
@@ -5709,23 +5709,23 @@ instrument_resurrect_ro(dcontext_t *dcontext, app_pc start, app_pc end, byte *ma
     /* Now for clients' own data */
     if (resurrect_ro_callbacks.num > 0) {
         call_all_ret(res, = res &&, , resurrect_ro_callbacks,
-                     bool (*)(void *, app_pc, app_pc, byte **),
-                     (void *)dcontext, start, end, (byte **) &c);
+                     bool (*)(void *, app_pc, size_t, byte **),
+                     (void *)dcontext, start, size, (byte **) &c);
     }
     return res;
 }
 
 /* Up to caller to synchronize. */
 uint
-instrument_persist_rx_size(dcontext_t *dcontext, app_pc start, app_pc end,
+instrument_persist_rx_size(dcontext_t *dcontext, app_pc start, size_t size,
                            size_t file_offs)
 {
     size_t sz = 0;
     if (persist_rx_size_callbacks.num == 0)
         return 0;
     call_all_ret(sz, +=, , persist_rx_size_callbacks,
-                 size_t (*)(void *, app_pc, app_pc, size_t, void **),
-                 (void *)dcontext, start, end, file_offs + sz,
+                 size_t (*)(void *, app_pc, size_t, size_t, void **),
+                 (void *)dcontext, start, size, file_offs + sz,
                  &persist_user_data[idx]);
     /* using size_t for API w/ clients in case we want to widen in future */
     CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(sz), "persisted cache size too large");
@@ -5736,43 +5736,43 @@ instrument_persist_rx_size(dcontext_t *dcontext, app_pc start, app_pc end,
  * Returns true iff all writes succeeded.
  */
 bool
-instrument_persist_rx(dcontext_t *dcontext, app_pc start, app_pc end, file_t fd)
+instrument_persist_rx(dcontext_t *dcontext, app_pc start, size_t size, file_t fd)
 {
     bool res = true;
     ASSERT(fd != INVALID_FILE);
     if (persist_rx_callbacks.num == 0)
         return true;
     call_all_ret(res, = res &&, , persist_rx_callbacks,
-                 bool (*)(void *, app_pc, app_pc, file_t, void *),
-                 (void *)dcontext, start, end, fd, persist_user_data[idx]);
+                 bool (*)(void *, app_pc, size_t, file_t, void *),
+                 (void *)dcontext, start, size, fd, persist_user_data[idx]);
     return res;
 }
 
 /* Returns true if successfully validated and de-serialized */
 bool
-instrument_resurrect_rx(dcontext_t *dcontext, app_pc start, app_pc end, byte *map)
+instrument_resurrect_rx(dcontext_t *dcontext, app_pc start, size_t size, byte *map)
 {
     bool res = true;
     ASSERT(map != NULL);
     if (resurrect_rx_callbacks.num == 0)
         return true;
     call_all_ret(res, = res &&, , resurrect_rx_callbacks,
-                 bool (*)(void *, app_pc, app_pc, byte **),
-                 (void *)dcontext, start, end, &map);
+                 bool (*)(void *, app_pc, size_t, byte **),
+                 (void *)dcontext, start, size, &map);
     return res;
 }
 
 /* Up to caller to synchronize. */
 uint
-instrument_persist_rw_size(dcontext_t *dcontext, app_pc start, app_pc end,
+instrument_persist_rw_size(dcontext_t *dcontext, app_pc start, size_t size,
                            size_t file_offs)
 {
     size_t sz = 0;
     if (persist_rw_size_callbacks.num == 0)
         return 0;
     call_all_ret(sz, +=, , persist_rw_size_callbacks,
-                 size_t (*)(void *, app_pc, app_pc, size_t, void **),
-                 (void *)dcontext, start, end, file_offs + sz,
+                 size_t (*)(void *, app_pc, size_t, size_t, void **),
+                 (void *)dcontext, start, size, file_offs + sz,
                  &persist_user_data[idx]);
     /* using size_t for API w/ clients in case we want to widen in future */
     CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(sz), "persisted cache size too large");
@@ -5783,53 +5783,53 @@ instrument_persist_rw_size(dcontext_t *dcontext, app_pc start, app_pc end,
  * Returns true iff all writes succeeded.
  */
 bool
-instrument_persist_rw(dcontext_t *dcontext, app_pc start, app_pc end, file_t fd)
+instrument_persist_rw(dcontext_t *dcontext, app_pc start, size_t size, file_t fd)
 {
     bool res = true;
     ASSERT(fd != INVALID_FILE);
     if (persist_rw_callbacks.num == 0)
         return true;
     call_all_ret(res, = res &&, , persist_rw_callbacks,
-                 bool (*)(void *, app_pc, app_pc, file_t, void *),
-                 (void *)dcontext, start, end, fd, persist_user_data[idx]);
+                 bool (*)(void *, app_pc, size_t, file_t, void *),
+                 (void *)dcontext, start, size, fd, persist_user_data[idx]);
     return res;
 }
 
 /* Returns true if successfully validated and de-serialized */
 bool
-instrument_resurrect_rw(dcontext_t *dcontext, app_pc start, app_pc end, byte *map)
+instrument_resurrect_rw(dcontext_t *dcontext, app_pc start, size_t size, byte *map)
 {
     bool res = true;
     ASSERT(map != NULL);
     if (resurrect_rw_callbacks.num == 0)
         return true;
     call_all_ret(res, = res &&, , resurrect_rx_callbacks,
-                 bool (*)(void *, app_pc, app_pc, byte **),
-                 (void *)dcontext, start, end, &map);
+                 bool (*)(void *, app_pc, size_t, byte **),
+                 (void *)dcontext, start, size, &map);
     return res;
 }
 
 bool
-instrument_persist_patch(dcontext_t *dcontext, app_pc start, app_pc end,
-                         byte *bb_start, byte *bb_end)
+instrument_persist_patch(dcontext_t *dcontext, app_pc start, size_t size,
+                         byte *bb_start, size_t bb_size)
 {
     bool res = true;
     if (persist_patch_callbacks.num == 0)
         return true;
     call_all_ret(res, = res &&, , persist_patch_callbacks,
-                 bool (*)(void *, app_pc, app_pc, byte *, byte*, void *),
-                 (void *)dcontext, start, end, bb_start, bb_end,
+                 bool (*)(void *, app_pc, size_t, byte *, size_t, void *),
+                 (void *)dcontext, start, size, bb_start, bb_size,
                  persist_user_data[idx]);
     return res;
 }
 
 DR_API
 bool
-dr_register_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_register_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                            size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                             file_t fd, void *user_data),
-                       bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                               byte **map INOUT))
 {
     if (func_size == NULL || func_persist == NULL || func_resurrect == NULL)
@@ -5842,11 +5842,11 @@ dr_register_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, app_pc
 
 DR_API
 bool
-dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                              size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                               file_t fd, void *user_data),
-                         bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                                 byte **map INOUT))
 {
     bool res = true;
@@ -5870,11 +5870,11 @@ dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, app_
 
 DR_API
 bool
-dr_register_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_register_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                            size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                             file_t fd, void *user_data),
-                       bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                               byte **map INOUT))
 {
     if (func_size == NULL || func_persist == NULL || func_resurrect == NULL)
@@ -5887,11 +5887,11 @@ dr_register_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, app_pc
 
 DR_API
 bool
-dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                              size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                               file_t fd, void *user_data),
-                         bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                                 byte **map INOUT))
 {
     bool res = true;
@@ -5915,11 +5915,11 @@ dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, app_
 
 DR_API
 bool
-dr_register_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_register_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                            size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                             file_t fd, void *user_data),
-                       bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                       bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                               byte **map INOUT))
 {
     if (func_size == NULL || func_persist == NULL || func_resurrect == NULL)
@@ -5932,11 +5932,11 @@ dr_register_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, app_pc
 
 DR_API
 bool
-dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, app_pc end,
+dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                              size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_persist)(void *drcontext, app_pc start, size_t size,
                                               file_t fd, void *user_data),
-                         bool (*func_resurrect)(void *drcontext, app_pc start, app_pc end,
+                         bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
                                                 byte **map INOUT))
 {
     bool res = true;
@@ -5960,8 +5960,8 @@ dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, app_
 
 DR_API
 bool
-dr_register_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, app_pc end,
-                                             byte *bb_start, byte *bb_end,
+dr_register_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, size_t size,
+                                             byte *bb_start, size_t bb_size,
                                              void *user_data))
 {
     if (func_patch == NULL)
@@ -5972,8 +5972,8 @@ dr_register_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, app_
 
 DR_API
 bool
-dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, app_pc end,
-                                               byte *bb_start, byte *bb_end,
+dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, size_t size,
+                                               byte *bb_start, size_t bb_size,
                                                void *user_data))
 {
     return remove_callback(&persist_patch_callbacks, (void (*)(void))func_patch, true);
