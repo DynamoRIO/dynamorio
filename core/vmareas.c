@@ -4940,7 +4940,7 @@ static void
 check_origins_trim_region_helper(app_pc *base /*INOUT*/, size_t *size /*INOUT*/,
                                  app_pc start, app_pc end) {
     app_pc original_base = *base;
-    ASSERT(*base + *size > *base); /* shouldn't overflow */
+    ASSERT(!POINTER_OVERFLOW_ON_ADD(*base, *size)); /* shouldn't overflow */
     ASSERT(start < end); /* [start, end) should be an actual region */
     ASSERT(*base + *size > start &&  *base < end); /* region must intersect */
     LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2,
@@ -7973,7 +7973,7 @@ check_in_last_thread_vm_area(dcontext_t *dcontext, app_pc pc)
         data->last_decode_area_valid) {
         /* Check the last decoded pc's current page and the page after. */
         app_pc last_decode_page_end = last_decode_area_page_pc + 2*PAGE_SIZE;
-        in_last = ((last_decode_page_end < last_decode_area_page_pc /* overflow */ ||
+        in_last = ((POINTER_OVERFLOW_ON_ADD(last_decode_area_page_pc, 2*PAGE_SIZE) ||
                     pc < last_decode_page_end) && last_decode_area_page_pc <= pc);
     }
     return in_last;
