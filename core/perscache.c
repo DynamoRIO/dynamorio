@@ -65,6 +65,13 @@
 /* in general we want new data sections aligned to keep hashtable aligned */
 #define CLIENT_ALIGNMENT (sizeof(app_pc))
 
+/* used while merging */
+typedef struct _jmp_tgt_list_t  {
+    app_pc tag;
+    cache_pc jmp_end_pc;
+    struct _jmp_tgt_list_t *next;
+} jmp_tgt_list_t;
+
 /* Forward decls */
 static void
 persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t modsize,
@@ -1227,7 +1234,7 @@ coarse_unit_shift_jmps_internal(dcontext_t *dcontext, coarse_info_t *info,
             }
             if (!is_cache) {
                 /* for stubs, skip the padding (which we'll decode as garbage */
-                ASSERT(next_pc + 1 ==
+                ASSERT(next_pc + IF_X64_ELSE(3, 1) ==
                        (cache_pc) ALIGN_FORWARD(next_pc, coarse_stub_alignment(info)));
                 next_pc = (cache_pc) ALIGN_FORWARD(next_pc, coarse_stub_alignment(info));
             }
@@ -1523,9 +1530,11 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
     cache_pc src_body, next_pc = pc, fallthrough_body = NULL;
     cache_pc dst_body = NULL, last_dst_body;
     cache_pc stop_pc = freeze_info->src_info->cache_end_pc;
-    app_pc tag, fallthrough_tag = NULL, tgt;
+    app_pc tag, fallthrough_tag = NULL, tgt = NULL;
     /* FIXME: share code w/ decode_fragment() and transfer_coarse_fragment() */
     instr_t *instr;
+    /* stored targets for fixup */
+    jmp_tgt_list_t *jmp_list = NULL;
     /* Since mucking with caches, though if thread-private not necessary */
     ASSERT(dynamo_all_threads_synched);
     ASSERT(freeze_info->src_info->frozen);
@@ -1739,19 +1748,22 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
                  * layout is changing and later we'd need multiple lookups to find
                  * the corrsepondence between src and dst, we store the target tag in
                  * the jmp and replace it w/ the body in the later pass.
+                 * We can't fit a 64-bit target, so we use offs from mod base.
+                 * XXX: split pcaches up if app module is over 4GB.
                  */
+                jmp_tgt_list_t *entry;
                 app_pc tgt_tag =
                     fragment_coarse_entry_pclookup(dcontext, freeze_info->src_info, tgt);
                 ASSERT(tgt_tag != NULL);
                 LOG(THREAD, LOG_FRAGMENT, 4,
                     "\tintra-cache src "PFX"->"PFX" tag "PFX" dst pre-"PFX"\n",
                     pc, tgt, tgt_tag, freeze_info->cache_cur_pc);
-                /* This works for mangled short cti sequences as well as regular */
-                insert_relative_target(freeze_info->cache_cur_pc - 4,
-                                       tgt_tag, NOT_HOT_PATCHABLE);
-                /* Just make sure we can recognize it as an app tag */
-                ASSERT(tgt_tag < freeze_info->dst_info->cache_start_pc ||
-                       tgt_tag >= freeze_info->dst_info->stubs_end_pc);
+                entry = HEAP_TYPE_ALLOC(dcontext, jmp_tgt_list_t,
+                                        ACCT_VMAREAS, PROTECTED);
+                entry->tag = tgt_tag;
+                entry->jmp_end_pc = freeze_info->cache_cur_pc;
+                entry->next = jmp_list;
+                jmp_list = entry;
             }
         }
     }
@@ -1759,28 +1771,18 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
     /* Second pass to update intra-cache targets.
      * FIXME: combine w/ later coarse_unit_shift_jmps()
      */
-    next_pc = freeze_info->cache_start_pc;
-    while (next_pc < freeze_info->cache_cur_pc) {
-        instr_reset(dcontext, instr);
-        pc = next_pc;
-        next_pc = decode_cti(dcontext, pc, instr);
-        if (instr_opcode_valid(instr) && instr_is_cti(instr)) {
-            ASSERT(next_pc != NULL);
-            if (instr_is_cti_short_rewrite(instr, pc))
-                next_pc = remangle_short_rewrite(dcontext, instr, pc, 0/*same target*/);
-            tgt = opnd_get_pc(instr_get_target(instr));
-            /* We stored the app tag as the target */
-            if (tgt < freeze_info->dst_info->cache_start_pc ||
-                tgt >= freeze_info->dst_info->stubs_end_pc) {
-                fragment_coarse_lookup_in_unit(dcontext, freeze_info->dst_info,
-                                               tgt, NULL, &dst_body);
-                ASSERT(dst_body != NULL);
-                LOG(THREAD, LOG_FRAGMENT, 4,
-                    "\tintra-cache dst "PFX"->"PFX" tag "PFX"\n", pc, dst_body, tgt);
-                /* FIXME: make 4 a named constant; used elsewhere as well */
-                insert_relative_target(next_pc - 4, dst_body, NOT_HOT_PATCHABLE);
-            }
-        }
+    while (jmp_list != NULL) {
+        jmp_tgt_list_t *next = jmp_list->next;
+        fragment_coarse_lookup_in_unit(dcontext, freeze_info->dst_info,
+                                       jmp_list->tag, NULL, &dst_body);
+        ASSERT(dst_body != NULL);
+        LOG(THREAD, LOG_FRAGMENT, 4,
+            "\tintra-cache dst -"PFX"->"PFX" tag "PFX"\n",
+            jmp_list->jmp_end_pc, dst_body, tgt); /* tgt always set here */
+        /* FIXME: make 4 a named constant; used elsewhere as well */
+        insert_relative_target(jmp_list->jmp_end_pc - 4, dst_body, NOT_HOT_PATCHABLE);
+        HEAP_TYPE_FREE(dcontext, jmp_list, jmp_tgt_list_t, ACCT_VMAREAS, PROTECTED);
+        jmp_list = next;
     }
 
     instr_destroy(dcontext, instr);
