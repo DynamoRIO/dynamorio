@@ -1,4 +1,5 @@
 /* *******************************************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1205,7 +1206,7 @@ module_has_text_relocs(app_pc base, bool at_map)
     }
     if (dyn == NULL)
         return false;
-    ASSERT((app_pc)dyn > mod_base && (app_pc)dyn < mod_end + load_delta);
+    ASSERT((app_pc)dyn > base && (app_pc)dyn < mod_end + load_delta);
     while (dyn->d_tag != DT_NULL) {
         /* Older binaries have a separate DT_TEXTREL entry */
         if (dyn->d_tag == DT_TEXTREL)
