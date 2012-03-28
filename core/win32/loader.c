@@ -164,6 +164,11 @@ redirect_RtlLockHeap(HANDLE heap);
 static BOOL WINAPI
 redirect_RtlUnlockHeap(HANDLE heap);
 
+static BOOL WINAPI
+redirect_RtlSetHeapInformation(HANDLE HeapHandle,
+                               HEAP_INFORMATION_CLASS HeapInformationClass,
+                               PVOID HeapInformation, SIZE_T HeapInformationLength);
+
 static void WINAPI
 redirect_RtlFreeUnicodeString(UNICODE_STRING *string);
 
@@ -253,6 +258,7 @@ static const redirect_import_t redirect_ntdll[] = {
     {"RtlFreeHeap",                    (app_pc)redirect_RtlFreeHeap},
     {"RtlSizeHeap",                    (app_pc)redirect_RtlSizeHeap},
     {"RtlValidateHeap",                (app_pc)redirect_RtlValidateHeap},
+    {"RtlSetHeapInformation",          (app_pc)redirect_RtlSetHeapInformation},
     /* kernel32!LocalFree calls these */
     {"RtlLockHeap",                    (app_pc)redirect_RtlLockHeap},
     {"RtlUnlockHeap",                  (app_pc)redirect_RtlUnlockHeap},
@@ -1899,6 +1905,19 @@ redirect_RtlUnlockHeap(HANDLE heap)
     } else {
         return RtlUnlockHeap(heap);
     }
+}
+
+static BOOL WINAPI
+redirect_RtlSetHeapInformation(HANDLE HeapHandle,
+                               HEAP_INFORMATION_CLASS HeapInformationClass,
+                               PVOID HeapInformation, SIZE_T HeapInformationLength)
+{
+    /* xref DrMem i#280.
+     * The only options are HeapEnableTerminationOnCorruption and
+     * HeapCompatibilityInformation LFH, neither of which we want.
+     * Running this routine causes problems on Win7 (i#709).
+     */
+    return TRUE;
 }
 
 void WINAPI RtlFreeUnicodeString(UNICODE_STRING *string);
