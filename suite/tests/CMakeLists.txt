@@ -1351,6 +1351,25 @@ if (CLIENT_INTERFACE)
     target_link_libraries(client.drutil-test ${libpthread})
   endif (UNIX)
 
+  # We need to load w/ the same base so the test passes
+  set(DynamoRIO_SET_PREFERRED_BASE ON)
+  set(PREFERRED_BASE 0x6f000000)
+  # Pass extra options to first run so this will pass when run repeatedly in local
+  # build dir w/o loading any pcache
+  tobuild_ci(client.pcache client-interface/pcache.c ""
+    "-persist -no_use_persisted -no_coarse_disk_merge -no_coarse_lone_merge" "")
+  if (WIN32)
+    append_link_flags(client.pcache "/dynamicbase:no")
+  endif ()
+  set(DynamoRIO_SET_PREFERRED_BASE OFF)
+  torunonly_ci(client.pcache-use client.pcache client.pcache
+    client-interface/pcache.c "" "-persist" "")
+  # XXX: we should have the key be the default for the .expect but
+  # currently that's not the case (thread-reset, etc.).
+  set(client.pcache-use_expectbase "pcache-use")
+  # when running tests in parallel: have to generate pcaches first
+  set(client.pcache-use_depends client.pcache)
+
   tobuild_api(api.dis api/dis.c "-syntax_intel"
     "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
   tobuild_api(api.ir api/ir.c "" "" OFF)

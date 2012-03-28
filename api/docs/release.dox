@@ -120,7 +120,14 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 
 The current version is \DR_VERSION.  
 
-The changes between version \DR_VERSION and 3.1.0 are:
+The changes between version \DR_VERSION and 3.2.0 are:
+
+ - Added persistent cache support for \clients via
+   dr_register_persist_ro(), dr_register_persist_rx(), 
+   dr_register_persist_rw(), dr_register_persist_patch(), and
+   #DR_EMIT_PERSISTABLE.
+
+The changes between version 3.2.0 and 3.1.0 are:
 
  - Added support for PECOFF + DWARF2 symbols on Windows in the
    drsyms Extension
