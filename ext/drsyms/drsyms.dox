@@ -37,9 +37,8 @@
 \page page_drsyms Symbol Access Library
 
 The \p drsyms DynamoRIO Extension provides symbol information.  Currently drsyms
-supports reading symbol information from Windows PDB files and Linux ELF files
-with DWARF2 line information.  Eventually we intend to add support for Cygwin,
-but it is not tested currently.
+supports reading symbol information from Windows PDB files and Linux ELF or
+Windows PECOFF files with DWARF2 line information.
 
  - \ref sec_drsyms_setup
  - \ref sec_drsyms_api
