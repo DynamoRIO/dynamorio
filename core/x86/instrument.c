@@ -5823,7 +5823,6 @@ instrument_persist_patch(dcontext_t *dcontext, app_pc start, size_t size,
     return res;
 }
 
-DR_API
 bool
 dr_register_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                            size_t file_offs, void **user_data OUT),
@@ -5840,7 +5839,6 @@ dr_register_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, size_t
     return true;
 }
 
-DR_API
 bool
 dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                              size_t file_offs, void **user_data OUT),
@@ -5868,7 +5866,6 @@ dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, size
     return res;
 }
 
-DR_API
 bool
 dr_register_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                            size_t file_offs, void **user_data OUT),
@@ -5885,7 +5882,6 @@ dr_register_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, size_t
     return true;
 }
 
-DR_API
 bool
 dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                              size_t file_offs, void **user_data OUT),
@@ -5913,7 +5909,6 @@ dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, size
     return res;
 }
 
-DR_API
 bool
 dr_register_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                            size_t file_offs, void **user_data OUT),
@@ -5930,7 +5925,6 @@ dr_register_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, size_t
     return true;
 }
 
-DR_API
 bool
 dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
                                              size_t file_offs, void **user_data OUT),
@@ -5958,7 +5952,6 @@ dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, size
     return res;
 }
 
-DR_API
 bool
 dr_register_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, size_t size,
                                              byte *bb_start, size_t bb_size,
@@ -5970,7 +5963,6 @@ dr_register_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, size
     return true;
 }
 
-DR_API
 bool
 dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, size_t size,
                                                byte *bb_start, size_t bb_size,
