@@ -36,7 +36,7 @@
 \page page_ext \DynamoRIO Extensions
 
 \DynamoRIO provides additional optional capabilities via \DynamoRIO
-Extensions, separate libraries that a client can link to.  The Extensions
+Extensions, separate libraries that a \client can link to.  The Extensions
 that are provided with the \DynamoRIO distribution are:
 
 REPLACE_WITH_EXTENSION_SUBPAGES

@@ -1035,7 +1035,7 @@ else (EXISTS ${defines_file})
 endif (EXISTS ${defines_file})
 
 include_directories(BEFORE 
-  ${PROJECT_BINARY_DIR} # for configure.h and configure_defines.h
+  ${PROJECT_BINARY_DIR} # for configure.h, configure_defines.h, events.h, and event_strings.h
   )
 
 # Export targets for importing by clients.

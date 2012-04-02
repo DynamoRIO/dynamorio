@@ -616,7 +616,6 @@ include_directories(BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/${ARCH_DIRNAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/${OSNAME}
-  ${CMAKE_CURRENT_BINARY_DIR} # for event_strings.h and events.h
   )
 
 # Avoid transitive linking for imported target.
