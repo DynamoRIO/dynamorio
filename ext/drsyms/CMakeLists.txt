@@ -116,6 +116,10 @@ if (UNIX)
   # static libs must be PIC to be linked into clients: else requires
   # relocations that run afoul of security policies, etc.
   get_target_property(cur_flags drsyms COMPILE_FLAGS)
+  # avoid missing symbols in DR_EXT_DRSYMS_STATIC config from g++ libs when
+  # drsyms_bench is linked with gcc instead of g++ (i#715, happens w/ cmake
+  # < 2.8.0 where demangle.cc is not propagated through libdrsyms.a)
+  set(cur_flags "${cur_flags} -fno-exceptions")
   set_target_properties(drsyms PROPERTIES COMPILE_FLAGS "${cur_flags} -fPIC")
 endif (UNIX)
 
