@@ -1849,6 +1849,7 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
         */
         RAW(c5) RAW(fe) RAW(7f) RAW(b0) RAW(c0) RAW(00) RAW(00) RAW(00)
         RAW(c5) RAW(fe) RAW(7f) RAW(b8) RAW(e0) RAW(00) RAW(00) RAW(00)
+# ifdef X64
        /*
         * c5 7e 7f 80 00 01 00 00   vmovdqu %ymm8, 0x100(%xax)
         * c5 7e 7f 88 20 01 00 00   vmovdqu %ymm9, 0x120(%xax)
@@ -1867,6 +1868,7 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
         RAW(c5) RAW(7e) RAW(7f) RAW(a8) RAW(a0) RAW(01) RAW(00) RAW(00)
         RAW(c5) RAW(7e) RAW(7f) RAW(b0) RAW(c0) RAW(01) RAW(00) RAW(00)
         RAW(c5) RAW(7e) RAW(7f) RAW(b8) RAW(e0) RAW(01) RAW(00) RAW(00)
+# endif
 #endif
         ret
         END_FUNC(get_ymm_caller_saved)
