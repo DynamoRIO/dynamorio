@@ -41,6 +41,7 @@ supports reading symbol information from Windows PDB files and Linux ELF or
 Windows PECOFF files with DWARF2 line information.
 
  - \ref sec_drsyms_setup
+ - \ref sec_drsyms_exports
  - \ref sec_drsyms_api
 
 \section sec_drsyms_setup Setup
@@ -73,6 +74,26 @@ The \p drsyms library on Linux uses bundled copies of \p libelf, \p libdwarf,
 and \p libelftc built from the
 <a href="http://elftoolchain.sourceforge.net">elftoolchain</a> project and
 requires no setup.
+
+\section sec_drsyms_exports Exported Functions
+
+For clients interested only in functions exported from a library, it is not
+necessary to use \p drsyms as the core DynamoRIO API provides functions for
+iterating modules and looking up module exports.  The following core
+DynamoRIO API functions are relevant:
+
+ - dr_get_proc_address()
+ - dr_get_application_name()
+ - dr_register_module_load_event()
+ - dr_lookup_module()
+ - dr_lookup_module_by_name()
+ - dr_module_iterator_start()
+
+These core API routines are more efficient to use than the \p drsyms
+routines, as the latter must locate, load, and parse debug information.
+Furthermore, the core API routines operate regardless of whether debug
+information is available.  However, for internal non-exported symbols, \p
+drsyms must be used.
 
 \section sec_drsyms_api API
 

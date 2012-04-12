@@ -747,7 +747,7 @@ The values stored in these spill slots remain valid until the next non-meta
 
 \code dr_read_saved_reg(), dr_write_saved_reg() \endcode
 
-For longer term persistance \DynamoRIO also provides a generic dedicated 
+For longer term persistence \DynamoRIO also provides a generic dedicated
 thread-local storage field for use by \clients, making it easy to write 
 thread-aware \clients.  From C code, use:
 
