@@ -5763,7 +5763,11 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
          * is the latter case need to adjust the view size or remove from module list. */
         image = true;
         DODEBUG({ map_type = "ELF SO"; });
-    } else if (TEST(MEMPROT_READ, memprot) && is_elf_so_header(base, size)) {
+    } else if (TEST(MEMPROT_READ, memprot) &&
+               /* i#727: We can still get SIGBUS on mmap'ed files that can't be
+                * read, so pass size=0 to use a safe_read.
+                */
+               is_elf_so_header(base, 0)) {
         maps_iter_t iter;
         bool found_map = false;;
         uint64 inode = 0;
