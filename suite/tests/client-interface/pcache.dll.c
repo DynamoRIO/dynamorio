@@ -55,14 +55,14 @@ void at_bb(app_pc bb_addr)
  */
 
 static size_t
-event_persist_ro_size(void *drcontext, app_pc start, size_t size, size_t file_offs,
+event_persist_ro_size(void *drcontext, void *perscxt, size_t file_offs,
                       void **user_data OUT)
 {
     return sizeof(mybase);
 }
 
 static bool
-event_persist_patch(void *drcontext, app_pc start, size_t size,
+event_persist_patch(void *drcontext, void *perscxt,
                     byte *bb_start, size_t bb_size, void *user_data)
 {
     /* XXX: add more sophisticated example that needs patching.
@@ -75,7 +75,7 @@ event_persist_patch(void *drcontext, app_pc start, size_t size,
 }
 
 static bool
-event_persist_ro(void *drcontext, app_pc start, size_t size, file_t fd, void *user_data)
+event_persist_ro(void *drcontext, void *perscxt, file_t fd, void *user_data)
 {
     if (dr_write_file(fd, &mybase, sizeof(mybase)) != (ssize_t)sizeof(mybase))
         return false;
@@ -83,7 +83,7 @@ event_persist_ro(void *drcontext, app_pc start, size_t size, file_t fd, void *us
 }
 
 static bool
-event_resurrect_ro(void *drcontext, app_pc start, size_t size, byte **map INOUT)
+event_resurrect_ro(void *drcontext, void *perscxt, byte **map INOUT)
 {
     byte *base = *(byte **)(*map);
     *map += sizeof(base);

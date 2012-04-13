@@ -1439,19 +1439,16 @@ bool dr_exit_hook_exists(void);
 bool dr_xl8_hook_exists(void);
 bool hide_tag_from_client(app_pc tag);
 
-uint instrument_persist_ro_size(dcontext_t *dcontext, app_pc start, size_t size,
-                                size_t file_offs);
-bool instrument_persist_ro(dcontext_t *dcontext, app_pc start, size_t size, file_t fd);
-bool instrument_resurrect_ro(dcontext_t *dcontext, app_pc start, size_t size, byte *map);
-uint instrument_persist_rx_size(dcontext_t *dcontext, app_pc start, size_t size,
-                                size_t file_offs);
-bool instrument_persist_rx(dcontext_t *dcontext, app_pc start, size_t size, file_t fd);
-bool instrument_resurrect_rx(dcontext_t *dcontext, app_pc start, size_t size, byte *map);
-uint instrument_persist_rw_size(dcontext_t *dcontext, app_pc start, size_t size,
-                                size_t file_offs);
-bool instrument_persist_rw(dcontext_t *dcontext, app_pc start, size_t size, file_t fd);
-bool instrument_resurrect_rw(dcontext_t *dcontext, app_pc start, size_t size, byte *map);
-bool instrument_persist_patch(dcontext_t *dcontext, app_pc start, size_t size,
+uint instrument_persist_ro_size(dcontext_t *dcontext, void *perscxt, size_t file_offs);
+bool instrument_persist_ro(dcontext_t *dcontext, void *perscxt, file_t fd);
+bool instrument_resurrect_ro(dcontext_t *dcontext, void *perscxt, byte *map);
+uint instrument_persist_rx_size(dcontext_t *dcontext, void *perscxt, size_t file_offs);
+bool instrument_persist_rx(dcontext_t *dcontext, void *perscxt, file_t fd);
+bool instrument_resurrect_rx(dcontext_t *dcontext, void *perscxt, byte *map);
+uint instrument_persist_rw_size(dcontext_t *dcontext, void *perscxt, size_t file_offs);
+bool instrument_persist_rw(dcontext_t *dcontext, void *perscxt, file_t fd);
+bool instrument_resurrect_rw(dcontext_t *dcontext, void *perscxt, byte *map);
+bool instrument_persist_patch(dcontext_t *dcontext, void *perscxt,
                               byte *bb_start, size_t bb_size);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
@@ -4205,6 +4202,34 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
 
 DR_API
 /**
+ * Takes in the \p perscxt opaque parameter passed to various persistence
+ * events and returns the beginning address of the code region being
+ * persisted.
+ */
+app_pc
+dr_persist_start(void *perscxt);
+
+DR_API
+/**
+ * Takes in the \p perscxt opaque parameter passed to various persistence
+ * events and returns the size of the code region being persisted.
+ */
+size_t
+dr_persist_size(void *perscxt);
+
+DR_API
+/**
+ * Takes in the \p perscxt opaque parameter passed to various
+ * persistence events and returns whether the fragment identified by
+ * \p tag is being persisted.  This routine can be called outside of a
+ * persistence event, in which case the \p perscxt parameter should be
+ * NULL.
+ */
+bool
+dr_fragment_persistable(void *drcontext, void *perscxt, void *tag);
+
+DR_API
+/**
  * Registers callback functions for storing read-only data in each persisted
  * cache file.  When generating a new persisted cache file, DR first calls \p
  * func_size to obtain the size required for read-only data in each persisted
@@ -4212,8 +4237,9 @@ DR_API
  * Upon loading a previously-written persisted cache file, DR calls \p
  * func_resurrect to validate and read back in data from the persisted file.
  *
- * For each callback, the \p start and \p size parameters indicate the
- * region of application code that is being persisted.
+ * For each callback, the \p perscxt parameter can be passed to the routines
+ * dr_persist_start(), dr_persist_size(), and dr_fragment_persistable() to
+ * identify the region of code being persisted.
  *
  * @param[in] func_size The function to call to determine the size needed for
  *   persisted data.  The \p file_offs parameter indicates the offset from the start
@@ -4241,16 +4267,20 @@ DR_API
  *   data.  The \p map address should be updated to point to the end of
  *   the persisted data (i.e., on return it should equal its start value plus
  *   the size that was passed to dr_register_persist_ro_size()).
+ *   DR will perform self-consistency checks, including whether the
+ *   whole pcache is present and that a checksum of at least part of
+ *   the file matches, prior to calling this callback.  Thus, the
+ *   client can assume that it is not truncated.
  * \note \p func_resurrect may be called during persisted file generation if
  *  a persisted file already exists, in order to merge with that file.
  * \return whether successful.
  */
 bool
-dr_register_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
+dr_register_persist_ro(size_t (*func_size)(void *drcontext, void *perscxt,
                                            size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, app_pc start, size_t size,
+                       bool (*func_persist)(void *drcontext, void *perscxt,
                                             file_t fd, void *user_data),
-                       bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
+                       bool (*func_resurrect)(void *drcontext, void *perscxt,
                                               byte **map INOUT));
 
 DR_API
@@ -4260,11 +4290,11 @@ DR_API
  * (e.g., one of the functions was not registered).
  */
 bool
-dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
+dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, void *perscxt,
                                              size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, app_pc start, size_t size,
+                         bool (*func_persist)(void *drcontext, void *perscxt,
                                               file_t fd, void *user_data),
-                         bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
+                         bool (*func_resurrect)(void *drcontext, void *perscxt,
                                                 byte **map INOUT));
 
 DR_API
@@ -4277,8 +4307,9 @@ DR_API
  * persisted cache file, DR calls \p func_resurrect to validate and read back in
  * code from the persisted file.
  *
- * For each callback, the \p start and \p size parameters indicate the
- * region of application code that is being persisted.
+ * For each callback, the \p perscxt parameter can be passed to the routines
+ * dr_persist_start(), dr_persist_size(), and dr_fragment_persistable() to
+ * identify the region of code being persisted.
  *
  * @param[in] func_size  The function to call to determine the size needed
  *   for persisted code.  The \p file_offs parameter indicates the offset from the start
@@ -4306,16 +4337,20 @@ DR_API
  *   code.  The \p map address should be updated to point to the end of
  *   the persisted data (i.e., on return it should equal its start value plus
  *   the size that was passed to dr_register_persist_rx_size()).
+ *   DR will perform self-consistency checks, including whether the
+ *   whole pcache is present and that a checksum of at least part of
+ *   the file matches, prior to calling this callback.  Thus, the
+ *   client can assume that it is not truncated.
  * \note \p func_resurrect may be called during persisted file generation if
  *  a persisted file already exists, in order to merge with that file.
  * \return whether successful.
  */
 bool
-dr_register_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
+dr_register_persist_rx(size_t (*func_size)(void *drcontext, void *perscxt,
                                            size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, app_pc start, size_t size,
+                       bool (*func_persist)(void *drcontext, void *perscxt,
                                             file_t fd, void *user_data),
-                       bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
+                       bool (*func_resurrect)(void *drcontext, void *perscxt,
                                               byte **map INOUT));
 
 DR_API
@@ -4325,11 +4360,11 @@ DR_API
  * (e.g., one of the functions was not registered).
  */
 bool
-dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
+dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, void *perscxt,
                                              size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, app_pc start, size_t size,
+                         bool (*func_persist)(void *drcontext, void *perscxt,
                                               file_t fd, void *user_data),
-                         bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
+                         bool (*func_resurrect)(void *drcontext, void *perscxt,
                                                 byte **map INOUT));
 
 DR_API
@@ -4341,8 +4376,9 @@ DR_API
  * Upon loading a previously-written persisted cache file, DR calls \p
  * func_resurrect to validate and read back in data from the persisted file.
  *
- * For each callback, the \p start and \p size parameters indicate the
- * region of application code that is being persisted.
+ * For each callback, the \p perscxt parameter can be passed to the routines
+ * dr_persist_start(), dr_persist_size(), and dr_fragment_persistable() to
+ * identify the region of code being persisted.
  *
  * @param[in] func_size  The function to call to determine the size needed
  *   for persisted data.  The \p file_offs parameter indicates the offset from the start
@@ -4370,16 +4406,20 @@ DR_API
  *   data.  The \p map address should be updated to point to the end of
  *   the persisted data (i.e., on return it should equal its start value plus
  *   the size that was passed to dr_register_persist_rw_size()).
+ *   DR will perform self-consistency checks, including whether the
+ *   whole pcache is present and that a checksum of at least part of
+ *   the file matches, prior to calling this callback.  Thus, the
+ *   client can assume that it is not truncated.
  * \note \p func_resurrect may be called during persisted file generation if
  *  a persisted file already exists, in order to merge with that file.
  * \return whether successful.
  */
 bool
-dr_register_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
+dr_register_persist_rw(size_t (*func_size)(void *drcontext, void *perscxt,
                                            size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, app_pc start, size_t size,
+                       bool (*func_persist)(void *drcontext, void *perscxt,
                                             file_t fd, void *user_data),
-                       bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
+                       bool (*func_resurrect)(void *drcontext, void *perscxt,
                                               byte **map INOUT));
 
 DR_API
@@ -4389,11 +4429,11 @@ DR_API
  * (e.g., one of the functions was not registered).
  */
 bool
-dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, app_pc start, size_t size,
+dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, void *perscxt,
                                              size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, app_pc start, size_t size,
+                         bool (*func_persist)(void *drcontext, void *perscxt,
                                               file_t fd, void *user_data),
-                         bool (*func_resurrect)(void *drcontext, app_pc start, size_t size,
+                         bool (*func_resurrect)(void *drcontext, void *perscxt,
                                                 byte **map INOUT));
 
 DR_API
@@ -4415,12 +4455,13 @@ DR_API
  *   jump displacements or rip-relative data references that need to
  *   be updated to use data in the persisted file.  There is no padding
  *   between instructions, so a simple decode loop will find every instruction.
- *   The \p start and \p size parameters indicate the
- *   region of application code that is being persisted.
+ *   The \p perscxt parameter can be passed to the routines
+ *   dr_persist_start(), dr_persist_size(), and dr_fragment_persistable() to
+ *   identify the region of code being persisted.
  * \return whether successful.
  */
 bool
-dr_register_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, size_t size,
+dr_register_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
                                              byte *bb_start, size_t bb_size,
                                              void *user_data));
 
@@ -4431,7 +4472,7 @@ DR_API
  * (e.g., the function was not registered).
  */
 bool
-dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, app_pc start, size_t size,
+dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
                                                byte *bb_start, size_t bb_size,
                                                void *user_data));
 

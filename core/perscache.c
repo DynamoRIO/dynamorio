@@ -2959,9 +2959,8 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
 
 #ifdef CLIENT_INTERFACE
     pers->instrument_ro_len =
-        ALIGN_FORWARD(instrument_persist_ro_size(dcontext, info->base_pc,
-                                                 info->end_pc - info->base_pc,
-                                                 x_offs), CLIENT_ALIGNMENT);
+        ALIGN_FORWARD(instrument_persist_ro_size(dcontext, info, x_offs),
+                      CLIENT_ALIGNMENT);
 #else
     pers->instrument_ro_len = 0;
 #endif
@@ -3008,9 +3007,7 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
 
 #ifdef CLIENT_INTERFACE
     pers->instrument_rx_len =
-        ALIGN_FORWARD(instrument_persist_rx_size(dcontext, info->base_pc,
-                                                 info->end_pc - info->base_pc,
-                                                 x_offs + pers->pad_len),
+        ALIGN_FORWARD(instrument_persist_rx_size(dcontext, info, x_offs + pers->pad_len),
                       CLIENT_ALIGNMENT);
 #else
     pers->instrument_rx_len = 0;
@@ -3054,8 +3051,7 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
 
 #ifdef CLIENT_INTERFACE
     pers->instrument_rw_len =
-        ALIGN_FORWARD(instrument_persist_rw_size(dcontext, info->base_pc,
-                                                 info->end_pc - info->base_pc,
+        ALIGN_FORWARD(instrument_persist_rw_size(dcontext, info,
                                                  pers->header_len + pers->data_len),
                       CLIENT_ALIGNMENT);
 #else
@@ -3135,12 +3131,12 @@ coarse_unit_persist_rename(dcontext_t *dcontext, const char *filename,
 bool
 instrument_persist_section(dcontext_t *dcontext, file_t fd, coarse_info_t *info,
                            size_t len,
-                           bool (*persist_func)(dcontext_t *, app_pc, size_t, file_t))
+                           bool (*persist_func)(dcontext_t *, void *, file_t))
 {
     if (len > 0) {
         /* keep aligned */
         int64 post_pos, pre_pos = os_tell(fd);
-        if (!persist_func(dcontext, info->base_pc, info->end_pc - info->base_pc, fd)) {
+        if (!persist_func(dcontext, info, fd)) {
             LOG(THREAD, LOG_CACHE, 1, "  unable to write client data to file\n");
             SYSLOG_INTERNAL_WARNING_ONCE("unable to write client data to pcache file");
             STATS_INC(coarse_units_persist_error);
@@ -3158,6 +3154,43 @@ instrument_persist_section(dcontext_t *dcontext, file_t fd, coarse_info_t *info,
             return false; /* logs, stats in write_persist_file */
     }
     return true;
+}
+
+DR_API
+app_pc
+dr_persist_start(void *perscxt)
+{
+    coarse_info_t *info = (coarse_info_t *) perscxt;
+    CLIENT_ASSERT(perscxt != NULL, "invalid arg: perscxt is NULL");
+    return info->base_pc;
+}
+
+DR_API
+size_t
+dr_persist_size(void *perscxt)
+{
+    coarse_info_t *info = (coarse_info_t *) perscxt;
+    CLIENT_ASSERT(perscxt != NULL, "invalid arg: perscxt is NULL");
+    return info->end_pc - info->base_pc;
+}
+
+DR_API
+bool
+dr_fragment_persistable(void *drcontext, void *perscxt, void *tag_in)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    cache_pc res;
+    /* deliberately not calling dr_fragment_app_pc() b/c any pc there won't
+     * be coarse and thus not worth the extra overhead
+     */
+    app_pc tag = (app_pc) tag_in;
+    if (perscxt != NULL) {
+        coarse_info_t *info = (coarse_info_t *) perscxt;
+        fragment_coarse_lookup_in_unit(dcontext, info, tag, NULL, &res);
+    } else {
+        res = fragment_coarse_lookup(dcontext, tag);
+    }
+    return (res != NULL);
 }
 #endif
 
@@ -3318,8 +3351,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
      * the file.  We do it here at a clean point between the size and persist
      * calls, rather than in the middle of the persist (must be before persist_rw).
      */
-    if (!instrument_persist_patch(dcontext, info->base_pc, info->end_pc - info->base_pc,
-                                  info->cache_start_pc,
+    if (!instrument_persist_patch(dcontext, info, info->cache_start_pc,
                                   info->cache_end_pc - info->cache_start_pc)) {
         LOG(THREAD, LOG_CACHE, 1, "  client unable to patch module %s: not persisting\n",
             info->module);
@@ -4037,8 +4069,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     pc -= pers->instrument_rw_len;
 #ifdef CLIENT_INTERFACE
     if (pers->instrument_rw_len > 0) {
-        if (!instrument_resurrect_rw(GLOBAL_DCONTEXT, info->base_pc,
-                                     info->end_pc - info->base_pc, pc))
+        if (!instrument_resurrect_rw(GLOBAL_DCONTEXT, info, pc))
             goto coarse_unit_load_exit;
     }
 #endif
@@ -4108,8 +4139,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     pc -= pers->view_pad_len; /* just skip it */
 #ifdef CLIENT_INTERFACE
     if (pers->instrument_rx_len > 0) {
-        if (!instrument_resurrect_rx(GLOBAL_DCONTEXT, info->base_pc,
-                                     info->end_pc - info->base_pc, pc))
+        if (!instrument_resurrect_rx(GLOBAL_DCONTEXT, info, pc))
             goto coarse_unit_load_exit;
     }
 #endif
@@ -4226,8 +4256,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
         pc -= pers->instrument_ro_len;
 #ifdef CLIENT_INTERFACE
         if (pers->instrument_ro_len > 0) {
-            if (!instrument_resurrect_ro(GLOBAL_DCONTEXT, info->base_pc,
-                                         info->end_pc - info->base_pc, pc))
+            if (!instrument_resurrect_ro(GLOBAL_DCONTEXT, info, pc))
                 goto coarse_unit_load_exit;
         }
 #endif

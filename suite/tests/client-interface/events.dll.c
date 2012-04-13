@@ -550,27 +550,27 @@ restore_state_ex_event2(void *drcontext, bool restore_memory,
 }
 
 static size_t
-event_persist_size(void *drcontext, app_pc start, size_t size, size_t file_offs,
+event_persist_size(void *drcontext, void *perscxt, size_t file_offs,
                    void **user_data OUT)
 {
     return 0;
 }
 
 static bool
-event_persist_patch(void *drcontext, app_pc start, size_t size,
+event_persist_patch(void *drcontext, void *perscxt,
                     byte *bb_start, size_t bb_size, void *user_data)
 {
     return true;
 }
 
 static bool
-event_persist(void *drcontext, app_pc start, size_t size, file_t fd, void *user_data)
+event_persist(void *drcontext, void *perscxt, file_t fd, void *user_data)
 {
     return true;
 }
 
 static bool
-event_resurrect(void *drcontext, app_pc start, size_t size, byte **map INOUT)
+event_resurrect(void *drcontext, void *perscxt, byte **map INOUT)
 {
     return true;
 }
