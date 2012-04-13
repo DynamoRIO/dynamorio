@@ -667,7 +667,7 @@ coarse_replace_unit(dcontext_t *dcontext, coarse_info_t *dst, coarse_info_t *src
 coarse_info_t *
 coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
 {
-    coarse_info_t *frozen;
+    coarse_info_t *frozen = NULL;
     coarse_info_t *res = NULL;
     size_t frozen_stub_size, frozen_cache_size;
     uint num_fragments, num_stubs;
@@ -843,6 +843,19 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
                    ACCT_MEM_MGT/*appropriate?*/, PROTECTED);
 
     mutex_unlock(&info->lock);
+
+    DOLOG(3, LOG_CACHE, {
+        if (res != NULL) {
+            byte *pc = frozen->cache_start_pc;
+            LOG(THREAD, LOG_CACHE, 1, "frozen cache for %s:\n", info->module);
+            do {
+                app_pc tag = fragment_coarse_entry_pclookup(dcontext, frozen, pc);
+                if (tag != NULL)
+                    LOG(THREAD, LOG_CACHE, 1, "tag "PFX":\n", tag);
+                pc = disassemble_with_bytes(dcontext, pc, THREAD);
+            } while (pc < frozen->cache_end_pc);
+        }
+    });
 
     return res;
 }
@@ -2439,6 +2452,8 @@ persist_modinfo_cmp(persisted_module_info_t *mi1, persisted_module_info_t *mi2)
                                                DYNAMO_OPTION(persist_load_validation)),
                                           TEST(PERSCACHE_MODULE_MD5_COMPLETE,
                                                DYNAMO_OPTION(persist_load_validation)))
+                     /* relocs => md5 diffs, until we handle relocs wrt md5 */
+                     IF_WINDOWS(|| mi1->base != mi2->base)
                      || check_filter("win32.partial_map.exe",
                                      get_short_name(get_application_name())));
     if (TESTALL(PERSCACHE_MODULE_MD5_SHORT|PERSCACHE_MODULE_MD5_COMPLETE,
@@ -2861,6 +2876,7 @@ pad_persist_file(dcontext_t *dcontext, file_t fd, size_t bytes, coarse_info_t *i
      * advance the pointer): write_file() has win32 support.
      */
     ASSERT(fd != INVALID_FILE);
+    ASSERT(bytes < 64*1024); /* error */
     while (towrite > 0) {
         thiswrite = MIN(towrite, (ptr_uint_t)info->stubs_end_pc -
                         (ptr_uint_t)info->cache_start_pc);
@@ -3137,6 +3153,7 @@ instrument_persist_section(dcontext_t *dcontext, file_t fd, coarse_info_t *info,
             return false;
         }
         /* pad out to the alignment we added to len */
+        ASSERT(len >= (size_t)(post_pos - pre_pos));
         if (!pad_persist_file(dcontext, fd, len - (size_t)(post_pos - pre_pos), info))
             return false; /* logs, stats in write_persist_file */
     }
@@ -4209,7 +4226,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
 #ifdef CLIENT_INTERFACE
         if (pers->instrument_ro_len > 0) {
             if (!instrument_resurrect_ro(GLOBAL_DCONTEXT, info->base_pc,
-                                         info->base_pc - info->end_pc, pc))
+                                         info->end_pc - info->base_pc, pc))
                 goto coarse_unit_load_exit;
         }
 #endif
