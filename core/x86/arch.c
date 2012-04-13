@@ -3055,10 +3055,10 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         }
 
         /* Whether a bb or trace, this routine will recreate the entire ilist. */
-        if (f == NULL)
+        if (f == NULL) {
             ilist = recreate_fragment_ilist(tdcontext, mcontext->pc, &f, &alloc,
                                             true/*mangle*/ _IF_CLIENT(true/*client*/));
-        else if (FRAGMENT_TRANSLATION_INFO(f) == NULL) {
+        } else if (FRAGMENT_TRANSLATION_INFO(f) == NULL) {
             /* NULL for pc indicates that f is valid */
             bool new_alloc;
             DEBUG_DECLARE(fragment_t *pre_f = f;)

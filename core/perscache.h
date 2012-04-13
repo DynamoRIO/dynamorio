@@ -201,6 +201,8 @@ struct _coarse_info_t {
      * so we're comparing the in-memory image at a consistent point.
      */
     module_digest_t module_md5;
+    /* persisted base */
+    app_pc persist_base;
     /* persisted base minus cur base */
     ssize_t mod_shift;
     

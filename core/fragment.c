@@ -7613,6 +7613,9 @@ hashtable_coarse_free_entry(dcontext_t *dcontext, coarse_table_t *htable,
 static inline app_to_cache_t
 coarse_lookup_internal(dcontext_t *dcontext, app_pc tag, coarse_table_t *table)
 {
+    /* note that for mod_shift we don't need to compare to bounds b/c
+     * this is a table for this module only
+     */
     app_to_cache_t a2c =
         hashtable_coarse_lookup(dcontext, (ptr_uint_t)(tag + table->mod_shift), table);
     if (table->mod_shift != 0 && A2C_ENTRY_IS_REAL(a2c))
@@ -8430,6 +8433,7 @@ fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
             a2c = htable->table[i];
             /* must check for sentinel */
             if (A2C_ENTRY_IS_REAL(a2c)) {
+                a2c.app -= htable->mod_shift;
                 ASSERT(BOOLS_MATCH(info->frozen, info->cache_start_pc != NULL));
                 /* for frozen, htable only holds body pc */
                 a2c.cache += (ptr_uint_t) info->cache_start_pc;
@@ -8471,6 +8475,7 @@ fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
     if (body_out != NULL)
         *body_out = pc - closest_distance;
     KSTOP(coarse_pclookup);
+    LOG(THREAD, LOG_FRAGMENT, 4, "%s: "PFX" => "PFX"\n", __FUNCTION__, pc, closest);
     return closest;
 }
 
@@ -8493,9 +8498,10 @@ fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_
      */
     if (!DYNAMO_OPTION(coarse_pclookup_table) || !info->frozen) {
         res = fragment_coarse_pclookup(dcontext, info, pc, &body_pc);
-        if (body_pc == pc)
+        if (body_pc == pc) {
+            LOG(THREAD, LOG_FRAGMENT, 4, "%s: "PFX" => "PFX"\n", __FUNCTION__, pc, res);
             return res;
-        else
+        } else
             return NULL;
     }
     KSTART(coarse_pclookup);
@@ -8530,6 +8536,7 @@ fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_
                 main_a2c = main_htable->table[i];
                 /* must check for sentinel */
                 if (A2C_ENTRY_IS_REAL(main_a2c)) {
+                    main_a2c.app -= main_htable->mod_shift;
                     ASSERT(BOOLS_MATCH(info->frozen, info->cache_start_pc != NULL));
                     coarse_body_from_htable_entry(dcontext, info, main_a2c.app,
                                                   main_a2c.cache
@@ -8548,7 +8555,7 @@ fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_
                                                          (ptr_uint_t)body_pc, pc_htable);
                         if (A2C_ENTRY_IS_EMPTY(pc_a2c)) {
                             pc_a2c.app = body_pc;
-                            pc_a2c.cache = main_a2c.app - main_htable->mod_shift;
+                            pc_a2c.cache = main_a2c.app;
                             hashtable_coarse_add(dcontext, pc_a2c, pc_htable);
                         } else {
                             ASSERT(DYNAMO_OPTION(unsafe_freeze_elide_sole_ubr));
@@ -8572,6 +8579,7 @@ fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_
         res = pc_a2c.cache;
     TABLE_RWLOCK(pc_htable, read, unlock);
     KSTOP(coarse_pclookup);
+    LOG(THREAD, LOG_FRAGMENT, 4, "%s: "PFX" => "PFX"\n", __FUNCTION__, pc, res);
     return res;
 }
 

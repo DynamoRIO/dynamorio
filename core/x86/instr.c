@@ -2865,7 +2865,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         !instr_valid(instr))
         return instr;
 
-    DOLOG(4, LOG_ALL, { loginst(dcontext, 4, instr, "instr_expand"); });
+    DOLOG(5, LOG_ALL, { loginst(dcontext, 4, instr, "instr_expand"); });
 
     /* decode routines use dcontext mode, but we want instr mode */
     IF_X64(old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr)));
@@ -2894,7 +2894,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
             IF_X64(set_x86_mode(dcontext, old_mode));
             return firstinstr;
         }
-        DOLOG(4, LOG_ALL, { loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
+        DOLOG(5, LOG_ALL, { loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
 
         /* CAREFUL of what you call here -- don't call anything that
          * auto-upgrades instr to Level 2, it will fail on Level 0 bundles!

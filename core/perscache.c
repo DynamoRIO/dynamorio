@@ -4004,6 +4004,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
     info->frozen = true;
     info->persisted = true;
     info->has_persist_info = true;
+    info->persist_base = pers->modinfo.base;
     info->mod_shift = (pers->modinfo.base - modbase);
     info->mmap_pc = map;
     if (map2 != NULL) {
