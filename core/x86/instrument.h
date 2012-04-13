@@ -4234,6 +4234,9 @@ DR_API
  * cache file.  When generating a new persisted cache file, DR first calls \p
  * func_size to obtain the size required for read-only data in each persisted
  * cache file.  DR subsequently calls \p func_persist to write the actual data.
+ * DR ensures that no other thread will execute in between the calls
+ * to \p func_size and \p func_persist.
+ *
  * Upon loading a previously-written persisted cache file, DR calls \p
  * func_resurrect to validate and read back in data from the persisted file.
  *
@@ -4303,9 +4306,13 @@ DR_API
  * code blocks) in each persisted cache file.  When generating a new persisted
  * cache file, DR first calls \p func_size to obtain the size required for
  * executable code in each persisted cache file.  DR subsequently calls \p
- * func_persist to write the actual code.  Upon loading a previously-written
- * persisted cache file, DR calls \p func_resurrect to validate and read back in
- * code from the persisted file.
+ * func_persist to write the actual code.  
+ * DR ensures that no other thread will execute in between the calls
+ * to \p func_size and \p func_persist.
+ *
+ * Upon loading a previously-written persisted cache file, DR calls \p
+ * func_resurrect to validate and read back in code from the persisted
+ * file.
  *
  * For each callback, the \p perscxt parameter can be passed to the routines
  * dr_persist_start(), dr_persist_size(), and dr_fragment_persistable() to
@@ -4373,6 +4380,9 @@ DR_API
  * cache file.  When generating a new persisted cache file, DR first calls \p
  * func_size to obtain the size required for writable data in each persisted
  * cache file.  DR subsequently calls \p func_persist to write the actual data.
+ * DR ensures that no other thread will execute in between the calls
+ * to \p func_size and \p func_persist.
+ *
  * Upon loading a previously-written persisted cache file, DR calls \p
  * func_resurrect to validate and read back in data from the persisted file.
  *

@@ -94,6 +94,7 @@ typedef struct _hashtable_t {
     bool (*cmp_key_func)(void*, void*);
     uint entries;
     hashtable_config_t config;
+    uint persist_count;
 } hashtable_t;
 
 /* should move back to utils.c once have iterator and alloc_exit
@@ -213,6 +214,114 @@ hashtable_lock(hashtable_t *table);
 /** Releases the hashtable lock. */
 void
 hashtable_unlock(hashtable_t *table);
+    
+/* DR_API EXPORT BEGIN */
+/** Flags to control hashtable persistence */
+typedef enum {
+    /**
+     * Valid for hashtable_persist() and hashtable_resurrect() and the
+     * same value must be passed to both.  Treats payloads as pointers
+     * to allocated memory.  By default payloads are treated as
+     * inlined values if this flag is not set.
+     */
+    DR_HASHPERS_PAYLOAD_IS_POINTER      = 0x0001,
+    /**
+     * Valid for hashtable_resurrect().  Only applies if
+     * DR_HASHPERS_KEY_IS_POINTER.  Performs a shallow clone of the
+     * payload upon resurrection.  If this flag is not set, the
+     * payloads will remain pointing into the mapped file.
+     */
+    DR_HASHPERS_CLONE_PAYLOAD           = 0x0002,
+    /**
+     * Valid for hashtable_persist_size(), hashtable_persist(), and
+     * hashtable_resurrect(), and the same value must be passed to all.
+     * Only applies if keys are of type HASH_INTPTR.  Adjusts each key by
+     * the difference in the persist-time start address of the persisted
+     * code region and the resurrected start address.  The value of this
+     * flag must match across all three calls hashtable_persist_size(),
+     * hashtable_persist(), and hashtable_resurrect().
+     */
+    DR_HASHPERS_REBASE_KEY              = 0x0004,
+    /**
+     * Valid for hashtable_persist_size() and hashtable_persist() and
+     * the same value must be passed to both.  Only applies if keys
+     * are of type HASH_INTPTR.  Only persists entries whose key is
+     * in the address range being persisted.
+     */
+    DR_HASHPERS_ONLY_IN_RANGE           = 0x0008,
+    /**
+     * Valid for hashtable_persist_size() and hashtable_persist() and
+     * the same value must be passed to both.  Only applies if keys
+     * are of type HASH_INTPTR.  Only persists entries for which
+     * dr_fragment_persistable() returns true.
+     */
+    DR_HASHPERS_ONLY_PERSISTED          = 0x0010,
+} hasthable_persist_flags_t;
+/* DR_API EXPORT END */
+
+/** 
+ * For use persisting a table of single-alloc entries (i.e., via a
+ * shallow copy) for loading into a live table later.
+ *
+ * These routines assume that the caller is synchronizing across the
+ * call to hashtable_persist_size() and hashtable_persist().  If these
+ * are called using DR's persistence interface, DR guarantees
+ * synchronization.
+ *
+ * @param[in] drcontext   The opaque DR context
+ * @param[in] table       The table to persist
+ * @param[in] entry_size  The size of each table entry payload
+ * @param[in] perscxt     The opaque persistence context from DR's persist events
+ * @param[in] flags       Controls various aspects of the persistence
+ */
+size_t
+hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
+                       void *perscxt, hasthable_persist_flags_t flags);
+
+/** 
+ * For use persisting a table of single-alloc entries (i.e., via a
+ * shallow copy) for loading into a live table later.
+ *
+ * These routines assume that the caller is synchronizing across the
+ * call to hashtable_persist_size() and hashtable_persist().  If these
+ * are called using DR's persistence interface, DR guarantees
+ * synchronization.
+ *
+ * hashtable_persist_size() must be called immediately prior to
+ * calling hashtable_persist().
+ *
+ * @param[in] drcontext   The opaque DR context
+ * @param[in] table       The table to persist
+ * @param[in] entry_size  The size of each table entry payload
+ * @param[in] fd          The target persisted file handle
+ * @param[in] perscxt     The opaque persistence context from DR's persist events
+ * @param[in] flags       Controls various aspects of the persistence
+ */
+bool
+hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size,
+                  file_t fd, void *perscxt, hasthable_persist_flags_t flags);
+
+/** 
+ * For use persisting a table of single-alloc entries (i.e., via a
+ * shallow copy) for loading into a live table later.
+ *
+ * Reads in entries from disk and adds them to the live table.
+ *
+ * @param[in] drcontext   The opaque DR context
+ * @param[in] map         The mapped-in persisted file, pointing at the
+ *   data written by hashtable_persist()
+ * @param[in] table       The live table to add to
+ * @param[in] entry_size  The size of each table entry payload
+ * @param[in] perscxt     The opaque persistence context from DR's persist events
+ * @param[in] flags       Controls various aspects of the persistence
+ * @param[in] process_payload  If non-NULL, calls process_payload instead of
+ *   hashtable_add.  process_payload can then adjust the paylod and if
+ *   it wishes invoke hashtable_add.
+ */
+bool
+hashtable_resurrect(void *drcontext, byte **map /*INOUT*/, hashtable_t *table,
+                    size_t entry_size, void *perscxt, hasthable_persist_flags_t flags,
+                    bool (*process_payload)(void *key, void *payload, ptr_int_t shift));
 
 /*@}*/ /* end doxygen group */
 

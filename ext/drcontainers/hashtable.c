@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,6 +42,19 @@
 # include <string.h>
 #endif
 #include <stddef.h> /* offsetof */
+
+#ifdef DEBUG
+# define IF_DEBUG(x) x
+#else
+# define IF_DEBUG(x) /* nothing */
+#endif
+
+/* check if all bits in mask are set in var */
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
+/* check if any bit in mask is set in var */
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+/* check if a single bit is set in var */
+#define TEST TESTANY
 
 /***************************************************************************
  * UTILITIES
@@ -487,3 +500,175 @@ hashtable_delete(hashtable_t *table)
     dr_mutex_destroy(table->lock);
 }
  
+/***************************************************************************
+ * PERSISTENCE
+ */
+
+/* Persists a table of single-alloc entries (i.e., does a shallow
+ * copy).  The model here is that the user is using a global table and
+ * reading in all the persisted entries into the live table at
+ * resurrect time, rather than splitting up the table and using the
+ * read-only mmapped portion when live (note that DR has the latter
+ * approach for some of its tables and its built-in persistence
+ * support in hashtablex.h).  Thus, we write the count and then the
+ * entries (key followed by payload) collapsed into an array.
+ *
+ * Note that we assume the caller is synchronizing across the call to
+ * hashtable_persist_size() and hashtable_persist().  If these
+ * are called using DR's persistence interface, DR guarantees
+ * synchronization.
+ *
+ * If size > 0 and the table uses HASH_INTPTR keys, these routines
+ * only persist those entries with keys in [start..start+size).
+ * Pass 0 for size to persist all entries.
+ */
+
+static bool
+key_in_range(hashtable_t *table, hash_entry_t *he, ptr_uint_t start, size_t size)
+{
+    if (table->hashtype != HASH_INTPTR || size == 0)
+        return true;
+    /* avoiding overflow by subtracting one */
+    return ((ptr_uint_t)he->key >= start && (ptr_uint_t)he->key <= (start + (size - 1)));
+}
+
+static bool
+hash_write_file(file_t fd, void *ptr, size_t sz)
+{
+    return (dr_write_file(fd, ptr, sz) == (ssize_t)sz);
+}
+
+size_t
+hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
+                       void *perscxt, hasthable_persist_flags_t flags)
+{
+    uint count = 0;
+    if (table->hashtype == HASH_INTPTR &&
+        TESTANY(DR_HASHPERS_ONLY_IN_RANGE | DR_HASHPERS_ONLY_PERSISTED, flags)) {
+        /* synch is already provided */
+        uint i;
+        ptr_uint_t start = 0;
+        size_t size = 0;
+        if (perscxt != NULL) {
+            start = (ptr_uint_t) dr_persist_start(perscxt);
+            size = dr_persist_size(perscxt);
+        }
+        count = 0;
+        for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
+            hash_entry_t *he;
+            for (he = table->table[i]; he != NULL; he = he->next) {
+                if ((!TEST(DR_HASHPERS_ONLY_IN_RANGE, flags) ||
+                     key_in_range(table, he, start, size)) &&
+                    (!TEST(DR_HASHPERS_ONLY_PERSISTED, flags) ||
+                     dr_fragment_persistable(drcontext, perscxt, he->key)))
+                    count++;
+            }
+        }
+    } else
+        count = table->entries;
+    /* we could have an OUT count param that user must pass to hashtable_persist,
+     * but that's actually a pain for the user when persisting multiple tables,
+     * and usage should always call hashtable_persist() right after calling
+     * hashtable_persist_size().
+     */
+    table->persist_count = count;
+    return sizeof(count) +
+        (TEST(DR_HASHPERS_REBASE_KEY, flags) ? sizeof(ptr_uint_t) : 0) +
+        count * (entry_size + sizeof(void*));
+}
+
+bool
+hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size,
+                  file_t fd, void *perscxt, hasthable_persist_flags_t flags)
+{
+    uint i;
+    ptr_uint_t start = 0;
+    size_t size = 0;
+    IF_DEBUG(uint count_check = 0;)
+    if (TEST(DR_HASHPERS_REBASE_KEY, flags) && perscxt == NULL)
+        return false; /* invalid params */
+    if (perscxt != NULL) {
+        start = (ptr_uint_t) dr_persist_start(perscxt);
+        size = dr_persist_size(perscxt);
+    }
+    if (!hash_write_file(fd, &table->persist_count, sizeof(table->persist_count)))
+        return false;
+    if (TEST(DR_HASHPERS_REBASE_KEY, flags)) {
+        if (!hash_write_file(fd, &start, sizeof(start)))
+            return false;
+    }
+    /* synch is already provided */
+    for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
+        hash_entry_t *he;
+        for (he = table->table[i]; he != NULL; he = he->next) {
+            if ((!TEST(DR_HASHPERS_ONLY_IN_RANGE, flags) ||
+                 key_in_range(table, he, start, size)) &&
+                (!TEST(DR_HASHPERS_ONLY_PERSISTED, flags) ||
+                 dr_fragment_persistable(drcontext, perscxt, he->key))) {
+                IF_DEBUG(count_check++;)
+                if (!hash_write_file(fd, &he->key, sizeof(he->key)))
+                    return false;
+                if (TEST(DR_HASHPERS_PAYLOAD_IS_POINTER, flags)) {
+                    if (!hash_write_file(fd, he->payload, entry_size))
+                        return false;
+                } else {
+                    ASSERT(entry_size <= sizeof(void*), "inlined data too large");
+                    if (!hash_write_file(fd, &he->payload, entry_size))
+                        return false;
+                }
+            }
+        }
+    }
+    ASSERT(table->persist_count == count_check, "invalid count");
+    return true;
+}
+
+/* Loads from disk and adds to table 
+ * Note that clone should only be false for tables that do their own payload
+ * freeing and can avoid freeing a payload in the mmap.
+ */
+bool
+hashtable_resurrect(void *drcontext, byte **map INOUT, hashtable_t *table,
+                    size_t entry_size, void *perscxt, hasthable_persist_flags_t flags,
+                    bool (*process_payload)(void *key, void *payload, ptr_int_t shift))
+{
+    uint i;
+    ptr_uint_t stored_start = 0;
+    ptr_int_t shift_amt = 0;
+    uint count = *(uint *)(*map);
+    *map += sizeof(count);
+    if (TEST(DR_HASHPERS_REBASE_KEY, flags)) {
+        if (perscxt == NULL)
+            return false; /* invalid parameter */
+        stored_start = *(ptr_uint_t *)(*map);
+        *map += sizeof(stored_start);
+        shift_amt = (ptr_int_t)dr_persist_start(perscxt) - (ptr_int_t)stored_start;
+    }
+    for (i = 0; i < count; i++) {
+        void *inmap, *toadd;
+        void *key = *(void **)(*map);
+        *map += sizeof(key);
+        inmap = (void *) *map;
+        *map += entry_size;
+        if (TEST(DR_HASHPERS_PAYLOAD_IS_POINTER, flags)) {
+            toadd = inmap;
+            if (TEST(DR_HASHPERS_CLONE_PAYLOAD, flags)) {
+                void *inheap = hash_alloc(entry_size);
+                memcpy(inheap, inmap, entry_size);
+                toadd = inheap;
+            }
+        } else {
+            toadd = NULL;
+            memcpy(&toadd, inmap, entry_size);
+        }
+        if (TEST(DR_HASHPERS_REBASE_KEY, flags)) {
+            key = (void *) (((ptr_int_t)key) + shift_amt);
+        }
+        if (process_payload != NULL) {
+            if (!process_payload(key, toadd, shift_amt))
+                return false;
+        } else if (!hashtable_add(table, key, toadd))
+            return false;
+    }
+    return true;
+}

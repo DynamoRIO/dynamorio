@@ -1358,6 +1358,7 @@ if (CLIENT_INTERFACE)
   # build dir w/o loading any pcache
   tobuild_ci(client.pcache client-interface/pcache.c ""
     "-persist -no_use_persisted -no_coarse_disk_merge -no_coarse_lone_merge" "")
+  use_DynamoRIO_extension(client.pcache.dll drcontainers)
   if (WIN32)
     append_link_flags(client.pcache "/dynamicbase:no")
   endif ()
