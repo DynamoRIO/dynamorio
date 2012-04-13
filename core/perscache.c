@@ -1673,7 +1673,9 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
              * Assumption: coarse-grain bbs have 1 ind exit or 2 direct,
              * and no code beyond the last exit!
              */
-        } while (!instr_opcode_valid(instr) || !instr_is_cti(instr));
+        } while (!instr_opcode_valid(instr) || !instr_is_cti(instr) ||
+                 coarse_cti_is_intra_fragment(dcontext, freeze_info->src_info,
+                                              instr, src_body));
 
         if (dst_body == NULL) { /* not a dup */
             /* copy body of fragment, including cti (if not ending @ fall-through) */
