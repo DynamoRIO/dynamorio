@@ -3884,6 +3884,9 @@ DR_API
  * only.  \p drcontext must be from the current thread and must
  * be the drcontext used to create the instruction list.
  *
+ * \note Other options of removing the code fragments from code cache include
+ * dr_flush_region(), dr_unlink_flush_region(), and dr_delay_flush_region().
+ *
  * \return false if the fragment does not exist and true otherwise.
  */
 bool
