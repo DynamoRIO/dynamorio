@@ -315,7 +315,7 @@ get_proc_address_common(module_handle_t lib, const char *name, uint ordinal
      * valid module_handle_t/pe_base and just assert instead if performance of
      * this routine becomes a concern, esp. since the caller has likely
      * already done it. */
-    module_size = get_allocation_size((byte*)lib, &module_base);
+    module_size = get_allocation_size(lib, &module_base);
     if (!is_readable_pe_base(module_base))
         return NULL;
 #else

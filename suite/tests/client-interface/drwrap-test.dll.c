@@ -79,7 +79,7 @@ wrap_addr(OUT app_pc *addr, const char *name, const module_data_t *mod,
           bool pre, bool post)
 {
     bool ok;
-    *addr = (app_pc) dr_get_proc_address(mod->handle, name);
+    *addr = (app_pc) dr_get_proc_address(mod->start, name);
     CHECK(*addr != NULL, "cannot find lib export");
     ok = drwrap_wrap(*addr, pre ? wrap_pre : NULL, post ? wrap_post : NULL);
     CHECK(ok, "wrap failed");
@@ -102,7 +102,7 @@ static void
 wrap_unwindtest_addr(OUT app_pc *addr, const char *name, const module_data_t *mod)
 {
     bool ok;
-    *addr = (app_pc) dr_get_proc_address(mod->handle, name);
+    *addr = (app_pc) dr_get_proc_address(mod->start, name);
     CHECK(*addr != NULL, "cannot find lib export");
     ok = drwrap_wrap(*addr, wrap_unwindtest_pre, wrap_unwindtest_post);
     CHECK(ok, "wrap unwindtest failed");
@@ -133,7 +133,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
             drwrap_set_global_flags(DRWRAP_NO_FRILLS);
         }
 
-        addr_replace = (app_pc) dr_get_proc_address(mod->handle, "replaceme");
+        addr_replace = (app_pc) dr_get_proc_address(mod->start, "replaceme");
         CHECK(addr_replace != NULL, "cannot find lib export");
         ok = drwrap_replace(addr_replace, (app_pc) replacewith, false);
         CHECK(ok, "replace failed");

@@ -468,8 +468,7 @@ get_libc_errno_location(bool do_init)
                 bool found = true;
                 /* called during init when .data is writable */
                 libc_errno_loc = (errno_loc_t)
-                    get_proc_address((module_handle_t)area->start,
-                                     "__errno_location");
+                    get_proc_address(area->start, "__errno_location");
                 ASSERT(libc_errno_loc != NULL);
                 LOG(GLOBAL, LOG_THREADS, 2, "libc errno loc func: "PFX"\n",
                     libc_errno_loc);

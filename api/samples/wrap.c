@@ -67,7 +67,7 @@ static
 void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 {
     app_pc towrap = (app_pc)
-        dr_get_proc_address(mod->handle, IF_WINDOWS_ELSE("HeapAlloc", "malloc"));
+        dr_get_proc_address(mod->start, IF_WINDOWS_ELSE("HeapAlloc", "malloc"));
     if (towrap != NULL) {
 #ifdef SHOW_RESULTS
         bool ok =

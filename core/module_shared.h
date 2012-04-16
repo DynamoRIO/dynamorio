@@ -45,14 +45,7 @@
  * #_module_data_t structure.  It is equivalent to the base address of
  * the module on both Windows and Linux.
  */
-#ifdef AVOID_API_EXPORT
-/* Rather than using a void * for the module base, we forward declare a struct
- * that we never define.  This prevents usage errors such as passing a
- * module_data_t* to dr_get_proc_address().
- */
-#endif
-struct _module_handle_t;
-typedef struct _module_handle_t * module_handle_t;
+typedef void * module_handle_t;
 
 #ifdef WINDOWS
 
