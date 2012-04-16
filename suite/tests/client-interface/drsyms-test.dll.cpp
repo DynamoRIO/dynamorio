@@ -200,7 +200,7 @@ post_func(void *wrapcxt, void *user_data)
  * symbol that would be returned by looking at debug information.
  */
 static app_pc
-get_real_proc_addr(void *mod_handle, const char *symbol)
+get_real_proc_addr(module_handle_t mod_handle, const char *symbol)
 {
     instr_t instr;
     app_pc next_pc = NULL;
