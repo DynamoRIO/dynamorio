@@ -4529,7 +4529,7 @@ coarse_info_t *
 get_fcache_coarse_info(cache_pc pc)
 {
     fcache_unit_t *unit = fcache_lookup_unit(pc);
-    if (unit == NULL)
+    if (unit == NULL || unit->cache == NULL)
         return NULL;
     ASSERT((unit->cache->is_coarse && unit->cache->coarse_info != NULL) ||
            (!unit->cache->is_coarse && unit->cache->coarse_info == NULL));
