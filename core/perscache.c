@@ -2477,6 +2477,23 @@ persist_modinfo_cmp(persisted_module_info_t *mi1, persisted_module_info_t *mi2)
     return match;
 }
 
+#ifdef WINDOWS
+static void
+persist_record_base_mismatch(app_pc modbase)
+{
+    /* The idea is that we shouldn't waste our time re-persisting modules
+     * whose base keeps mismatching due to ASLR (we don't support rebasing
+     * pcaches yet).
+     * To record whether to not persist, we can't use a VM_ flag b/c
+     * no simple way to tell vmareas.c why a load failed so we use a
+     * module flag
+     */
+    if (!DYNAMO_OPTION(coarse_freeze_rebased_aslr) &&
+        os_module_has_dynamic_base(modbase))
+        os_module_set_flag(modbase, MODULE_DO_NOT_PERSIST);
+}
+#endif
+
 /* key is meant to be a short string to help identify the purpose of this name.
  * FIXME: right now up to caller to figure out if the name collided w/ an
  * existing file; maybe this routine should do that and return a file handle?
@@ -3249,6 +3266,13 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
             goto coarse_unit_persist_exit;
         }
     }
+#ifdef WINDOWS
+    if (!DYNAMO_OPTION(coarse_freeze_rebased_aslr) &&
+        os_module_get_flag(modbase, MODULE_DO_NOT_PERSIST)) {
+        LOG(THREAD, LOG_CACHE, 1, "  %s marked as do-not-persist\n", info->module);
+        goto coarse_unit_persist_exit;
+    }
+#endif
     /* case 9799: store pcache-affecting options */
     option_level = persist_get_options_level(modbase, info, false/*use exemptions*/);
     LOG(THREAD, LOG_CACHE, 2, "  persisting option string at %d level\n", option_level);
@@ -3920,6 +3944,10 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
             LOG(THREAD, LOG_CACHE, 1, "\n");
         });
         SYSLOG_INTERNAL_WARNING_ONCE("persistent cache module mismatch");
+#ifdef WINDOWS
+        if (modbase != pers->modinfo.base)
+            persist_record_base_mismatch(modbase);
+#endif
         STATS_INC(perscache_modinfo_mismatch);
         goto coarse_unit_load_exit;
     }
@@ -3943,6 +3971,9 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
              */
             LOG(THREAD, LOG_CACHE, 1, "  module base mismatch "PFX" vs persisted "PFX"\n",
                 modbase, pers->modinfo.base);
+#ifdef WINDOWS
+            persist_record_base_mismatch(modbase);
+#endif
             STATS_INC(perscache_base_mismatch);
             goto coarse_unit_load_exit;
 #ifdef LINUX

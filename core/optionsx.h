@@ -1864,6 +1864,10 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
                            "merge un-persisted unit w/ disk file when persisting")
     DYNAMIC_OPTION_DEFAULT(bool, coarse_disk_merge, true,
                            "merge persisted unit w/ disk file when persisting")
+#ifdef WINDOWS
+    DYNAMIC_OPTION_DEFAULT(bool, coarse_freeze_rebased_aslr, false,
+                           "freeze modules with ASLR enabled that failed to load due to rebasing")
+#endif
     /* We have explicit support for mixing elision at gen and use so not PC_ */
     OPTION_DEFAULT(bool, coarse_freeze_elide_ubr, true,
                    "elide fall-through ubr when freezing coarse units")

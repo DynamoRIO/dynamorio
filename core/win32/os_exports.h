@@ -411,6 +411,7 @@ bool is_in_xdata_section(app_pc module_base, app_pc addr,
 thread_id_t get_loader_lock_owner(void);
 bool module_pc_section_lookup(app_pc module_base, app_pc pc,
                               IMAGE_SECTION_HEADER *section_out);
+bool os_module_has_dynamic_base(app_pc module_base);
 
 /* in callback.c */
 dcontext_t *

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,6 +40,10 @@
 #define OS_IMAGE_READ    IMAGE_SCN_MEM_READ
 #define OS_IMAGE_WRITE   IMAGE_SCN_MEM_WRITE
 #define OS_IMAGE_EXECUTE IMAGE_SCN_MEM_EXECUTE
+
+#ifndef IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE
+# define IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE 0x0040
+#endif
 
 typedef struct _os_module_data_t {
     app_pc preferred_base; /* module preferred base from the PE headers */

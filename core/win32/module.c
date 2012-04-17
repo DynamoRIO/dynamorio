@@ -6209,3 +6209,13 @@ get_shared_lib_name(app_pc map)
 {
     return get_dll_short_name(map);
 }
+
+bool
+os_module_has_dynamic_base(app_pc module_base)
+{
+    IMAGE_NT_HEADERS *nt;
+    ASSERT(is_readable_pe_base(module_base));
+    nt = NT_HEADER(module_base);
+    return TEST(IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE,
+                nt->OptionalHeader.DllCharacteristics);
+}

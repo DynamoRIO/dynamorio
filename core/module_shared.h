@@ -182,6 +182,10 @@ enum {
     /* PR 277064/277044: have we scanned the module yet? */
     MODULE_RCT_SCANNED     = 0x00000020,
 #endif
+#ifdef WINDOWS
+    /* do not created a persistent cache from this module */
+    MODULE_DO_NOT_PERSIST  = 0x00000040,
+#endif
 };
 
 /**************** init/exit routines *****************/
