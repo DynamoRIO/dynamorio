@@ -3481,6 +3481,9 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
          * We preserve the NULL so our translation routines know to not
          * let this be a thread relocation point
          */
+        /* i#739, skip label instr */
+        if (instr_is_label(inst))
+            continue;
         /* PR 302951: clean call args are instr_is_our_mangling so no assert for that */
         ASSERT(app != NULL || !instr_ok_to_mangle(inst));
         /* see whether we need a new entry, or the current stride (contig

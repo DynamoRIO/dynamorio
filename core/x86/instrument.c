@@ -3882,7 +3882,7 @@ cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
  * If "save_fpstate" is true, saves the fp/mmx/sse state.
  *
  * NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
- * dr_prepare_for_clean_call(). We guarantee to clients that all other slots
+ * dr_prepare_for_call(). We guarantee to clients that all other slots
  * (except the XAX mcontext slot) will remain untouched.
  */
 void 
