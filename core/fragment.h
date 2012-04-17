@@ -909,6 +909,16 @@ app_pc
 fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
                          /*OUT*/cache_pc *body);
 
+/* Creates a reverse lookup table.  For a non-frozen unit, the caller should only
+ * do this while all threads are suspended, and should free the table before
+ * resuming other threads.
+ */
+void
+fragment_coarse_create_entry_pclookup_table(dcontext_t *dcontext, coarse_info_t *info);
+
+void
+fragment_coarse_free_entry_pclookup_table(dcontext_t *dcontext, coarse_info_t *info);
+
 /* Returns the tag for the coarse fragment whose body _begins at_ pc */
 app_pc
 fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info,

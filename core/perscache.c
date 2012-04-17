@@ -697,7 +697,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
     /* trigger lazy initialize to avoid deadlock on calling 
      * coarse_cti_is_intra_fragment() during shifting
      */
-    fragment_coarse_entry_pclookup(dcontext, info, info->cache_start_pc);
+    fragment_coarse_create_entry_pclookup_table(dcontext, info);
 
     mutex_lock(&info->lock);
     ASSERT(info->cache != NULL); /* don't freeze empty units */
@@ -843,6 +843,9 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
                    ACCT_MEM_MGT/*appropriate?*/, PROTECTED);
 
     mutex_unlock(&info->lock);
+
+    /* be sure to free to avoid missing entries if we add to info later */
+    fragment_coarse_free_entry_pclookup_table(dcontext, info);
 
     DOLOG(3, LOG_CACHE, {
         if (res != NULL) {

@@ -7857,6 +7857,17 @@ study_and_free_coarse_htable(coarse_info_t *info, coarse_table_t *htable,
 }
 
 void
+fragment_coarse_free_entry_pclookup_table(dcontext_t *dcontext, coarse_info_t *info)
+{
+    if (info->pclookup_htable != NULL) {
+        ASSERT(DYNAMO_OPTION(coarse_pclookup_table));
+        study_and_free_coarse_htable(info, (coarse_table_t *) info->pclookup_htable,
+                                     true/*never persisted*/ _IF_DEBUG("pclookup"));
+        info->pclookup_htable = NULL;
+    }
+}
+
+void
 fragment_coarse_htable_free(coarse_info_t *info)
 {
     ASSERT_OWN_MUTEX(!info->is_local, &info->lock);
@@ -7876,12 +7887,7 @@ fragment_coarse_htable_free(coarse_info_t *info)
         generic_hash_destroy(GLOBAL_DCONTEXT, info->pclookup_last_htable);
         info->pclookup_last_htable = NULL;
     }
-    if (info->pclookup_htable != NULL) {
-        ASSERT(DYNAMO_OPTION(coarse_pclookup_table));
-        study_and_free_coarse_htable(info, (coarse_table_t *) info->pclookup_htable,
-                                     true/*never persisted*/ _IF_DEBUG("pclookup"));
-        info->pclookup_htable = NULL;
-    }
+    fragment_coarse_free_entry_pclookup_table(GLOBAL_DCONTEXT, info);
 }
 
 uint
@@ -8479,33 +8485,22 @@ fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
     return closest;
 }
 
-/* Returns the tag for the coarse fragment whose body _begins at_ pc */
-app_pc
-fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc)
+/* Creates a reverse lookup table.  For a non-frozen unit, the caller should only
+ * do this while all threads are suspended, and should free the table before
+ * resuming other threads.
+ */
+void
+fragment_coarse_create_entry_pclookup_table(dcontext_t *dcontext, coarse_info_t *info)
 {
     app_to_cache_t main_a2c;
     app_to_cache_t pc_a2c;
     coarse_table_t *main_htable;
     coarse_table_t *pc_htable;
     cache_pc body_pc;
-    app_pc res = NULL;
     uint i;
     ASSERT(info != NULL);
     if (info->htable == NULL)
-        return NULL;
-    /* FIXME: we could use this table for non-frozen if we updated it
-     * when we add to main htable; for now we only support frozen use
-     */
-    if (!DYNAMO_OPTION(coarse_pclookup_table) || !info->frozen) {
-        res = fragment_coarse_pclookup(dcontext, info, pc, &body_pc);
-        if (body_pc == pc) {
-            LOG(THREAD, LOG_FRAGMENT, 4, "%s: "PFX" => "PFX"\n", __FUNCTION__, pc, res);
-            return res;
-        } else
-            return NULL;
-    }
-    KSTART(coarse_pclookup);
-
+        return;
     if (info->pclookup_htable == NULL) {
         mutex_lock(&info->lock);
         if (info->pclookup_htable == NULL) {
@@ -8569,6 +8564,37 @@ fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_
             info->pclookup_htable = (void *) pc_htable;
         }
         mutex_unlock(&info->lock);
+    }
+}
+
+/* Returns the tag for the coarse fragment whose body _begins at_ pc */
+app_pc
+fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc)
+{
+    app_to_cache_t pc_a2c;
+    coarse_table_t *pc_htable;
+    cache_pc body_pc;
+    app_pc res = NULL;
+    ASSERT(info != NULL);
+    if (info->htable == NULL)
+        return NULL;
+    /* FIXME: we could use this table for non-frozen if we updated it
+     * when we add to main htable; for now we only support frozen use
+     */
+    if (!DYNAMO_OPTION(coarse_pclookup_table) ||
+        /* we do create a table for non-frozen while we're freezing (i#735) */
+        (!info->frozen && info->pclookup_htable == NULL)) {
+        res = fragment_coarse_pclookup(dcontext, info, pc, &body_pc);
+        if (body_pc == pc) {
+            LOG(THREAD, LOG_FRAGMENT, 4, "%s: "PFX" => "PFX"\n", __FUNCTION__, pc, res);
+            return res;
+        } else
+            return NULL;
+    }
+    KSTART(coarse_pclookup);
+
+    if (info->pclookup_htable == NULL) {
+        fragment_coarse_create_entry_pclookup_table(dcontext, info);
     }
 
     pc_htable = (coarse_table_t *) info->pclookup_htable;
