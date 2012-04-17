@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -289,10 +289,6 @@
    /* even though only usable in all-private config useful in default builds */
 #  define SHARING_STUDY
 #  define HASHTABLE_STATISTICS
-#endif
-
-#ifndef INTERNAL
-#  define EXTERNAL_DRVIEW
 #endif
 
 #ifdef LINKCOUNT

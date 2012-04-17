@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -722,8 +723,13 @@ get_process_name_and_cmdline(process_id_t pid, WCHAR *name_buf, int name_len, WC
     RTL_USER_PROCESS_PARAMETERS process_parameters;
     DWORD error = ERROR_SUCCESS;
 
-    acquire_privileges();
-    process_handle = OpenProcess(PROCESS_ALL_ACCESS,
+    error = acquire_privileges();
+    if (error != ERROR_SUCCESS)
+        goto exit;
+    /* deliberately asking for pre-Vista PROCESS_ALL_ACCESS so that this code
+     * compiled w/ later VS will run on pre-Vista
+     */
+    process_handle = OpenProcess(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xFFF,
                                  FALSE,
                                  (DWORD)pid);
     error = GetLastError();

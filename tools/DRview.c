@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,11 +55,7 @@
 #include "ntdll.h"
 #include "processes.h"
 
-#ifdef EXTERNAL_DRVIEW
-# define NAME "DR"
-#else
-# define NAME "SC"
-#endif
+#define NAME "DR"
 
 int procwalk();
 void dllwalk();
@@ -67,11 +64,7 @@ void
 usage()
 {
     fprintf(stderr, "Usage:\n");
-#ifdef EXTERNAL_DRVIEW
-    fprintf(stderr, "drview [-help] [-pid n] [-exe name] [-listdr] [-listall] [-v]\n");
-#else
     fprintf(stderr, "DRview [-help] [-pid n] [-exe name] [-listdr] [-listall] [-listdlls] [-showdlls] [-nopid] [-no32] [-out file] [-cmdline] [-showmem] [-showtime] [-nobuildnum] [-qname strip] [-noqnames] [-hot_patch] [-s n] [-tillidle] [-idlecpu c] [-showmemfreq f] [-idleafter s] [-v]\n");
-#endif
     exit(1);
 }
 
@@ -84,7 +77,6 @@ help()
     fprintf(stderr, "\t\t\t'name', shows whether injected into\n");
     fprintf(stderr, " -listdr\t\tlist all processes injected into\n");
     fprintf(stderr, " -listall\t\tlist all processes on the system, show whether injected_into\n");
-#ifndef EXTERNAL_DRVIEW
     fprintf(stderr, " -listdlls\t\tlist all DLLs [short] for a specific pid or executable\n");
     fprintf(stderr, " -showdlls\t\tlist all DLLs [long] for a specific pid or executable\n");
     fprintf(stderr, " -nopid\t\t\tdoes not display PIDs of processes (useful for expect files)\n");
@@ -109,7 +101,6 @@ help()
      */
     fprintf(stderr, " -showmemfreq f\t\tfor -tillidle -showmem, show -showmem every f samples (default: 1)\n");
     fprintf(stderr, " -idleafter s\t\tflag machine is idle after s seconds (default: 3s)\n");
-#endif /* !EXTERNAL_DRVIEW */
     fprintf(stderr, " -v\t\t\tdisplay version information\n\n");
 
     exit(1);
@@ -140,7 +131,7 @@ FILE *fp;
 LONGLONG total_user = 0;
 LONGLONG total_kernel = 0;
 
-#define MAX_CMDLINE 1024
+#define MAX_CMDLINE 2048
 
 #define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
@@ -293,7 +284,6 @@ main(int argc, char **argv)
         else if (!strcmp(argv[argidx], "-listdlls")) {
 	  listdlls=TRUE;
         }
-#ifndef EXTERNAL_DRVIEW
         else if (!strcmp(argv[argidx], "-showdlls")) {
 	  listdlls=TRUE;
           showdlls=TRUE;
@@ -392,7 +382,6 @@ main(int argc, char **argv)
             /* internal option: skip drview's contribution to total scheduled time */
             skip=TRUE;
         }
-#endif /* !EXTERNAL_DRVIEW */
         else if (!strcmp(argv[argidx], "-v")) {
 #if defined(BUILD_NUMBER) && defined(VERSION_NUMBER)
           printf("drview.exe version %s -- build %d\n", STRINGIFY(VERSION_NUMBER), BUILD_NUMBER);
@@ -589,7 +578,13 @@ pw_callback(process_info_t *pi, void **param)
                     if (res == ERROR_SUCCESS) {
                         fprintf(fp, "\tCmdline: %S\n", buf);
                     }
-                    else fprintf(fp, "\t<Cmdline err %d>\n", res);
+                    else {
+                        /* acquiring SeDebugPrivilege requires being admin */
+                        if (res == ERROR_NOT_ALL_ASSIGNED)
+                            fprintf(fp, "\t<Re-run as administrator for cmdline>\n");
+                        else
+                            fprintf(fp, "\t<Cmdline err %d>\n", res);
+                    }
                 }
                 if (qname) {
                     WCHAR cmdline[MAX_CMDLINE];

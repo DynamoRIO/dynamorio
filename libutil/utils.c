@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1230,6 +1230,8 @@ DWORD PrivSize = sizeof(OldPriv);
 DWORD 
 acquire_privileges() 
 {
+    DWORD error;
+
     /* if the privileges are already acquired, don't bother.
        this almost certainly will cause failures if multiple
         threads are trying to acquire privileges.
@@ -1255,9 +1257,14 @@ acquire_privileges()
     Priv.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
     LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &Priv.Privileges[0].Luid);
     // try to enable the privilege
-    if(!AdjustTokenPrivileges(hToken, FALSE, &Priv, sizeof(Priv), 
+    if (!AdjustTokenPrivileges(hToken, FALSE, &Priv, sizeof(Priv),
                               &OldPriv, &PrivSize)) {
         return GetLastError();
+    }
+    error = GetLastError();
+    if (error == ERROR_NOT_ALL_ASSIGNED) {
+        /* acquiring SeDebugPrivilege requires being admin */
+        return error;
     }
 
     return ERROR_SUCCESS;
