@@ -271,7 +271,7 @@ get_module_exports_directory_check_common(app_pc base_addr,
  * XXX - We could also allow wildcards and, if desired, extend it to
  * return multiple matching addresses.
  */
-/* Interface is similar to msdn GetProcAddress, takes in a module_handle_t
+/* Interface is similar to msdn GetProcAddress, takes in a module handle
  * (this is just the allocation base of the module) and either a name
  * or an ordinal and returns the address of the export with said name
  * or ordinal.  Returns NULL on failure.
@@ -282,7 +282,7 @@ get_module_exports_directory_check_common(app_pc base_addr,
  * behavior we want?). Name is case insensitive.
  */ 
 static generic_func_t
-get_proc_address_common(module_handle_t lib, const char *name, uint ordinal
+get_proc_address_common(module_base_t lib, const char *name, uint ordinal
                         _IF_NOT_X64(bool ldr64), const char **forwarder OUT)
 {
     app_pc module_base;
@@ -458,7 +458,7 @@ get_module_exports_directory_check(app_pc base_addr,
 }
 
 generic_func_t
-get_proc_address(module_handle_t lib, const char *name)
+get_proc_address(module_base_t lib, const char *name)
 {
     return get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(false), NULL);
 }
@@ -467,14 +467,14 @@ get_proc_address(module_handle_t lib, const char *name)
 
 /* could be linked w/ non-core but only used by loader.c so far */
 generic_func_t
-get_proc_address_ex(module_handle_t lib, const char *name, const char **forwarder OUT)
+get_proc_address_ex(module_base_t lib, const char *name, const char **forwarder OUT)
 {
     return get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(false), forwarder);
 }
 
 /* could be linked w/ non-core but only used by loader.c so far */
 generic_func_t
-get_proc_address_by_ordinal(module_handle_t lib, uint ordinal, const char **forwarder OUT)
+get_proc_address_by_ordinal(module_base_t lib, uint ordinal, const char **forwarder OUT)
 {
     return get_proc_address_common(lib, NULL, ordinal _IF_NOT_X64(false), forwarder);
 }
@@ -482,7 +482,7 @@ get_proc_address_by_ordinal(module_handle_t lib, uint ordinal, const char **forw
 # if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 
 generic_func_t
-get_proc_address_resolve_forward(module_handle_t lib, const char *name)
+get_proc_address_resolve_forward(module_base_t lib, const char *name)
 {
     /* We match GetProcAddress and follow forwarded exports (i#428).
      * Not doing this inside get_proc_address() b/c I'm not certain the core

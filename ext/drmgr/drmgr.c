@@ -1140,7 +1140,8 @@ drmgr_cls_init(void)
      */
     static int cls_initialized; /* 0=not tried; >0=success; <0=failure */
     module_data_t *data;
-    byte *ntdll_lib, *addr_cbret;
+    module_handle_t ntdll_lib;
+    app_pc addr_cbret;
     drmgr_priority_t priority = {sizeof(priority), "drmgr_cls", NULL, NULL, 0};
 
     if (cls_initialized > 0)
@@ -1160,7 +1161,7 @@ drmgr_cls_init(void)
         /* fatal error: something is really wrong w/ underlying DR */
         return false;
     }
-    ntdll_lib = data->start;
+    ntdll_lib = data->handle;
     dr_free_module_data(data);
     addr_KiCallback = (app_pc) dr_get_proc_address(ntdll_lib, "KiUserCallbackDispatcher");
     if (addr_KiCallback == NULL)

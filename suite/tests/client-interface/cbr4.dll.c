@@ -417,8 +417,8 @@ void dr_init(client_id_t id)
     module_data_t *prog = dr_lookup_module_by_name("client.cbr4.exe");
     ASSERT(prog != NULL);
 
-    start_pc = (app_pc)dr_get_proc_address(prog->start, "start_instrument");
-    stop_pc = (app_pc)dr_get_proc_address(prog->start, "stop_instrument");
+    start_pc = (app_pc)dr_get_proc_address(prog->handle, "start_instrument");
+    stop_pc = (app_pc)dr_get_proc_address(prog->handle, "stop_instrument");
     
     ASSERT(start_pc != NULL && stop_pc != NULL);
     dr_free_module_data(prog);

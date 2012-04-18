@@ -889,7 +889,7 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
  * and use it here
  */
 generic_func_t
-get_proc_address_ex(module_handle_t lib, const char *name, bool *is_indirect_code OUT)
+get_proc_address_ex(module_base_t lib, const char *name, bool *is_indirect_code OUT)
 {
     app_pc res = NULL;
     module_area_t *ma;
@@ -928,7 +928,7 @@ get_proc_address_ex(module_handle_t lib, const char *name, bool *is_indirect_cod
 }
 
 generic_func_t
-get_proc_address(module_handle_t lib, const char *name)
+get_proc_address(module_base_t lib, const char *name)
 {
     return get_proc_address_ex(lib, name, NULL);
 }

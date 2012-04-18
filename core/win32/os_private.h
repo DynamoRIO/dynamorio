@@ -644,10 +644,6 @@ section_to_file_add(HANDLE section_handle, const char *file_path);
 bool
 section_to_file_remove(HANDLE section_handle);
 
-/* in module_shared.c */
-generic_func_t
-get_proc_address_ex(module_handle_t lib, const char *name, const char **forwarder OUT);
-
 /* in aslr.c */
 const wchar_t *
 get_file_short_name(IN HANDLE file_handle, IN OUT FILE_NAME_INFORMATION *name_info);

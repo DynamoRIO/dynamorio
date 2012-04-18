@@ -1882,9 +1882,17 @@ get_module_exports_directory_check(app_pc base_addr,
 
 /* Kernel32 uses HMODULE type for Load/FreeLibrary and GetModuleHandle. This
  * is, at least in the platforms we've seen so far, just a pointer to the base
- * address of the dll. We use a separate type here to keep things neat. */
-/* FIXME - this duplicates the typedef in os_private.h */
-typedef void * module_handle_t;
+ * address of the dll. We use separate types here to keep things neat.
+ * module_handle_t is a pointer to an opaque struct to improve type safety, but
+ * internally we use module_base_t which can be freely converted to HMODULE,
+ * HANDLE, byte*, and app_pc.
+ */
+/* FIXME: This duplicates the typedef in module_shared.h, but we can't include
+ * that into drpreinject or drinjectlib.
+ */
+struct _module_handle_t;
+typedef struct _module_handle_t *module_handle_t;
+typedef void *module_base_t;
 
 module_handle_t
 load_library(wchar_t *lib_name);

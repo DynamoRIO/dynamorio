@@ -34,6 +34,8 @@
 #ifndef MODULE_LIST_H
 #define MODULE_LIST_H
 
+#include "heap.h"  /* for HEAPACCT */
+
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */
 /**************************************************
@@ -45,7 +47,14 @@
  * #_module_data_t structure.  It is equivalent to the base address of
  * the module on both Windows and Linux.
  */
-typedef void * module_handle_t;
+#ifdef AVOID_API_EXPORT
+/* Rather than using a void * for the module base, we forward declare a struct
+ * that we never define.  This prevents usage errors such as passing a
+ * module_data_t* to dr_get_proc_address().
+ */
+#endif
+struct _module_handle_t;
+typedef struct _module_handle_t * module_handle_t;
 
 #ifdef WINDOWS
 
@@ -279,21 +288,37 @@ bool os_get_module_info_all_names(const app_pc pc,
                                   size_t *size, module_names_t **names,
                                   size_t *code_size, uint64 *file_version);
 
+/* We'd like to have these get_proc_address* routines take a module_handle_t for
+ * type safety, but we have too much DR internal code that passes HMODULE,
+ * HANDLE, and app_pc values to these routines.  Instead we use this
+ * module_base_t typedef internally, so we can freely convert from handles to
+ * void*'s and app_pcs.
+ */
+typedef void *module_base_t;
+
 generic_func_t
-get_proc_address(module_handle_t lib, const char *name);
+get_proc_address(module_base_t lib, const char *name);
 
 #ifdef LINUX
 /* if we add any more values, switch to a globally-defined dr_export_info_t 
  * and use it here
  */
 generic_func_t
-get_proc_address_ex(module_handle_t lib, const char *name, bool *is_indirect_code OUT);
-#else
+get_proc_address_ex(module_base_t lib, const char *name, bool *is_indirect_code OUT);
+#else /* WINDOWS */
+
+generic_func_t
+get_proc_address_ex(module_base_t lib, const char *name, const char **forwarder OUT);
+
+generic_func_t
+get_proc_address_by_ordinal(module_base_t lib, uint ordinal, const char **forwarder OUT);
+
 # ifdef CLIENT_INTERFACE
 generic_func_t
-get_proc_address_resolve_forward(module_handle_t lib, const char *name);
+get_proc_address_resolve_forward(module_base_t lib, const char *name);
 # endif
-#endif
+
+#endif /* WINDOWS */
 
 void print_modules(file_t f, bool dump_xml);
 

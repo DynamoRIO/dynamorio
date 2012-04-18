@@ -117,7 +117,6 @@ event_resurrect_ro(void *drcontext, void *perscxt, byte **map INOUT)
 {
     bool ok = true;
     uint i;
-    size_t *entry;
     app_pc start = dr_persist_start(perscxt);
     size_t size = dr_persist_size(perscxt);
     byte *base = *(byte **)(*map);

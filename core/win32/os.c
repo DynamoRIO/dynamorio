@@ -351,7 +351,7 @@ DECLARE_CXTSWPROT_VAR(mutex_t profile_dump_lock, INIT_LOCK_FREE(profile_dump_loc
 static void
 get_dll_bounds(wchar_t *name, app_pc *start, app_pc *end)
 {
-    HMODULE dllh;
+    module_handle_t dllh;
     size_t len;
     PBYTE pb;
     MEMORY_BASIC_INFORMATION mbi;

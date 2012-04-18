@@ -34,6 +34,8 @@
 #ifndef MODULE_H
 #define MODULE_H
 
+#include "ntdll.h"
+
 #include "../fragment.h" /* for rct_module_table_t, is inlined so need struct definition
                        * FIXME - remove this header dependency */
 
@@ -92,9 +94,5 @@ typedef struct _os_module_data_t {
     byte *iat_code;
     size_t iat_len;
 } os_module_data_t;
-
-/* windows-specific */
-generic_func_t
-get_proc_address_by_ordinal(module_handle_t lib, uint ordinal, const char **forwarder OUT);
 
 #endif /* MODULE_H */

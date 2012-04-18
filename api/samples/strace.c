@@ -349,7 +349,7 @@ get_write_sysnum(void)
     byte *entry;
     module_data_t *data = dr_lookup_module_by_name("ntdll.dll");
     DR_ASSERT(data != NULL);
-    entry = (byte *) dr_get_proc_address(data->start, "NtWriteFile");
+    entry = (byte *) dr_get_proc_address(data->handle, "NtWriteFile");
     DR_ASSERT(entry != NULL);
     dr_free_module_data(data);
     return decode_syscall_num(entry);
