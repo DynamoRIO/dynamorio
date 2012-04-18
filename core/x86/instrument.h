@@ -2182,9 +2182,12 @@ struct _module_data_t {
 
 DR_API
 /**
- * Looks up the module containing \p pc.  If a module containing \p pc is found returns
- * a module_data_t describing that module else returns NULL.  Can be used to
- * obtain a module_handle_t for dr_lookup_module_section().
+ * Looks up the module containing \p pc.  If a module containing \p pc is found
+ * returns a module_data_t describing that module.  Returns NULL if \p pc is
+ * outside all known modules, which is the case for most dynamically generated
+ * code.  Can be used to obtain a module_handle_t for dr_lookup_module_section()
+ * or dr_get_proc_address() via the \p handle field inside module_data_t.
+ *
  * \note Returned module_data_t must be freed with dr_free_module_data().
  */
 module_data_t *
@@ -3322,10 +3325,13 @@ DR_API
  * This is equivalent to dr_save_reg() of xax to \p slot followed by lahf and
  * seto al instructions.  See dr_restore_arith_flags().
  *
- * \note At completion of the inserted instructions the saved flags are in the
+ * \warning At completion of the inserted instructions the saved flags are in the
  * xax register.  The xax register should not be modified after using this
  * routine unless it is first saved (and later restored prior to
  * using dr_restore_arith_flags()).
+ *
+ * \deprecated This routine is equivalent to dr_save_reg() followed by
+ * dr_save_arith_flags_to_xax().
  */
 void 
 dr_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -3336,10 +3342,41 @@ DR_API
  * Inserts into \p ilist prior to \p where meta-instruction(s) to restore the 6
  * arithmetic flags, assuming they were saved using dr_save_arith_flags() with
  * slot \p slot and that xax holds the same value it did after the save.
+ *
+ * \deprecated This routine is equivalent to dr_restore_arith_flags_from_xax()
+ * followed by dr_restore_reg().
  */
 void 
 dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                        dr_spill_slot_t slot);
+
+DR_API
+/**
+ * Inserts into \p ilist prior to \p where meta-instruction(s) to save the 6
+ * arithmetic flags into xax.  This currently uses \DynamoRIO's "lahf ; seto al"
+ * code sequence, which is faster and easier than pushf.  If the caller wishes
+ * to use xax between saving and restoring these flags, they must save and
+ * restore xax, potentially using dr_save_reg()/dr_restore_reg().  If the caller
+ * needs to save both the current value of xax and the flags stored to xax by
+ * this routine, they must use separate spill slots, or they will overwrite the
+ * original xax value in memory.
+ *
+ * \warning Clobbers xax; the caller must ensure xax is dead or saved at
+ * \p where.
+ */
+void 
+dr_save_arith_flags_to_xax(void *drcontext, instrlist_t *ilist, instr_t *where);
+
+DR_API
+/**
+ * Inserts into \p ilist prior to \p where meta-instruction(s) to restore the 6
+ * arithmetic flags from xax.  This currently uses \DynamoRIO's "add $0x7f %al ;
+ * sahf" code sequence, which is faster and easier than popf.  The caller must
+ * ensure that xax contains the arithmetic flags, most likely from
+ * dr_save_arith_flags_to_xax().
+ */
+void 
+dr_restore_arith_flags_from_xax(void *drcontext, instrlist_t *ilist, instr_t *where);
 
 /* FIXME PR 315333: add routine that scans ahead to see if need to save eflags.  See 
  * forward_eflags_analysis(). */

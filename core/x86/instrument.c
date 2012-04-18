@@ -4387,39 +4387,63 @@ DR_API void
 dr_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                     dr_spill_slot_t slot)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
-    CLIENT_ASSERT(drcontext != NULL, "dr_save_arith_flags: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_save_arith_flags: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_save_arith_flags: drcontext is invalid");
     CLIENT_ASSERT(slot <= SPILL_SLOT_MAX,
                   "dr_save_arith_flags: invalid spill slot selection");
 
-    /* flag saving code:
-     *   save eax
-     *   lahf
-     *   seto al
-     */
     dr_save_reg(drcontext, ilist, where, REG_XAX, slot);
-    MINSERT(ilist, where, INSTR_CREATE_lahf(dcontext));
-    MINSERT(ilist, where,
-            INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
+    dr_save_arith_flags_to_xax(drcontext, ilist, where);
 }
 
 DR_API void 
 dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                        dr_spill_slot_t slot)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
-    CLIENT_ASSERT(drcontext != NULL, "dr_restore_arith_flags: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_restore_arith_flags: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_restore_arith_flags: drcontext is invalid");
     CLIENT_ASSERT(slot <= SPILL_SLOT_MAX,
                   "dr_restore_arith_flags: invalid spill slot selection");
 
+    dr_restore_arith_flags_from_xax(drcontext, ilist, where);
+    dr_restore_reg(drcontext, ilist, where, REG_XAX, slot);
+}
+
+DR_API void 
+dr_save_arith_flags_to_xax(void *drcontext, instrlist_t *ilist, instr_t *where)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_save_arith_flags_to_xax: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
+                  "dr_save_arith_flags_to_xax: drcontext is invalid");
+
+    /* flag saving code:
+     *   lahf
+     *   seto al
+     */
+    MINSERT(ilist, where, INSTR_CREATE_lahf(dcontext));
+    MINSERT(ilist, where,
+            INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
+}
+
+DR_API void 
+dr_restore_arith_flags_from_xax(void *drcontext, instrlist_t *ilist,
+                                instr_t *where)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_restore_arith_flags_from_xax: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
+                  "dr_restore_arith_flags_from_xax: drcontext is invalid");
+
     /* flag restoring code:
      *   add 0x7f,%al
      *   sahf
-     *   restore eax
      */
     /* do an add such that OF will be set only if seto set
      * the MSB of saveto to 1
@@ -4427,7 +4451,6 @@ dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(ilist, where,
             INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
     MINSERT(ilist, where, INSTR_CREATE_sahf(dcontext));
-    dr_restore_reg(drcontext, ilist, where, REG_XAX, slot);
 }
 
 /* providing functionality of old -instr_calls and -instr_branches flags

@@ -1180,9 +1180,26 @@ DR_API
  * If \p sz == OPSZ_2, returns the 16-bit version of \p reg.
  * For 64-bit versions of this library, if \p sz == OPSZ_8, returns 
  * the 64-bit version of \p reg.
+ * Returns \p DR_REG_NULL when trying to get the 8-bit subregister of \p
+ * DR_REG_ESI, \p DR_REG_EDI, \p DR_REG_EBP, or \p DR_REG_ESP in 32-bit mode.
+ *
+ * \deprecated Prefer reg_resize_to_opsz() which is more general.
  */
 reg_id_t
 reg_32_to_opsz(reg_id_t reg, opnd_size_t sz);
+
+DR_API
+/**
+ * Given a general-purpose register of any size, returns a register in the same
+ * class of the given size.  For example, given \p DR_REG_AX or \p DR_REG_RAX
+ * and \p OPSZ_1, this routine will return \p DR_REG_AL.
+ * Returns \p DR_REG_NULL when trying to get the 8-bit subregister of \p
+ * DR_REG_ESI, \p DR_REG_EDI, \p DR_REG_EBP, or \p DR_REG_ESP in 32-bit mode.
+ * For 64-bit versions of this library, if \p sz == OPSZ_8, returns the 64-bit
+ * version of \p reg.
+ */
+reg_id_t
+reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz);
 
 DR_API
 /**  

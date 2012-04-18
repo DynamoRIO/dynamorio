@@ -133,8 +133,10 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
             break;
     }
 
-    if (instr == NULL)
-        dr_save_arith_flags(drcontext, bb, first, SPILL_SLOT_1);
+    if (instr == NULL) {
+        dr_save_reg(drcontext, bb, first, DR_REG_XAX, SPILL_SLOT_1);
+        dr_save_arith_flags_to_xax(drcontext, bb, first);
+    }
     /* Increment the global counter using the lock prefix to make it atomic
      * across threads.
      */
@@ -149,8 +151,10 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
          LOCK(INSTR_CREATE_inc(drcontext, OPND_CREATE_ABSMEM
                                ((byte *)&global_count, OPSZ_4))));
 #endif
-    if (instr == NULL)
-        dr_restore_arith_flags(drcontext, bb, first, SPILL_SLOT_1);
+    if (instr == NULL) {
+        dr_restore_arith_flags_from_xax(drcontext, bb, first);
+        dr_restore_reg(drcontext, bb, first, DR_REG_XAX, SPILL_SLOT_1);
+    }
     
 #ifdef SHOW_RESULTS
     if (instr == NULL)

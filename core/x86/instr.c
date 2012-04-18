@@ -1503,6 +1503,14 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
     return reg;
 }
 
+reg_id_t
+reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz)
+{
+    CLIENT_ASSERT(reg_is_gpr(reg), "reg_resize_to_opsz: passed non GPR reg");
+    reg = reg_to_pointer_sized(reg);
+    return reg_32_to_opsz(IF_X64_ELSE(reg_64_to_32(reg), reg), sz);
+}
+
 int
 reg_parameter_num(reg_id_t reg)
 {

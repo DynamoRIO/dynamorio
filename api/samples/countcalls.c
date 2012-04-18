@@ -160,7 +160,8 @@ insert_counter_update(void *drcontext, instrlist_t *bb, instr_t *where, int offs
      * lahf) or by doing a liveness analysis on the flags and saving
      * only if live.
      */
-    dr_save_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
+    dr_save_reg(drcontext, bb, where, DR_REG_XAX, SPILL_SLOT_1);
+    dr_save_arith_flags_to_xax(drcontext, bb, where);
 
     /* Increment the global counter using the lock prefix to make it atomic
      * across threads. It would be cheaper to aggregate the thread counters
@@ -188,8 +189,9 @@ insert_counter_update(void *drcontext, instrlist_t *bb, instr_t *where, int offs
         dr_restore_reg(drcontext, bb, where, DR_REG_XBX, SPILL_SLOT_2);
     }
 
-    /* restore flags */
-    dr_restore_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
+    /* Restore flags and xax. */
+    dr_restore_arith_flags_from_xax(drcontext, bb, where);
+    dr_restore_reg(drcontext, bb, where, DR_REG_XAX, SPILL_SLOT_1);
 }
 
 static dr_emit_flags_t

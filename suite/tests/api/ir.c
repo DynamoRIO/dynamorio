@@ -707,6 +707,95 @@ test_x86_mode(void *dc)
 }
 #endif
 
+static void
+test_regs(void *dc)
+{
+    reg_id_t reg;
+    /* Various subregs of xax to OPSZ_1. */
+#ifdef X64
+    reg = reg_resize_to_opsz(DR_REG_RAX, OPSZ_1);
+    ASSERT(reg == DR_REG_AL);
+#endif
+    reg = reg_resize_to_opsz(DR_REG_EAX, OPSZ_1);
+    ASSERT(reg == DR_REG_AL);
+    reg = reg_resize_to_opsz(DR_REG_AX, OPSZ_1);
+    ASSERT(reg == DR_REG_AL);
+    reg = reg_resize_to_opsz(DR_REG_AH, OPSZ_1);
+    ASSERT(reg == DR_REG_AL);
+    reg = reg_resize_to_opsz(DR_REG_AL, OPSZ_1);
+    ASSERT(reg == DR_REG_AL);
+
+    /* xax to OPSZ_2 */
+#ifdef X64
+    reg = reg_resize_to_opsz(DR_REG_RAX, OPSZ_2);
+    ASSERT(reg == DR_REG_AX);
+#endif
+    reg = reg_resize_to_opsz(DR_REG_EAX, OPSZ_2);
+    ASSERT(reg == DR_REG_AX);
+    reg = reg_resize_to_opsz(DR_REG_AX, OPSZ_2);
+    ASSERT(reg == DR_REG_AX);
+    reg = reg_resize_to_opsz(DR_REG_AH, OPSZ_2);
+    ASSERT(reg == DR_REG_AX);
+    reg = reg_resize_to_opsz(DR_REG_AL, OPSZ_2);
+    ASSERT(reg == DR_REG_AX);
+
+    /* xax to OPSZ_4 */
+#ifdef X64
+    reg = reg_resize_to_opsz(DR_REG_RAX, OPSZ_4);
+    ASSERT(reg == DR_REG_EAX);
+#endif
+    reg = reg_resize_to_opsz(DR_REG_EAX, OPSZ_4);
+    ASSERT(reg == DR_REG_EAX);
+    reg = reg_resize_to_opsz(DR_REG_AX, OPSZ_4);
+    ASSERT(reg == DR_REG_EAX);
+    reg = reg_resize_to_opsz(DR_REG_AH, OPSZ_4);
+    ASSERT(reg == DR_REG_EAX);
+    reg = reg_resize_to_opsz(DR_REG_AL, OPSZ_4);
+    ASSERT(reg == DR_REG_EAX);
+
+#ifdef X64
+    /* xax to OPSZ_8 */
+    reg = reg_resize_to_opsz(DR_REG_RAX, OPSZ_8);
+    ASSERT(reg == DR_REG_RAX);
+    reg = reg_resize_to_opsz(DR_REG_EAX, OPSZ_8);
+    ASSERT(reg == DR_REG_RAX);
+    reg = reg_resize_to_opsz(DR_REG_AX, OPSZ_8);
+    ASSERT(reg == DR_REG_RAX);
+    reg = reg_resize_to_opsz(DR_REG_AH, OPSZ_8);
+    ASSERT(reg == DR_REG_RAX);
+    reg = reg_resize_to_opsz(DR_REG_AL, OPSZ_8);
+    ASSERT(reg == DR_REG_RAX);
+#endif
+
+    /* Quick check of other regs. */
+    reg = reg_resize_to_opsz(DR_REG_XBX, OPSZ_1);
+    ASSERT(reg == DR_REG_BL);
+    reg = reg_resize_to_opsz(DR_REG_XCX, OPSZ_1);
+    ASSERT(reg == DR_REG_CL);
+    reg = reg_resize_to_opsz(DR_REG_XDX, OPSZ_1);
+    ASSERT(reg == DR_REG_DL);
+
+    /* X64 only subregs, OPSZ_1. */
+    reg = reg_resize_to_opsz(DR_REG_XDI, OPSZ_1);
+    ASSERT(reg == IF_X64_ELSE(DR_REG_DIL, DR_REG_NULL));
+    reg = reg_resize_to_opsz(DR_REG_XSI, OPSZ_1);
+    ASSERT(reg == IF_X64_ELSE(DR_REG_SIL, DR_REG_NULL));
+    reg = reg_resize_to_opsz(DR_REG_XSP, OPSZ_1);
+    ASSERT(reg == IF_X64_ELSE(DR_REG_SPL, DR_REG_NULL));
+    reg = reg_resize_to_opsz(DR_REG_XBP, OPSZ_1);
+    ASSERT(reg == IF_X64_ELSE(DR_REG_BPL, DR_REG_NULL));
+
+    /* X64 only subregs, OPSZ_2. */
+    reg = reg_resize_to_opsz(DR_REG_XDI, OPSZ_2);
+    ASSERT(reg == IF_X64_ELSE(DR_REG_DI, DR_REG_NULL));
+    reg = reg_resize_to_opsz(DR_REG_XSI, OPSZ_2);
+    ASSERT(reg == IF_X64_ELSE(DR_REG_SI, DR_REG_NULL));
+    reg = reg_resize_to_opsz(DR_REG_XSP, OPSZ_2);
+    ASSERT(reg == IF_X64_ELSE(DR_REG_SP, DR_REG_NULL));
+    reg = reg_resize_to_opsz(DR_REG_XBP, OPSZ_2);
+    ASSERT(reg == IF_X64_ELSE(DR_REG_BP, DR_REG_NULL));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -741,6 +830,8 @@ main(int argc, char *argv[])
 #ifdef X64
     test_x86_mode(dcontext);
 #endif
+
+    test_regs(dcontext);
 
     print("all done\n");
     return 0;
