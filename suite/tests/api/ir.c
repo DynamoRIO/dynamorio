@@ -787,13 +787,13 @@ test_regs(void *dc)
 
     /* X64 only subregs, OPSZ_2. */
     reg = reg_resize_to_opsz(DR_REG_XDI, OPSZ_2);
-    ASSERT(reg == IF_X64_ELSE(DR_REG_DI, DR_REG_NULL));
+    ASSERT(reg == DR_REG_DI);
     reg = reg_resize_to_opsz(DR_REG_XSI, OPSZ_2);
-    ASSERT(reg == IF_X64_ELSE(DR_REG_SI, DR_REG_NULL));
+    ASSERT(reg == DR_REG_SI);
     reg = reg_resize_to_opsz(DR_REG_XSP, OPSZ_2);
-    ASSERT(reg == IF_X64_ELSE(DR_REG_SP, DR_REG_NULL));
+    ASSERT(reg == DR_REG_SP);
     reg = reg_resize_to_opsz(DR_REG_XBP, OPSZ_2);
-    ASSERT(reg == IF_X64_ELSE(DR_REG_BP, DR_REG_NULL));
+    ASSERT(reg == DR_REG_BP);
 }
 
 int
