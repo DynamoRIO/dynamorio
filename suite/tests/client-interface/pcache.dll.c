@@ -33,6 +33,8 @@
 #include "dr_api.h"
 #include "hashtable.h"
 
+#include "client_tools.h"  /* For ASSERT; DR_ASSERT raises a message box. */
+
 static byte *mybase;
 static uint bb_execs;
 static uint resurrect_success;
@@ -142,13 +144,13 @@ event_resurrect_ro(void *drcontext, void *perscxt, byte **map INOUT)
     for (i = 0; i < HASHTABLE_SIZE(sample_pointer_table.table_bits); i++) {
         hash_entry_t *he;
         for (he = sample_pointer_table.table[i]; he != NULL; he = he->next) {
-            DR_ASSERT(*((app_pc)he->key) == *((app_pc)he->payload));
+            ASSERT(*((app_pc)he->key) == *((app_pc)he->payload));
         }
     }
     for (i = 0; i < HASHTABLE_SIZE(sample_inlined_table.table_bits); i++) {
         hash_entry_t *he;
         for (he = sample_inlined_table.table[i]; he != NULL; he = he->next) {
-            DR_ASSERT(*((app_pc)he->key) == (byte)(ptr_uint_t)he->payload);
+            ASSERT(*((app_pc)he->key) == (byte)(ptr_uint_t)he->payload);
         }
     }
 
