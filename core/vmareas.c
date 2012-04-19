@@ -2658,7 +2658,8 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
         if (TEST(FRAG_COARSE_GRAIN, frag_flags) && DYNAMO_OPTION(use_persisted) &&
             info == NULL
             /* if clients are present, don't load until after they're initialized */
-            IF_CLIENT_INTERFACE(&& IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))) {
+            IF_CLIENT_INTERFACE(&& (dynamo_initialized ||
+                                    IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)))) {
             info = vm_area_load_coarse_unit(start, end, vm_flags, frag_flags, false
                                             _IF_DEBUG(comment));
         }
