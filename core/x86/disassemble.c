@@ -106,17 +106,6 @@ disassemble_set_syntax(dr_disasm_flags_t flags)
 #endif
 }
 
-/* for printing to buffers */
-#define MAX_OPND_DIS_SZ   32
-/* Long example:
- * "<RAW>  <raw 0x00007f85922c0877-0x00007f85922c0882 == 48 63 f8 48 89 d6 b8 05 00 ...>"
- */
-#define MAX_INSTR_DIS_SZ  96
-/* Here's a pretty long one, 
- * "  0x00007f859277d63a  48 83 05 4e 63 21 00 add    $0x0000000000000001 <rel> 0x00007f8592993990 -> <rel> 0x00007f8592993990 \n                     01 "
- */
-#define MAX_PC_DIS_SZ    192
-
 #define BYTES_PER_LINE 7
 
 static void

@@ -613,9 +613,11 @@ typedef struct {
                                      * as well as syscalls handled from dispatch,
                                      * and for reset to identify when at syscalls
                                      */
-#ifdef X64
-    /* For Windows, 4 bytes of padding to fill out the 4-byte at_syscall,
-     * since priv_mcontext_t is 8-byte aligned */
+    /* Above fields are padded to 8 bytes on all archs except Win x86-32. */
+
+#ifdef CLIENT_INTERFACE
+    /* Spill slots for inlined clean calls. */
+    reg_t inline_spill_slots[CLEANCALL_NUM_INLINE_SLOTS];
 #endif
 } unprotected_context_t;
 
@@ -927,7 +929,6 @@ struct _dcontext_t {
     int libc_errno;
 # endif
 #endif
-
 };
 
 /* sentinel value for dcontext_t* used to indicate

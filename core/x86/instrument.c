@@ -3909,6 +3909,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee, 
                            save_fpstate, num_args, args)) {
+#ifdef CLIENT_INTERFACE
         /* we can perform the inline optimization and return. */
         STATS_INC(cleancall_inlined);
         LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: inlined callee "PFX"\n", callee);
@@ -3918,6 +3919,9 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
                             ACCT_CLEANCALL, UNPROTECTED);
         }
         return;
+#else /* CLIENT_INTERFACE */
+        ASSERT_NOT_REACHED();
+#endif /* CLIENT_INTERFACE */
     }
     /* honor requests from caller */
     if (TEST(DR_CLEANCALL_NOSAVE_FLAGS, save_flags)) {

@@ -74,16 +74,20 @@ START_FILE
         
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) mov dest, PTRSZ [offs + reg]
 #define SAVE_TO_DCONTEXT_VIA_REG(reg,offs,src) mov PTRSZ [offs + reg], src
-        
+
 /* For the few remaining dcontext_t offsets we need here: */
-#ifdef WINDOWS
-# ifdef X64
-#  define UPCXT_EXTRA 8 /* at_syscall + 4 bytes of padding */
-# else
-#  define UPCXT_EXTRA 4 /* at_syscall */
-# endif
+#if defined(WINDOWS) && !defined(X64)
+# define UPCXT_BEFORE_INLINE_SLOTS 4  /* at_syscall + padding */
 #else
-# define UPCXT_EXTRA 8 /* errno + at_syscall */
+# define UPCXT_BEFORE_INLINE_SLOTS 8  /* IF_LINUX(errno +) at_syscall + padding */
+#endif
+
+/* Count the slots for client clean call inlining. */
+#ifdef CLIENT_INTERFACE
+/* Add CLEANCALL_NUM_INLINE_SLOTS(4) * ARG_SZ for these slots.  No padding. */
+# define UPCXT_EXTRA (UPCXT_BEFORE_INLINE_SLOTS + 4 * ARG_SZ)
+#else
+# define UPCXT_EXTRA UPCXT_BEFORE_INLINE_SLOTS
 #endif
 
 /* We should give asm_defines.asm all unique names and then include globals.h

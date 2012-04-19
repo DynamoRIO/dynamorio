@@ -236,6 +236,8 @@ opnd_get_size(opnd_t opnd)
     case ABS_ADDR_kind: 
 #endif
         return opnd.size;
+    case INSTR_kind:
+        return OPSZ_PTR;
     default:
         CLIENT_ASSERT(false, "opnd_get_size: unknown opnd type");
         return OPSZ_NA;

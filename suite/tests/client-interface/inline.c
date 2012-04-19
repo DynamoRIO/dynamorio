@@ -47,6 +47,8 @@
         FUNCTION(cond_br) \
         FUNCTION(tls_clobber) \
         FUNCTION(aflags_clobber) \
+        FUNCTION(compiler_inscount) \
+        FUNCTION(xax_arg) \
         LAST_FUNCTION()
 
 /* Definitions for every function. */
@@ -55,6 +57,16 @@
 FUNCTIONS()
 #undef FUNCTION
 #undef LAST_FUNCTION
+
+/* For bbcount, do arithmetic to clobber flags so the flag saving optimization
+ * kicks in.
+ */
+EXPORT void
+bbcount(void)
+{
+    static int count;
+    count++;
+}
 
 int
 main(void)
@@ -65,4 +77,5 @@ main(void)
     FUNCTIONS()
 #undef FUNCTION
 #undef LAST_FUNCTION
+    bbcount();
 }

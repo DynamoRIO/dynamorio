@@ -63,6 +63,9 @@
 #define YMMH_REG_SIZE (YMM_REG_SIZE/2) /* upper half */
 #define YMMH_SAVED_SIZE (NUM_XMM_SLOTS*YMMH_REG_SIZE)
 
+/* Number of slots for spills from inlined clean calls. */
+#define CLEANCALL_NUM_INLINE_SLOTS 4
+
 typedef enum {
     IBL_NONE = -1,
     /* N.B.: order determines which table is on 2nd cache line in local_state_t */

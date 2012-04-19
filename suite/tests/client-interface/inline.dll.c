@@ -53,6 +53,8 @@
         FUNCTION(cond_br) \
         FUNCTION(tls_clobber) \
         FUNCTION(aflags_clobber) \
+        FUNCTION(compiler_inscount) \
+        FUNCTION(bbcount) \
         LAST_FUNCTION()
 
 /* Table of function names. */
@@ -108,6 +110,9 @@ static dr_emit_flags_t event_basic_block(void *dc, void *tag, instrlist_t *bb,
 static void lookup_pcs(void);
 static void codegen_instrumentation_funcs(void);
 static void free_instrumentation_funcs(void);
+static void compiler_inscount(ptr_uint_t count);
+static void test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where,
+                                   int fn_idx);
 
 DR_EXPORT void
 dr_init(client_id_t id)
@@ -203,6 +208,11 @@ codegen_instrumentation_funcs(void)
         pc = instrlist_encode(dc, ilists[i], pc, false);
         instrlist_clear_and_destroy(dc, ilists[i]);
     }
+
+    /* For compiler_inscount, we don't use generated code, we just point
+     * straight at the compiled code.
+     */
+    func_ptrs[FN_compiler_inscount] = (void*)&compiler_inscount;
 }
 
 /* Free the instrumentation machine code. */
@@ -213,7 +223,7 @@ free_instrumentation_funcs(void)
 }
 
 /* Globals used by instrumentation functions. */
-ptr_uint_t count;
+ptr_uint_t global_count;
 static uint callee_inlined;
 
 static dr_mcontext_t before_mcontext = {sizeof(before_mcontext),DR_MC_ALL,};
@@ -221,24 +231,12 @@ static int before_errno;
 static dr_mcontext_t after_mcontext = {sizeof(after_mcontext),DR_MC_ALL,};
 static int after_errno;
 
-static void
-after_inscount(void)
-{
-    DR_ASSERT(count == 0xDEAD);
-}
-
-static void
-after_callpic(void)
-{
-    DR_ASSERT(count == 1);
-}
-
-/* Reset count and patch the out-of-line version of the instrumentation function
+/* Reset global_count and patch the out-of-line version of the instrumentation function
  * so we can find out if it got called, which would mean it wasn't inlined.
  *
- * XXX: We are using self-modifying code on the callee!  If DR tries to
- * disassemble the callee's ilist after the modification, it will trigger
- * assertion failures in the disassembler.
+ * XXX: We modify the callee code!  If DR tries to disassemble the callee's
+ * ilist after the modification, it will trigger assertion failures in the
+ * disassembler.
  */
 static void
 before_callee(app_pc func, const char *func_name)
@@ -248,11 +246,31 @@ before_callee(app_pc func, const char *func_name)
     opnd_t xax = opnd_create_reg(DR_REG_XAX);
     byte *end_pc;
 
-    dr_fprintf(STDERR, "Calling func %s...\n", func_name);
+    if (func_name != NULL)
+        dr_fprintf(STDERR, "Calling func %s...\n", func_name);
 
     /* Save mcontext before call. */
     dc = dr_get_current_drcontext();
     dr_get_mcontext(dc, &before_mcontext);
+
+    /* If this is compiler_inscount, we need to unprotect our own text section
+     * so we can make this code modification.
+     */
+    if (func == (app_pc)compiler_inscount) {
+        app_pc start_pc = (app_pc)ALIGN_BACKWARD(func, PAGE_SIZE);
+        app_pc end_pc = func;
+        instr_t instr;
+        instr_init(dc, &instr);
+        do {
+            instr_reset(dc, &instr);
+            end_pc = decode(dc, end_pc, &instr);
+        } while (!instr_is_return(&instr));
+        end_pc += instr_length(dc, &instr);
+        instr_reset(dc, &instr);
+        end_pc = (app_pc)ALIGN_FORWARD(end_pc, PAGE_SIZE);
+        dr_memory_protect(start_pc, (size_t)(end_pc - start_pc),
+                          DR_MEMPROT_EXEC|DR_MEMPROT_READ|DR_MEMPROT_WRITE);
+    }
 
     /* Patch the callee to be:
      * push xax
@@ -273,7 +291,7 @@ before_callee(app_pc func, const char *func_name)
     end_pc = instrlist_encode(dc, ilist, func, false /* no jump targets */);
     instrlist_clear_and_destroy(dc, ilist);
     dr_log(dc, LOG_EMIT, 3, "Patched instrumentation function %s at "PFX":\n",
-           func_name, func);
+           (func_name ? func_name : "(null)"), func);
 
     /* Check there was enough room in the function.  We align every callee
      * entry point to CALLEE_ALIGNMENT, so each function has at least
@@ -283,7 +301,7 @@ before_callee(app_pc func, const char *func_name)
                   "Patched code too big for smallest function!");
 
     /* Reset instrumentation globals. */
-    count = 0;
+    global_count = 0;
     callee_inlined = 1;
 }
 
@@ -310,96 +328,155 @@ static int reg_offsets[NUM_GP_REGS + 1] = {
     offsetof(dr_mcontext_t, xflags)
 };
 
-static void
-after_callee(bool inline_expected, const char *func_name)
+static bool
+mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 {
     int i;
-    void *dc;
+    int ymm_bytes_used;
+    /* Check GPRs. */
+    for (i = 0; i < NUM_GP_REGS; i++) {
+        reg_t a = *(reg_t*)((byte*)mc_a + reg_offsets[i]);
+        reg_t b = *(reg_t*)((byte*)mc_b + reg_offsets[i]);
+        if (a != b)
+            return false;
+    }
 
-#if defined(WINDOWS) && !defined(X64)
-    int xmm_uninit;
-    int num_uninit;
-#endif
+    /* Check xflags for all funcs except bbcount, which has dead flags. */
+    if (mc_a->xflags != mc_b->xflags && func_index != FN_bbcount)
+        return false;
+
+    /* Only look at the initialized bits of the SSE regs. */
+    ymm_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
+    for (i = 0; i < NUM_XMM_SLOTS; i++) {
+        if (memcmp(&mc_a->ymm[i], &mc_b->ymm[i], ymm_bytes_used) != 0)
+            return false;
+    }
+    return true;
+}
+
+static void
+dump_diff_mcontexts(void)
+{
+    uint i;
+    dr_fprintf(STDERR, "Registers clobbered by supposedly clean call!\n"
+               "Printing GPRs + flags:\n");
+    for (i = 0; i < NUM_GP_REGS + 1; i++) {
+        reg_t before_reg = *(reg_t*)((byte*)&before_mcontext + reg_offsets[i]);
+        reg_t after_reg  = *(reg_t*)((byte*)&after_mcontext  + reg_offsets[i]);
+        const char *reg_name = (i < NUM_GP_REGS ?
+                                get_register_name(DR_REG_XAX + i) :
+                                "xflags");
+        const char *diff_str = (before_reg == after_reg ?
+                                "" : " <- DIFFERS");
+        dr_fprintf(STDERR, "%s before: "PFX" after: "PFX"%s\n",
+                   reg_name, before_reg, after_reg, diff_str);
+    }
+
+    dr_fprintf(STDERR, "Printing XMM regs:\n");
+    for (i = 0; i < NUM_XMM_SLOTS; i++) {
+        dr_ymm_t before_reg = before_mcontext.ymm[i];
+        dr_ymm_t  after_reg =  after_mcontext.ymm[i];
+        size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_xmm_t) :
+                sizeof(dr_ymm_t);
+        const char *diff_str =
+                (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
+        dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x",
+                   i,
+                   before_reg.u32[0], before_reg.u32[1],
+                   before_reg.u32[2], before_reg.u32[3]);
+        if (proc_has_feature(FEATURE_AVX)) {
+            dr_fprintf(STDERR, "%08x%08x%08x%08x",
+                       before_reg.u32[4], before_reg.u32[5],
+                       before_reg.u32[6], before_reg.u32[7]);
+        }
+        dr_fprintf(STDERR, " after: %08x%08x%08x%08x",
+                   after_reg.u32[0], after_reg.u32[1],
+                   after_reg.u32[2], after_reg.u32[3]);
+        if (proc_has_feature(FEATURE_AVX)) {
+            dr_fprintf(STDERR, "%08x%08x%08x%08x",
+                       after_reg.u32[4], after_reg.u32[5],
+                       after_reg.u32[6], after_reg.u32[7]);
+        }
+        dr_fprintf(STDERR, "%s\n", diff_str);
+    }
+}
+
+static void
+dump_inlined_code(void *dc, app_pc start_inline, app_pc end_inline,
+                  int func_index)
+{
+    app_pc pc, next_pc;
+    dr_fprintf(STDERR, "Inlined code for %s:\n", func_names[func_index]);
+    for (pc = start_inline; pc != end_inline; pc = next_pc) {
+        next_pc = disassemble(dc, pc, STDERR);
+    }
+}
+
+static void
+after_callee(app_pc start_inline, app_pc end_inline, bool inline_expected,
+             int func_index, const char *func_name)
+{
+    void *dc;
 
     /* Save mcontext after call. */
     dc = dr_get_current_drcontext();
     dr_get_mcontext(dc, &after_mcontext);
-
-#if defined(WINDOWS) && !defined(X64)
-    /* For a 32-bit build on a 32-bit Windows kernel, no xmm registers are
-     * saved, and the array is left uninitialized.  On WOW64 xmm6-7 are not
-     * saved.  To avoid spurious failures, we zero out the uninit slots.
-     * On pure X64, there are only 6 slots, so none are uninitialized.
-     */
-    xmm_uninit = dr_is_wow64() ? 6 : 0;
-    num_uninit = NUM_XMM_SLOTS - xmm_uninit;
-    memset(&before_mcontext.ymm[xmm_uninit], 0, num_uninit * sizeof(dr_ymm_t));
-    memset(&after_mcontext.ymm[xmm_uninit], 0, num_uninit * sizeof(dr_ymm_t));
-#endif
-    if (!proc_has_feature(FEATURE_AVX)) {
-        /* top bits of ymm slots will be uninitialized */
-        for (i = 0; i < NUM_XMM_SLOTS; i++) {
-            memset(&before_mcontext.ymm[i].u32[4], 0, sizeof(dr_xmm_t));
-            memset(&after_mcontext.ymm[i].u32[4], 0, sizeof(dr_xmm_t));
-        }
-    }
 
     /* Compare mcontexts. */
     if (before_errno != after_errno) {
         dr_fprintf(STDERR, "errnos differ!\nbefore: %d, after: %d\n",
                    before_errno, after_errno);
     }
-    if (memcmp(&before_mcontext, &after_mcontext, sizeof(dr_mcontext_t))) {
-        dr_fprintf(STDERR, "Registers clobbered by supposedly clean call!\n"
-                   "Printing GPRs + flags:\n");
-        for (i = 0; i < NUM_GP_REGS + 1; i++) {
-            reg_t before_reg = *(reg_t*)((byte*)&before_mcontext + reg_offsets[i]);
-            reg_t after_reg  = *(reg_t*)((byte*)&after_mcontext  + reg_offsets[i]);
-            const char *reg_name = (i < NUM_GP_REGS ?
-                                    get_register_name(DR_REG_XAX + i) :
-                                    "xflags");
-            const char *diff_str = (before_reg == after_reg ?
-                                    "" : " <- DIFFERS");
-            dr_fprintf(STDERR, "%s before: "PFX" after: "PFX"%s\n",
-                       reg_name, before_reg, after_reg, diff_str);
-        }
-
-        dr_fprintf(STDERR, "Printing XMM regs:\n");
-        for (i = 0; i < NUM_XMM_SLOTS; i++) {
-            dr_ymm_t before_reg = before_mcontext.ymm[i];
-            dr_ymm_t  after_reg =  after_mcontext.ymm[i];
-            size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_xmm_t) :
-                sizeof(dr_ymm_t);
-            const char *diff_str =
-                (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
-            dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x",
-                       i,
-                       before_reg.u32[0], before_reg.u32[1],
-                       before_reg.u32[2], before_reg.u32[3]);
-            if (proc_has_feature(FEATURE_AVX)) {
-                dr_fprintf(STDERR, "%08x%08x%08x%08x",
-                           before_reg.u32[4], before_reg.u32[5],
-                           before_reg.u32[6], before_reg.u32[7]);
-            }
-            dr_fprintf(STDERR, " after: %08x%08x%08x%08x",
-                       after_reg.u32[0], after_reg.u32[1],
-                       after_reg.u32[2], after_reg.u32[3]);
-            if (proc_has_feature(FEATURE_AVX)) {
-                dr_fprintf(STDERR, "%08x%08x%08x%08x",
-                           after_reg.u32[4], after_reg.u32[5],
-                           after_reg.u32[6], after_reg.u32[7]);
-            }
-            dr_fprintf(STDERR, "%s\n", diff_str);
-        }
+    if (!mcontexts_equal(&before_mcontext, &after_mcontext, func_index)) {
+        dump_diff_mcontexts();
+        dump_inlined_code(dc, start_inline, end_inline, func_index);
     }
 
+    /* Now that we use the mcontext in dcontext, we expect no stack usage. */
     if (inline_expected) {
-        DR_ASSERT_MSG(callee_inlined, "Function was not inlined!");
-    } else {
-        DR_ASSERT_MSG(!callee_inlined, "Function was inlined unexpectedly!");
+        app_pc pc, next_pc;
+        instr_t instr;
+        bool found_xsp = false;
+        instr_init(dc, &instr);
+        for (pc = start_inline; pc != end_inline; pc = next_pc) {
+            next_pc = decode(dc, pc, &instr);
+            if (instr_uses_reg(&instr, DR_REG_XSP)) {
+                found_xsp = true;
+            }
+            instr_reset(dc, &instr);
+        }
+        if (found_xsp) {
+            dr_fprintf(STDERR, "Found stack usage in inlined code for %s\n",
+                       func_names[func_index]);
+            dump_inlined_code(dc, start_inline, end_inline, func_index);
+        }
     }
 
-    dr_fprintf(STDERR, "Called func %s.\n", func_name);
+    if (inline_expected && !callee_inlined) {
+        dr_fprintf(STDERR, "Function %s was not inlined!\n",
+                   func_names[func_index]);
+        dump_inlined_code(dc, start_inline, end_inline, func_index);
+    } else if (!inline_expected && callee_inlined) {
+        dr_fprintf(STDERR, "Function %s was inlined unexpectedly!\n",
+                   func_names[func_index]);
+        dump_inlined_code(dc, start_inline, end_inline, func_index);
+    }
+
+    /* Function-specific checks. */
+    switch (func_index) {
+    case FN_inscount:
+    case FN_compiler_inscount:
+        if (global_count != 0xDEAD) {
+            dr_fprintf(STDERR, "global_count not updated properly after inscount!\n");
+            dump_inlined_code(dc, start_inline, end_inline, func_index);
+        }
+        break;
+    default:
+        break;
+    }
+
+    if (func_name != NULL)
+        dr_fprintf(STDERR, "Called func %s.\n", func_name);
 }
 
 static void
@@ -423,8 +500,8 @@ check_scratch(void)
     for (slot = SPILL_SLOT_1; slot <= SPILL_SLOT_MAX; slot++) {
         reg_t value = dr_read_saved_reg(dc, slot);
         reg_t expected = slot * 0x11111111;
-        DR_ASSERT_MSG(value == expected,
-                      "Client scratch slot clobbered by clean call!");
+        if (value != expected)
+            dr_fprintf(STDERR, "Client scratch slot clobbered by clean call!\n");
     }
 }
 
@@ -442,7 +519,8 @@ check_aflags(int actual, int expected)
 }
 
 static instr_t *
-test_aflags(void *dc, instrlist_t *bb, instr_t *where, int aflags)
+test_aflags(void *dc, instrlist_t *bb, instr_t *where, int aflags,
+            instr_t *before_label, instr_t *after_label)
 {
     opnd_t xax = opnd_create_reg(DR_REG_XAX);
     opnd_t al = opnd_create_reg(DR_REG_AL);
@@ -466,7 +544,11 @@ test_aflags(void *dc, instrlist_t *bb, instr_t *where, int aflags)
     PRE(bb, where, INSTR_CREATE_add(dc, al, OPND_CREATE_INT8(0x7F)));
     PRE(bb, where, INSTR_CREATE_sahf(dc));
 
+    if (before_label != NULL)
+        PRE(bb, where, before_label);
     dr_insert_clean_call(dc, bb, where, func_ptrs[FN_aflags_clobber], false, 0);
+    if (after_label != NULL)
+        PRE(bb, where, after_label);
 
     /* Get the flags back into XAX, and then to SPILL_SLOT_2:
      * mov REG_XAX, 0
@@ -499,56 +581,181 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
     instr_t *entry = instrlist_first(bb);
     app_pc entry_pc = instr_get_app_pc(entry);
     int i;
+    bool inline_expected = true;
+    instr_t *before_label;
+    instr_t *after_label;
 
     for (i = 0; i < N_FUNCS; i++) {
-        bool inline_expected = true;
+        if (entry_pc == func_app_pcs[i])
+            break;
+    }
+    if (i == N_FUNCS)
+        return DR_EMIT_DEFAULT;
 
-        if (entry_pc != func_app_pcs[i])
+    /* We're inserting a call to a function in this bb. */
+    func_called[i] = 1;
+    dr_insert_clean_call(dc, bb, entry, (void*)before_callee, false, 2,
+                         OPND_CREATE_INTPTR(func_ptrs[i]),
+                         OPND_CREATE_INTPTR(func_names[i]));
+
+    before_label = INSTR_CREATE_label(dc);
+    after_label = INSTR_CREATE_label(dc);
+
+    switch (i) {
+    default:
+        /* Default behavior is to call instrumentation with no-args and
+         * assert it gets inlined.
+         */
+        PRE(bb, entry, before_label);
+        dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
+        PRE(bb, entry, after_label);
+        break;
+    case FN_inscount:
+    case FN_compiler_inscount:
+        PRE(bb, entry, before_label);
+        dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 1,
+                             OPND_CREATE_INT32(0xDEAD));
+        PRE(bb, entry, after_label);
+        break;
+    case FN_nonleaf:
+    case FN_cond_br:
+        /* These functions cannot be inlined (yet). */
+        PRE(bb, entry, before_label);
+        dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
+        PRE(bb, entry, after_label);
+        inline_expected = false;
+        break;
+    case FN_tls_clobber:
+        dr_insert_clean_call(dc, bb, entry, (void*)fill_scratch, false, 0);
+        PRE(bb, entry, before_label);
+        dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
+        PRE(bb, entry, after_label);
+        dr_insert_clean_call(dc, bb, entry, (void*)check_scratch, false, 0);
+        break;
+    case FN_aflags_clobber:
+        /* ah is: SF:ZF:0:AF:0:PF:1:CF.  If we turn everything on we will
+         * get all 1's except bits 3 and 5, giving a hex mask of 0xD7.
+         * Overflow is in the low byte (al usually) so use use a mask of
+         * 0xD701 first.  If we turn everything off we get 0x0200.
+         */
+        entry = test_aflags(dc, bb, entry, 0xD701, before_label, after_label);
+        (void)test_aflags(dc, bb, entry, 0x00200, NULL, NULL);
+        break;
+    }
+    dr_insert_clean_call(dc, bb, entry, (void*)after_callee, false, 5,
+                         opnd_create_instr(before_label),
+                         opnd_create_instr(after_label),
+                         OPND_CREATE_INT32(inline_expected),
+                         OPND_CREATE_INT32(i),
+                         OPND_CREATE_INTPTR(func_names[i]));
+
+    if (i == FN_inscount || i == FN_empty) {
+        test_inlined_call_args(dc, bb, entry, i);
+    }
+
+    return DR_EMIT_DEFAULT;
+}
+
+/* For all regs, pass arguments of the form:
+ * %reg
+ * (%reg, %xax, 1)-0xDEAD
+ * (%xax, %reg, 1)-0xDEAD
+ */
+static void
+test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
+{
+    uint i;
+    static const ptr_uint_t hex_dead_global = 0xDEAD;
+
+    for (i = 0; i < NUM_GP_REGS; i++) {
+        reg_id_t reg = DR_REG_XAX + (reg_id_t)i;
+        reg_id_t other_reg = (reg == DR_REG_XAX ? DR_REG_XBX : DR_REG_XAX);
+        opnd_t arg;
+        instr_t *before_label;
+        instr_t *after_label;
+
+        /* FIXME: We should test passing the app %xsp to an inlined function,
+         * but I hesitate to store a non-stack location in XSP.
+         */
+        if (reg == DR_REG_XSP)
             continue;
 
-        func_called[i] = 1;
-        dr_insert_clean_call(dc, bb, entry, (void*)before_callee, false, 2,
-                             OPND_CREATE_INTPTR(func_ptrs[i]),
-                             OPND_CREATE_INTPTR(func_names[i]));
+        /* %reg */
+        before_label = INSTR_CREATE_label(dc);
+        after_label = INSTR_CREATE_label(dc);
+        arg = opnd_create_reg(reg);
+        dr_insert_clean_call(dc, bb, where, (void*)before_callee, false, 2,
+                             OPND_CREATE_INTPTR(func_ptrs[fn_idx]),
+                             OPND_CREATE_INTPTR(0));
+        PRE(bb, where, before_label);
+        dr_save_reg(dc, bb, where, reg, SPILL_SLOT_1);
+        PRE(bb, where, INSTR_CREATE_mov_imm
+            (dc, arg, OPND_CREATE_INTPTR(0xDEAD)));
+        dr_insert_clean_call(dc, bb, where, (void*)func_ptrs[fn_idx], false, 1,
+                             arg);
+        dr_restore_reg(dc, bb, where, reg, SPILL_SLOT_1);
+        PRE(bb, where, after_label);
+        dr_insert_clean_call(dc, bb, where, (void*)after_callee, false, 5,
+                             opnd_create_instr(before_label),
+                             opnd_create_instr(after_label),
+                             OPND_CREATE_INT32(true),
+                             OPND_CREATE_INT32(fn_idx),
+                             OPND_CREATE_INTPTR(0));
 
-        switch (i) {
-        default:
-            /* Default behavior is to call instrumentation with no-args and
-             * assert it gets inlined. */
-            dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
-            break;
-        case FN_inscount:
-            dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 1,
-                                 OPND_CREATE_INT32(0xDEAD));
-            dr_insert_clean_call(dc, bb, entry, (void*)after_inscount, false,
-                                 0);
-            break;
-        case FN_nonleaf:
-        case FN_cond_br:
-            /* These functions cannot be inlined (yet). */
-            dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
-            inline_expected = false;
-            break;
-        case FN_tls_clobber:
-            dr_insert_clean_call(dc, bb, entry, (void*)fill_scratch, false, 0);
-            dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
-            dr_insert_clean_call(dc, bb, entry, (void*)check_scratch, false, 0);
-            break;
-        case FN_aflags_clobber:
-            /* ah is: SF:ZF:0:AF:0:PF:1:CF.  If we turn everything on we will
-             * get all 1's except bits 3 and 5, giving a hex mask of 0xD7.
-             * Overflow is in the low byte (al usually) so use use a mask of
-             * 0xD701 first.  If we turn everything off we get 0x0200.
-             */
-            entry = test_aflags(dc, bb, entry, 0xD701);
-            (void)test_aflags(dc, bb, entry, 0x00200);
-            break;
-        }
-        dr_insert_clean_call(dc, bb, entry, (void*)after_callee, false, 2,
-                             OPND_CREATE_INT32(inline_expected),
-                             OPND_CREATE_INTPTR(func_names[i]));
+        /* (%reg, %other_reg, 1)-0xDEAD */
+        before_label = INSTR_CREATE_label(dc);
+        after_label = INSTR_CREATE_label(dc);
+        arg = opnd_create_base_disp(reg, other_reg, 1, -0xDEAD, OPSZ_PTR);
+        dr_insert_clean_call(dc, bb, where, (void*)before_callee, false, 2,
+                             OPND_CREATE_INTPTR(func_ptrs[fn_idx]),
+                             OPND_CREATE_INTPTR(0));
+        PRE(bb, where, before_label);
+        dr_save_reg(dc, bb, where, reg, SPILL_SLOT_1);
+        dr_save_reg(dc, bb, where, other_reg, SPILL_SLOT_2);
+        PRE(bb, where, INSTR_CREATE_mov_imm
+            (dc, opnd_create_reg(reg), OPND_CREATE_INTPTR(0xDEAD)));
+        PRE(bb, where, INSTR_CREATE_mov_imm
+            (dc, opnd_create_reg(other_reg),
+             OPND_CREATE_INTPTR(&hex_dead_global)));
+        dr_insert_clean_call(dc, bb, where, (void*)func_ptrs[fn_idx], false, 1,
+                             arg);
+        dr_restore_reg(dc, bb, where, other_reg, SPILL_SLOT_2);
+        dr_restore_reg(dc, bb, where, reg, SPILL_SLOT_1);
+        PRE(bb, where, after_label);
+        dr_insert_clean_call(dc, bb, where, (void*)after_callee, false, 5,
+                             opnd_create_instr(before_label),
+                             opnd_create_instr(after_label),
+                             OPND_CREATE_INT32(true),
+                             OPND_CREATE_INT32(fn_idx),
+                             OPND_CREATE_INTPTR(0));
+
+        /* (%other_reg, %reg, 1)-0xDEAD */
+        before_label = INSTR_CREATE_label(dc);
+        after_label = INSTR_CREATE_label(dc);
+        arg = opnd_create_base_disp(other_reg, reg, 1, -0xDEAD, OPSZ_PTR);
+        dr_insert_clean_call(dc, bb, where, (void*)before_callee, false, 2,
+                             OPND_CREATE_INTPTR(func_ptrs[fn_idx]),
+                             OPND_CREATE_INTPTR(0));
+        PRE(bb, where, before_label);
+        dr_save_reg(dc, bb, where, reg, SPILL_SLOT_1);
+        dr_save_reg(dc, bb, where, other_reg, SPILL_SLOT_2);
+        PRE(bb, where, INSTR_CREATE_mov_imm
+            (dc, opnd_create_reg(other_reg), OPND_CREATE_INTPTR(0xDEAD)));
+        PRE(bb, where, INSTR_CREATE_mov_imm
+            (dc, opnd_create_reg(reg),
+             OPND_CREATE_INTPTR(&hex_dead_global)));
+        dr_insert_clean_call(dc, bb, where, (void*)func_ptrs[fn_idx], false, 1,
+                             arg);
+        dr_restore_reg(dc, bb, where, other_reg, SPILL_SLOT_2);
+        dr_restore_reg(dc, bb, where, reg, SPILL_SLOT_1);
+        PRE(bb, where, after_label);
+        dr_insert_clean_call(dc, bb, where, (void*)after_callee, false, 5,
+                             opnd_create_instr(before_label),
+                             opnd_create_instr(after_label),
+                             OPND_CREATE_INT32(true),
+                             OPND_CREATE_INT32(fn_idx),
+                             OPND_CREATE_INTPTR(0));
     }
-    return DR_EMIT_DEFAULT;
 }
 
 /*****************************************************************************/
@@ -620,8 +827,7 @@ inscount:
     push REG_XBP
     mov REG_XBP, REG_XSP
     mov REG_XAX, ARG1
-    mov REG_XDX, &count
-    add [REG_XDX], REG_XAX
+    add [global_count], REG_XAX
     leave
     ret
 */
@@ -632,9 +838,7 @@ codegen_inscount(void *dc)
     opnd_t xax = opnd_create_reg(DR_REG_XAX);
     codegen_prologue(dc, ilist);
     APP(ilist, INSTR_CREATE_mov_ld(dc, xax, codegen_opnd_arg1()));
-    APP(ilist, INSTR_CREATE_mov_imm
-        (dc, opnd_create_reg(DR_REG_XDX), OPND_CREATE_INTPTR(&count)));
-    APP(ilist, INSTR_CREATE_add(dc, OPND_CREATE_MEMPTR(DR_REG_XDX, 0), xax));
+    APP(ilist, INSTR_CREATE_add(dc, OPND_CREATE_ABSMEM(&global_count, OPSZ_PTR), xax));
     codegen_epilogue(dc, ilist);
     return ilist;
 }
@@ -645,7 +849,7 @@ callpic_pop:
     mov REG_XBP, REG_XSP
     call Lnext_label
     Lnext_label:
-    pop REG_XAX
+    pop REG_XBX
     leave
     ret
 */
@@ -657,7 +861,7 @@ codegen_callpic_pop(void *dc)
     codegen_prologue(dc, ilist);
     APP(ilist, INSTR_CREATE_call(dc, opnd_create_instr(next_label)));
     APP(ilist, next_label);
-    APP(ilist, INSTR_CREATE_pop(dc, opnd_create_reg(DR_REG_XAX)));
+    APP(ilist, INSTR_CREATE_pop(dc, opnd_create_reg(DR_REG_XBX)));
     codegen_epilogue(dc, ilist);
     return ilist;
 }
@@ -668,7 +872,7 @@ callpic_mov:
     mov REG_XBP, REG_XSP
     call Lnext_instr_mov
     Lnext_instr_mov:
-    mov REG_XAX, [REG_XSP]
+    mov REG_XBX, [REG_XSP]
     leave
     ret
 */
@@ -681,7 +885,7 @@ codegen_callpic_mov(void *dc)
     APP(ilist, INSTR_CREATE_call(dc, opnd_create_instr(next_label)));
     APP(ilist, next_label);
     APP(ilist, INSTR_CREATE_mov_ld
-        (dc, opnd_create_reg(DR_REG_XAX), OPND_CREATE_MEMPTR(DR_REG_XSP, 0)));
+        (dc, opnd_create_reg(DR_REG_XBX), OPND_CREATE_MEMPTR(DR_REG_XSP, 0)));
     codegen_epilogue(dc, ilist);
     return ilist;
 }
@@ -717,7 +921,7 @@ cond_br:
     mov REG_XCX, ARG1
     jecxz Larg_zero
         mov REG_XAX, HEX(DEADBEEF)
-        mov SYMREF(count), REG_XAX
+        mov SYMREF(global_count), REG_XAX
     Larg_zero:
     leave
     ret
@@ -729,10 +933,10 @@ codegen_cond_br(void *dc)
     instr_t *arg_zero = INSTR_CREATE_label(dc);
     opnd_t xcx = opnd_create_reg(DR_REG_XCX);
     codegen_prologue(dc, ilist);
-    /* If arg1 is non-zero, write 0xDEADBEEF to count. */
+    /* If arg1 is non-zero, write 0xDEADBEEF to global_count. */
     APP(ilist, INSTR_CREATE_mov_ld(dc, xcx, codegen_opnd_arg1()));
     APP(ilist, INSTR_CREATE_jecxz(dc, opnd_create_instr(arg_zero)));
-    APP(ilist, INSTR_CREATE_mov_imm(dc, xcx, OPND_CREATE_INTPTR(&count)));
+    APP(ilist, INSTR_CREATE_mov_imm(dc, xcx, OPND_CREATE_INTPTR(&global_count)));
     APP(ilist, INSTR_CREATE_mov_st(dc, OPND_CREATE_MEMPTR(DR_REG_XCX, 0),
                                    OPND_CREATE_INT32((int)0xDEADBEEF)));
     APP(ilist, arg_zero);
@@ -790,5 +994,45 @@ codegen_aflags_clobber(void *dc)
         (dc, opnd_create_reg(DR_REG_AL), OPND_CREATE_INT8(0x7F)));
     APP(ilist, INSTR_CREATE_sahf(dc));
     codegen_epilogue(dc, ilist);
+    return ilist;
+}
+
+/*
+bbcount:
+    push REG_XBP
+    mov REG_XBP, REG_XSP
+    inc [global_count]
+    leave
+    ret
+*/
+static instrlist_t *
+codegen_bbcount(void *dc)
+{
+    instrlist_t *ilist = instrlist_create(dc);
+    codegen_prologue(dc, ilist);
+    APP(ilist, INSTR_CREATE_inc(dc, OPND_CREATE_ABSMEM(&global_count, OPSZ_PTR)));
+    codegen_epilogue(dc, ilist);
+    return ilist;
+}
+
+/* We want to test that we can auto-inline whatever the compiler generates for
+ * inscount.
+ */
+static void
+compiler_inscount(ptr_uint_t count) {
+    global_count += count;
+}
+
+/* We generate an empty ilist for compiler_inscount and don't use it.
+ * Originally I tried to decode compiler_inscount and re-encode it in the RWX
+ * memory along with our other callees, but that breaks 32-bit PIC code.  Even
+ * if we set the translation for each instruction in this ilist, that will be
+ * lost when we encode and decode in the inliner.
+ */
+static instrlist_t *
+codegen_compiler_inscount(void *dc)
+{
+    instrlist_t *ilist = instrlist_create(dc);
+    APP(ilist, INSTR_CREATE_ret(dc));
     return ilist;
 }

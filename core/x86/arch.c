@@ -500,7 +500,8 @@ arch_init()
            offsetof(app_state_at_intercept_t, start_pc) + sizeof(void*));
     /* Try to catch errors in x86.asm offsets for dcontext_t */
     ASSERT(sizeof(unprotected_context_t) == sizeof(priv_mcontext_t) + 
-           IF_WINDOWS_ELSE(IF_X64_ELSE(8, 4), 8));
+           IF_WINDOWS_ELSE(IF_X64_ELSE(8, 4), 8) +
+           IF_CLIENT_INTERFACE_ELSE(4 * sizeof(reg_t), 0));
 
     interp_init();
 

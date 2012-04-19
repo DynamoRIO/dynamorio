@@ -80,6 +80,26 @@ extern int num_fragments;
 /****************************************************************************
  * clean call callee info table for i#42 and i#43
  */
+
+/* Describes usage of a scratch slot. */
+enum {
+    SLOT_NONE = 0,
+    SLOT_REG,
+    SLOT_LOCAL,
+    SLOT_FLAGS,
+};
+typedef byte slot_kind_t;
+
+/* If kind is:
+ * SLOT_REG: value is a reg_id_t
+ * SLOT_LOCAL: value is meaningless, may change to support multiple locals
+ * SLOT_FLAGS: value is meaningless
+ */
+typedef struct _slot_t {
+    slot_kind_t kind;
+    byte value;
+} slot_t;
+
 /* data structure of clean call callee information. */
 typedef struct _callee_info_t {
     bool bailout;             /* if we bail out on function analysis */
@@ -89,7 +109,6 @@ typedef struct _callee_info_t {
     app_pc fwd_tgt;           /* last forward branch target */
     int num_xmms_used;        /* number of xmms used by callee */
     bool xmm_used[NUM_XMM_REGS];  /* xmm/ymm registers usage */
-    int num_regs_used;        /* number of regs used by callee */
     bool reg_used[NUM_GP_REGS];   /* general purpose registers usage */
     int num_callee_save_regs; /* number of regs callee saved */
     bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
@@ -99,11 +118,15 @@ typedef struct _callee_info_t {
     bool write_aflags;        /* if the function changes aflags */
     bool read_aflags;         /* if the function reads aflags from caller */
     bool tls_used;            /* application accesses TLS (errno, etc.) */
+    reg_id_t spill_reg;       /* base register for spill slots */
+    uint slots_used;          /* scratch slots needed after analysis */
+    slot_t scratch_slots[CLEANCALL_NUM_INLINE_SLOTS];  /* scratch slot allocation */
     instrlist_t *ilist;       /* instruction list of function for inline. */
 } callee_info_t;
 static callee_info_t     default_callee_info;
 static clean_call_info_t default_clean_call_info;
 
+#ifdef CLIENT_INTERFACE
 /* hashtable for storing analyzed callee info */
 static generic_table_t  *callee_info_table;
 /* we only free callee info at exit, when callee_info_table_exit is true. */
@@ -129,10 +152,9 @@ callee_info_init(callee_info_t *ci)
     ci->num_xmms_used = NUM_XMM_REGS;
     for (i = 0; i < NUM_XMM_REGS; i++)
         ci->xmm_used[i] = true;
-    /* assuming all gp registers are used */
-    ci->num_regs_used = NUM_XMM_REGS;
     for (i = 0; i < NUM_GP_REGS; i++)
         ci->reg_used[i] = true;
+    ci->spill_reg = DR_REG_INVALID;
 }
 
 static void
@@ -157,6 +179,43 @@ callee_info_create(app_pc start)
     callee_info_init(info);
     info->start = start;
     return info;
+}
+
+static void
+callee_info_reserve_slot(callee_info_t *ci, slot_kind_t kind, byte value)
+{
+    if (ci->slots_used < BUFFER_SIZE_ELEMENTS(ci->scratch_slots)) {
+        if (kind == SLOT_REG)
+            value = dr_reg_fixer[value];
+        ci->scratch_slots[ci->slots_used].kind = kind;
+        ci->scratch_slots[ci->slots_used].value = value;
+    } else {
+        LOG(THREAD_GET, LOG_CLEANCALL, 2,
+            "CLEANCALL: unable to fulfill callee_info_reserve_slot for "
+            "kind %d value %d\n", kind, value);
+    }
+    /* We check if slots_used > CLEANCALL_NUM_INLINE_SLOTS to detect failure. */
+    ci->slots_used++;
+}
+
+static opnd_t
+callee_info_slot_opnd(callee_info_t *ci, slot_kind_t kind, byte value)
+{
+    uint i;
+    if (kind == SLOT_REG)
+        value = dr_reg_fixer[value];
+    for (i = 0; i < BUFFER_SIZE_ELEMENTS(ci->scratch_slots); i++) {
+        if (ci->scratch_slots[i].kind  == kind &&
+            ci->scratch_slots[i].value == value) {
+            int disp = (int)offsetof(unprotected_context_t,
+                                     inline_spill_slots[i]);
+            return opnd_create_base_disp(ci->spill_reg, DR_REG_NULL, 0, disp,
+                                         OPSZ_PTR);
+        }
+    }
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "Tried to find scratch slot for value "
+                   "without calling callee_info_reserve_slot for it", false);
+    return opnd_create_null();
 }
 
 static void
@@ -216,6 +275,7 @@ callee_info_table_add(callee_info_t *ci)
     TABLE_RWLOCK(callee_info_table, write, unlock);
     return info;
 }
+#endif /* CLIENT_INTERFACE */
 
 static void
 clean_call_info_init(clean_call_info_t *cci, void *callee,
@@ -432,7 +492,7 @@ remangle_short_rewrite(dcontext_t *dcontext,
 }
 
 /***************************************************************************/
-#ifndef STANDALONE_DECODER
+#if !defined(STANDALONE_DECODER)
 
 /* Pushes not only the GPRs but also xmm/ymm, xip, and xflags, in
  * priv_mcontext_t order.
@@ -1139,7 +1199,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 
         if (i < NUM_REGPARM) {
             reg_id_t regparm = shrink_reg_for_param(regparms[i], arg);
-            if (opnd_is_immed_int(arg)) {
+            if (opnd_is_immed_int(arg) || opnd_is_instr(arg)) {
                 POST(ilist, mark,
                     INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(regparm), arg));
             } else {
@@ -1149,7 +1209,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         } else {
             if (push) {
                 IF_X64(ASSERT_NOT_REACHED()); /* no 64-bit push_imm! */
-                if (opnd_is_immed_int(arg))
+                if (opnd_is_immed_int(arg) || opnd_is_instr(arg))
                     POST(ilist, mark, INSTR_CREATE_push_imm(dcontext, arg));
                 else {
                     if (clean_call && opnd_uses_reg(arg, REG_XSP)) {
@@ -1178,7 +1238,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                 /* xsp was adjusted up above; we simply store to xsp offsets */
                 uint offs = REGPARM_MINSTACK + XSP_SZ * (i - NUM_REGPARM);
 #ifdef X64
-                if (opnd_is_immed_int(arg)) {
+                if (opnd_is_immed_int(arg) || opnd_is_instr(arg)) {
                     /* PR 250976 #3: there is no memory store of 64-bit-immediate,
                      * so go through scratch reg */
                     ASSERT(NUM_REGPARM > 0);
@@ -4548,8 +4608,6 @@ finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f)
 #define MAX_NUM_FUNC_INSTRS 4096
 /* the max number of instructions the callee can have for inline. */
 #define MAX_NUM_INLINE_INSTRS 20
-#define NUM_SCRATCH_SLOTS 4 /* 4 spill slots: TLS_XAX/XBX/XCX/XDX/_SLOT. */
-#define SCRATCH_SLOTS(i) (TLS_XAX_SLOT + ((ushort)i) * sizeof(reg_t))
 
 void
 mangle_init(void)
@@ -4559,16 +4617,22 @@ mangle_init(void)
      * 2. variable clean_callees will not be updated during the execution
      *    and can be set write protected.
      */
+#ifdef CLIENT_INTERFACE
     callee_info_init(&default_callee_info);
     callee_info_table_init();
     clean_call_info_init(&default_clean_call_info, NULL, false, 0);
+#endif
 }
 
 void
 mangle_exit(void)
 {
+#ifdef CLIENT_INTERFACE
     callee_info_table_destroy();
+#endif
 }
+
+#ifdef CLIENT_INTERFACE
 
 /* Decode instruction from callee and return the next_pc to be decoded. */
 static app_pc
@@ -4809,7 +4873,6 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 
     ci->num_xmms_used = 0;
     memset(ci->xmm_used, 0, sizeof(bool) * NUM_XMM_REGS);
-    ci->num_regs_used = 0;
     memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
     ci->write_aflags = false;
     for (instr  = instrlist_first(ilist);
@@ -4834,14 +4897,18 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         }
         /* General purpose registers */
         for (i = 0; i < NUM_GP_REGS; i++) {
+            reg_id_t reg = DR_REG_XAX + (reg_id_t)i;
             if (!ci->reg_used[i] &&
-                instr_uses_reg(instr, (DR_REG_XAX + (reg_id_t)i))) {
+                /* Later we'll rewrite stack accesses to not use XSP or XBP. */
+                reg != DR_REG_XSP &&
+                (reg != DR_REG_XBP || !ci->xbp_is_fp) &&
+                instr_uses_reg(instr, reg)) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee "PFX" uses REG %s at "PFX"\n", 
-                    ci->start, reg_names[DR_REG_XAX + (reg_id_t)i],
+                    ci->start, reg_names[reg],
                     instr_get_app_pc(instr));
                 ci->reg_used[i] = true;
-                ci->num_regs_used++;
+                callee_info_reserve_slot(ci, SLOT_REG, reg);
             }
         }
         /* callee update aflags */
@@ -4852,11 +4919,6 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
                 ci->write_aflags = true;
             }
         }
-    }
-    /* we treat %xsp separately. */
-    if (ci->reg_used[DR_REG_XSP - DR_REG_XAX]) {
-        ci->reg_used[DR_REG_XSP - DR_REG_XAX] = false;
-        ci->num_regs_used--;
     }
 
     /* check if callee read aflags from caller */
@@ -4882,6 +4944,23 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     if (ci->read_aflags) {
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: callee "PFX" reads aflags from caller\n", ci->start);
+    }
+
+    /* If we read or write aflags, we need to reserve a slot to save them.
+     * We may or may not use the slot at the call site, but it needs to be
+     * reserved just in case.
+     */
+    if (ci->read_aflags || ci->write_aflags) {
+        /* XXX: We can optimize away the flags spill to memory if the callee
+         * does not use xax.
+         */
+        callee_info_reserve_slot(ci, SLOT_FLAGS, 0);
+        /* Spilling flags clobbers xax, so we need to spill the app xax first.
+         * If the callee used xax, then the slot will already be reserved.
+         */
+        if (!ci->reg_used[DR_REG_XAX - DR_REG_XAX]) {
+            callee_info_reserve_slot(ci, SLOT_REG, DR_REG_XAX);
+        }
     }
 }
 
@@ -4924,10 +5003,6 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
         (instr_get_opcode(bot) == OP_leave || instr_same(pop_xbp, bot))  &&
         (ci->bwd_tgt == NULL || instr_get_app_pc(top) <  ci->bwd_tgt) &&
         (ci->fwd_tgt == NULL || instr_get_app_pc(bot) >= ci->fwd_tgt)) {
-        /* xbp is callee saved, remove from reg_used*/
-        ASSERT(ci->reg_used[DR_REG_XBP - DR_REG_XAX]);
-        ci->reg_used[DR_REG_XBP - DR_REG_XAX] = false;
-        ci->num_regs_used--;
         /* check if xbp is fp */
         instr = instr_get_next(top);
         if (instr_get_opcode(top) == OP_enter) {
@@ -4986,10 +5061,7 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
             !opnd_is_reg(instr_get_src(top, 0)) ||
             opnd_get_reg(instr_get_src(top, 0)) == REG_XSP)
             break;
-        /* it is callee save reg. */
-        /* Note, cannot change ci->reg_used now, because we still need
-         * save those callee-save registers if inline.
-         */
+        /* It is a callee saved reg, we will do our own save for it. */
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: callee "PFX" callee-saves reg %s at "PFX" and "PFX"\n",
             ci->start, reg_names[opnd_get_reg(instr_get_src(top, 0))],
@@ -5040,6 +5112,41 @@ analyze_callee_tls(dcontext_t *dcontext, callee_info_t *ci)
     }
 }
 
+/* Pick a register to use as a base register pointing to our spill slots.
+ * We can't use a register that is:
+ * - DR_XSP (need a valid stack in case of fault)
+ * - DR_XAX (could be used for args or aflags)
+ * - REGPARM_0 on X64 (RDI on Lin and RCX on Win; for N>1 args, avoid REGPARM_<=N)
+ * - used by the callee
+ */
+static void
+analyze_callee_pick_spill_reg(dcontext_t *dcontext, callee_info_t *ci)
+{
+    uint i;
+    for (i = 0; i < NUM_GP_REGS; i++) {
+        reg_id_t reg = DR_REG_XAX + (reg_id_t)i;
+        if (reg == DR_REG_XSP ||
+            reg == DR_REG_XAX IF_X64(|| reg == REGPARM_0))
+            continue;
+        if (!ci->reg_used[i]) {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: picking spill reg %s for callee "PFX"\n",
+                reg_names[reg], ci->start);
+            ci->spill_reg = reg;
+            return;
+        }
+    }
+
+    /* This won't happen unless someone increases CLEANCALL_NUM_INLINE_SLOTS or
+     * handles calls with more arguments.  There are at least 8 GPRs, 4 spills,
+     * and 3 other regs we can't touch, so one will be available.
+     */
+    LOG(THREAD, LOG_CLEANCALL, 2,
+        "CLEANCALL: failed to pick spill reg for callee "PFX"\n", ci->start);
+    /* Fail to inline by setting ci->spill_reg == DR_REG_INVALID. */
+    ci->spill_reg = DR_REG_INVALID;
+}
+
 static void
 analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
 {
@@ -5080,8 +5187,13 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
             ci->start);
         opt_inline = false;
     }
-    if (!SCRATCH_ALWAYS_TLS() ||
-        ci->num_regs_used > NUM_SCRATCH_SLOTS) {
+    if (ci->spill_reg == DR_REG_INVALID) {
+        LOG(THREAD, LOG_CLEANCALL, 1,
+            "CLEANCALL: callee "PFX" cannot be inlined:"
+            " unable to pick spill reg.\n", ci->start);
+        opt_inline = false;
+    }
+    if (!SCRATCH_ALWAYS_TLS() || ci->slots_used > CLEANCALL_NUM_INLINE_SLOTS) {
         LOG(THREAD, LOG_CLEANCALL, 1,
             "CLEANCALL: callee "PFX" cannot be inlined:"
             " not enough scratch slots.\n", ci->start);
@@ -5187,6 +5299,14 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                 if (!ci->has_locals) {
                     /* We see the first one, remember it. */
                     mem_ref = opnd;
+                    callee_info_reserve_slot(ci, SLOT_LOCAL, 0);
+                    if (ci->slots_used > CLEANCALL_NUM_INLINE_SLOTS) {
+                        LOG(THREAD, LOG_CLEANCALL, 1,
+                            "CLEANCALL: callee "PFX" cannot be inlined: "
+                            "not enough slots for local.\n",
+                            ci->start);
+                        break;
+                    }
                     ci->has_locals = true;
                 } else if (!opnd_same(opnd, mem_ref)) {
                     /* Check if it is the same stack var as the one we saw.
@@ -5198,8 +5318,8 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                         ci->start, instr_get_app_pc(instr));
                     break;
                 }
-                /* replace the stack location with the last stack slot. */
-                slot = OPND_CREATE_MEMPTR(DR_REG_XSP, 0);
+                /* replace the stack location with the scratch slot. */
+                slot = callee_info_slot_opnd(ci, SLOT_LOCAL, 0);
                 opnd_set_size(&slot, opnd_get_size(mem_ref));
                 instr_set_src(instr, i, slot);
             }
@@ -5218,6 +5338,14 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                     continue;
                 if (!ci->has_locals) {
                     mem_ref = opnd;
+                    callee_info_reserve_slot(ci, SLOT_LOCAL, 0);
+                    if (ci->slots_used > CLEANCALL_NUM_INLINE_SLOTS) {
+                        LOG(THREAD, LOG_CLEANCALL, 1,
+                            "CLEANCALL: callee "PFX" cannot be inlined: "
+                            "not enough slots for local.\n",
+                            ci->start);
+                        break;
+                    }
                     ci->has_locals = true;
                 } else if (!opnd_same(opnd, mem_ref)) {
                     /* currently we only allows one stack refs */
@@ -5227,8 +5355,8 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                         ci->start, instr_get_app_pc(instr));
                     break;
                 }
-                /* replace the stack location with the last stack slot. */
-                slot = OPND_CREATE_MEMPTR(DR_REG_XSP, 0);
+                /* replace the stack location with the scratch slot. */
+                slot = callee_info_slot_opnd(ci, SLOT_LOCAL, 0);
                 opnd_set_size(&slot, opnd_get_size(mem_ref));
                 instr_set_dst(instr, i, slot);
             }
@@ -5255,13 +5383,17 @@ static void
 analyze_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
 {
     ASSERT(!ci->bailout && ci->ilist != NULL);
+    /* Remove frame setup and reg pushes before analyzing reg usage. */
+    if (INTERNAL_OPTION(opt_cleancall) >= 1) {
+        analyze_callee_save_reg(dcontext, ci);
+    }
     analyze_callee_regs_usage(dcontext, ci);
     if (INTERNAL_OPTION(opt_cleancall) < 1) {
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ci->ilist);
         ci->ilist = NULL;
     } else {
-        analyze_callee_save_reg(dcontext, ci);
         analyze_callee_tls(dcontext, ci);
+        analyze_callee_pick_spill_reg(dcontext, ci);
         analyze_callee_inline(dcontext, ci);
     }
 }
@@ -5350,7 +5482,6 @@ analyze_clean_call_args(dcontext_t *dcontext,
                         opnd_t *args)
 {
     uint i, j, num_regparm;
-    DEBUG_DECLARE(callee_info_t *ci = cci->callee_info;)
 
     num_regparm = cci->num_args < NUM_REGPARM ? cci->num_args : NUM_REGPARM;
     /* If a param uses a reg, DR need restore register value, which assumes
@@ -5366,21 +5497,14 @@ analyze_clean_call_args(dcontext_t *dcontext,
                 cci->save_all_regs = true;
         }
     }
-    if (cci->save_all_regs) {
-        LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: inserting clean call "PFX
-            ", save all regs in priv_mcontext_t layout.\n",
-            ci->start);
-        cci->num_regs_skip = 0;
-        memset(cci->reg_skip, 0, sizeof(bool) * NUM_GP_REGS);
-        cci->should_align = true;
-    }
+    /* We only set cci->reg_skip all to false later if we fail to inline.  We
+     * only need to preserve the layout if we're not inlining.
+     */
 }
 
 static bool
 analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
 {
-    uint num_slots;
     callee_info_t *info = cci->callee_info;
     bool opt_inline = true;
 
@@ -5408,40 +5532,23 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
             info->start);
         opt_inline = false;
     }
-    if (opt_inline) {
-        /* Now check if have enough scratch slots */
-        num_slots = NUM_GP_REGS - cci->num_regs_skip;
-        if (info->has_locals) {
-            /* one more slot for local variable */
-            num_slots++;
-        }
-        if (!cci->skip_save_aflags) {
-            /* one more slot for store app's eflags */
-            num_slots++;
-            if (cci->reg_skip[0]) {
-                cci->num_regs_skip--;
-                cci->reg_skip[0] = false; /* need save xax */
-                num_slots++;
-            }
-        }
-#ifndef X64
-        if (cci->num_args == 1 && cci->reg_skip[0]) {
-            /* we use rax to put arg into tls */
-            cci->num_regs_skip--;
-            cci->reg_skip[0] = false; 
-            num_slots++;
-        }
-#endif
-        if (num_slots > NUM_SCRATCH_SLOTS) {
-            LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: fail inlining clean call "PFX
-                " need %d slots > available slots.\n",
-                info->start, num_slots, NUM_SCRATCH_SLOTS);
-            opt_inline = false;
-        }
+    if (info->slots_used > CLEANCALL_NUM_INLINE_SLOTS) {
+        LOG(THREAD, LOG_CLEANCALL, 2,
+            "CLEANCALL: fail inlining clean call "PFX", used %d slots, "
+            "> %d available slots.\n",
+            info->start, info->slots_used, CLEANCALL_NUM_INLINE_SLOTS);
+        opt_inline = false;
     }
     if (!opt_inline) {
-        if (!cci->save_all_regs) {
+        if (cci->save_all_regs) {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: inserting clean call "PFX
+                ", save all regs in priv_mcontext_t layout.\n",
+                info->start);
+            cci->num_regs_skip = 0;
+            memset(cci->reg_skip, 0, sizeof(bool) * NUM_GP_REGS);
+            cci->should_align = true;
+        } else {
             uint i;
             for (i = 0; i < NUM_GP_REGS; i++) {
                 if (!cci->reg_skip[i] && info->callee_save_regs[i]) {
@@ -5516,39 +5623,47 @@ static void
 insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
                        instrlist_t *ilist, instr_t *where, opnd_t *args)
 {
-    DEBUG_DECLARE(callee_info_t *info = cci->callee_info;)
+    callee_info_t *ci = cci->callee_info;
     int i;
 
-    /* Spill XSP to TLS_XAX_SLOT because it's not exposed to the client. */
+    /* Don't spill anything if we don't have to. */
+    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_aflags &&
+        !ci->has_locals) {
+        return;
+    }
+
+    /* Spill a register to TLS and point it at our unprotected_context_t. */
     PRE(ilist, where, instr_create_save_to_tls
-        (dcontext, DR_REG_XSP, TLS_XAX_SLOT));
+        (dcontext, ci->spill_reg, TLS_XAX_SLOT));
+    insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
 
-    /* Switch to dstack. */
-    insert_get_mcontext_base(dcontext, ilist, where, REG_XSP);
-    PRE(ilist, where, instr_create_restore_from_dc_via_reg
-        (dcontext, DR_REG_XSP, DR_REG_XSP, DSTACK_OFFSET));
-
+    /* Save used registers. */
     ASSERT(cci->num_xmms_skip == NUM_XMM_REGS);
     for (i = 0; i < NUM_GP_REGS; i++) {
         if (!cci->reg_skip[i]) {
+            reg_id_t reg_id = DR_REG_XAX + (reg_id_t)i;
             LOG(THREAD, LOG_CLEANCALL, 2,
                 "CLEANCALL: inlining clean call "PFX", saving reg %s.\n",
-                info->start, reg_names[DR_REG_XAX + (reg_id_t)i]);
-            PRE(ilist, where, INSTR_CREATE_push
-                (dcontext, opnd_create_reg(DR_REG_XAX + (reg_id_t)i)));
+                ci->start, reg_names[reg_id]);
+            PRE(ilist, where, INSTR_CREATE_mov_st
+                (dcontext, callee_info_slot_opnd(ci, SLOT_REG, reg_id),
+                 opnd_create_reg(reg_id)));
         }
     }
 
+    /* Save aflags if necessary via XAX, which was just saved if needed. */
     if (!cci->skip_save_aflags) {
-        PRE(ilist, where, INSTR_CREATE_pushf(dcontext));
-    }
-
-    /* If we had to rewrite a local var stack access, make space for it without
-     * touching aflags. */
-    if (((callee_info_t*)cci->callee_info)->has_locals) {
-        PRE(ilist, where, INSTR_CREATE_lea
-            (dcontext, opnd_create_reg(DR_REG_XSP), OPND_CREATE_MEM_lea
-             (DR_REG_XSP, DR_REG_NULL, 0, -(int)sizeof(reg_t))));
+        ASSERT(!cci->reg_skip[DR_REG_XAX - DR_REG_XAX]);
+        dr_save_arith_flags_to_xax(dcontext, ilist, where);
+        PRE(ilist, where, INSTR_CREATE_mov_st
+            (dcontext, callee_info_slot_opnd(ci, SLOT_FLAGS, 0),
+             opnd_create_reg(DR_REG_XAX)));
+        /* Restore app XAX here if it's needed to materialize the argument. */
+        if (cci->num_args > 0 && opnd_uses_reg(args[0], DR_REG_XAX)) {
+            PRE(ilist, where, INSTR_CREATE_mov_ld
+                (dcontext, opnd_create_reg(DR_REG_XAX),
+                 callee_info_slot_opnd(ci, SLOT_REG, DR_REG_XAX)));
+        }
     }
 }
 
@@ -5559,76 +5674,128 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     int i;
     callee_info_t *ci = cci->callee_info;
 
-    /* Clear stack space for local var if we had one. */
-    if (ci->has_locals) {
-        PRE(ilist, where, INSTR_CREATE_lea
-            (dcontext, opnd_create_reg(DR_REG_XSP),
-             OPND_CREATE_MEM_lea(DR_REG_XSP, DR_REG_NULL, 0, sizeof(reg_t))));
+    /* Don't restore regs if we don't have to. */
+    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_aflags &&
+        !ci->has_locals) {
+        return;
     }
 
-    /* aflags is next. */
+    /* Restore aflags before regs because it uses xax. */
     if (!cci->skip_save_aflags) {
-        PRE(ilist, where, INSTR_CREATE_popf(dcontext));
+        PRE(ilist, where, INSTR_CREATE_mov_ld
+            (dcontext, opnd_create_reg(DR_REG_XAX),
+             callee_info_slot_opnd(ci, SLOT_FLAGS, 0)));
+        dr_restore_arith_flags_from_xax(dcontext, ilist, where);
     }
 
     /* Now restore all registers. */
     for (i = NUM_GP_REGS - 1; i >= 0; i--) {
         if (!cci->reg_skip[i]) {
+            reg_id_t reg_id = DR_REG_XAX + (reg_id_t)i;
             LOG(THREAD, LOG_CLEANCALL, 2,
                 "CLEANCALL: inlining clean call "PFX", restoring reg %s.\n",
-                ci->start, reg_names[DR_REG_XAX + (reg_id_t)i]);
-            PRE(ilist, where, INSTR_CREATE_pop
-                (dcontext, opnd_create_reg(DR_REG_XAX + (reg_id_t)i)));
+                ci->start, reg_names[reg_id]);
+            PRE(ilist, where, INSTR_CREATE_mov_ld
+                (dcontext, opnd_create_reg(reg_id),
+                 callee_info_slot_opnd(ci, SLOT_REG, reg_id)));
         }
     }
 
-    /* Switch back to app stack. */
+    /* Restore reg used for unprotected_context_t pointer. */
     PRE(ilist, where, instr_create_restore_from_tls
-        (dcontext, DR_REG_XSP, TLS_XAX_SLOT));
+        (dcontext, ci->spill_reg, TLS_XAX_SLOT));
 }
 
 static void
 insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
                         instrlist_t *ilist, instr_t *where, opnd_t *args)
 {
-    reg_id_t reg;
+    reg_id_t regparm;
     callee_info_t *ci = cci->callee_info;
-    ci = ci; /* avoid unused warning for X64 release */
+    opnd_t arg;
+    bool restored_spill_reg = false;
 
     if (cci->num_args == 0)
         return;
-#ifndef X64
-    /* the arg is not referenced at all, so skip the setup.
-     * XXX: if we re-add it, be sure to add in a lea to adjust esp,
-     * which is currently missing in this case (i#668)
+
+    /* If the arg is un-referenced, don't set it up.  This is actually necessary
+     * for correctness because we will not have spilled regparm[0] on x64 or
+     * reserved SLOT_LOCAL for x86_32.
      */
-    if (!ci->has_locals)
+    if (IF_X64_ELSE(!ci->reg_used[regparms[0] - DR_REG_XAX],
+                    !ci->has_locals)) {
+        LOG(THREAD, LOG_CLEANCALL, 2,
+            "CLEANCALL: callee "PFX" doesn't read arg, skipping arg setup.\n",
+            ci->start);
         return;
-#endif
+    }
+
     ASSERT(cci->num_args == 1);
-    reg = shrink_reg_for_param(IF_X64_ELSE(regparms[0], DR_REG_XAX), args[0]);
+    arg = args[0];
+    regparm = shrink_reg_for_param(IF_X64_ELSE(regparms[0], DR_REG_XAX), arg);
+
+    if (opnd_uses_reg(arg, ci->spill_reg)) {
+        if (opnd_is_reg(arg)) {
+            /* Trying to pass the spill reg (or a subreg) as the arg. */
+            reg_id_t arg_reg = opnd_get_reg(arg);
+            arg = opnd_create_tls_slot(os_tls_offset(TLS_XAX_SLOT));
+            opnd_set_size(&arg, reg_get_size(arg_reg));
+            if (arg_reg == DR_REG_AH ||  /* Don't rely on ordering. */
+                arg_reg == DR_REG_BH ||
+                arg_reg == DR_REG_CH ||
+                arg_reg == DR_REG_DH) {
+                /* If it's one of the high sub-registers, add 1 to offset. */
+                opnd_set_disp(&arg, opnd_get_disp(arg) + 1);
+            }
+        } else {
+            /* Too complicated to rewrite if it's embedded in the operand.  Just
+             * restore spill_reg during the arg materialization.  Hopefully this
+             * doesn't happen very often.
+             */
+            PRE(ilist, where, instr_create_restore_from_tls
+                (dcontext, ci->spill_reg, TLS_XAX_SLOT));
+            DOLOG(2, LOG_CLEANCALL, {
+                char disas_arg[MAX_OPND_DIS_SZ];
+                opnd_disassemble_to_buffer(dcontext, arg, disas_arg,
+                                           BUFFER_SIZE_ELEMENTS(disas_arg));
+                LOG(THREAD, LOG_CLEANCALL, 2,
+                    "CLEANCALL: passing arg %s using spill reg %s to callee "PFX" "
+                    "requires extra spills, consider using a different register.\n",
+                    disas_arg, reg_names[ci->spill_reg], ci->start);
+            });
+            restored_spill_reg = true;
+        }
+    }
+
     LOG(THREAD, LOG_CLEANCALL, 2,
         "CLEANCALL: inlining clean call "PFX", passing arg via reg %s.\n",
-        ci->start, reg_names[reg]);
-    if (opnd_is_immed_int(args[0])) {
+        ci->start, reg_names[regparm]);
+    if (opnd_is_immed_int(arg)) {
         PRE(ilist, where, INSTR_CREATE_mov_imm
-            (dcontext, opnd_create_reg(reg), args[0]));
+            (dcontext, opnd_create_reg(regparm), arg));
     } else {
         PRE(ilist, where, INSTR_CREATE_mov_ld
-            (dcontext, opnd_create_reg(reg), args[0]));
+            (dcontext, opnd_create_reg(regparm), arg));
     }
+
+    /* Put the unprotected_context_t pointer back in spill_reg if we needed to
+     * restore the app value.
+     */
+    if (restored_spill_reg) {
+        insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
+    }
+
 #ifndef X64
     ASSERT(!cci->reg_skip[0]);
-    /* Move xax to the local variable stack slot.  We can use the local
-     * variable stack slot because we only allow at most one local stack
-     * access, so callee either does not use the argument, or the local stack
-     * access is the arg.
+    /* Move xax to the scratch slot of the local.  We only allow at most one
+     * local stack access, so the callee either does not use the argument, or
+     * the local stack access is the arg.
      */
     LOG(THREAD, LOG_CLEANCALL, 2,
-        "CLEANCALL: inlining clean call "PFX", passing arg via slot %d.\n",
-        ci->start, NUM_SCRATCH_SLOTS - 1);
+        "CLEANCALL: inlining clean call "PFX", passing arg via slot.\n",
+        ci->start);
     PRE(ilist, where, INSTR_CREATE_mov_st
-        (dcontext, OPND_CREATE_MEMPTR(DR_REG_XSP, 0),
+        (dcontext, callee_info_slot_opnd(ci, SLOT_LOCAL, 0),
          opnd_create_reg(DR_REG_XAX)));
 #endif
 }
@@ -5680,6 +5847,24 @@ insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      * leave it for higher optimization level.
      */
 }
+
+#else /* CLIENT_INTERFACE */
+
+/* Stub implementation ifndef CLIENT_INTERFACE.  Initializes cci and returns
+ * false for no inlining.  We use dr_insert_clean_call internally, but we don't
+ * need it to do inlining.
+ */
+bool
+analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
+                   void *callee, bool save_fpstate, uint num_args, opnd_t *args)
+{
+    CLIENT_ASSERT(callee != NULL, "Clean call target is NULL");
+    /* 1. init clean_call_info */
+    clean_call_info_init(cci, callee, save_fpstate, num_args);
+    return false;
+}
+
+#endif /* CLIENT_INTERFACE */
 
 #endif /* !STANDALONE_DECODER */
 /***************************************************************************/
