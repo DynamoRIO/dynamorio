@@ -3862,7 +3862,10 @@ DR_API
  * before calling this routine.
  *
  * \note This routine may only be called from a clean call from the cache. It can not be
- * called from any registered event callback.
+ * called from any registered event callback except the exception event
+ * (dr_register_exception_event()).  From a signal event callback, use the
+ * DR_SIGNAL_REDIRECT return value rather than calling this routine.
+ *
  * \return false if unsuccessful; if successful, does not return.
  */
 bool
@@ -3940,12 +3943,13 @@ DR_API
  * It may not be called from any other event callback.  No locks can
  * held when calling this routine.  If called from a clean call, caller can NOT return
  * to the cache (the fragment that was called out of may have been flushed even if it
- * doesn't apparently overlap the flushed region). Instead the caller must call
- * dr_redirect_execution() after this routine to continue execution.  Returns true if
- * successful.
+ * doesn't apparently overlap the flushed region). Instead the caller must redirect
+ * execution via dr_redirect_execution() (or DR_SIGNAL_REDIRECT from a signal callback)
+ * after this routine to continue execution.  Returns true if successful.
  *
  * \note This routine may not be called from any registered event callback other than
- * the nudge event or the pre- or post-system call event; clean calls
+ * the nudge event, the pre- or post-system call events, the exception event, or
+ * the signal event; clean calls
  * out of the cache may call this routine.
  *
  * \note If called from a clean call, caller must continue execution by calling
@@ -3989,7 +3993,8 @@ DR_API
  * held when calling this routine.  Returns true if successful.
  *
  * \note This routine may not be called from any registered event callback other than
- * the nudge event or the pre- or post-system call event; clean calls
+ * the nudge event, the pre- or post-system call events, the exception event, or
+ * the signal event; clean calls
  * out of the cache may call this routine.
  * \note This routine may not be called while any locks are held that could block a thread
  * processing a registered event callback or cache callout.
