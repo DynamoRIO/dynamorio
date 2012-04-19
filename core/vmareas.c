@@ -9801,21 +9801,16 @@ vm_area_coarse_region_freeze(dcontext_t *dcontext, coarse_info_t *info,
                 frozen = coarse_unit_merge(dcontext, frozen, frozen_info, in_place);
                 ASSERT(frozen != NULL);
                 ASSERT(!in_place || frozen->non_frozen != NULL);
-                if (frozen == NULL) {
+                if (frozen == NULL && in_place) {
                     /* Shouldn't happen w/ online units; if it does we end up
                      * tossing frozen_info w/o merging it
                      */
                     frozen = premerge;
                 }
-                if (!in_place && premerge != NULL) {
-                    coarse_unit_reset_free(dcontext, premerge, false/*no locks*/,
-                                           false/*already unlinked*/,
-                                           false/*not in use anyway*/);
-                    coarse_unit_free(dcontext, premerge);
-                    if (frozen == premerge)
-                        frozen = NULL;
-                    premerge = NULL;
-                }
+                /* for !in_place we free premerge after persisting, so clients don't
+                 * get deletion events that remove data from hashtables too early
+                 * (xref http://code.google.com/p/drmemory/issues/detail?id=869)
+                 */
                 if (in_place) {
                     coarse_unit_reset_free(dcontext, frozen_info, false/*no locks*/,
                                            true/*need to unlink*/,
@@ -9833,6 +9828,14 @@ vm_area_coarse_region_freeze(dcontext_t *dcontext, coarse_info_t *info,
                 frozen = NULL;
             } else
                 ASSERT(frozen == unfrozen_info);
+            if (frozen_info != NULL && !in_place && premerge != NULL) {
+                /* see comment above: delayed until after persist */
+                coarse_unit_reset_free(dcontext, premerge, false/*no locks*/,
+                                       false/*already unlinked*/,
+                                       false/*not in use anyway*/);
+                ASSERT(frozen != premerge);
+                premerge = NULL;
+            }
         }
     } else if (frozen_info != NULL && frozen_info->cache != NULL &&
                !in_place && !frozen_info->persisted) {

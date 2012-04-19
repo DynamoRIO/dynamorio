@@ -3209,6 +3209,12 @@ dr_fragment_persistable(void *drcontext, void *perscxt, void *tag_in)
     if (perscxt != NULL) {
         coarse_info_t *info = (coarse_info_t *) perscxt;
         fragment_coarse_lookup_in_unit(dcontext, info, tag, NULL, &res);
+        if (res != NULL)
+            return true;
+        if (info->non_frozen != NULL) {
+            ASSERT(info->frozen);
+            fragment_coarse_lookup_in_unit(dcontext, info->non_frozen, tag, NULL, &res);
+        }
     } else {
         res = fragment_coarse_lookup(dcontext, tag);
     }
