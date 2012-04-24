@@ -70,7 +70,8 @@ DR_EXPORT
  * Inserts instructions prior to \p where in \p bb that determine and
  * store the memory address referred to by \p memref into the register
  * \p dst.  May clobber the register \p scratch.  Supports far memory
- * references.
+ * references. For far memory references via DS and ES, we assume that
+ * the segment base is 0.
  *
  * To obtain each memory address referenced in a single-instruction
  * string loop, use drutil_expand_rep_string() to transform such loops

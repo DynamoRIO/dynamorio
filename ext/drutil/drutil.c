@@ -95,7 +95,15 @@ bool
 drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
                            opnd_t memref, reg_id_t dst, reg_id_t scratch)
 {
-    if (opnd_is_far_base_disp(memref)) {
+    if (opnd_is_far_base_disp(memref) &&
+        /* We assume that far memory references via %ds and %es are flat,
+         * i.e. the segment base is 0, so we only handle %fs and %gs here.
+         * The assumption is consistent with dr_insert_get_seg_base,
+         * which does say for windows it only supports TLS segment,
+         * and inserts "mov 0 => reg" for %ds and %es instead.
+         */
+        opnd_get_segment(memref) != DR_SEG_ES &&
+        opnd_get_segment(memref) != DR_SEG_DS) {
         /* get segment base into scratch, then add to memref base and lea */
         instr_t *near_in_dst = NULL;
         if (opnd_uses_reg(memref, scratch) ||
@@ -137,10 +145,37 @@ drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
                                                        OPSZ_lea)));
         }
     } else if (opnd_is_base_disp(memref)) {
+        /* special handling for xlat instr, [%ebx,%al] 
+         * - save %eax
+         * - movzx %al => %eax
+         * - lea [%ebx, %eax] => dst
+         * - restore %eax
+         */
+        bool is_xlat = false;
+        if (opnd_get_index(memref) == DR_REG_AL) {
+            is_xlat = true;
+            if (scratch != DR_REG_XAX && dst != DR_REG_XAX) {
+                /* we do not have to save xax if it is saved by caller */
+                PRE(bb, where,
+                    INSTR_CREATE_mov_ld(drcontext, 
+                                        opnd_create_reg(scratch),
+                                        opnd_create_reg(DR_REG_XAX)));
+            }
+            PRE(bb, where,
+                INSTR_CREATE_movzx(drcontext, opnd_create_reg(DR_REG_XAX),
+                                   opnd_create_reg(DR_REG_AL)));
+            memref = opnd_create_base_disp(DR_REG_XBX, DR_REG_XAX, 1, 0,
+                                           OPSZ_lea);
+        }
         /* lea [ref] => reg */
         opnd_set_size(&memref, OPSZ_lea);
         PRE(bb, where,
             INSTR_CREATE_lea(drcontext, opnd_create_reg(dst), memref));
+        if (is_xlat && scratch != DR_REG_XAX && dst != DR_REG_XAX) {
+            PRE(bb, where,
+                INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(DR_REG_XAX),
+                                    opnd_create_reg(scratch)));
+        }
     } else if (IF_X64(opnd_is_rel_addr(memref) ||) opnd_is_abs_addr(memref)) {
         /* mov addr => reg */
         PRE(bb, where,
