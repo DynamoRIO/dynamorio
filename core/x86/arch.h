@@ -151,13 +151,13 @@ preserve_xmm_caller_saved(void)
 {
     /* PR 264138: we must preserve xmm0-5 if on a 64-bit Windows kernel.
      * PR 302107: we must preserve xmm0-15 for 64-bit Linux apps.
-     * PR 306394: for now we do not preserve xmm0-7, which are technically
-     * caller-saved, for 32-bit Windows.
+     * i#139: we save xmm0-7 in 32-bit Linux and Windows b/c DR and client
+     * code on modern compilers ends up using xmm regs w/o any flags to easily
+     * disable w/o giving up perf.  (Xref PR 306394 where we originally did
+     * not preserve xmm0-7 on a 32-bit kernel b/c DR didn't contain any xmm
+     * reg usage).
      */
-    return IF_X64_ELSE(true,
-                       /* i#139: we save xmm0-7 in 32-bit Linux. */
-                       IF_WINDOWS_ELSE(is_wow64_process(NT_CURRENT_PROCESS), true)) &&
-        proc_has_feature(FEATURE_SSE) /* do xmm registers exist? */;
+    return proc_has_feature(FEATURE_SSE) /* do xmm registers exist? */;
 }
 
 typedef enum {
