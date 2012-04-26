@@ -2129,7 +2129,10 @@ dump_fpstate(dcontext_t *dcontext, struct _fpstate *fp)
     if (YMM_ENABLED()) {
         struct _xstate *xstate = (struct _xstate *) fp;
         if (fp->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
-            ASSERT(fp->sw_reserved.xstate_size >= sizeof(*xstate));
+            /* i#718: for 32-bit app on 64-bit OS, the xstate_size in sw_reserved
+             * is obtained via cpuid, which is the xstate size of 64-bit arch.
+             */
+            ASSERT(fp->sw_reserved.extended_size >= sizeof(*xstate));
             ASSERT(TEST(XCR0_AVX, fp->sw_reserved.xstate_bv));
             LOG(THREAD, LOG_ASYNCH, 1, "\txstate_bv = 0x"HEX64_FORMAT_STRING"\n",
                 xstate->xstate_hdr.xstate_bv);
@@ -2280,7 +2283,10 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, struct sigcontext *sc)
         if (YMM_ENABLED()) {
             struct _xstate *xstate = (struct _xstate *) sc->fpstate;
             if (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
-                ASSERT(sc->fpstate->sw_reserved.xstate_size >= sizeof(*xstate));
+                /* i#718: for 32-bit app on 64-bit OS, the xstate_size in sw_reserved
+                 * is obtained via cpuid, which is the xstate size of 64-bit arch.
+                 */
+                ASSERT(sc->fpstate->sw_reserved.extended_size >= sizeof(*xstate));
                 ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
                 for (i=0; i<NUM_XMM_SLOTS; i++) {
                     memcpy(&mc->ymm[i].u32[4], &xstate->ymmh.ymmh_space[i*4],
@@ -2329,7 +2335,10 @@ mcontext_to_sigcontext(struct sigcontext *sc, priv_mcontext_t *mc)
         if (YMM_ENABLED()) {
             struct _xstate *xstate = (struct _xstate *) sc->fpstate;
             if (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
-                ASSERT(sc->fpstate->sw_reserved.xstate_size >= sizeof(*xstate));
+                /* i#718: for 32-bit app on 64-bit OS, the xstate_size in sw_reserved
+                 * is obtained via cpuid, which is the xstate size of 64-bit arch.
+                 */
+                ASSERT(sc->fpstate->sw_reserved.extended_size >= sizeof(*xstate));
                 ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
                 for (i=0; i<NUM_XMM_SLOTS; i++) {
                     memcpy(&xstate->ymmh.ymmh_space[i*4], &mc->ymm[i].u32[4],
