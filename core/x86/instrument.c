@@ -2717,7 +2717,24 @@ DR_API
 bool
 dr_mutex_trylock(void *mutex)
 {
-    return mutex_trylock((mutex_t *) mutex);
+    bool success = false;
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    /* set client_grab_mutex so that we know to set client_thread_safe_for_synch
+     * around the actual wait for the lock */
+    if (IS_CLIENT_THREAD(dcontext)) {
+        dcontext->client_data->client_grab_mutex = mutex;
+        /* We do this on the outside so that we're conservative wrt races
+         * in the direction of not killing the thread while it has a lock
+         */
+        dcontext->client_data->mutex_count++;
+    }
+    success = mutex_trylock((mutex_t *) mutex);
+    if (IS_CLIENT_THREAD(dcontext)) {
+        if (!success)
+            dcontext->client_data->mutex_count--;
+        dcontext->client_data->client_grab_mutex = NULL;
+    }
+    return success;
 }
 
 DR_API
