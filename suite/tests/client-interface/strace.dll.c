@@ -304,44 +304,6 @@ event_post_syscall(void *drcontext, int sysnum)
     }
 }
 
-#ifdef WINDOWS
-/* takes in an Nt syscall wrapper entry point */
-static int
-decode_syscall_num(byte *entry)
-{
-    void *drcontext = dr_get_current_drcontext();
-    int num = -1;
-    byte *pc = entry;
-    uint opc;
-    instr_t instr;
-    instr_init(drcontext, &instr);
-    do {
-        instr_reset(drcontext, &instr);
-        pc = decode(drcontext, pc, &instr);
-        DR_ASSERT(instr_valid(&instr));
-        opc = instr_get_opcode(&instr);
-        /* safety check: should only get 11 or 12 bytes in */
-        if (pc - entry > 20) {
-            DR_ASSERT(false);
-            instr_free(drcontext, &instr);
-            return -1;
-        }
-        /* Note that we'll fail if somebody has hooked the wrapper */
-        if (opc == OP_mov_imm && opnd_is_reg(instr_get_dst(&instr, 0)) &&
-            opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_EAX) {
-            DR_ASSERT(opnd_is_immed_int(instr_get_src(&instr, 0)));
-            num = (int) opnd_get_immed_int(instr_get_src(&instr, 0));
-            break;
-        }
-        /* stop at call to vsyscall or at int itself */
-    } while (opc != OP_call_ind && opc != OP_int &&
-             opc != OP_sysenter && opc != OP_syscall);
-    instr_free(drcontext, &instr);
-    DR_ASSERT(num > -1);
-    return num;
-}
-#endif /* WINDOWS */
-
 static int
 get_write_sysnum(void)
 {
@@ -354,6 +316,6 @@ get_write_sysnum(void)
     entry = (byte *) dr_get_proc_address(data->handle, "NtWriteFile");
     DR_ASSERT(entry != NULL);
     dr_free_module_data(data);
-    return decode_syscall_num(entry);
+    return drmgr_decode_sysnum_from_wrapper(entry);
 #endif
 }
