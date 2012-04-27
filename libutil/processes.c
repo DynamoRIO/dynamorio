@@ -723,9 +723,12 @@ get_process_name_and_cmdline(process_id_t pid, WCHAR *name_buf, int name_len, WC
     RTL_USER_PROCESS_PARAMETERS process_parameters;
     DWORD error = ERROR_SUCCESS;
 
-    error = acquire_privileges();
-    if (error != ERROR_SUCCESS)
-        goto exit;
+    /* note that on Vista+ acquire_privileges() requires being admin.  currently
+     * most routines here just ignore failure which seems a reasonable approach:
+     * perhaps cleaner code to first try to open the process, and then acquire
+     * and return error on acquire failing: but more complex
+     */
+    acquire_privileges();
     /* deliberately asking for pre-Vista PROCESS_ALL_ACCESS so that this code
      * compiled w/ later VS will run on pre-Vista
      */

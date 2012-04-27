@@ -1258,7 +1258,7 @@ acquire_privileges()
     LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &Priv.Privileges[0].Luid);
     // try to enable the privilege
     if (!AdjustTokenPrivileges(hToken, FALSE, &Priv, sizeof(Priv),
-                              &OldPriv, &PrivSize)) {
+                               &OldPriv, &PrivSize)) {
         return GetLastError();
     }
     error = GetLastError();
