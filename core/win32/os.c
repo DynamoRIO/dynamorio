@@ -1059,8 +1059,9 @@ os_slow_exit(void)
 #define KILL_PROC_EXIT_STATUS -1
 #define KILL_THREAD_EXIT_STATUS -1
 
-byte *
-os_terminate_static_arguments(bool exit_process)
+/* custom_code only honored if exit_process == true */
+static byte *
+os_terminate_static_arguments(bool exit_process, bool custom_code, int exit_code)
 {
     byte *arguments;
         
@@ -1103,11 +1104,22 @@ os_terminate_static_arguments(bool exit_process)
         0, /* will be set to sysenter_ret_address */
         {NT_CURRENT_PROCESS, KILL_PROC_EXIT_STATUS}
     };
+    /* for variable exit code */
+    static terminate_args_t custom_term_proc_args = {
+        IF_DEBUG_ELSE_0((byte *)debug_infinite_loop), /* 0 -> NULL for release */
+        {NT_CURRENT_PROCESS, KILL_PROC_EXIT_STATUS}
+    };
     
     /* for LOG statement just pick proc vs. thread here, will adjust for
      * offset below */
     if (exit_process) {
-        if (DYNAMO_OPTION(sygate_sysenter) && 
+        if (custom_code) {
+            SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+            ATOMIC_4BYTE_WRITE((byte *)&custom_term_proc_args.args.ExitStatus,
+                               exit_code, false);
+            SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+            arguments = (byte *)&custom_term_proc_args;
+        } else if (DYNAMO_OPTION(sygate_sysenter) && 
             get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
             byte *tgt = (byte *)&sygate_term_proc_args;
             /* Note we overwrite every time we use this, but is ATOMIC and
@@ -1147,7 +1159,8 @@ os_terminate_static_arguments(bool exit_process)
 /* dcontext is not needed for TERMINATE_PROCESS, so can pass NULL in
  */
 void
-os_terminate(dcontext_t *dcontext, terminate_flags_t terminate_type)
+os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
+                    bool custom_code, int exit_code)
 {
     HANDLE currentThreadOrProcess = NT_CURRENT_PROCESS;
     bool exit_process = true;
@@ -1209,7 +1222,8 @@ os_terminate(dcontext_t *dcontext, terminate_flags_t terminate_type)
     
     STATS_INC(num_threads_killed);
     if (TEST(TERMINATE_CLEANUP, terminate_type)) {
-        byte *arguments = os_terminate_static_arguments(exit_process);
+        byte *arguments = os_terminate_static_arguments(exit_process,
+                                                        custom_code, exit_code);
 
         /* Make sure debug loop pointer is in expected place since this makes
          * assumptions about offsets.  We don't use the debug loop pointer for
@@ -1241,7 +1255,9 @@ os_terminate(dcontext_t *dcontext, terminate_flags_t terminate_type)
              IF_X64_ELSE((exit_process ? NT_CURRENT_PROCESS : NT_CURRENT_THREAD),
                          arguments),
              (ptr_uint_t)
-             IF_X64_ELSE((exit_process ? KILL_PROC_EXIT_STATUS:KILL_THREAD_EXIT_STATUS),
+             IF_X64_ELSE((exit_process ?
+                          (custom_code ? exit_code : KILL_PROC_EXIT_STATUS) :
+                          KILL_THREAD_EXIT_STATUS),
                          arguments /* no 2nd arg, just a filler */),
              exit_process);
     } else {
@@ -1267,6 +1283,19 @@ os_terminate(dcontext_t *dcontext, terminate_flags_t terminate_type)
            waiting on the thread object, hopefully someone will do it */
     }
     ASSERT_NOT_REACHED();
+}
+
+void
+os_terminate_with_code(dcontext_t *dcontext, terminate_flags_t terminate_type,
+                       int exit_code)
+{
+    os_terminate_common(dcontext, terminate_type, true, exit_code);
+}
+
+void
+os_terminate(dcontext_t *dcontext, terminate_flags_t terminate_type)
+{
+    os_terminate_common(dcontext, terminate_type, false, 0);
 }
 
 void
@@ -3887,7 +3916,7 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
              * about possibly handling this differently. */
             return false;
         }
-        if (IS_CLIENT_THREAD(dcontext)) {
+        if (IS_CLIENT_THREAD(dcontext) && dcontext->nudge_target == NULL) {
             ostd->stack_base = dcontext->dstack - DYNAMORIO_STACK_SIZE;
             ostd->stack_top = dcontext->dstack;
         }

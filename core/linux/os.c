@@ -924,14 +924,27 @@ os_fast_exit(void)
     /* nothing */
 }
 
-/* clean up may be impossible - just terminate */
+void
+os_terminate_with_code(dcontext_t *dcontext, terminate_flags_t flags, int exit_code)
+{
+    /* XXX: TERMINATE_THREAD not supported */
+    ASSERT_NOT_IMPLEMENTED(TEST(TERMINATE_PROCESS, flags));
+    if (TEST(TERMINATE_CLEANUP, flags)) {
+        /* we enter from several different places, so rewind until top-level kstat */
+        KSTOP_REWIND_UNTIL(thread_measured);
+        cleanup_and_terminate(dcontext, SYS_exit_group, exit_code, 0,
+                              true/*whole process*/);
+    } else {
+        /* clean up may be impossible - just terminate */
+        config_exit(); /* delete .1config file */
+        exit_process_syscall(exit_code);
+    }
+}
+
 void
 os_terminate(dcontext_t *dcontext, terminate_flags_t flags)
 {
-    /* FIXME: terminate type is ignored */
-    ASSERT_NOT_IMPLEMENTED(flags == TERMINATE_PROCESS);
-    config_exit(); /* delete .1config file */
-    exit_process_syscall(1);
+    os_terminate_with_code(dcontext, flags, -1);
 }
 
 int 

@@ -1659,9 +1659,22 @@ uint
 dr_get_random_seed(void);
 
 DR_API
-/** Aborts the process immediately. */
+/** 
+ * Aborts the process immediately without any cleanup (i.e., the exit event
+ * will not be called).
+ */
 void
 dr_abort(void);
+
+DR_API
+/**
+ * Exits the process, first performing a full cleanup that will
+ * trigger the exit event (dr_register_exit_event()).  The process
+ * exit code is set to \p exit_code.  Note that on some platforms only
+ * the bottom 8 bits of \p exit_code will be honored.
+ */
+void
+dr_exit_process(int exit_code);
 
 /* DR_API EXPORT BEGIN */
 

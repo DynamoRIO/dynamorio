@@ -197,6 +197,7 @@ typedef enum {
 } terminate_flags_t;
 
 void os_terminate(dcontext_t *dcontext, terminate_flags_t flags);
+void os_terminate_with_code(dcontext_t *dcontext, terminate_flags_t flags, int exit_code);
 
 typedef enum {
     ILLEGAL_INSTRUCTION_EXCEPTION,

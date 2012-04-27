@@ -42,6 +42,10 @@ bool nudge_internal(uint nudge_action_mask, uint64 client_arg, client_id_t clien
  * nudge threads.  They are not meant to be called internally. */
 void generic_nudge_target(nudge_arg_t *arg);
 bool generic_nudge_handler(nudge_arg_t *arg);
+/* exit_process is only honored if dcontext != NULL, and exit_code is only honored
+ * if exit_process is true
+ */
+bool nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code);
 #else
 
 /* This routine may not return */

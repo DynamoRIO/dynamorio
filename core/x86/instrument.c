@@ -264,6 +264,7 @@ static kernel32_WriteFile_t kernel32_WriteFile;
 #ifdef WINDOWS
 /* used for nudge support */
 static bool block_client_nudge_threads = false;
+static bool client_requested_exit;
 DECLARE_CXTSWPROT_VAR(static int num_client_nudge_threads, 0);
 #endif
 #ifdef CLIENT_SIDELINE
@@ -1124,7 +1125,11 @@ void
 instrument_thread_exit_event(dcontext_t *dcontext)
 {
 #ifdef CLIENT_SIDELINE
-    if (IS_CLIENT_THREAD(dcontext)) {
+    if (IS_CLIENT_THREAD(dcontext)
+        /* if nudge thread calls dr_exit_process() it will be marked as a client
+         * thread: rule it out here so we properly clean it up
+         */
+        IF_WINDOWS(&& dcontext->nudge_target == NULL)) {
         ATOMIC_DEC(int, num_client_sideline_threads);
         /* no exit event */
         return;
@@ -1966,7 +1971,12 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
 
     /* We need to mark this as a client controlled thread for synch_with_all_threads
      * and otherwise treat it as native.  Xref PR 230836 on what to do if this
-     * thread hits native_exec_syscalls hooks. */
+     * thread hits native_exec_syscalls hooks.
+     * XXX: this requires extra checks for "not a nudge thread" after IS_CLIENT_THREAD
+     * in get_stack_bounds() and instrument_thread_exit_event(): maybe better
+     * to have synchall checks do extra checks and have IS_CLIENT_THREAD be
+     * false for nudge threads at exit time?
+     */
     dcontext->client_data->is_client_thread = true;
     dcontext->thread_record->under_dynamo_control = false;
 #else
@@ -2023,6 +2033,16 @@ wait_for_outstanding_nudges()
         }
     });
 
+    /* don't wait if the client requested exit: after all the client might
+     * have done so from a nudge, and if the client does want to exit it's
+     * its own problem if it misses nudges (and external nudgers should use
+     * a finite timeout)
+     */
+    if (client_requested_exit) {
+        mutex_unlock(&client_thread_count_lock);
+        return;
+    }
+
     while (num_client_nudge_threads > 0) {
         /* yield with lock released to allow nudges to finish */
         mutex_unlock(&client_thread_count_lock);
@@ -2057,6 +2077,32 @@ dr_abort(void)
     if (TEST(DUMPCORE_DR_ABORT, dynamo_options.dumpcore_mask))
         os_dump_core("dr_abort");
     os_terminate(NULL, TERMINATE_PROCESS);
+}
+
+DR_API
+void
+dr_exit_process(int exit_code)
+{
+#ifdef WINDOWS
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    /* prevent cleanup from waiting for nudges as this may be called
+     * from a nudge!
+     */
+    client_requested_exit = true;
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    if (dcontext != NULL && dcontext->nudge_target != NULL) {
+        /* we need to free the nudge thread stack which may involved
+         * switching stacks so we have the nudge thread invoke
+         * os_terminate for us
+         */
+        nudge_thread_cleanup(dcontext, true/*kill process*/, exit_code);
+        CLIENT_ASSERT(false, "shouldn't get here");
+    }
+#endif
+    os_terminate_with_code(get_thread_private_dcontext(), /* dcontext is required */
+                           TERMINATE_CLEANUP|TERMINATE_PROCESS, exit_code);
+    CLIENT_ASSERT(false, "shouldn't get here");
 }
 
 DR_API

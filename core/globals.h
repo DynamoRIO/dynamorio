@@ -900,6 +900,10 @@ struct _dcontext_t {
     /* If free_app_stack is set, we free the application stack during thread exit
      * cleanup.  Used for nudge threads. */
     bool           free_app_stack;
+
+    /* used when a nudge invokes dr_exit_process() */
+    bool           nudge_terminate_process;
+    uint           nudge_exit_code;
 #endif /* WINDOWS */
 
     /* we keep an absolute address pointer to our tls state so that we

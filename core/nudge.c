@@ -65,7 +65,11 @@ static void
 nudge_terminate_on_dstack(dcontext_t *dcontext)
 {
     ASSERT(dcontext == get_thread_private_dcontext());
-    os_terminate(dcontext, TERMINATE_THREAD|TERMINATE_CLEANUP);
+    if (dcontext->nudge_terminate_process) {
+        os_terminate_with_code(dcontext, TERMINATE_PROCESS|TERMINATE_CLEANUP,
+                               dcontext->nudge_exit_code);
+    } else
+        os_terminate(dcontext, TERMINATE_THREAD|TERMINATE_CLEANUP);
     ASSERT_NOT_REACHED();
 }
 
@@ -92,6 +96,97 @@ generic_nudge_target(nudge_arg_t *arg)
     os_terminate(NULL, TERMINATE_THREAD); /* just in case */
 }
 
+/* exit_process is only honored if dcontext != NULL, and exit_code is only honored
+ * if exit_process is true
+ */
+bool
+nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
+{
+    /* Note - for supporting detach with CLIENT_INTERFACE and nudge threads we need that
+     * no lock grabbing or other actions that would interfere with the detaching process
+     * occur in the cleanup path here. */
+
+    /* Case 8901: this routine is currently called from the code cache, which may have
+     * been reset underneath us, so we can't just blindly return.  This also gives us
+     * consistent behavior for handling stack freeing. */
+
+    /* Case 9020: no EXITING_DR() as os_terminate will do that for us */
+
+    /* FIXME - these nudge threads do hit dll mains for thread attach so app may have
+     * allocated some TLS memory which won't end up being freed since this won't go
+     * through dll main thread detach. The app may also object to unbalanced attach to
+     * detach ratio though we haven't seen that in practice. Long term we should take
+     * over and redirect the thread at the init apc so it doesn't go through the
+     * DllMains to start with. */
+
+    /* We have a general problem on how to free the application stack for nudges.
+     * Currently the app/os will never free a nudge thread's app stack:
+     *  On NT and 2k ExitThread would normally free the app stack, but we always
+     *  terminate nudge threads instead of allowing them to return and exit normally.
+     *  On XP and 2k3 none of our nudge creation routines inform csrss of the new thread
+     *  (which is who typically frees the stacks).
+     *  On Vista we don't use NtCreateThreadEx to create the nudge threads so the kernel
+     *  doesn't free the stack.
+     * As such we are left with two options: free the app stack here (nudgee free) or
+     * have the nudge thread creator free the app stack (nudger free).  Going with 
+     * nudgee free means we leak exit race nudge stacks whereas if we go with nudger free
+     * for external nudges then we'll leak timed out nudge stacks (for internal nudges
+     * we pretty much have to do nudgee free).  A nudge_arg_t flag is used to specify
+     * which model we use, but currently we always nudgee free.
+     *
+     * dynamo_thread_exit_common() is where the app stack is actually freed, not here.
+     */
+
+    if (dynamo_exited || !dynamo_initialized || dcontext == NULL) {
+        /* FIXME - no cleanup so we'll leak any memory allocated for this thread
+         * including the application's stack and arg if we were supposed to free them.
+         * We only expect to get here in rare races where the nudge thread was created
+         * before dr exited (i.e. before drmarker was freed) but didn't end up getting
+         * scheduled till after dr exited. */
+        ASSERT(!exit_process); /* shouldn't happen */
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+        if (dcontext != NULL && INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+            swap_peb_pointer(dcontext, false/*to app*/);
+#endif
+
+        os_terminate(dcontext, TERMINATE_THREAD);
+    } else {
+        /* Nudge threads should exit without holding any locks. */
+        ASSERT_OWN_NO_LOCKS();
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+        /* if exiting the process, os_loader_exit will swap to app, and we want to
+         * remain private during client exit
+         */
+        if (!exit_process && dcontext != NULL &&
+            INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+            swap_peb_pointer(dcontext, false/*to app*/);
+#endif
+
+        /* if freeing the app stack we must be on the dstack when we cleanup */
+        if (dcontext->free_app_stack && !is_currently_on_dstack(dcontext)) {
+            if (exit_process) {
+                /* XXX: wasteful to use two dcontext fields just for this.
+                 * Extend call_switch_stack to support extra args or sthg?
+                 */
+                dcontext->nudge_terminate_process = true;
+                dcontext->nudge_exit_code = exit_code;
+            }
+            call_switch_stack(dcontext, dcontext->dstack, nudge_terminate_on_dstack,
+                              false /* not on initstack */, false /* don't return */);
+        } else {
+            /* Already on dstack or nudge creator will free app stack. */
+            if (exit_process) {
+                os_terminate_with_code(dcontext, TERMINATE_PROCESS|TERMINATE_CLEANUP,
+                                       exit_code);
+            } else {
+                os_terminate(dcontext, TERMINATE_THREAD|TERMINATE_CLEANUP);
+            }
+        }
+    }
+    ASSERT_NOT_REACHED(); /* we should never return */
+    return true;
+}
 
 /* This is the actual nudge handler
  * Notes: This function returns a boolean mainly to fix case 5130; it is not
@@ -120,6 +215,13 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
         goto nudge_finished;
     }
     nudge_action_mask = safe_arg.nudge_action_mask;
+
+    /* if needed tell thread exit to free the application stack */
+    if (!TEST(NUDGE_NUDGER_FREE_STACK, safe_arg.flags)) {
+        dcontext->free_app_stack = true;
+    } else {
+        ASSERT_NOT_TESTED();
+    }
 
     /* FIXME - would be nice to inform nudge creator if we need to nop the nudge. */
 
@@ -167,76 +269,7 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
     handle_nudge(dcontext, &safe_arg);
 
  nudge_finished:
-
-    /* Note - for supporting detach with CLIENT_INTERFACE and nudge threads we need that
-     * no lock grabbing or other actions that would interfere with the detaching process
-     * occur in the cleanup path here. */
-
-    /* Case 8901: this routine is currently called from the code cache, which may have
-     * been reset underneath us, so we can't just blindly return.  This also gives us
-     * consistent behavior for handling stack freeing. */
-
-    /* Case 9020: no EXITING_DR() as os_terminate will do that for us */
-
-    /* FIXME - these nudge threads do hit dll mains for thread attach so app may have
-     * allocated some TLS memory which won't end up being freed since this won't go
-     * through dll main thread detach. The app may also object to unbalanced attach to
-     * detach ratio though we haven't seen that in practice. Long term we should take
-     * over and redirect the thread at the init apc so it doesn't go through the
-     * DllMains to start with. */
-
-    /* We have a general problem on how to free the application stack for nudges.
-     * Currently the app/os will never free a nudge thread's app stack:
-     *  On NT and 2k ExitThread would normally free the app stack, but we always
-     *  terminate nudge threads instead of allowing them to return and exit normally.
-     *  On XP and 2k3 none of our nudge creation routines inform csrss of the new thread
-     *  (which is who typically frees the stacks).
-     *  On Vista we don't use NtCreateThreadEx to create the nudge threads so the kernel
-     *  doesn't free the stack.
-     * As such we are left with two options: free the app stack here (nudgee free) or
-     * have the nudge thread creator free the app stack (nudger free).  Going with 
-     * nudgee free means we leak exit race nudge stacks whereas if we go with nudger free
-     * for external nudges then we'll leak timed out nudge stacks (for internal nudges
-     * we pretty much have to do nudgee free).  A nudge_arg_t flag is used to specify
-     * which model we use, but currently we always nudgee free.
-     *
-     * dynamo_thread_exit_common() is where the app stack is actually freed, not here.
-     */
-
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-    if (dcontext != NULL && INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
-        swap_peb_pointer(dcontext, false/*to app*/);
-#endif
-
-    if (dynamo_exited || !dynamo_initialized || dcontext == NULL) {
-        /* FIXME - no cleanup so we'll leak any memory allocated for this thread
-         * including the application's stack and arg if we were supposed to free them.
-         * We only expect to get here in rare races where the nudge thread was created
-         * before dr exited (i.e. before drmarker was freed) but didn't end up getting
-         * scheduled till after dr exited. */
-        os_terminate(dcontext, TERMINATE_THREAD);
-    } else {
-        /* Nudge threads should exit without holding any locks. */
-        ASSERT_OWN_NO_LOCKS();
-
-        /* if needed tell thread exit to free the application stack */
-        if (!TEST(NUDGE_NUDGER_FREE_STACK, safe_arg.flags)) {
-            dcontext->free_app_stack = true;
-        } else {
-            ASSERT_NOT_TESTED();
-        }
-
-        /* if freeing the app stack we must be on the dstack when we cleanup */
-        if (dcontext->free_app_stack && !is_currently_on_dstack(dcontext)) {
-            call_switch_stack(dcontext, dcontext->dstack, nudge_terminate_on_dstack,
-                              false /* not on initstack */, false /* don't return */);
-        } else {
-            /* Already on dstack or nudge creator will free app stack. */
-            os_terminate(dcontext, TERMINATE_THREAD|TERMINATE_CLEANUP);
-        }
-    }
-    ASSERT_NOT_REACHED(); /* we should never return */
-    return true;
+    return nudge_thread_cleanup(dcontext, false/*just thread*/, 0/*unused*/);
 }
 
 #endif /* WINDOWS */
@@ -398,6 +431,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 #ifdef WINDOWS    
     /* The detach handler is last since in the common case it doesn't return. */
     if (TEST(NUDGE_GENERIC(detach), nudge_action_mask)) {
+        dcontext->free_app_stack = false;
         nudge_action_mask &= ~NUDGE_GENERIC(detach);
         detach_helper(DETACH_NORMAL_TYPE);
     }
