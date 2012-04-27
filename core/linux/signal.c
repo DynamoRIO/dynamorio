@@ -986,7 +986,8 @@ os_itimers_thread_shared(void)
                  */
                 LOG(GLOBAL, LOG_ASYNCH, 1, "kernel version = %d.%d.%d\n",
                     major, minor, rel);
-                itimers_shared = (major >= 2 && minor >= 6 && rel >= 12);
+                itimers_shared = ((major == 2 && minor >= 6 && rel >= 12) ||
+                                  (major >= 3 /* linux-3.0 or above */));
                 cached = true;
             }
             os_close(f);
