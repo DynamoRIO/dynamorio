@@ -513,7 +513,15 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
          * libelftc demangler which is slower, but can properly demangle
          * template arguments.
          */
+
+        /* libelftc code use fp ops so we have to save fp state (i#756) */
+        byte fp_raw[512 + 16]; /* 512 and 16 are specified by DR but not named consts */
+        byte *fp_align = (byte *) ALIGN_FORWARD(fp_raw, 16);
+
+        proc_save_fpstate(fp_align);
         status = elftc_demangle(mangled, dst, dst_sz, ELFTC_DEM_GNU3);
+        proc_restore_fpstate(fp_align);
+
 #ifdef WINDOWS
         /* our libelftc returns the # of chars needed, and copies the truncated
          * unmangeld name
