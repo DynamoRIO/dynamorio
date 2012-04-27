@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -33,11 +33,13 @@ add_executable(run_in_bg run_in_bg.c)
 
 if (UNIX)
   add_executable(runstats runstats.c)
-  add_executable(nudgeunix nudgeunix.c)
+  add_executable(nudgeunix nudgeunix.c ${PROJECT_SOURCE_DIR}/core/linux/nudgesig.c)
 
   include_directories(
     ${PROJECT_SOURCE_DIR}/core/lib
     )
+
+  add_definitions(-DNOT_DYNAMORIO_CORE)
 
   # we generate 3 different scripts from drdeploy.in
   if (X64)

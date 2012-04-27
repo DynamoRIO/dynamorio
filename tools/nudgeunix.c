@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.    All rights reserved.
  * Copyright (c) 2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,8 +34,7 @@
 /*
  * nudgeunix.c: nudges a target Linux process
  *
- * For now only supports client nudges.
- * TODO: also support the other nudges.  Perhaps share code with DRcontrol.c.
+ * XXX: share code with DRcontrol.c?
  */
 
 #include <stdio.h>
@@ -47,6 +47,10 @@
 
 #include "configure.h"
 #include "globals_shared.h"
+
+extern bool
+create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
+                            client_id_t client_id, uint64 client_arg);
 
 static const char *usage_str = 
     "usage: nudgeunix [-help] [-v] [-pid <pid>] [-type <type>] [-client <ID> <arg>]\n"
@@ -81,8 +85,8 @@ main(int argc, const char *argv[])
     uint64 client_arg = 0;
     int i;
     siginfo_t info;
-    nudge_arg_t *arg;
     int arg_offs = 1;
+    bool success;
 
     /* parse command line */
     if (argc <= 1)
@@ -137,18 +141,8 @@ main(int argc, const char *argv[])
         return usage();
 
     /* construct the payload */
-    memset(&info, 0, sizeof(info));
-    info.si_signo = NUDGESIG_SIGNUM;
-    info.si_code = SI_QUEUE;
-    arg = (nudge_arg_t *) &info;
-    arg->version = NUDGE_ARG_CURRENT_VERSION;
-    arg->nudge_action_mask = action_mask;
-    arg->flags = 0;
-    arg->client_id = client_id;
-    arg->client_arg = client_arg;
-    /* ensure nudge_arg_t overlays how we expect it to */
-    assert(info.si_signo == NUDGESIG_SIGNUM);
-    assert(info.si_code == SI_QUEUE);
+    success = create_nudge_signal_payload(&info, action_mask, client_id, client_arg);
+    assert(success); /* failure means kernel's sigqueueinfo has changed */
 
     /* send the nudge */
     i = syscall(SYS_rt_sigqueueinfo, target_pid, NUDGESIG_SIGNUM, &info);

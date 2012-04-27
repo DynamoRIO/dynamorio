@@ -6407,7 +6407,7 @@ detach_internal()
     /* we go ahead and re-protect though detach thread will soon un-prot */
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     LOG(GLOBAL, LOG_ALL, 1, "Starting detach\n");
-    nudge_internal(NUDGE_GENERIC(detach), NULL, 0 /* ignored */);
+    nudge_internal(get_process_id(), NUDGE_GENERIC(detach), NULL, 0 /* ignored */, 0);
     LOG(GLOBAL, LOG_ALL, 1, "Created detach thread\n");
 }
 
@@ -6543,6 +6543,20 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
         SYSLOG_INTERNAL_WARNING("WARNING - Final wait after reporting deadlock timeout expired succeeded! Not really deadlocked.");
     }
     KSTOP(wait_event);
+}
+
+wait_status_t
+os_wait_handle(HANDLE h, uint timeout_ms)
+{
+    LARGE_INTEGER li;
+    LARGE_INTEGER *timeout;
+    if (timeout_ms == INFINITE)
+        timeout = INFINITE_WAIT;
+    else {
+        li.QuadPart = - (int64)timeout_ms * TIMER_UNITS_PER_MILLISECOND;
+        timeout = &li;
+    }
+    return nt_wait_event_with_timeout(h, timeout);
 }
 
 void

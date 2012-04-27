@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -281,5 +281,10 @@ void glibc_stackdump(int fd);
 void *privload_tls_init(void *app_tp);
 void  privload_tls_exit(void *dr_tp);
 void  privload_switch_lib_tls(dcontext_t *dcontext, bool to_app);
+
+/* nudgesig.c */
+bool
+send_nudge_signal(process_id_t pid, uint action_mask,
+                  client_id_t client_id, uint64 client_arg);
 
 #endif /* _OS_EXPORTS_H_ */

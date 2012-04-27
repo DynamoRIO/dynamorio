@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,6 +38,7 @@
 #ifdef WINDOWS
 # include "ntdll.h" /* for create_thread(), nt_free_virtual_memory() */
 # include "os_exports.h" /* for detach_helper(), get_stack_bounds() */
+# include "drmarker.h"
 #else
 # include <string.h>
 # include "syscall.h"
@@ -445,24 +446,39 @@ nudge_add_pending(dcontext_t *dcontext, nudge_arg_t *nudge_arg)
 {
     pending_nudge_t *pending = (pending_nudge_t *)
         heap_alloc(dcontext, sizeof(*pending) HEAPACCT(ACCT_OTHER));
+    pending_nudge_t *prev;
     pending->arg = *nudge_arg;
-    /* Simpler to prepend.  Not FIFO but should be rare to have multiple. */
+    pending->next = NULL;
+    /* Simpler to prepend, but we want FIFO.  Should be rare to have multiple
+     * so not worth storing an end pointer.
+     */
     DOSTATS({
         if (dcontext->nudge_pending != NULL)
             STATS_INC(num_pending_nudges);
     });
-    pending->next = dcontext->nudge_pending;
-    dcontext->nudge_pending = pending;
+    for (prev = dcontext->nudge_pending;
+         prev != NULL && prev->next != NULL; prev = prev->next)
+        ;
+    if (prev == NULL) {
+        dcontext->nudge_pending = pending;
+    } else {
+        prev->next = pending;
+    }
 }
 #endif
 
-/* nudge the current process */
-bool
-nudge_internal(uint nudge_action_mask, uint64 client_arg, client_id_t client_id)
+/* send a nudge from DR to the current process or another process */
+dr_config_status_t
+nudge_internal(process_id_t pid, uint nudge_action_mask,
+               uint64 client_arg, client_id_t client_id, uint timeout_ms)
 {
+    bool internal = (pid == get_process_id());
 #ifdef WINDOWS
-    HANDLE hthread;
+    HANDLE hthread, hproc;
     bool res;
+    void *nudge_target;
+    dr_config_status_t status;
+    wait_status_t wait;
 #else
     dcontext_t *dcontext = get_thread_private_dcontext();
 #endif
@@ -471,7 +487,10 @@ nudge_internal(uint nudge_action_mask, uint64 client_arg, client_id_t client_id)
 
     nudge_arg.version = NUDGE_ARG_CURRENT_VERSION;
     nudge_arg.nudge_action_mask = nudge_action_mask;
-    nudge_arg.flags = NUDGE_IS_INTERNAL;
+    /* we do not set NUDGE_NUDGER_FREE_STACK so the stack will be freed
+     * in the target process
+     */
+    nudge_arg.flags = (internal ? NUDGE_IS_INTERNAL : 0);
     nudge_arg.client_arg = client_arg;
     nudge_arg.client_id = client_id;
 
@@ -479,26 +498,67 @@ nudge_internal(uint nudge_action_mask, uint64 client_arg, client_id_t client_id)
         nudge_action_mask);
 
 #ifdef WINDOWS
-    hthread = create_thread(NT_CURRENT_PROCESS, IF_X64_ELSE(true, false),
-                            (void *)generic_nudge_target,
+    if (internal) {
+        hproc = NT_CURRENT_PROCESS;
+        nudge_target = (void *) generic_nudge_target;
+    } else {
+        dr_marker_t marker;
+
+        hproc = process_handle_from_id(pid);
+        if (hproc == NULL)
+            return DR_NUDGE_PID_NOT_FOUND;
+        if (read_and_verify_dr_marker(hproc, &marker) != DR_MARKER_FOUND) {
+            /* if target process is not under DR (or any error getting
+             * marker), don't nudge.
+             */
+            return DR_NUDGE_PID_NOT_INJECTED;
+        }
+        nudge_target = marker.dr_generic_nudge_target;
+    }
+
+    hthread = create_thread(hproc, IF_X64_ELSE(true, false), nudge_target,
                             NULL, &nudge_arg, sizeof(nudge_arg_t),
                             15*PAGE_SIZE, 12*PAGE_SIZE, false, NULL);
     ASSERT(hthread != INVALID_HANDLE_VALUE);
+    if (hthread == INVALID_HANDLE_VALUE)
+        return DR_FAILURE;
+
+    wait = os_wait_handle(hthread, timeout_ms);
+    if (wait == WAIT_SIGNALED || (wait == WAIT_TIMEDOUT && timeout_ms == 0))
+        status = DR_SUCCESS;
+    else if (wait == WAIT_TIMEDOUT)
+        status = DR_NUDGE_TIMEOUT;
+    else
+        status = DR_FAILURE;
+
     res = close_handle(hthread);
     ASSERT(res);
     LOG(GLOBAL, LOG_ALL, 1, "Finished creating internal nudge thread\n");
 
-    return (hthread != INVALID_HANDLE_VALUE);
+    if (internal)
+        close_handle(hproc);
+
+    if (hthread != INVALID_HANDLE_VALUE)
+        return DR_SUCCESS;
+    else
+        return DR_FAILURE;
 #else
-    /* We could send a signal, but that doesn't help matters since the
-     * interruption point will be here and not be any potential fragment
-     * underneath this clean call if a client invoked this (unless the signal
-     * ends up going to another thread: can't control that w/ sigqueue).  So we
-     * just document that it's up to the client to bound delivery time.
-     */
-    if (dcontext == NULL)
-        return false;
-    nudge_add_pending(dcontext, &nudge_arg);
-    return true;
+    if (internal) {
+        /* We could send a signal, but that doesn't help matters since the
+         * interruption point will be here and not be any potential fragment
+         * underneath this clean call if a client invoked this (unless the signal
+         * ends up going to another thread: can't control that w/ sigqueue).  So we
+         * just document that it's up to the client to bound delivery time.
+         */
+        if (dcontext == NULL)
+            return DR_FAILURE;
+        nudge_add_pending(dcontext, &nudge_arg);
+        return DR_SUCCESS;
+    } else {
+        if (send_nudge_signal(pid, nudge_action_mask, client_id, client_arg))
+            return DR_SUCCESS;
+        else
+            return DR_FAILURE;
+    }
 #endif /* WINDOWS -> LINUX */
 }

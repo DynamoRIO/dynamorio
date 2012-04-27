@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -203,5 +203,10 @@ extern bool kernel_futex_support;
 #ifdef VMX86_SERVER
 #  include "vmkuw.h"
 #endif
+
+/* in nudgesig.c */
+bool
+create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
+                            client_id_t client_id, uint64 client_arg);
 
 #endif /* _OS_PRIVATE_H_ */

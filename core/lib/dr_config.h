@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,8 +51,6 @@
 
 /** Maximum length of a registered process's options string */
 #define DR_MAX_OPTIONS_LENGTH 2048
-
-#ifdef WINDOWS
 
 /** Specifies DynamoRIO's operation mode. */
 typedef enum {
@@ -125,6 +123,9 @@ typedef enum {
     /** Failed to write to the config file. */
     DR_CONFIG_FILE_WRITE_FAILED,
 
+    /** Nudge operation failed because the specified process id does not exist. */
+    DR_NUDGE_PID_NOT_FOUND,
+
 } dr_config_status_t;
 
 /** Allow targeting both WOW64 and native 64-bit processes separately. */
@@ -133,6 +134,8 @@ typedef enum {
     DR_PLATFORM_32BIT,   /**< 32-bit settings (for 32-bit or WOW64 processes). */
     DR_PLATFORM_64BIT,   /**< 64-bit settings (for native 64-bit processes). */
 } dr_platform_t;
+
+#ifdef WINDOWS
 
 /**
  * Register a process to run under DynamoRIO.

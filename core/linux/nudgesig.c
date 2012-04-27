@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2012 Google, Inc.  All rights reserved.
- * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,35 +30,58 @@
  * DAMAGE.
  */
 
-#ifndef _NUDGE_H_
-#define _NUDGE_H_
-
-#include "dr_config.h"
-
-/* Tiggers a nudge targeting this process.  nudge_action_mask should be drawn from the
- * NUDGE_GENERIC(***) values.  client_id is only relevant for client nudges. */
-dr_config_status_t
-nudge_internal(process_id_t pid, uint nudge_action_mask,
-               uint64 client_arg, client_id_t client_id, uint timeout_ms);
-
-#ifdef WINDOWS /* only Windows uses threads for nudges */
-/* The following are exported only so other routines can check their addresses for
- * nudge threads.  They are not meant to be called internally. */
-void generic_nudge_target(nudge_arg_t *arg);
-bool generic_nudge_handler(nudge_arg_t *arg);
-/* exit_process is only honored if dcontext != NULL, and exit_code is only honored
- * if exit_process is true
+/*
+ * nudgesig.c - nudge signal sending code
+ *
+ * shared between core & tools/nudgeunix.c
  */
-bool nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code);
-#else
 
-/* This routine may not return */
-void
-handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg);
+#include <string.h>
+#include <unistd.h>
+#include <syscall.h>
 
-/* Only touches thread-private data and acquires no lock */
-void
-nudge_add_pending(dcontext_t *dcontext, nudge_arg_t *nudge_arg);
+#include "configure.h"
+#include "globals_shared.h"
+#ifndef NOT_DYNAMORIO_CORE
+# include "../globals.h" /* for arch_exports.h for dynamorio_syscall */
 #endif
 
-#endif /* _NUDGE_H_ */
+/* shared with tools/nudgeunix.c */
+bool
+create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
+                            client_id_t client_id, uint64 client_arg)
+{
+    nudge_arg_t *arg;
+
+    memset(info, 0, sizeof(info));
+    info->si_signo = NUDGESIG_SIGNUM;
+    info->si_code = SI_QUEUE;
+
+    arg = (nudge_arg_t *) info;
+    arg->version = NUDGE_ARG_CURRENT_VERSION;
+    arg->nudge_action_mask = action_mask;
+    arg->flags = 0;
+    arg->client_id = client_id;
+    arg->client_arg = client_arg;
+
+    /* ensure nudge_arg_t overlays how we expect it to */
+    if (info->si_signo != NUDGESIG_SIGNUM ||
+        info->si_code != SI_QUEUE)
+        return false;
+
+    return true;
+}
+
+#ifndef NOT_DYNAMORIO_CORE
+bool
+send_nudge_signal(process_id_t pid, uint action_mask,
+                  client_id_t client_id, uint64 client_arg)
+{
+    siginfo_t info;
+    int res;
+    if (!create_nudge_signal_payload(&info, action_mask, client_id, client_arg))
+        return false;
+    res = dynamorio_syscall(SYS_rt_sigqueueinfo, 3, pid, NUDGESIG_SIGNUM, &info);
+    return (res >= 0);
+}
+#endif /* !NOT_DYNAMORIO_CORE */

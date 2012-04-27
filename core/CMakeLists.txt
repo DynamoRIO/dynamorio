@@ -166,6 +166,7 @@ if (UNIX)
     linux/stackdump.c
     linux/diagnost.c
     linux/loader.c
+    linux/nudgesig.c
     )
   if (VMKERNEL)
     set(VMKUW_DIR ${PROJECT_SOURCE_DIR}/../internal/core/linux)

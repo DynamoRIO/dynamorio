@@ -1402,6 +1402,9 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.fcache_shift client-interface/fcache_shift.c
       "" "-thread_private -cache_bb_unit_init 4K" "")
   endif ()
+
+  tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
+  use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)

@@ -1051,22 +1051,33 @@ dr_unregister_nudge_event(void (*func)(void *drcontext, uint64 argument), client
     return false;
 }
 
+dr_config_status_t
+dr_nudge_client_ex(process_id_t process_id, client_id_t client_id,
+                   uint64 argument, uint timeout_ms)
+{
+    if (process_id == get_process_id()) {
+        size_t i;
+        for (i=0; i<num_client_libs; i++) {
+            if (client_libs[i].id == client_id) {
+                if (client_libs[i].nudge_callbacks.num == 0) {
+                    CLIENT_ASSERT(false, "dr_nudge_client: no nudge handler registered");
+                    return false;
+                }
+                return nudge_internal(process_id, NUDGE_GENERIC(client), argument,
+                                      client_id, timeout_ms);
+            }
+        }
+        return false;
+    } else {
+        return nudge_internal(process_id, NUDGE_GENERIC(client), argument,
+                              client_id, timeout_ms);
+    }
+}
+
 bool
 dr_nudge_client(client_id_t client_id, uint64 argument)
 {
-    size_t i;
-
-    for (i=0; i<num_client_libs; i++) {
-        if (client_libs[i].id == client_id) {
-            if (client_libs[i].nudge_callbacks.num == 0) {
-                CLIENT_ASSERT(false, "dr_nudge_client: no nudge handler registered");
-                return false;
-            }
-            return nudge_internal(NUDGE_GENERIC(client), argument, client_id);
-        }
-    }
-
-    return false;
+    return dr_nudge_client_ex(get_process_id(), client_id, argument, 0) == DR_SUCCESS;
 }
 
 void

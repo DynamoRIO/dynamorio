@@ -46,6 +46,7 @@
 #include "../module_shared.h"
 #include "arch.h"
 #include "instr.h"
+#include "dr_config.h"
 
 /* xref _USES_DR_VERSION_ in dr_api.h (PR 250952) and compatibility
  * check in instrument.c (OLDEST_COMPATIBLE_VERSION, etc.).
@@ -58,6 +59,9 @@
 
 /* DR_API EXPORT TOFILE dr_events.h */
 /* DR_API EXPORT BEGIN */
+#ifdef API_EXPORT_ONLY
+#include "dr_config.h"
+#endif
 
 /**************************************************
  * ROUTINES TO REGISTER EVENT CALLBACKS
@@ -1338,12 +1342,16 @@ dr_unregister_security_event(void (*func)(void *drcontext, void *source_tag,
 DR_API
 /**
  * Registers a callback function for nudge events.  External entities
- * can nudge a process through the dr_nudge_process() API routine on
- * Windows or using the \p nudgeunix tool on Linux.  DR then calls \p
- * func whenever the current process receives the nudge.  On Windows,
- * the nudge event is delivered in a new non-application thread.
- * Callers must specify the target client by passing the client ID
- * that was provided in dr_init().
+ * can nudge a process through the dr_nudge_process() or
+ * dr_nudge_pid() drconfig API routines on Windows or using the \p
+ * nudgeunix tool on Linux.  A client in this process can use
+ * dr_nudge_client() to raise a nudge, while a client in another
+ * process can use dr_nudge_client_ex().
+ *
+ * DR calls \p func whenever the current process receives a nudge.
+ * On Windows, the nudge event is delivered in a new non-application
+ * thread.  Callers must specify the target client by passing the
+ * client ID that was provided in dr_init().
  */
 void
 dr_register_nudge_event(void (*func)(void *drcontext, uint64 argument), client_id_t id);
@@ -1366,11 +1374,42 @@ DR_API
  * \note On Linux, the nudge will not be delivered until this thread exits
  * the code cache.  Thus, if this routine is called from a clean call,
  * dr_redirect_execution() should be used to ensure cache exit.
- *
- * \note Not yet supported for 32-bit processes running on 64-bit Windows (WOW64).
  */
 bool
 dr_nudge_client(client_id_t id, uint64 argument);
+
+DR_API
+/**
+ * Triggers an asynchronous nudge event in a target process.  The callback
+ * function registered with dr_register_nudge_event() for the
+ * specified client in the specified process will be called with the
+ * supplied \p argument (in a new non-application thread on Windows).
+ *
+ * \note On Linux, if \p pid is the current process, the nudge will
+ * not be delivered until this thread exits the code cache.  Thus, if
+ * this routine is called from a clean call and \p pid is the current
+ * process, dr_redirect_execution() should be used to ensure cache exit.
+ *
+ * \param[in]   process_id      The system id of the process to nudge
+ *                              (see dr_get_process_id())
+ *
+ * \param[in]   client_id       The unique client ID provided at client
+ *                              registration.
+ *
+ * \param[in]   argument        An argument passed to the client's nudge
+ *                              handler.
+ *
+ * \param[in]   timeout_ms      Windows-only.  The number of milliseconds to wait for
+ *                              each nudge to complete before continuing. If INFINITE
+ *                              is supplied then the wait is unbounded. If 0
+ *                              is supplied the no wait is performed.  If a
+ *                              non-0 wait times out DR_NUDGE_TIMEOUT will be returned.
+ *
+ * \return      A dr_config_status_t code indicating the result of the nudge.
+ */
+dr_config_status_t
+dr_nudge_client_ex(process_id_t process_id, client_id_t client_id,
+                   uint64 argument, uint timeout_ms);
 
 
 void instrument_load_client_libs(void);

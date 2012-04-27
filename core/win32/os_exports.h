@@ -382,6 +382,9 @@ void early_inject_init(void);
 void earliest_inject_init(byte *arg_ptr);
 void earliest_inject_cleanup(byte *arg_ptr);
 
+wait_status_t
+os_wait_handle(HANDLE h, uint timeout_ms);
+
 /* in module.c */
 app_pc get_module_preferred_base_safe(app_pc pc);
 app_pc get_module_preferred_base(app_pc pc);

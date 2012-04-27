@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2012 Google, Inc.  All rights reserved.
- * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,35 +30,69 @@
  * DAMAGE.
  */
 
-#ifndef _NUDGE_H_
-#define _NUDGE_H_
-
-#include "dr_config.h"
-
-/* Tiggers a nudge targeting this process.  nudge_action_mask should be drawn from the
- * NUDGE_GENERIC(***) values.  client_id is only relevant for client nudges. */
-dr_config_status_t
-nudge_internal(process_id_t pid, uint nudge_action_mask,
-               uint64 client_arg, client_id_t client_id, uint timeout_ms);
-
-#ifdef WINDOWS /* only Windows uses threads for nudges */
-/* The following are exported only so other routines can check their addresses for
- * nudge threads.  They are not meant to be called internally. */
-void generic_nudge_target(nudge_arg_t *arg);
-bool generic_nudge_handler(nudge_arg_t *arg);
-/* exit_process is only honored if dcontext != NULL, and exit_code is only honored
- * if exit_process is true
+/*
+ * test nudging another process (i#742)
+ * also tests dr_exit_process() (i#743)
  */
-bool nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code);
+
+#include "tools.h"
+
+#ifdef LINUX
+# include <sys/types.h>
+# include <unistd.h>
+# include <sys/types.h> /* for wait */
+# include <sys/wait.h>  /* for wait */
+# include <assert.h>
+# include <stdio.h>
+# include <string.h>
+# include <syscall.h>
 #else
-
-/* This routine may not return */
-void
-handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg);
-
-/* Only touches thread-private data and acquires no lock */
-void
-nudge_add_pending(dcontext_t *dcontext, nudge_arg_t *nudge_arg);
+# include "windows.h"
+# include <stdio.h>
 #endif
 
-#endif /* _NUDGE_H_ */
+int
+main(int argc, char** argv)
+{
+#ifdef LINUX
+    pid_t child = fork();
+    if (child < 0) {
+	perror("ERROR on fork");
+    } else if (child > 0) {
+	pid_t result;
+        int status = 0;
+        /* don't print here: could be out-of-order wrt client prints */
+	result = waitpid(child, &status, 0);
+	assert(result == child);
+	print("child has exited with status %d\n",
+              WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+    } else {
+        /* client nudge handler will terminate us earlier */
+        int left = 20;
+        while (left > 0)
+            left = sleep(left); /* unfortunately, nudge signal interrupts us */
+    }	
+#else
+    STARTUPINFO si = { sizeof(STARTUPINFO) };
+    PROCESS_INFORMATION pi;
+    if (argc == 1) {
+        /* parent */
+        if (!CreateProcess(argv[0], "nudge_ex.exe 1", NULL, NULL, FALSE, 0,
+                           NULL, NULL, &si, &pi)) 
+            print("ERROR on CreateProcess\n"); 
+        else {
+            int status;
+            WaitForSingleObject(pi.hProcess, INFINITE);
+            GetExitCodeProcess(pi.hProcess, (LPDWORD) &status);
+            print("child has exited with status %d\n", status);
+            CloseHandle(pi.hProcess);
+        }
+    }
+    else {
+        /* child */
+        Sleep(20000);
+    }
+#endif
+    print("app exiting\n");
+    return 0;
+}
