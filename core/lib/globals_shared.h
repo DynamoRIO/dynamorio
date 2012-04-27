@@ -240,6 +240,10 @@ typedef int ptr_int_t;
  */
 typedef size_t app_rva_t;
 
+#define PTR_UINT_0       ((ptr_uint_t)0U)
+#define PTR_UINT_1       ((ptr_uint_t)1U)
+#define PTR_UINT_MINUS_1 ((ptr_uint_t)-1)
+
 #ifdef WINDOWS
 typedef ptr_uint_t thread_id_t;
 typedef ptr_uint_t process_id_t;
@@ -247,6 +251,8 @@ typedef ptr_uint_t process_id_t;
 typedef pid_t thread_id_t;
 typedef pid_t process_id_t;
 #endif
+
+#define INVALID_PROCESS_ID PTR_UINT_MINUS_1
 
 #ifdef API_EXPORT_ONLY
 #ifdef WINDOWS
@@ -357,10 +363,6 @@ typedef struct _instr_t instr_t;
 # define POINTER_MAX UINT_MAX
 # define SSIZE_T_MAX INT_MAX
 #endif
-
-#define PTR_UINT_0       ((ptr_uint_t)0U)
-#define PTR_UINT_1       ((ptr_uint_t)1U)
-#define PTR_UINT_MINUS_1 ((ptr_uint_t)-1)
 
 #define MAX_CLIENT_LIBS 16
 

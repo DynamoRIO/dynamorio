@@ -2217,6 +2217,14 @@ dr_get_parent_id(void)
 
 #ifdef WINDOWS
 DR_API
+process_id_t
+dr_convert_handle_to_pid(HANDLE process_handle)
+{
+    ASSERT(POINTER_MAX == INVALID_PROCESS_ID);
+    return process_id_from_handle(process_handle);
+}
+
+DR_API
 /** 
  * Returns information about the version of the operating system.
  * Returns whether successful.

@@ -1568,8 +1568,9 @@ process_id_t
 dr_get_parent_id(void);
 #endif
 
-#ifdef WINDOWS
 /* DR_API EXPORT BEGIN */
+#ifdef WINDOWS
+
 /** Windows versions */
 typedef enum {
     DR_WINDOWS_VERSION_7     = 61,
@@ -1596,7 +1597,7 @@ typedef struct _dr_os_version_info_t {
 DR_API
 /** 
  * Returns information about the version of the operating system.
- * Returns whether successful.
+ * Returns whether successful.  \note Windows only.
  */
 bool
 dr_get_os_version(dr_os_version_info_t *info);
@@ -1605,7 +1606,7 @@ DR_API
 /** 
  * Returns true if this process is a 32-bit process operating on a
  * 64-bit Windows kernel, known as Windows-On-Windows-64, or WOW64.
- * Returns false otherwise.
+ * Returns false otherwise.  \note Windows only.
  */
 bool
 dr_is_wow64(void);
@@ -1616,11 +1617,23 @@ DR_API
  * (PEB).  DR swaps to a private PEB when running client code, in
  * order to isolate the client and its dependent libraries from the
  * application, so conventional methods of reading the PEB will obtain
- * the private PEB instead of the application PEB.
+ * the private PEB instead of the application PEB.  \note Windows only.
  */
 void *
 dr_get_app_PEB(void);
+
+DR_API
+/**
+ * Converts a process handle to a process id.
+ * \return Process id if successful; INVALID_PROCESS_ID on failure.
+ * \note Windows only.
+ */
+process_id_t
+dr_convert_handle_to_pid(HANDLE process_handle);
+
+/* DR_API EXPORT BEGIN */
 #endif
+/* DR_API EXPORT END */
 
 DR_API
 /** Retrieves the current time. */

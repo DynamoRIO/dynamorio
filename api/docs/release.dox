@@ -130,6 +130,7 @@ The changes between version \DR_VERSION and 3.2.0 are:
    hashtable_persist(), and hashtable_resurrect()
  - Added dr_exit_process() to cleanly shut down with a specified
    exit code
+ - Added dr_convert_handle_to_pid()
 
 The changes between version 3.2.0 and 3.1.0 are:
 
