@@ -3876,7 +3876,7 @@ fragment_remove_ibl_entries_in_region(dcontext_t *dcontext, app_pc start, app_pc
         TABLE_RWLOCK(ibtable, write, lock);
         if (ibtable->entries > 0) {
             removed = hashtable_ibl_range_remove(dcontext, ibtable,
-                                                 (ptr_uint_t)start, (ptr_uint_t)end);
+                                                 (ptr_uint_t)start, (ptr_uint_t)end, NULL);
             /* Ensure a full remove gets everything */
             ASSERT(start != UNIVERSAL_REGION_BASE || end != UNIVERSAL_REGION_END ||
                    (ibtable->entries == 0 &&
@@ -4538,6 +4538,17 @@ fragment_delete_future(dcontext_t *dcontext, future_fragment_t *fut)
     fragment_free_future(dcontext, fut);
 }
 
+/* We do not want to remove futures from a flushed region if they have
+ * incoming links (i#609).
+ */
+static bool
+fragment_delete_future_filter(fragment_t *f)
+{
+    future_fragment_t *fut = (future_fragment_t *) f;
+    ASSERT(TEST(FRAG_IS_FUTURE, f->flags));
+    return (fut->incoming_stubs == NULL);
+}
+
 static uint
 fragment_delete_futures_in_region(dcontext_t *dcontext, app_pc start, app_pc end)
 {
@@ -4549,7 +4560,8 @@ fragment_delete_futures_in_region(dcontext_t *dcontext, app_pc start, app_pc end
     ASSERT(!NEED_SHARED_LOCK(flags) || self_owns_recursive_lock(&change_linking_lock));
     TABLE_RWLOCK(futtable, write, lock);
     removed = hashtable_fragment_range_remove(dcontext, futtable,
-                                              (ptr_uint_t)start, (ptr_uint_t)end);
+                                              (ptr_uint_t)start, (ptr_uint_t)end,
+                                              fragment_delete_future_filter);
     TABLE_RWLOCK(futtable, write, unlock);
     return removed;
 }
@@ -4807,13 +4819,14 @@ rct_table_invalidate_range(dcontext_t *dcontext, rct_type_t which,
         TABLE_RWLOCK(permod->live_table, write, lock);
         entries_removed =
             hashtable_app_pc_range_remove(dcontext, permod->live_table, 
-                                          (ptr_uint_t)text_start, (ptr_uint_t)text_end);
+                                          (ptr_uint_t)text_start, (ptr_uint_t)text_end,
+                                          NULL);
 
         DOCHECK(1, {
             uint second_pass =
                 hashtable_app_pc_range_remove(dcontext, permod->live_table, 
                                               (ptr_uint_t)text_start,
-                                              (ptr_uint_t)text_end);
+                                              (ptr_uint_t)text_end, NULL);
             ASSERT(second_pass == 0 && "nothing should be missed");
             /* simplest sanity check that hashtable_app_pc_range_remove() works */
         });
@@ -5012,13 +5025,13 @@ rct_module_table_copy(dcontext_t *dcontext, app_pc modpc, rct_type_t which,
                 DEBUG_DECLARE(removed +=)
                     hashtable_app_pc_range_remove(dcontext, merged,
                                                   (ptr_uint_t)permod->live_min,
-                                                  (ptr_uint_t)limit_start);
+                                                  (ptr_uint_t)limit_start, NULL);
             }
             if (limit_end <= permod->live_max) {
                 DEBUG_DECLARE(removed +=)
                     hashtable_app_pc_range_remove(dcontext, merged,
                                                   (ptr_uint_t)limit_end,
-                                                  (ptr_uint_t)permod->live_max+1);
+                                                  (ptr_uint_t)permod->live_max+1, NULL);
             }
             TABLE_RWLOCK(merged, write, unlock);
             STATS_RCT_ADD(which, module_persist_out_of_range, removed);

@@ -1487,7 +1487,8 @@ HTNAME(hashtable_,NAME_KEY,_clear)(dcontext_t *dcontext,
 static uint
 HTNAME(hashtable_,NAME_KEY,_range_remove)(dcontext_t *dcontext,
                                           HTNAME(,NAME_KEY,_table_t) *table,
-                                          ptr_uint_t tag_start, ptr_uint_t tag_end)
+                                          ptr_uint_t tag_start, ptr_uint_t tag_end,
+                                          bool (*filter)(ENTRY_TYPE e))
 {
     int i;
     ENTRY_TYPE e;
@@ -1516,7 +1517,8 @@ HTNAME(hashtable_,NAME_KEY,_range_remove)(dcontext_t *dcontext,
     while (i >= 0) {
         e = table->table[i];
         if (!ENTRY_IS_EMPTY(e)
-            && ENTRY_TAG(e) >= tag_start && ENTRY_TAG(e) < tag_end) {
+            && ENTRY_TAG(e) >= tag_start && ENTRY_TAG(e) < tag_end &&
+            (filter == NULL || filter(e))) {
             if (HTNAME(hashtable_,NAME_KEY,_remove_helper)(table, i, &table->table[i])) {
                 /* Pulled a chain across the wraparound, so we must start over
                  * at the end as otherwise we will never look at that last
@@ -1644,7 +1646,7 @@ HTNAME(hashtable_,NAME_KEY,_groom_table)(dcontext_t *dcontext,
         table->name, table->entries, table->capacity);
 
     /* most simple grooming technique - just flush everyone */
-    HTNAME(hashtable_,NAME_KEY,_range_remove)(dcontext, table, 0, UINT_MAX);
+    HTNAME(hashtable_,NAME_KEY,_range_remove)(dcontext, table, 0, UINT_MAX, NULL);
     ASSERT(table->entries == 0);
 
     /* FIXME: we should do better - we can tag fragments that have
