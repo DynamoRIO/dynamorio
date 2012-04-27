@@ -3092,6 +3092,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
 {
 #if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     bool acquired_shared_vm_lock = false;
+    bool acquired_fragdel_lock = false;
 #endif
     LOG(THREAD, LOG_FRAGMENT, 3,
         "fragment_delete: *"PFX" F%d("PFX")."PFX" %s 0x%x\n",
@@ -3122,8 +3123,15 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
         acquire_recursive_lock(&change_linking_lock);
         acquire_vm_areas_lock(dcontext, FRAG_SHARED);
     }
-    if (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions))
+    /* XXX: I added the test for FRAG_WAS_DELETED for i#759: does sideline
+     * look at fragments after that is set?  If so need to resolve rank order
+     * w/ shared_cache_lock.
+     */
+    if (!TEST(FRAG_WAS_DELETED, f->flags) &&
+        (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions))) {
+        acquired_fragdel_lock = true;
         fragment_get_fragment_delete_mutex(dcontext);
+    }
 #endif
 
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
@@ -3201,7 +3209,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
             fragment_free(dcontext, f);
     }
 #if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
-    if (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions))
+    if (acquired_fragdel_lock)
         fragment_release_fragment_delete_mutex(dcontext);
     if (acquired_shared_vm_lock) {
         release_vm_areas_lock(dcontext, FRAG_SHARED);

@@ -8762,7 +8762,7 @@ check_lazy_deletion_list(dcontext_t *dcontext, uint flushtime)
                 ASSERT(todelete->lazy_delete_list == NULL);
                 todelete->lazy_delete_tail = NULL;
             }
-            fragment_delete(GLOBAL_DCONTEXT, f,
+            fragment_delete(dcontext, f,
                             FRAGDEL_NO_OUTPUT | FRAGDEL_NO_UNLINK |
                             FRAGDEL_NO_HTABLE | FRAGDEL_NO_VMAREA);
         } else {
@@ -9218,7 +9218,7 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
             /* do NOT call vm_area_remove_fragment, as it will freak out trying
              * to look up the area this fragment is in
              */
-            fragment_delete(GLOBAL_DCONTEXT, FRAG_FRAG(entry),
+            fragment_delete(dcontext, FRAG_FRAG(entry),
                             FRAGDEL_NO_OUTPUT | FRAGDEL_NO_UNLINK |
                             FRAGDEL_NO_HTABLE | FRAGDEL_NO_VMAREA);
             STATS_INC(num_fragments_deleted_consistency);
