@@ -122,7 +122,8 @@ static
 void check(uint count, char *str)
 {
     dr_fprintf(STDERR, "%s... ", str);
-    if (count > 15) {
+    /* We assume every types of cti are executed at least twice. */
+    if (count > 1) {
         dr_fprintf(STDERR, "yes\n");
     }
     else {
