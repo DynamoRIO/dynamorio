@@ -1114,7 +1114,9 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
      * the kernel just does a fork + stack swap, so we can get away w/ our
      * own stack swap if we restore before the glibc asm code takes over.
      */
-    *app_thread_xsp = ALIGN_BACKWARD(record, REGPARM_END_ALIGN);
+    /* i#754: set stack to be XSTATE aligned for saving YMM registers */
+    ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
+    *app_thread_xsp = ALIGN_BACKWARD(record, XSTATE_ALIGNMENT);
  
     return (void *) record;
 }
