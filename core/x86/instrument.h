@@ -4558,8 +4558,9 @@ dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, void *perscxt,
 
 DR_API
 /**
- * FIXME: this patching interface is in flux and still under discussion.
- * It is subject to change up until the next official release.
+ * \warning This patching interface is in flux and is subject to
+ * change in the next release.  Consider it experimental in this
+ * release.
  * 
  * Registers a callback function for patching code prior to storing it in a
  * persisted cache file.  The length of each instruction cannot be changed, but

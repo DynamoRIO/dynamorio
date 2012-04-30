@@ -125,7 +125,9 @@ The changes between version \DR_VERSION and 3.2.0 are:
  - Added persistent cache support for \clients via
    dr_register_persist_ro(), dr_register_persist_rx(), 
    dr_register_persist_rw(), dr_register_persist_patch(), and
-   #DR_EMIT_PERSISTABLE.
+   #DR_EMIT_PERSISTABLE.  However, dr_register_persist_patch() is
+   still experimental, is in flux, and is subject to change in
+   the next release.
  - Added hashtable persistence support via hashtable_persist_size(),
    hashtable_persist(), and hashtable_resurrect()
  - Added dr_exit_process() to cleanly shut down with a specified
@@ -133,6 +135,16 @@ The changes between version \DR_VERSION and 3.2.0 are:
  - Added dr_convert_handle_to_pid()
  - Added dr_nudge_client_ex() to enable nudging other processes
    from within a \client
+ - Added reg_resize_to_opsz()
+ - Added dr_save_arith_flags_to_xax() and dr_restore_arith_flags_from_xax()
+ - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
+ - Fixed performance regression involving inlined clean calls
+ - Fixed bug involving 32-bit Linux support on a 64-bit Linux
+   kernel on an AVX-enabled processor (Issue 754)
+ - Fixed bug involving multimedia state on a 32-bit Windows kernel
+   (Issue 139)
+ - Fixed bugs building and running on Ubuntu 11.10 (Issue 718, Issue 720)
+ - Several other bug fixes
 
 The changes between version 3.2.0 and 3.1.0 are:
 
