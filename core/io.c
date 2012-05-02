@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
  * For PR 219380 we also export this routine to clients on Windows.
  */
 
-/* FIXME: failure modes should be more gracefull then failing asserts in most places */
+/* FIXME: failure modes should be more graceful than failing asserts in most places */
 
 /* avoid depending on __isoc99_vsscanf which requires glibc >= 2.7 */
 #define _GNU_SOURCE 1
@@ -50,6 +50,10 @@
 #include "globals.h"
 #include <string.h>
 #include <stdarg.h> /* for varargs */
+
+#ifdef LINUX
+# include <wchar.h>
+#endif
 
 #define VA_ARG_CHAR2INT
 #define BUF_SIZE 64
@@ -303,6 +307,7 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
             bool h_type = false;
             bool l_type = false;
             bool ll_type = false;
+            wchar_t *wstr = NULL;
             prefix = prefixbuf;
             c++;
             ASSERT(*c);
@@ -501,7 +506,14 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
                 str = charbuf;
                 break;
             case 's':
-                str = va_arg(ap, char*);
+                if (!l_type) {
+                    str = va_arg(ap, char*);
+                    break;
+                }
+                /* fall-through */
+            case 'S':
+                l_type = true;
+                wstr = va_arg(ap, wchar_t*);
                 break;
             case 'g':
             case 'G':
@@ -550,8 +562,14 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
 
             /* calculate number of fill characters */
             if (fill > 0) {
-                IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(strlen(str) + strlen(prefix))));
-                fill -= (uint) (strlen(str) + strlen(prefix));
+                if (wstr != NULL) {
+                    IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(wcslen(wstr) +
+                                                           strlen(prefix))));
+                    fill -= (uint) (wcslen(wstr) + strlen(prefix));
+                } else {
+                    IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(strlen(str) + strlen(prefix))));
+                    fill -= (uint) (strlen(str) + strlen(prefix));
+                }
             }
             /* insert prefix if filler is 0, filler won't be 0 if - flag is set */
             if (filler == '0') {
@@ -584,15 +602,31 @@ our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap)
                 }
             }
             /* insert the actual str representation */
-            while (*str) {
-                if (max > 0 && (size_t)(s - start) >= max)
-                    goto max_reached;
-                if (*c == 's' && decimal == 0)
-                    break;  /* check string precision */
-                decimal--;
-                *s = *str;
-                s++;
-                str++;
+            if (wstr != NULL) {
+                while (*wstr) {
+                    if (max > 0 && (size_t)(s - start) >= max)
+                        goto max_reached;
+                    if ((*c == 's' || *c == 'S') && decimal == 0)
+                        break;  /* check string precision */
+                    decimal--;
+                    /* we only support ascii */
+                    *s = (char) *wstr;
+                    s++;
+                    wstr++;
+                }
+            } else {
+                if (str == NULL)
+                    str = "<NULL>";
+                while (*str) {
+                    if (max > 0 && (size_t)(s - start) >= max)
+                        goto max_reached;
+                    if (*c == 's' && decimal == 0)
+                        break;  /* check string precision */
+                    decimal--;
+                    *s = *str;
+                    s++;
+                    str++;
+                }
             }
             /* if left justified do the fill now after the actual string */
             if (fill > 0 && minus_flag) {
@@ -673,3 +707,33 @@ our_sscanf(const char *str, const char *fmt, ...)
 }
 #endif
 
+#ifdef IO_UNIT_TEST
+int
+main()
+{
+    char buf[512];
+    int res;
+    standalone_init();
+
+    /* test wide char */
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", L"wide string");
+    EXPECT(res == strlen("wide string"), true);
+    EXPECT(strcmp(buf, "wide string"), 0);
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%ls", L"wide string");
+    EXPECT(res == strlen("wide string"), true);
+    EXPECT(strcmp(buf, "wide string"), 0);
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%.3S", L"wide string");
+    EXPECT(res == strlen("wid"), true);
+    EXPECT(strcmp(buf, "wid"), 0);
+    res = our_snprintf(buf, 4, "%S", L"wide string");
+    EXPECT(res == -1, true);
+    EXPECT(buf[4], ' '); /* ' ' from prior calls: no NULL written since hit max */
+    buf[4] = '\0';
+    EXPECT(strcmp(buf, "wide"), 0);
+
+    /* XXX: add more tests */
+
+    print_file(STDERR, "all done\n");
+    return 0;
+}
+#endif /* IO_UNIT_TEST */

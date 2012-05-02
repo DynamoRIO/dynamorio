@@ -307,6 +307,7 @@ endfunction (add_unit_test)
 if (STANDALONE_UNIT_TEST)
   add_unit_test(options)
   add_unit_test(vmareas)
+  add_unit_test(io)
 endif (STANDALONE_UNIT_TEST)
 
 # rather than a separate BUILD_INCLUDES option we always build
