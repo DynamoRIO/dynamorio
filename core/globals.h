@@ -967,6 +967,8 @@ int our_vsnprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, va_list ap);
 #define snprintf our_snprintf
 #define _snprintf our_snprintf
 #define vsnprintf our_vsnprintf
+#define snwprintf  our_snprintf_wide
+#define _snwprintf our_snprintf_wide
 #ifdef LINUX
 int our_sscanf(const char *str, const char *format, ...);
 # define sscanf our_sscanf
@@ -974,7 +976,6 @@ int our_sscanf(const char *str, const char *format, ...);
 
 /* Code cleanliness rules */
 #ifdef WINDOWS
-#  define snwprintf  _snwprintf
 #  define strcasecmp _stricmp
 #  define strncasecmp _strnicmp
 #  define wcscasecmp _wcsicmp
