@@ -3504,14 +3504,11 @@ dr_fprintf(file_t f, const char *fmt, ...)
 DR_API int
 dr_snprintf(char *buf, size_t max, const char *fmt, ...)
 {
-    /* in io.c */
-    extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
     int res;
     va_list ap;
     va_start(ap, fmt);
     /* PR 219380: we use our_vsnprintf instead of ntdll._vsnprintf b/c the
-     * latter does not support floating point (while ours does not support
-     * wide chars: but we also forward _snprintf to ntdll for clients).
+     * latter does not support floating point.
      * Plus, our_vsnprintf returns -1 for > max chars (matching Windows
      * behavior, but which Linux libc version does not do).
      */
@@ -3523,9 +3520,24 @@ dr_snprintf(char *buf, size_t max, const char *fmt, ...)
 DR_API int
 dr_vsnprintf(char *buf, size_t max, const char *fmt, va_list ap)
 {
-    /* in io.c */
-    extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
     return our_vsnprintf(buf, max, fmt, ap);
+}
+
+DR_API int
+dr_snwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, ...)
+{
+    int res;
+    va_list ap;
+    va_start(ap, fmt);
+    res = our_vsnprintf_wide(buf, max, fmt, ap);
+    va_end(ap);
+    return res;
+}
+
+DR_API int
+dr_vsnwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, va_list ap)
+{
+    return our_vsnprintf_wide(buf, max, fmt, ap);
 }
 
 DR_API void 

@@ -2929,11 +2929,12 @@ DR_API
  * character.  If the number of characters to write exceeds max, then
  * max characters are written and -1 is returned.  If an error
  * occurs, a negative value is returned.
- * \note This routine does not support printing wide characters.  On
- * Windows you can use _snprintf() instead (though _snprintf() does
- * not support printing floating point values).
+ * \note This routine supports printing wide characters via the ls
+ * or S format specifiers via simply dropping the high-order byte.
  * \note If the data to be printed is large it will be truncated to
  * an internal buffer size.
+ * \note On Windows, you can use _snprintf() instead (though _snprintf() does
+ * not support printing floating point values).
  * \note When printing floating-point values, the caller's code should
  * use proc_save_fpstate() or be inside a clean call that
  * has requested to preserve the floating-point state.
@@ -2943,10 +2944,27 @@ dr_snprintf(char *buf, size_t max, const char *fmt, ...);
 
 DR_API
 /**
+ * Wide character version of dr_snprintf().  All of the comments for
+ * dr_snprintf() apply, except that the hs or S format specifiers will
+ * widen a single-byte character string into a two-byte character
+ * string with zero as the high-order byte.
+ */
+int
+dr_snwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, ...);
+
+DR_API
+/**
  * Identical to dr_snprintf() but exposes va_list.
  */
 int
 dr_vsnprintf(char *buf, size_t max, const char *fmt, va_list ap);
+
+DR_API
+/**
+ * Identical to dr_snwprintf() but exposes va_list.
+ */
+int
+dr_vsnwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, va_list ap);
 
 DR_API 
 /** Prints \p msg followed by the instruction \p instr to file \p f. */
