@@ -71,11 +71,28 @@ const static double zerof = 0.0;
 
 /* assumes that d > 0 */
 static long
+double2int_trunc(double d)
+{
+    long i = (long)d;
+    double id = (double)i;
+    /* when building with /QIfist casting rounds instead of truncating (i#763) */
+    if (id > d)
+        return i-1;
+    else
+        return i;
+}
+
+/* assumes that d > 0 */
+static long
 double2int(double d)
 {
     long i = (long)d;
-    if ((d - (double)i) >= 0.5)
+    double id = (double)i;
+    /* when building with /QIfist casting rounds instead of truncating (i#763) */
+    if (id < d && d - id >= 0.5)
         return i+1;
+    else if (id > d && id - d >= 0.5)
+        return i-1;
     else
         return i;
 }
@@ -134,6 +151,12 @@ main()
     EXPECT(buf[4], ' '); /* ' ' from prior calls: no NULL written since hit max */
     buf[4] = '\0';
     EXPECT(strcmp(buf, "wide"), 0);
+
+    /* test float */
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%3.1f", 42.9f);
+    EXPECT(res == strlen("42.9"), true);
+    EXPECT(strcmp(buf, "42.9"), 0);
+    /* XXX: add more */
 
     /* test all-wide */
     res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%d%s%3.1f",

@@ -109,6 +109,9 @@ TNAME(ulong_to_str)(ulong num, int base, TCHAR *buf, int decimal, bool caps)
     return p;
 }
 
+/* N.B.: when building with /QIfist casting rounds instead of truncating (i#763)!
+ * Thus, use double2int_trunc() instead of casting.
+ */
 static TCHAR *
 TNAME(double_to_str)(double d, int decimal, TCHAR *buf, bool force_dot,
                      bool suppress_zeros)
@@ -122,13 +125,13 @@ TNAME(double_to_str)(double d, int decimal, TCHAR *buf, bool force_dot,
     if (d < 0)
         d = -d;
     if (decimal > 0)
-        predot = (long)d;
+        predot = double2int_trunc(d);
     else
         predot = double2int(d);
     sub = 1;
     for (i=0; i<decimal; i++)
         sub *= 10;
-    postdot = double2int((d - (long)d) * (double)sub);
+    postdot = double2int((d - double2int_trunc(d)) * (double)sub);
     if (postdot == sub) {
         /* we had a .9* that rounded up! */
         postdot = 0;

@@ -128,6 +128,8 @@ if (WIN32 AND NOT X64)
   # we just live with it for now:
   #   [ 20%] Building C object core/CMakeFiles/dynamorio.dir/io.c.obj
   #   cl : Command line warning D9035 : option 'QIfist' has been deprecated and will be removed in a future release
+  # Note that /QIfist causes casts to round instead of truncating (i#763)
+  # which we work around in our code.
   set_source_files_properties(io.c COMPILE_FLAGS "/QIfist")
 endif (WIN32 AND NOT X64)
 
