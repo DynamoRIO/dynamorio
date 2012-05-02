@@ -2882,10 +2882,6 @@ get_application_name()
 {
     static char exename[MAXIMUM_PATH];
     if (!exename[0]) {
-        /* FIXME i#234: for earliest injection wchart_t-to-char conversion
-         * via ntdll _snprintf crashes b/c locale or sthg not init: need to
-         * have our_snprintf handle %ls
-         */
         snprintf(exename, BUFFER_SIZE_ELEMENTS(exename), "%ls",
                  get_own_qualified_name());
         NULL_TERMINATE_BUFFER(exename);

@@ -958,11 +958,21 @@ enum {
     DUMP_NOT_XML=false
 };
 
+/* to avoid transparency problems we must have our own vnsprintf */
+#include <stdarg.h> /* for va_list */
+int our_snprintf(char *s, size_t max, const char *fmt, ...);
+int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
+#define snprintf our_snprintf
+#define _snprintf our_snprintf
+#define vsnprintf our_vsnprintf
+#ifdef LINUX
+int our_sscanf(const char *str, const char *format, ...);
+# define sscanf our_sscanf
+#endif
+
 /* Code cleanliness rules */
 #ifdef WINDOWS
-#  define snprintf   _snprintf
 #  define snwprintf  _snwprintf
-#  define vsnprintf  _vsnprintf
 #  define strcasecmp _stricmp
 #  define strncasecmp _strnicmp
 #  define wcscasecmp _wcsicmp

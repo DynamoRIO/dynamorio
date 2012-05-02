@@ -102,7 +102,11 @@ extern void display_verbose_message(char *format, ...);
 # undef STDERR
 # define STDERR stderr
 # undef our_snprintf
-# define our_snprintf snprintf
+# ifdef WINDOWS
+#  define our_snprintf _snprintf
+# else
+#  define our_snprintf snprintf
+# endif
 # undef DECLARE_NEVERPROT_VAR
 # define DECLARE_NEVERPROT_VAR(var, val) var = (val)
 #endif

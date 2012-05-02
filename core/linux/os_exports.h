@@ -107,15 +107,6 @@ void exit_process_syscall(long status);
 void exit_thread_syscall(long status);
 process_id_t get_parent_id(void);
 
-/* to avoid transparency problems we must have our own vnsprintf */
-#include <stdarg.h> /* for va_list */
-int our_snprintf(char *s, size_t max, const char *fmt, ...);
-int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
-int our_sscanf(const char *str, const char *format, ...);
-#define snprintf our_snprintf
-#define vsnprintf our_vsnprintf
-#define sscanf our_sscanf
-
 /* i#238/PR 499179: our __errno_location isn't affecting libc so until
  * we have libc independence or our own private isolated libc we need
  * to preserve the app's libc's errno

@@ -210,6 +210,7 @@ else (UNIX)
     win32/resources.rc
     config.c
     win32/os.c
+    io.c
     )
   set(PRELOAD_NAME drpreinject)
   set(INJECTOR_SRCS 
@@ -221,6 +222,7 @@ else (UNIX)
     win32/resources.rc
     config.c
     win32/os.c
+    io.c
     )
   add_library(drinjectlib SHARED ${INJECTOR_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
