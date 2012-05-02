@@ -962,6 +962,8 @@ enum {
 #include <stdarg.h> /* for va_list */
 int our_snprintf(char *s, size_t max, const char *fmt, ...);
 int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
+int our_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
+int our_vsnprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, va_list ap);
 #define snprintf our_snprintf
 #define _snprintf our_snprintf
 #define vsnprintf our_vsnprintf
