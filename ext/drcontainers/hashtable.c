@@ -471,6 +471,7 @@ hashtable_clear_internal(hashtable_t *table)
             hash_free(e, sizeof(*e));
             e = nexte;
         }
+        table->table[i] = NULL;
     }
     table->entries = 0;
 }
