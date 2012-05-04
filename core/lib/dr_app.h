@@ -59,8 +59,7 @@
 
 /**
  * Application-wide initialization. Must be called before any other
- * API function, and before the application creates any threads. Returns
- * zero on success.
+ * API function. Returns zero on success.
  */
 DR_APP_API int dr_app_setup(void);
 
@@ -70,15 +69,26 @@ DR_APP_API int dr_app_setup(void);
 DR_APP_API int dr_app_cleanup(void);
 
 /**
- * Causes application to run under DR control upon return 
- * from this call.
+ * Causes application to run under DR control upon return from this call.
+ * Attempts to take over any existing threads in the application.
+ *
+ * \warning On Linux, DR detects threads by listing thread ids in the current
+ * process's thread group.  This, and other queries about the current process
+ * may fail if the main thread has quit.  DR also assumes the threads all share
+ * signal handlers, as is the case for pthreads.  Violating these assumptions
+ * will lead to unpredictable behavior.
+ *
+ * \warning Windows does not yet attempt to take over existing threads.
  */
 DR_APP_API void dr_app_start(void);
 
 /**
- * Causes application to run directly on the machine upon return 
- * from this call; no effect if application is not currently
- * running under DR control.
+ * Causes the application's current thread to run directly on the machine upon
+ * return from this call; no effect if application is not currently running
+ * under DR control.
+ *
+ * \note This only affects the current thread.  Other threads will still be
+ * under DR's control.  This behavior may change in the future.
  */
 DR_APP_API void dr_app_stop(void);
 
@@ -88,5 +98,13 @@ DR_APP_API void dr_app_stop(void);
  * dr_app_start/dr_app_stop calls in the rest of a program.
  */
 DR_APP_API void dr_app_take_over(void);
+
+/**
+ * Calls dr_app_setup() and, if it succeeds, calls dr_app_start().  Returns the
+ * result of dr_app_setup(), which returns zero on success.  This routine is
+ * intended as a convenient single point of entry for callers who are using
+ * dlsym() or GetProcAddress() to access the app API.
+ */
+DR_APP_API int dr_app_setup_and_start(void);
 
 #endif /* _DR_APP_H_ */

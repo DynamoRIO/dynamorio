@@ -1453,6 +1453,13 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
     set_asynch_interception(get_thread_id(), false);
 }
 
+bool
+os_take_over_all_unknown_threads(dcontext_t *dcontext)
+{
+    /* FIXME NYI i#725: Part of Windows attach. */
+    return true;
+}
+
 #ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
 /* i#41/PR 222812: client threads
  * * thread must have dcontext since many API routines require one and we

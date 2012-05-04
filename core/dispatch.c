@@ -567,6 +567,7 @@ dispatch_enter_native(dcontext_t *dcontext)
      * entering native execution as well as the fcache.
      */
     fcache_enter_func_t go_native = get_fcache_enter_private_routine(dcontext);
+    set_last_exit(dcontext, (linkstub_t *) get_native_exec_linkstub());
     ASSERT_OWN_NO_LOCKS();
     if (dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL) {
         /* we're simply going native again after an intercepted syscall,
@@ -594,7 +595,6 @@ dispatch_enter_native(dcontext_t *dcontext)
         dcontext->native_exec_postsyscall = NULL;
         LOG(THREAD, LOG_DISPATCH, 2, "Entry into native_exec after intercepted syscall\n");
         /* restore state as though never came out for syscall */
-        set_last_exit(dcontext, (linkstub_t *) get_native_exec_linkstub());
         KSTART(fcache_default);
         enter_nolinking(dcontext, NULL, true);
     } 
@@ -674,9 +674,11 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
      */
 
     if (wherewasi == WHERE_APP) { /* first entrance */
-        ASSERT(dcontext->last_exit == get_starting_linkstub()
+        ASSERT(dcontext->last_exit == get_starting_linkstub() ||
+               /* The start/stop API will set this linkstub. */
+               IF_APP_EXPORTS(dcontext->last_exit == get_native_exec_linkstub() ||)
                /* new thread */
-               || IF_WINDOWS_ELSE_0(dcontext->last_exit == get_asynch_linkstub()));
+               IF_WINDOWS_ELSE_0(dcontext->last_exit == get_asynch_linkstub()));
     } else {
         ASSERT(dcontext->last_exit != NULL); /* MUST be set, if only to a fake linkstub_t */
         /* cache last_exit's fragment */

@@ -585,6 +585,11 @@ if (UNIX)
   set(BASE_CFLAGS "-std=gnu99")
   # disable strict aliasing opt in gcc 3.3.3 -- gives warnings and makes bad assumptions
   set(BASE_CFLAGS "${BASE_CFLAGS} -fno-strict-aliasing")
+  # Ubuntu defaults to -fstack-protector these days, which depends on app TLS.
+  CHECK_C_COMPILER_FLAG("-fno-stack-protector" no_stack_protector_avail)
+  if (no_stack_protector_avail)
+    set(BASE_CFLAGS "${BASE_CFLAGS} -fno-stack-protector")
+  endif (no_stack_protector_avail)
   set(ASM_FLAGS "-mmnemonic=intel -msyntax=intel -mnaked-reg --noexecstack")
   # now that the user must set non-default -mNN we don't nec. need these:
   if (X64)

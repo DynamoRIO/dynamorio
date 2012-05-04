@@ -59,6 +59,12 @@
 /* PR 212090: the signal we use to suspend threads */
 #define SUSPEND_SIGNAL SIGUSR2
 
+/* Clone flags use by pthreads on Linux 2.6.38.  May need updating over time.
+ */
+#define PTHREAD_CLONE_FLAGS (CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND| \
+                             CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS| \
+                             CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID)
+
 /* thread-local data that's os-private, for modularity */
 typedef struct _os_thread_data_t {
     /* store stack info at thread startup, since stack can get fragmented in
@@ -105,11 +111,17 @@ typedef struct _os_thread_data_t {
     /* PR 450670: for re-entrant suspend signals */
     int processing_signal;
 
-    /* i#107: mangle segment register usage conflicts between app and dr. */
+    /* i#107: If -mangle_app_seg is on, these hold the bases for both SEG_TLS
+     * and LIB_SEG_TLS.  If -mangle_app_seg is off, the base for LIB_SEG_TLS
+     * will be NULL, but the base for SEG_TLS will still be present.
+     */
     void *dr_fs_base;
     void *dr_gs_base;
     void *app_thread_areas; /* data structure for app's thread area info */
 } os_thread_data_t;
+
+/* in os.c */
+void os_thread_take_over(priv_mcontext_t *mc);
 
 /* in signal.c */
 struct _kernel_sigaction_t;
@@ -143,6 +155,9 @@ mcontext_to_sigcontext(struct sigcontext *sc, priv_mcontext_t *mc);
 
 bool
 set_default_signal_action(int sig);
+
+void
+share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc);
 
 void start_itimer(dcontext_t *dcontext);
 void stop_itimer(dcontext_t *dcontext);

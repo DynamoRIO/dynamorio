@@ -1167,18 +1167,16 @@ dynamo_process_exit_cleanup(void)
             mutex_unlock(&thread_initexit_lock);
         }
 
-        /* we don't check control_all_threads b/c we're just killing
+        /* if ExitProcess called before all threads terminated, they won't
+         * all have gone through dynamo_thread_exit, so clean them up now
+         * so we can get stats about them
+         * 
+         * we don't check control_all_threads b/c we're just killing
          * the threads we know about here
          */
-        if (automatic_startup) {
-            /* if ExitProcess called before all threads terminated, they won't
-             * all have gone through dynamo_thread_exit, so clean them up now
-             * so we can get stats about them
-             */
-            synch_with_threads_at_exit(IF_WINDOWS_ELSE
-                                       (THREAD_SYNCH_SUSPENDED_AND_CLEANED,
-                                        THREAD_SYNCH_TERMINATED_AND_CLEANED));
-        }
+        synch_with_threads_at_exit(IF_WINDOWS_ELSE
+                                   (THREAD_SYNCH_SUSPENDED_AND_CLEANED,
+                                    THREAD_SYNCH_TERMINATED_AND_CLEANED));
         /* now that APC interception point is unpatched and 
          * dynamorio_exited is set and we've killed all the theads we know
          * about, assumption is that no other threads will be running in 
@@ -2459,6 +2457,22 @@ dr_app_setup(void)
 DR_APP_API int
 dr_app_cleanup(void)
 {
+    thread_record_t *tr;
+
+    /* XXX: The dynamo_thread_[not_]under_dynamo() routines are not idempotent,
+     * and must be balanced!  On Linux, they track the shared itimer refcount,
+     * so a mismatch will lead to a refleak or negative refcount.
+     * dynamorio_app_exit() will call dynamo_thread_not_under_dynamo(), so we
+     * must ensure that we are under DR before calling it.  Therefore, we
+     * require that the caller call dr_app_stop() before calling
+     * dr_app_cleanup().  However, we cannot make a usage assertion to that
+     * effect without addressing the FIXME comments in
+     * dynamo_thread_not_under_dynamo() about updating tr->under_dynamo_control.
+     */
+    tr = thread_lookup(get_thread_id());
+    if (tr != NULL && tr->dcontext != NULL)
+        dynamo_thread_under_dynamo(tr->dcontext);
+
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     dr_api_exit = true;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT); /* to keep properly nested */
@@ -2483,6 +2497,15 @@ DR_APP_API void
 dr_app_stop(void)
 {
     /* the application regains control in here */
+}
+
+DR_APP_API int
+dr_app_setup_and_start(void)
+{
+    int r = dr_app_setup();
+    if (r == SUCCESS)
+        dr_app_start();
+    return r;
 }
 #endif
 
@@ -2534,6 +2557,32 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
     os_flush(dcontext->logfile);
 # endif
 #endif /* LINUX */
+}
+
+#define MAX_TAKE_OVER_ATTEMPTS 4
+
+/* Take over other threads in the current process.
+ */
+void
+dynamorio_take_over_threads(dcontext_t *dcontext)
+{
+    /* We repeatedly check if there are other threads in the process, since
+     * while we're checking one may be spawning additional threads.
+     */
+    bool found_threads;
+    uint attempts = 0;
+
+    do {
+        found_threads = os_take_over_all_unknown_threads(dcontext);
+        attempts++;
+    } while (found_threads && attempts < MAX_TAKE_OVER_ATTEMPTS);
+
+    if (found_threads) {
+        SYSLOG(SYSLOG_WARNING, INTERNAL_SYSLOG_WARNING, 
+               3, get_application_name(), get_application_pid(),
+               "Failed to take over all threads after multiple attempts");
+        ASSERT_NOT_REACHED();
+    }
 }
 
 /* Called by dynamorio_app_take_over in arch-specific assembly file */

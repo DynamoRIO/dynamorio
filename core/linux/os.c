@@ -62,6 +62,7 @@
 #include <limits.h>
 #include <sys/sysinfo.h>        /* for get_nprocs_conf */
 #include <sys/vfs.h> /* for statfs */
+#include <dirent.h>
 
 /* for getrlimit */
 #include <sys/time.h>
@@ -225,6 +226,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_
 /* forward decl */
 static void handle_execve_post(dcontext_t *dcontext);
 static bool os_switch_lib_tls(dcontext_t *dcontext, bool to_app);
+static bool os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app);
 
 /* full path to our own library, used for execve */
 static char dynamorio_library_path[MAXIMUM_PATH];
@@ -431,6 +433,8 @@ static int *
 our_libc_errno_loc(void)
 {
     void *app_tls = os_get_app_seg_base(NULL, LIB_SEG_TLS);
+    if (app_tls == NULL)
+        return NULL;
     return (int *)(app_tls + libc_errno_tls_offs);
 }
 #endif
@@ -1178,12 +1182,12 @@ clear_ldt_entry(uint index)
 #define GDT_SELECTOR(idx) ((idx) << 3 | ((GDT_NOT_LDT) << 2) | (USER_PRIVILEGE))
 #define SELECTOR_INDEX(sel) ((sel) >> 3)
 
-#define WRITE_FS(val) \
+#define WRITE_DR_SEG(val) \
     ASSERT(sizeof(val) == sizeof(reg_t));                           \
     asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"ASM_SEG";" \
                  : : "m" ((val)) : ASM_XAX);
 
-#define WRITE_GS(val) \
+#define WRITE_LIB_SEG(val) \
     ASSERT(sizeof(val) == sizeof(reg_t));                               \
     asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"LIB_ASM_SEG";" \
                  : : "m" ((val)) : ASM_XAX);
@@ -1314,6 +1318,9 @@ os_tls_offset(ushort tls_offs)
     return (TLS_LOCAL_STATE_OFFSET + tls_offs);
 }
 
+/* XXX: Will return NULL if called before os_thread_init(), which sets
+ * ostd->dr_fs/gs_base.
+ */
 void *
 os_get_dr_seg_base(dcontext_t *dcontext, reg_id_t seg)
 {
@@ -1334,7 +1341,7 @@ os_get_dr_seg_base(dcontext_t *dcontext, reg_id_t seg)
 }
 
 static os_local_state_t *
-get_os_tls()
+get_os_tls(void)
 {
     os_local_state_t *os_tls;
     ushort offs = TLS_SELF_OFFSET;
@@ -1343,16 +1350,36 @@ get_os_tls()
     return os_tls;
 }
 
+/* Obtain TLS from dcontext directly, which succeeds in pre-thread-init
+ * situations where get_os_tls() fails.
+ */
+static os_local_state_t *
+get_os_tls_from_dc(dcontext_t *dcontext)
+{
+    byte *local_state;
+    ASSERT(dcontext != NULL);
+    local_state = (byte*)dcontext->local_state;
+    if (local_state == NULL)
+        return NULL;
+    return (os_local_state_t *)(local_state - offsetof(os_local_state_t, state));
+}
+
 void *
 os_get_app_seg_base(dcontext_t *dcontext, reg_id_t seg)
 {
-    os_local_state_t *os_tls = get_os_tls();
+    os_local_state_t *os_tls;
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(seg == SEG_FS || seg == SEG_GS);
     if (dcontext == NULL)
         dcontext = get_thread_private_dcontext();
-    if (dcontext == NULL)
-        return NULL;
+    if (dcontext == NULL) {
+        /* No dcontext means we haven't initialized TLS, so we haven't replaced
+         * the app's segments.  get_segment_base is expensive, but this should
+         * be rare.  Re-examine if it pops up in a profile.
+         */
+        return get_segment_base(seg);
+    }
+    os_tls = get_os_tls_from_dc(dcontext);
     if (seg == SEG_FS)
         return os_tls->app_fs_base;
     else 
@@ -1621,7 +1648,7 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 }
 
 void
-os_tls_init()
+os_tls_init(void)
 {
 #ifdef HAVE_TLS
     /* We create a 1-page segment with an LDT entry for each thread and load its
@@ -1647,6 +1674,11 @@ os_tls_init()
     os_tls->self = os_tls;
     os_tls->tid = get_thread_id();
     os_tls->tls_type = TLS_TYPE_NONE;
+    /* We save DR's TLS segment base here so that os_get_dr_seg_base() will work
+     * even when -no_mangle_app_seg is set.  If -mangle_app_seg is set, this
+     * will be overwritten in os_tls_app_seg_init().
+     */
+    os_tls->os_seg_info.IF_X64_ELSE(dr_gs_base, dr_fs_base) = segment;
     ASSERT(proc_is_cache_aligned(os_tls->self + TLS_LOCAL_STATE_OFFSET));
     /* Verify that local_state_extended_t should indeed be used. */
     ASSERT(DYNAMO_OPTION(ibl_table_in_tls));
@@ -1788,7 +1820,7 @@ os_tls_init()
                 ASSERT(res >= 0);
                 /* i558 update lib seg reg to enforce the segment changes */
                 selector = GDT_SELECTOR(index);
-                WRITE_GS(selector);
+                WRITE_LIB_SEG(selector);
             }
 # endif
         } else {
@@ -1826,7 +1858,7 @@ os_tls_init()
             os_tls->tls_type = TLS_TYPE_GDT;
             index = tls_gdt_index;
             selector = GDT_SELECTOR(index);
-            WRITE_FS(selector); /* macro needs lvalue! */
+            WRITE_DR_SEG(selector); /* macro needs lvalue! */
         } else {
             IF_VMX86(ASSERT_NOT_REACHED()); /* since no modify_ldt */
             LOG(GLOBAL, LOG_THREADS, 1,
@@ -1843,7 +1875,7 @@ os_tls_init()
         ASSERT(index != -1);
         create_ldt_entry((void *)segment, PAGE_SIZE, index);
         os_tls->tls_type = TLS_TYPE_LDT;
-        WRITE_FS(selector); /* macro needs lvalue! */
+        WRITE_DR_SEG(selector); /* macro needs lvalue! */
         LOG(GLOBAL, LOG_THREADS, 1,
             "os_tls_init: modify_ldt successful for base "PFX" w/ index %d\n",
             segment, index);
@@ -1878,7 +1910,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     int index = os_tls->ldt_index;
 
     if (!other_thread) {
-        WRITE_FS(zero); /* macro needs lvalue! */
+        WRITE_DR_SEG(zero); /* macro needs lvalue! */
     }
     heap_munmap(os_tls->self, PAGE_SIZE);
 
@@ -1901,7 +1933,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
             res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, NULL);
             ASSERT(res >= 0);
             /* syscall re-sets gs register so re-clear it */
-            WRITE_FS(zero); /* macro needs lvalue! */
+            WRITE_DR_SEG(zero); /* macro needs lvalue! */
         }
 # endif
     }
@@ -1934,7 +1966,7 @@ os_tls_pre_init(int gdt_index)
         /* Be sure to clear the selector before anything that might
          * call get_thread_private_dcontext()
          */
-        WRITE_FS(zero); /* macro needs lvalue! */
+        WRITE_DR_SEG(zero); /* macro needs lvalue! */
         clear_ldt_struct(&desc, gdt_index);
         res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
         ASSERT(res >= 0);        
@@ -1997,6 +2029,7 @@ os_tls_cfree(uint offset, uint num_slots)
 void
 os_thread_init(dcontext_t *dcontext)
 {
+    os_local_state_t *os_tls = get_os_tls();
     os_thread_data_t *ostd = (os_thread_data_t *)
         heap_alloc(dcontext, sizeof(os_thread_data_t) HEAPACCT(ACCT_OTHER));
     dcontext->os_field = (void *) ostd;
@@ -2023,13 +2056,12 @@ os_thread_init(dcontext_t *dcontext)
     /* i#107, initialize thread area information,
      * the value was first get in os_tls_init and stored in os_tls
      */
+    ostd->dr_gs_base = os_tls->os_seg_info.dr_gs_base;
+    ostd->dr_fs_base = os_tls->os_seg_info.dr_fs_base;
     if (INTERNAL_OPTION(mangle_app_seg)) {
-        os_local_state_t *os_tls = get_os_tls();
         ostd->app_thread_areas = 
             heap_alloc(dcontext, sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS
                        HEAPACCT(ACCT_OTHER));
-        ostd->dr_gs_base = os_tls->os_seg_info.dr_gs_base;
-        ostd->dr_fs_base = os_tls->os_seg_info.dr_fs_base;
         memcpy(ostd->app_thread_areas,
                os_tls->os_seg_info.app_thread_areas,
                sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS);
@@ -2101,9 +2133,37 @@ os_fork_init(dcontext_t *dcontext)
     TABLE_RWLOCK(fd_table, write, unlock);
 }
 
+bool
+os_using_app_state(dcontext_t *dcontext)
+{
+    /* FIXME: This could be optimized to avoid the syscall by keeping state in
+     * the dcontext.
+     */
+    if (INTERNAL_OPTION(mangle_app_seg)) {
+        return (get_segment_base(LIB_SEG_TLS) ==
+                os_get_dr_seg_base(dcontext, LIB_SEG_TLS));
+    }
+    /* We're always in the app state if we're not mangling. */
+    return true;
+}
+
+/* Similar to PEB swapping on Windows, this call will switch between DR's
+ * private lib segment base and the app's segment base.
+ * i#107: If the app wants to use SEG_TLS, we should also switch that back at
+ * this boundary, but there are many places where we simply assume it is always
+ * installed.
+ */
+void
+os_swap_context(dcontext_t *dcontext, bool to_app)
+{
+    if (INTERNAL_OPTION(mangle_app_seg))
+        os_switch_seg_to_context(dcontext, LIB_SEG_TLS, to_app);
+}
+
 void
 os_thread_under_dynamo(dcontext_t *dcontext)
 {
+    os_swap_context(dcontext, false/*to dr*/);
     start_itimer(dcontext);
 }
 
@@ -2111,6 +2171,7 @@ void
 os_thread_not_under_dynamo(dcontext_t *dcontext)
 {
     stop_itimer(dcontext);
+    os_swap_context(dcontext, true/*to app*/);
 }
 
 static pid_t
@@ -2670,7 +2731,7 @@ thread_yield()
 }
 
 static bool
-thread_signal(thread_record_t *tr, int signum)
+thread_signal(process_id_t pid, thread_id_t tid, int signum)
 {
     /* FIXME: for non-NPTL use SYS_kill */
     /* Note that the pid is equivalent to the thread group id.
@@ -2678,8 +2739,7 @@ thread_signal(thread_record_t *tr, int signum)
      * (if created via CLONE_VM but not CLONE_THREAD), so make sure to
      * use the pid of the target thread, not our pid.
      */
-    return (dynamorio_syscall(SYS_tgkill, 3, tr->dcontext->owning_process,
-                              tr->id, signum) == 0);
+    return (dynamorio_syscall(SYS_tgkill, 3, pid, tid, signum) == 0);
 }
 
 void
@@ -2736,7 +2796,7 @@ thread_suspend(thread_record_t *tr)
          * to match Windows behavior.
          */
         ASSERT(ostd->suspended == 0);
-        if (!thread_signal(tr, SUSPEND_SIGNAL)) {
+        if (!thread_signal(tr->pid, tr->id, SUSPEND_SIGNAL)) {
             ostd->suspend_count--;
             mutex_unlock(&ostd->suspend_lock);
             return false;
@@ -2815,7 +2875,7 @@ thread_terminate(thread_record_t *tr)
     os_thread_data_t *ostd = (os_thread_data_t *) tr->dcontext->os_field;
     ASSERT(ostd != NULL);
     ostd->terminate = true;
-    return thread_signal(tr, SUSPEND_SIGNAL);
+    return thread_signal(tr->pid, tr->id, SUSPEND_SIGNAL);
 }
 
 bool
@@ -2945,7 +3005,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     set_clone_record_fields(crec, (reg_t) arg, (app_pc) func, SYS_clone, flags);
     /* i#501 switch to app's tls before creating client thread */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
-            os_switch_lib_tls(dcontext, true /* to app */);
+        os_switch_lib_tls(dcontext, true/*to app*/);
 #ifndef X64
     /* For the TCB we simply share the parent's.  On Linux we could just inherit
      * the same selector but not for VMX86_SERVER so we specify for both for
@@ -2968,7 +3028,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
                                          NULL, client_thread_run);
     /* i#501 switch to app's tls before creating client thread */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
-            os_switch_lib_tls(dcontext, false /* to app */);
+        os_switch_lib_tls(dcontext, false/*to dr*/);
     if (newpid < 0) {
         LOG(THREAD, LOG_ALL, 1, "client thread creation failed: %d\n", newpid);
         return false;
@@ -4708,22 +4768,36 @@ os_get_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
 static bool
 os_switch_lib_tls(dcontext_t *dcontext, bool to_app)
 {
+    return os_switch_seg_to_context(dcontext, LIB_SEG_TLS, to_app);
+}
+
+static bool
+os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
+{
     int res;
     app_pc base;
-    os_local_state_t *os_tls = get_os_tls();
+    os_local_state_t *os_tls = get_os_tls_from_dc(dcontext);
 
+    ASSERT(seg == SEG_FS || seg == SEG_GS);
     if (to_app) {
-        base = os_get_app_seg_base(dcontext, LIB_SEG_TLS);
+        base = os_get_app_seg_base(dcontext, seg);
     } else {
-        base = os_get_dr_seg_base(dcontext, LIB_SEG_TLS);
+        base = os_get_dr_seg_base(dcontext, seg);
     }
     switch (os_tls->tls_type) {
 # ifdef X64
     case TLS_TYPE_ARCH_PRCTL: {
-        res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_FS, base);
+        int prctl_code = (seg == SEG_FS ? ARCH_SET_FS : ARCH_SET_GS);
+        res = dynamorio_syscall(SYS_arch_prctl, 2, prctl_code, base);
         ASSERT(res >= 0);
         LOG(GLOBAL, LOG_THREADS, 2,
-            "os_switch_lib_tls: arch_prctl successful for base "PFX"\n", base);
+            "%s: arch_prctl successful for base "PFX"\n", __FUNCTION__, base);
+        if (seg == SEG_TLS && base == NULL) {
+            /* Set the selector to 0 so we don't think TLS is available. */
+            /* FIXME i#107: Still assumes app isn't using SEG_TLS. */
+            reg_t zero = 0;
+            WRITE_DR_SEG(zero);
+        }
         break;
     }
 # endif
@@ -4731,8 +4805,7 @@ os_switch_lib_tls(dcontext_t *dcontext, bool to_app)
         our_modify_ldt_t desc;
         uint index;
         uint selector;
-        os_local_state_t *os_tls = get_os_tls();
-        index = SELECTOR_INDEX(IF_X64_ELSE(os_tls->app_fs, os_tls->app_gs));
+        index = SELECTOR_INDEX(seg == SEG_FS ? os_tls->app_fs : os_tls->app_gs);
         if (to_app) {
             our_modify_ldt_t *areas = 
                 ((os_thread_data_t *)dcontext->os_field)->app_thread_areas;
@@ -4746,10 +4819,10 @@ os_switch_lib_tls(dcontext_t *dcontext, bool to_app)
         ASSERT(res >= 0);
         /* i558 update lib seg reg to enforce the segment changes */
         selector = GDT_SELECTOR(index);
-        WRITE_GS(selector);
+        WRITE_LIB_SEG(selector);
         LOG(THREAD, LOG_LOADER, 2,
-            "os_switch_lib_tls: set_thread_area successful "
-            "for base "PFX"\n", base);
+            "%s: set_thread_area successful for base "PFX"\n",
+            __FUNCTION__, base);
         break;
     }
     default:
@@ -5107,7 +5180,7 @@ pre_system_call(dcontext_t *dcontext)
          * Please refer to comment on os_switch_lib_tls.
          */
         if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-            os_switch_lib_tls(dcontext, true /* to app */);
+            os_switch_lib_tls(dcontext, true/*to app*/);
         }
         break;
     }
@@ -5153,7 +5226,7 @@ pre_system_call(dcontext_t *dcontext)
          * Please refer to comment on os_switch_lib_tls.
          */
         if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-            os_switch_lib_tls(dcontext, true /* to app */);
+            os_switch_lib_tls(dcontext, true/*to app*/);
         }
         break;
     }
@@ -6323,7 +6396,7 @@ post_system_call(dcontext_t *dcontext)
          * The child thread's tls setup is done in os_tls_app_seg_init.
          */
         if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-            os_switch_lib_tls(dcontext, false /* to dr */);
+            os_switch_lib_tls(dcontext, false/*to dr*/);
         }
         break;
     }
@@ -6349,7 +6422,7 @@ post_system_call(dcontext_t *dcontext)
              * The child thread's tls setup is done in os_tls_app_seg_init.
              */
             if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-                os_switch_lib_tls(dcontext, false /* to dr */);
+                os_switch_lib_tls(dcontext, false/*to dr*/);
             }
         }
         break;
@@ -8183,8 +8256,296 @@ wait_for_event(event_t e)
     }
 }
 
+/***************************************************************************
+ * DIRECTORY ITERATOR
+ */
+
+/* Libc independent directory iterator, similar to readdir.  If we ever need
+ * this on Windows we should generalize it and export it to clients.
+ */
+typedef struct _dir_iterator_t {
+    file_t fd;
+    int off;
+    int end;
+    const char *name;            /* Name of the current entry. */
+    char buf[4 * MAXIMUM_PATH];  /* Expect stack alloc, so not too big. */
+} dir_iterator_t;
+
+static void os_dir_iterator_start(dir_iterator_t *iter, file_t fd);
+static bool os_dir_iterator_next(dir_iterator_t *iter);
+/* XXX: If we generalize to Windows, will we need os_dir_iterator_stop()? */
+
+/* These structs are written to the buf that we pass to getdents.  We can
+ * iterate them by adding d_reclen to the current buffer offset and interpreting
+ * that as the next entry.
+ */
+struct linux_dirent {
+    long           d_ino;       /* Inode number. */
+    off_t          d_off;       /* Offset to next linux_dirent. */
+    unsigned short d_reclen;    /* Length of this linux_dirent. */
+    char           d_name[];    /* File name, null-terminated. */
+#if 0  /* Has to be #if 0 because it's after the flexible array. */
+    char           d_pad;       /* Always zero? */
+    char           d_type;      /* File type, since Linux 2.6.4. */
+#endif
+};
+
+#define CURRENT_DIRENT(iter) \
+        ((struct linux_dirent *)(&iter->buf[iter->off]))
+
+static void
+os_dir_iterator_start(dir_iterator_t *iter, file_t fd)
+{
+    iter->fd = fd;
+    iter->off = 0;
+    iter->end = 0;
+}
+
+static bool
+os_dir_iterator_next(dir_iterator_t *iter)
+{
+    if (iter->off < iter->end) {
+        /* Have existing dents, get the next offset. */
+        iter->off += CURRENT_DIRENT(iter)->d_reclen;
+        ASSERT(iter->off <= iter->end);
+    }
+    if (iter->off == iter->end) {
+        /* Do a getdents syscall.  Unlike when reading a file, the kernel will
+         * not read a partial linux_dirent struct, so we don't need to shift the
+         * left over bytes to the buffer start.  See the getdents manpage for
+         * the example code that this is based on.
+         */
+        iter->off = 0;
+        iter->end = dynamorio_syscall(SYS_getdents, 3, iter->fd, iter->buf,
+                                      sizeof(iter->buf));
+        ASSERT(iter->end <= sizeof(iter->buf));
+        if (iter->end <= 0) {  /* No more dents, or error. */
+            iter->name = NULL;
+            if (iter->end < 0) {
+                LOG(GLOBAL, LOG_SYSCALLS, 1,
+                    "getdents syscall failed with errno %d\n", -iter->end);
+            }
+            return false;
+        }
+    }
+    iter->name = CURRENT_DIRENT(iter)->d_name;
+    return true;
+}
+
+/***************************************************************************
+ * THREAD TAKEOVER
+ */
+
+/* Record used to synchronize thread takeover. */
+typedef struct _takeover_record_t {
+    thread_id_t tid;
+    event_t event;
+} takeover_record_t;
+
+/* When attempting thread takeover, we store an array of thread id and event
+ * pairs here.  Each thread we signal is supposed to enter DR control and signal
+ * this event after it has added itself to all_threads.
+ *
+ * XXX: What we really want is to be able to use SYS_rt_tgsigqueueinfo (Linux >=
+ * 2.6.31) to pass the event_t to each thread directly, rather than using this
+ * side data structure.
+ */
+static takeover_record_t *thread_takeover_records;
+static uint num_thread_takeover_records;
+
+/* This is the dcontext of the thread that initiated the takeover.  We read the
+ * owning_thread and signal_field threads from it in the signaled threads to
+ * set up siginfo sharing.
+ */
+static dcontext_t *takeover_dcontext;
+
+/* Lists active threads in the process.
+ * XXX: The /proc man page says /proc/pid/task is only available if the main
+ * thread is still alive, but experiments on 2.6.38 show otherwise.
+ */
+static thread_id_t *
+os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
+{
+    dir_iterator_t iter;
+    file_t task_dir;
+    uint tids_alloced = 10;
+    uint num_threads = 0;
+    thread_id_t *new_tids;
+    thread_id_t *tids;
+
+    ASSERT(num_threads_out != NULL);
+    tids = HEAP_ARRAY_ALLOC(dcontext, thread_id_t, tids_alloced,
+                            ACCT_THREAD_MGT, PROTECTED);
+    task_dir = os_open_directory("/proc/self/task", OS_OPEN_READ);
+    ASSERT(task_dir != INVALID_FILE);
+    os_dir_iterator_start(&iter, task_dir);
+    while (os_dir_iterator_next(&iter)) {
+        thread_id_t tid;
+        DEBUG_DECLARE(int r;)
+        if (strcmp(iter.name, ".") == 0 ||
+            strcmp(iter.name, "..") == 0)
+            continue;
+        IF_DEBUG(r =)
+            sscanf(iter.name, "%u", &tid);
+        ASSERT_MESSAGE(CHKLVL_ASSERTS, "failed to parse /proc/pid/task entry",
+                       r == 1);
+        if (tid <= 0)
+            continue;
+        if (num_threads == tids_alloced) {
+            /* realloc, essentially.  Less expensive than counting first. */
+            new_tids = HEAP_ARRAY_ALLOC(dcontext, thread_id_t, tids_alloced * 2,
+                                        ACCT_THREAD_MGT, PROTECTED);
+            memcpy(new_tids, tids, sizeof(thread_id_t) * tids_alloced);
+            HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, tids_alloced,
+                            ACCT_THREAD_MGT, PROTECTED);
+            tids = new_tids;
+            tids_alloced *= 2;
+        }
+        tids[num_threads++] = tid;
+    }
+    ASSERT(iter.end == 0);  /* No reading errors. */
+    os_close(task_dir);
+
+    /* realloc back down to num_threads for caller simplicity. */
+    new_tids = HEAP_ARRAY_ALLOC(dcontext, thread_id_t, num_threads,
+                                ACCT_THREAD_MGT, PROTECTED);
+    memcpy(new_tids, tids, sizeof(thread_id_t) * num_threads);
+    HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, tids_alloced,
+                    ACCT_THREAD_MGT, PROTECTED);
+    tids = new_tids;
+    *num_threads_out = num_threads;
+    return tids;
+}
+
+/* List the /proc/self/task directory and add all unknown thread ids to the
+ * all_threads hashtable in dynamo.c.  Returns true if we found any unknown
+ * threads and false otherwise.  We assume that since we don't know about them
+ * they are not under DR and have no dcontexts.
+ */
+bool
+os_take_over_all_unknown_threads(dcontext_t *dcontext)
+{
+    uint i;
+    uint num_threads;
+    thread_id_t *tids;
+    uint threads_to_signal = 0;
+
+    mutex_lock(&thread_initexit_lock);
+    CLIENT_ASSERT(thread_takeover_records == NULL,
+                  "Only one thread should attempt app take over!");
+
+    /* Find tids for which we have no thread record, meaning they are not under
+     * our control.  Shift them to the beginning of the tids array.
+     */
+    tids = os_list_threads(dcontext, &num_threads);
+    for (i = 0; i < num_threads; i++) {
+        thread_record_t *tr = thread_lookup(tids[i]);
+        if (tr == NULL)
+            tids[threads_to_signal++] = tids[i];
+    }
+
+    if (threads_to_signal > 0) {
+        takeover_record_t *records;
+
+        /* Assuming pthreads, prepare signal_field for sharing. */
+        handle_clone(dcontext, PTHREAD_CLONE_FLAGS);
+
+        /* Create records with events for all the threads we want to signal. */
+        records = HEAP_ARRAY_ALLOC(dcontext, takeover_record_t,
+                                   threads_to_signal, ACCT_THREAD_MGT,
+                                   PROTECTED);
+        for (i = 0; i < threads_to_signal; i++) {
+            records[i].tid = tids[i];
+            records[i].event = create_event();
+        }
+
+        /* Publish the records and the initial take over dcontext. */
+        thread_takeover_records = records;
+        num_thread_takeover_records = threads_to_signal;
+        takeover_dcontext = dcontext;
+
+        /* Signal the other threads. */
+        for (i = 0; i < threads_to_signal; i++) {
+            thread_signal(get_process_id(), records[i].tid, SUSPEND_SIGNAL);
+        }
+        mutex_unlock(&thread_initexit_lock);
+
+        /* Wait for all the threads we signaled. */
+        ASSERT_OWN_NO_LOCKS();
+        for (i = 0; i < threads_to_signal; i++) {
+            wait_for_event(records[i].event);
+        }
+
+        /* Now that we've taken over the other threads, we can safely free the
+         * records and reset the shared globals.
+         */
+        mutex_lock(&thread_initexit_lock);
+        thread_takeover_records = NULL;
+        num_thread_takeover_records = 0;
+        takeover_dcontext = NULL;
+        for (i = 0; i < threads_to_signal; i++) {
+            destroy_event(records[i].event);
+        }
+        HEAP_ARRAY_FREE(dcontext, records, takeover_record_t,
+                        threads_to_signal, ACCT_THREAD_MGT, PROTECTED);
+    }
+
+    mutex_unlock(&thread_initexit_lock);
+    HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, num_threads,
+                    ACCT_THREAD_MGT, PROTECTED);
+
+    return threads_to_signal > 0;
+}
+
+/* Takes over the current thread from the signal handler.  We notify the thread
+ * that signaled us by signaling our event in thread_takeover_records.
+ */
+void
+os_thread_take_over(priv_mcontext_t *mc)
+{
+    int r;
+    uint i;
+    thread_id_t mytid;
+    dcontext_t *dcontext;
+    priv_mcontext_t *dc_mc;
+
+    /* Do standard DR thread initialization.  Mirrors code in
+     * create_clone_record and new_thread_setup, except we're not putting a
+     * clone record on the dstack.
+     */
+    r = dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
+    ASSERT(r == SUCCESS);
+    dcontext = get_thread_private_dcontext();
+    ASSERT(dcontext != NULL);
+    share_siginfo_after_take_over(dcontext, takeover_dcontext);
+    dynamo_thread_under_dynamo(dcontext);
+    dc_mc = get_mcontext(dcontext);
+    *dc_mc = *mc;
+    dcontext->whereami = WHERE_APP;
+    dcontext->next_tag = mc->pc;
+
+    /* Wake up the thread that initiated the take over. */
+    mytid = get_thread_id();
+    ASSERT(thread_takeover_records != NULL);
+    for (i = 0; i < num_thread_takeover_records; i++) {
+        if (thread_takeover_records[i].tid == mytid) {
+            signal_event(thread_takeover_records[i].event);
+            break;
+        }
+    }
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "mytid not present in takeover records!",
+                   i < num_thread_takeover_records);
+
+    /* Start interpreting from the signal context. */
+    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+                      false/*not on initstack*/, false/*shouldn't return*/);
+    ASSERT_NOT_REACHED();
+}
+
+/***************************************************************************/
+
 uint
-os_random_seed()
+os_random_seed(void)
 {
     uint seed;
     /* reading from /dev/urandom for a non-blocking random */

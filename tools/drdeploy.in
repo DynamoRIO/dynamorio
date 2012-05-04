@@ -49,9 +49,10 @@
 ##  [-@archother@]                  Use @archother@-bit DynamoRIO (default is @archdefault@-bit).  This
 ##                           should match what the client library and executable
 ##                           being run were compiled for.
-##  [-norun]               Only for drconfig.  Requests that an application NOT be
-##                           run under DR control.  Useful for following all
-##                           child processes except a blacklist.
+##  [-norun]               Requests that an application NOT be run under DR
+##                           control.  Useful for following all child processes
+##                           except a blacklist.  DR will still be loaded, and
+##                           the app API available.
 ##  [-unreg]               Only for drconfig.  Removes configuration file.
 ##  [-dr_home <path>]      Path to the DynamoRIO install.
 ##                           Defaults to .. from @name@; may also be omitted

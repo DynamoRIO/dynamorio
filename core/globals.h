@@ -530,6 +530,7 @@ int dynamo_process_exit(void);
 #ifdef LINUX
 void dynamorio_fork_init(dcontext_t *dcontext);
 #endif
+void dynamorio_take_over_threads(dcontext_t *dcontext);
 dr_statistics_t * get_dr_stats(void);
 
 /* functions needed by detach */

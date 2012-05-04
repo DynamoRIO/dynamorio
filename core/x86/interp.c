@@ -490,7 +490,6 @@ check_for_stopping_point(dcontext_t *dcontext, build_bb_t *bb)
         instrlist_append(bb->ilist, INSTR_CREATE_ret(dcontext));
         /* should this be treated as a real return? */
         bb->exit_type |= LINK_INDIRECT | LINK_RETURN;
-        ASSERT_NOT_IMPLEMENTED(false);
         bb->exit_target = get_ibl_routine(dcontext, IBL_LINKED, DEFAULT_IBL_BB(), IBL_RETURN);
         return true;
     }

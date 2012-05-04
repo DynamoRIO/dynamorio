@@ -745,6 +745,27 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
 }
 #endif /* CLIENT_INTERFACE */
 
+bool
+os_using_app_state(dcontext_t *dcontext)
+{
+#ifdef CLIENT_INTERFACE
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        return is_using_app_peb(dcontext);
+#endif
+    return true;
+}
+
+void
+os_swap_context(dcontext_t *dcontext, bool to_app)
+{
+#ifdef CLIENT_INTERFACE
+    /* i#249: swap PEB pointers */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        swap_peb_pointer(dcontext, !to_app/*to priv*/);
+    }
+#endif
+}
+
 void
 privload_add_areas(privmod_t *privmod)
 {
