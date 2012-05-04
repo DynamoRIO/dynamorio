@@ -1450,7 +1450,8 @@ instrlist_disassemble(dcontext_t *dcontext,
              * as much about raw bytes
              */
             int extra_sz;
-            print_file(outfile, " +%-4d L%d @"PFX" ", offs, level, instr);
+            print_file(outfile, " +%-4d %c%d @"PFX" ",
+                       offs, instr_ok_to_mangle(instr) ? 'L' : 'm', level, instr);
             extra_sz = print_bytes_to_file(outfile, addr, addr+len, instr_valid(instr));
             instr_disassemble(dcontext, instr, outfile);
             print_file(outfile, "\n");
@@ -1462,8 +1463,8 @@ instrlist_disassemble(dcontext_t *dcontext,
             len = 0; /* skip loop */
         }
         while (len) {
-            print_file(outfile, " +%-4d L%d "IF_X64_ELSE("%20s","%12s"),
-                       offs, level, " ");
+            print_file(outfile, " +%-4d %c%d "IF_X64_ELSE("%20s","%12s"),
+                       offs, instr_ok_to_mangle(instr) ? 'L' : 'm', level, " ");
             next_addr = internal_disassemble_to_file
                 (dcontext, addr, addr, outfile, false, true,
                  IF_X64_ELSE("                               ","                       "));
