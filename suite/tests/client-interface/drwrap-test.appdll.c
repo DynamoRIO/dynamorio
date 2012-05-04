@@ -78,6 +78,14 @@ replaceme(int *x)
 }
 
 int EXPORT
+replaceme2(int *x)
+{
+    print("in replaceme2\n");
+    *x = 5;
+    return -1;
+}
+
+int EXPORT
 skipme(int *x)
 {
     print("in skipme\n");
@@ -180,6 +188,8 @@ run_tests(void)
     print("skipme returned %d and x=%d\n", res, x);
     res = replaceme(&x);
     print("replaceme returned %d and x=%d\n", res, x);
+    res = replaceme2(&x);
+    print("replaceme2 returned %d and x=%d\n", res, x);
     preonly(&x);
     postonly(&x);
 

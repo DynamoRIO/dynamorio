@@ -138,6 +138,8 @@ The changes between version \DR_VERSION and 3.2.0 are:
  - Added reg_resize_to_opsz()
  - Added dr_save_arith_flags_to_xax() and dr_restore_arith_flags_from_xax()
  - Added dr_snwprintf() and dr_vsnwprintf()
+ - Added drwrap_replace_native(), drwrap_is_replaced(),
+   drwrap_is_replaced_native()
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux

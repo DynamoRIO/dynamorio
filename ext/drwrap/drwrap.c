@@ -80,6 +80,9 @@ static int sysnum_NtContinue = -1;
 #define REPLACE_TABLE_HASH_BITS 6
 static hashtable_t replace_table;
 
+#define REPLACE_NATIVE_TABLE_HASH_BITS 6
+static hashtable_t replace_native_table;
+
 /* For each target wrap address, we store a list of wrap requests */
 typedef struct _wrap_entry_t {
     app_pc func;
@@ -730,6 +733,8 @@ drwrap_init(void)
 
     hashtable_init(&replace_table, REPLACE_TABLE_HASH_BITS,
                    HASH_INTPTR, false/*!strdup*/);
+    hashtable_init(&replace_native_table, REPLACE_NATIVE_TABLE_HASH_BITS,
+                   HASH_INTPTR, false/*!strdup*/);
     hashtable_init_ex(&wrap_table, WRAP_TABLE_HASH_BITS, HASH_INTPTR,
                       false/*!str_dup*/, false/*!synch*/, wrap_entry_free,
                       NULL, NULL);
@@ -783,6 +788,7 @@ drwrap_exit(void)
     exited = true;
 
     hashtable_delete(&replace_table);
+    hashtable_delete(&replace_native_table);
     hashtable_delete(&wrap_table);
     hashtable_delete(&call_site_table);
     hashtable_delete(&post_call_table);
@@ -866,7 +872,21 @@ drwrap_set_global_flags(drwrap_global_flags_t flags)
 
 DR_EXPORT
 bool
-drwrap_replace(app_pc original, app_pc replacement, bool override)
+drwrap_is_replaced(app_pc func)
+{
+    return hashtable_lookup(&replace_table, func) != NULL;
+}
+
+DR_EXPORT
+bool
+drwrap_is_replaced_native(app_pc func)
+{
+    return hashtable_lookup(&replace_native_table, func) != NULL;
+}
+
+static bool
+drwrap_replace_common(hashtable_t *table,
+                      app_pc original, app_pc replacement, bool override)
 {
     bool res = true;
     bool flush = false;
@@ -877,14 +897,14 @@ drwrap_replace(app_pc original, app_pc replacement, bool override)
             res = false;
         else {
             flush = true;
-            res = hashtable_remove(&replace_table, (void *)original);
+            res = hashtable_remove(table, (void *)original);
         }
     } else {
         if (override) {
             flush = true;
-            hashtable_add_replace(&replace_table, (void *)original, (void *)replacement);
+            hashtable_add_replace(table, (void *)original, (void *)replacement);
         } else
-            res = hashtable_add(&replace_table, (void *)original, (void *)replacement);
+            res = hashtable_add(table, (void *)original, (void *)replacement);
     }
     /* XXX: we're assuming void* tag == pc
      * XXX: we're assuming the replace target is not in the middle of a trace
@@ -900,6 +920,100 @@ drwrap_replace(app_pc original, app_pc replacement, bool override)
     return res;
 }
 
+DR_EXPORT
+bool
+drwrap_replace(app_pc original, app_pc replacement, bool override)
+{
+    return drwrap_replace_common(&replace_table, original, replacement, override);
+}
+
+DR_EXPORT
+bool
+drwrap_replace_native(app_pc original, app_pc replacement, bool override)
+{
+    return drwrap_replace_common(&replace_native_table, original, replacement, override);
+}
+
+/* removes all instrs from start to the end of ilist
+ * XXX: add to DR and export?
+ */
+static void
+instrlist_truncate(void *drcontext, instrlist_t *ilist, instr_t *start)
+{
+    instr_t *next = start, *tmp;
+    while (next != NULL) {
+        tmp = next;
+        next = instr_get_next(next);
+        instrlist_remove(ilist, tmp);
+        instr_destroy(drcontext, tmp);
+    }
+}
+
+static void
+drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
+                  app_pc pc, app_pc replace)
+{
+    /* remove the rest of the bb and replace w/ jmp to target.
+     * with i#427 we'd call instrlist_clear(drcontext, bb)
+     */
+    instrlist_truncate(drcontext, bb, inst);
+#ifdef X64
+    /* XXX: simple jmp has reachability issues.
+     * Jumping through DR memory doesn't work well (meta instrs in app2app,
+     * ind jmp mangled w/ i#107).
+     * Probably best to add DR API to set exit cti target of bb
+     * which is i#429.  For now we clobber xax, which is scratch
+     * in most calling conventions.
+     */
+    instrlist_append(bb, INSTR_XL8(INSTR_CREATE_mov_imm
+                                   (drcontext, opnd_create_reg(DR_REG_XAX),
+                                    OPND_CREATE_INT64(replace)), pc));
+    instrlist_append(bb, INSTR_XL8
+                     (INSTR_CREATE_jmp_ind
+                      (drcontext, opnd_create_reg(DR_REG_XAX)), pc));
+#else
+    instrlist_append(bb, INSTR_XL8(INSTR_CREATE_jmp
+                                   (drcontext, opnd_create_pc(replace)), pc));
+#endif
+}
+
+static void
+drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
+                         app_pc pc, app_pc replace)
+{
+    /* we're in the callee to handle indirect transfers, so the retaddr
+     * is already in place.  we need to remove it before we execute our
+     * call so that the args are accessible with normal offsets.
+     * but, on return we need to continue on at the original retaddr,
+     * so we store it in a scratch slot and read it back as a meta instr
+     * (to avoid the far ref being mangled):
+     *
+     *    meta pop retaddr to scratch slot
+     *    meta call to replace routine
+     *    meta push scratch slot
+     *    ret
+     */
+    instrlist_truncate(drcontext, bb, inst);
+    instrlist_meta_append(bb, INSTR_CREATE_pop
+                          (drcontext, dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1)));
+#ifdef X64
+    /* XXX: simple call has reachability issues.   For now we clobber
+     * xax, which is scratch in most calling conventions.
+     */
+    instrlist_meta_append(bb, INSTR_CREATE_mov_imm
+                          (drcontext, opnd_create_reg(DR_REG_XAX),
+                           OPND_CREATE_INT64(replace)));
+    instrlist_meta_append(bb, INSTR_CREATE_call_ind
+                          (drcontext, opnd_create_reg(DR_REG_XAX)));
+#else
+    instrlist_meta_append(bb, INSTR_CREATE_call(drcontext, opnd_create_pc(replace)));
+#endif
+    instrlist_meta_append(bb, INSTR_CREATE_push
+                          (drcontext, dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1)));
+    instrlist_append(bb, INSTR_XL8
+                     (INSTR_CREATE_ret(drcontext), pc));
+}
+
 /* event for function replacing */
 static dr_emit_flags_t
 drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
@@ -907,42 +1021,27 @@ drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
 {
     instr_t *inst;
     app_pc pc, replace;
+    if (replace_table.entries == 0 && replace_native_table.entries == 0)
+        return DR_EMIT_DEFAULT;
     /* XXX: if we had dr_bbs_cross_ctis() query (i#427) we could just check 1st instr */
     for (inst = instrlist_first(bb);
          inst != NULL;
          inst = instr_get_next(inst)) {
         pc = instr_get_app_pc(inst);
-        replace = hashtable_lookup(&replace_table, pc);
-        if (replace != NULL) {
-            /* remove the rest of the bb and replace w/ jmp to target.
-             * with i#427 we'd call instrlist_clear(drcontext, bb)
-             */
-            instr_t *next = inst, *tmp;
-            while (next != NULL) {
-                tmp = next;
-                next = instr_get_next(next);
-                instrlist_remove(bb, tmp);
-                instr_destroy(drcontext, tmp);
+        /* non-native takes precedence */
+        if (replace_table.entries > 0) {
+            replace = hashtable_lookup(&replace_table, pc);
+            if (replace != NULL) {
+                drwrap_replace_bb(drcontext, bb, inst, pc, replace);
+                break;
             }
-#ifdef X64
-            /* XXX: simple jmp has reachability issues.
-             * Jumping through DR memory doesn't work well (meta instrs in app2app,
-             * ind jmp mangled w/ i#107).
-             * Probably best to add DR API to set exit cti target of bb
-             * which is i#429.  For now we clobber xax, which is scratch
-             * in most calling conventions.
-             */
-            instrlist_append(bb, INSTR_XL8(INSTR_CREATE_mov_imm
-                                           (drcontext, opnd_create_reg(DR_REG_XAX),
-                                            OPND_CREATE_INT64(replace)), pc));
-            instrlist_append(bb, INSTR_XL8
-                             (INSTR_CREATE_jmp_ind
-                              (drcontext, opnd_create_reg(DR_REG_XAX)), pc));
-#else
-            instrlist_append(bb, INSTR_XL8(INSTR_CREATE_jmp
-                                           (drcontext, opnd_create_pc(replace)), pc));
-#endif
-            break;
+        }
+        if (replace_native_table.entries > 0) {
+            replace = hashtable_lookup(&replace_native_table, pc);
+            if (replace != NULL) {
+                drwrap_replace_native_bb(drcontext, bb, inst, pc, replace);
+                break;
+            }
         }
     }
     return DR_EMIT_DEFAULT;

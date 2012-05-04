@@ -52,12 +52,14 @@ static void wrap_unwindtest_post(void *wrapcxt, void *user_data);
 static void wrap_unwindtest_seh_pre(void *wrapcxt, OUT void **user_data);
 static void wrap_unwindtest_seh_post(void *wrapcxt, void *user_data);
 static int replacewith(int *x);
+static int replacewith2(int *x);
 
 static uint load_count;
 
 static int tls_idx;
 
 static app_pc addr_replace;
+static app_pc addr_replace2;
 
 static app_pc addr_level0;
 static app_pc addr_level1;
@@ -138,6 +140,11 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         ok = drwrap_replace(addr_replace, (app_pc) replacewith, false);
         CHECK(ok, "replace failed");
 
+        addr_replace2 = (app_pc) dr_get_proc_address(mod->handle, "replaceme2");
+        CHECK(addr_replace2 != NULL, "cannot find lib export");
+        ok = drwrap_replace_native(addr_replace2, (app_pc) replacewith2, false);
+        CHECK(ok, "replace_native failed");
+
         wrap_addr(&addr_level0, "level0", mod, true, true);
         wrap_addr(&addr_level1, "level1", mod, true, true);
         wrap_addr(&addr_level2, "level2", mod, true, true);
@@ -191,6 +198,8 @@ module_unload_event(void *drcontext, const module_data_t *mod)
         bool ok;
         ok = drwrap_replace(addr_replace, NULL, true);
         CHECK(ok, "un-replace failed");
+        ok = drwrap_replace_native(addr_replace2, NULL, true);
+        CHECK(ok, "un-replace_native failed");
 
         unwrap_addr(addr_level0, "level0", mod, true, true);
         unwrap_addr(addr_level1, "level1", mod, true, true);
@@ -253,6 +262,13 @@ replacewith(int *x)
 {
     *x = 6;
     return 0;
+}
+
+static int
+replacewith2(int *x)
+{
+    *x = 999;
+    return 1;
 }
 
 static void

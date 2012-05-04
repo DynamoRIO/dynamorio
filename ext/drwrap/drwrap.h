@@ -94,6 +94,9 @@ DR_EXPORT
  * flushed lazily: i.e., there may be some execution in other threads
  * after this call is made.
  *
+ * Only the first target replacement address in a basic block will be
+ * honored.  All code after that address is removed.
+ *
  * When replacing a function, it is up to the user to ensure that the
  * replacement mirrors the calling convention and other semantics of the
  * original function.  The replacement code will be executed as application
@@ -107,6 +110,70 @@ DR_EXPORT
  */
 bool
 drwrap_replace(app_pc original, app_pc replacement, bool override);
+
+DR_EXPORT
+/**
+ * Replaces the application function that starts at the address \p
+ * original with the natively-executed (i.e., as the client) code at
+ * the address \p replacement.
+ *
+ * Only one replacement is supported per target address.  If a
+ * replacement already exists for \p original, this function fails
+ * unless \p override is true, in which case it replaces the prior
+ * replacement.  To remove a replacement, pass NULL for \p replacement
+ * and \b true for \p override.  When removing or replacing a prior
+ * replacement, existing replaced code in the code cache will be
+ * flushed lazily: i.e., there may be some execution in other threads
+ * after this call is made.
+ *
+ * Non-native replacements take precedence over native.  I.e., if a
+ * drwrap_replace() replacement exists for \p original, then a native
+ * replacement request for \p original will never take effect.
+ *
+ * Only the first target replacement address in a basic block will be
+ * honored.  All code after that address is removed.
+ *
+ * When replacing a function, it is up to the user to ensure that the
+ * replacement mirrors the calling convention and other semantics of the
+ * original function.
+ *
+ * The replacement code will be executed as client code, NOT as
+ * application code.  However, it will use the application stack and
+ * other machine state.  Usually it is good practice to call
+ * dr_switch_to_app_state() inside the replacement code, and then
+ * dr_switch_to_dr_state() before returning.
+ *
+ * The replacement code is not allowed to invoke dr_flush_region() or
+ * dr_delete_fragment() as it has no #dr_mcontext_t with which to
+ * invoke dr_redirect_execution(): it must return to the call-out point
+ * in the code cache.  If the replacement code does not return to its
+ * return address, DR will lose control of the application and not
+ * continue executing it properly.
+ *
+ * \note The mechanism used for a native replacement results in a \p
+ * ret instruction appearing in the code stream with an application
+ * address that is different from an execution without a native
+ * replacement.  The return address will be identical, however,
+ * assuming \p original does not replace its own return address.
+ *
+ * \note The priority of the app2app pass used here is
+ * DRMGR_PRIORITY_APP2APP_DRWRAP and its name is
+ * DRMGR_PRIORITY_NAME_DRWRAP.
+ *
+ * \return whether successful.
+ */
+bool
+drwrap_replace_native(app_pc original, app_pc replacement, bool override);
+
+DR_EXPORT
+/** \return whether \p func is currently replaced via drwrap_replace() */
+bool
+drwrap_is_replaced(app_pc func);
+
+DR_EXPORT
+/** \return whether \p func is currently replaced via drwrap_replace_native() */
+bool
+drwrap_is_replaced_native(app_pc func);
 
 
 /***************************************************************************

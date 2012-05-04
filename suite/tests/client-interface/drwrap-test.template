@@ -15,6 +15,7 @@ level0 returned 42
   <pre-skipme>
 skipme returned 7 and x=3
 replaceme returned 0 and x=6
+replaceme2 returned 1 and x=999
   <pre-preonly>
 in preonly
 in postonly
@@ -76,6 +77,7 @@ level0 returned 42
   <pre-skipme>
 skipme returned 7 and x=3
 replaceme returned 0 and x=6
+replaceme2 returned 1 and x=999
   <pre-preonly>
 in preonly
 in postonly
