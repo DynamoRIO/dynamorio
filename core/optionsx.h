@@ -1250,9 +1250,11 @@
 
     /* We hardcode an address in the mmap_text region here, but verify via
      * in vmk_init().
+     * For Linux we start higher to avoid limiting the brk (i#766).
      */
     OPTION_DEFAULT(uint_addr, vm_base,
-                   IF_VMX86_ELSE(IF_X64_ELSE(0x40000000,0x10800000), 0x16000000),
+                   IF_VMX86_ELSE(IF_X64_ELSE(0x40000000,0x10800000),
+                                 IF_WINDOWS_ELSE(0x16000000, 0x46000000)),
                    "preferred base address hint (ignored for 64-bit linux)")
      /* FIXME: we need to find a good location with no conflict with DLLs or apps allocations */
     OPTION_DEFAULT(uint_addr, vm_max_offset, 
