@@ -3640,7 +3640,10 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
 
         if (record_translation) {
             /* make sure inserted instrs translate to the original instr */
-            instrlist_set_translation_target(ilist, instr_get_raw_bits(instr));
+            app_pc xl8 = instr_get_translation(instr);
+            if (xl8 == NULL)
+                xl8 = instr_get_raw_bits(instr);
+            instrlist_set_translation_target(ilist, xl8);
         }
 
 #ifdef LINUX
