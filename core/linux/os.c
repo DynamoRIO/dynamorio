@@ -2156,7 +2156,9 @@ os_using_app_state(dcontext_t *dcontext)
 void
 os_swap_context(dcontext_t *dcontext, bool to_app)
 {
-    if (INTERNAL_OPTION(mangle_app_seg))
+    if (INTERNAL_OPTION(mangle_app_seg) &&
+        /* xref os_tls_app_seg_init, we only swap lib TLS for private loader */
+        IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         os_switch_seg_to_context(dcontext, LIB_SEG_TLS, to_app);
 }
 

@@ -330,7 +330,6 @@
      * don't want to mess up any legacy tools that rely on hotp libs in
      * regular loader list
      */
-    /* i#157: Linux private loader is not stable enough yet, so disabled by default. */
     OPTION_DEFAULT_INTERNAL(bool, private_loader, true,
                             "use private loader for clients and dependents")
 # ifdef LINUX
