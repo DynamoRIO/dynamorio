@@ -3775,7 +3775,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             /* assuming an alarm during thread exit (xref PR 596127):
              * suppressing is fine
              */
-        } else if (sig == SUSPEND_SIGNAL ||
+        } else if (sig == SUSPEND_SIGNAL &&
                    thread_lookup(get_thread_id()) == NULL) {
             /* We're trying to suspend a thread we don't control yet, which
              * means we want to take over.

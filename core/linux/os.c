@@ -8453,10 +8453,14 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         handle_clone(dcontext, PTHREAD_CLONE_FLAGS);
 
         /* Create records with events for all the threads we want to signal. */
+        LOG(GLOBAL, LOG_THREADS, 1,
+            "TAKEOVER: publishing takeover records\n");
         records = HEAP_ARRAY_ALLOC(dcontext, takeover_record_t,
                                    threads_to_signal, ACCT_THREAD_MGT,
                                    PROTECTED);
         for (i = 0; i < threads_to_signal; i++) {
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "TAKEOVER: will signal thread %d\n", tids[i]);
             records[i].tid = tids[i];
             records[i].event = create_event();
         }
@@ -8482,6 +8486,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
          * records and reset the shared globals.
          */
         mutex_lock(&thread_initexit_lock);
+        LOG(GLOBAL, LOG_THREADS, 1,
+            "TAKEOVER: takeover complete, unpublishing records\n");
         thread_takeover_records = NULL;
         num_thread_takeover_records = 0;
         takeover_dcontext = NULL;
@@ -8500,7 +8506,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 }
 
 /* Takes over the current thread from the signal handler.  We notify the thread
- * that signaled us by signaling our event in thread_takeover_records.
+ * that signaled us by signalling our event in thread_takeover_records.
  */
 void
 os_thread_take_over(priv_mcontext_t *mc)
@@ -8510,6 +8516,10 @@ os_thread_take_over(priv_mcontext_t *mc)
     thread_id_t mytid;
     dcontext_t *dcontext;
     priv_mcontext_t *dc_mc;
+    event_t event = NULL;
+
+    LOG(GLOBAL, LOG_THREADS, 1,
+        "TAKEOVER: received signal in thread %d\n", get_sys_thread_id());
 
     /* Do standard DR thread initialization.  Mirrors code in
      * create_clone_record and new_thread_setup, except we're not putting a
@@ -8531,12 +8541,13 @@ os_thread_take_over(priv_mcontext_t *mc)
     ASSERT(thread_takeover_records != NULL);
     for (i = 0; i < num_thread_takeover_records; i++) {
         if (thread_takeover_records[i].tid == mytid) {
-            signal_event(thread_takeover_records[i].event);
+            event = thread_takeover_records[i].event;
             break;
         }
     }
     ASSERT_MESSAGE(CHKLVL_ASSERTS, "mytid not present in takeover records!",
-                   i < num_thread_takeover_records);
+                   event != NULL);
+    signal_event(event);
 
     /* Start interpreting from the signal context. */
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
