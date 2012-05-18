@@ -1289,6 +1289,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
              * the parent's being inherited -- clear it now
              */
             memset(&info->app_sigstack, 0, sizeof(stack_t));
+            info->app_sigstack.ss_flags |= SS_DISABLE;
         }
 
         /* rest of state is never shared.
@@ -1587,14 +1588,18 @@ signal_thread_exit(dcontext_t *dcontext)
         }
     }
 #ifdef HAVE_SIGALTSTACK
-    /* restore app's alternate stack */
+    /* Remove our sigstack and restore the app sigstack if it had one.  */
+    LOG(THREAD, LOG_ASYNCH, 2, "removing our signal stack "PFX" - "PFX"\n",
+        info->sigstack.ss_sp, info->sigstack.ss_sp + info->sigstack.ss_size);
     if (APP_HAS_SIGSTACK(info)) {
         LOG(THREAD, LOG_ASYNCH, 2, "restoring app signal stack "PFX" - "PFX"\n",
             info->app_sigstack.ss_sp,
             info->app_sigstack.ss_sp + info->app_sigstack.ss_size);
-        i = sigaltstack_syscall(&info->app_sigstack, NULL);
-        ASSERT(i == 0);
+    } else {
+        ASSERT(TEST(SS_DISABLE, info->app_sigstack.ss_flags));
     }
+    i = sigaltstack_syscall(&info->app_sigstack, NULL);
+    ASSERT(i == 0);
 #endif
     special_heap_exit(info->sigheap);
     DELETE_LOCK(info->child_lock);
