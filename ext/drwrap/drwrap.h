@@ -117,6 +117,17 @@ DR_EXPORT
  * original with the natively-executed (i.e., as the client) code at
  * the address \p replacement.
  *
+ * The replacement function should use the same same calling
+ * convention as the original.  For calling conventions in which the
+ * callee cleans up arguments on the stack, the argument cleanup will
+ * happen natively.  A client that tracks stack adjustments will thus
+ * have the application stack change without any visible cause.  To
+ * solve this problem, use the \p stack_adjust parameter to request
+ * that the replacement code re-perform the argument cleanup (of size
+ * \p stack_adjust) in view of the client.  If the client does not
+ * track the stack, passing 0 will still work correctly so long as the
+ * replacement function uses the proper calling convention.
+ *
  * Only one replacement is supported per target address.  If a
  * replacement already exists for \p original, this function fails
  * unless \p override is true, in which case it replaces the prior
@@ -163,7 +174,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drwrap_replace_native(app_pc original, app_pc replacement, bool override);
+drwrap_replace_native(app_pc original, app_pc replacement, uint stack_adjust,
+                      bool override);
 
 DR_EXPORT
 /** \return whether \p func is currently replaced via drwrap_replace() */

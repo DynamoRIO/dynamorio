@@ -142,7 +142,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 
         addr_replace2 = (app_pc) dr_get_proc_address(mod->handle, "replaceme2");
         CHECK(addr_replace2 != NULL, "cannot find lib export");
-        ok = drwrap_replace_native(addr_replace2, (app_pc) replacewith2, false);
+        ok = drwrap_replace_native(addr_replace2, (app_pc) replacewith2, 0, false);
         CHECK(ok, "replace_native failed");
 
         wrap_addr(&addr_level0, "level0", mod, true, true);
@@ -198,7 +198,7 @@ module_unload_event(void *drcontext, const module_data_t *mod)
         bool ok;
         ok = drwrap_replace(addr_replace, NULL, true);
         CHECK(ok, "un-replace failed");
-        ok = drwrap_replace_native(addr_replace2, NULL, true);
+        ok = drwrap_replace_native(addr_replace2, NULL, 0, true);
         CHECK(ok, "un-replace_native failed");
 
         unwrap_addr(addr_level0, "level0", mod, true, true);

@@ -31,6 +31,7 @@
 #include "drvector.h"
 #include <string.h>
 #include <stddef.h> /* offsetof */
+#include <limits.h> /* USHRT_MAX */
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user)
@@ -80,8 +81,21 @@ static int sysnum_NtContinue = -1;
 #define REPLACE_TABLE_HASH_BITS 6
 static hashtable_t replace_table;
 
+/* Native replacements need to store the stack adjust */
+typedef struct _replace_native_t {
+    app_pc replacement;
+    uint stack_adjust;
+} replace_native_t;
+
 #define REPLACE_NATIVE_TABLE_HASH_BITS 6
 static hashtable_t replace_native_table;
+
+static void
+replace_native_free(void *v)
+{
+    replace_native_t *rn = (replace_native_t *) v;
+    dr_global_free(rn, sizeof(*rn));
+}
 
 /* For each target wrap address, we store a list of wrap requests */
 typedef struct _wrap_entry_t {
@@ -733,8 +747,9 @@ drwrap_init(void)
 
     hashtable_init(&replace_table, REPLACE_TABLE_HASH_BITS,
                    HASH_INTPTR, false/*!strdup*/);
-    hashtable_init(&replace_native_table, REPLACE_NATIVE_TABLE_HASH_BITS,
-                   HASH_INTPTR, false/*!strdup*/);
+    hashtable_init_ex(&replace_native_table, REPLACE_NATIVE_TABLE_HASH_BITS,
+                      HASH_INTPTR, false/*!strdup*/, false/*!synch*/,
+                      replace_native_free, NULL, NULL);
     hashtable_init_ex(&wrap_table, WRAP_TABLE_HASH_BITS, HASH_INTPTR,
                       false/*!str_dup*/, false/*!synch*/, wrap_entry_free,
                       NULL, NULL);
@@ -881,18 +896,22 @@ DR_EXPORT
 bool
 drwrap_is_replaced_native(app_pc func)
 {
-    return hashtable_lookup(&replace_native_table, func) != NULL;
+    bool res = false;
+    hashtable_lock(&replace_native_table);
+    res = hashtable_lookup(&replace_native_table, func) != NULL;
+    hashtable_unlock(&replace_native_table);
+    return res;
 }
 
 static bool
 drwrap_replace_common(hashtable_t *table,
-                      app_pc original, app_pc replacement, bool override)
+                      app_pc original, void *payload, bool override)
 {
     bool res = true;
     bool flush = false;
     if (original == NULL)
         return false;
-    if (replacement == NULL) {
+    if (payload == NULL) {
         if (!override)
             res = false;
         else {
@@ -902,9 +921,9 @@ drwrap_replace_common(hashtable_t *table,
     } else {
         if (override) {
             flush = true;
-            hashtable_add_replace(table, (void *)original, (void *)replacement);
+            hashtable_add_replace(table, (void *)original, payload);
         } else
-            res = hashtable_add(table, (void *)original, (void *)replacement);
+            res = hashtable_add(table, (void *)original, payload);
     }
     /* XXX: we're assuming void* tag == pc
      * XXX: we're assuming the replace target is not in the middle of a trace
@@ -929,9 +948,24 @@ drwrap_replace(app_pc original, app_pc replacement, bool override)
 
 DR_EXPORT
 bool
-drwrap_replace_native(app_pc original, app_pc replacement, bool override)
+drwrap_replace_native(app_pc original, app_pc replacement, uint stack_adjust,
+                      bool override)
 {
-    return drwrap_replace_common(&replace_native_table, original, replacement, override);
+    bool res = false;
+    replace_native_t *rn;
+    if (stack_adjust > USHRT_MAX)
+        return false; /* too big for ret imm */
+    if (replacement == NULL)
+        rn = NULL;
+    else {
+        rn = dr_global_alloc(sizeof(*rn));
+        rn->replacement = replacement;
+        rn->stack_adjust = stack_adjust;
+    }
+    hashtable_lock(&replace_native_table);
+    res = drwrap_replace_common(&replace_native_table, original, rn, override);
+    hashtable_unlock(&replace_native_table);
+    return res;
 }
 
 /* removes all instrs from start to the end of ilist
@@ -979,19 +1013,26 @@ drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
 
 static void
 drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
-                         app_pc pc, app_pc replace)
+                         app_pc pc, replace_native_t *rn)
 {
     /* we're in the callee to handle indirect transfers, so the retaddr
      * is already in place.  we need to remove it before we execute our
      * call so that the args are accessible with normal offsets.
      * but, on return we need to continue on at the original retaddr,
      * so we store it in a scratch slot and read it back as a meta instr
-     * (to avoid the far ref being mangled):
+     * (to avoid the far ref being mangled).
+     * we re-do the stack adjust of stdcall if asked to so client sees
+     * it (the real adjust in replacement routine is native: i#778).
      *
      *    meta pop retaddr to scratch slot
      *    meta call to replace routine
      *    meta push scratch slot
-     *    ret
+     *  if stack_adjust > 0 {
+     *      meta sub stack_adjust
+     *      ret stack_adjust
+     *  } else {
+     *      ret
+     *  }
      */
     instrlist_truncate(drcontext, bb, inst);
     instrlist_meta_append(bb, INSTR_CREATE_pop
@@ -1002,16 +1043,29 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
      */
     instrlist_meta_append(bb, INSTR_CREATE_mov_imm
                           (drcontext, opnd_create_reg(DR_REG_XAX),
-                           OPND_CREATE_INT64(replace)));
+                           OPND_CREATE_INT64(rn->replacement)));
     instrlist_meta_append(bb, INSTR_CREATE_call_ind
                           (drcontext, opnd_create_reg(DR_REG_XAX)));
 #else
-    instrlist_meta_append(bb, INSTR_CREATE_call(drcontext, opnd_create_pc(replace)));
+    instrlist_meta_append(bb, INSTR_CREATE_call(drcontext,
+                                                opnd_create_pc(rn->replacement)));
 #endif
+    if (rn->stack_adjust > 0) {
+        /* re-do the arg adjust (i#778) */
+        instrlist_meta_append(bb, INSTR_CREATE_sub
+                              (drcontext, opnd_create_reg(DR_REG_XSP),
+                               OPND_CREATE_INT32(rn->stack_adjust)));
+    }
     instrlist_meta_append(bb, INSTR_CREATE_push
                           (drcontext, dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1)));
-    instrlist_append(bb, INSTR_XL8
-                     (INSTR_CREATE_ret(drcontext), pc));
+    if (rn->stack_adjust > 0) {
+        /* re-do the arg adjust (i#778) */
+        instrlist_append(bb, INSTR_XL8
+                         (INSTR_CREATE_ret_imm(drcontext,
+                                               OPND_CREATE_INT16(rn->stack_adjust)), pc));
+    } else {
+        instrlist_append(bb, INSTR_XL8(INSTR_CREATE_ret(drcontext), pc));
+    }
 }
 
 /* event for function replacing */
@@ -1037,11 +1091,15 @@ drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
             }
         }
         if (replace_native_table.entries > 0) {
-            replace = hashtable_lookup(&replace_native_table, pc);
-            if (replace != NULL) {
-                drwrap_replace_native_bb(drcontext, bb, inst, pc, replace);
+            replace_native_t *rn;
+            hashtable_lock(&replace_native_table);
+            rn = hashtable_lookup(&replace_native_table, pc);
+            if (rn != NULL) {
+                drwrap_replace_native_bb(drcontext, bb, inst, pc, rn);
+                hashtable_unlock(&replace_native_table);
                 break;
             }
+            hashtable_unlock(&replace_native_table);
         }
     }
     return DR_EMIT_DEFAULT;
