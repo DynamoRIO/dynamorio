@@ -112,7 +112,7 @@ enum {KSTAT_MAX_DEPTH = 16};
 
 /* Information about a current execution path */
 typedef struct {
-    uint      depth;
+    volatile uint depth;  /* Volatile for signal safety. */
     timestamp_t last_start_time;
     timestamp_t last_end_time;
     kstat_node_t node[KSTAT_MAX_DEPTH];
@@ -227,17 +227,19 @@ kstat_ignore_context_switch;
 
 /* starts a timer */
 #define kstat_start_var(kstack, pvar) do {              \
-   DODEBUG({if ((kstack)->depth >= KSTAT_MAX_DEPTH)     \
+    uint depth = (kstack)->depth;                       \
+    DODEBUG({if (depth >= KSTAT_MAX_DEPTH)              \
         kstats_dump_stack(cur_dcontext);});             \
-    ASSERT((kstack)->depth < KSTAT_MAX_DEPTH            \
+    ASSERT(depth < KSTAT_MAX_DEPTH                      \
            && "probably missing a STOP on return");     \
-    (kstack)->node[(kstack)->depth].var = pvar;         \
+    /* Increment depth first for re-entrancy. */        \
+    (kstack)->depth++;                                  \
+    (kstack)->node[depth].var = pvar;                   \
     UPDATE_CURRENT_COUNTER((kstack));                   \
     /* reset new counter */                             \
-    (kstack)->node[(kstack)->depth].subpath_time = 0;   \
-    (kstack)->node[(kstack)->depth].self_time = 0;      \
-    (kstack)->node[(kstack)->depth].outlier_time = 0;   \
-    (kstack)->depth++;                                  \
+    (kstack)->node[depth].subpath_time = 0;             \
+    (kstack)->node[depth].self_time = 0;                \
+    (kstack)->node[depth].outlier_time = 0;             \
 } while(0)
 
 /* updates which variable will be counted */
@@ -262,23 +264,25 @@ kstat_ignore_context_switch;
 #define kstat_tos_matching_var(kstack, pvar) (ks->node[ks->depth - 1].var == pv)
 
 #define kstat_stop_not_propagated_var(kstack, pvar, pcum) do {                  \
+    uint depth = (kstack)->depth - 1;                                           \
     ASSERT((kstack)->depth > 1);                                                \
     UPDATE_CURRENT_COUNTER((kstack));                                           \
-    (kstack)->depth--;                                                          \
-    (kstack)->node[(kstack)->depth].var->num_self++;                            \
-    (kstack)->node[(kstack)->depth].var->total_self +=                          \
-         (kstack)->node[(kstack)->depth].self_time;                             \
-    (kstack)->node[(kstack)->depth].var->total_sub +=                           \
-         (kstack)->node[(kstack)->depth].subpath_time;                          \
-    (kstack)->node[(kstack)->depth].var->total_outliers +=                      \
-         (kstack)->node[(kstack)->depth].outlier_time;                          \
-    *pcum = (kstack)->node[(kstack)->depth].self_time +                         \
-            (kstack)->node[(kstack)->depth].subpath_time;                       \
+    (kstack)->node[depth].var->num_self++;                                      \
+    (kstack)->node[depth].var->total_self +=                                    \
+         (kstack)->node[depth].self_time;                                       \
+    (kstack)->node[depth].var->total_sub +=                                     \
+         (kstack)->node[depth].subpath_time;                                    \
+    (kstack)->node[depth].var->total_outliers +=                                \
+         (kstack)->node[depth].outlier_time;                                    \
+    *pcum = (kstack)->node[depth].self_time +                                   \
+            (kstack)->node[depth].subpath_time;                                 \
     /* FIXME: an outlier should be counted as a NaN for outliers on subpaths */ \
-    if (*pcum > 0 && (kstack)->node[(kstack)->depth].var->min_cum > *pcum)      \
-        (kstack)->node[(kstack)->depth].var->min_cum = *pcum;                   \
-    if ((kstack)->node[(kstack)->depth].var->max_cum < *pcum)                   \
-        (kstack)->node[(kstack)->depth].var->max_cum = *pcum;                   \
+    if (*pcum > 0 && (kstack)->node[depth].var->min_cum > *pcum)                \
+        (kstack)->node[depth].var->min_cum = *pcum;                             \
+    if ((kstack)->node[depth].var->max_cum < *pcum)                             \
+        (kstack)->node[depth].var->max_cum = *pcum;                             \
+    /* Decrement after reads for re-entrancy. */                                \
+    (kstack)->depth--;                                                          \
 } while (0)
 
 /* FIXME: we may have to add a type argument to KSTAT_DEF saying whether 
