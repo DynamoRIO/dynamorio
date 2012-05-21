@@ -524,6 +524,11 @@ typedef struct _thread_sig_info_t {
      */
     kernel_sigaction_t **app_sigaction;
 
+    /* True after signal_thread_inherit or signal_fork_init are called.  We
+     * squash alarm or profiling signals up until this point.
+     */
+    bool fully_initialized;
+
     /* with CLONE_SIGHAND we may have to share app_sigaction */
     bool shared_app_sigaction;
     mutex_t *shared_lock;
@@ -1405,6 +1410,9 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                               (record == NULL) ? NULL : record->pcprofile_info);
     }
 
+    /* Assumed to be async safe. */
+    info->fully_initialized = true;
+
     return res;
 }
 
@@ -1484,6 +1492,9 @@ signal_fork_init(dcontext_t *dcontext)
     if (INTERNAL_OPTION(profile_pcs)) {
         pcprofile_fork_init(dcontext);
     }
+
+    /* Assumed to be async safe. */
+    info->fully_initialized = true;
 }
 
 void
@@ -3769,7 +3780,9 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
      * that could have been interrupted
      * e.g., synchronize_dynamic_options grabs the stats_lock!
      */
-    if (dcontext == NULL) { /* FIXME: || !intercept_asynch, or maybe !under_our_control */
+    if (dcontext == NULL || dcontext->signal_field == NULL ||
+        !((thread_sig_info_t*)dcontext->signal_field)->fully_initialized) {
+        /* FIXME: || !intercept_asynch, or maybe !under_our_control */
         /* FIXME i#26: this could be a signal arbitrarily sent to this thread.
          * We could try to route it to another thread, using a global queue
          * of pending signals.  But what if it was targeted to this thread
@@ -3777,8 +3790,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
          * we watch the kill syscalls: could come from another process?
          */
         if (sig_is_alarm_signal(sig)) {
-            /* assuming an alarm during thread exit (xref PR 596127):
-             * suppressing is fine
+            /* assuming an alarm during thread exit or init (xref PR 596127,
+             * i#359): suppressing is fine
              */
         } else if (sig == SUSPEND_SIGNAL &&
                    thread_lookup(get_thread_id()) == NULL) {
