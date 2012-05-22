@@ -1457,7 +1457,7 @@ bool
 os_take_over_all_unknown_threads(dcontext_t *dcontext)
 {
     /* FIXME NYI i#725: Part of Windows attach. */
-    return true;
+    return false;  /* Means there were no other threads. */
 }
 
 #ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
