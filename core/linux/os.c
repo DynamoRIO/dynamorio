@@ -374,6 +374,7 @@ app_pc vsyscall_sysenter_return_pc = NULL;
 # define VSYSCALL_REGION_MAPS_NAME "[vsyscall]"
 #endif
 
+#ifndef STANDALONE_UNIT_TEST
 /* The pthreads library keeps errno in its pthread_descr data structure,
  * which it looks up by dispatching on the stack pointer.  This doesn't work
  * when within dynamo.  Thus, we define our own __errno_location() for use both
@@ -413,7 +414,7 @@ __errno_location(void) {
         return &(dcontext->upcontext_ptr->errno);
     }
 }
-
+#endif /* !STANDALONE_UNIT_TEST */
 
 #if defined(HAVE_TLS) && defined(CLIENT_INTERFACE)
 /* i#598 
@@ -520,8 +521,11 @@ get_libc_errno_location(bool do_init)
 int
 get_libc_errno(void)
 {
-#ifndef STANDALONE_UNIT_TEST
+#ifdef STANDALONE_UNIT_TEST
+    errno_loc_t func = __errno_location;
+#else
     errno_loc_t func = get_libc_errno_location(false);
+#endif
     ASSERT(func != NULL || !dynamo_initialized);
     if (func != NULL) {
         int *loc = (*func)();
@@ -530,7 +534,6 @@ get_libc_errno(void)
         if (loc != NULL)
             return *loc;
     }
-#endif
     return 0;
 }
 
@@ -541,8 +544,11 @@ get_libc_errno(void)
 void
 set_libc_errno(int val)
 {
-#ifndef STANDALONE_UNIT_TEST
+#ifdef STANDALONE_UNIT_TEST
+    errno_loc_t func = __errno_location;
+#else
     errno_loc_t func = get_libc_errno_location(false);
+#endif
     ASSERT(func != NULL || !dynamo_initialized);
     if (func != NULL) {
         int *loc = (*func)();
@@ -550,7 +556,6 @@ set_libc_errno(int val)
         if (loc != NULL)
             *loc = val;
     }
-#endif
 }
 
 
