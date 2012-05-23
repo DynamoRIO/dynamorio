@@ -1595,7 +1595,9 @@ enum {
     INSTR_SHARED_SYSCALL        = 0x01000000,
 #endif
 
-    /* (unused)                 = 0x02000000, */
+#ifdef CLIENT_INTERFACE
+    INSTR_CLOBBER_RETADDR       = 0x02000000,
+#endif
 
     /* Signifies that this instruction may need to be hot patched and should
      * therefore not cross a cache line. It is not necessary to set this for

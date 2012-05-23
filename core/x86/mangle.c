@@ -1820,6 +1820,52 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 }
 
+#ifdef CLIENT_INTERFACE
+/* N.B.: keep in synch with instr_check_xsp_mangling() in arch.c */
+static void
+insert_mov_ptr_uint_beyond_TOS(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                               ptr_int_t value, opnd_size_t opsize)
+{
+    /* we insert non-meta b/c we want faults to go to app (should only fault
+     * if the ret itself faulted, barring races) for simplicity: o/w our
+     * our-mangling sequence gets broken up and more complex.
+     */
+    if (opsize == OPSZ_2) {
+        ptr_int_t val = value & (ptr_int_t) 0x0000ffff;
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM16(REG_XSP, -2),
+                                OPND_CREATE_INT16(val)));
+    } else if (opsize == OPSZ_4) {
+        ptr_int_t val = value & (ptr_int_t) 0xffffffff;
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, -4),
+                                OPND_CREATE_INT32(val)));
+    } else {
+# ifdef X64
+        ptr_int_t val_low = value & (ptr_int_t) 0xffffffff;
+        ASSERT(opsize == OPSZ_8);
+        if (CHECK_TRUNCATE_TYPE_int(value)) {
+            /* prefer a single write w/ sign-extension */
+            PRE(ilist, instr,
+                INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM64(REG_XSP, -8),
+                                    OPND_CREATE_INT32(val_low)));
+        } else {
+            /* we need two 32-bit writes */
+            ptr_int_t val_high = (value >> 32);
+            PRE(ilist, instr,
+                INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, -8),
+                                    OPND_CREATE_INT32(val_low)));
+            PRE(ilist, instr,
+                INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, -4),
+                                    OPND_CREATE_INT32(val_high)));
+        }
+# else
+        ASSERT_NOT_REACHED();
+# endif
+    }
+}
+#endif /* CLIENT_INTERFACE */
+
 static void
 insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                ptr_int_t retaddr, opnd_size_t opsize)
@@ -2354,6 +2400,14 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
     }
 
+#ifdef CLIENT_INTERFACE
+    if (TEST(INSTR_CLOBBER_RETADDR, instr->flags)) {
+        /* we put the value in the note field earlier */
+        ptr_uint_t val = (ptr_uint_t) instr->note;
+        insert_mov_ptr_uint_beyond_TOS(dcontext, ilist, instr, val, retsz);
+    }
+#endif
+
     if (instr_get_opcode(instr) == OP_ret_far) {
         /* N.B.: we do not support other than flat 0-based CS, DS, SS, and ES.
          * if the app wants to change segments, we won't actually issue
@@ -2379,9 +2433,6 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_t *popf;
 
         /* Xref PR 215553 and PR 191977 - we actually see this on 64-bit Vista */
-#ifndef X64
-        ASSERT_NOT_TESTED();
-#endif
         LOG(THREAD, LOG_INTERP, 2, "Encountered iret at "PFX" - mangling\n",
             instr_get_translation(instr));
         STATS_INC(num_irets);
@@ -2435,8 +2486,6 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* We're ignoring the set of SS and since we just set RSP we don't need
              * to do anything to adjust the stack for the pop (since the pop would have
              * occurred with the old RSP). */
-        } else {
-            ASSERT_NOT_TESTED();
         }
     }
 
@@ -3726,6 +3775,31 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
         if (!instr_is_cti(instr) || !instr_ok_to_mangle(instr)) {
 #ifdef STEAL_REGISTER
             steal_reg(dcontext, instr, ilist);
+#endif
+#ifdef CLIENT_INTERFACE
+            if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && instr_is_label(instr)) {
+                /* move the value to the note field (which the client cannot
+                 * possibly use at this point) so we don't have to search for
+                 * this label when we hit the ret instr
+                 */
+                dr_instr_label_data_t *data = instr_get_label_data_area(instr);
+                instr_t *tmp;
+                instr_t *ret = (instr_t *) data->data[0];
+                CLIENT_ASSERT(ret != NULL,
+                              "dr_clobber_retaddr_after_read()'s label is corrupted");
+                /* avoid use-after-free if client removed the ret by ensuring
+                 * this instr_t pointer does exist.
+                 * note that we don't want to go searching based just on a flag
+                 * as we want tight coupling w/ a pointer as a general way
+                 * to store per-instr data outside of the instr itself.
+                 */
+                for (tmp = instr_get_next(instr); tmp != NULL; tmp = instr_get_next(tmp)) {
+                    if (tmp == ret) {
+                        tmp->note = (void *) data->data[1]; /* the value to use */
+                        break;
+                    }
+                }
+            }
 #endif
             continue;
         }

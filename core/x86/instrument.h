@@ -3809,6 +3809,25 @@ dr_insert_ubr_instrumentation(void *drcontext, instrlist_t *ilist,
 
 DR_API
 /**
+ * Causes DynamoRIO to insert code that stores \p value into the
+ * return address slot on the stack immediately after the original
+ * value is read by the return instruction \p instr.
+ * \p instr must be a return instruction or this routine will fail.
+ *
+ * \note This is meant to make it easier to obtain efficient
+ * callstacks by eliminating stale return addresses from prior stack
+ * frames.  However, it is possible that writing to the application
+ * stack could result in incorrect application behavior, so use this
+ * at your own risk.
+ *
+ * \return whether successful.
+ */
+bool 
+dr_clobber_retaddr_after_read(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                              ptr_uint_t value);
+
+DR_API
+/**
  * Returns true if the xmm0 through xmm5 for Windows, or xmm0 through
  * xmm15 for 64-bit Linux, or xmm0 through xmm7 for 32-bit Linux, 
  * fields in dr_mcontext_t are valid for this process

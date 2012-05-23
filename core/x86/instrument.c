@@ -4841,6 +4841,37 @@ dr_insert_ubr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     dr_insert_call_instrumentation(drcontext, ilist, instr, callee);
 }
 
+/* This may seem like a pretty targeted API function, but there's no
+ * clean way for a client to do this on its own due to DR's
+ * restrictions on bb instrumentation (i#782).
+ */
+DR_API
+bool 
+dr_clobber_retaddr_after_read(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                              ptr_uint_t value)
+{
+    /* the client could be using note fields so we use a label and xfer to
+     * a note field during the mangling pass
+     */
+    if (instr_is_return(instr)) {
+        instr_t *label = INSTR_CREATE_label(drcontext);
+        dr_instr_label_data_t *data = instr_get_label_data_area(label);
+        /* we could coordinate w/ drmgr and use some reserved note label value
+         * but only if we run out of instr flags.  so we set to 0 to not
+         * overlap w/ any client uses (DRMGR_NOTE_NONE == 0).
+         */
+        label->note = 0;
+        /* these values are read back in mangle() */
+        data->data[0] = (ptr_uint_t) instr;
+        data->data[1] = value;
+        label->flags |= INSTR_CLOBBER_RETADDR;
+        instr->flags |= INSTR_CLOBBER_RETADDR;
+        instrlist_meta_preinsert(ilist, instr, label);
+        return true;
+    }
+    return false;
+}
+
 DR_API bool
 dr_mcontext_xmm_fields_valid(void)
 {

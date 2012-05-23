@@ -1405,6 +1405,8 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
   use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
+
+  tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
 endif (CLIENT_INTERFACE)
 
 if (UNIX)
