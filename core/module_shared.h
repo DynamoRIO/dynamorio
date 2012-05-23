@@ -432,9 +432,7 @@ typedef struct _privmod_t {
     bool externally_loaded;
     struct _privmod_t *next;
     struct _privmod_t *prev;
-#ifdef LINUX
-    os_privmod_data_t *os_privmod_data;
-#endif
+    void *os_privmod_data;
 } privmod_t;
 
 
@@ -485,7 +483,7 @@ privload_lookup_by_base(app_pc modbase);
  */
 privmod_t *
 privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
-                const char *path);
+                const char *path, void *os_privmod_data);
 
 /* ************************************************************************* *
  * os specific functions in loader.c, can be called from loader_shared.c     *
@@ -494,7 +492,8 @@ void
 privload_redirect_setup(privmod_t *mod);
 
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT);
+privload_map_and_relocate(const char *filename, size_t *size OUT,
+                          void **os_privmod_data OUT);
 
 bool
 privload_call_entry(privmod_t *privmod, uint reason);

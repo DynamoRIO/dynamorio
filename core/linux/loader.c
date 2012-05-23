@@ -86,6 +86,10 @@ static os_privmod_data_t *libdr_opd;
 static bool privmod_initialized = false;
 static size_t max_client_tls_size = PAGE_SIZE;
 
+#ifdef INTERNAL
+static bool printed_gdb_commands = false;
+#endif
+
 /* pointing to the I/O data structure in privately loaded libc,
  * They are used on exit when we need update file_no.
  */
@@ -141,19 +145,55 @@ os_loader_init_prologue(void)
                           get_dynamorio_dll_start(),
                           get_dynamorio_dll_end() - get_dynamorio_dll_start(),
                           get_shared_lib_name(get_dynamorio_dll_start()),
-                          get_dynamorio_library_path());
+                          get_dynamorio_library_path(),
+                          NULL/*no opd*/);
     privload_create_os_privmod_data(mod);
-    libdr_opd = mod->os_privmod_data;
+    libdr_opd = (os_privmod_data_t *) mod->os_privmod_data;
     mod->externally_loaded = true;
     ASSERT(mod != NULL);
 }
- 
-/* os specific loader initialization epilogue after client finalizeing the load,
- * also release the privload_lock for loader_init.
- */
+
+/* os specific loader initialization epilogue after finalizing the load. */
 void
 os_loader_init_epilogue(void)
 {
+#ifdef INTERNAL
+    /* Print the add-symbol-file commands so they can be copy-pasted into gdb.
+     * We have to do it in a single syslog so they can be copy pasted.  Since
+     * info syslogs are only in internal builds, we only do this work in an
+     * internal build.  To debug an external build, we rely on the gdb script to
+     * find text_addr in opd.
+     * FIXME i#531: Support attaching from the gdb script.
+     */
+    privmod_t *mod;
+    size_t sofar = 0;
+    size_t bufsz = 4096;  /* Should be enough, but too much for stack. */
+    char *buf;
+
+    /* FIXME: Skip this work if we're not going to print or log. */
+    ASSERT(dynamo_heap_initialized);
+    ASSERT(!printed_gdb_commands);
+    buf = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, bufsz, ACCT_OTHER, PROTECTED);
+    acquire_recursive_lock(&privload_lock);
+    for (mod = privload_first_module(); mod != NULL;
+         mod = privload_next_module(mod)) {
+        os_privmod_data_t *opd = (os_privmod_data_t *) mod->os_privmod_data;
+        /* GDB already finds externally loaded modules (e.g. DR). */
+        if (mod->externally_loaded)
+            continue;
+        print_to_buffer(buf, bufsz, &sofar, "add-symbol-file '%s' %p\n",
+                        mod->path, opd->text_addr);
+    }
+    printed_gdb_commands = true;
+    release_recursive_lock(&privload_lock);
+    if (sofar > 0) {
+        SYSLOG_INTERNAL_INFO("Paste into GDB to debug DynamoRIO clients:\n"
+                             /* Need to turn off confirm for paste to work. */
+                             "set confirm off\n"
+                             "%s", buf);
+    }
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, buf, char, bufsz, ACCT_OTHER, PROTECTED);
+#endif /* INTERNAL */
 }
 
 void
@@ -201,6 +241,12 @@ privload_add_areas(privmod_t *privmod)
 {
     os_privmod_data_t *opd;
     uint   i;
+    app_pc text_addr;
+
+    /* Save text_addr and store it in opd after we create it.  We need this to
+     * support auto loading symbols on gdb attach (i#531).
+     */
+    text_addr = (app_pc)privmod->os_privmod_data;
 
     /* create and init the os_privmod_data for privmod.
      * The os_privmod_data can only be created after heap is ready and 
@@ -211,7 +257,8 @@ privload_add_areas(privmod_t *privmod)
      * loader_shared.c, which affects windows too.
       */
     privload_create_os_privmod_data(privmod);
-    opd = privmod->os_privmod_data;
+    opd = (os_privmod_data_t *) privmod->os_privmod_data;
+    opd->text_addr = text_addr;
     for (i = 0; i < opd->os_data.num_segments; i++) {
         vmvector_add(modlist_areas, 
                      opd->os_data.segments[i].start,
@@ -224,7 +271,7 @@ void
 privload_remove_areas(privmod_t *privmod)
 {
     uint i;
-    os_privmod_data_t *opd = privmod->os_privmod_data;
+    os_privmod_data_t *opd = (os_privmod_data_t *) privmod->os_privmod_data;
 
     /* walk the program header to remove areas */
     for (i = 0; i < opd->os_data.num_segments; i++) {
@@ -248,7 +295,7 @@ privload_unmap_file(privmod_t *privmod)
 {
     /* walk the program header to unmap files, also the tls data */
     uint i;
-    os_privmod_data_t *opd = privmod->os_privmod_data;
+    os_privmod_data_t *opd = (os_privmod_data_t *) privmod->os_privmod_data;
     
     /* unmap segments */
     for (i = 0; i < opd->os_data.num_segments; i++) {
@@ -278,7 +325,7 @@ privload_unload_imports(privmod_t *privmod)
  * i#531: gdb support for private loader
  */
 DYNAMORIO_EXPORT void
-dr_gdb_add_symbol_file(const char *filename, ELF_ADDR textaddr)
+dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
 {
     /* Do nothing.  If gdb is attached with libdynamorio.so-gdb.py loaded, it
      * will stop here and lift the argument values.
@@ -287,18 +334,11 @@ dr_gdb_add_symbol_file(const char *filename, ELF_ADDR textaddr)
      * additional "-s<section> <address>" arguments to locate data sections.
      * This would be useful for setting watchpoints on client global variables.
      */
-    /* FIXME: This design does not support attaching.  Traditionally, this is
-     * implemented by maintaining a doubly-linked list of modules that can be
-     * read from gdb when it attaches.  We can use the existing privmod_t list
-     * in loader_shared.c and perform registration from privload_finalize_load.
-     * However, we will need to either save the section offsets in
-     * privload_map_and_relocate (which runs before heap initialization) or
-     * re-map the file in privload_finalize_load.
-     */
 }
 
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT)
+privload_map_and_relocate(const char *filename, size_t *size OUT,
+                          void **os_privmod_data OUT)
 {
     file_t fd;
     byte *(*map_func)  (file_t, size_t *, uint64, app_pc, uint, bool, bool, bool);
@@ -312,6 +352,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
     uint64 file_size;
     uint   seg_prot, i;
     ptr_int_t delta;
+    app_pc text_addr;
 
     ASSERT(size != NULL);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
@@ -453,19 +494,31 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
     }
     ASSERT(last_end == lib_end);
 
-    ELF_ADDR text_addr =
-        delta + module_get_text_section(file_map, file_size);
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privload_register_gdb), false)) {
-        dr_gdb_add_symbol_file(filename, text_addr);
-    } else {
-        /* Add debugging comment about how to get symbol information in gdb. */
-        SYSLOG_INTERNAL_INFO("In GDB, use add-symbol-file %s %p"
-                             " to add symbol information",
-                             filename, text_addr);
+    text_addr = (void*)delta + module_get_text_section(file_map, file_size);
+    /* Add debugging comment about how to get symbol information in gdb. */
+#ifdef INTERNAL
+    if (printed_gdb_commands) {
+        /* This is a dynamically loaded auxlib, so we print here.  The client
+         * and its direct dependencies are batched up and printed in
+         * os_loader_init_epilogue.
+         */
+        SYSLOG_INTERNAL_INFO("Paste into GDB to debug DynamoRIO clients:\n"
+                             "add-symbol-file '%s' %p\n", filename, text_addr);
     }
+#endif /* INTERNAL */
+    /* We save the text addr in os_privmod_data.  We can't recompute it later
+     * (see module_get_text_section comments), and we can't allocate a proper
+     * os_privmod_data_t yet.  Therefore, we store text_addr directly in
+     * os_privmod_data and move it into the heap allocation later (see
+     * privload_add_areas).
+     */
+    *os_privmod_data = (void*)text_addr;
     LOG(GLOBAL, LOG_LOADER, 1,
         "for debugger: add-symbol-file %s %p\n",
         filename, text_addr);
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privload_register_gdb), false)) {
+        dr_gdb_add_symbol_file(filename, text_addr);
+    }
     /* unmap the file_map */
     (*unmap_func)(file_map, file_size);
     os_close(fd); /* no longer needed */
@@ -481,7 +534,7 @@ privload_process_imports(privmod_t *mod)
     os_privmod_data_t *opd;
     char *strtab, *name;
 
-    opd = mod->os_privmod_data;
+    opd = (os_privmod_data_t *) mod->os_privmod_data;
     ASSERT(opd != NULL);
     /* 1. get DYNAMIC section pointer */
     dyn = (ELF_DYNAMIC_ENTRY_TYPE *)opd->dyn;
@@ -507,15 +560,15 @@ privload_process_imports(privmod_t *mod)
 bool
 privload_call_entry(privmod_t *privmod, uint reason)
 {
-    os_privmod_data_t *opd = privmod->os_privmod_data;
+    os_privmod_data_t *opd = (os_privmod_data_t *) privmod->os_privmod_data;
     if (os_get_dr_seg_base(NULL, LIB_SEG_TLS) == NULL) {
         /* HACK: i#338
-         * The privload_call_entry is called in privload_finalize_load
+         * The privload_call_entry is called in privload_load_finalize
          * from loader_init.
          * Because the loader_init is before os_tls_init,
          * the tls is not setup yet, and cannot call init function,
          * but cannot return false either as it cause loading failure.
-         * Cannot change the privload_finalize_load as it affects windows.
+         * Cannot change the privload_load_finalize as it affects windows.
          * so can only return true, and call it later in lader_thread_init.
          * Also see comment from os_loader_thread_init_prologue.
          * Any other possible way?
@@ -655,7 +708,6 @@ app_pc
 get_private_library_address(app_pc modbase, const char *name)
 {
     privmod_t *mod;
-    os_privmod_data_t *opd;
     app_pc res;
 
     acquire_recursive_lock(&privload_lock);
@@ -665,9 +717,12 @@ get_private_library_address(app_pc modbase, const char *name)
         /* externally loaded, use dlsym instead */
         return dlsym(modbase, name);
     }
-    opd = (os_privmod_data_t *)mod->os_privmod_data;
-    if (opd != NULL) {
+    /* Before the heap is initialized, we store the text address in opd, so we
+     * can't check if opd != NULL to know whether it's valid.
+     */
+    if (dynamo_heap_initialized) {
         /* opd is initialized */
+        os_privmod_data_t *opd = (os_privmod_data_t *) mod->os_privmod_data;
         res = get_proc_address_from_os_data(&opd->os_data, 
                                             opd->load_delta, 
                                             name, NULL);
@@ -765,7 +820,7 @@ get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end)
 static void
 privload_relocate_mod(privmod_t *mod)
 {
-    os_privmod_data_t *opd = mod->os_privmod_data;
+    os_privmod_data_t *opd = (os_privmod_data_t *) mod->os_privmod_data;
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
@@ -924,7 +979,7 @@ privload_mod_tls_init(privmod_t *mod)
     int first_byte;
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    opd = mod->os_privmod_data;
+    opd = (os_privmod_data_t *) mod->os_privmod_data;
     ASSERT(opd != NULL && opd->tls_block_size != 0);
     if (tls_info.num_mods >= MAX_NUM_TLS_MOD) {
         CLIENT_ASSERT(false, "Max number of modules with tls variables reached");

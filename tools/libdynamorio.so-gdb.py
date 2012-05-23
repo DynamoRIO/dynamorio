@@ -3,13 +3,18 @@
 import gdb
 import os
 import traceback
+import re
 
 print 'Loading gdb scripts for debugging DynamoRIO...'
 
-# If we didn't attach, pick the libdir from __file__.  This relies on
-# .gdbinit sourcing us from the build dir instead of from the source dir,
-# or __file__ will be wrong.
-DR_LIBDIR = os.path.dirname(os.path.abspath(__file__))
+# FIXME i#531: Support loading symbols after attaching.
+
+# If we were sourced directly instead of auto-loaded, try to guess where DR is
+# so we can make RunDR work.  We don't need this for anything else yet.
+try:
+    DR_LIBDIR = os.path.dirname(os.path.abspath(__file__))
+except:
+    DR_LIBDIR = None
 
 
 class DROption(gdb.Parameter):
@@ -102,46 +107,70 @@ class RunDR(gdb.Command):
 RunDR()
 
 
-class PrivloadBP(gdb.Breakpoint):
-
-    # Enable to debug this breakpoint.
-    DEBUG = False
-    DYNAMORIO_BP = True
-
-    def __init__(self):
-        super(PrivloadBP, self).__init__("dr_gdb_add_symbol_file",
-                                         internal=not self.DEBUG)
-
-    def stop(self):
-        try:
-            frame = gdb.newest_frame()
-            filename = frame.read_var("filename").string()
-            textaddr = int(frame.read_var("textaddr"))
-            cmd = "add-symbol-file '%s' %s" % (filename, hex(textaddr))
-            print "Executing gdb command:", cmd
-            # We suppress output to the screen with to_string unless we're
-            # debugging.
-            gdb.execute(cmd, to_string=not self.DEBUG)
-            return self.DEBUG  # Controls whether the user stops here or not.
-        except:
-            # gdb won't print a Python stack trace if we raise an exception, so
-            # we do it ourselves.
-            traceback.print_exc()
-            return True
+def gdb_has_breakpoints():
+    match = re.match(r'^(\d+)\.(\d+)', gdb.VERSION)
+    if not match:
+        print "Error parsing gdb version (%s)" % gdb.VERSION
+        return False
+    major = int(match.group(1))
+    minor = int(match.group(2))
+    if major > 7:
+        return True
+    elif major == 7 and minor >= 3:
+        return True
+    return False
 
 
-# Delete all breakpoints set from previous runs and initializations and replace
-# them with new ones.
-def remove_old_bps():
-    bps = gdb.breakpoints()
-    if not bps:
-        return
-    for bp in bps:
-        if getattr(bp, 'DYNAMORIO_BP', False):
-            bp.delete()
-remove_old_bps()
+# gdb 7.2 doesn't really support breakpoints in the Python API.  We do a version
+# check so we can print an informative message rather than dying with an
+# exception on "class PrivloadBP(gdb.Breakpoint)".
+if gdb_has_breakpoints():
 
-# We need pending breakpoints in order to wait for LD_PRELOAD to bring in the
-# library with the symbol.
-gdb.execute("set breakpoint pending on")
-PrivloadBP()
+    class PrivloadBP(gdb.Breakpoint):
+
+        # Enable to debug this breakpoint.
+        DEBUG = False
+        DYNAMORIO_BP = True
+
+        def __init__(self):
+            super(PrivloadBP, self).__init__("dr_gdb_add_symbol_file",
+                                             internal=not self.DEBUG)
+
+        def stop(self):
+            try:
+                frame = gdb.newest_frame()
+                filename = frame.read_var("filename").string()
+                textaddr = long(frame.read_var("textaddr"))
+                cmd = "add-symbol-file '%s' %s" % (filename, hex(textaddr))
+                print "Executing gdb command:", cmd
+                # We suppress output to the screen with to_string unless we're
+                # debugging.
+                gdb.execute(cmd, to_string=not self.DEBUG)
+                return self.DEBUG  # Controls whether the user stops here or not.
+            except:
+                # gdb won't print a Python stack trace if we raise an exception,
+                # so we do it ourselves.
+                traceback.print_exc()
+                return True
+
+
+    # Delete all breakpoints set from previous runs and initializations and
+    # replace them with new ones.
+    def remove_old_bps():
+        bps = gdb.breakpoints()
+        if not bps:
+            return
+        for bp in bps:
+            if getattr(bp, 'DYNAMORIO_BP', False):
+                bp.delete()
+    remove_old_bps()
+
+    # We need pending breakpoints in order to wait for LD_PRELOAD to bring in
+    # the library with the symbol.
+    gdb.execute("set breakpoint pending on")
+    PrivloadBP()
+
+else:
+    print ("This version of gdb does not support breakpoints from Python.  "
+           "Libraries loaded by DynamoRIO will not be automatically "
+           "registered with gdb.")
