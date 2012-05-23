@@ -53,7 +53,7 @@
 #else /* LINUX */
 #    include <sys/types.h> /* for wait */
 #    include <sys/wait.h>  /* for wait */
-#    include <sched.h>     /* for clone */
+#    include <linux/sched.h>     /* for clone */
 #    include <signal.h>    /* for SIGCHLD */
 #    include <string.h>    /* for memset */
 #    include <unistd.h>    /* for nice */

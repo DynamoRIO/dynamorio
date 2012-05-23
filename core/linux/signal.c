@@ -51,7 +51,7 @@
 #include <sys/wait.h>
 #include <ucontext.h>
 #include <sys/syscall.h>
-#include <sched.h>
+#include <linux/sched.h>
 #include <string.h> /* for memcpy and memset */
 #include "../globals.h"
 #include "os_private.h"

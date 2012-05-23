@@ -36,7 +36,7 @@
 #include <string.h> /* memset */
 #ifdef LINUX
 # include <syscall.h>
-# include <sched.h>     /* for clone and CLONE_ flags */
+# include <linux/sched.h>     /* for clone and CLONE_ flags */
 #endif
 
 static client_id_t client_id = 0;

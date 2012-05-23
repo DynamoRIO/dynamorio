@@ -40,7 +40,7 @@
 
 #include <sys/types.h> /* for wait and mmap */
 #include <sys/wait.h>  /* for wait */
-#include <sched.h>     /* for __clone */
+#include <linux/sched.h>     /* for __clone */
 #include <sys/mman.h>  /* for mmap */
 #include <unistd.h>    /* for sleep */
 

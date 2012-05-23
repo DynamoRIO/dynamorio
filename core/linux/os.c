@@ -54,7 +54,6 @@
 /* for open */
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <sched.h>              /* for CLONE_* */
 #include "../globals.h"
 #include "../hashtable.h"
 #include <string.h>
@@ -69,6 +68,13 @@
 #include <sys/resource.h>
 
 #include <linux/futex.h> /* for futex op code */
+
+/* For clone and its flags, the manpage says to include sched.h with _GNU_SOURCE
+ * defined.  _GNU_SOURCE brings in unwanted extensions and causes name
+ * conflicts.  Instead, we include linux/sched.h which comes from the Linux
+ * kernel headers.
+ */
+#include <linux/sched.h>
 
 #include "module.h" /* elf */
 
