@@ -133,6 +133,63 @@ our_isspace(int c)
             c == '\v');
 }
 
+static const char *
+parse_int(const char *sp, uint64 *res_out, int base, int width, bool is_signed)
+{
+    bool negative = false;
+    uint64 res = 0;
+    int i;  /* Use an index rather than pointer to compare with width. */
+
+    /* our_sscanf only uses these bases currently. */
+    ASSERT(base == 10 || base == 16);
+
+    /* Check for negative sign if signed. */
+    if (is_signed) {
+        if (*sp == '-') {
+            negative = true;
+            sp++;
+        }
+    }
+
+    /* Ignore leading +. */
+    if (!negative && *sp == '+')
+        sp++;
+
+    /* 0x prefix for hex is optional. */
+    if (base == 16 && sp[0] == '0' && sp[1] == 'x')
+        sp += 2;
+
+    /* XXX: For efficiency we could do a couple things:
+     * - Specialize the loop on base
+     * - Use a lookup table
+     */
+    for (i = 0; width == 0 || i < width; i++) {
+        uint d = sp[i];
+        if (d >= '0' && d <= '9') {
+            d -= '0';
+        } else if (base == 16 && d >= 'a' && d <= 'f') {
+            d = d - 'a' + 10;
+        } else if (base == 16 && d >= 'A' && d <= 'F') {
+            d = d - 'A' + 10;
+        } else {
+            break;  /* Non-digit character.  Could be \0. */
+        }
+        /* FIXME: Check for overflow. */
+        /* XXX: int64 multiply is inefficient on 32-bit. */
+        res = res * base + d;
+    }
+
+    /* No digits found, return failure. */
+    if (i == 0)
+        return NULL;
+
+    if (negative)
+        res = -(int64)res;
+
+    *res_out = res;
+    return sp + i;
+}
+
 /* Stand alone implementation of sscanf.  We used to call libc's vsscanf while
  * trying to isolate errno (i#238), but these days sscanf calls malloc (i#762).
  * Therefore, we roll our own.
@@ -263,38 +320,20 @@ spec_done:
             }
             break;
         case SPEC_INT: {
-            unsigned long long parsed_int;
-            char *end_ptr;  /* Don't take &sp.  We want it in a register. */
-            int strtoull_errno;
-
-            /* Don't accept negative numbers for unsigned format strings.  The
-             * strtou* conversion routines will accept it.
-             */
-            if (!is_signed && *sp == '-')
+            uint64 res;
+            sp = parse_int(sp, &res, base, width, is_signed);
+            if (sp == NULL)
                 return num_parsed;
-
-            /* Just use strtoull for everything and truncate the result.
-             * FIXME i#46: Use a private integer parsing implementation, so we
-             * can provide better error checking and avoid modifying libc's
-             * errno.
-             */
-            set_libc_errno(0);
-            parsed_int = strtoull(sp, &end_ptr, base);
-            sp = end_ptr;
-            strtoull_errno = get_libc_errno();
-            if (strtoull_errno != 0) {
-                return num_parsed;  /* Most likely errno was ERANGE. */
-            }
 
             if (!is_ignored) {
                 if (int_size == SZ_SHORT)
-                    *va_arg(ap, short *) = (short)parsed_int;
+                    *va_arg(ap, short *) = (short)res;
                 else if (int_size == SZ_INT)
-                    *va_arg(ap, int *) = (int)parsed_int;
+                    *va_arg(ap, int *) = (int)res;
                 else if (int_size == SZ_LONG)
-                    *va_arg(ap, long *) = (long)parsed_int;
+                    *va_arg(ap, long *) = (long)res;
                 else if (int_size == SZ_LONGLONG)
-                    *va_arg(ap, long long *) = (long long)parsed_int;
+                    *va_arg(ap, long long *) = (long long)res;
                 else
                     ASSERT_NOT_REACHED();
             }
@@ -311,18 +350,14 @@ spec_done:
     return num_parsed;
 }
 
-/* Wrapper around vsscanf mostly for saving libc errno, which strtoull
- * unfortunately still uses.
- */
 int
 our_sscanf(const char *str, const char *fmt, ...)
 {
-    int res, saved_errno;
+    /* No need to save errno, we don't call libc anymore. */
+    int res;
     va_list ap;
     va_start(ap, fmt);
-    saved_errno = get_libc_errno();
     res = our_vsscanf(str, fmt, ap);
-    set_libc_errno(saved_errno);
     va_end(ap);
     return res;
 }
@@ -445,17 +480,16 @@ test_sscanf_all_specs(void)
     EXPECT(memcmp(str, "abcdefghijklm", 13), 0);
     EXPECT(str[13], '*');  /* Asterisk should still be there. */
 
-    /* FIXME NYI: Implement width specifications for integers.  Someone might
-     * want to parse an integer like this:
-     * sscanf("123456", "%03d%03d", &a, &b);
-     * DR doesn't need this currently so we skip it.
-     */
+    /* Test width specifications for integers. */
+    res = our_sscanf("123456 0x9abc", "%03d%03d %03xc",
+                     &signed_int, &signed_int_2, &unsigned_int);
+    EXPECT(res, 3);
+    EXPECT(signed_int, 123);
+    EXPECT(signed_int_2, 456);
+    EXPECT(unsigned_int, 0x9ab);
 
-    /* FIXME: I wrote tests for testing out-of-range errors, but we don't pass
-     * them because the strto* conversion routines are very liberal about what
-     * they accept.  If we implement issue 46 and pull the string conversion
-     * into DR, then we can share the code that does the parse and get better
-     * error handling.
+    /* FIXME: When parse_int has range checking, we should add tests for parsing
+     * integers that overflow their requested integer sizes.
      */
 }
 # endif /* LINUX */
