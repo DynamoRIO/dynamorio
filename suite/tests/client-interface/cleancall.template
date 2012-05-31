@@ -1,3 +1,5 @@
+cleancall_aflags_save
+cleancall_no_aflags_save
 testing clean calls
 inserting clean call crash code 1
 in restore_state for our clean call crash 1

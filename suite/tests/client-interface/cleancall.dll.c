@@ -94,6 +94,19 @@ restore_state_event(void *drcontext, void *tag, dr_mcontext_t *mcontext,
     }
 }
 
+static void
+cleancall_aflags_save(void)
+{
+    dr_printf("cleancall_aflags_save\n");
+}
+
+static void
+cleancall_no_aflags_save(void)
+{
+    dr_printf("cleancall_no_aflags_save\n");
+}
+
+static bool first_bb = true;
 static dr_emit_flags_t
 bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool translating)
 {
@@ -104,6 +117,28 @@ bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool trans
     instrlist_preinsert(bb, instr, INSTR_XL8(i, dr_fragment_app_pc(tag)))
 # define PREM(bb, i) \
     instrlist_meta_preinsert(bb, instr, INSTR_XL8(i, dr_fragment_app_pc(tag)))
+
+    if (first_bb) {
+        instr_t *add, *cmp;
+        /* test cleancall with/without aflags save
+         *   cleancall_aflags_save
+         *   cmp # fake cmp app instr
+         *   cleancall_no_aflags_save
+         *   add # fake add app instr
+         */
+        first_bb = false;
+        instr = instrlist_first(bb);
+        cmp = INSTR_CREATE_cmp(drcontext, opnd_create_reg(DR_REG_XAX),
+                               opnd_create_reg(DR_REG_XAX));
+        PRE(bb, cmp);
+        add = INSTR_CREATE_add(drcontext, opnd_create_reg(DR_REG_XAX),
+                               OPND_CREATE_INT32(0));
+        PRE(bb, add);
+        dr_insert_clean_call(drcontext, bb, add,
+                             (void*) cleancall_no_aflags_save, false, 0);
+        dr_insert_clean_call(drcontext, bb, cmp,
+                             (void*) cleancall_aflags_save, false, 0);
+    }
 
     /* Look for 3 nops to indicate handler is set up */
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {

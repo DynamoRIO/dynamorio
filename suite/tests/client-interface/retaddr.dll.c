@@ -35,7 +35,7 @@
 static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
-    instr_t *instr, *next_instr;
+    instr_t *instr;
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         if (instr_is_return(instr))
             dr_clobber_retaddr_after_read(drcontext, bb, instr, 0);

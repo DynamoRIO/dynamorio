@@ -512,12 +512,15 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           uint alignment, instr_t *push_pc)
 {
     uint dstack_offs = 0;
+    int  offs_beyond_xmm = 0;
     if (cci == NULL)
         cci = &default_clean_call_info;
     if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_XMM_REGS) {
         int offs = XMM_SLOTS_SIZE + PRE_XMM_PADDING;
-        if (cci->preserve_mcontext && cci->skip_save_aflags)
-            offs += 2*XSP_SZ; /* pc and flags */
+        if (cci->preserve_mcontext && cci->skip_save_aflags) {
+            offs_beyond_xmm = 2*XSP_SZ; /* pc and flags */
+            offs += offs_beyond_xmm;
+        }
         PRE(ilist, instr, INSTR_CREATE_lea
             (dcontext, opnd_create_reg(REG_XSP),
              OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, -offs)));
@@ -543,7 +546,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                 PRE(ilist, instr, instr_create_1dst_1src
                     (dcontext, opcode,
                      opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                           PRE_XMM_PADDING + i*XMM_SAVED_REG_SIZE,
+                                           PRE_XMM_PADDING + i*XMM_SAVED_REG_SIZE +
+                                           offs_beyond_xmm,
                                            OPSZ_SAVED_XMM),
                      opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
             }
@@ -551,13 +555,15 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         ASSERT(i*XMM_SAVED_REG_SIZE == XMM_SAVED_SIZE);
         ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
     }
-
+    /* pc and aflags */
     if (!cci->skip_save_aflags) {
+        ASSERT(offs_beyond_xmm == 0);
         PRE(ilist, instr, push_pc);
         dstack_offs += XSP_SZ;
         PRE(ilist, instr, INSTR_CREATE_pushf(dcontext));
         dstack_offs += XSP_SZ;
     } else {
+        ASSERT(offs_beyond_xmm == 2*XSP_SZ || !cci->preserve_mcontext);
         /* for cci->preserve_mcontext we added to the lea above */
         instr_destroy(dcontext, push_pc);
     }
@@ -614,6 +620,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
                          uint alignment)
 {
+    int offs_beyond_xmm = 0;
     if (cci == NULL)
         cci = &default_clean_call_info;
 
@@ -657,14 +664,12 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 #else
     PRE(ilist, instr, INSTR_CREATE_popa(dcontext));
 #endif
-    if (!cci->skip_save_aflags)
+    if (!cci->skip_save_aflags) {
         PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
-    if (!cci->preserve_mcontext && cci->num_xmms_skip == NUM_XMM_REGS) {
-        /* pc slot */
-        PRE(ilist, instr, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP), 
-                                           opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                                                 XSP_SZ, OPSZ_lea)));
-    } /* else we combine w/ xmm lea below */
+        offs_beyond_xmm = XSP_SZ; /* pc */;
+    } else if (cci->preserve_mcontext) {
+        offs_beyond_xmm = 2*XSP_SZ; /* aflags + pc */
+    }
 
     if (preserve_xmm_caller_saved()) {
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel */
@@ -678,23 +683,20 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                 PRE(ilist, instr, instr_create_1dst_1src
                     (dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                      opnd_create_base_disp(REG_XSP, REG_NULL, 0, 
-                                           /* add the pc slot */
-                                           PRE_XMM_PADDING + i*XMM_SAVED_REG_SIZE + XSP_SZ,
+                                           PRE_XMM_PADDING + i*XMM_SAVED_REG_SIZE +
+                                           offs_beyond_xmm,
                                            OPSZ_SAVED_XMM)));
             }
         }
         ASSERT(i*XMM_SAVED_REG_SIZE == XMM_SAVED_SIZE);
         ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
     }
-    if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_XMM_REGS) {
-        int offs = PRE_XMM_PADDING + XMM_SLOTS_SIZE + XSP_SZ;
-        if (cci->preserve_mcontext && cci->skip_save_aflags)
-            offs += XSP_SZ;
-        PRE(ilist, instr, INSTR_CREATE_lea
-            (dcontext, opnd_create_reg(REG_XSP),
-             /* include the pc slot */
-             OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, offs)));
-    }
+
+    PRE(ilist, instr, INSTR_CREATE_lea
+        (dcontext, opnd_create_reg(REG_XSP),
+         OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
+                             PRE_XMM_PADDING + XMM_SLOTS_SIZE +
+                             offs_beyond_xmm)));
 }
 
 /* utility routines for inserting clean calls to an instrumentation routine 
