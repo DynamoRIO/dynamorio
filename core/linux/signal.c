@@ -1460,12 +1460,17 @@ signal_fork_init(dcontext_t *dcontext)
         }
         if (info->shared_refcount != NULL)
             global_heap_free(info->shared_refcount, sizeof(int) HEAPACCT(ACCT_OTHER));
+        info->shared_lock = NULL;
         info->shared_refcount = NULL;
     }
     if (info->shared_itimer) {
         /* itimers are not inherited across fork */
         info->shared_itimer = false;
-        memset(info->itimer, 0, sizeof(*info->itimer));
+        if (os_itimers_thread_shared())
+            global_heap_free(info->itimer, sizeof(*info->itimer) HEAPACCT(ACCT_OTHER));
+        else
+            heap_free(dcontext, info->itimer, sizeof(*info->itimer) HEAPACCT(ACCT_OTHER));
+        info->itimer = NULL;  /* reset by init_itimer */
         ASSERT(info->shared_itimer_lock != NULL);
         DELETE_RECURSIVE_LOCK(*info->shared_itimer_lock);
         global_heap_free(info->shared_itimer_lock, sizeof(*info->shared_itimer_lock)
@@ -3793,10 +3798,9 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             /* assuming an alarm during thread exit or init (xref PR 596127,
              * i#359): suppressing is fine
              */
-        } else if (sig == SUSPEND_SIGNAL &&
-                   thread_lookup(get_thread_id()) == NULL) {
-            /* We're trying to suspend a thread we don't control yet, which
-             * means we want to take over.
+        } else if (sig == SUSPEND_SIGNAL && dcontext == NULL) {
+            /* We sent SUSPEND_SIGNAL to a thread we don't control (no
+             * dcontext), which means we want to take over.
              */
             struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
             sig_take_over(sc);  /* no return */
@@ -3804,8 +3808,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
         } else {
             /* Using global dcontext because dcontext is NULL here. */
             DOLOG(1, LOG_ASYNCH, { dump_sigcontext(GLOBAL_DCONTEXT, sc); });
-            SYSLOG_INTERNAL_ERROR("ERROR: master_signal_handler w/ NULL dcontext: "
-                                  "tid=%d, sig=%d", get_thread_id(), sig);
+            SYSLOG_INTERNAL_ERROR("ERROR: master_signal_handler with no siginfo "
+                                  "(i#26?): tid=%d, sig=%d", get_sys_thread_id(), sig);
         }
         /* see FIXME comments above.
          * workaround for now: suppressing is better than dying.

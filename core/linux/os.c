@@ -2114,6 +2114,71 @@ os_thread_exit(dcontext_t *dcontext)
     });
 }
 
+/* Happens in the parent prior to fork. */
+static void
+os_fork_pre(dcontext_t *dcontext)
+{
+    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+
+    /* Otherwise a thread might wait for us. */
+    ASSERT_OWN_NO_LOCKS();
+    ASSERT(ostd->fork_threads == NULL && ostd->fork_num_threads == 0);
+
+    /* i#239: Synch with all other threads to ensure that they are holding no
+     * locks across the fork.
+     * FIXME i#26: Suspend signals received before initializing siginfo are
+     * squelched, so we won't be able to suspend threads that are initializing.
+     */
+    LOG(GLOBAL, 2, LOG_SYSCALLS|LOG_THREADS,
+        "fork: synching with other threads to prevent deadlock in child\n");
+    if (!synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT_OR_NO_XFER,
+                                &ostd->fork_threads,
+                                &ostd->fork_num_threads,
+                                THREAD_SYNCH_VALID_MCONTEXT,
+                                /* If we fail to suspend a thread, there is a
+                                 * risk of deadlock in the child, so it's worth
+                                 * retrying on failure.
+                                 */
+                                THREAD_SYNCH_SUSPEND_FAILURE_RETRY)) {
+        /* If we failed to synch with all threads, we live with the possiblity
+         * of deadlock and continue as normal.
+         */
+        LOG(GLOBAL, 1, LOG_SYSCALLS|LOG_THREADS,
+            "fork: synch failed, possible deadlock in child\n");
+        ASSERT_CURIOSITY(false);
+    }
+
+    /* We go back to the code cache to execute the syscall, so we can't hold
+     * locks.  If the synch succeeded, no one else is running, so it should be
+     * safe to release these locks.  However, if there are any rogue threads,
+     * then releasing these locks will allow them to synch and create threads.
+     * Such threads could be running due to synch failure or presence of
+     * non-suspendable client threads.  We keep our data in ostd to prevent some
+     * conflicts, but there are some unhandled corner cases.
+     */
+    mutex_unlock(&thread_initexit_lock);
+    mutex_unlock(&all_threads_synch_lock);
+}
+
+/* Happens after the fork in both the parent and child. */
+static void
+os_fork_post(dcontext_t *dcontext, bool parent)
+{
+    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+    /* Re-acquire the locks we released before the fork. */
+    mutex_lock(&all_threads_synch_lock);
+    mutex_lock(&thread_initexit_lock);
+    /* Resume the other threads that we suspended. */
+    if (parent) {
+        LOG(GLOBAL, 2, LOG_SYSCALLS|LOG_THREADS,
+            "fork: resuming other threads after fork\n");
+    }
+    end_synch_with_all_threads(ostd->fork_threads, ostd->fork_num_threads,
+                               parent/*resume in parent, not in child*/);
+    ostd->fork_threads = NULL;  /* Freed by end_synch_with_all_threads. */
+    ostd->fork_num_threads = 0;
+}
+
 /* this one is called before child's new logfiles are set up */
 void
 os_fork_init(dcontext_t *dcontext)
@@ -2121,6 +2186,17 @@ os_fork_init(dcontext_t *dcontext)
     int iter;
     file_t fd;
     ptr_uint_t flags;
+
+    /* i#239: If there were unsuspended threads across the fork, we could have
+     * forked while another thread held locks.  We reset the locks and try to
+     * cope with any intermediate state left behind from the parent.  If we
+     * encounter more deadlocks after fork, we can add more lock and data resets
+     * on a case by case basis.
+     */
+    mutex_fork_reset(&all_threads_synch_lock);
+    mutex_fork_reset(&thread_initexit_lock);
+
+    os_fork_post(dcontext, false/*!parent*/);
 
     /* re-populate cached data that contains pid */
     pid_cached = get_process_id();
@@ -5189,6 +5265,8 @@ pre_system_call(dcontext_t *dcontext)
          */
         if (is_clone_thread_syscall(dcontext))
             create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
+        else  /* This is really a fork. */
+            os_fork_pre(dcontext);
         /* We switch the lib tls segment back to app's segment.
          * Please refer to comment on os_switch_lib_tls.
          */
@@ -5246,6 +5324,7 @@ pre_system_call(dcontext_t *dcontext)
 
     case SYS_fork: {
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork\n");
+        os_fork_pre(dcontext);
         break;
     }
 
@@ -6126,6 +6205,7 @@ post_system_call(dcontext_t *dcontext)
                 "after fork-like syscall: parent is %d, child is %d\n", parent, child);
         } else {
             /* we're the parent */
+            os_fork_post(dcontext, true/*parent*/);
         }
     }
 

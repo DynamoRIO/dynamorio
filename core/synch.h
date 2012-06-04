@@ -195,7 +195,8 @@ extern mutex_t all_threads_synch_lock;
  * cur_state giving maximum permissions, (currently app_exit and detach could
  * conflict, except our routes to app_exit go through different synch point 
  * (TermThread or TermProcess) first
- * Caller should call end_synch_with_all_threads when finished.
+ * Caller must call end_synch_with_all_threads to clean up, unless they pass
+ * THREAD_SYNCH_SUSPEND_FAILURE_ABORT and the request fails.
  * Note - if this is a CLIENT_INTERFACE build and the caller doesn't intend to resume all
  * threads (say detach or process exit) then it should first call
  * instrument_client_thread_termination() to inform the client that client-owned threads

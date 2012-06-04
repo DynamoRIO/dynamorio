@@ -750,12 +750,6 @@ dynamorio_fork_init(dcontext_t *dcontext)
      * other threads (fork -> we're alone in address space), so clear
      * out entire thread table, then add child
      */
-    /* we could have forked right when another thread held this lock 
-     * FIXME i#239/PR 498752: need to free ALL locks held!
-     * We can't call ASSIGN_INIT_LOCK_FREE as that clobbers any contention event
-     * (=> leak) and the debug-build lock lists (=> asserts like PR 504594).
-     */
-    mutex_fork_reset(&thread_initexit_lock);
     mutex_lock(&thread_initexit_lock);
     get_list_of_threads_ex(&threads, &num_threads, true/*include execve*/);
     for (i=0; i<num_threads; i++) {

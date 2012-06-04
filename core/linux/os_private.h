@@ -86,6 +86,11 @@ typedef struct _os_thread_data_t {
      */
     mutex_t suspend_lock;
     int suspend_count;
+
+    /* Thread synchronization data held across a fork. */
+    thread_record_t **fork_threads;
+    int fork_num_threads;
+
     /* We would use event_t's here except we can't use mutexes in
      * our signal handler 
      */

@@ -1483,6 +1483,7 @@ if (UNIX)
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
   tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
+  tobuild(pthreads.pthreads_fork pthreads/pthreads_fork.c)
 
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64

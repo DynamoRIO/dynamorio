@@ -702,6 +702,9 @@ mutex_fork_reset(mutex_t *mutex)
     /* i#239/PR 498752: need to free locks held by other threads at fork time.
      * We can't call ASSIGN_INIT_LOCK_FREE as that clobbers any contention event
      * (=> leak) and the debug-build lock lists (=> asserts like PR 504594).
+     * If the synch before fork succeeded, this is unecessary.  If we encounter
+     * more deadlocks after fork because of synch failure, we can add more calls
+     * to reset locks on a case by case basis.
      */
     mutex->lock_requests = LOCK_FREE_STATE;
 # ifdef DEADLOCK_AVOIDANCE
