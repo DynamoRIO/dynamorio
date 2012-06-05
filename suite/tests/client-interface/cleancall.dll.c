@@ -97,13 +97,13 @@ restore_state_event(void *drcontext, void *tag, dr_mcontext_t *mcontext,
 static void
 cleancall_aflags_save(void)
 {
-    dr_printf("cleancall_aflags_save\n");
+    dr_fprintf(STDERR, "cleancall_aflags_save\n");
 }
 
 static void
 cleancall_no_aflags_save(void)
 {
-    dr_printf("cleancall_no_aflags_save\n");
+    dr_fprintf(STDERR, "cleancall_no_aflags_save\n");
 }
 
 static bool first_bb = true;
