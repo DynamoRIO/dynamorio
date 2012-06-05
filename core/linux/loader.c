@@ -84,7 +84,7 @@ static const char *system_lib_paths[] = {
 
 static os_privmod_data_t *libdr_opd;
 static bool privmod_initialized = false;
-static size_t max_client_tls_size = PAGE_SIZE;
+static size_t max_client_tls_size = 2 * PAGE_SIZE;
 
 #ifdef INTERNAL
 static bool printed_gdb_commands = false;
@@ -946,10 +946,32 @@ typedef struct _tls_info_t {
 } tls_info_t;
 static tls_info_t tls_info;
 
-/* The actual tcb size is the size of struct pthread from nptl/descr.h in 
- * libc source code, not a standard header file, cannot include but calculate.
+/* The actual tcb size is the size of struct pthread from nptl/descr.h, which is
+ * a glibc internal header that we can't include.  We hardcode a guess for the
+ * tcb size, and try to recover if we guessed too large.  This value was
+ * recalculated by building glibc and printing sizeof(struct pthread) from
+ * _dl_start() in elf/rtld.c.  The value can also be determined from the
+ * assembly of _dl_allocate_tls_storage() in ld.so:
+ * Dump of assembler code for function _dl_allocate_tls_storage:
+ *    0x00007ffff7def0a0 <+0>:  push   %r12
+ *    0x00007ffff7def0a2 <+2>:  mov    0x20eeb7(%rip),%rdi # _dl_tls_static_align
+ *    0x00007ffff7def0a9 <+9>:  push   %rbp
+ *    0x00007ffff7def0aa <+10>: push   %rbx
+ *    0x00007ffff7def0ab <+11>: mov    0x20ee9e(%rip),%rbx # _dl_tls_static_size
+ *    0x00007ffff7def0b2 <+18>: mov    %rbx,%rsi
+ *    0x00007ffff7def0b5 <+21>: callq  0x7ffff7ddda88 <__libc_memalign@plt>
+ * => 0x00007ffff7def0ba <+26>: test   %rax,%rax
+ *    0x00007ffff7def0bd <+29>: mov    %rax,%rbp
+ *    0x00007ffff7def0c0 <+32>: je     0x7ffff7def180 <_dl_allocate_tls_storage+224>
+ *    0x00007ffff7def0c6 <+38>: lea    -0x900(%rax,%rbx,1),%rbx
+ *    0x00007ffff7def0ce <+46>: mov    $0x900,%edx
+ * This is typically an allocation larger than 4096 bytes aligned to 64 bytes.
+ * The "lea -0x900(%rax,%rbx,1),%rbx" instruction computes the thread pointer to
+ * install.  The allocator used by the loader has no headers, so we don't have a
+ * good way to guess how big this allocation was.  Instead we use this estimate.
  */
-static size_t tcb_size;  /* thread control block size */
+static size_t tcb_size = IF_X64_ELSE(0x900, 0x490);
+
 /* thread control block header type from 
  * nptl/sysdeps/x86_64/tls.h and nptl/sysdeps/i386/tls.h 
  */
@@ -962,12 +984,18 @@ typedef struct _tcb_head_t {
     int gscope_flag;
 #endif
     ptr_uint_t sysinfo;
+    /* Later fields are copied verbatim. */
+
     ptr_uint_t stack_guard;
     ptr_uint_t pointer_guard;
 } tcb_head_t;
 
-#define TCB_TLS_ALIGN 32
-/* The size we reserved for App's libc tls. */
+/* An estimate of the size of the static TLS data before the thread pointer that
+ * we need to copy on behalf of libc.  When loading modules that have variables
+ * stored in static TLS space, the loader stores them prior to the thread
+ * pointer and lets the app intialize them.  Until we stop using the app's libc
+ * (i#46), we need to copy this data from before the thread pointer.
+ */
 #define APP_LIBC_TLS_SIZE 0x200
 
 /* FIXME: add description here to talk how TLS is setup. */
@@ -1018,7 +1046,9 @@ void *
 privload_tls_init(void *app_tp)
 {
     app_pc dr_tp;
+    tcb_head_t *dr_tcb;
     uint i;
+    size_t tls_bytes_read;
 
     if (app_tp == NULL) {
         /* FIXME: This should be a thread log, but dcontext is not ready now. */
@@ -1026,24 +1056,14 @@ privload_tls_init(void *app_tp)
         return NULL;
     }
     dr_tp = heap_mmap(max_client_tls_size);
-    LOG(GLOBAL, LOG_LOADER, 2, "%s allocates %d at "PFX"\n",
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: allocates %d at "PFX"\n",
         __FUNCTION__, max_client_tls_size, dr_tp);
-    /* The current implementation of thread control block (tcb) 
-     * initialization in libc does not cross page boundary.
-     * In x86 architecture, it first allocates page-aligned memory,
-     * and then uses memory at the end of the last page for tcb, 
-     * so we assume the tcb is until the end of a page.
-     */
-    /* When app_tp is page aligned, assume tcb_size is PAGE_SIZE instead of 0,
-     * so add 1 before aligning forward.
-     */
-    tcb_size = ALIGN_FORWARD(app_tp + 1, PAGE_SIZE) - (reg_t)app_tp;
-    ASSERT(tls_info.offset <= max_client_tls_size - tcb_size);
     dr_tp = dr_tp + max_client_tls_size - tcb_size;
-    LOG(GLOBAL, LOG_LOADER, 2, "%s adjust thread pointer to "PFX"\n",
+    dr_tcb = (tcb_head_t *) dr_tp;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to "PFX"\n",
         __FUNCTION__, dr_tp);
     /* We copy the whole tcb to avoid initializing it by ourselves. 
-     * and update some field accordingly.
+     * and update some fields accordingly.
      */
     /* DynamoRIO shares the same libc with the application, 
      * so as the tls used by libc. Thus we need duplicate
@@ -1051,13 +1071,22 @@ privload_tls_init(void *app_tp)
      * This copy can be avoided if we remove the DR's dependency on
      * libc. 
      */
-    memcpy((app_pc)ALIGN_BACKWARD(dr_tp, PAGE_SIZE),
-           (app_pc)ALIGN_BACKWARD(app_tp, PAGE_SIZE),
-           PAGE_SIZE);
-    ((tcb_head_t *)dr_tp)->tcb  = dr_tp;
-    ((tcb_head_t *)dr_tp)->self = dr_tp;
+    /* XXX: The dcontext is not installed, so the safe_read_ex always triggers a
+     * /proc/pid/maps read.
+     */
+    if (!safe_read_ex(app_tp - APP_LIBC_TLS_SIZE, APP_LIBC_TLS_SIZE + tcb_size,
+                      dr_tp  - APP_LIBC_TLS_SIZE, &tls_bytes_read)) {
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed, tcb was 0x%lx bytes "
+            "instead of 0x%lx\n", __FUNCTION__, tls_bytes_read -
+            APP_LIBC_TLS_SIZE, tcb_size);
+    }
+    ASSERT_CURIOSITY(tls_bytes_read == APP_LIBC_TLS_SIZE + tcb_size);
+    ASSERT(tls_info.offset <= max_client_tls_size - tcb_size);
+    /* Update two self pointers. */
+    dr_tcb->tcb  = dr_tcb;
+    dr_tcb->self = dr_tcb;
     /* i#555: replace app's vsyscall with DR's int0x80 syscall */
-    ((tcb_head_t *)dr_tp)->sysinfo = (ptr_uint_t)client_int_syscall;
+    dr_tcb->sysinfo = (ptr_uint_t)client_int_syscall;
 
     for (i = 0; i < tls_info.num_mods; i++) {
         os_privmod_data_t *opd = tls_info.mods[i]->os_privmod_data;
@@ -1082,7 +1111,7 @@ privload_tls_exit(void *dr_tp)
 {
     if (dr_tp == NULL)
         return;
-    dr_tp = (app_pc)ALIGN_FORWARD(dr_tp, PAGE_SIZE) - max_client_tls_size;
+    dr_tp = dr_tp + tcb_size - max_client_tls_size;
     heap_munmap(dr_tp, max_client_tls_size);
 }
 

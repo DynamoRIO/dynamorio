@@ -3728,7 +3728,7 @@ safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
     dcontext_t *dcontext = get_thread_private_dcontext();
     bool res = false;
     STATS_INC(num_safe_reads);
-    if (dcontext != NULL) {
+    if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT) {
         TRY_EXCEPT(dcontext, {
             memcpy(out_buf, base, size);
             res = true;
@@ -8072,9 +8072,11 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
          * and less likely to be querying a random mmapped file.
          * The cleaner fix is to allow safe_read to work w/o a dcontext: PR 529066.
          */
+        dcontext_t *dcontext = get_thread_private_dcontext();
         if (TEST(MEMPROT_READ, info->prot) &&
-            is_elf_so_header(info->base_pc, (get_thread_private_dcontext() == NULL) ? 
-                             info->size : 0))
+            is_elf_so_header(info->base_pc, ((dcontext == NULL ||
+                                              dcontext == GLOBAL_DCONTEXT) ? 
+                                             info->size : 0)))
             info->type = DR_MEMTYPE_IMAGE;
         else {
             /* FIXME: won't quite match find_executable_vm_areas marking as
