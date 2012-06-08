@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -87,6 +87,10 @@ set_target_properties(policy_static PROPERTIES
   COMPILE_FLAGS "${libutil_cflags}")
 set_target_properties(policy_static PROPERTIES
   LINK_FLAGS "${libutil_ldflags}")
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for parallel build correctness we need a target dependence
+  add_dependencies(policy_static generate_syslog generate_events)
+endif ()
 
 add_library(drconfiglib SHARED ${BASE_SRCS} ${ROOT_SRCS} ${CORE_SRCS}
   ${RESOURCES} dr_config.c drconfig.def)
@@ -104,6 +108,10 @@ set_target_properties(drconfiglib PROPERTIES
 add_custom_command(TARGET drconfiglib POST_BUILD COMMAND ${CMAKE_COMMAND}
   ARGS -E copy "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/drconfiglib.dll"
   "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/" VERBATIM)
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for parallel build correctness we need a target dependence
+  add_dependencies(drconfiglib generate_syslog generate_events)
+endif ()
 
 add_executable(dumpevts dumpevts.c elm.c ${RESOURCES})
 set_target_properties(dumpevts PROPERTIES
@@ -111,6 +119,10 @@ set_target_properties(dumpevts PROPERTIES
   COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DUMPEVTS")
 set_target_properties(dumpevts PROPERTIES
   LINK_FLAGS "${libutil_ldflags}")
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for parallel build correctness we need a target dependence
+  add_dependencies(dumpevts generate_syslog generate_events)
+endif ()
 
 # used at Determina: not supported anymore
 if (MFAPI_ENABLED)
@@ -121,6 +133,10 @@ if (MFAPI_ENABLED)
     COMPILE_FLAGS "${libutil_cflags} -DRC_IS_MFAPI")
   set_target_properties(mfapi PROPERTIES
     LINK_FLAGS "${libutil_ldflags}")
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # for parallel build correctness we need a target dependence
+    add_dependencies(mfapi generate_syslog generate_events)
+  endif ()
 endif (MFAPI_ENABLED)
 
 DR_install(TARGETS drconfiglib

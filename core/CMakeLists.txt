@@ -157,6 +157,14 @@ set(ARCH_SRCS
 
 # These custom commands are per-subdir so can't just place at top level
 include(../make/CMake_events.cmake)
+# For correct parallel builds we need a target to avoid
+# duplicate and racy VS per-project rules.  We can't put this in
+# CMake_events.cmake b/c we end up w/ duplicate targets then.
+# Note that libutil/ uses these same targets but core is always enabled.
+add_custom_target(generate_syslog DEPENDS "${SYSLOG_SRCS}")
+if (WIN32)
+  add_custom_target(generate_events DEPENDS "${EVENTS_SRCS}")
+endif (WIN32)
 
 if (UNIX)
   set(OSNAME linux)
@@ -177,7 +185,6 @@ if (UNIX)
   endif (VMKERNEL)
   set(PRELOAD_NAME drpreload)
   set(PRELOAD_SRCS
-    ${SYSLOG_SRCS} 
     linux/preload.c
     config.c
     linux/os.c
@@ -229,7 +236,8 @@ else (UNIX)
   add_library(drinjectlib SHARED ${INJECTOR_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
-    add_dependencies(drinjectlib ${x86_noncore_asm_tgt})
+    add_dependencies(drinjectlib ${x86_noncore_asm_tgt} generate_syslog
+      generate_events)
   endif ()
 
   add_library(drearlyhelp1 SHARED
@@ -258,7 +266,7 @@ set_target_properties(dynamorio PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
-  add_dependencies(dynamorio ${x86_core_asm_tgt})
+  add_dependencies(dynamorio ${x86_core_asm_tgt} generate_syslog generate_events)
 endif ()
 
 if (UNIX)
@@ -292,6 +300,11 @@ function (add_unit_test name)
   string(TOUPPER "${name}" name_upper)
   add_executable(unit_test_${name}
     ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # for parallel build correctness we need a target dependence
+    add_dependencies(unit_test_${name} ${x86_core_asm_tgt} generate_syslog
+      generate_events)
+  endif ()
   set_target_properties(unit_test_${name} PROPERTIES
     COMPILE_FLAGS "-D${name_upper}_UNIT_TEST -DRC_IS_TEST -DUNIT_TEST_NAME=${name}"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
@@ -340,7 +353,8 @@ set_target_properties(${PRELOAD_NAME} PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}")
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
-  add_dependencies(${PRELOAD_NAME} ${x86_noncore_asm_tgt} ${preinject_asm_tgt})
+  add_dependencies(${PRELOAD_NAME} ${x86_noncore_asm_tgt} ${preinject_asm_tgt}
+    generate_syslog generate_events)
 endif ()
 
 # static decoding library
@@ -359,6 +373,10 @@ add_library(drdecode
   )
 set_target_properties(drdecode PROPERTIES
   COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for parallel build correctness we need a target dependence
+  add_dependencies(drdecode generate_syslog generate_events)
+endif ()
 
 ###########################################################################
 # linux build customization
