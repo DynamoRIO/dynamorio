@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011 Google, Inc.  All rights reserved.
+# Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
 # DAMAGE.
 
 # Requires pmake and 32 bit dev libraries to run.
+# On Fedora requires bmake and several patches.
 
 set -e
 
@@ -40,9 +41,19 @@ then
   exit 1
 fi
 
+# Fedora uses bmake.
+# We assume user has already patched according to
+# http://sourceforge.net/apps/trac/elftoolchain/wiki/BuildingFromSource
+if [[ -e /etc/fedora-release ]]
+then
+    make_cmd=bmake
+else
+    make_cmd=pmake
+fi
+
 elftc_dir="$1"
 dr_libelftc_dir=`dirname $0`
-dr_libelftc_dir=`realpath "${dr_libelftc_dir}"`
+dr_libelftc_dir=`(cd "${dr_libelftc_dir}" && pwd)`
 
 if [[ -d "${elftc_dir}" ]]
 then
@@ -53,16 +64,29 @@ else
 fi
 cd "${elftc_dir}"
 
+# Apply patches
+# Support re-applying by checking for $?==1
+set +e
+for p in "${dr_libelftc_dir}"/*.patch; do
+    patch -N -p0 < $p
+    # -N returns 1 when already applied
+    if [[ $? != 0 && $? != 1 ]]
+    then
+        exit 1
+    fi
+done
+set -e
+
 function build_for_bits() {
   bits="$1"
   ld_mode="$2"
-  # pmake does not notice if you rebuild with a different configuration, so we
+  # ${make_cmd} does not notice if you rebuild with a different configuration, so we
   # just make clean.  It builds quickly enough.
-  pmake clean
-  (cd common   && pmake COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes all)
-  (cd libelf   && pmake COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes libelf_pic.a)
-  (cd libdwarf && pmake COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes libdwarf_pic.a)
-  (cd libelftc && pmake COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes libelftc_pic.a)
+  ${make_cmd} clean
+  (cd common   && ${make_cmd} COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes all)
+  (cd libelf   && ${make_cmd} COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes libelf_pic.a)
+  (cd libdwarf && ${make_cmd} COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes libdwarf_pic.a)
+  (cd libelftc && ${make_cmd} COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes libelftc_pic.a)
   cp libelf/libelf_pic.a     "${dr_libelftc_dir}/lib${bits}/libelf.a"
   cp libdwarf/libdwarf_pic.a "${dr_libelftc_dir}/lib${bits}/libdwarf.a"
   cp libelftc/libelftc_pic.a "${dr_libelftc_dir}/lib${bits}/libelftc.a"

@@ -23,14 +23,13 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: libelf.h 1345 2011-01-01 11:17:52Z jkoshy $
+ * $Id: libelf.h 2366 2011-12-29 06:12:14Z jkoshy $
  */
 
 #ifndef	_LIBELF_H_
 #define	_LIBELF_H_
 
-#include <sys/param.h>
-#include <sys/queue.h>
+#include <sys/types.h>
 
 #include <elfdefinitions.h>
 
@@ -112,13 +111,6 @@ typedef struct _Elf_Data {
 	uint64_t	d_size;
 	Elf_Type	d_type;
 	unsigned int	d_version;
-
-	/*
-	 * Members that are not part of the public API.
-	 */
-	Elf_Scn		*d_scn;		/* containing section */
-	unsigned int	d_flags;
-	STAILQ_ENTRY(_Elf_Data)	d_next;
 } Elf_Data;
 
 /*
@@ -220,6 +212,8 @@ Elf_Data	*elf_newdata(Elf_Scn *_scn);
 Elf_Scn		*elf_newscn(Elf *_elf);
 Elf_Scn		*elf_nextscn(Elf *_elf, Elf_Scn *_scn);
 Elf_Cmd		elf_next(Elf *_elf);
+Elf		*elf_open(int _fd);
+Elf		*elf_openmemory(char *_image, size_t _size);
 off_t		elf_rand(Elf *_elf, off_t _off);
 Elf_Data	*elf_rawdata(Elf_Scn *_scn, Elf_Data *_data);
 char		*elf_rawfile(Elf *_elf, size_t *_size);

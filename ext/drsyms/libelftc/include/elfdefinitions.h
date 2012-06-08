@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id$
+ * $Id: elfdefinitions.h 2132 2011-11-10 08:27:41Z jkoshy $
  */
 
 /*
@@ -867,12 +867,22 @@ _ELF_DEFINE_PT(PT_PHDR,             6,				\
 _ELF_DEFINE_PT(PT_TLS,              7, "thread local storage")	\
 _ELF_DEFINE_PT(PT_LOOS,             0x60000000UL,		\
 	"start of OS-specific range")				\
+_ELF_DEFINE_PT(PT_SUNW_UNWIND,      0x6464E550UL,		\
+	"Solaris/amd64 stack unwind tables")			\
 _ELF_DEFINE_PT(PT_GNU_EH_FRAME,     0x6474E550UL,		\
-	"GCC generated .eh_frame_hdr segment ")			\
+	"GCC generated .eh_frame_hdr segment")			\
 _ELF_DEFINE_PT(PT_GNU_STACK,	    0x6474E551UL,		\
 	"Stack flags")						\
 _ELF_DEFINE_PT(PT_GNU_RELRO,	    0x6474E552UL,		\
 	"Segment becomes read-only after relocation")		\
+_ELF_DEFINE_PT(PT_SUNWBSS,          0x6FFFFFFAUL,		\
+	"A Solaris .SUNW_bss section")				\
+_ELF_DEFINE_PT(PT_SUNWSTACK,        0x6FFFFFFBUL,		\
+	"A Solaris process stack")				\
+_ELF_DEFINE_PT(PT_SUNWDTRACE,       0x6FFFFFFCUL,		\
+	"Used by dtrace(1)")					\
+_ELF_DEFINE_PT(PT_SUNWCAP,          0x6FFFFFFDUL,		\
+	"Special hardware capability requirements")		\
 _ELF_DEFINE_PT(PT_HIOS,             0x6FFFFFFFUL,		\
 	"end of OS-specific range")				\
 _ELF_DEFINE_PT(PT_LOPROC,           0x70000000UL,		\
@@ -899,6 +909,8 @@ enum {
 
 /* synonyms. */
 #define	PT_ARM_UNWIND	PT_ARM_EXIDX
+#define	PT_HISUNW	PT_HIOS
+#define	PT_LOSUNW	PT_SUNWBSS
 
 /*
  * Section flags.
@@ -1589,6 +1601,7 @@ _ELF_DEFINE_RELOC(R_MIPS_GOT16,		9)	\
 _ELF_DEFINE_RELOC(R_MIPS_PC16,		10)	\
 _ELF_DEFINE_RELOC(R_MIPS_CALL16,	11)	\
 _ELF_DEFINE_RELOC(R_MIPS_GPREL32,	12)	\
+_ELF_DEFINE_RELOC(R_MIPS_64,		18)	\
 _ELF_DEFINE_RELOC(R_MIPS_GOTHI16,	21)	\
 _ELF_DEFINE_RELOC(R_MIPS_GOTLO16,	22)	\
 _ELF_DEFINE_RELOC(R_MIPS_CALLHI16,	30)	\
