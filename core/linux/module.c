@@ -1500,8 +1500,7 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
 }
 
 static void
-module_relocate_symbol(app_pc modbase,
-                       ELF_REL_TYPE *rel,
+module_relocate_symbol(ELF_REL_TYPE *rel,
                        os_privmod_data_t *pd,
                        bool is_rela)
 {
@@ -1580,7 +1579,7 @@ module_relocate_symbol(app_pc modbase,
         break;
 #endif
     case ELF_R_IRELATIVE:
-        res = modbase + (is_rela ? addend : *r_addr);
+        res = (byte *)pd->load_delta + (is_rela ? addend : *r_addr);
         *r_addr =  ((ELF_ADDR (*) (void)) res) ();
         break;
     default:
@@ -1629,7 +1628,7 @@ module_relocate_rel(app_pc modbase,
     ELF_REL_TYPE *rel;
 
     for (rel = start; rel < end; rel++)
-        module_relocate_symbol(modbase, rel, pd, false);
+        module_relocate_symbol(rel, pd, false);
 }
 
 void
@@ -1641,7 +1640,7 @@ module_relocate_rela(app_pc modbase,
     ELF_RELA_TYPE *rela;
 
     for (rela = start; rela < end; rela++)
-        module_relocate_symbol(modbase, (ELF_REL_TYPE *)rela, pd, true);
+        module_relocate_symbol((ELF_REL_TYPE *)rela, pd, true);
 }
 
 /* Get the module text section from the mapped image file, 
