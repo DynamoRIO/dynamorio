@@ -178,6 +178,7 @@ add_custom_command(
   ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} "-Ddox_files=${dox_files}"
        -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
        -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_rundoxygen.cmake
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   VERBATIM # recommended: p260
   )
 set_directory_properties(PROPERTIES

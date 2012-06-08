@@ -2283,7 +2283,6 @@ double_strrchr(const char *string, char c1, char c2)
 #endif
 
 #ifdef WINDOWS
-# if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 /* Just like wcslen, but if the string is >= MAX characters long returns MAX
  * whithout interrogating past str+MAX.  NOTE - this matches most library 
  * implementations, but does NOT work the same way as the strnlen etc.
@@ -2292,7 +2291,7 @@ double_strrchr(const char *string, char c1, char c2)
  * eventually would be nice to share the various string routines used both by
  * the core and the hotpatch2 module. */
 size_t
-wcsnlen(const wchar_t *str, size_t max)
+our_wcsnlen(const wchar_t *str, size_t max)
 {
     const wchar_t *s = str;
     size_t i = 0;
@@ -2304,7 +2303,6 @@ wcsnlen(const wchar_t *str, size_t max)
 
     return i;
 }
-# endif
 #endif
 
 static int

@@ -656,6 +656,9 @@ else (UNIX)
   # FIXME case 191729: we should try to enable this.
   # Currently we get "unresolved external symbol ___security_cookie"
   set(BASE_CFLAGS "${BASE_CFLAGS} /GS-")
+  # VS2010 has /MD as the default (and does declspec(dllimport) for
+  # libc routines) so make sure we explicitly request /MT
+  set(BASE_CFLAGS "${BASE_CFLAGS} /MT")
   set(WARN "/W4 /WX")
   # Default from cmake has /W3 so remove to avoid warning about overriding
   string(REGEX REPLACE "/W[0-9]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
@@ -691,6 +694,7 @@ else (UNIX)
   set(ASM_FLAGS "/nologo ${ASM_DBG}")
   set(BASE_CXXFLAGS "${BASE_CFLAGS}")
 endif (UNIX)
+string(REPLACE " " ";" ASM_FLAGS_LIST "${ASM_FLAGS}")
 
 if (UNIX)
  # i#646: cmake 2.8.5 requires ASM-ATT to find as: but we don't want to change

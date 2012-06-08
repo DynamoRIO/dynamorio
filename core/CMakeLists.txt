@@ -61,7 +61,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
       COMMAND "${CMAKE_COMMAND}" ARGS
         -Dfile=${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.s
         -P "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-      COMMAND "${CMAKE_ASM_COMPILER}" ARGS ${ASM_FLAGS} /c
+      COMMAND "${CMAKE_ASM_COMPILER}" ARGS ${ASM_FLAGS_LIST} /c
         /Fo "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.s"
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

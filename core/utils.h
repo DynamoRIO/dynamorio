@@ -1098,10 +1098,9 @@ char * double_strchr(char *string, char c1, char c2);
 const char * double_strrchr(const char *string, char c1, char c2);
 #else
 /* double_strrchr() defined in win32/inject_shared.h */
-# if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-/* conflicts w/ VC8 string.h in drinjectlib */
-size_t wcsnlen(const wchar_t *str, size_t max);
-# endif
+/* wcsnlen is provided in ntdll only from win7 onward */
+size_t our_wcsnlen(const wchar_t *str, size_t max);
+# define wcsnlen our_wcsnlen
 #endif
 bool str_case_prefix(const char *str, const char *pfx);
 

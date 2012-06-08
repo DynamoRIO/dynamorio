@@ -408,7 +408,7 @@ function (add_test_asm_tgt source name)
     add_custom_command(OUTPUT "${name}"
       DEPENDS "${source}"
         "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-        "${PROJECT_BINARY_DIR}/configure.h)"
+        "${PROJECT_BINARY_DIR}/configure.h"
       COMMAND ${CMAKE_COMMAND}
         ARGS -E copy "${source}" "${namebase}.asm"
       COMMAND "${CMAKE_C_COMPILER}" ARGS ${CMAKE_CPP_FLAGS}
@@ -418,7 +418,7 @@ function (add_test_asm_tgt source name)
       COMMAND "${CMAKE_COMMAND}" ARGS
         -Dfile=${namebase}.s
         -P "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-      COMMAND "${CMAKE_ASM_COMPILER}" ARGS ${ASM_FLAGS} /c
+      COMMAND "${CMAKE_ASM_COMPILER}" ARGS ${ASM_FLAGS_LIST} /c
         /Fo "${name}" "${namebase}.s"
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       VERBATIM # recommended: p260

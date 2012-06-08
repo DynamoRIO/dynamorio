@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -46,9 +46,25 @@ endif (X64)
 # Unfortunately with VC60 we can't make a debug build as libutil uses
 # VC71 and we can't incorporate the policy_staticd pdbs.
 
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} /EHsc")
-# avoid warning about overriding
-string(REGEX REPLACE "/W3" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+  if ("${config}" STREQUAL "")
+    set(config_upper "")
+  else ("${config}" STREQUAL "")
+    string(TOUPPER "_${config}" config_upper)
+  endif ("${config}" STREQUAL "")
+  set(CMAKE_CXX_FLAGS${config_upper} "${CMAKE_C_FLAGS${config_upper}} /EHsc")
+  # avoid warning about overriding
+  string(REGEX REPLACE "/W3" "" CMAKE_CXX_FLAGS${config_upper}
+    "${CMAKE_CXX_FLAGS${config_upper}}")
+  # static for portability
+  if (CMAKE_CXX_FLAGS${config_upper} MATCHES "/MD")
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS${config_upper}
+      "${CMAKE_CXX_FLAGS${config_upper}}")
+  else ()
+    set(CMAKE_CXX_FLAGS${config_upper} "${CMAKE_CXX_FLAGS${config_upper}} /MT")
+  endif ()
+endforeach (config)
+
 set(CMAKE_MFC_FLAG 1) # static dlls
 
 add_definitions(-DNOT_DYNAMORIO_CORE -DWIN32 -DUNICODE -D_UNICODE)
@@ -80,10 +96,15 @@ add_executable(DRgui WIN32
   ${CMAKE_CURRENT_BINARY_DIR}/DynamoRIO.rc
   )
 
-target_link_libraries(DRgui policy_static)
+# somehow VS2010 doesn't find its own SDK uuid.lib
+find_library(uuid_lib uuid)
+if (NOT uuid_lib)
+  message(FATAL_ERROR "uuid.lib not found")
+endif (NOT uuid_lib)
+target_link_libraries(DRgui policy_static ${uuid_lib})
 # FIXME: not sure why I need these flags
 # For VC71 need nodefault of libcmt instead?!?
 set_target_properties(DRgui PROPERTIES LINK_FLAGS
-  "/NODEFAULTLIB:libc.lib /ENTRY:wWinMainCRTStartup")
+  "/NODEFAULTLIB:libc.lib /NODEFAULTLIB:msvcrt.lib /ENTRY:wWinMainCRTStartup")
 
 DR_install(TARGETS DRgui DESTINATION ${INSTALL_BIN})

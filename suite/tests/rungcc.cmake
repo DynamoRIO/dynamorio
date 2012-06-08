@@ -36,7 +36,12 @@
 # if cygwin or mingw gcc is available, we do some extra tests
 # XXX: we could alternatively check in mingw-built binaries,
 # or even check in a mingw toolchain
-find_program(GCC gcc.exe DOC "path to gcc.exe")
+if (source MATCHES "cpp$")
+  set(compiler_name "g++.exe")
+else ()
+  set(compiler_name "gcc.exe")
+endif ()
+find_program(GCC ${compiler_name} DOC "path to ${compiler_name}")
 if (NOT GCC)
   message(FATAL_ERROR "gcc not found: unable to build")
 endif (NOT GCC)

@@ -539,7 +539,7 @@ restore_state_ex_event1(void *drcontext, bool restore_memory,
     /* i#488: test bool compatibility */
     bool is_trace = info->fragment_info.is_trace;
     if (sizeof(is_trace) != sizeof(info->fragment_info.is_trace))
-        dr_fprintf(STDERR, "bool size incompatibility!\n");
+        dr_fprintf(STDERR, "bool size incompatibility %d!\n", is_trace/*force ref*/);
 
     inc_count_first(EVENT_RESTORE_STATE_EX_1, EVENT_RESTORE_STATE_EX_2);
 

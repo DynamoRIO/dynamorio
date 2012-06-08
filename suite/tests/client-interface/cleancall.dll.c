@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -201,6 +202,12 @@ bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool trans
                                      /* test conflicting w/ scratch reg */
                                      opnd_create_base_disp(REG_XSP, scratch, 1,
                                                            0, OPSZ_PTR));
+                /* Even though we'll be doing a longjmp, building w/ VS2010 results
+                 * in silent failure on handling the exception so we restore xsp.
+                 */
+                PRE(bb, INSTR_CREATE_lea(drcontext, opnd_create_reg(REG_XSP),
+                                         OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
+                                                             2*sizeof(reg_t))));
                 PRE(bb, INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(REG_XAX),
                                             OPND_CREATE_ABSMEM(NULL, OPSZ_PTR)));
                 post_crash++;

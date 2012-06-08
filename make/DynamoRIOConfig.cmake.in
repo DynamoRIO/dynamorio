@@ -263,6 +263,14 @@ function (configure_DynamoRIO_global is_cxx change_flags)
         set_property(TARGET elftc PROPERTY
           IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/libelftc.a")
       endif ()
+      if (WIN32 AND EXISTS "${cwd}/../ext/lib${bits}/${type}/dwarf.lib")
+        add_library(dwarf STATIC IMPORTED)
+        set_property(TARGET dwarf PROPERTY
+          IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/dwarf.lib")
+        add_library(elftc STATIC IMPORTED)
+        set_property(TARGET elftc PROPERTY
+          IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/elftc.lib")
+      endif ()
 
       # Define imported target for DynamoRIO library, to allow dependencies on
       # the library and trigger client rebuild on DynamoRIO upgrade:
@@ -288,7 +296,11 @@ function (configure_DynamoRIO_global is_cxx change_flags)
           if (WIN32)
             # We could limit this global var changing to Windows,
             # but it simplifies cross-platform uses to be symmetric
-            string(REGEX REPLACE "/M[TD]" "/MT" local_${var} "${local_${var}}")
+            if (local_${var} MATCHES "/M[TD]")
+              string(REGEX REPLACE "/M[TD]" "/MT" local_${var} "${local_${var}}")
+            else ()
+              set(local_${var} "${local_${var}} /MT")
+            endif ()
             string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
           endif (WIN32)
           set(CLIENT_${var} "${local_${var}}" PARENT_SCOPE)
@@ -377,7 +389,11 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
       # conflicts w/ ntdll forwards, so we don't support dynamic libc
       # (xref i#686) (or /MT since it puts libc last but we manipulate
       # that later).
-      string(REGEX REPLACE "/MD" "/MT" tgt_cflags "${tgt_cflags}")
+      if (tgt_cflags MATCHES "/MD")
+        string(REGEX REPLACE "/MD" "/MT" tgt_cflags "${tgt_cflags}")
+      else ()
+        set(tgt_cflags "${tgt_cflags} /MT")
+      endif ()
     endif (WIN32)
   endif (is_client)
 
