@@ -798,17 +798,6 @@ function(append_link_flags target newflags)
     LINK_FLAGS "${cur_ldflags} ${newflags}")
 endfunction(append_link_flags)
 
-function(remove_debug_flag target)
-  if (WIN32)
-    # for years we had no /debug.  we added it recently in i#567 and it broke
-    # a few tests.  removing it from those to get them passing until we can
-    # take a deeper look.
-    get_target_property(cur_ldflags ${target} LINK_FLAGS)
-    string(REGEX REPLACE "/debug" "" cur_ldflags ${cur_ldflags})
-    set_target_properties(${target} PROPERTIES LINK_FLAGS "${cur_ldflags}")
-  endif (WIN32)
-endfunction(remove_debug_flag)
-
 ###########################################################################
 # RUNNING
 
@@ -1557,7 +1546,6 @@ else (UNIX)
   #tobuild_dll(win32.reload-race win32/reload-race.c "")
 
   tobuild_dll(win32.section-max win32/section-max.c "")
-  remove_debug_flag(win32.section-max.dll) # i#567: breaks w/ /debug
 
   tobuild(win32.suspend win32/suspend.c)
   tobuild(win32.threadchurn win32/threadchurn.c)
@@ -1623,7 +1611,6 @@ else (UNIX)
 
   tobuild(security-win32.sd_tester security-win32/sd_tester.c)
   tobuild(security-win32.sec-adata security-win32/sec-adata.c)
-  remove_debug_flag(security-win32.sec-adata) # i#567: breaks w/ /debug
 
   # FIXME: getting warnings from pragmas in src code:
   #   secalign-fixed.dll.c.obj : warning LNK4229: invalid directive '/fixed' encountered; ignored
@@ -1639,13 +1626,10 @@ else (UNIX)
   append_link_flags(security-win32.sec-fixed.dll "/dynamicbase:no /fixed")
 
   tobuild_dll(security-win32.sec-xdata security-win32/sec-xdata.c "")
-  remove_debug_flag(security-win32.sec-xdata) # i#567: breaks w/ /debug
-  remove_debug_flag(security-win32.sec-xdata.dll) # i#567: breaks w/ /debug
 
   # PR 209235 covers re-enabling selfmod-threads
   #tobuild(security-win32.selfmod-threads security-win32/selfmod-threads.c)
   tobuild(security-win32.TestNTFlush security-win32/TestNTFlush.c)
-  remove_debug_flag(security-win32.TestNTFlush) # i#567: breaks w/ /debug
 
   # FIXME: enable once have .runall support
   #tobuild_runall(runall.calc-detach runall/calc-detach.runall "")
@@ -1696,10 +1680,8 @@ tobuild(security-common.selfmod security-common/selfmod.c)
 tochcon(security-common.selfmod textrel_shlib_t)
 
 tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
-remove_debug_flag("security-common.TestAllocWE") # i#567: breaks w/ /debug
 
 tobuild("security-common.TestMemProtChg" security-common/TestMemProtChg.c)
-remove_debug_flag("security-common.TestMemProtChg") # i#567: breaks w/ /debug
 tochcon("security-common.TestMemProtChg" wine_exec_t)
 mark_execstack("security-common.TestMemProtChg")
 

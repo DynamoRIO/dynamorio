@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -293,6 +293,10 @@ copy_to_buf_normal(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet f
         break;
     default:
         print("Failed to copy func\n");
+    }
+    if (*(unsigned char*)start == 0xe9/*jmp*/) {
+        /* handle ILT indirection by resolving jmp target */
+        start = (unsigned char*)start + 5 + *(int*)((unsigned char*)start+1);
     }
     if (len > buf_len) {
         print("Insufficient buffer for copy, have %d need %d\n", buf_len, len);
