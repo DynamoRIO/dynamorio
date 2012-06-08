@@ -59,13 +59,13 @@ This section is divided into the following subsections:
 \endhtmlonly
 \section sec_package Distribution Contents
 
-The following are part of the \DynamoRIO release distribution:
+The following are part of the DynamoRIO release distribution:
 
 \if profiling
   FIXME PR 225255: profile library too
 \endif
 
- - Four different \DynamoRIO libraries: debug and release for each of
+ - Four different DynamoRIO libraries: debug and release for each of
    32-bit and 64-bit. 
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
@@ -73,30 +73,30 @@ The following are part of the \DynamoRIO release distribution:
    for each of 32-bit and 64-bit. 
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
- - The \DynamoRIO configuration and execution libraries and command-line
+ - The DynamoRIO configuration and execution libraries and command-line
    utilities \c drconfiglib.dll, \c drinjectlib.dll, \c drconfig.exe,
    \c drrun.exe, and \c drinject.exe.
    \if linux Windows package only. \endif
  - A utility \c drview.exe for viewing which processes
-   are running under \DynamoRIO control.
+   are running under DynamoRIO control.
    \if linux Windows package only. \endif
 \if linux
  - The \c drconfig, \c drrun, and \c drinject scripts for configuring and
-   running applications under \DynamoRIO on Linux.  Linux package only.
+   running applications under DynamoRIO on Linux.  Linux package only.
 \endif
- - Header files for the \DynamoRIO APIs.
+ - Header files for the DynamoRIO APIs.
  - This documentation.
- - \ref API_samples "Sample \clients".
+ - \ref API_samples "Sample clients".
 \ifnot vmsafe
  - A graphical statistics viewer \c DRgui.exe that displays internal
-   \DynamoRIO statistics as well as custom statistics defined
-   by a \client (see \ref sec_ex7). \if linux Windows package only. \endif
-   \DynamoRIO exports a large number of statistics in its debug build, and
+   DynamoRIO statistics as well as custom statistics defined
+   by a client (see \ref sec_ex7). \if linux Windows package only. \endif
+   DynamoRIO exports a large number of statistics in its debug build, and
    a handful in release builds.
 \endif
 \ifnot vmsafe
  - A binary tracedump reader, which also functions as a sample
-   \client using \DynamoRIO as a standalone library (see \ref
+   client using DynamoRIO as a standalone library (see \ref
    sec_standalone).
 \endif
 
@@ -122,7 +122,7 @@ The current version is \DR_VERSION.
 
 The changes between version \DR_VERSION and 3.2.0 are:
 
- - Added persistent cache support for \clients via
+ - Added persistent cache support for clients via
    dr_register_persist_ro(), dr_register_persist_rx(), 
    dr_register_persist_rw(), dr_register_persist_patch(), and
    #DR_EMIT_PERSISTABLE.  However, dr_register_persist_patch() is
@@ -134,7 +134,7 @@ The changes between version \DR_VERSION and 3.2.0 are:
    exit code
  - Added dr_convert_handle_to_pid()
  - Added dr_nudge_client_ex() to enable nudging other processes
-   from within a \client
+   from within a client
  - Added reg_resize_to_opsz()
  - Added dr_save_arith_flags_to_xax() and dr_restore_arith_flags_from_xax()
  - Added dr_snwprintf() and dr_vsnwprintf()
@@ -156,7 +156,7 @@ The changes between version 3.2.0 and 3.1.0 are:
    drsyms Extension
  - Added support for building extensions as static libraries (subject to
    licensing constraints) via DR_EXT_{DRWRAP,DRUTIL,DRMGR,DRSYMS}_STATIC
- - Added support for linking C \clients with libc via DynamoRIO_USE_LIBC
+ - Added support for linking C clients with libc via DynamoRIO_USE_LIBC
  - Added dr_insert_clean_call_ex()
  - Added a no-frills drwrap mode for faster but constrained wrapping
  - Added drwrap_get_drcontext() for performance
@@ -191,22 +191,22 @@ released version of the 3.x series.
 The changes between version 3.0.0 and 2.2.0 include the following major
 features:
 
- - Added a private loader on Linux for better support for C++ \clients and
-   third-party library usage by \clients
+ - Added a private loader on Linux for better support for C++ clients and
+   third-party library usage by clients
  - Added Linux support for \p drsyms to enable symbol processing in 
-   Linux \clients
+   Linux clients
  - Added \p drutil Extension which provides memory address retrieval
    and string loop expansion (note: LGPL license)
  - Added a static library for decoding and encoding
 
-\b IMPORTANT: The 3.0.0 and onward \client API is mostly backward
+\b IMPORTANT: The 3.0.0 and onward client API is mostly backward
 compatible with releases from 1.0.0 (originally called 0.9.6: see below)
 onward with the exception of functions that involve dr_mcontext_t and
 several other source and binary compatibility changes since version 2.2.0
 described below.  The dr_mcontext_t struct and all structs that contain it
 have changed and are NOT backward compatible with releases prior to 3.0.0.
 
-A sample script for updating \client sources to the 3.0.0 API's version of
+A sample script for updating client sources to the 3.0.0 API's version of
 dr_mcontext_t and related functions is as follows:
 
 \code
@@ -221,7 +221,7 @@ s|excpt->mcontext\.|excpt->mcontext->|g;' *.c
 \endcode
 
 The script makes 3 main changes.  First, any dr_mcontext_t allocated by the
-\client must have its \p size and \p flags fields set.  Second, the \p app_errno
+client must have its \p size and \p flags fields set.  Second, the \p app_errno
 parameter was removed from several functions; it required a local variable,
 so any local named \p app_errno is removed.  Third, the dr_mcontext_t
 fields in the fault, signal, and exception structs all became
@@ -242,11 +242,11 @@ affect source and/or binary compatibilty:
 
  - Changed the #dr_mcontext_t structure field layout.  This is a binary
    compatibility change with respect to versions prior to 3.0.0.
- - Added a dr_mcontext_t.size field which must be set by the \client prior
+ - Added a dr_mcontext_t.size field which must be set by the client prior
    to calling dr_get_mcontext(), dr_set_mcontext(), or
    dr_redirect_execution.  This is a source compatibility change with
    respect to versions prior to 3.0.0.
- - Added a dr_mcontext_t.flags field which must be set by the \client prior
+ - Added a dr_mcontext_t.flags field which must be set by the client prior
    to calling dr_get_mcontext(), dr_set_mcontext(), or
    dr_redirect_execution.  This is a source compatibility change with
    respect to versions prior to 3.0.0.
@@ -313,11 +313,11 @@ The changes between version 2.2.0 and 2.1.0 are:
 
  - Added \p drwrap Extension which provides function wrapping
    and replacing (note: LGPL license)
- - Added \p drmgr Extension: the \DynamoRIO Multi-Instrumentation Manager
+ - Added \p drmgr Extension: the DynamoRIO Multi-Instrumentation Manager
    Extension, a mediator for combining and coordinating multiple
    instrumentation passes
  - Added read-write locks (Issue 406)
- - Added isolation of \client-opened files from the application (Issue 357)
+ - Added isolation of client-opened files from the application (Issue 357)
  - Added dr_mcontext_t.xip for syscall events (Issue 442)
  - Several bug fixes
 
@@ -325,10 +325,10 @@ The changes between version 2.1.0 and 2.0.0 are:
 
  - Added Windows 7 support
  - Added clean call sequence optimization and auto-inlining.
- - Added Windows child process following support for \clients: -follow_children
+ - Added Windows child process following support for clients: -follow_children
    is now on by default for both Windows and Linux.
  - Added DR_TRY_EXCEPT() (Issue 51)
- - Added dynamic \client auxiliary library loading support
+ - Added dynamic client auxiliary library loading support
    via dr_load_aux_library(), dr_lookup_aux_library_routine(), and
    dr_unload_aux_library()
  - Added dr_switch_to_app_state() and dr_switch_to_dr_state()
@@ -346,15 +346,15 @@ The changes between version 2.1.0 and 2.0.0 are:
  - Added limited support for printing to the cmd window (Issue 261) via the
    \p drsyms Extension: drsym_write_to_console() and drsym_using_console() 
  - Renamed the REG_ constants to DR_REG_ to avoid conflicts with system
-   headers (Issue 34).  \Clients should set(DynamoRIO_REG_COMPATIBILITY ON)
+   headers (Issue 34).  Clients should set(DynamoRIO_REG_COMPATIBILITY ON)
    prior to configure_DynamoRIO_client() to use the old constants and avoid
-   any source changes; this will happen automatically if the \client
+   any source changes; this will happen automatically if the client
    targets version 2.0 or earlier.  Binary compatibility is unaffected.
  - Deprecated dr_request_synchronized_exit() and replaced it with
    dr_set_process_exit_behavior().  Now a full thread synch is performed
    at exit time in release build if a process exit event or thread exit
    event is registered.  dr_set_process_exit_behavior() can provide
-   more performant exit performance for \clients that have flexible
+   more performant exit performance for clients that have flexible
    exit event requirements.
  - Switched debug build to also be an INTERNAL=ON build
  - Fixed bug in handling single-byte-bb selfmod code
@@ -364,7 +364,7 @@ The changes between version 2.1.0 and 2.0.0 are:
  - Fixed Issue 320: a problem with thread-private cache resizing
  - Fixed Issue 319: decode movlhps and movhlps properly
  - Fixed Issue 139: add xmm0-7 preservation for 32-bit Linux applications, 
-   which may have noticeable impacts on \clients calling clean calls:
+   which may have noticeable impacts on clients calling clean calls:
    e.g., pushing bbs over the max size limit or having a noticeable
    performance hit.
  - Support building sources using Visual Studio
@@ -398,8 +398,8 @@ The changes between version 2.0.0 and 1.5.0 are:
    this release.
  - Added drinjectlib.dll and dr_inject.h, making custom injection tools
    easier to build (Issue 246)
- - Added \DynamoRIO Extension support for auxiliary libraries that extend the
-   \DynamoRIO API (Issue 277)
+ - Added DynamoRIO Extension support for auxiliary libraries that extend the
+   DynamoRIO API (Issue 277)
  - Added symbol lookup support via Extension (Windows only for now) (Issue 44)
  - Added a "drcontainers" Extension that initially contains a hashtable
  - Added thread creation support: dr_create_client_thread() (Issue 41)
@@ -419,17 +419,17 @@ The changes between version 2.0.0 and 1.5.0 are:
 The changes between version 1.5.0 and 1.4.0 are:
 
  - Added a private loader on Windows for better support for library usage
-   by \clients
+   by clients
  - Added nudge support on Linux
  - Added dr_suspend_all_other_threads() and dr_resume_all_other_threads()
- - Made it easier for \clients to use faults to push rare events out of
+ - Made it easier for clients to use faults to push rare events out of
    instrumentation paths:
    - Added access to the pre-translated context and the code fragment
      information for both 
      dr_register_signal_event() and dr_register_exception_event()
      This changed the return type for exception event callbacks.
    - Added a signal/exception event on a fault in non-code-cache
-     \DynamoRIO code, such as \client-generated code.
+     DynamoRIO code, such as client-generated code.
    - Added the "meta-instruction that can fault" property via
      instr_is_meta_may_fault(), instr_set_meta_may_fault(),
      instrlist_meta_fault_preinsert(), instrlist_meta_fault_postinsert(),
@@ -442,7 +442,7 @@ The changes between version 1.5.0 and 1.4.0 are:
  - Added dr_get_parent_id()
  - Added decode_opcode_name()
  - Removed the deprecated snprintf() as it causes symbol pre-emption
-   problems on Linux.  Older \clients should switch to dr_snprintf().
+   problems on Linux.  Older clients should switch to dr_snprintf().
  - Fixed bug in cross-architecture execve (Issue 146)
  - Clone record is now passed via dstack instead of ebp (Issue 149)
  - Fixed close() syscall handling, !HAVE_TLS assert & minor issues (Issue 151)
@@ -450,7 +450,7 @@ The changes between version 1.5.0 and 1.4.0 are:
 The changes between version 1.4.0 and 1.3.2 are:
 
  - Added directly-addressable thread-local storage slots for exclusive
-   \client use:
+   client use:
    - dr_raw_tls_calloc()
    - dr_raw_tls_free()
  - Provide 64-bit versions of the drdeploy.exe and drview.exe tools
@@ -460,9 +460,9 @@ The changes between version 1.4.0 and 1.3.2 are:
    - Added STDIN and dr_get_stdin_file()
  - Added shared library versioning on Linux
  - Support calling dr_get_mcontext() from bb and trace callbacks
- - Provide support for building \clients using CMake (see cmake/*, and for
+ - Provide support for building clients using CMake (see cmake/*, and for
    an example of usage see samples/CMakeLists.txt)
- - Provide support for \clients to use -fvisibility by setting
+ - Provide support for clients to use -fvisibility by setting
    the define USE_VISIBILITY_ATTRIBUTES for dr_defines.h
  - Added instr_compute_address_ex() for instrs with multiple memory operands
  - Provide dr_snprintf() (identical to snprintf()) for consistent naming
@@ -471,7 +471,7 @@ The changes between version 1.4.0 and 1.3.2 are:
  - The statistics viewer \c DRgui.exe is no longer supported on Windows
    NT.  Statistics still work, but the graphical application itself will
    not run on NT.
- - Changed the top-level registry key to "\DynamoRIO"
+ - Changed the top-level registry key to "DynamoRIO"
  - Re-arranged layout of bin and samples directories
  - Symbols for all binaries are now included
 
@@ -497,7 +497,7 @@ The changes between version 1.3.2 and 1.3.1 are:
 Version 1.3.1 is identical to 1.3.0 but is under a BSD license (see \ref
 page_license).
 
-We re-numbered the previous \DynamoRIO versions as follows:
+We re-numbered the previous DynamoRIO versions as follows:
 
  - 1.0.0 = 0.9.6 build 9600
  - 1.1.0 = 0.9.6 build 9601
@@ -540,8 +540,8 @@ The changes between version 1.3.0 and version 1.2.0 (0.9.6 9602) are:
 
 The changes between the 0.9.6 release builds 9602 and 9601 are:
 
- - Performance improvements for both the base \DynamoRIO system and for
-   \client instrumentation when running on Pentium M, Core, and Core 2
+ - Performance improvements for both the base DynamoRIO system and for
+   client instrumentation when running on Pentium M, Core, and Core 2
    processors.
  - 64-bit bug fixes
  - Added several convenience routines:
@@ -565,10 +565,10 @@ The changes between the 0.9.6 release builds 9601 and 9600 are:
 Release 0.9.6 is \b not backward compatible with prior releases 0.9.1-0.9.5.
 
 The major changes between the 0.9.6 and 0.9.5 releases include 64-bit
-support, multiple \clients, state translation, trace contents, and Linux
+support, multiple clients, state translation, trace contents, and Linux
 module events and fast system calls:
 
- - 64-bit applications and \clients are now supported.  This changed
+ - 64-bit applications and clients are now supported.  This changed
    several function signatures: 
    - instr_encode()
    - decode_next_pc()
@@ -598,21 +598,21 @@ module events and fast system calls:
    - reg_is_extended()
    - reg_parameter_num()
    .
-   To build a 64-bit \client, set the \p X86_64 preprocessor define before
-   including the \DynamoRIO header files, and link with the 64-bit build of
-   \DynamoRIO (for a 32-bit \client, set \p X86_32).
- - Multiple \clients are now supported.  This changed the signatures of
+   To build a 64-bit client, set the \p X86_64 preprocessor define before
+   including the DynamoRIO header files, and link with the 64-bit build of
+   DynamoRIO (for a 32-bit client, set \p X86_32).
+ - Multiple clients are now supported.  This changed the signatures of
    dr_init(), dr_get_options(), and dr_get_client_path().  It also changed
-   how \clients are deployed and nudged, and how events are unregistered:
+   how clients are deployed and nudged, and how events are unregistered:
    explicit unregistration routines are now used.
- - State translation in the presence of \clients is now fully supported.
+ - State translation in the presence of clients is now fully supported.
    This changed the signature for the basic block and trace event callbacks
    (see dr_register_bb_event() and dr_register_trace_event()), added a
    new event dr_register_restore_state_event(), and added new functions
    instr_set_translation(), instr_set_meta_no_translation(), and INSTR_XL8().
  - The trace callback (#dr_register_trace_event()) now presents original
-   application code to the \client, rather than code that has already
-   been modified for execution in the code cache.  The \client also has
+   application code to the client, rather than code that has already
+   been modified for execution in the code cache.  The client also has
    flexibility in which instrumentation is included from constituent
    basic blocks added to a trace (the \p for_trace parameter: see
    #dr_register_bb_event()).
@@ -640,7 +640,7 @@ module events and fast system calls:
    for that functionality.
  - The disassemble-from-address routines now return NULL when pointed at
    invalid instructions (matching the decode routines).
- - The routines to access \DynamoRIO tls slots from the cache were changed.
+ - The routines to access DynamoRIO tls slots from the cache were changed.
    dr_insert_write_temp_tls was eliminated in favor of a generalized #dr_save_reg
    with more flexibility on which slot can be used.  #dr_save_arith_flags was
    similarly generalized.  Slots are now guaranteed to remain valid until the
@@ -652,16 +652,16 @@ module events and fast system calls:
 The major changes between the 0.9.5 and 0.9.4 releases are:
 
  - The basic block hook (\ref sec_events_bb) passes completely unmodified
-   application code to the \client (no mangling or elision).
- - The old \client hook exports have been replaced with an explicit event
+   application code to the client (no mangling or elision).
+ - The old client hook exports have been replaced with an explicit event
    registration model.
- - Instruction representation simplification: the \client only sees fully
+ - Instruction representation simplification: the client only sees fully
    decoded instructions.
  - Easier-to-use clean calls (see #dr_insert_clean_call).
  - Library support (-wrap on linux, ntdll on windows: see \ref sec_extlibs
    and \ref sec_utils).
  - Some features have been removed (these are easily implemented by a
-   \client): there is no more edge-counting profile build, no more
+   client): there is no more edge-counting profile build, no more
    custom exit stubs, and no more prefixes.
  - Infrastructure improvements:
    - Thread-shared caches (can still request thread-private: \ref
@@ -683,15 +683,15 @@ The major changes between the 0.9.5 and 0.9.4 releases are:
 \if future
 FIXME not done yet
 
-  - see \clients/mit_release/using.html: what's included, etc.
+  - see clients/mit_release/using.html: what's included, etc.
   - DRcontrol: specify target app and runtime options (TODO: case 10647:
                                                        external vs internal ops) 
   - GUI: just stats viewer, or control too?
   - DRview
   - native_exec (TODO: specify on module load; TODO: case 10846 eliding problems)
-  - multiple \clients (TODO: multiple non-mutating, one mutating RIO \client;
-                      multiple probe \clients w/ chaining; one prog shep \client?)
-  - detach (TODO: ask each \client to clean up)
+  - multiple clients (TODO: multiple non-mutating, one mutating RIO client;
+                      multiple probe clients w/ chaining; one prog shep client?)
+  - detach (TODO: ask each client to clean up)
   - updating: load new library  
 
 Options for communication in and out of the process are discussed in \ref
@@ -708,25 +708,25 @@ sec_comm.
 \endhtmlonly
 \section sec_limits Limitations
 
-\subsection sec_limit_clients \Client Limitations
-The most important limitation on a \client is that it remain transparent.
+\subsection sec_limit_clients Client Limitations
+The most important limitation on a client is that it remain transparent.
 This is described fully in \ref transparency.
 Here we summarize the key points to remain transparent:
 
-  - For full transparency, the \client should be a self-contained library
-with linkage to nothing other than \DynamoRIO libraries.  We
+  - For full transparency, the client should be a self-contained library
+with linkage to nothing other than DynamoRIO libraries.  We
 provide private loading that makes some use of system libraries safe, but
-global resource conflicts can still occur and \clients are cautioned from
+global resource conflicts can still occur and clients are cautioned from
 using system-interacting library routines.
 See \ref sec_extlibs for further details.
-  - Currently, the communication API provided by \DynamoRIO is limited to file
+  - Currently, the communication API provided by DynamoRIO is limited to file
 I/O and nudges.
 \if vmsafe
   - The security agent on the security monitor VM has no direct
-    relationship with \DynamoRIO.  However, the VMsafe solution provider
+    relationship with DynamoRIO.  However, the VMsafe solution provider
     can architect their own communication channel between the security
-    agent on the security monitor VM and the \client by using an agent on
-    the \client's VM as an intermediary.
+    agent on the security monitor VM and the client by using an agent on
+    the client's VM as an intermediary.
  \anchor limits_winlogon
   - There is a known false positive in the anti-piracy DRM code in the
     Windows Genuine Advantage component of winlogon.exe.  This code
@@ -734,30 +734,30 @@ I/O and nudges.
     behavior.
 \endif
 \if vmsafe
-  - The \client can run in only one mode at a time, which cannot be changed during the
+  - The client can run in only one mode at a time, which cannot be changed during the
 execution of the process.  Mode change can be done only on a subsequent
 application restart.
-  - The \client should call only the API corresponding to the mode it was started
+  - The client should call only the API corresponding to the mode it was started
 in.  Mixing API from different modes can lead to unspecified results and is
 not supported.
   - Probe API allows only one registration of probes, which must occur in
     dr_init().  
   - Probes can be specified only with library names and offsets from the base
     of the library in memory (\ref DR_PROBE_ADDR_LIB_OFFS).
-  - When a probe callback finishes execution it can't request \DynamoRIO to
+  - When a probe callback finishes execution it can't request DynamoRIO to
     perform any actions like logging, control flow changes, etc.
   - Probe locations can't include system call wrappers in ntdll.dll, i.e.,
     ntdll!Nt* routines can't be probe locations.
 \endif
 
 \subsection sec_limit_platforms Platform Limitations
-  - \DynamoRIO currently supports the following NT-based 32-bit
+  - DynamoRIO currently supports the following NT-based 32-bit
     Windows systems : NT (all service packs), 2000 (all service
     packs), XP (32-bit, service packs 0-3), 2003 (32-bit, service
     packs 0-2), Vista (32-bit, service packs 0-1), and Windows 7 (32-bit,
     service packs 0-1). It does not support Windows 95, 98, or ME.
     Windows Server 2008 is likely to work but has not been tested.
-  - This release of \DynamoRIO has limited support for running 32-bit
+  - This release of DynamoRIO has limited support for running 32-bit
     Windows applications on the following 64-bit Windows operating
     systems : Windows XP Professional x64 (service pack 2), Windows 2003
     x64 (service pack 2), Vista x64 (service packs 0-1), and Windows 7
@@ -766,31 +766,31 @@ not supported.
     code will be seen, and child processes created will not be injected
     into.  On 64-bit Windows 32-bit applications are automatically run
     through the Windows-On-Windows or WOW64 emulator so system call and
-    indirect call processing \clients must be aware of
+    indirect call processing clients must be aware of
     #instr_is_wow64_syscall().
 \anchor limits_64bit
-  - This release of \DynamoRIO supports running
-    64-bit Windows applications, using the 64-bit \DynamoRIO build, on
+  - This release of DynamoRIO supports running
+    64-bit Windows applications, using the 64-bit DynamoRIO build, on
     the following 64-bit Windows systems: Windows XP Professional x64
     (service pack 2), Windows 2003
     x64 (service pack 2), Vista x64 (service packs 0-1), and Windows 7 x64
     (service packs 0-1). Windows Server 2008 is likely to work but has not
     been tested.
-  - \DynamoRIO does not support any Itanium based Windows systems.
+  - DynamoRIO does not support any Itanium based Windows systems.
   - This release does not fully support applications that mix 32-bit and
     64-bit code.  Future releases will support such mixtures.
-  - When running a cygwin application under control of \DynamoRIO,
-    stderr and stdout output from \DynamoRIO or its \clients may not
+  - When running a cygwin application under control of DynamoRIO,
+    stderr and stdout output from DynamoRIO or its clients may not
     be visible.
   - The statistics viewer \c DRgui.exe is no longer supported on Windows
     NT.  Statistics still work, but the graphical application itself will
     not run on NT.
 \if linux
-  - This release of \DynamoRIO has support for most 32-bit and
+  - This release of DynamoRIO has support for most 32-bit and
     64-bit Linux
     distributions running on Intel-compatible hardware, including
     Ubuntu and Fedora.
-  - This release of \DynamoRIO has support for running 32-bit
+  - This release of DynamoRIO has support for running 32-bit
     Linux applications on 64-bit Linux operating systems on
     AMD64-compatible hardware.
   - Cross-architecture execve (e.g., a 32-bit process performing execve of
@@ -800,10 +800,10 @@ not supported.
 
 \subsection sec_limit_perf Performance Limitations
 
-  - In order to present a more straightforward code stream to \clients,
-    \DynamoRIO has several optimizations disabled in this release.
+  - In order to present a more straightforward code stream to clients,
+    DynamoRIO has several optimizations disabled in this release.
     System-call-heavy applications are the ones most likely to be affected.
-    Future releases may allow \clients to choose performance versus
+    Future releases may allow clients to choose performance versus
     visibility.  This release does provide the \ref op_memory "-opt_memory option"
     to enable prioritizing memory usage.
   - The performance \if vmsafe of Code Manipulation Mode and Memory 
@@ -819,7 +819,7 @@ not supported.
     address this issue.  \if vmsafe Probe Mode and Memory Firewall
     Mode are not affected. \endif
   - When using \if vmsafe Code Manipulation Mode or Memory Firewall
-    Mode \else \DynamoRIO \endif on all or many processes on a system
+    Mode \else DynamoRIO \endif on all or many processes on a system
     simultaneously, memory usage may become a factor.  Upcoming
     releases will address this issue.  \if vmsafe Note that Probe Mode
     incurs significantly less overhead than the other modes. \endif
@@ -830,47 +830,47 @@ not supported.
     library should ensure that no more then one thread accesses the
     library at a time.
   - Other installed software that uses hooks may not always be
-    interoperable with \DynamoRIO.
-  - Other installed software may conflict with \DynamoRIO's use of the
+    interoperable with DynamoRIO.
+  - Other installed software may conflict with DynamoRIO's use of the
     \c \\HKLM\\SOFTWARE\\Microsoft\\Windows\\WindowsNT\\CurrentVersion\\AppInit_DLLs
     registry key (only very rarely an issue).
   - On Windows 7 and Windows Server 2008 R2, the digital signature
     requirement for AppInit_DLLs libraries is disabled when systemwide
     injection is requested.  This can be a security concern.    
-  - Cygwin processes may not work with \DynamoRIO due to cygwin's
-    implementation of fork being incompatible with \DynamoRIO.
-  - Though \DynamoRIO supports running on Windows NT, the provided
+  - Cygwin processes may not work with DynamoRIO due to cygwin's
+    implementation of fork being incompatible with DynamoRIO.
+  - Though DynamoRIO supports running on Windows NT, the provided
     installer will only run on Windows 2000 and higher.  After
     installation on a 2000 or higher machine the \ref sec_package may
     be copied to the NT machine for use there.
   - On Windows NT, a reboot is required after the initial
-    dr_register_process() in order for \DynamoRIO to take control of any
+    dr_register_process() in order for DynamoRIO to take control of any
     applications.  The reboot will not change or undo the registration.
   - A Windows application that does not statically link with
-    user32.dll will not be run under control of \DynamoRIO unless its
+    user32.dll will not be run under control of DynamoRIO unless its
     parent process (typically cmd.exe or explorer.exe, for manually
-    launched applications) is already under \DynamoRIO control
+    launched applications) is already under DynamoRIO control
     \if vmsafe (the parent can be in any mode)\endif or the drinject.exe
     utility is used to launch the application. Only some small
     non-graphical applications do not link with user32.dll.
   - When invoking an application in any way that is not from a parent
-    process under \DynamoRIO control, \DynamoRIO takes control a little
+    process under DynamoRIO control, DynamoRIO takes control a little
     later and in some rare cases the application has already created a new
     thread.  This is in violation of the Windows specficiations, but cygwin
-    processes do this.  This new thread will not be under \DynamoRIO
+    processes do this.  This new thread will not be under DynamoRIO
     control and can cause a variety of problems.  In such cases it is best
-    to invoke from a parent process under \DynamoRIO control.  However, for
-    32-bit applications on 64-bit Windows operating systems, \DynamoRIO
+    to invoke from a parent process under DynamoRIO control.  However, for
+    32-bit applications on 64-bit Windows operating systems, DynamoRIO
     takes over later even from the parent.  Future releases will address
     this limitation.
   - This release does not support running some Windows services under
-    control of \DynamoRIO: System, smss.exe, csrss.exe, and protected
+    control of DynamoRIO: System, smss.exe, csrss.exe, and protected
     processes on Windows Vista.
   - This release does not support nudging 64-bit processes.
 \anchor limits_vista_service_messagebox
   - On Windows Vista most services are run in a separate session as a
-    security feature.  This means that neither \DynamoRIO nor its
-    \client will be able to display a messagebox when running in said
+    security feature.  This means that neither DynamoRIO nor its
+    client will be able to display a messagebox when running in said
     services (they have no associated visible window station). See
     dr_messagebox().
   - On Windows Vista \if vmsafe in Code Manipulation Mode \endif the code from
@@ -921,7 +921,7 @@ We hope to include the following major features in future releases:
  - Full control over trace building
 
 To discuss current and future features, join the <a
-href="http://groups.google.com/group/dynamorio-users/">\DynamoRIO Users
+href="http://groups.google.com/group/dynamorio-users/">DynamoRIO Users
 group</a>.
 
 \endif

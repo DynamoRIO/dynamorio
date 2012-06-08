@@ -2117,7 +2117,7 @@ dr_exit_process(int exit_code)
 }
 
 DR_API
-/* Returns true if all \DynamoRIO caches are thread private. */
+/* Returns true if all DynamoRIO caches are thread private. */
 bool
 dr_using_all_private_caches(void)
 {

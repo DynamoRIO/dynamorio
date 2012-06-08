@@ -34,8 +34,8 @@
 /**
 \page API_samples Sample Use Cases
 
-We provide several examples to illustrate how the \DynamoRIO API is used to
-build a \DynamoRIO \client.
+We provide several examples to illustrate how the DynamoRIO API is used to
+build a DynamoRIO client.
 
 \if vmsafe
 \section probe_samples Probe API Examples
@@ -47,9 +47,9 @@ Not available yet.
 \anchor sec_mf_samples
 \section mf_samples Memory Firewall Examples
 
-An example Memory Firewall \client implementation is provided at <a
+An example Memory Firewall client implementation is provided at <a
 href="../../samples/MF_moduledb.c">../../samples/MF_moduledb.c</a> (see that file
-for additional documentation). The MF_moduledb sample \client reads in
+for additional documentation). The MF_moduledb sample client reads in
 a list of module names and options from a config file and exempts security
 violations associated with those modules based on the type of
 violation and the options in the file. In this manner violations from
@@ -57,7 +57,7 @@ dlls known to have certain types of false positives can be avoided.
 It also supports dynamically changing its exemptions with a nudge
 handler that triggers re-reading the config file.
 
-The MF_moduledb sample \client is provided with a configuration file <a
+The MF_moduledb sample client is provided with a configuration file <a
 href="../../samples/MF_moduledb-sample.config">../../samples/MF_moduledb-sample.config</a>
 and a violation generating executable <a
 href="../../samples/VIPA_test.exe">../../samples/VIPA_test.exe.c</a> for easy
@@ -85,14 +85,14 @@ configuration file.
 \subsection sec_ex1 Instruction Counting
 
 We now illustrate how to use the above API to implement a simple
-instrumentation \client for counting the number of executed call and
+instrumentation client for counting the number of executed call and
 return instructions in the input program.  Full code for this example is
 in the file <a href="../../samples/countcalls.c">../../samples/countcalls.c</a>.
 
-The \client maintains set of three counters: num_direct_calls,
+The client maintains set of three counters: num_direct_calls,
 num_indirect_calls, and num_returns to count three different
 types of instructions during execution.  It keeps both thread-private
-and global versions of these counters.  The \client initializes
+and global versions of these counters.  The client initializes
 everything by supplying the following dr_init routine:
 
 \code
@@ -110,11 +110,11 @@ dr_init(client_id_t id)
 }
 \endcode
 
-The \client provides an event_exit routine that displays the final 
+The client provides an event_exit routine that displays the final 
 values of the global counters as well as a thread_exit routine that
 shows the counter totals on a per-thread basis.
 
-The \client keeps track of each thread's instruction counts separately. 
+The client keeps track of each thread's instruction counts separately. 
 To do this, it creates a data structure that will be separately allocated 
 for each thread:
 
@@ -241,10 +241,10 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 \par Building the Example
 
-For general instructions on building a \client, see \ref sec_build.
+For general instructions on building a client, see \ref sec_build.
 
-To build the \p instrcalls.c \client using CMake, if \p DYNAMORIO_HOME is
-set to the base of the \DynamoRIO release package:
+To build the \p instrcalls.c client using CMake, if \p DYNAMORIO_HOME is
+set to the base of the DynamoRIO release package:
 
 \code
 mkdir build
@@ -263,7 +263,7 @@ make instrcalls
 \endcode
 
 The result is a shared library instrcalls.dll or libinstrcalls.so. To
-invoke the \client library, follow the instructions under \ref sec_deploy.
+invoke the client library, follow the instructions under \ref sec_deploy.
 
 ********************
 \subsection sec_ex2 Instruction Profiling
@@ -273,12 +273,12 @@ instrumentation routines, which allow more sophisticated profiling than
 simply counting instructions.  Full code for this example is
 in the file <a href="../../samples/instrcalls.c">../../samples/instrcalls.c</a>.
 
-As in the previous example, the \client is interested in direct and
-indirect calls and returns.  The \client wants to analyze the target
+As in the previous example, the client is interested in direct and
+indirect calls and returns.  The client wants to analyze the target
 address of each dynamic instance of a call or return.  For our example,
 we simply dump the data in text format to a separate file for each
 thread.  Since FILE cannot be exported from a DLL on Windows, we use the
-\DynamoRIO-provided file_t type that hides the distinction between FILE and
+DynamoRIO-provided file_t type that hides the distinction between FILE and
 HANDLE \if linux to allow the same code to work on Linux and Windows
 \endif.  We make use of the thread initialization and exit routines to
 open and close the file.  We store the file for a thread in the user
@@ -379,7 +379,7 @@ these addresses.  In our example we simply print out the data.
 \subsection sec_ex3 Modifying Existing Instrumentation
 
 In this example, we show how to update or replace existing
-instrumentation after it executes.  This ability is useful for \clients
+instrumentation after it executes.  This ability is useful for clients
 performing adaptive optimization.  In this example, however, we are
 interested in recording the direction of all conditional branches, but
 wish to remove the overhead of instrumentation once we've gathered
@@ -387,7 +387,7 @@ that information.  This code could form part of a dynamic CFG builder,
 where we want to observe the control-flow edges that execute at
 runtime, but remove the instrumentation after it executes.
 
-While \DynamoRIO supports direct fragment replacement, another method
+While DynamoRIO supports direct fragment replacement, another method
 for re-instrumentation is to flush the fragment from the code cache
 and rebuild it in the basic block event callback.  In other words, we
 take the following approach:
@@ -411,7 +411,7 @@ sample.
 ********************
 \subsection sec_ex4 Optimization
 
-For the next example we consider a \client application for a simple
+For the next example we consider a client application for a simple
 optimization. The optimizer replaces every increment/decrement operation
 with a corresponding add/subtract operation if running on a Pentium 4,
 where the add/subtract is less expensive.  For optimizations, we are
@@ -427,7 +427,7 @@ href="../../samples/inc2add.c">../../samples/inc2add.c</a>.
 \subsection sec_ex5 Custom Tracing
 
 This example demonstrates the custom tracing interface. It changes
-\DynamoRIO's tracing behavior to favor making traces that start at a call
+DynamoRIO's tracing behavior to favor making traces that start at a call
 and end right after a return.  It demonstrates the use of both custom trace
 API elements :
 
@@ -441,10 +441,10 @@ href="../../samples/inline.c">../../samples/inline.c</a>.
 
 
 ********************
-\subsection sec_ex6 Use of Floating Point Operation in a \Client
+\subsection sec_ex6 Use of Floating Point Operation in a Client
 
-Because saving the floating point state is very expensive, \DynamoRIO seeks 
-to do so on an as needed basis.  If a \client wishes to use floating point
+Because saving the floating point state is very expensive, DynamoRIO seeks 
+to do so on an as needed basis.  If a client wishes to use floating point
 operations it must save and restore the application's floating point state
 around the usage.  For an inserted clean call out of the code cache, this
 can be conveniently done using dr_insert_clean_call() and passing true for
@@ -465,7 +465,7 @@ when they are used to print floats.  However, it is not necessary to save
 and restore the floating point state around floating point operations if
 they are being used in the initialization or termination routines.
 
-This example \client counts the number of basic blocks processed and keeps
+This example client counts the number of basic blocks processed and keeps
 statistics on their average size using floating point operations. Full code
 for this example is in the file <a
 href="../../samples/bbsize.c">../../samples/bbsize.c</a>.
@@ -473,15 +473,15 @@ href="../../samples/bbsize.c">../../samples/bbsize.c</a>.
 
 \ifnot vmsafe
 ********************
-\subsection sec_ex7 Use of Custom \Client Statistics with the Windows GUI
+\subsection sec_ex7 Use of Custom Client Statistics with the Windows GUI
 
-The new Windows GUI will display custom \client statistics, if they are
+The new Windows GUI will display custom client statistics, if they are
 placed in shared memory with a certain name.  The sample <a
 href="../../samples/stats.c">../../samples/stats.c</a> gives code for the
-protocol used in the form of a sample \client that counts total
+protocol used in the form of a sample client that counts total
 instructions, floating-point instructions, and system calls.
 
-Note that the stats.c example \client and the Windows GUI must both be run
+Note that the stats.c example client and the Windows GUI must both be run
 with administrative privileges in order for the statistics to be shared
 properly.
 
@@ -513,6 +513,6 @@ The sample <a href="../../samples/div.c">../../samples/div.c</a> demonstrates
 profiling the types of values fed to a particular opcode.
 
 The sample <a href="../../samples/empty.c">../../samples/empty.c</a> is provided
-as an example \client that does nothing.
+as an example client that does nothing.
 
  */

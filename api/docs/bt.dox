@@ -36,7 +36,7 @@
 ***************************************************************************
 \page API_BT Code Manipulation API
 
-The Code Manipulation API exposes the full power of \DynamoRIO, allowing
+The Code Manipulation API exposes the full power of DynamoRIO, allowing
 tools to observe and modify the application's actual code stream as it
 executes.  Modifications are not limited to trampoline insertion and can
 include arbitrary changes.  We divide the API description into the
@@ -83,28 +83,28 @@ operate on these data structures, including:
 - Routines to insert and remove an \c instr_t from an \c instrlist_t.
 
 As we will see in the the \ref sec_events_bt section that follows, a
-\client usually interacts with \c instrlist_t's in the form of \e basic \e
+client usually interacts with \c instrlist_t's in the form of \e basic \e
 blocks or \e traces.  A basic block is a sequence of instructions that
 terminates with a control transfer operation.  Traces are
-frequently-executed sequences of basic blocks that \DynamoRIO forms
+frequently-executed sequences of basic blocks that DynamoRIO forms
 dynamically as the application executes, i.e., \e hot code.
 Collectively, we refer to basic blocks and traces as \e fragments.
 Both basic blocks and traces present a linear view of control flow.
 In other words, instruction sequences have a single entrance and one
 or more exits.  This representation greatly simplifies analysis and is
-a primary contributor to \DynamoRIO's efficiency.
+a primary contributor to DynamoRIO's efficiency.
 
 
 \if level_of_detail
 ********************
 \subsection sec_IR_adaptive Adaptive Level of Detail
 
-It is costly to decode IA-32 instructions.  Fortunately, \DynamoRIO is
+It is costly to decode IA-32 instructions.  Fortunately, DynamoRIO is
 often only interested in high-level information for a subset of
 instructions, such as just the control-flow instructions.  Each
-instruction can be at one of five levels of detail.  To simplify \clients,
-\DynamoRIO only passes them instructions at Level 3 or Level 4.
-Internally, \DynamoRIO uses all five levels:
+instruction can be at one of five levels of detail.  To simplify clients,
+DynamoRIO only passes them instructions at Level 3 or Level 4.
+Internally, DynamoRIO uses all five levels:
 
 \par Level 0: Raw Bundle
 
@@ -267,7 +267,7 @@ valid.  The \c instr_t must be fully encoded from its operands.
 \par Basic Block Example
 
 As an example of using different levels of detail, a basic block in
-\DynamoRIO is represented using a Level 0 \c instr_t for all non-control-flow
+DynamoRIO is represented using a Level 0 \c instr_t for all non-control-flow
 instructions, and a Level 3 \c instr_t for the block-ending control-flow
 instruction:
 
@@ -282,7 +282,7 @@ instruction:
   <td bgcolor="ccccff" align="middle"><tt>&nbsp;&nbsp;RSO&nbsp;&nbsp;</tt></td></tr>
 </table>
 
-However, when a \client registers for the basic block event, \DynamoRIO
+However, when a client registers for the basic block event, DynamoRIO
 passes an \c instrlist_t of all Level 3 \c instr_t's, for simplicity.
 \endif
 
@@ -296,34 +296,34 @@ passes an \c instrlist_t of all Level 3 \c instr_t's, for simplicity.
 \endhtmlonly
 \section sec_events_bt Events
 
-The core of a \client's interaction with \DynamoRIO occurs through <em>
-event hooks</em>: the \client registers its own callback routine (or \e
-hook) for each event it is interested in.  \DynamoRIO calls the
-\client's event hooks at appropriate times, giving the \client access to
+The core of a client's interaction with DynamoRIO occurs through <em>
+event hooks</em>: the client registers its own callback routine (or \e
+hook) for each event it is interested in.  DynamoRIO calls the
+client's event hooks at appropriate times, giving the client access to
 key actions during execution of the application.  The \ref sec_events
-section describes events common to the entire \DynamoRIO API. Here we
+section describes events common to the entire DynamoRIO API. Here we
 discuss the events specific to the Code Manipulation portion.
 
-\DynamoRIO provides two events related to fragment creation: one for
+DynamoRIO provides two events related to fragment creation: one for
 basic blocks and one for traces (see dr_register_bb_event() and
 dr_register_trace_event()).  Through these fragment-creation hooks,
-the \client has the ability to inspect and modify any piece of code
-that \DynamoRIO emits before it executes.  Using the basic block hook,
-a \client sees \e all application code.  The trace-creation hook
-provides a mechanism for \clients to instrument only
+the client has the ability to inspect and modify any piece of code
+that DynamoRIO emits before it executes.  Using the basic block hook,
+a client sees \e all application code.  The trace-creation hook
+provides a mechanism for clients to instrument only
 frequently-executed code paths.
 
 The code manipulation API is highly efficient in that fragment
-creation comprises a small part of \DynamoRIO's overhead.  A \client's
+creation comprises a small part of DynamoRIO's overhead.  A client's
 analysis time rarely impacts execution time; only instrumentation code
-inserted by the \client affects efficiency.
+inserted by the client affects efficiency.
 
 
 ******************** \subsection sec_events_bb Basic Block Creation
 
 Through the basic block creation event, registered via
-dr_register_bb_event(), the \client has the ability to inspect and transform
-any piece of code prior to its execution.  The \client's hook receives
+dr_register_bb_event(), the client has the ability to inspect and transform
+any piece of code prior to its execution.  The client's hook receives
 three parameters:
 
 \code
@@ -332,19 +332,19 @@ dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
 \endcode 
 
  - \c drcontext is a pointer to the input program's machine context.
-   \Clients should not inspect or modify the context; it is provided as
+   Clients should not inspect or modify the context; it is provided as
    an opaque pointer (i.e., <tt>void *</tt>) to be passed to API
    routines that require access to this internal data.
 
  - \c tag is a unique identifier for the basic block fragment.
 
  - \c bb is a pointer to the list of instructions that comprise the
-   basic block.  \Clients can examine, manipulate, or completely
+   basic block.  Clients can examine, manipulate, or completely
    replace the instructions in the list.
 
  - \c for_trace indicates whether this callback is for a new basic block
    (false) or for adding a basic block to a trace being created (true).
-   The \client has the opportunity to either include the same modifications
+   The client has the opportunity to either include the same modifications
    made to the standalone basic block, or to use different modifications,
    for the code in the trace.
 
@@ -382,7 +382,7 @@ dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
 ********************
 \subsection sec_Meta Meta Instructions
 
-Changes to the instruction stream made by a \client fall into two
+Changes to the instruction stream made by a client fall into two
 categories: changes or additions that should be considered part of the
 application's behavior, versus additions that are observational in nature
 and are not acting on the application's behalf.  The latter are called \e
@@ -397,26 +397,26 @@ instrlist_meta_postinsert()
 instrlist_meta_append()
 \endcode
 
-\DynamoRIO performs some processing on the basic block after the
-\client has finished with it, primarily modifying branches to ensure
-that \DynamoRIO retains control after execution.  It is important that
-the \client mark any control-flow instructions that it does not want treated
+DynamoRIO performs some processing on the basic block after the
+client has finished with it, primarily modifying branches to ensure
+that DynamoRIO retains control after execution.  It is important that
+the client mark any control-flow instructions that it does not want treated
 as application instructions as \e meta instructions. Doing so informs
-\DynamoRIO that these instructions should execute natively rather than
+DynamoRIO that these instructions should execute natively rather than
 being trapped and redirected to new basic block fragments.
 
-Through meta instructions, a \client can add its own internal control flow
+Through meta instructions, a client can add its own internal control flow
 or make a call to a native routine that will not be brought into the code
-cache by \DynamoRIO.  However, such native calls need to be careful to
+cache by DynamoRIO.  However, such native calls need to be careful to
 remain transparent (see \ref sec_clean_call).
 
 Meta instructions are normally observational, in which case they should not
 fault and should have a NULL translation field.  It is possible to use meta
 instructions that deliberately fault, or that could fault by accessing
-application memory addresses, but only if the \client handles all such
+application memory addresses, but only if the client handles all such
 faults.  See \ref sec_translation for more information on fault handling.
 
-While \DynamoRIO attempts to support arbitrary code transformations, its
+While DynamoRIO attempts to support arbitrary code transformations, its
 internal operation requires that we impose the following limitations:
 
  - If there is more than one non-meta branch, only the last can be
@@ -430,23 +430,23 @@ internal operation requires that we impose the following limitations:
 
 Application instructions, or non-meta instructions, in addition to being
 processed (and followed if control flow), are also considered safe points
-for relocation for the rare times when \DynamoRIO must move threads
-around.  Thus a \client should ensure that it is safe to re-start a
+for relocation for the rare times when DynamoRIO must move threads
+around.  Thus a client should ensure that it is safe to re-start a
 non-meta instruction at the translation field address provided.
 
 ********************
 \subsection sec_events_trace Trace Creation
 
-\DynamoRIO provides access to traces primarily through the trace-creation
+DynamoRIO provides access to traces primarily through the trace-creation
 event, registered via dr_register_trace_event().  It is important to note
-that \clients are not
+that clients are not
 required to employ the trace-creation event to ensure full instrumentation.
 Rather, it is sufficient to perform all code modification using the basic
-block event.  Any basic blocks that \DynamoRIO chooses to place in a trace
-will contain all \client modifications (unless the \client behaves
+block event.  Any basic blocks that DynamoRIO chooses to place in a trace
+will contain all client modifications (unless the client behaves
 differently in the basic block hook when its \c for_trace parameter is
 true).  The trace-creation event provides
-a mechanism for \clients to instrument \e hot code separately.
+a mechanism for clients to instrument \e hot code separately.
 
 The parameters to the trace-creation event hook are nearly identical
 to those of the basic block hook:
@@ -457,14 +457,14 @@ dr_emit_flags_t new_trace(void *drcontext, void *tag, instrlist_t *trace,
 \endcode 
 
  - \c drcontext is a pointer to the input program's machine context.
-   \Clients should not inspect or modify the context; it is provided as
+   Clients should not inspect or modify the context; it is provided as
    an opaque pointer (i.e., <tt>void *</tt>) to be passed to API
    routines that require access to this internal data.
 
  - \c tag is a unique identifier for the trace fragment.
 
  - \c bb is a pointer to the list of instructions that comprise the
-   trace.  \Clients can examine, manipulate, or completely replace the
+   trace.  Clients can examine, manipulate, or completely replace the
    instructions in the list.
 
  - \c translating indicates whether this callback is for trace creation
@@ -476,12 +476,12 @@ however, time-varying instrumentation or complex code transformations may
 need to return DR_EMIT_STORE_TRANSLATIONS.  See \ref sec_translation for
 further details.
 
-\DynamoRIO calls the \client-supplied event hook each time a trace is
+DynamoRIO calls the client-supplied event hook each time a trace is
 created, just before the trace is emitted into the code cache.
 Additionally, as each constituent basic block is added to the trace,
-\DynamoRIO calls the basic block creation hook with the \p for_trace
+DynamoRIO calls the basic block creation hook with the \p for_trace
 parameter set to true.  In order to preserve basic block instrumentation
-inside of traces, a \client need only act identically with respect to the
+inside of traces, a client need only act identically with respect to the
 \p for_trace parameter; it can ignore the trace event if its goal is to
 place instrumentation on all code.
 
@@ -503,12 +503,12 @@ however, will delete traces and basic blocks alike.
 ********************
 \subsection sec_events_translation State Restoration
 
-If a \client is only adding instrumentation (meta instructions) that do not
+If a client is only adding instrumentation (meta instructions) that do not
 reference application memory, and is not reordering or removing application
 instructions, then it need not register for this event.  If, however, a
-\client is modifying application code or adding instructions that could
-fault, the \client must be capable of restoring the original context.
-\DynamoRIO calls a state restoration event, registered via
+client is modifying application code or adding instructions that could
+fault, the client must be capable of restoring the original context.
+DynamoRIO calls a state restoration event, registered via
 dr_register_restore_state_event() or dr_register_restore_state_ex_event(),
 whenever it needs to translate a code cache context to an original
 application context:
@@ -525,15 +525,15 @@ See \ref sec_translation for further details.
 ********************
 \subsection sec_events_del Basic Block and Trace Deletion
 
-\DynamoRIO can also provide notification of fragment deletion via
+DynamoRIO can also provide notification of fragment deletion via
 dr_register_delete_event().  The signature for this event callback is:
 
 \code
 void fragment_deleted(void *drcontext, void *tag);
 \endcode
 
-\DynamoRIO calls this event hook each time it deletes a fragment from
-the code cache.  Such information may be needed if the \client
+DynamoRIO calls this event hook each time it deletes a fragment from
+the code cache.  Such information may be needed if the client
 maintains its own data structures about emitted fragment code that
 must be consistent across fragment deletions.
 
@@ -548,8 +548,8 @@ must be consistent across fragment deletions.
 \section sec_decode Decoding and Encoding
 
 As discussed in \ref sec_events_bb and \ref sec_events_trace, a
-\client's primary interface to code inspection and manipulation is via
-the basic block and trace hooks.  However, \DynamoRIO also
+client's primary interface to code inspection and manipulation is via
+the basic block and trace hooks.  However, DynamoRIO also
 exports a rich set of functions and data structures to decode and
 encode instructions directly.  The following subsections overview this
 functionality.
@@ -558,13 +558,13 @@ functionality.
 ********************
 \subsection sec_Decoding Decoding
 
-\DynamoRIO provides several routines for decoding and disassembling
+DynamoRIO provides several routines for decoding and disassembling
 IA-32 instructions.  The most common method for decoding is the
 decode() routine, which populates an \c instr_t data structure with all
 information about the instruction (e.g., opcode and operand
 information).
 
-When decoding instructions, \clients must explicitly manage the \c
+When decoding instructions, clients must explicitly manage the \c
 instr_t data structure.  For example, the following code shows how to
 use the instr_init(), instr_reset(), and instr_free() routines to
 decode a sequence of arbritrary instructions:
@@ -585,12 +585,12 @@ do {
 instr_free(dcontext, &instr);
 \endcode
 
-The 64-bit build of \DynamoRIO is capable of decoding 32-bit code as well.
+The 64-bit build of DynamoRIO is capable of decoding 32-bit code as well.
 See \ref sec_64bit for full details.
 
 \subsection sec_InstrGen Instruction Generation
 
-\Clients can construct instructions from scratch in two different ways:
+Clients can construct instructions from scratch in two different ways:
 
  -# Using the INSTR_CREATE_opcode macros that fill
     in implicit operands automatically:
@@ -608,14 +608,14 @@ instr_set_src(instr, 0, opnd_create_reg(REG_EDX));
     \endcode
 
 When using the second method, the exact order of operands and their
-sizes must match the templates that \DynamoRIO uses.  The
+sizes must match the templates that DynamoRIO uses.  The
 INSTR_CREATE_ macros in dr_ir_macros.h should be consulted to
 determine the order.
 
 
 \subsection sec_Encoding Encoding
 
-\DynamoRIO's encoding routines take an instruction or list of
+DynamoRIO's encoding routines take an instruction or list of
 instructions and encode them into the corresponding IA-32 bit pattern:
 
 \code instr_encode(), instrlist_encode() \endcode
@@ -625,7 +625,7 @@ instruction, two encoding passes are performed: one to find the offset
 of the target instruction, and the other to link the control transfer
 to the proper target offset.
 
-The 64-bit build of \DynamoRIO is capable of encoding 32-bit code as well.
+The 64-bit build of DynamoRIO is capable of encoding 32-bit code as well.
 See \ref sec_64bit for details.
 
 ***************************************************************************
@@ -637,11 +637,11 @@ See \ref sec_64bit for details.
 \endhtmlonly
 \section sec_64bit 64-bit Versus 32-bit Instructions
 
-The 64-bit build of \DynamoRIO uses 64-bit decoding and encoding by
+The 64-bit build of DynamoRIO uses 64-bit decoding and encoding by
 default, while the 32-bit build uses 32-bit.  The 64-bit build is also
 capable of decoding and encoding 32-bit instructions.  Each thread has a
 current mode that is used to determine how to interpret instructions while
-decoding, whose default matches the \DynamoRIO build.  The set_x86_mode()
+decoding, whose default matches the DynamoRIO build.  The set_x86_mode()
 routine changes the current mode, while get_x86_mode() queries the current
 mode.
 
@@ -664,9 +664,9 @@ In addition to instruction decoding and encoding, the API includes
 several higher-level routines to facilitate code instrumentation.
 These include the following:
 
-- Routines to insert clean calls to \client-defined functions.
+- Routines to insert clean calls to client-defined functions.
 - Routines to instrument control-flow instructions.
-- Routines to spill registers to \DynamoRIO's thread-private spill
+- Routines to spill registers to DynamoRIO's thread-private spill
   slots.
 - Routines to quickly save and restore arithmetic flags,
   floating-point state, and MMX/SSE registers.
@@ -677,8 +677,8 @@ The following subsections describe these routines in more detail.
 \subsection sec_clean_call Clean Calls
 
 To make it easy to insert code into the application instruction
-stream, \DynamoRIO provides a <em>clean call</em> mechanism, which
-allows insertion of a transparent call to a \client routine.
+stream, DynamoRIO provides a <em>clean call</em> mechanism, which
+allows insertion of a transparent call to a client routine.
 The dr_insert_clean_call() routine takes care of switching to a clean
 stack, setting up arguments to a call and making the call, optionally
 preserving floating point state, and preserving application state across
@@ -701,15 +701,15 @@ if (instr_is_mbr(instr)) {
 }
 \endcode
 
-Through this mechanism, \clients can write analysis code in C or other
+Through this mechanism, clients can write analysis code in C or other
 high-level languages and easily insert calls to these routines in the
 instruction stream.  Note, however, that saving and restoring machine state
 is an expensive operation.  Performance-critical operations should be
 inlined for maximum efficiency.
 
-The stack that \DynamoRIO switches to for clean calls is relatively small:
-only 20KB by default.  \Clients can increase the size of the stack with the
-\ref op_stack_size "-stack_size" runtime option.  \Clients should also
+The stack that DynamoRIO switches to for clean calls is relatively small:
+only 20KB by default.  Clients can increase the size of the stack with the
+\ref op_stack_size "-stack_size" runtime option.  Clients should also
 avoid keeping persistent state on the clean call stack, as it is wiped
 clean at the start of each clean call.
 
@@ -735,7 +735,7 @@ broken down into its constituent pieces:
 ********************
 \subsection sec_state State Preservation
 
-To facilitate code transformations, \DynamoRIO makes available its register
+To facilitate code transformations, DynamoRIO makes available its register
 spill slots and other state preservation functionality.  It exports API
 routines for saving and restoring registers to and from thread-local spill
 slots:
@@ -747,9 +747,9 @@ The values stored in these spill slots remain valid until the next non-meta
 
 \code dr_read_saved_reg(), dr_write_saved_reg() \endcode
 
-For longer term persistence \DynamoRIO also provides a generic dedicated
-thread-local storage field for use by \clients, making it easy to write 
-thread-aware \clients.  From C code, use:
+For longer term persistence DynamoRIO also provides a generic dedicated
+thread-local storage field for use by clients, making it easy to write 
+thread-aware clients.  From C code, use:
 
 \code dr_get_tls_field(), dr_set_tls_field() \endcode
 
@@ -773,10 +773,10 @@ cache, as well as floating point and multimedia state preservation.
 ********************
 \subsection sec_branch_instru Branch Instrumentation
 
-\DynamoRIO provides explicit support for instrumenting call
+DynamoRIO provides explicit support for instrumenting call
 instructions, direct (or unconditional) branches, indirect (or
 multi-way) branches, and conditional branches.  These convenience
-routines insert clean calls to \client-provided methods, passing as
+routines insert clean calls to client-provided methods, passing as
 arguments the instruction pc and target pc of each control transfer,
 along with taken or not taken information for conditional branches:
 
@@ -791,7 +791,7 @@ dr_insert_cbr_instrumentation()
 ********************
 \subsection sec_adaptive Dynamic Instrumentation
 
-\DynamoRIO allows a \client to dynamically adjust its instrumentation
+DynamoRIO allows a client to dynamically adjust its instrumentation
 by providing routines to flush all cached fragments corresponding to
 an application code region:
 
@@ -803,7 +803,7 @@ dr_delay_flush_region()
 
 In order to directly modify the instrumentation on a particular fragment
 (as opposed to replacing instrumentation on all copies of fragments
-corresponding to particular application code), \DynamoRIO also supports
+corresponding to particular application code), DynamoRIO also supports
 directly replacing an existing fragment with a new \c instrlist_t:
 
 \code
@@ -812,46 +812,46 @@ dr_replace_fragment()
 
 However, this routine is only supported when running with the \ref
 op_thread_priv "-thread_private" runtime option, and it replaces the
-fragment for the current thread only.  A \client can call this routine even
+fragment for the current thread only.  A client can call this routine even
 while inside the to-be-replaced fragment (e.g., in a clean call from inside
 the fragment).  In this scenario, the old fragment is executed to
 completion and the new code is inserted before the next execution.
 
-For example usage, see the \client sample \ref sec_ex3.
+For example usage, see the client sample \ref sec_ex3.
 
 ********************
 \subsection sec_custom_traces Custom Traces
 
-\DynamoRIO combines frequently executed sequences of basic blocks into
+DynamoRIO combines frequently executed sequences of basic blocks into
 <em>traces</em>.  It uses a simple profiling scheme based on <em>trace
 heads</em>, which are the targets of backward branches or exits from
 existing traces.  Execution counters are kept for each trace head.  Once a
 head crosses a threshold, the next sequence of basic blocks that are
 executed becomes a new trace.
 
-\DynamoRIO allows a \client to build custom traces by marking its own trace
-heads (<em>in addition</em> to \DynamoRIO's normal trace heads) and
-deciding when to end traces.  If a \client registers for the following
-event, \DynamoRIO will call its hook before extending a trace (with tag \c
+DynamoRIO allows a client to build custom traces by marking its own trace
+heads (<em>in addition</em> to DynamoRIO's normal trace heads) and
+deciding when to end traces.  If a client registers for the following
+event, DynamoRIO will call its hook before extending a trace (with tag \c
 trace_tag) with a new basic block (with tag \c next_tag):
 
 \code
 int query_end_trace(void *drcontext, void *trace_tag, void *next_tag);
 \endcode
 
-The \client hook returns one of these values:
+The client hook returns one of these values:
  - CUSTOM_TRACE_DR_DECIDES = use standard termination criteria
  - CUSTOM_TRACE_END_NOW = end trace now
  - CUSTOM_TRACE_CONTINUE = do not end trace
 
-If using standard termination criteria, \DynamoRIO ends the trace if it
+If using standard termination criteria, DynamoRIO ends the trace if it
 reaches a trace head or another trace (or certain corner-case basic blocks
 that cannot be part of a trace).
 
-The \client can also mark any basic block as a trace head with
+The client can also mark any basic block as a trace head with
 \code dr_mark_trace_head() \endcode
 
-For example usage, see the callee-inlining \client sample \ref sec_ex5.
+For example usage, see the callee-inlining client sample \ref sec_ex5.
 
 \if custom_stubs
 ********************
@@ -876,10 +876,10 @@ added to the owning exit cti's.
 \subsection sec_prefixes Prefixes
 
 Some code manipulations need to store a target address in a register and
-then jump there, but need the register to be restored as well.  \DynamoRIO
+then jump there, but need the register to be restored as well.  DynamoRIO
 provides a single-instruction prefix that is placed on all fragments (basic
 blocks as well as traces) that restores ecx.  It is on traces for internal
-\DynamoRIO use.  To have it added to basic blocks as well, call this routine
+DynamoRIO use.  To have it added to basic blocks as well, call this routine
 during initialization:
 
 \code
@@ -905,23 +905,23 @@ void instr_branch_set_prefix_target(instr_t *instr, bool val);
 \endhtmlonly
 \section sec_translation State Translation
 
-To support transparent fault handling, \DynamoRIO must translate a fault in
+To support transparent fault handling, DynamoRIO must translate a fault in
 the code cache into a fault at the corresponding application address.
-\DynamoRIO must also be able to translate when a suspended thread is
-examined by the application or by \DynamoRIO itself for internal
+DynamoRIO must also be able to translate when a suspended thread is
+examined by the application or by DynamoRIO itself for internal
 synchronization purposes.
 
-If a \client is only adding observational instrumentation (i.e., \ref
+If a client is only adding observational instrumentation (i.e., \ref
 sec_Meta) (which should not fault) and is not modifying, reordering, or
 removing application instructions, these details can be ignored.  In that
-case the \client's basic block and trace callbacks should return
+case the client's basic block and trace callbacks should return
 #DR_EMIT_DEFAULT in addition to being deterministic and idempotent (i.e.,
-\DynamoRIO should be able to repeatedly call the callback and receive back
+DynamoRIO should be able to repeatedly call the callback and receive back
 the same resulting instruction list, with no net state changes to the
-\client).
+client).
 
-If a \client is performing modifications, then in order for \DynamoRIO to
-properly translate a code cache address the \client must use
+If a client is performing modifications, then in order for DynamoRIO to
+properly translate a code cache address the client must use
 instr_set_translation() (chainable via INSTR_XL8()) in the basic block and
 trace creation callbacks to set the corresponding application address for
 each added meta instruction that can fault, each modified instruction, and
@@ -948,7 +948,7 @@ There are two methods for using the translated addresses:
    to fall back to its complex, corner-case design.  This is why DR
    does not store all translations by default.
 -# Return #DR_EMIT_DEFAULT from the basic block or trace creation callback.
-   \DynamoRIO will then call the callback again during fault translation
+   DynamoRIO will then call the callback again during fault translation
    with \p translating set to true.  All modifications to the instruction
    list that were performed on the creation callback must be repeated on
    the translating callback.  This option is only posible when basic block
@@ -956,29 +956,29 @@ There are two methods for using the translated addresses:
    Naturally, global state changes triggered by block creation should be
    wrapped in checks for \p translating being false.  Even in this case,
    instr_set_translation() should be called for appropriate instructions even
-   when \p translating is false, as \DynamoRIO may decide to store the
+   when \p translating is false, as DynamoRIO may decide to store the
    translations at creation time for reasons of its own.
 
-Furthermore, if the \client's modifications change any part of the machine
-state besides the program counter, the \client should use
+Furthermore, if the client's modifications change any part of the machine
+state besides the program counter, the client should use
 dr_register_restore_state_event() or dr_register_restore_state_ex_event()
 (see \ref sec_events_translation) to restore the registers to their
 original application values.
 
 For meta instructions that do not reference application memory (i.e., they
 should not fault), leave the translation field as NULL.  A NULL value
-instructs \DynamoRIO to use the subsequent non-meta instruction's
+instructs DynamoRIO to use the subsequent non-meta instruction's
 translation as the application address, and to fail when translating the
 full state.  Since the full state will only be needed when relocating a
 thread (as stated, there will not be a fault here), failure indicates that
-this is not a valid relocation point, and \DynamoRIO's thread
+this is not a valid relocation point, and DynamoRIO's thread
 synchronization scheme will use another spot.  If the translation field is
-set to a non-NULL value, the \client should be willing to also restore the
+set to a non-NULL value, the client should be willing to also restore the
 rest of the machine state at that point (restore spilled registers, etc.)
 via #dr_register_restore_state_event() or
 #dr_register_restore_state_ex_event().  This is necessary for meta
 instructions that reference application memory or that may deliberately fault
-when accessing \client memory.  \DynamoRIO takes care of
+when accessing client memory.  DynamoRIO takes care of
 such potentially-faulting instructions added by its own API routines
 (#dr_insert_clean_call() arguments that reference application data,
 #dr_insert_mbr_instrumentation()'s read of application indirect branch
@@ -1007,28 +1007,28 @@ PREM(bb, inst, INSTR_XL8(INSTR_CREATE_mov_st(drcontext, dst, src), xl8));
 Decoding, instrumenting, and emitting code into the code cache takes time.
 Short-running applications, or applications that execute large amounts of
 code with little code re-use, can incur noticeable overhead when run under
-\DynamoRIO.  One solution is to write the code cache to a file for fast
-re-use on subsequent runs by simply loading the file.  \DynamoRIO provides
+DynamoRIO.  One solution is to write the code cache to a file for fast
+re-use on subsequent runs by simply loading the file.  DynamoRIO provides
 support for tools to persist their instrumented code.
 
 First, the \ref op_persist "-persist" runtime option, and optionally \p
 -persist_dir, must be set in order for any caches to be persisted.  Only
 basic block persistence is supported: no traces.  In the presence of a
-\client, basic blocks by default are not persisted.  Only if the return
+client, basic blocks by default are not persisted.  Only if the return
 value of the basic block event callback includes the DR_EMIT_PERSISTABLE
 flag is a block eligible for persistence.  Even then, there are further
 constraints on persistence, as only simple blocks are persistable.
 
-Persisted caches end in the extension \p .dpc, for \DynamoRIO Persisted
+Persisted caches end in the extension \p .dpc, for DynamoRIO Persisted
 Cache, and are stored in the directory specified by the \p -persist_dir
 runtime option, or the log directory if unspecified, inside a per-user
 subdirectory.
 
-A \client may need to store data in the persisted file in order to
+A client may need to store data in the persisted file in order to
 determine whether it is re-usable when loaded again, or to provide
 generated code or other auxiliary data or code that the persisted code
 requires.  A set of events are provided for this purpose.  These events
-allow a \client to store three types of data in a persisted file, beyond
+allow a client to store three types of data in a persisted file, beyond
 instrumented code inside each basic block: read-only data, executed code
 (outside of basic blocks), and writable data.  The types of data are
 separated because the file is laid out in different protection zones.
@@ -1037,31 +1037,31 @@ using dr_register_persist_rx(), and writable data using
 dr_register_persist_rw().  Additionally, the basic blocks to be persisted
 can be patched using dr_register_persist_patch().
 
-Whenever code is about to be persisted, \DynamoRIO will call all of the
+Whenever code is about to be persisted, DynamoRIO will call all of the
 registered events for that module.  A user data parameter can be used to
 share information across the event callbacks.
 
-\Clients are cautioned to ensure their instrumentation is either
+Clients are cautioned to ensure their instrumentation is either
 position-independent or properly patched to operate correctly when the
-\client library base or the persisted code addresses change.  For example,
-if inserted instrumentation includes calls or jumps into the \client
-library, these can be persisted unchanged if the \client also stores its
+client library base or the persisted code addresses change.  For example,
+if inserted instrumentation includes calls or jumps into the client
+library, these can be persisted unchanged if the client also stores its
 base address in the read-only section and in the resurrection callback
 checks it against its current base address.  On a mismatch, the persisted
 file must be rejected.  A more sophisticated approach requires indirection,
 position independence in the code, or patching.
 
-\DynamoRIO itself ensures that a persisted file is only re-used if its
-application module has not changed, if the set of \clients in use is
+DynamoRIO itself ensures that a persisted file is only re-used if its
+application module has not changed, if the set of clients in use is
 identical to those present on creation of the file, and that the TLS offset
 is identical.  The application module check currently includes the base
 address on Windows, which precludes re-using persisted files for libraries
 loaded at different addresses via ASLR.  (In the future we plan to provide
-application relocation support, but it is not there today.).  The \client
-check is based on the absolute paths.  If a \client needs to validate based
+application relocation support, but it is not there today.).  The client
+check is based on the absolute paths.  If a client needs to validate based
 on its runtime options, or do a version check based on its own changing
 instrumentation, it must do that on its own in the event callbacks.  The
-TLS check ensures that TLS scratch slots are identical.  \DynamoRIO also
+TLS check ensures that TLS scratch slots are identical.  DynamoRIO also
 ensures that any runtime options that affect persistent code (such as
 whether traces are enabled) are identical.
 
@@ -1074,7 +1074,7 @@ whether traces are enabled) are identical.
 \endhtmlonly
 \section sec_startstop Running a Subset of an Application
 
-An alternative to running an entire application under \DynamoRIO control is to
+An alternative to running an entire application under DynamoRIO control is to
 use the Application Interface to specify a portion of the application to
 run.  This interface consists of the following routines:
 
@@ -1086,10 +1086,10 @@ dr_app_cleanup()
 dr_app_take_over()
 \endcode
 
-When building an executable that uses \DynamoRIO's Application Interface,
+When building an executable that uses DynamoRIO's Application Interface,
 follow the steps for \ref sec_build to include the header files and link
-with the \DynamoRIO library, but omit the linker flags requesting no
-standard libraries or startup files.  \DynamoRIO's CMake support does this
+with the DynamoRIO library, but omit the linker flags requesting no
+standard libraries or startup files.  DynamoRIO's CMake support does this
 automatically, as the linker flags for shared libraries are separate from
 those for executables.
 

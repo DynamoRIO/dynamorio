@@ -1552,7 +1552,7 @@ dr_standalone_init(void);
 /* DR_API EXPORT END */
 
 DR_API
-/** Returns true if all \DynamoRIO caches are thread private. */
+/** Returns true if all DynamoRIO caches are thread private. */
 bool
 dr_using_all_private_caches(void);
 
@@ -3395,7 +3395,7 @@ DR_API
  * new value.
  * 
  * \note This routine should only be used during a clean call out of the
- * cache.  Use at any other time could corrupt application or \DynamoRIO
+ * cache.  Use at any other time could corrupt application or DynamoRIO
  * state.
  */
 void
@@ -3436,7 +3436,7 @@ dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
 DR_API
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to save the 6
- * arithmetic flags into xax.  This currently uses \DynamoRIO's "lahf ; seto al"
+ * arithmetic flags into xax.  This currently uses DynamoRIO's "lahf ; seto al"
  * code sequence, which is faster and easier than pushf.  If the caller wishes
  * to use xax between saving and restoring these flags, they must save and
  * restore xax, potentially using dr_save_reg()/dr_restore_reg().  If the caller
@@ -3453,7 +3453,7 @@ dr_save_arith_flags_to_xax(void *drcontext, instrlist_t *ilist, instr_t *where);
 DR_API
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to restore the 6
- * arithmetic flags from xax.  This currently uses \DynamoRIO's "add $0x7f %al ;
+ * arithmetic flags from xax.  This currently uses DynamoRIO's "add $0x7f %al ;
  * sahf" code sequence, which is faster and easier than popf.  The caller must
  * ensure that xax contains the arithmetic flags, most likely from
  * dr_save_arith_flags_to_xax().
@@ -4018,7 +4018,7 @@ DR_API
  * current thread only.  After deletion, the existing fragment is
  * allowed to complete execution.  For example, a clean call deleting
  * the currently executing fragment will safely return to the existing
- * code.  Subsequent executions will cause \DynamoRIO to reconstruct
+ * code.  Subsequent executions will cause DynamoRIO to reconstruct
  * the fragment, and therefore call the appropriate fragment-creation
  * event hook, if registered.
  *

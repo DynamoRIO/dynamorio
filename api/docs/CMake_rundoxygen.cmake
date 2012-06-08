@@ -1,4 +1,5 @@
 # **********************************************************
+# Copyright (c) 2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -27,27 +28,6 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
-
-# We don't really support VMSAFE docs but we may as well be macro-clean
-foreach (dox ${dox_files})
-  file(READ ${dox} string)
-  # Exceptions inside \code: should we just abandon the whole macro thing?
-  string(REGEX REPLACE "find_package\(DynamoRIO\)" "" string "${string}")
-  string(REGEX REPLACE "ERROR \"DynamoRIO" "" string "${string}")
-  string(REGEX REPLACE ", which client executed \\*" "" string "${string}")
-  string(REGEX REPLACE "\"Client 'countcalls'" "" string "${string}")
-  # These are case-sensitive, to allow function names and macros
-  string(REGEX MATCH
-    "(^|[^\\/\(])DynamoRIO[^-A-Za-z_]"
-    bad_dr "${string}")
-  string(REGEX MATCH
-    "(^|[^-_\\/a-z])client($|[^_])"
-    bad_client "${string}")
-  if (bad_dr OR bad_client)
-    message(FATAL_ERROR 
-      "In ${dox}: use macro \\DynamoRIO and \\client to allow name substitution")
-  endif (bad_dr OR bad_client)
-endforeach (dox)
 
 # Run doxygen and fail on warnings.
 # Now update to latest doxygen.  Suppress warnings since they're misleading:

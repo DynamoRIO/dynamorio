@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,7 +40,7 @@
 The Memory Firewall API provides an interface for using and
 customizing the award-winning Memory Firewall software originally
 developed by Determina, Inc.  Memory Firewall is a security technique
-that leverages the \DynamoRIO runtime code manipulation system
+that leverages the DynamoRIO runtime code manipulation system
 to control what code is allowed to execute ("Restricted Code Origins"
 or RCO) and how said code can be reached ("Restricted Control
 Transfers" or RCT). The former provides protection against code
@@ -52,8 +53,8 @@ exemptions based off of a simplified version of those used in
 Determina's VPS product.  These policies and exemptions are not
 configurable and should be suitable for most applications.  Some
 applications or modules may use code constructs that violate these
-policies and in these cases a \client can be used to exempt these
-violations.  The \client is also given control over the remediation
+policies and in these cases a client can be used to exempt these
+violations.  The client is also given control over the remediation
 taken when a violation occurs.  Most standard windows services 
 (other than winlogon.exe: see \ref limits_winlogon "Limitations") and
 applications shouldn't receive violations in
@@ -74,7 +75,7 @@ violations.
 \section sec_MF_events Events
 
 The security violation event occurs when a violation of the built in
-policies is detected.  The \client registers a callback routine (or
+policies is detected.  The client registers a callback routine (or
 hook) to receive notification of this event (see
 dr_register_security_event()).  The hook routine receives seven
 parameters that describe the violation and give control over the
@@ -96,7 +97,7 @@ void security_violation(void *drcontext, void *source_tag,
 
  - \c source_tag is the unique tag of the fragment of code in the
    code cache that was the source of the violations. Each fragment of
-   code within \DynamoRIO's code cache is identified by a unique \e
+   code within DynamoRIO's code cache is identified by a unique \e
    tag which is the application starting address of that block of
    code.
 
@@ -154,7 +155,7 @@ void dr_write_forensics_report(void *dcontext, (file_t) file,
 
 \section sec_MF_examples Examples
 
-An example Memory Firewall \client implementation is provided at <a
+An example Memory Firewall client implementation is provided at <a
 href="../../samples/MF_moduledb.c">../../samples/MF_moduledb.c</a>. See \ref
 sec_mf_samples for a description.
 

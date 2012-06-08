@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,16 +34,16 @@
 /**
 \page API_tutorial API Usage Tutorial
 
-Below we provide a few short tutorials on using the \DynamoRIO API to write
-several \clients.
+Below we provide a few short tutorials on using the DynamoRIO API to write
+several clients.
 
-- A \client that tracks the average dynamic basic block size
+- A client that tracks the average dynamic basic block size
 demonstrating some simple instrumentation : \subpage API_tutorial_bbdynsize1 "average_bb_size".
 
-- A \client that steals a register from the application demonstrating
+- A client that steals a register from the application demonstrating
 some simple state translation : \subpage API_tutorial_steal_reg1 "steal_reg".
 
-- A \client that adjusts prefetch instructions demonstrating some simple
+- A client that adjusts prefetch instructions demonstrating some simple
 app modifications : \subpage API_tutorial_prefetch1 "prefetch".
 
 **/
@@ -51,9 +52,9 @@ app modifications : \subpage API_tutorial_prefetch1 "prefetch".
 /**
 \page API_tutorial_bbdynsize1
 
-In this tutorial we'll create a simple \client that will compute the
+In this tutorial we'll create a simple client that will compute the
 average size of basic blocks executed (in instructions) weighted by
-their execution frequency. We start with an empty \DynamoRIO \client.
+their execution frequency. We start with an empty DynamoRIO client.
 
 \code
 #include "dr_api.h"
@@ -74,7 +75,7 @@ exit event (to display the results).  We don't need to register for
 trace events (as we will add our instrumentation to the constituent
 bbs) and we can ignore the \p for_trace and \p translating arguments
 to the basic block callback as our changes are deterministic and
-idempotent so \DynamoRIO default translation will work fine.
+idempotent so DynamoRIO default translation will work fine.
 
 \code
 #include "dr_api.h"
@@ -764,7 +765,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 \page API_tutorial_bbdynsize8
 Our final optimization is to note that if we're running with thread-private caches 
-(i.e. with the -thread_private option to \DynamoRIO) we can use absolute addressing 
+(i.e. with the -thread_private option to DynamoRIO) we can use absolute addressing 
 on the per-thread counters instead of indirecting via TLS which should greatly speed 
 things up.  The downside to -thread_private is that on applications with many threads 
 memory use can get quite high, potentially enough to impact performance of the system.

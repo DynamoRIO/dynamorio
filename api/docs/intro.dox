@@ -44,14 +44,14 @@ at a process level and explains how to use it.   For the rest of the document
 this component shall be referred to as the VMsafe In-Process Runtime or VIPER.
 
 VIPER allows a user specified (via a Guest Agent) in-process agent (referred to
-as \client from now on) to monitor and modify the execution of any given
+as client from now on) to monitor and modify the execution of any given
 process.  VIPER is different from the security agent on the security monitor VM
 or an in-guest agent as neither of them provides direct control at the
 process level because they are unaware of processes.  VIPER on the other hand
 is fully aware of process and resides within the address space of each one that
 is intended to be monitored or controlled.  It provides a finer grain of
 control as it allows the user to decide which processes and what aspects of the
-processes' execution to monitor and control.  Also, a \client is an optional
+processes' execution to monitor and control.  Also, a client is an optional
 component for any VMsafe-based solution.  The figure below gives an idea of how
 VIPER fits in with other VMsafe components.  All user- or ISV-provided parts of a
 VMsafe solution are shown in blue and the VMsafe components in gray.
@@ -61,29 +61,29 @@ VMsafe solution are shown in blue and the VMsafe components in gray.
 \image latex viper.eps
 
 \else
-\mainpage The \DynamoRIO API
+\mainpage The DynamoRIO API
 \endif
 
 \image html drlogo.png
 \image rtf drlogo.png
 
-\DynamoRIO is a <em>runtime code manipulation system</em> that supports
+DynamoRIO is a <em>runtime code manipulation system</em> that supports
 code transformations on any part of a program, <em>while it executes</em>.
-\DynamoRIO gives complete control over the runtime code stream and does not
-limit transformations to trampoline insertion.  \DynamoRIO exports an
+DynamoRIO gives complete control over the runtime code stream and does not
+limit transformations to trampoline insertion.  DynamoRIO exports an
 interface for building dynamic tools for a wide variety of uses: program
 analysis and understanding, profiling, instrumentation, optimization,
-translation, etc. \DynamoRIO provides efficient, transparent, and
+translation, etc. DynamoRIO provides efficient, transparent, and
 comprehensive manipulation of an unmodified application running on a stock
 operating system (Windows\if linux or Linux\endif) and commodity IA-32 and
 AMD64 hardware.  See \ref sec_limit_platforms for supported platforms.
 
-This document describes the \DynamoRIO system and the various API's that it
+This document describes the DynamoRIO system and the various API's that it
 exports for building custom tools.  It is divided into the following
 sections:
 
 - \subpage using
-  <br>How to deploy and make use of \DynamoRIO.
+  <br>How to deploy and make use of DynamoRIO.
 \if vmsafe
 - \subpage API_security
   <br>An interface for customizing and applying the award-winning Memory
@@ -94,23 +94,23 @@ sections:
   or in a lighter-weight but more restrictive mode without code cache.
 \endif
 - \subpage API_BT
-  <br>\DynamoRIO's full runtime code manipulation interface.
+  <br>DynamoRIO's full runtime code manipulation interface.
 
 \ifnot vmsafe 
 - \subpage page_standalone
-  <br>\DynamoRIO can be used as a standalone library for IA-32/AMD64
+  <br>DynamoRIO can be used as a standalone library for IA-32/AMD64
   disassembly, decoding, encoding, and general instruction manipulation.
   A separate static library is provided for this purpose.
 \endif
 
 - \subpage API_tutorial
-  <br>Gives a few short tutorials on using \DynamoRIO.
+  <br>Gives a few short tutorials on using DynamoRIO.
 
 - \subpage API_samples
   <br>Shows some sample use cases and reference implementations.
 
 - \subpage overview
-  <br>A description of the implementation of the \DynamoRIO system.
+  <br>A description of the implementation of the DynamoRIO system.
 
 - \subpage release_notes
   <br>Release notes for this release, including changes since prior
@@ -122,9 +122,9 @@ sections:
 
 ***************************************************************************
 ***************************************************************************
-\page overview \DynamoRIO System Details
+\page overview DynamoRIO System Details
 
-\DynamoRIO is a system for runtime code manipulation that is efficient,
+DynamoRIO is a system for runtime code manipulation that is efficient,
 transparent, and comprehensive, able to observe and manipulate every
 executed instruction in an unmodified application running on a stock
 operating system and commodity hardware.
@@ -132,7 +132,7 @@ operating system and commodity hardware.
 ***************************************************************************
 \section sec_intro Introduction
 
-\DynamoRIO operates in user mode on a target process.  It acts as a
+DynamoRIO operates in user mode on a target process.  It acts as a
 <em>process virtual machine</em>, interposing between the application and
 the operating system.  It has a complete view of the application code
 stream and acts as a runtime control point, allowing custom tools to be
@@ -143,18 +143,18 @@ embedded inside it:
   \image latex interpose.eps "Flow chart" width=10cm
 
 The application itself, along with the underlying operating system and
-hardware, remain unchanged.  \DynamoRIO operates in native (non-virtual)
+hardware, remain unchanged.  DynamoRIO operates in native (non-virtual)
 environments as well as inside guest operating systems running on virtual
-machines.  Tools created on top of \DynamoRIO will operate without change
+machines.  Tools created on top of DynamoRIO will operate without change
 whether the underlying operating system is native or a virtual machine
 guest.
 
 ***************************************************************************
 \section sec_system System Operation
 
-\DynamoRIO operates by shifting an application's execution from its original
+DynamoRIO operates by shifting an application's execution from its original
 instructions to a <em>code cache</em>, where the instructions can be freely
-modified. \DynamoRIO occupies the address space with the application and has
+modified. DynamoRIO occupies the address space with the application and has
 full control over execution, taking over whenever control leaves the code
 cache or when the operating system directly transfers control to the
 application (<em>kernel-mediated control transfers</em>):
@@ -163,24 +163,24 @@ application (<em>kernel-mediated control transfers</em>):
   \image rtf flow-highlevel.png
   \image latex flow-highlevel.eps "Flow chart" width=10cm
 
-\DynamoRIO copies the application code one <em>dynamic basic block</em> at a
+DynamoRIO copies the application code one <em>dynamic basic block</em> at a
 time into its basic block code cache. A block that directly targets another
 block already resident in the cache is linked to that block to avoid the
-cost of returning to the \DynamoRIO dispatcher.
+cost of returning to the DynamoRIO dispatcher.
 
 Frequently executed sequences of basic blocks are combined into
-<em>traces</em>, which are placed in a separate code cache. \DynamoRIO makes
+<em>traces</em>, which are placed in a separate code cache. DynamoRIO makes
 these traces available via its interface for convenient access to hot
 application code streams.
 
 The following figure shows the flow of control between the components of
-\DynamoRIO and its code caches:
+DynamoRIO and its code caches:
 
   \image html flow.png
   \image rtf flow.png
   \image latex flow.eps "Flow chart" width=15cm
 
-The context switch is between \DynamoRIO's operational state and the machine
+The context switch is between DynamoRIO's operational state and the machine
 state of the application: both are still within the same process.
 
 Indirect branches require dynamic resolution of their targets, which is
@@ -189,21 +189,21 @@ inlined into a trace.
 
 \section sec_sys_transp Transparency
 
-Transparency is an important requirement for \DynamoRIO and its \clients.
+Transparency is an important requirement for DynamoRIO and its clients.
 The subject is fully covered in \subpage transparency.
 
 \ifnot vmsafe
 ***************************************************************************
 \section sec_refs References
 
-The canonical reference for \DynamoRIO is:
+The canonical reference for DynamoRIO is:
 
 - Derek Bruening.<br>
   <a href="http://www.burningcutlery.com/derek/phd.html">
   Efficient, Transparent, and Comprehensive Runtime Code Manipulation</a>.<br>
   Ph.D. Thesis, MIT, September 2004.
 
-Other publications describing \DynamoRIO include:
+Other publications describing DynamoRIO include:
 
 - Derek Bruening and Vladimir Kiriansky.<br>
   <a href="http://www.burningcutlery.com/derek/docs/procshared-VEE08.pdf">
@@ -250,9 +250,9 @@ Other publications describing \DynamoRIO include:
 /**
 ***************************************************************************
 ***************************************************************************
-\page using Usage Model for \DynamoRIO
+\page using Usage Model for DynamoRIO
 
-This section gives an overview of how to use \DynamoRIO, divided into the
+This section gives an overview of how to use DynamoRIO, divided into the
 following sub-sections:
 
 \if vmsafe 
@@ -279,53 +279,53 @@ following sub-sections:
 \endif
 
 \ifnot vmsafe
-\DynamoRIO exports a rich Application Programming Interface (API) to the
-user for building a \DynamoRIO <em>\client</em>. A \DynamoRIO \client is a
-library that is coupled with \DynamoRIO in order to jointly operate on an
+DynamoRIO exports a rich Application Programming Interface (API) to the
+user for building a DynamoRIO <em>client</em>. A DynamoRIO client is a
+library that is coupled with DynamoRIO in order to jointly operate on an
 input program binary:
 
-  \image html \client.png
-  \image rtf \client.png
-  \image latex \client.eps "\DynamoRIO \client" width=10cm
+  \image html client.png
+  \image rtf client.png
+  \image latex client.eps "DynamoRIO client" width=10cm
 
-To interact with the \client, \DynamoRIO provides specific events that a
-\client can intercept.  Event interception functions, if supplied by a user
-\client, are called by \DynamoRIO at appropriate times.
+To interact with the client, DynamoRIO provides specific events that a
+client can intercept.  Event interception functions, if supplied by a user
+client, are called by DynamoRIO at appropriate times.
 
-\DynamoRIO can alternatively be used as a third-party disassembly library
+DynamoRIO can alternatively be used as a third-party disassembly library
 (see \ref page_standalone).
 \endif
 
 \section sec_deploy Deployment
 \if vmsafe
-A \DynamoRIO application consists of a guest agent and one or more \clients.  Each of
-these must be linked against the necessary \DynamoRIO dynamic libraries, which
-are provided as part of the SDK.  These \DynamoRIO dynamic libraries must be
-installed when the \DynamoRIO application is installed on a guest OS.  
+A DynamoRIO application consists of a guest agent and one or more clients.  Each of
+these must be linked against the necessary DynamoRIO dynamic libraries, which
+are provided as part of the SDK.  These DynamoRIO dynamic libraries must be
+installed when the DynamoRIO application is installed on a guest OS.
 
-Any \DynamoRIO application wanting to get control of a process must
-first register a \client (which is a self-contained executable
-library) for that process.  Otherwise \DynamoRIO will not be
+Any DynamoRIO application wanting to get control of a process must
+first register a client (which is a self-contained executable
+library) for that process.  Otherwise DynamoRIO will not be
 initialized for that process.  This is done by the guest agent, which
 can either be a service or a standalone executable.  The guest agent
 should use dr_register_process() and dr_register_client() to register
-a process name for which control is desired, which \clients to use for
-each process, and which mode to run the \clients in (more on this
-below).  \DynamoRIO will be initialized in the specified mode for
-registered processes started subsequently.  \DynamoRIO will then load
-the corresponding \clients into such processes and call each \client's
+a process name for which control is desired, which clients to use for
+each process, and which mode to run the clients in (more on this
+below).  DynamoRIO will be initialized in the specified mode for
+registered processes started subsequently.  DynamoRIO will then load
+the corresponding clients into such processes and call each client's
 initialization routine, dr_init().  There are three modes of operation
-for \DynamoRIO which map to the three API's provided by \DynamoRIO
+for DynamoRIO which map to the three API's provided by DynamoRIO
 (see below).  Depending upon the mode chosen the usage model will
 change.
 
 In addition to registering the processes for which control is desired, the 
 guest agent can also unregister them as needed using dr_unregister_process().
 The guest agent can also send update messages to processes currently
-initialized with \DynamoRIO and a \client using dr_nudge_process().
+initialized with DynamoRIO and a client using dr_nudge_process().
 For example, this can be used by the guest agent when it has obtained new
 information (data, libraries, etc.), from a management server or over the
-internet from a security vendor, to let \clients know about them. Note
+internet from a security vendor, to let clients know about them. Note
 that nudging 64-bit processes is not yet supported.
 
 Process registration, unregistration, and nudging require administrative
@@ -336,8 +336,8 @@ permissions.
 
 \else
 
-Once the \DynamoRIO distribution contents are unpacked (see \ref
-sec_package), configuration and execution of applications under \DynamoRIO
+Once the DynamoRIO distribution contents are unpacked (see \ref
+sec_package), configuration and execution of applications under DynamoRIO
 is handled by a set of libraries and tools.  \if linux On Windows, the
 tools are \c drconfig.exe, \c drrun.exe, and \c drinject.exe.  The
 corresponding libraries (whose APIs are exposed by the tools) are \c
@@ -346,8 +346,8 @@ drconfiglib.dll and \c drinjectlib.dll with header files \c dr_config.h and
 drinject scripts. \endif
 
 \ifnot vmsafe 
-When using \DynamoRIO as a third-party disassembly library (see \ref
-page_standalone), no deployment is needed, as \DynamoRIO does not control a
+When using DynamoRIO as a third-party disassembly library (see \ref
+page_standalone), no deployment is needed, as DynamoRIO does not control a
 target application when used as a regular library.
 \endif
 
@@ -355,7 +355,7 @@ target application when used as a regular library.
 \subsection win_deploy Windows Deployment
 \endif
 
-There are two methods for running a process under \DynamoRIO: the one-time
+There are two methods for running a process under DynamoRIO: the one-time
 configure-and-run, and the two-step separate configuration and execution.
 The \c drrun.exe tool supports the first, simpler model, while the \c
 drconfig.exe and \c drinject.exe tools support the second, more powerful
@@ -366,7 +366,7 @@ processes.
 Configuration information is stored in files in the current user's profile
 directory, which is obtained from the environment variable \c $USERPROFILE.
 Thus, configurations are persistent across reboots and are private to each
-user.  \DynamoRIO also supports global configurations, which are stored in
+user.  DynamoRIO also supports global configurations, which are stored in
 the "config" subdirectory of the directory specified by the \c
 DYNAMORIO_HOME registry value in the registry key \c
 \\HKLM\\SOFTWARE\\DynamoRIO\\DynamoRIO (or for 32-bit on 64-bit Windows
@@ -374,7 +374,7 @@ DYNAMORIO_HOME registry value in the registry key \c
 that \c DYNAMORIO_HOME value and creating the directory it points to must
 be done manually.  The provided tools support reading and writing both
 local and global configuration files, and automatically creating the local
-directory.  \DynamoRIO gives local files precedence when both exist.  Note
+directory.  DynamoRIO gives local files precedence when both exist.  Note
 that applications that do not have a $USEPROFILE environment variable can
 only be executed using global configurations.  Also note that by default
 \c $USERPROFILE is not set over cygwin ssh and must be explicitly set in
@@ -385,9 +385,9 @@ identification (e.g., \c calc.exe).  One-time configuration also uses the
 process id to specify that the configuration is for that process instance
 only.
 
-As an example, assume you have unpacked the \DynamoRIO distribution and
+As an example, assume you have unpacked the DynamoRIO distribution and
 your current directory is its base directory.  Run \c calc.exe with the
-bbsize sample \client using the following configure-and-run command:
+bbsize sample client using the following configure-and-run command:
 \if vmsafe
 \code
 bin32/drrun.exe -mode code -client samples/bin32/bbsize.dll 0 "" calc
@@ -399,7 +399,7 @@ bin32/drrun.exe -client samples/bin32/bbsize.dll 0 "" calc
 \endif
 
 To use system-wide injection, allowing for an application to be run
-under \DynamoRIO regardless of how it is invoked, configure the application
+under DynamoRIO regardless of how it is invoked, configure the application
 first (-syswide_on requires administrative privileges):
 \if vmsafe
 \code
@@ -412,7 +412,7 @@ bin32/drconfig.exe -reg calc.exe -syswide_on -client samples/bin32/bbsize.dll 0 
 \endif
 
 The next time \c calc.exe is started by the current user, it will run under
-\DynamoRIO with the bbsize \client.
+DynamoRIO with the bbsize client.
 
 To unregister \c calc.exe, issue the following command:
 \code
@@ -422,32 +422,32 @@ bin32/drconfig.exe -unreg calc.exe
 Invoke any of the \c drconfig.exe, \c drrun.exe, or \c drinject.exe tools
 with no arguments to see the full list of options available.
 
-By default, \DynamoRIO follows into all child processes.  To instead only
+By default, DynamoRIO follows into all child processes.  To instead only
 follow children that are configured (via \c drconfig.exe), use the
 \ref op_children "-no_follow_children" runtime option.
 
 To \ref sec_comm "nudge" all instances of \c calc.exe running under
-\DynamoRIO with argument "5", use:
+DynamoRIO with argument "5", use:
 \code
 bin32/drconfig.exe -nudge calc.exe 0 5
 \endcode
 This will result in a nudge event with argument=5 delivered to the
-\client callback registered with dr_register_nudge_event() in all
-\c calc.exe processes running under \DynamoRIO.  The third argument,
+client callback registered with dr_register_nudge_event() in all
+\c calc.exe processes running under DynamoRIO.  The third argument,
 0, is an ID supplied at registration which uniquely identifies the
-target \client (see dr_deploy.h for details).  Note that nudging
+target client (see dr_deploy.h for details).  Note that nudging
 64-bit applications is not yet supported on Windows.
 
-To view 32-bit or WOW64 processes running under \DynamoRIO the
+To view 32-bit or WOW64 processes running under DynamoRIO the
 \c drview.exe tool can be used.  The bin64 version will display both 32-bit
 and 64-bit processes and will indicate which are 32-bit.  The bin32 version
-will display 64-bit processes but is unable to determine whether \DynamoRIO
+will display 64-bit processes but is unable to determine whether DynamoRIO
 is present.
 
 \attention
 Note that on Windows NT a reboot is required after using -syswide_on or -syswide_off.
 
-\DynamoRIO uses the
+DynamoRIO uses the
 <tt>\\HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows NT\\CurrentVersion\\AppInit_DLLs</tt>
 key 
 (for 32-bit on 64-bit Windows (WOW64), 
@@ -456,10 +456,10 @@ for -syswide_on to inject into new processes without having to directly
 launch them \c drrun.exe or \c drinject.exe.  For injection to work, the
 registered process must statically link to user32.dll (only a few small
 non-graphical windows applications don't link user32.dll).  If a target
-application does not link to user32.dll, \DynamoRIO can still inject if the
+application does not link to user32.dll, DynamoRIO can still inject if the
 process is launched with \c drinject.exe or if the parent process (usually
 cmd.exe or explorer.exe for user launched processes) is running under
-\DynamoRIO.  The drinject.exe tool uses the configuration information set
+DynamoRIO.  The drinject.exe tool uses the configuration information set
 by \c drconfig.exe for the target application.
 
 \attention
@@ -472,19 +472,19 @@ sure that the cmd shell being used was started with elevated permissions.
 \if linux
 \subsection lin_deploy Linux Deployment
 
-Once \DynamoRIO has been unpacked, a set of three scripts provide
+Once DynamoRIO has been unpacked, a set of three scripts provide
 flexibility in configuring and executing applications.
 The \ref limits_linux_preload "LD_PRELOAD"
 based scripts and the \ref sec_startstop "app_start()/app_stop()"
 interface are currently the only supported methods of running
-applications under \DynamoRIO on Linux.  
+applications under DynamoRIO on Linux.
 
-There are two methods for invoking an application under \DynamoRIO:
+There are two methods for invoking an application under DynamoRIO:
  -# Configure and launch in one step via \p drrun
  -# Configure via \p drconfig and launch via \p drinject
 
 As an example of the simpler method, the following command runs \c ls
-under \DynamoRIO with the bbsize sample \client:
+under DynamoRIO with the bbsize sample client:
 \code
 % bin32/drrun -client samples/bin32/libbbsize.so 0 "" ls
 \endcode
@@ -498,20 +498,20 @@ bin64/ for 64-bit applications.
 
 The two-step method allows for greater control over child processes.  The
 \p drconfig script writes a configuration file for a given application
-name.  \DynamoRIO reads its options from the configuration file at runtime.
+name.  DynamoRIO reads its options from the configuration file at runtime.
 Once each process name is configured, the \p drinject script can be used to
 invoke the parent process.  The \p drrun script can also be used but it
 creates a temporary configuration file that will override settings
 requested via \p drconfig.  The configuration file for each application is
 stored in <tt>$HOME/.dynamorio/&lt;appname&gt;.config32</tt> (or a \p
-config64 suffix for 64-bit).  \DynamoRIO also supports global configuration
+config64 suffix for 64-bit).  DynamoRIO also supports global configuration
 files in <tt>/etc/dynamorio/&lt;appname&gt;.config32</tt> when a local
 configuration file is not found.  \p drconfig does not support directly
 writing a global config file but such files can be copied from or modeled
 on local files.
 
 If a target application executes an \c execve that discards the \c $HOME
-environment variable, the resulting process will not run under \DynamoRIO
+environment variable, the resulting process will not run under DynamoRIO
 control.  Use global configuration files to handle this situation.
 
 If a target application binary has suid or sgid bits set, \p drrun will be
@@ -519,45 +519,45 @@ unable to inject into it.  You'll need to use /etc/ld.so.preload as
 described in the \ref limits_linux_preload "Limitations" section.
 
 To \ref sec_comm "nudge" a process with pid \c targetpid running under
-\DynamoRIO and pass argument "5" to the nudge callback, use the \c
+DynamoRIO and pass argument "5" to the nudge callback, use the \c
 nudgeunix tool:
 \code
 bin32/nudgeunix -pid targetpid -client 0 5
 \endcode
 This will result in a nudge event with argument=5 delivered to the
-\client callback registered with dr_register_nudge_event() in the
+client callback registered with dr_register_nudge_event() in the
 target process.  The 0 argument is an ID supplied at registration which
-uniquely identifies the target \client (see dr_deploy.h for details).
+uniquely identifies the target client (see dr_deploy.h for details).
 
 \endif
 \endif
 
-\subsection multi_client Multiple \Clients
+\subsection multi_client Multiple Clients
 
-\DynamoRIO does support multiple \clients.  It is each \client's
-responsibility, however, to ensure compatibility with other \clients.
-\DynamoRIO makes no attempt to force cooperation among \clients.  For
-example, instruction stream modifcations made by one \client are
-visible to other \clients.  Systems employing multiple \clients must
+DynamoRIO does support multiple clients.  It is each client's
+responsibility, however, to ensure compatibility with other clients.
+DynamoRIO makes no attempt to force cooperation among clients.  For
+example, instruction stream modifcations made by one client are
+visible to other clients.  Systems employing multiple clients must
 be aware of such interactions and design accordingly.
 
-\Client registration requires users to specify the \em priority of each
-\client.  \DynamoRIO calls each \client's
-dr_init() routine sequentially according to this priority.  \Clients
+Client registration requires users to specify the \em priority of each
+client.  DynamoRIO calls each client's
+dr_init() routine sequentially according to this priority.  Clients
 with a numerically lower priority value are called first and therefore
-given the first opportunity to register callbacks (the \client with
-priority 0 is called first).  Since \DynamoRIO delivers event
-callbacks sequentially, \client priority and the order of event
+given the first opportunity to register callbacks (the client with
+priority 0 is called first).  Since DynamoRIO delivers event
+callbacks sequentially, client priority and the order of event
 registration is important.  For a given event, the \em first
 registered callback is called \em last.  This scheme gives precedence
 to the first registered callback since that callback is given the final
-opportunity to modify the instruction stream or influence \DynamoRIO's
+opportunity to modify the instruction stream or influence DynamoRIO's
 operation. 
 
 \if vmsafe
 ***************************************************************************
 \section dr_api API
-\DynamoRIO's API is divided into the following interfaces:
+DynamoRIO's API is divided into the following interfaces:
 - \ref API_security
   <br>An interface for customizing and applying the award-winning Memory
   Firewall security software.
@@ -574,9 +574,9 @@ operation.
 ***************************************************************************
 \section dr_modes Modes
 
-The different modes a \client can request \DynamoRIO to operate in are listed
+The different modes a client can request DynamoRIO to operate in are listed
 below.  These are not to be confused with the different \ref dr_api provided by
-\DynamoRIO.  Each mode of \DynamoRIO's operation maps to one or more API.
+DynamoRIO.  Each mode of DynamoRIO's operation maps to one or more API.
 
   - The Memory Firewall mode (#DR_MODE_MEMORY_FIREWALL) maps exclusively to the Memory Firewall API.
   - The Probe mode maps to the Probe API (#DR_MODE_PROBE) without code cache, i.e., a lighter-weight but restrictive mode.
@@ -591,7 +591,7 @@ the section for that interface.
 ***************************************************************************
 \section sec_events Common Events
 
-A \client's primary interaction with the \DynamoRIO system is via a
+A client's primary interaction with the DynamoRIO system is via a
 set of event callbacks.  These events include the following:
 
   - Basic block and trace creation or deletion
@@ -619,64 +619,64 @@ set of event callbacks.  These events include the following:
 
   - Nudge received - see \ref sec_comm
 
-Typically, a \client will register for the desired events at
-initialization in its dr_init() routine.  \DynamoRIO then calls the
+Typically, a client will register for the desired events at
+initialization in its dr_init() routine.  DynamoRIO then calls the
 registered functions at the appropriate times.  Each event has a
 specific registration routine (e.g., dr_register_thread_init_event())
 and an associated unregistration routine.  The header file dr_events.h
 contains the declarations for all registration and unregistration
 routines.
 
-Note that \clients are allowed to register multiple callbacks for the
-same event.  \DynamoRIO also supports mutiple \clients, each of which
-can register for the same event.  In this case, \DynamoRIO sequences
+Note that clients are allowed to register multiple callbacks for the
+same event.  DynamoRIO also supports mutiple clients, each of which
+can register for the same event.  In this case, DynamoRIO sequences
 event callbacks in reverse order of when they were registered.  In
 other words, the first registered callback receives event notification
 last.  This scheme gives priority to a callback registered earlier,
-since it can override or modify the actions of \clients registered
-later.  Note that \DynamoRIO calls each \client's dr_init() routine
-according to the \client's priority (see \ref multi_client and
+since it can override or modify the actions of clients registered
+later.  Note that DynamoRIO calls each client's dr_init() routine
+according to the client's priority (see \ref multi_client and
 dr_register_client() in the deployment API).
 
 Systems registering multiple callbacks for a single event should be
-aware that \client modifications are visible in subsequent callbacks.
-\DynamoRIO makes no attempt to mitigate interference among callback
-functions.  It is the responsibility of a \client to ensure
+aware that client modifications are visible in subsequent callbacks.
+DynamoRIO makes no attempt to mitigate interference among callback
+functions.  It is the responsibility of a client to ensure
 compatibility among its callback functions and the callback functions
-of other \clients.
+of other clients.
 
-\Clients can also unregister a callback using the appropriate
+Clients can also unregister a callback using the appropriate
 unregister routine (see dr_events.h).  While unusual, it is possible for
-one callback routine to unregister another.  In this case, \DynamoRIO
+one callback routine to unregister another.  In this case, DynamoRIO
 still calls routines that were registered before the event.
 Unregistration takes effect before the next event.
 
 On Linux, an exec (SYS_execve) does NOT result in an exit event, but it
-WILL result in the \client library being reloaded and its dr_init() routine
+WILL result in the client library being reloaded and its dr_init() routine
 being called again.  The system call events can be used for notification of
 SYS_execve.
 
 ***************************************************************************
 \section sec_utils Common Utilities
 
-\DynamoRIO provides \clients with a powerful library of utilities for
+DynamoRIO provides clients with a powerful library of utilities for
 custom runtime code transformations.  The interface includes explicit
-support for creating \e transparent \clients.  See the section on
+support for creating \e transparent clients.  See the section on
 \ref transparency for a full discussion of the importance of remaining
 transparent when operating in the same process as the application.
-\DynamoRIO provides common resources \clients can use to avoid reliance on
-shared libraries that may be in use by the application.  The \client should
-only use external resources through \DynamoRIO's own API, through
-\DynamoRIO Extensions (see \ref sec_extensions), through direct
+DynamoRIO provides common resources clients can use to avoid reliance on
+shared libraries that may be in use by the application.  The client should
+only use external resources through DynamoRIO's own API, through
+DynamoRIO Extensions (see \ref sec_extensions), through direct
 system calls, or via an external agent in a separate process that
-communicates with the \client (see \ref sec_comm).  Third-party libraries
+communicates with the client (see \ref sec_comm).  Third-party libraries
 can be used if they are linked statically or loaded privately and there is
 no possibility of global resource conflicts (e.g., a third-party library's
 memory allocation must be wrapped): see \ref sec_extlibs for more details.
 \if vmsafe For the Probe API, these restrictions can be relaxed (see \ref
 sec_trans_probe). \endif
 
-\DynamoRIO's API provides:
+DynamoRIO's API provides:
 
  - Memory allocation: both thread-private (faster as it incurs no
    synchronization costs) and thread-shared
@@ -693,14 +693,14 @@ sec_trans_probe). \endif
 
 See dr_tools.h and dr_proc.h for specifics of each routine.
 
-Another class of utilities provided by \DynamoRIO are structures and
+Another class of utilities provided by DynamoRIO are structures and
 routines for decoding, encoding, and manipulating IA-32 and
 AMD64 instructions. These are described in \ref sec_IR.
 
 \anchor subsec_forwards
-In addition\if linux, on Windows,\endif \DynamoRIO provides a number
+In addition\if linux, on Windows,\endif DynamoRIO provides a number
 of utility functions that it fowards to a core Windows system library
-that we believe to be safe for \clients to use:
+that we believe to be safe for clients to use:
 
  - wcstoul
  - wcstombs
@@ -822,7 +822,7 @@ that we believe to be safe for \clients to use:
 
 In general, these routines match their standard C library counterparts.  However, be
 warned that some of these may be more limited.  In particular, _vsnprintf
-and _snprintf do not support floating-point values.  \DynamoRIO provides
+and _snprintf do not support floating-point values.  DynamoRIO provides
 its own dr_snprintf() that does support floating-point values, but does
 not support printing wide characters.  When printing floating-point values 
 be sure to \ref sec_trans_floating_point
@@ -832,55 +832,55 @@ so as to avoid corrupting it.
 ***************************************************************************
 \section sec_64bit_reach 64-Bit Reachability
 
-To simplify reachability in a 64-bit address space, \DynamoRIO guarantees
+To simplify reachability in a 64-bit address space, DynamoRIO guarantees
 that all of its code caches and heap are within the same 2GB memory region.
-\DynamoRIO also loads \client libraries within 32-bit reachability of its
-code caches and heap.  \DynamoRIO's private loader will ensure this, though
-on Windows it is more efficient to set a preferred base of a \client
+DynamoRIO also loads client libraries within 32-bit reachability of its
+code caches and heap.  DynamoRIO's private loader will ensure this, though
+on Windows it is more efficient to set a preferred base of a client
 library to be in the lower 2GB to avoid the cost of relocation at load time.
-Any static data or code in a \client
-library, or any data allocated using \DynamoRIO's API, is guaranteed to be
+Any static data or code in a client
+library, or any data allocated using DynamoRIO's API, is guaranteed to be
 directly reachable from code cache code.
 
 ***************************************************************************
-\section sec_build Building a \Client
+\section sec_build Building a Client
 
-To use the \DynamoRIO API, a \client should include the main \DynamoRIO
+To use the DynamoRIO API, a client should include the main DynamoRIO
 header file:
 
 \code
 #include "dr_api.h"
 \endcode
 
-The \client's target operating system and architecture must
+The client's target operating system and architecture must
 be specified by setting pre-processor defines before including the
-\DynamoRIO header files.  The appropriate library must then be linked
+DynamoRIO header files.  The appropriate library must then be linked
 with.  The define choices are:
 
 -# \p WINDOWS or \p LINUX
 -# \p X86_32 or \p X86_64
 
 Currently we provide a private loader for both Windows and Linux.
-With private loading, \clients use a separate copy of each library
+With private loading, clients use a separate copy of each library
 from any copy used by the application.
 
 If the private loader is deliberately disabled, for transparency reasons
-(see \ref transparency), \clients should be 
+(see \ref transparency), clients should be 
 self-contained and should not share libraries with the application.  
-Additionally, 64-bit \clients must set a preferred base address in the
+Additionally, 64-bit clients must set a preferred base address in the
 lower 2GB.
 
-The \DynamoRIO release supplies <a href="http://www.cmake.org">CMake</a>
-configuration files to facilitate building \clients with the proper
+The DynamoRIO release supplies <a href="http://www.cmake.org">CMake</a>
+configuration files to facilitate building clients with the proper
 compiler and linker flags.  CMake is a cross-platform build system that
 generates Makefiles or other development system project files.  A \p
 DynamoRIOConfig.cmake configuration file, along with supporting files, is
 distributed in the \p cmake/ directory.
 
-In its \p CMakeLists.txt file, a \client should first invoke a \p
-find_package(\DynamoRIO) command.  This can optionally take a version
-parameter.  This adds \DynamoRIO as an imported target.  If found, the
-\client should then invoke the \p configure_DynamoRIO_client() function in
+In its \p CMakeLists.txt file, a client should first invoke a \p
+find_package(DynamoRIO) command.  This can optionally take a version
+parameter.  This adds DynamoRIO as an imported target.  If found, the
+client should then invoke the \p configure_DynamoRIO_client() function in
 order to configure build settings.  Here is an example:
 
 \code
@@ -910,7 +910,7 @@ make
 The compiler needs to be configured prior to invoking cmake.  If using gcc
 with a non-default target platform, the \p CFLAGS and \p CXXFLAGS
 environment variables should be set prior to invoking cmake.  For example,
-to configure a 32-bit \client when gcc's default is 64-bit:
+to configure a 32-bit client when gcc's default is 64-bit:
 
 \code
 mkdir ../build
@@ -919,14 +919,14 @@ CFLAGS=-m32 cmake -DDynamoRIO_DIR=$DYNAMORIO_HOME/cmake ../myclient
 make
 \endcode
 
-Note that \p CXXFLAGS should be set instead for a C++ \client, and both should
-be set when building both types of \clients from the same configuration
+Note that \p CXXFLAGS should be set instead for a C++ client, and both should
+be set when building both types of clients from the same configuration
 (e.g., \p samples/CMakeLists.txt).
 
-If a \client is not using CMake, the appropriate compiler and linker flags
+If a client is not using CMake, the appropriate compiler and linker flags
 can be gleaned from \p DynamoRIOConfig.cmake.  One method is to invoke CMake to
 generate a Makefile and then build with \p VERBOSE=1.  We also summarize
-here the key flags required for 32-bit \clients for \p gcc:
+here the key flags required for 32-bit clients for \p gcc:
 
 \code
 gcc -fPIC -shared -nostartfiles -nodefaultlibs -lgcc -DLINUX -DX86_32
@@ -941,7 +941,7 @@ cl my-client.c /I$DYNAMORIO_HOME/include /GS- /DWINDOWS /DX86_32
    /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:my-client.dll 
 \endcode
 
-For a 64-bit \client with \p cl:
+For a 64-bit client with \p cl:
 
 \code
 cl my-client.c /I$DYNAMORIO_HOME/include /GS- /DWINDOWS /DX86_64
@@ -950,22 +950,22 @@ cl my-client.c /I$DYNAMORIO_HOME/include /GS- /DWINDOWS /DX86_64
    /base:0x72000000 /fixed
 \endcode
 
-For 64-bit Linux \clients, setting the preferred base takes several steps.
+For 64-bit Linux clients, setting the preferred base takes several steps.
 Refer to \p DynamoRIOConfig.cmake for details.
 
 To make clean call sequences more likely to be optimized, it is recommended
-to compile the \client with optimizations, \p -O2 for gcc or \p /O2 for cl.
+to compile the client with optimizations, \p -O2 for gcc or \p /O2 for cl.
 
 
 ***************************************************************************
-\section sec_extensions \DynamoRIO Extensions
+\section sec_extensions DynamoRIO Extensions
 
-\DynamoRIO supports extending the API presented to \clients through
-separate libraries called \DynamoRIO Extensions.  Extensions are meant to
+DynamoRIO supports extending the API presented to clients through
+separate libraries called DynamoRIO Extensions.  Extensions are meant to
 include features that may be too costly to make available by default or
 features contributed by third parties whose licensing requires using a
 separate library.  Extensions can be either static libraries linked with
-\clients at build time or dynamic libraries loaded at runtime.  A private
+clients at build time or dynamic libraries loaded at runtime.  A private
 loader is used to load dynamic Extensions.
 
 Current Extensions provide symbol access and container data structures.
@@ -973,54 +973,54 @@ Each Extension has its own documentation and has its functions and data
 structures documented separately from the main API.  See <a
 href="page_ext.html">the full list of Extensions here</a>.
 
-Be aware that some of the \DynamoRIO Extensions have LGPL licenses instead
-of the BSD license of the rest of \DynamoRIO.  Such Extensions are built as
+Be aware that some of the DynamoRIO Extensions have LGPL licenses instead
+of the BSD license of the rest of DynamoRIO.  Such Extensions are built as
 shared libraries, have their own license.txt files, and clearly identify
 their license in their documentation.
 
 ***************************************************************************
 \section sec_extlibs Using External Libraries
 
-\Clients are free to use external libraries as long as those libraries
+Clients are free to use external libraries as long as those libraries
 do not use any global user-mode resources that would interfere with
-the running application.  Furthermore, \clients must either link statically
+the running application.  Furthermore, clients must either link statically
 to all libraries or load them using a private loader separate from the
 application's loader in order to prevent re-entrancy problems (see \ref
 sec_trans_resource).
 
 Currently we provide a private loader for both Windows and Linux.  
-With private loading, the \client
+With private loading, the client
 uses a separate copy of each library from any copy used by the application.
 Even with this separation, if these libraries use global resources there
 can still be conflicts.  Our private loader redirects heap
-allocation in the main process heap to instead use \DynamoRIO's internal
+allocation in the main process heap to instead use DynamoRIO's internal
 heap.  The loader also attempts to isolate other global resource usage and
 global callbacks.  In this release it should be considered a beta feature.
 Please file reports on any transparency problems observed when using the
 private loader.
 
-By default, a Windows C \client will not link with libc and will instead
-use the libc subset of routines forwarded from the \DynamoRIO library to \p
-ntdll.dll.  This keeps \clients more lightweight and is usually sufficient
-for most C code.  To request that a C \client link with libc, set this
+By default, a Windows C client will not link with libc and will instead
+use the libc subset of routines forwarded from the DynamoRIO library to \p
+ntdll.dll.  This keeps clients more lightweight and is usually sufficient
+for most C code.  To request that a C client link with libc, set this
 variable prior to invoking configure_DynamoRIO_client():
 
 \code
   set(DynamoRIO_USE_LIBC ON)
 \endcode
 
-C++ \clients and standalone \clients link with libc by default.
+C++ clients and standalone clients link with libc by default.
 
 \subsection subsec_no_loader When Private Loader is Disabled
 
 \if linux
 On Linux, if the private loader is deliberately disabled, ld provides the -wrap
 option, which allows us to override the C library's memory heap allocation
-routines with our own.  For convenience, \DynamoRIO exports
+routines with our own.  For convenience, DynamoRIO exports
 __wrap_malloc(), __wrap_realloc(), and __wrap_free() for this purpose.
 These routines behave like their C library counterparts, but operate on
-\DynamoRIO's global memory pool.  Use the -Xlinker flag with gcc to replace
-the libc routines with \DynamoRIO's _wrap routines, e.g.,
+DynamoRIO's global memory pool.  Use the -Xlinker flag with gcc to replace
+the libc routines with DynamoRIO's _wrap routines, e.g.,
 
 \code
   gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free ...
@@ -1028,10 +1028,10 @@ the libc routines with \DynamoRIO's _wrap routines, e.g.,
 \endif
 
 The ability to override the memory allocation routines makes it
-convenient to develop C++ \clients that use the \em new and \em delete
+convenient to develop C++ clients that use the \em new and \em delete
 operators (as long as those operators are implemented using malloc and
 free).  In particular, heap allocation is required to use the C++
-Standard Template Library containers. When developing a C++ \client,
+Standard Template Library containers. When developing a C++ client,
 we recommend linking statically to the C++ runtime library if not using 
 the provided private loader.
 
@@ -1043,7 +1043,7 @@ static version of the library on the gcc command line.  gcc's
   g++ -print-file-name=libstdc++.a
 \endcode
 
-A full gcc command line for building a C++ \client when disabling the
+A full gcc command line for building a C++ client when disabling the
 private loader (which is not the default) might look something like this
 (note that this requires static versions of the standard libraries that
 were built PIC, which is not the case in modern binary distributions and
@@ -1059,21 +1059,21 @@ g++ -o my-client.so -I<header dir> \
   my-client.cpp
 \endcode
 
-\subsection subsec_cpp C++ \Clients
+\subsection subsec_cpp C++ Clients
 
-The 3.0 version of \DynamoRIO added experimental full support for C++
-\clients using the STL and other libraries.
+The 3.0 version of DynamoRIO added experimental full support for C++
+clients using the STL and other libraries.
 
 On Windows, when using the Microsoft Visual C++ compiler, we recommend
-using the \p /MT compiler flag to request a static C library.  The \client
+using the \p /MT compiler flag to request a static C library.  The client
 will still use the \p kernel32.dll library but our private loader will load
 a separate copy of that library and redirect heap allocation automatically.
 Our private loader does not yet support locating SxS (side-by-side)
 libraries, so using \p /MD will most likely not work unless using a
 version of the Visual Studio compiler other than 2005 or 2008.
 
-We do not recommend that a \client or its libraries invoke their own system
-calls as this bypasses \DynamoRIO's monitoring of changes to the process
+We do not recommend that a client or its libraries invoke their own system
+calls as this bypasses DynamoRIO's monitoring of changes to the process
 address space and changes to threads or control flow.  Such system calls
 will also not work properly on Linux when using sysenter on some systems.
 If you see an assert to that effect in debug build on Linux, try the \ref
@@ -1083,33 +1083,33 @@ op_sysenter "-sysenter_is_int80" option.
 \section sec_comm Communication
 
 Due to transparency limitations (see \ref transparency),
-\DynamoRIO can only support certain communication channels in and out of the
+DynamoRIO can only support certain communication channels in and out of the
 target application process.  These include:
 
- - \DynamoRIO deployment control and runtime options: see \ref sec_deploy
+ - DynamoRIO deployment control and runtime options: see \ref sec_deploy
    and \ref sec_options.  In particular, the deployment API allows users to
-   pass up-front runtime information to the \client.
- - Nudges: Since polling requires extra threads, and \DynamoRIO tries not
+   pass up-front runtime information to the client.
+ - Nudges: Since polling requires extra threads, and DynamoRIO tries not
    to create permanent extra threads (see \ref sec_trans_thread
    "Thread Transparency"), a mechanism called \e nudges are the preferred mechanism
-   for pushing data into the process. Nudges are used to notify \DynamoRIO
+   for pushing data into the process. Nudges are used to notify DynamoRIO
    that it needs to re-read its options, or perform some other action.
-   \DynamoRIO also provides a custom nudge event that can be used by
-   \clients. See dr_nudge_process() and dr_register_nudge_event().
+   DynamoRIO also provides a custom nudge event that can be used by
+   clients. See dr_nudge_process() and dr_register_nudge_event().
  - Files can be used to send data out.  An external process can wait on
    the file.
 
 ***************************************************************************
-\section sec_options Fine-Tuning \DynamoRIO: Runtime Parameters
+\section sec_options Fine-Tuning DynamoRIO: Runtime Parameters
 
-\DynamoRIO's behavior can be fine-tuned using runtime parameters.  Options
+DynamoRIO's behavior can be fine-tuned using runtime parameters.  Options
 are specified via \c drconfig.exe, \c drrun.exe, or dr_register_process()
 \if linux on Windows and via the \c drconfig and \c drrun scripts on
 Linux\endif.  See \ref sec_deploy.
 
  - \b -no_follow_children: \anchor op_children
-   By default, \DynamoRIO follows all child processes.  When this option
-   is disabled via \p -no_follow_children, \DynamoRIO follows only
+   By default, DynamoRIO follows all child processes.  When this option
+   is disabled via \p -no_follow_children, DynamoRIO follows only
    into child processes for which a configuration file exists (typically
    created by \c drconfig; see \ref sec_deploy).  On Linux,
    forked children are always followed and this option only affects execve.
@@ -1128,20 +1128,20 @@ Linux\endif.  See \ref sec_deploy.
 
  - \b -opt_cleancall \e \<number\>: \anchor op_cleancall
    Optimize (shrink or inline) the clean call sequences. 
-   When \DynamoRIO analyzes the callee and optimizes each clean call invocation, 
-   it assumes that a \client will not modify the clean call callee or application
+   When DynamoRIO analyzes the callee and optimizes each clean call invocation,
+   it assumes that a client will not modify the clean call callee or application
    instructions after the inserted clean call.
-   If a \client changes application instructions after an inserted clean call, 
-   the \client may need to reduce the -opt_cleancall level to preserve correct 
+   If a client changes application instructions after an inserted clean call,
+   the client may need to reduce the -opt_cleancall level to preserve correct
    execution.
    The clean call will only be optimized if it is a leaf function.
    Currently, the callee will be inlined only if it is small and has at most 
    one argument.
-   Compiling the \client with optimizations makes clean call sequences more likely 
+   Compiling the client with optimizations makes clean call sequences more likely
    to be optimized.
    The optimization results (e.g. whether the inserted clean call is inlined or not,
    and which registers were saved on each context switch) are logged.
-   Users can run \DynamoRIO debug build with the runtime option 
+   Users can run DynamoRIO debug build with the runtime option
    "-loglevel 2 -logmask 0x02000000" (the logmask is optional but reduces the 
    logfile size significantly) and grep for 
    "CLEANCALL" in the log file to retrieve the information 
@@ -1156,9 +1156,9 @@ Linux\endif.  See \ref sec_deploy.
 
 \if expose_opt_speed
  - \b -opt_speed: \anchor op_speed
-   By default, \DynamoRIO provides a more straightforward code stream to
-   \clients in lieu of performance optimizations.  This option attempts
-   to obtain higher performance with potential loss of \client simplicity.
+   By default, DynamoRIO provides a more straightforward code stream to
+   clients in lieu of performance optimizations.  This option attempts
+   to obtain higher performance with potential loss of client simplicity.
    In particular, unconditional branches and in some cases indirect calls
    may be elided in basic blocks.  See also \ref sec_limit_perf.
    Note that dr_insert_mbr_instrumentation() is not supported when -opt_speed
@@ -1166,8 +1166,8 @@ Linux\endif.  See \ref sec_deploy.
 \endif
 
  - \b -stack_size \e \<number\>: \anchor op_stack_size 
-   \DynamoRIO's per-thread stack is limited to 56KB by default (this may
-   seem small, but this is much larger than its size when no \client is
+   DynamoRIO's per-thread stack is limited to 56KB by default (this may
+   seem small, but this is much larger than its size when no client is
    present).  This parameter can be used to increase the size; however,
    larger stack sizes use significantly more memory when targeting
    applications with hundreds of threads.  The parameter can take a 'K'
@@ -1184,18 +1184,18 @@ Options available only in Code Manipulation mode and Memory Firewall mode
 (see \ref dr_modes):
 \endif
  - \b -thread_private: \anchor op_thread_priv
-   By default, \DynamoRIO's code caches are shared across threads.  This
+   By default, DynamoRIO's code caches are shared across threads.  This
    option requests code caches that are private to each thread.  For
    applications with many threads, thread-private code caches use more
    memory.  However, they can be more efficient, particularly when
    inserting thread-specific instrumentation.
 
  - \b -disable_traces:
-   By default, \DynamoRIO builds both a <em>basic block</em> code cache and
+   By default, DynamoRIO builds both a <em>basic block</em> code cache and
    a <em>trace</em> code cache (see \ref sec_IR).  This option disables
    trace building, which can have a negative performance impact.
    When traces are disabled, dr_register_trace_event() has no effect.
-   \DynamoRIO tries to keep traces transparent to a \client who is
+   DynamoRIO tries to keep traces transparent to a client who is
    interested in all code and not only hot code, so there is rarely a
    reason to disable traces.
    \if internal_comment
@@ -1204,33 +1204,33 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    \endif
 
  - \b -enable_full_api: \anchor op_enable
-   \DynamoRIO's default internal options balance performance with API
+   DynamoRIO's default internal options balance performance with API
    usability.  A few API functions, such as dr_unlink_flush_region(),
-   are incompatible with this default mode.  \Client users can gain 
+   are incompatible with this default mode.  Client users can gain
    access to the entire set of API functions with -enable_full_api.
    Note that this option may result in a small performance degradation.
 
  - \b -max_bb_instrs: 
-   \DynamoRIO stops building a basic block if it hits this application
+   DynamoRIO stops building a basic block if it hits this application
    instruction count limit before hitting control flow or other block
    termination conditions.  The default value is 1024; lower it if
-   extensive \client instrumentation is running into code cache size
+   extensive client instrumentation is running into code cache size
    limit asserts.
 
  - \b -max_trace_bbs: 
-   \DynamoRIO will not build a trace with larger than this number of
+   DynamoRIO will not build a trace with larger than this number of
    constituent basic block.  The default value is 128; lower it if
-   extensive \client instrumentation is running into code cache size
+   extensive client instrumentation is running into code cache size
    limit asserts.
 
  - \b -sysenter_is_int80: \anchor op_sysenter
    This option only applies to Linux.  If sysenter is the system call
-   gateway, \DynamoRIO normally hooks the vsyscall vdso page when it can.
-   This option requests that \DynamoRIO convert sysenter into int 0x80
+   gateway, DynamoRIO normally hooks the vsyscall vdso page when it can.
+   This option requests that DynamoRIO convert sysenter into int 0x80
    instead.  See \ref sec_extlibs.
 
  - \b -multi_thread_exit:
-   By default, \DynamoRIO synchronizes with all remaining threads
+   By default, DynamoRIO synchronizes with all remaining threads
    at process exit time and the process exit event executes with only
    one live thread.  This option requests that in release build the
    synchronization be avoided.  The process exit event must be written
@@ -1240,7 +1240,7 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    programmatically via dr_set_process_exit_behavior().
 
  - \b -skip_thread_exit_at_exit:
-   By default, \DynamoRIO synchronizes with all remaining threads at
+   By default, DynamoRIO synchronizes with all remaining threads at
    process exit time in order to safely call each thread exit event.  This
    option requests that in release build the synchronization be avoided by
    removing the invocation of thread exit events at process exit time.
@@ -1269,13 +1269,13 @@ they want to shrink memory usage
 \endif
 
  - \b -syntax_intel: \anchor op_syntax_intel
-    This option causes \DynamoRIO to output all disassembly using Intel
+    This option causes DynamoRIO to output all disassembly using Intel
     syntax rather than the default AT&T-style syntax.  This can also be set
     using disassemble_set_syntax().
 
 \ifnot vmsafe
  - \b -tracedump_text and \b -tracedump_binary:
-    These options cause \DynamoRIO to output all traces that were created
+    These options cause DynamoRIO to output all traces that were created
     to the log file \e traces-shared.0.TID.html, where \e
     TID is the thread id of the initial thread; any thread-private traces
     (see \ref op_thread_priv "-thread_private option") produce per-thread
@@ -1300,10 +1300,10 @@ they want to shrink memory usage
 FIXME PR 225255: profiling options
 \endif
 
-Options controlling notifications from \DynamoRIO:
+Options controlling notifications from DynamoRIO:
 
  - \b -msgbox_mask \e 0xN: \anchor op_msgbox_mask
-   Controls whether \DynamoRIO uses pop-up message boxes on Windows,
+   Controls whether DynamoRIO uses pop-up message boxes on Windows,
    or waits for a key press on Linux, when presenting information.
    The mask takes the following bitfields:
    - INFORMATION = 0x1
@@ -1327,7 +1327,7 @@ Options controlling notifications from \DynamoRIO:
    included in the logfile.
 
  - \b -stderr_mask \e 0xN:
-   Parallel to -msgbox_mask, but controls \DynamoRIO's output to standard
+   Parallel to -msgbox_mask, but controls DynamoRIO's output to standard
    error.  This option takes the same bitfields as -msgbox_mask.  The API
    routine dr_is_notify_on() can be used to determine if -stderr_mask is
    non-zero.  Messages printed to stderr will only be visible for
@@ -1339,34 +1339,34 @@ Options controlling notifications from \DynamoRIO:
 Options aiding in debugging:
 
  - \b -pause_on_error: \anchor op_pause
-   For Linux builds only, this option requests that when \DynamoRIO
+   For Linux builds only, this option requests that when DynamoRIO
    encounters an assert or crash that it suspend the process so that a
    debugger can be attached.
 
  - \b -no_hide: \anchor op_no_hide
-    By default, \DynamoRIO hides itself from the Windows module list, for
+    By default, DynamoRIO hides itself from the Windows module list, for
     transparency.  However, this makes it more difficult to debug a process
-    under \DynamoRIO's control.  The option -no_hide turns off this module
-    hiding.  However, the \client library and any libraries it imports from
+    under DynamoRIO's control.  The option -no_hide turns off this module
+    hiding.  However, the client library and any libraries it imports from
     will still be hidden.  We provide a windbg script that can locate
-    \DynamoRIO, the \client library, and all of its dependences, so this
+    DynamoRIO, the client library, and all of its dependences, so this
     option should no longer be necessary (see \ref sec_debugging).
    \if linux This option is for Windows only. \endif
 \endif
 
-Options available only in the debug build of \DynamoRIO:
+Options available only in the debug build of DynamoRIO:
 
 \anchor op_loglevel
  - \b -loglevel \e N:
-    If N is greater than 0, \DynamoRIO prints out a log of its actions.
-    The greater the value of N, the more information \DynamoRIO prints.
+    If N is greater than 0, DynamoRIO prints out a log of its actions.
+    The greater the value of N, the more information DynamoRIO prints.
     Useful ranges are from 1 to 6.  Verbosity is set to 0 by default, i.e.,
     no log written.  All log files are kept in a log directory.  There is
     one directory per address space per run.  The directories are named \e
     app.NNN, where \e app is the application name and \e NNN is a number
     that is incremented with each directory created.  \if Linux On
     Windows the \else The \endif directories are located by default in
-    a subdirectory \e logs of the \DynamoRIO home directory as
+    a subdirectory \e logs of the DynamoRIO home directory as
     specified in the dr_register_process() or \c drconfig.exe
     configuration for the target application.  \if linux On Linux the
     \c drconfig and \c drrun scripts allow for setting the logging directory. \endif
@@ -1376,83 +1376,83 @@ Options available only in the debug build of \DynamoRIO:
     where \e N is the thread's creation ordinal and \e TID is its thread
     identifier.  The loglevel may be changed during program execution, but
     if it began at 0 then it cannot be raised later.  The -logmask
-    parameter can be used to control which \DynamoRIO modules output data
-    to the log files. dr_log() allows the \client to write to the above
+    parameter can be used to control which DynamoRIO modules output data
+    to the log files. dr_log() allows the client to write to the above
     logfiles.
 
 \anchor op_logmask
  - \b -logmask \e 0xN:
-    Selects which \DynamoRIO modules print out logging information, at the
+    Selects which DynamoRIO modules print out logging information, at the
     -loglevel level.  The mask is a combination of the LOG_ bitfields
     listed in dr_tools.h (#LOG_ALL selects all modules).
 
  - \b -ignore_assert_list \b '*': \anchor op_ignore_assert
-    Ignores all \DynamoRIO asserts of the form "<file>:1234". * may be
+    Ignores all DynamoRIO asserts of the form "<file>:1234". * may be
     replaced by a ; separated lists of individual asserts to ignore
     "foo.c:333;bar.c:12".
 
 ***************************************************************************
 \section sec_debugging Diagnosing and Reporting Problems
 
-When using a complex system like \DynamoRIO, problems can be challenging to
+When using a complex system like DynamoRIO, problems can be challenging to
 diagnose.  This section contains some debugging tips and shows how to get
 help.
 
 \subsection sec_reporting Obtaining Help and Reporting Problems
 
 For questions and discussion, join the <a
-href="http://groups.google.com/group/dynamorio-users/">\DynamoRIO Users
+href="http://groups.google.com/group/dynamorio-users/">DynamoRIO Users
 group</a>.
 
 For bug reports, use the <a
 href="http://code.google.com/p/dynamorio/issues/list">Issue Tracker</a>.
 Please include <a
 href="http://code.google.com/p/dynamorio/wiki/BugReporting">a detailed
-description</a> of the problem (is it an application crash?  a \DynamoRIO
+description</a> of the problem (is it an application crash?  a DynamoRIO
 crash?  a hang?  a debug build assert?) and how to reproduce it.
 
 \subsection sec_diagnosing Troubleshooting
 
- - \DynamoRIO disables itself when Windows is booted in safe mode (without
+ - DynamoRIO disables itself when Windows is booted in safe mode (without
 networking).  Thus, if a crash occurs in a Windows service under
-\DynamoRIO, rebooting in safe mode will allow recovery.
+DynamoRIO, rebooting in safe mode will allow recovery.
 
- - If the \client library doesn't seem to function for a given process, it is
-   likely that the \client library wasn't loaded due to errors.  
+ - If the client library doesn't seem to function for a given process, it is
+   likely that the client library wasn't loaded due to errors.  
 
    \par
    One of the common situations where this happens is when the target 
-   application runs as a different user than the user who created the \client 
+   application runs as a different user than the user who created the client 
    library.  This results in the application process not having the right 
-   permissions to access the \client library.
+   permissions to access the client library.
 
    \par 
-   Try running the process under the debug mode of \DynamoRIO (see 
+   Try running the process under the debug mode of DynamoRIO (see 
    dr_register_process()), where diagnostic messages are raised on errors like
-   \client library permissions.  To see all messages, set the notification 
+   client library permissions.  To see all messages, set the notification 
    options like -msgbox_mask and -stderr_mask options to 0xf (see \ref 
    sec_options).  This will alert you to the problem.
 
- - \DynamoRIO asserts of the form "<file>:1234" can be suppressed with
+ - DynamoRIO asserts of the form "<file>:1234" can be suppressed with
    the \ref op_ignore_assert "-ignore_assert_list '*'" option. * may
    be replaced by a ; separated lists of individual asserts to
    suppress as so "-ignore_assert_list 'foo.c:333;bar.c:12'".
 
- - The \DynamoRIO header files have typedefs that may conflict with other
+ - The DynamoRIO header files have typedefs that may conflict with other
    header files wrapped in ifndef DR_DO_NOT_DEFINE_<type> to make it
    easier to work around such conflicts.
 
 \ifnot vmsafe
 \subsection sec_using_debugger Using Debuggers
 
-A process under control of \DynamoRIO can be executed within a debugger.
+A process under control of DynamoRIO can be executed within a debugger.
 For debugging on Windows we recommend using windbg version 6.3.0017 (\b not
 the newer versions, as they have problems displaying callstacks involving
-\DynamoRIO code).
+DynamoRIO code).
 
-Normally, the debugger will not be aware of the \DynamoRIO library or the
-\client library.  We provide a windbg script that locates the \DynamoRIO
-library, the \client library, and any privately-loaded dependent libraries.
+Normally, the debugger will not be aware of the DynamoRIO library or the
+client library.  We provide a windbg script that locates the DynamoRIO
+library, the client library, and any privately-loaded dependent libraries.
 The script is in \c bin32/load_syms.txt and \c bin64/load_syms64.txt.  To
 load it from windbg, execute the following command:
 
@@ -1467,8 +1467,8 @@ to include this command as a -c argument.  E.g.:
 \endcode
 
 On Windows, the \ref op_no_hide "-no_hide" option can alternatively be
-used so the debugger can see the \DynamoRIO library, but the debugger
-will still not be able to see the \client library or any of its
+used so the debugger can see the DynamoRIO library, but the debugger
+will still not be able to see the client library or any of its
 dependent libraries.  We recommend using our script.
 
 To attach to a process on Windows, use the \ref op_msgbox_mask
@@ -1484,19 +1484,19 @@ LD_LIBRARY_PATH and LD_PRELOAD environment variables from within the
 debugger.
 
 Take care when setting breakpoints in an application running under
-\DynamoRIO.  If the debugger inserts \c int3 it can find its way into
+DynamoRIO.  If the debugger inserts \c int3 it can find its way into
 the code cache and cause errors as the debugger will not realize that
 the resulting trap is from a breakpoint.  Use read watchpoints on the
 code in question instead.
 
 On Linux, gdb sets a hidden breakpoint in __nptl_create_event.  This
-causes \DynamoRIO to put an \c int3 into the code cache.  The debugger
+causes DynamoRIO to put an \c int3 into the code cache.  The debugger
 then hits a trap on every pthread_create and other related calls.
 The debugger handles these traps so this is just an annoyance.
 See http://code.google.com/p/dynamorio/issues/detail?id=490.
 
 On Windows, if an application invokes OutputDebugString() while under a
-debugger, \DynamoRIO can end up losing control of the application.
+debugger, DynamoRIO can end up losing control of the application.
 \endif
 
 ****************************************************************************
@@ -1511,10 +1511,10 @@ debugger, \DynamoRIO can end up losing control of the application.
 \ifnot vmsafe
 \page page_standalone IA-32/AMD64 Disassembly Library
 
-\DynamoRIO can be used as a standalone library for IA-32/AMD64
+DynamoRIO can be used as a standalone library for IA-32/AMD64
 disassembly, decoding, encoding, and general instruction manipulation,
 independently of controlling a target application.  When used in this way,
-all aspects of \DynamoRIO's API routines that apply to instrumentation or
+all aspects of DynamoRIO's API routines that apply to instrumentation or
 application control are not applicable; however, the full, rich instruction
 set API is enabled.  For further information on the instruction set API see
 the following sections of the Code Manipulation API:
@@ -1522,16 +1522,16 @@ the following sections of the Code Manipulation API:
  - \ref sec_IR
  - \ref sec_decode
 
-\section sec_standalone Using \DynamoRIO as a Standalone Library
+\section sec_standalone Using DynamoRIO as a Standalone Library
 
-\DynamoRIO can be used as a regular third-party library for a standalone
-application (instead of a \client that operates on a target program).  Two
-options are provided: using the regular \DynamoRIO shared library, or using
+DynamoRIO can be used as a regular third-party library for a standalone
+application (instead of a client that operates on a target program).  Two
+options are provided: using the regular DynamoRIO shared library, or using
 a special static library \p drdecode.  The shared library provides not only
 decoding routines but also cross-platform resources such as file
 manipulation.
 
-When using the \DynamoRIO shared library, this initialization routine must
+When using the DynamoRIO shared library, this initialization routine must
 be called prior to using any API routines:
 
 \code dr_standalone_init() \endcode
@@ -1544,8 +1544,8 @@ require initialization.
 
 Neither the context returned by dr_standalone_init() nor \p
 GLOBAL_DCONTEXT can be used as the drcontext for a thread running under
-\DynamoRIO control!  It is only for standalone programs that wish to use
-\DynamoRIO as a library of routines for IA-32 instruction manipulation or
+DynamoRIO control!  It is only for standalone programs that wish to use
+DynamoRIO as a library of routines for IA-32 instruction manipulation or
 other purposes.
 
 In standalone mode, the set_x86_mode() routine operates globally rather
@@ -1556,10 +1556,10 @@ controlled via disassemble_set_syntax().  The processor to use will not be
 automatically set and will be assumed to be \p VENDOR_INTEL.  Use
 proc_set_vendor() to set to \p VENDOR_AMD instead.
 
-Some \DynamoRIO API routines are not supported in standalone mode.  These
+Some DynamoRIO API routines are not supported in standalone mode.  These
 include all event registration routines, module iteration,
 dr_memory_protect(), dr_messagebox(), dr_get_current_drcontext(),
-dr_get_thread_id(), tls fields, dr_thread_yield(), dr_sleep(), \client
+dr_get_thread_id(), tls fields, dr_thread_yield(), dr_sleep(), client
 threads, suspending threads, itimers, register spilling and restoring,
 dr_redirect_execution(), try/except, and code cache routines (e.g.,
 dr_delete_fragment() or flush routines).
@@ -1572,36 +1572,36 @@ memory references will have their segment base ignored.  Other API routines
 are simply not present in the static library.  There is no separate set of
 headers for use with \p drdecode.
 
-When using \DynamoRIO's CMake support, use the configure_DynamoRIO_decoder()
+When using DynamoRIO's CMake support, use the configure_DynamoRIO_decoder()
 function to set up include directories and to link with \p drdecode.  The
-next section describes how to link with the \DynamoRIO shared library.
+next section describes how to link with the DynamoRIO shared library.
 
-\section sec_standalone_shared \DynamoRIO Shared Library Issues
+\section sec_standalone_shared DynamoRIO Shared Library Issues
 
-Since the \DynamoRIO library on Windows includes or forwards
+Since the DynamoRIO library on Windows includes or forwards
 implementations of certain C library routines (see 
 \ref subsec_forwards "C library utilities"), standalone applications
-linking to both \DynamoRIO and the C library may experience linker errors
+linking to both DynamoRIO and the C library may experience linker errors
 when building and floating point problems when running.  To avoid these
 problems, explicitly list the C runtime library on the command line:
 
 \code /link /nodefaultlib libcmt.lib dynamorio.lib \endcode
 
-\DynamoRIO writes to stderr and stdout using raw system calls, which can
+DynamoRIO writes to stderr and stdout using raw system calls, which can
 interfere with the buffering of library routines.  When mixing use of
-printf or fprintf with \DynamoRIO output (including not only dr_printf()
+printf or fprintf with DynamoRIO output (including not only dr_printf()
 and dr_fprintf() but also passing STDOUT or STDERR to routines like
 disassemble()), you may need to flush between library printing and
-\DynamoRIO printing (e.g., using fflush(stdout)) to ensure that the library
+DynamoRIO printing (e.g., using fflush(stdout)) to ensure that the library
 output is visible.
 
 The binary tracedump reader (\ref sec_ex8) is an example of use of
-\DynamoRIO as a standalone library.
+DynamoRIO as a standalone library.
 
-When building an application that uses \DynamoRIO as a standalone library,
+When building an application that uses DynamoRIO as a standalone library,
 follow the steps for \ref sec_build to include the header files and link
-with the \DynamoRIO library, but omit the linker flags requesting no
-standard libraries or startup files.  \DynamoRIO's CMake support does this
+with the DynamoRIO library, but omit the linker flags requesting no
+standard libraries or startup files.  DynamoRIO's CMake support does this
 automatically via the configure_DynamoRIO_standalone() function.
 
 \endif

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,11 +34,11 @@
 /**
 ***************************************************************************
 ***************************************************************************
-\page page_ext \DynamoRIO Extensions
+\page page_ext DynamoRIO Extensions
 
-\DynamoRIO provides additional optional capabilities via \DynamoRIO
-Extensions, separate libraries that a \client can link to.  The Extensions
-that are provided with the \DynamoRIO distribution are:
+DynamoRIO provides additional optional capabilities via DynamoRIO
+Extensions, separate libraries that a client can link to.  The Extensions
+that are provided with the DynamoRIO distribution are:
 
 REPLACE_WITH_EXTENSION_SUBPAGES
 */
