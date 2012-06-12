@@ -814,6 +814,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
     byte *push_pc, *push_pc2 = NULL;
     bool assume_not_on_dstack = assume_xsp;
     app_pc no_cleanup;
+    uint stack_offs = 0;
     
     /* AFTER_INTERCEPT_LET_GO_ALT_DYN is used only dynamically to select alternate */
     ASSERT(action_after != AFTER_INTERCEPT_LET_GO_ALT_DYN);
@@ -1034,13 +1035,18 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
     }
 
     /* We assume that if !assume_xsp we've done two pushes on the stack.
-     * PR 270115: However if already on dstack we may not be aligned: we play it
-     * safe and use unaligned instrs, rather than add code to test and align.
+     * DR often only cares about stack alignment for xmm saves.
+     * However, it sometimes calls ntdll routines; and for client exception
+     * handlers that might call random library routines we really care.
+     * We assume that the kernel will make sure of the stack alignment, 
+     * so we use stack_offs to make sure of the stack alignment in the
+     * instrumentation.
      */
-    insert_push_all_registers(dcontext, NULL, &ilist, NULL, XSP_SZ,
-                              /* pc slot not used: could use instead of state->start_pc */
-                              /* sign-extended */
-                              INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));
+    stack_offs = insert_push_all_registers
+        (dcontext, NULL, &ilist, NULL, XSP_SZ,
+         /* pc slot not used: could use instead of state->start_pc */
+         /* sign-extended */
+         INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));
 
     /* clear eflags for callee's usage */
     APP(&ilist,
@@ -1088,6 +1094,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
     APP(&ilist, push_start);
     APP(&ilist, INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INTPTR(callee_arg)));
 #endif
+    stack_offs += 2*XSP_SZ;
 
     /* We pass xsp as a pointer to all the values on the stack; this is the actual
      * argument to the intercept routine.  Fix for case 7597.
@@ -1101,9 +1108,14 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
                                         opnd_create_reg(REG_XSP)));
 #ifdef X64
         /* i#331: align the misaligned stack */
-        APP(&ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
-                                     opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                                           -(int)XSP_SZ, OPSZ_0)));
+# define STACK_ALIGNMENT 16
+        if (!ALIGNED(stack_offs, STACK_ALIGNMENT)) {
+            ASSERT(ALIGNED(stack_offs, XSP_SZ));
+            APP(&ilist, INSTR_CREATE_lea
+                (dcontext, opnd_create_reg(REG_XSP),
+                 opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                       -(int)XSP_SZ, OPSZ_0)));
+        }
 #endif
     }
     dr_insert_call(dcontext, &ilist, NULL, (byte *)callee, 1,
@@ -1112,9 +1124,13 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
 #ifdef X64
     /* i#331, misaligned stack adjustment cleanup */
     if (parameters_stack_padded()) {
-        APP(&ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
-                                     opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                                           XSP_SZ, OPSZ_0)));
+        if (!ALIGNED(stack_offs, STACK_ALIGNMENT)) {
+            ASSERT(ALIGNED(stack_offs, XSP_SZ));
+            APP(&ilist, INSTR_CREATE_lea
+                (dcontext, opnd_create_reg(REG_XSP),
+                 opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                       XSP_SZ, OPSZ_0)));
+        }
     }
 #endif
     /* clean up 2 pushes */
