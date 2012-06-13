@@ -49,11 +49,22 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
       PROPERTIES GENERATED true)
     # we don't need ${defines} (=> list) b/c we include configure.h
     set(output "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.obj")
-    add_custom_command(OUTPUT "${output}"
+    set(namebase "${namepath}/${namebase}")
+    # XXX i#801: a VS2010 bug results in custom commands having all their sources
+    # rebuilt which results in racy collision for tools_asm.
+    # Workaround is to indirect through a dummy .stamp file to avoid
+    # chaining sources to custom commands, although this will only
+    # include the .obj file in the target link with cmake 2.8.8+.
+    # (Alternative is to not list as a source and add to link flags.)
+    set(output_stamp "${output}.stamp")
+    set_property(SOURCE "${output}" PROPERTY GENERATED true)
+    add_custom_command(OUTPUT "${output_stamp}"
       DEPENDS "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm"
         "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
         "${PROJECT_BINARY_DIR}/configure.h"
         "${CMAKE_CURRENT_SOURCE_DIR}/${source}.asm"
+      COMMAND ${CMAKE_COMMAND}
+        ARGS -E touch "${output_stamp}"
       COMMAND "${CMAKE_C_COMPILER}" ARGS ${CMAKE_CPP_FLAGS}
         /I "${PROJECT_BINARY_DIR}" ${extradefs}
         -E ${CPP_NO_LINENUM} "${CMAKE_CURRENT_SOURCE_DIR}/${source}.asm"
@@ -68,7 +79,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
       VERBATIM # recommended: p260
       )
     get_filename_component(namebase "${source}" NAME_WE)
-    add_custom_target(generate_${namebase}${suffix} DEPENDS "${output}")
+    add_custom_target(generate_${namebase}${suffix} DEPENDS "${output_stamp}")
     set(${output_out} "${output}" PARENT_SCOPE)
     set(${tgt_out} generate_${namebase}${suffix} PARENT_SCOPE)
   endfunction (add_asm)
@@ -157,14 +168,19 @@ set(ARCH_SRCS
 
 # These custom commands are per-subdir so can't just place at top level
 include(../make/CMake_events.cmake)
-# For correct parallel builds we need a target to avoid
-# duplicate and racy VS per-project rules.  We can't put this in
-# CMake_events.cmake b/c we end up w/ duplicate targets then.
-# Note that libutil/ uses these same targets but core is always enabled.
-add_custom_target(generate_syslog DEPENDS "${SYSLOG_SRCS}")
-if (WIN32)
-  add_custom_target(generate_events DEPENDS "${EVENTS_SRCS}")
-endif (WIN32)
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # For correct parallel builds we need a target to avoid
+  # duplicate and racy VS per-project rules.  We can't put this in
+  # CMake_events.cmake b/c we end up w/ duplicate targets then.
+  # Note that libutil/ uses these same targets but core is always enabled.
+  add_custom_target(generate_syslog DEPENDS "${SYSLOG_SRCS}")
+  if (WIN32)
+    add_custom_target(generate_events DEPENDS "${EVENTS_SRCS}")
+  endif (WIN32)
+  # i#801: we use custom target for dependence, and sources cause problems w/ VS
+  set(SYSLOG_SRCS "")
+  set(EVENTS_SRCS "")
+endif ()
 
 if (UNIX)
   set(OSNAME linux)

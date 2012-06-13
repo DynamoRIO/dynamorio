@@ -48,7 +48,10 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio 10")
+  # for i#801 workaround
+  cmake_minimum_required(VERSION 2.8.8)
+elseif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for output dir name control
   cmake_minimum_required(VERSION 2.8.2)
 else ()

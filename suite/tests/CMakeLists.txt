@@ -396,19 +396,30 @@ set_source_files_properties(${tools_c} PROPERTIES
   COMPILE_FLAGS "${ORIG_CMAKE_C_FLAGS}")
 
 # name should be .obj for VS, .asm for makefiles
-function (add_test_asm_tgt source name)
+function (add_test_asm_tgt source name tgt_out)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # our CMAKE_ASM_COMPILE_OBJECT rule only applies to makefiles so we use
     # a custom command.
     set_source_files_properties(${name} PROPERTIES GENERATED true)
     get_filename_component(namebase ${name} NAME_WE)
     get_filename_component(namepath ${name} PATH)
+    set(tgtname "generate_${namebase}_asm")
     set(namebase "${namepath}/${namebase}")
+    # XXX i#801: a VS2010 bug results in custom commands having all their sources
+    # rebuilt which results in racy collision for tools_asm.
+    # Workaround is to indirect through a dummy .stamp file to avoid
+    # chaining sources to custom commands, although this will only
+    # include the .obj file in the target link with cmake 2.8.8+.
+    # (Alternative is to not list as a source and add to link flags.)
+    set(namestamp "${name}.stamp")
+    set_property(SOURCE "${name}" PROPERTY GENERATED true)
     # we don't need ${defines} (=> list) b/c we include configure.h
-    add_custom_command(OUTPUT "${name}"
+    add_custom_command(OUTPUT "${namestamp}"
       DEPENDS "${source}"
         "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
         "${PROJECT_BINARY_DIR}/configure.h"
+      COMMAND ${CMAKE_COMMAND}
+        ARGS -E touch "${namestamp}"
       COMMAND ${CMAKE_COMMAND}
         ARGS -E copy "${source}" "${namebase}.asm"
       COMMAND "${CMAKE_C_COMPILER}" ARGS ${CMAKE_CPP_FLAGS}
@@ -423,6 +434,10 @@ function (add_test_asm_tgt source name)
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       VERBATIM # recommended: p260
       )
+    # for correct parallel builds we need a target to avoid
+    # duplicate and racy VS per-project rules
+    add_custom_target(${tgtname} DEPENDS "${namestamp}")
+    set(${tgt_out} ${tgtname} PARENT_SCOPE)
   else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     set_source_files_properties(${name} PROPERTIES
       GENERATED ON COMPILE_FLAGS "-DASM_CODE_ONLY")
@@ -433,18 +448,16 @@ function (add_test_asm_tgt source name)
       ARGS -E copy ${source} ${name}
       VERBATIM # recommended: p260
       )
+    set(${tgt_out} "" PARENT_SCOPE)
   endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 endfunction(add_test_asm_tgt)
 
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   set(tools_asm "${CMAKE_CURRENT_BINARY_DIR}/tools_asm.obj")
-  # for correct parallel builds we need a target to avoid
-  # duplicate and racy VS per-project rules
-  add_custom_target(generate_tools_asm DEPENDS "${tools_asm}")
 else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   set(tools_asm ${CMAKE_CURRENT_BINARY_DIR}/tools_asm.asm)
 endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-add_test_asm_tgt("${tools_c}" "${tools_asm}")
+add_test_asm_tgt("${tools_c}" "${tools_asm}" generate_tools_asm)
 
 if (WIN32)
   set_source_files_properties(${PROJECT_SOURCE_DIR}/core/win32/resources.rc
@@ -527,7 +540,7 @@ function(add_exe test source)
     else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
       set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath}/${srcbase}_asm.asm")
     endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    add_test_asm_tgt("${CMAKE_CURRENT_SOURCE_DIR}/${source}" "${asm_source}")
+    add_test_asm_tgt("${CMAKE_CURRENT_SOURCE_DIR}/${source}" "${asm_source}" gen_asm_tgt)
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
@@ -547,7 +560,11 @@ function(add_exe test source)
   if ("${srccode}" MATCHES "include \"tools\\.h\"" AND
       "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for correct parallel builds we need a target
-    add_dependencies(${test} generate_tools_asm)
+    add_dependencies(${test} ${generate_tools_asm})
+  endif ()
+  if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY" AND
+      "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    add_dependencies(${test} ${gen_asm_tgt})
   endif ()
 endfunction(add_exe)
 
@@ -584,7 +601,7 @@ function(tobuild_dll test source dr_ops)
   if ("${srccode}" MATCHES "include \"tools\\.h\"" AND
       "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for correct parallel builds we need a target
-    add_dependencies(${test}.dll generate_tools_asm)
+    add_dependencies(${test}.dll ${generate_tools_asm})
   endif ()
 
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
@@ -646,7 +663,7 @@ function(tobuild_appdll test source)
       else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
         set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath_rel}/${srcbase}_asm.asm")
       endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-      add_test_asm_tgt("${dll_srcpath}" "${asm_source}")
+      add_test_asm_tgt("${dll_srcpath}" "${asm_source}" gen_asm_tgt)
       set(lib_srcs ${lib_srcs} ${asm_source})
     endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
     
@@ -657,7 +674,11 @@ function(tobuild_appdll test source)
     if ("${srccode}" MATCHES "include \"tools\\.h\"" AND
         "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
       # for correct parallel builds we need a target
-      add_dependencies(${test}.appdll generate_tools_asm)
+      add_dependencies(${test}.appdll ${generate_tools_asm})
+    endif ()
+    if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY" AND
+        "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+      add_dependencies(${test}.appdll ${gen_asm_tgt})
     endif ()
   endif (EXISTS "${dll_srcpath}")
 endfunction(tobuild_appdll)
@@ -730,7 +751,7 @@ function(tobuild_api test source dr_ops exe_ops decoder)
     COMPILE_FLAGS "${prop_cflags}"
     LINK_FLAGS "${pre_lflags} ${prop_lflags}")
   add_dependencies(${test} api_headers)
-  if (WIN32)
+  if (WIN32 AND NOT decoder)
     # Since we can't set the working dir w/o making an external script,
     # we copy dynamorio.dll into the default dir.  Yes, we're wasteful
     # by re-copying for each test.
@@ -739,7 +760,7 @@ function(tobuild_api test source dr_ops exe_ops decoder)
       ARGS -E copy ${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
         ${CMAKE_CURRENT_BINARY_DIR}/dynamorio.dll
       VERBATIM)
-  endif (WIN32)
+  endif (WIN32 AND NOT decoder)
   set(testlist_api ${testlist_api} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
