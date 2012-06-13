@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -66,11 +66,12 @@ set(arg_include "")   # cmake file to include up front
 set(arg_preload "")   # cmake file to include prior to each 32-bit build
 set(arg_preload64 "") # cmake file to include prior to each 64-bit build
 set(arg_ssh OFF)      # running over cygwin ssh: disable pdbs
-set(arg_use_nmake OFF)# use nmake instead of devenv
+set(arg_use_nmake OFF)# use nmake instead of visual studio
+set(arg_use_msbuild OFF) # use msbuild instead of devenv for visual studio
 if (UNIX)
   set(arg_use_make ON)  # use unix make
 else (UNIX)
-  set(arg_use_make OFF) # use unix make instead of devenv
+  set(arg_use_make OFF) # use unix make instead of visual studio
 endif (UNIX)
 set(arg_long OFF)     # whether to run the long suite
 set(arg_already_built OFF) # for testing w/ already-built suite
@@ -97,6 +98,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif (${arg} STREQUAL "ssh")
   if (${arg} STREQUAL "use_nmake")
     set(arg_use_nmake ON)
+  endif ()
+  if (${arg} STREQUAL "use_msbuild")
+    set(arg_use_msbuild ON)
   endif ()
   if (${arg} STREQUAL "use_make")
     set(arg_use_make ON)
@@ -238,6 +242,35 @@ else (arg_use_make)
     endif ()
   endif ()
   message("Using ${vs_generator} generators")
+  if (arg_use_msbuild)
+    find_program(MSBUILD_PROGRAM msbuild)
+    if (MSBUILD_PROGRAM)
+      set(base_cache "${base_cache}
+        CMAKE_MAKE_PROGRAM:FILEPATH=${MSBUILD_PROGRAM}")
+      # Unfortunately we have to provide all the args (setting CMAKE_MAKE_PROGRAM
+      # doesn't do it for ctest builds).  We want ALL_BUILD.vcproj for pre-VS2010
+      # and ALL_BUILD.vcxproj for VS2010.
+      if (vs_generator MATCHES "Visual Studio 10")
+        set(proj_file "ALL_BUILD.vcxproj")
+      else ()
+        set(proj_file "ALL_BUILD.vcproj")
+      endif ()
+      # Request parallel build on all available cores (sequential by default: i#800)
+      # via "/m".
+      # Configuration will be adjusted per build below.
+      set(CTEST_BUILD_COMMAND
+        "${MSBUILD_PROGRAM} ${proj_file} /p:Configuration=REPLACE_CONFIG /m")
+    else (MSBUILD_PROGRAM)
+      message("WARNING: cannot find msbuild; disabling")
+      set(arg_use_msbuild OFF)
+    endif (MSBUILD_PROGRAM)
+  endif (arg_use_msbuild)
+  if ("${cmake_ver_string}" STREQUAL "2.8.4")
+    # 2.8.4 uses msbuild by default.
+    # XXX: any way to tell other than matching version #?
+    # Request parallel build (sequential by default: i#800)
+    set(extra_build_args "/m")
+  endif ()
 endif (arg_use_make)
 
 function(get_default_config config builddir)
@@ -293,7 +326,10 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
       # in the 2.8 release; going ahead and setting now.
       # For Linux these messages make little perf difference, and can help
       # diagnose errors or watch progress.
-      set(os_specific_defines "CMAKE_RULE_MESSAGES:BOOL=OFF")
+      # The messages only apply to Makefile generators, not Visual Studio.
+      if (NOT "${CTEST_CMAKE_GENERATOR}" MATCHES "Visual Studio")
+        set(os_specific_defines "CMAKE_RULE_MESSAGES:BOOL=OFF")
+      endif ()
     else (WIN32)
       set(os_specific_defines "")
     endif (WIN32)
@@ -385,9 +421,14 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
           get_default_config(defconfig "${CTEST_BINARY_DIRECTORY}")
           set(CTEST_BUILD_CONFIGURATION "${defconfig}")
           message("building default config \"${defconfig}\"")
-          if (NOT "${build_args}" STREQUAL "")
-            set(CTEST_BUILD_FLAGS "-- ${build_args}")
+          if (NOT "${build_args}" STREQUAL "" OR
+              NOT "${extra_build_args}" STREQUAL "")
+            set(CTEST_BUILD_FLAGS "-- ${extra_build_args} ${build_args}")
           endif ()
+          if (arg_use_msbuild)
+            string(REPLACE "REPLACE_CONFIG" "${defconfig}" CTEST_BUILD_COMMAND
+              "${CTEST_BUILD_COMMAND}")
+          endif (arg_use_msbuild)
         else ()
           set(CTEST_BUILD_FLAGS "${build_args}")
         endif ()
