@@ -478,6 +478,7 @@ else (UNIX)
   if (NOT CMAKE_ASM_COMPILER)
     message(FATAL_ERROR "assembler not found: required to build")
   endif (NOT CMAKE_ASM_COMPILER)
+  message(STATUS "Found assembler: ${CMAKE_ASM_COMPILER}")
 
   set(CMAKE_CPP ${CMAKE_C_COMPILER})
 
@@ -701,7 +702,12 @@ if (UNIX)
  # all our vars to have -ATT suffix so we set the search list instead
  set(CMAKE_ASM_COMPILER_INIT gas as)
 endif (UNIX)
-enable_language(ASM)
+if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # CMake does not support assembly with VS generators
+  # (http://public.kitware.com/Bug/view.php?id=11536)
+  # so we have to add our own custom commands and targets
+  enable_language(ASM)
+endif ()
 # note that I had to fix a bug in /usr/share/cmake/Modules/CMakeASMInformation.cmake
 # where @VAR@ expansion was used, which only works for configure_file()
 #   now fixed in CMake/Modules/CMakeASMInformation.cmake:1.5
