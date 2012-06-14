@@ -242,7 +242,7 @@ Application %1!s! (%2!s!) has reached its report threshold.  No more violations 
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_UNABLE_TO_CREATE_BASEDIR
 Language=English
@@ -274,7 +274,7 @@ Forensics file for security violation in application %1!s! (%2!s!) created at %3
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_OPTION_TOO_LONG_TO_PARSE
 Language=English
@@ -282,7 +282,7 @@ Application %1!s! (%2!s!) option %3!s! is too long to parse. %4!s!
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_OPTION_BAD_NUMBER_FORMAT
 Language=English
@@ -290,7 +290,7 @@ Application %1!s! (%2!s!). Option parsing error : unrecognized number format %3!
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_OPTION_UNKNOWN_SIZE_SPECIFIER
 Language=English
@@ -298,7 +298,7 @@ Application %1!s! (%2!s!). Option parsing error : unrecognized size factor %3!s!
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_OPTION_UNKNOWN_TIME_SPECIFIER
 Language=English
@@ -306,7 +306,7 @@ Application %1!s! (%2!s!). Option parsing error : unrecognized time factor %3!s!
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_OPTION_UNKNOWN
 Language=English
@@ -314,7 +314,7 @@ Application %1!s! (%2!s!). Option parsing error : unknown option %3!s!. %4!s!
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_CONFIG_FILE_INVALID
 Language=English
@@ -322,7 +322,7 @@ Application %1!s! (%2!s!). Config file parsing error : invalid line %3!s!.
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_BAD_OS_VERSION
 Language=English
@@ -330,7 +330,7 @@ Application %1!s! (%2!s!) %3!s! does not run on %4!s!
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_OPTION_VERIFICATION_RECURSION
 Language=English
@@ -338,7 +338,7 @@ Application %1!s! (%2!s!) bad option string, unable to continue.
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_TAMPERED_NTDLL
 Language=English
@@ -347,7 +347,7 @@ Application %1!s! (%2!s!). System library ntdll.dll has been tampered with, unab
 
 ;#ifdef CHECK_RETURNS_SSE2
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_CHECK_RETURNS_SSE2_XMM_USED
 Language=English
@@ -355,7 +355,7 @@ Application %1!s! (%2!s!). Check returns using SSE2 assumption violated, app is 
 .
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_CHECK_RETURNS_SSE2_REQUIRES_SSE2
 Language=English
@@ -366,7 +366,7 @@ Application %1!s! (%2!s!). Check returns using SSE2 requires that the processor 
 
 ;#if defined(CLIENT_INTERFACE) || defined(STRACE_CLIENT_INTERFACE) || defined(DR_APP_EXPORTS)
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_EXTERNAL_ERROR
 Language=English
@@ -378,7 +378,7 @@ Application %1!s! (%2!s!) %3!s! usage error : %4!s!
 ;#ifdef LINUX
 ;// is ok to use x! d!, this won't be used on windows
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_SIGSEGV_IN_SECURE_CORE
 Language=English
@@ -417,7 +417,7 @@ A LiveShield Sentry failure was intercepted in application %1!s! (%2!s!) at addr
 ;#endif
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_REGISTRY_PARAMETER_TOO_LONG
 Language=English
@@ -454,7 +454,7 @@ Application %1!s! (%2!s!). Process control hash list %3!s! has more than %4!s! M
 
 ;#ifdef X64
 MessageId =
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_HEAP_CONTRAINTS_UNSATISFIABLE
 Language=English
@@ -462,7 +462,7 @@ Application %1!s! (%2!s!). Unable to place the heap in a manner that satisfies a
 .
 
 MessageId =
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_UNSUPPORTED_PROCESSOR_LAHF
 Language=English
@@ -472,7 +472,7 @@ Application %1!s! (%2!s!). Unsupported processor: LAHF/SAHF instructions require
 
 ;#ifdef CLIENT_INTERFACE
 MessageId =
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_CLIENT_LIBRARY_UNLOADABLE
 Language=English
@@ -482,7 +482,7 @@ Application %1!s! (%2!s!). Unable to load client library: %3!s!. %4!s!.
 
 ;#ifdef CLIENT_INTERFACE
 MessageId =
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_CLIENT_VERSION_INCOMPATIBLE
 Language=English
@@ -492,7 +492,7 @@ Application %1!s! (%2!s!). Client library targets an incompatible API version an
 
 ;#ifdef CLIENT_INTERFACE
 MessageId =
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_INSTRUMENTATION_TOO_LARGE
 Language=English
@@ -501,7 +501,7 @@ Application %1!s! (%2!s!). Basic block or trace instrumentation exceeded maximum
 ;#endif
 
 MessageId = 
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_SYSENTER_NOT_SUPPORTED
 Language=English
@@ -510,7 +510,7 @@ Application %1!s! (%2!s!). System calls using sysenter are not supported on this
 
 ;#ifdef CLIENT_INTERFACE
 MessageId =
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_WAITING_FOR_DEBUGGER
 Language=English
@@ -520,7 +520,7 @@ Application %1!s! (%2!s!). Waiting for debugger to attach.
 
 ;#ifdef VMX86_SERVER
 MessageId =
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_DRVMKLIB_UNLOADABLE
 Language=English
@@ -531,11 +531,28 @@ Application %1!s! (%2!s!). Error loading or using vmklib library: %3!s!.
 
 ;#ifdef CLIENT_INTERFACE
 MessageId =
-Severity = ERROR
+Severity = Error
 Facility = DRCore
 SymbolicName = MSG_TOO_MANY_TLS_MODS
 Language=English
 Max number of modules with tls variables exceeded.
+.
+;#endif
+
+;#if defined(LINUX) && defined(CLIENT_INTERFACE)
+MessageId = 
+Severity = Warning
+Facility = DRCore
+SymbolicName = MSG_UNDEFINED_SYMBOL
+Language=English
+WARNING! symbol lookup error: %1!s! undefined symbol %2!s!
+.
+MessageId = 
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_UNDEFINED_SYMBOL_REFERENCE
+Language=English
+ERROR: using undefined symbol!
 .
 ;#endif
 

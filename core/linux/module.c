@@ -35,6 +35,7 @@
 #include "../globals.h"
 #include "../module_shared.h"
 #include "os_private.h"
+#include "../utils.h"
 #include <string.h>
 #include <stddef.h> /* offsetof */
 #include <link.h>   /* Elf_Symndx */
@@ -1500,6 +1501,12 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
 }
 
 static void
+module_undef_symbols()
+{
+    FATAL_USAGE_ERROR(UNDEFINED_SYMBOL_REFERENCE, 0, "");
+}
+
+static void
 module_relocate_symbol(ELF_REL_TYPE *rel,
                        os_privmod_data_t *pd,
                        bool is_rela)
@@ -1590,6 +1597,22 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
 
     res = module_lookup_symbol(sym, pd);
     LOG(GLOBAL, LOG_LOADER, 3, "symbol lookup for %s %p\n", name, res);
+    if (res == NULL) {
+        /* suppress some known undefined symbols
+         * libc.so.6: undefined symbol _dl_starting_up
+         * libempty.so: undefined symbol __gmon_start__
+         * libempty.so: undefined symbol _Jv_RegisterClasses
+         * nearly all toolchain-internal symbols start with '_' and
+         * few symbols that user code calls do, so we only report
+         * undefined symbol not start with '_'
+         */
+        if (name[0] != '_') {
+            SYSLOG(SYSLOG_WARNING, UNDEFINED_SYMBOL, 2, pd->soname, name);
+            if (r_type == ELF_R_JUMP_SLOT)
+                *r_addr = (reg_t)module_undef_symbols;
+            return;
+        }
+    }
     switch (r_type) {
     case ELF_R_GLOB_DAT:
     case ELF_R_JUMP_SLOT:
