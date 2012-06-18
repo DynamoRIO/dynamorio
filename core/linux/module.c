@@ -1597,21 +1597,22 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
 
     res = module_lookup_symbol(sym, pd);
     LOG(GLOBAL, LOG_LOADER, 3, "symbol lookup for %s %p\n", name, res);
-    if (res == NULL) {
-        /* suppress some known undefined symbols
+    if (res == NULL && ELF_ST_BIND(sym->st_info) != STB_WEAK) {
+        /* Warn up front on undefined symbols.  Don't warn for weak symbols,
+         * which should be resolved to NULL if they are not present.  Weak
+         * symbols are used in situations where libc needs to interact with a
+         * system that may not be present, such as pthreads or the profiler.
+         * Examples:
          * libc.so.6: undefined symbol _dl_starting_up
          * libempty.so: undefined symbol __gmon_start__
          * libempty.so: undefined symbol _Jv_RegisterClasses
-         * nearly all toolchain-internal symbols start with '_' and
-         * few symbols that user code calls do, so we only report
-         * undefined symbol not start with '_'
+         * libgcc_s.so.1: undefined symbol pthread_cancel
+         * libstdc++.so.6: undefined symbol pthread_cancel
          */
-        if (name[0] != '_') {
-            SYSLOG(SYSLOG_WARNING, UNDEFINED_SYMBOL, 2, pd->soname, name);
-            if (r_type == ELF_R_JUMP_SLOT)
-                *r_addr = (reg_t)module_undef_symbols;
-            return;
-        }
+        SYSLOG(SYSLOG_WARNING, UNDEFINED_SYMBOL, 2, pd->soname, name);
+        if (r_type == ELF_R_JUMP_SLOT)
+            *r_addr = (reg_t)module_undef_symbols;
+        return;
     }
     switch (r_type) {
     case ELF_R_GLOB_DAT:
