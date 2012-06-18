@@ -141,6 +141,7 @@ The changes between version \DR_VERSION and 3.2.0 are:
  - Added drwrap_replace_native(), drwrap_is_replaced(),
    drwrap_is_replaced_native()
  - Added dr_clobber_retaddr_after_read()
+ - Added support for building with Visual Studio 2010 and with MSBuild
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux
