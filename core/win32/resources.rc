@@ -146,6 +146,10 @@
 # define FILE_NAME "drdel.exe"
 # define FILE_DESCRIPTION PRODUCT_NAME "delete from file cache"
 # define FILE_TYPE VFT_APP
+#elif defined(RC_IS_create_process)
+# define FILE_NAME "create_process.exe"
+# define FILE_DESCRIPTION PRODUCT_NAME "process creation utilitiy"
+# define FILE_TYPE VFT_APP
 // tests
 #elif defined(RC_IS_TEST)
 # define FILE_NAME ""

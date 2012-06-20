@@ -118,6 +118,7 @@ else (UNIX)
     DRload
     balloon 
     dummy 
+    create_process 
     )
   if (NOT X64)
     # FIXME i#118: ldmp not yet 64-bit
@@ -141,7 +142,7 @@ else (UNIX)
     target_link_libraries(${tgt}
       policy_static user32 advapi32 pdh imagehlp shell32 "${extra_lib}")
 
-    string(REGEX MATCH "(closewnd|winstats)" no_unicode "${tgt}")
+    string(REGEX MATCH "(closewnd|winstats|create_process)" no_unicode "${tgt}")
     if (no_unicode)
       set(unicode_cflags "")
     else (no_unicode)
