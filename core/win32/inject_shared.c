@@ -382,7 +382,7 @@ get_remote_process_ldr_status(HANDLE process_handle)
     }
 }
 
-static bool is_windows_version_vista(void); /* forward decl */
+static bool is_windows_version_vista_plus(void); /* forward decl */
 
 /* 
  * this assumes it will be called on process initialization, when
@@ -431,7 +431,7 @@ get_process_imgname_cmdline(HANDLE process_handle,
      * process init on os versions prior to Vista */
     
     if (image_name) {
-        if (is_windows_version_vista()) {
+        if (is_windows_version_vista_plus()) {
             param_location = process_parameters.ImagePathName.Buffer;
         } else {
             param_location = (void *)
@@ -454,7 +454,7 @@ get_process_imgname_cmdline(HANDLE process_handle,
     }
 
     if (command_line) {
-        if (is_windows_version_vista()) {
+        if (is_windows_version_vista_plus()) {
             param_location = process_parameters.CommandLine.Buffer;
         } else {
             param_location = (void*)((ptr_uint_t)process_parameters.CommandLine.Buffer 
@@ -700,8 +700,9 @@ get_process_qualified_name(HANDLE process_handle,
         own_peb = get_own_peb();
         ASSERT(own_peb && own_peb->ProcessParameters);
         ASSERT(own_peb->ProcessParameters->ImagePathName.Buffer);
-
-        full_name = own_peb->ProcessParameters->ImagePathName.Buffer;
+        full_name =
+            get_process_param_buf(own_peb->ProcessParameters,
+                                  own_peb->ProcessParameters->ImagePathName.Buffer);
     } else {
         own_peb = NULL;
         /* get foreign process subkey */
@@ -736,7 +737,9 @@ get_process_qualified_name(HANDLE process_handle,
         if (process_handle == NULL) {
             /* get our own commandline */
             ASSERT(own_peb->ProcessParameters->CommandLine.Buffer);
-            process_commandline = own_peb->ProcessParameters->CommandLine.Buffer;
+            process_commandline =
+                get_process_param_buf(own_peb->ProcessParameters,
+                                      own_peb->ProcessParameters->CommandLine.Buffer);
         } else {
             /* get only command line from other process */
             get_process_imgname_cmdline(process_handle, NULL, 0, 
@@ -1134,12 +1137,12 @@ is_windows_version_nt()
 
 /* see comments at is_windows_version_nt() */
 static bool
-is_windows_version_vista()
+is_windows_version_vista_plus()
 {
     PEB *peb = get_own_peb();
     /* we won't work on any other anyways */
     ASSERT(peb->OSPlatformId == VER_PLATFORM_WIN32_NT);
-    return (peb->OSMajorVersion == 6);
+    return (peb->OSMajorVersion >= 6);
 }
 
 /* verify safe mode registry key on Win2000+ */

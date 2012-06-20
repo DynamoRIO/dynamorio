@@ -1769,6 +1769,9 @@ nt_pipe_transceive(HANDLE hpipe, void *input, uint input_size,
 
 #define TIMER_UNITS_PER_MILLISECOND (1000 * 10) /* 100ns intervals */
 
+wchar_t *
+get_process_param_buf(RTL_USER_PROCESS_PARAMETERS *params, wchar_t *buf);
+
 /* uint query_time_seconds() declared in os_shared.h */
 /* uint64 query_time_millis() declared in os_shared.h */
 

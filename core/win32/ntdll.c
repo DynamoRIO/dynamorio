@@ -2607,7 +2607,8 @@ bool
 env_get_value(PCWSTR var, wchar_t *val, size_t valsz)
 {
     PEB *peb = get_own_peb();
-    PWSTR env = (PWSTR) peb->ProcessParameters->Environment;
+    PWSTR env = (PWSTR)
+        get_process_param_buf(peb->ProcessParameters, peb->ProcessParameters->Environment);
     NTSTATUS res;
     UNICODE_STRING var_us, val_us;
     GET_NTDLL(RtlQueryEnvironmentVariable_U, (PWSTR Environment,
@@ -2950,10 +2951,39 @@ get_application_pid()
 }
 #endif /* NOT_DYNAMORIO_CORE */
 
-wchar_t *get_application_cmdline()
+wchar_t *
+get_process_param_buf(RTL_USER_PROCESS_PARAMETERS *params, wchar_t *buf)
+{
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+    /* Many of the UNICODE_STRING.Buffer fields contain a relative offset
+     * from the start of ProcessParameters as set by the parent process,
+     * until the child's init updates it, on pre-Vista.
+     * Xref the adjustments done inside the routines here that read
+     * a child's params.
+     */
+    if (dr_earliest_injected && get_os_version() < WINDOWS_VERSION_VISTA &&
+        /* sanity check: some may be real ptrs, such as Environment which
+         * we replaced from parent.  the offsets should all be small, laid
+         * out after the param struct.
+         */
+        (ptr_uint_t)buf < 64*1024) {
+        return (wchar_t *) ((ptr_uint_t)buf + (ptr_uint_t)params);
+    } else
+        return buf;
+#else
+    /* Shouldn't need this routine since shouldn't be reading own params, but
+     * rather than ifdef-ing out all callers we just make it work
+     */
+    return buf;
+#endif
+}
+
+wchar_t *
+get_application_cmdline(void)
 {
     PEB *peb = get_own_peb();
-    return peb->ProcessParameters->CommandLine.Buffer;
+    return get_process_param_buf(peb->ProcessParameters,
+                                 peb->ProcessParameters->CommandLine.Buffer);
 }
 
 static LONGLONG
@@ -3967,7 +3997,9 @@ static wchar_t *
 copy_environment(HANDLE hProcess)
 {
     /* this is precisely what KERNEL32!GetEnvironmentStringsW returns: */
-    wchar_t *env = (wchar_t *) get_own_peb()->ProcessParameters->Environment;
+    wchar_t *env = (wchar_t *)
+        get_process_param_buf(get_own_peb()->ProcessParameters,
+                              get_own_peb()->ProcessParameters->Environment);
     SIZE_T n;
     SIZE_T m;
     void *p;
