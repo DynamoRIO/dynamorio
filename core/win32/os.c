@@ -893,7 +893,7 @@ os_init(void)
     }
 #endif
 
-    if (!dr_early_injected)
+    if (!dr_early_injected && !dr_earliest_injected)
         inject_init();
 
     get_dynamorio_library_path(); 

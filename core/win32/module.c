@@ -988,8 +988,18 @@ print_modules_ldrlist_and_ourlist(file_t f, bool dump_xml, bool conservative)
     LDR_MODULE *mod;
     uint traversed = 0;
 #ifdef DEBUG
-    RTL_CRITICAL_SECTION *lock = (RTL_CRITICAL_SECTION *) peb->LoaderLock;
-    thread_id_t owner = (thread_id_t) lock->OwningThread;
+    RTL_CRITICAL_SECTION *lock;
+    thread_id_t owner;
+#endif
+
+    if (ldr == NULL) {
+        ASSERT(dr_earliest_injected);
+        return;
+    }
+
+#ifdef DEBUG
+    lock = (RTL_CRITICAL_SECTION *) peb->LoaderLock;
+    owner = (thread_id_t) lock->OwningThread;
     LOG(GLOBAL, LOG_ALL, 2, "LoaderLock owned by %d\n", owner);
     if (owner != 0 && owner != get_thread_id()) {
         LOG(GLOBAL, LOG_ALL, 1, "WARNING: print_modules called w/o holding LoaderLock\n");
@@ -2018,10 +2028,19 @@ get_ldr_module_by_pc(app_pc pc)
     LIST_ENTRY *e, *mark;
     LDR_MODULE *mod;
     uint traversed = 0;     /* a simple infinite loop break out */
+#ifdef DEBUG
+    RTL_CRITICAL_SECTION *lock;
+    thread_id_t owner;
+#endif
+
+    if (ldr == NULL) {
+        ASSERT(dr_earliest_injected);
+        return NULL;
+    }
 
 #ifdef DEBUG
-    RTL_CRITICAL_SECTION *lock = (RTL_CRITICAL_SECTION *) peb->LoaderLock;
-    thread_id_t owner = (thread_id_t) lock->OwningThread;
+    lock = (RTL_CRITICAL_SECTION *) peb->LoaderLock;
+    owner = (thread_id_t) lock->OwningThread;
     if (owner != 0 && owner != get_thread_id()) {
         /* This will be a risky operation but we'll live with it.
            In case we walk in a list in an inconsistent state
@@ -2073,6 +2092,7 @@ void
 get_module_name(app_pc pc, char *buf, int max_chars)
 {
     LDR_MODULE *mod = get_ldr_module_by_pc(pc);
+    /* FIXME i#812: at earliest inject point this doesn't work: hardcode ntdll.dll? */
     if (mod != NULL) {
         wchar_to_char(buf, max_chars, mod->FullDllName.Buffer, mod->FullDllName.Length);
         return;

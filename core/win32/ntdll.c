@@ -1345,6 +1345,8 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
 {
     PEB *peb = get_own_peb();
     uint start;
+    RTL_BITMAP local_bitmap;
+    bool using_local_bitmap = false;
 
     NTSTATUS res;
     GET_NTDLL(RtlEnterCriticalSection, (IN OUT RTL_CRITICAL_SECTION *crit));
@@ -1378,7 +1380,17 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
      * into the TlsExpansionBitMap 
      */
 
-    ASSERT(peb->TlsBitmap != NULL);
+    if (peb->TlsBitmap == NULL) {
+        /* Not initialized yet so use a temp struct to point at the real bits.
+         * FIXME i#812: ensure our bits here don't get zeroed when ntdll is initialized
+         */
+        ASSERT(dr_earliest_injected);
+        using_local_bitmap = true;
+        peb->TlsBitmap = &local_bitmap;
+        local_bitmap.SizeOfBitMap = 64;
+        local_bitmap.BitMapBuffer = (void *) &peb->TlsBitmapBits;
+    } else
+        ASSERT(peb->TlsBitmap != NULL);
     /* TlsBitmap always points to next field, TlsBitmapBits, but we'll only
      * use the pointer for generality
      */
@@ -1533,6 +1545,9 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
     });
     
  tls_alloc_exit:
+    if (using_local_bitmap)
+        peb->TlsBitmap = NULL;
+
     if (synch) {
         res = RtlLeaveCriticalSection(peb->FastPebLock);
         if (!NT_SUCCESS(res))

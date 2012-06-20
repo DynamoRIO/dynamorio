@@ -359,8 +359,10 @@ os_loader_init_prologue(void)
 {
     app_pc ntdll = get_ntdll_base();
     app_pc drdll = get_dynamorio_dll_start();
-    app_pc user32 = (app_pc) get_module_handle(L"user32.dll");
+    app_pc user32 = NULL;
     privmod_t *mod;
+    if (!dr_earliest_injected) /* FIXME i#812: need to delay this */
+        user32 = (app_pc) get_module_handle(L"user32.dll");
 
 #ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb)) {
@@ -385,7 +387,8 @@ os_loader_init_prologue(void)
          */
         private_peb->FastPebLock = HEAP_TYPE_ALLOC
             (GLOBAL_DCONTEXT, RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
-        RtlInitializeCriticalSection(private_peb->FastPebLock);
+        if (!dr_earliest_injected) /* FIXME i#812: need to delay this */
+            RtlInitializeCriticalSection(private_peb->FastPebLock);
         
         /* Start with empty values, regardless of what app libs did prior to us
          * taking over.  FIXME: if we ever have attach will have to verify this:
@@ -404,11 +407,15 @@ os_loader_init_prologue(void)
          * We do this after the swap in case it affects some other peb field,
          * in which case it will match the RtlDestroyHeap.
          */
-        private_peb->ProcessHeap = RtlCreateHeap(0, NULL, 0, 0, NULL, NULL);
-        if (private_peb->ProcessHeap == NULL) {
-            SYSLOG_INTERNAL_ERROR("private default heap creation failed");
-            /* fallback */
+        if (dr_earliest_injected) { /* FIXME i#812: need to delay RtlCreateHeap */
             private_peb->ProcessHeap = own_peb->ProcessHeap;
+        } else {
+            private_peb->ProcessHeap = RtlCreateHeap(0, NULL, 0, 0, NULL, NULL);
+            if (private_peb->ProcessHeap == NULL) {
+                SYSLOG_INTERNAL_ERROR("private default heap creation failed");
+                /* fallback */
+                private_peb->ProcessHeap = own_peb->ProcessHeap;
+            }
         }
 
         priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
@@ -436,7 +443,7 @@ os_loader_init_prologue(void)
     mod = privload_insert(NULL, ntdll, get_allocation_size(ntdll, NULL),
                           "ntdll.dll", modpath, NULL);
     mod->externally_loaded = true;
-    /* Once we have earliest injection and load DR via this private loader
+    /* FIXME i#234: Once we have earliest injection and load DR via this private loader
      * (i#234/PR 204587) we can remove this
      */
     mod = privload_insert(NULL, drdll, get_allocation_size(drdll, NULL),
