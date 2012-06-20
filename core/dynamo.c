@@ -91,6 +91,7 @@ bool    control_all_threads = false;
 bool    dr_early_injected = false;
 int     dr_early_injected_location = INJECT_LOCATION_Invalid;
 bool    dr_earliest_injected = false;
+static void * dr_earliest_inject_args;
 
 /* should be set if we are controlling the primary thread, either by
  * injecting initially (!dr_injected_secondary_thread), or by retaking
@@ -486,6 +487,14 @@ dynamorio_app_init(void)
             process_control_init();
 #endif
                     
+#ifdef WINDOWS
+        /* Now that DR is set up, perform any final clean-up, before
+         * we do our address space scans.
+         */
+        if (dr_earliest_injected)
+            earliest_inject_cleanup(dr_earliest_inject_args);
+#endif
+
         dynamo_vm_areas_init();
         proc_init();
         modules_init(); /* before vm_areas_init() */
@@ -2670,13 +2679,15 @@ dynamorio_earliest_init_takeover_C(byte *arg_ptr)
 
     /* Initialize now that DR dll imports are hooked up */
     dr_earliest_injected = true;
+    dr_earliest_inject_args = arg_ptr;
     res = dynamorio_app_init();
     ASSERT(res == SUCCESS);
     ASSERT(dynamo_initialized && !dynamo_exited);
     LOG(GLOBAL, LOG_TOP, 1, "dynamorio_earliest_init_takeover\n");
 
-    /* Now that DR is set up, clean up hook, etc. */
-    earliest_inject_cleanup(arg_ptr);
+    /* earliest_inject_cleanup() is called within dynamorio_app_init() to avoid
+     * confusing the exec areas scan
+     */
 
     /* Take over at retaddr
      *

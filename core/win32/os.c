@@ -7020,7 +7020,12 @@ earliest_inject_cleanup(byte *arg_ptr)
     byte *tofree = args->tofree_base;
     NTSTATUS res;
 
-    /* Free tofree (which contains args) */
+    /* Free tofree (which contains args).
+     * We could free this in earliest_inject_init() via adding
+     * bootstrap_free_virtual_memory() but in case we need to add
+     * more cleanup later, going this route.
+     */
+    LOG(GLOBAL, LOG_ALL, 1, "freeing early inject args @"PFX"\n", tofree);
     res = nt_remote_free_virtual_memory(NT_CURRENT_PROCESS, tofree);
     ASSERT(NT_SUCCESS(res));
 }
