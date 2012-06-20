@@ -3666,7 +3666,7 @@ os_modules_init(void)
                             (void(*)(void*)) section_to_file_free
                             _IF_DEBUG("section-to-file table"));
 
-    if (DYNAMO_OPTION(hide)) {
+    if (DYNAMO_OPTION(hide) && !dr_earliest_injected) {
         /* retrieve path before hiding, since this is called before os_init() */
         get_dynamorio_library_path();
         hide_from_module_lists();

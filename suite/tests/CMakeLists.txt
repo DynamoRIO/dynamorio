@@ -1538,6 +1538,12 @@ else (UNIX)
   endif (VPS)
   tobuild(win32.callback win32/callback.c)
   tobuild(win32.crtprcs win32/crtprcs.c)
+  if (X64)
+    # regression test for in-progress earliest injection feature
+    # XXX i#234: once have wow64 support run on 32-bit
+    torunonly(win32.crtprcs-earliest win32.crtprcs win32/crtprcs.c
+      "-early_inject_map -early_inject_location 5" "")
+  endif (X64)
 
   tobuild_dll(win32.delaybind win32/delaybind.c "")
   append_link_flags(win32.delaybind "/delayload:win32.delaybind.dll.dll /delay:unload")
