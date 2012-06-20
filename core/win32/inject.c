@@ -436,34 +436,50 @@ static byte *
 allocate_remote_code_buffer(HANDLE phandle, size_t size)
 {
     byte *buf = NULL;
-#ifdef X64
-    /* we require lower-2GB so pass a hint */
-    NTSTATUS res;
-    buf = (byte *)(ptr_int_t) 0x30000;
-    res = nt_remote_allocate_virtual_memory(phandle, &buf, size,
-                                            PAGE_EXECUTE_READWRITE,
-                                            MEM_COMMIT);
-    if (/* try again w/ no hint: often ends up in low GB, no guarantee though */
-        res == STATUS_CONFLICTING_ADDRESSES ||
-        /* try again too: I'm seeing STATUS_INVALID_PAGE_PROTECTION on win7
-         * on conflicting address in some cases
-         */
-        !NT_SUCCESS(res)) {
-        buf = NULL;
-    }
-#endif
-    if (buf == NULL) {
-        NTSTATUS res = nt_remote_allocate_virtual_memory(phandle, &buf, size,
-                                                         PAGE_EXECUTE_READWRITE,
-                                                         MEM_COMMIT);
-        if (!NT_SUCCESS(res)
-            IF_X64(|| buf > MAX_LOW_2GB)) {
+    NTSTATUS res = nt_remote_allocate_virtual_memory(phandle, &buf, size,
+                                                     PAGE_EXECUTE_READWRITE,
+                                                     MEM_COMMIT);
+    if (!NT_SUCCESS(res)) {
 #ifndef NOT_DYNAMORIO_CORE_PROPER
-            SYSLOG_INTERNAL_ERROR("failed to allocate child memory for injection");
+        SYSLOG_INTERNAL_ERROR("failed to allocate child memory for injection");
 #endif
+        return NULL;
+    }
+#ifdef X64
+    /* we require lower-2GB which we often get on first try */
+    if (buf + size > MAX_LOW_2GB) {
+        /* we can't just pick an address and see if it gets allocated
+         * b/c it could be in the middle of an existing reservation
+         * (stack, e.g.) and then when we free it we could free the entire
+         * reservation (yes this actually happened: i#753)
+         */
+        byte *pc = (byte *)(ptr_uint_t) (64*1024);
+        MEMORY_BASIC_INFORMATION mbi;
+        size_t got;
+        nt_remote_free_virtual_memory(phandle, buf);
+        do {
+            res = nt_remote_query_virtual_memory(phandle, pc, &mbi, sizeof(mbi), &got);
+            if (got != sizeof(mbi)) {
+                res = STATUS_UNSUCCESSFUL;
+                break;
+            }
+            if (NT_SUCCESS(res) && mbi.State == MEM_FREE) {
+                buf = (byte *) mbi.AllocationBase;
+                res = nt_remote_allocate_virtual_memory(phandle, &buf, size,
+                                                        PAGE_EXECUTE_READWRITE,
+                                                        MEM_COMMIT);
+                break;
+            }
+            pc += mbi.RegionSize;
+        } while (NT_SUCCESS(res) && pc + size < MAX_LOW_2GB);
+        if (!NT_SUCCESS(res)) {
+# ifndef NOT_DYNAMORIO_CORE_PROPER
+            SYSLOG_INTERNAL_ERROR("failed to allocate child memory for injection");
+# endif
             return NULL;
         }
     }
+#endif
     return buf;
 }
 

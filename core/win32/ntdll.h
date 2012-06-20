@@ -82,6 +82,7 @@ typedef LONG NTSTATUS;
 /* make sure to cast to signed in case passed reg_t */
 #define NT_SUCCESS(Status) ((NTSTATUS)(Status) >= 0)
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
+#define STATUS_UNSUCCESSFUL ((NTSTATUS)0xC0000001L)
 
 #define NT_CURRENT_PROCESS ( (HANDLE) PTR_UINT_MINUS_1 )
 #define NT_CURRENT_THREAD  ( (HANDLE) (ptr_uint_t)-2 )
@@ -1124,6 +1125,10 @@ get_ntdll_base(void);
 bool
 is_in_ntdll(app_pc pc);
 #endif
+
+NTSTATUS
+nt_remote_query_virtual_memory(HANDLE process, const byte *pc,
+                               MEMORY_BASIC_INFORMATION *mbi, size_t mbilen, size_t *got);
 
 /* replacement for API call VirtualQuery */
 size_t

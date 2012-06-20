@@ -1898,6 +1898,16 @@ nt_remote_protect_virtual_memory(HANDLE process,
     return NT_SUCCESS(res);
 }
 
+NTSTATUS
+nt_remote_query_virtual_memory(HANDLE process, const byte *pc,
+                               MEMORY_BASIC_INFORMATION *mbi, size_t mbilen, size_t *got)
+{
+    ASSERT(mbilen == sizeof(MEMORY_BASIC_INFORMATION));
+    memset(mbi, 0, sizeof(MEMORY_BASIC_INFORMATION));
+    return NT_SYSCALL(QueryVirtualMemory, process, pc, MemoryBasicInformation,
+                      mbi, mbilen, (PSIZE_T)got);
+}
+
 /* We use this instead of VirtualQuery b/c there are problems using
  * win32 API routines inside of the app using them
  */
@@ -1906,11 +1916,8 @@ size_t
 query_virtual_memory(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbilen)
 {
     NTSTATUS res;
-    SIZE_T got;
-    ASSERT(mbilen == sizeof(MEMORY_BASIC_INFORMATION));
-    memset(mbi, 0, sizeof(MEMORY_BASIC_INFORMATION));
-    res = NT_SYSCALL(QueryVirtualMemory, NT_CURRENT_PROCESS, pc, MemoryBasicInformation,
-                        mbi, mbilen, &got);
+    size_t got;
+    res = nt_remote_query_virtual_memory(NT_CURRENT_PROCESS, pc, mbi, mbilen, &got);
     ASSERT(!NT_SUCCESS(res) || got == sizeof(MEMORY_BASIC_INFORMATION));
     /* only 0 and sizeof(MEMORY_BASIC_INFORMATION) should be expected by callers */
     if (!NT_SUCCESS(res))
