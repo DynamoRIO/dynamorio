@@ -514,10 +514,13 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
     /* for OPSZ_4x8_short2, does the addr prefix select 4 instead of 2 bytes? */
     bool addr_short4 = X64_MODE(di) && addr;
     /* Assumption: the only addr-specified operands that can be short
-     * are OPSZ_4x8_short2 and OPSZ_4x8_short2xi8
+     * are OPSZ_4x8_short2 and OPSZ_4x8_short2xi8, or
+     * OPSZ_4_short2 for x86 mode on x64.
      */
     CLIENT_ASSERT(!addr || size_template == OPSZ_4x8_short2xi8 ||
-                  size_template == OPSZ_4x8_short2, "internal prefix assumption error");
+                  size_template == OPSZ_4x8_short2
+                  IF_X64(|| (!X64_MODE(di) && size_template == OPSZ_4_short2)),
+                  "internal prefix assumption error");
     size_template = resolve_var_x64_size(di, size_template, addr_short4);
     size_op = resolve_var_x64_size(di, size_op, addr_short4);
     /* all NxM sizes should be resolved (size_op is checked in the switch statement as
@@ -821,11 +824,13 @@ mem_size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
     return (size_ok(di, opnd_get_size(opnd), opsize, false/*!addr*/) &&
             (IF_X64(!opnd_is_base_disp(opnd) ||)
              opnd_get_base(opnd) == REG_NULL ||
-             reg_size_ok(di, opnd_get_base(opnd), TYPE_M, OPSZ_4x8_short2,
+             reg_size_ok(di, opnd_get_base(opnd), TYPE_M,
+                         IF_X64(!X64_MODE(di) ? OPSZ_4_short2 :) OPSZ_4x8_short2,
                          true/*addr*/)) &&
             (IF_X64(!opnd_is_base_disp(opnd) ||)
              opnd_get_index(opnd) == REG_NULL ||
-             reg_size_ok(di, opnd_get_index(opnd), TYPE_M, OPSZ_4x8_short2,
+             reg_size_ok(di, opnd_get_index(opnd), TYPE_M,
+                         IF_X64(!X64_MODE(di) ? OPSZ_4_short2 :) OPSZ_4x8_short2,
                          true/*addr*/)));
 }
 
@@ -1225,7 +1230,7 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
         return false;
     LOG(THREAD, LOG_EMIT, ENC_LEVEL, "\nencoding_possible on "PFX"\n", ii->opcode);
 
-    if (TEST(IF_X64_ELSE(X64_INVALID, X86_INVALID), ii->flags))
+    if (TEST(X64_MODE(di) ? X64_INVALID : X86_INVALID, ii->flags))
         return false;
 
     /* For size prefixes we use the di prefix field since that's what
