@@ -636,15 +636,29 @@ typedef struct ALIGN_VAR(8) _LDR_MODULE_64 {
     ULONG TimeDateStamp;
 } LDR_MODULE_64;
 
-static PEB_LDR_DATA_64 *
-get_ldr_data_64(void)
+/* Here and not in ntdll.c b/c libutil targets link to this file but not
+ * ntdll.c
+ */
+void *
+get_own_x64_peb(void)
 {
     /* __readgsqword is not supported for 32-bit */
-    byte *peb64;
+    void *peb64;
+    if (!is_wow64_process(NT_CURRENT_PROCESS)) {
+        ASSERT_NOT_REACHED();
+        return NULL;
+    }
     __asm {
         mov eax, dword ptr gs:X64_PEB_TIB_OFFSET
         mov peb64, eax
     };
+    return peb64;
+}
+
+static PEB_LDR_DATA_64 *
+get_ldr_data_64(void)
+{
+    byte *peb64 = (byte *) get_own_x64_peb();
     return *(PEB_LDR_DATA_64 **)(peb64 + X64_LDR_PEB_OFFSET);
 }
 

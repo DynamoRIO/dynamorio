@@ -759,6 +759,18 @@ os_init(void)
     peb_ptr = (void *) get_own_peb();
     LOG(GLOBAL, LOG_TOP, 1, "PEB: "PFX"\n", peb_ptr);
     ASSERT((PEB *)peb_ptr == get_own_teb()->ProcessEnvironmentBlock);
+#ifndef X64
+    if (is_wow64_process(NT_CURRENT_PROCESS)) {
+        ptr_uint_t peb64 = (ptr_uint_t) get_own_x64_peb();
+        LOG(GLOBAL, LOG_TOP, 1, "x64 PEB: "PFX"\n", peb64);
+        /* i#816: let's find out whether the assumption used in
+         * is_first_thread_in_new_process() holds that x86 PEB
+         * is always one page below x64 PEB.  Is there any PEB ASLR
+         * for WOW64 btw?  I have yet to see any.
+         */
+        ASSERT_CURIOSITY((ptr_uint_t)peb_ptr + PAGE_SIZE == peb64);
+    }
+#endif
 
     /* match enums in os_exports.h with TEB definition from ntdll.h */
     ASSERT(EXCEPTION_LIST_TIB_OFFSET == offsetof(TEB, ExceptionList));
@@ -1993,12 +2005,23 @@ is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
      * but no easy way to do either here.  FIXME 
      */
     process_id_t pid = process_id_from_handle(process_handle);
+    ptr_uint_t peb = (ptr_uint_t) get_peb(process_handle);
     LOG(THREAD_GET, LOG_SYSCALLS|LOG_THREADS, 2,
-        "%s: pid="PIFX" vs me="PIFX", xbx="PFX" vs peb="PFX"\n",
-        __FUNCTION__, pid, get_process_id(), cxt->THREAD_START_ARG,
-        get_peb(process_handle));
-    return (pid == 0 || (!is_pid_me(pid) &&
-                         cxt->THREAD_START_ARG == (ptr_uint_t)get_peb(process_handle)));
+        "%s: pid="PIFX" vs me="PIFX", arg="PFX" vs peb="PFX"\n",
+        __FUNCTION__, pid, get_process_id(), cxt->THREAD_START_ARG, peb);
+    return (pid == 0 ||
+            (!is_pid_me(pid) &&
+             (cxt->THREAD_START_ARG == peb ||
+              /* i#816: for wow64 process PEB query will be x64 while thread addr
+               * will be the x86 PEB.  For now we assume they are one page apart.
+               *
+               * XXX: verify that the two PEB's are always a page apart even in
+               * presence of PEB ASLR.  Spot-checking shows it holds, and there's
+               * a curiosity in os_init() to alert us if the assumption fails.
+               */
+              (is_wow64_process(process_handle) &&
+               get_os_version() >= WINDOWS_VERSION_VISTA &&
+               cxt->THREAD_START_ARG == peb - PAGE_SIZE))));
 }
 
 /* Depending on registry and options maybe inject into child process with

@@ -1870,6 +1870,9 @@ LDR_MODULE *
 get_ldr_module_by_name(wchar_t *name);;
 
 #ifndef X64
+void *
+get_own_x64_peb(void);
+
 HANDLE
 get_module_handle_64(wchar_t *name);
 
