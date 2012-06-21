@@ -2567,7 +2567,12 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
             LOG(GLOBAL, LOG_VMAREAS, 1,
                 "image "PFX"-"PFX" is 32-bit dll (wow64 process?)\n",
                 base, base+size);
-            ASSERT(is_wow64_process(NT_CURRENT_PROCESS));
+            /* This happens in a 64-bit process when creating a 32-bit
+             * child: CreateProcess maps in the child executable in
+             * this process first (i#817)
+             */
+            ASSERT_CURIOSITY(is_wow64_process(NT_CURRENT_PROCESS) ||
+                             !TEST(IMAGE_FILE_DLL, get_module_characteristics(base)));
         }
     });
 #else
