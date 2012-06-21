@@ -4089,7 +4089,10 @@ instr_is_wow64_syscall(instr_t *instr)
     if (instr_get_opcode(instr) != OP_call_ind)
         return false;
 # else
-    if (!is_wow64_process(NT_CURRENT_PROCESS) ||
+    /* For x64 DR we assume we're controlling the wow64 code too and thus
+     * a wow64 "syscall" is just an indirect call (xref i#821, i#49)
+     */
+    if (IF_X64_ELSE(true, !is_wow64_process(NT_CURRENT_PROCESS)) ||
         instr_get_opcode(instr) != OP_call_ind)
         return false;
     CLIENT_ASSERT(get_syscall_method() == SYSCALL_METHOD_WOW64,
