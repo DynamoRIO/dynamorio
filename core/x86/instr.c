@@ -3299,14 +3299,15 @@ instr_shrink_to_32_bits(instr_t *instr)
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_shrink_to_32_bits: invalid opnds");
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
+        instr_set_dst(instr, i, opnd_shrink_to_32_bits(opnd));
+    }
+    for (i=0; i<instr_num_srcs(instr); i++) {
+        opnd = instr_get_src(instr, i);
         if (opnd_is_immed_int(opnd)) {
             CLIENT_ASSERT(opnd_get_immed_int(opnd) <= INT_MAX,
                           "instr_shrink_to_32_bits: immed int will be truncated");
-            instr_set_dst(instr, i, opnd_shrink_to_32_bits(opnd));
         }
-    }
-    for (i=0; i<instr_num_srcs(instr); i++) {
-        instr_set_src(instr, i, opnd_shrink_to_32_bits(instr_get_src(instr, i)));
+        instr_set_src(instr, i, opnd_shrink_to_32_bits(opnd));
     }
 }
 #endif

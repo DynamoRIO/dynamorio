@@ -285,9 +285,12 @@ shared_gencode_init(IF_X64_ELSE(bool x86_mode, void))
      * that this routine calls query the shared vars so we set here
      */
 #ifdef X64
-    if (x86_mode)
+    if (x86_mode) {
+        /* we do not call set_x86_mode() b/c much of the gencode may be
+         * 64-bit: it's up the gencode to mark each instr that's 32-bit.
+         */
         shared_code_x86 = gencode;
-    else
+    } else
 #endif
         shared_code = gencode;
     memset(gencode, 0, sizeof(*gencode));

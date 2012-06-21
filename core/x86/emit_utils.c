@@ -3707,8 +3707,10 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
 #ifdef X64
     if (code->x86_mode) {
         instr_t *label = INSTR_CREATE_label(dcontext);
-        APP(ilist, INSTR_CREATE_jmp_far
-            (dcontext, opnd_create_far_instr(CS64_SELECTOR, label)));
+        instr_t *ljmp = INSTR_CREATE_jmp_far
+            (dcontext, opnd_create_far_instr(CS64_SELECTOR, label));
+        instr_set_x86_mode(ljmp, true/*x86*/);
+        APP(ilist, ljmp);
         APP(ilist, label);
     }
 #endif
@@ -4841,9 +4843,9 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
         /* Currently we're using the x64 table, so we have to ensure the top
          * bits are 0 before we declare it a match (xref PR 283895).
          */
-        APP(ilist, INSTR_CREATE_test(dcontext,
-                                     OPND_CREATE_MEMPTR(REG_XCX, HASHLOOKUP_TAG_OFFS+4),
-                                     OPND_CREATE_MEMPTR(REG_XCX, HASHLOOKUP_TAG_OFFS+4)));
+        APP(ilist, INSTR_CREATE_cmp(dcontext,
+                                    OPND_CREATE_MEM32(REG_XCX, HASHLOOKUP_TAG_OFFS+4),
+                                    OPND_CREATE_INT32(0)));
         if (miss_8bit)
             APP(ilist, INSTR_CREATE_jcc(dcontext, OP_jne_short, miss_tgt));
         else
@@ -5811,6 +5813,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
          */
         instr_t *in;
         for (in = instrlist_first(&ilist); in != NULL; in = instr_get_next(in)) {
+            instr_set_x86_mode(in, true/*x86*/);
             instr_shrink_to_32_bits(in);
         }
     }
