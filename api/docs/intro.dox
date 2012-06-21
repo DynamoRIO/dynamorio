@@ -84,6 +84,7 @@ sections:
 
 - \subpage using
   <br>How to deploy and make use of DynamoRIO.
+
 \if vmsafe
 - \subpage API_security
   <br>An interface for customizing and applying the award-winning Memory

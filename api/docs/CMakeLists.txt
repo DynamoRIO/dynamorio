@@ -121,6 +121,27 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/ext.gendox" gendox)
 string(REGEX REPLACE "REPLACE_WITH_EXTENSION_SUBPAGES" "${gen_toc}" gendox "${gendox}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/gendox.dox" "${gendox}")
 
+# determine doxygen version
+execute_process(COMMAND
+  ${DOXYGEN_EXECUTABLE} --version
+  RESULT_VARIABLE doxygen_v_result
+  ERROR_VARIABLE doxygen_v_error
+  OUTPUT_VARIABLE doxygen_v_out
+  )
+string(REGEX MATCH "^[0-9]*\\.[0-9]*\\.[0-9]*" doxygen_ver "${doxygen_v_out}")
+if (doxygen_ver STREQUAL "1.8.0" OR
+    doxygen_ver STREQUAL "1.7.3")
+  # 1.8.0 fails to build (i#814) while 1.7.3 doesn't have the navbar for some reason.
+  message(FATAL_ERROR "doxygen version ${doxygen_ver} is not supported.  "
+    "Use an earlier or later version.")
+endif ()
+if (doxygen_ver MATCHES "^1.7.[3-6]")
+  # These versions have a "Related Pages" index which we don't want.
+  # Plus, 1.7.3-1.7.5 won't have a home page link on the navbar.
+  message(STATUS "WARNING: doxygen versions 1.7.3-1.7.6 will not produce "
+    "release-quality documentation.")
+endif ()
+
 set(doxyfile ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 add_custom_command(
   OUTPUT ${doxyfile}
@@ -133,20 +154,8 @@ add_custom_command(
        -Dproj_srcdir=${PROJECT_SOURCE_DIR} -Dversion_number=${VERSION_NUMBER}
        -Dheader_dir=${BUILD_INCLUDE} -Dgendox_dir=${CMAKE_CURRENT_BINARY_DIR}
        -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
+       -Ddoxygen_ver=${doxygen_ver}
        -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
-  VERBATIM # recommended: p260
-  )
-
-set(footer ${CMAKE_CURRENT_BINARY_DIR}/footer.html)
-add_custom_command(
-  OUTPUT ${footer}
-  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/footer.html
-          ${CMAKE_CURRENT_SOURCE_DIR}/CMake_footer.cmake
-  COMMAND ${CMAKE_COMMAND}
-  # to work around i#84 be sure to put a space after -D for 1st arg at least
-  ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} -Doutfile=${footer}
-       -Dversion_number=${VERSION_NUMBER}
-       -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_footer.cmake
   VERBATIM # recommended: p260
   )
 
@@ -162,9 +171,6 @@ add_custom_command(
   DEPENDS ${dox_files}
           ${ext_dox_files}
           ${header_files}
-          ${CMAKE_CURRENT_SOURCE_DIR}/header.html
-          ${CMAKE_CURRENT_SOURCE_DIR}/htmlstyle.css
-          ${footer}
           ${doxyfile}
           ${figures_eps}
           ${figures_png}
@@ -177,6 +183,8 @@ add_custom_command(
   # to work around i#84 be sure to put a space after -D for 1st arg at least
   ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} "-Ddox_files=${dox_files}"
        -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
+       -Ddoxygen_ver=${doxygen_ver}
+       -Dversion_number=${VERSION_NUMBER}
        -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_rundoxygen.cmake
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   VERBATIM # recommended: p260
@@ -186,13 +194,16 @@ set_directory_properties(PROPERTIES
 
 add_custom_target(htmldocs ALL
   DEPENDS ${doxyfile}
-          ${footer}
           ${figures_eps}
           ${figures_png}
           ${docsgen}
   )
 # add_custom_target DEPENDS cannot take targets!
 add_dependencies(htmldocs api_headers)
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/images/favicon.png
+  ${CMAKE_CURRENT_BINARY_DIR}/html/favicon.png
+  COPYONLY)
 
 # FIXME i#59: if epstopdf and latex are available, add optional pdf
 # target that invokes fix-latex.pl and install rule.

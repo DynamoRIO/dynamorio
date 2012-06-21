@@ -1,4 +1,5 @@
 # **********************************************************
+# Copyright (c) 2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -99,7 +100,7 @@ endif (is_cygwin)
 
 # FIXME i#59: if epstopdf and latex are available, set "GENERATE_LATEX" to "YES"
 
-# Executed inside build dir, so we leave genimages and footer.html alone
+# Executed inside build dir, so we leave genimages alone
 # and have to fix up refs to source dir and subdirs
 string(REGEX REPLACE
   "(INPUT[ \t]*=) *\\."
@@ -111,10 +112,17 @@ string(REGEX REPLACE
   "\\1\"${srcdir}/images\"" string "${string}")
 string(REGEX REPLACE
   "(header.html)"
-  "\"${srcdir}/\\1\"" string "${string}")
+  "\"${gendox_dir}/\\1\"" string "${string}")
 string(REGEX REPLACE
-  "(htmlstyle.css)"
-  "\"${srcdir}/\\1\"" string "${string}")
+  "(footer.html)"
+  "\"${gendox_dir}/\\1\"" string "${string}")
+
+if (doxygen_ver STRGREATER "1.7.2")
+  # For 1.7.3+ we use xml file to tweak treeview contents
+  string(REGEX REPLACE
+    "(TREEVIEW_WIDTH[^\n]*)"
+    "\\1\nLAYOUT_FILE = \"${gendox_dir}/DoxygenLayout.xml\"" string "${string}")
+endif ()
 
 string(REGEX REPLACE
   # if I don't quote ${string}, then this works: [^$]*$
