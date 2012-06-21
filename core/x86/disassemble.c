@@ -459,7 +459,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             break;
         }
     case FAR_PC_kind:
-        /* constant is selector and not a SEG_constant */
+        /* constant is selector and not a SEG_ constant */
         print_to_buffer(buf, bufsz, sofar, "0x%04x:"PFX"%s",
                         (ushort)opnd_get_segment_selector(opnd), opnd_get_pc(opnd),
                         postop_suffix());
@@ -469,11 +469,9 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         postop_suffix());
         break;
     case FAR_INSTR_kind:
-        /* constant is selector and not a SEG_constant */
-        print_to_buffer(buf, bufsz, sofar, "0x%04x:"PFX"%s",
-                        (ushort)opnd_get_segment_selector(opnd), opnd_get_pc(opnd),
-                        postop_suffix());
-        print_to_buffer(buf, bufsz, sofar, "@"PFX"%s", opnd_get_instr(opnd),
+        /* constant is selector and not a SEG_ constant */
+        print_to_buffer(buf, bufsz, sofar, "0x%04x:@"PFX"%s",
+                        (ushort)opnd_get_segment_selector(opnd), opnd_get_instr(opnd),
                         postop_suffix());
         break;
     case REG_kind:

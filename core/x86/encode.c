@@ -1441,7 +1441,9 @@ encode_immed(decode_info_t * di, byte *pc)
         break;
 #endif
     case OPSZ_6:
-        CLIENT_ASSERT(di->size_immed2 == size,
+        CLIENT_ASSERT(di->size_immed2 == size ||
+                      /* far instr has immed2 as abs pc and no 2nd size */
+                      di->size_immed2 == OPSZ_NA,
                       "encode error: immediate has invalid size OPSZ_6");
         di->size_immed2 = OPSZ_NA;
         *((short *)pc) = (short) (di->immed);
