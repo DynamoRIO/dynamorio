@@ -753,13 +753,25 @@ function(tobuild_api test source dr_ops exe_ops decoder)
   add_dependencies(${test} api_headers)
   if (WIN32 AND NOT decoder)
     # Since we can't set the working dir w/o making an external script,
-    # we copy dynamorio.dll into the default dir.  Yes, we're wasteful
-    # by re-copying for each test.
-    add_custom_command(TARGET ${test} POST_BUILD
-      COMMAND ${CMAKE_COMMAND}
-      ARGS -E copy ${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
-        ${CMAKE_CURRENT_BINARY_DIR}/dynamorio.dll
-      VERBATIM)
+    # we copy dynamorio.dll into the default dir.  If we just do a POST_BUILD
+    # custom command we have races (i#810) so we use a globally unique
+    # custom target (alternative of just adding POST_BUILD once has the downside
+    # that building just one target will not work if it's not the one w/ the
+    # POST_BUILD).
+    if (NOT created_drcopy_target)
+      set(drcopy_stamp "${CMAKE_CURRENT_BINARY_DIR}/DRcopy.stamp")
+      add_custom_command(OUTPUT "${drcopy_stamp}"
+        DEPENDS dynamorio
+        COMMAND ${CMAKE_COMMAND} ARGS
+          -E touch "${drcopy_stamp}"
+        COMMAND ${CMAKE_COMMAND} ARGS
+          -E copy ${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
+          ${CMAKE_CURRENT_BINARY_DIR}/dynamorio.dll
+        VERBATIM)
+      add_custom_target(drcopy DEPENDS "${drcopy_stamp}")
+      set(created_drcopy_target ON PARENT_SCOPE)
+    endif ()
+    add_dependencies(${test} drcopy)
   endif (WIN32 AND NOT decoder)
   set(testlist_api ${testlist_api} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
