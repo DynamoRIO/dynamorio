@@ -2076,6 +2076,50 @@ get_process_options(HANDLE process_handle)
 }
 # endif /* WINDOWS */
 
+# ifdef CLIENT_INTERFACE
+/* i#771: Allow the client to query all DR runtime options. */
+DR_API
+bool
+dr_get_string_option(const char *option_name, char *buf OUT, size_t len)
+{
+    bool found = false;
+    CLIENT_ASSERT(buf != NULL, "invalid parameter");
+    string_option_read_lock();
+#define OPTION_COMMAND(type, name, default_value, command_line_option,      \
+                       statement, description, flag, pcache)                \
+    if (IS_OPTION_STRING(name) && !found &&                                 \
+        strcmp(option_name, #name) == 0) {                                  \
+        strncpy(buf, (const char*)&dynamo_options.name, len);               \
+        found = true;                                                       \
+    }
+#include "optionsx.h"
+#undef OPTION_COMMAND
+    string_option_read_unlock();
+    if (len > 0)
+        buf[len-1] = '\0';
+    return found;
+}
+
+DR_API
+bool
+dr_get_integer_option(const char *option_name, int64 *val OUT)
+{
+    bool found = false;
+    CLIENT_ASSERT(val != NULL, "invalid parameter");
+    *val = 0;
+#define OPTION_COMMAND(type, name, default_value, command_line_option,      \
+                       statement, description, flag, pcache)                \
+    if (!IS_OPTION_STRING(name) && !found &&                                \
+        strcmp(option_name, #name) == 0) {                                  \
+        *val = (int64)dynamo_options.name;                                  \
+        found = true;                                                       \
+    }
+#include "optionsx.h"
+#undef OPTION_COMMAND
+    return found;
+}
+# endif /* CLIENT_INTERFACE */
+
 #endif /* NOT_DYNAMORIO_CORE */
 
 
@@ -2084,7 +2128,10 @@ get_process_options(HANDLE process_handle)
 static void
 show_dynamo_options(bool minimal)
 {
-    char opstring[MAX_OPTIONS_STRING];
+    /* Printing all options requires a large buffer.  This is test code, so we
+     * can still put this on the stack.
+     */
+    char opstring[8*MAX_OPTIONS_STRING];
 
     get_dynamo_options_string(&dynamo_options, opstring,
                               sizeof(opstring), minimal);
@@ -2124,11 +2171,12 @@ main() {
 
     print_file(STDERR, "default---\n");
     show_dynamo_options(false);
-    print_file(STDERR, "after---\n");
+    print_file(STDERR, "\nbefore first set---\n");
     set_dynamo_options(&dynamo_options,
                        "-loglevel 1 -logmask 0x10 -block_mod_load_list 'mylib.dll;evilbad.dll;really_long_name_for_a_dll.dll' -stderr_mask 12");
     show_dynamo_options(true);
 
+    print_file(STDERR, "\nbefore second set---\n");
     set_dynamo_options(&dynamo_options,
                        "-logmask 17 -cache_bb_max 20 -cache_trace_max 20M -svchost_timeout 3m");
     show_dynamo_options(true);

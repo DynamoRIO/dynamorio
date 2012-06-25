@@ -4634,4 +4634,29 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
                                                byte *bb_start, size_t bb_size,
                                                void *user_data));
 
+DR_API
+/**
+ * Read the value of a string DynamoRIO runtime option named \p option_name into
+ * \p buf.  Options are listed in \ref sec_options.  DynamoRIO has many other
+ * undocumented options which may be queried through this API, but they are not
+ * officially supported.  The option value is truncated to \p len bytes and
+ * null-terminated.
+ * \return false if no option named \p option_name exists, and true otherwise.
+ */
+bool
+dr_get_string_option(const char *option_name, char *buf OUT, size_t len);
+
+DR_API
+/**
+ * Read the value of an integer DynamoRIO runtime option named \p option_name
+ * into \p val.  This includes boolean options.  Options are listed in \ref
+ * sec_options.  DynamoRIO has many other undocumented options which may be
+ * queried through this API, but they are not officially supported.
+ * \warning Always pass a full int64 for \p val even if the option is a smaller
+ * integer to avoid overwriting nearby data.
+ * \return false if no option named \p option_name exists, and true otherwise.
+ */
+bool
+dr_get_integer_option(const char *option_name, int64 *val OUT);
+
 #endif /* _INSTRUMENT_H_ */
