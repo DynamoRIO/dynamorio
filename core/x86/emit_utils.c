@@ -1036,11 +1036,25 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
 #endif
         /* mov $linkstub_ptr,%xax */
 #ifdef X64
-        if (!FRAG_IS_32(f->flags))
+        if (FRAG_IS_32(f->flags)) {
+            /* XXX i#829: we only support stubs in the low 4GB which is ok for
+             * WOW64 mixed-mode but long-term for 64-bit flexibility (i#774) we
+             * may need to store the other half of the pointer somewhere
+             */
+            uint l_uint;
+            ASSERT_TRUNCATE(l_uint, uint, (ptr_uint_t)l);
+            l_uint = (uint)(ptr_uint_t) l;
+            *pc = MOV_IMM2XAX_OPCODE; pc++;
+            *((uint *)pc) = l_uint; pc += sizeof(l_uint);
+        } else {
             *pc = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG; pc++;
 #endif
-        *pc = MOV_IMM2XAX_OPCODE; pc++;
-        *((ptr_uint_t *)pc) = (ptr_uint_t)l; pc += sizeof(l);
+            /* shared w/ 32-bit and 64-bit !FRAG_IS_32 */
+            *pc = MOV_IMM2XAX_OPCODE; pc++;
+            *((ptr_uint_t *)pc) = (ptr_uint_t)l; pc += sizeof(l);
+#ifdef X64
+        }
+#endif
         /* jmp to exit target */
         pc = insert_relative_jump(pc, exit_target, NOT_HOT_PATCHABLE);
 
