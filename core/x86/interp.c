@@ -3767,53 +3767,6 @@ app_bb_overlaps(dcontext_t *dcontext, byte *start_pc, uint flags,
     return info.overlap;
 }
 
-/* pass in name if you already have it, else this routine looks it up from modbase */
-bool
-on_native_exec_list(app_pc modbase, const char *name)
-{
-    const char *modname;
-    bool modlock = false;
-    bool onlist = false;
-
-    if (!DYNAMO_OPTION(native_exec))
-        return false;
-
-    if (name == NULL) {
-        /* acquire name, safely */
-        if (modbase == NULL)
-            return false;
-        os_get_module_info_lock();
-        modlock = true;
-        os_get_module_name(modbase, &modname);
-        if (modname == NULL) {
-            os_get_module_info_unlock();
-            return false;
-        }
-    } else
-        modname = name;
-
-    if (!IS_STRING_OPTION_EMPTY(native_exec_default_list)) {
-        string_option_read_lock();
-        LOG(THREAD_GET, LOG_INTERP|LOG_VMAREAS, 4,
-            "on_native_exec_list: module %s vs default list %s\n",
-            modname==NULL?"null":modname, dynamo_options.native_exec_default_list);
-        onlist = check_filter(dynamo_options.native_exec_default_list, modname);
-        string_option_read_unlock();
-    }
-    if (!onlist &&
-        !IS_STRING_OPTION_EMPTY(native_exec_list)) {
-        string_option_read_lock();
-        LOG(THREAD_GET, LOG_INTERP|LOG_VMAREAS, 4,
-            "on_native_exec_list: module %s vs append list %s\n",
-            modname==NULL?"null":modname, dynamo_options.native_exec_list);
-        onlist = check_filter(dynamo_options.native_exec_list, modname);
-        string_option_read_unlock();
-    }
-    if (modlock)
-        os_get_module_info_unlock();
-    return onlist;
-}
-
 #ifdef DEBUG
 static void
 report_native_module(dcontext_t *dcontext, app_pc modpc)

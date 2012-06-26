@@ -1328,10 +1328,6 @@ app_pc find_app_bb_end(dcontext_t *dcontext, byte *start_pc, uint flags);
 bool app_bb_overlaps(dcontext_t *dcontext, byte *start_pc, uint flags,
                        byte *region_start, byte *region_end, overlap_info_t *info_res);
 
-/* pass in name if you already have it, else this routine looks it up from modbase */
-bool
-on_native_exec_list(app_pc modbase, const char *name);
-
 bool
 reached_image_entry_yet(void);
 
