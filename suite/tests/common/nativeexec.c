@@ -30,10 +30,11 @@
  * DAMAGE.
  */
 
+#ifndef ASM_CODE_ONLY
+
 /* nativeexec.exe that calls routines in nativeexec.dll.dll via 
  * different call* constructions
  */
-#include <windows.h>
 #include "tools.h"
 
 #ifdef USE_DYNAMO
@@ -41,12 +42,15 @@
 #endif
 
 /* from nativeexec.dll.dll */
-__declspec(dllimport) import_me1(int x);
-__declspec(dllimport) import_me2(int x);
-__declspec(dllimport) import_me3(int x);
+IMPORT void import_me1(int x);
+IMPORT void import_me2(int x);
+IMPORT void import_me3(int x);
+
+void call_plt(void (*fn)(int));
+void call_funky(void (*fn)(int));
 
 int
-main()
+main(void)
 {
 #ifdef USE_DYNAMO
     dynamorio_app_init();
@@ -58,16 +62,11 @@ main()
     print("calling via IAT-style call\n");
     import_me1(57);
 
+    /* XXX: Should assert that &import_me2 is within the bounds of the current
+     * module, since that's what we want to test.
+     */
     print("calling via PLT-style call\n");
-    __asm {
-        push 37
-        call plt_ind_call
-        jmp after_plt_call
-    plt_ind_call:
-        jmp dword ptr [import_me2]
-    after_plt_call:
-        add esp,4
-    }
+    call_plt(&import_me2);
 
     /* funky ind call is only caught by us w/ -native_exec_guess_calls
      * FIXME: add a -no_native_exec_guess_calls runregression run
@@ -86,18 +85,7 @@ main()
      */
 
     print("calling via funky ind call\n");
-    __asm {
-        push 17
-        call funky_ind_call
-        jmp after_funky_call
-    funky_ind_call:
-        xor eax,eax
-        push eax
-        pop eax
-        jmp dword ptr [import_me3]
-    after_funky_call:
-        add esp,4
-    }
+    call_funky(&import_me3);
 
     print("all done\n");
 
@@ -107,3 +95,44 @@ main()
 #endif
     return 0;
 }
+
+#else /* ASM_CODE_ONLY */
+
+#include "asm_defines.asm"
+
+START_FILE
+
+        DECLARE_FUNC(call_plt)
+GLOBAL_LABEL(call_plt:)
+        /* XXX: Not doing SEH prologue for test code. */
+        mov REG_XDX, ARG1           /* XDX is volatile and not regparm 0. */
+        enter 0, 0                  /* Maintain 16-byte alignment. */
+        CALLC1(plt_ind_call, 37)
+        jmp after_plt_call
+    plt_ind_call:
+        jmp REG_XDX
+    after_plt_call:
+        leave
+        ret
+        END_FUNC(call_plt)
+
+        DECLARE_FUNC(call_funky)
+GLOBAL_LABEL(call_funky:)
+        /* XXX: Not doing SEH prologue for test code. */
+        mov REG_XDX, ARG1           /* XDX is volatile and not regparm 0. */
+        enter 0, 0                  /* Maintain 16-byte alignment. */
+        CALLC1(funky_ind_call, 17)
+        jmp after_funky_call
+    funky_ind_call:
+        xor eax,eax
+        push REG_XAX
+        pop REG_XAX
+        jmp REG_XDX
+    after_funky_call:
+        leave
+        ret
+        END_FUNC(call_funky)
+
+END_FILE
+
+#endif

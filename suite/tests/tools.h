@@ -96,9 +96,11 @@ typedef __int64 int64;
 /* Function attributes. */
 #ifdef WINDOWS
 # define EXPORT __declspec(dllexport)
+# define IMPORT __declspec(dllimport)
 # define NOINLINE __declspec(noinline)
 #else /* LINUX */
 # define EXPORT __attribute__((visibility("default")))
+# define IMPORT extern
 # define NOINLINE __attribute__((noinline))
 #endif
 

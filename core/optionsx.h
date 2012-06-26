@@ -403,18 +403,15 @@
              */
             options->inline_ignored_syscalls = false;
 
-            /* We want to see all code, performance and bugs be darned! 
+            /* Clients usually want to see all the code, regardless of bugs and
+             * perf issues, so we empty the default native exec list when using
+             * -code_api.  The user can override this behavior by passing their
+             * own -native_exec_list.
              * However the .pexe section thing on Vista is too dangerous so we
              * leave that on. */
-            options->native_exec = false;
-            IF_WINDOWS_AND_CORE({
-                if (get_os_version() >= WINDOWS_VERSION_VISTA) {
-                    /* turn native exec on, but limit it to just the pexe option */
-                    options->native_exec = true;
-                    options->native_exec_managed_code = false;
-                    memset(options->native_exec_default_list, 0,
-                           sizeof(options->native_exec_default_list));
-                }})
+            memset(options->native_exec_default_list, 0,
+                   sizeof(options->native_exec_default_list));
+            options->native_exec_managed_code = false;
 
             /* Don't randomize dynamorio.dll */
             IF_WINDOWS(options->aslr_dr = false;)

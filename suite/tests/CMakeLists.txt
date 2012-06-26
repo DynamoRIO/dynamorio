@@ -589,6 +589,8 @@ function(tobuild_dll test source dr_ops)
   string(REGEX REPLACE "\\.(c|cpp)$" ".dll.c" dll_source "${source}")
 
   add_exe(${test} ${source})
+  # On Linux, we need the rpath to load ${test}.dll at initialization.
+  set_target_properties(${test} PROPERTIES SKIP_BUILD_RPATH OFF)
 
   set(lib_srcs ${dll_source})
   set_cflags(${dll_source}) # sets srccode var
@@ -1255,6 +1257,13 @@ endif (WIN32)
 tobuild(common.eflags common/eflags.c)
 tobuild(common.fib common/fib.c)
 tobuild(common.getretaddr common/getretaddr.c)
+if (WIN32)
+  set(native_dll_name "common.nativeexec.dll.dll")
+else ()
+  set(native_dll_name "libcommon.nativeexec.dll.so")
+endif ()
+tobuild_dll(common.nativeexec common/nativeexec.c
+  "-native_exec_list ${native_dll_name}")
 
 # app seg mangling makes dstack test fail so we disable such mangling
 if (UNIX)
@@ -1620,8 +1629,6 @@ else (UNIX)
     tobuild(win32.getthreadcontext win32/getthreadcontext.c)
     tobuild_dll(win32.hookerfirst win32/hookerfirst.c "")
     tobuild(win32.hooker-secur32 win32/hooker-secur32.c)
-    tobuild_dll(win32.nativeexec win32/nativeexec.c
-      "-native_exec_list nativeexec.dll.dll")
     tobuild(win32.rsbtest win32/rsbtest.c)
     tobuild(win32.setcxtsyscall win32/setcxtsyscall.c)
     tobuild(win32.setthreadcontext win32/setthreadcontext.c)

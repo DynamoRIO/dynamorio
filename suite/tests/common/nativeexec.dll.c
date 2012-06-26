@@ -35,26 +35,28 @@
  */
 #include "tools.h"
 
-void __declspec(dllexport)
+void EXPORT
 import_me1(int x)
 {
     print("nativeexec.dll:import_me1(%d)\n", x);
 }
 
-void __declspec(dllexport)
+void EXPORT
 import_me2(int x)
 {
     print("nativeexec.dll:import_me2(%d)\n", x);
 }
 
-void __declspec(dllexport)
+void EXPORT
 import_me3(int x)
 {
     print("nativeexec.dll:import_me3(%d)\n", x);
 }
 
+#ifdef WINDOWS
 BOOL APIENTRY 
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     return TRUE;
 }
+#endif

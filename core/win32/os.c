@@ -2533,6 +2533,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
 {
     const char *name = NULL;
     bool module_is_native_exec = false;
+    bool already_added_native_exec = false;
     /* ensure header is readable */
     ASSERT(prot_is_readable(prot));
     ASSERT(!rewalking || add);  /* when rewalking can only add */
@@ -2600,11 +2601,15 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
     LOG(GLOBAL, LOG_VMAREAS, 1, "image %-15s %smapped @ "PFX"-"PFX"\n",
         name == NULL ? "<no name>" : name, add ? "" : "un", base, base+size);
 
-    if (DYNAMO_OPTION(native_exec) && name != NULL &&
-        on_native_exec_list(base, name)) {
+    /* Check if module_list_add added the module to native_exec_areas.  If we're
+     * removing the module, it will also be there from the load earlier.
+     */
+    if (DYNAMO_OPTION(native_exec) &&
+        vmvector_overlap(native_exec_areas, base, base+size)) {
         LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1,
             "module %s is on native_exec list\n", name);
         module_is_native_exec = true;
+        already_added_native_exec = true;
 
 #ifdef GBOP
         /* FIXME: if some one just loads a vm, our gbop would become useless;
@@ -2660,10 +2665,10 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
         });
         module_is_native_exec = true;
     }
-    if (module_is_native_exec && add) {
+    if (module_is_native_exec && add && !already_added_native_exec) {
         RSTATS_INC(num_native_module_loads);
         vmvector_add(native_exec_areas, base, base+size, NULL);
-    } else {
+    } else if (!already_added_native_exec) {
         /* For safety we'll just always remove the region (even if add==true) to avoid
          * any possibility of having stale entries in the vector overlap into new 
          * non-native regions. Also see case 7628. */
