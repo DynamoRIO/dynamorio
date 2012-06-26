@@ -2102,16 +2102,22 @@ dr_get_string_option(const char *option_name, char *buf OUT, size_t len)
 
 DR_API
 bool
-dr_get_integer_option(const char *option_name, int64 *val OUT)
+dr_get_integer_option(const char *option_name, uint64 *val OUT)
 {
     bool found = false;
     CLIENT_ASSERT(val != NULL, "invalid parameter");
     *val = 0;
+    /* gcc warns about casting strings to uint64 because uint64 isn't
+     * pointer-sized, so we cast to ptr_uint_t.  We don't have any uint64
+     * options in 32-bit, so this will never truncate.
+     * XXX: If we ever have signed integer options we'll need to sign extend
+     * here instead of zero extending.
+     */
 #define OPTION_COMMAND(type, name, default_value, command_line_option,      \
                        statement, description, flag, pcache)                \
     if (!IS_OPTION_STRING(name) && !found &&                                \
         strcmp(option_name, #name) == 0) {                                  \
-        *val = (int64)dynamo_options.name;                                  \
+        *val = (ptr_uint_t)dynamo_options.name;                             \
         found = true;                                                       \
     }
 #include "optionsx.h"

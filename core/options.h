@@ -109,6 +109,9 @@ enum {
 #define uint_time uint
 /* So far all addr_t are external so we don't have a 64-bit problem */
 #define uint_addr ptr_uint_t
+/* XXX: For signed integer options, we'll need to correctly sign-extend in
+ * dr_get_integer_option.
+ */
 
 /* to dispatch on string default values, kept in struct not enum */
 #define ISSTRING_bool 0

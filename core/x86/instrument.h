@@ -4652,11 +4652,11 @@ DR_API
  * into \p val.  This includes boolean options.  Options are listed in \ref
  * sec_options.  DynamoRIO has many other undocumented options which may be
  * queried through this API, but they are not officially supported.
- * \warning Always pass a full int64 for \p val even if the option is a smaller
+ * \warning Always pass a full uint64 for \p val even if the option is a smaller
  * integer to avoid overwriting nearby data.
  * \return false if no option named \p option_name exists, and true otherwise.
  */
 bool
-dr_get_integer_option(const char *option_name, int64 *val OUT);
+dr_get_integer_option(const char *option_name, uint64 *val OUT);
 
 #endif /* _INSTRUMENT_H_ */
