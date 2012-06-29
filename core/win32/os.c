@@ -1960,8 +1960,12 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
 
     /* Can't early inject 32-bit DR into a wow64 process as there is no
      * ntdll32.dll at early inject point, so thread injection only.  PR 215423.
+     * This is only true for xp64/2003. It happens to work on vista+ because
+     * it turns out ntdll32 is mapped in by the kernel. (xref i#381)
      */
-    if (DYNAMO_OPTION(early_inject) && !is_wow64_process(process_handle)) {
+    if (DYNAMO_OPTION(early_inject) &&
+        (get_os_version() >= WINDOWS_VERSION_VISTA ||
+         !is_wow64_process(process_handle))) {
         ASSERT(early_inject_address != NULL ||
                !INJECT_LOCATION_IS_LDR(early_inject_location));
         /* FIXME if early_inject_address == NULL then early_inject_init failed
@@ -2038,6 +2042,8 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
      * value in peb field except in Vista.  Could pass it in. */
     /* Can't early inject 32-bit DR into a wow64 process as there is no
      * ntdll32.dll at early inject point, so thread injection only.  PR 215423.
+     * This is only true for xp64/2003. It happens to work on vista+ because
+     * it turns out ntdll32 is mapped in by the kernel. (xref i#381)
      */
     bool injected = false;
     if ((cxt == NULL && (DYNAMO_OPTION(inject_at_create_process) ||
