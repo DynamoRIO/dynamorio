@@ -1864,6 +1864,21 @@ dr_longjmp(dr_jmp_buf_t *buf, int val);
 int 
 dr_setjmp(dr_jmp_buf_t *buf);
 
+#ifdef LINUX
+/* i#350: Fast safe_read without dcontext.  On success or failure, returns the
+ * current source pointer.
+ */
+void *safe_read_asm(void *dst, const void *src, size_t size);
+
+/* These are labels, not function pointers.  We declare them as functions to
+ * prevent loads and stores to these globals from compiling.
+ */
+void safe_read_asm_pre(void);
+void safe_read_asm_mid(void);
+void safe_read_asm_post(void);
+void safe_read_asm_recover(void);
+#endif /* LINUX */
+
 #define DR_SETJMP(buf) (dr_setjmp(buf))
 
 #define DR_LONGJMP(buf, val)          \
@@ -1913,6 +1928,5 @@ dr_setjmp(dr_jmp_buf_t *buf);
 /* only takes integer literals */
 # define APP_PARAM(mc, offs) (*(((reg_t *)((mc)->xsp)) + (offs) + 1))
 #endif
-
 
 #endif /* _ARCH_EXPORTS_H_ */

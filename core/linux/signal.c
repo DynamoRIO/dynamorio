@@ -3738,6 +3738,15 @@ sig_take_over(struct sigcontext *sc)
     ASSERT_NOT_REACHED();
 }
 
+static bool
+is_safe_read_pc(kernel_ucontext_t *ucxt)
+{
+    app_pc pc = (app_pc)ucxt->uc_mcontext.SC_XIP;
+    return (pc == (app_pc)safe_read_asm_pre ||
+            pc == (app_pc)safe_read_asm_mid ||
+            pc == (app_pc)safe_read_asm_post);
+}
+
 /* the master signal handler
  * WARNING: behavior varies with different versions of the kernel!
  * sigaction support was only added with 2.2
@@ -3774,6 +3783,16 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 #endif
     bool local;
     dcontext_t *dcontext = get_thread_private_dcontext();
+
+    /* i#350: To support safe_read without a dcontext, use the global dcontext
+     * when handling safe_read faults.  This lets us pass the check for a
+     * dcontext below and causes us to use the global log.
+     */
+    if (dcontext == NULL && (sig == SIGSEGV || sig == SIGBUS) &&
+        is_safe_read_pc(ucxt)) {
+        dcontext = GLOBAL_DCONTEXT;
+    }
+
     if (dynamo_exited && get_num_threads() > 1 && sig == SIGSEGV) {
         /* PR 470957: this is almost certainly a race so just squelch it.
          * We live w/ the risk that it was holding a lock our release-build
@@ -3825,9 +3844,13 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
      * hang if signal interrupts DR: but we don't really support that option
      */
     ENTERING_DR();
-    local = local_heap_protected(dcontext);
-    if (local)
-        SELF_PROTECT_LOCAL(dcontext, WRITABLE);
+    if (dcontext == GLOBAL_DCONTEXT) {
+        local = false;
+    } else {
+        local = local_heap_protected(dcontext);
+        if (local)
+            SELF_PROTECT_LOCAL(dcontext, WRITABLE);
+    }
 
     LOG(THREAD, LOG_ASYNCH, level, "\nmaster_signal_handler: sig=%d, retaddr="PFX"\n",
         sig, *((byte **)xsp));
@@ -3898,7 +3921,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             ASSERT_NOT_REACHED();
         }
 #endif
-        if (dcontext->try_except_state != NULL) {
+        if (is_safe_read_pc(ucxt) || dcontext->try_except_state != NULL) {
             /* handle our own TRY/EXCEPT */
 #ifdef HAVE_PROC_MAPS
             /* our probe produces many of these every run */
@@ -3908,6 +3931,13 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             LOG(THREAD, LOG_ALL, level, "TRY fault at "PFX"\n", pc);
             if (TEST(DUMPCORE_TRY_EXCEPT, DYNAMO_OPTION(dumpcore_mask)))
                 os_dump_core("try/except fault");
+
+            if (is_safe_read_pc(ucxt)) {
+                ucxt->uc_mcontext.SC_XIP = (reg_t)&safe_read_asm_recover;
+                /* Break out to log the normal return from the signal handler.
+                 */
+                break;
+            }
 
             /* The exception interception code did an ENTER so we must EXIT here */
             EXITING_DR();

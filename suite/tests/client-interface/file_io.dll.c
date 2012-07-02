@@ -116,7 +116,7 @@ void dr_init(client_id_t id)
     byte *base_pc;
     size_t size;
     size_t bytes_read, bytes_written;
-    byte *edge, *wbuf;
+    byte *edge, *mbuf;
     bool ok;
 
     /* The Makefile will pass a full absolute path (for Windows and Linux) as the client
@@ -210,13 +210,21 @@ void dr_init(client_id_t id)
         dr_fprintf(STDERR, "ERROR in plain dr_safe_read()\n");
     }
     memset(safe_buf, 0xcd, sizeof(safe_buf));
-    edge = find_prot_edge(read_only_buf, DR_MEMPROT_READ);
+    /* read_only_buf will be in .rodata on Linux, and can be followed by string
+     * constants with the same page protections.  In order to be sure that we're
+     * copying zeroes, we map our own memory.
+     */
+    mbuf = dr_nonheap_alloc(PAGE_SIZE*3, DR_MEMPROT_READ|DR_MEMPROT_WRITE);
+    memset(mbuf, 0, PAGE_SIZE*3);
+    dr_memory_protect(mbuf + PAGE_SIZE*2, PAGE_SIZE, DR_MEMPROT_NONE);
+    edge = find_prot_edge(mbuf, DR_MEMPROT_NONE);
     bytes_read = 0xcdcdcdcd;
     if (dr_safe_read(edge - (PAGE_SIZE + 10), PAGE_SIZE+20, safe_buf, &bytes_read) ||
         bytes_read == 0xcdcdcdcd || bytes_read > PAGE_SIZE+10 || 
         !memchk(safe_buf, 0, bytes_read)) {
         dr_fprintf(STDERR, "ERROR in overlap dr_safe_read()\n");
     }
+    dr_nonheap_free(mbuf, PAGE_SIZE*3);
     dr_fprintf(STDERR, "dr_safe_read() check\n");
 
     /* test DR_TRY_EXCEPT */
@@ -237,19 +245,19 @@ void dr_init(client_id_t id)
         dr_fprintf(STDERR, "ERROR in plain dr_safe_write()\n");
     }
     /* so we don't clobber other global vars we use an allocated buffer here */
-    wbuf = dr_nonheap_alloc(PAGE_SIZE*3, DR_MEMPROT_READ|DR_MEMPROT_WRITE);
-    if (!dr_memory_protect(wbuf + PAGE_SIZE*2, PAGE_SIZE, DR_MEMPROT_READ))
+    mbuf = dr_nonheap_alloc(PAGE_SIZE*3, DR_MEMPROT_READ|DR_MEMPROT_WRITE);
+    if (!dr_memory_protect(mbuf + PAGE_SIZE*2, PAGE_SIZE, DR_MEMPROT_READ))
         dr_fprintf(STDERR, "ERROR in dr_memory_protect\n");
-    memset(wbuf, 0, sizeof(wbuf));
-    edge = find_prot_edge(wbuf, DR_MEMPROT_WRITE);
+    memset(mbuf, 0, PAGE_SIZE*2);
+    edge = find_prot_edge(mbuf, DR_MEMPROT_WRITE);
     bytes_written = 0xcdcdcdcd;
     if (dr_safe_write(edge - (PAGE_SIZE + 10), PAGE_SIZE+20, safe_buf, &bytes_written) ||
         bytes_written == 0xcdcdcdcd || bytes_written > PAGE_SIZE+10 ||
         !memchk(edge - (PAGE_SIZE + 10), 0xcd, bytes_written)) {
         dr_fprintf(STDERR, "ERROR in overlap dr_safe_write() "PFX" "PFX" %d\n",
-                   wbuf, edge, bytes_written);
+                   mbuf, edge, bytes_written);
     }
-    dr_nonheap_free(wbuf, PAGE_SIZE*3);
+    dr_nonheap_free(mbuf, PAGE_SIZE*3);
     dr_fprintf(STDERR, "dr_safe_write() check\n");
 }
 

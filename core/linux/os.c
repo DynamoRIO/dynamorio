@@ -3722,37 +3722,20 @@ print_all_memory_areas(file_t outf)
 }
 #endif
 
+/* C-level wrapper around the asm implementation.  Shuffles arguments and
+ * increments stats.
+ */
 bool
 safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
 {
-    dcontext_t *dcontext = get_thread_private_dcontext();
-    bool res = false;
+    byte *stop_pc;
+    size_t nbytes;
     STATS_INC(num_safe_reads);
-    if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT) {
-        TRY_EXCEPT(dcontext, {
-            memcpy(out_buf, base, size);
-            res = true;
-         } , { /* EXCEPT */
-            /* nothing: res is already false */
-         });
-    } else {
-        /* this is subject to races, but should only happen at init/attach when
-         * there should only be one live thread.
-         */
-        if (is_readable_without_exception(base, size)) {
-            memcpy(out_buf, base, size);
-            res = true;
-        }
-    }
-    if (res) {
-        if (bytes_read != NULL)
-            *bytes_read = size;
-        return true;
-    } else {
-        if (bytes_read != NULL)
-            *bytes_read = 0;
-        return false;
-    }
+    stop_pc = safe_read_asm(out_buf, base, size);
+    nbytes = stop_pc - (byte*)base;
+    if (bytes_read != NULL)
+        *bytes_read = nbytes;
+    return (nbytes == size);
 }
 
 /* FIXME - fold this together with safe_read_ex() (is a lot of places to update) */

@@ -1896,6 +1896,105 @@ GLOBAL_LABEL(hashlookup_null_handler:)
 #endif
         END_FUNC(hashlookup_null_handler)
 
+#ifdef LINUX
+
+# ifdef X64
+#  define PTRSZ_SHIFT_BITS 3
+#  define PTRSZ_SUFFIXED(string_op) string_op##q
+#  define ARGS_TO_XDI_XSI_XDX()         /* ABI handles this. */
+#  define RESTORE_XDI_XSI()             /* Not needed. */
+# else
+#  define PTRSZ_SHIFT_BITS 2
+#  define PTRSZ_SUFFIXED(string_op) string_op##d
+
+/* Get args 1, 2, 3 into edi, esi, and edx to match Linux x64 ABI.  Need to save
+ * edi and esi since they are callee-saved.  The ARGN macros can't handle
+ * stack adjustments, so use the scratch regs eax and ecx to hold the args
+ * before the pushes.
+ */
+#  define ARGS_TO_XDI_XSI_XDX() \
+        mov     eax, ARG1                       @N@\
+        mov     ecx, ARG2                       @N@\
+        mov     edx, ARG3                       @N@\
+        push    edi                             @N@\
+        push    esi                             @N@\
+        mov     edi, eax                        @N@\
+        mov     esi, ecx
+#  define RESTORE_XDI_XSI() \
+        pop esi                                 @N@\
+        pop edi
+# endif
+
+/* Repeats string_op for XDX bytes using aligned pointer-sized operations when
+ * possible.  Assumes that string_op works by counting down until XCX reaches
+ * zero.  The pointer-sized string ops are aligned based on ptr_to_align.
+ * For string ops that have both a src and dst, aligning based on src is
+ * preferred, subject to micro-architectural differences.
+ *
+ * XXX: glibc memcpy uses SSE instructions to copy, which is 10% faster on x64
+ * and ~2x faster for 20kb copies on plain x86.  Using SSE is quite complicated,
+ * because it means doing cpuid checks and loop unrolling.  Many of our string
+ * operations are short anyway.  For safe_read, it also increases the number of
+ * potentially faulting PCs.
+ */
+# define REP_STRING_OP(funcname, ptr_to_align, string_op) \
+        mov     REG_XCX, ptr_to_align                           @N@\
+        and     REG_XCX, (ARG_SZ - 1)                           @N@\
+        jz      funcname##_aligned                              @N@\
+        neg     REG_XCX                                         @N@\
+        add     REG_XCX, ARG_SZ                                 @N@\
+        cmp     REG_XDX, REG_XCX  /* if (n < xcx) */            @N@\
+        cmovb   REG_XCX, REG_XDX  /*     xcx = n; */            @N@\
+        sub     REG_XDX, REG_XCX                                @N@\
+GLOBAL_LABEL(funcname##_pre:)                                   @N@\
+        rep string_op##b                                        @N@\
+GLOBAL_LABEL(funcname##_aligned:)                               @N@\
+        /* Aligned word-size ops. */                            @N@\
+        mov     REG_XCX, REG_XDX                                @N@\
+        shr     REG_XCX, PTRSZ_SHIFT_BITS                       @N@\
+GLOBAL_LABEL(funcname##_mid:)                                   @N@\
+        rep PTRSZ_SUFFIXED(string_op)                           @N@\
+        /* Handle trailing bytes. */                            @N@\
+        mov     REG_XCX, REG_XDX                                @N@\
+        and     REG_XCX, (ARG_SZ - 1)                           @N@\
+GLOBAL_LABEL(funcname##_post:)                                  @N@\
+        rep string_op##b
+
+/* Declare these labels global so we can take their addresses in C.  pre, mid,
+ * and post are defined by REP_STRING_OP().
+ */
+DECLARE_GLOBAL(safe_read_asm_pre)
+DECLARE_GLOBAL(safe_read_asm_mid)
+DECLARE_GLOBAL(safe_read_asm_post)
+DECLARE_GLOBAL(safe_read_asm_recover)
+
+/* i#350: We implement safe_read in assembly and save the PCs that can fault.
+ * If these PCs fault, we return from the signal handler to the epilog, which
+ * can recover.  We return the source pointer from XSI, and the caller uses this
+ * to determine how many bytes were copied and whether it matches size.
+ *
+ * XXX: Use this on Windows for a perf boost over nt_read_virtual_memory().
+ *
+ * XXX: Do we care about differentiating whether the read or write faulted?
+ * Currently this is just "safe_memcpy", and we recover regardless of whether
+ * the read or write faulted.
+ *
+ * void *
+ * safe_read_asm(void *dst, const void *src, size_t n);
+ */
+        DECLARE_FUNC(safe_read_asm)
+GLOBAL_LABEL(safe_read_asm:)
+        ARGS_TO_XDI_XSI_XDX()           /* dst=xdi, src=xsi, n=xdx */
+        /* Copy xdx bytes, align on src. */
+        REP_STRING_OP(safe_read_asm, REG_XSI, movs)
+GLOBAL_LABEL(safe_read_asm_recover:)
+        mov     REG_XAX, REG_XSI        /* Return cur_src */
+        RESTORE_XDI_XSI()
+        ret
+        END_FUNC(safe_read_asm)
+
+#endif /* LINUX */
+
 /*#############################################################################
  *#############################################################################
  */
