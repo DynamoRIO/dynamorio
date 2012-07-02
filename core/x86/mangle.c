@@ -1731,21 +1731,25 @@ insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
                         ptr_int_t val)
 {
 #ifdef X64
-    /* do push-64-bit-immed in two pieces.  tiny corner-case risk of racy
-     * access to TOS if this thread is suspended in between or another
-     * thread is trying to read its stack, but o/w we have to spill and
-     * restore a register. */
-    PRE(ilist, instr,
-        INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32((int)val)));
-    /* push is sign-extended, so we can skip top half if nothing in top 33 bits */
-    if (val >= 0x80000000) {
+    if (X64_MODE_DC(dcontext)) {
+        /* do push-64-bit-immed in two pieces.  tiny corner-case risk of racy
+         * access to TOS if this thread is suspended in between or another
+         * thread is trying to read its stack, but o/w we have to spill and
+         * restore a register. */
         PRE(ilist, instr,
-            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, 4),
-                                OPND_CREATE_INT32((int)(val >> 32))));
+            INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32((int)val)));
+        /* push is sign-extended, so we can skip top half if nothing in top 33 bits */
+        if (val >= 0x80000000) {
+            PRE(ilist, instr,
+                INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, 4),
+                                    OPND_CREATE_INT32((int)(val >> 32))));
+        }
+    } else {
+#endif
+        PRE(ilist, instr,
+            INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(val)));
+#ifdef X64
     }
-#else
-    PRE(ilist, instr,
-        INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(val)));
 #endif
 }
 
@@ -1802,7 +1806,8 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, instr,
             INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM16(REG_XSP, 2),
                                 OPND_CREATE_INT16(val)));
-    } else if (opsize == OPSZ_PTR) {
+    } else if (opsize == OPSZ_PTR
+               IF_X64(|| (!X64_MODE_DC(dcontext) && opsize == OPSZ_4))) {
         insert_push_immed_ptrsz(dcontext, ilist, instr, retaddr);
     } else {
 #ifdef X64
@@ -1873,10 +1878,11 @@ insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                ptr_int_t retaddr, opnd_size_t opsize)
 {
 #ifdef X64
-    /* "push cs" is invalid; for now we just push 0x33, a common value of cs.
-     * PR 271317 covers doing this properly.
+    /* "push cs" is invalid; for now we push the typical cs values.
+     * i#823 covers doing this more generally.
      */
-    insert_push_retaddr(dcontext, ilist, instr, 0x33, opsize);
+    insert_push_retaddr(dcontext, ilist, instr,
+                        X64_MODE_DC(dcontext) ? CS64_SELECTOR : CS32_SELECTOR, opsize);
 #else
     opnd_t stackop;
     /* we go ahead and push cs, but we won't pop into cs */
@@ -3886,6 +3892,18 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     if (record_translation)
         instrlist_set_translation_target(ilist, NULL);
     instrlist_set_our_mangling(ilist, false); /* PR 267260 */
+
+#ifdef X64
+    if (!X64_MODE_DC(dcontext)) {
+        instr_t *in;
+        for (in = instrlist_first(ilist); in != NULL; in = instr_get_next(in)) {
+            if (instr_is_our_mangling(in)) {
+                instr_set_x86_mode(in, true/*x86*/);
+                instr_shrink_to_32_bits(in);
+            }
+        }
+    }
+#endif
 
     /* The following assertion should be guaranteed by fact that all
      * blocks end in some kind of branch, and the code above restores
