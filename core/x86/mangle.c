@@ -2206,6 +2206,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * ibl that ends in a far cti, and all prior address manipulations would
          * need to be relative to the new segment, w/o messing up current segment.
          * FIXME: can we do better without too much work?
+         * XXX: yes, for wow64: i#823: TODO mangle this like a far indirect jmp
          */
         SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far indirect call");
         STATS_INC(num_far_ind_calls);
@@ -2320,6 +2321,33 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 /***************************************************************************
  * RETURN
  */
+
+#ifdef X64
+/* Saves the selector from the top of the stack into xbx, after spilling xbx,
+ * for far_ibl.
+ */
+static void
+mangle_far_return_save_selector(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                                uint flags)
+{
+    if (mixed_mode_enabled()) {
+        /* While we don't support arbitrary segments, we do support
+         * mode changes using standard cs selector values (i#823).
+         * We save the selector into xbx.
+         */
+        /* We could do a pop but state xl8 is already set up to restore lea */
+        /* all scratch space should be in TLS only */
+        ASSERT(TEST(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
+        PRE(ilist, instr,
+            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
+                              XBX_OFFSET));
+        PRE(ilist, instr,
+            INSTR_CREATE_movzx(dcontext, opnd_create_reg(REG_EBX),
+                               OPND_CREATE_MEM16(REG_XSP, 0)));
+    }
+}
+#endif
+
 static void
 mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
               instr_t *next_instr, uint flags)
@@ -2418,18 +2446,19 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif
 
     if (instr_get_opcode(instr) == OP_ret_far) {
-        /* N.B.: we do not support other than flat 0-based CS, DS, SS, and ES.
-         * if the app wants to change segments, we won't actually issue
-         * a segment change, and so will only work properly if the new segment
-         * is also 0-based.  To properly issue new segments, we'd need a special
-         * ibl that ends in a far cti, and all prior address manipulations would
-         * need to be relative to the new segment, w/o messing up current segment.
-         * FIXME: can we do better without too much work?
+        /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+         * If the app wants to change segments in a WOW64 process, we will
+         * do the right thing for standard cs selector values (xref i#49).
+         * For other cs changes or in other modes, we do go through far_ibl
+         * today although we do not enact the cs change (nor bother to pass
+         * the selector in xbx).
          */
         SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far ret");
         STATS_INC(num_far_rets);
+#ifdef X64
+        mangle_far_return_save_selector(dcontext, ilist, instr, flags);
+#endif
         /* pop selector from stack, but not into cs, just junk it
-         * XXX: yes, for wow64: i#823: TODO mangle this like a far indirect jmp
          * (the 16-bit selector is expanded to 32 bits on the push, unless data16)
          */
         PRE(ilist, instr,
@@ -2450,9 +2479,13 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* In 32-bit mode and 64-bit mode with 32-bit operand size this is a
          * pop->EIP pop->CS pop->eflags.  64-bit mode with 64-bit operand size extends
          * the above and additionally adds pop->RSP pop->ss.  N.B.: like OP_far_ret we
-         * ignore the CS and SS segment changes (FIXME: see the comments there for why,
-         * can we do better?). */
+         * ignore the CS (except mixed-mode WOW64) and SS segment changes
+         * (see the comments there).
+         */
         
+#ifdef X64
+        mangle_far_return_save_selector(dcontext, ilist, instr, flags);
+#endif
         /* Return address is already popped, next up is CS segment which we ignore so
          * adjust stack pointer. Note we can use an add here since the eflags will
          * be written below. */
