@@ -52,9 +52,7 @@ option(TEST_SUITE "running series of builds so skip some overlapping tests; also
 set(TEST_SECONDS "60" CACHE STRING "Test time limit in seconds")
 set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 set(TEST_LIB_PATH "" CACHE STRING "DynamoRIO library path (if empty, uses local build)")
-if (UNIX)
-  set(TEST_32BIT_PATH "" CACHE STRING "32-bit test bin dir for cross-arch tests")
-endif (UNIX)
+set(TEST_32BIT_PATH "" CACHE STRING "32-bit test bin dir for cross-arch tests")
 
 # FIXME: i#120: .runall support
 # FIXME: i#65: run samples like runregression does
@@ -1448,7 +1446,7 @@ if (UNIX)
   # Cross-arch execve test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
   # 64-bit then builds and runs both directions.
-  if (TEST_SUITE)
+  if (TEST_SUITE OR TEST_32BIT_PATH)
     if (X64)
       add_exe(linux.execve-sub64 linux/execve-sub.c)
       tobuild_ops(linux.execve64 linux/execve.c ""
@@ -1459,7 +1457,7 @@ if (UNIX)
       add_exe(linux.execve-sub32 linux/execve-sub.c)
       add_exe(linux.execve32 linux/execve.c)
     endif (X64)
-  endif (TEST_SUITE)
+  endif (TEST_SUITE OR TEST_32BIT_PATH)
     
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)
@@ -1701,6 +1699,36 @@ else (UNIX)
   #tobuild_runall(runall.notepad runall/notepad.runall "")
   #tobuild_runall(runall.preunload runall/preunload.runall "")
   #tobuild_runall(runall.processchain runall/processchain.runall "")
+
+  # Cross-arch mixedmode test: can only be done via a suite of tests that
+  # build both 32-bit and 64-bit.  We have 32-bit just build, and
+  # 64-bit then builds and runs both directions.
+  #
+  # XXX: alternative of cmake cross-compilation support really
+  # requires a separate config anyway; to build 32-bit in 64-bit build
+  # dir would require manual build rules.  Not difficult, just a
+  # little messy.
+  #
+  # We support setting TEST_32BIT_PATH manually in a 64-bit build.
+  # We go ahead and build in any 32-bit build dir to make that easier.
+  #
+  # XXX: currently early injection doesn't work for pre-Vista WOW64, where
+  # w/ these options the child will end up native and the test will pass (!).
+  # For now we assume injection succeeds on Vista+ and that the test thus
+  # actually tests mixed-mode, until we've got early/earliest injection working
+  # everywhere (xref i#381, i#234, i#803).
+  if (TEST_SUITE OR TEST_32BIT_PATH OR NOT X64)
+    if (X64)
+      torunonly(win32.mixedmode
+        ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
+        win32/mixedmode.c
+        "-early_inject_map -early_inject_location 5"
+        "${TEST_32BIT_PATH}/win32.mixedmode.exe;arg")
+    else (X64)
+      add_exe(win32.mixedmode win32/mixedmode.c)
+    endif (X64)
+  endif (TEST_SUITE OR TEST_32BIT_PATH OR NOT X64)
+   
 endif (UNIX)
 
 tobuild(security-common.codemod security-common/codemod.c)
