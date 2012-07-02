@@ -2314,7 +2314,7 @@ instr_will_be_exit_cti(instr_t *inst)
     /* can't use instr_is_exit_cti() on pre-mangled instrs */
     return (instr_ok_to_mangle(inst) &&
             instr_is_cti(inst) &&
-            (!instr_is_call_direct(inst) ||
+            (!instr_is_near_call_direct(inst) ||
              !must_not_be_inlined(instr_get_branch_target_pc(inst)))
             /* PR 239470: ignore wow64 syscall, which is an ind call */
             IF_WINDOWS(&& !instr_is_wow64_syscall(inst)));
@@ -2503,7 +2503,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 found_exit_cti = true;
                 bb->instr = inst;
 
-                if (instr_is_near_ubr(inst) || instr_is_call_direct(inst)) {
+                if (instr_is_near_ubr(inst) || instr_is_near_call_direct(inst)) {
                     CLIENT_ASSERT(instr_is_near_ubr(inst) ||
                                   inst == instrlist_last(bb->ilist),
                                   "an exit call must terminate the block");
@@ -3045,7 +3045,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
 
-        if (instr_is_call_direct(bb->instr)) {
+        if (instr_is_near_call_direct(bb->instr)) {
             if (!bb_process_call_direct(dcontext, bb)) {
                 if (bb->instr != NULL)
                     bb->exit_type |= instr_branch_type(bb->instr);
@@ -3054,7 +3054,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
         else if (instr_is_mbr(bb->instr) || /* including indirect calls */
                  /* far direct is treated as indirect (i#823) */
-                 instr_get_opcode(bb->instr) == OP_jmp_far) {
+                 instr_get_opcode(bb->instr) == OP_jmp_far ||
+                 instr_get_opcode(bb->instr) == OP_call_far) {
 
             /* Manage the case where we don't need to perform 'normal'
              * indirect branch processing.
@@ -3103,6 +3104,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             } else if (instr_get_opcode(bb->instr) == OP_jmp_far) {
                  /* far direct is treated as indirect (i#823) */
                 ibl_branch_type = IBL_INDJMP;
+            } else if (instr_get_opcode(bb->instr) == OP_call_far) {
+                 /* far direct is treated as indirect (i#823) */
+                ibl_branch_type = IBL_INDCALL;
             } else {
                 /* indirect jump */
                 /* was prev instr a direct call? if so, this is a PLT-style ind call */
@@ -3215,7 +3219,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         DYNAMO_OPTION(native_exec_callcall) &&        
         !vmvector_empty(native_exec_areas) &&
         bb->app_interp && bb->instr != NULL && 
-        (instr_is_near_ubr(bb->instr) || instr_is_call_direct(bb->instr)) &&
+        (instr_is_near_ubr(bb->instr) || instr_is_near_call_direct(bb->instr)) &&
         instrlist_first(bb->ilist) == instrlist_last(bb->ilist)) {
         /* Case 4564/3558: handle .NET COM method table where a call* targets
          * a call to a native_exec dll -- we need to put the gateway at the

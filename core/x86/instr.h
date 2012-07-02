@@ -2587,6 +2587,11 @@ bool
 instr_is_call_direct(instr_t *instr);
 
 DR_API
+/** Returns true iff \p instr's opcode is OP_call. */
+bool 
+instr_is_near_call_direct(instr_t *instr);
+
+DR_API
 /** Returns true iff \p instr's opcode is OP_call_ind or OP_call_far_ind. */
 bool 
 instr_is_call_indirect(instr_t *instr);

@@ -3789,7 +3789,8 @@ instr_branch_type(instr_t *cti_instr)
     case OP_jmp_far_ind:
         return LINK_INDIRECT|LINK_JMP|LINK_FAR;
     case OP_call_far:
-        return LINK_DIRECT|LINK_CALL|LINK_FAR;
+        /* far direct is treated as indirect (i#823) */
+        return LINK_INDIRECT|LINK_CALL|LINK_FAR;
     case OP_call_far_ind:
         return LINK_INDIRECT|LINK_CALL|LINK_FAR;
     case OP_ret_far: case OP_iret:
@@ -3869,6 +3870,13 @@ instr_is_call_direct(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
     return (opc == OP_call || opc == OP_call_far);
+}
+
+bool 
+instr_is_near_call_direct(instr_t *instr)
+{
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_call);
 }
 
 bool 

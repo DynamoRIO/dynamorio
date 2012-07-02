@@ -183,6 +183,17 @@ GLOBAL_LABEL(FUNCNAME:)
         retf
     test_far_dir_call:
 
+        /* call 0033:<far_dir_call> */
+        RAW(9a)
+          DD offset far_dir_call
+          DB CS64_SELECTOR
+          RAW(00)
+        jmp      test_far_dir_done
+    far_dir_call:
+        retf
+
+    test_far_dir_done:
+
         SWITCH_32_TO_64(far_call_from_64)
         /* call 0023:<far_call_to_32> */
         push     offset far_call_to_32  /* 8-byte push */

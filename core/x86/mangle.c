@@ -1940,13 +1940,78 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
     return retaddr;
 }
 
+/* We spill to XCX(private dcontext) slot for private fragments, 
+ * and to TLS MANGLE_XCX_SPILL_SLOT for shared fragments.
+ * (Except for DYNAMO_OPTION(private_ib_in_tls), for which all use tls,
+ *  but that has a performance hit because of the extra data cache line)
+ * We can get away with the split by having the shared ibl routine copy
+ * xcx to the private dcontext, and by having the private ibl never
+ * target shared fragments.
+ * We also have to modify the xcx spill from tls to private dcontext when
+ * adding a shared basic block to a trace.
+ *
+ * FIXME: if we do make non-trace-head basic blocks valid indirect branch
+ * targets, we should have the private ibl have special code to test the
+ * flags and copy xcx to the tls slot if necessary.
+ */
+#define SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)                      \
+    ((DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags))) ?           \
+     INSTR_CREATE_mov_st(dcontext, opnd_create_tls_slot(os_tls_offset(tls_offs)), \
+                         opnd_create_reg(reg)) :                                  \
+     instr_create_save_to_dcontext((dc), (reg), (dc_offs)))
+
+static void
+mangle_far_direct_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                         instr_t *next_instr, uint flags)
+{
+    /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+     * If the app wants to change segments in a WOW64 process, we will
+     * do the right thing for standard cs selector values (xref i#49).
+     * For other cs changes or in other modes, we do go through far_ibl
+     * today although we do not enact the cs change (nor bother to pass
+     * the selector in xbx).
+     *
+     * For WOW64, I tried keeping this a direct jmp for nice linking by doing the
+     * mode change in-fragment and then using a 64-bit stub with a 32-bit fragment,
+     * but that gets messy b/c a lot of code assumes it can create or calculate the
+     * size of exit stubs given nothing but the fragment flags.  I tried adding
+     * FRAG_ENDS_IN_FAR_DIRECT but still need to pass another param to all the stub
+     * macros and routines for mid-trace exits and for prefixes for -disable_traces.
+     * So, going for treating as indirect and using the far_ibl.  It's a trace
+     * barrier anyway, and rare.  We treat it as indirect in all modes (including
+     * x86 builds) for simplicity (and eventually for full i#823 we'll want
+     * to issue cs changes there too).
+     */
+    app_pc pc = opnd_get_pc(instr_get_target(instr));
+
+#ifdef X64
+    if (!X64_MODE_DC(dcontext) &&
+        opnd_get_segment_selector(instr_get_target(instr)) == CS64_SELECTOR) {
+        PRE(ilist, instr,
+            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
+                              XBX_OFFSET));
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EBX),
+                                 OPND_CREATE_INT32(CS64_SELECTOR)));
+    }
+#endif
+
+    PRE(ilist, instr,
+        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX,
+                          MANGLE_XCX_SPILL_SLOT, XCX_OFFSET));
+    ASSERT((ptr_uint_t)pc < UINT_MAX); /* 32-bit code! */
+    PRE(ilist, instr,
+        INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_ECX),
+                             OPND_CREATE_INT32((ptr_uint_t)pc)));
+}
+
 /***************************************************************************
  * DIRECT CALL
  * Returns new next_instr
  */
 static instr_t *
 mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                   instr_t *next_instr, bool mangle_calls)
+                   instr_t *next_instr, bool mangle_calls, uint flags)
 {
     ptr_uint_t retaddr;
     app_pc target = NULL;
@@ -2023,6 +2088,9 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              */
             SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct call");
             STATS_INC(num_far_dir_calls);
+
+            mangle_far_direct_helper(dcontext, ilist, instr, next_instr, flags);
+
             insert_push_cs(dcontext, ilist, instr, 0, pushsz);
         }
 
@@ -2047,26 +2115,6 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif
 }
 
-
-/* We spill to XCX(private dcontext) slot for private fragments, 
- * and to TLS MANGLE_XCX_SPILL_SLOT for shared fragments.
- * (Except for DYNAMO_OPTION(private_ib_in_tls), for which all use tls,
- *  but that has a performance hit because of the extra data cache line)
- * We can get away with the split by having the shared ibl routine copy
- * xcx to the private dcontext, and by having the private ibl never
- * target shared fragments.
- * We also have to modify the xcx spill from tls to private dcontext when
- * adding a shared basic block to a trace.
- *
- * FIXME: if we do make non-trace-head basic blocks valid indirect branch
- * targets, we should have the private ibl have special code to test the
- * flags and copy xcx to the tls slot if necessary.
- */
-#define SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)                      \
-    ((DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags))) ?           \
-     INSTR_CREATE_mov_st(dcontext, opnd_create_tls_slot(os_tls_offset(tls_offs)), \
-                         opnd_create_reg(reg)) :                                  \
-     instr_create_save_to_dcontext((dc), (reg), (dc_offs)))
 
 #ifdef LINUX
 /***************************************************************************
@@ -2666,47 +2714,12 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  */
 static void
 mangle_far_direct_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                     instr_t *next_instr, uint flags)
+                       instr_t *next_instr, uint flags)
 {
-    /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
-     * If the app wants to change segments in a WOW64 process, we will
-     * do the right thing for standard cs selector values (xref i#49).
-     * For other cs changes or in other modes, we do go through far_ibl
-     * today although we do not enact the cs change (nor bother to pass
-     * the selector in xbx).
-     *
-     * For WOW64, I tried keeping this a direct jmp for nice linking by doing the
-     * mode change in-fragment and then using a 64-bit stub with a 32-bit fragment,
-     * but that gets messy b/c a lot of code assumes it can create or calculate the
-     * size of exit stubs given nothing but the fragment flags.  I tried adding
-     * FRAG_ENDS_IN_FAR_DIRECT but still need to pass another param to all the stub
-     * macros and routines for mid-trace exits and for prefixes for -disable_traces.
-     * So, going for treating as indirect and using the far_ibl.  It's a trace
-     * barrier anyway, and rare.  We treat it as indirect in all modes (including
-     * x86 builds) for simplicity (and eventually for full i#823 we'll want
-     * to issue cs changes there too).
-     */
-    app_pc pc = opnd_get_pc(instr_get_target(instr));
     SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct jmp");
     STATS_INC(num_far_dir_jmps);
-#ifdef X64
-    if (!X64_MODE_DC(dcontext) &&
-        opnd_get_segment_selector(instr_get_target(instr)) == CS64_SELECTOR) {
-        PRE(ilist, instr,
-            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
-                              XBX_OFFSET));
-        PRE(ilist, instr,
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EBX),
-                                 OPND_CREATE_INT32(CS64_SELECTOR)));
-    }
-#endif
-    PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX,
-                          MANGLE_XCX_SPILL_SLOT, XCX_OFFSET));
-    ASSERT((ptr_uint_t)pc < UINT_MAX); /* 32-bit code! */
-    PRE(ilist, instr,
-        INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_ECX),
-                             OPND_CREATE_INT32((ptr_uint_t)pc)));
+
+    mangle_far_direct_helper(dcontext, ilist, instr, next_instr, flags);
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
 }
@@ -3924,8 +3937,8 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
         if (instr_is_call_direct(instr)) {
             /* mangle_direct_call may inline a call and remove next_instr, so
              * it passes us the updated next instr */
-            next_instr =
-                mangle_direct_call(dcontext, ilist, instr, next_instr, mangle_calls);
+            next_instr = mangle_direct_call(dcontext, ilist, instr, next_instr,
+                                            mangle_calls, flags);
         } else if (instr_is_call_indirect(instr)) {
             mangle_indirect_call(dcontext, ilist, instr, next_instr, mangle_calls, flags);
         } else if (instr_is_return(instr)) {
