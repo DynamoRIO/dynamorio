@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,6 +53,15 @@
  */
 
 #include <math.h> /* for floating-point math constants */
+
+#ifdef AVOID_API_EXPORT
+# include "decode.h"
+/* (deliberately not indenting the #includes in API_EXPORT_ONLY for generated file) */
+#endif
+#ifdef API_EXPORT_ONLY
+#include "dr_ir_opnd.h"
+#include "dr_ir_utils.h"
+#endif
 
 /* instruction modification convenience routines */
 /**
@@ -3354,39 +3363,55 @@
  * \param reg A reg_id_t (NOT opnd_t) to use as source and destination.
  * For 64-bit mode, use a 64-bit register, but NOT rbp or rsp for the 3-byte form.
  */
-#ifdef X64
 static inline instr_t *
 INSTR_CREATE_nop2byte_reg(dcontext_t *dcontext, reg_id_t reg)
 {
-    /* 32-bit register target zeroes out the top bits, so we use the Intel
-     * and AMD recommended 0x66 0x90 */
-    instr_t *in = instr_build_bits(dcontext, OP_nop, 2);
-# ifdef WINDOWS
-    /* avoid warning C4100: 'reg' : unreferenced formal parameter */
-    UNREFERENCED_PARAMETER(reg);
-# endif
-    instr_set_raw_byte(in, 0, 0x66);
-    instr_set_raw_byte(in, 1, 0x90);
-    instr_set_operands_valid(in, true);
-    return in;
-}
-#else
-# define INSTR_CREATE_nop2byte_reg(dc, reg) \
-    INSTR_CREATE_mov_st(dc, opnd_create_reg(reg), opnd_create_reg(reg))
-#endif
 #ifdef X64
+    if (!get_x86_mode(dcontext)) {
+        /* 32-bit register target zeroes out the top bits, so we use the Intel
+         * and AMD recommended 0x66 0x90 */
+        instr_t *in = instr_build_bits(dcontext, OP_nop, 2);
+# ifdef WINDOWS
+        /* avoid warning C4100: 'reg' : unreferenced formal parameter */
+        UNREFERENCED_PARAMETER(reg);
+# endif
+        instr_set_raw_byte(in, 0, 0x66);
+        instr_set_raw_byte(in, 1, 0x90);
+        instr_set_operands_valid(in, true);
+        return in;
+    } else {
+#endif
+        return INSTR_CREATE_mov_st(dcontext, opnd_create_reg(reg), opnd_create_reg(reg));
+#ifdef X64
+        /* XXX: could have INSTR_CREATE_nop{1,2,3}byte() pick DR_REG_EDI for x86
+         * mode, or could call instr_shrink_to_32_bits() here, but we aren't planning
+         * to change any of the other regular macros in this file: only those that
+         * have completely different forms in the two modes, and we expect caller to
+         * shrink to 32 for all INSTR_CREATE_* functions/macros.
+         */
+    }
+#endif
+}
 /* lea's target is 32-bit but address register is 64: so we eliminate the
  * displacement and put in rex.w 
  */
-# define INSTR_CREATE_nop3byte_reg(dc, reg)     \
-    INSTR_CREATE_lea(dc, opnd_create_reg(reg), \
-    OPND_CREATE_MEM_lea(reg, DR_REG_NULL, 0, 0)) 
-#else
-# define INSTR_CREATE_nop3byte_reg(dc, reg)     \
-    INSTR_CREATE_lea(dc, opnd_create_reg(reg), \
-                     opnd_create_base_disp_ex(reg, DR_REG_NULL, 0, 0, OPSZ_lea, \
-                                              true/*encode 0*/, false, false)) 
+static inline instr_t *
+INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg)
+{
+#ifdef X64
+    if (!get_x86_mode(dcontext)) {
+        return INSTR_CREATE_lea(dcontext, opnd_create_reg(reg),
+                              OPND_CREATE_MEM_lea(reg, DR_REG_NULL, 0, 0));
+    } else {
 #endif
+        return INSTR_CREATE_lea(dcontext, opnd_create_reg(reg),
+                                opnd_create_base_disp_ex(reg, DR_REG_NULL, 0, 0, OPSZ_lea,
+                                                         true/*encode 0*/, false, false));
+#ifdef X64
+        /* see note above for whether to auto-shrink */
+    }
+#endif
+}
 /* @} */ /* end doxygen group */
 #ifndef UNSUPPORTED_API
 /* DR_API EXPORT END */

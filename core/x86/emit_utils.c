@@ -757,7 +757,12 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
                         starting_pc += nop_length;
                     } else {
                         instr_t *nop_inst = INSTR_CREATE_nopNbyte(dcontext, nop_length);
-
+#ifdef X64
+                        if (FRAG_IS_32(f->flags)) {
+                            instr_set_x86_mode(nop_inst, true/*x86*/);
+                            instr_shrink_to_32_bits(nop_inst);
+                        }
+#endif
                         /* We expect bbs to never need this if
                          * -pad_jmps_shift_bb except on LINUX (signal fence exit) and
                          * CLIENT_INTERFACE (client can re-arrange fragment) where we

@@ -650,6 +650,13 @@ Each instruction contains a flag indicating whether it should be encoded in
 instruction's flag is set to the thread's current mode.  It can be queried
 with instr_get_x86_mode() and changed with instr_set_x86_mode().
 
+For a 64-bit build of DynamoRIO, the instruction creation macros all use
+64-bit-sized registers.  The recommended model when generating 32-bit code
+is to use the macros to create an instruction list and before encoding to
+call instr_set_x86_mode() and instr_shrink_to_32_bits() on each
+instruction.  Naturally any instruction that differs in more than register
+selection must be special-cased.
+
 
 ***************************************************************************
 \htmlonly
