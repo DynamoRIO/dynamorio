@@ -2233,7 +2233,10 @@ presys_OpenFile(dcontext_t *dcontext, reg_t *param_base)
         /* convert name from unicode to ansi */
         char buf[MAXIMUM_PATH];
         wchar_t *name = obj->ObjectName->Buffer;
-        _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", name);
+        /* not always null-terminated */
+        _snprintf(buf, MIN(obj->ObjectName->Length/sizeof(obj->ObjectName->Buffer[0]),
+                           BUFFER_SIZE_ELEMENTS(buf)),
+                  "%S", name);
         NULL_TERMINATE_BUFFER(buf);
         LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
             "syscall: NtOpenFile %s\n", buf);
