@@ -122,6 +122,15 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
 {
     byte *last_pc;
 
+#ifdef X64
+    if (code->x86_mode) {
+        /* parts of x86 gencode are 64-bit but it's hard to know which here
+         * so we dump all as x86
+         */
+        set_x86_mode(dcontext, true/*x86*/);
+    }
+#endif
+
     print_file(file, "%s routines created:\n", code_description);
     {
         last_pc = code->gen_start_pc;
@@ -187,6 +196,11 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                    code_description, emitted_pc - code->gen_start_pc,
                    code->commit_end_pc - code->gen_start_pc);
     }
+
+#ifdef X64
+    if (code->x86_mode)
+        set_x86_mode(dcontext, false/*x64*/);
+#endif
 }
 
 void

@@ -384,6 +384,10 @@
     STATS_DEF("Fragments generated, bb and trace", num_fragments)
     RSTATS_DEF("Basic block fragments generated", num_bbs)
     RSTATS_DEF("Trace fragments generated", num_traces)
+#ifdef X64
+    STATS_DEF("32-bit basic block fragments generated", num_32bit_bbs)
+    STATS_DEF("32-bit trace fragments generated", num_32bit_traces)
+#endif
     STATS_DEF("Trace fragments aborted for any reason", num_aborted_traces)
     STATS_DEF("Trace fragments aborted: shared race", num_aborted_traces_race)
     STATS_DEF("Trace fragments aborted: client bad mod", num_aborted_traces_client)

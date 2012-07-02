@@ -1198,12 +1198,13 @@ common_disassemble_fragment(dcontext_t *dcontext,
 
     if (header) {
 #ifdef DEBUG
-        print_file(outfile, "Fragment %d, tag "PFX", flags 0x%x, %s%s%ssize %d%s%s:\n",
+        print_file(outfile, "Fragment %d, tag "PFX", flags 0x%x, %s%s%s%ssize %d%s%s:\n",
                    f->id,
 #else
-        print_file(outfile, "Fragment tag "PFX", flags 0x%x, %s%s%ssize %d%s%s:\n",
+        print_file(outfile, "Fragment tag "PFX", flags 0x%x, %s%s%s%ssize %d%s%s:\n",
 #endif
                    f->tag, f->flags,
+                   IF_X64_ELSE(FRAG_IS_32(f->flags) ? "32-bit, " : "", ""),
                    TEST(FRAG_COARSE_GRAIN, f->flags) ? "coarse, " : "",
                    (TEST(FRAG_SHARED, f->flags) ? "shared, " : 
                     (SHARED_FRAGMENTS_ENABLED() ?

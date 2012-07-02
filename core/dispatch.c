@@ -305,10 +305,11 @@ dispatch_enter_fcache_stats(dcontext_t *dcontext, fragment_t *targetf)
         LOG(THREAD, LOG_DISPATCH, 3, "\tCall depth is %d\n",
             dcontext->call_depth);
 # endif
-        LOG(THREAD, LOG_DISPATCH, 2, "Entry into F%d("PFX")."PFX" %s%s", 
+        LOG(THREAD, LOG_DISPATCH, 2, "Entry into F%d("PFX")."PFX" %s%s%s", 
             targetf->id,
             targetf->tag,
             FCACHE_ENTRY_PC(targetf),
+            IF_X64_ELSE(FRAG_IS_32(targetf->flags) ? "(32-bit)" : "", ""),
             TEST(FRAG_COARSE_GRAIN, targetf->flags) ? "(coarse)" : "",
             ((targetf->flags & FRAG_IS_TRACE_HEAD)!=0)? 
             "(trace head)" : "",
@@ -1268,7 +1269,8 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
             STATS_INC(num_bb_exits);
     });
 
-    LOG(THREAD, LOG_DISPATCH, 2, "%s",
+    LOG(THREAD, LOG_DISPATCH, 2, "%s%s",
+        IF_X64_ELSE(FRAG_IS_32(last_f->flags) ? " (32-bit)" : "", ""),
         TEST(FRAG_SHARED, last_f->flags) ? " (shared)":"");
     DOLOG(2, LOG_SYMBOLS, { 
         char symbuf[MAXIMUM_SYMBOL_LENGTH];

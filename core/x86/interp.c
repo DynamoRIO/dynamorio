@@ -2721,7 +2721,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #endif
     }
 
-    LOG(THREAD, LOG_INTERP, 3, "\ninterp: ");
+    LOG(THREAD, LOG_INTERP, 3, "\ninterp%s: ",
+        IF_X64_ELSE(X64_MODE_DC(dcontext) ? "" : " (x86 mode)", ""));
     BBPRINT(bb, 3, "start_pc = "PFX"\n", bb->start_pc);
 
     DOSTATS({

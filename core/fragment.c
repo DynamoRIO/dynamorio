@@ -2446,8 +2446,10 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size,
     IF_X64(ASSERT_TRUNCATE(f->id, int, next_id));
     DOSTATS({ f->id = (int) next_id; });
     DO_GLOBAL_STATS({
-        if (!TEST(FRAG_IS_TRACE, f->flags))
+        if (!TEST(FRAG_IS_TRACE, f->flags)) {
             RSTATS_INC(num_bbs);
+            IF_X64(if (FRAG_IS_32(f->flags)) STATS_INC(num_32bit_bbs);)
+        }
     });
 #if defined(NATIVE_RETURN) && !defined(DEBUG)
     num_fragments++;
