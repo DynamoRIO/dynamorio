@@ -40,6 +40,7 @@
 /* asm routines */
 void test_top_bits(void);
 int test_iret(void);
+int test_far_calls(void);
 
 char global_data[8];
 
@@ -49,6 +50,8 @@ int main(int argc, char *argv[])
     print("r8 was 0x%I64x\n", *(__int64*)global_data);
 
     print("test_iret() returned %d\n", test_iret());
+
+    print("test_far_calls() returned %d\n", test_far_calls());
     return 0;
 }
 
@@ -164,6 +167,38 @@ GLOBAL_LABEL(FUNCNAME:)
         nop
 
         ret                      /* return value already in eax */
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+# define FUNCNAME test_far_calls
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* call 0033:<far_call_to_64> */
+        push     CS64_SELECTOR
+        push     offset far_call_to_64
+        call     fword ptr [esp]
+        lea      esp, [esp + 8]     /* undo the two pushes */
+        jmp      test_far_dir_call
+    far_call_to_64:
+        retf
+    test_far_dir_call:
+
+        SWITCH_32_TO_64(far_call_from_64)
+        /* call 0023:<far_call_to_32> */
+        push     offset far_call_to_32  /* 8-byte push */
+        mov      dword ptr [esp + 4], CS32_SELECTOR /* top 4 bytes of prev push */
+        call     fword ptr [esp]
+        lea      esp, [esp + 8]     /* undo the x64 push */
+        jmp      test_far_dir_call_from_64
+    far_call_to_32:
+        /* ensure we're 32-bit */
+        daa
+        retf
+    test_far_dir_call_from_64:
+        SWITCH_64_TO_32(far_calls_done)
+
+        xor      eax,eax
+        ret
         END_FUNC(FUNCNAME)
 # undef FUNCNAME
 

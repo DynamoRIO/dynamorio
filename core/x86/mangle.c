@@ -1819,7 +1819,7 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              opnd_create_base_disp(REG_XSP, REG_NULL, 0, -4,
                                                    OPSZ_lea)));
         PRE(ilist, instr,
-            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, 4),
+            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, 0),
                                 OPND_CREATE_INT32(val)));
 #else
         ASSERT_NOT_REACHED();
@@ -1878,20 +1878,24 @@ insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                ptr_int_t retaddr, opnd_size_t opsize)
 {
 #ifdef X64
-    /* "push cs" is invalid; for now we push the typical cs values.
-     * i#823 covers doing this more generally.
-     */
-    insert_push_retaddr(dcontext, ilist, instr,
-                        X64_MODE_DC(dcontext) ? CS64_SELECTOR : CS32_SELECTOR, opsize);
-#else
-    opnd_t stackop;
-    /* we go ahead and push cs, but we won't pop into cs */
-    instr_t *push = INSTR_CREATE_push(dcontext, opnd_create_reg(SEG_CS));
-    /* 2nd dest is the stack operand size */
-    stackop = instr_get_dst(push, 1);
-    opnd_set_size(&stackop, opsize);
-    instr_set_dst(push, 1, stackop);
-    PRE(ilist, instr, push);
+    if (X64_MODE_DC(dcontext)) {
+        /* "push cs" is invalid; for now we push the typical cs values.
+         * i#823 covers doing this more generally.
+         */
+        insert_push_retaddr(dcontext, ilist, instr,
+                            X64_MODE_DC(dcontext) ? CS64_SELECTOR : CS32_SELECTOR, opsize);
+    } else {
+#endif
+        opnd_t stackop;
+        /* we go ahead and push cs, but we won't pop into cs */
+        instr_t *push = INSTR_CREATE_push(dcontext, opnd_create_reg(SEG_CS));
+        /* 2nd dest is the stack operand size */
+        stackop = instr_get_dst(push, 1);
+        opnd_set_size(&stackop, opsize);
+        instr_set_dst(push, 1, stackop);
+        PRE(ilist, instr, push);
+#ifdef X64
+    }
 #endif
 }
 
@@ -2125,6 +2129,82 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
 /***************************************************************************
  * INDIRECT CALL
  */
+
+static reg_id_t
+mangle_far_indirect_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                           instr_t *next_instr, uint flags, opnd_t *target_out)
+{
+    opnd_t target = *target_out;
+    opnd_size_t addr_size;
+    reg_id_t reg_target = REG_NULL;
+    ASSERT(instr_get_opcode(instr) == OP_jmp_far_ind ||
+           instr_get_opcode(instr) == OP_call_far_ind);
+    /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+     * If the app wants to change segments in a WOW64 process, we will
+     * do the right thing for standard cs selector values (xref i#49).
+     * For other cs changes or in other modes, we do go through far_ibl
+     * today although we do not enact the cs change (nor bother to pass
+     * the selector in xbx).
+     */
+    /* opnd type is i_Ep, it's not a far base disp b/c segment is at
+     * memory location, not specified as segment prefix on instr
+     * we assume register operands are marked as invalid instrs long
+     * before this point.
+     */
+    ASSERT(opnd_is_base_disp(target));
+    /* Segment selector is the final 2 bytes.
+     * For non-mixed-mode, we ignore it.
+     * We assume DS base == target cti CS base.
+     */
+    /* if data16 then just 2 bytes for address
+     * if x64 mode and Intel and rex then 8 bytes for address */
+    ASSERT((X64_MODE_DC(dcontext) && opnd_get_size(target) == OPSZ_10 &&
+            proc_get_vendor() != VENDOR_AMD) ||
+           opnd_get_size(target) == OPSZ_6 || opnd_get_size(target) == OPSZ_4);
+    if (opnd_get_size(target) == OPSZ_10) {
+        addr_size = OPSZ_8;
+        reg_target = REG_RCX;
+    } else if (opnd_get_size(target) == OPSZ_6) {
+        addr_size = OPSZ_4;
+        reg_target = REG_ECX;
+    } else /* target has OPSZ_4 */ {
+        addr_size = OPSZ_2;
+        reg_target = REG_XCX; /* caller uses movzx so size doesn't have to match */
+    }
+#ifdef X64
+    if (mixed_mode_enabled()) {
+        /* While we don't support arbitrary segments, we do support
+         * mode changes using standard cs selector values (i#823).
+         * We save the selector into xbx.
+         */
+        opnd_t sel = target;
+        opnd_set_disp(&sel, opnd_get_disp(target) + opnd_size_in_bytes(addr_size));
+        opnd_set_size(&sel, OPSZ_2);
+
+        /* all scratch space should be in TLS only */
+        ASSERT(TEST(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
+        PRE(ilist, instr,
+            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
+                              XBX_OFFSET));
+        PRE(ilist, instr,
+            INSTR_CREATE_movzx(dcontext, opnd_create_reg(REG_EBX), sel));
+        if (instr_uses_reg(instr, REG_XBX)) {
+            /* instr can't be both riprel (uses xax slot for mangling) and use
+             * a register, so we spill to the riprel (== xax) slot
+             */
+            PRE(ilist, instr,
+                SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_RIPREL_SPILL_SLOT,
+                                  XAX_OFFSET));
+            POST(ilist, instr,
+                 instr_create_restore_from_tls(dcontext, REG_XBX,
+                                               MANGLE_RIPREL_SPILL_SLOT));
+        }
+    }
+#endif
+    opnd_set_size(target_out, addr_size);
+    return reg_target;
+}
+
 static void
 mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags)
@@ -2198,43 +2278,10 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* change: call /2, Ev -> movl Ev, %xcx */
     target = instr_get_src(instr, 0);
     if (instr_get_opcode(instr) == OP_call_far_ind) {
-        opnd_size_t addr_size;
-        /* N.B.: we do not support other than flat 0-based CS, DS, SS, and ES.
-         * if the app wants to change segments, we won't actually issue
-         * a segment change, and so will only work properly if the new segment
-         * is also 0-based.  To properly issue new segments, we'd need a special
-         * ibl that ends in a far cti, and all prior address manipulations would
-         * need to be relative to the new segment, w/o messing up current segment.
-         * FIXME: can we do better without too much work?
-         * XXX: yes, for wow64: i#823: TODO mangle this like a far indirect jmp
-         */
         SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far indirect call");
         STATS_INC(num_far_ind_calls);
-        /* opnd type is i_Ep, it's not a far base disp b/c segment is at
-         * memory location, not specified as segment prefix on instr.
-         * we assume register operands are marked as invalid instrs long
-         * before this point.
-         */
-        ASSERT(opnd_is_base_disp(target));
-        /* Segment selector is the final 2 bytes.
-         * We ignore it and assume DS base == target cti CS base.
-         */
-        /* if data16 then just 2 bytes for address
-         * if x64 mode and Intel and rex then 8 bytes for address */
-        ASSERT((X64_MODE_DC(dcontext) && opnd_get_size(target) == OPSZ_10 &&
-                proc_get_vendor() != VENDOR_AMD) ||
-               opnd_get_size(target) == OPSZ_6 || opnd_get_size(target) == OPSZ_4);
-        if (opnd_get_size(target) == OPSZ_10) {
-            addr_size = OPSZ_8;
-            reg_target = REG_RCX;
-        } else if (opnd_get_size(target) == OPSZ_6) {
-            addr_size = OPSZ_4;
-            reg_target = REG_ECX;
-        } else /* target has OPSZ_4 */ {
-            addr_size = OPSZ_2;
-            reg_target = REG_XCX; /* we use movzx below so size doesn't have to match */
-        }
-        opnd_set_size(&target, addr_size);
+        reg_target = mangle_far_indirect_helper(dcontext, ilist, instr,
+                                                next_instr, flags, &target);
     }
 #ifdef LINUX
     /* i#107, mangle the memory reference opnd that uses segment register. */
@@ -2579,70 +2626,10 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* change: jmp /4, i_Ev -> movl i_Ev, %xcx */
     target = instr_get_target(instr);
     if (instr_get_opcode(instr) == OP_jmp_far_ind) {
-        opnd_size_t addr_size;
-        /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
-         * If the app wants to change segments in a WOW64 process, we will
-         * do the right thing for standard cs selector values (xref i#49).
-         * For other cs changes or in other modes, we do go through far_ibl
-         * today although we do not enact the cs change (nor bother to pass
-         * the selector in xbx).
-         */
         SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far indirect jump");
         STATS_INC(num_far_ind_jmps);
-        /* opnd type is i_Ep, it's not a far base disp b/c segment is at
-         * memory location, not specified as segment prefix on instr
-         */
-        ASSERT(opnd_is_base_disp(target));
-        /* Segment selector is the final 2 bytes.
-         * For non-mixed-mode, we ignore it.
-         * We assume DS base == target cti CS base.
-         */
-        /* if data16 then just 2 bytes for address
-         * if x64 mode and Intel and rex then 8 bytes for address */
-        ASSERT((X64_MODE_DC(dcontext) && opnd_get_size(target) == OPSZ_10 &&
-                proc_get_vendor() != VENDOR_AMD) ||
-               opnd_get_size(target) == OPSZ_6 || opnd_get_size(target) == OPSZ_4);
-        if (opnd_get_size(target) == OPSZ_10) {
-            addr_size = OPSZ_8;
-            reg_target = REG_RCX;
-        } else if (opnd_get_size(target) == OPSZ_6) {
-            addr_size = OPSZ_4;
-            reg_target = REG_ECX;
-        } else /* target has OPSZ_4 */ {
-            addr_size = OPSZ_2;
-            reg_target = REG_XCX; /* we use movzx below */
-        }
-#ifdef X64
-        if (mixed_mode_enabled()) {
-            /* While we don't support arbitrary segments, we do support
-             * mode changes using standard cs selector values (i#823).
-             * We save the selector into xbx.
-             */
-            opnd_t sel = target;
-            opnd_set_disp(&sel, opnd_get_disp(target) + opnd_size_in_bytes(addr_size));
-            opnd_set_size(&sel, OPSZ_2);
-
-            /* all scratch space should be in TLS only */
-            ASSERT(TEST(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
-            PRE(ilist, instr,
-                SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
-                                  XBX_OFFSET));
-            PRE(ilist, instr,
-                INSTR_CREATE_movzx(dcontext, opnd_create_reg(REG_EBX), sel));
-            if (instr_uses_reg(instr, REG_XBX)) {
-                /* instr can't be both riprel (uses xax slot for mangling) and use
-                 * a register, so we spill to the riprel (== xax) slot
-                 */
-                PRE(ilist, instr,
-                    SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_RIPREL_SPILL_SLOT,
-                                      XAX_OFFSET));
-                POST(ilist, instr,
-                     instr_create_restore_from_tls(dcontext, REG_XBX,
-                                                   MANGLE_RIPREL_SPILL_SLOT));
-            }
-        }
-#endif
-        opnd_set_size(&target, addr_size);
+        reg_target = mangle_far_indirect_helper(dcontext, ilist, instr,
+                                                next_instr, flags, &target);
     }
 #ifdef LINUX
     /* i#107, mangle the memory reference opnd that uses segment register. */

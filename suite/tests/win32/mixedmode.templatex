@@ -1,4 +1,5 @@
 creating subprocess ".*/win32.mixedmode.exe arg"
 r8 was 0x1234567812345678
 test_iret\(\) returned 0
+test_far_calls\(\) returned 0
 parent done
