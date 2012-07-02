@@ -2832,7 +2832,8 @@ instr_length(dcontext_t *dcontext, instr_t *instr)
     case OP_loop:
     case OP_loope:
     case OP_loopne: 
-        if (opnd_get_reg(instr_get_src(instr, 1)) != REG_XCX)
+        if (opnd_get_reg(instr_get_src(instr, 1)) != REG_XCX
+            IF_X64(&& !instr_get_x86_mode(instr)))
             return 3; /* need addr prefix */
         else
             return 2;
