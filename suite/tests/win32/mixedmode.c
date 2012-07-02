@@ -39,6 +39,7 @@
 
 /* asm routines */
 void test_top_bits(void);
+int test_iret(void);
 
 char global_data[8];
 
@@ -46,6 +47,8 @@ int main(int argc, char *argv[])
 {
     test_top_bits();
     print("r8 was 0x%I64x\n", *(__int64*)global_data);
+
+    print("test_iret() returned %d\n", test_iret());
     return 0;
 }
 
@@ -64,6 +67,7 @@ START_FILE
 
 # define CS32_SELECTOR HEX(23)
 # define CS64_SELECTOR HEX(33)
+# define SS_SELECTOR   HEX(2b)
 
 DECL_EXTERN(global_data)
 
@@ -109,6 +113,57 @@ GLOBAL_LABEL(FUNCNAME:)
           mov      dword ptr [ecx], eax
         SWITCH_64_TO_32(back_to_normal)
         ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+# define FUNCNAME test_iret
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        pushfd
+        push     CS64_SELECTOR
+        push     offset iret_32_to_64
+        iretd
+    iret_32_to_64:
+        /* back to 32-bit via 64-bit iret */
+        mov      edx, esp
+        push     SS_SELECTOR
+        push     edx
+        pushfd   /* really pushfq */
+        push     CS32_SELECTOR
+        push     offset iret_64_to_32
+        RAW(48)
+          iretd  /* iretq */
+    iret_64_to_32:
+        /* ensure we're 32-bit */
+        daa
+
+        pushfd
+        push     CS64_SELECTOR
+        push     offset iret_32_to_64_B
+        iretd
+    iret_32_to_64_B:
+        /* ensure we're 64-bit by returning ecx */
+        mov ecx, 0
+        /* 64-bit "add r8,1" vs 32-bit "dec ecx; add eax,1" */
+        RAW(49)
+          add    eax, 1
+        mov      eax, ecx
+        /* back to 32-bit via 32-bit iret => need 4-byte stack operands */
+        /* XXX: despite the Intel manual pseudocode, 32-bit iret pops ss:rsp */
+        pushfd   /* really pushfq */
+        pop      ecx
+        mov      edx, esp
+        lea      esp, [esp - 20]
+        mov      dword ptr [esp + 16], SS_SELECTOR
+        mov      dword ptr [esp + 12], edx
+        mov      dword ptr [esp + 8], ecx
+        mov      dword ptr [esp + 4], CS32_SELECTOR
+        mov      dword ptr [esp], offset iret_64_to_32_B
+        iretd
+    iret_64_to_32_B:
+        nop
+
+        ret                      /* return value already in eax */
         END_FUNC(FUNCNAME)
 # undef FUNCNAME
 

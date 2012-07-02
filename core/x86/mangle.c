@@ -2476,8 +2476,10 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_get_translation(instr));
         STATS_INC(num_irets);
 
-        /* In 32-bit mode and 64-bit mode with 32-bit operand size this is a
-         * pop->EIP pop->CS pop->eflags.  64-bit mode with 64-bit operand size extends
+        /* In 32-bit mode this is a pop->EIP pop->CS pop->eflags.
+         * 64-bit mode (with either 32-bit or 64-bit operand size,
+         * despite the (wrong) Intel manual pseudocode: see i#833 and
+         * the win32.mixedmode test) extends
          * the above and additionally adds pop->RSP pop->ss.  N.B.: like OP_far_ret we
          * ignore the CS (except mixed-mode WOW64) and SS segment changes
          * (see the comments there).
@@ -2486,7 +2488,8 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef X64
         mangle_far_return_save_selector(dcontext, ilist, instr, flags);
 #endif
-        /* Return address is already popped, next up is CS segment which we ignore so
+        /* Return address is already popped, next up is CS segment which we ignore
+         * (unless in mixed-mode, handled above) so
          * adjust stack pointer. Note we can use an add here since the eflags will
          * be written below. */
         PRE(ilist, instr,
@@ -2506,7 +2509,6 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              * If AMD/INTEL ever start using the top half of the rflags register then
              * we could have problems here. We could also break stack transparency and
              * do a mov, push, popf to zero extend the value. */
-            ASSERT_NOT_TESTED();
             PRE(ilist, instr, popf);
             /* flags are already set, must use lea to fix stack */
             PRE(ilist, instr,
@@ -2523,13 +2525,24 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             PRE(ilist, instr, popf);
         }
 
-        /* If the operand size is 64-bits iret additionally does pop->RSP and pop->ss. */
-        if (retsz == OPSZ_8) {
-            PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_RSP)));
+#ifdef X64
+        /* In x64 mode, iret additionally does pop->RSP and pop->ss. */
+        if (X64_MODE_DC(dcontext)) {
+            if (retsz == OPSZ_8)
+                PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_RSP)));
+            else if (retsz == OPSZ_4) {
+                PRE(ilist, instr, INSTR_CREATE_mov_ld
+                    (dcontext, opnd_create_reg(REG_ESP), OPND_CREATE_MEM32(REG_RSP, 0)));
+            } else {
+                ASSERT_NOT_TESTED();
+                PRE(ilist, instr, INSTR_CREATE_movzx
+                    (dcontext, opnd_create_reg(REG_ESP), OPND_CREATE_MEM16(REG_RSP, 0)));
+            }
             /* We're ignoring the set of SS and since we just set RSP we don't need
              * to do anything to adjust the stack for the pop (since the pop would have
              * occurred with the old RSP). */
         }
+#endif
     }
 
     /* remove the ret */
