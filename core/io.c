@@ -367,6 +367,12 @@ our_sscanf(const char *str, const char *fmt, ...)
 #ifdef IO_UNIT_TEST
 # ifdef LINUX
 #  include <errno.h>
+#  include <dlfcn.h>  /* for dlsym for libc routines */
+
+/* From dlfcn.h, but we'd have to define _GNU_SOURCE 1 before globals.h. */
+#  define RTLD_NEXT     ((void *) -1l)
+
+typedef void (*memcpy_t)(void *dst, const void *src, size_t n);
 
 /* Copied from core/linux/os.c and modified so that they work when run
  * cross-arch.  We need %ll to parse 64-bit ints on 32-bit and drop the %l to
@@ -492,6 +498,129 @@ test_sscanf_all_specs(void)
      * integers that overflow their requested integer sizes.
      */
 }
+
+static void
+test_memcpy_offset_size(size_t src_offset, size_t dst_offset, size_t size)
+{
+    /* These can be aligned to whatever, we'll try a few different offsets. */
+    byte src[1024];
+    byte dst[1024];
+    int i;
+    for (i = 0; i < sizeof(src); i++) {
+        src[i] = 0xcc;
+        dst[i] = 0;
+    }
+    EXPECT(src_offset + size <= sizeof(src), 1);
+    EXPECT(dst_offset + size <= sizeof(dst), 1);
+    memcpy(dst + dst_offset, src + src_offset, size);
+    EXPECT(memcmp(dst + dst_offset, src + src_offset, size), 0);
+    /* Check the bytes just out of bounds, which should still be zero. */
+    if (dst_offset > 0)
+        EXPECT(dst[dst_offset-1], 0);
+    if (dst_offset+size < sizeof(dst))
+        EXPECT(dst[dst_offset+size], 0);
+}
+
+static void
+test_our_memcpy(void)
+{
+    int i, j;
+    void *ret;
+    /* Basic, copy the whole buffer. */
+    test_memcpy_offset_size(0, 0, 1024);
+    /* Test misalignment less than copy size. */
+    test_memcpy_offset_size(1, 1, 2);
+    test_memcpy_offset_size(2, 2, 2);
+    test_memcpy_offset_size(1, 1, 3);
+    test_memcpy_offset_size(2, 2, 3);
+    /* Test a variety of offsets. */
+    for (i = 0; i < 16; i++) {
+        for (j = 0; j < 16; j++) {
+            test_memcpy_offset_size(i, j, 512);
+        }
+    }
+    /* Check that memcpy returns dst. */
+    ret = memcpy(&i, &j, sizeof(i));
+    EXPECT(ret == &i, 1);
+}
+
+static void
+test_memset_offset_size(int val, int start_offs, int end_offs)
+{
+    byte buf[512];
+    int i;
+    int end = sizeof(buf) - start_offs - end_offs;
+    /* Zero without memset. */
+    for (i = 0; i < sizeof(buf); i++)
+        buf[i] = 0;
+    memset(buf + start_offs, val, end);
+    EXPECT(is_region_memset_to_char(buf + start_offs, end, val), 1);
+    if (start_offs > 0)
+        EXPECT(buf[start_offs-1], 0);
+    if (end_offs > 0)
+        EXPECT(buf[sizeof(buf)-end_offs], 0);
+}
+
+static void
+test_our_memset(void)
+{
+    int val;
+    int i, j;
+    void *ret;
+    /* Test a variety of values. */
+    for (val = 0; val < 0xff; val++) {
+        for (i = 0; i < 16; i++) {
+            for (j = 0; j < 16; j++) {
+                test_memset_offset_size(val, i, j);
+            }
+        }
+    }
+    /* Check that memset returns dst. */
+    ret = memset(&i, -1, sizeof(i));
+    EXPECT(ret == &i, 1);
+}
+
+static void
+our_memcpy_vs_libc(void)
+{
+    /* Compare our memcpy with libc memcpy.
+     * XXX: Should compare on more sizes, especially small ones.
+     */
+    size_t alloc_size = 20 * 1024;
+    int loop_count = 100 * 1000;
+    void *src = global_heap_alloc(alloc_size HEAPACCT(ACCT_OTHER));
+    void *dst = global_heap_alloc(alloc_size HEAPACCT(ACCT_OTHER));
+    int i;
+    memcpy_t glibc_memcpy = (memcpy_t) dlsym(RTLD_NEXT, "memcpy");
+    uint64 our_memcpy_start, our_memcpy_end, our_memcpy_time;
+    uint64 libc_memcpy_start, libc_memcpy_end, libc_memcpy_time;
+    memset(src, -1, alloc_size);
+    memset(dst, 0, alloc_size);
+
+    our_memcpy_start = query_time_millis();
+    for (i = 0; i < loop_count; i++) {
+        memcpy(src, dst, alloc_size);
+    }
+    our_memcpy_end = query_time_millis();
+
+    libc_memcpy_start = query_time_millis();
+    for (i = 0; i < loop_count; i++) {
+        glibc_memcpy(src, dst, alloc_size);
+    }
+    libc_memcpy_end = query_time_millis();
+
+    global_heap_free(src, alloc_size HEAPACCT(ACCT_OTHER));
+    global_heap_free(dst, alloc_size HEAPACCT(ACCT_OTHER));
+    our_memcpy_time = our_memcpy_end - our_memcpy_start;
+    libc_memcpy_time = libc_memcpy_end - libc_memcpy_start;
+    print_file(STDERR, "our_memcpy_time: "UINT64_FORMAT_STRING"\n",
+               our_memcpy_time);
+    print_file(STDERR, "libc_memcpy_time: "UINT64_FORMAT_STRING"\n",
+               libc_memcpy_time);
+    /* We could assert that we're not too much slower, but that's a recipe for
+     * flaky failures when the suite is run on shared VMs or in parallel.
+     */
+}
 # endif /* LINUX */
 
 int
@@ -551,6 +680,13 @@ main(void)
     test_sscanf_maps_x86();
     test_sscanf_maps_x64();
     test_sscanf_all_specs();
+
+    /* memcpy tests */
+    test_our_memcpy();
+    our_memcpy_vs_libc();
+
+    /* memset tests */
+    test_our_memset();
 #endif /* LINUX */
 
     /* XXX: add more tests */

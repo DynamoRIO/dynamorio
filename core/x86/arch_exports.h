@@ -1877,6 +1877,10 @@ void safe_read_asm_pre(void);
 void safe_read_asm_mid(void);
 void safe_read_asm_post(void);
 void safe_read_asm_recover(void);
+
+/* i#46: Private string routines for libc isolation. */
+void *memcpy(void *dst, const void *src, size_t n);
+void *memset(void *dst, int val, size_t n);
 #endif /* LINUX */
 
 #define DR_SETJMP(buf) (dr_setjmp(buf))
