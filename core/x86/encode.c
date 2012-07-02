@@ -1441,16 +1441,25 @@ encode_immed(decode_info_t * di, byte *pc)
         break;
 #endif
     case OPSZ_6:
-        CLIENT_ASSERT(di->size_immed2 == size ||
-                      /* far instr has immed2 as abs pc and no 2nd size */
-                      di->size_immed2 == OPSZ_NA,
+        CLIENT_ASSERT(di->size_immed2 == size,
                       "encode error: immediate has invalid size OPSZ_6");
         di->size_immed2 = OPSZ_NA;
-        *((short *)pc) = (short) (di->immed);
-        pc += 2;
         *((int *)pc) = (int) di->immed2;
         pc += 4;
+        *((short *)pc) = (short) (di->immed);
+        pc += 2;
         break;
+#ifdef X64
+    case OPSZ_10:
+        CLIENT_ASSERT(di->size_immed2 == size,
+                      "encode error: immediate has invalid size OPSZ_10");
+        di->size_immed2 = OPSZ_NA;
+        *((ptr_int_t *)pc) = di->immed2;
+        pc += 8;
+        *((short *)pc) = (short) (di->immed);
+        pc += 2;
+        break;
+#endif
     default:
         LOG(THREAD_GET, LOG_EMIT, 1, "ERROR: encode_immed: unhandled size: %d\n", size);
         CLIENT_ASSERT(false, "encode error: immediate has unknown size");
@@ -1834,10 +1843,9 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
         }
     case TYPE_A: 
         {
-            ptr_int_t offs;
+            ptr_uint_t target;
 
 #ifdef IA32_ON_IA64
-            ptr_uint_t target;
             if (opsize == OPSZ_4_short2) {
                 if (opnd_is_near_instr(opnd)) {
                     /* assume the note fields have been set with relative offsets
@@ -1862,36 +1870,48 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
                           opsize == OPSZ_4 ||
                           (opsize == OPSZ_10 && proc_get_vendor() != VENDOR_AMD),
                           "encode error: A operand size mismatch");
+            CLIENT_ASSERT(di->size_immed == OPSZ_NA &&
+                          di->size_immed2 == OPSZ_NA,
+                          "encode error: A operand size mismatch");
             if (opnd_is_far_instr(opnd)) {
-                /* assume the note fields have been set with relative offsets
-                 * from some start pc, and that our caller put our note in
-                 * di->immed
-                 */
+                /* caller set di.immed w/ the pc where we'll be encoding this */
+                ptr_int_t source = (ptr_uint_t) di->immed;
                 instr_t *target_instr = opnd_get_instr(opnd);
-                ptr_uint_t target = (ptr_uint_t) target_instr->note;
-                /* target is absolute address of instr ready to go */
-                set_immed(di, target, opsize);
+                ptr_int_t dest = (ptr_uint_t) target_instr->note;
+                ptr_uint_t encode_pc = (ptr_uint_t) di->immed2;
+                /* A label shouldn't be very far away and thus we should not overflow
+                 * (unless client asked to encode at very high address or sthg,
+                 * which we won't support).
+                 */
+                CLIENT_ASSERT((dest >= source &&
+                               encode_pc + (dest - source) >= encode_pc) ||
+                              (dest < source &&
+                               encode_pc + (dest - source) < encode_pc),
+                              "label is too far from targeter wrt encode pc");
+                target = encode_pc + (dest - source);
+                CLIENT_ASSERT(opsize == OPSZ_6_irex10_short4,
+                              "far instr size set to unsupported value");
             } else {
                 CLIENT_ASSERT(opnd_is_far_pc(opnd),
                               "encode error: A operand must be far pc or far instr");
-                /* FIXME PR 225937: allow client to specify whether data16 or not
-                 * instead of auto-adding the prefix if offset is small
-                 */
-                offs = (ptr_int_t) opnd_get_pc(opnd);
-                if (offs >= INT16_MIN && offs <= INT16_MAX) {
-                    int val;
-                    di->prefixes |= PREFIX_DATA;
-                    val = (opnd_get_segment_selector(opnd)<<16) | ((short) offs);
-                    set_immed(di, val, OPSZ_4);
-                } else {
-                    CLIENT_ASSERT(di->size_immed == OPSZ_NA &&
-                                  di->size_immed2 == OPSZ_NA,
-                                  "encode error: A operand size mismatch");
-                    di->immed = opnd_get_segment_selector(opnd);
-                    di->immed2 = offs;
-                    di->size_immed = OPSZ_6;
-                    di->size_immed2 = OPSZ_6;
-                }
+                target = (ptr_uint_t) opnd_get_pc(opnd);
+            }
+            /* XXX PR 225937: allow client to specify whether data16 or not
+             * instead of auto-adding the prefix if offset is small
+             */
+            if (target <= USHRT_MAX) {
+                int val = (opnd_get_segment_selector(opnd)<<16) | ((short) target);
+                di->prefixes |= PREFIX_DATA;
+                set_immed(di, val, OPSZ_4);
+            } else if (target > UINT_MAX) {
+                CLIENT_ASSERT(proc_get_vendor() == VENDOR_INTEL,
+                              "cannot use 8-byte far pc on AMD processor");
+                di->prefixes |= PREFIX_REX_W;
+                set_immed(di, opnd_get_segment_selector(opnd), OPSZ_10);
+                set_immed(di, target, OPSZ_10);
+            } else {
+                set_immed(di, opnd_get_segment_selector(opnd), OPSZ_6);
+                set_immed(di, target, OPSZ_6);
             }
             return;
         }
@@ -2323,6 +2343,8 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
              * need to pass this instr's note in
              */
             di.immed = (ptr_int_t) instr->note;
+            if (opnd_is_far_instr(instr_get_src(instr, 0)))
+                di.immed2 = (ptr_int_t) cache_pc;
         }
         encode_operand(&di, info->src1_type, info->src1_size, instr_get_src(instr, 0));
     }
