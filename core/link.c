@@ -818,16 +818,16 @@ get_ibl_sourceless_linkstub(uint link_flags, uint frag_flags)
     if (TEST(FRAG_IS_TRACE, frag_flags)) {
         if (TEST(LINK_RETURN, link_flags))
             return &linkstub_ibl_trace_ret;
-        if (TEST(LINK_JMP, link_flags))
+        if (EXIT_IS_JMP(link_flags))
             return &linkstub_ibl_trace_jmp;
-        if (TEST(LINK_CALL, link_flags))
+        if (EXIT_IS_CALL(link_flags))
             return &linkstub_ibl_trace_call;
     } else {
         if (TEST(LINK_RETURN, link_flags))
             return &linkstub_ibl_bb_ret;
-        if (TEST(LINK_JMP, link_flags))
+        if (EXIT_IS_JMP(link_flags))
             return &linkstub_ibl_bb_jmp;
-        if (TEST(LINK_CALL, link_flags))
+        if (EXIT_IS_CALL(link_flags))
             return &linkstub_ibl_bb_call;
     }
     ASSERT_NOT_REACHED();

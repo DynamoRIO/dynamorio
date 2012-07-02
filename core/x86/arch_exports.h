@@ -1781,9 +1781,9 @@ extract_branchtype(ushort linkstub_flags)
 {
     if (TEST(LINK_RETURN, linkstub_flags))
         return IBL_RETURN;
-    if (TEST(LINK_CALL, linkstub_flags))
+    if (EXIT_IS_CALL(linkstub_flags))
         return IBL_INDCALL;
-    if (TEST(LINK_JMP, linkstub_flags))
+    if (TEST(LINK_JMP, linkstub_flags)) /* plain JMP or IND_JMP_PLT */
         return IBL_INDJMP;
     ASSERT_NOT_REACHED();
     return IBL_GENERIC;

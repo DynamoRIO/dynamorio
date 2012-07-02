@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -73,12 +74,12 @@ enum {
      * and use absence of CALL & JMP to indicate it.
      */
     LINK_RETURN          = 0x0004,
+    /* JMP|CALL indicates JMP_PLT, so use EXIT_IS_{JMP,CALL} rather than these raw bits */
     LINK_CALL            = 0x0008,
     LINK_JMP             = 0x0010,
-    /* if need another flag, could use JMP|CALL to indicate JMP_PLT,
-     * and make sure all testers for CALL also test for !JMP
-     */
-    LINK_IND_JMP_PLT     = 0x0020,
+
+    /* Indicates a far cti which uses a separate ibl entry */
+    LINK_FAR             = 0x0020,
 
     LINK_SELFMOD_EXIT    = 0x0040,
 #ifdef UNSUPPORTED_API
@@ -303,6 +304,11 @@ typedef struct _coarse_incoming_t {
 #define LINKSTUB_CBR_FALLTHROUGH(flags) \
     (TEST(LINK_DIRECT, (flags)) && TEST(LINK_INDIRECT, (flags)))
 
+/* used with both LINK_* and INSTR_*_EXIT flags */
+#define EXIT_IS_CALL(flags) (TEST(LINK_CALL, flags) && !TEST(LINK_JMP, flags))
+#define EXIT_IS_JMP(flags) (TEST(LINK_JMP, flags) && !TEST(LINK_CALL, flags))
+#define EXIT_IS_IND_JMP_PLT(flags) (TESTALL(LINK_JMP | LINK_CALL, flags))
+
 #define LINKSTUB_FINAL(l)  (TEST(LINK_END_OF_LIST, (l)->flags))
 
 /* We assume this combination of flags is unique for coarse proxies. */
@@ -367,7 +373,7 @@ typedef struct _coarse_incoming_t {
 #ifdef WINDOWS
 # define EXIT_TARGETS_SHARED_SYSCALL(flags) \
     (DYNAMO_OPTION(shared_syscalls) &&     \
-     !TESTANY(LINK_RETURN|LINK_CALL|LINK_JMP|LINK_IND_JMP_PLT, (flags)))
+     !TESTANY(LINK_RETURN|LINK_CALL|LINK_JMP, (flags)))
 #else
 # define EXIT_TARGETS_SHARED_SYSCALL(flags) (false)
 #endif

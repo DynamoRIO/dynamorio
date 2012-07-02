@@ -887,9 +887,9 @@ dispatch_exit_fcache(dcontext_t *dcontext)
          */
         if (TESTANY(OPTION_REPORT|OPTION_BLOCK, DYNAMO_OPTION(rct_ind_call)) ||
             TESTANY(OPTION_REPORT|OPTION_BLOCK, DYNAMO_OPTION(rct_ind_jump))) {
-            if ((TEST(LINK_CALL, dcontext->last_exit->flags)
+            if ((EXIT_IS_CALL(dcontext->last_exit->flags)
                  && TESTANY(OPTION_REPORT|OPTION_BLOCK, DYNAMO_OPTION(rct_ind_call))) || 
-                (TEST(LINK_JMP, dcontext->last_exit->flags) 
+                (EXIT_IS_JMP(dcontext->last_exit->flags) 
                  && TESTANY(OPTION_REPORT|OPTION_BLOCK, DYNAMO_OPTION(rct_ind_jump)))
                 ) {
                 /* case 4995: current shared syscalls implementation
@@ -899,7 +899,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                 if (LINKSTUB_FAKE(dcontext->last_exit) /* quick check */ &&
                     IS_SHARED_SYSCALLS_LINKSTUB(dcontext->last_exit)) {
                     ASSERT(IF_WINDOWS_ELSE(DYNAMO_OPTION(shared_syscalls), false));
-                    ASSERT(TEST(LINK_JMP, dcontext->last_exit->flags)); 
+                    ASSERT(EXIT_IS_JMP(dcontext->last_exit->flags)); 
                 } else {
                     /* rct_ind_branch_check will raise a security violation on failure */
                     rct_ind_branch_check(dcontext, dcontext->next_tag, src_tag);
@@ -1230,13 +1230,13 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
                 dcontext->coarse_exit.src_tag,
                 TEST(FRAG_IS_TRACE, last_f->flags) ? "trace" : "bb",
                 TEST(LINK_RETURN, dcontext->last_exit->flags) ? "ret" :
-                TEST(LINK_CALL, dcontext->last_exit->flags) ? "call*" : "jmp*");
+                EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*" : "jmp*");
         } else {
             ASSERT(!DYNAMO_OPTION(indirect_stubs));
             LOG(THREAD, LOG_DISPATCH, 2, "Exit from sourceless ibl: %s %s",
                 TEST(FRAG_IS_TRACE, last_f->flags) ? "trace" : "bb",
                 TEST(LINK_RETURN, dcontext->last_exit->flags) ? "ret" :
-                TEST(LINK_CALL, dcontext->last_exit->flags) ? "call*" : "jmp*");
+                EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*" : "jmp*");
         }
     } else if (dcontext->last_exit == get_coarse_exit_linkstub()) {
         DOLOG(2, LOG_DISPATCH, {
@@ -1379,13 +1379,13 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         }
         else if (TESTANY(LINK_CALL|LINK_JMP, dcontext->last_exit->flags)) {
             LOG(THREAD, LOG_DISPATCH, 2, " (ind %s from "PFX" non-trace tgt "PFX")",
-                TEST(LINK_CALL, dcontext->last_exit->flags) ? "call" : "jmp",
+                EXIT_IS_CALL(dcontext->last_exit->flags) ? "call" : "jmp",
                 EXIT_CTI_PC(dcontext->last_fragment, dcontext->last_exit),
                 dcontext->next_tag);
             DOSTATS({
-                if (TEST(LINK_CALL, dcontext->last_exit->flags)) {
+                if (EXIT_IS_CALL(dcontext->last_exit->flags)) {
                     STATS_INC(num_exits_ind_call);
-                } else if (TEST(LINK_JMP, dcontext->last_exit->flags)) {
+                } else if (EXIT_IS_JMP(dcontext->last_exit->flags)) {
                     STATS_INC(num_exits_ind_jmp);
                 } else
                     ASSERT_NOT_REACHED();

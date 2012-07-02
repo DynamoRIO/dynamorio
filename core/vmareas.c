@@ -4792,7 +4792,7 @@ check_origins_bb_pattern(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t
              * cases where source is unknown are fairly pathological
              * (another thread flushing and deleting the fragment, etc.)
              */
-            ok = TEST(LINK_CALL, dcontext->last_exit->flags);
+            ok = EXIT_IS_CALL(dcontext->last_exit->flags);
         }
         if (ok) {
             LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2,

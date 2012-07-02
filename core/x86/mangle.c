@@ -4565,7 +4565,7 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                          * in that case 'next' is a direct jmp
                          * fall through, so has no exit flags
                          */
-                        ASSERT(TEST(INSTR_CALL_EXIT, instr_exit_branch_type(next)) || 
+                        ASSERT(EXIT_IS_CALL(instr_exit_branch_type(next)) || 
                                (DYNAMO_OPTION(IAT_convert) && 
                                 TEST(INSTR_IND_CALL_DIRECT, instr->flags)));
 

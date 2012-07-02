@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1247,9 +1248,9 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         /* static count last_exit statistics case 4817 */
         if (LINKSTUB_INDIRECT(dcontext->last_exit->flags)) {
             STATS_INC(num_traces_end_at_ibl);
-            if (TEST(LINK_CALL, dcontext->last_exit->flags)) {
+            if (EXIT_IS_CALL(dcontext->last_exit->flags)) {
                 STATS_INC(num_traces_end_at_ibl_ind_call);
-            } else if (TEST(LINK_JMP, dcontext->last_exit->flags)) {
+            } else if (EXIT_IS_JMP(dcontext->last_exit->flags)) {
                 /* shared system call (case 4995) */
                 if (IS_SHARED_SYSCALLS_LINKSTUB(dcontext->last_exit))
                     STATS_INC(num_traces_end_at_ibl_syscall);

@@ -1539,10 +1539,13 @@ enum {
     INSTR_DIRECT_EXIT           = LINK_DIRECT,
     INSTR_INDIRECT_EXIT         = LINK_INDIRECT,
     INSTR_RETURN_EXIT           = LINK_RETURN,
+    /* JMP|CALL marks an indirect jmp preceded by a call (== a PLT-style ind call)
+     * so use EXIT_IS_{JMP,CALL} rather than these raw bits
+     */
     INSTR_CALL_EXIT             = LINK_CALL,
     INSTR_JMP_EXIT              = LINK_JMP,
-    /* marks an indirect jmp preceded by a call (== a PLT-style ind call) */
-    INSTR_IND_JMP_PLT_EXIT      = LINK_IND_JMP_PLT,
+    INSTR_IND_JMP_PLT_EXIT      = (INSTR_JMP_EXIT | INSTR_CALL_EXIT),
+    INSTR_FAR_EXIT              = LINK_FAR,
     INSTR_BRANCH_SELFMOD_EXIT   = LINK_SELFMOD_EXIT,
 #ifdef UNSUPPORTED_API
     INSTR_BRANCH_TARGETS_PREFIX = LINK_TARGET_PREFIX,
@@ -1563,7 +1566,8 @@ enum {
     /* meta-flag */
     EXIT_CTI_TYPES              = (INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT |
                                    INSTR_RETURN_EXIT | INSTR_CALL_EXIT |     
-                                   INSTR_JMP_EXIT | INSTR_IND_JMP_PLT_EXIT |
+                                   INSTR_JMP_EXIT |
+                                   INSTR_FAR_EXIT |
                                    INSTR_BRANCH_SELFMOD_EXIT |
 #ifdef UNSUPPORTED_API
                                    INSTR_BRANCH_TARGETS_PREFIX |

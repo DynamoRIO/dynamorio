@@ -2087,7 +2087,7 @@ bb_process_IAT_convertible_indjmp(dcontext_t *dcontext, build_bb_t *bb,
     if (!is_targeting_convertible_IAT(dcontext, bb->instr, 
                                       &iat_reference)) {
         DOSTATS({
-            if (TEST(INSTR_IND_JMP_PLT_EXIT, bb->exit_type)) {
+            if (EXIT_IS_IND_JMP_PLT(bb->exit_type)) {
                 /* see how often we mark as likely a PLT a JMP which in
                  * fact is not going through IAT 
                  */
@@ -2112,7 +2112,7 @@ bb_process_IAT_convertible_indjmp(dcontext_t *dcontext, build_bb_t *bb,
 
     STATS_INC(num_indirect_jumps_IAT);
     DOSTATS({
-        if (!TEST(INSTR_IND_JMP_PLT_EXIT, bb->exit_type)) {
+        if (!EXIT_IS_IND_JMP_PLT(bb->exit_type)) {
             /* count any other known uses for an indirect jump to go
              * through the IAT other than PLT uses, although a block
              * reaching max_elide_call would prevent the above
@@ -2488,15 +2488,16 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                  * special flags set above, even if the client doesn't change
                  * the exit target.  We undo such flags after this ilist walk
                  * to support client removal of syscalls/ints.
-                 * INSTR_IND_JMP_PLT_EXIT is used for indcall2direct, which
+                 * EXIT_IS_IND_JMP_PLT() is used for indcall2direct, which
                  * is off by default for CI; it's also used for native_exec,
                  * but we're not sure if we want to support that with CI.
-                 * xref case 10846
+                 * xref case 10846 and i#198
                  */
                 CLIENT_ASSERT(!TEST(~(LINK_DIRECT | LINK_INDIRECT | LINK_CALL |
                                       LINK_RETURN | LINK_JMP | LINK_NI_SYSCALL_ALL
                                       IF_WINDOWS(| LINK_CALLBACK_RETURN)),
-                                    bb->exit_type),
+                                    bb->exit_type) &&
+                              !EXIT_IS_IND_JMP_PLT(bb->exit_type),
                               "client unsupported block exit type internal error");
 
                 found_exit_cti = true;
@@ -3114,7 +3115,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                      * the PLT to a direct transition (and possibly elided).
                      * Xref case 7867 for why leaving this flag in the eliding
                      * case can cause later failures. */
-                    bb->exit_type &= ~INSTR_IND_JMP_PLT_EXIT;
+                    bb->exit_type &= ~INSTR_CALL_EXIT; /* leave just JMP */
                     normal_indirect_processing = false;
                 } else          /* FIXME: this can always be set */
                     ibl_branch_type = IBL_INDJMP;
@@ -3976,7 +3977,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start
     if (DYNAMO_OPTION(native_exec) &&
         !vmvector_empty(native_exec_areas)) {
         /* do we KNOW that we came from an indirect call? */
-        if (TESTANY(LINK_CALL|LINK_IND_JMP_PLT, dcontext->last_exit->flags) &&
+        if (TEST(LINK_CALL/*includes IND_JMP_PLT*/, dcontext->last_exit->flags) &&
             /* only check direct calls if native_exec_dircalls is on */
             (DYNAMO_OPTION(native_exec_dircalls) ||
              LINKSTUB_INDIRECT(dcontext->last_exit->flags))) {
@@ -3985,7 +3986,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start
             if (vmvector_overlap(native_exec_areas, start, start+1)) {
                 native_exec_bb = true;
                 DOSTATS({
-                    if (TEST(LINK_CALL, dcontext->last_exit->flags)) {
+                    if (EXIT_IS_CALL(dcontext->last_exit->flags)) {
                         if (LINKSTUB_INDIRECT(dcontext->last_exit->flags))
                             STATS_INC(num_native_module_entrances_indcall);
                         else
@@ -4000,7 +4001,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start
         else if (DYNAMO_OPTION(native_exec_guess_calls) &&
                  (/* FIXME: require jmp* be in separate module? */
                   (LINKSTUB_INDIRECT(dcontext->last_exit->flags) &&
-                   TEST(LINK_JMP, dcontext->last_exit->flags)) ||
+                   EXIT_IS_JMP(dcontext->last_exit->flags)) ||
                   LINKSTUB_FAKE(dcontext->last_exit))) {
             /* if unknown last exit, or last exit was jmp*, examine TOS and guess
              * whether it's a retaddr

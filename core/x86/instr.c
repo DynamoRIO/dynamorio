@@ -3758,15 +3758,15 @@ uint
 instr_branch_type(instr_t *cti_instr)
 {
     switch (instr_get_opcode(cti_instr)) {
-    case OP_call: case OP_call_far:
+    case OP_call:
         return LINK_DIRECT|LINK_CALL;     /* unconditional */
-    case OP_jmp_short: case OP_jmp: case OP_jmp_far:
+    case OP_jmp_short: case OP_jmp:
         return LINK_DIRECT|LINK_JMP;     /* unconditional */
-    case OP_ret: case OP_ret_far: case OP_iret:
+    case OP_ret:
         return LINK_INDIRECT|LINK_RETURN;
-    case OP_jmp_ind: case OP_jmp_far_ind: 
+    case OP_jmp_ind:
         return LINK_INDIRECT|LINK_JMP;
-    case OP_call_ind: case OP_call_far_ind:
+    case OP_call_ind:
         return LINK_INDIRECT|LINK_CALL;
     case OP_jb_short: case OP_jnb_short: case OP_jbe_short: case OP_jnbe_short:
     case OP_jl_short: case OP_jnl_short: case OP_jle_short: case OP_jnle_short:
@@ -3780,6 +3780,16 @@ instr_branch_type(instr_t *cti_instr)
     case OP_jo: case OP_jno: case OP_jp: case OP_jnp:
     case OP_js: case OP_jns: case OP_jz: case OP_jnz:
         return LINK_DIRECT|LINK_JMP;     /* conditional */
+    case OP_jmp_far:
+        return LINK_DIRECT|LINK_JMP|LINK_FAR;
+    case OP_jmp_far_ind:
+        return LINK_INDIRECT|LINK_JMP|LINK_FAR;
+    case OP_call_far:
+        return LINK_DIRECT|LINK_CALL|LINK_FAR;
+    case OP_call_far_ind:
+        return LINK_INDIRECT|LINK_CALL|LINK_FAR;
+    case OP_ret_far: case OP_iret:
+        return LINK_INDIRECT|LINK_RETURN|LINK_FAR;
     default:
         LOG(THREAD_GET, LOG_ALL, 0, "branch_type: unknown opcode: %d\n",
             instr_get_opcode(cti_instr));

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -260,14 +261,14 @@ is_address_after_call(dcontext_t *dcontext, app_pc target)
 int
 rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
 {
-    bool is_ind_call = TEST(LINK_CALL, dcontext->last_exit->flags);
+    bool is_ind_call = EXIT_IS_CALL(dcontext->last_exit->flags);
     security_violation_t indirect_branch_violation = is_ind_call ? 
         INDIRECT_CALL_RCT_VIOLATION : INDIRECT_JUMP_RCT_VIOLATION;
     int res = 0;
     bool cache = true;
     DEBUG_DECLARE(const char *ibranch_type = 
                   is_ind_call ? "call" : "jmp";)
-    ASSERT(is_ind_call || TEST(LINK_JMP, dcontext->last_exit->flags));
+    ASSERT(is_ind_call || EXIT_IS_JMP(dcontext->last_exit->flags));
 
     ASSERT((is_ind_call && TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call))) ||
            (!is_ind_call && TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))));
@@ -488,7 +489,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                 STATS_INC(rct_ind_jmp_violations);
         });
         SYSLOG_INTERNAL_WARNING_ONCE("indirect %s targeting unknown "PFX, 
-                                     TEST(LINK_CALL, dcontext->last_exit->flags)
+                                     EXIT_IS_CALL(dcontext->last_exit->flags)
                                      ? "call" : "jmp", target_addr);
         /* does not return when OPTION_BLOCK is enforced */
         if (security_violation(dcontext, target_addr, indirect_branch_violation, 

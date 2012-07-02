@@ -1154,9 +1154,9 @@ static inline char*
 exit_stub_type_desc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
     if (LINKSTUB_DIRECT(l->flags)) {
-        if (TEST(LINK_CALL, l->flags))
+        if (EXIT_IS_CALL(l->flags))
             return "call";
-        if (TEST(LINK_JMP, l->flags))
+        if (EXIT_IS_JMP(l->flags))
             return "jmp/jcc";
         return "fall-through/speculated/IAT";
         /* FIXME: mark these appropriately */
@@ -1164,9 +1164,9 @@ exit_stub_type_desc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         CLIENT_ASSERT(LINKSTUB_INDIRECT(l->flags), "invalid exit stub");
         if (TEST(LINK_RETURN, l->flags))
             return "ret";
-        if (TEST(LINK_CALL, l->flags))
+        if (EXIT_IS_CALL(l->flags))
             return "indcall";
-        if (TEST(LINK_JMP, l->flags))
+        if (TEST(LINK_JMP, l->flags)) /* JMP or IND_JMP_PLT */
             return "indjmp";
 #ifdef WINDOWS
         if (is_shared_syscall_routine(dcontext, EXIT_TARGET_TAG(dcontext, f, l)))
