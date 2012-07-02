@@ -4689,7 +4689,14 @@ tracelist_add(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, instr_t 
     /* when we emit the trace we're going to call instr_length() on all instrs
      * anyway, and we'll re-use any memory allocated here for an encoding
      */
-    int size = instr_length(dcontext, inst);
+    int size;
+#ifdef X64
+    if (!X64_MODE_DC(dcontext)) {
+        instr_set_x86_mode(inst, true/*x86*/);
+        instr_shrink_to_32_bits(inst);
+    }
+#endif
+    size = instr_length(dcontext, inst);
     instrlist_preinsert(ilist, where, inst);
     return size;
 }
@@ -4701,7 +4708,14 @@ tracelist_add_after(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, in
     /* when we emit the trace we're going to call instr_length() on all instrs
      * anyway, and we'll re-use any memory allocated here for an encoding
      */
-    int size = instr_length(dcontext, inst);
+    int size;
+#ifdef X64
+    if (!X64_MODE_DC(dcontext)) {
+        instr_set_x86_mode(inst, true/*x86*/);
+        instr_shrink_to_32_bits(inst);
+    }
+#endif
+    size = instr_length(dcontext, inst);
     instrlist_postinsert(ilist, where, inst);
     return size;
 }
@@ -4801,7 +4815,7 @@ insert_transparent_comparison(dcontext_t *dcontext, instrlist_t *trace,
     instr_set_ok_to_mangle(jecxz, false);
     added_size += tracelist_add(dcontext, trace, targeter, jecxz);
     /* need to recover address in ecx */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+    IF_X64(ASSERT_NOT_IMPLEMENTED(!X64_MODE_DC(dcontext)));
     added_size += tracelist_add
         (dcontext, trace, targeter,
          INSTR_CREATE_lea
@@ -4811,6 +4825,66 @@ insert_transparent_comparison(dcontext_t *dcontext, instrlist_t *trace,
     added_size += tracelist_add_after(dcontext, trace, targeter, continue_label);
     return added_size;
 }
+
+#ifdef X64
+static int
+mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
+                       instr_t *targeter, app_pc next_tag)
+{
+    int added_size = 0;
+    added_size += tracelist_add
+        (dcontext, trace, targeter, INSTR_CREATE_mov_st
+         (dcontext, opnd_create_tls_slot(os_tls_offset(PREFIX_XAX_SPILL_SLOT)),
+          opnd_create_reg(REG_XAX)));
+    added_size += tracelist_add
+        (dcontext, trace, targeter, INSTR_CREATE_mov_imm
+         (dcontext, opnd_create_reg(REG_XAX),
+          OPND_CREATE_INTPTR((ptr_int_t)next_tag)));
+    /* saving in the trace and restoring in ibl means that
+     * -unsafe_ignore_eflags_{trace,ibl} must be equivalent
+     */
+    if (!DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
+        added_size += tracelist_add
+            (dcontext, trace, targeter, INSTR_CREATE_mov_st
+             (dcontext, opnd_create_tls_slot
+              (os_tls_offset(INDIRECT_STUB_SPILL_SLOT)),
+              opnd_create_reg(REG_XAX)));
+        /* FIXME: share w/ insert_save_eflags() */
+        added_size += tracelist_add
+            (dcontext, trace, targeter, INSTR_CREATE_lahf(dcontext));
+        if (!INTERNAL_OPTION(unsafe_ignore_overflow)) { /* OF needs saving */
+            /* Move OF flags into the OF flag spill slot. */
+            added_size += tracelist_add
+                (dcontext, trace, targeter,
+                 INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
+        }
+        added_size += tracelist_add
+            (dcontext, trace, targeter,
+             INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XCX),
+                              opnd_create_tls_slot(os_tls_offset
+                                                   (INDIRECT_STUB_SPILL_SLOT))));
+    } else {
+        added_size += tracelist_add
+            (dcontext, trace, targeter,
+             INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XCX),
+                              opnd_create_reg(REG_XAX)));
+    }
+    /* change jmp into jne to trace cmp entry of ibl routine (special entry
+     * that is after the eflags save) */
+    instr_set_opcode(targeter, OP_jnz);
+    added_size++; /* jcc is 6 bytes, jmp is 5 bytes */
+    ASSERT(opnd_is_pc(instr_get_target(targeter)));
+    if (get_x86_mode(dcontext))
+        SYSLOG_INTERNAL_CRITICAL("trace cmp");//NOCHECKIN
+    instr_set_target(targeter, opnd_create_pc
+                     (get_trace_cmp_entry(dcontext, opnd_get_pc
+                                          (instr_get_target(targeter)))));
+    /* since the target gets lost we need to OR in this flag */
+    instr_exit_branch_set_type(targeter, instr_exit_branch_type(targeter) |
+                               INSTR_TRACE_CMP_EXIT);
+    return added_size;
+}
+#endif
 
 /* Mangles an indirect branch in a trace where a basic block with tag "tag"
  * is being added as the next block beyond the indirect branch.
@@ -5018,76 +5092,36 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
 #endif /* NATIVE_RETURN */
 
 #ifdef X64
-        added_size += tracelist_add
-            (dcontext, trace, targeter, INSTR_CREATE_mov_st
-             (dcontext, opnd_create_tls_slot(os_tls_offset(PREFIX_XAX_SPILL_SLOT)),
-              opnd_create_reg(REG_XAX)));
-        added_size += tracelist_add
-            (dcontext, trace, targeter, INSTR_CREATE_mov_imm
-             (dcontext, opnd_create_reg(REG_XAX),
-              OPND_CREATE_INTPTR((ptr_int_t)next_tag)));
-        /* saving in the trace and restoring in ibl means that
-         * -unsafe_ignore_eflags_{trace,ibl} must be equivalent
-         */
-        if (!DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
-            added_size += tracelist_add
-                (dcontext, trace, targeter, INSTR_CREATE_mov_st
-                 (dcontext, opnd_create_tls_slot(os_tls_offset(INDIRECT_STUB_SPILL_SLOT)),
-                  opnd_create_reg(REG_XAX)));
-            /* FIXME: share w/ insert_save_eflags() */
-            added_size += tracelist_add
-                (dcontext, trace, targeter, INSTR_CREATE_lahf(dcontext));
-            if (!INTERNAL_OPTION(unsafe_ignore_overflow)) { /* OF needs saving */
-                /* Move OF flags into the OF flag spill slot. */
+        if (X64_MODE_DC(dcontext)) {
+            added_size +=
+                mangle_x64_ib_in_trace(dcontext, trace, targeter, next_tag);
+        } else {
+#endif
+            if (!INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
+                /* if equal follow to the next instruction after the exit CTI */
+                added_size +=
+                    insert_transparent_comparison(dcontext, trace, targeter,
+                                                  next_tag);
+                /* leave jmp as it is, a jmp to exit stub (thence to ind br
+                 * lookup) */
+            }
+            else {
+                /* assume eflags don't need to be saved across ind branches,
+                 * so go ahead and use cmp, jne
+                 */
+                /* FIXME: no way to cmp w/ 64-bit immed */
+                IF_X64(ASSERT_NOT_IMPLEMENTED(!X64_MODE_DC(dcontext)));
                 added_size += tracelist_add
                     (dcontext, trace, targeter,
-                     INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
-            }
-            added_size += tracelist_add
-                (dcontext, trace, targeter,
-                 INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XCX),
-                                  opnd_create_tls_slot(os_tls_offset
-                                                       (INDIRECT_STUB_SPILL_SLOT))));
-        } else {
-            added_size += tracelist_add
-                (dcontext, trace, targeter,
-                 INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XCX),
-                                  opnd_create_reg(REG_XAX)));
-        }
-        /* change jmp into jne to trace cmp entry of ibl routine (special entry
-         * that is after the eflags save) */
-        instr_set_opcode(targeter, OP_jnz);
-        added_size++; /* jcc is 6 bytes, jmp is 5 bytes */
-        ASSERT(opnd_is_pc(instr_get_target(targeter)));
-        instr_set_target(targeter, opnd_create_pc
-                         (get_trace_cmp_entry(dcontext, opnd_get_pc
-                                              (instr_get_target(targeter)))));
-        /* since the target gets lost we need to OR in this flag */
-        instr_exit_branch_set_type(targeter, instr_exit_branch_type(targeter) |
-                                   INSTR_TRACE_CMP_EXIT);
-#else
-        if (!INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
-            /* if equal follow to the next instruction after the exit CTI */
-            added_size +=
-                insert_transparent_comparison(dcontext, trace, targeter, next_tag);
-            /* leave jmp as it is, a jmp to exit stub (thence to ind br
-             * lookup) */
-        }
-        else {
-            /* assume eflags don't need to be saved across ind branches,
-             * so go ahead and use cmp, jne
-             */
-            /* FIXME: no way to cmp w/ 64-bit immed */
-            IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-            added_size += tracelist_add
-                (dcontext, trace, targeter,
-                 INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_ECX),
-                                  OPND_CREATE_INT32((int)(ptr_int_t)next_tag)));
+                     INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_ECX),
+                                      OPND_CREATE_INT32((int)(ptr_int_t)next_tag)));
 
-            /* Change jmp into jne indirect_branch_lookup */
-            /* CHECK: is that also going to exit stub */
-            instr_set_opcode(targeter, OP_jnz);
-            added_size++; /* jcc is 6 bytes, jmp is 5 bytes */
+                /* Change jmp into jne indirect_branch_lookup */
+                /* CHECK: is that also going to exit stub */
+                instr_set_opcode(targeter, OP_jnz);
+                added_size++; /* jcc is 6 bytes, jmp is 5 bytes */
+            }
+#ifdef X64
         }
 #endif /* X64 */
         /* PR 214962: our spill restoration needs this whole sequence marked mangle */
@@ -5121,26 +5155,28 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     added_size += insert_restore_spilled_xcx(dcontext, trace, next);
 
 #ifdef X64
-    LOG(THREAD, LOG_INTERP, 4, "next_flags for post-ibl-cmp: 0x%x\n",
-        next_flags);
-    if (!TEST(FRAG_WRITES_EFLAGS_6, next_flags) &&
-        !DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
-        if (!TEST(FRAG_WRITES_EFLAGS_OF, next_flags) &&  /* OF was saved */
-            !INTERNAL_OPTION(unsafe_ignore_overflow)) { 
-            /* restore OF using add that overflows if OF was on when we did seto */
+    if (X64_MODE_DC(dcontext)) {
+        LOG(THREAD, LOG_INTERP, 4, "next_flags for post-ibl-cmp: 0x%x\n",
+            next_flags);
+        if (!TEST(FRAG_WRITES_EFLAGS_6, next_flags) &&
+            !DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
+            if (!TEST(FRAG_WRITES_EFLAGS_OF, next_flags) &&  /* OF was saved */
+                !INTERNAL_OPTION(unsafe_ignore_overflow)) { 
+                /* restore OF using add that overflows if OF was on when we did seto */
+                added_size += tracelist_add
+                    (dcontext, trace, next, INSTR_CREATE_add
+                     (dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
+            }
             added_size += tracelist_add
-                (dcontext, trace, next, INSTR_CREATE_add
-                 (dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
-        }
+                (dcontext, trace, next, INSTR_CREATE_sahf(dcontext));
+        } else
+            STATS_INC(trace_ib_no_flag_restore);
+        /* TODO optimization: check if xax is live or not in next bb */
         added_size += tracelist_add
-            (dcontext, trace, next, INSTR_CREATE_sahf(dcontext));
-    } else
-        STATS_INC(trace_ib_no_flag_restore);
-    /* TODO optimization: check if xax is live or not in next bb */
-    added_size += tracelist_add
-        (dcontext, trace, next, INSTR_CREATE_mov_ld
-         (dcontext, opnd_create_reg(REG_XAX),
-          opnd_create_tls_slot(os_tls_offset(PREFIX_XAX_SPILL_SLOT))));
+            (dcontext, trace, next, INSTR_CREATE_mov_ld
+             (dcontext, opnd_create_reg(REG_XAX),
+              opnd_create_tls_slot(os_tls_offset(PREFIX_XAX_SPILL_SLOT))));
+    }
 #endif
 
 #ifdef RETURN_STACK
@@ -5386,6 +5422,20 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace,
     if (record_translation)
         instrlist_set_translation_target(trace, NULL);
     instrlist_set_our_mangling(trace, false); /* PR 267260 */
+
+#ifdef X64
+    DOCHECK(1, {
+        if (FRAG_IS_32(trace_flags)) {
+            instr_t *in;
+            /* in case we missed any in tracelist_add() */
+            for (in = instrlist_first(trace); in != NULL; in = instr_get_next(in)) {
+                if (instr_is_our_mangling(in))
+                    ASSERT(instr_get_x86_mode(in));
+            }
+        }
+    });
+#endif
+
     ASSERT(added_size < TRACE_CTI_MANGLE_SIZE_UPPER_BOUND);
     return added_size;
 }
@@ -5644,6 +5694,10 @@ extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l)
     uint prev_mangle_size = 0;
     uint num_exits_deleted = 0;
     uint new_exits_dir = 0, new_exits_indir = 0;
+
+#ifdef X64
+    ASSERT(!!FRAG_IS_32(md->trace_flags) == !X64_MODE_DC(dcontext));
+#endif
 
     STATS_INC(num_traces_extended);
 
