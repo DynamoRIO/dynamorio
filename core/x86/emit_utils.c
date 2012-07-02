@@ -109,7 +109,7 @@
  */
 #define POST instrlist_meta_postinsert
 #define PRE  instrlist_meta_preinsert
-#define APP  instrlist_append
+#define APP  instrlist_meta_append
 
 /* in x86.asm */
 #ifdef RETURN_STACK
@@ -1686,9 +1686,7 @@ indirect_linkstub_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         return get_coarse_ibl_prefix(dcontext, EXIT_CTI_PC(f, l),
                                      extract_branchtype(l->flags));
     } else {
-        return get_ibl_routine_ex(dcontext,
-                                  IF_X64(TEST(LINK_TRACE_CMP, l->flags) ? IBL_TRACE_CMP :)
-                                  IBL_LINKED,
+        return get_ibl_routine_ex(dcontext, get_ibl_entry_type(l->flags),
                                   get_source_fragment_type(dcontext, f->flags),
                                   extract_branchtype(l->flags)
                                   _IF_X64(MODE_OVERRIDE(FRAG_IS_32(f->flags))));
@@ -3436,14 +3434,14 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
          * we can't indirect through a register since we couldn't restore the
          * high bits (PR 283152) so we write the 6-byte far address to TLS.
          */
-        APP(&ilist, INSTR_CREATE_mov_st(dcontext,
-                                        OPND_TLS_FIELD_SZ(TLS_XBX_SLOT, OPSZ_2),
-                                        OPND_CREATE_INT16((ushort)CS32_SELECTOR)));
         /* AMD only supports 32-bit address for far jmp */
         store = INSTR_CREATE_mov_st(dcontext,
-                                    OPND_TLS_FIELD_SZ(TLS_XBX_SLOT+2, OPSZ_4),
+                                    OPND_TLS_FIELD_SZ(TLS_XBX_SLOT, OPSZ_4),
                                     OPND_CREATE_INT32(0/*placeholder*/));
         APP(&ilist, store);
+        APP(&ilist, INSTR_CREATE_mov_st(dcontext,
+                                        OPND_TLS_FIELD_SZ(TLS_XBX_SLOT+4, OPSZ_2),
+                                        OPND_CREATE_INT16((ushort)CS32_SELECTOR)));
         APP(&ilist, INSTR_CREATE_jmp_far_ind(dcontext,
                                              OPND_TLS_FIELD_SZ(TLS_XBX_SLOT, OPSZ_6)));
         APP(&ilist, label);
@@ -3726,6 +3724,7 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
         instr_set_x86_mode(ljmp, true/*x86*/);
         APP(ilist, ljmp);
         APP(ilist, label);
+        instr_targets = true;
     }
 #endif
 
@@ -3955,13 +3954,14 @@ emit_fcache_enter_shared(dcontext_t *dcontext, generated_code_t *code, byte *pc)
 byte *
 emit_fcache_return_shared(dcontext_t *dcontext, generated_code_t *code, byte *pc)
 {
+    bool instr_targets;
     instrlist_t ilist;
     instrlist_init(&ilist);
-    append_fcache_return_common(dcontext, code, &ilist, false/*!ibl_end*/,
-                                false/*through xdi*/, true/*shared*/,
-                                NULL, false/*not coarse*/);
+    instr_targets = append_fcache_return_common(dcontext, code, &ilist, false/*!ibl_end*/,
+                                                false/*through xdi*/, true/*shared*/,
+                                                NULL, false/*not coarse*/);
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, false /* no instr targets */);
+    pc = instrlist_encode(dcontext, &ilist, pc, instr_targets);
     ASSERT(pc != NULL);
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -3971,14 +3971,15 @@ emit_fcache_return_shared(dcontext_t *dcontext, generated_code_t *code, byte *pc
 byte *
 emit_fcache_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc)
 {
+    bool instr_targets;
     linkstub_t *linkstub = (linkstub_t *) get_coarse_exit_linkstub();
     instrlist_t ilist;
     instrlist_init(&ilist);
-    append_fcache_return_common(dcontext, code, &ilist, false/*!ibl_end*/,
-                                false/*through xdi*/, true/*shared*/,
-                                linkstub, true/*coarse info in xcx*/);
+    instr_targets = append_fcache_return_common(dcontext, code, &ilist, false/*!ibl_end*/,
+                                                false/*through xdi*/, true/*shared*/,
+                                                linkstub, true/*coarse info in xcx*/);
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, false /* no instr targets */);
+    pc = instrlist_encode(dcontext, &ilist, pc, instr_targets);
     ASSERT(pc != NULL);
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -3989,14 +3990,15 @@ byte *
 emit_trace_head_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc)
 {
     /* Could share tail end of coarse_fcache_return instead of duplicating */
+    bool instr_targets;
     linkstub_t *linkstub = (linkstub_t *) get_coarse_trace_head_exit_linkstub();
     instrlist_t ilist;
     instrlist_init(&ilist);
-    append_fcache_return_common(dcontext, code, &ilist, false/*!ibl_end*/,
-                                false/*through xdi*/, true/*shared*/,
-                                linkstub, false/*no coarse info*/);
+    instr_targets = append_fcache_return_common(dcontext, code, &ilist, false/*!ibl_end*/,
+                                                false/*through xdi*/, true/*shared*/,
+                                                linkstub, false/*no coarse info*/);
     /* now encode the instructions */
-    pc = instrlist_encode(dcontext, &ilist, pc, false /* no instr targets */);
+    pc = instrlist_encode(dcontext, &ilist, pc, instr_targets);
     ASSERT(pc != NULL);
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -4126,6 +4128,7 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
             (dcontext, opnd_create_pc(trace_head_return_coarse_routine(IF_X64(mode)))));
     }
 
+    /* coarse does not support IBL_FAR so we don't bother with get_ibl_entry_type() */
     ibl = get_ibl_routine_ex(dcontext, IBL_LINKED,
                              get_source_fragment_type(dcontext,
                                                       FRAG_SHARED | FRAG_COARSE_GRAIN),
@@ -5909,6 +5912,154 @@ update_indirect_branch_lookup(dcontext_t *dcontext)
 #endif
     protect_generated_code(code, READONLY);
 }
+
+/* i#823: handle far cti transitions.  For now only handling known cs values
+ * for WOW64 when using x64 DR, but we still use this far ibl so that in
+ * the future we can add general cs change handling outside of the
+ * fragment (which is much simpler: see below).
+ *
+ * One approach is to have the mode change happen in the fragment itself via
+ * ind branch mangling.  But then we have the check for known cs there and
+ * thus multiple exits some of which are 32-bit and some of which are 64-bit
+ * which is messy.  Instead, we spill another reg, put the selector in it,
+ * and jump to this ibl prefix routine.  One drawback is that by not doing
+ * the mode transition in the fragment we give up on traces extending through
+ * it and we must make a far cti a trace barrier.
+ *
+ *   fragment:
+ *     spill xbx
+ *     movzx selector -> xbx
+ *     spill xcx
+ *     mov target -> xcx
+ *     jmp far_ibl
+ *   
+ *   far_ibl:
+ *     clear top 32 bits of xcx slot
+ *     xchg xcx, xbx
+ *     lea xcx -32_bit_cs -> xcx
+ *     jecxz to_32
+ *   64: (punting on handling cs o/w)
+ *     xchg xcx, xbx
+ *     restore xbx
+ *     jmp 64-bit ibl
+ *   to-32:
+ *     dcontext -> ecx
+ *     mov $1 -> x86_mode_offs(ecx)
+ *     xchg xcx, xbx
+ *     restore xbx
+ *     far ind jmp through const mem that targets 32-bit ibl
+ *   
+ * This is much simpler for state xl8: shouldn't need any added support.
+ * For unlinking: have two versions of the gencode, so the unlink
+ * is the standard fragment exit cti change only.
+ *
+ * For non-mixed-mode, we just jmp straight to ibl.  It's simpler to
+ * generate and always go through this far_ibl though rather than
+ * having interp up front figure out whether a mode change for direct
+ * and then have far direct sometimes be direct and sometimes use
+ * indirect faar-Ibl.
+ */
+byte *
+emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
+             cache_pc ibl_same_mode_tgt _IF_X64(far_ref_t *far_jmp_opnd))
+{
+    instrlist_t ilist;
+    instrlist_init(&ilist);
+
+#ifdef X64
+    if (mixed_mode_enabled()) {
+        instr_t *change_mode = INSTR_CREATE_label(dcontext);
+        short selector = ibl_code->x86_mode ? CS64_SELECTOR : CS32_SELECTOR;
+
+        /* all scratch space should be in TLS only */
+        ASSERT(ibl_code->thread_shared_routine || DYNAMO_OPTION(private_ib_in_tls));
+
+        if (ibl_code->x86_mode) {
+            /* we're going to look up rcx in ibl table but we only saved the
+             * bottom half so zero top half now
+             */
+            APP(&ilist, INSTR_CREATE_mov_imm
+                (dcontext, opnd_create_tls_slot(os_tls_offset(MANGLE_XCX_SPILL_SLOT) + 4), 
+                 OPND_CREATE_INT32(0)));
+        }
+
+        APP(&ilist, INSTR_CREATE_xchg
+            (dcontext, opnd_create_reg(REG_XBX), opnd_create_reg(REG_XCX)));
+        /* segment is just 2 bytes but need addr prefix if don't have rex prefix */
+        APP(&ilist, INSTR_CREATE_lea
+            (dcontext, opnd_create_reg(REG_XCX),
+             opnd_create_base_disp(REG_XCX, REG_NULL, 0, -selector, OPSZ_lea)));
+        APP(&ilist, INSTR_CREATE_jecxz
+            (dcontext, opnd_create_instr(change_mode)));
+
+        APP(&ilist, INSTR_CREATE_xchg
+            (dcontext, opnd_create_reg(REG_XBX), opnd_create_reg(REG_XCX)));
+        APP(&ilist,
+            RESTORE_FROM_TLS(dcontext, REG_XBX, MANGLE_FAR_SPILL_SLOT));
+        APP(&ilist, INSTR_CREATE_jmp
+            (dcontext, opnd_create_pc(ibl_same_mode_tgt)));
+
+        APP(&ilist, change_mode);
+        APP(&ilist, instr_create_restore_from_tls
+            (dcontext, REG_XCX, TLS_DCONTEXT_SLOT));
+        /* FIXME: for SELFPROT_DCONTEXT we'll need to exit to dispatch every time
+         * and add logic there to set x86_mode based on LINK_FAR.
+         * We do not want x86_mode sitting in unprotected_context_t.
+         */
+        ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
+        APP(&ilist, INSTR_CREATE_mov_st
+            (dcontext, OPND_CREATE_MEM8(REG_XCX, (int)offsetof(dcontext_t, x86_mode)),
+             OPND_CREATE_INT8(ibl_code->x86_mode ? 0 : 1)));
+        APP(&ilist, INSTR_CREATE_xchg
+            (dcontext, opnd_create_reg(REG_XBX), opnd_create_reg(REG_XCX)));
+        APP(&ilist,
+            RESTORE_FROM_TLS(dcontext, REG_XBX, MANGLE_FAR_SPILL_SLOT));
+        /* For now we assume we're WOW64 and thus in low 4GB.  For general mixed-mode
+         * and reachability (xref i#774) we will need a trampoline in low 4GB.
+         * Note that targeting the tail of the not-taken jecxz above doesn't help
+         * b/c then that needs to be 32-bit reachable.
+         */
+        ASSERT(CHECK_TRUNCATE_TYPE_uint((ptr_uint_t)far_jmp_opnd));
+        APP(&ilist, INSTR_CREATE_jmp_far_ind
+            (dcontext, opnd_create_base_disp(REG_NULL, REG_NULL, 0,
+                                             (uint)(ptr_uint_t)far_jmp_opnd, OPSZ_6)));
+        /* caller will set target: we just set selector */
+        far_jmp_opnd->selector = (ushort) selector;
+
+        if (ibl_code->x86_mode) {
+            instr_t *in;
+            for (in = instrlist_first(&ilist); in != NULL; in = instr_get_next(in)) {
+                instr_set_x86_mode(in, true/*x86*/);
+                instr_shrink_to_32_bits(in);
+            }
+        }
+    } else {
+#endif
+        /* We didn't spill or store into xbx when mangling so just jmp to ibl.
+         * Note that originally I had the existence of far_ibl, and LINK_FAR,
+         * as X64 only, and only emitted far_ibl for mixed-mode.  But given that
+         * it's simpler to have far direct as indirect all the time, I decided
+         * to also go through a far ibl all the time.  Eventually to fully
+         * handle any cs change we'll want it this way.
+         *
+         * XXX i#823: store cs into xbx when mangling, and then do cs
+         * change here.
+         */
+        APP(&ilist, INSTR_CREATE_jmp
+            (dcontext, opnd_create_pc(ibl_same_mode_tgt)));
+#ifdef X64
+    }
+#endif
+
+    pc = instrlist_encode(dcontext, &ilist, pc, true/*instr targets*/);
+    ASSERT(pc != NULL);
+
+    /* free the instrlist_t elements */
+    instrlist_clear(dcontext, &ilist);
+
+    return pc;
+}
+
 
 #ifdef RETURN_STACK /********************************************************/
 

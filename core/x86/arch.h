@@ -53,6 +53,23 @@
 #define CS32_SELECTOR 0x23
 #define CS64_SELECTOR 0x33
 
+#ifdef X64
+static inline bool
+mixed_mode_enabled(void)
+{
+    /* XXX i#49: currently only supporting WOW64 and thus only
+     * creating x86 versions of gencode for WOW64.  Eventually we'll
+     * have to either always create for every x64 process, or lazily
+     * create on first appearance of 32-bit code.
+     */
+# ifdef WINDOWS
+    return is_wow64_process(NT_CURRENT_PROCESS);
+# else
+    return false;
+# endif
+}
+#endif
+
 /* dcontext_t field offsets 
  * N.B.: DO NOT USE offsetof(dcontext_t) anywhere else if passing to the
  * dcontext operand construction routines!
@@ -163,6 +180,9 @@ preserve_xmm_caller_saved(void)
 typedef enum {
     IBL_UNLINKED,
     IBL_DELETE,
+    /* Pre-ibl routines for far ctis */
+    IBL_FAR,
+    IBL_FAR_UNLINKED,
 #ifdef X64
     /* PR 257963: trace inline cmp has separate entries b/c it saves flags */
     IBL_TRACE_CMP,
@@ -196,12 +216,27 @@ typedef enum {
 #define IS_IBL_TRACE(ibltype) \
     ((ibltype) == IBL_TRACE_PRIVATE || (ibltype) == IBL_TRACE_SHARED)
 #define IS_IBL_LINKED(ibltype) \
-    ((ibltype) == IBL_LINKED IF_X64(|| (ibltype) == IBL_TRACE_CMP))
+    ((ibltype) == IBL_LINKED || (ibltype) == IBL_FAR \
+     IF_X64(|| (ibltype) == IBL_TRACE_CMP))
 #define IS_IBL_UNLINKED(ibltype) \
-    ((ibltype) == IBL_UNLINKED IF_X64(|| (ibltype) == IBL_TRACE_CMP_UNLINKED))
+    ((ibltype) == IBL_UNLINKED || (ibltype) == IBL_FAR_UNLINKED \
+     IF_X64(|| (ibltype) == IBL_TRACE_CMP_UNLINKED))
 
 #define IBL_FRAG_FLAGS(ibl_code) \
     (IS_IBL_TRACE((ibl_code)->source_fragment_type) ? FRAG_IS_TRACE : 0)
+
+static inline ibl_entry_point_type_t
+get_ibl_entry_type(uint link_or_instr_flags)
+{
+#ifdef X64
+    if (TEST(LINK_TRACE_CMP, link_or_instr_flags))
+        return IBL_TRACE_CMP;
+#endif
+    if (TEST(LINK_FAR, link_or_instr_flags))
+        return IBL_FAR;
+    else
+        return IBL_LINKED;
+}
 
 typedef struct
 {
@@ -370,7 +405,10 @@ enum {
      */
     MANGLE_NEXT_TAG_SLOT        = TLS_XAX_SLOT,
     DIRECT_STUB_SPILL_SLOT      = TLS_XAX_SLOT,
+    MANGLE_RIPREL_SPILL_SLOT    = TLS_XAX_SLOT,
+    /* ok for far cti mangling/far ibl and stub/ibl xbx slot usage to overlap */
     INDIRECT_STUB_SPILL_SLOT    = TLS_XBX_SLOT,
+    MANGLE_FAR_SPILL_SLOT       = TLS_XBX_SLOT,
     MANGLE_XCX_SPILL_SLOT       = TLS_XCX_SLOT,
     /* FIXME: edi is used as the base, yet I labeled this slot for edx
      * since it's next in the progression -- change one or the other?
@@ -446,17 +484,32 @@ int
 encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch, 
                        instrlist_t *ilist, cache_pc start_pc);
 
+#ifdef X64
+/* Shouldn't need to mark as packed.  We order for 6-byte little-endian selector:pc. */
+typedef struct _far_ref_t {
+    /* We target WOW64 and cross-plaform so no 8-byte Intel-only pc */
+    uint pc;
+    ushort selector;
+} far_ref_t;
+#endif
+
 /* Defines book-keeping structures needed for an indirect branch lookup routine */
 typedef struct ibl_code_t {
     bool initialized:1; /* currently only used for ibl routines */
     bool thread_shared_routine:1;
     bool ibl_head_is_inlined:1;
     byte *indirect_branch_lookup_routine;
+    /* for far ctis (i#823) */
+    byte *far_ibl;
+    byte *far_ibl_unlinked;
 #ifdef X64
     /* PR 257963: trace inline cmp has already saved eflags */
     byte *trace_cmp_entry;
     byte *trace_cmp_unlinked;
     bool x86_mode; /* Is this code for 32-bit (x86 mode)? */
+    /* for far ctis (i#823) in mixed-mode (i#49) */
+    far_ref_t far_jmp_opnd;
+    far_ref_t far_jmp_unlinked_opnd;
 #endif
     byte *unlinked_ibl_entry;
     byte *target_delete_entry;
@@ -698,6 +751,10 @@ byte * emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code,
                                    bool inline_ibl_head,
                                    ibl_code_t *ibl_code);
 void update_indirect_branch_lookup(dcontext_t *dcontext);
+
+byte *emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code, cache_pc ibl_tgt
+                   _IF_X64(far_ref_t *far_jmp_opnd));
+
 #ifdef RETURN_STACK
 byte * emit_return_lookup(dcontext_t *dcontext, byte *pc,
                           byte *indirect_branch_lookup_pc,

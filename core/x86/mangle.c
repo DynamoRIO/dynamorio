@@ -2009,6 +2009,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              * ibl that ends in a far cti, and all prior address manipulations would
              * need to be relative to the new segment, w/o messing up current segment.
              * FIXME: can we do better without too much work?
+             * XXX: yes, for wow64: i#823: TODO mangle this like a far direct jmp
              */
             SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct call");
             STATS_INC(num_far_dir_calls);
@@ -2422,6 +2423,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far ret");
         STATS_INC(num_far_rets);
         /* pop selector from stack, but not into cs, just junk it
+         * XXX: yes, for wow64: i#823: TODO mangle this like a far indirect jmp
          * (the 16-bit selector is expanded to 32 bits on the push, unless data16)
          */
         PRE(ilist, instr,
@@ -2526,13 +2528,12 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     target = instr_get_target(instr);
     if (instr_get_opcode(instr) == OP_jmp_far_ind) {
         opnd_size_t addr_size;
-        /* N.B.: we do not support other than flat 0-based CS, DS, SS, and ES.
-         * if the app wants to change segments, we won't actually issue
-         * a segment change, and so will only work properly if the new segment
-         * is also 0-based.  To properly issue new segments, we'd need a special
-         * ibl that ends in a far cti, and all prior address manipulations would
-         * need to be relative to the new segment, w/o messing up current segment.
-         * FIXME: can we do better without too much work?
+        /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+         * If the app wants to change segments in a WOW64 process, we will
+         * do the right thing for standard cs selector values (xref i#49).
+         * For other cs changes or in other modes, we do go through far_ibl
+         * today although we do not enact the cs change (nor bother to pass
+         * the selector in xbx).
          */
         SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far indirect jump");
         STATS_INC(num_far_ind_jmps);
@@ -2541,7 +2542,8 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
         ASSERT(opnd_is_base_disp(target));
         /* Segment selector is the final 2 bytes.
-         * We ignore it and assume DS base == target cti CS base.
+         * For non-mixed-mode, we ignore it.
+         * We assume DS base == target cti CS base.
          */
         /* if data16 then just 2 bytes for address
          * if x64 mode and Intel and rex then 8 bytes for address */
@@ -2558,6 +2560,36 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             addr_size = OPSZ_2;
             reg_target = REG_XCX; /* we use movzx below */
         }
+#ifdef X64
+        if (mixed_mode_enabled()) {
+            /* While we don't support arbitrary segments, we do support
+             * mode changes using standard cs selector values (i#823).
+             * We save the selector into xbx.
+             */
+            opnd_t sel = target;
+            opnd_set_disp(&sel, opnd_get_disp(target) + opnd_size_in_bytes(addr_size));
+            opnd_set_size(&sel, OPSZ_2);
+
+            /* all scratch space should be in TLS only */
+            ASSERT(TEST(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
+            PRE(ilist, instr,
+                SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
+                                  XBX_OFFSET));
+            PRE(ilist, instr,
+                INSTR_CREATE_movzx(dcontext, opnd_create_reg(REG_EBX), sel));
+            if (instr_uses_reg(instr, REG_XBX)) {
+                /* instr can't be both riprel (uses xax slot for mangling) and use
+                 * a register, so we spill to the riprel (== xax) slot
+                 */
+                PRE(ilist, instr,
+                    SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_RIPREL_SPILL_SLOT,
+                                      XAX_OFFSET));
+                POST(ilist, instr,
+                     instr_create_restore_from_tls(dcontext, REG_XBX,
+                                                   MANGLE_RIPREL_SPILL_SLOT));
+            }
+        }
+#endif
         opnd_set_size(&target, addr_size);
     }
 #ifdef LINUX
@@ -3377,7 +3409,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              */
             if (spill) {
                 PRE(ilist, instr,
-                    SAVE_TO_DC_OR_TLS(dcontext, 0, scratch_reg, TLS_XAX_SLOT,
+                    SAVE_TO_DC_OR_TLS(dcontext, 0, scratch_reg, MANGLE_RIPREL_SPILL_SLOT,
                                       XAX_OFFSET));
             }
             PRE(ilist, instr,
@@ -3394,7 +3426,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_set_our_mangling(instr, true);
             if (spill) {
                 PRE(ilist, next_instr,
-                    instr_create_restore_from_tls(dcontext, scratch_reg, TLS_XAX_SLOT));
+                    instr_create_restore_from_tls(dcontext, scratch_reg,
+                                                  MANGLE_RIPREL_SPILL_SLOT));
             }
             STATS_INC(rip_rel_unreachable);
         }        

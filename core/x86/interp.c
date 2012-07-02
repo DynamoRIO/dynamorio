@@ -2526,10 +2526,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                     ASSERT(instr_is_mbr(inst));
                     CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
                                   "an exit mbr must terminate the block");
-                    bb->exit_target = get_ibl_routine(dcontext, IBL_LINKED,
+                    bb->exit_type = instr_branch_type(inst);
+                    bb->exit_target = get_ibl_routine(dcontext,
+                                                      get_ibl_entry_type(bb->exit_type),
                                                       DEFAULT_IBL_BB(), 
                                                       get_ibl_branch_type(inst));
-                    bb->exit_type = instr_branch_type(inst);
                 }
 
                 /* since we're walking backward, at the first exit cti
@@ -3130,8 +3131,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             /* set exit type since this instruction will get mangled */
             if (normal_indirect_processing) {
                 bb->exit_type |= instr_branch_type(bb->instr);
-                bb->exit_target = get_ibl_routine(dcontext, IBL_LINKED, DEFAULT_IBL_BB(),
-                                                  ibl_branch_type);
+                bb->exit_target = get_ibl_routine(dcontext,
+                                                  get_ibl_entry_type(bb->exit_type),
+                                                  DEFAULT_IBL_BB(), ibl_branch_type);
                 break;
             } else {
                 /* decide whether to stop bb here */
@@ -3322,6 +3324,17 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         *bb->unmangled_ilist = instrlist_clone(dcontext, bb->ilist);
 #endif
 
+    if (bb->instr != NULL && instr_opcode_valid(bb->instr) &&
+        instr_is_far_cti(bb->instr)) {
+        /* Simplify far_ibl (i#823) vs trace_cmp ibl as well as
+         * cross-mode direct stubs varying in a trace by disallowing
+         * far cti in middle of trace
+         */
+        bb->flags |= FRAG_MUST_END_TRACE;
+        /* Simplify coarse by not requiring extra prefix stubs */
+        bb->flags &= ~FRAG_COARSE_GRAIN;
+    }
+
     /* create a final instruction that will jump to the exit stub
      * corresponding to the fall-through of the conditional branch or
      * the target of the final indirect branch (the indirect branch itself
@@ -3435,10 +3448,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
     /* now that we know whether shared, ensure we have the right ibl routine */
     if (!TEST(FRAG_SHARED, bb->flags) && TEST(LINK_INDIRECT, bb->exit_type)) {
-        ASSERT(bb->exit_target == get_ibl_routine(dcontext, IBL_LINKED, DEFAULT_IBL_BB(),
-                                                  ibl_branch_type));
-        bb->exit_target = get_ibl_routine(dcontext, IBL_LINKED, IBL_BB_PRIVATE,
-                                          ibl_branch_type);
+        ASSERT(bb->exit_target == get_ibl_routine(dcontext,
+                                                  get_ibl_entry_type(bb->exit_type),
+                                                  DEFAULT_IBL_BB(), ibl_branch_type));
+        bb->exit_target = get_ibl_routine(dcontext, get_ibl_entry_type(bb->exit_type),
+                                          IBL_BB_PRIVATE, ibl_branch_type);
     }
 
     if (bb->mangle_ilist &&
@@ -5881,7 +5895,9 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
             if (!instr_is_ubr(inst)) {
                 app_pc target;
                 if (instr_is_mbr(inst)) {
-                    target = get_ibl_routine(dcontext, IBL_LINKED, DEFAULT_IBL_TRACE(), 
+                    target = get_ibl_routine(dcontext,
+                                             get_ibl_entry_type(instr_branch_type(inst)),
+                                             DEFAULT_IBL_TRACE(),
                                              get_ibl_branch_type(inst));
                 } else if (instr_is_cbr(inst)) {
                     /* Do not call instr_length() on this inst: use length

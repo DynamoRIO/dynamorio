@@ -461,6 +461,31 @@ shared_gencode_init(IF_X64_ELSE(bool x86_mode, void))
     protect_generated_code(gencode, READONLY);
 }
 
+#ifdef X64
+/* Sets other-mode ibl targets, for mixed-mode */
+static void
+far_ibl_set_targets(ibl_code_t src_ibl[], ibl_code_t tgt_ibl[])
+{
+    ibl_branch_type_t branch_type;
+    for (branch_type = IBL_BRANCH_TYPE_START; 
+         branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
+        if (src_ibl[branch_type].initialized) {
+            /* selector was set in emit_far_ibl (but at that point we didn't have
+             * the other mode's ibl ready for the target)
+             */
+            ASSERT(CHECK_TRUNCATE_TYPE_uint
+                   ((ptr_uint_t)tgt_ibl[branch_type].indirect_branch_lookup_routine));
+            ASSERT(CHECK_TRUNCATE_TYPE_uint
+                   ((ptr_uint_t)tgt_ibl[branch_type].unlinked_ibl_entry));
+            src_ibl[branch_type].far_jmp_opnd.pc = (uint)(ptr_uint_t)
+                tgt_ibl[branch_type].indirect_branch_lookup_routine;
+            src_ibl[branch_type].far_jmp_unlinked_opnd.pc = (uint)(ptr_uint_t)
+                tgt_ibl[branch_type].unlinked_ibl_entry;
+        }
+    }
+}
+#endif
+
 /* arch-specific initializations */
 void
 arch_init()
@@ -525,13 +550,24 @@ arch_init()
         ASSERT(GENCODE_COMMIT_SIZE < GENCODE_RESERVE_SIZE);
 
         shared_gencode_init(IF_X64(false/*x64 mode*/));
-#if defined(X64) && defined(WINDOWS)
-        /* FIXME: usually LOL64 has only 32-bit code (kernel has 32-bit syscall
+#ifdef X64
+        /* FIXME i#49: usually LOL64 has only 32-bit code (kernel has 32-bit syscall
          * interface) but for mixed modes how would we know?  We'd have to make
          * this be initialized lazily on first occurrence.
          */
-        if (is_wow64_process(NT_CURRENT_PROCESS)) {
+        if (mixed_mode_enabled()) {
             shared_gencode_init(true/*x86 mode*/);
+
+            /* Now link the far_ibl for each type to the corresponding regular
+             * ibl of the opposite mode.
+             */
+            far_ibl_set_targets(shared_code->trace_ibl, shared_code_x86->trace_ibl);
+            far_ibl_set_targets(shared_code->bb_ibl, shared_code_x86->bb_ibl);
+            far_ibl_set_targets(shared_code->coarse_ibl, shared_code_x86->coarse_ibl);
+
+            far_ibl_set_targets(shared_code_x86->trace_ibl, shared_code->trace_ibl);
+            far_ibl_set_targets(shared_code_x86->bb_ibl, shared_code->bb_ibl);
+            far_ibl_set_targets(shared_code_x86->coarse_ibl, shared_code->coarse_ibl);
         }
 #endif
     }
@@ -568,7 +604,9 @@ arch_extract_profile(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
                                tpc->fcache_enter_return_end);
         }
 
-        /* Break out the IBL code by trace/BB and opcode types. */
+        /* Break out the IBL code by trace/BB and opcode types.
+         * Not worth showing far_ibl hits since should be quite rare.
+         */
         for (branch_type = IBL_BRANCH_TYPE_START; 
              branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
 
@@ -684,6 +722,15 @@ emit_ibl_routine_and_template(dcontext_t *dcontext, generated_code_t *code,
         pc = check_size_and_cache_line(code, pc);
         pc = emit_inline_ibl_stub(dcontext, pc, ibl_code, target_trace_table);
     }
+
+    ibl_code->far_ibl = pc;
+    pc = emit_far_ibl(dcontext, pc, ibl_code,
+                      ibl_code->indirect_branch_lookup_routine
+                      _IF_X64(&ibl_code->far_jmp_opnd));
+    ibl_code->far_ibl_unlinked = pc;
+    pc = emit_far_ibl(dcontext, pc, ibl_code,
+                      ibl_code->unlinked_ibl_entry
+                      _IF_X64(&ibl_code->far_jmp_unlinked_opnd));
 
     return pc;
 }
@@ -1267,6 +1314,32 @@ get_alternate_ibl_routine(dcontext_t *dcontext, cache_pc current_entry,
                               ibl_type.branch_type _IF_X64(mode));
 }
 
+static ibl_entry_point_type_t
+get_unlinked_type(ibl_entry_point_type_t link_state)
+{
+#ifdef X64
+    if (link_state == IBL_TRACE_CMP)
+        return IBL_TRACE_CMP_UNLINKED;
+#endif
+    if (link_state == IBL_FAR)
+        return IBL_FAR_UNLINKED;
+    else
+        return IBL_UNLINKED;
+}
+
+static ibl_entry_point_type_t
+get_linked_type(ibl_entry_point_type_t unlink_state)
+{
+#ifdef X64
+    if (unlink_state == IBL_TRACE_CMP_UNLINKED)
+        return IBL_TRACE_CMP;
+#endif
+    if (unlink_state == IBL_FAR_UNLINKED)
+        return IBL_FAR;
+    else
+        return IBL_LINKED;
+}
+
 cache_pc
 get_linked_entry(dcontext_t *dcontext, cache_pc unlinked_entry)
 {
@@ -1286,8 +1359,7 @@ get_linked_entry(dcontext_t *dcontext, cache_pc unlinked_entry)
                               /* for -unsafe_ignore_eflags_{ibl,trace} the trace cmp
                                * entry and unlink are both identical, so we may mix
                                * them up but will have no problems */
-                              IF_X64(ibl_type.link_state == IBL_TRACE_CMP_UNLINKED ?
-                                     IBL_TRACE_CMP :) IBL_LINKED, 
+                              get_linked_type(ibl_type.link_state), 
                               ibl_type.source_fragment_type, ibl_type.branch_type
                               _IF_X64(mode));
 }
@@ -1319,9 +1391,7 @@ get_unlinked_entry(dcontext_t *dcontext, cache_pc linked_entry)
     if (linked_entry == shared_syscall_routine_ex(dcontext _IF_X64(mode)))
         return unlinked_shared_syscall_routine_ex(dcontext _IF_X64(mode));
 #endif
-    return get_ibl_routine_ex(dcontext,
-                              IF_X64(ibl_type.link_state == IBL_TRACE_CMP ?
-                                     IBL_TRACE_CMP_UNLINKED :) IBL_UNLINKED, 
+    return get_ibl_routine_ex(dcontext, get_unlinked_type(ibl_type.link_state),
                               ibl_type.source_fragment_type, ibl_type.branch_type
                               _IF_X64(mode));
 }
@@ -1665,36 +1735,47 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
         ibl_routine_names IF_X64([2]) [IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
         IF_X64({)
         {"shared_unlinked_bb_ibl", "shared_delete_bb_ibl",
+         "shared_bb_far", "shared_bb_far_unlinked",
          IF_X64_("shared_bb_cmp") IF_X64_("shared_bb_cmp_unlinked")
          "shared_bb_ibl", "shared_bb_ibl_template"},
         {"shared_unlinked_trace_ibl", "shared_delete_trace_ibl",
+         "shared_trace_far", "shared_trace_far_unlinked",
          IF_X64_("shared_trace_cmp") IF_X64_("shared_trace_cmp_unlinked")
          "shared_trace_ibl", "shared_trace_ibl_template"},
         {"private_unlinked_bb_ibl", "private_delete_bb_ibl",
+         "private_bb_far", "private_bb_far_unlinked",
          IF_X64_("private_bb_cmp") IF_X64_("private_bb_cmp_unlinked")
          "private_bb_ibl", "private_bb_ibl_template"},
         {"private_unlinked_trace_ibl", "private_delete_trace_ibl",
+         "private_trace_far", "private_trace_far_unlinked",
          IF_X64_("private_trace_cmp") IF_X64_("private_trace_cmp_unlinked")
          "private_trace_ibl", "private_trace_ibl_template"},
         {"shared_unlinked_coarse_ibl", "shared_delete_coarse_ibl",
+         "shared_coarse_trace_far", "shared_coarse_trace_far_unlinked",
          IF_X64_("shared_coarse_trace_cmp") IF_X64_("shared_coarse_trace_cmp_unlinked")
          "shared_coarse_ibl", "shared_coarse_ibl_template"},
 #ifdef X64
         /* PR 282576: for WOW64 processes we have separate x86 routines */
         }, {
         {"x86_shared_unlinked_bb_ibl", "x86_shared_delete_bb_ibl",
+         "x86_shared_bb_far", "x86_shared_bb_far_unlinked",
          IF_X64_("x86_shared_bb_cmp") IF_X64_("x86_shared_bb_cmp_unlinked")
          "x86_shared_bb_ibl", "x86_shared_bb_ibl_template"},
         {"x86_shared_unlinked_trace_ibl", "x86_shared_delete_trace_ibl",
+         "x86_shared_trace_far", "x86_shared_trace_far_unlinked",
          IF_X64_("x86_shared_trace_cmp") IF_X64_("x86_shared_trace_cmp_unlinked")
          "x86_shared_trace_ibl", "x86_shared_trace_ibl_template"},
         {"x86_private_unlinked_bb_ibl", "x86_private_delete_bb_ibl",
+         "x86_private_bb_far", "x86_private_bb_far_unlinked",
          IF_X64_("x86_private_bb_cmp") IF_X64_("x86_private_bb_cmp_unlinked")
          "x86_private_bb_ibl", "x86_private_bb_ibl_template"},
         {"x86_private_unlinked_trace_ibl", "x86_private_delete_trace_ibl",
+         "x86_private_trace_far", "x86_private_trace_far_unlinked",
          IF_X64_("x86_private_trace_cmp") IF_X64_("x86_private_trace_cmp_unlinked")
          "x86_private_trace_ibl", "x86_private_trace_ibl_template"},
         {"x86_shared_unlinked_coarse_ibl", "x86_shared_delete_coarse_ibl",
+         "x86_shared_coarse_trace_far",
+         "x86_shared_coarse_trace_far_unlinked",
          IF_X64_("x86_shared_coarse_trace_cmp")
          IF_X64_("x86_shared_coarse_trace_cmp_unlinked")
          "x86_shared_coarse_ibl", "x86_shared_coarse_ibl_template"},
@@ -1775,6 +1856,10 @@ get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
         return (cache_pc) ibl_code->unlinked_ibl_entry;
     case IBL_DELETE:
         return (cache_pc) ibl_code->target_delete_entry;
+    case IBL_FAR:
+        return (cache_pc) ibl_code->far_ibl;
+    case IBL_FAR_UNLINKED:
+        return (cache_pc) ibl_code->far_ibl_unlinked;
 #ifdef X64
     case IBL_TRACE_CMP:
         return (cache_pc) ibl_code->trace_cmp_entry;
