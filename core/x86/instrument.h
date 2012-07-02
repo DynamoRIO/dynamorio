@@ -182,6 +182,9 @@ DR_API
  * - There can only be one indirect branch (call, jump, or return) in
  * a basic block, and it must be the final instruction in the
  * block.
+ * - There can only be one far branch (call, jump, or return) in
+ * a basic block, and it must be the final instruction in the
+ * block.
  * - The exit control-flow of a block ending in a system call or
  * int instruction cannot be changed, nor can instructions be inserted
  * after the system call or int instruction itself, unless

@@ -2503,8 +2503,8 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 found_exit_cti = true;
                 bb->instr = inst;
 
-                if (instr_is_ubr(inst) || instr_is_call_direct(inst)) {
-                    CLIENT_ASSERT(instr_is_ubr(inst) ||
+                if (instr_is_near_ubr(inst) || instr_is_call_direct(inst)) {
+                    CLIENT_ASSERT(instr_is_near_ubr(inst) ||
                                   inst == instrlist_last(bb->ilist),
                                   "an exit call must terminate the block");
                     /* a ubr need not be the final instr */
@@ -2523,9 +2523,9 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                                                instr_branch_type(inst));
                 }
                 else {
-                    ASSERT(instr_is_mbr(inst));
+                    ASSERT(instr_is_mbr(inst) || instr_is_far_cti(inst));
                     CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
-                                  "an exit mbr must terminate the block");
+                                  "an exit mbr or far cti must terminate the block");
                     bb->exit_type = instr_branch_type(inst);
                     bb->exit_target = get_ibl_routine(dcontext,
                                                       get_ibl_entry_type(bb->exit_type),
@@ -2555,7 +2555,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
              * reasons as well.
              */
             else {
-                CLIENT_ASSERT(instr_is_ubr(inst),
+                CLIENT_ASSERT(instr_is_near_ubr(inst),
                               "a second exit cti must be a ubr");
                 bb->flags |= FRAG_CANNOT_BE_TRACE;
                 /* our cti check above should have already turned off coarse */
@@ -3008,11 +3008,14 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
 
-        if (instr_is_ubr(bb->instr)) {
+        /* far direct is treated as indirect (i#823) */
+        if (instr_is_near_ubr(bb->instr)) {
             if (bb_process_ubr(dcontext, bb))
                 continue;
-            else
+            else {
+                bb->exit_type |= instr_branch_type(bb->instr);
                 break;
+            }
         } else
             instrlist_append(bb->ilist, bb->instr);
 
@@ -3049,7 +3052,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break;
             }
         }
-        else if (instr_is_mbr(bb->instr)) { /* including indirect calls */
+        else if (instr_is_mbr(bb->instr) || /* including indirect calls */
+                 /* far direct is treated as indirect (i#823) */
+                 instr_get_opcode(bb->instr) == OP_jmp_far) {
 
             /* Manage the case where we don't need to perform 'normal'
              * indirect branch processing.
@@ -3095,6 +3100,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 }
                 else
                     ibl_branch_type = IBL_INDCALL;
+            } else if (instr_get_opcode(bb->instr) == OP_jmp_far) {
+                 /* far direct is treated as indirect (i#823) */
+                ibl_branch_type = IBL_INDJMP;
             } else {
                 /* indirect jump */
                 /* was prev instr a direct call? if so, this is a PLT-style ind call */
@@ -3135,6 +3143,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 bb->exit_target = get_ibl_routine(dcontext,
                                                   get_ibl_entry_type(bb->exit_type),
                                                   DEFAULT_IBL_BB(), ibl_branch_type);
+                LOG(THREAD, LOG_INTERP, 4, "mbr exit target = "PFX"\n", bb->exit_target);
                 break;
             } else {
                 /* decide whether to stop bb here */
@@ -3206,7 +3215,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         DYNAMO_OPTION(native_exec_callcall) &&        
         !vmvector_empty(native_exec_areas) &&
         bb->app_interp && bb->instr != NULL && 
-        (instr_is_ubr(bb->instr) || instr_is_call_direct(bb->instr)) &&
+        (instr_is_near_ubr(bb->instr) || instr_is_call_direct(bb->instr)) &&
         instrlist_first(bb->ilist) == instrlist_last(bb->ilist)) {
         /* Case 4564/3558: handle .NET COM method table where a call* targets
          * a call to a native_exec dll -- we need to put the gateway at the
@@ -3458,7 +3467,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
     if (bb->mangle_ilist &&
         (bb->instr == NULL || !instr_opcode_valid(bb->instr) ||
-         !instr_is_ubr(bb->instr) || !instr_ok_to_mangle(bb->instr))) {
+         !instr_is_near_ubr(bb->instr) || !instr_ok_to_mangle(bb->instr))) {
         instr_t *exit_instr = INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->exit_target));
         if (bb->record_translation) {
             app_pc translation = NULL;
@@ -5893,9 +5902,9 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
             }); 
 
             /* Add jump that fixup_last_cti expects */
-            if (!instr_is_ubr(inst)) {
+            if (!instr_is_ubr(inst) || instr_get_opcode(inst) == OP_jmp_far) {
                 app_pc target;
-                if (instr_is_mbr(inst)) {
+                if (instr_is_mbr(inst) || instr_get_opcode(inst) == OP_jmp_far) {
                     target = get_ibl_routine(dcontext,
                                              get_ibl_entry_type(instr_branch_type(inst)),
                                              DEFAULT_IBL_TRACE(),

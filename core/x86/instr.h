@@ -2672,6 +2672,14 @@ instr_is_ubr(instr_t *instr);
 
 DR_API
 /**
+ * Returns true iff \p instr is a near unconditional direct branch: OP_jmp,
+ * or OP_jmp_short.
+ */
+bool 
+instr_is_near_ubr(instr_t *instr);
+
+DR_API
+/**
  * Returns true iff \p instr is a far control transfer instruction: OP_jmp_far,
  * OP_call_far, OP_jmp_far_ind, OP_call_far_ind, OP_ret_far, or OP_iret.
  */

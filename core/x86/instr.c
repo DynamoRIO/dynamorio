@@ -3783,7 +3783,8 @@ instr_branch_type(instr_t *cti_instr)
     case OP_js: case OP_jns: case OP_jz: case OP_jnz:
         return LINK_DIRECT|LINK_JMP;     /* conditional */
     case OP_jmp_far:
-        return LINK_DIRECT|LINK_JMP|LINK_FAR;
+        /* far direct is treated as indirect (i#823) */
+        return LINK_INDIRECT|LINK_JMP|LINK_FAR;
     case OP_jmp_far_ind:
         return LINK_INDIRECT|LINK_JMP|LINK_FAR;
     case OP_call_far:
@@ -3933,6 +3934,14 @@ instr_is_ubr(instr_t *instr)      /* unconditional branch */
     return (opc == OP_jmp ||
             opc == OP_jmp_short ||
             opc == OP_jmp_far);
+}
+
+bool
+instr_is_near_ubr(instr_t *instr)      /* unconditional branch */
+{
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_jmp ||
+            opc == OP_jmp_short);
 }
 
 bool 

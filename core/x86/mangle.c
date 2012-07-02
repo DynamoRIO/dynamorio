@@ -2628,6 +2628,55 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
 }
 
+/***************************************************************************
+ * FAR DIRECT JUMP
+ */
+static void
+mangle_far_direct_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                     instr_t *next_instr, uint flags)
+{
+    /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+     * If the app wants to change segments in a WOW64 process, we will
+     * do the right thing for standard cs selector values (xref i#49).
+     * For other cs changes or in other modes, we do go through far_ibl
+     * today although we do not enact the cs change (nor bother to pass
+     * the selector in xbx).
+     *
+     * For WOW64, I tried keeping this a direct jmp for nice linking by doing the
+     * mode change in-fragment and then using a 64-bit stub with a 32-bit fragment,
+     * but that gets messy b/c a lot of code assumes it can create or calculate the
+     * size of exit stubs given nothing but the fragment flags.  I tried adding
+     * FRAG_ENDS_IN_FAR_DIRECT but still need to pass another param to all the stub
+     * macros and routines for mid-trace exits and for prefixes for -disable_traces.
+     * So, going for treating as indirect and using the far_ibl.  It's a trace
+     * barrier anyway, and rare.  We treat it as indirect in all modes (including
+     * x86 builds) for simplicity (and eventually for full i#823 we'll want
+     * to issue cs changes there too).
+     */
+    app_pc pc = opnd_get_pc(instr_get_target(instr));
+    SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct jmp");
+    STATS_INC(num_far_dir_jmps);
+#ifdef X64
+    if (!X64_MODE_DC(dcontext) &&
+        opnd_get_segment_selector(instr_get_target(instr)) == CS64_SELECTOR) {
+        PRE(ilist, instr,
+            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
+                              XBX_OFFSET));
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EBX),
+                                 OPND_CREATE_INT32(CS64_SELECTOR)));
+    }
+#endif
+    PRE(ilist, instr,
+        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX,
+                          MANGLE_XCX_SPILL_SLOT, XCX_OFFSET));
+    ASSERT((ptr_uint_t)pc < UINT_MAX); /* 32-bit code! */
+    PRE(ilist, instr,
+        INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_ECX),
+                             OPND_CREATE_INT32((ptr_uint_t)pc)));
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
+}
 
 /***************************************************************************
  * SYSCALL
@@ -3773,18 +3822,6 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                 /* convert short jumps */
                 convert_to_near_rel(dcontext, instr);
             }
-            
-            if (instr_get_opcode(instr) == OP_jmp_far) {
-                /* FIXME: case 6962: we don't support fully; just convert
-                 * to near jmp.
-                 */
-                SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct jump");
-                STATS_INC(num_far_dir_jmps);
-                instr_set_opcode(instr, OP_jmp);
-                instr_set_target(instr,
-                                 opnd_create_pc(opnd_get_pc(instr_get_target(instr))));
-                /* doesn't need to be marked as our_mangling */
-            }
         }
 
         /* PR 240258: wow64 call* gateway is considered is_syscall */
@@ -3863,15 +3900,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
         } else if (instr_is_mbr(instr)) {
             mangle_indirect_jump(dcontext, ilist, instr, next_instr, flags);
         } else if (instr_get_opcode(instr) == OP_jmp_far) {
-            /* N.B.: we do not support other than flat 0-based CS, DS, SS, and ES.
-             * if the app wants to change segments, we won't actually issue
-             * a segment change, and so will only work properly if the new segment
-             * is also 0-based.  To properly issue new segments, we'd need a special
-             * ibl that ends in a far cti, and all prior address manipulations would
-             * need to be relative to the new segment, w/o messing up current segment.
-             * FIXME: can we do better without too much work?
-             */
-            SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct jmp");
+            mangle_far_direct_jump(dcontext, ilist, instr, next_instr, flags);
         }
         /* else nothing to do, e.g. direct branches */
     }

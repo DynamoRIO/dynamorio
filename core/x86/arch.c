@@ -1728,7 +1728,7 @@ get_branch_type_name(ibl_branch_type_t branch_type)
 ibl_branch_type_t
 get_ibl_branch_type(instr_t *instr)
 {
-    ASSERT(instr_is_mbr(instr));
+    ASSERT(instr_is_mbr(instr) || instr_get_opcode(instr) == OP_jmp_far);
 
     if (instr_is_return(instr))
         return IBL_RETURN;
