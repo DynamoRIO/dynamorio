@@ -1412,7 +1412,8 @@ os_thread_stack_exit(dcontext_t *dcontext)
              * (no current uses) or a race with detach resuming a translated thread
              * before cleaning it up.  The detach race is harmless so we allow it. */
             ASSERT(doing_detach ||
-                   ((size == (size_t)(ostd->stack_top - ostd->stack_base) ||
+                   ((size == (size_t) ALIGN_FORWARD
+                     (ostd->stack_top - (ptr_int_t)ostd->stack_base, PAGE_SIZE) ||
                      /* PR 252008: for WOW64 nudges we allocate an extra page. */
                      (size == PAGE_SIZE + (size_t)(ostd->stack_top - ostd->stack_base) &&
                       is_wow64_process(NT_CURRENT_PROCESS) &&
