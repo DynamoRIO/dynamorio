@@ -4869,7 +4869,7 @@ os_forge_exception(app_pc target_pc, exception_type_t type)
     /* since we always delay delivery, we always want an rt frame.  we'll convert
      * to a plain frame on delivery.
      */
-    memset(frame, 0, sizeof(frame));
+    memset(frame, 0, sizeof(*frame));
     frame->info.si_signo = sig;
 #ifndef X64
     frame->sig = sig;

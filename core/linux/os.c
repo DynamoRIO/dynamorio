@@ -1084,7 +1084,7 @@ print_all_ldt(void)
                                            HEAPACCT(ACCT_OTHER));
     /* make sure our struct size jives w/ ldt.h */
     ASSERT(sizeof(raw_ldt_entry_t) == LDT_ENTRY_SIZE);
-    memset(ldt, 0, sizeof(ldt));
+    memset(ldt, 0, sizeof(*ldt));
     bytes = modify_ldt_syscall(0, (void *)ldt, sizeof(raw_ldt_entry_t) * LDT_ENTRIES);
     LOG(GLOBAL, LOG_ALL, 3, "read %d bytes, should == %d * %d\n",
         bytes, sizeof(raw_ldt_entry_t), LDT_ENTRIES);
@@ -1117,7 +1117,7 @@ find_unused_ldt_index()
     ASSERT(LDT_ENTRIES_TO_CHECK < LDT_ENTRIES);
     /* make sure our struct size jives w/ ldt.h */
     ASSERT(sizeof(raw_ldt_entry_t) == LDT_ENTRY_SIZE);
-    memset(ldt, 0, sizeof(ldt));
+    memset(ldt, 0, sizeof(*ldt));
     bytes = modify_ldt_syscall(0, (void *)ldt, sizeof(ldt));
     if (bytes == 0) {
         /* no indices are taken yet */
@@ -1465,7 +1465,7 @@ get_segment_base(uint seg)
             raw_ldt_entry_t *ldt = global_heap_alloc(sz HEAPACCT(ACCT_OTHER));
             int bytes;
             byte *base;
-            memset(ldt, 0, sizeof(ldt));
+            memset(ldt, 0, sizeof(*ldt));
             bytes = modify_ldt_syscall(0, (void *)ldt, sz);
             base = (byte *)(ptr_uint_t) LDT_BASE(&ldt[index]);
             global_heap_free(ldt, sz HEAPACCT(ACCT_OTHER));

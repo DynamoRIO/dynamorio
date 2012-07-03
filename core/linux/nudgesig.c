@@ -53,7 +53,7 @@ create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
 {
     nudge_arg_t *arg;
 
-    memset(info, 0, sizeof(info));
+    memset(info, 0, sizeof(*info));
     info->si_signo = NUDGESIG_SIGNUM;
     info->si_code = SI_QUEUE;
 
