@@ -976,7 +976,7 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
     endif (is_runall)
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
-    set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${TEST_SECONDS} -silent)
+    set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${TEST_SECONDS} -killpg -silent)
     # We set LD_LIBRARY_PATH even for native api/ apps since we're not setting
     # rpath (to make it easier to try different trees)
     set(cmd ${cmd}

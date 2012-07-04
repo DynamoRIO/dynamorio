@@ -50,6 +50,7 @@
 #include <sys/time.h> /* itimer */
 #include <stdlib.h> /* getenv */
 #include <string.h> /* strstr */
+#include <signal.h> /* killpg */
 
 #define VERBOSE 0
 
@@ -73,7 +74,7 @@ static vmstats_t vmstats;
 static int limit; /* in seconds */
 struct timeval start, end;
 static int silent; /* whether to print anything */
-static int silent; /* whether to print anything */
+static int kill_group; /* use killpg instead of kill */
 static FILE *FP;
 
 /***************************************************************************/
@@ -184,7 +185,11 @@ signal_handler(int sig)
             /* for limit, ignore fractions of second */
             if (end.tv_sec - start.tv_sec > limit) {
                 /* could use SIGTERM, but on win32 cygwin need SIGKILL */
-                kill(child, SIGKILL);
+                if (kill_group) {
+                    killpg(child, SIGKILL);
+                } else {
+                    kill(child, SIGKILL);
+                }
                 fprintf(FP, "Timeout after %d seconds\n", limit);
                 exit(-1);
             }
@@ -300,7 +305,7 @@ print_stats(struct timeval *start, struct timeval *end,
 int usage(char *us)
 {
     fprintf(FP, "Usage: %s [-s limit_sec | -m limit_min | -h limit_hr]\n"
-                "  [-f] [-silent] [-env var value] <program> <args...>\n", us);
+                "  [-killpg] [-f] [-silent] [-env var value] <program> <args...>\n", us);
     return 1;
 }
 
@@ -336,6 +341,9 @@ int main(int argc, char *argv[])
             arg_offs += 1;
         } else if (strcmp(argv[arg_offs], "-silent") == 0) {
             silent = 1;
+            arg_offs += 1;
+        } else if (strcmp(argv[arg_offs], "-killpg") == 0) {
+            kill_group = 1;
             arg_offs += 1;
         } else if (strcmp(argv[arg_offs], "-f") == 0) {
             char fname[32];
@@ -419,6 +427,18 @@ int main(int argc, char *argv[])
         return (status == 0 ? 0 : 1);
     } else {
         int result;
+        if (kill_group) {
+            /* Change the process group so we can relibably kill all children.
+             * This assumes that no child will change the process group or
+             * invoke sub-commands via bash.
+             */
+            result = setpgid(0 /* my pid */, 0 /* set pgid to my pid */);
+            if (result < 0) {
+                perror("ERROR in setpgid");
+                fprintf(FP, "  trying to run %s\n", argv[arg_offs]);
+                return 1;
+            }
+        }
         result = execvp(argv[arg_offs], argv+arg_offs);
         if (result < 0) {
             perror("ERROR in execvp");
