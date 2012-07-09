@@ -50,7 +50,7 @@ int
 main(void)
 {
     int i;
-    int sum;
+    int sum = 0;
     appdll_print(bar);
 
     /* This loop should get traced out. */

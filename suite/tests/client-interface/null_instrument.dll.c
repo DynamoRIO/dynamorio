@@ -49,7 +49,6 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
          * event, since that's when clients will probably decide whether to
          * instrument or not.
          */
-        char mod_list_buf[MAXIMUM_PATH];
         bool success, should_instrument;
         should_instrument = dr_module_should_instrument(info->handle);
         ASSERT(should_instrument);  /* By default, should be yes. */
