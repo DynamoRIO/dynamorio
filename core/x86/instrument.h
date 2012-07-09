@@ -2351,6 +2351,28 @@ dr_lookup_module_section(module_handle_t lib,
 
 DR_API
 /**
+ * Set whether or not the module referred to by \p handle should be
+ * instrumented.  If \p should_instrument is false, code from the module will
+ * not be passed to the basic block event.  If traces are enabled, code from the
+ * module will still reach the trace event.
+ * \return whether successful.
+ *
+ * \warning Turning off instrumentation for modules breaks clients and
+ * extensions, such as drwrap, that expect to see every instruction.
+ */
+bool
+dr_module_set_should_instrument(module_handle_t handle, bool should_instrument);
+
+DR_API
+/**
+ * Return whether code from the module should be instrumented, meaning passed
+ * to the basic block event.
+ */
+bool
+dr_module_should_instrument(module_handle_t handle);
+
+DR_API
+/**
  * Returns the entry point of the exported function with the given
  * name in the module with the given base.  Returns NULL on failure.
  * \note On Linux this ignores symbol preemption by other modules and only

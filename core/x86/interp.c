@@ -662,6 +662,14 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
         !vmvector_empty(native_exec_areas) &&
         vmvector_overlap(native_exec_areas, new_pc, new_pc+1))
         return false;
+#ifdef CLIENT_INTERFACE
+    /* i#805: If we're crossing a module boundary between two modules that are
+     * and aren't on null_instrument_list, don't elide the jmp.
+     */
+    if ((!!os_module_get_flag(bb->cur_pc, MODULE_NULL_INSTRUMENT)) !=
+        (!!os_module_get_flag(new_pc, MODULE_NULL_INSTRUMENT)))
+        return false;
+#endif
     if (!bb->check_vm_area)
         return true;
     /* need to check this even if an intra-page jmp b/c we allow sub-page vm regions */
@@ -4142,13 +4150,17 @@ init_interp_build_bb(dcontext_t *dcontext, build_bb_t *bb, app_pc start,
      * a hook when we're ready to call one by storing whether there is a
      * hook at translation/decode decision time: now.
      */
+    if (dr_bb_hook_exists() &&
+        /* i#805: Don't instrument code on the null instru list. */
+        !os_module_get_flag(bb->start_pc, MODULE_NULL_INSTRUMENT)) {
+        bb->pass_to_client = true;
+    }
     /* PR 299808: even if no bb hook, for a trace hook we need to
      * record translation and do full decode.  It's racy to check
      * dr_trace_hook_exists() here so we rely on trace building having
      * set unmangled_ilist.
      */
-    if (dr_bb_hook_exists() || unmangled_ilist != NULL) {
-        bb->pass_to_client = true;
+    if (bb->pass_to_client || unmangled_ilist != NULL) {
         /* case 10009/214444: For client interface builds, store the translation.
          * by default.  This ensures clients can get the correct app address
          * of any instruction.  We also rely on this for allowing the client

@@ -3033,6 +3033,47 @@ dr_lookup_module_section(module_handle_t lib, byte *pc, IMAGE_SECTION_HEADER *se
 }
 #endif
 
+/* i#805: Instead of exposing multiple instruction levels, we expose a way for
+ * clients to turn off instrumentation.  Then DR can avoid a full decode and we
+ * can save some time on modules that are not interesting.
+ * XXX: This breaks other clients and extensions, in particular drwrap, which
+ * can miss call and return sites in the uninstrumented module.
+ */
+DR_API
+bool
+dr_module_set_should_instrument(module_handle_t handle, bool should_instrument)
+{
+    module_area_t *ma;
+    os_get_module_info_write_lock();
+    ma = module_pc_lookup((byte*)handle);
+    if (ma != NULL) {
+        if (should_instrument) {
+            ma->flags &= ~MODULE_NULL_INSTRUMENT;
+        } else {
+            ma->flags |= MODULE_NULL_INSTRUMENT;
+        }
+    }
+    os_get_module_info_write_unlock();
+    return (ma != NULL);
+}
+
+DR_API
+bool
+dr_module_should_instrument(module_handle_t handle)
+{
+    bool should_instrument = true;
+    module_area_t *ma;
+    os_get_module_info_lock();
+    ma = module_pc_lookup((byte*)handle);
+    CLIENT_ASSERT(ma != NULL, "invalid module handle");
+    if (ma != NULL) {
+        should_instrument = !TEST(MODULE_NULL_INSTRUMENT, ma->flags);
+    }
+    os_get_module_info_unlock();
+    return should_instrument;
+}
+
+
 DR_API
 /* Returns the entry point of the function with the given name in the module
  * with the given handle.
