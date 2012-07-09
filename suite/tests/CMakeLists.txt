@@ -388,74 +388,19 @@ endif (UNIX)
 
 ##################################################
 
+set(asm_deps
+  "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm"
+  "${PROJECT_BINARY_DIR}/configure.h")
+set(asm_defs
+  -I "${CMAKE_CURRENT_SOURCE_DIR}" # tools.h
+  -I "${PROJECT_SOURCE_DIR}/core/x86") # asm_defines.asm
+
 # some tests need to link with tools.c and its embedded asm code
 set(tools_c ${CMAKE_CURRENT_SOURCE_DIR}/tools.c)
 set_source_files_properties(${tools_c} PROPERTIES
   COMPILE_FLAGS "${ORIG_CMAKE_C_FLAGS}")
-
-# name should be .obj for VS, .asm for makefiles
-function (add_test_asm_tgt source name tgt_out)
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # our CMAKE_ASM_COMPILE_OBJECT rule only applies to makefiles so we use
-    # a custom command.
-    set_source_files_properties(${name} PROPERTIES GENERATED true)
-    get_filename_component(namebase ${name} NAME_WE)
-    get_filename_component(namepath ${name} PATH)
-    set(tgtname "generate_${namebase}_asm")
-    set(namebase "${namepath}/${namebase}")
-    # XXX i#801: a VS2010 bug results in custom commands having all their sources
-    # rebuilt which results in racy collision for tools_asm.
-    # Workaround is to indirect through a dummy .stamp file to avoid
-    # chaining sources to custom commands, although this will only
-    # include the .obj file in the target link with cmake 2.8.8+.
-    # (Alternative is to not list as a source and add to link flags.)
-    set(namestamp "${name}.stamp")
-    set_property(SOURCE "${name}" PROPERTY GENERATED true)
-    # we don't need ${defines} (=> list) b/c we include configure.h
-    add_custom_command(OUTPUT "${namestamp}"
-      DEPENDS "${source}"
-        "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-        "${PROJECT_BINARY_DIR}/configure.h"
-      COMMAND ${CMAKE_COMMAND}
-        ARGS -E touch "${namestamp}"
-      COMMAND ${CMAKE_COMMAND}
-        ARGS -E copy "${source}" "${namebase}.asm"
-      COMMAND "${CMAKE_C_COMPILER}" ARGS ${CMAKE_CPP_FLAGS}
-        /I "${PROJECT_BINARY_DIR}" /I "${PROJECT_SOURCE_DIR}/core/x86"
-        "-DASM_CODE_ONLY"
-        -E ${CPP_NO_LINENUM} "${namebase}.asm" ">" "${namebase}.s"
-      COMMAND "${CMAKE_COMMAND}" ARGS
-        -Dfile=${namebase}.s
-        -P "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-      COMMAND "${CMAKE_ASM_COMPILER}" ARGS ${ASM_FLAGS_LIST} /c
-        /Fo "${name}" "${namebase}.s"
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      VERBATIM # recommended: p260
-      )
-    # for correct parallel builds we need a target to avoid
-    # duplicate and racy VS per-project rules
-    add_custom_target(${tgtname} DEPENDS "${namestamp}")
-    set(${tgt_out} ${tgtname} PARENT_SCOPE)
-  else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    set_source_files_properties(${name} PROPERTIES
-      GENERATED ON COMPILE_FLAGS "-DASM_CODE_ONLY")
-    add_custom_command(
-      OUTPUT ${name}
-      DEPENDS ${source}
-      COMMAND ${CMAKE_COMMAND}
-      ARGS -E copy ${source} ${name}
-      VERBATIM # recommended: p260
-      )
-    set(${tgt_out} "" PARENT_SCOPE)
-  endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-endfunction(add_test_asm_tgt)
-
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  set(tools_asm "${CMAKE_CURRENT_BINARY_DIR}/tools_asm.obj")
-else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  set(tools_asm ${CMAKE_CURRENT_BINARY_DIR}/tools_asm.asm)
-endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-add_test_asm_tgt("${tools_c}" "${tools_asm}" generate_tools_asm)
+add_split_asm_target("${tools_c}" tools_asm generate_tools_asm "_asm"
+  "${asm_defs}" "${asm_deps}")
 
 if (WIN32)
   set_source_files_properties(${PROJECT_SOURCE_DIR}/core/win32/resources.rc
@@ -533,12 +478,8 @@ function(add_exe test source)
   if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
     # we rely on the asm rule doing preprocessing for us, so we just make
     # a copy and set the ASM_CODE_ONLY define
-    if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-      set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath}/${srcbase}_asm.obj")
-    else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-      set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath}/${srcbase}_asm.asm")
-    endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    add_test_asm_tgt("${CMAKE_CURRENT_SOURCE_DIR}/${source}" "${asm_source}" gen_asm_tgt)
+    add_split_asm_target("${CMAKE_CURRENT_SOURCE_DIR}/${source}" asm_source gen_asm_tgt
+      "_asm" "${asm_defs}" "${asm_deps}")
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
@@ -658,12 +599,8 @@ function(tobuild_appdll test source)
       get_filename_component(srcbase ${dll_srcpath} NAME_WE)
       set(srcbase "${srcbase}.appdll") # NAME_WE took this off
       get_filename_component(srcpath_rel ${source} PATH)
-      if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-        set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath_rel}/${srcbase}_asm.obj")
-      else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-        set(asm_source "${CMAKE_CURRENT_BINARY_DIR}/${srcpath_rel}/${srcbase}_asm.asm")
-      endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-      add_test_asm_tgt("${dll_srcpath}" "${asm_source}" gen_asm_tgt)
+      add_split_asm_target("${dll_srcpath}" asm_source gen_asm_tgt
+        "_asm" "${asm_defs}" "${asm_deps}")
       set(lib_srcs ${lib_srcs} ${asm_source})
     endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
     

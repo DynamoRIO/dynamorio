@@ -157,7 +157,7 @@ ASSUME fs:_DATA @N@\
 # define END_PROLOG /* nothing */
 /****************************************************/
 #else
-# error Unknown assembler
+# error Unknown assembler: set one of the ASSEMBLE_WITH_{GAS,MASM,NASM} defines
 #endif
 
 /****************************************************/

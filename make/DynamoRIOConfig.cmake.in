@@ -108,6 +108,9 @@
 # are set, so any prior values will be lost, and if later values are
 # added after the configure call they should be appended.
 #
+# The preprocessor definitions that are added to the compiler flags
+# can be retrieved via the function get_DynamoRIO_defines().
+#
 ###########
 #
 # Optional parameters:
@@ -654,6 +657,12 @@ function (configure_DynamoRIO_decoder target)
   target_link_libraries(${target} drdecode)
 
 endfunction (configure_DynamoRIO_decoder)
+
+
+function (get_DynamoRIO_defines outvar is_cxx)
+  DynamoRIO_extra_cflags(extra_cflags "" ${is_cxx})
+  set(${outvar} "${extra_cflags}" PARENT_SCOPE)
+endfunction (get_DynamoRIO_defines)
 
 ###########################################################################
 #

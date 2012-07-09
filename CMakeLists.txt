@@ -411,8 +411,25 @@ set(INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 ###########################################################################
 # toolchain
 
+# Set up assembly support and CMAKE_CPP.
+# Note that in cmake < 2.6.4, I had to fix a bug in
+# /usr/share/cmake/Modules/CMakeASMInformation.cmake
+# where @VAR@ expansion was used, which only works for configure_file()
+#   now fixed in CMake/Modules/CMakeASMInformation.cmake:1.5
+# See top of top-level CMakeLists.txt for our workaround.
+set(cpp2asm_newline_script_path "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake")
+include(make/cpp2asm_support.cmake)
 if (UNIX)
+  # We require gas >= 2.18.50 for --32, --64, and the new -msyntax=intel, etc.
+  # Since this is pretty recent we include a copy (built vs as old a glibc
+  # as was convenient)
+  if (NOT CMAKE_ASM_SUPPORTS_INTEL_SYNTAX)
+    message("${CMAKE_ASM_COMPILER} too old: using ${PROJECT_SOURCE_DIR}/make/as-2.18.50")
+    set(CMAKE_ASM_COMPILER "${PROJECT_SOURCE_DIR}/make/as-2.18.50")
+  endif (NOT CMAKE_ASM_SUPPORTS_INTEL_SYNTAX)
+endif (UNIX)
 
+if (UNIX)
   # Assume clang behaves like gcc.  CMake 2.6 won't detect clang and will set
   # CMAKE_COMPILER_IS_GNUCC to TRUE, but 2.8 does not.  We prefer the 2.6
   # behavior.
@@ -428,16 +445,6 @@ if (UNIX)
     # we use gcc extensions
     message(FATAL_ERROR "gcc is required to build")
   endif (NOT CMAKE_COMPILER_IS_GNUCC)
-  # "gcc -E" on a non-.c-extension file gives message:
-  #   "linker input file unused because linking not done"
-  # and doesn't produce any output, so we must use cpp for our .asm files.
-  # we assume it's in the same dir.
-  get_filename_component(compiler_path ${CMAKE_C_COMPILER} PATH)
-  find_program(CMAKE_CPP cpp HINTS "${compiler_path}" DOC "path to C preprocessor")
-  if (NOT CMAKE_CPP)
-    message(FATAL_ERROR "cpp is required to build")
-  endif (NOT CMAKE_CPP)
-  mark_as_advanced(CMAKE_CPP)
 
   # Detect clang, which masquerades as gcc.  CMake 2.6 doesn't know how to
   # detect it.
@@ -473,17 +480,6 @@ else (UNIX)
   else ()
     get_filename_component(cl_path ${CMAKE_C_COMPILER} PATH)
   endif ()
-  if (X64)
-    find_program(CMAKE_ASM_COMPILER ml64.exe HINTS "${cl_path}" DOC "path to assembler")
-  else (X64)
-    find_program(CMAKE_ASM_COMPILER ml.exe HINTS "${cl_path}" DOC "path to assembler")
-  endif (X64)
-  if (NOT CMAKE_ASM_COMPILER)
-    message(FATAL_ERROR "assembler not found: required to build")
-  endif (NOT CMAKE_ASM_COMPILER)
-  message(STATUS "Found assembler: ${CMAKE_ASM_COMPILER}")
-
-  set(CMAKE_CPP ${CMAKE_C_COMPILER})
 
   # cmake has CMAKE_RC_COMPILER, but no message compiler
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
@@ -594,23 +590,16 @@ if (UNIX)
   if (no_stack_protector_avail)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fno-stack-protector")
   endif (no_stack_protector_avail)
-  set(ASM_FLAGS "-mmnemonic=intel -msyntax=intel -mnaked-reg --noexecstack")
   # now that the user must set non-default -mNN we don't nec. need these:
   if (X64)
     set(BASE_CFLAGS "-m64 ${BASE_CFLAGS}")
     set(BASE_CXXFLAGS "-m64")
-    set(ASM_FLAGS "${ASM_FLAGS} --64")
     set(LD_FLAGS "-melf_x86_64")
   else (X64)
     set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
     set(BASE_CXXFLAGS "-m32")
-    # putting --32 last so we fail on -mmnemonic=intel on older as, not --32
-    set(ASM_FLAGS "${ASM_FLAGS} --32")
     set(LD_FLAGS "-melf_i386")
   endif (X64)
-  if (DEBUG)
-    set(ASM_FLAGS "${ASM_FLAGS} -g")
-  endif (DEBUG)
   # there's no cmake warning control so we hardcode it
   set(WARN "-Wall -Werror")
   if (NOT CMAKE_COMPILER_IS_CLANG)
@@ -642,11 +631,6 @@ if (UNIX)
   # We disable strcmp intrinsic to avoid stack overflow in
   # set_dynamo_options(): case 7853.
   set(DBG_OPT "-fno-omit-frame-pointer -fno-builtin-strcmp")
-
-  set(CPP_KEEP_COMMENTS -C)
-  set(CPP_NO_LINENUM -P)
-  set(CPP_KEEP_WHITESPACE -traditional-cpp)
-  set(CMAKE_CPP_FLAGS "")
 else (UNIX)
   # FIXME: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "/nologo")
@@ -691,101 +675,12 @@ else (UNIX)
   # explicitly request /Od even though it's cl's default b/c VS has /O2 as default
   # and cl 14.00 hangs compiling core/fragment.c with /Od and DEBUG.
   set(DBG_OPT "/Od")
-  set(CPP_KEEP_COMMENTS /C)
-  set(CPP_NO_LINENUM /EP)
-  set(CPP_KEEP_WHITESPACE "")
-  set(CMAKE_CPP_FLAGS "/nologo")
   set(ASM_FLAGS "/nologo ${ASM_DBG}")
   set(BASE_CXXFLAGS "${BASE_CFLAGS}")
 endif (UNIX)
 string(REPLACE " " ";" ASM_FLAGS_LIST "${ASM_FLAGS}")
 
 if (UNIX)
- # i#646: cmake 2.8.5 requires ASM-ATT to find as: but we don't want to change
- # all our vars to have -ATT suffix so we set the search list instead
- set(CMAKE_ASM_COMPILER_INIT gas as)
-endif (UNIX)
-if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # CMake does not support assembly with VS generators
-  # (http://public.kitware.com/Bug/view.php?id=11536)
-  # so we have to add our own custom commands and targets
-  enable_language(ASM)
-endif ()
-# note that I had to fix a bug in /usr/share/cmake/Modules/CMakeASMInformation.cmake
-# where @VAR@ expansion was used, which only works for configure_file()
-#   now fixed in CMake/Modules/CMakeASMInformation.cmake:1.5
-# see above for our workaround
-if (UNIX)
-  # we used to have ".ifdef FOO" and to not have it turn into ".ifdef 1" we'd say
-  # "-DFOO=FOO", but we now use exclusively preprocessor defines, which is good
-  # since our defines are mostly in configure.h where we can't as easily tweak them
-  # (update: I do have top-level defines gathered up in ${defines}.
-  # so, we don't bother transforming -DFOO into -DFOO=FOO, nor with setting
-  # up the --defsym args.
-  set(CMAKE_ASM_COMPILE_OBJECT
-    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E <SOURCE> -o <OBJECT>.s"
-    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake\""
-    # not using <FLAGS> b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
-    # is passed in: we don't need the include dirs b/c of the cpp step.
-    # update: Brad fixed bug #8107: moved -Ddynamorio_EXPORTS from <FLAGS> to <DEFINES> 
-    # in CMake/Source/cmMakefileTargetGenerator.cxx:1.115 (will be in 2.6.4).
-    #
-    # we also aren't passing any <DEFINES> since for one thing
-    # there's no way to transform to --defsym: luckily we don't need them
-    # since using cpp now (see above).
-    # FIXME: I tried setting CMAKE_ASM_DEFINE_FLAG to "--defsym " (not clear
-    # how to get =1 in there :should verify it's needed) but <DEFINES>
-    # comes up empty for me.
-    "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
-    )
-else (UNIX)
-  # Even if we didn't preprocess we'd need our own rule since cmake doesn't
-  # support ml.
-  set(CMAKE_ASM_COMPILE_OBJECT
-    # There's no way to specify a non-default name with /P: writes to
-    # cwd/sourcebase.i.  Could copy with "cmake -E copy" but no way to
-    # run get_filename_component on a tag var.  So going with
-    # redirection operator which should work in all supported shells.
-    #
-    # ml can't handle line number markers so using ${CPP_NO_LINENUM}.
-    "<CMAKE_C_COMPILER> ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E ${CPP_NO_LINENUM} <SOURCE> > <OBJECT>.s"
-    # cmake does add quotes in custom commands, etc. but not in this rule so we add
-    # them to handle paths with spaces:
-    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake\""
-    "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} /c /Fo<OBJECT> <OBJECT>.s"
-    )
-endif (UNIX)
-
-if (UNIX)
-  # We require gas >= 2.18.50 for --32, --64, and the new -msyntax=intel, etc.
-  # Since this is pretty recent we include a copy (built vs as old a glibc
-  # as was convenient)
-  execute_process(COMMAND
-    ${CMAKE_ASM_COMPILER} --help
-    RESULT_VARIABLE asm_result
-    ERROR_VARIABLE asm_error
-    OUTPUT_VARIABLE asm_out)
-  if (asm_result OR asm_error)
-    message(FATAL_ERROR "*** ${CMAKE_ASM_COMPILER} failed: ***\n${asm_error}")
-  endif (asm_result OR asm_error)
-  # turn the flags into a vector
-  string(REGEX REPLACE " " ";" flags_needed "${ASM_FLAGS}")
-  # we want "-mmnemonic=intel" to match "-mmnemonic=[att|intel]"
-  string(REGEX REPLACE "=" ".*" flags_needed "${flags_needed}")
-  set(flag_present 1)
-  foreach (flag ${flags_needed})
-    if (flag_present)
-      string(REGEX MATCH "${flag}" flag_present "${asm_out}")
-      if (NOT flag_present)
-        message("${CMAKE_ASM_COMPILER} missing flag \"${flag}\"")
-      endif (NOT flag_present)
-    endif (flag_present)
-  endforeach (flag)
-  if (NOT flag_present)
-    message("${CMAKE_ASM_COMPILER} too old: using ${PROJECT_SOURCE_DIR}/make/as-2.18.50")
-    set(CMAKE_ASM_COMPILER "${PROJECT_SOURCE_DIR}/make/as-2.18.50")
-  endif (NOT flag_present)
-
   # Check for -fvisibility
   # PR 262458: for gcc >= 3.4 we can use -fvisibility instead of a
   # linker version script.  Note that we're still using a linker
@@ -942,6 +837,7 @@ set(INSTALL_DOCS docs)
 # samples are installed via api/samples/ separate CMake project
 set(INSTALL_CMAKE cmake)
 set(BUILD_INCLUDE "${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE}")
+set(BUILD_CMAKE "${PROJECT_BINARY_DIR}/${INSTALL_CMAKE}")
 
 # support DynamoRIO being included as a subdir inside a tool's project,
 # where the tool will likely want to suppress DR's install rules.
@@ -1143,6 +1039,17 @@ endif (BUILD_DRGUI)
 # create empty logs dir for running out of build dir
 file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/logs")
 
+# export cpp2asm files just like full install, for using from build dir
+# with projects that include DR sources
+configure_file(${PROJECT_SOURCE_DIR}/make/cpp2asm_support.cmake
+  ${BUILD_CMAKE}/cpp2asm_support.cmake COPYONLY)
+configure_file(${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
+  ${BUILD_CMAKE}/cpp2asm_add_newlines.cmake COPYONLY)
+# we need to strip out the #include of configure.h
+file(READ "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm" str)
+string(REPLACE "#include \"configure.h\"" "" str "${str}")
+file(WRITE "${BUILD_CMAKE}/cpp2asm_defines.h" "${str}")
+
 ###########################################################################
 
 # used by docs, samples, and tests, so here instead of in core/CMakeLists.txt
@@ -1317,6 +1224,18 @@ DR_install(FILES
   ${PROJECT_SOURCE_DIR}/suite/runsuite_common_post.cmake
   DESTINATION ${INSTALL_CMAKE}
 )
+
+# export cpp2asm support, with consistent names
+DR_install(FILES ${PROJECT_SOURCE_DIR}/make/cpp2asm_support.cmake
+  DESTINATION ${INSTALL_CMAKE}
+)
+DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
+  DESTINATION ${INSTALL_CMAKE} RENAME cpp2asm_add_newlines.cmake
+)
+# we need to strip out the #include of configure.h
+DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm\" str)
+  string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
+  file(WRITE \"\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
 
 # Extensions (i#277/PR 540817)
 if (BUILD_EXT)

@@ -145,6 +145,9 @@ The changes between version \DR_VERSION and 3.2.0 are:
    arbitrary DynamoRIO runtime options
  - Added support for building with Visual Studio 2010 and with MSBuild
  - Added instr_is_near_ubr() and instr_is_near_call_direct()
+ - Added exported CMake cross-platform assembly support in
+   cpp2asm_support.cmake and auxiliary files
+ - Added get_DynamoRIO_defines() to DynamoRIOConfig.cmake
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux

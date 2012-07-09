@@ -38,69 +38,14 @@ set(EXECUTABLE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set_per_config_ouput_to_match_single_config()
 
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # our CMAKE_ASM_COMPILE_OBJECT rule only applies to makefiles so we use
-  # a custom command.
-  # we need two versions: one for core and one for preinject+drinject.
-  # we've collapsed down to a single config type so we ignore config
-  # selection here (can't support multiple until cmake 2.8.4 anyway).
-  function (add_asm source suffix output_out tgt_out extradefs)
-    set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.s"
-      PROPERTIES GENERATED true)
-    # we don't need ${defines} (=> list) b/c we include configure.h
-    set(output "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.obj")
-    set(namebase "${namepath}/${namebase}")
-    # XXX i#801: a VS2010 bug results in custom commands having all their sources
-    # rebuilt which results in racy collision for tools_asm.
-    # Workaround is to indirect through a dummy .stamp file to avoid
-    # chaining sources to custom commands, although this will only
-    # include the .obj file in the target link with cmake 2.8.8+.
-    # (Alternative is to not list as a source and add to link flags.)
-    set(output_stamp "${output}.stamp")
-    set_property(SOURCE "${output}" PROPERTY GENERATED true)
-    add_custom_command(OUTPUT "${output_stamp}"
-      DEPENDS "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm"
-        "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-        "${PROJECT_BINARY_DIR}/configure.h"
-        "${CMAKE_CURRENT_SOURCE_DIR}/${source}.asm"
-      COMMAND ${CMAKE_COMMAND}
-        ARGS -E touch "${output_stamp}"
-      COMMAND "${CMAKE_C_COMPILER}" ARGS ${CMAKE_CPP_FLAGS}
-        /I "${PROJECT_BINARY_DIR}" ${extradefs}
-        -E ${CPP_NO_LINENUM} "${CMAKE_CURRENT_SOURCE_DIR}/${source}.asm"
-        ">" "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.s"
-      COMMAND "${CMAKE_COMMAND}" ARGS
-        -Dfile=${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.s
-        -P "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake"
-      COMMAND "${CMAKE_ASM_COMPILER}" ARGS ${ASM_FLAGS_LIST} /c
-        /Fo "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.obj"
-        "${CMAKE_CURRENT_BINARY_DIR}/${source}${suffix}.s"
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      VERBATIM # recommended: p260
-      )
-    get_filename_component(namebase "${source}" NAME_WE)
-    add_custom_target(generate_${namebase}${suffix} DEPENDS "${output_stamp}")
-    set(${output_out} "${output}" PARENT_SCOPE)
-    set(${tgt_out} generate_${namebase}${suffix} PARENT_SCOPE)
-  endfunction (add_asm)
-  add_asm(x86/x86 _core x86_core_asm_src x86_core_asm_tgt "")
-  add_asm(x86/x86 _noncore x86_noncore_asm_src x86_noncore_asm_tgt
-    -DNOT_DYNAMORIO_CORE_PROPER)
-  add_asm(x86/pre_inject_asm "" preinject_asm_src preinject_asm_tgt
-    -DNOT_DYNAMORIO_CORE_PROPER)
-else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  set(x86_core_asm_src "${CMAKE_CURRENT_SOURCE_DIR}/x86/x86.asm")
-  set(x86_noncore_asm_src "${CMAKE_CURRENT_SOURCE_DIR}/x86/x86.asm")
-  set(preinject_asm_src "${CMAKE_CURRENT_SOURCE_DIR}/x86/pre_inject_asm.asm")
-  # XXX: how get cmake to analyze #includes of my asm files?
-  set(asm_dependencies
-    ${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm
-    ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
-    ${PROJECT_BINARY_DIR}/configure.h)
-  set_source_files_properties(${x86_core_asm_src} ${x86_noncore_asm_src}
-    ${preinject_asm_src}
-    PROPERTIES OBJECT_DEPENDS "${asm_dependencies}")
-endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+set(asm_deps
+  "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm"
+  "${PROJECT_BINARY_DIR}/configure.h")
+add_asm_target(x86/x86.asm x86_core_asm_src x86_core_asm_tgt "_core" "" "${asm_deps}")
+add_asm_target(x86/x86.asm x86_noncore_asm_src x86_noncore_asm_tgt "_noncore"
+  "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
+add_asm_target(x86/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
+  "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 
 set(CORE_SRCS
   options.c
