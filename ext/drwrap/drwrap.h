@@ -80,6 +80,9 @@ enum {
 /** Name of drmgr instrumentation pass priorities for both app2app and insert */
 #define DRMGR_PRIORITY_NAME_DRWRAP "drwrap"
 
+/** Spill slot used to store application return address for drwrap_replace_native() */
+#define DRWRAP_REPLACE_NATIVE_RETADDR_SLOT SPILL_SLOT_1
+
 DR_EXPORT
 /**
  * Replaces the application function that starts at the address \p original
@@ -166,6 +169,12 @@ DR_EXPORT
  * address that is different from an execution without a native
  * replacement.  The return address will be identical, however,
  * assuming \p original does not replace its own return address.
+ *
+ * \note The application return address that would be present
+ * without a native replacement is replaced with a code cache
+ * return address.  This can interfere with callstack walking.
+ * The application address can be obtained by calling
+ * dr_read_saved_reg() and passing DRWRAP_REPLACE_NATIVE_RETADDR_SLOT.
  *
  * \note The priority of the app2app pass used here is
  * DRMGR_PRIORITY_APP2APP_DRWRAP and its name is

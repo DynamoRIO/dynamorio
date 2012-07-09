@@ -1036,7 +1036,8 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
      */
     instrlist_truncate(drcontext, bb, inst);
     instrlist_meta_append(bb, INSTR_CREATE_pop
-                          (drcontext, dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1)));
+                          (drcontext, dr_reg_spill_slot_opnd
+                           (drcontext, DRWRAP_REPLACE_NATIVE_RETADDR_SLOT)));
 #ifdef X64
     /* XXX: simple call has reachability issues.   For now we clobber
      * xax, which is scratch in most calling conventions.
@@ -1057,7 +1058,8 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
                                OPND_CREATE_INT32(rn->stack_adjust)));
     }
     instrlist_meta_append(bb, INSTR_CREATE_push
-                          (drcontext, dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1)));
+                          (drcontext, dr_reg_spill_slot_opnd
+                           (drcontext, DRWRAP_REPLACE_NATIVE_RETADDR_SLOT)));
     if (rn->stack_adjust > 0) {
         /* re-do the arg adjust (i#778) */
         instrlist_append(bb, INSTR_XL8
