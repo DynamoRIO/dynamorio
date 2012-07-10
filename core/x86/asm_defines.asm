@@ -41,6 +41,10 @@
 
 #include "configure.h"
 
+#if defined(X86_64) && !defined(X64)
+# define X64
+#endif
+
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
 # define START_FILE .text
