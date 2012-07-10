@@ -628,18 +628,18 @@ main(void)
 {
     char buf[512];
     wchar_t wbuf[512];
-    int res;
+    ssize_t res;
     standalone_init();
 
     /* test wide char conversion */
     res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", L"wide string");
-    EXPECT(res == strlen("wide string"), true);
+    EXPECT(res == (ssize_t) strlen("wide string"), true);
     EXPECT(strcmp(buf, "wide string"), 0);
     res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%ls", L"wide string");
-    EXPECT(res == strlen("wide string"), true);
+    EXPECT(res == (ssize_t) strlen("wide string"), true);
     EXPECT(strcmp(buf, "wide string"), 0);
     res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%.3S", L"wide string");
-    EXPECT(res == strlen("wid"), true);
+    EXPECT(res == (ssize_t) strlen("wid"), true);
     EXPECT(strcmp(buf, "wid"), 0);
     res = our_snprintf(buf, 4, "%S", L"wide string");
     EXPECT(res == -1, true);
@@ -649,25 +649,25 @@ main(void)
 
     /* test float */
     res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%3.1f", 42.9f);
-    EXPECT(res == strlen("42.9"), true);
+    EXPECT(res == (ssize_t) strlen("42.9"), true);
     EXPECT(strcmp(buf, "42.9"), 0);
     /* XXX: add more */
 
     /* test all-wide */
     res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%d%s%3.1f",
                             -42, L"wide string", 42.9f);
-    EXPECT(res == wcslen(L"-42wide string42.9"), true);
+    EXPECT(res == (ssize_t) wcslen(L"-42wide string42.9"), true);
     EXPECT(wcscmp(wbuf, L"-42wide string42.9"), 0);
 
     /* test all-wide conversion */
     res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S", "narrow string");
-    EXPECT(res == wcslen(L"narrow string"), true);
+    EXPECT(res == (ssize_t) wcslen(L"narrow string"), true);
     EXPECT(wcscmp(wbuf, L"narrow string"), 0);
     res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%hs", "narrow string");
-    EXPECT(res == wcslen(L"narrow string"), true);
+    EXPECT(res == (ssize_t) wcslen(L"narrow string"), true);
     EXPECT(wcscmp(wbuf, L"narrow string"), 0);
     res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%.3S", "narrow string");
-    EXPECT(res == wcslen(L"nar"), true);
+    EXPECT(res == (ssize_t) wcslen(L"nar"), true);
     EXPECT(wcscmp(wbuf, L"nar"), 0);
     res = our_snprintf_wide(wbuf, 6, L"%S", "narrow string");
     EXPECT(res == -1, true);

@@ -108,7 +108,8 @@ foreach (xml ${all_xml})
   else ("${string}" MATCHES "Configuring incomplete")
     string(REGEX REPLACE "Configure.xml$" "Build.xml" xml "${xml}")
     file(READ ${xml} string)
-    string(REGEX MATCHALL "<Error>" build_errors "${string}")
+    # i#835: make sure to treat warnings-as-errors as errors
+    string(REGEX MATCHALL "<Error>|warning treated as error" build_errors "${string}")
     if (build_errors)
       list(LENGTH build_errors num_errors)
       file(APPEND ${outf} "${build}: **** ${num_errors} build errors ****\n")
@@ -117,7 +118,14 @@ foreach (xml ${all_xml})
       string(REGEX MATCHALL
         "<Error>[^<]*<BuildLogLine>[^<]*</BuildLogLine>[^<]*<Text>[^<]+<"
         failures "${string}")
-      foreach (failure ${failures})
+      # XXX i#802: ideally we'd show all the warnings that led to the error, but
+      # that's not easy, so for now we just show the final msg which just has
+      # one of the line #s and not the actual warning text.  Once we have no
+      # non-fatal warnings we can just display all warnings here.
+      string(REGEX MATCHALL
+        "<Text>[^<]*warning treated as error[^<]*</Text>"
+        warn_failures "${string}")
+      foreach (failure ${failures} ${warn_failures})
         string(REGEX REPLACE "^.*<Text>([^<]+)<" "\\1" text "${failure}")
         # replace escaped chars for weird quote with simple quote
         string(REGEX REPLACE "&lt:-30&gt:&lt:-128&gt:&lt:-10[34]&gt:" "'" text "${text}")
