@@ -1443,6 +1443,10 @@ if (UNIX)
   tobuild(linux.threadexit linux/threadexit.c)
   tobuild(linux.threadexit2 linux/threadexit2.c)
 
+  # We pass -native_exec_list which causes us to call strcasecmp in libc,
+  # thereby exercising on our ability to copy libc's TLS data.
+  tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
+
   # FIXME i#125: bugs in these, were disabled in the past
   tobuild_ops(linux.vfork linux/vfork.c ""
     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")

@@ -996,7 +996,7 @@ typedef struct _tcb_head_t {
  * pointer and lets the app intialize them.  Until we stop using the app's libc
  * (i#46), we need to copy this data from before the thread pointer.
  */
-#define APP_LIBC_TLS_SIZE 0x200
+#define APP_LIBC_TLS_SIZE 0x400
 
 /* FIXME: add description here to talk how TLS is setup. */
 static void
@@ -1050,9 +1050,12 @@ privload_tls_init(void *app_tp)
     uint i;
     size_t tls_bytes_read;
 
+    /* FIXME: These should be a thread logs, but dcontext is not ready yet. */
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is "PFX"\n",
+        __FUNCTION__, app_tp);
     if (app_tp == NULL) {
-        /* FIXME: This should be a thread log, but dcontext is not ready now. */
-        LOG(GLOBAL, LOG_LOADER, 2, "%s app_tp is NULL\n", __FUNCTION__);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: no app TLS, skipping private lib TLS\n",
+            __FUNCTION__, app_tp);
         return NULL;
     }
     dr_tp = heap_mmap(max_client_tls_size);
@@ -1070,9 +1073,6 @@ privload_tls_init(void *app_tp)
      * those tls with the same offset after switch the segment.
      * This copy can be avoided if we remove the DR's dependency on
      * libc. 
-     */
-    /* XXX: The dcontext is not installed, so the safe_read_ex always triggers a
-     * /proc/pid/maps read.
      */
     if (!safe_read_ex(app_tp - APP_LIBC_TLS_SIZE, APP_LIBC_TLS_SIZE + tcb_size,
                       dr_tp  - APP_LIBC_TLS_SIZE, &tls_bytes_read)) {
