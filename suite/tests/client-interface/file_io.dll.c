@@ -217,7 +217,7 @@ void dr_init(client_id_t id)
     mbuf = dr_nonheap_alloc(PAGE_SIZE*3, DR_MEMPROT_READ|DR_MEMPROT_WRITE);
     memset(mbuf, 0, PAGE_SIZE*3);
     dr_memory_protect(mbuf + PAGE_SIZE*2, PAGE_SIZE, DR_MEMPROT_NONE);
-    edge = find_prot_edge(mbuf, DR_MEMPROT_NONE);
+    edge = find_prot_edge(mbuf, DR_MEMPROT_READ);
     bytes_read = 0xcdcdcdcd;
     if (dr_safe_read(edge - (PAGE_SIZE + 10), PAGE_SIZE+20, safe_buf, &bytes_read) ||
         bytes_read == 0xcdcdcdcd || bytes_read > PAGE_SIZE+10 || 
