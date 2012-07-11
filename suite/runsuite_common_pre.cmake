@@ -73,6 +73,7 @@ if (UNIX)
 else (UNIX)
   set(arg_use_make OFF) # use unix make instead of visual studio
 endif (UNIX)
+set(arg_use_ninja OFF)  # use ninja
 set(arg_long OFF)     # whether to run the long suite
 set(arg_already_built OFF) # for testing w/ already-built suite
 set(arg_exclude "")   # regex of tests to exclude
@@ -105,6 +106,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "use_make")
     set(arg_use_make ON)
   endif ()
+  if (${arg} STREQUAL "use_ninja")
+    set(arg_use_ninja ON)
+  endif ()
   if (${arg} STREQUAL "long")
     set(arg_long ON)
   endif (${arg} STREQUAL "long")
@@ -136,6 +140,13 @@ if (arg_use_make)
     message(FATAL_ERROR "make requested but make not found")
   endif (NOT MAKE_COMMAND)
 endif (arg_use_make)
+
+if (arg_use_ninja)
+  find_program(NINJA_COMMAND ninja DOC "ninja command")
+  if (NOT NINJA_COMMAND)
+    message(FATAL_ERROR "ninja requested but ninja not found")
+  endif (NOT NINJA_COMMAND)
+endif (arg_use_ninja)
 
 if (arg_long)
   set(TEST_LONG ON)
@@ -212,7 +223,9 @@ set(CTEST_CMAKE_COMMAND "${CMAKE_EXECUTABLE_NAME}")
 # outer file should set CTEST_PROJECT_NAME
 set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
 
-if (arg_use_make)
+if (arg_use_ninja)
+  set(CTEST_CMAKE_GENERATOR "Ninja")
+elseif (arg_use_make)
   set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
   find_program(MAKE_COMMAND make DOC "make command")
   if (have_cygwin)
@@ -224,7 +237,7 @@ if (arg_use_make)
   endif (have_cygwin)
 elseif (arg_use_nmake)
   set(CTEST_CMAKE_GENERATOR "NMake Makefiles")
-else (arg_use_make)
+else ()
   # we don't yet support VS2010 (i#401) so prefer the others
   get_filename_component(vs_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\9.0\\Setup\\VS;ProductDir] REALPATH)
   # on failure getting weird results: "c:/registry", so we assume will have Studio
@@ -271,7 +284,7 @@ else (arg_use_make)
     # Request parallel build (sequential by default: i#800)
     set(extra_build_args "/m")
   endif ()
-endif (arg_use_make)
+endif ()
 
 function(get_default_config config builddir)
   file(READ "${builddir}/CMakeCache.txt" cache)
