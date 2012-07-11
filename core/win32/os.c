@@ -2050,7 +2050,8 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
     if ((cxt == NULL && (DYNAMO_OPTION(inject_at_create_process) ||
                          (get_os_version() >= WINDOWS_VERSION_VISTA &&
                           DYNAMO_OPTION(vista_inject_at_create_process)))
-         && !is_wow64_process(process_handle)) ||
+         && (!is_wow64_process(process_handle) ||
+             get_os_version() >= WINDOWS_VERSION_VISTA)) ||
         (cxt != NULL && is_first_thread_in_new_process(process_handle, cxt))) {
         int rununder_mask;
         inject_setting_mask_t should_inject;

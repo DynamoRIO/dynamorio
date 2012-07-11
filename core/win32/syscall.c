@@ -2514,11 +2514,13 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
                 CONTEXT *context;
                 CONTEXT *cxt = NULL;
                 int res;
-                if (get_os_version() >= WINDOWS_VERSION_VISTA &&
-                    is_wow64_process(proc_handle)) {
-                    /* We can't early inject 32-bit DR into a wow64 process as
-                     * there is no ntdll32.dll at early inject point, so we have
-                     * to do thread injection.  On Vista+ we don't see the
+                /* Since this syscall is vista+ only, whether a wow64 process
+                 * has no bearing (xref i#381)
+                 */
+                ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
+                if (!DYNAMO_OPTION(early_inject)) {
+                    /* If no early injection we have to do thread injection, and
+                     * on Vista+ we don't see the
                      * NtCreateThread so we do it here.  PR 215423.
                      */
                     context = nt_initialize_context(buf, CONTEXT_DR_STATE);
@@ -2526,19 +2528,32 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
                     if (NT_SUCCESS(res))
                         cxt = context;
                     else {
+                        /* FIXME i#49: cross-arch injection can end up here w/
+                         * STATUS_INVALID_PARAMETER.  Need to use proper platform's
+                         * CONTEXT for target.
+                         */
+                        DODEBUG({
+                            if (is_wow64_process(NT_CURRENT_PROCESS) &&
+                                !is_wow64_process(proc_handle)) {
+                                SYSLOG_INTERNAL_WARNING_ONCE
+                                    ("Injecting from 32-bit into 64-bit process is not "
+                                     "yet supported.");
+                            }
+                        });
                         LOG(THREAD, LOG_SYSCALLS, 1,
                             "syscall: NtCreateUserProcess: WARNING: failed to get cxt of "
-                            "thread ("PIFX") so can't follow children on WOW64.\n");
+                            "thread ("PIFX") so can't follow children on WOW64.\n", res);
                     }
                 }
-                if (maybe_inject_into_process(dcontext, proc_handle, cxt) &&
+                if ((cxt != NULL || DYNAMO_OPTION(early_inject)) &&
+                    maybe_inject_into_process(dcontext, proc_handle, cxt) &&
                     cxt != NULL) {
                     /* injection routine is assuming doesn't have to install cxt */
                     res = nt_set_context(thread_handle, cxt);
                     if (!NT_SUCCESS(res)) {
                         LOG(THREAD, LOG_SYSCALLS, 1,
                             "syscall: NtCreateUserProcess: WARNING: failed to set cxt of "
-                            "thread ("PIFX") so can't follow children on WOW64.\n");
+                            "thread ("PIFX") so can't follow children on WOW64.\n", res);
                     }
                 }
             } else {
