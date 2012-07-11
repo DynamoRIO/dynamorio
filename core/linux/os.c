@@ -832,24 +832,40 @@ get_application_short_name()
 static timestamp_t
 get_timer_frequency_cpuinfo(void)
 {
-    FILE *cpuinfo;
-    char line[CPUMHZ_LINE_LENGTH];
-    ulong cpu_mhz = 1, cpu_khz = 0; 
-    
-    /* FIXME: use os_open; for now only called for init, so ok to use fopen */
-    cpuinfo=fopen(PROC_CPUINFO,"r");
-    ASSERT(cpuinfo != NULL);
+    file_t cpuinfo;
+    ssize_t nread;
+    char *buf;
+    char *mhz_line;
+    ulong cpu_mhz = 1000;
+    ulong cpu_khz = 0; 
 
-    while (!feof(cpuinfo)) {
-        if (fgets(line, sizeof(line), cpuinfo) == NULL)
-            break;
-        if (sscanf(line, CPUMHZ_LINE_FORMAT, &cpu_mhz, &cpu_khz) == 2) {
-            LOG(GLOBAL, LOG_ALL, 2, "Processor speed exactly %lu.%03luMHz\n", cpu_mhz, cpu_khz);
-            break;
+    cpuinfo = os_open(PROC_CPUINFO, OS_OPEN_READ);
+
+    /* This can happen in a chroot or if /proc is disabled. */
+    if (cpuinfo == INVALID_FILE)
+        return 1000 * 1000;  /* 1 GHz */
+
+    /* cpu MHz is typically in the first 4096 bytes.  If not, or we get a short
+     * or interrupted read, our timer frequency estimate will be off, but it's
+     * not the end of the world.
+     * FIXME: Factor a buffered file reader out of our maps iterator if we want
+     * to do this the right way.
+     */
+    buf = global_heap_alloc(PAGE_SIZE HEAPACCT(ACCT_OTHER));
+    nread = os_read(cpuinfo, buf, PAGE_SIZE - 1);
+    if (nread > 0) {
+        buf[nread] = '\0';
+        mhz_line = strstr(buf, "cpu MHz\t\t:");
+        if (mhz_line != NULL &&
+            sscanf(mhz_line, CPUMHZ_LINE_FORMAT, &cpu_mhz, &cpu_khz) == 2) {
+            LOG(GLOBAL, LOG_ALL, 2, "Processor speed exactly %lu.%03luMHz\n",
+                cpu_mhz, cpu_khz);
         }
     }
-    fclose(cpuinfo);
-    return cpu_mhz*1000 + cpu_khz;
+    global_heap_free(buf, PAGE_SIZE HEAPACCT(ACCT_OTHER));
+    os_close(cpuinfo);
+
+    return cpu_mhz * 1000 + cpu_khz;
 }
 
 timestamp_t
