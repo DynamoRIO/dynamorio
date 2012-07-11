@@ -69,6 +69,7 @@ extern void internal_error(char *file, int line, char *msg);
 #ifdef DEBUG
 extern void display_error(char *msg);
 # ifdef NOT_DYNAMORIO_CORE_PROPER   /* Part of case 9252 fix. */
+#  define display_warning display_error
 #  ifdef ASSERT
 #   undef ASSERT
 #  endif
@@ -77,10 +78,13 @@ extern void display_error(char *msg);
 #  else 
 #   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, "")
 #  endif /* INTERNAL */
+# elif !defined(NOT_DYNAMORIO_CORE)
+#  define display_warning SYSLOG_INTERNAL_WARNING
 # endif  /* !NOT_DYNAMORIO_CORE_PROPER */
 #else
 # define ASSERT(x)         ((void) 0)
 # define display_error(msg)
+# define display_warning(msg)
 #endif
 
 #define MAX_RUNVALUE_LENGTH 12  /* 1 for sign, 10 digits and a \0 */
@@ -448,7 +452,7 @@ get_process_imgname_cmdline(HANDLE process_handle,
                                      image_name, len, &nbytes);
         if (!res) {
             len = 0;
-            display_error("Warning: could not read image name from PEB");
+            display_warning("Warning: could not read image name from PEB");
         }
         image_name[len/2] = 0;
     }
@@ -470,7 +474,7 @@ get_process_imgname_cmdline(HANDLE process_handle,
                                      command_line, len, &nbytes);
         if (!res) {
             len = 0;
-            display_error("Warning: could not read cmdline from PEB");
+            display_warning("Warning: could not read cmdline from PEB");
         }
         command_line[len/2] = 0;
     }

@@ -2838,6 +2838,16 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
 static void
 process_image_post_vmarea(app_pc base, size_t size, uint prot, bool add, bool rewalking)
 {
+    /* Our WOW64 design for 32-bit DR involves ignoring all 64-bit dlls
+     * (several are visible: wow64cpu.dll, wow64win.dll, wow64.dll, and ntdll.dll)
+     * This includes a 64-bit child process (i#838).
+     * For 64-bit DR both should be handled.
+     */
+#ifndef X64
+    if (module_is_64bit(base))
+        return;
+#endif
+
 #ifdef CLIENT_INTERFACE
     if (dynamo_initialized && add)
         instrument_module_load_trigger(base);
@@ -2855,15 +2865,6 @@ process_image_post_vmarea(app_pc base, size_t size, uint prot, bool add, bool re
         /* see comments in process_image() where we SYSLOG */
         return;
     }
-    /* Our WOW64 design for 32-bit DR involves ignoring all 64-bit dlls
-     * (several are visible: wow64cpu.dll, wow64win.dll, wow64.dll, and ntdll.dll)
-     * For 64-bit DR both should be handled.
-     */
-#ifndef X64
-    if (module_is_64bit(base))
-        return;
-#endif
-
 #ifdef RCT_IND_BRANCH
     if (TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
         TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
