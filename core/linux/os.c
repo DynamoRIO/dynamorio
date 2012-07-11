@@ -350,6 +350,21 @@ static bool maps_iterator_start(maps_iter_t *iter, bool may_alloc);
 static void maps_iterator_stop(maps_iter_t *iter);
 static bool maps_iterator_next(maps_iter_t *iter);
 
+/* Libc independent directory iterator, similar to readdir.  If we ever need
+ * this on Windows we should generalize it and export it to clients.
+ */
+typedef struct _dir_iterator_t {
+    file_t fd;
+    int off;
+    int end;
+    const char *name;            /* Name of the current entry. */
+    char buf[4 * MAXIMUM_PATH];  /* Expect stack alloc, so not too big. */
+} dir_iterator_t;
+
+static void os_dir_iterator_start(dir_iterator_t *iter, file_t fd);
+static bool os_dir_iterator_next(dir_iterator_t *iter);
+/* XXX: If we generalize to Windows, will we need os_dir_iterator_stop()? */
+
 static int
 get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
                    char *fullpath/*OPTIONAL OUT*/, size_t path_size);
@@ -3147,16 +3162,29 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
 #endif /* CLIENT_SIDELINE PR 222812: tied to sideline usage */
 
 int
-get_num_processors()
+get_num_processors(void)
 {
     static uint num_cpu = 0;         /* cached value */
     if (!num_cpu) {
-        num_cpu = get_nprocs_conf();
+        /* We used to use get_nprocs_conf, but that's in libc, so now we just
+         * look at the /sys filesystem ourselves, which is what glibc does.
+         */
+        uint local_num_cpus = 0;
+        file_t cpu_dir = os_open_directory("/sys/devices/system/cpu",
+                                           OS_OPEN_READ);
+        dir_iterator_t iter;
+        os_dir_iterator_start(&iter, cpu_dir);
+        while (os_dir_iterator_next(&iter)) {
+            int dummy_num;
+            if (sscanf(iter.name, "cpu%d", &dummy_num) == 1)
+                local_num_cpus++;
+        }
+        os_close(cpu_dir);
+        num_cpu = local_num_cpus;
         ASSERT(num_cpu);
     }
     return num_cpu;
 }
-
 
 #if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
 shlib_handle_t 
@@ -4056,6 +4084,7 @@ ignorable_system_call(int num)
     case SYS_exit_group:
 #endif
     case SYS_exit:
+    case SYS_brk:
     case SYS_mmap:
 #ifndef X64
     case SYS_mmap2:
@@ -6463,14 +6492,15 @@ post_system_call(dcontext_t *dcontext)
             all_memory_areas_unlock();
         } else if (new_brk > old_brk) {
             allmem_info_t *info;
+            uint prot;
             all_memory_areas_lock();
             sync_all_memory_areas();
             info = vmvector_lookup(all_memory_areas, old_brk - 1);
-            ASSERT(info != NULL);
-            update_all_memory_areas(old_brk, new_brk,
-                                    /* be paranoid */
-                                    (info != NULL) ? info->prot :
-                                    MEMPROT_READ|MEMPROT_WRITE, DR_MEMTYPE_DATA);
+            /* If the heap hasn't been created yet (no brk syscalls), then info
+             * will be NULL.  We assume the heap is RW- on creation.
+             */
+            prot = ((info != NULL) ? info->prot : MEMPROT_READ|MEMPROT_WRITE);
+            update_all_memory_areas(old_brk, new_brk, prot, DR_MEMTYPE_DATA);
             all_memory_areas_unlock();
         }
         break;
@@ -8353,21 +8383,6 @@ wait_for_event(event_t e)
 /***************************************************************************
  * DIRECTORY ITERATOR
  */
-
-/* Libc independent directory iterator, similar to readdir.  If we ever need
- * this on Windows we should generalize it and export it to clients.
- */
-typedef struct _dir_iterator_t {
-    file_t fd;
-    int off;
-    int end;
-    const char *name;            /* Name of the current entry. */
-    char buf[4 * MAXIMUM_PATH];  /* Expect stack alloc, so not too big. */
-} dir_iterator_t;
-
-static void os_dir_iterator_start(dir_iterator_t *iter, file_t fd);
-static bool os_dir_iterator_next(dir_iterator_t *iter);
-/* XXX: If we generalize to Windows, will we need os_dir_iterator_stop()? */
 
 /* These structs are written to the buf that we pass to getdents.  We can
  * iterate them by adding d_reclen to the current buffer offset and interpreting
