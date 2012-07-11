@@ -133,15 +133,18 @@ our_isspace(int c)
             c == '\v');
 }
 
-static const char *
+const char *
 parse_int(const char *sp, uint64 *res_out, int base, int width, bool is_signed)
 {
     bool negative = false;
     uint64 res = 0;
     int i;  /* Use an index rather than pointer to compare with width. */
 
-    /* our_sscanf only uses these bases currently. */
-    ASSERT(base == 10 || base == 16);
+    /* Check for invalid base. */
+    if (base < 0 || base > 36 || base == 1) {
+        *res_out = (uint64) -1LL;
+        return NULL;
+    }
 
     /* Check for negative sign if signed. */
     if (is_signed) {
@@ -156,8 +159,21 @@ parse_int(const char *sp, uint64 *res_out, int base, int width, bool is_signed)
         sp++;
 
     /* 0x prefix for hex is optional. */
-    if (base == 16 && sp[0] == '0' && sp[1] == 'x')
+    if ((base == 0 || base == 16) && sp[0] == '0' && sp[1] == 'x') {
         sp += 2;
+        if (base == 0)
+            base = 16;
+    }
+
+    /* Leading '0' with 0 base means octal. */
+    if (base == 0 && *sp == '0') {
+        base = 8;
+        sp++;
+    }
+
+    /* If we didn't find leading '0' or "0x", base is 10. */
+    if (base == 0)
+        base = 10;
 
     /* XXX: For efficiency we could do a couple things:
      * - Specialize the loop on base
@@ -167,13 +183,18 @@ parse_int(const char *sp, uint64 *res_out, int base, int width, bool is_signed)
         uint d = sp[i];
         if (d >= '0' && d <= '9') {
             d -= '0';
-        } else if (base == 16 && d >= 'a' && d <= 'f') {
+        } else if (d >= 'a' && d <= 'z') {
             d = d - 'a' + 10;
-        } else if (base == 16 && d >= 'A' && d <= 'F') {
+        } else if (d >= 'A' && d <= 'Z') {
             d = d - 'A' + 10;
         } else {
             break;  /* Non-digit character.  Could be \0. */
         }
+        /* Stop the parse here if this digit was not valid for the current base,
+         * (e.g. 9 for octal of g for hex).
+         */
+        if (d >= base)
+            break;
         /* FIXME: Check for overflow. */
         /* XXX: int64 multiply is inefficient on 32-bit. */
         res = res * base + d;

@@ -3138,7 +3138,7 @@ getnamefrompid(int pid, char *name, uint maxlen)
     /* buffer overflow even if only off by 1 can be devastating */
     n = read_syscall(fd, tempstring, 200);   
     tempstring[n] = '\0';
-    lastpart = rindex(tempstring, '/');
+    lastpart = strrchr(tempstring, '/');
 
     if (lastpart == NULL)
       lastpart = tempstring;
@@ -4081,6 +4081,11 @@ profile_callers_exit()
 # endif
 # define printf(...) print_file(STDERR, __VA_ARGS__)
 
+/* string.c */
+#ifdef LINUX
+void test_string_routines(void);
+#endif
+
 /* some tests for double_print() and divide_uint64_print() */
 int main()
 {
@@ -4120,6 +4125,10 @@ int main()
     DO_TEST(-23.0456, 5, "%s%4u.%.5u", "-  23.04560");
 
 # undef DO_TEST
+
+#ifdef LINUX
+    test_string_routines();
+#endif
 }
 
 # undef printf

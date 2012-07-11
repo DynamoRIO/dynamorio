@@ -6953,7 +6953,7 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
              strstr(info->dlpi_name, iter_data->target_path) != NULL)) {
             if (iter_data->path_size > 0) {
                 /* We want just the path, not the filename */
-                char *slash = rindex(info->dlpi_name, '/');
+                char *slash = strrchr(info->dlpi_name, '/');
                 ASSERT_CURIOSITY(slash != NULL);
                 ASSERT_CURIOSITY((slash - info->dlpi_name) < iter_data->path_size);
                 strncpy(iter_data->path_out, info->dlpi_name,
@@ -7053,7 +7053,7 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
                 char *dst = (fullpath != NULL) ? fullpath : libname;
                 size_t dstsz = (fullpath != NULL) ? path_size :
                     BUFFER_SIZE_ELEMENTS(libname);
-                char *slash = rindex(iter.comment, '/');
+                char *slash = strrchr(iter.comment, '/');
                 ASSERT_CURIOSITY(slash != NULL);
                 ASSERT_CURIOSITY((slash - iter.comment) < dstsz);
                 /* we keep the last '/' at end */

@@ -959,6 +959,7 @@ enum {
     DUMP_NOT_XML=false
 };
 
+/* io.c */
 /* to avoid transparency problems we must have our own vnsprintf */
 #include <stdarg.h> /* for va_list */
 int our_snprintf(char *s, size_t max, const char *fmt, ...);
@@ -972,6 +973,8 @@ int our_vsnprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, va_list ap);
 #define _snwprintf our_snprintf_wide
 #ifdef LINUX
 int our_sscanf(const char *str, const char *format, ...);
+const char * parse_int(const char *sp, uint64 *res_out, int base, int width,
+                       bool is_signed);
 # define sscanf our_sscanf
 #endif
 

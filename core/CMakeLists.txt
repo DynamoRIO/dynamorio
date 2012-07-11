@@ -76,6 +76,13 @@ set(CORE_SRCS
   io.c
   )
 
+if (UNIX)
+  # i#46: Private string routines for libc independence.  On Windows our
+  # bootstrapping loader finds these imports in ntdll.  If that becomes
+  # problematic, we can find a way to compile this on Windows.
+  set (CORE_SRCS ${CORE_SRCS} string.c)
+endif (UNIX)
+
 if (WIN32 AND NOT X64)
   # PR 219380: to avoid __ftol2_sse from libc
   # FIXME: There is no supported way to suppress a "command line" warning
@@ -286,6 +293,7 @@ if (STANDALONE_UNIT_TEST)
   add_unit_test(options)
   add_unit_test(vmareas)
   add_unit_test(io)
+  add_unit_test(utils)
 endif (STANDALONE_UNIT_TEST)
 
 # rather than a separate BUILD_INCLUDES option we always build
