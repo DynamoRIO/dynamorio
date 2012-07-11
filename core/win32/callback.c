@@ -4661,7 +4661,7 @@ intercept_exception(app_state_at_intercept_t *state)
 #endif
         fault_xsp = (byte *) cxt->CXT_XSP;
 
-        if (dcontext == NULL) {
+        if (dcontext == NULL && !is_safe_read_pc((app_pc)cxt->CXT_XIP)) {
             ASSERT_NOT_TESTED();
             SYSLOG_INTERNAL_CRITICAL("Early thread failure, no dcontext\n");
             /* there is no good reason for this, other than DR error */
@@ -4671,7 +4671,8 @@ intercept_exception(app_state_at_intercept_t *state)
             ASSERT_NOT_REACHED();
         }
 
-        forged_exception_addr = dcontext->forged_exception_addr;
+        forged_exception_addr =
+            (dcontext == NULL) ? NULL : dcontext->forged_exception_addr;
 
         /* FIXME : we'd like to retakeover lost-control threads, but we need
          * to correct writable->read_only faults etc. as if for a native thread
@@ -4685,12 +4686,14 @@ intercept_exception(app_state_at_intercept_t *state)
             takeover = false;
         }
 
-        SELF_PROTECT_LOCAL(dcontext, WRITABLE);
+        if (dcontext != NULL)
+            SELF_PROTECT_LOCAL(dcontext, WRITABLE);
         /* won't be re-protected until dispatch->fcache */
 
         RSTATS_INC(num_exceptions);
 
-        dcontext->forged_exception_addr = NULL;
+        if (dcontext != NULL)
+            dcontext->forged_exception_addr = NULL;
 
         LOG(THREAD, LOG_ASYNCH, 1,
             "ASYNCH intercepted exception in %sthread %d at pc "PFX"\n", 
@@ -4707,13 +4710,14 @@ intercept_exception(app_state_at_intercept_t *state)
         });
         DOLOG(2, LOG_ASYNCH, {
             /* verify attack handling assumptions on valid frames */
-            if (IF_X64_ELSE(is_wow64_process(NT_CURRENT_PROCESS), true))
+            if (IF_X64_ELSE(is_wow64_process(NT_CURRENT_PROCESS), true) &&
+                dcontext != NULL)
                 exception_frame_chain_depth(dcontext);
         });
 
 #ifdef HOT_PATCHING_INTERFACE
         /* Recover from a hot patch exception. */
-        if (dcontext->whereami == WHERE_HOTPATCH) {
+        if (dcontext != NULL && dcontext->whereami == WHERE_HOTPATCH) {
             /* Note: If we use a separate stack for executing hot patches, this
              * assert should be changed.
              */
@@ -4748,7 +4752,8 @@ intercept_exception(app_state_at_intercept_t *state)
         }
 #endif
 
-        if (dcontext->try_except_state != NULL) {
+        if (is_safe_read_pc((app_pc)cxt->CXT_XIP) ||
+            dcontext->try_except_state != NULL) {
             /* handle our own TRY/EXCEPT */
             /* similar to hotpatch exceptions above */
 
@@ -4781,9 +4786,14 @@ intercept_exception(app_state_at_intercept_t *state)
 
             /* The exception interception code did an ENTER so we must EXIT here */
             EXITING_DR();
-            DR_LONGJMP(&dcontext->try_except_state->context, LONGJMP_EXCEPTION);
+            if (is_safe_read_pc((app_pc)cxt->CXT_XIP)) {
+                cxt->CXT_XIP = (ptr_uint_t) safe_read_resume_pc();
+                nt_continue(cxt);
+            } else
+                DR_LONGJMP(&dcontext->try_except_state->context, LONGJMP_EXCEPTION);
             ASSERT_NOT_REACHED();
         }
+        ASSERT(dcontext != NULL); /* NULL cases handled above */
 
 #ifdef CLIENT_INTERFACE
         if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) &&

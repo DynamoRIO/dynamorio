@@ -108,9 +108,11 @@ ASSUME fs:_DATA @N@\
 # define DECLARE_FUNC(symbol) symbol PROC
 # define DECLARE_EXPORTED_FUNC(symbol) symbol PROC
 # define END_FUNC(symbol) symbol ENDP
-# define DECLARE_GLOBAL(symbol) 
-# define GLOBAL_LABEL(label) 
-# define ADDRTAKEN_LABEL(label) label
+# define DECLARE_GLOBAL(symbol) PUBLIC symbol
+/* XXX: this should be renamed FUNC_ENTRY_LABEL */
+# define GLOBAL_LABEL(label)
+/* use double colon (param always has its own colon) to make label visible outside proc */
+# define ADDRTAKEN_LABEL(label) label:
 # define BYTE byte ptr
 # define WORD word ptr
 # define DWORD dword ptr

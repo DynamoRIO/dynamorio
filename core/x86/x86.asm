@@ -1896,23 +1896,34 @@ GLOBAL_LABEL(hashlookup_null_handler:)
 #endif
         END_FUNC(hashlookup_null_handler)
 
-#ifdef LINUX
-
-# ifdef X64
-#  define PTRSZ_SHIFT_BITS 3
-#  define PTRSZ_SUFFIXED(string_op) string_op##q
+#ifdef X64
+# define PTRSZ_SHIFT_BITS 3
+# define PTRSZ_SUFFIXED(string_op) string_op##q
+# ifdef LINUX
 #  define ARGS_TO_XDI_XSI_XDX()         /* ABI handles this. */
 #  define RESTORE_XDI_XSI()             /* Not needed. */
-# else
-#  define PTRSZ_SHIFT_BITS 2
-#  define PTRSZ_SUFFIXED(string_op) string_op##d
+# else /* WINDOWS */
+/* Get args 1, 2, 3 into rdi, rsi, and rdx. */
+#  define ARGS_TO_XDI_XSI_XDX() \
+        push     rdi                            @N@\
+        push     rsi                            @N@\
+        mov      rdi, ARG1                      @N@\
+        mov      rsi, ARG2                      @N@\
+        mov      rdx, ARG3
+#  define RESTORE_XDI_XSI() \
+        pop      rsi                            @N@\
+        pop      rdi
+# endif /* WINDOWS */
+#else
+# define PTRSZ_SHIFT_BITS 2
+# define PTRSZ_SUFFIXED(string_op) string_op##d
 
 /* Get args 1, 2, 3 into edi, esi, and edx to match Linux x64 ABI.  Need to save
  * edi and esi since they are callee-saved.  The ARGN macros can't handle
  * stack adjustments, so use the scratch regs eax and ecx to hold the args
  * before the pushes.
  */
-#  define ARGS_TO_XDI_XSI_XDX() \
+# define ARGS_TO_XDI_XSI_XDX() \
         mov     eax, ARG1                       @N@\
         mov     ecx, ARG2                       @N@\
         mov     edx, ARG3                       @N@\
@@ -1920,10 +1931,10 @@ GLOBAL_LABEL(hashlookup_null_handler:)
         push    esi                             @N@\
         mov     edi, eax                        @N@\
         mov     esi, ecx
-#  define RESTORE_XDI_XSI() \
+# define RESTORE_XDI_XSI() \
         pop esi                                 @N@\
         pop edi
-# endif
+#endif
 
 /* Repeats string_op for XDX bytes using aligned pointer-sized operations when
  * possible.  Assumes that string_op works by counting down until XCX reaches
@@ -1937,7 +1948,7 @@ GLOBAL_LABEL(hashlookup_null_handler:)
  * operations are short anyway.  For safe_read, it also increases the number of
  * potentially faulting PCs.
  */
-# define REP_STRING_OP(funcname, ptr_to_align, string_op) \
+#define REP_STRING_OP(funcname, ptr_to_align, string_op) \
         mov     REG_XCX, ptr_to_align                           @N@\
         and     REG_XCX, (ARG_SZ - 1)                           @N@\
         jz      funcname##_aligned                              @N@\
@@ -1946,18 +1957,18 @@ GLOBAL_LABEL(hashlookup_null_handler:)
         cmp     REG_XDX, REG_XCX  /* if (n < xcx) */            @N@\
         cmovb   REG_XCX, REG_XDX  /*     xcx = n; */            @N@\
         sub     REG_XDX, REG_XCX                                @N@\
-GLOBAL_LABEL(funcname##_pre:)                                   @N@\
+ADDRTAKEN_LABEL(funcname##_pre:)                                @N@\
         rep string_op##b                                        @N@\
-GLOBAL_LABEL(funcname##_aligned:)                               @N@\
+funcname##_aligned:                                             @N@\
         /* Aligned word-size ops. */                            @N@\
         mov     REG_XCX, REG_XDX                                @N@\
         shr     REG_XCX, PTRSZ_SHIFT_BITS                       @N@\
-GLOBAL_LABEL(funcname##_mid:)                                   @N@\
+ADDRTAKEN_LABEL(funcname##_mid:)                                @N@\
         rep PTRSZ_SUFFIXED(string_op)                           @N@\
         /* Handle trailing bytes. */                            @N@\
         mov     REG_XCX, REG_XDX                                @N@\
         and     REG_XCX, (ARG_SZ - 1)                           @N@\
-GLOBAL_LABEL(funcname##_post:)                                  @N@\
+ADDRTAKEN_LABEL(funcname##_post:)                               @N@\
         rep string_op##b
 
 /* Declare these labels global so we can take their addresses in C.  pre, mid,
@@ -1973,8 +1984,6 @@ DECLARE_GLOBAL(safe_read_asm_recover)
  * can recover.  We return the source pointer from XSI, and the caller uses this
  * to determine how many bytes were copied and whether it matches size.
  *
- * XXX: Use this on Windows for a perf boost over nt_read_virtual_memory().
- *
  * XXX: Do we care about differentiating whether the read or write faulted?
  * Currently this is just "safe_memcpy", and we recover regardless of whether
  * the read or write faulted.
@@ -1987,12 +1996,13 @@ GLOBAL_LABEL(safe_read_asm:)
         ARGS_TO_XDI_XSI_XDX()           /* dst=xdi, src=xsi, n=xdx */
         /* Copy xdx bytes, align on src. */
         REP_STRING_OP(safe_read_asm, REG_XSI, movs)
-GLOBAL_LABEL(safe_read_asm_recover:)
+ADDRTAKEN_LABEL(safe_read_asm_recover:)
         mov     REG_XAX, REG_XSI        /* Return cur_src */
         RESTORE_XDI_XSI()
         ret
         END_FUNC(safe_read_asm)
 
+#ifdef LINUX
 /* i#46: Implement private memcpy and memset for libc isolation.  If we import
  * memcpy and memset from libc in the normal way, the application can override
  * those definitions and intercept them.  In particular, this occurs when
@@ -2025,7 +2035,7 @@ GLOBAL_LABEL(memset:)
         test    esi, esi                /* Usually val is zero. */
         jnz     make_val_word_size
         xor     eax, eax
-GLOBAL_LABEL(do_memset:)
+do_memset:
         /* Set xdx bytes, align on dst. */
         REP_STRING_OP(memset, REG_XDI, stos)
         pop     REG_XAX                 /* Return original dst. */

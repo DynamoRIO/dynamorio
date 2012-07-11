@@ -896,6 +896,18 @@ void new_thread_setup(priv_mcontext_t *mc);
 void
 get_xmm_vals(priv_mcontext_t *mc);
 
+/* i#350: Fast safe_read without dcontext.  On success or failure, returns the
+ * current source pointer.  Requires fault handling to be set up.
+ */
+void *safe_read_asm(void *dst, const void *src, size_t size);
+/* These are labels, not function pointers.  We declare them as functions to
+ * prevent loads and stores to these globals from compiling.
+ */
+void safe_read_asm_pre(void);
+void safe_read_asm_mid(void);
+void safe_read_asm_post(void);
+void safe_read_asm_recover(void);
+
 /* from x86.asm */
 /* Note these have specialized calling conventions and shouldn't be called from
  * C code (see comments in x86.asm). */

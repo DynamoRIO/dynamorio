@@ -1958,9 +1958,12 @@ dr_try_stop(void *drcontext, void *try_cxt);
  * - nesting is supported, but finally statements are not
  *   supported
  *
- * For fault-free reads or writes in isolation, use dr_safe_read() or
- * dr_safe_write() instead, although on Windows those operations
- * invoke a system call and this construct can be more performant.
+ * For fault-free reads in isolation, use dr_safe_read() instead.
+ * dr_safe_read() out-performs DR_TRY_EXCEPT.
+ *
+ * For fault-free writes in isolation, dr_safe_write() can be used,
+ * although on Windows it invokes a system call and can be less
+ * performant than DR_TRY_EXCEPT.
  */
 #define DR_TRY_EXCEPT(drcontext, try_statement, except_statement) do {\
     void *try_cxt;                                                    \

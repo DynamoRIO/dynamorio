@@ -260,6 +260,8 @@ static bool kernel_64bit;
 
 pid_t pid_cached;
 
+static bool fault_handling_initialized;
+
 #ifdef PROFILE_RDTSC
 uint kilo_hertz; /* cpu clock speed */
 #endif
@@ -311,6 +313,9 @@ static void *allmem_info_merge(void *dst_data, void *src_data);
  * FIXME: eliminate duplicate code (see dynamo_areas_recursion)
  */
 DECLARE_CXTSWPROT_VAR(uint all_memory_areas_recursion, 0);
+
+static bool
+is_readable_without_exception_internal(const byte *pc, size_t size, bool query_os);
 
 static void
 process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
@@ -715,6 +720,8 @@ os_init(void)
 #endif
     
     signal_init();
+    /* We now set up an early fault handler for safe_read() (i#350) */
+    fault_handling_initialized = true;
 
 #ifdef PROFILE_RDTSC
     if (dynamo_options.profile_times) {
@@ -3766,20 +3773,46 @@ print_all_memory_areas(file_t outf)
 }
 #endif
 
-/* C-level wrapper around the asm implementation.  Shuffles arguments and
- * increments stats.
+/* This is subject to races, but should only happen at init/attach when
+ * there should only be one live thread.
  */
+static bool
+safe_read_via_query(const void *base, size_t size, void *out_buf, size_t *bytes_read)
+{
+    bool res = false;
+    size_t num_read = 0;
+    ASSERT(!fault_handling_initialized);
+    /* XXX: in today's init ordering, allmem will never be initialized when we come
+     * here, but we check it nevertheless to be general in case this routine is
+     * ever called at some later time
+     */
+    if (all_memory_areas_initialized())
+        res = is_readable_without_exception_internal(base, size, false/*use allmem*/);
+    else
+        res = is_readable_without_exception_query_os((void *)base, size);
+    if (res) {
+        memcpy(out_buf, base, size);
+        num_read = size;
+    }
+    if (bytes_read != NULL)
+        *bytes_read = num_read;
+    return res;
+}
+
 bool
 safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
 {
-    byte *stop_pc;
-    size_t nbytes;
     STATS_INC(num_safe_reads);
-    stop_pc = safe_read_asm(out_buf, base, size);
-    nbytes = stop_pc - (byte*)base;
-    if (bytes_read != NULL)
-        *bytes_read = nbytes;
-    return (nbytes == size);
+    /* XXX i#350: we'd like to always use safe_read_fast() and remove this extra
+     * call layer, but safe_read_fast() requires fault handling to be set up.
+     * We do set up an early signal handler in os_init(),
+     * but there is still be a window prior to that with no handler.
+     */
+    if (!fault_handling_initialized) {
+        return safe_read_via_query(base, size, out_buf, bytes_read);
+    } else {
+        return safe_read_fast(base, size, out_buf, bytes_read);
+    }
 }
 
 /* FIXME - fold this together with safe_read_ex() (is a lot of places to update) */
@@ -8095,17 +8128,15 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
         /* We pass 0 instead of info->size b/c even if marked as +r we can still
          * get SIGBUS if beyond end of mmapped file: not uncommon if querying
          * in middle of library load before .bss fully set up (PR 528744).
-         * However, if there is no dcontext, is_elf_so_header's safe_read will
+         * However, if there is no fault handler, is_elf_so_header's safe_read will
          * recurse to here, so in that case we use info->size but we assume
          * it's only at init or exit and so not in the middle of a load
          * and less likely to be querying a random mmapped file.
-         * The cleaner fix is to allow safe_read to work w/o a dcontext: PR 529066.
+         * The cleaner fix is to allow safe_read to work w/o a dcontext or
+         * fault handling: i#350/PR 529066.
          */
-        dcontext_t *dcontext = get_thread_private_dcontext();
         if (TEST(MEMPROT_READ, info->prot) &&
-            is_elf_so_header(info->base_pc, ((dcontext == NULL ||
-                                              dcontext == GLOBAL_DCONTEXT) ? 
-                                             info->size : 0)))
+            is_elf_so_header(info->base_pc, fault_handling_initialized ? 0 : info->size))
             info->type = DR_MEMTYPE_IMAGE;
         else {
             /* FIXME: won't quite match find_executable_vm_areas marking as

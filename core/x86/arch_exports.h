@@ -1864,20 +1864,13 @@ dr_longjmp(dr_jmp_buf_t *buf, int val);
 int 
 dr_setjmp(dr_jmp_buf_t *buf);
 
+/* Fast asm-based safe read, but requires fault handling to be set up */
+bool safe_read_fast(const void *base, size_t size, void *out_buf, size_t *bytes_read);
+/* For os-specific fault recovery */
+bool is_safe_read_pc(app_pc pc);
+app_pc safe_read_resume_pc(void);
+
 #ifdef LINUX
-/* i#350: Fast safe_read without dcontext.  On success or failure, returns the
- * current source pointer.
- */
-void *safe_read_asm(void *dst, const void *src, size_t size);
-
-/* These are labels, not function pointers.  We declare them as functions to
- * prevent loads and stores to these globals from compiling.
- */
-void safe_read_asm_pre(void);
-void safe_read_asm_mid(void);
-void safe_read_asm_post(void);
-void safe_read_asm_recover(void);
-
 /* i#46: Private string routines for libc isolation. */
 void *memcpy(void *dst, const void *src, size_t n);
 void *memset(void *dst, int val, size_t n);

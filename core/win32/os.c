@@ -4076,13 +4076,28 @@ is_readable_without_exception_query_os(byte *pc, size_t size)
  * however this is still much slower then a structured exception handling 
  * solution since we expect this to succeed most of the time.  Ref PR 206278 
  * and 208562 on using the faster TRY/EXCEPT. */
-bool
-safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
+static bool
+safe_read_syscall(const void *base, size_t size, void *out_buf, size_t *bytes_read)
 {
     if (bytes_read != NULL)
         *bytes_read = 0;
-    STATS_INC(num_safe_reads);
     return nt_read_virtual_memory(NT_CURRENT_PROCESS, base, out_buf, size, bytes_read);
+}
+
+bool
+safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
+{
+    STATS_INC(num_safe_reads);
+    /* XXX i#350: we'd like to always use safe_read_fast() and remove this extra
+     * call layer, but safe_read_fast() requires fault handling to be set up.
+     * There are complications with moving windows fault handling earlier in
+     * the init process, so we just fall back to the syscall during init.
+     */
+    if (!dynamo_initialized) {
+        return safe_read_syscall(base, size, out_buf, bytes_read);
+    } else {
+        return safe_read_fast(base, size, out_buf, bytes_read);
+    }
 }
 
 /* FIXME - fold this together with safe_read_ex() (is a lot of places to update) */

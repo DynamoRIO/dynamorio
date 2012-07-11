@@ -148,6 +148,8 @@ The changes between version \DR_VERSION and 3.2.0 are:
  - Added exported CMake cross-platform assembly support in
    cpp2asm_support.cmake and auxiliary files
  - Added get_DynamoRIO_defines() to DynamoRIOConfig.cmake
+ - Improved the performance of dr_safe_read() such that it out-performs
+   DR_TRY_EXCEPT and no longer invokes a system call on Windows.
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux

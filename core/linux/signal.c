@@ -606,6 +606,9 @@ typedef struct _clone_record_t {
     reg_t for_dynamorio_clone[4];
 } clone_record_t;
 
+/* i#350: set up signal handler for safe_read/faults during init */
+static thread_sig_info_t init_info;
+
 /**** function prototypes ***********************************************/
 
 /* in x86.asm for x64 */
@@ -617,6 +620,12 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
 
 static void
 intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig);
+
+static void
+signal_info_init_sigaction(dcontext_t *dcontext, thread_sig_info_t *info);
+
+static void
+signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info);
 
 static void
 execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
@@ -1013,6 +1022,19 @@ signal_init()
 {
     IF_X64(ASSERT(ALIGNED(offsetof(sigpending_t, xstate), AVX_ALIGNMENT)));
     os_itimers_thread_shared();
+
+    /* Set up a handler for safe_read (or other fault detection) during
+     * DR init before thread is initialized.
+     *
+     * XXX: could set up a clone_record_t and pass to the initial
+     * signal_thread_inherit() but that would require further code changes.
+     * Could also call signal_thread_inherit to init this, but we don't want
+     * to intercept timer signals, etc. before we're ready to handle them,
+     * so we do a partial init.
+     */
+    signal_info_init_sigaction(GLOBAL_DCONTEXT, &init_info);
+    intercept_signal(GLOBAL_DCONTEXT, &init_info, SIGSEGV);
+    intercept_signal(GLOBAL_DCONTEXT, &init_info, SIGBUS);
 }
 
 void
@@ -1191,6 +1213,56 @@ get_clone_record_dstack(void *record)
     return ((clone_record_t *) record)->dstack;
 }
 
+/* Initializes info's app_sigaction, restorer_valid, and we_intercept fields */
+static void
+signal_info_init_sigaction(dcontext_t *dcontext, thread_sig_info_t *info)
+{
+    info->app_sigaction = (kernel_sigaction_t **)
+        handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
+    memset(info->app_sigaction, 0, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
+    memset(&info->restorer_valid, -1, SIGARRAY_SIZE * sizeof(info->restorer_valid[0]));
+    info->we_intercept = (bool *) handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(bool));
+    memset(info->we_intercept, 0, SIGARRAY_SIZE * sizeof(bool));
+}
+
+/* Cleans up info's app_sigaction, restorer_valid, and we_intercept fields */
+static void
+signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info)
+{
+    int i;
+    kernel_sigaction_t act;
+    memset(&act, 0, sizeof(act));
+    act.handler = (handler_t) SIG_DFL;
+    kernel_sigemptyset(&act.mask); /* does mask matter for SIG_DFL? */
+    for (i = 1; i <= MAX_SIGNUM; i++) {
+        if (info->app_sigaction[i] != NULL) {
+            /* restore to old handler, but not if exiting whole
+             * process: else may get itimer during cleanup, so we
+             * set to SIG_IGN (we'll have to fix once we impl detach)
+             */
+            if (dynamo_exited) {
+                info->app_sigaction[i]->handler = (handler_t) SIG_IGN;
+                sigaction_syscall(i, info->app_sigaction[i], NULL);
+            }
+            LOG(THREAD, LOG_ASYNCH, 2, "\trestoring "PFX" as handler for %d\n",
+                info->app_sigaction[i]->handler, i);
+            sigaction_syscall(i, info->app_sigaction[i], NULL);
+            handler_free(dcontext, info->app_sigaction[i], sizeof(kernel_sigaction_t));
+        } else if (info->we_intercept[i]) {
+            /* restore to default */
+            LOG(THREAD, LOG_ASYNCH, 2, "\trestoring SIG_DFL as handler for %d\n", i);
+            sigaction_syscall(i, &act, NULL);
+            if (info->app_sigaction[i] != NULL) {
+                handler_free(dcontext, info->app_sigaction[i],
+                             sizeof(kernel_sigaction_t));
+            }
+        }
+    }
+    handler_free(dcontext, info->app_sigaction,
+                 SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
+    handler_free(dcontext, info->we_intercept, SIGARRAY_SIZE * sizeof(bool));
+}
+
 /* Called once a new thread's dcontext is created.
  * Inherited and shared fields are set up here.
  * The clone_record contains the continuation pc, which is returned.
@@ -1305,6 +1377,10 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         res = continuation_pc;
     } else {
         /* initialize in isolation */
+        if (!dynamo_initialized) {
+            /* Undo the early-init handler */
+            signal_info_exit_sigaction(GLOBAL_DCONTEXT, &init_info);
+        }
 
         if (APP_HAS_SIGSTACK(info)) {
             /* parent was NOT under our control, so the real sigstack we see is
@@ -1315,12 +1391,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                 info->app_sigstack.ss_sp + info->app_sigstack.ss_size);
         }
 
-        info->app_sigaction = (kernel_sigaction_t **)
-            handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
-        memset(info->app_sigaction, 0, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
-        memset(&info->restorer_valid, -1, SIGARRAY_SIZE * sizeof(info->restorer_valid[0]));
-        info->we_intercept = (bool *) handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(bool));
-        memset(info->we_intercept, 0, SIGARRAY_SIZE * sizeof(bool));
+        signal_info_init_sigaction(dcontext, info);
                 
         info->shared_itimer = false; /* we'll set to true if a child is created */
         init_itimer(dcontext, true/*first*/);
@@ -1507,10 +1578,6 @@ signal_thread_exit(dcontext_t *dcontext)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
-    kernel_sigaction_t act;
-    memset(&act, 0, sizeof(act));
-    act.handler = (handler_t) SIG_DFL;
-    kernel_sigemptyset(&act.mask); /* does mask matter for SIG_DFL? */
 
     while (info->num_unstarted_children > 0) {
         /* must wait for children to start and copy our state
@@ -1535,32 +1602,7 @@ signal_thread_exit(dcontext_t *dcontext)
     }
     if (!info->shared_app_sigaction || *info->shared_refcount == 0) {
         LOG(THREAD, LOG_ASYNCH, 2, "signal handler cleanup:\n");
-        for (i = 1; i <= MAX_SIGNUM; i++) {
-            if (info->app_sigaction[i] != NULL) {
-                /* restore to old handler, but not if exiting whole
-                 * process: else may get itimer during cleanup, so we
-                 * set to SIG_IGN (we'll have to fix once we impl detach)
-                 */
-                if (dynamo_exited) {
-                    info->app_sigaction[i]->handler = (handler_t) SIG_IGN;
-                    sigaction_syscall(i, info->app_sigaction[i], NULL);
-                }
-                LOG(THREAD, LOG_ASYNCH, 2, "\trestoring "PFX" as handler for %d\n",
-                    info->app_sigaction[i]->handler, i);
-                sigaction_syscall(i, info->app_sigaction[i], NULL);
-                handler_free(dcontext, info->app_sigaction[i], sizeof(kernel_sigaction_t));
-            } else if (info->we_intercept[i]) {
-                /* restore to default */
-                LOG(THREAD, LOG_ASYNCH, 2, "\trestoring SIG_DFL as handler for %d\n", i);
-                sigaction_syscall(i, &act, NULL);
-                if (info->app_sigaction[i] != NULL) {
-                    handler_free(dcontext, info->app_sigaction[i],
-                                 sizeof(kernel_sigaction_t));
-                }
-            }
-        }
-        handler_free(dcontext, info->app_sigaction, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
-        handler_free(dcontext, info->we_intercept, SIGARRAY_SIZE * sizeof(bool));
+        signal_info_exit_sigaction(dcontext, info);
         if (info->shared_lock != NULL) {
             DELETE_LOCK(*info->shared_lock);
             global_heap_free(info->shared_lock, sizeof(mutex_t) HEAPACCT(ACCT_OTHER));
@@ -3739,12 +3781,10 @@ sig_take_over(struct sigcontext *sc)
 }
 
 static bool
-is_safe_read_pc(kernel_ucontext_t *ucxt)
+is_safe_read_ucxt(kernel_ucontext_t *ucxt)
 {
     app_pc pc = (app_pc)ucxt->uc_mcontext.SC_XIP;
-    return (pc == (app_pc)safe_read_asm_pre ||
-            pc == (app_pc)safe_read_asm_mid ||
-            pc == (app_pc)safe_read_asm_post);
+    return is_safe_read_pc(pc);
 }
 
 /* the master signal handler
@@ -3789,7 +3829,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
      * dcontext below and causes us to use the global log.
      */
     if (dcontext == NULL && (sig == SIGSEGV || sig == SIGBUS) &&
-        is_safe_read_pc(ucxt)) {
+        is_safe_read_ucxt(ucxt)) {
         dcontext = GLOBAL_DCONTEXT;
     }
 
@@ -3921,7 +3961,7 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             ASSERT_NOT_REACHED();
         }
 #endif
-        if (is_safe_read_pc(ucxt) || dcontext->try_except_state != NULL) {
+        if (is_safe_read_ucxt(ucxt) || dcontext->try_except_state != NULL) {
             /* handle our own TRY/EXCEPT */
 #ifdef HAVE_PROC_MAPS
             /* our probe produces many of these every run */
@@ -3932,8 +3972,8 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
             if (TEST(DUMPCORE_TRY_EXCEPT, DYNAMO_OPTION(dumpcore_mask)))
                 os_dump_core("try/except fault");
 
-            if (is_safe_read_pc(ucxt)) {
-                ucxt->uc_mcontext.SC_XIP = (reg_t)&safe_read_asm_recover;
+            if (is_safe_read_ucxt(ucxt)) {
+                ucxt->uc_mcontext.SC_XIP = (reg_t) safe_read_resume_pc();
                 /* Break out to log the normal return from the signal handler.
                  */
                 break;
