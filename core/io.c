@@ -385,7 +385,7 @@ our_sscanf(const char *str, const char *fmt, ...)
 
 #endif /* LINUX */
 
-#ifdef IO_UNIT_TEST
+#ifdef STANDALONE_UNIT_TEST
 # ifdef LINUX
 #  include <errno.h>
 #  include <dlfcn.h>  /* for dlsym for libc routines */
@@ -644,13 +644,12 @@ our_memcpy_vs_libc(void)
 }
 # endif /* LINUX */
 
-int
-main(void)
+void
+unit_test_io(void)
 {
     char buf[512];
     wchar_t wbuf[512];
     ssize_t res;
-    standalone_init();
 
     /* test wide char conversion */
     res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", L"wide string");
@@ -712,7 +711,7 @@ main(void)
 
     /* XXX: add more tests */
 
-    print_file(STDERR, "all done\n");
-    return 0;
+    print_file(STDERR, "io all done\n");
 }
-#endif /* IO_UNIT_TEST */
+
+#endif /* STANDALONE_UNIT_TEST */

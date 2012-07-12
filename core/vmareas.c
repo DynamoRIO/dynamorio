@@ -11038,7 +11038,7 @@ aslr_report_violation(app_pc execution_fault_pc,
 }
 #endif /* PROGRAM_SHEPHERDING */
 
-#ifdef VMAREAS_UNIT_TEST
+#ifdef STANDALONE_UNIT_TEST
 # define INT_TO_PC(x) ((app_pc)(ptr_uint_t)(x))
 
 static void
@@ -11102,11 +11102,11 @@ vmvector_tests()
  * FIXME: should add a lot more, esp. wrt other flags -- these only
  * test no flags or interactions w/ selfmod flag
  */
-int
-main() {
+void
+unit_test_vmareas(void)
+{
     vm_area_vector_t v = {0,0,0,false};
     /* not needed yet: dcontext_t *dcontext = */
-    standalone_init();
     ASSIGN_INIT_READWRITE_LOCK_FREE(v.lock, thread_vm_areas);
 
     /* TEST 1: merge a bunch of areas
@@ -11197,7 +11197,5 @@ main() {
     check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(5), 0, FRAG_SELFMOD_SANDBOXED, NULL);
 
     vmvector_tests();
-
-    return 0;
 }
-#endif
+#endif  /* STANDALONE_UNIT_TEST */

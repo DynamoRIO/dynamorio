@@ -2127,7 +2127,7 @@ dr_get_integer_option(const char *option_name, uint64 *val OUT)
 #endif /* NOT_DYNAMORIO_CORE */
 
 
-#ifdef OPTIONS_UNIT_TEST
+#ifdef STANDALONE_UNIT_TEST
 
 static void
 show_dynamo_options(bool minimal)
@@ -2157,13 +2157,13 @@ show_dynamo_option_descriptions()
 #undef OPTION_COMMAND
 }
 
-int
-main() {
+void
+unit_test_options(void)
+{
     char buf[MAX_OPTIONS_STRING];
     options_t new_options;
     int updated;
 
-    standalone_init();
     write_lock(&options_lock); /* simplicity: just grab whole time */
     SELF_UNPROTECT_OPTIONS();
 
@@ -2205,8 +2205,6 @@ main() {
     print_file(STDERR, "default ops string: %s\n", buf);
     SELF_PROTECT_OPTIONS();
     write_unlock(&options_lock);
-
-    return 0;
 }
 
-#endif /* OPTIONS_UNIT_TEST */
+#endif /* STANDALONE_UNIT_TEST */

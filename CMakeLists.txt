@@ -245,7 +245,6 @@ endif ()
 
 option(CALLPROF "internal caller profiling support")
 option(LINKCOUNT "internal linkcount profiling")
-option(STANDALONE_UNIT_TEST "internal unit tests")
 if (WIN32)
   # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
   option(GENERATE_PDBS "generate Windows debug information" ON)
@@ -287,7 +286,6 @@ mark_as_advanced(
   KSTATS
   CALLPROF
   LINKCOUNT
-  STANDALONE_UNIT_TEST
   KEEP_SYMBOLS_FOR_LIBC_BACKTRACE
   SET_PREFERRED_BASE
   preferred_base
@@ -1010,16 +1008,13 @@ if (BUILD_TESTS)
   # Tests require tools
   # FIXME i#65 NOT YET COMPLETED: what about x64 Windows: we need 32-bit drdeploy.exe!
   set(BUILD_TOOLS ON)
+  enable_testing()
+  # add Dashboard support
+  include(CTest)
 endif (BUILD_TESTS)
 
 if (BUILD_CORE)
-  if (STANDALONE_UNIT_TEST)
-    enable_testing()
-  endif (STANDALONE_UNIT_TEST)
   add_subdirectory(core)
-  if (STANDALONE_UNIT_TEST)
-    include(CTest)
-  endif (STANDALONE_UNIT_TEST)
 endif (BUILD_CORE)
 
 if (BUILD_TOOLS OR BUILD_DRGUI)
@@ -1255,10 +1250,7 @@ if (BUILD_SAMPLES)
 endif (BUILD_SAMPLES)
 
 if (BUILD_TESTS)
-  enable_testing()
   add_subdirectory(suite/tests)
-  # add Dashboard support
-  include(CTest)
 endif (BUILD_TESTS)
 
 # Create the exported targets file.  This will include all targets added

@@ -1075,7 +1075,7 @@ enum DLL_TYPE {
 #endif /* WINDOWS */
 
 #ifdef STANDALONE_UNIT_TEST
-# define UNIT_TEST_EXE_NAME "unit_test_" STRINGIFY(UNIT_TEST_NAME) IF_WINDOWS(".exe")
+# define UNIT_TEST_EXE_NAME ("unit_tests" IF_WINDOWS(".exe"))
 #endif
 
 /* DYNAMORIO_RUNUNDER controls the injection technique and process naming, 

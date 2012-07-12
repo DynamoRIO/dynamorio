@@ -253,7 +253,7 @@ strtoul(const char *str, char **end, int base)
     return (unsigned long) num;  /* truncate */
 }
 
-#ifdef UTILS_UNIT_TEST
+#ifdef STANDALONE_UNIT_TEST
 
 /* Even in a debug build, gcc does crazy constant folding and removes our call
  * to strrchr, breaking the test.
@@ -265,7 +265,7 @@ identity(const char *str)
 }
 
 void
-test_string_routines(void)
+unit_test_string(void)
 {
     static const char test_path[] = "/path/to/file";
     const char *ret;
@@ -317,4 +317,4 @@ test_string_routines(void)
     print_file(STDERR, "done testing string\n");
 }
 
-#endif /* UTILS_UNIT_TEST */
+#endif /* STANDALONE_UNIT_TEST */

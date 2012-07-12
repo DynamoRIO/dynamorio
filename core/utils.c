@@ -4074,20 +4074,16 @@ profile_callers_exit()
 #endif /* CALL_PROFILE */
 
 
-#ifdef UTILS_UNIT_TEST
+#ifdef STANDALONE_UNIT_TEST
 
 # ifdef printf
 #  undef printf
 # endif
 # define printf(...) print_file(STDERR, __VA_ARGS__)
 
-/* string.c */
-#ifdef LINUX
-void test_string_routines(void);
-#endif
-
 /* some tests for double_print() and divide_uint64_print() */
-int main()
+void
+unit_test_utils(void)
 {
     char buf[128];
     uint c, d;
@@ -4097,10 +4093,12 @@ int main()
     divide_uint64_print(a, b, percent, p, &c, &d);                        \
     snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), fmt, c, d);                  \
     NULL_TERMINATE_BUFFER(buf);                                           \
-    if (strcmp(buf, result) == 0)                                         \
+    if (strcmp(buf, result) == 0) {                                       \
         printf("PASS\n");                                                 \
-    else                                                                  \
+    } else {                                                              \
         printf("FAIL : \"%s\" doesn't match \"%s\"\n", buf, result);      \
+        exit(-1);                                                         \
+    }
 
     DO_TEST(1, 20, 3, false, "%u.%.3u", "0.050");
     DO_TEST(2, 5, 2, false, "%3u.%.2u", "  0.40");
@@ -4112,10 +4110,12 @@ int main()
     double_print(a, p, &c, &d, &s);                                       \
     snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), fmt, s, c, d);               \
     NULL_TERMINATE_BUFFER(buf);                                           \
-    if (strcmp(buf, result) == 0)                                         \
+    if (strcmp(buf, result) == 0) {                                       \
         printf("PASS\n");                                                 \
-    else                                                                  \
+    } else {                                                              \
         printf("FAIL : \"%s\" doesn't match \"%s\"\n", buf, result);      \
+        exit(-1);                                                         \
+    }
 
     DO_TEST(-2.06, 3, "%s%u.%.3u", "-2.060");
     DO_TEST(2.06, 4, "%s%u.%.4u", "2.0600");
@@ -4125,15 +4125,11 @@ int main()
     DO_TEST(-23.0456, 5, "%s%4u.%.5u", "-  23.04560");
 
 # undef DO_TEST
-
-#ifdef LINUX
-    test_string_routines();
-#endif
 }
 
 # undef printf
 
-#endif /* UTILS_UNIT_TEST */
+#endif /* STANDALONE_UNIT_TEST */
 
 
 char *

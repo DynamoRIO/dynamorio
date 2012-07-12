@@ -90,16 +90,6 @@ testbuild_ex("debug-internal-64" ON "
   ${use_lib64_debug_cache}
   TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
   " OFF ON "${install_build_args}")
-testbuild("debug-unit-tests-32" OFF "
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=ON
-  STANDALONE_UNIT_TEST:BOOL=ON
-  ")
-testbuild("debug-unit-tests-64" ON "
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=ON
-  STANDALONE_UNIT_TEST:BOOL=ON
-  ")
 # ensure extensions built as static libraries work
 # no tests needed: we ensure instrcalls and drsyms_bench build
 testbuild("debug-i32-static-ext" OFF "
