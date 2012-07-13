@@ -79,7 +79,7 @@ test_mov_abs(void)
 
     print("before do_selfmod_abs\n");
     out_val = do_selfmod_abs();
-    print("%p\n", out_val);
+    print(PFX"\n", out_val);
     /* rwx_mem is leaked, tools.h doesn't give us a way to free it. */
 }
 
