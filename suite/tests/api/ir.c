@@ -724,6 +724,16 @@ test_x64_abs_addr(void *dc)
     instr = INSTR_CREATE_mov_st(dc, abs_addr, opnd_create_reg(DR_REG_RAX));
     test_instr_encode(dc, instr, 10);  /* REX + op + 8 */
 }
+
+static void
+test_x64_inc(void *dc)
+{
+    /* i#842: inc/dec should not be encoded as 40-4f in x64 */
+    instr_t *instr;
+
+    instr = INSTR_CREATE_inc(dc, opnd_create_reg(REG_EAX));
+    test_instr_encode(dc, instr, 2);
+}
 #endif
 
 static void
@@ -850,6 +860,8 @@ main(int argc, char *argv[])
     test_x86_mode(dcontext);
 
     test_x64_abs_addr(dcontext);
+
+    test_x64_inc(dcontext);
 #endif
 
     test_regs(dcontext);

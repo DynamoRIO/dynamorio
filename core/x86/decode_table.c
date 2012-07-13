@@ -4323,52 +4323,52 @@ const instr_info_t rm_extensions[][8] = {
 
 const instr_info_t x64_extensions[][2] = {
   {    /* x64_ext 0 */
-    {OP_inc,  0x400000, "inc", zAX, xx, zAX, xx, xx, no, (fW6&(~fWC)), t64e[1][0]},
+    {OP_inc,  0x400000, "inc", zAX, xx, zAX, xx, xx, i64, (fW6&(~fWC)), t64e[1][0]},
     {PREFIX,  0x400000, "rex", xx, xx, xx, xx, xx, no, x, PREFIX_REX_GENERAL},
   }, { /* x64_ext 1 */
-    {OP_inc,  0x410000, "inc", zCX, xx, zCX, xx, xx, no, (fW6&(~fWC)), t64e[2][0]},
+    {OP_inc,  0x410000, "inc", zCX, xx, zCX, xx, xx, i64, (fW6&(~fWC)), t64e[2][0]},
     {PREFIX,  0x410000, "rex.b", xx, xx, xx, xx, xx, no, x, PREFIX_REX_B},
   }, { /* x64_ext 2 */
-    {OP_inc,  0x420000, "inc", zDX, xx, zDX, xx, xx, no, (fW6&(~fWC)), t64e[3][0]},
+    {OP_inc,  0x420000, "inc", zDX, xx, zDX, xx, xx, i64, (fW6&(~fWC)), t64e[3][0]},
     {PREFIX,  0x420000, "rex.x", xx, xx, xx, xx, xx, no, x, PREFIX_REX_X},
   }, { /* x64_ext 3 */
-    {OP_inc,  0x430000, "inc", zBX, xx, zBX, xx, xx, no, (fW6&(~fWC)), t64e[4][0]},
+    {OP_inc,  0x430000, "inc", zBX, xx, zBX, xx, xx, i64, (fW6&(~fWC)), t64e[4][0]},
     {PREFIX,  0x430000, "rex.xb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_X|PREFIX_REX_B},
   }, { /* x64_ext 4 */
-    {OP_inc,  0x440000, "inc", zSP, xx, zSP, xx, xx, no, (fW6&(~fWC)), t64e[5][0]},
+    {OP_inc,  0x440000, "inc", zSP, xx, zSP, xx, xx, i64, (fW6&(~fWC)), t64e[5][0]},
     {PREFIX,  0x440000, "rex.r", xx, xx, xx, xx, xx, no, x, PREFIX_REX_R},
   }, { /* x64_ext 5 */
-    {OP_inc,  0x450000, "inc", zBP, xx, zBP, xx, xx, no, (fW6&(~fWC)), t64e[6][0]},
+    {OP_inc,  0x450000, "inc", zBP, xx, zBP, xx, xx, i64, (fW6&(~fWC)), t64e[6][0]},
     {PREFIX,  0x450000, "rex.rb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_R|PREFIX_REX_B},
   }, { /* x64_ext 6 */
-    {OP_inc,  0x460000, "inc", zSI, xx, zSI, xx, xx, no, (fW6&(~fWC)), t64e[7][0]},
+    {OP_inc,  0x460000, "inc", zSI, xx, zSI, xx, xx, i64, (fW6&(~fWC)), t64e[7][0]},
     {PREFIX,  0x460000, "rex.rx", xx, xx, xx, xx, xx, no, x, PREFIX_REX_R|PREFIX_REX_X},
   }, { /* x64_ext 7 */
-    {OP_inc,  0x470000, "inc", zDI, xx, zDI, xx, xx, no, (fW6&(~fWC)), tex[12][0]},
+    {OP_inc,  0x470000, "inc", zDI, xx, zDI, xx, xx, i64, (fW6&(~fWC)), tex[12][0]},
     {PREFIX,  0x470000, "rex.rxb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_R|PREFIX_REX_X|PREFIX_REX_B},
   }, { /* x64_ext 8 */
-    {OP_dec,  0x480000, "dec", zAX, xx, zAX, xx, xx, no, (fW6&(~fWC)), t64e[9][0]},
+    {OP_dec,  0x480000, "dec", zAX, xx, zAX, xx, xx, i64, (fW6&(~fWC)), t64e[9][0]},
     {PREFIX,  0x480000, "rex.w", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W},
   }, { /* x64_ext 9 */
-    {OP_dec,  0x490000, "dec", zCX, xx, zCX, xx, xx, no, (fW6&(~fWC)), t64e[10][0]},
+    {OP_dec,  0x490000, "dec", zCX, xx, zCX, xx, xx, i64, (fW6&(~fWC)), t64e[10][0]},
     {PREFIX,  0x490000, "rex.wb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_B},
   }, { /* x64_ext 10 */
-    {OP_dec,  0x4a0000, "dec", zDX, xx, zDX, xx, xx, no, (fW6&(~fWC)), t64e[11][0]},
+    {OP_dec,  0x4a0000, "dec", zDX, xx, zDX, xx, xx, i64, (fW6&(~fWC)), t64e[11][0]},
     {PREFIX,  0x4a0000, "rex.wx", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_X},
   }, { /* x64_ext 11 */
-    {OP_dec,  0x4b0000, "dec", zBX, xx, zBX, xx, xx, no, (fW6&(~fWC)), t64e[12][0]},
+    {OP_dec,  0x4b0000, "dec", zBX, xx, zBX, xx, xx, i64, (fW6&(~fWC)), t64e[12][0]},
     {PREFIX,  0x4b0000, "rex.wxb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_X|PREFIX_REX_B},
   }, { /* x64_ext 12 */
-    {OP_dec,  0x4c0000, "dec", zSP, xx, zSP, xx, xx, no, (fW6&(~fWC)), t64e[13][0]},
+    {OP_dec,  0x4c0000, "dec", zSP, xx, zSP, xx, xx, i64, (fW6&(~fWC)), t64e[13][0]},
     {PREFIX,  0x4c0000, "rex.wr", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_R},
   }, { /* x64_ext 13 */
-    {OP_dec,  0x4d0000, "dec", zBP, xx, zBP, xx, xx, no, (fW6&(~fWC)), t64e[14][0]},
+    {OP_dec,  0x4d0000, "dec", zBP, xx, zBP, xx, xx, i64, (fW6&(~fWC)), t64e[14][0]},
     {PREFIX,  0x4d0000, "rex.wrb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_R|PREFIX_REX_B},
   }, { /* x64_ext 14 */
-    {OP_dec,  0x4e0000, "dec", zSI, xx, zSI, xx, xx, no, (fW6&(~fWC)), t64e[15][0]},
+    {OP_dec,  0x4e0000, "dec", zSI, xx, zSI, xx, xx, i64, (fW6&(~fWC)), t64e[15][0]},
     {PREFIX,  0x4e0000, "rex.wrx", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_R|PREFIX_REX_X},
   }, { /* x64_ext 15 */
-    {OP_dec,  0x4f0000, "dec", zDI, xx, zDI, xx, xx, no, (fW6&(~fWC)), tex[12][1]},
+    {OP_dec,  0x4f0000, "dec", zDI, xx, zDI, xx, xx, i64, (fW6&(~fWC)), tex[12][1]},
     {PREFIX,  0x4f0000, "rex.wrxb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_R|PREFIX_REX_X|PREFIX_REX_B},
   }, { /* x64_ext 16 */
     {OP_arpl,   0x630000, "arpl", Ew, xx, Gw, xx, xx, mrm|i64, fWZ, END_LIST},
