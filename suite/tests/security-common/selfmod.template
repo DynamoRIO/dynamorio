@@ -30,3 +30,7 @@
 Executed 0xabcd iters
 Executed 0x1234 iters
 Executed 0xef01 iters
+#ifdef X64
+before do_selfmod_abs
+0xdeadbeefdeadbeef
+#endif

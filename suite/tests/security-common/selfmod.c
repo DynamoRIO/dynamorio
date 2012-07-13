@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,6 +37,55 @@
 # include "dynamorio.h"
 #endif
 
+#ifdef X64
+/* Reduced from V8, which uses x64 absolute addresses in code which ends up
+ * being sandboxed.  The original code is not self-modifying, but is flushed
+ * enough to trigger sandboxing.
+ *
+ * 0x000034b7f8b11366:  48 a1 48 33 51 36 ff 7e 00 00   movabs 0x7eff36513348,%rax
+ * ...
+ * 0x000034b7f8b11311:  48 a3 20 13 51 36 ff 7e 00 00   movabs %rax,0x7eff36511320
+ */
+void
+test_mov_abs(void)
+{
+    char *rwx_mem = allocate_mem(4096, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    char *pc = rwx_mem;
+    void *(*do_selfmod_abs)(void);
+    void *out_val = 0;
+    uint64 *global_addr = (uint64 *) pc;
+
+    /* Put a 64-bit 0xdeadbeefdeadbeef into mapped memory.  Typically most
+     * memory from mmap is outside the low 4 GB, so this makes sure that any
+     * mangling we do avoids address truncation.
+     */
+    *(uint64 *)pc = 0xdeadbeefdeadbeefULL;
+    pc += 8;
+
+    /* Encode an absolute load and store.  If we write it in assembly, gas picks
+     * the wrong encoding, so we manually encode it here.  It has to be on the
+     * same page as the data to trigger sandboxing.
+     */
+    do_selfmod_abs = (void *(*)(void))pc;
+    *pc++ = 0x48;  /* REX.W */
+    *pc++ = 0xa1;  /* movabs load -> rax */
+    *(uint64 **)pc = global_addr;
+    pc += 8;
+    *pc++ = 0x48;  /* REX.W */
+    *pc++ = 0xa3;  /* movabs store <- rax */
+    *(uint64 **)pc = global_addr;
+    pc += 8;
+    *pc++ = 0xc3;  /* ret */
+
+    print("before do_selfmod_abs\n");
+    out_val = do_selfmod_abs();
+    print("%p\n", out_val);
+    /* rwx_mem is leaked, tools.h doesn't give us a way to free it. */
+}
+
+/* FIXME: Test reladdr. */
+#endif /* X64 */
+
 void
 foo(int iters)
 {
@@ -60,6 +110,10 @@ main()
     foo(0xabcd);
     foo(0x1234);
     foo(0xef01);
+
+#ifdef X64
+    test_mov_abs();
+#endif
 
 #ifdef USE_DYNAMO
     dynamorio_app_stop();

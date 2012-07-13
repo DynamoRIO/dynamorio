@@ -4258,10 +4258,29 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     insert_save_eflags(dcontext, ilist, next, flags, use_tls, !use_tls);
     PRE(ilist, next,
         SAVE_TO_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
-    /* change to OPSZ_lea for lea */
-    opnd_set_size(&op, OPSZ_lea);
-    PRE(ilist, next,
-        INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XBX), op));
+    /* XXX: Basically reimplementing drutil_insert_get_mem_addr(). */
+    /* FIXME: Sandbox far writes.  Not a hypothetical problem!  NaCl uses
+     * segments for its x86 sandbox, although they are 0 based with a limit.
+     */
+    ASSERT_CURIOSITY(!opnd_is_far_memory_reference(op));
+    if (opnd_is_base_disp(op)) {
+        /* change to OPSZ_lea for lea */
+        opnd_set_size(&op, OPSZ_lea);
+        PRE(ilist, next,
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XBX), op));
+    } else {
+        /* handle abs addr pointing within fragment */
+        /* XXX: Can optimize this by doing address comparison at translation
+         * time.  Might happen frequently if a JIT stores data on the same page
+         * as its code.  For now we hook into existing sandboxing code.
+         */
+        app_pc abs_addr;
+        ASSERT(opnd_is_abs_addr(op) IF_X64( || opnd_is_rel_addr(op)));
+        abs_addr = opnd_get_addr(op);
+        PRE(ilist, next,
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XBX),
+                                 OPND_CREATE_INTPTR(abs_addr)));
+    }
 #ifdef X64
     if ((ptr_uint_t)start_pc > UINT_MAX || (ptr_uint_t)end_pc > UINT_MAX) {
         PRE(ilist, next,
@@ -4703,6 +4722,18 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                          * it gets moved out.
                          */
                         continue;
+                    }
+                    if (opnd_is_abs_addr(op) IF_X64(|| opnd_is_rel_addr(op))) {
+                        app_pc abs_addr = opnd_get_addr(op);
+                        uint size = opnd_size_in_bytes(opnd_get_size(op));
+                        if (!POINTER_OVERFLOW_ON_ADD(abs_addr, size) &&
+                            (abs_addr + size < start_pc || abs_addr >= end_pc)) {
+                            /* This is an absolute memory reference that points
+                             * outside the current basic block and doesn't need
+                             * sandboxing.
+                             */
+                            continue;
+                        }
                     }
                     sandbox_write(dcontext, ilist, instr, next, op, start_pc, end_pc);
                 }

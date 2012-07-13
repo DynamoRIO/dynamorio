@@ -704,6 +704,25 @@ test_x86_mode(void *dc)
     ASSERT(instr_get_opcode(instr) == OP_dec);
 
     instr_free(dc, instr);
+    set_x86_mode(dc, false/*64-bit*/);
+}
+
+static void
+test_x64_abs_addr(void *dc)
+{
+    /* 48 a1 ef be ad de ef be ad de    mov    0xdeadbeefdeadbeef -> %rax 
+     * 48 a3 ef be ad de ef be ad de    mov    %rax -> 0xdeadbeefdeadbeef 
+     */
+    instr_t *instr;
+    opnd_t abs_addr = opnd_create_abs_addr((void*)0xdeadbeefdeadbeef, OPSZ_8);
+
+    /* movabs load */
+    instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_RAX), abs_addr);
+    test_instr_encode(dc, instr, 10);  /* REX + op + 8 */
+
+    /* movabs store */
+    instr = INSTR_CREATE_mov_st(dc, abs_addr, opnd_create_reg(DR_REG_RAX));
+    test_instr_encode(dc, instr, 10);  /* REX + op + 8 */
 }
 #endif
 
@@ -829,6 +848,8 @@ main(int argc, char *argv[])
 
 #ifdef X64
     test_x86_mode(dcontext);
+
+    test_x64_abs_addr(dcontext);
 #endif
 
     test_regs(dcontext);
