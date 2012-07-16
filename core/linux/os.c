@@ -272,9 +272,9 @@ static mutex_t memory_info_buf_lock = INIT_LOCK_FREE(memory_info_buf_lock);
 static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
 
 /* Xref PR 258731, dup of STDOUT/STDERR in case app wants to close them. */
-DR_API file_t our_stdout = INVALID_FILE;
-DR_API file_t our_stderr = INVALID_FILE;
-DR_API file_t our_stdin = INVALID_FILE;
+DR_API file_t our_stdout = STDOUT_FILENO;
+DR_API file_t our_stderr = STDERR_FILENO;
+DR_API file_t our_stdin = STDIN_FILENO;
 
 /* we steal fds from the app */
 static struct rlimit app_rlimit_nofile;

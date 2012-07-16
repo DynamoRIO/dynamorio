@@ -47,9 +47,11 @@
 options_t dynamo_options;
 
 /* support use of STD* macros so user doesn't have to use "stdout->_fileno" */
-file_t our_stdout = INVALID_FILE;
-file_t our_stderr = INVALID_FILE;
-file_t our_stdin = INVALID_FILE;
+#ifdef LINUX
+file_t our_stdout = STDOUT_FILENO;
+file_t our_stderr = STDERR_FILENO;
+file_t our_stdin = STDIN_FILENO;
+#endif
 
 #ifdef WINDOWS
 DR_API file_t 
