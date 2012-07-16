@@ -42,27 +42,20 @@
 
 #include "globals.h"
 
-#include <string.h>  /* All of our prototypes should agree with string.h. */
 #include <limits.h>
 
-/* <string.h> plays macro games with some of these symbols, so undef them all
- * for this file.  In other files that use the macros, gcc will typically lower
- * the intrinsic down to a plain call.  The linker will resolve it internally,
- * rather than to the PLT.
+/* We used to include <string.h> here to make sure our prototypes match, but
+ * string.h often uses macros, intrinsics, and always_inline annotations to
+ * define or declare these routines.  We simplify our lives by avoiding
+ * string.h.
+ *
+ * Other files are free to include string.h.  If the compiler decides not to
+ * inline, it will emit a call to the routine with the standard name, and the
+ * linker will resolve it to our implementations.
  */
-#undef strlen
-#undef wcslen
-#undef strchr
-#undef strrchr
-#undef strncpy
-#undef strncat
-#undef strcmp
-#undef strncmp
-#undef memcmp
-#undef strstr
-#undef tolower
-#undef strcasecmp
-#undef strtoul
+#ifdef _STRING_H
+# error "Don't include <string.h> in string.c"
+#endif
 
 /* Private strlen. */
 size_t
@@ -254,7 +247,6 @@ strtoul(const char *str, char **end, int base)
 }
 
 #ifdef STANDALONE_UNIT_TEST
-
 /* Even in a debug build, gcc does crazy constant folding and removes our call
  * to strrchr, breaking the test.
  */

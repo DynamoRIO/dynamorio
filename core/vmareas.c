@@ -11066,7 +11066,7 @@ vmvector_tests()
     vm_area_vector_t v = {0, 0, 0, VECTOR_SHARED | VECTOR_NEVER_MERGE, 
                         INIT_READWRITE_LOCK(thread_vm_areas)};
     bool res;
-    app_pc start, end;
+    app_pc start = NULL, end = NULL;
     /* FIXME: not tested */
     vmvector_add(&v, INT_TO_PC(0x100), INT_TO_PC(0x103), NULL);
     vmvector_add(&v, INT_TO_PC(0x200), INT_TO_PC(0x203), NULL);

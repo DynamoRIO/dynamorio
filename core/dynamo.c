@@ -842,6 +842,7 @@ standalone_init(void)
 
     heap_thread_init(dcontext);
 
+# ifdef DEBUG
     /* FIXME: share code w/ main init routine? */
     nonshared_stats.logmask = LOG_ALL;
     options_init();
@@ -855,6 +856,7 @@ standalone_init(void)
         SYSLOG_INTERNAL_INFO("Initial options = %s", initial_options);
         print_file(main_logfile, "\n");
     }
+# endif /* DEBUG */
 #else
     /* rather than ask the user to call some thread-init routine in
      * every thread, we just use global dcontext everywhere (i#548)

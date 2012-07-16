@@ -2079,7 +2079,13 @@ void profile_callers_exit(void);
     LOG(GLOBAL, LOG_ALL, 1, "%s = %d [expected "#REL" %d] %s\n",        \
         exprstr, value_once, expected,                                  \
         value_once REL expected ? "good" : "BAD");                      \
-    ASSERT_MESSAGE(CHKLVL_ASSERTS, exprstr, value_once REL expected);\
+    /* Avoid ASSERT to support a release build. */                      \
+    if (!(value REL expected)) {                                        \
+        print_file(STDERR,                                              \
+                   "EXPECT failed at %s:%d in test %s: %s\n",           \
+                   __FILE__, __LINE__, __FUNCTION__, exprstr);          \
+        os_terminate(NULL, TERMINATE_PROCESS);                          \
+    }                                                                   \
 } while (0)
 
 #define TESTRUN(test) do {                              \
