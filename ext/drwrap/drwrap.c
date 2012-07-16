@@ -81,10 +81,11 @@ static int sysnum_NtContinue = -1;
 #define REPLACE_TABLE_HASH_BITS 6
 static hashtable_t replace_table;
 
-/* Native replacements need to store the stack adjust */
+/* Native replacements need to store the stack adjust and user data */
 typedef struct _replace_native_t {
     app_pc replacement;
     uint stack_adjust;
+    void *user_data;
 } replace_native_t;
 
 #define REPLACE_NATIVE_TABLE_HASH_BITS 6
@@ -949,7 +950,7 @@ drwrap_replace(app_pc original, app_pc replacement, bool override)
 DR_EXPORT
 bool
 drwrap_replace_native(app_pc original, app_pc replacement, uint stack_adjust,
-                      bool override)
+                      void *user_data, bool override)
 {
     bool res = false;
     replace_native_t *rn;
@@ -961,6 +962,7 @@ drwrap_replace_native(app_pc original, app_pc replacement, uint stack_adjust,
         rn = dr_global_alloc(sizeof(*rn));
         rn->replacement = replacement;
         rn->stack_adjust = stack_adjust;
+        rn->user_data = user_data;
     }
     hashtable_lock(&replace_native_table);
     res = drwrap_replace_common(&replace_native_table, original, rn, override);
@@ -1025,6 +1027,9 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
      * it (the real adjust in replacement routine is native: i#778).
      *
      *    meta pop retaddr to scratch slot
+     *  if (user_data != NULL) {
+     *      meta mov $user_data to scratch slot 2
+     *  }
      *    meta call to replace routine
      *    meta push scratch slot
      *  if stack_adjust > 0 {
@@ -1038,6 +1043,23 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
     instrlist_meta_append(bb, INSTR_CREATE_pop
                           (drcontext, dr_reg_spill_slot_opnd
                            (drcontext, DRWRAP_REPLACE_NATIVE_RETADDR_SLOT)));
+    if (rn->user_data != NULL) {
+#ifdef X64
+        /* We clobber xax, which is scratch in most calling conventions */
+        instrlist_meta_append(bb, INSTR_CREATE_mov_imm
+                              (drcontext, opnd_create_reg(DR_REG_XAX),
+                               OPND_CREATE_INT64((ptr_uint_t)rn->user_data)));
+        instrlist_meta_append(bb, INSTR_CREATE_mov_st
+                              (drcontext, dr_reg_spill_slot_opnd
+                               (drcontext, DRWRAP_REPLACE_NATIVE_DATA_SLOT),
+                               opnd_create_reg(DR_REG_XAX)));
+#else
+        instrlist_meta_append(bb, INSTR_CREATE_mov_st
+                              (drcontext, dr_reg_spill_slot_opnd
+                               (drcontext, DRWRAP_REPLACE_NATIVE_DATA_SLOT),
+                               OPND_CREATE_INTPTR((ptr_int_t)rn->user_data)));
+#endif
+    }
 #ifdef X64
     /* XXX: simple call has reachability issues.   For now we clobber
      * xax, which is scratch in most calling conventions.

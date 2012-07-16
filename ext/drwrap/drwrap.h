@@ -83,6 +83,9 @@ enum {
 /** Spill slot used to store application return address for drwrap_replace_native() */
 #define DRWRAP_REPLACE_NATIVE_RETADDR_SLOT SPILL_SLOT_1
 
+/** Spill slot used to store user_data parameter for drwrap_replace_native() */
+#define DRWRAP_REPLACE_NATIVE_DATA_SLOT    SPILL_SLOT_2
+
 DR_EXPORT
 /**
  * Replaces the application function that starts at the address \p original
@@ -130,6 +133,10 @@ DR_EXPORT
  * \p stack_adjust) in view of the client.  If the client does not
  * track the stack, passing 0 will still work correctly so long as the
  * replacement function uses the proper calling convention.
+ *
+ * If \p user_data != NULL, it is stored in a scratch slot for access
+ * by \p replacement by calling dr_read_saved_reg() and passing
+ * DRWRAP_REPLACE_NATIVE_DATA_SLOT.
  *
  * Only one replacement is supported per target address.  If a
  * replacement already exists for \p original, this function fails
@@ -184,7 +191,7 @@ DR_EXPORT
  */
 bool
 drwrap_replace_native(app_pc original, app_pc replacement, uint stack_adjust,
-                      bool override);
+                      void *user_data, bool override);
 
 DR_EXPORT
 /** \return whether \p func is currently replaced via drwrap_replace() */

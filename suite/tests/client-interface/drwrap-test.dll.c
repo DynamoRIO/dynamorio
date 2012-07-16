@@ -44,6 +44,8 @@
     }                                    \
 } while (0);
 
+#define DRWRAP_NATIVE_PARAM 0xdeadbeef
+
 static void event_exit(void);
 static void wrap_pre(void *wrapcxt, OUT void **user_data);
 static void wrap_post(void *wrapcxt, void *user_data);
@@ -142,7 +144,8 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 
         addr_replace2 = (app_pc) dr_get_proc_address(mod->handle, "replaceme2");
         CHECK(addr_replace2 != NULL, "cannot find lib export");
-        ok = drwrap_replace_native(addr_replace2, (app_pc) replacewith2, 0, false);
+        ok = drwrap_replace_native(addr_replace2, (app_pc) replacewith2, 0,
+                                   (void *)(ptr_int_t)DRWRAP_NATIVE_PARAM, false);
         CHECK(ok, "replace_native failed");
 
         wrap_addr(&addr_level0, "level0", mod, true, true);
@@ -198,7 +201,7 @@ module_unload_event(void *drcontext, const module_data_t *mod)
         bool ok;
         ok = drwrap_replace(addr_replace, NULL, true);
         CHECK(ok, "un-replace failed");
-        ok = drwrap_replace_native(addr_replace2, NULL, 0, true);
+        ok = drwrap_replace_native(addr_replace2, NULL, 0, NULL, true);
         CHECK(ok, "un-replace_native failed");
 
         unwrap_addr(addr_level0, "level0", mod, true, true);
@@ -267,6 +270,9 @@ replacewith(int *x)
 static int
 replacewith2(int *x)
 {
+    ptr_int_t param = dr_read_saved_reg(dr_get_current_drcontext(),
+                                    DRWRAP_REPLACE_NATIVE_DATA_SLOT);
+    CHECK(param == DRWRAP_NATIVE_PARAM, "native param wrong");
     *x = 999;
     return 1;
 }
