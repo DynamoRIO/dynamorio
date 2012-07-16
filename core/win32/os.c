@@ -4546,6 +4546,9 @@ convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
             drive[0] = L'A' + (wchar_t)i;
             res = nt_get_symlink_target(objdir, drive, &ustr, &len);
             if (NT_SUCCESS(res)) {
+                /* i#845: ustr.Buffer might not be null-terminated */
+                ustr.Buffer[MIN(ustr.Length / sizeof(ustr.Buffer[0]),
+                                ustr.MaximumLength / sizeof(ustr.Buffer[0]) - 1)] = L'\0';
                 LOG(THREAD_GET, LOG_NT, 3, "%s: drive %d=%c: type=%d => %S\n",
                     __FUNCTION__, i, 'A'+(wchar_t)i, map.Query.DriveType[i], ustr.Buffer);
             } else {
