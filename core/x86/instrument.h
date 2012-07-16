@@ -4242,9 +4242,21 @@ dr_switch_to_app_state(void *drcontext);
 
 DR_API
 /**
- * Should only be called after calling dr_switch_to_app_state().
- * Swaps from the application version of system state for the given
- * thread back to the DR and client version.
+ * Should only be called after calling dr_switch_to_app_state(), or in
+ * certain cases where a client is running its own code in an
+ * application state.  Swaps from the application version of system
+ * state for the given thread back to the DR and client version.
+ *
+ * On Windows, a client running in an application context must call
+ * dr_switch_to_dr_state() in order to safely call private library
+ * routines.  But on Linux that's not the case because of how
+ * DynamoRIO mangles application segment references.  On Linux,
+ * running private library code should work fine without any change
+ * from the application state.  Only if subsequent code will examine a
+ * segment selector or descriptor does the state need to be swapped.
+ * A state swap is much more expensive on Linux (it requires a system
+ * call).
+ *
  */
 void
 dr_switch_to_dr_state(void *drcontext);
