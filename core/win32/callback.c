@@ -4770,10 +4770,10 @@ intercept_exception(app_state_at_intercept_t *state)
             SYSLOG_INTERNAL_WARNING("Handling our fault in a TRY at "PFX, cxt->CXT_XIP);
 # endif
 
+# ifndef CLIENT_INTERFACE /* clients may use for other purposes */
             ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP) ||
                    is_on_initstack((byte *)cxt->CXT_XSP) ||
                    !dynamo_initialized);
-# ifndef CLIENT_INTERFACE /* clients may use for other purposes */
             ASSERT(pExcptRec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION);
             ASSERT_CURIOSITY((pExcptRec->NumberParameters >= 2) && 
                              (pExcptRec->ExceptionInformation[0] == 
