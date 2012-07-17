@@ -4340,7 +4340,13 @@ recreate_bb_ilist(dcontext_t *dcontext, byte *pc, uint flags, uint *res_flags,
      * DR_EMIT_STORE_TRANSLATIONS, in which case we shouldn't come here,
      * except for traces (see below):
      */
-    bb.pass_to_client = DYNAMO_OPTION(code_api) && call_client;
+    bb.pass_to_client = (DYNAMO_OPTION(code_api) && call_client &&
+                         /* i#843: This flag cannot be changed dynamically, so
+                          * its current value should match the value used at
+                          * ilist building time.  Alternatively, we could store
+                          * bb->pass_to_client in the fragment.
+                          */
+                         !os_module_get_flag(pc, MODULE_NULL_INSTRUMENT));
     /* PR 299808: we call bb hook again when translating a trace that
      * didn't have DR_EMIT_STORE_TRANSLATIONS on itself (or on any
      * for_trace bb if there was no trace hook).

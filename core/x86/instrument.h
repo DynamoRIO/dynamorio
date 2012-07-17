@@ -2357,7 +2357,8 @@ DR_API
  * Set whether or not the module referred to by \p handle should be
  * instrumented.  If \p should_instrument is false, code from the module will
  * not be passed to the basic block event.  If traces are enabled, code from the
- * module will still reach the trace event.
+ * module will still reach the trace event.  Must be called from the module load
+ * event for the module referred to by \p handle.
  * \return whether successful.
  *
  * \warning Turning off instrumentation for modules breaks clients and

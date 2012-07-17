@@ -3044,9 +3044,18 @@ bool
 dr_module_set_should_instrument(module_handle_t handle, bool should_instrument)
 {
     module_area_t *ma;
+    DEBUG_DECLARE(dcontext_t *dcontext = get_thread_private_dcontext());
+    IF_DEBUG(executable_areas_lock());
     os_get_module_info_write_lock();
     ma = module_pc_lookup((byte*)handle);
     if (ma != NULL) {
+        /* This kind of obviates the need for handle, but it makes the API more
+         * explicit.
+         */
+        CLIENT_ASSERT(dcontext->client_data->no_delete_mod_data->handle == handle,
+                      "Do not call dr_module_set_should_instrument() outside "
+                      "of the module's own load event");
+        ASSERT(!executable_vm_area_executed_from(ma->start, ma->end));
         if (should_instrument) {
             ma->flags &= ~MODULE_NULL_INSTRUMENT;
         } else {
@@ -3054,6 +3063,7 @@ dr_module_set_should_instrument(module_handle_t handle, bool should_instrument)
         }
     }
     os_get_module_info_write_unlock();
+    IF_DEBUG(executable_areas_unlock());
     return (ma != NULL);
 }
 
