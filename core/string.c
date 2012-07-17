@@ -129,6 +129,25 @@ strncpy(char *dst, const char *src, size_t n)
     return dst;
 }
 
+/* Private memmove.  The only difference between memcpy and memmove is that if
+ * you need to shift overlapping data forwards in memory, memmove will do what
+ * you want.
+ */
+void *
+memmove(void *dst, const void *src, size_t n)
+{
+    ssize_t i;
+    byte *dst_b = (byte *) dst;
+    const byte *src_b = (const byte *) src;
+    if (dst < src)
+        return memcpy(dst, src, n);
+    /* FIXME: Could use reverse DF and rep movs. */
+    for (i = n - 1; i >= 0; i--) {
+        dst_b[i] = src_b[i];
+    }
+    return dst;
+}
+
 /* Private strncat. */
 char *
 strncat(char *dest, const char *src, size_t n)
@@ -305,6 +324,12 @@ unit_test_string(void)
     num = strtoul(identity("1aZ"), (char **) &ret, 37);
     EXPECT(num, ULONG_MAX);  /* invalid base */
     EXPECT(ret == NULL, true);
+
+    /* memmove */
+    strcpy(buf, test_path);
+    memmove(buf + 4, buf, strlen(buf) + 1);
+    strncpy(buf, "/foo", 4);
+    EXPECT(strcmp(buf, "/foo/path/to/file"), 0);
 
     print_file(STDERR, "done testing string\n");
 }
