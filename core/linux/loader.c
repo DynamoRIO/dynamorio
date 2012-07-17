@@ -792,11 +792,8 @@ privload_call_lib_func(fp_t func)
      * routines. 
      * we create dummy argc and argv, and passed with the real __environ.
      */
-    /* XXX: __environ should go away w/ libc independence: 
-     * not ideal to add another dependence on DR using libc.
-     */
     dummy_argv[0] = "dummy";
-    func(1, dummy_argv, __environ);
+    func(1, dummy_argv, our_environ);
 }
 
 bool

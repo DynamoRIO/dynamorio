@@ -73,6 +73,7 @@
 void vmk_init_lib(void);
 # endif
 char *get_application_short_name(void);
+void dynamorio_set_envp(char **envp);
 int dynamorio_app_init(void);
 void dynamorio_app_take_over(void);
 #endif /* START_DYNAMO */
@@ -151,7 +152,7 @@ _init(int argc, char *arg0, ...)
 {
   char **argv = &arg0, **envp = &argv[argc + 1];
 #else
-_init ()
+_init(int argc, char **argv, char **envp)
 {
 #endif
     int init;
@@ -163,7 +164,7 @@ _init ()
     vmk_init_lib();
 #endif
 
-#if INIT_BEFORE_LIBC
+#if VERBOSE
   {
       int i;
       for (i=0; i<argc; i++)
@@ -180,6 +181,8 @@ _init ()
     pf("preload _init: running %s\n", name);
     if (!take_over(name))
         return 0;
+    /* i#46: Get env from loader directly. */
+    dynamorio_set_envp(envp);
     /* FIXME i#287/PR 546544: now load DYNAMORIO_AUTOINJECT DR .so 
      * and only LD_PRELOAD the preload lib itself
      */

@@ -114,10 +114,14 @@ process_id_t get_parent_id(void);
 int get_libc_errno(void);
 void set_libc_errno(int val);
 
+/* i#46: Our env manipulation routines. */
+extern char **our_environ;
+void dynamorio_set_envp(char **envp);
+char *getenv(const char *name);
+
 /* to avoid unsetenv problems we have our own unsetenv */
 #define unsetenv our_unsetenv
 int our_unsetenv(const char *name);
-
 
 /* new segment support
  * name is a string

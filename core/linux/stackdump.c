@@ -280,7 +280,7 @@ void stackdump()
         /* avoid running the debugger under us! 
          * FIXME: just remove our libraries, instead of entire env var?
          */
-        setenv("LD_PRELOAD", "", true);
+        unsetenv("LD_PRELOAD");
 
         SYSLOG_INTERNAL_ERROR("-------------------------------------------");
         SYSLOG_INTERNAL_ERROR("stackdump: --- now running the debugger ---");

@@ -99,7 +99,12 @@
 # define SYSNUM_FSTAT SYS_fstat64
 #endif
 
-extern char **__environ;
+/* i#46: Private __environ pointer.  Points at the environment variable array
+ * on the stack, which is different from what libc __environ may point at.  We
+ * use the environment for following children and setting options, so its OK
+ * that we don't see what libc says.
+ */
+char **our_environ;
 #include <errno.h>
 /* avoid problems with use of errno as var name in rest of file */
 #undef errno
@@ -585,7 +590,6 @@ set_libc_errno(int val)
  * errno.
  */
 
-
 /* The environment vars exhibit totally messed up behavior when someone
  * does an execve of /bin/sh -- not sure what's going on, but using our
  * own implementation of unsetenv fixes all our problems.  If we use
@@ -605,6 +609,9 @@ our_unsetenv(const char *name)
         __set_errno (EINVAL);
         return -1;
     }
+    ASSERT(our_environ != NULL);
+    if (our_environ == NULL)
+        return -1;
     
     len = strlen (name);
     
@@ -612,7 +619,7 @@ our_unsetenv(const char *name)
      * LOCK;
      */
     
-    ep = __environ;
+    ep = our_environ;
     while (*ep != NULL)
         if (!strncmp (*ep, name, len) && (*ep)[len] == '=') {
             /* Found it.  Remove this pointer by moving later ones back.  */
@@ -632,11 +639,48 @@ our_unsetenv(const char *name)
     return 0;
 }
 
+/* i#46: Private getenv.
+ */
+char *
+getenv(const char *name)
+{
+    char **ep = our_environ;
+    size_t i;
+    size_t name_len;
+    if (name == NULL || name[0] == '\0' || strchr(name, '=') != NULL) {
+        return NULL;
+    }
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "our_environ is missing.  _init() or "
+                   "dynamorio_set_envp() were not called", our_environ != NULL);
+    if (our_environ == NULL)
+        return NULL;
+    name_len = strlen(name);
+    for (i = 0; ep[i] != NULL; i++) {
+        if (strncmp(ep[i], name, name_len) == 0 && ep[i][name_len] == '=') {
+            return ep[i] + name_len + 1;
+        }
+    }
+    return NULL;
+}
+
+/* Work around drpreload's _init going first.  We can get envp in our own _init
+ * routine down below, but drpreload.so comes first and calls
+ * dynamorio_app_init before our own _init routine gets called.  Apps using the
+ * app API are unaffected because our _init routine will have run by then.
+ * FIXME: If we decide to support STATIC_LIBRARY we'll need to document this API
+ * or make sure we get envp some other way.
+ */
+DYNAMORIO_EXPORT
+void
+dynamorio_set_envp(char **envp)
+{
+    our_environ = envp;
+}
 
 #if !defined(STATIC_LIBRARY) && !defined(STANDALONE_UNIT_TEST)
 /* shared library init and exit */
 int
-_init()
+_init(int argc, char **argv, char **envp)
 {
     /* if do not want to use drpreload.so, we can take over here */
     extern void dynamorio_app_take_over(void);
@@ -648,6 +692,12 @@ _init()
     /* PR 391765: take over here instead of using preload */
     takeover = os_in_vmkernel_classic();
 # endif
+    if (our_environ != NULL) {
+        /* Set by dynamorio_set_envp above.  These should agree. */
+        ASSERT(our_environ == envp);
+    } else {
+        our_environ = envp;
+    }
     if (takeover) {
         if (dynamorio_app_init() == 0 /* success */) {
             dynamorio_app_take_over();

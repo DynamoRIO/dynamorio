@@ -326,7 +326,7 @@ unit_test_string(void)
     EXPECT(ret == NULL, true);
 
     /* memmove */
-    strcpy(buf, test_path);
+    strncpy(buf, test_path, sizeof(buf));
     memmove(buf + 4, buf, strlen(buf) + 1);
     strncpy(buf, "/foo", 4);
     EXPECT(strcmp(buf, "/foo/path/to/file"), 0);
