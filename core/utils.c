@@ -1685,7 +1685,8 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage,
                       - (precision_multiple * *top));
 }
 
-#if defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE)
+#if (defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE) || \
+     defined(STANDALONE_UNIT_TEST))
 /* for printing a float (can't use %f on windows with NOLIBC), NOTE: you must
  * preserve floating point state to call this function!! 
  * FIXME : truncates instead of rounding, also negative with width looks funny,
@@ -1712,7 +1713,7 @@ double_print(double val, uint precision, uint *top, uint *bottom, char **sign)
     *top = (uint)val;
     *bottom = (uint)((val - *top) * precision_multiple);
 }
-#endif /* DEBUG || INTERNAL */
+#endif /* DEBUG || INTERNAL || CLIENT_INTERFACE || STANDALONE_UNIT_TEST */
 
 #ifdef WINDOWS
 /* for pre_inject, injector, and core shared files, is just wrapper for syslog
