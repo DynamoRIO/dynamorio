@@ -61,6 +61,10 @@
 /* for use by developers */
 #cmakedefine KSTATS
 #cmakedefine CALLPROF
+#ifdef CALLPROF
+/* XXX: perhaps should rename CALLPROF cmake var to CALL_PROFILE */
+# define CALL_PROFILE
+#endif
 #cmakedefine LINKCOUNT
 #cmakedefine KEEP_SYMBOLS_FOR_LIBC_BACKTRACE
 #cmakedefine PARAMS_IN_REGISTRY
