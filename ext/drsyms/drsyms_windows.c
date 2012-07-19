@@ -387,6 +387,11 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
     }
 
     base = mod->u.load_base;
+
+    if (!query_available(GetCurrentProcess(), base, &out->debug_kind)) {
+        out->debug_kind = 0;
+    }
+
     info = alloc_symbol_info();
     if (SymFromAddr(GetCurrentProcess(), base + modoffs, &disp, info)) {
         out->start_offs = (size_t) (info->Address - base);
@@ -415,10 +420,6 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
         NOTIFY("SymGetLineFromAddr64 error %d\n", GetLastError());
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LINE_NOT_AVAILABLE;
-    }
-
-    if (!query_available(GetCurrentProcess(), base, &out->debug_kind)) {
-        out->debug_kind = 0;
     }
 
     dr_recurlock_unlock(symbol_lock);
