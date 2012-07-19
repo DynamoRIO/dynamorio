@@ -145,6 +145,12 @@ endif (UNIX)
 # Assembler location and flags
 
 if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  if (UNIX)
+    # i#646: cmake 2.8.5 requires ASM-ATT to find as: but we don't want to change
+    # all our vars to have -ATT suffix so we set the search list instead.
+    # This must be done prior to enable_language(ASM).
+    set(CMAKE_ASM_COMPILER_INIT gas as)
+  endif (UNIX)
   # CMake does not support assembly with VS generators
   # (http://public.kitware.com/Bug/view.php?id=11536)
   # so we have to add our own custom commands and targets
@@ -162,9 +168,6 @@ if (UNIX)
   if (DEBUG)
     set(ASM_FLAGS "${ASM_FLAGS} -g")
   endif (DEBUG)
-  # i#646: cmake 2.8.5 requires ASM-ATT to find as: but we don't want to change
-  # all our vars to have -ATT suffix so we set the search list instead
-  set(CMAKE_ASM_COMPILER_INIT gas as)
 else (UNIX)
   if (X64)
     find_program(CMAKE_ASM_COMPILER ml64.exe HINTS "${cl_path}" DOC "path to assembler")
