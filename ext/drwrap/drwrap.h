@@ -119,6 +119,9 @@ drwrap_replace(app_pc original, app_pc replacement, bool override);
 
 DR_EXPORT
 /**
+ * \warning This interface is in flux and is subject to change in the
+ * next release.  Consider it experimental in this release.
+ *
  * Replaces the application function that starts at the address \p
  * original with the natively-executed (i.e., as the client) code at
  * the address \p replacement.
