@@ -3607,8 +3607,8 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
             return;
 #endif
-        /* cannot call instr_reset, will clear prev, next*/
-        instr_free(dcontext, instr);
+        /* must use the original instr, which might be used by caller */
+        instr_reuse(dcontext, instr);
         instr_set_opcode(instr, OP_nop);
         return;
     }
