@@ -383,7 +383,7 @@ typedef struct _instr_t instr_t;
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
-#define BOOLS_MATCH(a, b) (((a) && (b)) || (!(a) && !(b)))
+#define BOOLS_MATCH(a, b) (!!(a) == !!(b))
 
 /* macros to make conditional compilation look prettier */
 #ifdef DEBUG

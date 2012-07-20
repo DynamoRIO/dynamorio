@@ -4126,6 +4126,14 @@ unit_test_utils(void)
     DO_TEST(-23.0456, 5, "%s%4u.%.5u", "-  23.04560");
 
 # undef DO_TEST
+
+    EXPECT(BOOLS_MATCH(1, 1), true);
+    EXPECT(BOOLS_MATCH(1, 0), false);
+    EXPECT(BOOLS_MATCH(0, 1), false);
+    EXPECT(BOOLS_MATCH(0, 0), true);
+    EXPECT(BOOLS_MATCH(1, 2), true);
+    EXPECT(BOOLS_MATCH(2, 1), true);
+    EXPECT(BOOLS_MATCH(1, -1), true);
 }
 
 # undef printf

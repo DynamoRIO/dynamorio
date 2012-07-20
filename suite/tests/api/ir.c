@@ -65,7 +65,7 @@
          dr_abort(), 0) : 0))
 #endif
 
-#define BOOLS_MATCH(b1, b2) (((b1) && (b2)) || (!(b1) && !(b2)))
+#define BOOLS_MATCH(b1, b2) (!!(b1) == !!(b2))
 
 #define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
