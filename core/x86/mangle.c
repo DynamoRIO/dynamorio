@@ -3610,6 +3610,7 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* must use the original instr, which might be used by caller */
         instr_reuse(dcontext, instr);
         instr_set_opcode(instr, OP_nop);
+        instr_set_num_opnds(dcontext, instr, 0, 0);
         return;
     }
 
