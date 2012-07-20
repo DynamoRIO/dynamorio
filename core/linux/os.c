@@ -6565,8 +6565,9 @@ post_system_call(dcontext_t *dcontext)
          * (if it failed, the old break will be returned).  We stored
          * the old break in sys_param1 in pre-syscall.
          */
-        app_pc old_brk = (app_pc) dcontext->sys_param1;
-        app_pc new_brk = (app_pc) result;
+        /* i#851: the brk might not be page aligned */
+        app_pc old_brk = (app_pc) ALIGN_FORWARD(dcontext->sys_param1, PAGE_SIZE);
+        app_pc new_brk = (app_pc) ALIGN_FORWARD(result, PAGE_SIZE);
         if (new_brk < old_brk) {
             all_memory_areas_lock();
             DEBUG_DECLARE(ok =)
