@@ -2631,6 +2631,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             STATS_INC(coarse_prevent_client);
         }
     }
+
+    if (TEST(DR_EMIT_MUST_END_TRACE, emitflags)) {
+        /* i#848: let client terminate traces */
+        bb->flags |= FRAG_MUST_END_TRACE;
+    }
 }
 #endif /* CLIENT_INTERFACE */
 

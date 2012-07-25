@@ -129,6 +129,16 @@ typedef enum {
      * easily persisting it.
      */
     DR_EMIT_PERSISTABLE          = 0x02,
+    /** 
+     * Only valid when applied to a basic block.  Indicates that the
+     * block must terminate a trace.  Normally this should be set when
+     * an abnormal exit is used from the block that is incompatible with
+     * trace building's attempt to inline the continuation from the block
+     * to its successor.  Note that invoking dr_redirect_execution() from a
+     * clean call called from a block aborts trace building and thus this
+     * flag need not be set for that scenario.
+     */
+    DR_EMIT_MUST_END_TRACE       = 0x04,
 } dr_emit_flags_t;
 /* DR_API EXPORT END */
 
