@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -42,8 +42,7 @@ configure_DynamoRIO_client(drcontainers)
 if (UNIX)
   # static containers must be PIC to be linked into clients: else requires
   # relocations that run afoul of security policies, etc.
-  get_target_property(cur_flags drcontainers COMPILE_FLAGS)
-  set_target_properties(drcontainers PROPERTIES COMPILE_FLAGS "${cur_flags} -fPIC")
+  append_property_string(TARGET drcontainers COMPILE_FLAGS "-fPIC")
 endif (UNIX)
 # ensure we rebuild if includes change
 add_dependencies(drcontainers api_headers)
@@ -51,8 +50,7 @@ add_dependencies(drcontainers api_headers)
 if (WIN32 AND GENERATE_PDBS)
   # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
   # In any case we make sure to add it (for release and debug, to get pdb):
-  get_target_property(cur_flags drcontainers LINK_FLAGS)
-  set_target_properties(drcontainers PROPERTIES LINK_FLAGS "${cur_flags} /debug")
+  append_property_string(TARGET drcontainers LINK_FLAGS "/debug")
 endif (WIN32 AND GENERATE_PDBS)
 
 # documentation is put into main DR docs/ dir

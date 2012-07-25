@@ -220,6 +220,43 @@ function (get_size is_cxx x64_var)
 endfunction (get_size)
 
 
+function (set_compile_flags target tgt_cflags)
+  # i#850: we do not want the C flags being used for asm objects so we only set
+  # on C/C++ files and not on the target.
+  # We do want the defines and include dirs to be global (or at least on the
+  # asm targets if using cpp2asm...)
+  # First, convert "/D FOO" to "/DFOO" for easier list conversion
+  string(REGEX REPLACE " /D " " /D" tgt_cflags_list "${tgt_cflags}")
+  # Now convert to list
+  string(REGEX REPLACE " " ";" tgt_cflags_list "${tgt_cflags_list}")
+  foreach(flag ${tgt_cflags_list})
+    if (flag MATCHES "^[-/]D" OR flag MATCHES "^[-/]I")
+      set(tgt_definc "${tgt_definc} ${flag}")
+    else ()
+      set(tgt_flags "${tgt_flags} ${flag}")
+    endif ()
+  endforeach (flag)
+  get_target_property(srcs ${target} SOURCES)
+  foreach (src ${srcs})
+    get_source_file_property(lang ${src} LANGUAGE)
+    if ("${lang}" STREQUAL "C" OR "${lang}" STREQUAL "CXX" AND
+        # do not add COMPILE_FLAGS to an .obj file else VS2008 will try to
+        # compile the file!
+        NOT src MATCHES "\\.obj$")
+      # XXX: if we require cmake 2.8.6 we can simply use APPEND_STRING
+      get_source_file_property(cur_flags ${src} COMPILE_FLAGS)
+      if (NOT cur_flags)
+        set(cur_flags "")
+      endif (NOT cur_flags)
+      set_source_files_properties(${src} PROPERTIES
+        COMPILE_FLAGS "${cur_flags} ${tgt_flags}")
+    endif ()
+  endforeach (src)
+
+  set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${tgt_definc}")
+endfunction(set_compile_flags)
+
+
 # Unfortunately, CMake doesn't support removing flags on a per-target basis,
 # or per-target include dirs or link dirs, so we have to make global changes.
 # We don't want find_package() to incur those changes: only if a target
@@ -596,9 +633,8 @@ function (configure_DynamoRIO_client target)
     set(tgt_link_flags "${tgt_link_flags} ${PREFERRED_BASE_FLAGS}")
   endif (tgt_x64 OR DynamoRIO_SET_PREFERRED_BASE)
 
-  set_target_properties(${target} PROPERTIES
-    COMPILE_FLAGS "${tgt_cflags}"
-    LINK_FLAGS "${tgt_link_flags}")
+  set_compile_flags(${target} "${tgt_cflags}")
+  set_target_properties(${target} PROPERTIES LINK_FLAGS "${tgt_link_flags}")
 
   # TODO: a nice feature would be to check the client for libc imports or
   # other not-recommended properties
@@ -623,9 +659,8 @@ function (configure_DynamoRIO_standalone target)
   endforeach (config)
   set(DynamoRIO_configured_globally ${DynamoRIO_configured_globally} PARENT_SCOPE)
 
-  set_target_properties(${target} PROPERTIES
-    COMPILE_FLAGS "${tgt_cflags} -DDYNAMORIO_STANDALONE"
-    LINK_FLAGS "${tgt_link_flags}")
+  set_compile_flags(${target} "${tgt_cflags} -DDYNAMORIO_STANDALONE")
+  set_target_properties(${target} PROPERTIES LINK_FLAGS "${tgt_link_flags}")
 
 endfunction (configure_DynamoRIO_standalone)
 

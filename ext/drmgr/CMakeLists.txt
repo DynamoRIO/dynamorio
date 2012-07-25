@@ -55,15 +55,13 @@ add_dependencies(drmgr api_headers)
 if (UNIX)
   # static libs must be PIC to be linked into clients: else requires
   # relocations that run afoul of security policies, etc.
-  get_target_property(cur_flags drmgr COMPILE_FLAGS)
-  set_target_properties(drmgr PROPERTIES COMPILE_FLAGS "${cur_flags} -fPIC")
+  append_property_string(TARGET drmgr COMPILE_FLAGS "-fPIC")
 endif (UNIX)
 
 if (WIN32 AND GENERATE_PDBS)
   # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
   # In any case we make sure to add it (for release and debug, to get pdb):
-  get_target_property(cur_flags drmgr LINK_FLAGS)
-  set_target_properties(drmgr PROPERTIES LINK_FLAGS "${cur_flags} /debug")
+  append_property_string(TARGET drmgr LINK_FLAGS "/debug")
 endif (WIN32 AND GENERATE_PDBS)
 
 # documentation is put into main DR docs/ dir

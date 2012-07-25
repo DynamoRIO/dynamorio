@@ -190,6 +190,9 @@ foreach (tgt ${tgts})
     # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
     # In any case we make sure to add it:
     get_target_property(cur_flags ${tgt} LINK_FLAGS)
+    if (NOT cur_flags)
+      set(cur_flags "") # XXX: if we require cmake 2.8.6 we can simply use APPEND_STRING
+    endif (NOT cur_flags)
     set_target_properties(${tgt} PROPERTIES LINK_FLAGS "${cur_flags} /debug")
   endif (WIN32 AND GENERATE_PDBS)
 endforeach (tgt)

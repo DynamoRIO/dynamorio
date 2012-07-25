@@ -44,8 +44,7 @@ use_DynamoRIO_extension(drutil drmgr)
 if (UNIX)
   # static containers must be PIC to be linked into clients: else requires
   # relocations that run afoul of security policies, etc.
-  get_target_property(cur_flags drutil COMPILE_FLAGS)
-  set_target_properties(drutil PROPERTIES COMPILE_FLAGS "${cur_flags} -fPIC")
+  append_property_string(TARGET drutil COMPILE_FLAGS "-fPIC")
 endif (UNIX)
 # ensure we rebuild if includes change
 add_dependencies(drutil api_headers)
@@ -53,8 +52,7 @@ add_dependencies(drutil api_headers)
 if (WIN32 AND GENERATE_PDBS)
   # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
   # In any case we make sure to add it (for release and debug, to get pdb):
-  get_target_property(cur_flags drutil LINK_FLAGS)
-  set_target_properties(drutil PROPERTIES LINK_FLAGS "${cur_flags} /debug")
+  append_property_string(TARGET drutil LINK_FLAGS "/debug")
 endif (WIN32 AND GENERATE_PDBS)
 
 # documentation is put into main DR docs/ dir

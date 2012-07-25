@@ -117,12 +117,12 @@ use_DynamoRIO_extension(drsyms drcontainers)
 if (UNIX)
   # static libs must be PIC to be linked into clients: else requires
   # relocations that run afoul of security policies, etc.
-  get_target_property(cur_flags drsyms COMPILE_FLAGS)
+  set(extra_flags "-fPIC")
   # avoid missing symbols in DR_EXT_DRSYMS_STATIC config from g++ libs when
   # drsyms_bench is linked with gcc instead of g++ (i#715, happens w/ cmake
   # < 2.8.0 where demangle.cc is not propagated through libdrsyms.a)
-  set(cur_flags "${cur_flags} -fno-exceptions")
-  set_target_properties(drsyms PROPERTIES COMPILE_FLAGS "${cur_flags} -fPIC")
+  set(extra_flags "${extra_flags} -fno-exceptions")
+  append_property_string(TARGET drsyms COMPILE_FLAGS "${extra_flags}")
 endif (UNIX)
 
 # ensure we rebuild if includes change
@@ -138,8 +138,7 @@ set_target_properties(drsyms_bench PROPERTIES
 if (WIN32 AND GENERATE_PDBS)
   # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
   # In any case we make sure to add it (for release and debug, to get pdb):
-  get_target_property(cur_flags drsyms LINK_FLAGS)
-  set_target_properties(drsyms PROPERTIES LINK_FLAGS "${cur_flags} /debug")
+  append_property_string(TARGET drsyms LINK_FLAGS "/debug")
 endif ()
 
 if (DR_EXT_DRSYMS_STATIC)

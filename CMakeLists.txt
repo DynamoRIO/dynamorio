@@ -812,6 +812,18 @@ if (NOT DISABLE_WARNINGS)
 endif (NOT DISABLE_WARNINGS)
 
 ###########################################################################
+# utility functions
+
+function (append_property_string type target name value)
+  # XXX: if we require cmake 2.8.6 we can simply use APPEND_STRING
+  get_property(cur ${type} ${target} PROPERTY ${name})
+  if (cur)
+    set(value "${cur} ${value}")
+  endif (cur)
+  set_property(${type} ${target} PROPERTY ${name} "${value}")
+endfunction (append_property_string)
+
+###########################################################################
 
 # Issue 20: cross-arch execve depends on these being distinct and not
 # subsets of each other (e.g., not "lib" and "lib64") and on the
