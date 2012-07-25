@@ -7225,7 +7225,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
 #ifdef CLIENT_INTERFACE
             /* clients are allowed to use DR-allocated memory as app code:
              * we give up some robustness by allowing any DR-allocated memory.
-             * XXX: should we instead have some dr_appcode_alloc() or
+             * XXX i#852: should we instead have some dr_appcode_alloc() or
              * dr_appcode_mark() API?
              */
             if (is_in_dr && INTERNAL_OPTION(code_api))

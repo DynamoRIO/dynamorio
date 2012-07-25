@@ -80,11 +80,11 @@ enum {
 /** Name of drmgr instrumentation pass priorities for both app2app and insert */
 #define DRMGR_PRIORITY_NAME_DRWRAP "drwrap"
 
-/** Spill slot used to store application return address for drwrap_replace_native() */
-#define DRWRAP_REPLACE_NATIVE_RETADDR_SLOT SPILL_SLOT_1
-
 /** Spill slot used to store user_data parameter for drwrap_replace_native() */
 #define DRWRAP_REPLACE_NATIVE_DATA_SLOT    SPILL_SLOT_2
+
+/** Spill slot used to store user_data parameter for drwrap_replace_native() */
+#define DRWRAP_REPLACE_NATIVE_SP_SLOT      SPILL_SLOT_3
 
 DR_EXPORT
 /**
@@ -126,16 +126,23 @@ DR_EXPORT
  * original with the natively-executed (i.e., as the client) code at
  * the address \p replacement.
  *
- * The replacement function should use the same same calling
- * convention as the original.  For calling conventions in which the
- * callee cleans up arguments on the stack, the argument cleanup will
- * happen natively.  A client that tracks stack adjustments will thus
- * have the application stack change without any visible cause.  To
- * solve this problem, use the \p stack_adjust parameter to request
- * that the replacement code re-perform the argument cleanup (of size
- * \p stack_adjust) in view of the client.  If the client does not
- * track the stack, passing 0 will still work correctly so long as the
- * replacement function uses the proper calling convention.
+ * The replacement function must call drwrap_replace_native_fini()
+ * prior to returning.  If it fails to do so, control will be lost and
+ * subsequent application code will not be under DynamoRIO control.
+ * The fini routine sets up a continuation function that is used
+ * rather than a direct return.  This continuation strategy enables
+ * the replacement function to use application locks (if they are
+ * marked with dr_mark_safe_to_suspend()) safely, as there is no code
+ * cache return point.
+ *
+ * The replacement function should use the same calling convention as
+ * the original with respect to argument access.  In order to match
+ * the calling convention return for conventions in which the callee
+ * cleans up arguments on the stack, use the \p stack_adjust parameter
+ * to request a return that adjusts the stack.  This return will be
+ * executed as a regular basic block and thus a stack-tracking client
+ * will not observe any missing stack adjustments.  The \p stack_adjust
+ * parameter must be a multiple of sizeof(void*).
  *
  * If \p user_data != NULL, it is stored in a scratch slot for access
  * by \p replacement by calling dr_read_saved_reg() and passing
@@ -165,7 +172,7 @@ DR_EXPORT
  * application code.  However, it will use the application stack and
  * other machine state.  Usually it is good practice to call
  * dr_switch_to_app_state() inside the replacement code, and then
- * dr_switch_to_dr_state() before returning.
+ * dr_switch_to_dr_state() before returning, in particular on Windows.
  *
  * The replacement code is not allowed to invoke dr_flush_region() or
  * dr_delete_fragment() as it has no #dr_mcontext_t with which to
@@ -180,11 +187,9 @@ DR_EXPORT
  * replacement.  The return address will be identical, however,
  * assuming \p original does not replace its own return address.
  *
- * \note The application return address that would be present
- * without a native replacement is replaced with a code cache
- * return address.  This can interfere with callstack walking.
- * The application address can be obtained by calling
- * dr_read_saved_reg() and passing DRWRAP_REPLACE_NATIVE_RETADDR_SLOT.
+ * \note The application stack address at which its return address is
+ * stored is available by calling dr_read_saved_reg() and passing
+ * DRWRAP_REPLACE_NATIVE_SP_SLOT.
  *
  * \note The priority of the app2app pass used here is
  * DRMGR_PRIORITY_APP2APP_DRWRAP and its name is
@@ -205,6 +210,15 @@ DR_EXPORT
 /** \return whether \p func is currently replaced via drwrap_replace_native() */
 bool
 drwrap_is_replaced_native(app_pc func);
+
+DR_EXPORT
+/**
+ * The replacement function passed to drwrap_replace_native() must
+ * call this function prior to returning.  If this function is not called,
+ * DynamoRIO will lose control of the application.
+ */
+void
+drwrap_replace_native_fini(void *drcontext);
 
 
 /***************************************************************************

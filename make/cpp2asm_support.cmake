@@ -68,6 +68,11 @@
 #   If you are using it, pass in its path as part of the extra_deps option.
 # + cpp2asm_defines.h's dir is not automatically added as an include dir.
 #   If you are using it, pass in "-I;<path>" as part of the extra_defs option.
+# + The global preprocessor defines are used for Makefile generators.
+#   For Visual Studio generators, pass in the defines needed (as a list)
+#   as part of the extra_defs option.  These extra_defs are NOT honored
+#   for Makefile generators and should be added by the caller to the
+#   target or global flags.
 # + Have assembly files #include a configure.h or other header to obtain
 #   their defines (this file does not support passing them in via cmdline
 #   to the preprocessor or the assembler).
@@ -95,7 +100,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio 10")
 else ()
   # Require 2.6.4 to avoid cmake bug #8639, unless this var is
   # properly set (which it is for DR b/c it has a workaround):
-  if (NOT ${CMAKE_ASM_SOURCE_FILE_EXTENSIONS} MATCHES "asm")
+  if (NOT "${CMAKE_ASM_SOURCE_FILE_EXTENSIONS}" MATCHES "asm")
     cmake_minimum_required(VERSION 2.6.4)
   endif ()
 endif ()
@@ -327,6 +332,8 @@ function (add_asm_target source output_out tgt_out extra_suffix extra_defs extra
       set_source_files_properties(${source} PROPERTIES OBJECT_DEPENDS
         "${cpp2asm_newline_script_path};${extra_deps}")
     endif (extra_deps)
+    # We can't set the extra_defs as source file property b/c caller might
+    # use same source for two different targets
     set(${output_out} "${source}" PARENT_SCOPE)
     set(${tgt_out} "" PARENT_SCOPE)
   endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")

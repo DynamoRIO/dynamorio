@@ -274,6 +274,17 @@ replacewith2(int *x)
                                     DRWRAP_REPLACE_NATIVE_DATA_SLOT);
     CHECK(param == DRWRAP_NATIVE_PARAM, "native param wrong");
     *x = 999;
+    /* We must call this prior to returning, to avoid going native.
+     * This also serves as a test of dr_redirect_native_target()
+     * as drwrap's continuation relies on that.
+     * Because drwrap performs a bunch of flushes, it tests
+     * the unlink/relink of the client ibl xfer gencode.
+     *
+     * XXX: could also verify that retaddr is app's, and that
+     * traces continue on the other side.  The latter, certainly,
+     * is very difficult to write a simple test for.
+     */
+    drwrap_replace_native_fini(dr_get_current_drcontext());
     return 1;
 }
 
