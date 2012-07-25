@@ -1096,15 +1096,15 @@ drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
      * Jumping through DR memory doesn't work well (meta instrs in app2app,
      * ind jmp mangled w/ i#107).
      * Probably best to add DR API to set exit cti target of bb
-     * which is i#429.  For now we clobber xax, which is scratch
-     * in most calling conventions.
+     * which is i#429.  For now we clobber r11, which is scratch
+     * and unused for parameter transfer in most calling conventions.
      */
     instrlist_append(bb, INSTR_XL8(INSTR_CREATE_mov_imm
-                                   (drcontext, opnd_create_reg(DR_REG_XAX),
+                                   (drcontext, opnd_create_reg(DR_REG_R11),
                                     OPND_CREATE_INT64(replace)), pc));
     instrlist_append(bb, INSTR_XL8
                      (INSTR_CREATE_jmp_ind
-                      (drcontext, opnd_create_reg(DR_REG_XAX)), pc));
+                      (drcontext, opnd_create_reg(DR_REG_R11)), pc));
 #else
     instrlist_append(bb, INSTR_XL8(INSTR_CREATE_jmp
                                    (drcontext, opnd_create_pc(replace)), pc));
@@ -1153,14 +1153,14 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
                             OPND_CREATE_INT32(rn->stack_adjust)));
     if (rn->user_data != NULL) {
 #ifdef X64
-        /* We clobber xax, which is scratch in most calling conventions */
+        /* We clobber r11, which is scratch in most calling conventions */
         instrlist_meta_append(bb, INSTR_CREATE_mov_imm
-                              (drcontext, opnd_create_reg(DR_REG_XAX),
+                              (drcontext, opnd_create_reg(DR_REG_R11),
                                OPND_CREATE_INT64((ptr_uint_t)rn->user_data)));
         instrlist_meta_append(bb, INSTR_CREATE_mov_st
                               (drcontext, dr_reg_spill_slot_opnd
                                (drcontext, DRWRAP_REPLACE_NATIVE_DATA_SLOT),
-                               opnd_create_reg(DR_REG_XAX)));
+                               opnd_create_reg(DR_REG_R11)));
 #else
         instrlist_meta_append(bb, INSTR_CREATE_mov_st
                               (drcontext, dr_reg_spill_slot_opnd
@@ -1170,13 +1170,13 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
     }
 #ifdef X64
     /* XXX: simple call has reachability issues.   For now we clobber
-     * xax, which is scratch in most calling conventions.
+     * r11, which is scratch in most calling conventions.
      */
     instrlist_meta_append(bb, INSTR_CREATE_mov_imm
-                          (drcontext, opnd_create_reg(DR_REG_XAX),
+                          (drcontext, opnd_create_reg(DR_REG_R11),
                            OPND_CREATE_INT64(rn->replacement)));
     instrlist_meta_append(bb, INSTR_CREATE_jmp_ind
-                          (drcontext, opnd_create_reg(DR_REG_XAX)));
+                          (drcontext, opnd_create_reg(DR_REG_R11)));
 #else
     instrlist_meta_append(bb, INSTR_CREATE_jmp(drcontext,
                                                opnd_create_pc(rn->replacement)));
