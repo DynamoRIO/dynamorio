@@ -4901,8 +4901,6 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     instr_set_opcode(targeter, OP_jnz);
     added_size++; /* jcc is 6 bytes, jmp is 5 bytes */
     ASSERT(opnd_is_pc(instr_get_target(targeter)));
-    if (get_x86_mode(dcontext))
-        SYSLOG_INTERNAL_CRITICAL("trace cmp");//NOCHECKIN
     instr_set_target(targeter, opnd_create_pc
                      (get_trace_cmp_entry(dcontext, opnd_get_pc
                                           (instr_get_target(targeter)))));

@@ -627,7 +627,13 @@ typedef struct _generated_code_t {
     /* FIXME: these two return routines are only needed in the global struct */
     byte *fcache_return_coarse;
     byte *trace_head_return_coarse;
+#ifdef CLIENT_INTERFACE
+    /* i#849: low-overhead xfer for clients */
+    byte *client_ibl_xfer;
+    uint client_ibl_unlink_offs;
+#endif
 
+    bool thread_shared;
     bool writable;
 #ifdef X64
     bool x86_mode; /* Is this code for 32-bit (x86 mode)? */
@@ -836,6 +842,11 @@ byte *emit_trace_head_incr(dcontext_t *dcontext, byte *pc,
                            byte *fcache_return_pc);
 byte * 
 emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_pc);
+#endif
+
+#ifdef CLIENT_INTERFACE
+byte *
+emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 #endif
 
 void

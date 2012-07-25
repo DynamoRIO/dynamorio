@@ -4384,16 +4384,8 @@ dr_max_opnd_accessible_spill_slot()
 /* creates an opnd to access spill slot slot, slot must be <=
  * dr_max_opnd_accessible_spill_slot() */
 opnd_t
-dr_reg_spill_slot_opnd(void *drcontext, dr_spill_slot_t slot)
+reg_spill_slot_opnd(dcontext_t *dcontext, dr_spill_slot_t slot)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
-    CLIENT_ASSERT(drcontext != NULL, "dr_reg_spill_slot_opnd: drcontext cannot be NULL");
-    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
-                  "dr_reg_spill_slot_opnd: drcontext is invalid");
-    CLIENT_ASSERT(slot <= dr_max_opnd_accessible_spill_slot(),
-                  "dr_reg_spill_slot_opnd: slot must be less than "
-                  "dr_max_opnd_accessible_spill_slot()");
-
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         return opnd_create_tls_slot(offs);
@@ -4403,6 +4395,20 @@ dr_reg_spill_slot_opnd(void *drcontext, dr_spill_slot_t slot)
         ASSERT(!SCRATCH_ALWAYS_TLS()); /* client assert above should catch */
         return opnd_create_dcontext_field(dcontext, offs);
     }
+}
+
+DR_API
+opnd_t
+dr_reg_spill_slot_opnd(void *drcontext, dr_spill_slot_t slot)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL, "dr_reg_spill_slot_opnd: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
+                  "dr_reg_spill_slot_opnd: drcontext is invalid");
+    CLIENT_ASSERT(slot <= dr_max_opnd_accessible_spill_slot(),
+                  "dr_reg_spill_slot_opnd: slot must be less than "
+                  "dr_max_opnd_accessible_spill_slot()");
+    return reg_spill_slot_opnd(dcontext, slot);
 }
 
 DR_API
@@ -5080,6 +5086,21 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
                          true/*full_DR_state*/);
     /* on success we won't get here */
     return false;
+}
+
+DR_API
+byte *
+dr_redirect_native_target(void *drcontext)
+{
+#ifdef PROGRAM_SHEPHERDING
+    /* This feature is unavail for prog shep b/c of the cross-ib-type pollution. */
+    return NULL;
+#else
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_redirect_native_target(): drcontext cannot be NULL");
+    return get_client_ibl_xfer_entry(dcontext);
+#endif
 }
 
 /***************************************************************************

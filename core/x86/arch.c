@@ -309,6 +309,7 @@ shared_gencode_init(IF_X64_ELSE(bool x86_mode, void))
         shared_code = gencode;
     memset(gencode, 0, sizeof(*gencode));
 
+    gencode->thread_shared = true;
     IF_X64(gencode->x86_mode = x86_mode);
     /* Generated code immediately follows struct */
     gencode->gen_start_pc = ((byte *)gencode) + sizeof(*gencode);
@@ -439,6 +440,13 @@ shared_gencode_init(IF_X64_ELSE(bool x86_mode, void))
     pc = check_size_and_cache_line(gencode, pc);
     gencode->trace_head_incr = pc;
     pc = emit_trace_head_incr_shared(GLOBAL_DCONTEXT, pc, gencode->fcache_return);
+#endif
+
+#ifdef CLIENT_INTERFACE
+    if (!client_ibl_xfer_is_thread_private()) {
+        gencode->client_ibl_xfer = pc;
+        pc = emit_client_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
+    }
 #endif
 
     ASSERT(pc < gencode->commit_end_pc);
@@ -952,6 +960,7 @@ arch_thread_init(dcontext_t *dcontext)
      * memset since we will no longer have a bunch of fields we don't use
      */
     memset(code, 0, sizeof(*code));
+    code->thread_shared = false;
     /* Generated code immediately follows struct */
     code->gen_start_pc = ((byte *)code) + sizeof(*code);
     code->commit_end_pc = ((byte *)code) + GENCODE_COMMIT_SIZE;
@@ -1070,6 +1079,13 @@ arch_thread_init(dcontext_t *dcontext)
                                                          get_reset_linkstub()),
                                        (linkstub_t *) get_reset_linkstub(),
                                        pc, LINK_DIRECT);
+#ifdef CLIENT_INTERFACE
+    if (client_ibl_xfer_is_thread_private()) {
+        code->client_ibl_xfer = pc;
+        pc = emit_client_ibl_xfer(dcontext, pc, code);
+    }
+#endif
+
     ASSERT(pc < code->commit_end_pc);
     code->gen_end_pc = pc;
     release_final_page(code);
@@ -1567,6 +1583,20 @@ trace_head_return_coarse_routine(IF_X64_ELSE(gencode_mode_t mode, void))
     else
         return (cache_pc) code->trace_head_return_coarse;
 }
+
+#ifdef CLIENT_INTERFACE
+cache_pc
+get_client_ibl_xfer_entry(dcontext_t *dcontext)
+{
+    generated_code_t *code;
+    if (client_ibl_xfer_is_thread_private()) {
+        ASSERT(dcontext != GLOBAL_DCONTEXT);
+        code = THREAD_GENCODE(dcontext);
+    } else
+        code = SHARED_GENCODE_MATCH_THREAD(dcontext);
+    return code->client_ibl_xfer;
+}
+#endif
 
 /* returns false if target is not an IBL routine.
  * if type is not NULL it is set to the type of the found routine.

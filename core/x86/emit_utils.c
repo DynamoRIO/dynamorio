@@ -4384,6 +4384,18 @@ append_empty_loop(dcontext_t *dcontext, instrlist_t *ilist,
 }
 #endif /* INTERNAL */
 
+#ifdef X64
+static void
+instrlist_convert_to_x86(instrlist_t *ilist)
+{
+    instr_t *in;
+    for (in = instrlist_first(ilist); in != NULL; in = instr_get_next(in)) {
+        instr_set_x86_mode(in, true/*x86*/);
+        instr_shrink_to_32_bits(in);
+    }
+}
+#endif
+
 /* what we do on a hit in the hashtable */
 /* Restore XBX saved from the indirect exit stub insert_jmp_to_ibl() */
 /* Indirect jump through hashtable entry pointed to by XCX */
@@ -5833,11 +5845,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
          * Note that we're punting on PR 283152: we go ahead and clobber the top bits
          * of all our scratch registers.
          */
-        instr_t *in;
-        for (in = instrlist_first(&ilist); in != NULL; in = instr_get_next(in)) {
-            instr_set_x86_mode(in, true/*x86*/);
-            instr_shrink_to_32_bits(in);
-        }
+        instrlist_convert_to_x86(&ilist);
     }
 #endif
 
@@ -6032,11 +6040,7 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
         far_jmp_opnd->selector = (ushort) selector;
 
         if (ibl_code->x86_mode) {
-            instr_t *in;
-            for (in = instrlist_first(&ilist); in != NULL; in = instr_get_next(in)) {
-                instr_set_x86_mode(in, true/*x86*/);
-                instr_shrink_to_32_bits(in);
-            }
+            instrlist_convert_to_x86(&ilist);
         }
     } else {
 #endif
@@ -7759,3 +7763,146 @@ emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_
 }
 
 #endif /* TRACE_HEAD_CACHE_INCR */
+
+#ifdef CLIENT_INTERFACE
+/* i#849: low-overhead xfer for clients */
+
+static byte *
+client_xfer_ibl_tgt(dcontext_t *dcontext, generated_code_t *code,
+                    ibl_entry_point_type_t entry_type)
+{
+    /* We use the trace ibl so that the target will be a trace head,
+     * avoiding a trace disruption.
+     * We request that bbs doing this xfer are marked DR_EMIT_MUST_END_TRACE.
+     * We use the ret ibt b/c we figure most uses will involve rets and there's
+     * no reason to fill up the jmp ibt.
+     * This feature is unavail for prog shep b/c of the cross-type pollution.
+     */
+    return get_ibl_routine_ex(dcontext, entry_type,
+                              DYNAMO_OPTION(disable_traces) ?
+                              (code->thread_shared ? IBL_BB_SHARED : IBL_BB_PRIVATE) :
+                              (code->thread_shared ? IBL_TRACE_SHARED : IBL_TRACE_PRIVATE),
+                              IBL_RETURN
+                              _IF_X64(MODE_OVERRIDE(code->x86_mode)));
+}
+
+/* We only need a thread-private version if our ibl target is thread-private */
+bool
+client_ibl_xfer_is_thread_private(void)
+{
+#ifdef X64
+    return false; /* all gencode is shared */
+#else
+    return (DYNAMO_OPTION(disable_traces) ?
+            !DYNAMO_OPTION(shared_bbs) : !DYNAMO_OPTION(shared_traces));
+#endif
+}
+
+byte *
+emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
+{
+    /* The client puts the target in SPILL_SLOT_REDIRECT_NATIVE_TGT.
+     * We need to move it to xcx and then jmp to the ibl.
+     */
+    instrlist_t ilist;
+    patch_list_t patch;
+    instr_t *in;
+    size_t len;
+    byte *ibl_tgt = client_xfer_ibl_tgt(dcontext, code, IBL_LINKED);
+    bool absolute = !code->thread_shared;
+
+    instrlist_init(&ilist);
+    init_patch_list(&patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_FS);
+
+    if (code->thread_shared || DYNAMO_OPTION(private_ib_in_tls)) {
+        APP(&ilist, SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
+    } else {
+        APP(&ilist, SAVE_TO_DC(dcontext, REG_XCX, XCX_OFFSET));
+    }
+
+    APP(&ilist, INSTR_CREATE_mov_ld
+        (dcontext, opnd_create_reg(REG_XCX),
+         reg_spill_slot_opnd(dcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT)));
+
+#ifdef X64
+    if (code->x86_mode)
+        instrlist_convert_to_x86(&ilist);
+#endif
+    /* do not add new instrs that need conversion to x86 below here! */
+
+    /* to support patching the 4-byte pc-rel tgt we must ensure it doesn't
+     * cross a cache line
+     */
+    for (len = 0, in = instrlist_first(&ilist); in != NULL; in = instr_get_next(in)) {
+        len += instr_length(dcontext, in);
+    }
+    if (CROSSES_ALIGNMENT(pc + len + 1/*opcode*/, 4, PAD_JMPS_ALIGNMENT)) {
+        instr_t *nop_inst;
+        len = ALIGN_FORWARD(pc + len + 1, 4) - (ptr_uint_t)(pc + len + 1);
+        nop_inst = INSTR_CREATE_nopNbyte(dcontext, (uint)len);
+#ifdef X64
+        if (code->x86_mode) {
+            instr_set_x86_mode(nop_inst, true/*x86*/);
+            instr_shrink_to_32_bits(nop_inst);
+        }
+#endif
+        /* XXX: better to put prior to entry point but then need to change model
+         * of who assigns entry point
+         */
+        APP(&ilist, nop_inst);
+    }
+    APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_pc(ibl_tgt)));
+    add_patch_marker(&patch, instrlist_last(&ilist),
+                     PATCH_UINT_SIZED /* pc relative */,
+                     0 /* point at opcode of jecxz */,
+                     (ptr_uint_t*)&code->client_ibl_unlink_offs);
+
+    /* now encode the instructions */
+    pc += encode_with_patch_list(dcontext, &patch, &ilist, pc);
+    ASSERT(pc != NULL);
+
+    /* free the instrlist_t elements */
+    instrlist_clear(dcontext, &ilist);
+    
+    return pc;
+}
+ 
+static void
+relink_client_ibl_xfer(dcontext_t *dcontext, ibl_entry_point_type_t entry_type)
+{
+    generated_code_t *code;
+    byte *pc, *ibl_tgt;
+    if (dcontext == GLOBAL_DCONTEXT) {
+        ASSERT(!client_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = SHARED_GENCODE_MATCH_THREAD(get_thread_private_dcontext());
+    } else {
+#ifdef X64
+        code = SHARED_GENCODE_MATCH_THREAD(dcontext);
+#else
+        ASSERT(client_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = THREAD_GENCODE(dcontext);
+#endif
+    }
+    if (code == NULL) /* shared_code_x86, or thread private that we don't need */
+        return;
+    ibl_tgt = client_xfer_ibl_tgt(dcontext, code, entry_type);
+    ASSERT(code->client_ibl_xfer != NULL);
+    pc = code->client_ibl_xfer + code->client_ibl_unlink_offs + 1/*jmp opcode*/;
+
+    protect_generated_code(code, WRITABLE);
+    insert_relative_target(pc, ibl_tgt, code->thread_shared/*hot patch*/);
+    protect_generated_code(code, READONLY);
+}
+
+void
+link_client_ibl_xfer(dcontext_t *dcontext)
+{
+    relink_client_ibl_xfer(dcontext, IBL_LINKED);
+}
+
+void
+unlink_client_ibl_xfer(dcontext_t *dcontext)
+{
+    relink_client_ibl_xfer(dcontext, IBL_UNLINKED);
+}
+#endif

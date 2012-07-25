@@ -3443,6 +3443,10 @@ DR_API
 opnd_t
 dr_reg_spill_slot_opnd(void *drcontext, dr_spill_slot_t slot);
 
+/* internal version */
+opnd_t
+reg_spill_slot_opnd(dcontext_t *dcontext, dr_spill_slot_t slot);
+
 DR_API
 /**
  * Can be used from a clean call or a restore_state_event (see
@@ -4036,6 +4040,40 @@ DR_API
  */
 bool
 dr_redirect_execution(dr_mcontext_t *context);
+
+/* DR_API EXPORT BEGIN */
+/** Flags to request non-default preservation of state in a clean call */
+#define SPILL_SLOT_REDIRECT_NATIVE_TGT SPILL_SLOT_1
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Returns the target to use for a native context transfer to a target
+ * application address.
+ *
+ * Normally, redirection is performed from a client context in a clean
+ * call or event callback by invoking dr_redirect_execution().  In
+ * some circumstances, redirection from an application (or "native")
+ * context is desirable without creating an application control
+ * transfer in a basic block.
+ *
+ * To accomplish such a redirection, store the target application
+ * address in #SPILL_SLOT_REDIRECT_NATIVE_TGT by calling
+ * dr_write_saved_reg().  Set up any other application state as
+ * desired directly in the current machine context.  Then jump to the
+ * target returned by this routine.  By default, the target is global
+ * and can be cached globally.  However, if traces are thread-private,
+ * or if traces are disabled and basic blocks are thread-private,
+ * there will be a separate target per \p drcontext.
+ *
+ * If a basic block is exited via such a redirection, the block should
+ * be emitted with the flag DR_EMIT_MUST_END_TRACE in order to avoid
+ * trace building errors.
+ *
+ * Returns null on error.
+ */
+byte *
+dr_redirect_native_target(void *drcontext);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */

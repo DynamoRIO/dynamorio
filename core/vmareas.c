@@ -9345,6 +9345,12 @@ vm_area_flush_fragments(dcontext_t *dcontext, fragment_t *was_I_flushed)
         link_shared_syscall(dcontext);
     }
 #endif
+#ifdef CLIENT_INTERFACE
+    if (dcontext != GLOBAL_DCONTEXT && client_ibl_xfer_is_thread_private()) {
+        /* i#849: re-link private xfer */
+        link_client_ibl_xfer(dcontext);
+    }
+#endif
 
     data->last_area = NULL;
 

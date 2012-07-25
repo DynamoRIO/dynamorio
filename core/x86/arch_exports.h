@@ -1168,6 +1168,20 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info);
 void
 patch_coarse_exit_prefix(dcontext_t *dcontext, coarse_info_t *info);
 
+#ifdef CLIENT_INTERFACE
+cache_pc
+get_client_ibl_xfer_entry(dcontext_t *dcontext);
+
+bool
+client_ibl_xfer_is_thread_private(void);
+
+void
+link_client_ibl_xfer(dcontext_t *dcontext);
+
+void
+unlink_client_ibl_xfer(dcontext_t *dcontext);
+#endif
+
 enum {
     MAX_INSTR_LENGTH = 17,
     /* size of 32-bit-offset jcc instr, assuming it has no
