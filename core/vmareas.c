@@ -1859,6 +1859,26 @@ vmvector_add(vm_area_vector_t *v, app_pc start, app_pc end, void *data)
     UNLOCK_VECTOR(v, release_lock, write);
 }
 
+void *
+vmvector_add_replace(vm_area_vector_t *v, app_pc start, app_pc end, void *data)
+{
+    bool overlap;
+    vm_area_t *area = NULL;
+    void *old_data = NULL;
+    bool release_lock; /* 'true' means this routine needs to unlock */
+
+    LOCK_VECTOR(v, release_lock, write);
+    ASSERT_OWN_WRITE_LOCK(SHOULD_LOCK_VECTOR(v), &v->lock);
+    overlap = lookup_addr(v, start, &area);
+    if (overlap && start == area->start && end == area->end) {
+        old_data = area->custom.client;
+        area->custom.client = data;
+    } else
+        add_vm_area(v, start, end, 0, 0, data _IF_DEBUG(""));
+    UNLOCK_VECTOR(v, release_lock, write);
+    return old_data;
+}
+
 bool
 vmvector_remove(vm_area_vector_t *v, app_pc start, app_pc end)
 {

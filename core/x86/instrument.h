@@ -1482,6 +1482,9 @@ void instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
 bool dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *mc);
 #ifdef CLIENT_INTERFACE
 
+void instrument_client_lib_loaded(byte *start, byte *end);
+void instrument_client_lib_unloaded(byte *start, byte *end);
+
 bool dr_bb_hook_exists(void);
 bool dr_trace_hook_exists(void);
 bool dr_fragment_deleted_hook_exists(void);
@@ -2037,7 +2040,9 @@ dr_memory_is_dr_internal(const byte *pc);
 
 DR_API
 /**
- * Returns true iff pc is located inside a client library.
+ * Returns true iff pc is located inside a client library, an Extension
+ * library used by a client, or an auxiliary client library (see
+ * dr_load_aux_library()).
  */
 bool
 dr_memory_is_in_client(const byte *pc);

@@ -433,6 +433,9 @@ typedef struct _privmod_t {
     char path[MAXIMUM_PATH];
     uint ref_count;
     bool externally_loaded;
+#ifdef CLIENT_INTERFACE
+    bool is_client; /* or Extension */
+#endif
     struct _privmod_t *next;
     struct _privmod_t *prev;
     void *os_privmod_data;

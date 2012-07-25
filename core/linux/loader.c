@@ -106,7 +106,7 @@ static void
 privload_init_search_paths(void);
 
 static bool
-privload_locate(const char *name, privmod_t *dep, char *filename OUT);
+privload_locate(const char *name, privmod_t *dep, char *filename OUT, bool *is_client OUT);
 
 static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent);
@@ -545,8 +545,14 @@ privload_process_imports(privmod_t *mod)
         if (dyn->d_tag == DT_NEEDED) {
             name = strtab + dyn->d_un.d_val;
             if (privload_lookup(name) == NULL) {
-                if (privload_locate_and_load(name, mod) == NULL)
+                privmod_t *impmod = privload_locate_and_load(name, mod);
+                if (impmod == NULL)
                     return false;
+#ifdef CLIENT_INTERFACE
+                /* i#852: identify all libs that import from DR as client libs */
+                if (impmod->base == get_dynamorio_dll_start())
+                    mod->is_client = true;
+#endif
             }
         }
         ++dyn;
@@ -624,17 +630,21 @@ static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent)
 {
     char filename[MAXIMUM_PATH];
-    if (privload_locate(impname, dependent, filename))
+    bool is_client;
+    if (privload_locate(impname, dependent, filename, &is_client))
         return privload_load(filename, dependent);
     return NULL;
 }
 
 static bool
 privload_locate(const char *name, privmod_t *dep, 
-                char *filename OUT /* buffer size is MAXIMUM_PATH */)
+                char *filename OUT /* buffer size is MAXIMUM_PATH */,
+                bool *is_client OUT)
 {
     uint i;
     char *lib_paths;
+    if (is_client != NULL)
+        *is_client = false;
 
     /* FIXME: We have a simple implementation of library search.
      * libc implementation can be found at elf/dl-load.c:_dl_map_object.
@@ -651,8 +661,11 @@ privload_locate(const char *name, privmod_t *dep,
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n",
             __FUNCTION__, filename);
         if (os_file_exists(filename, false/*!is_dir*/) &&
-            os_file_has_elf_so_header(filename))
+            os_file_has_elf_so_header(filename)) {
+            if (is_client != NULL)
+                *is_client = true;
             return true;
+        }
     }
 
     /* 2) curpath */

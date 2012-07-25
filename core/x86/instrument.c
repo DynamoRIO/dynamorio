@@ -522,13 +522,21 @@ instrument_load_client_libs(void)
     }
 }
 
+static void
+init_client_aux_libs(void)
+{
+    if (client_aux_libs == NULL) {
+        VMVECTOR_ALLOC_VECTOR(client_aux_libs, GLOBAL_DCONTEXT,
+                              VECTOR_SHARED, client_aux_libs);
+    }
+}
+
 void
 instrument_init(void)
 {
     size_t i;
 
-    VMVECTOR_ALLOC_VECTOR(client_aux_libs, GLOBAL_DCONTEXT,
-                          VECTOR_SHARED, client_aux_libs);
+    init_client_aux_libs();
 
     /* Iterate over the client libs and call each dr_init */
     for (i=0; i<num_client_libs; i++) {
@@ -666,6 +674,7 @@ instrument_exit(void)
 #endif
 
     vmvector_delete_vector(GLOBAL_DCONTEXT, client_aux_libs);
+    client_aux_libs = NULL;
 #if defined(WINDOWS) || defined(CLIENT_SIDELINE)
     DELETE_LOCK(client_thread_count_lock);
 #endif
@@ -2587,6 +2596,28 @@ dr_memory_is_in_client(const byte *pc)
     return is_in_client_lib((app_pc)pc);
 }
 
+void
+instrument_client_lib_loaded(byte *start, byte *end)
+{
+    /* i#852: include Extensions as they are really part of the clients and
+     * aren't like other private libs.
+     * XXX: we only avoid having the client libs on here b/c they're specified via
+     * full path and don't go through the loaders' locate routines.
+     * Not a big deal if they do end up on here: if they always did we could
+     * remove the linear walk in is_in_client_lib().
+     */
+    /* called prior to instrument_init() */
+    init_client_aux_libs();
+    vmvector_add(client_aux_libs, start, end, NULL/*not an auxlib*/);
+}
+
+void
+instrument_client_lib_unloaded(byte *start, byte *end)
+{
+    /* called after instrument_exit() */
+    if (client_aux_libs != NULL)
+        vmvector_remove(client_aux_libs, start, end);
+}
 
 /**************************************************
  * CLIENT AUXILIARY LIBRARIES
@@ -2601,7 +2632,8 @@ dr_load_aux_library(const char *name,
     byte *start, *end;
     dr_auxlib_handle_t lib = load_shared_library(name);
     if (shared_library_bounds(lib, NULL, name, &start, &end)) {
-        vmvector_add(client_aux_libs, start, end, (void*)lib);
+        /* be sure to replace b/c i#852 now adds during load w/ empty data */
+        vmvector_add_replace(client_aux_libs, start, end, (void*)lib);
         if (lib_start != NULL)
             *lib_start = start;
         if (lib_end != NULL)

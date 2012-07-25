@@ -1032,6 +1032,11 @@ privload_process_imports(privmod_t *mod)
                 __FUNCTION__, impname);
             return false;
         }
+#ifdef CLIENT_INTERFACE
+        /* i#852: identify all libs that import from DR as client libs */
+        if (impmod->base == get_dynamorio_dll_start())
+            mod->is_client = true;
+#endif
 
         /* walk the lookup table and address table in lockstep */
         /* FIXME: should check readability: if had no-dcontext try (i#350) could just

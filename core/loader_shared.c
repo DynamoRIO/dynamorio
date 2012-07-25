@@ -39,6 +39,9 @@
 
 #include "globals.h"
 #include "module_shared.h"
+#ifdef CLIENT_INTERFACE
+# include "instrument.h" /* for instrument_client_lib_unloaded */
+#endif
 
 #include <string.h>
 
@@ -348,6 +351,9 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     }
     mod->ref_count = 1;
     mod->externally_loaded = false;
+#ifdef CLIENT_INTERFACE
+    mod->is_client = false; /* up to caller to set later */
+#endif
     /* do not add non-heap struct to list: in init() we'll move array to list */
     if (privload_modlist_initialized()) {
         if (after == NULL) {
@@ -420,6 +426,10 @@ privload_load(const char *filename, privmod_t *dependent)
         if (!privload_load_finalize(privmod))
             return NULL;
     }
+#ifdef CLIENT_INTERFACE
+    if (privmod->is_client)
+        instrument_client_lib_loaded(privmod->base, privmod->base + privmod->size);
+#endif
     return privmod;
 }
 
@@ -435,6 +445,10 @@ privload_unload(privmod_t *privmod)
     if (privmod->ref_count == 0) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: unloading %s @ "PFX"\n", __FUNCTION__,
             privmod->name, privmod->base);
+#ifdef CLIENT_INTERFACE
+        if (privmod->is_client)
+            instrument_client_lib_unloaded(privmod->base, privmod->base + privmod->size);
+#endif
         if (privmod->prev == NULL) {
             ASSERT(!DATASEC_PROTECTED(DATASEC_RARELY_PROT));
             modlist = privmod->next;

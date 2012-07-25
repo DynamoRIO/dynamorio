@@ -155,6 +155,10 @@ vmvector_print(vm_area_vector_t *v, file_t outf);
 void
 vmvector_add(vm_area_vector_t *v, app_pc start, app_pc end, void *data);
 
+/* Returns the old data, or NULL if no prior area [start,end) */
+void *
+vmvector_add_replace(vm_area_vector_t *v, app_pc start, app_pc end, void *data);
+
 bool
 vmvector_remove(vm_area_vector_t *v, app_pc start, app_pc end);
 
