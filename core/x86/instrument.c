@@ -2796,6 +2796,15 @@ dr_mutex_self_owns(void *mutex)
 }
 
 DR_API
+bool
+dr_mutex_mark_as_app(void *mutex)
+{
+    mutex_t *lock = (mutex_t *) mutex;
+    mutex_mark_as_app(lock);
+    return true;
+}
+
+DR_API
 void *
 dr_rwlock_create(void)
 {
@@ -2857,6 +2866,15 @@ dr_rwlock_self_owns_write_lock(void *rwlock)
 }
 
 DR_API
+bool
+dr_rwlock_mark_as_app(void *rwlock)
+{
+    read_write_lock_t *lock = (read_write_lock_t *) rwlock;
+    mutex_mark_as_app(&lock->lock);
+    return true;
+}
+
+DR_API
 void *
 dr_recurlock_create(void)
 {
@@ -2901,6 +2919,15 @@ bool
 dr_recurlock_self_owns(void *reclock)
 {
     return self_owns_recursive_lock((recursive_lock_t *)reclock);
+}
+
+DR_API
+bool
+dr_recurlock_mark_as_app(void *reclock)
+{
+    recursive_lock_t *lock = (recursive_lock_t *) reclock;
+    mutex_mark_as_app(&lock->lock);
+    return true;
 }
 
 DR_API

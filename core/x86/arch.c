@@ -190,6 +190,10 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                 print_file(file, "fcache_return_coarse:\n");
             else if (last_pc == code->trace_head_return_coarse)
                 print_file(file, "trace_head_return_coarse:\n");
+# ifdef CLIENT_INTERFACE
+            else if (last_pc == code->client_ibl_xfer)
+                print_file(file, "client_ibl_xfer:\n");
+# endif
             last_pc = disassemble_with_bytes(dcontext, last_pc, file);
         } while (last_pc < emitted_pc);
         print_file(file, "%s routines size: "SSZFMT" / "SSZFMT"\n\n", 

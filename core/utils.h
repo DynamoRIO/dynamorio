@@ -230,6 +230,10 @@ typedef struct _mutex_t {
      */
     uint      rank;             /* sets rank order in which this lock can be set */
     thread_id_t owner;            /* TID of owner (reusable, not available before initialization) */
+    /* Above here is explicitly set w/ INIT_LOCK_NO_TYPE macro so update
+     * it if changing them.  Below here is filled with 0's.
+     */
+
     dcontext_t *owning_dcontext; /* dcontext responsible (reusable, multiple per thread) */
     struct _mutex_t *prev_owned_lock; /* linked list of thread owned locks */
     uint count_times_acquired;  /* count total times this lock was acquired */
@@ -249,6 +253,10 @@ typedef struct _mutex_t {
 #  define MAX_MUTEX_CALLSTACK 4
     byte *callstack[MAX_MUTEX_CALLSTACK];
     /* keep as last item so not initialized in INIT_LOCK_NO_TYPE */
+# ifdef CLIENT_INTERFACE
+    /* i#779: support DR locks used as app locks */
+    bool app_lock;
+# endif
 #else
 #  define MAX_MUTEX_CALLSTACK 0 /* cannot use */
 #endif /* MUTEX_CALLSTACK */
@@ -569,10 +577,7 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 #  define INIT_LOCK_NO_TYPE(name, rank) {LOCK_FREE_STATE,               \
                                          CONTENTION_EVENT_NOT_CREATED,  \
                                          name, rank,                    \
-                                         INVALID_THREAD_ID,             \
-                                         NULL, NULL,                    \
-                                         0, 0, 0, 0, 0,                 \
-                                         NULL, NULL}
+                                         INVALID_THREAD_ID,}
 #else
 /* Ignore the arguments */
 #  define INIT_LOCK_NO_TYPE(name, rank) {LOCK_FREE_STATE, CONTENTION_EVENT_NOT_CREATED}
@@ -663,6 +668,9 @@ bool mutex_trylock(mutex_t *mutex);
 void mutex_unlock(mutex_t *mutex);
 #ifdef LINUX
 void mutex_fork_reset(mutex_t *mutex);
+#endif
+#ifdef CLIENT_INTERFACE
+void mutex_mark_as_app(mutex_t *lock);
 #endif
 
 /* spinmutex synchronization */

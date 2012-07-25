@@ -2137,6 +2137,21 @@ dr_mutex_self_owns(void *mutex);
 
 DR_API
 /**
+ * Instructs DR to treat this lock as an application lock.  Primarily
+ * this avoids debug-build checks that no DR locks are held in situations
+ * where locks are disallowed.
+ *
+ * \warning Any one lock should either be a DR lock or an application lock.
+ * Use this routine with caution and do not call it on a DR lock that is
+ * used in DR contexts, as it disables debug checks.
+ *
+ * \return whether successful.
+ */
+bool
+dr_mutex_mark_as_app(void *mutex);
+
+DR_API
+/**
  * Creates and initializes a read-write lock.  A read-write lock allows
  * multiple readers or alternatively a single writer.  The lock
  * restrictions for mutexes apply (see dr_mutex_create()).
@@ -2181,6 +2196,21 @@ dr_rwlock_self_owns_write_lock(void *rwlock);
 
 DR_API
 /**
+ * Instructs DR to treat this lock as an application lock.  Primarily
+ * this avoids debug-build checks that no DR locks are held in situations
+ * where locks are disallowed.
+ *
+ * \warning Any one lock should either be a DR lock or an application lock.
+ * Use this routine with caution and do not call it on a DR lock that is
+ * used in DR contexts, as it disables debug checks.
+ *
+ * \return whether successful.
+ */
+bool
+dr_rwlock_mark_as_app(void *rwlock);
+
+DR_API
+/**
  * Creates and initializes a recursive lock.  A recursive lock allows
  * the same thread to acquire it multiple times.  The lock
  * restrictions for mutexes apply (see dr_mutex_create()).
@@ -2212,6 +2242,21 @@ DR_API
 /** Returns whether the calling thread owns \p reclock. */
 bool
 dr_recurlock_self_owns(void *reclock);
+
+DR_API
+/**
+ * Instructs DR to treat this lock as an application lock.  Primarily
+ * this avoids debug-build checks that no DR locks are held in situations
+ * where locks are disallowed.
+ *
+ * \warning Any one lock should either be a DR lock or an application lock.
+ * Use this routine with caution and do not call it on a DR lock that is
+ * used in DR contexts, as it disables debug checks.
+ *
+ * \return whether successful.
+ */
+bool
+dr_recurlock_mark_as_app(void *reclock);
 
 DR_API
 /**

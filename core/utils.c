@@ -810,10 +810,29 @@ spinmutex_delete(spin_mutex_t *spin_lock)
     mutex_delete(&spin_lock->lock);
 }
 
+#ifdef DEADLOCK_AVOIDANCE
+static bool
+mutex_ownable(mutex_t *lock)
+{
+    bool ownable = LOCK_OWNABLE;
+# ifdef CLIENT_INTERFACE
+    /* i#779: support DR locks used as app locks */
+    if (lock->app_lock) {
+        ASSERT(lock->rank == dr_client_mutex_rank);
+        ownable = LOCK_NOT_OWNABLE;
+    }
+# endif
+    return ownable;
+}
+#endif
+
 void
 mutex_lock(mutex_t *lock)
 {
     bool acquired;
+#ifdef DEADLOCK_AVOIDANCE
+    bool ownable = mutex_ownable(lock);
+#endif
 
     if (INTERNAL_OPTION(spin_yield_mutex)) {
         spinmutex_lock((spin_mutex_t *)lock);
@@ -853,12 +872,12 @@ mutex_lock(mutex_t *lock)
 
     /* we have strong intentions to grab this lock, increment requests */
     acquired = atomic_inc_and_test(&lock->lock_requests);
-    DEADLOCK_AVOIDANCE_LOCK(lock, acquired, LOCK_OWNABLE);
+    DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable);
 
     if (!acquired) {
         mutex_wait_contended_lock(lock);
 #       ifdef DEADLOCK_AVOIDANCE
-        DEADLOCK_AVOIDANCE_LOCK(lock, true, LOCK_OWNABLE); /* now we got it  */
+        DEADLOCK_AVOIDANCE_LOCK(lock, true, ownable); /* now we got it  */
         /* this and previous owner are not included in lock_requests */
         if (lock->max_contended_requests < (uint)lock->lock_requests)
             lock->max_contended_requests = (uint)lock->lock_requests;
@@ -871,6 +890,9 @@ bool
 mutex_trylock(mutex_t *lock)
 {
     bool acquired;
+#ifdef DEADLOCK_AVOIDANCE
+    bool ownable = mutex_ownable(lock);
+#endif
 
     if (INTERNAL_OPTION(spin_yield_mutex)) {
         return spinmutex_trylock((spin_mutex_t *)lock);
@@ -883,7 +905,7 @@ mutex_trylock(mutex_t *lock)
        old value may be >=0 when several threads are trying to acquire lock,
        so we should return false
      */
-    DEADLOCK_AVOIDANCE_LOCK(lock, acquired, LOCK_OWNABLE);
+    DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable);
     return acquired;
 }
 
@@ -891,13 +913,17 @@ mutex_trylock(mutex_t *lock)
 void
 mutex_unlock(mutex_t *lock)
 {
+#ifdef DEADLOCK_AVOIDANCE
+    bool ownable = mutex_ownable(lock);
+#endif
+
     if (INTERNAL_OPTION(spin_yield_mutex)) {
         spinmutex_unlock((spin_mutex_t *)lock);
         return;
     }
 
     ASSERT(lock->lock_requests > LOCK_FREE_STATE && "lock not owned");
-    DEADLOCK_AVOIDANCE_UNLOCK(lock, LOCK_OWNABLE);
+    DEADLOCK_AVOIDANCE_UNLOCK(lock, ownable);
     
     if (atomic_dec_and_test(&lock->lock_requests)) 
         return;
@@ -927,6 +953,16 @@ mutex_delete(mutex_t *lock)
 #endif
     }
 }
+
+#ifdef CLIENT_INTERFACE
+void
+mutex_mark_as_app(mutex_t *lock)
+{
+# ifdef DEADLOCK_AVOIDANCE
+    lock->app_lock = true;
+# endif
+}
+#endif
 
 static inline 
 void
