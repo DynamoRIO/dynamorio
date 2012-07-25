@@ -2871,6 +2871,22 @@ dr_recurlock_self_owns(void *reclock)
     return self_owns_recursive_lock((recursive_lock_t *)reclock);
 }
 
+DR_API
+bool
+dr_mark_safe_to_suspend(void *drcontext, bool enter)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    ASSERT_OWN_NO_LOCKS();
+    /* We need to return so we can't call check_wait_at_safe_spot().
+     * We don't set mcontext b/c noone should examine it.
+     */
+    if (enter)
+        set_synch_state(dcontext, THREAD_SYNCH_NO_LOCKS_NO_XFER);
+    else
+        set_synch_state(dcontext, THREAD_SYNCH_NONE);
+    return true;
+}
+
 /***************************************************************************
  * MODULES
  */

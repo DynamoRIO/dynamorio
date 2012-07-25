@@ -2083,7 +2083,7 @@ dr_unload_aux_library(dr_auxlib_handle_t lib);
 /* DR_API EXPORT BEGIN */
 
 /**************************************************
- * SIMPLE MUTEX SUPPORT
+ * LOCK SUPPORT
  */
 /* DR_API EXPORT END */
 
@@ -2207,6 +2207,28 @@ DR_API
 /** Returns whether the calling thread owns \p reclock. */
 bool
 dr_recurlock_self_owns(void *reclock);
+
+DR_API
+/**
+ * Use this function to mark a region of code as safe for DR to suspend
+ * the client while inside the region.  DR will not relocate the client
+ * from the region and will resume it at precisely the suspend point.
+ *
+ * This function must be used in client code that acquires application locks.
+ * Use this feature with care!  Do not mark code as safe to suspend that has
+ * a code cache return point.  I.e., do not call this routine from a clean
+ * call.
+ *
+ * No DR locks can be held while in a safe region.  Consequently, do
+ * not call this routine from any DR event callback.  It may only be used
+ * from natively executing code.
+ *
+ * Always invoke this routine in pairs, with the first passing true
+ * for \p enter and the second passing false, thus delimiting the
+ * region.
+ */
+bool
+dr_mark_safe_to_suspend(void *drcontext, bool enter);
 
 /* DR_API EXPORT BEGIN */
 /**************************************************

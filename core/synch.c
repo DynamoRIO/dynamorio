@@ -519,6 +519,16 @@ should_wait_at_safe_spot(dcontext_t *dcontext)
     return (tsd->pending_synch_count != 0);
 }
 
+/* use with care!  normally check_wait_at_safe_spot() should be called instead */
+void
+set_synch_state(dcontext_t *dcontext, thread_synch_permission_t state)
+{
+    thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
+    spinmutex_lock(tsd->synch_lock);
+    tsd->synch_perm = state;
+    spinmutex_unlock(tsd->synch_lock);
+}
+
 /* checks to see if any threads are waiting to synch with this one and waits 
  * if they are
  * cur_state - a given permission define from above that describes the current

@@ -227,6 +227,10 @@ should_wait_at_safe_spot(dcontext_t *dcontext);
 void
 check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_state);
 
+/* use with care!  normally check_wait_at_safe_spot() should be called instead */
+void
+set_synch_state(dcontext_t *dcontext, thread_synch_permission_t state);
+
 bool
 at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
              thread_synch_state_t desired_state);
