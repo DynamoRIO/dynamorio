@@ -260,15 +260,22 @@ option(SET_PREFERRED_BASE "set a preferred library base address")
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING
   set(preferred_base "0x15000000" CACHE STRING "Preferred library base address")
-else (WIN32 AND DEBUG)
+elseif (UNIX AND NOT X64)
+  # put dynamorio at top of address space, little chance of conflict
+  set(preferred_base "0xf7000000" CACHE STRING "Preferred library base address")
+else (UNIX AND NOT X64)
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
 endif (WIN32 AND DEBUG)
-if (WIN32 OR X64)
-  # for x64: PR 253624: we need our library to be next to our heap
-  # for win32: not PIC so need a base
-  # we studied existing exe + dll bases and tried to pick non-conflicting addresses
-  set(SET_PREFERRED_BASE 1)
-endif (WIN32 OR X64)
+
+# for x64: PR 253624: we need our library to be next to our heap
+# for win32: not PIC so need a base
+# we studied existing exe + dll bases and tried to pick non-conflicting addresses
+# for 32-bit Linux: we put dynamorio at top of address space so little chance
+# of conflict with app for early injection.
+# there should be no noticeable perf hit from this (b/c no relocations for DR lib)
+# so it's ok to be on for non-early injection
+set(SET_PREFERRED_BASE 1)
+
 if (VMKERNEL)
   # we end up with the default executable base (0x08*) so go back to 0 base
   # (else we fail to load on esx)

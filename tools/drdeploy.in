@@ -121,14 +121,30 @@ then
     exit
 fi
 
+early=""
+verbose=""
+specified_ops=""
 # Read options
 while [ "$1" = "-v" ] || [ "$1" = "-debug" ] || [ "$1" = "-dr_home" ] || \
       [ "$1" = "-ops" ] || [ "$1" = "-logdir" ] || [ "$1" = "-client" ] || \
       [ "$1" = "-32" ] || [ "$1" = "-64" ] || [ "$1" = "-norun" ] || \
-      [ "$1" = "-reg" ] || [ "$1" = "-unreg" ]
+      [ "$1" = "-reg" ] || [ "$1" = "-unreg" ] || [ "$1" = "-early" ]
 do
 
-if [ "$1" = "-v" ] 
+if [ "$1" = "-early" ]
+then
+    early=yes
+    specified_ops=yes
+    if [ -n "$ops" ]
+    then
+        ops="$ops -early_inject"
+    else
+        ops="-early_inject"
+    fi
+    shift
+fi
+
+if [ "$1" = "-v" ]
 then
     verbose=yes
     shift
@@ -365,8 +381,22 @@ then
     app="$1"
     shift
 fi
+
 # better to require bash and use ${app##*/}?
 name=`basename $app`
+if [ "$early" = "yes" ]
+then
+    appwhich=`which $app`
+    if [ "$appwhich" = "" ]
+    then
+        appwhich=$app
+    fi
+    appdir=`dirname $appwhich`
+    fullpath=`cd $appdir;pwd`
+    fullname="$fullpath/$name"
+    # we have to change name for cfgfile
+    name="drloader"
+fi
 
 if [ "$config" = "1" ]
 then
@@ -408,7 +438,16 @@ then
     export LD_PRELOAD="libdynamorio.so libdrpreload.so"
     
     # keep same pid for easier scripting
-    exec $app $*
+    if [ "$early" = "yes" ]
+    then
+        if [ "$verbose" = "yes" ]
+        then
+            echo "experimental support for early injection in Linux"
+        fi
+        exec "./bin$arch/drloader" $fullname $*
+    else
+        exec $app $*
+    fi
 else
     if [ "$verbose" = "yes" ]
     then

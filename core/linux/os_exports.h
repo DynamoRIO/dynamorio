@@ -276,6 +276,8 @@ void glibc_stackdump(int fd);
 void *privload_tls_init(void *app_tp);
 void  privload_tls_exit(void *dr_tp);
 void  privload_switch_lib_tls(dcontext_t *dcontext, bool to_app);
+bool  privload_early_inject(void);
+void  privload_setup_app_mc(priv_mcontext_t *mc);
 
 /* nudgesig.c */
 bool

@@ -247,6 +247,19 @@ if (UNIX)
     ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
 endif (UNIX)
 
+function (add_ldscript_opt target)
+  # -dT is preferred, available on ld 2.18+: we could check for it
+  set(LD_SCRIPT_OPTION "-T")
+  set(PREFERRED_BASE_FLAGS "-Xlinker ${LD_SCRIPT_OPTION} -Xlinker \"${ld_script}\"")
+  get_target_property(tgt_link_flags ${target} LINK_FLAGS)
+  if (NOT tgt_link_flags)
+    set(tgt_link_flags "")
+  endif (NOT tgt_link_flags)
+  set(tgt_link_flags "${tgt_link_flags} ${PREFERRED_BASE_FLAGS}")
+  set_target_properties(${target} PROPERTIES
+    LINK_FLAGS "${tgt_link_flags}")
+endfunction (add_ldscript_opt)
+
 function (use_ldscript target)
   add_custom_command(TARGET ${target}
     PRE_LINK
@@ -258,8 +271,9 @@ function (use_ldscript target)
          -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
          -DLD_FLAGS=${LD_FLAGS}
          -Dset_preferred=${SET_PREFERRED_BASE}
+         -Dreplace_maxpagesize=${REPLACE_MAXPAGESIZE}
          -Dpreferred_base=${preferred_base}
-         -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_ldscript.cmake
+         -P ${PROJECT_SOURCE_DIR}/core/CMake_ldscript.cmake
     VERBATIM # recommended: p260
     )
 endfunction (use_ldscript)

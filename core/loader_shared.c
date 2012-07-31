@@ -393,7 +393,9 @@ privload_load(const char *filename, privmod_t *dependent)
 
     LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s\n", __FUNCTION__, filename);
 
-    map = privload_map_and_relocate(filename, &size, &os_privmod_data);
+    map = privload_map_and_relocate(filename, &size, &os_privmod_data
+                                    _IF_LINUX(false /* !fixed */)
+                                    _IF_LINUX(NULL) _IF_LINUX(NULL));
     if (map == NULL) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to map %s\n", __FUNCTION__, filename);
         return NULL;

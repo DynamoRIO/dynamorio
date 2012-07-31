@@ -1315,7 +1315,11 @@
 
     /* FIXME - do we want to make any of the -early_inject* options dynamic?
      * if so be sure we update os.c:early_inject_location on change etc. */
-    OPTION_DEFAULT(bool, early_inject, true, "inject early")
+    /* i#47: experimental support for early_inject in Linux
+     * XXX: this option can only be turned on by drrun via "-early" so that
+     * cmdline args can be arranged appropriately.
+     */
+    OPTION_DEFAULT(bool, early_inject, IF_WINDOWS_ELSE(true, false), "inject early")
 #if 0 /* FIXME i#234 NYI: not ready to enable just yet */
     OPTION_DEFAULT(bool, early_inject_map, true, "inject earliest via map")
     /* see enum definition is os_shared.h for notes on what works with which

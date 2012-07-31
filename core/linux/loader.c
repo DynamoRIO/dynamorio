@@ -338,7 +338,8 @@ dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
 
 app_pc
 privload_map_and_relocate(const char *filename, size_t *size OUT,
-                          void **os_privmod_data OUT)
+                          void **os_privmod_data OUT, bool fixed,
+                          app_pc *entry OUT, char **interp OUT)
 {
     file_t fd;
     byte *(*map_func)  (file_t, size_t *, uint64, app_pc, uint, bool, bool, bool);
@@ -356,6 +357,11 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
 
     ASSERT(size != NULL);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+
+    if (entry != NULL)
+        *entry = NULL;
+    if (interp != NULL)
+        *interp = NULL;
     
     /* open file for mmap later */
     fd = os_open(filename, OS_OPEN_READ);
@@ -426,7 +432,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
                            MEMPROT_WRITE | MEMPROT_READ /* prot */,
                            true  /* copy-on-write */,
                            true  /* image, make it reachable */,
-                           false /*!fixed*/);
+                           fixed);
     ASSERT(lib_base != NULL);
     lib_end = lib_base + map_size;
 
@@ -439,6 +445,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
             __FUNCTION__);
     }
     delta = lib_base - map_base;
+    if (entry != NULL)
+        *entry = (app_pc)elf_hdr->e_entry + delta;
 
     /* walk over the program header to load the individual segments */
     last_end = lib_base;
@@ -447,7 +455,9 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
         size_t seg_size;
         ELF_PROGRAM_HEADER_TYPE *prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)
             (file_map + elf_hdr->e_phoff + i * elf_hdr->e_phentsize);
-        if (prog_hdr->p_type == PT_LOAD) {
+        if (interp != NULL && prog_hdr->p_type == PT_INTERP)
+            *interp = (char *)prog_hdr->p_vaddr + delta;
+        else if (prog_hdr->p_type == PT_LOAD) {
             seg_base = (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE)
                        + delta;
             seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
@@ -1191,4 +1201,89 @@ privload_redirect_sym(ELF_ADDR *r_addr, const char *name)
         }
     }
     return false;
+}
+
+/***************************************************************************
+ * DynamoRIO Early Inection Code
+ */
+#define MAX_NUM_ARGS 0x100
+static reg_t  app_init_xsp = 0;
+static app_pc app_init_entry = NULL;
+
+static void
+privload_get_init_app_xsp(void)
+{
+    char *user = getenv("USER") - 5 /* "USER=..." */;
+    IF_DEBUG(int num_args = 0;)
+    reg_t *xsp = (reg_t *)ALIGN_BACKWARD(user, XSP_SZ);
+    /* reverse scan to find the args and env */
+    /* scan stack till xsp pointing to "USER=..." */
+    for (; *xsp != (reg_t)user; xsp--);
+    /* scan stack till xsp pointing to the NULL between argv and envp */
+    for (; *xsp != 0; xsp--);
+    /* scan stack till xsp pointing to argc */
+    for (; *xsp <= 0 || *xsp > MAX_NUM_ARGS; xsp--)
+        IF_DEBUG(num_args++);
+    ASSERT((num_args-1) == *(int *)xsp);
+    app_init_xsp = (reg_t)xsp;
+}
+
+static char *
+privload_setup_app_stack(void)
+{
+    int *argc = 0;
+    char **argv = NULL;
+    int i;
+    privload_get_init_app_xsp();
+    ASSERT(app_init_xsp != 0);
+    argc = (int *)app_init_xsp;
+    argv = (char **)app_init_xsp + 1 /* argc */;
+    ASSERT(*argc > 0 && argv != NULL);
+    /* shift argv */
+    for (i = 0; i < (*argc - 1); i++) {
+        strcpy(argv[i], argv[i+1]);
+        argv[i+1] = argv[i] + strlen(argv[i]) + 1;
+    }
+    memset(argv[i], 0, sizeof(argv[i]));
+    /* change argc */
+    *argc = *argc - 1;
+    return argv[0];
+}
+
+void
+privload_setup_app_mc(priv_mcontext_t *mc)
+{
+    memset(mc, 0, sizeof(*mc));
+    mc->xip = app_init_entry;
+    mc->xflags = 0x200; /* IF */
+    ASSERT(app_init_xsp != 0);
+    mc->xsp = app_init_xsp;
+}
+
+bool
+privload_early_inject(void)
+{
+    size_t size;
+    void *os_privmod_data;
+    app_pc map;
+    char *app_name;
+    char *interp = NULL;
+
+    app_name = privload_setup_app_stack();
+    ASSERT(app_name != NULL);
+    LOG(GLOBAL, LOG_LOADER, 2, "early_inject: load app %s\n", app_name);
+    acquire_recursive_lock(&privload_lock);
+    map = privload_map_and_relocate(app_name, &size, &os_privmod_data, true,
+                                    &app_init_entry, &interp);
+    ASSERT(map != NULL);
+    if (interp != NULL) {
+        map = privload_map_and_relocate(interp, &size, &os_privmod_data,
+                                        false /* fixed */, &app_init_entry,
+                                        NULL /* interp */);
+        ASSERT(map != NULL);
+        /* FIXME i#47: more work than static linked executables */
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
+    release_recursive_lock(&privload_lock);
+    return false; /* Not complete yet */
 }

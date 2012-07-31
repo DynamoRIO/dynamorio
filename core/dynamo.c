@@ -410,6 +410,17 @@ dynamorio_app_init(void)
         utils_init();
         data_section_init();
 
+#ifdef LINUX
+        /* load the app as early as possible.
+         * -early_inject option is specified in core/optionsx.h.
+         * however it can't be set on its own and must be set by drrun
+         * using -early option, so drrun can setup arguments correctly.
+         * XXX: alternatively, we can make drloader call an exported function
+         * to load the app executable and setup for execution.
+         */
+        if (DYNAMO_OPTION(early_inject))
+            privload_early_inject();
+#endif
 #ifdef DEBUG
         /* decision: nullcalls WILL create a dynamorio.log file and
          * fill it with perfctr stats!
@@ -2602,6 +2613,11 @@ dynamorio_app_take_over_helper(priv_mcontext_t *mc)
      * an injected thread turning on .C protection before the main thread
      * sets this. */
     dr_preinjected = true;      /* currently only relevant on Win32 */
+#endif
+#ifdef LINUX
+    /* setup mc for loaded app */
+    if (DYNAMO_OPTION(early_inject))
+        privload_setup_app_mc(mc);
 #endif
 
     if (!INTERNAL_OPTION(nullcalls) && !have_taken_over) {

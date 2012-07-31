@@ -97,5 +97,12 @@ if (set_preferred)
     string "${string}")
 endif (set_preferred)
 
+if (replace_maxpagesize)
+  # make drloader smaller by replacing maxpagesize in ldscript
+  string(REGEX REPLACE
+    "CONSTANT \\(MAXPAGESIZE\\)"
+    "0x10000"
+    string "${string}")
+endif (replace_maxpagesize)
 
 file(WRITE ${outfile} "${string}")
