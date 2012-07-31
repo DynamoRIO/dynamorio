@@ -230,33 +230,33 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
 #define PAD_JMPS_ALIGNMENT \
     (INTERNAL_OPTION(pad_jmps_set_alignment) != 0 ? \
      INTERNAL_OPTION(pad_jmps_set_alignment) : proc_get_cache_line_size())
+#ifdef DEBUG
+# define CHECK_JMP_TARGET_ALIGNMENT(target, size, hot_patch) do {           \
+    if (hot_patch && CROSSES_ALIGNMENT(target, size, PAD_JMPS_ALIGNMENT)) { \
+        STATS_INC(unaligned_patches);                                       \
+        ASSERT(!DYNAMO_OPTION(pad_jmps));                                   \
+    }                                                                       \
+  } while (0)
+#else
+# define CHECK_JMP_TARGET_ALIGNMENT(target, size, hot_patch)
+#endif
 #ifdef WINDOWS
 /* note that the microsoft compiler will not enregister variables across asm
  * blocks that touch those registers, so don't need to worry about clobbering
  * eax and ebx */
 # define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {          \
+    ASSERT(sizeof(value) == 4);                                     \
     /* test that we aren't crossing a cache line boundary */        \
-    DODEBUG({                                                       \
-        ASSERT(sizeof(value) == 4);                                 \
-        if (hot_patch && CROSSES_ALIGNMENT(target, 4, PAD_JMPS_ALIGNMENT)) { \
-            STATS_INC(unaligned_patches);                           \
-            ASSERT(!DYNAMO_OPTION(pad_jmps));                       \
-        }                                                           \
-    });                                                             \
+    CHECK_JMP_TARGET_ALIGNMENT(target, 4, hot_patch);               \
     _InterlockedExchange((volatile LONG *)target, value);           \
   } while (0)
 # ifdef X64
 #  define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {         \
+    ASSERT(sizeof(value) == 8);                                     \
+    /* Not currently used to write code */                          \
+    ASSERT_CURIOSITY(!hot_patch);                                   \
     /* test that we aren't crossing a cache line boundary */        \
-    DODEBUG({                                                       \
-        ASSERT(sizeof(value) == 8);                                 \
-        /* Not currently used to write code */                      \
-        ASSERT_CURIOSITY(!hot_patch);                               \
-        if (hot_patch && CROSSES_ALIGNMENT(target, 8, PAD_JMPS_ALIGNMENT)) { \
-            STATS_INC(unaligned_patches);                           \
-            ASSERT(!DYNAMO_OPTION(pad_jmps));                       \
-        }                                                           \
-    });                                                             \
+    CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);               \
     _InterlockedExchange64((volatile __int64 *)target, (__int64)value); \
   } while (0)
 # endif
@@ -344,28 +344,18 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 
 #else /* LINUX */
 # define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
+    ASSERT(sizeof(value) == 4);                                      \
     /* test that we aren't crossing a cache line boundary */         \
-    DODEBUG({                                                        \
-        ASSERT(sizeof(value) == 4);                                  \
-        if (hot_patch && CROSSES_ALIGNMENT(target, 4, proc_get_cache_line_size())) { \
-            STATS_INC(unaligned_patches);                            \
-            ASSERT(!DYNAMO_OPTION(pad_jmps));                        \
-        }                                                            \
-    });                                                              \
+    CHECK_JMP_TARGET_ALIGNMENT(target, 4, hot_patch);                \
     __asm__ __volatile__("xchgl (%0), %1" : : "r" (target), "r" (value) : "memory"); \
   } while (0)
 # ifdef X64
 #  define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {         \
-    /* test that we aren't crossing a cache line boundary */         \
-    DODEBUG({                                                        \
-        ASSERT(sizeof(value) == 8);                                  \
-        /* Not currently used to write code */                      \
-        ASSERT_CURIOSITY(!hot_patch);                               \
-        if (hot_patch && CROSSES_ALIGNMENT(target, 8, proc_get_cache_line_size())) { \
-            STATS_INC(unaligned_patches);                            \
-            ASSERT(!DYNAMO_OPTION(pad_jmps));                        \
-        }                                                            \
-    });                                                              \
+    ASSERT(sizeof(value) == 8);                                     \
+    /* Not currently used to write code */                          \
+    ASSERT_CURIOSITY(!hot_patch);                                   \
+    /* test that we aren't crossing a cache line boundary */        \
+    CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);               \
     __asm__ __volatile__("xchgq (%0), %1" : : "r" (target), "r" (value) : "memory"); \
   } while (0)
 # endif

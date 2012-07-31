@@ -333,10 +333,19 @@ insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 byte *
 insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 {
+    int value;
     ASSERT(pc != NULL);
     *pc = JMP_OPCODE;
     pc++;
-    return insert_relative_target(pc, target, hot_patch);
+
+    /* test that we aren't crossing a cache line boundary */
+    CHECK_JMP_TARGET_ALIGNMENT(pc, 4, hot_patch);
+    /* We don't need to be atomic, so don't use insert_relative_target. */
+    value = (int)(ptr_int_t)(target - pc - 4);
+    IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(target - pc - 4)));
+    *(int *)pc = value;
+    pc += 4;
+    return pc;
 }
 
 /* make sure to keep in sync w/ instr_raw_is_tls_spill() */
@@ -436,8 +445,7 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
     if (INTERNAL_OPTION(shared_syscalls_fastpath)
         && is_shared_syscall_routine(dcontext, exit_target)) {
         /* jmp <exit_target> */
-        *pc = 0xe9; pc++;
-        pc = insert_relative_target(pc, exit_target, NOT_HOT_PATCHABLE);
+        pc = insert_relative_jump(pc, exit_target, NOT_HOT_PATCHABLE);
         return pc;
     } else
 #endif
@@ -1205,9 +1213,8 @@ optimize_linkcount_stub(dcontext_t *dcontext, fragment_t *f,
          * faster to not have the nops, so redo the increment:
          */
         pc = insert_linkcount_inc(pc, l);
-        *pc = 0xe9; pc++;
-        pc = insert_relative_target(pc, FCACHE_ENTRY_PC(targetf),
-                                    NOT_HOT_PATCHABLE);
+        pc = insert_relative_jump(pc, FCACHE_ENTRY_PC(targetf),
+                                  NOT_HOT_PATCHABLE);
         /* Fill out with nops till the unlinked entry point so disassembles
          * nicely for logfile (we're profile linkcount so presumably going
          * to dump this). */
@@ -1229,9 +1236,8 @@ optimize_linkcount_stub(dcontext_t *dcontext, fragment_t *f,
                                 DIRECT_STUB_SPILL_SLOT, true);
         ASSERT(pc == stub_pc + LINKCOUNT_DIRECT_EXTRA(f->flags) - 5);
         /* now add jmp */
-        *pc = 0xe9; pc++;
-        pc = insert_relative_target(pc, FCACHE_ENTRY_PC(targetf),
-                                    NOT_HOT_PATCHABLE);
+        pc = insert_relative_jump(pc, FCACHE_ENTRY_PC(targetf),
+                                  NOT_HOT_PATCHABLE);
     }
 
     /* we need to replace our never-linked sentinel w/ the real
@@ -1247,9 +1253,8 @@ optimize_linkcount_stub(dcontext_t *dcontext, fragment_t *f,
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
     *((uint *)pc) = (uint)l; pc += 4;
     /* jmp to target */
-    *pc = JMP_OPCODE; pc++;
-    pc = insert_relative_target(pc, get_direct_exit_target(dcontext, f->flags),
-                                NOT_HOT_PATCHABLE);
+    pc = insert_relative_jump(pc, get_direct_exit_target(dcontext, f->flags),
+                              NOT_HOT_PATCHABLE);
 }
 #endif /* PROFILE_LINKCOUNT */
 
