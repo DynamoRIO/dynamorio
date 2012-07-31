@@ -41,6 +41,7 @@
 # include <windows.h>
 #else
 # include <stdlib.h>
+# include <unistd.h>
 #endif
 
 /* check if all bits in mask are set in var */

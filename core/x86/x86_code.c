@@ -100,9 +100,10 @@ dynamo_start(priv_mcontext_t *mc)
     /* Swap stacks so dispatch is invoked outside the application.
      * We begin interpretation at the application return point,
      * and thus we need to look like DR returned -- adjust the app
-     * stack to account for the return address.
+     * stack to account for the return address + alignment.
+     * See dynamorio_app_take_over and dr_app_start in x86.asm.
      */
-    mcontext->xsp += XSP_SZ;
+    mcontext->xsp += DYNAMO_START_XSP_ADJUST;
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
                       false/*not on initstack*/, true/*return on error*/);
     /* In release builds, this will simply return and continue native

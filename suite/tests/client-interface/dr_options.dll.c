@@ -36,12 +36,14 @@
 #include "dr_api.h"
 #include "client_tools.h"
 
+#include <string.h>
+
 DR_EXPORT void
 dr_init(client_id_t client_id)
 {
     char buf[DR_MAX_OPTIONS_LENGTH];
     bool success;
-    int64 int_option = -1;
+    uint64 int_option = 0;
 
     /* Query existing string option. */
     success = dr_get_string_option("native_exec_list", buf, sizeof(buf));
@@ -63,7 +65,7 @@ dr_init(client_id_t client_id)
     ASSERT(dr_using_all_private_caches());
 
     /* Query non-existent options. */
-    int_option = -1;
+    int_option = 1;
     success = dr_get_string_option("opt_does_not_exist", buf, sizeof(buf));
     ASSERT(!success);
     success = dr_get_integer_option("opt_does_not_exist", &int_option);

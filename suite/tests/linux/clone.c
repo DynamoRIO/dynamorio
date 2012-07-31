@@ -37,7 +37,7 @@
 
 #include <sys/types.h> /* for wait and mmap */
 #include <sys/wait.h>  /* for wait */
-#include <linux/sched.h>     /* for clone and CLONE_ flags */
+#include <linux/sched.h>     /* for CLONE_ flags */
 #include <time.h>      /* for nanosleep */
 #include <sys/mman.h>  /* for mmap */
 #include <assert.h>
@@ -51,6 +51,10 @@
 #ifdef USE_DYNAMO
 #include "dynamorio.h"
 #endif
+
+/* i#762: Hard to get clone() from sched.h, so copy prototype. */
+extern int
+clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg, ...);
 
 #define THREAD_STACK_SIZE   (32*1024)
 

@@ -608,7 +608,17 @@ if (UNIX)
     if (nounused_avail)
       set(WARN "${WARN} -Wno-unused-but-set-variable")
     endif (nounused_avail)
-  endif ()
+  else (NOT CMAKE_COMPILER_IS_CLANG)
+    # clang turns off color when it's writing to a pipe, but the user may still
+    # wish to force color if it eventually goes to a terminal.
+    option(CLANG_COLOR_DIAGNOSTICS "force colored clang diagnostics" OFF)
+    if (CLANG_COLOR_DIAGNOSTICS)
+      set(clang_args "-fcolor-diagnostics ${clang_args}")
+    endif (CLANG_COLOR_DIAGNOSTICS)
+    # Apply to both C and C++.
+    set(BASE_CFLAGS "${clang_args} ${BASE_CFLAGS}")
+    set(BASE_CXXFLAGS "${clang_args} ${BASE_CXXFLAGS}")
+  endif (NOT CMAKE_COMPILER_IS_CLANG)
   set(DBG "-g3")
   # gcc doesn't change its optimizations based on -g
   set(OPT "-O3 ${DBG}")
@@ -625,10 +635,12 @@ if (UNIX)
   # overflows now anyway).  If we hit the overflows again, we should
   # use -O0 and optimize attributes on the few funcs that need higher
   # opt.
-  #
+  set(DBG_OPT "-fno-omit-frame-pointer")
   # We disable strcmp intrinsic to avoid stack overflow in
   # set_dynamo_options(): case 7853.
-  set(DBG_OPT "-fno-omit-frame-pointer -fno-builtin-strcmp")
+  if (NOT CMAKE_COMPILER_IS_CLANG)
+    set(DBG_OPT "${DBG_OPT} -fno-builtin-strcmp")
+  endif ()
 else (UNIX)
   # FIXME: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "/nologo")

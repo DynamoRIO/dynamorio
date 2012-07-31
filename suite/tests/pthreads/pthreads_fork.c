@@ -37,6 +37,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include <unistd.h>  /* for fork */
 
 /* FIXME i#26: We can't reliably synch with threads that have just been created.
  * Raising NUM_FORK_THREADS above 1 means we spawn threads and fork at the same

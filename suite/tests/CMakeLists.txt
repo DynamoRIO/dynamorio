@@ -1463,15 +1463,15 @@ if (UNIX)
   tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
   tobuild(pthreads.pthreads_fork pthreads/pthreads_fork.c)
 
-  if (NOT X64)
-    # FIXME i#16: these tests need to be fixed to compile for x64
-    tobuild(security-linux.stacktest security-linux/stacktest.c)
-    tochcon(security-linux.stacktest execmem_exec_t)
-    mark_execstack(security-linux.stacktest)
-  endif (NOT X64)
   # Clang will likely never support gcc nested functions:
   # http://llvm.org/PR9206
   if (NOT CMAKE_COMPILER_IS_CLANG)
+    if (NOT X64)
+      # FIXME i#16: these tests need to be fixed to compile for x64
+      tobuild(security-linux.stacktest security-linux/stacktest.c)
+      tochcon(security-linux.stacktest execmem_exec_t)
+      mark_execstack(security-linux.stacktest)
+    endif (NOT X64)
     tobuild(security-linux.trampoline security-linux/trampoline.c)
   endif (NOT CMAKE_COMPILER_IS_CLANG)
 

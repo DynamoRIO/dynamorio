@@ -189,6 +189,12 @@ START_FILE
         lea      REG_XAX, [PRIV_MCXT_SIZE + REG_XSP] @N@\
         mov      [PUSHGPR_XSP_OFFS + REG_XSP], REG_XAX
 
+/* This is really the alignment needed by x64 code.  For now, when we bother to
+ * align the stack pointer, we just go for 16 byte alignment.  We do *not*
+ * assume 16-byte alignment across the code base.
+ * i#847: Investigate using aligned SSE ops (see get_xmm_caller_saved).
+ */
+#define FRAME_ALIGNMENT 16
 
 /****************************************************************************/
 /****************************************************************************/
@@ -418,17 +424,19 @@ GLOBAL_LABEL(clone_and_swap_stack:)
 #ifdef DR_APP_EXPORTS
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
+        sub     REG_XSP, FRAME_ALIGNMENT - ARG_SZ  /* Maintain alignment. */
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
-        PUSH_PRIV_MCXT([REG_XSP - PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
+        PUSH_PRIV_MCXT([FRAME_ALIGNMENT - ARG_SZ + REG_XSP -
+                        PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
 
         /* do the rest in C */
-        lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
+        lea     REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
         CALLC1(dr_app_start_helper, REG_XAX)
 
         /* if we come back, then DR is not taking control so 
          * clean up stack and return */
-        add      REG_XSP, PRIV_MCXT_SIZE
+        add      REG_XSP, PRIV_MCXT_SIZE + FRAME_ALIGNMENT - ARG_SZ
         ret
         END_FUNC(dr_app_start)
 
@@ -449,9 +457,11 @@ GLOBAL_LABEL(dr_app_take_over:  )
  */
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
+        sub     REG_XSP, FRAME_ALIGNMENT - ARG_SZ  /* Maintain alignment. */
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
-        PUSH_PRIV_MCXT([REG_XSP - PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
+        PUSH_PRIV_MCXT([FRAME_ALIGNMENT - ARG_SZ + REG_XSP -
+                        PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
 
         /* do the rest in C */
         lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
@@ -459,7 +469,7 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
 
         /* if we come back, then DR is not taking control so 
          * clean up stack and return */
-        add      REG_XSP, PRIV_MCXT_SIZE
+        add      REG_XSP, PRIV_MCXT_SIZE + FRAME_ALIGNMENT - ARG_SZ
         ret
         END_FUNC(dynamorio_app_take_over)
         

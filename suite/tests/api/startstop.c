@@ -43,6 +43,7 @@
 # include <windows.h>
 #else
 # include <pthread.h>
+# include <unistd.h>  /* for sleep */
 #endif
 
 #define ITERS 150000

@@ -229,6 +229,9 @@ ASSUME fs:_DATA @N@\
 # define ARG7 DWORD [28 + esp]
 #endif
 
+/* Keep in sync with arch_exports.h. */
+#define FRAME_ALIGNMENT 16
+
 #ifdef X64
 #  define PUSHF   pushfq
 #  define POPF    popfq

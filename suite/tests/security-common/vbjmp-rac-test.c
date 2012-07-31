@@ -57,7 +57,7 @@ bar()
     return 0;
 }
 
-int
+void
 vbpop()
 {
     print("in vbpop\n");
@@ -88,7 +88,7 @@ vbpop()
     print("vbpop success\n");
 }
 
-int
+void
 vbjmp()
 {
 #ifdef LINUX

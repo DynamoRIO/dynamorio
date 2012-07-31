@@ -155,6 +155,12 @@ mixed_mode_enabled(void)
 #define COARSE_IB_SRC_OFFSET   ((PROT_OFFS)+offsetof(dcontext_t, coarse_exit.src_tag))
 #define COARSE_DIR_EXIT_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, coarse_exit.dir_exit))
 
+/* Keep in synch with x86.asm.  This is the difference between the SP saved in
+ * the mcontext and the SP of the caller of dr_app_start() and
+ * dynamorio_app_take_over().
+ */
+#define DYNAMO_START_XSP_ADJUST 16
+
 int
 reg_spill_tls_offs(reg_id_t reg);
 

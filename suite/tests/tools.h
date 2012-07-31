@@ -194,6 +194,8 @@ static void VERBOSE_PRINT(char *fmt, ...) {}
 
 /* DynamoRIO prints directly by syscall to stderr, so we need to too to get
  * right output, esp. with ctest -j where fprintf(stderr) is buffered.
+ * Likely to crash if the stack is unaligned due to possible floating point args
+ * in XMM registers.
  */
 static void
 print(const char *fmt, ...)

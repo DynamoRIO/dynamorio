@@ -52,10 +52,11 @@
 #include "dynamorio.h"
 #endif
 
-/* FIXME: our toolchain headers are too old for these so hardcoding: */
-/* linux/sched.h is hard to include properly */
 #define CLONE_THREAD	0x00010000	/* Same thread group? */
-#define CLONE_CHILD_CLEARTID 0x00200000      /* clear the TID in the child */
+#define CLONE_CHILD_CLEARTID	0x00200000	/* clear the TID in the child */
+/* i#762: Hard to get clone() from sched.h, so copy prototype. */
+extern int
+clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg, ...);
 
 #define THREAD_STACK_SIZE   (32*1024)
 
