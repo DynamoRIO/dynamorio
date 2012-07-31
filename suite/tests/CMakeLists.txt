@@ -1704,9 +1704,13 @@ tochcon(security-common.selfmod textrel_shlib_t)
 
 tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
 
-tobuild("security-common.TestMemProtChg" security-common/TestMemProtChg.c)
-tochcon("security-common.TestMemProtChg" wine_exec_t)
-mark_execstack("security-common.TestMemProtChg")
+set (TestMemProtChg "security-common.TestMemProtChg")
+if (UNIX)  # i#387: Still has issues with proc maps on some kernels.
+  set (TestMemProtChg "${TestMemProtChg}_FLAKY")
+endif (UNIX)
+tobuild("${TestMemProtChg}" security-common/TestMemProtChg.c)
+tochcon("${TestMemProtChg}" wine_exec_t)
+mark_execstack("${TestMemProtChg}")
 
 ###########################################################################
 
