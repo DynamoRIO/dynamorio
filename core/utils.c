@@ -85,13 +85,11 @@
 extern void sideline_exit(void);
 #endif
 
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE) \
-    || defined(DR_APP_EXPORTS)
 /* use for soft errors that can handle some cleanup: assertions and apichecks
  * performs some cleanup and then calls os_terminate 
  */
 static void
-assertion_terminate()
+soft_terminate()
 {
 #ifdef SIDELINE
     /* kill child threads */
@@ -109,8 +107,6 @@ assertion_terminate()
     /* do not try to clean up */
     os_terminate(NULL, TERMINATE_PROCESS);
 }
-#endif /* defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE) 
-        * || defined(DR_APP_EXPORTS) */
 
 #if defined(INTERNAL) || defined(DEBUG)
 /* checks whether an assert statement should be ignored, 
@@ -191,7 +187,7 @@ internal_error(char *file, int line, char *expr)
 #endif
                          );
 
-    assertion_terminate();
+    soft_terminate();
 }
 #endif /* defined(INTERNAL) || defined(DEBUG) */
 
@@ -208,7 +204,7 @@ external_error(char *file, int line, char *msg)
         report_dynamorio_problem(NULL, DUMPCORE_FATAL_USAGE_ERROR, NULL, NULL,
                                  "Usage error: %s (%s, line %d)", msg, file, line);
     });
-    assertion_terminate();
+    soft_terminate();
 }
 
 /****************************************************************************/
