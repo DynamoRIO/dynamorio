@@ -72,121 +72,139 @@
 
 static byte buf[8192];
 
-/* make sure the following are consistent (though they could still all be wrong :))
+/***************************************************************************
+ * make sure the following are consistent (though they could still all be wrong :))
  * with respect to instr length and opcode:
  * - decode_fast
  * - decode
  * - INSTR_CREATE_
  * - encode
  */
+
+/* we split testing up to avoid VS2010 from taking 25 minutes to compile
+ * this file.
+ * we cannot pass on variadic args as separate args to another
+ * macro, so we must split ours by # args (xref PR 208603).
+ */
+
+/* we can encode+fast-decode some instrs cross-platform but we
+ * leave that testing to the regression run on that platform
+ */ 
+
+/* these are shared among all test_all_opcodes_*() routines: */
+#define MEMARG(sz) (opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0x37, sz))
+#define IMMARG(sz)  opnd_create_immed_int(37, sz)
+#define TGTARG      opnd_create_instr(instrlist_last(ilist))
+#define REGARG(reg) opnd_create_reg(REG_##reg)
+#define X86_ONLY    1
+#define X64_ONLY    2
+
 static void
-test_all_opcodes(void *dc)
+test_all_opcodes_0(void *dc)
 {
-    byte *pc, *next_pc;
-    byte *end;
-    instrlist_t *ilist = instrlist_create(dc);
-    instr_t *instr;
-
-    /* we cannot pass on variadic args as separate args to another
-     * macro, so we must split ours by # args (xref PR 208603)
-     */
-
-#   define MEMARG(sz) (opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0x37, sz))
-#   define IMMARG(sz)  opnd_create_immed_int(37, sz)
-#   define TGTARG      opnd_create_instr(instrlist_last(ilist))
-#   define REGARG(reg) opnd_create_reg(REG_##reg)
-#   define X86_ONLY    1
-#   define X64_ONLY    2
-
-#   define OPCODE(name, opc, icnm, ...) \
-    int len_##name;
-#   include "ir_0args.h"
-#   include "ir_1args.h"
-#   include "ir_2args.h"
-#   include "ir_3args.h"
-#   include "ir_4args.h"
-#   undef OPCODE
-
-    /* we can encode+fast-decode some instrs cross-platform but we
-     * leave that testing to the regression run on that platform */ 
-
-#   define OPCODE(name, opc, icnm, flags) do { \
+#   define INCLUDE_NAME "ir_0args.h"
+#   define OPCODE_FOR_CREATE(name, opc, icnm, flags) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_0args.h"
-#   undef OPCODE
+#   include "ir_all_opc.h"
+#   undef OPCODE_FOR_CREATE
+#   undef INCLUDE_NAME
+}
 
 #ifndef STANDALONE_DECODER
-    /* vs2005 cl takes many minute to compile w/ static drdecode lib
-     * so we disable part of this test since for static we just want a
-     * sanity check
-     */
-#   define OPCODE(name, opc, icnm, flags, arg1) do { \
+/* vs2005 cl takes many minute to compile w/ static drdecode lib
+ * so we disable part of this test since for static we just want a
+ * sanity check
+ */
+static void
+test_all_opcodes_1(void *dc)
+{
+#   define INCLUDE_NAME "ir_1args.h"
+#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_1args.h"
-#   undef OPCODE
+#   include "ir_all_opc.h"
+#   undef OPCODE_FOR_CREATE
+#   undef INCLUDE_NAME
+}
 
-#   define OPCODE(name, opc, icnm, flags, arg1, arg2) do { \
+static void
+test_all_opcodes_2(void *dc)
+{
+#   define INCLUDE_NAME "ir_2args.h"
+#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_2args.h"
-#   undef OPCODE
+#   include "ir_all_opc.h"
+#   undef OPCODE_FOR_CREATE
+#   undef INCLUDE_NAME
+}
 
-#   define OPCODE(name, opc, icnm, flags, arg1, arg2, arg3) do { \
+static void
+test_all_opcodes_2_mm(void *dc)
+{
+#   define INCLUDE_NAME "ir_2args_mm.h"
+#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2) do { \
+    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
+        instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
+    } } while (0);
+#   include "ir_all_opc.h"
+#   undef OPCODE_FOR_CREATE
+#   undef INCLUDE_NAME
+}
+
+static void
+test_all_opcodes_3(void *dc)
+{
+#   define INCLUDE_NAME "ir_3args.h"
+#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_3args.h"
-#   undef OPCODE
+#   include "ir_all_opc.h"
+#   undef OPCODE_FOR_CREATE
+#   undef INCLUDE_NAME
+}
 
-#   define OPCODE(name, opc, icnm, flags, arg1, arg2, arg3, arg4) do { \
+static void
+test_all_opcodes_3_avx(void *dc)
+{
+#   define INCLUDE_NAME "ir_3args_avx.h"
+#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3) do { \
+    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
+        instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
+    } } while (0);
+#   include "ir_all_opc.h"
+#   undef OPCODE_FOR_CREATE
+#   undef INCLUDE_NAME
+}
+
+static void
+test_all_opcodes_4(void *dc)
+{
+#   define INCLUDE_NAME "ir_4args.h"
+#   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_4args.h"
-#   undef OPCODE
-#endif /* STANDALONE_DECODER */
-
-    end = instrlist_encode(dc, ilist, buf, false);
-
-    instr = instr_create(dc);
-    pc = buf;
-
-#   define OPCODE(name, opc, icnm, flags, ...) do { \
-    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0 && len_##name != 0) { \
-        instr_reset(dc, instr); \
-        next_pc = decode(dc, pc, instr); \
-        ASSERT((next_pc - pc) == decode_sizeof(dc, pc, NULL _IF_X64(NULL))); \
-        ASSERT((next_pc - pc) == len_##name); \
-        ASSERT(instr_get_opcode(instr) == OP_##opc); \
-        pc = next_pc; \
-    } } while (0);
-#   include "ir_0args.h"
-#ifndef STANDALONE_DECODER /* see above */
-#   include "ir_1args.h"
-#   include "ir_2args.h"
-#   include "ir_3args.h"
-#   include "ir_4args.h"
-#endif /* STANDALONE_DECODER */
-#   undef OPCODE
-
-#if VERBOSE
-    for (pc = buf; pc < end; )
-        pc = disassemble_with_info(dc, pc, STDOUT, true, true);
-#endif
-
-    instr_destroy(dc, instr);
-    instrlist_clear_and_destroy(dc, ilist);
+#   include "ir_all_opc.h"
+#   undef OPCODE_FOR_CREATE
+#   undef INCLUDE_NAME
 }
+#endif /* !STANDALONE_DECODER */
+
+/*
+ ***************************************************************************/
 
 static void
 test_disp_control_helper(void *dc, int disp,
@@ -840,7 +858,15 @@ main(int argc, char *argv[])
     dr_mutex_destroy(x);
 #endif
 
-    test_all_opcodes(dcontext);
+    test_all_opcodes_0(dcontext);
+#ifndef STANDALONE_DECODER /* speed up compilation */
+    test_all_opcodes_1(dcontext);
+    test_all_opcodes_2(dcontext);
+    test_all_opcodes_2_mm(dcontext);
+    test_all_opcodes_3(dcontext);
+    test_all_opcodes_3_avx(dcontext);
+    test_all_opcodes_4(dcontext);
+#endif
 
     test_disp_control(dcontext);
 
