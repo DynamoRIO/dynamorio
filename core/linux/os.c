@@ -3956,17 +3956,12 @@ is_readable_without_exception_internal(const byte *pc, size_t size, bool query_o
 bool
 is_readable_without_exception(const byte *pc, size_t size)
 {
-    /* FIXME case 9745: disabling all_memory_areas here since causing a ton
-     * of asserts; re-enable once we're sure it truly matches the real
-     * world
+    /* case 9745 / i#853: We've had problems with all_memory_areas not being
+     * accurate in the past.  Parsing proc maps is too slow for some apps, so we
+     * use a runtime option.
      */
-    return is_readable_without_exception_internal(pc, size, 
-#ifdef HAVE_PROC_MAPS
-                                                  true /* do query os */
-#else
-                                                  false
-#endif
-                                                  );
+    bool query_os = !DYNAMO_OPTION(use_all_memory_areas);
+    return is_readable_without_exception_internal(pc, size, query_os);
 }
 
 /* Identical to is_readable_without_exception except that the os is queried
@@ -7908,9 +7903,13 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
          /* store stack info at thread startup, since stack can get fragmented in
           * /proc/self/maps w/ later mprotects and it can be hard to piece together later
           */
-         /* FIXME: once our mem list is robust use it */
-         ok = get_memory_info_from_os((app_pc)get_mcontext(dcontext)->xsp,
-                                      &ostd->stack_base, &size, NULL);
+         if (DYNAMO_OPTION(use_all_memory_areas)) {
+             ok = get_memory_info((app_pc)get_mcontext(dcontext)->xsp,
+                                  &ostd->stack_base, &size, NULL);
+         } else {
+             ok = get_memory_info_from_os((app_pc)get_mcontext(dcontext)->xsp,
+                                          &ostd->stack_base, &size, NULL);
+         }
          ASSERT(ok);
          ostd->stack_top = ostd->stack_base + size;
          LOG(THREAD, LOG_THREADS, 1, "App stack is "PFX"-"PFX"\n",

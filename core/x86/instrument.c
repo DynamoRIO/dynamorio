@@ -2492,7 +2492,10 @@ dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
     /* xref PR 246897 - the cached all memory list can have problems when
      * out-of-process entities change the mapings. For now we use the from
      * os version instead (even though it's slower, and only if we have
-     * HAVE_PROC_MAPS support). FIXME */
+     * HAVE_PROC_MAPS support). FIXME
+     * XXX i#853: We could decide allmem vs os with the use_all_memory_areas
+     * option.
+     */
     return get_memory_info_from_os(pc, base_pc, size, prot);
 #else 
     return get_memory_info(pc, base_pc, size, prot);

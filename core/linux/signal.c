@@ -3603,18 +3603,24 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     uint memopidx;
     bool found_target = false;
     bool in_maps;
+    bool use_allmem = false;
     uint prot;
 
     LOG(THREAD, LOG_ALL, 2, "computing memory target for "PFX" causing SIGSEGV\n",
         instr_cache_pc);
 
-    /* we don't want to grab a lock here, so we use _from_os */
-    in_maps = get_memory_info_from_os(instr_cache_pc, NULL, NULL, &prot);
-    /* initial sanity check though we don't know how long instr is */
-    if (!in_maps || !TEST(MEMPROT_READ, prot))
-        return NULL;
+    /* We used to do a memory query to check if instr_cache_pc is readable, but
+     * now we use TRY/EXCEPT because we don't have the instr length and the OS
+     * query is expensive.  If decoding faults, the signal handler will longjmp
+     * out before it calls us recursively.
+     */
     instr_init(dcontext, &instr);
-    decode(dcontext, instr_cache_pc, &instr);
+    TRY_EXCEPT(dcontext, {
+        decode(dcontext, instr_cache_pc, &instr);
+    }, {
+        return NULL;  /* instr_cache_pc was unreadable */
+    });
+
     if (!instr_valid(&instr)) {
         LOG(THREAD, LOG_ALL, 2,
             "WARNING: got SIGSEGV for invalid instr at cache pc "PFX"\n", instr_cache_pc);
@@ -3623,6 +3629,13 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
         return NULL;
     }
 
+    /* For fcache faults, use all_memory_areas, which is faster but acquires
+     * locks.  If it's possible we're in DR, go to the OS to avoid deadlock.
+     */
+    if (DYNAMO_OPTION(use_all_memory_areas)) {
+        use_allmem = safe_is_in_fcache(dcontext, instr_cache_pc,
+                                       (byte *)sc->SC_XSP);
+    }
     sigcontext_to_mcontext(&mc, sc);
     ASSERT(write != NULL);
     /* i#115/PR 394984: consider all memops */
@@ -3630,7 +3643,11 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
          instr_compute_address_ex_priv(&instr, &mc, memopidx, 
                                        &target, write, NULL);
          memopidx++) {
-        in_maps = get_memory_info_from_os(target, NULL, NULL, &prot);
+        if (use_allmem) {
+            in_maps = get_memory_info(target, NULL, NULL, &prot);
+        } else {
+            in_maps = get_memory_info_from_os(target, NULL, NULL, &prot);
+        }
         if ((!in_maps || !TEST(MEMPROT_READ, prot)) ||
             (*write && !TEST(MEMPROT_WRITE, prot))) {
             found_target = true;
