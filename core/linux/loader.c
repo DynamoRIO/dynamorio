@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -1100,7 +1100,10 @@ privload_tls_init(void *app_tp)
             "instead of 0x%lx\n", __FUNCTION__, tls_bytes_read -
             APP_LIBC_TLS_SIZE, tcb_size);
     }
-    ASSERT_CURIOSITY(tls_bytes_read == APP_LIBC_TLS_SIZE + tcb_size);
+    /* We do not assert or warn on a truncated read as it does happen when TCB
+     * + our over-estimate crosses a page boundary (our estimate is for latest
+     * libc and is larger than on older libc versions): i#855.
+     */
     ASSERT(tls_info.offset <= max_client_tls_size - tcb_size);
     /* Update two self pointers. */
     dr_tcb->tcb  = dr_tcb;
