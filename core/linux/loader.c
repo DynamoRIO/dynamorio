@@ -1212,16 +1212,25 @@ privload_redirect_sym(ELF_ADDR *r_addr, const char *name)
 #define MAX_NUM_ARGS 0x100
 static reg_t  app_init_xsp = 0;
 static app_pc app_init_entry = NULL;
+static ELF_AUXV_TYPE *app_auxv;
 
+/* sets app_init_xsp and app_auxv */
 static void
 privload_get_init_app_xsp(void)
 {
     char *user = getenv("USER") - 5 /* "USER=..." */;
     IF_DEBUG(int num_args = 0;)
     reg_t *xsp = (reg_t *)ALIGN_BACKWARD(user, XSP_SZ);
+    reg_t *auxv;
+
     /* reverse scan to find the args and env */
     /* scan stack till xsp pointing to "USER=..." */
     for (; *xsp != (reg_t)user; xsp--);
+
+    /* once among env ptrs, walk forward to find auxv start */
+    for (auxv = xsp; *auxv != 0; auxv++); /* no body */
+    app_auxv = (ELF_AUXV_TYPE *) (auxv + 1);
+
     /* scan stack till xsp pointing to the NULL between argv and envp */
     for (; *xsp != 0; xsp--);
     /* scan stack till xsp pointing to argc */
@@ -1261,6 +1270,29 @@ privload_setup_app_stack(void)
     return argv[0];
 }
 
+static void
+privload_setup_auxv(app_pc map)
+{
+    /* fix up the auxv entries that refer to the executable */
+    ELF_AUXV_TYPE *auxv = app_auxv;
+    ELF_HEADER_TYPE *elf = (ELF_HEADER_TYPE *) map;
+    ASSERT(map != NULL);
+    ASSERT(app_auxv != NULL);
+    for (; auxv->a_type != AT_NULL; auxv++) {
+        switch (auxv->a_type) {
+        case AT_PHDR:
+            auxv->a_un.a_val = (ptr_int_t) (map + elf->e_phoff);
+            break;
+        case AT_PHENT:
+            auxv->a_un.a_val = (ptr_int_t) elf->e_phentsize;
+            break;
+        case AT_PHNUM:
+            auxv->a_un.a_val = (ptr_int_t) elf->e_phnum;
+            break;
+        }
+    }
+}
+
 void
 privload_setup_app_mc(priv_mcontext_t *mc)
 {
@@ -1288,6 +1320,7 @@ privload_early_inject(void)
                                     &app_init_entry, &interp);
     if (map == NULL)
         apicheck(false, "Failed to load application.  Check path and architecture.");
+    privload_setup_auxv(map);
     if (interp != NULL) {
         map = privload_map_and_relocate(interp, &size, &os_privmod_data,
                                         false /* fixed */, &app_init_entry,

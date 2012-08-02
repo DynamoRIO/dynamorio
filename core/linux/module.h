@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,6 +53,7 @@
 # define ELF_ST_VISIBILITY ELF64_ST_VISIBILITY
 # define ELF_REL_TYPE Elf64_Rel
 # define ELF_RELA_TYPE Elf64_Rela
+# define ELF_AUXV_TYPE Elf64_auxv_t
 #else
 # define ELF_HEADER_TYPE Elf32_Ehdr
 # define ELF_PROGRAM_HEADER_TYPE Elf32_Phdr
@@ -68,6 +69,7 @@
 # define ELF_ST_VISIBILITY ELF32_ST_VISIBILITY
 # define ELF_REL_TYPE Elf32_Rel
 # define ELF_RELA_TYPE Elf32_Rela
+# define ELF_AUXV_TYPE Elf32_auxv_t
 #endif
 
 #ifdef X64 

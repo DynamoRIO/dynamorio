@@ -435,6 +435,8 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
      * routines that need it and wrap just those.
      */
     ASSERT(get_libc_errno() == dcontext->libc_errno ||
+           /* w/ private loader, our errno is disjoint from app's */
+           IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false) ||
            /* only when pthreads is loaded does libc switch to a per-thread
             * errno, so our raw thread tests end up using the same errno
             * for each thread!
@@ -654,7 +656,9 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
 
 #if defined(LINUX) && defined(DEBUG)
     /* i#238/PR 499179: check that libc errno hasn't changed */
-    dcontext->libc_errno = get_libc_errno();
+    /* w/ private loader, our errno is disjoint from app's */
+    if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true))
+        dcontext->libc_errno = get_libc_errno();
 #endif
 
     DOLOG(2, LOG_INTERP, { 

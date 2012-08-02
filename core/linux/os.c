@@ -1683,6 +1683,9 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
         os_tls->app_fs_base = (void *)(ptr_uint_t) desc[SELECTOR_INDEX(sel)].base_addr;
     }
     instr_free(dcontext, &instr);
+    LOG(THREAD_GET, LOG_THREADS, 2,
+        "thread %d segment change => app fs: "PFX", gs: "PFX"\n",
+        get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
 }
 
 /* initialization for mangle_app_seg, must be called before
@@ -1744,6 +1747,11 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
         os_tls->os_seg_info.dr_gs_base = privload_tls_init(os_tls->app_gs_base);
 #endif
     }
+
+    LOG(THREAD_GET, LOG_THREADS, 1, "thread %d app fs: "PFX", gs: "PFX"\n",
+        get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
+    LOG(THREAD_GET, LOG_THREADS, 1, "thread %d DR fs: "PFX", gs: "PFX"\n",
+        get_thread_id(), os_tls->os_seg_info.dr_fs_base, os_tls->os_seg_info.dr_gs_base);
 }
 
 void
@@ -6239,6 +6247,9 @@ handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         break;
     }
     } /* switch (dcontext->sys_param0) */
+    LOG(THREAD_GET, LOG_THREADS, 2,
+        "thread %d segment change => app fs: "PFX", gs: "PFX"\n",
+        get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
 }
 #endif
 
