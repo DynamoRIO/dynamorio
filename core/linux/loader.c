@@ -1244,10 +1244,18 @@ privload_setup_app_stack(void)
     ASSERT(*argc > 0 && argv != NULL);
     /* shift argv */
     for (i = 0; i < (*argc - 1); i++) {
-        strcpy(argv[i], argv[i+1]);
+        memmove(argv[i], argv[i+1], strlen(argv[i+1]) + 1); /* could overlap */
         argv[i+1] = argv[i] + strlen(argv[i]) + 1;
     }
     memset(argv[i], 0, sizeof(argv[i]));
+
+    /* we need the argv count to match argc so that libc startup
+     * code will find auxv (i#857) so we clear the final (unneeded)
+     * arg and add a fake env var:
+     */
+    argv[i] = NULL;
+    argv[i+1] = "FAKE_ENV_VAR=0";
+
     /* change argc */
     *argc = *argc - 1;
     return argv[0];
