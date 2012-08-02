@@ -1278,13 +1278,15 @@ privload_early_inject(void)
     acquire_recursive_lock(&privload_lock);
     map = privload_map_and_relocate(app_name, &size, &os_privmod_data, true,
                                     &app_init_entry, &interp);
-    ASSERT(map != NULL);
+    if (map == NULL)
+        apicheck(false, "Failed to load application.  Check path and architecture.");
     if (interp != NULL) {
         map = privload_map_and_relocate(interp, &size, &os_privmod_data,
                                         false /* fixed */, &app_init_entry,
                                         NULL /* interp */);
         ASSERT(map != NULL);
         /* FIXME i#47: more work than static linked executables */
+        apicheck(false, "This -early prototype does not support dynamically linked executables.  Please re-run without -early.");
         ASSERT_NOT_IMPLEMENTED(false);
     }
     release_recursive_lock(&privload_lock);

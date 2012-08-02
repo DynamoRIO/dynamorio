@@ -195,7 +195,6 @@ internal_error(char *file, int line, char *expr)
 }
 #endif /* defined(INTERNAL) || defined(DEBUG) */
 
-#if defined(CLIENT_INTERFACE) || defined(DR_APP_EXPORTS)
 /* abort on external application created error, i.e. apicheck */
 void
 external_error(char *file, int line, char *msg)
@@ -211,7 +210,6 @@ external_error(char *file, int line, char *msg)
     });
     assertion_terminate();
 }
-#endif
 
 /****************************************************************************/
 /* SYNCHRONIZATION */

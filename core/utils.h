@@ -124,13 +124,11 @@ void internal_error(char *file, int line, char *expr);
 bool ignore_assert(const char *assert_file_line, const char *expr);
 #endif
 
-/* only support apicheck for exported api's */
-#if defined(CLIENT_INTERFACE) || defined(DR_APP_EXPORTS)
-# define apicheck(x, msg) \
+/* we now use apicheck as a SYSLOG + abort even for non-API builds */
+#define apicheck(x, msg) \
     ((void)((DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x)) ? \
      (external_error(__FILE__, __LINE__, msg), 0) : 0))
 void external_error(char *file, int line, char *msg);
-#endif
 
 #ifdef CLIENT_INTERFACE
 # ifdef DEBUG
