@@ -3844,8 +3844,10 @@ master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
      * that could have been interrupted
      * e.g., synchronize_dynamic_options grabs the stats_lock!
      */
-    if (dcontext == NULL || dcontext->signal_field == NULL ||
-        !((thread_sig_info_t*)dcontext->signal_field)->fully_initialized) {
+    if (dcontext == NULL ||
+        (dcontext != GLOBAL_DCONTEXT &&
+         (dcontext->signal_field == NULL ||
+          !((thread_sig_info_t*)dcontext->signal_field)->fully_initialized))) {
         /* FIXME: || !intercept_asynch, or maybe !under_our_control */
         /* FIXME i#26: this could be a signal arbitrarily sent to this thread.
          * We could try to route it to another thread, using a global queue
