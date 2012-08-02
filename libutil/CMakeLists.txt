@@ -35,6 +35,12 @@ endif (UNIX)
 
 # These custom commands are per-subdir so can't just place at top level
 include(../make/CMake_events.cmake)
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # i#801: we use custom target (from core/CMakeLists.txt) for dependence,
+  # and sources cause problems w/ VS
+  set(SYSLOG_SRCS "")
+  set(EVENTS_SRCS "")
+endif ()
 
 # FIXME i#60: add rules from old Makefile for building unit tests
 # the tests had been broken for a while
