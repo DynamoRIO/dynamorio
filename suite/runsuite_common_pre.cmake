@@ -214,6 +214,37 @@ else (arg_nightly)
   file(MAKE_DIRECTORY "${CTEST_DROP_SITE}:${CTEST_DROP_LOCATION}")
 endif (arg_nightly)
 
+# Find the number of CPUs on the current system.
+# Cribbed from http://www.kitware.com/blog/home/post/63
+if(NOT DEFINED PROCESSOR_COUNT)
+  # Unknown:
+  set(PROCESSOR_COUNT 4)  # Guess
+
+  # Linux:
+  set(cpuinfo_file "/proc/cpuinfo")
+  if(EXISTS "${cpuinfo_file}")
+    file(STRINGS "${cpuinfo_file}" procs REGEX "^processor.: [0-9]+$")
+    list(LENGTH procs PROCESSOR_COUNT)
+  endif()
+
+  # Mac:
+  if(APPLE)
+    find_program(cmd_sys_pro "system_profiler")
+    if(cmd_sys_pro)
+      execute_process(COMMAND ${cmd_sys_pro} OUTPUT_VARIABLE info)
+      string(REGEX REPLACE "^.*Total Number Of Cores: ([0-9]+).*$" "\\1"
+        PROCESSOR_COUNT "${info}")
+    endif()
+  endif()
+
+  # Windows:
+  if(WIN32)
+    set(PROCESSOR_COUNT "$ENV{NUMBER_OF_PROCESSORS}")
+  endif()
+endif()
+
+math(EXPR PROCESSOR_COUNT "${PROCESSOR_COUNT} + 2")
+
 # CTest goes and does our builds and then wants to configure
 # and build again and complains there's no top-level setting of
 # CTEST_BINARY_DIRECTORY: 
@@ -233,7 +264,7 @@ elseif (arg_use_make)
     # can't repro w/ VERBOSE=1
     set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j2")
   else (have_cygwin)
-    set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j5")
+    set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j${PROCESSOR_COUNT}")
   endif (have_cygwin)
 elseif (arg_use_nmake)
   set(CTEST_CMAKE_GENERATOR "NMake Makefiles")
@@ -487,7 +518,8 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         # i#111: run tests in parallel, supported on CTest 2.8.0+
         # Note that adding -j to CMAKE_COMMAND does not work, though invoking
         # this script with -j does work, but we want parallel by default.
-        ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" PARALLEL_LEVEL 5)
+        ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}"
+          PARALLEL_LEVEL ${PROCESSOR_COUNT})
       else (RUN_PARALLEL)
         ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}")
       endif (RUN_PARALLEL)
