@@ -54,6 +54,14 @@
 /* to avoid duplicating code we use our own exported macros */
 #define DR_FAST_IR 1
 
+/* drpreinject.dll doesn't link in instr.c so we can't include our inline
+ * functions.  We want to use our inline functions for the standalone decoder
+ * and everything else, so we single out drpreinject.
+ */
+#ifdef RC_IS_PRELOAD
+# undef DR_FAST_IR
+#endif
+
 /* can't include decode.h, it includes us, just declare struct */
 struct instr_info_t;
 
@@ -441,9 +449,6 @@ extern const reg_id_t dr_reg_fixer[];
 #endif /* DR_REG_ENUM_COMPATIBILITY */
 /* DR_API EXPORT END */
 
-#define REG_SPECIFIER_BITS 8
-#define SCALE_SPECIFIER_BITS 4
-
 #ifndef INT8_MIN
 # define INT8_MIN   SCHAR_MIN
 # define INT8_MAX   SCHAR_MAX
@@ -460,6 +465,10 @@ extern const reg_id_t dr_reg_fixer[];
 /* DR_API EXPORT BEGIN */
 
 #ifdef DR_FAST_IR
+
+# define REG_SPECIFIER_BITS 8
+# define SCALE_SPECIFIER_BITS 4
+
 /**
  * opnd_t type exposed for optional "fast IR" access.  Note that DynamoRIO
  * reserves the right to change this structure across releases and does
@@ -1628,10 +1637,19 @@ enum {
 
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 
-/* FIXME: could shrink prefixes, eflags, opcode, and flags fields
- * this struct isn't a memory bottleneck though b/c it isn't persistent
+/* If INSTR_INLINE is already defined, that means we've been included by
+ * instr.c, which wants to use C99 extern inline.  Otherwise, DR_FAST_IR
+ * determines whether our instr routines are inlined.
  */
 /* DR_API EXPORT BEGIN */
+/* Inlining macro controls. */
+#ifndef INSTR_INLINE
+# ifdef DR_FAST_IR
+#  define INSTR_INLINE inline
+# else
+#  define INSTR_INLINE
+# endif
+#endif
 
 /**
  * Data slots available in a label (instr_create_label()) instruction
@@ -1643,6 +1661,12 @@ typedef struct _dr_instr_label_data_t {
 } dr_instr_label_data_t;
 
 #ifdef DR_FAST_IR
+/* DR_API EXPORT END */
+/* FIXME: could shrink prefixes, eflags, opcode, and flags fields
+ * this struct isn't a memory bottleneck though b/c it isn't persistent
+ */
+/* DR_API EXPORT BEGIN */
+
 /**
  * instr_t type exposed for optional "fast IR" access.  Note that DynamoRIO
  * reserves the right to change this structure across releases and does
@@ -1705,11 +1729,294 @@ struct _instr_t {
 
 }; /* instr_t */
 #endif /* DR_FAST_IR */
+
+/****************************************************************************
+ * INSTR ROUTINES
+ */
+/**
+ * @file dr_ir_instr.h
+ * @brief Functions to create and manipulate instructions.
+ */
+
 /* DR_API EXPORT END */
 
-/* functions to inspect and manipulate the fields of an instr_t 
- * NB: a number of instr_ routines are declared in arch_exports.h.
+DR_API
+/**
+ * Returns an initialized instr_t allocated on the thread-local heap.
+ * Sets the x86/x64 mode of the returned instr_t to the mode of dcontext.
  */
+instr_t*
+instr_create(dcontext_t *dcontext);
+
+DR_API
+/** Initializes \p instr.
+ * Sets the x86/x64 mode of \p instr to the mode of dcontext.
+ */
+void
+instr_init(dcontext_t *dcontext, instr_t *instr);
+
+DR_API
+/**
+ * Deallocates all memory that was allocated by \p instr.  This
+ * includes raw bytes allocated by instr_allocate_raw_bits() and
+ * operands allocated by instr_set_num_opnds().  Does not deallocate
+ * the storage for \p instr itself.
+ */
+void
+instr_free(dcontext_t *dcontext, instr_t *instr);
+
+DR_API
+/**
+ * Performs both instr_free() and instr_init().
+ * \p instr must have been initialized.
+ */
+void
+instr_reset(dcontext_t *dcontext, instr_t *instr);
+
+DR_API
+/**
+ * Frees all dynamically allocated storage that was allocated by \p instr,
+ * except for allocated bits.
+ * Also zeroes out \p instr's fields, except for raw bit fields,
+ * whether \p instr is instr_ok_to_mangle(), and the x86 mode of \p instr.
+ * \p instr must have been initialized.
+ */
+void
+instr_reuse(dcontext_t *dcontext, instr_t *instr);
+
+DR_API
+/**
+ * Performs instr_free() and then deallocates the thread-local heap
+ * storage for \p instr.
+ */
+void
+instr_destroy(dcontext_t *dcontext, instr_t *instr);
+
+DR_API
+INSTR_INLINE
+/**
+ * Returns the next instr_t in the instrlist_t that contains \p instr.
+ * \note The next pointer for an instr_t is inside the instr_t data
+ * structure itself, making it impossible to have on instr_t in
+ * two different InstrLists (but removing the need for an extra data
+ * structure for each element of the instrlist_t).
+ */
+instr_t*
+instr_get_next(instr_t *instr);
+
+DR_API
+INSTR_INLINE
+/** Returns the previous instr_t in the instrlist_t that contains \p instr. */
+instr_t*
+instr_get_prev(instr_t *instr);
+
+DR_API
+INSTR_INLINE
+/** Sets the next field of \p instr to point to \p next. */
+void
+instr_set_next(instr_t *instr, instr_t *next);
+
+DR_API
+INSTR_INLINE
+/** Sets the prev field of \p instr to point to \p prev. */
+void
+instr_set_prev(instr_t *instr, instr_t *prev);
+
+DR_API
+INSTR_INLINE
+/**
+ * Gets the value of the user-controlled note field in \p instr.
+ * \note Important: is also used when emitting for targets that are other
+ * instructions.  Thus it will be overwritten when calling instrlist_encode()
+ * or instrlist_encode_to_copy() with \p has_instr_jmp_targets set to true.
+ * \note The note field is copied (shallowly) by instr_clone().
+ */
+void *
+instr_get_note(instr_t *instr);
+
+DR_API
+INSTR_INLINE
+/** Sets the user-controlled note field in \p instr to \p value. */
+void
+instr_set_note(instr_t *instr, void *value);
+
+DR_API
+/** Return the taken target pc of the (direct branch) instruction. */
+app_pc
+instr_get_branch_target_pc(instr_t *cti_instr);
+
+DR_API
+/** Set the taken target pc of the (direct branch) instruction. */
+void
+instr_set_branch_target_pc(instr_t *cti_instr, app_pc pc);
+
+DR_API
+/**
+ * Returns true iff \p instr is a conditional branch, unconditional branch,
+ * or indirect branch with a program address target (NOT an instr_t address target)
+ * and \p instr is ok to mangle.
+ */
+#ifdef UNSUPPORTED_API
+/**
+ * This routine does NOT try to decode an opcode in a Level 1 or Level
+ * 0 routine, and can thus be called on Level 0 routines.
+ */
+#endif
+bool
+instr_is_exit_cti(instr_t *instr);
+
+DR_API
+/** Return true iff \p instr's opcode is OP_int, OP_into, or OP_int3. */
+bool
+instr_is_interrupt(instr_t *instr);
+
+#ifdef UNSUPPORTED_API
+DR_API
+/**
+ * Returns true iff \p instr has been marked as targeting the prefix of its
+ * target fragment.
+ *
+ * Some code manipulations need to store a target address in a
+ * register and then jump there, but need the register to be restored
+ * as well.  DR provides a single-instruction prefix that is
+ * placed on all fragments (basic blocks as well as traces) that
+ * restores ecx.  It is on traces for internal DR use.  To have
+ * it added to basic blocks as well, call
+ * dr_add_prefixes_to_basic_blocks() during initialization.
+ */
+bool
+instr_branch_targets_prefix(instr_t *instr);
+
+DR_API
+/**
+ * If \p val is true, indicates that \p instr's target fragment should be
+ *   entered through its prefix, which restores ecx.
+ * If \p val is false, indicates that \p instr should target the normal entry
+ *   point and not the prefix.
+ *
+ * Some code manipulations need to store a target address in a
+ * register and then jump there, but need the register to be restored
+ * as well.  DR provides a single-instruction prefix that is
+ * placed on all fragments (basic blocks as well as traces) that
+ * restores ecx.  It is on traces for internal DR use.  To have
+ * it added to basic blocks as well, call
+ * dr_add_prefixes_to_basic_blocks() during initialization.
+ */
+void
+instr_branch_set_prefix_target(instr_t *instr, bool val);
+#endif /* UNSUPPORTED_API */
+
+DR_UNS_API
+/**
+ * Returns true iff \p instr has been marked as a selfmod check failure
+ * exit.
+ */
+bool
+instr_branch_selfmod_exit(instr_t *instr);
+
+DR_UNS_API
+/**
+ * If \p val is true, indicates that \p instr is a selfmod check failure exit.
+ * If \p val is false, indicates otherwise.
+ */
+void
+instr_branch_set_selfmod_exit(instr_t *instr, bool val);
+
+DR_API
+/**
+ * Return true iff \p instr is not a meta-instruction
+ * (see instr_set_ok_to_mangle() for more information).
+ */
+bool
+instr_ok_to_mangle(instr_t *instr);
+
+DR_API
+/**
+ * Sets \p instr to "ok to mangle" if \p val is true and "not ok to
+ * mangle" if \p val is false.  An instruction that is "not ok to
+ * mangle" is treated by DR as a "meta-instruction", distinct from
+ * normal application instructions, and is not mangled in any way.
+ * This is necessary to have DR not create an exit stub for a direct
+ * jump.  All non-meta instructions that are added to basic blocks or
+ * traces should have their translation fields set (via
+ * #instr_set_translation(), or the convenience routine
+ * #instr_set_meta_no_translation()) when recreating state at a fault;
+ * meta instructions should not fault (unless such faults are handled
+ * by the client) and are not considered
+ * application instructions but rather added instrumentation code (see
+ * #dr_register_bb_event() for further information on recreating).
+ */
+void
+instr_set_ok_to_mangle(instr_t *instr, bool val);
+
+DR_API
+/**
+ * A convenience routine that calls both
+ * #instr_set_ok_to_mangle (instr, false) and
+ * #instr_set_translation (instr, NULL).
+ */
+void
+instr_set_meta_no_translation(instr_t *instr);
+
+DR_API
+/** Return true iff \p instr is to be emitted into the cache. */
+bool
+instr_ok_to_emit(instr_t *instr);
+
+DR_API
+/**
+ * Set \p instr to "ok to emit" if \p val is true and "not ok to emit"
+ * if \p val is false.  An instruction that should not be emitted is
+ * treated normally by DR for purposes of exits but is not placed into
+ * the cache.  It is used for final jumps that are to be elided.
+ */
+void
+instr_set_ok_to_emit(instr_t *instr, bool val);
+
+#ifdef CUSTOM_EXIT_STUBS
+DR_API
+/**
+ * If \p instr is not an exit cti, does nothing.
+ * If \p instr is an exit cti, sets \p stub to be custom exit stub code
+ * that will be inserted in the exit stub prior to the normal exit
+ * stub code.  If \p instr already has custom exit stub code, that
+ * existing instrlist_t is cleared and destroyed (using current thread's
+ * context).  (If \p stub is NULL, any existing stub code is NOT destroyed.)
+ * The creator of the instrlist_t containing \p instr is
+ * responsible for destroying stub.
+ * \note Custom exit stubs containing control transfer instructions to
+ * other instructions inside a fragment besides the custom stub itself
+ * are not fully supported in that they will not be decoded from the
+ * cache properly as having instr_t targets.
+ */
+void
+instr_set_exit_stub_code(instr_t *instr, instrlist_t *stub);
+
+DR_API
+/**
+ * Returns the custom exit stub code instruction list that has been
+ * set for this instruction.  If none exists, returns NULL.
+ */
+instrlist_t *
+instr_exit_stub_code(instr_t *instr);
+#endif
+
+DR_API
+/**
+ * Returns the length of \p instr.
+ * As a side effect, if instr_ok_to_mangle(instr) and \p instr's raw bits
+ * are invalid, encodes \p instr into bytes allocated with
+ * instr_allocate_raw_bits(), after which instr is marked as having
+ * valid raw bits.
+ */
+int
+instr_length(dcontext_t *dcontext, instr_t *instr);
+
+/* not exported */
+void instr_shift_raw_bits(instr_t *instr, ssize_t offs);
+uint instr_branch_type(instr_t *cti_instr);
+int instr_exit_branch_type(instr_t *instr);
+void instr_exit_branch_set_type(instr_t *instr, uint type);
 
 DR_API
 /** Returns number of bytes of heap used by \p instr. */
@@ -1784,6 +2091,7 @@ const struct instr_info_t *
 get_instr_info(int opcode);
 
 DR_API
+INSTR_INLINE
 /**
  * Returns the number of source operands of \p instr.
  *
@@ -1795,6 +2103,7 @@ int
 instr_num_srcs(instr_t *instr);
 
 DR_API
+INSTR_INLINE
 /**
  * Returns the number of destination operands of \p instr.
  */
@@ -2223,6 +2532,12 @@ DR_UNS_API
  */
 void
 instr_decode(dcontext_t *dcontext, instr_t *instr);
+
+/* Calls instr_decode() with the current dcontext.  *Not* exported.  Mostly
+ * useful as the slow path for IR routines that get inlined.
+ */
+instr_t *
+instr_decode_with_current_dcontext(instr_t *instr);
 
 /* DR_API EXPORT TOFILE dr_ir_instrlist.h */
 DR_UNS_API
@@ -4506,5 +4821,7 @@ enum {
 
 /****************************************************************************/
 /* DR_API EXPORT END */
+
+#include "instr_inline.h"
 
 #endif /* _INSTR_H_ */

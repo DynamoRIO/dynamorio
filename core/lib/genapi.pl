@@ -167,6 +167,7 @@ if ($header) {
      './module_shared.h',    # before instrument.h
      './x86/instrument.h',
      './x86/instr.h',
+     './x86/instr_inline.h',
      './x86/instr_create.h',
      './x86/decode.h',       # OPSZ_ consts, decode routines
      './x86/decode_fast.h',  # decode routines

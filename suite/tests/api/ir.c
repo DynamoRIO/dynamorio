@@ -31,6 +31,13 @@
  * DAMAGE.
  */
 
+/* Define DR_FAST_IR to verify that everything compiles when we call the inline
+ * versions of these routines.
+ */
+#ifndef STANDALONE_DECODER
+# define DR_FAST_IR 1
+#endif
+
 /* Uses the DR CLIENT_INTERFACE API, using DR as a standalone library, rather than
  * being a client library working with DR on a target program.
  *

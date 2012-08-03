@@ -38,6 +38,7 @@
 #ifdef STANDALONE_DECODER
 
 #include "../globals.h"
+#include "instr.h"
 
 #ifdef LINUX
 #  include <unistd.h>

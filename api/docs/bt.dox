@@ -94,6 +94,17 @@ In other words, instruction sequences have a single entrance and one
 or more exits.  This representation greatly simplifies analysis and is
 a primary contributor to DynamoRIO's efficiency.
 
+DynamoRIO's IR is mostly opaque to clients.  Key data structures have their
+sizes exposed to allow for stack allocation, but their fields are opaque.  In
+order to examine them, clients must call IR accessor routines in DynamoRIO.
+While this makes DynamoRIO ABI compatible with prior releases, there is a
+performance cost to calling through to an exported routine every time the
+client touches an instruction.  Clients that are not concerned with ABI
+compatibility can turn many of these export routine calls into inline functions
+or macros by setting the CMake variable \c DynamoRIO_FAST_IR on or defining \p
+DR_FAST_IR before including dr_api.h.  This removes some of the error checking
+that DynamoRIO performs on calls from the client, so it should typically be
+enabled only in a release build.
 
 \if level_of_detail
 ********************

@@ -155,6 +155,7 @@ The changes between version \DR_VERSION and 3.2.0 are:
  - Added dr_mark_safe_to_suspend()
  - Added dr_mutex_mark_as_app(), dr_rwlock_mark_as_app(), and
    dr_recurlock_mark_as_app()
+ - Added DR_FAST_IR to allow clients to inline some key IR routines
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux
