@@ -83,8 +83,14 @@ wait_syscall(int *status)
     return dynamorio_syscall(SYS_wait4, 4, WAIT_ANY, status, 0, NULL);
 }
 
+static int
+execve_syscall(const char *exe, char **argv, char **envp)
+{
+    return dynamorio_syscall(SYS_execve, 3, exe, argv, envp);
+}
+
 int
-fork_syscall()
+fork_syscall(void)
 {
 #if FORK_BROKEN_CASE_4967
     /* FIXME: SYS_fork on dereksha is creating a child whose pid is
@@ -128,16 +134,6 @@ fork_syscall()
 #endif
 }
 
-/* FIXME: get this all to work with pthreads linked in
- * pthreads prevents creation of core file (can't call abort()) and prevents
- * exec* from executing -- exec* just hangs
- */
-bool
-pthreads_linked()
-{
-    return false; /* can't check open==__libc_open on all libcs -- give up for now */
-}
-
 /*-----------------------------------------------------------------------*/
 /* Procedure:
    1. Fork off a child process that dumps core; creates the "core" file
@@ -148,7 +144,8 @@ pthreads_linked()
 */
 /*-----------------------------------------------------------------------*/
 
-void stackdump()
+void
+stackdump(void)
 {
     int pid, core_pid;
     /* get name now -- will be same for children */
@@ -163,11 +160,6 @@ void stackdump()
     }
 #endif
 
-    if (pthreads_linked()) {
-        SYSLOG_INTERNAL_ERROR("stackdump: pthreads not supported, no core dump");
-        return;
-    }
-
 #if VERBOSE
     SYSLOG_INTERNAL_ERROR("about to fork parent %d to dump core", get_process_id());
 #endif
@@ -179,23 +171,14 @@ void stackdump()
         SYSLOG_INTERNAL_ERROR("about to dump core in process %d parent %d thread %d",
                               get_process_id(), get_parent_id(), get_thread_id());
 #endif
-        /* FIXME: on later linuxes signal seems to be propagated to parent,
-         * so even if get a core dump, it's of the parent and nobody's alive
-         * to call gdb!
-         */        
-        if (!pthreads_linked()) {
-            /* no pthreads */
-            abort();
-        } else {
-            /* pthreads has issues with abort(), this works but
-             * no core is dumped: 
-             */
-            if (!set_default_signal_action(SIGABRT)) {
-                SYSLOG_INTERNAL_ERROR("ERROR in setting handler");
-                exit_process_syscall(1);
-            }
-            dynamorio_syscall(SYS_kill, 2, get_process_id(), SIGABRT);
+        /* We used to use abort here, but that had lots of complications with
+         * pthreads and libc, so now we just dereference NULL.
+         */
+        if (!set_default_signal_action(SIGSEGV)) {
+            SYSLOG_INTERNAL_ERROR("ERROR in setting handler");
+            exit_process_syscall(1);
         }
+        *(volatile int *)NULL = 0;
 #if VERBOSE
         SYSLOG_INTERNAL_ERROR("about to exit process %d", get_process_id());
 #endif
@@ -223,7 +206,10 @@ void stackdump()
     if (pid == 0) { /* child */
         file_t fp;
         int fd;
-    
+        char *argv[16];
+        int i;
+        int execve_errno;
+
         /* Open a temporary file for the input: the "where" command */
         fp = os_open(tmp_name, OS_OPEN_REQUIRE_NEW|OS_OPEN_WRITE);
         os_write(fp, DEBUGGER_COMMAND, strlen(DEBUGGER_COMMAND));
@@ -266,13 +252,23 @@ void stackdump()
         SYSLOG_INTERNAL_ERROR("%s %s %s %s",
                               DEBUGGER, QUIET_MODE, exec_name, core_name);
         SYSLOG_INTERNAL_ERROR("-------------------------------------------");
+        i = 0;
+        /* We rely on /usr/bin/env to do the PATH search for gdb on our behalf.
+         */
+        argv[i++] = "/usr/bin/env";
+        argv[i++] = DEBUGGER;
+        argv[i++] = QUIET_MODE;
 #if BATCH_MODE
-        execlp(DEBUGGER, DEBUGGER, QUIET_MODE, "-x", tmp_name, "-batch",
-               exec_name, core_name, NULL);
-#else
-        execlp(DEBUGGER, DEBUGGER, QUIET_MODE, exec_name, core_name, NULL);
+        argv[i++] = "-x";
+        argv[i++] = tmp_name;
+        argv[i++] = "-batch";
 #endif
-        SYSLOG_INTERNAL_ERROR("ERROR: execlp failed for debugger");
+        argv[i++] = exec_name;
+        argv[i++] = core_name;
+        argv[i++] = NULL;
+        execve_errno = execve_syscall("/usr/bin/env", argv, our_environ);
+        SYSLOG_INTERNAL_ERROR("ERROR: execve failed for debugger: %d",
+                              -execve_errno);
         exit_process_syscall(1);
     }
     else if (pid == -1) {
@@ -291,6 +287,6 @@ void stackdump()
         /* empty loop */
     }
 
-    remove(tmp_name); /* clean up the temporary file */
+    os_delete_file(tmp_name); /* clean up the temporary file */
     SYSLOG_INTERNAL_ERROR("-------------------------------------------");
 }
