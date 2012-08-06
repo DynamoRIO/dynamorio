@@ -72,11 +72,10 @@
 
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)
 /* case 10450: give messages to clients */
-# undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
+/* we can't undef ASSERT b/c of DYNAMO_OPTION */
 # undef ASSERT_TRUNCATE
 # undef ASSERT_BITFIELD_TRUNCATE
 # undef ASSERT_NOT_REACHED
-# define ASSERT DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
@@ -1674,7 +1673,7 @@ instr_create(dcontext_t *dcontext)
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
-    IF_X64(instr_set_x86_mode(instr, get_x86_mode(dcontext)));
+    IF_X64(instr_set_x86_mode(instr, !X64_CACHE_MODE_DC(dcontext)));
     return instr;
 }
 
@@ -4963,7 +4962,11 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 {
     CLIENT_ASSERT(num_bytes != 0, "instr_create_nbyte_nop: 0 bytes passed");
     CLIENT_ASSERT(num_bytes <= 3, "instr_create_nbyte_nop: > 3 bytes not supported");
-    if (raw) {
+    /* INSTR_CREATE_nop*byte creates nop according to dcontext->x86_mode.
+     * In x86_to_x64, we want to create x64 nop, but dcontext may be in x86 mode.
+     * As a workaround, we call INSTR_CREATE_RAW_nop*byte here if in x86_to_x64.
+     */
+    if (raw || DYNAMO_OPTION(x86_to_x64)) {
         switch(num_bytes) {
         case 1 :
             return INSTR_CREATE_RAW_nop1byte(dcontext);

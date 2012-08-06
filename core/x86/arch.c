@@ -2332,6 +2332,7 @@ set_fcache_target(dcontext_t *dcontext, cache_pc value)
  * - PR 213251: hot patch fragments (b/c nudge can change whether patched => 
  *     should store translations for all hot patch fragments) 
  * - PR 372021: restore eflags if within window of ibl or trace-cmp eflags-are-dead 
+ * - i#751: fault translation has not been tested for x86_to_x64
  */
 
 typedef struct _translate_walk_t {

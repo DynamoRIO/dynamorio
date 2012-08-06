@@ -1792,7 +1792,7 @@ stack_entry_size(instr_t *instr, opnd_size_t opsize)
 }
 
 /* N.B.: keep in synch with instr_check_xsp_mangling() in arch.c */
-static void
+void
 insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                     ptr_int_t retaddr, opnd_size_t opsize)
 {
@@ -1807,7 +1807,7 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM16(REG_XSP, 2),
                                 OPND_CREATE_INT16(val)));
     } else if (opsize == OPSZ_PTR
-               IF_X64(|| (!X64_MODE_DC(dcontext) && opsize == OPSZ_4))) {
+               IF_X64(|| (!X64_CACHE_MODE_DC(dcontext) && opsize == OPSZ_4))) {
         insert_push_immed_ptrsz(dcontext, ilist, instr, retaddr);
     } else {
 #ifdef X64
@@ -1878,7 +1878,7 @@ insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                ptr_int_t retaddr, opnd_size_t opsize)
 {
 #ifdef X64
-    if (X64_MODE_DC(dcontext)) {
+    if (X64_CACHE_MODE_DC(dcontext)) {
         /* "push cs" is invalid; for now we push the typical cs values.
          * i#823 covers doing this more generally.
          */
@@ -1899,7 +1899,7 @@ insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif
 }
 
-static ptr_uint_t
+ptr_uint_t
 get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
     ptr_uint_t retaddr, curaddr;
@@ -2492,15 +2492,15 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     retaddr = instr_get_src(instr, instr_num_srcs(instr) - 1);
     retsz = stack_entry_size(instr, opnd_get_size(retaddr));
 
-    if (X64_MODE_DC(dcontext) && 
-        (instr_get_opcode(instr) == OP_iret || instr_get_opcode(instr) == OP_ret_far) &&
-        retsz == OPSZ_4) {
-        /* N.B.: For some unfathomable reason iret and ret_far default to operand
-         * size 4 in 64-bit mode (making them, along w/ call_far, the only stack
-         * operation instructions to do so). So if we see an iret or far ret with
-         * OPSZ_4 in 64-bit mode we need a 4-byte pop, but since we can't actually
-         * generate a 4-byte pop we have to emulate it here. */
-        SYSLOG_INTERNAL_WARNING_ONCE("Encountered iretd/lretd in 64-bit mode!");
+    if (X64_CACHE_MODE_DC(dcontext) && retsz == OPSZ_4) {
+        if (instr_get_opcode(instr) == OP_iret || instr_get_opcode(instr) == OP_ret_far) {
+            /* N.B.: For some unfathomable reason iret and ret_far default to operand
+             * size 4 in 64-bit mode (making them, along w/ call_far, the only stack
+             * operation instructions to do so). So if we see an iret or far ret with
+             * OPSZ_4 in 64-bit mode we need a 4-byte pop, but since we can't actually
+             * generate a 4-byte pop we have to emulate it here. */
+            SYSLOG_INTERNAL_WARNING_ONCE("Encountered iretd/lretd in 64-bit mode!");
+        }
         /* Note moving into ecx automatically zero extends which is what we want. */
         PRE(ilist, instr,
             INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_ECX),
@@ -2598,7 +2598,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * clear, but any flag that we or a user mode program would care about should
          * be right. */
         popf = INSTR_CREATE_popf(dcontext);
-        if (X64_MODE_DC(dcontext) && retsz == OPSZ_4) {
+        if (X64_CACHE_MODE_DC(dcontext) && retsz == OPSZ_4) {
             /* We can't actually create a 32-bit popf and there's no easy way to
              * simulate one.  For now we'll do a 64-bit popf and fixup the stack offset.
              * If AMD/INTEL ever start using the top half of the rflags register then
@@ -3832,6 +3832,13 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
             instrlist_set_translation_target(ilist, xl8);
         }
 
+#ifdef X64
+        if (DYNAMO_OPTION(x86_to_x64) &&
+            IF_WINDOWS_ELSE(is_wow64_process(NT_CURRENT_PROCESS), false) &&
+            instr_get_x86_mode(instr))
+            translate_x86_to_x64(dcontext, ilist, &instr);
+#endif
+
 #ifdef LINUX
         if (INTERNAL_OPTION(mangle_app_seg) && instr_ok_to_mangle(instr)) {
             /* The instr might be changed by client, and we cannot rely on 
@@ -3970,7 +3977,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     instrlist_set_our_mangling(ilist, false); /* PR 267260 */
 
 #ifdef X64
-    if (!X64_MODE_DC(dcontext)) {
+    if (!X64_CACHE_MODE_DC(dcontext)) {
         instr_t *in;
         for (in = instrlist_first(ilist); in != NULL; in = instr_get_next(in)) {
             if (instr_is_our_mangling(in)) {

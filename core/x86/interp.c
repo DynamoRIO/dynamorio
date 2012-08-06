@@ -2725,7 +2725,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     
     if (bb->record_translation || !bb->for_cache
         /* to split riprel, need to decode every instr */
-        IF_X64(|| DYNAMO_OPTION(coarse_split_riprel))
+        /* in x86_to_x64, need to translate every x86 instr */
+        IF_X64(|| DYNAMO_OPTION(coarse_split_riprel) || DYNAMO_OPTION(x86_to_x64))
         IF_CLIENT_INTERFACE(|| INTERNAL_OPTION(full_decode)))
         bb->full_decode = true;
     else {
@@ -4718,7 +4719,7 @@ tracelist_add(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, instr_t 
      */
     int size;
 #ifdef X64
-    if (!X64_MODE_DC(dcontext)) {
+    if (!X64_CACHE_MODE_DC(dcontext)) {
         instr_set_x86_mode(inst, true/*x86*/);
         instr_shrink_to_32_bits(inst);
     }
@@ -4737,7 +4738,7 @@ tracelist_add_after(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, in
      */
     int size;
 #ifdef X64
-    if (!X64_MODE_DC(dcontext)) {
+    if (!X64_CACHE_MODE_DC(dcontext)) {
         instr_set_x86_mode(inst, true/*x86*/);
         instr_shrink_to_32_bits(inst);
     }
@@ -5721,7 +5722,9 @@ extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l)
     uint new_exits_dir = 0, new_exits_indir = 0;
 
 #ifdef X64
-    ASSERT(!!FRAG_IS_32(md->trace_flags) == !X64_MODE_DC(dcontext));
+    ASSERT((!!FRAG_IS_32(md->trace_flags) == !X64_MODE_DC(dcontext)) ||
+           (!FRAG_IS_32(md->trace_flags) && !X64_MODE_DC(dcontext) &&
+            DYNAMO_OPTION(x86_to_x64)));
 #endif
 
     STATS_INC(num_traces_extended);

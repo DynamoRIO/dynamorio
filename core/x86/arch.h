@@ -702,6 +702,12 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 #ifdef X64
     ASSERT(mode != GENCODE_FROM_DCONTEXT || dcontext != GLOBAL_DCONTEXT
            IF_INTERNAL(IF_CLIENT_INTERFACE(|| dynamo_exited)));
+    /* FIXME i#862: currently, we always use x64 gencode in x86_to_x64.
+     * This won't work if we have 32-bit fragments, in which case we may
+     * refer to X64_CACHE_MODE_DC().
+     */
+    if (DYNAMO_OPTION(x86_to_x64))
+        return shared_code;
 # if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* PR 302344: this is here only for tracedump_origins */
     if (dynamo_exited && mode == GENCODE_FROM_DCONTEXT && dcontext == GLOBAL_DCONTEXT)
@@ -951,6 +957,20 @@ byte *copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
 /* in instr.c */
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32);
+
+/* in mangle.c */
+void
+insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                    ptr_int_t retaddr, opnd_size_t opsize);
+
+ptr_uint_t
+get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+
+#ifdef X64
+/* in x86_to_x64.c */
+void
+translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
+#endif
 
 #endif /* X86_ARCH_H */
 

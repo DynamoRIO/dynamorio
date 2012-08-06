@@ -161,7 +161,9 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
         "Creating private copy of F%d ("PFX") for trace creation\n", f->id, f->tag);
 
     IF_X64(ASSERT((get_x86_mode(dcontext) && FRAG_IS_32(f->flags)) ||
-                  (!get_x86_mode(dcontext) && !FRAG_IS_32(f->flags))));
+                  (!get_x86_mode(dcontext) && !FRAG_IS_32(f->flags)) ||
+                  (get_x86_mode(dcontext) && !FRAG_IS_32(f->flags) &&
+                   DYNAMO_OPTION(x86_to_x64))));
 
     /* only keep one private copy around at a time
      * we delete here, when we add a new copy, and not in internal_restore_last

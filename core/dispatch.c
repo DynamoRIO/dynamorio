@@ -456,7 +456,9 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
     }
 #endif
 
-    IF_X64(ASSERT(get_x86_mode(dcontext) == TEST(FRAG_32_BIT, targetf->flags)));
+    IF_X64(ASSERT((get_x86_mode(dcontext) == TEST(FRAG_32_BIT, targetf->flags)) ||
+                  (get_x86_mode(dcontext) && !FRAG_IS_32(targetf->flags) &&
+                   DYNAMO_OPTION(x86_to_x64))));
     if (TEST(FRAG_SHARED, targetf->flags))
         fcache_enter = get_fcache_enter_shared_routine(dcontext);
     else

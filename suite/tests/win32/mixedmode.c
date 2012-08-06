@@ -31,7 +31,10 @@
  */
 
 /* Built as 32-bit and then run on WOW64 with 64-bit DR to test mixed-mode
- * (i#49, i#751)
+ * and x86_to_x64 translation (i#49, i#751)
+ *
+ * If cmdline arg is "x86_to_x64", we avoid using instructions we can't
+ * translate, such as daa.
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
@@ -39,15 +42,50 @@
 
 /* asm routines */
 void test_top_bits(void);
+void test_push_word(void);
+void test_pop_word(void);
+void test_push_es(void);
+void test_pop_es(void);
+void test_push_esp(void);
+void test_pusha(void);
+void test_pushf(void);
+void test_les(void);
 int test_iret(void);
 int test_far_calls(void);
 
 char global_data[8];
+char is_x86_to_x64;
 
 int main(int argc, char *argv[])
 {
+    is_x86_to_x64 = (strcmp(argv[1], "x86_to_x64") == 0);
+
     test_top_bits();
-    print("r8 was 0x%I64x\n", *(__int64*)global_data);
+    print("r8 was 0x%016"INT64_FORMAT"x\n", *(__int64*)global_data);
+
+    test_push_word();
+    print("edx was "PFX"\n", *(__int32*)global_data);
+
+    test_pop_word();
+    print("global_data is "PFX"\n", *(__int32*)global_data);
+
+    test_push_es();
+    print("edx was "PFX"\n", *(__int32*)global_data);
+
+    test_pop_es();
+    print("edx was "PFX"\n", *(__int32*)global_data);
+
+    test_push_esp();
+    print("edx was "PFX"\n", *(__int32*)global_data);
+
+    test_pusha();
+    print("edx was "PFX"\n", *(__int32*)global_data);
+
+    test_pushf();
+    print("edx was "PFX"\n", *(__int32*)global_data);
+
+    test_les();
+    print("edx was "PFX"\n", *(__int32*)global_data);
 
     print("test_iret() returned %d\n", test_iret());
 
@@ -73,6 +111,7 @@ START_FILE
 # define SS_SELECTOR   HEX(2b)
 
 DECL_EXTERN(global_data)
+DECL_EXTERN(is_x86_to_x64)
 
 /* These are messy to make functions b/c the call/ret are different modes,
  * so we do macros and pass in a name to make the labels unique.
@@ -119,6 +158,139 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 # undef FUNCNAME
 
+# define FUNCNAME test_push_word
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      ecx, offset global_data
+        push     word ptr [ecx]
+        push     word ptr HEX(8765)
+        pop      edx
+        cmp      edx, HEX(56788765)
+        jnz      push_word_exit
+        mov      ax, HEX(abcd)
+        push     ax
+        /* push -1 sign-extended to word */
+        RAW(66)
+          push   byte ptr HEX(ff)
+        pop      edx
+    push_word_exit:
+        mov      dword ptr [ecx], edx
+        ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+# define FUNCNAME test_pop_word
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      ecx, offset global_data
+        push     HEX(12345678)
+        pop      word ptr [ecx + 2]
+        pop      ax
+        mov      word ptr [ecx], ax
+        ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+# define FUNCNAME test_push_es
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      edx, HEX(e5e5e5e5)
+        mov      ax, es
+        push     es
+        pop      ecx
+        cmp      cx, ax
+        jz       push_es_exit
+        mov      edx, HEX(deadbeef)
+    push_es_exit:
+        mov      ecx, offset global_data
+        mov      dword ptr [ecx], edx
+        ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+# define FUNCNAME test_pop_es
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      edx, HEX(5e5e5e5e)
+        mov      ax, es
+        movzx    eax, ax
+        push     eax
+        pop      es
+        mov      cx, es
+        cmp      cx, ax
+        jz       pop_es_exit
+        mov      edx, HEX(deadbeef)
+    pop_es_exit:
+        mov      ecx, offset global_data
+        mov      dword ptr [ecx], edx
+        ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+# define FUNCNAME test_push_esp
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      edx, esp
+        add      edx, edx
+        push     esp
+        sub      edx, [esp]
+        pop      esp
+        sub      edx, esp
+        mov      ecx, offset global_data
+        mov      dword ptr [ecx], edx
+        ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+# define FUNCNAME test_pusha
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      edx, HEX(11223344)
+        pushad
+        mov      edx, HEX(deadbeef)
+        popad
+        mov      ecx, offset global_data
+        mov      dword ptr [ecx], edx
+        ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+# define FUNCNAME test_pushf
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      edx, HEX(55667788)
+        cmp      edx, HEX(55667788)
+        pushfd
+        cmp      edx, HEX(deadbeef)
+        popfd
+        jz       pushf_exit
+        mov      edx, HEX(deadbeef)
+    pushf_exit:
+        mov      ecx, offset global_data
+        mov      dword ptr [ecx], edx
+        ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+# define FUNCNAME test_les
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      ax, es
+        push     es
+        push     HEX(87654321)
+        les      edx, fword ptr [esp]
+        add      esp, 8
+        mov      cx, es
+        cmp      cx, ax
+        jz       les_exit
+        mov      edx, HEX(deadbeef)
+    les_exit:
+        mov      ecx, offset global_data
+        mov      dword ptr [ecx], edx
+        ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
 # define FUNCNAME test_iret
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -137,9 +309,14 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(48)
           iretd  /* iretq */
     iret_64_to_32:
-        /* ensure we're 32-bit */
+        /* skip daa if is_x86_to_x64 == 1 */
+        mov      ecx, offset is_x86_to_x64
+        mov      al, byte ptr [ecx]
+        test     al, al
+        jnz      iret_64_to_32_skip_daa
+        /* otherwise use daa to ensure we're 32-bit */
         daa
-
+    iret_64_to_32_skip_daa:
         pushfd
         push     CS64_SELECTOR
         push     offset iret_32_to_64_B
@@ -202,8 +379,14 @@ GLOBAL_LABEL(FUNCNAME:)
         lea      esp, [esp + 8]     /* undo the x64 push */
         jmp      test_far_dir_call_from_64
     far_call_to_32:
-        /* ensure we're 32-bit */
+        /* skip daa if is_x86_to_x64 == 1 */
+        mov      ecx, offset is_x86_to_x64
+        mov      al, byte ptr [ecx]
+        test     al, al
+        jnz      far_call_to_32_skip_daa
+        /* otherwise use daa to ensure we're 32-bit */
         daa
+    far_call_to_32_skip_daa:
         retf
     test_far_dir_call_from_64:
         SWITCH_64_TO_32(far_calls_done)

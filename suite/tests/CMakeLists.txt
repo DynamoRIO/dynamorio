@@ -1647,7 +1647,7 @@ else (UNIX)
   #tobuild_runall(runall.preunload runall/preunload.runall "")
   #tobuild_runall(runall.processchain runall/processchain.runall "")
 
-  # Cross-arch mixedmode test: can only be done via a suite of tests that
+  # Cross-arch mixedmode/x86_to_x64 test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
   # 64-bit then builds and runs both directions.
   #
@@ -1670,7 +1670,12 @@ else (UNIX)
         ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
         win32/mixedmode.c
         "-early_inject_map -early_inject_location 5"
-        "${TEST_32BIT_PATH}/win32.mixedmode.exe;arg")
+        "${TEST_32BIT_PATH}/win32.mixedmode.exe;mixedmode")
+      torunonly(win32.x86_to_x64
+        ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
+        win32/mixedmode.c
+        "-early_inject_map -early_inject_location 5 -x86_to_x64"
+        "${TEST_32BIT_PATH}/win32.mixedmode.exe;x86_to_x64")
     else (X64)
       add_exe(win32.mixedmode win32/mixedmode.c)
     endif (X64)

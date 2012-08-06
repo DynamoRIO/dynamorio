@@ -1745,6 +1745,8 @@ DR_API
  * Returns an initialized instr_t allocated on the thread-local heap.
  * Sets the x86/x64 mode of the returned instr_t to the mode of dcontext.
  */
+/* For -x86_to_x64, sets the mode of the instr to the code cache mode instead of
+the app mode. */
 instr_t*
 instr_create(dcontext_t *dcontext);
 

@@ -118,6 +118,10 @@ set(ARCH_SRCS
   x86/retcheck.c
   )
 
+if (X64)
+  set(ARCH_SRCS ${ARCH_SRCS} x86/x86_to_x64.c)
+endif (X64)
+
 # These custom commands are per-subdir so can't just place at top level
 include(../make/CMake_events.cmake)
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
