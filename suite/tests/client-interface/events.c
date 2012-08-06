@@ -34,6 +34,7 @@
 /*
  * API regression test that registers for all supported event callbacks
  * (except the nudge and security violation callback)
+ * as a C++ application.
  */
 
 #include "tools.h"
@@ -208,11 +209,16 @@ main(int argc, char** argv)
     print("Shouldn't be reached\n");
 }
 
+#ifdef __cplusplus
+extern "C"
+#endif
 #ifdef WINDOWS
-__declspec(dllexport) 
+__declspec(dllexport)
+#else
+__attribute__((visibility("default")))
 #endif
 void
-redirect()
+redirect(void)
 {
     print("Redirect success!\n");
     exit(0);

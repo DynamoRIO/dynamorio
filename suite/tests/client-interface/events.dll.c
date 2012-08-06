@@ -43,6 +43,18 @@
 # include <signal.h>
 #endif
 
+#ifdef WINDOWS
+# pragma warning( disable : 4100) // unreferenced formal parameter
+# pragma warning( disable : 4127) // conditional expression is constant
+#endif
+
+/* We compile this test as C and C++ with different target names. */
+#ifdef __cplusplus
+# define EVENTS "events_cpp"
+#else
+# define EVENTS "events"
+#endif
+
 void *mutex;
 
 enum event_seq {
@@ -81,7 +93,7 @@ enum event_seq {
     EVENT_last,
 };
 
-char *name[EVENT_last] = {
+const char * const name[EVENT_last] = {
     "module load event 1",
     "module load event 2",
     "thread init event 1",
@@ -271,7 +283,7 @@ dr_custom_trace_action_t end_trace_event1(void *dcontext, void *trace_tag, void 
     inc_count_first(EVENT_END_TRACE_1, EVENT_END_TRACE_2);
     if (!dr_unregister_end_trace_event(end_trace_event1))
         dr_fprintf(STDERR, "unregister failed!\n");
-    return 0;
+    return CUSTOM_TRACE_DR_DECIDES;
 }
 
 static
@@ -280,7 +292,7 @@ dr_custom_trace_action_t end_trace_event2(void *dcontext, void *trace_tag, void 
     inc_count_second(EVENT_END_TRACE_2);
     if (!dr_unregister_end_trace_event(end_trace_event2))
         dr_fprintf(STDERR, "unregister failed!\n");
-    return 0;
+    return CUSTOM_TRACE_DR_DECIDES;
 }
 
 static
@@ -406,10 +418,10 @@ bool exception_event_redirect(void *dcontext, dr_exception_t *excpt)
 {
     app_pc addr;
     dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
-    module_data_t *data = dr_lookup_module_by_name("client.events.exe");
+    module_data_t *data = dr_lookup_module_by_name("client."EVENTS".exe");
     dr_fprintf(STDERR, "exception event redirect\n");
     if (data == NULL) {
-        dr_fprintf(STDERR, "couldn't find events.exe module\n");
+        dr_fprintf(STDERR, "couldn't find "EVENTS".exe module\n");
         return true;
     }
     addr = (app_pc)dr_get_proc_address(data->handle, "redirect");
@@ -417,12 +429,12 @@ bool exception_event_redirect(void *dcontext, dr_exception_t *excpt)
     mcontext = *excpt->mcontext;
     mcontext.pc = addr;
     if (addr == NULL) {
-        dr_fprintf(STDERR, "Couldn't find function redirect in events.exe\n");
+        dr_fprintf(STDERR, "Couldn't find function redirect in "EVENTS".exe\n");
         return true;
     }
 #ifdef X64
     /* align properly in case redirect function relies on conventions (i#419) */
-    mcontext.xsp = ALIGN_FORWARD(mcontext.xsp, 16) - 8;
+    mcontext.xsp = ALIGN_BACKWARD(mcontext.xsp, 16) - sizeof(void*);
 #endif
     dr_redirect_execution(&mcontext);
     dr_fprintf(STDERR, "should not be reached, dr_redirect_execution() should not return\n");
@@ -439,7 +451,7 @@ bool exception_event1(void *dcontext, dr_exception_t *excpt)
         dr_fprintf(STDERR, "unregister failed!\n");
 
     /* ensure we get our deletion events */
-    dr_flush_region(excpt->record->ExceptionAddress, 1);
+    dr_flush_region((app_pc)excpt->record->ExceptionAddress, 1);
     return true;
 }
 
@@ -461,18 +473,22 @@ dr_signal_action_t signal_event_redirect(void *dcontext, dr_siginfo_t *info)
 {
     if (info->sig == SIGSEGV) {
         app_pc addr;
-        module_data_t *data = dr_lookup_module_by_name("client.events");
+        module_data_t *data = dr_lookup_module_by_name("client."EVENTS);
         dr_fprintf(STDERR, "signal event redirect\n");
         if (data == NULL) {
-            dr_fprintf(STDERR, "couldn't find client.events module\n");
+            dr_fprintf(STDERR, "couldn't find client."EVENTS" module\n");
             return DR_SIGNAL_DELIVER;
         }
         addr = (app_pc)dr_get_proc_address(data->handle, "redirect");
         dr_free_module_data(data);
         if (addr == NULL) {
-            dr_fprintf(STDERR, "Couldn't find function redirect in client.events\n");
+            dr_fprintf(STDERR, "Couldn't find function redirect in client."EVENTS"\n");
             return DR_SIGNAL_DELIVER;
         }
+#ifdef X64
+        /* align properly in case redirect function relies on conventions (i#384) */
+        info->mcontext->xsp = ALIGN_BACKWARD(info->mcontext->xsp, 16) - sizeof(void*);
+#endif
         info->mcontext->pc = addr;
         return DR_SIGNAL_REDIRECT;
     }
@@ -531,6 +547,11 @@ static bool
 restore_state_ex_event1(void *drcontext, bool restore_memory,
                         dr_restore_state_info_t *info)
 {
+    /* i#488: test bool compatibility */
+    bool is_trace = info->fragment_info.is_trace;
+    if (sizeof(is_trace) != sizeof(info->fragment_info.is_trace))
+        dr_fprintf(STDERR, "bool size incompatibility %d!\n", is_trace/*force ref*/);
+
     inc_count_first(EVENT_RESTORE_STATE_EX_1, EVENT_RESTORE_STATE_EX_2);
 
     if (!dr_unregister_restore_state_ex_event(restore_state_ex_event1))
