@@ -287,10 +287,11 @@ main(int argc, char **argv)
     /* test xlat for drutil_insert_get_mem_addr,
      * we do not bother to run this test on Windows side.
      */
-    __asm("mov %0, %%ebx" : : "g"(&table));
-    __asm("mov $0x1, %eax");
-    __asm("xlat");
-    __asm("movb %%al, %0" : "=m"(ch));
+    __asm("mov %1, %%ebx\n\t"
+          "mov $0x1, %%eax\n\t"
+          "xlat\n\t"
+          "movb %%al, %0\n\t"
+          : "=m"(ch) : "g"(&table) : "%eax", "%ebx");
     print("%c\n", ch);
     /* XXX: should come up w/ some clever way to ensure
      * this gets the right address: for now just making sure

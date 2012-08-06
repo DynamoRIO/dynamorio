@@ -46,25 +46,26 @@
 #include <setjmp.h>
 
 #ifdef WINDOWS
-# define NOP __nop()
+# define NOP_NOP_CALL(tgt) __nop(); __nop(); tgt()
 #else /* LINUX */
-# define NOP asm("nop")
+# define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
 #endif
 
 static jmp_buf mark;
 static int bar;
 
-static void foo(void)
+static void
+#ifdef LINUX
+__attribute__((used))  /* Prevents deletion as unreachable. */
+#endif
+foo(void)
 { /* nothing: just a marker */ }
 
 static void
 redirect_target(void)
 {
-    /* use 2 NOPs + call so client can locate this spot (since we don't
-     * have dr_get_proc_address() on linux yet)
-     */
-    NOP; NOP;
-    foo();
+    /* use 2 NOPs + call so client can locate this spot */
+    NOP_NOP_CALL(foo);
 
     print("Redirected\n");
     longjmp(mark, 1);
