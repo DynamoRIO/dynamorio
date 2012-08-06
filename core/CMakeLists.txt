@@ -365,11 +365,6 @@ if (UNIX)
   set(dynamorio_link_flags
     "-nostartfiles -Xlinker -z -Xlinker now -Xlinker -Bsymbolic")
 
-  if (KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
-    set(dynamorio_link_flags 
-      "${dynamorio_link_flags} -Xlinker --export-dynamic")
-  endif (KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
-
   if (NOT HAVE_FVISIBILITY)
     set(export_list ${CMAKE_CURRENT_BINARY_DIR}/exportlist)
     add_custom_command(TARGET dynamorio

@@ -211,18 +211,6 @@ else (INTERNAL OR DEBUG)
   set(KSTATS_DEFAULT 0FF)
 endif (INTERNAL OR DEBUG)
 
-# PR 403006 - We want to keep symbols to get glibc backtrace for DR errors, but
-# that causes a collision of app and dr symbols on visor (DR's crc32() was
-# linked to imports of crc32() in libz.so in hostd).  So, we just keep symbol
-# support for glibc backtrace only on linux - hope we don't run into any
-# collisions on linux!  Longer term we do our own backtrace with symbols.
-#
-if (INTERNAL AND DEBUG AND NOT VMKERNEL)
-  # Now that INTERNAL is the exported debug build, turning off by default
-  set(KEEP_SYMBOLS_DEFAULT OFF)
-else (INTERNAL AND DEBUG AND NOT VMKERNEL)
-  set(KEEP_SYMBOLS_DEFAULT OFF)
-endif (INTERNAL AND DEBUG AND NOT VMKERNEL)
 # no KSTATS for caller profiling: we want to be as close to release
 # build as we can, but w/o optimizations
 if (CALLPROF)
@@ -236,12 +224,6 @@ set(KSTATS "" CACHE STRING "internal kstat profiling: ON or OFF overrides defaul
 if ("${KSTATS}" STREQUAL "")
     set(KSTATS ${KSTATS_DEFAULT})
 endif()
-set(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE "" CACHE STRING
-  "keep internal symbols exported: ON or OFF overrides default")
-# FIXME i#170: ditto
-if ("${KEEP_SYMBOLS_FOR_LIBC_BACKTRACE}" STREQUAL "")
-  set(KEEP_SYMBOLS_FOR_LIBC_BACKTRACE ${KEEP_SYMBOLS_DEFAULT})
-endif ()
 
 option(CALLPROF "internal caller profiling support")
 option(LINKCOUNT "internal linkcount profiling")
@@ -293,7 +275,6 @@ mark_as_advanced(
   KSTATS
   CALLPROF
   LINKCOUNT
-  KEEP_SYMBOLS_FOR_LIBC_BACKTRACE
   SET_PREFERRED_BASE
   preferred_base
   GENERATE_PDBS
@@ -708,27 +689,24 @@ if (UNIX)
   # (For older gcc we use an ugly linker script and an auto-generated export list)
   # Using "internal" instead of "hidden" b/c we don't need any indirect
   # calls to our non-exported functions
-  # For INTERNAL builds we keep our symbols visible, for better libc backtraces
-  if (NOT KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
-    CHECK_C_COMPILER_FLAG("-fvisibility=internal" HAVE_FVISIBILITY_INTERNAL)
-    CHECK_C_COMPILER_FLAG("-fvisibility=hidden" HAVE_FVISIBILITY_HIDDEN)
+  CHECK_C_COMPILER_FLAG("-fvisibility=internal" HAVE_FVISIBILITY_INTERNAL)
+  CHECK_C_COMPILER_FLAG("-fvisibility=hidden" HAVE_FVISIBILITY_HIDDEN)
 
-    if (HAVE_FVISIBILITY_INTERNAL)
-      set(VISIBILITY "internal")
-    elseif (HAVE_FVISIBILITY_HIDDEN)
-      set(VISIBILITY "hidden")
-    else (HAVE_FVISIBILITY_INTERNAL)
-      message("${CMAKE_C_COMPILER} missing flag -fvisibility, using linker "
-              "script instead")
-      set(VISIBILITY " ")
-    endif (HAVE_FVISIBILITY_INTERNAL)
+  if (HAVE_FVISIBILITY_INTERNAL)
+    set(VISIBILITY "internal")
+  elseif (HAVE_FVISIBILITY_HIDDEN)
+    set(VISIBILITY "hidden")
+  else (HAVE_FVISIBILITY_INTERNAL)
+    message("${CMAKE_C_COMPILER} missing flag -fvisibility, using linker "
+            "script instead")
+    set(VISIBILITY " ")
+  endif (HAVE_FVISIBILITY_INTERNAL)
 
-    if (VISIBILITY)
-      set(BASE_CFLAGS "${BASE_CFLAGS} -fvisibility=${VISIBILITY}")
-      set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -fvisibility=${VISIBILITY}")
-      set(HAVE_FVISIBILITY ON)
-    endif (VISIBILITY)
-  endif (NOT KEEP_SYMBOLS_FOR_LIBC_BACKTRACE)
+  if (VISIBILITY)
+    set(BASE_CFLAGS "${BASE_CFLAGS} -fvisibility=${VISIBILITY}")
+    set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -fvisibility=${VISIBILITY}")
+    set(HAVE_FVISIBILITY ON)
+  endif (VISIBILITY)
 
   # Better to use -dT when passing linker options through gcc, but ld
   # prior to 2.18 only supports -T

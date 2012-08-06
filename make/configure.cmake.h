@@ -66,7 +66,6 @@
 # define CALL_PROFILE
 #endif
 #cmakedefine LINKCOUNT
-#cmakedefine KEEP_SYMBOLS_FOR_LIBC_BACKTRACE
 #cmakedefine PARAMS_IN_REGISTRY
 
 /* when packaging */

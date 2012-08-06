@@ -415,19 +415,6 @@ app_pc vsyscall_sysenter_return_pc = NULL;
   */
 static int init_errno; /* errno until 1st dcontext created */
 
-/* With KEEP_SYMBOLS_FOR_LIBC_BACKTRACE our __errno_location gets interpreted
- * in the code cache and on x64 we hit an assert on our own segment use
- * in get_thread_private_dcontext():
- *   "no support yet for application using non-NPTL segment"
- * That is now relaxed for code in the DR library.
- * FIXME: though we used to use this for the app too: presumably we don't
- * need that anymore, since having our own private copy is just as good
- * to isolate DR errno changes from app errno uses.
- * Update: i#238/PR 499179: this isolates usage in our library, but not
- * when we call libc routines.  Also, even when not "hidden", we control
- * the app's errno but not libc's: b/c __errno_location is no longer weak?
- */
-__attribute__ ((visibility ("hidden")))
 int *
 __errno_location(void) {
     /* Each dynamo thread should have a separate errno */

@@ -50,23 +50,8 @@
 #include <string.h>
 #include <sys/syscall.h>
 
-/* for glibc_stackdump */
-#include <execinfo.h>
-#include <stdio.h>
-
 #include "../globals.h"
 #include "os_private.h"
-
-/* use backtrace feature of glibc 
- * only gives symbol names, and sometimes misses them
- */
-void glibc_stackdump(int fd)
-{
-    void *rets[128];
-    int depth = backtrace(rets, 128);
-    backtrace_symbols_fd(rets, depth, fd);
-}
-
 
 #define DEBUGGER "gdb"
 /* add -q to suppress gdb copyright notice */
@@ -171,12 +156,6 @@ void stackdump()
     char core_name[128];
     char tmp_name[128];
     snprintf(tmp_name, 128, "%s.%d", TEMPORARY_FILENAME, get_process_id());
-
-    SYSLOG_INTERNAL_WARNING("stackdump: glibc backtrace:");
-    glibc_stackdump(STDERR);
-#ifdef DEBUG
-    glibc_stackdump(main_logfile);  /* hostd closes stderr, so print a copy. */
-#endif
 
 #ifdef VMX86_SERVER
     if (os_in_vmkernel_userworld()) {
