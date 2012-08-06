@@ -978,6 +978,9 @@ const char * parse_int(const char *sp, uint64 *res_out, int base, int width,
 # define sscanf our_sscanf
 #endif
 
+/* string.c */
+int tolower(int c);
+
 /* Code cleanliness rules */
 #ifdef WINDOWS
 #  define strcasecmp _stricmp

@@ -79,8 +79,6 @@
 
 #include <stdarg.h> /* for varargs */
 
-#include <ctype.h> /* for tolower */
-
 #ifdef SIDELINE
 extern void sideline_exit(void);
 #endif

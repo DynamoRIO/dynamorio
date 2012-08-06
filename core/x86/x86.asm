@@ -2065,6 +2065,19 @@ make_val_word_size:
         jmp     do_memset
         END_FUNC(memset)
 
+/* gcc emits calls to these *_chk variants in release builds when the size of
+ * dst is known at compile time.  In C, the caller is responsible for cleaning
+ * up arguments on the stack, so we alias these *_chk routines to the non-chk
+ * routines and rely on the caller to clean up the extra dst_len arg.
+ */
+.global __memcpy_chk
+.hidden __memcpy_chk
+.set __memcpy_chk,memcpy
+
+.global __memset_chk
+.hidden __memset_chk
+.set __memset_chk,memset
+
 #endif /* LINUX */
 
 /*#############################################################################
