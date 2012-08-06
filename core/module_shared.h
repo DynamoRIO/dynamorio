@@ -499,10 +499,7 @@ privload_redirect_setup(privmod_t *mod);
 
 app_pc
 privload_map_and_relocate(const char *filename, size_t *size OUT,
-                          void **os_privmod_data OUT
-                          _IF_LINUX(bool fixed)
-                          _IF_LINUX(app_pc *entry OUT)
-                          _IF_LINUX(char **interp OUT));
+                          void **os_privmod_data OUT);
 
 bool
 privload_call_entry(privmod_t *privmod, uint reason);

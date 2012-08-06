@@ -129,6 +129,12 @@ privload_delete_os_privmod_data(privmod_t *privmod);
 static void
 privload_mod_tls_init(privmod_t *mod);
 
+typedef byte *(*map_fn_t)(file_t f, size_t *size INOUT, uint64 offs,
+                          app_pc addr, uint prot/*MEMPROT_*/, bool cow,
+                          bool image, bool fixed);
+typedef bool (*unmap_fn_t)(byte *map, size_t size);
+typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot/*MEMPROT_*/);
+
 /***************************************************************************/
 
 /* os specific loader initialization prologue before finalizing the load. */
@@ -336,65 +342,55 @@ dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
      */
 }
 
-app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT,
-                          void **os_privmod_data OUT, bool fixed,
-                          app_pc *entry OUT, char **interp OUT)
+/* Map in the PT_LOAD segments in an ELF's program headers.
+ *
+ * XXX: Instead of mapping the file twice and disturbing the address space, we
+ * should use os_read to read the ELF header and program headers.  We can't do
+ * this currently because we need to compute text_addr for gdb.
+ */
+static app_pc
+map_elf_phdrs(const char *filename, bool fixed, size_t *size OUT,
+              ptr_int_t *load_delta OUT, app_pc *text_addr_p OUT,
+              map_fn_t map_func, unmap_fn_t unmap_func, prot_fn_t prot_func)
 {
     file_t fd;
-    byte *(*map_func)  (file_t, size_t *, uint64, app_pc, uint, bool, bool, bool);
-    bool  (*unmap_func)(byte *, size_t);
-    bool  (*prot_func) (byte *pc, size_t length, uint prot);
     app_pc file_map, lib_base, lib_end, last_end;
     ELF_HEADER_TYPE *elf_hdr;
     app_pc  map_base, map_end;
     reg_t   pg_offs;
     size_t map_size;
-    uint64 file_size;
+    uint64 file_size_64;
+    size_t file_size;
     uint   seg_prot, i;
     ptr_int_t delta;
     app_pc text_addr;
 
-    ASSERT(size != NULL);
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    /* Zero optional out args. */
+    if (size != NULL)
+        *size = 0;
+    if (load_delta != NULL)
+        *load_delta = 0;
+    if (text_addr_p != NULL)
+        *text_addr_p = 0;
 
-    if (entry != NULL)
-        *entry = NULL;
-    if (interp != NULL)
-        *interp = NULL;
-    
     /* open file for mmap later */
     fd = os_open(filename, OS_OPEN_READ);
     if (fd == INVALID_FILE) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to open %s\n", __FUNCTION__, filename);
         return NULL;
     }
-    
-    /* get appropriate function */
-    /* NOTE: all but the client lib will be added to DR areas list 
-     * b/c using map_file() 
-     */
-    if (dynamo_heap_initialized) {
-        map_func   = map_file;
-        unmap_func = unmap_file;
-        prot_func  = set_protection;
-    } else {
-        map_func   = os_map_file;
-        unmap_func = os_unmap_file;
-        prot_func  = os_set_protection;
-    }
 
     /* get file size */
-    if (!os_get_file_size_by_handle(fd, &file_size)) {
+    if (!os_get_file_size_by_handle(fd, &file_size_64)) {
         os_close(fd);
         LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to get library %s file size\n",
             __FUNCTION__, filename);
         return NULL;
     }
+    file_size = file_size_64;  /* Truncate, we have to pass it as size_t *. */
 
     /* map the library file into memory for parsing */
-    *size = (size_t)file_size;
-    file_map = (*map_func)(fd, size, 0/*offs*/, NULL/*base*/,
+    file_map = (*map_func)(fd, &file_size, 0/*offs*/, NULL/*base*/,
                            MEMPROT_READ /* for parsing only */,
                            true  /*writes should not change file*/,
                            false /*image*/,
@@ -406,7 +402,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
     }
 
     /* verify if it is elf so header */
-    if (!is_elf_so_header(file_map, *size)) {
+    if (!is_elf_so_header(file_map, file_size)) {
         (*unmap_func)(file_map, file_size);
         os_close(fd);
         LOG(GLOBAL, LOG_LOADER, 1, "%s: %s is not a elf so header\n", 
@@ -426,6 +422,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
                                       elf_hdr->e_phnum,
                                       &map_end);
     map_size = map_end - map_base;
+    if (size != NULL)
+        *size = map_size;
 
     /* reserve the memory from os for library */
     lib_base = (*map_func)(-1, &map_size, 0, map_base,
@@ -445,8 +443,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
             __FUNCTION__);
     }
     delta = lib_base - map_base;
-    if (entry != NULL)
-        *entry = (app_pc)elf_hdr->e_entry + delta;
+    if (load_delta != NULL)
+        *load_delta = delta;
 
     /* walk over the program header to load the individual segments */
     last_end = lib_base;
@@ -455,9 +453,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
         size_t seg_size;
         ELF_PROGRAM_HEADER_TYPE *prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)
             (file_map + elf_hdr->e_phoff + i * elf_hdr->e_phentsize);
-        if (interp != NULL && prog_hdr->p_type == PT_INTERP)
-            *interp = (char *)prog_hdr->p_vaddr + delta;
-        else if (prog_hdr->p_type == PT_LOAD) {
+        if (prog_hdr->p_type == PT_LOAD) {
             seg_base = (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE)
                        + delta;
             seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
@@ -504,7 +500,9 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
     }
     ASSERT(last_end == lib_end);
 
-    text_addr = (void*)delta + module_get_text_section(file_map, file_size);
+    text_addr = (app_pc)module_get_text_section(file_map, file_size) + delta;
+    if (text_addr_p != NULL)
+        *text_addr_p = text_addr;
     /* Add debugging comment about how to get symbol information in gdb. */
 #ifdef INTERNAL
     if (printed_gdb_commands) {
@@ -516,25 +514,58 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
                              "add-symbol-file '%s' %p\n", filename, text_addr);
     }
 #endif /* INTERNAL */
-    /* We save the text addr in os_privmod_data.  We can't recompute it later
-     * (see module_get_text_section comments), and we can't allocate a proper
-     * os_privmod_data_t yet.  Therefore, we store text_addr directly in
-     * os_privmod_data and move it into the heap allocation later (see
-     * privload_add_areas).
-     */
-    *os_privmod_data = (void*)text_addr;
+
     LOG(GLOBAL, LOG_LOADER, 1,
         "for debugger: add-symbol-file %s %p\n",
         filename, text_addr);
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privload_register_gdb), false)) {
         dr_gdb_add_symbol_file(filename, text_addr);
     }
+
     /* unmap the file_map */
     (*unmap_func)(file_map, file_size);
     os_close(fd); /* no longer needed */
-    fd = INVALID_FILE;
-    *size = (reg_t)lib_end - (reg_t)lib_base;
+
     return lib_base;
+}
+
+app_pc
+privload_map_and_relocate(const char *filename, size_t *size OUT,
+                          void **os_privmod_data OUT)
+{
+    map_fn_t map_func;
+    unmap_fn_t unmap_func;
+    prot_fn_t prot_func;
+    app_pc base = NULL;
+    ptr_int_t delta;
+    app_pc text_addr;
+
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    /* get appropriate function */
+    /* NOTE: all but the client lib will be added to DR areas list b/c using
+     * map_file()
+     */
+    if (dynamo_heap_initialized) {
+        map_func   = map_file;
+        unmap_func = unmap_file;
+        prot_func  = set_protection;
+    } else {
+        map_func   = os_map_file;
+        unmap_func = os_unmap_file;
+        prot_func  = os_set_protection;
+    }
+
+    base = map_elf_phdrs(filename, false /* not fixed */, size, &delta,
+                         &text_addr, map_func, unmap_func, prot_func);
+
+    /* We save the text addr in os_privmod_data.  We can't recompute it later
+     * (see module_get_text_section comments), and we can't allocate a proper
+     * os_privmod_data_t yet.  Therefore, we store text_addr directly in
+     * os_privmod_data and move it into the heap allocation later (see
+     * privload_add_areas).
+     */
+    *os_privmod_data = (void *) text_addr;
+    return base;
 }
 
 bool
@@ -1303,33 +1334,61 @@ privload_setup_app_mc(priv_mcontext_t *mc)
     mc->xsp = app_init_xsp;
 }
 
+/* Iterate program headers of a mapped ELF image and find the string that
+ * PT_INTERP points to.  Typically this comes early in the file and is always
+ * included in PT_LOAD segments, so we safely do this after the initial
+ * mapping.
+ */
+static const char *
+find_pt_interp(app_pc map, ptr_int_t delta)
+{
+    int i;
+    ELF_HEADER_TYPE *ehdr = (ELF_HEADER_TYPE *) map;
+    ELF_PROGRAM_HEADER_TYPE *phdrs;
+
+    ASSERT(is_elf_so_header(map, 0));
+    ASSERT(sizeof(*phdrs) == ehdr->e_phentsize);
+    phdrs = (ELF_PROGRAM_HEADER_TYPE *) (map + ehdr->e_phoff);
+    for (i = 0; i < ehdr->e_phnum; i++) {
+        if (phdrs[i].p_type == PT_INTERP) {
+            return (const char *) (phdrs[i].p_vaddr + delta);
+        }
+    }
+
+    return NULL;
+}
+
 bool
 privload_early_inject(void)
 {
-    size_t size;
-    void *os_privmod_data;
     app_pc map;
     char *app_name;
-    char *interp = NULL;
+    const char *interp = NULL;
+    ptr_int_t delta;
 
     app_name = privload_setup_app_stack();
     ASSERT(app_name != NULL);
     LOG(GLOBAL, LOG_LOADER, 2, "early_inject: load app %s\n", app_name);
-    acquire_recursive_lock(&privload_lock);
-    map = privload_map_and_relocate(app_name, &size, &os_privmod_data, true,
-                                    &app_init_entry, &interp);
-    if (map == NULL)
-        apicheck(false, "Failed to load application.  Check path and architecture.");
+    map = map_elf_phdrs(app_name, true /* fixed */, NULL /* size */,
+                        &delta, NULL /* text addr */,
+                        os_map_file, os_unmap_file, os_set_protection);
+    apicheck(map != NULL, "Failed to load application.  "
+             "Check path and architecture.");
+    /* FIXME: PIEs will break this and should use MAP_FIXED. */
+    ASSERT(delta == 0);
     privload_setup_auxv(map);
+    interp = find_pt_interp(map, delta);
     if (interp != NULL) {
-        map = privload_map_and_relocate(interp, &size, &os_privmod_data,
-                                        false /* fixed */, &app_init_entry,
-                                        NULL /* interp */);
+        map = map_elf_phdrs(app_name, false /* fixed */, NULL /* size */,
+                            &delta /* delta */, NULL /* text addr */,
+                            os_map_file, os_unmap_file, os_set_protection);
         ASSERT(map != NULL);
+        ASSERT_MESSAGE(CHKLVL_ASSERTS, "The interpreter shouldn't have an "
+                       "interpreter.", find_pt_interp(map, delta) == NULL);
         /* FIXME i#47: more work than static linked executables */
         apicheck(false, "This -early prototype does not support dynamically linked executables.  Please re-run without -early.");
         ASSERT_NOT_IMPLEMENTED(false);
     }
-    release_recursive_lock(&privload_lock);
+    app_init_entry = (app_pc)(((ELF_HEADER_TYPE *)map)->e_entry + delta);
     return false; /* Not complete yet */
 }
