@@ -1,4 +1,4 @@
-creating subprocess ".*/win32.mixedmode.exe .*"
+creating subprocess ".*/win32.mixedmode.exe" .*
 r8 was 0x1234567812345678
 edx was 0xabcdffff
 global_data is 0x56781234

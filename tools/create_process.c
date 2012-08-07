@@ -40,13 +40,19 @@ main(int argc, char **argv)
 {
     STARTUPINFO si = { sizeof(STARTUPINFO) };
     PROCESS_INFORMATION pi;
-    char cmdline[128];
+    char cmdline[4096];
 
-    /* XXX: for general tool should expand to use rest of args not just one */
-    if (argc == 3) {
-        sprintf(cmdline, "%s %s", argv[1], argv[2]);
+    if (argc >= 2) {
+        int i;
 
-        fprintf(stderr, "creating subprocess \"%s\"\n", cmdline);
+        sprintf_s(cmdline, sizeof(cmdline), "\"%s\"", argv[1]);
+        for (i = 2; i < argc; ++i) {
+            /* This is n^2, but of course it doesn't matter. */
+            strcat_s(cmdline, sizeof(cmdline), " ");
+            strcat_s(cmdline, sizeof(cmdline), argv[i]);
+        }
+
+        fprintf(stderr, "creating subprocess %s\n", cmdline);
         fflush(stderr);
 
         if (!CreateProcess(argv[1],
@@ -66,7 +72,7 @@ main(int argc, char **argv)
     }
     else {
         fprintf(stderr,
-                "Usage error: need exactly 2 args: <process to run> <arg for child>\n");
+                "Usage: %s <process to run> [args for child]\n", argv[0]);
         fflush(stderr);
     }
 
