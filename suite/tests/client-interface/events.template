@@ -1,4 +1,5 @@
 #ifdef WINDOWS
+appdll initialized
 exception event redirect
 Redirect success!
 exit event 2
@@ -34,6 +35,7 @@ restore state event 2 is called 1 time(s)
 restore state ex event 1 is called 1 time(s)
 restore state ex event 2 is called 1 time(s)
 #else
+appdll initialized
 Sending SIGUSR1
 Got SIGUSR1
 Sending SIGUSR2
@@ -41,10 +43,6 @@ Sending SIGURG
 Done
 exit event 2
 exit event 1
-# if defined(disable_traces) && !defined(thread_private)
-delete event 1 is called 1 time(s)
-delete event 2 is called 1 time(s)
-# endif 
 thread exit event 1 is called 1 time(s)
 thread exit event 2 is called 1 time(s)
 fork init event 1 is called 1 time(s)

@@ -580,7 +580,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
 endfunction(tobuild_ci)
 
-# adds a library target ${test}.appdll built from ${source}.appdll.c
+# adds a library target ${test}.appdll built from ${source-without-extension}.appdll.c
 function(tobuild_appdll test source)
   # support a test with a library
   get_filename_component(srcpath ${source} ABSOLUTE)
@@ -1227,20 +1227,24 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
   tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
   tobuild_ci(client.modules client-interface/modules.c "" "" "")
+  tobuild_appdll(client.events client-interface/events.c)
+  get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
   if (UNIX)
-    # just happens to not make as many traces.  also needs path for events*.so.
-    tobuild_ci(client.events client-interface/events.c 
-      "" "-trace_threshold 5" "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/")
+    # Just happens to not make as many traces.
+    tobuild_ci(client.events client-interface/events.c
+      "" "-trace_threshold 5" "${events_appdll_path}")
     tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
-      "" "-trace_threshold 5" "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/")
+      "" "-trace_threshold 5" "${events_appdll_path}")
     tobuild_ci(client.signal client-interface/signal.c "" "" "")
     tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
     tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
     tobuild_ci(client.timer client-interface/timer.c "" "" "")
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
   else (UNIX)
-    tobuild_ci(client.events client-interface/events.c "" "" "")
-    tobuild_ci(client.events_cpp client-interface/events_cpp.cpp "" "" "")
+    tobuild_ci(client.events client-interface/events.c
+      "" "" "${events_appdll_path}")
+    tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
+      "" "" "${events_appdll_path}")
     tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
     tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
     # FIXME i#120: enable these .runall tests once have .runall support

@@ -106,7 +106,7 @@ main(int argc, char** argv)
     /* 
      * Load and unload a module to cause a module unload event
      */
-    hmod = LoadLibrary("shell32.dll");
+    hmod = LoadLibrary(argv[1]);
     FreeLibrary(hmod);
 #endif
 
@@ -115,59 +115,24 @@ main(int argc, char** argv)
     char buf[1000];
     size_t len = 0;
     char *end_path = NULL;
-    /* 
+    /*
      * Load and unload a module to cause a module unload event
      */
-#if 1
-    if (argc != 2)
-        exit(1);
-    strncpy(buf, argv[1], sizeof(buf));
-    buf[sizeof(buf)-1] = '\0';
-    end_path = strrchr(buf, '/');
-    if (end_path == NULL)
-        len = 0;
-    else
-        len = (end_path - buf) + 1;
-#else
-    getcwd(buf, sizeof(buf));
-    buf[sizeof(buf)-1] = '\0';
-    len = strlen(buf);
-    strncpy(buf+len, "/../client-interface/", sizeof(buf)-len);
-    buf[sizeof(buf)-1] = '\0';
-    len = strlen(buf);
-#endif
 
-      /* small .bss */
-#ifdef X64
-    strncpy(buf+len, "events64_dummy1.so", sizeof(buf)-len); 
-#else
-    strncpy(buf+len, "events_dummy1.so", sizeof(buf)-len);
-#endif
-    buf[sizeof(buf)-1] = '\0';
-    hmod = dlopen(buf, RTLD_LAZY|RTLD_LOCAL);
+    /* FIXME: We used to test a module with a large .bss here.  Try to do that
+     * again.
+     */
+    hmod = dlopen(argv[1], RTLD_LAZY|RTLD_LOCAL);
     if (hmod != NULL)
-	dlclose(hmod);
+        dlclose(hmod);
     else
-	print("module load of %s failed\n", buf);
-    
-    /* large .bss */
-#ifdef X64
-    strncpy(buf+len, "events64_dummy2.so", sizeof(buf)-len); 
-#else
-    strncpy(buf+len, "events_dummy2.so", sizeof(buf)-len);
-#endif
-    buf[sizeof(buf)-1] = '\0';
-    hmod = dlopen(buf, RTLD_LAZY|RTLD_LOCAL);
-    if (hmod != NULL)
-	dlclose(hmod);
-    else
-	print("module load of %s failed\n", buf);
+        print("module load failed: %s\n", dlerror());
 
     /* test load of non-existent file */
     hmod = dlopen("foo_bar_no_exist.so", RTLD_LAZY|RTLD_LOCAL);
     if (hmod != NULL) {
-	print("ERROR - module load of %s succeeded\n", buf);
-	dlclose(hmod);
+        print("ERROR - module load of %s succeeded\n", buf);
+        dlclose(hmod);
     }
 
     intercept_signal(SIGUSR1, (handler_t) signal_handler);
