@@ -196,6 +196,8 @@ enum {
     DRSYM_TYPE_INT,    /**< Integer, cast to drsym_int_type_t. */
     DRSYM_TYPE_PTR,    /**< Pointer, cast to drsym_ptr_type_t. */
     DRSYM_TYPE_FUNC,   /**< Function, cast to drsym_func_type_t. */
+    DRSYM_TYPE_VOID,   /**< Void.  No further information. */
+    DRSYM_TYPE_COMPOUND, /**< Struct, union, or class; cast to drsym_compound_type_t. */
     /* Additional type kinds will be added as needed. */
 };
 
@@ -206,36 +208,72 @@ enum {
 typedef struct _drsym_type_t {
     uint kind;      /**< Type kind, i.e. DRSYM_TYPE_INT or DRSYM_TYPE_PTR. */
     size_t size;    /**< Type size. */
+    uint id;        /**< Unique identifier to pass to drsym_expand_type(). */
 } drsym_type_t;
 
-#ifdef _MSC_VER
-# pragma warning(push)
-# pragma warning(disable : 4200)
-#endif
-
+/** Type information for a function. */
 typedef struct _drsym_func_type_t {
     drsym_type_t type;
     drsym_type_t *ret_type;
-    int num_args;
-    /* We want to maintain C89 compat for exported headers so we avoid [0] and
-     * waste the space on a zero-arg func type
-     */
-    drsym_type_t *arg_types[1];  /**< Flexible array of size num_args. */
+    int num_args; /**< Number of arguments. */
+    /** Separate array of size num_args.  May be NULL if the data was not requested. */
+    drsym_type_t **arg_types;
 } drsym_func_type_t;
 
-#ifdef _MSC_VER
-# pragma warning(pop)
-#endif
+/** Type information for a user-defined type: a struct, union, or class. */
+typedef struct _drsym_compound_type_t {
+    drsym_type_t type;
+    char *name; /**< Name of the type. */
+    int num_fields; /**< Number of fields. */
+    /** Separate array of size num_fields.  May be NULL if the data was not requested. */
+    drsym_type_t **field_types;
+} drsym_compound_type_t;
 
+/** Type information for an integer base type. */
 typedef struct _drsym_int_type_t {
     drsym_type_t type;
     bool is_signed;
 } drsym_int_type_t;
 
+/** Type information for a pointer type. */
 typedef struct _drsym_ptr_type_t {
     drsym_type_t type;
     drsym_type_t *elt_type;
 } drsym_ptr_type_t;
+
+DR_EXPORT
+/**
+ * Retrieves symbol type information for a given module offset.  After a
+ * successful execution, \p *type points to the function type.  All memory
+ * used to represent the types comes from \p buf, so the caller only needs to
+ * dispose \p buf to free them.  Returns DRSYM_ERROR_NOMEM if the buffer is not
+ * big enough.
+ *
+ * This routine expands arguments of function or fields compound types into
+ * their child types as far as \p levels_to_expand levels deep.
+ * The resulting expanded type tree may be recursive, so the caller should take
+ * care when traversing it.  Any already-referenced type is guaranteed to have
+ * a smaller pointer value than its parent.  This allows safe traversing without
+ * recording the already-seen types.
+ *
+ * \note This function is currently implemented only for Windows PDB
+ * symbols (DRSYM_PDB).
+ *
+ * @param[in] modpath    The full path to the module to be queried.
+ * @param[in] modoffs    The offset from the base of the module specifying
+ *                       the start address of the function.
+ * @param[in] levels_to_expand  The maximum levels of sub-types to expand.
+ *                       Set to UINT_MAX for unlimited expansion.
+ *                       Further expansion can be performed by calling
+ *                       drsym_expand_type().
+ * @param[out] buf       Memory used for the types.
+ * @param[in] buf_sz     Number of bytes in \p buf.
+ * @param[out] type      Pointer to the type of the function.
+ */
+drsym_error_t
+drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand,
+               char *buf, size_t buf_sz,
+               drsym_type_t **type /*OUT*/);
 
 DR_EXPORT
 /**
@@ -245,8 +283,14 @@ DR_EXPORT
  * dispose \p buf to free them.  Returns DRSYM_ERROR_NOMEM if the buffer is not
  * big enough.
  *
+ * This routine does not expand arguments of function or compound types into
+ * their child types.
+ *
  * \note This function is currently implemented only for Windows PDB
  * symbols (DRSYM_PDB).
+ *
+ * \note Despite the name, this routine will retrieve type information
+ * for non-functions as well.
  *
  * @param[in] modpath    The full path to the module to be queried.
  * @param[in] modoffs    The offset from the base of the module specifying
@@ -259,6 +303,40 @@ drsym_error_t
 drsym_get_func_type(const char *modpath, size_t modoffs,
                     char *buf, size_t buf_sz,
                     drsym_func_type_t **func_type /*OUT*/);
+
+DR_EXPORT
+/**
+ * Retrieves symbol type information for all sub-types of the type
+ * referenced by \p type_id.  After a
+ * successful execution, \p *expanded_type points to the expanded type.  All memory
+ * used to represent the types comes from \p buf, so the caller only needs to
+ * dispose \p buf to free them.  Returns DRSYM_ERROR_NOMEM if the buffer is not
+ * big enough.
+ *
+ * The initial type index to pass as \p type_id can be retrieved by
+ * calling drsym_get_type() or drsym_get_func_type().
+ *
+ * The resulting expanded type tree may be recursive, so the caller should take
+ * care when traversing it.  Any already-referenced type is guaranteed to have
+ * a smaller pointer value than its parent.  This allows safe traversing without
+ * recording the already-seen types.
+ *
+ * \note This function is currently implemented only for Windows PDB
+ * symbols (DRSYM_PDB).
+ *
+ * @param[in] modpath    The full path to the module to be queried.
+ * @param[in] type_id    The type index, acquired from a prior call to
+ *                       drsym_get_type() or drsym_get_func_type().
+ * @param[in] levels_to_expand  The maximum levels of sub-types to expand.
+ *                       Set to UINT_MAX for unlimited expansion.
+ * @param[out] buf       Memory used for the types.
+ * @param[in] buf_sz     Number of bytes in \p buf.
+ * @param[out] expanded_type Pointer to the expanded type tree for the symbol.
+ */
+drsym_error_t
+drsym_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
+                  char *buf, size_t buf_sz,
+                  drsym_type_t **expanded_type /*OUT*/);
 
 DR_EXPORT
 /**

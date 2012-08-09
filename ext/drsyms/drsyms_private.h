@@ -123,8 +123,17 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
                            uint flags);
 
 drsym_error_t
+drsym_unix_get_type(void *mod_in, size_t modoffs, uint levels_to_expand,
+                    char *buf, size_t buf_sz, drsym_type_t **type OUT);
+
+drsym_error_t
 drsym_unix_get_func_type(void *moddata, size_t modoffs, char *buf,
                          size_t buf_sz, drsym_func_type_t **func_type OUT);
+
+drsym_error_t
+drsym_unix_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
+                       char *buf, size_t buf_sz,
+                       drsym_type_t **expanded_type OUT);
 
 drsym_error_t
 drsym_unix_get_module_debug_kind(void *moddata, drsym_debug_kind_t *kind OUT);

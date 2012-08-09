@@ -486,8 +486,23 @@ drsym_unix_lookup_address(void *mod_in, size_t modoffs,
 }
 
 drsym_error_t
+drsym_unix_get_type(void *mod_in, size_t modoffs, uint levels_to_expand,
+                    char *buf, size_t buf_sz, drsym_type_t **type OUT)
+{
+    return DRSYM_ERROR_NOT_IMPLEMENTED;
+}
+
+drsym_error_t
 drsym_unix_get_func_type(void *mod_in, size_t modoffs, char *buf,
                          size_t buf_sz, drsym_func_type_t **func_type OUT)
+{
+    return DRSYM_ERROR_NOT_IMPLEMENTED;
+}
+
+drsym_error_t
+drsym_unix_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
+                  char *buf, size_t buf_sz,
+                  drsym_type_t **expanded_type OUT)
 {
     return DRSYM_ERROR_NOT_IMPLEMENTED;
 }

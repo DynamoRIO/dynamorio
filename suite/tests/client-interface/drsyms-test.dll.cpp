@@ -37,6 +37,7 @@
 #include "drwrap.h"
 #include "client_tools.h"
 
+#include <limits.h>
 #include <string.h>
 
 /* DR's build system usually disables warnings we're not interested in, but the
@@ -318,11 +319,15 @@ lookup_exe_syms(void)
 }
 
 #ifdef WINDOWS
+# define NUM_OVERLOADED_CLASS 3
 typedef struct _overloaded_params_t {
     const char *exe_path;
     bool overloaded_char;
     bool overloaded_wchar;
     bool overloaded_int;
+    bool overloaded_void_ptr;
+    bool overloaded_void;
+    uint overloaded_class;
 } overloaded_params_t;
 
 static bool
@@ -344,14 +349,52 @@ overloaded_cb(const char *name, size_t modoffs, void *data)
         func_type->arg_types[0]->kind == DRSYM_TYPE_PTR) {
         drsym_ptr_type_t *arg_type = (drsym_ptr_type_t*)func_type->arg_types[0];
         size_t arg_int_size = arg_type->elt_type->size;
-        if (arg_type->elt_type->kind != DRSYM_TYPE_INT)
-            dr_printf("overloaded() arg points to non-integer type!\n");
-        switch (arg_int_size) {
-        case 1: p->overloaded_char = true;  break;
-        case 2: p->overloaded_wchar = true; break;
-        case 4: p->overloaded_int = true;   break;
-        default: break;
+        if (arg_type->elt_type->kind == DRSYM_TYPE_INT) {
+            switch (arg_int_size) {
+            case 1: p->overloaded_char = true;  break;
+            case 2: p->overloaded_wchar = true; break;
+            case 4: p->overloaded_int = true;   break;
+            default: break;
+            }
+        } else if (arg_type->elt_type->kind == DRSYM_TYPE_VOID) {
+            p->overloaded_void_ptr = true;
+        } else if (arg_type->elt_type->kind == DRSYM_TYPE_COMPOUND) {
+            drsym_compound_type_t *ctype = (drsym_compound_type_t *) arg_type->elt_type;
+            int i;
+            ASSERT(ctype->field_types == NULL); /* drsym_get_func_type does not expand */
+            p->overloaded_class++;
+            dr_fprintf(STDERR, "compound arg %s has %d field(s), size %d\n",
+                       ctype->name, ctype->num_fields, ctype->type.size);
+            r = drsym_expand_type(p->exe_path, ctype->type.id, UINT_MAX,
+                                  buf, sizeof(buf), (drsym_type_t **)&ctype);
+            if (r != DRSYM_SUCCESS) {
+                dr_fprintf(STDERR, "drsym_expand_type failed: %d\n", (int)r);
+            } else {
+                ASSERT(ctype->type.kind == DRSYM_TYPE_COMPOUND);
+                for (i=0; i < ctype->num_fields; i++) {
+                    dr_fprintf(STDERR, "  class field %d is type %d and size %d\n",
+                               i, ctype->field_types[i]->kind,
+                               ctype->field_types[i]->size);
+                    if (ctype->field_types[i]->kind == DRSYM_TYPE_FUNC) {
+                        drsym_func_type_t *ftype = (drsym_func_type_t *)
+                            ctype->field_types[i];
+                        dr_fprintf(STDERR, "    func has %d args\n", ftype->num_args);
+                        for (i=0; i < ftype->num_args; i++) {
+                            dr_fprintf(STDERR, "      arg %d is type %d and size %d\n",
+                                       i, ftype->arg_types[i]->kind,
+                                       ftype->arg_types[i]->size);
+                        }
+                    }
+                }
+            }
+        } else {
+            dr_fprintf(STDERR, "overloaded() arg has unexpected type!\n");
         }
+    } else if (func_type->num_args == 0) {
+        /* no arg so not really an overload, but we need to test no-arg func */
+        p->overloaded_void = true;
+    } else {
+        dr_fprintf(STDERR, "overloaded() has unexpected args\n");
     }
 
     return true;
@@ -367,15 +410,25 @@ lookup_overloads(const char *exe_path)
     p.overloaded_char = false;
     p.overloaded_wchar = false;
     p.overloaded_int = false;
+    p.overloaded_void = false;
+    p.overloaded_void_ptr = false;
+    p.overloaded_class = 0;
     r = drsym_enumerate_symbols(exe_path, overloaded_cb, &p,
                                 DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_SUCCESS);
     if (!p.overloaded_char)  dr_fprintf(STDERR, "overloaded_char missing!\n");
     if (!p.overloaded_wchar) dr_fprintf(STDERR, "overloaded_wchar missing!\n");
     if (!p.overloaded_int)   dr_fprintf(STDERR, "overloaded_int missing!\n");
+    if (!p.overloaded_void)  dr_fprintf(STDERR, "overloaded_void missing!\n");
+    if (!p.overloaded_void_ptr)  dr_fprintf(STDERR, "overloaded_void_ptr missing!\n");
+    if (p.overloaded_class != NUM_OVERLOADED_CLASS)
+        dr_fprintf(STDERR, "overloaded_class missing!\n");
     if (p.overloaded_char &&
         p.overloaded_wchar &&
-        p.overloaded_int) {
+        p.overloaded_int &&
+        p.overloaded_void &&
+        p.overloaded_void_ptr &&
+        p.overloaded_class == NUM_OVERLOADED_CLASS) {
         dr_fprintf(STDERR, "found all overloads\n");
     }
 }

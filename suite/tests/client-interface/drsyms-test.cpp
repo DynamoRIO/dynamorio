@@ -43,6 +43,8 @@
 # define NOINLINE __declspec(noinline)
 #endif
 
+#include <new> /* for std::nothrow_t */
+
 #ifdef LINUX
 # include "dlfcn.h"
 #endif
@@ -58,6 +60,12 @@ namespace {
 class Foo {
 public:
     int NOINLINE Bar(int a);
+};
+class HasFields {
+public:
+    int x;
+    bool y;
+    short z;
 };
 }
 
@@ -88,6 +96,13 @@ exe_static(int a)
 int overloaded(char *a)    { return 1; }
 int overloaded(wchar_t *a) { return 2; }
 int overloaded(int *a)     { return 4; }
+int overloaded(void *a)    { return 8; }
+int overloaded(Foo *a)     { return 16; }
+int overloaded(HasFields *a) { return 32; }
+/* test an empty struct */
+int overloaded(std::nothrow_t *a) { return 64; }
+/* no arg so not really an overload, but we need to test no-arg func */
+int overloaded(void)       { return 128; }
 
 int
 main(int argc, char **argv)

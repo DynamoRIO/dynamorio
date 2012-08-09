@@ -120,7 +120,14 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 
 The current version is \DR_VERSION.  
 
-The changes between version \DR_VERSION and 3.2.0 are:
+The changes between version \DR_VERSION and 3.2.0 include a binary
+compatibilty change in the drsyms Extension:
+
+ - Changed the drsyms type query data structures (#drsym_type_t,
+   #drsym_func_type_t, #drsym_int_type_t, #drsym_ptr_type_t).
+   This is a binary compatibility change for drsym_get_func_type().
+
+Further non-compatibility-affecting changes include:
 
  - Added persistent cache support for clients via
    dr_register_persist_ro(), dr_register_persist_rx(), 
@@ -130,6 +137,8 @@ The changes between version \DR_VERSION and 3.2.0 are:
    the next release.
  - Added hashtable persistence support via hashtable_persist_size(),
    hashtable_persist(), and hashtable_resurrect()
+ - Added drsym_get_type(), drsym_expand_type(), and support for additional
+   type categories for Windows drsyms.
  - Added dr_exit_process() to cleanly shut down with a specified
    exit code
  - Added dr_convert_handle_to_pid()

@@ -230,8 +230,26 @@ drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *
 
 DR_EXPORT
 drsym_error_t
+drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand,
+               char *buf, size_t buf_sz, drsym_type_t **type OUT)
+{
+    return DRSYM_ERROR_NOT_IMPLEMENTED;
+}
+
+
+DR_EXPORT
+drsym_error_t
 drsym_get_func_type(const char *modpath, size_t modoffs, char *buf,
                     size_t buf_sz, drsym_func_type_t **func_type OUT)
+{
+    return DRSYM_ERROR_NOT_IMPLEMENTED;
+}
+
+DR_EXPORT
+drsym_error_t
+drsym_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
+                  char *buf, size_t buf_sz,
+                  drsym_type_t **expanded_type OUT)
 {
     return DRSYM_ERROR_NOT_IMPLEMENTED;
 }
