@@ -636,7 +636,7 @@ extern const instr_info_t invalid_instr;
 /* Currently we assume that code caches are always 64-bit in x86_to_x64.
  * Later, if needed, we can introduce a new field in dcontext_t (xref i#862).
  */
-#define X64_CACHE_MODE_DC(dc) (X64_MODE_DC(dc) || DYNAMO_OPTION(x86_to_x64))
+#define X64_CACHE_MODE_DC(dc) (X64_MODE_DC(dc) IF_X64(|| DYNAMO_OPTION(x86_to_x64)))
 
 
 DR_API

@@ -46,6 +46,7 @@
 
 #include <stddef.h> /* for offsetof */
 #include "instr.h" /* for reg_id_t */
+#include "decode.h" /* for X64_CACHE_MODE_DC */
 
 /* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
  * Keep in synch w/ defines in pre_inject_asm.asm
@@ -260,6 +261,7 @@ typedef struct
 typedef enum {
     GENCODE_X64 = 0,
     GENCODE_X86,
+    GENCODE_X86_TO_X64,
     GENCODE_FROM_DCONTEXT,
 } gencode_mode_t;
 # define MODE_OVERRIDE(x86_mode) ((x86_mode) ? GENCODE_X86 : GENCODE_X64)
@@ -513,7 +515,8 @@ typedef struct ibl_code_t {
     byte *trace_cmp_entry;
     byte *trace_cmp_unlinked;
     bool x86_mode; /* Is this code for 32-bit (x86 mode)? */
-    /* for far ctis (i#823) in mixed-mode (i#49) */
+    bool x86_to_x64_mode; /* Does this code use r8-r10 as scratch (for x86_to_x64)? */
+    /* for far ctis (i#823) in mixed-mode (i#49) and x86_to_x64 mode (i#751) */
     far_ref_t far_jmp_opnd;
     far_ref_t far_jmp_unlinked_opnd;
 #endif
@@ -682,6 +685,7 @@ void protect_generated_code(generated_code_t *code, bool writable);
 extern generated_code_t *shared_code;
 #ifdef X64
 extern generated_code_t *shared_code_x86;
+extern generated_code_t *shared_code_x86_to_x64;
 #endif
 
 static inline bool
@@ -690,7 +694,8 @@ is_shared_gencode(generated_code_t *code)
     if (code == NULL) /* since shared_code_x86 in particular can be NULL */
         return false;
 #ifdef X64
-    return code == shared_code_x86 || code == shared_code;
+    return code == shared_code_x86 || code == shared_code ||
+           code == shared_code_x86_to_x64;
 #else
     return code == shared_code;
 #endif
@@ -702,20 +707,23 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 #ifdef X64
     ASSERT(mode != GENCODE_FROM_DCONTEXT || dcontext != GLOBAL_DCONTEXT
            IF_INTERNAL(IF_CLIENT_INTERFACE(|| dynamo_exited)));
-    /* FIXME i#862: currently, we always use x64 gencode in x86_to_x64.
-     * This won't work if we have 32-bit fragments, in which case we may
-     * refer to X64_CACHE_MODE_DC().
-     */
-    if (DYNAMO_OPTION(x86_to_x64))
-        return shared_code;
 # if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* PR 302344: this is here only for tracedump_origins */
-    if (dynamo_exited && mode == GENCODE_FROM_DCONTEXT && dcontext == GLOBAL_DCONTEXT)
-        return (get_x86_mode(dcontext) ? shared_code_x86 : shared_code);
+    if (dynamo_exited && mode == GENCODE_FROM_DCONTEXT && dcontext == GLOBAL_DCONTEXT) {
+        if (get_x86_mode(dcontext))
+            return X64_CACHE_MODE_DC(dcontext) ? shared_code_x86_to_x64 : shared_code_x86;
+        else
+            return shared_code;
+    }
 # endif
-    return (mode == GENCODE_X86 ||
-            (mode == GENCODE_FROM_DCONTEXT && dcontext->x86_mode)) ?
-        shared_code_x86 : shared_code;
+    if (mode == GENCODE_X86)
+        return shared_code_x86;
+    else if (mode == GENCODE_X86_TO_X64)
+        return shared_code_x86_to_x64;
+    else if (mode == GENCODE_FROM_DCONTEXT && dcontext->x86_mode)
+        return X64_CACHE_MODE_DC(dcontext) ? shared_code_x86_to_x64 : shared_code_x86;
+    else
+        return shared_code;
 #else
     return shared_code;
 #endif

@@ -4966,7 +4966,7 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
      * In x86_to_x64, we want to create x64 nop, but dcontext may be in x86 mode.
      * As a workaround, we call INSTR_CREATE_RAW_nop*byte here if in x86_to_x64.
      */
-    if (raw || DYNAMO_OPTION(x86_to_x64)) {
+    if (raw IF_X64(|| DYNAMO_OPTION(x86_to_x64))) {
         switch(num_bytes) {
         case 1 :
             return INSTR_CREATE_RAW_nop1byte(dcontext);

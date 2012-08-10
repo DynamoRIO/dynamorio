@@ -268,7 +268,8 @@ exit_stub_size(dcontext_t *dcontext, cache_pc target, uint flags)
         DEBUG_DECLARE(bool is_ibl = )
             get_ibl_routine_type_ex(dcontext, target, &ibl_type _IF_X64(&mode));
         ASSERT(is_ibl);
-        IF_X64(ASSERT(mode == MODE_OVERRIDE(FRAG_IS_32(flags))));
+        IF_X64(ASSERT(mode == MODE_OVERRIDE(FRAG_IS_32(flags)) ||
+                      (DYNAMO_OPTION(x86_to_x64) && mode == GENCODE_X86_TO_X64)));
         ibl_code = get_ibl_routine_code_ex(dcontext, ibl_type.branch_type, flags
                                            _IF_X64(mode));
         
@@ -5977,16 +5978,10 @@ update_indirect_branch_lookup(dcontext_t *dcontext)
  * and then have far direct sometimes be direct and sometimes use
  * indirect faar-Ibl.
  *
- * In x86_to_x64, we currently assume that fragments are always 64-bit.
- * So we always use 64-bit ibl, and so "selector" is always CS32_SELECTOR.
- * Therefore we cannot determine whether a mode change happens by comparing
- * xbx (xcx after xchg) with "selector".
- * The workaround is to always update dcontext->x86_mode according to the
- * target cs selector, and always jump to ibl_same_mode_target.
- * In other words, the two destinations of jecxz no longer mean "no mode
- * switch" and "has mode switch"; they just mean "target is 64-bit" and
- * "target is 32-bit".
- * FIXME i#862: this won't work if we have 32-bit fragments.
+ * For -x86_to_x64, we assume no 32-bit un-translated code entering here.
+ *
+ * FIXME i#865: for mixed-mode (including -x86_to_x64), far ibl must
+ * preserve the app's r8-r15 during 32-bit execution.
  */
 byte *
 emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
@@ -5998,7 +5993,9 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
 #ifdef X64
     if (mixed_mode_enabled()) {
         instr_t *change_mode = INSTR_CREATE_label(dcontext);
-        short selector = ibl_code->x86_mode ? CS64_SELECTOR : CS32_SELECTOR;
+        bool source_is_x86 = DYNAMO_OPTION(x86_to_x64) ? ibl_code->x86_to_x64_mode
+                                                       : ibl_code->x86_mode;
+        short selector = source_is_x86 ? CS64_SELECTOR : CS32_SELECTOR;
 
         /* all scratch space should be in TLS only */
         ASSERT(ibl_code->thread_shared_routine || DYNAMO_OPTION(private_ib_in_tls));
@@ -6021,20 +6018,6 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
         APP(&ilist, INSTR_CREATE_jecxz
             (dcontext, opnd_create_instr(change_mode)));
 
-        /* x86_to_x64: always update dcontext->x86_mode */
-        if (DYNAMO_OPTION(x86_to_x64)) {
-            APP(&ilist, instr_create_restore_from_tls
-                (dcontext, REG_XCX, TLS_DCONTEXT_SLOT));
-            /* FIXME: for SELFPROT_DCONTEXT we'll need to exit to dispatch every time
-             * and add logic there to set x86_mode based on LINK_FAR.
-             * We do not want x86_mode sitting in unprotected_context_t.
-             */
-            ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
-            APP(&ilist, INSTR_CREATE_mov_st
-                (dcontext, OPND_CREATE_MEM8(REG_XCX, (int)offsetof(dcontext_t, x86_mode)),
-                 OPND_CREATE_INT8(ibl_code->x86_mode ? 1 : 0)));
-        }
-
         APP(&ilist, INSTR_CREATE_xchg
             (dcontext, opnd_create_reg(REG_XBX), opnd_create_reg(REG_XCX)));
         APP(&ilist,
@@ -6052,28 +6035,32 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
         ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
         APP(&ilist, INSTR_CREATE_mov_st
             (dcontext, OPND_CREATE_MEM8(REG_XCX, (int)offsetof(dcontext_t, x86_mode)),
-             OPND_CREATE_INT8(ibl_code->x86_mode ? 0 : 1)));
+             OPND_CREATE_INT8(source_is_x86 ? 0 : 1)));
         APP(&ilist, INSTR_CREATE_xchg
             (dcontext, opnd_create_reg(REG_XBX), opnd_create_reg(REG_XCX)));
         APP(&ilist,
             RESTORE_FROM_TLS(dcontext, REG_XBX, MANGLE_FAR_SPILL_SLOT));
-        if (DYNAMO_OPTION(x86_to_x64)) {
-            /* x86_to_x64: always use 64-bit ibl */
-            APP(&ilist, INSTR_CREATE_jmp
-                (dcontext, opnd_create_pc(ibl_same_mode_tgt)));
-        } else {
-            /* For now we assume we're WOW64 and thus in low 4GB.  For general mixed-mode
-             * and reachability (xref i#774) we will need a trampoline in low 4GB.
-             * Note that targeting the tail of the not-taken jecxz above doesn't help
-             * b/c then that needs to be 32-bit reachable.
-             */
-            ASSERT(CHECK_TRUNCATE_TYPE_uint((ptr_uint_t)far_jmp_opnd));
-            APP(&ilist, INSTR_CREATE_jmp_far_ind
-                (dcontext, opnd_create_base_disp(REG_NULL, REG_NULL, 0,
-                                                 (uint)(ptr_uint_t)far_jmp_opnd, OPSZ_6)));
-            /* caller will set target: we just set selector */
-            far_jmp_opnd->selector = (ushort) selector;
-        }
+        /* For now we assume we're WOW64 and thus in low 4GB.  For general mixed-mode
+         * and reachability (xref i#774) we will need a trampoline in low 4GB.
+         * Note that targeting the tail of the not-taken jecxz above doesn't help
+         * b/c then that needs to be 32-bit reachable.
+         */
+        ASSERT(CHECK_TRUNCATE_TYPE_uint((ptr_uint_t)far_jmp_opnd));
+        APP(&ilist, INSTR_CREATE_jmp_far_ind
+            (dcontext, opnd_create_base_disp(REG_NULL, REG_NULL, 0,
+                                             (uint)(ptr_uint_t)far_jmp_opnd, OPSZ_6)));
+        /* For -x86_to_x64, we can disallow 32-bit fragments from having
+         * indirect branches or far branches or system calls, and thus ibl
+         * is always 64-bit.
+         * Even if we allow 32-bit indirection, here we have to pick one
+         * lookup method, and we'd go w/ the most common, which would assume
+         * a 32-bit target has been translated: so even for a same-mode far
+         * cti in a 32-bit (untranslated) fragment, we'd want to do a mode
+         * change here.
+         */
+        /* caller will set target: we just set selector */
+        far_jmp_opnd->selector = DYNAMO_OPTION(x86_to_x64) ? CS64_SELECTOR
+                                                           : (ushort) selector;
 
         if (ibl_code->x86_mode) {
             instrlist_convert_to_x86(&ilist);

@@ -505,8 +505,10 @@
     OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg, IF_WINDOWS_ELSE(false, true),
                             "mangle application's segment usage.")
 
+#ifdef X64
     OPTION_DEFAULT(bool, x86_to_x64, false,
                    "translate x86 code to x64 when on a 64-bit kernel.")
+#endif
 
 #ifdef WINDOWS_PC_SAMPLE
      OPTION_DEFAULT(uint, prof_pcs_DR, 2, "PC profile dynamorio.dll, value is bit shift to use, < 2 or > 32 disables, requires -prof_pcs")
