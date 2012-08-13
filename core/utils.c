@@ -3145,42 +3145,6 @@ print_xml_cdata(file_t f, const char *str)
 
 /* TODO - NYI print_xml_body_string, print_xml_attribute_string */
 
-#ifdef LINUX
-void 
-getnamefrompid(int pid, char *name, uint maxlen)
-{
-    int fd,n;
-    char tempstring[200+1], *lastpart;
-
-# ifdef VMX86_SERVER
-    if (os_in_vmkernel_userworld()) {
-        vmk_getnamefrompid(pid, name, maxlen);
-        return;
-    }
-# endif
-
-    /*this is a shitty way of getting the process name,
-    but i can't think of anything better... */
-
-    snprintf(tempstring, 200+1, "/proc/%d/cmdline", pid);
-    fd = open_syscall(tempstring, O_RDONLY, 0);
-    /* buffer overflow even if only off by 1 can be devastating */
-    n = read_syscall(fd, tempstring, 200);   
-    tempstring[n] = '\0';
-    lastpart = strrchr(tempstring, '/');
-
-    if (lastpart == NULL)
-      lastpart = tempstring;
-    else
-      lastpart++; /*don't include last '/' in name*/ 
-
-    strncpy(name, lastpart, maxlen-1);
-    name[maxlen-1]  = '\0'; /* if max no null */
-
-    close_syscall(fd);
-}
-#endif
-
 void
 print_version_and_app_info(file_t file)
 {

@@ -2220,7 +2220,7 @@ DR_API const char *
 dr_get_application_name(void)
 {
 #ifdef LINUX
-    return get_application_name();
+    return get_application_short_name();
 #else
     return get_application_short_unqualified_name();
 #endif

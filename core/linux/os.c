@@ -741,6 +741,9 @@ os_init(void)
 
     get_uname();
 
+    /* Populate global data caches. */
+    get_application_name();
+
     /* determine whether gettid is provided and needed for threads,
      * or whether getpid suffices.  even 2.4 kernels have gettid
      * (maps to getpid), don't have an old enough target to test this.
@@ -845,27 +848,69 @@ get_application_pid()
     return get_application_pid_helper(false);
 }
 
+static void 
+getnamefrompid(int pid, char *name, uint maxlen)
+{
+    int fd;
+    char proc_cmdline[MAXIMUM_PATH];
+    ssize_t sofar = 0;
+    ssize_t n;
+    ssize_t toread;
+
+    ASSERT(maxlen > 0);
+
+#ifdef VMX86_SERVER
+    if (os_in_vmkernel_userworld()) {
+        vmk_getnamefrompid(pid, name, maxlen);
+        return;
+    }
+#endif
+
+    /* /proc/pid/cmdline is a series of null-terminated strings.  We read
+     * maxlen-1 bytes and rely on argv[0] being null-terminated.
+     */
+    snprintf(proc_cmdline, BUFFER_SIZE_ELEMENTS(proc_cmdline),
+             "/proc/%d/cmdline", pid);
+    NULL_TERMINATE_BUFFER(proc_cmdline);
+    fd = open_syscall(proc_cmdline, O_RDONLY, 0);
+    toread = maxlen - 1;  /* Leave room for null. */
+    while (toread > 0) {
+        n = read_syscall(fd, name + sofar, toread);
+        if (n <= 0)
+            break;
+        ASSERT(n <= toread);
+        sofar += n;
+        toread -= n;
+    }
+    if (n < 0)
+        sofar = 0;  /* Empty string on error. */
+    name[sofar] = '\0';
+    close_syscall(fd);
+}
+
 /* we need to re-cache after a fork */
 static char *
-get_application_name_helper(bool ignore_cache)
+get_application_name_helper(bool ignore_cache, bool full_path)
 {
     static char name_buf[MAXIMUM_PATH];
-    
+    static char *short_name;
+
     if (!name_buf[0] || ignore_cache) {
-        /* FIXME PR 363063: move getnamefrompid() here and replace /proc reliance
-         * ideally w/ os-independent method, but could use VSI for ESX
-         */
-        extern void getnamefrompid(int pid, char *name, uint maxlen);
         getnamefrompid(get_process_id(), name_buf, BUFFER_SIZE_ELEMENTS(name_buf));
+        short_name = strrchr(name_buf, '/');
+        if (short_name == NULL)
+            short_name = name_buf;
+        else
+            short_name++;
     }
-    return name_buf;
+    return (full_path ? name_buf : short_name);
 }
 
 /* get application name, (cached), used for event logging */
 char *
 get_application_name(void)
 {
-    return get_application_name_helper(false);
+    return get_application_name_helper(false, true /* full path */);
 }
 
 /* Note: this is exported so that libdrpreload.so (preload.c) can use it to
@@ -875,10 +920,9 @@ get_application_name(void)
  * and avaiable, so cleaner to just use functions from it.
  */
 DYNAMORIO_EXPORT const char *
-get_application_short_name()
+get_application_short_name(void)
 {
-    /* FIXME: NYI: need get_application_name() to have full path, here not */
-    return get_application_name();
+    return get_application_name_helper(false, false /* short name */);
 }
 
 /* Processor information provided by kernel */
@@ -2284,7 +2328,7 @@ os_fork_init(dcontext_t *dcontext)
     /* re-populate cached data that contains pid */
     pid_cached = get_process_id();
     get_application_pid_helper(true);
-    get_application_name_helper(true);
+    get_application_name_helper(true, true /* not important */);
 
     /* close all copies of parent files */
     TABLE_RWLOCK(fd_table, write, lock);
