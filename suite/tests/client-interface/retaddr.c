@@ -63,6 +63,15 @@ int main(int argc, char *argv[])
 #include "asm_defines.asm"
 START_FILE
 
+#ifdef X64
+# define FRAME_PADDING 8
+#else
+/* Don't need to align, but we do need to keep the "add esp, 0" to make a legal
+ * SEH64 epilog.
+ */
+# define FRAME_PADDING 0
+#endif
+
 DECL_EXTERN(callee)
 
 #define FUNCNAME test_ret
@@ -73,10 +82,11 @@ GLOBAL_LABEL(FUNCNAME:)
         PUSH_SEH(REG_XBP)
         PUSH_SEH(REG_XSI)
         PUSH_SEH(REG_XDI)
+        sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
         CALLC0(callee)
         mov      REG_XAX, PTRSZ [REG_XSP - ARG_SZ]
-        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         pop      REG_XDI
         pop      REG_XSI
         pop      REG_XBP
@@ -93,6 +103,7 @@ GLOBAL_LABEL(FUNCNAME:)
         PUSH_SEH(REG_XBP)
         PUSH_SEH(REG_XSI)
         PUSH_SEH(REG_XDI)
+        sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 #ifdef X64
         push     HEX(2b) /* typical %ss value */
@@ -111,7 +122,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #else
         mov      REG_XAX, PTRSZ [REG_XSP - 3*ARG_SZ]
 #endif
-        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         pop      REG_XDI
         pop      REG_XSI
         pop      REG_XBP
@@ -134,6 +145,7 @@ GLOBAL_LABEL(FUNCNAME:)
         PUSH_SEH(REG_XBP)
         PUSH_SEH(REG_XSI)
         PUSH_SEH(REG_XDI)
+        sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 #ifdef X64
         push     HEX(33) /* typical %cs value */
@@ -143,7 +155,7 @@ GLOBAL_LABEL(FUNCNAME:)
         call skip_far
      next_instr_far:
         mov      REG_XAX, PTRSZ [REG_XSP - 2*ARG_SZ]
-        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         pop      REG_XDI
         pop      REG_XSI
         pop      REG_XBP

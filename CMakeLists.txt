@@ -432,10 +432,6 @@ if (UNIX)
     message(FATAL_ERROR "gcc is required to build")
   endif (NOT CMAKE_COMPILER_IS_GNUCC)
 
-  # Detect clang, which masquerades as gcc.  CMake 2.6 doesn't know how to
-  # detect it.
-  string(REGEX MATCH "clang" CMAKE_COMPILER_IS_CLANG "${CMAKE_C_COMPILER}")
-
 else (UNIX)
 
   if (NOT ${COMPILER_BASE_NAME} STREQUAL "cl")

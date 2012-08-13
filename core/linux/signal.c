@@ -480,8 +480,10 @@ typedef struct _sigpending_t {
     struct _sigpending_t *next;
 } sigpending_t;
 
-/* Extra space needed to put the signal frame on the app stack.
- * We assume the stack pointer is 4-aligned already.
+/* Extra space needed to put the signal frame on the app stack.  We include the
+ * size of the extra padding potentially needed to align these structs.  We
+ * assume the stack pointer is 4-aligned already, so we over estimate padding
+ * size by the alignment minus 4.
  */
 /* An extra 4 for trailing FP_XSTATE_MAGIC2 */
 #define AVX_FRAME_EXTRA (sizeof(struct _xstate) + AVX_ALIGNMENT - 4 + 4)
@@ -2672,8 +2674,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
         }
     } 
     /* now get frame pointer: need to go down to first field of frame */
-    sp = (byte *) (((ptr_uint_t)(sp - get_app_frame_size(info, sig)))
-                   & IF_X64_ELSE(-16ul, -8ul));
+    sp -= get_app_frame_size(info, sig);
     if (frame == NULL) {
         /* XXX i#641: we always include space for full xstate,
          * even if we don't use it all, which does not match what the
@@ -2699,6 +2700,12 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
     }
     /* PR 369907: don't forget the redzone */
     sp -= REDZONE_SIZE;
+
+    /* Align to 16-bytes.  The kernel does this for both 32 and 64-bit code
+     * these days, so we do as well.
+     */
+    sp = (byte *) ALIGN_BACKWARD(sp, 16);
+    sp -= sizeof(reg_t);  /* Model retaddr. */
     return sp;
 }
 
