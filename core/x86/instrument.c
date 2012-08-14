@@ -5885,7 +5885,10 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
     if (seg == SEG_TLS) {
         instrlist_meta_preinsert
             (ilist, instr,
-             instr_create_restore_from_tls(drcontext, reg, SELF_TIB_OFFSET));
+             INSTR_CREATE_mov_ld(drcontext,
+                                 opnd_create_reg(reg),
+                                 opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
+                                                           0, SELF_TIB_OFFSET, OPSZ_PTR)));
     } else if (seg == SEG_CS || seg == SEG_DS || seg == SEG_ES) {
         /* XXX: we assume flat address space */
         instrlist_meta_preinsert

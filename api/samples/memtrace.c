@@ -34,8 +34,8 @@
 /* Code Manipulation API Sample:
  * memtrace.c
  * 
- * Collects the address and size of every memory reference and dumps
- * the results to a file.
+ * Collects the instruction address, data address, and size of every
+ * memory reference and dumps the results to a file.
  *
  * Illustrates how to create own code cache and perform lean procedure call.
  * (1) It fills a buffer and dumps the buffer when it is full.
@@ -66,10 +66,11 @@
 /* Each mem_ref_t includes the type of reference (read or write), 
  * the address referenced, and the size of the reference.
  */
-typedef struct _mem_ref_t{
+typedef struct _mem_ref_t {
     bool  write;
     void *addr;
     size_t size;
+    app_pc pc;
 } mem_ref_t;
 
 /* Control the format of memory trace: readable or hexl */
@@ -324,9 +325,11 @@ memtrace(void *drcontext)
     num_refs  = (int)((mem_ref_t *)data->buf_ptr - mem_ref);
 
 #ifdef READABLE_TRACE
+    dr_fprintf(data->log,
+               "Format: <instr address>,<(r)ead/(w)rite>,<data size>,<data address>\n");
     for (i = 0; i < num_refs; i++) {
-        dr_fprintf(data->log, "%c%d:"PFX"\n",
-                   mem_ref->write ? 'w' : 'r', mem_ref->size, mem_ref->addr);
+        dr_fprintf(data->log, PFX",%c,%d,"PFX"\n",
+                   mem_ref->pc, mem_ref->write ? 'w' : 'r', mem_ref->size, mem_ref->addr);
         ++mem_ref;
     }
 #else
@@ -397,6 +400,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     reg_id_t reg1 = DR_REG_XBX; /* We can optimize it by picking dead reg */
     reg_id_t reg2 = DR_REG_XCX; /* reg2 must be ECX or RCX for jecxz */
     per_thread_t *data;
+    app_pc pc;
     
     data = drmgr_get_tls_field(drcontext, tls_index);
 
@@ -419,6 +423,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
      * buf_ptr->write = write;
      * buf_ptr->addr  = addr;
      * buf_ptr->size  = size;
+     * buf_ptr->pc    = pc;
      * buf_ptr++;
      * if (buf_ptr >= buf_end_ptr) 
      *    clean_call();
@@ -448,6 +453,23 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     opnd2 = OPND_CREATE_INT32(drutil_opnd_mem_size_in_bytes(ref, where));
     instr = INSTR_CREATE_mov_st(drcontext, opnd1, opnd2);
     instrlist_meta_preinsert(ilist, where, instr);
+
+    /* Store pc in memory ref */
+    pc = instr_get_app_pc(where);
+    /* For 64-bit, we can't use a 64-bit immediate so we split pc into two halves.
+     * We could alternatively load it into reg1 and then store reg1.
+     */
+    opnd1 = OPND_CREATE_MEM32(reg2, offsetof(mem_ref_t, pc));
+    opnd2 = OPND_CREATE_INT32((int)(ptr_int_t)pc);
+    instr = INSTR_CREATE_mov_st(drcontext, opnd1, opnd2);
+    instrlist_meta_preinsert(ilist, where, instr);
+#ifdef X64
+    /* Top half of pc */
+    opnd1 = OPND_CREATE_MEM32(reg2, offsetof(mem_ref_t, pc) + sizeof(int));
+    opnd2 = OPND_CREATE_INT32((int)((ptr_int_t)pc >> 32));
+    instr = INSTR_CREATE_mov_st(drcontext, opnd1, opnd2);
+    instrlist_meta_preinsert(ilist, where, instr);
+#endif
 
     /* Increment reg value by pointer size using lea instr */
     opnd1 = opnd_create_reg(reg2);
