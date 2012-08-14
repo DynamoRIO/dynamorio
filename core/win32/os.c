@@ -4931,7 +4931,7 @@ os_open(const char *fname, int os_open_flags)
 
     /* clients are allowed to open the file however they want, xref PR 227737 */
     ASSERT_CURIOSITY_ONCE((TEST(OS_OPEN_REQUIRE_NEW, os_open_flags)
-                           IF_CLIENT_INTERFACE( ||
+                           IF_CLIENT_INTERFACE( || standalone_library ||
                              !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))) &&
                           "symlink risk PR 213492");
     
