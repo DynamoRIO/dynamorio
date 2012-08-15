@@ -4443,7 +4443,8 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
     }
 
     /* Recreate in same mode as original fragment */
-    IF_X64(old_mode = set_x86_mode(dcontext, FRAG_IS_32(f->flags)));
+    IF_X64(old_mode = set_x86_mode(dcontext, FRAG_IS_32(f->flags) ||
+                                             FRAG_IS_X86_TO_X64(f->flags)));
 
     if ((f->flags & FRAG_IS_TRACE) == 0) {
         /* easy case: just a bb */

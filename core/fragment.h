@@ -145,7 +145,13 @@
  */
 #define FRAG_HAS_TRANSLATION_INFO 0x20000000
 
-#ifdef SIDELINE
+#ifdef X64
+/* this fragment contains 64-bit code translated from 32-bit app code */
+# define FRAG_X86_TO_X64          0x40000000
+# ifdef SIDELINE
+#  error SIDELINE not compatible with X64
+# endif
+#elif defined(SIDELINE)
 # define FRAG_DO_NOT_SIDELINE     0x40000000
 #endif
 

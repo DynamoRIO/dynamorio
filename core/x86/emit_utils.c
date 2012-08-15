@@ -6427,7 +6427,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     /* PR 248207: haven't updated the inlining to be x64-compliant yet */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!inline_ibl_head));
 
-    /* PR 284029: for now we assume there are no syscalls in x86 code.
+    /* i#821/PR 284029: for now we assume there are no syscalls in x86 code.
      * To support them we need to update this routine, emit_do_syscall*,
      * and emit_detach_callback_code().
      */
@@ -6978,7 +6978,12 @@ link_shared_syscall(dcontext_t *dcontext)
     ASSERT(IS_SHARED_SYSCALL_THREAD_SHARED || dcontext != GLOBAL_DCONTEXT);
     if (dcontext == GLOBAL_DCONTEXT) {
         link_shared_syscall_common(SHARED_GENCODE(false));
-        IF_X64(link_shared_syscall_common(SHARED_GENCODE(true)));
+#ifdef X64
+        /* N.B.: there are no 32-bit syscalls for WOW64 with 64-bit DR (i#821) */
+        if (DYNAMO_OPTION(x86_to_x64))
+            link_shared_syscall_common(get_shared_gencode(GLOBAL_DCONTEXT,
+                                                          GENCODE_X86_TO_X64));
+#endif
     } else 
         link_shared_syscall_common(THREAD_GENCODE(dcontext));
 }
@@ -7011,7 +7016,12 @@ unlink_shared_syscall(dcontext_t *dcontext)
     ASSERT(IS_SHARED_SYSCALL_THREAD_SHARED || dcontext != GLOBAL_DCONTEXT);
     if (dcontext == GLOBAL_DCONTEXT) {
         unlink_shared_syscall_common(SHARED_GENCODE(false));
-        IF_X64(unlink_shared_syscall_common(SHARED_GENCODE(true)));
+#ifdef X64
+        /* N.B.: there are no 32-bit syscalls for WOW64 with 64-bit DR (i#821) */
+        if (DYNAMO_OPTION(x86_to_x64))
+            unlink_shared_syscall_common(get_shared_gencode(GLOBAL_DCONTEXT,
+                                                            GENCODE_X86_TO_X64));
+#endif
     } else 
         unlink_shared_syscall_common(THREAD_GENCODE(dcontext));
 }
@@ -7110,7 +7120,7 @@ emit_detach_callback_code(dcontext_t *dcontext, byte *buf,
     instr_t *match_tid = INSTR_CREATE_label(dcontext),
         *match_found = INSTR_CREATE_label(dcontext);
 
-    /* PR 284029: for now we assume there are no syscalls in x86 code, so
+    /* i#821/PR 284029: for now we assume there are no syscalls in x86 code, so
      * we do not need to generate an x86 version
      */
 
@@ -7307,7 +7317,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
             syscall = create_syscall_instr(dcontext);
     }
 
-    /* PR 284029: for now we assume there are no syscalls in x86 code.
+    /* i#821/PR 284029: for now we assume there are no syscalls in x86 code.
      */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!code->x86_mode));
 

@@ -452,6 +452,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     x86_mode = instr_get_x86_mode(instrlist_first(ilist));
     if (x86_mode)
         flags |= FRAG_32_BIT;
+    else if (get_x86_mode(dcontext))
+        flags |= FRAG_X86_TO_X64;
 #endif
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
         /* Since decode_fragment needs to be able to decode from the code

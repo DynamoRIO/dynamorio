@@ -943,8 +943,10 @@ use_addr_prefix_on_short_disp(void)
 
 #ifdef X64
 # define FRAG_IS_32(flags) (TEST(FRAG_32_BIT, (flags)))
+# define FRAG_IS_X86_TO_X64(flags) (TEST(FRAG_X86_TO_X64, (flags)))
 #else
 # define FRAG_IS_32(flags) true
+# define FRAG_IS_X86_TO_X64(flags) false
 #endif
 
 #define SIZE_MOV_XAX_TO_TLS(flags, require_addr16) \

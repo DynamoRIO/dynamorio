@@ -438,7 +438,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     gencode->shared_syscall_code.x86_mode = x86_mode;
     gencode->shared_syscall_code.x86_to_x64_mode = x86_to_x64_mode;
 # endif
-    /* PR 284029: for now we assume there are no syscalls in x86 code */
+    /* i#821/PR 284029: for now we assume there are no syscalls in x86 code */
     if (IF_X64_ELSE(!x86_mode, true)) {
         /* PR 244737: syscall routines are all shared */
         pc = emit_syscall_routines(GLOBAL_DCONTEXT, gencode, pc, true/*thread-shared*/);
@@ -3343,7 +3343,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         }
        
         /* Recreate in same mode as original fragment */
-        IF_X64(old_mode = set_x86_mode(tdcontext, FRAG_IS_32(f->flags)));
+        IF_X64(old_mode = set_x86_mode(tdcontext, FRAG_IS_32(f->flags) ||
+                                                  FRAG_IS_X86_TO_X64(f->flags)));
 
         /* now recreate the state */
 #ifdef CLIENT_INTERFACE
