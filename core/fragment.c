@@ -7208,7 +7208,7 @@ output_trace_binary(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
             p += sizeof(linkcount_type_t);
         }
 #endif
-        if (TEST(LINK_SEPARATE_STUB, l->flags)) {
+        if (TEST(LINK_SEPARATE_STUB, l->flags) && stub_pc != NULL) {
             TRACEBUF_MAKE_ROOM(p, buf, DIRECT_EXIT_STUB_SIZE(f->flags));
             ASSERT(stub_pc < f->start_pc || stub_pc >= f->start_pc+f->size);
             memcpy(p, stub_pc, DIRECT_EXIT_STUB_SIZE(f->flags));

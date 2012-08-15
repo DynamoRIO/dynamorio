@@ -350,13 +350,15 @@ enum {
                                    * < change_linking_lock for add_to_free_list */
 
     LOCK_RANK(change_linking_lock), /* < shared_vm_areas, < all heap locks */
-    LOCK_RANK(shared_vm_areas), /* > change_linking_lock, < executable_areas  */
-    LOCK_RANK(shared_cache_count_lock),
-    LOCK_RANK(tracedump_mutex),  /* < table_rwlock, > change_linking_lock */
 
 #if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
     LOCK_RANK(fragment_delete_mutex),
 #endif
+
+    LOCK_RANK(tracedump_mutex),  /* < fragment_delete_mutex, > shared_vm_areas */
+
+    LOCK_RANK(shared_vm_areas), /* > tracedump_mutex, < executable_areas  */
+    LOCK_RANK(shared_cache_count_lock),
 
     LOCK_RANK(emulate_write_lock), /* in future may be < emulate_write_areas */
 
