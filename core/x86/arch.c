@@ -1233,8 +1233,14 @@ update_generated_hashtable_access(dcontext_t *dcontext)
 }
 
 void
-protect_generated_code(generated_code_t *code, bool writable)
+protect_generated_code(generated_code_t *code_in, bool writable)
 {
+    /* i#936: prevent cl v16 (VS2010) from combining the two code->writable
+     * stores into one prior to the change_protection() call and from
+     * changing the conditionally-executed stores into always-executed
+     * stores of conditionally-determined values.
+     */
+    volatile generated_code_t *code = code_in;
     if (TEST(SELFPROT_GENCODE, DYNAMO_OPTION(protect_mask)) &&
         code->writable != writable) {
         byte *genstart = (byte *)PAGE_START(code->gen_start_pc);

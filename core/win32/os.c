@@ -4215,6 +4215,14 @@ internal_change_protection(byte *start, size_t requested_size, bool set,
     size_t remaining_size = requested_size;
     bool changed_permissions = false;
     bool subregions_failed = false;
+    /* i#936: prevent cl v16 (VS2010) from combining the two
+     * stats incs into one prior to the actual protection change.
+     * Though note that code movement was not sufficient for i#936.
+     * Fortunately here it's only debug-build stats and our debug build
+     * shouldn't hit that high-optimization: but if we make these RSTATS
+     * we should be careful.
+     */
+    volatile bool writable_volatile = writable;
 
     /* while this routine may allow crossing allocation bases 
      * it is supposed to be in error, a MEM_FREE block would terminate it */
@@ -4357,7 +4365,7 @@ internal_change_protection(byte *start, size_t requested_size, bool set,
 
         DOSTATS({
             /* once on each side of prot, to get on right side of writability */
-            if (!writable) {
+            if (!writable_volatile) {
                 STATS_INC(protection_change_calls);
                 STATS_ADD(protection_change_pages, subregion_size / PAGE_SIZE);
             }
@@ -4378,7 +4386,7 @@ internal_change_protection(byte *start, size_t requested_size, bool set,
         ASSERT_CURIOSITY(res && "protect_virtual_memory failed");
         DOSTATS({
             /* once on each side of prot, to get on right side of writability */
-            if (writable) {
+            if (writable_volatile) {
                 STATS_INC(protection_change_calls);
                 STATS_ADD(protection_change_pages, subregion_size / PAGE_SIZE);
             }
