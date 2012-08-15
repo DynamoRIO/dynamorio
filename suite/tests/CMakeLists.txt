@@ -963,6 +963,13 @@ endfunction(rundr_cmd)
 # if test != exe we assume exe is already added as a build target
 # key is the test name without the options, and is used to look up ${key}_expectbase
 function(torun test key source native dr_ops exe_ops)
+  # Avoid running some tests with invalid option combinations.  For example,
+  # coarse fragments are incompatible with thread private code caches.
+  if ("${dr_ops}" MATCHES "-thread_private" AND
+      "${dr_ops}" MATCHES "-opt_memory")
+    return()
+  endif ()
+
   if (DEFINED ${key}_realtest)
     set(exe ${${key}_realtest})
   else (DEFINED ${key}_realtest)
