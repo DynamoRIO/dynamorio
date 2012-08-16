@@ -268,7 +268,7 @@ exit_stub_size(dcontext_t *dcontext, cache_pc target, uint flags)
         DEBUG_DECLARE(bool is_ibl = )
             get_ibl_routine_type_ex(dcontext, target, &ibl_type _IF_X64(&mode));
         ASSERT(is_ibl);
-        IF_X64(ASSERT(mode == MODE_OVERRIDE(FRAG_IS_32(flags)) ||
+        IF_X64(ASSERT(mode == FRAGMENT_GENCODE_MODE(flags) ||
                       (DYNAMO_OPTION(x86_to_x64) && mode == GENCODE_X86_TO_X64)));
         ibl_code = get_ibl_routine_code_ex(dcontext, ibl_type.branch_type, flags
                                            _IF_X64(mode));
@@ -896,12 +896,11 @@ get_direct_exit_target(dcontext_t *dcontext, uint flags)
             /* note that entrance stubs should target their unit's prefix,
              * who will then target this routine
              */
-            return fcache_return_coarse_routine(IF_X64(MODE_OVERRIDE(FRAG_IS_32(flags))));
+            return fcache_return_coarse_routine(IF_X64(FRAGMENT_GENCODE_MODE(flags)));
         } else
-            return fcache_return_shared_routine(IF_X64(MODE_OVERRIDE(FRAG_IS_32(flags))));
+            return fcache_return_shared_routine(IF_X64(FRAGMENT_GENCODE_MODE(flags)));
     } else {
-        return fcache_return_routine_ex(dcontext
-                                        _IF_X64(MODE_OVERRIDE(FRAG_IS_32(flags))));
+        return fcache_return_routine_ex(dcontext _IF_X64(FRAGMENT_GENCODE_MODE(flags)));
     }
 }
 
@@ -1685,7 +1684,7 @@ indirect_linkstub_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
          */
         ASSERT(TEST(FRAG_HAS_SYSCALL, f->flags));
         return shared_syscall_routine_ex(dcontext
-                                         _IF_X64(MODE_OVERRIDE(FRAG_IS_32(f->flags))));
+                                         _IF_X64(FRAGMENT_GENCODE_MODE(f->flags)));
     }
 #endif
     if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
@@ -1700,7 +1699,7 @@ indirect_linkstub_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         return get_ibl_routine_ex(dcontext, get_ibl_entry_type(l->flags),
                                   get_source_fragment_type(dcontext, f->flags),
                                   extract_branchtype(l->flags)
-                                  _IF_X64(MODE_OVERRIDE(FRAG_IS_32(f->flags))));
+                                  _IF_X64(FRAGMENT_GENCODE_MODE(f->flags)));
     }
 }
 
@@ -1800,7 +1799,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     if ((!DYNAMO_OPTION(atomic_inlined_linking) && DYNAMO_OPTION(indirect_stubs)) ||
 # ifdef WINDOWS
         target_tag == shared_syscall_routine_ex
-        (dcontext _IF_X64(MODE_OVERRIDE(FRAG_IS_32(f->flags)))) ||
+        (dcontext _IF_X64(FRAGMENT_GENCODE_MODE(f->flags))) ||
 # endif
         /* FIXME: for -no_indirect_stubs and inlined ibl, we'd like to directly
          * target the unlinked ibl entry but we don't yet -- see FIXME in
@@ -1843,7 +1842,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
      * yet inconsistent
      */
     if (target_tag != shared_syscall_routine_ex
-        (dcontext _IF_X64(MODE_OVERRIDE(FRAG_IS_32(f->flags)))))
+        (dcontext _IF_X64(FRAGMENT_GENCODE_MODE(f->flags))))
 # endif
     {
         /* need to make branch target the unlink entry point inside exit stub */
@@ -2530,7 +2529,7 @@ void
 update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
     generated_code_t *code = get_emitted_routines_code
-        (dcontext _IF_X64(MODE_OVERRIDE(FRAG_IS_32(f->flags))));
+        (dcontext _IF_X64(FRAGMENT_GENCODE_MODE(f->flags)));
 # ifdef CUSTOM_EXIT_STUBS
     byte *start_pc = (byte *) EXIT_FIXED_STUB_PC(dcontext, f, l);
 # else
@@ -2546,7 +2545,7 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 #ifdef WINDOWS
     /* Do not touch shared_syscall */
     if (EXIT_TARGET_TAG(dcontext, f, l) ==
-        shared_syscall_routine_ex(dcontext _IF_X64(MODE_OVERRIDE(FRAG_IS_32(f->flags)))))
+        shared_syscall_routine_ex(dcontext _IF_X64(FRAGMENT_GENCODE_MODE(f->flags))))
         return;
 #endif
     branch_type = extract_branchtype(l->flags);
@@ -3438,7 +3437,7 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     }
 
 #ifdef X64
-    if (code->x86_mode) {
+    if (GENCODE_IS_X86(code->gencode_mode)) {
         instr_t *label = INSTR_CREATE_label(dcontext);
         instr_t *store;
         /* We must use an indirect jmp (far direct are illegal in x64) and
@@ -3500,7 +3499,7 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     ASSERT(len != 0);
 
 #ifdef X64
-    if (code->x86_mode) {
+    if (GENCODE_IS_X86(code->gencode_mode)) {
         /* Put the absolute address in place */
         ASSERT(jmp86_target_addr != NULL && jmp86_store_addr != NULL);
         ASSERT(CHECK_TRUNCATE_TYPE_uint((ptr_uint_t)jmp86_target_addr));
@@ -3728,7 +3727,7 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
     ASSERT(linkstub == NULL || !absolute);
 
 #ifdef X64
-    if (code->x86_mode) {
+    if (GENCODE_IS_X86(code->gencode_mode)) {
         instr_t *label = INSTR_CREATE_label(dcontext);
         instr_t *ljmp = INSTR_CREATE_jmp_far
             (dcontext, opnd_create_far_instr(CS64_SELECTOR, label));
@@ -4056,7 +4055,7 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
     patch_list_t patch;
     instr_t *fcache_ret_prefix;
 #ifdef X64
-    gencode_mode_t mode = MODE_OVERRIDE(FRAG_IS_32(COARSE_32_FLAG(info)));
+    gencode_mode_t mode = FRAGMENT_GENCODE_MODE(COARSE_32_FLAG(info));
 #endif
 
     instrlist_init(&ilist);
@@ -5223,7 +5222,8 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
                         true/*miss can have 8-bit offs*/, target_trace_table,
                         inline_ibl_head);
 #ifdef X64
-        if (IS_IBL_TRACE(ibl_code->source_fragment_type) && !code->x86_mode) {
+        if (IS_IBL_TRACE(ibl_code->source_fragment_type) &&
+            !GENCODE_IS_X86(code->gencode_mode)) {
             /* if -unsafe_ignore_eflags_ibl this will equal regular entry */
             add_patch_marker(patch, trace_cmp_entry, PATCH_ASSEMBLE_ABSOLUTE, 
                              0 /* beginning of instruction */, 
@@ -5400,7 +5400,8 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     /* there is no fall-through through here: we insert separate entry points here */
 
 #ifdef X64
-    if (IS_IBL_TRACE(ibl_code->source_fragment_type) && !code->x86_mode) {
+    if (IS_IBL_TRACE(ibl_code->source_fragment_type) &&
+        !GENCODE_IS_X86(code->gencode_mode)) {
         if (DYNAMO_OPTION(unsafe_ignore_eflags_trace)) { /*==unsafe_ignore_eflags_ibl */
             /* trace_cmp link and unlink entries are identical to regular */
             add_patch_marker(patch, unlinked, PATCH_ASSEMBLE_ABSOLUTE, 
@@ -5577,7 +5578,8 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     if (!inline_ibl_head) {
         /* see above: when not inlining we do eflags restore after xbx restore */
 #ifdef X64
-        if (IS_IBL_TRACE(ibl_code->source_fragment_type) && !code->x86_mode &&
+        if (IS_IBL_TRACE(ibl_code->source_fragment_type) &&
+            !GENCODE_IS_X86(code->gencode_mode) &&
             !DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
             instr_t *trace_cmp_unlinked = INSTR_CREATE_label(dcontext);
             APP(&ilist, trace_cmp_unlinked);
@@ -5838,7 +5840,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     }
 
 #ifdef X64
-    if (code->x86_mode) {
+    if (GENCODE_IS_X86(code->gencode_mode)) {
         /* We currently have x86 code parsing the regular x64 table (PR 283895 covers
          * using an x86 table, for both full correctness and performance: for now
          * we have no way to detect a source in one mode jumping to a target built in
@@ -6977,12 +6979,11 @@ link_shared_syscall(dcontext_t *dcontext)
 {
     ASSERT(IS_SHARED_SYSCALL_THREAD_SHARED || dcontext != GLOBAL_DCONTEXT);
     if (dcontext == GLOBAL_DCONTEXT) {
-        link_shared_syscall_common(SHARED_GENCODE(false));
+        link_shared_syscall_common(SHARED_GENCODE(GENCODE_X64));
 #ifdef X64
         /* N.B.: there are no 32-bit syscalls for WOW64 with 64-bit DR (i#821) */
         if (DYNAMO_OPTION(x86_to_x64))
-            link_shared_syscall_common(get_shared_gencode(GLOBAL_DCONTEXT,
-                                                          GENCODE_X86_TO_X64));
+            link_shared_syscall_common(SHARED_GENCODE(GENCODE_X86_TO_X64));
 #endif
     } else 
         link_shared_syscall_common(THREAD_GENCODE(dcontext));
@@ -7015,12 +7016,11 @@ unlink_shared_syscall(dcontext_t *dcontext)
 {
     ASSERT(IS_SHARED_SYSCALL_THREAD_SHARED || dcontext != GLOBAL_DCONTEXT);
     if (dcontext == GLOBAL_DCONTEXT) {
-        unlink_shared_syscall_common(SHARED_GENCODE(false));
+        unlink_shared_syscall_common(SHARED_GENCODE(GENCODE_X64));
 #ifdef X64
         /* N.B.: there are no 32-bit syscalls for WOW64 with 64-bit DR (i#821) */
         if (DYNAMO_OPTION(x86_to_x64))
-            unlink_shared_syscall_common(get_shared_gencode(GLOBAL_DCONTEXT,
-                                                            GENCODE_X86_TO_X64));
+            unlink_shared_syscall_common(SHARED_GENCODE(GENCODE_X86_TO_X64));
 #endif
     } else 
         unlink_shared_syscall_common(THREAD_GENCODE(dcontext));
@@ -7319,7 +7319,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
 
     /* i#821/PR 284029: for now we assume there are no syscalls in x86 code.
      */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(!code->x86_mode));
+    IF_X64(ASSERT_NOT_IMPLEMENTED(!GENCODE_IS_X86(code->gencode_mode)));
 
     ASSERT(syscall_offs != NULL);
     *syscall_offs = instr_length(dcontext, syscall);
@@ -7368,7 +7368,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
          */
         mangle_insert_clone_code(dcontext, &ilist, post_syscall,
                                  false /*do not skip*/
-                                 _IF_X64(MODE_OVERRIDE(code->x86_mode)));
+                                 _IF_X64(code->gencode_mode));
     }
 #endif
 
@@ -7816,7 +7816,7 @@ client_xfer_ibl_tgt(dcontext_t *dcontext, generated_code_t *code,
                               (code->thread_shared ? IBL_BB_SHARED : IBL_BB_PRIVATE) :
                               (code->thread_shared ? IBL_TRACE_SHARED : IBL_TRACE_PRIVATE),
                               IBL_RETURN
-                              _IF_X64(MODE_OVERRIDE(code->x86_mode)));
+                              _IF_X64(code->gencode_mode));
 }
 
 /* We only need a thread-private version if our ibl target is thread-private */
@@ -7858,7 +7858,7 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
          reg_spill_slot_opnd(dcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT)));
 
 #ifdef X64
-    if (code->x86_mode)
+    if (GENCODE_IS_X86(code->gencode_mode))
         instrlist_convert_to_x86(&ilist);
 #endif
     /* do not add new instrs that need conversion to x86 below here! */
@@ -7874,7 +7874,7 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
         len = ALIGN_FORWARD(pc + len + 1, 4) - (ptr_uint_t)(pc + len + 1);
         nop_inst = INSTR_CREATE_nopNbyte(dcontext, (uint)len);
 #ifdef X64
-        if (code->x86_mode) {
+        if (GENCODE_IS_X86(code->gencode_mode)) {
             instr_set_x86_mode(nop_inst, true/*x86*/);
             instr_shrink_to_32_bits(nop_inst);
         }

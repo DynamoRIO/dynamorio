@@ -47,6 +47,7 @@
 #include <stddef.h> /* for offsetof */
 #include "instr.h" /* for reg_id_t */
 #include "decode.h" /* for X64_CACHE_MODE_DC */
+#include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
 
 /* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
  * Keep in synch w/ defines in pre_inject_asm.asm
@@ -264,11 +265,13 @@ typedef enum {
     GENCODE_X86_TO_X64,
     GENCODE_FROM_DCONTEXT,
 } gencode_mode_t;
-# define MODE_OVERRIDE(x86_mode) ((x86_mode) ? GENCODE_X86 : GENCODE_X64)
-# define SHARED_GENCODE(x86_mode) \
-    get_shared_gencode(GLOBAL_DCONTEXT, MODE_OVERRIDE(x86_mode))
+# define FRAGMENT_GENCODE_MODE(fragment_flags) \
+    (FRAG_IS_32(fragment_flags) ? GENCODE_X86 : \
+     (FRAG_IS_X86_TO_X64(fragment_flags) ? GENCODE_X86_TO_X64 : GENCODE_X64))
+# define SHARED_GENCODE(gencode_mode) get_shared_gencode(GLOBAL_DCONTEXT, gencode_mode)
 # define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc, GENCODE_FROM_DCONTEXT)
 # define THREAD_GENCODE(dc) get_emitted_routines_code(dc, GENCODE_FROM_DCONTEXT)
+# define GENCODE_IS_X86(gencode_mode) ((gencode_mode) == GENCODE_X86)
 #else
 # define SHARED_GENCODE(b) get_shared_gencode(GLOBAL_DCONTEXT)
 # define THREAD_GENCODE(dc) get_emitted_routines_code(dc)
@@ -645,7 +648,7 @@ typedef struct _generated_code_t {
     bool thread_shared;
     bool writable;
 #ifdef X64
-    bool x86_mode; /* Is this code for 32-bit (x86 mode)? */
+    gencode_mode_t gencode_mode; /* mode of this code (x64, x86, x86_to_x64) */
 #endif
 
     /* We store the start of the generated code for simplicity even

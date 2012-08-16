@@ -127,7 +127,7 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
     byte *last_pc;
 
 #ifdef X64
-    if (code->x86_mode) {
+    if (GENCODE_IS_X86(code->gencode_mode)) {
         /* parts of x86 gencode are 64-bit but it's hard to know which here
          * so we dump all as x86
          */
@@ -206,7 +206,7 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
     }
 
 #ifdef X64
-    if (code->x86_mode)
+    if (GENCODE_IS_X86(code->gencode_mode))
         set_x86_mode(dcontext, false/*x64*/);
 #endif
 }
@@ -333,7 +333,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     memset(gencode, 0, sizeof(*gencode));
 
     gencode->thread_shared = true;
-    IF_X64(gencode->x86_mode = x86_mode);
+    IF_X64(gencode->gencode_mode = gencode_mode);
     /* Generated code immediately follows struct */
     gencode->gen_start_pc = ((byte *)gencode) + sizeof(*gencode);
     gencode->commit_end_pc = ((byte *)gencode) + GENCODE_COMMIT_SIZE;
@@ -447,7 +447,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     /* since we always have a shared fcache_return we can make reset stub shared */
     gencode->reset_exit_stub = pc;
     fragment = linkstub_fragment(GLOBAL_DCONTEXT, (linkstub_t *) get_reset_linkstub());
-    if (gencode->x86_mode)
+    if (GENCODE_IS_X86(gencode->gencode_mode))
         fragment = empty_fragment_mark_x86(fragment);
     /* reset exit stub should look just like a direct exit stub */
     pc += insert_exit_stub_other_flags
@@ -897,11 +897,11 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
         if (DYNAMO_OPTION(disable_traces)) {
             ibl_code = DYNAMO_OPTION(shared_bbs) ?
-                &SHARED_GENCODE(code->x86_mode)->bb_ibl[IBL_SHARED_SYSCALL] :
+                &SHARED_GENCODE(code->gencode_mode)->bb_ibl[IBL_SHARED_SYSCALL] :
                 &code->bb_ibl[IBL_SHARED_SYSCALL];
         }
         else if (DYNAMO_OPTION(shared_traces)) {
-            ibl_code = &SHARED_GENCODE(code->x86_mode)->trace_ibl[IBL_SHARED_SYSCALL];
+            ibl_code = &SHARED_GENCODE(code->gencode_mode)->trace_ibl[IBL_SHARED_SYSCALL];
         }
         else {
             ibl_code = &code->trace_ibl[IBL_SHARED_SYSCALL];
@@ -1052,7 +1052,7 @@ arch_thread_init(dcontext_t *dcontext)
             for (branch_type = IBL_BRANCH_TYPE_START; 
                  branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
                 code->trace_ibl[branch_type] =
-                    SHARED_GENCODE(code->x86_mode)->trace_ibl[branch_type];
+                    SHARED_GENCODE(code->gencode_mode)->trace_ibl[branch_type];
             }
         } /* FIXME: no private traces supported right now w/ -shared_traces */
     } else if (PRIVATE_TRACES_ENABLED()) {
@@ -2106,7 +2106,7 @@ get_ibl_routine_code(dcontext_t *dcontext, ibl_branch_type_t branch_type,
 {
     return get_ibl_routine_code_ex(dcontext, branch_type, fragment_flags
                                    _IF_X64(dcontext == GLOBAL_DCONTEXT ?
-                                           MODE_OVERRIDE(FRAG_IS_32(fragment_flags)) :
+                                           FRAGMENT_GENCODE_MODE(fragment_flags) :
                                            GENCODE_FROM_DCONTEXT));
 }
 
