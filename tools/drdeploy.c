@@ -313,11 +313,13 @@ bool register_proc(const char *process,
 
     assert(dr_root != NULL);
     if (_access(dr_root, 0) == -1) {
-        usage("cannot access DynamoRIO root directory %s", dr_root);
+        error("cannot access DynamoRIO root directory %s", dr_root);
+        return false;
     }
 #ifdef CLIENT_INTERFACE
     if (dr_mode == DR_MODE_NONE) {
-        usage("you must provide a DynamoRIO mode");
+        error("you must provide a DynamoRIO mode");
+        return false;
     }
 #endif
 

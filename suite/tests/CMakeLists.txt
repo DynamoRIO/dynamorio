@@ -942,11 +942,11 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
     # but we take advantage of the new drrun tool
     # we pass -exit0 to avoid ctest from considering our segfault and other tests
     # to have failed (also xref PR 548997).
-    if (VPS AND VMAP)
+    if (VPS AND VMAP OR VMSAFE)
       set(MODE -mode code)
-    else (VPS AND VMAP)
+    else (VPS AND VMAP OR VMSAFE)
       set(MODE "")
-    endif (VPS AND VMAP)
+    endif (VPS AND VMAP OR VMSAFE)
     set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun.exe -s ${TEST_SECONDS} -quiet -exit0 ${MODE})
     if (native)
       set(${outcmd} ${cmd} -ops "${dr_ops}" -noinject PARENT_SCOPE)
