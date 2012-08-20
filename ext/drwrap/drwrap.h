@@ -83,7 +83,7 @@ enum {
 /** Spill slot used to store user_data parameter for drwrap_replace_native() */
 #define DRWRAP_REPLACE_NATIVE_DATA_SLOT    SPILL_SLOT_2
 
-/** Spill slot used to store user_data parameter for drwrap_replace_native() */
+/** Spill slot used to store application stack address for drwrap_replace_native() */
 #define DRWRAP_REPLACE_NATIVE_SP_SLOT      SPILL_SLOT_3
 
 DR_EXPORT
@@ -124,7 +124,10 @@ DR_EXPORT
  *
  * Replaces the application function that starts at the address \p
  * original with the natively-executed (i.e., as the client) code at
- * the address \p replacement.
+ * the address \p replacement.  The replacement should either be
+ * the function entry point or a call site for the function, indicated
+ * by the \p at_entry parameter.  For a call site, only that particular
+ * call will be replaced, rather than every call to \p replacement.
  *
  * The replacement function must call drwrap_replace_native_fini()
  * prior to returning.  If it fails to do so, control will be lost and
@@ -181,6 +184,20 @@ DR_EXPORT
  * return address, DR will lose control of the application and not
  * continue executing it properly.
  *
+ * @param[in] original  The address of either the application function entry
+ *   point (in which case \p at_entry must be true) or of a call site (the
+ *   actual call or tailcall/inter-library jump) (in which case \p at_entry
+ *   must be false).
+ * @param[in] replacement  The function entry to use instead.
+ * @param[in] at_entry  Indicates whether \p original is the function entry
+ *   point or a call site.
+ * @param[in] stack_adjust  The stack adjustment performed at return for the
+ *   calling convention used by \p original.
+ * @param[in] user_data  Data made available when \p replacement is
+ *   executed.
+ * @param[in] override  Whether to replace any existing replacement for \p 
+ *   original.
+ *
  * \note The mechanism used for a native replacement results in a \p
  * ret instruction appearing in the code stream with an application
  * address that is different from an execution without a native
@@ -195,11 +212,13 @@ DR_EXPORT
  * DRMGR_PRIORITY_APP2APP_DRWRAP and its name is
  * DRMGR_PRIORITY_NAME_DRWRAP.
  *
+ * \note Far calls are not supported.
+ *
  * \return whether successful.
  */
 bool
-drwrap_replace_native(app_pc original, app_pc replacement, uint stack_adjust,
-                      void *user_data, bool override);
+drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
+                      uint stack_adjust, void *user_data, bool override);
 
 DR_EXPORT
 /** \return whether \p func is currently replaced via drwrap_replace() */

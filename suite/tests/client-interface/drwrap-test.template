@@ -16,6 +16,7 @@ level0 returned 42
 skipme returned 7 and x=3
 replaceme returned 0 and x=6
 replaceme2 returned 1 and x=999
+replace_callsite returned 2 and x=777
   <pre-preonly>
 in preonly
 in postonly
@@ -78,6 +79,7 @@ level0 returned 42
 skipme returned 7 and x=3
 replaceme returned 0 and x=6
 replaceme2 returned 1 and x=999
+replace_callsite returned 2 and x=777
   <pre-preonly>
 in preonly
 in postonly

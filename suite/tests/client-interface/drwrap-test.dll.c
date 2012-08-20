@@ -55,6 +55,7 @@ static void wrap_unwindtest_seh_pre(void *wrapcxt, OUT void **user_data);
 static void wrap_unwindtest_seh_post(void *wrapcxt, void *user_data);
 static int replacewith(int *x);
 static int replacewith2(int *x);
+static int replace_callsite(int *x);
 
 static uint load_count;
 
@@ -62,6 +63,7 @@ static int tls_idx;
 
 static app_pc addr_replace;
 static app_pc addr_replace2;
+static app_pc addr_replace_callsite;
 
 static app_pc addr_level0;
 static app_pc addr_level1;
@@ -130,6 +132,8 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
     if (strstr(dr_module_preferred_name(mod),
                "client.drwrap-test.appdll.") != NULL) {
         bool ok;
+        instr_t inst;
+        app_pc init_pc, pc, next_pc;
 
         load_count++;
         if (load_count == 2) {
@@ -144,9 +148,35 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 
         addr_replace2 = (app_pc) dr_get_proc_address(mod->handle, "replaceme2");
         CHECK(addr_replace2 != NULL, "cannot find lib export");
-        ok = drwrap_replace_native(addr_replace2, (app_pc) replacewith2, 0,
+        ok = drwrap_replace_native(addr_replace2, (app_pc) replacewith2, true/*at entry*/,
+                                   0, (void *)(ptr_int_t)DRWRAP_NATIVE_PARAM, false);
+        CHECK(ok, "replace_native failed");
+
+        init_pc = (app_pc) dr_get_proc_address(mod->handle, "replace_callsite");
+        CHECK(init_pc != NULL, "cannot find lib export");
+        /* Find callsite: we assume we'll linearly hit a ret.  We take final call
+         * to skip any PIC call.
+         */
+        instr_init(drcontext, &inst);
+        pc = init_pc;
+        do {
+            instr_reset(drcontext, &inst);
+            next_pc = decode(drcontext, pc, &inst);
+            if (!instr_valid(&inst))
+                break;
+            /* if initial jmp, follow it to handle ILT-indirection */
+            if (pc == init_pc && instr_is_ubr(&inst))
+                next_pc = opnd_get_pc(instr_get_target(&inst));
+            else if (instr_is_call(&inst))
+                addr_replace_callsite = pc;
+            pc = next_pc;
+        } while (instr_valid(&inst) && instr_get_opcode(&inst) != OP_ret);
+        CHECK(addr_replace_callsite != NULL, "cannot find lib export");
+        ok = drwrap_replace_native(addr_replace_callsite, (app_pc) replace_callsite,
+                                   false/*!at entry*/, 0,
                                    (void *)(ptr_int_t)DRWRAP_NATIVE_PARAM, false);
         CHECK(ok, "replace_native failed");
+        instr_free(drcontext, &inst);
 
         wrap_addr(&addr_level0, "level0", mod, true, true);
         wrap_addr(&addr_level1, "level1", mod, true, true);
@@ -201,7 +231,9 @@ module_unload_event(void *drcontext, const module_data_t *mod)
         bool ok;
         ok = drwrap_replace(addr_replace, NULL, true);
         CHECK(ok, "un-replace failed");
-        ok = drwrap_replace_native(addr_replace2, NULL, 0, NULL, true);
+        ok = drwrap_replace_native(addr_replace2, NULL, true, 0, NULL, true);
+        CHECK(ok, "un-replace_native failed");
+        ok = drwrap_replace_native(addr_replace_callsite, NULL, false, 0, NULL, true);
         CHECK(ok, "un-replace_native failed");
 
         unwrap_addr(addr_level0, "level0", mod, true, true);
@@ -286,6 +318,17 @@ replacewith2(int *x)
      */
     drwrap_replace_native_fini(dr_get_current_drcontext());
     return 1;
+}
+
+static int
+replace_callsite(int *x)
+{
+    ptr_int_t param = dr_read_saved_reg(dr_get_current_drcontext(),
+                                        DRWRAP_REPLACE_NATIVE_DATA_SLOT);
+    CHECK(param == DRWRAP_NATIVE_PARAM, "native param wrong");
+    *x = 777;
+    drwrap_replace_native_fini(dr_get_current_drcontext());
+    return 2;
 }
 
 static void

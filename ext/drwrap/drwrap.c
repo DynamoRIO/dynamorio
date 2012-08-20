@@ -99,6 +99,7 @@ static hashtable_t replace_table;
 /* Native replacements need to store the stack adjust and user data */
 typedef struct _replace_native_t {
     app_pc replacement;
+    bool at_entry;
     uint stack_adjust;
     void *user_data;
 } replace_native_t;
@@ -1046,8 +1047,8 @@ drwrap_replace(app_pc original, app_pc replacement, bool override)
 
 DR_EXPORT
 bool
-drwrap_replace_native(app_pc original, app_pc replacement, uint stack_adjust,
-                      void *user_data, bool override)
+drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
+                      uint stack_adjust, void *user_data, bool override)
 {
     bool res = false;
     replace_native_t *rn;
@@ -1059,6 +1060,7 @@ drwrap_replace_native(app_pc original, app_pc replacement, uint stack_adjust,
     else {
         rn = dr_global_alloc(sizeof(*rn));
         rn->replacement = replacement;
+        rn->at_entry = at_entry;
         rn->stack_adjust = stack_adjust;
         rn->user_data = user_data;
     }
@@ -1112,8 +1114,58 @@ drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
 }
 
 static void
+drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
+                                   ptr_int_t pushval, opnd_size_t stacksz
+                                   _IF_X64(bool x86))
+{
+    if (stacksz == OPSZ_4 IF_X64(&& x86)) {
+        instrlist_append
+            (bb, INSTR_XL8(INSTR_CREATE_push_imm
+                           (drcontext, OPND_CREATE_INT32(pushval)), pc)); 
+    }
+#ifdef X64
+    else if (!x86 && stacksz == OPSZ_8) {
+        /* needs 2 steps */
+        instrlist_append
+            (bb, INSTR_XL8(INSTR_CREATE_push_imm
+                           (drcontext, OPND_CREATE_INT32((int)pushval)), pc)); 
+        /* first push sign-extended so may not need 2nd */
+        if ((ptr_uint_t)pushval >= 0x80000000) {
+            instrlist_append
+                (bb, INSTR_XL8(INSTR_CREATE_mov_st
+                               (drcontext, OPND_CREATE_MEM32(DR_REG_XSP, 4),
+                                OPND_CREATE_INT32((int)((ptr_int_t)pushval >> 32))), pc));
+        }
+    }
+#endif
+    else {
+        int sz = opnd_size_in_bytes(stacksz);
+        ptr_int_t val = 0;
+        if (stacksz == OPSZ_2)
+            val = pushval & (ptr_int_t) 0x0000ffff;
+#ifdef X64
+        else {
+            ASSERT(stacksz == OPSZ_4 && !x86, "illegal stack size for call");
+            val = (ptr_int_t)pushval & (ptr_int_t) 0xffffffff;
+        }
+#endif
+        /* can't do a non-default operand size with a push immed so we emulate */
+        instrlist_append
+            (bb, INSTR_XL8(INSTR_CREATE_lea
+                           (drcontext, opnd_create_reg(DR_REG_XSP),
+                            opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
+                                                  -sz, OPSZ_lea)), pc));
+        instrlist_append
+            (bb, INSTR_XL8(INSTR_CREATE_mov_st
+                           (drcontext, opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL,
+                                                             0, 0, stacksz),
+                            opnd_create_immed_int(val, stacksz)), pc));
+    }
+}
+
+static void
 drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
-                         app_pc pc, replace_native_t *rn)
+                         app_pc pc, replace_native_t *rn, app_pc topush)
 {
     /* we're in the callee to handle indirect transfers, so the retaddr
      * is already in place.  We can't push a new retaddr on top of it b/c
@@ -1129,6 +1181,9 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
      * It's much easier to get the app xsp here so we store it in a
      * tls slot.  We also store the stack adjust for use later.
      *
+     *  if (topush != NULL) {
+     *      push app retaddr
+     *  }
      *    meta mov xsp to scratch slot
      *  if (user_data != NULL) {
      *      meta mov $user_data to scratch slot 2
@@ -1137,11 +1192,32 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
      *    <never reached>
      *    nop (to avoid non-empty bb)
      */
+    /* get data from inst before we destroy it */
+#ifdef DEBUG
+    uint opc = instr_get_opcode(inst);
+#endif
+#ifdef X64
+    bool x86 = instr_get_x86_mode(inst);
+#endif
+    opnd_size_t stacksz = OPSZ_NA;
+    if (topush != NULL) {
+        ASSERT(instr_num_dsts(inst) > 1 &&
+               opnd_is_base_disp(instr_get_dst(inst, 1)), "expected call");
+        stacksz = opnd_get_size(instr_get_dst(inst, 1));
+    }
+
     instrlist_truncate(drcontext, bb, inst);
+
     ASSERT(DRWRAP_REPLACE_NATIVE_DATA_SLOT <= dr_max_opnd_accessible_spill_slot(),
            "assuming TLS direct access");
     ASSERT(DRWRAP_REPLACE_NATIVE_SP_SLOT <= dr_max_opnd_accessible_spill_slot(),
            "assuming TLS direct access");
+
+    if (topush != NULL) {
+        ASSERT(opc == OP_call || opc == OP_call_ind, "unsuppored call type");
+        drwrap_replace_native_push_retaddr(drcontext, bb, pc, (ptr_int_t) topush,
+                                           stacksz _IF_X64(x86));
+    }
     instrlist_meta_append(bb, INSTR_CREATE_mov_st
                           (drcontext, dr_reg_spill_slot_opnd
                            (drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT),
@@ -1211,7 +1287,15 @@ drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
             hashtable_lock(&replace_native_table);
             rn = hashtable_lookup(&replace_native_table, pc);
             if (rn != NULL) {
-                drwrap_replace_native_bb(drcontext, bb, inst, pc, rn);
+                app_pc topush = NULL;
+                if (!rn->at_entry) {
+                    if (instr_is_call(inst)) {
+                        topush = pc + instr_length(drcontext, inst);
+                    } else if (!instr_is_ubr(inst)) {
+                        /* usage error?  no, we'll trust user knows what they're doing */
+                    }
+                }
+                drwrap_replace_native_bb(drcontext, bb, inst, pc, rn, topush);
                 hashtable_unlock(&replace_native_table);
                 break;
             }
