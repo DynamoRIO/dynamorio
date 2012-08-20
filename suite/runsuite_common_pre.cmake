@@ -239,7 +239,9 @@ if(NOT DEFINED PROCESSOR_COUNT)
 
   # Windows:
   if(WIN32)
-    set(PROCESSOR_COUNT "$ENV{NUMBER_OF_PROCESSORS}")
+    if ($ENV{NUMBER_OF_PROCESSORS})
+      set(PROCESSOR_COUNT "$ENV{NUMBER_OF_PROCESSORS}")
+    endif ()
   endif()
 endif()
 
