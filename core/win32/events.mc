@@ -364,7 +364,6 @@ Application %1!s! (%2!s!). Check returns using SSE2 requires that the processor 
 
 ;#endif
 
-;#if defined(CLIENT_INTERFACE) || defined(STRACE_CLIENT_INTERFACE) || defined(DR_APP_EXPORTS)
 MessageId = 
 Severity = Error
 Facility = DRCore
@@ -372,8 +371,6 @@ SymbolicName = MSG_EXTERNAL_ERROR
 Language=English
 Application %1!s! (%2!s!) %3!s! usage error : %4!s!
 .
-
-;#endif
 
 ;#ifdef LINUX
 ;// is ok to use x! d!, this won't be used on windows
