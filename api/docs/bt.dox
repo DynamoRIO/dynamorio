@@ -104,7 +104,8 @@ compatibility can turn many of these export routine calls into inline functions
 or macros by setting the CMake variable \c DynamoRIO_FAST_IR on or defining \p
 DR_FAST_IR before including dr_api.h.  This removes some of the error checking
 that DynamoRIO performs on calls from the client, so it should typically be
-enabled only in a release build.
+enabled only in a release build.  Furthermore, some of the macros evaluate their
+arguments twice, so clients should avoid passing arguments with side effects.
 
 \if level_of_detail
 ********************

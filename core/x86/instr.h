@@ -94,7 +94,20 @@ struct instr_info_t;
 # error REG_ enum conflict between DR and ucontext.h!  Use DR_REG_ constants instead.
 #endif
 /* DR_API EXPORT END */
+
+/* If INSTR_INLINE is already defined, that means we've been included by
+ * instr.c, which wants to use C99 extern inline.  Otherwise, DR_FAST_IR
+ * determines whether our instr routines are inlined.
+ */
 /* DR_API EXPORT BEGIN */
+/* Inlining macro controls. */
+#ifndef INSTR_INLINE
+# ifdef DR_FAST_IR
+#  define INSTR_INLINE inline
+# else
+#  define INSTR_INLINE
+# endif
+#endif
 
 #ifdef AVOID_API_EXPORT
 /* We encode this enum plus the OPSZ_ extensions in bytes, so we can have
@@ -565,11 +578,13 @@ enum {
 /* functions to build an operand */
 
 DR_API
+INSTR_INLINE
 /** Returns an empty operand. */
 opnd_t 
 opnd_create_null(void);
 
 DR_API
+INSTR_INLINE
 /** Returns a register operand (\p r must be a DR_REG_ constant). */
 opnd_t 
 opnd_create_reg(reg_id_t r);
@@ -596,6 +611,7 @@ opnd_t
 opnd_create_immed_float_zero(void);
 
 DR_API
+INSTR_INLINE
 /** Returns a program address operand with value \p pc. */
 opnd_t 
 opnd_create_pc(app_pc pc);
@@ -814,6 +830,7 @@ bool
 opnd_is_reg(opnd_t opnd);
 
 DR_API
+INSTR_INLINE
 /** Returns true iff \p opnd is an immediate (integer or float) operand. */
 bool 
 opnd_is_immed(opnd_t opnd);
@@ -829,6 +846,7 @@ bool
 opnd_is_immed_float(opnd_t opnd);
 
 DR_API
+INSTR_INLINE
 /** Returns true iff \p opnd is a (near or far) program address operand. */
 bool 
 opnd_is_pc(opnd_t opnd);
@@ -844,6 +862,7 @@ bool
 opnd_is_far_pc(opnd_t opnd);
 
 DR_API
+INSTR_INLINE
 /** Returns true iff \p opnd is a (near or far) instr_t pointer address operand. */
 bool 
 opnd_is_instr(opnd_t opnd);
@@ -864,6 +883,7 @@ bool
 opnd_is_base_disp(opnd_t opnd);
 
 DR_API
+INSTR_INLINE
 /**
  * Returns true iff \p opnd is a near (i.e., default segment) base+disp memory
  * reference operand.
@@ -872,6 +892,7 @@ bool
 opnd_is_near_base_disp(opnd_t opnd);
 
 DR_API
+INSTR_INLINE
 /** Returns true iff \p opnd is a far base+disp memory reference operand. */
 bool 
 opnd_is_far_base_disp(opnd_t opnd);
@@ -916,6 +937,7 @@ bool
 opnd_is_rel_addr(opnd_t opnd);
 
 DR_API
+INSTR_INLINE
 /**
  * Returns true iff \p opnd is a near (i.e., default segment) pc-relative memory
  * reference operand. 
@@ -926,6 +948,7 @@ bool
 opnd_is_near_rel_addr(opnd_t opnd);
 
 DR_API
+INSTR_INLINE
 /**
  * Returns true iff \p opnd is a far pc-relative memory reference operand. 
  *
@@ -1539,8 +1562,16 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc);
  * the instr or not.
  */
 
+/* DR_API EXPORT TOFILE dr_ir_instr.h */
+/* For inlining, we need to expose some of these flags.  We bracket the ones we
+ * want in export begin/end.  AVOID_API_EXPORT does not work because there are
+ * nested ifdefs.
+ */
+/* DR_API EXPORT BEGIN */
+#ifdef DR_FAST_IR
 /* flags */
 enum {
+/* DR_API EXPORT END */
     /* these first flags are shared with the LINK_ flags and are
      * used to pass on info to link stubs 
      */
@@ -1599,7 +1630,9 @@ enum {
     INSTR_EFLAGS_6_VALID        = 0x00040000,
     INSTR_RAW_BITS_VALID        = 0x00080000,
     INSTR_RAW_BITS_ALLOCATED    = 0x00100000,
+/* DR_API EXPORT BEGIN */
     INSTR_DO_NOT_MANGLE         = 0x00200000,
+/* DR_API EXPORT END */
     INSTR_HAS_CUSTOM_STUB       = 0x00400000,
     /* used to indicate that an indirect call can be treated as a direct call */
     INSTR_IND_CALL_DIRECT       = 0x00800000,
@@ -1633,23 +1666,9 @@ enum {
 #endif
     /* PR 267260: distinguish our own mangling from client-added instrs */
     INSTR_OUR_MANGLING          = 0x80000000,
-};
-
-/* DR_API EXPORT TOFILE dr_ir_instr.h */
-
-/* If INSTR_INLINE is already defined, that means we've been included by
- * instr.c, which wants to use C99 extern inline.  Otherwise, DR_FAST_IR
- * determines whether our instr routines are inlined.
- */
 /* DR_API EXPORT BEGIN */
-/* Inlining macro controls. */
-#ifndef INSTR_INLINE
-# ifdef DR_FAST_IR
-#  define INSTR_INLINE inline
-# else
-#  define INSTR_INLINE
-# endif
-#endif
+};
+#endif /* DR_FAST_IR */
 
 /**
  * Data slots available in a label (instr_create_label()) instruction
@@ -1925,6 +1944,7 @@ void
 instr_branch_set_selfmod_exit(instr_t *instr, bool val);
 
 DR_API
+INSTR_INLINE
 /**
  * Return true iff \p instr is not a meta-instruction
  * (see instr_set_ok_to_mangle() for more information).
@@ -1961,6 +1981,10 @@ void
 instr_set_meta_no_translation(instr_t *instr);
 
 DR_API
+#ifdef AVOID_API_EXPORT
+/* This is hot internally, but unlikely to be used by clients. */
+INSTR_INLINE
+#endif
 /** Return true iff \p instr is to be emitted into the cache. */
 bool
 instr_ok_to_emit(instr_t *instr);

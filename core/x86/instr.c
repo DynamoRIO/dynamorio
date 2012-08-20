@@ -85,61 +85,41 @@
  ***       opnd_t        ***
  *************************/
 
-/* predicates */
-bool opnd_is_valid(opnd_t opnd)
-{
-    return opnd.kind < LAST_kind;
-}
-bool opnd_is_null(opnd_t opnd) { return opnd.kind == NULL_kind; }
-bool opnd_is_reg(opnd_t opnd) { return opnd.kind == REG_kind; }
-bool opnd_is_immed(opnd_t opnd) { return opnd.kind == IMMED_INTEGER_kind ||
-                               opnd.kind == IMMED_FLOAT_kind; }
-bool opnd_is_immed_int(opnd_t opnd) { return opnd.kind == IMMED_INTEGER_kind; }
-bool opnd_is_immed_float(opnd_t opnd) { return opnd.kind == IMMED_FLOAT_kind; }
-bool opnd_is_pc(opnd_t opnd) {
-    return opnd.kind == PC_kind || opnd.kind == FAR_PC_kind; 
-}
-bool opnd_is_near_pc(opnd_t opnd) { return opnd.kind == PC_kind; }
-bool opnd_is_far_pc(opnd_t opnd) { return opnd.kind == FAR_PC_kind; }
-bool opnd_is_instr(opnd_t opnd) {
-    return opnd.kind == INSTR_kind || opnd.kind == FAR_INSTR_kind;
-}
-bool opnd_is_near_instr(opnd_t opnd) { return opnd.kind == INSTR_kind; }
-bool opnd_is_far_instr(opnd_t opnd) { return opnd.kind == FAR_INSTR_kind; }
-
-/* Though we have "protected" visibility, gcc still does not inline
- * these exported routines.  We can get noticeably better performance by
- * forcing an inline (PR 622253).  I also found that using macros
- * produces better code than having gcc inline these functions: with
- * inlining there are extra local var slots and memory traffic to them.
- *
- * XXX: figure out how to get as-fast code with inlining for better
- * debuggability!  For now going with macros as the speed difference
- * is noticeable; these macros uses are confined to this file as well.
- * I'm including some sanity type checks in the macros.
- */
-#define inlined_opnd_is_base_disp(opnd) \
-    (IF_DEBUG_(CLIENT_ASSERT(sizeof(opnd) == sizeof(opnd_t), "invalid type")) \
-     (opnd).kind == BASE_DISP_kind)
-bool opnd_is_base_disp(opnd_t opnd) { return inlined_opnd_is_base_disp(opnd); }
-/* in rest of file, directly de-reference for performance (PR 622253) */
-#define opnd_is_base_disp inlined_opnd_is_base_disp
-
-bool opnd_is_near_base_disp(opnd_t opnd) {
-    return opnd.kind == BASE_DISP_kind && opnd.seg.segment == REG_NULL; 
-}
-bool opnd_is_far_base_disp(opnd_t opnd) {
-    return opnd.kind == BASE_DISP_kind && opnd.seg.segment != REG_NULL;
-}
+#undef opnd_is_null
+#undef opnd_is_immed_int
+#undef opnd_is_immed_float
+#undef opnd_is_near_pc
+#undef opnd_is_near_instr
+#undef opnd_is_reg
+#undef opnd_is_base_disp
+#undef opnd_is_far_pc
+#undef opnd_is_far_instr
+#undef opnd_is_valid
+bool opnd_is_null       (opnd_t op) { return OPND_IS_NULL(op); }
+bool opnd_is_immed_int  (opnd_t op) { return OPND_IS_IMMED_INT(op); }
+bool opnd_is_immed_float(opnd_t op) { return OPND_IS_IMMED_FLOAT(op); }
+bool opnd_is_near_pc    (opnd_t op) { return OPND_IS_NEAR_PC(op); }
+bool opnd_is_near_instr (opnd_t op) { return OPND_IS_NEAR_INSTR(op); }
+bool opnd_is_reg        (opnd_t op) { return OPND_IS_REG(op); }
+bool opnd_is_base_disp  (opnd_t op) { return OPND_IS_BASE_DISP(op); }
+bool opnd_is_far_pc     (opnd_t op) { return OPND_IS_FAR_PC(op); }
+bool opnd_is_far_instr  (opnd_t op) { return OPND_IS_FAR_INSTR(op); }
+bool opnd_is_valid      (opnd_t op) { return OPND_IS_VALID(op); }
+#define opnd_is_null            OPND_IS_NULL
+#define opnd_is_immed_int       OPND_IS_IMMED_INT
+#define opnd_is_immed_float     OPND_IS_IMMED_FLOAT
+#define opnd_is_near_pc         OPND_IS_NEAR_PC
+#define opnd_is_near_instr      OPND_IS_NEAR_INSTR
+#define opnd_is_reg             OPND_IS_REG
+#define opnd_is_base_disp       OPND_IS_BASE_DISP
+#define opnd_is_far_pc          OPND_IS_FAR_PC
+#define opnd_is_far_instr       OPND_IS_FAR_INSTR
+#define opnd_is_valid           OPND_IS_VALID
 
 #ifdef X64
-bool opnd_is_rel_addr(opnd_t opnd) { return opnd.kind == REL_ADDR_kind; }
-bool opnd_is_near_rel_addr(opnd_t opnd) {
-    return opnd.kind == REL_ADDR_kind && opnd.seg.segment == REG_NULL; 
-}
-bool opnd_is_far_rel_addr(opnd_t opnd) {
-    return opnd.kind == REL_ADDR_kind && opnd.seg.segment != REG_NULL; 
-}
+# undef opnd_is_rel_addr
+bool opnd_is_rel_addr(opnd_t op) { return OPND_IS_REL_ADDR(op); }
+# define opnd_is_rel_addr OPND_IS_REL_ADDR
 #endif
 
 /* We allow overlap between ABS_ADDR_kind and BASE_DISP_kind w/ no base or index */
@@ -204,36 +184,13 @@ reg_is_pointer_sized(reg_id_t reg)
 #endif
 }
 
-/* null operands */
-
-opnd_t
-opnd_create_null(void)
-{
-    opnd_t opnd;
-    opnd.kind = NULL_kind;
-    return opnd;
-}
-
-/* register operands */
-
-opnd_t
-opnd_create_reg(reg_id_t r)
-{
-    opnd_t opnd IF_DEBUG(= {0});  /* FIXME: Needed until i#417 is fixed. */
-    CLIENT_ASSERT(r <= REG_LAST_ENUM && r != REG_INVALID,
-                  "opnd_create_reg: invalid register");
-    opnd.kind = REG_kind;
-    opnd.value.reg = r;
-    return opnd;
-}
-
+#undef opnd_get_reg
 reg_id_t
 opnd_get_reg(opnd_t opnd)
 {
-    CLIENT_ASSERT(opnd_is_reg(opnd), "opnd_get_reg called on non-reg opnd");
-    return opnd.value.reg;
+    return OPND_GET_REG(opnd);
 }
-
+#define opnd_get_reg OPND_GET_REG
 
 opnd_size_t
 opnd_get_size(opnd_t opnd)
@@ -351,15 +308,6 @@ opnd_get_immed_float(opnd_t opnd)
 
 
 /* address operands */
-
-opnd_t
-opnd_create_pc(app_pc pc)
-{
-    opnd_t opnd;
-    opnd.kind = PC_kind;
-    opnd.value.pc = pc;
-    return opnd;
-}
 
 /* N.B.: seg_selector is a segment selector, not a SEG_ constant */
 opnd_t
@@ -481,27 +429,21 @@ opnd_create_far_base_disp(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg, i
                                         false, false, false);
 }
 
-reg_id_t
-opnd_get_base(opnd_t opnd)
-{
-    if (opnd_is_base_disp(opnd))
-        return opnd.value.base_disp.base_reg;
-#ifdef X64
-    if (opnd_is_abs_addr(opnd))
-        return REG_NULL;
-#endif
-    CLIENT_ASSERT(false, "opnd_get_base called on invalid opnd type");
-    return REG_INVALID;
-}
-
-int
-opnd_get_disp(opnd_t opnd)
-{
-    if (opnd_is_base_disp(opnd))
-        return opnd.value.base_disp.disp;
-    CLIENT_ASSERT(false, "opnd_get_disp called on invalid opnd type");
-    return REG_INVALID;
-}
+#undef opnd_get_base
+#undef opnd_get_disp
+#undef opnd_get_index
+#undef opnd_get_scale
+#undef opnd_get_segment
+reg_id_t opnd_get_base   (opnd_t opnd) { return OPND_GET_BASE(opnd); }
+int      opnd_get_disp   (opnd_t opnd) { return OPND_GET_DISP(opnd); }
+reg_id_t opnd_get_index  (opnd_t opnd) { return OPND_GET_INDEX(opnd); }
+int      opnd_get_scale  (opnd_t opnd) { return OPND_GET_SCALE(opnd); }
+reg_id_t opnd_get_segment(opnd_t opnd) { return OPND_GET_SEGMENT(opnd); }
+#define opnd_get_base  OPND_GET_BASE
+#define opnd_get_disp  OPND_GET_DISP
+#define opnd_get_index OPND_GET_INDEX
+#define opnd_get_scale OPND_GET_SCALE
+#define opnd_get_segment OPND_GET_SEGMENT
 
 bool
 opnd_is_disp_encode_zero(opnd_t opnd)
@@ -551,46 +493,6 @@ opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_
     } else
         CLIENT_ASSERT(false, "opnd_set_disp_ex called on invalid opnd type"); 
 }
-
-#define inlined_opnd_get_index(opnd) \
-    (IF_DEBUG_(CLIENT_ASSERT(sizeof(opnd) == sizeof(opnd_t), "invalid type")) \
-     (opnd_is_base_disp(opnd) ? (opnd).value.base_disp.index_reg : \
-      (IF_DEBUG_(CLIENT_ASSERT(false, "opnd_get_index called on invalid opnd type")) \
-       REG_INVALID)))
-reg_id_t
-opnd_get_index(opnd_t opnd)
-{
-    return inlined_opnd_get_index(opnd);
-}
-/* in rest of file, directly de-reference for performance (PR 622253) */
-#define opnd_get_index inlined_opnd_get_index
-
-int
-opnd_get_scale(opnd_t opnd)
-{
-    if (opnd_is_base_disp(opnd))
-        return opnd.value.base_disp.scale;
-#ifdef X64
-    if (opnd_is_abs_addr(opnd))
-        return REG_NULL;
-#endif
-    CLIENT_ASSERT(false, "opnd_get_scale called on invalid opnd type");
-    return -1;
-}
-
-#define inlined_opnd_get_segment(opnd) \
-    (IF_DEBUG_(CLIENT_ASSERT(sizeof(opnd) == sizeof(opnd_t), "invalid type")) \
-     ((opnd_is_base_disp(opnd) IF_X64(|| opnd_is_abs_addr(opnd) || \
-       opnd_is_rel_addr(opnd))) ? (opnd).seg.segment : \
-      (IF_DEBUG_(CLIENT_ASSERT(false, "opnd_get_segment called on invalid opnd type")) \
-       REG_INVALID)))
-reg_id_t
-opnd_get_segment(opnd_t opnd)
-{
-    return inlined_opnd_get_segment(opnd);
-}
-/* in rest of file, directly de-reference for performance (PR 622253) */
-#define opnd_get_segment inlined_opnd_get_segment
 
 opnd_t 
 opnd_create_abs_addr(void *addr, opnd_size_t data_size)
@@ -2283,12 +2185,6 @@ instr_exit_branch_set_type(instr_t *instr, uint type)
     instr->flags |= type;
 }
 
-bool
-instr_ok_to_mangle(instr_t *instr)
-{
-    return ((instr->flags & INSTR_DO_NOT_MANGLE) == 0);
-}
-
 void
 instr_set_ok_to_mangle(instr_t *instr, bool val)
 {
@@ -2320,13 +2216,6 @@ instr_set_meta_no_translation(instr_t *instr)
 {
     instr_set_ok_to_mangle(instr, false);
     instr_set_translation(instr, NULL);
-}
-
-bool
-instr_ok_to_emit(instr_t *instr)
-{
-    CLIENT_ASSERT(instr != NULL, "instr_ok_to_emit: passed NULL");
-    return (!TEST(INSTR_DO_NOT_EMIT, instr->flags));
 }
 
 void
