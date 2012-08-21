@@ -179,10 +179,16 @@ loader_thread_init(dcontext_t *dcontext)
         os_loader_thread_init_prologue(dcontext);
         if (privload_has_thread_entry()) {
             /* We rely on lock isolation to prevent deadlock while we're here
-             * holding privload_lock and thread_initexit_lock and the priv lib
+             * holding privload_lock and the priv lib
              * DllMain may acquire the same lock that another thread acquired
-             * in its app code before requesting a synchall (flush, exit)
+             * in its app code before requesting a synchall (flush, exit).
+             * FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.
+             * Living w/ it for now.  It should be unlikely for the app to
+             * hold RtlpFlsLock and then acquire privload_lock: privload_lock
+             * is used for import redirection but those don't apply within
+             * ntdll.
              */
+            ASSERT_OWN_NO_LOCKS();
             acquire_recursive_lock(&privload_lock);
             /* Walk forward and call independent libs last.
              * We do notify priv libs of client threads.

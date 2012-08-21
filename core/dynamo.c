@@ -2139,6 +2139,15 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     fcache_thread_init(dcontext);
     link_thread_init(dcontext);
     fragment_thread_init(dcontext);
+
+    /* This lock has served its purposes: A) a barrier to thread creation for those
+     * iterating over threads, B) mutex for add_thread, and C) mutex for synch_field
+     * to be set up.
+     * So we release it to shrink the time spent w/ this big lock, in particular
+     * to avoid holding it while running private lib thread init code (i#875).
+     */
+    mutex_unlock(&thread_initexit_lock);
+
     loader_thread_init(dcontext);
 
     if (!DYNAMO_OPTION(thin_client)) {
@@ -2174,7 +2183,6 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
         mutex_unlock(&reset_pending_lock);
     }
 
-    mutex_unlock(&thread_initexit_lock);
     DOLOG(1, LOG_STATS, {
         dump_thread_stats(dcontext, false);
     });

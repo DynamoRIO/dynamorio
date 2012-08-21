@@ -344,6 +344,7 @@ static void *priv_nt_rpc;
 static bool loaded_windows_lib;
 /* Used to handle loading windows lib later during init */
 static bool swapped_to_app_peb;
+/* FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.  Living w/ it for now. */
 #endif
 
 /***************************************************************************/
