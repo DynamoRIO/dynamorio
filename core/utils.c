@@ -3263,7 +3263,7 @@ static const uint days_per_month_leap[12] =
     {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 /* On Linux, millis is the number of milliseconds since the Epoch (Jan 1, 1970).
- * On Windows, millis is the number of milliseconds since Jan 1, 1600 (this is
+ * On Windows, millis is the number of milliseconds since Jan 1, 1601 (this is
  * the current UTC time).
  */ 
 void

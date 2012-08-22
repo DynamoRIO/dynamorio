@@ -930,24 +930,21 @@ generate a Makefile and then build with \p VERBOSE=1.  We also summarize
 here the key flags required for 32-bit clients for \p gcc:
 
 \code
-gcc -fPIC -shared -nostartfiles -nodefaultlibs -lgcc -DLINUX -DX86_32
-    -I$DYNAMORIO_HOME/include my-client.c  
+gcc -fPIC -shared -lgcc -DLINUX -DX86_32 -I$DYNAMORIO_HOME/include my-client.c
 \endcode
 
 And for \p cl:
 
 \code
 cl my-client.c /I$DYNAMORIO_HOME/include /GS- /DWINDOWS /DX86_32
-   /link /NODEFAULTLIB /NOENTRY
-   /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:my-client.dll 
+   /link /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:my-client.dll
 \endcode
 
 For a 64-bit client with \p cl:
 
 \code
 cl my-client.c /I$DYNAMORIO_HOME/include /GS- /DWINDOWS /DX86_64
-   /link /NODEFAULTLIB /NOENTRY
-   /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:my-client.dll 
+   /link /libpath:$DYNAMORIO_HOME/bin dynamorio.lib /dll /out:my-client.dll
    /base:0x72000000 /fixed
 \endcode
 

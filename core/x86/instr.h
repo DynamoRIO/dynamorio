@@ -1016,7 +1016,7 @@ reg_id_t
 opnd_get_reg(opnd_t opnd);
 
 DR_API
-/* Assumes opnd is an immediate integer, returns its value. */
+/** Assumes opnd is an immediate integer, returns its value. */
 ptr_int_t
 opnd_get_immed_int(opnd_t opnd);
 
