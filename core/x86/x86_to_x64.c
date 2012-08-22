@@ -67,6 +67,83 @@ replace(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **old, instr_t *
     *old = new;
 }
 
+static opnd_t
+opnd_change_base_reg_to_64(opnd_t opnd)
+{
+    reg_id_t base_reg;
+    reg_id_t index_reg;
+
+    ASSERT(opnd_is_base_disp(opnd));
+
+    base_reg = opnd_get_base(opnd);
+    index_reg = opnd_get_index(opnd);
+
+    /* If there's a negative index, then base+index may overflow.
+     * So we only perform the optimization when there's no index.
+     * On the other hand, disp will be sign-extended, so base+disp won't overflow.
+     */
+    if (reg_is_32bit(base_reg) && index_reg == REG_NULL) {
+        opnd = opnd_create_far_base_disp_ex(opnd_get_segment(opnd),
+                                            reg_32_to_64(base_reg),
+                                            index_reg,
+                                            opnd_get_scale(opnd),
+                                            opnd_get_disp(opnd),
+                                            opnd_get_size(opnd),
+                                            opnd_is_disp_encode_zero(opnd),
+                                            opnd_is_disp_force_full(opnd),
+                                            opnd_is_disp_short_addr(opnd));
+    }
+
+    return opnd;
+}
+
+static bool
+instr_is_string_operation(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    case OP_ins: case OP_rep_ins:
+    case OP_outs: case OP_rep_outs:
+    case OP_movs: case OP_rep_movs:
+    case OP_stos: case OP_rep_stos:
+    case OP_lods: case OP_rep_lods:
+    case OP_cmps: case OP_rep_cmps: case OP_repne_cmps:
+    case OP_scas: case OP_rep_scas: case OP_repne_scas:
+        return true;
+    }
+    return false;
+}
+
+/* make memory reference operands use 64-bit regs in order to save the
+ * addr32 prefix, because the high 32 bits should be zero at this time.
+ */
+static void
+instr_change_base_reg_to_64(instr_t *instr)
+{
+    int i;
+    bool is_string_instr = instr_is_string_operation(instr);
+
+    for (i = 0; i < instr_num_dsts(instr); ++i) {
+        opnd_t opnd = instr_get_dst(instr, i);
+        if (opnd_is_base_disp(opnd))
+            instr_set_dst(instr, i, opnd_change_base_reg_to_64(opnd));
+        else if (is_string_instr && opnd_is_reg(opnd)) {
+            reg_id_t reg = opnd_get_reg(opnd);
+            if (reg == REG_ESI || reg == REG_EDI || reg == REG_ECX)
+                instr_set_dst(instr, i, opnd_create_reg(reg_32_to_64(reg)));
+        }
+    }
+    for (i = 0; i < instr_num_srcs(instr); ++i) {
+        opnd_t opnd = instr_get_src(instr, i);
+        if (opnd_is_base_disp(opnd))
+            instr_set_src(instr, i, opnd_change_base_reg_to_64(opnd));
+        else if (is_string_instr && opnd_is_reg(opnd)) {
+            reg_id_t reg = opnd_get_reg(opnd);
+            if (reg == REG_ESI || reg == REG_EDI || reg == REG_ECX)
+                instr_set_src(instr, i, opnd_create_reg(reg_32_to_64(reg)));
+        }
+    }
+}
+
 static void
 translate_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 {
@@ -160,7 +237,8 @@ translate_push(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
          *                          mov r8d -> (rsp)
          */
         pre(ilist, *instr,
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R8D), src));
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R8D),
+                                opnd_change_base_reg_to_64(src)));
         pre(ilist, *instr,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_RSP),
                              OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0, -4)));
@@ -274,7 +352,8 @@ translate_pop(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_RSP),
                              OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0, 4)));
         replace(dcontext, ilist, instr,
-                INSTR_CREATE_mov_st(dcontext, dst, opnd_create_reg(REG_R8D)));
+                INSTR_CREATE_mov_st(dcontext, opnd_change_base_reg_to_64(dst),
+                                    opnd_create_reg(REG_R8D)));
     }
     STATS_INC(num_32bit_instrs_translated);
 }
@@ -384,7 +463,7 @@ translate_load_far_pointer(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr
      */
     opnd_t dst = instr_get_dst(*instr, 0);
     opnd_t sreg = instr_get_dst(*instr, 1);
-    opnd_t src = instr_get_src(*instr, 0);
+    opnd_t src = opnd_change_base_reg_to_64(instr_get_src(*instr, 0));
     if (opnd_get_size(dst) == OPSZ_2) {
         opnd_set_size(&src, OPSZ_2);
         pre(ilist, *instr,
@@ -544,6 +623,10 @@ translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **i
         return;
     default:
         /* instr is valid in x64; no need to translate. */
+        /* make memory reference operands use 64-bit regs in order to save the
+         * addr32 prefix, because the high 32 bits should be zero at this time.
+         */
+        instr_change_base_reg_to_64(*instr);
         break;
     }
     instr_set_our_mangling(*instr, true);
