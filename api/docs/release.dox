@@ -127,6 +127,11 @@ compatibilty change in the drsyms Extension:
    #drsym_func_type_t, #drsym_int_type_t, #drsym_ptr_type_t).
    This is a binary compatibility change for drsym_get_func_type().
 
+And in the core API:
+
+ - dr_get_milliseconds() now returns the number of milliseconds since Jan
+   1, 1601 on all platforms.
+
 Further non-compatibility-affecting changes include:
 
  - Added persistent cache support for clients via

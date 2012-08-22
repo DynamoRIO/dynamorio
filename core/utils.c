@@ -3262,8 +3262,7 @@ static const uint days_per_month_normal[12] =
 static const uint days_per_month_leap[12] = 
     {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-/* On Linux, millis is the number of milliseconds since the Epoch (Jan 1, 1970).
- * On Windows, millis is the number of milliseconds since Jan 1, 1601 (this is
+/* millis is the number of milliseconds since Jan 1, 1601 (this is
  * the current UTC time).
  */ 
 void
@@ -3285,20 +3284,15 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
      * operations than continuing to use LONGLONG time. */
     time /= 24;
 
-    /* time is now num. of days since Sun. Jan. 1, 1601 (1970 for Linux) */
+    /* time is now num. of days since Sun. Jan. 1, 1601 */
     dr_time->day_of_week = (uint)(time % 7); /* Sun. is 0 */
 
-#ifdef WINDOWS
     /* Since 1601 is the first year of a 400 year leap year cycle, we can use
      * the following to figure out the correct year. NOTE the 100 year and 4
      * year values are only correct if not crossing a 400 year of 100 year
      * (respectively) alignment. */
-# define BASE_YEAR 1601
+#define BASE_YEAR 1601
     ASSERT(BASE_YEAR % 400 == 1); /* verify alignment */
-#else
-# define BASE_YEAR 1970
-    /* this all works since 2000 is in fact a leap year */
-#endif
 #define DAYS_IN_400_YEARS (400*365 + 97)
 #define DAYS_IN_100_YEARS (100*365 + 24)
 #define DAYS_IN_4_YEARS (4*365 + 1)

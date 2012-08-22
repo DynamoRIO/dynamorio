@@ -3011,19 +3011,11 @@ query_time_millis()
 uint
 query_time_seconds()
 {
-    /* see query_time_100ns comments on KUSER_SHARED_DATA */
-    LARGE_INTEGER systime;
-    GET_NTDLL(NtQuerySystemTime, (IN PLARGE_INTEGER SystemTime));
-    
-    NtQuerySystemTime(&systime);
-    {
-        ULONG sec;
-        GET_NTDLL (RtlTimeToSecondsSince1970, (IN PLARGE_INTEGER SystemTime,
-                                               OUT PULONG Seconds));
-        /* we ignore result, it is not NT_SUCCESS */
-        RtlTimeToSecondsSince1970(&systime, &sec);
-        return sec;
-    }
+    /* ntdll provides RtlTimeToSecondsSince1970 but we've standardized on
+     * UTC so we just divide ourselves
+     */
+    uint64 ms = query_time_millis();
+    return (uint) (ms / 1000);
 }
 
 /* uses convert_millis_to_date() in utils.c so core-only for simpler linking */

@@ -982,14 +982,19 @@ get_timer_frequency()
    return get_timer_frequency_cpuinfo();
 }
 
-/* seconds since 1970 */
+/* DR has standardized on UTC time which counts from since Jan 1, 1601.
+ * That's the Windows standard.  But Linux uses the Epoch of Jan 1, 1970.
+ */
+#define UTC_TO_EPOCH_SECONDS 11644473600
+
+/* seconds since 1601 */
 uint
 query_time_seconds(void)
 {
-    return (uint) dynamorio_syscall(SYS_time, 1, NULL);
+    return (uint) dynamorio_syscall(SYS_time, 1, NULL) + UTC_TO_EPOCH_SECONDS;
 }
 
-/* milliseconds since 1970 */
+/* milliseconds since 1601 */
 uint64
 query_time_millis()
 {
@@ -997,6 +1002,7 @@ query_time_millis()
     if (dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL) == 0) {
         uint64 res = (((uint64)current_time.tv_sec) * 1000) +
             (current_time.tv_usec / 1000);
+        res += UTC_TO_EPOCH_SECONDS * 1000;
         return res;
     } else {
         ASSERT_NOT_REACHED();

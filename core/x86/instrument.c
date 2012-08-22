@@ -2306,7 +2306,6 @@ dr_get_time(dr_time_t *time)
 }
 
 DR_API
-/* Returns the number of milliseconds since the Epoch (Jan 1, 1970). */
 uint64
 dr_get_milliseconds(void)
 {

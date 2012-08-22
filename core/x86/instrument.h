@@ -1722,9 +1722,12 @@ dr_get_time(dr_time_t *time);
 
 DR_API
 /**
- * On Linux, returns the number of milliseconds since the Epoch (Jan 1, 1970).
- * On Windows, returns the number of milliseconds since Jan 1, 1601 (this is
+ * Returns the number of milliseconds since Jan 1, 1601 (this is
  * the current UTC time).
+ *
+ * \note This is the Windows standard.  UNIX time functions typically
+ * count from the Epoch (Jan 1, 1970).  The Epoch is 11644473600*1000
+ * milliseconds after Jan 1, 1601.
  */
 uint64
 dr_get_milliseconds(void);
