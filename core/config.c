@@ -39,7 +39,8 @@
 
 #ifndef PARAMS_IN_REGISTRY /* around whole file */
 
-#include "../globals.h"
+#include "globals.h"
+#include "heap.h"
 #ifdef WINDOWS
 # include "ntdll.h"
 #endif
@@ -190,6 +191,15 @@ typedef struct _config_info_t {
 static config_vals_t myvals;
 static config_info_t config;
 static bool config_initialized;
+
+#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+/* i#521: Re-reading the config takes long enough that we can't leave the data
+ * section unprotected while we do it.  We initialize this pointer to a heap
+ * allocated config_vals_t struct and use that for doing re-reads.
+ */
+static config_info_t *config_reread_info;
+static config_vals_t *config_reread_vals;
+#endif /* !NOT_DYNAMORIO_CORE && !NOT_DYNAMORIO_CORE_PROPER */
 
 const char *
 my_getenv(IF_WINDOWS_ELSE_NP(const wchar_t *, const char *) var, char *buf, size_t bufsz)
@@ -500,33 +510,62 @@ config_reread(void)
 {
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
     file_t f;
-    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-    if (config.fname_app[0] != '\0') {
-        f = os_open(config.fname_app, OS_OPEN_READ);
-        if (f != INVALID_FILE) {
-            INFO(3, "re-reading app config file %s", config.fname_app);
-            DODEBUG({ infolevel -= 2; });
-            read_config_file(f, &config, true, true);
-            DODEBUG({ infolevel += 2; });
-            os_close(f);
-        } else
-            INFO(1, "WARNING: unable to re-read config file %s", config.fname_app);
+    config_info_t *tmp_config;
+
+    if (config_reread_vals != NULL) {
+        /* Re-reading the config file is reasonably fast, but not fast enough to
+         * leave the data section unprotected without hitting curiosities about
+         * datasec_not_prot.
+         */
+        tmp_config = config_reread_info;
+        memcpy(config_reread_info, &config, sizeof(*config_reread_info));
+        ASSERT(config_reread_info->u.v == &myvals);
+        memcpy(config_reread_vals, &myvals, sizeof(*config_reread_vals));
+        config_reread_info->u.v = config_reread_vals;
+    } else {
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        tmp_config = &config;
     }
-    if (config.fname_default[0] != '\0') {
-        f = os_open(config.fname_default, OS_OPEN_READ);
+
+    if (tmp_config->fname_app[0] != '\0') {
+        f = os_open(tmp_config->fname_app, OS_OPEN_READ);
         if (f != INVALID_FILE) {
-            INFO(3, "re-reading default config file %s", config.fname_default);
+            INFO(3, "re-reading app config file %s", tmp_config->fname_app);
             DODEBUG({ infolevel -= 2; });
-            read_config_file(f, &config, true, true);
+            read_config_file(f, tmp_config, true, true);
             DODEBUG({ infolevel += 2; });
             os_close(f);
         } else
-            INFO(1, "WARNING: unable to re-read config file %s", config.fname_default);
+            INFO(1, "WARNING: unable to re-read config file %s",
+                 tmp_config->fname_app);
+    }
+    if (tmp_config->fname_default[0] != '\0') {
+        f = os_open(tmp_config->fname_default, OS_OPEN_READ);
+        if (f != INVALID_FILE) {
+            INFO(3, "re-reading default config file %s",
+                 tmp_config->fname_default);
+            DODEBUG({ infolevel -= 2; });
+            read_config_file(f, tmp_config, true, true);
+            DODEBUG({ infolevel += 2; });
+            os_close(f);
+        } else
+            INFO(1, "WARNING: unable to re-read config file %s",
+                 tmp_config->fname_default);
     }
     /* 6) env vars fill in any still-unset values */
-    ASSERT(config.u.v != NULL);
-    set_config_from_env(&config);
-    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    set_config_from_env(tmp_config);
+
+    if (config_reread_vals != NULL) {
+        /* Unprotect the data section and copy the config results into the real
+         * config.  Only the values should change, config_info_t should stay the
+         * same.
+         */
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        memcpy(&myvals, config_reread_vals, sizeof(myvals));
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    } else {
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    }
 #else
     ASSERT_NOT_REACHED();
 #endif
@@ -589,6 +628,38 @@ config_init(void)
     config_read(&config, NULL, 0, CFG_SFX);
     config_initialized = true;
 }
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+/* To support re-reading config, we need to heap allocate a config_vals_t array,
+ * which we can leave unprotected.
+ */
+void
+config_heap_init(void)
+{
+    config_reread_info =
+        (config_info_t *) global_heap_alloc(sizeof(*config_reread_info)
+                                            HEAPACCT(ACCT_OTHER));
+    config_reread_vals =
+        (config_vals_t *) global_heap_alloc(sizeof(*config_reread_vals)
+                                            HEAPACCT(ACCT_OTHER));
+}
+
+void
+config_heap_exit(void)
+{
+    void *tmp;
+    if (config_reread_info != NULL) {
+        tmp = config_reread_info;
+        config_reread_info = NULL;
+        global_heap_free(tmp, sizeof(*config_reread_info) HEAPACCT(ACCT_OTHER));
+    }
+    if (config_reread_vals != NULL) {
+        tmp = config_reread_vals;
+        config_reread_vals = NULL;
+        global_heap_free(tmp, sizeof(*config_reread_vals) HEAPACCT(ACCT_OTHER));
+    }
+}
+#endif
 
 void
 config_exit(void)

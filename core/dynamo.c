@@ -843,6 +843,7 @@ standalone_init(void)
     dynamo_vm_areas_init();
     proc_init();
     os_init();
+    config_heap_init();
 
 #ifdef STANDALONE_UNIT_TEST
     os_tls_init();
@@ -1039,6 +1040,7 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     stack_free(exception_stack, EXCEPTION_STACK_SIZE);
     exception_stack = NULL;
 #endif
+    config_heap_exit();
     heap_exit();
     vmm_heap_exit();
     diagnost_exit();

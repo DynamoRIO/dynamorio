@@ -44,6 +44,12 @@ config_init(void);
 void
 config_exit(void);
 
+void
+config_heap_init(void);
+
+void
+config_heap_exit(void);
+
 /* up to caller to synchronize */
 void
 config_reread(void);
