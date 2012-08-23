@@ -50,6 +50,7 @@ void test_push_esp(void);
 void test_pusha(void);
 void test_pushf(void);
 void test_les(void);
+void test_call_esp(void);
 int test_iret(void);
 int test_far_calls(void);
 
@@ -86,6 +87,9 @@ int main(int argc, char *argv[])
 
     test_les();
     print("edx was "PFX"\n", *(__int32*)global_data);
+
+    test_call_esp();
+    print("test_call_esp() returned successfully\n");
 
     print("test_iret() returned %d\n", test_iret());
 
@@ -287,6 +291,39 @@ GLOBAL_LABEL(FUNCNAME:)
     les_exit:
         mov      ecx, offset global_data
         mov      dword ptr [ecx], edx
+        ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+/* In this test, we first setup the stack with the following layout:
+ *
+ *        |                       | (low mem)
+ *        +-----------------------+
+ *        |           0           |
+ *        +-----------------------+
+ *        | addr of call_esp_next |
+ *        +-----------------------+
+ * esp -> |   original stack top  | (high mem)
+ *        +-----------------------+
+ *
+ * Then we call [esp - 4] (i.e., call call_esp_next).
+ *
+ * An incorrect implementation of x86_to_x64 translation may effectively
+ * call [esp - 8] (i.e., call 0), which leads to a fault.
+ */
+# define FUNCNAME test_call_esp
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      ecx, 1
+        call     call_esp_next
+    call_esp_next:
+        push     0
+        pop      eax
+        pop      eax
+        jecxz    call_esp_exit
+        dec      ecx
+        call     near ptr [esp - 4]
+    call_esp_exit:
         ret
         END_FUNC(FUNCNAME)
 # undef FUNCNAME

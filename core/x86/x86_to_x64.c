@@ -167,12 +167,24 @@ translate_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t 
 static void
 translate_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 {
-    /* translate: call target => push retaddr as 32-bit
-     *                           jmp target (also needs to be translated)
+    /* translate: call target => movzx/mov target -> r8d
+     *                           push retaddr as 32-bit
+     *                           jmp r8
      */
+    opnd_t target = instr_get_target(*instr);
     ptr_uint_t retaddr = get_call_return_address(dcontext, ilist, *instr);
+    if (opnd_get_size(target) == OPSZ_2) {
+        pre(ilist, *instr,
+            INSTR_CREATE_movzx(dcontext, opnd_create_reg(REG_R8D), target));
+    } else {
+        ASSERT(opnd_get_size(target) == OPSZ_4);
+        pre(ilist, *instr,
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R8D), target));
+    }
     insert_push_retaddr(dcontext, ilist, *instr, retaddr, OPSZ_4);
-    translate_indirect_jump(dcontext, ilist, instr);
+    replace(dcontext, ilist, instr,
+            INSTR_CREATE_jmp_ind(dcontext, opnd_create_reg(REG_R8)));
+    STATS_INC(num_32bit_instrs_translated);
 }
 
 static void

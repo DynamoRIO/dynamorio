@@ -8,6 +8,7 @@ edx was 0x00000000
 edx was 0x11223344
 edx was 0x55667788
 edx was 0x87654321
+test_call_esp\(\) returned successfully
 test_iret\(\) returned 0
 test_far_calls\(\) returned 0
 parent done
