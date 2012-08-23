@@ -632,7 +632,8 @@ privload_call_entry(privmod_t *privmod, uint reason)
             for (i = 0; 
                  i < opd->init_arraysz / sizeof(opd->init_array[i]); 
                  i++) {
-                privload_call_lib_func(opd->init_array[i]);
+                if (opd->init_array[i] != NULL) /* be paranoid */
+                    privload_call_lib_func(opd->init_array[i]);
             }
         }
         return true;
@@ -644,9 +645,10 @@ privload_call_entry(privmod_t *privmod, uint reason)
         if (opd->fini_array != NULL) {
             uint i;
             for (i = 0;
-                 i < opd->init_arraysz / sizeof(opd->fini_array[0]);
+                 i < opd->fini_arraysz / sizeof(opd->fini_array[0]);
                  i++) {
-                privload_call_lib_func(opd->fini_array[i]);
+                if (opd->fini_array[i] != NULL) /* be paranoid */
+                    privload_call_lib_func(opd->fini_array[i]);
             }
         }
         return true;
