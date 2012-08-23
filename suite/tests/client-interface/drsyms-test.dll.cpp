@@ -503,6 +503,8 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     ASSERT(ok);
 
     check_enumerate_dll_syms(dll_path);
+
+    drsym_free_resources(dll_path);
 }
 
 static const char *dll_syms[] = {

@@ -459,6 +459,20 @@ drsym_search_symbols(const char *modpath, const char *match, bool full,
                      drsym_enumerate_cb callback, void *data);
 #endif
 
+DR_EXPORT
+/**
+ * Indicates that no further symbol queries will be performed and that
+ * this module's debug information can be de-allocated.
+ * A later query will result in a new load.
+ * The typical usage is to call this after a series of queries at module
+ * load.  For large applications with many libraries, calling this
+ * can save hundreds of MB of memory.
+ *
+ * @param[in] modpath   The full path to the module to be unloaded.
+ */
+drsym_error_t
+drsym_free_resources(const char *modpath);
+
 /*@}*/ /* end doxygen group */
 
 #ifdef __cplusplus

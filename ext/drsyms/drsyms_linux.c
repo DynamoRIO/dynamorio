@@ -282,3 +282,23 @@ drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind OUT)
         return r;
     }
 }
+
+DR_EXPORT
+drsym_error_t
+drsym_free_resources(const char *modpath)
+{
+    if (IS_SIDELINE) {
+        return DRSYM_ERROR_NOT_IMPLEMENTED;
+    } else {
+        bool found;
+
+        if (modpath == NULL)
+            return DRSYM_ERROR_INVALID_PARAMETER;
+
+        dr_mutex_lock(symbol_lock);
+        found = hashtable_remove(&modtable, (void *)modpath);
+        dr_mutex_unlock(symbol_lock);
+
+        return (found ? DRSYM_SUCCESS : DRSYM_ERROR);
+    }
+}

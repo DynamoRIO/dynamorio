@@ -43,6 +43,7 @@ Windows PECOFF files with DWARF2 line information.
  - \ref sec_drsyms_setup
  - \ref sec_drsyms_exports
  - \ref sec_drsyms_api
+ - \ref sec_drsyms_mem
 
 \section sec_drsyms_setup Setup
 
@@ -137,5 +138,17 @@ For an example of usage see the \p instrcalls sample client distributed with
 DynamoRIO.
 
 When finished with the library, call drsym_exit().
+
+\subsection sec_drsyms_mem Memory Usage
+
+When running large applications, loading debug information for all of their
+modules can occupy a lot of memory, from hundreds of megabytes into the
+gigabyte range.  Use the drsym_free_resources() routine when finished with
+a module to unload its debug information.  Normally, a client will query
+for symbols in the module load event, and then won't need symbols again
+until perhaps a callstack walk later on.  Thus, we recommend that a client
+call drsym_free_resources() at the end of its module load event.  Due to
+fragmentation concerns, it is not easy for drsyms itself to perform
+internal garbage collection at any high frequency.
 
 */

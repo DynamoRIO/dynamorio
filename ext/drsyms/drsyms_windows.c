@@ -1203,3 +1203,36 @@ drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind OUT)
         return r;
     }
 }
+
+/* We do not want to take unlimited resources when a client queries a whole
+ * bunch of libraries.  Usually the client will query at module load and
+ * then not again, unless in a callstack later.  So we can save a lot of memory
+ * (hundreds of MB) by unloading then.  xref DrMem i#982.
+ *
+ * XXX i#449: while too-frequent internal GC can result in repeated
+ * loading and re-loading for callstacks or other symbol queries
+ * during execution and can result in fragmentation and a failure to
+ * load symbols later, we probably do want some kind of internal GC.
+ * If we keep the frequency not too high should be ok wrt
+ * fragmentation.  Perhaps just hashtable_clear() every time it hits
+ * 25 modules or sthg.
+ */
+DR_EXPORT
+drsym_error_t
+drsym_free_resources(const char *modpath)
+{
+    if (IS_SIDELINE) {
+        return DRSYM_ERROR_NOT_IMPLEMENTED;
+    } else {
+        bool found;
+
+        if (modpath == NULL)
+            return DRSYM_ERROR_INVALID_PARAMETER;
+
+        dr_recurlock_lock(symbol_lock);
+        found = hashtable_remove(&modtable, (void *)modpath);
+        dr_recurlock_unlock(symbol_lock);
+
+        return (found ? DRSYM_SUCCESS : DRSYM_ERROR);
+    }
+}
