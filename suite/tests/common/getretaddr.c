@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,15 +44,7 @@
 ptr_int_t get_retaddr(void);
 ptr_int_t get_retaddr_from_frameptr(void);
 
-#ifdef X64
-# ifdef WINDOWS  /* 5th param is on the stack */
-void foo(int x1,int x2,int x3,int x4,int x)
-# else  /* 7th param is on the stack */
-void foo(int x1,int x2,int x3,int x4,int x5,int x6,int x)
-# endif
-#else
-void foo(int x)
-#endif
+static void foo(void **retaddr_p)
 {
     ptr_int_t myaddr1, myaddr2;
 #if defined(X64) && defined(WINDOWS)
@@ -62,8 +55,7 @@ void foo(int x)
     print("my own return address is "PFX"\n", myaddr1);
 # endif
 #endif
-    /* alternative method: */
-    myaddr2 = *(((ptr_int_t*)&x) - IF_X64_ELSE(IF_WINDOWS_ELSE(5, 1), 1));
+    myaddr2 = (ptr_int_t)*retaddr_p;
 #if defined(X64) && defined(WINDOWS)
     myaddr1 = myaddr2;
 #endif
@@ -88,15 +80,7 @@ int main()
 #if VERBOSE
     print("my address is something like "PFX"\n", myaddr);
 #endif
-#ifdef X64
-# ifdef WINDOWS  /* 5th param is on the stack */
-    foo(3,3,3,3,3);
-# else  /* 7th param is on the stack */
-    foo(3,3,3,3,3,3,3);
-# endif
-#else
-    foo(3);
-#endif
+    call_with_retaddr((void*)foo);
 #ifdef USE_DYNAMO
     dynamorio_app_stop();
     dynamorio_app_exit();

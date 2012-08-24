@@ -217,6 +217,23 @@ int code_inc(int foo);
 int code_dec(int foo);
 int dummy(void);
 
+/* This function implements a trampoline that portably gets its return address
+ * and tail calls to its first argument, which is a function pointer.  All
+ * other parameters are untouched.  It can be used like so:
+ *
+ * void bar(void);
+ * void foo(void **myretaddr, void *otherfunc) {
+ *     *myretaddr = (void*)otherfunc;
+ * }
+ * int main(void) {
+ *     call_with_retaddr((void*)foo, bar);
+ * }
+ *
+ * Which will cause foo to return to bar.  This is useful in security tests
+ * that want to overwrite their return address.
+ */
+int call_with_retaddr(void *func, ...);
+
 static size_t
 size(Code_Snippet func)
 {

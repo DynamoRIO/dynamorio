@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,41 +56,25 @@
 static ptr_uint_t saved_eip;
 
 int
-#ifdef X64
-# ifdef WINDOWS  /* 5th param is on the stack */
-next_num(int x1, int x2, int x3, int x4, int max_val)
-# else  /* 7th param is on the stack */
-next_num(int x1, int x2, int x3, int x4, int x5, int x6, int max_val)
-# endif
-#else
-next_num(int max_val)
-#endif
+next_num(void **retaddr_p)
 {
   static int counter;
 
   counter++;
-  saved_eip = *(((ptr_uint_t*)&max_val) - IF_X64_ELSE(IF_WINDOWS_ELSE(5, 1), 1));
+  saved_eip = (ptr_uint_t)*retaddr_p;
   saved_eip += 6;		/* Set rp to main()'s do-while loop. */
   return counter;
 }
 
 int
-#ifdef X64
-# ifdef WINDOWS  /* 5th param is on the stack */
-check_sum(int x1, int x2, int x3, int x4, int sum)
-# else  /* 7th param is on the stack */
-check_sum(int x1, int x2, int x3, int x4, int x5, int x6, int sum)
-# endif
-#else
-check_sum (int sum)
-#endif
+check_sum(void **retaddr_p)
 {
-  *(((ptr_uint_t*)&sum) - IF_X64_ELSE(IF_WINDOWS_ELSE(5, 1), 1)) = saved_eip;
-
-  return 1;			/* Make the bogus transition here. */
+  *retaddr_p = (void*)saved_eip;
+  return 1;                     /* Make the bogus transition here. */
 }
 
-int main ()
+int
+main(void)
 {
   int i, val, inner_loop, sum = 0;
 
@@ -101,32 +86,19 @@ int main ()
   {
     inner_loop = INNER_LOOP_COUNT;
     /* Get next_num() into a trace. */
-#ifdef X64
-# ifdef WINDOWS
-    val = next_num(1, 2, 3, 4, NUM_TIMES);
-# else
-    val = next_num(1, 2, 3, 4, 5, 6, NUM_TIMES);
-# endif
-#else
-    val = next_num(NUM_TIMES);
-#endif
+    val = call_with_retaddr((void*)next_num);
     do {
       sum += val;
       if (sum > MAX_SUM)
       {
-	print (" ... in serious trouble!\n");
-	exit (-1);
+        print(" ... in serious trouble!\n");
+        exit(-1);
       }
     } while (--inner_loop);
   }
 
-#ifdef X64
-# ifdef WINDOWS
-    val = check_sum(1, 2, 3, 4, sum);
-# else
-    val = check_sum(1, 2, 3, 4, 5, 6, sum);
-# endif
-#else
-    val = check_sum(sum);
-#endif
+  val = call_with_retaddr((void*)check_sum);
+
+  print("error: check_sum returned %d unexpectedly\n", val);
+  return 1;
 }

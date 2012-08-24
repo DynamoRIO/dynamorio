@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2004 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -30,10 +31,15 @@
  * DAMAGE.
  */
 
+#ifndef ASM_CODE_ONLY
+
 #include "tools.h"
 
-ptr_int_t
-precious()
+/* In ASM_CODE_ONLY. */
+void precious_push_fake_retaddr(void);
+
+void
+precious(void)
 {
 #ifdef USER32    /* map user32.dll for a RunAll test */
     MessageBeep(0);
@@ -42,39 +48,29 @@ precious()
     exit(1);
 }
 
-ptr_int_t
-#ifdef X64
-# ifdef WINDOWS  /* 5th param is on the stack */
-ring(int x1, int x2, int x3, int x4, int x)
-# else  /* 7th param is on the stack */
-ring(int x1, int x2, int x3, int x4, int x5, int x6, int x)
-# endif
-#else
-ring(int x)
-#endif
+void
+ring(void **retaddr_p)
 {
     print("looking at ring\n");
-    *(ptr_int_t*) (((ptr_int_t*)&x) - IF_X64_ELSE(IF_WINDOWS_ELSE(5, 1), 1))
-        = (ptr_int_t)&precious;
-    return (ptr_int_t) x;
+    *retaddr_p = (void*)&precious_push_fake_retaddr;
 }
 
 ptr_int_t
-foo()
+foo(void)
 {
     print("in foo\n");
     return 1;
 }
 
 ptr_int_t
-bar()
+bar(void)
 {
     print("in bar\n");
     return 3;
 }
 
 ptr_int_t
-twofoo()
+twofoo(void)
 {
     ptr_int_t a = foo();
     print("first foo a="SZFMT"\n", a);
@@ -85,21 +81,36 @@ twofoo()
 }
 
 int
-main()
+main(void)
 {
     INIT();
 
     print("starting good function\n");
     twofoo();
     print("starting bad function\n");
-#ifdef X64
-# ifdef WINDOWS
-    ring(1, 2, 3, 4, 5);
-# else
-    ring(1, 2, 3, 4, 5, 6, 7);
-# endif
-#else
-    ring(1);
-#endif
+    call_with_retaddr(ring);
     print("all done [not seen]\n");
 }
+
+#else
+
+#include "asm_defines.asm"
+
+START_FILE
+
+DECL_EXTERN(precious)
+
+/* ring() returns to this code, at which point we have exactly 16-byte
+ * alignment.  However, the ABI expects there to be a retaddr on the stack and
+ * the stack to be 16-byte alinged minus 8.  We use this trampoline to push a
+ * fake retaddr to match the ABI.
+ */
+    DECLARE_FUNC(precious_push_fake_retaddr)
+GLOBAL_LABEL(precious_push_fake_retaddr:)
+    push 0          /* Fake retaddr, will crash if it returns. */
+    jmp precious    /* no return */
+    END_FUNC(precious_push_fake_retaddr)
+
+END_FILE
+
+#endif

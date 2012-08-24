@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,20 +50,11 @@
 jmp_buf mark;
 int where; /* 0 = normal, 1 = segfault longjmp */
 
-ptr_int_t
-#ifdef X64
-# ifdef WINDOWS  /* 5th param is on the stack */
-ring(int x1, int x2, int x3, int x4, ptr_int_t x)
-# else  /* 7th param is on the stack */
-ring(int x1, int x2, int x3, int x4, int x5, int x6, ptr_int_t x)
-# endif
-#else
-ring(ptr_int_t x)
-#endif
+void
+ring(void **retaddr_p, ptr_int_t x)
 {
     print("looking at ring "PFX"\n", x);
-    *(ptr_int_t*) (((ptr_int_t*)&x) - IF_X64_ELSE(IF_WINDOWS_ELSE(5, 1), 1)) = x;
-    return (ptr_int_t) x;
+    *retaddr_p = (void*)x;
 }
 
 ptr_int_t
@@ -161,22 +153,15 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 #endif
 
 int
-invalid_ret(int num) 
+invalid_ret(int x)
 {
+    ptr_int_t bad_retaddr = x;  /* Sign extend x on X64. */
     where = setjmp(mark);
     if (where == 0) {
-#ifdef X64
-# ifdef WINDOWS
-        ring(1, 2, 3, 4, num);
-# else
-        ring(1, 2, 3, 4, 5, 6, num);
-# endif
-#else
-        ring(num);
-#endif
+        call_with_retaddr((void*)ring, bad_retaddr);
         print("unexpectedly we came back!");
     } else {
-        print("fault caught on "PFX"\n", num);
+        print("fault caught on "PFX"\n", x);
     }
     return 0;
 }

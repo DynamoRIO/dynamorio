@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -535,5 +536,15 @@ syscall_0args:
         END_FUNC(FUNCNAME)
 #endif /* LINUX */
 
+#undef FUNCNAME
+#define FUNCNAME call_with_retaddr
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        lea     REG_XAX, [REG_XSP]  /* Load address of retaddr. */
+        xchg    REG_XAX, ARG1       /* Swap with function pointer in arg1. */
+        jmp     REG_XAX             /* Call function, now with &retaddr as arg1. */
+        END_FUNC(FUNCNAME)
+
 END_FILE
+
 #endif
