@@ -6001,7 +6001,6 @@ void
 app_memory_deallocation(dcontext_t *dcontext, app_pc base, size_t size,
                         bool own_initexit_lock, bool image)
 {
-    ASSERT(dcontext != NULL);
     ASSERT(!dynamo_vm_area_overlap(base, base + size));
     /* we check for overlap regardless of memory protections, to allow flexible
      * policies that are independent of rwx bits -- if any overlap we remove,

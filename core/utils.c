@@ -2782,6 +2782,11 @@ print_statistics(int *data, int size)
         stddev += diff*diff;
     }
     stddev /= (double)size;
+    /* FIXME i#46: We need a private sqrt impl.  libc's sqrt can actually
+     * clobber errno, too!
+     */
+    ASSERT(!DYNAMO_OPTION(early_inject) &&
+           "FRAGMENT_SIZES_STUDY incompatible with early injection");
     stddev = sqrt(stddev);
 
     LOG(GLOBAL, LOG_ALL, 0, "\t#      = %9d\n", size);

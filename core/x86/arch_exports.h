@@ -851,6 +851,15 @@ void back_from_native(void);
 DEBUG_DECLARE(void debug_infinite_loop(void); /* handy cpu eating infinite loop */)
 void hashlookup_null_handler(void);
 
+/* Keep in synch with x86.asm.  This is the difference between the SP saved in
+ * the mcontext and the SP of the caller of dr_app_start() and
+ * dynamorio_app_take_over().
+ */
+#define DYNAMO_START_XSP_ADJUST 16
+
+/* x86_code.c */
+void dynamo_start(priv_mcontext_t *mc);
+
 /* in proc.c -- everything in proc.h is exported so just include it here */
 #include "proc.h"
 

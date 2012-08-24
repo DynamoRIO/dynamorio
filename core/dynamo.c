@@ -410,17 +410,6 @@ dynamorio_app_init(void)
         utils_init();
         data_section_init();
 
-#ifdef LINUX
-        /* load the app as early as possible.
-         * -early_inject option is specified in core/optionsx.h.
-         * however it can't be set on its own and must be set by drrun
-         * using -early option, so drrun can setup arguments correctly.
-         * XXX: alternatively, we can make drloader call an exported function
-         * to load the app executable and setup for execution.
-         */
-        if (DYNAMO_OPTION(early_inject))
-            privload_early_inject();
-#endif
 #ifdef DEBUG
         /* decision: nullcalls WILL create a dynamorio.log file and
          * fill it with perfctr stats!
@@ -2467,9 +2456,6 @@ dynamo_thread_stack_free_and_exit(byte *stack)
     }
 }
 
-/* defined in x86/x86_code.c */
-extern void dynamo_start(priv_mcontext_t *mc);
-
 #ifdef DR_APP_EXPORTS
 /* API routine to initialize DR */
 DR_APP_API int
@@ -2511,6 +2497,10 @@ dr_app_start_helper(priv_mcontext_t *mc)
 {
     apicheck(dynamo_initialized, PRODUCT_NAME" not initialized");
     if (!INTERNAL_OPTION(nullcalls)) {
+        /* Adjust the app stack to account for the return address + alignment.
+         * See dr_app_start in x86.asm.
+         */
+        mc->xsp += DYNAMO_START_XSP_ADJUST;
         dynamo_start(mc);
         /* the interpreter takes over from here */
     }
@@ -2624,11 +2614,6 @@ dynamorio_app_take_over_helper(priv_mcontext_t *mc)
      * sets this. */
     dr_preinjected = true;      /* currently only relevant on Win32 */
 #endif
-#ifdef LINUX
-    /* setup mc for loaded app */
-    if (DYNAMO_OPTION(early_inject))
-        privload_setup_app_mc(mc);
-#endif
 
     if (!INTERNAL_OPTION(nullcalls) && !have_taken_over) {
         have_taken_over = true;
@@ -2644,6 +2629,11 @@ dynamorio_app_take_over_helper(priv_mcontext_t *mc)
          */
         control_all_threads = automatic_startup;
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+
+        /* Adjust the app stack to account for the return address + alignment.
+         * See dynamorio_app_take_over in x86.asm.
+         */
+        mc->xsp += DYNAMO_START_XSP_ADJUST;
 
         /* For hotp_only and thin_client, the app should run native, except 
          * for our hooks. 

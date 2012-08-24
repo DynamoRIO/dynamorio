@@ -369,6 +369,11 @@ if (UNIX)
   set(dynamorio_link_flags
     "-nostartfiles -Xlinker -z -Xlinker now -Xlinker -Bsymbolic")
 
+  set(dynamorio_link_flags "${dynamorio_link_flags} -nostdlib")
+
+  # i#47: Set the ELF header entry point to _start for early injection.
+  set(dynamorio_link_flags "${dynamorio_link_flags} -Wl,--entry,_start")
+
   if (NOT HAVE_FVISIBILITY)
     set(export_list ${CMAKE_CURRENT_BINARY_DIR}/exportlist)
     add_custom_command(TARGET dynamorio
@@ -390,7 +395,10 @@ if (UNIX)
 
   set_target_properties(dynamorio PROPERTIES
     LINK_FLAGS "${dynamorio_link_flags}")
-  target_link_libraries(dynamorio c dl m)
+  # i#46: We're pretty libc independent these days, but we still support
+  # -no_private_loader when loaded by the system loader.  We also have a sqrt
+  # import that we should cut.
+  target_link_libraries(dynamorio dl m)
 
   # We use .so versioning via symlinks.
   # We do not version the preload lib as it does not expose an API,

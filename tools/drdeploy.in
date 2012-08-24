@@ -276,29 +276,22 @@ case "$1" in
       ;;
 esac
 
+if [ ! -n "$DYNAMORIO_HOME" ]
+then
+    DYNAMORIO_HOME="$default_home"
+fi
+
 # Setup lib path
 if [ ! -n "$dr_lib_path" ]
 then
-    if [ -n "$DYNAMORIO_HOME" ]
-    then
-        dr_lib_path=$DYNAMORIO_HOME/lib$arch
-        dr_ext_path=$DYNAMORIO_HOME/ext/lib$arch
-    else
-        dr_lib_path=$default_home/lib$arch
-        dr_ext_path=$default_home/ext/lib$arch
-    fi
+    dr_lib_path=$DYNAMORIO_HOME/lib$arch
+    dr_ext_path=$DYNAMORIO_HOME/ext/lib$arch
 fi
 if [ ! -e "$dr_lib_path/$lib/libdynamorio.so" ]
 then
     # Support running from old build dir layout
-    if [ -n "$DYNAMORIO_HOME" ]
-    then
-        dr_lib_build_path=$DYNAMORIO_HOME/lib
-        dr_ext_build_path=$DYNAMORIO_HOME/ext/lib
-    else
-        dr_lib_build_path=$default_home/lib
-        dr_ext_build_path=$default_home/ext/lib
-    fi
+    dr_lib_build_path=$DYNAMORIO_HOME/lib
+    dr_ext_build_path=$DYNAMORIO_HOME/ext/lib
     if [ -e "$dr_lib_build_path/libdynamorio.so" ]
     then
         lib=""
@@ -394,8 +387,6 @@ then
     appdir=`dirname $appwhich`
     fullpath=`cd $appdir;pwd`
     fullname="$fullpath/$name"
-    # we have to change name for cfgfile
-    name="drloader"
 fi
 
 if [ "$config" = "1" ]
@@ -434,18 +425,18 @@ fi
 
 if [ "$runapp" = "1" ]
 then
-    export LD_LIBRARY_PATH=$dr_lib_path/$lib:$dr_ext_path/$lib:$LD_LIBRARY_PATH
-    export LD_PRELOAD="libdynamorio.so libdrpreload.so"
-    
     # keep same pid for easier scripting
     if [ "$early" = "yes" ]
     then
+        drloader="$DYNAMORIO_HOME/bin$arch/drloader"
         if [ "$verbose" = "yes" ]
         then
             echo "experimental support for early injection in Linux"
         fi
-        exec "./bin$arch/drloader" $fullname $*
+        exec "$drloader" "$dr_lib_path/$lib/libdynamorio.so" "$fullname" $*
     else
+        export LD_LIBRARY_PATH=$dr_lib_path/$lib:$dr_ext_path/$lib:$LD_LIBRARY_PATH
+        export LD_PRELOAD="libdynamorio.so libdrpreload.so"
         exec $app $*
     fi
 else

@@ -90,7 +90,7 @@
 # endif
 #endif /* SYS_dup3 */
 
-/* must be after X64 is defined */
+/* Cross arch syscall nums for use with struct stat64. */
 #ifdef X64
 # define SYSNUM_STAT SYS_stat
 # define SYSNUM_FSTAT SYS_fstat
@@ -479,6 +479,20 @@ static errno_loc_t
 get_libc_errno_location(bool do_init)
 {
     static errno_loc_t libc_errno_loc;
+
+    /* If we're doing early injection, there's no way we can accidentally
+     * clobber the app's errno.  The loader won't even be there to resolve
+     * imports for us.  At this point, we only read errno to make sure we
+     * haven't stomped it.  Returning NULL allows those checks to pass.
+     *
+     * If we wanted the extra checking, we can try to lookup errno after libc is
+     * loaded.  However, if we try to call __errno_location immediately after
+     * libc is mapped, it will crash.  We'd have to wait until GOT and other
+     * things are initialized.
+     */
+    if (DYNAMO_OPTION(early_inject))
+        return NULL;
+
     if (do_init) {
         module_iterator_t *mi = module_iterator_start();
         while (module_iterator_hasnext(mi)) {
@@ -538,8 +552,10 @@ get_libc_errno(void)
 #else
     errno_loc_t func = get_libc_errno_location(false);
 #endif
-    ASSERT(func != NULL || !dynamo_initialized);
-    if (func != NULL) {
+    if (func == NULL) {
+        /* libc hasn't been loaded yet or we're doing early injection. */
+        return 0;
+    } else {
         int *loc = (*func)();
         ASSERT(loc != NULL);
         LOG(THREAD_GET, LOG_THREADS, 5, "libc errno loc: "PFX"\n", loc);
@@ -548,28 +564,6 @@ get_libc_errno(void)
     }
     return 0;
 }
-
-/* i#238/PR 499179: our __errno_location isn't affecting libc so until
- * we have libc independence or our own private isolated libc we need
- * to preserve the app's libc's errno
- */
-void
-set_libc_errno(int val)
-{
-#ifdef STANDALONE_UNIT_TEST
-    errno_loc_t func = __errno_location;
-#else
-    errno_loc_t func = get_libc_errno_location(false);
-#endif
-    ASSERT(func != NULL || !dynamo_initialized);
-    if (func != NULL) {
-        int *loc = (*func)();
-        ASSERT(loc != NULL);
-        if (loc != NULL)
-            *loc = val;
-    }
-}
-
 
 /* N.B.: pthreads has two other locations it keeps on a per-thread basis:
  * h_errno and res_state.  See glibc-2.2.4/linuxthreads/errno.c.
@@ -584,8 +578,6 @@ set_libc_errno(int val)
  * NULL for other vars that are obviously set (by iterating through environ).
  * FIXME: find out the real story here.
  */
-#define __set_errno(val) (*__errno_location ()) = (val)
-#define __get_errno() (*__errno_location())
 int
 our_unsetenv(const char *name)
 {
@@ -593,7 +585,6 @@ our_unsetenv(const char *name)
     char **ep;
     
     if (name == NULL || *name == '\0' || strchr (name, '=') != NULL) {
-        __set_errno (EINVAL);
         return -1;
     }
     ASSERT(our_environ != NULL);
@@ -3288,12 +3279,19 @@ get_num_processors(void)
     return num_cpu;
 }
 
+/* i#46: To support -no_private_loader, we have to call the dlfcn family of
+ * routines in libdl.so.  When we do early injection, there is no loader to
+ * resolve these imports, so they will crash.  Early injection is incompatible
+ * with -no_private_loader, so this should never happen.
+ */
+
 #if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
 shlib_handle_t 
 load_shared_library(const char *name)
 {
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         return (shlib_handle_t)load_private_library(name);
+    ASSERT(!DYNAMO_OPTION(early_inject));
     return dlopen(name, RTLD_LAZY);
 }
 #endif
@@ -3306,22 +3304,29 @@ lookup_library_routine(shlib_handle_t lib, const char *name)
         return (shlib_routine_ptr_t)
             get_private_library_address((app_pc)lib, name);
     }
+    ASSERT(!DYNAMO_OPTION(early_inject));
     return dlsym(lib, name);
 }
 
 void
 unload_shared_library(shlib_handle_t lib)
 {
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         unload_private_library(lib);
-    else if (!DYNAMO_OPTION(avoid_dlclose))
-        dlclose(lib);
+    } else {
+        ASSERT(!DYNAMO_OPTION(early_inject));
+        if (!DYNAMO_OPTION(avoid_dlclose)) {
+            dlclose(lib);
+        }
+    }
 }
 
 void
 shared_library_error(char *buf, int maxlen)
 {
-    char *err = dlerror();
+    char *err;
+    ASSERT(!DYNAMO_OPTION(early_inject));
+    err = dlerror();
     strncpy(buf, err, maxlen-1);
     buf[maxlen-1] = '\0'; /* strncpy won't put on trailing null if maxes out */
 }

@@ -97,15 +97,7 @@ dynamo_start(priv_mcontext_t *mc)
     /* clear pc */
     mcontext->pc = 0;
 
-    /* Swap stacks so dispatch is invoked outside the application.
-     * We begin interpretation at the application return point,
-     * and thus we need to look like DR returned -- adjust the app
-     * stack to account for the return address + alignment.
-     * See dynamorio_app_take_over and dr_app_start in x86.asm.
-     */
-    /* there is no return address adjustment in early inject in Linux */
-    if (IF_LINUX_ELSE(!DYNAMO_OPTION(early_inject), true))
-        mcontext->xsp += DYNAMO_START_XSP_ADJUST;
+    /* Swap stacks so dispatch is invoked outside the application. */
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
                       false/*not on initstack*/, true/*return on error*/);
     /* In release builds, this will simply return and continue native

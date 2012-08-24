@@ -231,6 +231,7 @@ DECL_EXTERN(fixup_rtframe_pointers)
 #endif
 #ifdef LINUX
 DECL_EXTERN(dr_setjmp_sigmask)
+DECL_EXTERN(privload_early_inject)
 #endif
 #ifdef WINDOWS
 DECL_EXTERN(dynamorio_earliest_init_takeover_C)
@@ -1109,6 +1110,23 @@ GLOBAL_LABEL(client_int_syscall:)
 #endif /* LINUX */
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 #ifdef LINUX
+
+#ifndef STANDALONE_UNIT_TEST
+/* i#47: Early injection _start routine.  The kernel sets all registers to zero
+ * except the SP and PC.  The stack has argc, argv[], envp[], and the auxiliary
+ * vector laid out on it.
+ */
+        DECLARE_FUNC(_start)
+GLOBAL_LABEL(_start:)
+        xor     REG_XBP, REG_XBP  /* Terminate stack traces at NULL. */
+#ifdef X64
+        mov     ARG1, REG_XSP
+#else
+        push    REG_XSP
+#endif
+        jmp     privload_early_inject
+        END_FUNC(_start)
+#endif
 
 /* while with pre-2.6.9 kernels we were able to rely on the kernel's
  * default sigreturn code sequence and be more platform independent,

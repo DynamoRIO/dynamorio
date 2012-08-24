@@ -760,6 +760,8 @@ privload_locate(const char *name, privmod_t *dep,
     return false;
 }
 
+#pragma weak dlsym
+
 app_pc
 get_private_library_address(app_pc modbase, const char *name)
 {
@@ -771,6 +773,7 @@ get_private_library_address(app_pc modbase, const char *name)
     if (mod == NULL || mod->externally_loaded) {
         release_recursive_lock(&privload_lock);
         /* externally loaded, use dlsym instead */
+        ASSERT(!DYNAMO_OPTION(early_inject));
         return dlsym(modbase, name);
     }
     /* Before the heap is initialized, we store the text address in opd, so we
@@ -1242,79 +1245,32 @@ privload_redirect_sym(ELF_ADDR *r_addr, const char *name)
 /***************************************************************************
  * DynamoRIO Early Inection Code
  */
-#define MAX_NUM_ARGS 0x100
-static reg_t  app_init_xsp = 0;
-static app_pc app_init_entry = NULL;
-static ELF_AUXV_TYPE *app_auxv;
 
-/* sets app_init_xsp and app_auxv */
+/* Find the auxiliary vector and adjust it to look as if the kernel had set up
+ * the stack for the ELF mapped at map.  The auxiliary vector starts after the
+ * terminating NULL pointer in the envp array.
+ */
 static void
-privload_get_init_app_xsp(void)
+privload_setup_auxv(char **envp, app_pc map, ptr_int_t delta)
 {
-    char *user = getenv("USER") - 5 /* "USER=..." */;
-    IF_DEBUG(int num_args = 0;)
-    reg_t *xsp = (reg_t *)ALIGN_BACKWARD(user, XSP_SZ);
-    reg_t *auxv;
-
-    /* reverse scan to find the args and env */
-    /* scan stack till xsp pointing to "USER=..." */
-    for (; *xsp != (reg_t)user; xsp--);
-
-    /* once among env ptrs, walk forward to find auxv start */
-    for (auxv = xsp; *auxv != 0; auxv++); /* no body */
-    app_auxv = (ELF_AUXV_TYPE *) (auxv + 1);
-
-    /* scan stack till xsp pointing to the NULL between argv and envp */
-    for (; *xsp != 0; xsp--);
-    /* scan stack till xsp pointing to argc */
-    for (; *xsp <= 0 || *xsp > MAX_NUM_ARGS; xsp--)
-        IF_DEBUG(num_args++);
-    ASSERT((num_args-1) == *(int *)xsp);
-    app_init_xsp = (reg_t)xsp;
-}
-
-static char *
-privload_setup_app_stack(void)
-{
-    int *argc = 0;
-    char **argv = NULL;
-    int i;
-    privload_get_init_app_xsp();
-    ASSERT(app_init_xsp != 0);
-    argc = (int *)app_init_xsp;
-    argv = (char **)app_init_xsp + 1 /* argc */;
-    ASSERT(*argc > 0 && argv != NULL);
-    /* shift argv */
-    for (i = 0; i < (*argc - 1); i++) {
-        memmove(argv[i], argv[i+1], strlen(argv[i+1]) + 1); /* could overlap */
-        argv[i+1] = argv[i] + strlen(argv[i]) + 1;
-    }
-    memset(argv[i], 0, strlen(argv[i]));
-
-    /* we need the argv count to match argc so that libc startup
-     * code will find auxv (i#857) so we clear the final (unneeded)
-     * arg and add a fake env var:
-     */
-    argv[i] = NULL;
-    argv[i+1] = "FAKE_ENV_VAR=0";
-
-    /* change argc */
-    *argc = *argc - 1;
-    return argv[0];
-}
-
-static void
-privload_setup_auxv(app_pc map)
-{
-    /* fix up the auxv entries that refer to the executable */
-    ELF_AUXV_TYPE *auxv = app_auxv;
+    ELF_AUXV_TYPE *auxv;
     ELF_HEADER_TYPE *elf = (ELF_HEADER_TYPE *) map;
-    ASSERT(map != NULL);
-    ASSERT(app_auxv != NULL);
+
+    /* The aux vector is after the last environment pointer. */
+    while (*envp != NULL)
+        envp++;
+    auxv = (ELF_AUXV_TYPE *)(envp + 1);
+
+    /* fix up the auxv entries that refer to the executable */
     for (; auxv->a_type != AT_NULL; auxv++) {
         switch (auxv->a_type) {
+        case AT_ENTRY:
+            auxv->a_un.a_val = (ptr_int_t) elf->e_entry + delta;
+            LOG(GLOBAL, LOG_LOADER, 2, "AT_ENTRY: "PFX"\n", auxv->a_un.a_val);
+            break;
         case AT_PHDR:
-            auxv->a_un.a_val = (ptr_int_t) (map + elf->e_phoff);
+            auxv->a_un.a_val = (ptr_int_t) map + elf->e_phoff + delta;
+            LOG(GLOBAL, LOG_LOADER, 2, "AT_PHDR: "PFX"\n", auxv->a_un.a_val);
             break;
         case AT_PHENT:
             auxv->a_un.a_val = (ptr_int_t) elf->e_phentsize;
@@ -1322,18 +1278,22 @@ privload_setup_auxv(app_pc map)
         case AT_PHNUM:
             auxv->a_un.a_val = (ptr_int_t) elf->e_phnum;
             break;
+
+        /* The rest of these AT_* values don't seem to be important to the
+         * loader, but we log them.
+         */
+        case AT_EXECFD:
+            LOG(GLOBAL, LOG_LOADER, 2, "AT_EXECFD: %d\n", auxv->a_un.a_val);
+            break;
+        case AT_EXECFN:
+            LOG(GLOBAL, LOG_LOADER, 2, "AT_EXECFN: "PFX" %s\n",
+                       auxv->a_un.a_val, (char*)auxv->a_un.a_val);
+            break;
+        case AT_BASE:
+            LOG(GLOBAL, LOG_LOADER, 2, "AT_BASE: "PFX"\n", auxv->a_un.a_val);
+            break;
         }
     }
-}
-
-void
-privload_setup_app_mc(priv_mcontext_t *mc)
-{
-    memset(mc, 0, sizeof(*mc));
-    mc->xip = app_init_entry;
-    mc->xflags = 0x200; /* IF */
-    ASSERT(app_init_xsp != 0);
-    mc->xsp = app_init_xsp;
 }
 
 /* Iterate program headers of a mapped ELF image and find the string that
@@ -1360,37 +1320,86 @@ find_pt_interp(app_pc map, ptr_int_t delta)
     return NULL;
 }
 
-bool
-privload_early_inject(void)
+/* Called from _start in x86.asm.  sp is the initial app stack pointer that the
+ * kernel set up for us, and it points to the usual argc, argv, envp, and auxv
+ * that the kernel puts on the stack.
+ */
+void
+privload_early_inject(void **sp)
 {
-    app_pc map;
-    char *app_name;
-    const char *interp = NULL;
-    ptr_int_t delta;
+    ptr_int_t *argc = (ptr_int_t *)sp;  /* Kernel writes an elf_addr_t. */
+    char **argv = (char **)sp + 1;
+    char **envp = argv + *argc + 1;
+    app_pc entry = NULL;
+    char *exe_path;
+    app_pc exe_map;
+    size_t exe_map_size;
+    ptr_int_t exe_map_delta;
+    ELF_HEADER_TYPE *exe_ehdr;
+    const char *interp;
+    priv_mcontext_t mc;
 
-    app_name = privload_setup_app_stack();
-    ASSERT(app_name != NULL);
-    LOG(GLOBAL, LOG_LOADER, 2, "early_inject: load app %s\n", app_name);
-    map = map_elf_phdrs(app_name, true /* fixed */, NULL /* size */,
-                        &delta, NULL /* text addr */,
-                        os_map_file, os_unmap_file, os_set_protection);
-    apicheck(map != NULL, "Failed to load application.  "
+    exe_path = argv[0];  /* drrun makes this path absolute. */
+    dynamorio_set_envp(envp);
+
+    ASSERT(exe_path != NULL);
+
+    /* FIXME: PIEs with a base of 0 should not use MAP_FIXED. */
+    exe_map = map_elf_phdrs(exe_path, true /* MAP_FIXED */, &exe_map_size,
+                            &exe_map_delta, NULL /* text addr */, os_map_file,
+                            os_unmap_file, os_set_protection);
+    apicheck(exe_map != NULL, "Failed to load application.  "
              "Check path and architecture.");
-    /* FIXME: PIEs will break this and should use MAP_FIXED. */
-    ASSERT(delta == 0);
-    privload_setup_auxv(map);
-    interp = find_pt_interp(map, delta);
+    ASSERT(is_elf_so_header(exe_map, 0));
+    ASSERT(exe_map_delta == 0);
+    exe_ehdr = (ELF_HEADER_TYPE *) exe_map;
+
+    privload_setup_auxv(envp, exe_map, exe_map_delta);
+
+    interp = find_pt_interp(exe_map, exe_map_delta);
     if (interp != NULL) {
-        map = map_elf_phdrs(app_name, false /* fixed */, NULL /* size */,
-                            &delta /* delta */, NULL /* text addr */,
-                            os_map_file, os_unmap_file, os_set_protection);
-        ASSERT(map != NULL);
+        /* Load the ELF pointed at by PT_INTERP, usually ld.so. */
+        app_pc ld_map;
+        size_t ld_map_size;
+        ptr_int_t ld_map_delta;
+        ELF_HEADER_TYPE *ld_ehdr;
+
+        ld_map = map_elf_phdrs(interp, false /* fixed */, &ld_map_size,
+                               &ld_map_delta, NULL /* text */,
+                               os_map_file, os_unmap_file, os_set_protection);
+        apicheck(ld_map != NULL, "Failed to map ELF interpreter.");
         ASSERT_MESSAGE(CHKLVL_ASSERTS, "The interpreter shouldn't have an "
-                       "interpreter.", find_pt_interp(map, delta) == NULL);
-        /* FIXME i#47: more work than static linked executables */
-        apicheck(false, "This -early prototype does not support dynamically linked executables.  Please re-run without -early.");
-        ASSERT_NOT_IMPLEMENTED(false);
+                       "interpreter.",
+                       find_pt_interp(ld_map, ld_map_delta) == NULL);
+        ASSERT(is_elf_so_header(ld_map, 0));
+        ld_ehdr = (ELF_HEADER_TYPE *) ld_map;
+        entry = (app_pc)ld_ehdr->e_entry + ld_map_delta;
+    } else {
+        /* No PT_INTERP, so this is a static exe. */
+        entry = (app_pc)exe_ehdr->e_entry + exe_map_delta;
     }
-    app_init_entry = (app_pc)(((ELF_HEADER_TYPE *)map)->e_entry + delta);
-    return false; /* Not complete yet */
+
+    /* Initialize DR *after* we map the app image.  This is consistent with our
+     * old behavior, and allows the client to do things like call
+     * dr_get_proc_address() on the app from dr_init().  We let
+     * find_executable_vm_areas re-discover the mappings we made for the app and
+     * interp images.
+     */
+    dynamorio_app_init();
+
+    if (RUNNING_WITHOUT_CODE_CACHE()) {
+        /* Reset the stack pointer back to the beginning and jump to the entry
+         * point to execute the app natively.  This is also useful for testing
+         * if the app has been mapped correctly without involving DR's code
+         * cache.
+         */
+        asm ("mov %0, %%"ASM_XSP"\n\t"
+             "jmp *%1\n\t"
+             : : "r"(sp), "r"(entry));
+    }
+
+    memset(&mc, 0, sizeof(mc));
+    mc.xsp = (reg_t) sp;
+    mc.pc = entry;
+    dynamo_start(&mc);
 }

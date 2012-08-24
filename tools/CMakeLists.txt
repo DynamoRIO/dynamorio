@@ -36,33 +36,6 @@ if (UNIX)
   add_executable(nudgeunix nudgeunix.c ${PROJECT_SOURCE_DIR}/core/linux/nudgesig.c)
   add_executable(drloader drloader.c)
 
-  # Most linuxes load apps at 0x08048000 (32-bit) and 0x400000 (64-bit),
-  # so we set drloader right before the default address
-  # to avoid conflict. By doing so, the [heap] will be set right after
-  # loaded app, as it is for native execution.
-  # XXX: this is fragile and needs to be made more robust later
-  if (X64)
-    set(preferred_base 0x200000)
-    set(REPLACE_MAXPAGESIZE 1) # make drloader smaller
-  else (X64)
-    set(preferred_base 0x8000000)
-  endif (X64)
-  # We use a linker script to set the preferred base
-  set(ld_script ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
-  set(SET_PREFERRED_BASE 1)
-  # functions below are implemented in the core/ subdir, so we do not support
-  # building without core.
-  use_ldscript(drloader)
-  add_ldscript_opt(drloader)
-  # add -fpie to cflags
-  get_target_property(tgt_cflags drloader COMPILE_FLAGS)
-  if (NOT tgt_cflags)
-    set(tgt_cflags "")
-  endif (NOT tgt_cflags)
-  # set target properties
-  set_target_properties(drloader PROPERTIES
-    COMPILE_FLAGS "${tgt_cflags} -fpie")
-
   include_directories(
    ${PROJECT_SOURCE_DIR}/core/lib
   )
