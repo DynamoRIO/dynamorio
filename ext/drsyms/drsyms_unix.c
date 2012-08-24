@@ -444,12 +444,24 @@ drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs OUT,
     }
 
     *modoffs = 0;
-    params.search_sym = sym_no_mod;
-    params.search_sym_len = strlen(sym_no_mod);
-    params.modoffs = modoffs;
-    r = drsym_unix_enumerate_symbols(mod, sym_lookup_cb, &params, flags);
-    if (r != DRSYM_SUCCESS)
-        return r;
+
+    if (!TEST(DRSYM_SYMBOLS, mod->debug_kind)) {
+        /* XXX i#883: we have no symbols and we're just looking at exports so we
+         * should do a fast hashtable lookup instead of a linear walk.
+         * DR already has the code for this, accessible via dr_get_proc_address(),
+         * except that interface will only work for online (i.e., non-standalone)
+         * use.
+         */
+    }
+
+    if (*modoffs == 0) {
+        params.search_sym = sym_no_mod;
+        params.search_sym_len = strlen(sym_no_mod);
+        params.modoffs = modoffs;
+        r = drsym_unix_enumerate_symbols(mod, sym_lookup_cb, &params, flags);
+        if (r != DRSYM_SUCCESS)
+            return r;
+    }
     if (*modoffs == 0)
         return DRSYM_ERROR_SYMBOL_NOT_FOUND;
     return DRSYM_SUCCESS;

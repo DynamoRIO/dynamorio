@@ -132,7 +132,7 @@ find_elf_section_by_name(Elf *elf, const char *match_name)
              * present b/c the headers mirror the original ELF file, but
              * there's no data there.  Xref i#642.
              */
-            if (TEST(SHT_NOBITS, section_header->sh_type))
+            if (section_header->sh_type == SHT_NOBITS)
                 return NULL;
             return scn;
         }
@@ -203,7 +203,20 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
 
     if (symtab_scn != NULL) {
         mod->debug_kind |= DRSYM_SYMBOLS | DRSYM_ELF_SYMTAB;
+    } else {
+        /* Module is stripped, but we should still look at exports.
+         * Note that .dynsym should be a subset of .symtab so if we have
+         * .symtab we can ignore .dynsym.
+         */
+        /* XXX i#672: there may still be dwarf2 or stabs sections even if the
+         * symtable is stripped and we could do symbol lookup via dwarf2
+         */
+        /* XXX: better to look for sh_type==SHT_DYNSYM than the name? */
+        symtab_scn = find_elf_section_by_name(mod->elf, ".dynsym");
+        strtab_scn = find_elf_section_by_name(mod->elf, ".dynstr");
+    }
 
+    if (symtab_scn != NULL) {
         if (strtab_scn != NULL) {
             symtab_shdr = elf_getshdr(symtab_scn);
             mod->strtab_idx = elf_ndxscn(strtab_scn);
@@ -215,10 +228,6 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
              */
             mod->syms = (Elf_Sym*)(((char*) mod->map_base) + symtab_shdr->sh_offset);
         }
-    } else {
-        /* XXX i#672: there may still be dwarf2 or stabs sections even if the
-         * symtable is stripped and we could do symbol lookup via dwarf2
-         */
     }
 
     if (find_elf_section_by_name(mod->elf, ".debug_line") != NULL) {
