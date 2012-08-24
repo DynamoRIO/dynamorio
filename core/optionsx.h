@@ -580,7 +580,11 @@
                    "or client usage if app tries to close it.")
     OPTION_DEFAULT(bool, dup_stdin_on_close, true, "Duplicate stdin for DynamoRIO "
                    "or client usage if app tries to close it.")
-    OPTION_DEFAULT(uint, steal_fds, 12,
+    /* Clients using drsyms can easily load dozens of files (i#879).
+     * No downside to raising since we'll let the app have ours if it
+     * runs out.
+     */
+    OPTION_DEFAULT(uint, steal_fds, IF_CLIENT_INTERFACE_ELSE(96, 12),
                    "number of fds to steal from the app outside the app's reach")
 
     /* Xref PR 308654 where calling dlclose on the client lib at exit time can lead
