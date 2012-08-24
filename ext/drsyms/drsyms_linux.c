@@ -290,15 +290,22 @@ drsym_free_resources(const char *modpath)
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
+#if 0 /* FIXME i#880 */
         bool found;
 
         if (modpath == NULL)
             return DRSYM_ERROR_INVALID_PARAMETER;
 
+        /* FIXME i#880: libdwarf code crashes on a free if unloaded
+         * and reloaded later so temporarily disabling this
+         */
         dr_mutex_lock(symbol_lock);
         found = hashtable_remove(&modtable, (void *)modpath);
         dr_mutex_unlock(symbol_lock);
 
         return (found ? DRSYM_SUCCESS : DRSYM_ERROR);
+#else
+        return DRSYM_ERROR;
+#endif
     }
 }
