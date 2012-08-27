@@ -1581,13 +1581,13 @@ check_option_compatibility_helper(int recurse_count)
     }
 #endif
 
-#ifdef LINUX
+#if defined(LINUX) && defined(CLIENT_INTERFACE)
     if (DYNAMO_OPTION(early_inject) && !DYNAMO_OPTION(private_loader)) {
         USAGE_ERROR("-early_inject requires -private_loader, turning on -private_loader");
         dynamo_options.private_loader = true;
         changed_options = true;
     }
-#endif
+#endif /* LINUX && CLIENT_INTERFACE */
 
 #ifdef WINDOWS
     if (DYNAMO_OPTION(inject_at_create_process) && !DYNAMO_OPTION(early_inject)) {
