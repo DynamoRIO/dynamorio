@@ -1109,11 +1109,6 @@ privload_tls_init(void *app_tp)
     /* FIXME: These should be a thread logs, but dcontext is not ready yet. */
     LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is "PFX"\n",
         __FUNCTION__, app_tp);
-    if (app_tp == NULL) {
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: no app TLS, skipping private lib TLS\n",
-            __FUNCTION__, app_tp);
-        return NULL;
-    }
     dr_tp = heap_mmap(max_client_tls_size);
     LOG(GLOBAL, LOG_LOADER, 2, "%s: allocates %d at "PFX"\n",
         __FUNCTION__, max_client_tls_size, dr_tp);
@@ -1130,7 +1125,8 @@ privload_tls_init(void *app_tp)
      * This copy can be avoided if we remove the DR's dependency on
      * libc. 
      */
-    if (!safe_read_ex(app_tp - APP_LIBC_TLS_SIZE, APP_LIBC_TLS_SIZE + tcb_size,
+    if (app_tp != NULL &&
+        !safe_read_ex(app_tp - APP_LIBC_TLS_SIZE, APP_LIBC_TLS_SIZE + tcb_size,
                       dr_tp  - APP_LIBC_TLS_SIZE, &tls_bytes_read)) {
         LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed, tcb was 0x%lx bytes "
             "instead of 0x%lx\n", __FUNCTION__, tls_bytes_read -
