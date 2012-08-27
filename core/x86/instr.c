@@ -5318,6 +5318,19 @@ instr_create_restore_from_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs)
                                opnd_create_tls_slot(os_tls_offset(offs)));
 }
 
+/* For -x86_to_x64, we can spill to 64-bit extra registers (xref i#751). */
+instr_t *
+instr_create_save_to_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2)
+{
+    return INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg2), opnd_create_reg(reg1));
+}
+
+instr_t *
+instr_create_restore_from_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2)
+{
+    return INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg1), opnd_create_reg(reg2));
+}
+
 #ifdef X64
 /* Returns NULL if pc is not the start of a rip-rel lea.
  * If it could be, returns the address it refers to (which we assume is

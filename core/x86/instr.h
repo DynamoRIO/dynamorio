@@ -3552,6 +3552,10 @@ instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
  * client use the rest. */
 instr_t * instr_create_save_to_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs);
 instr_t * instr_create_restore_from_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs);
+/* For -x86_to_x64, we can spill to 64-bit extra registers (xref i#751). */
+instr_t * instr_create_save_to_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2);
+instr_t * instr_create_restore_from_reg(dcontext_t *dcontext,
+                                        reg_id_t reg1, reg_id_t reg2);
 
 #ifdef X64
 byte *

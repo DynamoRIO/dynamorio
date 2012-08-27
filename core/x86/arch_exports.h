@@ -941,6 +941,8 @@ use_addr_prefix_on_short_disp(void)
 #define SIZE64_MOV_XBX_TO_TLS         9
 #define SIZE64_MOV_PTR_IMM_TO_XAX    10
 #define SIZE64_MOV_PTR_IMM_TO_TLS   (12*2) /* high and low 32 bits separately */
+#define SIZE64_MOV_R8_TO_XAX          3
+#define SIZE64_MOV_R9_TO_XCX          3
 #define SIZE32_MOV_XAX_TO_TLS         5
 #define SIZE32_MOV_XBX_TO_TLS         6
 #define SIZE32_MOV_XAX_TO_TLS_DISP32  6
@@ -974,7 +976,8 @@ use_addr_prefix_on_short_disp(void)
 /* size of restore ecx prefix */
 #define XCX_IN_TLS(flags) (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags)))
 #define FRAGMENT_BASE_PREFIX_SIZE(flags) \
-    (XCX_IN_TLS(flags) ? SIZE_MOV_XBX_TO_TLS(flags, false) : SIZE32_MOV_XBX_TO_ABS)
+    (FRAG_IS_X86_TO_X64(flags) ? SIZE64_MOV_R9_TO_XCX : \
+     (XCX_IN_TLS(flags) ? SIZE_MOV_XBX_TO_TLS(flags, false) : SIZE32_MOV_XBX_TO_ABS))
 
 /* exported for DYNAMO_OPTION(separate_private_stubs)
  * FIXME: find better way to export -- would use global var accessed

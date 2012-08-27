@@ -3921,10 +3921,16 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
         instrlist_append(bb->ilist, INSTR_CREATE_mov_imm
                          (dcontext, opnd_create_reg(REG_XAX),
                           OPND_CREATE_INTPTR((ptr_int_t)bb->start_pc)));
-        instrlist_append(bb->ilist, INSTR_CREATE_mov_st
-                         (dcontext, opnd_create_tls_slot(os_tls_offset
-                                                         (MANGLE_XCX_SPILL_SLOT)),
-                          opnd_create_reg(REG_XAX)));
+        if (X64_CACHE_MODE_DC(dcontext) && !X64_MODE_DC(dcontext)) {
+            instrlist_append(bb->ilist, INSTR_CREATE_mov_ld
+                             (dcontext, opnd_create_reg(REG_R9),
+                              opnd_create_reg(REG_XAX)));
+        } else {
+            instrlist_append(bb->ilist, INSTR_CREATE_mov_st
+                             (dcontext, opnd_create_tls_slot(os_tls_offset
+                                                             (MANGLE_XCX_SPILL_SLOT)),
+                              opnd_create_reg(REG_XAX)));
+        }
     }
 #else
     instrlist_append(bb->ilist, INSTR_CREATE_mov_st
@@ -3944,9 +3950,14 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
         instrlist_append(bb->ilist,
                          INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->start_pc)));
     } else {
-        instrlist_append(bb->ilist, INSTR_CREATE_jmp_ind
-                         (dcontext, opnd_create_tls_slot(os_tls_offset
-                                                         (MANGLE_XCX_SPILL_SLOT))));
+        if (X64_CACHE_MODE_DC(dcontext) && !X64_MODE_DC(dcontext)) {
+            instrlist_append(bb->ilist, INSTR_CREATE_jmp_ind
+                             (dcontext, opnd_create_reg(REG_R9)));
+        } else {
+            instrlist_append(bb->ilist, INSTR_CREATE_jmp_ind
+                             (dcontext, opnd_create_tls_slot(os_tls_offset
+                                                             (MANGLE_XCX_SPILL_SLOT))));
+        }
     }
 #else
     instrlist_append(bb->ilist, INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->start_pc)));
@@ -4791,10 +4802,17 @@ insert_restore_spilled_xcx(dcontext_t *dcontext, instrlist_t *trace, instr_t *ne
     int added_size = 0;
 
     if (DYNAMO_OPTION(private_ib_in_tls)) {
-        added_size += tracelist_add(dcontext, trace, next, 
-            INSTR_CREATE_mov_ld(dcontext,
-                                opnd_create_reg(REG_XCX),
-                                opnd_create_tls_slot(os_tls_offset(MANGLE_XCX_SPILL_SLOT))));
+        if (X64_CACHE_MODE_DC(dcontext) && !X64_MODE_DC(dcontext)) {
+            added_size += tracelist_add(dcontext, trace, next,
+                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XCX),
+                                    opnd_create_reg(REG_R9)));
+        } else {
+            added_size += tracelist_add(dcontext, trace, next,
+                INSTR_CREATE_mov_ld(dcontext,
+                                    opnd_create_reg(REG_XCX),
+                                    opnd_create_tls_slot
+                                    (os_tls_offset(MANGLE_XCX_SPILL_SLOT))));
+        }
     } else {
         /* We need to restore XCX from TLS for shared fragments, but from
          * mcontext for private fragments, and all traces are private
@@ -4861,23 +4879,36 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
                        instr_t *targeter, app_pc next_tag)
 {
     int added_size = 0;
-    added_size += tracelist_add
-        (dcontext, trace, targeter, INSTR_CREATE_mov_st
-         (dcontext, opnd_create_tls_slot(os_tls_offset(PREFIX_XAX_SPILL_SLOT)),
-          opnd_create_reg(REG_XAX)));
-    added_size += tracelist_add
-        (dcontext, trace, targeter, INSTR_CREATE_mov_imm
-         (dcontext, opnd_create_reg(REG_XAX),
-          OPND_CREATE_INTPTR((ptr_int_t)next_tag)));
+    if (X64_MODE_DC(dcontext)) {
+        added_size += tracelist_add
+            (dcontext, trace, targeter, INSTR_CREATE_mov_st
+             (dcontext, opnd_create_tls_slot(os_tls_offset(PREFIX_XAX_SPILL_SLOT)),
+              opnd_create_reg(REG_XAX)));
+        added_size += tracelist_add
+            (dcontext, trace, targeter, INSTR_CREATE_mov_imm
+             (dcontext, opnd_create_reg(REG_XAX),
+              OPND_CREATE_INTPTR((ptr_int_t)next_tag)));
+    } else {
+        ASSERT(X64_CACHE_MODE_DC(dcontext));
+        added_size += tracelist_add
+            (dcontext, trace, targeter, INSTR_CREATE_mov_ld
+             (dcontext, opnd_create_reg(REG_R8), opnd_create_reg(REG_XAX)));
+        added_size += tracelist_add
+            (dcontext, trace, targeter, INSTR_CREATE_mov_imm
+             (dcontext, opnd_create_reg(REG_R10),
+              OPND_CREATE_INTPTR((ptr_int_t)next_tag)));
+    }
     /* saving in the trace and restoring in ibl means that
      * -unsafe_ignore_eflags_{trace,ibl} must be equivalent
      */
     if (!DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
-        added_size += tracelist_add
-            (dcontext, trace, targeter, INSTR_CREATE_mov_st
-             (dcontext, opnd_create_tls_slot
-              (os_tls_offset(INDIRECT_STUB_SPILL_SLOT)),
-              opnd_create_reg(REG_XAX)));
+        if (X64_MODE_DC(dcontext)) {
+            added_size += tracelist_add
+                (dcontext, trace, targeter, INSTR_CREATE_mov_st
+                 (dcontext, opnd_create_tls_slot
+                  (os_tls_offset(INDIRECT_STUB_SPILL_SLOT)),
+                  opnd_create_reg(REG_XAX)));
+        }
         /* FIXME: share w/ insert_save_eflags() */
         added_size += tracelist_add
             (dcontext, trace, targeter, INSTR_CREATE_lahf(dcontext));
@@ -4887,16 +4918,24 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
                 (dcontext, trace, targeter,
                  INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
         }
-        added_size += tracelist_add
-            (dcontext, trace, targeter,
-             INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XCX),
-                              opnd_create_tls_slot(os_tls_offset
-                                                   (INDIRECT_STUB_SPILL_SLOT))));
+        if (X64_MODE_DC(dcontext)) {
+            added_size += tracelist_add
+                (dcontext, trace, targeter,
+                 INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XCX),
+                                  opnd_create_tls_slot(os_tls_offset
+                                                       (INDIRECT_STUB_SPILL_SLOT))));
+        } else {
+            added_size += tracelist_add
+                (dcontext, trace, targeter,
+                 INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XCX),
+                                  opnd_create_reg(REG_R10)));
+        }
     } else {
         added_size += tracelist_add
             (dcontext, trace, targeter,
              INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XCX),
-                              opnd_create_reg(REG_XAX)));
+                              X64_MODE_DC(dcontext) ? opnd_create_reg(REG_XAX)
+                                                    : opnd_create_reg(REG_R10)));
     }
     /* change jmp into jne to trace cmp entry of ibl routine (special entry
      * that is after the eflags save) */
@@ -5119,7 +5158,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
 #endif /* NATIVE_RETURN */
 
 #ifdef X64
-        if (X64_MODE_DC(dcontext)) {
+        if (X64_CACHE_MODE_DC(dcontext)) {
             added_size +=
                 mangle_x64_ib_in_trace(dcontext, trace, targeter, next_tag);
         } else {
@@ -5182,7 +5221,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     added_size += insert_restore_spilled_xcx(dcontext, trace, next);
 
 #ifdef X64
-    if (X64_MODE_DC(dcontext)) {
+    if (X64_CACHE_MODE_DC(dcontext)) {
         LOG(THREAD, LOG_INTERP, 4, "next_flags for post-ibl-cmp: 0x%x\n",
             next_flags);
         if (!TEST(FRAG_WRITES_EFLAGS_6, next_flags) &&
@@ -5199,10 +5238,16 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
         } else
             STATS_INC(trace_ib_no_flag_restore);
         /* TODO optimization: check if xax is live or not in next bb */
-        added_size += tracelist_add
-            (dcontext, trace, next, INSTR_CREATE_mov_ld
-             (dcontext, opnd_create_reg(REG_XAX),
-              opnd_create_tls_slot(os_tls_offset(PREFIX_XAX_SPILL_SLOT))));
+        if (X64_MODE_DC(dcontext)) {
+            added_size += tracelist_add
+                (dcontext, trace, next, INSTR_CREATE_mov_ld
+                 (dcontext, opnd_create_reg(REG_XAX),
+                  opnd_create_tls_slot(os_tls_offset(PREFIX_XAX_SPILL_SLOT))));
+        } else {
+            added_size += tracelist_add
+                (dcontext, trace, next, INSTR_CREATE_mov_ld
+                 (dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(REG_R8)));
+        }
     }
 #endif
 

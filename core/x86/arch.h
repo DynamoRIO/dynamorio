@@ -265,7 +265,9 @@ typedef enum {
 # define SHARED_GENCODE(gencode_mode) get_shared_gencode(GLOBAL_DCONTEXT, gencode_mode)
 # define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc, GENCODE_FROM_DCONTEXT)
 # define THREAD_GENCODE(dc) get_emitted_routines_code(dc, GENCODE_FROM_DCONTEXT)
+# define GENCODE_IS_X64(gencode_mode) ((gencode_mode) == GENCODE_X64)
 # define GENCODE_IS_X86(gencode_mode) ((gencode_mode) == GENCODE_X86)
+# define GENCODE_IS_X86_TO_X64(gencode_mode) ((gencode_mode) == GENCODE_X86_TO_X64)
 #else
 # define SHARED_GENCODE(b) get_shared_gencode(GLOBAL_DCONTEXT)
 # define THREAD_GENCODE(dc) get_emitted_routines_code(dc)
@@ -868,10 +870,10 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute);
+                   uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64));
 void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                      uint flags, bool tls, bool absolute);
+                      uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64));
 
 instr_t * create_syscall_instr(dcontext_t *dcontext);
 

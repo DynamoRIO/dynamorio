@@ -314,7 +314,7 @@ translate_pop(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
     opnd_t mem = instr_get_src(*instr, 1);
     opnd_t dst;
 
-    /*  can handle 2-byte pop; no need to translate. */
+    /* x64 can handle 2-byte pop; no need to translate. */
     if (opnd_get_size(mem) == OPSZ_2)
         return;
 

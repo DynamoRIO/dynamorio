@@ -1956,9 +1956,14 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
  */
 #define SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)                      \
     ((DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags))) ?           \
-     INSTR_CREATE_mov_st(dcontext, opnd_create_tls_slot(os_tls_offset(tls_offs)), \
+     INSTR_CREATE_mov_st(dc, opnd_create_tls_slot(os_tls_offset(tls_offs)),       \
                          opnd_create_reg(reg)) :                                  \
      instr_create_save_to_dcontext((dc), (reg), (dc_offs)))
+
+#define SAVE_TO_DC_OR_TLS_OR_REG(dc, flags, reg, tls_offs, dc_offs, dest_reg)   \
+    ((X64_CACHE_MODE_DC(dc) && !X64_MODE_DC(dc)) ?                              \
+     INSTR_CREATE_mov_ld(dc, opnd_create_reg(dest_reg), opnd_create_reg(reg)) : \
+     SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs))
 
 static void
 mangle_far_direct_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -1988,8 +1993,8 @@ mangle_far_direct_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     if (!X64_MODE_DC(dcontext) &&
         opnd_get_segment_selector(instr_get_target(instr)) == CS64_SELECTOR) {
         PRE(ilist, instr,
-            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
-                              XBX_OFFSET));
+            SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XBX,
+                                     MANGLE_FAR_SPILL_SLOT, XBX_OFFSET, REG_R10));
         PRE(ilist, instr,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EBX),
                                  OPND_CREATE_INT32(CS64_SELECTOR)));
@@ -1997,8 +2002,8 @@ mangle_far_direct_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 #endif
 
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX,
-                          MANGLE_XCX_SPILL_SLOT, XCX_OFFSET));
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XCX,
+                                 MANGLE_XCX_SPILL_SLOT, XCX_OFFSET, REG_R9));
     ASSERT((ptr_uint_t)pc < UINT_MAX); /* 32-bit code! */
     PRE(ilist, instr,
         INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_ECX),
@@ -2232,8 +2237,8 @@ mangle_far_indirect_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
         /* all scratch space should be in TLS only */
         ASSERT(TEST(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
         PRE(ilist, instr,
-            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
-                              XBX_OFFSET));
+            SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XBX,
+                                     MANGLE_FAR_SPILL_SLOT, XBX_OFFSET, REG_R10));
         PRE(ilist, instr,
             INSTR_CREATE_movzx(dcontext, opnd_create_reg(REG_EBX), sel));
         if (instr_uses_reg(instr, REG_XBX)) {
@@ -2308,7 +2313,8 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* save away xcx so that we can use it */
     /* (it's restored in x86.s (indirect_branch_lookup) */
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX, MANGLE_XCX_SPILL_SLOT, XCX_OFFSET));
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XCX,
+                                 MANGLE_XCX_SPILL_SLOT, XCX_OFFSET, REG_R9));
     
 #ifdef STEAL_REGISTER
     /* Steal edi if call uses it, using original call instruction */
@@ -2434,8 +2440,8 @@ mangle_far_return_save_selector(dcontext_t *dcontext, instrlist_t *ilist, instr_
         /* all scratch space should be in TLS only */
         ASSERT(TEST(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
         PRE(ilist, instr,
-            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
-                              XBX_OFFSET));
+            SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XBX,
+                                     MANGLE_FAR_SPILL_SLOT, XBX_OFFSET, REG_R10));
         PRE(ilist, instr,
             INSTR_CREATE_movzx(dcontext, opnd_create_reg(REG_EBX),
                                OPND_CREATE_MEM16(REG_XSP, 0)));
@@ -2469,7 +2475,8 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* save away xcx so that we can use it */
     /* (it's restored in x86.s (indirect_branch_lookup) */
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX, MANGLE_XCX_SPILL_SLOT, XCX_OFFSET));
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XCX,
+                                 MANGLE_XCX_SPILL_SLOT, XCX_OFFSET, REG_R9));
 
     /* see if ret has an immed int operand, assumed to be 1st src */
             
@@ -2662,7 +2669,8 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* save away xcx so that we can use it */
     /* (it's restored in x86.s (indirect_branch_lookup) */
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX, MANGLE_XCX_SPILL_SLOT, XCX_OFFSET));
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XCX,
+                                 MANGLE_XCX_SPILL_SLOT, XCX_OFFSET, REG_R9));
 
 #ifdef STEAL_REGISTER
     /* Steal edi if branch uses it, using original instruction */
@@ -4107,7 +4115,9 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
         after_write = end_pc;
     }
 
-    insert_save_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls);
+    insert_save_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls
+                       _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
+                               !X64_MODE_DC(dcontext)));
     PRE(ilist, instr,
         SAVE_TO_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
     PRE(ilist, instr,
@@ -4169,7 +4179,9 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     PRE(ilist, instr,
         INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XBX), OPND_CREATE_INT32(1)));
     PRE(ilist, instr, ok);
-    insert_restore_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls);
+    insert_restore_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls
+                          _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
+                                  !X64_MODE_DC(dcontext)));
 #ifdef X64
     if ((ptr_uint_t)start_pc > UINT_MAX || (ptr_uint_t)end_pc > UINT_MAX) {
         PRE(ilist, instr,
@@ -4263,7 +4275,9 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
         after_write = end_pc;
     }
 
-    insert_save_eflags(dcontext, ilist, next, flags, use_tls, !use_tls);
+    insert_save_eflags(dcontext, ilist, next, flags, use_tls, !use_tls
+                       _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
+                               !X64_MODE_DC(dcontext)));
     PRE(ilist, next,
         SAVE_TO_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
     /* XXX: Basically reimplementing drutil_insert_get_mem_addr(). */
@@ -4333,7 +4347,9 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
 #endif
     PRE(ilist, next,
         INSTR_CREATE_jcc(dcontext, OP_jle, opnd_create_instr(ok)));
-    insert_restore_eflags(dcontext, ilist, next, flags, use_tls, !use_tls);
+    insert_restore_eflags(dcontext, ilist, next, flags, use_tls, !use_tls
+                          _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
+                                  !X64_MODE_DC(dcontext)));
     PRE(ilist, next,
         RESTORE_FROM_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
 #ifdef X64
@@ -4347,7 +4363,9 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     /* an exit cti, not a meta instr */
     instrlist_preinsert(ilist, next, jmp);
     PRE(ilist, next, ok);
-    insert_restore_eflags(dcontext, ilist, next, flags, use_tls, !use_tls);
+    insert_restore_eflags(dcontext, ilist, next, flags, use_tls, !use_tls
+                          _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
+                                  !X64_MODE_DC(dcontext)));
     PRE(ilist, next,
         RESTORE_FROM_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
 #ifdef X64
@@ -4464,7 +4482,9 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
 
     instr = instrlist_first_expanded(dcontext, ilist);
 
-    insert_save_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls);
+    insert_save_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls
+                       _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
+                               !X64_MODE_DC(dcontext)));
 
     if (s2ro) {
         /* It's difficult to use lea/jecxz here as we want to use a shared
@@ -4626,7 +4646,9 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
             INSTR_CREATE_jcc(dcontext, OP_je, opnd_create_instr(start_bb)));
         if (restore_eflags_and_exit != NULL) /* somebody needs this label */
             PRE(ilist, instr, restore_eflags_and_exit);
-        insert_restore_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls);
+        insert_restore_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls
+                              _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
+                                      !X64_MODE_DC(dcontext)));
         jmp = INSTR_CREATE_jmp(dcontext, opnd_create_pc(start_pc));
         instr_branch_set_selfmod_exit(jmp, true);
         /* an exit cti, not a meta instr */
@@ -4638,7 +4660,9 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
         /* an exit cti, not a meta instr */
         instrlist_preinsert(ilist, instr, jmp);
     }
-    insert_restore_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls);
+    insert_restore_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls
+                          _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
+                                  !X64_MODE_DC(dcontext)));
     /* fall-through to bb start */
 }
 

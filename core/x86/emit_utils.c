@@ -2589,7 +2589,8 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 #define IBL_EFLAGS_IN_TLS() (IF_X64_ELSE(true, SHARED_IB_TARGETS()))
 
 #define RESTORE_XAX_PREFIX(flags) \
-    (IBL_EFLAGS_IN_TLS() ? SIZE_MOV_XAX_TO_TLS(flags, false) : SIZE32_MOV_XAX_TO_ABS)
+    (FRAG_IS_X86_TO_X64(flags) ? SIZE64_MOV_R8_TO_XAX : \
+     (IBL_EFLAGS_IN_TLS() ? SIZE_MOV_XAX_TO_TLS(flags, false) : SIZE32_MOV_XAX_TO_ABS))
 #define PREFIX_BASE(flags) \
     (RESTORE_XAX_PREFIX(flags) + FRAGMENT_BASE_PREFIX_SIZE(flags))
 
@@ -2697,6 +2698,33 @@ insert_restore_xcx(dcontext_t *dcontext, cache_pc pc, uint flags, bool require_a
                                    require_addr16);
 }
 
+static cache_pc
+insert_restore_register(dcontext_t *dcontext, fragment_t *f, cache_pc pc, reg_id_t reg)
+{
+    ASSERT(reg == REG_XAX || reg == REG_XCX);
+#ifdef X64
+    if (FRAG_IS_X86_TO_X64(f->flags)) {
+        /* in x86_to_x64 mode, rax was spilled to r8 and rcx was spilled to r9
+         * to restore rax:  49 8b c0   mov %r8 -> %rax
+         * to restore rcx:  49 8b c9   mov %r9 -> %rcx
+         */
+        *pc = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG | REX_PREFIX_B_OPFLAG; pc++;
+        *pc = MOV_MEM2REG_OPCODE; pc++;
+        *pc = MODRM_BYTE(3/*mod*/, reg_get_bits(reg),
+                         reg_get_bits((reg == REG_XAX) ? REG_R8 : REG_R9));
+        pc++;
+    } else {
+#endif
+        pc = (reg == REG_XAX) ? insert_restore_xax(dcontext, pc, f->flags,
+                                                   IBL_EFLAGS_IN_TLS(),
+                                                   PREFIX_XAX_SPILL_SLOT, false)
+                              : insert_restore_xcx(dcontext, pc, f->flags, false);
+#ifdef X64
+    }
+#endif
+    return pc;
+}
+
 void
 insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 {
@@ -2733,11 +2761,10 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
                 ASSERT(PREFIX_SIZE_FIVE_EFLAGS == 1);
             }
             /* restore xax */
-            pc = insert_restore_xax(dcontext, pc, f->flags, IBL_EFLAGS_IN_TLS(),
-                                    PREFIX_XAX_SPILL_SLOT, false);
+            pc = insert_restore_register(dcontext, f, pc, REG_XAX);
         }
         
-        pc = insert_restore_xcx(dcontext, pc, f->flags, false);
+        pc = insert_restore_register(dcontext, f, pc, REG_XCX);
         
         /* set normal entry point to be next pc */
         ASSERT_TRUNCATE(f->prefix_size, byte, ((cache_pc) pc) - f->start_pc);
@@ -2745,7 +2772,7 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     } else {
 #ifdef CLIENT_INTERFACE
         if (dynamo_options.bb_prefixes) {
-            pc = insert_restore_xcx(dcontext, pc, f->flags, false);
+            pc = insert_restore_register(dcontext, f, pc, REG_XCX);
 
             /* set normal entry point to be next pc */
             ASSERT_TRUNCATE(f->prefix_size, byte, ((cache_pc) pc) - f->start_pc);
@@ -3158,6 +3185,11 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
     instr_create_save_to_tls(dc, reg, offs)
 #define RESTORE_FROM_TLS(dc, reg, offs) \
     instr_create_restore_from_tls(dc, reg, offs)
+
+#define SAVE_TO_REG(dc, reg, spill) \
+    instr_create_save_to_reg(dc, reg, spill)
+#define RESTORE_FROM_REG(dc, reg, spill) \
+    instr_create_restore_from_reg(dc, reg, spill)
 
 #define OPND_DC_FIELD(absolute, dcontext, sz, offs) \
     ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                \
@@ -3772,7 +3804,16 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
                                             OPND_CREATE_INTPTR((ptr_int_t)linkstub)));
             if (coarse_info) {
                 APP(ilist, SAVE_TO_DC(dcontext, REG_XCX, COARSE_DIR_EXIT_OFFSET));
-                APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
+#ifdef X64
+                /* XXX: there are a few ways to perhaps make this a little
+                 * cleaner: maybe a restore_indirect_branch_spill() or sthg,
+                 * and IBL_REG to indirect xcx.
+                 */
+                if (GENCODE_IS_X86_TO_X64(code->gencode_mode))
+                    APP(ilist, RESTORE_FROM_REG(dcontext, REG_XCX, REG_R9));
+                else
+#endif
+                    APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
             }
         } else {
             APP(ilist, SAVE_TO_DC(dcontext, REG_XBX, XAX_OFFSET));
@@ -4108,8 +4149,11 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
         APP(&ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_ECX),
                                          OPND_CREATE_INT32((int)(ptr_int_t)info)));
     } else { /* default code */
+        if (GENCODE_IS_X86_TO_X64(mode))
+            APP(&ilist, SAVE_TO_REG(dcontext, REG_XCX, REG_R9));
+        else
 #endif
-        APP(&ilist, SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
+            APP(&ilist, SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
         APP(&ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
                                          OPND_CREATE_INTPTR((ptr_int_t)info)));
 #ifdef X64
@@ -4209,7 +4253,7 @@ patch_coarse_exit_prefix(dcontext_t *dcontext, coarse_info_t *info)
  */
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute)
+                   uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64))
 {
     /* no support for absolute addresses on x64: we always use tls/reg */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute));
@@ -4223,7 +4267,10 @@ insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
     /* for shared ibl targets we put eflags in tls -- else, we use mcontext,
      * either absolute address or indirected via xdi as specified by absolute param
      */
-    if (tls) {
+    if (IF_X64_ELSE(x86_to_x64, false)) {
+        /* in x86_to_x64, spill rax to r8 */
+        PRE(ilist, where, SAVE_TO_REG(dcontext, REG_XAX, REG_R8));
+    } else if (tls) {
         /* We need to save this in an easy location for the prefixes
          * to restore from.  FIXME: This can be much more streamlined
          * if TLS_SLOT_SCRATCH1 was the XAX spill slot for everyone
@@ -4254,7 +4301,7 @@ insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
  */
 void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                      uint flags, bool tls, bool absolute)
+                      uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64))
 {
     /* no support for absolute addresses on x64: we always use tls/reg */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute));
@@ -4271,7 +4318,9 @@ insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
     /*>>>    sahf                                                    */
     PRE(ilist, where, INSTR_CREATE_sahf(dcontext));
     /* restore xax */
-    if (tls) {
+    if (IF_X64_ELSE(x86_to_x64, false)) {
+        PRE(ilist, where, RESTORE_FROM_REG(dcontext, REG_XAX, REG_R8));
+    } else if (tls) {
         PRE(ilist, where, RESTORE_FROM_TLS(dcontext, REG_XAX, PREFIX_XAX_SPILL_SLOT));
     } else {
         /*>>>    RESTORE_FROM_UPCONTEXT xax_OFFSET,%xax                  */
@@ -4421,6 +4470,7 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
     /*>>>    RESTORE_FROM_UPCONTEXT xbx_OFFSET,%xbx                  */
     /*>>>    jmp     *FRAGMENT_START_PC_OFFS(%xcx)                   */
     instr_t *inst = NULL;
+    IF_X64(bool x86_to_x64 = ibl_code->x86_to_x64_mode;)
 
     /* no support for absolute addresses on x64: we always use tls/reg */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute));
@@ -4473,7 +4523,7 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
 
     if (restore_eflags) {
         insert_restore_eflags(dcontext, ilist, NULL, 0,
-                              IBL_EFLAGS_IN_TLS(), absolute);
+                              IBL_EFLAGS_IN_TLS(), absolute _IF_X64(x86_to_x64));
     }
     if (!target_prefix) {
         /* We're going to clobber the xax slot */
@@ -4490,7 +4540,9 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
             APP(ilist, SAVE_TO_TLS(dcontext, REG_XBX, DIRECT_STUB_SPILL_SLOT));
         }
     }
-    if (absolute) {
+    if (IF_X64_ELSE(x86_to_x64, false)) {
+        APP(ilist, RESTORE_FROM_REG(dcontext, REG_XBX, REG_R10));
+    } else if (absolute) {
         /* restore XBX through dcontext */
         APP(ilist, inst);
     } else {
@@ -4524,7 +4576,9 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
                                        OPND_CREATE_MEMPTR(REG_XCX, start_pc_offset)));
         if (absolute) {
             APP(ilist, SAVE_TO_DC(dcontext, REG_XCX, XBX_OFFSET));
-            if (XCX_IN_TLS(0/*!FRAG_SHARED*/))
+            if (IF_X64_ELSE(x86_to_x64, false))
+                APP(ilist, RESTORE_FROM_REG(dcontext, REG_XCX, REG_R9));
+            else if (XCX_IN_TLS(0/*!FRAG_SHARED*/))
                 APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
             else
                 APP(ilist, RESTORE_FROM_DC(dcontext, REG_XCX, XCX_OFFSET));
@@ -4533,7 +4587,12 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
                                                           XBX_OFFSET)));
         } else {
             APP(ilist, SAVE_TO_TLS(dcontext, REG_XCX, INDIRECT_STUB_SPILL_SLOT));
-            APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
+#ifdef X64
+            if (x86_to_x64)
+                APP(ilist, RESTORE_FROM_REG(dcontext, REG_XCX, REG_R9));
+            else
+#endif
+                APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
             APP(ilist, INSTR_CREATE_jmp_ind(dcontext,
                                             OPND_TLS_FIELD(INDIRECT_STUB_SPILL_SLOT)));
         }
@@ -4648,6 +4707,7 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
     uint hash_to_address_factor;
     /* Use TLS only for spilling app state -- registers & flags */
     bool only_spill_state_in_tls = !absolute && !table_in_tls;
+    IF_X64(bool x86_to_x64 = ibl_code->x86_to_x64_mode;)
 
     /* no support for absolute addresses on x64: we always use tls/reg */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute));
@@ -4667,7 +4727,7 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
          * flags.
          */
          insert_save_eflags(dcontext, ilist, NULL, 0, IBL_EFLAGS_IN_TLS(),
-                            absolute); 
+                            absolute _IF_X64(x86_to_x64));
     }
     /* PR 245832: x64 trace cmp saves flags so we need an entry point post-flags-save */
     if (post_eflags_save != NULL) {
@@ -4681,7 +4741,9 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
         append_shared_get_dcontext(dcontext, ilist, true /* save xdi to scratch */);
     }
 #endif
-    if (inline_ibl_head || !DYNAMO_OPTION(indirect_stubs)) {
+    if (IF_X64_ELSE(x86_to_x64, false)) {
+        after_linkcount = SAVE_TO_REG(dcontext, REG_XBX, REG_R10);
+    } else if (inline_ibl_head || !DYNAMO_OPTION(indirect_stubs)) {
         /*>>>    SAVE_TO_UPCONTEXT %xbx,xbx_OFFSET                       */
         if (absolute)
             after_linkcount = SAVE_TO_DC(dcontext, REG_XBX, XBX_OFFSET);
@@ -4719,7 +4781,12 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
          * do not need this if using all-tls (private_ib_in_tls option)
          */
         /* xbx is now dead, just saved it */
-        APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XBX, MANGLE_XCX_SPILL_SLOT));
+#ifdef X64
+        if (x86_to_x64)
+            APP(ilist, RESTORE_FROM_REG(dcontext, REG_XBX, REG_R9));
+        else
+#endif
+            APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XBX, MANGLE_XCX_SPILL_SLOT));
         APP(ilist, SAVE_TO_DC(dcontext, REG_XBX, XCX_OFFSET));
     }
     /* make a copy of the tag for hashing
@@ -5163,6 +5230,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     instr_t *sentinel_check;
     /* for IBL_COARSE_SHARED and !DYNAMO_OPTION(indirect_stubs) */
     const linkstub_t *linkstub = NULL;
+    IF_X64(bool x86_to_x64 = ibl_code->x86_to_x64_mode;)
 
     instr_t *next_fragment_nochasing = 
         INSTR_CREATE_cmp(dcontext,
@@ -5185,9 +5253,17 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
      * path, so we need to restore %xbx. See more on the target_delete_entry
      * below, where the instr is added to the ilist.
      */
-    target_delete_entry = absolute ?
-        instr_create_save_to_dcontext(dcontext, REG_XBX, XBX_OFFSET) :
-        SAVE_TO_TLS(dcontext, REG_XBX, INDIRECT_STUB_SPILL_SLOT);
+#ifdef X64
+    if (x86_to_x64) {
+        target_delete_entry = SAVE_TO_REG(dcontext, REG_XBX, REG_R10);
+    } else {
+#endif
+        target_delete_entry = absolute ?
+            instr_create_save_to_dcontext(dcontext, REG_XBX, XBX_OFFSET) :
+            SAVE_TO_TLS(dcontext, REG_XBX, INDIRECT_STUB_SPILL_SLOT);
+#ifdef X64
+    }
+#endif
     
     fragment_not_found = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XCX),
                                              opnd_create_reg(REG_XBX));
@@ -5416,7 +5492,8 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
             add_patch_marker(patch, trace_cmp_unlinked, PATCH_ASSEMBLE_ABSOLUTE, 
                              0 /* beginning of instruction */, 
                              (ptr_uint_t*)&ibl_code->trace_cmp_unlinked);
-            insert_restore_eflags(dcontext, &ilist, NULL, 0, true/*tls*/, false/*!abs*/);
+            insert_restore_eflags(dcontext, &ilist, NULL, 0, true/*tls*/, false/*!abs*/,
+                                  x86_to_x64);
             APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(unlinked)));
         }
     }
@@ -5494,7 +5571,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         if (!INTERNAL_OPTION(unsafe_ignore_eflags_ibl)) {
             /* save flags so we can re-use miss path below */
             insert_save_eflags(dcontext, &ilist, NULL, 0,
-                               IBL_EFLAGS_IN_TLS(), absolute);
+                               IBL_EFLAGS_IN_TLS(), absolute _IF_X64(x86_to_x64));
         }
     } else {
         APP(&ilist,
@@ -5548,7 +5625,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         if (!INTERNAL_OPTION(unsafe_ignore_eflags_ibl)) {
             /* restore flags + xax (which we only need so save below works) */
             insert_restore_eflags(dcontext, &ilist, NULL, 0, IBL_EFLAGS_IN_TLS(),
-                                  absolute);
+                                  absolute _IF_X64(x86_to_x64));
         }
         APP(&ilist, unlinked);
     }
@@ -5565,7 +5642,9 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         }
     } else {
         /* restore xbx */
-        if (absolute)
+        if (IF_X64_ELSE(x86_to_x64, false))
+            APP(&ilist, RESTORE_FROM_REG(dcontext, REG_XBX, REG_R10));
+        else if (absolute)
             APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XBX, XBX_OFFSET));
         else
             APP(&ilist, RESTORE_FROM_TLS(dcontext, REG_XBX, INDIRECT_STUB_SPILL_SLOT));
@@ -5591,7 +5670,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         if (!INTERNAL_OPTION(unsafe_ignore_eflags_ibl)) {
             /* restore flags + xax (which we only need so save below works) */
             insert_restore_eflags(dcontext, &ilist, NULL, 0, IBL_EFLAGS_IN_TLS(),
-                                  absolute);
+                                  absolute _IF_X64(x86_to_x64));
         }
         APP(&ilist, unlinked);
     }
@@ -5687,9 +5766,12 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         }
         
         /* We need to restore XCX from TLS for shared IBL routines, but from
-         * mcontext for private IBL routines (unless private_ib_in_tls is set)
+         * mcontext for private IBL routines (unless private_ib_in_tls is set).
+         * For x86_to_x64, we restore XCX from R9.
          */
-        if (ibl_code->thread_shared_routine || DYNAMO_OPTION(private_ib_in_tls)) {
+        if (IF_X64_ELSE(x86_to_x64, false)) {
+            APP(&ilist, RESTORE_FROM_REG(dcontext, REG_XCX, REG_R9));
+        } else if (ibl_code->thread_shared_routine || DYNAMO_OPTION(private_ib_in_tls)) {
             APP(&ilist, RESTORE_FROM_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
         } else {
             APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XCX, XCX_OFFSET));            
@@ -5806,13 +5888,14 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
             }
             /* have to save eflags before increment, saving eflags clobbers
              * xax slot, but that should be dead here */
-            insert_save_eflags(dcontext, &ilist, NULL, 0, !absolute, absolute);
+            insert_save_eflags(dcontext, &ilist, NULL, 0, !absolute, absolute
+                               _IF_X64(x86_to_x64));
             append_increment_counter(dcontext, &ilist, ibl_code, patch,
                                      REG_NULL,
                                      HASHLOOKUP_STAT_OFFS(unlinked_count),
                                      REG_XBX);
             insert_restore_eflags(dcontext, &ilist, NULL, 0,
-                                  !absolute, absolute);
+                                  !absolute, absolute _IF_X64(x86_to_x64));
             if (IF_X64_ELSE(true, save_xdi)) {
                 APP(&ilist,
                     RESTORE_FROM_TLS(dcontext, REG_XDI, HTABLE_STATS_SPILL_SLOT));
@@ -6022,8 +6105,13 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
 
         APP(&ilist, INSTR_CREATE_xchg
             (dcontext, opnd_create_reg(REG_XBX), opnd_create_reg(REG_XCX)));
-        APP(&ilist,
-            RESTORE_FROM_TLS(dcontext, REG_XBX, MANGLE_FAR_SPILL_SLOT));
+        if (ibl_code->x86_to_x64_mode) {
+            APP(&ilist, INSTR_CREATE_mov_ld
+                (dcontext, opnd_create_reg(REG_XBX), opnd_create_reg(REG_R10)));
+        } else {
+            APP(&ilist,
+                RESTORE_FROM_TLS(dcontext, REG_XBX, MANGLE_FAR_SPILL_SLOT));
+        }
         APP(&ilist, INSTR_CREATE_jmp
             (dcontext, opnd_create_pc(ibl_same_mode_tgt)));
 
@@ -6040,8 +6128,28 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
              OPND_CREATE_INT8(source_is_x86 ? 0 : 1)));
         APP(&ilist, INSTR_CREATE_xchg
             (dcontext, opnd_create_reg(REG_XBX), opnd_create_reg(REG_XCX)));
-        APP(&ilist,
-            RESTORE_FROM_TLS(dcontext, REG_XBX, MANGLE_FAR_SPILL_SLOT));
+        if (ibl_code->x86_to_x64_mode) {
+            APP(&ilist, INSTR_CREATE_mov_ld
+                (dcontext, opnd_create_reg(REG_XBX), opnd_create_reg(REG_R10)));
+        } else {
+            APP(&ilist,
+                RESTORE_FROM_TLS(dcontext, REG_XBX, MANGLE_FAR_SPILL_SLOT));
+        }
+        if (ibl_code->x86_mode) {
+            /* FIXME i#865: restore 64-bit regs here */
+        } else if (ibl_code->x86_to_x64_mode) {
+            /* In the current mode, XCX is spilled into R9.
+             * After mode switch, will use MANGLE_XCX_SPILL_SLOT for spilling XCX.
+             */
+            APP(&ilist, SAVE_TO_TLS(dcontext, REG_R9, MANGLE_XCX_SPILL_SLOT));
+            /* FIXME i#865: restore 64-bit regs here */
+        } else {
+            /* FIXME i#865: save 64-bit regs here */
+            /* In the current mode, XCX is spilled into MANGLE_XCX_SPILL_SLOT.
+             * After mode switch, will use R9 for spilling XCX.
+             */
+            APP(&ilist, RESTORE_FROM_TLS(dcontext, REG_R9, MANGLE_XCX_SPILL_SLOT));
+        }
         /* For now we assume we're WOW64 and thus in low 4GB.  For general mixed-mode
          * and reachability (xref i#774) we will need a trampoline in low 4GB.
          * Note that targeting the tail of the not-taken jecxz above doesn't help
@@ -6421,6 +6529,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     /* thread_shared indicates whether ibl is thread-shared: this bool indicates
      * whether this routine itself is all thread-shared */
     bool all_shared = IF_X64_ELSE(true, false); /* PR 244737 */
+    IF_X64(bool x86_to_x64 = ibl_code->x86_to_x64_mode;)
 
     /* no support for absolute addresses on x64: we always use tls */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute));
@@ -6458,9 +6567,18 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
      */
     if (all_shared) {
         /* xax and xbx tls slots are taken so we use xcx */
-        linked = INSTR_CREATE_mov_st(dcontext,
-                                     OPND_TLS_FIELD_SZ(MANGLE_XCX_SPILL_SLOT, OPSZ_4),
-                                     OPND_CREATE_INT32(1));
+# ifdef X64
+        if (x86_to_x64) {
+            linked = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_R9D),
+                                          OPND_CREATE_INT32(1));
+        } else {
+# endif
+            linked = INSTR_CREATE_mov_st(dcontext,
+                                         OPND_TLS_FIELD_SZ(MANGLE_XCX_SPILL_SLOT, OPSZ_4),
+                                         OPND_CREATE_INT32(1));
+# ifdef X64
+        }
+# endif
     } else
         linked = instr_create_save_immed_to_dcontext(dcontext, 1, XAX_OFFSET);
     APP(&ilist, linked);
@@ -6650,11 +6768,20 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                       (dcontext, opnd_create_instr(instr_get_next(linked))));
     if (all_shared) {
         /* xax and xbx tls slots are taken so we use xcx */
-        instrlist_prepend(&ilist, INSTR_CREATE_mov_st
-                          (dcontext, 
-                           /* simpler to do 4 bytes even on x64 */
-                           OPND_TLS_FIELD_SZ(MANGLE_XCX_SPILL_SLOT, OPSZ_4),
-                           OPND_CREATE_INT32(0)));
+# ifdef X64
+        if (x86_to_x64) {
+            instrlist_prepend(&ilist, INSTR_CREATE_mov_imm
+                              (dcontext, opnd_create_reg(REG_R9D), OPND_CREATE_INT32(0)));
+        } else {
+# endif
+            instrlist_prepend(&ilist, INSTR_CREATE_mov_st
+                              (dcontext,
+                               /* simpler to do 4 bytes even on x64 */
+                               OPND_TLS_FIELD_SZ(MANGLE_XCX_SPILL_SLOT, OPSZ_4),
+                               OPND_CREATE_INT32(0)));
+# ifdef X64
+        }
+# endif
     } else {
         instrlist_prepend(&ilist,
                           instr_create_save_immed_to_dcontext(dcontext, 0, XAX_OFFSET));
@@ -6712,7 +6839,12 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
      * case, as suggested above? */
     if (!absolute && !all_shared/*done later*/) {
         /* save xcx in TLS */
-        APP(&ilist, SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
+# ifdef X64
+        if (x86_to_x64)
+            APP(&ilist, SAVE_TO_REG(dcontext, REG_XCX, REG_R9));
+        else
+# endif
+            APP(&ilist, SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
     }
 
     if (!INTERNAL_OPTION(shared_syscalls_fastpath)) {
@@ -6737,9 +6869,16 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         unlink = instr_create_restore_from_dc_via_reg
             (dcontext, REG_NULL/*default*/, REG_XCX, XSI_OFFSET);
         /* we stored 4 bytes so get 4 bytes back; save app xcx at same time */
-        APP(&ilist, INSTR_CREATE_xchg
-            (dcontext, OPND_TLS_FIELD(MANGLE_XCX_SPILL_SLOT), opnd_create_reg(REG_XCX)));
 # ifdef X64
+        if (x86_to_x64) {
+            APP(&ilist, INSTR_CREATE_xchg
+                (dcontext, opnd_create_reg(REG_R9), opnd_create_reg(REG_XCX)));
+        } else {
+# endif
+            APP(&ilist, INSTR_CREATE_xchg
+                (dcontext, OPND_TLS_FIELD(MANGLE_XCX_SPILL_SLOT), opnd_create_reg(REG_XCX)));
+# ifdef X64
+        }
         /* clear top 32 bits */
         APP(&ilist, INSTR_CREATE_mov_st
             (dcontext, opnd_create_reg(REG_ECX), opnd_create_reg(REG_ECX)));
@@ -7848,7 +7987,12 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     init_patch_list(&patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_FS);
 
     if (code->thread_shared || DYNAMO_OPTION(private_ib_in_tls)) {
-        APP(&ilist, SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
+#ifdef X64
+        if (GENCODE_IS_X86_TO_X64(code->gencode_mode))
+            APP(&ilist, SAVE_TO_REG(dcontext, REG_XCX, REG_R9));
+        else
+#endif
+            APP(&ilist, SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
     } else {
         APP(&ilist, SAVE_TO_DC(dcontext, REG_XCX, XCX_OFFSET));
     }
