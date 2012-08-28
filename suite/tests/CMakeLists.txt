@@ -1423,6 +1423,7 @@ if (UNIX)
   tobuild(linux.fork linux/fork.c)
   tobuild(linux.infinite linux/infinite.c)
   tobuild(linux.longjmp linux/longjmp.c)
+  tobuild(linux.prctl linux/prctl.c)
   # FIXME TOFILE: suddently seeing non-det curiosities/asserts in module list on mmap
   tobuild(linux.mmap linux/mmap.c)
   tobuild(linux.signal0000 linux/signal0000.c)

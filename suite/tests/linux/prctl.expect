@@ -1,0 +1,4 @@
+basename argv[0]: linux.prctl
+PR_GET_NAME: linux.prctl
+after PR_SET_NAME: set_prctl
+all done

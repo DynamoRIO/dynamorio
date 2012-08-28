@@ -43,8 +43,10 @@
 #include "../x86/instr.h" /* SEG_GS/SEG_FS */
 #include "module.h"     /* elf */
 #include "../heap.h"    /* HEAPACCT */
+#include "include/syscall.h"
 
 #include <dlfcn.h>      /* dlsym */
+#include <sys/prctl.h>  /* PR_SET_NAME */
 #include <string.h>     /* strcmp */
 #include <stdlib.h>     /* getenv */
 #include <dlfcn.h>      /* dlopen/dlsym */
@@ -1328,6 +1330,7 @@ privload_early_inject(void **sp)
     char **envp = argv + *argc + 1;
     app_pc entry = NULL;
     char *exe_path;
+    char *exe_basename;
     app_pc exe_map;
     size_t exe_map_size;
     ptr_int_t exe_map_delta;
@@ -1351,6 +1354,18 @@ privload_early_inject(void **sp)
     exe_ehdr = (ELF_HEADER_TYPE *) exe_map;
 
     privload_setup_auxv(envp, exe_map, exe_map_delta);
+
+    /* Set the process name with prctl PR_SET_NAME.  This makes killall <app>
+     * work.
+     */
+    exe_basename = strrchr(exe_path, '/');
+    if (exe_basename == NULL) {
+        exe_basename = exe_path;
+    } else {
+        exe_basename++;
+    }
+    dynamorio_syscall(SYS_prctl, 5, PR_SET_NAME, (ptr_uint_t)exe_basename,
+                      0, 0, 0);
 
     interp = find_pt_interp(exe_map, exe_map_delta);
     if (interp != NULL) {
