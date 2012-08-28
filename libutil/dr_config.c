@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -953,6 +953,13 @@ dr_register_process(const char *process_name,
         return status;
 
     /* set the logdir string */
+    /* XXX i#886: should we expose this in the dr_register_process() params (and
+     * thus dr_process_is_registered() and dr_registered_process_iterator_next())?
+     * We now have a -logdir runtime option so we don't need to expose it for full
+     * functionality anymore but it would serve to reduce the length of option
+     * strings to have more control over the default.  Linux dr{config,run} does
+     * allow such control today.
+     */
     _snwprintf(wbuf, MAX_PATH, L"%S"LOG_SUBDIR, dr_root_dir);
     NULL_TERMINATE_BUFFER(wbuf);
     status = write_config_param(IF_REG_ELSE(proc_policy, f),

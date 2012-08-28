@@ -1254,7 +1254,7 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    in a subdirectory of the base directory specified by \p -persist_dir.
    See \ref sec_pcache for more details.
 
- - \b -persist_dir:
+ - \b -persist_dir \e \<path\>:
    Sets the base directory for persistent code cache files.  If unset,
    the default base directory is the log directory.  A different
    sub-directory will be created for each user inside the specified
@@ -1368,6 +1368,8 @@ Options available only in the debug build of DynamoRIO:
     specified in the dr_register_process() or \c drconfig.exe
     configuration for the target application.  \if linux On Linux the
     \c drconfig and \c drrun scripts allow for setting the logging directory. \endif
+    The runtime option \ref op_logdir "-logdir" can be used to override the
+    default directory.
     There is one main log file per directory named
     \e app.0.TID.html, where \e TID is the thread identifier of the initial
     thread.  There is also a log file per thread, named \e log.N.TID.html,
@@ -1383,6 +1385,12 @@ Options available only in the debug build of DynamoRIO:
     Selects which DynamoRIO modules print out logging information, at the
     -loglevel level.  The mask is a combination of the LOG_ bitfields
     listed in dr_tools.h (#LOG_ALL selects all modules).
+
+\anchor op_logdir
+ - \b -logdir \e \<path\>:
+    Specifies the directory to use for log files.  See the documentation
+    for \ref op_loglevel "-loglevel" for a description of the default
+    log directory.
 
  - \b -ignore_assert_list \b '*': \anchor op_ignore_assert
     Ignores all DynamoRIO asserts of the form "<file>:1234". * may be

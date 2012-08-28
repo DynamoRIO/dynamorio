@@ -2456,12 +2456,13 @@ create_log_dir(int dir_type)
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
 #ifdef LINUX
     if (dir_type == PROCESS_DIR && pre_execve != NULL) {
-        /* if this app has a logdir config, that should trump sharing
+        /* if this app has a logdir option or config, that should trump sharing
          * the pre-execve logdir.  a logdir env var should not.
          */
         bool is_env;
-        if (get_config_val_ex(DYNAMORIO_VAR_LOGDIR, NULL, &is_env) == NULL ||
-            is_env) {
+        if (IS_STRING_OPTION_EMPTY(logdir) &&
+            (get_config_val_ex(DYNAMORIO_VAR_LOGDIR, NULL, &is_env) == NULL ||
+             is_env)) {
             /* use same dir as pre-execve! */
             sharing_logdir = true;
             strncpy(logdir, pre_execve, BUFFER_SIZE_ELEMENTS(logdir));
@@ -2479,10 +2480,17 @@ create_log_dir(int dir_type)
             int retval;
             ASSERT(sizeof(basedir) == sizeof(old_basedir));
             strncpy(old_basedir, basedir, sizeof(basedir));
-            retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_LOGDIR), basedir, 
-                                   sizeof(basedir));
-            if (IS_GET_PARAMETER_FAILURE(retval))
-                basedir[0] = '\0';
+            /* option takes precedence over config var */
+            if (IS_STRING_OPTION_EMPTY(logdir)) {
+                retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_LOGDIR), basedir,
+                                       BUFFER_SIZE_ELEMENTS(basedir));
+                if (IS_GET_PARAMETER_FAILURE(retval))
+                    basedir[0] = '\0';
+            } else {
+                string_option_read_lock();
+                strncpy(basedir, DYNAMO_OPTION(logdir), BUFFER_SIZE_ELEMENTS(basedir));
+                string_option_read_unlock();
+            }
             basedir[sizeof(basedir)-1] =  '\0';
             if (!basedir_initialized ||
                 strncmp(old_basedir, basedir, sizeof(basedir))) {
