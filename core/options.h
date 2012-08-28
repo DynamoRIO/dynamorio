@@ -344,6 +344,13 @@ set_dynamo_options(options_t *options, char *optstr);
 #define RUNNING_WITHOUT_CODE_CACHE()        \
     (IF_HOTP(DYNAMO_OPTION(hotp_only) ||) DYNAMO_OPTION(thin_client))
 
+#if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+# define CLIENT_OR_STANDALONE() \
+    (standalone_library || !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))
+#else
+# define CLIENT_OR_STANDALONE() false
+#endif
+
 extern char option_string[];
 extern options_t dynamo_options;
 extern read_write_lock_t options_lock;

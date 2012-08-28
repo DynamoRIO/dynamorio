@@ -4616,7 +4616,8 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
             } else if (name[1] == '?') {
                 /* is \\?\UNC\server or \\?\c:\ type,
                  * chop off the \\?\ and we'll check for the UNC later */
-                ASSERT_CURIOSITY(name[2] == '\\' && "create file invalid name");
+                ASSERT_CURIOSITY(CLIENT_OR_STANDALONE() ||
+                                 (name[2] == '\\' && "create file invalid name"));
                 /* safety check, don't go beyond end of string */
                 if (name[2] != '\0') {
                     name += 3;
@@ -4630,8 +4631,9 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
         } else {
             /* is \??\UNC\server for \??\c:\ type
              * chop off the \??\ and we'll check for the UNC later */
-            ASSERT_CURIOSITY(name[0] == '?' && name[1] == '?' && name[2] == '\\' &&
-                             "create file invalid name");
+            ASSERT_CURIOSITY(CLIENT_OR_STANDALONE() ||
+                             (name[0] == '?' && name[1] == '?' &&
+                              name[2] == '\\' && "create file invalid name"));
             /* safety check, don't go beyond end of string */
             if (name[0] != '\0' && name[1] != '\0' && name[2] != '\0') {
                 name += 3;
@@ -4647,20 +4649,23 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
                 /* is \??\UNC\server or \\?\UNC\server type, chop of the UNC 
                  * (we'll re-add below)
                  * NOTE '/' is not a legal separator for a \??\ or \\?\ path */
-                ASSERT_CURIOSITY(name[3] == '\\' && "create file invalid name");
+                ASSERT_CURIOSITY(CLIENT_OR_STANDALONE() ||
+                                 (name[3] == '\\' && "create file invalid name"));
                 is_UNC = true;
                 name += 3;
             } else {
                 /* is \??\c:\ or \\?\c:\ type,
                  * NOTE '/' is not a legal separator for a \??\ or \\?\ path */
-                ASSERT_CURIOSITY(name[1] == ':' && name[2] == '\\' &&
-                                 "create file invalid name");
+                ASSERT_CURIOSITY(CLIENT_OR_STANDALONE() ||
+                                 (name[1] == ':' && name[2] == '\\' &&
+                                  "create file invalid name"));
             }
         }
     } else {
         /* is c:\ type, NOTE case 9329 c:/ is also legal */
-        ASSERT_CURIOSITY(name[1] == ':' && (name[2] == '/' || name[2] == '\\') &&
-                         "create file invalid name");
+        ASSERT_CURIOSITY(CLIENT_OR_STANDALONE() ||
+                         (name[1] == ':' && (name[2] == '/' || name[2] == '\\') &&
+                          "create file invalid name"));
     }
 
     /* should now have either ("c:\" and !is_UNC) or ("\server" and is_UNC) */ 
