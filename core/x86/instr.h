@@ -991,7 +991,6 @@ opnd_is_near_memory_reference(opnd_t opnd);
 DR_API
 /** 
  * Return the data size of \p opnd as a OPSZ_ constant.
- * Assumes \p opnd is a register, immediate integer, or memory reference.
  * If \p opnd is a register returns the result of opnd_reg_get_size()
  * called on the DR_REG_ constant.
  * Returns OPSZ_NA if \p opnd does not have a valid size.

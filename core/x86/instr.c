@@ -207,9 +207,13 @@ opnd_get_size(opnd_t opnd)
 #endif
         return opnd.size;
     case INSTR_kind:
+    case PC_kind:
         return OPSZ_PTR;
+    case FAR_PC_kind:
     case FAR_INSTR_kind:
         return OPSZ_6_irex10_short4;
+    case NULL_kind:
+        return OPSZ_NA;
     default:
         CLIENT_ASSERT(false, "opnd_get_size: unknown opnd type");
         return OPSZ_NA;
