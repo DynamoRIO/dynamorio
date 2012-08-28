@@ -72,22 +72,32 @@ opnd_change_base_reg_to_64(opnd_t opnd)
 {
     reg_id_t base_reg;
     reg_id_t index_reg;
+    int disp;
 
     ASSERT(opnd_is_base_disp(opnd));
 
     base_reg = opnd_get_base(opnd);
     index_reg = opnd_get_index(opnd);
+    disp = opnd_get_disp(opnd);
+
 
     /* If there's a negative index, then base+index may overflow.
      * So we only perform the optimization when there's no index.
-     * On the other hand, disp will be sign-extended, so base+disp won't overflow.
+     *
+     * XXX: We assume that if disp is within +/-4K, then it is really a
+     * displacement, and base+disp won't overflow because disp will be
+     * sign-extended. However, if disp is outside that range, then it
+     * may be used as a base address and base is used as a displacement,
+     * in which case base+disp may overflow because base will be zero-
+     * extended.
      */
-    if (reg_is_32bit(base_reg) && index_reg == REG_NULL) {
+    if (reg_is_32bit(base_reg) && index_reg == REG_NULL &&
+        disp > -4096 && disp < 4096) {
         opnd = opnd_create_far_base_disp_ex(opnd_get_segment(opnd),
                                             reg_32_to_64(base_reg),
                                             index_reg,
                                             opnd_get_scale(opnd),
-                                            opnd_get_disp(opnd),
+                                            disp,
                                             opnd_get_size(opnd),
                                             opnd_is_disp_encode_zero(opnd),
                                             opnd_is_disp_force_full(opnd),

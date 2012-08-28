@@ -51,6 +51,7 @@ void test_push_esp(void);
 void test_pusha(void);
 void test_pushf(void);
 void test_les(void);
+void test_lea_addr32(void);
 void test_call_esp(void);
 int test_iret(void);
 int test_far_calls(void);
@@ -95,6 +96,9 @@ int main(int argc, char *argv[])
     print("edx was "PFX"\n", *(__int32*)global_data);
 
     test_les();
+    print("edx was "PFX"\n", *(__int32*)global_data);
+
+    test_lea_addr32();
     print("edx was "PFX"\n", *(__int32*)global_data);
 
     test_call_esp();
@@ -300,6 +304,21 @@ GLOBAL_LABEL(FUNCNAME:)
     les_exit:
         mov      ecx, offset global_data
         mov      dword ptr [ecx], edx
+        ret
+        END_FUNC(FUNCNAME)
+# undef FUNCNAME
+
+# define FUNCNAME test_lea_addr32
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        push     HEX(1EAADD32)
+        lea      esp, [esp + 4]
+        lea      esp, [esp - 4]
+        lea      esp, [esp + HEX(4000)]
+        lea      esp, [esp - HEX(4000)]
+        pop      edx
+        mov      ecx, -8
+        mov      dword ptr [ecx + (offset global_data + 8)], edx
         ret
         END_FUNC(FUNCNAME)
 # undef FUNCNAME
