@@ -731,6 +731,9 @@
                    "thread_private", {
         options->shared_bbs = !options->thread_private;
         options->shared_traces = !options->thread_private;
+        /* i#871: set code cache infinite for thread private as primary cache */
+        options->finite_bb_cache = !options->thread_private;
+        options->finite_trace_cache = !options->thread_private;
         if (options->thread_private && options->indirect_stubs)
             options->coarse_units = true;
         IF_NOT_X64(options->private_ib_in_tls = !options->thread_private;)
