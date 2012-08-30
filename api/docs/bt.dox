@@ -418,7 +418,8 @@ DynamoRIO that these instructions should execute natively rather than
 being trapped and redirected to new basic block fragments.
 
 Through meta instructions, a client can add its own internal control flow
-or make a call to a native routine that will not be brought into the code
+or make a call to a native routine.  The target of a meta call will not be
+brought into the code
 cache by DynamoRIO.  However, such native calls need to be careful to
 remain transparent (see \ref sec_clean_call).
 
