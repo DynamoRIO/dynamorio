@@ -1142,7 +1142,9 @@ drmgr_cls_init(void)
     module_data_t *data;
     module_handle_t ntdll_lib;
     app_pc addr_cbret;
-    drmgr_priority_t priority = {sizeof(priority), "drmgr_cls", NULL, NULL, 0};
+    /* We need to go very early to push the new CLS context */
+    drmgr_priority_t priority = {sizeof(priority), DRMGR_PRIORITY_NAME_CLS,
+                                 NULL, NULL, DRMGR_PRIORITY_INSERT_CLS};
 
     if (cls_initialized > 0)
         return true;
@@ -1240,6 +1242,18 @@ drmgr_set_cls_field(void *drcontext, int idx, void *value)
         return false;
     tls->cls[idx] = value;
     return true;
+}
+
+DR_EXPORT
+void *
+drmgr_get_parent_cls_field(void *drcontext, int idx)
+{
+    tls_array_t *tls = (tls_array_t *) dr_get_tls_field(drcontext);
+    if (idx < 0 || idx > MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
+        return NULL;
+    if (tls->prev != NULL)
+        return tls->prev->cls[idx];
+    return NULL;
 }
 
 DR_EXPORT

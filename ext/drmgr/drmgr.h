@@ -444,6 +444,20 @@ drmgr_insert_write_tls_field(void *drcontext, int idx,
  * CLS
  */
 
+/**
+ * Priority of drmgr instrumentation pass used to track CLS.  Users
+ * of drmgr can use the name DRMGR_PRIORITY_NAME_CLS in the
+ * drmgr_priority_t.before field or can use this numeric priority
+ * in the drmgr_priority_t.priority field to ensure proper
+ * instrumentation pass ordering.
+ */
+enum {
+    DRMGR_PRIORITY_INSERT_CLS   =  0, /**< Priority of CLS tracking */
+};
+
+/** Name of drmgr insert pass prioritiy for CLS tracking */
+#define DRMGR_PRIORITY_NAME_CLS "drmgr_cls"
+
 DR_EXPORT
 /**
  * Reserves a callback-local storage (cls) slot.  Thread-local storage
@@ -581,6 +595,17 @@ DR_EXPORT
  */
 bool
 drmgr_pop_cls(void *drcontext);
+
+DR_EXPORT
+/**
+ * Returns the user-controlled callback-local-storage field for the
+ * given index, which was returned by drmgr_register_cls_field(), for
+ * the parent context (i.e., the context most recently pushed either
+ * by a Windows callback entry or a call to drmgr_push_cls()).  If
+ * there is no parent context, returns NULL.
+ */
+void *
+drmgr_get_parent_cls_field(void *drcontext, int idx);
 
 
 /***************************************************************************

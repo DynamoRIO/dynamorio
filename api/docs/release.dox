@@ -173,6 +173,7 @@ Further non-compatibility-affecting changes include:
    dr_recurlock_mark_as_app()
  - Added DR_FAST_IR to allow clients to inline some key IR routines
  - Added -logdir runtime option for control over the log directory
+ - Added drmgr_get_parent_cls_field()
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux
