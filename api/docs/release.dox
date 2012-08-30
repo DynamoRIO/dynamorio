@@ -145,6 +145,7 @@ Further non-compatibility-affecting changes include:
  - Added drsym_get_type(), drsym_expand_type(), and support for additional
    type categories for Windows drsyms.
  - Added drsym_free_resources()
+ - Added drsym_module_has_symbols()
  - Added dr_exit_process() to cleanly shut down with a specified
    exit code
  - Added dr_convert_handle_to_pid()

@@ -426,6 +426,18 @@ drsym_error_t
 drsym_get_module_debug_kind(const char *modpath,
                             drsym_debug_kind_t *kind /*OUT*/);
 
+DR_EXPORT
+/**
+ * Returns whether debug information is available for the module \p modpath.
+ * This can be faster than calling drsym_get_module_debug_kind(), but it
+ * should be equivalent to calling drsym_get_module_debug_kind() and
+ * looking for DRSYM_SYMBOLS in the output.
+ *
+ * @param[in]  modpath   The full path to the module to be queried.
+ */
+drsym_error_t
+drsym_module_has_symbols(const char *modpath);
+
 #ifdef WINDOWS
 DR_EXPORT
 /**

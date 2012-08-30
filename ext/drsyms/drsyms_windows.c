@@ -94,6 +94,17 @@ typedef BOOL (__stdcall *func_SymSearch_t)
 # define SYMSEARCH_ALLITEMS 0x08
 #endif
 
+/* SymGetSymbolFile is not present in VS2005sp1 headers */
+typedef BOOL (__stdcall *func_SymGetSymbolFile_t)
+    (__in_opt HANDLE hProcess,
+     __in_opt PCSTR SymPath,
+     __in PCSTR ImageFile,
+     __in DWORD Type,
+     __out_ecount(cSymbolFile) PSTR SymbolFile,
+     __in size_t cSymbolFile,
+     __out_ecount(cDbgFile) PSTR DbgFile,
+     __in size_t cDbgFile);
+
 typedef struct _mod_entry_t {
     /* whether to use pecoff table + unix-style debug info, or use dbghelp */
     bool use_pecoff_symtable;
@@ -304,8 +315,9 @@ unload_module(HANDLE proc, DWORD64 base)
     }
 }
 
+/* If !use_dbghelp, returns NULL if not PECOFF */
 static mod_entry_t *
-lookup_or_load(const char *modpath)
+lookup_or_load(const char *modpath, bool use_dbghelp)
 {
     mod_entry_t *mod = (mod_entry_t *) hashtable_lookup(&modtable, (void *)modpath);
     if (mod == NULL) {
@@ -315,8 +327,10 @@ lookup_or_load(const char *modpath)
         mod->u.pecoff_data = drsym_unix_load(modpath);
         if (mod->u.pecoff_data == NULL) {
             /* If no pecoff, use dbghelp */
-            mod->use_pecoff_symtable = false;
-            mod->u.load_base = load_module(GetCurrentProcess(), modpath);
+            if (use_dbghelp) {
+                mod->use_pecoff_symtable = false;
+                mod->u.load_base = load_module(GetCurrentProcess(), modpath);
+            }
             if (mod->u.load_base == 0) {
                 dr_global_free(mod, sizeof(*mod));
                 return NULL;
@@ -374,7 +388,7 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
         return DRSYM_ERROR_INVALID_SIZE;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath);
+    mod = lookup_or_load(modpath, true/*use dbghelp*/);
     if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
@@ -438,7 +452,7 @@ drsym_lookup_symbol_local(const char *modpath, const char *symbol,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath);
+    mod = lookup_or_load(modpath, true/*use dbghelp*/);
     if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
@@ -495,7 +509,7 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath);
+    mod = lookup_or_load(modpath, true/*use dbghelp*/);
     if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
@@ -540,7 +554,7 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath);
+    mod = lookup_or_load(modpath, true/*use dbghelp*/);
     if (mod == NULL)
         res = DRSYM_ERROR_LOAD_FAILED;
     else if (mod->use_pecoff_symtable)
@@ -1076,7 +1090,7 @@ drsym_get_type_common(const char *modpath,
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
-    mod = lookup_or_load(modpath);
+    mod = lookup_or_load(modpath, true/*use dbghelp*/);
     if (mod == NULL) {
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
@@ -1186,7 +1200,7 @@ drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind OUT)
             return DRSYM_ERROR_INVALID_PARAMETER;
 
         dr_recurlock_lock(symbol_lock);
-        mod = lookup_or_load(modpath);
+        mod = lookup_or_load(modpath, true/*use dbghelp*/);
         if (mod == NULL) {
             r = DRSYM_ERROR_LOAD_FAILED;
         } else if (mod->use_pecoff_symtable) {
@@ -1200,6 +1214,70 @@ drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind OUT)
         }
         dr_recurlock_unlock(symbol_lock);
 
+        return r;
+    }
+}
+
+DR_EXPORT
+drsym_error_t
+drsym_module_has_symbols(const char *modpath)
+{
+    if (IS_SIDELINE) {
+        return DRSYM_ERROR_NOT_IMPLEMENTED;
+    } else {
+        mod_entry_t *mod;
+        drsym_error_t r;
+        drsym_debug_kind_t kind;
+        /* dbghelp.dll 6.3+ is required for SymGetSymbolFile, but the VS2005sp1
+         * headers and lib have only 6.1, so we dynamically look it up
+         */
+        static func_SymGetSymbolFile_t func;
+
+        if (modpath == NULL)
+            return DRSYM_ERROR_INVALID_PARAMETER;
+
+        dr_recurlock_lock(symbol_lock);
+        /* Unfortunately we have to load the file and check whether it's
+         * PECOFF but our load is faster than dbghelp's load
+         */
+        mod = lookup_or_load(modpath, false/*!use dbghelp*/);
+        if (mod == NULL) {
+            r = DRSYM_ERROR_LOAD_FAILED;
+        } else if (!mod->use_pecoff_symtable) {
+            if (func == NULL) {
+                /* if we fail to find it we'll pay the lookup cost every time,
+                 * but if we succeed we'll cache it
+                 */
+                HMODULE hmod = GetModuleHandle("dbghelp.dll");
+                if (hmod != NULL)
+                    func = (func_SymGetSymbolFile_t)
+                        GetProcAddress(hmod, "SymGetSymbolFile");
+            }
+            if (func != NULL) {
+                /* more efficient than fully loading the pdb */
+                static char pdb_name[MAXIMUM_PATH];
+                static char pdb_path[MAXIMUM_PATH];
+                if ((*func)(GetCurrentProcess(), NULL, modpath, sfPdb,
+                            pdb_name, BUFFER_SIZE_ELEMENTS(pdb_name),
+                            pdb_path, BUFFER_SIZE_ELEMENTS(pdb_path))) {
+                    /* If we ever use the name/path, note that path seems to be
+                     * empty while name has the full path (the docs seem to
+                     * imply the opposite).
+                     */
+                    r = DRSYM_SUCCESS;
+                } else {
+                    r = DRSYM_ERROR;
+                }
+                dr_recurlock_unlock(symbol_lock);
+                return r;
+            }
+        }
+        dr_recurlock_unlock(symbol_lock);
+
+        /* fall back to slower lookup */
+        r = drsym_get_module_debug_kind(modpath, &kind);
+        if (r == DRSYM_SUCCESS && !TEST(DRSYM_SYMBOLS, kind))
+            r = DRSYM_ERROR;
         return r;
     }
 }

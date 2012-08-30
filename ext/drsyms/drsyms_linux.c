@@ -285,6 +285,17 @@ drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind OUT)
 
 DR_EXPORT
 drsym_error_t
+drsym_module_has_symbols(const char *modpath)
+{
+    drsym_debug_kind_t kind;
+    drsym_error_t r = drsym_get_module_debug_kind(modpath, &kind);
+    if (r == DRSYM_SUCCESS && !TEST(DRSYM_SYMBOLS, kind))
+        r = DRSYM_ERROR;
+    return r;
+}
+
+DR_EXPORT
+drsym_error_t
 drsym_free_resources(const char *modpath)
 {
     if (IS_SIDELINE) {
