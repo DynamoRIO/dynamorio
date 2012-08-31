@@ -51,7 +51,6 @@ option(TEST_LONG "run long set of tests")
 option(TEST_SUITE "running series of builds so skip some overlapping tests; also, include racy/flaky tests (eventually they should be fixed) for better coverage")
 set(TEST_SECONDS "60" CACHE STRING "Test time limit in seconds")
 set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
-set(TEST_LIB_PATH "" CACHE STRING "DynamoRIO library path (if empty, uses local build)")
 set(TEST_32BIT_PATH "" CACHE STRING "32-bit test bin dir for cross-arch tests")
 
 # FIXME: i#120: .runall support
@@ -253,11 +252,7 @@ endif (WIN32)
 
 # put libs in same dir for tests that need to load them
 set(MAIN_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
-if (NOT TEST_LIB_PATH)
-  set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}")
-else (NOT TEST_LIB_PATH)
-  set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${TEST_LIB_PATH}")
-endif (NOT TEST_LIB_PATH)
+set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}")
 string(REGEX REPLACE "/lib([36])" "/ext/lib\\1"
   EXT_LIBRARY_OUTPUT_DIRECTORY "${MAIN_LIBRARY_OUTPUT_DIRECTORY}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
@@ -914,20 +909,24 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
     set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${TEST_SECONDS} -killpg -silent)
-    # We set LD_LIBRARY_PATH even for native api/ apps since we're not setting
-    # rpath (to make it easier to try different trees)
-    set(cmd ${cmd}
-      -env LD_LIBRARY_PATH "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
     if (NOT native)
-      # FIXME: should really use drrun to override any existing config file
-      set(cmd ${cmd}
-        -env DYNAMORIO_RUNUNDER 1
-        -env LD_PRELOAD "libdrpreload.so libdynamorio.so"
-        -env DYNAMORIO_CACHE_ROOT "${PCACHE_DIR}"
-        -env DYNAMORIO_CACHE_SHARED "${PCACHE_SHARED_DIR}")
-    endif (NOT native)
-    # add dr_ops last to avoid needing extra \ on ;
-    set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
+      set(cmd ${cmd} ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun)
+      if (TEST_SUITE)  # Use install dir in the suite for cross-arch execve.
+        set(cmd ${cmd} -dr_home "${CMAKE_INSTALL_PREFIX}")
+      endif ()
+      if (DEBUG)
+        set(cmd ${cmd} -debug)
+      endif ()
+      # add dr_ops last to avoid needing extra \ on ;
+      set(${outcmd} ${cmd} -ops "${dr_ops}" PARENT_SCOPE)
+    else ()
+      # We set LD_LIBRARY_PATH for native api/ apps since we're not setting
+      # rpath (to make it easier to try different trees)
+      set(cmd ${cmd} -env LD_LIBRARY_PATH
+        "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
+      # add dr_ops last to avoid needing extra \ on ;
+      set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
+    endif ()
   else (UNIX)
     set(dr_ops "-stderr_mask 0xC -msgbox_mask 0 -dumpcore_mask 0xfd -staged ${dr_ops_aux} ${TEST_OPTIONS}")
     if (is_runall)
@@ -998,14 +997,22 @@ function(torun test key source native dr_ops exe_ops)
     set(exepath ${exe})
   endif (NOT exepath)
 
+  if (${test} MATCHES "linux.execve32")
+    # We're an x64 build, but we need to launch a 32-bit app under DR.  The
+    # suite sets -dr_home to the full install dir with both archs, but we're
+    # invoking bin64/drrun.  Ideally drrun would detect which ELF class we're
+    # about to exec, but until then we have to add -32 for 32-bit apps.
+    string(REGEX REPLACE "/drrun;" "/drrun;-32;" rundr "${rundr}")
+  endif ()
+
   if (is_runall)
     # to run the test we use a series of commands in runall.cmake.
     file(READ "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runall" runall)
     if (UNIX)
       # swap from runstats to run_in_bg to run the test in the background
       set(tmpfile "${CMAKE_CURRENT_BINARY_DIR}/${test}-out")
-      string(REGEX REPLACE "^.*-env;LD_L" 
-        "${MAIN_RUNTIME_OUTPUT_DIRECTORY}/run_in_bg;-out;${tmpfile};-env;LD_L"
+      string(REGEX REPLACE "^.*(-env;LD_L|${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun)" 
+        "${MAIN_RUNTIME_OUTPUT_DIRECTORY}/run_in_bg;-out;${tmpfile};\\1"
         rundr "${rundr}")
       set(clear_arg "")
       if ("${runall}" MATCHES "<reset>")
