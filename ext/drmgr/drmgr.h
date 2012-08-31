@@ -456,7 +456,11 @@ enum {
 };
 
 /** Name of drmgr insert pass prioritiy for CLS tracking */
-#define DRMGR_PRIORITY_NAME_CLS IF_WINDOWS_ELSE("drmgr_cls", NULL)
+#ifdef WINDOWS
+# define DRMGR_PRIORITY_NAME_CLS "drmgr_cls"
+#else
+# define DRMGR_PRIORITY_NAME_CLS NULL
+#endif
 
 DR_EXPORT
 /**
