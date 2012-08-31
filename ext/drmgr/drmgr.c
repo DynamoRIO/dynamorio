@@ -475,7 +475,7 @@ drmgr_bb_cb_add(cb_entry_t **list,
     } else {
         /* cannot satisfy both the before and after requests */
         res = false;
-        dr_global_free(e, sizeof(*e));
+        dr_global_free(new_e, sizeof(*new_e));
     }
 
     dr_rwlock_write_unlock(bb_cb_lock);
