@@ -83,7 +83,12 @@ main(int argc, char *argv[])
 
     struct timespec sleeptime;
     sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 60*1000*1000; /* 50ms */
+    sleeptime.tv_nsec = 25*1000*1000; /* 25ms */
+    /* Doing a few more syscalls makes the test more reliable than one long
+     * sleep, since we hit dispatch more often.
+     */
+    nanosleep(&sleeptime, NULL);
+    nanosleep(&sleeptime, NULL);
     nanosleep(&sleeptime, NULL);
 
     return 0;

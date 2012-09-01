@@ -367,7 +367,7 @@ if (UNIX)
 
   # -z now = do non-lazy runtime binding
   set(dynamorio_link_flags
-    "-nostartfiles -Xlinker -z -Xlinker now -Xlinker -Bsymbolic")
+    "-Xlinker -z -Xlinker now -Xlinker -Bsymbolic")
 
   set(dynamorio_link_flags "${dynamorio_link_flags} -nostdlib")
 
@@ -636,6 +636,8 @@ set_target_properties(dynamorio PROPERTIES
   IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "")
 DR_install(TARGETS dynamorio
   EXPORT ${exported_targets_name}
+  # CMake doesn't set +x on shared libraries, so we have to ask for it.
+  PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
   RUNTIME DESTINATION ${INSTALL_LIB} # .dll
   LIBRARY DESTINATION ${INSTALL_LIB} # .so
   ARCHIVE DESTINATION ${INSTALL_LIB} # .lib

@@ -81,7 +81,6 @@ if (UNIX)
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
     PATTERN "run_in_bg*"
     PATTERN "runstats*"
-    PATTERN "drloader*"
     EXCLUDE)
 
   # Set up our debugging support for gdb in the build directory.

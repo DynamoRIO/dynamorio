@@ -81,7 +81,7 @@ while ($line = <IN>) {
             # FIXME we only need %s for now, but following should be general
             # as long as the letter codes match (seems to be the case), what 
             # about 1, 2, 3 can the .mc fmt string reorder the arguments?
-            $val =~ s/%.!(.)!/%\1/g;
+            $val =~ s/%.!([^!]+)!/%\1/g;
             print OUT "#define ",$name," \"",$val,"\"\n";
         } else {
             die("Error : file ended unexpectedly");

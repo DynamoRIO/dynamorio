@@ -130,6 +130,14 @@ set(vmap_run_list
   "ONLY::^(runall|${osname})::-finite_shared_trace_cache -cache_shared_trace_regen 80"
   )
 
+# FIXME i#47: Early injection doesn't work on ia32 yet.
+if (X64)
+  set(vmap_run_list ${vmap_run_list}
+    "SHORT::LIN::ONLY::client.events$::-code_api -early_inject"
+    "LIN::-code_api -early_inject"
+    )
+endif()
+
 set(vmsafe_run_list
   # keep lightweight modes alive
   # i#24: -thin_client not working: once it works, re-enable
@@ -917,6 +925,9 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
       if (DEBUG)
         set(cmd ${cmd} -debug)
       endif ()
+      if (LINUX AND "${dr_ops}" MATCHES "-early_inject")
+        set(cmd ${cmd} -early)
+      endif()
       # add dr_ops last to avoid needing extra \ on ;
       set(${outcmd} ${cmd} -ops "${dr_ops}" PARENT_SCOPE)
     else ()
@@ -966,6 +977,10 @@ function(torun test key source native dr_ops exe_ops)
   # coarse fragments are incompatible with thread private code caches.
   if ("${dr_ops}" MATCHES "-thread_private" AND
       "${dr_ops}" MATCHES "-opt_memory")
+    return()
+  endif ()
+  if ("${dr_ops}" MATCHES "-early_inject" AND
+      "${dr_ops}" MATCHES "-no_private_loader")
     return()
   endif ()
 

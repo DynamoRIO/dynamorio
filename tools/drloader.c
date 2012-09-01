@@ -90,6 +90,7 @@ main(int argc, char **argv, char **envp)
      */
     r = execve(libdr_so, &argv[2], envp);
     /* Only returns on error. */
+    fprintf(stderr, "%s: can't exec %s\n", argv[0], app);
     perror(argv[0]);
     return r;
 }

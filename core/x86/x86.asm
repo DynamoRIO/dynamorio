@@ -1124,7 +1124,8 @@ GLOBAL_LABEL(_start:)
 #else
         push    REG_XSP
 #endif
-        jmp     privload_early_inject
+        call    privload_early_inject
+        jmp     unexpected_return
         END_FUNC(_start)
 #endif
 

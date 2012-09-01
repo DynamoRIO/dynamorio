@@ -44,7 +44,7 @@ static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
     const char *name = dr_module_preferred_name(info);
-    if (loaded && strstr(name, "appdll") != NULL) {
+    if (strstr(name, "appdll") != NULL) {
         /* Test setting the null instrument module list from the module load
          * event, since that's when clients will probably decide whether to
          * instrument or not.
