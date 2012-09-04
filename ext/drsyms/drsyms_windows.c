@@ -49,9 +49,9 @@
  * modules in a process as we do not need our own nor DR's symbols
  * (xref PR 463897).
  *
- * TODO PR 463897: support symbol stores of downloaded Windows system pdbs
+ * TODO i#450: support symbol stores of downloaded Windows system pdbs
  *
- * TODO PR 463897: be more robust about handling failures packing in
+ * TODO i#449: be more robust about handling failures packing in
  * loaded modules.  E.g., today we will probably fail if passed two
  * .exe's (non-relocatable).  See further comments in load_module()
  * below.
@@ -114,8 +114,14 @@ typedef struct _mod_entry_t {
     } u;
 } mod_entry_t;
 
-/* All dbghelp routines are un-synchronized so we provide our own synch */
+/* All dbghelp routines are un-synchronized so we provide our own synch.
+ * We use a recursive lock to allow queries to be called from enumerate
+ * or search callbacks.
+ */
 static void *symbol_lock;
+
+/* We have to restrict operations when operating in a nested query from a callback */
+static bool recursive_context;
 
 /* Hashtable for mapping module paths to addresses */
 #define MODTABLE_HASH_BITS 8
@@ -288,6 +294,11 @@ load_module(HANDLE proc, const char *path)
         base = 0;
         size = 0;
     }
+
+    /* XXX i#449: if we decide to perform GC and unload older modules we
+     * should avoid doing it for recursive_context == true to avoid
+     * removing resources needed for finishing an iteration
+     */
 
     base = SymLoadModule64(GetCurrentProcess(), NULL, (char *)path, NULL, base,
                            (DWORD)size/*should check trunc*/);
@@ -514,9 +525,11 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LOAD_FAILED;
     }
+    recursive_context = true;
     if (mod->use_pecoff_symtable) {
         drsym_error_t symerr =
             drsym_unix_enumerate_symbols(mod->u.pecoff_data, callback, data, flags);
+        recursive_context = false;
         dr_recurlock_unlock(symbol_lock);
         return symerr;
     }
@@ -529,6 +542,7 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
                         (PVOID) &info)) {
         NOTIFY("SymEnumSymbols error %d\n", GetLastError());
     }
+    recursive_context = false;
 
     dr_recurlock_unlock(symbol_lock);
     if (!info.found_match)
@@ -578,6 +592,7 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
                                                      data, DRSYM_DEFAULT_FLAGS);
             }
         }
+        recursive_context = true;
         info.cb = callback;
         info.data = data;
         info.base = mod->u.load_base;
@@ -587,6 +602,7 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
             NOTIFY("SymSearch error %d\n", GetLastError());
             res = DRSYM_ERROR_SYMBOL_NOT_FOUND;
         }
+        recursive_context = false;
     }
     dr_recurlock_unlock(symbol_lock);
     return res;
@@ -1306,6 +1322,10 @@ drsym_free_resources(const char *modpath)
 
         if (modpath == NULL)
             return DRSYM_ERROR_INVALID_PARAMETER;
+
+        /* unsafe to free during iteration */
+        if (recursive_context)
+            return DRSYM_ERROR_RECURSIVE;
 
         dr_recurlock_lock(symbol_lock);
         found = hashtable_remove(&modtable, (void *)modpath);

@@ -83,6 +83,7 @@ typedef enum {
     DRSYM_ERROR_NOT_IMPLEMENTED,    /**< Operation failed: not yet implemented */
     DRSYM_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
     DRSYM_ERROR_NOMEM,              /**< Operation failed: not enough memory */
+    DRSYM_ERROR_RECURSIVE,          /**< Operation failed: unavailable when recursive */
 } drsym_error_t;
 
 /** Bitfield of options to each DRSyms operation. */
@@ -481,6 +482,10 @@ DR_EXPORT
  * can save hundreds of MB of memory.
  *
  * @param[in] modpath   The full path to the module to be unloaded.
+ *
+ * \note When called from within a callback for drsym_enumerate_symbols()
+ * or drsym_search_symbols(), will fail with DRSYM_ERROR_RECURSIVE as it
+ * is not safe to free resources while iterating.
  */
 drsym_error_t
 drsym_free_resources(const char *modpath);
