@@ -2103,8 +2103,8 @@ DR_API
 void
 dr_exit_process(int exit_code)
 {
-#ifdef WINDOWS
     dcontext_t *dcontext = get_thread_private_dcontext();
+#ifdef WINDOWS
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     /* prevent cleanup from waiting for nudges as this may be called
      * from a nudge!
@@ -2119,14 +2119,14 @@ dr_exit_process(int exit_code)
         nudge_thread_cleanup(dcontext, true/*kill process*/, exit_code);
         CLIENT_ASSERT(false, "shouldn't get here");
     }
+#endif
     if (!is_currently_on_dstack(dcontext)) {
         /* if on app stack, avoid incorrect leak assert at exit */
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         dr_api_exit = true;
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT); /* to keep properly nested */
     }
-#endif
-    os_terminate_with_code(get_thread_private_dcontext(), /* dcontext is required */
+    os_terminate_with_code(dcontext, /* dcontext is required */
                            TERMINATE_CLEANUP|TERMINATE_PROCESS, exit_code);
     CLIENT_ASSERT(false, "shouldn't get here");
 }
