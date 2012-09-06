@@ -38,6 +38,7 @@
 void unit_test_io(void);
 void unit_test_string(void);
 void unit_test_options(void);
+void unit_test_os(void);
 void unit_test_vmareas(void);
 void unit_test_utils(void);
 
@@ -56,6 +57,7 @@ main(int argc, char **argv, char **envp)
     unit_test_io();
 #ifdef LINUX
     unit_test_string();
+    unit_test_os();
 #endif
     unit_test_utils();
     unit_test_options();

@@ -3724,7 +3724,8 @@ os_delete_mapped_file(const char *filename)
     return os_delete_file(filename);
 }
 
-#ifndef NOT_DYNAMORIO_CORE_PROPER /* around most of file, to exclude preload */
+/* around most of file, to exclude preload */
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) || defined(STANDALONE_UNIT_TEST)
 
 byte *
 os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
@@ -8989,4 +8990,121 @@ os_file_has_elf_so_header(const char *filename)
     os_close(fd);
     return result;
 }
+
+#ifndef X64
+/* Emulate uint64 modulo and division by uint32 on ia32.
+ * XXX: Does *not* handle 64-bit divisors!
+ */
+static uint64
+uint64_divmod(uint64 dividend, uint64 divisor64, uint32 *remainder)
+{
+    /* Assumes little endian, which x86 is. */
+    union {
+        uint64 v64;
+        struct {
+            uint32 lo;
+            uint32 hi;
+        };
+    } res;
+    uint32 upper;
+    uint32 divisor = (uint32) divisor64;
+
+    /* Our uses don't use large divisors. */
+    ASSERT(divisor64 <= UINT_MAX && "divisor is larger than uint32 can hold");
+
+    /* Divide out the high bits first. */
+    res.v64 = dividend;
+    upper = res.hi;
+    res.hi = upper / divisor;
+    upper %= divisor;
+
+    /* Use the unsigned div instruction, which uses EDX:EAX to form a 64-bit
+     * dividend.  We only get a 32-bit quotient out, which is why we divide out
+     * the high bits first.  The quotient will fit in EAX.
+     *
+     * DIV r/m32    F7 /6  Unsigned divide EDX:EAX by r/m32, with result stored
+     *                     in EAX <- Quotient, EDX <- Remainder.
+     * inputs:
+     *   EAX = res.lo
+     *   EDX = upper
+     *   rm = divisor
+     * outputs:
+     *   res.lo = EAX
+     *   *remainder = EDX
+     * The outputs precede the inputs in gcc inline asm syntax, and so to put
+     * inputs in EAX and EDX we use "0" and "1".
+     */
+    asm ("divl %2" : "=a" (res.lo), "=d" (*remainder) :
+         "rm" (divisor), "0" (res.lo), "1" (upper));
+    return res.v64;
+}
+
+/* Match libgcc's prototype. */
+uint64
+__udivdi3(uint64 dividend, uint64 divisor)
+{
+    uint32 remainder;
+    return uint64_divmod(dividend, divisor, &remainder);
+}
+
+/* Match libgcc's prototype. */
+uint64
+__umoddi3(uint64 dividend, uint64 divisor)
+{
+    uint32 remainder;
+    uint64_divmod(dividend, divisor, &remainder);
+    return (uint64) remainder;
+}
+#endif /* !X64 */
+
 #endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
+
+#if defined(STANDALONE_UNIT_TEST)
+
+void
+test_uint64_divmod(void)
+{
+#ifndef X64
+    uint64 quotient;
+    uint32 remainder;
+
+    /* Simple division below 2^32. */
+    quotient = uint64_divmod(9, 3, &remainder);
+    EXPECT(quotient == 3, true);
+    EXPECT(remainder == 0, true);
+    quotient = uint64_divmod(10, 3, &remainder);
+    EXPECT(quotient == 3, true);
+    EXPECT(remainder == 1, true);
+
+    /* Division when upper bits are less than the divisor. */
+    quotient = uint64_divmod(45ULL << 31, 1U << 31, &remainder);
+    EXPECT(quotient == 45, true);
+    EXPECT(remainder == 0, true);
+
+    /* Division when upper bits are greater than the divisor. */
+    quotient = uint64_divmod(45ULL << 32, 15, &remainder);
+    EXPECT(quotient == 3ULL << 32, true);
+    EXPECT(remainder == 0, true);
+    quotient = uint64_divmod((45ULL << 32) + 13, 15, &remainder);
+    EXPECT(quotient == 3ULL << 32, true);
+    EXPECT(remainder == 13, true);
+
+    /* Try calling the intrinsics.  Don't divide by powers of two, gcc will
+     * lower that to a shift.
+     */
+    quotient = (45ULL << 32);
+    quotient /= 15;
+    EXPECT(quotient == (3ULL << 32), true);
+    quotient = (45ULL << 32) + 13;
+    remainder = quotient % 15;
+    EXPECT(remainder == 13, true);
+#endif /* !X64 */
+}
+
+void
+unit_test_os(void)
+{
+    test_uint64_divmod();
+}
+
+#endif /* STANDALONE_UNIT_TEST */
