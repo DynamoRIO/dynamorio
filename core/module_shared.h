@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -489,7 +489,7 @@ privload_lookup_by_base(app_pc modbase);
  */
 privmod_t *
 privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
-                const char *path, void *os_privmod_data);
+                const char *path);
 
 /* ************************************************************************* *
  * os specific functions in loader.c, can be called from loader_shared.c     *
@@ -498,8 +498,7 @@ void
 privload_redirect_setup(privmod_t *mod);
 
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT,
-                          void **os_privmod_data OUT);
+privload_map_and_relocate(const char *filename, size_t *size OUT);
 
 bool
 privload_call_entry(privmod_t *privmod, uint reason);

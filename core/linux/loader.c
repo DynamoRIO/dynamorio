@@ -88,8 +88,11 @@ static os_privmod_data_t *libdr_opd;
 static bool privmod_initialized = false;
 static size_t max_client_tls_size = 2 * PAGE_SIZE;
 
-#ifdef INTERNAL
+#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
 static bool printed_gdb_commands = false;
+/* Global so visible in release build gdb */
+static char gdb_priv_cmds[4096];
+static size_t gdb_priv_cmds_sofar;
 #endif
 
 /* pointing to the I/O data structure in privately loaded libc,
@@ -153,8 +156,7 @@ os_loader_init_prologue(void)
                           get_dynamorio_dll_start(),
                           get_dynamorio_dll_end() - get_dynamorio_dll_start(),
                           get_shared_lib_name(get_dynamorio_dll_start()),
-                          get_dynamorio_library_path(),
-                          NULL/*no opd*/);
+                          get_dynamorio_library_path());
     privload_create_os_privmod_data(mod);
     libdr_opd = (os_privmod_data_t *) mod->os_privmod_data;
     mod->externally_loaded = true;
@@ -165,44 +167,34 @@ os_loader_init_prologue(void)
 void
 os_loader_init_epilogue(void)
 {
-#ifdef INTERNAL
+#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* Print the add-symbol-file commands so they can be copy-pasted into gdb.
-     * We have to do it in a single syslog so they can be copy pasted.  Since
-     * info syslogs are only in internal builds, we only do this work in an
-     * internal build.  To debug an external build, we rely on the gdb script to
-     * find text_addr in opd.
+     * We have to do it in a single syslog so they can be copy pasted.
+     * For non-internal builds, or for private libs loaded after this point,
+     * the user must look at the global gdb_priv_cmds buffer in gdb.
      * FIXME i#531: Support attaching from the gdb script.
      */
-    privmod_t *mod;
-    size_t sofar = 0;
-    size_t bufsz = 4096;  /* Should be enough, but too much for stack. */
-    char *buf;
-
-    /* FIXME: Skip this work if we're not going to print or log. */
-    ASSERT(dynamo_heap_initialized);
     ASSERT(!printed_gdb_commands);
-    buf = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, bufsz, ACCT_OTHER, PROTECTED);
-    acquire_recursive_lock(&privload_lock);
-    for (mod = privload_first_module(); mod != NULL;
-         mod = privload_next_module(mod)) {
-        os_privmod_data_t *opd = (os_privmod_data_t *) mod->os_privmod_data;
-        /* GDB already finds externally loaded modules (e.g. DR). */
-        if (mod->externally_loaded)
-            continue;
-        print_to_buffer(buf, bufsz, &sofar, "add-symbol-file '%s' %p\n",
-                        mod->path, opd->text_addr);
-    }
     printed_gdb_commands = true;
-    release_recursive_lock(&privload_lock);
-    if (sofar > 0) {
+    if (gdb_priv_cmds_sofar > 0) {
         SYSLOG_INTERNAL_INFO("Paste into GDB to debug DynamoRIO clients:\n"
                              /* Need to turn off confirm for paste to work. */
                              "set confirm off\n"
-                             "%s", buf);
+                             "%s", gdb_priv_cmds);
     }
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, buf, char, bufsz, ACCT_OTHER, PROTECTED);
-#endif /* INTERNAL */
+#endif /* INTERNAL || CLIENT_INTERFACE */
 }
+
+#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
+static void
+privload_add_gdb_cmd(const char *modpath, app_pc text_addr)
+{
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    print_to_buffer(gdb_priv_cmds, BUFFER_SIZE_ELEMENTS(gdb_priv_cmds),
+                    &gdb_priv_cmds_sofar, "add-symbol-file '%s' %p\n",
+                    modpath, text_addr);
+}
+#endif
 
 void
 os_loader_exit(void)
@@ -249,12 +241,6 @@ privload_add_areas(privmod_t *privmod)
 {
     os_privmod_data_t *opd;
     uint   i;
-    app_pc text_addr;
-
-    /* Save text_addr and store it in opd after we create it.  We need this to
-     * support auto loading symbols on gdb attach (i#531).
-     */
-    text_addr = (app_pc)privmod->os_privmod_data;
 
     /* create and init the os_privmod_data for privmod.
      * The os_privmod_data can only be created after heap is ready and 
@@ -266,7 +252,6 @@ privload_add_areas(privmod_t *privmod)
       */
     privload_create_os_privmod_data(privmod);
     opd = (os_privmod_data_t *) privmod->os_privmod_data;
-    opd->text_addr = text_addr;
     for (i = 0; i < opd->os_data.num_segments; i++) {
         vmvector_add(modlist_areas, 
                      opd->os_data.segments[i].start,
@@ -532,8 +517,7 @@ map_elf_phdrs(const char *filename, bool fixed, size_t *size OUT,
 }
 
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT,
-                          void **os_privmod_data OUT)
+privload_map_and_relocate(const char *filename, size_t *size OUT)
 {
     map_fn_t map_func;
     unmap_fn_t unmap_func;
@@ -560,13 +544,14 @@ privload_map_and_relocate(const char *filename, size_t *size OUT,
     base = map_elf_phdrs(filename, false /* not fixed */, size, &delta,
                          &text_addr, map_func, unmap_func, prot_func);
 
-    /* We save the text addr in os_privmod_data.  We can't recompute it later
+#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
+    /* We record the gdb command now.  We can't recompute it later
      * (see module_get_text_section comments), and we can't allocate a proper
-     * os_privmod_data_t yet.  Therefore, we store text_addr directly in
-     * os_privmod_data and move it into the heap allocation later (see
-     * privload_add_areas).
+     * os_privmod_data_t yet.
      */
-    *os_privmod_data = (void *) text_addr;
+    privload_add_gdb_cmd(filename, text_addr);
+#endif
+
     return base;
 }
 

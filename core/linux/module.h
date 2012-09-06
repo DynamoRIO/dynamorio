@@ -225,8 +225,6 @@ typedef struct _os_privmod_data_t {
     uint           tls_image_size; /* tls variables size in the file */
     uint           tls_first_byte; /* aligned addr of the first tls variable */
     app_pc         tls_image;      /* tls block address in memory */
-    /* Section info for gdb. */
-    app_pc         text_addr;
 } os_privmod_data_t;
 
 ELF_ADDR 

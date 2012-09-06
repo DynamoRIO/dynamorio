@@ -442,14 +442,13 @@ os_loader_init_prologue(void)
              systemroot, "ntdll.dll");
     NULL_TERMINATE_BUFFER(modpath);
     mod = privload_insert(NULL, ntdll, get_allocation_size(ntdll, NULL),
-                          "ntdll.dll", modpath, NULL);
+                          "ntdll.dll", modpath);
     mod->externally_loaded = true;
     /* FIXME i#234: Once we have earliest injection and load DR via this private loader
      * (i#234/PR 204587) we can remove this
      */
     mod = privload_insert(NULL, drdll, get_allocation_size(drdll, NULL),
-                          DYNAMORIO_LIBRARY_NAME, get_dynamorio_library_path(),
-                          NULL);
+                          DYNAMORIO_LIBRARY_NAME, get_dynamorio_library_path());
     mod->externally_loaded = true;
 
     /* FIXME i#235: loading a private user32.dll is problematic: it registers
@@ -465,7 +464,7 @@ os_loader_init_prologue(void)
                  systemroot, "user32.dll");
         NULL_TERMINATE_BUFFER(modpath);
         mod = privload_insert(NULL, user32, get_allocation_size(user32, NULL),
-                              "user32.dll", modpath, NULL);
+                              "user32.dll", modpath);
         mod->externally_loaded = true;
     }
 }
@@ -832,19 +831,15 @@ privload_unload_imports(privmod_t *mod)
 
 /* if anything fails, undoes the mapping and returns NULL */
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT,
-                          void **os_privmod_data OUT)
+privload_map_and_relocate(const char *filename, size_t *size OUT)
 {
     file_t fd;
     app_pc map;
     app_pc pref;
     byte *(*map_func)(file_t, size_t *, uint64, app_pc, uint, bool, bool, bool);
     bool (*unmap_func)(file_t, size_t);
-    ASSERT(size != NULL && os_privmod_data != NULL);
+    ASSERT(size != NULL);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-
-    /* os_privmod_data is unused on Windows. */
-    *os_privmod_data = NULL;
 
     /* On win32 OS_EXECUTE is required to create a section w/ rwx
      * permissions, which is in turn required to map a view w/ rwx
