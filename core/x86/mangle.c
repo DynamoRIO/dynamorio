@@ -4962,7 +4962,7 @@ check_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc)
     } else { /* cti instruc */
         if (instr_is_mbr(instr)) {
             /* check if instr is return, and if return is the last instr. */
-            if (!instr_is_return(instr) && ci->fwd_tgt > cur_pc) {
+            if (!instr_is_return(instr) || ci->fwd_tgt > cur_pc) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: bail out on indirect branch at: "PFX"\n",
                     cur_pc);

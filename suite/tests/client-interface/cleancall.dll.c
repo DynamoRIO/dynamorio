@@ -42,6 +42,14 @@ static reg_t buf[] = { 0xcafebabe, 0xfeedadad, 0xeeeeeeee, 0xbadcabee };
 #endif
 
 static void
+ind_call(reg_t a1, reg_t a2)
+{
+    dr_fprintf(STDERR, "bar "PFX" "PFX"\n", a1, a2);
+}
+
+static void (*ind_call_ptr)(reg_t a1, reg_t a2) = ind_call;
+
+static void
 foo(reg_t a1, reg_t a2, reg_t a3, reg_t a4, reg_t a5, reg_t a6, reg_t a7, reg_t a8)
 {
     dr_fprintf(STDERR, "foo "PFX" "PFX" "PFX" "PFX"\n    "PFX" "PFX" "PFX" "PFX"\n",
@@ -54,7 +62,8 @@ foo(reg_t a1, reg_t a2, reg_t a3, reg_t a4, reg_t a5, reg_t a6, reg_t a7, reg_t 
 static void
 bar(reg_t a1, reg_t a2)
 {
-    dr_fprintf(STDERR, "bar "PFX" "PFX"\n", a1, a2);
+    /* test indirect call handling in clean call analysis */
+    ind_call_ptr(a1, a2);
 }
 
 static void
