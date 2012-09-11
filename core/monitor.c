@@ -300,6 +300,12 @@ monitor_thread_reset_init(dcontext_t *dcontext)
 void
 monitor_thread_reset_free(dcontext_t *dcontext)
 {
+    trace_abort_and_delete(dcontext);
+}
+
+void
+trace_abort_and_delete(dcontext_t *dcontext)
+{
     /* remove any MultiEntries */
     trace_abort(dcontext);
     /* case 8083: we have to explicitly remove last copy since it can't be
@@ -2452,11 +2458,11 @@ trace_abort(dcontext_t *dcontext)
         internal_restore_last(dcontext);
     }
 
-    /* moved here primarily to delete prior to fragment_thread_exit but
-     * let monitor_thread_exit remain later
+    /* i#791: We can't delete last copy yet because we could still be executing
+     * in that fragment.  For example, a client could have a clean call that
+     * flushes.  We'll delete the last_copy when we start the next trace or at
+     * thread exit instead.
      */
-    if (md->last_copy != NULL)
-        delete_private_copy(dcontext);
 
     /* free the instrlist_t elements */
     trace = &md->trace;

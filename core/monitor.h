@@ -94,6 +94,12 @@ void * cur_trace_vmlist(dcontext_t *dcontext);
  */
 void trace_abort(dcontext_t *dcontext);
 
+/* Equivalent to trace_abort, except that lazily deleted fragments are cleaned
+ * up eagerly.  Can only be called at safe points when we know the app is not
+ * executing in the fragment, such as thread termination or reset events.
+ */
+void trace_abort_and_delete(dcontext_t *dcontext);
+
 void
 thcounter_range_remove(dcontext_t *dcontext, app_pc start, app_pc end);
 

@@ -2202,7 +2202,7 @@ dynamo_thread_exit_pre_client(dcontext_t *dcontext, thread_id_t id)
     /* must abort now to avoid deleting possibly un-deletable fragments
      * monitor_thread_exit remains later b/c of monitor_remove_fragment calls
      */
-    trace_abort(dcontext);
+    trace_abort_and_delete(dcontext);
     fragment_thread_exit(dcontext);
 #ifdef CLIENT_INTERFACE
     instrument_thread_exit_event(dcontext);
