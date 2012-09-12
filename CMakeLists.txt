@@ -596,6 +596,7 @@ if (UNIX)
     # clang turns off color when it's writing to a pipe, but the user may still
     # wish to force color if it eventually goes to a terminal.
     option(CLANG_COLOR_DIAGNOSTICS "force colored clang diagnostics" OFF)
+    set(clang_args "")
     if (CLANG_COLOR_DIAGNOSTICS)
       set(clang_args "-fcolor-diagnostics ${clang_args}")
     endif (CLANG_COLOR_DIAGNOSTICS)
