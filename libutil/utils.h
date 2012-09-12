@@ -50,15 +50,18 @@ typedef char bool;
 #endif
 #include "lib/globals_shared.h"
 #include "lib/dr_config.h"
-#ifndef _HAD_TO_DEFINE_WINDOWS
+#ifdef _HAD_TO_DEFINE_WINDOWS
 # undef WINDOWS
 # undef _HAD_TO_DEFINE_WINDOWS
 #endif
 
-# ifdef _DEBUG
-#  include <stdio.h>
-#  include <crtdbg.h>
-# endif
+#ifdef DEBUG
+# include <stdio.h>
+#endif
+
+#ifdef _DEBUG
+# include <crtdbg.h>
+#endif
 
 #ifdef __cplusplus
 extern "C"{
@@ -277,7 +280,7 @@ BOOL
 run_canary_test_ex(FILE *file, /* INOUT */ CANARY_INFO *info,
                    const WCHAR *scratch_folder, const WCHAR *canary_process);
 
-# ifdef _DEBUG
+# ifdef DEBUG
 
 extern int debuglevel;
 extern int abortlevel;
@@ -305,9 +308,13 @@ set_abortlevel(int level);
 #  endif
 
 #  ifndef ASSERTION_EXPRESSION
+#   ifdef _DEBUG
 #    define  ASSERTION_EXPRESSION(msg) _ASSERTE(0)
+#   else
+#    define  ASSERTION_EXPRESSION(msg)
+#   endif
 #  endif
- 
+
 #  define DO_ASSERT_EXPR(msg, expr, handle, handler)  {         \
     if ( ! (expr) ) {                                           \
         WCHAR ___buf[MAX_PATH];                                 \

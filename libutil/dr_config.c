@@ -34,6 +34,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <tchar.h>
+#include <io.h> /* for _get_osfhandle */
 #include "configure.h" /* since not including share.h */
 #include "utils.h"
 #include "processes.h"
@@ -54,6 +55,11 @@
  * NULL term too so "-x -y" needs 6 characters.
 */
 #define MAX_NUM_OPTIONS (DR_MAX_OPTIONS_LENGTH / 3)
+
+/* Maximum length of an fopen mode string, including the null terminator.  For
+ * example, "rw+\0" or "ra\0".
+ */
+enum { MAX_MODE_STRING_SIZE = 4 };
 
 /* Data structs to hold info about the DYNAMORIO_OPTION registry entry */
 typedef struct _client_opt_t {
@@ -128,7 +134,7 @@ new_client_opt(const WCHAR *path, client_id_t id, const WCHAR *opts)
 
     opt->id = id;
 
-    len = MIN(MAX_PATH-1, wcslen(path));
+    len = MIN(MAXIMUM_PATH-1, wcslen(path));
     opt->path = malloc((len+1) * sizeof(opt->path[0]));
     wcsncpy(opt->path, path, len);
     opt->path[len] = L'\0';
@@ -334,11 +340,16 @@ get_config_file_name(const char *process_name,
                      size_t fname_len)
 {
     size_t dir_len;
-    if (!get_config_dir(global, fname, fname_len))
+    if (!get_config_dir(global, fname, fname_len)) {
+        DO_ASSERT(false && "get_config_dir failed");
         return false;
+    }
     /* make sure subdir exists*/
-    if (!CreateDirectoryA(fname, NULL) && GetLastError() != ERROR_ALREADY_EXISTS)
+    if (!CreateDirectoryA(fname, NULL) &&
+        GetLastError() != ERROR_ALREADY_EXISTS) {
+        DO_ASSERT(false && "failed to create subdir");
         return false;
+    }
     dir_len = strlen(fname);
     if (pid > 0) {
         /* <root>/appname.<pid>.1config */
@@ -353,26 +364,37 @@ get_config_file_name(const char *process_name,
     return true;
 }
 
-static HANDLE
+static FILE *
 open_config_file(const char *process_name,
                  process_id_t pid,
                  bool global,
                  dr_platform_t dr_platform,
                  bool read, bool write, bool overwrite)
 {
+    WCHAR wfname[MAXIMUM_PATH];
     char fname[MAXIMUM_PATH];
+    char mode[MAX_MODE_STRING_SIZE];
+    int i = 0;
     DO_ASSERT(read || write);
-    if (get_config_file_name(process_name, pid, global, dr_platform,
+    if (read)
+        mode[i++] = 'r';
+    if (write)
+        mode[i++] = 'w';
+    mode[i++] = '\0';
+    DO_ASSERT(i <= BUFFER_SIZE_ELEMENTS(mode));
+    NULL_TERMINATE_BUFFER(mode);
+    if (!get_config_file_name(process_name, pid, global, dr_platform,
                              fname, BUFFER_SIZE_ELEMENTS(fname))) {
-        return CreateFileA(fname,
-                           (write ? FILE_GENERIC_WRITE : 0) |
-                           (read ? FILE_GENERIC_READ : 0),
-                           FILE_SHARE_READ, NULL,
-                           read ? OPEN_EXISTING :
-                           (overwrite ? CREATE_ALWAYS : CREATE_NEW),
-                           FILE_ATTRIBUTE_NORMAL, NULL);
+        DO_ASSERT(false && "get_config_file_name failed");
+        return NULL;
     }
-    return INVALID_HANDLE_VALUE;
+
+    /* XXX: Checking existence and then opening is racy. */
+    _snwprintf(wfname, BUFFER_SIZE_ELEMENTS(wfname), L"%S", fname);
+    NULL_TERMINATE_BUFFER(wfname);
+    if (!overwrite && file_exists(wfname))
+        return NULL;
+    return fopen(fname, mode);
 }
 
 /* Copies the value for var, converted to a wchar, into val.  If elide is true,
@@ -381,11 +403,10 @@ open_config_file(const char *process_name,
  * opened with both read and write access).
  */
 static bool
-read_config_ex(HANDLE f, const char *var, wchar_t *val, size_t val_len,
+read_config_ex(FILE *f, const char *var, wchar_t *val, size_t val_len,
                bool elide)
 {
     bool found = false;
-    BOOL ok;
     /* could use _open_osfhandle() to get fd and _fdopen() to get FILE* and then
      * use fgets: but then have to close with fclose on FILE and thus messy w/
      * callers holding HANDLE instead.  already have code for line reading so
@@ -397,17 +418,17 @@ read_config_ex(HANDLE f, const char *var, wchar_t *val, size_t val_len,
     ssize_t bufread = 0, bufwant;
     ssize_t len;
     /* each time we start from beginning: we assume a small file */
-    if (f == INVALID_HANDLE_VALUE)
+    if (f == NULL)
         return false;
-    if (SetFilePointer(f, 0, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+    if (fseek(f, 0, SEEK_SET))
         return false;
     while (true) {
         /* break file into lines */
         if (newline == NULL) {
             bufwant = BUFSIZE-1;
-            ok = ReadFile(f, buf, (DWORD)bufwant, (LPDWORD)&bufread, NULL);
-            DO_ASSERT(ok && bufread <= bufwant);
-            if (!ok || bufread <= 0)
+            bufread = fread(buf, 1, bufwant, f);
+            DO_ASSERT(bufread >= 0 && bufread <= bufwant);
+            if (bufread <= 0)
                 break;
             buf[bufread] = '\0';
             newline = strchr(buf, '\n');
@@ -424,9 +445,9 @@ read_config_ex(HANDLE f, const char *var, wchar_t *val, size_t val_len,
                 /* using memmove since strings can overlap */
                 if (len > 0)
                     memmove(buf, line, len);
-                ok = ReadFile(f, buf+len, (DWORD)bufwant, (LPDWORD)&bufread, NULL);
-                DO_ASSERT(ok && bufread <= bufwant);
-                if (!ok || bufread <= 0)
+                bufread = fread(buf+len, 1, bufwant, f);
+                DO_ASSERT(bufread >= 0 && bufread <= bufwant);
+                if (bufread <= 0)
                     break;
                 bufread += len; /* bufread is total in buf */
                 buf[bufread] = '\0';
@@ -466,34 +487,36 @@ read_config_ex(HANDLE f, const char *var, wchar_t *val, size_t val_len,
                  * writing what's already in buffer, writing 2x the 1st
                  * time (though check buf size), but keeping simple for now
                  */
-                /* assuming file never going to need 64-bit => low dword never -1
-                 * so return value of INVALID_SET_FILE_POINTER always means error
-                 */
-                if (SetFilePointer(f, (LONG) -((buf+bufread) - newline), NULL,
-                                   FILE_CURRENT) == INVALID_SET_FILE_POINTER) {
+                /* Seek to the end of the current line. */
+                if (fseek(f, (long) -((buf+bufread) - newline), SEEK_CUR) != 0) {
                     DO_ASSERT(false);
                     return false;
                 }
                 while (true) {
                     bool done = false;
-                    ok = ReadFile(f, buf, (DWORD) bufwant, (LPDWORD)&bufread, NULL);
-                    DO_ASSERT(ok && bufread <= bufwant);
-                    if (!ok || bufread <= 0)
+                    bufread = fread(buf, 1, bufwant, f);
+                    DO_ASSERT(bufread >= 0 && bufread <= bufwant);
+                    if (bufread <= 0)
                         done = true;
-                    if (SetFilePointer(f, (LONG) -(bufwant+bufread), NULL, FILE_CURRENT)
-                        == INVALID_SET_FILE_POINTER) {
+                    /* Seek back to the beginning of the line we found on the
+                     * first iteration, and the end of the last write on
+                     * subsequent iterations.
+                     */
+                    if (fseek(f, (long) -(bufwant+bufread), SEEK_CUR) != 0) {
                         DO_ASSERT(false);
                         return false;
                     }
                     if (done) {
                         /* pointer goes back to end somehow in write_config_param */
-                        SetEndOfFile(f);
+                        /* XXX: Can't find a way to truncate the file at the
+                         * current position using the FILE API.
+                         */
+                        SetEndOfFile((HANDLE)_get_osfhandle(_fileno(f)));
                         break;
                     }
-                    ok = WriteFile(f, buf, (DWORD) bufread, (LPDWORD)&len, NULL);
-                    DO_ASSERT(ok && len == bufread);
-                    if (SetFilePointer(f, (LONG) bufwant, NULL, FILE_CURRENT) ==
-                        INVALID_SET_FILE_POINTER) {
+                    len = fwrite(buf, 1, bufread, f);
+                    DO_ASSERT(len == bufread);
+                    if (fseek(f, (long) bufwant, SEEK_CUR) != 0) {
                         DO_ASSERT(false);
                         return false;
                     }
@@ -508,28 +531,27 @@ read_config_ex(HANDLE f, const char *var, wchar_t *val, size_t val_len,
  * converting to char.  not very efficient though.
  */
 static dr_config_status_t
-write_config_param(HANDLE f, const char *var, const wchar_t *val)
+write_config_param(FILE *f, const char *var, const wchar_t *val)
 {
-    BOOL ok;
-    DWORD written;
+    size_t written;
     int len;
     char buf[MAX_CONFIG_VALUE];
-    DO_ASSERT(f != INVALID_HANDLE_VALUE);
+    DO_ASSERT(f != NULL);
     len = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s=%S\n", var, val);
     /* don't remove the newline: better to truncate options than to have none (i#547) */
     buf[BUFFER_SIZE_ELEMENTS(buf) - 2] = '\n';
     buf[BUFFER_SIZE_ELEMENTS(buf) - 1] = '\0';
-    ok = WriteFile(f, buf, (DWORD)strlen(buf), &written, NULL);
-    DO_ASSERT(ok && written == strlen(buf));
+    written = fwrite(buf, 1, strlen(buf), f);
+    DO_ASSERT(written == strlen(buf));
     if (len < 0)
         return DR_CONFIG_STRING_TOO_LONG;
-    if (!ok)
+    if (written != strlen(buf))
         return DR_CONFIG_FILE_WRITE_FAILED;
     return DR_SUCCESS;
 }
 
 static bool
-read_config_param(HANDLE f, const char *var, wchar_t *val, size_t val_len)
+read_config_param(FILE *f, const char *var, wchar_t *val, size_t val_len)
 {
     return read_config_ex(f, var, val, val_len, false);
 }
@@ -544,7 +566,7 @@ write_config_param(ConfigGroup *policy, const wchar_t *var, const wchar_t *val)
 }
 
 static bool
-read_config_param(HANDLE f, const char *var, const wchar_t *val, size_t val_len)
+read_config_param(FILE *f, const char *var, const wchar_t *val, size_t val_len)
 {
     WCHAR *ptr = get_config_group_parameter(proc_policy, L_DYNAMORIO_VAR_OPTIONS);
     if (ptr == NULL)
@@ -559,7 +581,7 @@ read_config_param(HANDLE f, const char *var, const wchar_t *val, size_t val_len)
 
 /* Read a DYNAMORIO_OPTIONS string from 'wbuf' and populate an opt_info_t struct */
 static dr_config_status_t
-read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, HANDLE f))
+read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f))
 {
     WCHAR buf[MAX_CONFIG_VALUE];
     WCHAR *ptr, token[DR_MAX_OPTIONS_LENGTH], tmp[DR_MAX_OPTIONS_LENGTH];
@@ -880,9 +902,9 @@ dr_register_process(const char *process_name,
 #ifdef PARAMS_IN_REGISTRY
     ConfigGroup *policy, *proc_policy;
 #else
-    HANDLE f;
+    FILE *f;
 #endif
-    WCHAR wbuf[MAX(MAX_PATH,DR_MAX_OPTIONS_LENGTH)];
+    WCHAR wbuf[MAX(MAXIMUM_PATH,DR_MAX_OPTIONS_LENGTH)];
     DWORD platform;
     opt_info_t opt_info = {0,};
     dr_config_status_t status;
@@ -903,7 +925,7 @@ dr_register_process(const char *process_name,
     }
     
     /* create process key */
-    _snwprintf(wbuf, MAX_PATH, L"%S", process_name);    
+    _snwprintf(wbuf, MAXIMUM_PATH, L"%S", process_name);    
     NULL_TERMINATE_BUFFER(wbuf);
     proc_policy = get_child(wbuf, policy);
     if (proc_policy == NULL) {
@@ -917,7 +939,7 @@ dr_register_process(const char *process_name,
     f = open_config_file(process_name, pid, global, dr_platform,
                          false/*!read*/, true/*write*/,
                          pid != 0/*overwrite for pid-specific*/);
-    if (f == INVALID_HANDLE_VALUE) {
+    if (f == NULL) {
         int err = GetLastError();
         if (err == ERROR_ALREADY_EXISTS)
             return DR_PROC_REG_EXISTS;
@@ -927,28 +949,30 @@ dr_register_process(const char *process_name,
 #endif
 
     /* set the rununder string */
-    _snwprintf(wbuf, MAX_PATH, (dr_mode == DR_MODE_DO_NOT_RUN) ? L"0" : L"1");
+    _snwprintf(wbuf, MAXIMUM_PATH, (dr_mode == DR_MODE_DO_NOT_RUN) ? L"0" : L"1");
     NULL_TERMINATE_BUFFER(wbuf);
     status = write_config_param(IF_REG_ELSE(proc_policy, f),
                                 PARAM_STR(DYNAMORIO_VAR_RUNUNDER), wbuf);
+    DO_ASSERT(status == DR_SUCCESS);
     if (status != DR_SUCCESS)
         return status;
 
     /* set the autoinject string (i.e., path to dynamorio.dll */
     if (debug) {
         if (!platform_is_64bit(get_dr_platform()))
-            _snwprintf(wbuf, MAX_PATH, L"%S"DEBUG32_DLL, dr_root_dir);
+            _snwprintf(wbuf, MAXIMUM_PATH, L"%S"DEBUG32_DLL, dr_root_dir);
         else
-            _snwprintf(wbuf, MAX_PATH, L"%S"DEBUG64_DLL, dr_root_dir);
+            _snwprintf(wbuf, MAXIMUM_PATH, L"%S"DEBUG64_DLL, dr_root_dir);
     } else {
         if (!platform_is_64bit(get_dr_platform()))
-            _snwprintf(wbuf, MAX_PATH, L"%S"RELEASE32_DLL, dr_root_dir);
+            _snwprintf(wbuf, MAXIMUM_PATH, L"%S"RELEASE32_DLL, dr_root_dir);
         else
-            _snwprintf(wbuf, MAX_PATH, L"%S"RELEASE64_DLL, dr_root_dir);
+            _snwprintf(wbuf, MAXIMUM_PATH, L"%S"RELEASE64_DLL, dr_root_dir);
     }
     NULL_TERMINATE_BUFFER(wbuf);
     status = write_config_param(IF_REG_ELSE(proc_policy, f),
                                 PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), wbuf);
+    DO_ASSERT(status == DR_SUCCESS);
     if (status != DR_SUCCESS)
         return status;
 
@@ -960,10 +984,11 @@ dr_register_process(const char *process_name,
      * strings to have more control over the default.  Linux dr{config,run} does
      * allow such control today.
      */
-    _snwprintf(wbuf, MAX_PATH, L"%S"LOG_SUBDIR, dr_root_dir);
+    _snwprintf(wbuf, MAXIMUM_PATH, L"%S"LOG_SUBDIR, dr_root_dir);
     NULL_TERMINATE_BUFFER(wbuf);
     status = write_config_param(IF_REG_ELSE(proc_policy, f),
                                 PARAM_STR(DYNAMORIO_VAR_LOGDIR), wbuf);
+    DO_ASSERT(status == DR_SUCCESS);
     if (status != DR_SUCCESS)
         return status;
 
@@ -974,16 +999,18 @@ dr_register_process(const char *process_name,
     status = write_config_param(IF_REG_ELSE(proc_policy, f),
                                 PARAM_STR(DYNAMORIO_VAR_OPTIONS), wbuf);
     free_opt_info(&opt_info);
+    DO_ASSERT(status == DR_SUCCESS);
     if (status != DR_SUCCESS)
         return status;
 
 #ifdef PARAMS_IN_REGISTRY
     /* write the registry */
     if (write_config_group(policy) != ERROR_SUCCESS) {
+        DO_ASSERT(false);
         return DR_FAILURE;
     }
 #else
-    CloseHandle(f);
+    fclose(f);
 #endif
 
     /* If on win2k, copy drearlyhelper?.dll to system32 
@@ -1010,14 +1037,14 @@ dr_unregister_process(const char *process_name,
     char fname[MAXIMUM_PATH];
     if (get_config_file_name(process_name, pid, global, dr_platform,
                              fname, BUFFER_SIZE_ELEMENTS(fname))) {
-        if (DeleteFileA(fname))
+        if (remove(fname) == 0)
             return DR_SUCCESS;
     }
     return DR_FAILURE;
 #else
     ConfigGroup *policy = get_policy(dr_platform);
     ConfigGroup *proc_policy = get_proc_policy(policy, process_name);
-    WCHAR wbuf[MAX_PATH];
+    WCHAR wbuf[MAXIMUM_PATH];
     dr_config_status_t status = DR_SUCCESS;
 
     if (proc_policy == NULL) {
@@ -1026,7 +1053,7 @@ dr_unregister_process(const char *process_name,
     }
 
     /* remove it */
-    _snwprintf(wbuf, MAX_PATH, L"%S", process_name);
+    _snwprintf(wbuf, MAXIMUM_PATH, L"%S", process_name);
     NULL_TERMINATE_BUFFER(wbuf);
     remove_child(wbuf, policy);
     policy->should_clear = TRUE;
@@ -1051,7 +1078,7 @@ dr_unregister_process(const char *process_name,
 
 /* For !PARAMS_IN_REGISTRY, process_name is NOT filled in! */
 static void
-read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, HANDLE f),
+read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f),
                     char *process_name /* OUT */,
                     char *dr_root_dir /* OUT */,
                     dr_operation_mode_t *dr_mode /* OUT */,
@@ -1072,7 +1099,7 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, HANDLE f),
     if (process_name != NULL)
         *process_name = '\0';
     if (process_name != NULL && proc_policy->name != NULL) {
-        SIZE_T len = MIN(wcslen(proc_policy->name), MAX_PATH-1);
+        SIZE_T len = MIN(wcslen(proc_policy->name), MAXIMUM_PATH-1);
         _snprintf(process_name, len, "%S", proc_policy->name);
         process_name[len] = '\0';
     }
@@ -1095,7 +1122,7 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, HANDLE f),
             vers = wcsstr(autoinject, DEBUG64_DLL);
         }
         if (vers != NULL) {
-            size_t len = MIN(MAX_PATH-1, vers - autoinject);
+            size_t len = MIN(MAXIMUM_PATH-1, vers - autoinject);
             _snprintf(dr_root_dir, len, "%S", autoinject);
             dr_root_dir[len] = '\0';
         }
@@ -1217,12 +1244,11 @@ dr_registered_process_iterator_next(dr_registered_process_iterator_t *iter,
     return true;
 #else
     bool ok = true;
-    HANDLE f;
+    FILE *f;
     _snwprintf(iter->fname, BUFFER_SIZE_ELEMENTS(iter->fname),
                L"%S/%s", iter->dir, iter->find_data.cFileName);
     NULL_TERMINATE_BUFFER(iter->fname);
-    f = CreateFile(iter->fname, FILE_GENERIC_READ, FILE_SHARE_READ, NULL,
-                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    f = fopen(iter->fname, "r");
     if (process_name != NULL) {
         TCHAR *end;
         end = _tcsstr(iter->find_data.cFileName, _TEXT(".config"));
@@ -1241,10 +1267,10 @@ dr_registered_process_iterator_next(dr_registered_process_iterator_t *iter,
     }
     if (!FindNextFile(iter->find_handle, &iter->find_data))
         iter->has_next = false;
-    if (f == INVALID_HANDLE_VALUE || !ok)
+    if (f == NULL || !ok)
         return false;
     read_process_policy(f, process_name, dr_root_dir, dr_mode, debug, dr_options);
-    CloseHandle(f);
+    fclose(f);
     return true;
 #endif
 }
@@ -1277,10 +1303,10 @@ dr_process_is_registered(const char *process_name,
     ConfigGroup *policy = get_policy(dr_platform);
     ConfigGroup *proc_policy = get_proc_policy(policy, process_name);
 #else
-    HANDLE f = open_config_file(process_name, pid, global, dr_platform,
+    FILE *f = open_config_file(process_name, pid, global, dr_platform,
                                 true/*read*/, false/*!write*/, false/*!overwrite*/);
 #endif
-    if (IF_REG_ELSE(proc_policy == NULL, f == INVALID_HANDLE_VALUE))
+    if (IF_REG_ELSE(proc_policy == NULL, f == NULL))
         goto exit;
     result = true;
     
@@ -1292,7 +1318,8 @@ dr_process_is_registered(const char *process_name,
     if (policy != NULL)
         free_config_group(policy);
 #else
-    CloseHandle(f);
+    if (f != NULL)
+        fclose(f);
 #endif
     return result;
 }
@@ -1313,7 +1340,7 @@ dr_client_iterator_start(const char *process_name,
     ConfigGroup *policy = get_policy(dr_platform);
     ConfigGroup *proc_policy = get_proc_policy(policy, process_name);
 #else
-    HANDLE f = open_config_file(process_name, pid, global, dr_platform,
+    FILE *f = open_config_file(process_name, pid, global, dr_platform,
                                 true/*read*/, false/*!write*/, false/*!overwrite*/);
 #endif
     dr_client_iterator_t *iter = (dr_client_iterator_t *)
@@ -1321,7 +1348,7 @@ dr_client_iterator_start(const char *process_name,
     
     iter->valid = false;
     iter->cur = 0;
-    if (IF_REG_ELSE(proc_policy == NULL, f == INVALID_HANDLE_VALUE))
+    if (IF_REG_ELSE(proc_policy == NULL, f == NULL))
         return iter;
     if (read_options(&iter->opt_info, IF_REG_ELSE(proc_policy, f)) != DR_SUCCESS)
         return iter;
@@ -1349,7 +1376,7 @@ dr_client_iterator_next(dr_client_iterator_t *iter,
         *client_pri = iter->cur;
 
     if (client_path != NULL) {
-        size_t len = MIN(MAX_PATH-1, wcslen(client_opt->path));
+        size_t len = MIN(MAXIMUM_PATH-1, wcslen(client_opt->path));
         _snprintf(client_path, len, "%S", client_opt->path);
         client_path[len] = '\0';
     }
@@ -1386,10 +1413,10 @@ dr_num_registered_clients(const char *process_name,
     ConfigGroup *policy = get_policy(dr_platform);
     ConfigGroup *proc_policy = get_proc_policy(policy, process_name);
 #else
-    HANDLE f = open_config_file(process_name, pid, global, dr_platform,
+    FILE *f = open_config_file(process_name, pid, global, dr_platform,
                                 true/*read*/, false/*!write*/, false/*!overwrite*/);
 #endif
-    if (IF_REG_ELSE(proc_policy == NULL, f == INVALID_HANDLE_VALUE))
+    if (IF_REG_ELSE(proc_policy == NULL, f == NULL))
         goto exit;
 
     if (read_options(&opt_info, IF_REG_ELSE(proc_policy, f)) != DR_SUCCESS)
@@ -1403,7 +1430,7 @@ dr_num_registered_clients(const char *process_name,
     if (policy != NULL)
         free_config_group(policy);
 #else
-    CloseHandle(f);
+    fclose(f);
 #endif
     return num;
 }
@@ -1426,10 +1453,10 @@ dr_get_client_info(const char *process_name,
     ConfigGroup *policy = get_policy(dr_platform);
     ConfigGroup *proc_policy = get_proc_policy(policy, process_name);
 #else
-    HANDLE f = open_config_file(process_name, pid, global, dr_platform,
+    FILE *f = open_config_file(process_name, pid, global, dr_platform,
                                 true/*read*/, false/*!write*/, false/*!overwrite*/);
 #endif
-    if (IF_REG_ELSE(proc_policy == NULL, f == INVALID_HANDLE_VALUE)) {
+    if (IF_REG_ELSE(proc_policy == NULL, f == NULL)) {
         status = DR_PROC_REG_INVALID;
         goto exit;
     }
@@ -1447,7 +1474,7 @@ dr_get_client_info(const char *process_name,
             }
 
             if (client_path != NULL) {
-                size_t len = MIN(MAX_PATH-1, wcslen(client_opt->path));
+                size_t len = MIN(MAXIMUM_PATH-1, wcslen(client_opt->path));
                 _snprintf(client_path, len, "%S", client_opt->path);
                 client_path[len] = '\0';
             }
@@ -1470,7 +1497,7 @@ dr_get_client_info(const char *process_name,
     if (policy != NULL)
         free_config_group(policy);
 #else
-    CloseHandle(f);
+    fclose(f);
 #endif
     return status;
 }
@@ -1487,12 +1514,12 @@ dr_register_client(const char *process_name,
                    const char *client_options)
 {
     WCHAR new_opts[DR_MAX_OPTIONS_LENGTH];
-    WCHAR wpath[MAX_PATH], woptions[DR_MAX_OPTIONS_LENGTH];
+    WCHAR wpath[MAXIMUM_PATH], woptions[DR_MAX_OPTIONS_LENGTH];
 #ifdef PARAMS_IN_REGISTRY
     ConfigGroup *policy = get_policy(dr_platform);
     ConfigGroup *proc_policy = get_proc_policy(policy, process_name);
 #else
-    HANDLE f = open_config_file(process_name, pid, global, dr_platform,
+    FILE *f = open_config_file(process_name, pid, global, dr_platform,
                                 true/*read*/, true/*write*/, false/*!overwrite*/);
 #endif
     dr_config_status_t status;
@@ -1500,7 +1527,7 @@ dr_register_client(const char *process_name,
     bool opt_info_alloc = false;
     size_t i;
 
-    if (IF_REG_ELSE(proc_policy == NULL, f == INVALID_HANDLE_VALUE)) {
+    if (IF_REG_ELSE(proc_policy == NULL, f == NULL)) {
         status = DR_PROC_REG_INVALID;
         goto exit;
     }
@@ -1523,7 +1550,7 @@ dr_register_client(const char *process_name,
         goto exit;
     }
 
-    _snwprintf(wpath, MAX_PATH, L"%S", client_path);
+    _snwprintf(wpath, MAXIMUM_PATH, L"%S", client_path);
     NULL_TERMINATE_BUFFER(wpath);
     _snwprintf(woptions, DR_MAX_OPTIONS_LENGTH, L"%S", client_options);
     NULL_TERMINATE_BUFFER(woptions);
@@ -1557,8 +1584,8 @@ dr_register_client(const char *process_name,
     if (policy != NULL)
         free_config_group(policy);
 #else
-    if (f != INVALID_HANDLE_VALUE)
-        CloseHandle(f);
+    if (f != NULL)
+        fclose(f);
 #endif
     if (opt_info_alloc)
         free_opt_info(&opt_info);
@@ -1578,14 +1605,14 @@ dr_unregister_client(const char *process_name,
     ConfigGroup *policy = get_policy(dr_platform);
     ConfigGroup *proc_policy = get_proc_policy(policy, process_name);
 #else
-    HANDLE f = open_config_file(process_name, pid, global, dr_platform,
+    FILE *f = open_config_file(process_name, pid, global, dr_platform,
                                 true/*read*/, true/*write*/, false/*!overwrite*/);
 #endif
     dr_config_status_t status;
     opt_info_t opt_info;
     bool opt_info_alloc = false;
 
-    if (IF_REG_ELSE(proc_policy == NULL, f == INVALID_HANDLE_VALUE)) {
+    if (IF_REG_ELSE(proc_policy == NULL, f == NULL)) {
         status = DR_PROC_REG_INVALID;
         goto exit;
     }
@@ -1624,8 +1651,8 @@ dr_unregister_client(const char *process_name,
     if (policy != NULL)
         free_config_group(policy);
 #else
-    if (f != INVALID_HANDLE_VALUE)
-        CloseHandle(f);
+    if (f != NULL)
+        fclose(f);
 #endif
     if (opt_info_alloc)
         free_opt_info(&opt_info);
@@ -1646,7 +1673,7 @@ typedef struct {
 static
 BOOL pw_nudge_callback(process_info_t *pi, void **param)
 {
-    char buf[MAX_PATH];
+    char buf[MAXIMUM_PATH];
     pw_nudge_callback_data_t *data = (pw_nudge_callback_data_t *)param;
 
     if (pi->ProcessID == 0)
@@ -1654,10 +1681,10 @@ BOOL pw_nudge_callback(process_info_t *pi, void **param)
 
     buf[0] = '\0';
     if (pi->ProcessName != NULL)
-        _snprintf(buf, MAX_PATH, "%S", pi->ProcessName);
+        _snprintf(buf, MAXIMUM_PATH, "%S", pi->ProcessName);
     NULL_TERMINATE_BUFFER(buf);
     if (data->all || (data->process_name != NULL &&
-                      strnicmp(data->process_name, buf, MAX_PATH) == 0)) {
+                      strnicmp(data->process_name, buf, MAXIMUM_PATH) == 0)) {
         DWORD res = generic_nudge(pi->ProcessID, true, NUDGE_GENERIC(client),
                                   data->client_id, data->argument, data->timeout);
         if (res == ERROR_SUCCESS || res == ERROR_TIMEOUT) {

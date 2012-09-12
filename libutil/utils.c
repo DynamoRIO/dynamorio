@@ -47,7 +47,7 @@
 #ifndef UNIT_TEST
 
 
-# ifdef _DEBUG
+# ifdef DEBUG
 
 int debuglevel = DL_FATAL;
 int abortlevel = DL_FATAL;
