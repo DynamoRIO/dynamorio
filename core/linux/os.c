@@ -326,6 +326,9 @@ static void
 process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
              uint flags _IF_DEBUG(char *map_type));
 
+static char *
+read_proc_self_exe(bool ignore_cache);
+
 /* Iterator over /proc/self/maps
  * Called at arbitrary places, so cannot use fopen.
  * The whole thing is serialized, so entries cannot be referenced
@@ -839,8 +842,13 @@ get_application_pid()
     return get_application_pid_helper(false);
 }
 
-static void 
-getnamefrompid(int pid, char *name, uint maxlen)
+/* Reads argv[0] from /proc/pid/cmdline.  This can differ from the actual
+ * filename passed to execve.  argv[0] is the same only by convention, and even
+ * when obeying the convention, argv[0] may be a symlink to another executable.
+ * Use read_proc_self_exe() to get the real path of the executable.
+ */
+static void
+read_proc_pid_cmdline_argv0(int pid, char *name, uint maxlen)
 {
     int fd;
     char proc_cmdline[MAXIMUM_PATH];
@@ -849,13 +857,6 @@ getnamefrompid(int pid, char *name, uint maxlen)
     ssize_t toread;
 
     ASSERT(maxlen > 0);
-
-#ifdef VMX86_SERVER
-    if (os_in_vmkernel_userworld()) {
-        vmk_getnamefrompid(pid, name, maxlen);
-        return;
-    }
-#endif
 
     /* /proc/pid/cmdline is a series of null-terminated strings.  We read
      * maxlen-1 bytes and rely on argv[0] being null-terminated.
@@ -887,7 +888,24 @@ get_application_name_helper(bool ignore_cache, bool full_path)
     static char *short_name;
 
     if (!name_buf[0] || ignore_cache) {
-        getnamefrompid(get_process_id(), name_buf, BUFFER_SIZE_ELEMENTS(name_buf));
+#ifdef VMX86_SERVER
+        if (os_in_vmkernel_userworld()) {
+            vmk_getnamefrompid(pid, name_buf, sizeof(name_buf));
+        } else
+#endif
+        if (DYNAMO_OPTION(early_inject)) {
+            /* FIXME i#47: /proc/self/exe points to DR with early injection, so
+             * we pull argv[0] from /proc/self/cmdline.  When we make argv[0]
+             * transparent, DR will have to store the true app path somewhere
+             * internally and we can use that.
+             */
+            read_proc_pid_cmdline_argv0(get_process_id(), name_buf,
+                                        BUFFER_SIZE_ELEMENTS(name_buf));
+        } else {
+            strncpy(name_buf, read_proc_self_exe(ignore_cache), sizeof(name_buf));
+            NULL_TERMINATE_BUFFER(name_buf);
+        }
+
         short_name = strrchr(name_buf, '/');
         if (short_name == NULL)
             short_name = name_buf;
@@ -7342,17 +7360,15 @@ get_dynamorio_library_path(void)
 }
 
 #ifdef HAVE_PROC_MAPS
-/* Get full path+name of executable file.
- * We only use this for finding executable_start and it's
- * used in concert w/ walking /proc/self/maps.
- * For !HAVE_PROC_MAPS we use dl_iterate_phdr to find executable_start.
+/* Get full path+name of executable file from /proc/self/exe.
+ * FIXME i#47: This will return DR's path when using early injection.
  */
 static char *
-get_executable_path(void)
+read_proc_self_exe(bool ignore_cache)
 {
     static char exepath[MAXIMUM_PATH];
     static bool tried = false;
-    if (!tried) {
+    if (!tried || ignore_cache) {
         tried = true;
         /* assume we have /proc/self/exe symlink: could add HAVE_PROC_EXE
          * but we have no alternative solution except assuming the first
@@ -7371,7 +7387,7 @@ get_executable_path(void)
     }
     return exepath;
 }
-#endif
+#endif /* HAVE_PROC_MAPS */
 
 app_pc
 get_image_entry()
@@ -7845,14 +7861,14 @@ find_executable_vm_areas(void)
                 iter.vm_start, iter.vm_start+image_size, iter.inode, iter.comment);
 
             /* look for executable */
-            exec_match = get_executable_path();
+            exec_match = read_proc_self_exe(false/*!ignore cache*/);
             if (exec_match != NULL && exec_match[0] != '\0')
                 found_exec = (strcmp(iter.comment, exec_match) == 0);
             else {
                 /* fall back on looking for app name: though if running a
                  * symlink or something we won't find it!
                  * XXX: take 1st entry, then?  for now we rely on
-                 * get_executable_path() succeeding
+                 * read_proc_self_exe() succeeding
                  */
                 exec_match = strstr(iter.comment, get_application_name());
                 found_exec = (exec_match != NULL && exec_match == iter.comment +
