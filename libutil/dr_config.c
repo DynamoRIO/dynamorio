@@ -781,8 +781,9 @@ write_options(opt_info_t *opt_info, WCHAR *wbuf)
             /* no API's so no added options */
             mode_str = "";
             break;
-#endif
+#else
             DO_ASSERT(false);
+#endif
     }
 
     _snwprintf(wbuf, DR_MAX_OPTIONS_LENGTH, L"%S", mode_str);
