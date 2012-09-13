@@ -4710,7 +4710,13 @@ os_internal_create_file_test(const char *fname, bool is_dir, ACCESS_MASK rights,
 bool
 os_file_exists(const char *fname, bool is_dir)
 {
-    return os_internal_create_file_test(fname, is_dir, 0, FILE_SHARE_READ, FILE_OPEN);
+    /* Perhaps we should use the simpler NtQueryAttributesFile? */
+    return os_internal_create_file_test(fname, is_dir, 0,
+                                        /* We can get sharing violations if we don't
+                                         * include write (drmem i#1025)
+                                         */
+                                        FILE_SHARE_READ|FILE_SHARE_WRITE,
+                                        FILE_OPEN);
 }
 
 /* Returns true and sets 'size' of file on success; returns false on failure.
