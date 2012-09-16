@@ -613,7 +613,10 @@ static thread_sig_info_t init_info;
 
 /**** function prototypes ***********************************************/
 
-/* in x86.asm */
+/* in x86.asm for x64 */
+#if !defined(X64) && defined(HAVE_SIGALTSTACK)
+static
+#endif
 void
 master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
 
@@ -3812,17 +3815,25 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
  * WARNING: behavior varies with different versions of the kernel!
  * sigaction support was only added with 2.2
  */
-/* Instead of taking "int sig" for the first parameter, we have a trampoline in
- * x86.asm that replaces the first parameters with the original xsp value.  We
- * can't pass an additional parameter because it would mess up the frame layout
- * on ia32.
- */
+#ifdef X64
+/* stub in x86.asm passes our xsp to us */
 void
-master_signal_handler_C(byte *xsp_unsafe, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+master_signal_handler_C(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt,
+                        byte *xsp)
+#elif !defined(HAVE_SIGALTSTACK)
+/* stub in x86.asm swaps to dstack */
+void
+master_signal_handler_C(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+#else
+static void
+master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+#endif
 {
-    byte *xsp = xsp_unsafe;  /* See comment about xsp_unsafe below. */
+#ifndef X64
+    /* get our frame base from the 1st arg, which is on the stack */
+    byte *xsp = (byte *) (&sig - 1);
+#endif
     sigframe_rt_t *frame = (sigframe_rt_t *) xsp;
-    int sig = siginfo->si_signo;  /* si_signo should be widely available. */
 #ifdef DEBUG
     uint level = 2;
 # ifdef INTERNAL
@@ -3836,14 +3847,6 @@ master_signal_handler_C(byte *xsp_unsafe, siginfo_t *siginfo, kernel_ucontext_t 
 #endif
     bool local;
     dcontext_t *dcontext = get_thread_private_dcontext();
-
-#ifndef X64
-    /* Put back the original sig value we replaced with xsp in x86.asm.  This
-     * clobbers xsp_unsafe when using gcc, which is why we copy it to the local
-     * variable xsp.
-     */
-    frame->sig = sig;
-#endif
 
     /* i#350: To support safe_read without a dcontext, use the global dcontext
      * when handling safe_read faults.  This lets us pass the check for a

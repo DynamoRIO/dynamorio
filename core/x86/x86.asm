@@ -220,7 +220,7 @@ DECL_EXTERN(internal_error)
 DECL_EXTERN(internal_exception_info)
 DECL_EXTERN(is_currently_on_dstack)
 DECL_EXTERN(nt_continue_setup)
-#if defined(LINUX)
+#if defined(LINUX) && defined(X64)
 DECL_EXTERN(master_signal_handler_C)
 #endif
 DECL_EXTERN(hashlookup_null_target)
@@ -1237,26 +1237,21 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
         jmp      unexpected_return
         END_FUNC(dynamorio_sigreturn)
 #endif
-
-#ifdef HAVE_SIGALTSTACK
-/* PR 305020: for x64 and clang we can't use args to get the original stack
- * pointer, so we use a stub routine here that replaces the 'sig' param for our
- * C routine:
+        
+#if defined(X64) && defined(HAVE_SIGALTSTACK)
+/* PR 305020: for x64 we can't use args to get the original stack pointer,
+ * so we use a stub routine here that adds a 4th arg to our C routine:
  *   master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
  */
         DECLARE_FUNC(master_signal_handler)
 GLOBAL_LABEL(master_signal_handler:)
-        /* Replace arg1 (sig), either on stack or in reg.  This should be OK
-         * because it's duplicated in siginfo.si_signo, and we can put it back
-         * in the signal handler.
-         */
-        mov     ARG1, REG_XSP
-        jmp     master_signal_handler_C
+        mov      rcx, rsp /* pass as 4th arg */
+        jmp      master_signal_handler_C
         /* master_signal_handler_C will do the ret */
         END_FUNC(master_signal_handler)
+#endif
 
-#else /* !HAVE_SIGALTSTACK */
-
+#ifndef HAVE_SIGALTSTACK
 /* PR 283149: if we're on the app stack now and we need to deliver
  * immediately, we can't copy over our own sig frame w/ the app's, and we
  * can't push the app's below ours and have continuation work.  One choice
@@ -1328,12 +1323,14 @@ no_swap:
         pop      ARG3
         pop      ARG2
         pop      ARG1
+        mov      rcx, rsp /* pass as 4th arg */
 # else
         add      REG_XSP, 3*ARG_SZ
 # endif
-        mov      ARG1, rsp /* Replace ARG1 */
         jmp      master_signal_handler_C
-        /* can't return, no retaddr */
+        /* shouldn't return */
+        jmp      unexpected_return
+        ret
         END_FUNC(master_signal_handler)
 #endif /* !HAVE_SIGALTSTACK */
 
