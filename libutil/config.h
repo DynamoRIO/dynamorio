@@ -61,12 +61,12 @@
 #ifndef _DETERMINA_CONFIG_H_
 #define _DETERMINA_CONFIG_H_
 
+#include <windows.h>
+#include "lib/globals_shared.h"  /* for process_id_t */
+
 #ifdef __cplusplus
 extern "C"{
 #endif 
-
-/* we have circular dep issues if we include share.h */
-typedef UINT_PTR process_id_t;
 
 #define MAX_PARAM_LEN 1024
 #define CONFIG_PATH_SEPARATOR L':'

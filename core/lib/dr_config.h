@@ -34,6 +34,10 @@
 #ifndef _DR_CONFIG_H_
 #define _DR_CONFIG_H_ 1
 
+/* Internally we mark routines with export linkage. */
+#include "configure.h"  /* for WINDOWS/LINUX */
+#include "globals_shared.h"  /* for DR_EXPORT */
+
 /* DR_API EXPORT TOFILE dr_config.h */
 /* DR_API EXPORT BEGIN */
 /****************************************************************************
@@ -128,15 +132,14 @@ typedef enum {
 
 } dr_config_status_t;
 
-/** Allow targeting both WOW64 and native 64-bit processes separately. */
+/** Allow targeting both 32-bit and native 64-bit processes separately. */
 typedef enum {
     DR_PLATFORM_DEFAULT, /**< The platform this tool is compiled for. */
-    DR_PLATFORM_32BIT,   /**< 32-bit settings (for 32-bit or WOW64 processes). */
+    DR_PLATFORM_32BIT,   /**< 32-bit settings (for 32-bit processes). */
     DR_PLATFORM_64BIT,   /**< 64-bit settings (for native 64-bit processes). */
 } dr_platform_t;
 
-#ifdef WINDOWS
-
+DR_EXPORT
 /**
  * Register a process to run under DynamoRIO.
  * Note that this routine only sets the base options to run a process
@@ -154,13 +157,15 @@ typedef enum {
  *                              just for it.  If pid == 0, a general configuration
  *                              is created for all future instances of process_name.
  *
- * \param[in]   global          Whether global config files, stored in a dir pointed
- *                              at by the DYNAMORIO_HOME registry key, should be
- *                              used, or local config files private to the current 
- *                              user.  Administrative privileges may be needed if
- *                              global is true.  Note that DynamoRIO gives local
- *                              config files precedence when both exist.  The caller
- *                              must separately create the global directory.
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
  *
  * \param[in]   dr_root_dir     A NULL-terminated string specifying the full
  *                              path to a valid DynamoRIO root directory.
@@ -172,8 +177,8 @@ typedef enum {
  * \param[in]   debug           If true, a DynamoRIO debug build will be used;
  *                              otherwise, a release build will be used.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              configurations to set.
  *
@@ -205,6 +210,7 @@ dr_register_process(const char *process_name,
                     dr_platform_t dr_platform,
                     const char *dr_options);
 
+DR_EXPORT
 /**
  * Unregister a process from running under DynamoRIO.
  *
@@ -219,18 +225,20 @@ dr_register_process(const char *process_name,
  *                              removed. If pid == 0, the general configuration
  *                              for process_name is removed.
  *
- * \param[in]   global          Whether global config files, stored in a dir pointed
- *                              at by the DYNAMORIO_HOME registry key, should be
- *                              used, or local config files private to the current 
- *                              user.  Administrative privileges may be needed if
- *                              global is true.  Note that DynamoRIO gives local
- *                              config files precedence when both exist.  The caller
- *                              must separately create the global directory.
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
- *                              configurations to unset.
+ *                              configurations to set.
  *
  * \return      A dr_config_status_t code indicating the result of 
  *              unregistration.  Note that unregistration fails if the process 
@@ -242,6 +250,9 @@ dr_unregister_process(const char *process_name,
                       bool global,
                       dr_platform_t dr_platform);
 
+#ifdef WINDOWS
+
+DR_EXPORT
 /**
  * Sets up systemwide injection so that registered applications will run under
  * DynamoRIO however they are launched (i.e., they do not need to be explicitly
@@ -249,69 +260,77 @@ dr_unregister_process(const char *process_name,
  * privileges and affects all users (though configurations remain private to
  * each user).  On Windows NT, a reboot is required for this to take effect.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              to use.
  *
- * \param[in]   dr_root_dir     The root DynamoRIO directory (used to locate
- *                              drpreinject.dll).
+ * \param[in]   dr_root_dir     The root DynamoRIO directory.
  *
  * \return      A dr_config_status_t code indicating the result of 
  *              the operation.  The operation will fail if the caller does
  *              not have sufficient privileges.
  *
- * \note An application that does not link with user32.dll will not be
+ * \note On Windows, an application that does not link with user32.dll will not be
  * run under control of DynamoRIO via systemwide injection.  Such applications
  * will only be under DynamoRIO control if launched by the drrun or drinject
  * tools or if the parent process (typically explorer.exe, for manually launched
  * applications) is already under DynamoRIO control (the parent can be in any
  * mode, but a 32-bit parent cannot inject into a 64-bit child). Only some small
  * non-graphical applications do not link with user32.dll.
+ *
+ * \note Not yet available on Linux.
  */
 dr_config_status_t
 dr_register_syswide(dr_platform_t dr_platform,
                     const char *dr_root_dir);
 
+DR_EXPORT
 /**
  * Disables systemwide injection.  Registered applications will not run
  * under DynamoRIO unless explicitly launched with the drrun or drinject
  * tools (or a custom tool that uses the drinjectlib library).
  * On Windows NT, a reboot is required for this to take effect.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              to use.
  *
- * \param[in]   dr_root_dir     The root DynamoRIO directory (used to locate
- *                              drpreinject.dll).
+ * \param[in]   dr_root_dir     The root DynamoRIO directory.
  *
  * \return      A dr_config_status_t code indicating the result of 
  *              the operation.  The operation will fail if the caller does
  *              not have sufficient privileges.
+ *
+ * \note Not yet available on Linux.
  */
 dr_config_status_t
 dr_unregister_syswide(dr_platform_t dr_platform,
                       const char *dr_root_dir);
 
+DR_EXPORT
 /**
  * Returns whether systemwide injection is enabled.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              to use.
  *
- * \param[in]   dr_root_dir     The root DynamoRIO directory (used to locate
- *                              drpreinject.dll).
+ * \param[in]   dr_root_dir     The root DynamoRIO directory.
  *
  * \return      Whether systemwide injection is enabled.
+ *
+ * \note Not yet available on Linux.
  */
 bool
 dr_syswide_is_on(dr_platform_t dr_platform,
                  const char *dr_root_dir);
 
+#endif /* WINDOWS */
+
+DR_EXPORT
 /**
  * Check if a process is registered to run under DynamoRIO.  To obtain client
  * information, use dr_get_client_info().
@@ -327,16 +346,18 @@ dr_syswide_is_on(dr_platform_t dr_platform,
  *                              will be queried.  If pid == 0, the general
  *                              configuration for process_name will be queried.
  *
- * \param[in]   global          Whether global config files, stored in a dir pointed
- *                              at by the DYNAMORIO_HOME registry key, should be
- *                              used, or local config files private to the current 
- *                              user.  Administrative privileges may be needed if
- *                              global is true.  Note that DynamoRIO gives local
- *                              config files precedence when both exist.  The caller
- *                              must separately create the global directory.
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              configurations to check.
  *
@@ -372,42 +393,53 @@ dr_process_is_registered(const char *process_name,
                          bool *debug                    /* OUT */,
                          char *dr_options               /* OUT */);
 
+#ifdef WINDOWS
+
 typedef struct _dr_registered_process_iterator_t dr_registered_process_iterator_t;
 
+DR_EXPORT
 /**
  * Creates and starts an iterator for iterating over all processes registered for
  * the given platform and given global or local parameter. 
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              configurations to check.
  *
- * \param[in]   global          Whether global config files, stored in a dir pointed
- *                              at by the DYNAMORIO_HOME registry key, should be
- *                              used, or local config files private to the current 
- *                              user.  Administrative privileges may be needed if
- *                              global is true.  Note that DynamoRIO gives local
- *                              config files precedence when both exist.  The caller
- *                              must separately create the global directory.
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
  *
  * \return      iterator for use with dr_registered_process_iterator_hasnext()and 
  *              dr_registered_process_iterator_next().  Must be freed
  *              with dr_registered_process_iterator_stop()
+ *
+ * \note Not yet available on Linux.
  */
 dr_registered_process_iterator_t *
 dr_registered_process_iterator_start(dr_platform_t dr_platform,
                                      bool global);
 
+DR_EXPORT
 /**
  * \param[in]    iter           A registered process iterator created with
  *                              dr_registered_process_iterator_start()
  *
  * \return      true if there are more registered processes to iterate over
+ *
+ * \note Not yet available on Linux.
  */
 bool
 dr_registered_process_iterator_hasnext(dr_registered_process_iterator_t *iter);
 
+DR_EXPORT
 /**
  * Return information about a registered process
  *
@@ -439,6 +471,8 @@ dr_registered_process_iterator_hasnext(dr_registered_process_iterator_t *iter);
  *                              length #DR_MAX_OPTIONS_LENGTH.
  *
  * \return      true if the information was successfully retrieved.
+ *
+ * \note Not yet available on Linux.
  */
 bool
 dr_registered_process_iterator_next(dr_registered_process_iterator_t *iter,
@@ -448,15 +482,21 @@ dr_registered_process_iterator_next(dr_registered_process_iterator_t *iter,
                                     bool *debug /* OUT */,
                                     char *dr_options /* OUT */);
 
+DR_EXPORT
 /**
  * Stops and frees a registered process iterator.
  *
  * \param[in]    iter           A registered process iterator created with
  *                              dr_registered_process_iterator_start()
+ *
+ * \note Not yet available on Linux.
  */
 void
 dr_registered_process_iterator_stop(dr_registered_process_iterator_t *iter);
 
+#endif /* WINDOWS */
+
+DR_EXPORT
 /**
  * Register a client for a particular process.  Note that the process must first
  * be registered via dr_register_process() before calling this routine.
@@ -472,16 +512,18 @@ dr_registered_process_iterator_stop(dr_registered_process_iterator_t *iter);
  *                              will be modified.  If pid == 0, the general
  *                              configuration for process_name will be modified.
  *
- * \param[in]   global          Whether global config files, stored in a dir pointed
- *                              at by the DYNAMORIO_HOME registry key, should be
- *                              used, or local config files private to the current 
- *                              user.  Administrative privileges may be needed if
- *                              global is true.  Note that DynamoRIO gives local
- *                              config files precedence when both exist.  The caller
- *                              must separately create the global directory.
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              configurations to unset.
  *
@@ -525,6 +567,7 @@ dr_register_client(const char *process_name,
                    const char *client_path,
                    const char *client_options);
 
+DR_EXPORT
 /**
  * Unregister a client for a particular process.
  *
@@ -539,16 +582,18 @@ dr_register_client(const char *process_name,
  *                              will be modified.  If pid == 0, the general
  *                              configuration for process_name will be modified.
  *
- * \param[in]   global          Whether global config files, stored in a dir pointed
- *                              at by the DYNAMORIO_HOME registry key, should be
- *                              used, or local config files private to the current 
- *                              user.  Administrative privileges may be needed if
- *                              global is true.  Note that DynamoRIO gives local
- *                              config files precedence when both exist.  The caller
- *                              must separately create the global directory.
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              configurations to unset.
  *
@@ -564,6 +609,7 @@ dr_unregister_client(const char *process_name,
                      dr_platform_t dr_platform,
                      client_id_t client_id);
 
+DR_EXPORT
 /**
  * Retrieve the number of clients registered for a particular process for
  * the current user.
@@ -579,16 +625,18 @@ dr_unregister_client(const char *process_name,
  *                              will be queried.  If pid == 0, the general
  *                              configuration for process_name will be queried.
  *
- * \param[in]   global          Whether global config files, stored in a dir pointed
- *                              at by the DYNAMORIO_HOME registry key, should be
- *                              used, or local config files private to the current 
- *                              user.  Administrative privileges may be needed if
- *                              global is true.  Note that DynamoRIO gives local
- *                              config files precedence when both exist.  The caller
- *                              must separately create the global directory.
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              configurations to unset.
  *
@@ -600,6 +648,7 @@ dr_num_registered_clients(const char *process_name,
                           bool global,
                           dr_platform_t dr_platform);
 
+DR_EXPORT
 /**
  * Retrieve client registration information for a particular process for
  * the current user.
@@ -615,16 +664,18 @@ dr_num_registered_clients(const char *process_name,
  *                              will be queried.  If pid == 0, the general
  *                              configuration for process_name will be queried.
  *
- * \param[in]   global          Whether global config files, stored in a dir pointed
- *                              at by the DYNAMORIO_HOME registry key, should be
- *                              used, or local config files private to the current 
- *                              user.  Administrative privileges may be needed if
- *                              global is true.  Note that DynamoRIO gives local
- *                              config files precedence when both exist.  The caller
- *                              must separately create the global directory.
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              configurations to unset.
  *
@@ -657,6 +708,7 @@ dr_get_client_info(const char *process_name,
 
 typedef struct _dr_client_iterator_t dr_client_iterator_t;
 
+DR_EXPORT
 /**
  * Creates and starts an iterator for iterating over all clients registered for
  * the given process.
@@ -672,16 +724,18 @@ typedef struct _dr_client_iterator_t dr_client_iterator_t;
  *                              will be queried.  If pid == 0, the general
  *                              configuration for process_name will be queried.
  *
- * \param[in]   global          Whether global config files, stored in a dir pointed
- *                              at by the DYNAMORIO_HOME registry key, should be
- *                              used, or local config files private to the current 
- *                              user.  Administrative privileges may be needed if
- *                              global is true.  Note that DynamoRIO gives local
- *                              config files precedence when both exist.  The caller
- *                              must separately create the global directory.
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
  *
- * \param[in]   dr_platform     Configurations are kept separate on 64-bit Windows
- *                              for 32-bit (WOW64) processes and 64-bit processes.
+ * \param[in]   dr_platform     Configurations are kept separate
+ *                              for 32-bit processes and 64-bit processes.
  *                              This parameter allows selecting which of those
  *                              configurations to check.
  *
@@ -695,6 +749,7 @@ dr_client_iterator_start(const char *process_name,
                          bool global,
                          dr_platform_t dr_platform);
 
+DR_EXPORT
 /**
  * \param[in]   iter            A client iterator created with dr_client_iterator_start()
  *
@@ -703,6 +758,7 @@ dr_client_iterator_start(const char *process_name,
 bool
 dr_client_iterator_hasnext(dr_client_iterator_t *iter);
 
+DR_EXPORT
 /**
  * Return information about a client.
  *
@@ -729,6 +785,7 @@ dr_client_iterator_next(dr_client_iterator_t *iter,
                         char *client_path,      /* OUT */
                         char *client_options    /* OUT */);
 
+DR_EXPORT
 /**
  * Stops and frees a client iterator.
  *
@@ -737,7 +794,9 @@ dr_client_iterator_next(dr_client_iterator_t *iter,
 void
 dr_client_iterator_stop(dr_client_iterator_t *iter);
 
+#ifdef WINDOWS
 
+DR_EXPORT
 /**
  * Provides a mechanism for an external entity on the guest OS to
  * communicate with a client.  Requires administrative privileges.  A
@@ -782,6 +841,8 @@ dr_client_iterator_stop(dr_client_iterator_t *iter);
  * in \ref sec_comm.
  *
  * \note Nudging 64-bit processes is not yet supported.
+ *
+ * \note Not yet available on Linux.
  */
 dr_config_status_t
 dr_nudge_process(const char *process_name,
@@ -790,6 +851,7 @@ dr_nudge_process(const char *process_name,
                  uint timeout_ms,
                  int *nudge_count /*OUT */);
 
+DR_EXPORT
 /**
  * Provides a mechanism for an external entity on the guest OS to
  * communicate with a client.  Requires administrative privileges.  A
@@ -824,6 +886,8 @@ dr_nudge_process(const char *process_name,
  * in \ref sec_comm.
  *
  * \note Nudging 64-bit processes is not yet supported.
+ *
+ * \note Not yet available on Linux.
  */
 dr_config_status_t
 dr_nudge_pid(process_id_t process_id,
@@ -831,6 +895,7 @@ dr_nudge_pid(process_id_t process_id,
              uint64 arg,
              uint timeout_ms);
 
+DR_EXPORT
 /**
  * Provides a mechanism for an external entity on the guest OS to
  * communicate with a client.  Requires administrative privileges.  A
@@ -867,6 +932,8 @@ dr_nudge_pid(process_id_t process_id,
  * in \ref sec_comm.
  *
  * \note Nudging 64-bit processes is not yet supported.
+ *
+ * \note Not yet available on Linux.
  */
 dr_config_status_t
 dr_nudge_all(client_id_t client_id,

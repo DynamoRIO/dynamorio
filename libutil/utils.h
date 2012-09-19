@@ -35,37 +35,44 @@
 #ifndef _DETERMINA_SHAREUTILS_H_
 #define _DETERMINA_SHAREUTILS_H_
 
-#include "config.h"
-
-#ifndef __cplusplus
-# ifndef bool
-typedef char bool;
-# endif /* !bool */
-#endif /* __cplusplus */
-
-#ifndef WINDOWS
-/* must define WINDOWS for dr_config.h */
-# define WINDOWS
-# define _HAD_TO_DEFINE_WINDOWS
-#endif
-#include "lib/globals_shared.h"
+#include "share.h"
 #include "lib/dr_config.h"
-#ifdef _HAD_TO_DEFINE_WINDOWS
-# undef WINDOWS
-# undef _HAD_TO_DEFINE_WINDOWS
+#include "our_tchar.h"
+
+#ifdef WINDOWS
+# include "config.h"
 #endif
 
 #ifdef DEBUG
 # include <stdio.h>
 #endif
 
-#ifdef _DEBUG
+#if defined(WINDOWS) && defined(_DEBUG)
 # include <crtdbg.h>
 #endif
 
 #ifdef __cplusplus
 extern "C"{
 #endif 
+
+const TCHAR *
+get_dynamorio_home(void);
+
+const TCHAR *
+get_dynamorio_logdir(void);
+
+bool
+file_exists(const TCHAR *fn);
+
+void
+set_dr_platform(dr_platform_t platform);
+
+/* return DR_PLATFORM_32BIT or DR_PLATFORM_64BIT */
+dr_platform_t 
+get_dr_platform(void);
+
+/* XXX: Rest are unported. */
+#ifdef WINDOWS
 
 void
 wcstolower(WCHAR *str);
@@ -84,9 +91,6 @@ acquire_shutdown_privilege();
 
 DWORD
 reboot_system();
-
-BOOL
-file_exists(const WCHAR *fn);
 
 /* grokked from the core. 
  * FIXME: shareme!
@@ -128,13 +132,6 @@ get_preinject_path(WCHAR *buf, int nchars, BOOL force_local_path, BOOL short_pat
 
 DWORD
 get_preinject_name(WCHAR *buf, int nchars);
-
-void
-set_dr_platform(dr_platform_t platform);
-
-/* return DR_PLATFORM_32BIT or DR_PLATFORM_64BIT */
-dr_platform_t 
-get_dr_platform();
 
 /* PR 244206: these flags should be used for all Reg{Create,Open,Delete}KeyEx calls
  * for HKLM\Software keys
@@ -182,12 +179,6 @@ write_file_contents_if_different(WCHAR *path, char *contents, BOOL *changed);
 DWORD
 read_file_contents(WCHAR *path, char *contents, 
                    SIZE_T maxchars, SIZE_T *needed);
-
-const WCHAR *
-get_dynamorio_home();
-
-const WCHAR *
-get_dynamorio_logdir();
 
 DWORD
 setup_installation(const WCHAR *path, BOOL overwrite);
@@ -280,6 +271,8 @@ BOOL
 run_canary_test_ex(FILE *file, /* INOUT */ CANARY_INFO *info,
                    const WCHAR *scratch_folder, const WCHAR *canary_process);
 
+#endif /* WINDOWS */
+
 # ifdef DEBUG
 
 extern int debuglevel;
@@ -301,10 +294,12 @@ set_abortlevel(int level);
 #  define DL_VERB     8
 #  define DL_FINEST   10
 
-#  pragma warning(disable : 4127)
+#  ifdef WINDOWS
+#   pragma warning(disable : 4127)
+#  endif
 
 #  ifndef EXIT_ON_ASSERT
-#    define EXIT_ON_ASSERT TRUE
+#    define EXIT_ON_ASSERT true
 #  endif
 
 #  ifndef ASSERTION_EXPRESSION
@@ -317,14 +312,14 @@ set_abortlevel(int level);
 
 #  define DO_ASSERT_EXPR(msg, expr, handle, handler)  {         \
     if ( ! (expr) ) {                                           \
-        WCHAR ___buf[MAX_PATH];                                 \
-        _snwprintf(___buf, MAX_PATH, L"%S:%d [%S]",             \
+        char ___buf[MAXIMUM_PATH];                              \
+        _snprintf(___buf, MAXIMUM_PATH, "%s:%d [%s]",           \
                    __FILE__, __LINE__, msg);                    \
         if (handle) {                                           \
             handler                                             \
         }                                                       \
         else if (EXIT_ON_ASSERT) {                              \
-            fprintf(stderr, "ASSERT: %S\n", ___buf);            \
+            fprintf(stderr, "ASSERT: %s\n", ___buf);            \
             fflush(stderr);                                     \
             exit(-1);                                           \
         }                                                       \
@@ -424,6 +419,7 @@ set_abortlevel(int level);
 }
 
 
+#  ifdef WINDOWS
 DWORD
 load_test_config(const char *snippet, BOOL use_hotpatch_defs);
 
@@ -439,6 +435,7 @@ reset_last_event();
 
 void
 show_all_events();
+#  endif
 
 # else //#ifdef DEBUG
 

@@ -1023,9 +1023,7 @@ if (BUILD_CORE)
 endif (BUILD_CORE)
 
 if (BUILD_TOOLS OR BUILD_DRGUI)
-  if (WIN32)
-    add_subdirectory(libutil)
-  endif (WIN32)
+  add_subdirectory(libutil)
 endif (BUILD_TOOLS OR BUILD_DRGUI)
   
 if (BUILD_TOOLS)
