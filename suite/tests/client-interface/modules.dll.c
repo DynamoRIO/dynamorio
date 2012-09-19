@@ -33,6 +33,8 @@
 
 #include "dr_api.h"
 
+#include <string.h>
+
 #ifdef WINDOWS
 # define IF_WINDOWS_ELSE(x, y) x
 # define IF_WINDOWS(x) x
@@ -131,6 +133,12 @@ test_aux_lib(client_id_t id)
 DR_EXPORT
 void dr_init(client_id_t id)
 {
+    module_data_t *main_mod = dr_get_main_module();
+    if (strstr(dr_module_preferred_name(main_mod), "client.modules") == NULL) {
+        dr_fprintf(STDERR, "ERROR: Main module has the wrong name\n");
+    }
+    dr_free_module_data(main_mod);
+
     dr_register_module_load_event(module_load_event);
     dr_register_module_unload_event(module_unload_event);    
     test_aux_lib(id);

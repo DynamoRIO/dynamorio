@@ -2974,6 +2974,13 @@ dr_lookup_module(byte *pc)
 }
 
 DR_API
+module_data_t *
+dr_get_main_module(void)
+{
+    return dr_lookup_module(get_image_entry());
+}
+
+DR_API
 /* Looks up the module with name matching name (ignoring case).  Returns NULL if not
  * found. Returned module_data_t must be freed with dr_free_module_data(). */
 module_data_t *

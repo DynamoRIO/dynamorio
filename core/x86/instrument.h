@@ -2387,6 +2387,14 @@ dr_lookup_module_by_name(const char *name);
 
 DR_API
 /**
+ * Looks up module data for the main executable.  
+ * \note Returned module_data_t must be freed with dr_free_module_data().
+ */
+module_data_t *
+dr_get_main_module(void);
+
+DR_API
+/**
  * Initialize a new module iterator.  The returned module iterator contains a snapshot
  * of the modules loaded at the time it was created.  Use dr_module_iterator_hasnext()
  * and dr_module_iterator_next() to walk the loaded modules.  Call

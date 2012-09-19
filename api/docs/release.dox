@@ -171,6 +171,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_mark_safe_to_suspend()
  - Added dr_mutex_mark_as_app(), dr_rwlock_mark_as_app(), and
    dr_recurlock_mark_as_app()
+ - Added dr_get_main_module()
  - Added DR_FAST_IR to allow clients to inline some key IR routines
  - Added -logdir runtime option for control over the log directory
  - Added drmgr_get_parent_cls_field()
