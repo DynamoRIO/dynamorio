@@ -380,7 +380,7 @@ Facility = DRCore
 SymbolicName = MSG_SIGSEGV_IN_SECURE_CORE
 Language=English
 Application %1!s! (%2!s!) 
-** Received SIG%3!s! at %4!s! %5!s! pc 0x%6!p! in thread %7!d!
+** Received SIG%3!s! at %4!s! %5!s! pc %6!p! in thread %7!d!
 .
 
 ;#endif
