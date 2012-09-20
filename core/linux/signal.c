@@ -613,10 +613,7 @@ static thread_sig_info_t init_info;
 
 /**** function prototypes ***********************************************/
 
-/* in x86.asm for x64 */
-#if !defined(X64) && defined(HAVE_SIGALTSTACK)
-static
-#endif
+/* in x86.asm */
 void
 master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
 
@@ -3820,20 +3817,21 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
 void
 master_signal_handler_C(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt,
                         byte *xsp)
-#elif !defined(HAVE_SIGALTSTACK)
-/* stub in x86.asm swaps to dstack */
-void
-master_signal_handler_C(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 #else
-static void
-master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+/* On ia32, adding a parameter disturbs the frame we're trying to capture, so we
+ * add an intermediate frame and read the normal params off the stack directly.
+ */
+void
+master_signal_handler_C(byte *xsp)
 #endif
 {
-#ifndef X64
-    /* get our frame base from the 1st arg, which is on the stack */
-    byte *xsp = (byte *) (&sig - 1);
-#endif
     sigframe_rt_t *frame = (sigframe_rt_t *) xsp;
+#ifndef X64
+    /* Read the normal arguments from the frame. */
+    int sig = frame->sig;
+    siginfo_t *siginfo = frame->pinfo;
+    kernel_ucontext_t *ucxt = frame->puc;
+#endif /* !X64 */
 #ifdef DEBUG
     uint level = 2;
 # ifdef INTERNAL

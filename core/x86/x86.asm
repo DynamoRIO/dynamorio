@@ -220,7 +220,7 @@ DECL_EXTERN(internal_error)
 DECL_EXTERN(internal_exception_info)
 DECL_EXTERN(is_currently_on_dstack)
 DECL_EXTERN(nt_continue_setup)
-#if defined(LINUX) && defined(X64)
+#if defined(LINUX)
 DECL_EXTERN(master_signal_handler_C)
 #endif
 DECL_EXTERN(hashlookup_null_target)
@@ -1237,21 +1237,34 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
         jmp      unexpected_return
         END_FUNC(dynamorio_sigreturn)
 #endif
-        
-#if defined(X64) && defined(HAVE_SIGALTSTACK)
-/* PR 305020: for x64 we can't use args to get the original stack pointer,
- * so we use a stub routine here that adds a 4th arg to our C routine:
- *   master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+
+#ifdef HAVE_SIGALTSTACK
+/* We used to get the SP by taking the address of our args, but that doesn't
+ * work on x64 nor with other compilers.  Today we use asm to pass in the
+ * initial SP.  For x64, we add a 4th register param and tail call to
+ * master_signal_handler_C.  Adding a param and doing a tail call on ia32 is
+ * hard, so we make a real call and pass only xsp.  The C routine uses it to
+ * read the original params.
+ * See also PR 305020.
  */
         DECLARE_FUNC(master_signal_handler)
 GLOBAL_LABEL(master_signal_handler:)
-        mov      rcx, rsp /* pass as 4th arg */
+#ifdef X64
+        mov      ARG4, REG_XSP /* pass as 4th arg */
         jmp      master_signal_handler_C
         /* master_signal_handler_C will do the ret */
-        END_FUNC(master_signal_handler)
+#else
+        /* We need to pass in xsp.  The easiest way is to create an
+         * intermediate frame.
+         */
+        mov      REG_XAX, REG_XSP
+        CALLC1(master_signal_handler_C, REG_XAX)
+        ret
 #endif
+        END_FUNC(master_signal_handler)
 
-#ifndef HAVE_SIGALTSTACK
+#else /* !HAVE_SIGALTSTACK */
+
 /* PR 283149: if we're on the app stack now and we need to deliver
  * immediately, we can't copy over our own sig frame w/ the app's, and we
  * can't push the app's below ours and have continuation work.  One choice
@@ -1324,13 +1337,17 @@ no_swap:
         pop      ARG2
         pop      ARG1
         mov      rcx, rsp /* pass as 4th arg */
+        jmp      master_signal_handler_C
+        /* can't return, no retaddr */
 # else
         add      REG_XSP, 3*ARG_SZ
-# endif
-        jmp      master_signal_handler_C
-        /* shouldn't return */
-        jmp      unexpected_return
+        /* We need to pass in xsp.  The easiest way is to create an
+         * intermediate frame.
+         */
+        mov      REG_XAX, REG_XSP
+        CALLC1(master_signal_handler_C, REG_XAX)
         ret
+# endif
         END_FUNC(master_signal_handler)
 #endif /* !HAVE_SIGALTSTACK */
 
