@@ -3686,7 +3686,7 @@ dr_print_instr(void *drcontext, file_t f, instr_t *instr, const char *msg)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL, "dr_print_instr: drcontext cannot be NULL");
-    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
+    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT || standalone_library,
                   "dr_print_instr: drcontext is invalid");
     dr_fprintf(f, "%s "PFX" ", msg, instr_get_translation(instr));
     instr_disassemble(dcontext, instr, f);
@@ -3698,7 +3698,7 @@ dr_print_opnd(void *drcontext, file_t f, opnd_t opnd, const char *msg)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL, "dr_print_opnd: drcontext cannot be NULL");
-    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
+    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT || standalone_library,
                   "dr_print_opnd: drcontext is invalid");
     dr_fprintf(f, "%s ", msg);
     opnd_disassemble(dcontext, opnd, f);

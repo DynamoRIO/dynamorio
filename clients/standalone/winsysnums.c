@@ -50,7 +50,8 @@
  *   % cmake --build .
  *
  * To run, you need to put dynamorio.dll, drsyms.dll, and dbghelp.dll into the
- * same directory as winsysnums.exe.
+ * same directory as winsysnums.exe.  (If you build drsyms statically you don't
+ * need to copy it of course.)
  */
 
 #include "dr_api.h"
@@ -182,6 +183,16 @@ check_Ki(const char *name)
     }
 }
 
+static void
+process_ret(instr_t *instr, syscall_info_t *info)
+{
+    assert(instr_is_return(instr));
+    if (opnd_is_immed_int(instr_get_src(instr, 0)))
+        info->num_args = (int) opnd_get_immed_int(instr_get_src(instr, 0));
+    else
+        info->num_args = 0;
+}
+
 /* returns false on failure */
 static bool
 decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
@@ -198,6 +209,7 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
         return false;
     info->num_args = -1; /* if find sysnum but not args */
     info->sysnum = -1;
+    info->fixup_index = -1;
     instr = instr_create(dcontext);
     pc = entry;
     /* FIXME - we don't support decoding 64bit instructions in 32bit mode, but I want
@@ -223,8 +235,8 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
          * be called (instr_is_wow64_syscall() for ex. asserts if not
          * in a wow process).
          */
-        if (/* int 2e or x64 */
-            (instr_is_syscall(instr) && found_eax && (expect_int2e || expect_x64)) ||
+        if (/* int 2e or x64 or win8 sysenter */
+            (instr_is_syscall(instr) && found_eax && (expect_int2e || expect_x64 || expect_sysenter)) ||
             /* sysenter case */
             (expect_sysenter && found_edx && found_eax &&
              instr_is_call_indirect(instr) &&
@@ -236,8 +248,10 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
                opnd_get_base(instr_get_target(instr)) == REG_EDX &&
                opnd_get_index(instr_get_target(instr)) == REG_NULL &&
                opnd_get_disp(instr_get_target(instr)) == 0))) ||
-            /* wow case */
-            (expect_wow && found_ecx && found_eax &&
+            /* wow case 
+             * we don't require found_ecx b/c win8 does not use ecx
+             */
+            (expect_wow && found_eax &&
              instr_is_call_indirect(instr) &&
              opnd_is_far_base_disp(instr_get_target(instr)) &&
              opnd_get_base(instr_get_target(instr)) == REG_NULL &&
@@ -245,28 +259,65 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
              opnd_get_segment(instr_get_target(instr)) == SEG_FS)) {
             found_syscall = true;
         } else if (instr_is_return(instr)) {
-            if (opnd_is_immed_int(instr_get_src(instr, 0)))
-                info->num_args = opnd_get_immed_int(instr_get_src(instr, 0));
-            else
-                info->num_args = 0;
-            found_ret = true;
+            if (!found_ret) {
+                process_ret(instr, info);
+                found_ret = true;
+            }
             break;
         } else if (instr_is_cti(instr)) {
+            if (instr_get_opcode(instr) == OP_call) {
+                /* handle win8 x86 which has sysenter callee adjacent-"inlined"
+                 *     ntdll!NtYieldExecution:
+                 *     77d7422c b801000000      mov     eax,1
+                 *     77d74231 e801000000      call    ntdll!NtYieldExecution+0xb (77d74237)
+                 *     77d74236 c3              ret
+                 *     77d74237 8bd4            mov     edx,esp
+                 *     77d74239 0f34            sysenter
+                 *     77d7423b c3              ret
+                 */
+                byte *tgt;
+                assert(opnd_is_pc(instr_get_target(instr)));
+                tgt = opnd_get_pc(instr_get_target(instr));
+                /* we expect only ret or ret imm, and possibly some nops (in gdi32).
+                 * XXX: what about jmp to shared ret (seen in the past on some syscalls)?
+                 */
+                if (tgt > pc && tgt <= pc + 16) {
+                    bool ok = false;
+                    do {
+                        if (pc == tgt) {
+                            ok = true;
+                            break;
+                        }
+                        instr_reset(dcontext, instr);
+                        pc = decode(dcontext, pc, instr);
+                        if (verbose)
+                            dr_print_instr(dcontext, STDOUT, instr, "");
+                        if (instr_is_return(instr)) {
+                            process_ret(instr, info);
+                            found_ret = true;
+                        } else if (!instr_is_nop(instr))
+                            break;
+                        num_instr++;
+                    } while (num_instr <= MAX_INSTRS_BEFORE_SYSCALL);
+                    if (ok)
+                        continue;
+                }
+            }
             /* assume not a syscall wrapper if we hit a cti */
             break; /* give up gracefully */
         } else if ((!found_eax || !found_edx || !found_ecx) &&
             instr_get_opcode(instr) == OP_mov_imm &&
             opnd_is_reg(instr_get_dst(instr, 0))) {
             if (!found_eax && opnd_get_reg(instr_get_dst(instr, 0)) == REG_EAX) {
-                info->sysnum = opnd_get_immed_int(instr_get_src(instr, 0));
+                info->sysnum = (int) opnd_get_immed_int(instr_get_src(instr, 0));
                 found_eax = true;
             } else if (!found_edx && opnd_get_reg(instr_get_dst(instr, 0)) == REG_EDX) {
-                int imm = opnd_get_immed_int(instr_get_src(instr, 0));
+                int imm = (int) opnd_get_immed_int(instr_get_src(instr, 0));
                 if (imm == 0x7ffe0300)
                     found_edx = true;
             } else if (!found_ecx && opnd_get_reg(instr_get_dst(instr, 0)) == REG_ECX) {
                 found_ecx = true;
-                info->fixup_index = opnd_get_immed_int(instr_get_src(instr, 0));
+                info->fixup_index = (int) opnd_get_immed_int(instr_get_src(instr, 0));
             }
         } else if (instr_get_opcode(instr) == OP_xor &&
                    opnd_is_reg(instr_get_src(instr, 0)) &&
@@ -290,6 +341,8 @@ process_syscall_wrapper(void *dcontext, byte *addr, const char *string,
                         const char *type)
 {
     syscall_info_t sysinfo;
+    if (ignore_Zw && string[0] == 'Z' && string[1] == 'w')
+        return;
     if (decode_syscall_num(dcontext, addr, &sysinfo)) {
         if (sysinfo.sysnum == -1) {
             /* we expect this sometimes */
@@ -298,15 +351,16 @@ process_syscall_wrapper(void *dcontext, byte *addr, const char *string,
                 print("ERROR: unknown syscall #: %s\n", string);
             }
         } else {
+            /* be sure to print all digits b/c win8 now uses the top 16 bits for wow64 */
             if (expect_wow) {
-                print("syscall # 0x%04x %-6s %2d args fixup 0x%02x = %s\n",
+                print("syscall # 0x%08x %-6s %2d args fixup 0x%02x = %s\n",
                       sysinfo.sysnum, type, sysinfo.num_args,
                       sysinfo.fixup_index, string);
             } else if (expect_x64) {
-                print("syscall # 0x%04x %-6s = %s\n",
+                print("syscall # 0x%08x %-6s = %s\n",
                       sysinfo.sysnum, type, string);
             } else {
-                print("syscall # 0x%04x %-6s %2d args = %s\n",
+                print("syscall # 0x%08x %-6s %2d args = %s\n",
                       sysinfo.sysnum, type, sysinfo.num_args, string);
             }
         }
@@ -328,7 +382,7 @@ search_syms_cb(const char *name, size_t modoffs, void *data)
 {
     search_data_t *sd = (search_data_t *) data;
     byte *addr = ImageRvaToVa(sd->img->FileHeader, sd->img->MappedAddress,
-                              modoffs, NULL);
+                              (ULONG) modoffs, NULL);
     verbose_print("Found symbol \"%s\" at offs "PIFX" => "PFX"\n", name, modoffs, addr);
     process_syscall_wrapper(sd->dcontext, addr, name, "pdb");
     return true; /* keep iterating */
@@ -475,9 +529,7 @@ process_exports(void *dcontext, char *dllname)
                     print("ERROR identifying forwarded entry for %s\n", string);
             }
         } else if (list_syscalls) {
-            if (!ignore_Zw || string[0] != 'Z' || string[1] != 'w') {
-                process_syscall_wrapper(dcontext, addr, string, "export");
-            }
+            process_syscall_wrapper(dcontext, addr, string, "export");
         }
     }
 
@@ -503,6 +555,10 @@ main(int argc, char *argv[])
     char *dll;
     bool forced = false;
 
+#ifdef X64
+    set_x86_mode(dcontext, true/*x86*/);
+#endif
+
     for (res=1; res < argc; res++) {
         if (strcmp(argv[res], "-sysenter") == 0) {
             expect_sysenter = true;
@@ -515,10 +571,13 @@ main(int argc, char *argv[])
             forced = true;
         } else if (strcmp(argv[res], "-x64") == 0) {
             expect_x64 = true;
-            /* FIXME - ideally we should switch to 64bit decoding mode here
-             * or compile for 64bit and switch the other options to 32bit
-             * xref case PR 236203.  We hack a fix for -syscalls (see
-             * decode_syscall_num()) but -Ki won't work. */
+#ifdef X64
+            set_x86_mode(dcontext, false/*x64*/);
+#else
+            /* For 32-bit builds we hack a fix for -syscalls (see
+             * decode_syscall_num()) but -Ki won't work.
+             */
+#endif
             forced = true;
         } else if (strcmp(argv[res], "-v") == 0) {
             verbose = true;

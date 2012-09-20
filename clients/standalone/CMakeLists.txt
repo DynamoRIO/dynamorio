@@ -81,6 +81,8 @@ endif (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 
 set(DynamoRIO_REG_COMPATIBILITY ON)
 
+option(DEBUG "build debug" ON)
+
 foreach (src ${srcs})
   get_filename_component(tgt ${src} NAME_WE)
   
