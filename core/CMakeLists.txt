@@ -138,6 +138,51 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   set(EVENTS_SRCS "")
 endif ()
 
+if (WIN32)
+  # i#894: Win8 WDK ntdll.lib does not list Ki routines so we make our own .lib
+  # We could build a full dll (not through cmake target though b/c then have
+  # ntdll.lib name conflicts) but the lib.exe tool seems cleaner.
+  # Note that we need not only stub routines but to also list the stdcall
+  # (un-mangled) names in a .def file for it to work.
+  find_program(LIB_EXECUTABLE lib.exe DOC "path to lib.exe")
+  if (NOT LIB_EXECUTABLE)
+    message(FATAL_ERROR "Cannot find lib.exe")
+  endif (NOT LIB_EXECUTABLE)
+  set(ntimp_base "ntdll_imports")
+  set(ntimp_src "${CMAKE_CURRENT_SOURCE_DIR}/win32/${ntimp_base}.c")
+  set(ntimp_def "${CMAKE_CURRENT_SOURCE_DIR}/win32/${ntimp_base}.def")
+  set(ntimp_stamp "${ntimp_base}.stamp")
+  # We can't call it ntdll.lib b/c then link.exe will ignore the one from
+  # the WDK/DDK.
+  # XXX: should we just put all the Nt* and Rtl* in ntdll_stub.* and eliminate
+  # the need for WDK/DDK?  We'd have to manually make sure we don't rely
+  # on ntdll routines not in older systems.
+  set(ntimp_lib "${CMAKE_CURRENT_BINARY_DIR}/${ntimp_base}.lib")
+  set_property(SOURCE "${ntimp_lib}" PROPERTY GENERATED true)
+  # Because the Ki are stdcall we can't just use a .def file: we need
+  # an .obj file built from stubs w/ the same signatures.
+  # Furthermore, we need to list the mangled symbols as /export:
+  # items to lib.exe (discovered through experimentation).
+  add_custom_command(OUTPUT "${ntimp_stamp}"
+    DEPENDS "${ntimp_src}"
+    COMMAND "${CMAKE_C_COMPILER}" ARGS /c /Ob0 ${ntimp_src}
+    COMMAND "${LIB_EXECUTABLE}" ARGS
+      /name:ntdll.dll /def:${ntimp_def}
+      ${CMAKE_CURRENT_BINARY_DIR}/${ntimp_base}.obj
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    VERBATIM # recommended: p260
+    )
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # for correct parallel builds we need a target to avoid
+    # duplicate and racy VS per-project rules
+    add_custom_target(ntimp_tgt DEPENDS "${ntimp_stamp}")
+    set(ntimp_dep "")
+  else ()
+    set(ntimp_dep "${ntimp_lib}")
+  endif ()
+  set(ntimp_flags "${ntimp_lib}")
+endif (WIN32)
+
 if (UNIX)
   set(OSNAME linux)
   set(OS_SRCS
@@ -179,6 +224,7 @@ else (UNIX)
     win32/aslr.c
     win32/loader.c
     win32/resources.rc
+    ${ntimp_dep}
    )
   set(PRELOAD_SRCS
     win32/pre_inject.c
@@ -204,12 +250,13 @@ else (UNIX)
     config.c
     win32/os.c
     io.c
+    ${ntimp_dep}
     )
   add_library(drinjectlib SHARED ${INJECTOR_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
     add_dependencies(drinjectlib ${x86_noncore_asm_tgt} generate_syslog
-      generate_events)
+      generate_events ntimp_tgt)
   endif ()
 
   add_library(drearlyhelp1 SHARED
@@ -238,7 +285,8 @@ set_target_properties(dynamorio PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
-  add_dependencies(dynamorio ${x86_core_asm_tgt} generate_syslog generate_events)
+  add_dependencies(dynamorio ${x86_core_asm_tgt} generate_syslog
+    generate_events ntimp_tgt)
 endif ()
 
 if (UNIX)
@@ -508,7 +556,7 @@ else (UNIX)
     set(LD_FLAGS "${LD_FLAGS} /machine:I386")
   endif (X64)
   set(dynamorio_link_flags 
-    "${LD_FLAGS} ${dynamorio_link_flags} /dll /incremental:no")
+    "${LD_FLAGS} ${ntimp_flags} ${dynamorio_link_flags} /dll /incremental:no")
   set(dynamorio_link_flags 
     "${dynamorio_link_flags} ${NOLIBC_DLL_ENTRY} ${FORWARD_TO_NTDLL}")
   # cmake does /out, /implib, and /pdb for us, but we do want map file
@@ -533,11 +581,15 @@ else (UNIX)
       "${dynamorio_link_flags} /export:dynamorio_earliest_init_takeover")
   endif (WINDOWS)
 
-  set_target_properties(dynamorio PROPERTIES LINK_FLAGS "${dynamorio_link_flags}")
   # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
   # note that _alldvrm is in ntdll.dll on xp+; but for pre-xp uses we
   # stick with the static linking of the impl in msvcrt.lib.
-  target_link_libraries(dynamorio ntdll msvcrt)
+  # We must link in custom flags and not target_link_libraries() b/c we need
+  # to be AFTER our ntdll_imports.lib.
+  set(dynamorio_link_flags "${dynamorio_link_flags} msvcrt.lib")
+
+  set_target_properties(dynamorio PROPERTIES LINK_FLAGS "${dynamorio_link_flags}")
+  target_link_libraries(dynamorio ntdll)
 
   # we used to run dumpbin /headers on dynamorio.dll for info purposes
 
@@ -554,7 +606,7 @@ else (UNIX)
   endif (DEBUG)
   set(drinjectlib_link_flags
     # not bothering with map files
-    "${LD_FLAGS} /incremental:no /subsystem:console /NODEFAULTLIB")
+    "${LD_FLAGS} ${ntimp_flags} /incremental:no /subsystem:console /NODEFAULTLIB")
   set_target_properties(drinjectlib PROPERTIES LINK_FLAGS "${drinjectlib_link_flags}")
   target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB} ntdll
     kernel32 advapi32 imagehlp)
@@ -598,7 +650,7 @@ if (BUILD_TESTS)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
     add_dependencies(unit_tests ${x86_core_asm_tgt} generate_syslog
-      generate_events)
+      generate_events ntimp_tgt)
   endif ()
   set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
@@ -611,7 +663,7 @@ if (BUILD_TESTS)
   else (UNIX)
     target_link_libraries(unit_tests libcmtd ntdll)
     set_target_properties(unit_tests PROPERTIES
-      LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
+      LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS} ${ntimp_flags}")
   endif (UNIX)
   add_test(unit_tests "${EXECUTABLE_OUTPUT_DIRECTORY}/unit_tests")
 endif (BUILD_TESTS)
