@@ -87,6 +87,10 @@ if (WIN32 AND GENERATE_PDBS)
   # In any case we make sure to add it (for release and debug, to get pdb):
   append_property_string(TARGET drwrap LINK_FLAGS "/debug")
 endif (WIN32 AND GENERATE_PDBS)
+if (WIN32)
+  # XXX i#893: our asm isn't seh complient
+  append_property_string(TARGET drwrap LINK_FLAGS "/safeseh:no")
+endif (WIN32)
 
 # documentation is put into main DR docs/ dir
 

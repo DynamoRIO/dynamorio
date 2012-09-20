@@ -282,30 +282,6 @@ function (use_ldscript target)
     )
 endfunction (use_ldscript)
 
-if (BUILD_TESTS)
-  add_executable(unit_tests unit_tests.c
-    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # for parallel build correctness we need a target dependence
-    add_dependencies(unit_tests ${x86_core_asm_tgt} generate_syslog
-      generate_events)
-  endif ()
-  set_target_properties(unit_tests PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
-    RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
-  if (UNIX)
-    set_target_properties(unit_tests PROPERTIES
-      LINK_FLAGS "-Xlinker ${ld_script_option} -Xlinker \"${ld_script}\"")
-    target_link_libraries(unit_tests c dl m)
-    use_ldscript(unit_tests)
-  else (UNIX)
-    target_link_libraries(unit_tests libcmtd ntdll)
-    set_target_properties(unit_tests PROPERTIES
-      LINK_FLAGS "/base:${preferred_base}")
-  endif (UNIX)
-  add_test(unit_tests "${EXECUTABLE_OUTPUT_DIRECTORY}/unit_tests")
-endif (BUILD_TESTS)
-
 # rather than a separate BUILD_INCLUDES option we always build
 # include headers if building core (or if building docs or samples as
 # they have real dependencies)
@@ -521,6 +497,8 @@ else (UNIX)
   else (DEBUG)
     set(LD_FLAGS "${LINK_DBG} /release /opt:ref /opt:icf")
   endif (DEBUG)
+  # XXX i#893: VS2012 won't build any target using x86.asm w/ safeseh
+  set(LD_FLAGS "${LD_FLAGS} /safeseh:no")
   if (SET_PREFERRED_BASE)
     set(dynamorio_link_flags "${dynamorio_link_flags} /base:${preferred_base}")
   endif (SET_PREFERRED_BASE)
@@ -613,6 +591,30 @@ else (UNIX)
     LINK_FLAGS "${LD_FLAGS} /dll /NODEFAULTLIB /base:0x71110000 ${NOLIBC_DLL_ENTRY}")
 
 endif (UNIX)
+
+if (BUILD_TESTS)
+  add_executable(unit_tests unit_tests.c
+    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # for parallel build correctness we need a target dependence
+    add_dependencies(unit_tests ${x86_core_asm_tgt} generate_syslog
+      generate_events)
+  endif ()
+  set_target_properties(unit_tests PROPERTIES
+    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
+    RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
+  if (UNIX)
+    set_target_properties(unit_tests PROPERTIES
+      LINK_FLAGS "-Xlinker ${ld_script_option} -Xlinker \"${ld_script}\"")
+    target_link_libraries(unit_tests c dl m)
+    use_ldscript(unit_tests)
+  else (UNIX)
+    target_link_libraries(unit_tests libcmtd ntdll)
+    set_target_properties(unit_tests PROPERTIES
+      LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
+  endif (UNIX)
+  add_test(unit_tests "${EXECUTABLE_OUTPUT_DIRECTORY}/unit_tests")
+endif (BUILD_TESTS)
 
 ###########################################################################
 
