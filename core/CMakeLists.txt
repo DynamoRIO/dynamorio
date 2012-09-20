@@ -161,8 +161,6 @@ if (WIN32)
   set_property(SOURCE "${ntimp_lib}" PROPERTY GENERATED true)
   # Because the Ki are stdcall we can't just use a .def file: we need
   # an .obj file built from stubs w/ the same signatures.
-  # Furthermore, we need to list the mangled symbols as /export:
-  # items to lib.exe (discovered through experimentation).
   add_custom_command(OUTPUT "${ntimp_stamp}"
     DEPENDS "${ntimp_src}"
     COMMAND "${CMAKE_C_COMPILER}" ARGS /c /Ob0 ${ntimp_src}
@@ -170,7 +168,7 @@ if (WIN32)
       /name:ntdll.dll /def:${ntimp_def}
       ${CMAKE_CURRENT_BINARY_DIR}/${ntimp_base}.obj
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    VERBATIM # recommended: p260
+    VERBATIM # recommended: p260 of cmake book
     )
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for correct parallel builds we need a target to avoid
@@ -606,9 +604,13 @@ else (UNIX)
   endif (DEBUG)
   set(drinjectlib_link_flags
     # not bothering with map files
-    "${LD_FLAGS} ${ntimp_flags} /incremental:no /subsystem:console /NODEFAULTLIB")
+    "${LD_FLAGS} /incremental:no /subsystem:console /NODEFAULTLIB")
+  # If we use ${ntimp_flags} in the link flags and thus prior to the
+  # target_link_libraries() list, on VS2005 and VS2008 we end up with duplicate
+  # symbols atoi and iswctype from libcmtd and ntdll.  Unlike dynamorio.dll we're
+  # ok w/ libc syms so we re-order and take the static syms first.
   set_target_properties(drinjectlib PROPERTIES LINK_FLAGS "${drinjectlib_link_flags}")
-  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB} ntdll
+  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB} ntdll ${ntimp_lib}
     kernel32 advapi32 imagehlp)
   # drinject.exe needs a copy in the bin dir
   add_custom_command(TARGET drinjectlib POST_BUILD COMMAND ${CMAKE_COMMAND}

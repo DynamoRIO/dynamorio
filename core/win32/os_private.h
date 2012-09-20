@@ -497,9 +497,11 @@ typedef union _unwind_code_t {
     USHORT FrameOffset;
 } unwind_code_t;
 
-#define UNW_FLAG_EHANDLER  0x01
-#define UNW_FLAG_UHANDLER  0x02
-#define UNW_FLAG_CHAININFO 0x04
+#ifndef UNW_FLAG_EHANDLER
+# define UNW_FLAG_EHANDLER  0x01
+# define UNW_FLAG_UHANDLER  0x02
+# define UNW_FLAG_CHAININFO 0x04
+#endif
 
 typedef struct _unwind_info_t {
     byte Version      :3;

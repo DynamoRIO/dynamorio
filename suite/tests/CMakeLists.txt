@@ -231,10 +231,11 @@ endif (LINKCOUNT AND TEST_SUITE)
 
 if (WIN32)
   find_program(BIND_EXECUTABLE bind.exe DOC "path to bind.exe")
-  if (NOT BIND_EXECUTABLE)
-    message(FATAL_ERROR "bind.exe not found: required to build Windows tests")
-  endif (NOT BIND_EXECUTABLE)
-  message(STATUS "Found bind.exe: ${BIND_EXECUTABLE}")
+  if (BIND_EXECUTABLE)
+    message(STATUS "Found bind.exe: ${BIND_EXECUTABLE}")
+  else (BIND_EXECUTABLE)
+    # else we'll use editbin via link.exe
+  endif (BIND_EXECUTABLE)
   mark_as_advanced(BIND_EXECUTABLE)
 
   # if cygwin or mingw gcc is available, we do some extra tests
@@ -740,12 +741,21 @@ endfunction(torunonly)
 
 function(tobind target)
   get_target_property(binary ${target} LOCATION${location_suffix})
-  add_custom_command(TARGET ${target}
-    POST_BUILD
-    COMMAND ${BIND_EXECUTABLE}
-    ARGS -u ${binary}
-    VERBATIM # recommended: p260
-  )
+  if (BIND_EXECUTABLE)
+    add_custom_command(TARGET ${target}
+      POST_BUILD
+      COMMAND ${BIND_EXECUTABLE}
+      ARGS -u ${binary}
+      VERBATIM # recommended: p260
+      )
+  else (BIND_EXECUTABLE)
+    add_custom_command(TARGET ${target}
+      POST_BUILD
+      COMMAND ${CMAKE_LINKER}
+      ARGS /edit /bind ${binary}
+      VERBATIM # recommended: p260
+      )
+  endif (BIND_EXECUTABLE)
 endfunction(tobind)
 
 # i#215: mark tests w/ text relocations to avoid violating selinux policies:

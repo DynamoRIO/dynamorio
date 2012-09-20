@@ -153,9 +153,11 @@ typedef enum {
 #define ALIGN_FORWARD(x, alignment) ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
 #define ALIGN_BACKWARD(x, alignment) (((uint)x) & (~((alignment)-1)))
 
-#ifndef true
-# define true  (1)
-# define false (0)
+#ifndef __cplusplus
+# ifndef true
+#  define true  (1)
+#  define false (0)
+# endif
 #endif
 
 #if VERBOSE

@@ -99,7 +99,16 @@ add_executable(DRgui WIN32
 # somehow VS2010 doesn't find its own SDK uuid.lib
 find_library(uuid_lib uuid)
 if (NOT uuid_lib)
-  message(FATAL_ERROR "uuid.lib not found")
+  # VS2012 doesn't either; nor does find_library find it
+  # XXX: put in more general solution
+  if (X64)
+    set(uuid_lib "c:/Program Files (x86)/Windows Kits/8.0/Lib/win8/um/x64/Uuid.Lib")
+  else (X64)
+    set(uuid_lib "c:/Program Files (x86)/Windows Kits/8.0/Lib/win8/um/x86/Uuid.Lib")
+  endif (X64)
+  if (NOT EXISTS ${uuid_lib})
+    message(FATAL_ERROR "uuid.lib not found")
+  endif ()
 endif (NOT uuid_lib)
 target_link_libraries(DRgui policy_static ${uuid_lib})
 # FIXME: not sure why I need these flags

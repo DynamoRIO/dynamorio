@@ -579,7 +579,7 @@ typedef CLIENT_ID *PCLIENT_ID;
 typedef struct _EXCEPTION_REGISTRATION {
      struct _EXCEPTION_REGISTRATION* prev;
      PVOID                   handler;
-} EXCEPTION_REGISTRATION, *PEXCEPTION_REGISTRATION_RECORD;
+} EXCEPTION_REGISTRATION, *PEXCEPTION_REGISTRATION;
 
 typedef struct _GDI_TEB_BATCH
 {
@@ -591,7 +591,7 @@ typedef struct _GDI_TEB_BATCH
 /* The layout here is from ntdll pdb on x64 xpsp2 */
 typedef struct _TEB {                               /* offset: 32bit / 64bit */
     /* We lay out NT_TIB, which is declared in winnt.h */    
-    PEXCEPTION_REGISTRATION_RECORD ExceptionList;           /* 0x000 / 0x000 */
+    PEXCEPTION_REGISTRATION   ExceptionList;                /* 0x000 / 0x000 */
     PVOID                     StackBase;                    /* 0x004 / 0x008 */
     PVOID                     StackLimit;                   /* 0x008 / 0x010 */
     PVOID                     SubSystemTib;                 /* 0x00c / 0x018 */

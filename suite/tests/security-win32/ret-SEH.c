@@ -50,7 +50,7 @@ typedef struct scopetable_entry {
 typedef struct _EXCEPTION_REGISTRATION {
      struct _EXCEPTION_REGISTRATION* prev;
      PVOID                   handler;
-} EXCEPTION_REGISTRATION, *PEXCEPTION_REGISTRATION_RECORD;
+} EXCEPTION_REGISTRATION, *PEXCEPTION_REGISTRATION;
 
 /* The extended exception frame used by Visual C++ */
 typedef struct _VC_EXCEPTION_REGISTRATION 

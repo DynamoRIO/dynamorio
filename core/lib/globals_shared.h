@@ -97,7 +97,7 @@
 #  include <sys/types.h>        /* Fix for case 5341. */
 #  include <signal.h>
 #endif
-/* DR_API EXPORT BEGIN */
+/* DR_API EXPORT VERBATIM */
 #ifdef WINDOWS
 /* allow nameless struct/union */
 #  pragma warning(disable: 4201)
@@ -111,7 +111,9 @@
 #  define DR_EXPORT __declspec(dllexport)
 #  define LINK_ONCE __declspec(selectany)
 #  define ALIGN_VAR(x) __declspec(align(x))
-#  define inline __inline
+#  ifndef __cplusplus
+#   define inline __inline
+#  endif
 #  define INLINE_FORCED __forceinline
 #else
 /* We assume gcc is being used.  If the client is using -fvisibility
@@ -125,9 +127,14 @@
 #  endif
 #  define LINK_ONCE __attribute__ ((weak))
 #  define ALIGN_VAR(x) __attribute__ ((aligned (x)))
-#  define inline __inline__
+#  ifndef __cplusplus
+#   define inline __inline__
+#  endif
 #  define INLINE_FORCED inline
 #endif
+
+/* DR_API EXPORT END */
+/* DR_API EXPORT BEGIN */
 
 #ifdef AVOID_API_EXPORT
 /* We want a consistent size so we stay away from MAX_PATH.
@@ -357,11 +364,15 @@ typedef struct _instr_t instr_t;
 
 #ifdef X64
 # define POINTER_MAX ULLONG_MAX
-# define SSIZE_T_MAX LLONG_MAX
+# ifndef SSIZE_T_MAX
+#  define SSIZE_T_MAX LLONG_MAX
+# endif
 # define POINTER_MAX_32BIT ((ptr_uint_t)UINT_MAX) 
 #else
 # define POINTER_MAX UINT_MAX
-# define SSIZE_T_MAX INT_MAX
+# ifndef SSIZE_T_MAX
+#  define SSIZE_T_MAX INT_MAX
+# endif
 #endif
 
 #define MAX_CLIENT_LIBS 16
