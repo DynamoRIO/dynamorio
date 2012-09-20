@@ -159,7 +159,7 @@ parse_policy(char *policy_definition,
             app = policy;
         } else if (mfield == MSGKEY_APP_NAME) {
             wcsncpy(app_name, valuebuf, MAX_PATH);
-            app_name[MAX_PATH] = L'\0';
+            NULL_TERMINATE_BUFFER(app_name);
             app = new_config_group(app_name);
             add_config_group(policy, app);
         }
