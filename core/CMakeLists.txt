@@ -162,18 +162,11 @@ if (WIN32)
   # on ntdll routines not in older systems.
   set(ntimp_lib "${CMAKE_CURRENT_BINARY_DIR}/${ntimp_base}.lib")
   set_property(SOURCE "${ntimp_lib}" PROPERTY GENERATED true)
-  if ("${CMAKE_GENERATOR}" MATCHES "Ninja")
-    # Ninja aborts at build start if a library dependence doesn't exist and
-    # there is no build rule for it.  Ninja doesn't need to indirect through a
-    # stamp file to make incremental builds work, so we use the .lib file as
-    # the output of the custom command.
-    set(ntimp_stamp "${ntimp_lib}")
-  else ()
-    set(ntimp_stamp "${ntimp_base}.stamp")
-  endif ()
   # Because the Ki are stdcall we can't just use a .def file: we need
   # an .obj file built from stubs w/ the same signatures.
-  add_custom_command(OUTPUT "${ntimp_stamp}"
+  # We don't need a stamp file b/c the .lib is not a source; plus a stamp
+  # file causes Ninja to fail to build.
+  add_custom_command(OUTPUT "${ntimp_lib}"
     DEPENDS "${ntimp_src}"
     COMMAND "${CMAKE_C_COMPILER}" ARGS /nologo /c /Ob0 ${ntimp_src}
     COMMAND "${LIB_EXECUTABLE}" ARGS
@@ -183,10 +176,9 @@ if (WIN32)
     VERBATIM # recommended: p260 of cmake book
     )
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    set(ntimp_dep "")
     # for correct parallel builds we need a target to avoid
     # duplicate and racy VS per-project rules
-    add_custom_target(ntimp_tgt DEPENDS "${ntimp_stamp}")
+    add_custom_target(ntimp_tgt DEPENDS "${ntimp_lib}")
     set(ntimp_dep "")
   else ()
     set(ntimp_dep "${ntimp_lib}")
@@ -655,7 +647,7 @@ endif (UNIX)
 
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
-    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} ${SYSLOG_SRCS} ${EVENTS_SRCS})
+    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
@@ -670,9 +662,10 @@ if (BUILD_TESTS)
     target_link_libraries(unit_tests c dl m)
     use_ldscript(unit_tests)
   else (UNIX)
-    target_link_libraries(unit_tests ntdll)
+    # Just like drinjectlib (see above) we need libc before ntimp_lib
+    target_link_libraries(unit_tests ${WIN32_C_LIB} ntdll ${ntimp_lib})
     set_target_properties(unit_tests PROPERTIES
-      LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS} ${ntimp_flags}")
+      LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
   add_test(unit_tests "${EXECUTABLE_OUTPUT_DIRECTORY}/unit_tests")
 endif (BUILD_TESTS)
