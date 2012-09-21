@@ -78,8 +78,13 @@ include_directories(
 
 # can't combine strings w/ cpp defs so we configure the name and version:
 configure_file(DynamoRIO.rc ${CMAKE_CURRENT_BINARY_DIR}/DynamoRIO.rc)
-set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/DynamoRIO.rc
-  PROPERTIES GENERATED true)
+if (NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
+  # FIXME: This file gets deleted by 'ninja -t clean', but it's only copied at
+  # config time, so running ninja doesn't re-generate it.  Marking it as
+  # non-generated means 'ninja -t clean' doesn't delete it.
+  set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/DynamoRIO.rc
+    PROPERTIES GENERATED true)
+endif ()
 
 add_executable(DRgui WIN32
   CmdlineDlg.cpp

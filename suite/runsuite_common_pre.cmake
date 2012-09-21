@@ -336,7 +336,7 @@ endfunction(get_default_config)
 function(testbuild_ex name is64 initial_cache test_only_in_long 
     add_to_package build_args)
   set(CTEST_BUILD_NAME "${name}")
-  if (NOT arg_use_nmake AND NOT arg_use_make)
+  if (NOT arg_use_nmake AND NOT arg_use_make AND NOT arg_use_ninja)
     # we need a separate generator for 64-bit as well as the PATH
     # env var changes below (since we run cl directly)
     if (is64)
@@ -397,6 +397,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
       # FIXME: would be nice to have case-insensitive regex flag!
       # For now hardcoding VC, Bin, amd64
       if (is64)
+        set(ENV{ASM} "ml64")
         if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
           # Note that we can't set ENV{PATH} as the output var of the replace:
           # it has to be its own set().
@@ -418,6 +419,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
           set(ENV{LIBPATH} "${newlibpath}")
         endif (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
       else (is64)
+        set(ENV{ASM} "ml")
         if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
           string(REGEX REPLACE "(VC[/\\\\][Bb][Ii][Nn][/\\\\])[Aa][Mm][Dd]64" "\\1"
             newpath "$ENV{PATH}")
