@@ -2103,9 +2103,9 @@ presys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
     }
 }
 
-/* NtUnmapViewOfSection */
+/* NtUnmapViewOfSection{,Ex} */
 static void
-presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
+presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, int sysnum)
 {
     /* This is what actually removes a dll from memory */
     priv_mcontext_t *mc = get_mcontext(dcontext);
@@ -2114,6 +2114,13 @@ presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
     app_pc real_base;
     size_t size = get_allocation_size(base, &real_base);
     MEMORY_BASIC_INFORMATION mbi;
+    if (sysnum == syscalls[SYS_UnmapViewOfSectionEx]) {
+        ptr_int_t arg3 = (ptr_int_t) sys_param(dcontext, param_base, 2);
+        /* FIXME i#899: new Win8 syscall w/ 3rd arg that's 0 by default.
+         * We want to know when we see non-zero so we have some code to study.
+         */
+        ASSERT_CURIOSITY(arg3 == 0 && "i#899: unknown new param");
+    }
     LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "syscall: NtUnmapViewOfSection "PFX" size="PIFX"\n", base, size);
         
@@ -2445,9 +2452,10 @@ pre_system_call(dcontext_t *dcontext)
     else if (sysnum == syscalls[SYS_MapViewOfSection]) {
         presys_MapViewOfSection(dcontext, param_base);
     }
-    else if (sysnum == syscalls[SYS_UnmapViewOfSection]) {
+    else if (sysnum == syscalls[SYS_UnmapViewOfSection] ||
+             sysnum == syscalls[SYS_UnmapViewOfSectionEx]) {
         KSTART(pre_syscall_unmap);
-        presys_UnmapViewOfSection(dcontext, param_base);
+        presys_UnmapViewOfSection(dcontext, param_base, sysnum);
         KSTOP(pre_syscall_unmap);
     }
     else if (sysnum == syscalls[SYS_FlushInstructionCache]) {
@@ -2500,6 +2508,13 @@ pre_system_call(dcontext_t *dcontext)
             DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
             goto exit_pre_system_call;
         }
+    }
+    else if (sysnum == syscalls[SYS_SetInformationVirtualMemory] ||
+             sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
+        /* FIXME i#899: new Win8 syscalls NYI.
+         * We want to know when we see them so we have some code to study.
+         */
+        ASSERT_NOT_IMPLEMENTED(false);
     }
 
  exit_pre_system_call:

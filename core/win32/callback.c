@@ -6052,7 +6052,9 @@ intercept_load_dll(app_state_at_intercept_t *state)
     HMODULE *out_handle = (HMODULE *) APP_PARAM(&state->mc, 3);
 
     LOG(GLOBAL, LOG_VMAREAS, 1, "intercept_load_dll: %S\n", name->Buffer);
-    LOG(GLOBAL, LOG_VMAREAS, 2, "\tpath=%S\n", path == NULL ? L"NULL" : path);
+    LOG(GLOBAL, LOG_VMAREAS, 2, "\tpath=%S\n",
+        /* win8 LdrLoadDll seems to take small integers instead of paths */
+        ((ptr_int_t)path <= PAGE_SIZE) ? L"NULL" : path);
     LOG(GLOBAL, LOG_VMAREAS, 2, "\tcharacteristics=%d\n",
         characteristics ? *characteristics : 0);
 
