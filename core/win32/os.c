@@ -553,13 +553,14 @@ windows_version_init()
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 2) {
-            if (module_is_64bit(get_ntdll_base()) ||
-                is_wow64_process(NT_CURRENT_PROCESS)) {
-                /* FIXME i#565: add win8 syscall lists */
-                syscalls = (int *) windows_7_x64_syscalls;
+            if (module_is_64bit(get_ntdll_base())) {
+                syscalls = (int *) windows_8_x64_syscalls;
+                os_name = "Microsoft Windows 8 x64";
+            } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                syscalls = (int *) windows_8_wow64_syscalls;
                 os_name = "Microsoft Windows 8 x64";
             } else {
-                syscalls = (int *) windows_7_x86_syscalls;
+                syscalls = (int *) windows_8_x86_syscalls;
                 os_name = "Microsoft Windows 8";
             }
             os_version = WINDOWS_VERSION_8;
