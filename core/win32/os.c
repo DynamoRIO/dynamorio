@@ -87,11 +87,14 @@ DECLARE_CXTSWPROT_VAR(static mutex_t debugbox_lock, INIT_LOCK_FREE(debugbox_lock
  * hang or worse.  we do not expect the syscall to return, so we can
  * use a global single-entry stack (the wow64 layer swaps to a
  * different stack: presumably for alignment and other reasons).
+ * We also use this to store the 2 args to NtTerminateProcess for win8 wow64.
  */
-#define WOW64_SYSCALL_STACK_SIZE 16 /* presumably only needs to be 4, but just in case */
+#define WOW64_SYSCALL_STACK_SIZE 16 /* 1 slot for call + 2 for win8 wow64 + 1 extra */
 DECLARE_NEVERPROT_VAR(static byte wow64_syscall_stack_array[WOW64_SYSCALL_STACK_SIZE],
                       {0});
-const byte *wow64_syscall_stack = &wow64_syscall_stack_array[WOW64_SYSCALL_STACK_SIZE];
+/* We point it two stack slots in so we can store 2 args for win8 wow64. */
+const byte *wow64_syscall_stack =
+    &wow64_syscall_stack_array[WOW64_SYSCALL_STACK_SIZE - 2*sizeof(reg_t)];
 
 /* globals */
 bool intercept_asynch = false;
@@ -5442,14 +5445,18 @@ translate_context(thread_record_t *trec, CONTEXT *cxt, bool restore_memory)
 }
 
 /* be careful about args: for windows different versions have different offsets
- * see SYSCALL_PARAM_OFFSET in win32/os.c
+ * see SYSCALL_PARAM_OFFSET in win32/os.c.
+ *
+ * This routine is assumed to only be used for NtRaiseException, where changes
+ * to regs or even the stack will be unrolled or else the app will exit:
+ * i.e., there is no need to restore the changes ourselves.
  */
 static void
 set_mcontext_for_syscall(dcontext_t *dcontext, int sys_enum,
 #ifdef X64
                          reg_t arg1, reg_t arg2, reg_t arg3
 #else
-                         reg_t sys_arg
+                         reg_t sys_arg, size_t args_size
 #endif
                          )
 {
@@ -5464,7 +5471,7 @@ set_mcontext_for_syscall(dcontext_t *dcontext, int sys_enum,
 #endif
 
     mc->xax = syscalls[sys_enum];
-    if (get_syscall_method() == SYSCALL_METHOD_WOW64) {
+    if (get_syscall_method() == SYSCALL_METHOD_WOW64 && syscall_uses_wow64_index()) {
         mc->xcx = wow64_index[sys_enum];
     }
 #ifdef X64
@@ -5472,7 +5479,19 @@ set_mcontext_for_syscall(dcontext_t *dcontext, int sys_enum,
     mc->xdx = arg2;
     mc->r8 = arg3;
 #else
-    mc->xdx = sys_arg;
+    if (syscall_uses_edx_param_base())
+        mc->xdx = sys_arg;
+    else {
+        /* The syscall itself is going to write to the stack for its call
+         * so go ahead and push the args.  See comment up top about not
+         * needing to restore the stack.
+         */
+        mc->xsp -= args_size;
+        if (!safe_write((byte *)mc->xsp, args_size, (const void *)sys_arg)) {
+            SYSLOG_INTERNAL_WARNING("failed to store args for NtRaiseException");
+            /* just keep going I suppose: going to crash though w/ uninit args */
+        }
+    }
 #endif
 }
 
@@ -5500,7 +5519,8 @@ os_raise_exception(dcontext_t *dcontext,
     reg_t arg_pointer = (reg_t)
         ((ptr_uint_t)&raise_exception_arguments) - SYSCALL_PARAM_OFFSET();
 
-    set_mcontext_for_syscall(dcontext, SYS_RaiseException, arg_pointer),
+    set_mcontext_for_syscall(dcontext, SYS_RaiseException, arg_pointer,
+                             sizeof(raise_exception_arguments) + SYSCALL_PARAM_OFFSET()),
 #endif
     issue_last_system_call_from_app(dcontext);
     ASSERT_NOT_REACHED();

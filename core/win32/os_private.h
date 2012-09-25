@@ -79,6 +79,8 @@ typedef struct {
 
 #define EARLY_INJECT_HOOK_SIZE 5
 
+extern const byte *wow64_syscall_stack;
+
 bool
 is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt);
 
@@ -146,7 +148,7 @@ extern const int windows_vista_sp0_x64_syscalls[];
 extern const int windows_vista_sp0_syscalls[];
 extern const int windows_2003_syscalls[];
 extern const int windows_XP_x64_syscalls[];
-extern const int windows_XP_wow64_index[];
+extern const int windows_XP_wow64_index[]; /* for XP through Win7 */
 extern const int windows_XP_syscalls[];
 extern const int windows_2000_syscalls[];
 extern const int windows_NT_sp3_syscalls[];
@@ -197,10 +199,15 @@ enum {
 /* edx is 4 less than on 2000, plus there's an extra call to provide
  * return address for sysenter, so we have to skip 2 slots:
  */
+/* On Win8, wow64 syscalls do not point edx at the params and
+ * instead simply use esp and thus must skip the retaddr.
+ */
 # define SYSCALL_PARAM_OFFSET()                          \
     ((get_syscall_method() == SYSCALL_METHOD_SYSCALL || \
       get_syscall_method() == SYSCALL_METHOD_SYSENTER)  \
-     ? SYSCALL_PARAM_MAX_OFFSET : 0)
+     ? SYSCALL_PARAM_MAX_OFFSET :                       \
+     ((get_syscall_method() == SYSCALL_METHOD_WOW64 &&  \
+       !syscall_uses_wow64_index()) ? XSP_SZ : 0))
 #endif
 
 static inline reg_t *

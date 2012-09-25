@@ -171,6 +171,7 @@ const int windows_XP_x64_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
+/* This is the index for XP through Win7. */
 const int windows_XP_wow64_index[] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
@@ -782,6 +783,23 @@ is_newly_created_process(HANDLE process_handle)
     return false;
 }
 
+/* Rather than split up get_syscall_method() we have routines like these
+ * to query variations
+ */
+bool
+syscall_uses_wow64_index()
+{
+    ASSERT(get_syscall_method() == SYSCALL_METHOD_WOW64);
+    return (get_os_version() < WINDOWS_VERSION_8);
+}
+
+bool
+syscall_uses_edx_param_base()
+{
+    return (get_syscall_method() != SYSCALL_METHOD_WOW64 ||
+            get_os_version() < WINDOWS_VERSION_8);
+}
+
 /* FIXME : For int/syscall we can just subtract 2 from the post syscall pc but for
  * sysenter we do the post-syscall ret native and therefore we've lost the 
  * address of the actual syscall, but we are only going to use this for 
@@ -817,7 +835,11 @@ pre_system_call_param_base(priv_mcontext_t *mc)
 #ifdef X64
     reg_t *param_base = (reg_t *) mc->xsp;
 #else
-    reg_t *param_base = (reg_t *) mc->xdx;
+    /* On Win8, wow64 syscalls do not point edx at the params and
+     * instead simply use esp.
+     */
+    reg_t *param_base = (reg_t *)
+        (syscall_uses_edx_param_base() ? mc->xdx : mc->xsp);
 #endif
     param_base += (SYSCALL_PARAM_OFFSET() / sizeof(reg_t));
     return param_base;
@@ -1415,6 +1437,19 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         KSTOP(pre_syscall);
         KSTOP(num_exits_dir_syscall);
         /* FIXME: what if syscall returns w/ STATUS_PROCESS_IS_TERMINATING? */
+#ifndef X64
+        /* Win8 WOW64 does not point edx at the param base so we must
+         * put the args on the actual stack.  We could have multiple threads
+         * writing to these same slots, but they should all be writing
+         * our process_handle, and the exit status could be any of them
+         * natively anyway.
+         */
+        if (!syscall_uses_edx_param_base()) {
+            ASSERT(ALIGNED(wow64_syscall_stack, sizeof(reg_t))); /* => atomic writes */
+            *(reg_t*)wow64_syscall_stack = (reg_t) process_handle;
+            *(((reg_t*)wow64_syscall_stack)+1) = (reg_t) exit_status;
+        }
+#endif
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateProcess],
                               IF_X64_ELSE(mc->xcx, mc->xdx),
                               mc->xdx, true /* entire process */);
@@ -3887,12 +3922,14 @@ dr_syscall_invoke_another(void *drcontext)
         mc->xdx = mc->xsp;
     }
     else if (get_syscall_method() == SYSCALL_METHOD_WOW64) {
-        if (get_os_version() >= WINDOWS_VERSION_7) {
+        if (get_os_version() == WINDOWS_VERSION_7) {
             /* emulate win7's add 4,esp after the call* in the syscall wrapper */
             mc->xsp += XSP_SZ;
         }
-        /* perform: lea edx,[esp+0x4] */
-        mc->xdx = mc->xsp + XSP_SZ;
+        if (syscall_uses_edx_param_base()) {
+            /* perform: lea edx,[esp+0x4] */
+            mc->xdx = mc->xsp + XSP_SZ;
+        }
     }
 # ifdef X64
     else if (get_syscall_method() == SYSCALL_METHOD_SYSCALL) {

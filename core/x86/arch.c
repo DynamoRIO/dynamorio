@@ -3986,7 +3986,8 @@ get_cleanup_and_terminate_global_do_syscall_entry()
     else
 #endif
 #ifdef WINDOWS
-    if (get_syscall_method() == SYSCALL_METHOD_WOW64)
+    if (get_syscall_method() == SYSCALL_METHOD_WOW64 &&
+        syscall_uses_wow64_index())
         return (byte *)global_do_syscall_wow64_index0;
     else
 #endif

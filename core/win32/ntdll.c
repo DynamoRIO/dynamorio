@@ -168,7 +168,9 @@ static enum {
     (nt_wrappers_intercepted ?                       \
       Nt##name(arg1, __VA_ARGS__) :                  \
       ((dr_which_syscall_t == DR_SYSCALL_WOW64) ?                                    \
-       (((name##_type *) dynamorio_syscall_wow64) (SYS_##name, arg1, __VA_ARGS__)) : \
+       (!syscall_uses_edx_param_base() ?                                             \
+        ((name##_type *) dynamorio_syscall_wow64_noedx)(SYS_##name, arg1, __VA_ARGS__):\
+        (((name##_type *) dynamorio_syscall_wow64) (SYS_##name, arg1, __VA_ARGS__))):\
        ((IF_X64_ELSE(dr_which_syscall_t == DR_SYSCALL_SYSCALL, false)) ?             \
         ((name##_dr_type *) IF_X64_ELSE(dynamorio_syscall_syscall, NULL))            \
          (SYS_##name, __VA_ARGS__, arg1) :                                           \
@@ -513,6 +515,7 @@ syscalls_init()
     app_pc pc = (app_pc) NtYieldExecution;
     app_pc int_target = pc + 9;
     ushort check = *((ushort *)(int_target));
+    HMODULE ntdllh = get_ntdll_base();
 
     windows_version_init();
     ASSERT(syscalls != NULL);
@@ -542,11 +545,22 @@ syscalls_init()
      *    7d61ce49 8d542404         lea     edx,[esp+0x4]
      *    7d61ce4d 64ff15c0000000   call    dword ptr fs:[000000c0]
      *    7d61ce54 c3               ret
-     * x64 syscall (PR 215398):
+     *  x64 syscall (PR 215398):
      *    00000000`78ef16c0 4c8bd1          mov     r10,rcx
      *    00000000`78ef16c3 b843000000      mov     eax,43h
      *    00000000`78ef16c8 0f05            syscall
      *    00000000`78ef16ca c3              ret
+     *  win8 sysenter w/ co-located "inlined" callee:
+     *    77d7422c b801000000      mov     eax,1
+     *    77d74231 e801000000      call    ntdll!NtYieldExecution+0xb (77d74237)
+     *    77d74236 c3              ret
+     *    77d74237 8bd4            mov     edx,esp
+     *    77d74239 0f34            sysenter
+     *    77d7423b c3              ret
+     *  win8 wow64 syscall (has no ecx):
+     *    777311bc b844000100      mov     eax,10044h
+     *    777311c1 64ff15c0000000  call    dword ptr fs:[0C0h]
+     *    777311c8 c3              ret
      */
     if (check == 0x2ecd) {
         dr_which_syscall_t = DR_SYSCALL_INT2E;
@@ -554,14 +568,18 @@ syscalls_init()
         int_syscall_address = int_target;
         /* ASSERT is simple ret (i.e. 0 args) */
         ASSERT(*(byte *)(int_target + 2) == 0xc3 /* ret 0 */);
-    } else if (check == 0x8d00) {
+    } else if (check == 0x8d00 ||
+               check == 0x0000/* win8 */) {
         ASSERT(is_wow64_process(NT_CURRENT_PROCESS));
         dr_which_syscall_t = DR_SYSCALL_WOW64;
         set_syscall_method(SYSCALL_METHOD_WOW64);
-        /* FIXME: check for and support other platforms */
-        wow64_index = (int *) windows_XP_wow64_index;
-        ASSERT(*((uint *)(int_target+5)) == 0xc015ff64);
-        ASSERT(*((uint *)(int_target+8)) == WOW64_TIB_OFFSET);
+        if (check == 0x8d00) /* xp through win7 */
+            wow64_index = (int *) windows_XP_wow64_index;
+        DOCHECK(1, {
+            int call_start_offs = (check == 0x8d00) ? 5 : -4;
+            ASSERT(*((uint *)(int_target+call_start_offs)) == 0xc015ff64);
+            ASSERT(*((uint *)(int_target+call_start_offs+3)) == WOW64_TIB_OFFSET);
+        });
         DOCHECK(1, {
             /* We assume syscalls go through teb->WOW32Reserved */
             TEB *teb = get_own_teb();
@@ -574,8 +592,7 @@ syscalls_init()
         /* ASSERT is syscall */
         ASSERT(*(byte *)(int_target - 1) == 0x0f);
 #endif
-    } else {
-        ASSERT(check == 0xff7f);
+    } else if (check == 0xff7f) {
         /* verifiy is call %edx or call [%edx] followed by ret 0 [0xc3] */
         ASSERT(*((ushort *)(int_target+2)) == 0xc3d2 ||
                *((ushort *)(int_target+2)) == 0xc312);
@@ -588,6 +605,15 @@ syscalls_init()
         sysenter_ret_address = (app_pc)int_target+3; /* save addr of ret */
         set_syscall_method(SYSCALL_METHOD_SYSENTER);
         dr_which_syscall_t = DR_SYSCALL_SYSENTER;
+    } else {
+        /* win8: call followed by ret */
+        ASSERT(check == 0xc300 || check == 0xc200);
+        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+        /* kernel returns control to KiFastSystemCallRet, not local sysenter, of course */
+        sysenter_ret_address = (app_pc) get_proc_address(ntdllh, "KiFastSystemCallRet");
+        ASSERT(sysenter_ret_address != NULL);
+        set_syscall_method(SYSCALL_METHOD_SYSENTER);
+        dr_which_syscall_t = DR_SYSCALL_SYSENTER;
     }
     
     /* Prime use_ki_syscall_routines() */
@@ -598,21 +624,25 @@ syscalls_init()
      */
     DOCHECK(1, {
         int i;
-        HMODULE h = get_ntdll_base();
-        ASSERT(h != NULL);
+        ASSERT(ntdllh != NULL);
         for (i = 0; i < SYS_MAX; i++) {
             if (syscalls[i] == SYSCALL_NOT_PRESENT)
                 continue;
             /* note that this check allows a hooker so we'll need a
              * better way of determining syscall numbers 
              */
-            CHECK_SYSNUM_AT((byte *) get_proc_address(h, syscall_names[i]), i);
+            CHECK_SYSNUM_AT((byte *) get_proc_address(ntdllh, syscall_names[i]), i);
         }
     });
 }
 
 /* Returns true if machine is using the Ki*SysCall routines (indirection via vsyscall
- * page), false otherwise. */
+ * page), false otherwise.
+ *
+ * XXX: on win8, KiFastSystemCallRet is used, but KiFastSystemCall is never
+ * executed even though it exists.  This routine returns true there (we have not
+ * yet set up the versions so can't just call get_os_version()).
+ */
 bool
 use_ki_syscall_routines()
 {

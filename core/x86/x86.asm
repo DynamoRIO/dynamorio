@@ -1010,6 +1010,23 @@ GLOBAL_LABEL(dynamorio_syscall_wow64:)
         call     PTRSZ SEGMEM(fs,HEX(0c0))
         ret
         END_FUNC(dynamorio_syscall_wow64)
+
+/* Win8 has no index and furthermore requires the stack to be set
+ * up (i.e., we can't just point edx where we want it).
+ * Thus, we must shift the retaddr one slot down on top of sys_enum.
+ * => signature: dynamorio_syscall_wow64_noedx(sys_enum, arg1, arg2, ...)
+ */
+        DECLARE_FUNC(dynamorio_syscall_wow64_noedx)
+GLOBAL_LABEL(dynamorio_syscall_wow64_noedx:)
+        mov      eax, [4 + esp]
+        mov      ecx, DWORD SYMREF(syscalls)
+        mov      eax, [ecx + eax*4]
+        mov      ecx, [esp]
+        mov      [esp + 4], ecx
+        lea      esp, [esp + 4]
+        call     PTRSZ SEGMEM(fs,HEX(0c0))
+        ret
+        END_FUNC(dynamorio_syscall_wow64_noedx)
       
 #endif /* WINDOWS */
 

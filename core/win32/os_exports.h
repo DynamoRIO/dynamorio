@@ -455,6 +455,13 @@ wchar_t *get_application_cmdline(void);
 const char *
 get_application_short_unqualified_name(void);
 
+/* in syscall.c */
+bool
+syscall_uses_wow64_index();
+
+bool
+syscall_uses_edx_param_base();
+
 /* in loader.c */
 /* Handles a private-library FLS callback called from interpreted app code */
 bool private_lib_handle_cb(dcontext_t *dcontext, app_pc pc);

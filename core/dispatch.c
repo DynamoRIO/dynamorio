@@ -1842,7 +1842,7 @@ handle_system_call(dcontext_t *dcontext)
             }
             set_fcache_target(dcontext, dcontext->asynch_target);
         } else if (get_syscall_method() == SYSCALL_METHOD_WOW64 &&
-                   get_os_version() >= WINDOWS_VERSION_7) {
+                   get_os_version() == WINDOWS_VERSION_7) {
             /* win7 has an add 4,esp after the call* in the syscall wrapper,
              * so we need to negate it since not making the call*
              */

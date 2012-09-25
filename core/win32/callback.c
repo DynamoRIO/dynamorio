@@ -160,6 +160,9 @@ static byte *LdrInitializeThunk = NULL;
  * NtCreateThread don't have to target this address. */
 static byte *RtlUserThreadStart = NULL;
 
+/* Used to create a clean syscall wrapper on win8 where there's no ind call */
+static byte *KiFastSystemCall = NULL;
+
 static inline app_pc
 get_setcontext_interceptor()
 {
@@ -1727,6 +1730,19 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
      * On Win7 WOW64 after the call we have an add:
      *   add esp,0x4             {3 bytes}
      *   ret arg_bytes           {1 byte (0 args) or 3 bytes}
+     * On Win8 WOW64 we have no ecx (and no post-syscall add):
+     *   777311bc b844000100      mov     eax,10044h
+     *   777311c1 64ff15c0000000  call    dword ptr fs:[0C0h]
+     *   777311c8 c3              ret
+     *
+     * For win8 sysenter we have a co-located "inlined" callee:
+     *   77d7422c b801000000      mov     eax,1
+     *   77d74231 e801000000      call    ntdll!NtYieldExecution+0xb (77d74237)
+     *   77d74236 c3              ret
+     *   77d74237 8bd4            mov     edx,esp
+     *   77d74239 0f34            sysenter
+     *   77d7423b c3              ret
+     * But we instead do the equivalent call to KiFastSystemCall.
      *
      * x64 syscall (PR 215398):
      *   mov r10, rcx          {3 bytes}
@@ -1757,24 +1773,33 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
         APP(ilist, INSTR_CREATE_int(dcontext, opnd_create_immed_int(0x2e, OPSZ_1)));
     } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
         ASSERT(get_syscall_method() == SYSCALL_METHOD_WOW64);
-        ASSERT(wow64_index != NULL);
-        ASSERT(wow64_index[sys_enum] != SYSCALL_NOT_PRESENT);
-        if (wow64_index[sys_enum] == 0) {
-            APP(ilist, INSTR_CREATE_xor(dcontext, opnd_create_reg(REG_XCX),
-                                        opnd_create_reg(REG_XCX)));
-        } else {
-            APP(ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
-                                            OPND_CREATE_INT32(wow64_index[sys_enum])));
+        if (syscall_uses_wow64_index()) {
+            ASSERT(wow64_index != NULL);
+            ASSERT(wow64_index[sys_enum] != SYSCALL_NOT_PRESENT);
+            if (wow64_index[sys_enum] == 0) {
+                APP(ilist, INSTR_CREATE_xor(dcontext, opnd_create_reg(REG_XCX),
+                                            opnd_create_reg(REG_XCX)));
+            } else {
+                APP(ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
+                                                OPND_CREATE_INT32(wow64_index[sys_enum])));
+            }
+            APP(ilist,
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XDX),
+                                 opnd_create_base_disp(REG_XSP, REG_NULL, 0, 4, OPSZ_0)));
         }
-        APP(ilist,
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XDX),
-                             opnd_create_base_disp(REG_XSP, REG_NULL, 0, 4, OPSZ_0)));
         APP(ilist, create_syscall_instr(dcontext));
     } else { /* XP or greater */
         APP(ilist,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XDX),
                                  OPND_CREATE_INTPTR((ptr_int_t)VSYSCALL_BOOTSTRAP_ADDR)));
-        if (use_ki_syscall_routines()) {
+        if (get_os_version() >= WINDOWS_VERSION_8) {
+            /* Win8 does not use ind calls: it calls to a local copy of KiFastSystemCall.
+             * We do the next best thing.
+             */
+            ASSERT(KiFastSystemCall != NULL);
+            APP(ilist, INSTR_CREATE_call(dcontext, opnd_create_pc(KiFastSystemCall)));
+        }
+        else if (use_ki_syscall_routines()) {
             /* call through vsyscall addr to Ki*SystemCall routine */
             APP(ilist,
                 INSTR_CREATE_call_ind(dcontext, opnd_create_base_disp(REG_XDX, REG_NULL,
@@ -1784,7 +1809,7 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
             APP(ilist, INSTR_CREATE_call_ind(dcontext, opnd_create_reg(REG_XDX)));
         }
     }
-    if (is_wow64_process(NT_CURRENT_PROCESS) && get_os_version() >= WINDOWS_VERSION_7) {
+    if (is_wow64_process(NT_CURRENT_PROCESS) && get_os_version() == WINDOWS_VERSION_7) {
         APP(ilist,
             INSTR_CREATE_add(dcontext, opnd_create_reg(REG_XSP), OPND_CREATE_INT8(4)));
     }
@@ -1847,19 +1872,6 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
             LOG(GLOBAL, LOG_SYSCALLS, 1, "With :\n");
             instrlist_disassemble(dcontext, nt_wrapper, ilist, GLOBAL);
         });
-#ifdef X64
-        ASSERT(length == 11);
-#else
-        DOCHECK(1, {
-            if (get_os_version() <= WINDOWS_VERSION_2000) {
-                ASSERT((length == 14 && arg_bytes > 0) ||
-                       (length == 12 && arg_bytes == 0));
-            } else {
-                ASSERT((length == 15 && arg_bytes > 0) ||
-                       (length == 13 && arg_bytes == 0));
-            }
-        });
-#endif /* X64 */
 
         make_hookable(nt_wrapper, length, &changed_prot);
         nxt_pc = instrlist_encode(dcontext, ilist, nt_wrapper,
@@ -1930,12 +1942,12 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                           byte **orig_bytes_pc /* OUT */,
                           byte *fpo_stack_adjustment /* OUT OPTIONAL */)
 {
-    byte *pc, *emit_pc, *ret_pc, *after_hook_target, *entrance_pc, *tgt_pc;
+    byte *pc, *emit_pc, *ret_pc = NULL, *after_hook_target = NULL, *entrance_pc, *tgt_pc;
     byte *after_mov_immed;
     instr_t *instr, *hook_return_instr = NULL;
     instrlist_t ilist;
     bool changed_prot;
-    int opcode;
+    int opcode = OP_UNDECODED;
     dcontext_t *dcontext = get_thread_private_dcontext();
     int sys_enum = (int)(ptr_uint_t)callee_arg;
     int native_sys_num = syscalls[sys_enum];
@@ -2118,13 +2130,27 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
     ASSERT(instr_get_opcode(instr) == OP_syscall);
     instr_destroy(dcontext, instr);
 #else
-    /* second instr is either a lea, a mov immed, or an xor */
-    DOLOG(3, LOG_ASYNCH, { disassemble_with_bytes(dcontext, pc, main_logfile); });
-    instr = instr_create(dcontext);
-    pc = decode(dcontext, pc, instr);
-    instrlist_append(&ilist, instr);
-    opcode = instr_get_opcode(instr);
-    if (get_syscall_method() == SYSCALL_METHOD_WOW64) {
+    if (get_syscall_method() == SYSCALL_METHOD_WOW64 &&
+        get_os_version() >= WINDOWS_VERSION_8) {
+        ASSERT(!syscall_uses_wow64_index());
+        /* second instr is a call*, what we consider the system call instr */
+        after_hook_target = pc;
+        instr = instr_create(dcontext);
+        ret_pc = decode(dcontext, pc, instr); /* skip call* to skip syscall */
+        ASSERT(instr_get_opcode(instr) == OP_call_ind);
+        instr_destroy(dcontext, instr);
+        /* XXX: how handle chrome hooks on win8?  (xref i#464) */
+    } else {
+        /* second instr is either a lea, a mov immed, or an xor */
+        DOLOG(3, LOG_ASYNCH, { disassemble_with_bytes(dcontext, pc, main_logfile); });
+        instr = instr_create(dcontext);
+        pc = decode(dcontext, pc, instr);
+        instrlist_append(&ilist, instr);
+        opcode = instr_get_opcode(instr);
+    }
+    if (after_hook_target != NULL) {
+        /* all set */
+    } else if (get_syscall_method() == SYSCALL_METHOD_WOW64) {
         ASSERT(opcode == OP_xor || opcode == OP_mov_imm);
         /* third instr is a lea */
         instr = instr_create(dcontext);
@@ -2157,6 +2183,8 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
             instr_t *tmp = instrlist_last(&ilist);
             instrlist_remove(&ilist, tmp);
             instr_destroy(dcontext, tmp);
+            ASSERT(syscall_uses_wow64_index()); /* else handled above */
+            ASSERT(wow64_index != NULL);
             if (wow64_index[sys_enum] == 0) {
                 instrlist_append
                     (&ilist, INSTR_CREATE_xor
@@ -6726,6 +6754,7 @@ callback_interception_init_start(void)
 {
     byte *pc;
     byte *int2b_after_cb_dispatcher;
+    module_handle_t ntdllh = get_ntdll_base();
 
     intercept_asynch = true;
     intercept_callbacks = true;
@@ -6785,7 +6814,6 @@ callback_interception_init_start(void)
     /* LdrInitializeThunk is hooked for thin_client too, so that
      * each thread can have a dcontext (case 8884). */
     if (get_os_version() >= WINDOWS_VERSION_VISTA) {
-        module_handle_t ntdllh = get_ntdll_base();
         LdrInitializeThunk = (byte *)get_proc_address(ntdllh,
                                                       "LdrInitializeThunk");
         ASSERT(LdrInitializeThunk != NULL);
@@ -6877,6 +6905,12 @@ callback_interception_init_start(void)
 
     /* now that drmarker is set up, fill in windbg commands (i#522) */
     privload_add_windbg_cmds();
+
+    /* other initialization */
+    if (get_os_version() >= WINDOWS_VERSION_8) {
+        KiFastSystemCall = (byte *) get_proc_address(ntdllh, "KiFastSystemCall");
+        ASSERT(KiFastSystemCall != NULL);
+    }
 }
 
 void
