@@ -122,25 +122,8 @@ string(REGEX REPLACE "REPLACE_WITH_EXTENSION_SUBPAGES" "${gen_toc}" gendox "${ge
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/gendox.dox" "${gendox}")
 
 # determine doxygen version
-execute_process(COMMAND
-  ${DOXYGEN_EXECUTABLE} --version
-  RESULT_VARIABLE doxygen_v_result
-  ERROR_VARIABLE doxygen_v_error
-  OUTPUT_VARIABLE doxygen_v_out
-  )
-string(REGEX MATCH "^[0-9]*\\.[0-9]*\\.[0-9]*" doxygen_ver "${doxygen_v_out}")
-if (doxygen_ver STREQUAL "1.8.0" OR
-    doxygen_ver STREQUAL "1.7.3")
-  # 1.8.0 fails to build (i#814) while 1.7.3 doesn't have the navbar for some reason.
-  message(FATAL_ERROR "doxygen version ${doxygen_ver} is not supported.  "
-    "Use an earlier or later version.")
-endif ()
-if (doxygen_ver MATCHES "^1.7.[3-6]")
-  # These versions have a "Related Pages" index which we don't want.
-  # Plus, 1.7.3-1.7.5 won't have a home page link on the navbar.
-  message(STATUS "WARNING: doxygen versions 1.7.3-1.7.6 will not produce "
-    "release-quality documentation.")
-endif ()
+include(CMake_doxyutils.cmake)
+check_doxygen_version(${DOXYGEN_EXECUTABLE} "${DOXYGEN_VERSION}" doxygen_ver)
 
 set(doxyfile ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 add_custom_command(
@@ -181,10 +164,14 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   # Have to quote dox_files to keep ;-separated
   # to work around i#84 be sure to put a space after -D for 1st arg at least
-  ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} "-Ddox_files=${dox_files}"
-       -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
+  ARGS -D DOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
        -Ddoxygen_ver=${doxygen_ver}
        -Dversion_number=${VERSION_NUMBER}
+       -Dmodule_string_long="DynamoRIO Extension Details"
+       -Dmodule_string_short="Extension"
+       -Dhome_url="http://www.dynamorio.org"
+       -Dhome_title="DynamoRIO Home Page"
+       -Dlogo_imgfile="drlogo.png"
        -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_rundoxygen.cmake
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   VERBATIM # recommended: p260

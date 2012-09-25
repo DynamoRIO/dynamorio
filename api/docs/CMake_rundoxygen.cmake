@@ -29,6 +29,30 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+###########################################################################
+# Usage:
+# + Add a custom command to invoke this script in the docs build dir
+# + Assumes a favicon.ico is present in the target build dir
+#
+# Args:
+# + DOXYGEN_EXECUTABLE  : path to doxygen
+# + doxygen_ver         : version of doxygen
+# + version_number      : version number to put in the docs
+# + module_string_long  : replacement text for Modules
+# + module_string_short : replacement text for Module
+# + home_url            : home page URL
+# + home_title          : home page title
+# + logo_imgfile        : image file with logo
+#
+###########################################################################
+
+# Any quotes carry over and it's simplest to assume not there.
+string(REPLACE "\"" "" module_string_long ${module_string_long})
+string(REPLACE "\"" "" module_string_short ${module_string_short})
+string(REPLACE "\"" "" home_url ${home_url})
+string(REPLACE "\"" "" home_title ${home_title})
+string(REPLACE "\"" "" logo_imgfile ${logo_imgfile})
+
 # First, generate header.html and footer.html suitable for current
 # doxygen version and then tweak them.
 # Note that we must generate a css file and we must name it doxygen.css
@@ -55,7 +79,7 @@ if (doxygen_ver STRLESS "1.7.0")
 endif ()
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/header.html "${string}")
 
-# Tweak footer to have DR API version
+# Tweak footer to have version
 file(READ ${CMAKE_CURRENT_BINARY_DIR}/footer.html string)
 set(foot "<img border=0 src=\"favicon.png\"> &nbsp; ")
 set(foot "${foot} $projectname version ${version_number} --- $datetime")
@@ -83,16 +107,16 @@ if (doxygen_ver STRGREATER "1.7.2")
   endif (doxygen_l_result OR doxygen_l_error)
 
   file(READ ${CMAKE_CURRENT_BINARY_DIR}/DoxygenLayout.xml string)
-  # Rename "Extensions" to "Modules" (done below for older doxygen)
+  # Rename "Modules" (done below for older doxygen)
   string(REGEX REPLACE
     "tab type=\"modules\" visible=\"yes\" title=\"\""
-    "tab type=\"modules\" visible=\"yes\" title=\"DynamoRIO Extension Details\""
+    "tab type=\"modules\" visible=\"yes\" title=\"${module_string_long}\""
     string "${string}")
   if (doxygen_ver STRGREATER "1.7.5")
     # Add link to home page (done below for older doxygen; skipped for 1.7.3-1.7.5)
     string(REGEX REPLACE
       "</navindex>"
-      "<tab type=\"user\" url=\"http://www.dynamorio.org\" title=\"DynamoRIO Home Page\"/>\n</navindex>"
+      "<tab type=\"user\" url=\"${home_url}\" title=\"${home_title}\"/>\n</navindex>"
       string "${string}")
   endif ()
   file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/DoxygenLayout.xml "${string}")
@@ -123,12 +147,12 @@ if (doxygen_ver STRLESS "1.7.3")
   # Add link to home page to treeview pane
   file(APPEND
     ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html
-    "<p>&nbsp;<a target=\"main\" href=\"http://dynamorio.org/\">DynamoRIO Home Page</a></p>")
+    "<p>&nbsp;<a target=\"main\" href=\"${home_url}/\">${home_title}</a></p>")
 
   # Add our logo to treeview pane (yes there is no closing </body></html>)
   file(APPEND
     ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html
-    "<p>&nbsp;<br><img src=\"drlogo.png\"></p>")
+    "<p>&nbsp;<br><img src=\"${logo_imgfile}\"></p>")
 else ()
   # This is a fragile insertion into the javascript used for the navbar.
   # We insert at the end of the final function (initNavTree).
@@ -138,7 +162,7 @@ else ()
         document.getElementById(\"nav-tree-contents\").appendChild(imgdiv);
         var img = document.createElement(\"img\");
         imgdiv.appendChild(img);
-        img.src = \"drlogo.png\";
+        img.src = \"${logo_imgfile}\";
         img.style.marginLeft = \"80px\";
         img.style.marginTop = \"30px\";
     ")
@@ -150,17 +174,18 @@ else ()
   file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/navtree.js "${string}")
 endif ()
 
-# For Extensions (i#277/PR 540817) we use doxygen groups which show up under
+# For modules/extensions (i#277/PR 540817) we use doxygen groups which show up under
 # top-level "Modules" which we rename here
 if (doxygen_ver STRLESS "1.7.3")
   file(READ ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html string)
-  string(REGEX REPLACE "Modules" "DynamoRIO Extension Details" string "${string}")
+  string(REGEX REPLACE "Modules" "${module_string_long}" string "${string}")
   file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html "${string}")
 endif ()
-file(READ ${CMAKE_CURRENT_BINARY_DIR}/html/modules.html string)
-string(REGEX REPLACE "Module" "Extension" string "${string}")
-string(REGEX REPLACE "module" "Extension" string "${string}")
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/modules.html "${string}")
-
+if (EXISTS ${CMAKE_CURRENT_BINARY_DIR}/html/modules.html)
+  file(READ ${CMAKE_CURRENT_BINARY_DIR}/html/modules.html string)
+  string(REGEX REPLACE "Module" "${module_string_short}" string "${string}")
+  string(REGEX REPLACE "module" "${module_string_short}" string "${string}")
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/modules.html "${string}")
+endif ()
 
 # We do not copy samples or favicon for build dir: those are install rules
