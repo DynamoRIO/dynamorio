@@ -1752,8 +1752,13 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     void **pbase = (void **) sys_param(dcontext, param_base, 1);
-    uint type = (uint) sys_param(dcontext, param_base, 4);
-    uint prot = (uint) sys_param(dcontext, param_base, 5);
+    /* XXX i#899: NtWow64AllocateVirtualMemory64 has an extra arg after ZeroBits but
+     * it's ignored in wow64!whNtWow64AllocateVirtualMemory64.  We should keep an eye
+     * out: maybe a future service pack or win9 will use it.
+     */
+    int arg_shift = (sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64] ? 1 : 0);
+    uint type = (uint) sys_param(dcontext, param_base, 4 + arg_shift);
+    uint prot = (uint) sys_param(dcontext, param_base, 5 + arg_shift);
     app_pc base;
     if (is_phandle_me(process_handle) && TEST(MEM_COMMIT, type) &&
         TESTALL(PAGE_EXECUTE_READWRITE, prot)) {
@@ -2465,7 +2470,9 @@ pre_system_call(dcontext_t *dcontext)
         presys_TerminateThread(dcontext, param_base);
     }
 #ifdef PROGRAM_SHEPHERDING
-    else if (sysnum == syscalls[SYS_AllocateVirtualMemory]) {
+    else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
+             /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
+             sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
         presys_AllocateVirtualMemory(dcontext, param_base);
     }
 #endif
@@ -2544,10 +2551,9 @@ pre_system_call(dcontext_t *dcontext)
             goto exit_pre_system_call;
         }
     }
-    else if (sysnum == syscalls[SYS_SetInformationVirtualMemory] ||
-             sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
-        /* FIXME i#899: new Win8 syscalls NYI.
-         * We want to know when we see them so we have some code to study.
+    else if (sysnum == syscalls[SYS_SetInformationVirtualMemory]) {
+        /* FIXME i#899: new Win8 syscall NYI.
+         * We want to know when we see it so we have some code to study.
          */
         ASSERT_NOT_IMPLEMENTED(false);
     }
@@ -2964,23 +2970,31 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 
 /* NtAllocateVirtualMemory */
 static void
-postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success)
+postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success,
+                              int sysnum)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
     void **pbase = (void **) postsys_param(dcontext, param_base, 1);
     uint zerobits = (uint) postsys_param(dcontext, param_base, 2);
-    size_t *psize = (size_t *) postsys_param(dcontext, param_base, 3);
-    uint type = (uint) postsys_param(dcontext, param_base, 4);
-    uint prot = (uint) postsys_param(dcontext, param_base, 5);
+    /* XXX i#899: NtWow64AllocateVirtualMemory64 has an extra arg after ZeroBits but
+     * it's ignored in wow64!whNtWow64AllocateVirtualMemory64.  We should keep an eye
+     * out: maybe a future service pack or win9 will use it.
+     */
+    int arg_shift = (sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64] ? 1 : 0);
+    size_t *psize = (size_t *) postsys_param(dcontext, param_base, 3 + arg_shift);
+    uint type = (uint) postsys_param(dcontext, param_base, 4 + arg_shift);
+    uint prot = (uint) postsys_param(dcontext, param_base, 5 + arg_shift);
     app_pc base;
     size_t size;
     if (!success)
         return;
-    /* we assume that since syscall succeeded these dereferences are safe 
-     * FIXME : could be multi-thread races though */
-    base = *((app_pc *)pbase);
-    size = *psize;
+    if (!safe_read(pbase, sizeof(base), &base) || !safe_read(psize, sizeof(size), &size)) {
+        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
+            "syscall: NtAllocateVirtualMemory: failed to read params "PFX" "PFX"\n",
+            pbase, psize);
+        return;
+    }
     LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, prot_is_executable(prot) ? 1U : 2U,
         "syscall: NtAllocateVirtualMemory%s%s%s@"PFX" sz="PIFX" prot=%s 0x%x => 0x%x\n",
         is_phandle_me(process_handle) ? "" : " IPC",
@@ -3646,9 +3660,11 @@ void post_system_call(dcontext_t *dcontext)
         }
         mutex_unlock(&thread_initexit_lock); /* need lock to lookup thread */
     }
-    else if (sysnum == syscalls[SYS_AllocateVirtualMemory]) {
+    else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
+             /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
+             sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
         KSTART(post_syscall_alloc);
-        postsys_AllocateVirtualMemory(dcontext, param_base, success);
+        postsys_AllocateVirtualMemory(dcontext, param_base, success, sysnum);
         KSTOP(post_syscall_alloc);
     } 
     else if (sysnum == syscalls[SYS_QueryVirtualMemory]) {
