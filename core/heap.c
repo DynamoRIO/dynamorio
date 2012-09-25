@@ -1284,6 +1284,7 @@ vmm_heap_init()
 #ifdef X64
     /* add reachable regions before we allocate the heap, xref PR 215395 */
 # ifdef WINDOWS
+    /* FIXME i#901: win8 x64 has ntdll too high for this */
     request_region_be_heap_reachable(get_ntdll_base(),
                                      get_allocation_size(get_ntdll_base(), NULL));
     request_region_be_heap_reachable(get_dynamorio_dll_start(),
