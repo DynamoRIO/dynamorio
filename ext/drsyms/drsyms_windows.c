@@ -1273,6 +1273,12 @@ drsym_module_has_symbols(const char *modpath)
                 /* more efficient than fully loading the pdb */
                 static char pdb_name[MAXIMUM_PATH];
                 static char pdb_path[MAXIMUM_PATH];
+                /* i#917: sfPdb is not in VS2005's dbghelp.h.  Unfortunately it's
+                 * an enum so we can't test whether it's defined, so we
+                 * override it and assume its value will not change (unlikely
+                 * since that would break binary compatibility).
+                 */
+#               define sfPdb 2
                 if ((*func)(GetCurrentProcess(), NULL, modpath, sfPdb,
                             pdb_name, BUFFER_SIZE_ELEMENTS(pdb_name),
                             pdb_path, BUFFER_SIZE_ELEMENTS(pdb_path))) {
