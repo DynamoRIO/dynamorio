@@ -42,6 +42,11 @@
 #include <math.h>
 #include <string.h>
 
+/* This is only in float.h for VS2010+ */
+#ifndef _FPE_MULTIPLE_TRAPS
+# define _FPE_MULTIPLE_TRAPS 0x8d
+#endif
+
 jmp_buf mark;              /* Address for long jump to jump to */
 int     fperr;             /* Global error number */
 
