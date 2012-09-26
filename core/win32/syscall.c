@@ -1747,7 +1747,7 @@ check_for_stack_free(dcontext_t *dcontext, byte *base, size_t size)
 #ifdef PROGRAM_SHEPHERDING
 /* NtAllocateVirtualMemory */
 static void
-presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
+presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 0);
@@ -2473,7 +2473,7 @@ pre_system_call(dcontext_t *dcontext)
     else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
              /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
              sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
-        presys_AllocateVirtualMemory(dcontext, param_base);
+        presys_AllocateVirtualMemory(dcontext, param_base, sysnum);
     }
 #endif
     else if (sysnum == syscalls[SYS_FreeVirtualMemory]) {
