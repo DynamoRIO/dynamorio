@@ -4394,7 +4394,14 @@ DR_API
 /**
  * Returns whether the given thread indicated by \p drcontext
  * is currently using the application version of its system state.
- * \sa dr_switch_to_dr_state(), dr_switch_to_app_state()
+ * \sa dr_switch_to_dr_state(), dr_switch_to_app_state().
+ *
+ * This function does not indicate whether the machine context
+ * (registers) contains application state or not.
+ *
+ * On Linux, DR very rarely switches the system state, while on
+ * Windows DR switches the system state to the DR and client version
+ * on every event callback or clean call.
  */
 bool
 dr_using_app_state(void *drcontext);
@@ -4407,6 +4414,9 @@ DR_API
  * versions of system state.  Invoking non-DR library routines while
  * the application state is in place can lead to unpredictable
  * results: call dr_switch_to_dr_state() before doing so.
+ *
+ * This function does not affect whether the current machine context
+ * (registers) contains application state or not.
  */
 void
 dr_switch_to_app_state(void *drcontext);
@@ -4418,16 +4428,21 @@ DR_API
  * application state.  Swaps from the application version of system
  * state for the given thread back to the DR and client version.
  *
- * On Windows, a client running in an application context must call
- * dr_switch_to_dr_state() in order to safely call private library
- * routines.  But on Linux that's not the case because of how
- * DynamoRIO mangles application segment references.  On Linux,
- * running private library code should work fine without any change
- * from the application state.  Only if subsequent code will examine a
- * segment selector or descriptor does the state need to be swapped.
- * A state swap is much more expensive on Linux (it requires a system
- * call).
+ * This function does not affect whether the current machine context
+ * (registers) contains application state or not.
  *
+ * A client must call dr_switch_to_dr_state() in order to safely call
+ * private library routines if it is running in an application context
+ * where dr_using_app_state() returns true.  On Windows, this is the
+ * case for any application context, as the system state is always
+ * swapped.  On Linux, however, execution of application code in the
+ * code cache only swaps the machine context and not the system state.
+ * Thus, on Linux, while in the code cache, dr_using_app_state() will
+ * return false, and it is safe to invoke private library routines
+ * without calling dr_switch_to_dr_state().  Only if client or
+ * client-invoked code will examine a segment selector or descriptor
+ * does the state need to be swapped.  A state swap is much more
+ * expensive on Linux (it requires a system call) than on Windows.
  */
 void
 dr_switch_to_dr_state(void *drcontext);
