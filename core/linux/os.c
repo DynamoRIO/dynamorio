@@ -2370,7 +2370,7 @@ os_using_app_state(dcontext_t *dcontext)
      */
     if (INTERNAL_OPTION(mangle_app_seg)) {
         return (get_segment_base(LIB_SEG_TLS) ==
-                os_get_dr_seg_base(dcontext, LIB_SEG_TLS));
+                os_get_app_seg_base(dcontext, LIB_SEG_TLS));
     }
     /* We're always in the app state if we're not mangling. */
     return true;

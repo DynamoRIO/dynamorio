@@ -655,6 +655,11 @@ instrument_exit(void)
     DEBUG_DECLARE(size_t i);
     /* Note - currently own initexit lock when this is called (see PR 227619). */
 
+    /* we guarantee we're in DR state at all callbacks and clean calls */
+    CLIENT_ASSERT(IF_WINDOWS(!should_swap_peb_pointer() ||)
+                  IF_LINUX(!INTERNAL_OPTION(mangle_app_seg) ||)
+                  !dr_using_app_state(get_thread_private_dcontext()), "state error");
+
     /* support dr_get_mcontext() from the exit event */
     if (!standalone_library)
         get_thread_private_dcontext()->client_data->mcontext_in_dcontext = true;
