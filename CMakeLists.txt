@@ -287,6 +287,15 @@ mark_as_advanced(
 # if we do support we'll need to remove flags like /MD coming from
 # the CMAKE_C_FLAGS_*, which are added to the base CMAKE_C_FLAGS.
 # XXX: could use CMAKE_USER_MAKE_RULES_OVERRIDE to set these but not any cleaner
+#
+# i#919: Ninja generator does not leave CMAKE_BUILD_TYPE blank, and that affects
+# the exported target files, so we set it here.  This shouldn't hurt containing
+# tools as they should set our DEBUG to match the incoming CMAKE_BUILD_TYPE.
+if (DEBUG)
+  set(CMAKE_BUILD_TYPE "Debug")
+else (DEBUG)
+  set(CMAKE_BUILD_TYPE "Release")
+endif (DEBUG)
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
 foreach (config ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
   string(TOUPPER "${config}" config_upper)
