@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -49,7 +49,7 @@ drwrap_exit().
 The first step in replacing or wrapping is to determine the address of the
 target application function.  For functions exported by an application
 library, use dr_get_proc_address() to locate the entry point.  For internal
-functions, use the \p drsyms Extension.
+functions, use the drsyms Extension (see \ref page_drsyms).
 
 Function replacing is provided by drwrap_replace().  The replacement
 function executes as application code and will be passed to the client via

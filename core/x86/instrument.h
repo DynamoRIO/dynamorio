@@ -2498,6 +2498,16 @@ DR_API
 /**
  * Returns the entry point of the exported function with the given
  * name in the module with the given base.  Returns NULL on failure.
+ *
+ * On Linux, when we say "exported" we mean present in the dynamic
+ * symbol table (.dynsym).  Global functions and variables in an
+ * executable (as opposed to a library) are not exported by default.
+ * If an executable is built with the \p -rdynamic flag to \p gcc, its
+ * global symbols will be present in .dynsym and dr_get_proc_address()
+ * will locate them.  Otherwise, the drsyms Extension (see \ref
+ * page_drsyms) must be used to locate the symbols.  drsyms searches
+ * the debug symbol table (.symtab) in addition to .dynsym.
+ *
  * \note On Linux this ignores symbol preemption by other modules and only
  * examines the specified module.
  * \note On Linux, in order to handle indirect code objects, use
@@ -2534,6 +2544,9 @@ DR_API
 /**
  * Returns information in \p info about the symbol \p name exported
  * by the module \p lib.  Returns false if the symbol is not found.
+ * See the information in dr_get_proc_address() about what an
+ * "exported" function is on Linux.
+ *
  * \note On Linux this ignores symbol preemption by other modules and only
  * examines the specified module.
  */

@@ -96,6 +96,14 @@ Furthermore, the core API routines operate regardless of whether debug
 information is available.  However, for internal non-exported symbols, \p
 drsyms must be used.
 
+On Linux, \p drsyms searches both \p .dynsym and \p .symtab, while
+dr_get_proc_address() only searches \p .dynsym.  Global symbols in an
+executable (i.e., a non-library) are only present in \p .symtab by
+default.  If the executable is built with the \p -rdynamic flag to \p gcc,
+its global symbols will be placed in \p .dynsym and thus
+dr_get_proc_address() will find them.  Regardless of how it was built, if
+it's not stripped, \p drsyms will find the global symbols.
+
 \section sec_drsyms_api API
 
 All functions return a success code of type #drsym_error_t.
