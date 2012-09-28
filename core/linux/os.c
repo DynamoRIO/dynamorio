@@ -5042,6 +5042,9 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     app_pc base;
     os_local_state_t *os_tls = get_os_tls_from_dc(dcontext);
 
+    /* we can only update the executing thread's segment (i#920) */
+    ASSERT_MESSAGE(CHKLVL_ASSERTS+1/*expensive*/, "can only act on executing thread",
+                   dcontext == get_thread_private_dcontext());
     ASSERT(seg == SEG_FS || seg == SEG_GS);
     if (to_app) {
         base = os_get_app_seg_base(dcontext, seg);
@@ -5055,7 +5058,8 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         res = dynamorio_syscall(SYS_arch_prctl, 2, prctl_code, base);
         ASSERT(res >= 0);
         LOG(GLOBAL, LOG_THREADS, 2,
-            "%s: arch_prctl successful for base "PFX"\n", __FUNCTION__, base);
+            "%s %s: arch_prctl successful for thread %d base "PFX"\n",
+            __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id(), base);
         if (seg == SEG_TLS && base == NULL) {
             /* Set the selector to 0 so we don't think TLS is available. */
             /* FIXME i#107: Still assumes app isn't using SEG_TLS. */
@@ -5085,8 +5089,8 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         selector = GDT_SELECTOR(index);
         WRITE_LIB_SEG(selector);
         LOG(THREAD, LOG_LOADER, 2,
-            "%s: set_thread_area successful for base "PFX"\n",
-            __FUNCTION__, base);
+            "%s %s: set_thread_area successful for thread %d base "PFX"\n",
+            __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id(), base);
         break;
     }
     default:
@@ -5094,6 +5098,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         ASSERT_NOT_IMPLEMENTED(false);
         return false;
     }
+    ASSERT(BOOLS_MATCH(to_app, os_using_app_state(dcontext)));
     /* FIXME: We do not support using ldt yet. */
     return (res >= 0);
 }
@@ -6688,7 +6693,7 @@ post_system_call(dcontext_t *dcontext)
                 mc->xsp, dcontext->sys_param1);
             mc->xsp = dcontext->sys_param1;
         }
-        if (mc->xax == 0) {
+        if (mc->xax != 0) {
             /* We switch the lib tls segment back to dr's segment.
              * Please refer to comment on os_switch_lib_tls.
              * It is only called in parent thread.

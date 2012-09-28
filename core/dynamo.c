@@ -2260,7 +2260,9 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     }
 #endif
 
-    dynamo_thread_not_under_dynamo(dcontext);
+    /* i#920: we can't take segment/timer/asynch actions for other threads */
+    if (!other_thread)
+        dynamo_thread_not_under_dynamo(dcontext);
 
 #ifdef SIDELINE
     /* N.B.: do not clean up any data structures while sideline thread
@@ -2543,11 +2545,17 @@ dynamo_thread_under_dynamo(dcontext_t *dcontext)
 #endif
 }
 
-/* For use by threads that start and stop whether dynamo controls them
+/* For use by threads that start and stop whether dynamo controls them.
+ * This must be called by the owner of dcontext and not another
+ * non-executing thread.
+ * XXX i#95: for detach we'll need to send a signal and have the
+ * target thread run this on its own (ditto for os_tls_exit()).
  */
 void
 dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
 {
+    ASSERT_MESSAGE(CHKLVL_ASSERTS+1/*expensive*/, "can only act on executing thread",
+                   dcontext == get_thread_private_dcontext());
 #ifdef LINUX
     /* FIXME : on windows this only matters when using the app_start app_stop 
      * interface, and it screws up the thread lookup and synch routines

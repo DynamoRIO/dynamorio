@@ -1472,6 +1472,8 @@ void
 os_thread_under_dynamo(dcontext_t *dcontext)
 {
     /* add cur thread to callback list */
+    ASSERT_MESSAGE(CHKLVL_ASSERTS+1/*expensive*/, "can only act on executing thread",
+                   dcontext == get_thread_private_dcontext());
     set_asynch_interception(get_thread_id(), true);
 }
 
@@ -1479,6 +1481,8 @@ void
 os_thread_not_under_dynamo(dcontext_t *dcontext)
 {
     /* remove cur thread from callback list */
+    ASSERT_MESSAGE(CHKLVL_ASSERTS+1/*expensive*/, "can only act on executing thread",
+                   dcontext == get_thread_private_dcontext());
     set_asynch_interception(get_thread_id(), false);
 }
 
