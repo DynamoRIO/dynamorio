@@ -97,11 +97,13 @@ set(vmap_run_list
   "SHORT::ONLY::client.events$::-code_api -thread_private"
   "SHORT::ONLY::client.events$::-code_api -disable_traces"
   "SHORT::ONLY::client.events$::-code_api -thread_private -disable_traces"
+  "SHORT::LIN::ONLY::client.events$::-code_api -early_inject"
   # maybe this should be SHORT as -coarse_units will eventually be the default?
   "-code_api -opt_memory"
   "-code_api -thread_private"
   "-code_api -disable_traces"
   "-code_api -thread_private -disable_traces"
+  "LIN::-code_api -early_inject"
   "DEBUG::ONLY::^common::-code_api -loglevel 1"
   "ONLY::^common::-code_api -stack_size 120k"
   "WIN::ONLY::^(runall|client)::-enable_full_api"
@@ -129,14 +131,6 @@ set(vmap_run_list
   "ONLY::^(runall|${osname})::-finite_shared_bb_cache -cache_shared_bb_regen 80"
   "ONLY::^(runall|${osname})::-finite_shared_trace_cache -cache_shared_trace_regen 80"
   )
-
-# FIXME i#47: Early injection doesn't work on ia32 yet.
-if (X64)
-  set(vmap_run_list ${vmap_run_list}
-    "SHORT::LIN::ONLY::client.events$::-code_api -early_inject"
-    "LIN::-code_api -early_inject"
-    )
-endif()
 
 set(vmsafe_run_list
   # keep lightweight modes alive

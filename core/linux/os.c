@@ -205,6 +205,17 @@ typedef struct _our_modify_ldt_t {
 static uint gdt_entry_tls_min = IF_X64_ELSE(GDT_ENTRY_TLS_MIN_64,
                                             GDT_ENTRY_TLS_MIN_32);
 
+/* Indicates that on the next request for a GDT entry, we should return the GDT
+ * entry we stole for private library TLS.  The entry index is in
+ * lib_tls_gdt_index.
+ * FIXME i#107: For total segment transparency, we can use the same approach
+ * with tls_gdt_index.
+ */
+static bool return_stolen_lib_tls_gdt;
+/* Guards data written by os_set_app_thread_area(). */
+DECLARE_CXTSWPROT_VAR(static mutex_t set_thread_area_lock,
+                      INIT_LOCK_FREE(set_thread_area_lock));
+
 #ifndef HAVE_TLS
 /* We use a table lookup to find a thread's dcontext */
 /* Our only current no-TLS target, VMKernel (VMX86_SERVER), doesn't have apps with
@@ -1059,6 +1070,7 @@ os_slow_exit(void)
 
     DELETE_LOCK(memory_info_buf_lock);
     DELETE_LOCK(maps_iter_buf_lock);
+    DELETE_LOCK(set_thread_area_lock);
 #ifdef CLIENT_INTERFACE
     DELETE_LOCK(client_tls_lock);
 #endif
@@ -1134,6 +1146,8 @@ typedef enum {
  * This depends on the kernel, not on the app!
  */
 static int tls_gdt_index = -1;
+/* GDT slot we use for private library TLS. */
+static int lib_tls_gdt_index = -1;
 # define GDT_NO_SIZE_LIMIT  0xfffff
 # ifdef DEBUG
 #  define GDT_32BIT  8 /*  6=NPTL, 7=wine */
@@ -1690,6 +1704,7 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
     reg_id_t seg;
     ushort sel = 0;
     our_modify_ldt_t *desc;
+    int desc_idx;
     os_local_state_t *os_tls;
     os_thread_data_t *ostd;
 
@@ -1721,17 +1736,128 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
         }
     }
     /* calculate the entry_number */
+    desc_idx = SELECTOR_INDEX(sel) - gdt_entry_tls_min;
     if (seg == SEG_GS) {
         os_tls->app_gs = sel;
-        os_tls->app_gs_base = (void *)(ptr_uint_t) desc[SELECTOR_INDEX(sel)].base_addr;
+        os_tls->app_gs_base = (void *)(ptr_uint_t) desc[desc_idx].base_addr;
     } else {
         os_tls->app_fs = sel;
-        os_tls->app_fs_base = (void *)(ptr_uint_t) desc[SELECTOR_INDEX(sel)].base_addr;
+        os_tls->app_fs_base = (void *)(ptr_uint_t) desc[desc_idx].base_addr;
     }
     instr_free(dcontext, &instr);
     LOG(THREAD_GET, LOG_THREADS, 2,
-        "thread %d segment change => app fs: "PFX", gs: "PFX"\n",
-        get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
+        "thread %d segment change %s to selector 0x%x => app fs: "PFX", gs: "PFX"\n",
+        get_thread_id(), reg_names[seg], sel, os_tls->app_fs_base, os_tls->app_gs_base);
+}
+
+/* Queries the set of available GDT slots, and initializes:
+ * - tls_gdt_index
+ * - gdt_entry_tls_min on ia32
+ * - lib_tls_gdt_index if using private loader
+ * GDT slots are initialized with a base and limit of zero.  The caller is
+ * responsible for setting them to a real base.
+ */
+static void
+choose_gdt_slots(os_local_state_t *os_tls)
+{
+    static bool tls_global_init = false;
+    our_modify_ldt_t desc;
+    int i;
+    int avail_index[GDT_NUM_TLS_SLOTS];
+    our_modify_ldt_t clear_desc;
+    int res;
+
+    /* using local static b/c dynamo_initialized is not set for a client thread
+     * when created in client's dr_init routine
+     */
+    /* FIXME: Could be racy if we have multiple threads initializing during
+     * startup.
+     */
+    if (tls_global_init)
+        return;
+    tls_global_init = true;
+
+    /* We don't want to break the assumptions of pthreads or wine,
+     * so we try to take the last slot.  We don't want to hardcode
+     * the index b/c the kernel will let us clobber entries so we want
+     * to only pass in -1.
+     */
+    ASSERT(!dynamo_initialized);
+    ASSERT(tls_gdt_index == -1);
+    for (i = 0; i < GDT_NUM_TLS_SLOTS; i++)
+        avail_index[i] = -1;
+    for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
+        /* We use a base and limit of 0 for testing what's available. */
+        initialize_ldt_struct(&desc, NULL, 0, -1);
+        res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
+        LOG(GLOBAL, LOG_THREADS, 4,
+            "%s: set_thread_area -1 => %d res, %d index\n",
+            __FUNCTION__, res, desc.entry_number);
+        if (res >= 0) {
+            /* We assume monotonic increases */
+            avail_index[i] = desc.entry_number;
+            ASSERT(avail_index[i] > tls_gdt_index);
+            tls_gdt_index = desc.entry_number;
+        } else
+            break;
+    }
+
+#ifndef X64
+    /* In x86-64's ia32 emulation,
+     * set_thread_area(6 <= entry_number && entry_number <= 8) fails
+     * with EINVAL (22) because x86-64 only accepts GDT indices 12 to 14
+     * for TLS entries.
+     */
+    if (tls_gdt_index > (gdt_entry_tls_min + GDT_NUM_TLS_SLOTS))
+        gdt_entry_tls_min = GDT_ENTRY_TLS_MIN_64;  /* The kernel is x64. */
+#endif
+
+    /* Now give up the earlier slots */
+    for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
+        if (avail_index[i] > -1 &&
+            avail_index[i] != tls_gdt_index) {
+            LOG(GLOBAL, LOG_THREADS, 4,
+                "clearing set_thread_area index %d\n", avail_index[i]);
+            clear_ldt_struct(&clear_desc, avail_index[i]);
+            res = dynamorio_syscall(SYS_set_thread_area, 1, &clear_desc);
+            ASSERT(res >= 0);
+        }
+    }
+
+# ifndef VMX86_SERVER
+    ASSERT_CURIOSITY(tls_gdt_index ==
+                     (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT));
+# endif
+
+# ifdef CLIENT_INTERFACE
+    if (INTERNAL_OPTION(private_loader) && tls_gdt_index != -1) {
+        /* Use the app's selector with our own TLS base for libraries.  app_fs
+         * and app_gs are initialized by the caller in os_tls_app_seg_init().
+         */
+        int index = SELECTOR_INDEX(IF_X64_ELSE(os_tls->app_fs,
+                                               os_tls->app_gs));
+        if (index == 0) {
+            /* An index of zero means the app has no TLS (yet), and happens
+             * during early injection.  We use -1 to grab a new entry.  When the
+             * app asks for its first table entry with set_thread_area, we give
+             * it this one and emulate its usage of the segment.
+             */
+            ASSERT_CURIOSITY(DYNAMO_OPTION(early_inject) && "app has "
+                             "no TLS, but we used non-early injection");
+            initialize_ldt_struct(&desc, NULL, 0, -1);
+            res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
+            LOG(GLOBAL, LOG_THREADS, 4,
+                "%s: set_thread_area -1 => %d res, %d index\n",
+                __FUNCTION__, res, desc.entry_number);
+            ASSERT(res >= 0);
+            if (res >= 0) {
+                return_stolen_lib_tls_gdt = true;
+                index = desc.entry_number;
+            }
+        }
+        lib_tls_gdt_index = index;
+    }
+# endif
 }
 
 /* initialization for mangle_app_seg, must be called before
@@ -1758,15 +1884,6 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
     else
         os_tls->app_fs_base = NULL;
 
-#ifndef X64
-    /* In x86-64's ia32 emulation,
-     * set_thread_area(6 <= entry_number && entry_number <= 8) fails 
-     * with EINVAL (22) because x86-64 only accepts GDT indices 12 to 14
-     * for TLS entries.
-     */
-    if (SELECTOR_INDEX(os_tls->app_gs) > (gdt_entry_tls_min + GDT_NUM_TLS_SLOTS))
-        gdt_entry_tls_min = GDT_ENTRY_TLS_MIN_64;
-#endif
     /* get all TLS thread area value */
     /* XXX: is get_thread_area supported in 64-bit kernel?
      * It has syscall number 211.
@@ -1774,6 +1891,12 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
      * It returns error value -38 for a 64-bit app in a 64-bit kernel.
      */
     desc = &os_tls->os_seg_info.app_thread_areas[0];
+#ifndef X64
+    /* Initialize gdt_entry_tls_min on ia32.  On x64, the initial value is
+     * correct.
+     */
+    choose_gdt_slots(os_tls);
+#endif
     index = gdt_entry_tls_min;
     for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
         int res;
@@ -1903,6 +2026,7 @@ os_tls_init(void)
         }
     }
 # endif
+
     if (os_tls->tls_type == TLS_TYPE_NONE) {
         /* Second choice is set_thread_area */
         /* PR 285898: if we added CLONE_SETTLS to all clone calls (and emulated vfork
@@ -1910,100 +2034,30 @@ os_tls_init(void)
          * as solve race PR 207903), at least for kernel 2.5.32+.  For now we stick
          * w/ manual setup.
          */
-        /* using local static b/c dynamo_initialized is not set for a client thread
-         * when created in client's dr_init routine
-         */
-        static bool tls_global_init = false;
         our_modify_ldt_t desc;
-        /* Base here must be 32-bit */
-        IF_X64(ASSERT(DYNAMO_OPTION(heap_in_lower_4GB) && segment <= (byte*)UINT_MAX));
-        if (!tls_global_init) {
-            /* We don't want to break the assumptions of pthreads or wine,
-             * so we try to take the last slot.  We don't want to hardcode
-             * the index b/c the kernel will let us clobber entries so we want
-             * to only pass in -1.
+
+        /* Pick which GDT slots we'll use for DR TLS and for library TLS if
+         * using the private loader.
+         */
+        choose_gdt_slots(os_tls);
+
+        if (tls_gdt_index > -1) {
+            /* Now that we know which GDT slot to use, install the per-thread base
+             * into it.
              */
-            int i;
-            int avail_index[GDT_NUM_TLS_SLOTS];
-            our_modify_ldt_t clear_desc;
-            ASSERT(!dynamo_initialized);
-            tls_global_init = true;
-            ASSERT(tls_gdt_index == -1);
-            for (i = 0; i < GDT_NUM_TLS_SLOTS; i++)
-                avail_index[i] = -1;
-            for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
-                initialize_ldt_struct(&desc, segment, PAGE_SIZE, -1);
-                res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-                LOG(GLOBAL, LOG_THREADS, 4,
-                    "%s: set_thread_area -1 => %d res, %d index\n",
-                    __func__, res, desc.entry_number);
-                if (res >= 0) {
-                    /* We assume monotonic increases */
-                    avail_index[i] = desc.entry_number;
-                    ASSERT(avail_index[i] > tls_gdt_index);
-                    tls_gdt_index = desc.entry_number;
-                } else
-                    break;
-            }
-            /* Now give up the earlier slots */
-            for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
-                if (avail_index[i] > -1 &&
-                    avail_index[i] != tls_gdt_index) {
-                    LOG(GLOBAL, LOG_THREADS, 4,
-                        "clearing set_thread_area index %d\n", avail_index[i]);
-                    clear_ldt_struct(&clear_desc, avail_index[i]);
-                    res = dynamorio_syscall(SYS_set_thread_area, 1, &clear_desc);
-                    ASSERT(res >= 0);
-                }
-            }
-# ifndef VMX86_SERVER
-            ASSERT_CURIOSITY(tls_gdt_index ==
-                             (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT));
-# endif
-            if (tls_gdt_index > -1)
-                res = 0;
-# ifdef CLIENT_INTERFACE
-            if (INTERNAL_OPTION(private_loader) && tls_gdt_index != -1) {
-                app_pc base = IF_X64_ELSE(os_tls->os_seg_info.dr_fs_base,
-                                          os_tls->os_seg_info.dr_gs_base);
-                index = SELECTOR_INDEX(IF_X64_ELSE(os_tls->app_fs, 
-                                                   os_tls->app_gs));
-                initialize_ldt_struct(&desc, base, GDT_NO_SIZE_LIMIT, index);
-                res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-                ASSERT(res >= 0);
-                /* i558 update lib seg reg to enforce the segment changes */
-                selector = GDT_SELECTOR(index);
-                WRITE_LIB_SEG(selector);
-            }
-# endif
-        } else {
-            /* For subsequent threads we need to clobber the parent's
-             * entry with our own
-             */
-            ASSERT(tls_gdt_index > -1);
+            /* Base here must be 32-bit */
+            IF_X64(ASSERT(DYNAMO_OPTION(heap_in_lower_4GB) &&
+                          segment <= (byte*)UINT_MAX));
             initialize_ldt_struct(&desc, segment, PAGE_SIZE, tls_gdt_index);
             res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-            LOG(GLOBAL, LOG_THREADS, 4,
-                "%s: set_thread_area -1 => %d res, %d index\n",
-                __func__, res, desc.entry_number);
+            LOG(GLOBAL, LOG_THREADS, 3,
+                "%s: set_thread_area %d => %d res, %d index\n",
+                __FUNCTION__, tls_gdt_index, res, desc.entry_number);
             ASSERT(res < 0 || desc.entry_number == tls_gdt_index);
-# ifdef CLIENT_INTERFACE
-            if (INTERNAL_OPTION(private_loader)) {
-                app_pc base = IF_X64_ELSE(os_tls->os_seg_info.dr_fs_base,
-                                          os_tls->os_seg_info.dr_gs_base);
-                /* because we mangle the app seg reference, 
-                 * we can use the app's slot directly.
-                 */
-                index = SELECTOR_INDEX(IF_X64_ELSE(os_tls->app_fs, 
-                                                   os_tls->app_gs));
-                initialize_ldt_struct(&desc, base, GDT_NO_SIZE_LIMIT, index);
-                res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-                LOG(GLOBAL, LOG_THREADS, 4,
-                    "%s: set_thread_area -1 => %d res, %d index\n",
-                    __func__, res, desc.entry_number);
-            }
-# endif
+        } else {
+            res = -1;  /* fall back on LDT */
         }
+
         if (res >= 0) {
             LOG(GLOBAL, LOG_THREADS, 1,
                 "os_tls_init: set_thread_area successful for base "PFX" @index %d\n",
@@ -2017,7 +2071,31 @@ os_tls_init(void)
             LOG(GLOBAL, LOG_THREADS, 1,
                 "os_tls_init: set_thread_area failed: error %d\n", res);
         }
+
+# ifdef CLIENT_INTERFACE
+        /* Install the library TLS base. */
+        if (INTERNAL_OPTION(private_loader) && res >= 0) {
+            app_pc base = IF_X64_ELSE(os_tls->os_seg_info.dr_fs_base,
+                                      os_tls->os_seg_info.dr_gs_base);
+            /* lib_tls_gdt_index is picked in choose_gdt_slots. */
+            ASSERT(lib_tls_gdt_index >= gdt_entry_tls_min);
+            initialize_ldt_struct(&desc, base, GDT_NO_SIZE_LIMIT,
+                                  lib_tls_gdt_index);
+            res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
+            LOG(GLOBAL, LOG_THREADS, 3,
+                "%s: set_thread_area %d => %d res, %d index\n",
+                __FUNCTION__, lib_tls_gdt_index, res, desc.entry_number);
+            if (res >= 0) {
+                /* i558 update lib seg reg to enforce the segment changes */
+                selector = GDT_SELECTOR(lib_tls_gdt_index);
+                LOG(GLOBAL, LOG_THREADS, 2, "%s: setting %s to selector 0x%x\n",
+                    __FUNCTION__, reg_names[LIB_SEG_TLS], selector);
+                WRITE_LIB_SEG(selector);
+            }
+        }
+# endif
     }
+
     if (os_tls->tls_type == TLS_TYPE_NONE) {
         /* Third choice: modify_ldt, which should be available on kernel 2.3.99+ */
         /* Base here must be 32-bit */
@@ -3245,11 +3323,14 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      */
     our_modify_ldt_t desc;
     /* if get_segment_base() returned size too we could use it */
-    uint index = SELECTOR_INDEX(read_selector(LIB_SEG_TLS));
+    uint index = lib_tls_gdt_index;
+    ASSERT(lib_tls_gdt_index != -1);
     initialize_ldt_struct(&desc, NULL, 0, index);
     int res = dynamorio_syscall(SYS_get_thread_area, 1, &desc);
     if (res != 0) {
-        LOG(THREAD, LOG_ALL, 1, "client thread tls get failed: %d\n", res);
+        LOG(THREAD, LOG_ALL, 1,
+            "%s: client thread tls get entry %d failed: %d\n",
+            __FUNCTION__, index, res);
         return false;
     }
 #endif
@@ -4979,6 +5060,7 @@ os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
     int i;
     os_thread_data_t *ostd = dcontext->os_field;
     our_modify_ldt_t *desc = (our_modify_ldt_t *)ostd->app_thread_areas;
+
     if (user_desc->seg_not_present == 1) {
         /* find a empty one to update */
         for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
@@ -4991,15 +5073,40 @@ os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
         } else
             return false;
     } else {
+        /* If we used early injection, this might be ld.so trying to set up TLS.  We
+         * direct the app to use the GDT entry we already set up for our private
+         * libraries, but only the first time it requests TLS.
+         */
+        if (user_desc->entry_number == -1 && return_stolen_lib_tls_gdt) {
+            mutex_lock(&set_thread_area_lock);
+            if (return_stolen_lib_tls_gdt) {
+                uint selector = read_selector(LIB_SEG_TLS);
+                uint index = SELECTOR_INDEX(selector);
+                SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+                return_stolen_lib_tls_gdt = false;
+                SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+                user_desc->entry_number = index;
+                LOG(GLOBAL, LOG_THREADS, 2, "%s: directing app to use "
+                    "selector 0x%x for first call to set_thread_area\n",
+                    __FUNCTION__, selector);
+            }
+            mutex_unlock(&set_thread_area_lock);
+        }
+
         /* update the specific one */
         i = user_desc->entry_number - gdt_entry_tls_min;
         if (i < 0 || i >= GDT_NUM_TLS_SLOTS)
             return false;
+        LOG(GLOBAL, LOG_THREADS, 2,
+            "%s: change selector 0x%x base from "PFX" to "PFX"\n",
+            __FUNCTION__, GDT_SELECTOR(user_desc->entry_number),
+            desc[i].base_addr, user_desc->base_addr);
         memcpy(&desc[i], user_desc, sizeof(*user_desc));
     }
     /* if not conflict with dr's tls, perform the syscall */
     if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true) &&
-        GDT_SELECTOR(i + gdt_entry_tls_min) != read_selector(SEG_TLS))
+        GDT_SELECTOR(user_desc->entry_number) != read_selector(SEG_TLS) &&
+        GDT_SELECTOR(user_desc->entry_number) != read_selector(LIB_SEG_TLS))
         return false;
     return true;
 }
@@ -5038,7 +5145,7 @@ os_switch_lib_tls(dcontext_t *dcontext, bool to_app)
 static bool
 os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
 {
-    int res;
+    int res = -1;
     app_pc base;
     os_local_state_t *os_tls = get_os_tls_from_dc(dcontext);
 
@@ -5073,20 +5180,35 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         our_modify_ldt_t desc;
         uint index;
         uint selector;
-        index = SELECTOR_INDEX(seg == SEG_FS ? os_tls->app_fs : os_tls->app_gs);
         if (to_app) {
-            our_modify_ldt_t *areas = 
-                ((os_thread_data_t *)dcontext->os_field)->app_thread_areas;
-            ASSERT((index >= gdt_entry_tls_min) && 
-                   ((index - gdt_entry_tls_min) <= GDT_NUM_TLS_SLOTS));
-            desc = areas[index - gdt_entry_tls_min];
+            selector = (seg == SEG_FS ? os_tls->app_fs : os_tls->app_gs);
+            index = SELECTOR_INDEX(selector);
         } else {
-            initialize_ldt_struct(&desc, base, GDT_NO_SIZE_LIMIT, index);
+            index = (seg == LIB_SEG_TLS ? lib_tls_gdt_index : tls_gdt_index);
+            ASSERT(index != -1 && "TLS indices not initialized");
+            selector = GDT_SELECTOR(index);
         }
-        res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-        ASSERT(res >= 0);
+        if (selector != 0) {
+            if (to_app) {
+                our_modify_ldt_t *areas = 
+                    ((os_thread_data_t *)dcontext->os_field)->app_thread_areas;
+                ASSERT((index >= gdt_entry_tls_min) && 
+                       ((index - gdt_entry_tls_min) <= GDT_NUM_TLS_SLOTS));
+                desc = areas[index - gdt_entry_tls_min];
+            } else {
+                initialize_ldt_struct(&desc, base, GDT_NO_SIZE_LIMIT, index);
+            }
+            res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
+            ASSERT(res >= 0);
+        } else {
+            /* For a selector of zero, we just reset the segment to zero.  We
+             * don't need to call set_thread_area.
+             */
+            res = 0;  /* Indicate success. */
+        }
         /* i558 update lib seg reg to enforce the segment changes */
-        selector = GDT_SELECTOR(index);
+        LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting %s to 0x%x\n",
+            __FUNCTION__, (to_app ? "app" : "dr"), reg_names[seg], selector);
         WRITE_LIB_SEG(selector);
         LOG(THREAD, LOG_LOADER, 2,
             "%s %s: set_thread_area successful for thread %d base "PFX"\n",
@@ -6312,7 +6434,7 @@ handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         "thread %d segment change => app fs: "PFX", gs: "PFX"\n",
         get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
 }
-#endif
+#endif /* X64 */
 
 /* Returns false if system call should NOT be executed
  * Returns true if system call should go ahead

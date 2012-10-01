@@ -1472,11 +1472,15 @@ bb_process_mov_seg(dcontext_t *dcontext, build_bb_t *bb)
         bb->flags |= FRAG_HAS_MOV_SEG;
         return true; /* continue bb */
     }
+
     LOG(THREAD, LOG_INTERP, 3, "ending bb before mov_seg\n");
-    /* Set instr to NULL in order to get translation of exit cti correct. */
-    /* FIXME: should we free the memory allocated for bb->instr?
-     * It seems that bb_process_non_ignorable_syscall didn't. 
+    /* Set cur_pc back to the start of this instruction and delete this
+     * instruction from the bb ilist.
      */
+    bb->cur_pc = instr_get_raw_bits(bb->instr);
+    instrlist_remove(bb->ilist, bb->instr);
+    instr_destroy(dcontext, bb->instr);
+    /* Set instr to NULL in order to get translation of exit cti correct. */
     bb->instr = NULL;
     /* this block must be the last one in a trace 
      * breaking traces here shouldn't be a perf issue b/c this is so rare,

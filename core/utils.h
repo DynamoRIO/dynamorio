@@ -482,6 +482,7 @@ enum {
                                      < dynamo_areas, < global_alloc_lock */
     IF_LINUX_(IF_DEBUG(LOCK_RANK(elf_areas))) /* < all_memory_areas */
     IF_LINUX_(LOCK_RANK(all_memory_areas))    /* < dynamo_areas */
+    IF_LINUX_(LOCK_RANK(set_thread_area_lock)) /* no constraints */
     LOCK_RANK(landing_pad_areas_lock),  /* < global_alloc_lock, < dynamo_areas */
     LOCK_RANK(dynamo_areas),    /* < global_alloc_lock */
     LOCK_RANK(map_intercept_pc_lock), /* < global_alloc_lock */
