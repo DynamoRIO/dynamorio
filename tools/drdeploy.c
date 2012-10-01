@@ -61,8 +61,6 @@
 #include "dr_config.h" /* MUST be before share.h (it sets HOT_PATCHING_INTERFACE) */
 #include "dr_inject.h"
 
-#define MAX_CMDLINE 4096
-
 typedef enum _action_t {
     action_none,
     action_nudge,
@@ -255,6 +253,40 @@ _access(const char *fname, int mode)
 }
 
 # ifndef DRCONFIG
+/* Implements a normal path search for fname on the paths in env_var.  Assumes
+ * full_path is at least MAXIMUM_PATH bytes long.
+ */
+static int
+_searchenv(const char *fname, const char *env_var, char *full_path)
+{
+    const char *paths = getenv(env_var);
+    const char *cur;
+    const char *next;
+    const char *end;
+    char tmp[MAXIMUM_PATH];
+
+    /* Windows searches the current directory first. */
+    /* XXX: realpath resolves symlinks, which we may not want. */
+    if (realpath(fname, full_path) && _access(full_path, 0) == 0)
+        return 0;
+
+    cur = paths;
+    end = strchr(paths, '\0');
+    while (cur < end) {
+        next = strchr(cur, ':');
+        next = (next == NULL ? end : next);
+        snprintf(tmp, BUFFER_SIZE_ELEMENTS(tmp),
+                 "%.*s/%s", (int)(next - cur), cur, fname);
+        NULL_TERMINATE_BUFFER(tmp);
+        /* realpath checks for existence too. */
+        if (realpath(tmp, full_path) != NULL && _access(full_path, 0) == 0)
+            return 0;
+        cur = next + 1;
+    }
+    full_path[0] = '\0';
+    return -1;
+}
+
 static int
 GetLastError(void)
 {
@@ -278,6 +310,29 @@ GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
         strncpy(abs, tmp_buf, abs_len);
     }
 }
+
+# ifdef DRRUN
+/* PID of child to kill when alarm goes off. */
+static process_id_t alarm_child_pid;
+
+/* Handles SIGALRM for -s timeouts set for drrun.
+ */
+static void
+alarm_handler(int sig)
+{
+    if (sig == SIGALRM) {
+        /* XXX: Could check if the timeout has been reached yet.  For now we
+         * rely on alarm().
+         */
+        process_id_t pid = alarm_child_pid;
+        alarm_child_pid = 0;
+        /* Go straight for SIGKILL to match Windows.  If DR is hung, its signal
+         * handler may be confused.
+         */
+        kill(pid, SIGKILL);
+    }
+}
+# endif /* DRRUN */
 
 #endif /* LINUX */
 
@@ -594,13 +649,14 @@ int main(int argc, char *argv[])
     bool inject = true;
     int limit = 0; /* in seconds */
     char *drlib_path = NULL;
+    int exitcode;
 # ifdef WINDOWS
     bool debugger_key_injection = false;
     time_t start_time, end_time;
 # endif /* WINDOWS */
     char *app_name;
     char full_app_name[MAXIMUM_PATH];
-    char app_cmdline[MAX_CMDLINE];
+    const char **app_argv;
     char custom_dll[MAXIMUM_PATH];
     int errcode;
     void *inject_data;
@@ -918,21 +974,20 @@ int main(int argc, char *argv[])
     info("targeting application: \"%s\"", app_name);
 
     /* note that we want target app name as part of cmd line
+     * (hence &argv[i - 1])
      * (FYI: if we were using WinMain, the pzsCmdLine passed in
      *  does not have our own app name in it)
-     * it's easier to construct than to call GetCommandLine() and then
-     * remove our own args.
      */
-    c = app_cmdline;
-    c += _snprintf(c, BUFFER_SIZE_ELEMENTS(app_cmdline) - (c - app_cmdline),
-                   "\"%s\"", app_name);
-    for (; i < argc; i++) {
-        c += _snprintf(c, BUFFER_SIZE_ELEMENTS(app_cmdline) - (c - app_cmdline),
-                       " \"%s\"", argv[i]);
+    app_argv = (const char **) &argv[i - 1];
+    if (verbose) {
+        c = buf;
+        for (i = 0; app_argv[i] != NULL; i++) {
+            c += _snprintf(c, BUFFER_SIZE_ELEMENTS(buf) - (c - buf),
+                           " \"%s\"", app_argv[i]);
+        }
+        info("app cmdline: %s", buf);
     }
-    NULL_TERMINATE_BUFFER(app_cmdline);
-    assert(c - app_cmdline < BUFFER_SIZE_ELEMENTS(app_cmdline));
-    info("app cmdline: %s", app_cmdline);
+
 #else
     if (i < argc)
         usage("%s", "invalid extra arguments specified");
@@ -989,6 +1044,8 @@ int main(int argc, char *argv[])
         else if (res != DR_SUCCESS)
             printf("nudge operation failed, verify adequate permissions for this operation.");
     }
+#ifdef WINDOWS
+    /* FIXME i#840: Process iterator NYI for Linux. */
     else if (action == action_list) {
         if (!list_registered)
             list_process(process, global, dr_platform, NULL);
@@ -1002,6 +1059,7 @@ int main(int argc, char *argv[])
             dr_registered_process_iterator_stop(iter);
         }
     }
+#endif
     else if (!syswide_on && !syswide_off) {
         usage("no action specified");
     }
@@ -1035,18 +1093,21 @@ int main(int argc, char *argv[])
 # endif /* WINDOWS */
     return 0;
 #else /* DRCONFIG */
-    errcode = dr_inject_process_create(app_name, app_cmdline, &inject_data);
+    errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
     if (errcode != 0) {
-        int sofar = _snprintf(app_cmdline, BUFFER_SIZE_ELEMENTS(app_cmdline), 
-                              "Failed to create process for \"%s\": ", app_name);
+        IF_WINDOWS(int sofar =)
+            _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
+                      "Failed to create process for \"%s\": ", app_name);
+# ifdef WINDOWS
         if (sofar > 0) {
             FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                           NULL, errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                          (LPTSTR) app_cmdline + sofar,
-                          BUFFER_SIZE_ELEMENTS(app_cmdline) - sofar*sizeof(char), NULL);
+                          (LPTSTR) buf + sofar,
+                          BUFFER_SIZE_ELEMENTS(buf) - sofar*sizeof(char), NULL);
         }
-        NULL_TERMINATE_BUFFER(app_cmdline);
-        error("%s", app_cmdline);
+# endif /* WINDOWS */
+        NULL_TERMINATE_BUFFER(buf);
+        error("%s", buf);
         goto error;
     }
 
@@ -1065,7 +1126,7 @@ int main(int argc, char *argv[])
     for (j=0; j<num_clients; j++) {
         if (!register_client(process, dr_inject_get_process_id(inject_data), global,
                              dr_platform, client_ids[j],
-                             (char *)client_paths[j], client_options[j]))
+                             client_paths[j], client_options[j]))
             goto error;
     }
 # endif
@@ -1075,11 +1136,12 @@ int main(int argc, char *argv[])
         goto error;
     }
 
-    success = FALSE;
-    start_time = time(NULL);
+    success = false;
+    IF_WINDOWS(start_time = time(NULL);)
 
     dr_inject_process_run(inject_data);
 
+# ifdef WINDOWS
     if (limit == 0 && dr_inject_using_debug_key(inject_data)) {
         info("%s", "Using debugger key injection");
         limit = -1; /* no wait */
@@ -1087,7 +1149,6 @@ int main(int argc, char *argv[])
 
     if (limit >= 0) {
         double wallclock;
-        int exitcode;
         int wait_result;
         info("waiting %sfor app to exit...", (limit <= 0) ? "forever " : "");
         wait_result = WaitForSingleObject(dr_inject_get_process_handle(inject_data),
@@ -1095,7 +1156,7 @@ int main(int argc, char *argv[])
         end_time = time(NULL);
         wallclock = difftime(end_time, start_time);
         if (wait_result == WAIT_OBJECT_0)
-            success = TRUE;
+            success = true;
         else
             info("timeout after %d seconds\n", limit);
 
@@ -1108,9 +1169,48 @@ int main(int argc, char *argv[])
     } else {
         /* if we are using env -> registry our changes won't get undone!
          * we can't unset now, the app may still reference them */
-        success = TRUE;
+        success = true;
         return 0;
     }
+# else /* LINUX */
+    if (limit > 0) {
+        /* Set a timer ala runstats. */
+        struct sigaction act;
+
+        /* Set an alarm handler. */
+        alarm_child_pid = dr_inject_get_process_id(inject_data);
+        memset(&act, 0, sizeof(act));
+        act.sa_handler = alarm_handler;
+        sigaction(SIGALRM, &act, NULL);
+
+        /* No interval, one shot only. */
+        alarm(limit);
+    }
+
+    if (limit >= 0) {
+        info("waiting %sfor app to exit...", (limit <= 0) ? "forever " : "");
+        pid_t r;
+        do {
+            r = waitpid(dr_inject_get_process_id(inject_data), &exitcode, 0);
+        } while (r != dr_inject_get_process_id(inject_data) && r != -1);
+        /* FIXME i#840: We can't actually match exit status on Linux perfectly
+         * since the kernel reserves most of the bits for signal codes.  At the
+         * very least, we should ensure if the app exits with a signal we exit
+         * non-zero.
+         */
+    } else {
+        /* Don't wait, just return success. */
+        exitcode = 0; 
+    }
+
+    /* No need to kill the child process.  If the timeout expired, our signal
+     * handler does the kill.
+     */
+    dr_inject_process_exit(inject_data, false);
+    if (exit0)
+        exitcode = 0;
+    return exitcode;
+# endif
  error:
     /* we created the process suspended so if we later had an error be sure
      * to kill it instead of leaving it hanging

@@ -1325,6 +1325,11 @@ privload_early_inject(void **sp)
 
     exe_path = argv[0];  /* drrun makes this path absolute. */
     dynamorio_set_envp(envp);
+    /* FIXME i#47: In order to parse our options, we have to read our config
+     * file, which calls get_application_name(), which needs to know if we used
+     * early injection.
+     */
+    dynamo_options.early_inject = true;
 
     ASSERT(exe_path != NULL);
 

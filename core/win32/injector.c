@@ -580,6 +580,9 @@ void restore_debugger_key_injection(int id, BOOL started)
 
 /***************************** end debug key injection ********************/
 
+/* CreateProcess will take a string up to 36K. */
+enum { MAX_CMDLINE = 36 * 1024 };
+
 static const TCHAR *
 get_image_name(const TCHAR *app_name)
 {
@@ -597,16 +600,30 @@ get_image_name(const TCHAR *app_name)
  */
 DYNAMORIO_EXPORT
 int
-dr_inject_process_create(const char *app_name, const char *app_cmdline,
+dr_inject_process_create(const char *app_name, const char **argv,
                          void **data OUT)
 {
     dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
     STARTUPINFO si;
     int errcode = 0;
     BOOL res;
+    char *app_cmdline;
+    size_t sofar = 0;
+    int i;
+
     if (data == NULL)
         return ERROR_INVALID_PARAMETER;
-    
+
+    /* Quote and concatenate the array of strings to pass to CreateProcess. */
+    app_cmdline = malloc(MAX_CMDLINE);
+    if (!app_cmdline)
+        return GetLastError();
+    /* FIXME: Need to escape quotes in args. */
+    for (i = 0; argv[i] != NULL; i++) {
+        print_to_buffer(app_cmdline, MAX_CMDLINE, &sofar, "\"%s\" ", argv[i]);
+    }
+    app_cmdline[sofar-1] = '\0'; /* Trim the trailing space. */
+
     /* Launch the application process. */
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
@@ -629,13 +646,14 @@ dr_inject_process_create(const char *app_name, const char *app_cmdline,
     }
 
     /* Must specify TRUE for bInheritHandles so child inherits stdin! */
-    res = CreateProcess(app_name, (char *)app_cmdline, NULL, NULL, TRUE,
+    res = CreateProcess(app_name, app_cmdline, NULL, NULL, TRUE,
                         CREATE_SUSPENDED |
                         ((debug_stop_function && info->using_debugger_injection) ?
                          DEBUG_PROCESS | DEBUG_ONLY_THIS_PROCESS : 0),
                         NULL, NULL, &si, &info->pi);
     if (!res)
         errcode = GetLastError();
+    free(app_cmdline);
 
     if (info->using_debugger_injection) {
         restore_debugger_key_injection(info->pi.dwProcessId, res);

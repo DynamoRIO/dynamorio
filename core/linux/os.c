@@ -7988,19 +7988,9 @@ find_executable_vm_areas(void)
                 iter.vm_start, iter.vm_start+image_size, iter.inode, iter.comment);
 
             /* look for executable */
-            exec_match = read_proc_self_exe(false/*!ignore cache*/);
+            exec_match = get_application_name();
             if (exec_match != NULL && exec_match[0] != '\0')
                 found_exec = (strcmp(iter.comment, exec_match) == 0);
-            else {
-                /* fall back on looking for app name: though if running a
-                 * symlink or something we won't find it!
-                 * XXX: take 1st entry, then?  for now we rely on
-                 * read_proc_self_exe() succeeding
-                 */
-                exec_match = strstr(iter.comment, get_application_name());
-                found_exec = (exec_match != NULL && exec_match == iter.comment +
-                              strlen(iter.comment) - strlen(get_application_name()));
-            }
             if (found_exec) {
                 executable_start = iter.vm_start;
                 LOG(GLOBAL, LOG_VMAREAS, 2,

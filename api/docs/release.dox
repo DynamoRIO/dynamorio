@@ -132,6 +132,11 @@ And in the core API:
  - dr_get_milliseconds() now returns the number of milliseconds since Jan
    1, 1601 on all platforms.
 
+And in the non-core APIs:
+
+ - dr_inject_process_create() now takes a NULL-terminated array of strings for
+   the app command line to better support porting to Linux.
+
 Further non-compatibility-affecting changes include:
 
  - Added persistent cache support for clients via
@@ -144,6 +149,8 @@ Further non-compatibility-affecting changes include:
    hashtable_persist(), and hashtable_resurrect()
  - Added drsym_get_type(), drsym_expand_type(), and support for additional
    type categories for Windows drsyms.
+ - Ported the drinjectlib and drconfiglib libraries to Linux.  Routines that
+   are still Windows-only are marked in the API docs.
  - Added drsym_free_resources()
  - Added drsym_module_has_symbols()
  - Added dr_exit_process() to cleanly shut down with a specified

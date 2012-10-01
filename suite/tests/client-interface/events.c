@@ -107,6 +107,9 @@ main(int argc, char** argv)
      * Load and unload a module to cause a module unload event
      */
     hmod = LoadLibrary(argv[1]);
+    if (hmod == NULL) {
+        print("LoadLibrary failed: %x\n", GetLastError());
+    }
     FreeLibrary(hmod);
 #endif
 
