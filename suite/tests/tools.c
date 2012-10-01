@@ -290,6 +290,16 @@ get_cache_line_size()
     return cache_line_size;
 }
 
+void
+print(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    fflush(stderr);
+    va_end(ap);
+}
+
 #ifdef LINUX
 /******************************************************************************
  * Staticly linked and stateless versions of libc routines.
