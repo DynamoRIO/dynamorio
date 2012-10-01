@@ -44,13 +44,17 @@
  * implementation for Linux.
  */
 
+#include "configure.h"  /* for LINUX */
+#include "globals_shared.h"  /* for DYNAMORIO_VAR_EXE_PATH */
+
 #include <errno.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 
 int
-main(int argc, char **argv, char **envp)
+main(int argc, char **argv)
 {
     int r;
     struct stat st;
@@ -83,12 +87,13 @@ main(int argc, char **argv, char **envp)
         return -1;
     }
 
-    /* The execve prototype is:
+    /* The execve syscall prototype is:
      *   int execve(char *filename, char *argv[], char *envp[]);
      * We pass libdr_so as the filename.  For argv, we pass the rest of the
      * command line starting with the app's path.
      */
-    r = execve(libdr_so, &argv[2], envp);
+    setenv(DYNAMORIO_VAR_EXE_PATH, app, true/*overwrite*/);
+    r = execv(libdr_so, &argv[2]);
     /* Only returns on error. */
     fprintf(stderr, "%s: can't exec %s\n", argv[0], app);
     perror(argv[0]);

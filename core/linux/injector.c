@@ -40,6 +40,7 @@
 #include "globals_shared.h"
 #include "../config.h"  /* for get_config_val_other_app */
 
+#include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -61,6 +62,8 @@ typedef struct _dr_inject_info_t {
     int pipe_fd;
 } dr_inject_info_t;
 
+/* libc's environment pointer. */
+extern char **environ;
 
 static process_id_t
 fork_suspended_child(const char *exe, const char **argv, int fds[2])
@@ -71,6 +74,7 @@ fork_suspended_child(const char *exe, const char **argv, int fds[2])
         char libdr_path[MAXIMUM_PATH];
         ssize_t nread;
         size_t sofar = 0;
+        char *real_exe;
         close(fds[1]);  /* Close writer in child, keep reader. */
         do {
             nread = read(fds[0], libdr_path + sofar,
@@ -80,15 +84,13 @@ fork_suspended_child(const char *exe, const char **argv, int fds[2])
         libdr_path[sofar] = '\0';
         close(fds[0]);  /* Close reader before exec. */
         if (libdr_path[0] == '\0') {
-            execv((char *) exe, (char **) argv);
+            /* If nothing was written to the pipe, let it run natively. */
+            real_exe = (char *) exe;
         } else {
-            /* FIXME i#908: Allow the caller to pass an arbitrary argv[0] when
-             * using early injection.  We can probably pass the absolute path of
-             * the exe in an environment variable.
-             */
-            argv[0] = exe;  /* Make argv[0] absolute for DR's benefit. */
-            execv(libdr_path, (char **) argv);
+            real_exe = libdr_path;
         }
+        setenv(DYNAMORIO_VAR_EXE_PATH, exe, true/*overwrite*/);
+        execv(real_exe, (char **) argv);
         /* If execv returns, there was an error. */
         exit(-1);
     }
@@ -106,7 +108,7 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
     dr_inject_info_t *info = malloc(sizeof(*info));
     const char *basename = strrchr(exe, '/');
     if (basename == NULL) {
-        return -1;  /* exe should be absolute. */
+        return EINVAL;  /* exe should be absolute. */
     }
     basename++;
     strncpy(info->image_name, basename, BUFFER_SIZE_ELEMENTS(info->image_name));

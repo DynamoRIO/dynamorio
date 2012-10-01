@@ -1323,15 +1323,18 @@ privload_early_inject(void **sp)
     const char *interp;
     priv_mcontext_t mc;
 
-    exe_path = argv[0];  /* drrun makes this path absolute. */
     dynamorio_set_envp(envp);
-    /* FIXME i#47: In order to parse our options, we have to read our config
-     * file, which calls get_application_name(), which needs to know if we used
-     * early injection.
-     */
-    dynamo_options.early_inject = true;
 
-    ASSERT(exe_path != NULL);
+    /* argv[0] doesn't actually have to be the path to the exe, so we put the
+     * real exe path in an environment variable.
+     */
+    exe_path = getenv(DYNAMORIO_VAR_EXE_PATH);
+    apicheck(exe_path != NULL, DYNAMORIO_VAR_EXE_PATH" env var is not set.");
+
+    /* i#907: We can't rely on /proc/self/exe for the executable path, so we
+     * have to tell get_application_name() to use this path.
+     */
+    set_executable_path(exe_path);
 
     /* FIXME: PIEs with a base of 0 should not use MAP_FIXED. */
     exe_map = map_elf_phdrs(exe_path, true /* MAP_FIXED */, &exe_map_size,

@@ -264,6 +264,10 @@ static app_pc dynamo_dll_end = NULL; /* open-ended */
 
 static app_pc executable_start = NULL;
 
+/* Used by get_application_name(). */
+static char executable_path[MAXIMUM_PATH];
+static char *executable_basename;
+
 /* does the kernel provide tids that must be used to distinguish threads in a group? */
 static bool kernel_thread_groups;
 
@@ -853,77 +857,44 @@ get_application_pid()
     return get_application_pid_helper(false);
 }
 
-/* Reads argv[0] from /proc/pid/cmdline.  This can differ from the actual
- * filename passed to execve.  argv[0] is the same only by convention, and even
- * when obeying the convention, argv[0] may be a symlink to another executable.
- * Use read_proc_self_exe() to get the real path of the executable.
+/* i#907: Called during early injection before data section protection to avoid
+ * issues with /proc/self/exe.
  */
-static void
-read_proc_pid_cmdline_argv0(int pid, char *name, uint maxlen)
+void
+set_executable_path(const char *exe_path)
 {
-    int fd;
-    char proc_cmdline[MAXIMUM_PATH];
-    ssize_t sofar = 0;
-    ssize_t n;
-    ssize_t toread;
-
-    ASSERT(maxlen > 0);
-
-    /* /proc/pid/cmdline is a series of null-terminated strings.  We read
-     * maxlen-1 bytes and rely on argv[0] being null-terminated.
-     */
-    snprintf(proc_cmdline, BUFFER_SIZE_ELEMENTS(proc_cmdline),
-             "/proc/%d/cmdline", pid);
-    NULL_TERMINATE_BUFFER(proc_cmdline);
-    fd = open_syscall(proc_cmdline, O_RDONLY, 0);
-    toread = maxlen - 1;  /* Leave room for null. */
-    while (toread > 0) {
-        n = read_syscall(fd, name + sofar, toread);
-        if (n <= 0)
-            break;
-        ASSERT(n <= toread);
-        sofar += n;
-        toread -= n;
-    }
-    if (n < 0)
-        sofar = 0;  /* Empty string on error. */
-    name[sofar] = '\0';
-    close_syscall(fd);
+    strncpy(executable_path, exe_path, BUFFER_SIZE_ELEMENTS(executable_path));
+    NULL_TERMINATE_BUFFER(executable_path);
 }
 
-/* we need to re-cache after a fork */
+/* i#189: we need to re-cache after a fork */
 static char *
 get_application_name_helper(bool ignore_cache, bool full_path)
 {
-    static char name_buf[MAXIMUM_PATH];
-    static char *short_name;
-
-    if (!name_buf[0] || ignore_cache) {
+    if (!executable_path[0] || ignore_cache) {
 #ifdef VMX86_SERVER
         if (os_in_vmkernel_userworld()) {
-            vmk_getnamefrompid(pid, name_buf, sizeof(name_buf));
+            vmk_getnamefrompid(pid, executable_path, sizeof(executable_path));
         } else
 #endif
         if (DYNAMO_OPTION(early_inject)) {
-            /* FIXME i#47: /proc/self/exe points to DR with early injection, so
-             * we pull argv[0] from /proc/self/cmdline.  When we make argv[0]
-             * transparent, DR will have to store the true app path somewhere
-             * internally and we can use that.
-             */
-            read_proc_pid_cmdline_argv0(get_process_id(), name_buf,
-                                        BUFFER_SIZE_ELEMENTS(name_buf));
+            ASSERT(executable_path[0] != '\0' &&
+                   "i#907: Can't read /proc/self/exe for early injection");
         } else {
-            strncpy(name_buf, read_proc_self_exe(ignore_cache), sizeof(name_buf));
-            NULL_TERMINATE_BUFFER(name_buf);
+            /* Populate cache from /proc/self/exe link. */
+            strncpy(executable_path, read_proc_self_exe(ignore_cache),
+                    BUFFER_SIZE_ELEMENTS(executable_path));
+            NULL_TERMINATE_BUFFER(executable_path);
         }
-
-        short_name = strrchr(name_buf, '/');
-        if (short_name == NULL)
-            short_name = name_buf;
-        else
-            short_name++;
     }
-    return (full_path ? name_buf : short_name);
+
+    /* Get basename. */
+    if (executable_basename == NULL || ignore_cache) {
+        executable_basename = strrchr(executable_path, '/');
+        executable_basename = (executable_basename == NULL ?
+                               executable_path : executable_basename + 1);
+    }
+    return (full_path ? executable_path : executable_basename);
 }
 
 /* get application name, (cached), used for event logging */

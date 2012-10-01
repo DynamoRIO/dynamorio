@@ -128,6 +128,9 @@ typedef struct _os_thread_data_t {
 /* in os.c */
 void os_thread_take_over(priv_mcontext_t *mc);
 
+void
+set_executable_path(const char *);
+
 /* in signal.c */
 struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;
