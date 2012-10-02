@@ -160,8 +160,10 @@ static byte *LdrInitializeThunk = NULL;
  * NtCreateThread don't have to target this address. */
 static byte *RtlUserThreadStart = NULL;
 
+#ifndef X64
 /* Used to create a clean syscall wrapper on win8 where there's no ind call */
 static byte *KiFastSystemCall = NULL;
+#endif
 
 static inline app_pc
 get_setcontext_interceptor()
@@ -6907,10 +6909,12 @@ callback_interception_init_start(void)
     privload_add_windbg_cmds();
 
     /* other initialization */
+#ifndef X64
     if (get_os_version() >= WINDOWS_VERSION_8) {
         KiFastSystemCall = (byte *) get_proc_address(ntdllh, "KiFastSystemCall");
         ASSERT(KiFastSystemCall != NULL);
     }
+#endif
 }
 
 void
