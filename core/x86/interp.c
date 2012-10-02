@@ -465,6 +465,69 @@ must_escape_from(app_pc pc)
 }
 #endif /* DR_APP_EXPORTS */
 
+/* Adds bb->instr, which must be a direct call or jmp, to bb->ilist for native
+ * execution.  Makes sure its target is reachable from the code cache, which
+ * is critical for jmps b/c they're native for our hooks of app code which may
+ * not be reachable from the code cache.  Also needed for calls b/c in the future
+ * (i#774) the DR lib (and thus our must_not_be_inlined() calls) won't be reachable
+ * from the cache.
+ */
+static void
+bb_add_native_direct_xfer(dcontext_t *dcontext, build_bb_t *bb, bool appended)
+{
+#ifdef X64
+    /* i#922: we're going to run this jmp from our code cache so we have to
+     * make sure it still reaches its target.  We could try to check
+     * reachability from the likely code cache slot, but these should be
+     * rare enough that making them indirect won't matter and then we have
+     * fewer reachability dependences.
+     * We do this here rather than in mangle() b/c we'd have a hard time
+     * distinguishing native jmp/call due to DR's own operations from a
+     * client's inserted meta jmp/call.
+     */
+    /* Strategy: write target into xax (DR-reserved) slot and jmp through it.
+     * Alternative would be to embed the target into the code stream.
+     * We don't need to set translation b/c these are meta instrs and they
+     * won't fault.
+     */
+    ptr_uint_t tgt = (ptr_uint_t) opnd_get_pc(instr_get_target(bb->instr));
+    opnd_t tls_slot = opnd_create_sized_tls_slot(os_tls_offset(TLS_XAX_SLOT), OPSZ_4);
+    instrlist_meta_append(bb->ilist, INSTR_CREATE_mov_imm
+                          (dcontext, tls_slot, OPND_CREATE_INT32((int)tgt)));
+    opnd_set_disp(&tls_slot, opnd_get_disp(tls_slot) + 4);
+    instrlist_meta_append(bb->ilist, INSTR_CREATE_mov_imm
+                          (dcontext, tls_slot, OPND_CREATE_INT32((int)(tgt >> 32))));
+    if (instr_is_ubr(bb->instr)) {
+        instrlist_meta_append(bb->ilist, INSTR_CREATE_jmp_ind
+                              (dcontext,
+                               opnd_create_tls_slot(os_tls_offset(TLS_XAX_SLOT))));
+        bb->exit_type |= instr_branch_type(bb->instr);
+    } else {
+        ASSERT(instr_is_call_direct(bb->instr));
+        instrlist_meta_append(bb->ilist, INSTR_CREATE_call_ind
+                              (dcontext,
+                               opnd_create_tls_slot(os_tls_offset(TLS_XAX_SLOT))));
+    }
+    if (appended)
+        instrlist_remove(bb->ilist, bb->instr);
+    instr_destroy(dcontext, bb->instr);
+    bb->instr = NULL;
+#else
+    if (appended) {
+        /* avoid assert about meta w/ translation but no restore_state callback */
+        instr_set_translation(bb->instr, NULL);
+    } else
+        instrlist_append(bb->ilist, bb->instr);
+    /* Indicate that relative target must be
+     * re-encoded, and that it is not an exit cti.
+     * However, we must mangle this to ensure it reaches (i#992)
+     * which we special-case in mangle().
+     */
+    instr_set_ok_to_mangle(bb->instr, false);
+    instr_set_raw_bits_valid(bb->instr, false);
+#endif
+}
+
 /* Perform checks such as looking for dynamo stopping points and bad places
  * to be.  We assume we only have to check after control transfer instructions,
  * i.e., we assume that all of these conditions are procedures that are only
@@ -845,12 +908,7 @@ bb_process_ubr(dcontext_t *dcontext, build_bb_t *bb)
 #endif 
         BBPRINT(bb, 3, "interp: NOT following jmp to "PFX"\n", tgt);
         /* add instruction to instruction list */
-        instrlist_append(bb->ilist, bb->instr);
-        /* indicate that relative target must be
-         * re-encoded, and that it is not an exit cti
-         */
-        instr_set_ok_to_mangle(bb->instr, false);
-        instr_set_raw_bits_valid(bb->instr, false);
+        bb_add_native_direct_xfer(dcontext, bb, false/*!appended*/);
         /* Case 8711: coarse-grain can't handle non-exit cti */
         bb->flags &= ~FRAG_COARSE_GRAIN;
         STATS_INC(coarse_prevent_cti);
@@ -949,6 +1007,7 @@ bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
          */
         bb->flags &= ~FRAG_COARSE_GRAIN;
         STATS_INC(coarse_prevent_cti);
+        bb_add_native_direct_xfer(dcontext, bb, true/*appended*/);
         return true; /* keep bb going, w/o inlining call */
     } else {
         if (DYNAMO_OPTION(coarse_split_calls) && DYNAMO_OPTION(coarse_units) && 
@@ -1923,6 +1982,7 @@ bb_process_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb)
         bb->flags &= ~FRAG_COARSE_GRAIN;
         STATS_INC(coarse_prevent_cti);
         ASSERT_CURIOSITY_ONCE(!vsyscall && "leaving call* to vsyscall");
+        /* no need for bb_add_native_direct_xfer() b/c it's already indirect */
         return true; /* keep bb going, w/o inlining call */
     }
 
@@ -3031,7 +3091,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (bb_process_ubr(dcontext, bb))
                 continue;
             else {
-                bb->exit_type |= instr_branch_type(bb->instr);
+                if (bb->instr != NULL) /* else, bb_process_ubr() set exit_type */
+                    bb->exit_type |= instr_branch_type(bb->instr);
                 break;
             }
         } else

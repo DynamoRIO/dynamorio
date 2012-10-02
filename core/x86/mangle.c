@@ -2037,11 +2037,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     } else
         ASSERT_NOT_REACHED();
 
-    if (!mangle_calls ||
-#ifdef INTERNAL
-        !dynamo_options.inline_calls ||
-#endif
-        must_not_be_inlined(target)) {
+    if (!mangle_calls) {
         /* off-trace call that will be executed natively */
 
         /* relative target must be re-encoded */
