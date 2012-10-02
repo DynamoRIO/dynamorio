@@ -504,7 +504,18 @@ else (UNIX)
     # Since it's hard to pass spaces in defines (I can get a " through using
     # \\\\\\\" but no spaces) we put strings in resources.rc and select
     # using RC_ defines.
-    COMPILE_FLAGS "-DRC_IS_CORE -DINCLUDE_EVENTS")
+    COMPILE_DEFINITIONS "RC_IS_CORE;INCLUDE_EVENTS"
+    # i#921: we do not want a __chkstk function comparing our stack to
+    # TEB.StackLimit, esp on win8 where the stack is high, so we disable
+    # compiler-inserted stack probes globally in DR itself.
+    COMPILE_FLAGS "/Gs65536")
+
+  if ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND
+      "${CMAKE_VERSION}" VERSION_LESS "2.8.9.20120822")
+    # cmake bug http://www.cmake.org/Bug/view.php?id=13486 causes rc.exe to
+    # fail b/c it's passed COMPILE_FLAGS
+    message(FATAL_ERROR "cmake at least version 2.8.9.20120822 is required for Ninja")
+  endif ()
 
   set(NOLIBC_DLL_ENTRY /entry:DllMain)
 

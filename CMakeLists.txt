@@ -55,7 +55,7 @@ elseif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for output dir name control
   cmake_minimum_required(VERSION 2.8.2)
 else ()
-  cmake_minimum_required(VERSION 2.6)
+  cmake_minimum_required(VERSION 2.6.4) # VERSION_LESS
 endif ()
 
 # for non-makefile-based generators (i.e., Visual Studio) there is no
@@ -81,7 +81,7 @@ endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
 set(cmake_ver_string
   "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
-if ("${cmake_ver_string}" STRLESS "2.6.4")
+if ("${cmake_ver_string}" VERSION_LESS "2.6.4")
   # Workaround for cmake bug #8639 where CMAKE_ASM_SOURCE_FILE_EXTENSIONS
   # is not set and our asm files are not built (should be fixed in 2.6.4).
   # We can simply set the var ahead of time, luckily, since noone clears it:
@@ -90,7 +90,7 @@ if ("${cmake_ver_string}" STRLESS "2.6.4")
   # - I tried puting a patched CMakeASMInformation.cmake ahead of share/Modules
   #   but enable_language() seems to not use the CMAKE_MODULE_PATH
   set(CMAKE_ASM_SOURCE_FILE_EXTENSIONS s;S;asm)
-endif ("${cmake_ver_string}" STRLESS "2.6.4")
+endif ("${cmake_ver_string}" VERSION_LESS "2.6.4")
 
 # I want to override the default CMAKE_INSTALL_PREFIX, but allow it to
 # be set (as the same var name, so CPack and other standard tools

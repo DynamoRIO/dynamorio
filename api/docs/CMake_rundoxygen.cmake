@@ -73,7 +73,7 @@ string(REGEX REPLACE
   "<title>"
   "<link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"favicon.ico\"/>\n<title>"
   string "${string}")
-if (doxygen_ver STRLESS "1.7.0")
+if (doxygen_ver VERSION_LESS "1.7.0")
   # For some reason older doxygen doesn't replace its own vars w/ custom header
   string(REGEX REPLACE "\\$relpath\\$" "" string "${string}")
 endif ()
@@ -143,7 +143,7 @@ string(REGEX REPLACE
   string "${string}")
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/index.html "${string}")
 
-if (doxygen_ver STRLESS "1.7.3")
+if (doxygen_ver VERSION_LESS "1.7.3")
   # Add link to home page to treeview pane
   file(APPEND
     ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html
@@ -176,7 +176,7 @@ endif ()
 
 # For modules/extensions (i#277/PR 540817) we use doxygen groups which show up under
 # top-level "Modules" which we rename here
-if (doxygen_ver STRLESS "1.7.3")
+if (doxygen_ver VERSION_LESS "1.7.3")
   file(READ ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html string)
   string(REGEX REPLACE "Modules" "${module_string_long}" string "${string}")
   file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html "${string}")
