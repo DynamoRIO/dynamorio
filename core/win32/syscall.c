@@ -519,8 +519,11 @@ syscall_while_native(app_state_at_intercept_t *state)
          * of the currently used ones are problematic). Also calling
          * through Sygate hooks may reach here.
          */
-        SYSLOG_INTERNAL_WARNING_ONCE("syscall_while_native: using %s - maybe hooked?",
-                                     syscall_names[sysnum]);
+        /* i#924: this happens at exit during os_loader_exit() */
+        if (IF_CLIENT_INTERFACE_ELSE(!dynamo_exited, true)) {
+            SYSLOG_INTERNAL_WARNING_ONCE("syscall_while_native: using %s - maybe hooked?",
+                                         syscall_names[sysnum]);
+        }
     });
     STATS_INC(num_syscall_trampolines_DR);
     LOG(THREAD, LOG_SYSCALLS, 1,
