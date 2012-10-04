@@ -79,8 +79,6 @@ typedef struct {
 
 #define EARLY_INJECT_HOOK_SIZE 5
 
-extern const byte *wow64_syscall_stack;
-
 bool
 is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt);
 
@@ -128,6 +126,13 @@ client_thread_target(void *param);
 
 bool os_delete_file_w(const wchar_t *file_name,
                       file_t directory_handle);
+
+byte *
+os_terminate_wow64_stack(HANDLE thread_handle);
+
+void
+os_terminate_wow64_write_args(bool exit_process, HANDLE proc_or_thread_handle,
+                              int exit_status);
 
 /* in syscall.c *********************************************************/
 

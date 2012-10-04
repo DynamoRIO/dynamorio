@@ -1440,19 +1440,7 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         KSTOP(pre_syscall);
         KSTOP(num_exits_dir_syscall);
         /* FIXME: what if syscall returns w/ STATUS_PROCESS_IS_TERMINATING? */
-#ifndef X64
-        /* Win8 WOW64 does not point edx at the param base so we must
-         * put the args on the actual stack.  We could have multiple threads
-         * writing to these same slots, but they should all be writing
-         * our process_handle, and the exit status could be any of them
-         * natively anyway.
-         */
-        if (!syscall_uses_edx_param_base()) {
-            ASSERT(ALIGNED(wow64_syscall_stack, sizeof(reg_t))); /* => atomic writes */
-            *(reg_t*)wow64_syscall_stack = (reg_t) process_handle;
-            *(((reg_t*)wow64_syscall_stack)+1) = (reg_t) exit_status;
-        }
-#endif
+        os_terminate_wow64_write_args(true/*process*/, process_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateProcess],
                               IF_X64_ELSE(mc->xcx, mc->xdx),
                               mc->xdx, true /* entire process */);
@@ -1465,7 +1453,9 @@ static void
 presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
+    /* NtTerminateThread(IN HANDLE ThreadHandle OPTIONAL, IN NTSTATUS ExitStatus) */
     HANDLE thread_handle = (HANDLE) sys_param(dcontext, param_base, 0);
+    NTSTATUS exit_status = (NTSTATUS) sys_param(dcontext, param_base, 1);
     /* need to determine which thread is being terminated
      * it's harder than you'd think -- we can get its handle but
      * the handle may have been duplicated, no way to test
@@ -1528,6 +1518,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
 
         KSTOP(pre_syscall);
         KSTOP(num_exits_dir_syscall);
+        os_terminate_wow64_write_args(false/*thread*/, thread_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateThread],
                               IF_X64_ELSE(mc->xcx, mc->xdx),
                               mc->xdx, exitproc);

@@ -235,6 +235,7 @@ DECL_EXTERN(privload_early_inject)
 #endif
 #ifdef WINDOWS
 DECL_EXTERN(dynamorio_earliest_init_takeover_C)
+DECL_EXTERN(os_terminate_wow64_stack)
 #endif
 
 /* non-functions: these make us non-PIC! (PR 212290) */
@@ -247,7 +248,6 @@ DECL_EXTERN(sysenter_ret_address)
 DECL_EXTERN(sysenter_tls_offset)
 #ifdef WINDOWS
 DECL_EXTERN(wow64_index)
-DECL_EXTERN(wow64_syscall_stack)
 # ifdef X64
 DECL_EXTERN(syscall_argsz)
 # endif
@@ -580,6 +580,16 @@ cat_spin:
         jmp      cat_spin
 cat_have_lock:
         /* need to grab everything off dstack first */
+#ifdef WINDOWS
+        /* PR 601533: the wow64 syscall writes to the stack b/c it
+         * makes a call, so we have a race that can lead to a hang or
+         * worse.  we do not expect the syscall to return, so we can
+         * use a global single-entry stack (the wow64 layer swaps to a
+         * different stack: presumably for alignment and other reasons).
+         */
+        CALLC1(os_terminate_wow64_stack, -1/*INVALID_HANDLE_VALUE*/)
+        mov      REG_XDI, REG_XAX    /* esp to use */
+#endif
         mov      REG_XSI, [2*ARG_SZ + REG_XBP]  /* sysnum */
         pop      REG_XAX             /* syscall */
         pop      REG_XCX             /* dstack */
@@ -594,6 +604,9 @@ cat_have_lock:
         mov      REG_XSP, PTRSZ SYMREF(initstack) /* rip-relative on x64 */
 #endif
         /* now save registers */
+#ifdef WINDOWS
+        push     REG_XDI   /* esp to use */
+#endif
         push     REG_XDX   /* sys_arg2 */
         push     REG_XBX   /* sys_arg1 */
         push     REG_XAX   /* syscall */
@@ -619,21 +632,15 @@ cat_have_lock:
         pop      REG_XCX   /* sys_arg2 */
 # else
         pop      REG_XDX   /* sys_arg1 == param_base */
-        /* sys_arg2 unused */
+        pop      REG_XCX   /* sys_arg2 (unused) */
 # endif
+#endif
+#ifdef WINDOWS
+        pop      REG_XSP    /* get the stack pointer we pushed earlier */
 #endif
         /* give up initstack mutex -- potential problem here with a thread getting 
          *   an asynch event that then uses initstack, but syscall should only care 
          *   about ebx and edx */
-#ifdef WINDOWS
-        /* PR 601533: the wow64 syscall writes to the stack b/c it
-         * makes a call, so we have a race that can lead to a hang or
-         * worse.  we do not expect the syscall to return, so we can
-         * use a global single-entry stack (the wow64 layer swaps to a
-         * different stack: presumably for alignment and other reasons).
-         */
-        mov      REG_XSP, PTRSZ SYMREF(wow64_syscall_stack)
-#endif
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
 	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, initstack_mutex)

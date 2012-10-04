@@ -87,14 +87,19 @@ DECLARE_CXTSWPROT_VAR(static mutex_t debugbox_lock, INIT_LOCK_FREE(debugbox_lock
  * hang or worse.  we do not expect the syscall to return, so we can
  * use a global single-entry stack (the wow64 layer swaps to a
  * different stack: presumably for alignment and other reasons).
- * We also use this to store the 2 args to NtTerminateProcess for win8 wow64.
- */
-#define WOW64_SYSCALL_STACK_SIZE 16 /* 1 slot for call + 2 for win8 wow64 + 1 extra */
+ * We also use this for non-wow64, except on win8 wow64 where we need
+ * a per-thread stack and we use the TEB.
+ * We do leave room to store the 2 args to NtTerminateProcess for win8 wow64
+ * in case we can't get the target thread's TEB.
+  */
+#define WOW64_SYSCALL_SETUP_SIZE 3*XSP_SZ /* 2 args + retaddr of call to win8 wrapper */
+/* 1 for call + 1 extra + setup */
+#define WOW64_SYSCALL_STACK_SIZE 2*XSP_SZ + (WOW64_SYSCALL_SETUP_SIZE)
 DECLARE_NEVERPROT_VAR(static byte wow64_syscall_stack_array[WOW64_SYSCALL_STACK_SIZE],
                       {0});
-/* We point it two stack slots in so we can store 2 args for win8 wow64. */
+/* We point it several stack slots in for win8 setup */
 const byte *wow64_syscall_stack =
-    &wow64_syscall_stack_array[WOW64_SYSCALL_STACK_SIZE - 2*sizeof(reg_t)];
+    &wow64_syscall_stack_array[WOW64_SYSCALL_STACK_SIZE - WOW64_SYSCALL_SETUP_SIZE];
 
 /* globals */
 bool intercept_asynch = false;
@@ -1083,6 +1088,56 @@ os_slow_exit(void)
     eventlog_slow_exit();
 }
 
+
+/* Win8 WOW64 does not point edx at the param base so we must
+ * put the args on the actual stack.  We could have multiple threads
+ * writing to these same slots so we use the TEB which should be dead
+ * (unless the syscall fails and the app continues: which we do not handle).
+ * Xref i#565.
+ */
+/* Pass INVALID_HANDLE_VALUE for process exit */
+byte *
+os_terminate_wow64_stack(HANDLE thread_handle)
+{
+#ifdef X64
+    return (byte *) wow64_syscall_stack;
+#else
+    if (syscall_uses_edx_param_base())
+        return (byte *) wow64_syscall_stack;
+    else {
+        TEB *teb;
+        if (thread_handle == INVALID_HANDLE_VALUE)
+            teb = get_own_teb();
+        else
+            teb = get_teb(thread_handle);
+        if (teb == NULL) /* app may have passed bogus handle */
+            return (byte *) wow64_syscall_stack;
+        /* Use the TLS slots.  Leave room for syscall call*'s retaddr plus 1
+         * extra.  There's still plenty of room at higher addresses for 2 args
+         * for os_terminate_wow64_write_args().
+         */
+        return (byte *)teb + offsetof(TEB, TlsSlots) + 2*XSP_SZ;        
+    }
+#endif
+}
+
+/* Only takes action when edx is not the param base */
+void
+os_terminate_wow64_write_args(bool exit_process, HANDLE proc_or_thread_handle,
+                              int exit_status)
+{
+#ifndef X64
+    if (!syscall_uses_edx_param_base()) {
+        byte *xsp = os_terminate_wow64_stack(exit_process ? INVALID_HANDLE_VALUE :
+                                             proc_or_thread_handle);
+        ASSERT(ALIGNED(xsp, sizeof(reg_t))); /* => atomic writes */
+        /* skip a slot (natively it's the retaddr from the call to the wrapper) */
+        *(((reg_t*)xsp)+1) = (reg_t) proc_or_thread_handle;
+        *(((reg_t*)xsp)+2) = (reg_t) exit_status;
+    }
+#endif
+}
+
 /* FIXME: what are good values here? */
 #define KILL_PROC_EXIT_STATUS -1
 #define KILL_THREAD_EXIT_STATUS -1
@@ -1179,7 +1234,12 @@ os_terminate_static_arguments(bool exit_process, bool custom_code, int exit_code
     LOG(THREAD_GET, LOG_SYSCALLS, 2,
         "Placing terminate arguments tombstone at "PFX" offset=0x%x\n", 
         arguments, SYSCALL_PARAM_OFFSET());
-    
+
+    os_terminate_wow64_write_args
+        (exit_process,
+         ((terminate_args_t*)arguments)->args.ProcessOrThreadHandle,
+         ((terminate_args_t*)arguments)->args.ExitStatus);
+
     arguments += offsetof(terminate_args_t, args) - SYSCALL_PARAM_OFFSET();
     return arguments;
 }
