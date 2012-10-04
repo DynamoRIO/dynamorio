@@ -1284,11 +1284,9 @@ vmm_heap_init()
 #ifdef X64
     /* add reachable regions before we allocate the heap, xref PR 215395 */
 # ifdef WINDOWS
-    /* FIXME i#901: win8 x64 has ntdll too high for this */
-    request_region_be_heap_reachable(get_ntdll_base(),
-                                     get_allocation_size(get_ntdll_base(), NULL));
     request_region_be_heap_reachable(get_dynamorio_dll_start(),
                                      get_allocation_size(get_dynamorio_dll_start(), NULL));
+    /* i#774, i#901: we do not need to be near ntdll.dll */
 # else /* LINUX */
     /* FIXME - On Linux we compile core with -fpic and samples Makefile uses it as
      * well (comments suggest problems if we don't).  But without our own loader
