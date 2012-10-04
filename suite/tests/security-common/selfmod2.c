@@ -33,53 +33,17 @@
 #ifndef ASM_CODE_ONLY /* C code */
 #include "tools.h"
 
-#ifdef USE_DYNAMO
-# include "dynamorio.h"
-#endif
-
-/* Can't just copy from (ptr_int_t)bar, since that's often a separate entry point
- * and not the start of bar's code, so we just have a hunk of code
- * sitting here:
- *
- *  int
- *  bar(int value)
- *  {
- *      return value*2;
- *  }
- * =>
- *  00401030: 55                 push        ebp
- *  00401031: 8B EC              mov         ebp,esp
- *  00401033: 8B 45 08           mov         eax,dword ptr [ebp+8]
- *  00401036: D1 E0              shl         eax,1
- *  00401038: 5D                 pop         ebp
- *  00401039: C3                 ret
- *
- */
-unsigned char bar_code[] = {
-    0x55, 0x8b, 0xec, 0x8b, 0x45, 0x08, 0xd1, 0xe0, 0x5d, 0xc3
-};
-unsigned int bar_code_size = sizeof(bar_code);
 int foo(int value);
 
 int
-main()
+main(void)
 {
     INIT();
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     protect_mem(foo, PAGE_SIZE, ALLOW_EXEC|ALLOW_WRITE|ALLOW_READ);
-    
-    print("foo returned %d\n", foo(10));
-    print("foo returned %d\n", foo(10));
 
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
+    print("foo returned %d\n", foo(10));
+    print("foo returned %d\n", foo(10));
 
     return 0;
 }
@@ -88,24 +52,33 @@ main()
 #include "asm_defines.asm"
 START_FILE
 
-DECL_EXTERN(bar_code)
-DECL_EXTERN(bar_code_size)
+/* int bar(int value)
+ *   Returns value.  We avoid issues with bar resolving to a jump table on
+ *   Windows by skipping DECLARE_FUNC/END_FUNC and putting the labels in
+ *   manually.
+ */
+ADDRTAKEN_LABEL(bar:)
+        mov    REG_XAX, ARG1
+        shl    REG_XAX, 1
+        ret
+ADDRTAKEN_LABEL(bar_end:)
 
 /* int foo(int value)
  *   copies bar over the front of itself, so future invocations will
  *   run bar's code
  */
 #define FUNCNAME foo
-        DECLARE_FUNC_SEH(FUNCNAME)
+        DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         mov  REG_XAX, ARG1
         /* save callee-saved regs */
         push REG_XSI
         push REG_XDI
         /* set up for copy */
-        mov  REG_XSI, offset bar_code
-        mov  REG_XDI, offset foo
-        mov  ecx, DWORD SYMREF(bar_code_size)
+        lea  REG_XSI, SYMREF(bar)
+        lea  REG_XDI, SYMREF(foo)
+        lea  REG_XCX, SYMREF(bar_end)
+        sub  REG_XCX, REG_XSI
         cld
         rep movsb
         /* restore callee-saved regs */
