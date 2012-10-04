@@ -366,9 +366,8 @@ if (!assume_xsp)
      if x64 # can't directly address initstack_mutex or initstack_app_xsp
       mov $INITSTACK_MUTEX, xax
      endif
-      # initstack_mutex.lock_requests is 32-bits, but on x64 we're not xchg-ing w/ 
-      #   memory, so ok
-      xchg xcx, IF_X64_ELSE(xax, initstack_mutex)
+      # initstack_mutex.lock_requests is 32-bit
+      xchg ecx, IF_X64_ELSE((xax), initstack_mutex)
       jecxz have_lock
       pause  # improve spin-loop perf on P4
       jmp get_lock # no way to sleep or anything, must spin
@@ -987,12 +986,12 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
                                  OPND_CREATE_INTPTR((ptr_uint_t)&initstack_mutex)));
 #endif
         APP(&ilist,
-           INSTR_CREATE_xchg(dcontext,
+            INSTR_CREATE_xchg(dcontext,
                              /* initstack_mutex is 32 bits always */
-                             IF_X64_ELSE(opnd_create_reg(REG_XAX),
+                             IF_X64_ELSE(OPND_CREATE_MEM32(REG_XAX, 0),
                                          OPND_CREATE_ABSMEM((void *)&initstack_mutex,
                                                             OPSZ_4)),
-                             opnd_create_reg(REG_XCX)));
+                             opnd_create_reg(REG_ECX)));
         APP(&ilist,
             INSTR_CREATE_jecxz(dcontext, opnd_create_instr(have_lock)));
         APP(&ilist,
