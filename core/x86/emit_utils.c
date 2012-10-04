@@ -7695,14 +7695,10 @@ decode_syscall_num(dcontext_t *dcontext, byte *entry)
 #ifdef WINDOWS /* since no interception code buffer to check on linux */
             if (DYNAMO_OPTION(native_exec_syscalls) && instr_is_ubr(&instr)) {
                 /* probably our own trampoline, follow it
-                 * ASSUMPTION: mov eax is the instr that jmp targets
-                 * Today native_exec syscall hooking doesn't use landing pads
-                 * to reach trampolines.  When that is done as part of PR
-                 * 245169, this should check landing_pad_areas first (see fix
-                 * for PR 250294 to see how it is done).
+                 * ASSUMPTION: mov eax is the instr that jmp targets: i.e.,
+                 * we don't handle deep hooks here.
                  */
-                pc = opnd_get_pc(instr_get_target(&instr));
-                if (!is_part_of_interception(pc)) {
+                if (!is_syscall_trampoline(opnd_get_pc(instr_get_target(&instr)), &pc)) {
                     break;  /* give up gracefully */
                 } /* else, carry on at pc */
             } else

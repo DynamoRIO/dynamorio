@@ -639,7 +639,8 @@ insert_let_go_cleanup(dcontext_t *dcontext, instrlist_t *ilist, instr_t *decisio
  * from this routine.
  *
  *  CAUTION: These landing pad layouts are assumed in intercept_call() and in
- *           read_and_verify_dr_marker() and in must_not_be_elided().
+ *           read_and_verify_dr_marker(), must_not_be_elided(), and
+ *           is_syscall_trampoline().
  *ifndef X64
  *  32-bit landing pad:
  *      jmp tgt_pc          ; 5 bytes, 32-bit relative jump
@@ -1399,7 +1400,7 @@ is_intercepted_app_pc(app_pc pc, byte **interception_pc)
              * get_app_pc_from_intercept_pc will work in case we ever ask about
              * that displaced app code.
              */
-            if (is_syscall_trampoline(iter->interception_pc))
+            if (is_syscall_trampoline(iter->interception_pc, NULL))
                 return false;
             if (interception_pc != NULL)
                 *interception_pc = iter->interception_pc + (pc - iter->original_app_pc);
@@ -1411,6 +1412,41 @@ is_intercepted_app_pc(app_pc pc, byte **interception_pc)
     }
 
     return false;
+}
+
+/* Emits a jmp at pc to resume_pc.  If pc is in the interception buffer,
+ * adds a map entry from [xl8_start_pc, return value here) to
+ * [app_pc, <same size>).
+ */
+static byte *
+emit_resume_jmp(byte *pc, byte *resume_pc, byte *app_pc, byte *xl8_start_pc)
+{
+#ifndef X64
+    *pc = JMP_REL32_OPCODE; pc++;
+    *((int *)pc) = (int)(resume_pc - pc - 4);
+    pc += 4;    /* 4 is the size of the relative offset */
+#else
+    *pc = JMP_ABS_IND64_OPCODE; pc++;
+    *pc = JMP_ABS_MEM_IND64_MODRM; pc++;
+#endif
+    /* We explicitly map rather than having instr_set_translation() and
+     * dr_fragment_app_pc() special-case this jump: longer linear search
+     * in the interception map, but cleaner code.
+     */
+    if (is_in_interception_buffer(pc) && app_pc != NULL) {
+        ASSERT(xl8_start_pc != NULL);
+        map_intercept_pc_to_app_pc(xl8_start_pc, app_pc, pc - xl8_start_pc,
+                                   pc - xl8_start_pc);
+    }
+#ifdef X64
+    /* 64-bit abs address is placed after the jmp instr., i.e., rip rel is 0.
+     * We can't place it before the jmp as in the case of the landing pad
+     * because there is code in the trampoline immediately preceding this jmp.
+     */
+    *((int *)pc) = 0; pc += 4;  /* 4 here is the rel offset to the lpad entry */
+    *((byte **)pc) = resume_pc; pc += sizeof(resume_pc);
+#endif
+    return pc;
 }
 
 /* Redirects code at tgt_pc to jmp to our_pc, which is filled with generated
@@ -1456,7 +1492,7 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
                byte **app_code_copy_p,
                byte **alt_exit_cti_p)
 {
-    byte *pc, *our_pc_end, *lpad_start, *lpad_pc, *displaced_app_pc, *jmp_start;
+    byte *pc, *our_pc_end, *lpad_start, *lpad_pc, *displaced_app_pc;
     size_t size;
     instrlist_t ilist;
     instr_t *instr;
@@ -1627,29 +1663,7 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
     }
 
     /* Must return to the displaced app code in the landing pad */
-    jmp_start = pc;
-#ifndef X64
-    *pc = JMP_REL32_OPCODE; pc++;
-    *((int *)pc) = (int)(displaced_app_pc - pc - 4);
-    pc += 4;    /* 4 is the size of the relative offset */
-#else
-    *pc = JMP_ABS_IND64_OPCODE; pc++;
-    *pc = JMP_ABS_MEM_IND64_MODRM; pc++;
-#endif
-    /* We explicitly map rather than having instr_set_translation() and
-     * dr_fragment_app_pc() special-case this jump: longer linear search
-     * in the interception map, but cleaner code.
-     */
-    if (is_in_interception_buffer(pc))
-        map_intercept_pc_to_app_pc(jmp_start, tgt_pc, pc - jmp_start, pc - jmp_start);
-#ifdef X64
-    /* 64-bit abs address is placed after the jmp instr., i.e., rip rel is 0.
-     * We can't place it before the jmp as in the case of the landing pad
-     * because there is code in the trampoline immediately preceding this jmp.
-     */
-    *((int *)pc) = 0; pc += 4;  /* 4 here is the rel offset to the lpad entry */
-    *((byte **)pc) = displaced_app_pc; pc += sizeof(lpad_pc);
-#endif
+    pc = emit_resume_jmp(pc, displaced_app_pc, tgt_pc, pc);
     our_pc_end = pc;
 
     /* Replace original code with jmp to our version (after 5-byte backup) */
@@ -1672,7 +1686,9 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
     return our_pc_end;
 }
 
-/* Assumes that tgt_pc should be unwritable */
+/* Assumes that tgt_pc should be unwritable.  Handles hooks with or without
+ * a landing pad.  our_pc is the displaced app code to copy to tgt_pc.
+ */
 static void
 un_intercept_call(byte *our_pc, byte *tgt_pc)
 {
@@ -1974,37 +1990,27 @@ exit_clean_syscall_wrapper:
  * vsyscall page is not writable, and cannot be made writable, which is what we
  * have observed to be true.
  */
-byte *
-intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */, 
-                          intercept_function_t prof_func,
-                          void *callee_arg, after_intercept_action_t action_after,
-                          app_pc *skip_syscall_pc /* OUT */,
-                          byte **orig_bytes_pc /* OUT */,
-                          byte *fpo_stack_adjustment /* OUT OPTIONAL */)
+
+/* Helper function that returns the after-hook pc */
+static byte *
+syscall_wrapper_ilist(dcontext_t *dcontext,
+                      instrlist_t *ilist, /* IN/OUT */
+                      byte **ptgt_pc /* IN/OUT */, 
+                      void *callee_arg, 
+                      byte *fpo_stack_adjustment, /* OUT OPTIONAL */
+                      byte **ret_pc /* OUT */)
 {
-    byte *pc, *emit_pc, *ret_pc = NULL, *after_hook_target = NULL, *entrance_pc, *tgt_pc;
+    byte *pc, *after_hook_target = NULL;
     byte *after_mov_immed;
     instr_t *instr, *hook_return_instr = NULL;
-    instrlist_t ilist;
-    bool changed_prot;
     int opcode = OP_UNDECODED;
-    dcontext_t *dcontext = get_thread_private_dcontext();
     int sys_enum = (int)(ptr_uint_t)callee_arg;
     int native_sys_num = syscalls[sys_enum];
-    bool ok;
-    DEBUG_DECLARE(bool is_hooked = false;)
 
-    instrlist_init(&ilist);
-
-    ASSERT(ptgt_pc != NULL && *ptgt_pc != NULL);
-    LOG(GLOBAL, LOG_ASYNCH, 3, "before intercepting:\n");
-    tgt_pc = *ptgt_pc;
-    pc = tgt_pc;
-
+    pc = *ptgt_pc;
     /* we need 5 bytes for a jump, and we assume that the first instr
      * (2nd instr for x64, where we skip the 1st) is a 5-byte mov immed! 
      */
-    DOLOG(3, LOG_ASYNCH, { disassemble_with_bytes(dcontext, pc, main_logfile); });
     instr = instr_create(dcontext);
     pc = decode(dcontext, pc, instr);
     after_mov_immed = pc;
@@ -2018,7 +2024,6 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
         *fpo_stack_adjustment = 0; /* for GBOP case 7127 */
 
     if (instr_is_cti(instr)) {
-        DEBUG_DECLARE(is_hooked = true;)
         /* we only have to rerelativize rel32, yet indirect
          * branches can also be used by hookers, in which case we
          * don't need to do anything special when copying as bytes
@@ -2051,7 +2056,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                  */
 #ifdef X64
                 /* do push-64-bit-immed in two pieces */
-                insert_push_immed_ptrsz(dcontext, &ilist, NULL, (ptr_int_t)pc);
+                insert_push_immed_ptrsz(dcontext, ilist, NULL, (ptr_int_t)pc);
                 /* check reachability from new location */
                 /* allow interception code to be up to a page: don't bother
                  * to calculate exactly where our jmp will be encoded */
@@ -2063,10 +2068,10 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                                       get_application_pid());
                 }
 #else
-                instrlist_append(&ilist, INSTR_CREATE_push_imm
+                instrlist_append(ilist, INSTR_CREATE_push_imm
                                  (dcontext, OPND_CREATE_INTPTR((ptr_int_t)pc)));
 #endif
-                instrlist_append(&ilist,
+                instrlist_append(ilist,
                                  INSTR_CREATE_jmp(dcontext, 
                                                   opnd_create_pc(opnd_get_pc(instr_get_target(instr)))));
                 /* skip original instruction */
@@ -2078,13 +2083,13 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                 ASSERT_NOT_IMPLEMENTED(false);
                 LOG(GLOBAL, LOG_ASYNCH, 2, "intercept_syscall_wrapper: hooked with jmp "PFX"\n", pc);
                 /* just append instruction as is */
-                instrlist_append(&ilist, instr);
+                instrlist_append(ilist, instr);
             } else {
                 ASSERT_NOT_IMPLEMENTED(false && "unchainable CTI");
                 /* FIXME PR 215397: need to re-relativize pc-relative memory reference */
                 IF_X64(ASSERT_NOT_IMPLEMENTED(!instr_has_rel_addr_reference(instr)));
                 /* just append instruction as is, emit re-relativises if necessary */
-                instrlist_append(&ilist, instr);
+                instrlist_append(ilist, instr);
                 /* FIXME: if instr's length doesn't match normal 1st instr we'll
                  * get off down below: really shouldn't continue here */
             }
@@ -2096,12 +2101,12 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                 native_sys_num, pc);
 #ifdef X64
             /* in this case we put our hook at the 1st instr */
-            instrlist_append(&ilist,
+            instrlist_append(ilist,
                              INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R10),
                                                  opnd_create_reg(REG_RCX)));
 #endif            
             /* we normally ASSERT that 1st instr is always mov imm -> eax */
-            instrlist_append(&ilist,
+            instrlist_append(ilist,
                              INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EAX), 
                                                   OPND_CREATE_INT32(native_sys_num)));
             /* FIXME: even if we detach we don't restore the original
@@ -2122,7 +2127,6 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
 #else
             ASSERT(instr_length(dcontext, instr) == 5 /* length of normal mov_imm */);
             *ptgt_pc = pc;
-            tgt_pc = pc;
             /* skip original instruction */
             instr_destroy(dcontext, instr);
 #endif
@@ -2142,7 +2146,6 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
         /* we hook after the 1st instr.  will this confuse other hookers who
          * will think there currently is no hook b/c not on 1st instr? */
         *ptgt_pc = pc;
-        tgt_pc = pc;
         instr_destroy(dcontext, instr);
         /* now decode the 2nd instr which should be a mov immed */
         DOLOG(3, LOG_ASYNCH, { disassemble_with_bytes(dcontext, pc, main_logfile); });
@@ -2158,7 +2161,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
         LOG(GLOBAL, LOG_ASYNCH, 3, "intercept_syscall_wrapper: hooked syscall %02x at "PFX"\n", 
             native_sys_num, pc);
         /* append instruction (non-CTI) */
-        instrlist_append(&ilist, instr);
+        instrlist_append(ilist, instr);
     }
 
 #ifdef X64
@@ -2166,7 +2169,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
     instr = instr_create(dcontext);
     after_hook_target = pc;
     pc = decode(dcontext, pc, instr);
-    ret_pc = pc;
+    *ret_pc = pc;
     ASSERT(instr_get_opcode(instr) == OP_syscall);
     instr_destroy(dcontext, instr);
 #else
@@ -2176,7 +2179,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
         /* second instr is a call*, what we consider the system call instr */
         after_hook_target = pc;
         instr = instr_create(dcontext);
-        ret_pc = decode(dcontext, pc, instr); /* skip call* to skip syscall */
+        *ret_pc = decode(dcontext, pc, instr); /* skip call* to skip syscall */
         ASSERT(instr_get_opcode(instr) == OP_call_ind);
         instr_destroy(dcontext, instr);
         /* XXX: how handle chrome hooks on win8?  (xref i#464) */
@@ -2185,7 +2188,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
         DOLOG(3, LOG_ASYNCH, { disassemble_with_bytes(dcontext, pc, main_logfile); });
         instr = instr_create(dcontext);
         pc = decode(dcontext, pc, instr);
-        instrlist_append(&ilist, instr);
+        instrlist_append(ilist, instr);
         opcode = instr_get_opcode(instr);
     }
     if (after_hook_target != NULL) {
@@ -2220,43 +2223,43 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
              *    77aafbe5 33c9             xor     ecx,ecx
              *    77aafbe7 8d542404         lea     edx,[esp+0x4]
              */
-            instr_t *tmp = instrlist_last(&ilist);
-            instrlist_remove(&ilist, tmp);
+            instr_t *tmp = instrlist_last(ilist);
+            instrlist_remove(ilist, tmp);
             instr_destroy(dcontext, tmp);
             ASSERT(syscall_uses_wow64_index()); /* else handled above */
             ASSERT(wow64_index != NULL);
             if (wow64_index[sys_enum] == 0) {
                 instrlist_append
-                    (&ilist, INSTR_CREATE_xor
+                    (ilist, INSTR_CREATE_xor
                      (dcontext, opnd_create_reg(REG_XCX), opnd_create_reg(REG_XCX)));
             } else {
                 instrlist_append
-                    (&ilist, INSTR_CREATE_mov_imm
+                    (ilist, INSTR_CREATE_mov_imm
                      (dcontext, opnd_create_reg(REG_XCX),
                       OPND_CREATE_INT32(wow64_index[sys_enum])));
             }
             instrlist_append
-                (&ilist, INSTR_CREATE_lea
+                (ilist, INSTR_CREATE_lea
                  (dcontext, opnd_create_reg(REG_XDX),
                   opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0x4, OPSZ_lea)));
             after_hook_target = after_mov_immed;
             /* skip chrome hook to skip syscall: target "add esp,0x4" */
 #           define CHROME_HOOK_DISTANCE_JMP_TO_SKIP 6
-            ret_pc = pc + CHROME_HOOK_DISTANCE_JMP_TO_SKIP;
+            *ret_pc = pc + CHROME_HOOK_DISTANCE_JMP_TO_SKIP;
             DOCHECK(1, {
                 instr = instr_create(dcontext);
-                decode(dcontext, ret_pc, instr);
+                decode(dcontext, *ret_pc, instr);
                 ASSERT(instr_get_opcode(instr) == OP_add);
                 instr_destroy(dcontext, instr);
             });
         } else {
             ASSERT(instr_get_opcode(instr) == OP_lea);
-            instrlist_append(&ilist, instr);
+            instrlist_append(ilist, instr);
 
             /* fourth instr is a call*, what we consider the system call instr */
             after_hook_target = pc;
             instr = instr_create(dcontext);
-            ret_pc = decode(dcontext, pc, instr); /* skip call* to skip syscall */
+            *ret_pc = decode(dcontext, pc, instr); /* skip call* to skip syscall */
             ASSERT(instr_get_opcode(instr) == OP_call_ind);
             instr_destroy(dcontext, instr);
         }
@@ -2269,14 +2272,14 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
         /* third instr is an indirect call */
         instr = instr_create(dcontext);
         pc = decode(dcontext, pc, instr);
-        ret_pc = pc;
+        *ret_pc = pc;
         ASSERT(instr_get_opcode(instr) == OP_call_ind);
         if (fpo_stack_adjustment != NULL) {
             /* for GBOP case 7127 */
             *fpo_stack_adjustment = 4;
         }
         /* replace the call w/ a push */
-        instrlist_append(&ilist, INSTR_CREATE_push_imm
+        instrlist_append(ilist, INSTR_CREATE_push_imm
                          (dcontext, OPND_CREATE_INTPTR((ptr_int_t)pc)));
 
         /* the callee, either on vsyscall page or at KiFastSystemCall */
@@ -2288,7 +2291,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
         /* fourth instr: mov %xsp -> %xdx */
         instr_reset(dcontext, instr); /* re-use ind call container */
         pc = decode(dcontext, pc, instr);
-        instrlist_append(&ilist, instr);
+        instrlist_append(ilist, instr);
         ASSERT(instr_get_opcode(instr) == OP_mov_ld);
 
         /* fifth instr: sysenter */
@@ -2303,10 +2306,10 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
         ASSERT(opcode == OP_lea);
         /* third instr: int 2e */
         instr = instr_create(dcontext);
-        ret_pc = decode(dcontext, pc, instr);
+        *ret_pc = decode(dcontext, pc, instr);
         ASSERT(instr_get_opcode(instr) == OP_int);
         /* if we hooked deeper, will need to hook over the int too */
-        if (pc - tgt_pc < 5 /* length of our hook */) {
+        if (pc - *ptgt_pc < 5 /* length of our hook */) {
             /* Need to add an int 2e to the return path since hook clobbered
              * the original one. We use create_syscall_instr(dcontext) for
              * the sygate int fix. FIXME - the pc will now show up as
@@ -2314,7 +2317,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
              * checking for those on this thread should have already checked
              * for it being native. */
             hook_return_instr = create_syscall_instr(dcontext);
-            after_hook_target = ret_pc;
+            after_hook_target = *ret_pc;
             ASSERT(DYNAMO_OPTION(native_exec_hook_conflict) == 
                    HOOKED_TRAMPOLINE_HOOK_DEEPER);
         } else {
@@ -2324,6 +2327,36 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
         instr_destroy(dcontext, instr);
     }
 #endif
+    return after_hook_target;
+}
+
+byte *
+intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */, 
+                          intercept_function_t prof_func,
+                          void *callee_arg, after_intercept_action_t action_after,
+                          app_pc *skip_syscall_pc /* OUT */,
+                          byte **orig_bytes_pc /* OUT */,
+                          byte *fpo_stack_adjustment /* OUT OPTIONAL */)
+{
+    byte *pc, *emit_pc, *ret_pc = NULL, *after_hook_target = NULL, *tgt_pc;
+    byte *lpad_start, *lpad_pc, *lpad_resume_pc, *xl8_start_pc;
+    instr_t *instr, *hook_return_instr = NULL;
+    instrlist_t ilist;
+    bool changed_prot;
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    bool ok;
+
+    instrlist_init(&ilist);
+
+    ASSERT(ptgt_pc != NULL && *ptgt_pc != NULL);
+
+    after_hook_target = syscall_wrapper_ilist(dcontext, &ilist, ptgt_pc, callee_arg,
+                                              fpo_stack_adjustment, &ret_pc);
+
+    tgt_pc = *ptgt_pc;
+    pc = tgt_pc;
+    LOG(GLOBAL, LOG_ASYNCH, 3, "before intercepting:\n");
+    DOLOG(3, LOG_ASYNCH, { disassemble_with_bytes(dcontext, pc, main_logfile); });
 
     pc = interception_cur_pc; /* current spot in interception buffer */
 
@@ -2331,6 +2364,22 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
     *orig_bytes_pc = pc;
     memcpy(pc, tgt_pc, 5);
     pc += 5;
+
+    /* i#901: We need a landing pad b/c ntdll may not be reachable from DR.
+     * However, we do not support rip-rel instrs in the syscall wrapper, as by
+     * keeping the displaced app code in the intercept buffer and not in the
+     * landing pad we can use the standard landing pad layout, the existing
+     * emit_landing_pad_code(), the existing is_syscall_trampoline(), and other
+     * routines, and also keeps the landing pads themselves a constant size and
+     * layout (though the ones here do not have all their space used b/c there's
+     * no displaced app code).
+     */
+    lpad_start = alloc_landing_pad(tgt_pc);
+    lpad_pc = lpad_start;
+    lpad_pc = emit_landing_pad_code(lpad_pc, pc, after_hook_target,
+                                    0/*no displaced code in lpad*/,
+                                    &lpad_resume_pc, &changed_prot);
+    finalize_landing_pad_code(lpad_start, changed_prot);
 
     emit_pc = pc;
     /* we assume that interception buffer is still writable */
@@ -2344,7 +2393,6 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
      * N.B.: bb_process_ubr() assumes that the target of the trampoline
      * is the original mov immed!
      */
-    entrance_pc = pc;
 
     /* insert our copy of app instrs leading up to syscall
      * first instr doubles as the clobbered original code for un-intercepting.
@@ -2368,23 +2416,13 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
      * We already did pre-syscall sequence, so we go straight to syscall itself.
      */
     /* have to include syscall instr here if we ended up hooking over it */
+    xl8_start_pc = pc;
     if (hook_return_instr != NULL) {
         pc = instr_encode(dcontext, hook_return_instr, pc);
         ASSERT(pc != NULL);
         instr_destroy(dcontext, hook_return_instr);
     }
-    *pc = JMP_REL32_OPCODE; pc++;
-#ifdef X64
-    if (!REL32_REACHABLE(pc + 4, after_hook_target)) {
-        ASSERT_NOT_IMPLEMENTED(false && "PR 245169: hook target too far: NYI");
-        /* FIXME PR 245169: we need use landing_pad_areas to alloc landing
-         * pads to trampolines, as done for PR 250294.
-         */
-    }
-#endif
-    IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(after_hook_target - pc - 4)));
-    *((int *)pc) = (int)(ptr_int_t) (after_hook_target - pc - 4);
-    pc += 4;
+    pc = emit_resume_jmp(pc, lpad_resume_pc, tgt_pc, xl8_start_pc);
 
     /* update interception buffer pc */
     interception_cur_pc = pc;
@@ -2393,7 +2431,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
     /* copy-on-write will give us a copy of this page */
     ok = make_hookable(tgt_pc, 5, &changed_prot);
     if (ok) {
-        ptr_int_t offset = (entrance_pc - (tgt_pc + 5));
+        ptr_int_t offset = (lpad_pc - (tgt_pc + 5));
 #ifdef X64
         if (!REL32_REACHABLE_OFFS(offset)) {
             ASSERT_NOT_IMPLEMENTED(false && "PR 245169: hook target too far: NYI");
@@ -2478,10 +2516,25 @@ is_part_of_interception(byte *pc)
 }
 
 bool
-is_syscall_trampoline(byte *pc)
+is_syscall_trampoline(byte *pc, byte **tgt)
 {
-    return (syscall_trampolines_start != NULL &&
-            pc >= syscall_trampolines_start && pc < syscall_trampolines_end);
+    if (syscall_trampolines_start == NULL)
+        return false;
+    if (vmvector_overlap(landing_pad_areas, pc, pc + 1)) {
+#ifdef X64
+        /* target is 8 bytes back */
+        pc = *(app_pc *)(pc - sizeof(app_pc));
+#else
+        if (!is_jmp_rel32(pc, pc, &pc))
+            return false;
+#endif
+    }
+    if (pc >= syscall_trampolines_start && pc < syscall_trampolines_end) {
+        if (tgt != NULL)
+            *tgt = pc;
+        return true;
+    }
+    return false;
 }
 
 /****************************************************************************

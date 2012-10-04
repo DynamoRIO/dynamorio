@@ -865,18 +865,19 @@ bb_process_ubr(dcontext_t *dcontext, build_bb_t *bb)
     BBPRINT(bb, 4, "interp: direct jump at "PFX"\n", bb->instr_start);
     if (must_not_be_elided(tgt)) {
 #ifdef WINDOWS
-        if (is_syscall_trampoline(tgt)) {
+        byte *wrapper_start;
+        if (is_syscall_trampoline(tgt, &wrapper_start)) {
             /* HACK to avoid entering the syscall trampoline that is meant
              * only for native syscalls -- we replace the jmp with the
              * original app mov immed that it replaced
              */
             BBPRINT(bb, 3,
                     "interp: replacing syscall trampoline @"PFX" w/ orig mov @"PFX"\n",
-                    bb->instr_start, tgt);
+                    bb->instr_start, wrapper_start);
             instr_reset(dcontext, bb->instr);
 
             /* leave bb->cur_pc unchanged */
-            decode(dcontext, tgt, bb->instr);
+            decode(dcontext, wrapper_start, bb->instr);
             /* ASSUMPTION: syscall trampoline puts hooked instruction
              * (usually mov_imm but can be lea if hooked_deeper) here */
             ASSERT(instr_get_opcode(bb->instr) == OP_mov_imm ||

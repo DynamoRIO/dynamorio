@@ -1280,7 +1280,7 @@ hide_tag_from_client(app_pc tag)
          * mechanism for other hook jmp-outs: so we just suppress and the
          * client next sees the post-syscall bb.  It already saw a gap.
          */
-        is_syscall_trampoline(tag))
+        is_syscall_trampoline(tag, NULL))
         return true;
 #endif
     return false;
