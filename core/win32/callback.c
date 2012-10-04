@@ -631,18 +631,25 @@ insert_let_go_cleanup(dcontext_t *dcontext, instrlist_t *ilist, instr_t *decisio
 }
 
 /* Emits a landing pad (shown below) and returns the address to the first
- * instruction in it.
+ * instruction in it.  Also returns the address where displaced app
+ * instrs should be copied in displaced_app_loc.
+ *
+ * The caller must call finalize_landing_pad_code() once finished copying
+ * the displaced app code, passing in the changed_prot value it received
+ * from this routine.
  *
  *  CAUTION: These landing pad layouts are assumed in intercept_call() and in
- *           read_and_verify_dr_marker().
+ *           read_and_verify_dr_marker() and in must_not_be_elided().
  *ifndef X64
  *  32-bit landing pad:
  *      jmp tgt_pc          ; 5 bytes, 32-bit relative jump
+ *      displaced app instr(s) ; < (JMP_LONG_LENGTH + MAX_INSTR_LENGTH) bytes
  *      jmp after_hook_pc   ; 5 bytes, 32-bit relative jump
  *else
  *  64-bit landing pad:
  *      tgt_pc              ; 8 bytes of absolute address, i.e., tgt_pc
  *      jmp [tgt_pc]        ; 6 bytes, 64-bit absolute indirect jmp
+ *      displaced app instr(s) ; < (JMP_LONG_LENGTH + MAX_INSTR_LENGTH) bytes
  *      jmp after_hook_pc   ; 5 bytes, 32-bit relative jump
  *endif
  *
@@ -663,19 +670,26 @@ insert_let_go_cleanup(dcontext_t *dcontext, instrlist_t *ilist, instr_t *decisio
  * This isn't a problem for 32-bit landing pad because in 32-bit everything is
  * reachable.
  *
+ * We must put the displaced app instr(s) in the landing pad for x64
+ * b/c they may contain rip-rel data refs and those may not reach if
+ * in the main trampoline (i#902).
+ *
  * See heap.c for details about what landing pads are.
  */
 #define JMP_SIZE (IF_X64_ELSE(JMP_ABS_IND64_SIZE, JMP_REL32_SIZE))
 static byte *
 emit_landing_pad_code(byte *lpad_buf, const byte *tgt_pc,
-                      const byte *after_hook_pc)
+                      const byte *after_hook_pc,
+                      size_t displaced_app_size,
+                      byte **displaced_app_loc OUT,
+                      bool *changed_prot)
 {
     byte *lpad_entry = lpad_buf;
-    bool changed_prot, res;
+    bool res;
     DEBUG_DECLARE(byte *lpad_start = lpad_buf;)
     ASSERT(lpad_buf != NULL);
 
-    res = make_hookable(lpad_buf, LANDING_PAD_SIZE, &changed_prot);
+    res = make_hookable(lpad_buf, LANDING_PAD_SIZE, changed_prot);
     ASSERT(res);
     
 #ifndef X64
@@ -696,10 +710,17 @@ emit_landing_pad_code(byte *lpad_buf, const byte *tgt_pc,
     lpad_buf += 4;
 #endif
 
+    /* Leave space for the displaced app code */
+    ASSERT(displaced_app_size < MAX_HOOK_DISPLACED_LENGTH);
+    ASSERT(displaced_app_loc != NULL);
+    *displaced_app_loc = lpad_buf;
+    lpad_buf += displaced_app_size;
+
     /* The return 32-bit relative jump is common to both 32-bit and 64-bit
      * landing pads.  Make sure that the second jmp goes into the right address.
      */
-    ASSERT(lpad_buf - lpad_start == JMP_SIZE IF_X64(+ sizeof(tgt_pc)));
+    ASSERT((size_t)(lpad_buf - lpad_start) ==
+           JMP_SIZE IF_X64(+ sizeof(tgt_pc)) + displaced_app_size);
     *lpad_buf = JMP_REL32_OPCODE;
     lpad_buf++;
     *((int *)lpad_buf) = (int)(after_hook_pc - lpad_buf - 4);
@@ -711,10 +732,15 @@ emit_landing_pad_code(byte *lpad_buf, const byte *tgt_pc,
     ASSERT(REL32_REACHABLE(lpad_buf, after_hook_pc));
 
     /* Make sure that the landing pad size match with definitions. */
-    ASSERT(lpad_buf - lpad_start == LANDING_PAD_SIZE);
+    ASSERT(lpad_buf - lpad_start <= LANDING_PAD_SIZE);
 
-    make_unhookable(lpad_buf, LANDING_PAD_SIZE, changed_prot);
     return lpad_entry;
+}
+
+static void
+finalize_landing_pad_code(byte *lpad_buf, bool changed_prot)
+{
+    make_unhookable(lpad_buf, LANDING_PAD_SIZE, changed_prot);
 }
 
 /* Assumes that ilist contains decoded instrs for [start_pc, start_pc+size).
@@ -1294,13 +1320,14 @@ map_intercept_pc_to_app_pc(byte *interception_pc, app_pc original_app_pc,
 static void
 unmap_intercept_pc(app_pc original_app_pc)
 {
-    intercept_map_elem_t *curr, *prev;
+    intercept_map_elem_t *curr, *prev, *next;
 
     mutex_lock(&map_intercept_pc_lock);
 
     prev = NULL;
     curr = intercept_map->head;
     while (curr != NULL) {
+        next = curr->next;
         if (curr->original_app_pc == original_app_pc) {
             if (prev != NULL) {
                 prev->next = curr->next;
@@ -1314,11 +1341,13 @@ unmap_intercept_pc(app_pc original_app_pc)
 
             HEAP_TYPE_FREE(GLOBAL_DCONTEXT, curr, intercept_map_elem_t, 
                            ACCT_OTHER, UNPROTECTED);
-            break;
-        }
-
-        prev = curr;
-        curr = curr->next;
+            /* We don't break b/c we allow multiple entries and in fact
+             * we have multiple today: one for displaced app code and
+             * one for the jmp from interception buffer to landing pad.
+             */
+        } else
+            prev = curr;
+        curr = next;
     }
      
     mutex_unlock(&map_intercept_pc_lock);
@@ -1427,7 +1456,7 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
                byte **app_code_copy_p,
                byte **alt_exit_cti_p)
 {
-    byte *pc, *our_pc_end, *lpad_pc;
+    byte *pc, *our_pc_end, *lpad_start, *lpad_pc, *displaced_app_pc, *jmp_start;
     size_t size;
     instrlist_t ilist;
     instr_t *instr;
@@ -1538,10 +1567,12 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
      * and 8 in 64-bit ones) in the trampoline, just after the original app
      * code, and emit it.
      */
-    lpad_pc = alloc_landing_pad(tgt_pc);
-    memcpy(pc, &lpad_pc, sizeof(lpad_pc));
-    pc += sizeof(lpad_pc);
-    lpad_pc = emit_landing_pad_code(lpad_pc, pc, tgt_pc + size);
+    lpad_start = alloc_landing_pad(tgt_pc);
+    memcpy(pc, &lpad_start, sizeof(lpad_start));
+    pc += sizeof(lpad_start);
+    lpad_pc = lpad_start;
+    lpad_pc = emit_landing_pad_code(lpad_pc, pc, tgt_pc + size,
+                                    size, &displaced_app_pc, &changed_prot);
 
     pc = emit_intercept_code(dcontext, pc, prof_func, callee_arg,
                              assume_xsp, action_after, 
@@ -1563,20 +1594,21 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
      * hook from the client (see PR 293465 for other reasons we need a better solution
      * to that problem). */
     if (action_after != AFTER_INTERCEPT_TAKE_OVER_SINGLE_SHOT) {
-        /* Map interception buffer PCs to original app PCs */
-        if (is_in_interception_buffer(pc)) {
-            map_intercept_pc_to_app_pc
-                (pc, tgt_pc, size + IF_X64_ELSE(6, 5) /* include jmp back */, size);
-        }
+        /* Map displaced code to original app PCs */
+        map_intercept_pc_to_app_pc
+            (displaced_app_pc, tgt_pc, size + JMP_LONG_LENGTH /* include jmp back */,
+             size);
         
         /* Copy original instructions to our version, re-relativizing where necessary */
         if (app_code_copy_p != NULL)
-            *app_code_copy_p = pc;
-        pc = copy_app_code(dcontext, tgt_pc, pc, size, &ilist);
+            *app_code_copy_p = displaced_app_pc;
+        copy_app_code(dcontext, tgt_pc, displaced_app_pc, size, &ilist);
     } else {
         /* single shot hooks shouldn't need a copy of the app code */
         ASSERT(app_code_copy_p == NULL);
     }
+
+    finalize_landing_pad_code(lpad_start, changed_prot);
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -1594,24 +1626,29 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
         }
     }
 
-    /* Must return to the second jmp in the landing pad; the first jmp is 6
-     * bytes for 64-bit and 5 for 32-bit (see emit_landing_pad_code() for
-     * details).  Also, for 64-bit 8 bytes of the trampoline address are stored
-     * at the top of the landing pad.  See emit_landing_pad_code().
-     */
+    /* Must return to the displaced app code in the landing pad */
+    jmp_start = pc;
 #ifndef X64
     *pc = JMP_REL32_OPCODE; pc++;
-    *((int *)pc) = (int)(lpad_pc + JMP_REL32_SIZE - pc - 4);
+    *((int *)pc) = (int)(displaced_app_pc - pc - 4);
     pc += 4;    /* 4 is the size of the relative offset */
 #else
     *pc = JMP_ABS_IND64_OPCODE; pc++;
     *pc = JMP_ABS_MEM_IND64_MODRM; pc++;
+#endif
+    /* We explicitly map rather than having instr_set_translation() and
+     * dr_fragment_app_pc() special-case this jump: longer linear search
+     * in the interception map, but cleaner code.
+     */
+    if (is_in_interception_buffer(pc))
+        map_intercept_pc_to_app_pc(jmp_start, tgt_pc, pc - jmp_start, pc - jmp_start);
+#ifdef X64
     /* 64-bit abs address is placed after the jmp instr., i.e., rip rel is 0.
      * We can't place it before the jmp as in the case of the landing pad
      * because there is code in the trampoline immediately preceding this jmp.
      */
     *((int *)pc) = 0; pc += 4;  /* 4 here is the rel offset to the lpad entry */
-    *((byte **)pc) = lpad_pc + JMP_ABS_IND64_SIZE; pc += sizeof(lpad_pc);
+    *((byte **)pc) = displaced_app_pc; pc += sizeof(lpad_pc);
 #endif
     our_pc_end = pc;
 
@@ -1668,6 +1705,7 @@ un_intercept_call(byte *our_pc, byte *tgt_pc)
         /* patch jmp to go back to target */
         /* Note - not a hot_patch, caller must have synchronized already  to make the
          * memcpy restore above safe. */
+        /* FIXME: this looks wrong for x64 which uses abs jmp */
         insert_relative_target(lpad_entry+1, tgt_pc, false /* not a hotpatch */);
         make_unhookable(lpad_entry, JMP_SIZE, changed_prot);
     }
@@ -2430,6 +2468,13 @@ is_in_interception_buffer(byte *pc)
 {
     return (pc >= interception_code &&
             pc < interception_code + INTERCEPTION_CODE_SIZE);
+}
+
+bool
+is_part_of_interception(byte *pc)
+{
+    return (is_in_interception_buffer(pc) ||
+            vmvector_overlap(landing_pad_areas, pc, pc + 1));
 }
 
 bool

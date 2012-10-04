@@ -430,11 +430,27 @@ void callback_interception_exit(void);
 void set_asynch_interception(thread_id_t tid, bool intercept);
 bool intercept_asynch_for_thread(thread_id_t tid, bool intercept_unknown);
 bool intercept_asynch_for_self(bool intercept_unknown);
+
 bool
 is_in_interception_buffer(byte *pc);
+
+bool
+is_part_of_interception(byte *pc);
+
 bool
 is_syscall_trampoline(byte *pc);
-app_pc get_app_pc_from_intercept_pc(byte *pc);
+
+app_pc
+get_app_pc_from_intercept_pc(byte *pc);
+
+static inline app_pc
+get_app_pc_from_intercept_pc_if_necessary(app_pc pc)
+{
+    if (is_part_of_interception(pc))
+        return get_app_pc_from_intercept_pc(pc);
+    return pc;
+}
+
 bool is_intercepted_app_pc(app_pc pc, byte **interception_pc);
 
 /* in inject_shared.c */

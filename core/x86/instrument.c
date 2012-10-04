@@ -5578,20 +5578,7 @@ app_pc
 dr_fragment_app_pc(void *tag)
 {
 #ifdef WINDOWS
-    /* Only the returning (second) jump in a landing pad is interpreted, thus
-     * visible to a client.  The first jump is filtered out by
-     * must_not_be_elided().  The second jump will always be a 32-bit rel
-     * returning after the hook point (i.e., not the interception buffer).
-     */
-    if (vmvector_overlap(landing_pad_areas, (app_pc)tag, (app_pc)tag + 1)) {
-        ASSERT(*((byte *)tag) == JMP_REL32_OPCODE);
-        /* End of jump + relative address. */
-        tag = ((app_pc)tag + 5) + *(int *)((app_pc)tag + 1);
-        ASSERT(!is_in_interception_buffer(tag));
-    }
-
-    if (is_in_interception_buffer(tag))
-        tag = get_app_pc_from_intercept_pc(tag);
+    tag = get_app_pc_from_intercept_pc_if_necessary((app_pc)tag);
     CLIENT_ASSERT(tag != NULL, "dr_fragment_app_pc shouldn't be NULL");
 
     DODEBUG({

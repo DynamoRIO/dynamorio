@@ -4481,7 +4481,7 @@ special_heap_delete_lock(void *special)
  *
  * A landing pad will have nothing more than a jump (5-byte rel for 32-bit DR
  * and 64-bit abs ind jmp for 64-bit DR) to the trampoline and a 5-byte rel jmp
- * back to the next instruction after the hook.
+ * back to the next instruction after the hook, plus the displaced app instrs.
  *
  * To handle hook chaining landing pads won't be released till process exit
  * (not on a detach), their first jump will just be nop'ed.  As landing pads

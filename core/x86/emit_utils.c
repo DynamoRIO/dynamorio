@@ -7702,7 +7702,7 @@ decode_syscall_num(dcontext_t *dcontext, byte *entry)
                  * for PR 250294 to see how it is done).
                  */
                 pc = opnd_get_pc(instr_get_target(&instr));
-                if (!is_in_interception_buffer(pc)) {
+                if (!is_part_of_interception(pc)) {
                     break;  /* give up gracefully */
                 } /* else, carry on at pc */
             } else

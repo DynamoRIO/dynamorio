@@ -2563,22 +2563,7 @@ instr_t *
 instr_set_translation(instr_t *instr, app_pc addr)
 {
 #if defined(WINDOWS) && !defined(STANDALONE_DECODER)
-    /* The first jump (to the trampoline) in a landing pad is never interpreted
-     * (see must_not_be_elided(), so we come here only for the second jump
-     * (back to the instruction after the hook, which is always 32-bit.  For
-     * this we set the translation address to the same as the instruction after
-     * the hook, so we get the jump target and use it. */
-    if (vmvector_overlap(landing_pad_areas, addr, addr + 1)) {
-        
-        CLIENT_ASSERT(*addr == JMP_REL32_OPCODE,
-                      "eliding wrong jmp in the landing pad");
-        addr = (addr + 5) + *(int *)(addr + 1); /* end of jump + rel addr */
-        CLIENT_ASSERT(!is_in_interception_buffer(addr),
-                      "eliding wrong jmp in the landing pad");
-    }
-
-    if (is_in_interception_buffer(addr))
-        addr = get_app_pc_from_intercept_pc(addr);
+    addr = get_app_pc_from_intercept_pc_if_necessary(addr);
 #endif
     instr->translation = addr;
     return instr;

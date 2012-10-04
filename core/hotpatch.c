@@ -3878,8 +3878,7 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
                      * the hooking being aborted - just the log message
                      * changes.
                      */
-                    if (vmvector_overlap(landing_pad_areas, target, target + 1) ||
-                        is_in_interception_buffer(target)) {
+                    if (is_part_of_interception(target)) {
                         LOG(GLOBAL, LOG_HOT_PATCHING, 2, "invalid hotp_only "
                             "patch point at "PFX"; it collides with a core hook\n",
                             start_pc);
