@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -850,6 +850,95 @@ test_regs(void *dc)
     ASSERT(reg == DR_REG_BP);
 }
 
+static void
+test_instr_opnds(void *dc)
+{
+    /* Verbose disasm looks like this:
+     * 32-bit:
+     *   0x080f1ae0  ff 25 e7 1a 0f 08    jmp    0x080f1ae7
+     *   0x080f1ae6  b8 ef be ad de       mov    $0xdeadbeef -> %eax
+     *   0x080f1ae0  a0 e6 1a 0f 08       mov    0x080f1ae6 -> %al
+     *   0x080f1ae5  b8 ef be ad de       mov    $0xdeadbeef -> %eax
+     * 64-bit:
+     *   0x00000000006b8de0  ff 25 02 00 00 00    jmp    <rel> 0x00000000006b8de8
+     *   0x00000000006b8de6  48 b8 ef be ad de 00 mov    $0x00000000deadbeef -> %rax
+     *                       00 00 00
+     *   0x00000000006b8de0  8a 05 02 00 00 00    mov    <rel> 0x00000000006b8de8 -> %al
+     *   0x00000000006b8de6  48 b8 ef be ad de 00 mov    $0x00000000deadbeef -> %rax
+     *                       00 00 00
+     */
+    instrlist_t *ilist;
+    instr_t *tgt, *instr;
+    byte *pc;
+    short disp;
+
+    ilist = instrlist_create(dc);
+
+    /* test mem instr as ind jmp target */
+    tgt = INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
+                               opnd_create_immed_int(0xdeadbeef, OPSZ_PTR));
+    /* skip rex+opcode */
+    disp = IF_X64_ELSE(2,1);
+    instrlist_append(ilist, INSTR_CREATE_jmp_ind
+                     (dc, opnd_create_mem_instr(tgt, disp, OPSZ_PTR)));
+    instrlist_append(ilist, tgt);
+    pc = instrlist_encode(dc, ilist, buf, true/*instr targets*/);
+    ASSERT(pc != NULL);
+    instrlist_clear(dc, ilist);
+#if VERBOSE
+    pc = disassemble_with_info(dc, buf, STDOUT, true, true);
+    pc = disassemble_with_info(dc, pc, STDOUT, true, true);
+#endif
+    pc = buf;
+    instr = instr_create(dc);
+    pc = decode(dc, pc, instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_get_opcode(instr) == OP_jmp_ind);
+#ifdef X64
+    ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
+    ASSERT(opnd_get_addr(instr_get_src(instr, 0)) == pc + disp);
+#else
+    ASSERT(opnd_is_base_disp(instr_get_src(instr, 0)));
+    ASSERT(opnd_get_base(instr_get_src(instr, 0)) == REG_NULL);
+    ASSERT(opnd_get_index(instr_get_src(instr, 0)) == REG_NULL);
+    ASSERT(opnd_get_disp(instr_get_src(instr, 0)) == (ptr_int_t)pc + disp);
+#endif
+
+    /* test mem instr as TYPE_O */
+    tgt = INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
+                               opnd_create_immed_int(0xdeadbeef, OPSZ_PTR));
+    /* skip rex+opcode */
+    disp = IF_X64_ELSE(2,1);
+    instrlist_append(ilist, INSTR_CREATE_mov_ld
+                     (dc, opnd_create_reg(DR_REG_AL),
+                      opnd_create_mem_instr(tgt, disp, OPSZ_1)));
+    instrlist_append(ilist, tgt);
+    pc = instrlist_encode(dc, ilist, buf, true/*instr targets*/);
+    ASSERT(pc != NULL);
+    instrlist_clear(dc, ilist);
+#if VERBOSE
+    pc = disassemble_with_info(dc, buf, STDOUT, true, true);
+    pc = disassemble_with_info(dc, pc, STDOUT, true, true);
+#endif
+    pc = buf;
+    instr_reset(dc, instr);
+    pc = decode(dc, pc, instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_get_opcode(instr) == OP_mov_ld);
+#ifdef X64
+    ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
+    ASSERT(opnd_get_addr(instr_get_src(instr, 0)) == pc + disp);
+#else
+    ASSERT(opnd_is_base_disp(instr_get_src(instr, 0)));
+    ASSERT(opnd_get_base(instr_get_src(instr, 0)) == REG_NULL);
+    ASSERT(opnd_get_index(instr_get_src(instr, 0)) == REG_NULL);
+    ASSERT(opnd_get_disp(instr_get_src(instr, 0)) == (ptr_int_t)pc + disp);
+#endif
+
+    instr_free(dc, instr);
+    instrlist_destroy(dc, ilist);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -898,6 +987,8 @@ main(int argc, char *argv[])
 #endif
 
     test_regs(dcontext);
+
+    test_instr_opnds(dcontext);
 
     print("all done\n");
     return 0;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -324,6 +324,9 @@ typedef struct decode_info_t {
     bool repne_prefix;
     byte vex_vvvv; /* vvvv bits for extra operand */
     bool vex_encoded;
+    /* for instr_t* target encoding */
+    ptr_int_t cur_note;
+    bool has_instr_opnds;
 } decode_info_t;
 
 

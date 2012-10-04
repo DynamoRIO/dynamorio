@@ -507,6 +507,7 @@ struct _opnd_t {
         /* We could fit segment in value.base_disp but more consistent here */
         reg_id_t segment : REG_SPECIFIER_BITS; /* BASE_DISP_kind, REL_ADDR_kind,
                                                 * and ABS_ADDR_kind */
+        ushort disp;           /* MEM_INSTR_kind */
     } seg;
     union {
         /* all are 64 bits or less */
@@ -522,7 +523,7 @@ struct _opnd_t {
          * segment selector (which is NOT a DR_SEG_ constant) in far_pc_seg_selector
          * above, to save space.
          */
-        instr_t *instr;         /* INSTR_kind and FAR_INSTR_kind */
+        instr_t *instr;         /* INSTR_kind, FAR_INSTR_kind, and MEM_INSTR_kind */
         reg_id_t reg;           /* REG_kind */
         struct {
             int disp;
@@ -570,6 +571,7 @@ enum {
     REL_ADDR_kind,  /* pc-relative address: x64 only */
     ABS_ADDR_kind,  /* 64-bit absolute address: x64 only */
 #endif
+    MEM_INSTR_kind,
     LAST_kind,      /* sentinal; not a valid opnd kind */
 };
 #endif /* DR_FAST_IR */
@@ -625,7 +627,11 @@ opnd_t
 opnd_create_far_pc(ushort seg_selector, app_pc pc);
 
 DR_API
-/** Returns an instr_t pointer address with value \p instr. */
+/**
+ * Returns an operand whose value will be the encoded address of \p
+ * instr.  This operand can be used as an immediate integer or as a
+ * direct call or jump target.  Its size is always #OPSZ_PTR.
+ */
 opnd_t 
 opnd_create_instr(instr_t *instr);
 
@@ -636,6 +642,22 @@ DR_API
  */
 opnd_t 
 opnd_create_far_instr(ushort seg_selector, instr_t *instr);
+
+DR_API
+/**
+ * Returns a memory reference operand whose value will be the encoded
+ * address of \p instr plus the 16-bit displacement \p disp.  For 32-bit
+ * mode, it will be encoded just like an absolute address
+ * (opnd_create_abs_addr()); for 64-bit mode, it will be encoded just
+ * like a pc-relative address (opnd_create_rel_addr()). This operand
+ * can be used anywhere a regular memory operand can be used.  Its
+ * size is always #OPSZ_PTR.
+ *
+ * \note This operand will return false to opnd_is_instr(), opnd_is_rel_addr(),
+ * and opnd_is_abs_addr().  It is a separate type.
+ */
+opnd_t
+opnd_create_mem_instr(instr_t *instr, short disp, opnd_size_t data_size);
 
 DR_API
 /** 
@@ -878,6 +900,11 @@ bool
 opnd_is_far_instr(opnd_t opnd);
 
 DR_API
+/** Returns true iff \p opnd is a memory reference to an instr_t address operand. */
+bool
+opnd_is_mem_instr(opnd_t opnd);
+
+DR_API
 /** Returns true iff \p opnd is a (near or far) base+disp memory reference operand. */
 bool 
 opnd_is_base_disp(opnd_t opnd);
@@ -1042,9 +1069,16 @@ ushort
 opnd_get_segment_selector(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is an instr_t pointer, returns its value. */
+/** Assumes \p opnd is an instr_t (near, far, or memory) operand and returns its value. */
 instr_t*
 opnd_get_instr(opnd_t opnd);
+
+DR_API
+/**
+ * Assumes \p opnd is a memory instr operand.  Returns its displacement.
+ */
+short
+opnd_get_mem_instr_disp(opnd_t opnd);
 
 DR_API
 /**

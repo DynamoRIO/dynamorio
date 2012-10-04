@@ -79,6 +79,7 @@
 #define OPND_IS_BASE_DISP(op)   ((op).kind == BASE_DISP_kind)
 #define OPND_IS_FAR_PC(op)      ((op).kind == FAR_PC_kind)
 #define OPND_IS_FAR_INSTR(op)   ((op).kind == FAR_INSTR_kind)
+#define OPND_IS_MEM_INSTR(op)   ((op).kind == MEM_INSTR_kind)
 #define OPND_IS_VALID(op)       ((op).kind < LAST_kind)
 
 #define opnd_is_null            OPND_IS_NULL
@@ -90,6 +91,7 @@
 #define opnd_is_base_disp       OPND_IS_BASE_DISP
 #define opnd_is_far_pc          OPND_IS_FAR_PC
 #define opnd_is_far_instr       OPND_IS_FAR_INSTR
+#define opnd_is_mem_instr       OPND_IS_MEM_INSTR
 #define opnd_is_valid           OPND_IS_VALID
 
 /* Compound predicates */

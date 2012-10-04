@@ -474,6 +474,11 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         (ushort)opnd_get_segment_selector(opnd), opnd_get_instr(opnd),
                         postop_suffix());
         break;
+    case MEM_INSTR_kind:
+        print_to_buffer(buf, bufsz, sofar, IF_X64("<re> ")"@"PFX"+%d%s",
+                        opnd_get_instr(opnd), opnd_get_mem_instr_disp(opnd),
+                        postop_suffix());
+        break;
     case REG_kind:
         reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), "", postop_suffix());
         break;

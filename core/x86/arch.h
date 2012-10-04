@@ -957,7 +957,8 @@ void get_ymm_caller_saved(dr_ymm_t *ymm_caller_saved_buf);
 
 /* in encode.c */
 byte *instr_encode_ignore_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc);
-byte *instr_encode_check_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc);
+byte *instr_encode_check_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc,
+                                      bool *has_instr_opnds/*OUT OPTIONAL*/);
 byte *copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                        byte *dst_pc, byte *final_pc);
 

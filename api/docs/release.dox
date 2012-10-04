@@ -184,6 +184,9 @@ Further non-compatibility-affecting changes include:
  - Added drmgr_get_parent_cls_field()
  - Added support for building DynamoRIO with Visual Studio 2012 and
    the Windows 8 WDK
+ - Added a new operand type enabling an instr_t to be used as a
+   memory reference: opnd_create_mem_instr(), opnd_is_mem_instr(),
+   opnd_get_mem_instr_disp()
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux

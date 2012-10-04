@@ -1569,6 +1569,7 @@ opnd_replace_reg_with_val(opnd_t *opnd, int old_reg, int val)
     case FAR_PC_kind:
     case INSTR_kind: 
     case FAR_INSTR_kind: 
+    case MEM_INSTR_kind:
 #ifdef X64
     case REL_ADDR_kind:
     case ABS_ADDR_kind:

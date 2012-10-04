@@ -94,6 +94,7 @@
 #undef opnd_is_base_disp
 #undef opnd_is_far_pc
 #undef opnd_is_far_instr
+#undef opnd_is_mem_instr
 #undef opnd_is_valid
 bool opnd_is_null       (opnd_t op) { return OPND_IS_NULL(op); }
 bool opnd_is_immed_int  (opnd_t op) { return OPND_IS_IMMED_INT(op); }
@@ -104,6 +105,7 @@ bool opnd_is_reg        (opnd_t op) { return OPND_IS_REG(op); }
 bool opnd_is_base_disp  (opnd_t op) { return OPND_IS_BASE_DISP(op); }
 bool opnd_is_far_pc     (opnd_t op) { return OPND_IS_FAR_PC(op); }
 bool opnd_is_far_instr  (opnd_t op) { return OPND_IS_FAR_INSTR(op); }
+bool opnd_is_mem_instr  (opnd_t op) { return OPND_IS_MEM_INSTR(op); }
 bool opnd_is_valid      (opnd_t op) { return OPND_IS_VALID(op); }
 #define opnd_is_null            OPND_IS_NULL
 #define opnd_is_immed_int       OPND_IS_IMMED_INT
@@ -114,6 +116,7 @@ bool opnd_is_valid      (opnd_t op) { return OPND_IS_VALID(op); }
 #define opnd_is_base_disp       OPND_IS_BASE_DISP
 #define opnd_is_far_pc          OPND_IS_FAR_PC
 #define opnd_is_far_instr       OPND_IS_FAR_INSTR
+#define opnd_is_mem_instr       OPND_IS_MEM_INSTR
 #define opnd_is_valid           OPND_IS_VALID
 
 #ifdef X64
@@ -205,6 +208,7 @@ opnd_get_size(opnd_t opnd)
     case REL_ADDR_kind: 
     case ABS_ADDR_kind: 
 #endif
+    case MEM_INSTR_kind:
         return opnd.size;
     case INSTR_kind:
     case PC_kind:
@@ -230,6 +234,7 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
     case REL_ADDR_kind: 
     case ABS_ADDR_kind: 
 #endif
+    case MEM_INSTR_kind:
         opnd->size = newsize;
         return;
     default:
@@ -343,6 +348,18 @@ opnd_create_far_instr(ushort seg_selector, instr_t *instr)
     return opnd;
 }
 
+DR_API
+opnd_t
+opnd_create_mem_instr(instr_t *instr, short disp, opnd_size_t data_size)
+{
+    opnd_t opnd;
+    opnd.kind = MEM_INSTR_kind;
+    opnd.size = data_size;
+    opnd.seg.disp = disp;
+    opnd.value.instr = instr;
+    return opnd;
+}
+
 app_pc
 opnd_get_pc(opnd_t opnd)
 {
@@ -369,10 +386,18 @@ opnd_get_segment_selector(opnd_t opnd)
 instr_t *
 opnd_get_instr(opnd_t opnd)
 {
-    CLIENT_ASSERT(opnd_is_instr(opnd), "opnd_get_instr called on non-instr");
+    CLIENT_ASSERT(opnd_is_instr(opnd) || opnd_is_mem_instr(opnd),
+                  "opnd_get_instr called on non-instr");
     return opnd.value.instr;
 }
 
+short 
+opnd_get_mem_instr_disp(opnd_t opnd)
+{
+    CLIENT_ASSERT(opnd_is_mem_instr(opnd),
+                  "opnd_get_mem_instr_disp called on non-mem-instr");
+    return opnd.seg.disp;
+}
 
 /* Base+displacement+scaled index operands */
 
@@ -581,7 +606,8 @@ bool
 opnd_is_memory_reference(opnd_t opnd)
 {
     return (opnd_is_base_disp(opnd)
-            IF_X64(|| opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)));
+            IF_X64(|| opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) ||
+            opnd_is_mem_instr(opnd));
 }
 
 bool
@@ -595,7 +621,8 @@ bool
 opnd_is_near_memory_reference(opnd_t opnd)
 {
     return (opnd_is_near_base_disp(opnd)
-            IF_X64(|| opnd_is_near_abs_addr(opnd) || opnd_is_near_rel_addr(opnd)));
+            IF_X64(|| opnd_is_near_abs_addr(opnd) || opnd_is_near_rel_addr(opnd)) ||
+            opnd_is_mem_instr(opnd));
 }
 
 int
@@ -609,6 +636,7 @@ opnd_num_regs_used(opnd_t opnd)
     case FAR_PC_kind:
     case INSTR_kind:
     case FAR_INSTR_kind:
+    case MEM_INSTR_kind:
         return 0;
 
     case REG_kind: 
@@ -639,6 +667,7 @@ opnd_get_reg_used(opnd_t opnd, int index)
     case IMMED_FLOAT_kind:
     case PC_kind:
     case FAR_PC_kind:
+    case MEM_INSTR_kind:
         CLIENT_ASSERT(false, "opnd_get_reg_used called on invalid opnd type");
         return REG_NULL;
 
@@ -759,6 +788,7 @@ opnd_uses_reg(opnd_t opnd, reg_id_t reg)
     case FAR_PC_kind:
     case INSTR_kind:
     case FAR_INSTR_kind:
+    case MEM_INSTR_kind:
         return false;
 
     case REG_kind: 
@@ -792,6 +822,7 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
     case FAR_PC_kind:
     case INSTR_kind:
     case FAR_INSTR_kind:
+    case MEM_INSTR_kind:
         return false;
 
     case REG_kind: 
@@ -959,6 +990,9 @@ bool opnd_same(opnd_t op1, opnd_t op2)
         return (op1.seg.segment == op2.seg.segment && 
                 op1.value.addr == op2.value.addr);
 #endif
+    case MEM_INSTR_kind:
+        return (op1.value.instr == op2.value.instr &&
+                op1.seg.disp == op2.seg.disp);
     default: 
         CLIENT_ASSERT(false, "opnd_same: invalid opnd type"); 
         return false;
@@ -975,6 +1009,7 @@ bool opnd_share_reg(opnd_t op1, opnd_t op2)
     case FAR_PC_kind:
     case INSTR_kind:
     case FAR_INSTR_kind:
+    case MEM_INSTR_kind:
         return false;
     case REG_kind: 
         return opnd_uses_reg(op2, opnd_get_reg(op1));
@@ -1063,6 +1098,11 @@ bool opnd_defines_use(opnd_t def, opnd_t use)
                              opnd_size_in_bytes(opnd_get_size(def)),
                              opnd_size_in_bytes(opnd_get_size(use)));
 #endif
+    case MEM_INSTR_kind:
+        if (!opnd_is_memory_reference(use))
+            return false;
+        /* we don't know our address so we have to assume true */
+        return true;
     default: 
         CLIENT_ASSERT(false, "opnd_defines_use: invalid opnd type"); 
         return false;
@@ -1800,7 +1840,6 @@ instr_build_bits(dcontext_t *dcontext, int opcode, uint num_bytes)
     return instr;
 }
 
-
 /* encodes to buffer, then returns length.
  * needed for things we must have encoding for: length and eflags.
  * if !always_cache, only caches the encoding if instr_ok_to_mangle();
@@ -1815,8 +1854,14 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     byte *buf = heap_alloc(dcontext, 32 /* max instr length is 17 bytes */
                            HEAPACCT(ACCT_IR));
     uint len;
-    byte *nxt = instr_encode_check_reachability(dcontext, instr, buf);
-    bool valid_to_cache = true;
+    /* Do not cache instr opnds as they are pc-relative to final encoding location.
+     * Rather than us walking all of the operands separately here, we have
+     * instr_encode_check_reachability tell us while it does its normal walk.
+     * Xref i#731.
+     */
+    bool has_instr_opnds;
+    byte *nxt = instr_encode_check_reachability(dcontext, instr, buf, &has_instr_opnds);
+    bool valid_to_cache = !has_instr_opnds;
     if (nxt == NULL) {
         nxt = instr_encode_ignore_reachability(dcontext, instr, buf);
         if (nxt == NULL) {
