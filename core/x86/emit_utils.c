@@ -315,7 +315,7 @@ exit_stub_size(dcontext_t *dcontext, cache_pc target, uint flags)
 /* The write that inserts the relative target is done atomically so this
  * function is safe with respect to a thread executing the code containing 
  * this target, presuming that the code in both the before and after states
- * is valid.
+ * is valid, and that [pc, pc+4) does not cross a cache line.
  * For x64 this routine only works for 32-bit reachability.  If further
  * reach is needed the caller must use indirection.  Xref PR 215395.
  */
@@ -1145,7 +1145,8 @@ exit_cti_disp_pc(cache_pc branch_pc)
 /* Patch the (direct) branch at branch_pc so it branches to target_pc 
  * The write that actually patches the branch is done atomically so this
  * function is safe with respect to a thread executing this branch presuming
- * that both the before and after targets are valid
+ * that both the before and after targets are valid and that [pc, pc+4) does
+ * not cross a cache line.
  */
 void
 patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)

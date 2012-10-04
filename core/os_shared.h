@@ -923,7 +923,7 @@ hook_text(byte *hook_code_buf, const app_pc image_addr,
           intercept_function_t hook_func, const void *callee_arg, 
           const after_intercept_action_t action_after,
           const bool abort_if_hooked, const bool ignore_cti,
-          byte **app_code_copy_p, byte **alt_exit_cti_p);
+          byte **app_code_copy_p, byte **alt_exit_tgt_p);
 void
 unhook_text(byte *hook_code_buf, app_pc image_addr);
 void

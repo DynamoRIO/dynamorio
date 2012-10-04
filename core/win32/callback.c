@@ -831,19 +831,23 @@ copy_app_code(dcontext_t *dcontext, const byte *start_pc,
  * Could optimize by having a bool indicating whether to have a callee arg or not,
  * but then the intercept_function_t typedef must be void, or must have two, so we
  * just make every callee take an arg.
- * Currently only hotp_only uses alt_after_cti_p.
+ *
+ * Currently only hotp_only uses alt_after_tgt_p.  It points at the pointer-sized
+ * target that initially has the value alternate_after.  It is NOT intra-cache-line
+ * aligned and thus if the caller wants a hot-patchable target it must
+ * have another layer of indirection.
  */
 static byte *
 emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
                     void *callee_arg, bool assume_xsp,
                     after_intercept_action_t action_after, byte *alternate_after,
-                    byte **alt_after_cti_p)
+                    byte **alt_after_tgt_p OUT)
 {
     instrlist_t ilist;
     instr_t *inst, *push_start, *push_start2 = NULL;
     instr_t *decision = NULL, *alt_decision = NULL, *alt_after = NULL;
     uint len;
-    byte *push_pc, *push_pc2 = NULL;
+    byte *start_pc, *push_pc, *push_pc2 = NULL;
     bool assume_not_on_dstack = assume_xsp;
     app_pc no_cleanup;
     uint stack_offs = 0;
@@ -1239,8 +1243,29 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
             insert_let_go_cleanup(dcontext, &ilist, alt_decision,
                                   assume_xsp, assume_not_on_dstack, action_after);
             /* alternate after cleanup target */
-            alt_after = INSTR_CREATE_jmp(dcontext, opnd_create_pc((app_pc)alternate_after));
-            APP(&ilist, alt_after);
+            /* if alt_after_tgt_p != NULL we always do pointer-sized even if
+             * the initial target happens to reach
+             */
+            if (IF_X64(alt_after_tgt_p == NULL &&)
+                REL32_REACHABLE(pc, alternate_after) &&
+                /* over-estimate to be sure: we assert below we're < PAGE_SIZE */
+                REL32_REACHABLE(pc + PAGE_SIZE, alternate_after)) {
+                alt_after = INSTR_CREATE_jmp(dcontext,
+                                             opnd_create_pc((app_pc)alternate_after));
+                APP(&ilist, alt_after);
+            } else {
+                /* indirect through an inlined target */
+                alt_after =
+                    instr_build_bits(dcontext, OP_UNDECODED, sizeof(alternate_after));
+                APP(&ilist, INSTR_CREATE_jmp_ind
+                    (dcontext, opnd_create_mem_instr(alt_after, 0, OPSZ_PTR)));
+                /* XXX: could use mov imm->xax and have target skip rex+opcode
+                 * for clean disassembly
+                 */
+                instr_set_raw_bytes(alt_after, (byte *) &alternate_after,
+                                    sizeof(alternate_after));
+                APP(&ilist, alt_after);
+            }
         }
         /* the normal let_go target */
         insert_let_go_cleanup(dcontext, &ilist, decision,
@@ -1255,6 +1280,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         instr_set_note(inst, (void *)(ptr_int_t)len);
         len += instr_length(dcontext, inst);
     }
+    start_pc = pc;
     for (inst = instrlist_first(&ilist); inst; inst = instr_get_next(inst)) {
         pc = instr_encode(dcontext, inst, pc);
         ASSERT(pc != NULL);
@@ -1262,8 +1288,8 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
             push_pc = (pc - sizeof(ptr_uint_t));
         if (inst == push_start2)
             push_pc2 = (pc - sizeof(ptr_uint_t));
-        if (inst == alt_after && alt_after_cti_p != NULL)
-            *alt_after_cti_p = pc - JMP_LONG_LENGTH;
+        if (inst == alt_after && alt_after_tgt_p != NULL)
+            *alt_after_tgt_p = pc - sizeof(alternate_after);
     }
 
     /* now can point start_pc arg of callee at beyond-cleanup pc */
@@ -1283,6 +1309,8 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
     *((ptr_uint_t*)push_pc) = (ptr_uint_t)no_cleanup;
     if (push_pc2 != NULL)
         *((ptr_uint_t*)push_pc2) = (ptr_uint_t)no_cleanup;
+
+    ASSERT(pc - start_pc < PAGE_SIZE && "adjust REL32_REACHABLE for alternate_after");
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -1480,7 +1508,10 @@ emit_resume_jmp(byte *pc, byte *resume_pc, byte *app_pc, byte *xl8_start_pc)
  * true.
  * FIXME: if we add one more flag we should switch to a single flag enum
  * 
- * Currently only hotp_only uses app_code_copy_p and alt_exit_cti_p.
+ * Currently only hotp_only uses app_code_copy_p and alt_exit_tgt_p.
+ * These point at their respective locations.  alt_exit_tgt_p is
+ * currently NOT aligned for hot patching.
+ *
  * Returns pc after last instruction of emitted interception code,
  * or NULL when abort_on_incompatible_hooker is true and tgt_pc starts with a CTI.
  */
@@ -1490,7 +1521,7 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
                bool abort_on_incompatible_hooker,
                bool cti_safe_to_ignore,
                byte **app_code_copy_p,
-               byte **alt_exit_cti_p)
+               byte **alt_exit_tgt_p)
 {
     byte *pc, *our_pc_end, *lpad_start, *lpad_pc, *displaced_app_pc;
     size_t size;
@@ -1606,6 +1637,14 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
     lpad_start = alloc_landing_pad(tgt_pc);
     memcpy(pc, &lpad_start, sizeof(lpad_start));
     pc += sizeof(lpad_start);
+
+    if (alt_exit_tgt_p != NULL) {
+        /* XXX: if we wanted to align for hot-patching we'd do so here
+         * and we'd pass the (post-padding) pc here as the alternate_after
+         * to emit_intercept_code
+         */
+    }
+
     lpad_pc = lpad_start;
     lpad_pc = emit_landing_pad_code(lpad_pc, pc, tgt_pc + size,
                                     size, &displaced_app_pc, &changed_prot);
@@ -1615,10 +1654,10 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
                              (action_after ==
                               AFTER_INTERCEPT_TAKE_OVER_SINGLE_SHOT) ?
                                  tgt_pc : 
-                                 ((alt_exit_cti_p != NULL) ?
+                                 ((alt_exit_tgt_p != NULL) ?
                                      CURRENTLY_UNKNOWN :
                                      NULL),
-                             alt_exit_cti_p);
+                             alt_exit_tgt_p);
 
     /* If we are TAKE_OVER_SINGLE_SHOT then the handler routine has promised to 
      * restore the original code and supply the appropriate continuation address.
@@ -7912,7 +7951,7 @@ hook_text(byte *hook_code_buf, const app_pc image_addr,
           intercept_function_t hook_func, const void *callee_arg, 
           const after_intercept_action_t action_after,
           const bool abort_if_hooked, const bool ignore_cti,
-          byte **app_code_copy_p, byte **alt_exit_cti_p)
+          byte **app_code_copy_p, byte **alt_exit_tgt_p)
 {
     byte *res;
     ASSERT(DYNAMO_OPTION(hotp_only));
@@ -7930,7 +7969,7 @@ hook_text(byte *hook_code_buf, const app_pc image_addr,
                           /* use dr stack now, later on hotp stack - FIXME */
                           false, action_after,
                           abort_if_hooked, ignore_cti,
-                          app_code_copy_p, alt_exit_cti_p);
+                          app_code_copy_p, alt_exit_tgt_p);
 
     /* Hooking can only fail if there was a cti at the patch region.  There 
      * better not be any there!
@@ -7938,11 +7977,11 @@ hook_text(byte *hook_code_buf, const app_pc image_addr,
     ASSERT(res != NULL);
 
     /* If app_code_copy_p isn't null, then *app_code_copy_p can't be null;
-     * same for alt_exit_cti_p if after_action is dynamic decision.
+     * same for alt_exit_tgt_p if after_action is dynamic decision.
      */
     ASSERT(app_code_copy_p == NULL || *app_code_copy_p != NULL);
     ASSERT(action_after != AFTER_INTERCEPT_DYNAMIC_DECISION ||
-           alt_exit_cti_p == NULL || *app_code_copy_p != NULL);
+           alt_exit_tgt_p == NULL || *app_code_copy_p != NULL);
     return res;
 }
 

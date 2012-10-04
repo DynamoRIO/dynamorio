@@ -592,6 +592,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     ASSERT(res);
         
 #define INSERT_INT(value)         \
+  ASSERT(CHECK_TRUNCATE_TYPE_int((ptr_int_t)(value))); \
   *(int *)cur_local_pos = (int)(value); \
   cur_local_pos += sizeof(int)
 
@@ -763,7 +764,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
 #ifdef X64
 /* for reachability, go through eax, which should be dead */
 # define CALL(target_func)              \
-  IF_X64(*cur_local_pos++ = REX_W;)     \
+  *cur_local_pos++ = REX_W;             \
   *cur_local_pos++ = MOV_IMM_XAX;       \
   INSERT_ADDR(target_func);             \
   *cur_local_pos++ = CALL_RM32;         \
@@ -897,7 +898,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     jmp_fixup1 = cur_local_pos++; /* jmp to after call below */
     /* Xref case 8373, LdrGetProcedureAdderss sometimes returns an
      * address of 0xffbadd11 even though it returned STATUS_SUCCESS */
-    CMP_TO_EAX(GET_PROC_ADDR_BAD_ADDR);
+    CMP_TO_EAX((int)GET_PROC_ADDR_BAD_ADDR);
     *cur_local_pos++ = JZ_REL8; /* JZ == JE */
     jmp_fixup2 = cur_local_pos++; /* jmp to after call below */
     IF_X64(ADD_IMM8_TO_ESP(-2*(int)XSP_SZ)); /* need 4 slots total */

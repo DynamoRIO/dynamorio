@@ -269,12 +269,12 @@ typedef struct {
      */
     byte *app_code_copy;
 
-    /* Pointer to the cti inside the trampoline (the one that is used to 
+    /* Pointer to the cti target inside the trampoline (the one that is used to 
      * implement AFTER_INTERCEPT_LET_GO_ALT_DYN) that is used to 
      * change control flow.  Used only in hotp_only mode for a patch point 
      * that requests a control flow change, i.e., has non-zero return_addr.
      */
-    byte *tramp_exit_cti;
+    byte *tramp_exit_tgt;
 } hotp_patch_point_t;
 
 /* Experiments showed that the maximum size of a single interception 
@@ -1059,7 +1059,7 @@ hotp_read_policy_defs(uint *num_vuls_read)
                             app_rva_t, RETURN_ADDR, start);
                     PPOINT(tab, vul, set, module, ppoint).trampoline = NULL;
                     PPOINT(tab, vul, set, module, ppoint).app_code_copy = NULL;
-                    PPOINT(tab, vul, set, module, ppoint).tramp_exit_cti = NULL;
+                    PPOINT(tab, vul, set, module, ppoint).tramp_exit_tgt = NULL;
                 }
             }
         }
@@ -3963,6 +3963,16 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
     return res;
 }
 
+static void
+patch_cti_tgt(byte *tgt_loc, byte *new_val, bool hot_patch)
+{
+#ifdef X64
+    ATOMIC_8BYTE_WRITE(tgt_loc, new_val, hot_patch);
+#else
+    insert_relative_target(tgt_loc, new_val, hot_patch);
+#endif
+}
+
 /* Injects one hotp_only patch, i.e., inserts trampoline to execute a hot patch.
  *
  * FIXME: multi-thread safe injection hasn't been implemented; when that is 
@@ -4055,7 +4065,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
         ASSERT(cur_ppoint->app_code_copy != NULL);
     } else {
         ASSERT(cur_ppoint->app_code_copy == NULL);
-        ASSERT(cur_ppoint->tramp_exit_cti == NULL);
+        ASSERT(cur_ppoint->tramp_exit_tgt == NULL);
     }
 
     /* Shouldn't be injecting anything that is isn't turned on. */
@@ -4082,7 +4092,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
                     false, /* don't abort if hooked, smash it */
                     true,  /* ignore ctis; they have been checked for already */
                     &cur_ppoint->app_code_copy,
-                    cur_ppoint->return_addr != 0 ? &cur_ppoint->tramp_exit_cti :
+                    cur_ppoint->return_addr != 0 ? &cur_ppoint->tramp_exit_tgt :
                                                    NULL);
 
     /* Did we hook it successfully? */
@@ -4101,7 +4111,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
      * cti that does the control flow change should be inside the trampoline.
      */
     ASSERT(cur_ppoint->return_addr == 0 ||
-           HOTP_ONLY_IS_IN_TRAMPOLINE(cur_ppoint, cur_ppoint->tramp_exit_cti));
+           HOTP_ONLY_IS_IN_TRAMPOLINE(cur_ppoint, cur_ppoint->tramp_exit_tgt));
     
     /* Now that the trampoline has been created to our satisfaction, add it to
      * the trampoline vector.  Note, all thread synch locks & hot patch locks
@@ -4112,9 +4122,6 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
                  (void *) cur_ppoint);
 
     if (cur_ppoint->return_addr != 0) {
-        /* As of today our trampolines only use rel32 jmps. */
-        ASSERT(*cur_ppoint->tramp_exit_cti == JMP_REL32_OPCODE);
-
         /* A hot patch can't change control flow to go to the point where it 
          * is injected; would lead to an infinite loop. 
          */
@@ -4158,7 +4165,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
                 cflow_target = ppoint->app_code_copy +
                                (cur_ppoint->return_addr - ppoint->offset);
                 ASSERT(HOTP_ONLY_IS_IN_TRAMPOLINE(ppoint, cflow_target));
-                patch_branch(cur_ppoint->tramp_exit_cti, cflow_target, false);
+                patch_cti_tgt(cur_ppoint->tramp_exit_tgt, cflow_target, false);
                 patched = true;
 
 #ifndef DEBUG
@@ -4177,7 +4184,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
          */
         if (!patched) {
             cflow_target = module->base_address + cur_ppoint->return_addr;
-            patch_branch(cur_ppoint->tramp_exit_cti, cflow_target, false);
+            patch_cti_tgt(cur_ppoint->tramp_exit_tgt, cflow_target, false);
         }
     }
 
@@ -4201,13 +4208,12 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
                 HOTP_ONLY_IS_IN_PATCH_REGION(cur_ppoint, ppoint->return_addr)) {
 
                 ASSERT(HOTP_ONLY_IS_IN_TRAMPOLINE(ppoint, ppoint->app_code_copy));
-                ASSERT(HOTP_ONLY_IS_IN_TRAMPOLINE(ppoint, ppoint->tramp_exit_cti));
+                ASSERT(HOTP_ONLY_IS_IN_TRAMPOLINE(ppoint, ppoint->tramp_exit_tgt));
 
-                ASSERT(*(ppoint->tramp_exit_cti) == JMP_REL32_OPCODE);
                 cflow_target = cur_ppoint->app_code_copy + 
                                (ppoint->return_addr - cur_ppoint->offset);
                 ASSERT(HOTP_ONLY_IS_IN_TRAMPOLINE(cur_ppoint, cflow_target));
-                patch_branch(ppoint->tramp_exit_cti, cflow_target, false);
+                patch_cti_tgt(ppoint->tramp_exit_tgt, cflow_target, false);
                 STATS_INC(hotp_only_cflow_collision);
             }
         }
@@ -4362,16 +4368,16 @@ hotp_only_remove_patch(const hotp_module_t *module,
 
     /* Today for hotp_only all patches in a module are applied and removed in 
      * one shot, and control flow change doesn't go across modules, so there 
-     * is no need to patch no tramp_exit_cti (to make sure that control flow 
+     * is no need to patch no tramp_exit_tgt (to make sure that control flow 
      * change requested is not affected) as a result of patch removal 
      * (remember that all threads are suspended at outside of any hot patches 
      * during the patch removal process).  If in future we allow control flow 
      * change to go across modules, then we will need to go through all 
-     * modules & their patch points to fix the tramp_exit_cti. 
+     * modules & their patch points to fix the tramp_exit_tgt. 
      */
 
     cur_ppoint->trampoline = NULL;
-    cur_ppoint->tramp_exit_cti = NULL;
+    cur_ppoint->tramp_exit_tgt = NULL;
     cur_ppoint->app_code_copy = NULL;
 }
 
@@ -5773,7 +5779,7 @@ hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls)
         patch_point->precedence = HOTP_ONLY_GBOP_PRECEDENCE;
         patch_point->trampoline = NULL;
         patch_point->app_code_copy = NULL;
-        patch_point->tramp_exit_cti = NULL;
+        patch_point->tramp_exit_tgt = NULL;
     }
 
     *num_vuls += gbop_num_hooks; 
