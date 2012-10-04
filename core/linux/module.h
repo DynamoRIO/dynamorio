@@ -178,6 +178,7 @@ typedef struct _os_module_data_t {
     app_pc gnu_bitmask;
     ptr_uint_t gnu_shift;
     ptr_uint_t gnu_bitidx;
+    size_t gnu_symbias;   /* .dynsym index of first export */
 
     /* i#160/PR 562667: support non-contiguous library mappings */
     bool contiguous;

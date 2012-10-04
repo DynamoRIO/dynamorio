@@ -179,6 +179,11 @@ Further non-compatibility-affecting changes include:
  - Added dr_mutex_mark_as_app(), dr_rwlock_mark_as_app(), and
    dr_recurlock_mark_as_app()
  - Added dr_get_main_module()
+ - Added module import iterators dr_module_import_iterator_start(),
+   dr_module_import_iterator_hasnext() dr_module_import_iterator_next(),
+   dr_module_import_iterator_stop(), dr_symbol_import_iterator_start(),
+   dr_symbol_import_iterator_hasnext(), dr_symbol_import_iterator_next(), and
+   dr_symbol_import_iterator_stop().
  - Added DR_FAST_IR to allow clients to inline some key IR routines
  - Added -logdir runtime option for control over the log directory
  - Added drmgr_get_parent_cls_field()

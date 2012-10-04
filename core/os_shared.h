@@ -372,6 +372,15 @@ bool query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info);
 
 bool get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top);
 
+/* Does a safe_read of *src_ptr into dst_var, returning true for success.  We
+ * assert that the size of dst and src match.  The other advantage over plain
+ * safe_read is that the caller doesn't need to pass sizeof(dst), which is
+ * useful for repeated small memory accesses.
+ */
+#define SAFE_READ_VAL(dst_var, src_ptr) \
+    (ASSERT(sizeof(dst_var) == sizeof(*src_ptr)), \
+     safe_read(src_ptr, sizeof(dst_var), &dst_var))
+
 bool is_readable_without_exception(const byte *pc, size_t size);
 bool is_readable_without_exception_query_os(byte *pc, size_t size);
 bool safe_read(const void *base, size_t size, void *out_buf);

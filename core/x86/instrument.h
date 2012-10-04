@@ -2456,6 +2456,160 @@ const char *
 dr_module_preferred_name(const module_data_t *data);
 
 /* DR_API EXPORT BEGIN */
+/**
+ * Iterator over the list of modules that a given module imports from.  Created
+ * by calling dr_module_import_iterator_start() and must be freed by calling
+ * dr_module_import_iterator_stop().
+ *
+ * \note On Windows, delay-loaded DLLs are not included yet.
+ *
+ * \note ELF does not import directly from other modules.
+ */
+struct _dr_module_import_iterator_t;
+typedef struct _dr_module_import_iterator_t dr_module_import_iterator_t;
+
+/**
+ * Descriptor used to iterate the symbols imported from a specific module.
+ */
+struct _dr_module_import_desc_t;
+typedef struct _dr_module_import_desc_t dr_module_import_desc_t;
+
+/**
+ * Module import data returned from dr_module_import_iterator_next().
+ *
+ * String fields point into the importing module image.  Robust clients should
+ * use DR_TRY_EXCEPT while inspecting the strings in case the module is
+ * partially mapped or the app racily unmaps it.  The iterator routines
+ * themselves handle faults by stopping the iteration.
+ *
+ * \note ELF does not import directly from other modules.
+ */
+typedef struct _dr_module_import_t {
+    /**
+     * Specified name of the imported module or API set.
+     */
+    const char *modname;
+
+    /**
+     * Opaque handle that can be passed to dr_symbol_import_iterator_start().
+     * Valid until the original module is unmapped.
+     */
+    dr_module_import_desc_t *module_import_desc;
+} dr_module_import_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Creates a module import iterator.  Iterates over the list of modules that a
+ * given module imports from.
+ *
+ * \note ELF does not import directly from other modules.
+ */
+dr_module_import_iterator_t *
+dr_module_import_iterator_start(module_handle_t handle);
+
+DR_API
+/**
+ * Returns true if there is another module import in the iterator.
+ *
+ * \note ELF does not import directly from other modules.
+ */
+bool
+dr_module_import_iterator_hasnext(dr_module_import_iterator_t *iter);
+
+DR_API
+/**
+ * Advances the passed-in iterator and returns the current module import in the
+ * iterator.  The pointer returned is only valid until the next call to
+ * dr_module_import_iterator_next() or dr_module_import_iterator_stop().
+ *
+ * \note ELF does not import directly from other modules.
+ */
+dr_module_import_t *
+dr_module_import_iterator_next(dr_module_import_iterator_t *iter);
+
+DR_API
+/**
+ * Stops import iteration and frees a module import iterator.
+ *
+ * \note ELF does not import directly from other modules.
+ */
+void
+dr_module_import_iterator_stop(dr_module_import_iterator_t *iter);
+
+/* DR_API EXPORT BEGIN */
+/**
+ * Symbol import iterator data type.  Can be created by calling
+ * dr_symbol_import_iterator_start() and must be freed by calling
+ * dr_symbol_import_iterator_stop().
+ */
+struct _dr_symbol_import_iterator_t;
+typedef struct _dr_symbol_import_iterator_t dr_symbol_import_iterator_t;
+
+/**
+ * Symbol import data returned from dr_symbol_import_iterator_next().
+ *
+ * String fields point into the importing module image.  Robust clients should
+ * use DR_TRY_EXCEPT while inspecting the strings in case the module is
+ * partially mapped or the app racily unmaps it.
+ */
+typedef struct _dr_symbol_import_t {
+    const char *name;       /**< Name of imported symbol, if available. */
+    const char *modname;    /**< Preferred name of module (Windows only). */
+    bool delay_load;        /**< This import is delay-loaded (Windows only). */
+    bool by_ordinal;        /**< Import is by ordinal, not name (Windows only). */
+    ptr_uint_t ordinal;     /**< Ordinal value (Windows only). */
+/* DR_API EXPORT END */
+    /* We never ask the client to allocate this struct, so we can go ahead and
+     * add fields here without breaking ABI compat.
+     */
+/* DR_API EXPORT BEGIN */
+} dr_symbol_import_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Creates an iterator over symbols imported by a module.  If \p from_module is
+ * NULL, all imported symbols are yielded, regardless of which module they were
+ * imported from.
+ *
+ * On Windows, from_module is obtained from a \p dr_module_import_t and used to
+ * iterate over all of the imports from a specific module.
+ *
+ * The iterator returned is invalid until after the first call to
+ * dr_symbol_import_iterator_next().
+ *
+ * \note On Windows, symbols imported from delay-loaded DLLs are not included
+ * yet.
+ */
+dr_symbol_import_iterator_t *
+dr_symbol_import_iterator_start(module_handle_t handle,
+                                dr_module_import_desc_t *from_module);
+
+DR_API
+/**
+ * Returns true if there is another imported symbol in the iterator.
+ */
+bool
+dr_symbol_import_iterator_hasnext(dr_symbol_import_iterator_t *iter);
+
+DR_API
+/**
+ * Returns the next imported symbol.  The returned pointer is valid until the
+ * next call to dr_symbol_import_iterator_next() or
+ * dr_symbol_import_iterator_stop().
+ */
+dr_symbol_import_t *
+dr_symbol_import_iterator_next(dr_symbol_import_iterator_t *iter);
+
+DR_API
+/**
+ * Stops symbol import iteration and frees the iterator.
+ */
+void
+dr_symbol_import_iterator_stop(dr_symbol_import_iterator_t *iter);
+
+/* DR_API EXPORT BEGIN */
 #ifdef WINDOWS
 /* DR_API EXPORT END */
 DR_API

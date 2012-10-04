@@ -33,6 +33,8 @@
 
 #include "dr_api.h"
 
+#include "client_tools.h"
+
 #include <string.h>
 
 #ifdef WINDOWS
@@ -42,6 +44,23 @@
 # define IF_WINDOWS_ELSE(x, y) y
 # define IF_WINDOWS(x) 
 #endif
+
+static bool verbose = false;
+
+#ifdef WINDOWS
+static bool found_ordinal_import = false;
+#endif
+
+#define INFO(msg, ...) do { \
+    if (verbose) { \
+        dr_fprintf(STDERR, msg, ##__VA_ARGS__); \
+    } \
+} while (0)
+
+/* Only compare the start of the string to avoid caring about LoadLibraryA vs
+ * LoadLibraryW on Windows.
+ */
+static const char load_library_symbol[] = IF_WINDOWS_ELSE("LoadLibrary", "dlopen");
 
 bool string_match(const char *str1, const char *str2)
 {
@@ -69,6 +88,7 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
      * just look for the module in question.
      */
     /* Test i#138 */
+    dr_symbol_import_iterator_t *sym_iter;
     if (data->full_path == NULL || data->full_path[0] == '\0')
         dr_fprintf(STDERR, "ERROR: full_path empty for %s\n", dr_module_preferred_name(data));
 #ifdef WINDOWS
@@ -79,6 +99,52 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
     if (string_match(data->names.module_name,
                      IF_WINDOWS_ELSE("ADVAPI32.dll", "libz.so.1")))
         dr_fprintf(STDERR, "LOADED MODULE: %s\n", data->names.module_name);
+
+#ifdef WINDOWS
+    /* Test iterating symbols imported from a specific module.  The typical use
+     * case is probably going to be looking for a specific module, like ntdll,
+     * and checking which symbols are used.
+     */
+    {
+        dr_module_import_iterator_t *mod_iter;
+        INFO("iterating imports for module %s\n", data->full_path);
+        mod_iter = dr_module_import_iterator_start(data->handle);
+        while (dr_module_import_iterator_hasnext(mod_iter)) {
+            dr_module_import_t *mod_import =
+                dr_module_import_iterator_next(mod_iter);
+            INFO("import module: %s\n", mod_import->modname);
+            sym_iter = dr_symbol_import_iterator_start
+                (data->handle, mod_import->module_import_desc);
+            while (dr_symbol_import_iterator_hasnext(sym_iter)) {
+                dr_symbol_import_t *sym_import =
+                    dr_symbol_import_iterator_next(sym_iter);
+                if (strcmp(mod_import->modname, sym_import->modname) != 0) {
+                    dr_fprintf(STDERR, "ERROR: modname mismatch: %s vs %s\n",
+                               mod_import->modname, sym_import->name);
+                }
+                if (sym_import->by_ordinal) {
+                    found_ordinal_import = true;
+                    INFO("%s imports %s!Ordinal%d\n", dr_module_preferred_name(data),
+                         sym_import->modname, sym_import->ordinal);
+                } else {
+                    INFO("%s imports %s!%s\n", dr_module_preferred_name(data),
+                         sym_import->modname, sym_import->name);
+                }
+            }
+            dr_symbol_import_iterator_stop(sym_iter);
+        }
+        dr_module_import_iterator_stop(mod_iter);
+    }
+#else /* LINUX */
+    /* Linux has no module import iterator, just symbols. */
+    sym_iter = dr_symbol_import_iterator_start(data->handle, NULL);
+    while (dr_symbol_import_iterator_hasnext(sym_iter)) {
+        dr_symbol_import_t *sym_import = dr_symbol_import_iterator_next(sym_iter);
+        INFO("%s imports %s\n", dr_module_preferred_name(data),
+             sym_import->name);
+    }
+    dr_symbol_import_iterator_stop(sym_iter);
+#endif /* WINDOWS */
 }
 
 static
@@ -130,17 +196,79 @@ test_aux_lib(client_id_t id)
         dr_fprintf(STDERR, "ERROR: unable to unload %s\n", buf);
 }
 
+#ifdef WINDOWS
+/* Module import iterator is Windows-only. */
+static bool
+module_imports_from_kernel_star(module_handle_t mod)
+{
+    bool found_module = false;
+    dr_module_import_iterator_t *mod_iter =
+        dr_module_import_iterator_start(mod);
+    while (dr_module_import_iterator_hasnext(mod_iter)) {
+        /* The exe probably imports from kernel32. */
+        dr_module_import_t *mod_import =
+            dr_module_import_iterator_next(mod_iter);
+        if (_strnicmp(mod_import->modname, "KERNEL", 6) == 0) {
+            found_module = true;
+        }
+    }
+    dr_module_import_iterator_stop(mod_iter);
+    return found_module;
+}
+#endif /* WINDOWS */
+
+static void
+exit_event(void)
+{
+#ifdef WINDOWS
+    dr_os_version_info_t info;
+    info.size = sizeof(info);
+    if (dr_get_os_version(&info) && info.version >= DR_WINDOWS_VERSION_7 &&
+        !found_ordinal_import) {
+        dr_fprintf(STDERR, "ERROR: Failed to find ordinal imports on Win7+\n");
+    }
+#endif /* WINDOWS */
+}
+
 DR_EXPORT
 void dr_init(client_id_t id)
 {
+    dr_symbol_import_iterator_t *sym_iter;
+    bool found_symbol = false;
     module_data_t *main_mod = dr_get_main_module();
+    module_handle_t mod_handle = main_mod->handle;
     if (strstr(dr_module_preferred_name(main_mod), "client.modules") == NULL) {
         dr_fprintf(STDERR, "ERROR: Main module has the wrong name\n");
     }
     dr_free_module_data(main_mod);
 
+#ifdef WINDOWS
+    if (!module_imports_from_kernel_star(mod_handle)) {
+        dr_fprintf(STDERR, "ERROR: didn't find imported module KERNEL*.dll\n");
+    }
+#endif /* WINDOWS */
+
+    /* Test iterating all symbols by looking for a symbol that we know is
+     * imported.
+     */
+    sym_iter = dr_symbol_import_iterator_start(mod_handle, NULL);
+    while (dr_symbol_import_iterator_hasnext(sym_iter)) {
+        dr_symbol_import_t *sym_import = dr_symbol_import_iterator_next(sym_iter);
+        if (strncmp(sym_import->name, load_library_symbol,
+                    strlen(load_library_symbol)) == 0) {
+            found_symbol = true;
+        }
+    }
+    dr_symbol_import_iterator_stop(sym_iter);
+
+    if (!found_symbol) {
+        dr_fprintf(STDERR, "ERROR: didn't find imported symbol %s\n",
+                   load_library_symbol);
+    }
+
     dr_register_module_load_event(module_load_event);
-    dr_register_module_unload_event(module_unload_event);    
+    dr_register_module_unload_event(module_unload_event);
+    dr_register_exit_event(exit_event);
     test_aux_lib(id);
 }
 

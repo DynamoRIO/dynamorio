@@ -31,6 +31,8 @@
  * DAMAGE.
  */
 
+#include "tools.h"
+
 #ifdef WINDOWS
 # include <windows.h>
 #else
@@ -38,17 +40,20 @@
 # include <stdio.h>
 #endif
 
-int main()
+int
+main(void)
 {
 #ifdef WINDOWS
     HMODULE handle;
     handle = LoadLibrary("advapi32.dll");
+    if (handle == NULL)
+        print("failed to load advapi32.dll\n");
     FreeLibrary(handle);
 #else
     void *hmod = dlopen("libz.so.1", RTLD_LAZY);
     if (hmod == 0)
-        printf("failed to load libz.so.1\n");
+        print("failed to load libz.so.1\n");
     else
-	dlclose(hmod);
+        dlclose(hmod);
 #endif
 }
