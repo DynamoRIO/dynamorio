@@ -157,6 +157,84 @@ thread_yield()
 #endif
 }
 
+int
+get_os_prot_word(int prot)
+{
+#ifdef LINUX
+    return ((TEST(ALLOW_READ, prot)  ? PROT_READ  : 0) |
+            (TEST(ALLOW_WRITE, prot) ? PROT_WRITE : 0) |
+            (TEST(ALLOW_EXEC, prot)  ? PROT_EXEC  : 0));
+#else
+    if (TEST(ALLOW_WRITE, prot)) {
+        if (TEST(ALLOW_EXEC, prot)) {
+            return PAGE_EXECUTE_READWRITE;
+        } else {
+            return PAGE_READWRITE;
+        }
+    } else {
+        if (TEST(ALLOW_READ, prot)) {
+            if (TEST(ALLOW_EXEC, prot)) {
+                return PAGE_EXECUTE_READ;
+            } else {
+                return PAGE_READONLY;
+            }
+        } else {
+            if (TEST(ALLOW_EXEC, prot)) {
+                return PAGE_EXECUTE;
+            } else {
+                return PAGE_NOACCESS;
+            }
+        }
+    }
+#endif
+}
+
+char *
+allocate_mem(int size, int prot)
+{
+#ifdef LINUX
+    return (char *) mmap((void *)0, size, get_os_prot_word(prot),
+                         MAP_PRIVATE|MAP_ANON, 0, 0);
+#else
+    return (char *) VirtualAlloc(NULL, size, MEM_COMMIT, get_os_prot_word(prot));
+#endif
+}
+
+void
+protect_mem(void *start, size_t len, int prot)
+{
+#ifdef LINUX
+    void *page_start = (void *)(((ptr_int_t)start) & ~(PAGE_SIZE -1));
+    int page_len = (len + ((ptr_int_t)start - (ptr_int_t)page_start) + PAGE_SIZE - 1)
+        & ~(PAGE_SIZE - 1);
+    if (mprotect(page_start, page_len, get_os_prot_word(prot)) != 0) {
+        print("Error on mprotect: %d\n", errno);
+    }
+#else
+    DWORD old;
+    if (VirtualProtect(start, len, get_os_prot_word(prot), &old) == 0) {
+        print("Error on VirtualProtect\n");
+    }
+#endif
+}
+
+void
+protect_mem_check(void *start, size_t len, int prot, int expected)
+{
+#ifdef LINUX
+    /* FIXME : add check */
+    protect_mem(start, len, prot);
+#else
+    DWORD old;
+    if (VirtualProtect(start, len, get_os_prot_word(prot), &old) == 0) {
+        print("Error on VirtualProtect\n");
+    }
+    if (old != get_os_prot_word(expected)) {
+        print("Unexpected previous permissions\n");
+    }
+#endif
+}
+
 void *
 reserve_memory(int size)
 {

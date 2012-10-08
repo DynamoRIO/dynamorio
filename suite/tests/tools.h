@@ -55,6 +55,18 @@
 extern "C" {
 #endif
 
+#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+#define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+
+/* check if all bits in mask are set in var */
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
+/* check if any bit in mask is set in var */
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+/* check if a single bit is set in var */
+#define TEST TESTANY
+
 #ifdef USE_DYNAMO
 /* to avoid non-api tests depending on dr_api headers we rely on test
  * including dr_api.h before tools.h (though then must include
@@ -475,82 +487,17 @@ get_process_mem_stats(HANDLE h, VM_COUNTERS *info)
 }
 #endif
 
-static int
-get_os_prot_word(int prot) 
-{
-#ifdef LINUX
-    return (((prot & ALLOW_READ) != 0) ? PROT_READ : 0) |
-        (((prot & ALLOW_WRITE) != 0) ? PROT_WRITE : 0) |
-        (((prot & ALLOW_EXEC) != 0) ? PROT_EXEC : 0);
-#else
-    if ((prot & ALLOW_WRITE) != 0) {
-        if ((prot & ALLOW_EXEC) != 0) {
-            return PAGE_EXECUTE_READWRITE;
-        } else {
-            return PAGE_READWRITE;
-        }
-    } else {
-        if ((prot & ALLOW_READ) != 0) {
-            if ((prot & ALLOW_EXEC) != 0) {
-                return PAGE_EXECUTE_READ;
-            } else {
-                return PAGE_READONLY;
-            }
-        } else {
-            if ((prot & ALLOW_EXEC) != 0) {
-                return PAGE_EXECUTE;
-            } else {
-                return PAGE_NOACCESS;
-            }
-        }
-    }
-#endif
-}
+int
+get_os_prot_word(int prot);
 
-static char *
-allocate_mem(int size, int prot) 
-{
-#ifdef LINUX
-    return (char *) mmap((void *)0, size, get_os_prot_word(prot), MAP_PRIVATE|MAP_ANON, 0, 0);
-#else
-    return (char *) VirtualAlloc(NULL, size, MEM_COMMIT, get_os_prot_word(prot));
-#endif
-}
+char *
+allocate_mem(int size, int prot);
 
-static void
-protect_mem(void *start, size_t len, int prot) 
-{
-#ifdef LINUX
-    void *page_start = (void *)(((ptr_int_t)start) & ~(PAGE_SIZE -1));
-    int page_len = (len + ((ptr_int_t)start - (ptr_int_t)page_start) + PAGE_SIZE - 1)
-        & ~(PAGE_SIZE - 1);
-    if (mprotect(page_start, page_len, get_os_prot_word(prot)) != 0) {
-        print("Error on mprotect: %d\n", errno);
-    }
-#else
-    DWORD old;
-    if (VirtualProtect(start, len, get_os_prot_word(prot), &old) == 0) {
-        print("Error on VirtualProtect\n");
-    }
-#endif
-}
+void
+protect_mem(void *start, size_t len, int prot);
 
-static void
-protect_mem_check(void *start, size_t len, int prot, int expected)
-{
-#ifdef LINUX 
-    /* FIXME : add check */
-    protect_mem(start, len, prot);
-#else 
-    DWORD old;
-    if (VirtualProtect(start, len, get_os_prot_word(prot), &old) == 0) {
-        print("Error on VirtualProtect\n");
-    }
-    if (old != get_os_prot_word(expected)) {
-        print("Unexpected previous permissions\n");
-    }
-#endif
-}
+void
+protect_mem_check(void *start, size_t len, int prot, int expected);
 
 void *
 reserve_memory(int size);

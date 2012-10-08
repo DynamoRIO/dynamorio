@@ -1733,9 +1733,10 @@ tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
 tobuild(security-common.retnonexisting security-common/retnonexisting.c)
 tobuild(security-common.selfmod2 security-common/selfmod2.c)
 tochcon(security-common.selfmod2 textrel_shlib_t)
+tobuild(security-common.selfmod-big security-common/selfmod-big.c)
+tochcon(security-common.selfmod-big textrel_shlib_t)
 if (NOT X64)
-  # FIXME i#125: not building on 32-bit b/c protect_mem() from tools.h being stripped
-  #tobuild(security-common.selfmod-big security-common/selfmod-big.c)
+  # FIXME i#125
   tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
 endif (NOT X64)
 tobuild(security-common.selfmod security-common/selfmod.c)
