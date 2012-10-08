@@ -30,32 +30,44 @@
  * DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include "tools.h"
+
+/* Needed to avoid this MSVC 2010 warning on our intentional OOB write:
+ * warning C4789: destination of memory copy is too small
+ */
+void **
+pointer_plus_three(void **a)
+{
+    return a + 3;
+}
 
 void baz()
 {
-    fprintf(stderr, "** Return address successfully overwritten **\n");
-    fflush(stdout);
+    print("** Return address successfully overwritten **\n");
     exit(1);
 }
 
 void bar()
 {
-    unsigned int a[2];
-    fprintf(stderr, "** Return address successfully overwritten **\n");
-    fflush(stdout);
-    a[3] = (unsigned)baz;
+    void **a[2];
+    /* Can't create a new local or we'll disturb the frame layout. */
+    print("** Return address successfully overwritten **\n");
+    a[0] = pointer_plus_three((void **)a);
+    *a[0] = (void *)baz;
 }
 
 void foo()
 {
-    unsigned int a[2];
-    a[3] = (unsigned)bar;
+    void **a[2];
+    /* Can't create a new local or we'll disturb the frame layout. */
+    a[0] = pointer_plus_three((void **)a);
+    *a[0] = (void *)bar;
 }
 
 int main()
 {
     foo();
+    fprintf(stderr, "** unexpected return from foo\n");
+    fflush(stderr);
     return 0;
 }
