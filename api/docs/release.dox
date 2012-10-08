@@ -151,6 +151,7 @@ Further non-compatibility-affecting changes include:
    type categories for Windows drsyms.
  - Ported the drinjectlib and drconfiglib libraries to Linux.  Routines that
    are still Windows-only are marked in the API docs.
+ - Added dr_inject_prepare_to_exec() on Linux
  - Added drsym_free_resources()
  - Added drsym_module_has_symbols()
  - Added dr_exit_process() to cleanly shut down with a specified

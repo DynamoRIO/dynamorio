@@ -58,8 +58,11 @@ get_application_short_name(void)
 /* Opaque type to users, holds our state */
 typedef struct _dr_inject_info_t {
     process_id_t pid;
-    char image_name[MAXIMUM_PATH];
+    const char *exe;            /* points to user data */
+    const char *image_name;     /* basename of exe */
+    const char **argv;          /* points to user data */
     int pipe_fd;
+    bool exec_self;
 } dr_inject_info_t;
 
 /* libc's environment pointer. */
@@ -97,6 +100,16 @@ fork_suspended_child(const char *exe, const char **argv, int fds[2])
     return pid;
 }
 
+static void
+set_exe_and_argv(dr_inject_info_t *info, const char *exe, const char **argv)
+{
+    info->exe = exe;
+    info->argv = argv;
+    info->image_name = strrchr(exe, '/');
+    if (info->image_name == NULL)
+        info->image_name = exe;
+}
+
 /* Returns 0 on success.
  */
 DR_EXPORT
@@ -106,13 +119,7 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
     int r;
     int fds[2];
     dr_inject_info_t *info = malloc(sizeof(*info));
-    const char *basename = strrchr(exe, '/');
-    if (basename == NULL) {
-        return EINVAL;  /* exe should be absolute. */
-    }
-    basename++;
-    strncpy(info->image_name, basename, BUFFER_SIZE_ELEMENTS(info->image_name));
-    NULL_TERMINATE_BUFFER(info->image_name);
+    set_exe_and_argv(info, exe, argv);
 
     /* Create a pipe to a forked child and have it block on the pipe. */
     r = pipe(fds);
@@ -121,6 +128,7 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
     info->pid = fork_suspended_child(exe, argv, fds);
     close(fds[0]);  /* Close reader, keep writer. */
     info->pipe_fd = fds[1];
+    info->exec_self = false;
 
     if (info->pid == -1)
         goto error;
@@ -130,6 +138,19 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
 error:
     free(info);
     return errno;
+}
+
+DR_EXPORT
+int
+dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
+{
+    dr_inject_info_t *info = malloc(sizeof(*info));
+    set_exe_and_argv(info, exe, argv);
+    info->pid = getpid();
+    info->pipe_fd = 0;  /* No pipe. */
+    info->exec_self = true;
+    *data = info;
+    return 0;
 }
 
 DR_EXPORT
@@ -145,7 +166,7 @@ char *
 dr_inject_get_image_name(void *data)
 {
     dr_inject_info_t *info = (dr_inject_info_t *) data;
-    return info->image_name;
+    return (char *) info->image_name;
 }
 
 DR_EXPORT
@@ -171,17 +192,25 @@ dr_inject_process_inject(void *data, bool force_injection,
         library_path = dr_path_buf;
     }
 
-    /* Write the path to DR to the pipe. */
-    towrite = strlen(library_path);
-    while (towrite > 0) {
-        ssize_t nwrote = write(info->pipe_fd, library_path + written, towrite);
-        if (nwrote <= 0)
-            break;
-        towrite -= nwrote;
-        written += nwrote;
+    if (info->exec_self) {
+        /* exec DR with the original command line and set an environment
+         * variable pointing to the real exe.
+         */
+        /* XXX: setenv will modify the environment on failure. */
+        setenv(DYNAMORIO_VAR_EXE_PATH, info->exe, true/*overwrite*/);
+        execv(library_path, (char **) info->argv);
+        return false;  /* if execv returns, there was an error */
+    } else {
+        /* Write the path to DR to the pipe. */
+        towrite = strlen(library_path);
+        while (towrite > 0) {
+            ssize_t nwrote = write(info->pipe_fd, library_path + written, towrite);
+            if (nwrote <= 0)
+                break;
+            towrite -= nwrote;
+            written += nwrote;
+        }
     }
-    close(info->pipe_fd);
-    info->pipe_fd = 0;
     return true;
 }
 
@@ -190,11 +219,15 @@ bool
 dr_inject_process_run(void *data)
 {
     dr_inject_info_t *info = (dr_inject_info_t *) data;
-    /* Close the pipe without writing anything.  This will cause the app to run
-     * natively.
-     */
-    close(info->pipe_fd);
-    info->pipe_fd = 0;
+    if (info->exec_self) {
+        /* Let the app run natively if we haven't already injected. */
+        execv(info->image_name, (char **) info->argv);
+        return false;  /* if execv returns, there was an error */
+    } else {
+        /* Close the pipe. */
+        close(info->pipe_fd);
+        info->pipe_fd = 0;
+    }
     return true;
 }
 

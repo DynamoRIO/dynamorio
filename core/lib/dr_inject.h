@@ -53,11 +53,15 @@
  * the thread, and dr_inject_process_exit() to finish and free
  * resources.
  *
- * \param[in]   app_name       The path to the target executable.
+ * \param[in]   app_name       The path to the target executable.  The caller
+ *                             must ensure this data is valid until the
+ *                             inject data is disposed.
  *
  * \param[in]   app_cmdline    A NULL-terminated array of strings representing
  *                             the app's command line.  This should match what
- *                             the app will receive as \p argv in main().
+ *                             the app will receive as \p argv in main().  The
+ *                             caller must ensure this data is valid until the
+ *                             inject data is disposed.
  *
  * \param[out]  data           An opaque pointer that should be passed to
  *                             subsequent dr_inject_* routines to refer to
@@ -70,8 +74,38 @@ int
 dr_inject_process_create(const char *app_name, const char **app_cmdline,
                          void **data);
 
+#ifdef LINUX
 /**
- * Injects DynamoRIO into a process created by dr_inject_process_create().
+ * Prepare to exec() the provided command from the current process.  Use
+ * dr_inject_process_inject() to perform the exec() under DR.
+ *
+ * \note Only available on Linux.
+ *
+ * \param[in]   app_name       The path to the target executable.  The caller
+ *                             must ensure this data is valid until the
+ *                             inject data is disposed.
+ *
+ * \param[in]   app_cmdline    A NULL-terminated array of strings representing
+ *                             the app's command line.  This should match what
+ *                             the app will receive as \p argv in main().  The
+ *                             caller must ensure this data is valid until the
+ *                             inject data is disposed.
+ *
+ * \param[out]  data           An opaque pointer that should be passed to
+ *                             subsequent dr_inject_* routines to refer to
+ *                             this process.
+ * \return  Returns 0 on success.  On failure, returns a system error code.
+ *          Regardless of success, caller must call dr_inject_process_exit()
+ *          when finished to clean up internally-allocated resources.
+ */
+int
+dr_inject_prepare_to_exec(const char *app_name, const char **app_cmdline,
+                          void **data);
+#endif /* LINUX */
+
+/**
+ * Injects DynamoRIO into a process created by dr_inject_process_create(), or
+ * the current process if using dr_inject_prepare_to_exec() on Linux.
  *
  * \param[in]   data           The pointer returned by dr_inject_process_create()
  *

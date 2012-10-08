@@ -1093,7 +1093,15 @@ int main(int argc, char *argv[])
 # endif /* WINDOWS */
     return 0;
 #else /* DRCONFIG */
-    errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
+#ifdef LINUX
+    /* On Linux, we use exec by default to create the app process.  This matches
+     * our drrun shell script and makes scripting easier for the user.
+     */
+    if (limit == 0) {
+        errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
+    } else
+#endif /* LINUX */
+        errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
     if (errcode != 0) {
         IF_WINDOWS(int sofar =)
             _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
