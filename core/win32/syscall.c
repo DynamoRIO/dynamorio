@@ -3589,11 +3589,11 @@ static void
 postsys_DuplicateObject(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     if (DYNAMO_OPTION(track_module_filenames) && success) {
-        HANDLE src_process = (HANDLE) sys_param(dcontext, param_base, 0);
-        HANDLE tgt_process = (HANDLE) sys_param(dcontext, param_base, 2);
+        HANDLE src_process = (HANDLE) postsys_param(dcontext, param_base, 0);
+        HANDLE tgt_process = (HANDLE) postsys_param(dcontext, param_base, 2);
         if (is_phandle_me(src_process) && is_phandle_me(tgt_process)) {
-            HANDLE src = (HANDLE) sys_param(dcontext, param_base, 1);
-            HANDLE *dst = (HANDLE*) sys_param(dcontext, param_base, 3);
+            HANDLE src = (HANDLE) postsys_param(dcontext, param_base, 1);
+            HANDLE *dst = (HANDLE*) postsys_param(dcontext, param_base, 3);
             const char *file = section_to_file_lookup(src);
             if (file != NULL) {
                 HANDLE dup;
