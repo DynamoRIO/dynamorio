@@ -34,3 +34,5 @@ Executed 0xef01 iters
 before do_selfmod_abs
 0xdeadbeefdeadbeef
 #endif
+start cross-page test
+end cross-page test
