@@ -77,7 +77,12 @@ typedef struct {
     char dynamorio_lib_path[MAX_PATH];
 } earliest_args_t;
 
-#define EARLY_INJECT_HOOK_SIZE 5
+/* Max size is x64 ind jmp (6 bytes) + target (8 bytes).
+ * Simpler to always use the same size, esp wrt cross-arch injection.
+ * We assume all our early inject target functions are at least
+ * this size.  We restore the hook right away in any case.
+ */
+#define EARLY_INJECT_HOOK_SIZE 14
 
 bool
 is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt);

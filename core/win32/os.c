@@ -7014,6 +7014,7 @@ early_inject_init()
         case WINDOWS_VERSION_2003:
         case WINDOWS_VERSION_VISTA:
         case WINDOWS_VERSION_7:
+        case WINDOWS_VERSION_8:
             /* LdrLoadDll is best but LdrpLoadDll seems to work just as well
              * (FIXME would it be better just to use that so matches XP?),
              * LdrpLoadImportModule also works but it misses the load of
