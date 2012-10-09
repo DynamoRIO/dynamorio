@@ -29,7 +29,9 @@ $$ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 $$ DAMAGE.
 
 $$ Loads symbols for DynamoRIO and all libraries loaded by its private loader
-r $t0=(dwo(ntdll!KiUserCallbackDispatcher+1) + ntdll!KiUserCallbackDispatcher+5) & 0xffffffff
+r $t0=ntdll!KiUserCallbackDispatcher+1
+$$ I don't know how to deref and cast to int via asm syntax
+r $t0=@@(*(int*)@$t0) + ntdll!KiUserCallbackDispatcher+5
 r $t1=(dwo(@$t0-8) & 0xfffff000)
 
 $$ Check magic values to avoid executing random command w/o DynamoRIO
