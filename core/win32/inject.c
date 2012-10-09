@@ -676,8 +676,9 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     INSERT_INT((int)(value));                \
     if ((ptr_uint_t)(value) >= 0x80000000) { \
         *cur_local_pos++ = MOV_IMM32_2_RM32; \
-        *cur_local_pos++ = 0x04;             \
+        *cur_local_pos++ = 0x44;             \
         *cur_local_pos++ = 0x24;             \
+        *cur_local_pos++ = 0x04; /*rsp+4*/   \
         INSERT_INT((int)((value) >> 32));    \
     }                                        \
   } while (0)
@@ -777,6 +778,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
 
 /* ecx will hold OldProtection afterwards */
 /* for x64 we need the 4 stack slots anyway so we do the pushes */
+/* on x64, up to caller to have rsp aligned to 16 prior to calling this macro */
 #define PROT_IN_ECX 0xbad15bad /* doesn't match a PAGE_* define */
 #define CHANGE_PROTECTION(start, size, new_protection)                \
   *cur_local_pos++ = PUSH_EAX; /* OldProtect slot */                  \
@@ -799,7 +801,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
   IF_X64(MOV_EAX_TO_PARAM_1());                                       \
   PUSH_IMMEDIATE((int)(ptr_int_t)NT_CURRENT_PROCESS); /* arg ProcessHandle */ \
   IF_X64(MOV_TOS_TO_PARAM_0());                                       \
-  CALL(NtProtectVirtualMemory);                                       \
+  CALL(NtProtectVirtualMemory); /* 8 pushes => still aligned to 16 */ \
   /* no error checking, can't really do anything about it, FIXME */   \
   /* stdcall so just the three slots we made for the ptr arguments    \
    * left on the stack for 32-bit */                                  \
@@ -858,6 +860,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     /* call LdrLoadDll to load dr library */
     *cur_local_pos++ = PUSH_EAX; /* need slot for OUT hmodule*/
     MOV_ESP_TO_EAX();
+    IF_X64(*cur_local_pos++ = PUSH_EAX); /* extra slot to align to 16 for call */
     *cur_local_pos++ = PUSH_EAX; /* arg 4 OUT *hmodule */
     IF_X64(MOV_EAX_TO_PARAM_3());
     /* XXX: these push-ptrsz, mov-tos sequences are inefficient, but simpler
@@ -869,8 +872,8 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     IF_X64(MOV_TOS_TO_PARAM_1());
     PUSH_SHORT_IMMEDIATE(0x0); /* PathToFile OPTIONAL */
     IF_X64(MOV_TOS_TO_PARAM_0());
-    CALL(LdrLoadDll); /* see signature at decleration above */
-    IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
+    CALL(LdrLoadDll); /* see signature at declaration above */
+    IF_X64(ADD_IMM8_TO_ESP(5*XSP_SZ)); /* clean up 5 slots */
 
     /* stdcall so removed args so top of stack is now the slot containing the
      * returned handle.  Use LdrGetProcedureAddress to get the address of the
@@ -879,6 +882,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     *cur_local_pos++ = POP_ECX; /* dr module handle */
     *cur_local_pos++ = PUSH_ECX; /* need slot for out ProcedureAddress */
     MOV_ESP_TO_EAX();
+    IF_X64(*cur_local_pos++ = PUSH_EAX); /* extra slot to align to 16 for call */
     *cur_local_pos++ = PUSH_EAX; /* arg 4 OUT *ProcedureAddress */
     IF_X64(MOV_EAX_TO_PARAM_3());
     PUSH_SHORT_IMMEDIATE(0x0); /* Ordinal OPTIONAL */
@@ -887,8 +891,9 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     IF_X64(MOV_TOS_TO_PARAM_1());
     *cur_local_pos++ = PUSH_ECX; /* module handle */
     IF_X64(MOV_TOS_TO_PARAM_0());
-    CALL(LdrGetProcedureAddress); /* see signature at decleration above */
-    IF_X64(ADD_IMM8_TO_ESP(4*XSP_SZ)); /* clean up 4 slots */
+    /* for x64, aligned at LdrLoadDll - 5 - 1 + 6 => aligned here */
+    CALL(LdrGetProcedureAddress); /* see signature at declaration above */
+    IF_X64(ADD_IMM8_TO_ESP(5*XSP_SZ)); /* clean up 5 slots */
 
     /* Top of stack is now the dr init and takeover function (stdcall removed
      * args). Check for errors and bail (FIXME debug build report somehow?) */
@@ -906,6 +911,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     IF_X64(MOV_TOS_TO_PARAM_1());
     PUSH_IMMEDIATE(inject_location); /* arg to takeover func */
     IF_X64(MOV_TOS_TO_PARAM_0());
+    /* for x64, 2 pushes => aligned to 16 */
     *cur_local_pos++ = CALL_RM32; /* call EAX */
     *cur_local_pos++ = CALL_EAX_RM;
 #ifdef X64
@@ -1121,14 +1127,24 @@ inject_gencode_earliest(HANDLE phandle, char *dynamo_path, void *hook_location,
 #else
     pc = (byte *)dynamorio_earliest_init_takeover - get_dynamorio_dll_start() + map;
 #endif
-    APP(&ilist, INSTR_CREATE_jmp(GDC, opnd_create_pc(pc)));
+    if (REL32_REACHABLE(pc, remote_code_buf) &&
+        /* over-estimate to be sure: we assert below we're < PAGE_SIZE */
+        REL32_REACHABLE(pc, remote_code_buf + PAGE_SIZE)) {
+        APP(&ilist, INSTR_CREATE_jmp(GDC, opnd_create_pc(pc)));
+    } else {
+        /* indirect through an inlined target */
+        instr_t *tgt = instr_build_bits(GDC, OP_UNDECODED, sizeof(pc));
+        APP(&ilist, INSTR_CREATE_jmp_ind(GDC, opnd_create_mem_instr(tgt, 0, OPSZ_PTR)));
+        instr_set_raw_bytes(tgt, (byte *) &pc, sizeof(pc));
+        APP(&ilist, tgt);
+    }
 
     /* can't use copy_and_re_relativize_raw_instr b/c don't have direct access:
      * need to finalize and then do direct copy to child process
      */
     pc = instrlist_encode_to_copy(GDC, &ilist, local_code_buf,
                                   remote_code_buf, local_code_buf + code_sz,
-                                  false);
+                                  true/*has instr targets*/);
     ASSERT(pc != NULL && pc < local_code_buf + code_sz);
     instrlist_clear(GDC, &ilist);
 
