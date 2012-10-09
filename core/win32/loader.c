@@ -1306,9 +1306,12 @@ map_api_set_dll(const char *name, privmod_t *dependent)
             return "kernel32.dll";
     } else if (str_case_prefix(name, "API-MS-Win-Core-Profile-L1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-RTLSupport-L1"))
-        return "kernel32.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-String-L1"))
+    else if (str_case_prefix(name, "API-MS-Win-Core-RTLSupport-L1")) {
+        if (get_os_version() >= WINDOWS_VERSION_8)
+            return "ntdll.dll";
+        else
+            return "kernel32.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Core-String-L1"))
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-Synch-L1"))
         return "kernelbase.dll";
