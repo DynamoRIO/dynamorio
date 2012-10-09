@@ -301,8 +301,9 @@ typedef struct decode_info_t {
     opnd_size_t size_immed2;
     ptr_int_t immed;
     ptr_int_t immed2; /* this additional field could be 32-bit on all platforms */
-    /* These two fields are only used when decoding rip-relative data refs */
+    /* These fields are only used when decoding rip-relative data refs */
     byte *start_pc;
+    byte *final_pc;
     uint len;
     /* This field is only used when encoding rip-relative data refs.
      * To save space we could make it a union with disp.
