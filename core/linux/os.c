@@ -1977,7 +1977,7 @@ os_tls_init(void)
                 os_tls->tls_type = TLS_TYPE_ARCH_PRCTL;
                 LOG(GLOBAL, LOG_THREADS, 1,
                     "os_tls_init: arch_prctl successful for base "PFX"\n", segment);
-                if (INTERNAL_OPTION(private_loader)) {
+                if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
                     res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_FS, 
                                             os_tls->os_seg_info.dr_fs_base);
                     /* Assuming set fs must be successful if set gs succeeded. */
