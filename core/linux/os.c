@@ -6032,6 +6032,7 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
                vmvector_lookup_data(all_memory_areas, pc, &sub_start, &sub_end,
                                     (void **) &info)) {
             if (info->type == DR_MEMTYPE_IMAGE) {
+                bool shareable = false;
                 app_pc overlap_end;
                 dr_mem_type_t info_type = info->type;
                 /* process prior to image */
@@ -6041,7 +6042,6 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
                 }
                 next_add = sub_end;
                 /* change image prot */
-                ASSERT(pc == start || sub_start == pc);
                 overlap_end = (sub_end > end) ? end : sub_end;
                 if (sub_start == pc && sub_end == overlap_end) {
                     /* XXX: we should read maps to fully handle COW but for
@@ -6051,19 +6051,18 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
                     /* We assume a writable transition is accompanied by an actual
                      * write => COW => no longer shareable (i#669)
                      */
-                    bool shareable = info->shareable;
+                    shareable = info->shareable;
                     if (TEST(MEMPROT_WRITE, prot) != TEST(MEMPROT_WRITE, info->prot))
                         shareable = false;
                     /* re-add so we can merge w/ adjacent non-shareable */
-                    vmvector_remove(all_memory_areas, sub_start, sub_end);
-                    add_all_memory_area(sub_start, sub_end, prot, info_type, shareable);
                 } else {
-                    vmvector_remove(all_memory_areas, pc, overlap_end);
                     /* assume we're here b/c was written and now marked +rx or sthg
                      * so no sharing
                      */
-                    add_all_memory_area(pc, overlap_end, prot, info_type, false);
+                    shareable = false;
                 }
+                vmvector_remove(all_memory_areas, pc, overlap_end);
+                add_all_memory_area(pc, overlap_end, prot, info_type, shareable);
             }
             pc = sub_end;
         }
