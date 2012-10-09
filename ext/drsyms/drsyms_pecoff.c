@@ -520,5 +520,6 @@ const char *
 drsym_obj_debug_path(void)
 {
     /* XXX: figure out where cygwin is really installed */
+    /* XXX: also search mingw debug path */
     return "c:\\cygwin\\lib\\debug";
 }

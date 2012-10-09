@@ -48,6 +48,12 @@
 #include "demangle.h"
 #include "libelftc.h"
 
+#ifdef WINDOWS
+# define IF_WINDOWS(x) x
+#else
+# define IF_WINDOWS(x)
+#endif
+
 /* For debugging */
 static bool verbose = false;
 
@@ -140,6 +146,7 @@ load_module(const char *modpath)
         char debug_modpath[MAXIMUM_PATH];
         NOTIFY("%s: looking for debuglink %s\n", __FUNCTION__, debuglink);
         if (follow_debuglink(modpath, mod, debuglink, debug_modpath)) {
+            NOTIFY("%s: loading debuglink %s\n", __FUNCTION__, debug_modpath);
             newmod = load_module(debug_modpath);
             if (newmod != NULL) {
                 /* We expect that DWARF sections will all be in
@@ -200,12 +207,16 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
                  char debug_modpath[MAXIMUM_PATH])
 {
     char mod_dir[MAXIMUM_PATH];
-    char *last_slash;
+    char *s, *last_slash = NULL;
 
     /* Get the module's directory. */
     strncpy(mod_dir, modpath, MAXIMUM_PATH);
     NULL_TERMINATE_BUFFER(mod_dir);
-    last_slash = strrchr(mod_dir, '/');
+    /* XXX: we want DR's double_strrchr */
+    for (s = mod_dir; *s != '\0'; s++) {
+        if (*s == '/' IF_WINDOWS(|| *s == '\\'))
+            last_slash = s;
+    }
     if (last_slash != NULL)
         *last_slash = '\0';
 
@@ -213,6 +224,7 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
     dr_snprintf(debug_modpath, MAXIMUM_PATH,
                 "%s/%s", mod_dir, debuglink);
     debug_modpath[MAXIMUM_PATH-1] = '\0';
+    NOTIFY("%s: looking for %s\n", __FUNCTION__, debug_modpath);
     /* If debuglink is the basename of modpath, this can point to the same file.
      * Infinite recursion is prevented with a depth check, but we would fail to
      * test the other paths, so we check here if these paths resolve to the same
@@ -225,6 +237,7 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
     dr_snprintf(debug_modpath, MAXIMUM_PATH,
                 "%s/.debug/%s", mod_dir, debuglink);
     debug_modpath[MAXIMUM_PATH-1] = '\0';
+    NOTIFY("%s: looking for %s\n", __FUNCTION__, debug_modpath);
     if (dr_file_exists(debug_modpath))
         return true;
 
@@ -232,15 +245,12 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
     dr_snprintf(debug_modpath, MAXIMUM_PATH,
                 "%s/%s/%s", drsym_obj_debug_path(), mod_dir, debuglink);
     debug_modpath[MAXIMUM_PATH-1] = '\0';
+    NOTIFY("%s: looking for %s\n", __FUNCTION__, debug_modpath);
     if (dr_file_exists(debug_modpath))
         return true;
 
     /* We couldn't find the debug file, so we make do with the original module
-     * instead.
-     *
-     * XXX: We should parse the .dynsym section so this is actually useful.
-     * Right now clients use a mix of dr_get_proc_address and drsyms, when we
-     * could handle all of that for them.
+     * instead.  We'll still find exports in .dynsym.
      */
     return false;
 }
