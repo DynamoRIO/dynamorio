@@ -163,6 +163,9 @@ get_Everyone_SID(void);
 static const PSID
 get_process_owner_SID(void);
 
+static size_t
+get_allocation_size_ex(HANDLE process, byte *pc, byte **base_pc);
+
 bool
 os_user_directory_supports_ownership(void);
 
@@ -781,16 +784,15 @@ os_init(void)
     LOG(GLOBAL, LOG_TOP, 1, "PEB: "PFX"\n", peb_ptr);
     ASSERT((PEB *)peb_ptr == get_own_teb()->ProcessEnvironmentBlock);
 #ifndef X64
-    if (is_wow64_process(NT_CURRENT_PROCESS)) {
-        ptr_uint_t peb64 = (ptr_uint_t) get_own_x64_peb();
-        LOG(GLOBAL, LOG_TOP, 1, "x64 PEB: "PFX"\n", peb64);
-        /* i#816: let's find out whether the assumption used in
-         * is_first_thread_in_new_process() holds that x86 PEB
-         * is always one page below x64 PEB.  Is there any PEB ASLR
-         * for WOW64 btw?  I have yet to see any.
-         */
-        ASSERT_CURIOSITY((ptr_uint_t)peb_ptr + PAGE_SIZE == peb64);
-    }
+    /* We no longer rely on peb64 being adjacent to peb for i#816 but
+     * let's print it nonetheless
+     */
+    DOLOG(1, LOG_TOP, {
+        if (is_wow64_process(NT_CURRENT_PROCESS)) {
+            ptr_uint_t peb64 = (ptr_uint_t) get_own_x64_peb();
+            LOG(GLOBAL, LOG_TOP, 1, "x64 PEB: "PFX"\n", peb64);
+        }
+    });
 #endif
 
     /* match enums in os_exports.h with TEB definition from ntdll.h */
@@ -2090,23 +2092,47 @@ is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
      * but no easy way to do either here.  FIXME 
      */
     process_id_t pid = process_id_from_handle(process_handle);
-    ptr_uint_t peb = (ptr_uint_t) get_peb(process_handle);
-    LOG(THREAD_GET, LOG_SYSCALLS|LOG_THREADS, 2,
-        "%s: pid="PIFX" vs me="PIFX", arg="PFX" vs peb="PFX"\n",
-        __FUNCTION__, pid, get_process_id(), cxt->THREAD_START_ARG, peb);
-    return (pid == 0 ||
-            (!is_pid_me(pid) &&
-             (cxt->THREAD_START_ARG == peb ||
-              /* i#816: for wow64 process PEB query will be x64 while thread addr
-               * will be the x86 PEB.  For now we assume they are one page apart.
-               *
-               * XXX: verify that the two PEB's are always a page apart even in
-               * presence of PEB ASLR.  Spot-checking shows it holds, and there's
-               * a curiosity in os_init() to alert us if the assumption fails.
-               */
-              (is_wow64_process(process_handle) &&
-               get_os_version() >= WINDOWS_VERSION_VISTA &&
-               cxt->THREAD_START_ARG == peb - PAGE_SIZE))));
+    if (pid == 0)
+        return true;
+    if (!is_pid_me(pid)) {
+        ptr_uint_t peb = (ptr_uint_t) get_peb(process_handle);
+        if (cxt->THREAD_START_ARG == peb)
+            return true;
+        else if (is_wow64_process(process_handle) &&
+                 get_os_version() >= WINDOWS_VERSION_VISTA) {
+            /* i#816: for wow64 process PEB query will be x64 while thread addr
+             * will be the x86 PEB.  On Vista and Win7 the x86 PEB seems to
+             * always be one page below but we don't want to rely on that, and
+             * it doesn't hold on Win8.  Instead we ensure the start addr is
+             * a one-page alloc whose first 3 fields match the x64 PEB:
+             * boolean flags, Mutant, and ImageBaseAddress.
+             */
+            int64 peb64[3];
+            int peb32[3];
+            byte *base = NULL;
+            size_t sz = get_allocation_size_ex
+                (process_handle, (byte *)cxt->THREAD_START_ARG, &base);
+            LOG(THREAD_GET, LOG_SYSCALLS|LOG_THREADS, 2,
+                "%s: pid="PIFX" vs me="PIFX", arg="PFX" vs peb="PFX"\n",
+                __FUNCTION__, pid, get_process_id(), cxt->THREAD_START_ARG, peb);
+            if (sz != PAGE_SIZE || base != (byte *)cxt->THREAD_START_ARG)
+                return false;
+            if (!nt_read_virtual_memory(process_handle, (const void *) peb,
+                                        peb64, sizeof(peb64), &sz) ||
+                sz != sizeof(peb64) ||
+                !nt_read_virtual_memory(process_handle,
+                                        (const void *) cxt->THREAD_START_ARG,
+                                        peb32, sizeof(peb32), &sz) ||
+                sz != sizeof(peb32))
+                return false;
+            LOG(THREAD_GET, LOG_SYSCALLS|LOG_THREADS, 2,
+                "%s: peb64 "PIFX","PIFX","PIFX" vs peb32 "PIFX","PIFX","PIFX"\n",
+                __FUNCTION__, peb64[0], peb64[1], peb64[2], peb32[0], peb32[1], peb32[2]);
+            if (peb64[0] == peb32[0] && peb64[1] == peb32[1] && peb64[2] == peb32[2])
+                return true;
+        }
+    }
+    return false;
 }
 
 /* Depending on registry and options maybe inject into child process with
@@ -3868,26 +3894,29 @@ enum { MAX_QUERY_VM_BLOCKS = 512*1024 };
  * size - note that we can't efficiently go backwards to find the
  * maximum possible allocation size in a free hole.
  */
-size_t
-get_allocation_size(byte *pc, byte **base_pc)
+static size_t
+get_allocation_size_ex(HANDLE process, byte *pc, byte **base_pc)
 {
     PBYTE pb = (PBYTE) pc;
     MEMORY_BASIC_INFORMATION mbi;
     PVOID region_base;
     PVOID pb_base;
     size_t pb_size;
-    size_t res;
+    NTSTATUS res;
     int num_blocks = 0;
-    size_t size;
+    size_t size, got;
 
-    res = query_virtual_memory(pb, &mbi, sizeof(mbi));
-    if (res != sizeof(mbi) /* invalid address given, e.g. POINTER_MAX */) {
+    res = nt_remote_query_virtual_memory(process, pb, &mbi, sizeof(mbi), &got);
+    if (!NT_SUCCESS(res) || got != sizeof(mbi)) {
+        /* invalid address given, e.g. POINTER_MAX */
+        LOG(THREAD_GET, LOG_VMAREAS, 3, "%s failed to query "PFX"\n", pb);
         if (base_pc != NULL)
             *base_pc = NULL;
         return 0;
     }
 
     if (mbi.State == MEM_FREE /* free memory doesn't have AllocationBase */) {
+        LOG(THREAD_GET, LOG_VMAREAS, 3, "%s memory is free "PFX"\n", pb);
         if (base_pc != NULL)
             *base_pc = NULL;
         /* note free region from requested ALIGN_BACKWARD(pc base */
@@ -3904,12 +3933,17 @@ get_allocation_size(byte *pc, byte **base_pc)
     /* must keep querying contiguous blocks until reach next region
      * to find this region's size
      */
-    LOG(GLOBAL, LOG_VMAREAS, 3,
-        "get_allocation_size pc="PFX" base="PFX" region="PFX" size="PIFX"\n",
-        pc, pb_base, region_base, mbi.RegionSize);
+    LOG(THREAD_GET, LOG_VMAREAS, 3,
+        "%s pc="PFX" base="PFX" region="PFX" size="PIFX"\n",
+        __FUNCTION__, pc, pb_base, region_base, mbi.RegionSize);
     do {
-        res = query_virtual_memory(pb, &mbi, sizeof(mbi));
-        if (res != sizeof(mbi) || mbi.State == MEM_FREE || mbi.AllocationBase != region_base)
+        res = nt_remote_query_virtual_memory(process, pb, &mbi, sizeof(mbi), &got);
+        LOG(THREAD_GET, LOG_VMAREAS, 4,
+            "%s pc="PFX" base="PFX" type="PIFX" region="PFX" size="PIFX"\n",
+            __FUNCTION__, pb, mbi.BaseAddress, mbi.State, mbi.AllocationBase,
+            mbi.RegionSize);
+        if (!NT_SUCCESS(res) || got != sizeof(mbi) || mbi.State == MEM_FREE ||
+            mbi.AllocationBase != region_base)
             break;
         ASSERT(mbi.RegionSize > 0); /* if > 0, we will NOT infinite loop */
         size += mbi.RegionSize;
@@ -3931,6 +3965,12 @@ get_allocation_size(byte *pc, byte **base_pc)
     if (base_pc != NULL)
         *base_pc = (byte *) region_base;
     return size;
+}
+
+size_t
+get_allocation_size(byte *pc, byte **base_pc)
+{
+    return get_allocation_size_ex(NT_CURRENT_PROCESS, pc, base_pc);
 }
 
 /* Returns information about the memory area (not allocation region)
