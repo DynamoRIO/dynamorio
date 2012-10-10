@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,6 +42,7 @@
  *
  */
 
+#include "tools.h"
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
@@ -97,15 +98,6 @@ static int timer_hits = 0;
 #endif
 
 #include <errno.h>
-
-#define ASSERT_NOERR(rc) do {                                   \
-  if (rc) {                                                     \
-     print("%s:%d rc=%d errno=%d %s\n",                         \
-           __FILE__, __LINE__,                                  \
-           rc, errno, strerror(errno));                         \
-     _exit(1);                                                  \
-  }                                                             \
-} while (0);
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -193,7 +185,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 
 /* set up signal_handler as the handler for signal "sig" */
 static void
-intercept_signal(int sig, handler_t handler)
+custom_intercept_signal(int sig, handler_t handler)
 {
     int rc;
     struct sigaction act;
@@ -231,7 +223,7 @@ int main(int argc, char *argv[])
 #endif
 
 #if USE_TIMER
-    intercept_signal(SIGVTALRM, (handler_t) signal_handler);
+    custom_intercept_signal(SIGVTALRM, (handler_t) signal_handler);
     t.it_interval.tv_sec = 0;
     t.it_interval.tv_usec = 10000;
     t.it_value.tv_sec = 0;
@@ -252,10 +244,10 @@ int main(int argc, char *argv[])
 # endif
 #endif
 
-    intercept_signal(SIGSEGV, (handler_t) signal_handler);
-    intercept_signal(SIGUSR1, (handler_t) signal_handler);
-    intercept_signal(SIGUSR2, (handler_t) SIG_IGN);
-    intercept_signal(__SIGRTMAX, (handler_t) signal_handler);
+    custom_intercept_signal(SIGSEGV, (handler_t) signal_handler);
+    custom_intercept_signal(SIGUSR1, (handler_t) signal_handler);
+    custom_intercept_signal(SIGUSR2, (handler_t) SIG_IGN);
+    custom_intercept_signal(__SIGRTMAX, (handler_t) signal_handler);
 
     res = cos(0.56);
 

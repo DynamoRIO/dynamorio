@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,7 +52,7 @@
 # define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
 #endif
 
-static jmp_buf mark;
+static SIGJMP_BUF mark;
 static int bar;
 
 static void
@@ -68,11 +69,8 @@ redirect_target(void)
     NOP_NOP_CALL(foo);
 
     print("Redirected\n");
-    longjmp(mark, 1);
+    SIGLONGJMP(mark, 1);
 }
-
-/* handler with SA_SIGINFO flag set gets three arguments: */
-typedef void (*handler_t)(int, struct siginfo *, void *);
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -87,27 +85,12 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 	print("Got SIGSEGV\n");
 }
 
-/* set up signal_handler as the handler for signal "sig" */
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-    act.sa_sigaction = handler;
-    rc = sigfillset(&act.sa_mask); /* block all signals within handler */
-    assert(rc == 0);
-    act.sa_flags = SA_SIGINFO | SA_ONSTACK; /* send 3 args to handler */
-    /* arm the signal */
-    rc = sigaction(sig, &act, NULL);
-    assert(rc == 0);
-}
-
 static void
 unintercept_signal(int sig)
 {
     int rc;
     struct sigaction act;
-    act.sa_sigaction = (handler_t) SIG_DFL;
+    act.sa_sigaction = (void (*)(int, struct siginfo *, void *)) SIG_DFL;
     /* disarm the signal */
     rc = sigaction(sig, &act, NULL);
     assert(rc == 0);
@@ -116,10 +99,10 @@ unintercept_signal(int sig)
 int
 main(int argc, char** argv)
 {
-    intercept_signal(SIGUSR1, (handler_t) signal_handler);
-    intercept_signal(SIGUSR2, (handler_t) signal_handler);
-    intercept_signal(SIGURG, (handler_t) signal_handler);
-    intercept_signal(SIGSEGV, (handler_t) signal_handler);
+    intercept_signal(SIGUSR1, signal_handler, false);
+    intercept_signal(SIGUSR2, signal_handler, false);
+    intercept_signal(SIGURG, signal_handler, false);
+    intercept_signal(SIGSEGV, signal_handler, false);
 
     print("Sending SIGURG\n");
     kill(getpid(), SIGURG);
@@ -140,11 +123,11 @@ main(int argc, char** argv)
     print("Sending SIGTERM\n");
     kill(getpid(), SIGTERM);
 
-    if (setjmp(mark) == 0) {
+    if (SIGSETJMP(mark) == 0) {
         /* execute so that client sees the spot */
         redirect_target();
     }
-    if (setjmp(mark) == 0) {
+    if (SIGSETJMP(mark) == 0) {
         print("Sending SIGUSR2\n");
         kill(getpid(), SIGUSR2);
     }

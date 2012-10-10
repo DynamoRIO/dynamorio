@@ -3136,6 +3136,43 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
     return RECREATE_FAILURE;
 }
 
+static instrlist_t *
+recreate_selfmod_ilist(dcontext_t *dcontext, fragment_t *f)
+{
+    cache_pc selfmod_copy;
+    instrlist_t *ilist;
+    instr_t *inst;
+    ASSERT(TEST(FRAG_SELFMOD_SANDBOXED, f->flags));
+    /* If f is selfmod, app code may have changed (we see this w/ code
+     * on the stack later flushed w/ os_thread_stack_exit(), though in that
+     * case we don't expect it to be executed again), so we do a special
+     * recreate from the selfmod copy.
+     * Since selfmod is straight-line code we can rebuild from cache and
+     * offset each translation entry
+     */
+    selfmod_copy = FRAGMENT_SELFMOD_COPY_PC(f);
+    ASSERT(!TEST(FRAG_IS_TRACE, f->flags));
+    ASSERT(!TEST(FRAG_HAS_DIRECT_CTI, f->flags));
+    /* We must build our ilist w/o calling check_thread_vm_area(), as it will
+     * freak out that we are decoding DR memory.
+     */
+    /* Be sure to "pretend" the bb is for f->tag, b/c selfmod instru is
+     * different based on whether pc's are in low 2GB or not.
+     */
+    ilist = recreate_bb_ilist(dcontext, selfmod_copy, (byte *) f->tag,
+                              FRAG_SELFMOD_SANDBOXED, NULL, NULL,
+                              false/*don't check vm areas!*/, true/*mangle*/
+                              _IF_CLIENT(true/*call client*/)
+                              _IF_CLIENT(false/*!for_trace*/));
+    ASSERT(ilist != NULL); /* shouldn't fail: our own code is always readable! */
+    for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
+        app_pc app = instr_get_translation(inst);
+        if (app != NULL)
+            instr_set_translation(inst, app - selfmod_copy + f->tag);
+    }
+    return ilist;
+}
+
 /* The esp in mcontext must either be valid or NULL (if null will be unable to 
  * recreate on XP and 03 at vsyscall_after_syscall and on sygate 2k at after syscall).
  * Returns true if successful.  Whether successful or not, attempts to modify
@@ -3281,14 +3318,18 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             ilist = recreate_fragment_ilist(tdcontext, mcontext->pc, &f, &alloc,
                                             true/*mangle*/ _IF_CLIENT(true/*client*/));
         } else if (FRAGMENT_TRANSLATION_INFO(f) == NULL) {
-            /* NULL for pc indicates that f is valid */
-            bool new_alloc;
-            DEBUG_DECLARE(fragment_t *pre_f = f;)
-            ilist = recreate_fragment_ilist(tdcontext, NULL, &f, &new_alloc,
-                                            true/*mangle*/ _IF_CLIENT(true/*client*/));
-            ASSERT(owning_f == NULL || f == owning_f ||
-                   (TEST(FRAG_COARSE_GRAIN, owning_f->flags) && f == pre_f));
-            ASSERT(!new_alloc);
+            if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags)) {
+                ilist = recreate_selfmod_ilist(tdcontext, f);
+            } else {
+                /* NULL for pc indicates that f is valid */
+                bool new_alloc;
+                DEBUG_DECLARE(fragment_t *pre_f = f;)
+                ilist = recreate_fragment_ilist(tdcontext, NULL, &f, &new_alloc,
+                                                true/*mangle*/ _IF_CLIENT(true/*client*/));
+                ASSERT(owning_f == NULL || f == owning_f ||
+                       (TEST(FRAG_COARSE_GRAIN, owning_f->flags) && f == pre_f));
+                ASSERT(!new_alloc);
+            }
         }
         if (ilist == NULL && (f == NULL || FRAGMENT_TRANSLATION_INFO(f) == NULL)) {
             /* It is problematic if this routine fails.  Many places assume that 
@@ -3627,30 +3668,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
     if (existing_ilist != NULL)
         ilist = existing_ilist;
     else if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags)) {
-        /* If f is selfmod, app code may have changed (we see this w/ code
-         * on the stack later flushed w/ os_thread_stack_exit(), though in that
-         * case we don't expect it to be executed again), so we do a special
-         * recreate from the selfmod copy.
-         * Since selfmod is straight-line code we can rebuild from cache and
-         * offset each translation entry
-         */
-        cache_pc selfmod_copy = FRAGMENT_SELFMOD_COPY_PC(f);
-        ASSERT(!TEST(FRAG_IS_TRACE, f->flags));
-        ASSERT(!TEST(FRAG_HAS_DIRECT_CTI, f->flags));
-        /* We must build our ilist w/o calling check_thread_vm_area(), as it will
-         * freak out that we are decoding DR memory.
-         */
-        ilist = recreate_bb_ilist(dcontext, selfmod_copy, FRAG_SELFMOD_SANDBOXED,
-                                  NULL, NULL,
-                                  false/*don't check vm areas!*/, true/*mangle*/
-                                  _IF_CLIENT(true/*call client*/)
-                                  _IF_CLIENT(false/*!for_trace*/));
-        ASSERT(ilist != NULL); /* shouldn't fail: our own code is always readable! */
-        for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
-            app_pc app = instr_get_translation(inst);
-            if (app != NULL)
-                instr_set_translation(inst, app - selfmod_copy + f->tag);
-        }
+        ilist = recreate_selfmod_ilist(dcontext, f);
     } else {
         /* Must re-build fragment and record translation info for each instr.
          * Whether a bb or trace, this routine will recreate the entire ilist.

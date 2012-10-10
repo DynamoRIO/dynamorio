@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,9 +44,6 @@
  * and  i#283/PR 368737: add client timer support
  */
 
-/* handler with SA_SIGINFO flag set gets three arguments: */
-typedef void (*handler_t)(int, struct siginfo *, void *);
-
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -55,25 +53,12 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
         assert(0);
 }
 
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-    act.sa_sigaction = handler;
-    rc = sigfillset(&act.sa_mask); /* block all signals within handler */
-    assert(rc == 0);
-    act.sa_flags = SA_SIGINFO;
-    rc = sigaction(sig, &act, NULL);
-    assert(rc == 0);
-}
-
 int
 main(int argc, char *argv[])
 {
     int rc;
     struct itimerval t;
-    intercept_signal(SIGALRM, (handler_t) signal_handler);
+    intercept_signal(SIGALRM, signal_handler, false);
     t.it_interval.tv_sec = 0;
     t.it_interval.tv_usec = 10000;
     t.it_value.tv_sec = 0;

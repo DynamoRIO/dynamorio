@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,10 +47,6 @@
 /* asm routine */
 void jumpto(unsigned char *buf);
 
-/* just use single-arg handlers */
-typedef void (*handler_t)(int);
-typedef void (*handler_3_t)(int, struct siginfo *, void *);
-
 #ifdef USE_DYNAMO
 #include "dynamorio.h"
 #endif
@@ -67,33 +63,6 @@ signal_handler(int sig)
         print("Got an illegal instruction\n");
     abort();
 }
-
-#define ASSERT_NOERR(rc) do {					\
-  if (rc) {							\
-     fprintf(stderr, "%s:%d rc=%d errno=%d %s\n", 		\
-	     __FILE__, __LINE__,				\
-	     rc, errno, strerror(errno));  		        \
-  }								\
-} while (0);
-
-/* set up signal_handler as the handler for signal "sig" */
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-
-    act.sa_sigaction = (handler_3_t) handler;
-    rc = sigfillset(&act.sa_mask); /* block all signals within handler */
-    ASSERT_NOERR(rc);
-    /* FIXME: due to DR bug #654 we use SA_SIGINFO -- change it once DR works */
-    act.sa_flags = SA_SIGINFO | SA_ONSTACK;
-    
-    /* arm the signal */
-    rc = sigaction(sig, &act, NULL);
-    ASSERT_NOERR(rc);
-}
-
 #else
 /* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
  * our batch runs
@@ -126,7 +95,7 @@ int main(int argc, char *argv[])
 #endif
   
 #ifdef LINUX
-    intercept_signal(SIGILL, signal_handler);
+    intercept_signal(SIGILL, (handler_3_t) signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
 #endif

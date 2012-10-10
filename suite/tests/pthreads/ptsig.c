@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,9 +48,6 @@
 #include "dynamorio.h"
 #endif
 
-/* handler with SA_SIGINFO flag set gets three arguments: */
-typedef void (*handler_t)(int, struct siginfo *, void *);
-
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
 volatile double intervals; /* How many intervals? */
@@ -60,46 +57,25 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #if VERBOSE
     print("thread %d signal_handler: sig=%d, retaddr="PFX", fpregs="PFX"\n",
-	    getpid(), sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
+          getpid(), sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
 #endif
 
     switch (sig) {
     case SIGUSR1: {
-	struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
 #ifdef X64
-	void *pc = (void *) sc->rip;
+        void *pc = (void *) sc->rip;
 #else
-	void *pc = (void *) sc->eip;
+        void *pc = (void *) sc->eip;
 #endif
 #if VERBOSE
-	print("thread %d got SIGUSR1 @ "PFX"\n", getpid(), pc);
+        print("thread %d got SIGUSR1 @ "PFX"\n", getpid(), pc);
 #endif
         break;
     }
     default:
-	assert(0);
+        assert(0);
     }
-}
-
-/* set up signal_handler as the handler for signal "sig" */
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-
-    act.sa_sigaction = handler;
-#if BLOCK_IN_HANDLER
-    rc = sigfillset(&act.sa_mask); /* block all signals within handler */
-#else
-    rc = sigemptyset(&act.sa_mask); /* no signals are blocked within handler */
-#endif
-    assert(rc == 0);
-    act.sa_flags = SA_SIGINFO | SA_ONSTACK; /* send 3 args to handler */
-    
-    /* arm the signal */
-    rc = sigaction(sig, &act, NULL);
-    assert(rc == 0);
 }
 
 void *
@@ -114,9 +90,9 @@ process(void *arg)
     print("thread %s starting\n", id);
 #endif
     if (((char *)arg)[0] == '1') {
-	intercept_signal(SIGUSR1, (handler_t) SIG_IGN);
+        intercept_signal(SIGUSR1, (handler_3_t) SIG_IGN, false);
 #if VERBOSE
-	print("thread %d ignoring SIGUSR1\n", getpid());
+        print("thread %d ignoring SIGUSR1\n", getpid());
 #endif
     }
 #if VERBOSE
@@ -132,8 +108,8 @@ process(void *arg)
     /* Do the local computations */
     localsum = 0;
     for (i=iproc; i<intervals; i+=2) {
-	register double x = (i + 0.5) * width;
-	localsum += 4.0 / (1.0 + x * x);
+        register double x = (i + 0.5) * width;
+        localsum += 4.0 / (1.0 + x * x);
     }
     localsum *= width;
 
@@ -162,8 +138,8 @@ main(int argc, char **argv)
 #if 0
     /* Get the number of intervals */
     if (argc != 2) {
-	print("Usage: %s <intervals>\n", argv[0]);
-	exit(0);
+        print("Usage: %s <intervals>\n", argv[0]);
+        exit(0);
     }
     intervals = atoi(argv[1]);
 #else /* for batch mode */
@@ -173,20 +149,20 @@ main(int argc, char **argv)
     /* Initialize the lock on pi */
     pthread_mutex_init(&pi_lock, NULL);
 
-    intercept_signal(SIGUSR1, (handler_t) signal_handler);
+    intercept_signal(SIGUSR1, signal_handler, false);
 
     /* Make the two threads */
     if (pthread_create(&thread0, NULL, process, "0") ||
-	pthread_create(&thread1, NULL, process, "1")) {
-	print("%s: cannot make thread\n", argv[0]);
-	exit(1);
+        pthread_create(&thread1, NULL, process, "1")) {
+        print("%s: cannot make thread\n", argv[0]);
+        exit(1);
     }
     
     /* Join (collapse) the two threads */
     if (pthread_join(thread0, &retval) ||
-	pthread_join(thread1, &retval)) {
-	print("%s: thread join failed\n", argv[0]);
-	exit(1);
+        pthread_join(thread1, &retval)) {
+        print("%s: thread join failed\n", argv[0]);
+        exit(1);
     }
 
 #if VERBOSE

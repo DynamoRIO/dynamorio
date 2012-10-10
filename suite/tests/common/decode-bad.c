@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -62,13 +63,9 @@ void test_inval_5(void);
 void test_inval_6(void);
 void test_inval_7(void);
 
-jmp_buf mark;
+SIGJMP_BUF mark;
 static int count = 0;
 static bool invalid_lock;
-
-/* just use single-arg handlers */
-typedef void (*handler_t)(int);
-typedef void (*handler_3_t)(int, struct siginfo *, void *);
 
 #ifdef USE_DYNAMO
 #include "dynamorio.h"
@@ -87,47 +84,16 @@ signal_handler(int sig)
             print("eax=1 ebx=2 ecx=3 edx=4 edi=5 esi=6 ebp=7\n");
         } else 
             print("Bad instruction, instance %d\n", count);
-        longjmp(mark, count);
+        SIGLONGJMP(mark, count);
     }
     if (sig == SIGSEGV) {
         count++;
         /* We can't distinguish but this is the only segv we expect */
         print("Privileged instruction, instance %d\n", count);
-        longjmp(mark, count);
+        SIGLONGJMP(mark, count);
     }
     exit(-1);
 }
-
-#define ASSERT_NOERR(rc) do {                                   \
-  if (rc) {                                                     \
-     fprintf(stderr, "%s:%d rc=%d errno=%d %s\n",               \
-             __FILE__, __LINE__,                                \
-             rc, errno, strerror(errno));                       \
-  }                                                             \
-} while (0);
-
-/* set up signal_handler as the handler for signal "sig" */
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-
-    act.sa_sigaction = (handler_3_t) handler;
-    /* FIXME: due to DR bug 840 we cannot block ourself in the handler
-     * since the handler does not end in a sigreturn, so we have an empty mask
-     * and we use SA_NOMASK
-     */
-    rc = sigemptyset(&act.sa_mask); /* block no signals within handler */
-    ASSERT_NOERR(rc);
-    /* FIXME: due to DR bug #654 we use SA_SIGINFO -- change it once DR works */
-    act.sa_flags = SA_NOMASK | SA_SIGINFO | SA_ONSTACK;
-    
-    /* arm the signal */
-    rc = sigaction(sig, &act, NULL);
-    ASSERT_NOERR(rc);
-}
-
 #else
 /* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
  * our batch runs
@@ -151,18 +117,18 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
               "edi="SZFMT" esi="SZFMT" ebp="SZFMT"\n", 
               cxt->CXT_XAX, cxt->CXT_XBX, cxt->CXT_XCX, cxt->CXT_XDX,
               cxt->CXT_XDI, cxt->CXT_XSI, cxt->CXT_XBP);
-        longjmp(mark, count);
+        SIGLONGJMP(mark, count);
     }
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ILLEGAL_INSTRUCTION) {
         count++;
         print("Bad instruction, instance %d\n", count);
-        longjmp(mark, count);
+        SIGLONGJMP(mark, count);
     }
     if (pExceptionInfo->ExceptionRecord->ExceptionCode ==
         STATUS_PRIVILEGED_INSTRUCTION) {
         count++;
         print("Privileged instruction, instance %d\n", count);
-        longjmp(mark, count);
+        SIGLONGJMP(mark, count);
     }
     /* Shouldn't get here in normal operation so this isn't #if VERBOSE */
     print("Exception 0x"PFMT" occurred, process about to die silently\n",
@@ -188,8 +154,8 @@ int main(int argc, char *argv[])
 #endif
   
 #ifdef LINUX
-    intercept_signal(SIGILL, signal_handler);
-    intercept_signal(SIGSEGV, signal_handler);
+    intercept_signal(SIGILL, (handler_3_t) signal_handler, false);
+    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
 #else
 # ifdef X64_DEBUGGER
     /* FIXME: the vectored handler works fine in the debugger, but natively
@@ -206,7 +172,7 @@ int main(int argc, char *argv[])
     /* privileged instructions */
     print("Privileged instructions about to happen\n");
     count = 0;
-    i = setjmp(mark);
+    i = SIGSETJMP(mark);
     switch (i) {
     case 0: test_priv_0();
     case 1: test_priv_1();
@@ -223,14 +189,14 @@ int main(int argc, char *argv[])
     /* lock prefix, which is illegal instruction if placed on jmp */
     count = 0;
     invalid_lock = true;
-    if (setjmp(mark) == 0) {
+    if (SIGSETJMP(mark) == 0) {
         test_prefix_1();
     }
     invalid_lock = false;
 
     print("Invalid instructions about to happen\n");
     count = 0;
-    i = setjmp(mark);
+    i = SIGSETJMP(mark);
     switch (i) {
         /* note that we decode until a CTI, so for every case the suffix is decoded
          * and changes in later cases may fail even the earlier ones.

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -56,16 +57,11 @@
 static void foo(void)
 { /* nothing: just a marker */ }
 
-jmp_buf mark;
-
-/* just use single-arg handlers */
-typedef void (*handler_t)(int);
-typedef void (*handler_3_t)(int, struct siginfo *, void *);
+SIGJMP_BUF mark;
 
 static int count;
 
 #ifdef LINUX
-# define ALT_STACK_SIZE  (SIGSTKSZ*3)
 
 static void
 signal_handler(int sig)
@@ -73,39 +69,9 @@ signal_handler(int sig)
     if (sig == SIGSEGV) {
         count++;
         print("Access violation, instance %d\n", count);
-        longjmp(mark, count);
+        SIGLONGJMP(mark, count);
     }
     exit(-1);
-}
-
-#define ASSERT_NOERR(rc) do {                                   \
-  if (rc) {                                                     \
-     fprintf(stderr, "%s:%d rc=%d errno=%d %s\n",               \
-             __FILE__, __LINE__,                                \
-             rc, errno, strerror(errno));                       \
-  }                                                             \
-} while (0);
-
-/* set up signal_handler as the handler for signal "sig" */
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-
-    act.sa_sigaction = (handler_3_t) handler;
-    /* FIXME: due to DR bug 840 we cannot block ourself in the handler
-     * since the handler does not end in a sigreturn, so we have an empty mask
-     * and we use SA_NOMASK
-     */
-    rc = sigemptyset(&act.sa_mask); /* block no signals within handler */
-    ASSERT_NOERR(rc);
-    /* FIXME: due to DR bug #654 we use SA_SIGINFO -- change it once DR works */
-    act.sa_flags = SA_NOMASK | SA_SIGINFO | SA_ONSTACK;
-    
-    /* arm the signal */
-    rc = sigaction(sig, &act, NULL);
-    ASSERT_NOERR(rc);
 }
 
 #else
@@ -125,7 +91,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 #endif
         count++;
         print("Access violation, instance %d\n", count);
-        longjmp(mark, count);
+        SIGLONGJMP(mark, count);
     }
     print("Exception "PFX" occurred, process about to die silently\n",
           pExceptionInfo->ExceptionRecord->ExceptionCode);
@@ -137,14 +103,14 @@ int main(int argc, char *argv[])
 {
     int i, j;
 #ifdef LINUX
-    intercept_signal(SIGSEGV, signal_handler);
+    intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
 #endif
 
     /* Each test in cleancall.dll.c crashes at the end */
     for (j = 0; j < 5; j++) {
-        i = setjmp(mark);
+        i = SIGSETJMP(mark);
         if (i == 0) {
             print("testing clean calls\n");
             /* use 2 NOPs + call to indicate it's ok to do the tests

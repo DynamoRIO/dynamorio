@@ -478,6 +478,30 @@ nolibc_memset(void *dst, int val, size_t size)
         buf[i] = (char)val;
     }
 }
+
+/******************************************************************************
+ * Signal handling
+ */
+
+/* set up signal_handler as the handler for signal "sig" */
+void
+intercept_signal(int sig, handler_3_t handler, bool sigstack)
+{
+    int rc;
+    struct sigaction act;
+
+    act.sa_sigaction = (void (*)(int, struct siginfo *, void *)) handler;
+    rc = sigfillset(&act.sa_mask); /* block all signals within handler */
+    ASSERT_NOERR(rc);
+    act.sa_flags = SA_SIGINFO;
+    if (sigstack)
+        act.sa_flags = SA_ONSTACK;
+
+    /* arm the signal */
+    rc = sigaction(sig, &act, NULL);
+    ASSERT_NOERR(rc);
+}
+
 #endif /* LINUX */
 
 #else /* asm code *************************************************************/

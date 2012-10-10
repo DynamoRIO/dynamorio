@@ -212,6 +212,7 @@ typedef struct {
 #endif
     instr_t *instr;             /* the current instr */
     int eflags;
+    app_pc pretend_pc;          /* selfmod only: decode from separate pc */
     DEBUG_DECLARE(bool initialized;)
 } build_bb_t;
 
@@ -3707,6 +3708,7 @@ static bool
 mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 {
     if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
+        byte *selfmod_start, *selfmod_end;
         /* sandbox requires that bb have no direct cti followings!
          * check_thread_vm_area should have ensured this for us
          */
@@ -3718,8 +3720,15 @@ mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
          * to point there
          */
         bb->flags |= FRAG_CANNOT_BE_TRACE;
-        if (!insert_selfmod_sandbox(dcontext, bb->ilist, bb->flags, bb->start_pc,
-                                    bb->cur_pc, bb->record_translation,
+        if (bb->pretend_pc != NULL) {
+            selfmod_start = bb->pretend_pc;
+            selfmod_end = bb->pretend_pc + (bb->cur_pc - bb->start_pc);
+        } else {
+            selfmod_start = bb->start_pc;
+            selfmod_end = bb->cur_pc;
+        }
+        if (!insert_selfmod_sandbox(dcontext, bb->ilist, bb->flags, selfmod_start,
+                                    selfmod_end, bb->record_translation,
                                     bb->for_cache)) {
             /* have to rebuild bb using full decode -- it has invalid instrs
              * in middle, which we don't want to deal w/ for sandboxing!
@@ -4397,7 +4406,8 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     return f;
 }
 
-/* Builds an instrlist_t as though building a bb from pc.
+/* Builds an instrlist_t as though building a bb from pretend_pc, but decodes
+ * from pc.
  * Use recreate_fragment_ilist() for building an instrlist_t for a fragment.
  * If check_vm_area is false, Does NOT call check_thread_vm_area()!
  *   Make sure you know it will terminate at the right spot.  It does
@@ -4406,7 +4416,8 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
  *   record_translation_info() (case 3559).
  */
 instrlist_t *
-recreate_bb_ilist(dcontext_t *dcontext, byte *pc, uint flags, uint *res_flags,
+recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc,
+                  uint flags, uint *res_flags,
                   uint *res_exit_type, bool check_vm_area, bool mangle
                   _IF_CLIENT(bool call_client) _IF_CLIENT(bool for_trace))
 {
@@ -4443,6 +4454,8 @@ recreate_bb_ilist(dcontext_t *dcontext, byte *pc, uint flags, uint *res_flags,
     /* instrument_basic_block, called by build_bb_ilist, verifies that all
      * non-meta instrs have translation fields */
 #endif
+    if (pretend_pc != pc)
+        bb.pretend_pc = pretend_pc;
 
     build_bb_ilist(dcontext, &bb);
 
@@ -4530,7 +4543,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
 
     if ((f->flags & FRAG_IS_TRACE) == 0) {
         /* easy case: just a bb */
-        ilist = recreate_bb_ilist(dcontext, (byte *) f->tag,
+        ilist = recreate_bb_ilist(dcontext, (byte *) f->tag, (byte *) f->tag,
                                   0/*no pre flags*/, &flags, NULL,
                                   true/*check vm area*/, mangle
                                   _IF_CLIENT(call_client)
@@ -4566,7 +4579,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
         ASSERT(t->bbs != NULL);
         for (i=0; i<t->num_bbs; i++) {
             apc = (byte *) t->bbs[i].tag;
-            bb = recreate_bb_ilist(dcontext, apc, 0/*no pre flags*/,
+            bb = recreate_bb_ilist(dcontext, apc, apc, 0/*no pre flags*/,
                                    &flags, &md.final_exit_flags,
                                    true/*check vm area*/, !mangle_at_end
                                    _IF_CLIENT(call_client)

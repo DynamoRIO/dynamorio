@@ -35,11 +35,68 @@
 
 #include "tools.h"
 
+#ifdef LINUX
+# include <unistd.h>
+# include <signal.h>
+# include <ucontext.h>
+# include <errno.h>
+# include <stdlib.h>
+#endif
+
+#include <setjmp.h>
+
+static SIGJMP_BUF mark;
+static int count = 0;
+
+static void
+print_fault_code(unsigned char *pc)
+{
+    /* Expecting:
+     *   0x0804b056  b9 07 00 00 00       mov    $0x00000007 -> %ecx
+     *   0x0804b05b  89 01                mov    %eax -> (%ecx)
+     * X64:
+     *   0x0000000000403059  48 c7 c1 07 00 00 00 mov    $0x00000007 -> %rcx
+     *   0x0000000000403060  89 01                mov    %eax -> (%rcx)
+     */
+    print("fault bytes are %02x %02x preceded by %02x %02x %02x %02x\n",
+          *pc, *(pc+1), *(pc-4), *(pc-3), *(pc-2), *(pc-1));
+}
+
+#ifdef LINUX
+static void
+signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (sig == SIGSEGV) {
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        print_fault_code((unsigned char *)sc->SC_XIP);
+        SIGLONGJMP(mark, count++);
+    }
+    exit(-1);
+}
+#else
+# include <windows.h>
+/* top-level exception handler */
+static LONG
+our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+{
+    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        print_fault_code((unsigned char *)
+                         pExceptionInfo->ExceptionRecord->ExceptionAddress);
+        SIGLONGJMP(mark, count++);
+    }
+    return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
+}
+#endif
+
 typedef unsigned char byte;
 
 static byte global_buf[8];
 
-void sandbox_cross_page(int i, byte buf[8]);
+void
+sandbox_cross_page(int i, byte buf[8]);
+
+void
+sandbox_fault(int i);
 
 #ifdef X64
 /* Reduced from V8, which uses x64 absolute addresses in code which ends up
@@ -125,10 +182,34 @@ test_sandbox_cross_page(void)
     print("end cross-page test\n");
 }
 
+void
+print_int(int x)
+{
+    print("int is %d\n", x);
+}
+
+static void
+test_sandbox_fault(void)
+{
+    int i;
+    print("start fault test\n");
+    protect_mem(sandbox_fault, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    i = SIGSETJMP(mark);
+    if (i == 0)
+        sandbox_fault(42);
+    print("end fault test\n");
+}
+
 int
 main(void)
 {
     INIT();
+
+#ifdef LINUX
+    intercept_signal(SIGSEGV, signal_handler, false);
+#else
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+#endif
 
     test_code_self_mod();
 
@@ -137,6 +218,8 @@ main(void)
 #endif
 
     test_sandbox_cross_page();
+
+    test_sandbox_fault();
 
     return 0;
 }
@@ -148,6 +231,7 @@ main(void)
 START_FILE
 
 DECL_EXTERN(cross_page_check)
+DECL_EXTERN(print_int)
 
     /* The following code needs to cross a page boundary. */
 #if defined(ASSEMBLE_WITH_GAS)
@@ -212,6 +296,34 @@ ADDRTAKEN_LABEL(immediate_addr_plus_four:)
 #ifdef ASSEMBLE_WITH_MASM
 _MYTEXT ENDS
 #endif
+#undef FUNCNAME
+
+#define FUNCNAME sandbox_fault
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, ARG1
+        push     REG_XBP
+        push     REG_XDX
+        push     REG_XDI  /* for 16-alignment on x64 */
+
+        lea      REG_XDX, SYMREF(fault_immediate_addr_plus_four - 4)
+        mov      DWORD [REG_XDX], eax        /* selfmod write */
+
+        mov      REG_XDX, HEX(0)             /* mov_imm to modify */
+ADDRTAKEN_LABEL(fault_immediate_addr_plus_four:)
+        lea      REG_XAX, SYMREF(print_int)
+        CALLC1(REG_XAX, REG_XDX)
+
+        mov      REG_XCX, HEX(7)
+        mov      [REG_XCX], eax              /* fault */
+
+        /* restore */
+        pop      REG_XDI
+        pop      REG_XDX
+        pop      REG_XBP
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
 
 END_FILE
 

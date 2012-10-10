@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,6 +42,7 @@
  *
  */
 
+#include "tools.h"
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
@@ -49,10 +51,6 @@
 #include <ucontext.h>
 #include <sys/time.h> /* itimer */
 #include <string.h> /*  memset */
-
-/* just use single-arg handlers */
-typedef void (*handler_t)(int);
-typedef void (*handler_3_t)(int, struct siginfo *, void *);
 
 #ifdef USE_DYNAMO
 #include "dynamorio.h"
@@ -88,14 +86,6 @@ static int timer_hits = 0;
 
 #include <errno.h>
 
-#define ASSERT_NOERR(rc) do {                                   \
-  if (rc) {                                                     \
-     print("%s:%d rc=%d errno=%d %s\n",                         \
-           __FILE__, __LINE__,                                  \
-           rc, errno, strerror(errno));                         \
-  }                                                             \
-} while (0);
-
 static void
 signal_handler(int sig)
 {
@@ -109,12 +99,12 @@ signal_handler(int sig)
 
 /* set up signal_handler as the handler for signal "sig" */
 static void
-intercept_signal(int sig, handler_t handler)
+custom_intercept_signal(int sig, handler_1_t handler)
 {
     int rc;
     struct sigaction act;
 
-    act.sa_sigaction = (handler_3_t) handler;
+    act.sa_sigaction = (void (*)(int, struct siginfo *, void *)) handler;
 #if BLOCK_IN_HANDLER
     rc = sigfillset(&act.sa_mask); /* block all signals within handler */
 #else
@@ -147,7 +137,7 @@ int main(int argc, char *argv[])
 #endif
 
 #if USE_TIMER
-    intercept_signal(SIGVTALRM, (handler_t) signal_handler);
+    custom_intercept_signal(SIGVTALRM, signal_handler);
     t.it_interval.tv_sec = 0;
     t.it_interval.tv_usec = 20000;
     t.it_value.tv_sec = 0;
@@ -168,9 +158,9 @@ int main(int argc, char *argv[])
 # endif
 #endif
 
-    intercept_signal(SIGSEGV, (handler_t) signal_handler);
-    intercept_signal(SIGUSR1, (handler_t) signal_handler);
-    intercept_signal(SIGUSR2, (handler_t) SIG_IGN);
+    custom_intercept_signal(SIGSEGV, signal_handler);
+    custom_intercept_signal(SIGUSR1, signal_handler);
+    custom_intercept_signal(SIGUSR2, SIG_IGN);
 
     res = cos(0.56);
 

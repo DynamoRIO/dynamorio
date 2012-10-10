@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -121,10 +122,6 @@ jmp_buf mark;
 int where; /* 0 = normal, 1 = segfault longjmp */
 
 #ifdef LINUX
-/* just use single-arg handlers */
-typedef void (*handler_t)(int);
-typedef void (*handler_3_t)(int, struct siginfo *, void *);
-
 static void
 signal_handler(int sig)
 {
@@ -136,37 +133,6 @@ signal_handler(int sig)
     }
     exit(-1);
 }
-
-#define ASSERT_NOERR(rc) do {                                   \
-  if (rc) {                                                     \
-     fprintf(stderr, "%s:%d rc=%d errno=%d %s\n",               \
-             __FILE__, __LINE__,                                \
-             rc, errno, strerror(errno));                       \
-  }                                                             \
-} while (0);
-
-/* set up signal_handler as the handler for signal "sig" */
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-
-    act.sa_sigaction = (handler_3_t) handler;
-    /* FIXME: due to DR bug 840 we cannot block ourself in the handler
-     * since the handler does not end in a sigreturn, so we have an empty mask
-     * and we use SA_NOMASK
-     */
-    rc = sigemptyset(&act.sa_mask); /* block no signals within handler */
-    ASSERT_NOERR(rc);
-    /* FIXME: due to DR bug #654 we use SA_SIGINFO -- change it once DR works */
-    act.sa_flags = SA_NOMASK | SA_SIGINFO | SA_ONSTACK;
-    
-    /* arm the signal */
-    rc = sigaction(sig, &act, NULL);
-    ASSERT_NOERR(rc);
-}
-
 #else
 /* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
  * our batch runs
@@ -203,7 +169,7 @@ main()
 #endif
 
 #ifdef LINUX
-    intercept_signal(SIGSEGV, signal_handler);
+    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
 #endif

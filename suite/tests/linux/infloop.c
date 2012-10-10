@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,16 +32,13 @@
  */
 
 /* An app that stays up long enough for testing nudges. */
+#include "tools.h"
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <signal.h>
 #include <assert.h>
 #include <string.h>
-/* just use single-arg handlers */
-typedef void (*handler_t)(int);
-typedef void (*handler_3_t)(int, struct siginfo *, void *);
 
 static void
 signal_handler(int sig)
@@ -49,19 +46,6 @@ signal_handler(int sig)
     if (sig == SIGTERM)
         fprintf(stderr, "done\n");
     exit(1);
-}
-
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-    act.sa_sigaction = (handler_3_t) handler;
-    rc = sigemptyset(&act.sa_mask); /* block no signals within handler */
-    assert(rc == 0);
-    act.sa_flags = SA_NOMASK | SA_SIGINFO | SA_ONSTACK;
-    rc = sigaction(sig, &act, NULL);
-    assert(rc == 0);
 }
 
 int
@@ -75,7 +59,7 @@ main(int argc, const char *argv[])
              * final line
              */
             fprintf(stderr, "starting\n");
-            intercept_signal(SIGTERM, signal_handler);
+            intercept_signal(SIGTERM, (handler_3_t) signal_handler, false);
             arg_offs++;
         } else
             return 1;

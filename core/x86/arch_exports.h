@@ -1333,8 +1333,8 @@ bb_build_abort(dcontext_t *dcontext, bool clean_vmarea);
  *   follow ubrs to the limit.  Currently used for
  *   record_translation_info() (case 3559).
  */
-instrlist_t * recreate_bb_ilist(dcontext_t *dcontext, byte *pc,  uint flags,
-                                uint *res_flags, uint *res_exit_type,
+instrlist_t * recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc,
+                                uint flags, uint *res_flags, uint *res_exit_type,
                                 bool check_vm_area, bool mangle
                                 _IF_CLIENT(bool call_client)
                                 _IF_CLIENT(bool for_trace));

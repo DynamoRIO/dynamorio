@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,27 +41,13 @@
 #include <unistd.h>
 #include <signal.h>
 #include <ucontext.h>
-
-/* handler with SA_SIGINFO flag set gets three arguments: */
-typedef void (*handler_t)(int, struct siginfo *, void *);
-
 #include <errno.h>
-
-#define ASSERT_NOERR(rc) do {                                   \
-  if (rc) {                                                     \
-     print("%s:%d rc=%d errno=%d %s\n",                         \
-           __FILE__, __LINE__,                                  \
-           rc, errno, strerror(errno));                         \
-     _exit(1);                                                  \
-  }                                                             \
-} while (0);
 
 #ifdef X64
 # define NUM_XMM_REGS 16
 # define XAX "rax"
 #else
 # define NUM_XMM_REGS 8
-# define SC_XIP eip
 # define XAX "eax"
 #endif
 #define INTS_PER_XMM 4
@@ -132,23 +118,6 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     }
 }
 
-/* set up signal_handler as the handler for signal "sig" */
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-
-    act.sa_sigaction = handler;
-    rc = sigfillset(&act.sa_mask); /* block all signals within handler */
-    ASSERT_NOERR(rc);
-    act.sa_flags = SA_SIGINFO | SA_ONSTACK; /* send 3 args to handler */
-    
-    /* arm the signal */
-    rc = sigaction(sig, &act, NULL);
-    ASSERT_NOERR(rc);
-}
-
 /* looks for "avx" flag in /proc/cpuinfo */
 static int
 determine_avx(void)
@@ -179,7 +148,7 @@ main(int argc, char *argv[])
     int i, j;
 
     /* do this first to avoid messing w/ xmm state */
-    intercept_signal(SIGUSR1, (handler_t) signal_handler);
+    intercept_signal(SIGUSR1, signal_handler, false);
     print("Sending SIGUSR1\n");
 
     /* put known values in xmm regs (we assume processor has xmm) */
@@ -214,7 +183,7 @@ main(int argc, char *argv[])
         int buf[INTS_PER_YMM*NUM_XMM_REGS];
         char *ptr = (char *)buf;
         int i, j;
-        intercept_signal(SIGUSR2, (handler_t) signal_handler);
+        intercept_signal(SIGUSR2, signal_handler, false);
         /* put known values in xmm regs (we assume processor has xmm) */
         for (i = 0; i < NUM_XMM_REGS; i++) {
             for (j = 0; j < INTS_PER_YMM; j++)

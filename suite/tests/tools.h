@@ -44,6 +44,7 @@
 # include <sys/mman.h>
 # include <stdlib.h> /* abort */
 # include <errno.h>
+# include <signal.h>
 #else
 # include <windows.h>
 # include <process.h> /* _beginthreadex */
@@ -204,6 +205,40 @@ static void VERBOSE_PRINT(char *fmt, ...) {}
 #  define CXT_XDI Edi
 #  define CXT_XFLAGS EFlags
 # endif
+#endif
+
+#ifdef LINUX
+# ifdef X64
+#  define SC_XIP rip
+# else
+#  define SC_XIP eip
+# endif
+
+# define ASSERT_NOERR(rc) do {                                 \
+    if (rc) {                                                  \
+        print("%s:%d rc=%d errno=%d %s\n",                     \
+              __FILE__, __LINE__,                              \
+              rc, errno, strerror(errno));                     \
+    }                                                          \
+} while (0);
+
+typedef void (*handler_1_t)(int);
+typedef void (*handler_3_t)(int, struct siginfo *, ucontext_t *);
+
+/* set up signal_handler as the handler for signal "sig" */
+void
+intercept_signal(int sig, handler_3_t handler, bool sigstack);
+#endif
+
+/* for cross-plaform siglongjmp */
+#ifdef LINUX
+# define SIGJMP_BUF sigjmp_buf
+# define SIGSETJMP(buf) sigsetjmp(buf, 1)
+# define SIGLONGJMP(buf, count) siglongjmp(buf, count)
+#else
+# define SIGJMP_BUF jmp_buf
+# define SIGSETJMP(buf) setjmp(buf)
+# define SIGLONGJMP(buf, count) longjmp(buf, count)
 #endif
 
 /* DynamoRIO prints directly by syscall to stderr, so we need to too to get
@@ -515,11 +550,7 @@ test_print(void *buf, int n)
 #  include <signal.h>
 #  include <ucontext.h>
 #  include <errno.h>
-#  define INIT() intercept_signal(SIGSEGV, signal_handler)
-
-/* just use single-arg handlers */
-typedef void (*handler_t)(int);
-typedef void (*handler_3_t)(int, struct siginfo *, void *);
+#  define INIT() intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false)
 
 static void
 signal_handler(int sig)
@@ -530,35 +561,6 @@ signal_handler(int sig)
         print("ERROR: Unexpected signal %d caught\n", sig);
     }
     exit(-1);
-}
-
-#define ASSERT_NOERR(rc) do {                               \
-  if (rc) {                                                 \
-     print("%s:%d rc=%d errno=%d %s\n", __FILE__, __LINE__, \
-           rc, errno, strerror(errno));                     \
-  }                                                         \
-} while (0);
-
-/* set up signal_handler as the handler for signal "sig" */
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-
-    act.sa_sigaction = (handler_3_t) handler;
-    /* FIXME: due to DR bug 840 we cannot block ourself in the handler
-     * since the handler does not end in a sigreturn, so we have an empty mask
-     * and we use SA_NOMASK
-     */
-    rc = sigemptyset(&act.sa_mask); /* block no signals within handler */
-    ASSERT_NOERR(rc);
-    /* FIXME: due to DR bug #654 we use SA_SIGINFO -- change it once DR works */
-    act.sa_flags = SA_NOMASK | SA_SIGINFO | SA_ONSTACK;
-    
-    /* arm the signal */
-    rc = sigaction(sig, &act, NULL);
-    ASSERT_NOERR(rc);
 }
 # else
 #  define INIT()

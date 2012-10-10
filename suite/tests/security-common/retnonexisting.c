@@ -47,8 +47,8 @@
 # include <errno.h>
 #endif
 
-jmp_buf mark;
-int where; /* 0 = normal, 1 = segfault longjmp */
+SIGJMP_BUF mark;
+int where; /* 0 = normal, 1 = segfault SIGLONGJMP */
 
 void
 ring(void **retaddr_p, ptr_int_t x)
@@ -84,10 +84,6 @@ twofoo()
 
 
 #ifdef LINUX
-/* just use single-arg handlers */
-typedef void (*handler_t)(int);
-typedef void (*handler_3_t)(int, struct siginfo *, void *);
-
 static void
 signal_handler(int sig)
 {
@@ -95,41 +91,10 @@ signal_handler(int sig)
 #if VERY_VERBOSE
         print("Got seg fault\n");
 #endif
-        longjmp(mark, 1);
+        SIGLONGJMP(mark, 1);
     }
     exit(-1);
 }
-
-#define ASSERT_NOERR(rc) do {                                   \
-  if (rc) {                                                     \
-     fprintf(stderr, "%s:%d rc=%d errno=%d %s\n",               \
-             __FILE__, __LINE__,                                \
-             rc, errno, strerror(errno));                       \
-  }                                                             \
-} while (0);
-
-/* set up signal_handler as the handler for signal "sig" */
-static void
-intercept_signal(int sig, handler_t handler)
-{
-    int rc;
-    struct sigaction act;
-
-    act.sa_sigaction = (handler_3_t) handler;
-    /* FIXME: due to DR bug 840 we cannot block ourself in the handler
-     * since the handler does not end in a sigreturn, so we have an empty mask
-     * and we use SA_NOMASK
-     */
-    rc = sigemptyset(&act.sa_mask); /* block no signals within handler */
-    ASSERT_NOERR(rc);
-    /* FIXME: due to DR bug #654 we use SA_SIGINFO -- change it once DR works */
-    act.sa_flags = SA_NOMASK | SA_SIGINFO | SA_ONSTACK;
-    
-    /* arm the signal */
-    rc = sigaction(sig, &act, NULL);
-    ASSERT_NOERR(rc);
-}
-
 #else
 /* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
  * our batch runs
@@ -143,7 +108,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 #if VERY_VERBOSE
         print("Got segfault\n");
 #endif
-        longjmp(mark, 1);
+        SIGLONGJMP(mark, 1);
     }
 # if VERBOSE
     print("Exception occurred, process about to die silently\n");
@@ -156,7 +121,7 @@ int
 invalid_ret(int x)
 {
     ptr_int_t bad_retaddr = x;  /* Sign extend x on X64. */
-    where = setjmp(mark);
+    where = SIGSETJMP(mark);
     if (where == 0) {
         call_with_retaddr((void*)ring, bad_retaddr);
         print("unexpectedly we came back!");
@@ -172,7 +137,7 @@ main()
     INIT();
 
 #ifdef LINUX
-    intercept_signal(SIGSEGV, signal_handler);
+    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
 #endif
@@ -182,7 +147,7 @@ main()
     print("starting bad function\n");
 
     invalid_ret(1);                    /* zero page */
-    /* FIXME: should wrap all of these in setjmp() blocks */
+    /* FIXME: should wrap all of these in SIGSETJMP() blocks */
     invalid_ret(0);                    /* NULL */
     invalid_ret(0x00badbad);           /* user mode */
     invalid_ret(0x7fffffff);           /* user mode */
