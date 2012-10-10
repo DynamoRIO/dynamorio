@@ -1820,7 +1820,7 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                                    OPSZ_lea)));
         PRE(ilist, instr,
             INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, 0),
-                                OPND_CREATE_INT32(val)));
+                                OPND_CREATE_INT32((int)val)));
 #else
         ASSERT_NOT_REACHED();
 #endif
