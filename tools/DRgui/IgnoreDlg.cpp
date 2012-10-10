@@ -87,7 +87,8 @@ BEGIN_MESSAGE_MAP(CIgnoreDlg, CDialog)
 
     TCHAR path[MAX_PATH];
     int len = GetEnvironmentVariable(_T("DYNAMORIO_IGNORE"), path, MAX_PATH);
-    if (len > 0)
+    assert(len <= MAX_PATH);
+    if (len > 0 && len <= MAX_PATH)
         m_IgnoreList = path; // makes new storage, right?
     UpdateData(FALSE); // FALSE means set controls
 

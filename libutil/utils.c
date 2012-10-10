@@ -112,9 +112,11 @@ get_testdir(WCHAR *buf, UINT maxchars)
 
     len = GetEnvironmentVariable(L"DYNAMORIO_WINDIR", 
                                  tmp, maxchars);
+    DO_ASSERT(len < maxchars);
     if (len == 0) {
         len = GetEnvironmentVariable(L_DYNAMORIO_VAR_HOME, 
                                      tmp, maxchars);
+        DO_ASSERT(len < maxchars);
         /* check for cygwin paths on windows */
         if (!file_exists(buf))
             len = 0;

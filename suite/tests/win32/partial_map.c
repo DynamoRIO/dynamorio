@@ -129,7 +129,7 @@ int main()
 
     res = GetEnvironmentVariable("SYSTEMROOT", sysroot, BUFFER_SIZE_ELEMENTS(sysroot));
     NULL_TERMINATE_BUFFER(sysroot);
-    if (res == 0 || res >= BUFFER_SIZE_ELEMENTS(sysroot))
+    if (res == 0 || res > BUFFER_SIZE_ELEMENTS(sysroot))
         print("Unable to get system root\n");
 
     /* FIXME - add specially crafted .exe/.dlls that have page boundaries at interesting

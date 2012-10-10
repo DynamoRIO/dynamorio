@@ -87,9 +87,8 @@ void CDynamoRIODoc::InitPaths()
 {
     // limit to 200 to give room for rest of injector path
     int len = GetEnvironmentVariable(_T("DYNAMORIO_HOME"), m_dynamorio_home, _MAX_DIR);
-    //NOCHECKIN:
-    //    assert(len > 0 && len < _MAX_DIR && len + _tcslen(INJECTOR_SUBPATH) < MAX_PATH);
-    if (len == 0)
+    assert(len <= _MAX_DIR && len + _tcslen(INJECTOR_SUBPATH) < MAX_PATH);
+    if (len == 0 || len > _MAX_DIR)
         m_dynamorio_home[0] = _T('\0');
     else
         NULL_TERMINATE_BUFFER(m_dynamorio_home);
@@ -103,10 +102,11 @@ void CDynamoRIODoc::InitPaths()
     TCHAR userprof[MAX_PATH];
     CString profile_dir;
     len = GetEnvironmentVariable(_T("USERPROFILE"), userprof, MAX_PATH);
-    if (len <= 0) {
+    assert(len <= MAX_PATH);
+    if (len == 0 || len > MAX_PATH) {
         // on NT, use $SYSTEMROOT\\Profiles
         len = GetEnvironmentVariable(_T("SYSTEMROOT"), userprof, MAX_PATH);
-        assert(len > 0);
+        assert(len > 0 && len < MAX_PATH);
         profile_dir.Format(_T("%s\\Profiles"), userprof);
     } else {
         profile_dir.Format(_T("%s"), userprof);
@@ -235,7 +235,8 @@ BOOL CDynamoRIODoc::RunApplication(LPCTSTR lpszPathName)
         MessageBox(NULL, name.GetBuffer(0), _T("env var name"), MB_OK);
 #endif
         int len = GetEnvironmentVariable(name.GetBuffer(0), msg, MAX_PATH);
-        if (len == 0)
+        assert(len <= MAX_PATH);
+        if (len == 0 || len > MAX_PATH)
             msg[0] = _T('\0');
 #if 0 // debugging stuff
         MessageBox(NULL, msg, _T("env var value"), MB_OK);

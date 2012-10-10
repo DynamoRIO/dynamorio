@@ -120,12 +120,12 @@ BEGIN_MESSAGE_MAP(CCopyDlg, CPropertyPage)
 
     TCHAR drive[8];
     int len = GetEnvironmentVariable(_T("SYSTEMDRIVE"), drive, 7);
-    if (len <= 0)
+    if (len == 0 || len > 7)
         _stprintf(drive, _T("C:"));
 
     TCHAR buf[MAX_PATH];
     len = GetEnvironmentVariable(_T("PROGRAMFILES"), buf, MAX_PATH);
-    if (len <= 0) {
+    if (len == 0 || len > MAX_PATH) {
         // NT doesn't have this env var...so just hardcode it
         _stprintf(buf, _T("%s\\Program Files"), drive);
         len = _tcslen(buf);

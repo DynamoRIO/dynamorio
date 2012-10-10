@@ -247,7 +247,8 @@ BEGIN_MESSAGE_MAP(COptionsDlg, CDialog)
     // get current options string
     TCHAR path[MAX_PATH];
     int len = GetEnvironmentVariable(_T("DYNAMORIO_OPTIONS"), path, MAX_PATH);
-    if (len > 0)
+    assert(len <= MAX_PATH);
+    if (len > 0 && len <= MAX_PATH)
         m_opstring = path; // makes new storage, right?
     UpdateData(FALSE); // FALSE means set controls
 
@@ -435,7 +436,7 @@ expand_ws_quotes(CString str, int &start, int &end)
     TCHAR msg[MAX_PATH];
     // this is independent of dialog box -- so grab string separately
     int len = GetEnvironmentVariable(_T("DYNAMORIO_OPTIONS"), msg, MAX_PATH);
-    if (len <= 0)
+    if (len == 0 || len > MAX_PATH)
         msg[0] = _T('\0');
     CString opstring = msg;
 
