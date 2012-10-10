@@ -3626,6 +3626,7 @@ void post_system_call(dcontext_t *dcontext)
     where_am_i_t old_whereami = dcontext->whereami;
     KSTART(post_syscall);
     dcontext->whereami = WHERE_SYSCALL_HANDLER;
+    DODEBUG({ dcontext->post_syscall = true; });
 
     LOG(THREAD, LOG_SYSCALLS, 2,
         "post syscall: sysnum="PFX", params @"PFX", result="PFX"\n",
@@ -3834,6 +3835,7 @@ void post_system_call(dcontext_t *dcontext)
             STATS_INC(post_syscall_ignorable);
     });
     dcontext->whereami = old_whereami;
+    DODEBUG({ dcontext->post_syscall = false; });
     KSTOP(post_syscall);
 }
 

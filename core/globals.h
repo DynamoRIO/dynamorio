@@ -933,6 +933,10 @@ struct _dcontext_t {
     /* i#238/PR 499179: check that libc errno hasn't changed */
     int libc_errno;
 # endif
+#else
+# ifdef DEBUG
+    bool post_syscall;
+# endif
 #endif
 };
 
