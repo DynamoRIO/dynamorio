@@ -45,6 +45,8 @@
 # include <stdlib.h> /* abort */
 # include <errno.h>
 # include <signal.h>
+# include <ucontext.h>
+# include <unistd.h>
 #else
 # include <windows.h>
 # include <process.h> /* _beginthreadex */
@@ -546,10 +548,6 @@ test_print(void *buf, int n)
 #ifdef LINUX
 # define USE_USER32()
 # ifdef NEED_HANDLER
-#  include <unistd.h>
-#  include <signal.h>
-#  include <ucontext.h>
-#  include <errno.h>
 #  define INIT() intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false)
 
 static void
