@@ -37,6 +37,7 @@ EXPORTS
         KiUserCallbackDispatcher
         KiUserExceptionDispatcher
         _stricmp
+        _strnicmp
         _wcsicmp
         atoi
         isdigit
