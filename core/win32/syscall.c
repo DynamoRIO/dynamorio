@@ -1058,6 +1058,29 @@ presys_CreateThreadEx(dcontext_t *dcontext, reg_t *param_base)
 }
 #endif
 
+/***************************************************************************
+ * ENV VAR PROPAGATION
+ */
+
+/* There is some overlap w/ handle_execve() in linux/os.c but not
+ * quite enough to easily share this.
+ */
+static const char * const env_to_propagate[] = {
+    DYNAMORIO_VAR_RUNUNDER,
+    DYNAMORIO_VAR_OPTIONS,
+    DYNAMORIO_VAR_AUTOINJECT,
+    DYNAMORIO_VAR_LOGDIR,
+    DYNAMORIO_VAR_CONFIGDIR,
+};
+static const wchar_t * const wenv_to_propagate[] = {
+    L_DYNAMORIO_VAR_RUNUNDER,
+    L_DYNAMORIO_VAR_OPTIONS,
+    L_DYNAMORIO_VAR_AUTOINJECT,
+    L_DYNAMORIO_VAR_LOGDIR,
+    L_DYNAMORIO_VAR_CONFIGDIR,
+};
+#define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate)/sizeof(env_to_propagate[0]))
+
 /* appends DR env vars in the target process PEB */
 static bool
 add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
@@ -1067,11 +1090,18 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
     size_t got;
     wchar_t *new_env = NULL;
     wchar_t buf[MAX_OPTIONS_STRING];
-    bool need_rununder = true, need_autoinject = true, need_options = true,
-        need_logdir = true;
-    size_t sz_rununder = 0, sz_autoinject = 0, sz_options = 0, sz_logdir = 0;
+    bool need_var[NUM_ENV_TO_PROPAGATE];
+    size_t sz_var[NUM_ENV_TO_PROPAGATE];
     NTSTATUS res;
     uint old_prot = PAGE_NOACCESS;
+    int i;
+
+    for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
+        if (get_config_val(env_to_propagate[i]) == NULL)
+            need_var[i] = false;
+        else
+            need_var[i] = true;
+    }
 
     ASSERT(env_ptr != NULL);
     if (!nt_read_virtual_memory(phandle, env_ptr, &env, sizeof(env), NULL))
@@ -1099,21 +1129,21 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
             if (buf[0] == 0)
                 break;
             tot_sz += wcslen(buf) + 1;
-            /* if already set we assume has right value */
-            if (wcscmp(L_DYNAMORIO_VAR_RUNUNDER, buf) == 0)
-                need_rununder = false;
-            if (wcscmp(L_DYNAMORIO_VAR_AUTOINJECT, buf) == 0)
-                need_autoinject = false;
-            if (wcscmp(L_DYNAMORIO_VAR_OPTIONS, buf) == 0)
-                need_options = false;
-            if (wcscmp(L_DYNAMORIO_VAR_LOGDIR, buf) == 0)
-                need_logdir = false;
+            for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
+                /* if already set we assume has right value */
+                if (wcscmp(wenv_to_propagate[i], buf) == 0)
+                    need_var[i] = false;
+            }
         }
         tot_sz++; /* final 0 marking end */
         /* from here on out, all *sz vars are total bytes, not wchar_t elements */
         tot_sz *= sizeof(*env);
     }
-    if (!need_rununder && !need_autoinject && !need_options && !need_logdir) {
+    for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
+        if (need_var[i])
+            break;
+    }
+    if (i == NUM_ENV_TO_PROPAGATE) {
         LOG(THREAD, LOG_SYSCALLS, 2,
             "%s: app env vars already contain DR env vars\n", __FUNCTION__);
         return true; /* nothing to do */
@@ -1126,47 +1156,18 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
     /* calculate size needed for adding DR env vars.
      * for each var, we truncate if too big for buf.
      */
-    if (need_rununder) {
-        sz_rununder = wcslen(L_DYNAMORIO_VAR_RUNUNDER) +
-            strlen(get_config_val(DYNAMORIO_VAR_RUNUNDER)) + 2/*=+0*/;
-        if (sz_rununder > BUFFER_SIZE_ELEMENTS(buf)) {
-            SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
-            sz_rununder = BUFFER_SIZE_ELEMENTS(buf);
+    for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
+        if (need_var[i]) {
+            sz_var[i] = wcslen(wenv_to_propagate[i]) +
+                strlen(get_config_val(env_to_propagate[i])) + 2/*=+0*/;
+            if (sz_var[i] > BUFFER_SIZE_ELEMENTS(buf)) {
+                SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
+                sz_var[i] = BUFFER_SIZE_ELEMENTS(buf);
+            }
+            sz_var[i] *= sizeof(*env);
+            tot_sz += sz_var[i];
         }
-        sz_rununder *= sizeof(*env);
-        tot_sz += sz_rununder;
     }
-    if (need_autoinject) {
-        sz_autoinject = wcslen(L_DYNAMORIO_VAR_AUTOINJECT) +
-            strlen(get_config_val(DYNAMORIO_VAR_AUTOINJECT)) + 2/*=+0*/;
-        if (sz_autoinject > BUFFER_SIZE_ELEMENTS(buf)) {
-            SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
-            sz_autoinject = BUFFER_SIZE_ELEMENTS(buf);
-        }
-        sz_autoinject *= sizeof(*env);
-        tot_sz += sz_autoinject;
-    }
-    if (need_options) {
-        sz_options = wcslen(L_DYNAMORIO_VAR_OPTIONS) +
-            strlen(get_config_val(DYNAMORIO_VAR_OPTIONS)) + 2/*=+0*/;
-        if (sz_options > BUFFER_SIZE_ELEMENTS(buf)) {
-            SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
-            sz_options = BUFFER_SIZE_ELEMENTS(buf);
-        }
-        sz_options *= sizeof(*env);
-        tot_sz += sz_options;
-    }
-    if (need_logdir) {
-        sz_logdir = wcslen(L_DYNAMORIO_VAR_LOGDIR) +
-            strlen(get_config_val(DYNAMORIO_VAR_LOGDIR)) + 2/*=+0*/;
-        if (sz_logdir > BUFFER_SIZE_ELEMENTS(buf)) {
-            SYSLOG_INTERNAL(SYSLOG_WARNING, "truncating DR env var for child");
-            sz_logdir = BUFFER_SIZE_ELEMENTS(buf);
-        }
-        sz_logdir *= sizeof(*env);
-        tot_sz += sz_logdir;
-    }
-
     /* allocate a new env block and copy over the old */
     res = nt_remote_allocate_virtual_memory(phandle, &new_env, tot_sz,
                                             PAGE_READWRITE, MEM_COMMIT);
@@ -1200,41 +1201,16 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
      * XXX: is alphabetical sorting relied upon?  adding to end is working.
      */
     sz = app_sz - sizeof(*env); /* before final 0 */
-    if (need_rununder) {
-        _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
-                   L_DYNAMORIO_VAR_RUNUNDER, get_config_val(DYNAMORIO_VAR_RUNUNDER));
-        NULL_TERMINATE_BUFFER(buf);
-        if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
-                                     buf, sz_rununder, &got))
-            goto add_dr_env_failure;
-        sz += sz_rununder;
-    }
-    if (need_autoinject) {
-        _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
-                   L_DYNAMORIO_VAR_AUTOINJECT, get_config_val(DYNAMORIO_VAR_AUTOINJECT));
-        NULL_TERMINATE_BUFFER(buf);
-        if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
-                                     buf, sz_autoinject, &got))
-            goto add_dr_env_failure;
-        sz += sz_autoinject;
-    }
-    if (need_options) {
-        _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
-                   L_DYNAMORIO_VAR_OPTIONS, get_config_val(DYNAMORIO_VAR_OPTIONS));
-        NULL_TERMINATE_BUFFER(buf);
-        if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
-                                     buf, sz_options, &got))
-            goto add_dr_env_failure;
-        sz += sz_options;
-    }
-    if (need_logdir) {
-        _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
-                   L_DYNAMORIO_VAR_LOGDIR, get_config_val(DYNAMORIO_VAR_LOGDIR));
-        NULL_TERMINATE_BUFFER(buf);
-        if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
-                                     buf, sz_logdir, &got))
-            goto add_dr_env_failure;
-        sz += sz_logdir;
+    for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
+        if (need_var[i]) {
+            _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
+                       wenv_to_propagate[i], get_config_val(env_to_propagate[i]));
+            NULL_TERMINATE_BUFFER(buf);
+            if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
+                                         buf, sz_var[i], &got))
+                goto add_dr_env_failure;
+            sz += sz_var[i];
+        }
     }
     /* write final 0 */
     buf[0] = 0;

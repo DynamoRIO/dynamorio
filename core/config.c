@@ -47,6 +47,7 @@
 
 #include <string.h>
 
+/* DYNAMORIO_VAR_CONFIGDIR is searched first, and then these: */
 #ifdef LINUX
 # define GLOBAL_CONFIG_DIR "/etc/dynamorio"
 # define LOCAL_CONFIG_ENV "HOME"
@@ -419,9 +420,12 @@ config_read(config_info_t *cfg, const char *appname_in, process_id_t pid, const 
      * if app-specific exists, default at that level is also read to fill in any
      * unspecified values.
      * env vars are always read and used to fill in any unspecified values.
+     * Custom takes precedence over default local.
      * if local exists, global is NOT read.
      */
-    local = my_getenv(L_IF_WIN(LOCAL_CONFIG_ENV), buf, BUFFER_SIZE_BYTES(buf));
+    local = my_getenv(L_IF_WIN(DYNAMORIO_VAR_CONFIGDIR), buf, BUFFER_SIZE_BYTES(buf));
+    if (local == NULL)
+        local = my_getenv(L_IF_WIN(LOCAL_CONFIG_ENV), buf, BUFFER_SIZE_BYTES(buf));
     if (local != NULL) {
         process_id_t pid_to_check = pid;
         if (pid == 0 && cfg == &config)

@@ -943,6 +943,43 @@ dr_nudge_all(client_id_t client_id,
 
 #endif /* WINDOWS */
 
+DR_EXPORT
+/**
+ * Returns in \p config_dir the configuration directory used to store config
+ * files.  In order to use local config files when the normal interactive user
+ * home directory environment variable (HOME on Linux; USERPROFILE on Windows)
+ * is not set and when using one-step configure-and-run, call this routine prior
+ * to creating the child process and pass true for \p alternative_local.  For
+ * multi-step, the caller must set the DYNAMORIO_CONFIGDIR environment variable.
+ *
+ * \param[in]   global          Whether to use global or user-local config
+ *                              files.  On Windows, global config files are
+ *                              stored in a dir pointed at by the DYNAMORIO_HOME
+ *                              registry key.  On Linux, they are in
+ *                              /etc/dynamorio.  Administrative privileges may
+ *                              be needed if global is true.  Note that
+ *                              DynamoRIO gives local config files precedence
+ *                              when both exist.  The caller must separately
+ *                              create the global directory.
+ *
+ * \param[in]   alternative_local Whether to locate a temporary directory to
+ *                                use for user-local config files and to set
+ *                                the DYNAMORIO_CONFIGDIR environment variable
+ *                                to point at it, if the regular local
+ *                                config dir is not found.
+ *
+ * \param[out]  config_dir      Receives the full path to the config dir.
+ *
+ * \param[in]   config_dir_sz   The capacity, in characters, of \p config_dir.
+ *
+ * \return      A dr_config_status_t code indicating the result of the request.
+ */
+dr_config_status_t
+dr_get_config_dir(bool global,
+                  bool alternative_local,
+                  char *config_dir /* OUT */,
+                  size_t config_dir_sz);
+
 /* DR_API EXPORT END */
 
 #endif /* _DR_CONFIG_H_ */

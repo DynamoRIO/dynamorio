@@ -4556,6 +4556,24 @@ handle_self_signal(dcontext_t *dcontext, uint sig)
     }
 }
 
+/***************************************************************************
+ * EXECVE
+ */
+
+/* when adding here, also add to the switch in handle_execve if necessary */
+enum {
+    ENV_PROP_RUNUNDER,
+    ENV_PROP_OPTIONS,
+};
+static const char * const env_to_propagate[] = {
+    /* these must line up with the enum */
+    DYNAMORIO_VAR_RUNUNDER,
+    DYNAMORIO_VAR_OPTIONS,
+    /* un-named */
+    DYNAMORIO_VAR_CONFIGDIR,
+};
+#define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate)/sizeof(env_to_propagate[0]))
+
 static void
 handle_execve(dcontext_t *dcontext)
 {
@@ -4584,7 +4602,9 @@ handle_execve(dcontext_t *dcontext)
      */
     char *fname = (char *)  sys_param(dcontext, 0);
     char **envp = (char **) sys_param(dcontext, 2);
-    int i, preload = -1, ldpath = -1, ops = -1, rununder = -1;
+    int i, j, preload = -1, ldpath = -1;
+    int prop_found[NUM_ENV_TO_PROPAGATE];
+    int prop_idx[NUM_ENV_TO_PROPAGATE];
     bool preload_us = false, ldpath_us = false;
     bool x64 = IF_X64_ELSE(true, false);
     file_t file;
@@ -4623,6 +4643,9 @@ handle_execve(dcontext_t *dcontext)
     inject_library_path = IF_X64_ELSE(x64, !x64) ? dynamorio_library_path :
         dynamorio_alt_arch_path;
 
+    for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++)
+        prop_found[j] = -1;
+
     if (envp == NULL) {
         LOG(THREAD, LOG_SYSCALLS, 3, "\tenv is NULL\n");
         i = 0;
@@ -4630,11 +4653,11 @@ handle_execve(dcontext_t *dcontext)
         for (i = 0; envp[i] != NULL; i++) {
             /* execve env vars should never be set here */
             ASSERT(strstr(envp[i], DYNAMORIO_VAR_EXECVE) != envp[i]);
-            if (strstr(envp[i], DYNAMORIO_VAR_OPTIONS) == envp[i]) {
-                ops = i;
-            }
-            if (strstr(envp[i], DYNAMORIO_VAR_RUNUNDER) == envp[i]) {
-                rununder = i;
+            for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+                if (strstr(envp[i], env_to_propagate[j]) == envp[i]) {
+                    prop_found[j] = i;
+                    break;
+                }
             }
             if (strstr(envp[i], "LD_LIBRARY_PATH=") == envp[i]) {
                 ldpath = i;
@@ -4666,9 +4689,7 @@ handle_execve(dcontext_t *dcontext)
     int num_old = i;
     uint sz;
     char *var, *old;
-    int idx_preload = preload, idx_ldpath = ldpath, idx_ops = ops;
-    int idx_rununder = rununder;
-    char *options = option_string; /* global var */
+    int idx_preload = preload, idx_ldpath = ldpath;
     int num_new;
     char **new_envp;
     uint logdir_length;
@@ -4696,10 +4717,11 @@ handle_execve(dcontext_t *dcontext)
         ((preload<0) ? 1 : 0) +
         ((ldpath<0) ? 1 : 0);
     if (DYNAMO_OPTION(follow_children)) {
-        num_new +=
-            ((rununder < 0) ? 1 : 0) +
-            ((ops < 0 && options != NULL) ? 1 : 0) +
-            (get_log_dir(PROCESS_DIR, NULL, NULL) ? 1 : 0) /* logdir */;
+        num_new += (get_log_dir(PROCESS_DIR, NULL, NULL) ? 1 : 0) /* logdir */;
+        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+            if (prop_found[j] < 0)
+                num_new++;
+        }
     }
     new_envp = heap_alloc(dcontext, sizeof(char*)*(num_old+num_new)
                           HEAPACCT(ACCT_OTHER));
@@ -4717,10 +4739,10 @@ handle_execve(dcontext_t *dcontext)
     if (ldpath < 0)
         idx_ldpath = i++;
     if (DYNAMO_OPTION(follow_children)) {
-        if (rununder < 0)
-            idx_rununder = i++;
-        if (ops < 0 && options != NULL)
-            idx_ops = i++;
+        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+            if (prop_found[j] < 0)
+                prop_idx[j] = i++;
+        }
     }
 
     if (!preload_us) {
@@ -4764,25 +4786,34 @@ handle_execve(dcontext_t *dcontext)
     }
 
     if (DYNAMO_OPTION(follow_children)) {
-        if (rununder < 0) {
-            sz = strlen(DYNAMORIO_VAR_RUNUNDER) + 3 /* =, 1, null */;
-            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-            /* Must pass RUNUNDER_ALL to get child injected if has no app config */
-            snprintf(var, sz, "%s=%.1d", DYNAMORIO_VAR_RUNUNDER,
-                     RUNUNDER_ON | RUNUNDER_ALL);
-            *(var+sz-1) = '\0'; /* null terminate */
-            new_envp[idx_rununder] = var;
-            LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-                idx_rununder, new_envp[idx_rununder]);
-        } /* If rununder var is already set we assume it's set to 1. */
-        if (ops < 0 && options != NULL) {
-            sz = strlen(DYNAMORIO_VAR_OPTIONS) + strlen(options) + 2;
-            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-            snprintf(var, sz, "%s=%s", DYNAMORIO_VAR_OPTIONS, options);
-            *(var+sz-1) = '\0'; /* null terminate */
-            new_envp[idx_ops] = var;
-            LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-                idx_ops, new_envp[idx_ops]);
+        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+            if (prop_found[j] < 0) {
+                const char *val = "";
+                switch (j) {
+                case ENV_PROP_RUNUNDER:
+                    ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_RUNUNDER) == 0);
+                    /* Must pass RUNUNDER_ALL to get child injected if has no app config.
+                     * If rununder var is already set we assume it's set to 1.
+                     */
+                    ASSERT((RUNUNDER_ON | RUNUNDER_ALL) == 0x3); /* else, update "3" */
+                    val = "3";
+                    break;
+                case ENV_PROP_OPTIONS:
+                    ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
+                    val = option_string;
+                    break;
+                default:
+                    val = getenv(env_to_propagate[j]);
+                    break;
+                }
+                sz = strlen(env_to_propagate[j]) + strlen(val) + 2 /* '=' + null */;
+                var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+                snprintf(var, sz, "%s=%s", env_to_propagate[j], val);
+                *(var+sz-1) = '\0'; /* null terminate */
+                new_envp[prop_idx[j]] = var;
+                LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+                    prop_idx[j], new_envp[prop_idx[j]]);
+            }
         }
         if (get_log_dir(PROCESS_DIR, NULL, &logdir_length)) {
             sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + 1 + logdir_length;
@@ -4793,13 +4824,13 @@ handle_execve(dcontext_t *dcontext)
             new_envp[i++] = var;
             LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
         }
-    } else if (idx_rununder >= 0) {
+    } else if (prop_idx[ENV_PROP_RUNUNDER] >= 0) {
         /* disable auto-following of this execve, yet still allow preload
          * on other side to inject if config file exists.
          * kind of hacky mangle here:
          */
-        ASSERT(new_envp[idx_rununder][0] == 'D');
-        new_envp[idx_rununder][0] = 'X';
+        ASSERT(new_envp[prop_idx[ENV_PROP_RUNUNDER]][0] == 'D');
+        new_envp[prop_idx[ENV_PROP_RUNUNDER]][0] = 'X';
     }
 
     sz = strlen(DYNAMORIO_VAR_EXECVE) + 4;
@@ -4926,6 +4957,8 @@ handle_close_pre(dcontext_t *dcontext)
     }
     return true;
 }
+
+/***************************************************************************/
 
 /* Used to obtain the pc of the syscall instr itself when the dcontext dc
  * is currently in a syscall handler.

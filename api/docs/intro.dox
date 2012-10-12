@@ -367,7 +367,12 @@ processes.
 Configuration information is stored in files in the current user's profile
 directory, which is obtained from the environment variable \c $USERPROFILE.
 Thus, configurations are persistent across reboots and are private to each
-user.  DynamoRIO also supports global configurations, which are stored in
+user.  An alternative to <tt>$USERPROFILE</tt> can be
+specified by setting the <tt>DYNAMORIO_CONFIGDIR</tt> environment variable;
+if neither is set, a temp directory will be used when creating new
+configuration files for configure-and-run execution.
+
+DynamoRIO also supports global configurations, which are stored in
 the "config" subdirectory of the directory specified by the \c
 DYNAMORIO_HOME registry value in the registry key \c
 \\HKLM\\SOFTWARE\\DynamoRIO\\DynamoRIO (or for 32-bit on 64-bit Windows
@@ -505,7 +510,12 @@ invoke the parent process.  The \p drrun script can also be used but it
 creates a temporary configuration file that will override settings
 requested via \p drconfig.  The configuration file for each application is
 stored in <tt>$HOME/.dynamorio/&lt;appname&gt;.config32</tt> (or a \p
-config64 suffix for 64-bit).  DynamoRIO also supports global configuration
+config64 suffix for 64-bit).  An alternative to <tt>$HOME</tt> can be
+specified by setting the <tt>DYNAMORIO_CONFIGDIR</tt> environment variable;
+if neither is set, a temp directory will be used when creating new
+configuration files for configure-and-run execution.
+
+DynamoRIO also supports global configuration
 files in <tt>/etc/dynamorio/&lt;appname&gt;.config32</tt> when a local
 configuration file is not found.  \p drconfig does not support directly
 writing a global config file but such files can be copied from or modeled

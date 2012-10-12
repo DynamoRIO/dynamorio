@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -474,8 +474,10 @@ bool register_proc(const char *process,
 #ifdef WINDOWS
         char buf[MAXIMUM_PATH];
         if (GetEnvironmentVariableA("USERPROFILE", buf,
-                                    BUFFER_SIZE_ELEMENTS(buf)) <= 0) {
-            error("process registration failed: USERPROFILE env var not set!");
+                                    BUFFER_SIZE_ELEMENTS(buf)) == 0 &&
+            GetEnvironmentVariableA("DYNAMORIO_CONFIGDIR", buf,
+                                    BUFFER_SIZE_ELEMENTS(buf)) == 0) {
+            error("process registration failed: neither USERPROFILE nor DYNAMORIO_CONFIGDIR env var set!");
         } else
 #endif
             error("process registration failed");
@@ -1044,7 +1046,7 @@ int main(int argc, char *argv[])
         else if (res != DR_SUCCESS)
             printf("nudge operation failed, verify adequate permissions for this operation.");
     }
-#ifdef WINDOWS
+#  ifdef WINDOWS
     /* FIXME i#840: Process iterator NYI for Linux. */
     else if (action == action_list) {
         if (!list_registered)
@@ -1059,7 +1061,7 @@ int main(int argc, char *argv[])
             dr_registered_process_iterator_stop(iter);
         }
     }
-#endif
+#  endif
     else if (!syswide_on && !syswide_off) {
         usage("no action specified");
     }
@@ -1093,14 +1095,18 @@ int main(int argc, char *argv[])
 # endif /* WINDOWS */
     return 0;
 #else /* DRCONFIG */
-#ifdef LINUX
+    if (!global) {
+        /* i#939: attempt to work w/o any HOME/USERPROFILE by using a temp dir */
+        dr_get_config_dir(global, true/*use temp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
+    }
+# ifdef LINUX
     /* On Linux, we use exec by default to create the app process.  This matches
      * our drrun shell script and makes scripting easier for the user.
      */
     if (limit == 0) {
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
     } else
-#endif /* LINUX */
+# endif /* LINUX */
         errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
     if (errcode != 0) {
         IF_WINDOWS(int sofar =)

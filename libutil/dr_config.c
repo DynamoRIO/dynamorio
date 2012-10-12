@@ -309,6 +309,7 @@ free_opt_info(opt_info_t *opt_info)
 #endif
 
 #ifndef PARAMS_IN_REGISTRY
+/* DYNAMORIO_VAR_CONFIGDIR is searched first, and then these: */
 # ifdef WINDOWS
 #  define LOCAL_CONFIG_ENV "USERPROFILE"
 #  define LOCAL_CONFIG_SUBDIR "dynamorio"
@@ -340,13 +341,30 @@ get_config_sfx(dr_platform_t dr_platform)
 }
 
 static bool
-get_config_dir(bool global, char *fname, size_t fname_len)
+env_var_exists(const char *name, char *buf, size_t buflen)
+{
+#ifdef WINDOWS
+    size_t len = GetEnvironmentVariableA(name, buf, (DWORD) buflen);
+    if (len == 0 || len > buflen)
+        return false;
+#else
+    char *val = getenv(LOCAL_CONFIG_ENV);
+    strncpy(buf, val, buflen);
+    buf[buflen - 1] = '\0';
+#endif
+    return true;
+}
+
+/* If find_temp, will use a temp dir; else will fail if no standard config dir. */
+static bool
+get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
 {
     char dir[MAXIMUM_PATH];
     const char *subdir;
     if (global) {
 #ifdef WINDOWS
         _snprintf(dir, BUFFER_SIZE_ELEMENTS(dir), TSTR_FMT, get_dynamorio_home());
+        NULL_TERMINATE_BUFFER(dir);
         subdir = GLOBAL_CONFIG_SUBDIR;
 #else
         /* FIXME i#840: Support global config files by porting more of utils.c.
@@ -354,16 +372,33 @@ get_config_dir(bool global, char *fname, size_t fname_len)
         return false;
 #endif
     } else {
+        /* DYNAMORIO_CONFIGDIR takes precedence */
+        if (!env_var_exists(DYNAMORIO_VAR_CONFIGDIR, dir, BUFFER_SIZE_ELEMENTS(dir))) {
+            if (!env_var_exists(LOCAL_CONFIG_ENV, dir, BUFFER_SIZE_ELEMENTS(dir))) {
+                if (!find_temp)
+                    return false;
+                /* Attempt to make things work for non-interactive users (i#939) */
+                if (!env_var_exists("TMP", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
+                    !env_var_exists("TEMP", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
+                    !env_var_exists("TMPDIR", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
+                    !env_var_exists("PWD", dir, BUFFER_SIZE_ELEMENTS(dir))) {
 #ifdef WINDOWS
-        int len = GetEnvironmentVariableA(LOCAL_CONFIG_ENV, dir,
-                                          BUFFER_SIZE_ELEMENTS(dir));
-        if (len <= 0)
-            return false;
+                    return false;
 #else
-        char *home = getenv(LOCAL_CONFIG_ENV);
-        strncpy(dir, home, BUFFER_SIZE_ELEMENTS(dir));
-        NULL_TERMINATE_BUFFER(dir);
+                    strncpy(dir, "/tmp", BUFFER_SIZE_ELEMENTS(dir));
+                    NULL_TERMINATE_BUFFER(dir);
 #endif
+                }
+                /* Ensure DR finds the same config file! */
+#ifdef WINDOWS
+                if (!SetEnvironmentVariableA(DYNAMORIO_VAR_CONFIGDIR, dir))
+                    return false;
+#else
+                if (setenv(DYNAMORIO_VAR_CONFIGDIR, dir, 0) != 0)
+                    return false;
+#endif
+            }
+        }
         subdir = LOCAL_CONFIG_SUBDIR;
     }
     _snprintf(fname, fname_len, "%s/%s", dir, subdir);
@@ -385,7 +420,7 @@ get_config_file_name(const char *process_name,
                      size_t fname_len)
 {
     size_t dir_len;
-    if (!get_config_dir(global, fname, fname_len)) {
+    if (!get_config_dir(global, fname, fname_len, false)) {
         DO_ASSERT(false && "get_config_dir failed");
         return false;
     }
@@ -1267,7 +1302,7 @@ dr_registered_process_iterator_start(dr_platform_t dr_platform,
     else
         iter->cur = NULL;
 #else
-    if (!get_config_dir(global, iter->dir, BUFFER_SIZE_ELEMENTS(iter->dir))) {
+    if (!get_config_dir(global, iter->dir, BUFFER_SIZE_ELEMENTS(iter->dir), false)) {
         iter->has_next = false;
         return iter;
     }
@@ -1829,3 +1864,24 @@ dr_nudge_all(client_id_t client_id, uint64 arg, uint timeout_ms, int *nudge_coun
 }
 
 #endif /* WINDOWS */
+
+/* XXX: perhaps we should take in a config dir as a parameter to all
+ * of the registration routines in the drconfiglib API rather than or
+ * in addition to having this env var DYNAMORIO_CONFIGLIB.
+ * Xref i#939.
+ */
+dr_config_status_t
+dr_get_config_dir(bool global,
+                  bool alternative_local,
+                  char *config_dir /* OUT */,
+                  size_t config_dir_sz)
+{
+    if (get_config_dir(global, config_dir, config_dir_sz, alternative_local)) {
+        /* XXX: it would be nice to return DR_CONFIG_STRING_TOO_LONG if the
+         * buffer is too small, rather than just truncating it
+         */
+        return DR_SUCCESS;
+    } else
+        return DR_FAILURE;
+}
+

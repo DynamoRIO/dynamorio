@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # **********************************************************
-# Copyright (c) 2011 Google, Inc.  All rights reserved.
+# Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -357,16 +357,52 @@ fi
 
 # i#85/PR 212034: we now use config files
 
-if [ ! -n "$HOME" ]
+if [ ! -n "$DYNAMORIO_CONFIGDIR" ]
 then
-    echo "ERROR - $HOME must exist"
-    echo "$usage"
+    if [ -n "$HOME" ] && [ -d "$HOME" ]
+    then
+        export DYNAMORIO_CONFIGDIR=$HOME
+    elif [ "$config" = "1" ] && [ "$runapp" = "1" ];
+    then
+        # If creating an anonymous config file, use a temp dir rather
+        # than failing if there's no $HOME or specified dir.
+        # We don't want to run mktemp b/c we'd leave an empty dir behind
+        # on every run.  We match drconfiglib, except we also check for
+        # existence up front, and we prefer /tmp to $PWD.  Xref i#939.
+        if [ -n "$TMP" ] && [ -d "$TMP" ]
+        then
+            export DYNAMORIO_CONFIGDIR=$TMP
+        elif [ -n "$TEMP" ] && [ -d "$TEMP" ]
+        then
+            export DYNAMORIO_CONFIGDIR=$TEMP
+        elif [ -n "$TMPDIR" ] && [ -d "$TMPDIR" ]
+        then
+            export DYNAMORIO_CONFIGDIR=$TMPDIR
+        elif [ -d "/tmp" ]
+        then
+            export DYNAMORIO_CONFIGDIR="/tmp"
+        else
+            # last resort: cur dir
+            export DYNAMORIO_CONFIGDIR=$PWD
+        fi
+    fi
+fi
+
+if [ ! -d "$DYNAMORIO_CONFIGDIR" ]
+then
+    echo "ERROR - neither DYNAMORIO_CONFIGDIR nor HOME exists"
     exit
 fi
-cfgdir="$HOME/.dynamorio"
+
+cfgdir="$DYNAMORIO_CONFIGDIR/.dynamorio"
 if [ ! -d $cfgdir ]
 then
     mkdir -p "$cfgdir"
+    if [ "$?" != 0 ]
+    then
+        echo "ERROR - failed to create config dir $cfgdir"
+        exit
+    fi
 fi
 
 if [ "$app" = "" ]
