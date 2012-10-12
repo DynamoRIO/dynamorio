@@ -139,6 +139,8 @@ And in the non-core APIs:
 
 Further non-compatibility-affecting changes include:
 
+ - Added preliminary Windows 8 support, though private kernelbase.dll is
+   not yet supported
  - Added persistent cache support for clients via
    dr_register_persist_ro(), dr_register_persist_rx(), 
    dr_register_persist_rw(), dr_register_persist_patch(), and

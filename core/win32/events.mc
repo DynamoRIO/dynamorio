@@ -1,4 +1,5 @@
 ;// **********************************************************
+;// Copyright (c) 2012 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -476,6 +477,14 @@ Language=English
 Application %1!s! (%2!s!). Unable to load client library: %3!s!. %4!s!.
 .
 ;#endif
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_WIN8_PRIVATE_KERNELBASE_NYI
+Language=English
+Application %1!s! (%2!s!). Private kernelbase.dll not yet supported on Windows 8.
+.
 
 ;#ifdef CLIENT_INTERFACE
 MessageId =

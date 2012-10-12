@@ -1215,7 +1215,20 @@ privload_call_entry(privmod_t *privmod, uint reason)
         BOOL res;
         LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s entry "PFX" for %d\n",
             __FUNCTION__, privmod->name, entry, reason);
+
+        if (get_os_version() >= WINDOWS_VERSION_8 &&
+            str_case_prefix(privmod->name, "kernelbase")) {
+            /* FIXME i#915: win8 kernelbase entry fails on initial csrss setup,
+             * and on x64 it crashes.
+             * Currently we have no solution.  Xref i#364, i#440.
+             */
+            SYSLOG(SYSLOG_ERROR, WIN8_PRIVATE_KERNELBASE_NYI, 2,
+                   get_application_name(), get_application_pid());
+            os_terminate(NULL, TERMINATE_PROCESS);
+        }
+
         res = (*func)((HANDLE)privmod->base, reason, NULL);
+
         if (!res && get_os_version() >= WINDOWS_VERSION_7 &&
             str_case_prefix(privmod->name, "kernel32")) {
             /* i#364: win7 _BaseDllInitialize fails to initialize a new console
@@ -1250,7 +1263,9 @@ map_api_set_dll(const char *name, privmod_t *dependent)
      * But this is simpler than trying to parse that dll's table.
      * We ignore the version suffix ("-1-0", e.g.).
      */
-    if (str_case_prefix(name, "API-MS-Win-Core-Console-L1"))
+    if (str_case_prefix(name, "API-MS-Win-Core-APIQuery-L1"))
+        return "ntdll.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Console-L1"))
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-DateTime-L1"))
         return "kernel32.dll";
