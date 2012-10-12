@@ -1263,10 +1263,14 @@ hide_tag_from_client(app_pc tag)
      * BB for any blocks that jump to the interception buffer.
      */
     if (is_intercepted_app_pc(tag, NULL) ||
+        /* Displaced app code is now in the landing pad, so skip the
+         * jump from the interception buffer to the landing pad
+         */
+        is_in_interception_buffer(tag) ||
         /* Landing pads that exist between hook points and the trampolines
          * shouldn't be seen by the client too.  PR 250294.
          */
-        vmvector_overlap(landing_pad_areas, tag, tag + 1) ||
+        is_on_interception_initial_route(tag) ||
         /* PR 219351: if we lose control on a callback and get it back on
          * one of our syscall trampolines, we'll appear at the jmp out of
          * the interception buffer to the int/sysenter instruction.  The

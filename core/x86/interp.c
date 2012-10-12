@@ -392,19 +392,8 @@ must_not_be_elided(app_pc pc)
     /* Allow only the return jump in the landing pad to be elided, as we
      * interpret the return path from trampolines.  The forward jump leads to
      * the trampoline and shouldn't be elided. */
-    if (vmvector_overlap(landing_pad_areas, pc, pc + 1)) {
-        /* Look for the forward jump.  For x64, any ind jmp will do, as reverse
-         * jmp is direct.
-         */
-        if (IF_X64_ELSE(*pc == JMP_ABS_IND64_OPCODE &&
-                        *(pc + 1) == JMP_ABS_MEM_IND64_MODRM,
-                        *pc == JMP_REL32_OPCODE &&
-                        is_in_interception_buffer(PC_RELATIVE_TARGET(pc + 1)))) {
-            return true;
-        } else {
-            return false;
-        }
-    }
+    if (is_on_interception_initial_route(pc))
+        return true;
 #endif
     return (0
 #ifdef WINDOWS

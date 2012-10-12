@@ -441,6 +441,9 @@ bool
 is_part_of_interception(byte *pc);
 
 bool
+is_on_interception_initial_route(byte *pc);
+
+bool
 is_syscall_trampoline(byte *pc, byte **tgt);
 
 app_pc
