@@ -3526,6 +3526,40 @@ os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
     }
 }
 
+/* i#939: for win8 wow64, x64 ntdll is up high but the kernel won't let us
+ * allocate new memory within rel32 distance.  Thus we clobber the padding at
+ * the end of x64 ntdll.dll's +rx section.  For typical x64 landing pads w/
+ * returned memory that need 5 bytes for displaced code, we need 19+5=24 bytes
+ * each.  We use 35 landing pads in a normal run.  That's 0x348 bytes, so we
+ * will fail if a new version of x64 ntdll uses more than 0xcb8 of its final +rx
+ * page (FTR, only the win2003 versions of x64 ntdll have ever done this).
+ *
+ * Currently looks for one contiguous piece of executable memory and returns it.
+ * Does not mark it as used so will return the same piece to subsequent callers!
+ *
+ * XXX: If this isn't enough space, we should support multiple regions
+ * (end of .text has its own padding, separate from end of "RT" which
+ * this returns), look for padding inside .text (have to be careful
+ * there), and/or split the landing pads up to do 6-byte hooks with
+ * only an 8-byte target and give up on hook chaining robustness.
+ */
+bool
+os_find_free_code_space_in_libs(void **start OUT, void **end OUT)
+{
+    app_pc rx_end_nopad, rx_end_padded;
+    ASSERT_CURIOSITY(get_os_version() >= WINDOWS_VERSION_8 &&
+                     is_wow64_process(NT_CURRENT_PROCESS) &&
+                     IF_X64_ELSE(true, false));
+    if (!get_executable_segment(get_ntdll_base(),
+                                NULL, &rx_end_padded, &rx_end_nopad))
+        return false;
+    if (start != NULL)
+        *start = rx_end_nopad;
+    if (end != NULL)
+        *end = rx_end_padded;
+    return true;
+}
+
 /* yield the current thread */
 void
 thread_yield()
@@ -4566,7 +4600,6 @@ make_hookable(byte *pc, size_t size, bool *changed_prot)
 {
     byte *start_pc = (byte *)ALIGN_BACKWARD(pc, PAGE_SIZE);
     size_t num_bytes = ALIGN_FORWARD(size + (pc - start_pc), PAGE_SIZE);
-    ASSERT(changed_prot != NULL);
     return internal_change_protection(start_pc, num_bytes,
                                       false/*relative*/, true, false/*not cow*/, 0, 
                                       changed_prot);

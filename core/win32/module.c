@@ -1392,10 +1392,13 @@ print_module_section_info(file_t file, app_pc addr)
  * - if nth > -1, the nth section, or nth segment if merge=true
  *
  * If a section or (if merge) group of sections are found that satisfy the above,
- * then returns the bounds of the section(s) in sec_start_out and sec_end_out (both are
+ * then returns the bounds of the section(s) in sec_start_out and sec_end_out
+ * and sec_end_unpad_out (end w/o padding for alignment) (all 3 are
  * optional) and returns true.  If no matching section(s) are found returns false.
  * If !merge the actual characteristics are returned in sec_characteristics_out,
  * which is optional and must be NULL if merge.
+ * If map_size, *sec_end_out will be the portion of the file that is mapped
+ * (but sec_end_nopad_out will be unchanged).
  *
  * FIXME - with case 10526 fix letting the exemption polices trim to section boundaries
  * is there any reason we still need merging support?
@@ -1404,6 +1407,7 @@ static bool
 is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc,
                               app_pc *sec_start_out /* OPTIONAL OUT */,
                               app_pc *sec_end_out /* OPTIONAL OUT */, 
+                              app_pc *sec_end_nopad_out /* OPTIONAL OUT */,
                               uint *sec_characteristics_out /* OPTIONAL OUT */,
                               IMAGE_SECTION_HEADER *sec_header_out /* OPTIONAL OUT */,
                               uint sec_characteristics_match /* TESTANY, 0 to ignore */,
@@ -1415,7 +1419,7 @@ is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc
     IMAGE_SECTION_HEADER *sec;
     uint i, seg_num = 0, prev_chars = 0;
     bool prev_sec_same_chars = false, result = false, stop_at_next_non_matching = false;
-    app_pc sec_start = 0, sec_end = 0;
+    app_pc sec_start = NULL, sec_end = NULL, sec_end_nopad = NULL;
 
     /* See case 7998 where a NULL base was passed. */
     ASSERT_CURIOSITY(module_base != NULL);
@@ -1474,6 +1478,8 @@ is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc
                 prev_sec_same_chars = true;
             sec_end = module_base + sec->VirtualAddress +
                  get_image_section_size(sec, nt);
+            sec_end_nopad = module_base + sec->VirtualAddress +
+                get_image_section_unpadded_size(sec _IF_DEBUG(nt));
             LOG(GLOBAL, LOG_VMAREAS, 2,
                 "is_in_executable_file_section (module "PFX", region "PFX"-"PFX"): "
                 "%.*s == "PFX"-"PFX"\n",
@@ -1491,6 +1497,8 @@ is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc
                         *sec_end_out = sec_end; /* merged section end */
                     }
                 }
+                if (sec_end_nopad_out != NULL)
+                    *sec_end_nopad_out = sec_end_nopad; /* merged nopad section end */
                 if (sec_characteristics_out != NULL)
                     *sec_characteristics_out = sec->Characteristics;
                 if (sec_header_out != NULL)
@@ -1514,6 +1522,8 @@ is_in_executable_file_section(app_pc module_base, app_pc start_pc, app_pc end_pc
                     seg_num++;
                 sec_end = module_base + sec->VirtualAddress +
                     get_image_section_size(sec, nt);
+                sec_end_nopad = module_base + sec->VirtualAddress +
+                    get_image_section_unpadded_size(sec _IF_DEBUG(nt));
             }
         }
         prev_chars = sec->Characteristics;
@@ -1528,7 +1538,7 @@ module_pc_section_lookup(app_pc module_base, app_pc pc, IMAGE_SECTION_HEADER *se
     if (section_out != NULL)
         memset(section_out, 0, sizeof(*section_out));
     return is_in_executable_file_section(module_base, pc, pc+1,
-                                         NULL, NULL, NULL, section_out,
+                                         NULL, NULL, NULL, NULL, section_out,
                                          0 /* any section */, NULL, false, -1, false);
 }
 
@@ -1541,7 +1551,7 @@ is_range_in_code_section(app_pc module_base, app_pc start_pc, app_pc end_pc,
                          app_pc *sec_end /* OPTIONAL OUT */)
 {
     return is_in_executable_file_section(module_base, start_pc, end_pc,
-                                         sec_start, sec_end, NULL, NULL,
+                                         sec_start, sec_end, NULL, NULL, NULL,
                                          IMAGE_SCN_CNT_CODE, NULL,
                                          false /* don't merge */, -1, false);
 }
@@ -1554,7 +1564,7 @@ is_in_code_section(app_pc module_base, app_pc addr,
                    app_pc *sec_end /* OPTIONAL OUT */)
 {
     return is_in_executable_file_section(module_base, addr, addr+1,
-                                         sec_start, sec_end, NULL, NULL,
+                                         sec_start, sec_end, NULL, NULL, NULL,
                                          IMAGE_SCN_CNT_CODE, NULL,
                                          true /* merge */, -1, false);
 }
@@ -1566,7 +1576,7 @@ is_in_dot_data_section(app_pc module_base, app_pc addr,
                        app_pc *sec_end /* OPTIONAL OUT */)
 {
     return is_in_executable_file_section(module_base, addr, addr+1,
-                                         sec_start, sec_end, NULL, NULL,
+                                         sec_start, sec_end, NULL, NULL, NULL,
                                          IMAGE_SCN_CNT_INITIALIZED_DATA |
                                          IMAGE_SCN_CNT_UNINITIALIZED_DATA,
                                          NULL, true /* merge */, -1, false);
@@ -1583,7 +1593,7 @@ is_in_xdata_section(app_pc module_base, app_pc addr,
      */
     uint sec_flags = 0;
     if (is_in_executable_file_section(module_base, addr, addr+1, 
-                                      sec_start, sec_end, &sec_flags, NULL,
+                                      sec_start, sec_end, NULL, &sec_flags, NULL,
                                       IMAGE_SCN_CNT_INITIALIZED_DATA, ".xdata",
                                       false /* don't merge */, -1, false)) {
         bool xdata_prot_match = TESTALL(IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE |
@@ -1603,9 +1613,21 @@ is_in_any_section(app_pc module_base, app_pc addr,
                   app_pc *sec_end /* OPTIONAL OUT */)
 {
     return is_in_executable_file_section(module_base, addr, addr+1,
-                                         sec_start, sec_end, NULL, NULL,
+                                         sec_start, sec_end, NULL, NULL, NULL,
                                          0 /* any section */, NULL,
                                          true /* merge */, -1, false);
+}
+
+bool
+get_executable_segment(app_pc module_base,
+                       app_pc *sec_start /* OPTIONAL OUT */,
+                       app_pc *sec_end /* OPTIONAL OUT */,
+                       app_pc *sec_end_nopad /* OPTIONAL OUT */)
+{
+    return is_in_executable_file_section(module_base, NULL, NULL,
+                                         sec_start, sec_end, sec_end_nopad, NULL, NULL,
+                                         IMAGE_SCN_MEM_EXECUTE,
+                                         NULL, true /* merge */, -1, false);
 }
 
 /* allow only true MEM_IMAGE mappings */
@@ -1636,7 +1658,7 @@ module_get_nth_segment(app_pc module_base, uint n,
                        uint *chars/*OPTIONAL OUT*/)
 {
     if (!is_in_executable_file_section
-        (module_base, NULL, NULL, start, end, chars, NULL, 0/* any section */, NULL,
+        (module_base, NULL, NULL, start, end, NULL, chars, NULL, 0/* any section */, NULL,
          true /* merge to make segments */, n, true/*mapped size*/)) {
         return false;
     }
@@ -1658,7 +1680,7 @@ get_named_section_bounds(app_pc module_base, const char *name,
                          app_pc *start/*OPTIONAL OUT*/, app_pc *end/*OPTIONAL OUT*/)
 {
     if (!is_in_executable_file_section(module_base, NULL, NULL, start, end, NULL, NULL,
-                                       0 /* any section */, name, true /* merge */,
+                                       NULL, 0 /* any section */, name, true /* merge */,
                                        -1, false)) {
         if (start != NULL)
             *start = NULL;
@@ -2797,7 +2819,7 @@ rct_add_rip_rel_addr(dcontext_t *dcontext, app_pc tgt _IF_DEBUG(app_pc src))
     bool res = false;
     if (modbase != NULL &&
         rct_ind_branch_target_lookup(dcontext, tgt) == NULL &&
-        is_in_executable_file_section(modbase, tgt, tgt+1, NULL, NULL,
+        is_in_executable_file_section(modbase, tgt, tgt+1, NULL, NULL, NULL,
                                       &secchar, NULL, 0, NULL, false, -1, false)) {
         ASSERT(DYNAMO_OPTION(rct_section_type) != 0 &&
                !TESTANY(~(IMAGE_SCN_CNT_CODE|IMAGE_SCN_CNT_INITIALIZED_DATA|
@@ -3454,7 +3476,8 @@ rct_analyze_module_at_violation(dcontext_t *dcontext, app_pc target_pc)
      */
     ASSERT(DYNAMO_OPTION(rct_section_type) != 0); /* sentinel for is_in_executable_... */
     if (!is_in_executable_file_section(module_base, target_pc, target_pc+1, NULL, NULL,
-                                       &sec_flags, NULL, DYNAMO_OPTION(rct_section_type),
+                                       NULL, &sec_flags, NULL,
+                                       DYNAMO_OPTION(rct_section_type),
                                        NULL, false /* no need to merge */, -1, false) ||
         (DYNAMO_OPTION(rct_section_type_exclude) != 0 &&
          TESTALL(DYNAMO_OPTION(rct_section_type_exclude), sec_flags))) {

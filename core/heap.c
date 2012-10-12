@@ -312,6 +312,9 @@ static int get_special_heap_header_size(void);
 
 vm_area_vector_t *landing_pad_areas;    /* PR 250294 */
 #ifdef WINDOWS
+/* i#939: we steal space from ntdll's +rx segment */
+static app_pc lpad_temp_writable_start;
+static size_t lpad_temp_writable_size;
 static void release_landing_pad_mem(void);
 #endif
 
@@ -4501,6 +4504,7 @@ typedef struct {
     byte *end;          /* end of reserved region */
     byte *commit_end;   /* end of committed memory in the reserved region */
     byte *cur_ptr;      /* pointer to next allocatable landing pad memory */
+    bool allocated;     /* allocated, or stolen from an app dll? */
 } landing_pad_area_t;
 
 /* Allocates a landing pad so that a hook inserted at addr_to_hook can reach
@@ -4508,6 +4512,9 @@ typedef struct {
  * 32-bit relative jmp from addr_to_hook.
  * Note: we may want to generalize this at some point such that the size of the
  *       landing pad is passed as an argument.
+ *
+ * For Windows we assume that landing_pads_to_executable_areas(true) will be
+ * called once landing pads are finished being created.
  */
 byte *
 alloc_landing_pad(app_pc addr_to_hook)
@@ -4586,6 +4593,7 @@ alloc_landing_pad(app_pc addr_to_hook)
                   */
                  if ((lpad_area->cur_ptr + LANDING_PAD_SIZE) >=
                      lpad_area->commit_end) {
+                     ASSERT(lpad_area->allocated);
                      extend_commitment(lpad_area->commit_end, PAGE_SIZE,
                                        MEMPROT_READ|MEMPROT_EXEC,
                                        false /* not initial commit */);
@@ -4609,7 +4617,9 @@ alloc_landing_pad(app_pc addr_to_hook)
      * landing pad in it.
      */
     if (lpad == NULL) {
+        bool allocated = true;
         heap_error_code_t heap_error;
+        lpad_area_end = NULL;
         lpad_area_start = os_heap_reserve_in_region(alloc_region_start,
                                                     alloc_region_end,
                                                     LANDING_PAD_AREA_SIZE,
@@ -4624,9 +4634,32 @@ alloc_landing_pad(app_pc addr_to_hook)
                                   (void *)ALIGN_FORWARD(addr_to_hook,
                                                         LANDING_PAD_AREA_SIZE),
                                   LANDING_PAD_AREA_SIZE, &heap_error, true/*+x*/);
+#ifdef WINDOWS
+            if (lpad_area_start == NULL &&
+                /* We can only do this once w/ current interface.
+                 * XXX: support multiple "allocs" inside libs.
+                 */
+                vmvector_empty(landing_pad_areas) &&
+                os_find_free_code_space_in_libs(&lpad_area_start, &lpad_area_end)) {
+                if (lpad_area_end - lpad_area_start >= LANDING_PAD_SIZE &&
+                    /* Mark writable until we're done creating landing pads */
+                    make_hookable(lpad_area_start, lpad_area_end - lpad_area_start,
+                                  NULL)) {
+                    /* Let's take it */
+                    allocated = false;
+                    /* We assume that landing_pads_to_executable_areas(true) will be
+                     * called once landing pads are finished being created and we
+                     * can restore to +rx there.
+                     */
+                    lpad_temp_writable_start = lpad_area_start;
+                    lpad_temp_writable_size = lpad_area_end - lpad_area_start;
+                } else
+                    lpad_area_start = NULL; /* not big enough */
+            }
+#endif
             if (lpad_area_start == NULL) {
                 /* Even at startup when there will be enough memory,
-                 * theoritically 2 GB of dlls might get packed together before
+                 * theoretically 2 GB of dlls might get packed together before
                  * we get control (very unlikely), so we can fail.  If it does,
                  * then say 'oom' and exit.
                  */ 
@@ -4640,15 +4673,19 @@ alloc_landing_pad(app_pc addr_to_hook)
          * initially even though we reserve 64k (LANDING_PAD_AREA_SIZE), to
          * avoid wastage.
          */
-        extend_commitment(lpad_area_start, PAGE_SIZE, MEMPROT_READ|MEMPROT_EXEC,
-                          true /* initial commit */);
+        if (allocated) {
+            extend_commitment(lpad_area_start, PAGE_SIZE, MEMPROT_READ|MEMPROT_EXEC,
+                              true /* initial commit */);
+        }
 
         lpad_area = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, landing_pad_area_t,
                                     ACCT_VMAREAS, PROTECTED);
         lpad_area->start = lpad_area_start;
-        lpad_area->end = lpad_area_start + LANDING_PAD_AREA_SIZE;
+        lpad_area->end = (lpad_area_end == NULL ?
+                          lpad_area_start + LANDING_PAD_AREA_SIZE : lpad_area_end);
         lpad_area->commit_end = lpad_area_start + PAGE_SIZE;
         lpad_area->cur_ptr = lpad_area_start;
+        lpad_area->allocated = allocated;
         lpad = lpad_area->cur_ptr;
         lpad_area->cur_ptr += LANDING_PAD_SIZE;
 
@@ -4666,10 +4703,35 @@ alloc_landing_pad(app_pc addr_to_hook)
      * pads aren't added to executable_areas here, at the point of allocation.
      */
 
+    LOG(GLOBAL, LOG_ALL, 1/*NOCHECKIN 3*/, "%s: used "PIFX" bytes in "PFX"-"PFX"\n", __FUNCTION__,
+        lpad_area->cur_ptr - lpad_area->start, lpad_area->start, lpad_area->end);
+
     /* Boundary check to make sure the allocation is within the landing pad area. */
-    ASSERT(lpad_area->cur_ptr <= lpad_area->start + LANDING_PAD_AREA_SIZE);
+    ASSERT(lpad_area->cur_ptr <= lpad_area->end);
     write_unlock(&landing_pad_areas->lock);
     return lpad;
+}
+
+/* Attempts to save space in the landing pad region by trimming the most
+ * recently allocated landing pad to the actual space used.
+ * Will fail if another landing pad was allocated between lpad_start
+ * being allocated and this routine being called.
+ */
+bool
+trim_landing_pad(byte *lpad_start, size_t space_used)
+{
+    landing_pad_area_t *lpad_area = NULL;
+    bool res = false;
+    write_lock(&landing_pad_areas->lock);
+    if (vmvector_lookup_data(landing_pad_areas, lpad_start, NULL,
+                             NULL, &lpad_area)) {
+        if (lpad_start == lpad_area->cur_ptr - LANDING_PAD_SIZE) {
+            lpad_area->cur_ptr -= (LANDING_PAD_SIZE - space_used);
+            res = true;
+        }
+    }
+    write_unlock(&landing_pad_areas->lock);
+    return res;
 }
 
 /* Adds or removes all landing pads from executable_areas by adding whole
@@ -4688,6 +4750,13 @@ landing_pads_to_executable_areas(bool add)
     if (RUNNING_WITHOUT_CODE_CACHE())
         return;
 
+#ifdef WINDOWS
+    if (add && lpad_temp_writable_start != NULL) {
+        make_unhookable(lpad_temp_writable_start, lpad_temp_writable_size, true);
+        lpad_temp_writable_start = NULL;
+    }
+#endif
+
     /* With code cache, there should be only one landing pad area, just for
      * dr hooks in ntdll.  For 64-bit, the image entry hook will result in a
      * new landing pad.
@@ -4702,7 +4771,7 @@ landing_pads_to_executable_areas(bool add)
             vmvector_iterator_next(&lpad_area_iter, &lpad_area_start,
                                    &lpad_area_end);
         lpad_area_size = (uint)(lpad_area_end - lpad_area_start);
-        ASSERT(lpad_area_size == LANDING_PAD_AREA_SIZE);
+        ASSERT(lpad_area_size <= LANDING_PAD_AREA_SIZE);
         /* Current ptr should be within area. */
         ASSERT(lpad_area->cur_ptr < lpad_area_end);
         if (add) {
@@ -4731,11 +4800,14 @@ release_landing_pad_mem(void)
 
     vmvector_iterator_start(landing_pad_areas, &lpad_area_iter);
     while (vmvector_iterator_hasnext(&lpad_area_iter)) {
+        bool allocated;
         lpad_area = vmvector_iterator_next(&lpad_area_iter, &lpad_area_start,
                                            &lpad_area_end);
+        allocated = lpad_area->allocated;
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, lpad_area, landing_pad_area_t,
                        ACCT_VMAREAS, PROTECTED); 
-        if (!doing_detach)  /* On normal exit release the landing pads. */
+        if (!doing_detach && /* On normal exit release the landing pads. */
+            allocated)
             os_heap_free(lpad_area_start, LANDING_PAD_AREA_SIZE, &heap_error);
     }
     vmvector_iterator_stop(&lpad_area_iter);

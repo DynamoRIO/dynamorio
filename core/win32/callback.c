@@ -686,7 +686,7 @@ emit_landing_pad_code(byte *lpad_buf, const byte *tgt_pc,
 {
     byte *lpad_entry = lpad_buf;
     bool res;
-    DEBUG_DECLARE(byte *lpad_start = lpad_buf;)
+    byte *lpad_start = lpad_buf;
     ASSERT(lpad_buf != NULL);
 
     res = make_hookable(lpad_buf, LANDING_PAD_SIZE, changed_prot);
@@ -733,6 +733,9 @@ emit_landing_pad_code(byte *lpad_buf, const byte *tgt_pc,
 
     /* Make sure that the landing pad size match with definitions. */
     ASSERT(lpad_buf - lpad_start <= LANDING_PAD_SIZE);
+
+    /* Return unused space */
+    trim_landing_pad(lpad_start, lpad_buf - lpad_start);
 
     return lpad_entry;
 }

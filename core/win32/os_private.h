@@ -660,6 +660,12 @@ bool
 aslr_compare_header(app_pc original_module_base, size_t original_header_len,
                     app_pc suspect_module_base);
 
+bool
+get_executable_segment(app_pc module_base,
+                       app_pc *sec_start /* OPTIONAL OUT */,
+                       app_pc *sec_end /* OPTIONAL OUT */,
+                       app_pc *sec_end_nopad /* OPTIONAL OUT */);
+
 /* Returns a dr_strdup-ed string which caller must dr_strfree w/ ACCT_VMAREAS */
 const char *
 section_to_file_lookup(HANDLE section_handle);

@@ -960,6 +960,10 @@ os_check_option_compatibility(void);
 # define LANDING_PAD_SIZE    (10 + MAX_HOOK_DISPLACED_LENGTH)
 #endif
 byte *alloc_landing_pad(app_pc addr_to_hook);
+
+bool
+trim_landing_pad(byte *lpad_start, size_t space_used);
+
 void landing_pads_to_executable_areas(bool add);
 
 /* in loader_shared.c */
