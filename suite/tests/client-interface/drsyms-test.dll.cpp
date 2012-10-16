@@ -529,17 +529,7 @@ static const char *dll_syms_mangled_pdb[] = {
 
 static const char *dll_syms_mangled[] = {
     "dll_export",
-    /* x64 MinGW gcc 4.7 matches linux.
-     * XXX: will 32-bit MinGW/Cygwin gcc 4.7 also?  For now leaving as X64.
-     */
-#if defined(LINUX) || defined(X64)
-    /* the L is a GNU extension to the Itanium mangling spec which isn't used
-     * by MinGW 32-bit through 4.6.1
-     */
     "_ZL10dll_statici",
-#else
-    "_Z10dll_statici",
-#endif
     "_Z10dll_publici",
     "_Z11stack_tracev",
     NULL
@@ -595,8 +585,18 @@ enum_sym_cb(const char *name, size_t modoffs, void *data)
             continue;
         if (strstr(name, dll_syms[i]) != NULL) {
             syms_found->syms_found[i] = true;
-            /* Ignore () at function end. */
-            if (strcmp(name, syms_found->syms_expected[i]) != 0) {
+            const char *expected = syms_found->syms_expected[i];
+            char alternative[MAX_FUNC_LEN] = "\xff";  /* invalid string */
+            /* If the expected mangling is _ZL*, try _Z* too.  Different gccs
+             * from Cyginw, MinGW, and Linux all do different things.
+             */
+            if (strncmp(expected, "_ZL", 3) == 0) {
+                dr_snprintf(alternative, BUFFER_SIZE_ELEMENTS(alternative),
+                            "%.2s%s", expected, expected+3);
+                NULL_TERMINATE_BUFFER(alternative);
+            }
+            if (strcmp(name, expected) != 0 &&
+                strcmp(name, alternative) != 0) {
                 dr_fprintf(STDERR, "symbol had wrong mangling:\n"
                            " expected: %s\n actual: %s\n",
                            syms_found->syms_expected[i], name);
