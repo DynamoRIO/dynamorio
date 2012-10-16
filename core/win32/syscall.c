@@ -2945,6 +2945,13 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
+    /* XXX i#899: for NtWow64AllocateVirtualMemory64, the base and
+     * size may be 64-bit values?  But, when allocating in wow64
+     * child, the address should be in low 2GB, as only ntdll64 is up
+     * high.  If the extra arg were before ZeroBits, it could be a pointer
+     * to the high bits of the base addr, like NtWow64ReadVirtualMemory64(),
+     * but that doesn't seem to be the case.
+     */
     void **pbase = (void **) postsys_param(dcontext, param_base, 1);
     uint zerobits = (uint) postsys_param(dcontext, param_base, 2);
     /* XXX i#899: NtWow64AllocateVirtualMemory64 has an extra arg after ZeroBits but
