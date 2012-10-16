@@ -157,7 +157,6 @@ if (DR_EXT_DRSYMS_STATIC)
 endif (DR_EXT_DRSYMS_STATIC)
 
 # documentation is put into main DR docs/ dir
-export(TARGETS drsyms FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
-  APPEND)
+DR_export_target(drsyms)
 DR_install(TARGETS drsyms EXPORT ${exported_targets_name} DESTINATION ${INSTALL_EXT_LIB})
 DR_install(FILES drsyms.h DESTINATION ${INSTALL_EXT_INCLUDE})

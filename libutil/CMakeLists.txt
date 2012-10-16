@@ -149,8 +149,7 @@ DR_install(TARGETS drconfiglib
   LIBRARY DESTINATION ${INSTALL_LIB_BASE} # .so
   ARCHIVE DESTINATION ${INSTALL_LIB_BASE} # .lib
   )
-export(TARGETS drconfiglib FILE
-  ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake APPEND)
+DR_export_target(drconfiglib)
 # drinject.exe and company need a copy in the bin dir
 DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 

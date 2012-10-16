@@ -718,11 +718,10 @@ DR_install(TARGETS dynamorio
   LIBRARY DESTINATION ${INSTALL_LIB} # .so
   ARCHIVE DESTINATION ${INSTALL_LIB} # .lib
   )
-export(TARGETS dynamorio FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake)
+DR_export_target(dynamorio)
 DR_install(TARGETS drinjectlib EXPORT ${exported_targets_name}
   DESTINATION ${INSTALL_LIB_BASE})
-export(TARGETS drinjectlib FILE
-  ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake APPEND)
+DR_export_target(drinjectlib)
 if (UNIX)
   DR_install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
   DR_install(FILES ${COMPAT_SYMLINKS} DESTINATION ${INSTALL_LIB})

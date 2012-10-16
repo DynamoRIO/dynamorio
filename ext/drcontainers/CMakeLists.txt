@@ -55,9 +55,7 @@ endif (WIN32 AND GENERATE_PDBS)
 
 # documentation is put into main DR docs/ dir
 
-export(TARGETS drcontainers
-  FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
-  APPEND)
+DR_export_target(drcontainers)
 DR_install(TARGETS drcontainers EXPORT ${exported_targets_name}
   DESTINATION ${INSTALL_EXT_LIB})
 DR_install(FILES

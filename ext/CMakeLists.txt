@@ -113,3 +113,5 @@ if (bin_files)
     )
 endif (bin_files)
 
+# propagate to parent dir
+set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)

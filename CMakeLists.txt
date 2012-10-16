@@ -988,16 +988,37 @@ include_directories(BEFORE
 # We include DynamoRIO and all Extensions in the same file for simplicity,
 # since the Extensions depend on DynamoRIO and in some cases each other
 # and so need to be locatable as a group.
-# To support packaging both together we need different names
-# FIXME: should we also append Debug, and have an optional param
-# to DynamoRIOConfig.cmake to link to it (only really makes sense
-# if using rpath)?  If we did that we'd need to set the debug
-# param for our internal builds.
+# To support packaging both together we need different names.
+# Debug vs release is automatically added as a suffix.
 if (X64)
   set(exported_targets_name "DynamoRIOTarget64")
 else (X64)
   set(exported_targets_name "DynamoRIOTarget32")
 endif (X64)
+
+# i#948: we need to map RelWithDebInfo and RelMinSize to Release so importing
+# projects don't end up with Debug instead, yet Release for static libs
+# set in DynamoRIOConfig.cmake.
+# We do this with the MAP_IMPORTED_CONFIG_<CONFIG> target property.
+# If we pass APPEND to the first one, subsequent configs keep growing the file,
+# so we remove it up front.
+file(WRITE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake "")
+set(exported_targets_append "")
+macro(DR_export_target target)
+  export(TARGETS ${ARGV} FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
+    APPEND)
+  set(toadd "
+SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
+SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELMINSIZE Release)
+")
+  if (NOT DEBUG)
+    file(APPEND ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake ${toadd})
+  endif (NOT DEBUG)
+  # We append to the installed file even in debug build so the ordering of
+  # release vs debug doesn't matter in the final package.
+  set(exported_targets_append "${exported_targets_append}${toadd}")
+  set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)
+endmacro(DR_export_target)
 
 ###########################################################################
 
@@ -1301,6 +1322,10 @@ if (BUILD_TESTS)
   add_subdirectory(suite/tests)
 endif (BUILD_TESTS)
 
+# We must append to this file to avoid cmake_install.cmake's diff from thinking
+# the exports have changed and thus clobbering the other config's files.
+# This is what is copied to ${CMAKE_INSTALL_PREFIX}/${INSTALL_CMAKE}.
+DR_install(CODE "file(APPEND \"${PROJECT_BINARY_DIR}/CMakeFiles/Export/cmake/${exported_targets_name}.cmake\" \"${exported_targets_append}\")")
 # Create the exported targets file.  This will include all targets added
 # in subdirectories via DR_install(TARGETS ... EXPORT ${exported_targets_name}).
 DR_install(EXPORT ${exported_targets_name} DESTINATION ${INSTALL_CMAKE})

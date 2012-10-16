@@ -66,9 +66,7 @@ endif (WIN32 AND GENERATE_PDBS)
 
 # documentation is put into main DR docs/ dir
 
-export(TARGETS drmgr
-  FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
-  APPEND)
+DR_export_target(drmgr)
 install(TARGETS drmgr EXPORT ${exported_targets_name}
   DESTINATION ${INSTALL_EXT_LIB})
 install(FILES

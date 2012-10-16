@@ -99,7 +99,6 @@ endif (WIN32)
 
 # documentation is put into main DR docs/ dir
 
-export(TARGETS drwrap FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
-  APPEND)
+DR_export_target(drwrap)
 install(TARGETS drwrap EXPORT ${exported_targets_name} DESTINATION ${INSTALL_EXT_LIB})
 install(FILES drwrap.h DESTINATION ${INSTALL_EXT_INCLUDE})
