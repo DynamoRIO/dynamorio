@@ -499,6 +499,7 @@ dynamorio_app_init(void)
         proc_init();
         modules_init(); /* before vm_areas_init() */
         os_init();
+        config_heap_init(); /* after heap_init */
         /* loader initialization, finalize the private lib load.
          * FIXME i#338: this must be before arch_init() for Windows, but Linux
          * wants it later.
