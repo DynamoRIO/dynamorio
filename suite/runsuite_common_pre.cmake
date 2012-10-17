@@ -260,6 +260,38 @@ set(CTEST_CMAKE_COMMAND "${CMAKE_EXECUTABLE_NAME}")
 # outer file should set CTEST_PROJECT_NAME
 set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
 
+# Detect if the kernel is ia32 or x64.  If the kernel is ia32, there's no sense
+# in trying to run any x64 code.  On Windows, the x64 toolchain is built as x64
+# code, so we can't even build.  On Linux, it's possible to have an ia32
+# toolchain that targets x64, but we don't currently support it.
+if (NOT DEFINED KERNEL_IS_X64)  # Allow variable override.
+  if (WIN32)
+    # Check both PROCESSOR_ARCHITECTURE and PROCESSOR_ARCHITEW6432 in case CMake
+    # was built x64.
+    if ("$ENV{PROCESSOR_ARCHITECTURE}" MATCHES "AMD64" OR
+        "$ENV{PROCESSOR_ARCHITEW6432}" MATCHES "AMD64")
+      set(KERNEL_IS_X64 ON)
+    else ()
+      set(KERNEL_IS_X64 OFF)
+    endif ()
+  else ()
+    # uname -m is what the kernel supports.
+    execute_process(COMMAND uname -m
+      OUTPUT_VARIABLE machine
+      RESULT_VARIABLE cmd_result)
+    # If for some reason uname fails (not on PATH), assume the kernel is x64
+    # anyway.
+    if (cmd_result OR "${machine}" MATCHES "x86_64")
+      set(KERNEL_IS_X64 ON)
+    else ()
+      set(KERNEL_IS_X64 OFF)
+    endif ()
+  endif ()
+endif ()
+if (NOT KERNEL_IS_X64)
+  message("WARNING: Kernel is not x64, skipping x64 builds")
+endif ()
+
 if (arg_use_ninja)
   set(CTEST_CMAKE_GENERATOR "Ninja")
 elseif (arg_use_make)
@@ -352,6 +384,12 @@ endfunction(get_default_config)
 function(testbuild_ex name is64 initial_cache test_only_in_long 
     add_to_package build_args)
   set(CTEST_BUILD_NAME "${name}")
+
+  # Skip x64 builds on a true ia32 machine.
+  if (is64 AND NOT KERNEL_IS_X64)
+    return()
+  endif ()
+
   if (NOT arg_use_nmake AND NOT arg_use_make AND NOT arg_use_ninja)
     # we need a separate generator for 64-bit as well as the PATH
     # env var changes below (since we run cl directly)
