@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,13 +39,12 @@
  * FIXME: sent to current thread only
  */
 
-/* FIXME: for case 8451 we'd want to add a library that get's loaded */
+#ifndef ASM_CODE_ONLY
+
+/* FIXME: for case 8451 we'd want to add a library that gets loaded */
 #define _WIN32_WINNT 0x0400
 #include <windows.h>
 #include <winbase.h> /* for QueueUserAPC */
-#include "tools.h"
-
-#include <windows.h>
 #include "tools.h"
 
 static int result = 0;
@@ -58,6 +58,17 @@ apc_func(ULONG_PTR arg);
 
 typedef VOID (NTAPI *  PKNORMAL_ROUTINE )
      (IN PVOID NormalContext, IN PVOID SystemArgument1, IN PVOID SystemArgument2); 
+
+/* In asm code. */
+void vse_datacode(void);
+void vse_native_datacode(void);
+void other_datacode(void);
+void other_native_datacode(void);
+
+/* FIXME: should be copied onto a bad VirtualAllocate page */
+PAPCFUNC vse_apc_func = (PAPCFUNC)vse_datacode;
+
+PAPCFUNC other_apc_func = (PAPCFUNC)other_datacode;
 
 /* we need native APCs */
 int
@@ -133,50 +144,6 @@ apc_func(ULONG_PTR arg)
                   arg - 1);
     }
 }
-
-/* PR 229292: we need to isolate these vars to avoid flushes to them via
- * writes to other vars
- */
-#pragma data_seg(".isolate")
-
-/* match PIC shellcode header, for example
- * 0013004c 53               push    ebx
- * 0013004d e800000000       call    00130052
- */
-unsigned char vse_datacode[] = 
-"\x53"                          /* push    ebx */
-"\xe8" "\x00\x00\x00\x00" 
-/* simplified version */
-"\x5b"                          /* pop ebx */
-"\x5b"                          /* pop ebx */
-"\xc2\x04\x00"                  /* ret 4 */
-;
-
-unsigned char vse_native_datacode[] = 
-"\x53"                          /* push    ebx */
-"\xe8" "\x00\x00\x00\x00" 
-/* simplified version */
-"\x5b"                          /* pop ebx */
-"\x5b"                          /* pop ebx */
-"\xc2\x0c\x00"                  /* ret c */
-;
-
-/* FIXME: should be copied onto a bad VirtualAllocate page */
-PAPCFUNC vse_apc_func = (PAPCFUNC)vse_datacode;
-
-unsigned char other_datacode[] = 
-"\xc2\x04\x00"                  /* ret 4 */
-"\xc2\x04\x00"                  /* ret 4 */
-;
-
-unsigned char other_native_datacode[] = 
-"\xc2\x0c\x00"                  /* ret c */
-"\xc2\x0c\x00"                  /* ret c */
-;
-
-#pragma data_seg()
-
-PAPCFUNC other_apc_func = (PAPCFUNC)other_datacode;
 
 static void WINAPI
 other_apc_func_helper(ULONG_PTR arg)
@@ -396,3 +363,58 @@ kernel32!BaseDispatchAPC+0x5b: helper
 7c82c164 c3               ret
 
 */
+
+#else /* ASM_CODE_ONLY */
+
+#include "asm_defines.asm"
+
+START_FILE
+
+DECLARE_GLOBAL(vse_datacode)
+DECLARE_GLOBAL(vse_native_datacode)
+DECLARE_GLOBAL(other_datacode)
+DECLARE_GLOBAL(other_native_datacode)
+
+/* PR 229292: we need to isolate these vars to avoid flushes to them via
+ * writes to other vars
+ */
+REPEAT 4096
+        nop
+        ENDM
+
+/* match PIC shellcode header, for example
+ * 0013004c 53               push    ebx
+ * 0013004d e800000000       call    00130052
+ */
+ADDRTAKEN_LABEL(vse_datacode:)
+        push     REG_XBX
+        call     next1
+    next1:
+        pop      REG_XBX
+        pop      REG_XBX
+        ret      IF_NOT_X64(ARG_SZ)
+
+ADDRTAKEN_LABEL(vse_native_datacode:)
+        push     REG_XBX
+        call     next2
+    next2:
+        pop      REG_XBX
+        pop      REG_XBX
+        ret      IF_NOT_X64(3 * ARG_SZ)
+
+ADDRTAKEN_LABEL(other_datacode:)
+        ret      IF_NOT_X64(ARG_SZ)
+        ret      IF_NOT_X64(ARG_SZ)
+
+ADDRTAKEN_LABEL(other_native_datacode:)
+        ret      IF_NOT_X64(3 * ARG_SZ)
+        ret      IF_NOT_X64(3 * ARG_SZ)
+
+/* Tail padding. */
+REPEAT 4096
+        nop
+        ENDM
+
+END_FILE
+
+#endif /* ASM_CODE_ONLY */

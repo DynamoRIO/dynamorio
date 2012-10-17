@@ -232,6 +232,17 @@ ASSUME fs:_DATA @N@\
 /* Keep in sync with arch_exports.h. */
 #define FRAME_ALIGNMENT 16
 
+/* From globals_shared.h, but we can't include that into asm code. */
+#ifdef X64
+# define IF_X64(x) x
+# define IF_X64_ELSE(x, y) x
+# define IF_NOT_X64(x)
+#else
+# define IF_X64(x)
+# define IF_X64_ELSE(x, y) y
+# define IF_NOT_X64(x) x
+#endif
+
 #ifdef X64
 #  define PUSHF   pushfq
 #  define POPF    popfq

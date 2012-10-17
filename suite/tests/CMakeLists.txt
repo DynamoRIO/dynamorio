@@ -1590,14 +1590,7 @@ else (UNIX)
   tobuild(win32.virtualreserve win32/virtualreserve.c)
   tobuild(win32.winapc win32/winapc.c)
   tobuild(win32.winthread win32/winthread.c)
-
-  set(apc_shellcode security-win32.apc-shellcode)
-  if (X64)
-    set(apc_shellcode "${apc_shellcode}_FLAKY")
-  endif ()
-  if (NOT X64 OR TEST_SUITE) # fail on x64 so run only in suite
-    tobuild("${apc_shellcode}" security-win32/apc-shellcode.c)
-  endif ()
+  tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
 
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64
