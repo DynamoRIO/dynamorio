@@ -705,12 +705,27 @@ endfunction (get_DynamoRIO_defines)
 # DynamoRIO Extensions
 function (use_DynamoRIO_extension target extname)
   if (NOT DynamoRIO_INTERNAL)
-    # Extensions are exported in the same cmake file as DynamoRIO
-    # so we do not need to include another file here.
-    # FIXME: should we add explicit support for 3rd party Extensions
-    # that are not checked in to public svn by searching here for
-    # ${cwd}/../ext/cmake/*.cmake or something?
-    include_directories(${cwd}/../ext/include)
+    # We only support Extensions as imported targets that have already
+    # been added:
+    if (NOT TARGET ${extname})
+      message(FATAL_ERROR "DynamoRIO Extension \"${extname}\" not found")
+    endif ()
+    # See whether this Extension is packaged with DynamoRIO:
+    if (UNIX)
+      file(GLOB libs "${cwd}/../ext/lib*/*/lib${extname}.*")
+    else (UNIX)
+      file(GLOB libs "${cwd}/../ext/lib*/*/${extname}.*")
+    endif (UNIX)
+    if (NOT libs OR DynamoRIO_EXT_${extname}_INC)
+      # Support for 3rd party Extensions: caller calls find_package()
+      # to set up the imported targets for the libraries and to set
+      # DynamoRIO_EXT_${extname}_INC.
+      include_directories(${DynamoRIO_EXT_${extname}_INC})
+    else ()
+      # Local extensions are exported in the same cmake file as DynamoRIO
+      # so we do not need to include another file here.
+      include_directories(${cwd}/../ext/include)
+    endif ()
   else (NOT DynamoRIO_INTERNAL)
     # support building from build dir for our own samples, and from
     # build dir for a client that includes our sources as a sub-project,
