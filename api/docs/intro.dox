@@ -1019,6 +1019,25 @@ variable prior to invoking configure_DynamoRIO_client():
 
 C++ clients and standalone clients link with libc by default.
 
+**************************************************
+\subsection sec_rpath DynamoRIO Library Search Paths
+
+DynamoRIO's loader searches for libraries in approximately the same manner
+as the system loader.  It also has support for automatically locating
+Extension libraries that are packaged in the usual place in the DynamoRIO
+file hierarchy.
+
+DynamoRIO supports setting DT_RPATH for ELF clients, via setting the
+DynamoRIO_RPATH variable to ON prior to invoking
+configure_DynamoRIO_client().  On Windows, setting that variable will
+create a "<client_basename>.drpath" text file that contains a list of
+paths.  At runtime, DynamoRIO's loader will parse this file and add each
+newline-separated path to its list of search paths.  This file is honored
+on Linux as well, though it is not automatically created there.  This
+allows clients a cross-platform mechanism to use third-party libraries in
+locations of their choosing.
+
+**************************************************
 \subsection subsec_no_loader When Private Loader is Disabled
 
 \if linux
@@ -1067,6 +1086,7 @@ g++ -o my-client.so -I<header dir> \
   my-client.cpp
 \endcode
 
+**************************************************
 \subsection subsec_cpp C++ Clients
 
 The 3.0 version of DynamoRIO added experimental full support for C++

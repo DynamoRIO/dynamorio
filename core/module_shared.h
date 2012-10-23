@@ -457,12 +457,11 @@ typedef struct _privmod_t {
 
 /* We need to load client libs prior to having heap */
 #define PRIVMOD_STATIC_NUM 8
-/* It should has more entries than the PRIVMOD_STATIC_NUM,
+/* It should have more entries than the PRIVMOD_STATIC_NUM,
  * as it may also contains the extension libraries and 
- * externally loaded libraries. 
- * Currently, we set it twice of PRIVMOD_STATIC_NUM
+ * externally loaded libraries, as well as our rpath-file search paths.
  */
-#define SEARCH_PATHS_NUM   (2*PRIVMOD_STATIC_NUM)
+#define SEARCH_PATHS_NUM   (3*PRIVMOD_STATIC_NUM)
 
 extern recursive_lock_t privload_lock;
 extern char search_paths[SEARCH_PATHS_NUM][MAXIMUM_PATH];

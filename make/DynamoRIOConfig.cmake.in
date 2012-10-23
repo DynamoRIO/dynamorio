@@ -120,6 +120,11 @@
 #
 #  set(DynamoRIO_RPATH ON)
 #
+# In addition to setting DT_RPATH for ELF files, on Windows this will create a
+# <client_basename>.drpath text file that contains a list of paths.  At runtime,
+# DynamoRIO's loader will parse this file and add each newline-separated path
+# to its list of search paths.
+#
 # If you are not exporting all global symbols in your Linux client,
 # this file tries to automatically determine that and explicitly mark
 # required client exports as visible.  The auto-detection can be
@@ -220,6 +225,13 @@ function (get_size is_cxx x64_var)
   endif (${sizeof_void} EQUAL 8)
 endfunction (get_size)
 
+# i#955: support a <basename>.drpath file for loader search paths
+function (get_drpath_name out target)
+  get_target_property(client_path ${target} LOCATION)
+  # NAME_WE chops off from the first . instead of the last . so we use regex:
+  string(REGEX REPLACE "\\.[^\\.]*$" "" client_base ${client_path})
+  set(${out} ${client_base}.@DR_RPATH_SUFFIX@ PARENT_SCOPE)
+endfunction (get_drpath_name)
 
 function (set_compile_flags target tgt_cflags)
   # i#850: we do not want the C flags being used for asm objects so we only set
@@ -545,6 +557,13 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
   endif (DEFINED DynamoRIO_RPATH)
   if (use_rpath)
     add_rel_rpaths(${target} dynamorio)
+    if (WIN32 AND is_client) # doesn't make sense for standalone
+      # Create the .drpath file our loader uses
+      get_target_property(libpath dynamorio LOCATION)
+      get_filename_component(libdir ${libpath} PATH)
+      get_drpath_name(drpath_file ${target})
+      file(WRITE ${drpath_file} "${libdir}\n")
+    endif ()
   else (use_rpath)
     set_target_properties(${target} PROPERTIES
       SKIP_BUILD_RPATH ON)
@@ -739,6 +758,15 @@ function (use_DynamoRIO_extension target extname)
 
   if (DEFINED DynamoRIO_RPATH)
     add_rel_rpaths(${target} ${extname})
+    if (WIN32)
+      get_target_property(libpath ${extname} LOCATION)
+      get_filename_component(libdir ${libpath} PATH)
+      get_drpath_name(drpath_file ${target})
+      # File should have been created fresh when configured.
+      # XXX: in the future we may add support for relative dirs but for
+      # now we only support absolute.
+      file(APPEND ${drpath_file} "${libdir}\n")
+    endif (WIN32)
   else ()
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
   endif ()

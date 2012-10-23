@@ -914,6 +914,9 @@ math(EXPR VERSION_NUMBER_INTEGER
 # 3.0 broke backcompat and 3.1 was first release so it's now the oldest compat
 set(OLDEST_COMPATIBLE_VERSION "301")
 
+# i#955: a Windows version of ELF DT_RPATH where a local file stores lib paths
+set(DR_RPATH_SUFFIX "drpath")
+
 # This does a copy-if-different, so it won't trigger recompilation of
 # every single source file if no changes
 configure_file(

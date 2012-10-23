@@ -197,6 +197,7 @@ Further non-compatibility-affecting changes include:
    opnd_get_mem_instr_disp()
  - Added DYNAMORIO_CONFIGDIR alternative to HOME as a config dir location.
    Additionally, drrun uses a temp dir for config files rather than failing.
+ - Added library search path control via the client_basename.drpath file
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux
