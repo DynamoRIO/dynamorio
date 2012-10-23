@@ -179,6 +179,7 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
 #
 # Define functions the client can use to set up build parameters:
 
+INCLUDEFILE make/utils.cmake
 
 # helper function
 function (get_lang target lang_var)
@@ -243,13 +244,7 @@ function (set_compile_flags target tgt_cflags)
         # do not add COMPILE_FLAGS to an .obj file else VS2008 will try to
         # compile the file!
         NOT src MATCHES "\\.obj$")
-      # XXX: if we require cmake 2.8.6 we can simply use APPEND_STRING
-      get_source_file_property(cur_flags ${src} COMPILE_FLAGS)
-      if (NOT cur_flags)
-        set(cur_flags "")
-      endif (NOT cur_flags)
-      set_source_files_properties(${src} PROPERTIES
-        COMPILE_FLAGS "${cur_flags} ${tgt_flags}")
+      append_property_string(SOURCE ${src} COMPILE_FLAGS "${tgt_flags}")
     endif ()
   endforeach (src)
 
@@ -549,9 +544,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
     endif (is_client)
   endif (DEFINED DynamoRIO_RPATH)
   if (use_rpath)
-    get_target_property(libdir dynamorio LOCATION)
-    set_target_properties(${target} PROPERTIES
-      INSTALL_RPATH ${libdir})
+    add_rel_rpaths(${target} dynamorio)
   else (use_rpath)
     set_target_properties(${target} PROPERTIES
       SKIP_BUILD_RPATH ON)
@@ -743,6 +736,12 @@ function (use_DynamoRIO_extension target extname)
       include_directories(${PROJECT_SOURCE_DIR}/../../ext/${extname})
     endif ()
   endif (NOT DynamoRIO_INTERNAL)
+
+  if (DEFINED DynamoRIO_RPATH)
+    add_rel_rpaths(${target} ${extname})
+  else ()
+    set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
+  endif ()
 
   target_link_libraries(${target} ${extname})
 

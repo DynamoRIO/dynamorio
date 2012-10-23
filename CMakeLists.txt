@@ -836,14 +836,7 @@ endif (NOT DISABLE_WARNINGS)
 ###########################################################################
 # utility functions
 
-function (append_property_string type target name value)
-  # XXX: if we require cmake 2.8.6 we can simply use APPEND_STRING
-  get_property(cur ${type} ${target} PROPERTY ${name})
-  if (cur)
-    set(value "${cur} ${value}")
-  endif (cur)
-  set_property(${type} ${target} PROPERTY ${name} "${value}")
-endfunction (append_property_string)
+include(make/utils.cmake)
 
 ###########################################################################
 
@@ -1265,6 +1258,19 @@ configure_file(
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfig.cmake.in
   ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake
   @ONLY)
+
+# INCLUDEFILE feature
+file(READ ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake contents)
+string(REGEX MATCHALL "\nINCLUDEFILE [^ \r\n]*" includes "${contents}")
+foreach (inc ${includes})
+  string(REGEX REPLACE "\nINCLUDEFILE " "" incfile "${inc}")
+  file(READ "${incfile}" subst)
+  # strip out copyright header, which we prefixed with "##"
+  string(REGEX REPLACE "(^|\n)##[^\n]*" "" subst "${subst}")
+  string(REGEX REPLACE "${inc}" "\n${subst}" contents "${contents}")
+endforeach (inc)
+file(WRITE ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake "${contents}")
+
 configure_file(
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfigVersion.cmake.in
   ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake

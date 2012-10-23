@@ -99,41 +99,11 @@ if (UNIX)
     OUTPUT_QUIET)
   configure_file(gdbinit ${CMAKE_BINARY_DIR}/.gdbinit)
 
-  # Drops the last path element from path and stores it in path_out.
-  function (dirname path_out path)
-    string(REGEX REPLACE "/[^/]*$" "" path "${path}")
-    set(${path_out} "${path}" PARENT_SCOPE)
-  endfunction (dirname)
-
   # Links a target against a list of libraries, and adds relative rpaths
   # pointing to the directories of the libraries.
-  #
-  # By default, CMake sets an absolute rpath to the build directory, which it
-  # strips at install time.  By adding our own relative rpath, so long as the
-  # target and its libraries stay in the same layout relative to each other,
-  # the loader will be able to find the libraries.  We assume that the layout
-  # is the same in the build and install directories.
   function (link_libs_with_rel_rpath target)
     target_link_libraries(${target} ${ARGN})
-
-    # Turn off the default CMake rpath setting and add our own LINK_FLAGS.
-    set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
-    foreach (lib ${ARGN})
-      # Compute the relative path between the directory of the target and the
-      # library it is linked against.
-      get_target_property(tgt_path ${target} LOCATION)
-      get_target_property(lib_path ${lib} LOCATION)
-      dirname(tgt_path "${tgt_path}")
-      dirname(lib_path "${lib_path}")
-      file(RELATIVE_PATH relpath "${tgt_path}" "${lib_path}")
-
-      # Append the new rpath element if it isn't there already.
-      set(new_lflag "-Wl,-rpath='$$ORIGIN/${relpath}'")
-      get_target_property(lflags ${target} LINK_FLAGS)
-      if (NOT lflags MATCHES new_lflag)
-        append_property_string(TARGET ${target} LINK_FLAGS "${new_lflag}")
-      endif ()
-    endforeach ()
+    add_rel_rpaths(${target} ${ARGN})
   endfunction (link_libs_with_rel_rpath)
 
   # FIXME i#840: Drop the _exe suffix, replace the shell scripts, and combine

@@ -83,6 +83,7 @@ static const char *system_lib_paths[] = {
 #define NUM_SYSTEM_LIB_PATHS \
   (sizeof(system_lib_paths) / sizeof(system_lib_paths[0]))
 
+#define RPATH_ORIGIN "$ORIGIN"
 
 static os_privmod_data_t *libdr_opd;
 static bool privmod_initialized = false;
@@ -111,7 +112,7 @@ static void
 privload_init_search_paths(void);
 
 static bool
-privload_locate(const char *name, privmod_t *dep, char *filename OUT, bool *is_client OUT);
+privload_locate(const char *name, privmod_t *dep, char *filename OUT);
 
 static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent);
@@ -660,28 +661,84 @@ static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent)
 {
     char filename[MAXIMUM_PATH];
-    bool is_client;
-    if (privload_locate(impname, dependent, filename, &is_client))
+    if (privload_locate(impname, dependent, filename))
         return privload_load(filename, dependent);
     return NULL;
 }
 
 static bool
+privload_search_rpath(privmod_t *mod, const char *name,
+                      char *filename OUT /* buffer size is MAXIMUM_PATH */)
+{
+    os_privmod_data_t *opd = (os_privmod_data_t *) mod->os_privmod_data;
+    ELF_DYNAMIC_ENTRY_TYPE *dyn;
+    /* get the loading module's dir for RPATH_ORIGIN */
+    const char *moddir_end = strrchr(mod->path, '/');
+    size_t moddir_len = (moddir_end == NULL ? strlen(mod->path) : moddir_end - mod->path);
+    const char *strtab;
+    ASSERT(opd != NULL);
+    dyn = (ELF_DYNAMIC_ENTRY_TYPE *) opd->dyn;
+    strtab = (char *) opd->os_data.dynstr;
+    /* support $ORIGIN expansion to lib's current directory */
+    while (dyn->d_tag != DT_NULL) {
+        /* FIXME i#460: we should also support DT_RUNPATH: if we see it,
+         * ignore DT_RPATH and search DT_RUNPATH after LD_LIBRARY_PATH.
+         */
+        if (dyn->d_tag == DT_RPATH) {
+            /* DT_RPATH is a colon-separated list of paths */
+            const char *list = strtab + dyn->d_un.d_val;
+            const char *sep, *origin;
+            size_t len;
+            while (*list != '\0') {
+                /* really we want strchrnul() */
+                sep = strchr(list, ':');
+                if (sep == NULL)
+                    len = strlen(list);
+                else
+                    len = sep - list;
+                /* support $ORIGIN expansion to lib's current directory */
+                origin = strstr(list, RPATH_ORIGIN);
+                if (origin != NULL && origin < list + len) {
+                    size_t pre_len = origin - list;
+                    snprintf(filename, MAXIMUM_PATH, "%.*s%.*s%.*s/%s",
+                             pre_len, list,
+                             moddir_len, mod->path,
+                             /* the '/' should already be here */
+                             len - strlen(RPATH_ORIGIN) - pre_len,
+                             origin + strlen(RPATH_ORIGIN),
+                             name);
+                } else {
+                    snprintf(filename, MAXIMUM_PATH, "%.*s/%s", len, list, name);
+                }
+                filename[MAXIMUM_PATH - 1] = 0;
+                LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n",
+                    __FUNCTION__, filename);
+                if (os_file_exists(filename, false/*!is_dir*/) &&
+                    os_file_has_elf_so_header(filename)) {
+                    return true;
+                }
+                list += len + 1;
+            }
+        }
+        ++dyn;
+    }
+    return false;
+}
+
+static bool
 privload_locate(const char *name, privmod_t *dep, 
-                char *filename OUT /* buffer size is MAXIMUM_PATH */,
-                bool *is_client OUT)
+                char *filename OUT /* buffer size is MAXIMUM_PATH */)
 {
     uint i;
     char *lib_paths;
-    if (is_client != NULL)
-        *is_client = false;
 
     /* FIXME: We have a simple implementation of library search.
      * libc implementation can be found at elf/dl-load.c:_dl_map_object.
      */
     /* the loader search order: */
     /* 0) DT_RPATH */
-    /* FIXME: i#460 not implemented. */
+    if (privload_search_rpath(dep, name, filename))
+        return true;
 
     /* 1) client lib dir */
     for (i = 0; i < search_paths_idx; i++) {
@@ -692,8 +749,6 @@ privload_locate(const char *name, privmod_t *dep,
             __FUNCTION__, filename);
         if (os_file_exists(filename, false/*!is_dir*/) &&
             os_file_has_elf_so_header(filename)) {
-            if (is_client != NULL)
-                *is_client = true;
             return true;
         }
     }
