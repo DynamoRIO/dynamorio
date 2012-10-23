@@ -57,9 +57,10 @@ To use \p drmgr with your client simply include this line in your client's
 
 That will automatically set up the include path and library dependence.
 
-The \p drmgr_init() function must be called only once, so typically a
-library that uses \p drmgr will not invoke it and will require that the end
-user (the client) invoke it prior to the library's initialization routine.
+The \p drmgr_init() function may be called multiple times; subsequent calls
+will be nops and will return failure codes.  This allows a 
+library to use \p drmgr without coordinating with the client over who invokes
+\p drmgr_init().
 
 \section sec_drmgr_stages Instrumentation Stages
 
