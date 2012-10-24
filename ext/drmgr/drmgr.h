@@ -696,6 +696,19 @@ drmgr_register_pre_syscall_event(bool (*func)(void *drcontext, int sysnum));
 
 DR_EXPORT
 /**
+ * Registers a callback function for the pre-syscall event, which
+ * behaves just like DR's pre-syscall event
+ * dr_register_pre_syscall_event(), except that it is ordered according
+ * to \p priority.  A default priority of 0 is used for events registered
+ * via drmgr_register_pre_syscall_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_pre_syscall_event_ex(bool (*func)(void *drcontext, int sysnum),
+                                    drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
  * Unregister a callback function for the pre-syscall event.
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).

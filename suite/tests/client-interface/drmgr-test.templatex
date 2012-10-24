@@ -1,3 +1,5 @@
+in pre_sys_B
+in pre_sys_A
 #ifdef WINDOWS
 About to create thread
 in wnd_callback 0x0*0000024 0

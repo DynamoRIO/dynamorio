@@ -52,6 +52,9 @@ static int tls_idx;
 static int cls_idx;
 static thread_id_t main_thread;
 static int cb_depth;
+static bool in_syscall_A;
+static bool in_syscall_B;
+static void *syslock;
 
 #define MAGIC_NUMBER_FROM_CACHE 0x0eadbeef
 
@@ -65,6 +68,9 @@ static void event_thread_init(void *drcontext);
 static void event_thread_exit(void *drcontext);
 static void event_thread_context_init(void *drcontext, bool new_depth);
 static void event_thread_context_exit(void *drcontext, bool process_exit);
+static bool event_filter_syscall(void *drcontext, int sysnum);
+static bool event_pre_sys_A(void *drcontext, int sysnum);
+static bool event_pre_sys_B(void *drcontext, int sysnum);
 static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating,
                                          OUT void **user_data);
@@ -90,6 +96,9 @@ dr_init(client_id_t id)
 {
     drmgr_priority_t priority = {sizeof(priority), "drmgr-test", NULL, NULL, 0};
     drmgr_priority_t priority4 = {sizeof(priority), "drmgr-test4", NULL, NULL, 0};
+    drmgr_priority_t sys_pri_A = {sizeof(priority), "drmgr-test-A", NULL, NULL, 0};
+    drmgr_priority_t sys_pri_B = {sizeof(priority), "drmgr-test-B",
+                                  "drmgr-test-A", NULL, 0};
     bool ok;
 
     drmgr_init();
@@ -114,11 +123,19 @@ dr_init(client_id_t id)
     cls_idx = drmgr_register_cls_field(event_thread_context_init,
                                        event_thread_context_exit);
     CHECK(cls_idx != 1, "drmgr_register_tls_field failed");
+
+    dr_register_filter_syscall_event(event_filter_syscall);
+    ok = drmgr_register_pre_syscall_event_ex(event_pre_sys_A, &sys_pri_A) &&
+        drmgr_register_pre_syscall_event_ex(event_pre_sys_B, &sys_pri_B);
+    CHECK(ok, "drmgr register sys failed");
+
+    syslock = dr_mutex_create();
 }
 
 static void 
 event_exit(void)
 {
+    dr_mutex_destroy(syslock);
     CHECK(checked_tls_from_cache, "failed to hit clean call");
     CHECK(checked_cls_from_cache, "failed to hit clean call");
     CHECK(checked_tls_write_from_cache, "failed to hit clean call");
@@ -307,3 +324,36 @@ event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
+static bool
+event_filter_syscall(void *drcontext, int sysnum)
+{
+    return true;
+}
+
+static bool
+event_pre_sys_A(void *drcontext, int sysnum)
+{
+    if (!in_syscall_A) {
+        dr_mutex_lock(syslock);
+        if (!in_syscall_A) {
+            dr_fprintf(STDERR, "in pre_sys_A\n");
+            in_syscall_A = true;
+        }
+        dr_mutex_unlock(syslock);
+    }
+    return true;
+}
+
+static bool
+event_pre_sys_B(void *drcontext, int sysnum)
+{
+    if (!in_syscall_B) {
+        dr_mutex_lock(syslock);
+        if (!in_syscall_B) {
+            dr_fprintf(STDERR, "in pre_sys_B\n");
+            in_syscall_B = true;
+        }
+        dr_mutex_unlock(syslock);
+    }
+    return true;
+}
