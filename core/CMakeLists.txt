@@ -124,6 +124,7 @@ endif (X64)
 
 # These custom commands are per-subdir so can't just place at top level
 include(../make/CMake_events.cmake)
+include(../make/ntdll_imports.cmake)
 
 # i#801: For generated headers, we need to use add_dependencies to ensure that
 # they are generated before compiling the other sources.  Listing the header as
@@ -142,49 +143,12 @@ function (add_gen_events_deps target)
   endif ()
 endfunction (add_gen_events_deps)
 
-if (WIN32)
-  # i#894: Win8 WDK ntdll.lib does not list Ki routines so we make our own .lib
-  # We could build a full dll (not through cmake target though b/c then have
-  # ntdll.lib name conflicts) but the lib.exe tool seems cleaner.
-  # Note that we need not only stub routines but to also list the stdcall
-  # (un-mangled) names in a .def file for it to work.
-  find_program(LIB_EXECUTABLE lib.exe DOC "path to lib.exe")
-  if (NOT LIB_EXECUTABLE)
-    message(FATAL_ERROR "Cannot find lib.exe")
-  endif (NOT LIB_EXECUTABLE)
-  set(ntimp_base "ntdll_imports")
-  set(ntimp_src "${CMAKE_CURRENT_SOURCE_DIR}/win32/${ntimp_base}.c")
-  set(ntimp_def "${CMAKE_CURRENT_SOURCE_DIR}/win32/${ntimp_base}.def")
-  # We can't call it ntdll.lib b/c then link.exe will ignore the one from
-  # the WDK/DDK.
-  # XXX: should we just put all the Nt* and Rtl* in ntdll_stub.* and eliminate
-  # the need for WDK/DDK?  We'd have to manually make sure we don't rely
-  # on ntdll routines not in older systems.
-  set(ntimp_lib "${CMAKE_CURRENT_BINARY_DIR}/${ntimp_base}.lib")
-  set_property(SOURCE "${ntimp_lib}" PROPERTY GENERATED true)
-  # Because the Ki are stdcall we can't just use a .def file: we need
-  # an .obj file built from stubs w/ the same signatures.
-  # We don't need a stamp file b/c the .lib is not a source; plus a stamp
-  # file causes Ninja to fail to build.
-  add_custom_command(OUTPUT "${ntimp_lib}"
-    DEPENDS "${ntimp_src}"
-    COMMAND "${CMAKE_C_COMPILER}" ARGS /nologo /c /Ob0 ${ntimp_src}
-    COMMAND "${LIB_EXECUTABLE}" ARGS
-      /nologo /name:ntdll.dll /def:${ntimp_def}
-      ${CMAKE_CURRENT_BINARY_DIR}/${ntimp_base}.obj
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    VERBATIM # recommended: p260 of cmake book
-    )
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # for correct parallel builds we need a target to avoid
-    # duplicate and racy VS per-project rules
-    add_custom_target(ntimp_tgt DEPENDS "${ntimp_lib}")
-    set(ntimp_dep "")
-  else ()
-    set(ntimp_dep "${ntimp_lib}")
-  endif ()
-  set(ntimp_flags "${ntimp_lib}")
-endif (WIN32)
+# Just like i#801, we can't put custom targets in ntdll_imports.cmake
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for correct parallel builds we need a target to avoid
+  # duplicate and racy VS per-project rules
+  add_custom_target(ntimp_tgt DEPENDS "${ntimp_lib}")
+endif ()
 
 if (UNIX)
   set(OSNAME linux)
@@ -594,7 +558,7 @@ else (UNIX)
   # stick with the static linking of the impl in msvcrt.lib.
   # We must link in custom flags and not target_link_libraries() b/c we need
   # to be AFTER our ntdll_imports.lib.
-  set(dynamorio_link_flags "${dynamorio_link_flags} ntdll.lib msvcrt.lib")
+  set(dynamorio_link_flags "${dynamorio_link_flags} msvcrt.lib")
 
   set_target_properties(dynamorio PROPERTIES LINK_FLAGS "${dynamorio_link_flags}")
 
@@ -621,7 +585,7 @@ else (UNIX)
     "${LD_FLAGS} /dll /incremental:no /base:0x14000000 /NODEFAULTLIB ${NOLIBC_DLL_ENTRY}")
   set_target_properties(${PRELOAD_NAME} PROPERTIES LINK_FLAGS "${pre_link_flags}")
   # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
-  target_link_libraries(${PRELOAD_NAME} ntdll kernel32 msvcrt dynamorio)
+  target_link_libraries(${PRELOAD_NAME} ${ntimp_lib} kernel32 msvcrt dynamorio)
 
 
   set_target_properties(drearlyhelp1 PROPERTIES
@@ -668,7 +632,7 @@ if (WIN32)
   # symbols atoi and iswctype from libcmtd and ntdll.  Unlike dynamorio.dll we're
   # ok w/ libc syms so we re-order and take the static syms first.
   set_target_properties(drinjectlib PROPERTIES LINK_FLAGS "${drinjectlib_link_flags}")
-  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB} ntdll ${ntimp_lib}
+  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB} ${ntimp_lib}
     kernel32 advapi32 imagehlp)
   # drinject.exe needs a copy in the bin dir
   add_custom_command(TARGET drinjectlib POST_BUILD COMMAND ${CMAKE_COMMAND}
@@ -694,7 +658,7 @@ if (BUILD_TESTS)
     use_ldscript(unit_tests)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntimp_lib
-    target_link_libraries(unit_tests ${WIN32_C_LIB} ntdll ${ntimp_lib})
+    target_link_libraries(unit_tests ${WIN32_C_LIB} ${ntimp_lib})
     set_target_properties(unit_tests PROPERTIES
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)

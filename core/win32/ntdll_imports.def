@@ -36,6 +36,114 @@ EXPORTS
         KiUserApcDispatcher
         KiUserCallbackDispatcher
         KiUserExceptionDispatcher
+        NtAllocateVirtualMemory
+        NtQueryVirtualMemory
+        NtFreeVirtualMemory
+        NtProtectVirtualMemory
+        NtCreateFile
+        NtWriteVirtualMemory
+        NtGetContextThread
+        NtSetContextThread
+        NtSuspendThread
+        NtResumeThread
+        NtTerminateThread
+        NtClose
+        NtDuplicateObject
+        NtCreateSection
+        NtOpenSection
+        NtMapViewOfSection
+        NtUnmapViewOfSection
+        NtCallbackReturn
+        NtTestAlert
+        NtContinue
+        NtQueryInformationThread
+        NtQueryInformationProcess
+        NtQueryInformationFile
+        NtSetInformationFile
+        NtQuerySection
+        NtOpenFile
+        NtOpenThreadToken
+        NtOpenProcessToken
+        NtQueryInformationToken
+        NtYieldExecution
+        NtQuerySystemInformation
+        NtOpenProcess
+        NtSetInformationThread
+        NtReadVirtualMemory
+        NtCreateTimer
+        NtSetTimer
+        NtDelayExecution
+        NtQueryObject
+        NtQueryFullAttributesFile
+        NtCreateKey
+        NtOpenKey
+        NtSetValueKey
+        NtDeleteKey
+        NtQueryValueKey
+        NtFlushKey
+        NtEnumerateKey
+        NtEnumerateValueKey
+        NtQuerySystemTime
+        NtDeleteFile
+        NtFlushBuffersFile
+        NtReadFile
+        NtWriteFile
+        NtCreateIoCompletion
+        NtRaiseHardError
+        NtRaiseException
+        NtCreateEvent
+        NtWaitForSingleObject
+        NtSetEvent
+        NtClearEvent
+        NtSignalAndWaitForSingleObject
+        NtQueryPerformanceCounter
+        NtFsControlFile
+        NtCancelIoFile
+        NtCreateProfile
+        NtSetIntervalProfile
+        NtQueryIntervalProfile
+        NtStartProfile
+        NtStopProfile
+        NtCreateProcess
+        NtTerminateProcess
+        NtCreateDirectoryObject
+        NtOpenDirectoryObject
+        NtOpenSymbolicLinkObject
+        NtQuerySymbolicLinkObject
+        ZwAreMappedFilesTheSame
+        NtQueryVolumeInformationFile
+        NtQuerySecurityObject
+        NtQueueApcThread
+        NtCreateThread
+        NtFlushInstructionCache
+        RtlInitializeCriticalSection
+        RtlDeleteCriticalSection
+        RtlEnterCriticalSection
+        RtlLeaveCriticalSection
+        RtlTryEnterCriticalSection
+        RtlInitUnicodeString
+        RtlInitAnsiString
+        RtlFreeUnicodeString
+        RtlFreeAnsiString
+        RtlFreeOemString
+        RtlQueryEnvironmentVariable_U
+        RtlConvertSidToUnicodeString
+        RtlCreateProcessParameters
+        RtlDestroyProcessParameters
+        RtlCreateHeap
+        RtlDestroyHeap
+        RtlAllocateHeap
+        RtlReAllocateHeap
+        RtlFreeHeap
+        RtlSizeHeap
+        RtlValidateHeap
+        RtlLockHeap
+        RtlUnlockHeap
+        LdrLoadDll
+        LdrUnloadDll
+        LdrGetProcedureAddress
+        LdrGetDllHandle
+        CsrClientCallServer
         _stricmp
         _strnicmp
         _wcsicmp
@@ -56,6 +164,7 @@ EXPORTS
         strncat
         strncmp
         strncpy
+        strrchr
         strstr
         strtoul
         tolower

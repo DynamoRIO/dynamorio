@@ -152,13 +152,23 @@ else (UNIX)
     ${PROJECT_SOURCE_DIR}/core/lib
     )
 
-  target_link_libraries(run_in_bg ntdll)
+  include(../make/ntdll_imports.cmake)
+
+  target_link_libraries(run_in_bg "${ntimp_lib}")
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # for parallel build correctness we need a target dependence
+    add_dependencies(run_in_bg ntimp_tgt)
+  endif ()
 
   foreach (tgt ${tgts})
     add_executable(${tgt} ${tgt}.c ${RESOURCES})
 
     if ("${tgt}" STREQUAL "ldmp")
-      set(extra_lib "ntdll")
+      set(extra_lib "${ntimp_lib}")
+      if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+        # for parallel build correctness we need a target dependence
+        add_dependencies(${tgt} ntimp_tgt)
+      endif ()
     endif ("${tgt}" STREQUAL "ldmp")
     target_link_libraries(${tgt}
       policy_static user32 advapi32 pdh imagehlp shell32 "${extra_lib}")

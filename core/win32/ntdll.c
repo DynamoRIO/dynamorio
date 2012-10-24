@@ -217,93 +217,6 @@ static enum {
 # define TEB_SIZE         0xfbc
 #endif
 
-//
-// Thread Information Classes
-//
-
-typedef enum _THREADINFOCLASS {
-    ThreadBasicInformation,
-    ThreadTimes,
-    ThreadPriority,
-    ThreadBasePriority,
-    ThreadAffinityMask,
-    ThreadImpersonationToken,
-    ThreadDescriptorTableEntry,
-    ThreadEnableAlignmentFaultFixup,
-    ThreadEventPair_Reusable,
-    ThreadQuerySetWin32StartAddress,
-    ThreadZeroTlsCell,
-    ThreadPerformanceCount,
-    ThreadAmILastThread,
-    ThreadIdealProcessor,
-    ThreadPriorityBoost,
-    ThreadSetTlsArrayAddress,
-    ThreadIsIoPending,
-    ThreadHideFromDebugger,
-    MaxThreadInfoClass
-    } THREADINFOCLASS;
-
-typedef enum _SECTION_INFORMATION_CLASS {
-    SectionBasicInformation,
-    SectionImageInformation
-} SECTION_INFORMATION_CLASS;
-
-typedef struct _SECTION_BASIC_INFORMATION { // Information Class 0
-    PVOID BaseAddress;
-    ULONG Attributes;
-    LARGE_INTEGER Size;
-} SECTION_BASIC_INFORMATION, *PSECTION_BASIC_INFORMATION;
-
-typedef struct _SECTION_IMAGE_INFORMATION { // Information Class 1
-    PVOID EntryPoint;
-    ULONG Unknown1;
-    ULONG StackReserve;
-    ULONG StackCommit;
-    ULONG Subsystem;
-    USHORT MinorSubsystemVersion;
-    USHORT MajorSubsystemVersion;
-    ULONG Unknown2;
-    ULONG Characteristics;
-    USHORT ImageNumber;
-    BOOLEAN Executable;
-    UCHAR Unknown3;
-    ULONG Unknown4[3];
-} SECTION_IMAGE_INFORMATION, *PSECTION_IMAGE_INFORMATION;
-
-typedef struct _IO_STATUS_BLOCK {
-    union {
-        NTSTATUS Status;
-        PVOID Pointer;
-    };
-    ULONG_PTR Information;
-} IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
-
-typedef enum _KPROFILE_SOURCE {
-    ProfileTime
-} KPROFILE_SOURCE;
-
-typedef enum _OBJECT_INFORMATION_CLASS {
-    ObjectBasicInformation,
-    ObjectNameInformation,
-    ObjectTypeInformation,
-    ObjectAllTypesInformation,
-    ObjectHandleInformation /* can be queried and set */
-} OBJECT_INFORMATION_CLASS;
-
-typedef struct _OBJECT_BASIC_INFORMATION {
-    ULONG Attributes;
-    ACCESS_MASK GrantedAccess;
-    ULONG HandleCount;
-    ULONG PointerCount;
-    ULONG PagePoolUsage;
-    ULONG NonPagedPoolUsage;
-    ULONG Reserved[3];
-    ULONG NameInformationLength;
-    ULONG TypeInformationLength;
-    ULONG SecurityDescriptorLength;
-    LARGE_INTEGER CreateTime;
-} OBJECT_BASIC_INFORMATION, *POBJECT_BASIC_INFORMATION;
-
 /***************************************************************************
  * declarations for ntdll exports shared by several routines in this file
  */
@@ -3238,15 +3151,6 @@ flush_file_buffers(HANDLE file_handle)
 
     return NT_SUCCESS(res);
 }
-
-/* we don't actually use this but for cleanliness sake, is from ntddk.h */
-typedef 
-VOID
-(NTAPI *PIO_APC_ROUTINE) (
-                          IN PVOID ApcContext,
-                          IN PIO_STATUS_BLOCK IoStatusBlock,
-                          IN ULONG Reserved
-                          );
 
 bool
 read_file(HANDLE file_handle, void *buffer, uint num_bytes_to_read, 

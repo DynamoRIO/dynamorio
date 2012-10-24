@@ -491,55 +491,6 @@ else (UNIX)
   message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
   mark_as_advanced(CMAKE_MC_COMPILER)
 
-  # DDKROOT env var is recommended method in our docs
-  if (NOT "$ENV{DDKROOT}" STREQUAL "")
-    set(DDK_ROOT "$ENV{DDKROOT}")
-  # Check default install path
-  elseif (EXISTS "$ENV{SYSTEMDRIVE}/WINDDK/3790.1830/")
-    set(DDK_ROOT "$ENV{SYSTEMDRIVE}/WINDDK/3790.1830/")
-  elseif (EXISTS "$ENV{SYSTEMDRIVE}/WINDDK/6000/")
-    set(DDK_ROOT "$ENV{SYSTEMDRIVE}/WINDDK/6000/")
-  elseif (EXISTS "$ENV{SYSTEMDRIVE}/WINDDK/7600.16385.1/")
-    set(DDK_ROOT "$ENV{SYSTEMDRIVE}/WINDDK/7600.16385.1/")
-  elseif (EXISTS "$ENV{ProgramFiles(x86)}/Windows Kits")
-    # just take first
-    file(GLOB subdirs "$ENV{ProgramFiles(x86)}/Windows Kits/*")
-    list(GET subdirs 0 subdir)
-    set(DDK_ROOT ${subdir})
-  endif (NOT "$ENV{DDKROOT}" STREQUAL "")
-  # Note that we want the oldest ntdll.lib for maximum compatibility.
-  # The 2003 DDK (3790.1830) or Vista WDK (6000) both have these paths:
-  if (X64)
-    if (EXISTS "${DDK_ROOT}/Lib/win8/um/x64")
-      set(NTDLL_LIB_SUBPATH Lib/win8/um/x64)
-    else ()
-      set(NTDLL_LIB_SUBPATH lib/wnet/amd64)
-    endif ()
-  else (X64)
-    # Newer WDK (7600.16385.1) does not have w2k so use wxp: if using
-    # that WDK, won't be able to run on 2K or NT.
-    if (EXISTS "${DDK_ROOT}/lib/w2k/i386")
-      set(NTDLL_LIB_SUBPATH lib/w2k/i386)
-    else ()
-      message(STATUS "(DDK/WDK for targeting Windows 2000 or earlier not found)")
-      # Win8 WDK has different path.
-      if (EXISTS "${DDK_ROOT}/Lib/win8/um/x86")
-        set(NTDLL_LIB_SUBPATH Lib/win8/um/x86)
-      else ()
-        set(NTDLL_LIB_SUBPATH lib/wxp/i386)
-      endif ()
-    endif ()
-  endif (X64)
-  # Use find_library() and not find_path() in case on LIB env var or sthg
-  find_library(NTDLL_LIBPATH ntdll.lib HINTS "${DDK_ROOT}/${NTDLL_LIB_SUBPATH}"
-    DOC "Path to ntdll.lib from either 2003 DDK (3790.1830) or Vista WDK (6000)")
-  if (NOT NTDLL_LIBPATH)
-    message(FATAL_ERROR "ntdll.lib not found: required to build")
-  endif (NOT NTDLL_LIBPATH)
-  message(STATUS "Found ntdll.lib: ${NTDLL_LIBPATH}")
-  get_filename_component(NTDLL_LIBPATH "${NTDLL_LIBPATH}" PATH)
-  link_directories(${NTDLL_LIBPATH})
-
 endif (UNIX)
 
 find_package(Perl)
