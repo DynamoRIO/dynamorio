@@ -594,12 +594,23 @@ else (UNIX)
   # stick with the static linking of the impl in msvcrt.lib.
   # We must link in custom flags and not target_link_libraries() b/c we need
   # to be AFTER our ntdll_imports.lib.
-  set(dynamorio_link_flags "${dynamorio_link_flags} msvcrt.lib")
+  set(dynamorio_link_flags "${dynamorio_link_flags} ntdll.lib msvcrt.lib")
 
   set_target_properties(dynamorio PROPERTIES LINK_FLAGS "${dynamorio_link_flags}")
-  target_link_libraries(dynamorio ntdll)
 
-  # we used to run dumpbin /headers on dynamorio.dll for info purposes
+  # ensure there are no dependencies other than ntdll
+  find_program(DUMPBIN_EXECUTABLE dumpbin.exe DOC "path to dumpbin.exe")
+  if (DUMPBIN_EXECUTABLE)
+    add_custom_command(TARGET dynamorio POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -D lib=${drout}
+           -D DUMPBIN_EXECUTABLE=${DUMPBIN_EXECUTABLE}
+           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_checkdeps.cmake
+      VERBATIM)
+    
+  else ()
+    message(STATUS "Cannot find dumpbin so not performing dependence check")
+  endif ()
 
 
   set_target_properties(${PRELOAD_NAME} PROPERTIES
