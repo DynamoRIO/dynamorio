@@ -885,6 +885,11 @@ get_application_name_helper(bool ignore_cache, bool full_path)
             strncpy(executable_path, read_proc_self_exe(ignore_cache),
                     BUFFER_SIZE_ELEMENTS(executable_path));
             NULL_TERMINATE_BUFFER(executable_path);
+            /* FIXME: Fall back on /proc/self/cmdline and maybe argv[0] from
+             * _init().
+             */
+            ASSERT(strlen(executable_path) > 0 &&
+                   "readlink /proc/self/exe failed");
         }
     }
 
@@ -7490,7 +7495,8 @@ get_dynamorio_library_path(void)
 }
 
 #ifdef HAVE_PROC_MAPS
-/* Get full path+name of executable file from /proc/self/exe.
+/* Get full path+name of executable file from /proc/self/exe.  Returns an empty
+ * string on error.
  * FIXME i#47: This will return DR's path when using early injection.
  */
 static char *
@@ -7510,9 +7516,11 @@ read_proc_self_exe(bool ignore_cache)
                      "/proc/%d/exe", get_process_id());
         ASSERT(len > 0);
         NULL_TERMINATE_BUFFER(exepath);
+        /* i#960: readlink does not null terminate, so we do it. */
         res = dynamorio_syscall(SYS_readlink, 3, exepath, exepath,
-                                BUFFER_SIZE_BYTES(exepath));
-        ASSERT(res > 0);
+                                BUFFER_SIZE_ELEMENTS(exepath)-1);
+        ASSERT(res < BUFFER_SIZE_ELEMENTS(exepath));
+        exepath[MAX(res, 0)] = '\0';
         NULL_TERMINATE_BUFFER(exepath);
     }
     return exepath;
