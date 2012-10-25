@@ -33,6 +33,9 @@
 # + DUMPBIN_EXECUTABLE
 # + lib
 
+# Ensure output goes to std{out,err} (i#951)
+set(ENV{VS_UNICODE_OUTPUT} "")
+
 execute_process(COMMAND
   ${DUMPBIN_EXECUTABLE} /dependents ${lib}
   RESULT_VARIABLE deps_result

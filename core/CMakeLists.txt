@@ -571,7 +571,6 @@ else (UNIX)
            -D DUMPBIN_EXECUTABLE=${DUMPBIN_EXECUTABLE}
            -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_checkdeps.cmake
       VERBATIM)
-    
   else ()
     message(STATUS "Cannot find dumpbin so not performing dependence check")
   endif ()
@@ -623,7 +622,6 @@ if (WIN32)
   else (DEBUG)
     set(WIN32_C_LIB libcmt)
   endif (DEBUG)
-  # NOCHECKIN: LD_FLAGS is set below.
   set(drinjectlib_link_flags
     # not bothering with map files
     "${LD_FLAGS} /incremental:no /subsystem:console /NODEFAULTLIB")
