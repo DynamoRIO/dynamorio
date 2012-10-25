@@ -570,6 +570,7 @@ static const char *dll_syms_full[] = {
 typedef struct {
     bool syms_found[BUFFER_SIZE_ELEMENTS(dll_syms) - 1];
     const char **syms_expected;
+    const char *dll_path;
 } dll_syms_found_t;
 
 /* If this was a symbol we expected that we haven't found yet, mark it found,
@@ -606,6 +607,50 @@ enum_sym_cb(const char *name, size_t modoffs, void *data)
     return true;
 }
 
+static bool
+enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
+{
+    ASSERT(status == DRSYM_ERROR_LINE_NOT_AVAILABLE);
+    if (data == NULL) {
+        drsym_info_legacy_t *leg = (drsym_info_legacy_t *) out;
+        ASSERT(strlen(leg->name) == leg->name_available_size);
+    } else {
+        dll_syms_found_t *syms_found = (dll_syms_found_t *) data;
+        uint i;
+
+        ASSERT(strlen(out->name) == out->name_available_size);
+
+        for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found->syms_found); i++) {
+            if (syms_found->syms_found[i])
+                continue;
+            if (strstr(out->name, dll_syms[i]) != NULL)
+                syms_found->syms_found[i] = true;
+        }
+
+        if (TEST(DRSYM_PDB, out->debug_kind)) { /* else types NYI */
+            static char buf[4096];
+            drsym_type_t *type;
+            drsym_error_t r = drsym_get_type(syms_found->dll_path, out->start_offs, 1,
+                                             buf, sizeof(buf), &type);
+            if (r == DRSYM_SUCCESS) {
+                /* XXX: I'm seeing error 126 (ERROR_MOD_NOT_FOUND) from
+                 * SymFromAddr for some symbols that the enum finds: strange.
+                 * On another machine I saw mismatches in type id:
+                 *   error for __initiallocinfo: 481 != 483, kind = 5
+                 * Grrr!  Do we really have to go and compare all the properties
+                 * of the type to ensure it's the same?!?
+                 */
+                ASSERT(type->id == out->type_id ||
+                       /* Unknown type has id cleared to 0 */
+                       (type->kind == DRSYM_TYPE_OTHER && type->id == 0) ||
+                       /* Some __ types seem to have varying id's */
+                       strstr(out->name, "__") == out->name);
+            }
+        }
+    }
+    return true;
+}
+
 static void
 enum_syms_with_flags(const char *dll_path, const char **syms_expected,
                      uint flags)
@@ -621,9 +666,27 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
     syms_found.syms_expected = syms_expected;
     r = drsym_enumerate_symbols(dll_path, enum_sym_cb, &syms_found, flags);
     ASSERT(r == DRSYM_SUCCESS);
-    for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++)
+    for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++) {
         if (!syms_found.syms_found[i])
             dr_fprintf(STDERR, "failed to find symbol for %s!\n", dll_syms[i]);
+    }
+
+    /* Test the _ex version */
+    ASSERT(sizeof(drsym_info_t) > sizeof(drsym_info_legacy_t));
+    memset(&syms_found, 0, sizeof(syms_found));
+    syms_found.dll_path = dll_path;
+    r = drsym_enumerate_symbols_ex(dll_path, enum_sym_ex_cb,
+                                   sizeof(drsym_info_t), &syms_found, flags);
+    ASSERT(r == DRSYM_SUCCESS);
+    for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++) {
+        if (!syms_found.syms_found[i])
+            dr_fprintf(STDERR, "_ex failed to find symbol for %s!\n", dll_syms[i]);
+    }
+
+    /* Test legacy */
+    r = drsym_enumerate_symbols_ex(dll_path, enum_sym_ex_cb,
+                                   sizeof(drsym_info_legacy_t), NULL, flags);
+    ASSERT(r == DRSYM_SUCCESS);
 
 #ifdef WINDOWS
     if (TEST(DRSYM_PDB, debug_kind)) {
@@ -638,9 +701,28 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
         r = drsym_search_symbols(dll_path, "*!*stack_trace*", false, enum_sym_cb,
                                  &syms_found);
         ASSERT(r == DRSYM_SUCCESS);
-        for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++)
+        for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++) {
             if (!syms_found.syms_found[i])
-                dr_fprintf(STDERR, "failed to find symbol for %s!\n", dll_syms[i]);
+                dr_fprintf(STDERR, "search failed to find %s!\n", dll_syms[i]);
+        }
+
+        /* Test the _ex version */
+        memset(&syms_found, 0, sizeof(syms_found));
+        syms_found.dll_path = dll_path;
+        r = drsym_search_symbols_ex(dll_path, "*!*dll_*", false, enum_sym_ex_cb,
+                                    sizeof(drsym_info_t), &syms_found);
+        ASSERT(r == DRSYM_SUCCESS);
+        r = drsym_search_symbols_ex(dll_path, "*!*stack_trace*", false, enum_sym_ex_cb,
+                                    sizeof(drsym_info_t), &syms_found);
+        ASSERT(r == DRSYM_SUCCESS);
+        for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++) {
+            if (!syms_found.syms_found[i])
+                dr_fprintf(STDERR, "search _ex failed to find %s!\n", dll_syms[i]);
+        }
+        /* Test legacy */
+        r = drsym_search_symbols_ex(dll_path, "*!*dll_*", false, enum_sym_ex_cb,
+                                    sizeof(drsym_info_legacy_t), NULL);
+        ASSERT(r == DRSYM_SUCCESS);
     }
 #endif
 }

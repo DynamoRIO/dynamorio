@@ -159,4 +159,4 @@ endif (DR_EXT_DRSYMS_STATIC)
 # documentation is put into main DR docs/ dir
 DR_export_target(drsyms)
 DR_install(TARGETS drsyms EXPORT ${exported_targets_name} DESTINATION ${INSTALL_EXT_LIB})
-DR_install(FILES drsyms.h DESTINATION ${INSTALL_EXT_INCLUDE})
+DR_install(FILES drsyms.h drsyms_infox.h DESTINATION ${INSTALL_EXT_INCLUDE})

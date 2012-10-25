@@ -86,12 +86,13 @@ lookup_or_load(const char *modpath)
 
 static drsym_error_t
 drsym_enumerate_symbols_local(const char *modpath, drsym_enumerate_cb callback,
+                              drsym_enumerate_ex_cb callback_ex, size_t info_size,
                               void *data, uint flags)
 {
     void *mod;
     drsym_error_t r;
 
-    if (modpath == NULL || callback == NULL)
+    if (modpath == NULL || (callback == NULL && callback_ex == NULL))
         return DRSYM_ERROR_INVALID_PARAMETER;
 
     dr_recurlock_lock(symbol_lock);
@@ -102,7 +103,7 @@ drsym_enumerate_symbols_local(const char *modpath, drsym_enumerate_cb callback,
     }
 
     recursive_context = true;
-    r = drsym_unix_enumerate_symbols(mod, callback, data, flags);
+    r = drsym_unix_enumerate_symbols(mod, callback, callback_ex, info_size, data, flags);
     recursive_context = false;
 
     dr_recurlock_unlock(symbol_lock);
@@ -231,7 +232,21 @@ drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_enumerate_symbols_local(modpath, callback, data, flags);
+        return drsym_enumerate_symbols_local(modpath, callback, NULL,
+                                             sizeof(drsym_info_t), data, flags);
+    }
+}
+
+DR_EXPORT
+drsym_error_t
+drsym_enumerate_symbols_ex(const char *modpath, drsym_enumerate_ex_cb callback,
+                           size_t info_size, void *data, uint flags)
+{
+    if (IS_SIDELINE) {
+        return DRSYM_ERROR_NOT_IMPLEMENTED;
+    } else {
+        return drsym_enumerate_symbols_local(modpath, NULL, callback, info_size,
+                                             data, flags);
     }
 }
 

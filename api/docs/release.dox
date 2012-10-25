@@ -156,6 +156,9 @@ Further non-compatibility-affecting changes include:
  - Added dr_inject_prepare_to_exec() on Linux
  - Added drsym_free_resources()
  - Added drsym_module_has_symbols()
+ - Added a type_id field to drsym_info_t (without compatibility changes)
+ - Added drsym_enumerate_symbols_ex() and drsym_search_symbols_ex() which
+   return drsym_info_t on each symbol
  - Added dr_exit_process() to cleanly shut down with a specified
    exit code
  - Added dr_convert_handle_to_pid()

@@ -445,7 +445,7 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
         } else
             *offs_end = *offs_start + 1;
     }
-    return DRSYM_SUCCESS;
+    return res;
 }
 
 drsym_error_t

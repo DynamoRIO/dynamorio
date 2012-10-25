@@ -65,6 +65,9 @@
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
+/* drsym_info_t.name has 1 char in the struct */
+#define NAME_EXTRA_SZ(full_sz) ((full_sz) - 1)
+
 /* Memory pool that uses externally allocated memory.
  */
 typedef struct _mempool_t {
@@ -115,8 +118,9 @@ drsym_unix_lookup_symbol(void *moddata, const char *symbol, size_t *modoffs OUT,
                          uint flags);
 
 drsym_error_t
-drsym_unix_enumerate_symbols(void *moddata, drsym_enumerate_cb callback, void *data,
-                             uint flags);
+drsym_unix_enumerate_symbols(void *moddata, drsym_enumerate_cb callback,
+                             drsym_enumerate_ex_cb callback_ex, size_t info_size,
+                             void *data, uint flags);
 
 size_t
 drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
