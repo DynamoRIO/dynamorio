@@ -115,6 +115,7 @@ EXPORTS
         NtQuerySecurityObject
         NtQueueApcThread
         NtCreateThread
+        NtOpenThread
         NtFlushInstructionCache
         RtlInitializeCriticalSection
         RtlDeleteCriticalSection
@@ -139,11 +140,14 @@ EXPORTS
         RtlValidateHeap
         RtlLockHeap
         RtlUnlockHeap
+        RtlGetProcessHeaps
+        RtlWalkHeap
         LdrLoadDll
         LdrUnloadDll
         LdrGetProcedureAddress
         LdrGetDllHandle
         CsrClientCallServer
+        _snprintf
         _stricmp
         _strnicmp
         _wcsicmp

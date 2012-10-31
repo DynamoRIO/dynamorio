@@ -822,6 +822,15 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
 }
 
 NTEXPORT NTSTATUS NTAPI
+NtOpenThread(OUT PHANDLE ThreadHandle,
+             IN ACCESS_MASK DesiredAccess,
+             IN POBJECT_ATTRIBUTES ObjectAttributes,
+             IN PCLIENT_ID ClientId)
+{
+    return STATUS_SUCCESS;
+}
+
+NTEXPORT NTSTATUS NTAPI
 NtFlushInstructionCache(IN HANDLE ProcessHandle,
                         IN PVOID BaseAddress OPTIONAL,
                         IN SIZE_T FlushSize)
@@ -989,6 +998,20 @@ NTEXPORT BOOL NTAPI
 RtlUnlockHeap(HANDLE heap)
 {
     return FALSE;
+}
+
+NTEXPORT NTSTATUS NTAPI
+RtlGetProcessHeaps(IN ULONG count,
+                   OUT HANDLE *Heaps)
+{
+    return STATUS_SUCCESS;
+}
+
+NTEXPORT NTSTATUS NTAPI
+RtlWalkHeap(IN HANDLE Heap,
+            OUT PVOID Info)
+{
+    return STATUS_SUCCESS;
 }
 
 /***************************************************************************

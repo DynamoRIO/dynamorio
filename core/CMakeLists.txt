@@ -708,3 +708,7 @@ endif (UNIX)
 
 DR_install(TARGETS drdecode EXPORT ${exported_targets_name}
   DESTINATION ${INSTALL_LIB})
+
+# We need separate 32-bit and 64-bit versions so we put into lib dir
+DR_install(FILES ${ntimp_lib} DESTINATION ${INSTALL_LIB_BASE})
+
