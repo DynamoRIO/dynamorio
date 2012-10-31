@@ -79,6 +79,7 @@
 # define IMAGE_ORDINAL_FLAG IMAGE_ORDINAL_FLAG32
 #endif
 
+#define HEAP_CLASS_PRIVATE 0x00001000
 
 /* Not persistent across code cache execution, so not protected.
  * Synchronized by privload_lock.
@@ -411,7 +412,8 @@ os_loader_init_prologue(void)
         if (dr_earliest_injected) { /* FIXME i#812: need to delay RtlCreateHeap */
             private_peb->ProcessHeap = own_peb->ProcessHeap;
         } else {
-            private_peb->ProcessHeap = RtlCreateHeap(0, NULL, 0, 0, NULL, NULL);
+            private_peb->ProcessHeap = RtlCreateHeap(HEAP_GROWABLE | HEAP_CLASS_PRIVATE,
+                                                     NULL, 0, 0, NULL, NULL);
             if (private_peb->ProcessHeap == NULL) {
                 SYSLOG_INTERNAL_ERROR("private default heap creation failed");
                 /* fallback */
@@ -1857,8 +1859,14 @@ redirect_RtlReAllocateHeap(HANDLE heap, ULONG flags, byte *ptr, SIZE_T size)
      * addresses go natively.  Xref the opposite problem with
      * RtlFreeUnicodeString, handled below.
      */
-    if (redirect_heap_call(heap) && (is_dynamo_address(ptr) || ptr == NULL)) {
+    if (ptr == NULL) /* unlike realloc(), HeapReAlloc fails on NULL */
+        return NULL;
+    if (redirect_heap_call(heap) && is_dynamo_address(ptr)) {
         byte *buf = NULL;
+        if (TEST(HEAP_REALLOC_IN_PLACE_ONLY, flags)) {
+            ASSERT_NOT_IMPLEMENTED(false);
+            return NULL;
+        }
         /* RtlReAllocateHeap does re-alloc 0-sized */
         LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX" "PIFX"\n", __FUNCTION__, ptr, size);
         buf = redirect_RtlAllocateHeap(heap, flags, size);
@@ -1866,8 +1874,8 @@ redirect_RtlReAllocateHeap(HANDLE heap, ULONG flags, byte *ptr, SIZE_T size)
             size_t old_size = *((size_t *)(ptr - sizeof(size_t)));
             size_t min_size = MIN(old_size, size);
             memcpy(buf, ptr, min_size);
+            redirect_RtlFreeHeap(heap, flags, ptr);
         }
-        redirect_RtlFreeHeap(heap, flags, ptr);
         return (void *) buf;
     } else {
         void *res = RtlReAllocateHeap(heap, flags, ptr, size);
