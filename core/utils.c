@@ -2116,6 +2116,8 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
         SYSLOG_NO_OPTION_SYNCH(SYSLOG_ERROR, INTERNAL_SYSLOG_ERROR, 3,
                                get_application_name(), get_application_pid(),
                                reportbuf);
+    } else if (dumpcore_flag == DUMPCORE_CURIOSITY) {
+        SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_WARNING, "%s", reportbuf);
     } else {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_ERROR, "%s", reportbuf);
     }
