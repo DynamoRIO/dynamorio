@@ -32,7 +32,7 @@
 
 // resources.rc
 
-#include "winres.h"
+#include "winresrc.h"  // avoiding winres.h from MFC
 
 #ifndef BUILD_NUMBER
 # define BUILD_NUMBER 0

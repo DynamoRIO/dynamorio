@@ -38,7 +38,7 @@
 // externally to this file 
 
 #include "configure.h"
-#include "winres.h"
+#include "winresrc.h"  // avoiding winres.h from MFC
 
 #ifdef INCLUDE_EVENTS
 # include "events.rc"

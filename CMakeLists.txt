@@ -1028,7 +1028,15 @@ if (BUILD_TOOLS)
 endif (BUILD_TOOLS)
 
 if (BUILD_DRGUI)
-  add_subdirectory(tools/DRgui)
+  find_package(MFC)
+  if (NOT MFC_FOUND)
+    message(STATUS "MFC not found: disabling DRgui")
+    set(BUILD_DRGUI OFF)
+  endif ()
+
+  if (BUILD_DRGUI)
+    add_subdirectory(tools/DRgui)
+  endif ()
 endif (BUILD_DRGUI)
 
 # create empty logs dir for running out of build dir
