@@ -1747,6 +1747,13 @@ prot_is_copyonwrite(uint prot)
     return TESTANY(PAGE_WRITECOPY|PAGE_EXECUTE_WRITECOPY, prot);
 }
 
+/* true when page is a guard page and hasn't been touched */
+bool
+prot_is_guard(uint prot)
+{
+    return TEST(PAGE_GUARD, prot);
+}
+
 /* translate platform independent protection bits to native flags */
 int
 memprot_to_osprot(uint prot)
@@ -1767,6 +1774,8 @@ memprot_to_osprot(uint prot)
             os_prot = PAGE_READONLY;
     } else
         os_prot = PAGE_NOACCESS;
+    if (TEST(MEMPROT_GUARD, prot))
+        os_prot |= PAGE_GUARD;
     return os_prot;
 }
 
@@ -1781,6 +1790,8 @@ osprot_to_memprot(uint prot)
         mem_prot |= MEMPROT_WRITE;
     if (prot_is_executable(prot))
         mem_prot |= MEMPROT_EXEC;
+    if (prot_is_guard(prot))
+        mem_prot |= MEMPROT_GUARD;
     return mem_prot;
 }
 

@@ -333,6 +333,9 @@ char *get_dynamorio_library_path(void);
 #define DR_MEMPROT_READ  0x01 /**< Read privileges. */
 #define DR_MEMPROT_WRITE 0x02 /**< Write privileges. */
 #define DR_MEMPROT_EXEC  0x04 /**< Execute privileges. */
+#ifdef WINDOWS
+# define DR_MEMPROT_GUARD 0x08 /**< Guard page (Windows only) */
+#endif
 
 /**
  * Flags describing memory used by dr_query_memory_ex().
@@ -363,6 +366,9 @@ typedef struct _dr_mem_info_t {
 #define MEMPROT_READ  DR_MEMPROT_READ
 #define MEMPROT_WRITE DR_MEMPROT_WRITE
 #define MEMPROT_EXEC  DR_MEMPROT_EXEC
+#ifdef WINDOWS
+# define MEMPROT_GUARD DR_MEMPROT_GUARD
+#endif
 bool get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
 #ifdef LINUX
