@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -249,8 +249,11 @@ resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
     case OPSZ_4_of_16:
         return OPSZ_4;
     case OPSZ_8_of_16:
+        return OPSZ_8;
     case OPSZ_8_of_16_vex32:
         return (TEST(PREFIX_VEX_L, di->prefixes) ?  OPSZ_32 : OPSZ_8);
+    case OPSZ_16_of_32:
+        return OPSZ_16;
     }
     return sz;
 }
@@ -889,6 +892,13 @@ read_instruction(byte *pc, byte *orig_pc,
         if (info->type == RM_EXT) {
             info = &rm_extensions[info->code][di->rm];
         }
+    }
+    else if (info->type == VEX_L_EXT) {
+        /* discard old info, get new one */
+        int code = (int) info->code;
+        int idx = (di->vex_encoded) ?
+            (TEST(PREFIX_VEX_L, di->prefixes) ? 2 : 1) : 0;
+        info = &vex_L_extensions[code][idx];
     }
 
     if (TEST(REQUIRES_PREFIX, info->flags)) {

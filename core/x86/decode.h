@@ -594,6 +594,7 @@ enum {
     OPSZ_8_of_16_vex32, /* 64 bits, but can be half of XMM register; if
                          * vex.L then is 256 bits (YMM or memory)
                          */
+    OPSZ_16_of_32, /* 128 bits: half of YMM */
     OPSZ_LAST_ENUM, /* note last is NOT inclusive */
 };
 

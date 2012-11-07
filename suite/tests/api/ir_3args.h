@@ -254,5 +254,3 @@ OPCODE(vpermilps_noimm, vpermilps, vpermilps, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16))
 OPCODE(vpermilpd_noimm, vpermilpd, vpermilpd, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16))
-OPCODE(vextractf128, vextractf128, vextractf128, 0, MEMARG(OPSZ_16), REGARG(XMM0),
-       IMMARG(OPSZ_1))

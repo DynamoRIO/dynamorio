@@ -255,6 +255,7 @@ const char * const size_names[] = {
     "OPSZ_4_of_16",
     "OPSZ_8_of_16",
     "OPSZ_8_of_16_vex32",
+    "OPSZ_16_of_32",
 };
 
 #if defined(DEBUG) && defined(INTERNAL) && !defined(STANDALONE_DECODER)
@@ -541,6 +542,9 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
     case OPSZ_8_of_16: /* OPSZ_8_of_16_vex32 is kept */
         size_op = OPSZ_8;
         break;
+    case OPSZ_16_of_32:
+        size_op = OPSZ_16;
+        break;
     }
     switch (size_template) {
     case OPSZ_4_of_8:
@@ -549,6 +553,9 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         break;
     case OPSZ_8_of_16: /* OPSZ_8_of_16_vex32 is kept */
         size_template = OPSZ_8;
+        break;
+    case OPSZ_16_of_32:
+        size_template = OPSZ_16;
         break;
     }
 
@@ -711,6 +718,7 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_4_of_16:
         case OPSZ_8_of_16:
         case OPSZ_8_of_16_vex32:
+        case OPSZ_16_of_32:
         case OPSZ_0:
             /* handled below */
             break;
@@ -796,12 +804,27 @@ reg_size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         }
         return false;
     }
+    if (opsize == OPSZ_16_of_32) {
+        if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
+            /* Set VEX.L since required for some opcodes and the rest don't care */
+            di->prefixes |= PREFIX_VEX_L;
+            return true;
+        } else
+            return false;
+    }
     /* We assume that only type p uses OPSZ_6_irex10_short4: w/ data16, even though it's
      * 4 bytes and would fit in a register, this is invalid.
      */
     if (opsize == OPSZ_6_irex10_short4)
         return false; /* no register of size p */
-    return size_ok(di, reg_get_size(reg), resolve_var_reg_size(opsize, true), addr);
+    if (size_ok(di, reg_get_size(reg), resolve_var_reg_size(opsize, true), addr)) {
+        if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
+            /* Set VEX.L since required for some opcodes and the rest don't care */
+            di->prefixes |= PREFIX_VEX_L;
+        }
+        return true;
+    }
+    return false;
 }
 
 static bool

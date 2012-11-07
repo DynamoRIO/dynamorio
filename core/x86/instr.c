@@ -1157,6 +1157,7 @@ opnd_size_in_bytes(opnd_size_t size)
         return 8;
     case OPSZ_16:
     case OPSZ_16_vex32:
+    case OPSZ_16_of_32:
         return 16;
     case OPSZ_6x10:
         /* table base + limit; w/ addr16, different format, but same total footprint */
