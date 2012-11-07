@@ -48,6 +48,14 @@
 # include <wchar.h>
 #endif
 
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+/* drpreinject doesn't link utils.c.  We fail gracefully without the assertion,
+ * so just define it away.
+ */
+# undef CLIENT_ASSERT
+# define CLIENT_ASSERT(cond, msg)
+#endif /* NOT_DYNAMORIO_CORE_PROPER */
+
 #define VA_ARG_CHAR2INT
 #define BUF_SIZE 64
 
