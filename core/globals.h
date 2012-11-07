@@ -964,7 +964,7 @@ enum {
 };
 
 /* io.c */
-/* to avoid transparency problems we must have our own vnsprintf */
+/* to avoid transparency problems we must have our own vnsprintf and sscanf */
 #include <stdarg.h> /* for va_list */
 int our_snprintf(char *s, size_t max, const char *fmt, ...);
 int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
@@ -975,12 +975,11 @@ int our_vsnprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, va_list ap);
 #define vsnprintf our_vsnprintf
 #define snwprintf  our_snprintf_wide
 #define _snwprintf our_snprintf_wide
-#ifdef LINUX
 int our_sscanf(const char *str, const char *format, ...);
-const char * parse_int(const char *sp, uint64 *res_out, int base, int width,
+int our_vsscanf(const char *str, const char *fmt, va_list ap);
+const char * parse_int(const char *sp, uint64 *res_out, uint base, uint width,
                        bool is_signed);
-# define sscanf our_sscanf
-#endif
+#define sscanf our_sscanf
 
 /* string.c */
 int tolower(int c);

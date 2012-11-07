@@ -3691,6 +3691,17 @@ dr_vsnwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, va_list ap)
     return our_vsnprintf_wide(buf, max, fmt, ap);
 }
 
+DR_API int
+dr_sscanf(const char *str, const char *fmt, ...)
+{
+    int res;
+    va_list ap;
+    va_start(ap, fmt);
+    res = our_vsscanf(str, fmt, ap);
+    va_end(ap);
+    return res;
+}
+
 DR_API void 
 dr_print_instr(void *drcontext, file_t f, instr_t *instr, const char *msg)
 {

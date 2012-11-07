@@ -99,7 +99,6 @@ double2int(double d)
 #define IOX_WIDE_CHAR
 #include "iox.h"
 
-#ifdef LINUX
 /*****************************************************************************
  * Stand alone sscanf implementation.
  */
@@ -134,11 +133,11 @@ our_isspace(int c)
 }
 
 const char *
-parse_int(const char *sp, uint64 *res_out, int base, int width, bool is_signed)
+parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed)
 {
     bool negative = false;
     uint64 res = 0;
-    int i;  /* Use an index rather than pointer to compare with width. */
+    uint i;  /* Use an index rather than pointer to compare with width. */
 
     /* Check for invalid base. */
     if (base < 0 || base > 36 || base == 1) {
@@ -254,13 +253,21 @@ our_vsscanf(const char *str, const char *fmt, va_list ap)
             switch (c) {
             /* Modifiers, should all continue the loop. */
             case 'l':
-                ASSERT(int_size != SZ_LONGLONG && "too many longs");
-                if (int_size == SZ_LONG)
-                    int_size = SZ_LONGLONG;
-                else
+                if (int_size == SZ_INT) {
                     int_size = SZ_LONG;
-                continue;
+                } else if (int_size == SZ_LONG) {
+                    int_size = SZ_LONGLONG;
+                } else {
+                    CLIENT_ASSERT(int_size != SZ_SHORT,
+                                  "dr_sscanf: can't use %hl modifier");
+                    CLIENT_ASSERT(int_size != SZ_LONGLONG,
+                                  "dr_sscanf: too many longs (%lll)");
+                    return num_parsed;  /* error */
+                }
+                break;
             case 'h':
+                CLIENT_ASSERT(int_size == SZ_INT,
+                              "dr_sscanf: can't use %lh modifier");
                 int_size = SZ_SHORT;
                 continue;
             case '*':
@@ -274,6 +281,13 @@ our_vsscanf(const char *str, const char *fmt, va_list ap)
                  */
                 width = width * 10 + c - '0';
                 continue;
+            /* XXX: Modifiers we could add support for:
+             * - I64, I32: Windows-style integer widths.
+             * - j, z, t: C99 modifiers for intmax_t, size_t, and ptrdiff_t.
+             * - [] scan sets: These are complicated and better to avoid.
+             * - .*: For dynamically sized strings.  Not part of C scanf.
+             * - n$: Store the result into the nth pointer arg after fmt.
+             */
 
             /* Specifiers, should all break the loop. */
             case 'u':
@@ -301,9 +315,14 @@ our_vsscanf(const char *str, const char *fmt, va_list ap)
             case 's':
                 spec = SPEC_STRING;
                 goto spec_done;
+            /* XXX: Specifiers we could add support for:
+             * - o: octal integer
+             * - g, e, f: floating point
+             * - n: characters consumed so far
+             */
             default:
-                ASSERT(false && "unknown specifier");
-                return num_parsed;
+                CLIENT_ASSERT(false, "dr_sscanf: unknown specifier");
+                return num_parsed;  /* error */
             }
         }
 spec_done:
@@ -311,6 +330,7 @@ spec_done:
         /* Parse the string. */
         switch (spec) {
         case SPEC_CHAR:
+            /* XXX: We don't support width with %c. */
             if (!is_ignored) {
                 *va_arg(ap, char*) = *sp;
             }
@@ -324,7 +344,7 @@ spec_done:
             } else {
                 char *str_out = va_arg(ap, char*);
                 if (width > 0) {
-                    int i = 0;
+                    uint i = 0;
                     while (i < width && *sp != '\0' && !our_isspace(*sp)) {
                         *str_out++ = *sp++;
                         i++;
@@ -355,14 +375,17 @@ spec_done:
                     *va_arg(ap, long *) = (long)res;
                 else if (int_size == SZ_LONGLONG)
                     *va_arg(ap, long long *) = (long long)res;
-                else
+                else {
                     ASSERT_NOT_REACHED();
+                    return num_parsed;
+                }
             }
             break;
         }
         default:
             /* Format parsing code above should return an error earlier. */
             ASSERT_NOT_REACHED();
+            return num_parsed;
         }
 
         if (!is_ignored)
@@ -383,26 +406,17 @@ our_sscanf(const char *str, const char *fmt, ...)
     return res;
 }
 
-#endif /* LINUX */
-
 #ifdef STANDALONE_UNIT_TEST
-# ifdef LINUX
-#  include <errno.h>
-#  include <dlfcn.h>  /* for dlsym for libc routines */
-
-/* From dlfcn.h, but we'd have to define _GNU_SOURCE 1 before globals.h. */
-#  define RTLD_NEXT     ((void *) -1l)
-
-typedef void (*memcpy_t)(void *dst, const void *src, size_t n);
+/*****************************************************************************
+ * sscanf() tests
+ */
 
 /* Copied from core/linux/os.c and modified so that they work when run
  * cross-arch.  We need %ll to parse 64-bit ints on 32-bit and drop the %l to
  * parse 32-bit ints on x64.
  */
-#  define UI64 UINT64_FORMAT_CODE
-#  define HEX64 INT64_FORMAT"x"
-#  define MAPS_LINE_FORMAT4 "%08x-%08x %s %08x %*s %"UI64" %4096s"
-#  define MAPS_LINE_FORMAT8 "%016"HEX64"-%016"HEX64" %s %016"HEX64" %*s %"UI64" %4096s"
+# define MAPS_LINE_FORMAT4 "%08x-%08x %s %08x %*s %llu %4096s"
+# define MAPS_LINE_FORMAT8 "%016llx-%016llx %s %016llx %*s %llu %4096s"
 
 static void
 test_sscanf_maps_x86(void)
@@ -519,6 +533,19 @@ test_sscanf_all_specs(void)
      * integers that overflow their requested integer sizes.
      */
 }
+
+/*****************************************************************************
+ * memcpy() and memset() tests
+ */
+
+# ifdef LINUX
+#  include <errno.h>
+#  include <dlfcn.h>  /* for dlsym for libc routines */
+
+/* From dlfcn.h, but we'd have to define _GNU_SOURCE 1 before globals.h. */
+#  define RTLD_NEXT     ((void *) -1l)
+
+typedef void (*memcpy_t)(void *dst, const void *src, size_t n);
 
 static void
 test_memcpy_offset_size(size_t src_offset, size_t dst_offset, size_t size)
@@ -695,12 +722,12 @@ unit_test_io(void)
     wbuf[6] = L'\0';
     EXPECT(wcscmp(wbuf, L"narrow"), 0);
 
-#ifdef LINUX
     /* sscanf tests */
     test_sscanf_maps_x86();
     test_sscanf_maps_x64();
     test_sscanf_all_specs();
 
+#ifdef LINUX
     /* memcpy tests */
     test_our_memcpy();
     our_memcpy_vs_libc();
