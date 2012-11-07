@@ -3479,6 +3479,14 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
     priv_mcontext_t mc;
     recreate_success_t res;
 
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+    bool swap_peb = false;
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
+        dr_using_app_state(tdcontext)) {
+        swap_peb_pointer(tdcontext, true/*to priv*/);
+        swap_peb = true;
+    }
+#endif
     LOG(THREAD_GET, LOG_INTERP, 2,
         "recreate_app_pc -- translating from pc="PFX"\n", pc);
 
@@ -3499,6 +3507,10 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
     LOG(THREAD_GET, LOG_INTERP, 2,
         "recreate_app_pc -- translation is "PFX"\n", mc.pc);
     
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+    if (swap_peb)
+        swap_peb_pointer(tdcontext, false/*to app*/);
+#endif
     return mc.pc;
 }
 
@@ -3543,7 +3555,14 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                    bool restore_memory, fragment_t *f)
 {
     recreate_success_t res;
-
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+    bool swap_peb = false;
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
+        dr_using_app_state(tdcontext)) {
+        swap_peb_pointer(tdcontext, true/*to priv*/);
+        swap_peb = true;
+    }
+#endif
 #ifdef DEBUG
     if (stats->loglevel >= 2 && (stats->logmask & LOG_SYNCH) != 0) {
         LOG(THREAD_GET, LOG_SYNCH, 2,
@@ -3553,7 +3572,7 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
 #endif
 
     res = recreate_app_state_internal(tdcontext, mcontext, false, f, restore_memory);
-        
+
 #ifdef DEBUG
     if (res) {
         if (stats->loglevel >= 2 && (stats->logmask & LOG_SYNCH) != 0) {
@@ -3567,6 +3586,10 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
     }
 #endif
 
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+    if (swap_peb)
+        swap_peb_pointer(tdcontext, false/*to app*/);
+#endif
     return res;
 }
 
