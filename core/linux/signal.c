@@ -4084,7 +4084,8 @@ master_signal_handler_C(byte *xsp)
                 dr_signal_action_t action =
                     send_signal_to_client(dcontext, sig, frame, sc,
                                           target, false/*!blocked*/, NULL);
-                if (!handle_client_action_from_cache(dcontext, sig, action, frame,
+                if (action != DR_SIGNAL_DELIVER && /* for delivery, continue below */
+                    !handle_client_action_from_cache(dcontext, sig, action, frame,
                                                      sc, false/*!blocked*/)) {
                     /* client handled fault */
                     break;
