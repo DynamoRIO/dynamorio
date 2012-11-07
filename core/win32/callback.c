@@ -5668,11 +5668,20 @@ intercept_callback_start(app_state_at_intercept_t *state)
         return AFTER_INTERCEPT_LET_GO;
 
     if (intercept_callbacks && intercept_asynch_for_self(false/*no unknown threads*/)) {
-        SELF_PROTECT_LOCAL(get_thread_private_dcontext(), WRITABLE);
+        dcontext_t *dcontext = get_thread_private_dcontext();
+        /* should not receive callback while in DR code! */
+        if (is_on_dstack(dcontext, (byte *)state->mc.xsp)) {
+            CLIENT_ASSERT(false, "Received callback while in tool code!"
+                          "Please avoid making alertable syscalls from tool code.");
+            /* We assume a callback received on the dstack is an error from a client
+             * invoking an alertable syscall.  Safest to let it run natively.
+             */
+            return AFTER_INTERCEPT_LET_GO;
+        }
+        SELF_PROTECT_LOCAL(dcontext, WRITABLE);
         /* won't be re-protected until dispatch->fcache */
         ASSERT(is_thread_initialized());
-        /* should not receive APC while in DR code! */
-        ASSERT(get_thread_private_dcontext()->whereami == WHERE_FCACHE);
+        ASSERT(dcontext->whereami == WHERE_FCACHE);
         DODEBUG({
             /* get callback target address
              * we want ((fs:0x18):0x30):0x2c => TEB->PEB->KernelCallbackTable
@@ -5680,7 +5689,6 @@ intercept_callback_start(app_state_at_intercept_t *state)
              * from rsp+0x2c.
              */
             app_pc target = NULL;
-            uint *reg_esp = (uint *) state->mc.xsp;
             app_pc *cbtable = (app_pc *) get_own_peb()->KernelCallbackTable;
             target = cbtable[*(uint*)(state->mc.xsp+IF_X64_ELSE(0x2c,4))];
             LOG(THREAD_GET, LOG_ASYNCH, 2,

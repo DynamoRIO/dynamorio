@@ -51,6 +51,7 @@ Contents:
 - \ref sec_trans_resource
 - \ref sec_trans_unmod
 - \ref sec_trans_pretend
+- \ref sec_trans_alertable
 \if vmsafe
 - \ref sec_trans_probe
 \endif
@@ -308,6 +309,18 @@ break points will not work correctly (and in fact can lead to
 corruption of the DynamoRIO code cache).  Debugging Tools for Windows and
 \p gdb are known to work with DynamoRIO with the exception of the
 issues noted above. 
+
+***************************************************************************
+\section sec_trans_alertable Alertable System Calls
+
+DynamoRIO does not support a client making alertable system calls.  These
+are system calls that can be interrupted for delivery of callbacks or
+asynchronous procedure calls.  At the Windows API layer, they include all
+of the Wait functions (WaitForSingleObject, WaitForMultipleObjects, etc.)
+and many Windows message queue functions (GetMessage, SendMessage,
+ReplyMessage).  In general, avoiding graphical or windowing library or
+system calls is advisable.  DynamoRIO does not guarantee correct execution
+when a callback arrives during client code execution.
 
 \if vmsafe
 ***************************************************************************
