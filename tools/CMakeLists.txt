@@ -164,14 +164,14 @@ else (UNIX)
     add_executable(${tgt} ${tgt}.c ${RESOURCES})
 
     if ("${tgt}" STREQUAL "ldmp")
-      set(extra_lib "${ntimp_lib}")
+      set(extra_lib libcmt "${ntimp_lib}")
       if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
         # for parallel build correctness we need a target dependence
         add_dependencies(${tgt} ntimp_tgt)
       endif ()
     endif ("${tgt}" STREQUAL "ldmp")
     target_link_libraries(${tgt}
-      policy_static user32 advapi32 pdh imagehlp shell32 "${extra_lib}")
+      policy_static user32 advapi32 pdh imagehlp shell32 ${extra_lib})
 
     string(REGEX MATCH "(closewnd|winstats|create_process)" no_unicode "${tgt}")
     if (no_unicode)

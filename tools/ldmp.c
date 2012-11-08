@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,21 @@
 #include <assert.h>
 
 #define RC1_HACK 1
-#define VERBOSE 0
+
+static int verbose = 1;
+
+/* Avoid flushing issues on Windows, and keep warnings and info messages
+ * all in the same order, by always going to STDERR
+ */
+#define PRINT(...) fprintf(stderr,  __VA_ARGS__)
+
+#define INFO(level, ...) do { \
+    if (verbose >= (level)) { \
+        PRINT(__VA_ARGS__);   \
+    }                         \
+} while (0)
+
+#define WARN(...) INFO(0, __VA_ARGS__)
 
 /* alignment helpers */
 #define ALIGNED(x, alignment) ((((uint)x) & ((alignment)-1)) == 0)
@@ -284,6 +298,9 @@ set_win32_start_addr(HANDLE h, uint *start_addr)
                                        IN ULONG ThreadInformationLength));
     res = NtSetInformationThread(h, ThreadQuerySetWin32StartAddress,
                                  start_addr, sizeof(*start_addr));
+    if (!NT_SUCCESS(res)) {
+        INFO(1, "setting thread start addr failed with 0x%08x\n", res);
+    }
     return NT_SUCCESS(res);
 }
 
@@ -389,7 +406,8 @@ prot_string(DWORD prot)
 void
 dump_mbi(MEMORY_BASIC_INFORMATION *mbi)
 {
-    printf("BaseAddress:       %08x\n"
+    PRINT(
+           "BaseAddress:       %08x\n"
            "AllocationBase:    %08x\n"
            "AllocationProtect: %08x %s\n"
            "RegionSize:        %08x\n"
@@ -531,31 +549,31 @@ print_descriptor(DESCRIPTOR_TABLE_ENTRY *entry)
         limit = limit << 12 | 0xfff;
     }
     
-    printf("\t%04x ", entry->Selector);
-    printf("%08x ", base);
-    printf("%08x ", limit);
+    PRINT("\t%04x ", entry->Selector);
+    PRINT("%08x ", base);
+    PRINT("%08x ", limit);
 
     /* The definition for LDT_ENTRY combines the S and type fields 
      * into a five bit field. */
     if (TEST(0x10, descr->HighWord.Bits.Type)) {
-        printf("%s ", types[descr->HighWord.Bits.Type & 0xf]);
+        PRINT("%s ", types[descr->HighWord.Bits.Type & 0xf]);
     } else {
-        printf("System               ");
+        PRINT("System               ");
     }
 
-    printf(" %x  ", descr->HighWord.Bits.Dpl);
-    printf(" %x  ", descr->HighWord.Bits.Default_Big);
-    printf("%s  ", descr->HighWord.Bits.Granularity == 1 ? "4kb" : " 1b");
-    printf(" %x   ", descr->HighWord.Bits.Pres);
-    printf("%x ", descr->HighWord.Bits.Reserved_0);
-    printf(" %x\n", descr->HighWord.Bits.Sys);
+    PRINT(" %x  ", descr->HighWord.Bits.Dpl);
+    PRINT(" %x  ", descr->HighWord.Bits.Default_Big);
+    PRINT("%s  ", descr->HighWord.Bits.Granularity == 1 ? "4kb" : " 1b");
+    PRINT(" %x   ", descr->HighWord.Bits.Pres);
+    PRINT("%x ", descr->HighWord.Bits.Reserved_0);
+    PRINT(" %x\n", descr->HighWord.Bits.Sys);
 }
 
 static void
 print_descriptors(DESCRIPTOR_TABLE_ENTRY entries[6])
 {
     int i;
-    printf("\n\tSel    Base    Limit            Type        Dpl D/B Gran Pres L Sys\n"
+    PRINT("\n\tSel    Base    Limit            Type        Dpl D/B Gran Pres L Sys\n"
            "\t---- -------- -------- -------------------- --- --- ---- ---- - ---\n");
 
     for (i=0; i<6; i++) {
@@ -565,7 +583,7 @@ print_descriptors(DESCRIPTOR_TABLE_ENTRY entries[6])
             print_descriptor(&entries[i]);
         }
     }
-    printf("\n");
+    PRINT("\n");
 }
 
 static void
@@ -693,9 +711,9 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
             fgets(buf, sizeof(buf), file);
             /* only show error when creating to avoid duplicate messages */
             if (create) {
-                printf("\nError reading thread state for original thread tid=0x%04x\n",
-                       thread_id);
-                printf("%s", buf);
+                WARN("\nError reading thread state for original thread tid=0x%04x\n",
+                     thread_id);
+                WARN("%s", buf);
             }
             fgets(buf, sizeof(buf), file); /* read in the newline */
             /* clear context integer registers */
@@ -708,29 +726,30 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
                                  &cid, &cxt, &stack, TRUE);
             assert(NT_SUCCESS(res));
             res = set_win32_start_addr(hThread, &win32_start_addr);
-            assert(res);
+            if (!res)
+                WARN("unable to set thread start address to %p\n", win32_start_addr);
             res = query_thread_info(hThread, &thread_info);
             assert(res);
             new_id = (uint)thread_info.ClientId.UniqueThread;
-            printf("created thread tid=0x%04x with TEB=0x%08x original tid=0x%04x with TEB=0x%08x\n",
+            INFO(1, "created thread tid=0x%04x with TEB=0x%08x original tid=0x%04x with TEB=0x%08x\n",
                    new_id, thread_info.TebBaseAddress, thread_id, teb);
             if (valid_selectors) {
-                printf("\tcs=%04x ss=%04x ds=%04x es=%04x fs=%04x gs=%04x\n",
+                INFO(1, "\tcs=%04x ss=%04x ds=%04x es=%04x fs=%04x gs=%04x\n",
                        Cs, Ss, Ds, Es, Fs, Gs);
             }
             if (entries[0].Selector != 0) {
                 print_descriptors(entries);
             }
             if (valid_handle_state) {
-                printf("\tHandleRights=0x%08x\n", handle_rights);
+                INFO(1, "\tHandleRights=0x%08x\n", handle_rights);
             }
             if (teb == NULL) {
-                printf("\twill be unable to copy over TEB\n");
+                WARN("\twill be unable to copy over TEB\n");
             } else {
                 add_mapped_addr(teb, (char *)thread_info.TebBaseAddress);
             }
             if (!valid_state)
-                printf("\tnew thread's register state is invalid\n\n");
+                WARN("\tnew thread's register state is invalid\n\n");
             CloseHandle(hThread);
         } else {
             /* prevent this region from being copied over till we know 
@@ -747,6 +766,8 @@ create_process(char *path)
     UNICODE_STRING uexe;
     OBJECT_ATTRIBUTES oa;
     IO_STATUS_BLOCK iosb;
+    NTSTATUS res;
+    wchar_t abs_path[MAX_PATH];
     wchar_t wpath[MAX_PATH];
     GET_NTDLL(NtCreateProcess, (OUT PHANDLE ProcessHandle,
                                 IN ACCESS_MASK DesiredAccess,
@@ -770,27 +791,32 @@ create_process(char *path)
                                 IN ULONG Attributes,
                                 IN HANDLE FileHandle));
     
-    /* create dummy process */
-    _snwprintf(wpath, BUFFER_SIZE_ELEMENTS(wpath), L"\\??\\%hs", path);
+    /* convert to absolute path which is required for create_process() */
+    _snwprintf(wpath, BUFFER_SIZE_ELEMENTS(wpath), L"%hs", path);
     NULL_TERMINATE_BUFFER(wpath);
-#if VERBOSE
-    printf("dummy exe path = %ls\n", wpath);
-#endif
+    GetFullPathName(wpath, BUFFER_SIZE_ELEMENTS(abs_path), abs_path, NULL);
+    NULL_TERMINATE_BUFFER(abs_path);
+    /* create dummy process */
+    _snwprintf(wpath, BUFFER_SIZE_ELEMENTS(wpath), L"\\??\\%s", abs_path);
+    NULL_TERMINATE_BUFFER(wpath);
+    INFO(2, "dummy exe path = %ls\n", wpath);
     wchar_to_unicode(&uexe, wpath);
     InitializeObjectAttributes(&oa, &uexe, OBJ_CASE_INSENSITIVE, NULL, NULL);
     if (!NT_SUCCESS(NtOpenFile(&hFile, FILE_EXECUTE | SYNCHRONIZE, &oa, &iosb,
                                FILE_SHARE_READ, FILE_SYNCHRONOUS_IO_NONALERT))) {
-        printf("failed to open dummy process exe file\n");
+        WARN("failed to open dummy process exe file\n");
         exit(0);
     }
     oa.ObjectName = 0;
-    if (!NT_SUCCESS(NtCreateSection(&hSection, SECTION_ALL_ACCESS, &oa,
-                                    0, PAGE_EXECUTE, SEC_IMAGE, hFile))) {
-        printf("failed to create section\n");
+    res = NtCreateSection(&hSection, SECTION_ALL_ACCESS, &oa,
+                          0, PAGE_EXECUTE, SEC_IMAGE, hFile);
+    if (!NT_SUCCESS(res)) {
+        WARN("failed to create section with error=0x%08x\n", res);
     }
-    if (!NT_SUCCESS(NtCreateProcess(&hProc, PROCESS_ALL_ACCESS, &oa,
-                                    GetCurrentProcess(), true, hSection, 0, 0))) {
-        printf("failed to create dummy process\n");
+    res = NtCreateProcess(&hProc, PROCESS_ALL_ACCESS, &oa,
+                          GetCurrentProcess(), true, hSection, 0, 0);
+    if (!NT_SUCCESS(res)) {
+        WARN("failed to create dummy process with error=0x%08x\n", res);
         exit(0);
     }
     return hProc;
@@ -823,10 +849,8 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
             
             /* we can't handle write copy flag! remove it */
             allocation_protect = remove_writecopy(allocation_protect);
-#if VERBOSE
-            printf("allocation base = 0x%08x, protect = 0x%08x\n", 
-                   allocation_base, allocation_protect);
-#endif
+            INFO(2, "allocation base = 0x%08x, protect = 0x%08x\n", 
+                allocation_base, allocation_protect);
 
             do {
                 allocation_size += mbi.RegionSize;
@@ -880,9 +904,9 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 if (!ALIGNED(allocation_base, ALLOCATION_GRANULARITY)) {
                     /* probably a TEB for a thread that wasn't in the all
                      * threads list at time of ldmp */
-                    printf("Probable TEB for unknown thread region "
-                           "addr 0x%08x size 0x%08x\n", 
-                           allocation_base, allocation_size);
+                    WARN("Probable TEB for unknown thread region (or x64 PEB/TEB?) "
+                         "addr 0x%08x size 0x%08x\n", 
+                         allocation_base, allocation_size);
                 }
                 target = allocation_base;
                 /* FIXME : why can't we use VirtualAllocEx? it fails with
@@ -899,7 +923,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                                                             MEMORY_COMMIT);
                 }
                 if (!res) {
-                    printf("ERROR: unable to allocate memory at 0x%08x size 0x%08x, SKIPPING\n", 
+                    WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x, SKIPPING\n", 
                            allocation_base, allocation_size);
                     res = fsetpos(file, &last_mbi_pos);
                     assert(res == 0);
@@ -908,17 +932,13 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
 
                 assert(target != NULL);
                 if (target != allocation_base) {
-                    printf("ERROR: unable to allocate memory at 0x%08x size 0x%08x\n\t will be copied to 0x%08x instead\n", 
+                    WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x\n\t will be copied to 0x%08x instead\n", 
                            allocation_base, allocation_size, target);
                 }
-#if VERBOSE
-                printf("target = 0x%08x, base = 0x%08x\n", target, allocation_base);
-#endif
+                INFO(2, "target = 0x%08x, base = 0x%08x\n", target, allocation_base);
             }
-#if VERBOSE
-            printf("size=0x%08x\n", allocation_size);
-            printf("target=0x%08x\n", target);
-#endif
+            INFO(2, "size=0x%08x\n", allocation_size);
+            INFO(2, "target=0x%08x\n", target);
 
             /* reset file pointer */
             res = fsetpos(file, &pos);
@@ -936,7 +956,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                     res = VirtualFreeEx(hProc, TARGET_ADDR, mbi.RegionSize, 
                                         MEM_DECOMMIT);
                     if (!res && TARGET_ADDR == (char *)0x7ffe1000) {
-                        printf("unable to make post vsyscall/shared user data page 0x7ffe1000 reserve, skipping\n");
+                        WARN("unable to make post vsyscall/shared user data page 0x7ffe1000 reserve, skipping\n");
                         /* in case break out, save position */
                         res = fgetpos(file, &pos);
                         assert(res == 0);
@@ -954,7 +974,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                                                mbi.RegionSize, PAGE_READWRITE, 
                                                &old_prot);
                         if (!res && TARGET_ADDR == (char *)0x7ffe0000) {
-                            printf("unable to copy over vsyscall/shared user data page 0x7ffe0000, skipping\n");
+                            WARN("unable to copy over vsyscall/shared user data page 0x7ffe0000, skipping\n");
                             reached_vsyscall_page = true;
                             res = fseek(file, mbi.RegionSize, SEEK_CUR);
                             assert(res == 0);
@@ -1009,6 +1029,15 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
     }
 }
 
+static void
+usage(const char *msg)
+{
+    PRINT("%s\nusage: ldmp [-verbose <N>] <.ldmp file> <dummy executable>\n",
+            msg);
+    PRINT("example: bin32/ldmp logs/hello.exe.5124.0000000.ldmp bin32/dummy.exe\n");
+    exit(-1);
+}
+
 /* creates a debuggable process that matches (roughly) the process that was 
  * used to generate the .ldmp file, prints out a mapping of thread_ids from 
  * the dump to the new process.
@@ -1025,28 +1054,38 @@ main(DWORD argc, char *argv[], char *envp[])
 
     DWORD res;
     fpos_t thread_start_pos;
+    DWORD i;
 
-    if (argc != 3) {
-        printf("usage : ldmp <.ldmp file> <dummy executable, absolute local \\ path>\n");
-        printf("ex from cygwin\n"
-               "ldmp ../logs/nspmon.exe.5124.0000000.ldmp c:\\\\tools\\\\dummy.exe");
-        exit(-1);
+    for (i = 1; i < argc; i++) {
+        if (argv[i][0] == '-') {
+            if (strcmp(argv[i], "-verbose") == 0) {
+                if (i >= argc - 1)
+                    usage("-verbose takes an integer");
+                verbose = atoi(argv[++i]);
+            } else
+                usage("unknown option");
+        } else
+            break;
     }
-    if (GetProcAddress(GetModuleHandle(L"ntdll.dll"), "NtCreateThreadEx")) {
-        printf("ERROR - ldmp.exe does not yet support running on Vista, please use\n\t"
-               "a 2k/XP/2k3 machine to open this ldmp file (xref case 10990).\n");
-        exit(-1);
-    }
-#if VERBOSE
-    printf("opening file\n");
-#endif
-    file = fopen(argv[1], "rb");
+    if (i >= argc -1)
+        usage("missing arguments");
+    INFO(1, "opening ldump file %s\n", argv[i]);
+    file = fopen(argv[i], "rb");
     if (file == NULL) {
-        printf("unable to find file %s\n", argv[1]);
+        WARN("unable to find file %s\n", argv[i]);
         exit(-1);
     }
 
-    hProc = create_process(argv[2]);
+    hProc = create_process(argv[i+1]);
+
+    if (GetProcAddress(GetModuleHandle(L"ntdll.dll"), "NtCreateThreadEx")) {
+        /* XXX i#397: on Vista in the past we saw NtCreateThread fail
+         * with STATUS_INVALID_IMAGE_FORMAT, but it seems to be
+         * working now on win7 so we'll stick with it rather than
+         * cobbling together an approach that uses NtCreateThreadEx.
+         */
+        WARN("ldmp.exe may not work fully on Vista+ (i#397)\n");
+    }
 
     /* read peb (& message if there is one) */
     res = fscanf(file, "PEB=0x%08x\n", &pb);
@@ -1070,23 +1109,24 @@ main(DWORD argc, char *argv[], char *envp[])
         assert(res == length);
         buf[length] = '\0';
         /* Remember that buf has a newline as its first char */
-        printf("Message -%s- End Message\n", buf);
-        fflush(stdout);
+        INFO(1, "\n**************************************************\n"
+             "Message:\n%s\n**************************************************\n", buf);
         res = fscanf(file, "PEB=0x%08x\n", &pb);
     }
     assert(res == 1);
     res = query_process_info(hProc, &info);
     assert(res);
-    printf("\ncreated dummy process pid=%d with PEB=0x%08x original PEB=0x%08x\n",
-           info.UniqueProcessId, info.PebBaseAddress, pb);
+    INFO(1, "\ncreated dummy process pid=%d with PEB=0x%08x original PEB=0x%08x\n",
+         info.UniqueProcessId, info.PebBaseAddress, pb);
 
     /* read dynamorio.dll base, present only in format after case 5366 */
     if (fscanf(file, "dynamorio.dll=0x%08x\n", &drbase) == 1) {
         /* for custom scripting */
-        printf("\ndynamorio.dll=0x%08x\n", drbase);
+        INFO(1, "\ndynamorio.dll=0x%08x\n", drbase);
         /* or more likely */
-        printf("\nwindbg -pv -p %d -c '.reload dynamorio.dll=0x%08x'\n", 
-               info.UniqueProcessId, drbase);
+        INFO(1, "\nRun this command, or attach non-invasively from an existing windbg:\n"
+             "windbg -pv -p %d -c '.reload dynamorio.dll=0x%08x'\n\n", 
+             info.UniqueProcessId, drbase);
     }
 
     add_mapped_addr(pb, (char *)info.PebBaseAddress);
@@ -1099,7 +1139,7 @@ main(DWORD argc, char *argv[], char *envp[])
     assert(res == 0);
     read_threads(file, false, hProc);
 
-    printf("\n");
+    INFO(1, "\n");
     /* free memory in dummy process */
     pb = NULL;
     while(VirtualQueryEx(hProc, pb, &mbi, sizeof(mbi)) == sizeof(mbi)) {
@@ -1114,29 +1154,24 @@ main(DWORD argc, char *argv[], char *envp[])
                                                  IN PVOID BaseAddress));
                 if (!NT_SUCCESS(NtUnmapViewOfSection(hProc, mbi.AllocationBase))) {
                     if (get_original_addr(mbi.AllocationBase) == FAIL) {
-                        printf("Unable to free memory region :\n");
+                        /* this happens in wow64 w/ the x64 PEB */
+                        WARN("Unable to free memory region (x64 PEB?):\n");
                         dump_mbi(&mbi);
                     }
                     pb += mbi.RegionSize;
                 } else {
-#if VERBOSE
-                    printf("unmapped allocation at 0x%08x\n", mbi.AllocationBase);
-#endif
+                    INFO(2, "unmapped allocation at 0x%08x\n", mbi.AllocationBase);
                 }
             } else {
-#if VERBOSE
-                printf("freed memory at 0x%08x\n", mbi.AllocationBase);
-#endif
+                INFO(2, "freed memory at 0x%08x\n", mbi.AllocationBase);
             }
         }
     }
-#if VERBOSE
-    printf("finished freeing memory, starting copy over\n");
-#endif
+    INFO(1, "finished freeing memory, starting copy over\n");
 
     /* chomp any error line (such as all threads list freed) */
     if (fscanf(file, "<%512[a-zA-Z1-9 ]>", &buf))
-        printf("%s\n", buf);
+        WARN("%s\n", buf);
 
     /* copy over directly corresponding (non-mapped) memory regions */
     copy_memory(file, false, hProc);
@@ -1147,7 +1182,7 @@ main(DWORD argc, char *argv[], char *envp[])
     res = fsetpos(file, &thread_start_pos);
     assert(res == 0);
     read_threads(file, true, hProc);
-    printf("\n");
+    INFO(1, "\n");
 
     /* now copy over mapped allocations */
     /* first chomp off any error line, we already printed it once above */
@@ -1155,12 +1190,12 @@ main(DWORD argc, char *argv[], char *envp[])
     copy_memory(file, true, hProc);
 
     if (!reached_vsyscall_page) {
-        printf("ERROR: failed to reach shared_user_data/vsyscall page, ldmp likely truncated.\n"
+        WARN("ERROR: failed to reach shared_user_data/vsyscall page, ldmp likely truncated.\n"
                "       Memory above 0x%08x is likely unavailable or incorrect.\n\n",
                highest_address_copied);
     }
 
-    printf("finished\n");
+    INFO(1, "finished\n");
     CloseHandle(hProc);
     return 0;
 }
