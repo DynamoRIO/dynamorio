@@ -940,7 +940,9 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
       set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
     endif ()
   else (UNIX)
-    set(dr_ops "-stderr_mask 0xC -msgbox_mask 0 -dumpcore_mask 0xfd -staged ${dr_ops_aux} ${TEST_OPTIONS}")
+    # Turn on core dumps for most fatal errors.  Don't dump for curiosities or
+    # security violations.
+    set(dr_ops "-stderr_mask 0xC -msgbox_mask 0 -dumpcore_mask 0x7d -staged ${dr_ops_aux} ${TEST_OPTIONS}")
     if (is_runall)
       # eliminate double-spaces, to help w/ passing strings to runall.cmake
       string(REGEX REPLACE "  +" " " dr_ops "${dr_ops}")
