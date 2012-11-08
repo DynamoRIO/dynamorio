@@ -1927,7 +1927,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
  *   0xc0000005 0x00000000 0x15003075 0x15003075 0x00000001 0x00000037 
  *   Registers: eax 0x00000000 ebx 0x00000000 ecx 0x177c9040 edx 0x177c9040
  *           esi 0x00000b56 edi 0x0000015f esp 0x177e3eb0 eflags 0x00010246
- *   Delta: 0x0000000
+ *   Base: 0x15000000
  *   internal version, custom build
  *   -loglevel 2 -msgbox_mask 12 -stderr_mask 12 
  *   0x00342ee8 0x150100f2
@@ -1955,13 +1955,13 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
    * # YY defaults to 1st 2 letters of CUR_TREE, unless CASENUM is defined,
    * # in which case it is the last 2 letters of CASENUM (all % 10 of course)
    */
-#define REPORT_LEN_OPTIONS   192
+#define REPORT_LEN_OPTIONS   IF_CLIENT_INTERFACE_ELSE(384, 192)
   /* still not long enough for ALL non-default options but I'll wager money we'll never
    * see this option string truncated, at least for non-internal builds
-   * (famous last words?)
+   * (famous last words?) => yes!  For clients this can get quite long.
    * List options from staging mode could be problematic though.
    */
-#define REPORT_NUM_STACK      10
+#define REPORT_NUM_STACK      IF_CLIENT_INTERFACE_ELSE(15, 10)
 #ifdef X64
 # define REPORT_LEN_STACK_EACH (22+2*8)
 #else
@@ -1969,9 +1969,15 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #endif
   /* just frame ptr, ret addr: "0x0342fc7c 0x77f8c6dd\n" == 22 chars per line */
 #define REPORT_LEN_STACK      (REPORT_LEN_STACK_EACH)*(REPORT_NUM_STACK)
+#ifdef CLIENT_INTERFACE
+/* We have to stay under MAX_LOG_LENGTH so we limit to ~10 basenames */
+# define REPORT_LEN_PRIVLIBS  (45 * 10)
+#endif
 /* Not persistent across code cache execution, so not protected */
 DECLARE_NEVERPROT_VAR(static char reportbuf[REPORT_MSG_MAX + REPORT_LEN_VERSION +
-                                            REPORT_LEN_OPTIONS + REPORT_LEN_STACK + 1],
+                                            REPORT_LEN_OPTIONS + REPORT_LEN_STACK +
+                                            IF_CLIENT_INTERFACE(REPORT_LEN_PRIVLIBS +)
+                                            1],
                       {0,});
 DECLARE_CXTSWPROT_VAR(static mutex_t report_buf_lock, INIT_LOCK_FREE(report_buf_lock));
 /* Avoid deadlock w/ nested reports */
@@ -2006,7 +2012,16 @@ under_internal_exception()
 #else
 # define EXCEPTION_PREFIX "Unrecoverable error at PC 0x00000000\n"
 #endif
+#ifdef CLIENT_INTERFACE
+# ifdef X64
+#  define CLIENT_EXCEPTION_PREFIX "Client exception at PC 0x0000000000000000\n"
+# else
+#  define CLIENT_EXCEPTION_PREFIX "Client exception at PC 0x00000000\n"
+# endif
+#endif
 #define REPORT_EXCEPTION_SKIP_PREFIX (sizeof(EXCEPTION_PREFIX) - 1/*NULL*/ -1/*include newline!*/)
+#define REPORT_CLIENT_EXCEPTION_SKIP_PREFIX \
+    (sizeof(CLIENT_EXCEPTION_PREFIX) - 1/*NULL*/ -1/*include newline!*/)
 
 /* Fine to pass NULL for dcontext, will obtain it for you.
  * If dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION, does a full SYSLOG;
@@ -2084,6 +2099,20 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
         curbuf += (len == -1 ? REPORT_LEN_STACK_EACH : (len < 0 ? 0 : len));
     }
 
+#ifdef CLIENT_INTERFACE
+    /* Only walk the module list if we think the data structs are safe */
+    if (dumpcore_flag != DUMPCORE_INTERNAL_EXCEPTION) {
+        size_t sofar = 0;
+        /* We decided it's better to include the paths even if it means we may
+         * not fit all the modules (i#968).  We plan to add the modules to the
+         * forensics file to have complete info (i#972).
+         */
+        privload_print_modules(true/*include path*/, false/*no lock*/,
+                               curbuf, REPORT_LEN_PRIVLIBS, &sofar);
+        curbuf += sofar;
+    }
+#endif
+
     /* SYSLOG_INTERNAL and diagnostics expect no trailing newline */
     ASSERT(*(curbuf-1) == '\n');
     curbuf--;
@@ -2099,16 +2128,27 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
 
     /* we already synchronized the options at the top of this function and we
      * might be stack critical so use _NO_OPTION_SYNCH */
-    if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION) {
+    if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION
+        IF_CLIENT_INTERFACE(|| dumpcore_flag == DUMPCORE_CLIENT_EXCEPTION)) {
         char saddr[IF_X64_ELSE(19,11)];
         snprintf(saddr, BUFFER_SIZE_ELEMENTS(saddr), PFX, exception_addr);
         NULL_TERMINATE_BUFFER(saddr);
-        SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, EXCEPTION, 4,
-                               get_application_name(), get_application_pid(), 
-                               saddr,
-                               /* skip the prefix since the event log string 
-                                * already has it */
-                               reportbuf + REPORT_EXCEPTION_SKIP_PREFIX);
+        if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION) {
+            SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, EXCEPTION, 4,
+                                   get_application_name(), get_application_pid(),
+                                   saddr,
+                                   /* skip the prefix since the event log string
+                                    * already has it */
+                                   reportbuf + REPORT_EXCEPTION_SKIP_PREFIX);
+        } 
+#ifdef CLIENT_INTERFACE
+        else {
+            SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, CLIENT_EXCEPTION, 4,
+                                   get_application_name(), get_application_pid(),
+                                   saddr,
+                                   reportbuf + REPORT_CLIENT_EXCEPTION_SKIP_PREFIX);
+        }
+#endif
     } else if (dumpcore_flag == DUMPCORE_ASSERTION) {
         /* We need to report ASSERTS in DEBUG=1 INTENERAL=0 builds since we're still
          * going to kill the process. Xref PR 232783. internal_error() already 

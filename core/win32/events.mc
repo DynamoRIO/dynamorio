@@ -215,7 +215,15 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_CLIENT_EXCEPTION
 Language=English
-Application %1!s! (%2!s!).  Client exception at PC %3!s!.
+Application %1!s! (%2!s!).  Client exception at PC %3!s!.  Program aborted. %4!s!
+.
+
+MessageId = 
+Severity = Warning
+Facility = DRCore
+SymbolicName = MSG_APP
+Language=English
+Application %1!s! (%2!s!).  Application exception at PC %3!s!. %4!s!
 .
 
 MessageId = 
@@ -372,19 +380,6 @@ SymbolicName = MSG_EXTERNAL_ERROR
 Language=English
 Application %1!s! (%2!s!) %3!s! usage error : %4!s!
 .
-
-;#ifdef LINUX
-;// is ok to use x! d!, this won't be used on windows
-MessageId = 
-Severity = Error
-Facility = DRCore
-SymbolicName = MSG_SIGSEGV_IN_SECURE_CORE
-Language=English
-Application %1!s! (%2!s!) 
-** Received SIG%3!s! at %4!s! %5!s! pc %6!p! in thread %7!d!
-.
-
-;#endif
 
 MessageId = 
 Severity = Informational

@@ -3126,15 +3126,43 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
 #endif
 
 static void
-abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, const char *signame, const char *where)
+abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, struct sigcontext *sc,
+               const char *prefix, const char *signame, const char *where)
 {
-    SYSLOG(SYSLOG_CRITICAL, SIGSEGV_IN_SECURE_CORE, 7, 
-           get_application_name(), get_application_pid(),
-           signame, where, PRODUCT_NAME, pc, get_thread_id());
-    /* options are already synchronized by the SYSLOG */
-    if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dynamo_options.dumpcore_mask))
-        os_dump_core("sigsegv in core");
+    const char *fmt =
+        "%s at PC "PFX"\n"
+        "Received SIG%s at%s pc "PFX" in thread %d\n"
+        "Base: "PFX"\n"
+        "Registers: eax="PFX" ebx="PFX" ecx="PFX" edx="PFX"\n"
+        "\tesi="PFX" edi="PFX" esp="PFX" ebp="PFX"\n"
+#ifdef X64
+        "\tr8 ="PFX" r9 ="PFX" r10="PFX" r11="PFX"\n"
+        "\tr12="PFX" r13="PFX" r14="PFX" r15="PFX"\n"
+#endif
+        "\teflags="PFX;
+
+    report_dynamorio_problem(dcontext, dumpcore_flag,
+                             pc, (app_pc) sc->SC_XBP,
+                             fmt, prefix, pc, signame, where, pc, get_thread_id(),
+                             get_dynamorio_dll_start(),
+                             sc->SC_XAX, sc->SC_XBX, sc->SC_XCX, sc->SC_XDX,
+                             sc->SC_XSI, sc->SC_XDI, sc->SC_XSP, sc->SC_XBP,
+#ifdef X64
+                             sc->r8, sc->r9, sc->r10, sc->r11,
+                             sc->r12, sc->r13, sc->r14, sc->r15,
+#endif
+                             sc->SC_XFLAGS);
     os_terminate(dcontext, TERMINATE_PROCESS);
+    ASSERT_NOT_REACHED();
+}
+
+static void
+abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, struct sigcontext *sc,
+                  const char *signame, const char *where)
+{
+    abort_on_fault(dcontext, DUMPCORE_INTERNAL_EXCEPTION, pc, sc, "Unrecoverable error",
+                   signame, where);
+    ASSERT_NOT_REACHED();
 }
 
 /* Returns whether unlinked or mangled syscall.
@@ -3416,7 +3444,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * have accounted for everything
              */
             ASSERT_NOT_REACHED();
-            abort_on_DR_fault(dcontext, pc,
+            abort_on_DR_fault(dcontext, pc, sc,
                               (sig == SIGSEGV) ? "SEGV" : "other", "unknown");
         }
     }
@@ -4023,18 +4051,10 @@ master_signal_handler_C(byte *xsp)
 
 #ifdef CLIENT_INTERFACE
         if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) && is_in_client_lib(pc)) {
-            char excpt_addr[IF_X64_ELSE(20,12)];
-            snprintf(excpt_addr, BUFFER_SIZE_ELEMENTS(excpt_addr), PFX, pc);
-            NULL_TERMINATE_BUFFER(excpt_addr);
-            SYSLOG_CUSTOM_NOTIFY(SYSLOG_ERROR, MSG_CLIENT_EXCEPTION, 3,
-                                 "Exception in client library.", 
-                                 get_application_name(), 
-                                 get_application_pid(),
-                                 excpt_addr);
-            if (TEST(DUMPCORE_INTERNAL_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
-                os_dump_core("exception in client");
-            /* kill process on a crash in client code */
-            os_terminate(dcontext, TERMINATE_PROCESS);
+            abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, sc,
+                           "Client exception",  (sig == SIGSEGV) ? "SEGV" : "BUS",
+                           " client library");
+            ASSERT_NOT_REACHED();
         }
 #endif
 
@@ -4130,7 +4150,7 @@ master_signal_handler_C(byte *xsp)
                     os_forge_exception(target, UNREADABLE_MEMORY_EXECUTION_EXCEPTION);
                     ASSERT_NOT_REACHED();
                 } else {
-                    abort_on_DR_fault(dcontext, pc, (sig == SIGSEGV) ? "SEGV" : "BUS",
+                    abort_on_DR_fault(dcontext, pc, sc, (sig == SIGSEGV) ? "SEGV" : "BUS",
                                       in_generated_routine(dcontext, pc) ?
                                       " generated" : "");
                 }

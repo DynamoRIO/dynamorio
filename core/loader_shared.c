@@ -636,3 +636,25 @@ privload_first_module(void)
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     return modlist;
 }
+
+/* returns whether they all fit */
+bool
+privload_print_modules(bool path, bool lock, char *buf, size_t bufsz, size_t *sofar)
+{
+    privmod_t *mod;
+    if (lock)
+        acquire_recursive_lock(&privload_lock);
+    for (mod = modlist; mod != NULL; mod = mod->next) {
+        if (!mod->externally_loaded)
+            if (!print_to_buffer(buf, bufsz, sofar, "%s="PFX"\n",
+                                 path ? mod->path : mod->name, mod->base)) {
+                if (lock)
+                    release_recursive_lock(&privload_lock);
+                return false;
+            }
+    }
+    if (lock)
+        release_recursive_lock(&privload_lock);
+    return true;
+}
+

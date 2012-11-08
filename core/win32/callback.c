@@ -4351,8 +4351,8 @@ void dump_vc_exception_frame(EXCEPTION_REGISTRATION * pexcreg)
 #endif /* DEBUG */
 
 void
-internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
-                        CONTEXT *cxt, bool dstack_overflow)
+report_internal_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
+                          CONTEXT *cxt, uint dumpcore_flag, const char *prefix)
 {
     /* WARNING: a fault in DR means that potentially anything could be
      * inconsistent or corrupted!  Do not grab locks or traverse
@@ -4363,13 +4363,10 @@ internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
      * report_dynamorio_problem has an allocated buffer size that
      * assumes the size here is MAX_PATH+11
      */
-    const char *fmt = dstack_overflow ?
-        "Unrecoverable error at PC "PFX"\nStack Overflow\n"
-        PFX" "PFX" "PFX" "PFX" "PFX" "PFX"\nDelta: "PFX"\n" 
-        :
-        "Unrecoverable error at PC "PFX"\n"
-        PFX" "PFX" "PFX" "PFX" "PFX" "PFX"\n"
-        "Delta: "PFX"\n"
+    const char *fmt =
+        "%s at PC "PFX"\n"
+        "0x%08x 0x%08x "PFX" "PFX" "PFX" "PFX"\n"
+        "Base: "PFX"\n"
         "Registers: eax="PFX" ebx="PFX" ecx="PFX" edx="PFX"\n"
         "\tesi="PFX" edi="PFX" esp="PFX" ebp="PFX"\n"
 #ifdef X64
@@ -4378,19 +4375,9 @@ internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
 #endif
         "\teflags="PFX ;
 
-    /* case 5366 we may have randomized our location, for easier recognition,
-     * adjusting printed PC to preferred address.
+    /* We used to adjust the address to be offset from the preferred base
+     * but I think that's just confusing so I removed it.
      */
-    app_pc adjusted_exception_addr = (app_pc) pExcptRec->ExceptionAddress;
-    ssize_t preferred_base_delta = 0; 
-    if (DYNAMO_OPTION(aslr_dr)) {
-        /* adjust if exception in possibly rebased DLL */
-        preferred_base_delta = get_dynamorio_dll_preferred_base() - 
-            get_dynamorio_dll_start();
-        /* presumably both are memoized */
-        if (is_in_dynamo_dll(adjusted_exception_addr))
-            adjusted_exception_addr += preferred_base_delta;
-    }
 
     DODEBUG({
         /* also check for a self-protection bug: write fault accessing data section */
@@ -4399,9 +4386,8 @@ internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
             app_pc target = (app_pc) pExcptRec->ExceptionInformation[1];
             if (is_in_dynamo_dll(target)) {
                 const char *sec = get_data_section_name(target);
-                SYSLOG_INTERNAL_CRITICAL("Self-protection bug: %s written to @"PFX"/"PFX,
-                                         sec == NULL ? "" : sec, target, 
-                                         target + preferred_base_delta);
+                SYSLOG_INTERNAL_CRITICAL("Self-protection bug: %s written to @"PFX,
+                                         sec == NULL ? "" : sec, target);
             }
         }
     });
@@ -4424,17 +4410,18 @@ internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
     /* note that the first adjusted_exception_addr is used for
      * eventlog, and the second for forensics, and so both need to be adjusted 
      */
-    report_dynamorio_problem(dcontext, DUMPCORE_INTERNAL_EXCEPTION,
-                             adjusted_exception_addr, (app_pc) cxt->CXT_XBP,
-                             fmt,
-                             adjusted_exception_addr,
+    report_dynamorio_problem(dcontext, dumpcore_flag,
+                             (app_pc) pExcptRec->ExceptionAddress,
+                             (app_pc) cxt->CXT_XBP,
+                             fmt, prefix,
+                             (app_pc) pExcptRec->ExceptionAddress,
                              pExcptRec->ExceptionCode, pExcptRec->ExceptionFlags,
                              cxt->CXT_XIP, pExcptRec->ExceptionAddress,
                              (pExcptRec->NumberParameters >= 1) ?
                              pExcptRec->ExceptionInformation[0] : 0,
                              (pExcptRec->NumberParameters >= 2) ?
                              pExcptRec->ExceptionInformation[1] : 0,
-                             preferred_base_delta,
+                             get_dynamorio_dll_start(),
                              cxt->CXT_XAX, cxt->CXT_XBX, cxt->CXT_XCX, cxt->CXT_XDX,
                              cxt->CXT_XSI, cxt->CXT_XDI, cxt->CXT_XSP, cxt->CXT_XBP,
 #ifdef X64
@@ -4442,6 +4429,15 @@ internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
                              cxt->R12, cxt->R13, cxt->R14, cxt->R15,
 #endif
                              cxt->CXT_XFLAGS);
+}
+
+void
+internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
+                        CONTEXT *cxt, bool dstack_overflow)
+{
+    report_internal_exception(dcontext, pExcptRec, cxt, DUMPCORE_INTERNAL_EXCEPTION,
+                              dstack_overflow ? "Stack overflow" :
+                              "Unrecoverable error");
 }
 
 static void
@@ -4985,19 +4981,10 @@ intercept_exception(app_state_at_intercept_t *state)
 #ifdef CLIENT_INTERFACE
         if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) &&
             is_in_client_lib(pExcptRec->ExceptionAddress)) {
-            char excpt_addr[IF_X64_ELSE(20,12)];
-            snprintf(excpt_addr, BUFFER_SIZE_ELEMENTS(excpt_addr),
-                     PFX, pExcptRec->ExceptionAddress);
-            NULL_TERMINATE_BUFFER(excpt_addr);
-            SYSLOG_CUSTOM_NOTIFY(SYSLOG_ERROR, MSG_CLIENT_EXCEPTION, 3,
-                                 "Exception in client library.", 
-                                 get_application_name(), 
-                                 get_application_pid(),
-                                 excpt_addr);
-            if (TEST(DUMPCORE_INTERNAL_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
-                os_dump_core("exception in client");
-            /* kill process on a crash in client code */
-            os_terminate(NULL, TERMINATE_PROCESS);
+            report_internal_exception(dcontext, pExcptRec, cxt, DUMPCORE_CLIENT_EXCEPTION,
+                                      "Client exception");
+            os_terminate(dcontext, TERMINATE_PROCESS);
+            ASSERT_NOT_REACHED();
         }
 #endif
 

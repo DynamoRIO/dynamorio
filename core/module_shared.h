@@ -468,6 +468,14 @@ extern char search_paths[SEARCH_PATHS_NUM][MAXIMUM_PATH];
 extern uint search_paths_idx;
 extern vm_area_vector_t *modlist_areas; 
 
+/***************************************************************************
+ * Public functions
+ */
+
+/* returns whether they all fit */
+bool
+privload_print_modules(bool path, bool lock, char *buf, size_t bufsz, size_t *sofar);
+
 /* ************************************************************************* *
  * os independent functions in loader_shared.c, can be called from loader.c  *
  * ************************************************************************* */
