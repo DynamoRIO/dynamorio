@@ -469,11 +469,11 @@ then
         then
             echo "experimental support for early injection in Linux"
         fi
-        exec "$drloader" "$dr_lib_path/$lib/libdynamorio.so" "$fullname" $*
+        exec "$drloader" "$dr_lib_path/$lib/libdynamorio.so" "$fullname" "$@"
     else
         export LD_LIBRARY_PATH=$dr_lib_path/$lib:$dr_ext_path/$lib:$LD_LIBRARY_PATH
         export LD_PRELOAD="libdynamorio.so libdrpreload.so"
-        exec $app $*
+        exec $app "$@"
     fi
 else
     if [ "$verbose" = "yes" ]
