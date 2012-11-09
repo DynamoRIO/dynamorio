@@ -289,8 +289,21 @@ our_vsscanf(const char *str, const char *fmt, va_list ap)
                  */
                 width = width * 10 + c - '0';
                 continue;
+            case 'I':
+                /* We support I32 and I64 from Windows sscanf because DR exports
+                 * macros that use them.
+                 */
+                if (strncmp("32", fp, 2) == 0) {
+                    int_size = SZ_INT;
+                } else if (strncmp("64", fp, 2) == 0) {
+                    int_size = SZ_LONGLONG;
+                } else {
+                    CLIENT_ASSERT(false,
+                                  "dr_sscanf: unsupported I<width> modifier");
+                    return num_parsed;
+                }
+                break;
             /* XXX: Modifiers we could add support for:
-             * - I64, I32: Windows-style integer widths.
              * - j, z, t: C99 modifiers for intmax_t, size_t, and ptrdiff_t.
              * - [] scan sets: These are complicated and better to avoid.
              * - .*: For dynamically sized strings.  Not part of C scanf.
@@ -370,6 +383,9 @@ spec_done:
             break;
         case SPEC_INT: {
             uint64 res;
+            /* C sscanf skips leading whitespace before parsing integers. */
+            while (*sp != '\0' && our_isspace(*sp))
+                sp++;
             sp = parse_int(sp, &res, base, width, is_signed);
             if (sp == NULL)
                 return num_parsed;
@@ -536,6 +552,20 @@ test_sscanf_all_specs(void)
     EXPECT(signed_int, 123);
     EXPECT(signed_int_2, 456);
     EXPECT(unsigned_int, 0x9ab);
+
+    /* Test skipping leading whitespace for integer conversions. */
+    res = our_sscanf(" \t123456\t\n 0x9abc", "%d%x",
+                     &signed_int, &unsigned_int);
+    EXPECT(res, 2);
+    EXPECT(signed_int, 123456);
+    EXPECT(unsigned_int, 0x9abc);
+
+    /* Test Windows-style integer width specifiers using decimal ULLONG_MAX. */
+    res = our_sscanf("1234 18446744073709551615", "%I32d %I64d",
+                     &signed_int, &ull_num);
+    EXPECT(res, 2);
+    EXPECT(signed_int, 1234);
+    EXPECT((ull_num == ULLONG_MAX), true);
 
     /* FIXME: When parse_int has range checking, we should add tests for parsing
      * integers that overflow their requested integer sizes.
