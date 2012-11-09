@@ -4278,8 +4278,8 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     RSTATS_INC(num_signals);
 
     /* now that we know it's not a client-involved fault, dump as app fault */
-    if (TEST(DUMPCORE_APP_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
-        os_dump_core("application fault");
+    report_app_problem(dcontext, APPFAULT_FAULT, (byte *)sc->SC_XIP, (byte *)sc->SC_XBP,
+                       "\nSignal %d delivered to application handler.\n", sig);
 
     LOG(THREAD, LOG_ASYNCH, 3, "\txsp is "PFX"\n", xsp);
 
@@ -4570,6 +4570,9 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
         }
         if (default_action[sig] == DEFAULT_TERMINATE ||
             default_action[sig] == DEFAULT_TERMINATE_CORE) {
+            report_app_problem(dcontext, APPFAULT_CRASH, pc, (byte *)sc->SC_XBP,
+                               "\nSignal %d delivered to application as default action.\n",
+                               sig);
             /* N.B.: we don't have to restore our handler because the
              * default action is for the process (entire thread group for NPTL) to die!
              */

@@ -204,6 +204,8 @@ Further non-compatibility-affecting changes include:
  - Added drmgr_register_pre_syscall_event_ex()
  - Added DR_MEMPROT_GUARD for dr_memory_protect (Windows only).
  - Added dr_sscanf()
+ - Added notifications on application faults and additional information
+   on client faults
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux

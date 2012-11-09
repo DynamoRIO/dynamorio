@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -98,6 +99,15 @@ enum {
     HOOKED_TRAMPOLINE_CHAIN  = 2, /* rerelativize and mangle to support chaining */
     HOOKED_TRAMPOLINE_HOOK_DEEPER = 3, /* move our hook deeper into the function */
     HOOKED_TRAMPOLINE_MAX = 3,
+};
+
+/* for options.appfault_mask */
+enum {
+    /* XXX: we don't raise on handled signals b/c nobody would want notification
+     * on timer signals.  Should we raise on other handled signals?
+     */
+    APPFAULT_FAULT    = 0x0001, /* Unhandled signal, or any Windows exception */
+    APPFAULT_CRASH    = 0x0002, /* Unhandled signal or exception (NYI on Windows) */
 };
 
 /* for all option uses */

@@ -221,9 +221,9 @@ Application %1!s! (%2!s!).  Client exception at PC %3!s!.  Program aborted. %4!s
 MessageId = 
 Severity = Warning
 Facility = DRCore
-SymbolicName = MSG_APP
+SymbolicName = MSG_APP_EXCEPTION
 Language=English
-Application %1!s! (%2!s!).  Application exception at PC %3!s!. %4!s!
+Application %1!s! (%2!s!).  Application exception at PC %3!s!.  %4!s!
 .
 
 MessageId = 

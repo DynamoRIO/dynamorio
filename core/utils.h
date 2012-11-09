@@ -1744,6 +1744,10 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
                          const char *fmt, ...);
 
 void
+report_app_problem(dcontext_t *dcontext, uint appfault_flag,
+                   app_pc pc, app_pc report_ebp, const char *fmt, ...);
+
+void
 notify(syslog_event_type_t priority, bool internal, bool synch,
             IF_WINDOWS_(uint message_id) uint substitution_nam, char *prefix, 
             char *fmt, ...);

@@ -1779,22 +1779,36 @@ print_file(file_t f, char *fmt, ...)
  * Returns false if there was not room for the string plus a null,
  * but still prints the maximum that will fit plus a null.
  */
-bool
-print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...)
+static bool
+vprint_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt,
+                 va_list ap)
 {
     /* in io.c */
     extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
     ssize_t len;
-    va_list ap;
     bool ok;
-    va_start(ap, fmt);
     /* we use our_vsnprintf for consistent return value and to handle floats */
     len = our_vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
-    va_end(ap);
     ok = (len > 0 && len < (ssize_t)(bufsz - *sofar));
     *sofar += (len == -1 ? (bufsz - *sofar - 1) : (len < 0 ? 0 : len));
     /* be paranoid: though usually many calls in a row and could delay until end */
     buf[bufsz-1] = '\0';
+    return ok;
+}
+
+/* For repeated appending to a buffer.  The "sofar" var should be set
+ * to 0 by the caller before the first call to print_to_buffer.
+ * Returns false if there was not room for the string plus a null,
+ * but still prints the maximum that will fit plus a null.
+ */
+bool
+print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...)
+{
+    va_list ap;
+    bool ok;
+    va_start(ap, fmt);
+    ok = vprint_to_buffer(buf, bufsz, sofar, fmt, ap);
+    va_end(ap);
     return ok;
 }
 
@@ -2171,7 +2185,12 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
         report_diagnostics(reportbuf, NULL, NO_VIOLATION_BAD_INTERNAL_STATE);
     }
 
-    /* print out pretty call stack */
+    /* Print out pretty call stack to logfile where we have plenty of room.
+     * This avoids grabbing a lock b/c print_symbolic_address() checks
+     * under_internal_exception().  However we cannot include module info b/c
+     * that grabs locks: hence the fancier callstack in the main report
+     * for client and app crashes but not DR crashes.
+     */
     DOLOG(1, LOG_ALL, {
         if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION)
             dump_callstack(exception_addr, report_ebp, THREAD, DUMP_NOT_XML);
@@ -2198,6 +2217,45 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
         /* fatal coredump goes last */
         os_dump_core(reportbuf);
     }
+}
+
+void
+report_app_problem(dcontext_t *dcontext, uint appfault_flag,
+                   app_pc pc, app_pc report_ebp, const char *fmt, ...)
+{
+    char buf[MAX_LOG_LENGTH];
+    size_t sofar = 0;
+    va_list ap;
+    char excpt_addr[IF_X64_ELSE(20,12)];
+
+    if (!TEST(appfault_flag, DYNAMO_OPTION(appfault_mask)))
+        return;
+
+    snprintf(excpt_addr, BUFFER_SIZE_ELEMENTS(excpt_addr), PFX, pc);
+    NULL_TERMINATE_BUFFER(excpt_addr);
+
+    va_start(ap, fmt);
+    vprint_to_buffer(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar, fmt, ap);
+    va_end(ap);
+
+    print_to_buffer(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar, "Callstack:\n");
+    if (report_ebp == NULL)
+        GET_FRAME_PTR(report_ebp);
+    /* We decided it's better to include the paths even if it means we may
+     * not fit all the modules (i#968).  A forensics file can be requested
+     * to get full info.
+     */
+    dump_callstack_to_buffer(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar,
+                             pc, report_ebp,
+                             CALLSTACK_MODULE_INFO | CALLSTACK_MODULE_PATH);
+
+    SYSLOG(SYSLOG_WARNING, APP_EXCEPTION, 4,
+           get_application_name(), get_application_pid(), excpt_addr, buf);
+
+    report_diagnostics(buf, NULL, NO_VIOLATION_OK_INTERNAL_STATE);
+
+    if (TEST(DUMPCORE_APP_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
+        os_dump_core("application fault");
 }
 
 bool

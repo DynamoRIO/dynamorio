@@ -574,6 +574,10 @@
                        SYSLOG_NONE), SYSLOG_NONE),
                    "show messages onto stderr")
 
+    OPTION_DEFAULT(uint, appfault_mask, IF_CLIENT_INTERFACE_ELSE
+                   (IF_DEBUG_ELSE(APPFAULT_CRASH, 0), 0),
+                   "report diagnostic information on application faults")
+
 #ifdef LINUX
     /* Xref PR 258731 - options to duplicate stdout/stderr for our or client logging if
      * application tries to close them. */

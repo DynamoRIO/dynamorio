@@ -872,10 +872,27 @@ void disassemble_app_bb(dcontext_t *dcontext, app_pc tag, file_t outfile);
 /* dumps callstack for ebp stored in mcontext */
 void dump_mcontext_callstack(dcontext_t *dcontext);
 #endif
+
+/* flags for dump_callstack_to_buffer */
+enum {
+    CALLSTACK_USE_XML         = 0x00000001,
+    CALLSTACK_ADD_HEADER      = 0x00000002,
+    CALLSTACK_MODULE_INFO     = 0x00000004,
+    CALLSTACK_MODULE_PATH     = 0x00000008,
+    CALLSTACK_FRAME_PTR       = 0x00000010,
+};
+
 /* dumps callstack for current pc and ebp */
-void dump_dr_callstack(file_t outfile);
+void
+dump_dr_callstack(file_t outfile);
+
 /* user-specified ebp */
-void dump_callstack(app_pc pc, app_pc ebp, file_t outfile, bool dump_xml);
+void
+dump_callstack(app_pc pc, app_pc ebp, file_t outfile, bool dump_xml);
+
+void
+dump_callstack_to_buffer(char *buf, size_t bufsz, size_t *sofar,
+                         app_pc pc, app_pc ebp, uint flags /*CALLSTACK_ bitmask*/);
 
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 void disassemble_fragment_header(dcontext_t *dcontext, fragment_t *f, file_t outfile);
