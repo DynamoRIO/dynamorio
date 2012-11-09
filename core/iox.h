@@ -256,8 +256,11 @@ TNAME(our_vsnprintf_float)(double val, const TCHAR *c, TCHAR prefixbuf[3],
     return str;
 }
 
-/* Returns number of chars printed.  If number is larger than max,
+/* Returns number of chars printed, not including the null terminator.
+ * If number is larger than max,
  * prints max (without null) and returns -1.
+ * For %S on Windows, converts between UTF-8 and UTF-16, and returns -1
+ * if passed an invalid encoding.
  * (Thus, matches Windows snprintf, not Linux.)
  */
 int
@@ -270,6 +273,8 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
     
     if (fmt == NULL)
         return 0;
+    if (max == 0)
+        goto max_reached;
     
     c = fmt;
     while (*c) {
@@ -557,6 +562,11 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             if (fill > 0) {
                 size_t plen = IF_WIDE_ELSE(wcslen,strlen)(prefix);
                 if (wstr != NULL) {
+                    /* XXX: this doesn't take into account UTF-16 or UTF-8
+                     * multi-byte chars.  For now we just don't support
+                     * properly filling those.  It should only matter
+                     * for pretty-printing.
+                     */
                     size_t wlen = IF_WIDE_ELSE(strlen,wcslen)(wstr);
                     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(wlen + plen)));
                     fill -= (uint) (wlen + plen);
@@ -569,7 +579,7 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             /* insert prefix if filler is 0, filler won't be 0 if - flag is set */
             if (filler == _T('0')) {
                 while (*prefix) {
-                    if (max > 0 && (size_t)(s - start) >= max)
+                    if ((size_t)(s - start) >= max)
                         goto max_reached;
                     *s = *prefix;
                     s++;
@@ -580,7 +590,7 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             if (fill > 0 && !minus_flag) {
                 int i;
                 for (i = 0; i < fill; i++) {
-                    if (max > 0 && (size_t)(s - start) >= max)
+                    if ((size_t)(s - start) >= max)
                         goto max_reached;
                     *s = filler;
                     s++;
@@ -589,7 +599,7 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             /* insert prefix if not 0 filling */
             if (filler != _T('0')) {
                 while (*prefix) {
-                    if (max > 0 && (size_t)(s - start) >= max)
+                    if ((size_t)(s - start) >= max)
                         goto max_reached;
                     *s = *prefix;
                     s++;
@@ -598,8 +608,29 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             }
             /* insert the actual str representation */
             if (wstr != NULL) {
+#ifdef WINDOWS
+                /* We follow Linux sprintf which has precision on multi-byte
+                 * transformation as specifying bytes, not unicode chars.
+                 * MSDN docs say "characters", but Windows %S doesn't support
+                 * any conversion other than truncating to ascii (or 0 if not
+                 * ascii).
+                 */
+                ssize_t els;
+                size_t max_bytes = max - (s - start);
+                /* string precision */
+                if ((*c == _T('s') || *c == _T('S')) && decimal >= 0 &&
+                    (size_t)decimal < max_bytes)
+                    max_bytes = decimal;
+                els = IF_WIDE_ELSE(utf8_to_utf16, utf16_to_utf8)
+                    (s, max_bytes, wstr, 0, NULL);
+                if (els < 0)
+                    return -1;
+                s += els;
+                if ((size_t)(s - start) >= max)
+                    goto max_reached;
+#else
                 while (*wstr) {
-                    if (max > 0 && (size_t)(s - start) >= max)
+                    if ((size_t)(s - start) >= max)
                         goto max_reached;
                     if ((*c == _T('s') || *c == _T('S')) && decimal == 0)
                         break;  /* check string precision */
@@ -610,11 +641,12 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                     s++;
                     wstr++;
                 }
+#endif
             } else {
                 if (str == NULL)
                     str = _T("<NULL>");
                 while (*str) {
-                    if (max > 0 && (size_t)(s - start) >= max)
+                    if ((size_t)(s - start) >= max)
                         goto max_reached;
                     if (*c == _T('s') && decimal == 0)
                         break;  /* check string precision */
@@ -628,7 +660,7 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             if (fill > 0 && minus_flag) {
                 int i;
                 for (i = 0; i < fill; i++) {
-                    if (max > 0 && (size_t)(s - start) >= max)
+                    if ((size_t)(s - start) >= max)
                         goto max_reached;
                     *s = filler;
                     s++;
@@ -644,7 +676,7 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                 c++;
             }
             while (cstart < c) {
-                if (max > 0 && (size_t)(s - start) >= max)
+                if ((size_t)(s - start) >= max)
                     goto max_reached;
                 *s = *cstart;
                 s++;

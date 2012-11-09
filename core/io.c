@@ -100,6 +100,183 @@ double2int(double d)
         return i;
 }
 
+#ifdef WINDOWS
+/*****************************************************************************
+ * UTF-8 <-> UTF-16
+ *
+ * Windows-only b/c it assumes wide chars are 2 bytes (primarily just when
+ * examining input values).
+ */
+
+/* Returns the number of elements written if all of the characters of src,
+ * or if max_chars from src, were successfully encoded into dst.
+ * Passing max_chars==0 means no limit.
+ * If there is room, appends a null terminator (which is not included in the
+ * return value).  (This is to match our snprintf semantics.)
+ * Returns -1 on an error, such as src not being valid UTF-8, or on encountering
+ * a character that cannot be encoded with UTF-16.
+ * In *written, returns the number of unicode characters written to dst including
+ * the terminating null.
+ * Will not write a partial multi-byte character.
+ * Does not use a byte-order mark.
+ *
+ * XXX: instead of bailing and returning -1, should we use a particular encoding
+ * for each invalid sequence?  MultiByteToWideChar uses U+FFFD.
+ */
+static ssize_t
+utf8_to_utf16(wchar_t *dst, size_t dst_sz/*elements*/, const char *src,
+              size_t max_chars, size_t *written/*unicode chars*/)
+{
+    /* Be sure to use unsigned for proper comparisons below */
+    const unsigned char *s = (const unsigned char *) src;
+    wchar_t *d = dst;
+    size_t chars = 0;
+    while (dst_sz > 0 && *s != '\0' && (max_chars == 0 || chars < max_chars)) {
+        if (*s <= 0x7f) {
+            /* through U+007F: 7 bits: bottom 7 of 1st byte */
+            *d = (wchar_t) *s;
+            chars++;
+        } else if (*s >> 5 == 0x6) {
+            /* through U+07FF: 11 bits: bottom 5 of 1st and bottom 6 of 2nd */
+            wchar_t first = (((wchar_t)*s) & 0x1f) << 6;
+            s++;
+            if (*s >> 6 != 0x2)
+                return -1; /* malformed UTF-8 */
+            *d = first | (*s & 0x3f);
+            chars++;
+        } else if (*s >> 4 == 0xe) {
+            /* through U+FFFF: 16 bits: bottom 4 of 1st, bottom 6 of 2nd + 3rd */
+            wchar_t first = (((wchar_t)*s) & 0xf) << 12;
+            s++;
+            if (*s >> 6 != 0x2)
+                return -1; /* malformed UTF-8 */
+            first |= ((((wchar_t)*s) & 0x3f) << 6);
+            s++;
+            if (*s >> 6 != 0x2)
+                return -1; /* malformed UTF-8 */
+            *d = first | (*s & 0x3f);
+            chars++;
+        } else if (*s >> 3 == 0x1e) {
+            /* through U+1FFFFF: 21 bits: bottom 3 of 1st, bottom 6 of 2nd-4th */
+            uint cp = (((wchar_t)*s) & 0x7) << 18;
+            s++;
+            if (*s >> 6 != 0x2)
+                return -1; /* malformed UTF-8 */
+            cp |= ((((wchar_t)*s) & 0x3f) << 12);
+            s++;
+            if (*s >> 6 != 0x2)
+                return -1; /* malformed UTF-8 */
+            cp |= ((((wchar_t)*s) & 0x3f) << 6);
+            s++;
+            if (*s >> 6 != 0x2)
+                return -1; /* malformed UTF-8 */
+            cp |= (((wchar_t)*s) & 0x3f);
+            /* check limit */
+            if (cp > 0x10ffff)
+                return -1; /* not encodable with UTF-16 */
+            /* encode using surrogate pairs */
+            if ((size_t)(d + 1 - dst) >= dst_sz) /* no partial chars */
+                break;
+            *d = (wchar_t) (((cp - 0x10000) >> 10) + 0xd800);
+            d++;
+            *d = (wchar_t) (((cp - 0x10000) & 0x3ff) + 0xdc00);
+            chars++;
+       } else if (*s >> 2 == 0x3e) {
+            /* through U+3FFFFFF: 26 bits: bottom 2 of 1st, bottom 6 of 2nd-5th */
+            return -1; /* not encodable with UTF-16 */
+        } else if (*s >> 1 == 0x7e) {
+            /* through U+7FFFFFFF: 31 bits: bottom 1 of 1st, bottom 6 of 2nd-6th */
+            return -1; /* not encodable with UTF-16 */
+        }
+        d++;
+        if ((size_t)(d - dst) >= dst_sz)
+            break;
+        s++;
+    }
+    if ((size_t)(d - dst) < dst_sz)
+        *d = L'\0';
+    if (written != NULL)
+        *written = chars;
+    return d - dst;
+}
+
+/* Returns the number of elements written if all of the characters of src,
+ * or if max_chars from src, were successfully encoded into dst.
+ * Passing max_chars==0 means no limit.
+ * If there is room, appends a null terminator (which is not included in the
+ * return value).  (This is to match our snprintf semantics.)
+ * Returns -1 on an error, such as src not being valid UTF-16.
+ * In *written, returns the number of unicode characters written to dst including
+ * the terminating null.
+ * Will not write a partial multi-byte character.
+ * Does not handle a byte-order mark.
+ */
+static ssize_t
+utf16_to_utf8(char *dst, size_t dst_sz/*elements*/, const wchar_t *src,
+              size_t max_chars, size_t *written/*unicode chars*/)
+{
+    const wchar_t *s = src;
+    char *d = dst;
+    size_t chars = 0;
+    while (dst_sz > 0 && *s != L'\0' && (max_chars == 0 || chars < max_chars)) {
+        if (*s <= 0x7f) {
+            *d = (char) *s;
+            chars++;
+        } else if (*s <= 0x7ff) {
+            /* 2-byte encoding: 0b110xxxxx 0b10xxxxxx */
+            if ((size_t)(d + 1 - dst) >= dst_sz) /* no partial chars */
+                break;
+            *d = (char) (0xc0 | (*s >> 6));
+            d++;
+            *d = (char) (0x80 | (*s & 0x3f));
+            chars++;
+        } else if (*s >= 0xd800 && *s <= 0xdfff) {
+            /* surrogate pairs */
+            uint cp = (*s - 0xd800) << 10;
+            s++;
+            if (*s == L'\0' || *s < 0xdc00 || *s > 0xdfff)
+                return -1; /* malformed UTF-16 */
+            cp |= (*s - 0xdc00);
+            cp += 0x10000;
+            /* 4-byte encoding: 0b1110xxxx 0b10xxxxxx 0b10xxxxxx 0b10xxxxxx */
+            if ((size_t)(d + 3 - dst) >= dst_sz) /* no partial chars */
+                break;
+            *d = (char) (0xf0 | (cp >> 18));
+            d++;
+            *d = (char) (0x80 | ((cp >> 12) & 0x3f));
+            d++;
+            *d = (char) (0x80 | ((cp >> 6) & 0x3f));
+            d++;
+            *d = (char) (0x80 | (cp & 0x3f));
+            chars++;
+        } else {
+            /* 3-byte encoding: 0b1110xxxx 0b10xxxxxx 0b10xxxxxx */
+            if ((size_t)(d + 2 - dst) >= dst_sz) /* no partial chars */
+                break;
+            *d = (char) (0xe0 | (*s >> 12));
+            d++;
+            *d = (char) (0x80 | ((*s >> 6) & 0x3f));
+            d++;
+            *d = (char) (0x80 | (*s & 0x3f));
+            chars++;
+        }
+        d++;
+        if ((size_t)(d - dst) >= dst_sz)
+            break;
+        s++;
+    }
+    if ((size_t)(d - dst) < dst_sz)
+        *d = L'\0';
+    if (written != NULL)
+        *written = chars;
+    return d - dst;
+}
+#endif
+
+/*****************************************************************************
+ * snprintf
+ */
+
 /* we generate from a template to get wide and narrow versions */
 #undef IOX_WIDE_CHAR
 #include "iox.h"
@@ -759,6 +936,51 @@ unit_test_io(void)
     EXPECT(wbuf[6], L' '); /* ' ' from prior calls: no NULL written since hit max */
     wbuf[6] = L'\0';
     EXPECT(wcscmp(wbuf, L"narrow"), 0);
+
+#ifdef WINDOWS
+    /* test UTF-16 to UTF-8 */
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
+                       L"\x0391\x03A9\x20Ac"); /* alpha, omega, euro sign */
+    EXPECT(res == 7, true); /* 2x 2-char + 1 3-char encodings */
+    EXPECT((byte)buf[0] == 0xce && (byte)buf[1] == 0x91, true); /* UTF-8 U-0391 */
+    EXPECT((byte)buf[2] == 0xce && (byte)buf[3] == 0xa9, true); /* UTF-8 U-03A9 */
+    EXPECT((byte)buf[4] == 0xe2 && (byte)buf[5] == 0x82 && (byte)buf[6] == 0xac,
+           true); /* UTF-8 U-20Ac */
+    EXPECT((byte)buf[7] == '\0', true);
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
+                       L"\xd800"); /* no low surrogate */
+    EXPECT(res == -1, true);
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
+                       L"\xd800\xdc00"); /* surrogate pair */
+    EXPECT(res == 4, true); /* 4-char encoding */
+    EXPECT((byte)buf[0] == 0xf0 && (byte)buf[1] == 0x90 &&
+           (byte)buf[2] == 0x80 && (byte)buf[3] == 0x80, true); /* UTF-8 U-10000 */
+    EXPECT((byte)buf[4] == '\0', true);
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%.6S",
+                       L"\x0391\x03A9\x20Ac"); /* alpha, omega, euro sign */
+    EXPECT(res == 4, true); /* 2x 2-char + aborted the 3-char encoding */
+    EXPECT((byte)buf[0] == 0xce && (byte)buf[1] == 0x91, true); /* UTF-8 U-0391 */
+    EXPECT((byte)buf[2] == 0xce && (byte)buf[3] == 0xa9, true); /* UTF-8 U-03A9 */
+    EXPECT((byte)buf[4] == '\0', true);
+
+    /* test UTF-8 to UTF-16 */
+    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S",
+                            "\xce\x91\xce\xa9\xe2\x82\xac"); /* alpha, omega, euro sign */
+    EXPECT(res == 3, true);
+    EXPECT(wbuf[0] == 0x0391 && wbuf[1] == 0x03a9 && wbuf[2] == 0x20ac, true);
+    EXPECT(wbuf[3] == L'\0', true);
+    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S",
+                            "\xff\x91\xce\xa9\xe2\x82");
+    EXPECT(res == -1, true); /* not encodable in UTF-16 */
+    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%S",
+                            "\xf0\x90\x80\x80"); /* U-1000 */
+    EXPECT(res == 2, true);
+    EXPECT(wbuf[0] == 0xd800 && wbuf[1] == 0xdc00 && wbuf[2] == L'\0', true);
+    res = our_snprintf_wide(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%.2S",
+                            "\xce\x91\xce\xa9\xe2\x82\xac"); /* alpha, omega, euro sign */
+    EXPECT(res == 2, true);
+    EXPECT(wbuf[0] == 0x0391 && wbuf[1] == 0x03a9 && wbuf[2] == L'\0', true);
+#endif
 
     /* sscanf tests */
     test_sscanf_maps_x86();

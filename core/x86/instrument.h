@@ -3245,11 +3245,14 @@ DR_API
  * max characters are written and -1 is returned.  If an error
  * occurs, a negative value is returned.
  * \note This routine supports printing wide characters via the ls
- * or S format specifiers via simply dropping the high-order byte.
+ * or S format specifiers.  On Windows, they are assumed to be UTF-16,
+ * and are converted to UTF-8.  On Linux, they are converted by simply
+ * dropping the high-order bytes.
  * \note If the data to be printed is large it will be truncated to
  * an internal buffer size.
  * \note On Windows, you can use _snprintf() instead (though _snprintf() does
- * not support printing floating point values).
+ * not support printing floating point values and does not convert
+ * between UTF-16 and UTF-8).
  * \note When printing floating-point values, the caller's code should
  * use proc_save_fpstate() or be inside a clean call that
  * has requested to preserve the floating-point state.
@@ -3260,9 +3263,11 @@ dr_snprintf(char *buf, size_t max, const char *fmt, ...);
 DR_API
 /**
  * Wide character version of dr_snprintf().  All of the comments for
- * dr_snprintf() apply, except that the hs or S format specifiers will
- * widen a single-byte character string into a two-byte character
- * string with zero as the high-order byte.
+ * dr_snprintf() apply, except for the hs or S format specifiers.
+ * On Windows, these will assume that the input is UTF-8, and will
+ * convert to UTF-16.  On Linux, they will widen a single-byte
+ * character string into a wchar_t character string with zero as the
+ * high-order bytes.
  */
 int
 dr_snwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, ...);

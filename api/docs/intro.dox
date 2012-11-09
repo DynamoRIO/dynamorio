@@ -275,6 +275,7 @@ following sub-sections:
  - \ref sec_extensions
  - \ref sec_comm
  - \ref sec_64bit_reach
+ - \ref sec_utf8
  - \ref sec_options
  - \ref sec_debugging
 \endif
@@ -852,6 +853,16 @@ library to be in the lower 2GB to avoid the cost of relocation at load time.
 Any static data or code in a client
 library, or any data allocated using DynamoRIO's API, is guaranteed to be
 directly reachable from code cache code.
+
+***************************************************************************
+\section sec_utf8 String Encoding
+
+All strings in the DynamoRIO API, whether input or output parameters, are
+encoded as UTF-8.  DynamoRIO will internally convert to UTF-16 when
+interacting with the Windows kernel.  A client can use #dr_snprintf() or
+#dr_snwprintf() with the \p S format code to convert between UTF-8 and
+UTF-16 on its own.  (The _snprintf() function forwarded to ntdll does not
+perform that conversion.)
 
 ***************************************************************************
 \section sec_build Building a Client
