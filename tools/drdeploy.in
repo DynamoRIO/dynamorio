@@ -473,6 +473,16 @@ then
     else
         export LD_LIBRARY_PATH=$dr_lib_path/$lib:$dr_ext_path/$lib:$LD_LIBRARY_PATH
         export LD_PRELOAD="libdynamorio.so libdrpreload.so"
+        if [ -z "$LD_USE_LOAD_BIAS" ]
+        then
+            if [ "$verbose" = "yes" ]
+            then
+                echo "Setting LD_USE_LOAD_BIAS for PIEs (i#719)"
+                echo "Set LD_USE_LOAD_BIAS=0 prior to running this script"
+                echo "if this is a problem"
+            fi 
+            export LD_USE_LOAD_BIAS=1
+        fi
         exec $app "$@"
     fi
 else
