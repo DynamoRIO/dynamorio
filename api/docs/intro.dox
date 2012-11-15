@@ -1525,25 +1525,38 @@ the debugger attached while the application waits for enter to be
 pressed.  Since this may not work for applications that themselves
 read from standard input, an alternative exists: the \ref op_pause
 "-pause_on_error" option allows attaching a debugger when a problem
-occurs.  To run an application on Linux under a debugger from the start
+occurs.
+
+To run an application on Linux under a debugger from the start you can
+launch bash under gdb like so:
+
+\code
+gdb --args /bin/bash path/to/drrun <options> -- path/to/app
+\endcode
+
+Because the executable changes from bash to the app, the app cannot be
+re-run from gdb's prompt.  To re-run an application from gdb's prompt,
 you can perform the work of the \c drrun script by setting the
 LD_LIBRARY_PATH and LD_PRELOAD environment variables from within the
 debugger.
 
-Take care when setting breakpoints in an application running under
-DynamoRIO.  If the debugger inserts \c int3 it can find its way into
-the code cache and cause errors as the debugger will not realize that
-the resulting trap is from a breakpoint.  Use read watchpoints on the
-code in question instead.
-
-On Linux, gdb sets a hidden breakpoint in __nptl_create_event.  This
-causes DynamoRIO to put an \c int3 into the code cache.  The debugger
-then hits a trap on every pthread_create and other related calls.
-The debugger handles these traps so this is just an annoyance.
-See http://code.google.com/p/dynamorio/issues/detail?id=490.
+On Linux, the main drawback of debugging from application start rather
+than attaching is that breakpoint instructions (\c int3) inserted by
+the debugger get copied into the code cache.  This includes internal
+debugger breakpoints automatically placed in the loader, as well as
+user-defined breakpoints.  For example, gdb puts a breakpoint on
+__nptl_create_event, which is called by pthread_create and related
+calls.  See http://code.google.com/p/dynamorio/issues/detail?id=490.
+The debugger will handle these traps, but the user must tell it to
+continue, which is an annoyance.  For user breakpoints, consider using
+read watchpoints on the code in question instead.
 
 On Windows, if an application invokes OutputDebugString() while under a
 debugger, DynamoRIO can end up losing control of the application.
+
+For additional tips, check the DynamoRIO wiki page on debugging:
+https://code.google.com/p/dynamorio/wiki/Debugging
+
 \endif
 
 ****************************************************************************
