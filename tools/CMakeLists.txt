@@ -97,7 +97,11 @@ if (UNIX)
     "${libdynamorio_so}-gdb.py"
     WORKING_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
     OUTPUT_QUIET)
-  configure_file(gdbinit ${CMAKE_BINARY_DIR}/.gdbinit)
+  DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
+    DESTINATION "${INSTALL_LIB}"
+    RENAME "libdynamorio.so.${soversion}-gdb.py"
+    PERMISSIONS OWNER_READ OWNER_EXECUTE 
+    GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
   # Links a target against a list of libraries, and adds relative rpaths
   # pointing to the directories of the libraries.
