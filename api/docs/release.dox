@@ -852,6 +852,9 @@ not supported.
   - The statistics viewer \c DRgui.exe is no longer supported on Windows
     NT.  Statistics still work, but the graphical application itself will
     not run on NT.
+  - UTF-8 support is not yet present in drinjectlib, drconfiglib,
+    drrun.exe, drconfig.exe, or drdeploy.exe.  It is present in the
+    core DR API.
 \if linux
   - This release of DynamoRIO has support for most 32-bit and
     64-bit Linux

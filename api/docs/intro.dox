@@ -331,7 +331,7 @@ internet from a security vendor, to let clients know about them. Note
 that nudging 64-bit processes is not yet supported.
 
 Process registration, unregistration, and nudging require administrative
-privileges.  On Windows Vista, if UAC is enabled, process registration must be
+privileges.  On Windows Vista or higher, if UAC is enabled, process registration must be
 performed by an elevated (runas admin) process. When using the -syswide_on
 parameter, be sure that the cmd shell being used was started with elevated
 permissions.
@@ -397,11 +397,11 @@ your current directory is its base directory.  Run \c calc.exe with the
 bbsize sample client using the following configure-and-run command:
 \if vmsafe
 \code
-bin32/drrun.exe -mode code -client samples/bin32/bbsize.dll 0 "" calc
+bin32/drrun.exe -mode code -client samples/bin32/bbsize.dll 0 "" -- calc
 \endcode
 \else
 \code
-bin32/drrun.exe -client samples/bin32/bbsize.dll 0 "" calc
+bin32/drrun.exe -client samples/bin32/bbsize.dll 0 "" -- calc
 \endcode
 \endif
 
@@ -472,7 +472,7 @@ by \c drconfig.exe for the target application.
 \attention
 The -syswide_on, -syswide_off, use of global configuration files, and
 nudging certain processes may require administrative privileges.  On
-Windows Vista, if UAC is enabled, use an elevated (runas admin)
+Windows Vista or higher, if UAC is enabled, use an elevated (runas admin)
 process. When using \c drconfig.exe and \c drrun.exe in these scenarios, be
 sure that the cmd shell being used was started with elevated permissions.
 
@@ -493,7 +493,7 @@ There are two methods for invoking an application under DynamoRIO:
 As an example of the simpler method, the following command runs \c ls
 under DynamoRIO with the bbsize sample client:
 \code
-% bin32/drrun -client samples/bin32/libbbsize.so 0 "" ls
+% bin32/drrun -client samples/bin32/libbbsize.so 0 "" -- ls
 \endcode
 Run \c drrun with no options to get a list of the options and
 environment variable shortcuts it supports.  To disable following across
@@ -543,6 +543,29 @@ uniquely identifies the target client (see dr_deploy.h for details).
 
 \endif
 \endif
+
+\subsection client_ops Passing Options to Clients
+
+All of the earlier examples passed an empty string after the client path
+and client id to \p drrun and \p drconfig.  The purpose of that string is
+to pass options to a client.  For example:
+
+\code
+bin32/drrun.exe -client myclient.dll 0 "-client_op1 -client_op2" -- calc
+\endcode
+
+On Linux:
+
+\code
+bin32/drrun -client libmyclient.so 0 "-client_op1 -client_op2" -- ls
+\endcode
+
+When using a two-step model, the options are passed to \p drconfig:
+
+\code
+bin32/drconfig.exe -reg calc.exe -client myclient.dll 0 "-client_op1 -client_op2"
+\endcode
+
 
 \subsection multi_client Multiple Clients
 
@@ -1356,7 +1379,7 @@ Options controlling notifications from DynamoRIO:
    might conflict with some applications.
 
 \attention
-   On Vista most Windows services are currently unable to display
+   On Vista or higher most Windows services are currently unable to display
    message boxes (see \ref limits_vista_service_messagebox
    "Limitations"). Since these services also don't have an associated
    console for stderr printing, the \ref op_loglevel "-loglevel"
@@ -1635,6 +1658,20 @@ headers for use with \p drdecode.
 When using DynamoRIO's CMake support, use the configure_DynamoRIO_decoder()
 function to set up include directories and to link with \p drdecode.  The
 next section describes how to link with the DynamoRIO shared library.
+
+\subsection sec_relativize Re-Relativization of Jumps and Calls
+
+When encoding a relative jump or call to a different location than it was
+decoded from while in standalone mode, a re-encode must be forced in order
+to work around an issue where DynamoRIO does not re-relativize the target:
+
+\code
+instr_set_raw_bits_valid(instr, false)
+\endcode
+
+When not in standalone mode, all branches are mangled and thus this is
+never an issue.  This should be fixed in a future release.
+
 
 \section sec_standalone_shared DynamoRIO Shared Library Issues
 
