@@ -1770,6 +1770,8 @@ redirect_RtlCreateHeap(ULONG flags, void *base, size_t reserve_sz,
 static bool
 redirect_heap_call(HANDLE heap)
 {
+    ASSERT(!dynamo_initialized || dynamo_exited ||
+           !os_using_app_state(get_thread_private_dcontext()));
 #ifdef CLIENT_INTERFACE
     if (!INTERNAL_OPTION(privlib_privheap))
         return false;
@@ -1782,7 +1784,7 @@ redirect_heap_call(HANDLE heap)
              */
             heap == private_peb->ProcessHeap ||
 #endif
-            get_peb(NT_CURRENT_PROCESS)->ProcessHeap ||
+            heap == get_peb(NT_CURRENT_PROCESS)->ProcessHeap ||
             is_dynamo_address((byte*)heap));
 }
 
