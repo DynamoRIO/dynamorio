@@ -1667,6 +1667,8 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     new_dcontext->priv_fls_data = old_dcontext->priv_fls_data;
     new_dcontext->app_nt_rpc = old_dcontext->app_nt_rpc;
     new_dcontext->priv_nt_rpc = old_dcontext->priv_nt_rpc;
+    new_dcontext->app_nls_cache = old_dcontext->app_nls_cache;
+    new_dcontext->priv_nls_cache = old_dcontext->priv_nls_cache;
     new_dcontext->teb_base = old_dcontext->teb_base;
 #endif
 #ifdef LINUX

@@ -341,6 +341,8 @@ static PEB *private_peb;
 static void *priv_fls_data;
 /* Isolate TEB->ReservedForNtRpc: for first thread we need to copy before have dcontext */
 static void *priv_nt_rpc;
+/* Isolate TEB->NlsCache: for first thread we need to copy before have dcontext */
+static void *priv_nls_cache;
 /* Only swap peb and teb fields if we've loaded WinAPI libraries */
 static bool loaded_windows_lib;
 /* Used to handle loading windows lib later during init */
@@ -421,8 +423,11 @@ os_loader_init_prologue(void)
             }
         }
 
+        priv_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
         priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
         priv_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
+        LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->NlsCache="PFX"\n",
+            priv_nls_cache);
         LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->FlsData="PFX"\n", priv_fls_data);
         LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->ReservedForNtRpc="PFX"\n",
             priv_nt_rpc);
@@ -529,20 +534,27 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
             /* For first thread use cached pre-priv-lib value for app and
              * whatever value priv libs have set for priv
              */
+            dcontext->priv_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
             dcontext->priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
             dcontext->priv_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
+            dcontext->app_nls_cache = NULL;
             dcontext->app_fls_data = NULL;
             dcontext->app_nt_rpc = NULL;
+            set_tls(NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
             set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
             set_tls(NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
         } else {
             /* The real value will be set by swap_peb_pointer */
+            dcontext->app_nls_cache = NULL;
             dcontext->app_fls_data = NULL;
             dcontext->app_nt_rpc = NULL;
             /* We assume clearing out any non-NULL value for priv is safe */
+            dcontext->priv_nls_cache = NULL;
             dcontext->priv_fls_data = NULL;
             dcontext->priv_nt_rpc = NULL;
         }
+        LOG(THREAD, LOG_LOADER, 2, "app nls_cache="PFX", priv nls_cache="PFX"\n",
+            dcontext->app_nls_cache, dcontext->priv_nls_cache);
         LOG(THREAD, LOG_LOADER, 2, "app fls="PFX", priv fls="PFX"\n",
             dcontext->app_fls_data, dcontext->priv_fls_data);
         LOG(THREAD, LOG_LOADER, 2, "app rpc="PFX", priv rpc="PFX"\n",
@@ -654,6 +666,7 @@ is_using_app_peb(dcontext_t *dcontext)
 {
     /* don't use get_own_peb() as we want what's actually pointed at by TEB */
     PEB *cur_peb = get_teb_field(dcontext, PEB_TIB_OFFSET);
+    void *cur_nls_cache;
     void *cur_fls;
     void *cur_rpc;
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
@@ -662,13 +675,16 @@ is_using_app_peb(dcontext_t *dcontext)
         !should_swap_peb_pointer())
         return true;
     ASSERT(cur_peb != NULL);
+    cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
     cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
     cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
     if (cur_peb == get_private_peb()) {
+        ASSERT(cur_nls_cache == dcontext->priv_nls_cache);
         ASSERT(cur_fls == dcontext->priv_fls_data);
         ASSERT(cur_rpc == dcontext->priv_nt_rpc);
         return false;
     } else {
+        ASSERT(cur_nls_cache == dcontext->app_nls_cache);
         ASSERT(cur_fls == dcontext->app_fls_data);
         ASSERT(cur_rpc == dcontext->app_nt_rpc);
         return true;
@@ -689,6 +705,7 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
         /* We preserve TEB->LastErrorValue and we swap TEB->FlsData and
          * TEB->ReservedForNtRpc
          */
+        void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
         void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
         void *cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
         if (to_priv) {
@@ -696,6 +713,10 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
             dcontext->app_errno = (int)(ptr_int_t)
                 get_teb_field(dcontext, ERRNO_TIB_OFFSET);
 
+            if (dcontext->priv_nls_cache != cur_nls_cache) { /* handle two in a row */
+                dcontext->app_nls_cache = cur_nls_cache;
+                set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET, dcontext->priv_nls_cache);
+            }
             if (dcontext->priv_fls_data != cur_fls) { /* handle two calls in a row */
                 dcontext->app_fls_data = cur_fls;
                 set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->priv_fls_data);
@@ -709,6 +730,10 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
             set_teb_field(dcontext, ERRNO_TIB_OFFSET,
                           (void *)(ptr_int_t)dcontext->app_errno);
 
+            if (dcontext->app_nls_cache != cur_nls_cache) { /* handle two in a row */
+                dcontext->priv_nls_cache = cur_nls_cache;
+                set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
+            }
             if (dcontext->app_fls_data != cur_fls) { /* handle two calls in a row */
                 dcontext->priv_fls_data = cur_fls;
                 set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
@@ -718,12 +743,16 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
                 set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
             }
         }
+        ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
         ASSERT(!is_dynamo_address(dcontext->app_fls_data));
         ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
         /* Once we have earier injection we should be able to assert
          * that priv_fls_data is either NULL or a DR address: but on
          * notepad w/ drinject it's neither: need to investigate.
          */
+        LOG(THREAD, LOG_LOADER, 3,
+            "cur nls_cache="PFX", app nls_cache="PFX", priv nls_cache="PFX"\n",
+            cur_nls_cache, dcontext->app_nls_cache, dcontext->priv_nls_cache);
         LOG(THREAD, LOG_LOADER, 3, "cur fls="PFX", app fls="PFX", priv fls="PFX"\n",
             cur_fls, dcontext->app_fls_data, dcontext->priv_fls_data);
         LOG(THREAD, LOG_LOADER, 3, "cur rpc="PFX", app rpc="PFX", priv rpc="PFX"\n",
@@ -748,6 +777,9 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
     set_teb_field(dcontext, ERRNO_TIB_OFFSET, (void *)(ptr_int_t) dcontext->app_errno);
     LOG(THREAD, LOG_LOADER, 3, "restored app errno to "PIFX"\n", dcontext->app_errno);
     /* We also swap TEB->FlsData and TEB->ReservedForNtRpc */
+    set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
+    LOG(THREAD, LOG_LOADER, 3, "restored app nls_cache to "PFX"\n",
+        dcontext->app_nls_cache);
     set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
     LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_fls_data);
     set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);

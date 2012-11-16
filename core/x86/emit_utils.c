@@ -3076,7 +3076,10 @@ build_profile_call_buffer()
     /* All we need is a single instruction: */
     /*  77F45BBE: 89 48 34           mov         reg_result, dword ptr fs:[34h] */
 
-/* i#249: isolate app's PEB+TEB by keeping our own copy and swapping on cxt switch */
+/* i#249: isolate app's PEB+TEB by keeping our own copy and swapping on cxt switch
+ * XXX i#171: this is getting longer.  We should save space in clean calls via a shared
+ * gencode sequence.
+ */
 void
 preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
                    bool absolute, reg_id_t reg_dr, reg_id_t reg_scratch, bool to_priv)
@@ -3119,6 +3122,23 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
              opnd_create_reg(scratch32)));
     }
 
+    /* We also swap TEB->NlsCache.  Unlike TEB->ProcessEnvironmentBlock, which is
+     * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
+     * both values and swap between them which is expensive.
+     */
+    PRE(ilist, next, INSTR_CREATE_mov_ld
+        (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
+         (SEG_TLS, REG_NULL, REG_NULL, 0, NLS_CACHE_TIB_OFFSET, OPSZ_PTR)));
+    PRE(ilist, next, SAVE_TO_DC_VIA_REG
+        (absolute, dcontext, reg_dr, reg_scratch,
+         to_priv ? APP_NLS_CACHE_OFFSET : PRIV_NLS_CACHE_OFFSET));
+    PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+        (absolute, dcontext, reg_dr, reg_scratch,
+         to_priv ? PRIV_NLS_CACHE_OFFSET : APP_NLS_CACHE_OFFSET));
+    PRE(ilist, next, INSTR_CREATE_mov_st
+        (dcontext, opnd_create_far_base_disp
+         (SEG_TLS, REG_NULL, REG_NULL, 0, NLS_CACHE_TIB_OFFSET, OPSZ_PTR),
+         opnd_create_reg(reg_scratch)));
     /* We also swap TEB->FlsData.  Unlike TEB->ProcessEnvironmentBlock, which is
      * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
      * both values and swap between them which is expensive.
