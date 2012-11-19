@@ -64,7 +64,7 @@
 #define YMMH_SAVED_SIZE (NUM_XMM_SLOTS*YMMH_REG_SIZE)
 
 /* Number of slots for spills from inlined clean calls. */
-#define CLEANCALL_NUM_INLINE_SLOTS 4
+#define CLEANCALL_NUM_INLINE_SLOTS 5
 
 typedef enum {
     IBL_NONE = -1,

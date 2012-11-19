@@ -41,6 +41,7 @@
 #define FUNCTIONS() \
         FUNCTION(empty) \
         FUNCTION(inscount) \
+        FUNCTION(gcc47_inscount) \
         FUNCTION(callpic_pop) \
         FUNCTION(callpic_mov) \
         FUNCTION(nonleaf) \

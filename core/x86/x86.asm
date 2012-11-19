@@ -84,8 +84,8 @@ START_FILE
 
 /* Count the slots for client clean call inlining. */
 #ifdef CLIENT_INTERFACE
-/* Add CLEANCALL_NUM_INLINE_SLOTS(4) * ARG_SZ for these slots.  No padding. */
-# define UPCXT_EXTRA (UPCXT_BEFORE_INLINE_SLOTS + 4 * ARG_SZ)
+/* Add CLEANCALL_NUM_INLINE_SLOTS(5) * ARG_SZ for these slots.  No padding. */
+# define UPCXT_EXTRA (UPCXT_BEFORE_INLINE_SLOTS + 5 * ARG_SZ)
 #else
 # define UPCXT_EXTRA UPCXT_BEFORE_INLINE_SLOTS
 #endif
