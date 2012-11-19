@@ -82,8 +82,11 @@ This document describes the DynamoRIO system and the various API's that it
 exports for building custom tools.  It is divided into the following
 sections:
 
+- \subpage page_deploy
+  <br>How to run DynamoRIO.
+
 - \subpage using
-  <br>How to deploy and make use of DynamoRIO.
+  <br>How to make use of DynamoRIO.
 
 \if vmsafe
 - \subpage API_security
@@ -242,63 +245,7 @@ Other publications describing DynamoRIO include:
 
 \image html favicon.ico
 
-****************************************************************************
-****************************************************************************
-*/
-/* It's good to use separate C comments: we've hit some sort of doxygen
- * internal buffering error before if one comment gets too long.
- */
-/**
-***************************************************************************
-***************************************************************************
-\page using Usage Model for DynamoRIO
-
-This section gives an overview of how to use DynamoRIO, divided into the
-following sub-sections:
-
-\if vmsafe 
- - \ref sec_deploy
- - \ref dr_api
- - \ref dr_modes
- - \ref sec_events
- - \ref sec_utils
- - \ref sec_extlibs
- - \ref sec_comm
- - \ref sec_options
- - \ref sec_debugging
-\else
- - \ref sec_deploy
- - \ref sec_events
- - \ref sec_utils
- - \ref sec_build
- - \ref sec_extlibs
- - \ref sec_extensions
- - \ref sec_comm
- - \ref sec_64bit_reach
- - \ref sec_utf8
- - \ref sec_options
- - \ref sec_debugging
-\endif
-
-\ifnot vmsafe
-DynamoRIO exports a rich Application Programming Interface (API) to the
-user for building a DynamoRIO <em>client</em>. A DynamoRIO client is a
-library that is coupled with DynamoRIO in order to jointly operate on an
-input program binary:
-
-  \image html client.png
-  \image rtf client.png
-  \image latex client.eps "DynamoRIO client" width=10cm
-
-To interact with the client, DynamoRIO provides specific events that a
-client can intercept.  Event interception functions, if supplied by a user
-client, are called by DynamoRIO at appropriate times.
-
-DynamoRIO can alternatively be used as a third-party disassembly library
-(see \ref page_standalone).
-\endif
-
-\section sec_deploy Deployment
+\page page_deploy Deployment
 \if vmsafe
 A DynamoRIO application consists of a guest agent and one or more clients.  Each of
 these must be linked against the necessary DynamoRIO dynamic libraries, which
@@ -354,7 +301,7 @@ target application when used as a regular library.
 \endif
 
 \if linux
-\subsection win_deploy Windows Deployment
+\section win_deploy Windows Deployment
 \endif
 
 There are two methods for running a process under DynamoRIO: the one-time
@@ -477,7 +424,7 @@ process. When using \c drconfig.exe and \c drrun.exe in these scenarios, be
 sure that the cmd shell being used was started with elevated permissions.
 
 \if linux
-\subsection lin_deploy Linux Deployment
+\section lin_deploy Linux Deployment
 
 Once DynamoRIO has been unpacked, a set of three scripts provide
 flexibility in configuring and executing applications.
@@ -544,7 +491,7 @@ uniquely identifies the target client (see dr_deploy.h for details).
 \endif
 \endif
 
-\subsection client_ops Passing Options to Clients
+\section client_ops Passing Options to Clients
 
 All of the earlier examples passed an empty string after the client path
 and client id to \p drrun and \p drconfig.  The purpose of that string is
@@ -567,7 +514,7 @@ bin32/drconfig.exe -reg calc.exe -client myclient.dll 0 "-client_op1 -client_op2
 \endcode
 
 
-\subsection multi_client Multiple Clients
+\section multi_client Multiple Clients
 
 DynamoRIO does support multiple clients.  It is each client's
 responsibility, however, to ensure compatibility with other clients.
@@ -588,6 +535,60 @@ registered callback is called \em last.  This scheme gives precedence
 to the first registered callback since that callback is given the final
 opportunity to modify the instruction stream or influence DynamoRIO's
 operation. 
+
+****************************************************************************
+****************************************************************************
+*/
+/* It's good to use separate C comments: we've hit some sort of doxygen
+ * internal buffering error before if one comment gets too long.
+ */
+/**
+***************************************************************************
+***************************************************************************
+\page using Usage Model for DynamoRIO
+
+This section gives an overview of how to use DynamoRIO, divided into the
+following sub-sections:
+
+\if vmsafe 
+ - \ref dr_api
+ - \ref dr_modes
+ - \ref sec_events
+ - \ref sec_utils
+ - \ref sec_extlibs
+ - \ref sec_comm
+ - \ref sec_options
+ - \ref sec_debugging
+\else
+ - \ref sec_events
+ - \ref sec_utils
+ - \ref sec_build
+ - \ref sec_extlibs
+ - \ref sec_extensions
+ - \ref sec_comm
+ - \ref sec_64bit_reach
+ - \ref sec_utf8
+ - \ref sec_options
+ - \ref sec_debugging
+\endif
+
+\ifnot vmsafe
+DynamoRIO exports a rich Application Programming Interface (API) to the
+user for building a DynamoRIO <em>client</em>. A DynamoRIO client is a
+library that is coupled with DynamoRIO in order to jointly operate on an
+input program binary:
+
+  \image html client.png
+  \image rtf client.png
+  \image latex client.eps "DynamoRIO client" width=10cm
+
+To interact with the client, DynamoRIO provides specific events that a
+client can intercept.  Event interception functions, if supplied by a user
+client, are called by DynamoRIO at appropriate times.
+
+DynamoRIO can alternatively be used as a third-party disassembly library
+(see \ref page_standalone).
+\endif
 
 \if vmsafe
 ***************************************************************************
@@ -1148,7 +1149,7 @@ Due to transparency limitations (see \ref transparency),
 DynamoRIO can only support certain communication channels in and out of the
 target application process.  These include:
 
- - DynamoRIO deployment control and runtime options: see \ref sec_deploy
+ - DynamoRIO deployment control and runtime options: see \ref page_deploy
    and \ref sec_options.  In particular, the deployment API allows users to
    pass up-front runtime information to the client.
  - Nudges: Since polling requires extra threads, and DynamoRIO tries not
@@ -1167,13 +1168,13 @@ target application process.  These include:
 DynamoRIO's behavior can be fine-tuned using runtime parameters.  Options
 are specified via \c drconfig.exe, \c drrun.exe, or dr_register_process()
 \if linux on Windows and via the \c drconfig and \c drrun scripts on
-Linux\endif.  See \ref sec_deploy.
+Linux\endif.  See \ref page_deploy.
 
  - \b -no_follow_children: \anchor op_children
    By default, DynamoRIO follows all child processes.  When this option
    is disabled via \p -no_follow_children, DynamoRIO follows only
    into child processes for which a configuration file exists (typically
-   created by \c drconfig; see \ref sec_deploy).  On Linux,
+   created by \c drconfig; see \ref page_deploy).  On Linux,
    forked children are always followed and this option only affects execve.
 
    To follow all children in general but exclude certain children, leave \p

@@ -263,7 +263,7 @@ make instrcalls
 \endcode
 
 The result is a shared library instrcalls.dll or libinstrcalls.so. To
-invoke the client library, follow the instructions under \ref sec_deploy.
+invoke the client library, follow the instructions under \ref page_deploy.
 
 ********************
 \subsection sec_ex2 Instruction Profiling
