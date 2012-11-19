@@ -68,6 +68,8 @@ extern "C" {
 #define dr_unregister_thread_exit_event DO_NOT_USE_thread_event_USE_drmmgr_events_instead
 #define dr_register_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmmgr_events_instead
 #define dr_unregister_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmmgr_events_instead
+#define dr_register_post_syscall_event DO_NOT_USE_post_syscall_USE_drmmgr_events_instead
+#define dr_unregister_post_syscall_event DO_NOT_USE_post_syscall_USE_drmmgr_events_instead
 
 /***************************************************************************
  * TYPES
@@ -715,6 +717,38 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_pre_syscall_event(bool (*func)(void *drcontext, int sysnum));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the post-syscall event, which
+ * behaves just like DR's post-syscall event
+ * dr_register_post_syscall_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_post_syscall_event(void (*func)(void *drcontext, int sysnum));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the post-syscall event, which
+ * behaves just like DR's post-syscall event
+ * dr_register_post_syscall_event(), except that it is ordered according
+ * to \p priority.  A default priority of 0 is used for events registered
+ * via drmgr_register_post_syscall_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_post_syscall_event_ex(void (*func)(void *drcontext, int sysnum),
+                                    drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the post-syscall event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_post_syscall_event(void (*func)(void *drcontext, int sysnum));
 
 
 /*@}*/ /* end doxygen group */

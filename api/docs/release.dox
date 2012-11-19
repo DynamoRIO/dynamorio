@@ -120,12 +120,19 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 
 The current version is \DR_VERSION.  
 
-The changes between version \DR_VERSION and 3.2.0 include a binary
-compatibilty change in the drsyms Extension:
+The changes between version \DR_VERSION and 3.2.0 include a
+compatibility change in the drsyms Extension:
 
  - Changed the drsyms type query data structures (#drsym_type_t,
    #drsym_func_type_t, #drsym_int_type_t, #drsym_ptr_type_t).
    This is a binary compatibility change for drsym_get_func_type().
+
+And in the drmgr Extension:
+
+ - The post-syscall event is now mediated and ordered by drmgr.
+   Thus, clients should call drmgr_register_post_syscall_event()
+   or drmgr_register_post_syscall_event_ex() rather than
+   dr_register_post_syscall_event().
 
 And in the core API:
 

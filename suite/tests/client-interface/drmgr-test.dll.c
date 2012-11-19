@@ -54,6 +54,8 @@ static thread_id_t main_thread;
 static int cb_depth;
 static bool in_syscall_A;
 static bool in_syscall_B;
+static bool in_post_syscall_A;
+static bool in_post_syscall_B;
 static void *syslock;
 
 #define MAGIC_NUMBER_FROM_CACHE 0x0eadbeef
@@ -71,6 +73,8 @@ static void event_thread_context_exit(void *drcontext, bool process_exit);
 static bool event_filter_syscall(void *drcontext, int sysnum);
 static bool event_pre_sys_A(void *drcontext, int sysnum);
 static bool event_pre_sys_B(void *drcontext, int sysnum);
+static void event_post_sys_A(void *drcontext, int sysnum);
+static void event_post_sys_B(void *drcontext, int sysnum);
 static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating,
                                          OUT void **user_data);
@@ -127,6 +131,9 @@ dr_init(client_id_t id)
     dr_register_filter_syscall_event(event_filter_syscall);
     ok = drmgr_register_pre_syscall_event_ex(event_pre_sys_A, &sys_pri_A) &&
         drmgr_register_pre_syscall_event_ex(event_pre_sys_B, &sys_pri_B);
+    CHECK(ok, "drmgr register sys failed");
+    ok = drmgr_register_post_syscall_event_ex(event_post_sys_A, &sys_pri_A) &&
+        drmgr_register_post_syscall_event_ex(event_post_sys_B, &sys_pri_B);
     CHECK(ok, "drmgr register sys failed");
 
     syslock = dr_mutex_create();
@@ -356,4 +363,30 @@ event_pre_sys_B(void *drcontext, int sysnum)
         dr_mutex_unlock(syslock);
     }
     return true;
+}
+
+static void
+event_post_sys_A(void *drcontext, int sysnum)
+{
+    if (!in_post_syscall_A) {
+        dr_mutex_lock(syslock);
+        if (!in_post_syscall_A) {
+            dr_fprintf(STDERR, "in post_sys_A\n");
+            in_post_syscall_A = true;
+        }
+        dr_mutex_unlock(syslock);
+    }
+}
+
+static void
+event_post_sys_B(void *drcontext, int sysnum)
+{
+    if (!in_post_syscall_B) {
+        dr_mutex_lock(syslock);
+        if (!in_post_syscall_B) {
+            dr_fprintf(STDERR, "in post_sys_B\n");
+            in_post_syscall_B = true;
+        }
+        dr_mutex_unlock(syslock);
+    }
 }
