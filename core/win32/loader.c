@@ -481,7 +481,9 @@ os_loader_init_epilogue(void)
 {
 #ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb) && !should_swap_peb_pointer()) {
-        /* Not going to be swapping so restore permanently to app */
+        /* Not going to be swapping so restore permanently to app.
+         * If kernel32 is loaded later we'll start swapping at that point.
+         */
         swap_peb_pointer(NULL, false/*to app*/);
         swapped_to_app_peb = true;
     }
@@ -529,7 +531,10 @@ void
 os_loader_thread_init_prologue(dcontext_t *dcontext)
 {
 #ifdef CLIENT_INTERFACE
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+    /* We do not check should_swap_peb_pointer() b/c that can change later and
+     * we need to be ready for that (i#981).
+     */
+    if (INTERNAL_OPTION(private_peb)) {
         if (!dynamo_initialized) {
             /* For first thread use cached pre-priv-lib value for app and
              * whatever value priv libs have set for priv
@@ -563,7 +568,8 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
          * know the teb base from another thread 
          */
         dcontext->teb_base = (byte *) get_tls(SELF_TIB_OFFSET);
-        swap_peb_pointer(dcontext, true/*to priv*/);
+        if (should_swap_peb_pointer())
+            swap_peb_pointer(dcontext, true/*to priv*/);
     }
 #endif
 }
@@ -657,6 +663,7 @@ set_teb_field(dcontext_t *dcontext, ushort offs, void *value)
         set_tls(offs, value);
     } else {
         byte *teb = dcontext->teb_base;
+        ASSERT(dcontext->teb_base != NULL);
         *((void **)(teb + offs)) = value;
     }
 }
