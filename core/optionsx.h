@@ -1346,7 +1346,9 @@
      * XXX: this option can only be turned on by drrun via "-early" so that
      * cmdline args can be arranged appropriately.
      */
-    OPTION_DEFAULT(bool, early_inject, IF_WINDOWS_ELSE(true, false), "inject early")
+    OPTION_DEFAULT(bool, early_inject, IF_WINDOWS_ELSE
+                   /* i#980: too early for kernel32 so we disable */
+                   (IF_CLIENT_INTERFACE_ELSE(false, true), false), "inject early")
 #if 0 /* FIXME i#234 NYI: not ready to enable just yet */
     OPTION_DEFAULT(bool, early_inject_map, true, "inject earliest via map")
     /* see enum definition is os_shared.h for notes on what works with which
