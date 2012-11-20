@@ -679,9 +679,15 @@ is_using_app_peb(dcontext_t *dcontext)
     cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
     cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
     if (cur_peb == get_private_peb()) {
-        ASSERT(cur_nls_cache == dcontext->priv_nls_cache);
-        ASSERT(cur_fls == dcontext->priv_fls_data);
-        ASSERT(cur_rpc == dcontext->priv_nt_rpc);
+        /* won't nec equal the priv_ value since could have changed: but should
+         * not have the app value!
+         */
+        ASSERT(cur_nls_cache == NULL ||
+               cur_nls_cache != dcontext->app_nls_cache);
+        ASSERT(cur_fls == NULL ||
+               cur_fls != dcontext->app_fls_data);
+        ASSERT(cur_rpc == NULL ||
+               cur_rpc != dcontext->app_nt_rpc);
         return false;
     } else {
         ASSERT(cur_nls_cache == dcontext->app_nls_cache);
@@ -1803,6 +1809,7 @@ static bool
 redirect_heap_call(HANDLE heap)
 {
     ASSERT(!dynamo_initialized || dynamo_exited ||
+           get_thread_private_dcontext() == NULL /*thread exiting*/ ||
            !os_using_app_state(get_thread_private_dcontext()));
 #ifdef CLIENT_INTERFACE
     if (!INTERNAL_OPTION(privlib_privheap))
