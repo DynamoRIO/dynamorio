@@ -364,6 +364,8 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
         if (after == NULL) {
             mod->next = modlist;
             mod->prev = NULL;
+            if (modlist != NULL)
+                modlist->prev = mod;
             ASSERT(!DATASEC_PROTECTED(DATASEC_RARELY_PROT));
             modlist = mod;
         } else {
