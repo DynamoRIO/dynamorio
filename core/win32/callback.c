@@ -2733,6 +2733,7 @@ asynch_take_over(app_state_at_intercept_t *state)
             trace_abort(dcontext);
         }
     }
+    ASSERT(os_using_app_state(dcontext));
     LOG(THREAD, LOG_ASYNCH, 2, "asynch_take_over 0x%08x\n", state->start_pc);
     /* may have been inside syscall...now we're in app! */
     set_at_syscall(dcontext, false);
@@ -4586,7 +4587,7 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
 
     /* i#249: swap PEB pointers.  We assume that no other Ki-handling code needs
      * the PEB swapped, as our hook code does not swap like fcache enter/return
-     * and clean calls do.
+     * and clean calls do.  We do swap when recreating app state.
      */
     if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
         swap_peb_pointer(dcontext, true/*to priv*/);
@@ -5938,6 +5939,15 @@ callback_setup(app_pc next_pc)
         dump_mcontext(get_mcontext(new_dcontext), old_dcontext->logfile,
                       DUMP_NOT_XML);
     });
+
+# ifdef CLIENT_INTERFACE
+    /* i#985: save TEB fields into old context via double swap */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        ASSERT(os_using_app_state(old_dcontext));
+        swap_peb_pointer(old_dcontext, true/*to priv*/);
+        swap_peb_pointer(old_dcontext, false/*to app*/);
+    }
+# endif
 
     /* now swap new and old */
     swap_dcontexts(new_dcontext, old_dcontext);

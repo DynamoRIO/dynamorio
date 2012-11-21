@@ -338,11 +338,11 @@ static HMODULE (WINAPI *priv_kernel32_LoadLibraryW)(const wchar_t *);
 /* Isolate the app's PEB by making a copy for use by private libs (i#249) */
 static PEB *private_peb;
 /* Isolate TEB->FlsData: for first thread we need to copy before have dcontext */
-static void *priv_fls_data;
+static void *pre_fls_data;
 /* Isolate TEB->ReservedForNtRpc: for first thread we need to copy before have dcontext */
-static void *priv_nt_rpc;
+static void *pre_nt_rpc;
 /* Isolate TEB->NlsCache: for first thread we need to copy before have dcontext */
-static void *priv_nls_cache;
+static void *pre_nls_cache;
 /* Used to handle loading windows lib later during init */
 static bool swapped_to_app_peb;
 /* FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.  Living w/ it for now. */
@@ -421,14 +421,24 @@ os_loader_init_prologue(void)
             }
         }
 
-        priv_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
-        priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
-        priv_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
+        pre_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
+        pre_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
+        pre_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
+        /* Clear state to separate priv from app.
+         * XXX: if we attach or something it seems possible that ntdll or user32
+         * or some other shared resource might set these and we want to share
+         * the value between app and priv.  In that case we should not clear here
+         * and should relax the asserts in dispatch and is_using_app_peb to
+         * allow app==priv if both ==pre.
+         */
+        set_tls(NLS_CACHE_TIB_OFFSET, NULL);
+        set_tls(FLS_DATA_TIB_OFFSET, NULL);
+        set_tls(NT_RPC_TIB_OFFSET, NULL);
         LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->NlsCache="PFX"\n",
-            priv_nls_cache);
-        LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->FlsData="PFX"\n", priv_fls_data);
+            pre_nls_cache);
+        LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->FlsData="PFX"\n", pre_fls_data);
         LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->ReservedForNtRpc="PFX"\n",
-            priv_nt_rpc);
+            pre_nt_rpc);
     }
 #endif
 
@@ -535,9 +545,9 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
             dcontext->priv_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
             dcontext->priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
             dcontext->priv_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
-            dcontext->app_nls_cache = NULL;
-            dcontext->app_fls_data = NULL;
-            dcontext->app_nt_rpc = NULL;
+            dcontext->app_nls_cache = pre_nls_cache;
+            dcontext->app_fls_data = pre_fls_data;
+            dcontext->app_nt_rpc = pre_nt_rpc;
             set_tls(NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
             set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
             set_tls(NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
@@ -666,9 +676,15 @@ is_using_app_peb(dcontext_t *dcontext)
                cur_rpc != dcontext->app_nt_rpc);
         return false;
     } else {
-        ASSERT(cur_nls_cache == dcontext->app_nls_cache);
-        ASSERT(cur_fls == dcontext->app_fls_data);
-        ASSERT(cur_rpc == dcontext->app_nt_rpc);
+        /* won't nec equal the app_ value since could have changed: but should
+         * not have the priv value!
+         */
+        ASSERT(cur_nls_cache == NULL ||
+               cur_nls_cache != dcontext->priv_nls_cache);
+        ASSERT(cur_fls == NULL ||
+               cur_fls != dcontext->priv_fls_data);
+        ASSERT(cur_rpc == NULL ||
+               cur_rpc != dcontext->priv_nt_rpc);
         return true;
     }
 }
