@@ -343,8 +343,6 @@ static void *priv_fls_data;
 static void *priv_nt_rpc;
 /* Isolate TEB->NlsCache: for first thread we need to copy before have dcontext */
 static void *priv_nls_cache;
-/* Only swap peb and teb fields if we've loaded WinAPI libraries */
-static bool loaded_windows_lib;
 /* Used to handle loading windows lib later during init */
 static bool swapped_to_app_peb;
 /* FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.  Living w/ it for now. */
@@ -481,9 +479,7 @@ os_loader_init_epilogue(void)
 {
 #ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb) && !should_swap_peb_pointer()) {
-        /* Not going to be swapping so restore permanently to app.
-         * If kernel32 is loaded later we'll start swapping at that point.
-         */
+        /* Not going to be swapping so restore permanently to app */
         swap_peb_pointer(NULL, false/*to app*/);
         swapped_to_app_peb = true;
     }
@@ -531,10 +527,7 @@ void
 os_loader_thread_init_prologue(dcontext_t *dcontext)
 {
 #ifdef CLIENT_INTERFACE
-    /* We do not check should_swap_peb_pointer() b/c that can change later and
-     * we need to be ready for that (i#981).
-     */
-    if (INTERNAL_OPTION(private_peb)) {
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
         if (!dynamo_initialized) {
             /* For first thread use cached pre-priv-lib value for app and
              * whatever value priv libs have set for priv
@@ -568,8 +561,7 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
          * know the teb base from another thread 
          */
         dcontext->teb_base = (byte *) get_tls(SELF_TIB_OFFSET);
-        if (should_swap_peb_pointer())
-            swap_peb_pointer(dcontext, true/*to priv*/);
+        swap_peb_pointer(dcontext, true/*to priv*/);
     }
 #endif
 }
@@ -605,42 +597,19 @@ get_private_peb(void)
     return private_peb;
 }
 
-/* For performance reasons we avoid the swap if there are no private WinAPI libs:
- * we assume libs not in the system dir will not write to PEB or TEB fields we
- * care about (mainly Fls ones).
+/* For performance reasons we avoid the swap if there's no client.
+ * We'd like to do so if there are no private WinAPI libs
+ * (we assume libs not in the system dir will not write to PEB or TEB fields we
+ * care about (mainly Fls ones)), but kernel32 can be loaded in dr_init()
+ * (which is after arch_init()) via dr_enable_console_printing(); plus,
+ * a client could load kernel32 via dr_load_aux_library(), or a 3rd-party
+ * priv lib could load anything at any time.  Xref i#984.
  */
 bool
 should_swap_peb_pointer(void)
 {
-    return INTERNAL_OPTION(private_peb) && loaded_windows_lib;
-}
-
-static void
-set_loaded_windows_lib(void)
-{
-    if (!loaded_windows_lib) {
-        if (!dynamo_initialized) {
-            loaded_windows_lib = true;
-            LOG(GLOBAL, LOG_LOADER, 1,
-                "loaded a Windows system library => isolating PEB+TEB\n");
-#ifdef CLIENT_INTERFACE
-            if (INTERNAL_OPTION(private_peb) && swapped_to_app_peb &&
-                should_swap_peb_pointer()) {
-                /* os_loader_init_epilogue() already swapped to app */
-                swap_peb_pointer(NULL, true/*to priv*/);
-            }
-#endif
-            /* attempt to catch init re-ordering (see comment below and i#338) */
-#ifndef CLIENT_INTERFACE /* dr_enable_console_printing() loads kernel32.dll */
-            ASSERT(get_thread_private_dcontext() == NULL);
-#endif
-        } else {
-            /* We've already emitted context switch code that does not swap peb/teb.
-             * Basically we don't support this.  (Should really check for post-emit.)
-             */
-            ASSERT_NOT_REACHED();
-        }
-    }
+    return (INTERNAL_OPTION(private_peb) &&
+            !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib));
 }
 
 static void *
@@ -715,8 +684,8 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
     set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
     LOG(THREAD, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
     if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT) {
-        /* We preserve TEB->LastErrorValue and we swap TEB->FlsData and
-         * TEB->ReservedForNtRpc
+        /* We preserve TEB->LastErrorValue and we swap TEB->FlsData,
+         * TEB->ReservedForNtRpc, and TEB->NlsCache.
          */
         void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
         void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
@@ -1470,9 +1439,6 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
         NULL_TERMINATE_BUFFER(modpath);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
         if (os_file_exists(modpath, false/*!is_dir*/)) {
-#ifdef CLIENT_INTERFACE
-            set_loaded_windows_lib();
-#endif
             mod = privload_load(modpath, dependent);
             return mod; /* if fails to load, don't keep searching */
         }
@@ -1482,9 +1448,6 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
         NULL_TERMINATE_BUFFER(modpath);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
         if (os_file_exists(modpath, false/*!is_dir*/)) {
-#ifdef CLIENT_INTERFACE
-            set_loaded_windows_lib();
-#endif
             mod = privload_load(modpath, dependent);
             return mod; /* if fails to load, don't keep searching */
         }
