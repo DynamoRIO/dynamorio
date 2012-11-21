@@ -4262,6 +4262,7 @@ char *
 dr_wstrdup(const wchar_t *str HEAPACCT(which_heap_t which))
 {
     char *dup;
+    ssize_t encode_len;
     size_t str_len;
     int res;
     if (str == NULL)
@@ -4270,20 +4271,29 @@ dr_wstrdup(const wchar_t *str HEAPACCT(which_heap_t which))
      * I'm assuming we're using not directly on external inputs.
      * If we do put in a max length, should do the same for dr_strdup.
      */
-    str_len = wcslen(str) + 1;      /* Extra 1 char for the '\0' at the end. */
+    encode_len = utf16_to_utf8_size(str, 0/*no max*/, NULL);
+    if (encode_len < 0)
+        str_len = 1;
+    else
+        str_len = encode_len + 1;   /* Extra 1 char for the '\0' at the end. */
     dup = (char*) heap_alloc(GLOBAL_DCONTEXT, str_len HEAPACCT(which));
-    res = snprintf(dup, str_len, "%S", str);
-    if (res < 0 || (size_t)res < str_len - 1) {
-        /* apparently for some versions of ntdll!_snprintf, if %S
-         * conversion hits a non-ASCII char it will write a NULL and
-         * snprintf will return -1 (that's the libc behavior) or the
-         * number of chars to that point.  we don't want strlen to return
-         * fewer chars than we allocated so we fill it in (i#347).
-         */
-        ASSERT_NOT_TESTED(); /* all my ntdll's stick in '?' and don't stop! */
-        if (res < 0)
-            dup[0] = '\0';
-        memset(dup + strlen(dup), '?', str_len - 1 - strlen(dup));
+    if (encode_len >= 0) {
+        res = snprintf(dup, str_len, "%S", str);
+        if (res < 0 || (size_t)res < str_len - 1) {
+            ASSERT_NOT_REACHED();
+            if (res < 0)
+                dup[0] = '\0';
+            /* apparently for some versions of ntdll!_snprintf, if %S
+             * conversion hits a non-ASCII char it will write a NULL and
+             * snprintf will return -1 (that's the libc behavior) or the
+             * number of chars to that point.  we don't want strlen to return
+             * fewer chars than we allocated so we fill it in (i#347).
+             */
+            /* Xref i#347, though we shouldn't get here b/c utf16_to_utf8_size uses
+             * the same code.  We fall back on filling with '?'.
+             */
+            memset(dup + strlen(dup), '?', str_len - 1 - strlen(dup));
+        }
     }
     dup[str_len - 1] = '\0';        /* Being on the safe side. */
     /* Ensure when we free we'll pass the same size (i#347) */

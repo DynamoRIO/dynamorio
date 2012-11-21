@@ -210,6 +210,8 @@ utf8_to_utf16(wchar_t *dst, size_t dst_sz/*elements*/, const char *src,
  * the terminating null.
  * Will not write a partial multi-byte character.
  * Does not handle a byte-order mark.
+ * If dst==NULL, returns the number of elements required to encode max_chars
+ * (or all if max_chars==0) from src.
  */
 static ssize_t
 utf16_to_utf8(char *dst, size_t dst_sz/*elements*/, const wchar_t *src,
@@ -217,59 +219,86 @@ utf16_to_utf8(char *dst, size_t dst_sz/*elements*/, const wchar_t *src,
 {
     const wchar_t *s = src;
     char *d = dst;
+    ssize_t bytes = 0;
     size_t chars = 0;
-    while (dst_sz > 0 && *s != L'\0' && (max_chars == 0 || chars < max_chars)) {
+    while ((dst == NULL || dst_sz > 0) && *s != L'\0' &&
+           (max_chars == 0 || chars < max_chars)) {
         if (*s <= 0x7f) {
-            *d = (char) *s;
+            if (dst != NULL)
+                *d = (char) *s;
+            else
+                bytes++;
             chars++;
         } else if (*s <= 0x7ff) {
             /* 2-byte encoding: 0b110xxxxx 0b10xxxxxx */
-            if ((size_t)(d + 1 - dst) >= dst_sz) /* no partial chars */
-                break;
-            *d = (char) (0xc0 | (*s >> 6));
-            d++;
-            *d = (char) (0x80 | (*s & 0x3f));
+            if (dst != NULL) {
+                if ((size_t)(d + 1 - dst) >= dst_sz) /* no partial chars */
+                    break;
+                *d = (char) (0xc0 | (*s >> 6));
+                d++;
+                *d = (char) (0x80 | (*s & 0x3f));
+            } else
+                bytes += 2;
             chars++;
         } else if (*s >= 0xd800 && *s <= 0xdfff) {
             /* surrogate pairs */
             uint cp = (*s - 0xd800) << 10;
             s++;
-            if (*s == L'\0' || *s < 0xdc00 || *s > 0xdfff)
-                return -1; /* malformed UTF-16 */
-            cp |= (*s - 0xdc00);
-            cp += 0x10000;
-            /* 4-byte encoding: 0b1110xxxx 0b10xxxxxx 0b10xxxxxx 0b10xxxxxx */
-            if ((size_t)(d + 3 - dst) >= dst_sz) /* no partial chars */
-                break;
-            *d = (char) (0xf0 | (cp >> 18));
-            d++;
-            *d = (char) (0x80 | ((cp >> 12) & 0x3f));
-            d++;
-            *d = (char) (0x80 | ((cp >> 6) & 0x3f));
-            d++;
-            *d = (char) (0x80 | (cp & 0x3f));
+            if (dst != NULL) {
+                if (*s == L'\0' || *s < 0xdc00 || *s > 0xdfff)
+                    return -1; /* malformed UTF-16 */
+                cp |= (*s - 0xdc00);
+                cp += 0x10000;
+                /* 4-byte encoding: 0b1110xxxx 0b10xxxxxx 0b10xxxxxx 0b10xxxxxx */
+                if ((size_t)(d + 3 - dst) >= dst_sz) /* no partial chars */
+                    break;
+                *d = (char) (0xf0 | (cp >> 18));
+                d++;
+                *d = (char) (0x80 | ((cp >> 12) & 0x3f));
+                d++;
+                *d = (char) (0x80 | ((cp >> 6) & 0x3f));
+                d++;
+                *d = (char) (0x80 | (cp & 0x3f));
+            } else
+                bytes += 4;
             chars++;
         } else {
             /* 3-byte encoding: 0b1110xxxx 0b10xxxxxx 0b10xxxxxx */
-            if ((size_t)(d + 2 - dst) >= dst_sz) /* no partial chars */
-                break;
-            *d = (char) (0xe0 | (*s >> 12));
-            d++;
-            *d = (char) (0x80 | ((*s >> 6) & 0x3f));
-            d++;
-            *d = (char) (0x80 | (*s & 0x3f));
+            if (dst != NULL) {
+                if ((size_t)(d + 2 - dst) >= dst_sz) /* no partial chars */
+                    break;
+                *d = (char) (0xe0 | (*s >> 12));
+                d++;
+                *d = (char) (0x80 | ((*s >> 6) & 0x3f));
+                d++;
+                *d = (char) (0x80 | (*s & 0x3f));
+            } else
+                bytes += 3;
             chars++;
         }
-        d++;
-        if ((size_t)(d - dst) >= dst_sz)
-            break;
+        if (dst != NULL) {
+            d++;
+            if ((size_t)(d - dst) >= dst_sz)
+                break;
+        }
         s++;
     }
-    if ((size_t)(d - dst) < dst_sz)
-        *d = L'\0';
+    if (dst != NULL) {
+        if ((size_t)(d - dst) < dst_sz)
+            *d = L'\0';
+    }
     if (written != NULL)
         *written = chars;
-    return d - dst;
+    if (dst != NULL)
+        return d - dst;
+    else
+        return bytes;
+}
+
+ssize_t
+utf16_to_utf8_size(const wchar_t *src, size_t max_chars, size_t *written/*unicode chars*/)
+{
+    return utf16_to_utf8(NULL, 0, src, max_chars, NULL);
 }
 #endif
 
