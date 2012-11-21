@@ -634,8 +634,13 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
 static bool
 execute_handler_from_dispatch(dcontext_t *dcontext, int sig);
 
-static void
-execute_default_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *frame);
+/* Execute default action from code cache and may terminate the process.
+ * If returns, the return value decides if caller should restore
+ * the untranslated context.
+ */
+static bool
+execute_default_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
+                           struct sigcontext *sc_orig);
 
 static void
 execute_default_from_dispatch(dcontext_t *dcontext, int sig, sigframe_rt_t *frame);
@@ -1074,11 +1079,10 @@ signal_thread_init(dcontext_t *dcontext)
 
 #ifdef HAVE_SIGALTSTACK
     /* set up alternate stack 
-     * aligned only to heap alignment (== pointer size) but kernel should
-     * align x64 signal frame to 16 for us.
+     * i#552 we may terminate the process without freeing the stack, so we
+     * stack_alloc it to exempt from the memory leak check.
      */
-    info->sigstack.ss_sp = (char *) heap_alloc(dcontext, SIGSTACK_SIZE
-                                               HEAPACCT(ACCT_OTHER));
+    info->sigstack.ss_sp = (char *) stack_alloc(SIGSTACK_SIZE) - SIGSTACK_SIZE;
     info->sigstack.ss_size = SIGSTACK_SIZE;
     /* kernel will set xsp to sp+size to grow down from there, we don't have to */
     info->sigstack.ss_flags = SS_ONSTACK;
@@ -1655,16 +1659,28 @@ signal_thread_exit(dcontext_t *dcontext)
     } else {
         ASSERT(TEST(SS_DISABLE, info->app_sigstack.ss_flags));
     }
-    i = sigaltstack_syscall(&info->app_sigstack, NULL);
-    ASSERT(i == 0);
+    if (info->sigstack.ss_sp != NULL) {
+        /* i#552: to raise client exit event, we may call dynamo_process_exit
+         * on sigstack in signal handler.
+         * In that case we set sigstack (ss_sp) NULL to avoid stack swap.
+         */
+        i = sigaltstack_syscall(&info->app_sigstack, NULL);
+        ASSERT(i == 0);
+    }
 #endif
     special_heap_exit(info->sigheap);
     DELETE_LOCK(info->child_lock);
 #ifdef DEBUG
     /* for non-debug we do fast exit path and don't free local heap */
 # ifdef HAVE_SIGALTSTACK
-    heap_free(dcontext, info->sigstack.ss_sp, info->sigstack.ss_size
-              HEAPACCT(ACCT_OTHER));
+    if (info->sigstack.ss_sp != NULL) {
+        /* i#552: to raise client exit event, we may call dynamo_process_exit
+         * on sigstack in signal handler.
+         * In that case we set sigstack (ss_sp) NULL to avoid stack free.
+         */
+        stack_free(info->sigstack.ss_sp + info->sigstack.ss_size,
+                   info->sigstack.ss_size);
+    }
 # endif
     HEAP_TYPE_FREE(dcontext, info, thread_sig_info_t, ACCT_OTHER, PROTECTED);
 #endif
@@ -3115,9 +3131,12 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
             (action == DR_SIGNAL_BYPASS) ?
             "client forcing default" :
             "app signal handler is SIG_DFL");
-        execute_default_from_cache(dcontext, sig, our_frame);
-        /* if we haven't terminated, restore original (untranslated) sc */
-        our_frame->uc.uc_mcontext = *sc_orig;
+        if (execute_default_from_cache(dcontext, sig, our_frame, sc_orig)) {
+            /* if we haven't terminated, restore original (untranslated) sc
+             * on request.
+             */
+            our_frame->uc.uc_mcontext = *sc_orig;
+        }
         return false;
     }
     CLIENT_ASSERT(action == DR_SIGNAL_DELIVER, "invalid signal event return value");
@@ -3535,8 +3554,11 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                    default_action[sig] == DEFAULT_TERMINATE_CORE);
             LOG(THREAD, LOG_ASYNCH, 1,
                 "blocked fatal signal %d cannot be delayed: terminating\n", sig);
+            sc_orig = *sc;
             translate_sigcontext(dcontext, sc, true/*shouldn't fail*/, NULL);
-            execute_default_from_cache(dcontext, sig, frame);
+            /* the process should be terminated */
+            execute_default_from_cache(dcontext, sig, frame, &sc_orig);
+            ASSERT_NOT_REACHED();
         }
         
         /* Happened in DR, do not translate context.  Record for later processing
@@ -4264,9 +4286,12 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     if (info->app_sigaction[sig] == NULL ||
         info->app_sigaction[sig]->handler == (handler_t)SIG_DFL) {
         LOG(THREAD, LOG_ASYNCH, 3, "\taction is SIG_DFL\n");
-        execute_default_from_cache(dcontext, sig, our_frame);
-        /* if we haven't terminated, restore original (untranslated) sc */
-        our_frame->uc.uc_mcontext = *sc_orig;
+        if (execute_default_from_cache(dcontext, sig, our_frame, sc_orig)) {
+            /* if we haven't terminated, restore original (untranslated) sc
+             * on request.
+             */
+            our_frame->uc.uc_mcontext = *sc_orig;
+        }
         return;
     }
     ASSERT(info->app_sigaction[sig] != NULL &&
@@ -4515,9 +4540,9 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     return true;
 }
 
-static void
+static bool
 execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
-                       bool from_dispatch)
+                       struct sigcontext *sc_orig, bool from_dispatch)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     struct sigcontext *sc = get_sigcontext_from_rt_frame(frame);
@@ -4620,6 +4645,49 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                  * FIXME: currently we do not clean up DR for a synchronous
                  * signal death, but we do for asynch.
                  */
+                /* i#552: cleanup and raise client exit event */
+                int   instr_sz;
+                thread_sig_info_t *info;
+                /* We are on the sigstack now, so assign it to NULL to avoid being
+                 * freed during process exit cleanup
+                 */
+                info = (thread_sig_info_t *)dcontext->signal_field;
+                info->sigstack.ss_sp = NULL;
+                /* We enter from several different places, so rewind until
+                 * top-level kstat.
+                 */
+                KSTOP_REWIND_UNTIL(thread_measured);
+                /* We try to raise the same signal in app's context so a correct
+                 * coredump can be generated. However, the client might change
+                 * the code in a way that the corresponding app code won't 
+                 * raise the signal, so we first check if the app instr is the
+                 * same as instr in the cache, and raise the signal (by return).
+                 * Otherwise, we kill the process instead.
+                 */
+                ASSERT(sc_orig != NULL);
+                instr_sz = decode_sizeof(dcontext, (byte *) sc_orig->SC_XIP,
+                                         NULL _IF_X64(NULL));
+                if (instr_sz != 0 &&
+                    instr_sz == decode_sizeof(dcontext, pc, NULL _IF_X64(NULL)) &&
+                    memcmp(pc, (byte *) sc_orig->SC_XIP, instr_sz) == 0) {
+                    /* the app instr matches the cache instr; cleanup and raise the
+                     * the signal in the app context
+                     */
+                    dynamo_process_exit();
+                    /* we cannot re-enter the cache, which is freed by now */
+                    ASSERT(!from_dispatch);
+                    return false;
+                } else {
+                    /* mismatch, cleanup and terminate */
+                    cleanup_and_terminate(dcontext, SYS_kill,
+                                          /* Pass -pid in case main thread has exited
+                                           * in which case will get -ESRCH
+                                           */
+                                          IF_VMX86(os_in_vmkernel_userworld() ?
+                                                   -(int)get_process_id() :)
+                                          get_process_id(),
+                                          sig, true);
+                }
             }
         } else {
             /* FIXME PR 297033: in order to intercept DEFAULT_STOP /
@@ -4654,18 +4722,20 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     }
 
     /* now continue at the interruption point and re-raise the signal */
+    return true;
 }
 
-static void
-execute_default_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
+static bool
+execute_default_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
+                           struct sigcontext *sc_orig)
 {
-    execute_default_action(dcontext, sig, frame, false);
+    return execute_default_action(dcontext, sig, frame, sc_orig, false);
 }
 
 static void
 execute_default_from_dispatch(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
 {
-    execute_default_action(dcontext, sig, frame, true);
+    execute_default_action(dcontext, sig, frame, NULL, true);
 }
 
 void
