@@ -438,7 +438,7 @@ add_shared_block(shared_entry_t **table, mutex_t *lock, fragment_t *f)
 }
 
 static void
-print_shared_table_stats(shared_entry_t **table, mutex_t *lock, char *name)
+print_shared_table_stats(shared_entry_t **table, mutex_t *lock, const char *name)
 {
     uint i;
     shared_entry_t *e;
@@ -7852,7 +7852,7 @@ coarse_body_from_htable_entry(dcontext_t *dcontext, coarse_info_t *info,
 
 static void
 study_and_free_coarse_htable(coarse_info_t *info, coarse_table_t *htable,
-                             bool never_persisted _IF_DEBUG(char *name))
+                             bool never_persisted _IF_DEBUG(const char *name))
 {
     LOG(GLOBAL, LOG_FRAGMENT, 1, "Coarse %s %s hashtable stats:\n",
         info->module, name);

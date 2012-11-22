@@ -339,7 +339,7 @@ is_readable_without_exception_internal(const byte *pc, size_t size, bool query_o
 
 static void
 process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-             uint flags _IF_DEBUG(char *map_type));
+             uint flags _IF_DEBUG(const char *map_type));
 
 static char *
 read_proc_self_exe(bool ignore_cache);
@@ -6205,7 +6205,7 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
 /* All processing for mmap and mmap2. */
 static void
 process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-             uint flags _IF_DEBUG(char *map_type))
+             uint flags _IF_DEBUG(const char *map_type))
 {
     bool image = false;
     uint memprot = osprot_to_memprot(prot);
@@ -6259,7 +6259,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         maps_iter_t iter;
         bool found_map = false;;
         uint64 inode = 0;
-        char *filename = "";
+        const char *filename = "";
         LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2, "dlopen "PFX"-"PFX"%s\n",
             base, base+size, TEST(MEMPROT_EXEC, memprot) ? " +x": "");
         image = true;
@@ -6550,7 +6550,7 @@ post_system_call(dcontext_t *dcontext)
 #endif
     case SYS_mmap: {
         uint flags;
-        DEBUG_DECLARE(char *map_type;)
+        DEBUG_DECLARE(const char *map_type;)
         RSTATS_INC(num_app_mmaps);
         base = (app_pc) mc->xax; /* For mmap, it's NOT arg->addr! */
         /* mmap isn't simply a user-space wrapper for mmap2. It's called
@@ -7471,7 +7471,7 @@ get_dynamo_library_bounds(void)
     /* Assumption: libdir name is not repeated elsewhere in path */
     libdir = strstr(dynamorio_alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
     if (libdir != NULL) {
-        char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
+        const char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
         /* do NOT place the NULL */
         strncpy(libdir, newdir, strlen(newdir));
     } else {
@@ -7904,7 +7904,7 @@ find_executable_vm_areas(void)
             !is_in_dynamo_dll(iter.vm_start) /* our own text section is ok */
             /* client lib text section is ok (xref i#487) */
             IF_CLIENT_INTERFACE(&& !is_in_client_lib(iter.vm_start));
-        DEBUG_DECLARE(char *map_type = "Private");
+        DEBUG_DECLARE(const char *map_type = "Private");
         /* we can't really tell what's a stack and what's not, but we rely on
          * our passing NULL preventing rwx regions from being added to executable
          * or future list, even w/ -executable_if_alloc

@@ -390,7 +390,7 @@ self_owns_dynamo_vm_area_lock(void);
  */
 bool
 add_dynamo_heap_vm_area(app_pc start, app_pc end, bool writable, bool from_unmod_image
-                        _IF_DEBUG(char *comment));
+                        _IF_DEBUG(const char *comment));
 
 /* assumes caller holds a private vmareas lock --
  * only for use by heap_vmareas_synch_units()
@@ -509,7 +509,7 @@ dynamo_vm_area_overlap(app_pc start, app_pc end);
  * ensuring this (see fixme in signal.c adding sigreturn code)
  */
 bool
-add_executable_region(app_pc start, size_t size _IF_DEBUG(char *comment));
+add_executable_region(app_pc start, size_t size _IF_DEBUG(const char *comment));
 
 /* removes a region from the executable list */
 /* NOTE :the caller is responsible for ensuring that all threads' local 
@@ -524,7 +524,7 @@ free_nonexec_coarse_and_unlock(void);
 /* add dynamo-internal area to the dynamo-internal area list */
 bool
 add_dynamo_vm_area(app_pc start, app_pc end, uint prot, bool from_unmod_image
-                   _IF_DEBUG(char *comment));
+                   _IF_DEBUG(const char *comment));
 bool
 is_dynamo_area_buffer(byte *heap_pc);
 
@@ -580,7 +580,7 @@ vm_area_fragment_self_write(dcontext_t *dcontext, app_pc tag);
 /* newly allocated or mapped in memory region */
 bool
 app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size,
-                      uint prot, bool image _IF_DEBUG(char *comment));
+                      uint prot, bool image _IF_DEBUG(const char *comment));
 
 /* de-allocated or un-mapped memory region */
 void

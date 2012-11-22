@@ -137,7 +137,7 @@ DECLARE_FREQPROT_VAR(static bool do_once_internal_error, false);
 
 /* abort on internal dynamo error */
 void
-internal_error(char *file, int line, char *expr)
+internal_error(const char *file, int line, const char *expr)
 {
     /* note that we no longer obfuscate filenames in non-internal builds
      * xref PR 303817 */
@@ -191,7 +191,7 @@ internal_error(char *file, int line, char *expr)
 
 /* abort on external application created error, i.e. apicheck */
 void
-external_error(char *file, int line, char *msg)
+external_error(const char *file, int line, const char *msg)
 {
     DO_ONCE({
         /* this syslog is before any core dump, unlike our other reports, but
@@ -1726,7 +1726,8 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage,
  * "%w.pf", a => dp(a, p, &c, &d, &s) "%s%(w-p-1)u.%.pu", s, c, d
  */
 void
-double_print(double val, uint precision, uint *top, uint *bottom, char **sign) 
+double_print(double val, uint precision, uint *top, uint *bottom,
+             const char **sign) 
 {
     uint i, precision_multiple;
     ASSERT(top != NULL && bottom != NULL && sign != NULL);
@@ -1766,7 +1767,7 @@ print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only) {
 #endif /* DEBUG */
 
 void 
-print_file(file_t f, char *fmt, ...)
+print_file(file_t f, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -1818,7 +1819,7 @@ print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, .
  * For now I'm assuming this routine changes little.
  */
 void 
-print_log(file_t logfile, uint mask, uint level, char *fmt, ...)
+print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
 {
     va_list ap;
 
@@ -1860,8 +1861,8 @@ do_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
  */
 void 
 notify(syslog_event_type_t priority, bool internal, bool synch, 
-       IF_WINDOWS_(uint message_id) uint substitution_num, char *prefix, 
-       char *fmt, ...)
+       IF_WINDOWS_(uint message_id) uint substitution_num, const char *prefix, 
+       const char *fmt, ...)
 {
     char msgbuf[MAX_LOG_LENGTH];
     int size;
@@ -2348,7 +2349,7 @@ is_string_readable_without_exception(char *str, size_t *str_length /* OPTIONAL O
 }
 
 
-char *
+const char *
 memprot_string(uint prot)
 {
     switch (prot) {
@@ -2871,7 +2872,7 @@ print_statistics(int *data, int size)
     PRESERVE_FLOATING_POINT_STATE_START();
     double mean, stddev, sum;
     uint top, bottom;
-    char *sign;
+    const char *sign;
 
     sum = 0.;
     min = max = data[0];
@@ -4187,7 +4188,7 @@ unit_test_utils(void)
 {
     char buf[128];
     uint c, d;
-    char *s;
+    const char *s;
 
 # define DO_TEST(a, b, p, percent, fmt, result)                           \
     divide_uint64_print(a, b, percent, p, &c, &d);                        \

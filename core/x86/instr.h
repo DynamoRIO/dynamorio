@@ -3222,10 +3222,10 @@ opnd_t
 instr_get_src_mem_access(instr_t *instr);
 
 void 
-loginst(dcontext_t *dcontext, uint level, instr_t *instr, char *string);
+loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string);
 
 void 
-logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, char *string);
+logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string);
 
 DR_API
 /**

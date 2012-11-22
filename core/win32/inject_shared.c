@@ -65,7 +65,7 @@
 #endif
 /* avoid mistake of lower-case assert */
 #define assert assert_no_good_use_ASSERT_instead
-extern void internal_error(char *file, int line, char *msg);
+extern void internal_error(const char *file, int line, const char *msg);
 #ifdef DEBUG
 extern void display_error(char *msg);
 # ifdef NOT_DYNAMORIO_CORE_PROPER   /* Part of case 9252 fix. */

@@ -1682,7 +1682,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
 
 #ifdef DEBUG
 static void inline
-debug_after_link_change(dcontext_t *dcontext, fragment_t *f, char *msg)
+debug_after_link_change(dcontext_t *dcontext, fragment_t *f, const char *msg)
 {
     DOLOG(5, LOG_LINKS, {
         LOG(THREAD, LOG_LINKS, 5, "%s\n", msg);

@@ -119,7 +119,7 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 }
 
 static
-void check(uint count, char *str)
+void check(uint count, const char *str)
 {
     dr_fprintf(STDERR, "%s... ", str);
     /* We assume every types of cti are executed at least twice. */

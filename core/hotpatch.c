@@ -519,7 +519,7 @@ typedef struct hotp_globals_t {
 #define SET_NUM(var, type, limit_str, input_ptr)                            \
 {                                                                           \
     char *str = hotp_get_next_str(&(input_ptr));                            \
-    char *hex_fmt, *dec_fmt;                                                \
+    const char *hex_fmt, *dec_fmt;                                          \
     type temp;                                                              \
                                                                             \
     ASSERT(sizeof(type) == sizeof(uint) || sizeof(type) == sizeof(uint64)); \
@@ -5038,7 +5038,7 @@ Question for reviewer: for hotp_only, when control comes to the gateway, should
 
         if ((TEST(HOTP_EXEC_DETECTOR_ERROR, exec_status_only) ||
             (TEST(HOTP_EXEC_PROTECTOR_ERROR, exec_status_only)))) {
-            char *msg = TEST(HOTP_EXEC_DETECTOR_ERROR, exec_status_only) ?
+            const char *msg = TEST(HOTP_EXEC_DETECTOR_ERROR, exec_status_only) ?
                 "Hot patch detector error" : 
                 "Hot patch protector error";
             if (dump_error_info) {

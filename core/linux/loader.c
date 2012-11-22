@@ -886,14 +886,16 @@ privload_call_modules_entry(privmod_t *mod, uint reason)
 static void
 privload_call_lib_func(fp_t func)
 {
-    char *dummy_argv[1];
+    char dummy_str[] = "dummy";
+    char *dummy_argv[2];
     /* FIXME: i#475
      * The regular loader always passes argc, argv and env to libaries,
      * (see libc code elf/dl-init.c), which might be ignored by those
      * routines. 
      * we create dummy argc and argv, and passed with the real __environ.
      */
-    dummy_argv[0] = "dummy";
+    dummy_argv[0] = dummy_str;
+    dummy_argv[1] = NULL;
     func(1, dummy_argv, our_environ);
 }
 

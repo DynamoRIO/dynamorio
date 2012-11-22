@@ -256,7 +256,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             /* need to save floating state around float printing */
             PRESERVE_FLOATING_POINT_STATE({
                 uint top; uint bottom;
-                char *sign;
+                const char *sign;
                 double_print(opnd_get_immed_float(opnd), 6, 
                              &top, &bottom, &sign);
                 print_to_buffer(buf, bufsz, sofar, "%s%s%u.%.6u%s",
@@ -1156,7 +1156,7 @@ instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr,
 }
 
 #ifndef STANDALONE_DECODER
-static inline char*
+static inline const char*
 exit_stub_type_desc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
     if (LINKSTUB_DIRECT(l->flags)) {
@@ -1533,7 +1533,7 @@ internal_dump_callstack_to_buffer(char *buf, size_t bufsz, size_t *sofar,
     ptr_uint_t *pc = (ptr_uint_t *) ebp;
     int num = 0;
     LOG_DECLARE(char symbolbuf[MAXIMUM_SYMBOL_LENGTH];)
-    char *symbol_name = "";
+    const char *symbol_name = "";
 
     if (TEST(CALLSTACK_ADD_HEADER, flags)) {
         print_to_buffer(buf, bufsz, sofar,

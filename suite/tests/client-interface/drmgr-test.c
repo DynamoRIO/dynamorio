@@ -303,8 +303,8 @@ main(int argc, char **argv)
     pthread_mutex_init(&pi_lock, NULL);
 
     /* Make the two threads */
-    if (pthread_create(&thread0, NULL, process, "0") ||
-	pthread_create(&thread1, NULL, process, "1")) {
+    if (pthread_create(&thread0, NULL, process, (void *)"0") ||
+	pthread_create(&thread1, NULL, process, (void *)"1")) {
 	print("%s: cannot make thread\n", argv[0]);
 	exit(1);
     }

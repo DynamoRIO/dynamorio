@@ -557,7 +557,7 @@ if (UNIX)
     set(LD_FLAGS "-melf_i386")
   endif (X64)
   # there's no cmake warning control so we hardcode it
-  set(WARN "-Wall -Werror")
+  set(WARN "-Wall -Werror -Wwrite-strings")
   if (NOT CMAKE_COMPILER_IS_CLANG)
     # Old gcc's ignore unknown -W flags, but -Wall -Werror causes clang to
     # complain that it doesn't recognize it.

@@ -80,7 +80,7 @@ int
 sort()
 {
     int argc = 5;
-    char *argv[] = {"one", "two", "three","five", "six", "unsorted"};
+    const char *argv[] = {"one", "two", "three","five", "six", "unsorted"};
 
 #ifdef TOO_MUCH
    /* Sort remaining args using Quicksort algorithm: */

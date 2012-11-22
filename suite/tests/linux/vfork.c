@@ -108,10 +108,10 @@ find_dynamo_library()
 /***************************************************************************/
 
 static void
-do_execve(char *path)
+do_execve(const char *path)
 {
     int result;
-    char *arg[3];
+    const char *arg[3];
     char **env = NULL;
     arg[0] = path;
     arg[1] = "/fake/path/it_worked";
@@ -121,7 +121,7 @@ do_execve(char *path)
     else
         print("child is running natively\n");
     /* test i#237 resource cleanup by invoking execve */
-    result = execve(path, arg, env);
+    result = execve(path, (char **)arg, env);
     if (result < 0)
         perror("ERROR in execve");
 }

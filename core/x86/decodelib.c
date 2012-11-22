@@ -114,7 +114,7 @@ get_thread_private_dcontext(void)
 }
 
 void
-external_error(char *file, int line, char *msg)
+external_error(const char *file, int line, const char *msg)
 {
     printf("Usage error: %s (%s, line %d)", msg, file, line);
     abort();
@@ -153,7 +153,8 @@ instrlist_meta_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
  */
 
 void
-double_print(double val, uint precision, uint *top, uint *bottom, char **sign) 
+double_print(double val, uint precision, uint *top, uint *bottom,
+             const char **sign) 
 {
     uint i, precision_multiple;
     if (val < 0.0) {
@@ -200,7 +201,7 @@ print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, .
 }
 
 void 
-print_file(file_t f, char *fmt, ...)
+print_file(file_t f, const char *fmt, ...)
 {
     va_list ap;
     /* XXX: vfprintf operates on FILE*, but our file_t is a fd, so we go

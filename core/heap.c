@@ -1642,13 +1642,13 @@ heap_low_on_memory()
      */
 }
 
-static char*
+static const char*
 get_oom_source_name(oom_source_t source)
 {
     /* currently only single character codenames, 
      * (still as a string though) 
      */
-    char *code_name = "?";
+    const char *code_name = "?";
 
     switch (source) {
     case OOM_INIT     : code_name = "I"; break;
@@ -1697,7 +1697,7 @@ report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
         if (TEST(DUMPCORE_OUT_OF_MEM_SILENT, DYNAMO_OPTION(dumpcore_mask)))
             os_dump_core("Out of memory, silently aborting program.");
     } else {
-        char *oom_source_code = get_oom_source_name(source);
+        const char *oom_source_code = get_oom_source_name(source);
         char status_hex[19]; /* FIXME: for 64bit hex need 16+NULL */
         /* note 0x prefix added by the syslog */
         snprintf(status_hex, 
@@ -1728,7 +1728,7 @@ report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
 /* update statistics for committed memory, and add to vm_areas */
 static inline void
 account_for_memory(void *p, size_t size, uint prot, bool add_vm, bool image
-                   _IF_DEBUG(char *comment))
+                   _IF_DEBUG(const char *comment))
 {
     STATS_ADD_PEAK(memory_capacity, size);
 
@@ -1795,7 +1795,7 @@ lockwise_safe_to_allocate_memory()
  * add_vm MUST be false iff this is heap memory, which is updated separately.
  */
 static void *
-get_real_memory(size_t size, uint prot, bool add_vm _IF_DEBUG(char *comment))
+get_real_memory(size_t size, uint prot, bool add_vm _IF_DEBUG(const char *comment))
 {
     void *p;
     heap_error_code_t error_code;
@@ -1901,7 +1901,7 @@ extend_commitment(vm_addr_t p, size_t size, uint prot,
  */
 static vm_addr_t
 get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
-                        bool add_vm, bool guarded _IF_DEBUG(char *comment))
+                        bool add_vm, bool guarded _IF_DEBUG(const char *comment))
 {
     vm_addr_t p;
     uint guard_size = PAGE_SIZE;
@@ -2806,7 +2806,7 @@ threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size)
 #ifdef HEAP_ACCOUNTING
 #define MAX_5_DIGIT 99999
 static void
-print_tu_heap_statistics(thread_units_t *tu, file_t logfile, char *prefix)
+print_tu_heap_statistics(thread_units_t *tu, file_t logfile, const char *prefix)
 {
     int i;
     size_t total = 0, cur = 0;

@@ -181,8 +181,8 @@ kstats_main_logfile_name(void)
     return "process-kstats";
 }
 
-static char *
-kstats_thread_logfile_name()
+static const char *
+kstats_thread_logfile_name(void)
 {
     return "kstats";
 }
@@ -331,7 +331,7 @@ dump_thread_kstats(dcontext_t *dcontext)
 /* We don't keep the variable name, but instead we lookup by addr when necessary */
 /* Too convoluted solution but since not common case, we don't bother
  * to initialize a name for each var in kstat_init_variables() */
-static char *
+static const char *
 kstat_var_name(dcontext_t *dcontext, kstat_variable_t *kvar)
 {
     kstat_variables_t *kvs = &dcontext->thread_kstats->vars_kstats;

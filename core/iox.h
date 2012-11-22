@@ -193,12 +193,12 @@ TNAME(double_to_exp_str)(double d, int exp, int decimal, TCHAR * buf,
 }
 
 /* i#386: separated out to avoid floating-point instrs in our_vsnprintf */
-static TCHAR *
+static const TCHAR *
 TNAME(our_vsnprintf_float)(double val, const TCHAR *c, TCHAR prefixbuf[3],
                            TCHAR buf[BUF_SIZE], int decimal, bool space_flag,
                            bool plus_flag, bool pound_flag)
 {
-    TCHAR *str;
+    const TCHAR *str;
     bool caps = (*c == _T('E')) || (*c == _T('G'));
     double d = val;
     int exp = 0;
@@ -267,7 +267,7 @@ int
 TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
 {
     const TCHAR *c;
-    TCHAR     *str = NULL;
+    const TCHAR *str = NULL;
     TCHAR     *start = s;
     TCHAR     buf[BUF_SIZE];
     

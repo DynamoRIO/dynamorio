@@ -268,7 +268,7 @@ main_logfile_name(void)
     return get_app_name_for_path();
 }
 
-static char *
+static const char *
 thread_logfile_name(void)
 {
     return "log";

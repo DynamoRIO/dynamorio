@@ -75,7 +75,8 @@ void
 moduledb_process_image(const char *name, app_pc base, bool adding);
 
 void
-moduledb_report_exemption(char *fmt, app_pc addr1, app_pc addr2, const char *name);
+moduledb_report_exemption(const char *fmt, app_pc addr1, app_pc addr2,
+                          const char *name);
 
 /* faster then check_exempt_list below as doesn't require grabbing a lock */
 bool

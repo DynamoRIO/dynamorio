@@ -117,9 +117,9 @@ static bool check_down(bool *reg_rep, int index);
 static instr_t *get_decision_instr(instr_t *jmp);
 
 /* exported utility routines */
-void loginst(dcontext_t *dcontext, uint level, instr_t *instr, char *string);
-void logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, char *string);
-void logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, char *string);
+void loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string);
+void logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string);
+void logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string);
 
 
 
@@ -2015,7 +2015,8 @@ make_to_imm_store(instr_t *inst, int value, prop_state_t *state)
 }
 
 static instr_t *
-make_to_nop(prop_state_t *state, instr_t *inst, char *pre, char *post, char *fail)
+make_to_nop(prop_state_t *state, instr_t *inst, const char *pre,
+            const char *post, const char *fail)
 {
     instr_t *backup;
     if (forward_check_eflags(inst, state)) {

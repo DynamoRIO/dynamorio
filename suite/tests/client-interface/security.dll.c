@@ -41,7 +41,7 @@ void security_event(void *drcontext, void *source_tag,
 {
     static int violations = 0;
 
-    char *violation_str = NULL;
+    const char *violation_str = NULL;
     switch (violation) {
     case DR_RCO_STACK_VIOLATION:
         violation_str = "stack execution violation";

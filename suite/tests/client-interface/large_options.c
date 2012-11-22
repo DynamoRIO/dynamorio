@@ -68,9 +68,9 @@ void create_proc(char *cmd, char *arg1)
 #include <sys/wait.h>
 #include <errno.h>
 
-void create_proc(char *cmd, char *arg1)
+void create_proc(const char *cmd, const char *arg1)
 {
-    char *argv[3];
+    const char *argv[3];
     pid_t pid;
     argv[0] = cmd;
     argv[1] = arg1;
@@ -79,7 +79,7 @@ void create_proc(char *cmd, char *arg1)
     pid = fork();
     if (pid == 0) {
         /* child */
-        execv(cmd, argv);
+        execv(cmd, (char **)argv);
         print("EXEC FAILED: %s\n", strerror(errno));
         exit(1);
     } else {

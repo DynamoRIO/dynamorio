@@ -443,7 +443,7 @@ parse_liststring_t(liststring_t *var, void *value) {
 
 /* PR 330860: the for_this_process bool is read in OPTION_COMMAND statements */
 static int
-set_dynamo_options_common(options_t *options, char *optstr, bool for_this_process)
+set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_process)
 {
     char *opt;
     const char *pos = optstr;
@@ -502,14 +502,14 @@ set_dynamo_options_common(options_t *options, char *optstr, bool for_this_proces
 #undef OPTION_COMMAND
 
 CORE_STATIC int
-set_dynamo_options(options_t *options, char *optstr)
+set_dynamo_options(options_t *options, const char *optstr)
 {
     return set_dynamo_options_common(options, optstr, true);
 }
 
 #if !defined(NOT_DYNAMORIO_CORE) && defined(WINDOWS)
 static int
-set_dynamo_options_other_process(options_t *options, char *optstr)
+set_dynamo_options_other_process(options_t *options, const char *optstr)
 {
     return set_dynamo_options_common(options, optstr, false);
 }
@@ -521,7 +521,7 @@ set_dynamo_options_other_process(options_t *options, char *optstr)
  * option value 
  */
 bool
-check_param_bounds(uint *val, uint min, uint max, char *name)
+check_param_bounds(uint *val, uint min, uint max, const char *name)
 {
     bool ret = false;
     uint new_val;

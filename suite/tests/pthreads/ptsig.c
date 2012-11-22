@@ -89,7 +89,7 @@ process(void *arg)
 #if VERBOSE
     print("thread %s starting\n", id);
 #endif
-    if (((char *)arg)[0] == '1') {
+    if (id[0] == '1') {
         intercept_signal(SIGUSR1, (handler_3_t) SIG_IGN, false);
 #if VERBOSE
         print("thread %d ignoring SIGUSR1\n", getpid());
@@ -100,7 +100,7 @@ process(void *arg)
 #endif
     kill(getpid(), SIGUSR1);
 
-    iproc = (*((char *) arg) - '0');
+    iproc = (*id - '0');
 
     /* Set width */
     width = 1.0 / intervals;
@@ -152,8 +152,8 @@ main(int argc, char **argv)
     intercept_signal(SIGUSR1, signal_handler, false);
 
     /* Make the two threads */
-    if (pthread_create(&thread0, NULL, process, "0") ||
-        pthread_create(&thread1, NULL, process, "1")) {
+    if (pthread_create(&thread0, NULL, process, (void *)"0") ||
+        pthread_create(&thread1, NULL, process, (void *)"1")) {
         print("%s: cannot make thread\n", argv[0]);
         exit(1);
     }

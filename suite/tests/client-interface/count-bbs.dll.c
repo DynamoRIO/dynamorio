@@ -78,7 +78,7 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
 }
 
 static
-void check(uint64 count, char *str)
+void check(uint64 count, const char *str)
 {
     dr_fprintf(STDERR, "%s... ", str);
     if (bbcnt0 == count) {

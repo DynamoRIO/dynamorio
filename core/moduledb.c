@@ -146,7 +146,8 @@ moduledb_process_relaxation_flags(uint flags, const char *name, bool add)
 START_DATA_SECTION(FREQ_PROTECTED_SECTION, "w")
 
 void
-moduledb_report_exemption(char *fmt, app_pc addr1, app_pc addr2, const char *name)
+moduledb_report_exemption(const char *fmt, app_pc addr1, app_pc addr2,
+                          const char *name)
 {
     ASSERT(exemption_lists != NULL);
     /* FIXME - need a release version of this */
@@ -362,7 +363,7 @@ enum {
  *       syslogging can only handle regular chars!
  */
 static void
-process_control_report_long_list(char *reg_key)
+process_control_report_long_list(const char *reg_key)
 {
     char num_hash_str[6];   /* Won't need more than 5 digits for num hashes! */
 
@@ -464,7 +465,7 @@ process_control_whitelist(const char *md5_hash)
     security_option_t type_handling;
     action_type_t desired_action;
 
-    char *threat_id = NULL;
+    const char *threat_id = NULL;
     int anonymous = PROCESS_CONTROL_NOT_MATCHED;
     int app_specific =
         process_control_match(md5_hash, PARAM_STR(DYNAMORIO_VAR_APP_PROCESS_WHITELIST));

@@ -92,7 +92,7 @@ dr_init(client_id_t id)
 }
 
 static void
-display_results(per_thread_t *data, char *thread_note)
+display_results(per_thread_t *data, const char *thread_note)
 {
 #ifdef SHOW_RESULTS
     char msg[512];

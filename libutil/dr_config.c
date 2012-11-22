@@ -796,7 +796,7 @@ static void
 write_options(opt_info_t *opt_info, TCHAR *wbuf)
 {
     size_t i;
-    char *mode_str = "";
+    const char *mode_str = "";
     ssize_t len;
     ssize_t sofar = 0;
     ssize_t bufsz = DR_MAX_OPTIONS_LENGTH;

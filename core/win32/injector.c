@@ -110,7 +110,7 @@ static double wallclock; /* in seconds */
 #endif
 /* avoid mistake of lower-case assert */
 #define assert assert_no_good_use_ASSERT_instead
-void internal_error(char *file, int line, char *msg);
+void internal_error(const char *file, int line, const char *msg);
 #undef ASSERT
 #ifdef DEBUG
 void display_error(char *msg);
@@ -149,7 +149,7 @@ display_error_helper(wchar_t *msg)
 }
 
 void
-internal_error(char *file, int line, char *expr)
+internal_error(const char *file, int line, const char *expr)
 {
 #ifdef INTERNAL
 # define FILENAME_LENGTH L""

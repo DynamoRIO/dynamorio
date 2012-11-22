@@ -3098,7 +3098,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
 /* utility routines */
 
 void 
-loginst(dcontext_t *dcontext, uint level, instr_t *instr, char *string)
+loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
@@ -3108,7 +3108,7 @@ loginst(dcontext_t *dcontext, uint level, instr_t *instr, char *string)
 }
 
 void 
-logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, char *string) 
+logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string) 
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
@@ -3119,7 +3119,7 @@ logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, char *string)
 
 
 void
-logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, char *string)
+logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         instr_t *inst;

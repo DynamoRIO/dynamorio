@@ -136,12 +136,12 @@ int main(int argc, char *argv[])
 	print("child has exited\n");
     } else {
 	int result;
-	char *arg[3];
+        const char *arg[3];
 #if NULL_ENV
-	char **env = NULL;
+        const char **env = NULL;
 #else
-	char *env0 = "LD_LIBRARY_PATH=/bin:.";
-	char *env[2];
+        const char *env0 = "LD_LIBRARY_PATH=/bin:.";
+        const char *env[2];
 	env[0] = env0;
 	env[1] = NULL;
 #endif
@@ -152,8 +152,9 @@ int main(int argc, char *argv[])
 	    print("child is running under DynamoRIO\n");
 	else
 	    print("child is running natively\n");
-	result = execve("/bin/bogus_will_fail", arg, env);
-	result = execve(argv[1], arg, env);
+        result = execve("/bin/bogus_will_fail", (char **)arg,
+                        (char **)env);
+        result = execve(argv[1], (char **)arg, (char **)env);
 	if (result < 0)
 	    perror("ERROR in execve");
     }	

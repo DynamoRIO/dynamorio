@@ -467,7 +467,7 @@ typedef struct _fcache {
     mutex_t lock;
 
 #ifdef DEBUG
-    char *name;
+    const char *name;
     bool consistent; /* used to avoid fcache_fragment_pclookup problems */
 #endif
 
@@ -2625,7 +2625,7 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
          */
         if (cache->max_size > 0 && slot_size > (int) cache->max_size) {
 #ifdef INTERNAL
-            char *name = "";
+            const char *name = "";
             DODEBUG(name = cache->name;);
 #endif
             USAGE_ERROR("single %s fragment (%d bytes) > max cache size (%d bytes)",
