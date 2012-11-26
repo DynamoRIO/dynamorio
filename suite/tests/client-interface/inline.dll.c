@@ -802,13 +802,10 @@ codegen_empty(void *dc)
     return ilist;
 }
 
-/* i#988: we do not inline variable number of args clean call, empty has been
- * used for 0 arg clean call, so we add empty_1arg for inline test.
+/* i#988: We fail to inline if the number of arguments to the same clean call
+ * routine increases. empty is used for a 0 arg clean call, so we add empty_1arg
+ * for test_inlined_call_args(), which passes 1 arg.
  */
-/*
-empty_1arg:
-    ret
-*/
 static instrlist_t *
 codegen_empty_1arg(void *dc)
 {
