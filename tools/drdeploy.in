@@ -41,8 +41,13 @@
 ## usage: @name@ [-v] [-debug] [-dr_home <path>] [-ops <dr_options>]*
 ##                 [-logdir <path>] -client <path> <executable> [args ...]
 ##
-## alternate usage: @name@ [-v] [-debug] [-dr_home <path>] [<dr_options>]*
-##                     [-logdir <path>] -client <path> -- <executable> [args ...]
+##        @name@ [-v] [-debug] [-dr_home <path>] [-logdir <path>]
+##                  -client <path> <id> "<client_ops>" [<dr_options>]*
+##                  -- <executable> [args ...]
+##
+##        @name@ [-v] [-debug] [-dr_home <path>] [-logdir <path>]
+##                  [<dr_options>]* -c <path> [client_ops]*
+##                  -- <executable> [args ...]
 ##
 ##  [-v]                   Verbose output
 ##  [-debug]               Use debug build of DynamoRIO (release is default)
@@ -66,6 +71,12 @@
 ##  [-logdir <path>]       Path to logging directory.  Defaults to ../logs from
 ##                           @name@; may also be omitted if DYNAMORIO_LOGDIR
 ##                           is defined in the environment.
+##  [-c <path> <options>*] Registers one client to run alongside DR.  Assigns
+##                           the client an id of 0.  All remaining arguments
+##                           until the -- arg before the app are interpreted as
+##                           client options.  Must come after all drrun and DR
+##                           ops.  Incompatible with -client.  Requires using --
+##                           to separate the app executable.
 ##  [-client <path> <ID> "<options>"]
 ##                         Register one or more clients to run alongside DR.
 ##                           This option is only valid when registering a
@@ -117,7 +128,7 @@ then
     echo "$usage"
     echo
     # sed would be more precise but may not be available
-    head -n 80 $0 | tail -n 44
+    head -n 92 $0 | tail -n 52
     exit
 fi
 
@@ -259,7 +270,7 @@ done
 case "$1" in
     -*)
       specified_ops=yes
-      while [ "$1" != "--" ] && [ "$1" != "" ]
+      while [ "$1" != "--" ] && [ "$1" != "" ] && [ "$1" != "-c" ]
       do
           if [ -n "$ops" ]
           then
@@ -269,6 +280,51 @@ case "$1" in
           fi
           shift
       done
+
+      # Support alternative client specification:
+      # drrun [script ops...] [dr ops...] -c <client> [client ops...] -- app
+      if [ "$1" = "-c" ]
+      then
+          shift
+          client="$1"
+          shift
+          client_id=0
+          client_ops=""
+          # setup client
+          if [ ! -n "$client" ]
+          then
+              echo "ERROR - client not fully specified"
+              echo "$usage"
+              exit
+          fi
+          if [ ! -e $client ]
+          then
+              echo "ERROR - client lib $client not found"
+              echo "$usage"
+              exit
+          fi
+          while [ "$1" != "--" ] && [ "$1" != "" ]
+          do
+              if [ -n "$client_ops" ]
+              then
+                  client_ops="$client_ops $1"
+              else
+                  client_ops="$1"
+              fi
+              shift
+          done
+          # convert to absolute path
+          client=`cd \`dirname $client\` ; pwd`/`basename $client`
+          if [ -n "$client_list" ]
+          then
+              echo "ERROR - cannot use multiple clients with -c"
+              exit 1
+          else
+              client_list="${client};${client_id};${client_ops}"
+          fi
+      fi
+
+      # -- indicates app command.
       if [ "$1" = "--" ]
       then
           shift

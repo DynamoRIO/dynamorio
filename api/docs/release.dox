@@ -215,6 +215,7 @@ Further non-compatibility-affecting changes include:
    on client faults
  - Added conversion between UTF-16 and UTF-8 to dr_snprintf() and
    dr_snwprintf()
+ - Added simplified -c client argument form to drrun, drconfig, and drinject.
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux

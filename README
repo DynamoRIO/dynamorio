@@ -53,9 +53,9 @@ Quickstart instructions for running DynamoRIO:
 On Linux:
 
 32-bit:
-  % bin32/drrun -client samples/bin32/libbbsize.so 0x1 "" ls
+  % bin32/drrun -c samples/bin32/libbbsize.so -- ls
 64-bit:
-  % bin64/drrun -client samples/bin64/libbbsize.so 0x1 "" ls
+  % bin64/drrun -c samples/bin64/libbbsize.so -- ls
 For additional options:
   % bin32/drrun
 
@@ -69,16 +69,16 @@ the first slash with a backward slash: e.g., bin32\drrun.exe):
 
 Method 1: directly invoke an application:
 32-bit:
-  % bin32/drrun.exe -client samples/bin32/bbsize.dll 0x1 "" calc
+  % bin32/drrun.exe -c samples/bin32/bbsize.dll -- calc
 64-bit:
-  % bin64/drrun.exe -client samples/bin64/bbsize.dll 0x1 "" calc
+  % bin64/drrun.exe -c samples/bin64/bbsize.dll -- calc
 
 Method 2: configure an application and launch it separately.
 This requires administrative privileges:
 32-bit:
-  % bin32/drconfig.exe -reg calc.exe -syswide_on -client samples/bin32/bbsize.dll 0x1 ""
+  % bin32/drconfig.exe -reg calc.exe -syswide_on -c samples/bin32/bbsize.dll
 64-bit:
-  % bin64/drconfig.exe -reg calc.exe -syswide_on -client samples/bin64/bbsize.dll 0x1 ""
+  % bin64/drconfig.exe -reg calc.exe -syswide_on -c samples/bin64/bbsize.dll
 Now run the application however you normally would, with the mouse or from
 the command line.  From a cygwin shell this will run 32-bit calc:
   % cmd /c start calc

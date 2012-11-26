@@ -110,6 +110,8 @@ const char *usage_str =
 #elif defined(DRRUN) || defined (DRINJECT)
     "usage: "TOOLNAME" [options] <app and args to run>\n"
     "   or: "TOOLNAME" [options] [DR options] -- <app and args to run>\n"
+    "   or: "TOOLNAME" [options] [DR options] -c <client> [client options]"
+    " -- <app and args to run>\n"
     "\n"
 #endif
     "       -v                 Display version information\n"
@@ -166,6 +168,14 @@ const char *usage_str =
     "                          Alternatively, if the application is separated\n"
     "                          by \"--\", the -ops may be omitted and DR options\n"
     "                          specified prior to \"--\" without quotes.\n"
+    "\n"
+    "        -c <path> <options>*\n"
+    "                           Registers one client to run alongside DR.  Assigns\n"
+    "                           the client an id of 0.  All remaining arguments\n"
+    "                           until the -- arg before the app are interpreted as\n"
+    "                           client options.  Must come after all drrun and DR\n"
+    "                           ops.  Incompatible with -client.  Requires using --\n"
+    "                           to separate the app executable.\n"
     "\n"
     "       -client <path> <ID> \"<options>\"\n"
     "                          Register one or more clients to run alongside DR.\n"
@@ -606,14 +616,31 @@ write_pid_to_file(const char *pidfile, process_id_t pid)
 }
 #endif /* DRCONFIG */
 
+static void
+append_client(const char *client, int id, const char *client_ops,
+              char client_paths[MAX_CLIENT_LIBS][MAXIMUM_PATH],
+              client_id_t client_ids[MAX_CLIENT_LIBS],
+              const char *client_options[MAX_CLIENT_LIBS],
+              size_t *num_clients)
+{
+    GetFullPathName(client, BUFFER_SIZE_ELEMENTS(client_paths[*num_clients]),
+                    client_paths[*num_clients], NULL);
+    NULL_TERMINATE_BUFFER(client_paths[*num_clients]);
+    info("client %d path: %s", (int)*num_clients, client_paths[*num_clients]);
+    client_ids[*num_clients] = id;
+    client_options[*num_clients] = client_ops;
+    (*num_clients)++;
+}
+
 int main(int argc, char *argv[])
 {
     char *process = NULL;
     char *dr_root = NULL;
     char client_paths[MAX_CLIENT_LIBS][MAXIMUM_PATH];
-    char *client_options[MAX_CLIENT_LIBS] = {NULL,};
+    const char *client_options[MAX_CLIENT_LIBS] = {NULL,};
     client_id_t client_ids[MAX_CLIENT_LIBS] = {0,};
     size_t num_clients = 0;
+    char single_client_ops[DR_MAX_OPTIONS_LENGTH];
 #if defined(MF_API) || defined(PROBE_API)
     /* must set -mode */
     dr_operation_mode_t dr_mode = DR_MODE_NONE;
@@ -866,19 +893,19 @@ int main(int argc, char *argv[])
                 die();
             }
             else {
+                const char *client;
+                int id;
+                const char *ops;
                 if (i + 3 >= argc) {
                     usage("too few arguments to -client");
                 }
 
                 /* Support relative client paths: very useful! */
-                GetFullPathName(argv[++i],
-                                BUFFER_SIZE_ELEMENTS(client_paths[num_clients]),
-                                client_paths[num_clients], NULL);
-                NULL_TERMINATE_BUFFER(client_paths[num_clients]);
-                info("client %d path: %s", (int)num_clients, client_paths[num_clients]);
-                client_ids[num_clients] = strtoul(argv[++i], NULL, 16);
-                client_options[num_clients] = argv[++i];
-                num_clients++;
+                client = argv[++i];
+                id = strtoul(argv[++i], NULL, 16);
+                ops = argv[++i];
+                append_client(client, id, ops, client_paths, client_ids,
+                              client_options, &num_clients);
             }
         }
         else if (strcmp(argv[i], "-ops") == 0) {
@@ -925,15 +952,42 @@ int main(int argc, char *argv[])
          */
         else if (argv[i][0] == '-') {
             while (i<argc) {
-                if (strcmp(argv[i], "--") == 0) {
-                    i++;
-                    goto done_with_options;
+                if (strcmp(argv[i], "-c") == 0 ||
+                    strcmp(argv[i], "--") == 0) {
+                    break;
                 }
                 _snprintf(extra_ops + strlen(extra_ops),
                           BUFFER_SIZE_ELEMENTS(extra_ops) - strlen(extra_ops),
                           "%s%s", (extra_ops[0] == '\0') ? "" : " ", argv[i]);
                 NULL_TERMINATE_BUFFER(extra_ops);
                 i++;
+            }
+            if (strcmp(argv[i], "-c") == 0) {
+                const char *client;
+                if (i + 1 >= argc)
+                    usage("too few arguments to -c");
+                if (num_clients != 0)
+                    usage("Cannot use -client with -c.");
+                client = argv[++i];
+
+                /* Treat everything up to -- or end of argv as client args. */
+                i++;
+                single_client_ops[0] = '\0';
+                while (i < argc && strcmp(argv[i], "--") != 0) {
+                    _snprintf(single_client_ops + strlen(single_client_ops),
+                              BUFFER_SIZE_ELEMENTS(single_client_ops) -
+                              strlen(single_client_ops),
+                              "%s%s", (single_client_ops[0] == '\0') ? "" : " ",
+                              argv[i]);
+                    NULL_TERMINATE_BUFFER(single_client_ops);
+                    i++;
+                }
+                append_client(client, 0, single_client_ops, client_paths,
+                              client_ids, client_options, &num_clients);
+            }
+            if (i < argc && strcmp(argv[i], "--") == 0) {
+                i++;
+                goto done_with_options;
             }
 	}
 #endif

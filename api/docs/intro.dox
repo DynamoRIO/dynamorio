@@ -344,11 +344,11 @@ your current directory is its base directory.  Run \c calc.exe with the
 bbsize sample client using the following configure-and-run command:
 \if vmsafe
 \code
-bin32/drrun.exe -mode code -client samples/bin32/bbsize.dll 0 "" -- calc
+bin32/drrun.exe -mode code -c samples/bin32/bbsize.dll -- calc
 \endcode
 \else
 \code
-bin32/drrun.exe -client samples/bin32/bbsize.dll 0 "" -- calc
+bin32/drrun.exe -c samples/bin32/bbsize.dll -- calc
 \endcode
 \endif
 
@@ -357,11 +357,11 @@ under DynamoRIO regardless of how it is invoked, configure the application
 first (-syswide_on requires administrative privileges):
 \if vmsafe
 \code
-bin32/drconfig.exe -reg calc.exe -syswide_on -mode code -client samples/bin32/bbsize.dll 0 ""
+bin32/drconfig.exe -reg calc.exe -syswide_on -mode code -c samples/bin32/bbsize.dll
 \endcode
 \else
 \code
-bin32/drconfig.exe -reg calc.exe -syswide_on -client samples/bin32/bbsize.dll 0 ""
+bin32/drconfig.exe -reg calc.exe -syswide_on -c samples/bin32/bbsize.dll
 \endcode
 \endif
 
@@ -440,7 +440,7 @@ There are two methods for invoking an application under DynamoRIO:
 As an example of the simpler method, the following command runs \c ls
 under DynamoRIO with the bbsize sample client:
 \code
-% bin32/drrun -client samples/bin32/libbbsize.so 0 "" -- ls
+% bin32/drrun -c samples/bin32/libbbsize.so -- ls
 \endcode
 Run \c drrun with no options to get a list of the options and
 environment variable shortcuts it supports.  To disable following across
@@ -487,29 +487,37 @@ This will result in a nudge event with argument=5 delivered to the
 client callback registered with dr_register_nudge_event() in the
 target process.  The 0 argument is an ID supplied at registration which
 uniquely identifies the target client (see dr_deploy.h for details).
+If you used the -c argument to drrun or drconfig to register the client, the
+client's id defaults to 0.
 
 \endif
 \endif
 
 \section client_ops Passing Options to Clients
 
-All of the earlier examples passed an empty string after the client path
-and client id to \p drrun and \p drconfig.  The purpose of that string is
-to pass options to a client.  For example:
+All of the earlier examples did not need to pass any arguments to the client.
+When using the -c argument to set the client, all arguments between the client
+path and the double dash are passed to the client.  When using the -client
+argument to drrun, the third argument following -client is passed through to
+the client.  For example, all these invocations of drrun pass "-client_op1
+-client_op2" to the client:
 
 \code
+bin32/drrun.exe -c libmyclient.dll -client_op1 -client_op2 -- calc
 bin32/drrun.exe -client myclient.dll 0 "-client_op1 -client_op2" -- calc
 \endcode
 
 On Linux:
 
 \code
+bin32/drrun -c libmyclient.so client_op1 -client_op2 -- ls
 bin32/drrun -client libmyclient.so 0 "-client_op1 -client_op2" -- ls
 \endcode
 
 When using a two-step model, the options are passed to \p drconfig:
 
 \code
+bin32/drconfig.exe -reg calc.exe -c myclient.dll -client_op1 -client_op2
 bin32/drconfig.exe -reg calc.exe -client myclient.dll 0 "-client_op1 -client_op2"
 \endcode
 
