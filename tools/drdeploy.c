@@ -640,7 +640,9 @@ int main(int argc, char *argv[])
     const char *client_options[MAX_CLIENT_LIBS] = {NULL,};
     client_id_t client_ids[MAX_CLIENT_LIBS] = {0,};
     size_t num_clients = 0;
+#if defined(DRCONFIG) || defined(DRRUN)
     char single_client_ops[DR_MAX_OPTIONS_LENGTH];
+#endif
 #if defined(MF_API) || defined(PROBE_API)
     /* must set -mode */
     dr_operation_mode_t dr_mode = DR_MODE_NONE;
