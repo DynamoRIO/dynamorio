@@ -5699,7 +5699,7 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
 static void
 analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
 {
-    uint i;
+    uint i, num_regparm;
     callee_info_t *info = cci->callee_info;
 
     /* 1. xmm registers */
@@ -5737,6 +5737,25 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             ", cannot skip saving reg xax.\n", info->start);
         cci->reg_skip[0] = false;
         cci->num_regs_skip++;
+    }
+    /* i#987: args are passed via regs in 64-bit, which will clober those regs,
+     * so we should not skip any regs that are used for arg passing.
+     * XXX: we do not support args passing via XMMs, 
+     * see docs for dr_insert_clean_call
+     * XXX: we can elminate the arg passing instead since it is not used
+     * if marked for skip. However, we have to handle cases like some args
+     * are used and some are not.
+     */
+    num_regparm = cci->num_args < NUM_REGPARM ? cci->num_args : NUM_REGPARM;
+    for (i = 0; i < num_regparm; i++) {
+        if (cci->reg_skip[regparms[i] - DR_REG_XAX]) {
+            LOG(THREAD, LOG_CLEANCALL, 3,
+                "CLEANCALL: if inserting clean call "PFX
+                ", cannot skip saving reg %s due to param passing.\n",
+                info->start, reg_names[regparms[i]]);
+            cci->reg_skip[regparms[i] - DR_REG_XAX] = false;
+            cci->num_regs_skip--;
+        }
     }
 }
 
