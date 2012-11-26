@@ -46,6 +46,7 @@
 /* List of instrumentation functions. */
 #define FUNCTIONS() \
         FUNCTION(empty) \
+        FUNCTION(empty_1arg) \
         FUNCTION(inscount) \
         FUNCTION(gcc47_inscount) \
         FUNCTION(callpic_pop) \
@@ -611,6 +612,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
         dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
         PRE(bb, entry, after_label);
         break;
+    case FN_empty_1arg:
     case FN_inscount:
     case FN_gcc47_inscount:
     case FN_compiler_inscount:
@@ -651,7 +653,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
                          OPND_CREATE_INT32(i),
                          OPND_CREATE_INTPTR(func_names[i]));
 
-    if (i == FN_inscount || i == FN_empty) {
+    if (i == FN_inscount || i == FN_empty_1arg) {
         test_inlined_call_args(dc, bb, entry, i);
     }
 
@@ -798,6 +800,19 @@ codegen_empty(void *dc)
     instrlist_t *ilist = instrlist_create(dc);
     APP(ilist, INSTR_CREATE_ret(dc));
     return ilist;
+}
+
+/* i#988: we do not inline variable number of args clean call, empty has been
+ * used for 0 arg clean call, so we add empty_1arg for inline test.
+ */
+/*
+empty_1arg:
+    ret
+*/
+static instrlist_t *
+codegen_empty_1arg(void *dc)
+{
+    return codegen_empty(dc);
 }
 
 /* Return either a stack access opnd_t or the first regparm.  Assumes frame

@@ -103,6 +103,7 @@ typedef struct _slot_t {
 /* data structure of clean call callee information. */
 typedef struct _callee_info_t {
     bool bailout;             /* if we bail out on function analysis */
+    uint num_args;            /* number of args that will passed in */
     int num_instrs;           /* total number of instructions of a function */
     app_pc start;             /* entry point of a function  */
     app_pc bwd_tgt;           /* earliest backward branch target */
@@ -170,7 +171,7 @@ callee_info_free(callee_info_t *ci)
 }
 
 static callee_info_t *
-callee_info_create(app_pc start)
+callee_info_create(app_pc start, uint num_args)
 {
     callee_info_t *info;
     
@@ -178,6 +179,7 @@ callee_info_create(app_pc start)
                            ACCT_CLEANCALL, PROTECTED);
     callee_info_init(info);
     info->start = start;
+    info->num_args = num_args;
     return info;
 }
 
@@ -5133,7 +5135,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 {
     instrlist_t *ilist = ci->ilist;
     instr_t *instr;
-    uint i;
+    uint i, num_regparm;
 
     ci->num_xmms_used = 0;
     memset(ci->xmm_used, 0, sizeof(bool) * NUM_XMM_REGS);
@@ -5224,6 +5226,19 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
          */
         if (!ci->reg_used[DR_REG_XAX - DR_REG_XAX]) {
             callee_info_reserve_slot(ci, SLOT_REG, DR_REG_XAX);
+        }
+    }
+
+    /* i#987, i#988: reg might be used for arg passing but not used in callee */
+    num_regparm = ci->num_args < NUM_REGPARM ? ci->num_args : NUM_REGPARM;
+    for (i = 0; i < num_regparm; i++) {
+        reg_id_t reg = regparms[i];
+        if (!ci->reg_used[reg - DR_REG_XAX]) {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: callee "PFX" uses REG %s for arg passing\n", 
+                ci->start, reg_names[reg]);
+            ci->reg_used[reg - DR_REG_XAX] = true;
+            callee_info_reserve_slot(ci, SLOT_REG, reg);
         }
     }
 }
@@ -5755,6 +5770,15 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
                 info->start, reg_names[regparms[i]]);
             cci->reg_skip[regparms[i] - DR_REG_XAX] = false;
             cci->num_regs_skip--;
+            /* We cannot call callee_info_reserve_slot for reserving slot
+             * on inlining the callee here, because we are in clean call
+             * analysis not callee anaysis.
+             * Also the reg for arg passing should be first handled in
+             * analyze_callee_regs_usage on callee_info creation.
+             * If we still reach here, it means the number args changes
+             * for the same clean call, so we will not inline it and do not
+             * need call callee_info_reserve_slot either.
+             */
         }
     }
 }
@@ -5801,6 +5825,13 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: fail inlining clean call "PFX", number of args %d > 1.\n",
             info->start, cci->num_args);
+        opt_inline = false;
+    }
+    if (cci->num_args > info->num_args) {
+        LOG(THREAD, LOG_CLEANCALL, 2,
+            "CLEANCALL: fail inlining clean call "PFX
+            ", number of args changes.\n",
+            info->start);
         opt_inline = false;
     }
     if (cci->save_fpstate) {
@@ -5874,7 +5905,7 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
         STATS_INC(cleancall_analyzed);
         LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: analyze callee "PFX"\n", callee);
         /* 4.1. create func_info */
-        ci = callee_info_create((app_pc)callee);
+        ci = callee_info_create((app_pc)callee, num_args);
         /* 4.2. decode the callee */
         decode_callee_ilist(dcontext, ci);
         /* 4.3. analyze the instrlist */
