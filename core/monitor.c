@@ -224,7 +224,7 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
 
 #ifdef CLIENT_INTERFACE
 static void
-extend_unmangled_ilist(dcontext_t *dcontext)
+extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
 {
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
     if (md->pass_to_client) {
@@ -257,14 +257,16 @@ extend_unmangled_ilist(dcontext_t *dcontext)
         /* PR 299808: we need the end pc for boundary finding later */
         ASSERT(md->num_blks < md->blk_info_length);
         inst = instrlist_last(md->unmangled_bb_ilist);
-        if (inst == NULL) {
-            /* PR 366232: handle empty bbs */
-            md->blk_info[md->num_blks].bounds.end_pc =
-                EXIT_TARGET_TAG(dcontext, md->last_copy, l);
-        } else {
-            md->blk_info[md->num_blks].bounds.end_pc =
-                instr_get_translation(inst) + instr_length(dcontext, inst);
-        }
+
+        md->blk_info[md->num_blks].vmlist = NULL;
+        if (inst != NULL) { /* PR 366232: handle empty bbs */
+            vm_area_add_to_list(dcontext, f->tag,
+                                &(md->blk_info[md->num_blks].vmlist),
+                                md->trace_flags, f, false/*have no locks*/);
+            md->blk_info[md->num_blks].final_cti =
+                instr_is_cti(instrlist_last(md->unmangled_bb_ilist));
+        } else
+            md->blk_info[md->num_blks].final_cti = false;
         
         instrlist_init(md->unmangled_bb_ilist); /* clear fields to make destroy happy */
         instrlist_destroy(dcontext, md->unmangled_bb_ilist);
@@ -510,6 +512,7 @@ static void
 reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
 {
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+    uint i;
     /* reset the trace buffer */
     instrlist_init(&(md->trace));
 #ifdef CLIENT_INTERFACE
@@ -522,6 +525,10 @@ reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
 #endif
     md->trace_buf_top = 0;
     ASSERT(md->trace_vmlist == NULL);
+    for (i = 0; i < md->num_blks; i++) {
+        vm_area_destroy_list(dcontext, md->blk_info[i].vmlist);
+        md->blk_info[i].vmlist = NULL;
+    }
     md->num_blks = 0;
 
     /* If shared BBs are being used to build a shared trace, we may have
@@ -1109,9 +1116,8 @@ make_room_in_trace_buffer(dcontext_t *dcontext, uint add_size, fragment_t *f)
         } while (md->num_blks + new_blks >= new_len);
         new_buf = (trace_bb_build_t *)
             HEAP_ARRAY_ALLOC(dcontext, trace_bb_build_t, new_len, ACCT_TRACE, true);
-        /* PR 306761 relies on being zeroed */
-        if (new_len == INITIAL_NUM_BLKS)
-            memset(md->blk_info, 0, sizeof(trace_bb_build_t)*new_len);
+        /* PR 306761 relies on being zeroed, as does reset_trace_state to free vmlists */
+        memset(new_buf, 0, sizeof(trace_bb_build_t)*new_len);
         LOG(THREAD, LOG_MONITOR, 3, "\nRe-allocating trace blks from %d to %d\n",
             md->blk_info_length, new_len);
         if (md->blk_info != NULL) {
@@ -1697,7 +1703,7 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
     DEBUG_DECLARE(uint pre_emitted_size = md->emitted_size;)
 
 #ifdef CLIENT_INTERFACE
-    extend_unmangled_ilist(dcontext);
+    extend_unmangled_ilist(dcontext, f);
 #endif
 
     /* if prev_l is fake, NULL it out */

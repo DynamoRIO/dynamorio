@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -136,10 +137,13 @@ typedef struct _trace_bb_build_t {
     /* PR 299808: we need to check bb bounds at emit time.  Also used
      * for trace state translation.
      */
-    union {
-        app_pc end_pc;
-        instr_t *end_instr;
-    } bounds;
+    void *vmlist;
+    instr_t *end_instr;
+    /* i#806: to support elision, we need to know whether each block ends
+     * in a control transfer or not, so we can find the between-bb ctis
+     * that need to be mangled.
+     */
+    bool final_cti;
 } trace_bb_build_t;
 
 typedef struct _monitor_data_t {

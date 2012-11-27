@@ -1022,7 +1022,7 @@ loader is used to load dynamic Extensions.
 Current Extensions provide symbol access and container data structures.
 Each Extension has its own documentation and has its functions and data
 structures documented separately from the main API.
-See  the full list of Extensions here: \ref page_ext.
+See the full list of Extensions here: \ref page_ext.
 
 Be aware that some of the DynamoRIO Extensions have LGPL licenses instead
 of the BSD license of the rest of DynamoRIO.  Such Extensions are built as
@@ -1225,16 +1225,14 @@ Linux\endif.  See \ref page_deploy.
         and aflags usage analysis on the instruction list to be inserted.
    - 3: more aggressive, but potentially unsafe, optimizations.
 
-\if expose_opt_speed
  - \b -opt_speed: \anchor op_speed
    By default, DynamoRIO provides a more straightforward code stream to
    clients in lieu of performance optimizations.  This option attempts
    to obtain higher performance with potential loss of client simplicity.
-   In particular, unconditional branches and in some cases indirect calls
-   may be elided in basic blocks.  See also \ref sec_limit_perf.
+   In particular, unconditional branches (both jumps and calls) and in some
+   cases indirect calls may be elided in basic blocks.  See also \ref sec_limit_perf.
    Note that dr_insert_mbr_instrumentation() is not supported when -opt_speed
    is specified.
-\endif
 
  - \b -stack_size \e \<number\>: \anchor op_stack_size 
    DynamoRIO's per-thread stack is limited to 56KB by default (this may

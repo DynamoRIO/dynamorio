@@ -216,6 +216,8 @@ Further non-compatibility-affecting changes include:
  - Added conversion between UTF-16 and UTF-8 to dr_snprintf() and
    dr_snwprintf()
  - Added simplified -c client argument form to drrun, drconfig, and drinject.
+ - Added official support for the \ref op_speed "-opt_speed" option
+   to prioritize speed over a simple code stream.
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux
@@ -883,7 +885,9 @@ not supported.
     System-call-heavy applications are the ones most likely to be affected.
     Future releases may allow clients to choose performance versus
     visibility.  This release does provide the \ref op_memory "-opt_memory option"
-    to enable prioritizing memory usage.
+    to enable prioritizing memory usage and the \ref op_speed "-opt_speed option"
+    to prioritize performance at the cost of more complex basic blocks that
+    cross control transfers.
   - The performance \if vmsafe of Code Manipulation Mode and Memory 
     Firewall Mode \endif when starting up large desktop applications
     may be noticeably worse than native.  Upcoming releases will

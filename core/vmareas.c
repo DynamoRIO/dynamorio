@@ -8428,7 +8428,8 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
 void
 vm_area_destroy_list(dcontext_t *dcontext, void *vmlist)
 {
-    vm_area_remove_fragment(dcontext, (fragment_t *)vmlist);
+    if (vmlist != NULL)
+        vm_area_remove_fragment(dcontext, (fragment_t *)vmlist);
 }
 
 bool
