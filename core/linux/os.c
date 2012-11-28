@@ -2380,8 +2380,12 @@ void
 os_fork_init(dcontext_t *dcontext)
 {
     int iter;
-    file_t fd;
+    /* We use a larger data size than file_t to avoid clobbering our stack (i#991) */
+    ptr_uint_t fd;
     ptr_uint_t flags;
+
+    /* Static assert would save debug build overhead: could use array bound trick */
+    ASSERT(sizeof(file_t) <= sizeof(ptr_uint_t));
 
     /* i#239: If there were unsuspended threads across the fork, we could have
      * forked while another thread held locks.  We reset the locks and try to
@@ -2404,13 +2408,13 @@ os_fork_init(dcontext_t *dcontext)
     iter = 0;
     do {
          iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, fd_table, iter,
-                                          (ptr_uint_t *)&fd, (void **)&flags);
+                                          &fd, (void **)&flags);
          if (iter < 0)
              break;
          if (TEST(OS_OPEN_CLOSE_ON_FORK, flags)) {
-             close_syscall(fd);
+             close_syscall((file_t)fd);
              iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, fd_table,
-                                                iter, (ptr_uint_t) fd);
+                                                iter, fd);
          }
     } while (true);
     TABLE_RWLOCK(fd_table, write, unlock);
