@@ -44,6 +44,7 @@ facilitates developing instrumentation frameworks and libraries that can be
 composed and combined.
 
  - \ref sec_drmgr_setup
+ - \ref sec_drmgr_events
  - \ref sec_drmgr_stages
  - \ref sec_drmgr_tls
  - \ref sec_drmgr_notes
@@ -61,6 +62,16 @@ The \p drmgr_init() function may be called multiple times; subsequent calls
 will be nops and will return failure codes.  This allows a 
 library to use \p drmgr without coordinating with the client over who invokes
 \p drmgr_init().
+
+\section sec_drmgr_events Event Replacement
+
+In order to provide ordering control over event callbacks, \p drmgr
+replaces a number of DynamoRIO's events.  For many of these, simply
+replacing \p dr_ with \p drmgr_ is sufficient, as that will then use a
+default priority.  To request a priority, use the \p _ex version of the
+\p drmgr_register_ routine.  The basic block event is a special case as it
+is completely replaced with a new set of multiple events for different
+stages of instrumentation.
 
 \section sec_drmgr_stages Instrumentation Stages
 

@@ -61,7 +61,7 @@ extern "C" {
 #define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmmgr_tls_field_instead
 #define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmmgr_tls_field_instead
 
-/* drmgr replaces the thread init and exit event and pre-syscall event */
+/* drmgr replaces these events in order to provide ordering control */
 #define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmmgr_events_instead
 #define dr_unregister_thread_init_event DO_NOT_USE_thread_event_USE_drmmgr_events_instead
 #define dr_register_thread_exit_event DO_NOT_USE_thread_event_USE_drmmgr_events_instead
@@ -70,6 +70,10 @@ extern "C" {
 #define dr_unregister_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmmgr_events_instead
 #define dr_register_post_syscall_event DO_NOT_USE_post_syscall_USE_drmmgr_events_instead
 #define dr_unregister_post_syscall_event DO_NOT_USE_post_syscall_USE_drmmgr_events_instead
+#define dr_register_module_load_event DO_NOT_USE_module_load_USE_drmmgr_events_instead
+#define dr_unregister_module_load_event DO_NOT_USE_module_load_USE_drmmgr_events_instead
+#define dr_register_module_unload_event DO_NOT_USE_module_unload_USE_drmmgr_instead
+#define dr_unregister_module_unload_event DO_NOT_USE_module_unload_USE_drmmgr_instead
 
 /***************************************************************************
  * TYPES
@@ -749,6 +753,78 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_post_syscall_event(void (*func)(void *drcontext, int sysnum));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the module load event, which
+ * behaves just like DR's module load event
+ * dr_register_module_load_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_module_load_event(void (*func)(void *drcontext, const module_data_t *info,
+                                              bool loaded));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the module load event, which
+ * behaves just like DR's module load event
+ * dr_register_module_load_event(), except that it is ordered according
+ * to \p priority.  A default priority of 0 is used for events registered
+ * via drmgr_register_module_load_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_module_load_event_ex(void (*func)
+                                    (void *drcontext, const module_data_t *info,
+                                     bool loaded),
+                                    drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the module load event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_module_load_event(void (*func)
+                                   (void *drcontext, const module_data_t *info,
+                                    bool loaded));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the module unload event, which
+ * behaves just like DR's module unload event
+ * dr_register_module_unload_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_module_unload_event(void (*func)
+                                   (void *drcontext, const module_data_t *info));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the module unload event, which
+ * behaves just like DR's module unload event
+ * dr_register_module_unload_event(), except that it is ordered according
+ * to \p priority.  A default priority of 0 is used for events registered
+ * via drmgr_register_module_unload_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_module_unload_event_ex(void (*func)
+                                      (void *drcontext, const module_data_t *info),
+                                      drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the module unload event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_module_unload_event(void (*func)
+                                     (void *drcontext, const module_data_t *info));
 
 
 /*@}*/ /* end doxygen group */

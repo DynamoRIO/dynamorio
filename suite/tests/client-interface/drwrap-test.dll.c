@@ -278,8 +278,8 @@ dr_init(client_id_t id)
 {
     drwrap_init();
     dr_register_exit_event(event_exit);
-    dr_register_module_load_event(module_load_event);
-    dr_register_module_unload_event(module_unload_event);
+    drmgr_register_module_load_event(module_load_event);
+    drmgr_register_module_unload_event(module_unload_event);
     tls_idx = drmgr_register_tls_field();
     CHECK(tls_idx > -1, "unable to reserve TLS field");
 }

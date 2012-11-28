@@ -780,7 +780,7 @@ drwrap_init(void)
                       NULL, NULL);
     post_call_rwlock = dr_rwlock_create();
     wrap_lock = dr_recurlock_create();
-    dr_register_module_unload_event(drwrap_event_module_unload);
+    drmgr_register_module_unload_event(drwrap_event_module_unload);
     dr_register_delete_event(drwrap_fragment_delete);
 
     tls_idx = drmgr_register_tls_field();

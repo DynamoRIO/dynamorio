@@ -24,7 +24,6 @@
 /* DynamoRIO Instrumentation Utilities Extension */
 
 #include "dr_api.h"
-#include "drmgr.h"
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user)

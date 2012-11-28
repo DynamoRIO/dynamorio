@@ -29,6 +29,7 @@ The \p drwrap DynamoRIO Extension provides function wrapping and replacing
 support.
 
  - \ref sec_drwrap_setup
+ - \ref sec_drwrap_events
  - \ref sec_drwrap_api
  - \ref sec_drwrap_license
 
@@ -43,6 +44,12 @@ That will automatically set up the include path and library dependence.
 
 Initialize and clean up \p drwrap by calling drwrap_init() and
 drwrap_exit().
+
+\section sec_drwrap_events Event Replacement
+
+\p drwrap uses the \p drmgr Extension to ensure its events occur at the
+proper order.  A user of \p drwrap must use the \p drmgr versions of the
+basic block and thread events.
 
 \section sec_drwrap_api API
 

@@ -55,6 +55,10 @@
 #undef dr_unregister_pre_syscall_event
 #undef dr_register_post_syscall_event
 #undef dr_unregister_post_syscall_event
+#undef dr_register_module_load_event
+#undef dr_unregister_module_load_event
+#undef dr_register_module_unload_event
+#undef dr_unregister_module_unload_event
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user) but perhaps we shouldn't since this is a library
@@ -107,6 +111,8 @@ typedef struct _generic_event_entry_t {
         void (*cls_cb)(void *, bool);
         bool (*presys_cb)(void *, int);
         void (*postsys_cb)(void *, int);
+        void (*modload_cb)(void *, const module_data_t *, bool);
+        void (*modunload_cb)(void *, const module_data_t *);
     } cb;
 } generic_event_entry_t;
 
@@ -187,6 +193,12 @@ static void *presys_event_lock;
 static generic_event_entry_t *cblist_postsys;
 static void *postsys_event_lock;
 
+static generic_event_entry_t *cblist_modload;
+static void *modload_event_lock;
+
+static generic_event_entry_t *cblist_modunload;
+static void *modunload_event_lock;
+
 #ifdef WINDOWS
 static byte *addr_KiCallback;
 static int sysnum_NtCallbackReturn;
@@ -214,6 +226,13 @@ drmgr_presyscall_event(void *drcontext, int sysnum);
 static void
 drmgr_postsyscall_event(void *drcontext, int sysnum);
 
+static void
+drmgr_modload_event(void *drcontext, const module_data_t *info,
+                    bool loaded);
+
+static void
+drmgr_modunload_event(void *drcontext, const module_data_t *info);
+
 static bool
 drmgr_cls_presys_event(void *drcontext, int sysnum);
 
@@ -239,11 +258,15 @@ drmgr_init(void)
     cls_event_lock = dr_rwlock_create();
     presys_event_lock = dr_rwlock_create();
     postsys_event_lock = dr_rwlock_create();
+    modload_event_lock = dr_rwlock_create();
+    modunload_event_lock = dr_rwlock_create();
 
     dr_register_thread_init_event(drmgr_thread_init_event);
     dr_register_thread_exit_event(drmgr_thread_exit_event);
     dr_register_pre_syscall_event(drmgr_presyscall_event);
     dr_register_post_syscall_event(drmgr_postsyscall_event);
+    dr_register_module_load_event(drmgr_modload_event);
+    dr_register_module_unload_event(drmgr_modunload_event);
 
     return true;
 }
@@ -263,6 +286,8 @@ drmgr_exit(void)
     drmgr_bb_exit();
     drmgr_event_exit();
 
+    dr_rwlock_destroy(modunload_event_lock);
+    dr_rwlock_destroy(modload_event_lock);
     dr_rwlock_destroy(postsys_event_lock);
     dr_rwlock_destroy(presys_event_lock);
     dr_rwlock_destroy(cls_event_lock);
@@ -772,6 +797,8 @@ drmgr_event_exit(void)
     drmgr_generic_event_exit(cblist_cls_exit, cls_event_lock);
     drmgr_generic_event_exit(cblist_presys, presys_event_lock);
     drmgr_generic_event_exit(cblist_postsys, postsys_event_lock);
+    drmgr_generic_event_exit(cblist_modload, modload_event_lock);
+    drmgr_generic_event_exit(cblist_modunload, modunload_event_lock);
 }
 
 DR_EXPORT
@@ -880,6 +907,90 @@ drmgr_postsyscall_event(void *drcontext, int sysnum)
         (*e->cb.postsys_cb)(drcontext, sysnum);
     dr_rwlock_read_unlock(postsys_event_lock);
 }
+
+/***************************************************************************
+ * WRAPPED MODULE EVENTS
+ */
+
+DR_EXPORT
+bool
+drmgr_register_module_load_event(void (*func)(void *drcontext, const module_data_t *info,
+                                              bool loaded))
+{
+    return drmgr_generic_event_add(&cblist_modload, modload_event_lock,
+                                   (void (*)(void)) func, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_module_load_event_ex(void (*func)
+                                    (void *drcontext, const module_data_t *info,
+                                     bool loaded),
+                                    drmgr_priority_t *priority)
+{
+    return drmgr_generic_event_add(&cblist_modload, modload_event_lock,
+                                   (void (*)(void)) func, priority);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_module_load_event(void (*func)
+                                   (void *drcontext, const module_data_t *info,
+                                    bool loaded))
+{
+    return drmgr_generic_event_remove(&cblist_modload, modload_event_lock,
+                                      (void (*)(void)) func);
+}
+
+static void
+drmgr_modload_event(void *drcontext, const module_data_t *info,
+                    bool loaded)
+{
+    generic_event_entry_t *e;
+    dr_rwlock_read_lock(modload_event_lock);
+    for (e = cblist_modload; e != NULL; e = (generic_event_entry_t *) e->pri.next)
+        (*e->cb.modload_cb)(drcontext, info, loaded);
+    dr_rwlock_read_unlock(modload_event_lock);
+}
+
+DR_EXPORT
+bool
+drmgr_register_module_unload_event(void (*func)
+                                   (void *drcontext, const module_data_t *info))
+{
+    return drmgr_generic_event_add(&cblist_modunload, modunload_event_lock,
+                                   (void (*)(void)) func, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_module_unload_event_ex(void (*func)
+                                      (void *drcontext, const module_data_t *info),
+                                      drmgr_priority_t *priority)
+{
+    return drmgr_generic_event_add(&cblist_modunload, modunload_event_lock,
+                                   (void (*)(void)) func, priority);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_module_unload_event(void (*func)
+                                     (void *drcontext, const module_data_t *info))
+{
+    return drmgr_generic_event_remove(&cblist_modunload, modunload_event_lock,
+                                      (void (*)(void)) func);
+}
+
+static void
+drmgr_modunload_event(void *drcontext, const module_data_t *info)
+{
+    generic_event_entry_t *e;
+    dr_rwlock_read_lock(modunload_event_lock);
+    for (e = cblist_modunload; e != NULL; e = (generic_event_entry_t *) e->pri.next)
+        (*e->cb.modunload_cb)(drcontext, info);
+    dr_rwlock_read_unlock(modunload_event_lock);
+}
+
 
 /***************************************************************************
  * TLS
