@@ -39,7 +39,7 @@
 
 #define CHECK(x, msg) do {               \
     if (!(x)) {                          \
-        dr_fprintf(STDERR, "%s\n", msg); \
+        dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
         dr_abort();                      \
     }                                    \
 } while (0);
