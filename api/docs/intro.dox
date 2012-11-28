@@ -1034,10 +1034,11 @@ their license in their documentation.
 
 Clients are free to use external libraries as long as those libraries
 do not use any global user-mode resources that would interfere with
-the running application.  Furthermore, clients must either link statically
-to all libraries or load them using a private loader separate from the
-application's loader in order to prevent re-entrancy problems (see \ref
-sec_trans_resource).
+the running application.  For example, native threading libraries such
+as \p libpthread.so on Linux are known to cause problems.  Furthermore,
+clients must either link statically to all libraries or load them using
+DynamoRIO's private loader separate from the application's loader in
+order to prevent re-entrancy problems (see \ref sec_trans_resource).
 
 Currently we provide a private loader for both Windows and Linux.  
 With private loading, the client

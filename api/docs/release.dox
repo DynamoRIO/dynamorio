@@ -978,6 +978,8 @@ not supported.
     Don't forget to run drconfig to create a configuration for the
     application first; otherwise, libdrpreload.so will refuse to take
     control.
+  - On Linux, the private loader will fail to load libpthread.so.  Therefore
+    clients and the libraries they use cannot link against libpthread.so.
 \endif
 
 \ifnot vmsafe 
