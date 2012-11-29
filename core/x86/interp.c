@@ -84,7 +84,6 @@ static int fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace,
                           bool record_translation, uint *num_exits_deleted/*OUT*/,
                           /* If non-NULL, only looks inside trace between these two */
                           instr_t *start_instr, instr_t *end_instr);
-static bool can_use_mangle_trace(void);
 bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md);
 
 /* we use a branch limit of 1 to make it easier for the trace
@@ -4586,7 +4585,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
         trace_only_t *t = TRACE_FIELDS(f);
         uint i;
         instr_t *last;
-        bool mangle_at_end = can_use_mangle_trace();
+        bool mangle_at_end = mangle_trace_at_end();
 
         if (mangle_at_end) {
             /* we need an md for mangle_trace */
@@ -4597,6 +4596,9 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
             md.blk_info = (trace_bb_build_t *)
                 HEAP_ARRAY_ALLOC(dcontext, trace_bb_build_t, md.num_blks, ACCT_TRACE,
                                  true);
+#ifdef CLIENT_INTERFACE
+            md.pass_to_client = true;
+#endif
         }
 
         ilist = instrlist_create(dcontext);
@@ -4607,7 +4609,8 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
             apc = (byte *) t->bbs[i].tag;
             bb = recreate_bb_ilist(dcontext, apc, apc, 0/*no pre flags*/,
                                    &flags, &md.final_exit_flags,
-                                   true/*check vm area*/, !mangle_at_end, &vmlist
+                                   true/*check vm area*/, !mangle_at_end,
+                                   (mangle_at_end ? &vmlist : NULL)
                                    _IF_CLIENT(call_client)
                                    _IF_CLIENT(true/*for_trace*/));
             ASSERT(bb != NULL);
@@ -4624,6 +4627,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
 #ifdef CLIENT_INTERFACE
             if (mangle_at_end) {
                 md.blk_info[i].vmlist = vmlist;
+                md.blk_info[i].final_cti = instr_is_cti(instrlist_last(bb));
             }
 #endif
 
@@ -5987,18 +5991,6 @@ create_exit_jmp(dcontext_t *dcontext, app_pc target, app_pc translation,
     return jmp;
 }
 
-static bool
-can_use_mangle_trace(void)
-{
-    /* we now support elision (i#806) */
-    bool ok = true;
-#ifdef CLIENT_INTERFACE
-    /* must be able to use it if client has hooks */
-    ASSERT(ok || (!dr_bb_hook_exists() && !dr_trace_hook_exists()));
-#endif
-    return ok;
-}
-
 /* Given an ilist with no mangling or stitching together, this routine does those
  * things.  This is used both for CLIENT_INTERFACE and for recreating traces
  * for state translation.
@@ -6026,7 +6018,13 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
     bool found_syscall = false, found_int = false;
     int i;
 
-    ASSERT(can_use_mangle_trace());
+#ifdef CLIENT_INTERFACE
+    /* We don't assert that mangle_trace_at_end() is true b/c the client
+     * can unregister its bb and trace hooks if it really wants to,
+     * though we discourage it.
+     */
+    ASSERT(md->pass_to_client);
+#endif
 
     LOG(THREAD, LOG_MONITOR, 2, "mangle_trace "PFX"\n", md->trace_tag);
     DOLOG(4, LOG_INTERP, {

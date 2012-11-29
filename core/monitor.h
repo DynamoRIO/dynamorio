@@ -104,6 +104,9 @@ void trace_abort_and_delete(dcontext_t *dcontext);
 void
 thcounter_range_remove(dcontext_t *dcontext, app_pc start, app_pc end);
 
+bool
+mangle_trace_at_end(void);
+
 /* trace head counters are thread-private and must be kept in a
  * separate table and not in the fragment_t structure.
  * FIXME: may want to do this for non-shared-cache, since persistent counters

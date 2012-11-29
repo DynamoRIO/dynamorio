@@ -280,6 +280,20 @@ extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
 }
 #endif
 
+bool
+mangle_trace_at_end(void)
+{
+    /* There's no reason to keep an unmangled list and mangle at the end
+     * unless there's a client bb or trace hook, for a for-cache trace
+     * or a recreate-state trace.
+     */
+#ifdef CLIENT_INTERFACE
+    return (dr_bb_hook_exists() || dr_trace_hook_exists());
+#else
+    return false;
+#endif
+}
+
 /* Initialization */
 /* thread-shared init does nothing, thread-private init does it all */
 void
@@ -2312,8 +2326,9 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         /* PR 299808: cache whether we need to re-build bbs for clients up front,
          * to be consistent across whole trace.  If client later unregisters bb
          * hook then it will miss our call on constituent bbs: that's its problem.
+         * We document that trace and bb hooks should not be unregistered.
          */
-        md->pass_to_client = dr_bb_hook_exists() || dr_trace_hook_exists();
+        md->pass_to_client = mangle_trace_at_end();
         /* should already be initialized */
         ASSERT(instrlist_first(&md->unmangled_ilist) == NULL);
     }
