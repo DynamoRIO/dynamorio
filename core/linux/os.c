@@ -3403,9 +3403,16 @@ unload_shared_library(shlib_handle_t lib)
 void
 shared_library_error(char *buf, int maxlen)
 {
-    char *err;
-    ASSERT(!DYNAMO_OPTION(early_inject));
-    err = dlerror();
+    const char *err;
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        err = "error in private loader";
+    } else {
+        ASSERT(!DYNAMO_OPTION(early_inject));
+        err = dlerror();
+        if (err == NULL) {
+            err = "dlerror returned NULL";
+        }
+    }
     strncpy(buf, err, maxlen-1);
     buf[maxlen-1] = '\0'; /* strncpy won't put on trailing null if maxes out */
 }
