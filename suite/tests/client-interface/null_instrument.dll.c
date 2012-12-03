@@ -100,7 +100,10 @@ event_trace(void *drcontext, void *tag, instrlist_t *trace, bool translating)
 static void
 event_exit(void)
 {
-    if (!found_appdll_in_trace)
+    uint64 enable_traces = 1;
+    if (!dr_get_integer_option("enable_traces", &enable_traces))
+        dr_fprintf(STDERR, "dr_get_integer_option failed\n");
+    if (enable_traces != 0 && !found_appdll_in_trace)
         dr_fprintf(STDERR, "didn't find appdll in trace\n");
 }
 
