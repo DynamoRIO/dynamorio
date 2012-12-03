@@ -843,7 +843,7 @@ Index: libdwarf/dwarf_errmsg.c
  		snprintf(error->err_msg, sizeof(error->err_msg),
 Index: libdwarf/Makefile
 ===================================================================
---- libdwarf/Makefile	(revision 2311)
+--- libdwarf/Makefile	(revision 2710)
 +++ libdwarf/Makefile	(working copy)
 @@ -53,8 +53,6 @@
  	libdwarf_attr.c		\
@@ -866,9 +866,9 @@ Index: libdwarf/Makefile
 +#	libdwarf_elf_access.c	
 +#	libdwarf_elf_init.c	
 +
- INCS=	dwarf.h libdwarf.h
+ INCS=		dwarf.h libdwarf.h
+ INCSDIR=	/usr/include
  
- GENSRCS=	dwarf_pubnames.c dwarf_pubtypes.c dwarf_weaks.c \
 Index: libdwarf/libdwarf_pecoff_init.c
 ===================================================================
 --- libdwarf/libdwarf_pecoff_init.c	(revision 0)
