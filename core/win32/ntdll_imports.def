@@ -117,6 +117,10 @@ EXPORTS
         NtCreateThread
         NtOpenThread
         NtFlushInstructionCache
+        NtOpenKeyEx
+        NtOpenProcessTokenEx
+        NtOpenThreadTokenEx
+        NtQueryAttributesFile
         RtlInitializeCriticalSection
         RtlDeleteCriticalSection
         RtlEnterCriticalSection

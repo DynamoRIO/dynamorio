@@ -1051,16 +1051,16 @@ inject_gencode_earliest(HANDLE phandle, char *dynamo_path, void *hook_location,
                             NULL /* unnamed */, 0, NULL, NULL);
     if (!NT_SUCCESS(res))
         goto done;
-    res = nt_map_view_of_section(section, /* 0 */
-                                 phandle, /* 1 */
-                                 &map, /* 2 */
-                                 0, /* 3 */
-                                 0 /* not page-file-backed */, /* 4 */
-                                 NULL, /* 5 */
-                                 (PSIZE_T) &view_size, /* 6 */
-                                 ViewUnmap, /* 7 */
-                                 0 /* no special top-down or anything */, /* 8 */
-                                 PAGE_EXECUTE_WRITECOPY); /* 9 */
+    res = nt_raw_MapViewOfSection(section, /* 0 */
+                                  phandle, /* 1 */
+                                  &map, /* 2 */
+                                  0, /* 3 */
+                                  0 /* not page-file-backed */, /* 4 */
+                                  NULL, /* 5 */
+                                  (PSIZE_T) &view_size, /* 6 */
+                                  ViewUnmap, /* 7 */
+                                  0 /* no special top-down or anything */, /* 8 */
+                                  PAGE_EXECUTE_WRITECOPY); /* 9 */
     if (!NT_SUCCESS(res))
         goto done;
 

@@ -1381,15 +1381,6 @@ bool
 close_file(HANDLE hfile);
 
 /* from DDK2003SP1/3790.1830/inc/ddk/wnet/ntddk.h */
-/* Information class structures returned by NtQueryInformationFile */
-typedef struct _FILE_BASIC_INFORMATION {                    
-    LARGE_INTEGER CreationTime;                             
-    LARGE_INTEGER LastAccessTime;                           
-    LARGE_INTEGER LastWriteTime;                            
-    LARGE_INTEGER ChangeTime;                               
-    ULONG FileAttributes;                                   
-} FILE_BASIC_INFORMATION, *PFILE_BASIC_INFORMATION;         
-                                                            
 typedef struct _FILE_STANDARD_INFORMATION {                 
     LARGE_INTEGER AllocationSize;                           
     LARGE_INTEGER EndOfFile;                                
@@ -1614,23 +1605,6 @@ free_library(module_handle_t lib);
 module_handle_t
 get_module_handle(wchar_t *lib_name);
 
-NTSTATUS
-nt_map_view_of_section(IN HANDLE           SectionHandle,
-                       IN HANDLE           ProcessHandle,
-                       IN OUT PVOID       *BaseAddress,
-                       IN ULONG            ZeroBits,
-                       IN SIZE_T           CommitSize,
-                       IN OUT PLARGE_INTEGER  SectionOffset OPTIONAL,
-                       IN OUT PSIZE_T      ViewSize,
-                       IN SECTION_INHERIT  InheritDisposition,
-                       IN ULONG            AllocationType,
-                       IN ULONG            Protect
-                       );
-NTSTATUS
-nt_unmap_view_of_section(IN HANDLE         ProcessHandle,
-                         IN PVOID          BaseAddress
-                         );
-
 /* From WINNT.H for .NET 2.0 (Visual Studio.NET VC7)
  * Needed for IMAGE_COR20_HEADER
  */
@@ -1792,8 +1766,120 @@ nt_query_security_object(IN HANDLE Handle,
                          IN SECURITY_INFORMATION RequestedInformation,
                          OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
                          IN ULONG SecurityDescriptorLength,
-                         OUT PULONG ReturnLength
-                         );
+                         OUT PULONG ReturnLength);
 
+NTSTATUS WINAPI
+nt_raw_CreateFile(PHANDLE file_handle,
+                  ACCESS_MASK desired_access,
+                  POBJECT_ATTRIBUTES object_attributes,
+                  PIO_STATUS_BLOCK io_status_block,
+                  PLARGE_INTEGER allocation_size,
+                  ULONG file_attributes,
+                  ULONG share_access,
+                  ULONG create_disposition,
+                  ULONG create_options,
+                  PVOID ea_buffer,
+                  ULONG ea_length);
+
+NTSTATUS WINAPI
+nt_raw_CreateKey(PHANDLE key_handle,
+                 ACCESS_MASK desired_access,
+                 POBJECT_ATTRIBUTES object_attributes,
+                 ULONG title_index,
+                 PUNICODE_STRING class,
+                 ULONG create_options,
+                 PULONG disposition);
+
+NTSTATUS WINAPI
+nt_raw_MapViewOfSection(HANDLE section_handle,
+                        HANDLE process_handle,
+                        PVOID *base_address,
+                        ULONG_PTR  zero_bits,
+                        SIZE_T commit_size,
+                        PLARGE_INTEGER section_offset,
+                        PSIZE_T view_size,
+                        SECTION_INHERIT inherit_disposition,
+                        ULONG allocation_type,
+                        ULONG win32_protect);
+
+NTSTATUS WINAPI
+nt_raw_OpenFile(PHANDLE file_handle,
+                ACCESS_MASK desired_access,
+                POBJECT_ATTRIBUTES object_attributes,
+                PIO_STATUS_BLOCK io_status_block,
+                ULONG share_access,
+                ULONG open_options);
+
+NTSTATUS WINAPI
+nt_raw_OpenKey(PHANDLE key_handle,
+               ACCESS_MASK desired_access,
+               POBJECT_ATTRIBUTES object_attributes);
+
+NTSTATUS WINAPI
+nt_raw_OpenKeyEx(PHANDLE key_handle,
+                 ACCESS_MASK desired_access,
+                 POBJECT_ATTRIBUTES object_attributes,
+                 ULONG open_options);
+
+NTSTATUS WINAPI
+nt_raw_OpenProcess(PHANDLE process_handle,
+                   ACCESS_MASK desired_access,
+                   POBJECT_ATTRIBUTES object_attributes,
+                   PCLIENT_ID client_id);
+
+NTSTATUS WINAPI
+nt_raw_OpenProcessToken(HANDLE process_handle,
+                        ACCESS_MASK desired_access,
+                        PHANDLE token_handle);
+
+NTSTATUS WINAPI
+nt_raw_OpenProcessTokenEx(HANDLE process_handle,
+                          ACCESS_MASK desired_access,
+                          ULONG handle_attributes,
+                          PHANDLE token_handle);
+
+NTSTATUS WINAPI
+nt_raw_OpenThread(PHANDLE thread_handle,
+                  ACCESS_MASK desired_access,
+                  POBJECT_ATTRIBUTES object_attributes,
+                  PCLIENT_ID client_id);
+
+NTSTATUS WINAPI
+nt_raw_OpenThreadToken(HANDLE thread_handle,
+                       ACCESS_MASK desired_access,
+                       BOOLEAN open_as_self,
+                       PHANDLE token_handle);
+
+NTSTATUS WINAPI
+nt_raw_OpenThreadTokenEx(HANDLE thread_handle,
+                         ACCESS_MASK desired_access,
+                         BOOLEAN open_as_self,
+                         ULONG handle_attributes,
+                         PHANDLE token_handle);
+
+NTSTATUS WINAPI
+nt_raw_QueryAttributesFile(POBJECT_ATTRIBUTES object_attributes,
+                           PFILE_BASIC_INFORMATION file_information);
+
+NTSTATUS WINAPI
+nt_raw_QueryFullAttributesFile(POBJECT_ATTRIBUTES object_attributes,
+                               PFILE_NETWORK_OPEN_INFORMATION file_information);
+
+NTSTATUS WINAPI
+nt_raw_SetInformationFile(HANDLE file_handle,
+                          PIO_STATUS_BLOCK io_status_block,
+                          PVOID file_information,
+                          ULONG length,
+                          FILE_INFORMATION_CLASS file_information_class);
+
+NTSTATUS WINAPI
+nt_raw_SetInformationThread(HANDLE thread_handle,
+                            THREADINFOCLASS thread_information_class,
+                            PVOID thread_information,
+                            ULONG thread_information_length);
+
+NTSTATUS WINAPI
+nt_raw_UnmapViewOfSection(HANDLE process_handle,
+                          PVOID base_address);
 
 #endif /* _NTDLL_H_ */

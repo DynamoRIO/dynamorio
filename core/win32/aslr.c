@@ -1115,7 +1115,7 @@ aslr_retry_map_syscall(dcontext_t *dcontext, reg_t *param_base)
     HANDLE section_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
     HANDLE process_handle = (HANDLE) postsys_param(dcontext, param_base, 1);
     void **pbase_unsafe = (void *) postsys_param(dcontext, param_base, 2);
-    uint zerobits = (uint) postsys_param(dcontext, param_base, 3);
+    ULONG_PTR zerobits = (ULONG_PTR) postsys_param(dcontext, param_base, 3);
     size_t commit_size = (size_t) postsys_param(dcontext, param_base, 4);
     LARGE_INTEGER *section_offs = (LARGE_INTEGER *)
         postsys_param(dcontext, param_base, 5);
@@ -1126,16 +1126,16 @@ aslr_retry_map_syscall(dcontext_t *dcontext, reg_t *param_base)
 
     /* Atypical use of NT types in nt_map_view_of_section to reaffirm
      * that we are using this on behalf of the application. */
-    res = nt_map_view_of_section(section_handle, /* 0 */
-                                 process_handle, /* 1 */
-                                 pbase_unsafe,   /* 2 */
-                                 zerobits,       /* 3 */
-                                 commit_size,    /* 4 */
-                                 section_offs,   /* 5 */
-                                 view_size,      /* 6 */
-                                 inherit_disposition, /* 7 */
-                                 type,           /* 8 */
-                                 prot);          /* 9 */
+    res = nt_raw_MapViewOfSection(section_handle, /* 0 */
+                                  process_handle, /* 1 */
+                                  pbase_unsafe,   /* 2 */
+                                  zerobits,       /* 3 */
+                                  commit_size,    /* 4 */
+                                  section_offs,   /* 5 */
+                                  view_size,      /* 6 */
+                                  inherit_disposition, /* 7 */
+                                  type,           /* 8 */
+                                  prot);          /* 9 */
 
     LOG(THREAD_GET, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "syscall: aslr_retry_map_syscall NtMapViewOfSection *pbase="PFX
@@ -1169,16 +1169,16 @@ aslr_get_module_mapping_size(HANDLE section_handle,
      * try to get the size from SectionBasicInformation.Size, and map
      * only on failure
      */
-    res = nt_map_view_of_section(section_handle, /* 0 */
-                                 NT_CURRENT_PROCESS, /* 1 */
-                                 &base, /* 2 */
-                                 0, /* 3 */
-                                 commit_size, /* 4 */
-                                 NULL, /* 5 */
-                                 &view_size, /* 6 */
-                                 ViewShare, /* 7 */
-                                 type, /* 8 */
-                                 prot); /* 9 */
+    res = nt_raw_MapViewOfSection(section_handle, /* 0 */
+                                  NT_CURRENT_PROCESS, /* 1 */
+                                  &base, /* 2 */
+                                  0, /* 3 */
+                                  commit_size, /* 4 */
+                                  NULL, /* 5 */
+                                  &view_size, /* 6 */
+                                  ViewShare, /* 7 */
+                                  type, /* 8 */
+                                  prot); /* 9 */
     ASSERT(NT_SUCCESS(res));
     if (!NT_SUCCESS(res))
         return false;
@@ -1186,8 +1186,7 @@ aslr_get_module_mapping_size(HANDLE section_handle,
      * at the NtMapViewOfSection(), no harm */
     *module_size = view_size;
 
-    res = nt_unmap_view_of_section(NT_CURRENT_PROCESS, 
-                                   base);
+    res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, base);
     ASSERT(NT_SUCCESS(res));
     return true;
 }
@@ -1842,7 +1841,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
             app_pc redo_size = 0;
             int redo_result;
             /* undo: issue unmap on what we have bumped */
-            NTSTATUS res = nt_unmap_view_of_section(process_handle, base);
+            NTSTATUS res = nt_raw_UnmapViewOfSection(process_handle, base);
             LOG(THREAD_GET, LOG_SYSCALLS|LOG_VMAREAS, 1,
                 "syscall: aslr exempt: NtUnmapViewOfSection base="PFX", res "PFX"\n",
                 base, res);
@@ -2942,16 +2941,16 @@ aslr_get_section_digest(OUT module_digest_t *digest,
     uint type = 0;              /* commit not needed for original DLL */
     uint prot = PAGE_READONLY; 
 
-    res = nt_map_view_of_section(section_handle, /* 0 */
-                                 NT_CURRENT_PROCESS, /* 1 */
-                                 &base, /* 2 */
-                                 0, /* 3 */
-                                 commit_size, /* 4 */
-                                 NULL, /* 5 */
-                                 &view_size, /* 6 */
-                                 ViewShare, /* 7 */
-                                 type, /* 8 */
-                                 prot); /* 9 */
+    res = nt_raw_MapViewOfSection(section_handle, /* 0 */
+                                  NT_CURRENT_PROCESS, /* 1 */
+                                  &base, /* 2 */
+                                  0, /* 3 */
+                                  commit_size, /* 4 */
+                                  NULL, /* 5 */
+                                  &view_size, /* 6 */
+                                  ViewShare, /* 7 */
+                                  type, /* 8 */
+                                  prot); /* 9 */
     ASSERT(NT_SUCCESS(res));
     if (!NT_SUCCESS(res))
         return false;
@@ -2965,8 +2964,7 @@ aslr_get_section_digest(OUT module_digest_t *digest,
                             short_digest_only, /* short */
                             DYNAMO_OPTION(aslr_short_digest),
                             UINT_MAX/*all secs*/, 0/*all secs*/);
-    res = nt_unmap_view_of_section(NT_CURRENT_PROCESS, 
-                                   base);
+    res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, base);
     ASSERT(NT_SUCCESS(res));
     return true;
 }
@@ -3083,16 +3081,16 @@ aslr_compare_in_place(IN HANDLE original_section,
 
     ASSERT(*original_mapped_base == NULL);
 
-    res = nt_map_view_of_section(section_handle, /* 0 */
-                                 NT_CURRENT_PROCESS, /* 1 */
-                                 &base, /* 2 */
-                                 0, /* 3 */
-                                 commit_size, /* 4 */
-                                 NULL, /* 5 */
-                                 &view_size, /* 6 */
-                                 ViewShare, /* 7 */
-                                 type, /* 8 */
-                                 prot); /* 9 */
+    res = nt_raw_MapViewOfSection(section_handle, /* 0 */
+                                  NT_CURRENT_PROCESS, /* 1 */
+                                  &base, /* 2 */
+                                  0, /* 3 */
+                                  commit_size, /* 4 */
+                                  NULL, /* 5 */
+                                  &view_size, /* 6 */
+                                  ViewShare, /* 7 */
+                                  type, /* 8 */
+                                  prot); /* 9 */
     ASSERT_CURIOSITY(NT_SUCCESS(res));
     if (!NT_SUCCESS(res)) {
         *original_mapped_base = NULL;
@@ -3178,16 +3176,16 @@ aslr_module_verify_relocated_contents(HANDLE original_file_handle,
     }
 
     /* map relocated suspect copy */
-    res = nt_map_view_of_section(suspect_file_section, /* 0 */
-                                 NT_CURRENT_PROCESS, /* 1 */
-                                 &suspect_base, /* 2 */
-                                 0, /* 3 */
-                                 0, /* 4 commit_size*/
-                                 NULL, /* 5 */
-                                 &suspect_size, /* 6 */
-                                 ViewShare, /* 7 */
-                                 0, /* 8 type */
-                                 PAGE_READWRITE); /* 9 prot */
+    res = nt_raw_MapViewOfSection(suspect_file_section, /* 0 */
+                                  NT_CURRENT_PROCESS, /* 1 */
+                                  &suspect_base, /* 2 */
+                                  0, /* 3 */
+                                  0, /* 4 commit_size*/
+                                  NULL, /* 5 */
+                                  &suspect_size, /* 6 */
+                                  ViewShare, /* 7 */
+                                  0, /* 8 type */
+                                  PAGE_READWRITE); /* 9 prot */
     /* FIXME: we are asking for PAGE_READWRITE on the whole file -
      * affecting commit memory case 10251 */
 
@@ -3206,7 +3204,7 @@ aslr_module_verify_relocated_contents(HANDLE original_file_handle,
     ok = aslr_create_private_module_section(&original_file_section,
                                             original_file_handle);
     if (!ok) {
-        nt_unmap_view_of_section(NT_CURRENT_PROCESS, suspect_base);
+        nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, suspect_base);
         return false;
     }
 
@@ -3306,7 +3304,8 @@ aslr_module_verify_relocated_contents(HANDLE original_file_handle,
     }
 
     if (relocated_original_mapped_base != NULL) {
-        res = nt_unmap_view_of_section(NT_CURRENT_PROCESS, relocated_original_mapped_base);
+        res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS,
+                                        relocated_original_mapped_base);
         ASSERT(NT_SUCCESS(res));
     }
 
@@ -3319,7 +3318,7 @@ aslr_module_verify_relocated_contents(HANDLE original_file_handle,
      * system cache keep these for us may be better (in addition to easier).
      */
     if (suspect_base != NULL) {
-        res = nt_unmap_view_of_section(NT_CURRENT_PROCESS, suspect_base);
+        res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, suspect_base);
         ASSERT(NT_SUCCESS(res));
     }
 
@@ -3422,7 +3421,7 @@ aslr_verify_file_checksum(IN HANDLE app_file_handle,
 
     /* FIXME: in order to not break the abstraction here we'll need to
      * use another private nt_create_section(),
-     * nt_map_view_of_section() before officially publishing
+     * nt_raw_MapViewOfSection() before officially publishing
      * Measure for performance problems and may streamline.
      */
 
@@ -4156,16 +4155,16 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
 
     ASSERT(*mapped_base == NULL);
 
-    res = nt_map_view_of_section(section_handle, /* 0 */
-                                 NT_CURRENT_PROCESS, /* 1 */
-                                 &base, /* 2 */
-                                 0, /* 3 */
-                                 commit_size, /* 4 */
-                                 NULL, /* 5 */
-                                 &view_size, /* 6 */
-                                 ViewShare, /* 7 */
-                                 type, /* 8 */
-                                 prot); /* 9 */
+    res = nt_raw_MapViewOfSection(section_handle, /* 0 */
+                                  NT_CURRENT_PROCESS, /* 1 */
+                                  &base, /* 2 */
+                                  0, /* 3 */
+                                  commit_size, /* 4 */
+                                  NULL, /* 5 */
+                                  &view_size, /* 6 */
+                                  ViewShare, /* 7 */
+                                  type, /* 8 */
+                                  prot); /* 9 */
     ASSERT(NT_SUCCESS(res));
     if (!NT_SUCCESS(res)) {
         *mapped_base = NULL;
@@ -4366,7 +4365,7 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
     return success;
  unmap_and_exit:
     /* we do not need the section mapping */
-    res = nt_unmap_view_of_section(NT_CURRENT_PROCESS, *mapped_base);
+    res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, *mapped_base);
     ASSERT(NT_SUCCESS(res));
     *mapped_base = NULL;
     return false;
@@ -4470,7 +4469,7 @@ aslr_experiment_with_section_handle(IN HANDLE file_handle,
 
         if (0 && relocated) {  /* CHANGEME:  */
             /* finally verifying that the data doesn't stick around if it's not unmapped */
-            res = nt_unmap_view_of_section(NT_CURRENT_PROCESS, mapped_base);
+            res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, mapped_base);
             ASSERT(NT_SUCCESS(res));
         }
 
@@ -4860,8 +4859,8 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
             }
 
             /* we do not use the private section mapping any more */
-            res = nt_unmap_view_of_section(NT_CURRENT_PROCESS, 
-                                           relocated_module_mapped_base);
+            res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, 
+                                            relocated_module_mapped_base);
             ASSERT(NT_SUCCESS(res));
 
             if (ok) {
@@ -5417,16 +5416,16 @@ aslr_get_original_metadata(HANDLE original_app_section_handle,
     uint type = 0;              /* commit not needed for original DLL */
     uint prot = PAGE_READONLY; 
 
-    res = nt_map_view_of_section(original_app_section_handle, /* 0 */
-                                 NT_CURRENT_PROCESS, /* 1 */
-                                 &base, /* 2 */
-                                 0, /* 3 */
-                                 commit_size, /* 4 */
-                                 NULL, /* 5 */
-                                 &view_size, /* 6 */
-                                 ViewShare, /* 7 */
-                                 type, /* 8 */
-                                 prot); /* 9 */
+    res = nt_raw_MapViewOfSection(original_app_section_handle, /* 0 */
+                                  NT_CURRENT_PROCESS, /* 1 */
+                                  &base, /* 2 */
+                                  0, /* 3 */
+                                  commit_size, /* 4 */
+                                  NULL, /* 5 */
+                                  &view_size, /* 6 */
+                                  ViewShare, /* 7 */
+                                  type, /* 8 */
+                                  prot); /* 9 */
     ASSERT(NT_SUCCESS(res));
     if (!NT_SUCCESS(res))
         return false;
@@ -5440,8 +5439,7 @@ aslr_get_original_metadata(HANDLE original_app_section_handle,
                             original_timestamp, NULL, NULL, NULL);
     ASSERT(ok);
 
-    res = nt_unmap_view_of_section(NT_CURRENT_PROCESS, 
-                                   base);
+    res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, base);
     ASSERT(NT_SUCCESS(res));
     
     return ok;

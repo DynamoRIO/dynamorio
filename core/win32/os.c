@@ -5543,16 +5543,16 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
     /* FIXME case 9642: support requesting a particular base address so
      * we can randomize, make adjacent to vmheap, etc.
      */
-    res = nt_map_view_of_section(section, /* 0 */
-                                 NT_CURRENT_PROCESS, /* 1 */
-                                 &map, /* 2 */
-                                 0, /* 3 */
-                                 0 /* not page-file-backed */, /* 4 */
-                                 &li_offs, /* 5 */
-                                 (PSIZE_T) size, /* 6 */
-                                 ViewUnmap /* FIXME: expose? */, /* 7 */
-                                 0 /* no special top-down or anything */, /* 8 */
-                                 osprot); /* 9 */
+    res = nt_raw_MapViewOfSection(section, /* 0 */
+                                  NT_CURRENT_PROCESS, /* 1 */
+                                  &map, /* 2 */
+                                  0, /* 3 */
+                                  0 /* not page-file-backed */, /* 4 */
+                                  &li_offs, /* 5 */
+                                  (PSIZE_T) size, /* 6 */
+                                  ViewUnmap /* FIXME: expose? */, /* 7 */
+                                  0 /* no special top-down or anything */, /* 8 */
+                                  osprot); /* 9 */
     /* We do not need to keep the section handle open */
     close_handle(section);
     if (!NT_SUCCESS(res)) {
@@ -5565,7 +5565,7 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
 bool
 os_unmap_file(byte *map, size_t size/*unused*/)
 {
-    int res = nt_unmap_view_of_section(NT_CURRENT_PROCESS, map);
+    int res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, map);
     return NT_SUCCESS(res);
 }
 

@@ -179,6 +179,120 @@ redirect_RtlFreeAnsiString(ANSI_STRING *string);
 static void WINAPI
 redirect_RtlFreeOemString(OEM_STRING *string);
 
+static NTSTATUS WINAPI
+redirect_NtCreateFile(PHANDLE file_handle,
+                      ACCESS_MASK desired_access,
+                      POBJECT_ATTRIBUTES object_attributes,
+                      PIO_STATUS_BLOCK io_status_block,
+                      PLARGE_INTEGER allocation_size,
+                      ULONG file_attributes,
+                      ULONG share_access,
+                      ULONG create_disposition,
+                      ULONG create_options,
+                      PVOID ea_buffer,
+                      ULONG ea_length);
+
+static NTSTATUS WINAPI
+redirect_NtCreateKey(PHANDLE key_handle,
+                     ACCESS_MASK desired_access,
+                     POBJECT_ATTRIBUTES object_attributes,
+                     ULONG title_index,
+                     PUNICODE_STRING class,
+                     ULONG create_options,
+                     PULONG disposition);
+
+static NTSTATUS WINAPI
+redirect_NtMapViewOfSection(HANDLE section_handle,
+                            HANDLE process_handle,
+                            PVOID *base_address,
+                            ULONG_PTR zero_bits,
+                            SIZE_T commit_size,
+                            PLARGE_INTEGER section_offset,
+                            PSIZE_T view_size,
+                            SECTION_INHERIT inherit_disposition,
+                            ULONG allocation_type,
+                            ULONG win32_protect);
+
+static NTSTATUS WINAPI
+redirect_NtOpenFile(PHANDLE file_handle,
+                    ACCESS_MASK desired_access,
+                    POBJECT_ATTRIBUTES object_attributes,
+                    PIO_STATUS_BLOCK io_status_block,
+                    ULONG share_access,
+                    ULONG open_options);
+
+static NTSTATUS WINAPI
+redirect_NtOpenKey(PHANDLE key_handle,
+                   ACCESS_MASK desired_access,
+                   POBJECT_ATTRIBUTES object_attributes);
+
+static NTSTATUS WINAPI
+redirect_NtOpenKeyEx(PHANDLE key_handle,
+                     ACCESS_MASK desired_access,
+                     POBJECT_ATTRIBUTES object_attributes,
+                     ULONG open_options);
+
+static NTSTATUS WINAPI
+redirect_NtOpenProcess(PHANDLE process_handle,
+                       ACCESS_MASK desired_access,
+                       POBJECT_ATTRIBUTES object_attributes,
+                       PCLIENT_ID client_id);
+
+static NTSTATUS WINAPI
+redirect_NtOpenProcessToken(HANDLE process_handle,
+                            ACCESS_MASK desired_access,
+                            PHANDLE token_handle);
+
+static NTSTATUS WINAPI
+redirect_NtOpenProcessTokenEx(HANDLE process_handle,
+                              ACCESS_MASK desired_access,
+                              ULONG handle_attributes,
+                              PHANDLE token_handle);
+
+static NTSTATUS WINAPI
+redirect_NtOpenThread(PHANDLE thread_handle,
+                      ACCESS_MASK desired_access,
+                      POBJECT_ATTRIBUTES object_attributes,
+                      PCLIENT_ID client_id);
+
+static NTSTATUS WINAPI
+redirect_NtOpenThreadToken(HANDLE thread_handle,
+                           ACCESS_MASK desired_access,
+                           BOOLEAN open_as_self,
+                           PHANDLE token_handle);
+
+static NTSTATUS WINAPI
+redirect_NtOpenThreadTokenEx(HANDLE thread_handle,
+                             ACCESS_MASK desired_access,
+                             BOOLEAN open_as_self,
+                             ULONG handle_attributes,
+                             PHANDLE token_handle);
+
+static NTSTATUS WINAPI
+redirect_NtQueryAttributesFile(POBJECT_ATTRIBUTES object_attributes,
+                               PFILE_BASIC_INFORMATION file_information);
+
+static NTSTATUS WINAPI
+redirect_NtQueryFullAttributesFile(POBJECT_ATTRIBUTES object_attributes,
+                                   PFILE_NETWORK_OPEN_INFORMATION file_information);
+
+static NTSTATUS WINAPI
+redirect_NtSetInformationFile(HANDLE file_handle,
+                              PIO_STATUS_BLOCK io_status_block,
+                              PVOID file_information,
+                              ULONG length,
+                              FILE_INFORMATION_CLASS file_information_class);
+
+static NTSTATUS WINAPI
+redirect_NtSetInformationThread(HANDLE thread_handle,
+                                THREADINFOCLASS thread_information_class,
+                                PVOID thread_information,
+                                ULONG thread_information_length);
+
+static NTSTATUS WINAPI
+redirect_NtUnmapViewOfSection(HANDLE process_handle,
+                              PVOID base_address);
+
 static DWORD WINAPI
 redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb);
 
@@ -282,6 +396,41 @@ static const redirect_import_t redirect_ntdll[] = {
     {"RtlSetUserValueHeap",            (app_pc)redirect_RtlSetUserValueHeap},
     {"RtlGetUserInfoHeap",             (app_pc)redirect_RtlGetUserInfoHeap},
 #endif
+    /* DrM-i#1066: functions below are hooked by Chrome sandbox */
+    {"NtCreateFile",                   (app_pc)redirect_NtCreateFile},
+    {"ZwCreateFile",                   (app_pc)redirect_NtCreateFile},
+    {"NtCreateKey",                    (app_pc)redirect_NtCreateKey},
+    {"ZwCreateKey",                    (app_pc)redirect_NtCreateKey},
+    {"NtMapViewOfSection",             (app_pc)redirect_NtMapViewOfSection},
+    {"ZwMapViewOfSection",             (app_pc)redirect_NtMapViewOfSection},
+    {"NtOpenFile",                     (app_pc)redirect_NtOpenFile},
+    {"ZwOpenFile",                     (app_pc)redirect_NtOpenFile},
+    {"NtOpenKey",                      (app_pc)redirect_NtOpenKey},
+    {"ZwOpenKey",                      (app_pc)redirect_NtOpenKey},
+    {"NtOpenKeyEx",                    (app_pc)redirect_NtOpenKeyEx},
+    {"ZwOpenKeyEx",                    (app_pc)redirect_NtOpenKeyEx},
+    {"NtOpenProcess",                  (app_pc)redirect_NtOpenProcess},
+    {"ZwOpenProcess",                  (app_pc)redirect_NtOpenProcess},
+    {"NtOpenProcessToken",             (app_pc)redirect_NtOpenProcessToken},
+    {"ZwOpenProcessToken",             (app_pc)redirect_NtOpenProcessToken},
+    {"NtOpenProcessTokenEx",           (app_pc)redirect_NtOpenProcessTokenEx},
+    {"ZwOpenProcessTokenEx",           (app_pc)redirect_NtOpenProcessTokenEx},
+    {"NtOpenThread",                   (app_pc)redirect_NtOpenThread},
+    {"ZwOpenThread",                   (app_pc)redirect_NtOpenThread},
+    {"NtOpenThreadToken",              (app_pc)redirect_NtOpenThreadToken},
+    {"ZwOpenThreadToken",              (app_pc)redirect_NtOpenThreadToken},
+    {"NtOpenThreadTokenEx",            (app_pc)redirect_NtOpenThreadTokenEx},
+    {"ZwOpenThreadTokenEx",            (app_pc)redirect_NtOpenThreadTokenEx},
+    {"NtQueryAttributesFile",          (app_pc)redirect_NtQueryAttributesFile},
+    {"ZwQueryAttributesFile",          (app_pc)redirect_NtQueryAttributesFile},
+    {"NtQueryFullAttributesFile",      (app_pc)redirect_NtQueryFullAttributesFile},
+    {"ZwQueryFullAttributesFile",      (app_pc)redirect_NtQueryFullAttributesFile},
+    {"NtSetInformationFile",           (app_pc)redirect_NtSetInformationFile},
+    {"ZwSetInformationFile",           (app_pc)redirect_NtSetInformationFile},
+    {"NtSetInformationThread",         (app_pc)redirect_NtSetInformationThread},
+    {"ZwSetInformationThread",         (app_pc)redirect_NtSetInformationThread},
+    {"NtUnmapViewOfSection",           (app_pc)redirect_NtUnmapViewOfSection},
+    {"ZwUnmapViewOfSection",           (app_pc)redirect_NtUnmapViewOfSection},
 };
 #define REDIRECT_NTDLL_NUM (sizeof(redirect_ntdll)/sizeof(redirect_ntdll[0]))
 
@@ -2374,6 +2523,235 @@ redirect_DeleteCriticalSection(RTL_CRITICAL_SECTION* crit)
     memset(crit, 0, sizeof(*crit));
     crit->LockCount = -1;
     return STATUS_SUCCESS;
+}
+
+
+/****************************************************************************
+ * DrM-i#1066: redirect some syscalls from ntdll
+ */
+static NTSTATUS WINAPI
+redirect_NtCreateFile(PHANDLE file_handle,
+                      ACCESS_MASK desired_access,
+                      POBJECT_ATTRIBUTES object_attributes,
+                      PIO_STATUS_BLOCK io_status_block,
+                      PLARGE_INTEGER allocation_size,
+                      ULONG file_attributes,
+                      ULONG share_access,
+                      ULONG create_disposition,
+                      ULONG create_options,
+                      PVOID ea_buffer,
+                      ULONG ea_length)
+{
+    return nt_raw_CreateFile(file_handle,
+                             desired_access,
+                             object_attributes,
+                             io_status_block,
+                             allocation_size,
+                             file_attributes,
+                             share_access,
+                             create_disposition,
+                             create_options,
+                             ea_buffer,
+                             ea_length);
+}
+
+static NTSTATUS WINAPI
+redirect_NtCreateKey(PHANDLE key_handle,
+                     ACCESS_MASK desired_access,
+                     POBJECT_ATTRIBUTES object_attributes,
+                     ULONG title_index,
+                     PUNICODE_STRING class,
+                     ULONG create_options,
+                     PULONG disposition)
+{
+    return nt_raw_CreateKey(key_handle, desired_access,
+                            object_attributes, title_index,
+                            class, create_options, disposition);
+}
+
+static NTSTATUS WINAPI
+redirect_NtMapViewOfSection(HANDLE section_handle,
+                            HANDLE process_handle,
+                            PVOID *base_address,
+                            ULONG_PTR zero_bits,
+                            SIZE_T commit_size,
+                            PLARGE_INTEGER section_offset,
+                            PSIZE_T view_size,
+                            SECTION_INHERIT inherit_disposition,
+                            ULONG allocation_type,
+                            ULONG win32_protect)
+{
+    return nt_raw_MapViewOfSection(section_handle,
+                                   process_handle,
+                                   base_address,
+                                   zero_bits,
+                                   commit_size,
+                                   section_offset,
+                                   view_size,
+                                   inherit_disposition,
+                                   allocation_type,
+                                   win32_protect);
+}
+
+static NTSTATUS WINAPI
+redirect_NtOpenFile(PHANDLE file_handle,
+                    ACCESS_MASK desired_access,
+                    POBJECT_ATTRIBUTES object_attributes,
+                    PIO_STATUS_BLOCK io_status_block,
+                    ULONG share_access,
+                    ULONG open_options)
+{
+    return nt_raw_OpenFile(file_handle,
+                           desired_access,
+                           object_attributes,
+                           io_status_block,
+                           share_access,
+                           open_options);
+}
+
+static NTSTATUS WINAPI
+redirect_NtOpenKey(PHANDLE key_handle,
+                   ACCESS_MASK desired_access,
+                   POBJECT_ATTRIBUTES object_attributes)
+{
+    return nt_raw_OpenKey(key_handle,
+                          desired_access,
+                          object_attributes);
+}
+
+
+static NTSTATUS WINAPI
+redirect_NtOpenKeyEx(PHANDLE key_handle,
+                     ACCESS_MASK desired_access,
+                     POBJECT_ATTRIBUTES object_attributes,
+                     ULONG open_options)
+{
+    return nt_raw_OpenKeyEx(key_handle,
+                            desired_access,
+                            object_attributes,
+                            open_options);
+}
+
+static NTSTATUS WINAPI
+redirect_NtOpenProcess(PHANDLE process_handle,
+                       ACCESS_MASK desired_access,
+                       POBJECT_ATTRIBUTES object_attributes,
+                       PCLIENT_ID client_id)
+{
+    return nt_raw_OpenProcess(process_handle,
+                              desired_access,
+                              object_attributes,
+                              client_id);
+}
+
+static NTSTATUS WINAPI
+redirect_NtOpenProcessToken(HANDLE process_handle,
+                            ACCESS_MASK desired_access,
+                            PHANDLE token_handle)
+{
+    return nt_raw_OpenProcessToken(process_handle,
+                                   desired_access,
+                                   token_handle);
+}
+
+static NTSTATUS WINAPI
+redirect_NtOpenProcessTokenEx(HANDLE process_handle,
+                              ACCESS_MASK desired_access,
+                              ULONG handle_attributes,
+                              PHANDLE token_handle)
+{
+    return nt_raw_OpenProcessTokenEx(process_handle,
+                                     desired_access,
+                                     handle_attributes,
+                                     token_handle);
+}
+
+static NTSTATUS WINAPI
+redirect_NtOpenThread(PHANDLE thread_handle,
+                      ACCESS_MASK desired_access,
+                      POBJECT_ATTRIBUTES object_attributes,
+                      PCLIENT_ID client_id)
+{
+    return nt_raw_OpenThread(thread_handle,
+                             desired_access,
+                             object_attributes,
+                             client_id);
+}
+
+static NTSTATUS WINAPI
+redirect_NtOpenThreadToken(HANDLE thread_handle,
+                           ACCESS_MASK desired_access,
+                           BOOLEAN open_as_self,
+                           PHANDLE token_handle)
+{
+    return nt_raw_OpenThreadToken(thread_handle,
+                                  desired_access,
+                                  open_as_self,
+                                  token_handle);
+}
+
+static NTSTATUS WINAPI
+redirect_NtOpenThreadTokenEx(HANDLE thread_handle,
+                             ACCESS_MASK desired_access,
+                             BOOLEAN open_as_self,
+                             ULONG handle_attributes,
+                             PHANDLE token_handle)
+{
+    return nt_raw_OpenThreadTokenEx(thread_handle,
+                                    desired_access,
+                                    open_as_self,
+                                    handle_attributes,
+                                    token_handle);
+}
+
+static NTSTATUS WINAPI
+redirect_NtQueryAttributesFile(POBJECT_ATTRIBUTES object_attributes,
+                               PFILE_BASIC_INFORMATION file_information)
+{
+    return nt_raw_QueryAttributesFile(object_attributes,
+                                      file_information);
+}
+
+static NTSTATUS WINAPI
+redirect_NtQueryFullAttributesFile(POBJECT_ATTRIBUTES object_attributes,
+                                   PFILE_NETWORK_OPEN_INFORMATION file_information)
+{
+    return nt_raw_QueryFullAttributesFile(object_attributes,
+                                          file_information);
+}
+
+static NTSTATUS WINAPI
+redirect_NtSetInformationFile(HANDLE file_handle,
+                              PIO_STATUS_BLOCK io_status_block,
+                              PVOID file_information,
+                              ULONG length,
+                              FILE_INFORMATION_CLASS file_information_class)
+{
+    return nt_raw_SetInformationFile(file_handle,
+                                     io_status_block,
+                                     file_information,
+                                     length,
+                                     file_information_class);
+}
+
+static NTSTATUS WINAPI
+redirect_NtSetInformationThread(HANDLE thread_handle,
+                                THREADINFOCLASS thread_information_class,
+                                PVOID thread_information,
+                                ULONG thread_information_length)
+{
+    return nt_raw_SetInformationThread(thread_handle,
+                                       thread_information_class,
+                                       thread_information,
+                                       thread_information_length);
+}
+
+static NTSTATUS WINAPI
+redirect_NtUnmapViewOfSection(HANDLE process_handle,
+                              PVOID base_address)
+{
+    return nt_raw_UnmapViewOfSection(process_handle,
+                                     base_address);
 }
 
 /***************************************************************************/

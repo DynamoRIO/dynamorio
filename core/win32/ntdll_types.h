@@ -283,6 +283,17 @@ typedef enum _FILE_INFORMATION_CLASS {
     FileMaximumInformation
 } FILE_INFORMATION_CLASS, *PFILE_INFORMATION_CLASS;
 
+/* Information class structures returned by NtQueryInformationFile
+ * and NtQueryAttributesFile
+ */
+typedef struct _FILE_BASIC_INFORMATION {
+    LARGE_INTEGER CreationTime;
+    LARGE_INTEGER LastAccessTime;
+    LARGE_INTEGER LastWriteTime;
+    LARGE_INTEGER ChangeTime;
+    ULONG FileAttributes;
+} FILE_BASIC_INFORMATION, *PFILE_BASIC_INFORMATION;
+                                                            
 /* FileSystem types for nt_query_volume_info */
 /* should be available in ntifs.h from IFS.
  * This version is from reactos/0.2.9/include/ndk/iotypes.h 
