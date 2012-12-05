@@ -668,6 +668,8 @@ check_new_page_start(dcontext_t *dcontext, build_bb_t *bb)
  * while bb building like we used to.  Should revisit the overlap info and
  * walk_app_bb reasons for keeping those contig() calls and see if we can
  * optimize them away for bb building at least.
+ * i#993: new_pc points to the last byte of the current instruction and is not
+ * an open-ended endpoint.
  */
 static inline void
 check_new_page_contig(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
@@ -678,7 +680,7 @@ check_new_page_contig(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
         update_overlap_info(dcontext, bb, new_pc, false/*not jmp*/);
     if (bb->checked_end == NULL) {
         ASSERT(new_pc == bb->start_pc);
-    } else if (new_pc > bb->checked_end) {
+    } else if (new_pc >= bb->checked_end) {
         DEBUG_DECLARE(bool ok =)
             check_thread_vm_area(dcontext, new_pc, bb->start_pc,
                                  (bb->record_vmlist ? &bb->vmlist : NULL),
@@ -2899,7 +2901,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
             ASSERT(!bb->check_vm_area || bb->checked_end != NULL);
             if (bb->check_vm_area &&
-                bb->cur_pc != NULL && bb->cur_pc-1 > bb->checked_end) {
+                bb->cur_pc != NULL && bb->cur_pc-1 >= bb->checked_end) {
                 /* We're beyond the vmarea allowed -- so check again.
                  * Ideally we'd want to check BEFORE we decode from the
                  * subsequent page, as it could be inaccessible, but not worth

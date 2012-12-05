@@ -95,8 +95,30 @@ static byte global_buf[8];
 void
 sandbox_cross_page(int i, byte buf[8]);
 
+int
+sandbox_last_byte(void);
+
+void
+make_last_byte_selfmod(void);
+
 void
 sandbox_fault(int i);
+
+/* These *_no_ilt variants of the prototypes avoid indirection through the
+ * Incremental Linking Table (ILT).  With inremental linking on Windows, all
+ * functions are directed through a jump table at the beginning of .text.  Those
+ * addresses remain stable across incremental links while function bodies in
+ * .text can be moved.  dumpbin /disasm shows something like:
+ * @ILT+0(_sandbox_cross_page):
+ *   00401005: E9 E6 7F 02 00     jmp         _sandbox_cross_page
+ * @ILT+5(_sandbox_fault):
+ *   0040100A: E9 71 04 00 00     jmp         _sandbox_fault
+ * @ILT+10(_sandbox_last_byte):
+ *   0040100F: E9 E6 9F 02 00     jmp         _sandbox_last_byte
+ */
+void sandbox_cross_page_no_ilt(void);
+void last_byte_jmp_no_ilt(void);
+void sandbox_fault_no_ilt(void);
 
 #ifdef X64
 /* Reduced from V8, which uses x64 absolute addresses in code which ends up
@@ -175,11 +197,38 @@ test_sandbox_cross_page(void)
     int i;
     print("start cross-page test\n");
     /* Make sandbox_cross_page code writable */
-    protect_mem(sandbox_cross_page, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(sandbox_cross_page_no_ilt, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     for (i = 0; i < 50; i++) {
         sandbox_cross_page(i, global_buf);
     }
     print("end cross-page test\n");
+}
+
+/* i#993: Test case for a bug where the last byte of a fragment was in a
+ * different vmarea.
+ */
+static void
+test_sandbox_last_byte(void)
+{
+    int r;
+    byte *last_byte = (byte *)last_byte_jmp_no_ilt + 1;
+    if (!ALIGNED(last_byte, PAGE_SIZE)) {
+        print("laste_byte is not page-aligned: "PFX"\n"
+              "Instruction sizes in sandbox_last_byte must be wrong.\n",
+              last_byte);
+    }
+    print("start last byte test\n");
+    protect_mem(last_byte, PAGE_SIZE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    /* Execute self-modifying code to create a sandboxed page. */
+    make_last_byte_selfmod();
+    r = sandbox_last_byte();
+    print("sandbox_last_byte: %d\n", r);  /* Should be 0. */
+
+    /* Make the relative jmp offset zero, so it goes to the next instruction. */
+    *last_byte = 0;
+    r = sandbox_last_byte();
+    print("sandbox_last_byte: %d\n", r);  /* Should be 1. */
+    print("end last byte test\n");
 }
 
 void
@@ -193,7 +242,7 @@ test_sandbox_fault(void)
 {
     int i;
     print("start fault test\n");
-    protect_mem(sandbox_fault, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(sandbox_fault_no_ilt, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     i = SIGSETJMP(mark);
     if (i == 0)
         sandbox_fault(42);
@@ -219,6 +268,8 @@ main(void)
 
     test_sandbox_cross_page();
 
+    test_sandbox_last_byte();
+
     test_sandbox_fault();
 
     return 0;
@@ -233,38 +284,49 @@ START_FILE
 DECL_EXTERN(cross_page_check)
 DECL_EXTERN(print_int)
 
-    /* The following code needs to cross a page boundary. */
 #if defined(ASSEMBLE_WITH_GAS)
-.align 4096           /* nop fill */
-.fill 4080, 1, 0x90   /* nop fill */
+# define ALIGN_WITH_NOPS(bytes) .align (bytes)
+# define FILL_WITH_NOPS(bytes)  .fill  (bytes), 1, 0x90
 #elif defined(ASSEMBLE_WITH_MASM)
-/* MASM thinks the .text segment is not 4096 byte aligned.  If we use plain
- * ALIGN, we get error A2189.  Declaring our own segment seems to work.
+/* Cannot align to a value greater than the section alignment.  See .mytext
+ * below.
  */
-_MYTEXT SEGMENT ALIGN(4096) ALIAS(".mytext")
-REPEAT 4080
-        nop
+# define ALIGN_WITH_NOPS(bytes) ALIGN bytes
+# define FILL_WITH_NOPS(bytes) \
+    REPEAT (bytes) @N@\
+        nop @N@\
         ENDM
 #else
 # error NASM NYI
 #endif
 
+#if defined(ASSEMBLE_WITH_MASM)
+/* The .text section on Windows is only 16 byte aligned.  If we use plain
+ * ALIGN_WITH_NOPS(), we get error A2189.  We can't re-declare .text, but we can
+ * declare a new section with greater alignment.  The EXECUTE gets the right
+ * protections and makes ALIGN_WITH_NOPS() do nop fill.
+ */
+_MYTEXT SEGMENT ALIGN(4096) READ EXECUTE SHARED ALIAS(".mytext")
+#endif
+
+    /* The following code needs to cross a page boundary. */
+ALIGN_WITH_NOPS(4096)
+FILL_WITH_NOPS(4080)
+
 #define FUNCNAME sandbox_cross_page
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+DECLARE_GLOBAL(sandbox_cross_page_no_ilt)
+ADDRTAKEN_LABEL(sandbox_cross_page_no_ilt:)
         mov      REG_XAX, ARG1
         mov      REG_XCX, ARG2
         push     REG_XBP
         push     REG_XDX
         push     REG_XDI  /* for 16-alignment on x64 */
 
-#if defined(ASSEMBLE_WITH_GAS)
-        .align 4096
-#elif defined(ASSEMBLE_WITH_MASM)
-        ALIGN 4096
-#else
-# error NASM NYI
-#endif
+        /* Don't use ALIGN_WITH_NOPS().  Masm will turn it into a jmp over
+         * int3s.
+         */
 
         /* Do enough writes to cause the sandboxing code to split the block. */
         mov      [REG_XCX + 0], al
@@ -292,15 +354,59 @@ ADDRTAKEN_LABEL(immediate_addr_plus_four:)
         pop      REG_XBP
         ret
         END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+/* Get last_byte_jmp to have one byte in a sandboxed page. */
+ALIGN_WITH_NOPS(4096)
+FILL_WITH_NOPS(4096 - 6)  /* 6 bytes from instr sizes below. */
+
+#define FUNCNAME sandbox_last_byte
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* All these jmps have to be short for the test to pass.  Both gas and
+         * masm get it right, so long as we always use local labels.  In
+         * particular, global labels get 4 byte offsets in case they are
+         * relocated.
+         */
+        jmp      last_byte_jmp          /* 2 bytes */
+last_byte_ret_zero:
+        xor      eax, eax               /* 2 bytes */
+        ret                             /* 1 byte */
+/* We use last_byte_jmp_no_ilt in C code to overwrite the offset. */
+DECLARE_GLOBAL(last_byte_jmp_no_ilt)
+ADDRTAKEN_LABEL(last_byte_jmp_no_ilt:)
+last_byte_jmp:
+        jmp      last_byte_ret_zero     /* 1 byte opcode + 1 byte rel offset */
+last_byte_ret_one:
+        mov      eax, HEX(1)
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+ALIGN_WITH_NOPS(16)
+
+#define FUNCNAME make_last_byte_selfmod
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        lea      REG_XAX, SYMREF(last_byte_immed_plus_four - 4)
+        mov      DWORD [REG_XAX], HEX(0)     /* selfmod write */
+        mov      REG_XAX, HEX(0)             /* mov_imm to modify */
+ADDRTAKEN_LABEL(last_byte_immed_plus_four:)
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+ALIGN_WITH_NOPS(4096)
 
 #ifdef ASSEMBLE_WITH_MASM
 _MYTEXT ENDS
 #endif
-#undef FUNCNAME
 
 #define FUNCNAME sandbox_fault
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+DECLARE_GLOBAL(sandbox_fault_no_ilt)
+ADDRTAKEN_LABEL(sandbox_fault_no_ilt:)
         mov      REG_XAX, ARG1
         push     REG_XBP
         push     REG_XDX

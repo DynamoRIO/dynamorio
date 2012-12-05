@@ -54,7 +54,6 @@
 
 #define EXPANDSTR(x) #x
 #define STRINGIFY(x) EXPANDSTR(x)
-#define ALIGNED(x, alignment) ((((unsigned int)x) & ((alignment)-1)) == 0)
 
 /****************************************************************************/
 

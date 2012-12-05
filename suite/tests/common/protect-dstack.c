@@ -59,7 +59,6 @@ void evil_copy(void *start, int count, ptr_int_t value);
 
 #define EXPANDSTR(x) #x
 #define STRINGIFY(x) EXPANDSTR(x)
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 
 /* bottom page is a guard page, so ignore it -- consider only top 8KB */
 #define DSTACK_SIZE (8*1024)
