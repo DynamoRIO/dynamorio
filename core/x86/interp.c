@@ -2465,6 +2465,19 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     if (!bb->pass_to_client)
         return;
 
+    /* i#995: DR may build a bb with one invalid instruction, which won't be
+     * passed to cliennt.
+     * FIXME: i#1000, we should present the bb to the client.
+     * i#1000-c#1: the bb->ilist could be empty.
+     */
+    if (instrlist_first(bb->ilist) == NULL)
+        return;
+    if (!instr_opcode_valid(instrlist_first(bb->ilist))) {
+        /* it should have only one instr */
+        ASSERT(instrlist_first(bb->ilist) == instrlist_last(bb->ilist));
+        return;
+    }
+
     /* Call the bb creation callback(s) */
     if (!instrument_basic_block(dcontext, (app_pc) bb->start_pc, bb->ilist,
                                 bb->for_trace, !bb->app_interp, &emitflags)) {
@@ -3627,7 +3640,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         instr_t *exit_instr = INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->exit_target));
         if (bb->record_translation) {
             app_pc translation = NULL;
-            if (bb->instr == NULL) {
+            if (bb->instr == NULL || !instr_opcode_valid(bb->instr)) {
                 /* we removed (or mangle will remove) the last instruction
                  * for special handling (invalid/syscall/int 2b) or there were
                  * no instructions added (i.e. check_stopping_point in which 
