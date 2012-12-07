@@ -111,6 +111,8 @@ if (NOT DEFINED ENV{CXXFLAGS})
   set(ENV{CXXFLAGS} "$ENV{CFLAGS}")
 endif (NOT DEFINED ENV{CXXFLAGS})
 
+# Don't use the default-Debug build type set for the try-compiles
+set(specified_build_type "${CMAKE_BUILD_TYPE}")
 project(DynamoRIO NONE)
 if (DEFINED GENERATE_PDBS AND NOT GENERATE_PDBS)
   # i#310: support building over cygwin ssh where we cannot build pdbs.
@@ -121,6 +123,7 @@ if (DEFINED GENERATE_PDBS AND NOT GENERATE_PDBS)
 endif ()
 enable_language(C)
 enable_language(CXX)
+set(CMAKE_BUILD_TYPE "${specified_build_type}")
 
 include(CheckCCompilerFlag)
 
@@ -130,8 +133,22 @@ include(CheckCCompilerFlag)
 # many are core-specific
 
 # configurations that also have defines
-option(DEBUG "build with asserts and logging enabled")
 option(DRGUI_DEMO "build DRgui without the no-longer-supported Run, etc. controls" ON)
+
+# we honor CMAKE_BUILD_TYPE since many cmake users are used to it
+if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+  set(DEBUG_DEFAULT ON)
+else ()
+  set(DEBUG_DEFAULT OFF)
+endif ()
+set(DEBUG_DESCR "Build with asserts and logging enabled (also controlled by CMAKE_BUILD_TYPE=Debug)")
+option(DEBUG ${DEBUG_DESCR} ${DEBUG_DEFAULT})
+# support later changes
+if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+  set(DEBUG ON CACHE BOOL ${DEBUG_DESCR} FORCE)
+elseif (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+  set(DEBUG OFF CACHE BOOL ${DEBUG_DESCR} FORCE)
+endif ()
 
 # INTERNAL option now matches DEBUG
 if (DEBUG)
@@ -281,21 +298,19 @@ mark_as_advanced(
   DRGUI_DEMO
   )
 
-# we ignore CMAKE_BUILD_TYPE (replaced by our own DEBUG, INTERNAL, etc.)
 # we clear both base and build-type cflags and then use just base.
-# XXX: or should we support build type and auto-map to ours?
-# if we do support we'll need to remove flags like /MD coming from
-# the CMAKE_C_FLAGS_*, which are added to the base CMAKE_C_FLAGS.
 # XXX: could use CMAKE_USER_MAKE_RULES_OVERRIDE to set these but not any cleaner
 #
 # i#919: Ninja generator does not leave CMAKE_BUILD_TYPE blank, and that affects
 # the exported target files, so we set it here.  This shouldn't hurt containing
 # tools as they should set our DEBUG to match the incoming CMAKE_BUILD_TYPE.
-if (DEBUG)
-  set(CMAKE_BUILD_TYPE "Debug")
-else (DEBUG)
-  set(CMAKE_BUILD_TYPE "Release")
-endif (DEBUG)
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
+  if (DEBUG)
+    set(CMAKE_BUILD_TYPE "Debug")
+  else (DEBUG)
+    set(CMAKE_BUILD_TYPE "Release")
+  endif (DEBUG)
+endif ()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
 foreach (config ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
   string(TOUPPER "${config}" config_upper)
