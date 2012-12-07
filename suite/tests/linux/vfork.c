@@ -35,6 +35,7 @@
  */
 
 #include "tools.h"
+#include "threads.h"
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -126,9 +127,17 @@ do_execve(const char *path)
         perror("ERROR in execve");
 }
 
+static int
+run_child(void *arg)
+{
+    /* i#500: Avoid libc in the child. */
+    nolibc_print("child thread running\n");
+}
+
 int main(int argc, char** argv)
 {
     pid_t child;
+    void *stack;
 
 #ifdef USE_DYNAMO
     dynamorio_app_init();
@@ -176,8 +185,22 @@ int main(int argc, char** argv)
         do_execve(argv[1]);
     }   
 
+    /* i#1010: clone() after vfork reuses our private fds.  Have to run this
+     * manually with -loglevel N to trigger this.
+     */
+    print("trying clone() after vfork()\n");
+    stack = NULL;
+    child = create_thread(run_child, NULL, &stack);
+    if (child < 0) {
+        perror("ERROR on create_thread");
+    }
+    delete_thread(child, stack);
+    print("child has exited\n");
+
 #ifdef USE_DYNAMO
     dynamorio_app_stop();
     dynamorio_app_exit();
 #endif
+
+    return 0;
 }

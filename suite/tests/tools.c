@@ -99,7 +99,11 @@ is_wow64(HANDLE hProcess)
         return res;
     }
 }
-#endif
+
+/* FIXME: Port these thread routines to Linux using the ones from linux/clone.c.
+ * We'll have to change existing Windows tests to pass a stack out param or leak
+ * the stack on Linux.
+ */
 
 /* Thread related functions */
 thread_handle
@@ -107,55 +111,35 @@ create_thread(fptr f)
 {
     thread_handle th;
 
-#ifdef LINUX
-    /* FIXME: use the one from linux/clone.c */
-    ASSERT_NOT_IMPLEMENTED();
-#else
     uint tid;
     th = (thread_handle) _beginthreadex(NULL, 0, f, NULL, 0, &tid);
-#endif
     return th;
 }
 
 void
 suspend_thread(thread_handle th)
 {
-#ifdef LINUX
-    ASSERT_NOT_IMPLEMENTED();
-#else
     SuspendThread(th);
-#endif
 }
 
 void
 resume_thread(thread_handle th)
 {
-#ifdef LINUX
-    ASSERT_NOT_IMPLEMENTED();
-#else
     ResumeThread(th);
-#endif
 }
 
 void
 join_thread(thread_handle th)
 {
-#ifdef LINUX
-    ASSERT_NOT_IMPLEMENTED();
-#else
     WaitForSingleObject(th, INFINITE);
-#endif
 }
 
 void
 thread_yield()
 {
-#ifdef LINUX
-    ASSERT_NOT_IMPLEMENTED();
-#else
     Sleep(0); /* stay ready */
-#endif
 }
+#endif  /* WINDOWS */
 
 int
 get_os_prot_word(int prot)

@@ -9,3 +9,6 @@ child is running under DynamoRIO
 parent waiting for child
 it_worked
 child has exited
+trying clone() after vfork()
+child thread running
+child has exited

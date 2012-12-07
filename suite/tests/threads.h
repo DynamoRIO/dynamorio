@@ -33,6 +33,11 @@
 #ifndef THREADS_H
 #define THREADS_H
 
+/* FIXME: This should be folded into tools.c, but tools.c has Windows thread
+ * routines with a different API.  One possibility is to remove the stack out
+ * param and simply leak stack threads in these test apps.
+ */
+
 /***************************************************************************/
 #ifdef LINUX
 
@@ -124,7 +129,7 @@ delete_thread(thread_t pid, void *stack)
     result = waitpid(pid, NULL, 0);
     VERBOSE_PRINT("Child has exited\n");
     if (result == -1 || result != pid)
-	perror("delete_thread waitpid");
+        perror("delete_thread waitpid");
     stack_free(stack, THREAD_STACK_SIZE);
 }
 

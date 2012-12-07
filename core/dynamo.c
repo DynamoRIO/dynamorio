@@ -235,7 +235,7 @@ dr_statistics_t *stats = NULL;
 DECLARE_FREQPROT_VAR(static int num_known_threads, 0);
 #ifdef LINUX
 /* i#237/PR 498284: vfork threads that execve need to be separately delay-freed */
-DECLARE_FREQPROT_VAR(static int num_execve_threads, 0);
+DECLARE_FREQPROT_VAR(int num_execve_threads, 0);
 #endif
 DECLARE_FREQPROT_VAR(static uint threads_ever_count, 0);
 

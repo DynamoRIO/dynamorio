@@ -439,6 +439,8 @@ extern bool standalone_library;  /* used as standalone library */
 #endif
 #ifdef LINUX
 extern bool post_execve;         /* have we performed an execve? */
+/* i#237/PR 498284: vfork threads that execve need to be separately delay-freed */
+extern int num_execve_threads;
 #endif
 
 /* global instance of statistics struct */

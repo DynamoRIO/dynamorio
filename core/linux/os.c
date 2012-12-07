@@ -3657,6 +3657,15 @@ fd_table_add(file_t fd, uint flags)
 {
     if (fd_table != NULL) {
         TABLE_RWLOCK(fd_table, write, lock);
+        DODEBUG({
+            /* i#1010: If the fd is already in the table, chances are it's a
+             * stale logfile fd left behind by a vforked or cloned child that
+             * called execve.  Avoid an assert if that happens.
+             */
+            bool present = generic_hash_remove(GLOBAL_DCONTEXT, fd_table,
+                                               (ptr_uint_t)fd);
+            ASSERT_CURIOSITY_ONCE(!present && "stale fd not cleaned up");
+        });
         generic_hash_add(GLOBAL_DCONTEXT, fd_table, (ptr_uint_t)fd,
                          /* store the flags, w/ a set bit to ensure not 0 */
                          (void *)(ptr_uint_t)(flags|OS_OPEN_RESERVED));
@@ -4903,6 +4912,33 @@ handle_execve_post(dcontext_t *dcontext)
     }
 }
 
+/* i#237/PR 498284: to avoid accumulation of thread state we clean up a vfork
+ * child who invoked execve here so we have at most one outstanding thread.  we
+ * also clean up at process exit and before thread creation.  we could do this
+ * in dispatch but too rare to be worth a flag check there.
+ */
+static void
+cleanup_after_vfork_execve(dcontext_t *dcontext)
+{
+    thread_record_t **threads;
+    int num_threads, i;
+    if (num_execve_threads == 0)
+        return;
+
+    mutex_lock(&thread_initexit_lock);
+    get_list_of_threads_ex(&threads, &num_threads, true/*include execve*/);
+    for (i=0; i<num_threads; i++) {
+        if (threads[i]->execve) {
+            LOG(THREAD, LOG_SYSCALLS, 2, "cleaning up earlier vfork thread %d\n",
+                threads[i]->id);
+            dynamo_other_thread_exit(threads[i]);
+        }
+    }
+    mutex_unlock(&thread_initexit_lock);
+    global_heap_free(threads, num_threads*sizeof(thread_record_t*)
+                     HEAPACCT(ACCT_THREAD_MGT));
+}
+
 /* returns whether to execute syscall */
 static bool
 handle_close_pre(dcontext_t *dcontext)
@@ -5578,6 +5614,13 @@ pre_system_call(dcontext_t *dcontext)
         /* save for post_system_call */
         dcontext->sys_param0 = (reg_t) flags;
 
+        /* i#1010: If we have private fds open (usually logfiles), we should
+         * clean those up before they get reused by a new thread.
+         * XXX: Ideally we'd do this in fd_table_add(), but we can't acquire
+         * thread_initexit_lock there.
+         */
+        cleanup_after_vfork_execve(dcontext);
+
         /* For thread creation clone syscalls a clone_record_t structure
          * containing the pc after the app's syscall instr and other data
          * (see i#27) is placed at the bottom of the dstack (which is allocated
@@ -5604,26 +5647,7 @@ pre_system_call(dcontext_t *dcontext)
         uint flags = CLONE_VFORK | CLONE_VM | SIGCHLD;
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork\n");
         handle_clone(dcontext, flags);
-
-        /* i#237/PR 498284: to avoid accumulation of thread state we clean up a
-         * vfork child who invoked execve here so we have at most one
-         * outstanding thread.  we also clean up at process exit.  we could do
-         * this in dispatch but too rare to be worth a flag check there.
-         */
-        thread_record_t **threads;
-        int num_threads, i;
-        mutex_lock(&thread_initexit_lock);
-        get_list_of_threads_ex(&threads, &num_threads, true/*include execve*/);
-        for (i=0; i<num_threads; i++) {
-            if (threads[i]->execve) {
-                LOG(THREAD, LOG_SYSCALLS, 2, "cleaning up earlier vfork thread %d\n",
-                    threads[i]->id);
-                dynamo_other_thread_exit(threads[i]);
-            }
-        }
-        mutex_unlock(&thread_initexit_lock);
-        global_heap_free(threads, num_threads*sizeof(thread_record_t*)
-                         HEAPACCT(ACCT_THREAD_MGT));
+        cleanup_after_vfork_execve(dcontext);
 
         /* save for post_system_call, treated as if SYS_clone */
         dcontext->sys_param0 = (reg_t) flags;
