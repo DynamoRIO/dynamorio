@@ -146,8 +146,12 @@ typedef struct _drsym_info_t {
 DR_EXPORT
 /**
  * Initialize the symbol access library.
+ * Can be called multiple times (by separate components, normally) but
+ * each call must be paired with a corresponding call to
+ * drsym_exit(), and only the symbol server parameter of the first
+ * call will be honored.
  * 
-* @param[in] shmid Identifies the symbol server for sideline operation.
+ * @param[in] shmid Identifies the symbol server for sideline operation.
  * \note Sideline operation is not yet implemented.
  */
 drsym_error_t

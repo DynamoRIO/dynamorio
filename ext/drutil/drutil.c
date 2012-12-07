@@ -42,17 +42,16 @@
  * INIT
  */
 
-static void *exit_lock;
+static int init_count;
 
 DR_EXPORT
 bool
 drutil_init(void)
 {
-    static bool initialized;
-    if (initialized)
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&init_count, 1);
+    if (count > 1)
         return true;
-    initialized = true;
-    exit_lock = dr_mutex_create();
 
     /* nothing yet: but putting in API up front in case need later */
 
@@ -63,18 +62,12 @@ DR_EXPORT
 void
 drutil_exit(void)
 {
-    static bool exited;
-    /* try to handle multiple calls to exit.  still possible to crash
-     * trying to lock a destroyed lock.
-     */
-    if (exited || !dr_mutex_trylock(exit_lock) || exited)
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&init_count, -1);
+    if (count > 0)
         return;
-    exited = true;
 
     /* nothing yet: but putting in API up front in case need later */
-
-    dr_mutex_unlock(exit_lock);
-    dr_mutex_destroy(exit_lock);
 }
 
 /***************************************************************************

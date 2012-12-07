@@ -172,8 +172,11 @@ typedef struct _drmgr_priority_t {
 DR_EXPORT
 /**
  * Initializes the drmgr extension.  Must be called prior to any of the
- * other routines, and should only be called once.
- * \return whether successful.  Will return false if called a second time.
+ * other routines.  Can be called multiple times (by separate components,
+ * normally) but each call must be paired with a corresponding call to
+ * drmgr_exit().
+ *
+ * \return whether successful.
  */
 bool
 drmgr_init(void);

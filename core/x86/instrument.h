@@ -2294,6 +2294,11 @@ DR_API
 bool
 dr_mark_safe_to_suspend(void *drcontext, bool enter);
 
+DR_API
+/** Atomically adds \p *x and \p val and returns the sum. */
+int
+dr_atomic_add32_return_sum(volatile int *x, int val);
+
 /* DR_API EXPORT BEGIN */
 /**************************************************
  * MODULE INFORMATION ROUTINES

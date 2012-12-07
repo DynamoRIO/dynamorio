@@ -2964,6 +2964,13 @@ dr_mark_safe_to_suspend(void *drcontext, bool enter)
     return true;
 }
 
+DR_API
+int
+dr_atomic_add32_return_sum(volatile int *x, int val)
+{
+    return atomic_add_exchange_int(x, val);
+}
+
 /***************************************************************************
  * MODULES
  */

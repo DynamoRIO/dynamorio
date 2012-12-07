@@ -164,10 +164,17 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
  * Exports.
  */
 
+static int init_count;
+
 DR_EXPORT
 drsym_error_t
 drsym_init(int shmid_in)
 {
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&init_count, 1);
+    if (count > 1)
+        return true;
+
     shmid = shmid_in;
 
     symbol_lock = dr_recurlock_create();
@@ -191,6 +198,11 @@ drsym_error_t
 drsym_exit(void)
 {
     drsym_error_t res = DRSYM_SUCCESS;
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&init_count, -1);
+    if (count > 0)
+        return res;
+
     drsym_unix_exit();
     if (IS_SIDELINE) {
         /* FIXME NYI i#446 */

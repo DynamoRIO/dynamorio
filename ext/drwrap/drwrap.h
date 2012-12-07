@@ -60,9 +60,11 @@ extern "C" {
 DR_EXPORT
 /**
  * Initializes the drwrap extension.  Must be called prior to any of the
- * other routines, and should only be called once.
+ * other routines.  Can be called multiple times (by separate components,
+ * normally) but each call must be paired with a corresponding call to
+ * drwrap_exit().
  *
- * \return whether successful.  Will return false if called a second time.
+ * \return whether successful.
  */
 bool
 drwrap_init(void);

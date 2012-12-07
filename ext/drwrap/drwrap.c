@@ -736,7 +736,7 @@ drwrap_replace_init(void);
  * INIT
  */
 
-static void *exit_lock;
+static int init_count;
 
 DR_EXPORT
 bool
@@ -751,11 +751,10 @@ drwrap_init(void)
     module_data_t *ntdll;
 #endif
 
-    static bool initialized;
-    if (initialized)
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&init_count, 1);
+    if (count > 1)
         return true;
-    initialized = true;
-    exit_lock = dr_mutex_create();
 
     drmgr_init();
     if (!drmgr_register_bb_app2app_event(drwrap_event_bb_app2app, &pri_replace))
@@ -817,13 +816,10 @@ DR_EXPORT
 void
 drwrap_exit(void)
 {
-    static bool exited;
-    /* try to handle multiple calls to exit.  still possible to crash
-     * trying to lock a destroyed lock.
-     */
-    if (exited || !dr_mutex_trylock(exit_lock) || exited)
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&init_count, -1);
+    if (count > 0)
         return;
-    exited = true;
 
     hashtable_delete(&replace_table);
     hashtable_delete(&replace_native_table);
@@ -839,9 +835,6 @@ drwrap_exit(void)
         dr_global_free(post_call_notify_list, sizeof(*post_call_notify_list));
         post_call_notify_list = tmp;
     }
-
-    dr_mutex_unlock(exit_lock);
-    dr_mutex_destroy(exit_lock);
 }
 
 static void

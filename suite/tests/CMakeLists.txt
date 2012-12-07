@@ -1376,6 +1376,7 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
   use_DynamoRIO_extension(client.drutil-test.dll drutil)
+  use_DynamoRIO_extension(client.drutil-test.dll drmgr)
   if (UNIX)
     target_link_libraries(client.drutil-test ${libpthread})
   endif (UNIX)

@@ -133,6 +133,8 @@ static bool verbose = false;
 /* Sideline server support */
 static const wchar_t *shmid;
 
+static int init_count;
+
 #define IS_SIDELINE (shmid != 0)
 
 /* We assume that the DWORD64 type used by dbghelp for module base addresses
@@ -160,6 +162,11 @@ DR_EXPORT
 drsym_error_t
 drsym_init(const wchar_t *shmid_in)
 {
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&init_count, 1);
+    if (count > 1)
+        return DRSYM_SUCCESS;
+
     shmid = shmid_in;
 
     symbol_lock = dr_recurlock_create();
@@ -199,6 +206,11 @@ drsym_error_t
 drsym_exit(void)
 {
     drsym_error_t res = DRSYM_SUCCESS;
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&init_count, -1);
+    if (count > 0)
+        return res;
+
     if (!IS_SIDELINE) {
         hashtable_delete(&modtable);
         if (!SymCleanup(GetCurrentProcess())) {

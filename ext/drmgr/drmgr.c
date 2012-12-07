@@ -174,7 +174,6 @@ static bool tls_taken[MAX_NUM_TLS];
 static bool cls_taken[MAX_NUM_TLS];
 static void *tls_lock;
 
-static void *exit_lock;
 static void *note_lock;
 
 /* Thread event cbs and rwlock */
@@ -241,15 +240,17 @@ drmgr_cls_presys_event(void *drcontext, int sysnum);
  * INIT
  */
 
+static int init_count;
+
 DR_EXPORT
 bool
 drmgr_init(void)
 {
-    static bool initialized;
-    if (initialized)
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&init_count, 1);
+    if (count > 1)
         return true;
-    initialized = true;
-    exit_lock = dr_mutex_create();
+
     note_lock = dr_mutex_create();
 
     bb_cb_lock = dr_rwlock_create();
@@ -275,13 +276,10 @@ DR_EXPORT
 void
 drmgr_exit(void)
 {
-    static bool exited;
-    /* try to handle multiple calls to exit.  still possible to crash
-     * trying to lock a destroyed lock.
-     */
-    if (exited || !dr_mutex_trylock(exit_lock) || exited)
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&init_count, -1);
+    if (count > 0)
         return;
-    exited = true;
 
     drmgr_bb_exit();
     drmgr_event_exit();
@@ -295,9 +293,6 @@ drmgr_exit(void)
     dr_rwlock_destroy(thread_event_lock);
     dr_rwlock_destroy(bb_cb_lock);
     dr_mutex_destroy(note_lock);
-
-    dr_mutex_unlock(exit_lock);
-    dr_mutex_destroy(exit_lock);
 }
 
 /***************************************************************************

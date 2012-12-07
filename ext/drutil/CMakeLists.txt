@@ -40,7 +40,6 @@ add_library(drutil ${libtype}
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x75000000)
 configure_DynamoRIO_client(drutil)
-use_DynamoRIO_extension(drutil drmgr)
 if (UNIX)
   # static containers must be PIC to be linked into clients: else requires
   # relocations that run afoul of security policies, etc.
