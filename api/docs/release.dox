@@ -221,6 +221,7 @@ Further non-compatibility-affecting changes include:
  - Added simplified -c client argument form to drrun, drconfig, and drinject.
  - Added official support for the \ref op_speed "-opt_speed" option
    to prioritize speed over a simple code stream.
+ - Added dr_atomic_add32_return_sum()
  - Deprecated dr_save_arith_flags() and dr_restore_arith_flags()
  - Fixed performance regression involving inlined clean calls
  - Fixed bug involving 32-bit Linux support on a 64-bit Linux

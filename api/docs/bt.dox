@@ -752,6 +752,16 @@ broken down into its constituent pieces:
  - Optionally, dr_insert_restore_fpstate()
  - dr_cleanup_after_call()
 
+DynamoRIO analyzes the callee target of each clean call and attempts to
+reduce the context switch size and, if the callee is simple enough, to
+automatically inline it.  This analysis and potential inlining works best
+when the callee is fully optimized.  Thus, we recommend using high
+optimization levels in clients, even when running DynamoRIO itself in debug
+build in order to examine whether callees are being inlined.  See \ref
+op_cleancall "-opt_cleancall" for information on how to adjust the
+aggressiveness of these optimizations and for a list of specific conditions
+that affect inlining.
+
 ********************
 \subsection sec_state State Preservation
 

@@ -977,6 +977,10 @@ Note that \p CXXFLAGS should be set instead for a C++ client, and both should
 be set when building both types of clients from the same configuration
 (e.g., \p samples/CMakeLists.txt).
 
+To improve clean call performance (see \ref sec_clean_call and \ref
+op_cleancall "-opt_cleancall"), we recommend high levels of optimization
+when building a client.
+
 If a client is not using CMake, the appropriate compiler and linker flags
 can be gleaned from \p DynamoRIOConfig.cmake.  One method is to invoke CMake to
 generate a Makefile and then build with \p VERBOSE=1.  We also summarize
@@ -1199,7 +1203,7 @@ Linux\endif.  See \ref page_deploy.
    dr_unlink_flush_region().
 
  - \b -opt_cleancall \e \<number\>: \anchor op_cleancall
-   Optimize (shrink or inline) the clean call sequences. 
+   Optimize (shrink or inline) the clean call sequences (see \ref sec_clean_call).
    When DynamoRIO analyzes the callee and optimizes each clean call invocation,
    it assumes that a client will not modify the clean call callee or application
    instructions after the inserted clean call.
@@ -1207,8 +1211,8 @@ Linux\endif.  See \ref page_deploy.
    the client may need to reduce the -opt_cleancall level to preserve correct
    execution.
    The clean call will only be optimized if it is a leaf function.
-   Currently, the callee will be inlined only if it is small and has at most 
-   one argument.
+   Currently, the callee will be inlined only if it is small, has at most 
+   one argument, and has no control flow other than for the PIC base.
    Compiling the client with optimizations makes clean call sequences more likely
    to be optimized.
    The optimization results (e.g. whether the inserted clean call is inlined or not,
