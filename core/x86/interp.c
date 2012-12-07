@@ -6149,7 +6149,8 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
                 /* counting down but adding jmps in forward order */
                 for (; i >= 1; i--) {
                     DOLOG(4, LOG_INTERP, { /* use prev to avoid added jmp */
-                        loginst(dcontext, 4, prev, "fallthrough end of bb");
+                        if (prev != NULL)
+                            loginst(dcontext, 4, prev, "fallthrough end of bb");
                     }); 
                     jmp = create_exit_jmp(dcontext, md->blk_info[blk+1].info.tag,
                                           md->blk_info[blk+1].info.tag, 0);
@@ -6178,9 +6179,9 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
          * selfmod).
          */
         if (md->pass_to_client &&
-            (!vm_list_overlaps(dcontext, md->blk_info[blk].vmlist, xl8, xl8+1) ||
-             (instr_is_ubr(inst) && opnd_is_pc(instr_get_target(inst)) &&
-              xl8 == opnd_get_pc(instr_get_target(inst))))) {
+            (!vm_list_overlaps(dcontext, md->blk_info[blk].vmlist, xl8, xl8+1) &&
+             !(instr_is_ubr(inst) && opnd_is_pc(instr_get_target(inst)) &&
+               xl8 == opnd_get_pc(instr_get_target(inst))))) {
             LOG(THREAD, LOG_MONITOR, 2,
                 "trace error: out-of-bounds transl "PFX" vs block w/ start "PFX"\n",
                 xl8, md->blk_info[blk].info.tag);
