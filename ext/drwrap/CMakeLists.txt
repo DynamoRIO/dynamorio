@@ -100,5 +100,5 @@ endif (WIN32)
 # documentation is put into main DR docs/ dir
 
 DR_export_target(drwrap)
-DR_install(TARGETS drwrap EXPORT ${exported_targets_name} DESTINATION ${INSTALL_EXT_LIB})
+install_exported_target(drwrap ${INSTALL_EXT_LIB})
 DR_install(FILES drwrap.h DESTINATION ${INSTALL_EXT_INCLUDE})

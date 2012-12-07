@@ -56,8 +56,7 @@ endif (WIN32 AND GENERATE_PDBS)
 # documentation is put into main DR docs/ dir
 
 DR_export_target(drcontainers)
-DR_install(TARGETS drcontainers EXPORT ${exported_targets_name}
-  DESTINATION ${INSTALL_EXT_LIB})
+install_exported_target(drcontainers ${INSTALL_EXT_LIB})
 DR_install(FILES
   hashtable.h
   # add more here

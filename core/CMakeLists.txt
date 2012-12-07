@@ -683,17 +683,11 @@ set_target_properties(dynamorio PROPERTIES
   # Setting these isn't affecting anything but doing so anyway.
   IMPORTED_LINK_INTERFACE_LIBRARIES ""
   IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "")
-DR_install(TARGETS dynamorio
-  EXPORT ${exported_targets_name}
+install_exported_target(dynamorio ${INSTALL_LIB}
   # CMake doesn't set +x on shared libraries, so we have to ask for it.
-  PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
-  RUNTIME DESTINATION ${INSTALL_LIB} # .dll
-  LIBRARY DESTINATION ${INSTALL_LIB} # .so
-  ARCHIVE DESTINATION ${INSTALL_LIB} # .lib
-  )
+  PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE)
 DR_export_target(dynamorio)
-DR_install(TARGETS drinjectlib EXPORT ${exported_targets_name}
-  DESTINATION ${INSTALL_LIB_BASE})
+install_exported_target(drinjectlib ${INSTALL_LIB_BASE})
 DR_export_target(drinjectlib)
 if (UNIX)
   DR_install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
@@ -706,8 +700,7 @@ else (UNIX)
   DR_install(TARGETS drearlyhelp2 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
 endif (UNIX)
 
-DR_install(TARGETS drdecode EXPORT ${exported_targets_name}
-  DESTINATION ${INSTALL_LIB})
+install_exported_target(drdecode ${INSTALL_LIB})
 
 # We need separate 32-bit and 64-bit versions so we put into lib dir
 DR_install(FILES ${ntimp_lib} DESTINATION ${INSTALL_LIB_BASE})

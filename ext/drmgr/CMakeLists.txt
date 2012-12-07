@@ -67,8 +67,7 @@ endif (WIN32 AND GENERATE_PDBS)
 # documentation is put into main DR docs/ dir
 
 DR_export_target(drmgr)
-DR_install(TARGETS drmgr EXPORT ${exported_targets_name}
-  DESTINATION ${INSTALL_EXT_LIB})
+install_exported_target(drmgr ${INSTALL_EXT_LIB})
 DR_install(FILES
   drmgr.h
   # add more here

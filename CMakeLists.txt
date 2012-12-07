@@ -825,6 +825,30 @@ macro(DR_install)
     install(${ARGV})
   endif (DO_DR_INSTALL)
 endmacro(DR_install)
+# To support an including project exporting its own targets we need
+# to export dynamorio, our extensions, and our exports file, but
+# we want the includer to be able to stick the actual binaries
+# in one place.  So we have both a bool DO_DR_INSTALL_TARGETS
+# and a path DR_INSTALL_TARGETS_DEST:
+if (DO_DR_INSTALL OR NOT DEFINED DO_DR_INSTALL_TARGETS)
+  set(DO_DR_INSTALL_TARGETS ON)
+endif ()
+macro(DR_target_install)
+  if (DO_DR_INSTALL_TARGETS)
+    install(${ARGV})
+  endif (DO_DR_INSTALL_TARGETS)
+endmacro(DR_target_install)
+function (install_exported_target target dest)
+  if (DO_DR_INSTALL_TARGETS)
+    if (DEFINED DR_INSTALL_TARGETS_DEST)
+      set(inst_dst ${DR_INSTALL_TARGETS_DEST})
+    else ()
+      set(inst_dst ${dest})
+    endif ()
+    install(TARGETS ${target} EXPORT ${exported_targets_name}
+      DESTINATION ${inst_dst} ${ARGN})
+  endif (DO_DR_INSTALL_TARGETS)
+endfunction (install_exported_target)
 
 # mirror install path for easier use from build dir
 # most libs go in base; DR and preload go in {debug,release} subdir
@@ -1293,10 +1317,10 @@ endif (BUILD_TESTS)
 # We must append to this file to avoid cmake_install.cmake's diff from thinking
 # the exports have changed and thus clobbering the other config's files.
 # This is what is copied to ${CMAKE_INSTALL_PREFIX}/${INSTALL_CMAKE}.
-DR_install(CODE "file(APPEND \"${PROJECT_BINARY_DIR}/CMakeFiles/Export/cmake/${exported_targets_name}.cmake\" \"${exported_targets_append}\")")
+DR_target_install(CODE "file(APPEND \"${PROJECT_BINARY_DIR}/CMakeFiles/Export/cmake/${exported_targets_name}.cmake\" \"${exported_targets_append}\")")
 # Create the exported targets file.  This will include all targets added
 # in subdirectories via DR_install(TARGETS ... EXPORT ${exported_targets_name}).
-DR_install(EXPORT ${exported_targets_name} DESTINATION ${INSTALL_CMAKE})
+DR_target_install(EXPORT ${exported_targets_name} DESTINATION ${INSTALL_CMAKE})
 
 ###########################################################################
 # packaging
