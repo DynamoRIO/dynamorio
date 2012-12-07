@@ -82,20 +82,18 @@ if (NOT DEFINED GENERATE_PDBS)
   set(GENERATE_PDBS ON)
 endif (NOT DEFINED GENERATE_PDBS)
 
-# i#379: add CLIENT_DEBUG to allow user to enable debug build.
-# It is OFF by default to make client build with optimization on
-# so that auto-inlining is more likely to happen.
-# XXX: maybe we should use CMAKE_BUILD_TYPE instead?
-option(CLIENT_DEBUG
-  "Build client with debug symbols and without optimizations (this may affect performance, including auto-inlining of clean calls)"
-  OFF)
-if (CLIENT_DEBUG)
-  if (WIN32)
-    set(DBG_CFLAGS "/Zi /Od")
-  else (WIN32)
-    set(DBG_CFLAGS "-g3 -O0")
-  endif (WIN32)
-endif(CLIENT_DEBUG)
+# i#379: We usually want to build the samples with optimizations to improve the
+# chances of inlining, but it's nice to be able to turn that off easily.  A
+# release build should already have optimizations, so this should only really
+# affect debug builds.
+option(OPTIMIZE_SAMPLES
+  "Build samples with optimizations to increase the chances of clean call inlining (overrides debug flags)"
+  ON)
+if (WIN32)
+  set(OPT_CFLAGS "/O2")
+else (WIN32)
+  set(OPT_CFLAGS "-O2")
+endif (WIN32)
 
 if (NOT DEFINED DynamoRIO_DIR)
   set(DynamoRIO_DIR "${PROJECT_SOURCE_DIR}/../cmake" CACHE PATH
@@ -117,10 +115,11 @@ if (WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CL_CFLAGS}")
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif (WIN32)
-if (CLIENT_DEBUG)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${DBG_CFLAGS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${DBG_CFLAGS}")
-endif (CLIENT_DEBUG)
+
+if (OPTIMIZE_SAMPLES)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OPT_CFLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OPT_CFLAGS}")
+endif ()
 
 file(GLOB srcs *.c *.cpp)
 # Not all clients are supported on all plaforms

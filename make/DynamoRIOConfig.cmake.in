@@ -448,13 +448,6 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
   DynamoRIO_extra_cflags(tgt_cflags "${tgt_cflags}" ${tgt_cxx})
 
   if (UNIX)
-    # i#379: optimization + inlining of clean calls works best w/ optimized 
-    # clients. if any -O is asked for explicitly, honor it, but if default,
-    # add -O2.
-    if (NOT "${tgt_cflags}" MATCHES "-O")
-      set(tgt_cflags "${tgt_cflags} -O2")
-    endif (NOT "${tgt_cflags}" MATCHES "-O")
-
     if (is_client)
 
       if (NOT DEFINED DynamoRIO_VISATT)
@@ -494,12 +487,6 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
     # gcc is invoked for the link step so we have to repeat cflags as well
     set(tgt_link_flags "${tgt_cflags} ${tgt_link_flags}")
   else (UNIX)
-    # i#379: optimization + inlining of clean calls works best w/ optimized
-    # clients. if any /O is asked for explicitly, honor it, but if default,
-    # add /O2
-    if (NOT "${tgt_cflags}" MATCHES "/O" AND NOT "${tgt_cflags}" MATCHES "-O")
-      set(tgt_cflags "${tgt_cflags} /O2")
-    endif (NOT "${tgt_cflags}" MATCHES "/O" AND NOT "${tgt_cflags}" MATCHES "-O")
     if (tgt_cxx)
       set(tgt_cflags "${tgt_cflags} /EHsc")
     endif (tgt_cxx)
