@@ -42,14 +42,14 @@
  * INIT
  */
 
-static int init_count;
+static int drutil_init_count;
 
 DR_EXPORT
 bool
 drutil_init(void)
 {
     /* handle multiple sets of init/exit calls */
-    int count = dr_atomic_add32_return_sum(&init_count, 1);
+    int count = dr_atomic_add32_return_sum(&drutil_init_count, 1);
     if (count > 1)
         return true;
 
@@ -63,8 +63,8 @@ void
 drutil_exit(void)
 {
     /* handle multiple sets of init/exit calls */
-    int count = dr_atomic_add32_return_sum(&init_count, -1);
-    if (count > 0)
+    int count = dr_atomic_add32_return_sum(&drutil_init_count, -1);
+    if (count != 0)
         return;
 
     /* nothing yet: but putting in API up front in case need later */

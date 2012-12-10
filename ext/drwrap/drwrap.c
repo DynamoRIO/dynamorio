@@ -736,7 +736,7 @@ drwrap_replace_init(void);
  * INIT
  */
 
-static int init_count;
+static int drwrap_init_count;
 
 DR_EXPORT
 bool
@@ -752,7 +752,7 @@ drwrap_init(void)
 #endif
 
     /* handle multiple sets of init/exit calls */
-    int count = dr_atomic_add32_return_sum(&init_count, 1);
+    int count = dr_atomic_add32_return_sum(&drwrap_init_count, 1);
     if (count > 1)
         return true;
 
@@ -817,8 +817,8 @@ void
 drwrap_exit(void)
 {
     /* handle multiple sets of init/exit calls */
-    int count = dr_atomic_add32_return_sum(&init_count, -1);
-    if (count > 0)
+    int count = dr_atomic_add32_return_sum(&drwrap_init_count, -1);
+    if (count != 0)
         return;
 
     hashtable_delete(&replace_table);

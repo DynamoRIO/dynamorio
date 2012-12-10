@@ -240,14 +240,14 @@ drmgr_cls_presys_event(void *drcontext, int sysnum);
  * INIT
  */
 
-static int init_count;
+static int drmgr_init_count;
 
 DR_EXPORT
 bool
 drmgr_init(void)
 {
     /* handle multiple sets of init/exit calls */
-    int count = dr_atomic_add32_return_sum(&init_count, 1);
+    int count = dr_atomic_add32_return_sum(&drmgr_init_count, 1);
     if (count > 1)
         return true;
 
@@ -277,8 +277,8 @@ void
 drmgr_exit(void)
 {
     /* handle multiple sets of init/exit calls */
-    int count = dr_atomic_add32_return_sum(&init_count, -1);
-    if (count > 0)
+    int count = dr_atomic_add32_return_sum(&drmgr_init_count, -1);
+    if (count != 0)
         return;
 
     drmgr_bb_exit();

@@ -133,7 +133,7 @@ static bool verbose = false;
 /* Sideline server support */
 static const wchar_t *shmid;
 
-static int init_count;
+static int drsyms_init_count;
 
 #define IS_SIDELINE (shmid != 0)
 
@@ -163,7 +163,7 @@ drsym_error_t
 drsym_init(const wchar_t *shmid_in)
 {
     /* handle multiple sets of init/exit calls */
-    int count = dr_atomic_add32_return_sum(&init_count, 1);
+    int count = dr_atomic_add32_return_sum(&drsyms_init_count, 1);
     if (count > 1)
         return DRSYM_SUCCESS;
 
@@ -207,9 +207,11 @@ drsym_exit(void)
 {
     drsym_error_t res = DRSYM_SUCCESS;
     /* handle multiple sets of init/exit calls */
-    int count = dr_atomic_add32_return_sum(&init_count, -1);
+    int count = dr_atomic_add32_return_sum(&drsyms_init_count, -1);
     if (count > 0)
         return res;
+    if (count < 0)
+        return DRSYM_ERROR;
 
     if (!IS_SIDELINE) {
         hashtable_delete(&modtable);
