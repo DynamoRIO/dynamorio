@@ -41,8 +41,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "common.h"
-
 const int N = 8;
 
 /***************************************************************************/

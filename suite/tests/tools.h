@@ -688,6 +688,8 @@ __asm {             \
 /* Forward decl for nanosleep. */
 struct timespec;
 
+bool find_dynamo_library(void);
+
 /* Staticly linked versions of libc routines that don't touch globals or errno.
  */
 ptr_int_t nolibc_syscall(uint sysnum, uint num_args, ...);
