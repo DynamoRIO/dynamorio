@@ -1728,6 +1728,9 @@ HTNAME(hashtable_,NAME_KEY,_study)(dcontext_t *dcontext,
     ENTRY_TYPE e;
     bool lockless_access = TEST(HASHTABLE_LOCKLESS_ACCESS, table->table_flags);
 
+    if (!INTERNAL_OPTION(hashtable_study))
+        return;
+
     /* studying needs the entire table to be in a consistent state.
      * we considered having read mean local read/write and write mean global
      * read/write, thus making study() a writer and add() a reader,

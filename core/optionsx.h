@@ -275,6 +275,7 @@
     OPTION_DEFAULT_INTERNAL(uint, global_stats_interval, 5000,
                    "global statistics dump interval in fragments, 0 to disable periodic dump")
 #  ifdef HASHTABLE_STATISTICS
+    OPTION_DEFAULT_INTERNAL(bool, hashtable_study, true, "enable hashtable studies")
     OPTION_DEFAULT_INTERNAL(bool, hashtable_ibl_stats, true, "enable hashtable statistics for IBL routines")
     /* off by default until non-sharing bug 5846 fixed */
     OPTION_DEFAULT_INTERNAL(bool, hashtable_ibl_entry_stats, false, "enable hashtable statistics per IBL entry")
