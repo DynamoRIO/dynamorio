@@ -3668,7 +3668,7 @@ is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, struct siginfo *info)
 
 static byte *
 compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                      struct sigcontext *sc, bool *write)
+                      struct sigcontext *sc, siginfo_t *si, bool *write)
 {
     byte *target = NULL;
     instr_t instr;
@@ -3702,6 +3702,28 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
         return NULL;
     }
 
+    sigcontext_to_mcontext(&mc, sc);
+    ASSERT(write != NULL);
+
+    /* i#1009: If si_addr is plausibly one of the memory operands of the
+     * faulting instruction, assume the target was si_addr.  If none of the
+     * memops match, fall back to checking page protections, which can be racy.
+     * For si_addr == NULL, we fall back to the protection check because it's
+     * too likely to be a valid memop and we can live with a race on a page that
+     * is typically unmapped.
+     */
+    if (si->si_code == SEGV_ACCERR && si->si_addr != NULL) {
+        for (memopidx = 0;
+             instr_compute_address_ex_priv(&instr, &mc, memopidx,
+                                           &target, write, NULL);
+             memopidx++) {
+            if (si->si_addr == target) {
+                found_target = true;
+                break;
+            }
+        }
+    }
+
     /* For fcache faults, use all_memory_areas, which is faster but acquires
      * locks.  If it's possible we're in DR, go to the OS to avoid deadlock.
      */
@@ -3709,31 +3731,38 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
         use_allmem = safe_is_in_fcache(dcontext, instr_cache_pc,
                                        (byte *)sc->SC_XSP);
     }
-    sigcontext_to_mcontext(&mc, sc);
-    ASSERT(write != NULL);
-    /* i#115/PR 394984: consider all memops */
-    for (memopidx = 0;
-         instr_compute_address_ex_priv(&instr, &mc, memopidx, 
-                                       &target, write, NULL);
-         memopidx++) {
-        if (use_allmem) {
-            in_maps = get_memory_info(target, NULL, NULL, &prot);
-        } else {
-            in_maps = get_memory_info_from_os(target, NULL, NULL, &prot);
+    if (!found_target) {
+        if (si->si_addr != NULL) {
+            LOG(THREAD, LOG_ALL, 3,
+                "%s: falling back to racy protection checks\n", __FUNCTION__);
         }
-        if ((!in_maps || !TEST(MEMPROT_READ, prot)) ||
-            (*write && !TEST(MEMPROT_WRITE, prot))) {
-            found_target = true;
-            break;
+        /* i#115/PR 394984: consider all memops */
+        for (memopidx = 0;
+             instr_compute_address_ex_priv(&instr, &mc, memopidx,
+                                           &target, write, NULL);
+             memopidx++) {
+            if (use_allmem) {
+                in_maps = get_memory_info(target, NULL, NULL, &prot);
+            } else {
+                in_maps = get_memory_info_from_os(target, NULL, NULL, &prot);
+            }
+            if ((!in_maps || !TEST(MEMPROT_READ, prot)) ||
+                (*write && !TEST(MEMPROT_WRITE, prot))) {
+                found_target = true;
+                break;
+            }
         }
     }
+
     if (!found_target) {
         /* probably an NX fault: how tell whether kernel enforcing? */
-        if (!TEST(MEMPROT_EXEC, prot)) {
+        in_maps = get_memory_info_from_os(instr_cache_pc, NULL, NULL, &prot);
+        if (!in_maps || !TEST(MEMPROT_EXEC, prot)) {
             target = instr_cache_pc;
             found_target = true;
         }
     }
+
     /* we may still not find target, e.g. for SYS_kill(SIGSEGV) */
     if (!found_target)
         target = NULL;
@@ -4107,7 +4136,7 @@ master_signal_handler_C(byte *xsp)
          * this order should be fine.
          */
 
-        target = compute_memory_target(dcontext, pc, sc, &is_write);
+        target = compute_memory_target(dcontext, pc, sc, siginfo, &is_write);
 #ifdef STACK_GUARD_PAGE
         if (sig == SIGSEGV && is_write && is_stack_overflow(dcontext, target)) {
             SYSLOG_INTERNAL_CRITICAL(PRODUCT_NAME" stack overflow at pc "PFX, pc);
