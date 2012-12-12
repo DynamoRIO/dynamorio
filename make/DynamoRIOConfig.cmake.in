@@ -186,6 +186,18 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
 
 INCLUDEFILE make/utils.cmake
 
+# For VS generator we need to use a suffix on LOCATION to avoid having
+# "$(Configuration)" in the resulting path.
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+    set(location_suffix "_DEBUG")
+  else ()
+    set(location_suffix "_RELEASE")
+  endif ()
+else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  set(location_suffix "")
+endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+
 # helper function
 function (get_lang target lang_var)
   # Note that HAS_CXX and LINKER_LANGUAGE are only defined it
@@ -227,7 +239,7 @@ endfunction (get_size)
 
 # i#955: support a <basename>.drpath file for loader search paths
 function (get_drpath_name out target)
-  get_target_property(client_path ${target} LOCATION)
+  get_target_property(client_path ${target} LOCATION${location_suffix})
   # NAME_WE chops off from the first . instead of the last . so we use regex:
   string(REGEX REPLACE "\\.[^\\.]*$" "" client_base ${client_path})
   set(${out} ${client_base}.@DR_RPATH_SUFFIX@ PARENT_SCOPE)
@@ -559,7 +571,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
     add_rel_rpaths(${target} dynamorio)
     if (WIN32 AND is_client) # doesn't make sense for standalone
       # Create the .drpath file our loader uses
-      get_target_property(libpath dynamorio LOCATION)
+      get_target_property(libpath dynamorio LOCATION${location_suffix})
       get_filename_component(libdir ${libpath} PATH)
       get_drpath_name(drpath_file ${target})
       file(WRITE ${drpath_file} "${libdir}\n")
@@ -759,7 +771,7 @@ function (use_DynamoRIO_extension target extname)
   if (DEFINED DynamoRIO_RPATH)
     add_rel_rpaths(${target} ${extname})
     if (WIN32)
-      get_target_property(libpath ${extname} LOCATION)
+      get_target_property(libpath ${extname} LOCATION${location_suffix})
       get_filename_component(libdir ${libpath} PATH)
       get_drpath_name(drpath_file ${target})
       # File should have been created fresh when configured.
