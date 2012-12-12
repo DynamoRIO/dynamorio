@@ -34,6 +34,7 @@
  * Since they're stdcall we need to both list them in .def and to have stubs
  * in an .obj file.
  */
+/* i#1011: to support old Windows, only functions on win-2K+ can be added */
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -834,15 +835,6 @@ NTEXPORT NTSTATUS NTAPI
 NtFlushInstructionCache(IN HANDLE ProcessHandle,
                         IN PVOID BaseAddress OPTIONAL,
                         IN SIZE_T FlushSize)
-{
-    return STATUS_SUCCESS;
-}
-
-NTEXPORT NTSTATUS NTAPI
-NtOpenKeyEx(PHANDLE key_handle,
-            ACCESS_MASK desired_access,
-            POBJECT_ATTRIBUTES object_attributes,
-            ULONG open_options)
 {
     return STATUS_SUCCESS;
 }

@@ -164,24 +164,31 @@ static enum {
  * Any syscall called using this macro must be declared with GET_RAW_SYSCALL
  * rather than GET_SYSCALL to get the types to match up.
  */
+/* i#1011: We usually use NT_SYSCALL to invoke a system call. However, 
+ * for system calls that do not exist in older Windows, e.g. NtOpenKeyEx,
+ * we use NT_RAW_SYSCALL to avoid static link and build failure.
+ */
+# define NT_RAW_SYSCALL(name, arg1, ...)                                                \
+      ((dr_which_syscall_t == DR_SYSCALL_WOW64) ?                                       \
+       (!syscall_uses_edx_param_base() ?                                                \
+        ((name##_type *) dynamorio_syscall_wow64_noedx)(SYS_##name, arg1, __VA_ARGS__): \
+        (((name##_type *) dynamorio_syscall_wow64) (SYS_##name, arg1, __VA_ARGS__))):   \
+       ((IF_X64_ELSE(dr_which_syscall_t == DR_SYSCALL_SYSCALL, false)) ?                \
+        ((name##_dr_type *) IF_X64_ELSE(dynamorio_syscall_syscall, NULL))               \
+         (SYS_##name, __VA_ARGS__, arg1) :                                              \
+        (((name##_type *) ((dr_which_syscall_t == DR_SYSCALL_SYSENTER) ?                \
+         (DYNAMO_OPTION(dr_sygate_sysenter) ?                                           \
+          dynamorio_syscall_sygate_sysenter :                                           \
+          dynamorio_syscall_sysenter) :                                                 \
+         (DYNAMO_OPTION(dr_sygate_int) ?                                                \
+          dynamorio_syscall_sygate_int2e :                                              \
+          dynamorio_syscall_int2e)))                                                    \
+          (syscalls[SYS_##name], arg1,  __VA_ARGS__))))
+
 # define NT_SYSCALL(name, arg1, ...)                 \
     (nt_wrappers_intercepted ?                       \
       Nt##name(arg1, __VA_ARGS__) :                  \
-      ((dr_which_syscall_t == DR_SYSCALL_WOW64) ?                                    \
-       (!syscall_uses_edx_param_base() ?                                             \
-        ((name##_type *) dynamorio_syscall_wow64_noedx)(SYS_##name, arg1, __VA_ARGS__):\
-        (((name##_type *) dynamorio_syscall_wow64) (SYS_##name, arg1, __VA_ARGS__))):\
-       ((IF_X64_ELSE(dr_which_syscall_t == DR_SYSCALL_SYSCALL, false)) ?             \
-        ((name##_dr_type *) IF_X64_ELSE(dynamorio_syscall_syscall, NULL))            \
-         (SYS_##name, __VA_ARGS__, arg1) :                                           \
-        (((name##_type *) ((dr_which_syscall_t == DR_SYSCALL_SYSENTER) ?             \
-         (DYNAMO_OPTION(dr_sygate_sysenter) ?        \
-          dynamorio_syscall_sygate_sysenter :        \
-          dynamorio_syscall_sysenter) :              \
-         (DYNAMO_OPTION(dr_sygate_int) ?             \
-          dynamorio_syscall_sygate_int2e :           \
-          dynamorio_syscall_int2e)))                 \
-        (syscalls[SYS_##name], arg1,  __VA_ARGS__)))))
+      NT_RAW_SYSCALL(name, arg1, __VA_ARGS__))
 
 /* check syscall numbers without using any heap */
 # ifdef X64
@@ -265,18 +272,6 @@ GET_RAW_SYSCALL(QueryVirtualMemory,
                 IN SIZE_T MemoryInformationLength,
                 OUT PSIZE_T ReturnLength OPTIONAL);
 
-GET_RAW_SYSCALL(MapViewOfSection, 
-                IN HANDLE           SectionHandle,
-                IN HANDLE           ProcessHandle,
-                IN OUT PVOID       *BaseAddress,
-                IN ULONG_PTR        ZeroBits,
-                IN SIZE_T           CommitSize,
-                IN OUT PLARGE_INTEGER  SectionOffset OPTIONAL,
-                IN OUT PSIZE_T      ViewSize,
-                IN SECTION_INHERIT  InheritDisposition,
-                IN ULONG            AllocationType,
-                IN ULONG            Protect);
-
 GET_RAW_SYSCALL(UnmapViewOfSection,
                 IN HANDLE         ProcessHandle,
                 IN PVOID          BaseAddress);
@@ -316,6 +311,10 @@ GET_RAW_SYSCALL(ProtectVirtualMemory,
                 IN ULONG NewProtect,
                 OUT PULONG OldProtect);
 
+/* CreateFile is defined CreateFileW (Unicode) or CreateFileA (ANSI),
+ * undefine here for system call.
+ */
+#undef CreateFile
 GET_RAW_SYSCALL(CreateFile,
                 OUT PHANDLE  FileHandle,
                 IN ACCESS_MASK  DesiredAccess,
@@ -4980,10 +4979,11 @@ nt_initialize_context(char *buf, DWORD flags)
     return cxt;
 }
 
-#endif /* NOT_DYNAMORIO_CORE_PROPER */
-
 /****************************************************************************
- * raw system call in ntdll for redirect functions from private lib
+ * DrM-i#1066: We implement raw system call invocation for system calls
+ * hooked by applications so that they can be used by private libs.
+ * Most raw system calls are put into NOT_DYNAMORIO_CORE_PROPER since they
+ * are not needed in NOT_DYNAMORIO_CORE_PROPER.
  */
 GET_RAW_SYSCALL(OpenFile,
                 PHANDLE file_handle,
@@ -4999,17 +4999,6 @@ GET_RAW_SYSCALL(OpenKeyEx,
                 POBJECT_ATTRIBUTES object_attributes,
                 ULONG open_options);
 
-GET_RAW_SYSCALL(OpenProcess,
-                PHANDLE process_handle,
-                ACCESS_MASK desired_access,
-                POBJECT_ATTRIBUTES object_attributes,
-                PCLIENT_ID client_id);
-
-GET_RAW_SYSCALL(OpenProcessToken,
-                HANDLE process_handle,
-                ACCESS_MASK desired_access,
-                PHANDLE token_handle);
-
 GET_RAW_SYSCALL(OpenProcessTokenEx,
                 HANDLE process_handle,
                 ACCESS_MASK desired_access,
@@ -5021,12 +5010,6 @@ GET_RAW_SYSCALL(OpenThread,
                 ACCESS_MASK desired_access,
                 POBJECT_ATTRIBUTES object_attributes,
                 PCLIENT_ID client_id);
-
-GET_RAW_SYSCALL(OpenThreadToken,
-                HANDLE thread_handle,
-                ACCESS_MASK desired_access,
-                BOOLEAN open_as_self,
-                PHANDLE token_handle);
 
 GET_RAW_SYSCALL(OpenThreadTokenEx,
                 HANDLE thread_handle,
@@ -5044,10 +5027,6 @@ GET_RAW_SYSCALL(SetInformationThread,
                 THREADINFOCLASS thread_information_class,
                 PVOID thread_information,
                 ULONG thread_information_length);
-
-GET_RAW_SYSCALL(QueryFullAttributesFile,
-                POBJECT_ATTRIBUTES object_attributes,
-                PFILE_NETWORK_OPEN_INFORMATION file_information);
 
 NTSTATUS WINAPI
 nt_raw_CreateFile(PHANDLE file_handle,
@@ -5079,66 +5058,6 @@ nt_raw_CreateFile(PHANDLE file_handle,
     if (!NT_SUCCESS(res)) {
         NTLOG(GLOBAL, LOG_NT, 1,
               "nt_raw_CreateFile failed, res: %x\n", res);
-    }
-# endif
-    return res;
-}
-
-NTSTATUS WINAPI
-nt_raw_CreateKey(PHANDLE key_handle,
-                 ACCESS_MASK desired_access,
-                 POBJECT_ATTRIBUTES object_attributes,
-                 ULONG title_index,
-                 PUNICODE_STRING class,
-                 ULONG create_options,
-                 PULONG disposition)
-{
-    NTSTATUS res;
-    res = NT_SYSCALL(CreateKey,
-                     key_handle,
-                     desired_access,
-                     object_attributes,
-                     title_index,
-                     class,
-                     create_options,
-                     disposition);
-# ifdef DEBUG
-    if (!NT_SUCCESS(res)) {
-        NTLOG(GLOBAL, LOG_NT, 1,
-              "nt_raw_CreateKey failed, res: %x\n", res);
-    }
-# endif
-    return res;
-}
-
-NTSTATUS WINAPI
-nt_raw_MapViewOfSection(HANDLE section_handle,
-                        HANDLE process_handle,
-                        PVOID *base_address,
-                        ULONG_PTR  zero_bits,
-                        SIZE_T commit_size,
-                        PLARGE_INTEGER section_offset,
-                        PSIZE_T view_size,
-                        SECTION_INHERIT inherit_disposition,
-                        ULONG allocation_type,
-                        ULONG win32_protect)
-{
-    NTSTATUS res;
-    res = NT_SYSCALL(MapViewOfSection,
-                     section_handle,
-                     process_handle,
-                     base_address,
-                     zero_bits,
-                     commit_size,
-                     section_offset,
-                     view_size,
-                     inherit_disposition,
-                     allocation_type,
-                     win32_protect);
-# ifdef DEBUG
-    if (!NT_SUCCESS(res)) {
-        NTLOG(GLOBAL, LOG_NT, 1,
-              "nt_raw_MapViewOfSection failed, res: %x\n", res);
     }
 # endif
     return res;
@@ -5195,55 +5114,17 @@ nt_raw_OpenKeyEx(PHANDLE key_handle,
                  ULONG open_options)
 {
     NTSTATUS res;
-    res = NT_SYSCALL(OpenKeyEx,
-                     key_handle,
-                     desired_access,
-                     object_attributes,
-                     open_options);
+    /* i#1011, OpenKeyEx does not exist in older Windows version */
+    ASSERT(syscalls[SYS_OpenKeyEx] != SYSCALL_NOT_PRESENT);
+    res = NT_RAW_SYSCALL(OpenKeyEx,
+                         key_handle,
+                         desired_access,
+                         object_attributes,
+                         open_options);
 # ifdef DEBUG
     if (!NT_SUCCESS(res)) {
         NTLOG(GLOBAL, LOG_NT, 1,
               "nt_raw_OpenKeyEx failed, res: %x\n", res);
-    }
-# endif
-    return res;
-}
-
-NTSTATUS WINAPI
-nt_raw_OpenProcess(PHANDLE process_handle,
-                   ACCESS_MASK desired_access,
-                   POBJECT_ATTRIBUTES object_attributes,
-                   PCLIENT_ID client_id)
-{
-    NTSTATUS res;
-    res = NT_SYSCALL(OpenProcess,
-                     process_handle,
-                     desired_access,
-                     object_attributes,
-                     client_id);
-# ifdef DEBUG
-    if (!NT_SUCCESS(res)) {
-        NTLOG(GLOBAL, LOG_NT, 1,
-              "nt_raw_OpenProcess failed, res: %x\n", res);
-    }
-# endif
-    return res;
-}
-
-NTSTATUS WINAPI
-nt_raw_OpenProcessToken(HANDLE process_handle,
-                        ACCESS_MASK desired_access,
-                        PHANDLE token_handle)
-{
-    NTSTATUS res;
-    res = NT_SYSCALL(OpenProcessToken,
-                     process_handle,
-                     desired_access,
-                     token_handle);
-# ifdef DEBUG
-    if (!NT_SUCCESS(res)) {
-        NTLOG(GLOBAL, LOG_NT, 1,
-              "nt_raw_OpenProcessToken failed, res: %x\n", res);
     }
 # endif
     return res;
@@ -5292,27 +5173,6 @@ nt_raw_OpenThread(PHANDLE thread_handle,
 }
 
 NTSTATUS WINAPI
-nt_raw_OpenThreadToken(HANDLE thread_handle,
-                       ACCESS_MASK desired_access,
-                       BOOLEAN open_as_self,
-                       PHANDLE token_handle)
-{
-    NTSTATUS res;
-    res = NT_SYSCALL(OpenThreadToken,
-                     thread_handle,
-                     desired_access,
-                     open_as_self,
-                     token_handle);
-# ifdef DEBUG
-    if (!NT_SUCCESS(res)) {
-        NTLOG(GLOBAL, LOG_NT, 1,
-              "nt_raw_OpenThreadToken failed, res: %x\n", res);
-    }
-# endif
-    return res;
-}
-
-NTSTATUS WINAPI
 nt_raw_OpenThreadTokenEx(HANDLE thread_handle,
                          ACCESS_MASK desired_access,
                          BOOLEAN open_as_self,
@@ -5347,23 +5207,6 @@ nt_raw_QueryAttributesFile(POBJECT_ATTRIBUTES object_attributes,
     if (!NT_SUCCESS(res)) {
         NTLOG(GLOBAL, LOG_NT, 1,
               "nt_raw_QueryAttributesFile failed, res: %x\n", res);
-    }
-# endif
-    return res;
-}
-
-NTSTATUS WINAPI
-nt_raw_QueryFullAttributesFile(POBJECT_ATTRIBUTES object_attributes,
-                               PFILE_NETWORK_OPEN_INFORMATION file_information)
-{
-    NTSTATUS res;
-    res = NT_SYSCALL(QueryFullAttributesFile,
-                     object_attributes,
-                     file_information);
-# ifdef DEBUG
-    if (!NT_SUCCESS(res)) {
-        NTLOG(GLOBAL, LOG_NT, 1,
-              "nt_raw_QueryFullAttributesFile failed, res: %x\n", res);
     }
 # endif
     return res;
@@ -5429,3 +5272,176 @@ nt_raw_UnmapViewOfSection(HANDLE process_handle,
 # endif
     return res;
 }
+#endif /* !NOT_DYNAMORIO_CORE_PROPER && !NOT_DYNAMORIO_CORE */
+
+GET_RAW_SYSCALL(MapViewOfSection, 
+                IN HANDLE           SectionHandle,
+                IN HANDLE           ProcessHandle,
+                IN OUT PVOID       *BaseAddress,
+                IN ULONG_PTR        ZeroBits,
+                IN SIZE_T           CommitSize,
+                IN OUT PLARGE_INTEGER  SectionOffset OPTIONAL,
+                IN OUT PSIZE_T      ViewSize,
+                IN SECTION_INHERIT  InheritDisposition,
+                IN ULONG            AllocationType,
+                IN ULONG            Protect);
+
+GET_RAW_SYSCALL(OpenProcess,
+                PHANDLE process_handle,
+                ACCESS_MASK desired_access,
+                POBJECT_ATTRIBUTES object_attributes,
+                PCLIENT_ID client_id);
+
+GET_RAW_SYSCALL(QueryFullAttributesFile,
+                POBJECT_ATTRIBUTES object_attributes,
+                PFILE_NETWORK_OPEN_INFORMATION file_information);
+
+GET_RAW_SYSCALL(OpenThreadToken,
+                HANDLE thread_handle,
+                ACCESS_MASK desired_access,
+                BOOLEAN open_as_self,
+                PHANDLE token_handle);
+
+GET_RAW_SYSCALL(OpenProcessToken,
+                HANDLE process_handle,
+                ACCESS_MASK desired_access,
+                PHANDLE token_handle);
+
+NTSTATUS WINAPI
+nt_raw_MapViewOfSection(HANDLE section_handle,
+                        HANDLE process_handle,
+                        PVOID *base_address,
+                        ULONG_PTR  zero_bits,
+                        SIZE_T commit_size,
+                        PLARGE_INTEGER section_offset,
+                        PSIZE_T view_size,
+                        SECTION_INHERIT inherit_disposition,
+                        ULONG allocation_type,
+                        ULONG win32_protect)
+{
+    NTSTATUS res;
+    res = NT_SYSCALL(MapViewOfSection,
+                     section_handle,
+                     process_handle,
+                     base_address,
+                     zero_bits,
+                     commit_size,
+                     section_offset,
+                     view_size,
+                     inherit_disposition,
+                     allocation_type,
+                     win32_protect);
+# ifdef DEBUG
+    if (!NT_SUCCESS(res)) {
+        NTLOG(GLOBAL, LOG_NT, 1,
+              "nt_raw_MapViewOfSection failed, res: %x\n", res);
+    }
+# endif
+    return res;
+}
+
+NTSTATUS WINAPI
+nt_raw_OpenProcess(PHANDLE process_handle,
+                   ACCESS_MASK desired_access,
+                   POBJECT_ATTRIBUTES object_attributes,
+                   PCLIENT_ID client_id)
+{
+    NTSTATUS res;
+    res = NT_SYSCALL(OpenProcess,
+                     process_handle,
+                     desired_access,
+                     object_attributes,
+                     client_id);
+# ifdef DEBUG
+    if (!NT_SUCCESS(res)) {
+        NTLOG(GLOBAL, LOG_NT, 1,
+              "nt_raw_OpenProcess failed, res: %x\n", res);
+    }
+# endif
+    return res;
+}
+
+NTSTATUS WINAPI
+nt_raw_QueryFullAttributesFile(POBJECT_ATTRIBUTES object_attributes,
+                               PFILE_NETWORK_OPEN_INFORMATION file_information)
+{
+    NTSTATUS res;
+    res = NT_SYSCALL(QueryFullAttributesFile,
+                     object_attributes,
+                     file_information);
+# ifdef DEBUG
+    if (!NT_SUCCESS(res)) {
+        NTLOG(GLOBAL, LOG_NT, 1,
+              "nt_raw_QueryFullAttributesFile failed, res: %x\n", res);
+    }
+# endif
+    return res;
+}
+
+NTSTATUS WINAPI
+nt_raw_CreateKey(PHANDLE key_handle,
+                 ACCESS_MASK desired_access,
+                 POBJECT_ATTRIBUTES object_attributes,
+                 ULONG title_index,
+                 PUNICODE_STRING class,
+                 ULONG create_options,
+                 PULONG disposition)
+{
+    NTSTATUS res;
+    res = NT_SYSCALL(CreateKey,
+                     key_handle,
+                     desired_access,
+                     object_attributes,
+                     title_index,
+                     class,
+                     create_options,
+                     disposition);
+# ifdef DEBUG
+    if (!NT_SUCCESS(res)) {
+        NTLOG(GLOBAL, LOG_NT, 1,
+              "nt_raw_CreateKey failed, res: %x\n", res);
+    }
+# endif
+    return res;
+}
+
+NTSTATUS WINAPI
+nt_raw_OpenThreadToken(HANDLE thread_handle,
+                       ACCESS_MASK desired_access,
+                       BOOLEAN open_as_self,
+                       PHANDLE token_handle)
+{
+    NTSTATUS res;
+    res = NT_SYSCALL(OpenThreadToken,
+                     thread_handle,
+                     desired_access,
+                     open_as_self,
+                     token_handle);
+# ifdef DEBUG
+    if (!NT_SUCCESS(res)) {
+        NTLOG(GLOBAL, LOG_NT, 1,
+              "nt_raw_OpenThreadToken failed, res: %x\n", res);
+    }
+# endif
+    return res;
+}
+
+NTSTATUS WINAPI
+nt_raw_OpenProcessToken(HANDLE process_handle,
+                        ACCESS_MASK desired_access,
+                        PHANDLE token_handle)
+{
+    NTSTATUS res;
+    res = NT_SYSCALL(OpenProcessToken,
+                     process_handle,
+                     desired_access,
+                     token_handle);
+# ifdef DEBUG
+    if (!NT_SUCCESS(res)) {
+        NTLOG(GLOBAL, LOG_NT, 1,
+              "nt_raw_OpenProcessToken failed, res: %x\n", res);
+    }
+# endif
+    return res;
+}
+

@@ -1768,6 +1768,8 @@ nt_query_security_object(IN HANDLE Handle,
                          IN ULONG SecurityDescriptorLength,
                          OUT PULONG ReturnLength);
 
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+
 NTSTATUS WINAPI
 nt_raw_CreateFile(PHANDLE file_handle,
                   ACCESS_MASK desired_access,
@@ -1780,27 +1782,6 @@ nt_raw_CreateFile(PHANDLE file_handle,
                   ULONG create_options,
                   PVOID ea_buffer,
                   ULONG ea_length);
-
-NTSTATUS WINAPI
-nt_raw_CreateKey(PHANDLE key_handle,
-                 ACCESS_MASK desired_access,
-                 POBJECT_ATTRIBUTES object_attributes,
-                 ULONG title_index,
-                 PUNICODE_STRING class,
-                 ULONG create_options,
-                 PULONG disposition);
-
-NTSTATUS WINAPI
-nt_raw_MapViewOfSection(HANDLE section_handle,
-                        HANDLE process_handle,
-                        PVOID *base_address,
-                        ULONG_PTR  zero_bits,
-                        SIZE_T commit_size,
-                        PLARGE_INTEGER section_offset,
-                        PSIZE_T view_size,
-                        SECTION_INHERIT inherit_disposition,
-                        ULONG allocation_type,
-                        ULONG win32_protect);
 
 NTSTATUS WINAPI
 nt_raw_OpenFile(PHANDLE file_handle,
@@ -1822,17 +1803,6 @@ nt_raw_OpenKeyEx(PHANDLE key_handle,
                  ULONG open_options);
 
 NTSTATUS WINAPI
-nt_raw_OpenProcess(PHANDLE process_handle,
-                   ACCESS_MASK desired_access,
-                   POBJECT_ATTRIBUTES object_attributes,
-                   PCLIENT_ID client_id);
-
-NTSTATUS WINAPI
-nt_raw_OpenProcessToken(HANDLE process_handle,
-                        ACCESS_MASK desired_access,
-                        PHANDLE token_handle);
-
-NTSTATUS WINAPI
 nt_raw_OpenProcessTokenEx(HANDLE process_handle,
                           ACCESS_MASK desired_access,
                           ULONG handle_attributes,
@@ -1845,12 +1815,6 @@ nt_raw_OpenThread(PHANDLE thread_handle,
                   PCLIENT_ID client_id);
 
 NTSTATUS WINAPI
-nt_raw_OpenThreadToken(HANDLE thread_handle,
-                       ACCESS_MASK desired_access,
-                       BOOLEAN open_as_self,
-                       PHANDLE token_handle);
-
-NTSTATUS WINAPI
 nt_raw_OpenThreadTokenEx(HANDLE thread_handle,
                          ACCESS_MASK desired_access,
                          BOOLEAN open_as_self,
@@ -1860,10 +1824,6 @@ nt_raw_OpenThreadTokenEx(HANDLE thread_handle,
 NTSTATUS WINAPI
 nt_raw_QueryAttributesFile(POBJECT_ATTRIBUTES object_attributes,
                            PFILE_BASIC_INFORMATION file_information);
-
-NTSTATUS WINAPI
-nt_raw_QueryFullAttributesFile(POBJECT_ATTRIBUTES object_attributes,
-                               PFILE_NETWORK_OPEN_INFORMATION file_information);
 
 NTSTATUS WINAPI
 nt_raw_SetInformationFile(HANDLE file_handle,
@@ -1881,5 +1841,48 @@ nt_raw_SetInformationThread(HANDLE thread_handle,
 NTSTATUS WINAPI
 nt_raw_UnmapViewOfSection(HANDLE process_handle,
                           PVOID base_address);
+#endif /* !NOT_DYNAMORIO_CORE && !NOT_DYNAMORIO_CORE_PROPER */
+
+NTSTATUS WINAPI
+nt_raw_OpenProcess(PHANDLE process_handle,
+                   ACCESS_MASK desired_access,
+                   POBJECT_ATTRIBUTES object_attributes,
+                   PCLIENT_ID client_id);
+
+NTSTATUS WINAPI
+nt_raw_MapViewOfSection(HANDLE section_handle,
+                        HANDLE process_handle,
+                        PVOID *base_address,
+                        ULONG_PTR  zero_bits,
+                        SIZE_T commit_size,
+                        PLARGE_INTEGER section_offset,
+                        PSIZE_T view_size,
+                        SECTION_INHERIT inherit_disposition,
+                        ULONG allocation_type,
+                        ULONG win32_protect);
+
+NTSTATUS WINAPI
+nt_raw_QueryFullAttributesFile(POBJECT_ATTRIBUTES object_attributes,
+                               PFILE_NETWORK_OPEN_INFORMATION file_information);
+
+NTSTATUS WINAPI
+nt_raw_CreateKey(PHANDLE key_handle,
+                 ACCESS_MASK desired_access,
+                 POBJECT_ATTRIBUTES object_attributes,
+                 ULONG title_index,
+                 PUNICODE_STRING class,
+                 ULONG create_options,
+                 PULONG disposition);
+
+NTSTATUS WINAPI
+nt_raw_OpenThreadToken(HANDLE thread_handle,
+                       ACCESS_MASK desired_access,
+                       BOOLEAN open_as_self,
+                       PHANDLE token_handle);
+
+NTSTATUS WINAPI
+nt_raw_OpenProcessToken(HANDLE process_handle,
+                        ACCESS_MASK desired_access,
+                        PHANDLE token_handle);
 
 #endif /* _NTDLL_H_ */
