@@ -2346,7 +2346,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
         vm_areas_thread_exit(dcontext);
     synch_thread_exit(dcontext);
     arch_thread_exit(dcontext _IF_WINDOWS(detach_stacked_callbacks));
-    os_thread_exit(dcontext);
+    os_thread_exit(dcontext, other_thread);
     DOLOG(1, LOG_STATS, {
         dump_thread_stats(dcontext, false);
     });

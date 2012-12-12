@@ -2279,7 +2279,7 @@ os_thread_init(dcontext_t *dcontext)
 }
 
 void
-os_thread_exit(dcontext_t *dcontext)
+os_thread_exit(dcontext_t *dcontext, bool other_thread)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
 
@@ -2291,7 +2291,7 @@ os_thread_exit(dcontext_t *dcontext)
 
     DELETE_LOCK(ostd->suspend_lock);
 
-    signal_thread_exit(dcontext);
+    signal_thread_exit(dcontext, other_thread);
 
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({

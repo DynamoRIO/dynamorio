@@ -1445,7 +1445,7 @@ os_thread_init(dcontext_t *dcontext)
 }
 
 void
-os_thread_exit(dcontext_t *dcontext)
+os_thread_exit(dcontext_t *dcontext, bool other_thread)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
     aslr_thread_exit(dcontext);
