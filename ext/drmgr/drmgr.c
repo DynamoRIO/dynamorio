@@ -59,6 +59,10 @@
 #undef dr_unregister_module_load_event
 #undef dr_register_module_unload_event
 #undef dr_unregister_module_unload_event
+#undef dr_register_signal_event
+#undef dr_unregister_signal_event
+#undef dr_register_exception_event
+#undef dr_unregister_exception_event
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user) but perhaps we shouldn't since this is a library
@@ -113,6 +117,12 @@ typedef struct _generic_event_entry_t {
         void (*postsys_cb)(void *, int);
         void (*modload_cb)(void *, const module_data_t *, bool);
         void (*modunload_cb)(void *, const module_data_t *);
+#ifdef LINUX
+        dr_signal_action_t (*signal_cb)(void *, dr_siginfo_t *);
+#endif
+#ifdef WINDOWS
+        bool (*exception_cb)(void *, dr_exception_t *);
+#endif
     } cb;
 } generic_event_entry_t;
 
@@ -198,6 +208,16 @@ static void *modload_event_lock;
 static generic_event_entry_t *cblist_modunload;
 static void *modunload_event_lock;
 
+#ifdef LINUX
+static generic_event_entry_t *cblist_signal;
+static void *signal_event_lock;
+#endif
+
+#ifdef WINDOWS
+static generic_event_entry_t *cblist_exception;
+static void *exception_event_lock;
+#endif
+
 #ifdef WINDOWS
 static byte *addr_KiCallback;
 static int sysnum_NtCallbackReturn;
@@ -232,6 +252,16 @@ drmgr_modload_event(void *drcontext, const module_data_t *info,
 static void
 drmgr_modunload_event(void *drcontext, const module_data_t *info);
 
+#ifdef LINUX
+static dr_signal_action_t
+drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo);
+#endif
+
+#ifdef WINDOWS
+static bool
+drmgr_exception_event(void *drcontext, dr_exception_t *excpt);
+#endif
+
 static bool
 drmgr_cls_presys_event(void *drcontext, int sysnum);
 
@@ -261,6 +291,12 @@ drmgr_init(void)
     postsys_event_lock = dr_rwlock_create();
     modload_event_lock = dr_rwlock_create();
     modunload_event_lock = dr_rwlock_create();
+#ifdef LINUX
+    signal_event_lock = dr_rwlock_create();
+#endif
+#ifdef WINDOWS
+    exception_event_lock = dr_rwlock_create();
+#endif
 
     dr_register_thread_init_event(drmgr_thread_init_event);
     dr_register_thread_exit_event(drmgr_thread_exit_event);
@@ -268,6 +304,12 @@ drmgr_init(void)
     dr_register_post_syscall_event(drmgr_postsyscall_event);
     dr_register_module_load_event(drmgr_modload_event);
     dr_register_module_unload_event(drmgr_modunload_event);
+#ifdef LINUX
+    dr_register_signal_event(drmgr_signal_event);
+#endif
+#ifdef WINDOWS
+    dr_register_exception_event(drmgr_exception_event);
+#endif
 
     return true;
 }
@@ -284,6 +326,12 @@ drmgr_exit(void)
     drmgr_bb_exit();
     drmgr_event_exit();
 
+#ifdef LINUX
+    dr_rwlock_destroy(signal_event_lock);
+#endif
+#ifdef WINDOWS
+    dr_rwlock_destroy(exception_event_lock);
+#endif
     dr_rwlock_destroy(modunload_event_lock);
     dr_rwlock_destroy(modload_event_lock);
     dr_rwlock_destroy(postsys_event_lock);
@@ -794,6 +842,12 @@ drmgr_event_exit(void)
     drmgr_generic_event_exit(cblist_postsys, postsys_event_lock);
     drmgr_generic_event_exit(cblist_modload, modload_event_lock);
     drmgr_generic_event_exit(cblist_modunload, modunload_event_lock);
+#ifdef LINUX
+    drmgr_generic_event_exit(cblist_signal, signal_event_lock);
+#endif
+#ifdef WINDOWS
+    drmgr_generic_event_exit(cblist_exception, exception_event_lock);
+#endif
 }
 
 DR_EXPORT
@@ -986,6 +1040,98 @@ drmgr_modunload_event(void *drcontext, const module_data_t *info)
     dr_rwlock_read_unlock(modunload_event_lock);
 }
 
+/***************************************************************************
+ * WRAPPED FAULT EVENTS
+ */
+
+#ifdef LINUX
+DR_EXPORT
+bool
+drmgr_register_signal_event(dr_signal_action_t (*func)
+                         (void *drcontext, dr_siginfo_t *siginfo))
+{
+    return drmgr_generic_event_add(&cblist_signal, signal_event_lock,
+                                   (void (*)(void)) func, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_signal_event_ex(dr_signal_action_t (*func)
+                               (void *drcontext, dr_siginfo_t *siginfo),
+                               drmgr_priority_t *priority)
+{
+    return drmgr_generic_event_add(&cblist_signal, signal_event_lock,
+                                   (void (*)(void)) func, priority);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_signal_event(dr_signal_action_t (*func)
+                              (void *drcontext, dr_siginfo_t *siginfo))
+{
+    return drmgr_generic_event_remove(&cblist_signal, signal_event_lock,
+                                      (void (*)(void)) func);
+}
+
+static dr_signal_action_t
+drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo)
+{
+    dr_signal_action_t res = DR_SIGNAL_DELIVER;
+    generic_event_entry_t *e;
+    dr_rwlock_read_lock(signal_event_lock);
+    for (e = cblist_signal; e != NULL; e = (generic_event_entry_t *) e->pri.next) {
+        /* follow DR semantics: short-circuit on first handler to "own" the signal */
+        res = (*e->cb.signal_cb)(drcontext, siginfo);
+        if (res != DR_SIGNAL_DELIVER)
+            break;
+    }
+    dr_rwlock_read_unlock(signal_event_lock);
+    return res;
+}
+#endif /* LINUX */
+
+#ifdef WINDOWS
+DR_EXPORT
+bool
+drmgr_register_exception_event(bool (*func)(void *drcontext, dr_exception_t *excpt))
+{
+    return drmgr_generic_event_add(&cblist_exception, exception_event_lock,
+                                   (void (*)(void)) func, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_exception_event_ex(bool (*func)(void *drcontext, dr_exception_t *excpt),
+                                  drmgr_priority_t *priority)
+{
+    return drmgr_generic_event_add(&cblist_exception, exception_event_lock,
+                                   (void (*)(void)) func, priority);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_exception_event(bool (*func)(void *drcontext, dr_exception_t *excpt))
+{
+    return drmgr_generic_event_remove(&cblist_exception, exception_event_lock,
+                                      (void (*)(void)) func);
+}
+
+static bool
+drmgr_exception_event(void *drcontext, dr_exception_t *excpt)
+{
+    bool res = true; /* deliver to app */
+    generic_event_entry_t *e;
+    dr_rwlock_read_lock(exception_event_lock);
+    for (e = cblist_exception; e != NULL; e = (generic_event_entry_t *) e->pri.next) {
+        /* follow DR semantics: short-circuit on first handler to "own" the fault */
+        res = (*e->cb.exception_cb)(drcontext, excpt);
+        if (!res)
+            break;
+    }
+    dr_rwlock_read_unlock(exception_event_lock);
+    return res;
+}
+#endif /* WINDOWS */
 
 /***************************************************************************
  * TLS

@@ -804,7 +804,7 @@ drwrap_init(void)
         }
         dr_free_module_data(ntdll);
     }
-    dr_register_exception_event(drwrap_event_exception);
+    drmgr_register_exception_event(drwrap_event_exception);
 #endif
 
     drwrap_replace_init();

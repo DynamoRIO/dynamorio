@@ -42,16 +42,16 @@ extern "C" {
 /* Users of drwrap need to use the drmgr versions of these events to ensure
  * that drwrap's actions occur at the right time.
  */
-#define dr_register_bb_event DO_NOT_USE_bb_event_USE_drmmgr_bb_events_instead
-#define dr_unregister_bb_event DO_NOT_USE_bb_event_USE_drmmgr_bb_events_instead
-#define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmmgr_tls_field_instead
-#define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmmgr_tls_field_instead
-#define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmmgr_tls_field_instead
-#define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmmgr_tls_field_instead
-#define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmmgr_events_instead
-#define dr_unregister_thread_init_event DO_NOT_USE_thread_event_USE_drmmgr_events_instead
-#define dr_register_thread_exit_event DO_NOT_USE_thread_event_USE_drmmgr_events_instead
-#define dr_unregister_thread_exit_event DO_NOT_USE_thread_event_USE_drmmgr_events_instead
+#define dr_register_bb_event DO_NOT_USE_bb_event_USE_drmgr_bb_events_instead
+#define dr_unregister_bb_event DO_NOT_USE_bb_event_USE_drmgr_bb_events_instead
+#define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#define dr_unregister_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#define dr_register_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#define dr_unregister_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
 
 /***************************************************************************
  * INIT
