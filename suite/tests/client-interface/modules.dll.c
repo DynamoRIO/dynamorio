@@ -158,8 +158,8 @@ void module_unload_event(void *dcontext, const module_data_t *data)
 static void
 test_aux_lib(client_id_t id)
 {
-    const char *auxname = IF_WINDOWS_ELSE("client.events.dll.dll",
-                                          "libclient.events.dll.so");
+    const char *auxname = IF_WINDOWS_ELSE("client.modules.appdll.dll",
+                                          "libclient.modules.appdll.so");
     char buf[MAXIMUM_PATH];
     char path[MAXIMUM_PATH];
     dr_auxlib_handle_t lib;
@@ -182,14 +182,14 @@ test_aux_lib(client_id_t id)
     /* test loading an auxiliary library: just use another client lib */
     lib = dr_load_aux_library(buf, NULL, NULL);
     if (lib != NULL) {
-        dr_auxlib_routine_ptr_t func = dr_lookup_aux_library_routine(lib, "dr_init");
+        dr_auxlib_routine_ptr_t func = dr_lookup_aux_library_routine(lib, "foo_export");
         if (func != NULL) {
             if (!dr_memory_is_in_client((byte *)func)) {
                 dr_fprintf(STDERR, "ERROR: aux lib "PFX" not considered client\n",
                            func);
             }
         } else
-            dr_fprintf(STDERR, "ERROR: unable to find dr_init\n");
+            dr_fprintf(STDERR, "ERROR: unable to find foo_export\n");
     } else
         dr_fprintf(STDERR, "ERROR: unable to load %s\n", buf);
     if (!dr_unload_aux_library(lib))

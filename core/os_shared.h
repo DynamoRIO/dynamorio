@@ -174,6 +174,8 @@ os_tls_cfree(uint offset, uint num_slots);
 #endif
 
 bool
+os_should_swap_state(void);
+bool
 os_using_app_state(dcontext_t *dcontext);
 void
 os_swap_context(dcontext_t *dcontext, bool to_app);

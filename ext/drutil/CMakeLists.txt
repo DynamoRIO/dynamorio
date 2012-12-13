@@ -27,7 +27,7 @@ cmake_minimum_required(VERSION 2.6)
 # SHARED is also required if multiple separate components all want to
 # use this same extension.
 option(DR_EXT_DRUTIL_STATIC "create drutil as a static, not shared, library (N.B.: ensure the LGPL license implications are acceptable for your tool, as well as ensuring no separately-linked components of your tool also use drutil, before enabling as a static library)")
-if (DR_EXT_DRUTIL_STATIC)
+if (DR_EXT_DRUTIL_STATIC OR STATIC_LIBRARY)
   set(libtype STATIC)
 else()
   set(libtype SHARED)

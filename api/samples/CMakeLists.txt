@@ -82,6 +82,12 @@ if (NOT DEFINED GENERATE_PDBS)
   set(GENERATE_PDBS ON)
 endif (NOT DEFINED GENERATE_PDBS)
 
+if (STATIC_LIBRARY)
+  set(libtype STATIC)
+else()
+  set(libtype SHARED)
+endif ()
+
 # i#379: We usually want to build the samples with optimizations to improve the
 # chances of inlining, but it's nice to be able to turn that off easily.  A
 # release build should already have optimizations, so this should only really
@@ -154,7 +160,7 @@ foreach (src ${srcs})
         VERBATIM)
     endif ()
   else ("${tgt}" STREQUAL "tracedump")
-    add_library(${tgt} SHARED ${src})
+    add_library(${tgt} ${libtype} ${src})
     if (SHOW_SYMBOLS AND "${tgt}" STREQUAL "instrcalls" AND DR_EXT_DRSYMS_STATIC)
       # required for using drsyms built as a static library
       set(DynamoRIO_USE_LIBC ON)

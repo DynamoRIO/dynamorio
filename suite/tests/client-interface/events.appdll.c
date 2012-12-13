@@ -32,6 +32,13 @@
 
 #include "tools.h"
 
+EXPORT
+void
+foo_export(void)
+{
+    /* For client.modules test. */
+}
+
 #ifdef LINUX
 
 void __attribute__((constructor))

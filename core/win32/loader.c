@@ -936,6 +936,12 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
 #endif /* CLIENT_INTERFACE */
 
 bool
+os_should_swap_state(void)
+{
+    return should_swap_peb_pointer();
+}
+
+bool
 os_using_app_state(dcontext_t *dcontext)
 {
 #ifdef CLIENT_INTERFACE

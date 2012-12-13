@@ -71,7 +71,13 @@ typedef enum _action_t {
 
 static bool verbose;
 static bool quiet;
-static bool DR_dll_not_needed;
+static bool DR_dll_not_needed =
+#ifdef STATIC_LIBRARY
+    true
+#else
+    false
+#endif
+    ;
 static bool nocheck;
 
 #define die() exit(1)
@@ -1160,10 +1166,15 @@ int main(int argc, char *argv[])
      * our drrun shell script and makes scripting easier for the user.
      */
     if (limit == 0) {
+        info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
     } else
 # endif /* LINUX */
+    {
         errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
+        info("created child with pid %d for %s",
+             dr_inject_get_process_id(inject_data), app_name);
+    }
     if (errcode != 0) {
         IF_WINDOWS(int sofar =)
             _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
@@ -1209,7 +1220,10 @@ int main(int argc, char *argv[])
     success = false;
     IF_WINDOWS(start_time = time(NULL);)
 
-    dr_inject_process_run(inject_data);
+    if (!dr_inject_process_run(inject_data)) {
+        error("unable to run");
+        goto error;
+    }
 
 # ifdef WINDOWS
     if (limit == 0 && dr_inject_using_debug_key(inject_data)) {

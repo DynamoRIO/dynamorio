@@ -58,9 +58,9 @@ get_application_short_name(void)
 /* Opaque type to users, holds our state */
 typedef struct _dr_inject_info_t {
     process_id_t pid;
-    const char *exe;            /* points to user data */
+    const char *exe;            /* full path of executable */
     const char *image_name;     /* basename of exe */
-    const char **argv;          /* points to user data */
+    const char **argv;          /* array of arguments */
     int pipe_fd;
     bool exec_self;
 } dr_inject_info_t;
@@ -93,6 +93,9 @@ fork_suspended_child(const char *exe, const char **argv, int fds[2])
             real_exe = libdr_path;
         }
         setenv(DYNAMORIO_VAR_EXE_PATH, exe, true/*overwrite*/);
+#ifdef STATIC_LIBRARY
+        setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
+#endif
         execv(real_exe, (char **) argv);
         /* If execv returns, there was an error. */
         exit(-1);
@@ -106,8 +109,7 @@ set_exe_and_argv(dr_inject_info_t *info, const char *exe, const char **argv)
     info->exe = exe;
     info->argv = argv;
     info->image_name = strrchr(exe, '/');
-    if (info->image_name == NULL)
-        info->image_name = exe;
+    info->image_name = (info->image_name == NULL ? exe : info->image_name + 1);
 }
 
 /* Returns 0 on success.
@@ -150,6 +152,9 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
     info->pipe_fd = 0;  /* No pipe. */
     info->exec_self = true;
     *data = info;
+#ifdef STATIC_LIBRARY
+    setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
+#endif
     return 0;
 }
 
@@ -178,6 +183,10 @@ dr_inject_process_inject(void *data, bool force_injection,
     ssize_t towrite;
     ssize_t written = 0;
     char dr_path_buf[MAXIMUM_PATH];
+
+#ifdef STATIC_LIBRARY
+    return true;  /* Do nothing.  DR will takeover by itself. */
+#endif
 
     /* Read the autoinject var from the config file if the caller didn't
      * override it.
@@ -220,8 +229,10 @@ dr_inject_process_run(void *data)
 {
     dr_inject_info_t *info = (dr_inject_info_t *) data;
     if (info->exec_self) {
-        /* Let the app run natively if we haven't already injected. */
-        execv(info->image_name, (char **) info->argv);
+        /* If we're injecting with LD_PRELOAD or STATIC_LIBRARY, we already set
+         * up the environment.  If not, then let the app run natively.
+         */
+        execv(info->exe, (char **) info->argv);
         return false;  /* if execv returns, there was an error */
     } else {
         /* Close the pipe. */

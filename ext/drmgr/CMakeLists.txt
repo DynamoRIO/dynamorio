@@ -37,7 +37,7 @@ cmake_minimum_required(VERSION 2.6)
 # the client and by multiple other libraries, some of which may
 # be shared: the whole point is to have one master drmgr.
 option(DR_EXT_DRMGR_STATIC "create drmgr as a static, not shared, library (N.B.: ensure no separately-linked components of your tool also use drmgr before enabling as a static library)")
-if (DR_EXT_DRMGR_STATIC)
+if (DR_EXT_DRMGR_STATIC OR STATIC_LIBRARY)
   set(libtype STATIC)
 else()
   set(libtype SHARED)

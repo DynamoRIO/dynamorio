@@ -41,6 +41,7 @@
 #cmakedefine INTERNAL
 #cmakedefine DEBUG
 #cmakedefine DRGUI_DEMO
+#cmakedefine STATIC_LIBRARY
 
 /* target */
 #cmakedefine X64

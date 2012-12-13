@@ -271,7 +271,6 @@ include_directories(${PROJECT_SOURCE_DIR}/core/x86) # asm_defines.asm
 # FIXME i#98: improve code so can set Wall/W4
 if (UNIX)
   string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-  string(REGEX REPLACE "-std=gnu99" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   # some tests rely on specific "nop;nop" patterns that optimization ruins
   # we should probably move the -O from top level into core/CMakeLists.txt
   string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
@@ -428,6 +427,10 @@ function (set_cflags source)
   else ()
     set(cflags "${ORIG_CMAKE_C_FLAGS}")
   endif ()
+  if ("${source}" MATCHES ".cpp$")
+    # Our C files need -std=gnu99, but that's an invalid flag for C++.
+    string(REGEX REPLACE "-std=gnu99" "" cflags "${cflags}")
+  endif ()
   if ("${source}" MATCHES ".dll.(c|cpp)$")
     # do nothing
   else ("${source}" MATCHES ".dll.(c|cpp)$")
@@ -463,6 +466,20 @@ function(append_link_flags target newflags)
   set_target_properties(${target} PROPERTIES
     LINK_FLAGS "${cur_ldflags} ${newflags}")
 endfunction(append_link_flags)
+
+# On Linux, the individual object files contained by an archive are
+# garbage collected by the linker if they are not referenced.  To avoid
+# this, we have to use the --whole-archive option with ld.
+function(force_static_link target lib)
+  if (UNIX)
+    # CMake ignores libraries starting with '-' and preserves the
+    # ordering, so we can pass flags through target_link_libraries, which
+    # ensures we have the right CMake dependencies.
+    target_link_libraries(${target} -Wl,--whole-archive ${lib} -Wl,--no-whole-archive)
+  else ()
+    target_link_libraries(${target} ${lib})
+  endif ()
+endfunction(force_static_link)
 
 function(add_exe test source)
   get_filename_component(srcbase ${source} NAME_WE)
@@ -519,6 +536,12 @@ function(add_exe test source)
       "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_dependencies(${test} ${gen_asm_tgt})
   endif ()
+
+  if (STATIC_LIBRARY AND NOT "${test}" MATCHES "api")
+    # Link DR into every test exe except the api tests, which already link
+    # against DR or the standalone decoder.
+    force_static_link(${test} dynamorio)
+  endif ()
 endfunction(add_exe)
 
 # normal app
@@ -559,6 +582,16 @@ function(tobuild_dll test source dr_ops)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
 endfunction(tobuild_dll)
 
+function(get_client_path client_path_out realclient realexe)
+  if (STATIC_LIBRARY)
+    set(tgt ${realexe})
+  else()
+    set(tgt ${realclient})
+  endif ()
+  get_target_property(client_path ${tgt} LOCATION${location_suffix})
+  set(${client_path_out} "${client_path}" PARENT_SCOPE)
+endfunction(get_client_path)
+
 # client interface app with client
 # note that we can't easily have a routine that takes no ops
 # and calls this one w/ "" "" "" b/c the PARENT_SCOPE won't make
@@ -569,9 +602,11 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
 
   if (NOT "${source}" MATCHES "\\.runall$")
     add_exe(${test} ${source})
-  endif (NOT "${source}" MATCHES "\\.runall$")
+  elseif (STATIC_LIBRARY)
+    return()  # FIXME i#975: add support for STATIC_LIBRARY runall tests.
+  endif ()
 
-  add_library(${test}.dll SHARED ${client_source})
+  add_library(${test}.dll ${SHARED_OR_STATIC} ${client_source})
   set_target_properties(${test}.dll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
   if (NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
@@ -579,7 +614,14 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   endif (NOT "${source}" MATCHES "cpp\\.cpp")
   configure_DynamoRIO_client(${test}.dll)
   add_dependencies(${test}.dll api_headers)
-  get_target_property(client_path ${test}.dll LOCATION${location_suffix})
+  get_client_path(client_path ${test}.dll ${test})
+  if (STATIC_LIBRARY)
+    # For STATIC_LIBRARY, we support a single client by linking the client into
+    # the exe.
+    force_static_link(${test} ${test}.dll)
+    # Let clients know if they're being built statically.
+    append_property_string(TARGET ${test}.dll COMPILE_FLAGS "-DSTATIC_LIBRARY")
+  endif ()
 
   set(testlist_ci ${testlist_ci} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
@@ -639,7 +681,7 @@ function(tobuild_gcc exe source depender extra_args)
 endfunction(tobuild_gcc)
 
 function(torunonly_ci test realexe realclient source client_ops dr_ops exe_ops)
-  get_target_property(client_path ${realclient}.dll LOCATION${location_suffix})
+  get_client_path(client_path ${realclient}.dll ${realexe})
 
   # note that b/c of cmake's ridiculous scoping we can't easily share this code
   # w/ tobuild_ci: still have to propagate out of there, so we dup.
@@ -674,17 +716,13 @@ function(tobuild_api test source dr_ops exe_ops decoder)
     set(prop_cflags "")
   endif ()
   set(prop_cflags "${prop_cflags} ${extra_flags}")
-  # we don't set -DUSE_DYNAMO on the target to avoid setting
-  # it for tools.c and thus adding dependencies on api headers
-  # to other tests
-  set_source_files_properties(${source} PROPERTIES
-    COMPILE_FLAGS "-DUSE_DYNAMO")
+  set(prop_cflags "${prop_cflags} -DUSE_DYNAMO")
   # since we're including configure.h we do not want any default defines
   string(REGEX REPLACE "-DX64" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DLINUX" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DWINDOWS" "" prop_cflags "${prop_cflags}")
   # FIXME: apparently moving cflags to a target property makes it show up
-  # in the cpp run for tools_asm, where it doesn't if in global var.
+  # in the cpp run for asm targets, where it doesn't if in global var.
   # This causes compilation failure.  Removing -g3 manually as a workaround.
   string(REGEX REPLACE "-g3" "" prop_cflags "${prop_cflags}")
   get_target_property(prop_lflags ${test} LINK_FLAGS)
@@ -988,6 +1026,9 @@ function(torun test key source native dr_ops exe_ops)
       "${dr_ops}" MATCHES "-no_private_loader")
     return()
   endif ()
+  if (STATIC_LIBRARY AND "${dr_ops}" MATCHES "-early_inject")
+    return()
+  endif ()
 
   if (DEFINED ${key}_realtest)
     set(exe ${${key}_realtest})
@@ -1164,6 +1205,9 @@ function(torun test key source native dr_ops exe_ops)
 endfunction(torun)
 
 function(torun_normal name test ops)
+  if (STATIC_LIBRARY AND "${ops}" MATCHES "-early_inject")
+    return()
+  endif ()
   torun("${name}" ${test} ${${test}_source} OFF "${${test}_dr_ops} ${ops}"
     "${${test}_exe_ops}")
   if (DEFINED ${test}_depends)
@@ -1184,6 +1228,9 @@ function(torun_ci name test ops)
       set(cli_ops "use_unlink")
     endif ()
   endif ("${test}" MATCHES "client\\.flush")
+  if (STATIC_LIBRARY AND "${${test}_dr_ops} ${ops}" MATCHES "-early_inject")
+    return()
+  endif ()
   # note that we cannot use double quotes as they'll be stripped out
   torun("${name}" ${test} ${${test}_source} OFF
     " -code_api -client_lib '${${test}_client_path}\;0\;${cli_ops}' ${${test}_dr_ops} ${ops}" "${${test}_exe_ops}")
@@ -1261,6 +1308,11 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
   tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
   tobuild_ci(client.modules client-interface/modules.c "" "" "")
+  tobuild_appdll(client.modules client-interface/modules.c)
+  if (UNIX)
+    # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
+    append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
+  endif ()
   tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
   tobuild_appdll(client.events client-interface/events.c)
   get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})

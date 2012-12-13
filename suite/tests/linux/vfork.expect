@@ -1,12 +1,10 @@
 parent is running under DynamoRIO
 trying vfork() #1
 child is running under DynamoRIO
-parent waiting for child
 it_worked
 child has exited
 trying vfork() #2
 child is running under DynamoRIO
-parent waiting for child
 it_worked
 child has exited
 trying clone() after vfork()

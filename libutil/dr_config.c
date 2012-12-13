@@ -1080,7 +1080,7 @@ dr_register_process(const char *process_name,
 
     /* set the options string last for faster updating w/ config files */
     opt_info.mode = dr_mode;
-#ifdef LINUX
+#if defined(LINUX) && !defined(STATIC_LIBRARY)
     /* FIXME i#906: Support LD_PRELOAD injection. */
     add_extra_option_char(&opt_info, "-early_inject");
 #endif

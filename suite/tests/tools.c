@@ -106,6 +106,7 @@ is_wow64(HANDLE hProcess)
  * the stack on Linux.
  */
 
+# ifndef STATIC_LIBRARY  /* FIXME i#975: conflicts with DR's symbols. */
 /* Thread related functions */
 thread_handle
 create_thread(fptr f)
@@ -116,6 +117,7 @@ create_thread(fptr f)
     th = (thread_handle) _beginthreadex(NULL, 0, f, NULL, 0, &tid);
     return th;
 }
+# endif
 
 void
 suspend_thread(thread_handle th)
@@ -135,11 +137,13 @@ join_thread(thread_handle th)
     WaitForSingleObject(th, INFINITE);
 }
 
+# ifndef STATIC_LIBRARY  /* FIXME i#975: conflicts with DR's symbols. */
 void
 thread_yield()
 {
     Sleep(0); /* stay ready */
 }
+# endif
 #endif  /* WINDOWS */
 
 int

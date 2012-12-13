@@ -147,21 +147,25 @@ typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot/*MEMPROT_*/);
 void
 os_loader_init_prologue(void)
 {
+#ifndef STATIC_LIBRARY
     privmod_t *mod;
+#endif
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
     privload_init_search_paths();
+#ifndef STATIC_LIBRARY
     /* insert libdynamorio.so */
     mod = privload_insert(NULL,
                           get_dynamorio_dll_start(),
                           get_dynamorio_dll_end() - get_dynamorio_dll_start(),
                           get_shared_lib_name(get_dynamorio_dll_start()),
                           get_dynamorio_library_path());
+    ASSERT(mod != NULL);
     privload_create_os_privmod_data(mod);
     libdr_opd = (os_privmod_data_t *) mod->os_privmod_data;
     mod->externally_loaded = true;
-    ASSERT(mod != NULL);
+#endif
 }
 
 /* os specific loader initialization epilogue after finalizing the load. */
@@ -200,13 +204,15 @@ privload_add_gdb_cmd(const char *modpath, app_pc text_addr)
 void
 os_loader_exit(void)
 {
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, 
-                    libdr_opd->os_data.segments, 
-                    module_segment_t,
-                    libdr_opd->os_data.alloc_segments, 
-                    ACCT_OTHER, PROTECTED);
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, libdr_opd,
-                   os_privmod_data_t, ACCT_OTHER, PROTECTED);
+    if (libdr_opd != NULL) {
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, 
+                        libdr_opd->os_data.segments, 
+                        module_segment_t,
+                        libdr_opd->os_data.alloc_segments, 
+                        ACCT_OTHER, PROTECTED);
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, libdr_opd,
+                       os_privmod_data_t, ACCT_OTHER, PROTECTED);
+    }
 }
 
 void

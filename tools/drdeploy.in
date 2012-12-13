@@ -98,6 +98,7 @@ arch=@archdefault@
 # drinject: config=0, runapp=1
 config=@config@
 runapp=@runapp@
+static=@static@
 
 if [ "$config" = "1" ]
 then
@@ -337,34 +338,37 @@ then
     DYNAMORIO_HOME="$default_home"
 fi
 
-# Setup lib path
-if [ ! -n "$dr_lib_path" ]
+if [ "$static" = "0" ]
 then
-    dr_lib_path=$DYNAMORIO_HOME/lib$arch
-    dr_ext_path=$DYNAMORIO_HOME/ext/lib$arch
-fi
-if [ ! -e "$dr_lib_path/$lib/libdynamorio.so" ]
-then
-    # Support running from old build dir layout
-    dr_lib_build_path=$DYNAMORIO_HOME/lib
-    dr_ext_build_path=$DYNAMORIO_HOME/ext/lib
-    if [ -e "$dr_lib_build_path/libdynamorio.so" ]
+    # Setup lib path
+    if [ ! -n "$dr_lib_path" ]
     then
-        lib=""
-        dr_lib_path=$dr_lib_build_path
-        dr_ext_path=$dr_ext_build_path
-    else
-        if [ "$unreg" = "0" ] && [ "$rununder" = "1" ]
+        dr_lib_path=$DYNAMORIO_HOME/lib$arch
+        dr_ext_path=$DYNAMORIO_HOME/ext/lib$arch
+    fi
+    if [ ! -e "$dr_lib_path/$lib/libdynamorio.so" ]
+    then
+        # Support running from old build dir layout
+        dr_lib_build_path=$DYNAMORIO_HOME/lib
+        dr_ext_build_path=$DYNAMORIO_HOME/ext/lib
+        if [ -e "$dr_lib_build_path/libdynamorio.so" ]
         then
-            echo "ERROR - libdynamorio.so not found in $dr_lib_path/$lib"
-            echo "$usage"
-            exit
+            lib=""
+            dr_lib_path=$dr_lib_build_path
+            dr_ext_path=$dr_ext_build_path
+        else
+            if [ "$unreg" = "0" ] && [ "$rununder" = "1" ]
+            then
+                echo "ERROR - libdynamorio.so not found in $dr_lib_path/$lib"
+                echo "$usage"
+                exit
+            fi
         fi
     fi
+    # convert to absolute path
+    dr_lib_path=`cd "$dr_lib_path" ; pwd`
+    dr_ext_path=`cd "$dr_ext_path" ; pwd`
 fi
-# convert to absolute path
-dr_lib_path=`cd "$dr_lib_path" ; pwd`
-dr_ext_path=`cd "$dr_ext_path" ; pwd`
 
 if [ ! -n "$*" ] && [ "$app" = "" ]
 then
@@ -527,17 +531,22 @@ then
         fi
         exec "$drloader" "$dr_lib_path/$lib/libdynamorio.so" "$fullname" "$@"
     else
-        export LD_LIBRARY_PATH=$dr_lib_path/$lib:$dr_ext_path/$lib:$LD_LIBRARY_PATH
-        export LD_PRELOAD="libdynamorio.so libdrpreload.so"
-        if [ -z "$LD_USE_LOAD_BIAS" ]
+        if [ "$static" = "1" ]
         then
-            if [ "$verbose" = "yes" ]
+            export DYNAMORIO_TAKEOVER_IN_INIT=1
+        else
+            export LD_LIBRARY_PATH=$dr_lib_path/$lib:$dr_ext_path/$lib:$LD_LIBRARY_PATH
+            export LD_PRELOAD="libdynamorio.so libdrpreload.so"
+            if [ -z "$LD_USE_LOAD_BIAS" ]
             then
-                echo "Setting LD_USE_LOAD_BIAS for PIEs (i#719)"
-                echo "Set LD_USE_LOAD_BIAS=0 prior to running this script"
-                echo "if this is a problem"
-            fi 
-            export LD_USE_LOAD_BIAS=1
+                if [ "$verbose" = "yes" ]
+                then
+                    echo "Setting LD_USE_LOAD_BIAS for PIEs (i#719)"
+                    echo "Set LD_USE_LOAD_BIAS=0 prior to running this script"
+                    echo "if this is a problem"
+                fi 
+                export LD_USE_LOAD_BIAS=1
+            fi
         fi
         exec $app "$@"
     fi

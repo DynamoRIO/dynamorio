@@ -1135,7 +1135,7 @@ GLOBAL_LABEL(client_int_syscall:)
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 #ifdef LINUX
 
-#ifndef STANDALONE_UNIT_TEST
+#if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* i#47: Early injection _start routine.  The kernel sets all registers to zero
  * except the SP and PC.  The stack has argc, argv[], envp[], and the auxiliary
  * vector laid out on it.
@@ -1151,7 +1151,7 @@ GLOBAL_LABEL(_start:)
         call    privload_early_inject
         jmp     unexpected_return
         END_FUNC(_start)
-#endif
+#endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
 
 /* while with pre-2.6.9 kernels we were able to rely on the kernel's
  * default sigreturn code sequence and be more platform independent,

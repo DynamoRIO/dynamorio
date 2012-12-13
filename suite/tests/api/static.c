@@ -34,6 +34,8 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 #define GD GLOBAL_DCONTEXT
 

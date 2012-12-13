@@ -45,9 +45,13 @@
 
 #include <sys/types.h> /* for wait and mmap */
 #include <sys/wait.h>  /* for wait */
-#include <linux/sched.h>     /* for __clone */
+#include <linux/sched.h>     /* for clone and CLONE_ flags */
 #include <sys/mman.h>  /* for mmap */
 #include <unistd.h>    /* for sleep */
+
+/* i#762: Hard to get clone() from sched.h, so copy prototype. */
+extern int
+clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg, ...);
 
 typedef pid_t thread_t;
 
@@ -56,7 +60,7 @@ typedef pid_t thread_t;
 #define THREAD_STACK_SIZE   (32*1024)
 
 /* allocate stack storage on the app's heap */
-void *
+static void *
 stack_alloc(int size)
 {
     void *q, *p;
@@ -76,7 +80,7 @@ stack_alloc(int size)
 }
 
 /* free memory-mapped stack storage */
-void
+static void
 stack_free(void *p, int size)
 {
     void *sp = (void *) ((size_t)p - size);
@@ -92,7 +96,7 @@ stack_free(void *p, int size)
  * If *stack == NULL a new stack is allocated.
  * Returns the tid of the new thread.
  */
-thread_t
+static thread_t
 create_thread(int (*run_func)(void *), void *arg, void **stack)
 {
     thread_t newpid; 
@@ -106,10 +110,10 @@ create_thread(int (*run_func)(void *), void *arg, void **stack)
     /* need SIGCHLD so parent will get that signal when child dies,
      * else have errors doing a wait */
     flags = SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
-    newpid = __clone(run_func, my_stack, flags, arg);
+    newpid = clone(run_func, my_stack, flags, arg);
   
     if (newpid == -1) {
-	print("smp.c: Error calling __clone\n");
+	print("smp.c: Error calling clone\n");
 	stack_free(my_stack, THREAD_STACK_SIZE);
 	return -1;
     }
@@ -120,7 +124,7 @@ create_thread(int (*run_func)(void *), void *arg, void **stack)
     return newpid;
 }
 
-void 
+static void 
 delete_thread(thread_t pid, void *stack)
 {
     thread_t result;
