@@ -676,12 +676,19 @@ dynamorio_set_envp(char **envp)
 
 #if !defined(STANDALONE_UNIT_TEST)
 /* shared library init and exit */
-/* We used to use the special _init and _fini symbols, but with STATIC_LIBRARY
- * that conflicts with the definition in crt0.o.
- */
 int
+# ifndef STATIC_LIBRARY
+/* i#1022: gcc 4.4 doesn't seem to put our_init() in .init_array, so we
+ * implement _init() directly.
+ */
+_init(int argc, char **argv, char **envp)
+# else /* STATIC_LIBRARY */
+/* For STATIC_LIBRARY, we can't use _init because that conflicts with the
+ * definition in crt0.o.
+ */
 __attribute__((constructor))
 our_init(int argc, char **argv, char **envp)
+# endif
 {
     /* if do not want to use drpreload.so, we can take over here */
     extern void dynamorio_app_take_over(void);
