@@ -1860,7 +1860,8 @@ dr_raw_mem_alloc(size_t size, uint prot, void *addr);
 DR_API
 /**
  * Frees memory allocated by dr_raw_mem_alloc().
- * p addr and \p size must be the same as that passed to dr_raw_mem_alloc().
+ * \p addr and \p size must be the same as that passed to dr_raw_mem_alloc()
+ * on Windows.
  */
 void
 dr_raw_mem_free(void *addr, size_t size);
