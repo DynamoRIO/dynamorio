@@ -240,6 +240,8 @@ Further non-compatibility-affecting changes include:
    (Issue 139)
  - Fixed bugs building and running on Ubuntu 11.10 (Issue 718, Issue 720)
  - Several other bug fixes
+ - Added dr_raw_mem_alloc() and dr_raw_mem_free(). However, they are still
+   experimental, are in flux, and are subject to change in the next release.
 
 The changes between version 3.2.0 and 3.1.0 are:
 

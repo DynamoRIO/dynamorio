@@ -2421,6 +2421,47 @@ dr_nonheap_free(void *mem, size_t size)
     heap_munmap_ex(mem, size, false/*no guard pages*/);
 }
 
+DR_API
+bool
+dr_raw_mem_alloc(size_t size, uint prot, void *addr)
+{
+    byte *p;
+    bool res;
+    heap_error_code_t error_code;
+    CLIENT_ASSERT(ALIGNED(addr, PAGE_SIZE), "addr is not page size aligned");
+    addr = (void *)ALIGN_BACKWARD(addr, PAGE_SIZE);
+    p = os_heap_reserve(addr, size, &error_code, TEST(MEMPROT_EXEC, prot));
+    if (p == addr) {
+        res = os_heap_commit(p, size, prot, &error_code);
+        if (res) {
+            all_memory_areas_lock();
+            update_all_memory_areas(p, p+size, prot, DR_MEMTYPE_DATA);
+            all_memory_areas_unlock();
+            return true;
+        }
+    }
+    if (p != NULL)
+        os_heap_free(p, size, &error_code);
+    return false;
+}
+
+DR_API
+void
+dr_raw_mem_free(void *addr, size_t size)
+{
+    heap_error_code_t error_code;
+    byte *p = addr;
+    os_heap_decommit(p, size, &error_code);
+    /* use lock to avoid racy update on parallel memory allocation,
+     * e.g. allocation from another thread at p happens after os_heap_free
+     * but before remove_from_all_memory_areas
+     */
+    all_memory_areas_lock();
+    os_heap_free(p, size, &error_code);
+    remove_from_all_memory_areas(p, p + size);
+    all_memory_areas_unlock();
+}
+
 #ifdef LINUX
 DR_API
 /* With ld's -wrap option, we can supply a replacement for malloc.

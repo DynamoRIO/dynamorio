@@ -2824,7 +2824,10 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     /* FIXME: case 2347 on Linux or -vm_reserve should be set to false */
     /* FIXME: Need to actually get a mmap-ing with |MAP_NORESERVE */
     p = mmap_syscall(preferred, size, prot, MAP_PRIVATE|MAP_ANONYMOUS
-                     IF_X64(| (DYNAMO_OPTION(heap_in_lower_4GB) ? MAP_32BIT : 0)),
+                     IF_X64(| (DYNAMO_OPTION(heap_in_lower_4GB) &&
+                               /* allow preferred address to not be reachable */
+                               preferred == NULL ?
+                               MAP_32BIT : 0)),
                      -1, 0);
     if (!mmap_syscall_succeeded(p)) {
         *error_code = -(heap_error_code_t)(ptr_int_t)p;

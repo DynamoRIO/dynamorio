@@ -1839,6 +1839,33 @@ DR_API
 void
 dr_nonheap_free(void *mem, size_t size);
 
+DR_API
+/**
+ * \warning This raw memory allocation interface is in flux and is subject to
+ * change in the next release.  Consider it experimental in this release.
+ *
+ * Allocates \p size bytes (page size aligned) of memory as a separate
+ * allocation with a base at \p addr that must be page size aligned,
+ * allowing for separate protection.
+ * The \p prot protection should use the DR_MEMPROT_READ,
+ * DR_MEMPROT_WRITE, and DR_MEMPROT_EXEC bits.
+ * The allocated memory is not considered to be DynamoRIO or tool memory and
+ * thus is not kept separate from the application. Use of this memory is at the
+ * client's own risk.
+ * Returns true if successful.
+ */
+bool
+dr_raw_mem_alloc(size_t size, uint prot, void *addr);
+
+DR_API
+/**
+ * Frees memory allocated by dr_raw_mem_alloc().
+ * p addr and \p size must be the same as that passed to dr_raw_mem_alloc().
+ */
+void
+dr_raw_mem_free(void *addr, size_t size);
+
+
 #ifdef LINUX
 DR_API
 /** 

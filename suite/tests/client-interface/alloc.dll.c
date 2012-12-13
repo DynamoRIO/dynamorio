@@ -65,6 +65,36 @@ void global_test(void)
     dr_fprintf(STDERR, "success\n");
 }
 
+#ifdef X64
+# define PREFERRED_ADDR (char *)0x1000000000
+#else
+# define PREFERRED_ADDR (char *)0x2000000
+#endif
+static
+void raw_alloc_test(void)
+{
+    uint prot;
+    char *array = PREFERRED_ADDR;
+    dr_mem_info_t info;
+    bool res;
+    dr_fprintf(STDERR, "  testing raw memory alloc...");
+    res = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE,
+                           array);
+    if (!res) {
+        dr_fprintf(STDERR, "[error: fail to alloc at "PFX"]\n", array);
+        return;
+    }
+    write_array(array);
+    dr_query_memory((const byte *)array, NULL, NULL, &prot);
+    if (prot != (DR_MEMPROT_READ|DR_MEMPROT_WRITE))
+        dr_fprintf(STDERR, "[error: prot %d doesn't match rw]\n", prot);
+    dr_raw_mem_free(array, PAGE_SIZE);
+    dr_query_memory_ex((const byte *)array, &info);
+    if (info.prot != DR_MEMPROT_NONE)
+        dr_fprintf(STDERR, "[error: prot %d doesn't match none]\n", info.prot);
+    dr_fprintf(STDERR, "success\n");
+}
+
 static
 void nonheap_test(void)
 {
@@ -120,6 +150,7 @@ void inline_alloc_test(void)
     local_test(dr_get_current_drcontext());
     global_test();
     nonheap_test();
+    raw_alloc_test();
 }
 
 #define MINSERT instrlist_meta_preinsert
