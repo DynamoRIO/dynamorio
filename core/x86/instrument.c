@@ -140,34 +140,39 @@ typedef struct _callback_list_t {
  * the highest priority, a client could re-register a routine to
  * increase its priority.  That seems a little weird.
  */
+/*                       
+*/
 #define FAST_COPY_SIZE 5
-#define call_all_ret(ret, retop, postop, vec, type, ...)                \
-    do {                                                                \
-        size_t idx, num;                                                \
-        read_lock(&callback_registration_lock);                         \
-        num = (vec).num;                                                \
-        if (num == 0) {                                                 \
-            read_unlock(&callback_registration_lock);                   \
-        }                                                               \
-        else if (num <= FAST_COPY_SIZE) {                               \
-            callback_t tmp[FAST_COPY_SIZE];                             \
-            memcpy(tmp, (vec).callbacks, num * sizeof(callback_t));     \
-            read_unlock(&callback_registration_lock);                   \
-            for (idx=0; idx<num; idx++) {                               \
-                ret retop (((type)tmp[num-idx-1])(__VA_ARGS__)) postop; \
-            }                                                           \
-        }                                                               \
-        else {                                                          \
-            callback_t *tmp = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, callback_t, num, \
-                                               ACCT_OTHER, UNPROTECTED); \
-            memcpy(tmp, (vec).callbacks, num * sizeof(callback_t));     \
-            read_unlock(&callback_registration_lock);                   \
-            for (idx=0; idx<num; idx++) {                               \
-                ret retop (((type)tmp[num-idx-1])(__VA_ARGS__)) postop; \
-            }                                                           \
-            HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, tmp, callback_t, num,      \
-                            ACCT_OTHER, UNPROTECTED);                    \
-        }                                                               \
+#define call_all_ret(ret, retop, postop, vec, type, ...)                       \
+    do {                                                                       \
+        size_t idx, num;                                                       \
+        /* we will be called even if no callbacks (i.e., (vec).num == 0) */    \
+        /* we guarantee we're in DR state at all callbacks and clean calls */  \
+        /* XXX: add CLIENT_ASSERT here */                                      \
+        read_lock(&callback_registration_lock);                                \
+        num = (vec).num;                                                       \
+        if (num == 0) {                                                        \
+            read_unlock(&callback_registration_lock);                          \
+        }                                                                      \
+        else if (num <= FAST_COPY_SIZE) {                                      \
+            callback_t tmp[FAST_COPY_SIZE];                                    \
+            memcpy(tmp, (vec).callbacks, num * sizeof(callback_t));            \
+            read_unlock(&callback_registration_lock);                          \
+            for (idx=0; idx<num; idx++) {                                      \
+                ret retop (((type)tmp[num-idx-1])(__VA_ARGS__)) postop;        \
+            }                                                                  \
+        }                                                                      \
+        else {                                                                 \
+            callback_t *tmp = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, callback_t,    \
+                                               num, ACCT_OTHER, UNPROTECTED);  \
+            memcpy(tmp, (vec).callbacks, num * sizeof(callback_t));            \
+            read_unlock(&callback_registration_lock);                          \
+            for (idx=0; idx<num; idx++) {                                      \
+                ret retop (((type)tmp[num-idx-1])(__VA_ARGS__)) postop;        \
+            }                                                                  \
+            HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, tmp, callback_t, num,             \
+                            ACCT_OTHER, UNPROTECTED);                          \
+        }                                                                      \
     } while (0)
 
 /* It's less error-prone if we just have one call_all macro.  We'll
@@ -655,11 +660,6 @@ instrument_exit(void)
     DEBUG_DECLARE(size_t i);
     /* Note - currently own initexit lock when this is called (see PR 227619). */
 
-    /* we guarantee we're in DR state at all callbacks and clean calls */
-    CLIENT_ASSERT(IF_WINDOWS(!should_swap_peb_pointer() ||)
-                  IF_LINUX(!INTERNAL_OPTION(mangle_app_seg) ||)
-                  !dr_using_app_state(get_thread_private_dcontext()), "state error");
-
     /* support dr_get_mcontext() from the exit event */
     if (!standalone_library)
         get_thread_private_dcontext()->client_data->mcontext_in_dcontext = true;
@@ -1097,6 +1097,10 @@ dr_nudge_client(client_id_t client_id, uint64 argument)
 void
 instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
 {
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+    bool swap_peb = false;
+#endif
+
     /* Note that we're called twice for the initial thread: once prior
      * to instrument_init() (PR 216936) to set up the dcontext client
      * field (at which point there should be no callbacks since client
@@ -1127,12 +1131,27 @@ instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
     }
 #endif /* CLIENT_SIDELINE */
 
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+    /* i#996: we might be in app's state.
+     * It is simpler to check and swap here than earlier on thread init paths.
+     */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
+        dr_using_app_state(dcontext)) {
+        swap_peb_pointer(dcontext, true/*to priv*/);
+        swap_peb = true;
+    }
+#endif
+
     /* i#117/PR 395156: support dr_get_mcontext() from the thread init event */
     if (valid_mc)
         dcontext->client_data->mcontext_in_dcontext = true;
     call_all(thread_init_callbacks, int (*)(void *), (void *)dcontext);
     if (valid_mc)
         dcontext->client_data->mcontext_in_dcontext = false;
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+    if (swap_peb)
+        swap_peb_pointer(dcontext, false/*to app*/);
+#endif
 }
 
 #ifdef LINUX

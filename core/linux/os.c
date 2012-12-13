@@ -5635,7 +5635,8 @@ pre_system_call(dcontext_t *dcontext)
         /* We switch the lib tls segment back to app's segment.
          * Please refer to comment on os_switch_lib_tls.
          */
-        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        if (TEST(CLONE_VM, flags) /* not creating process */ &&
+            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             os_switch_lib_tls(dcontext, true/*to app*/);
         }
         break;
