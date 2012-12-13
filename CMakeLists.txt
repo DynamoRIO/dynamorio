@@ -1243,6 +1243,7 @@ if (BUILD_TOOLS OR WIN32)
     PATTERN "*.pdb"
     PATTERN "runstats.debug" EXCLUDE # since not installing tool
     PATTERN "run_in_bg.debug" EXCLUDE # since not installing tool
+    PATTERN "*_exe.debug" EXCLUDE # since not installing tool
     )
 endif (BUILD_TOOLS OR WIN32)
 
