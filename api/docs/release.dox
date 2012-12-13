@@ -129,8 +129,8 @@ compatibility change in the drsyms Extension:
 
 And in the drmgr Extension:
 
- - The post-syscall, module load, module unload, signal, and exception
-   events are now mediated and ordered by drmgr.
+ - The post-syscall, module load, module unload, signal, exception,
+   and restore state events are now mediated and ordered by drmgr.
    Thus, clients should call drmgr_register_post_syscall_event()
    (for a default priority) or drmgr_register_post_syscall_event_ex() (to
    specify a priority) rather than
@@ -140,9 +140,12 @@ And in the drmgr Extension:
    drmgr_register_module_unload_event() +
    drmgr_register_module_unload_event_ex(),
    drmgr_register_signal_event() +
-   drmgr_register_signal_event_ex(), and
+   drmgr_register_signal_event_ex(),
    drmgr_register_exception_event() +
-   drmgr_register_exception_event_ex().
+   drmgr_register_exception_event_ex(), and
+   drmgr_register_restore_state_event() +
+   drmgr_register_restore_state_ex_event() +
+   drmgr_register_restore_state_ex_event_ex().
 
 And in the core API:
 

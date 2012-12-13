@@ -78,6 +78,10 @@ extern "C" {
 #define dr_unregister_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
 #define dr_register_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
 #define dr_unregister_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
+#define dr_register_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
+#define dr_unregister_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
+#define dr_register_restore_state_ex_event DO_NOT_USE_restore_state_ex_USE_drmgr_instead
+#define dr_unregister_restore_state_ex_event DO_NOT_USE_restore_state_ex_USE_drmgr_instead
 
 /***************************************************************************
  * TYPES
@@ -905,6 +909,68 @@ DR_EXPORT
 bool
 drmgr_unregister_exception_event(bool (*func)(void *drcontext, dr_exception_t *excpt));
 #endif /* WINDOWS */
+
+DR_EXPORT
+/**
+ * Registers a callback function for the restore state event, which
+ * behaves just like DR's restore state event dr_register_restore_state_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_restore_state_event(void (*func)
+                                   (void *drcontext, void *tag, dr_mcontext_t *mcontext,
+                                    bool restore_memory, bool app_code_consistent));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the restore state extended event, which
+ * behaves just like DR's restore state event
+ * dr_register_restore_state_ex_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_restore_state_ex_event(bool (*func)(void *drcontext, bool restore_memory,
+                                                   dr_restore_state_info_t *info));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the restore state extended event,
+ * which behaves just like DR's restore state event
+ * dr_register_restore_state_ex_event(), except that it is ordered
+ * according to \p priority among both extended and regular callbacks.
+ * A default priority of 0 is used for events registered via
+ * drmgr_register_restore_state_event() or
+ * drmgr_register_restore_state_ex_event().  Just like for DR, the
+ * first callback to return false will short-circuit event delivery to
+ * later callbacks.
+ * \return whether successful.
+ */
+bool
+drmgr_register_restore_state_ex_event_ex(bool (*func)(void *drcontext,
+                                                      bool restore_memory,
+                                                      dr_restore_state_info_t *info),
+                                         drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the restore state event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_restore_state_event(void (*func)
+                                     (void *drcontext, void *tag, dr_mcontext_t *mcontext,
+                                      bool restore_memory, bool app_code_consistent));
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the restore state extended event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_restore_state_ex_event(bool (*func)(void *drcontext, bool restore_memory,
+                                                     dr_restore_state_info_t *info));
 
 /*@}*/ /* end doxygen group */
 

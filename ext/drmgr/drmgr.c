@@ -63,6 +63,8 @@
 #undef dr_unregister_signal_event
 #undef dr_register_exception_event
 #undef dr_unregister_exception_event
+#undef dr_register_restore_state_ex_event
+#undef dr_unregister_restore_state_ex_event
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user) but perhaps we shouldn't since this is a library
@@ -109,6 +111,7 @@ typedef struct _cb_entry_t {
 /* generic event list entry */
 typedef struct _generic_event_entry_t {
     priority_event_entry_t pri;
+    bool is_ex;
     union {
         void (*generic_cb)(void);
         void (*thread_cb)(void *);
@@ -123,6 +126,8 @@ typedef struct _generic_event_entry_t {
 #ifdef WINDOWS
         bool (*exception_cb)(void *, dr_exception_t *);
 #endif
+        void (*fault_cb)(void *, void *, dr_mcontext_t *, bool, bool);
+        bool (*fault_ex_cb)(void *, bool, dr_restore_state_info_t *);
     } cb;
 } generic_event_entry_t;
 
@@ -218,6 +223,10 @@ static generic_event_entry_t *cblist_exception;
 static void *exception_event_lock;
 #endif
 
+static generic_event_entry_t *cblist_fault;
+static void *fault_event_lock;
+static bool registered_fault; /* for lazy registration */
+
 #ifdef WINDOWS
 static byte *addr_KiCallback;
 static int sysnum_NtCallbackReturn;
@@ -263,6 +272,10 @@ drmgr_exception_event(void *drcontext, dr_exception_t *excpt);
 #endif
 
 static bool
+drmgr_restore_state_event(void *drcontext, bool restore_memory,
+                          dr_restore_state_info_t *info);
+
+static bool
 drmgr_cls_presys_event(void *drcontext, int sysnum);
 
 
@@ -297,6 +310,7 @@ drmgr_init(void)
 #ifdef WINDOWS
     exception_event_lock = dr_rwlock_create();
 #endif
+    fault_event_lock = dr_rwlock_create();
 
     dr_register_thread_init_event(drmgr_thread_init_event);
     dr_register_thread_exit_event(drmgr_thread_exit_event);
@@ -326,6 +340,7 @@ drmgr_exit(void)
     drmgr_bb_exit();
     drmgr_event_exit();
 
+    dr_rwlock_destroy(fault_event_lock);
 #ifdef LINUX
     dr_rwlock_destroy(signal_event_lock);
 #endif
@@ -775,10 +790,11 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
  */
 
 static bool
-drmgr_generic_event_add(generic_event_entry_t **list,
-                        void *rwlock,
-                        void (*func)(void),
-                        drmgr_priority_t *priority)
+drmgr_generic_event_add_ex(generic_event_entry_t **list,
+                           void *rwlock,
+                           void (*func)(void),
+                           drmgr_priority_t *priority,
+                           bool is_ex)
 {
     generic_event_entry_t *e;
     bool res;
@@ -786,11 +802,21 @@ drmgr_generic_event_add(generic_event_entry_t **list,
         return false;
     dr_rwlock_write_lock(rwlock);
     e = (generic_event_entry_t *) dr_global_alloc(sizeof(*e));
+    e->is_ex = is_ex;
     e->cb.generic_cb = func;
     res = priority_event_add((priority_event_entry_t **)list,
                              &e->pri, priority);
     dr_rwlock_write_unlock(rwlock);
     return res;
+}
+
+static bool
+drmgr_generic_event_add(generic_event_entry_t **list,
+                        void *rwlock,
+                        void (*func)(void),
+                        drmgr_priority_t *priority)
+{
+    return drmgr_generic_event_add_ex(list, rwlock, func, priority, false);
 }
 
 static bool
@@ -848,6 +874,7 @@ drmgr_event_exit(void)
 #ifdef WINDOWS
     drmgr_generic_event_exit(cblist_exception, exception_event_lock);
 #endif
+    drmgr_generic_event_exit(cblist_fault, fault_event_lock);
 }
 
 DR_EXPORT
@@ -1132,6 +1159,95 @@ drmgr_exception_event(void *drcontext, dr_exception_t *excpt)
     return res;
 }
 #endif /* WINDOWS */
+
+static void
+drmgr_register_fault_event(void)
+{
+    if (!registered_fault) {
+        dr_rwlock_write_lock(fault_event_lock);
+        /* we lazily register so dr_xl8_hook_exists() is useful */
+        if (!registered_fault) {
+            dr_register_restore_state_ex_event(drmgr_restore_state_event);
+            registered_fault = true;
+        }
+        dr_rwlock_write_unlock(fault_event_lock);
+    }
+}
+
+DR_EXPORT
+bool
+drmgr_register_restore_state_event(void (*func)
+                                   (void *drcontext, void *tag, dr_mcontext_t *mcontext,
+                                    bool restore_memory, bool app_code_consistent))
+{
+    drmgr_register_fault_event();
+    return drmgr_generic_event_add_ex(&cblist_fault, fault_event_lock,
+                                      (void (*)(void)) func, NULL, false/*!ex*/);
+}
+
+DR_EXPORT
+bool
+drmgr_register_restore_state_ex_event(bool (*func)(void *drcontext, bool restore_memory,
+                                                   dr_restore_state_info_t *info))
+{
+    drmgr_register_fault_event();
+    return drmgr_generic_event_add_ex(&cblist_fault, fault_event_lock,
+                                      (void (*)(void)) func, NULL, true/*ex*/);
+}
+
+DR_EXPORT
+bool
+drmgr_register_restore_state_ex_event_ex(bool (*func)(void *drcontext,
+                                                      bool restore_memory,
+                                                      dr_restore_state_info_t *info),
+                                         drmgr_priority_t *priority)
+{
+    drmgr_register_fault_event();
+    return drmgr_generic_event_add_ex(&cblist_fault, fault_event_lock,
+                                      (void (*)(void)) func, priority, true/*ex*/);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_restore_state_event(void (*func)
+                                     (void *drcontext, void *tag, dr_mcontext_t *mcontext,
+                                      bool restore_memory, bool app_code_consistent))
+{
+    /* we never unregister our event once registered */
+    return drmgr_generic_event_remove(&cblist_fault, fault_event_lock,
+                                      (void (*)(void)) func);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_restore_state_ex_event(bool (*func)(void *drcontext, bool restore_memory,
+                                                     dr_restore_state_info_t *info))
+{
+    return drmgr_generic_event_remove(&cblist_fault, fault_event_lock,
+                                      (void (*)(void)) func);
+}
+
+static bool
+drmgr_restore_state_event(void *drcontext, bool restore_memory,
+                          dr_restore_state_info_t *info)
+{
+    bool res = true; /* deliver to app */
+    generic_event_entry_t *e;
+    dr_rwlock_read_lock(fault_event_lock);
+    for (e = cblist_fault; e != NULL; e = (generic_event_entry_t *) e->pri.next) {
+        /* follow DR semantics: short-circuit on first handler to "own" the fault */
+        if (e->is_ex) {
+            res = (*e->cb.fault_ex_cb)(drcontext, restore_memory, info);
+        } else {
+            (*e->cb.fault_cb)(drcontext, info->fragment_info.tag, info->mcontext,
+                              restore_memory, info->fragment_info.app_code_consistent);
+        }
+        if (!res)
+            break;
+    }
+    dr_rwlock_read_unlock(fault_event_lock);
+    return res;
+}
 
 /***************************************************************************
  * TLS
