@@ -6083,7 +6083,6 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
     uint blk, num_exits_deleted;
     app_pc fallthrough = NULL;
     bool found_syscall = false, found_int = false;
-    int i;
 
 #ifdef CLIENT_INTERFACE
     /* We don't assert that mangle_trace_at_end() is true b/c the client
@@ -6105,7 +6104,6 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
     blk = 0;
     for (inst = instrlist_first(ilist); inst != NULL; inst = next_inst) {
         app_pc xl8 = instr_get_translation(inst);
-        LOG_DECLARE(instr_t *prev = instr_get_prev(inst);)
         next_inst = instr_get_next(inst);
 
         if (!instr_ok_to_mangle(inst))
@@ -6123,51 +6121,6 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
             blk++;
         }
 
-        /* Check for bb end with no exit cti.  We don't worry about whether a ubr w/
-         * a translation set to its target is part of this or next bb: all that's
-         * important is blk++ to ensure we find later transitions.  We assume a block
-         * w/ nothing but ubrs must have the final one target the subsequent block
-         * (which will hit our exit cti check below), so we'll always see an instr in
-         * the next block's translation range.
-         *
-         * Update: this doesn't really work now that we use vmlists, as often
-         * the granularity is module-coarse.  We instead rely on cti changes
-         * being at the bb level and on our final_cti marker to just skip
-         * the fall-throughs (this assumes we don't really need to add the jmp
-         * and increment num_exits only to elide and decrement later).
-         */
-        /* PR 366232: we handle empty bbs by looping here */
-        for (i = 1; blk+i < md->num_blks; i++) {
-            /* Since we can have tail-duplication among bbs, make sure to first
-             * check whether we're still in the cur block: b/c this translation
-             * can be both in this block and in next block.  In such a case we
-             * assume a (backward) cti separates them. */
-            if (!vm_list_overlaps(dcontext, md->blk_info[blk].vmlist,
-                                  xl8, xl8+1) &&
-                vm_list_overlaps(dcontext, md->blk_info[blk+i].vmlist,
-                                 xl8, xl8+1)) {
-                /* counting down but adding jmps in forward order */
-                for (; i >= 1; i--) {
-                    DOLOG(4, LOG_INTERP, { /* use prev to avoid added jmp */
-                        if (prev != NULL)
-                            loginst(dcontext, 4, prev, "fallthrough end of bb");
-                    }); 
-                    jmp = create_exit_jmp(dcontext, md->blk_info[blk+1].info.tag,
-                                          md->blk_info[blk+1].info.tag, 0);
-                    instrlist_preinsert(ilist, inst, jmp);
-                    md->blk_info[blk].end_instr = jmp;
-                    blk++;
-#if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
-                    /* we'll decrement if jmp gets elided (as it should) */
-                    md->blk_info[blk].info.num_exits++;
-#endif
-                    LOG(THREAD, LOG_MONITOR, 4, "starting next bb "PFX"\n",
-                        md->blk_info[blk].info.tag);
-                }
-                break;
-            }
-        }
-
 #ifdef CLIENT_INTERFACE
         /* Ensure non-ignorable syscall/int2b terminates trace */
         if (md->pass_to_client &&
@@ -6181,7 +6134,10 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
         if (md->pass_to_client &&
             (!vm_list_overlaps(dcontext, md->blk_info[blk].vmlist, xl8, xl8+1) &&
              !(instr_is_ubr(inst) && opnd_is_pc(instr_get_target(inst)) &&
-               xl8 == opnd_get_pc(instr_get_target(inst))))) {
+               xl8 == opnd_get_pc(instr_get_target(inst))))
+            IF_WINDOWS(&& !vmvector_overlap(landing_pad_areas,
+                                            md->blk_info[blk].info.tag,
+                                            md->blk_info[blk].info.tag+1))) {
             LOG(THREAD, LOG_MONITOR, 2,
                 "trace error: out-of-bounds transl "PFX" vs block w/ start "PFX"\n",
                 xl8, md->blk_info[blk].info.tag);
