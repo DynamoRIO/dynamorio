@@ -908,7 +908,7 @@ rel32_reachable_from_heap(byte *tgt)
     ptr_int_t new_offs;
     /* FIXME: also check if we're now allocating memory beyond the vmm heap */
     get_vmm_heap_bounds(&heap_start, &heap_end);
-    new_offs = (tgt > heap_start) ? (tgt - heap_end) : (heap_start - tgt);
+    new_offs = (tgt > heap_start) ? (tgt - heap_start) : (heap_end - tgt);
     return REL32_REACHABLE_OFFS(new_offs);
 }
 

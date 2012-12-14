@@ -1261,9 +1261,12 @@ endfunction(disable_optimizations_for_file)
 
 tobuild(common.broadfun common/broadfun.c)
 tobuild(common.decode-bad common/decode-bad.c)
-if (WIN32)
-  # FIXME: disabled to speed up suite: will be re-enabled as part of i#105 fix
+# FIXME i#105: get this working for 32-bit linux
+if (X64 OR WIN32)
   tobuild(common.decode common/decode.c)
+endif (X64 OR WIN32)
+# FIXME i#1025: get working on Linux
+if (WIN32)
   # We build all tests before running so decode will be built before
   # ctest -j ever ran this.  If we switch to --build-and-test then we'll
   # make these runonly tests make sure their exe is built.
