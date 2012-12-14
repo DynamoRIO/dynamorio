@@ -938,7 +938,7 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
 bool
 os_should_swap_state(void)
 {
-    return should_swap_peb_pointer();
+    return IF_CLIENT_INTERFACE_ELSE(should_swap_peb_pointer(), false);
 }
 
 bool
