@@ -89,11 +89,15 @@ drwrap_exit(void);
  * instrumentation pass ordering.
  */
 enum {
-    DRMGR_PRIORITY_APP2APP_DRWRAP  = -500, /**< Priority of drwap_replace() */
+    DRMGR_PRIORITY_APP2APP_DRWRAP  = -500, /**< Priority of drwrap_replace() */
     DRMGR_PRIORITY_INSERT_DRWRAP   =  500, /**< Priority of drwrap_wrap() */
+    DRMGR_PRIORITY_FAULT_DRWRAP    =  500, /**< Priority of fault handling event */
 };
 
-/** Name of drmgr instrumentation pass priorities for both app2app and insert */
+/**
+ * Name of drmgr instrumentation pass priorities for app2app, insert, and
+ * exception on Windows.
+ */
 #define DRMGR_PRIORITY_NAME_DRWRAP "drwrap"
 
 /** Spill slot used to store user_data parameter for drwrap_replace_native() */
