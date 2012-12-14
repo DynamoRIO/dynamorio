@@ -38,17 +38,23 @@
 ##
 ## DynamoRIO @name@ script for Linux
 ## 
-## usage: @name@ [-v] [-debug] [-dr_home <path>] [-ops <dr_options>]*
-##                 [-logdir <path>] -client <path> <executable> [args ...]
-##
-##        @name@ [-v] [-debug] [-dr_home <path>] [-logdir <path>]
-##                  -client <path> <id> "<client_ops>" [<dr_options>]*
-##                  -- <executable> [args ...]
-##
+## Usage for drrun or drinject:
+## For a single client, use the -c form and separate the application with --:
 ##        @name@ [-v] [-debug] [-dr_home <path>] [-logdir <path>]
 ##                  [<dr_options>]* -c <path> [client_ops]*
 ##                  -- <executable> [args ...]
 ##
+## For multiple clients, use either of these forms:
+##        @name@ [-v] [-debug] [-dr_home <path>] [-logdir <path>]
+##                  -client <path> <id> "<client_ops>" [<dr_options>]*
+##                  -- <executable> [args ...]
+##
+##        @name@ [-v] [-debug] [-dr_home <path>] [-ops <dr_options>]*
+##                 [-logdir <path>] -client <path> <executable> [args ...]
+##
+## For drconfig, use the -reg or -unreg options described below.
+##
+## Option explanation:
 ##  [-v]                   Verbose output
 ##  [-debug]               Use debug build of DynamoRIO (release is default)
 ##  [-@archother@]                  Use @archother@-bit DynamoRIO (default is @archdefault@-bit).  This
@@ -58,7 +64,10 @@
 ##                           control.  Useful for following all child processes
 ##                           except a blacklist.  DR will still be loaded, and
 ##                           the app API available.
-##  [-unreg]               Only for drconfig.  Removes configuration file.
+##  [-reg <executable>]    Only for drconfig.  Creates configuration file for
+##                           the specified application name.
+##  [-unreg <executable>]  Only for drconfig.  Removes configuration file for
+##                           the specified application name.
 ##  [-dr_home <path>]      Path to the DynamoRIO install.
 ##                           Defaults to .. from @name@; may also be omitted
 ##                           if DYNAMORIO_HOME is defined in the environment.
@@ -100,23 +109,6 @@ config=@config@
 runapp=@runapp@
 static=@static@
 
-if [ "$config" = "1" ]
-then
-    extra="[-reg <executable>] [-unreg <executable] [-norun] "
-else
-    extra=""
-fi
-
-usage="USAGE: $0 [-v] [-debug] [-32] [-64] $extra
-  [-dr_home <path>] [-ops <dr_options>]* [-logdir <path>]
-  [-client <path> <ID> \"<options>\"]* <executable> [args ...]
-
-OR, inline DR options after script options and use -- to separate executable:
-
-$0 [-v] [-debug] [-32] [-64] $extra
-  [-dr_home <path>] [-logdir <path>] [-client <path> <ID> \"<options>\"]*
-  [<dr_options>]* -- <executable> [args ...]"
-
 default_home_rel="`dirname $0`/.."
 default_home=`cd $default_home_rel ; pwd`
 client_list=""
@@ -126,10 +118,8 @@ app=""
 
 if [ "$1" = "" ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ]
 then
-    echo "$usage"
-    echo
     # sed would be more precise but may not be available
-    head -n 92 $0 | tail -n 52
+    head -n 101 $0 | tail -n 65
     exit
 fi
 
