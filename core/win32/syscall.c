@@ -3926,6 +3926,12 @@ dr_syscall_invoke_another(void *drcontext)
             mc->xdx = mc->xsp + XSP_SZ;
         }
     }
+    else if (get_syscall_method() == SYSCALL_METHOD_INT) {
+        if (syscall_uses_edx_param_base()) {
+            /* perform: lea edx,[esp+0x4] */
+            mc->xdx = mc->xsp + XSP_SZ;
+        }
+    }
 # ifdef X64
     else if (get_syscall_method() == SYSCALL_METHOD_SYSCALL) {
         /* we could instead have sys_param_addr() use r10, like we do on linux */
