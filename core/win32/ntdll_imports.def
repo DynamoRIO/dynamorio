@@ -151,6 +151,7 @@ EXPORTS
         LdrGetDllHandle
         CsrClientCallServer
         _snprintf
+        _snwprintf
         _stricmp
         _strnicmp
         _wcsicmp
