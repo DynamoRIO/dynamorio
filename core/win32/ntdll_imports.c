@@ -840,25 +840,6 @@ NtFlushInstructionCache(IN HANDLE ProcessHandle,
 }
 
 NTEXPORT NTSTATUS NTAPI
-NtOpenProcessTokenEx(HANDLE process_handle,
-                     ACCESS_MASK desired_access,
-                     ULONG handle_attributes,
-                     PHANDLE token_handle)
-{
-    return STATUS_SUCCESS;
-}
-
-NTEXPORT NTSTATUS NTAPI
-NtOpenThreadTokenEx(HANDLE thread_handle,
-                    ACCESS_MASK desired_access,
-                    BOOLEAN open_as_self,
-                    ULONG handle_attributes,
-                    PHANDLE token_handle)
-{
-    return STATUS_SUCCESS;
-}
-
-NTEXPORT NTSTATUS NTAPI
 NtQueryAttributesFile(POBJECT_ATTRIBUTES object_attributes,
                       PFILE_BASIC_INFORMATION file_information)
 {

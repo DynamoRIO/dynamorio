@@ -5137,11 +5137,11 @@ nt_raw_OpenProcessTokenEx(HANDLE process_handle,
                           PHANDLE token_handle)
 {
     NTSTATUS res;
-    res = NT_SYSCALL(OpenProcessTokenEx,
-                     process_handle,
-                     desired_access,
-                     handle_attributes,
-                     token_handle);
+    res = NT_RAW_SYSCALL(OpenProcessTokenEx,
+                         process_handle,
+                         desired_access,
+                         handle_attributes,
+                         token_handle);
 # ifdef DEBUG
     if (!NT_SUCCESS(res)) {
         NTLOG(GLOBAL, LOG_NT, 1,
@@ -5180,12 +5180,12 @@ nt_raw_OpenThreadTokenEx(HANDLE thread_handle,
                          PHANDLE token_handle)
 {
     NTSTATUS res;
-    res = NT_SYSCALL(OpenThreadTokenEx,
-                     thread_handle,
-                     desired_access,
-                     open_as_self,
-                     handle_attributes,
-                     token_handle);
+    res = NT_RAW_SYSCALL(OpenThreadTokenEx,
+                         thread_handle,
+                         desired_access,
+                         open_as_self,
+                         handle_attributes,
+                         token_handle);
 # ifdef DEBUG
     if (!NT_SUCCESS(res)) {
         NTLOG(GLOBAL, LOG_NT, 1,
