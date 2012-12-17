@@ -1384,10 +1384,32 @@ unmap_intercept_pc(app_pc original_app_pc)
     mutex_unlock(&map_intercept_pc_lock);
 }
 
+static void
+free_intercept_list(void)
+{
+    /* For all regular hooks, un_intercept_call() calls unmap_intercept_pc()
+     * and removes the hook's entry.  But syscall wrappers have a target app
+     * pc that's unusual.  Rather than store it for each, we just tear
+     * down the whole list.
+     */
+    intercept_map_elem_t *curr;
+    mutex_lock(&map_intercept_pc_lock);
+    while (intercept_map->head != NULL) {
+        curr = intercept_map->head;
+        intercept_map->head = curr->next;
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, curr, intercept_map_elem_t,
+                       ACCT_OTHER, UNPROTECTED);
+    }
+    intercept_map->head = NULL;
+    intercept_map->tail = NULL;
+    mutex_unlock(&map_intercept_pc_lock);
+}
+
 /* We assume no mangling of code placed in the interception buffer,
  * other than re-relativizing ctis.  As such, we can uniquely correlate
  * interception buffer PCs to their original app PCs.
- * Caller must check that pc is actually in the intercept buffer.
+ * Caller must check that pc is actually in the intercept buffer (or landing
+ * pad displaced app code or jmp back).
  */
 app_pc
 get_app_pc_from_intercept_pc(byte *pc)
@@ -2420,6 +2442,11 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
     lpad_pc = emit_landing_pad_code(lpad_pc, pc, after_hook_target,
                                     0/*no displaced code in lpad*/,
                                     &lpad_resume_pc, &changed_prot);
+    /* i#1027: map jmp back in landing pad to original app pc.  We do this to
+     * have the translation just in case, even though we hide this jmp from the
+     * client.  Xref the PR 219351 comment in is_intercepted_app_pc().
+     */
+    map_intercept_pc_to_app_pc(lpad_resume_pc, after_hook_target, JMP_LONG_LENGTH, 0);
     finalize_landing_pad_code(lpad_start, changed_prot);
 
     emit_pc = pc;
@@ -2580,6 +2607,22 @@ is_syscall_trampoline(byte *pc, byte **tgt)
     if (syscall_trampolines_start == NULL)
         return false;
     if (vmvector_overlap(landing_pad_areas, pc, pc + 1)) {
+        /* Also count the jmp from landing pad back to syscall instr, which is
+         * immediately after the jmp from landing pad to interception buffer (i#1027).
+         */
+        app_pc syscall;
+        if (is_jmp_rel32(pc, pc, &syscall) &&
+            is_jmp_rel32(pc - JMP_LONG_LENGTH, NULL, NULL)) {
+            dcontext_t *dcontext = get_thread_private_dcontext();
+            instr_t instr;
+            instr_init(dcontext, &instr);
+            decode(dcontext, syscall, &instr);
+            if (instr_is_syscall(&instr)) {
+                /* proceed using the 1st jmp */
+                pc -= JMP_LONG_LENGTH;
+            }
+            instr_free(dcontext, &instr);
+        }
 #ifdef X64
         /* target is 8 bytes back */
         pc = *(app_pc *)(pc - sizeof(app_pc));
@@ -7305,6 +7348,8 @@ callback_interception_unintercept()
     }
     /* remove exception dispatcher last to catch errors in the meantime */
     un_intercept_call(exception_pc, (byte*)KiUserExceptionDispatcher);
+
+    free_intercept_list();
 
     DODEBUG(callback_interception_unintercepted = true;);
 }
