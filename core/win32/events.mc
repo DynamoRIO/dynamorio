@@ -469,7 +469,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_CLIENT_LIBRARY_UNLOADABLE
 Language=English
-Application %1!s! (%2!s!). Unable to load client library: %3!s!. %4!s!.
+Application %1!s! (%2!s!). Unable to load client library: %3!s!%4!s!.
 .
 ;#endif
 

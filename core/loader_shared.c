@@ -126,12 +126,12 @@ loader_init(void)
         NULL_TERMINATE_BUFFER(name_copy);
         if (!privload_load_finalize(mod)) {
             mod = NULL; /* it's been unloaded! */
-            CLIENT_ASSERT(false, "failure to process imports of client library");
 #ifdef CLIENT_INTERFACE
             SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4,
                    get_application_name(), get_application_pid(), name_copy,
-                   "\n\tUnable to process imports of client library");
+                   ".\n\tUnable to process imports of client library");
 #endif
+            CLIENT_ASSERT(false, "failure to process imports of client library");
         }
     }
     /* os specific loader initialization epilogue after finalize the load */

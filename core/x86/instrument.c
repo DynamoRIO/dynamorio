@@ -417,7 +417,7 @@ add_client_lib(char *path, char *id_str, char *options)
         char err[MAXIMUM_PATH*2];
         shared_library_error(err, BUFFER_SIZE_ELEMENTS(err));
         snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
-                 "\n\tError opening instrumentation library %s:\n\t%s",
+                 ".\n\tError opening instrumentation library %s:\n\t%s",
                  path, err);
         NULL_TERMINATE_BUFFER(msg);
 
