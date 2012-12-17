@@ -514,6 +514,7 @@ exit_global_profiles()
 bool
 os_supports_avx()
 {
+    /* XXX: why not just test proc FEATURE_OSXSAVE? */
     /* XXX: what about the WINDOWS Server 2008 R2? */
     if (os_version >= WINDOWS_VERSION_8 ||
         (os_version == WINDOWS_VERSION_7 && os_service_pack_major >= 1))
