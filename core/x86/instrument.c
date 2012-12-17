@@ -5777,6 +5777,12 @@ dr_mark_trace_head(void *drcontext, void *tag)
     CLIENT_ASSERT(drcontext != NULL, "dr_mark_trace_head: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_mark_trace_head: drcontext is invalid");
+    /* Required to make the future-fragment lookup and add atomic and for
+     * mark_trace_head.  We have to grab before fragment_delete_mutex so
+     * we pay the cost of acquiring up front even when f->flags doesn't
+     * require it.
+     */
+    SHARED_FLAGS_RECURSIVE_LOCK(FRAG_SHARED, acquire, change_linking_lock);
 #ifdef CLIENT_SIDELINE
     /* used to check to see if owning thread, if so don't need lock */
     /* but the check for owning thread more expensive then just getting lock */
@@ -5786,8 +5792,6 @@ dr_mark_trace_head(void *drcontext, void *tag)
     f = fragment_lookup_fine_and_coarse(dcontext, tag, &coarse_f, NULL);
     if (f == NULL) {
         future_fragment_t *fut;
-        /* make the lookup and add atomic */
-        SHARED_FLAGS_RECURSIVE_LOCK(FRAG_SHARED, acquire, change_linking_lock);
         fut = fragment_lookup_future(dcontext, tag);
         if (fut == NULL) {
             /* need to create a future fragment */
@@ -5796,7 +5800,6 @@ dr_mark_trace_head(void *drcontext, void *tag)
             /* don't call mark_trace_head, it will try to do some linking */
             fut->flags |= FRAG_IS_TRACE_HEAD;
         }
-        SHARED_FLAGS_RECURSIVE_LOCK(FRAG_SHARED, release, change_linking_lock);
 #ifndef CLIENT_SIDELINE
         LOG(THREAD, LOG_MONITOR, 2,
             "Client mark trace head : will mark fragment as trace head when built "
@@ -5826,10 +5829,7 @@ dr_mark_trace_head(void *drcontext, void *tag)
 #endif
             success =  true;
         } else {
-            /* if reach here is all right to mark as trace head */
-            SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
             mark_trace_head(dcontext, f, NULL, NULL);
-            SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
 #ifndef CLIENT_SIDELINE
             LOG(THREAD, LOG_MONITOR, 3,
                 "Client mark trace head : just marked as trace head : address "PFX"\n",
@@ -5840,6 +5840,7 @@ dr_mark_trace_head(void *drcontext, void *tag)
 #ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
 #endif
+    SHARED_FLAGS_RECURSIVE_LOCK(FRAG_SHARED, release, change_linking_lock);
     return success;
 }
 
