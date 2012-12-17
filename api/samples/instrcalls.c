@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,6 +39,16 @@
  * key information is written to a log file.  Note that this log file
  * can become quite large, and this client incurs more overhead than
  * the other clients due to its log file.
+ *
+ * If the SHOW_SYMBOLS define is on, this sample uses the drsyms
+ * DynamoRIO Extension to obtain symbol information from raw
+ * addresses.  This requires a relatively recent copy of dbghelp.dll
+ * (6.0+), which is not available in the system directory by default
+ * on Windows 2000.  To use this sample with SHOW_SYMBOLS on Windows
+ * 2000, download the Debugging Tools for Windows package from
+ * http://www.microsoft.com/whdc/devtools/debugging/default.mspx and
+ * place dbghelp.dll in the same directory as either drsyms.dll or as
+ * this sample client library.
  */
 
 #include "dr_api.h"

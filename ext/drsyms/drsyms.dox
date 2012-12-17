@@ -58,7 +58,10 @@ The \p drsyms library on Windows relies on the \p dbghelp.dll library from
 Microsoft.  You will need to download the Debugging Tools for Windows
 package from http://www.microsoft.com/whdc/devtools/debugging/default.mspx
 and place the \p dbghelp.dll in the same directory as either \p drsyms.dll
-or as your client library.
+or as your client library.  Version 6.0 or higher of \p dbghelp.dll is
+required, and 6.3 or higher is recommended.  Recent versions of Windows do
+have these versions of \p dbghelp.dll in their system directories, but be
+aware that those versions are not redistributable.
 
 More recent versions of \p dbghelp.dll on Windows can use significant
 amounts of stack space.  We have observed usage of 36KB.  This is within
