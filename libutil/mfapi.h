@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -559,12 +560,14 @@ get_formatted_message(EVENTLOGRECORD *pevlr, WCHAR *buf, DWORD maxchars);
  ***************************************/
 
 /* supported platform identifiers */
+#define PLATFORM_UNKNOWN         0
 #define PLATFORM_WIN_2000      100
 #define PLATFORM_WIN_XP        110
 #define PLATFORM_WIN_2003      120
 #define PLATFORM_WIN_NT_4      130
 #define PLATFORM_VISTA         140
 #define PLATFORM_WIN_7         150
+#define PLATFORM_WIN_8         160
 
 DWORD
 get_platform(DWORD *platform);

@@ -597,6 +597,10 @@ get_platform(DWORD *platform)
                 *platform = PLATFORM_WIN_7;
                 return ERROR_SUCCESS;
             }
+            else if (osinfo.dwMinorVersion == 2) {
+                *platform = PLATFORM_WIN_8;
+                return ERROR_SUCCESS;
+            }
         }
         return ERROR_UNSUPPORTED_OS;
     } else {

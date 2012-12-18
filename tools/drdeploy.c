@@ -1128,17 +1128,21 @@ int main(int argc, char *argv[])
         usage("no action specified");
     }
     if (syswide_on) {
+        DWORD platform;
+        if (get_platform(&platform) != ERROR_SUCCESS)
+            platform = PLATFORM_UNKNOWN;
+        if (platform >= PLATFORM_WIN_8) {
+            error("syswide_on is not yet supported on Windows 8");
+            die();
+        }
         if (!check_dr_root(dr_root, false, dr_platform, true))
             die();
         /* If this is the first setting of AppInit on NT, warn about reboot */
         if (!dr_syswide_is_on(dr_platform, dr_root)) {
-            DWORD platform;
-            if (get_platform(&platform) == ERROR_SUCCESS &&
-                platform == PLATFORM_WIN_NT_4) {
+            if (platform == PLATFORM_WIN_NT_4) {
                 warn("on Windows NT, applications will not be taken over until reboot");
             }
-            else if (get_platform(&platform) == ERROR_SUCCESS &&
-                     platform >= PLATFORM_WIN_7) {
+            else if (platform >= PLATFORM_WIN_7) {
                 /* i#323 will fix this but good to warn the user */
                 warn("on Windows 7, syswide_on relaxes system security by removing certain code signing requirements");
             }
