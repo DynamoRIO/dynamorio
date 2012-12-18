@@ -1032,6 +1032,10 @@ GLOBAL_LABEL(dynamorio_syscall_wow64_noedx:)
         mov      [esp + 4], ecx
         lea      esp, [esp + 4]
         call     PTRSZ SEGMEM(fs,HEX(0c0))
+        /* we have to restore the stack shift of course (i#1036) */
+        mov      ecx, [esp]
+        mov      [esp - 4], ecx
+        lea      esp, [esp - 4]
         ret
         END_FUNC(dynamorio_syscall_wow64_noedx)
       
