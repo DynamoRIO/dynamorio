@@ -392,9 +392,10 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
-# N.B.: once VERSION_NUMBER crosses 4.x we'll need to add another
+# N.B.: if VERSION_NUMBER's major number is incremented without also
+# incrementing OLDEST_COMPATIBLE_VERSION we'll need to add another
 # symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER_DEFAULT "3.2.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "4.0.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -908,8 +909,8 @@ string(REGEX REPLACE
   "^[0-9]+\\.([0-9]+)\\..*" "\\1" VERSION_NUMBER_MINOR "${VERSION_NUMBER}")
 math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
-# 3.0 broke backcompat and 3.1 was first release so it's now the oldest compat
-set(OLDEST_COMPATIBLE_VERSION "301")
+# 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
+set(OLDEST_COMPATIBLE_VERSION "400")
 
 # i#955: a Windows version of ELF DT_RPATH where a local file stores lib paths
 set(DR_RPATH_SUFFIX "drpath")
