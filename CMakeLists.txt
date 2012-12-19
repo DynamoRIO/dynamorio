@@ -123,7 +123,13 @@ if (DEFINED GENERATE_PDBS AND NOT GENERATE_PDBS)
 endif ()
 enable_language(C)
 enable_language(CXX)
-set(CMAKE_BUILD_TYPE "${specified_build_type}")
+if ("${CMAKE_GENERATOR}" MATCHES "Ninja")
+  # i#1040: Ninja sets the type to Debug if it's not in the cache
+  set(CMAKE_BUILD_TYPE "${specified_build_type}" CACHE STRING
+    "Choose the type of build: Debug or Release" FORCE)
+else ()
+  set(CMAKE_BUILD_TYPE "${specified_build_type}")
+endif ()
 
 include(CheckCCompilerFlag)
 
