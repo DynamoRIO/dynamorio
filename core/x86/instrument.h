@@ -3188,7 +3188,8 @@ DR_API
 /**
  * Stdout printing that won't interfere with the
  * application's own printing.  Currently non-buffered.
- * \note On Windows, this routine is not able to print to the \p cmd window
+ * \note On Windows 7 and earlier, this routine is not able to print
+ * to the \p cmd window
  * unless dr_enable_console_printing() is called ahead of time, and
  * even then there are limitations: see dr_enable_console_printing().
  * \note On Windows, this routine does not support printing floating
@@ -3204,7 +3205,7 @@ DR_API
 /**
  * Printing to a file that won't interfere with the
  * application's own printing.  Currently non-buffered.
- * \note On Windows, this routine is not able to print to STDOUT or
+ * \note On Windows 7 and earlier, this routine is not able to print to STDOUT or
  * STDERR in the \p cmd window unless dr_enable_console_printing() is
  * called ahead of time, and even then there are limitations: see
  * dr_enable_console_printing().
@@ -3225,8 +3226,9 @@ dr_fprintf(file_t f, const char *fmt, ...);
 #ifdef WINDOWS
 DR_API
 /**
- * Enables dr_printf() and dr_fprintf() to work with a console window
- * (viz., \p cmd).  Loads a private copy of kernel32.dll (if not
+ * Enables dr_printf() and dr_fprintf() to work with a legacy console
+ * window (viz., \p cmd on Windows 7 or earlier).  Loads a private
+ * copy of kernel32.dll (if not
  * already loaded) in order to accomplish this.  To keep the default
  * DR lean and mean, loading kernel32.dll is not performed by default.
  *
@@ -3234,25 +3236,28 @@ DR_API
  * If called later, it will fail.
  *
  * Without calling this routine, dr_printf() and dr_fprintf() will not
- * print anything in a console window.
+ * print anything in a console window on Windows 7 or earlier.
  *
  * Even after calling this routine, there are significant limitations
  * to console printing support in DR:
  * 
- *  - On Windows versions from Vista onward, it does not work for
+ *  - On Windows Vista and Windows 7, it does not work for
  *    64-bit applications.
  *  - On Windows versions prior to Vista, it does not work from
  *    the exit event.  Once the application terminates its state with
  *    csrss (toward the very end of ExitProcess), no output will show
  *    up on the console.  We have no good solution here yet as exiting
- *    early is not ideal.
+ *    early is not ideal.  Printing from the exit event works fine
+ *    on Windows 8+.
  *  - It does not work at all from graphical applications, even when they are
- *    launched from a console.
+ *    launched from a console.  This is true on Windows 8+ as well.
  *  - In the future, with earliest injection (Issue 234), writing to the
- *    console may not work from the client init event.
+ *    console may not work from the client init event on Windows 7 and
+ *    earlier (it will work on Windows 8).
  *
  * These limitations stem from the complex arrangement of the console
- * window in Windows, where printing to it involves sending a message
+ * window in Windows (prior to Windows 8), where printing to it
+ * involves sending a message
  * in an undocumented format to the \p csrss process, rather than a
  * simple write to a file handle.  We recommend using a terminal
  * window such as cygwin's \p rxvt rather than the \p cmd window, or
@@ -3267,7 +3272,8 @@ dr_enable_console_printing(void);
 DR_API
 /**
  * Returns true if the current standard error handle belongs to a
- * console window (viz., \p cmd).  DR's dr_printf() and dr_fprintf()
+ * legacy console window (viz., \p cmd on Windows 7 or earlier).  DR's
+ * dr_printf() and dr_fprintf()
  * do not work with such console windows unless
  * dr_enable_console_printing() is called ahead of time, and even then
  * there are limitations detailed in dr_enable_console_printing().

@@ -1689,7 +1689,8 @@ privload_disable_console_init(privmod_t *mod)
 
     ASSERT(mod != NULL);
     ASSERT(strcasecmp(mod->name, "kernel32.dll") == 0);
-    if (get_os_version() < WINDOWS_VERSION_7)
+    /* win8 does not need this fix (i#911) */
+    if (get_os_version() != WINDOWS_VERSION_7)
         return true; /* nothing to do */
 
     /* We want to turn the call to ConnectConsoleInternal from ConDllInitialize,
