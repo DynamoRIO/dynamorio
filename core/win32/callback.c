@@ -1908,24 +1908,27 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
         }
         APP(ilist, create_syscall_instr(dcontext));
     } else { /* XP or greater */
-        APP(ilist,
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XDX),
-                                 OPND_CREATE_INTPTR((ptr_int_t)VSYSCALL_BOOTSTRAP_ADDR)));
         if (get_os_version() >= WINDOWS_VERSION_8) {
             /* Win8 does not use ind calls: it calls to a local copy of KiFastSystemCall.
              * We do the next best thing.
              */
             ASSERT(KiFastSystemCall != NULL);
             APP(ilist, INSTR_CREATE_call(dcontext, opnd_create_pc(KiFastSystemCall)));
-        }
-        else if (use_ki_syscall_routines()) {
-            /* call through vsyscall addr to Ki*SystemCall routine */
-            APP(ilist,
-                INSTR_CREATE_call_ind(dcontext, opnd_create_base_disp(REG_XDX, REG_NULL,
-                                                                      0, 0, OPSZ_4_short2)));
         } else {
-            /* call to vsyscall addr */
-            APP(ilist, INSTR_CREATE_call_ind(dcontext, opnd_create_reg(REG_XDX)));
+            APP(ilist,
+                INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XDX),
+                                     OPND_CREATE_INTPTR((ptr_int_t)
+                                                        VSYSCALL_BOOTSTRAP_ADDR)));
+
+            if (use_ki_syscall_routines()) {
+                /* call through vsyscall addr to Ki*SystemCall routine */
+                APP(ilist,
+                    INSTR_CREATE_call_ind(dcontext, opnd_create_base_disp
+                                          (REG_XDX, REG_NULL, 0, 0, OPSZ_4_short2)));
+            } else {
+                /* call to vsyscall addr */
+                APP(ilist, INSTR_CREATE_call_ind(dcontext, opnd_create_reg(REG_XDX)));
+            }
         }
     }
     if (is_wow64_process(NT_CURRENT_PROCESS) && get_os_version() == WINDOWS_VERSION_7) {
@@ -1955,7 +1958,11 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
          instr_new = instr_get_next(instr_new)) {
         instr_reset(dcontext, instr_old);
         pc = decode(dcontext, pc, instr_old);
-        if (!instr_same(instr_new, instr_old)) {
+        if (!instr_same(instr_new, instr_old) &&
+            /* don't consider call to KiFastSystemCall vs inlined sysenter to be a hook */
+            !(get_os_version() >= WINDOWS_VERSION_8 &&
+              instr_get_opcode(instr_new) == instr_get_opcode(instr_old) &&
+              instr_get_opcode(instr_new) == OP_call)) {
             /* We haven't seen hookers where the opcode would match, so in that case
              * seems likely could be our fault (got an immed wrong or something). */
             ASSERT_CURIOSITY(instr_get_opcode(instr_new) != instr_get_opcode(instr_old));
@@ -2246,6 +2253,40 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
         ASSERT(instr_get_opcode(instr) == OP_call_ind);
         instr_destroy(dcontext, instr);
         /* XXX: how handle chrome hooks on win8?  (xref i#464) */
+    } else if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
+               get_os_version() >= WINDOWS_VERSION_8) {
+        /* Second instr is a call to an inlined routine that calls sysenter.
+         * We treat this in a similar way to call* to sysenter which is handled
+         * down below.
+         * XXX: could share a little bit of code but not much.
+         */
+        after_hook_target = pc;
+        instr = instr_create(dcontext);
+        *ret_pc = decode(dcontext, pc, instr); /* skip call to skip syscall */
+        ASSERT(instr_get_opcode(instr) == OP_call);
+
+        /* replace the call w/ a push */
+        instrlist_append(ilist, INSTR_CREATE_push_imm
+                         (dcontext, OPND_CREATE_INTPTR((ptr_int_t)pc)));
+
+        /* the callee, inlined later in wrapper, or KiFastSystemCall */
+        pc = (byte *) opnd_get_pc(instr_get_target(instr));
+
+        /* fourth instr: mov %xsp -> %xdx */
+        instr_reset(dcontext, instr); /* re-use call container */
+        pc = decode(dcontext, pc, instr);
+        instrlist_append(ilist, instr);
+        ASSERT(instr_get_opcode(instr) == OP_mov_ld);
+
+        /* fifth instr: sysenter */
+        instr = instr_create(dcontext);
+        after_hook_target = pc;
+        pc = decode(dcontext, pc, instr);
+        ASSERT(instr_get_opcode(instr) == OP_sysenter);
+        instr_destroy(dcontext, instr);
+
+        /* ignore ret after sysenter, we'll return to ret after call */
+
     } else {
         /* second instr is either a lea, a mov immed, or an xor */
         DOLOG(3, LOG_ASYNCH, { disassemble_with_bytes(dcontext, pc, main_logfile); });
