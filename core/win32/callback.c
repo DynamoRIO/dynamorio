@@ -3766,7 +3766,10 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
             context_to_mcontext(&mcontext, cxt);
             res = recreate_app_state(dcontext, &mcontext, true/*memory too*/, f);
             if (res == RECREATE_SUCCESS_STATE) {
-                mcontext_to_context(cxt, &mcontext);
+                /* cxt came from the kernel, so it should already have ss and cs
+                 * initialized. Thus there's no need to get them again.
+                 */
+                mcontext_to_context(cxt, &mcontext, false /* !set_cur_seg */);
             } else {
                 /* Should not happen since this should not be an instr we added! */
                 SYSLOG_INTERNAL_WARNING("Unable to fully translate cxt for codemod fault");
@@ -4642,11 +4645,19 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
     if (pass_to_app) {
         CLIENT_ASSERT(einfo.mcontext->flags == DR_MC_ALL,
                       "exception mcontext flags cannot be changed");
-        mcontext_to_context(cxt, dr_mcontext_as_priv_mcontext(einfo.mcontext));
+        /* cxt came from the kernel, so it should already have ss and cs
+         * initialized. Thus there's no need to get them again.
+         */
+        mcontext_to_context(cxt, dr_mcontext_as_priv_mcontext(einfo.mcontext),
+                            true /* !set_cur_seg */);
     } else {
         CLIENT_ASSERT(einfo.raw_mcontext->flags == DR_MC_ALL,
                       "exception mcontext flags cannot be changed");
-        mcontext_to_context(cxt, dr_mcontext_as_priv_mcontext(einfo.raw_mcontext));
+        /* cxt came from the kernel, so it should already have ss and cs
+         * initialized. Thus there's no need to get them again.
+         */
+        mcontext_to_context(cxt, dr_mcontext_as_priv_mcontext(einfo.raw_mcontext),
+                            true /* !set_cur_seg */);
         /* Now re-execute the faulting instr, or go to
          * new context specified by client, skipping
          * app exception handlers.
@@ -5335,7 +5346,10 @@ intercept_exception(app_state_at_intercept_t *state)
 #endif
             LOG(THREAD, LOG_ASYNCH, 2, "Translated cxt->Xip "PFX" to "PFX"\n",
                 cxt->CXT_XIP, mcontext.pc);
-            mcontext_to_context(cxt, &mcontext);
+            /* cxt came from the kernel, so it should already have ss and cs
+             * initialized. Thus there's no need to get them again.
+             */
+            mcontext_to_context(cxt, &mcontext, false /* !set_cur_seg */);
 
             /* PR 306410: if exception while on dstack but going to app,
              * copy SEH frame over to app stack and update handler xsp.
@@ -5589,7 +5603,11 @@ os_forge_exception(app_pc exception_address, exception_type_t exception_type)
     });
 
     /* get application context */
-    mcontext_to_context(&context, get_mcontext(dcontext));
+    /* context is initialized via nt_get_context, which should initialize
+     * cs and ss, so there is no nead to get them again.
+     */
+    mcontext_to_context(&context, get_mcontext(dcontext),
+                        false /* !set_cur_seg */);
     context.CXT_XIP = (ptr_uint_t)exception_address;
  
     DOLOG(2, LOG_ASYNCH, {

@@ -1779,9 +1779,6 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
 #undef stack
 #endif
 
-
-/* void get_segments_defg(cxt_seg_t *ds, cxt_seg_t *es, cxt_seg_t *fs, cxt_seg_t *gs) */
-        DECLARE_FUNC(get_segments_defg)
 /* CONTEXT.Seg* is WORD for x64 but DWORD for x86 */
 #ifdef X64
 # define REG_XAX_SEGWIDTH ax
@@ -1798,6 +1795,8 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
 #else
 # define FREE_REG REG_XCX
 #endif
+/* void get_segments_defg(cxt_seg_t *ds, cxt_seg_t *es, cxt_seg_t *fs, cxt_seg_t *gs) */
+        DECLARE_FUNC(get_segments_defg)
 GLOBAL_LABEL(get_segments_defg:)
         xor      eax, eax           /* Zero XAX, use it for reading segments. */
         mov      FREE_REG, ARG1
@@ -1814,6 +1813,19 @@ GLOBAL_LABEL(get_segments_defg:)
         mov      [FREE_REG], REG_XAX_SEGWIDTH
         ret
         END_FUNC(get_segments_defg)
+
+/* void get_segments_cs_ss(cxt_seg_t *cs, cxt_seg_t *ss) */
+        DECLARE_FUNC(get_segments_cs_ss)
+GLOBAL_LABEL(get_segments_cs_ss:)
+        xor      eax, eax           /* Zero XAX, use it for reading segments. */
+        mov      FREE_REG, ARG1
+        mov      ax, cs
+        mov      [FREE_REG], REG_XAX_SEGWIDTH
+        mov      FREE_REG, ARG2
+        mov      ax, ss
+        mov      [FREE_REG], REG_XAX_SEGWIDTH
+        ret
+        END_FUNC(get_segments_cs_ss)
 #undef FREE_REG
 #undef REG_XAX_SEGWIDTH
 

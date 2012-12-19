@@ -363,7 +363,7 @@ void
 context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt);
 
 void
-mcontext_to_context(CONTEXT* cxt, priv_mcontext_t *mcontext);
+mcontext_to_context(CONTEXT* cxt, priv_mcontext_t *mcontext, bool set_cur_seg);
 
 #ifdef DEBUG
 void dump_context_info(CONTEXT *context, file_t file, bool all);

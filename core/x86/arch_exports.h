@@ -824,6 +824,7 @@ int dynamorio_syscall_syscall(int sysnum, ...);
 int dynamorio_syscall_wow64(int sysnum, ...);
 /* Use this version if !syscall_uses_edx_param_base() */
 int dynamorio_syscall_wow64_noedx(int sysnum, ...);
+void get_segments_cs_ss(cxt_seg_t *cs, cxt_seg_t *ss);
 void get_segments_defg(cxt_seg_t *ds, cxt_seg_t *es, cxt_seg_t *fs, cxt_seg_t *gs);
 void get_own_context_helper(CONTEXT *cxt);
 void dr_fxsave(byte *buf_aligned);

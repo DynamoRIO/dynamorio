@@ -2716,7 +2716,10 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
              * dynamorio_syscall_* and we'll fail to translate so we special-case
              */
             if (tid == get_thread_id()) {
-                mcontext_to_context(alt_cxt, mc);
+                /* only fields that DR might change are propagated to cxt below,
+                 * so set set_cur_seg to false.
+                 */
+                mcontext_to_context(alt_cxt, mc, false /* !set_cur_seg */);
                 alt_cxt->CXT_XIP = (ptr_uint_t) dcontext->asynch_target;
                 translate = false;
             } else if (!thread_get_context(trec, alt_cxt)) {
