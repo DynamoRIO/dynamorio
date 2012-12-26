@@ -372,19 +372,17 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
 
     /* PR 244737: thread-private uses shared gencode on x64.
      * Should we set the option instead? */
-    if (IF_X64(!DYNAMO_OPTION(disable_traces) ||)
-        DYNAMO_OPTION(shared_trace_ibl_routine)) {
+    if (USE_SHARED_TRACE_IBL()) {
         /* expected to be false for private trace IBL routine  */
         pc = emit_ibl_routines(GLOBAL_DCONTEXT, gencode,
                                pc, gencode->fcache_return, 
                                DYNAMO_OPTION(shared_traces) ?
                                IBL_TRACE_SHARED : IBL_TRACE_PRIVATE, /* source_fragment_type */
-                               /* thread_shared */
-                               IF_X64_ELSE(true, DYNAMO_OPTION(shared_trace_ibl_routine)),
+                               true, /* thread_shared */
                                true, /* target_trace_table */
                                gencode->trace_ibl);
     }
-    if (IF_X64_ELSE(true, DYNAMO_OPTION(shared_bbs))) {
+    if (USE_SHARED_BB_IBL()) {
         pc = emit_ibl_routines(GLOBAL_DCONTEXT, gencode,
                                pc, gencode->fcache_return,
                                IBL_BB_SHARED, /* source_fragment_type */
@@ -1947,13 +1945,13 @@ get_ibl_routine_code_internal(dcontext_t *dcontext,
 #endif
     switch (source_fragment_type) {
     case IBL_BB_SHARED:
-        if (!DYNAMO_OPTION(shared_bbs))
+        if (!USE_SHARED_BB_IBL())
             return NULL;
         return &(get_shared_gencode(dcontext _IF_X64(mode))->bb_ibl[branch_type]);
     case IBL_BB_PRIVATE:
         return &(get_emitted_routines_code(dcontext _IF_X64(mode))->bb_ibl[branch_type]);
     case IBL_TRACE_SHARED: 
-        if (!DYNAMO_OPTION(shared_traces))
+        if (!USE_SHARED_TRACE_IBL())
             return NULL;
         return &(get_shared_gencode(dcontext _IF_X64(mode))->trace_ibl[branch_type]);
     case IBL_TRACE_PRIVATE:

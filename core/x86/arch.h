@@ -739,6 +739,13 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
     (USE_SHARED_GENCODE_ALWAYS() || IF_LINUX(IF_HAVE_TLS_ELSE(true, false) ||) \
      SHARED_FRAGMENTS_ENABLED() || DYNAMO_OPTION(shared_trace_ibl_routine))
 
+#define USE_SHARED_BB_IBL() \
+    (USE_SHARED_GENCODE_ALWAYS() || DYNAMO_OPTION(shared_bbs))
+
+#define USE_SHARED_TRACE_IBL() \
+    (USE_SHARED_GENCODE_ALWAYS() || DYNAMO_OPTION(shared_traces) || \
+     DYNAMO_OPTION(shared_trace_ibl_routine))
+
 /* returns the thread private code or GLOBAL thread shared code */
 static inline generated_code_t*
 get_emitted_routines_code(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))

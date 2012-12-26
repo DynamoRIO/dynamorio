@@ -8000,6 +8000,7 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     byte *ibl_tgt = client_xfer_ibl_tgt(dcontext, code, IBL_LINKED);
     bool absolute = !code->thread_shared;
 
+    ASSERT(ibl_tgt != NULL);
     instrlist_init(&ilist);
     init_patch_list(&patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_FS);
 
