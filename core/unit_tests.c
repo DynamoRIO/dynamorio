@@ -45,9 +45,6 @@ void unit_test_utils(void);
 int
 main(int argc, char **argv, char **envp)
 {
-#ifdef LINUX
-    dynamorio_set_envp(envp);
-#endif
     standalone_init();
 
     /* Each test will abort if it fails, so we just call each in turn and return
