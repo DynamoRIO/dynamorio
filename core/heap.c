@@ -411,7 +411,7 @@ DECLARE_NEVERPROT_VAR(static thread_units_t global_racy_units, {0});
 typedef byte *vm_addr_t;
 
 #ifdef X64
-/* designates the boundaries within which we must allocate DR heap space */
+/* designates the closed interval within which we must allocate DR heap space */
 static byte *heap_allowable_region_start = (byte *)PTR_UINT_0;
 static byte *heap_allowable_region_end = (byte *)POINTER_MAX;
 
@@ -430,7 +430,7 @@ request_region_be_heap_reachable(byte *start, size_t size)
     /* initialize so will be overridden on first call; protected by the
      * request_region_be_heap_reachable_lock */
     static byte *must_reach_region_start = (byte *)POINTER_MAX;
-    static byte *must_reach_region_end = (byte *)PTR_UINT_0;
+    static byte *must_reach_region_end = (byte *)PTR_UINT_0;  /* closed */
 
     LOG(GLOBAL, LOG_HEAP, 2,
         "Adding must-be-reachable-from-heap region "PFX"-"PFX"\n"
@@ -457,9 +457,9 @@ request_region_be_heap_reachable(byte *start, size_t size)
         heap_allowable_region_end = allowable_end_tmp;
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     } 
-    if (start + size > must_reach_region_end) {
+    if (start + size - 1 > must_reach_region_end) {
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-        must_reach_region_end = start + size;
+        must_reach_region_end = start + size - 1;  /* closed */
         /* Write assumed to be atomic so we don't have to hold a lock to use
          * heap_allowable_region_start. */
         heap_allowable_region_start = REACHABLE_32BIT_START(must_reach_region_start,
