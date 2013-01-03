@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2146,6 +2146,7 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
     /* The reg should not be used by the oldop */
     ASSERT(!opnd_uses_reg(oldop, reg));
 
+    /* XXX: this mangling is pattern-matched in translation's instr_is_seg_ref_load() */
     /* get app's segment base into reg. */
     PRE(ilist, where,
         instr_create_restore_from_tls(dcontext, reg,
@@ -3774,6 +3775,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_src(instr, si, newop);
     if (di >= 0)
         instr_set_dst(instr, di, newop);
+    /* we need the whole spill...restore region to all be marked mangle */
     instr_set_our_mangling(instr, true);
     /* FIXME: i#107 we should check the bound and raise signal if out of bound. */
     DOLOG(3, LOG_INTERP, { 

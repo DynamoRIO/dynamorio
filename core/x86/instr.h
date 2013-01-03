@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3576,6 +3576,9 @@ opnd_t opnd_create_sized_tls_slot(int offs, opnd_size_t size);
 bool instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs);
 bool instr_is_tls_spill(instr_t *instr, reg_id_t reg, ushort offs);
 bool instr_is_tls_xcx_spill(instr_t *instr);
+/* Pass REG_NULL to not care about the reg */
+bool
+instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs);
 bool
 instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
                               bool *tls, bool *spill, reg_id_t *reg);

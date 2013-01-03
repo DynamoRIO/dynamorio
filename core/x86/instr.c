@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5245,6 +5245,20 @@ instr_is_tls_spill(instr_t *instr, reg_id_t reg, ushort offs)
     bool spill;
     return (instr_check_tls_spill_restore(instr, &spill, &check_reg, &check_disp) &&
             spill && check_reg == reg && check_disp == os_tls_offset(offs));
+}
+
+/* if instr is level 1, does not upgrade it and instead looks at raw bits,
+ * to support identification w/o ruining level 0 in decode_fragment, etc.
+ */
+bool
+instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs)
+{
+    reg_id_t check_reg;
+    int check_disp;
+    bool spill;
+    return (instr_check_tls_spill_restore(instr, &spill, &check_reg, &check_disp) &&
+            !spill && (reg == REG_NULL || check_reg == reg) &&
+            check_disp == os_tls_offset(offs));
 }
 
 /* if instr is level 1, does not upgrade it and instead looks at raw bits,

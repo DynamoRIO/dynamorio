@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2548,6 +2548,30 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
         ;
 }
 
+#ifdef LINUX
+static inline bool
+instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
+{
+    /* This won't fault but we don't want "unsupported mangle instr" message. */
+    if (!instr_is_our_mangling(inst))
+        return false;
+    /* Look for the load of either segment base */
+    if (instr_is_tls_restore(inst, REG_NULL/*don't care*/,
+                             os_tls_offset(os_get_app_seg_base_offset(SEG_FS))) ||
+        instr_is_tls_restore(inst, REG_NULL/*don't care*/,
+                             os_tls_offset(os_get_app_seg_base_offset(SEG_GS))))
+        return true;
+    /* Look for the lea */
+    if (instr_get_opcode(inst) == OP_lea) {
+        opnd_t mem = instr_get_src(inst, 0);
+        if (opnd_get_scale(mem) == 1 &&
+            opnd_get_index(mem) == opnd_get_reg(instr_get_dst(inst, 0)))
+            return true;
+    }
+    return false;
+}
+#endif
+
 static void
 translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *walk)
 {
@@ -2673,6 +2697,17 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         }
         else if (instr_is_trace_cmp(tdcontext, inst)) {
             /* nothing to do */
+        }
+#ifdef LINUX
+        else if (instr_is_seg_ref_load(tdcontext, inst)) {
+            /* nothing to do */
+        }
+#endif
+        else if (instr_ok_to_mangle(inst)) {
+            /* To have reg spill+restore in the same mangle region, we mark
+             * the (modified) app instr for rip-rel and for segment mangling as
+             * "our mangling".  There's nothing specific to do for it.
+             */
         }
         /* We do not support restoring state at arbitrary points for thread
          * relocation (a performance issue, not a correctness one): if not a
