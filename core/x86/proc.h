@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -78,7 +78,11 @@ enum {
  *   Intel Pentium M           Family 6, Model 9 and 13
  *   Intel Core                Family 6, Model 14
  *   Intel Core 2              Family 6, Model 15
- *   Intel Core i7 (Nehalem)   Family 6, Models 26, 30, 31, 37, 44, 47
+ *   Intel Nehalem             Family 6, Models 26 (0x1a), 30 (0x1e), 31 (0x1f)
+ *   Intel SandyBridge         Family 6, Models 37 (0x25), 42 (0x2a), 44 (0x2c),
+ *                                              45 (0x2d), 47 (0x2f)
+ *   Intel IvyBridge           Family 6, Model 58 (0x3a)
+ *   Intel Atom                Family 6, Model 28 (0x1c), 38 (0x26), 54 (0x36)
  */
 /* DR_API EXPORT END */
 #ifdef IA32_ON_IA64 /* don't export IA64 stuff! */
@@ -96,8 +100,11 @@ enum {
 #define FAMILY_PENTIUM_4    15 /**< proc_get_family() processor family: Pentium 4 */
 #define FAMILY_P4           15 /**< proc_get_family() processor family: P4 family */
 #define FAMILY_ITANIUM       7 /**< proc_get_family() processor family: Itanium */
-/* Pentium Pro, Pentium II, Pentium III, Athlon, Pentium M, Core, Core 2, Core i7 */
+/* Pentium Pro, Pentium II, Pentium III, Athlon, Pentium M, Core, Core 2+ */
 #define FAMILY_P6            6 /**< proc_get_family() processor family: P6 family */
+#define FAMILY_IVYBRIDGE     6 /**< proc_get_family() processor family: IvyBridge */
+#define FAMILY_SANDYBRIDGE   6 /**< proc_get_family() processor family: SandyBridge */
+#define FAMILY_NEHALEM       6 /**< proc_get_family() processor family: Nehalem */
 #define FAMILY_CORE_I7       6 /**< proc_get_family() processor family: Core i7 */
 #define FAMILY_CORE_2        6 /**< proc_get_family() processor family: Core 2 */
 #define FAMILY_CORE          6 /**< proc_get_family() processor family: Core */
@@ -118,11 +125,16 @@ enum {
 /* We do not enumerate all models; just relevant ones needed to distinguish
  * major processors in the same family.
  */
-#define MODEL_I7_WESTMERE_EX  47 /**< proc_get_model(): Core i7 Westmere Ex */
-#define MODEL_I7_WESTMERE     44 /**< proc_get_model(): Core i7 Westmere */
-#define MODEL_I7_CLARKDALE    37 /**< proc_get_model(): Core i7 Clarkdale/Arrandale */
+#define MODEL_IVYBRIDGE       54 /**< proc_get_model(): Ivybridge */
+#define MODEL_I7_WESTMERE_EX  47 /**< proc_get_model(): Nehalem Westmere Ex */
+#define MODEL_SANDYBRIDGE_E   45 /**< proc_get_model(): Sandybridge-E, -EN, -EP */
+#define MODEL_I7_WESTMERE     44 /**< proc_get_model(): Westmere */
+#define MODEL_SANDYBRIDGE     42 /**< proc_get_model(): Sandybridge */
+#define MODEL_I7_CLARKDALE    37 /**< proc_get_model(): Westmere Clarkdale/Arrandale */
 #define MODEL_I7_HAVENDALE    31 /**< proc_get_model(): Core i7 Havendale/Auburndale */
 #define MODEL_I7_CLARKSFIELD  30 /**< proc_get_model(): Core i7 Clarksfield/Lynnfield */
+#define MODEL_ATOM_CEDARVIEW  54 /**< proc_get_model(): Atom Cedarview */
+#define MODEL_ATOM_LINCROFT   38 /**< proc_get_model(): Atom Lincroft */
 #define MODEL_ATOM            28 /**< proc_get_model(): Atom */
 #define MODEL_I7_GAINESTOWN   26 /**< proc_get_model(): Core i7 Gainestown */
 #define MODEL_CORE_PENRYN     23 /**< proc_get_model(): Core 2 Penryn */
