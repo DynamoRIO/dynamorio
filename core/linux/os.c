@@ -2799,6 +2799,57 @@ munmap_syscall(byte *addr, size_t len)
     return dynamorio_syscall(SYS_munmap, 2, addr, len);
 }
 
+/* free memory allocated from os_raw_mem_alloc */
+void
+os_raw_mem_free(void *p, size_t size, heap_error_code_t *error_code)
+{
+    long rc;
+    ASSERT(error_code != NULL);
+    ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
+
+    rc = munmap_syscall(p, size);
+    if (rc != 0) {
+        *error_code = -rc;
+    } else {
+        *error_code = HEAP_ERROR_SUCCESS;
+    }
+    ASSERT(rc == 0);
+}
+
+/* try to alloc memory at preferred from os directly,
+ * caller is required to handle thread synchronization and to update
+ */
+void *
+os_raw_mem_alloc(void *preferred, size_t size, uint prot,
+                 heap_error_code_t *error_code)
+{
+    byte *p;
+    uint os_prot = memprot_to_osprot(prot);
+
+    ASSERT(error_code != NULL);
+    /* should only be used on aligned pieces */
+    ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
+
+    p = mmap_syscall(preferred, size, os_prot,
+                     MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    if (!mmap_syscall_succeeded(p)) {
+        *error_code = -(heap_error_code_t)(ptr_int_t)p;
+        LOG(GLOBAL, LOG_HEAP, 3,
+            "os_raw_mem_alloc %d bytes failed"PFX"\n", size, p);
+        return NULL;
+    }
+    if (preferred != NULL && p != preferred) {
+        *error_code = HEAP_ERROR_NOT_AT_PREFERRED;
+        os_raw_mem_free(p, size, error_code);
+        LOG(GLOBAL, LOG_HEAP, 3,
+            "os_raw_mem_alloc %d bytes failed"PFX"\n", size, p);
+        return NULL;
+    }
+    LOG(GLOBAL, LOG_HEAP, 2, "os_raw_mem_alloc: "SZFMT" bytes @ "PFX"\n",
+        size, p);
+    return p;
+}
+
 /* caller is required to handle thread synchronization and to update dynamo vm areas */
 void
 os_heap_free(void *p, size_t size, heap_error_code_t *error_code)
@@ -2856,9 +2907,7 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     /* FIXME: case 2347 on Linux or -vm_reserve should be set to false */
     /* FIXME: Need to actually get a mmap-ing with |MAP_NORESERVE */
     p = mmap_syscall(preferred, size, prot, MAP_PRIVATE|MAP_ANONYMOUS
-                     IF_X64(| (DYNAMO_OPTION(heap_in_lower_4GB) &&
-                               /* allow preferred address to not be reachable */
-                               preferred == NULL ?
+                     IF_X64(| (DYNAMO_OPTION(heap_in_lower_4GB) ?
                                MAP_32BIT : 0)),
                      -1, 0);
     if (!mmap_syscall_succeeded(p)) {

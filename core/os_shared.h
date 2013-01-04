@@ -90,6 +90,12 @@ enum {
 };
 typedef uint heap_error_code_t;
 
+/* For dr_raw_mem_alloc, try to allocate memory at preferred address. */
+void *os_raw_mem_alloc(void *preferred, size_t size, uint prot,
+                       heap_error_code_t *error_code);
+/* For dr_raw_mem_free, free memory allocated from os_raw_mem_alloc */
+void os_raw_mem_free(void *p, size_t size, heap_error_code_t *error_code);
+
 /* Reserve size bytes of virtual address space in one piece without committing swap
  * space for it.  If preferred is non-NULL then memory will be reserved at that address
  * only (if size bytes are unavailable at preferred then the allocation will fail). 

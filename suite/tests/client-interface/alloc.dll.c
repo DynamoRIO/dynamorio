@@ -79,7 +79,7 @@ void raw_alloc_test(void)
     bool res;
     dr_fprintf(STDERR, "  testing raw memory alloc...");
     res = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE,
-                           array);
+                           array) != NULL;
     if (!res) {
         dr_fprintf(STDERR, "[error: fail to alloc at "PFX"]\n", array);
         return;

@@ -2422,27 +2422,21 @@ dr_nonheap_free(void *mem, size_t size)
 }
 
 DR_API
-bool
+void *
 dr_raw_mem_alloc(size_t size, uint prot, void *addr)
 {
     byte *p;
-    bool res;
     heap_error_code_t error_code;
+
     CLIENT_ASSERT(ALIGNED(addr, PAGE_SIZE), "addr is not page size aligned");
     addr = (void *)ALIGN_BACKWARD(addr, PAGE_SIZE);
-    p = os_heap_reserve(addr, size, &error_code, TEST(MEMPROT_EXEC, prot));
-    if (p == addr) {
-        res = os_heap_commit(p, size, prot, &error_code);
-        if (res) {
-            all_memory_areas_lock();
-            update_all_memory_areas(p, p+size, prot, DR_MEMTYPE_DATA);
-            all_memory_areas_unlock();
-            return true;
-        }
+    p = os_raw_mem_alloc(addr, size, prot, &error_code);
+    if (p != NULL) {
+        all_memory_areas_lock();
+        update_all_memory_areas(p, p+size, prot, DR_MEMTYPE_DATA);
+        all_memory_areas_unlock();
     }
-    if (p != NULL)
-        os_heap_free(p, size, &error_code);
-    return false;
+    return p;
 }
 
 DR_API
@@ -2451,13 +2445,12 @@ dr_raw_mem_free(void *addr, size_t size)
 {
     heap_error_code_t error_code;
     byte *p = addr;
-    os_heap_decommit(p, size, &error_code);
     /* use lock to avoid racy update on parallel memory allocation,
      * e.g. allocation from another thread at p happens after os_heap_free
      * but before remove_from_all_memory_areas
      */
     all_memory_areas_lock();
-    os_heap_free(p, size, &error_code);
+    os_raw_mem_free(p, size, &error_code);
     remove_from_all_memory_areas(p, p + size);
     all_memory_areas_unlock();
 }
