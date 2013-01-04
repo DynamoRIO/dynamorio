@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
 
 \page page_license License
 
-Copyright (c) 2010-2011 Google, Inc. licensed under the terms of the BSD.  All other rights reserved.
+Copyright (c) 2010-2013 Google, Inc. licensed under the terms of the BSD.  All other rights reserved.
 
 Copyright (c) 2000-2010 VMware, Inc. licensed under the terms of the BSD.  All other rights reserved.
 
