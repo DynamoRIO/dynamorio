@@ -570,7 +570,9 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
     prot_fn_t prot_func;
     app_pc base = NULL;
     elf_loader_t loader;
+#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     app_pc text_addr;
+#endif
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     /* get appropriate function */
