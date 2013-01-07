@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -3698,7 +3698,14 @@ os_open(const char *fname, int os_open_flags)
     else {    
         res = open_syscall(fname, flags|O_RDWR|O_CREAT|
                            (TEST(OS_OPEN_APPEND, os_open_flags) ? 
-                            O_APPEND : 0)|
+                            /* Currently we only support either appending
+                             * or truncating, just like Windows and the client
+                             * interface.  If we end up w/ a use case that wants
+                             * neither it could open append and then seek; if we do
+                             * add OS_TRUNCATE or sthg we'll need to add it to
+                             * any current writers who don't set OS_OPEN_REQUIRE_NEW.
+                             */
+                            O_APPEND : O_TRUNC) |
                            (TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) ? 
                             O_EXCL : 0), 
                            S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
