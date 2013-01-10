@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -2005,9 +2005,12 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
             IF_X64(options->coarse_split_riprel = true;)
             /* FIXME: i#660: not compatible w/ Probe API */
             IF_CLIENT_INTERFACE(DISABLE_PROBE_API(options);)
+            /* i#1051: disable reset until we decide how it interacts w/ pcaches */
+            DISABLE_RESET(options);
         } else {
             options->coarse_enable_freeze = false;
             options->use_persisted = false;
+            REENABLE_RESET(options);
         }
      }, "generate and use persisted caches", STATIC, OP_PCACHE_GLOBAL)
 
@@ -2023,8 +2026,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
                 * N.B.: if we re-enable traces we'll want to turn this back on
                 */
                options->indcall2direct = false;
-               /* case 9686: for now reset is a nop until we decide what it
-                * should do wrt pcaches */
+               /* i#1051: disable reset until we decide how it interacts w/ pcaches */
                DISABLE_RESET(options);
            } else {
                /* -no_desktop: like -no_client, only use in simple

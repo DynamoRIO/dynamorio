@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -9854,9 +9854,10 @@ vm_area_coarse_units_reset_free()
                 if (info != info_start) {
                     coarse_unit_free(GLOBAL_DCONTEXT, info);
                     info = NULL;
-                }
+                } else
+                    coarse_unit_mark_in_use(info); /* still in-use if re-used */
                 /* The start info itself is freed in remove_vm_area, if exiting */
-                /* FIXME case 9686: should re-load persisted caches after reset */
+                /* XXX i#1051: should re-load persisted caches after reset */
                 info = next_info;
                 ASSERT(info == NULL || !info->frozen);
             }
