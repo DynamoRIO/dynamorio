@@ -1,6 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
- * Copyright (c) 2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,41 +31,26 @@
  * DAMAGE.
  */
 
-/**
-***************************************************************************
-***************************************************************************
-\page page_drcontainers Container Data Structures
+/* Private header for containers */
 
-The \p drcontainers DynamoRIO Extension provides container data structures
-that use the DR API for memory allocation and synchronization.
+#ifndef _CONTAINERS_PRIVATE_H_
+#define _CONTAINERS_PRIVATE_H_
 
- - \ref sec_drcontainers_setup
- - \ref sec_drcontainers_hashtable
- - \ref sec_drcontainers_vector
- - \ref sec_drcontainers_table
+#ifdef DEBUG
+# define IF_DEBUG(x) x
+#else
+# define IF_DEBUG(x) /* nothing */
+#endif
 
-\section sec_drcontainers_setup Setup
+#define MAX(x,y) ((x) >= (y) ? (x) : (y))
+/* check if all bits in mask are set in var */
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
+/* check if any bit in mask is set in var */
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+/* check if a single bit is set in var */
+#define TEST TESTANY
 
-To use \p drcontainers with your client simply include this line in your client's
-\p CMakeLists.txt file:
+#define ALIGN_FORWARD(x, alignment) \
+    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
 
-\code use_DynamoRIO_extension(clientname drcontainers) \endcode
-
-That will automatically set up the include path and library dependence.
-
-\section sec_drcontainers_hashtable Hashtable
-
-The hashtable supports integer, string, and custom hash keys, and has
-synchronization and memory allocation and deallocation parametrized for
-flexible usage.  See hashtable_init_ex() and related functions.
-
-\section sec_drcontainers_vector DrVector
-
-The DrVector is a simple resizable array.
-
-\section sec_drcontainers_table DrTable
-
-The DrTable is a resizable array that does not relocate data,
-enabling a user to use pointers to access array entries directly.
-
-*/
+#endif /* _CONTAINERS_PRIVATE_H_ */

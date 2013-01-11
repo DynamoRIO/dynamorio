@@ -38,23 +38,11 @@
 #endif
 #include "dr_api.h"
 #include "hashtable.h"
+#include "containers_private.h"
 #ifdef LINUX
 # include <string.h>
 #endif
 #include <stddef.h> /* offsetof */
-
-#ifdef DEBUG
-# define IF_DEBUG(x) x
-#else
-# define IF_DEBUG(x) /* nothing */
-#endif
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 /***************************************************************************
  * UTILITIES

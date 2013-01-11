@@ -36,6 +36,7 @@ cmake_minimum_required(VERSION 2.6)
 add_library(drcontainers STATIC
   hashtable.c
   drvector.c
+  drtable.c
   # add more here
   )
 configure_DynamoRIO_client(drcontainers)
@@ -59,5 +60,6 @@ DR_export_target(drcontainers)
 install_exported_target(drcontainers ${INSTALL_EXT_LIB})
 DR_install(FILES
   hashtable.h
+  drtable.h
   # add more here
   DESTINATION ${INSTALL_EXT_INCLUDE})

@@ -120,7 +120,13 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 
 The current version is \DR_VERSION.  
 
-The changes between version \DR_VERSION and 4.0.0 include:
+The changes between version \DR_VERSION and 4.0.1 include:
+
+ - Added the \p drtable Extension which provides simple table management
+
+**************************************************
+<hr>
+The changes between version 4.0.1 and 4.0.0 include:
 
  - Fixed a bug resulting in large 64-bit applications failing to allocate
    heap (Issue 1041)
