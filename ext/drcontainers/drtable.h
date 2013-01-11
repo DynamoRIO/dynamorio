@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,7 +54,7 @@ extern "C" {
 /*@{*/ /* begin doxygen group */
 
 /**
- * flags used for drtable_create
+ * Flags used for drtable_create
  */
 typedef enum {
     /** allocated table entries must be reachable from code cache */
@@ -71,6 +71,9 @@ typedef enum {
     DRTABLE_ALLOC_COMPACT = 0x4,
 } drtable_flags_t;
 
+/** Invalid index of drtable */
+#define DRTABLE_INVALID_INDEX ((ptr_uint_t)-1)
+
 /**
  * Creates a drtable with the given parameters.
  * @param[in]  capacity   The approximate number of entries for the table.
@@ -86,18 +89,20 @@ typedef enum {
  *   Leave it NULL if no callback is needed.
  */
 void *
-drtable_create(uint capacity, ushort entry_size, uint flags, bool synch,
-               void (*free_entry_func)(uint idx, void *entry, void *user_data));
+drtable_create(ptr_uint_t capacity, size_t entry_size, uint flags, bool synch,
+               void (*free_entry_func)(ptr_uint_t idx,
+                                       void *entry,
+                                       void *user_data));
 
 /**
  * Allocates memory for an array of \p num_entries table entries, and returns
- * a pointer to the allocated memory.
+ * a pointer to the allocated memory. Returns NULL if fails.
  * If \p idx_ptr is not NULL, the index for the first entry is returned in
  * \p idx_ptr, and all the entries from the same allocation can be referred to
  * as index + n.
  */
 void *
-drtable_alloc(void *tab, uint num_entries, int *idx_ptr);
+drtable_alloc(void *tab, ptr_uint_t num_entries, ptr_uint_t *idx_ptr);
 
 /**
  * Destroys all storage for the table.
@@ -115,20 +120,21 @@ drtable_destroy(void *tab, void *user_data);
  */
 void
 drtable_iterate(void *tab, void *iter_data,
-                bool (*iter_func)(uint id, void *, void*));
+                bool (*iter_func)(ptr_uint_t id, void *, void*));
 
 /**
  * Returns a pointer to the entry at index \p idx.
  * Returns NULL if the entry for \p idx is not allocated.
  */
 void *
-drtable_get_entry(void *tab, uint idx);
+drtable_get_entry(void *tab, ptr_uint_t idx);
 
 /**
  * Returns an index to the entry pointed at by \p ptr.
- * Returns -1 if \p ptr does not point to any allocated entries.
+ * Returns DRTABLE_INVALID_INDEX if \p ptr does not point to any allocated
+ * entries.
  */
-int
+ptr_uint_t
 drtable_get_index(void *tab, void *ptr);
 
 /** Acquires the table lock. */
@@ -140,15 +146,16 @@ void
 drtable_unlock(void *tab);
 
 /** Returns the number of entries in the table. */
-uint
+ptr_uint_t
 drtable_num_entries(void *tab);
 
 /**
  * Dumps all the table entries into a file in binary format.
- * The first 8 bytes is the number of entries dumped, which
- * is also returned to the caller.
+ * The first 4 bytes store value 32 or 64 to indicate whether it is 32-bit
+ * or 64-bit, which is followed by the pointer-sized counter of the
+ * number of entries dumped, which is also returned to the caller.
  */
-uint64
+ptr_uint_t
 drtable_dump_entries(void *tab, file_t log);
 
 /*@}*/ /* end doxygen group */

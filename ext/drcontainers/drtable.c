@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,11 @@
 
 #define DRTABLE_MAGIC 0x42545244  /* "DRTB" */
 #define MAX_ENTRY_SIZE  PAGE_SIZE
+#ifdef LINUX
+# define ALLOC_UNIT_SIZE PAGE_SIZE
+#else
+# define ALLOC_UNIT_SIZE (16*PAGE_SIZE) /* 64KB */
+#endif
 
 typedef struct _drtable_chunk_t drtable_chunk_t;
 typedef struct _drtable_t {
@@ -47,13 +52,13 @@ typedef struct _drtable_t {
     uint   flags;       /* flags from drtable_flags_t */
     void  *lock;        /* lock for synch */
     void  *user_data;   /* user_data for iteration */
-    void (*free_entry_func)(uint, void*, void*);
+    void (*free_entry_func)(ptr_uint_t, void*, void*);
     bool   stop_iter;   /* should we stop iteration */
     bool   synch;       /* should drtable do the synch */
-    ushort entry_size;  /* table entry size in byte */
-    uint   entries;     /* total number of entries allocated */
-    uint   capacity;    /* total number of entries can hold */
-    size_t size;        /* total table size in byte */
+    size_t     entry_size;  /* table entry size in byte */
+    ptr_uint_t entries;     /* total number of entries allocated */
+    ptr_uint_t capacity;    /* total number of entries can hold */
+    size_t     size;        /* total table size in byte */
     /* the chunk won't be changed after creation, so last_chunk can be
      * accessed without lock.
      */
@@ -63,16 +68,16 @@ typedef struct _drtable_t {
 
 struct _drtable_chunk_t {
     drtable_t *table;     /* points to table for callbacks */
-    uint       index;     /* the start index for current chunk */
-    uint       entries;   /* number of entries allocated */
-    uint       capacity;  /* number of entries in total */
+    ptr_uint_t index;     /* the start index for current chunk */
+    ptr_uint_t entries;   /* number of entries allocated */
+    ptr_uint_t capacity;  /* number of entries in total */
     size_t     size;      /* the chunk size in bytes */
     byte      *base;      /* chunk base */
     byte      *cur_ptr;   /* start address of unallocated entries */
 };
 
 static bool
-drtable_free_callback(uint id, void *entry, void *table)
+drtable_free_callback(ptr_uint_t id, void *entry, void *table)
 {
     ((drtable_t *)table)->free_entry_func(id, entry,
                                           ((drtable_t *)table)->user_data);
@@ -82,9 +87,9 @@ drtable_free_callback(uint id, void *entry, void *table)
 static void
 drtable_chunk_iterate(drtable_chunk_t *chunk,
                       void *iter_data,
-                      bool (*iter_func)(uint, void *, void*))
+                      bool (*iter_func)(ptr_uint_t, void *, void*))
 {
-    uint i;
+    ptr_uint_t i;
     byte *entry = chunk->base;
     drtable_t *table = chunk->table;
     if (iter_func == NULL) {
@@ -103,15 +108,20 @@ drtable_chunk_iterate(drtable_chunk_t *chunk,
 static void *
 drtable_chunk_alloc(size_t size, uint flags)
 {
-    /* XXX: we may change the way to alloc memory based on flags */
-    byte *buf = dr_nonheap_alloc(size, DR_MEMPROT_READ | DR_MEMPROT_WRITE);
+    byte *buf;
+    if (TESTANY(DRTABLE_MEM_32BIT|DRTABLE_MEM_REACHABLE, flags))
+        buf = dr_nonheap_alloc(size, DR_MEMPROT_READ | DR_MEMPROT_WRITE);
+    else {
+        /* will this disrupt the address space layout? */
+        buf = dr_raw_mem_alloc(size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    }
     DR_ASSERT(buf != NULL);
     memset(buf, 0, size);
     return buf;
 }
 
 static drtable_chunk_t *
-drtable_chunk_create(drtable_t *table, uint num_entries)
+drtable_chunk_create(drtable_t *table, ptr_uint_t num_entries)
 {
     drtable_chunk_t *chunk;
     chunk = dr_global_alloc(sizeof(*chunk));
@@ -124,7 +134,7 @@ drtable_chunk_create(drtable_t *table, uint num_entries)
      */
     chunk->size = ALIGN_FORWARD(MAX(table->size,
                                     table->entry_size * num_entries),
-                                PAGE_SIZE);
+                                ALLOC_UNIT_SIZE);
     chunk->base = drtable_chunk_alloc(chunk->size, table->flags);
     /* XXX: we should handle the case when alloc failed */
     DR_ASSERT(chunk->base != NULL);
@@ -144,13 +154,16 @@ drtable_chunk_free(void *data)
     if (table->free_entry_func != NULL) {
         drtable_chunk_iterate(chunk, table, drtable_free_callback);
     }
-    dr_nonheap_free(chunk->base, chunk->size);
+    if (TESTANY(DRTABLE_MEM_32BIT|DRTABLE_MEM_REACHABLE, table->flags))
+        dr_nonheap_free(chunk->base, chunk->size);
+    else
+        dr_raw_mem_free(chunk->base, chunk->size);
     dr_global_free(chunk, sizeof(*chunk));
 }
 
 void *
-drtable_create(uint capacity, ushort entry_size, uint flags, bool synch,
-               void (*free_entry_func)(uint, void*, void *))
+drtable_create(ptr_uint_t capacity, size_t entry_size, uint flags, bool synch,
+               void (*free_entry_func)(ptr_uint_t, void*, void *))
 {
     drtable_t *table;
     size_t size;
@@ -168,8 +181,8 @@ drtable_create(uint capacity, ushort entry_size, uint flags, bool synch,
     table->stop_iter = false;
     table->entries = 0;
     size = ALIGN_FORWARD((capacity > 0 ? capacity : 1) * entry_size,
-                         PAGE_SIZE);
-    capacity = (uint)(size / entry_size);
+                         ALLOC_UNIT_SIZE);
+    capacity = (ptr_uint_t)(size / entry_size);
     table->size = 0;
     table->capacity = 0;
     drvector_init(&table->vec, 2, false, drtable_chunk_free);
@@ -194,7 +207,7 @@ drtable_destroy(void *tab, void *user_data)
 }
 
 void *
-drtable_alloc(void *tab, uint num_entries, int *idx_ptr)
+drtable_alloc(void *tab, ptr_uint_t num_entries, ptr_uint_t *idx_ptr)
 {
     void *entry;
     drtable_t *table = (drtable_t *)tab;
@@ -223,9 +236,15 @@ drtable_alloc(void *tab, uint num_entries, int *idx_ptr)
     if (chunk == NULL) {
         table->last_chunk = drtable_chunk_create(table, num_entries);
         chunk = table->last_chunk;
+        if (chunk == NULL) {
+            if (table->synch)
+                drtable_unlock(table);
+            if (idx_ptr != NULL)
+                *idx_ptr = DRTABLE_INVALID_INDEX;
+            return NULL;
+        }
     }
     /* 3. alloc entries from chunk */
-    DR_ASSERT(chunk != NULL);
     entry = chunk->cur_ptr;
     chunk->cur_ptr += (num_entries * table->entry_size);
     DR_ASSERT(chunk->cur_ptr <= chunk->base + chunk->size);
@@ -244,7 +263,7 @@ drtable_alloc(void *tab, uint num_entries, int *idx_ptr)
 void
 drtable_iterate(void *tab,
                 void *iter_data,
-                bool (*iter_func)(uint, void *, void *))
+                bool (*iter_func)(ptr_uint_t, void *, void *))
 {
     uint i;
     drtable_t *table = (drtable_t *)tab;
@@ -280,13 +299,14 @@ drtable_unlock(void *tab)
 }
 
 static drtable_chunk_t *
-drtable_chunk_lookup_index(drtable_t *table, uint index)
+drtable_chunk_lookup_index(drtable_t *table, ptr_uint_t index)
 {
     uint i;
     drtable_chunk_t *chunk;
     if (index > table->capacity)
         return NULL;
     chunk = table->last_chunk;
+    /* we have a racy here, the entries might be updated by others */
     if (index >= chunk->index && index < chunk->index + chunk->entries)
         return chunk;
     if (table->synch)
@@ -306,14 +326,15 @@ drtable_chunk_lookup_index(drtable_t *table, uint index)
 static drtable_chunk_t *
 drtable_chunk_lookup_entry(drtable_t *table, byte *entry)
 {
-    int i;
+    uint i;
     drtable_chunk_t *chunk = table->last_chunk;
+    /* we have a racy here, the cur_ptr might be updated by others */
     if (entry >= chunk->base && entry < chunk->cur_ptr)
         return chunk;
     if (table->synch)
         drtable_lock(table);
-    for (i = table->vec.entries - 1; i >= 0; i--) {
-        chunk = drvector_get_entry(&table->vec, i);
+    for (i = table->vec.entries; i > 0; i--) {
+        chunk = drvector_get_entry(&table->vec, i-1);
         DR_ASSERT(chunk != NULL);
         if (entry >= chunk->base && entry < chunk->cur_ptr)
             break;
@@ -325,7 +346,7 @@ drtable_chunk_lookup_entry(drtable_t *table, byte *entry)
 }
 
 void *
-drtable_get_entry(void *tab, uint index)
+drtable_get_entry(void *tab, ptr_uint_t index)
 {
     drtable_t *table = (drtable_t *)tab;
     drtable_chunk_t *chunk;
@@ -336,21 +357,21 @@ drtable_get_entry(void *tab, uint index)
     return (chunk->base + index * table->entry_size);
 }
 
-int
+ptr_uint_t
 drtable_get_index(void *tab, void *entry)
 {
     drtable_t *table = (drtable_t *)tab;
     drtable_chunk_t *chunk;
-    uint index;
+    ptr_uint_t index;
     DR_ASSERT(table != NULL && table->magic == DRTABLE_MAGIC);
     chunk = drtable_chunk_lookup_entry(table, (byte *)entry);
     if (chunk == NULL)
-        return -1;
-    index = (int)(((byte *)entry - chunk->base) / table->entry_size);
+        return DRTABLE_INVALID_INDEX;
+    index = (ptr_uint_t)(((byte *)entry - chunk->base) / table->entry_size);
     return (chunk->index + index);
 }
 
-uint
+ptr_uint_t
 drtable_num_entries(void *tab)
 {
     drtable_t *table = (drtable_t *)tab;
@@ -358,19 +379,25 @@ drtable_num_entries(void *tab)
     return table->entries;
 }
 
-uint64
+ptr_uint_t
 drtable_dump_entries(void *tab, file_t log)
 {
     drtable_t *table = (drtable_t *)tab;
     drtable_chunk_t *chunk;
     ssize_t size;
-    uint64 entries = 0;
+    ptr_uint_t entries = 0;
     uint i;
     
     DR_ASSERT(table != NULL && table->magic == DRTABLE_MAGIC);
     if (table->synch)
         drtable_lock(table);
-    entries = (uint64)table->entries;
+    entries = table->entries;
+#ifdef X64
+    i = 64;
+#else
+    i = 32;
+#endif
+    dr_write_file(log, &i, sizeof(i));
     dr_write_file(log, &entries, sizeof(entries));
     entries = 0;
     for (i = 0; i < table->vec.entries; i++) {
