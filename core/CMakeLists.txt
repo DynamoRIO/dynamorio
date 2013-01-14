@@ -356,7 +356,10 @@ if (UNIX)
 
   set(dynamorio_link_flags "${dynamorio_link_flags} -nostdlib")
 
-  if (NOT STATIC_LIBRARY)
+  if (STATIC_LIBRARY)
+    # We build static DR as PIC in case we're linked into a .so or a PIE.
+    append_property_string(TARGET dynamorio COMPILE_FLAGS "-fPIC")
+  else ()
     # i#47: set the ELF header entry point to _start for early injection.
     set(dynamorio_link_flags "${dynamorio_link_flags} -Wl,--entry,_start")
   endif ()
@@ -386,6 +389,43 @@ if (UNIX)
   # -no_private_loader when loaded by the system loader.  We also have a sqrt
   # import that we should cut.
   target_link_libraries(dynamorio dl m)
+
+  # We need to do extra work to hide symbols in the static library build.
+  # First we do a partial link with ld -r, which makes a single libdynamorio.o
+  # object file.  Then we use objcopy --localize-hidden to hide all
+  # non-exported symbols.
+  if (STATIC_LIBRARY)
+    if (NOT EXISTS ${CMAKE_OBJCOPY})
+      message(FATAL_ERROR "STATIC_LIBRARY requires objcopy")
+    endif ()
+    get_target_property(dynamorio_dot_a dynamorio LOCATION)
+    string(REGEX REPLACE "\\.a$" ".o" dynamorio_dot_o "${dynamorio_dot_a}")
+    string(REPLACE " " ";" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
+    set (globalize_pic_thunks)
+    if (NOT X64)
+      # Localizing PIC thunks on ia32 creates references to discarded sections.
+      # XXX: Hardcoding this list of symbols is fragile.  It is known to work
+      # with gcc 4.4 and 4.6.
+      set (globalize_pic_thunks ${CMAKE_OBJCOPY}
+        --globalize-symbol=__i686.get_pc_thunk.bx
+        --globalize-symbol=__i686.get_pc_thunk.cx
+        "${dynamorio_dot_o}" &&
+        )
+    endif ()
+    add_custom_command(TARGET dynamorio POST_BUILD
+      COMMAND
+      ${CMAKE_C_COMPILER} ${partial_link_flags} -fPIC
+        -nostartfiles -nodefaultlibs -r
+        -Wl,--whole-archive "${dynamorio_dot_a}" -Wl,--no-whole-archive
+        -o "${dynamorio_dot_o}" &&
+      ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}" &&
+      ${globalize_pic_thunks}
+      rm -f "${dynamorio_dot_a}" &&
+      ${CMAKE_AR} cr "${dynamorio_dot_a}" "${dynamorio_dot_o}" &&
+      ${CMAKE_RANLIB} "${dynamorio_dot_a}"
+      WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
+      VERBATIM)
+  endif ()
 
   # We use .so versioning via symlinks.
   # We do not version the preload lib as it does not expose an API,
