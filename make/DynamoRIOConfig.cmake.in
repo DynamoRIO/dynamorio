@@ -167,15 +167,17 @@ else (UNIX)
     message(FATAL_ERROR "DynamoRIO's CMake configuration only supports the Microsoft compiler on Windows")
   endif (NOT ${COMPILER_BASE_NAME} STREQUAL "cl")
 endif (UNIX)
-    
-get_filename_component(cwd "${CMAKE_CURRENT_LIST_FILE}" PATH)
+
+# We'll be included at the same scope as the containing project, so use
+# a prefixed var name for globals.
+get_filename_component(DynamoRIO_cwd "${CMAKE_CURRENT_LIST_FILE}" PATH)
 
 # Export variables in case client needs custom configuration that
 # our exported functions do not provide.
 # Additionally, only set if not already defined, to allow
 # for further customization.
 if (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
-  set(DynamoRIO_INCLUDE_DIRS "${cwd}/../include")
+  set(DynamoRIO_INCLUDE_DIRS "${DynamoRIO_cwd}/../include")
 endif (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
@@ -314,24 +316,24 @@ function (configure_DynamoRIO_global is_cxx change_flags)
 
     if (NOT DynamoRIO_INTERNAL)
       # if we were built w/ static drsyms, clients need dependent static libs too
-      if (UNIX AND EXISTS "${cwd}/../ext/lib${bits}/${type}/libdwarf.a")
+      if (UNIX AND EXISTS "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libdwarf.a")
         add_library(elf STATIC IMPORTED)
         set_property(TARGET elf PROPERTY
-          IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/libelf.a")
+          IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libelf.a")
         add_library(dwarf STATIC IMPORTED)
         set_property(TARGET dwarf PROPERTY
-          IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/libdwarf.a")
+          IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libdwarf.a")
         add_library(elftc STATIC IMPORTED)
         set_property(TARGET elftc PROPERTY
-          IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/libelftc.a")
+          IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libelftc.a")
       endif ()
-      if (WIN32 AND EXISTS "${cwd}/../ext/lib${bits}/${type}/dwarf.lib")
+      if (WIN32 AND EXISTS "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/dwarf.lib")
         add_library(dwarf STATIC IMPORTED)
         set_property(TARGET dwarf PROPERTY
-          IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/dwarf.lib")
+          IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/dwarf.lib")
         add_library(elftc STATIC IMPORTED)
         set_property(TARGET elftc PROPERTY
-          IMPORTED_LOCATION "${cwd}/../ext/lib${bits}/${type}/elftc.lib")
+          IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/elftc.lib")
       endif ()
 
       # Define imported target for DynamoRIO library, to allow dependencies on
@@ -339,7 +341,7 @@ function (configure_DynamoRIO_global is_cxx change_flags)
       # We always link to release build.  At runtime debug build can be
       # swapped in instead.
       # We assume is_x64 can have only one value per configuration.
-      include(${cwd}/DynamoRIOTarget${bits}.cmake)
+      include(${DynamoRIO_cwd}/DynamoRIOTarget${bits}.cmake)
     endif (NOT DynamoRIO_INTERNAL)
   endif (NOT already_configured_project)
 
@@ -752,9 +754,9 @@ function (use_DynamoRIO_extension target extname)
     endif ()
     # See whether this Extension is packaged with DynamoRIO:
     if (UNIX)
-      file(GLOB libs "${cwd}/../ext/lib*/*/lib${extname}.*")
+      file(GLOB libs "${DynamoRIO_cwd}/../ext/lib*/*/lib${extname}.*")
     else (UNIX)
-      file(GLOB libs "${cwd}/../ext/lib*/*/${extname}.*")
+      file(GLOB libs "${DynamoRIO_cwd}/../ext/lib*/*/${extname}.*")
     endif (UNIX)
     if (NOT libs OR DynamoRIO_EXT_${extname}_INC)
       # Support for 3rd party Extensions: caller calls find_package()
@@ -764,7 +766,7 @@ function (use_DynamoRIO_extension target extname)
     else ()
       # Local extensions are exported in the same cmake file as DynamoRIO
       # so we do not need to include another file here.
-      include_directories(${cwd}/../ext/include)
+      include_directories(${DynamoRIO_cwd}/../ext/include)
     endif ()
   else (NOT DynamoRIO_INTERNAL)
     # support building from build dir for our own samples, and from
