@@ -572,4 +572,7 @@ get_shared_lib_name(app_pc map);
 app_pc
 get_image_entry(void);
 
+void
+privload_load_finalized(privmod_t *mod);
+
 #endif /* MODULE_LIST_H */

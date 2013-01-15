@@ -90,6 +90,8 @@ DECLARE_NEVERPROT_VAR(static char forwmodpath[MAXIMUM_PATH], {0});
 /* Written during initialization only */
 static char systemroot[MAXIMUM_PATH];
 
+static bool windbg_cmds_initialized;
+
 /* PE entry points take 3 args */
 typedef BOOL (WINAPI *dllmain_t)(HANDLE, DWORD, LPVOID);
 
@@ -111,6 +113,9 @@ privload_map_name(const char *impname, privmod_t *immed_dep);
 
 static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent);
+
+static void
+privload_add_windbg_cmds_post_init(privmod_t *mod);
 
 /* Redirection of ntdll routines that for transparency reasons we can't
  * point at the real ntdll.  If we get a lot of these should switch to
@@ -1165,6 +1170,13 @@ privload_load_private_library(const char *name)
         res = newmod->base;
     release_recursive_lock(&privload_lock);
     return res;
+}
+
+void
+privload_load_finalized(privmod_t *mod)
+{
+    if (windbg_cmds_initialized) /* we added libs loaded at init time already */
+        privload_add_windbg_cmds_post_init(mod);
 }
 
 bool
@@ -2832,8 +2844,9 @@ privload_add_windbg_cmds(void)
      * and marker->dr_base_addr
      */
 
-    /* XXX: currently only adding those on the list at init time: ignoring
-     * later load or unload
+    /* XXX: currently only adding those on the list at init time here
+     * and later loaded in privload_add_windbg_cmds_post_init(): ignoring
+     * unloaded modules.
      */
 
     acquire_recursive_lock(&privload_lock);
@@ -2845,6 +2858,20 @@ privload_add_windbg_cmds(void)
                 break;
         }
     }
+    windbg_cmds_initialized = true;
+    release_recursive_lock(&privload_lock);
+}
+
+static void
+privload_add_windbg_cmds_post_init(privmod_t *mod)
+{
+    /* i#522: print windbg commands to locate DR and priv libs */
+    dr_marker_t *marker = get_drmarker();
+    size_t sofar;
+    acquire_recursive_lock(&privload_lock);
+    /* privload_lock is our synch mechanism for drmarker windbg field */
+    sofar = strlen(marker->windbg_cmds);
+    add_mod_to_drmarker(marker, mod->path, mod->name, mod->base, &sofar);
     release_recursive_lock(&privload_lock);
 }
 

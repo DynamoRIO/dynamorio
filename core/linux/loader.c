@@ -760,6 +760,12 @@ privload_load_private_library(const char *name)
     return res;
 }
 
+void
+privload_load_finalized(privmod_t *mod)
+{
+    /* nothing further to do */
+}
+
 static bool
 privload_search_rpath(privmod_t *mod, const char *name,
                       char *filename OUT /* buffer size is MAXIMUM_PATH */)

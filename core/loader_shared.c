@@ -618,6 +618,8 @@ privload_load_finalize(privmod_t *privmod)
         return false;
     }
 
+    privload_load_finalized(privmod);
+
     LOG(GLOBAL, LOG_LOADER, 1, "%s: loaded %s @ "PFX"-"PFX" from %s\n", __FUNCTION__,
         privmod->name, privmod->base, privmod->base + privmod->size, privmod->path);
     return true;
