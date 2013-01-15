@@ -3458,8 +3458,11 @@ load_shared_library(const char *name)
         return dlopen(NULL, RTLD_LAZY);  /* Gets a handle to the exe. */
     }
 # endif
+    /* We call locate_and_load_private_library() to support searching for
+     * a pathless name.
+     */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
-        return (shlib_handle_t)load_private_library(name);
+        return (shlib_handle_t) locate_and_load_private_library(name);
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlopen(name, RTLD_LAZY);
 }

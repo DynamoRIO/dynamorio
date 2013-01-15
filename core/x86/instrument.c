@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -3667,7 +3667,8 @@ dr_enable_console_printing(void)
              * for us.  XXX: should add os-shared interface for
              * locate-and-load.
              */
-            priv_kernel32 = (shlib_handle_t) privload_load_private_library("kernel32.dll");
+            priv_kernel32 = (shlib_handle_t)
+                locate_and_load_private_library("kernel32.dll");
         }
         if (priv_kernel32 != NULL && kernel32_WriteFile == NULL) {
             kernel32_WriteFile = (kernel32_WriteFile_t)

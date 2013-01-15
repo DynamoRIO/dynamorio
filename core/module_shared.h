@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -501,6 +501,11 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
 /* ************************************************************************* *
  * os specific functions in loader.c, can be called from loader_shared.c     *
  * ************************************************************************* */
+
+/* searches in standard paths instead of requiring abs path */
+app_pc
+privload_load_private_library(const char *name);
+
 void
 privload_redirect_setup(privmod_t *mod);
 

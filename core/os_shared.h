@@ -989,6 +989,8 @@ void landing_pads_to_executable_areas(bool add);
 /* in loader_shared.c */
 app_pc load_private_library(const char *filename);
 bool unload_private_library(app_pc modbase);
+/* searches in standard paths instead of requiring abs path */
+app_pc locate_and_load_private_library(const char *name);
 void loader_init(void);
 void loader_exit(void);
 void loader_thread_init(dcontext_t *dcontext);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -1135,7 +1135,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
     return map;
 }
 
-privmod_t *
+static privmod_t *
 privload_lookup_locate_and_load(const char *name, privmod_t *name_dependent,
                                 privmod_t *load_dependent, bool inc_refcnt)
 {
@@ -1595,6 +1595,12 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
      * we additionally support loading from the Extensions dir
      * (i#277/PR 540817, added to search_paths in privload_init_search_paths()).
      */
+
+    /* We may be passed a full path. */
+    if (os_file_exists(impname, false/*!is_dir*/)) {
+        mod = privload_load(impname, dependent);
+        return mod; /* if fails to load, don't keep searching */
+    }
 
     /* 1) client lib dir(s) and Extensions dir */
     for (i = 0; i < search_paths_idx; i++) {

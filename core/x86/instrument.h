@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2108,6 +2108,10 @@ DR_API
  * dr_memory_is_in_client() and any faults in the library will be
  * considered client faults.  The bounds of the loaded library are
  * returned in the optional out variables.  On failure, returns NULL.
+ *
+ * If only a filename and not a full path is given, this routine will
+ * search for the library in the standard search locations for DR's
+ * private loader.
  */
 dr_auxlib_handle_t
 dr_load_aux_library(const char *name,

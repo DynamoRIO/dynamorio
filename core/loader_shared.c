@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -221,7 +221,17 @@ loader_thread_exit(dcontext_t *dcontext)
     os_loader_thread_exit(dcontext);
 }
 
-/* load private library for DR's client */
+/* Given a path-less name, locates and loads a private library for DR's client.
+ * Will also accept a full path.
+ */
+app_pc
+locate_and_load_private_library(const char *name)
+{
+    DODEBUG(privload_recurse_cnt = 0;);
+    return privload_load_private_library(name);
+}
+
+/* Load private library for DR's client.  Must be passed a full path. */
 app_pc
 load_private_library(const char *filename)
 {

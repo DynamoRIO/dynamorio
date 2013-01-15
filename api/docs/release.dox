@@ -123,6 +123,7 @@ The current version is \DR_VERSION.
 The changes between version \DR_VERSION and 4.0.1 include:
 
  - Added the \p drtable Extension which provides simple table management
+ - Added path searching support to dr_load_aux_library()
 
 **************************************************
 <hr>
