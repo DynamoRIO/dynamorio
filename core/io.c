@@ -354,7 +354,7 @@ parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed
     uint i;  /* Use an index rather than pointer to compare with width. */
 
     /* Check for invalid base. */
-    if (base < 0 || base > 36 || base == 1) {
+    if (base > 36 || base == 1) {
         *res_out = (uint64) -1LL;
         return NULL;
     }

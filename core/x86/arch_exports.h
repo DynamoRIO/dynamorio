@@ -498,6 +498,7 @@ atomic_exchange_int(volatile int *var, int newval)
     return result;
 }
 
+#ifdef X64
 /* returns true if var was equal to compare, and now is equal to exchange, 
    otherwise returns false
  */ 
@@ -514,6 +515,7 @@ static inline bool atomic_compare_exchange_int64(volatile int64 *var,
        although we could put the return value in EAX ourselves */
     return c == 0;
 }
+#endif
 
 /* atomically adds value to memory location var and returns the sum */
 static inline int atomic_add_exchange_int(volatile int *var, int value)

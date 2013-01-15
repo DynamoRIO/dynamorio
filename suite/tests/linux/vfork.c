@@ -78,6 +78,7 @@ run_child(void *arg)
 {
     /* i#500: Avoid libc in the child. */
     nolibc_print("child thread running\n");
+    return 0;
 }
 
 int main(int argc, char** argv)
