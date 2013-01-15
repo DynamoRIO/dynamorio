@@ -277,13 +277,9 @@ function (set_compile_flags target tgt_cflags)
   set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${tgt_definc}")
 endfunction(set_compile_flags)
 
-# We need to perform some global config once per cmake directory.
-# We want it to work even if the caller puts code in a function
-# (=> no PARENT_SCOPE var) and we want to re-execute on each re-config
-# (=> no CACHE INTERNAL).  A global property w/ the listdir in the name
-# fits the bill.  Xref i#1052.
-set_property(GLOBAL PROPERTY
-  DynamoRIO_configured_globally_${CMAKE_CURRENT_LIST_DIR} OFF)
+# Global config once per project.  See i#1052 comments below for why
+# we use a global property w/ the project name in it rather than
+# any other kind of variable.
 set_property(GLOBAL PROPERTY
   DynamoRIO_configured_globally_${CMAKE_PROJECT_NAME} OFF)
 
@@ -345,10 +341,18 @@ function (configure_DynamoRIO_global is_cxx change_flags)
     endif (NOT DynamoRIO_INTERNAL)
   endif (NOT already_configured_project)
 
-  # Should only be done once per listdir
+  # We need to perform some global config once per cmake directory.
+  # We want it to work even if the caller puts code in a function
+  # (=> no PARENT_SCOPE var) and we want to re-execute on each re-config
+  # (=> no CACHE INTERNAL).  A global property w/ the listdir in the name
+  # fits the bill.  Xref i#1052.
+  if (NOT DEFINED CMAKE_CURRENT_LIST_DIR)
+    # CMAKE_CURRENT_LIST_DIR was added in CMake 2.8.3 (i#1056).
+    get_filename_component(CMAKE_CURRENT_LIST_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+  endif ()
   get_property(already_configured_listdir GLOBAL PROPERTY
     DynamoRIO_configured_globally_${CMAKE_CURRENT_LIST_DIR})
-  if (NOT already_configured_listdir)
+  if (NOT DEFINED already_configured_listdir)
     set_property(GLOBAL PROPERTY
       DynamoRIO_configured_globally_${CMAKE_CURRENT_LIST_DIR} ON)
 
@@ -395,7 +399,7 @@ function (configure_DynamoRIO_global is_cxx change_flags)
       endforeach (config)
     endif (change_flags)
 
-  endif (NOT already_configured_listdir)
+  endif (NOT DEFINED already_configured_listdir)
 endfunction (configure_DynamoRIO_global)
 
 function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
