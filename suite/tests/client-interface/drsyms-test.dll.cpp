@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,7 +64,8 @@ static void lookup_overloads(const char *exe_path);
 extern "C" DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drsym_init(0);
+    drsym_error_t r = drsym_init(0);
+    ASSERT(r == DRSYM_SUCCESS);
     drwrap_init();
     dr_register_exit_event(event_exit);
 
