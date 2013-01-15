@@ -439,6 +439,7 @@ request_region_be_heap_reachable(byte *start, size_t size)
         start, start+size, must_reach_region_start, must_reach_region_end,
         heap_allowable_region_start, heap_allowable_region_end);
     ASSERT(!POINTER_OVERFLOW_ON_ADD(start, size));
+    ASSERT(size > 0);
 
     mutex_lock(&request_region_be_heap_reachable_lock);
     if (start < must_reach_region_start) {

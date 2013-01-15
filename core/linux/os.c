@@ -396,11 +396,9 @@ static void os_dir_iterator_start(dir_iterator_t *iter, file_t fd);
 static bool os_dir_iterator_next(dir_iterator_t *iter);
 /* XXX: If we generalize to Windows, will we need os_dir_iterator_stop()? */
 
-#if defined(CLIENT_INTERFACE) || !defined(STATIC_LIBRARY)
 static int
 get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
                    char *fullpath/*OPTIONAL OUT*/, size_t path_size);
-#endif
 
 /* vsyscall page.  hardcoded at 0xffffe000 in earlier kernels, but
  * randomly placed since fedora2.
@@ -7438,7 +7436,6 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
 }
 #endif
 
-#if defined(CLIENT_INTERFACE) || !defined(STATIC_LIBRARY)
 /* Finds the bounds of the library with name "name".  If "name" is NULL,
  * "start" must be non-NULL and must be an address within the library.
  * Note that we can't just walk backward and look for is_elf_so_header() b/c
@@ -7606,9 +7603,7 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
         *end = cur_end;
     return count;
 }
-#endif /* CLIENT_INTERFACE || !STATIC_LIBRARY */
 
-#ifndef STATIC_LIBRARY
 /* initializes dynamorio library bounds.
  * does not use any heap.
  * assumed to be called prior to find_executable_vm_areas.
@@ -7622,25 +7617,40 @@ get_dynamo_library_bounds(void)
      * never-execute-from-DR-areas list rule
      */
     int res;
+    app_pc check_start, check_end;
+    char *libdir;
+    const char *dynamorio_libname;
+#ifdef STATIC_LIBRARY
+    /* We don't know our image name, so look up our bounds with an internal
+     * address.
+     */
+    dynamorio_libname = NULL;
+    check_start = (app_pc)&get_dynamo_library_bounds;
+#else /* !STATIC_LIBRARY */
     /* PR 361594: we get our bounds from linker-provided symbols.
      * Note that referencing the value of these symbols will crash:
      * always use the address only.
      */
     extern int dynamorio_so_start, dynamorio_so_end;
-    app_pc check_start, check_end;
-    char *libdir;
     dynamo_dll_start = (app_pc) &dynamorio_so_start;
     dynamo_dll_end = (app_pc) ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
-#ifndef HAVE_PROC_MAPS
+# ifndef HAVE_PROC_MAPS
     check_start = dynamo_dll_start;
-#endif
-    res = get_library_bounds(IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME,DYNAMORIO_LIBRARY_NAME),
+# endif
+    dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME,DYNAMORIO_LIBRARY_NAME);
+#endif /* STATIC_LIBRARY */
+    res = get_library_bounds(dynamorio_libname,
                              &check_start, &check_end,
                              dynamorio_library_path,
                              BUFFER_SIZE_ELEMENTS(dynamorio_library_path));
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME" library path: %s\n",
         dynamorio_library_path);
+#ifndef STATIC_LIBRARY
     ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
+#else
+    dynamo_dll_start = check_start;
+    dynamo_dll_end   = check_end;
+#endif
     LOG(GLOBAL, LOG_VMAREAS, 1, "DR library bounds: "PFX" to "PFX"\n",
         dynamo_dll_start, dynamo_dll_end);
     ASSERT(res > 0);
@@ -7663,17 +7673,14 @@ get_dynamo_library_bounds(void)
 
     return res;
 }
-#endif /* !STATIC_LIBRARY */
 
 /* get full path to our own library, (cached), used for forking and message file name */
 char*
 get_dynamorio_library_path(void)
 {
-#ifndef STATIC_LIBRARY
     if (!dynamorio_library_path[0]) { /* not cached */
         get_dynamo_library_bounds();
     }
-#endif
     return dynamorio_library_path;
 }
 
@@ -7738,15 +7745,10 @@ mem_stats_snapshot()
 }
 #endif
 
-/* i#975: with STATIC_LIBRARY, our code is mixed into the executable.  We
- * pretend DR has bounds of [0, 0), and nothing is in those bounds.
- */
 bool
 is_in_dynamo_dll(app_pc pc)
 {
-#ifndef STATIC_LIBRARY
     ASSERT(dynamo_dll_start != NULL);
-#endif
 #ifdef VMX86_SERVER
     /* We want to consider vmklib as part of the DR lib for allowing
      * execution (_init calls os_in_vmkernel_classic()) and for
@@ -7755,28 +7757,30 @@ is_in_dynamo_dll(app_pc pc)
     if (vmk_in_vmklib(pc))
         return true;
 #endif
+#ifdef STATIC_LIBRARY
+    /* i#975: with STATIC_LIBRARY, we can't separate our code from the
+     * executable, so we always return false.
+     */
+    return false;
+#endif
     return (pc >= dynamo_dll_start && pc < dynamo_dll_end);
 }
 
 app_pc
 get_dynamorio_dll_start()
 {
-#ifndef STATIC_LIBRARY
     if (dynamo_dll_start == NULL)
         get_dynamo_library_bounds();
     ASSERT(dynamo_dll_start != NULL);
-#endif
     return dynamo_dll_start;
 }
 
 app_pc
 get_dynamorio_dll_end()
 {
-#ifndef STATIC_LIBRARY
     if (dynamo_dll_end == NULL)
         get_dynamo_library_bounds();
     ASSERT(dynamo_dll_end != NULL);
-#endif
     return dynamo_dll_end;
 }
 
