@@ -208,7 +208,18 @@ loader_thread_exit(dcontext_t *dcontext)
 {
     privmod_t *mod;
     /* assuming context swap have happened when entered DR */
-    if (privload_has_thread_entry()) {
+    if (privload_has_thread_entry() &&
+        /* Only call if we're cleaning up the currently executing thread, as
+         * that's what the entry routine is going to do!  Calling on other
+         * threads results in problems like double frees (i#969).  Exiting
+         * another thread should only happen on process exit or forced thread
+         * termination.  The former can technically continue (app could call
+         * NtTerminateProcess(0) but then keep going) but we have never seen
+         * that; and the latter doesn't do full native cleanups anyway.  Thus
+         * we're not worried about leaks from not calling DLL_THREAD_EXIT.
+         * (We can't check get_thread_private_dcontext() b/c it's already cleared.)
+         */
+        dcontext->owning_thread == get_thread_id()) {
         acquire_recursive_lock(&privload_lock);
         /* Walk forward and call independent libs last */
          for (mod = modlist; mod != NULL; mod = mod->next) {
