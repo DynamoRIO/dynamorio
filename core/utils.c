@@ -396,6 +396,15 @@ locks_not_closed()
     while (cur_lock != &innermost_lock) {
         if (allow_do_threshold_leaks && cur_lock->rank == LOCK_RANK(do_threshold_mutex)) {
             ignored++;
+        } else if (cur_lock->deleted &&
+                   (IF_WINDOWS(cur_lock->rank == LOCK_RANK(debugbox_lock) ||
+                               cur_lock->rank == LOCK_RANK(dump_core_lock) ||)
+                    cur_lock->rank == LOCK_RANK(report_buf_lock) ||
+                    cur_lock->rank == LOCK_RANK(datasec_selfprot_lock) ||
+                    cur_lock->rank == LOCK_RANK(logdir_mutex) ||
+                    cur_lock->rank == LOCK_RANK(options_lock))) {
+            /* i#1058: curiosities during exit re-acquire these locks. */
+            ignored++;
         } else {
             LOG(GLOBAL, LOG_STATS, 1, "missing DELETE_LOCK on lock "PFX" %s\n",
                 cur_lock, cur_lock->name);
@@ -404,7 +413,7 @@ locks_not_closed()
         cur_lock = cur_lock->next_process_lock;
     }
     mutex_unlock(&innermost_lock);
-    LOG(GLOBAL, LOG_STATS, 3, "locks_not_closed= %d remaining, %d DO_THRESHOLD_SAFE ignored\n", 
+    LOG(GLOBAL, LOG_STATS, 3, "locks_not_closed= %d remaining, %d ignored\n",
         forgotten, ignored);
     return forgotten;
 }
@@ -933,6 +942,7 @@ mutex_delete(mutex_t *lock)
 #ifdef DEADLOCK_AVOIDANCE
     LOG(THREAD_GET, LOG_THREADS, 2, "mutex_delete" DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
     remove_process_lock(lock);
+    lock->deleted = true;
 #endif    
     ASSERT(lock->lock_requests == LOCK_FREE_STATE);
 

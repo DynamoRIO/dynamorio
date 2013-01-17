@@ -258,6 +258,7 @@ typedef struct _mutex_t {
 #else
 #  define MAX_MUTEX_CALLSTACK 0 /* cannot use */
 #endif /* MUTEX_CALLSTACK */
+    bool deleted;  /* this lock has been deleted at least once */
 #endif /* DEADLOCK_AVOIDANCE */
     /* Any new field needs to be initialized with INIT_LOCK_NO_TYPE */
 } mutex_t;
