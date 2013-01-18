@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2996,7 +2996,7 @@ const instr_info_t prefix_extensions[][8] = {
   },
   /* prefix extension 53: all assumed to have Ib */
   { /* note that gnu tools print immed first: pinsrw $0x0,(%esp),%xmm0 */
-    {OP_pinsrw,   0x0fc410, "pinsrw", Pq, xx, Ed, Ib, xx, mrm|vex, x, tpe[53][2]},
+    {OP_pinsrw,   0x0fc410, "pinsrw", Pq, xx, Ed, Ib, xx, mrm, x, tpe[53][2]},
     {INVALID,   0xf30fc410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_pinsrw, 0x660fc410, "pinsrw", Vdq, xx, Ed, Ib, xx, mrm, x, END_LIST},
     {INVALID,   0xf20fc410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},

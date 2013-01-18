@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,6 +43,7 @@ OPCODE(pshufw, pshufw, pshufw, 0, REGARG(MM0), MEMARG(OPSZ_8), IMMARG(OPSZ_1))
 OPCODE(pshufd, pshufd, pshufd, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(pshufhw, pshufhw, pshufhw, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(pshuflw, pshuflw, pshuflw, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(pinsrw_8, pinsrw, pinsrw, 0, REGARG(MM0), MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(pinsrw, pinsrw, pinsrw, 0, REGARG(XMM0), MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(pextrw, pextrw, pextrw, 0, REGARG(EAX), REGARG(XMM0), IMMARG(OPSZ_1))
 OPCODE(pextrb, pextrb, pextrb, 0, REGARG(EAX), REGARG(XMM0), IMMARG(OPSZ_1))
