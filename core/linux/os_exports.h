@@ -45,7 +45,9 @@
 #include <stdarg.h>
 #include "../os_shared.h"
 
-#define getpid getpid_forbidden_use_get_process_id
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+# define getpid getpid_forbidden_use_get_process_id
+#endif
 
 #define DYNAMORIO_LIBRARY_NAME "libdynamorio.so"
 #define DYNAMORIO_PRELOAD_NAME "libdrpreload.so"

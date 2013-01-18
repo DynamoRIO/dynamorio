@@ -39,21 +39,16 @@
 #include "configure.h"
 #include "globals_shared.h"
 #include "../config.h"  /* for get_config_val_other_app */
+#include "../globals.h"
 
 #include <assert.h>
 #include <errno.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
-/* Never actually called, but needed to link in config.c. */
-const char *
-get_application_short_name(void)
-{
-    return "";
-}
 
 /* Opaque type to users, holds our state */
 typedef struct _dr_inject_info_t {
@@ -65,8 +60,62 @@ typedef struct _dr_inject_info_t {
     bool exec_self;
 } dr_inject_info_t;
 
-/* libc's environment pointer. */
-extern char **environ;
+/*******************************************************************************
+ * Core compatibility layer
+ */
+
+/* Never actually called, but needed to link in config.c. */
+const char *
+get_application_short_name(void)
+{
+    ASSERT(false);
+    return "";
+}
+
+/* Map module safe reads to just memcpy. */
+bool
+safe_read(const void *base, size_t size, void *out_buf)
+{
+    memcpy(out_buf, base, size);
+    return true;
+}
+
+/* Shadow DR's internal_error so assertions work in standalone mode.  DR tries
+ * to use safe_read to take a stack trace, but none of its signal handlers are
+ * installed, so it will segfault before it prints our error.
+ */
+void
+internal_error(const char *file, int line, const char *expr)
+{
+    fprintf(stderr, "ASSERT failed: %s:%d (%s)\n", file, line, expr);
+    fflush(stderr);
+    abort();
+}
+
+bool
+ignore_assert(const char *assert_stmt, const char *expr)
+{
+    return false;
+}
+
+void
+report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
+                         app_pc exception_addr, app_pc report_ebp,
+                         const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, "DynamoRIO problem: ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+    fflush(stderr);
+    abort();
+}
+
+/*******************************************************************************
+ * Injection implementation
+ */
 
 static process_id_t
 fork_suspended_child(const char *exe, const char **argv, int fds[2])

@@ -46,6 +46,11 @@ typedef union _elf_generic_header_t {
     Elf32_Ehdr elf32;
 } elf_generic_header_t;
 
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+# undef LOG
+# define LOG(...) /* nothing */
+#else /* !NOT_DYNAMORIO_CORE_PROPER */
+
 #ifdef CLIENT_INTERFACE
 typedef struct _elf_import_iterator_t {
     dr_symbol_import_t symbol_import;   /* symbol import returned by next() */
@@ -94,6 +99,7 @@ module_hashtab_init(os_module_data_t *os_data);
  * etc.
  */
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 /* Is there an ELF header for a shared object at address 'base'? 
  * If size == 0 then checks for header readability else assumes that size bytes from
@@ -180,6 +186,8 @@ os_modules_exit(void)
     /* nothing */
 }
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+
 /* Returns absolute address of the ELF dynamic array DT_ target */
 static app_pc
 elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size,
@@ -219,6 +227,8 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size,
     return tgt;
 }
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
 uint
 module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
 {
@@ -231,6 +241,8 @@ module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
         segment_prot |= MEMPROT_READ;
     return segment_prot;
 }
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 /* Adds an entry for a segment to the out_data->segments array */
 static void
@@ -473,6 +485,8 @@ module_num_program_headers(app_pc base)
     return elf_hdr->e_phnum;
 }
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
 /* Returns the minimum p_vaddr field, aligned to page boundaries, in
  * the loadable segments in the prog_header array, or POINTER_MAX if
  * there are no loadable segments.
@@ -504,6 +518,8 @@ module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
         *out_end = mod_end;
     return min_vaddr;
 }
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 bool
 module_read_program_header(app_pc base,
@@ -1846,6 +1862,8 @@ module_relocate_rela(app_pc modbase,
         module_relocate_symbol((ELF_REL_TYPE *)rela, pd, true);
 }
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
 /* Get the module text section from the mapped image file, 
  * Note that it must be the image file, not the loaded module.
  */
@@ -1872,6 +1890,8 @@ module_get_text_section(app_pc file_map, size_t file_size)
     ASSERT_CURIOSITY(false);
     return 0;
 }
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 /* This routine allocates memory from DR's global memory pool.  Unlike
  * dr_global_alloc(), however, we store the size of the allocation in
@@ -1942,3 +1962,236 @@ redirect_free(void *mem)
     }
 }
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
+static bool
+os_read_until(file_t fd, void *buf, size_t toread)
+{
+    ssize_t nread;
+    while (toread > 0) {
+        nread = os_read(fd, buf, toread);
+        if (nread < 0)
+            break;
+        toread -= nread;
+    }
+    return (toread == 0);
+}
+
+bool
+elf_loader_init(elf_loader_t *elf, const char *filename)
+{
+    memset(elf, 0, sizeof(*elf));
+    elf->filename = filename;
+    elf->fd = os_open(filename, OS_OPEN_READ);
+    return elf->fd != INVALID_FILE;
+}
+
+void
+elf_loader_destroy(elf_loader_t *elf)
+{
+    if (elf->fd != INVALID_FILE) {
+        os_close(elf->fd);
+    }
+    if (elf->file_map != NULL) {
+        os_unmap_file(elf->file_map, elf->file_size);
+    }
+    memset(elf, 0, sizeof(*elf));
+}
+
+ELF_HEADER_TYPE *
+elf_loader_read_ehdr(elf_loader_t *elf)
+{
+    /* The initial read is sized to read both ehdr and all phdrs. */
+    if (elf->fd == INVALID_FILE)
+        return NULL;
+    if (elf->file_map != NULL) {
+        /* The user mapped the entire file up front, so use it. */
+        elf->ehdr = (ELF_HEADER_TYPE *) elf->file_map;
+    } else {
+        if (!os_read_until(elf->fd, elf->buf, sizeof(elf->buf)))
+            return NULL;
+        if (!is_elf_so_header(elf->buf, sizeof(elf->buf)))
+            return NULL;
+        elf->ehdr = (ELF_HEADER_TYPE *) elf->buf;
+    }
+    return elf->ehdr;
+}
+
+app_pc
+elf_loader_map_file(elf_loader_t *elf)
+{
+    uint64 size64;
+    if (elf->file_map != NULL)
+        return elf->file_map;
+    if (elf->fd == INVALID_FILE)
+        return NULL;
+    if (!os_get_file_size_by_handle(elf->fd, &size64))
+        return NULL;
+    ASSERT_TRUNCATE(elf->file_size, size_t, size64);
+    elf->file_size = (size_t)size64;  /* truncate */
+    /* We use os_map_file instead of map_file since this mapping is temporary.
+     * We don't need to add and remove it from dynamo_areas.
+     */
+    elf->file_map = os_map_file(elf->fd, &elf->file_size, 0, NULL, MEMPROT_READ,
+                                true/*cow*/, false/*image*/, false/*fixed*/);
+    return elf->file_map;
+}
+
+ELF_PROGRAM_HEADER_TYPE *
+elf_loader_read_phdrs(elf_loader_t *elf)
+{
+    size_t ph_off;
+    size_t ph_size;
+    if (elf->ehdr == NULL)
+        return NULL;
+    ph_off = elf->ehdr->e_phoff;
+    ph_size = elf->ehdr->e_phnum * elf->ehdr->e_phentsize;
+    if (elf->file_map == NULL && ph_off + ph_size < sizeof(elf->buf)) {
+        /* We already read phdrs, and they are in buf. */
+        elf->phdrs = (ELF_PROGRAM_HEADER_TYPE *) (elf->buf + elf->ehdr->e_phoff);
+    } else {
+        /* We have large or distant phdrs, so map the whole file.  We could
+         * seek and read just the phdrs to avoid disturbing the address space,
+         * but that would introduce a dependency on DR's heap.
+         */
+        if (elf_loader_map_file(elf) == NULL)
+            return NULL;
+        elf->phdrs = (ELF_PROGRAM_HEADER_TYPE *) (elf->file_map +
+                                                  elf->ehdr->e_phoff);
+    }
+    return elf->phdrs;
+}
+
+bool
+elf_loader_read_headers(elf_loader_t *elf, const char *filename)
+{
+    if (!elf_loader_init(elf, filename))
+        return false;
+    if (elf_loader_read_ehdr(elf) == NULL)
+        return false;
+    if (elf_loader_read_phdrs(elf) == NULL)
+        return false;
+    return true;
+}
+
+app_pc
+elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
+                     unmap_fn_t unmap_func, prot_fn_t prot_func)
+{
+    app_pc lib_base, lib_end, last_end;
+    ELF_HEADER_TYPE *elf_hdr = elf->ehdr;
+    app_pc  map_base, map_end;
+    reg_t   pg_offs;
+    uint   seg_prot, i;
+    ptr_int_t delta;
+
+    ASSERT(elf->phdrs != NULL && "call elf_loader_read_phdrs() first");
+    if (elf->phdrs == NULL)
+        return NULL;
+
+    map_base = module_vaddr_from_prog_header((app_pc)elf->phdrs,
+                                             elf->ehdr->e_phnum, &map_end);
+    elf->image_size = map_end - map_base;
+
+    /* reserve the memory from os for library */
+    lib_base = (*map_func)(-1, &elf->image_size, 0, map_base,
+                           MEMPROT_WRITE | MEMPROT_READ /* prot */,
+                           true  /* copy-on-write */,
+                           true  /* image, make it reachable */,
+                           fixed);
+    ASSERT(lib_base != NULL);
+    lib_end = lib_base + elf->image_size;
+    elf->load_base = lib_base;
+
+    if (map_base != NULL && map_base != lib_base) {
+        /* the mapped memory is not at preferred address,
+         * should be ok if it is still reachable for X64,
+         * which will be checked later.
+         */
+        LOG(GLOBAL, LOG_LOADER, 1, "%s: module not loaded at preferred address\n",
+            __FUNCTION__);
+    }
+    delta = lib_base - map_base;
+    elf->load_delta = delta;
+
+    /* walk over the program header to load the individual segments */
+    last_end = lib_base;
+    for (i = 0; i < elf_hdr->e_phnum; i++) {
+        app_pc seg_base, seg_end, map, file_end;
+        size_t seg_size;
+        ELF_PROGRAM_HEADER_TYPE *prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)
+            ((byte *)elf->phdrs + i * elf_hdr->e_phentsize);
+        if (prog_hdr->p_type == PT_LOAD) {
+            seg_base = (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE)
+                       + delta;
+            seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
+                                             prog_hdr->p_filesz,
+                                             PAGE_SIZE)
+                       + delta;
+            seg_size = seg_end - seg_base;
+            if (seg_base != last_end) {
+                /* XXX: a hole, I reserve this space instead of unmap it */
+                size_t hole_size = seg_base - last_end;
+                (*prot_func)(last_end, hole_size, MEMPROT_NONE);
+            }
+            seg_prot = module_segment_prot_to_osprot(prog_hdr);
+            pg_offs  = ALIGN_BACKWARD(prog_hdr->p_offset, PAGE_SIZE);
+            /* FIXME:
+             * This function can be called after dynamorio_heap_initialized,
+             * and we will use map_file instead of os_map_file.
+             * However, map_file does not allow mmap with overlapped memory,
+             * so we have to unmap the old memory first.
+             * This might be a problem, e.g.
+             * one thread unmaps the memory and before mapping the actual file,
+             * another thread requests memory via mmap takes the memory here,
+             * a racy condition.
+             */
+            (*unmap_func)(seg_base, seg_size);
+            map = (*map_func)(elf->fd, &seg_size, pg_offs,
+                              seg_base /* base */,
+                              seg_prot | MEMPROT_WRITE /* prot */,
+                              true /* writes should not change file */,
+                              true /* image */,
+                              true /* fixed */);
+            ASSERT(map != NULL);
+            /* fill zeros at extend size */
+            file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
+            if (seg_end > file_end + delta)
+                memset(file_end + delta, 0, seg_end - (file_end + delta));
+            seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
+                                             prog_hdr->p_memsz,
+                                             PAGE_SIZE) + delta;
+            seg_size = seg_end - seg_base;
+            (*prot_func)(seg_base, seg_size, seg_prot);
+            last_end = seg_end;
+        }
+    }
+    ASSERT(last_end == lib_end);
+    /* FIXME: recover from map failure rather than relying on asserts. */
+
+    return lib_base;
+}
+
+/* Iterate program headers of a mapped ELF image and find the string that
+ * PT_INTERP points to.  Typically this comes early in the file and is always
+ * included in PT_LOAD segments, so we safely do this after the initial
+ * mapping.
+ */
+const char *
+elf_loader_find_pt_interp(elf_loader_t *elf)
+{
+    int i;
+    ELF_HEADER_TYPE *ehdr = elf->ehdr;
+    ELF_PROGRAM_HEADER_TYPE *phdrs = elf->phdrs;
+
+    ASSERT(elf->load_base != NULL && "call elf_loader_map_phdrs() first");
+    if (ehdr == NULL || phdrs == NULL || elf->load_base == NULL)
+        return NULL;
+    for (i = 0; i < ehdr->e_phnum; i++) {
+        if (phdrs[i].p_type == PT_INTERP) {
+            return (const char *) (phdrs[i].p_vaddr + elf->load_delta);
+        }
+    }
+
+    return NULL;
+}

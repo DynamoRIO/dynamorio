@@ -178,6 +178,9 @@ if (UNIX)
     linux/injector.c
     config.c    # to read config
     linux/os.c  # for file_t interface
+    linux/module.c
+    string.c
+    io.c
     ${x86_noncore_asm_src}  # for dynamorio_syscall
     )
 else (UNIX)
@@ -340,6 +343,9 @@ add_library(drdecode
   )
 set_target_properties(drdecode PROPERTIES
   COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
+if (UNIX)
+  append_property_string(TARGET drdecode COMPILE_FLAGS "-fPIC")
+endif (UNIX)
 add_gen_events_deps(drdecode)
 
 ###########################################################################
@@ -670,6 +676,7 @@ endif (UNIX)
 # drinjectlib
 add_library(drinjectlib SHARED ${INJECTOR_SRCS})
 add_gen_events_deps(drinjectlib)
+target_link_libraries(drinjectlib drdecode)
 set_target_properties(drinjectlib PROPERTIES
   # COMPILE_DEFINITONS isn't working for me: cmake bug?
   # Set define parameters for resources.rc
