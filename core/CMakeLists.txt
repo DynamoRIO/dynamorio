@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -591,8 +591,10 @@ else (UNIX)
       "${dynamorio_link_flags} /export:dr_app_start /export:dr_app_take_over")
   endif (APP_EXPORTS)
   if (CLIENT_INTERFACE)
-    set(dynamorio_link_flags 
-      "${dynamorio_link_flags} /export:dr_try_start")
+    set(dynamorio_link_flags "${dynamorio_link_flags} /export:dr_try_start")
+    if (NOT X64)
+      set(dynamorio_link_flags "${dynamorio_link_flags} /export:dr_invoke_x64_routine")
+    endif (NOT X64)
   endif (CLIENT_INTERFACE)
   if (WINDOWS)
     set(dynamorio_link_flags

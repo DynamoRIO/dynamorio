@@ -310,6 +310,15 @@ void os_syslog(syslog_event_type_t priority, uint message_id,
 typedef void * dr_auxlib_handle_t;
 /** An exported routine in a loaded client auxiliary library. */
 typedef void (*dr_auxlib_routine_ptr_t)();
+#if defined(WINDOWS) && !defined(X64)
+/**
+ * A handle to a loaded 64-bit client auxiliary library.  This is a different
+ * type than module_handle_t and is not necessarily the base address.
+ */
+typedef uint64 dr_auxlib64_handle_t;
+/** An exported routine in a loaded 64-bit client auxiliary library. */
+typedef uint64 dr_auxlib64_routine_ptr_t;
+#endif
 /* DR_API EXPORT END */
 
 /* Note that this is NOT identical to module_handle_t: on Linux this

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -163,71 +163,9 @@ display_error(char *msg)
 typedef int (*int_func_t) ();
 typedef void (*void_func_t) ();
 
-#ifndef X64
-/* in x86/pre_inject.asm */
-extern int
-switch_modes_and_load(void *ntdll64_LdrLoadDll, UNICODE_STRING_64 *lib, HANDLE *result);
-
-/* in x86/pre_inject.asm */
+/* in x86/x86.asm */
 extern int
 switch_modes_and_call(void_func_t func, void *arg);
-
-static HANDLE
-load_library_64(const char *path)
-{
-    HANDLE ntdll64;
-    HANDLE result;
-    int success;
-    byte *ntdll64_LoadLibrary;
-
-    /* We hand-build our UNICODE_STRING_64 rather than jumping through
-     * hoops to call ntdll64's RtlInitUnicodeString */
-    UNICODE_STRING_64 us;
-    wchar_t wpath[MAXIMUM_PATH + 1];
-    _snwprintf(wpath, BUFFER_SIZE_ELEMENTS(wpath), L"%S", path);
-    NULL_TERMINATE_BUFFER(wpath);
-
-    ASSERT((wcslen(wpath) + 1) * sizeof(wchar_t) <= USHRT_MAX);
-    us.Length = (USHORT) wcslen(wpath) * sizeof(wchar_t);
-    /* If not >= 2 bytes larger then STATUS_INVALID_PARAMETER ((NTSTATUS)0xC000000DL) */
-    us.MaximumLength = (USHORT) (wcslen(wpath) + 1) * sizeof(wchar_t);
-    us.Buffer = wpath;
-    us.Buffer_hi = 0;
-
-    ntdll64 = get_module_handle_64(L"ntdll.dll");
-    if (ntdll64 == NULL)
-        return NULL;
-    VERBOSE_MESSAGE("Found ntdll64 at 0x%08x %s\n", ntdll64, path);
-    /* There is no kernel32 so we use LdrLoadDll.
-     * 32-bit GetProcAddress is doing some header checks and fails,
-     * Our 32-bit get_proc_address does work though.
-     */
-    ntdll64_LoadLibrary = (byte *) get_proc_address_64(ntdll64, "LdrLoadDll");
-    VERBOSE_MESSAGE("Found ntdll64!LdrLoadDll at 0x%08x\n", ntdll64_LoadLibrary);
-    if (ntdll64_LoadLibrary == NULL)
-        return NULL;
-
-    success = switch_modes_and_load(ntdll64_LoadLibrary, &us, &result);
-    VERBOSE_MESSAGE("Loaded at 0x%08x with success 0x%08x\n", result, success);
-    if (success >= 0)
-        return result;
-    else
-        return NULL;
-}
-
-static void
-free_library_64(HANDLE lib)
-{
-    void_func_t ntdll64_LdrUnloadDll;
-    int res;
-    HANDLE ntdll64= get_module_handle_64(L"ntdll.dll");
-    if (ntdll64 == NULL)
-        return;
-    ntdll64_LdrUnloadDll = (void_func_t) get_proc_address_64(ntdll64, "LdrUnloadDll");
-    res = switch_modes_and_call(ntdll64_LdrUnloadDll, (void *)lib);
-    ASSERT(res >= 0);
-}
-#endif
 
 static bool
 load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
@@ -367,9 +305,13 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
              * what's going on)
              */
 #ifndef X64
-            if (x64_in_wow64)
-                free_library_64(dll);
-            else
+            if (x64_in_wow64) {
+# ifdef DEBUG
+                bool ok =
+# endif
+                    free_library_64(dll);
+                ASSERT(ok);
+            } else
 #endif
                 FreeLibrary(dll);
 #ifdef DEBUG

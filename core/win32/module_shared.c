@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -86,6 +86,8 @@ bool is_readable_without_exception(const byte *pc, size_t size);
 # pragma warning(disable : 4055)
 # pragma warning(disable : 4054)
 # define convert_data_to_function(func) ((generic_func_t) (func))
+# undef LOG /* remove preinject's LOG */
+# define LOG(...) /* nothing */
 #endif
 
 /* This routine was moved here from os.c since we need it for 
@@ -158,14 +160,13 @@ get_module_exports_directory_common(app_pc base_addr,
 #endif
         expdir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_EXPORT;
 
-    /* avoid link issues: we don't have is_readable_pe_base */
+    /* avoid preinject link issues: we don't have is_readable_pe_base */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     /* callers should have done this in release builds */
     ASSERT(is_readable_pe_base(base_addr));
 #endif
 
     /* RVA conversions are trivial only for MEM_IMAGE */
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     DODEBUG({
         MEMORY_BASIC_INFORMATION mbi;
         size_t len = query_virtual_memory(base_addr, &mbi, sizeof(mbi));
@@ -178,26 +179,19 @@ get_module_exports_directory_common(app_pc base_addr,
             ASSERT_CURIOSITY(expdir == NULL || expdir->Size == 0);
         }
     });
-#endif
 
-    /* libutil doesn't support vararg macros so can't undef-out */
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     LOG(THREAD_GET, LOG_SYMBOLS, 5, 
         "get_module_exports_directory(base_addr="PFX", expdir="PFX")\n",
         base_addr, expdir);
-#endif
 
     if (expdir != NULL) {
         ULONG size = expdir->Size;
         ULONG exports_vaddr = expdir->VirtualAddress;
 
-        /* libutil doesn't support vararg macros so can't undef-out */
-#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
         LOG(THREAD_GET, LOG_SYMBOLS, 5, 
             "get_module_exports_directory(base_addr="PFX") expdir="PFX
             " size=%d exports_vaddr=%d\n", 
             base_addr, expdir, size, exports_vaddr);
-#endif
 
         /* not all DLLs have exports - e.g. drpreinject.dll, or
          * shdoclc.dll in notepad help */
@@ -328,7 +322,7 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
         /* just extra sanity check */ exports->AddressOfNames == 0)
         return NULL;
 
-    /* avoid non-core issues: we don't have module_size */
+    /* avoid preinject issues: doesn't have module_size */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     /* sanity check */
     ASSERT(exports->AddressOfFunctions < module_size &&
@@ -636,6 +630,16 @@ typedef struct ALIGN_VAR(8) _LDR_MODULE_64 {
     ULONG TimeDateStamp;
 } LDR_MODULE_64;
 
+typedef void (*void_func_t) ();
+
+/* in x86/x86.asm */
+extern int
+switch_modes_and_load(void *ntdll64_LdrLoadDll, UNICODE_STRING_64 *lib, HANDLE *result);
+
+/* in x86/x86.asm */
+extern int
+switch_modes_and_call(void_func_t func, void *arg);
+
 /* Here and not in ntdll.c b/c libutil targets link to this file but not
  * ntdll.c
  */
@@ -662,16 +666,14 @@ get_ldr_data_64(void)
     return *(PEB_LDR_DATA_64 **)(peb64 + X64_LDR_PEB_OFFSET);
 }
 
-/* returns NULL if no loader module is found
- * N.B.: walking loader data structures at random times is dangerous! See
- * get_ldr_module_by_pc in module.c for code to grab the ldr lock (which is
- * also unsafe).  Here we presume that we already own the ldr lock and that
- * the ldr list is consistent, which should be the case for preinject (the only
- * user).  FIXME stick this in module.c with get_ldr_module_by_pc, would need
- * to get module.c compiled into preinjector which is a significant hassle.
+/* Pass either name or base.
+ * 
+ * XXX: this can be racy, accessing app loader data structs!  Use with care.
+ * Caller should synchronize w/ other threads, and avoid calling while app
+ * holds the x64 loader lock.
  */
-HANDLE
-get_module_handle_64(wchar_t *name)
+static LDR_MODULE_64 *
+get_ldr_module_64(wchar_t *name, byte *base)
 {
     PEB_LDR_DATA_64 *ldr = get_ldr_data_64();
     LIST_ENTRY_64 *e, *mark;
@@ -695,8 +697,9 @@ get_module_handle_64(wchar_t *name)
          */
         ASSERT(mod->BaseDllName.Length <= mod->BaseDllName.MaximumLength &&
                mod->BaseDllName.Buffer != NULL);
-        if (wcscasecmp(name, mod->BaseDllName.Buffer) == 0) {
-            return (HANDLE) mod->BaseAddress;
+        if ((name != NULL && wcscasecmp(name, mod->BaseDllName.Buffer) == 0) ||
+            (base != NULL && (byte *)mod->BaseAddress == base)) {
+            return mod;
         }
 
         if (traversed++ > MAX_MODULE_LIST_INFINITE_LOOP_THRESHOLD) {
@@ -711,12 +714,133 @@ get_module_handle_64(wchar_t *name)
     return NULL;
 }
 
+/* returns NULL if no loader module is found
+ * N.B.: walking loader data structures at random times is dangerous! See
+ * get_ldr_module_by_pc in module.c for code to grab the ldr lock (which is
+ * also unsafe).  Here we presume that we already own the ldr lock and that
+ * the ldr list is consistent, which should be the case for preinject (the only
+ * user).  FIXME stick this in module.c with get_ldr_module_by_pc, would need
+ * to get module.c compiled into preinjector which is a significant hassle.
+ *
+ * This is now used by more than just preinjector, and it's up to the caller
+ * to synchronize and avoid calling while the app holds the x64 loader lock.
+ */
+HANDLE
+get_module_handle_64(wchar_t *name)
+{
+    LDR_MODULE_64 *mod = get_ldr_module_64(name, NULL);
+    if (mod != NULL)
+        return (HANDLE) mod->BaseAddress;
+    else
+        return NULL;
+}
+
 /* we return void* since that's easier for preinject and drmarker to deal with */
 void *
 get_proc_address_64(HANDLE lib, const char *name)
 {
     return (void *) get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(true), NULL);
 }
+
+/* Excluding from libutil b/c it doesn't need it and it would be a pain
+ * to switch _snwprintf, etc. to work w/ UNICODE.
+ * Up to caller to synchronize and avoid interfering w/ app.
+ */
+# ifndef NOT_DYNAMORIO_CORE
+HANDLE
+load_library_64(const char *path)
+{
+    HANDLE ntdll64;
+    HANDLE result;
+    int success;
+    byte *ntdll64_LoadLibrary;
+
+    /* We hand-build our UNICODE_STRING_64 rather than jumping through
+     * hoops to call ntdll64's RtlInitUnicodeString */
+    UNICODE_STRING_64 us;
+    wchar_t wpath[MAXIMUM_PATH + 1];
+    _snwprintf(wpath, BUFFER_SIZE_ELEMENTS(wpath), L"%S", path);
+    NULL_TERMINATE_BUFFER(wpath);
+
+    ASSERT((wcslen(wpath) + 1) * sizeof(wchar_t) <= USHRT_MAX);
+    us.Length = (USHORT) wcslen(wpath) * sizeof(wchar_t);
+    /* If not >= 2 bytes larger then STATUS_INVALID_PARAMETER ((NTSTATUS)0xC000000DL) */
+    us.MaximumLength = (USHORT) (wcslen(wpath) + 1) * sizeof(wchar_t);
+    us.Buffer = wpath;
+    us.Buffer_hi = 0;
+
+    /* this is racy, but it's up to the caller to synchronize */
+    ntdll64 = get_module_handle_64(L"ntdll.dll");
+    if (ntdll64 == NULL)
+        return NULL;
+
+    LOG(THREAD_GET, LOG_LOADER, 3, "Found ntdll64 at 0x%08x %s\n", ntdll64, path);
+    /* There is no kernel32 so we use LdrLoadDll.
+     * 32-bit GetProcAddress is doing some header checks and fails,
+     * Our 32-bit get_proc_address does work though.
+     */
+    ntdll64_LoadLibrary = (byte *) get_proc_address_64(ntdll64, "LdrLoadDll");
+    LOG(THREAD_GET, LOG_LOADER, 3, "Found ntdll64!LdrLoadDll at 0x%08x\n",
+        ntdll64_LoadLibrary);
+    if (ntdll64_LoadLibrary == NULL)
+        return NULL;
+
+    /* XXX: the WOW64 x64 loader refuses to load kernel32.dll via a name
+     * check versus ntdll!Kernel32String (pre-Win7) or ntdll!LdrpKernel32DllName
+     * (Win7).  That's not an exported symbol so we can't robustly locate it
+     * to work around it (in tests, disabling the check leads to successfully
+     * loading kernel32, though its entry point fails on Vista+).
+     */
+    success = switch_modes_and_load(ntdll64_LoadLibrary, &us, &result);
+    LOG(THREAD_GET, LOG_LOADER, 3, "Loaded at 0x%08x with success 0x%08x\n",
+        result, success);
+    if (success >= 0) {
+        /* preinject doesn't have get_os_version() but it only loads DR */
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+        if (get_os_version() >= WINDOWS_VERSION_VISTA) {
+            /* The WOW64 x64 loader on Vista+ does not seem to
+             * call any entry points so we do so here.
+             *
+             * FIXME i#979: we should walk the Ldr list afterward to see what
+             * dependent libs were loaded so we can call their entry points.
+             *
+             * FIXME i#979: we should check for the Ldr entry existing already to
+             * avoid calling the entry point twice!
+             */
+            LDR_MODULE_64 *mod = get_ldr_module_64(NULL, (byte *)result);
+            dr_auxlib64_routine_ptr_t entry;
+            ASSERT(mod != NULL);
+            entry = (dr_auxlib64_routine_ptr_t) mod->EntryPoint;
+            if (entry != NULL) {
+                if (dr_invoke_x64_routine(entry, 3, result, DLL_PROCESS_ATTACH, NULL))
+                    return result;
+                else {
+                    LOG(THREAD_GET, LOG_LOADER, 1, "init routine for %s failed!\n", path);
+                    free_library_64(result);
+                }
+            } else
+                return result;
+        } else
+#endif
+            return result;
+    }
+    return NULL;
+}
+
+bool
+free_library_64(HANDLE lib)
+{
+    void_func_t ntdll64_LdrUnloadDll;
+    int res;
+    HANDLE ntdll64= get_module_handle_64(L"ntdll.dll");
+    if (ntdll64 == NULL)
+        return false;
+    ntdll64_LdrUnloadDll = (void_func_t)
+        convert_data_to_function(get_proc_address_64(ntdll64, "LdrUnloadDll"));
+    res = switch_modes_and_call(ntdll64_LdrUnloadDll, (void *)lib);
+    return (res >= 0);
+}
+# endif /* !NOT_DYNAMORIO_CORE */
 
 #endif /* !X64 */
 /****************************************************************************/

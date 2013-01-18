@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1563,6 +1563,13 @@ get_ldr_module_by_name(wchar_t *name);;
 #ifndef X64
 void *
 get_own_x64_peb(void);
+
+/* caller must synchronize if not called during init */
+HANDLE
+load_library_64(const char *path);
+
+bool
+free_library_64(HANDLE lib);
 
 HANDLE
 get_module_handle_64(wchar_t *name);

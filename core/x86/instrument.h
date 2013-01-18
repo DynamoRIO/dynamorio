@@ -2137,6 +2137,91 @@ dr_unload_aux_library(dr_auxlib_handle_t lib);
 
 /* DR_API EXPORT BEGIN */
 
+#if defined(WINDOWS) && !defined(X64)
+/* DR_API EXPORT END */
+DR_API
+/**
+ * Similar to dr_load_aux_library(), but loads a 64-bit library for
+ * access from a 32-bit process running on a 64-bit Windows kernel.
+ * Fails if called from a 32-bit kernel or from a 64-bit process.
+ * The library will be located in the low part of the address space
+ * with 32-bit addresses.
+ * Functions in the library can be called with dr_invoke_x64_routine().
+ *
+ * \warning Invoking 64-bit code is fragile.  Currently, this routine
+ * uses the system loader, under the assumption that little isolation
+ * is needed versus application 64-bit state.  Consider use of this routine
+ * experimental: use at your own risk!
+ *
+ * \note Windows-only.
+ *
+ * \note Currently this routine does not support loading kernel32.dll
+ * or any library that depends on it.
+ * It also does not invoke the entry point for any dependent libraries
+ * loaded as part of loading \p name.
+ *
+ * \note Currently this routine does not support Windows 8.
+ */
+dr_auxlib64_handle_t
+dr_load_aux_x64_library(const char *name);
+
+DR_API
+/**
+ * Looks up the exported routine with the given name in the given
+ * 64-bit client auxiliary library loaded by dr_load_aux_x64_library().  Returns
+ * NULL on failure.
+ * The returned function can be called with dr_invoke_x64_routine().
+ *
+ * \note Windows-only.
+ *
+ * \note Currently this routine does not support Windows 8.
+ */
+dr_auxlib64_routine_ptr_t
+dr_lookup_aux_x64_library_routine(dr_auxlib64_handle_t lib, const char *name);
+
+DR_API
+/**
+ * Unloads the given library, which must have been loaded by
+ * dr_load_aux_x64_library().  Returns whether successful.
+ *
+ * \note Windows-only.
+ */
+bool
+dr_unload_aux_x64_library(dr_auxlib64_handle_t lib);
+
+DR_API
+/**
+ * Must be called from 32-bit mode.  Switches to 64-bit mode, calls \p
+ * func64 with the given parameters, switches back to 32-bit mode, and
+ * then returns to the caller.  Requires that \p func64 be located in
+ * the low 4GB of the address space.  All parameters must be 32-bit
+ * sized, and all are widened via sign-extension when passed to \p
+ * func64.
+ *
+ * \return -1 on failure; else returns the return value of \p func64.
+ *
+ * \warning Invoking 64-bit code is fragile.  The WOW64 layer assumes
+ * there is no other 64-bit code that will be executed.
+ * dr_invoke_x64_routine() attempts to save the WOW64 state, but it
+ * has not been tested in all versions of WOW64.  Also, invoking
+ * 64-bit code that makes callbacks is not supported, as not only a
+ * custom wrapper to call the 32-bit code in the right mode would be
+ * needed, but also a way to restore the WOW64 state in case the
+ * 32-bit callback makes a system call.  Consider use of this routine
+ * experimental: use at your own risk!
+ *
+ * \note Windows-only.
+ */
+int64
+dr_invoke_x64_routine(dr_auxlib64_routine_ptr_t func64, uint num_params, ...);
+
+/* DR_API EXPORT BEGIN */
+
+#endif /* WINDOWS && !X64 */
+/* DR_API EXPORT END */
+
+/* DR_API EXPORT BEGIN */
+
 /**************************************************
  * LOCK SUPPORT
  */

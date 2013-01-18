@@ -124,6 +124,10 @@ The changes between version \DR_VERSION and 4.0.1 include:
 
  - Added the \p drtable Extension which provides simple table management
  - Added path searching support to dr_load_aux_library()
+ - Added limited, experimental support for 32-bit WOW64 clients to use
+   64-bit libraries and code via dr_load_aux_x64_library(),
+   dr_lookup_aux_x64_library_routine(), dr_unload_aux_x64_library(), and
+   dr_invoke_x64_routine().
 
 **************************************************
 <hr>

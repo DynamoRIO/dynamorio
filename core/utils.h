@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -470,6 +470,9 @@ enum {
 #endif    
 #ifdef CLIENT_INTERFACE
     LOCK_RANK(client_aux_libs),
+# ifdef WINDOWS
+    LOCK_RANK(client_aux_lib64_lock),
+# endif
 #endif
     /* ADD HERE a lock around section that may allocate memory */
 

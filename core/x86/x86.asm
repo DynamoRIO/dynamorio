@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -2305,6 +2305,231 @@ GLOBAL_LABEL(load_dynamo_failure:)
         ret
         END_FUNC(load_dynamo_failure)
         
+
+/***************************************************************************/
+#ifndef X64
+
+/* Routines to switch to 64-bit mode from 32-bit WOW64, make a 64-bit
+ * call, and then return to 32-bit mode.
+ */
+
+/* FIXME: check these selector values on all platforms: these are for XPSP2.
+ * Keep in synch w/ defines in arch.h.
+ */
+# define CS32_SELECTOR HEX(23)
+# define CS64_SELECTOR HEX(33)
+
+/*
+ * int switch_modes_and_load(void *ntdll64_LdrLoadDll,
+ *                           UNICODE_STRING_64 *lib,
+ *                           HANDLE *result)
+ */
+# define FUNCNAME switch_modes_and_load
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* get args before we change esp */
+        mov      eax, ARG1
+        mov      ecx, ARG2
+        mov      edx, ARG3
+        /* save callee-saved registers */
+        push     ebx
+        /* far jmp to next instr w/ 64-bit switch: jmp 0033:<sml_transfer_to_64> */
+        RAW(ea)
+        DD offset sml_transfer_to_64
+        DB CS64_SELECTOR
+        RAW(00)
+sml_transfer_to_64:
+    /* Below here is executed in 64-bit mode, but with guarantees that
+     * no address is above 4GB, as this is a WOW64 process.
+     */
+       /* Call LdrLoadDll to load 64-bit lib:
+        *   LdrLoadDll(IN PWSTR DllPath OPTIONAL,
+        *              IN PULONG DllCharacteristics OPTIONAL,
+        *              IN PUNICODE_STRING DllName,
+        *              OUT PVOID *DllHandle));
+        */
+        RAW(4c) RAW(8b) RAW(ca)  /* mov r9, rdx : 4th arg: result */
+        RAW(4c) RAW(8b) RAW(c1)  /* mov r8, rcx : 3rd arg: lib */
+        push     0               /* slot for &DllCharacteristics */
+        lea      edx, dword ptr [esp] /* 2nd arg: &DllCharacteristics */
+        xor      ecx, ecx        /* 1st arg: DllPath = NULL */
+        /* save WOW64 state */
+        RAW(41) push     esp /* push r12 */
+        RAW(41) push     ebp /* push r13 */
+        RAW(41) push     esi /* push r14 */
+        RAW(41) push     edi /* push r15 */
+        /* align the stack pointer */
+        mov      ebx, esp        /* save esp in callee-preserved reg */
+        sub      esp, 32         /* call conv */
+        and      esp, HEX(fffffff0) /* align to 16-byte boundary */
+        call     eax
+        mov      esp, ebx        /* restore esp */
+        /* restore WOW64 state */
+        RAW(41) pop      edi /* pop r15 */
+        RAW(41) pop      esi /* pop r14 */
+        RAW(41) pop      ebp /* pop r13 */
+        RAW(41) pop      esp /* pop r12 */
+        /* far jmp to next instr w/ 32-bit switch: jmp 0023:<sml_return_to_32> */
+        push     offset sml_return_to_32  /* 8-byte push */
+        mov      dword ptr [esp + 4], CS32_SELECTOR /* top 4 bytes of prev push */
+        jmp      fword ptr [esp]
+sml_return_to_32:
+        add      esp, 16         /* clean up far jmp target and &DllCharacteristics */
+        pop      ebx             /* restore callee-saved reg */
+        ret                      /* return value already in eax */
+        END_FUNC(FUNCNAME)
+
+/*
+ * int switch_modes_and_call(void_func_t func, void *arg)
+ */
+# undef FUNCNAME
+# define FUNCNAME switch_modes_and_call
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      eax, ARG1
+        mov      ecx, ARG2
+        /* save callee-saved registers */
+        push     ebx
+        /* far jmp to next instr w/ 64-bit switch: jmp 0033:<smc_transfer_to_64> */
+        RAW(ea)
+        DD offset smc_transfer_to_64
+        DB CS64_SELECTOR
+        RAW(00)
+smc_transfer_to_64:
+    /* Below here is executed in 64-bit mode, but with guarantees that
+     * no address is above 4GB, as this is a WOW64 process.
+     */
+        /* save WOW64 state */
+        RAW(41) push     esp /* push r12 */
+        RAW(41) push     ebp /* push r13 */
+        RAW(41) push     esi /* push r14 */
+        RAW(41) push     edi /* push r15 */
+        /* align the stack pointer */
+        mov      ebx, esp        /* save esp in callee-preserved reg */
+        sub      esp, 32         /* call conv */
+        and      esp, HEX(fffffff0) /* align to 16-byte boundary */
+        call     eax             /* arg is already in rcx */
+        mov      esp, ebx        /* restore esp */
+        /* restore WOW64 state */
+        RAW(41) pop      edi /* pop r15 */
+        RAW(41) pop      esi /* pop r14 */
+        RAW(41) pop      ebp /* pop r13 */
+        RAW(41) pop      esp /* pop r12 */
+        /* far jmp to next instr w/ 32-bit switch: jmp 0023:<smc_return_to_32> */
+        push     offset smc_return_to_32  /* 8-byte push */
+        mov      dword ptr [esp + 4], CS32_SELECTOR /* top 4 bytes of prev push */
+        jmp      fword ptr [esp]
+smc_return_to_32:
+        add      esp, 8          /* clean up far jmp target */
+        pop      ebx             /* restore callee-saved reg */
+        ret                      /* return value already in eax */
+        END_FUNC(FUNCNAME)
+
+/*
+ * DR_API ptr_int_t
+ * dr_invoke_x64_routine(dr_auxlib64_routine_ptr_t func64, uint num_params, ...)
+ */
+# undef FUNCNAME
+# define FUNCNAME dr_invoke_x64_routine
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* This is 32-bit so we just need the stack ptr to locate all the args */
+        mov      eax, esp
+        /* save callee-saved registers */
+        push     ebx
+        /* far jmp to next instr w/ 64-bit switch: jmp 0033:<inv64_transfer_to_64> */
+        RAW(ea)
+        DD offset inv64_transfer_to_64
+        DB CS64_SELECTOR
+        RAW(00)
+inv64_transfer_to_64:
+    /* Below here is executed in 64-bit mode, but with guarantees that
+     * no address is above 4GB, as this is a WOW64 process.
+     */
+        /* Save WOW64 state.
+         * FIXME: if the x64 code makes any callbacks, not only do we need
+         * a wrapper to go back to x86 mode but we need to restore these
+         * values in case the x86 callback invokes any syscalls!
+         * Really messy and fragile.
+         */
+        RAW(41) push     esp /* push r12 */
+        RAW(41) push     ebp /* push r13 */
+        RAW(41) push     esi /* push r14 */
+        RAW(41) push     edi /* push r15 */
+        /* align the stack pointer */
+        mov      ebx, esp        /* save esp in callee-preserved reg */
+        sub      esp, 32         /* call conv */
+        mov      ecx, dword ptr [12 + eax] /* #args (func64 takes two slots) */
+        sub      ecx, 4
+        jle      inv64_arg_copy_done
+        shl      ecx, 3          /* (#args-4)*8 */
+        sub      esp, ecx        /* slots for args */
+        and      esp, HEX(fffffff0) /* align to 16-byte boundary */
+        /* copy the args to their stack slots (simpler to copy the 1st 4 too) */
+        mov      ecx, dword ptr [12 + eax] /* #args */
+        cmp      ecx, 0
+        je       inv64_arg_copy_done
+inv64_arg_copy_loop:
+        mov      edx, dword ptr [12 + 4*ecx + eax] /* ecx = 1-based arg ordinal */
+        /* FIXME: sign-extension is not always what the user wants.
+         * But the only general way to solve it would be to take in type codes
+         * for each arg!
+         */
+        RAW(48) RAW(63) RAW(d2)  /* movsxd rdx, edx  (sign-extend) */
+        RAW(48)  /* qword ptr */
+        mov      dword ptr [-8 + 8*ecx + esp], edx
+        sub      ecx, 1 /* we can't use "dec" as it will be encoded wrong! */
+        jnz      inv64_arg_copy_loop
+inv64_arg_copy_done:
+        /* put the 1st 4 args into their reg slots */
+        mov      ecx, dword ptr [12 + eax] /* #args */
+        cmp      ecx, 4
+        jl       inv64_arg_lt4
+        mov      edx, dword ptr [12 + 4*4 + eax] /* 1-based arg ordinal */
+        RAW(4c) RAW(63) RAW(ca) /* movsxd r9, edx */
+inv64_arg_lt4:
+        cmp      ecx, 3
+        jl       inv64_arg_lt3
+        mov      edx, dword ptr [12 + 4*3 + eax] /* 1-based arg ordinal */
+        RAW(4c) RAW(63) RAW(c2) /* movsxd r8, edx */
+inv64_arg_lt3:
+        cmp      ecx, 2
+        jl       inv64_arg_lt2
+        mov      edx, dword ptr [12 + 4*2 + eax] /* 1-based arg ordinal */
+        RAW(48) RAW(63) RAW(d2)  /* movsxd rdx, edx  (sign-extend) */
+inv64_arg_lt2:
+        cmp      ecx, 1
+        jl       inv64_arg_lt1
+        mov      ecx, dword ptr [12 + 4*1 + eax] /* 1-based arg ordinal */
+        RAW(48) RAW(63) RAW(c9)  /* movsxd rcx, ecx  (sign-extend) */
+inv64_arg_lt1:
+        /* make the call */
+        RAW(48)  /* qword ptr */
+        mov      eax, dword ptr [4 + eax] /* func64 */
+        RAW(48) call     eax
+        /* get top 32 bits of return value into edx for 64-bit x86 return value */
+        RAW(48) mov      edx, eax
+        RAW(48) shr      edx, 32
+        mov      esp, ebx        /* restore esp */
+        /* restore WOW64 state */
+        RAW(41) pop      edi /* pop r15 */
+        RAW(41) pop      esi /* pop r14 */
+        RAW(41) pop      ebp /* pop r13 */
+        RAW(41) pop      esp /* pop r12 */
+        /* far jmp to next instr w/ 32-bit switch: jmp 0023:<inv64_return_to_32> */
+        push     offset inv64_return_to_32  /* 8-byte push */
+        mov      dword ptr [esp + 4], CS32_SELECTOR /* top 4 bytes of prev push */
+        jmp      fword ptr [esp]
+inv64_return_to_32:
+        add      esp, 8          /* clean up far jmp target */
+        pop      ebx             /* restore callee-saved reg */
+        ret                      /* return value in edx:eax */
+        END_FUNC(FUNCNAME)
+
+#endif /* !X64 */
+/***************************************************************************/
+
+
 # ifndef NOT_DYNAMORIO_CORE_PROPER
 /* void dynamorio_earliest_init_takeover(void)
  *

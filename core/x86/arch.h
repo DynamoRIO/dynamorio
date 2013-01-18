@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,7 +50,7 @@
 #include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
 
 /* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
- * Keep in synch w/ defines in pre_inject_asm.asm
+ * Keep in synch w/ defines in x86.asm
  */
 #define CS32_SELECTOR 0x23
 #define CS64_SELECTOR 0x33

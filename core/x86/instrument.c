@@ -284,6 +284,11 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_thread_count_lock,
 
 static vm_area_vector_t *client_aux_libs;
 
+#ifdef WINDOWS
+DECLARE_CXTSWPROT_VAR(static mutex_t client_aux_lib64_lock,
+                      INIT_LOCK_FREE(client_aux_lib64_lock));
+#endif
+
 /****************************************************************************/
 /* INTERNAL ROUTINES */
 
@@ -680,6 +685,9 @@ instrument_exit(void)
 
     vmvector_delete_vector(GLOBAL_DCONTEXT, client_aux_libs);
     client_aux_libs = NULL;
+#ifdef WINDOWS
+    DELETE_LOCK(client_aux_lib64_lock);
+#endif
 #if defined(WINDOWS) || defined(CLIENT_SIDELINE)
     DELETE_LOCK(client_thread_count_lock);
 #endif
@@ -2766,6 +2774,58 @@ dr_unload_aux_library(dr_auxlib_handle_t lib)
         return false;
     }
 }
+
+#if defined(WINDOWS) && !defined(X64)
+/* XXX i#1035: these routines all have 64-bit handle and routine types for
+ * handling win8's high ntdll64 in the future.  For now the implementation
+ * treats them as 32-bit types.
+ */
+
+DR_API
+dr_auxlib64_handle_t
+dr_load_aux_x64_library(const char *name)
+{
+    HANDLE h;
+    /* We use the x64 system loader.  We assume that x64 state is fine being
+     * interrupted at arbitrary points during x86 execution, and that there
+     * is little risk of transparency violations.
+     */
+    /* load_library_64() is racy.  We don't expect anyone else to load
+     * x64 libs, but another thread in this client could, so we
+     * serialize here.
+     */
+    mutex_lock(&client_aux_lib64_lock);
+    /* XXX: if we switch to our private loader we'll need to add custom
+     * search support to look in 64-bit system dir
+     */
+    /* XXX: I'd add to the client_aux_libs vector, but w/ the system loader
+     * loading this I don't know all the dependent libs it might load.
+     * Not bothering for now.
+     */
+    h = load_library_64(name);
+    mutex_unlock(&client_aux_lib64_lock);
+    return (dr_auxlib64_handle_t) h;
+}
+
+DR_API
+dr_auxlib64_routine_ptr_t
+dr_lookup_aux_x64_library_routine(dr_auxlib64_handle_t lib, const char *name)
+{
+    void *res = get_proc_address_64((HANDLE)(uint)lib, name); /* uint avoids warning */
+    return (dr_auxlib64_routine_ptr_t) res;
+}
+
+DR_API
+bool
+dr_unload_aux_x64_library(dr_auxlib64_handle_t lib)
+{
+    bool res;
+    mutex_lock(&client_aux_lib64_lock);
+    res = free_library_64((HANDLE)(uint)lib); /* uint cast to avoid cl warning */
+    mutex_unlock(&client_aux_lib64_lock);
+    return res;
+}
+#endif
 
 /***************************************************************************
  * LOCKS
