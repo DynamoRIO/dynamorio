@@ -1459,6 +1459,18 @@ if (CLIENT_INTERFACE)
   tobuild_api(api.dis api/dis.c "-syntax_intel"
     "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
   tobuild_api(api.ir api/ir.c "" "" OFF)
+  if (UNIX)
+    # gcc dependence analysis doesn't find headers in macros
+    set(api_ir_headers # must be full paths:
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_0args.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_1args.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_2args.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_2args_mm.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_3args_avx.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_3args.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_4args.h)
+    append_property_string(SOURCE api/ir.c OBJECT_DEPENDS "${api_ir_headers}")
+  endif (UNIX)
   tobuild_api(api.startstop api/startstop.c "" "" OFF)
   # test static decoder library
   tobuild_api(api.ir-static api/ir.c "" "" ON)

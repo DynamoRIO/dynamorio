@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -839,6 +839,7 @@ static bool
 mem_size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
             opnd_t opnd, int optype, opnd_size_t opsize)
 {
+    opsize = resolve_var_reg_size(opsize, false);
     if (!opnd_is_memory_reference(opnd))
         return false;
     if (opnd_is_base_disp(opnd) && opnd_is_disp_short_addr(opnd))
