@@ -607,12 +607,12 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   endif ()
 
   add_library(${test}.dll ${SHARED_OR_STATIC} ${client_source})
-  set_target_properties(${test}.dll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
   if (NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
     set(DynamoRIO_REG_COMPATIBILITY ON)
   endif (NOT "${source}" MATCHES "cpp\\.cpp")
   configure_DynamoRIO_client(${test}.dll)
+  append_property_string(TARGET ${test}.dll LINK_FLAGS "${ARCH_DEBUG}")
   add_dependencies(${test}.dll api_headers)
   get_client_path(client_path ${test}.dll ${test})
   if (STATIC_LIBRARY)
