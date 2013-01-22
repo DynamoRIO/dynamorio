@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -24,6 +24,7 @@
 /* DynamoRIO Instrumentation Utilities Extension */
 
 #include "dr_api.h"
+#include "drmgr.h"
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user)
@@ -32,6 +33,22 @@
 # define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #else
 # define ASSERT(x, msg) /* nothing */
+#endif
+
+/* There are cases where notifying the user is the right thing, even for a library.
+ * Xref i#1055 where w/o visible notification the user might not know what's
+ * going on.
+ */
+#ifdef WINDOWS
+# define USAGE_ERROR(msg) do { \
+    dr_messagebox("FATAL USAGE ERROR: %s", msg); \
+    dr_abort(); \
+} while (0);
+#else
+# define USAGE_ERROR(msg) do { \
+    dr_fprintf(STDERR, "FATAL USAGE ERROR: %s\n", msg); \
+    dr_abort(); \
+} while (0);
 #endif
 
 #define PRE instrlist_meta_preinsert
@@ -243,10 +260,15 @@ bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT,
                             instr_t **stringop OUT)
 {
-    /* XXX: maybe should add drmgr_is_in_app2app() so can check */
     instr_t *inst, *next_inst;
     bool delete_rest = false;
     uint opc;
+
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_APP2APP) {
+        USAGE_ERROR("drutil_expand_rep_string* must be called from "
+                    "drmgr's app2app phase");
+        return false;
+    }
 
     /* Make a rep string instr be its own bb: the loop is going to
      * duplicate the tail anyway, and have to terminate at the added cbr.
@@ -255,6 +277,14 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
          inst != NULL;
          inst = next_inst) {
         next_inst = instr_get_next(inst);
+        if (!instr_ok_to_mangle(inst)) {
+            /* XXX: we could try to handle meta instrs.  For now we have a bunch
+             * of checks for instrlist_first() (i#1055).
+             */
+            USAGE_ERROR("drutil_expand_rep_string* must be called from drmgr's "
+                        "app2app phase prior to adding any meta instructions");
+            return false;
+        }
         opc = instr_get_opcode(inst);
         if (delete_rest) {
             instrlist_remove(bb, inst);

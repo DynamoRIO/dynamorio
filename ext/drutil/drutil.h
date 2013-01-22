@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drutil: DynamoRIO Instrumentation Utilities
@@ -120,7 +120,7 @@ DR_EXPORT
  * be called from the application-to-application ("app2app") stage
  * (see drmgr_register_bb_app2app_event()).
  *
- * This transformation is determinstic, so the caller can return
+ * This transformation is deterministic, so the caller can return
  * DR_EMIT_DEFAULT from its event.
  *
  * \return whether successful.

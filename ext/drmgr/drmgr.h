@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -172,6 +172,15 @@ typedef struct _drmgr_priority_t {
      */
     int priority;
 } drmgr_priority_t;
+
+/** Labels the current bb building phase */
+typedef enum {
+    DRMGR_PHASE_NONE,         /**< Not currently in a bb building event. */
+    DRMGR_PHASE_APP2APP,      /**< Currently in the app2app phase. */
+    DRMGR_PHASE_ANALYSIS,     /**< Currently in the analysis phase.. */
+    DRMGR_PHASE_INSERTION,    /**< Currently in the instrumentation insertion phase. */
+    DRMGR_PHASE_INSTRU2INSTRU,/**< Currently in the instru2instru phase. */
+} drmgr_bb_phase_t;
 
 /***************************************************************************
  * INIT
@@ -383,6 +392,11 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                              drmgr_ilist_ex_cb_t analysis_func,
                                              drmgr_insertion_cb_t insertion_func,
                                              drmgr_ilist_ex_cb_t instru2instru_func);
+
+DR_EXPORT
+/** Returns which bb phase is the current one, if any. */
+drmgr_bb_phase_t
+drmgr_current_bb_phase(void *drcontext);
 
 /***************************************************************************
  * TLS

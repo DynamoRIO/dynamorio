@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -157,6 +157,9 @@ static uint quartet_count;
 static const drmgr_priority_t default_priority = {
     sizeof(default_priority), "__DEFAULT__", NULL, NULL, 0
 };
+
+/* We store the current bb phase in a TLS slot. */
+static int tls_idx_bb_phase;
 
 static dr_emit_flags_t
 drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
@@ -325,6 +328,8 @@ drmgr_init(void)
     dr_register_exception_event(drmgr_exception_event);
 #endif
 
+    tls_idx_bb_phase = drmgr_register_tls_field();
+
     return true;
 }
 
@@ -336,6 +341,8 @@ drmgr_exit(void)
     int count = dr_atomic_add32_return_sum(&drmgr_init_count, -1);
     if (count != 0)
         return;
+
+    drmgr_unregister_tls_field(tls_idx_bb_phase);
 
     drmgr_bb_exit();
     drmgr_event_exit();
@@ -406,6 +413,11 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
         quartet_data = (void **) dr_thread_alloc(drcontext, sizeof(void*)*quartet_count);
 
     /* Pass 1: app2app */
+    /* XXX: better to avoid all this set_tls overhead and assume DR is globally
+     * synchronizing bb building anyway and use a global var + mutex?
+     */
+    drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
+                        (void *)(ptr_int_t)DRMGR_PHASE_APP2APP);
     for (quartet_idx = 0, e = cblist_app2app; e != NULL;
          e = (cb_entry_t *) e->pri.next) {
         if (e->has_quartet) {
@@ -417,6 +429,8 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     /* Pass 2: analysis */
+    drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
+                        (void *)(ptr_int_t)DRMGR_PHASE_ANALYSIS);
     for (quartet_idx = 0, pair_idx = 0, e = cblist_instrumentation; e != NULL;
          e = (cb_entry_t *) e->pri.next) {
         if (e->has_quartet) {
@@ -432,6 +446,8 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     /* Pass 3: instru, per instr */
+    drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
+                        (void *)(ptr_int_t)DRMGR_PHASE_INSERTION);
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
         for (quartet_idx = 0, pair_idx = 0, e = cblist_instrumentation; e != NULL;
@@ -452,6 +468,8 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     /* Pass 4: final */
+    drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
+                        (void *)(ptr_int_t)DRMGR_PHASE_INSTRU2INSTRU);
     for (quartet_idx = 0, e = cblist_instru2instru; e != NULL;
          e = (cb_entry_t *) e->pri.next) {
         if (e->has_quartet) {
@@ -464,6 +482,9 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
 
     /* Pass 5: our private pass to support multiple non-meta ctis in app2app phase */
     drmgr_fix_app_ctis(drcontext, bb);
+
+    drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
+                        (void *)(ptr_int_t)DRMGR_PHASE_NONE);
 
     if (pair_count > 0)
         dr_thread_free(drcontext, pair_data, sizeof(void*)*pair_count);
@@ -778,6 +799,14 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
     ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL,
                             NULL, instru2instru_func) && ok;
     return ok;
+}
+
+DR_EXPORT
+drmgr_bb_phase_t
+drmgr_current_bb_phase(void *drcontext)
+{
+    return (drmgr_bb_phase_t)(ptr_int_t)
+        drmgr_get_tls_field(drcontext, tls_idx_bb_phase);
 }
 
 /***************************************************************************
