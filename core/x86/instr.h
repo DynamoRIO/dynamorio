@@ -219,6 +219,14 @@ extern const char * const reg_names[];
 extern const reg_id_t dr_reg_fixer[];
 /* DR_API EXPORT BEGIN */
 
+#define DR_REG_START_GPR DR_REG_XAX /**< Start of general register enum values */
+#ifdef X64
+# define DR_REG_STOP_GPR DR_REG_R15 /**< End of general register enum values */
+#else
+# define DR_REG_STOP_GPR DR_REG_XDI /**< End of general register enum values */
+#endif
+/**< Number of general registers */
+#define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR)
 #define DR_REG_START_64    DR_REG_RAX  /**< Start of 64-bit general register enum values */
 #define DR_REG_STOP_64     DR_REG_R15  /**< End of 64-bit general register enum values */  
 #define DR_REG_START_32    DR_REG_EAX  /**< Start of 32-bit general register enum values */
