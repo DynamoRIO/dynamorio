@@ -411,10 +411,12 @@ if (UNIX)
     if (NOT X64)
       # Localizing PIC thunks on ia32 creates references to discarded sections.
       # XXX: Hardcoding this list of symbols is fragile.  It is known to work
-      # with gcc 4.4 and 4.6.
+      # with gcc 4.4 and 4.6.  gcc 4.7 uses symbols starting with __x86.
       set (globalize_pic_thunks ${CMAKE_OBJCOPY}
         --globalize-symbol=__i686.get_pc_thunk.bx
         --globalize-symbol=__i686.get_pc_thunk.cx
+        --globalize-symbol=__x86.get_pc_thunk.bx
+        --globalize-symbol=__x86.get_pc_thunk.cx
         "${dynamorio_dot_o}" &&
         )
     endif ()
