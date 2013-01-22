@@ -330,6 +330,10 @@ typedef void * shlib_handle_t;
 typedef void (*shlib_routine_ptr_t)();
 
 shlib_handle_t load_shared_library(const char *name);
+#elif defined(WINDOWS) && !defined(X64)
+/* Used for non-CLIENT_INTERFACE as well */
+typedef uint64 dr_auxlib64_handle_t;
+typedef uint64 dr_auxlib64_routine_ptr_t;
 #endif
 
 #if defined(CLIENT_INTERFACE)
