@@ -7039,6 +7039,52 @@ check_thread_vm_area_abort(dcontext_t *dcontext, void **vmlist, uint flags)
                                  self_owns_write_lock(&data->areas.lock));
 }
 
+static bool
+allow_xfer_for_frag_flags(dcontext_t *dcontext, app_pc pc,
+                          uint src_flags, uint tgt_flags)
+{
+    /* the flags we don't allow a direct cti to bridge if different */
+    const uint frag_flags_cmp = FRAG_SELFMOD_SANDBOXED | FRAG_COARSE_GRAIN
+#ifdef PROGRAM_SHEPHERDING
+        | FRAG_DYNGEN
+#endif
+        ;
+    uint src_cmp = src_flags & frag_flags_cmp;
+    uint tgt_cmp = tgt_flags & frag_flags_cmp;
+    bool allow = (src_cmp == tgt_cmp) ||
+        /* Case 8917: hack to allow elision of call* to vsyscall-in-ntdll,
+         * while still ruling out fine fragments coming in to coarse regions
+         * (where we'd rather stop the fine and build a (cheaper) coarse bb).
+         * Use == instead of TEST to rule out any other funny flags.
+         */
+        (src_cmp == 0 /* we removed FRAG_COARSE_GRAIN to make this fine */
+         && tgt_cmp == FRAG_COARSE_GRAIN /* still in coarse region though */
+         && TEST(FRAG_HAS_SYSCALL, src_flags));
+    if (TEST(FRAG_COARSE_GRAIN, src_flags)) {
+        /* FIXME case 8606: we can allow intra-module xfers but we have no
+         * way of checking here -- would have to check in
+         * interp.c:check_new_page_jmp().  So for now we disallow all xfers.
+         * If our regions match modules exactly we shouldn't see any
+         * intra-module direct xfers anyway.
+         */
+        /* N.B.: ibl entry removal (case 9636) assumes coarse fragments
+         * stay bounded within contiguous FRAG_COARSE_GRAIN regions
+         */
+        allow = false;
+    }
+    if (!allow) {
+        LOG(THREAD, LOG_VMAREAS, 3,
+            "change in vm area flags (0x%08x vs. 0x%08x %d): "
+            "stopping at "PFX"\n", src_flags, tgt_flags,
+            TEST(FRAG_COARSE_GRAIN, src_flags), pc);
+        DOSTATS({
+            if (TEST(FRAG_COARSE_GRAIN, tgt_flags))
+                STATS_INC(elisions_prevented_for_coarse);
+        });
+    }
+    return allow;
+}
+
 /* check origins of code for several purposes:
  * 1) we need list of areas where this thread's fragments come
  *    from, for faster flushing on munmaps
@@ -7081,12 +7127,6 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     vm_area_t *area = NULL;
     vm_area_t *local_area = NULL; /* entry for this thread */
     vm_area_t area_copy; /* local copy, so can let go of lock */
-    /* the flags we don't allow a direct cti to bridge if different */
-    const uint frag_flags_cmp = FRAG_SELFMOD_SANDBOXED | FRAG_COARSE_GRAIN
-#ifdef PROGRAM_SHEPHERDING
-        | FRAG_DYNGEN
-#endif
-        ;
     /* we can be recursively called (check_origins() calling build_app_bb_ilist())
      * so make sure we don't re-try to get a lock we already hold
      */
@@ -7601,42 +7641,9 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
      * in the same bb as previous areas, as dictated by old flags
      * N.B.: we only care about FRAG_ flags here, not VM_ flags
      */
-    if (xfer) {
-        uint src_cmp = *flags & frag_flags_cmp;
-        uint tgt_cmp = frag_flags & frag_flags_cmp;
-        bool allow = (src_cmp == tgt_cmp) ||
-            /* Case 8917: hack to allow elision of call* to vsyscall-in-ntdll,
-             * while still ruling out fine fragments coming in to coarse regions
-             * (where we'd rather stop the fine and build a (cheaper) coarse bb).
-             * Use == instead of TEST to rule out any other funny flags.
-             */
-            (src_cmp == 0 /* we removed FRAG_COARSE_GRAIN to make this fine */
-             && tgt_cmp == FRAG_COARSE_GRAIN /* still in coarse region though */
-             && TEST(FRAG_HAS_SYSCALL, *flags));
-        if (TEST(FRAG_COARSE_GRAIN, *flags)) {
-            /* FIXME case 8606: we can allow intra-module xfers but we have no
-             * way of checking here -- would have to check in
-             * interp.c:check_new_page_jmp().  So for now we disallow all xfers.
-             * If our regions match modules exactly we shouldn't see any
-             * intra-module direct xfers anyway.
-             */
-            /* N.B.: ibl entry removal (case 9636) assumes coarse fragments
-             * stay bounded within contiguous FRAG_COARSE_GRAIN regions
-             */
-            allow = false;
-        }
-        if (!allow) {
-            LOG(THREAD, LOG_VMAREAS, 3,
-                "change in vm area flags (0x%08x vs. 0x%08x %d): "
-                "stopping at "PFX"\n", *flags, frag_flags,
-                TEST(FRAG_COARSE_GRAIN, *flags), pc);
-            DOSTATS({
-                    if (TEST(FRAG_COARSE_GRAIN, frag_flags))
-                        STATS_INC(elisions_prevented_for_coarse);
-                });
-            result = false;
-            goto check_thread_return;
-        }
+    if (xfer && !allow_xfer_for_frag_flags(dcontext, pc, *flags, frag_flags)) {
+        result = false;
+        goto check_thread_return;
     }
 
     /* Normally we return the union of flags from all vmarea regions touched.
@@ -7836,6 +7843,11 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         ASSERT(area != NULL);
         area_copy = *area;
         area = &area_copy;
+
+        if (xfer && !allow_xfer_for_frag_flags(dcontext, pc, *flags, frag_flags)) {
+            result = false;
+            goto check_thread_return;
+        }
     }
     if (local_area == NULL) {
         /* new area for this thread */
