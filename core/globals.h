@@ -130,6 +130,12 @@
 #  define DR_UNS_API /* nothing */
 #endif
 
+#ifdef WINDOWS
+# define NOINLINE __declspec(noinline)
+#else
+# define NOINLINE __attribute__((noinline))
+#endif
+
 #define INLINE_ONCE inline
 
 #include <stdlib.h>
