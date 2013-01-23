@@ -227,7 +227,35 @@ instr_ok_to_mangle(instr_t *instr)
 }
 
 #ifdef AVOID_API_EXPORT
-/* This is hot internally, but unlikely to be used by clients. */
+/* These are hot internally, but unlikely to be used by clients. */
+INSTR_INLINE
+bool
+instr_operands_valid(instr_t *instr)
+{
+    return TEST(INSTR_OPERANDS_VALID, instr->flags);
+}
+
+INSTR_INLINE
+bool
+instr_raw_bits_valid(instr_t *instr)
+{
+    return TEST(INSTR_RAW_BITS_VALID, instr->flags);
+}
+
+INSTR_INLINE
+bool
+instr_has_allocated_bits(instr_t *instr)
+{
+    return TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags);
+}
+
+INSTR_INLINE
+bool
+instr_needs_encoding(instr_t *instr)
+{
+    return !TEST(INSTR_RAW_BITS_VALID, instr->flags);
+}
+
 INSTR_INLINE
 bool
 instr_ok_to_emit(instr_t *instr)

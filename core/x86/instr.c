@@ -2491,30 +2491,6 @@ instr_set_raw_bits_valid(instr_t *instr, bool valid)
     }
 }
 
-bool
-instr_operands_valid(instr_t *instr)
-{
-    return ((instr->flags & INSTR_OPERANDS_VALID) != 0);
-}
-
-bool
-instr_raw_bits_valid(instr_t *instr)
-{
-    return ((instr->flags & INSTR_RAW_BITS_VALID) != 0);
-}
-
-bool
-instr_has_allocated_bits(instr_t *instr)
-{
-    return ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0);
-}
-
-bool
-instr_needs_encoding(instr_t *instr)
-{
-    return ((instr->flags & INSTR_RAW_BITS_VALID) == 0);
-}
-
 void
 instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
 {
