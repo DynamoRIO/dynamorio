@@ -1,0 +1,221 @@
+/* **********************************************************
+ * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/* kernel32.dll and kernelbase.dll library redirection routines */
+
+#include "../../globals.h"
+#include "../../module_shared.h"
+#include "drwinapi.h"
+#include "kernel32_redir.h"
+
+static HMODULE (WINAPI *priv_kernel32_GetModuleHandleA)(const char *);
+static HMODULE (WINAPI *priv_kernel32_GetModuleHandleW)(const wchar_t *);
+static FARPROC (WINAPI *priv_kernel32_GetProcAddress)(HMODULE, const char *);
+static HMODULE (WINAPI *priv_kernel32_LoadLibraryA)(const char *);
+static HMODULE (WINAPI *priv_kernel32_LoadLibraryW)(const wchar_t *);
+
+void
+kernel32_redir_onload_lib(privmod_t *mod)
+{
+    priv_kernel32_GetModuleHandleA = (HMODULE (WINAPI *)(const char *))
+        get_proc_address_ex(mod->base, "GetModuleHandleA", NULL);
+    priv_kernel32_GetModuleHandleW = (HMODULE (WINAPI *)(const wchar_t *))
+        get_proc_address_ex(mod->base, "GetModuleHandleW", NULL);
+    priv_kernel32_GetProcAddress = (FARPROC (WINAPI *)(HMODULE, const char *))
+        get_proc_address_ex(mod->base, "GetProcAddress", NULL);
+    priv_kernel32_LoadLibraryA = (HMODULE (WINAPI *)(const char *))
+        get_proc_address_ex(mod->base, "LoadLibraryA", NULL);
+    priv_kernel32_LoadLibraryW = (HMODULE (WINAPI *)(const wchar_t *))
+        get_proc_address_ex(mod->base, "LoadLibraryW", NULL);
+}
+
+/* Eventually we should intercept at the Ldr level but that takes more work
+ * so we initially just intercept here.  This is also needed to intercept
+ * FlsAlloc located dynamically by msvcrt init.
+ */
+HMODULE WINAPI
+redirect_GetModuleHandleA(const char *name)
+{
+    privmod_t *mod;
+    app_pc res = NULL;
+    ASSERT(priv_kernel32_GetModuleHandleA != NULL);
+    acquire_recursive_lock(&privload_lock);
+    mod = privload_lookup(name);
+    if (mod != NULL) {
+        res = mod->base;
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => "PFX"\n", __FUNCTION__, name, res);
+    }
+    release_recursive_lock(&privload_lock);
+    if (mod == NULL)
+        return (*priv_kernel32_GetModuleHandleA)(name);
+    else
+        return (HMODULE) res;
+}
+
+HMODULE WINAPI
+redirect_GetModuleHandleW(const wchar_t *name)
+{
+    privmod_t *mod;
+    app_pc res = NULL;
+    char buf[MAXIMUM_PATH];
+    ASSERT(priv_kernel32_GetModuleHandleW != NULL);
+    if (_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", name) < 0)
+        return (*priv_kernel32_GetModuleHandleW)(name);
+    NULL_TERMINATE_BUFFER(buf);
+    acquire_recursive_lock(&privload_lock);
+    mod = privload_lookup(buf);
+    if (mod != NULL) {
+        res = mod->base;
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => "PFX"\n", __FUNCTION__, buf, res);
+    }
+    release_recursive_lock(&privload_lock);
+    if (mod == NULL)
+        return (*priv_kernel32_GetModuleHandleW)(name);
+    else
+        return (HMODULE) res;
+}
+
+FARPROC WINAPI
+redirect_GetProcAddress(app_pc modbase, const char *name)
+{
+    privmod_t *mod;
+    app_pc res = NULL;
+    ASSERT(priv_kernel32_GetProcAddress != NULL);
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"%s\n", __FUNCTION__, modbase, name);
+    acquire_recursive_lock(&privload_lock);
+    mod = privload_lookup_by_base(modbase);
+    if (mod != NULL) {
+        const char *forwarder;
+        res = drwinapi_redirect_imports(mod, name, NULL);
+        /* I assume GetProcAddress returns NULL for forwarded exports? */
+        if (res == NULL)
+            res = (app_pc) get_proc_address_ex(modbase, name, &forwarder);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => "PFX"\n", __FUNCTION__, name, res);
+    }
+    release_recursive_lock(&privload_lock);
+    if (mod == NULL)
+        return (*priv_kernel32_GetProcAddress)((HMODULE)modbase, name);
+    else
+        return (FARPROC) convert_data_to_function(res);
+}
+
+HMODULE WINAPI
+redirect_LoadLibraryA(const char *name)
+{
+    app_pc res = NULL;
+    ASSERT(priv_kernel32_LoadLibraryA != NULL);
+    res = privload_load_private_library(name);
+    if (res == NULL) {
+        /* XXX: if private loader can't handle some feature (delay-load dll,
+         * bound imports, etc.), we could have the private kernel32 call the
+         * shared ntdll which will load the lib and put it in the private PEB's
+         * loader list.  there may be some loader data in ntdll itself which is
+         * shared though so there's a transparency risk: so better to just fail
+         * and if it's important add the feature to our loader.
+         */
+        /* XXX: should set more appropriate error code */
+        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        return NULL;
+    } else
+        return (HMODULE) res;
+}
+
+HMODULE WINAPI
+redirect_LoadLibraryW(const wchar_t *name)
+{
+    app_pc res = NULL;
+    char buf[MAXIMUM_PATH];
+    ASSERT(priv_kernel32_LoadLibraryW != NULL);
+    if (_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", name) < 0)
+        return (*priv_kernel32_LoadLibraryW)(name);
+    NULL_TERMINATE_BUFFER(buf);
+    res = privload_load_private_library(buf);
+    if (res == NULL) {
+        /* XXX: should set more appropriate error code */
+        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        return NULL;
+    } else
+        return (HMODULE) res;
+}
+
+DWORD WINAPI
+redirect_GetModuleFileNameA(HMODULE modbase, char *buf, DWORD bufcnt)
+{
+    privmod_t *mod;
+    DWORD cnt = 0;
+    acquire_recursive_lock(&privload_lock);
+    mod = privload_lookup_by_base((app_pc)modbase);
+    if (mod != NULL) {
+        cnt = (DWORD) strlen(mod->path);
+        if (cnt >= bufcnt) {
+            cnt = bufcnt;
+            (*priv_SetLastError)(ERROR_INSUFFICIENT_BUFFER);
+        }
+        strncpy(buf, mod->path, bufcnt);
+        buf[bufcnt-1] = '\0';
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX" => %s\n", __FUNCTION__, mod, mod->path);
+    }
+    release_recursive_lock(&privload_lock);
+    if (mod == NULL) {
+        /* XXX: should set more appropriate error code */
+        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        return 0;
+    } else
+        return cnt;
+}
+
+DWORD WINAPI
+redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
+{
+    privmod_t *mod;
+    DWORD cnt = 0;
+    acquire_recursive_lock(&privload_lock);
+    mod = privload_lookup_by_base((app_pc)modbase);
+    if (mod != NULL) {
+        cnt = (DWORD) strlen(mod->path);
+        if (cnt >= bufcnt) {
+            cnt = bufcnt;
+            (*priv_SetLastError)(ERROR_INSUFFICIENT_BUFFER);
+        }
+        _snwprintf(buf, bufcnt, L"%s", mod->path);
+        buf[bufcnt-1] = L'\0';
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX" => %s\n", __FUNCTION__, mod, mod->path);
+    }
+    release_recursive_lock(&privload_lock);
+    if (mod == NULL) {
+        /* XXX: should set more appropriate error code */
+        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        return 0;
+    } else
+        return cnt;
+}
+

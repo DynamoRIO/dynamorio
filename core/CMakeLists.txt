@@ -199,6 +199,11 @@ else (UNIX)
     win32/diagnost.c
     win32/aslr.c
     win32/loader.c
+    win32/drwinapi/drwinapi.c
+    win32/drwinapi/ntdll_redir.c
+    win32/drwinapi/kernel32_redir.c
+    win32/drwinapi/kernel32_proc.c
+    win32/drwinapi/kernel32_lib.c
     win32/resources.rc
     ${ntimp_dep}
    )
