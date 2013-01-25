@@ -1777,7 +1777,7 @@ nt_query_security_object(IN HANDLE Handle,
 
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_CreateFile(PHANDLE file_handle,
                   ACCESS_MASK desired_access,
                   POBJECT_ATTRIBUTES object_attributes,
@@ -1790,7 +1790,7 @@ nt_raw_CreateFile(PHANDLE file_handle,
                   PVOID ea_buffer,
                   ULONG ea_length);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenFile(PHANDLE file_handle,
                 ACCESS_MASK desired_access,
                 POBJECT_ATTRIBUTES object_attributes,
@@ -1798,65 +1798,65 @@ nt_raw_OpenFile(PHANDLE file_handle,
                 ULONG share_access,
                 ULONG open_options);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenKey(PHANDLE key_handle,
                ACCESS_MASK desired_access,
                POBJECT_ATTRIBUTES object_attributes);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenKeyEx(PHANDLE key_handle,
                  ACCESS_MASK desired_access,
                  POBJECT_ATTRIBUTES object_attributes,
                  ULONG open_options);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenProcessTokenEx(HANDLE process_handle,
                           ACCESS_MASK desired_access,
                           ULONG handle_attributes,
                           PHANDLE token_handle);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenThread(PHANDLE thread_handle,
                   ACCESS_MASK desired_access,
                   POBJECT_ATTRIBUTES object_attributes,
                   PCLIENT_ID client_id);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenThreadTokenEx(HANDLE thread_handle,
                          ACCESS_MASK desired_access,
                          BOOLEAN open_as_self,
                          ULONG handle_attributes,
                          PHANDLE token_handle);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_QueryAttributesFile(POBJECT_ATTRIBUTES object_attributes,
                            PFILE_BASIC_INFORMATION file_information);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_SetInformationFile(HANDLE file_handle,
                           PIO_STATUS_BLOCK io_status_block,
                           PVOID file_information,
                           ULONG length,
                           FILE_INFORMATION_CLASS file_information_class);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_SetInformationThread(HANDLE thread_handle,
                             THREADINFOCLASS thread_information_class,
                             PVOID thread_information,
                             ULONG thread_information_length);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_UnmapViewOfSection(HANDLE process_handle,
                           PVOID base_address);
 #endif /* !NOT_DYNAMORIO_CORE && !NOT_DYNAMORIO_CORE_PROPER */
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenProcess(PHANDLE process_handle,
                    ACCESS_MASK desired_access,
                    POBJECT_ATTRIBUTES object_attributes,
                    PCLIENT_ID client_id);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_MapViewOfSection(HANDLE section_handle,
                         HANDLE process_handle,
                         PVOID *base_address,
@@ -1868,11 +1868,11 @@ nt_raw_MapViewOfSection(HANDLE section_handle,
                         ULONG allocation_type,
                         ULONG win32_protect);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_QueryFullAttributesFile(POBJECT_ATTRIBUTES object_attributes,
                                PFILE_NETWORK_OPEN_INFORMATION file_information);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_CreateKey(PHANDLE key_handle,
                  ACCESS_MASK desired_access,
                  POBJECT_ATTRIBUTES object_attributes,
@@ -1881,13 +1881,13 @@ nt_raw_CreateKey(PHANDLE key_handle,
                  ULONG create_options,
                  PULONG disposition);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenThreadToken(HANDLE thread_handle,
                        ACCESS_MASK desired_access,
                        BOOLEAN open_as_self,
                        PHANDLE token_handle);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenProcessToken(HANDLE process_handle,
                         ACCESS_MASK desired_access,
                         PHANDLE token_handle);

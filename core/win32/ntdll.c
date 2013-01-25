@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5038,7 +5038,7 @@ GET_RAW_SYSCALL(SetInformationThread,
                 PVOID thread_information,
                 ULONG thread_information_length);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_CreateFile(PHANDLE file_handle,
                   ACCESS_MASK desired_access,
                   POBJECT_ATTRIBUTES object_attributes,
@@ -5073,7 +5073,7 @@ nt_raw_CreateFile(PHANDLE file_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenFile(PHANDLE file_handle,
                 ACCESS_MASK desired_access,
                 POBJECT_ATTRIBUTES object_attributes,
@@ -5098,7 +5098,7 @@ nt_raw_OpenFile(PHANDLE file_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenKey(PHANDLE key_handle,
                ACCESS_MASK desired_access,
                POBJECT_ATTRIBUTES object_attributes)
@@ -5117,7 +5117,7 @@ nt_raw_OpenKey(PHANDLE key_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenKeyEx(PHANDLE key_handle,
                  ACCESS_MASK desired_access,
                  POBJECT_ATTRIBUTES object_attributes,
@@ -5140,7 +5140,7 @@ nt_raw_OpenKeyEx(PHANDLE key_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenProcessTokenEx(HANDLE process_handle,
                           ACCESS_MASK desired_access,
                           ULONG handle_attributes,
@@ -5161,7 +5161,7 @@ nt_raw_OpenProcessTokenEx(HANDLE process_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenThread(PHANDLE thread_handle,
                   ACCESS_MASK desired_access,
                   POBJECT_ATTRIBUTES object_attributes,
@@ -5182,7 +5182,7 @@ nt_raw_OpenThread(PHANDLE thread_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenThreadTokenEx(HANDLE thread_handle,
                          ACCESS_MASK desired_access,
                          BOOLEAN open_as_self,
@@ -5205,7 +5205,7 @@ nt_raw_OpenThreadTokenEx(HANDLE thread_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_QueryAttributesFile(POBJECT_ATTRIBUTES object_attributes,
                            PFILE_BASIC_INFORMATION file_information)
 {
@@ -5222,7 +5222,7 @@ nt_raw_QueryAttributesFile(POBJECT_ATTRIBUTES object_attributes,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_SetInformationFile(HANDLE file_handle,
                           PIO_STATUS_BLOCK io_status_block,
                           PVOID file_information,
@@ -5245,7 +5245,7 @@ nt_raw_SetInformationFile(HANDLE file_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_SetInformationThread(HANDLE thread_handle,
                             THREADINFOCLASS thread_information_class,
                             PVOID thread_information,
@@ -5266,7 +5266,7 @@ nt_raw_SetInformationThread(HANDLE thread_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_UnmapViewOfSection(HANDLE process_handle,
                           PVOID base_address)
 {
@@ -5317,7 +5317,7 @@ GET_RAW_SYSCALL(OpenProcessToken,
                 ACCESS_MASK desired_access,
                 PHANDLE token_handle);
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_MapViewOfSection(HANDLE section_handle,
                         HANDLE process_handle,
                         PVOID *base_address,
@@ -5350,7 +5350,7 @@ nt_raw_MapViewOfSection(HANDLE section_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenProcess(PHANDLE process_handle,
                    ACCESS_MASK desired_access,
                    POBJECT_ATTRIBUTES object_attributes,
@@ -5371,7 +5371,7 @@ nt_raw_OpenProcess(PHANDLE process_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_QueryFullAttributesFile(POBJECT_ATTRIBUTES object_attributes,
                                PFILE_NETWORK_OPEN_INFORMATION file_information)
 {
@@ -5388,7 +5388,7 @@ nt_raw_QueryFullAttributesFile(POBJECT_ATTRIBUTES object_attributes,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_CreateKey(PHANDLE key_handle,
                  ACCESS_MASK desired_access,
                  POBJECT_ATTRIBUTES object_attributes,
@@ -5415,7 +5415,7 @@ nt_raw_CreateKey(PHANDLE key_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenThreadToken(HANDLE thread_handle,
                        ACCESS_MASK desired_access,
                        BOOLEAN open_as_self,
@@ -5436,7 +5436,7 @@ nt_raw_OpenThreadToken(HANDLE thread_handle,
     return res;
 }
 
-NTSTATUS WINAPI
+NTSTATUS
 nt_raw_OpenProcessToken(HANDLE process_handle,
                         ACCESS_MASK desired_access,
                         PHANDLE token_handle)
