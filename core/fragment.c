@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -644,7 +644,7 @@ static const fragment_entry_t fe_sentinel = { NULL_TAG, HASHLOOKUP_SENTINEL_STAR
 #define ENTRY_IS_SENTINEL(fe) IBL_ENTRY_IS_SENTINEL(fe)
 #define ENTRY_IS_INVALID(fe)  IBL_ENTRY_IS_INVALID(fe)
 #define IBL_ENTRIES_ARE_EQUAL(fe1,fe2)  ((fe1).tag_fragment == (fe2).tag_fragment)
-#define ENTRIES_ARE_EQUAL(fe1,fe2)  IBL_ENTRIES_ARE_EQUAL(fe1,fe2)
+#define ENTRIES_ARE_EQUAL(table,fe1,fe2)  IBL_ENTRIES_ARE_EQUAL(fe1,fe2)
 #define HASHTABLE_WHICH_HEAP(flags) FRAGTABLE_WHICH_HEAP(flags)
 #define HTLOCK_RANK               table_rwlock
 #define HASHTABLE_ENTRY_STATS 1
@@ -677,7 +677,7 @@ hashtable_ibl_free_entry(dcontext_t *dcontext, ibl_table_t *table,
 #define ENTRY_IS_EMPTY(f)         ((f) == (fragment_t *)&null_fragment)
 #define ENTRY_IS_SENTINEL(f)      ((f) == (fragment_t *)&sentinel_fragment)
 #define ENTRY_IS_INVALID(f)       ((f) == (fragment_t *)&unlinked_fragment)
-#define ENTRIES_ARE_EQUAL(f,g)    ((f) == (g))
+#define ENTRIES_ARE_EQUAL(t,f,g)  ((f) == (g))
 #define HASHTABLE_WHICH_HEAP(flags) FRAGTABLE_WHICH_HEAP(flags)
 #define HTLOCK_RANK               table_rwlock
 
@@ -1263,7 +1263,7 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
 #define ENTRY_IS_EMPTY(f)         APP_PC_ENTRY_IS_EMPTY(f)
 #define ENTRY_IS_SENTINEL(f)      APP_PC_ENTRY_IS_SENTINEL(f)
 #define ENTRY_IS_INVALID(f)       (false) /* no invalid entries */
-#define ENTRIES_ARE_EQUAL(f,g)    ((f) == (g))
+#define ENTRIES_ARE_EQUAL(t,f,g)  ((f) == (g))
 #define HASHTABLE_WHICH_HEAP(flags) (ACCT_AFTER_CALL)
 #define HTLOCK_RANK               app_pc_table_rwlock
 #define HASHTABLE_SUPPORT_PERSISTENCE 1
@@ -7586,7 +7586,7 @@ static app_to_cache_t a2c_sentinel = { /*assume invalid*/(app_pc)PTR_UINT_MINUS_
 #define ENTRY_IS_EMPTY(f)         ((f).app == a2c_empty.app)
 #define ENTRY_IS_SENTINEL(f)      ((f).app == a2c_sentinel.app)
 #define ENTRY_IS_INVALID(f)       (false) /* no invalid entries */
-#define ENTRIES_ARE_EQUAL(f,g)    ((f).app == (g).app)
+#define ENTRIES_ARE_EQUAL(t,f,g)  ((f).app == (g).app)
 #define HASHTABLE_WHICH_HEAP(flags) (ACCT_FRAG_TABLE)
 /* note that we give the th table a lower-ranked coarse_th_htable_rwlock */
 #define COARSE_HTLOCK_RANK        coarse_table_rwlock /* for use after hashtablex.h */

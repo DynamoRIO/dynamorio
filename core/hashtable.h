@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -232,6 +232,48 @@ generic_hash_iterate_next(dcontext_t *dcontext, generic_table_t *htable, int ite
 int
 generic_hash_iterate_remove(dcontext_t *dcontext, generic_table_t *htable, int iter,
                             ptr_uint_t key);
+
+/*******************************************************************************
+ * STRING KEY HASHTABLE INSTANTIATION
+ */
+
+typedef struct _strhash_entry_t {
+    /* The keys are assumed to be allocated persistently by the user.
+     * The table makes no copy of its own.
+     */
+    const char *key;
+    void *payload;
+} strhash_entry_t;
+
+#define NAME_KEY strhash
+#define ENTRY_TYPE strhash_entry_t *
+/* not defining HASHTABLE_USE_LOOKUPTABLE */
+#define CUSTOM_FIELDS \
+    void (*free_payload_func)(void*);
+#define HASHTABLEX_HEADER 1
+#include "hashtablex.h"
+#undef HASHTABLEX_HEADER
+
+strhash_table_t *
+strhash_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
+                   uint table_flags, void (*free_payload_func)(void*)
+                   _IF_DEBUG(const char *table_name));
+
+void
+strhash_hash_destroy(dcontext_t *dcontext, strhash_table_t *htable);
+
+void
+strhash_hash_clear(dcontext_t *dcontext, strhash_table_t *htable);
+
+void *
+strhash_hash_lookup(dcontext_t *dcontext, strhash_table_t *htable, const char *key);
+
+void
+strhash_hash_add(dcontext_t *dcontext, strhash_table_t *htable, const char *key,
+                void *payload);
+
+bool
+strhash_hash_remove(dcontext_t *dcontext, strhash_table_t *htable, const char *key);
 
 /*******************************************************************************/
 

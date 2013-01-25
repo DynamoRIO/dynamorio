@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1433,6 +1433,29 @@ hash_value(ptr_uint_t val, hash_function_t func, ptr_uint_t mask, uint bits)
                 return val ^ (val >> 12) ^ (val << 12);
             }
 #endif            
+        case HASH_FUNCTION_STRING:
+        case HASH_FUNCTION_STRING_NOCASE:
+            {
+                const char *s = (const char *) val;
+                char c;
+                ptr_uint_t hash = 0;
+                uint i, shift;
+                uint max_shift = ALIGN_FORWARD(bits, 8);
+                /* Simple hash function that combines unbiased via xor and
+                 * shifts to get input chars to cover the full range.  We clamp
+                 * the shift to avoid useful bits being truncated.  An
+                 * alternative is to combine blocks of 4 chars at a time but
+                 * that's more complex.
+                 */
+                for (i = 0; s[i] != '\0'; i++) {
+                    c = s[i];
+                    if (func == HASH_FUNCTION_STRING_NOCASE)
+                        c = (char) tolower(c);
+                    shift = (i % 4) * 8;
+                    hash ^= (c << MIN(shift, max_shift));
+                }
+                return hash;
+            }
         default:
             {
                 ASSERT_NOT_REACHED();

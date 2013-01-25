@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,9 +69,9 @@ hashtable_bits_given_entries(uint entries, uint load)
 /* we assume that 1 is not a valid value: that keys are in fact pointers */
 #define ENTRY_SENTINEL            ((generic_entry_t*)(ptr_uint_t)1)
 #define ENTRY_IS_EMPTY(f)         ((f) == NULL)
-#define ENTRY_IS_SENTINEL(f)      ((f) == (generic_entry_t*)(ptr_uint_t)1)
+#define ENTRY_IS_SENTINEL(f)      ((f) == ENTRY_SENTINEL)
 #define ENTRY_IS_INVALID(f)       (false) /* no invalid entries */
-#define ENTRIES_ARE_EQUAL(f,g)    (ENTRY_TAG(f) == ENTRY_TAG(g))
+#define ENTRIES_ARE_EQUAL(t,f,g)  (ENTRY_TAG(f) == ENTRY_TAG(g))
 /* if usage becomes widespread we may need to parameterize this */
 #define HASHTABLE_WHICH_HEAP(flags) (ACCT_OTHER)
 #define HTLOCK_RANK               table_rwlock
@@ -125,7 +125,7 @@ generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
     hashtable_generic_init(GLOBAL_DCONTEXT, table, bits, load_factor_percent,
                            (hash_function_t)INTERNAL_OPTION(alt_hash_func),
                            0 /* hash_mask_offset */, table_flags
-                           _IF_DEBUG("section-to-file table"));
+                           _IF_DEBUG(table_name));
     table->free_payload_func = free_payload_func;
     return table;
 }
@@ -234,6 +234,158 @@ generic_hash_iterate_remove(dcontext_t *dcontext, generic_table_t *htable, int i
         hashtable_generic_free_entry(dcontext, htable, e);
     }
     return res;
+}
+
+/*******************************************************************************
+ * STRING KEY HASHTABLE INSTANTIATION
+ *
+ * We only support caller synchronization currently (the caller should
+ * use TABLE_RWLOCK).
+ */
+
+/* 2 macros w/ name and types are duplicated in fragment.h -- keep in sync */
+#define NAME_KEY strhash
+#define ENTRY_TYPE strhash_entry_t *
+/* not defining HASHTABLE_USE_LOOKUPTABLE */
+#define ENTRY_TAG(f)              (ptr_uint_t)((f)->key)
+#define ENTRY_EMPTY               NULL
+/* we assume that 1 is not a valid value: that keys are in fact pointers */
+#define STRHASH_SENTINEL          ((strhash_entry_t*)(ptr_uint_t)1)
+#define ENTRY_SENTINEL            STRHASH_SENTINEL
+#define ENTRY_IS_EMPTY(f)         ((f) == NULL)
+#define ENTRY_IS_SENTINEL(f)      ((f) == STRHASH_SENTINEL)
+#define ENTRY_IS_INVALID(f)       (false) /* no invalid entries */
+#define TAGS_ARE_EQUAL(table,s1,s2)  (strhash_key_cmp(table, (const char *)(s1),\
+                                                     (const char *)(s2)))
+#define ENTRIES_ARE_EQUAL(table,f,g)  (TAGS_ARE_EQUAL(table, (f)->key, (g)->key))
+/* if usage becomes widespread we may need to parameterize this */
+#define HASHTABLE_WHICH_HEAP(flags) (ACCT_OTHER)
+#define HTLOCK_RANK               table_rwlock
+#define HASHTABLE_SUPPORT_PERSISTENCE 0
+
+/* case sensitive by default */
+#define STRHASH_CASE_INSENSITIVE  HASHTABLE_CUSTOM_FLAGS_START
+
+static inline bool
+strhash_key_cmp(strhash_table_t *htable, const char *s1, const char *s2)
+{
+    if (TEST(STRHASH_CASE_INSENSITIVE, htable->table_flags))
+        return strcasecmp(s1, s2) == 0;
+    else
+        return strcmp(s1, s2) == 0;
+}
+
+#include "hashtablex.h"
+/* all defines are undef-ed at end of hashtablex.h */
+#define STRHASH_ENTRY_IS_REAL(e) ((e) != NULL && (e) != STRHASH_SENTINEL)
+
+/* required routines for hashtable interface */
+
+static void
+hashtable_strhash_init_internal_custom(dcontext_t *dcontext, strhash_table_t *htable)
+{ /* nothing */
+}
+
+static void
+hashtable_strhash_resized_custom(dcontext_t *dcontext, strhash_table_t *htable,
+                                 uint old_capacity, strhash_entry_t **old_table,
+                                 strhash_entry_t **old_table_unaligned,
+                                 uint old_ref_count, uint old_table_flags)
+{ /* nothing */
+}
+
+# ifdef DEBUG
+static void
+hashtable_strhash_study_custom(dcontext_t *dcontext, strhash_table_t *htable,
+                               uint entries_inc/*amnt table->entries was pre-inced*/)
+{ /* nothing */
+}
+# endif
+
+static void
+hashtable_strhash_free_entry(dcontext_t *dcontext, strhash_table_t *htable,
+                             strhash_entry_t *entry)
+{
+    if (htable->free_payload_func != NULL)
+        (*htable->free_payload_func)(entry->payload);
+    HEAP_TYPE_FREE(dcontext, entry, strhash_entry_t, ACCT_OTHER, PROTECTED);
+}
+
+/* Wrapper routines to implement our strhash_entry_t and free-func layer */
+
+strhash_table_t *
+strhash_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
+                    uint table_flags, void (*free_payload_func)(void*)
+                    _IF_DEBUG(const char *table_name))
+{
+    strhash_table_t *table = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, strhash_table_t,
+                                             ACCT_OTHER, PROTECTED);
+    hashtable_strhash_init(GLOBAL_DCONTEXT, table, bits, load_factor_percent,
+                           TEST(STRHASH_CASE_INSENSITIVE, table_flags) ?
+                           HASH_FUNCTION_STRING_NOCASE : HASH_FUNCTION_STRING,
+                           0 /* hash_mask_offset */, table_flags
+                           _IF_DEBUG(table_name));
+    table->free_payload_func = free_payload_func;
+    return table;
+}
+
+void
+strhash_hash_clear(dcontext_t *dcontext, strhash_table_t *htable)
+{
+    hashtable_strhash_clear(dcontext, htable);
+}
+
+void
+strhash_hash_destroy(dcontext_t *dcontext, strhash_table_t *htable)
+{
+    /* FIXME: why doesn't hashtablex.h walk the table and call the free routine
+     * in free() or in remove()?  It only seems to do it for range_remove().
+     */
+    uint i;
+    strhash_entry_t *e;
+    for (i = 0; i < htable->capacity; i++) {
+        e = htable->table[i];
+        /* must check for sentinel */
+        if (STRHASH_ENTRY_IS_REAL(e)) {
+            hashtable_strhash_free_entry(dcontext, htable, e);
+        }
+    }
+    hashtable_strhash_free(dcontext, htable);
+    HEAP_TYPE_FREE(dcontext, htable, strhash_table_t, ACCT_OTHER, PROTECTED);
+}
+
+void *
+strhash_hash_lookup(dcontext_t *dcontext, strhash_table_t *htable, const char *key)
+{
+    strhash_entry_t *e = hashtable_strhash_lookup(dcontext, (ptr_uint_t)key, htable);
+    if (e != NULL)
+        return e->payload;
+    return NULL;
+}
+
+void
+strhash_hash_add(dcontext_t *dcontext, strhash_table_t *htable, const char *key,
+                 void *payload)
+{
+    strhash_entry_t *e =
+        HEAP_TYPE_ALLOC(dcontext, strhash_entry_t, ACCT_OTHER, PROTECTED);
+    e->key = key;
+    e->payload = payload;
+    hashtable_strhash_add(dcontext, e, htable);
+}
+
+bool
+strhash_hash_remove(dcontext_t *dcontext, strhash_table_t *htable, const char *key)
+{
+    /* There is no remove routine that takes in a tag, nor one that frees the
+     * payload, so we construct it
+     */
+    strhash_entry_t *e = hashtable_strhash_lookup(dcontext, (ptr_uint_t)key, htable);
+    if (e != NULL && hashtable_strhash_remove(e, htable)) {
+        hashtable_strhash_free_entry(dcontext, htable, e);
+        return true;
+    }
+    return false;
 }
 
 /*******************************************************************************/

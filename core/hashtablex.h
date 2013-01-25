@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -66,7 +66,7 @@
  *   bool ENTRY_IS_INVALID(entry)
  *     assumption: invalid entries are only used with
  *     HASHTABLE_LOCKLESS_ACCESS tables
- *   bool ENTRIES_ARE_EQUAL(entry1, entry2)
+ *   bool ENTRIES_ARE_EQUAL(table, entry1, entry2)
  *     if using pointers, pointer equality is fine
  *   ENTRY_TYPE ENTRY_EMPTY
  *   ENTRY_TYPE ENTRY_SENTINEL
@@ -75,6 +75,8 @@
  *   HTLOCK_RANK
  *     table_rwlock will work for most users.  
  *     Needs higher rank than memory alloc locks.
+ * optional for main table:
+ *    bool TAGS_ARE_EQUAL(table, tag1, tag2)
  *
  * for lookuptable:
  *  if HASHTABLE_USE_LOOKUPTABLE is defined:
@@ -159,6 +161,10 @@
 #else
 # define _IFLOOKUP(x) /* nothing */
 # define IFLOOKUP_ELSE(x,y) (y)
+#endif
+
+#ifndef TAGS_ARE_EQUAL
+# define TAGS_ARE_EQUAL(table,t1,t2) ((t1) == (t2))
 #endif
 
 /****************************************************************************/
@@ -734,7 +740,7 @@ HTNAME(hashtable_,NAME_KEY,_lookup)(dcontext_t *dcontext, ptr_uint_t tag,
          * be reworked to touch lookuptable only -- i.e. become while
          * (ftag != NULL_TAG).
          */
-        if (ftag == tag) {
+        if (TAGS_ARE_EQUAL(htable, ftag, tag)) {
 #ifdef HASHTABLE_STATISTICS
             if (collision_len > 0) 
                 HTABLE_STAT_INC(htable,collision_hit);
@@ -1228,7 +1234,7 @@ HTNAME(hashtable_,NAME_KEY,_lookup_for_removal)(ENTRY_TYPE fr,
     uint hindex = HASH_FUNC(ENTRY_TAG(fr), htable);
     ENTRY_TYPE *pg = &htable->table[hindex];
     while (!ENTRY_IS_EMPTY(*pg)) {
-        if (ENTRIES_ARE_EQUAL(fr, *pg)) {
+        if (ENTRIES_ARE_EQUAL(htable, fr, *pg)) {
             *rhindex = hindex;
             return pg;
         }
@@ -1415,7 +1421,7 @@ HTNAME(hashtable_,NAME_KEY,_replace)
         return false;
     if (pg != NULL) {
         ASSERT(ENTRY_TAG(old_e) == ENTRY_TAG(new_e));
-        ASSERT(ENTRIES_ARE_EQUAL(*pg, old_e));
+        ASSERT(ENTRIES_ARE_EQUAL(htable, *pg, old_e));
         *pg = new_e;
 
 #ifdef HASHTABLE_USE_LOOKUPTABLE
@@ -1781,7 +1787,7 @@ HTNAME(hashtable_,NAME_KEY,_study)(dcontext_t *dcontext,
                 HTNAME(hashtable_,NAME_KEY,_lookup_for_removal)
                 (e, table, &found_at_hindex);
             ASSERT(pg != NULL);
-            ASSERT(ENTRIES_ARE_EQUAL(*pg, e));
+            ASSERT(ENTRIES_ARE_EQUAL(table, *pg, e));
             ASSERT(found_at_hindex == i && "duplicate entry found");
         }
         if (len > 0) {
@@ -2256,6 +2262,7 @@ HTNAME(hashtable_,NAME_KEY,_resurrect)(dcontext_t *dcontext, byte *mapped_table
 #undef ENTRIES_ARE_EQUAL
 #undef ENTRY_EMPTY
 #undef ENTRY_SENTINEL
+#undef TAGS_ARE_EQUAL
 
 #undef AUX_ENTRY_TAG
 #undef AUX_ENTRY_IS_EMPTY
