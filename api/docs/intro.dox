@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -639,17 +639,21 @@ A client's primary interaction with the DynamoRIO system is via a
 set of event callbacks.  These events include the following:
 
   - Basic block and trace creation or deletion
-
+    (dr_register_bb_event(), dr_register_trace_event(), dr_register_delete_event())
   - Process initialization and exit
-
+    (dr_init(), dr_register_exit_event())
   - Thread initialization and exit
+    (dr_register_thread_init_event(), dr_register_thread_exit_event())
 \if linux
   - Fork child initialization (Linux-only); meant to be used for
     re-initialization of data structures and creation of new log files
+    (dr_register_fork_init_event())
 \endif
   - Application library load and unload
+    (dr_register_module_load_event(), dr_register_module_unload_event())
 \ifnot NYI_kernel_mediated_transfer_events
   - Application fault or exception (signal on Linux)
+    (dr_register_exception_event(), dr_register_signal_event())
 \else
   - Kernel-mediated control transfers:
     - Application fault or exception
@@ -658,15 +662,18 @@ set of event callbacks.  These events include the following:
 \endif
   - System call interception: pre-system call, post-system call, and system
     call filtering by number
-
+    (dr_register_pre_syscall_event(), dr_register_post_syscall_event(),
+    dr_register_filter_syscall_event())
   - Signal interception (Linux-only)
-
+    (dr_register_signal_event())
   - Nudge received - see \ref sec_comm
+    (dr_register_nudge_event())
 
 Typically, a client will register for the desired events at
 initialization in its dr_init() routine.  DynamoRIO then calls the
 registered functions at the appropriate times.  Each event has a
-specific registration routine (e.g., dr_register_thread_init_event())
+specific registration routine (e.g., dr_register_thread_init_event(): see
+the names in parentheses in the list above)
 and an associated unregistration routine.  The header file dr_events.h
 contains the declarations for all registration and unregistration
 routines.
