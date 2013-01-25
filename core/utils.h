@@ -434,6 +434,7 @@ enum {
     LOCK_RANK(callback_registration_lock), /* > dr_client_mutex */
     LOCK_RANK(client_tls_lock), /* > dr_client_mutex */
 #endif
+    LOCK_RANK(privload_lock), /* < modlist_areas, < table_rwlock */
     LOCK_RANK(table_rwlock), /* > dr_client_mutex */
     LOCK_RANK(loaded_module_areas),  /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(aslr_areas), /* < dynamo_areas < global_alloc_lock */
@@ -463,7 +464,6 @@ enum {
     LOCK_RANK(suspend_lock),
     LOCK_RANK(shared_lock),
 #endif
-    LOCK_RANK(privload_lock), /* < modlist_areas */
     LOCK_RANK(modlist_areas), /* < dynamo_areas < global_alloc_lock */
 #ifdef WINDOWS
     LOCK_RANK(privload_fls_lock), /* < dynamo_areas < global_alloc_lock */

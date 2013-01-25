@@ -42,6 +42,10 @@
 # error Windows-only
 #endif
 
+/* We use a hashtale for faster lookups than a linear walk */
+static strhash_table_t *ntdll_table;
+static strhash_table_t *ntdll_win7_table;
+
 /* Since we can't easily have a 2nd copy of ntdll, our 2nd copy of kernel32,
  * etc. use the same ntdll as the app.  We then have to redirect ntdll imports
  * that use shared resources and could interfere with the app.  There is a LOT
@@ -157,32 +161,60 @@ static const redirect_import_t redirect_ntdll_win7[] = {
 void
 ntdll_redir_init(void)
 {
-    /* nothing */
+    uint i;
+    ntdll_table =
+        strhash_hash_create(GLOBAL_DCONTEXT,
+                            hashtable_num_bits(REDIRECT_NTDLL_NUM*2),
+                            80 /* load factor: not perf-critical, plus static */,
+                            HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
+                            NULL _IF_DEBUG("ntdll redirection table"));
+    TABLE_RWLOCK(ntdll_table, write, lock);
+    for (i = 0; i < REDIRECT_NTDLL_NUM; i++) {
+        strhash_hash_add(GLOBAL_DCONTEXT, ntdll_table, redirect_ntdll[i].name,
+                         (void *) redirect_ntdll[i].func);
+    }
+    TABLE_RWLOCK(ntdll_table, write, unlock);
+
+    if (get_os_version() >= WINDOWS_VERSION_7) {
+        ntdll_win7_table =
+            strhash_hash_create(GLOBAL_DCONTEXT, REDIRECT_NTDLL_WIN7_NUM*2,
+                                80 /* load factor: not perf-critical, plus static */,
+                                HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
+                                NULL _IF_DEBUG("ntdll win7 redirection table"));
+        TABLE_RWLOCK(ntdll_win7_table, write, lock);
+        for (i = 0; i < REDIRECT_NTDLL_WIN7_NUM; i++) {
+            strhash_hash_add(GLOBAL_DCONTEXT, ntdll_win7_table,
+                             redirect_ntdll_win7[i].name,
+                             (void *) redirect_ntdll_win7[i].func);
+        }
+        TABLE_RWLOCK(ntdll_win7_table, write, unlock);
+    }
 }
 
 void
 ntdll_redir_exit(void)
 {
-    /* nothing */
+    strhash_hash_destroy(GLOBAL_DCONTEXT, ntdll_table);
+    if (ntdll_win7_table != NULL) {
+        strhash_hash_destroy(GLOBAL_DCONTEXT, ntdll_win7_table);
+    }
 }
 
 app_pc
 ntdll_redir_lookup(const char *name)
 {
-    uint i;
-    if (get_os_version() >= WINDOWS_VERSION_7) {
-        for (i = 0; i < REDIRECT_NTDLL_WIN7_NUM; i++) {
-            if (strcasecmp(name, redirect_ntdll_win7[i].name) == 0) {
-                return redirect_ntdll_win7[i].func;
-            }
-        }
+    app_pc res;
+    if (ntdll_win7_table != NULL) {
+        TABLE_RWLOCK(ntdll_win7_table, read, lock);
+        res = strhash_hash_lookup(GLOBAL_DCONTEXT, ntdll_win7_table, name);
+        TABLE_RWLOCK(ntdll_win7_table, read, unlock);
+        if (res != NULL)
+            return res;
     }
-    for (i = 0; i < REDIRECT_NTDLL_NUM; i++) {
-        if (strcasecmp(name, redirect_ntdll[i].name) == 0) {
-            return redirect_ntdll[i].func;
-        }
-    }
-    return NULL;
+    TABLE_RWLOCK(ntdll_table, read, lock);
+    res = strhash_hash_lookup(GLOBAL_DCONTEXT, ntdll_table, name);
+    TABLE_RWLOCK(ntdll_table, read, unlock);
+    return res;
 }
 
 /****************************************************************************

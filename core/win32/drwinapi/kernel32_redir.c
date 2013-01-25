@@ -42,6 +42,9 @@
 # error Windows-only
 #endif
 
+/* We use a hashtale for faster lookups than a linear walk */
+static strhash_table_t *kernel32_table;
+
 static const redirect_import_t redirect_kernel32[] = {
     /* To avoid the FlsCallback being interpreted */
     {"FlsAlloc",                       (app_pc)redirect_FlsAlloc},
@@ -63,6 +66,20 @@ static const redirect_import_t redirect_kernel32[] = {
 void
 kernel32_redir_init(void)
 {
+    uint i;
+    kernel32_table =
+        strhash_hash_create(GLOBAL_DCONTEXT,
+                            hashtable_num_bits(REDIRECT_KERNEL32_NUM*2),
+                            80 /* load factor: not perf-critical, plus static */,
+                            HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
+                            NULL _IF_DEBUG("kernel32 redirection table"));
+    TABLE_RWLOCK(kernel32_table, write, lock);
+    for (i = 0; i < REDIRECT_KERNEL32_NUM; i++) {
+        strhash_hash_add(GLOBAL_DCONTEXT, kernel32_table, redirect_kernel32[i].name,
+                         (void *) redirect_kernel32[i].func);
+    }
+    TABLE_RWLOCK(kernel32_table, write, unlock);
+
     kernel32_redir_init_proc();
 }
 
@@ -70,6 +87,8 @@ void
 kernel32_redir_exit(void)
 {
     kernel32_redir_exit_proc();
+
+    strhash_hash_destroy(GLOBAL_DCONTEXT, kernel32_table);
 }
 
 void
@@ -109,12 +128,10 @@ kernel32_redir_onload(privmod_t *mod)
 app_pc
 kernel32_redir_lookup(const char *name)
 {
-    uint i;
-    for (i = 0; i < REDIRECT_KERNEL32_NUM; i++) {
-        if (strcasecmp(name, redirect_kernel32[i].name) == 0) {
-            return redirect_kernel32[i].func;
-        }
-    }
-    return NULL;
+    app_pc res;
+    TABLE_RWLOCK(kernel32_table, read, lock);
+    res = strhash_hash_lookup(GLOBAL_DCONTEXT, kernel32_table, name);
+    TABLE_RWLOCK(kernel32_table, read, unlock);
+    return res;
 }
 
