@@ -33,10 +33,10 @@
 
 /* kernel32 and kernelbase redirection routines */
 
+#include "kernel32_redir.h" /* must be included first */
 #include "../../globals.h"
 #include "drwinapi.h"
 #include "drwinapi_private.h"
-#include "kernel32_redir.h"
 
 #ifndef WINDOWS
 # error Windows-only

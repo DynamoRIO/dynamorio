@@ -32,8 +32,8 @@
 
 /* kernel32.dll and kernelbase.dll process and thread redirection routines */
 
+#include "kernel32_redir.h" /* must be included first */
 #include "../../globals.h"
-#include "kernel32_redir.h"
 
 static DWORD (WINAPI *priv_kernel32_FlsAlloc)(PFLS_CALLBACK_FUNCTION);
 
@@ -155,3 +155,6 @@ redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb)
     return (*priv_kernel32_FlsAlloc)(cb);
 }
 
+/* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
+ * Processes and Threads
+ */

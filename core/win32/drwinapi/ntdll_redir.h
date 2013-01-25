@@ -204,19 +204,19 @@ redirect_NtUnmapViewOfSection(HANDLE process_handle,
                               PVOID base_address);
 
 NTSTATUS WINAPI
-redirect_InitializeCriticalSection(RTL_CRITICAL_SECTION* crit);
+redirect_RtlInitializeCriticalSection(RTL_CRITICAL_SECTION* crit);
 
 NTSTATUS WINAPI
-redirect_InitializeCriticalSectionAndSpinCount(RTL_CRITICAL_SECTION* crit,
-                                               ULONG                 spincount);
+redirect_RtlInitializeCriticalSectionAndSpinCount(RTL_CRITICAL_SECTION* crit,
+                                                  ULONG                 spincount);
 
 NTSTATUS WINAPI
-redirect_InitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
-                                     ULONG                 spincount,
-                                     ULONG                 flags);
+redirect_RtlInitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
+                                        ULONG                 spincount,
+                                        ULONG                 flags);
 
 NTSTATUS WINAPI
-redirect_DeleteCriticalSection(RTL_CRITICAL_SECTION *crit);
+redirect_RtlDeleteCriticalSection(RTL_CRITICAL_SECTION *crit);
 
 
 

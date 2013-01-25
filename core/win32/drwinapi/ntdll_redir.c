@@ -94,11 +94,11 @@ static const redirect_import_t redirect_ntdll[] = {
     /* We redirect these to our implementations to avoid their internal
      * heap allocs that can end up mixing app and priv heap
      */
-    {"RtlInitializeCriticalSection",   (app_pc)redirect_InitializeCriticalSection},
+    {"RtlInitializeCriticalSection",   (app_pc)redirect_RtlInitializeCriticalSection},
     {"RtlInitializeCriticalSectionAndSpinCount",
-                                (app_pc)redirect_InitializeCriticalSectionAndSpinCount},
-    {"RtlInitializeCriticalSectionEx", (app_pc)redirect_InitializeCriticalSectionEx},
-    {"RtlDeleteCriticalSection",       (app_pc)redirect_DeleteCriticalSection},
+                                (app_pc)redirect_RtlInitializeCriticalSectionAndSpinCount},
+    {"RtlInitializeCriticalSectionEx", (app_pc)redirect_RtlInitializeCriticalSectionEx},
+    {"RtlDeleteCriticalSection",       (app_pc)redirect_RtlDeleteCriticalSection},
     /* We don't redirect the creation but we avoid DR pointers being passed
      * to RtlFreeHeap and subsequent heap corruption by redirecting the frees,
      * since sometimes creation is by direct RtlAllocateHeap.
@@ -515,22 +515,22 @@ redirect_RtlFreeOemString(OEM_STRING *string)
 #endif
 
 NTSTATUS WINAPI
-redirect_InitializeCriticalSection(RTL_CRITICAL_SECTION* crit)
+redirect_RtlInitializeCriticalSection(RTL_CRITICAL_SECTION* crit)
 {
-    return redirect_InitializeCriticalSectionEx(crit, 0, 0);
+    return redirect_RtlInitializeCriticalSectionEx(crit, 0, 0);
 }
 
 NTSTATUS WINAPI
-redirect_InitializeCriticalSectionAndSpinCount(RTL_CRITICAL_SECTION* crit,
-                                               ULONG                 spincount)
+redirect_RtlInitializeCriticalSectionAndSpinCount(RTL_CRITICAL_SECTION* crit,
+                                                  ULONG                 spincount)
 {
-    return redirect_InitializeCriticalSectionEx(crit, spincount, 0);
+    return redirect_RtlInitializeCriticalSectionEx(crit, spincount, 0);
 }
 
 NTSTATUS WINAPI
-redirect_InitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
-                                     ULONG                 spincount,
-                                     ULONG                 flags)
+redirect_RtlInitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
+                                        ULONG                 spincount,
+                                        ULONG                 flags)
 {
     /* We cannot allow ntdll!RtlpAllocateDebugInfo to be called as it
      * uses its own free list RtlCriticalSectionDebugSList which is
@@ -573,7 +573,7 @@ redirect_InitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
 }
 
 NTSTATUS WINAPI
-redirect_DeleteCriticalSection(RTL_CRITICAL_SECTION* crit)
+redirect_RtlDeleteCriticalSection(RTL_CRITICAL_SECTION* crit)
 {
     GET_NTDLL(RtlDeleteCriticalSection, (RTL_CRITICAL_SECTION *crit));
     LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"\n", __FUNCTION__, crit);

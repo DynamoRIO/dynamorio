@@ -33,9 +33,9 @@
 
 /* Shared redirection code for custom private library loader */
 
+#include "kernel32_redir.h" /* must be included first */
 #include "../globals.h"
 #include "ntdll_redir.h"
-#include "kernel32_redir.h"
 
 #ifndef WINDOWS
 # error Windows-only
