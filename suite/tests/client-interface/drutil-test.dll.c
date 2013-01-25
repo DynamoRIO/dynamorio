@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -112,6 +112,10 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
         if (instr_is_stringop_loop(inst))
             repstr_seen++;
     }
+
+    /* insert a meta instr to test drutil_expand_rep_string() handling it (i#1055) */
+    instrlist_meta_preinsert(bb, instrlist_first(bb), INSTR_CREATE_label(drcontext));
+
     if (!drutil_expand_rep_string(drcontext, bb)) {
         CHECK(false, "drutil rep expansion failed");
     }

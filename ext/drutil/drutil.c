@@ -260,7 +260,7 @@ bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT,
                             instr_t **stringop OUT)
 {
-    instr_t *inst, *next_inst;
+    instr_t *inst, *next_inst, *first_app = NULL;
     bool delete_rest = false;
     uint opc;
 
@@ -277,30 +277,29 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
          inst != NULL;
          inst = next_inst) {
         next_inst = instr_get_next(inst);
-        if (!instr_ok_to_mangle(inst)) {
-            /* XXX: we could try to handle meta instrs.  For now we have a bunch
-             * of checks for instrlist_first() (i#1055).
-             */
-            USAGE_ERROR("drutil_expand_rep_string* must be called from drmgr's "
-                        "app2app phase prior to adding any meta instructions");
-            return false;
-        }
-        opc = instr_get_opcode(inst);
         if (delete_rest) {
             instrlist_remove(bb, inst);
             instr_destroy(drcontext, inst);
-        } else if (opc_is_stringop_loop(opc)) {
-            delete_rest = true;
-            if (inst != instrlist_first(bb)) {
-                instrlist_remove(bb, inst);
-                instr_destroy(drcontext, inst);
+        } else if (instr_ok_to_mangle(inst)) {
+            /* We have to handle meta instrs, as drwrap_replace_native() and
+             * some other app2app xforms use them.
+             */
+            if (first_app == NULL)
+                first_app = inst;
+            opc = instr_get_opcode(inst);
+            if (opc_is_stringop_loop(opc)) {
+                delete_rest = true;
+                if (inst != first_app) {
+                    instrlist_remove(bb, inst);
+                    instr_destroy(drcontext, inst);
+                }
             }
         }
     }
 
     /* Convert to a regular loop if it's the sole instr */
-    inst = instrlist_first(bb);
-    opc = instr_get_opcode(inst);
+    inst = first_app;
+    opc = (inst == NULL) ? OP_INVALID : instr_get_opcode(inst);
     if (opc_is_stringop_loop(opc)) {
         /* A rep string instr does check for 0 up front.  DR limits us
          * to 1 cbr but drmgr will mark the extras as meta later.  If ecx is uninit
