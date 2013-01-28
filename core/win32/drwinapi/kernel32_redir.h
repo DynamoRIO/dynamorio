@@ -52,6 +52,10 @@
 #include "../../globals.h"
 #include "../../module_shared.h"
 
+#ifndef __drv_interlocked /* support older VS versions */
+# define __drv_interlocked /* nothing */
+#endif
+
 void
 kernel32_redir_init(void);
 
