@@ -36,6 +36,7 @@
 #include "kernel32_redir.h" /* must be included first */
 #include "../globals.h"
 #include "ntdll_redir.h"
+#include "rpcrt4_redir.h"
 
 #ifndef WINDOWS
 # error Windows-only
@@ -46,11 +47,13 @@ drwinapi_init(void)
 {
     ntdll_redir_init();
     kernel32_redir_init();
+    rpcrt4_redir_init();
 }
 
 void
 drwinapi_exit(void)
 {
+    rpcrt4_redir_exit();
     kernel32_redir_exit();
     ntdll_redir_exit();
 }
@@ -60,6 +63,8 @@ drwinapi_onload(privmod_t *mod)
 {
     if (strcasecmp(mod->name, "kernel32.dll") == 0)
         kernel32_redir_onload(mod);
+    else if (strcasecmp(mod->name, "rpcrt4.dll") == 0)
+        rpcrt4_redir_onload(mod);
 }
 
 app_pc
@@ -73,6 +78,8 @@ drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
                  strcasecmp(importer->name, "kernel32.dll") != 0) &&
                 strcasecmp(impmod->name, "kernelbase.dll") == 0)) {
         return kernel32_redir_lookup(name);
+    } else if (strcasecmp(impmod->name, "rpcrt4.dll") == 0) {
+        return rpcrt4_redir_lookup(name);
     }
     return NULL;
 }
@@ -101,3 +108,14 @@ redirect_ignore_arg12(void *arg1, void *arg2, void *arg3)
     return TRUE;
 }
 
+#ifdef STANDALONE_UNIT_TEST
+void unit_test_drwinapi_rpcrt4(void);
+
+void
+unit_test_drwinapi(void)
+{
+    print_file(STDERR, "testing drwinapi\n");
+
+    unit_test_drwinapi_rpcrt4();
+}
+#endif

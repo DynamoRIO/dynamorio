@@ -1,22 +1,23 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- *
+ * 
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- *
+ * 
  * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -30,42 +31,36 @@
  * DAMAGE.
  */
 
-/* Simple main that just calls each unit test in turn.
+/* rpcrt4 and kernelbase redirection routines.
+ * We initially target the union of the imports of C++ apps, msvcrt,
+ * and dbghelp.
  */
 
-#include "globals.h"
+#ifndef _RPCRT4_REDIR_H_
+#define _RPCRT4_REDIR_H_ 1
 
-void unit_test_io(void);
-#ifdef LINUX
-void unit_test_string(void);
-void unit_test_os(void);
-#endif
-void unit_test_options(void);
-void unit_test_vmareas(void);
-void unit_test_utils(void);
-#ifdef WINDOWS
-void unit_test_drwinapi(void);
-#endif
+#include "../../globals.h"
+#include "../../module_shared.h"
+#include <rpc.h>
 
-int
-main(int argc, char **argv, char **envp)
-{
-    standalone_init();
+void
+rpcrt4_redir_init(void);
 
-    /* Each test will abort if it fails, so we just call each in turn and return
-     * 0 for success.  If we want to be able to call each test independently, it
-     * might be worth looking into gtest, which already does this.
-     */
-    unit_test_io();
-#ifdef LINUX
-    unit_test_string();
-    unit_test_os();
-#endif
-    unit_test_utils();
-    unit_test_options();
-    unit_test_vmareas();
-#ifdef WINDOWS
-    unit_test_drwinapi();
-#endif
-    return 0;
-}
+void
+rpcrt4_redir_exit(void);
+
+void
+rpcrt4_redir_onload(privmod_t *mod);
+
+app_pc
+rpcrt4_redir_lookup(const char *name);
+
+
+RPC_STATUS
+RPC_ENTRY
+redirect_UuidCreate (
+    __out UUID __RPC_FAR * Uuid
+    );
+
+
+#endif /* _RPCRT4_REDIR_H_ */
