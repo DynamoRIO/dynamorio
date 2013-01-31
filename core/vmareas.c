@@ -428,12 +428,6 @@ DECLARE_CXTSWPROT_VAR(static mutex_t lazy_delete_lock, INIT_LOCK_FREE(lazy_delet
                             !INTERNAL_OPTION(single_thread_in_DR)), \
                            &shared_data->areas.lock)
 
-/* list of native_exec module regions 
- * FIXME: since using general routines, could allocate this elsewhere if add
- * vmvector_* interface heap alloc support
- */
-vm_area_vector_t *native_exec_areas;
-
 /* FIXME: find a way to assert that an area by itself is synchronized if
  * it points into a vector for the routines that take in only areas
  */
@@ -1584,8 +1578,6 @@ vm_areas_init()
                           app_flushed_areas);
 # endif
 #endif
-    VMVECTOR_ALLOC_VECTOR(native_exec_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
-                          native_exec_areas);
 
     shared_data = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, thread_data_t, ACCT_VMAREAS, PROTECTED);
 
@@ -1693,7 +1685,6 @@ vm_areas_exit()
         ASSERT(futureexec_areas == NULL);
         IF_WINDOWS(ASSERT(app_flushed_areas == NULL);)
 #endif
-        ASSERT(native_exec_areas == NULL);
         ASSERT(IAT_areas == NULL);
         return 0;
     }
@@ -1771,8 +1762,6 @@ vm_areas_exit()
 #ifdef SIMULATE_ATTACK
     DELETE_LOCK(simulate_lock);
 #endif
-    vmvector_delete_vector(GLOBAL_DCONTEXT, native_exec_areas);
-    native_exec_areas = NULL;
     vmvector_delete_vector(GLOBAL_DCONTEXT, IAT_areas);
     IAT_areas = NULL;
     return 0;

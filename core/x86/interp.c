@@ -64,6 +64,7 @@
 # include "../nudge.h" /* for generic_nudge_target() address */
 #endif
 #include "../perscache.h"
+#include "../native_exec.h"
 
 #ifdef CHECK_RETURNS_SSE2
 #include <setjmp.h> /* for warning when see libc setjmp */
@@ -4225,7 +4226,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start
              * but after last_exit checks above since overlap is more costly
              */
             if (vmvector_overlap(native_exec_areas, start, start+1) &&
-                is_readable_without_exception((app_pc)tos, 4)) {
+                is_readable_without_exception((app_pc)tos, sizeof(app_pc))) {
                 enum { MAX_CALL_CONSIDER = 6 /* ignore prefixes */ };
                 app_pc retaddr = *tos;
                 LOG(THREAD, LOG_INTERP|LOG_VMAREAS, 2,

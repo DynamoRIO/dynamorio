@@ -74,6 +74,7 @@ set(CORE_SRCS
   buildmark.c
   loader_shared.c
   io.c
+  native_exec.c
   )
 
 if (UNIX)

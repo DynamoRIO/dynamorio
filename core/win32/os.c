@@ -60,6 +60,7 @@
 #include "aslr.h"
 #include "../synch.h"
 #include "../perscache.h"
+#include "../native_exec.h"
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 # undef ASSERT

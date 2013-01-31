@@ -130,7 +130,6 @@ typedef struct vmvector_iterator_t {
 /* rather than exporting specialized routines for just these vectors we
  * export the vectors and general routines
  */
-extern vm_area_vector_t *native_exec_areas;
 extern vm_area_vector_t *emulate_write_areas;
 
 extern vm_area_vector_t *patch_proof_areas;

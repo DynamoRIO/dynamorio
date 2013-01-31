@@ -46,6 +46,7 @@
 #include "monitor.h"
 #include "synch.h"
 #include "perscache.h"
+#include "native_exec.h"
 #include <string.h> /* for strstr */
 
 #ifdef CLIENT_INTERFACE
