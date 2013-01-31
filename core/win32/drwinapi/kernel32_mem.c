@@ -44,6 +44,12 @@
  */
 static ptr_uint_t magic_val;
 
+/* Lock for the Local* routines.  We can't use redirect_RtlLockHeap
+ * to mirror the real kernel32 b/c that's a nop.
+ */
+DECLARE_CXTSWPROT_VAR(static mutex_t localheap_lock,
+                      INIT_LOCK_FREE(drwinapi_localheap_lock));
+
 void
 kernel32_redir_init_mem(void)
 {
@@ -53,7 +59,7 @@ kernel32_redir_init_mem(void)
 void
 kernel32_redir_exit_mem(void)
 {
-    /* nothing */
+    DELETE_LOCK(localheap_lock);
 }
 
 PVOID
@@ -214,6 +220,267 @@ redirect_HeapWalk(
 }
 
 /***************************************************************************
+ * Local heap
+ *
+ * Although our target of {msvcp*,msvcr*,dbghelp} only uses Local{Alloc,Free}
+ * we must implement the full set in case a privlib calls another routine.
+ *
+ * We use a custom header and we synchronize with localheap_lock.  We
+ * return a pointer beyond the header to support LMEM_FIXED where
+ * handle==pointer and local_header_t.alloc==NULL.  For LMEM_MOVEABLE,
+ * we start out with an inlined alloc, but if it's resized we store
+ * the separate alloc in local_header_t.alloc.  We use a header on the
+ * separate alloc (with flags==LMEM_INVALID_HANDLE to distinguish, and
+ * with alloc==original header) so we can map back to the handle for
+ * LocalHandle.  On LocalDiscard() we keep a 0-sized alloc pointed at
+ * by local_header_t.alloc.
+ */
+
+typedef struct _local_header_t {
+    ushort lock_count;
+    ushort flags;
+    struct _local_header_t *alloc;
+} local_header_t;
+
+static inline local_header_t *
+local_header_from_handle(HLOCAL handle)
+{
+    return ((local_header_t *)handle) - 1;
+}
+
+HLOCAL
+WINAPI
+redirect_LocalAlloc(
+    __in UINT uFlags,
+    __in SIZE_T uBytes
+    )
+{
+    HLOCAL res = NULL;
+    local_header_t *hdr;
+    HANDLE heap = redirect_GetProcessHeap();
+    /* for back-compat, LocalAlloc asks for +x */
+    uint rtl_flags = HEAP_NO_SERIALIZE | HEAP_CREATE_ENABLE_EXECUTE;
+    if (TEST(LMEM_ZEROINIT, uFlags))
+        rtl_flags |= HEAP_ZERO_MEMORY;
+
+    /* flags should be in ushort range */
+    if ((uFlags & 0xffff0000) != 0) {
+        set_last_error(ERROR_INVALID_PARAMETER);
+        return NULL;
+    }
+
+    hdr = (local_header_t *)
+        redirect_RtlAllocateHeap(heap, rtl_flags, uBytes + sizeof(local_header_t));
+    if (hdr == NULL) {
+        set_last_error(ERROR_NOT_ENOUGH_MEMORY);
+        return NULL;
+    }
+
+    res = (HLOCAL) (hdr + 1); /* even for LMEM_MOVEABLE we return the usable mem */
+    hdr->lock_count = 0;
+    hdr->flags = (ushort) uFlags; /* we checked for truncation above */
+    hdr->alloc = NULL;
+    return res;
+}
+
+HLOCAL
+WINAPI
+redirect_LocalFree(
+    __deref HLOCAL hMem
+    )
+{
+    HANDLE heap = redirect_GetProcessHeap();
+    local_header_t *hdr = local_header_from_handle(hMem);
+    mutex_lock(&localheap_lock);
+    /* XXX: supposed to raise debug msg + bp if freeing locked object */
+    if (hdr->alloc != NULL) {
+        ASSERT(TEST(LMEM_MOVEABLE, hdr->flags));
+        redirect_RtlFreeHeap(heap, HEAP_NO_SERIALIZE, hdr->alloc);
+    }
+    redirect_RtlFreeHeap(heap, HEAP_NO_SERIALIZE, hdr);
+    mutex_unlock(&localheap_lock);
+    return NULL;
+}
+
+HLOCAL
+WINAPI
+redirect_LocalReAlloc(
+    __in HLOCAL hMem,
+    __in SIZE_T uBytes,
+    __in UINT uFlags
+    )
+{
+    HLOCAL res = NULL;
+    HANDLE heap = redirect_GetProcessHeap();
+    local_header_t *hdr = local_header_from_handle(hMem);
+    uint rtl_flags = HEAP_NO_SERIALIZE | HEAP_CREATE_ENABLE_EXECUTE;
+    if (TEST(LMEM_ZEROINIT, uFlags))
+        rtl_flags |= HEAP_ZERO_MEMORY;
+    mutex_lock(&localheap_lock);
+    if (TEST(LMEM_MODIFY, uFlags)) {
+        /* no realloc, just update flags */
+        if ((uFlags & 0xffff0000) != 0 || /* flags should be in ushort range */
+            /* we don't allow turning moveable w/ sep alloc into fixed */
+            (!TEST(LMEM_MOVEABLE, uFlags) && hdr->alloc != NULL)) {
+            set_last_error(ERROR_INVALID_PARAMETER);
+            return NULL;
+        }
+        hdr->flags = (ushort) uFlags;
+        res = hMem;
+    } else {
+        /* if fixed or locked and LMEM_MOVEABLE is not specified, must realloc in-place */
+        if (!TEST(LMEM_MOVEABLE, uFlags) &&
+            (!TEST(LMEM_MOVEABLE, hdr->flags) || hdr->lock_count > 0))
+            rtl_flags |= HEAP_REALLOC_IN_PLACE_ONLY;
+        else if (TEST(LMEM_MOVEABLE, hdr->flags) && hdr->alloc == NULL) {
+            size_t copy_sz = redirect_RtlSizeHeap(heap, 0, (byte *) hdr) -
+                sizeof(local_header_t);
+            copy_sz = MIN(copy_sz, uBytes);
+            hdr->alloc = redirect_RtlAllocateHeap(heap, rtl_flags,
+                                                  uBytes + sizeof(local_header_t));
+            if (hdr->alloc == NULL) {
+                set_last_error(ERROR_NOT_ENOUGH_MEMORY);
+                return NULL;
+            }
+            hdr->alloc->flags = LMEM_INVALID_HANDLE; /* mark as sep alloc */
+            hdr->alloc->alloc = hdr; /* backpointer */
+            memcpy(hdr->alloc + 1, hMem, copy_sz);
+            res = hMem;
+        }
+        if (res == NULL) {
+            local_header_t *newmem;
+            if (hdr->alloc != NULL) {
+                newmem = (local_header_t *)
+                    redirect_RtlReAllocateHeap(heap, rtl_flags, hdr->alloc,
+                                               uBytes + sizeof(local_header_t));
+                if (newmem == NULL) {
+                    set_last_error(ERROR_NOT_ENOUGH_MEMORY);
+                    return NULL;
+                }
+                hdr->alloc = newmem;
+                ASSERT(hdr->alloc->flags == LMEM_INVALID_HANDLE);
+                ASSERT(hdr->alloc->alloc == hdr);
+                res = hMem;
+            } else {
+                newmem = (local_header_t *)
+                    redirect_RtlReAllocateHeap(heap, rtl_flags, hdr,
+                                               uBytes + sizeof(local_header_t));
+                if (newmem == NULL) {
+                    set_last_error(ERROR_NOT_ENOUGH_MEMORY);
+                    return NULL;
+                }
+                res = (HLOCAL) (newmem + 1);
+            }
+        }
+    }
+    mutex_unlock(&localheap_lock);
+    return res;
+}
+
+LPVOID
+WINAPI
+redirect_LocalLock(
+    __in HLOCAL hMem
+    )
+{
+    LPVOID res = NULL;
+    local_header_t *hdr = local_header_from_handle(hMem);
+    mutex_lock(&localheap_lock);
+    if (TEST(LMEM_MOVEABLE, hdr->flags))
+        hdr->lock_count++;
+    if (hdr->alloc != NULL)
+        res = (LPVOID) (hdr->alloc + 1);
+    else
+        res = (LPVOID) hMem;
+    mutex_unlock(&localheap_lock);
+    return res;
+}
+
+
+HLOCAL
+WINAPI
+redirect_LocalHandle(
+    __in LPCVOID pMem
+    )
+{
+    local_header_t *hdr = local_header_from_handle((PVOID)pMem);
+    if (TEST(LMEM_INVALID_HANDLE, hdr->flags)) {
+        /* separate alloc stores the original header */
+        hdr = hdr->alloc;
+    }
+    return (HLOCAL) (hdr + 1);
+}
+
+
+BOOL
+WINAPI
+redirect_LocalUnlock(
+    __in HLOCAL hMem
+    )
+{
+    BOOL res = FALSE;
+    local_header_t *hdr = local_header_from_handle(hMem);
+    mutex_lock(&localheap_lock);
+    if (hdr->lock_count == 0) {
+        res = FALSE;
+        set_last_error(ERROR_NOT_LOCKED);
+    } else {
+        hdr->lock_count--;
+        if (hdr->lock_count == 0) {
+            res = FALSE;
+            set_last_error(NO_ERROR);
+        } else
+            res = TRUE;
+    }
+    mutex_unlock(&localheap_lock);
+    return res;
+}
+
+SIZE_T
+WINAPI
+redirect_LocalSize(
+    __in HLOCAL hMem
+    )
+{
+    SIZE_T res = 0;
+    local_header_t *hdr = local_header_from_handle(hMem);
+    HANDLE heap = redirect_GetProcessHeap();
+    mutex_lock(&localheap_lock);
+    if (hdr->alloc != NULL) {
+        ASSERT(TEST(LMEM_MOVEABLE, hdr->flags));
+        res = redirect_RtlSizeHeap(heap, 0, (byte *) hdr->alloc);
+    } else
+        res = redirect_RtlSizeHeap(heap, 0, (byte *) hdr);
+    if (res != 0) {
+        ASSERT(res >= sizeof(local_header_t));
+        res -= sizeof(local_header_t);
+    }
+    mutex_unlock(&localheap_lock);
+    return res;
+}
+
+UINT
+WINAPI
+redirect_LocalFlags(
+    __in HLOCAL hMem
+    )
+{
+    UINT res = 0;
+    local_header_t *hdr = local_header_from_handle(hMem);
+    HANDLE heap = redirect_GetProcessHeap();
+    mutex_lock(&localheap_lock);
+    res |= (hdr->lock_count & LMEM_LOCKCOUNT);
+    if ((hdr->alloc != NULL &&
+         redirect_RtlSizeHeap(heap, 0, (byte *) hdr->alloc) == sizeof(local_header_t)) ||
+        (hdr->alloc == NULL &&
+         redirect_RtlSizeHeap(heap, 0, (byte *) hdr) == sizeof(local_header_t)))
+        res |= LMEM_DISCARDABLE;
+    mutex_unlock(&localheap_lock);
+    return res;
+}
+
+
+/***************************************************************************
  * System calls
  */
 
@@ -369,6 +636,78 @@ test_heap(void)
 }
 
 static void
+test_local(void)
+{
+    HLOCAL loc;
+    PVOID p;
+    BOOL ok;
+
+    /**************************************************/
+    /* test fixed */
+    loc = redirect_LocalAlloc(LMEM_ZEROINIT, 6);
+    EXPECT(*(int *)loc == 0, true);
+    EXPECT(redirect_LocalSize(loc), 6); /* *Size() returns requested, not padded */
+
+    loc = redirect_LocalReAlloc(loc, 26, LMEM_MOVEABLE|LMEM_ZEROINIT);
+    EXPECT(*(int *)loc == 0, true);
+    EXPECT(redirect_LocalSize(loc), 26);
+    EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), false);
+
+    /* locking should do nothing since fixed */
+    EXPECT(redirect_LocalLock(loc) == (LPVOID) loc, true);
+    EXPECT(redirect_LocalLock(loc) == (LPVOID) loc, true);
+    EXPECT(redirect_LocalUnlock(loc), FALSE);
+    EXPECT(get_last_error(), ERROR_NOT_LOCKED);
+
+    loc = redirect_LocalReAlloc(loc, 0, LMEM_MOVEABLE|LMEM_ZEROINIT);
+    EXPECT(redirect_LocalSize(loc), 0);
+    EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), true);
+
+    /* test LMEM_MODIFY */
+    loc = redirect_LocalReAlloc(loc, 0/*ignored*/, LMEM_MODIFY|LMEM_MOVEABLE);
+    EXPECT(loc != NULL, true);
+    /* locking should now do something */
+    EXPECT(redirect_LocalLock(loc) != NULL, true);
+    EXPECT(redirect_LocalLock(loc) != NULL, true);
+    EXPECT(redirect_LocalUnlock(loc), TRUE);
+    EXPECT(redirect_LocalUnlock(loc), FALSE);
+    EXPECT(get_last_error(), NO_ERROR);
+
+    loc = redirect_LocalFree(loc);
+    EXPECT(loc == NULL, true);
+
+    /**************************************************/
+    /* test moveable */
+    loc = redirect_LocalAlloc(LMEM_ZEROINIT|LMEM_MOVEABLE, 6);
+    EXPECT(loc != NULL, true);
+    p = redirect_LocalLock(loc);
+    EXPECT(p != NULL, true);
+    EXPECT(*(int *)p == 0, true);
+    EXPECT(redirect_LocalSize(loc), 6);
+    EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), false);
+
+    ok = redirect_LocalUnlock(loc);
+    EXPECT(ok, FALSE);
+    EXPECT(get_last_error(), NO_ERROR);
+    *(int *)p = 42;
+    loc = redirect_LocalReAlloc(loc, 126, LMEM_MOVEABLE|LMEM_ZEROINIT);
+    EXPECT(loc != NULL, true);
+    EXPECT(redirect_LocalSize(loc), 126);
+    p = redirect_LocalLock(p);
+    EXPECT(p != NULL, true);
+    EXPECT(*(int *)p == 42, true);
+    ok = redirect_LocalUnlock(loc);
+    EXPECT(ok, FALSE);
+    EXPECT(get_last_error(), NO_ERROR);
+
+    loc = redirect_LocalReAlloc(loc, 0, LMEM_MOVEABLE|LMEM_ZEROINIT);
+    EXPECT(redirect_LocalSize(loc), 0);
+    EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), true);
+    loc = redirect_LocalFree(loc);
+    EXPECT(loc == NULL, true);
+}
+
+static void
 test_syscalls(void)
 {
     MEMORY_BASIC_INFORMATION mbi;
@@ -408,6 +747,8 @@ unit_test_drwinapi_kernel32_mem(void)
     EXPECT(redirect_DecodePointer(temp) == ran, true);
 
     test_heap();
+
+    test_local();
 
     test_syscalls();
 }
