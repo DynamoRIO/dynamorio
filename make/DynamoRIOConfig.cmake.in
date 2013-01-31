@@ -485,6 +485,12 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
     endif (WIN32)
   endif (is_client)
 
+  if (tgt_cflags MATCHES "/MT" AND tgt_cflags MATCHES "/MTd")
+    # Avoid "Command line warning D9025 : overriding '/MT' with '/MTd'"
+    # which we get due to our simple concat of CMAKE_C_FLAGS with the _DEBUG version.
+    string(REGEX REPLACE "/MT([^d]|$)" "\\1" tgt_cflags "${tgt_cflags}")
+  endif ()
+
   get_size(${tgt_cxx} tgt_x64)
   DynamoRIO_extra_cflags(tgt_cflags "${tgt_cflags}" ${tgt_cxx})
 
