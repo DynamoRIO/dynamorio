@@ -312,6 +312,12 @@ wrapped_dr_free(byte *ptr)
     global_heap_free(ptr, *((size_t *)ptr) HEAPACCT(ACCT_LIBDUP));
 }
 
+static inline size_t
+wrapped_dr_size(byte *ptr)
+{
+    return *((size_t *)(ptr - sizeof(size_t))) - sizeof(size_t);
+}
+
 void * WINAPI
 redirect_RtlAllocateHeap(HANDLE heap, ULONG flags, SIZE_T size)
 {
@@ -354,7 +360,7 @@ redirect_RtlReAllocateHeap(HANDLE heap, ULONG flags, byte *ptr, SIZE_T size)
         LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX" "PIFX"\n", __FUNCTION__, ptr, size);
         buf = redirect_RtlAllocateHeap(heap, flags, size);
         if (buf != NULL) {
-            size_t old_size = *((size_t *)(ptr - sizeof(size_t)));
+            size_t old_size = wrapped_dr_size(ptr);
             size_t min_size = MIN(old_size, size);
             memcpy(buf, ptr, min_size);
             redirect_RtlFreeHeap(heap, flags, ptr);
@@ -402,7 +408,7 @@ redirect_RtlSizeHeap(HANDLE heap, ULONG flags, byte *ptr)
     if (redirect_heap_call(heap) && is_dynamo_address(ptr)/*see above*/) {
         ASSERT(IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true));
         if (ptr != NULL)
-            return *((size_t *)(ptr - sizeof(size_t)));
+            return wrapped_dr_size(ptr);
         else
             return 0;
     } else {
