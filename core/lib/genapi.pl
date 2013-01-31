@@ -43,30 +43,47 @@
 ###   2) multiple declarations do not share the same line
 ###
 
-$usage = "Usage: $0 -header <destinationdir> <defines> | -filter <defines> | -debug\n";
+$usage = "Usage: $0 [-core <core dir>] -header <destinationdir> <defines> | -filter <defines> | -debug\n";
 
 $header = 0;
 $debug = 0;
 $filter = 0;
+$core = ".";
 
 if ($#ARGV < 0) {
     print "$usage";
-    exit 0;
+    exit 1;
 }
 
 while ($#ARGV >= 0) {
+    if ($ARGV[0] eq '-core') {
+        # Take the core source dir path on the command line.
+        shift;
+        if ($#ARGV < 1) {
+            print "$usage";
+            print "Expected path after -core\n";
+            exit 1;
+        }
+        $core = shift;
+        if (! -d $core) {
+            print "$core is not a directory\n";
+            print "$usage";
+            exit 1;
+        }
+    }
     if ($ARGV[0] eq '-header') {
         $header = 1;
         shift;
         if ($#ARGV != 1) {
             print "$usage";
-            exit 0;
+            print "Incorrect number of arguments for -header\n";
+            exit 1;
         }
         $dir = $ARGV[0];
         if (! -d $dir) {
             print "$dir is not a directory\n";
             print "$usage";
-            exit 0;
+            exit 1;
         }
         shift;
         $define_str = $ARGV[0];
@@ -90,7 +107,8 @@ while ($#ARGV >= 0) {
         $debug = 1;
     } else {
         print "$usage";
-        exit 0;
+        print "Unrecognized argument: $ARGV[0]\n";
+        exit 1;
     }
     shift;
 }
@@ -139,14 +157,14 @@ if ($header) {
         # We used to have #ifdefs (LOGPC I think) in the func declarations
         # and we had a complex series of commands in core/Makefile to strip
         # them out while leaving the ifdefs at the top of the file.
-        copy_file("lib/dr_app.h", "$dir/dr_app.h");
+        copy_file("$core/lib/dr_app.h", "$dir/dr_app.h");
 
     } else {
         if (!defined($defines{"APP_EXPORTS"})) {
             die "Should not be invoked w/o APP_EXPORTS or CLIENT_INTERFACE\n";
         }
         # dr_app.h is copied verbatim
-        copy_file("lib/dr_app.h", "$dir/dr_app.h");
+        copy_file("$core/lib/dr_app.h", "$dir/dr_app.h");
     }
 }
 
@@ -158,25 +176,25 @@ if ($header) {
 # by comments in the header files.
 @headers = 
     (
-     './instrlist.h',
-     './lib/globals_shared.h', # defs
-     './globals.h',
-     './x86/arch_exports.h', # encode routines
-     './x86/proc.h',
-     './os_shared.h',        # before instrument.h
-     './module_shared.h',    # before instrument.h
-     './x86/instrument.h',
-     './x86/instr.h',
-     './x86/instr_inline.h',
-     './x86/instr_create.h',
-     './x86/decode.h',       # OPSZ_ consts, decode routines
-     './x86/decode_fast.h',  # decode routines
-     './x86/disassemble.h',  # disassemble routines
-     './fragment.h',         # binary tracedump format
-     './win32/os_private.h', # rsrc section walking
-     './hotpatch.c',         # probe api
-     './lib/dr_config.h',
-     './lib/dr_inject.h',
+     "$core/instrlist.h",
+     "$core/lib/globals_shared.h", # defs
+     "$core/globals.h",
+     "$core/x86/arch_exports.h", # encode routines
+     "$core/x86/proc.h",
+     "$core/os_shared.h",        # before instrument.h
+     "$core/module_shared.h",    # before instrument.h
+     "$core/x86/instrument.h",
+     "$core/x86/instr.h",
+     "$core/x86/instr_inline.h",
+     "$core/x86/instr_create.h",
+     "$core/x86/decode.h",       # OPSZ_ consts, decode routines
+     "$core/x86/decode_fast.h",  # decode routines
+     "$core/x86/disassemble.h",  # disassemble routines
+     "$core/fragment.h",         # binary tracedump format
+     "$core/win32/os_private.h", # rsrc section walking
+     "$core/hotpatch.c",         # probe api
+     "$core/lib/dr_config.h",
+     "$core/lib/dr_inject.h",
      );
 
 # PR 214947: VMware retroactively holds the copyright.
@@ -249,7 +267,7 @@ foreach $file (@headers) {
     while (<IN>) {
         # support mcxtx.h include.  can generalize if necessary.
         if ($_ =~ /#include "mcxtx.h"/) {
-            open(INC, "< ./lib/mcxtx.h") || die "Error: couldn't open mcxtx.h\n";
+            open(INC, "< $core/lib/mcxtx.h") || die "Error: couldn't open mcxtx.h\n";
             my $start_inc = 0;
             while (<INC>) {
                 # skip copyright and first comment
