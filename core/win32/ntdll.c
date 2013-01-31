@@ -1823,7 +1823,7 @@ protect_virtual_memory(void *base, size_t size, uint prot, uint *old_prot)
                      (ULONG*)old_prot);
     NTPRINT("NtProtectVirtualMemory: "PFX"-"PFX" 0x%x => 0x%x\n",
             base, (byte *)base + size, prot, res);
-    ASSERT(sz == size);
+    ASSERT(sz == ALIGN_FORWARD(size, PAGE_SIZE));
     return NT_SUCCESS(res);
 }
 
@@ -1904,9 +1904,9 @@ get_mapped_file_name(const byte *pc, PWSTR buf, USHORT buf_bytes)
     return res;
 }
 
-bool
-nt_read_virtual_memory(HANDLE process, const void *base, void *buffer, 
-                       size_t buffer_length, size_t *bytes_read)
+NTSTATUS
+nt_raw_read_virtual_memory(HANDLE process, const void *base, void *buffer, 
+                           size_t buffer_length, size_t *bytes_read)
 {
     NTSTATUS res;
     GET_NTDLL(NtReadVirtualMemory, (IN HANDLE ProcessHandle,
@@ -1916,7 +1916,15 @@ nt_read_virtual_memory(HANDLE process, const void *base, void *buffer,
                                     OUT PSIZE_T ReturnLength OPTIONAL));
     res = NtReadVirtualMemory(process, base, buffer, 
                               buffer_length, (SIZE_T*)bytes_read);
-    return NT_SUCCESS(res);
+    return res;
+}
+
+bool
+nt_read_virtual_memory(HANDLE process, const void *base, void *buffer, 
+                       size_t buffer_length, size_t *bytes_read)
+{
+    return NT_SUCCESS(nt_raw_read_virtual_memory(process, base, buffer, 
+                                                 buffer_length, bytes_read));
 }
 
 NTSTATUS

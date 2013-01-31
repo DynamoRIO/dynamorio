@@ -84,6 +84,18 @@ drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
     return NULL;
 }
 
+DWORD
+ntstatus_to_last_error(NTSTATUS status)
+{
+    switch (status) {
+    case STATUS_INVALID_HANDLE:        return ERROR_INVALID_HANDLE;
+    case STATUS_ACCESS_DENIED:         return ERROR_ACCESS_DENIED;
+    case STATUS_INVALID_PARAMETER:     return ERROR_INVALID_PARAMETER;
+    /* XXX: add more.  Hopefully none of these vary by function. */
+    default:                           return ERROR_INVALID_PARAMETER;
+    }
+}
+
 BOOL WINAPI
 redirect_ignore_arg0(void)
 {
@@ -109,6 +121,7 @@ redirect_ignore_arg12(void *arg1, void *arg2, void *arg3)
 }
 
 #ifdef STANDALONE_UNIT_TEST
+void unit_test_drwinapi_kernel32_mem(void);
 void unit_test_drwinapi_rpcrt4(void);
 
 void
@@ -116,6 +129,9 @@ unit_test_drwinapi(void)
 {
     print_file(STDERR, "testing drwinapi\n");
 
+    loader_init(); /* not called by standalone_init */
+
+    unit_test_drwinapi_kernel32_mem();
     unit_test_drwinapi_rpcrt4();
 }
 #endif

@@ -47,6 +47,8 @@ typedef struct _redirect_import_t {
     app_pc func;
 } redirect_import_t;
 
+DWORD
+ntstatus_to_last_error(NTSTATUS status);
 
 /* Redirection targets shared among multiple modules */
 

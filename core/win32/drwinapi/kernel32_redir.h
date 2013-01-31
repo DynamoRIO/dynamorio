@@ -429,6 +429,12 @@ redirect_LoadLibraryExW(
  * Memory
  */
 
+void
+kernel32_redir_init_mem(void);
+
+void
+kernel32_redir_exit_mem(void);
+
 PVOID
 WINAPI
 redirect_DecodePointer(

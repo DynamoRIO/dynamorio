@@ -964,6 +964,11 @@ nt_write_virtual_memory(HANDLE process, void *base, const void *buffer,
 
 /* returns raw NTSTATUS */
 NTSTATUS
+nt_raw_read_virtual_memory(HANDLE process, const void *base, void *buffer, 
+                           size_t buffer_length, size_t *bytes_read);
+
+/* returns raw NTSTATUS */
+NTSTATUS
 nt_raw_write_virtual_memory(HANDLE process, void *base, const void *buffer,
                             size_t buffer_length, size_t *bytes_written);
 
@@ -1891,5 +1896,7 @@ NTSTATUS
 nt_raw_OpenProcessToken(HANDLE process_handle,
                         ACCESS_MASK desired_access,
                         PHANDLE token_handle);
+
+#define HEAP_CLASS_PRIVATE 0x00001000
 
 #endif /* _NTDLL_H_ */

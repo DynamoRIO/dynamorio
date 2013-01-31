@@ -81,8 +81,6 @@
 # define IMAGE_ORDINAL_FLAG IMAGE_ORDINAL_FLAG32
 #endif
 
-#define HEAP_CLASS_PRIVATE 0x00001000
-
 /* Not persistent across code cache execution, so not protected.
  * Synchronized by privload_lock.
  */
@@ -152,7 +150,7 @@ os_loader_init_prologue(void)
     app_pc drdll = get_dynamorio_dll_start();
     app_pc user32 = NULL;
     privmod_t *mod;
-    if (!dr_earliest_injected) /* FIXME i#812: need to delay this */
+    if (!dr_earliest_injected && !standalone_library) /* FIXME i#812: need to delay this */
         user32 = (app_pc) get_module_handle(L"user32.dll");
 
 #ifdef CLIENT_INTERFACE

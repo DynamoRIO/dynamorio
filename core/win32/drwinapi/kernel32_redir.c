@@ -46,8 +46,11 @@
 static strhash_table_t *kernel32_table;
 
 static const redirect_import_t redirect_kernel32[] = {
+    /* Process and thread-related routines */
     /* To avoid the FlsCallback being interpreted */
     {"FlsAlloc",                       (app_pc)redirect_FlsAlloc},
+
+    /* Library routines */
     /* As an initial interception of loader queries, but simpler than
      * intercepting Ldr*: plus, needed to intercept FlsAlloc called by msvcrt
      * init routine.
@@ -60,6 +63,28 @@ static const redirect_import_t redirect_kernel32[] = {
     {"LoadLibraryW",                   (app_pc)redirect_LoadLibraryW},
     {"GetModuleFileNameA",             (app_pc)redirect_GetModuleFileNameA},
     {"GetModuleFileNameW",             (app_pc)redirect_GetModuleFileNameW},
+
+    /* Memory-related routines */
+    {"DecodePointer",                  (app_pc)redirect_DecodePointer},
+    {"EncodePointer ",                 (app_pc)redirect_EncodePointer },
+    {"GetProcessHeap",                 (app_pc)redirect_GetProcessHeap},
+    {"HeapAlloc",                      (app_pc)redirect_HeapAlloc},
+    {"HeapCompact",                    (app_pc)redirect_HeapCompact},
+    {"HeapCreate",                     (app_pc)redirect_HeapCreate},
+    {"HeapDestroy",                    (app_pc)redirect_HeapDestroy},
+    {"HeapFree",                       (app_pc)redirect_HeapFree},
+    {"HeapReAlloc",                    (app_pc)redirect_HeapReAlloc},
+    {"HeapSetInformation ",            (app_pc)redirect_HeapSetInformation },
+    {"HeapSize",                       (app_pc)redirect_HeapSize},
+    {"HeapValidate",                   (app_pc)redirect_HeapValidate},
+    {"HeapWalk",                       (app_pc)redirect_HeapWalk},
+    {"IsBadReadPtr",                   (app_pc)redirect_IsBadReadPtr},
+    {"ReadProcessMemory",              (app_pc)redirect_ReadProcessMemory},
+    {"VirtualAlloc",                   (app_pc)redirect_VirtualAlloc},
+    {"VirtualFree",                    (app_pc)redirect_VirtualFree},
+    {"VirtualProtect",                 (app_pc)redirect_VirtualProtect},
+    {"VirtualQuery",                   (app_pc)redirect_VirtualQuery},
+    {"VirtualQueryEx",                 (app_pc)redirect_VirtualQueryEx},
 };
 #define REDIRECT_KERNEL32_NUM (sizeof(redirect_kernel32)/sizeof(redirect_kernel32[0]))
 
@@ -81,11 +106,13 @@ kernel32_redir_init(void)
     TABLE_RWLOCK(kernel32_table, write, unlock);
 
     kernel32_redir_init_proc();
+    kernel32_redir_init_mem();
 }
 
 void
 kernel32_redir_exit(void)
 {
+    kernel32_redir_exit_mem();
     kernel32_redir_exit_proc();
 
     strhash_hash_destroy(GLOBAL_DCONTEXT, kernel32_table);
