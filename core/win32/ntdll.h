@@ -1349,6 +1349,11 @@ query_full_attributes_file(PCWSTR filename,
 
 #define STATUS_PARTIAL_COPY              ((NTSTATUS)0x8000000DL)
 
+#ifndef STATUS_INVALID_PARAMETER
+/* An invalid parameter was passed to a service or function. */
+# define STATUS_INVALID_PARAMETER         ((NTSTATUS)0xC000000DL)
+#endif
+
 /* This is in VS2005 winnt.h but not in SDK winnt.h */
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION
 # define IMAGE_SIZEOF_BASE_RELOCATION         8
