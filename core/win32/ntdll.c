@@ -2233,7 +2233,7 @@ nt_get_object_name(HANDLE handle, OBJECT_NAME_INFORMATION* object_name /* OUT */
     return res;
 }
 
-static NTSTATUS
+NTSTATUS
 wchar_to_unicode(PUNICODE_STRING dst, PCWSTR src)
 {
     NTSTATUS res;

@@ -93,6 +93,11 @@ static const redirect_import_t redirect_kernel32[] = {
     {"VirtualProtect",                 (app_pc)redirect_VirtualProtect},
     {"VirtualQuery",                   (app_pc)redirect_VirtualQuery},
     {"VirtualQueryEx",                 (app_pc)redirect_VirtualQueryEx},
+
+    /* File-related routines */
+    {"CloseHandle",                    (app_pc)redirect_CloseHandle},
+    {"CreateDirectoryA",               (app_pc)redirect_CreateDirectoryA},
+    {"CreateDirectoryW",               (app_pc)redirect_CreateDirectoryW},
 };
 #define REDIRECT_KERNEL32_NUM (sizeof(redirect_kernel32)/sizeof(redirect_kernel32[0]))
 

@@ -91,6 +91,12 @@ ntstatus_to_last_error(NTSTATUS status)
     case STATUS_INVALID_HANDLE:        return ERROR_INVALID_HANDLE;
     case STATUS_ACCESS_DENIED:         return ERROR_ACCESS_DENIED;
     case STATUS_INVALID_PARAMETER:     return ERROR_INVALID_PARAMETER;
+    case STATUS_OBJECT_NAME_EXISTS:    return ERROR_ALREADY_EXISTS;
+    case STATUS_OBJECT_NAME_COLLISION: return ERROR_ALREADY_EXISTS;
+    case STATUS_OBJECT_NAME_NOT_FOUND: return ERROR_FILE_NOT_FOUND;
+    case STATUS_OBJECT_NAME_INVALID:   return ERROR_INVALID_NAME;
+    case STATUS_OBJECT_PATH_INVALID:   return ERROR_BAD_PATHNAME;
+    case STATUS_OBJECT_PATH_NOT_FOUND: return ERROR_PATH_NOT_FOUND;
     /* XXX: add more.  Hopefully none of these vary by function. */
     default:                           return ERROR_INVALID_PARAMETER;
     }
@@ -122,6 +128,7 @@ redirect_ignore_arg12(void *arg1, void *arg2, void *arg3)
 
 #ifdef STANDALONE_UNIT_TEST
 void unit_test_drwinapi_kernel32_mem(void);
+void unit_test_drwinapi_kernel32_file(void);
 void unit_test_drwinapi_rpcrt4(void);
 
 void
@@ -132,6 +139,7 @@ unit_test_drwinapi(void)
     loader_init(); /* not called by standalone_init */
 
     unit_test_drwinapi_kernel32_mem();
+    unit_test_drwinapi_kernel32_file();
     unit_test_drwinapi_rpcrt4();
 }
 #endif

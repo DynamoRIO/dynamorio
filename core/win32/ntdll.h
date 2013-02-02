@@ -1266,11 +1266,20 @@ query_full_attributes_file(PCWSTR filename,
  * written to the buffer." */
 #define STATUS_BUFFER_TOO_SMALL          ((NTSTATUS)0xC0000023L)
 
+/* Object Name invalid. */
+#define STATUS_OBJECT_NAME_INVALID       ((NTSTATUS)0xC0000033L)
+
 /*  Object Name not found. */
 #define STATUS_OBJECT_NAME_NOT_FOUND     ((NTSTATUS)0xC0000034L)
 
 /* Error: Object Name already exists */
 #define STATUS_OBJECT_NAME_COLLISION     ((NTSTATUS)0xC0000035L)
+
+/* Object Path Component was not a directory object. */
+#define STATUS_OBJECT_PATH_INVALID       ((NTSTATUS)0xC0000039L)
+
+/* The path does not exist. */
+#define STATUS_OBJECT_PATH_NOT_FOUND     ((NTSTATUS)0xC000003AL)
 
 /*  A file cannot be opened because the share access flags are incompatible. */
 #define STATUS_SHARING_VIOLATION         ((NTSTATUS)0xC0000043L)
@@ -1726,6 +1735,9 @@ typedef struct _OBJECT_NAME_INFORMATION {
      * yet we do not expect needs for longer */
     wchar_t object_name_buffer[MAX_OBJECT_NAME_LENGTH];
 } OBJECT_NAME_INFORMATION, *POBJECT_NAME_INFORMATION;
+
+NTSTATUS
+wchar_to_unicode(PUNICODE_STRING dst, PCWSTR src);
 
 NTSTATUS
 nt_get_object_name(HANDLE handle, OBJECT_NAME_INFORMATION* object_name /* OUT */,
