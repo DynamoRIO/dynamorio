@@ -276,6 +276,9 @@ redirect_LocalAlloc(
         return NULL;
     }
 
+    /* No lock is needed as the lock is to synchronize w/ other Local* routines
+     * accessing the same object, and this object has not been returned yet.
+     */
     hdr = (local_header_t *)
         redirect_RtlAllocateHeap(heap, rtl_flags, uBytes + sizeof(local_header_t));
     if (hdr == NULL) {

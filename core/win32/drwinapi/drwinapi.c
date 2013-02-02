@@ -87,6 +87,9 @@ drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
 DWORD
 ntstatus_to_last_error(NTSTATUS status)
 {
+    /* I don't want to rely on RtlNtStatusToDosError not working
+     * at earliest init time or something so I'm doing my own mapping.
+     */
     switch (status) {
     case STATUS_INVALID_HANDLE:        return ERROR_INVALID_HANDLE;
     case STATUS_ACCESS_DENIED:         return ERROR_ACCESS_DENIED;

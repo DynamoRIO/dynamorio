@@ -650,6 +650,9 @@ redirect_VirtualQueryEx(
  * Files
  */
 
+void
+kernel32_redir_onload_file(privmod_t *mod);
+
 BOOL
 WINAPI
 redirect_CloseHandle(

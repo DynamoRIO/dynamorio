@@ -1197,6 +1197,7 @@ query_full_attributes_file(PCWSTR filename,
 #define FILE_COMPLETE_IF_OPLOCKED               0x00000100
 #define FILE_NO_EA_KNOWLEDGE                    0x00000200
 #define FILE_OPEN_FOR_RECOVERY                  0x00000400
+#define FILE_OPEN_REMOTE_INSTANCE               0x00000400 /* alt name */
 #define FILE_RANDOM_ACCESS                      0x00000800
 
 #define FILE_DELETE_ON_CLOSE                    0x00001000
