@@ -848,6 +848,36 @@ typedef struct _create_thread_info_t { /* NOTE - this is speculative */
     thread_info_elm_t teb;
 } create_thread_info_t;
 
+/* PEB.ReadOnlyStaticServerData has an array of pointers sized to match the
+ * kernel (so 64-bit for WOW64).  The second pointer points at this structure.
+ * However, be careful b/c the UNICODE_STRING structs are really UNICODE_STRING_64
+ * for WOW64.
+ */
+typedef struct _BASE_STATIC_SERVER_DATA
+{
+    UNICODE_STRING WindowsDirectory;
+    UNICODE_STRING WindowsSystemDirectory;
+    UNICODE_STRING NamedObjectDirectory;
+    USHORT WindowsMajorVersion;
+    USHORT WindowsMinorVersion;
+    USHORT BuildNumber;
+    /* rest we don't care about */
+} BASE_STATIC_SERVER_DATA, *PBASE_STATIC_SERVER_DATA;
+
+#ifndef X64
+typedef struct _BASE_STATIC_SERVER_DATA_64
+{
+    UNICODE_STRING_64 WindowsDirectory;
+    UNICODE_STRING_64 WindowsSystemDirectory;
+    UNICODE_STRING_64 NamedObjectDirectory;
+    USHORT WindowsMajorVersion;
+    USHORT WindowsMinorVersion;
+    USHORT BuildNumber;
+    /* rest we don't care about */
+} BASE_STATIC_SERVER_DATA_64, *PBASE_STATIC_SERVER_DATA_64;
+#endif
+
+
 /***************************************************************************
  * convenience enums
  */
@@ -1267,6 +1297,11 @@ query_full_attributes_file(PCWSTR filename,
  * written to the buffer." */
 #define STATUS_BUFFER_TOO_SMALL          ((NTSTATUS)0xC0000023L)
 
+/* There is a mismatch between the type of object required by the requested operation
+ * and the type of object that is specified in the request.
+ */
+#define STATUS_OBJECT_TYPE_MISMATCH      ((NTSTATUS)0xC0000024L)
+
 /* Object Name invalid. */
 #define STATUS_OBJECT_NAME_INVALID       ((NTSTATUS)0xC0000033L)
 
@@ -1282,8 +1317,17 @@ query_full_attributes_file(PCWSTR filename,
 /* The path does not exist. */
 #define STATUS_OBJECT_PATH_NOT_FOUND     ((NTSTATUS)0xC000003AL)
 
+/* The specified section is too big to map the file. */
+#define STATUS_SECTION_TOO_BIG           ((NTSTATUS)0xC0000040L)
+
 /*  A file cannot be opened because the share access flags are incompatible. */
 #define STATUS_SHARING_VIOLATION         ((NTSTATUS)0xC0000043L)
+
+/* The specified page protection was not valid. */
+#define STATUS_INVALID_PAGE_PROTECTION   ((NTSTATUS)0xC0000045L)
+
+/* A requested read/write cannot be granted due to a conflicting file lock. */
+#define STATUS_FILE_LOCK_CONFLICT        ((NTSTATUS)0xC0000054L)
 
 /*  A non close operation has been requested of a file object with a delete pending. */
 #define STATUS_DELETE_PENDING            ((NTSTATUS)0xC0000056L)
@@ -1300,9 +1344,6 @@ query_full_attributes_file(PCWSTR filename,
 
 /* Warning: An attempt was made to create an object and the object name already existed. */
 #define STATUS_OBJECT_NAME_EXISTS        ((NTSTATUS)0x40000000L)
-
-/*  An invalid parameter was passed to a service or function as the fourth argument. */
-#define STATUS_INVALID_PARAMETER_4       ((NTSTATUS)0xC00000F2L)
 
 /* Warning: Image Relocated
  *  "An image file could not be mapped at the address specified in the image file. "
@@ -1357,12 +1398,53 @@ query_full_attributes_file(PCWSTR filename,
 /* needed for PR 233191 */
 #define STATUS_INVALID_INFO_CLASS        ((NTSTATUS)0xC0000003L)
 
+/* An attempt was made to map a file of size zero with the maximum size specified as
+ * zero.
+ */
+#define STATUS_MAPPED_FILE_SIZE_ZERO     ((NTSTATUS)0xC000011EL)
+
 #define STATUS_PARTIAL_COPY              ((NTSTATUS)0x8000000DL)
 
 #ifndef STATUS_INVALID_PARAMETER
 /* An invalid parameter was passed to a service or function. */
 # define STATUS_INVALID_PARAMETER         ((NTSTATUS)0xC000000DL)
 #endif
+
+/* An invalid parameter was passed to a service or function as the first argument. */
+#define STATUS_INVALID_PARAMETER_1       ((NTSTATUS)0xC00000EFL)
+
+/* An invalid parameter was passed to a service or function as the second argument. */
+#define STATUS_INVALID_PARAMETER_2       ((NTSTATUS)0xC00000F0L)
+
+/* An invalid parameter was passed to a service or function as the third argument. */
+#define STATUS_INVALID_PARAMETER_3       ((NTSTATUS)0xC00000F1L)
+
+/* An invalid parameter was passed to a service or function as the fourth argument. */
+#define STATUS_INVALID_PARAMETER_4       ((NTSTATUS)0xC00000F2L)
+
+/* An invalid parameter was passed to a service or function as the fifth argument. */
+#define STATUS_INVALID_PARAMETER_5       ((NTSTATUS)0xC00000F3L)
+
+/* An invalid parameter was passed to a service or function as the sixth argument. */
+#define STATUS_INVALID_PARAMETER_6       ((NTSTATUS)0xC00000F4L)
+
+/* An invalid parameter was passed to a service or function as the seventh argument. */
+#define STATUS_INVALID_PARAMETER_7       ((NTSTATUS)0xC00000F5L)
+
+/* An invalid parameter was passed to a service or function as the eighth argument. */
+#define STATUS_INVALID_PARAMETER_8       ((NTSTATUS)0xC00000F6L)
+
+/* An invalid parameter was passed to a service or function as the ninth argument. */
+#define STATUS_INVALID_PARAMETER_9       ((NTSTATUS)0xC00000F7L)
+
+/* An invalid parameter was passed to a service or function as the tenth argument. */
+#define STATUS_INVALID_PARAMETER_10      ((NTSTATUS)0xC00000F8L)
+
+/* An invalid parameter was passed to a service or function as the eleventh argument. */
+#define STATUS_INVALID_PARAMETER_11      ((NTSTATUS)0xC00000F9L)
+
+/* An invalid parameter was passed to a service or function as the twelfth argument. */
+#define STATUS_INVALID_PARAMETER_12      ((NTSTATUS)0xC00000FAL)
 
 /* This is in VS2005 winnt.h but not in SDK winnt.h */
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION

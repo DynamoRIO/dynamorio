@@ -1015,6 +1015,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define L_EVENT_MESSAGE_FILE L"EventMessageFile"
 
 /* shared object directory base */
+#  define BASE_NAMED_OBJECTS L"\\BaseNamedObjects"
 /* base root in global object namespace, not in BaseNamedObjects or Sessions */
 #  define DYNAMORIO_SHARED_OBJECT_BASE L("\\")L_EXPAND_LEVEL(COMPANY_NAME)
 /* shared object directory for shared DLL cache */

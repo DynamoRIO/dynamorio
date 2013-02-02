@@ -1797,7 +1797,7 @@ osprot_to_memprot(uint prot)
     return mem_prot;
 }
 
-static int
+int
 osprot_add_writecopy(uint prot)
 {
     int pr = prot & ~PAGE_PROTECTION_QUALIFIERS;

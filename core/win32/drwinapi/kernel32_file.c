@@ -40,6 +40,57 @@
 
 static HANDLE (WINAPI *priv_kernel32_OpenConsoleW)(LPCWSTR, DWORD, BOOL, DWORD);
 
+static HANDLE base_named_obj_dir;
+
+static wchar_t *
+get_base_named_obj_dir_name(void)
+{
+    /* PEB.ReadOnlyStaticServerData has an array of pointers sized to match the
+     * kernel (so 64-bit for WOW64).  The second pointer points at a
+     * BASE_STATIC_SERVER_DATA structure.
+     *
+     * If this proves fragile in the future, AFAIK we could construct this:
+     * + Prior to Vista, just use BASE_NAMED_OBJECTS;
+     * + On Vista+, use L"\Sessions\N\BaseNamedObjects"
+     *   where N = PEB.SessionId.
+     *
+     * The Windows library code BaseGetNamedObjectDirectory() seems to
+     * deal with TEB->IsImpersonating, but by initializing at startup
+     * here and not lazily I'm hoping we can avoid that complexity
+     * (XXX: what about attach?).
+     */
+    byte *ptr = (byte *) get_peb(NT_CURRENT_PROCESS)->ReadOnlyStaticServerData;
+#ifndef X64
+    if (is_wow64_process(NT_CURRENT_PROCESS)) {
+        BASE_STATIC_SERVER_DATA_64 *data =
+            *(BASE_STATIC_SERVER_DATA_64 **)(ptr + 2*sizeof(void*));
+        /* we assume null-terminated */
+        return data->NamedObjectDirectory.Buffer;
+    } else
+#endif
+        {
+            BASE_STATIC_SERVER_DATA *data =
+                *(BASE_STATIC_SERVER_DATA **)(ptr + sizeof(void*));
+            /* we assume null-terminated */
+            return data->NamedObjectDirectory.Buffer;
+        }
+}
+
+void
+kernel32_redir_init_file(void)
+{
+    NTSTATUS res = nt_open_object_directory(&base_named_obj_dir,
+                                            get_base_named_obj_dir_name(),
+                                            true/*create perms*/);
+    ASSERT(NT_SUCCESS(res));
+}
+
+void
+kernel32_redir_exit_file(void)
+{
+    nt_close_object_directory(base_named_obj_dir);
+}
+
 void
 kernel32_redir_onload_file(privmod_t *mod)
 {
@@ -206,7 +257,6 @@ file_access_to_nt(ACCESS_MASK winapi)
     return access;
 }
 
-__out
 HANDLE
 WINAPI
 redirect_CreateFileA(
@@ -310,7 +360,6 @@ redirect_CreateFileA(
     }
 }
 
-__out
 HANDLE
 WINAPI
 redirect_CreateFileW(
@@ -338,26 +387,206 @@ redirect_CreateFileW(
                                 hTemplateFile);
 }
 
+/***************************************************************************
+ * FILE MAPPING
+ */
+
+/* Xref os_map_file() which this code is modeled on, though here we
+ * have to support anonymous mappings as well.
+ */
+
+HANDLE
+WINAPI
+redirect_CreateFileMappingA(
+    __in     HANDLE hFile,
+    __in_opt LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
+    __in     DWORD flProtect,
+    __in     DWORD dwMaximumSizeHigh,
+    __in     DWORD dwMaximumSizeLow,
+    __in_opt LPCSTR lpName
+    )
+{
+    wchar_t wbuf[MAX_PATH];
+    LPCWSTR wname = NULL;
+    if (lpName != NULL) {
+        int len = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%hs", lpName);
+        if (len < 0 || len >= BUFFER_SIZE_ELEMENTS(wbuf)) {
+            set_last_error(ERROR_INVALID_PARAMETER);
+            return NULL;
+        }
+        NULL_TERMINATE_BUFFER(wbuf);
+        wname = wbuf;
+    }
+    return redirect_CreateFileMappingW(hFile, lpFileMappingAttributes, flProtect,
+                                       dwMaximumSizeHigh, dwMaximumSizeLow, wname);
+}
+
+HANDLE
+WINAPI
+redirect_CreateFileMappingW(
+    __in     HANDLE hFile,
+    __in_opt LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
+    __in     DWORD flProtect,
+    __in     DWORD dwMaximumSizeHigh,
+    __in     DWORD dwMaximumSizeLow,
+    __in_opt LPCWSTR lpName
+    )
+{
+    NTSTATUS res;
+    HANDLE section;
+    OBJECT_ATTRIBUTES oa;
+    ULONG prot = (flProtect & 0xffff);
+    ULONG section_flags = (flProtect & 0xffff0000);
+    DWORD access = SECTION_ALL_ACCESS;
+    LARGE_INTEGER li_size;
+    li_size.LowPart = dwMaximumSizeLow;
+    li_size.HighPart = dwMaximumSizeHigh;
+
+    if (section_flags == 0)
+        section_flags = SEC_COMMIT; /* default, if none specified */
+
+    if (!prot_is_executable(prot))
+        access &= ~SECTION_MAP_EXECUTE;
+    if (!prot_is_writable(prot))
+        access &= ~SECTION_MAP_WRITE;
+
+    init_object_attr_for_files(&oa, NULL, lpFileMappingAttributes, NULL);
+    /* file mappings are case sensitive */
+    oa.Attributes &= ~OBJ_CASE_INSENSITIVE;
+    if (hFile == INVALID_HANDLE_VALUE)
+        oa.Attributes |= OBJ_OPENIF;
+
+    /* If lpName has a "\Global\" prefix, the kernel will move it to
+     * the "\BaseNamedObjects" dir, so we can pass the local session
+     * dir regardless of the name.
+     */
+
+    res = nt_create_section(&section, access,
+                            (dwMaximumSizeHigh == 0 && dwMaximumSizeLow == 0) ?
+                            NULL : &li_size,
+                            prot, section_flags,
+                            (hFile == INVALID_HANDLE_VALUE) ? NULL : hFile,
+                            /* our nt_create_section() re-creates oa */
+                            lpName, oa.Attributes,
+                            /* anonymous section needs base dir, else we get
+                             * STATUS_OBJECT_PATH_SYNTAX_BAD
+                             */
+                            (hFile == INVALID_HANDLE_VALUE) ? base_named_obj_dir : NULL,
+                            oa.SecurityDescriptor);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return NULL;
+    } else if (res == STATUS_OBJECT_NAME_EXISTS) {
+        /* a non-section type name conflict will fail w/ STATUS_OBJECT_TYPE_MISMATCH */
+        set_last_error(ERROR_ALREADY_EXISTS);
+    } else
+        set_last_error(ERROR_SUCCESS);
+    return section;
+}
+
+LPVOID
+WINAPI
+redirect_MapViewOfFile(
+    __in HANDLE hFileMappingObject,
+    __in DWORD dwDesiredAccess,
+    __in DWORD dwFileOffsetHigh,
+    __in DWORD dwFileOffsetLow,
+    __in SIZE_T dwNumberOfBytesToMap
+    )
+{
+    return redirect_MapViewOfFileEx(hFileMappingObject, dwDesiredAccess,
+                                    dwFileOffsetHigh, dwFileOffsetLow,
+                                    dwNumberOfBytesToMap, NULL);
+}
+
+LPVOID
+WINAPI
+redirect_MapViewOfFileEx(
+    __in     HANDLE hFileMappingObject,
+    __in     DWORD dwDesiredAccess,
+    __in     DWORD dwFileOffsetHigh,
+    __in     DWORD dwFileOffsetLow,
+    __in     SIZE_T dwNumberOfBytesToMap,
+    __in_opt LPVOID lpBaseAddress
+    )
+{
+    NTSTATUS res;
+    SIZE_T size = dwNumberOfBytesToMap;
+    LPVOID map = lpBaseAddress;
+    ULONG prot = 0;
+    LARGE_INTEGER li_offs;
+    li_offs.LowPart = dwFileOffsetLow;
+    li_offs.HighPart = dwFileOffsetHigh;
+
+    /* Easiest to deal w/ our bitmasks and then convert: */
+    if (TESTANY(FILE_MAP_READ|FILE_MAP_WRITE|FILE_MAP_COPY, dwDesiredAccess))
+        prot |= MEMPROT_READ;
+    if (TEST(FILE_MAP_WRITE, dwDesiredAccess))
+        prot |= FILE_MAP_WRITE;
+    if (TEST(FILE_MAP_EXECUTE, dwDesiredAccess))
+        prot |= MEMPROT_EXEC;
+    prot = memprot_to_osprot(prot);
+    if (TEST(FILE_MAP_COPY, dwDesiredAccess))
+        prot = osprot_add_writecopy(prot);
+
+    res = nt_raw_MapViewOfSection(hFileMappingObject, NT_CURRENT_PROCESS, &map,
+                                  0, /* no control over placement */
+                                  /* if section created SEC_COMMIT, will all be
+                                   * committed automatically 
+                                   */
+                                  0,
+                                  &li_offs, &size,
+                                  ViewShare, /* not exposed */
+                                  0 /* no special top-down or anything */,
+                                  prot);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return NULL;
+    }
+    return map;
+}
+
+BOOL
+WINAPI
+redirect_UnmapViewOfFile(
+    __in LPCVOID lpBaseAddress
+    )
+{
+    NTSTATUS res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, (void *)lpBaseAddress);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    return TRUE;
+}
+
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Files
  */
 
+
+/***************************************************************************
+ * TESTS
+ */
 
 #ifdef STANDALONE_UNIT_TEST
 void
 unit_test_drwinapi_kernel32_file(void)
 {
     HANDLE h, h2;
-    char tmpdir[MAX_PATH];
+    PVOID p;
+    BOOL ok;
+    char env[MAX_PATH];
     char buf[MAX_PATH];
     int res;
 
     print_file(STDERR, "testing drwinapi kernel32 file-related routines\n");
 
-    res = GetEnvironmentVariableA("TMP", tmpdir, BUFFER_SIZE_ELEMENTS(tmpdir));
+    res = GetEnvironmentVariableA("TMP", env, BUFFER_SIZE_ELEMENTS(env));
     EXPECT(res > 0, true);
-    NULL_TERMINATE_BUFFER(tmpdir);
+    NULL_TERMINATE_BUFFER(env);
 
+    /* test directories */
     EXPECT(redirect_CreateDirectoryA("xyz:\\bogus\\name", NULL), FALSE);
     EXPECT(get_last_error(), ERROR_PATH_NOT_FOUND);
 
@@ -365,6 +594,7 @@ unit_test_drwinapi_kernel32_file(void)
     EXPECT(redirect_CreateDirectoryW(L"c:\\windows", NULL), FALSE);
     EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
 
+    /* test creating files */
     h = redirect_CreateFileW(L"c:\\cygwin\\tmp\\_kernel32_file_test_bogus.txt",
                              GENERIC_READ, FILE_SHARE_READ, NULL,
                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -372,13 +602,14 @@ unit_test_drwinapi_kernel32_file(void)
     EXPECT(get_last_error(), ERROR_FILE_NOT_FOUND);
 
     res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-                    "%s\\_kernel32_file_test_temp.txt", tmpdir);
+                    "%s\\_kernel32_file_test_temp.txt", env);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
     NULL_TERMINATE_BUFFER(buf);
     h = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL,
                              CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     EXPECT(h != INVALID_HANDLE_VALUE, true);
-    redirect_CloseHandle(h);
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
     /* clobber it and ensure we give the right errno */
     h2 = redirect_CreateFileA(buf, GENERIC_WRITE,
                               FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, NULL,
@@ -386,6 +617,57 @@ unit_test_drwinapi_kernel32_file(void)
                               FILE_FLAG_DELETE_ON_CLOSE, NULL);
     EXPECT(h2 != INVALID_HANDLE_VALUE, true);
     EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
-    redirect_CloseHandle(h2);
+    ok = redirect_CloseHandle(h2);
+    EXPECT(ok, true);
+
+    /* test anonymous mappings */
+    h2 = CreateEvent(NULL, TRUE, TRUE, "Local\\mymapping"); /* for conflict */
+    EXPECT(h2 != NULL, true);
+    h = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
+                           0, 0x1000, "Local\\mymapping");
+    h = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
+                                    0, 0x1000, "Local\\mymapping");
+    EXPECT(h == NULL, true);
+    EXPECT(get_last_error(), ERROR_INVALID_HANDLE);
+    CloseHandle(h2); /* removes conflict */
+    h = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
+                                    0, 0x1000, "Local\\mymapping");
+    EXPECT(h != NULL, true);
+    h2 = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
+                                     0, 0x1000, "Local\\mymapping");
+    EXPECT(h2 != NULL, true);
+    EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
+    ok = redirect_CloseHandle(h2);
+    EXPECT(ok, true);
+    p = redirect_MapViewOfFileEx(h, FILE_MAP_WRITE, 0, 0, 0x800, NULL);
+    EXPECT(p != NULL, true);
+    *(int *)p = 42; /* test writing: shouldn't crash */
+    ok = redirect_UnmapViewOfFile(p);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
+
+    /* test file mappings */
+    res = GetEnvironmentVariableA("SystemRoot", env, BUFFER_SIZE_ELEMENTS(env));
+    EXPECT(res > 0, true);
+    NULL_TERMINATE_BUFFER(env);
+    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
+                    "%s\\system32\\notepad.exe", env);
+    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
+    NULL_TERMINATE_BUFFER(buf);
+    h = redirect_CreateFileA(buf, GENERIC_READ, 0, NULL,
+                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    EXPECT(h != INVALID_HANDLE_VALUE, true);
+    h2 = redirect_CreateFileMappingA(h, NULL, PAGE_READONLY, 0, 0, NULL);
+    EXPECT(h2 != NULL, true);
+    p = redirect_MapViewOfFileEx(h2, FILE_MAP_READ, 0, 0, 0, NULL);
+    EXPECT(p != NULL, true);
+    EXPECT(*(WORD *)p == IMAGE_DOS_SIGNATURE, true); /* PE image */
+    ok = redirect_UnmapViewOfFile(p);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h2);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
 }
 #endif

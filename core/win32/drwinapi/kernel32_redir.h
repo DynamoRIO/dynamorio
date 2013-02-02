@@ -651,6 +651,12 @@ redirect_VirtualQueryEx(
  */
 
 void
+kernel32_redir_init_file(void);
+
+void
+kernel32_redir_exit_file(void);
+
+void
 kernel32_redir_onload_file(privmod_t *mod);
 
 BOOL
@@ -699,7 +705,6 @@ redirect_CreateFileW(
     __in_opt HANDLE hTemplateFile
     );
 
-__out
 HANDLE
 WINAPI
 redirect_CreateFileMappingA(
@@ -711,7 +716,6 @@ redirect_CreateFileMappingA(
     __in_opt LPCSTR lpName
     );
 
-__out
 HANDLE
 WINAPI
 redirect_CreateFileMappingW(
@@ -721,6 +725,33 @@ redirect_CreateFileMappingW(
     __in     DWORD dwMaximumSizeHigh,
     __in     DWORD dwMaximumSizeLow,
     __in_opt LPCWSTR lpName
+    );
+
+LPVOID
+WINAPI
+redirect_MapViewOfFile(
+    __in HANDLE hFileMappingObject,
+    __in DWORD dwDesiredAccess,
+    __in DWORD dwFileOffsetHigh,
+    __in DWORD dwFileOffsetLow,
+    __in SIZE_T dwNumberOfBytesToMap
+    );
+
+LPVOID
+WINAPI
+redirect_MapViewOfFileEx(
+    __in     HANDLE hFileMappingObject,
+    __in     DWORD dwDesiredAccess,
+    __in     DWORD dwFileOffsetHigh,
+    __in     DWORD dwFileOffsetLow,
+    __in     SIZE_T dwNumberOfBytesToMap,
+    __in_opt LPVOID lpBaseAddress
+    );
+
+BOOL
+WINAPI
+redirect_UnmapViewOfFile(
+    __in LPCVOID lpBaseAddress
     );
 
 BOOL
@@ -954,29 +985,6 @@ redirect_LockFile(
     __in DWORD nNumberOfBytesToLockHigh
     );
 
-__out
-LPVOID
-WINAPI
-redirect_MapViewOfFile(
-    __in HANDLE hFileMappingObject,
-    __in DWORD dwDesiredAccess,
-    __in DWORD dwFileOffsetHigh,
-    __in DWORD dwFileOffsetLow,
-    __in SIZE_T dwNumberOfBytesToMap
-    );
-
-__out
-LPVOID
-WINAPI
-redirect_MapViewOfFileEx(
-    __in     HANDLE hFileMappingObject,
-    __in     DWORD dwDesiredAccess,
-    __in     DWORD dwFileOffsetHigh,
-    __in     DWORD dwFileOffsetLow,
-    __in     SIZE_T dwNumberOfBytesToMap,
-    __in_opt LPVOID lpBaseAddress
-    );
-
 BOOL
 WINAPI
 redirect_PeekConsoleInputA(
@@ -1130,13 +1138,6 @@ redirect_UnlockFile(
     __in DWORD nNumberOfBytesToUnlockLow,
     __in DWORD nNumberOfBytesToUnlockHigh
     );
-
-BOOL
-WINAPI
-redirect_UnmapViewOfFile(
-    __in LPCVOID lpBaseAddress
-    );
-
 
 BOOL
 WINAPI

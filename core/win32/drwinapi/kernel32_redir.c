@@ -100,6 +100,11 @@ static const redirect_import_t redirect_kernel32[] = {
     {"CreateDirectoryW",               (app_pc)redirect_CreateDirectoryW},
     {"CreateFileA",                    (app_pc)redirect_CreateFileA},
     {"CreateFileW",                    (app_pc)redirect_CreateFileW},
+    {"CreateFileMappingA",             (app_pc)redirect_CreateFileMappingA},
+    {"CreateFileMappingW",             (app_pc)redirect_CreateFileMappingW},
+    {"MapViewOfFile",                  (app_pc)redirect_MapViewOfFile},
+    {"MapViewOfFileEx",                (app_pc)redirect_MapViewOfFileEx},
+    {"UnmapViewOfFile",                (app_pc)redirect_UnmapViewOfFile},
 };
 #define REDIRECT_KERNEL32_NUM (sizeof(redirect_kernel32)/sizeof(redirect_kernel32[0]))
 
@@ -122,11 +127,13 @@ kernel32_redir_init(void)
 
     kernel32_redir_init_proc();
     kernel32_redir_init_mem();
+    kernel32_redir_init_file();
 }
 
 void
 kernel32_redir_exit(void)
 {
+    kernel32_redir_exit_file();
     kernel32_redir_exit_mem();
     kernel32_redir_exit_proc();
 
