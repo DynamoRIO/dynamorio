@@ -1635,6 +1635,11 @@ void *memcpy(void *dst, const void *src, size_t n);
 void *memset(void *dst, int val, size_t n);
 #endif /* LINUX */
 
+#ifdef LINUX
+/* Private replacement for _dl_runtime_resolve() for native_exec. */
+void *_dynamorio_runtime_resolve(void);
+#endif
+
 #define DR_SETJMP(buf) (dr_setjmp(buf))
 
 #define DR_LONGJMP(buf, val)          \

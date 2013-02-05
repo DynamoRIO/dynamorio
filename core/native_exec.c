@@ -101,7 +101,7 @@ on_native_exec_list(const char *modname)
     return onlist;
 }
 
-static void
+static bool
 check_and_mark_native_exec(module_area_t *ma, bool add)
 {
     bool is_native = false;
@@ -126,12 +126,15 @@ check_and_mark_native_exec(module_area_t *ma, bool add)
             vmvector_remove(native_exec_areas, ma->start, ma->end);
         ASSERT_CURIOSITY((is_native && present) || (!is_native && !present));
     }
+    return is_native;
 }
 
 void
-native_exec_module_load(module_area_t *ma)
+native_exec_module_load(module_area_t *ma, bool at_map)
 {
-    check_and_mark_native_exec(ma, true/*add*/);
+    bool is_native = check_and_mark_native_exec(ma, true/*add*/);
+    if (is_native && DYNAMO_OPTION(native_exec_retakeover))
+        module_hook_transitions(ma, at_map);
 }
 
 void

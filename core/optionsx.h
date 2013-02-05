@@ -2076,6 +2076,8 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
      * for other potentially problematic sections like .aspack, .pcle, and .sforce */
     OPTION_DEFAULT(bool, native_exec_dot_pexe, true,
         "if module has .pexe section (proxy for strange int 3 behavior), execute it natively")    
+    OPTION_DEFAULT(bool, native_exec_retakeover, false,
+        "attempt to re-takeover when a native module calls out to a non-native module")
 
     /* vestiges from our previous life as a dynamic optimizer */
     OPTION_DEFAULT_INTERNAL(bool, inline_calls, true, "inline calls in traces")

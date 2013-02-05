@@ -232,6 +232,7 @@ DECL_EXTERN(fixup_rtframe_pointers)
 #ifdef LINUX
 DECL_EXTERN(dr_setjmp_sigmask)
 DECL_EXTERN(privload_early_inject)
+DECL_EXTERN(dynamorio_dl_fixup)
 #endif
 #ifdef WINDOWS
 DECL_EXTERN(dynamorio_earliest_init_takeover_C)
@@ -2153,6 +2154,51 @@ make_val_word_size:
 .global __memset_chk
 .hidden __memset_chk
 .set __memset_chk,memset
+
+
+/* Replacement for _dl_runtime_resolve() used for catching module transitions
+ * out of native modules.
+ */
+        DECLARE_FUNC(_dynamorio_runtime_resolve)
+GLOBAL_LABEL(_dynamorio_runtime_resolve:)
+# ifdef X64
+        /* Preserve all 6 argument registers and rax (num fp reg args). */
+        push     rax
+        push     rdi
+        push     rsi
+        push     rdx
+        push     rcx
+        push     r8
+        push     r9
+
+        /* Should be 16-byte aligned now: retaddr, 2 args, 7 regs. */
+        mov      rdi, [rsp + 7 * ARG_SZ]        /* link map */
+        mov      rsi, [rsp + 8 * ARG_SZ]        /* .dynamic index */
+        call     dynamorio_dl_fixup
+        mov      r11, rax                       /* preserve */
+
+        pop      r9
+        pop      r8
+        pop      rcx
+        pop      rdx
+        pop      rsi
+        pop      rdi
+        pop      rax
+
+        add      rsp, 16        /* clear args */
+        jmp      r11            /* Jump to resolved PC, or into DR. */
+# else /* !X64 */
+        push 	 REG_XAX
+        push 	 REG_XCX
+        mov      REG_XAX, [REG_XSP + 2 * ARG_SZ]  /* link map */
+        mov      REG_XCX, [REG_XSP + 3 * ARG_SZ]  /* .dynamic index */
+        CALLC2(dynamorio_dl_fixup, REG_XAX, REG_XCX)
+        mov      [REG_XSP + 2 * ARG_SZ], REG_XAX /* overwrite arg1 */
+        pop 	 REG_XCX
+        pop 	 REG_XAX
+        ret	 4 /* ret to target, pop arg2 */
+# endif /* !X64 */
+        END_FUNC(_dynamorio_runtime_resolve)
 
 #endif /* LINUX */
 

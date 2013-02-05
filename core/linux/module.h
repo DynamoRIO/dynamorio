@@ -245,6 +245,9 @@ module_relocate_rela(app_pc modbase,
                      ELF_RELA_TYPE *end);
 
 bool
+module_get_relro(app_pc base, OUT app_pc *relro_base, OUT size_t *relro_size);
+
+bool
 module_read_os_data(app_pc base,
                     OUT ptr_int_t *delta,
                     OUT os_module_data_t *os_data,
@@ -273,7 +276,7 @@ uint
 module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr);
 
 void
-module_get_os_privmod_data(app_pc base, size_t size,
+module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
                            OUT os_privmod_data_t *pd);
 
 ELF_ADDR 

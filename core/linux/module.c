@@ -1344,7 +1344,7 @@ get_shared_lib_name(app_pc map)
  * We assume the segments are mapped into memory, not mapped file.
  */
 void
-module_get_os_privmod_data(app_pc base, size_t size, 
+module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
                            OUT os_privmod_data_t *pd)
 {
     app_pc mod_base, mod_end;
@@ -1395,8 +1395,12 @@ module_get_os_privmod_data(app_pc base, size_t size,
      */
     pd->textrel = false;
     /* We assume the segments are mapped into memory, so the actual address
-     * is calculated by adding d_ptr and load_delta.
+     * is calculated by adding d_ptr and load_delta, unless the loader already
+     * relocated the module.
      */
+    if (relocated) {
+        load_delta = 0;
+    }
     while (dyn->d_tag != DT_NULL) {
         switch (dyn->d_tag) {
         case DT_PLTGOT:
@@ -1471,6 +1475,41 @@ module_get_os_privmod_data(app_pc base, size_t size,
         }
         ++dyn;
     }
+}
+
+/* Returns a pointer to the phdr of the given type.
+ */
+ELF_PROGRAM_HEADER_TYPE *
+module_find_phdr(app_pc base, uint phdr_type)
+{
+    ELF_HEADER_TYPE *ehdr = (ELF_HEADER_TYPE *)base;
+    uint i;
+    for (i = 0; i < ehdr->e_phnum; i++) {
+        ELF_PROGRAM_HEADER_TYPE *phdr = (ELF_PROGRAM_HEADER_TYPE *)
+            (base + ehdr->e_phoff + i * ehdr->e_phentsize);
+        if (phdr->p_type == phdr_type) {
+            return phdr;
+        }
+    }
+    return NULL;
+}
+
+bool
+module_get_relro(app_pc base, OUT app_pc *relro_base, OUT size_t *relro_size)
+{
+    ELF_PROGRAM_HEADER_TYPE *phdr = module_find_phdr(base, PT_GNU_RELRO);
+    app_pc mod_base;
+    ptr_int_t load_delta;
+    ELF_HEADER_TYPE *ehdr = (ELF_HEADER_TYPE *)base;
+
+    if (phdr == NULL)
+        return false;
+    mod_base = module_vaddr_from_prog_header(base + ehdr->e_phoff,
+                                             ehdr->e_phnum, NULL);
+    load_delta = base - mod_base;
+    *relro_base = (app_pc) phdr->p_vaddr + load_delta;
+    *relro_size = phdr->p_memsz;
+    return true;
 }
 
 static app_pc

@@ -267,7 +267,7 @@ module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
          * when DR's module state is consistent
          */
 
-        native_exec_module_load(ma);
+        native_exec_module_load(ma, at_map);
     } else {
         /* already added! */
         /* only possible for manual NtMapViewOfSection, loader 

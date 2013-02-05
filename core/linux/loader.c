@@ -857,7 +857,8 @@ privload_create_os_privmod_data(privmod_t *privmod)
     module_walk_program_headers(privmod->base, privmod->size, false,
                                 &out_base, &out_end, &opd->soname,
                                 &opd->os_data);
-    module_get_os_privmod_data(privmod->base, privmod->size, opd);
+    module_get_os_privmod_data(privmod->base, privmod->size,
+                               false/*!relocated*/, opd);
 }
 
 static void

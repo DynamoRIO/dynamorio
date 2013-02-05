@@ -162,6 +162,7 @@ if (UNIX)
     linux/diagnost.c
     linux/loader.c
     linux/nudgesig.c
+    linux/native_elf.c
     )
   if (VMKERNEL)
     set(VMKUW_DIR ${PROJECT_SOURCE_DIR}/../internal/core/linux)
@@ -197,6 +198,7 @@ else (UNIX)
     win32/inject_shared.c
     win32/module.c
     win32/module_shared.c
+    win32/native_pe.c
     win32/diagnost.c
     win32/aslr.c
     win32/loader.c
