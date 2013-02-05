@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -127,82 +127,89 @@ if (OPTIMIZE_SAMPLES)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OPT_CFLAGS}")
 endif ()
 
-file(GLOB srcs *.c *.cpp)
-# Not all clients are supported on all plaforms
-string(REGEX REPLACE "[^;]*MF_moduledb.c" "" srcs "${srcs}")
-if (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
-  string(REGEX REPLACE "[^;]*stats.c" "" srcs "${srcs}")
-endif (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
+function (add_sample_client name source_file_list extension_list)
+  add_library(${name} ${libtype} ${source_file_list})
+  configure_DynamoRIO_client(${name})
+  foreach (ext ${extension_list})
+    use_DynamoRIO_extension(${name} ${ext})
+  endforeach (ext)
 
-foreach (src ${srcs})
-  get_filename_component(tgt ${src} NAME_WE)
-  
-  if ("${tgt}" STREQUAL "tracedump")
-    # standalone app
-    add_executable(${tgt} ${src})
-    # We don't want an rpath as it makes it hard to switch
-    # between debug and release at runtime (rpath is removed
-    # on "make install"; here we avoid in build dir).
-    # DynamoRIOConfig.cmake sets for standalone but not lib.
-    set(DynamoRIO_RPATH OFF)
-    configure_DynamoRIO_standalone(${tgt})
+  # Provide a hint for how to use the client
+  if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
+    get_target_property(path ${name} LOCATION${location_suffix})
+    add_custom_command(TARGET ${name}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -E echo "Usage: pass to drconfig or drrun: -c ${path}"
+      VERBATIM)
+  endif ()
+endfunction (add_sample_client)
 
-    if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-      if (UNIX)
-        set(FIND_MSG "(set LD_LIBRARY_PATH)")
-      else (UNIX)
-        set(FIND_MSG "(set PATH or copy to same directory)")
-      endif (UNIX)
-      add_custom_command(TARGET ${tgt}
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND}
-        ARGS -E echo "Make sure the loader finds the dynamorio library ${FIND_MSG}"
-        VERBATIM)
-    endif ()
-  else ("${tgt}" STREQUAL "tracedump")
-    add_library(${tgt} ${libtype} ${src})
-    if (SHOW_SYMBOLS AND "${tgt}" STREQUAL "instrcalls" AND DR_EXT_DRSYMS_STATIC)
-      # required for using drsyms built as a static library
-      set(DynamoRIO_USE_LIBC ON)
-    endif ()
-    configure_DynamoRIO_client(${tgt})
+function (add_sample_standalone name source_file_list)
+  add_executable(${name} ${source_file_list})
 
-    if (SHOW_SYMBOLS AND "${tgt}" STREQUAL "instrcalls")
-      use_DynamoRIO_extension(${tgt} drsyms)
-      if (DR_EXT_DRSYMS_STATIC)
-        set(DynamoRIO_USE_LIBC OFF) # reset
-      endif ()
-    endif ()
-    if ("${tgt}" STREQUAL "strace")
-      use_DynamoRIO_extension(${tgt} drmgr)
-    endif ()
-    if ("${tgt}" STREQUAL "wrap")
-      use_DynamoRIO_extension(${tgt} drwrap)
-      # XXX i#893: drwrap's asm isn't SEH compliant.
-      if (WIN32)
-        append_property_string(TARGET ${tgt} LINK_FLAGS "/safeseh:no")
-      endif ()
-    endif ()
-    if ("${tgt}" STREQUAL "memtrace")
-      use_DynamoRIO_extension(${tgt} drmgr)
-      use_DynamoRIO_extension(${tgt} drutil)
-    endif ()
-    if ("${tgt}" STREQUAL "bbcov")
-      use_DynamoRIO_extension(${tgt} drcontainers)
-    endif ()
+  # We don't want an rpath as it makes it hard to switch
+  # between debug and release at runtime (rpath is removed
+  # on "make install"; here we avoid in build dir).
+  # DynamoRIOConfig.cmake sets for standalone but not lib.
+  set(DynamoRIO_RPATH OFF)
+  configure_DynamoRIO_standalone(${name})
 
-    if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-      get_target_property(tgtnm ${tgt} LOCATION${location_suffix})
-      add_custom_command(TARGET ${tgt}
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND}
-        ARGS -E echo "Usage: pass to drconfig or drrun: -c ${tgtnm}"
-        VERBATIM)
-    endif ()
-  endif ("${tgt}" STREQUAL "tracedump")
+  # Provide a hint for running
+  if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
+    if (UNIX)
+      set(FIND_MSG "(set LD_LIBRARY_PATH)")
+    else (UNIX)
+      set(FIND_MSG "(set PATH or copy to same directory)")
+    endif (UNIX)
+    add_custom_command(TARGET ${name}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -E echo "Make sure the loader finds the dynamorio library ${FIND_MSG}"
+      VERBATIM)
+  endif ()
+endfunction (add_sample_standalone)
 
-  set(tgts ${tgts} ${tgt})
-endforeach (src)
+###########################################################################
+
+# Use ;-separated lists for source files and extensions.
+
+add_sample_client(bbbuf       "bbbuf.c"         "")
+add_sample_client(bbcount     "bbcount.c"       "")
+add_sample_client(bbcov       "bbcov.c"         "drcontainers")
+add_sample_client(bbsize      "bbsize.c"        "")
+add_sample_client(cbr         "cbr.c"           "")
+add_sample_client(countcalls  "countcalls.c"    "")
+add_sample_client(div         "div.c"           "")
+add_sample_client(empty       "empty.c"         "")
+add_sample_client(inc2add     "inc2add.c"       "")
+add_sample_client(inline      "inline.c"        "")
+add_sample_client(inscount    "inscount.c"      "")
+add_sample_client(memtrace    "memtrace.c"      "drmgr;drutil")
+add_sample_client(prefetch    "prefetch.c"      "")
+add_sample_client(signal      "signal.c"        "")
+add_sample_client(stl_test    "stl_test.cpp"    "")
+add_sample_client(strace      "strace.c"        "drmgr")
+add_sample_client(wrap        "wrap.c"          "drwrap")
+
+if (SHOW_SYMBOLS AND DR_EXT_DRSYMS_STATIC)
+  # required for using drsyms built as a static library
+  set(DynamoRIO_USE_LIBC ON)
+endif ()
+add_sample_client(instrcalls  "instrcalls.c"    "drsyms")
+if (SHOW_SYMBOLS AND DR_EXT_DRSYMS_STATIC)
+  set(DynamoRIO_USE_LIBC OFF) # reset
+endif ()
+
+if (WIN32 AND NOT X64)
+  # This client is Windows-only.
+  add_sample_client(stats     "stats.c"         "")
+
+  # XXX i#893: drwrap's asm isn't SEH compliant.
+  append_property_string(TARGET wrap LINK_FLAGS "/safeseh:no")
+endif ()
+
+add_sample_standalone(tracedump   "tracedump.c")
 
 # Strip out everything past this point for the user-exposed file
 # Should we add some install targets for users?
