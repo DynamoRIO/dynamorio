@@ -1508,6 +1508,17 @@ opnd_size_in_bytes(opnd_size_t size);
 
 DR_API
 /** 
+ * Returns the appropriate OPSZ_ constant for the given number of bytes.
+ * Returns OPSZ_NA if there is no such constant.
+ * The intended use case is something like "opnd_size_in_bytes(sizeof(foo))" for
+ * integer/pointer types.  This routine returns simple single-size
+ * types and will not return complex/variable size types.
+ */
+opnd_size_t
+opnd_size_from_bytes(uint bytes);
+
+DR_API
+/** 
  * Shrinks all 32-bit registers in \p opnd to their 16-bit versions.  
  * Also shrinks the size of immediate integers and memory references from
  * OPSZ_4 to OPSZ_2.

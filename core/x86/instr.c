@@ -1200,6 +1200,28 @@ opnd_size_in_bytes(opnd_size_t size)
     }
 }
 
+DR_API
+opnd_size_t
+opnd_size_from_bytes(uint bytes)
+{
+    switch (bytes) {
+    case 0: return OPSZ_0;
+    case 1: return OPSZ_1;
+    case 2: return OPSZ_2;
+    case 4: return OPSZ_4;
+    case 6: return OPSZ_6;
+    case 8: return OPSZ_8;
+    case 10: return OPSZ_10;
+    case 16: return OPSZ_16;
+    case 14: return OPSZ_14;
+    case 28: return OPSZ_28;
+    case 94: return OPSZ_94;
+    case 108: return OPSZ_108;
+    case 512: return OPSZ_512;
+    default: return OPSZ_NA;
+    }
+}
+
 /* shrinks all 32-bit registers in opnd to 16 bits.  also shrinks the size of
  * immed ints and mem refs from OPSZ_4 to OPSZ_2.
  */
