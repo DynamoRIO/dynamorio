@@ -2720,7 +2720,7 @@ permstr_to_memprot(const char * const perm)
 }
 
 /* translate platform independent protection bits to native flags */
-static inline uint
+uint
 memprot_to_osprot(uint prot)
 {
     uint mmap_prot = 0;
@@ -2766,7 +2766,7 @@ mprotect_syscall(byte *p, size_t size, uint prot)
     return dynamorio_syscall(SYS_mprotect, 3, p, size, prot);
 }
 
-static bool
+bool
 mmap_syscall_succeeded(byte *retval)
 {
     ptr_int_t result = (ptr_int_t) retval;
@@ -4526,6 +4526,28 @@ typedef struct {
         unsigned long fd;
         unsigned long offset;
 } mmap_arg_struct_t;
+
+#endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
+
+const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS] = {
+#ifdef X64
+    DR_REG_RDI,
+    DR_REG_RSI,
+    DR_REG_RDX,
+    DR_REG_R10,  /* RCX goes here in normal x64 calling contention. */
+    DR_REG_R8,
+    DR_REG_R9
+#else
+    DR_REG_EBX,
+    DR_REG_ECX,
+    DR_REG_EDX,
+    DR_REG_ESI,
+    DR_REG_EDI,
+    DR_REG_EBP
+#endif
+};
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 static inline reg_t *
 sys_param_addr(dcontext_t *dcontext, int num)
@@ -7525,7 +7547,14 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
             NULL_TERMINATE_BUFFER(libname);
         }
  
-        if ((name_cmp != NULL && strstr(iter.comment, name_cmp) != NULL) ||
+        if ((name_cmp != NULL &&
+             (strstr(iter.comment, name_cmp) != NULL ||
+              /* Include anonymous mappings like .bss.  Our private loader
+               * fills mapping holes with anonymous memory instead of a
+               * MEMPROT_NONE mapping from the original file.
+               */
+              (found_library && iter.comment[0] == '\0' && image_size != 0 &&
+               cur_end - mod_start < image_size))) ||
             (name == NULL && *start >= iter.vm_start && *start < iter.vm_end)) {
             if (!found_library) {
                 size_t mod_readable_sz;

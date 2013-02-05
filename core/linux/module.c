@@ -2012,6 +2012,7 @@ os_read_until(file_t fd, void *buf, size_t toread)
         if (nread < 0)
             break;
         toread -= nread;
+        buf = (app_pc)buf + nread;
     }
     return (toread == 0);
 }
@@ -2195,8 +2196,17 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             ASSERT(map != NULL);
             /* fill zeros at extend size */
             file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
-            if (seg_end > file_end + delta)
+            if (seg_end > file_end + delta) {
+#ifndef NOT_DYNAMORIO_CORE_PROPER
                 memset(file_end + delta, 0, seg_end - (file_end + delta));
+#else
+                /* FIXME i#37: use a remote memset to zero out this gap or fix
+                 * it up in the child.  There is typically one RW PT_LOAD
+                 * segment for .data and .bss.  If .data ends and .bss starts
+                 * before filesz bytes, we need to zero the .bss bytes manually.
+                 */
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+            }
             seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
                                              prog_hdr->p_memsz,
                                              PAGE_SIZE) + delta;

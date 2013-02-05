@@ -75,6 +75,7 @@ dr_inject_process_create(const char *app_name, const char **app_cmdline,
                          void **data);
 
 #ifdef LINUX
+
 /**
  * Prepare to exec() the provided command from the current process.  Use
  * dr_inject_process_inject() to perform the exec() under DR.
@@ -101,6 +102,30 @@ dr_inject_process_create(const char *app_name, const char **app_cmdline,
 int
 dr_inject_prepare_to_exec(const char *app_name, const char **app_cmdline,
                           void **data);
+
+/**
+ * Use the ptrace system call to inject into the targetted process.  Must be
+ * called before dr_inject_process_inject().  Does not work with
+ * dr_inject_prepare_to_exec().
+ *
+ * Newer Linux distributions restrict which processes can be ptraced.  If DR
+ * fails to attach, make sure that gdb can attach to the process in question.
+ *
+ * Once in the injectee, DynamoRIO searches the $HOME directory of the user of
+ * the injector, not the user of the injectee.  Normal usage of drconfig and
+ * drinjectlib will ensure that DynamoRIO finds the right config files, however
+ * users that wish to examine config files need to check the home directory of
+ * the injector's user.
+ *
+ * \warning ptrace injection is still experimental and subject to change.
+ *
+ * \param[in]   data           The pointer returned by dr_inject_process_create()
+ *
+ * \return  Whether successful.
+ */
+bool
+dr_inject_prepare_to_ptrace(void *data);
+
 #endif /* LINUX */
 
 /**

@@ -232,6 +232,10 @@ const char *usage_str =
     "       -mem               Print memory usage statistics.\n"
     "       -pidfile <file>    Print the pid of the child process to the given file.\n"
     "       -no_inject         Run the application natively.\n"
+# ifdef LINUX  /* FIXME i#725: Windows attach NYI */
+    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
+    "                          for pid to launch and inject into a new process.\n"
+# endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
     "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
@@ -688,9 +692,10 @@ int main(int argc, char *argv[])
     char *drlib_path = NULL;
     int exitcode;
 # ifdef WINDOWS
-    bool debugger_key_injection = false;
     time_t start_time, end_time;
-# endif /* WINDOWS */
+# else
+    bool use_ptrace = false;
+# endif
     char *app_name;
     char full_app_name[MAXIMUM_PATH];
     const char **app_argv;
@@ -808,6 +813,24 @@ int main(int argc, char *argv[])
             limit = -1;
             continue;
         }
+# ifdef LINUX
+        else if (strcmp(argv[i], "-use_ptrace") == 0) {
+            /* Undocumented option for using ptrace on a fresh process. */
+            use_ptrace = true;
+            continue;
+        }
+        else if (strcmp(argv[i], "-attach") == 0) {
+            const char *pid_str = argv[++i];
+            process_id_t pid = strtoul(pid_str, NULL, 10);
+            if (pid == ULONG_MAX)
+                usage("-attach expects an integer pid");
+            if (pid != 0)
+                usage("attaching to running processes is not yet implemented");
+            use_ptrace = true;
+            /* FIXME: use pid below to attach. */
+            continue;
+        }
+# endif
         else if (strcmp(argv[i], "-exit0") == 0) {
             exit0 = true;
             continue;
@@ -1169,7 +1192,7 @@ int main(int argc, char *argv[])
     /* On Linux, we use exec by default to create the app process.  This matches
      * our drrun shell script and makes scripting easier for the user.
      */
-    if (limit == 0) {
+    if (limit == 0 && !use_ptrace) {
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
     } else
@@ -1222,6 +1245,17 @@ int main(int argc, char *argv[])
             goto error;
     }
 # endif
+
+#ifdef LINUX
+    if (use_ptrace) {
+        if (!dr_inject_prepare_to_ptrace(inject_data)) {
+            error("unable to use ptrace");
+            goto error;
+        } else {
+            info("using ptrace to inject");
+        }
+    }
+#endif
 
     if (inject && !dr_inject_process_inject(inject_data, force_injection, drlib_path)) {
         error("unable to inject: did you forget to run drconfig first?");

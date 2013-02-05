@@ -41,6 +41,7 @@
 
 #include <signal.h> /* for stack_t */
 #include "module.h" /* for os_module_data_t */
+#include "instr.h" /* for reg_id_t */
 #include <sys/time.h> /* struct itimerval */
 
 /* for inline asm */
@@ -64,6 +65,9 @@
 #define PTHREAD_CLONE_FLAGS (CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND| \
                              CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS| \
                              CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID)
+
+/* Maximum number of arguments to Linux syscalls. */
+enum { MAX_SYSCALL_ARGS = 6 };
 
 /* thread-local data that's os-private, for modularity */
 typedef struct _os_thread_data_t {
@@ -125,14 +129,32 @@ typedef struct _os_thread_data_t {
     void *app_thread_areas; /* data structure for app's thread area info */
 } os_thread_data_t;
 
+enum { ARGC_PTRACE_SENTINEL = -1 };
+
+/* This data is pushed on the stack by the ptrace injection code. */
+typedef struct ptrace_stack_args_t {
+    ptr_int_t argc;              /* Set to ARGC_PTRACE_SENTINEL */
+    priv_mcontext_t mc;          /* Registers at attach time */
+    char home_dir[MAXIMUM_PATH]; /* In case the user of the injectee is not us. */
+} ptrace_stack_args_t;
+
+
 /* in os.c */
 void os_thread_take_over(priv_mcontext_t *mc);
 
 void
 set_executable_path(const char *);
 
+uint
+memprot_to_osprot(uint prot);
+
+bool
+mmap_syscall_succeeded(byte *retval);
+
 bool
 os_files_same(const char *path1, const char *path2);
+
+extern const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS];
 
 /* in signal.c */
 struct _kernel_sigaction_t;

@@ -1212,6 +1212,38 @@ privload_setup_auxv(char **envp, app_pc map, ptr_int_t delta)
     }
 }
 
+/* Entry point for ptrace injection. */
+static void
+takeover_ptrace(ptrace_stack_args_t *args)
+{
+    static char home_var[MAXIMUM_PATH+6/*HOME=path\0*/];
+    static char *fake_envp[] = {home_var, NULL};
+
+    /* When we come in via ptrace, we have no idea where the environment
+     * pointer is.  We could use /proc/self/environ to read it or go searching
+     * near the stack base.  However, both are fragile and we don't really need
+     * the environment for anything except for option passing.  In the initial
+     * ptraced process, we can assume our options are in a config file and not
+     * the environment, so we just set an environment with HOME.
+     */
+    snprintf(home_var, BUFFER_SIZE_ELEMENTS(home_var),
+             "HOME=%s", args->home_dir);
+    NULL_TERMINATE_BUFFER(home_var);
+    dynamorio_set_envp(fake_envp);
+
+    dynamorio_app_init();
+
+    /* FIXME i#37: takeover other threads */
+
+    /* We need to wait until dr_inject_process_run() is called to finish
+     * takeover, and this is an easy way to stop and return control to the
+     * injector.
+     */
+    dynamorio_syscall(SYS_kill, 2, get_process_id(), SIGTRAP);
+
+    dynamo_start(&args->mc);
+}
+
 /* i#1004: as a workaround, reserve some space for sbrk() during early injection
  * before initializing DR's heap.  With early injection, the program break comes
  * somewhere after DR's bss section, subject to some ASLR.  When we allocate our
@@ -1256,6 +1288,14 @@ privload_early_inject(void **sp)
     const char *interp;
     priv_mcontext_t mc;
     bool success;
+
+    if (*argc == ARGC_PTRACE_SENTINEL) {
+        /* XXX: Teach the injector to look up takeover_ptrace() and call it
+         * directly instead of using this sentinel.  We come here because we
+         * can easily find the address of _start in the ELF header.
+         */
+        takeover_ptrace((ptrace_stack_args_t *) sp);
+    }
 
     dynamorio_set_envp(envp);
 
