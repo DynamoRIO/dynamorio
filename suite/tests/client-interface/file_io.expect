@@ -1,7 +1,8 @@
 0123456789
 01234
 abcdefg
-vwxyz
+x
+EOF
 
 dummy_func is rx
 writable_buf is rw

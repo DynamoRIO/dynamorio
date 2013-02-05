@@ -119,6 +119,7 @@ void dr_init(client_id_t id)
     size_t bytes_read, bytes_written;
     byte *edge, *mbuf;
     bool ok;
+    byte *f_map;
 
     /* The Makefile will pass a full absolute path (for Windows and Linux) as the client
      * option to a dummy file in the which we use to exercise the file api routines.
@@ -149,6 +150,15 @@ void dr_init(client_id_t id)
     memset(buf, 0, sizeof(buf));
     dr_read_file(file, buf, 6);
     dr_fprintf(STDERR, "%s\n", buf);
+#define EXTRA_SIZE 0x60
+    size  = PAGE_SIZE + EXTRA_SIZE;
+    f_map = dr_map_file(file, &size, 0, NULL, DR_MEMPROT_READ, DR_MAP_PRIVATE);
+    if (f_map == NULL || size < (PAGE_SIZE + EXTRA_SIZE))
+        dr_fprintf(STDERR, "map error\n");
+    /* test unaligned unmap */
+    if (!dr_unmap_file(f_map + PAGE_SIZE, EXTRA_SIZE))
+        dr_fprintf(STDERR, "unmap error\n");
+    
     /* leave file open and check in exit event that it's still open after
      * app tries to close it
      */

@@ -2345,12 +2345,18 @@ bool
 unmap_file(byte *map, size_t size)
 {
     bool success;
-    ASSERT(map != NULL);
+    ASSERT(map != NULL && ALIGNED(map, PAGE_SIZE));
+    size = ALIGN_FORWARD(size, PAGE_SIZE);
     /* memory alloc/dealloc and updating DR list must be atomic */
     dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
-    update_dynamo_areas_on_release(map, map+size, true/*remove now*/);
-    STATS_SUB(file_map_capacity, size);
     success = os_unmap_file(map, size);
+    if (success) {
+        /* Only update the all_memory_areas on success.
+         * It should still be atomic to the outside observers.
+         */
+        update_dynamo_areas_on_release(map, map+size, true/*remove now*/);
+        STATS_SUB(file_map_capacity, size);
+    }
     dynamo_vm_areas_unlock();
     return success;
 }

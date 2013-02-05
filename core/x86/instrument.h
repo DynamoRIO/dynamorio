@@ -3150,6 +3150,13 @@ DR_API
 /**
  * Unmaps a portion of a file mapping previously created by dr_map_file().
  * \return whether successful.
+ *
+ * @param[in]  map   The base address to be unmapped. Must be page size aligned.
+ * @param[in]  size  The size to be unmapped.
+ *                   All pages overlapping with the range are unmapped.
+ *
+ * \note On Windows, the whole file will be unmapped instead.
+ * 
  */
 bool
 dr_unmap_file(void *map, size_t size);

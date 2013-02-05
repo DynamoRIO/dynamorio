@@ -3516,6 +3516,8 @@ DR_API
 bool
 dr_unmap_file(void *map, size_t size)
 {
+    CLIENT_ASSERT(ALIGNED(map, PAGE_SIZE),
+                  "dr_unmap_file: map is not page aligned");
     return unmap_file((byte *) map, size);
 }
 
