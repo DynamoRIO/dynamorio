@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -594,6 +594,44 @@ get_image_name(const TCHAR *app_name)
     return name_start;
 }
 
+/* FIXME i#803: Until we have i#803 and support targeting cross-arch
+ * children, we require the child to match our bitwidth.
+ * module_is_64bit() takes in a base, but there's no need to map the
+ * whole thing in.  Thus we have our own impl.
+ */
+static bool
+exe_is_right_bitwidth(const char *exe)
+{
+    bool res = false;
+    HANDLE f;
+    DWORD offs;
+    DWORD read;
+    IMAGE_DOS_HEADER dos;
+    IMAGE_NT_HEADERS nt;
+    f = CreateFile(exe, GENERIC_READ, FILE_SHARE_READ,
+                   NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (f == INVALID_HANDLE_VALUE)
+        goto read_nt_headers_error;
+    if (!ReadFile(f, &dos, sizeof(dos), &read, NULL) ||
+        read != sizeof(dos) ||
+        dos.e_magic != IMAGE_DOS_SIGNATURE)
+        goto read_nt_headers_error;
+    offs = SetFilePointer(f, dos.e_lfanew, NULL, FILE_BEGIN);
+    if (offs == INVALID_SET_FILE_POINTER)
+        goto read_nt_headers_error;
+    if (!ReadFile(f, &nt, sizeof(nt), &read, NULL) ||
+        read != sizeof(nt) ||
+        nt.Signature != IMAGE_NT_SIGNATURE)
+        goto read_nt_headers_error;
+    res = (nt.OptionalHeader.Magic ==
+           IF_X64_ELSE(IMAGE_NT_OPTIONAL_HDR64_MAGIC, IMAGE_NT_OPTIONAL_HDR_MAGIC));
+    CloseHandle(f);
+    return res;
+ read_nt_headers_error:
+    if (f != INVALID_HANDLE_VALUE)
+        CloseHandle(f);
+    return false;
+}
 
 /* Returns 0 on success.
  * On failure, returns a Windows API error code.
@@ -613,6 +651,9 @@ dr_inject_process_create(const char *app_name, const char **argv,
 
     if (data == NULL)
         return ERROR_INVALID_PARAMETER;
+
+    if (!exe_is_right_bitwidth(app_name))
+        return ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE;
 
     /* Quote and concatenate the array of strings to pass to CreateProcess. */
     app_cmdline = malloc(MAX_CMDLINE);

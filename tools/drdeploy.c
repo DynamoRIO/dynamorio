@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1179,6 +1179,13 @@ int main(int argc, char *argv[])
         info("created child with pid %d for %s",
              dr_inject_get_process_id(inject_data), app_name);
     }
+# ifdef WINDOWS
+    if (errcode == ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE) {
+        /* Better error message than the FormatMessage */
+        error("Target process %s is for the wrong architecture", app_name);
+        die(); /* no process created, so don't "goto error" */
+    }
+# endif
     if (errcode != 0) {
         IF_WINDOWS(int sofar =)
             _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
