@@ -163,6 +163,8 @@ foreach (xml ${all_xml})
         string(REGEX REPLACE ";" ":" string "${string}")
         # work around cmake regexps doing maximal matching: we want minimal
         # so we pick a char unlikely to be present to avoid using ".*"
+        # avoid any existing % messing up error processing
+        string(REGEX REPLACE "%" "x" string "${string}")
         string(REGEX REPLACE "</Measurement>" "%</Measurement>" string "${string}")
         string(REGEX MATCHALL "Status=\"failed\">[^%]*%</Measurement>"
           failures "${string}")

@@ -595,7 +595,7 @@ unit_test_drwinapi_kernel32_file(void)
     EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
 
     /* test creating files */
-    h = redirect_CreateFileW(L"c:\\cygwin\\tmp\\_kernel32_file_test_bogus.txt",
+    h = redirect_CreateFileW(L"c:\\_kernel32_file_test_bogus.txt",
                              GENERIC_READ, FILE_SHARE_READ, NULL,
                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     EXPECT(h == INVALID_HANDLE_VALUE, true);
