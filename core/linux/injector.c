@@ -638,10 +638,12 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     APP(ilist, INSTR_CREATE_int3(dc));
     if (verbose) {
         fprintf(stderr, "injecting code:\n");
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
         /* XXX: This disas call aborts on our raw bytes instructions.  Can we
          * teach DR's disassembler to avoid those instrs?
          */
         instrlist_disassemble(dc, pc, ilist, STDERR);
+#endif
     }
 
     /* Encode ilist into shellcode. */

@@ -51,6 +51,7 @@
 #include <string.h> /* for memset */
 #include "instr.h"
 #include "perscache.h"
+#include "disassemble.h"
 
 #ifdef CLIENT_INTERFACE
 /* in interp.c.  not declared in arch_exports.h to avoid having to go

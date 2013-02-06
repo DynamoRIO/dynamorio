@@ -203,6 +203,17 @@ DR_API
 size_t
 opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd, char *buf, size_t bufsz);
 
+/* DR_API EXPORT TOFILE dr_ir_instrlist.h */
+DR_API
+/**
+ * Prints each instruction in \p ilist in sequence to \p outfile.
+ * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
+ * "-syntax_intel" runtime option is specified.
+ */
+void
+instrlist_disassemble(dcontext_t *dcontext, app_pc tag,
+                      instrlist_t *ilist, file_t outfile);
+
 #endif /* INTERNAL || DEBUG || CLIENT_INTERFACE */
 
 #endif /* DISASSEMBLE_H */
