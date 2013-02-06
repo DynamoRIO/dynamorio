@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,10 +35,16 @@
  * stats.c
  *
  * Serves as an example of how to create custom statistics and export
- * them in shared memory (without using any Windows API libraries, and
- * thus remaining transparent).  These statistics can be viewed using
- * the provided statistics viewer.  This code also documents the
- * official shared memory layout required by the statistics viewer.
+ * them in shared memory.  It uses the Windows API, which will be redirected
+ * by DynamoRIO in order to maintain isolation and transparency.
+ * The current version only supports viewing statistics from processes
+ * in the same session and by the same user.  Look at older versions of
+ * the sources for statistics that can be read across sessions (but only
+ * when the target process and the viewer are run as administrator).
+ *
+ * These statistics can be viewed using the provided statistics
+ * viewer.  This code also documents the official shared memory layout
+ * required by the statistics viewer.
  */
 
 #define _CRT_SECURE_NO_DEPRECATE 1
@@ -56,6 +63,8 @@
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+
 /* We export a set of stats in shared memory.
  * drgui.exe reads and displays them.
  */
@@ -66,11 +75,12 @@ const char *stat_names[] = {
     "System calls",
 };
 
-/* Be sure to prefix "Global\" to ensure this is visible across sessions,
- * except on NT where Global\ is not supported.
+/* We do not prefix "Global\", so these stats are NOT visible across sessions
+ * (that requires running as admiministrator, on Vista+).
+ * On NT these prefixes are not supported.
  */
 #define CLIENT_SHMEM_KEY_NT_L L"DynamoRIO_Client_Statistics"
-#define CLIENT_SHMEM_KEY_L    L"Global\\DynamoRIO_Client_Statistics"
+#define CLIENT_SHMEM_KEY_L    L"Local\\DynamoRIO_Client_Statistics"
 #define CLIENTSTAT_NAME_MAX_LEN 50
 #define NUM_STATS (sizeof(stat_names)/sizeof(char*))
 
@@ -78,7 +88,6 @@ const char *stat_names[] = {
  * typing, but for now we have identical types dependent on the platform.
  */
 #ifdef X86_64
-# error Statistics sample and graphical viewer are not yet supported for 64-bit
 typedef int64 stats_int_t;
 # define STAT_FORMAT_CODE UINT64_FORMAT_CODE
 #else
@@ -90,7 +99,7 @@ typedef int stats_int_t;
 typedef struct _client_stats {
     uint num_stats;
     bool exited;
-    uint pid;
+    process_id_t pid;
     /* we need a copy of all the names here */
     char names[NUM_STATS][CLIENTSTAT_NAME_MAX_LEN];
     stats_int_t num_instrs;
@@ -115,305 +124,17 @@ static PVOID shared_view;
 static wchar_t shared_keyname[KEYNAME_MAXLEN];
 
 /* returns current contents of addr and replaces contents with value */
-static __declspec(naked) /* no prolog/epilog */
-uint
+static uint
 atomic_swap(void *addr, uint value)
 {
-    __asm {
-       /* cl was using ebp even though naked so we hand-code param access */
-        mov eax, dword ptr [esp+8] /* value */
-        mov ecx, dword ptr [esp+4] /* addr */
-        xchg (ecx), eax
-        ret
-    }
-}
-
-typedef LONG NTSTATUS;
-#define NT_SUCCESS(Status) ((Status) >= 0)
-
-#define NT_CURRENT_PROCESS ( (HANDLE) -1 )
-#define NT_CURRENT_THREAD  ( (HANDLE) -2 )
-
-/* from DDK2003SP1/3790.1830/inc/wnet/ntdef.h */
-#define OBJ_CASE_INSENSITIVE    0x00000040L
-#define OBJ_OPENIF              0x00000080L
-
-typedef struct _UNICODE_STRING {
-    /* Length field is size in bytes not counting final 0 */
-    USHORT Length;
-    USHORT MaximumLength;
-    PWSTR  Buffer;
-} UNICODE_STRING;
-typedef UNICODE_STRING *PUNICODE_STRING;
-
-typedef struct _STRING {
-  USHORT  Length;
-  USHORT  MaximumLength;
-  PCHAR  Buffer;
-} ANSI_STRING;
-typedef ANSI_STRING *PANSI_STRING;
-
-typedef struct _OBJECT_ATTRIBUTES {
-    ULONG Length;
-    HANDLE RootDirectory;
-    PUNICODE_STRING ObjectName;
-    ULONG Attributes;
-    PSECURITY_DESCRIPTOR SecurityDescriptor;
-    PVOID SecurityQualityOfService;  // Points to type SECURITY_QUALITY_OF_SERVICE
-} OBJECT_ATTRIBUTES;
-typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
-
-#define InitializeObjectAttributes( p, n, a, r, s ) { \
-    (p)->Length = sizeof( OBJECT_ATTRIBUTES );          \
-    (p)->RootDirectory = r;                             \
-    (p)->Attributes = a;                                \
-    (p)->ObjectName = n;                                \
-    (p)->SecurityDescriptor = s;                        \
-    (p)->SecurityQualityOfService = NULL;               \
-    }
-
-/* from ntddk.h */
-typedef enum _SECTION_INHERIT {
-    ViewShare = 1,
-    ViewUnmap = 2
-} SECTION_INHERIT;
-
-#define DIRECTORY_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | 0xF)
-#define STATUS_OBJECT_NAME_EXISTS        ((NTSTATUS)0x40000000L)
-
-#define GET_NTDLL(NtFunction, signature) NTSYSAPI NTSTATUS NTAPI NtFunction signature
-GET_NTDLL(NtCreateSection, (OUT PHANDLE SectionHandle,
-                            IN ACCESS_MASK DesiredAccess,
-                            IN POBJECT_ATTRIBUTES ObjectAttributes,
-                            IN PLARGE_INTEGER SectionSize OPTIONAL,
-                            IN ULONG Protect,
-                            IN ULONG Attributes,
-                            IN HANDLE FileHandle));
-GET_NTDLL(NtMapViewOfSection, (IN HANDLE           SectionHandle,
-                               IN HANDLE           ProcessHandle,
-                               IN OUT PVOID       *BaseAddress,
-                               IN ULONG            ZeroBits,
-                               IN SIZE_T           CommitSize,
-                               IN OUT PLARGE_INTEGER  SectionOffset OPTIONAL,
-                               IN OUT PSIZE_T      ViewSize,
-                               IN SECTION_INHERIT  InheritDisposition,
-                               IN ULONG            AllocationType,
-                               IN ULONG            Protect));
-GET_NTDLL(NtUnmapViewOfSection, (IN HANDLE         ProcessHandle,
-                                 IN PVOID          BaseAddress));
-
-GET_NTDLL(NtOpenDirectoryObject, (PHANDLE, ACCESS_MASK ,POBJECT_ATTRIBUTES));
-
-GET_NTDLL(RtlInitUnicodeString, (IN OUT PUNICODE_STRING DestinationString,
-                                 IN PCWSTR SourceString));
-
-typedef struct _PEB {
-    BOOLEAN InheritedAddressSpace;
-    BOOLEAN ReadImageFileExecOptions;
-    BOOLEAN BeingDebugged;
-    BOOLEAN Spare;
-    HANDLE Mutant;
-    PVOID ImageBaseAddress; 
-    PVOID LoaderData;
-    PVOID ProcessParameters;
-    PVOID SubSystemData;
-    PVOID ProcessHeap;
-    PVOID FastPebLock;
-    PVOID FastPebLockRoutine;
-    PVOID FastPebUnlockRoutine;
-    ULONG EnvironmentUpdateCount;
-    PVOID KernelCallbackTable;
-    PVOID EventLogSection;
-    PVOID EventLog;
-    PVOID FreeList;
-    ULONG TlsExpansionCounter;
-    PVOID TlsBitmap;
-    ULONG TlsBitmapBits[0x2];
-    PVOID ReadOnlySharedMemoryBase;
-    PVOID ReadOnlySharedMemoryHeap;
-    PVOID ReadOnlyStaticServerData;
-    PVOID AnsiCodePageData;
-    PVOID OemCodePageData;
-    PVOID UnicodeCaseTableData;
-    ULONG NumberOfProcessors;
-    ULONG NtGlobalFlag;
-    BYTE Spare2[0x4];
-    LARGE_INTEGER CriticalSectionTimeout;
-    ULONG HeapSegmentReserve;
-    ULONG HeapSegmentCommit; 
-    ULONG HeapDeCommitTotalFreeThreshold;
-    ULONG HeapDeCommitFreeBlockThreshold;
-    ULONG NumberOfHeaps;
-    ULONG MaximumNumberOfHeaps;
-    PVOID *ProcessHeaps;
-    PVOID GdiSharedHandleTable; 
-    PVOID ProcessStarterHelper; 
-    PVOID GdiDCAttributeList; 
-    PRTL_CRITICAL_SECTION LoaderLock;
-    ULONG OSMajorVersion;
-    ULONG OSMinorVersion;
-    ULONG OSBuildNumber;
-    ULONG OSPlatformId;
-    // ...
-} PEB;
-
-typedef struct _TEB {
-    PVOID /* PEXCEPTION_REGISTRATION_RECORD */ ExceptionList;
-    PVOID StackUserTop;  
-    PVOID StackUserBase; 
-    PVOID SubSystemTib;  
-    ULONG FiberData;     
-    PVOID ArbitraryUser; 
-    struct _TEB *Self;   
-    DWORD EnvironmentPtr;
-    DWORD ProcessID;     
-    DWORD ThreadID;      
-    DWORD RpcHandle;     
-    PVOID* TLSArray;     
-    PEB* PEBPtr;       
-    DWORD LastErrorValue;
-    // ...
-} TEB;
-
-TEB *
-get_TEB(void)
-{
-    return (TEB *) __readfsdword(offsetof(TEB, Self));
-}
-
-static uint
-getpid(void)
-{
-    return get_TEB()->ProcessID;
-}
-
-static int
-get_last_error(void)
-{
-    /* RtlGetLastWin32Error is only available on XP+? */
-    return get_TEB()->LastErrorValue;
-}
-
-static void
-set_last_error(int val)
-{
-    get_TEB()->LastErrorValue = val;
-}
-
-static NTSTATUS
-wchar_to_unicode(PUNICODE_STRING dst, PCWSTR src)
-{
-    NTSTATUS res;
-    res = RtlInitUnicodeString(dst, src);
-    return res;
+    return _InterlockedExchange((long *)addr, value);
 }
 
 static bool
 is_windows_NT(void)
 {
-    PEB *peb = get_TEB()->PEBPtr;
-    DR_ASSERT(peb != NULL);
-    return (peb->OSPlatformId == VER_PLATFORM_WIN32_NT && peb->OSMajorVersion == 4);
-}
-
-static HANDLE
-get_BNO_handle(void)
-{
-    NTSTATUS res;
-    HANDLE h;
-    OBJECT_ATTRIBUTES oa;
-    UNICODE_STRING name_unicode;
-    res = wchar_to_unicode(&name_unicode, L"\\BaseNamedObjects");
-    DR_ASSERT(NT_SUCCESS(res));
-    InitializeObjectAttributes(&oa, &name_unicode, OBJ_CASE_INSENSITIVE, NULL, NULL);
-    res = NtOpenDirectoryObject(&h, DIRECTORY_ALL_ACCESS &
-                                ~(DELETE | WRITE_DAC | WRITE_OWNER),
-                                &oa);
-    DR_ASSERT(NT_SUCCESS(res));
-    return h;
-}
-
-static HANDLE
-my_CreateFileMappingW(HANDLE file, SECURITY_ATTRIBUTES *attrb, 
-                      uint prot, uint size_high, uint size_low, wchar_t *name)
-{
-    NTSTATUS res;
-    HANDLE section;
-    UNICODE_STRING section_name_unicode;
-    OBJECT_ATTRIBUTES section_attributes;
-    uint access;
-    LARGE_INTEGER li_size;
-    li_size.HighPart = size_high;
-    li_size.LowPart = size_low;
-    DR_ASSERT(name != NULL);
-    res = wchar_to_unicode(&section_name_unicode, name);
-    DR_ASSERT(NT_SUCCESS(res));
-    if (!NT_SUCCESS(res))
-        return NULL;
-    if (file == INVALID_HANDLE_VALUE) {
-        DR_ASSERT(size_high != 0 || size_low != 0);
-        file = NULL;
-    }
-    /* we ignore dacl for now */
-    InitializeObjectAttributes(&section_attributes, &section_name_unicode,
-                               OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
-                               get_BNO_handle(), NULL);
-    access = STANDARD_RIGHTS_REQUIRED | SECTION_QUERY | SECTION_MAP_READ;
-    if (prot == PAGE_READWRITE)
-        access |= (SECTION_MAP_WRITE | SECTION_MAP_READ);
-    res = NtCreateSection(&section, access,
-                          &section_attributes,
-                          (size_high == 0 && size_low == 0) ? NULL /* entire file */
-                          : &li_size,
-                          prot, SEC_COMMIT, file);
-    if (!NT_SUCCESS(res)) {
-        dr_fprintf(STDERR, "Error in my_CreateFileMappingW: "PFX"\n", res);
-        DR_ASSERT(false);
-        return NULL;
-    }
-    if (res == STATUS_OBJECT_NAME_EXISTS) {
-        set_last_error(ERROR_ALREADY_EXISTS);
-    } else
-        set_last_error(ERROR_SUCCESS);
-    return section;
-}
-
-static void *
-my_MapViewOfFile(HANDLE section, uint file_prot, uint offs_high, uint offs_low,
-                 size_t size)
-{
-    NTSTATUS res;
-    void *map = NULL;
-    uint prot;
-    LARGE_INTEGER li_offs;
-    li_offs.HighPart = offs_high;
-    li_offs.LowPart = offs_low;
-    /* convert FILE_ flags to PAGE_ flags */
-    if ((file_prot & FILE_MAP_WRITE) != 0)
-        prot = PAGE_READWRITE;
-    else if ((file_prot & FILE_MAP_READ) != 0)
-        prot = PAGE_READONLY;
-    else if ((file_prot & FILE_MAP_COPY) != 0)
-        prot = PAGE_WRITECOPY;
-    else
-        prot = PAGE_NOACCESS;
-    res = NtMapViewOfSection(section, NT_CURRENT_PROCESS, &map, 0,
-                             0 /* no commit */, &li_offs, (PSIZE_T) &size, 
-                             ViewUnmap, 0, prot);
-    if (!NT_SUCCESS(res)) {
-        dr_fprintf(STDERR, "Error in my_CreateFileMappingW: "PFX"\n", res);
-        DR_ASSERT(false);
-        return NULL;
-    }
-    return map;
-
-}
-
-static void
-my_UnmapViewOfFile(HANDLE base)
-{
-    NTSTATUS res = NtUnmapViewOfSection(NT_CURRENT_PROCESS, base);
-    DR_ASSERT(NT_SUCCESS(res));
+    dr_os_version_info_t ver;
+    return (dr_get_os_version(&ver) && ver.version == DR_WINDOWS_VERSION_NT);
 }
 
 static client_stats *
@@ -422,35 +143,17 @@ shared_memory_init(void)
     bool is_NT = is_windows_NT();
     int num;
     int pos;
-    SECURITY_ATTRIBUTES attrb;
-    SECURITY_DESCRIPTOR descrip;
-    SECURITY_DESCRIPTOR_CONTROL sd_control = SE_DACL_PRESENT;
-    attrb.nLength = sizeof(SECURITY_ATTRIBUTES);
-    attrb.bInheritHandle = FALSE;
-    /* Set security descriptor by hand (WIN32 API routines to do so are
-     * in advapi).  This may not be fully forward compatible.
-     */
-    /* initialize the descriptor */
-    memset(&descrip, 0, sizeof(SECURITY_DESCRIPTOR));
-    /* Set the dacl present flag. DACL will be NULL from memset which is as 
-     * desired since will give full acccess to everyone: security
-     * is not a concern for these stats.
-     */
-    descrip.Control = sd_control;
-    /* set revision appropriately */
-    descrip.Revision = SECURITY_DESCRIPTOR_REVISION;
-    attrb.lpSecurityDescriptor = &descrip;
     /* We do not want to rely on the registry.
      * Instead, a piece of shared memory with the key base name holds the
      * total number of stats instances.
      */
     shared_map_count =
-        my_CreateFileMappingW(INVALID_HANDLE_VALUE, &attrb, 
-                              PAGE_READWRITE, 0, sizeof(client_stats), 
-                              is_NT ? CLIENT_SHMEM_KEY_NT_L : CLIENT_SHMEM_KEY_L);
+        CreateFileMappingW(INVALID_HANDLE_VALUE, NULL,
+                           PAGE_READWRITE, 0, sizeof(client_stats), 
+                           is_NT ? CLIENT_SHMEM_KEY_NT_L : CLIENT_SHMEM_KEY_L);
     DR_ASSERT(shared_map_count != NULL);
     shared_view_count = 
-        my_MapViewOfFile(shared_map_count, FILE_MAP_READ|FILE_MAP_WRITE, 0, 0, 0);
+        MapViewOfFile(shared_map_count, FILE_MAP_READ|FILE_MAP_WRITE, 0, 0, 0);
     DR_ASSERT(shared_view_count != NULL);
     shared_count = (int *) shared_view_count;
     /* ASSUMPTION: memory is initialized to 0!
@@ -469,11 +172,11 @@ shared_memory_init(void)
     while (1) {
         _snwprintf(shared_keyname, KEYNAME_MAXLEN, L"%s.%03d",
                    is_NT ? CLIENT_SHMEM_KEY_NT_L : CLIENT_SHMEM_KEY_L, num);
-        shared_map = my_CreateFileMappingW(INVALID_HANDLE_VALUE, &attrb, 
-                                           PAGE_READWRITE, 0, 
-                                           sizeof(client_stats), 
-                                           shared_keyname);
-        if (shared_map != NULL && get_last_error() == ERROR_ALREADY_EXISTS) { 
+        shared_map = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL,
+                                        PAGE_READWRITE, 0, 
+                                        sizeof(client_stats), 
+                                        shared_keyname);
+        if (shared_map != NULL && GetLastError() == ERROR_ALREADY_EXISTS) { 
             dr_close_file(shared_map); 
             shared_map = NULL; 
         }
@@ -483,8 +186,7 @@ shared_memory_init(void)
     }
     dr_log(NULL, LOG_ALL, 1, "Shared memory key is: \"%S\"\n", shared_keyname);
     dr_fprintf(STDERR, "Shared memory key is: \"%S\"\n", shared_keyname);
-    shared_view = my_MapViewOfFile(shared_map, FILE_MAP_READ|FILE_MAP_WRITE,
-                                   0, 0, 0);
+    shared_view = MapViewOfFile(shared_map, FILE_MAP_READ|FILE_MAP_WRITE, 0, 0, 0);
     DR_ASSERT(shared_view != NULL);
     return (client_stats *) shared_view;
 }
@@ -495,7 +197,7 @@ shared_memory_exit(void)
     int pos; 
     stats->exited = true;
     /* close down statistics */
-    my_UnmapViewOfFile(shared_view);
+    UnmapViewOfFile(shared_view);
     dr_close_file(shared_map);
     /* decrement count, then unmap */
     do {
@@ -504,8 +206,8 @@ shared_memory_exit(void)
     } while (pos == -1);
     /* now increment it */
     atomic_swap(shared_count, pos-1);
-    my_UnmapViewOfFile(shared_view_count);
-    dr_close_file(shared_map_count);
+    UnmapViewOfFile(shared_view_count);
+    CloseHandle(shared_map_count);
 }
 /***************************************************************************/
 
@@ -527,7 +229,7 @@ dr_init(client_id_t id)
     stats = shared_memory_init();
     memset(stats, 0, sizeof(stats));
     stats->num_stats = NUM_STATS;
-    stats->pid = getpid();
+    stats->pid = dr_get_process_id();
     for (i=0; i<NUM_STATS; i++) {
         strncpy(stats->names[i], stat_names[i], CLIENTSTAT_NAME_MAX_LEN);
         stats->names[i][CLIENTSTAT_NAME_MAX_LEN-1] = '\0';
@@ -586,15 +288,16 @@ insert_inc(void *drcontext, instrlist_t *bb, instr_t *where,
 {
     instr_t *inc;
     opnd_t immed;
-    /* FIXME: we're using stats_int_t, but our inc here does not support 64-bit */
     if (incby <= 0x7f)
         immed = OPND_CREATE_INT8(incby);
     else /* unlikely but possible */
         immed = OPND_CREATE_INT32(incby);
-    inc = INSTR_CREATE_add(drcontext, OPND_CREATE_MEM32(DR_REG_NULL, (int)addr), immed);
+    inc = INSTR_CREATE_add
+        (drcontext, OPND_CREATE_ABSMEM(addr, opnd_size_from_bytes(sizeof(stats_int_t))),
+         immed);
     /* make it thread-safe (only works if it doesn't straddle a cache line) */
     instr_set_prefix_flag(inc, PREFIX_LOCK);
-    DR_ASSERT((((ptr_uint_t)addr) & 0x3) == 0); /* 4-aligned => single cache line */
+    DR_ASSERT(ALIGNED(addr, sizeof(stats_int_t))); /* aligned => single cache line */
     instrlist_meta_preinsert(bb, where, inc);
 }
 

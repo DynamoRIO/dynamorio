@@ -122,6 +122,9 @@ The current version is \DR_VERSION.
 
 The changes between version \DR_VERSION and 4.0.1 include:
 
+ - Ported the stats.c sample and DRgui to 64-bit.  As part of this, the
+   shared memory structure changed shape on Windows: pid is now of type
+   process_id_t.
  - Added the \p drtable Extension which provides simple table management
  - Added opnd_size_from_bytes()
  - Added path searching support to dr_load_aux_library()
@@ -816,25 +819,6 @@ The major changes between the 0.9.5 and 0.9.4 releases are:
  - The full API is now documented in html and pdf for easy browsing.
  - Numerous type and routine name changes.
 
-\endif
-
-***************************************************************************
-\if future
-FIXME not done yet
-
-  - see clients/mit_release/using.html: what's included, etc.
-  - DRcontrol: specify target app and runtime options (TODO: case 10647:
-                                                       external vs internal ops) 
-  - GUI: just stats viewer, or control too?
-  - DRview
-  - native_exec (TODO: specify on module load; TODO: case 10846 eliding problems)
-  - multiple clients (TODO: multiple non-mutating, one mutating RIO client;
-                      multiple probe clients w/ chaining; one prog shep client?)
-  - detach (TODO: ask each client to clean up)
-  - updating: load new library  
-
-Options for communication in and out of the process are discussed in \ref
-sec_comm.
 \endif
 
 

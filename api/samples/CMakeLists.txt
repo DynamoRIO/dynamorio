@@ -201,7 +201,7 @@ if (SHOW_SYMBOLS AND DR_EXT_DRSYMS_STATIC)
   set(DynamoRIO_USE_LIBC OFF) # reset
 endif ()
 
-if (WIN32 AND NOT X64)
+if (WIN32)
   # This client is Windows-only.
   add_sample_client(stats     "stats.c"         "")
 
