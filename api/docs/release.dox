@@ -122,6 +122,7 @@ The current version is \DR_VERSION.
 
 The changes between version \DR_VERSION and 4.0.1 include:
 
+ - Added instr_is_floating_ex()
  - Ported the stats.c sample and DRgui to 64-bit.  As part of this, the
    shared memory structure changed shape on Windows: pid is now of type
    process_id_t.

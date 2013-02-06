@@ -306,7 +306,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {
     instr_t *instr;
-    int op;
+    dr_fp_type_t fp_type;
     int num_instrs = 0;
     int num_flops = 0;
     int num_syscalls = 0;
@@ -319,9 +319,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     /* count up # flops, then do single increment at end */
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         num_instrs++;
-        op = instr_get_opcode(instr);
-        if (op >= OP_fadd && op <= OP_fcomip) {
-            /* FIXME: exclude loads and stores */
+        if (instr_is_floating_ex(instr, &fp_type) &&
+            /* We exclude loads and stores (and reg-reg moves) and state preservation */
+            (fp_type == DR_FP_CONVERT || fp_type == DR_FP_MATH)) {
 #ifdef VERBOSE
             dr_print_instr(drcontext, STDOUT, instr, "Found flop: ");
 #endif

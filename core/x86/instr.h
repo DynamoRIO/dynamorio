@@ -2972,7 +2972,7 @@ decode_memory_reference_size(dcontext_t *dcontext, app_pc pc, uint *size_in_byte
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 DR_API
 /**
- * Returns true iff \p instr is an IA-32 "mov" instruction: either OP_mov_st,
+ * Returns true iff \p instr is an IA-32/AMD64 "mov" instruction: either OP_mov_st,
  * OP_mov_ld, OP_mov_imm, OP_mov_seg, or OP_mov_priv.
  */
 bool 
@@ -3152,6 +3152,28 @@ DR_API
 /** Returns true iff \p instr is a floating point instruction. */
 bool 
 instr_is_floating(instr_t *instr);
+
+/* DR_API EXPORT BEGIN */
+/**
+ * Indicates which type of floating-point operation and instruction performs.
+ */
+typedef enum {
+    DR_FP_STATE,   /**< Loads, stores, or queries general floating point state. */
+    DR_FP_MOVE,    /**< Moves floating point values from one location to another. */
+    DR_FP_CONVERT, /**< Converts to or from floating point values. */
+    DR_FP_MATH,    /**< Performs arithmetic or conditional operations. */
+} dr_fp_type_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Returns true iff \p instr is a floating point instruction.
+ * @param[in] instr  The instruction to query
+ * @param[out] type  If the return value is true and \p type is
+ *   non-NULL, the type of the floating point operation is written to \p type.
+ */
+bool 
+instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type);
 
 DR_API
 /** Returns true iff \p instr is part of Intel's MMX instructions. */
