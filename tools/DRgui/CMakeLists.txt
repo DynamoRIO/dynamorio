@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -32,9 +32,6 @@
 if (UNIX)
   message(FATAL_ERROR "DRgui is Windows-only")
 endif (UNIX)
-if (X64)
-  message(FATAL_ERROR "DRgui is 32-bit only (issue 62 covers porting to 64-bit)")
-endif (X64)
 
 # FIXME i#77: make DRgui a subproject to support with different compiler from libutil
 # For now, DRgui.exe just won't run on NT.

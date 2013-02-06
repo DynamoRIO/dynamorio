@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,20 +55,21 @@ extern "C" {
  * now duplicated here and in client
  */
 #include "afxwin.h"
-/* We prefix "Global\" to ensure this is visible across sessions, but that
- * prefix is not supported on NT
+/* We use "Local\" to avoid needing to be admin on Vista+.  This limits
+ * viewing to processes in the same session.
+ * Prefixes are not supported on NT.
  */
 #define CLIENT_SHMEM_KEY_NT "DynamoRIO_Client_Statistics" 
-#define CLIENT_SHMEM_KEY "Global\\DynamoRIO_Client_Statistics" 
+#define CLIENT_SHMEM_KEY "Local\\DynamoRIO_Client_Statistics" 
 #define CLIENTSTAT_NAME_MAX_LEN 50
 
 /* we allocate this struct in the shared memory: */
 typedef struct _client_stats {
     uint num_stats;
     bool exited;
-    uint pid;
+    process_id_t pid;
     /* num_stats strings, each STAT_NAME_MAX_LEN chars, followed by
-     * num_stats values
+     * num_stats values of type stats_int_t
      */
     char data[CLIENTSTAT_NAME_MAX_LEN];
 } client_stats;

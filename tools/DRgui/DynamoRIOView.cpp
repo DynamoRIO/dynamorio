@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -82,7 +83,7 @@ END_MESSAGE_MAP()
 VOID CALLBACK TimerProc(
                         HWND /*hwnd*/,     // handle of window for timer messages
                         UINT /*uMsg*/,     // WM_TIMER message
-                        UINT idEvent,  // timer identifier
+                        UINT_PTR idEvent,  // timer identifier
                         DWORD /*dwTime*/  // current system time
                         )
 {
@@ -302,7 +303,7 @@ void CDynamoRIOView::OnSelchangeList()
 
     ClearData();
 
-    m_selected_pid = m_ProcessList.GetItemData(m_ProcessList.GetCurSel());
+    m_selected_pid = (DWORD) m_ProcessList.GetItemData(m_ProcessList.GetCurSel());
 
     // find the client stats shared memory that corresponds to this process
     HANDLE statsCountMap =
@@ -372,8 +373,9 @@ BOOL CDynamoRIOView::UpdateProcessList()
 }
 
 #ifdef X64
-/* FIXME: need to resize window for this */
-# define STAT_PFMT _T("%19")_T(SZFC)
+/* XXX: may want to go to %19 and resize the window */
+/* SZFC is 2 literals => _T only gets first, so we manually construct: */
+# define STAT_PFMT _T("%10")_T(INT64_FORMAT)_T("u")
 #else
 # define STAT_PFMT _T("%10")_T(SZFC)
 #endif
@@ -406,11 +408,11 @@ uint CDynamoRIOView::PrintClientStats(TCHAR *c, TCHAR *max)
     TCHAR *start = c;
     char (*names)[CLIENTSTAT_NAME_MAX_LEN] =
         (char (*)[CLIENTSTAT_NAME_MAX_LEN]) m_clientStats->data;
-    uint *vals = (uint *)
+    stats_int_t *vals = (stats_int_t *)
         ((char*)m_clientStats->data + 
          m_clientStats->num_stats*CLIENTSTAT_NAME_MAX_LEN*sizeof(char));
     /* account for struct alignment */
-    vals = (uint *) ALIGN_FORWARD(vals, sizeof(uint));
+    vals = (stats_int_t *) ALIGN_FORWARD(vals, sizeof(stats_int_t));
     for (i=0; i<m_clientStats->num_stats; i++) {
         if (c >= max - CLIENTSTAT_NAME_MAX_SHOW*2 - 3)
             break;
@@ -419,10 +421,10 @@ uint CDynamoRIOView::PrintClientStats(TCHAR *c, TCHAR *max)
                        names[i], vals[i]);
         assert(c < max);
     }
-    return c - start;
+    return (uint) (c - start);
 }
 
-// NOCHECKIN: resize stats boxes w/ dialog resize:
+// FIXME: resize stats boxes w/ dialog resize:
 // http://www.codeguru.com/forum/showthread.php?t=79384
 
 BOOL CDynamoRIOView::Refresh()
@@ -557,7 +559,7 @@ void CDynamoRIOView::OnChangeLogging()
     int level = dlg.GetLevel();
     int mask = dlg.GetMask();
 
-    // NOCHECKIN: need to write via drmarker
+    // FIXME: need to write via drmarker
     m_stats->loglevel = level;
     m_stats->logmask = mask;
     m_LogLevel.Format(_T("%d"), m_stats->loglevel);
@@ -643,7 +645,7 @@ void CDynamoRIOView::OnEditCopystats()
         pos += PrintClientStats(pos, &buf[STATS_BUFSZ-1]);
     }
 
-    int len = _tcslen(buf);
+    size_t len = _tcslen(buf);
 
     // Allocate a global memory object for the text. 
     HGLOBAL hglbCopy = GlobalAlloc(GMEM_DDESHARE, 

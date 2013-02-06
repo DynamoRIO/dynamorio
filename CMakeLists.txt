@@ -1032,10 +1032,9 @@ else (WIN32)
   option(BUILD_CORE "build core library" ON)
 endif (WIN32)
 option(BUILD_TOOLS "build tools" ON)
-if (WIN32 AND NOT X64)
-  # FIXME i#62: port DRgui to 64-bit
+if (WIN32)
   option(BUILD_DRGUI "build DRgui statistics viewer (requires MFC)" ON)
-endif (WIN32 AND NOT X64)
+endif (WIN32)
 option(BUILD_EXT "build Extension libraries" ON)
 option(BUILD_DOCS "build documentation" ON)
 

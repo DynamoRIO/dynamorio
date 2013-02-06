@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -112,7 +113,7 @@ void CCmdlineDlg::OnWorkingDirBrowse()
     bi.lpfn = NULL;
     bi.lParam = NULL;
     bi.iImage = 0;
-    ITEMIDLIST *id = SHBrowseForFolder(&bi);
+    PIDLIST_ABSOLUTE id = SHBrowseForFolder(&bi);
     if (id == NULL) // cancelled
         return;
     SHGetPathFromIDList(id, folder);

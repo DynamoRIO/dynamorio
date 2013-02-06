@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -78,7 +78,7 @@ read_hotp_status(const HANDLE hproc, const void *table_ptr,
 {
     UINT crc_and_size[2];
     UINT crc, size;
-    DWORD len;
+    SIZE_T len;
 
     DO_ASSERT(table_ptr != NULL);
 
@@ -246,7 +246,7 @@ get_dynamorio_stats(process_id_t pid)
         found = read_and_verify_dr_marker(hproc, &marker);
         if (found == DR_MARKER_FOUND && marker.stats != NULL) {
             uint alloc_size;
-            DWORD read;
+            SIZE_T read;
             if (ReadProcessMemory(hproc, marker.stats, &stats_tmp,
                                   sizeof(stats_tmp), &read) &&
                 read == sizeof(stats_tmp) &&
@@ -675,7 +675,7 @@ DWORD
 get_process_peb(HANDLE process_handle, PEB *peb)
 {
     PROCESS_BASIC_INFORMATION info;
-    unsigned long got;
+    SIZE_T got;
     DWORD res;
     GET_NTDLL(NtQueryInformationProcess, (IN HANDLE ProcessHandle,
                                           IN PROCESSINFOCLASS ProcessInformationClass, 
@@ -717,7 +717,7 @@ DWORD
 get_process_name_and_cmdline(process_id_t pid, WCHAR *name_buf, int name_len, WCHAR *cmdline_buf, int cmdline_len)
 {
     HANDLE process_handle = NULL;
-    unsigned long nbytes;
+    SIZE_T nbytes;
     DWORD res;
     PEB peb;
     RTL_USER_PROCESS_PARAMETERS process_parameters;
@@ -929,7 +929,7 @@ dll_walk_proc(process_id_t ProcessID, dllwalk_callback dwcb, void **param)
     HANDLE hproc;
     DWORD res;
     int i=0;
-    unsigned long nbytes;
+    SIZE_T nbytes;
 
     // use a read process memory implementation (like psapi) since toolhelp
     // is too invasive and not available on all platforms

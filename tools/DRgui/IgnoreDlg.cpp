@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -86,9 +87,9 @@ BEGIN_MESSAGE_MAP(CIgnoreDlg, CDialog)
     CDialog::OnInitDialog();
 
     TCHAR path[MAX_PATH];
-    int len = GetEnvironmentVariable(_T("DYNAMORIO_IGNORE"), path, MAX_PATH);
-    assert(len <= MAX_PATH);
-    if (len > 0 && len <= MAX_PATH)
+    DWORD len = GetEnvironmentVariable(_T("DYNAMORIO_IGNORE"), path, MAX_PATH);
+    assert(len < MAX_PATH);
+    if (len > 0 && len < MAX_PATH)
         m_IgnoreList = path; // makes new storage, right?
     UpdateData(FALSE); // FALSE means set controls
 
@@ -98,7 +99,7 @@ BEGIN_MESSAGE_MAP(CIgnoreDlg, CDialog)
 void CIgnoreDlg::OnOK() 
 {
     UpdateData(TRUE); // read from controls
-    int res = SetEnvironmentVariable(_T("DYNAMORIO_IGNORE"), m_IgnoreList);
+    BOOL res = SetEnvironmentVariable(_T("DYNAMORIO_IGNORE"), m_IgnoreList);
     assert(res);
     CDialog::OnOK();
 }
@@ -111,7 +112,7 @@ void CIgnoreDlg::OnSetPermanent()
 
     TCHAR msg[MAX_PATH];
     HKEY hk;
-    int res;
+    DWORD res;
         
     // current user only
     res = RegOpenKeyEx(HKEY_CURRENT_USER, _T("Environment"), 0, KEY_WRITE, &hk);
@@ -123,14 +124,14 @@ void CIgnoreDlg::OnSetPermanent()
     UpdateData(TRUE); // get values from controls
     TCHAR *val = m_IgnoreList.GetBuffer(0);
     res = RegSetValueEx(hk, _T("DYNAMORIO_IGNORE"), 0, REG_SZ, 
-                        (LPBYTE) val, _tcslen(val)+1);
+                        (LPBYTE) val, (DWORD) _tcslen(val)+1);
     assert(res == ERROR_SUCCESS);
 
     RegCloseKey(hk);
 
     // tell system that we've changed environment (else won't take effect until
     // user logs out and back in)
-    DWORD dwReturnValue;
+    DWORD_PTR dwReturnValue;
     // Code I copied this from used an ANSI string...I'm leaving
     // it like that FIXME
     SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0,
