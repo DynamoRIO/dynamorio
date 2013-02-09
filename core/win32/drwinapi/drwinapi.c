@@ -37,6 +37,7 @@
 #include "../globals.h"
 #include "ntdll_redir.h"
 #include "rpcrt4_redir.h"
+#include "advapi32_redir.h"
 
 #ifndef WINDOWS
 # error Windows-only
@@ -48,11 +49,13 @@ drwinapi_init(void)
     ntdll_redir_init();
     kernel32_redir_init();
     rpcrt4_redir_init();
+    advapi32_redir_init();
 }
 
 void
 drwinapi_exit(void)
 {
+    advapi32_redir_exit();
     rpcrt4_redir_exit();
     kernel32_redir_exit();
     ntdll_redir_exit();
@@ -65,6 +68,8 @@ drwinapi_onload(privmod_t *mod)
         kernel32_redir_onload(mod);
     else if (strcasecmp(mod->name, "rpcrt4.dll") == 0)
         rpcrt4_redir_onload(mod);
+    else if (strcasecmp(mod->name, "advapi32.dll") == 0)
+        advapi32_redir_onload(mod);
 }
 
 app_pc
@@ -77,9 +82,16 @@ drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
                ((importer == NULL ||
                  strcasecmp(importer->name, "kernel32.dll") != 0) &&
                 strcasecmp(impmod->name, "kernelbase.dll") == 0)) {
-        return kernel32_redir_lookup(name);
+        app_pc res = kernel32_redir_lookup(name);
+        if (res == NULL) {
+            /* win7 has some Reg* routines in kernel32 so we check advapi */
+            res = advapi32_redir_lookup(name);
+        }
+        return res;
     } else if (strcasecmp(impmod->name, "rpcrt4.dll") == 0) {
         return rpcrt4_redir_lookup(name);
+    } else if (strcasecmp(impmod->name, "advapi32.dll") == 0) {
+        return advapi32_redir_lookup(name);
     }
     return NULL;
 }
@@ -91,6 +103,7 @@ ntstatus_to_last_error(NTSTATUS status)
      * at earliest init time or something so I'm doing my own mapping.
      */
     switch (status) {
+    case STATUS_SUCCESS:               return ERROR_SUCCESS;
     case STATUS_INVALID_HANDLE:        return ERROR_INVALID_HANDLE;
     case STATUS_ACCESS_DENIED:         return ERROR_ACCESS_DENIED;
     case STATUS_INVALID_PARAMETER:     return ERROR_INVALID_PARAMETER;
@@ -118,6 +131,7 @@ ntstatus_to_last_error(NTSTATUS status)
     case STATUS_INVALID_FILE_FOR_SECTION: return ERROR_BAD_EXE_FORMAT;
     case STATUS_SECTION_TOO_BIG:       return ERROR_NOT_ENOUGH_MEMORY;
     case STATUS_OBJECT_TYPE_MISMATCH:  return ERROR_INVALID_HANDLE;
+    case STATUS_BUFFER_OVERFLOW:       return ERROR_MORE_DATA;
     /* XXX: add more.  Variations by function are rare and handled in callers. */
     default:                           return ERROR_INVALID_PARAMETER;
     }
@@ -152,6 +166,7 @@ void unit_test_drwinapi_kernel32_mem(void);
 void unit_test_drwinapi_kernel32_file(void);
 void unit_test_drwinapi_kernel32_misc(void);
 void unit_test_drwinapi_rpcrt4(void);
+void unit_test_drwinapi_advapi32(void);
 
 void
 unit_test_drwinapi(void)
@@ -164,5 +179,6 @@ unit_test_drwinapi(void)
     unit_test_drwinapi_kernel32_file();
     unit_test_drwinapi_kernel32_misc();
     unit_test_drwinapi_rpcrt4();
+    unit_test_drwinapi_advapi32();
 }
 #endif

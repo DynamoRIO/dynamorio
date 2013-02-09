@@ -895,6 +895,9 @@ ntdll_init(void);
 void
 ntdll_exit(void);
 
+NTSTATUS
+nt_raw_close(HANDLE h);
+
 bool
 close_handle(HANDLE h);
 
@@ -1100,6 +1103,14 @@ bool
 get_section_attributes(HANDLE h, uint *section_attributes /* OUT */,
                        LARGE_INTEGER* section_size /* OUT OPTIONAL */);
 
+/* This is a low-level interface.  Use the reg_* routines below if possible. */
+NTSTATUS
+nt_query_value_key(IN HANDLE key,
+                   IN PUNICODE_STRING value_name,
+                   IN KEY_VALUE_INFORMATION_CLASS class,
+                   OUT PVOID info,
+                   IN ULONG info_length,
+                   OUT PULONG res_length);
 
 HANDLE
 reg_create_key(HANDLE parent, PCWSTR keyname, ACCESS_MASK rights);
@@ -1275,6 +1286,9 @@ query_full_attributes_file(PCWSTR filename,
 /* From NTSTATUS.H -- this shouldn't change, but you never know... */
 /* DDK2003SP1/3790.1830/inc/wnet/ntstatus.h */
 #define STATUS_INFO_LENGTH_MISMATCH      ((NTSTATUS)0xC0000004L)
+
+/* The requested operation is not implemented. */
+#define STATUS_NOT_IMPLEMENTED           ((NTSTATUS)0xC0000002L)
 
 /* {Conflicting Address Range}  The specified address range conflicts with the address space. */
 #define STATUS_CONFLICTING_ADDRESSES     ((NTSTATUS)0xC0000018L)

@@ -212,6 +212,7 @@ else (UNIX)
     win32/drwinapi/kernel32_sync.c
     win32/drwinapi/kernel32_misc.c
     win32/drwinapi/rpcrt4_redir.c
+    win32/drwinapi/advapi32_redir.c
     win32/resources.rc
     ${ntimp_dep}
    )

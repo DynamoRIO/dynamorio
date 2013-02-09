@@ -1,6 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
- * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
+ * Copyright (c) 2013 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,36 +30,77 @@
  * DAMAGE.
  */
 
-/* rpcrt4 and kernelbase redirection routines.
+/* advapi32 redirection routines.
  * We initially target the union of the imports of C++ apps, msvcrt,
  * and dbghelp.
  */
 
-#ifndef _RPCRT4_REDIR_H_
-#define _RPCRT4_REDIR_H_ 1
+#ifndef _ADVAPI32_REDIR_H_
+#define _ADVAPI32_REDIR_H_ 1
 
 #include "../../globals.h"
 #include "../../module_shared.h"
-#include <rpc.h>
 
 void
-rpcrt4_redir_init(void);
+advapi32_redir_init(void);
 
 void
-rpcrt4_redir_exit(void);
+advapi32_redir_exit(void);
 
 void
-rpcrt4_redir_onload(privmod_t *mod);
+advapi32_redir_onload(privmod_t *mod);
 
 app_pc
-rpcrt4_redir_lookup(const char *name);
+advapi32_redir_lookup(const char *name);
 
 
-RPC_STATUS
-RPC_ENTRY
-redirect_UuidCreate (
-    __out UUID __RPC_FAR * Uuid
+LSTATUS
+WINAPI
+redirect_RegCloseKey (
+    __in HKEY hKey
+    );
+
+LSTATUS
+WINAPI
+redirect_RegOpenKeyExA (
+    __in HKEY hKey,
+    __in_opt LPCSTR lpSubKey,
+    __in_opt DWORD ulOptions,
+    __in REGSAM samDesired,
+    __out PHKEY phkResult
+    );
+
+LSTATUS
+WINAPI
+redirect_RegOpenKeyExW (
+    __in HKEY hKey,
+    __in_opt LPCWSTR lpSubKey,
+    __in_opt DWORD ulOptions,
+    __in REGSAM samDesired,
+    __out PHKEY phkResult
+    );
+
+LSTATUS
+WINAPI
+redirect_RegQueryValueExA (
+    __in HKEY hKey,
+    __in_opt LPCSTR lpValueName,
+    __reserved LPDWORD lpReserved,
+    __out_opt LPDWORD lpType,
+    __out_bcount_part_opt(*lpcbData, *lpcbData) __out_data_source(REGISTRY) LPBYTE lpData,
+    __inout_opt LPDWORD lpcbData
+    );
+
+LSTATUS
+WINAPI
+redirect_RegQueryValueExW (
+    __in HKEY hKey,
+    __in_opt LPCWSTR lpValueName,
+    __reserved LPDWORD lpReserved,
+    __out_opt LPDWORD lpType,
+    __out_bcount_part_opt(*lpcbData, *lpcbData) __out_data_source(REGISTRY) LPBYTE lpData,
+    __inout_opt LPDWORD lpcbData
     );
 
 
-#endif /* _RPCRT4_REDIR_H_ */
+#endif /* _ADVAPI32_REDIR_H_ */

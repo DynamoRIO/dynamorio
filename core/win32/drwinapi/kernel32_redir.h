@@ -1583,33 +1583,6 @@ redirect_RaiseException(
     __in_ecount_opt(nNumberOfArguments) CONST ULONG_PTR *lpArguments
     );
 
-LSTATUS
-WINAPI
-redirect_RegCloseKey (
-    __in HKEY hKey
-    );
-
-LSTATUS
-WINAPI
-redirect_RegOpenKeyExA (
-    __in HKEY hKey,
-    __in_opt LPCSTR lpSubKey,
-    __in_opt DWORD ulOptions,
-    __in REGSAM samDesired,
-    __out PHKEY phkResult
-    );
-
-LSTATUS
-WINAPI
-redirect_RegQueryValueExA (
-    __in HKEY hKey,
-    __in_opt LPCSTR lpValueName,
-    __reserved LPDWORD lpReserved,
-    __out_opt LPDWORD lpType,
-    __out_bcount_part_opt(*lpcbData, *lpcbData) __out_data_source(REGISTRY) LPBYTE lpData,
-    __inout_opt LPDWORD lpcbData
-    );
-
 VOID
 NTAPI
 redirect_RtlGetNtVersionNumbers (

@@ -2172,14 +2172,18 @@ get_section_attributes(HANDLE h, uint *section_attributes /* OUT */,
     }
 }
 
+NTSTATUS
+nt_raw_close(HANDLE h)
+{
+    GET_RAW_SYSCALL(Close,
+                    IN HANDLE Handle);
+    return NT_SYSCALL(Close, h);
+}
+
 bool
 close_handle(HANDLE h)
 {
-    NTSTATUS res;
-    GET_RAW_SYSCALL(Close,
-                    IN HANDLE Handle);
-    res = NT_SYSCALL(Close, h);
-    return NT_SUCCESS(res);
+    return NT_SUCCESS(nt_raw_close(h));
 }
 
 /* Note returns raw NTSTATUS */
@@ -2285,6 +2289,23 @@ query_full_attributes_file(IN PCWSTR filename,
     return NT_SUCCESS(result);
 }
 
+NTSTATUS
+nt_query_value_key(IN HANDLE key,
+                   IN PUNICODE_STRING value_name,
+                   IN KEY_VALUE_INFORMATION_CLASS class,
+                   OUT PVOID info,
+                   IN ULONG info_length,
+                   OUT PULONG res_length)
+{
+    GET_NTDLL(NtQueryValueKey, (IN HANDLE KeyHandle,
+                                IN PUNICODE_STRING ValueName,
+                                IN KEY_VALUE_INFORMATION_CLASS KeyValueInformationClass,
+                                OUT PVOID KeyValueInformation,
+                                IN ULONG Length,
+                                OUT PULONG ResultLength));
+    return NtQueryValueKey(key, value_name, class, info, info_length, res_length);
+}
+
 /* rights should be KEY_READ or KEY_WRITE or both */
 /* parent handle HAS to be opened with an absolute name */
 HANDLE
@@ -2381,13 +2402,6 @@ reg_query_value(IN PCWSTR keyname,
     UNICODE_STRING valuename;
     HANDLE hkey = reg_open_key(keyname, KEY_READ | rights);
 
-    GET_NTDLL(NtQueryValueKey, (IN HANDLE KeyHandle,
-                                IN PUNICODE_STRING ValueName,
-                                IN KEY_VALUE_INFORMATION_CLASS KeyValueInformationClass,
-                                OUT PVOID KeyValueInformation,
-                                IN ULONG Length,
-                                OUT PULONG ResultLength));
-
     if (hkey == NULL) 
         return REG_QUERY_FAILURE;
     
@@ -2395,7 +2409,7 @@ reg_query_value(IN PCWSTR keyname,
     if (!NT_SUCCESS(res)) 
         return REG_QUERY_FAILURE;
 
-    res = NtQueryValueKey(hkey, &valuename, info_class, info, info_size, &outlen);
+    res = nt_query_value_key(hkey, &valuename, info_class, info, info_size, &outlen);
     reg_close_key(hkey);
 #if VERBOSE
     if (!NT_SUCCESS(res))

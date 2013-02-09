@@ -1823,7 +1823,8 @@ vprint_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt,
     bool ok;
     /* we use our_vsnprintf for consistent return value and to handle floats */
     len = our_vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
-    ok = (len > 0 && len < (ssize_t)(bufsz - *sofar));
+    /* we support appending an empty string (len==0) */
+    ok = (len >= 0 && len < (ssize_t)(bufsz - *sofar));
     *sofar += (len == -1 ? (bufsz - *sofar - 1) : (len < 0 ? 0 : len));
     /* be paranoid: though usually many calls in a row and could delay until end */
     buf[bufsz-1] = '\0';
