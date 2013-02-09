@@ -68,9 +68,6 @@ kernel32_redir_onload(privmod_t *mod);
 app_pc
 kernel32_redir_lookup(const char *name);
 
-/* Pointers to routines in the (private copy of the) system library itself */
-void (WINAPI *priv_SetLastError)(DWORD val); /* kernel32 or ntdll */
-
 /* Note that we keep the declarations for these redirect_* routines
  * matching the Windows header style, rather than DR's internal style,
  * to make it easier to compare to Windows headers and docs.
@@ -1250,6 +1247,18 @@ redirect_WaitForSingleObject(
  * Miscellaneous
  */
 
+DWORD
+WINAPI
+redirect_GetLastError(
+    VOID
+    );
+
+VOID
+WINAPI
+redirect_SetLastError(
+    __in DWORD dwErrCode
+    );
+
 BOOL
 WINAPI
 redirect_Beep(
@@ -1376,13 +1385,6 @@ __nullnullterminated
 LPWCH
 WINAPI
 redirect_GetEnvironmentStringsW(
-    VOID
-    );
-
-__checkReturn
-DWORD
-WINAPI
-redirect_GetLastError(
     VOID
     );
 
@@ -1706,12 +1708,6 @@ UINT
 WINAPI
 redirect_SetHandleCount(
     __in UINT uNumber
-    );
-
-VOID
-WINAPI
-redirect_SetLastError(
-    __in DWORD dwErrCode
     );
 
 BOOL

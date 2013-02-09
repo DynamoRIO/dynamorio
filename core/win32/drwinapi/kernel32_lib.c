@@ -143,7 +143,7 @@ redirect_LoadLibraryA(const char *name)
          * and if it's important add the feature to our loader.
          */
         /* XXX: should set more appropriate error code */
-        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        set_last_error(ERROR_DLL_NOT_FOUND);
         return NULL;
     } else
         return (HMODULE) res;
@@ -161,7 +161,7 @@ redirect_LoadLibraryW(const wchar_t *name)
     res = privload_load_private_library(buf);
     if (res == NULL) {
         /* XXX: should set more appropriate error code */
-        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        set_last_error(ERROR_DLL_NOT_FOUND);
         return NULL;
     } else
         return (HMODULE) res;
@@ -178,7 +178,7 @@ redirect_GetModuleFileNameA(HMODULE modbase, char *buf, DWORD bufcnt)
         cnt = (DWORD) strlen(mod->path);
         if (cnt >= bufcnt) {
             cnt = bufcnt;
-            (*priv_SetLastError)(ERROR_INSUFFICIENT_BUFFER);
+            set_last_error(ERROR_INSUFFICIENT_BUFFER);
         }
         strncpy(buf, mod->path, bufcnt);
         buf[bufcnt-1] = '\0';
@@ -187,7 +187,7 @@ redirect_GetModuleFileNameA(HMODULE modbase, char *buf, DWORD bufcnt)
     release_recursive_lock(&privload_lock);
     if (mod == NULL) {
         /* XXX: should set more appropriate error code */
-        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        set_last_error(ERROR_DLL_NOT_FOUND);
         return 0;
     } else
         return cnt;
@@ -204,7 +204,7 @@ redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
         cnt = (DWORD) strlen(mod->path);
         if (cnt >= bufcnt) {
             cnt = bufcnt;
-            (*priv_SetLastError)(ERROR_INSUFFICIENT_BUFFER);
+            set_last_error(ERROR_INSUFFICIENT_BUFFER);
         }
         _snwprintf(buf, bufcnt, L"%s", mod->path);
         buf[bufcnt-1] = L'\0';
@@ -213,7 +213,7 @@ redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
     release_recursive_lock(&privload_lock);
     if (mod == NULL) {
         /* XXX: should set more appropriate error code */
-        (*priv_SetLastError)(ERROR_DLL_NOT_FOUND);
+        set_last_error(ERROR_DLL_NOT_FOUND);
         return 0;
     } else
         return cnt;

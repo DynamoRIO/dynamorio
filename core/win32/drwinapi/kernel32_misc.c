@@ -35,6 +35,40 @@
 #include "kernel32_redir.h" /* must be included first */
 #include "../../globals.h"
 
+DWORD
+WINAPI
+redirect_GetLastError(
+    VOID
+    )
+{
+    return get_last_error();
+}
+
+VOID
+WINAPI
+redirect_SetLastError(
+    __in DWORD dwErrCode
+    )
+{
+    set_last_error(dwErrCode);
+}
+
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Miscellaneous
  */
+
+
+/***************************************************************************
+ * TESTS
+ */
+
+#ifdef STANDALONE_UNIT_TEST
+void
+unit_test_drwinapi_kernel32_misc(void)
+{
+    print_file(STDERR, "testing drwinapi kernel32 miscellaneous routines\n");
+
+    redirect_SetLastError(ERROR_PRINT_CANCELLED);
+    EXPECT(redirect_GetLastError(), ERROR_PRINT_CANCELLED);
+}
+#endif

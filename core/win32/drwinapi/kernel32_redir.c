@@ -108,6 +108,10 @@ static const redirect_import_t redirect_kernel32[] = {
     {"MapViewOfFileEx",                (app_pc)redirect_MapViewOfFileEx},
     {"UnmapViewOfFile",                (app_pc)redirect_UnmapViewOfFile},
     {"CreatePipe",                     (app_pc)redirect_CreatePipe},
+
+    /* Miscellaneous routines */
+    {"GetLastError",                   (app_pc)redirect_GetLastError},
+    {"SetLastError",                   (app_pc)redirect_SetLastError},
 };
 #define REDIRECT_KERNEL32_NUM (sizeof(redirect_kernel32)/sizeof(redirect_kernel32[0]))
 
@@ -152,20 +156,6 @@ kernel32_redir_onload(privmod_t *mod)
     /* Rather than statically linking to real kernel32 we want to invoke
      * routines in the private kernel32 so we look them up here.
      */
-
-    /* XP's kernel32!SetLastError is forwarded on xp64, and our
-     * get_proc_address_ex can't handle forwarded exports, so we directly
-     * invoke the Rtl version that it forwards to.  On win7 it's not
-     * forwarded but just calls the Rtl directly.  On 2K or earlier though
-     * there is no Rtl version (so we can't statically link).
-     */
-    priv_SetLastError = (void (WINAPI *)(DWORD))
-        get_proc_address_ex(get_ntdll_base(), "RtlSetLastWin32Error", NULL);
-    if (priv_SetLastError == NULL) {
-        priv_SetLastError = (void (WINAPI *)(DWORD))
-            get_proc_address_ex(mod->base, "SetLastError", NULL);
-        ASSERT(priv_SetLastError != NULL);
-    }
 
     kernel32_redir_onload_proc(mod);
     kernel32_redir_onload_lib(mod);
