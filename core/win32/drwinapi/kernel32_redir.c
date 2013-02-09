@@ -66,7 +66,7 @@ static const redirect_import_t redirect_kernel32[] = {
 
     /* Memory-related routines */
     {"DecodePointer",                  (app_pc)redirect_DecodePointer},
-    {"EncodePointer ",                 (app_pc)redirect_EncodePointer },
+    {"EncodePointer",                  (app_pc)redirect_EncodePointer},
     {"GetProcessHeap",                 (app_pc)redirect_GetProcessHeap},
     {"HeapAlloc",                      (app_pc)redirect_HeapAlloc},
     {"HeapCompact",                    (app_pc)redirect_HeapCompact},
@@ -74,7 +74,7 @@ static const redirect_import_t redirect_kernel32[] = {
     {"HeapDestroy",                    (app_pc)redirect_HeapDestroy},
     {"HeapFree",                       (app_pc)redirect_HeapFree},
     {"HeapReAlloc",                    (app_pc)redirect_HeapReAlloc},
-    {"HeapSetInformation ",            (app_pc)redirect_HeapSetInformation },
+    {"HeapSetInformation ",            (app_pc)redirect_HeapSetInformation},
     {"HeapSize",                       (app_pc)redirect_HeapSize},
     {"HeapValidate",                   (app_pc)redirect_HeapValidate},
     {"HeapWalk",                       (app_pc)redirect_HeapWalk},
