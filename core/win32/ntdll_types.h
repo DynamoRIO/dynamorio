@@ -29,6 +29,7 @@ typedef unsigned int uint;
 typedef LONG NTSTATUS;
 /* make sure to cast to signed in case passed reg_t */
 #define NT_SUCCESS(Status) ((NTSTATUS)(Status) >= 0)
+#define NT_ERROR(Status) ((((ULONG)(Status)) >> 30) == 3)
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
 #define STATUS_UNSUCCESSFUL ((NTSTATUS)0xC0000001L)
 

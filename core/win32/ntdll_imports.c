@@ -865,6 +865,21 @@ NtCreateNamedPipeFile(OUT PHANDLE FileHandle,
     return STATUS_SUCCESS;
 }
 
+NTEXPORT NTSTATUS NTAPI
+NtDeviceIoControlFile(IN HANDLE FileHandle,
+                      IN HANDLE Event OPTIONAL,
+                      IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
+                      IN PVOID ApcContext OPTIONAL,
+                      OUT PIO_STATUS_BLOCK IoStatusBlock,
+                      IN ULONG IoControlCode,
+                      IN PVOID InputBuffer OPTIONAL,
+                      IN ULONG InputBufferLength,
+                      OUT PVOID OutputBuffer OPTIONAL,
+                      IN ULONG OutputBufferLength)
+{
+    return STATUS_SUCCESS;
+}
+
 /***************************************************************************
  * RTL
  */

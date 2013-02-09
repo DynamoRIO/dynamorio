@@ -95,7 +95,6 @@ static const redirect_import_t redirect_kernel32[] = {
     {"VirtualQueryEx",                 (app_pc)redirect_VirtualQueryEx},
 
     /* File-related routines */
-    {"CloseHandle",                    (app_pc)redirect_CloseHandle},
     {"CreateDirectoryA",               (app_pc)redirect_CreateDirectoryA},
     {"CreateDirectoryW",               (app_pc)redirect_CreateDirectoryW},
     {"CreateFileA",                    (app_pc)redirect_CreateFileA},
@@ -108,6 +107,9 @@ static const redirect_import_t redirect_kernel32[] = {
     {"MapViewOfFileEx",                (app_pc)redirect_MapViewOfFileEx},
     {"UnmapViewOfFile",                (app_pc)redirect_UnmapViewOfFile},
     {"CreatePipe",                     (app_pc)redirect_CreatePipe},
+    {"DeviceIoControl",                (app_pc)redirect_DeviceIoControl},
+    {"CloseHandle",                    (app_pc)redirect_CloseHandle},
+    {"DuplicateHandle",                (app_pc)redirect_DuplicateHandle},
 
     /* Miscellaneous routines */
     {"GetLastError",                   (app_pc)redirect_GetLastError},

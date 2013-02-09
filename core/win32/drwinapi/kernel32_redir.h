@@ -658,12 +658,6 @@ kernel32_redir_onload_file(privmod_t *mod);
 
 BOOL
 WINAPI
-redirect_CloseHandle(
-    __in HANDLE hObject
-    );
-
-BOOL
-WINAPI
 redirect_CreateDirectoryA(
     __in     LPCSTR lpPathName,
     __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes
@@ -783,6 +777,12 @@ redirect_DeviceIoControl(
     __in        DWORD nOutBufferSize,
     __out_opt   LPDWORD lpBytesReturned,
     __inout_opt LPOVERLAPPED lpOverlapped
+    );
+
+BOOL
+WINAPI
+redirect_CloseHandle(
+    __in HANDLE hObject
     );
 
 BOOL

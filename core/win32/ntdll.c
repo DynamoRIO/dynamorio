@@ -3502,9 +3502,6 @@ nt_close_event(HANDLE hevent)
 wait_status_t
 nt_wait_event_with_timeout(HANDLE hevent, PLARGE_INTEGER timeout)
 {
-    GET_NTDLL(NtWaitForSingleObject, (IN HANDLE ObjectHandle, 
-                                      IN BOOLEAN Alertable, 
-                                      IN PLARGE_INTEGER TimeOut ));
     NTSTATUS res;
     res = NtWaitForSingleObject(hevent, 
                                 false /* not alertable */,
@@ -3598,10 +3595,6 @@ nt_query_performance_counter(PLARGE_INTEGER counter, PLARGE_INTEGER frequency)
     ((DeviceType) << 16) | ((Access) << 14) | ((Function) << 2) | (Method)      \
 )
 
-// Define the interesting device type values
-#define FILE_DEVICE_FILE_SYSTEM         0x00000009
-#define FILE_DEVICE_NAMED_PIPE          0x00000011
-
 // Define the method codes for how buffers are passed for I/O and FS controls
 #define METHOD_BUFFERED                 0
 #define METHOD_IN_DIRECT                1
@@ -3614,14 +3607,6 @@ nt_query_performance_counter(PLARGE_INTEGER counter, PLARGE_INTEGER frequency)
 
 #define FSCTL_PIPE_TRANSCEIVE CTL_CODE(FILE_DEVICE_NAMED_PIPE, 5, \
               METHOD_NEITHER,  FILE_READ_DATA | FILE_WRITE_DATA) /* 0x11c017 */
-
-#if _MSC_VER <= 1200
-/* from ntstatus.h, NtFsControlFile typically returns this, if not using 
- * overlapped (i.e. asynch io) then TransactNamedPipe specifically checks for 
- * this value to determine whether or not it should wait on the pipe, this is
- * the only return code it specifically checks for */
-# define STATUS_PENDING 0x103
-#endif
 
 #ifdef DEBUG
 # if defined(NOT_DYNAMORIO_CORE_PROPER) || defined(NOT_DYNAMORIO_CORE)
@@ -3643,16 +3628,6 @@ nt_pipe_transceive(HANDLE hpipe, void *input, uint input_size,
 
     /* NOTE use an event => asynch IO, if event caller will be notified 
      * that routine finishes by signaling the event */
-    GET_NTDLL(NtFsControlFile, (IN HANDLE               FileHandle,
-                                IN HANDLE               Event OPTIONAL,
-                                IN PIO_APC_ROUTINE      ApcRoutine OPTIONAL,
-                                IN PVOID                ApcContext OPTIONAL,
-                                OUT PIO_STATUS_BLOCK    IoStatusBlock,
-                                IN ULONG                FsControlCode,
-                                IN PVOID                InputBuffer OPTIONAL,
-                                IN ULONG                InputBufferLength,
-                                OUT PVOID               OutputBuffer OPTIONAL,
-                                IN ULONG                OutputBufferLength));
 
     /* FIXME shared utility for this style of computation, 
      * is used in several places in os.c */

@@ -37,6 +37,7 @@
 #include "../ntdll.h"
 #include "../os_private.h"
 #include "drwinapi_private.h"
+#include <winioctl.h> /* DEVICE_TYPE_FROM_CTL_CODE */
 
 static HANDLE (WINAPI *priv_kernel32_OpenConsoleW)(LPCWSTR, DWORD, BOOL, DWORD);
 
@@ -105,15 +106,6 @@ kernel32_redir_onload_file(privmod_t *mod)
 {
     priv_kernel32_OpenConsoleW = (HANDLE (WINAPI *)(LPCWSTR, DWORD, BOOL, DWORD))
         get_proc_address_ex(mod->base, "OpenConsoleW", NULL);
-}
-
-BOOL
-WINAPI
-redirect_CloseHandle(
-    __in HANDLE hObject
-    )
-{
-    return (BOOL) close_handle(hObject);
 }
 
 static void
@@ -617,6 +609,11 @@ redirect_UnmapViewOfFile(
     return TRUE;
 }
 
+
+/***************************************************************************
+ * DEVICES
+ */
+
 BOOL
 WINAPI
 redirect_CreatePipe(
@@ -683,6 +680,107 @@ redirect_CreatePipe(
     return TRUE;
 }
 
+BOOL
+WINAPI
+redirect_DeviceIoControl(
+    __in        HANDLE hDevice,
+    __in        DWORD dwIoControlCode,
+    __in_bcount_opt(nInBufferSize) LPVOID lpInBuffer,
+    __in        DWORD nInBufferSize,
+    __out_bcount_part_opt(nOutBufferSize, *lpBytesReturned) LPVOID lpOutBuffer,
+    __in        DWORD nOutBufferSize,
+    __out_opt   LPDWORD lpBytesReturned,
+    __inout_opt LPOVERLAPPED lpOverlapped
+    )
+{
+    NTSTATUS res;
+    HANDLE event = NULL;
+    PVOID apc_cxt = NULL;
+    IO_STATUS_BLOCK iob = {0,0};
+    bool is_fs = (DEVICE_TYPE_FROM_CTL_CODE(dwIoControlCode) == FILE_DEVICE_FILE_SYSTEM);
+
+    GET_NTDLL(NtDeviceIoControlFile,
+              (IN HANDLE FileHandle,
+               IN HANDLE Event OPTIONAL,
+               IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
+               IN PVOID ApcContext OPTIONAL,
+               OUT PIO_STATUS_BLOCK IoStatusBlock,
+               IN ULONG IoControlCode,
+               IN PVOID InputBuffer OPTIONAL,
+               IN ULONG InputBufferLength,
+               OUT PVOID OutputBuffer OPTIONAL,
+               IN ULONG OutputBufferLength));
+
+    if (lpOverlapped != NULL) {
+        event = lpOverlapped->hEvent;
+        apc_cxt = (PVOID) lpOverlapped;
+        lpOverlapped->Internal = STATUS_PENDING;
+    }
+
+    if (is_fs) {
+        res = NtFsControlFile(hDevice, event, NULL, apc_cxt, &iob, dwIoControlCode,
+                              lpInBuffer, nInBufferSize, lpOutBuffer, nOutBufferSize);
+    } else {
+        res = NtDeviceIoControlFile(hDevice, event, NULL, apc_cxt, &iob, dwIoControlCode,
+                                    lpInBuffer, nInBufferSize,
+                                    lpOutBuffer, nOutBufferSize);
+    }
+
+    if (lpOverlapped == NULL && res == STATUS_PENDING) {
+        /* If synchronous, wait for it */
+        res = NtWaitForSingleObject(hDevice, FALSE, NULL);
+        if (NT_SUCCESS(res))
+            res = iob.Status;
+    }
+
+    /* Warning error codes may still set the size */
+    if (!NT_ERROR(res) && lpBytesReturned != NULL) {
+        if (lpOverlapped != NULL)
+            *lpBytesReturned = (DWORD) lpOverlapped->InternalHigh;
+        else
+            *lpBytesReturned = (DWORD) iob.Information;
+    }
+    if (!NT_SUCCESS(res) || res == STATUS_PENDING) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/***************************************************************************
+ * HANDLES
+ */
+
+BOOL
+WINAPI
+redirect_CloseHandle(
+    __in HANDLE hObject
+    )
+{
+    return (BOOL) close_handle(hObject);
+}
+
+BOOL
+WINAPI
+redirect_DuplicateHandle(
+    __in        HANDLE hSourceProcessHandle,
+    __in        HANDLE hSourceHandle,
+    __in        HANDLE hTargetProcessHandle,
+    __deref_out LPHANDLE lpTargetHandle,
+    __in        DWORD dwDesiredAccess,
+    __in        BOOL bInheritHandle,
+    __in        DWORD dwOptions
+    )
+{
+    NTSTATUS res = duplicate_handle(hSourceProcessHandle, hSourceHandle,
+                                    hTargetProcessHandle, lpTargetHandle,
+                                    /* real impl doesn't add SYNCHRONIZE, so we don't */
+                                    dwDesiredAccess,
+                                    bInheritHandle ? HANDLE_FLAG_INHERIT : 0,
+                                    dwOptions);
+    return NT_SUCCESS(res);
+}
+
 
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Files
@@ -694,10 +792,56 @@ redirect_CreatePipe(
  */
 
 #ifdef STANDALONE_UNIT_TEST
+static void
+test_DeviceIoControl(void)
+{
+    HANDLE dev;
+    BOOL ok;
+    DWORD res;
+    DISK_GEOMETRY geo;
+    OVERLAPPED overlap;
+    HANDLE e;
+
+    /* Test synchronous */
+    dev = redirect_CreateFileW(L"\\\\.\\PhysicalDrive0", 0,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE,
+                               NULL, OPEN_EXISTING, 0, NULL);
+    EXPECT(dev != INVALID_HANDLE_VALUE, true);
+    ok = redirect_DeviceIoControl(dev, IOCTL_DISK_GET_DRIVE_GEOMETRY,
+                                  NULL, 0, &geo, sizeof(geo), &res, NULL);
+    EXPECT(ok, true);
+    EXPECT(res > 0, true);
+    EXPECT(geo.Cylinders.QuadPart > 0, true);
+    ok = redirect_CloseHandle(dev);
+    EXPECT(ok, true);
+
+    /* Test asynchronous */
+    dev = redirect_CreateFileW(L"\\\\.\\PhysicalDrive0", 0,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE,
+                               NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+    EXPECT(dev != INVALID_HANDLE_VALUE, true);
+    e = CreateEvent(NULL, TRUE, FALSE, "myevent");
+    EXPECT(e != NULL, true);
+    overlap.hEvent = e;
+    ok = redirect_DeviceIoControl(dev, IOCTL_DISK_GET_DRIVE_GEOMETRY,
+                                  NULL, 0, &geo, sizeof(geo), &res, &overlap);
+    EXPECT(ok, true);
+    ok = GetOverlappedResult(dev, &overlap, &res, TRUE/*wait*/);
+    EXPECT(ok, true);
+    EXPECT(res > 0, true);
+    EXPECT(geo.Cylinders.QuadPart > 0, true);
+
+    ok = redirect_CloseHandle(dev);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(e);
+    EXPECT(ok, true);
+}
+
+
 void
 unit_test_drwinapi_kernel32_file(void)
 {
-    HANDLE h, h2;
+    HANDLE h, h2, h3;
     PVOID p;
     BOOL ok;
     char env[MAX_PATH];
@@ -814,9 +958,16 @@ unit_test_drwinapi_kernel32_file(void)
     ok = ReadFile(h, &p, sizeof(p), (LPDWORD) &res, NULL);
     EXPECT(ok, true);
     EXPECT((HANDLE)p == h2, true);
+    ok = redirect_DuplicateHandle(GetCurrentProcess(), h, GetCurrentProcess(), &h3,
+                                  0, FALSE, 0);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h3);
+    EXPECT(ok, true);
     ok = redirect_CloseHandle(h2);
     EXPECT(ok, true);
     ok = redirect_CloseHandle(h);
     EXPECT(ok, true);
+
+    test_DeviceIoControl();
 }
 #endif

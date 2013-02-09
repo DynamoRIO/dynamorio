@@ -1283,6 +1283,18 @@ query_full_attributes_file(PCWSTR filename,
 #define FILE_WRITE_TO_END_OF_FILE       0xffffffff
 #define FILE_USE_FILE_POINTER_POSITION  0xfffffffe
 
+#if _MSC_VER <= 1200
+/* from ntstatus.h, NtFsControlFile typically returns this, if not using 
+ * overlapped (i.e. asynch io) then TransactNamedPipe specifically checks for 
+ * this value to determine whether or not it should wait on the pipe, this is
+ * the only return code it specifically checks for */
+# define STATUS_PENDING 0x103
+#endif
+
+// Define the interesting device type values
+#define FILE_DEVICE_FILE_SYSTEM         0x00000009
+#define FILE_DEVICE_NAMED_PIPE          0x00000011
+
 /* From NTSTATUS.H -- this shouldn't change, but you never know... */
 /* DDK2003SP1/3790.1830/inc/wnet/ntstatus.h */
 #define STATUS_INFO_LENGTH_MISMATCH      ((NTSTATUS)0xC0000004L)
@@ -1898,6 +1910,33 @@ nt_query_security_object(IN HANDLE Handle,
                          OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
                          IN ULONG SecurityDescriptorLength,
                          OUT PULONG ReturnLength);
+
+/***************************************************************************
+ * SHARED NON-RAW NTDLL WRAPPERS
+ *
+ * These are ones for which there's no extra value we want to add in
+ * an nt_() routine of our own, but we want to share (typically between
+ * ntdll.c and drwinapi/).
+ */
+
+GET_NTDLL(NtWaitForSingleObject, (IN HANDLE ObjectHandle, 
+                                  IN BOOLEAN Alertable, 
+                                  IN PLARGE_INTEGER TimeOut));
+
+GET_NTDLL(NtFsControlFile, (IN HANDLE               FileHandle,
+                            IN HANDLE               Event OPTIONAL,
+                            IN PIO_APC_ROUTINE      ApcRoutine OPTIONAL,
+                            IN PVOID                ApcContext OPTIONAL,
+                            OUT PIO_STATUS_BLOCK    IoStatusBlock,
+                            IN ULONG                FsControlCode,
+                            IN PVOID                InputBuffer OPTIONAL,
+                            IN ULONG                InputBufferLength,
+                            OUT PVOID               OutputBuffer OPTIONAL,
+                            IN ULONG                OutputBufferLength));
+
+/***************************************************************************
+ * RAW WRAPPERS
+ */
 
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 

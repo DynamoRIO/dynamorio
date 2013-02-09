@@ -119,6 +119,7 @@ EXPORTS
         NtFlushInstructionCache
         NtQueryAttributesFile
         NtCreateNamedPipeFile
+        NtDeviceIoControlFile
         RtlInitializeCriticalSection
         RtlDeleteCriticalSection
         RtlEnterCriticalSection
