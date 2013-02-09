@@ -41,6 +41,7 @@
 static HANDLE (WINAPI *priv_kernel32_OpenConsoleW)(LPCWSTR, DWORD, BOOL, DWORD);
 
 static HANDLE base_named_obj_dir;
+static HANDLE base_named_pipe_dir;
 
 static wchar_t *
 get_base_named_obj_dir_name(void)
@@ -83,11 +84,19 @@ kernel32_redir_init_file(void)
                                             get_base_named_obj_dir_name(),
                                             true/*create perms*/);
     ASSERT(NT_SUCCESS(res));
+
+    /* The trailing \ is critical: w/o it, NtCreateNamedPipeFile returns
+     * STATUS_OBJECT_NAME_INVALID.
+     */
+    res = nt_open_file(&base_named_pipe_dir, L"\\Device\\NamedPipe\\",
+                       GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE);
+    ASSERT(NT_SUCCESS(res));
 }
 
 void
 kernel32_redir_exit_file(void)
 {
+    close_handle(base_named_pipe_dir);
     nt_close_object_directory(base_named_obj_dir);
 }
 
@@ -560,6 +569,72 @@ redirect_UnmapViewOfFile(
     return TRUE;
 }
 
+BOOL
+WINAPI
+redirect_CreatePipe(
+    __out_ecount_full(1) PHANDLE hReadPipe,
+    __out_ecount_full(1) PHANDLE hWritePipe,
+    __in_opt LPSECURITY_ATTRIBUTES lpPipeAttributes,
+    __in     DWORD nSize
+    )
+{
+    NTSTATUS res;
+    OBJECT_ATTRIBUTES oa;
+    UNICODE_STRING us = {0,};
+    IO_STATUS_BLOCK iob = {0,0};
+    ACCESS_MASK access = SYNCHRONIZE | GENERIC_READ | FILE_WRITE_ATTRIBUTES;
+    DWORD size = (nSize != 0) ? nSize : PAGE_SIZE; /* default size */
+    LARGE_INTEGER timeout;
+    GET_NTDLL(NtCreateNamedPipeFile,
+              (OUT PHANDLE FileHandle,
+               IN ACCESS_MASK DesiredAccess,
+               IN POBJECT_ATTRIBUTES ObjectAttributes,
+               OUT PIO_STATUS_BLOCK IoStatusBlock,
+               IN ULONG ShareAccess,
+               IN ULONG CreateDisposition,
+               IN ULONG CreateOptions,
+               /* XXX: when these are BOOLEAN, as Nebbett has them, we just
+                * set the LSB and we get STATUS_INVALID_PARAMETER!
+                * So I'm considering to be BOOOL.
+                */
+               IN BOOL TypeMessage,
+               IN BOOL ReadmodeMessage,
+               IN BOOL Nonblocking,
+               IN ULONG MaxInstances,
+               IN ULONG InBufferSize,
+               IN ULONG OutBufferSize,
+               IN PLARGE_INTEGER DefaultTimeout OPTIONAL));
+
+    timeout.QuadPart = -1200000000; /* 120s */
+
+    /* We leave us with 0 length and NULL buffer b/c we don't want a name. */
+    init_object_attr_for_files(&oa, &us, lpPipeAttributes, NULL);
+    oa.RootDirectory = base_named_pipe_dir;
+    res = NtCreateNamedPipeFile(hReadPipe, access, &oa, &iob,
+                                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                FILE_CREATE,
+                                FILE_SYNCHRONOUS_IO_NONALERT,
+                                FILE_PIPE_BYTE_STREAM_TYPE,
+                                FILE_PIPE_BYTE_STREAM_MODE,
+                                FILE_PIPE_QUEUE_OPERATION,
+                                1, size, size, &timeout);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    /* open the write handle */
+    oa.RootDirectory = *hReadPipe;
+    res = nt_raw_OpenFile(hWritePipe, SYNCHRONIZE | FILE_GENERIC_WRITE,
+                          &oa, &iob, FILE_SHARE_READ,
+                          FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE);
+    if (!NT_SUCCESS(res)) {
+        close_handle(*hReadPipe);
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    return TRUE;
+}
+
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Files
  */
@@ -665,6 +740,23 @@ unit_test_drwinapi_kernel32_file(void)
     EXPECT(*(WORD *)p == IMAGE_DOS_SIGNATURE, true); /* PE image */
     ok = redirect_UnmapViewOfFile(p);
     EXPECT(ok, true);
+    ok = redirect_CloseHandle(h2);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
+
+    /* test pipe */
+    ok = redirect_CreatePipe(&h, &h2, NULL, 0);
+    EXPECT(ok, true);
+    /* FIXME: once we redirect ReadFile and WriteFile, use those versions */
+    /* This will block if the buffer is full, but we assume the buffer
+     * is much bigger than the size of a handle for our single-threaded test.
+     */
+    ok = WriteFile(h2, &h2, sizeof(h2), (LPDWORD) &res, NULL);
+    EXPECT(ok, true);
+    ok = ReadFile(h, &p, sizeof(p), (LPDWORD) &res, NULL);
+    EXPECT(ok, true);
+    EXPECT((HANDLE)p == h2, true);
     ok = redirect_CloseHandle(h2);
     EXPECT(ok, true);
     ok = redirect_CloseHandle(h);

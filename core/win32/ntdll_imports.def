@@ -118,6 +118,7 @@ EXPORTS
         NtOpenThread
         NtFlushInstructionCache
         NtQueryAttributesFile
+        NtCreateNamedPipeFile
         RtlInitializeCriticalSection
         RtlDeleteCriticalSection
         RtlEnterCriticalSection

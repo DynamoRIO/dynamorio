@@ -846,6 +846,25 @@ NtQueryAttributesFile(POBJECT_ATTRIBUTES object_attributes,
     return STATUS_SUCCESS;
 }
 
+NTEXPORT NTSTATUS NTAPI
+NtCreateNamedPipeFile(OUT PHANDLE FileHandle,
+                      IN ACCESS_MASK DesiredAccess,
+                      IN POBJECT_ATTRIBUTES ObjectAttributes,
+                      OUT PIO_STATUS_BLOCK IoStatusBlock,
+                      IN ULONG ShareAccess,
+                      IN ULONG CreateDisposition,
+                      IN ULONG CreateOptions,
+                      IN BOOLEAN TypeMessage,
+                      IN BOOLEAN ReadmodeMessage,
+                      IN BOOLEAN Nonblocking,
+                      IN ULONG MaxInstances,
+                      IN ULONG InBufferSize,
+                      IN ULONG OutBufferSize,
+                      IN PLARGE_INTEGER DefaultTimeout OPTIONAL)
+{
+    return STATUS_SUCCESS;
+}
+
 /***************************************************************************
  * RTL
  */

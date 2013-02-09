@@ -3116,6 +3116,26 @@ create_file(PCWSTR filename, bool is_dir, ACCESS_MASK rights,
         return hfile;
 }
 
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+NTSTATUS
+nt_open_file(HANDLE *handle OUT, PCWSTR filename, ACCESS_MASK rights, uint sharing)
+{
+    NTSTATUS res;
+    OBJECT_ATTRIBUTES oa;
+    IO_STATUS_BLOCK iob = {0,0};
+    UNICODE_STRING us;
+
+    res = wchar_to_unicode(&us, filename);
+    if (!NT_SUCCESS(res))
+        return res;
+
+    InitializeObjectAttributes(&oa, &us, OBJ_CASE_INSENSITIVE, NULL, NULL);
+    res = nt_raw_OpenFile(handle, rights | SYNCHRONIZE,
+                          &oa, &iob, sharing, FILE_SYNCHRONOUS_IO_NONALERT);
+    return res;
+}
+#endif
+
 #if 0
 /* FIXME : enable and test once we have a use for it */
 bool
@@ -5462,4 +5482,3 @@ nt_raw_OpenProcessToken(HANDLE process_handle,
 # endif
     return res;
 }
-

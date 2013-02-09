@@ -105,6 +105,7 @@ static const redirect_import_t redirect_kernel32[] = {
     {"MapViewOfFile",                  (app_pc)redirect_MapViewOfFile},
     {"MapViewOfFileEx",                (app_pc)redirect_MapViewOfFileEx},
     {"UnmapViewOfFile",                (app_pc)redirect_UnmapViewOfFile},
+    {"CreatePipe",                     (app_pc)redirect_CreatePipe},
 };
 #define REDIRECT_KERNEL32_NUM (sizeof(redirect_kernel32)/sizeof(redirect_kernel32[0]))
 

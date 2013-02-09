@@ -1464,6 +1464,11 @@ HANDLE
 create_file(PCWSTR filename, bool is_dir, ACCESS_MASK rights, uint sharing,
             uint create_disposition, bool synch);
 
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+NTSTATUS
+nt_open_file(HANDLE *handle OUT, PCWSTR filename, ACCESS_MASK rights, uint sharing);
+#endif
+
 bool
 delete_file(PCWSTR filename);
 
