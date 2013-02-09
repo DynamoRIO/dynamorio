@@ -1469,8 +1469,8 @@ NTSTATUS
 nt_open_file(HANDLE *handle OUT, PCWSTR filename, ACCESS_MASK rights, uint sharing);
 #endif
 
-bool
-delete_file(PCWSTR filename);
+NTSTATUS
+nt_delete_file(PCWSTR nt_filename);
 
 bool
 flush_file_buffers(HANDLE file_handle);

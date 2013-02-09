@@ -705,6 +705,18 @@ redirect_CreateFileW(
     __in_opt HANDLE hTemplateFile
     );
 
+BOOL
+WINAPI
+redirect_DeleteFileA(
+    __in LPCSTR lpFileName
+    );
+
+BOOL
+WINAPI
+redirect_DeleteFileW(
+    __in LPCWSTR lpFileName
+    );
+
 HANDLE
 WINAPI
 redirect_CreateFileMappingA(
@@ -761,18 +773,6 @@ redirect_CreatePipe(
     __out_ecount_full(1) PHANDLE hWritePipe,
     __in_opt LPSECURITY_ATTRIBUTES lpPipeAttributes,
     __in     DWORD nSize
-    );
-
-BOOL
-WINAPI
-redirect_DeleteFileA(
-    __in LPCSTR lpFileName
-    );
-
-BOOL
-WINAPI
-redirect_DeleteFileW(
-    __in LPCWSTR lpFileName
     );
 
 BOOL

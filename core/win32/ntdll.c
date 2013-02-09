@@ -3136,30 +3136,45 @@ nt_open_file(HANDLE *handle OUT, PCWSTR filename, ACCESS_MASK rights, uint shari
 }
 #endif
 
-#if 0
-/* FIXME : enable and test once we have a use for it */
-bool
-delete_file(PCWSTR filename)
+NTSTATUS
+nt_delete_file(PCWSTR nt_filename)
 {
+    /* We follow the lead of Win32 and use FileDispositionInformation
+     * and not NtDeleteFile.
+     */
+    /* Xref os_delete_mapped_file() which does more: but here we want
+     * to match something more like Win32 DeleteFile().
+     */
     NTSTATUS res;
-    OBJECT_ATTRIBUTES attr;
-    UNICODE_STRING objname;
+    HANDLE hf;
+    FILE_DISPOSITION_INFORMATION file_dispose_info;
 
-    GET_NTDLL(NtDeleteFile, (IN POBJECT_ATTRIBUTES  ObjectAttributes));
-    
-    res = wchar_to_unicode(&objname, filename);
+    res = nt_create_file(&hf, nt_filename, NULL, 0, SYNCHRONIZE | DELETE,
+                         FILE_ATTRIBUTE_NORMAL,
+                         FILE_SHARE_DELETE | /* if already deleted */
+                         FILE_SHARE_READ,
+                         FILE_OPEN,
+                         FILE_SYNCHRONOUS_IO_NONALERT 
+                         | FILE_DELETE_ON_CLOSE
+                         /* This should open a handle on a symlink rather
+                          * than its target, and avoid other reparse code.
+                          * Otherwise the FILE_DELETE_ON_CLOSE would cause
+                          * us to delete the target of a symlink!
+                          * FIXME: fully test this: case 10067
+                          */
+                         | FILE_OPEN_REPARSE_POINT);
     if (!NT_SUCCESS(res))
-        return false;
-    
-    InitializeObjectAttributes(&attr, &objname,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL, NULL);
-    
-    res = NtDeleteFile(&attr);
-    
-    return NT_SUCCESS(res);
+        return res;
+
+    file_dispose_info.DeleteFile = TRUE;
+    res = nt_set_file_info(hf,
+                           &file_dispose_info,
+                           sizeof(file_dispose_info),
+                           FileDispositionInformation);
+    /* close regardless of success */
+    close_handle(hf);
+    return res;
 }
-#endif
 
 bool
 flush_file_buffers(HANDLE file_handle)

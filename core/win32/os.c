@@ -5390,6 +5390,7 @@ os_delete_mapped_file(const char *filename)
     return deleted;
 }
 
+/* file_name must already be in NT format */
 bool
 os_delete_file_w(const wchar_t *file_name,
                  HANDLE directory_handle)
@@ -5397,6 +5398,10 @@ os_delete_file_w(const wchar_t *file_name,
     NTSTATUS res;
     HANDLE hf;
     FILE_DISPOSITION_INFORMATION file_dispose_info;
+
+    /* XXX: we should be able to use nt_delete_file() but it doesn't take
+     * in a base dir: need to examine all callers.
+     */
 
     res = nt_create_module_file(&hf, file_name, 
                                 directory_handle,

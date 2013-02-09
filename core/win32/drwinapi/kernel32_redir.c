@@ -100,6 +100,8 @@ static const redirect_import_t redirect_kernel32[] = {
     {"CreateDirectoryW",               (app_pc)redirect_CreateDirectoryW},
     {"CreateFileA",                    (app_pc)redirect_CreateFileA},
     {"CreateFileW",                    (app_pc)redirect_CreateFileW},
+    {"DeleteFileA",                    (app_pc)redirect_DeleteFileA},
+    {"DeleteFileW",                    (app_pc)redirect_DeleteFileW},
     {"CreateFileMappingA",             (app_pc)redirect_CreateFileMappingA},
     {"CreateFileMappingW",             (app_pc)redirect_CreateFileMappingW},
     {"MapViewOfFile",                  (app_pc)redirect_MapViewOfFile},

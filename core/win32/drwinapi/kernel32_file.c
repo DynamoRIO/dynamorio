@@ -133,6 +133,10 @@ init_object_attr_for_files(OBJECT_ATTRIBUTES *oa, UNICODE_STRING *us,
         oa->SecurityQualityOfService = sqos;
 }
 
+/***************************************************************************
+ * DIRECTORIES
+ */
+
 BOOL
 WINAPI
 redirect_CreateDirectoryA(
@@ -178,7 +182,6 @@ redirect_CreateDirectoryA(
     return TRUE;
 }
 
-
 BOOL
 WINAPI
 redirect_CreateDirectoryW(
@@ -198,6 +201,10 @@ redirect_CreateDirectoryW(
     NULL_TERMINATE_BUFFER(buf);
     return redirect_CreateDirectoryA(buf, lpSecurityAttributes);
 }
+
+/***************************************************************************
+ * FILES
+ */
 
 static DWORD
 file_create_disp_winapi_to_nt(DWORD winapi)
@@ -395,6 +402,47 @@ redirect_CreateFileW(
                                 dwCreationDisposition, dwFlagsAndAttributes,
                                 hTemplateFile);
 }
+
+BOOL
+WINAPI
+redirect_DeleteFileA(
+    __in LPCSTR lpFileName
+    )
+{
+    NTSTATUS res;
+    wchar_t wbuf[MAX_PATH];
+    if (lpFileName == NULL ||
+        !convert_to_NT_file_path(wbuf, lpFileName, BUFFER_SIZE_ELEMENTS(wbuf))) {
+        set_last_error(ERROR_PATH_NOT_FOUND);
+        return FALSE;
+    }
+    NULL_TERMINATE_BUFFER(wbuf); /* be paranoid */
+    res = nt_delete_file(wbuf);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL
+WINAPI
+redirect_DeleteFileW(
+    __in LPCWSTR lpFileName
+    )
+{
+    /* convert_to_NT_file_path takes in UTF-8 and converts back to UTF-16.
+     * XXX: have a convert_to_NT_file_path_wide() or sthg to avoid double conversion.
+     */
+    char buf[MAX_PATH];
+    int len = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%ls", lpFileName);
+    if (len <= 0 || len >= BUFFER_SIZE_ELEMENTS(buf)) {
+        set_last_error(ERROR_PATH_NOT_FOUND);
+        return FALSE;
+    }
+    return redirect_DeleteFileA(buf);
+}
+
 
 /***************************************************************************
  * FILE MAPPING
@@ -635,6 +683,7 @@ redirect_CreatePipe(
     return TRUE;
 }
 
+
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Files
  */
@@ -693,6 +742,14 @@ unit_test_drwinapi_kernel32_file(void)
     EXPECT(h2 != INVALID_HANDLE_VALUE, true);
     EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
     ok = redirect_CloseHandle(h2);
+    EXPECT(ok, true);
+    /* re-create and then test deleting it */
+    h = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL,
+                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    EXPECT(h != INVALID_HANDLE_VALUE, true);
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
+    ok = redirect_DeleteFileA(buf);
     EXPECT(ok, true);
 
     /* test anonymous mappings */
