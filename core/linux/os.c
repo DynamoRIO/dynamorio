@@ -4834,8 +4834,10 @@ handle_execve(dcontext_t *dcontext)
     inject_library_path = IF_X64_ELSE(x64, !x64) ? dynamorio_library_path :
         dynamorio_alt_arch_path;
 
-    for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++)
+    for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
         prop_found[j] = -1;
+        prop_idx[j] = -1;
+    }
 
     if (envp == NULL) {
         LOG(THREAD, LOG_SYSCALLS, 3, "\tenv is NULL\n");
