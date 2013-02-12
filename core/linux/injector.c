@@ -49,6 +49,7 @@
 #include "os_private.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -64,9 +65,9 @@
 static bool verbose = false;
 
 typedef enum _inject_method_t {
-    INJECT_EXEC_DR,     /* Works with self or child. */
-    INJECT_LD_PRELOAD,  /* Works with self or child.  FIXME i#840: NYI */
-    INJECT_PTRACE       /* Doesn't work with self. */
+    INJECT_EARLY,       /* Works with self or child. */
+    INJECT_LD_PRELOAD,  /* Works with self or child. */
+    INJECT_PTRACE       /* Doesn't work with exec_self. */
 } inject_method_t;
 
 /* Opaque type to users, holds our state */
@@ -144,6 +145,63 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
  * Injection implementation
  */
 
+/* Environment modifications before executing the child process for LD_PRELOAD
+ * injection.
+ */
+static void
+pre_execve_ld_preload(const char *dr_path)
+{
+    char ld_lib_path[MAX_OPTIONS_STRING];
+    const char *last_slash = NULL;
+    const char *mode_slash = NULL;
+    const char *lib_slash = NULL;
+    const char *cur_path = getenv("LD_LIBRARY_PATH");
+    const char *cur = dr_path;
+    /* Find last three occurrences of '/'. */
+    while (*cur != '\0') {
+        if (*cur == '/') {
+            lib_slash = mode_slash;
+            mode_slash = last_slash;
+            last_slash = cur;
+        }
+        cur++;
+    }
+    /* dr_path should be absolute and have at least three components. */
+    ASSERT(lib_slash != NULL && last_slash != NULL);
+    ASSERT(strncmp(lib_slash, "/lib32", 5) == 0 ||
+           strncmp(lib_slash, "/lib64", 5) == 0);
+    /* Put both DR's path and the extension path on LD_LIBRARY_PATH.  We only
+     * need the extension path if -no_private_loader is used.
+     */
+    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path),
+             "%.*s:%.*s/ext%.*s%s%s",
+             last_slash - dr_path, dr_path,      /* DR path */
+             lib_slash - dr_path, dr_path,       /* pre-ext path */
+             last_slash - lib_slash, lib_slash,  /* libNN component */
+             cur_path == NULL ? "" : ":",
+             cur_path == NULL ? "" : cur_path);
+    NULL_TERMINATE_BUFFER(ld_lib_path);
+    setenv("LD_LIBRARY_PATH", ld_lib_path, true/*overwrite*/);
+    setenv("LD_PRELOAD", "libdynamorio.so libdrpreload.so",
+           true/*overwrite*/);
+    if (verbose) {
+        printf("Setting LD_USE_LOAD_BIAS for PIEs so the loader will honor "
+               "DR's preferred base. (i#719)\n"
+               "Set LD_USE_LOAD_BIAS=0 prior to injecting if this is a "
+               "problem.\n");
+    }
+    setenv("LD_USE_LOAD_BIAS", "1", false/*!overwrite, let user set it*/);
+}
+
+/* Environment modifications before executing the child process for early
+ * injection.
+ */
+static void
+pre_execve_early(const char *exe)
+{
+    setenv(DYNAMORIO_VAR_EXE_PATH, exe, true/*overwrite*/);
+}
+
 static process_id_t
 fork_suspended_child(const char *exe, const char **argv, int fds[2])
 {
@@ -153,7 +211,8 @@ fork_suspended_child(const char *exe, const char **argv, int fds[2])
         char pipe_cmd[MAXIMUM_PATH];
         ssize_t nread;
         size_t sofar = 0;
-        char *real_exe = NULL;
+        const char *real_exe = NULL;
+        const char *arg;
         close(fds[1]);  /* Close writer in child, keep reader. */
         do {
             nread = read(fds[0], pipe_cmd + sofar,
@@ -162,17 +221,26 @@ fork_suspended_child(const char *exe, const char **argv, int fds[2])
         } while (nread > 0 && sofar < BUFFER_SIZE_BYTES(pipe_cmd)-1);
         pipe_cmd[sofar] = '\0';
         close(fds[0]);  /* Close reader before exec. */
+        arg = pipe_cmd;
+        /* The first token is the command and the rest is an argument. */
+        while (*arg != '\0' && !isspace(*arg))
+            arg++;
+        while (*arg != '\0' && isspace(*arg))
+            arg++;
         if (pipe_cmd[0] == '\0') {
             /* If nothing was written to the pipe, let it run natively. */
-            real_exe = (char *) exe;
+            real_exe = exe;
+        } else if (strstr(pipe_cmd, "ld_preload ") == pipe_cmd) {
+            pre_execve_ld_preload(arg);
+            real_exe = exe;
         } else if (strcmp("ptrace", pipe_cmd) == 0) {
             /* If using ptrace, we're already attached and will walk across the
              * execv.
              */
-            real_exe = (char *) exe;
-        } else if (strncmp("exec_dr ", pipe_cmd, 8) == 0) {
-            setenv(DYNAMORIO_VAR_EXE_PATH, exe, true/*overwrite*/);
-            real_exe = pipe_cmd;
+            real_exe = exe;
+        } else if (strstr(pipe_cmd, "exec_dr ") == pipe_cmd) {
+            pre_execve_early(exe);
+            real_exe = arg;
         }
 #ifdef STATIC_LIBRARY
         setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
@@ -201,20 +269,36 @@ write_pipe_cmd(int pipe_fd, const char *cmd)
 }
 
 static bool
-inject_exec_dr(dr_inject_info_t *info, const char *library_path)
+inject_early(dr_inject_info_t *info, const char *library_path)
 {
     if (info->exec_self) {
         /* exec DR with the original command line and set an environment
          * variable pointing to the real exe.
          */
-        /* XXX: setenv will modify the environment on failure. */
-        setenv(DYNAMORIO_VAR_EXE_PATH, info->exe, true/*overwrite*/);
+        pre_execve_early(info->exe);
         execv(library_path, (char **) info->argv);
         return false;  /* if execv returns, there was an error */
     } else {
         /* Write the path to DR to the pipe. */
         char cmd[MAXIMUM_PATH];
         snprintf(cmd, BUFFER_SIZE_ELEMENTS(cmd), "exec_dr %s", library_path);
+        NULL_TERMINATE_BUFFER(cmd);
+        write_pipe_cmd(info->pipe_fd, cmd);
+    }
+    return true;
+}
+
+static bool
+inject_ld_preload(dr_inject_info_t *info, const char *library_path)
+{
+    if (info->exec_self) {
+        pre_execve_ld_preload(library_path);
+        execv(info->exe, (char **) info->argv);
+        return false;  /* if execv returns, there was an error */
+    } else {
+        /* Write the path to DR to the pipe. */
+        char cmd[MAXIMUM_PATH];
+        snprintf(cmd, BUFFER_SIZE_ELEMENTS(cmd), "ld_preload %s", library_path);
         NULL_TERMINATE_BUFFER(cmd);
         write_pipe_cmd(info->pipe_fd, cmd);
     }
@@ -249,7 +333,7 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
     close(fds[0]);  /* Close reader, keep writer. */
     info->pipe_fd = fds[1];
     info->exec_self = false;
-    info->method = INJECT_EXEC_DR;
+    info->method = INJECT_LD_PRELOAD;
 
     if (info->pid == -1)
         goto error;
@@ -270,7 +354,7 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
     info->pid = getpid();
     info->pipe_fd = 0;  /* No pipe. */
     info->exec_self = true;
-    info->method = INJECT_EXEC_DR;
+    info->method = INJECT_LD_PRELOAD;
     *data = info;
 #ifdef STATIC_LIBRARY
     setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
@@ -307,6 +391,19 @@ dr_inject_get_image_name(void *data)
     return (char *) info->image_name;
 }
 
+/* FIXME: Use the parser in options.c.  The implementation here will find
+ * options in quoted strings, like the client options string.
+ */
+static bool
+option_present(const char *dr_ops, const char *op)
+{
+    size_t oplen = strlen(op);
+    const char *cur = strstr(dr_ops, op);
+    return (cur != NULL &&
+            (cur[oplen] == '\0' || isspace(cur[oplen])) &&
+            (cur == dr_ops || isspace(cur[-1])));
+}
+
 DR_EXPORT
 bool
 dr_inject_process_inject(void *data, bool force_injection,
@@ -314,6 +411,19 @@ dr_inject_process_inject(void *data, bool force_injection,
 {
     dr_inject_info_t *info = (dr_inject_info_t *) data;
     char dr_path_buf[MAXIMUM_PATH];
+    char dr_ops[MAX_OPTIONS_STRING];
+
+    if (!get_config_val_other_app(info->image_name, info->pid,
+                                  DYNAMORIO_VAR_OPTIONS, dr_ops,
+                                  BUFFER_SIZE_ELEMENTS(dr_ops), NULL,
+                                  NULL, NULL)) {
+        return false;
+    }
+
+    if (info->method == INJECT_LD_PRELOAD &&
+        option_present(dr_ops, "-early_inject")) {
+        info->method = INJECT_EARLY;
+    }
 
 #ifdef STATIC_LIBRARY
     return true;  /* Do nothing.  DR will takeover by itself. */
@@ -333,10 +443,10 @@ dr_inject_process_inject(void *data, bool force_injection,
     }
 
     switch (info->method) {
-    case INJECT_EXEC_DR:
-        return inject_exec_dr(info, library_path);
+    case INJECT_EARLY:
+        return inject_early(info, library_path);
     case INJECT_LD_PRELOAD:
-        return false;  /* NYI */
+        return inject_ld_preload(info, library_path);
     case INJECT_PTRACE:
         return inject_ptrace(info, library_path);
     }

@@ -233,6 +233,7 @@ const char *usage_str =
     "       -pidfile <file>    Print the pid of the child process to the given file.\n"
     "       -no_inject         Run the application natively.\n"
 # ifdef LINUX  /* FIXME i#725: Windows attach NYI */
+    "       -early             Whether to use early injection.\n"
     "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
     "                          for pid to launch and inject into a new process.\n"
 # endif
@@ -830,7 +831,18 @@ int main(int argc, char *argv[])
             /* FIXME: use pid below to attach. */
             continue;
         }
-# endif
+        else if (strcmp(argv[i], "-early") == 0) {
+            /* Appending -early_inject to extra_ops communicates our intentions to
+             * drinjectlib.
+             * XXX: reuse print_to_buffer from x86/decodelib.c and utils.c.
+             */
+            _snprintf(extra_ops + strlen(extra_ops),
+                      BUFFER_SIZE_ELEMENTS(extra_ops) - strlen(extra_ops),
+                      "%s-early_inject", (extra_ops[0] == '\0') ? "" : " ");
+            NULL_TERMINATE_BUFFER(extra_ops);
+            continue;
+        }
+# endif /* LINUX */
         else if (strcmp(argv[i], "-exit0") == 0) {
             exit0 = true;
             continue;

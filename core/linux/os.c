@@ -503,19 +503,6 @@ get_libc_errno_location(bool do_init)
 {
     static errno_loc_t libc_errno_loc;
 
-    /* If we're doing early injection, there's no way we can accidentally
-     * clobber the app's errno.  The loader won't even be there to resolve
-     * imports for us.  At this point, we only read errno to make sure we
-     * haven't stomped it.  Returning NULL allows those checks to pass.
-     *
-     * If we wanted the extra checking, we can try to lookup errno after libc is
-     * loaded.  However, if we try to call __errno_location immediately after
-     * libc is mapped, it will crash.  We'd have to wait until GOT and other
-     * things are initialized.
-     */
-    if (DYNAMO_OPTION(early_inject))
-        return NULL;
-
     if (do_init) {
         module_iterator_t *mi = module_iterator_start();
         while (module_iterator_hasnext(mi)) {
@@ -551,10 +538,12 @@ get_libc_errno_location(bool do_init)
         }
         module_iterator_stop(mi);
 #if defined(HAVE_TLS) && defined(CLIENT_INTERFACE)
-        /* i#598, init the libc errno's offset */
-        if (INTERNAL_OPTION(private_loader)) {
+        /* i#598: init the libc errno's offset.  If we didn't find libc above,
+         * then we don't need to do this.
+         */
+        if (INTERNAL_OPTION(private_loader) && libc_errno_loc != NULL) {
             void *dr_lib_tls_base = os_get_dr_seg_base(NULL, LIB_SEG_TLS);
-            ASSERT(dr_lib_tls_base != NULL && libc_errno_loc != NULL);
+            ASSERT(dr_lib_tls_base != NULL);
             libc_errno_tls_offs = (void *)libc_errno_loc() - dr_lib_tls_base;
             libc_errno_loc = &our_libc_errno_loc;
         }
