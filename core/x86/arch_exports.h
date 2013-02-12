@@ -858,6 +858,9 @@ thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
                             void *ctid, void (*func)(void));
 #endif
 void back_from_native(void);
+#ifdef LINUX
+void native_plt_call(void);
+#endif
 DEBUG_DECLARE(void debug_infinite_loop(void); /* handy cpu eating infinite loop */)
 void hashlookup_null_handler(void);
 

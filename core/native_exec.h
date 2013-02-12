@@ -48,7 +48,18 @@ native_exec_init(void);
 void
 native_exec_exit(void);
 
+/* The following prototypes are implemented by various object file formats.  For
+ * now we assume a single object file format per platform.
+ */
+
 void
-module_hook_transitions(module_area_t *ma, bool at_map);
+native_module_init(void);
+void
+native_module_exit(void);
+
+void
+native_module_hook(module_area_t *ma, bool at_map);
+void
+native_module_unhook(module_area_t *ma);
 
 #endif /* _NATIVE_EXEC_H_ */

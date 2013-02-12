@@ -56,6 +56,7 @@ vm_area_vector_t *native_exec_areas;
 void
 native_exec_init(void)
 {
+    native_module_init();
     if (!DYNAMO_OPTION(native_exec) || DYNAMO_OPTION(thin_client))
         return;
     VMVECTOR_ALLOC_VECTOR(native_exec_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
@@ -65,6 +66,7 @@ native_exec_init(void)
 void
 native_exec_exit(void)
 {
+    native_module_exit();
     if (native_exec_areas == NULL)
         return;
     vmvector_delete_vector(GLOBAL_DCONTEXT, native_exec_areas);
@@ -134,11 +136,17 @@ native_exec_module_load(module_area_t *ma, bool at_map)
 {
     bool is_native = check_and_mark_native_exec(ma, true/*add*/);
     if (is_native && DYNAMO_OPTION(native_exec_retakeover))
-        module_hook_transitions(ma, at_map);
+        native_module_hook(ma, at_map);
 }
 
 void
 native_exec_module_unload(module_area_t *ma)
 {
     check_and_mark_native_exec(ma, false/*!add*/);
+}
+
+void
+native_module_transition(priv_mcontext_t *mc, app_pc target)
+{
+    LOG(THREAD_GET, 6, LOG_LOADER, "cross-module call to %p\n", target);
 }
