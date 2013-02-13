@@ -113,7 +113,11 @@ void CCmdlineDlg::OnWorkingDirBrowse()
     bi.lpfn = NULL;
     bi.lParam = NULL;
     bi.iImage = 0;
+#if _MSC_VER <= 1400 /* VS2005- */
+    LPITEMIDLIST id = SHBrowseForFolder(&bi);
+#else
     PIDLIST_ABSOLUTE id = SHBrowseForFolder(&bi);
+#endif
     if (id == NULL) // cancelled
         return;
     SHGetPathFromIDList(id, folder);

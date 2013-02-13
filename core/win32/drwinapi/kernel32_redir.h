@@ -52,9 +52,47 @@
 #include "../../globals.h"
 #include "../../module_shared.h"
 
-#ifndef __drv_interlocked /* support older VS versions */
+/**************************************************
+ * support older VS versions
+ */
+
+#ifndef __drv_interlocked
 # define __drv_interlocked /* nothing */
 #endif
+
+#if _MSC_VER <= 1400 /* VS2005- */
+enum {
+    HeapEnableTerminationOnCorruption = 1,
+};
+
+/* wincon.h */
+typedef struct _CONSOLE_READCONSOLE_CONTROL {
+    ULONG nLength;
+    ULONG nInitialChars;
+    ULONG dwCtrlWakeupMask;
+    ULONG dwControlKeyState;
+} CONSOLE_READCONSOLE_CONTROL, *PCONSOLE_READCONSOLE_CONTROL;
+
+/* winbase.h */
+typedef enum _FILE_INFO_BY_HANDLE_CLASS {
+    FileBasicInfo,
+    FileStandardInfo,
+    FileNameInfo,
+    FileRenameInfo,
+    FileDispositionInfo,
+    FileAllocationInfo,
+    FileEndOfFileInfo,
+    FileStreamInfo,
+    FileCompressionInfo,
+    FileAttributeTagInfo,
+    FileIdBothDirectoryInfo,
+    FileIdBothDirectoryRestartInfo,
+    FileIoPriorityHintInfo,
+    FileRemoteProtocolInfo,
+    MaximumFileInfoByHandleClass
+} FILE_INFO_BY_HANDLE_CLASS, *PFILE_INFO_BY_HANDLE_CLASS;
+#endif
+
 
 void
 kernel32_redir_init(void);
@@ -343,8 +381,8 @@ kernel32_redir_onload_lib(privmod_t *mod);
 FARPROC
 WINAPI
 redirect_DelayLoadFailureHook(
-  _In_  LPCSTR pszDllName,
-  _In_  LPCSTR pszProcName
+  __in  LPCSTR pszDllName,
+  __in  LPCSTR pszProcName
 );
 
 BOOL

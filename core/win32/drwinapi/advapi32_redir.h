@@ -53,6 +53,19 @@ advapi32_redir_onload(privmod_t *mod);
 app_pc
 advapi32_redir_lookup(const char *name);
 
+/**************************************************
+ * support older VS versions
+ */
+
+#ifndef __out_data_source
+# define __out_data_source(x) /* nothing */
+#endif
+
+#if _MSC_VER <= 1400 /* VS2005- */
+/* winreg.h */
+typedef LONG LSTATUS;
+#endif
+
 
 LSTATUS
 WINAPI

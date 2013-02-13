@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,6 +45,13 @@
  * control of DynamoRIO.
  */
 
+#ifdef WINDOWS
+# ifndef ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE /* in VS2008+ */
+#  define ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE 720L
+# endif
+#endif
+
+DR_EXPORT
 /**
  * Creates a new process for the executable and command line specified.
  * The initial thread in the process is suspended.
@@ -67,6 +75,8 @@
  *                             subsequent dr_inject_* routines to refer to
  *                             this process.
  * \return  Returns 0 on success.  On failure, returns a system error code.
+ *          For a mismatched bitwidth on Windows, the code is
+ *          ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE.
  *          Regardless of success, caller must call dr_inject_process_exit()
  *          when finished to clean up internally-allocated resources.
  */
@@ -76,6 +86,7 @@ dr_inject_process_create(const char *app_name, const char **app_cmdline,
 
 #ifdef LINUX
 
+DR_EXPORT
 /**
  * Prepare to exec() the provided command from the current process.  Use
  * dr_inject_process_inject() to perform the exec() under DR.
@@ -103,6 +114,7 @@ int
 dr_inject_prepare_to_exec(const char *app_name, const char **app_cmdline,
                           void **data);
 
+DR_EXPORT
 /**
  * Use the ptrace system call to inject into the targetted process.  Must be
  * called before dr_inject_process_inject().  Does not work with
@@ -128,6 +140,7 @@ dr_inject_prepare_to_ptrace(void *data);
 
 #endif /* LINUX */
 
+DR_EXPORT
 /**
  * Injects DynamoRIO into a process created by dr_inject_process_create(), or
  * the current process if using dr_inject_prepare_to_exec() on Linux.
@@ -147,6 +160,7 @@ bool
 dr_inject_process_inject(void *data, bool force_injection,
                          const char *library_path);
 
+DR_EXPORT
 /**
  * Resumes the suspended thread in a process created by dr_inject_process_create().
  *
@@ -157,6 +171,7 @@ dr_inject_process_inject(void *data, bool force_injection,
 bool
 dr_inject_process_run(void *data);
 
+DR_EXPORT
 /**
  * Frees resources used by dr_inject_process_create().
  *
@@ -171,6 +186,7 @@ dr_inject_process_run(void *data);
 int
 dr_inject_process_exit(void *data, bool terminate);
 
+DR_EXPORT
 /**
  * Returns the process name of a process created by dr_inject_process_create().
  *
@@ -183,6 +199,7 @@ char *
 dr_inject_get_image_name(void *data);
 
 #ifdef WINDOWS
+DR_EXPORT
 /**
  * Returns a handle to a process created by dr_inject_process_create().
  *
@@ -197,6 +214,7 @@ HANDLE
 dr_inject_get_process_handle(void *data);
 #endif /* WINDOWS */
 
+DR_EXPORT
 /**
  * Returns the pid of a process created by dr_inject_process_create().
  *
@@ -207,10 +225,12 @@ dr_inject_get_process_handle(void *data);
 process_id_t
 dr_inject_get_process_id(void *data);
 
+DR_EXPORT
 /* Deliberately not documented: not fully supported */
 bool
 dr_inject_using_debug_key(void *data);
 
+DR_EXPORT
 /**
  * Prints statistics for a process created by dr_inject_process_create().
  *

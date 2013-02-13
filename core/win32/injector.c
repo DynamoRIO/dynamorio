@@ -64,6 +64,7 @@
 #include "ntdll.h"
 #include "inject_shared.h"
 #include "os_private.h"
+#include "dr_inject.h"
 
 #ifdef UNICODE
 # error dr_inject.h and drdeploy.c not set up for unicde
@@ -598,6 +599,8 @@ get_image_name(const TCHAR *app_name)
  * children, we require the child to match our bitwidth.
  * module_is_64bit() takes in a base, but there's no need to map the
  * whole thing in.  Thus we have our own impl.
+ * Once we fix i#803, remove the ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE
+ * comment in the docs for dr_inject_process_create.
  */
 static bool
 exe_is_right_bitwidth(const char *exe)
