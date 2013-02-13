@@ -106,6 +106,7 @@ static const redirect_import_t redirect_kernel32[] = {
     {"MapViewOfFile",                  (app_pc)redirect_MapViewOfFile},
     {"MapViewOfFileEx",                (app_pc)redirect_MapViewOfFileEx},
     {"UnmapViewOfFile",                (app_pc)redirect_UnmapViewOfFile},
+    {"FlushViewOfFile",                (app_pc)redirect_FlushViewOfFile},
     {"CreatePipe",                     (app_pc)redirect_CreatePipe},
     {"DeviceIoControl",                (app_pc)redirect_DeviceIoControl},
     {"CloseHandle",                    (app_pc)redirect_CloseHandle},
@@ -122,6 +123,7 @@ static const redirect_import_t redirect_kernel32[] = {
     {"FindFirstFileW",                 (app_pc)redirect_FindFirstFileW},
     {"FindNextFileA",                  (app_pc)redirect_FindNextFileA},
     {"FindNextFileW",                  (app_pc)redirect_FindNextFileW},
+    {"FlushFileBuffers",               (app_pc)redirect_FlushFileBuffers},
 
     /* Miscellaneous routines */
     {"GetLastError",                   (app_pc)redirect_GetLastError},

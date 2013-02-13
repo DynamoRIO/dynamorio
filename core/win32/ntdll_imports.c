@@ -896,6 +896,15 @@ NtQueryDirectoryFile(IN HANDLE FileHandle,
     return STATUS_SUCCESS;
 }
 
+NTEXPORT NTSTATUS NTAPI
+NtFlushVirtualMemory(IN HANDLE ProcessHandle,
+                     IN OUT PVOID *BaseAddress,
+                     IN OUT PULONG FlushSize,
+                     OUT PIO_STATUS_BLOCK IoStatusBlock)
+{
+    return STATUS_SUCCESS;
+}
+
 /***************************************************************************
  * RTL
  */

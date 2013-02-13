@@ -3214,18 +3214,15 @@ nt_delete_file(PCWSTR nt_filename)
     return res;
 }
 
-bool
-flush_file_buffers(HANDLE file_handle)
+NTSTATUS
+nt_flush_file_buffers(HANDLE file_handle)
 {
-    NTSTATUS res;
     IO_STATUS_BLOCK ret;
-    
+
     GET_NTDLL(NtFlushBuffersFile, (IN HANDLE FileHandle,
                                    OUT PIO_STATUS_BLOCK IoStatusBlock));
 
-    res = NtFlushBuffersFile(file_handle, &ret);
-
-    return NT_SUCCESS(res);
+    return NtFlushBuffersFile(file_handle, &ret);
 }
 
 bool

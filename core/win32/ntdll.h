@@ -1459,6 +1459,9 @@ query_full_attributes_file(PCWSTR filename,
 # define STATUS_INVALID_PARAMETER         ((NTSTATUS)0xC000000DL)
 #endif
 
+/* Specified section to flush does not map a data file. */
+#define STATUS_NOT_MAPPED_DATA           ((NTSTATUS)0xC0000088L)
+
 /* An invalid parameter was passed to a service or function as the first argument. */
 #define STATUS_INVALID_PARAMETER_1       ((NTSTATUS)0xC00000EFL)
 
@@ -1495,6 +1498,12 @@ query_full_attributes_file(PCWSTR filename,
 /* An invalid parameter was passed to a service or function as the twelfth argument. */
 #define STATUS_INVALID_PARAMETER_12      ((NTSTATUS)0xC00000FAL)
 
+/* An attempt was made to access a thread that has begun termination. */
+#define STATUS_THREAD_IS_TERMINATING     ((NTSTATUS)0xC000004BL)
+
+/* An attempt was made to access an exiting process. */
+#define STATUS_PROCESS_IS_TERMINATING    ((NTSTATUS)0xC000010AL)
+
 /* This is in VS2005 winnt.h but not in SDK winnt.h */
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION
 # define IMAGE_SIZEOF_BASE_RELOCATION         8
@@ -1522,8 +1531,8 @@ nt_open_file(HANDLE *handle OUT, PCWSTR filename, ACCESS_MASK rights, uint shari
 NTSTATUS
 nt_delete_file(PCWSTR nt_filename);
 
-bool
-flush_file_buffers(HANDLE file_handle);
+NTSTATUS
+nt_flush_file_buffers(HANDLE file_handle);
 
 bool
 read_file(HANDLE file_handle, void *buffer, uint num_bytes_to_read, 

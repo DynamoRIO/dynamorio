@@ -373,7 +373,9 @@ unit_test_drwinapi_advapi32(void)
     LSTATUS res;
     HKEY key;
     DWORD type, size, handle_count = 0;
-    char buf[512];
+    /* NetworkService gets bigger then 512 so we go for 1024 */
+#   define REG_KEY_DATA_SZ 1024
+    char buf[REG_KEY_DATA_SZ];
     BOOL ok;
 
     print_file(STDERR, "testing drwinapi advapi32\n");

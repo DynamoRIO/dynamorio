@@ -5355,7 +5355,7 @@ os_read(file_t f, void *buf, size_t count)
 void
 os_flush(file_t f)
 {
-    bool ok = flush_file_buffers(f);
+    nt_flush_file_buffers(f);
 }
 
 /* seek the current file position to offset bytes from origin, return true if successful */

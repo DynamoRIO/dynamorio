@@ -135,6 +135,9 @@ ntstatus_to_last_error(NTSTATUS status)
     case STATUS_NO_SUCH_FILE:          return ERROR_FILE_NOT_FOUND;
     case STATUS_NO_MORE_FILES:         return ERROR_NO_MORE_FILES;
     case STATUS_INFO_LENGTH_MISMATCH:  return ERROR_BAD_LENGTH;
+    case STATUS_NOT_MAPPED_DATA:       return ERROR_INVALID_ADDRESS;
+    case STATUS_THREAD_IS_TERMINATING: return ERROR_ACCESS_DENIED;
+    case STATUS_PROCESS_IS_TERMINATING: return ERROR_ACCESS_DENIED;
     /* XXX: add more.  Variations by function are rare and handled in callers. */
     default:                           return ERROR_INVALID_PARAMETER;
     }

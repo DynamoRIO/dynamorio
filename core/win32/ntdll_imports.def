@@ -121,6 +121,7 @@ EXPORTS
         NtCreateNamedPipeFile
         NtDeviceIoControlFile
         NtQueryDirectoryFile
+        NtFlushVirtualMemory
         RtlInitializeCriticalSection
         RtlDeleteCriticalSection
         RtlEnterCriticalSection

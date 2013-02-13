@@ -759,6 +759,13 @@ redirect_UnmapViewOfFile(
 
 BOOL
 WINAPI
+redirect_FlushViewOfFile(
+    __in LPCVOID lpBaseAddress,
+    __in SIZE_T dwNumberOfBytesToFlush
+    );
+
+BOOL
+WINAPI
 redirect_CreatePipe(
     __out_ecount_full(1) PHANDLE hReadPipe,
     __out_ecount_full(1) PHANDLE hWritePipe,
@@ -887,13 +894,6 @@ BOOL
 WINAPI
 redirect_FlushFileBuffers(
     __in HANDLE hFile
-    );
-
-BOOL
-WINAPI
-redirect_FlushViewOfFile(
-    __in LPCVOID lpBaseAddress,
-    __in SIZE_T dwNumberOfBytesToFlush
     );
 
 DWORD

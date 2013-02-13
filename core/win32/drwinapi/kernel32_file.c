@@ -653,6 +653,30 @@ redirect_UnmapViewOfFile(
     return TRUE;
 }
 
+BOOL
+WINAPI
+redirect_FlushViewOfFile(
+    __in LPCVOID lpBaseAddress,
+    __in SIZE_T dwNumberOfBytesToFlush
+    )
+{
+    NTSTATUS res;
+    PVOID base = (PVOID) lpBaseAddress;
+    ULONG size = (ULONG) dwNumberOfBytesToFlush;
+    IO_STATUS_BLOCK iob = {0,0};
+    GET_NTDLL(NtFlushVirtualMemory,
+              (IN HANDLE ProcessHandle,
+               IN OUT PVOID *BaseAddress,
+               IN OUT PULONG FlushSize,
+               OUT PIO_STATUS_BLOCK IoStatusBlock));
+    res = NtFlushVirtualMemory(NT_CURRENT_PROCESS, &base, &size, &iob);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    return TRUE;
+}
+
 
 /***************************************************************************
  * DEVICES
@@ -985,7 +1009,6 @@ redirect_SetFileTime(
     return TRUE;
 }
 
-
 /***************************************************************************
  * FILE ITERATOR
  *
@@ -1282,6 +1305,22 @@ redirect_FindNextFileW(
             find_nt_to_win32W(info, lpFindFileData));
 }
 
+/***************************************************************************/
+
+BOOL
+WINAPI
+redirect_FlushFileBuffers(
+    __in HANDLE hFile
+    )
+{
+    NTSTATUS res = nt_flush_file_buffers(hFile);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    return TRUE;
+}
+
 
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Files
@@ -1293,6 +1332,67 @@ redirect_FindNextFileW(
  */
 
 #ifdef STANDALONE_UNIT_TEST
+static void
+test_file_mapping(void)
+{
+    HANDLE h, h2;
+    BOOL ok;
+    PVOID p;
+    int res;
+    char env[MAX_PATH];
+    char buf[MAX_PATH];
+
+    /* test anonymous mappings */
+    h2 = CreateEvent(NULL, TRUE, TRUE, "Local\\mymapping"); /* for conflict */
+    EXPECT(h2 != NULL, true);
+    h = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
+                                    0, 0x1000, "Local\\mymapping");
+    EXPECT(h == NULL, true);
+    EXPECT(get_last_error(), ERROR_INVALID_HANDLE);
+    CloseHandle(h2); /* removes conflict */
+    h = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
+                                    0, 0x1000, "Local\\mymapping");
+    EXPECT(h != NULL, true);
+    h2 = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
+                                     0, 0x1000, "Local\\mymapping");
+    EXPECT(h2 != NULL, true);
+    EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
+    ok = redirect_CloseHandle(h2);
+    EXPECT(ok, true);
+    p = redirect_MapViewOfFileEx(h, FILE_MAP_WRITE, 0, 0, 0x800, NULL);
+    EXPECT(p != NULL, true);
+    *(int *)p = 42; /* test writing: shouldn't crash */
+    ok = redirect_UnmapViewOfFile(p);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
+
+    /* test file mappings */
+    res = GetEnvironmentVariableA("SystemRoot", env, BUFFER_SIZE_ELEMENTS(env));
+    EXPECT(res > 0, true);
+    NULL_TERMINATE_BUFFER(env);
+    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
+                    "%s\\system32\\notepad.exe", env);
+    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
+    NULL_TERMINATE_BUFFER(buf);
+    h = redirect_CreateFileA(buf, GENERIC_READ, 0, NULL,
+                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    EXPECT(h != INVALID_HANDLE_VALUE, true);
+    h2 = redirect_CreateFileMappingA(h, NULL, PAGE_READONLY, 0, 0, NULL);
+    EXPECT(h2 != NULL, true);
+    p = redirect_MapViewOfFileEx(h2, FILE_MAP_READ, 0, 0, 0, NULL);
+    EXPECT(p != NULL, true);
+    EXPECT(*(WORD *)p == IMAGE_DOS_SIGNATURE, true); /* PE image */
+    ok = redirect_FlushViewOfFile(p, 0);
+    EXPECT(ok, true);
+    ok = redirect_UnmapViewOfFile(p);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h2);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
+}
+
 static void
 test_DeviceIoControl(void)
 {
@@ -1607,6 +1707,8 @@ unit_test_drwinapi_kernel32_file(void)
                               FILE_FLAG_DELETE_ON_CLOSE, NULL);
     EXPECT(h2 != INVALID_HANDLE_VALUE, true);
     EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
+    ok = redirect_FlushFileBuffers(h2);
+    EXPECT(ok, true);
     ok = redirect_CloseHandle(h2);
     EXPECT(ok, true);
     /* re-create and then test deleting it */
@@ -1616,56 +1718,6 @@ unit_test_drwinapi_kernel32_file(void)
     ok = redirect_CloseHandle(h);
     EXPECT(ok, true);
     ok = redirect_DeleteFileA(buf);
-    EXPECT(ok, true);
-
-    /* test anonymous mappings */
-    h2 = CreateEvent(NULL, TRUE, TRUE, "Local\\mymapping"); /* for conflict */
-    EXPECT(h2 != NULL, true);
-    h = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                           0, 0x1000, "Local\\mymapping");
-    h = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                    0, 0x1000, "Local\\mymapping");
-    EXPECT(h == NULL, true);
-    EXPECT(get_last_error(), ERROR_INVALID_HANDLE);
-    CloseHandle(h2); /* removes conflict */
-    h = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                    0, 0x1000, "Local\\mymapping");
-    EXPECT(h != NULL, true);
-    h2 = redirect_CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                     0, 0x1000, "Local\\mymapping");
-    EXPECT(h2 != NULL, true);
-    EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
-    ok = redirect_CloseHandle(h2);
-    EXPECT(ok, true);
-    p = redirect_MapViewOfFileEx(h, FILE_MAP_WRITE, 0, 0, 0x800, NULL);
-    EXPECT(p != NULL, true);
-    *(int *)p = 42; /* test writing: shouldn't crash */
-    ok = redirect_UnmapViewOfFile(p);
-    EXPECT(ok, true);
-    ok = redirect_CloseHandle(h);
-    EXPECT(ok, true);
-
-    /* test file mappings */
-    res = GetEnvironmentVariableA("SystemRoot", env, BUFFER_SIZE_ELEMENTS(env));
-    EXPECT(res > 0, true);
-    NULL_TERMINATE_BUFFER(env);
-    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-                    "%s\\system32\\notepad.exe", env);
-    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
-    NULL_TERMINATE_BUFFER(buf);
-    h = redirect_CreateFileA(buf, GENERIC_READ, 0, NULL,
-                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    EXPECT(h != INVALID_HANDLE_VALUE, true);
-    h2 = redirect_CreateFileMappingA(h, NULL, PAGE_READONLY, 0, 0, NULL);
-    EXPECT(h2 != NULL, true);
-    p = redirect_MapViewOfFileEx(h2, FILE_MAP_READ, 0, 0, 0, NULL);
-    EXPECT(p != NULL, true);
-    EXPECT(*(WORD *)p == IMAGE_DOS_SIGNATURE, true); /* PE image */
-    ok = redirect_UnmapViewOfFile(p);
-    EXPECT(ok, true);
-    ok = redirect_CloseHandle(h2);
-    EXPECT(ok, true);
-    ok = redirect_CloseHandle(h);
     EXPECT(ok, true);
 
     /* test pipe */
@@ -1689,6 +1741,8 @@ unit_test_drwinapi_kernel32_file(void)
     EXPECT(ok, true);
     ok = redirect_CloseHandle(h);
     EXPECT(ok, true);
+
+    test_file_mapping();
 
     test_DeviceIoControl();
 
