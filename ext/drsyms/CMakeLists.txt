@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -58,10 +58,47 @@ endif ()
 # we need libc b/c our elftoolchain libraries use it
 set(DynamoRIO_USE_LIBC ON)
 
+# We use our own .lib file to support VS2005 whose dbghelp.lib doesn't have some
+# routines we want to use.
 if (WIN32)
+  # XXX: if we add any more of these .lib files we should share this code
+  # (currently we have make/ntdll_imports.cmake and here).
+  find_program(LIB_EXECUTABLE lib.exe DOC "path to lib.exe")
+  if (NOT LIB_EXECUTABLE)
+    message(FATAL_ERROR "Cannot find lib.exe")
+  endif (NOT LIB_EXECUTABLE)
+  set(dbghelp_src "${CMAKE_CURRENT_SOURCE_DIR}/dbghelp_imports.c")
+  set(dbghelp_def "${CMAKE_CURRENT_SOURCE_DIR}/dbghelp_imports.def")
+  # We need a different name so we can also use the VS dbghelp.lib
+  set(dbghelp_lib "${CMAKE_CURRENT_BINARY_DIR}/dbghelp_imports.lib")
+  set_property(SOURCE "${dbghelp_lib}" PROPERTY GENERATED true)
+  # Because the exports are stdcall we can't just use a .def file: we need
+  # an .obj file built from stubs w/ the same signatures.
+  # We don't need a stamp file b/c the .lib is not a source; plus a stamp
+  # file causes Ninja to fail to build.
+  add_custom_command(OUTPUT "${dbghelp_lib}"
+    DEPENDS "${dbghelp_src}" "${dbghelp_def}"
+    COMMAND "${CMAKE_C_COMPILER}" ARGS /nologo /c /Ob0 ${dbghelp_src}
+    COMMAND "${LIB_EXECUTABLE}" ARGS
+      /nologo /name:dbghelp.dll /def:${dbghelp_def}
+      ${CMAKE_CURRENT_BINARY_DIR}/dbghelp_imports.obj
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    VERBATIM # recommended: p260 of cmake book
+    )
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    set(dbghelp_dep "")
+    # for correct parallel builds we need a target to avoid
+    # duplicate and racy VS per-project rules
+    add_custom_target(dbghelp_tgt DEPENDS "${dbghelp_lib}")
+  else ()
+    set(dbghelp_dep "${dbghelp_lib}")
+  endif ()
+  set(dbghelp_flags "${dbghelp_lib}")
+
   set(srcs
     drsyms_windows.c drsyms_unix.c drsyms_pecoff.c
-    drsyms_dwarf.c demangle.cc drsyms_common.c)
+    drsyms_dwarf.c demangle.cc drsyms_common.c
+    ${dbghelp_dep})
   set(dwarf_dir "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-pecoff/lib${BITS}")
   set(dwarf_libpath "${dwarf_dir}/dwarf.lib")
   set(elftc_libpath "${dwarf_dir}/elftc.lib")
@@ -79,7 +116,13 @@ if (WIN32)
   # to avoid rebase so we avoid conflict w/ client and other exts
   set(PREFERRED_BASE 0x76000000)
   configure_DynamoRIO_client(drsyms)
-  target_link_libraries(drsyms dbghelp)
+  target_link_libraries(drsyms dbghelp ${dbghelp_flags})
+
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # for parallel build correctness we need a target dependence
+    add_dependencies(drsyms dbghelp_tgt)
+  endif ()
+
 elseif (UNIX)
   add_library(drsyms ${libtype}
     drsyms_linux.c drsyms_unix.c drsyms_elf.c
@@ -163,3 +206,10 @@ endif (DR_EXT_DRSYMS_STATIC)
 DR_export_target(drsyms)
 install_exported_target(drsyms ${INSTALL_EXT_LIB})
 DR_install(FILES drsyms.h drsyms_infox.h DESTINATION ${INSTALL_EXT_INCLUDE})
+
+if (WIN32)
+  # We need separate 32-bit and 64-bit versions so we put into lib dir.
+  # We put into base dir and not ext for easy sharing w/ including clients.
+  DR_install(FILES ${dbghelp_lib} DESTINATION ${INSTALL_LIB_BASE})
+endif (WIN32)
+

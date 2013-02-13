@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2013 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@ if (WIN32)
   # ntdll.lib name conflicts) but the lib.exe tool seems cleaner.
   # Note that we need not only stub routines but to also list the stdcall
   # (un-mangled) names in a .def file for it to work.
+  # XXX: we should make sure we don't rely on ntdll routines not in older systems!
   find_program(LIB_EXECUTABLE lib.exe DOC "path to lib.exe")
   if (NOT LIB_EXECUTABLE)
     message(FATAL_ERROR "Cannot find lib.exe")
@@ -46,10 +47,8 @@ if (WIN32)
   set(ntimp_src "${PROJECT_SOURCE_DIR}/core/win32/${ntimp_base}.c")
   set(ntimp_def "${PROJECT_SOURCE_DIR}/core/win32/${ntimp_base}.def")
   # We can't call it ntdll.lib b/c then link.exe will ignore the one from
-  # the WDK/DDK.
-  # XXX: should we just put all the Nt* and Rtl* in ntdll_stub.* and eliminate
-  # the need for WDK/DDK?  We'd have to manually make sure we don't rely
-  # on ntdll routines not in older systems.
+  # the WDK/DDK.  Update i#938: we have now replaced the regular ntdll.lib
+  # but we stick with our unique name.
   set(ntimp_lib "${PROJECT_BINARY_DIR}/core/${ntimp_base}.lib")
   set_property(SOURCE "${ntimp_lib}" PROPERTY GENERATED true)
   # Because the Ki are stdcall we can't just use a .def file: we need
