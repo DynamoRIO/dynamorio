@@ -1349,6 +1349,7 @@ find_first_file_common(
 {
     NTSTATUS res;
     HANDLE dir = INVALID_HANDLE_VALUE;
+    HANDLE ans = INVALID_HANDLE_VALUE;
     wchar_t *sep = NULL;
     wchar_t *dirname = NULL, *fname = NULL;
     size_t fname_len = 0, dirname_len = 0;
@@ -1389,10 +1390,10 @@ find_first_file_common(
         fname[fname_len] = L'\0';
     }
 
-    if (!find_next_file_common(dir, fname/*==NULL for plain dir */,
-                               lpFindFileData, info))
-        goto find_first_file_error;
-    return dir;
+    if (find_next_file_common(dir, fname/*==NULL for plain dir */,
+                              lpFindFileData, info)) {
+        ans = dir; /* success */
+    } /* else, last errror was already set */
 
  find_first_file_error:
     if (dirname != NULL) {
@@ -1403,9 +1404,9 @@ find_first_file_common(
         global_heap_free(fname, (fname_len + 1/*null*/)*sizeof(wchar_t)
                          HEAPACCT(ACCT_OTHER));
     }
-    if (dir != INVALID_HANDLE_VALUE)
+    if (ans == INVALID_HANDLE_VALUE && dir != INVALID_HANDLE_VALUE)
         close_handle(dir);
-    return INVALID_HANDLE_VALUE;
+    return ans;
 }
 
 /* Just fills in the name fields */
