@@ -44,8 +44,9 @@ static HANDLE (WINAPI *priv_kernel32_OpenConsoleW)(LPCWSTR, DWORD, BOOL, DWORD);
 static HANDLE base_named_obj_dir;
 static HANDLE base_named_pipe_dir;
 
+/* Returns a pointer either to wbuf or a const string elsewhere. */
 static wchar_t *
-get_base_named_obj_dir_name(void)
+get_base_named_obj_dir_name(wchar_t *wbuf OUT, size_t wbuflen)
 {
     /* PEB.ReadOnlyStaticServerData has an array of pointers sized to match the
      * kernel (so 64-bit for WOW64).  The second pointer points at a
@@ -62,6 +63,20 @@ get_base_named_obj_dir_name(void)
      * (XXX: what about attach?).
      */
     byte *ptr = (byte *) get_peb(NT_CURRENT_PROCESS)->ReadOnlyStaticServerData;
+    if (get_os_version() >= WINDOWS_VERSION_8) {
+        /* For wow64, data is above 4GB so we can't read it as easily.  Rather than
+         * muck around with NtWow64ReadVirtualMemory64 we construct the string.
+         * For x64, the string is the 6th pointer, instead of the 2nd: just
+         * seems more fragile to read it than to construct.
+         */
+        uint sid = get_peb(NT_CURRENT_PROCESS)->SessionId;
+        int len;
+        /* we assume it's only called at init time */
+        len = _snwprintf(wbuf, wbuflen, L"\\Sessions\\%d\\BaseNamedObjects", sid);
+        ASSERT(len >= 0 && (size_t)len < wbuflen);
+        wbuf[wbuflen - 1] = L'\0';
+        return wbuf;
+    }
 #ifndef X64
     if (is_wow64_process(NT_CURRENT_PROCESS)) {
         BASE_STATIC_SERVER_DATA_64 *data =
@@ -81,8 +96,9 @@ get_base_named_obj_dir_name(void)
 void
 kernel32_redir_init_file(void)
 {
-    NTSTATUS res = nt_open_object_directory(&base_named_obj_dir,
-                                            get_base_named_obj_dir_name(),
+    wchar_t wbuf[MAX_PATH];
+    wchar_t *name = get_base_named_obj_dir_name(wbuf, BUFFER_SIZE_ELEMENTS(wbuf));
+    NTSTATUS res = nt_open_object_directory(&base_named_obj_dir, name,
                                             true/*create perms*/);
     ASSERT(NT_SUCCESS(res));
 
