@@ -3674,7 +3674,7 @@ DR_API
 /**
  * Suspends all other threads in the process and returns an array of
  * contexts in \p drcontexts with one context per successfully suspended
- * threads.  The contexts can be passed to routines like dr_get_thread_id()
+ * thread.  The contexts can be passed to routines like dr_get_thread_id()
  * or dr_get_mcontext().  However, the contexts may not be modified:
  * dr_set_mcontext() is not supported.  dr_get_mcontext() can be called on
  * the caller of this routine, unless in a Windows nudge callback.
