@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2935,20 +2935,22 @@ data_sections_enclose_region(app_pc start, app_pc end)
     /* rather than solve the general enclose problem, we check for 32-bit,
      * where .data|.fspdata|.cspdata|.nspdata form the only writable region,
      * and 64-bit, where .pdata is between .data and .fspdata.
+     * Building with VS2012, I'm seeing the sections in other orders (i#1075).
      */
+    int i;
+    bool found_start = false, found_end = false;
+    ssize_t sz = 0;
+    for (i = 0; i < DATASEC_NUM; i++) {
+        if (datasec_start[i] == start)
+            found_start = true;
+        if (datasec_end[i] == end)
+            found_end = true;
+        sz += (datasec_end[i] - datasec_start[i]);
+    }
 #  ifdef X64
-    return ((datasec_start[DATASEC_RARELY_PROT] == start &&
-             datasec_end[DATASEC_RARELY_PROT] == end) ||
-            (datasec_start[DATASEC_FREQ_PROT] == start &&
-             datasec_end[DATASEC_FREQ_PROT] == datasec_start[DATASEC_CXTSW_PROT] &&
-             datasec_end[DATASEC_CXTSW_PROT] == datasec_start[DATASEC_NEVER_PROT] &&
-             datasec_end[DATASEC_NEVER_PROT] == end));
+    return (found_start && found_end);
 #  else
-    return (datasec_start[DATASEC_RARELY_PROT] == start &&
-            datasec_end[DATASEC_RARELY_PROT] == datasec_start[DATASEC_FREQ_PROT] &&
-            datasec_end[DATASEC_FREQ_PROT] == datasec_start[DATASEC_CXTSW_PROT] &&
-            datasec_end[DATASEC_CXTSW_PROT] == datasec_start[DATASEC_NEVER_PROT] &&
-            datasec_end[DATASEC_NEVER_PROT] == end);
+    return (found_start && found_end && sz == end - start);
 #  endif
 }
 # endif /* WINDOWS */
