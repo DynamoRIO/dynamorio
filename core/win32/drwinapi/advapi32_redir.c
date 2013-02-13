@@ -435,7 +435,10 @@ unit_test_drwinapi_advapi32(void)
     res = redirect_RegOpenKeyExW(HKEY_CURRENT_USER, L"Environment", 0, KEY_READ, &key);
     EXPECT(res == ERROR_SUCCESS, true);
     size = BUFFER_SIZE_BYTES(buf);
-    res = redirect_RegQueryValueExW(key, L"PATH", 0, &type, (LPBYTE) buf, &size);
+    /* PATH is sometimes REG_SZ and sometimes REG_EXPAND_SZ.  TEMP always seems
+     * to be REG_EXPAND_SZ, so far at least.
+     */
+    res = redirect_RegQueryValueExW(key, L"TEMP", 0, &type, (LPBYTE) buf, &size);
     EXPECT(res == ERROR_SUCCESS, true);
     EXPECT(type == REG_EXPAND_SZ, true);
     res = redirect_RegCloseKey(key);
