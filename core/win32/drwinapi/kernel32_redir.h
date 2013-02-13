@@ -987,6 +987,8 @@ redirect_GetFileType(
     __in HANDLE hFile
     );
 
+
+/* XXX: when implemented, use in redirect_SetCurrentDirectoryW() */
 DWORD
 WINAPI
 redirect_GetFullPathNameA(
@@ -1077,6 +1079,7 @@ redirect_ReadConsoleW(
     __in_opt PCONSOLE_READCONSOLE_CONTROL pInputControl
     );
 
+/* XXX: when implemented, use in place of un-redirected call in unit test */
 BOOL
 WINAPI
 redirect_ReadFile(

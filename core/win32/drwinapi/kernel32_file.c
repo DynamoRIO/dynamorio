@@ -232,6 +232,99 @@ redirect_RemoveDirectoryW(
     return redirect_DeleteFileW(lpPathName);
 }
 
+DWORD
+WINAPI
+redirect_GetCurrentDirectoryA(
+    __in DWORD nBufferLength,
+    __out_ecount_part_opt(nBufferLength, return + 1) LPSTR lpBuffer
+    )
+{
+    wchar_t *wbuf = NULL;
+    DWORD res;
+    if (lpBuffer != NULL) {
+        wbuf = (wchar_t *)
+            global_heap_alloc(nBufferLength*sizeof(wchar_t) HEAPACCT(ACCT_OTHER));
+    }
+    res = redirect_GetCurrentDirectoryW(nBufferLength, wbuf);
+    if (lpBuffer != NULL && res > 0 && res < nBufferLength) {
+        int len = _snprintf(lpBuffer, nBufferLength, "%S", wbuf);
+        if (len < 0) {
+            set_last_error(ERROR_BAD_PATHNAME); /* any better errno to use? */
+            res = 0;
+        }
+    }
+    if (wbuf != NULL)
+        global_heap_free(wbuf, nBufferLength*sizeof(wchar_t) HEAPACCT(ACCT_OTHER));
+    return res;
+}
+
+DWORD
+WINAPI
+redirect_GetCurrentDirectoryW(
+    __in DWORD nBufferLength,
+    __out_ecount_part_opt(nBufferLength, return + 1) LPWSTR lpBuffer
+    )
+{
+    /* For the cur dir, we do not try to grab the PEB lock.
+     * The Win32 API docs warn that accessing the cur dir is racy, and it's
+     * not supported when there's more than one thread.
+     * We could use TRY/EXCEPT but we'll assume that priv libs won't abuse these.
+     */
+    PEB *peb = get_own_peb();
+    int len;
+    DWORD total = peb->ProcessParameters->CurrentDirectoryPath.Length/sizeof(wchar_t)
+        + 1/*null*/;
+    if (lpBuffer == NULL)
+        return total; /* no errno */
+    else {
+        len = _snwprintf(lpBuffer, nBufferLength, L"%.*s",
+                         /* we've seen too many non-null-terminated paths */
+                         peb->ProcessParameters->CurrentDirectoryPath.Length,
+                         peb->ProcessParameters->CurrentDirectoryPath.Buffer);
+        if (len < 0) {
+            set_last_error(ERROR_BAD_PATHNAME); /* any better errno to use? */
+            return 0;
+        }
+        if ((DWORD)len < nBufferLength)
+            return (DWORD) len;
+        else
+            return total;
+    }
+}
+
+BOOL
+WINAPI
+redirect_SetCurrentDirectoryA(
+    __in LPCSTR lpPathName
+    )
+{
+    wchar_t wbuf[MAX_PATH];
+    int len = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%hs", lpPathName);
+    if (len < 0)
+        return FALSE;
+    NULL_TERMINATE_BUFFER(wbuf);
+    return redirect_SetCurrentDirectoryW(wbuf);
+}
+
+BOOL
+WINAPI
+redirect_SetCurrentDirectoryW(
+    __in LPCWSTR lpPathName
+    )
+{
+    PEB *peb = get_own_peb();
+    UNICODE_STRING *us = &peb->ProcessParameters->CurrentDirectoryPath;
+    int len;
+    /* FIXME: once we have redirect_GetFullPathNameW() we should use it here.
+     * For now we don't support relative paths.
+     */
+    /* CurrentDirectoryPath.Buffer should have MAX_PATH space in it */
+    len = _snwprintf(us->Buffer, us->MaximumLength, L"%s", lpPathName);
+    us->Buffer[us->MaximumLength-1] = L'\0';
+    return (len > 0);
+}
+
+
 /***************************************************************************
  * FILES
  */
@@ -1357,6 +1450,42 @@ redirect_FlushFileBuffers(
 
 #ifdef STANDALONE_UNIT_TEST
 static void
+test_directories(void)
+{
+    char buf[MAX_PATH];
+    wchar_t wbuf[MAX_PATH];
+    DWORD dw, dw2;
+    BOOL ok;
+
+    EXPECT(redirect_CreateDirectoryA("xyz:\\bogus\\name", NULL), FALSE);
+    EXPECT(get_last_error(), ERROR_PATH_NOT_FOUND);
+
+    /* XXX: should look at SYSTEMDRIVE instead of assuming c:\windows exists */
+    EXPECT(redirect_CreateDirectoryW(L"c:\\windows", NULL), FALSE);
+    EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
+
+    /* current dir */
+    dw = redirect_GetCurrentDirectoryA(0, NULL);
+    EXPECT(dw > 0 && dw < BUFFER_SIZE_ELEMENTS(buf), true);
+    dw2 = redirect_GetCurrentDirectoryA(dw, buf);
+    EXPECT(dw2 == dw-1/*null*/, true);
+    dw2 = redirect_GetCurrentDirectoryA(dw-1, buf);
+    EXPECT(dw2 == dw, true);
+    dw2 = redirect_GetCurrentDirectoryW(dw-1, wbuf);
+    EXPECT(dw2 == dw, true);
+
+    ok = redirect_SetCurrentDirectoryW(L"c:\\windows");
+    EXPECT(ok, true);
+    dw = redirect_GetCurrentDirectoryW(BUFFER_SIZE_ELEMENTS(wbuf), wbuf);
+    EXPECT(dw < BUFFER_SIZE_ELEMENTS(wbuf), true);
+    EXPECT(wcscmp(L"c:\\windows", wbuf) == 0, true);
+
+    /* Successfully creating a new dir, and redirect_RemoveDirectoryA,
+     * are tested in test_find_file().
+     */
+}
+
+static void
 test_file_mapping(void)
 {
     HANDLE h, h2;
@@ -1702,17 +1831,11 @@ unit_test_drwinapi_kernel32_file(void)
 
     print_file(STDERR, "testing drwinapi kernel32 file-related routines\n");
 
+    test_directories();
+
     res = GetEnvironmentVariableA("TMP", env, BUFFER_SIZE_ELEMENTS(env));
     EXPECT(res > 0, true);
     NULL_TERMINATE_BUFFER(env);
-
-    /* test directories */
-    EXPECT(redirect_CreateDirectoryA("xyz:\\bogus\\name", NULL), FALSE);
-    EXPECT(get_last_error(), ERROR_PATH_NOT_FOUND);
-
-    /* XXX: should look at SYSTEMDRIVE instead of assuming c:\windows exists */
-    EXPECT(redirect_CreateDirectoryW(L"c:\\windows", NULL), FALSE);
-    EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
 
     /* test creating files */
     h = redirect_CreateFileW(L"c:\\_kernel32_file_test_bogus.txt",
