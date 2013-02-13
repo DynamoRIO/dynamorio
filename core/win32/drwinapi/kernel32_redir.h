@@ -855,7 +855,6 @@ redirect_FindClose(
     __inout HANDLE hFindFile
     );
 
-__out
 HANDLE
 WINAPI
 redirect_FindFirstFileA(
@@ -863,7 +862,6 @@ redirect_FindFirstFileA(
     __out LPWIN32_FIND_DATAA lpFindFileData
     );
 
-__out
 HANDLE
 WINAPI
 redirect_FindFirstFileW(

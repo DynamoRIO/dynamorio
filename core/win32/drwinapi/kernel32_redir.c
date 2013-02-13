@@ -117,6 +117,11 @@ static const redirect_import_t redirect_kernel32[] = {
     {"GetSystemTimeAsFileTime",        (app_pc)redirect_GetSystemTimeAsFileTime},
     {"GetFileTime",                    (app_pc)redirect_GetFileTime},
     {"SetFileTime",                    (app_pc)redirect_SetFileTime},
+    {"FindClose",                      (app_pc)redirect_FindClose},
+    {"FindFirstFileA",                 (app_pc)redirect_FindFirstFileA},
+    {"FindFirstFileW",                 (app_pc)redirect_FindFirstFileW},
+    {"FindNextFileA",                  (app_pc)redirect_FindNextFileA},
+    {"FindNextFileW",                  (app_pc)redirect_FindNextFileW},
 
     /* Miscellaneous routines */
     {"GetLastError",                   (app_pc)redirect_GetLastError},

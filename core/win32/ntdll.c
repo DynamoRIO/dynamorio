@@ -3155,7 +3155,8 @@ create_file(PCWSTR filename, bool is_dir, ACCESS_MASK rights,
 
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 NTSTATUS
-nt_open_file(HANDLE *handle OUT, PCWSTR filename, ACCESS_MASK rights, uint sharing)
+nt_open_file(HANDLE *handle OUT, PCWSTR filename, ACCESS_MASK rights, uint sharing,
+             uint options)
 {
     NTSTATUS res;
     OBJECT_ATTRIBUTES oa;
@@ -3168,7 +3169,7 @@ nt_open_file(HANDLE *handle OUT, PCWSTR filename, ACCESS_MASK rights, uint shari
 
     InitializeObjectAttributes(&oa, &us, OBJ_CASE_INSENSITIVE, NULL, NULL);
     res = nt_raw_OpenFile(handle, rights | SYNCHRONIZE,
-                          &oa, &iob, sharing, FILE_SYNCHRONOUS_IO_NONALERT);
+                          &oa, &iob, sharing, FILE_SYNCHRONOUS_IO_NONALERT | options);
     return res;
 }
 #endif

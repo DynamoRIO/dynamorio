@@ -724,7 +724,7 @@ byte *
 context_ymmh_saved_area(CONTEXT *cxt);
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER /* b/c of global_heap_* */
-/* always null-terminates when it returns true */
+/* always null-terminates when it returns non-NULL */
 wchar_t *
 convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
                              IN size_t fixedbuf_len/*# elements*/,
@@ -734,6 +734,7 @@ void
 convert_to_NT_file_path_wide_free(IN wchar_t *alloc, IN size_t alloc_buf_sz/*#bytes*/);
 #endif
 
+/* always null-terminates when it returns true */
 bool
 convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
                         IN size_t buf_len/*# elements*/);

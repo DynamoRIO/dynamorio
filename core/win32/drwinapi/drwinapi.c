@@ -132,6 +132,9 @@ ntstatus_to_last_error(NTSTATUS status)
     case STATUS_SECTION_TOO_BIG:       return ERROR_NOT_ENOUGH_MEMORY;
     case STATUS_OBJECT_TYPE_MISMATCH:  return ERROR_INVALID_HANDLE;
     case STATUS_BUFFER_OVERFLOW:       return ERROR_MORE_DATA;
+    case STATUS_NO_SUCH_FILE:          return ERROR_FILE_NOT_FOUND;
+    case STATUS_NO_MORE_FILES:         return ERROR_NO_MORE_FILES;
+    case STATUS_INFO_LENGTH_MISMATCH:  return ERROR_BAD_LENGTH;
     /* XXX: add more.  Variations by function are rare and handled in callers. */
     default:                           return ERROR_INVALID_PARAMETER;
     }
