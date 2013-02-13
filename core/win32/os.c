@@ -4788,6 +4788,106 @@ convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
     return ans;
 }
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER /* b/c of global_heap_* */
+/* If the conversion succeeds and fits in fixedbuf, returns fixedbuf.
+ * If the conversion won't fit in fixedbuf, allocates memory and
+ * returns that memory, along with its size in allocbuf_sz.
+ * In that case, the memory should be freed by calling
+ * convert_to_NT_file_path_wide_free();
+ * Always null-terminates when it returns non-NULL.
+ *
+ * FIXME i#298: we need to support relative paths for drwinapi
+ */
+wchar_t *
+convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
+                             IN size_t fixedbuf_len/*# elements*/,
+                             OUT size_t *allocbuf_sz/*#bytes*/)
+{
+    /* XXX: we could templatize this to share code w/ convert_to_NT_file_path(),
+     * but a lot of the extra stuff there is curiosities for use within DR,
+     * while this routine is mainly used by drwinapi.
+     * If you change the logic here, change convert_to_NT_file_path().
+     */
+    bool is_UNC = false;
+    bool is_device = false;
+    const wchar_t *name = fname;
+    wchar_t *buf;
+    int i, size;
+    size_t size_needed, buf_len;
+    ASSERT(fixedbuf != NULL && fixedbuf_len != 0);
+    if (name[0] == L'\\') {
+        name += 1; /* eat the first \ */
+        if (name[0] == L'\\') {
+            if (name[1] == L'.' && name[2] == L'\\') {
+                /* convert \\.\foo to \??\foo (i#499) */
+                is_UNC = false;
+                is_device = true;
+                name += 3;
+            } else if (name[1] == L'?' && name[2] == L'\\') {
+                /* convert \\?\foo to \??\foo */
+                name += 3;
+            } else {
+                /* is \\server type */
+                is_UNC = true;
+            }
+        } else {
+            /* \??\UNC\server or \??\c:\ */
+            if (name[0] != L'\0' && name[1] != L'\0' && name[2] != L'\0') {
+                name += 3;
+            } else {
+                return NULL;
+            } 
+        }
+        if (!is_UNC && !is_device) {
+            /* we've eaten the initial \\?\ or \??\ check for UNC */
+            if ((name[0] == L'U' || name[0] == L'u') &&
+                (name[1] == L'N' || name[1] == L'n') &&
+                (name[2] == L'C' || name[2] == L'c')) {
+                is_UNC = true;
+                name += 3;
+            }
+        }
+    }
+    /* should now have either ("c:\" and !is_UNC) or ("\server" and is_UNC) */ 
+    size_needed = (wcslen(name) + wcslen(L"\\??\\") +
+                   (is_UNC ? wcslen(L"UNC") : 0) + 1/*null*/) * sizeof(wchar_t);
+    if (fixedbuf_len >= size_needed) {
+        buf = fixedbuf;
+        buf_len = fixedbuf_len;
+    } else {
+        /* We allocate regardless of the path contents to handle
+         * larger-than-MAX_PATH paths (technically drwinapi only has to do
+         * that for "\\?\" paths).
+         */
+        buf = (wchar_t *) global_heap_alloc(size_needed HEAPACCT(ACCT_OTHER));
+        buf_len = size_needed;
+        *allocbuf_sz = buf_len;
+    }
+    size = snwprintf(buf, buf_len, L"\\??\\%s%s", is_UNC ? L"UNC" : L"", name);
+    buf[buf_len-1] = L'\0';
+    if (size < 0 || size == (int)buf_len) {
+        if (buf != fixedbuf)
+            global_heap_free(buf, buf_len HEAPACCT(ACCT_OTHER));
+        return false;
+    }
+    /* change / to \ */
+    for (i = 0; i < size; i++) {
+        if (buf[i] == L'/') 
+            buf[i] = L'\\';
+    }
+    return buf;
+}
+
+void
+convert_to_NT_file_path_wide_free(wchar_t *buf, size_t alloc_sz)
+{
+    global_heap_free(buf, alloc_sz HEAPACCT(ACCT_OTHER));
+}
+#endif /* NOT_DYNAMORIO_CORE_PROPER, b/c of global_heap_* */
+
+/* Always null-terminates when it returns true.
+ * FIXME i#298: we need to support relative paths for drwinapi.
+ */
 bool
 convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
                         IN size_t buf_len/*# elements*/)
@@ -4805,7 +4905,7 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
      * c:\ \??\c:\ \\?\c:\ \\server \??\UNC\server \\?\UNC\server */
     /* FIXME - could we ever get any other path formats here (xref case 9146 and the
      * reactos src.  See DEVICE_PATH \\.\foo, UNC_DOT_PATH \\., etc. 
-     * For i#499 we now convert \\.\foo to \\??\foo.
+     * For i#499 we now convert \\.\foo to \??\foo.
      */ 
     /* CHECK - at the api level, paths longer then MAX_PATH require \\?\ prefix, unclear
      * if we would need to use that at this level instead of \??\ for long paths (not
@@ -4816,14 +4916,15 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
      * at the dissasembly it grabs the loader lock! why does it need
      * to do that? is it to translate . or ..?, better just to do the 
      * translation here where we know what's going on */
+    /* XXX: if you change the logic here, change convert_to_NT_file_path_wide() */
     if (name[0] == '\\') {
         name += 1; /* eat the first \ */
         if (name[0] == '\\') {
             if (name[1] == '.' && name[2] == '\\') {
-                /* convert \\.\foo to \\??\foo (i#499) */
+                /* convert \\.\foo to \??\foo (i#499) */
                 is_UNC = false;
                 is_device = true;
-                name += 2;
+                name += 3;
             } else if (name[1] == '?') {
                 /* is \\?\UNC\server or \\?\c:\ type,
                  * chop off the \\?\ and we'll check for the UNC later */

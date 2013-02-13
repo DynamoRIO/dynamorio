@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -722,6 +722,17 @@ os_supports_avx();
 
 byte *
 context_ymmh_saved_area(CONTEXT *cxt);
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER /* b/c of global_heap_* */
+/* always null-terminates when it returns true */
+wchar_t *
+convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
+                             IN size_t fixedbuf_len/*# elements*/,
+                             OUT size_t *allocbuf_sz/*#bytes*/);
+
+void
+convert_to_NT_file_path_wide_free(IN wchar_t *alloc, IN size_t alloc_buf_sz/*#bytes*/);
+#endif
 
 bool
 convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,

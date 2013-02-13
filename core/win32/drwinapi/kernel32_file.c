@@ -129,10 +129,10 @@ init_object_attr_for_files(OBJECT_ATTRIBUTES *oa, UNICODE_STRING *us,
  * DIRECTORIES
  */
 
-BOOL
-WINAPI
-redirect_CreateDirectoryA(
-    __in     LPCSTR lpPathName,
+/* nt_path_name must already be in NT format */
+static BOOL
+create_dir_common(
+    __in     LPCWSTR nt_path_name,
     __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes
     )
 {
@@ -147,16 +147,8 @@ redirect_CreateDirectoryA(
     ULONG disposition = FILE_CREATE;
     ULONG options = FILE_SYNCHRONOUS_IO_NONALERT | FILE_DIRECTORY_FILE |
         FILE_OPEN_FOR_BACKUP_INTENT/*docs say to use for dir handle*/;
-    wchar_t wbuf[MAX_PATH];
 
-    if (lpPathName == NULL ||
-        !convert_to_NT_file_path(wbuf, lpPathName, BUFFER_SIZE_ELEMENTS(wbuf))) {
-        set_last_error(ERROR_PATH_NOT_FOUND);
-        return FALSE;
-    }
-    NULL_TERMINATE_BUFFER(wbuf); /* be paranoid */
-
-    res = wchar_to_unicode(&file_path_unicode, wbuf);
+    res = wchar_to_unicode(&file_path_unicode, nt_path_name);
     if (!NT_SUCCESS(res)) {
         set_last_error(ERROR_PATH_NOT_FOUND);
         return FALSE;
@@ -176,22 +168,44 @@ redirect_CreateDirectoryA(
 
 BOOL
 WINAPI
+redirect_CreateDirectoryA(
+    __in     LPCSTR lpPathName,
+    __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes
+    )
+{
+    wchar_t wbuf[MAX_PATH];
+    if (lpPathName == NULL ||
+        !convert_to_NT_file_path(wbuf, lpPathName, BUFFER_SIZE_ELEMENTS(wbuf))) {
+        set_last_error(ERROR_PATH_NOT_FOUND);
+        return FALSE;
+    }
+    NULL_TERMINATE_BUFFER(wbuf); /* be paranoid */
+    return create_dir_common(wbuf, lpSecurityAttributes);
+}
+
+BOOL
+WINAPI
 redirect_CreateDirectoryW(
     __in     LPCWSTR lpPathName,
     __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes
     )
 {
-    /* convert_to_NT_file_path takes in UTF-8 and converts back to UTF-16.
-     * XXX: have a convert_to_NT_file_path_wide() or sthg to avoid double conversion.
-     */
-    char buf[MAX_PATH];
-    int len = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%ls", lpPathName);
-    if (len <= 0 || len >= BUFFER_SIZE_ELEMENTS(buf)) {
+    wchar_t wbuf[MAX_PATH];
+    wchar_t *nt_path = NULL;
+    size_t alloc_sz = 0;
+    BOOL res;
+    if (lpPathName != NULL) {
+        nt_path = convert_to_NT_file_path_wide(wbuf, lpPathName,
+                                               BUFFER_SIZE_ELEMENTS(wbuf), &alloc_sz);
+    }
+    if (nt_path == NULL) {
         set_last_error(ERROR_PATH_NOT_FOUND);
         return FALSE;
     }
-    NULL_TERMINATE_BUFFER(buf);
-    return redirect_CreateDirectoryA(buf, lpSecurityAttributes);
+    res = create_dir_common(nt_path, lpSecurityAttributes);
+    if (nt_path != NULL && nt_path != wbuf)
+        convert_to_NT_file_path_wide_free(nt_path, alloc_sz);
+    return res;
 }
 
 /***************************************************************************
@@ -265,10 +279,10 @@ file_access_to_nt(ACCESS_MASK winapi)
     return access;
 }
 
-HANDLE
-WINAPI
-redirect_CreateFileA(
-    __in     LPCSTR lpFileName,
+/* nt_file_name must already be in NT format */
+static HANDLE
+create_file_common(
+    __in     LPCWSTR nt_file_name,
     __in     DWORD dwDesiredAccess,
     __in     DWORD dwShareMode,
     __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes,
@@ -288,7 +302,6 @@ redirect_CreateFileA(
     ULONG sharing = dwShareMode;
     ULONG disposition;
     ULONG options;
-    wchar_t wbuf[MAX_PATH];
 
     access = file_access_to_nt(dwDesiredAccess);
 
@@ -317,24 +330,17 @@ redirect_CreateFileA(
     /* map the non-FILE_ATTRIBUTE_* flags */
     options = file_options_to_nt(dwFlagsAndAttributes, &access);
 
-    if (lpFileName == NULL ||
-        !convert_to_NT_file_path(wbuf, lpFileName, BUFFER_SIZE_ELEMENTS(wbuf))) {
-        set_last_error(ERROR_PATH_NOT_FOUND);
-        return FALSE;
-    }
-    NULL_TERMINATE_BUFFER(wbuf); /* be paranoid */
-
-    res = wchar_to_unicode(&file_path_unicode, wbuf);
+    res = wchar_to_unicode(&file_path_unicode, nt_file_name);
     if (!NT_SUCCESS(res)) {
         set_last_error(ERROR_PATH_NOT_FOUND);
         return FALSE;
     }
 
-    if (strcmp(lpFileName, "CONIN$") == 0 || strcmp(lpFileName, "CONOUT$") == 0) {
+    if (wcscmp(nt_file_name, L"CONIN$") == 0 || wcscmp(nt_file_name, L"CONOUT$") == 0) {
         /* route to OpenConsole */
         SYSLOG_INTERNAL_WARNING_ONCE("priv lib called CreateFile on the console");
         ASSERT(priv_kernel32_OpenConsoleW != NULL);
-        return (*priv_kernel32_OpenConsoleW)(wbuf, dwDesiredAccess,
+        return (*priv_kernel32_OpenConsoleW)(nt_file_name, dwDesiredAccess,
                                              (lpSecurityAttributes == NULL) ? FALSE :
                                              lpSecurityAttributes->bInheritHandle,
                                              OPEN_EXISTING);
@@ -370,6 +376,29 @@ redirect_CreateFileA(
 
 HANDLE
 WINAPI
+redirect_CreateFileA(
+    __in     LPCSTR lpFileName,
+    __in     DWORD dwDesiredAccess,
+    __in     DWORD dwShareMode,
+    __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+    __in     DWORD dwCreationDisposition,
+    __in     DWORD dwFlagsAndAttributes,
+    __in_opt HANDLE hTemplateFile
+    )
+{
+    wchar_t wbuf[MAX_PATH];
+    if (lpFileName == NULL ||
+        !convert_to_NT_file_path(wbuf, lpFileName, BUFFER_SIZE_ELEMENTS(wbuf))) {
+        set_last_error(ERROR_PATH_NOT_FOUND);
+        return FALSE;
+    }
+    NULL_TERMINATE_BUFFER(wbuf); /* be paranoid */
+    return create_file_common(wbuf, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+                              dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+}
+
+HANDLE
+WINAPI
 redirect_CreateFileW(
     __in     LPCWSTR lpFileName,
     __in     DWORD dwDesiredAccess,
@@ -380,19 +409,24 @@ redirect_CreateFileW(
     __in_opt HANDLE hTemplateFile
     )
 {
-    /* convert_to_NT_file_path takes in UTF-8 and converts back to UTF-16.
-     * XXX: have a convert_to_NT_file_path_wide() or sthg to avoid double conversion.
-     */
-    char buf[MAX_PATH];
-    int len = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%ls", lpFileName);
-    if (len <= 0 || len >= BUFFER_SIZE_ELEMENTS(buf)) {
+    wchar_t wbuf[MAX_PATH];
+    wchar_t *nt_path = NULL;
+    size_t alloc_sz = 0;
+    HANDLE res;
+    if (lpFileName != NULL) {
+        nt_path = convert_to_NT_file_path_wide(wbuf, lpFileName,
+                                               BUFFER_SIZE_ELEMENTS(wbuf), &alloc_sz);
+    }
+    if (nt_path == NULL) {
         set_last_error(ERROR_PATH_NOT_FOUND);
         return FALSE;
     }
-    NULL_TERMINATE_BUFFER(buf);
-    return redirect_CreateFileA(buf, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
-                                dwCreationDisposition, dwFlagsAndAttributes,
-                                hTemplateFile);
+    res = create_file_common(nt_path, dwDesiredAccess, dwShareMode,
+                             lpSecurityAttributes, dwCreationDisposition,
+                             dwFlagsAndAttributes, hTemplateFile);
+    if (nt_path != NULL && nt_path != wbuf)
+        convert_to_NT_file_path_wide_free(nt_path, alloc_sz);
+    return res;
 }
 
 BOOL
@@ -423,16 +457,26 @@ redirect_DeleteFileW(
     __in LPCWSTR lpFileName
     )
 {
-    /* convert_to_NT_file_path takes in UTF-8 and converts back to UTF-16.
-     * XXX: have a convert_to_NT_file_path_wide() or sthg to avoid double conversion.
-     */
-    char buf[MAX_PATH];
-    int len = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%ls", lpFileName);
-    if (len <= 0 || len >= BUFFER_SIZE_ELEMENTS(buf)) {
+    NTSTATUS res;
+    wchar_t wbuf[MAX_PATH];
+    wchar_t *nt_path = NULL;
+    size_t alloc_sz = 0;
+    if (lpFileName != NULL) {
+        nt_path = convert_to_NT_file_path_wide(wbuf, lpFileName,
+                                               BUFFER_SIZE_ELEMENTS(wbuf), &alloc_sz);
+    }
+    if (nt_path == NULL) {
         set_last_error(ERROR_PATH_NOT_FOUND);
         return FALSE;
     }
-    return redirect_DeleteFileA(buf);
+    res = nt_delete_file(nt_path);
+    if (nt_path != NULL && nt_path != wbuf)
+        convert_to_NT_file_path_wide_free(nt_path, alloc_sz);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    return TRUE;
 }
 
 
@@ -1070,6 +1114,66 @@ test_file_times(void)
     EXPECT(ft_access.dwHighDateTime == ft_create.dwHighDateTime, true);
 }
 
+static void
+test_file_paths(void)
+{
+    HANDLE f;
+    BOOL ok;
+    wchar_t env[MAX_PATH];
+    wchar_t wbuf[MAX_PATH*2];
+    int res;
+
+    /* deliberately omitting NULL_TERMINATE_BUFFER b/c EXPECT ensures no overflow */
+
+    /* create some files in a temp dir */
+    res = GetEnvironmentVariableW(L"TMP", env, BUFFER_SIZE_ELEMENTS(env));
+    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(env), true);
+
+    res = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf),
+                     L"\\\\.\\%s\\test123.txt", env);
+    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(wbuf), true);
+    f = redirect_CreateFileW(wbuf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    EXPECT(f != INVALID_HANDLE_VALUE, true);
+    ok = redirect_CloseHandle(f);
+    EXPECT(ok, TRUE);
+
+    res = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf),
+                     L"\\\\?\\%s\\test123.txt", env);
+    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(wbuf), true);
+    f = redirect_CreateFileW(wbuf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    EXPECT(f != INVALID_HANDLE_VALUE, true);
+    ok = redirect_CloseHandle(f);
+    EXPECT(ok, TRUE);
+
+    res = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf),
+                     L"\\??\\%s\\test123.txt", env);
+    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(wbuf), true);
+    f = redirect_CreateFileW(wbuf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    EXPECT(f != INVALID_HANDLE_VALUE, true);
+    ok = redirect_CloseHandle(f);
+    EXPECT(ok, TRUE);
+
+    /* Ensure whole thing can go beyond MAX_PATH (though no component can be
+     * > 255 on our NTFS volumes).
+     */
+    res = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf),
+                     L"\\\\?\\%s\\test12xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                     L"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                     L"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                     L"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                     L"3.txt", env);
+    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(wbuf), true);
+    f = redirect_CreateFileW(wbuf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    EXPECT(f != INVALID_HANDLE_VALUE, true);
+    ok = redirect_CloseHandle(f);
+    EXPECT(ok, TRUE);
+
+}
+
 void
 unit_test_drwinapi_kernel32_file(void)
 {
@@ -1203,5 +1307,7 @@ unit_test_drwinapi_kernel32_file(void)
     test_DeviceIoControl();
 
     test_file_times();
+
+    test_file_paths();
 }
 #endif
