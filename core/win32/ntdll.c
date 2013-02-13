@@ -2982,9 +2982,9 @@ query_time_seconds()
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 /* note that ntdll!RtlTimeToTimeFields has this same functionality */
 void
-query_system_time(SYSTEMTIME *st)
+convert_100ns_to_system_time(uint64 time_in_100ns, SYSTEMTIME *st OUT)
 {
-    LONGLONG time = query_time_100ns() / TIMER_UNITS_PER_MILLISECOND;
+    LONGLONG time = time_in_100ns / TIMER_UNITS_PER_MILLISECOND;
     dr_time_t dr_time;
     convert_millis_to_date((uint64)time, &dr_time);
     st->wYear = (WORD) dr_time.year;
@@ -2995,6 +2995,29 @@ query_system_time(SYSTEMTIME *st)
     st->wMinute = (WORD) dr_time.minute;
     st->wSecond = (WORD) dr_time.second;
     st->wMilliseconds = (WORD) dr_time.milliseconds;
+}
+
+void
+convert_system_time_to_100ns(const SYSTEMTIME *st, uint64 *time_in_100ns OUT)
+{
+    uint64 time;
+    dr_time_t dr_time;
+    dr_time.year = st->wYear;
+    dr_time.month = st->wMonth;
+    dr_time.day_of_week = st->wDayOfWeek;
+    dr_time.day = st->wDay;
+    dr_time.hour = st->wHour;
+    dr_time.minute = st->wMinute;
+    dr_time.second = st->wSecond;
+    dr_time.milliseconds = st->wMilliseconds;
+    convert_date_to_millis(&dr_time, &time);
+    *time_in_100ns = time * TIMER_UNITS_PER_MILLISECOND;
+}
+
+void
+query_system_time(SYSTEMTIME *st OUT)
+{
+    convert_100ns_to_system_time(query_time_100ns(), st);
 }
 #endif
 

@@ -1600,7 +1600,13 @@ get_process_param_buf(RTL_USER_PROCESS_PARAMETERS *params, wchar_t *buf);
 /* uint64 query_time_millis() declared in os_shared.h */
 
 void
-query_system_time(SYSTEMTIME *st);
+convert_100ns_to_system_time(uint64 time_in_100ns, SYSTEMTIME *st OUT);
+
+void
+convert_system_time_to_100ns(const SYSTEMTIME *st, uint64 *time_in_100ns OUT);
+
+void
+query_system_time(SYSTEMTIME *st OUT);
 
 void
 nt_query_performance_counter(PLARGE_INTEGER counter, PLARGE_INTEGER frequency);

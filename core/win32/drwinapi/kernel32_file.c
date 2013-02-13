@@ -781,6 +781,162 @@ redirect_DuplicateHandle(
     return NT_SUCCESS(res);
 }
 
+/***************************************************************************
+ * FILE TIME
+ */
+
+BOOL
+WINAPI
+redirect_FileTimeToLocalFileTime(
+    __in  CONST FILETIME *lpFileTime,
+    __out LPFILETIME lpLocalFileTime
+    )
+{
+    /* XXX: the kernelbase version looks at KUSER_SHARED_DATA and
+     * BASE_STATIC_SERVER_DATA to get the bias, but I'm assuming those
+     * are just optimizations to avoid a syscall.
+     */
+    NTSTATUS res;
+    LARGE_INTEGER local;
+    SYSTEM_TIME_OF_DAY_INFORMATION info;
+    res = query_system_info(SystemTimeOfDayInformation, sizeof(info), &info);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    local.LowPart = lpFileTime->dwLowDateTime;
+    local.HighPart = lpFileTime->dwHighDateTime;
+    local.QuadPart -= info.TimeZoneBias.QuadPart;
+    lpLocalFileTime->dwLowDateTime = local.LowPart;
+    lpLocalFileTime->dwHighDateTime = local.HighPart;
+    return TRUE;
+}
+
+BOOL
+WINAPI
+redirect_LocalFileTimeToFileTime(
+    __in  CONST FILETIME *lpLocalFileTime,
+    __out LPFILETIME lpFileTime
+    )
+{
+    NTSTATUS res;
+    LARGE_INTEGER local;
+    SYSTEM_TIME_OF_DAY_INFORMATION info;
+    res = query_system_info(SystemTimeOfDayInformation, sizeof(info), &info);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    local.LowPart = lpLocalFileTime->dwLowDateTime;
+    local.HighPart = lpLocalFileTime->dwHighDateTime;
+    local.QuadPart += info.TimeZoneBias.QuadPart;
+    lpFileTime->dwLowDateTime = local.LowPart;
+    lpFileTime->dwHighDateTime = local.HighPart;
+    return TRUE;
+}
+
+BOOL
+WINAPI
+redirect_FileTimeToSystemTime(
+    __in  CONST FILETIME *lpFileTime,
+    __out LPSYSTEMTIME lpSystemTime
+    )
+{
+    uint64 time = ((uint64)lpFileTime->dwHighDateTime << 32) | lpFileTime->dwLowDateTime;
+    convert_100ns_to_system_time(time, lpSystemTime);
+    return TRUE;
+}
+
+BOOL
+WINAPI
+redirect_SystemTimeToFileTime(
+    __in  CONST SYSTEMTIME *lpSystemTime,
+    __out LPFILETIME lpFileTime
+    )
+{
+    uint64 time;
+    convert_system_time_to_100ns(lpSystemTime, &time);
+    lpFileTime->dwHighDateTime = (DWORD) (time >> 32);
+    lpFileTime->dwLowDateTime = (DWORD) time;
+    return TRUE;
+}
+
+VOID
+WINAPI
+redirect_GetSystemTimeAsFileTime(
+    __out LPFILETIME lpSystemTimeAsFileTime
+    )
+{
+    SYSTEMTIME st;
+    query_system_time(&st);
+    redirect_SystemTimeToFileTime(&st, lpSystemTimeAsFileTime);
+}
+
+BOOL
+WINAPI
+redirect_GetFileTime(
+    __in      HANDLE hFile,
+    __out_opt LPFILETIME lpCreationTime,
+    __out_opt LPFILETIME lpLastAccessTime,
+    __out_opt LPFILETIME lpLastWriteTime
+    )
+{
+    NTSTATUS res;
+    FILE_BASIC_INFORMATION info;
+
+    res = nt_query_file_info(hFile, &info, sizeof(info), FileBasicInformation);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    if (lpCreationTime != NULL) {
+        lpCreationTime->dwHighDateTime = info.CreationTime.HighPart;
+        lpCreationTime->dwLowDateTime  = info.CreationTime.LowPart;
+    }
+    if (lpLastAccessTime != NULL) {
+        lpLastAccessTime->dwHighDateTime = info.LastAccessTime.HighPart;
+        lpLastAccessTime->dwLowDateTime  = info.LastAccessTime.LowPart;
+    }
+    if (lpLastWriteTime != NULL) {
+        lpLastWriteTime->dwHighDateTime = info.LastWriteTime.HighPart;
+        lpLastWriteTime->dwLowDateTime  = info.LastWriteTime.LowPart;
+    }
+    return TRUE;
+}
+
+BOOL
+WINAPI
+redirect_SetFileTime(
+    __in     HANDLE hFile,
+    __in_opt CONST FILETIME *lpCreationTime,
+    __in_opt CONST FILETIME *lpLastAccessTime,
+    __in_opt CONST FILETIME *lpLastWriteTime
+    )
+{
+    NTSTATUS res;
+    FILE_BASIC_INFORMATION info;
+    memset(&info, 0, sizeof(info));
+
+    if (lpCreationTime != NULL) {
+        info.CreationTime.HighPart = lpCreationTime->dwHighDateTime;
+        info.CreationTime.LowPart = lpCreationTime->dwLowDateTime;
+    }
+    if (lpLastAccessTime != NULL) {
+        info.LastAccessTime.HighPart = lpLastAccessTime->dwHighDateTime;
+        info.LastAccessTime.LowPart = lpLastAccessTime->dwLowDateTime;
+    }
+    if (lpLastWriteTime != NULL) {
+        info.LastWriteTime.HighPart = lpLastWriteTime->dwHighDateTime;
+        info.LastWriteTime.LowPart = lpLastWriteTime->dwLowDateTime;
+    }
+    res = nt_set_file_info(hFile, &info, sizeof(info), FileBasicInformation);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    return TRUE;
+}
+
 
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Files
@@ -837,6 +993,82 @@ test_DeviceIoControl(void)
     EXPECT(ok, true);
 }
 
+static bool
+within_one(uint v1, uint v2)
+{
+    uint diff = (v1 > v2) ? v1 - v2 : v2 - v1;
+    return (diff <= 1);
+}
+
+static void
+test_file_times(void)
+{
+    FILETIME ft_create, ft_access, ft_write;
+    FILETIME local_ours, local_native;
+    SYSTEMTIME st_ours, st_native;
+    BOOL ok;
+    char env[MAX_PATH];
+    char buf[MAX_PATH];
+    HANDLE h;
+    int res;
+
+    res = GetEnvironmentVariableA("TMP", env, BUFFER_SIZE_ELEMENTS(env));
+    EXPECT(res > 0, true);
+    NULL_TERMINATE_BUFFER(env);
+    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
+                    "%s\\_kernel32_file_time_temp.txt", env);
+    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
+    NULL_TERMINATE_BUFFER(buf);
+    h = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL,
+                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL|
+                             FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    EXPECT(h != INVALID_HANDLE_VALUE, true);
+
+    ok = redirect_GetFileTime(h, &ft_create, &ft_access, &ft_write);
+    EXPECT(ok, true);
+    ok = redirect_FileTimeToLocalFileTime(&ft_create, &local_ours);
+    EXPECT(ok, true);
+    /* call the real thing to compare results */
+    ok = FileTimeToLocalFileTime(&ft_create, &local_native);
+    EXPECT(ok, true);
+    EXPECT(local_ours.dwLowDateTime == local_native.dwLowDateTime &&
+           local_ours.dwHighDateTime == local_native.dwHighDateTime, true);
+
+    ok = redirect_LocalFileTimeToFileTime(&local_ours, &ft_access);
+    EXPECT(ok, true);
+    /* now ft_access holds ft_create converted to local and back to file */
+    EXPECT(ft_access.dwLowDateTime == ft_create.dwLowDateTime &&
+           ft_access.dwHighDateTime == ft_create.dwHighDateTime, true);
+
+    ok = redirect_SetFileTime(h, &ft_create, &ft_access, &ft_write);
+    EXPECT(ok, true);
+
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
+
+    ok = redirect_FileTimeToSystemTime(&ft_create, &st_ours);
+    EXPECT(ok, true);
+    /* call the real thing to compare results */
+    ok = FileTimeToSystemTime(&ft_create, &st_native);
+    EXPECT(ok, true);
+    EXPECT(memcmp(&st_ours, &st_native, sizeof(st_ours)), 0);
+
+    ok = redirect_SystemTimeToFileTime(&st_ours, &ft_access);
+    EXPECT(ok, true);
+    /* Now ft_access holds ft_create converted to system and back to file,
+     * except system time only goes to milliseconds so we've lost
+     * the bottom bits.
+     */
+    EXPECT(within_one(ft_access.dwLowDateTime / TIMER_UNITS_PER_MILLISECOND,
+                      ft_create.dwLowDateTime / TIMER_UNITS_PER_MILLISECOND) &&
+            ft_access.dwHighDateTime == ft_create.dwHighDateTime, true);
+
+    redirect_GetSystemTimeAsFileTime(&ft_access);
+    /* call the real thing to compare results */
+    GetSystemTimeAsFileTime(&ft_create);
+    /* some time has passed so only compare high */
+    EXPECT(ft_access.dwHighDateTime == ft_create.dwHighDateTime, true);
+}
 
 void
 unit_test_drwinapi_kernel32_file(void)
@@ -969,5 +1201,7 @@ unit_test_drwinapi_kernel32_file(void)
     EXPECT(ok, true);
 
     test_DeviceIoControl();
+
+    test_file_times();
 }
 #endif

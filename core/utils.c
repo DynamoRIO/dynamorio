@@ -3410,6 +3410,12 @@ static const uint days_per_month_normal[12] =
 static const uint days_per_month_leap[12] = 
     {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
+static bool
+year_is_leap_year(uint year)
+{
+    return (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));
+}
+
 /* millis is the number of milliseconds since Jan 1, 1601 (this is
  * the current UTC time).
  */ 
@@ -3432,8 +3438,8 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
      * operations than continuing to use LONGLONG time. */
     time /= 24;
 
-    /* time is now num. of days since Sun. Jan. 1, 1601 */
-    dr_time->day_of_week = (uint)(time % 7); /* Sun. is 0 */
+    /* time is now num. of days since Mon. Jan. 1, 1601 */
+    dr_time->day_of_week = (uint)((time+1) % 7); /* Sun. is 0 */
 
     /* Since 1601 is the first year of a 400 year leap year cycle, we can use
      * the following to figure out the correct year. NOTE the 100 year and 4
@@ -3452,7 +3458,7 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
     time %= DAYS_IN_4_YEARS;
     year = (uint)(year + (time / 365));
     time %= 365;
-    leap_year = (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));
+    leap_year = year_is_leap_year(year);
     dr_time->year = year;
     
     /* time is now num. of days since the first of the year */
@@ -3470,6 +3476,43 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
     ASSERT (month != 13);
     dr_time->month = month;
     dr_time->day = (uint)(time+1); /* day, like month, is not zero indexed */
+}
+
+/* millis is the number of milliseconds since Jan 1, 1601 (this is
+ * the current UTC time).
+ */ 
+void
+convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis OUT)
+{
+    uint days, month, year;
+    bool leap_year = year_is_leap_year(dr_time->year);
+
+    /* first get days this year */
+    days = dr_time->day - 1 /*1-based*/;
+    for (month = 1; month < dr_time->month; month++) {
+        uint days_in_month = leap_year ? 
+            days_per_month_leap[month-1] :
+            days_per_month_normal[month-1];
+        days += days_in_month;
+    }
+
+    /* now add in days since Jan 1, 1601 */
+    year = dr_time->year;
+    year -= BASE_YEAR;
+
+    days += (year / 400) * DAYS_IN_400_YEARS;
+    year %= 400;
+
+    days += (year / 100) * DAYS_IN_100_YEARS;
+    year %= 100;
+
+    days += (year / 4) * DAYS_IN_4_YEARS;
+    year %= 4;
+
+    days += year * 365;
+
+    *millis = (((((uint64)days*24 + dr_time->hour)*60 + dr_time->minute)*60 +
+                dr_time->second)*1000 + dr_time->milliseconds);
 }
 
 const uint crctab[] = {

@@ -110,6 +110,13 @@ static const redirect_import_t redirect_kernel32[] = {
     {"DeviceIoControl",                (app_pc)redirect_DeviceIoControl},
     {"CloseHandle",                    (app_pc)redirect_CloseHandle},
     {"DuplicateHandle",                (app_pc)redirect_DuplicateHandle},
+    {"FileTimeToLocalFileTime",        (app_pc)redirect_FileTimeToLocalFileTime},
+    {"LocalFileTimeToFileTime",        (app_pc)redirect_LocalFileTimeToFileTime},
+    {"FileTimeToSystemTime",           (app_pc)redirect_FileTimeToSystemTime},
+    {"SystemTimeToFileTime",           (app_pc)redirect_SystemTimeToFileTime},
+    {"GetSystemTimeAsFileTime",        (app_pc)redirect_GetSystemTimeAsFileTime},
+    {"GetFileTime",                    (app_pc)redirect_GetFileTime},
+    {"SetFileTime",                    (app_pc)redirect_SetFileTime},
 
     /* Miscellaneous routines */
     {"GetLastError",                   (app_pc)redirect_GetLastError},

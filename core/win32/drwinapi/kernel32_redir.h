@@ -806,9 +806,47 @@ redirect_FileTimeToLocalFileTime(
 
 BOOL
 WINAPI
+redirect_LocalFileTimeToFileTime(
+    __in  CONST FILETIME *lpLocalFileTime,
+    __out LPFILETIME lpFileTime
+    );
+
+BOOL
+WINAPI
 redirect_FileTimeToSystemTime(
     __in  CONST FILETIME *lpFileTime,
     __out LPSYSTEMTIME lpSystemTime
+    );
+
+BOOL
+WINAPI
+redirect_SystemTimeToFileTime(
+    __in  CONST SYSTEMTIME *lpSystemTime,
+    __out LPFILETIME lpFileTime
+    );
+
+VOID
+WINAPI
+redirect_GetSystemTimeAsFileTime(
+    __out LPFILETIME lpSystemTimeAsFileTime
+    );
+
+BOOL
+WINAPI
+redirect_GetFileTime(
+    __in      HANDLE hFile,
+    __out_opt LPFILETIME lpCreationTime,
+    __out_opt LPFILETIME lpLastAccessTime,
+    __out_opt LPFILETIME lpLastWriteTime
+    );
+
+BOOL
+WINAPI
+redirect_SetFileTime(
+    __in     HANDLE hFile,
+    __in_opt CONST FILETIME *lpCreationTime,
+    __in_opt CONST FILETIME *lpLastAccessTime,
+    __in_opt CONST FILETIME *lpLastWriteTime
     );
 
 BOOL
@@ -953,23 +991,10 @@ redirect_GetStdHandle(
     __in DWORD nStdHandle
     );
 
-VOID
-WINAPI
-redirect_GetSystemTimeAsFileTime(
-    __out LPFILETIME lpSystemTimeAsFileTime
-    );
-
 DWORD
 WINAPI
 redirect_GetLogicalDrives(
     VOID
-    );
-
-BOOL
-WINAPI
-redirect_LocalFileTimeToFileTime(
-    __in  CONST FILETIME *lpLocalFileTime,
-    __out LPFILETIME lpFileTime
     );
 
 BOOL
@@ -1105,25 +1130,9 @@ redirect_SetFilePointer(
 
 BOOL
 WINAPI
-redirect_SetFileTime(
-    __in     HANDLE hFile,
-    __in_opt CONST FILETIME *lpCreationTime,
-    __in_opt CONST FILETIME *lpLastAccessTime,
-    __in_opt CONST FILETIME *lpLastWriteTime
-    );
-
-BOOL
-WINAPI
 redirect_SetStdHandle(
     __in DWORD nStdHandle,
     __in HANDLE hHandle
-    );
-
-BOOL
-WINAPI
-redirect_SystemTimeToFileTime(
-    __in  CONST SYSTEMTIME *lpSystemTime,
-    __out LPFILETIME lpFileTime
     );
 
 BOOL

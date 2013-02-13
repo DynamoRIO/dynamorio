@@ -2012,6 +2012,9 @@ get_random_seed(void);
 void
 convert_millis_to_date(uint64 millis, dr_time_t *time OUT);
 
+void
+convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis OUT);
+
 uint crc32(const char *buf, const uint len);
 void utils_init(void);
 void utils_exit(void);
