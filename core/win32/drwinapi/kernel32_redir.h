@@ -745,6 +745,26 @@ redirect_DeleteFileW(
     __in LPCWSTR lpFileName
     );
 
+BOOL
+WINAPI
+redirect_ReadFile(
+    __in        HANDLE hFile,
+    __out_bcount_part(nNumberOfBytesToRead, *lpNumberOfBytesRead) LPVOID lpBuffer,
+    __in        DWORD nNumberOfBytesToRead,
+    __out_opt   LPDWORD lpNumberOfBytesRead,
+    __inout_opt LPOVERLAPPED lpOverlapped
+    );
+
+BOOL
+WINAPI
+redirect_WriteFile(
+    __in        HANDLE hFile,
+    __in_bcount(nNumberOfBytesToWrite) LPCVOID lpBuffer,
+    __in        DWORD nNumberOfBytesToWrite,
+    __out_opt   LPDWORD lpNumberOfBytesWritten,
+    __inout_opt LPOVERLAPPED lpOverlapped
+    );
+
 HANDLE
 WINAPI
 redirect_CreateFileMappingA(
@@ -1079,17 +1099,6 @@ redirect_ReadConsoleW(
     __in_opt PCONSOLE_READCONSOLE_CONTROL pInputControl
     );
 
-/* XXX: when implemented, use in place of un-redirected call in unit test */
-BOOL
-WINAPI
-redirect_ReadFile(
-    __in        HANDLE hFile,
-    __out_bcount_part(nNumberOfBytesToRead, *lpNumberOfBytesRead) LPVOID lpBuffer,
-    __in        DWORD nNumberOfBytesToRead,
-    __out_opt   LPDWORD lpNumberOfBytesRead,
-    __inout_opt LPOVERLAPPED lpOverlapped
-    );
-
 BOOL
 WINAPI
 redirect_SetEndOfFile(
@@ -1119,6 +1128,7 @@ redirect_SetFileInformationByHandle(
     __in  DWORD dwBufferSize
 );
 
+/* XXX: once we have redirect_SetFilePointer, replace SetFilePointer in unit test */
 DWORD
 WINAPI
 redirect_SetFilePointer(
@@ -1163,16 +1173,6 @@ redirect_WriteConsoleW(
     IN DWORD nNumberOfCharsToWrite,
     OUT LPDWORD lpNumberOfCharsWritten,
     IN LPVOID lpReserved
-    );
-
-BOOL
-WINAPI
-redirect_WriteFile(
-    __in        HANDLE hFile,
-    __in_bcount(nNumberOfBytesToWrite) LPCVOID lpBuffer,
-    __in        DWORD nNumberOfBytesToWrite,
-    __out_opt   LPDWORD lpNumberOfBytesWritten,
-    __inout_opt LPOVERLAPPED lpOverlapped
     );
 
 /***************************************************************************

@@ -138,6 +138,8 @@ ntstatus_to_last_error(NTSTATUS status)
     case STATUS_NOT_MAPPED_DATA:       return ERROR_INVALID_ADDRESS;
     case STATUS_THREAD_IS_TERMINATING: return ERROR_ACCESS_DENIED;
     case STATUS_PROCESS_IS_TERMINATING: return ERROR_ACCESS_DENIED;
+    case STATUS_END_OF_FILE:           return ERROR_HANDLE_EOF;
+    case STATUS_PENDING:               return ERROR_IO_PENDING;
     /* XXX: add more.  Variations by function are rare and handled in callers. */
     default:                           return ERROR_INVALID_PARAMETER;
     }

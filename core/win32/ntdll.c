@@ -3234,16 +3234,6 @@ read_file(HANDLE file_handle, void *buffer, uint num_bytes_to_read,
     IO_STATUS_BLOCK ret = {0};
     LARGE_INTEGER ByteOffset;   /* should be the same as uint64 */
 
-    GET_NTDLL(NtReadFile, (IN HANDLE FileHandle,
-                           IN HANDLE Event OPTIONAL,
-                           IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
-                           IN PVOID ApcContext OPTIONAL,
-                           OUT PIO_STATUS_BLOCK IoStatusBlock,
-                           OUT PVOID Buffer,
-                           IN ULONG Length,
-                           IN PLARGE_INTEGER ByteOffset OPTIONAL,
-                           IN PULONG Key OPTIONAL));
-
     if (file_byte_offset != NULL) {
         ByteOffset.QuadPart = *file_byte_offset;
     }
@@ -3271,16 +3261,6 @@ write_file(HANDLE file_handle, const void *buffer, uint num_bytes_to_write,
     IO_STATUS_BLOCK ret = {0};
     LARGE_INTEGER ByteOffset;
     
-    GET_NTDLL(NtWriteFile, (IN HANDLE FileHandle,
-                            IN HANDLE Event OPTIONAL,
-                            IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
-                            IN PVOID ApcContext OPTIONAL,
-                            OUT PIO_STATUS_BLOCK IoStatusBlock,
-                            IN const void *Buffer, /* PVOID, but need const */
-                            IN ULONG Length,
-                            IN PLARGE_INTEGER ByteOffset OPTIONAL,
-                            IN PULONG Key OPTIONAL));
-
     if (file_byte_offset != NULL) {
         ByteOffset.QuadPart = *file_byte_offset;
     }

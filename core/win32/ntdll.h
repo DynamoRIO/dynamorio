@@ -1325,6 +1325,11 @@ query_full_attributes_file(PCWSTR filename,
 /* {Conflicting Address Range}  The specified address range conflicts with the address space. */
 #define STATUS_CONFLICTING_ADDRESSES     ((NTSTATUS)0xC0000018L)
 
+/* The end-of-file marker has been reached. There is no valid data in
+ * the file beyond this marker.
+ */
+#define STATUS_END_OF_FILE               ((NTSTATUS)0xC0000011L)
+
 /* "The address handle given to the transport was invalid." */
 #define STATUS_INVALID_ADDRESS           ((NTSTATUS)0xC0000141L)
 
@@ -1972,6 +1977,26 @@ GET_NTDLL(NtFsControlFile, (IN HANDLE               FileHandle,
                             IN ULONG                InputBufferLength,
                             OUT PVOID               OutputBuffer OPTIONAL,
                             IN ULONG                OutputBufferLength));
+
+GET_NTDLL(NtReadFile, (IN HANDLE FileHandle,
+                       IN HANDLE Event OPTIONAL,
+                       IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
+                       IN PVOID ApcContext OPTIONAL,
+                       OUT PIO_STATUS_BLOCK IoStatusBlock,
+                       OUT PVOID Buffer,
+                       IN ULONG Length,
+                       IN PLARGE_INTEGER ByteOffset OPTIONAL,
+                       IN PULONG Key OPTIONAL));
+
+GET_NTDLL(NtWriteFile, (IN HANDLE FileHandle,
+                        IN HANDLE Event OPTIONAL,
+                        IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
+                        IN PVOID ApcContext OPTIONAL,
+                        OUT PIO_STATUS_BLOCK IoStatusBlock,
+                        IN const void *Buffer, /* PVOID, but need const */
+                        IN ULONG Length,
+                        IN PLARGE_INTEGER ByteOffset OPTIONAL,
+                        IN PULONG Key OPTIONAL));
 
 /***************************************************************************
  * RAW WRAPPERS

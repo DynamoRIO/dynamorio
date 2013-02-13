@@ -596,6 +596,126 @@ redirect_DeleteFileW(
     return TRUE;
 }
 
+BOOL
+WINAPI
+redirect_ReadFile(
+    __in        HANDLE hFile,
+    __out_bcount_part(nNumberOfBytesToRead, *lpNumberOfBytesRead) LPVOID lpBuffer,
+    __in        DWORD nNumberOfBytesToRead,
+    __out_opt   LPDWORD lpNumberOfBytesRead,
+    __inout_opt LPOVERLAPPED lpOverlapped
+    )
+{
+    NTSTATUS res;
+    IO_STATUS_BLOCK iob = {0,0};
+    HANDLE event = NULL;
+    PVOID apc_cxt = NULL;
+    LARGE_INTEGER offs;
+    LARGE_INTEGER *offs_ptr = NULL;
+
+    /* XXX: should redirect console handle to ReadConsole */
+
+    if (lpOverlapped != NULL) {
+        event = lpOverlapped->hEvent;
+        /* XXX: I don't fully understand this, and official ZwReadFile docs
+         * don't help, but it seems that the APC context is passed and used even
+         * when there's no APC routine.
+         */
+        apc_cxt = (PVOID) lpOverlapped;
+        lpOverlapped->Internal = STATUS_PENDING;
+        offs_ptr = &offs;
+        offs.HighPart = lpOverlapped->OffsetHigh;
+        offs.LowPart = lpOverlapped->Offset;
+    }
+
+    res = NtReadFile(hFile, event, NULL, apc_cxt, &iob,
+                    lpBuffer, nNumberOfBytesToRead, offs_ptr, NULL);
+
+    if (lpOverlapped == NULL && res == STATUS_PENDING) {
+        /* If synchronous, wait for it */
+        res = NtWaitForSingleObject(hFile, FALSE, NULL);
+        if (NT_SUCCESS(res))
+            res = iob.Status;
+    }
+    /* Warning status codes may still set the size */
+    if (lpNumberOfBytesRead != NULL) {
+        if (res == STATUS_END_OF_FILE)
+            *lpNumberOfBytesRead = 0;
+        else if (!NT_ERROR(res)) {
+            if (lpOverlapped != NULL)
+                *lpNumberOfBytesRead = (DWORD) lpOverlapped->InternalHigh;
+            else
+                *lpNumberOfBytesRead = (DWORD) iob.Information;
+        }
+    }
+    if ((!NT_SUCCESS(res) && res != STATUS_END_OF_FILE) || res == STATUS_PENDING) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL
+WINAPI
+redirect_WriteFile(
+    __in        HANDLE hFile,
+    __in_bcount(nNumberOfBytesToWrite) LPCVOID lpBuffer,
+    __in        DWORD nNumberOfBytesToWrite,
+    __out_opt   LPDWORD lpNumberOfBytesWritten,
+    __inout_opt LPOVERLAPPED lpOverlapped
+    )
+{
+    NTSTATUS res;
+    IO_STATUS_BLOCK iob = {0,0};
+    IO_STATUS_BLOCK *iob_ptr = &iob;
+    HANDLE event = NULL;
+    PVOID apc_cxt = NULL;
+    LARGE_INTEGER offs;
+    LARGE_INTEGER *offs_ptr = NULL;
+
+    /* XXX: should redirect console handle to WriteConsole */
+
+    if (lpOverlapped != NULL) {
+        event = lpOverlapped->hEvent;
+        /* XXX: I don't fully understand this, but it seems that the APC context
+         * is passed and used even when there's no APC routine.
+         */
+        apc_cxt = (PVOID) lpOverlapped;
+        lpOverlapped->Internal = STATUS_PENDING;
+        offs_ptr = &offs;
+        offs.HighPart = lpOverlapped->OffsetHigh;
+        offs.LowPart = lpOverlapped->Offset;
+        /* Have kernel's write to Information at offset one pointer in
+         * go to InternalHigh instead.
+         * XXX: why do I only seem to need this for WriteFile
+         * and not ReadFile or DeviceIoControl?
+         */
+        iob_ptr = (IO_STATUS_BLOCK *) lpOverlapped;
+    }
+
+    res = NtWriteFile(hFile, event, NULL, apc_cxt, iob_ptr,
+                      lpBuffer, nNumberOfBytesToWrite, offs_ptr, NULL);
+
+    if (lpOverlapped == NULL && res == STATUS_PENDING) {
+        /* If synchronous, wait for it */
+        res = NtWaitForSingleObject(hFile, FALSE, NULL);
+        if (NT_SUCCESS(res))
+            res = iob.Status;
+    }
+    /* Warning status codes may still set the size */
+    if (!NT_ERROR(res) && lpNumberOfBytesWritten != NULL) {
+        if (lpOverlapped != NULL)
+            *lpNumberOfBytesWritten = (DWORD) lpOverlapped->InternalHigh;
+        else
+            *lpNumberOfBytesWritten = (DWORD) iob.Information;
+    }
+    if (!NT_SUCCESS(res) || res == STATUS_PENDING) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    return TRUE;
+}
+
 
 /***************************************************************************
  * FILE MAPPING
@@ -1486,6 +1606,103 @@ test_directories(void)
 }
 
 static void
+test_files(void)
+{
+    HANDLE h, h2;
+    PVOID p;
+    BOOL ok;
+    DWORD dw;
+    char env[MAX_PATH];
+    char buf[MAX_PATH];
+    int res;
+    OVERLAPPED overlap = {0,};
+    HANDLE e;
+
+    res = GetEnvironmentVariableA("TMP", env, BUFFER_SIZE_ELEMENTS(env));
+    EXPECT(res > 0, true);
+    NULL_TERMINATE_BUFFER(env);
+
+    /* test creating files */
+    h = redirect_CreateFileW(L"c:\\cygwin\\tmp\\_kernel32_file_test_bogus.txt",
+                             GENERIC_READ, FILE_SHARE_READ, NULL,
+                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    EXPECT(h == INVALID_HANDLE_VALUE, true);
+    EXPECT(get_last_error(), ERROR_FILE_NOT_FOUND);
+
+    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
+                    "%s\\_kernel32_file_test_temp.txt", env);
+    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
+    NULL_TERMINATE_BUFFER(buf);
+    h = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL,
+                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    EXPECT(h != INVALID_HANDLE_VALUE, true);
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
+    /* clobber it and ensure we give the right errno */
+    h2 = redirect_CreateFileA(buf, GENERIC_WRITE,
+                              FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, NULL,
+                              CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL|
+                              FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    EXPECT(h2 != INVALID_HANDLE_VALUE, true);
+    EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
+    ok = redirect_FlushFileBuffers(h2);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h2);
+    EXPECT(ok, true);
+    /* re-create and then test deleting it */
+    h = redirect_CreateFileA(buf, GENERIC_READ|GENERIC_WRITE, 0, NULL,
+                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    EXPECT(h != INVALID_HANDLE_VALUE, true);
+
+    /* test read and write */
+    ok = redirect_WriteFile(h, &h2, sizeof(h2), (LPDWORD) &dw, NULL);
+    EXPECT(ok, true);
+    EXPECT(dw == sizeof(h2), true);
+    /* XXX: once we have redirect_SetFilePointer use it here */
+    dw = SetFilePointer(h, 0, NULL, FILE_BEGIN);
+    EXPECT(dw == 0, true);
+    ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD) &dw, NULL);
+    EXPECT(ok, true);
+    EXPECT(dw == sizeof(h2), true);
+    EXPECT((HANDLE)p == h2, true);
+
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
+    ok = redirect_DeleteFileA(buf);
+    EXPECT(ok, true);
+
+    /* test asynch read and write */
+    h = redirect_CreateFileA(buf, GENERIC_READ|GENERIC_WRITE, 0, NULL,
+                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL |
+                             FILE_FLAG_OVERLAPPED/*for asynch*/, NULL);
+    EXPECT(h != INVALID_HANDLE_VALUE, true);
+    e = CreateEvent(NULL, TRUE, FALSE, "myevent");
+    EXPECT(e != NULL, true);
+    overlap.hEvent = e;
+    ok = redirect_WriteFile(h, &h2, sizeof(h2), (LPDWORD) &dw, &overlap);
+    EXPECT(!ok && get_last_error() == ERROR_IO_PENDING, true);
+    ok = GetOverlappedResult(h, &overlap, &dw, TRUE/*wait*/);
+    EXPECT(ok, true);
+    EXPECT(dw == sizeof(h2), true);
+    /* XXX: once we have redirect_SetFilePointer use it here */
+    dw = SetFilePointer(h, 0, NULL, FILE_BEGIN);
+    EXPECT(dw == 0, true);
+    ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD) &dw, &overlap);
+    EXPECT(!ok && get_last_error() == ERROR_IO_PENDING, true);
+    ok = GetOverlappedResult(h, &overlap, &dw, TRUE/*wait*/);
+    EXPECT(ok, true);
+    EXPECT(dw == sizeof(h2), true);
+    EXPECT((HANDLE)p == h2, true);
+    ok = redirect_CloseHandle(e);
+    EXPECT(ok, true);
+
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
+    ok = redirect_DeleteFileA(buf);
+    EXPECT(ok, true);
+}
+
+static void
 test_file_mapping(void)
 {
     HANDLE h, h2;
@@ -1539,6 +1756,36 @@ test_file_mapping(void)
     ok = redirect_FlushViewOfFile(p, 0);
     EXPECT(ok, true);
     ok = redirect_UnmapViewOfFile(p);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h2);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
+}
+
+static void
+test_pipe(void)
+{
+    HANDLE h, h2, h3;
+    PVOID p;
+    BOOL ok;
+    DWORD res;
+
+    /* test pipe */
+    ok = redirect_CreatePipe(&h, &h2, NULL, 0);
+    EXPECT(ok, true);
+    /* This will block if the buffer is full, but we assume the buffer
+     * is much bigger than the size of a handle for our single-threaded test.
+     */
+    ok = redirect_WriteFile(h2, &h2, sizeof(h2), (LPDWORD) &res, NULL);
+    EXPECT(ok, true);
+    ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD) &res, NULL);
+    EXPECT(ok, true);
+    EXPECT((HANDLE)p == h2, true);
+    ok = redirect_DuplicateHandle(GetCurrentProcess(), h, GetCurrentProcess(), &h3,
+                                  0, FALSE, 0);
+    EXPECT(ok, true);
+    ok = redirect_CloseHandle(h3);
     EXPECT(ok, true);
     ok = redirect_CloseHandle(h2);
     EXPECT(ok, true);
@@ -1822,78 +2069,13 @@ test_file_paths(void)
 void
 unit_test_drwinapi_kernel32_file(void)
 {
-    HANDLE h, h2, h3;
-    PVOID p;
-    BOOL ok;
-    char env[MAX_PATH];
-    char buf[MAX_PATH];
-    int res;
-
     print_file(STDERR, "testing drwinapi kernel32 file-related routines\n");
 
     test_directories();
 
-    res = GetEnvironmentVariableA("TMP", env, BUFFER_SIZE_ELEMENTS(env));
-    EXPECT(res > 0, true);
-    NULL_TERMINATE_BUFFER(env);
+    test_files();
 
-    /* test creating files */
-    h = redirect_CreateFileW(L"c:\\_kernel32_file_test_bogus.txt",
-                             GENERIC_READ, FILE_SHARE_READ, NULL,
-                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    EXPECT(h == INVALID_HANDLE_VALUE, true);
-    EXPECT(get_last_error(), ERROR_FILE_NOT_FOUND);
-
-    res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-                    "%s\\_kernel32_file_test_temp.txt", env);
-    EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(buf), true);
-    NULL_TERMINATE_BUFFER(buf);
-    h = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL,
-                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    EXPECT(h != INVALID_HANDLE_VALUE, true);
-    ok = redirect_CloseHandle(h);
-    EXPECT(ok, true);
-    /* clobber it and ensure we give the right errno */
-    h2 = redirect_CreateFileA(buf, GENERIC_WRITE,
-                              FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, NULL,
-                              CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL|
-                              FILE_FLAG_DELETE_ON_CLOSE, NULL);
-    EXPECT(h2 != INVALID_HANDLE_VALUE, true);
-    EXPECT(get_last_error(), ERROR_ALREADY_EXISTS);
-    ok = redirect_FlushFileBuffers(h2);
-    EXPECT(ok, true);
-    ok = redirect_CloseHandle(h2);
-    EXPECT(ok, true);
-    /* re-create and then test deleting it */
-    h = redirect_CreateFileA(buf, GENERIC_WRITE, 0, NULL,
-                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    EXPECT(h != INVALID_HANDLE_VALUE, true);
-    ok = redirect_CloseHandle(h);
-    EXPECT(ok, true);
-    ok = redirect_DeleteFileA(buf);
-    EXPECT(ok, true);
-
-    /* test pipe */
-    ok = redirect_CreatePipe(&h, &h2, NULL, 0);
-    EXPECT(ok, true);
-    /* FIXME: once we redirect ReadFile and WriteFile, use those versions */
-    /* This will block if the buffer is full, but we assume the buffer
-     * is much bigger than the size of a handle for our single-threaded test.
-     */
-    ok = WriteFile(h2, &h2, sizeof(h2), (LPDWORD) &res, NULL);
-    EXPECT(ok, true);
-    ok = ReadFile(h, &p, sizeof(p), (LPDWORD) &res, NULL);
-    EXPECT(ok, true);
-    EXPECT((HANDLE)p == h2, true);
-    ok = redirect_DuplicateHandle(GetCurrentProcess(), h, GetCurrentProcess(), &h3,
-                                  0, FALSE, 0);
-    EXPECT(ok, true);
-    ok = redirect_CloseHandle(h3);
-    EXPECT(ok, true);
-    ok = redirect_CloseHandle(h2);
-    EXPECT(ok, true);
-    ok = redirect_CloseHandle(h);
-    EXPECT(ok, true);
+    test_pipe();
 
     test_file_mapping();
 
