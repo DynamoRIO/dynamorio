@@ -670,7 +670,44 @@ redirect_CreateDirectoryW(
     __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes
     );
 
-__out
+BOOL
+WINAPI
+redirect_RemoveDirectoryA(
+    __in LPCSTR lpPathName
+    );
+
+BOOL
+WINAPI
+redirect_RemoveDirectoryW(
+    __in LPCWSTR lpPathName
+    );
+
+DWORD
+WINAPI
+redirect_GetCurrentDirectoryA(
+    __in DWORD nBufferLength,
+    __out_ecount_part_opt(nBufferLength, return + 1) LPSTR lpBuffer
+    );
+
+DWORD
+WINAPI
+redirect_GetCurrentDirectoryW(
+    __in DWORD nBufferLength,
+    __out_ecount_part_opt(nBufferLength, return + 1) LPWSTR lpBuffer
+    );
+
+BOOL
+WINAPI
+redirect_SetCurrentDirectoryA(
+    __in LPCSTR lpPathName
+    );
+
+BOOL
+WINAPI
+redirect_SetCurrentDirectoryW(
+    __in LPCWSTR lpPathName
+    );
+
 HANDLE
 WINAPI
 redirect_CreateFileA(
@@ -896,20 +933,6 @@ redirect_FlushFileBuffers(
     __in HANDLE hFile
     );
 
-DWORD
-WINAPI
-redirect_GetCurrentDirectoryA(
-    __in DWORD nBufferLength,
-    __out_ecount_part_opt(nBufferLength, return + 1) LPSTR lpBuffer
-    );
-
-DWORD
-WINAPI
-redirect_GetCurrentDirectoryW(
-    __in DWORD nBufferLength,
-    __out_ecount_part_opt(nBufferLength, return + 1) LPWSTR lpBuffer
-    );
-
 BOOL
 WINAPI
 redirect_GetDiskFreeSpaceA(
@@ -1062,30 +1085,6 @@ redirect_ReadFile(
     __in        DWORD nNumberOfBytesToRead,
     __out_opt   LPDWORD lpNumberOfBytesRead,
     __inout_opt LPOVERLAPPED lpOverlapped
-    );
-
-BOOL
-WINAPI
-redirect_RemoveDirectoryA(
-    __in LPCSTR lpPathName
-    );
-
-BOOL
-WINAPI
-redirect_RemoveDirectoryW(
-    __in LPCWSTR lpPathName
-    );
-
-BOOL
-WINAPI
-redirect_SetCurrentDirectoryA(
-    __in LPCSTR lpPathName
-    );
-
-BOOL
-WINAPI
-redirect_SetCurrentDirectoryW(
-    __in LPCWSTR lpPathName
     );
 
 BOOL

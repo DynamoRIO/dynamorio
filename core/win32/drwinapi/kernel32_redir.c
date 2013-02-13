@@ -97,6 +97,8 @@ static const redirect_import_t redirect_kernel32[] = {
     /* File-related routines */
     {"CreateDirectoryA",               (app_pc)redirect_CreateDirectoryA},
     {"CreateDirectoryW",               (app_pc)redirect_CreateDirectoryW},
+    {"RemoveDirectoryA",               (app_pc)redirect_RemoveDirectoryA},
+    {"RemoveDirectoryW",               (app_pc)redirect_RemoveDirectoryW},
     {"CreateFileA",                    (app_pc)redirect_CreateFileA},
     {"CreateFileW",                    (app_pc)redirect_CreateFileW},
     {"DeleteFileA",                    (app_pc)redirect_DeleteFileA},

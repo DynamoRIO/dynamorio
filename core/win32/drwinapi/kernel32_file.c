@@ -208,6 +208,30 @@ redirect_CreateDirectoryW(
     return res;
 }
 
+BOOL
+WINAPI
+redirect_RemoveDirectoryA(
+    __in LPCSTR lpPathName
+    )
+{
+    /* Existing file code should work on dirs and links.
+     * XXX: what about removing mount points for volumes?
+     */
+    return redirect_DeleteFileA(lpPathName);
+}
+
+BOOL
+WINAPI
+redirect_RemoveDirectoryW(
+    __in LPCWSTR lpPathName
+    )
+{
+    /* Existing file code should work on dirs and links.
+     * XXX: what about removing mount points for volumes?
+     */
+    return redirect_DeleteFileW(lpPathName);
+}
+
 /***************************************************************************
  * FILES
  */
@@ -1523,6 +1547,7 @@ test_find_file(void)
     HANDLE f1, f2, find;
     BOOL ok;
     char env[MAX_PATH];
+    char dir[MAX_PATH];
     char buf[MAX_PATH];
     wchar_t wbuf[MAX_PATH];
     int res;
@@ -1603,6 +1628,11 @@ test_find_file(void)
     EXPECT(ok, TRUE);
     ok = redirect_CloseHandle(f2);
     EXPECT(ok, TRUE);
+
+    EXPECT(os_file_exists(dir, true), true);
+    ok = redirect_RemoveDirectoryA(dir);
+    EXPECT(ok, TRUE);
+    EXPECT(os_file_exists(dir, true), false);
 }
 
 static void
