@@ -55,6 +55,8 @@
 #include "ntdll_types.h"
 #include "globals_shared.h" /* for reg_t */
 
+#pragma warning(disable : 4214) /* allow short-sized bitfields for TEB */
+
 /* Current method is to statically link with ntdll.lib obtained from the DDK */
 /* We cannot call get_module_handle at arbitrary points.
  * Some syscalls are at certain points in win32 API internal state
@@ -177,6 +179,7 @@ typedef const RTL_BITMAP *PCRTL_BITMAP;
 
 /* The layout here is from ntdll pdb on x64 xpsp2, though we
  * changed some PVOID types to more specific types.
+ * Later updated to win8 pdb info.
  */
 typedef struct _PEB {                                     /* offset: 32bit / 64bit */
     BOOLEAN                      InheritedAddressSpace;           /* 0x000 / 0x000 */
@@ -273,6 +276,20 @@ typedef struct _PEB {                                     /* offset: 32bit / 64b
     PVOID                        FlsBitmap;                       /* 0x218 / 0x338 */
     DWORD                        FlsBitmapBits[4];                /* 0x21c / 0x340 */
     DWORD                        FlsHighIndex;                    /* 0x22c / 0x350 */
+    PVOID                        WerRegistrationData;             /* 0x230 / 0x358 */
+    PVOID                        WerShipAssertPtr;                /* 0x234 / 0x360 */
+    PVOID                        pUnused;                         /* 0x238 / 0x368 */
+    PVOID                        pImageHeaderHash;                /* 0x23c / 0x370 */
+    union {
+        ULONG                    TracingFlags;                    /* 0x240 / 0x378 */
+        struct {
+            ULONG                HeapTracingEnabled:1;            /* 0x240 / 0x378 */
+            ULONG                CritSecTracingEnabled:1;         /* 0x240 / 0x378 */
+            ULONG                LibLoaderTracingEnabled:1;       /* 0x240 / 0x378 */
+            ULONG                SpareTracingBits:29;             /* 0x240 / 0x378 */
+        };
+    };
+    ULONG64                      CsrServerReadOnlySharedMemoryBase;/*0x248 / 0x380 */
 } PEB, *PPEB;
 
 #ifndef _W64
@@ -450,7 +467,9 @@ typedef struct _GDI_TEB_BATCH
     ULONG  Buffer[0x136];
 } GDI_TEB_BATCH;
 
-/* The layout here is from ntdll pdb on x64 xpsp2 */
+/* The layout here is from ntdll pdb on x64 xpsp2,
+ * later updated to win8 pdb info.
+ */
 typedef struct _TEB {                               /* offset: 32bit / 64bit */
     /* We lay out NT_TIB, which is declared in winnt.h */    
     PEXCEPTION_REGISTRATION   ExceptionList;                /* 0x000 / 0x000 */
@@ -539,8 +558,45 @@ typedef struct _TEB {                               /* offset: 32bit / 64bit */
     PVOID                     CurrentTransactionHandle;     /* 0xfac / 0x17b8 */
     PVOID                     ActiveFrame;                  /* 0xfb0 / 0x17c0 */
     PVOID                     FlsData;                      /* 0xfb4 / 0x17c8 */
+#ifndef PRE_VISTA_TEB /* pre-vs-post-Vista: we'll have to make a union if we care */
+    PVOID                     PreferredLanguages;           /* 0xfb8 / 0x17d0 */
+    PVOID                     UserPrefLanguages;            /* 0xfbc / 0x17d8 */
+    PVOID                     MergedPrefLanguages;          /* 0xfc0 / 0x17e0 */
+    ULONG                     MuiImpersonation;             /* 0xfc4 / 0x17e8 */
+    union {
+        USHORT                CrossTebFlags;                /* 0xfc8 / 0x17ec */
+        USHORT                SpareCrossTebFlags:16;        /* 0xfc8 / 0x17ec */
+    };
+    union
+    {
+        USHORT                SameTebFlags;                 /* 0xfca / 0x17ee */
+        struct {
+            USHORT            SafeThunkCall:1;              /* 0xfca / 0x17ee */
+            USHORT            InDebugPrint:1;               /* 0xfca / 0x17ee */
+            USHORT            HasFiberData2:1;              /* 0xfca / 0x17ee */
+            USHORT            SkipThreadAttach:1;           /* 0xfca / 0x17ee */
+            USHORT            WerInShipAssertCode:1;        /* 0xfca / 0x17ee */
+            USHORT            RanProcessInit:1;             /* 0xfca / 0x17ee */
+            USHORT            ClonedThread:1;               /* 0xfca / 0x17ee */
+            USHORT            SuppressDebugMsg:1;           /* 0xfca / 0x17ee */
+            USHORT            DisableUserStackWalk:1;       /* 0xfca / 0x17ee */
+            USHORT            RtlExceptionAttached:1;       /* 0xfca / 0x17ee */
+            USHORT            InitialThread:1;              /* 0xfca / 0x17ee */
+            USHORT            SessionAware:1;               /* 0xfca / 0x17ee */
+            USHORT            SpareSameTebBits:4;           /* 0xfca / 0x17ee */
+        };
+    };
+    PVOID                     TxnScopeEntercallback;        /* 0xfcc / 0x17f0 */
+    PVOID                     TxnScopeExitCAllback;         /* 0xfd0 / 0x17f8 */
+    PVOID                     TxnScopeContext;              /* 0xfd4 / 0x1800 */
+    ULONG                     LockCount;                    /* 0xfd8 / 0x1808 */
+    ULONG                     SpareUlong0;                  /* 0xfdc / 0x180c */
+    PVOID                     ResourceRetValue;             /* 0xfe0 / 0x1810 */
+    PVOID                     ReservedForWdf;               /* 0xfe4 / 0x1818 */
+#else /* pre-Vista: */
     byte                      SafeThunkCall;                /* 0xfb8 / 0x17d0 */
     byte                      BooleanSpare[3];              /* 0xfb9 / 0x17d1 */
+#endif
 } TEB;
 
 typedef struct _THREAD_BASIC_INFORMATION { // Information Class 0
