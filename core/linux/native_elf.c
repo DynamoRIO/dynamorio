@@ -87,6 +87,12 @@ static uint plt_stub_jmp_tgt_offset;
 static size_t plt_stub_size;
 static app_pc stub_heap;
 
+static bool
+module_contains_pc(module_area_t *ma, app_pc pc)
+{
+    return (pc >= ma->start && pc < ma->end);
+}
+
 /* Finds the call to _dl_fixup in _dl_runtime_resolve from ld.so.  _dl_fixup is
  * not exported, but we need to call it.  We assume that _dl_runtime_resolve is
  * straightline code until the call to _dl_fixup.
@@ -164,8 +170,12 @@ initialize_plt_stub_template(void)
     instrlist_clear_and_destroy(dc, ilist);
 }
 
+/* Replaces the resolver with our own or the app's original resolver.
+ * XXX: We assume there is only one loader in the app and hence only one
+ * resolver, but conceivably there could be two separate loaders.
+ */
 static void
-replace_module_resolver(module_area_t *ma, app_pc *pltgot)
+replace_module_resolver(module_area_t *ma, app_pc *pltgot, bool to_dr)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     app_pc resolver;
@@ -175,6 +185,14 @@ replace_module_resolver(module_area_t *ma, app_pc *pltgot)
 
     resolver = pltgot[DL_RUNTIME_RESOLVE_IDX];
     ASSERT_CURIOSITY(resolver != NULL && "loader will overwrite our stub");
+
+    if (!to_dr) {
+        ASSERT(resolver == (app_pc) _dynamorio_runtime_resolve);
+        ASSERT(app_dl_runtime_resolve != NULL);
+        pltgot[DL_RUNTIME_RESOLVE_IDX] = app_dl_runtime_resolve;
+        return;
+    }
+
     if (resolver != NULL) {
         if (app_dl_runtime_resolve == NULL) {
             app_dl_runtime_resolve = resolver;
@@ -200,33 +218,139 @@ replace_module_resolver(module_area_t *ma, app_pc *pltgot)
     }
 }
 
-/* Puts back app_dl_runtime_resolve, only if it looks like we previously hooked
- * it.
+/* Allocates and initializes a stub of code for taking control after a PLT call.
+ */
+static app_pc
+create_plt_stub(app_pc plt_target)
+{
+    app_pc stub_pc = special_heap_alloc(stub_heap);
+    app_pc *tgt_immed;
+    app_pc jmp_tgt;
+
+    memcpy(stub_pc, plt_stub_template, plt_stub_size);
+    tgt_immed = (app_pc *) (stub_pc + plt_stub_immed_offset);
+    jmp_tgt = stub_pc + plt_stub_jmp_tgt_offset;
+    *tgt_immed = plt_target;
+    insert_relative_target(jmp_tgt, (app_pc) native_plt_call,
+                           false/*!hotpatch*/);
+    return stub_pc;
+}
+
+/* Deletes a PLT stub and returns the original target of the stub.
+ */
+static app_pc
+destroy_plt_stub(app_pc stub_pc)
+{
+    app_pc orig_tgt;
+    app_pc *tgt_immed = (app_pc *) (stub_pc + plt_stub_immed_offset);
+    orig_tgt = *tgt_immed;
+    special_heap_free(stub_heap, stub_pc);
+    return orig_tgt;
+}
+
+static size_t
+plt_reloc_entry_size(ELF_WORD pltrel)
+{
+    switch (pltrel) {
+    case DT_REL:
+        return sizeof(ELF_REL_TYPE);
+    case DT_RELA:
+        return sizeof(ELF_RELA_TYPE);
+    default:
+        ASSERT(false);
+    }
+    return sizeof(ELF_REL_TYPE);
+}
+
+static bool
+is_special_stub(app_pc stub_pc)
+{
+    special_heap_iterator_t shi;
+    bool found = false;
+    /* XXX: this acquires a lock in a nested loop. */
+    special_heap_iterator_start(stub_heap, &shi);
+    while (special_heap_iterator_hasnext(&shi)) {
+        app_pc start, end;
+        special_heap_iterator_next(&shi, &start, &end);
+        if (stub_pc >= start && stub_pc < end) {
+            found = true;
+            break;
+        }
+    }
+    special_heap_iterator_stop(&shi);
+    return found;
+}
+
+/* Iterates all PLT relocations and either inserts or removes our own PLT
+ * takeover stubs.
  */
 static void
-unhook_module_resolver(module_area_t *ma, app_pc *pltgot)
+update_plt_relocations(module_area_t *ma, os_privmod_data_t *opd, bool add_hooks)
 {
-    if (pltgot != NULL &&
-        pltgot[DL_RUNTIME_RESOLVE_IDX] == (app_pc) _dynamorio_runtime_resolve) {
-        pltgot[DL_RUNTIME_RESOLVE_IDX] = app_dl_runtime_resolve;
+    app_pc jmprel;
+    app_pc jmprelend = opd->jmprel + opd->pltrelsz;
+    size_t entry_size = plt_reloc_entry_size(opd->pltrel);
+    for (jmprel = opd->jmprel; jmprel != jmprelend; jmprel += entry_size) {
+        ELF_REL_TYPE *rel = (ELF_REL_TYPE *) jmprel;
+        app_pc *r_addr;
+        app_pc gotval;
+        r_addr = (app_pc *) (ma->start + rel->r_offset);
+        ASSERT(module_contains_pc(ma, (app_pc)r_addr));
+        gotval = *r_addr;
+        if (add_hooks) {
+            /* If the PLT target is inside the current module, then it is either
+             * a lazy resolution stub or was resolved to the current module.
+             * Either way we ignore it.
+             */
+            if (!module_contains_pc(ma, gotval)) {
+                LOG(THREAD_GET, LOG_LOADER, 4,
+                    "%s: hooking cross-module PLT entry to "PFX"\n",
+                    __FUNCTION__, gotval);
+                *r_addr = create_plt_stub(gotval);
+            }
+        } else {
+            /* XXX: pull the ranges out of the heap up front to avoid lock
+             * acquisitions.
+             */
+            if (is_special_stub(gotval)) {
+                *r_addr = destroy_plt_stub(gotval);
+            }
+        }
     }
 }
 
 void
-module_change_hooks(module_area_t *ma, bool add, bool at_map)
+module_change_hooks(module_area_t *ma, bool add_hooks, bool at_map)
 {
     os_privmod_data_t opd;
     app_pc relro_base;
     size_t relro_size;
     bool got_unprotected = false;
+    bool already_hooked = false;
+    app_pc *pltgot;
 
     /* FIXME: We can't handle un-relocated modules yet. */
-    if (add && at_map)
+    if (add_hooks && at_map)
         return;
 
     memset(&opd, 0, sizeof(opd));
     module_get_os_privmod_data(ma->start, ma->end - ma->start,
                                !at_map/*relocated*/, &opd);
+    pltgot = (app_pc *) opd.pltgot;
+
+    /* We can't hook modules that don't have a pltgot. */
+    if (pltgot == NULL)
+        return;
+
+    /* Make this somewhat idempotent.  We shouldn't re-hook if we're already
+     * hooked, and we shouldn't remove hooks if we haven't hooked already.
+     */
+    if (pltgot[DL_RUNTIME_RESOLVE_IDX] == (app_pc) _dynamorio_runtime_resolve)
+        already_hooked = true;
+    if (add_hooks && already_hooked)
+        return;
+    if (!add_hooks && !already_hooked)
+        return;
 
     /* If we are !at_map, then we assume the loader has already relocated the
      * module and applied protections for PT_GNU_RELRO.  _dl_runtime_resolve is
@@ -237,15 +361,9 @@ module_change_hooks(module_area_t *ma, bool add, bool at_map)
         got_unprotected = true;
     }
 
-    if (add)
-        replace_module_resolver(ma, (app_pc *) opd.pltgot);
-    else
-        unhook_module_resolver(ma, (app_pc *) opd.pltgot);
-
-    /* FIXME: Scan jmprel for jump slot relocations and hook or unhook things
-     * that are already resolved.  Until this is implemented, we will leak stubs
-     * in the special heap.
-     */
+    /* Insert or remove our PLT stubs. */
+    replace_module_resolver(ma, pltgot, add_hooks/*to_dr*/);
+    update_plt_relocations(ma, &opd, add_hooks);
 
     if (got_unprotected) {
         /* XXX: This may not be symmetric, but we trust PT_GNU_RELRO for now. */
@@ -266,22 +384,6 @@ void
 native_module_unhook(module_area_t *ma)
 {
     module_change_hooks(ma, false/*remove*/, false/*!at_map*/);
-}
-
-static app_pc
-create_plt_stub(app_pc plt_target)
-{
-    app_pc stub_pc = special_heap_alloc(stub_heap);
-    app_pc *tgt_immed;
-    app_pc jmp_tgt;
-
-    memcpy(stub_pc, plt_stub_template, plt_stub_size);
-    tgt_immed = (app_pc *) (stub_pc + plt_stub_immed_offset);
-    jmp_tgt = stub_pc + plt_stub_jmp_tgt_offset;
-    *tgt_immed = plt_target;
-    insert_relative_target(jmp_tgt, (app_pc) native_plt_call,
-                           false/*!hotpatch*/);
-    return stub_pc;
 }
 
 static ELF_REL_TYPE *
@@ -308,13 +410,11 @@ find_plt_reloc(struct link_map *l_map, uint reloc_arg)
         }
         dyn++;
     }
-    if (jmprel == NULL)
-        return NULL;
 
-    /* reloc_arg is an index on x64 and an offset on ia32. */
 #ifdef X64
-    relsz = (pltrel == DT_REL ? sizeof(ELF_REL_TYPE) : sizeof(ELF_RELA_TYPE));
+    relsz = plt_reloc_entry_size(pltrel);
 #else
+    /* reloc_arg is an index on x64 and an offset on ia32. */
     relsz = 1;
 #endif
     return (ELF_REL_TYPE *) (jmprel + relsz * reloc_arg);
@@ -363,6 +463,20 @@ native_module_init(void)
 void
 native_module_exit(void)
 {
+    /* Make sure we can scan all modules on native_exec_areas and unhook them.
+     * If this fails, we get special heap leak asserts.
+     */
+    module_iterator_t *mi;
+    module_area_t *ma;
+    mi = module_iterator_start();
+    while (module_iterator_hasnext(mi)) {
+         ma = module_iterator_next(mi);
+         if (vmvector_overlap(native_exec_areas, ma->start, ma->end)) {
+             native_module_unhook(ma);
+         }
+    }
+    module_iterator_stop(mi);
+
     if (stub_heap != NULL) {
         special_heap_exit(stub_heap);
         stub_heap = NULL;

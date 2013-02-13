@@ -142,7 +142,9 @@ native_exec_module_load(module_area_t *ma, bool at_map)
 void
 native_exec_module_unload(module_area_t *ma)
 {
-    check_and_mark_native_exec(ma, false/*!add*/);
+    bool is_native = check_and_mark_native_exec(ma, false/*!add*/);
+    if (is_native && DYNAMO_OPTION(native_exec_retakeover))
+        native_module_unhook(ma);
 }
 
 void
