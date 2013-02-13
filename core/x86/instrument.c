@@ -3679,6 +3679,7 @@ dr_write_to_console(bool to_stdout, const char *fmt, va_list ap)
     uint written;
     int len;
     HANDLE std;
+    CLIENT_ASSERT(!dr_using_console(), "internal logic error");
     ASSERT(priv_kernel32 != NULL &&
            kernel32_WriteFile != NULL);
     /* kernel32!GetStdHandle(STD_OUTPUT_HANDLE) == our PEB-based get_stdout_handle */
@@ -3705,7 +3706,10 @@ dr_using_console(void)
     /* We detect cmd window using what kernel32!WriteFile uses: a handle
      * having certain bits set.
      */
-    return (((ptr_int_t)get_stderr_handle() & 0x10000003) == 0x3);
+    bool res = (((ptr_int_t)get_stderr_handle() & 0x10000003) == 0x3);
+    CLIENT_ASSERT(!res || get_os_version() < WINDOWS_VERSION_8,
+                  "Please report this: Windows 8 does have old-style consoles!");
+    return res;
 }
 
 DR_API
@@ -3719,6 +3723,9 @@ dr_enable_console_printing(void)
         CLIENT_ASSERT(false, "dr_enable_console_printing() must be called from dr_init");
         return false;
     }
+    /* Direct writes to std handles work on win8+ (xref i#911) but we don't need
+     * a separate check as the handle is detected as a non-console handle.
+     */
     if (!dr_using_console())
         return true;
     if (!INTERNAL_OPTION(private_loader))
