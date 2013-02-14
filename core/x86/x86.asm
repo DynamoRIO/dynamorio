@@ -211,8 +211,8 @@ START_FILE
 DECL_EXTERN(get_own_context_integer_control)
 DECL_EXTERN(get_xmm_vals)
 DECL_EXTERN(auto_setup)
-DECL_EXTERN(back_from_native_C)
-DECL_EXTERN(native_module_transition)
+DECL_EXTERN(return_from_native)
+DECL_EXTERN(native_module_callout)
 DECL_EXTERN(dispatch)
 #ifdef DR_APP_EXPORTS
 DECL_EXTERN(dr_app_start_helper)
@@ -1487,11 +1487,11 @@ GLOBAL_LABEL(back_from_native:)
         PUSH_PRIV_MCXT(0 /* for priv_mcontext_t.pc */)
         lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
 
-        /* Call back_from_native_C passing the priv_mcontext_t.  It will 
+        /* Call return_from_native passing the priv_mcontext_t.  It will 
          * obtain this thread's dcontext pointer and
          * begin execution with the passed-in state.
          */
-        CALLC1(back_from_native_C, REG_XAX)
+        CALLC1(return_from_native, REG_XAX)
         /* should not return */
         jmp      unexpected_return
         END_FUNC(back_from_native)
@@ -1514,7 +1514,7 @@ GLOBAL_LABEL(native_plt_call:)
         mov      REG_XCX, [REG_XSP + PRIV_MCXT_SIZE]     /* next_pc on stack */
         add      DWORD [REG_XAX + MCONTEXT_XSP_OFFS], ARG_SZ   /* adjust app xsp for arg */
 # endif
-        CALLC2(native_module_transition, REG_XAX, REG_XCX)
+        CALLC2(native_module_callout, REG_XAX, REG_XCX)
 
         /* If we returned, continue to execute natively on the app stack. */
         POP_PRIV_MCXT_GPRS()

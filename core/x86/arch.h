@@ -924,10 +924,6 @@ void check_return_ra_mangled(dcontext_t *dcontext,
                              volatile reg_t reg_ecx, volatile reg_t reg_eax);
 #endif
 
-/* experimental native execution feature */
-/* in x86_code.c */
-void entering_native(void);
-
 #ifdef LINUX
 void new_thread_setup(priv_mcontext_t *mc);
 #endif

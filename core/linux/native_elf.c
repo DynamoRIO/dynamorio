@@ -294,7 +294,7 @@ update_plt_relocations(module_area_t *ma, os_privmod_data_t *opd, bool add_hooks
         ELF_REL_TYPE *rel = (ELF_REL_TYPE *) jmprel;
         app_pc *r_addr;
         app_pc gotval;
-        r_addr = (app_pc *) (ma->start + rel->r_offset);
+        r_addr = (app_pc *) (opd->load_delta + rel->r_offset);
         ASSERT(module_contains_pc(ma, (app_pc)r_addr));
         gotval = *r_addr;
         if (add_hooks) {

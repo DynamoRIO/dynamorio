@@ -192,6 +192,7 @@ typedef struct {
     void *vmlist;
     app_pc end_pc;
     bool native_exec;        /* replace cur ilist with a native_exec version */
+    bool native_call;        /* the gateway is a call */
 #ifdef CLIENT_INTERFACE
     instrlist_t **unmangled_ilist; /* PR 299808: clone ilist pre-mangling */
 #endif
@@ -307,7 +308,7 @@ static void
 build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb);
 
 static bool
-at_native_exec_gateway(dcontext_t *dcontext, app_pc start
+at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
                        _IF_DEBUG(bool xfer_target));
 
 #ifdef DEBUG
@@ -3389,7 +3390,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
          */
         app_pc tgt = opnd_get_pc(instr_get_target(bb->instr));
         if (vmvector_overlap(native_exec_areas, tgt, tgt+1) &&
-            at_native_exec_gateway(dcontext, tgt _IF_DEBUG(true/*xfer tgt*/))) {
+            at_native_exec_gateway(dcontext, tgt, &bb->native_call
+                                   _IF_DEBUG(true/*xfer tgt*/))) {
             /* replace this ilist w/ a native exec one */
             LOG(THREAD, LOG_INTERP, 2,
                 "direct xfer @gateway @"PFX" to native_exec module "PFX"\n",
@@ -3989,6 +3991,53 @@ report_native_module(dcontext_t *dcontext, app_pc modpc)
 }
 #endif
 
+/* Appends code to a native bb to save the retaddr on the stack into the
+ * dcontext and replace it with back_from_native().  We assume the dcontext is
+ * already set up in the default register and that REG_XAX is scratch.
+ * WARNING: breaks transparency rules.
+ */
+static void
+native_bb_swap_retaddr(dcontext_t *dcontext, build_bb_t *bb)
+{
+    /* To regain control we put our interception routine as the retaddr,
+     * assuming of course no transparency problems like longjmp or retaddr examination.
+     * We need to know where to go when we return -- but this can be stdcall,
+     * where it's tough to just push our retaddr after real one as earlier args will be
+     * "cleaned up" and beyond TOS and we don't know how many args there were!
+     * We use two special fields to store the original return address as well as its
+     * stack location.  We assume that we do not re-takeover on exceptions or
+     * APCs (callbacks will be ok) -- if we ever decide to we'll have to either
+     * use the dcontext stack just like for callbacks or stack
+     * native_exec_ret{val,loc} in some other manner.
+     */
+    instrlist_append(bb->ilist, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX),
+                                                    OPND_CREATE_MEMPTR(REG_XSP, 0)));
+    instrlist_append(bb->ilist, instr_create_save_to_dc_via_reg
+                     (dcontext, REG_NULL/*default*/, REG_XAX,
+                      NATIVE_EXEC_RETVAL_OFFSET));
+    /* we don't count on mcontext being preserved (native syscalls will clobber it),
+     * and when we re-takeover we need the new app state anyway, so we have to use
+     * a special field to store where we clobbered the app retaddr in order to restore
+     * it on a detach
+     */
+    instrlist_append(bb->ilist, instr_create_save_to_dc_via_reg
+                     (dcontext, REG_NULL/*default*/, REG_XSP,
+                      NATIVE_EXEC_RETLOC_OFFSET));
+#ifdef X64
+    /* must go through a register */
+    instrlist_append(bb->ilist, INSTR_CREATE_mov_imm
+                     (dcontext, opnd_create_reg(REG_XAX),
+                      OPND_CREATE_INTPTR((ptr_int_t)back_from_native)));
+    instrlist_append(bb->ilist, INSTR_CREATE_mov_st
+                     (dcontext, OPND_CREATE_MEMPTR(REG_XSP, 0),
+                      opnd_create_reg(REG_XAX)));
+#else
+    instrlist_append(bb->ilist, INSTR_CREATE_mov_st
+                     (dcontext, OPND_CREATE_MEM32(REG_XSP, 0),
+                      OPND_CREATE_INTPTR((ptr_int_t)back_from_native)));
+#endif
+}
+
 /* WARNING: breaks all kinds of rules, like ret addr transparency and
  * assuming app stack and not doing calls out of the cache and not having
  * control during dll loads, etc...
@@ -3997,8 +4046,9 @@ static void
 build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
 {
     instr_t *in;
+    opnd_t jmp_tgt;
 #ifdef X64
-    bool reachable;
+    bool reachable = rel32_reachable_from_heap(bb->start_pc);
 #endif
     DEBUG_DECLARE(bool ok;)
     /* if we ever protect from simultaneous thread attacks then this will
@@ -4038,42 +4088,23 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
      * least return failure from our translate routine.
      */
     instrlist_set_our_mangling(bb->ilist, true);
-    /* To regain control we put our interception routine as the retaddr,
-     * assuming of course no transparency problems like longjmp or retaddr examination.
-     * We need to know where to go when we return -- but this can be stdcall,
-     * where it's tough to just push our retaddr after real one as earlier args will be
-     * "cleaned up" and beyond TOS and we don't know how many args there were!
-     * We use two special fields to store the original return address as well as its
-     * stack location.  We assume that we do not re-takeover on exceptions or
-     * APCs (callbacks will be ok) -- if we ever decide to we'll have to either
-     * use the dcontext stack just like for callbacks or stack
-     * native_exec_ret{val,loc} in some other manner.
-     */
+
     append_shared_get_dcontext(dcontext, bb->ilist, true/*save xdi*/);
     instrlist_append(bb->ilist, instr_create_save_to_dc_via_reg
                      (dcontext, REG_NULL/*default*/, REG_XAX, XAX_OFFSET));
-    instrlist_append(bb->ilist, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX),
-                                                    OPND_CREATE_MEMPTR(REG_XSP, 0)));
-    instrlist_append(bb->ilist, instr_create_save_to_dc_via_reg
-                     (dcontext, REG_NULL/*default*/, REG_XAX,
-                      NATIVE_EXEC_RETVAL_OFFSET));
-    /* we don't count on mcontext being preserved (native syscalls will clobber it),
-     * and when we re-takeover we need the new app state anyway, so we have to use
-     * a special field to store where we clobbered the app retaddr in order to restore
-     * it on a detach
+
+    /* For calls into native modules, we save the retaddr in the dcontext and
+     * replace it with back_from_native.  For returns from non-native to native
+     * modules, we enter directly.
      */
-    instrlist_append(bb->ilist, instr_create_save_to_dc_via_reg
-                     (dcontext, REG_NULL/*default*/, REG_XSP,
-                      NATIVE_EXEC_RETLOC_OFFSET));
+    if (bb->native_call) {
+        native_bb_swap_retaddr(dcontext, bb);
+    } else {
+        ASSERT(DYNAMO_OPTION(native_exec_retakeover) &&
+               "shouldn't jump to native without callout interception");
+    }
+
 #ifdef X64
-    /* must go through a register */
-    instrlist_append(bb->ilist, INSTR_CREATE_mov_imm
-                     (dcontext, opnd_create_reg(REG_XAX),
-                      OPND_CREATE_INTPTR((ptr_int_t)back_from_native)));
-    instrlist_append(bb->ilist, INSTR_CREATE_mov_st
-                     (dcontext, OPND_CREATE_MEMPTR(REG_XSP, 0),
-                      opnd_create_reg(REG_XAX)));
-    reachable = rel32_reachable_from_heap(bb->start_pc);
     if (!reachable) {
         /* best to store the target at the end of the bb, to keep it readonly,
          * but that requires a post-pass to patch its value: since native_exec
@@ -4083,46 +4114,29 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
                          (dcontext, opnd_create_reg(REG_XAX),
                           OPND_CREATE_INTPTR((ptr_int_t)bb->start_pc)));
         if (X64_CACHE_MODE_DC(dcontext) && !X64_MODE_DC(dcontext)) {
-            instrlist_append(bb->ilist, INSTR_CREATE_mov_ld
-                             (dcontext, opnd_create_reg(REG_R9),
-                              opnd_create_reg(REG_XAX)));
+            jmp_tgt = opnd_create_reg(REG_R9);
         } else {
-            instrlist_append(bb->ilist, INSTR_CREATE_mov_st
-                             (dcontext, opnd_create_tls_slot(os_tls_offset
-                                                             (MANGLE_XCX_SPILL_SLOT)),
-                              opnd_create_reg(REG_XAX)));
+            jmp_tgt = opnd_create_tls_slot(os_tls_offset(MANGLE_XCX_SPILL_SLOT));
         }
-    }
-#else
-    instrlist_append(bb->ilist, INSTR_CREATE_mov_st
-                     (dcontext, OPND_CREATE_MEM32(REG_XSP, 0),
-                      OPND_CREATE_INTPTR((ptr_int_t)back_from_native)));
+        instrlist_append(bb->ilist, INSTR_CREATE_mov_st
+                         (dcontext, jmp_tgt, opnd_create_reg(REG_XAX)));
+    } else
 #endif
+    {
+        jmp_tgt = opnd_create_pc(bb->start_pc);
+    }
+
     instrlist_append(bb->ilist, instr_create_restore_from_dc_via_reg
                      (dcontext, REG_NULL/*default*/, REG_XAX, XAX_OFFSET));
     append_shared_restore_dcontext_reg(dcontext, bb->ilist);
+
     /* need some cleanup prior to native: turn off asynch, clobber trace, etc. */
-    /* FIXME: mark call as do-not-mangle */
     dr_insert_clean_call(dcontext, bb->ilist, NULL, (void *) entering_native,
                          false/*!fp*/, 0);
     /* this is the jump to native code */
-#ifdef X64
-    if (reachable) {
-        instrlist_append(bb->ilist,
-                         INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->start_pc)));
-    } else {
-        if (X64_CACHE_MODE_DC(dcontext) && !X64_MODE_DC(dcontext)) {
-            instrlist_append(bb->ilist, INSTR_CREATE_jmp_ind
-                             (dcontext, opnd_create_reg(REG_R9)));
-        } else {
-            instrlist_append(bb->ilist, INSTR_CREATE_jmp_ind
-                             (dcontext, opnd_create_tls_slot(os_tls_offset
-                                                             (MANGLE_XCX_SPILL_SLOT))));
-        }
-    }
-#else
-    instrlist_append(bb->ilist, INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->start_pc)));
-#endif
+    instrlist_append(bb->ilist, instr_create_0dst_1src
+                     (dcontext, (opnd_is_pc(jmp_tgt) ? OP_jmp : OP_jmp_ind),
+                      jmp_tgt));
 
     /* mark all as do-not-mangle, so selfmod, etc. will leave alone (in absence
      * of selfmod only really needed for the jmp to native code)
@@ -4159,7 +4173,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
 }
 
 static bool
-at_native_exec_gateway(dcontext_t *dcontext, app_pc start
+at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
                        _IF_DEBUG(bool xfer_target))
 {
     /* ASSUMPTION: transfer to another module will always be by indirect call
@@ -4188,6 +4202,14 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start
      * We count up easy-to-identify cases we've missed in the DOSTATS below.
      */ 
     bool native_exec_bb = false;
+
+    /* We can get here if we start interpreting native modules. */
+    ASSERT(start != (app_pc) back_from_native &&
+           start != (app_pc) native_module_callout &&
+           "interpreting return from native module?");
+    ASSERT(is_call != NULL);
+    *is_call = false;
+
     if (DYNAMO_OPTION(native_exec) &&
         !vmvector_empty(native_exec_areas)) {
         /* do we KNOW that we came from an indirect call? */
@@ -4199,6 +4221,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start
             /* we do the overlap check last since it's more costly */
             if (vmvector_overlap(native_exec_areas, start, start+1)) {
                 native_exec_bb = true;
+                *is_call = true;
                 DOSTATS({
                     if (EXIT_IS_CALL(dcontext->last_exit->flags)) {
                         if (LINKSTUB_INDIRECT(dcontext->last_exit->flags))
@@ -4207,10 +4230,22 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start
                             STATS_INC(num_native_module_entrances_call);
                     } else
                         STATS_INC(num_native_module_entrances_plt);
-                    
                 });
             }
-        } 
+        }
+        /* Is this a return from a non-native module into a native module? */
+        else if (DYNAMO_OPTION(native_exec_retakeover) &&
+                 LINKSTUB_INDIRECT(dcontext->last_exit->flags) &&
+                 TEST(LINK_RETURN, dcontext->last_exit->flags)) {
+            if (vmvector_overlap(native_exec_areas, start, start+1)) {
+                /* XXX: check that this is the return address of a known native
+                 * callsite where we took over on a module transition.
+                 */
+                STATS_INC(num_native_module_entrances_ret);
+                native_exec_bb = true;
+                *is_call = false;
+            }
+        }
         /* can we GUESS that we came from an indirect call? */
         else if (DYNAMO_OPTION(native_exec_guess_calls) &&
                  (/* FIXME: require jmp* be in separate module? */
@@ -4235,6 +4270,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start
 #ifdef RETURN_AFTER_CALL
                 if (DYNAMO_OPTION(ret_after_call)) {
                     native_exec_bb = is_observed_call_site(dcontext, retaddr);
+                    *is_call = true;
                     LOG(THREAD, LOG_INTERP|LOG_VMAREAS, 2,
                         "native_exec: *TOS is %sa call site in ret-after-call table\n",
                         native_exec_bb ? "" : "NOT ");
@@ -4258,6 +4294,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start
                             STATS_INC(num_native_entrance_TOS_decodes);
                             if (next_pc == retaddr && instr_is_call(&instr)) {
                                 native_exec_bb = true;
+                                *is_call = true;
                                 LOG(THREAD, LOG_INTERP|LOG_VMAREAS, 2,
                                     "native_exec: found call @ pre-*TOS "PFX"\n", pc);
                                 break;
@@ -4278,6 +4315,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start
                 });
             }
         }
+
         DOSTATS({
             /* did we reach a native dll w/o going through an ind call caught above? */
             if (!xfer_target /* else we'll re-check at the target itself */ &&
@@ -4404,7 +4442,8 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
 
     init_interp_build_bb(dcontext, &bb, start, initial_flags
                          _IF_CLIENT(for_trace) _IF_CLIENT(unmangled_ilist));
-    if (at_native_exec_gateway(dcontext, start _IF_DEBUG(false/*not xfer tgt*/))) {
+    if (at_native_exec_gateway(dcontext, start, &bb.native_call
+                               _IF_DEBUG(false/*not xfer tgt*/))) {
         DODEBUG({ report_native_module(dcontext, bb.start_pc); });
 #ifdef CLIENT_INTERFACE
         /* PR 232617 - build_native_exec_bb doesn't support setting translation
@@ -4417,6 +4456,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
         build_bb_ilist(dcontext, &bb);
         if (bb.native_exec) {
             /* change bb to be a native_exec gateway */
+            bool is_call = bb.native_call;
             LOG(THREAD, LOG_INTERP, 2, "replacing built bb with native_exec bb\n");
             instrlist_clear_and_destroy(dcontext, bb.ilist);
             vm_area_destroy_list(dcontext, bb.vmlist);
@@ -4429,6 +4469,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
              * client (it contains no app code) so we don't need it. */
             bb.record_translation = false;
 #endif
+            bb.native_call = is_call;
             build_native_exec_bb(dcontext, &bb);
         }
     }

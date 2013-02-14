@@ -129,6 +129,7 @@
     STATS_DEF("Native module entrance blocks, TOS unknown", num_native_module_entrances_TOS_unknown)
     STATS_DEF("Native module entrance blocks, TOS jmp*", num_native_module_entrances_TOS_jmp)
     STATS_DEF("Native module entrance blocks, call* jmp/call", num_native_module_entrances_callcall)
+    STATS_DEF("Native module entrance blocks, ret", num_native_module_entrances_ret)
     STATS_DEF("Native module execution entrances", num_native_module_enter)
     STATS_DEF("Native module execution exits", num_native_module_exit)
     STATS_DEF("Native our-fault write faults", num_native_cachecons_faults)
