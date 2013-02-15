@@ -77,6 +77,54 @@ kernel32_redir_onload_proc(privmod_t *mod)
         get_proc_address_ex(mod->base, "FlsAlloc", NULL);
 }
 
+/***************************************************************************
+ * PROCESSES
+ */
+
+HANDLE
+WINAPI
+redirect_GetCurrentProcess(
+    VOID
+    )
+{
+    return NT_CURRENT_PROCESS;
+}
+
+DWORD
+WINAPI
+redirect_GetCurrentProcessId(
+    VOID
+    )
+{
+    return (DWORD) get_process_id();
+}
+
+/***************************************************************************
+ * THREADS
+ */
+
+HANDLE
+WINAPI
+redirect_GetCurrentThread(
+    VOID
+    )
+{
+    return NT_CURRENT_THREAD;
+}
+
+DWORD
+WINAPI
+redirect_GetCurrentThreadId(
+    VOID
+    )
+{
+    return (DWORD) get_thread_id();
+}
+
+/***************************************************************************
+ * FLS
+ */
+
 bool
 kernel32_redir_fls_cb(dcontext_t *dcontext, app_pc pc)
 {
@@ -155,6 +203,25 @@ redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb)
     return (*priv_kernel32_FlsAlloc)(cb);
 }
 
+
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Processes and Threads
  */
+
+
+/***************************************************************************
+ * TESTS
+ */
+
+#ifdef STANDALONE_UNIT_TEST
+void
+unit_test_drwinapi_kernel32_proc(void)
+{
+    print_file(STDERR, "testing drwinapi kernel32 control-related routines\n");
+
+    EXPECT(redirect_GetCurrentProcess() == GetCurrentProcess(), true);
+    EXPECT(redirect_GetCurrentProcessId() == GetCurrentProcessId(), true);
+    EXPECT(redirect_GetCurrentThread() == GetCurrentThread(), true);
+    EXPECT(redirect_GetCurrentThreadId() == GetCurrentThreadId(), true);
+}
+#endif

@@ -47,6 +47,10 @@ static strhash_table_t *kernel32_table;
 
 static const redirect_import_t redirect_kernel32[] = {
     /* Process and thread-related routines */
+    {"GetCurrentProcess",              (app_pc)redirect_GetCurrentProcess},
+    {"GetCurrentProcessId",            (app_pc)redirect_GetCurrentProcessId},
+    {"GetCurrentThread",               (app_pc)redirect_GetCurrentThread},
+    {"GetCurrentThreadId",             (app_pc)redirect_GetCurrentThreadId},
     /* To avoid the FlsCallback being interpreted */
     {"FlsAlloc",                       (app_pc)redirect_FlsAlloc},
 

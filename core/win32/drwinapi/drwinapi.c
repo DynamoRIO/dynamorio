@@ -170,6 +170,7 @@ redirect_ignore_arg12(void *arg1, void *arg2, void *arg3)
 }
 
 #ifdef STANDALONE_UNIT_TEST
+void unit_test_drwinapi_kernel32_proc(void);
 void unit_test_drwinapi_kernel32_mem(void);
 void unit_test_drwinapi_kernel32_file(void);
 void unit_test_drwinapi_kernel32_sync(void);
@@ -184,6 +185,7 @@ unit_test_drwinapi(void)
 
     loader_init(); /* not called by standalone_init */
 
+    unit_test_drwinapi_kernel32_proc();
     unit_test_drwinapi_kernel32_mem();
     unit_test_drwinapi_kernel32_file();
     unit_test_drwinapi_kernel32_sync();

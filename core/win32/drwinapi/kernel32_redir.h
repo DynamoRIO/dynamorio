@@ -127,6 +127,31 @@ kernel32_redir_onload_proc(privmod_t *mod);
 DWORD WINAPI
 redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb);
 
+HANDLE
+WINAPI
+redirect_GetCurrentProcess(
+    VOID
+    );
+
+DWORD
+WINAPI
+redirect_GetCurrentProcessId(
+    VOID
+    );
+
+__out
+HANDLE
+WINAPI
+redirect_GetCurrentThread(
+    VOID
+    );
+
+DWORD
+WINAPI
+redirect_GetCurrentThreadId(
+    VOID
+    );
+
 BOOL
 WINAPI
 redirect_CreateProcessA(
@@ -226,32 +251,6 @@ __out
 LPWSTR
 WINAPI
 redirect_GetCommandLineW(
-    VOID
-    );
-
-__out
-HANDLE
-WINAPI
-redirect_GetCurrentProcess(
-    VOID
-    );
-
-DWORD
-WINAPI
-redirect_GetCurrentProcessId(
-    VOID
-    );
-
-__out
-HANDLE
-WINAPI
-redirect_GetCurrentThread(
-    VOID
-    );
-
-DWORD
-WINAPI
-redirect_GetCurrentThreadId(
     VOID
     );
 
