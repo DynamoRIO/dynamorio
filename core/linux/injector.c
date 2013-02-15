@@ -64,6 +64,10 @@
 
 static bool verbose = false;
 
+/* Set from a signal handler.
+ */
+static volatile int timeout_expired;
+
 typedef enum _inject_method_t {
     INJECT_EARLY,       /* Works with self or child. */
     INJECT_LD_PRELOAD,  /* Works with self or child. */
@@ -80,6 +84,10 @@ typedef struct _dr_inject_info_t {
 
     bool exec_self;             /* this process will exec the app */
     inject_method_t method;
+
+    bool killpg;
+    bool exited;
+    int exitcode;
 } dr_inject_info_t;
 
 bool
@@ -305,13 +313,18 @@ inject_ld_preload(dr_inject_info_t *info, const char *library_path)
     return true;
 }
 
-static void
-set_exe_and_argv(dr_inject_info_t *info, const char *exe, const char **argv)
+static dr_inject_info_t *
+create_inject_info(const char *exe, const char **argv)
 {
+    dr_inject_info_t *info = calloc(sizeof(*info), 1);
     info->exe = exe;
     info->argv = argv;
     info->image_name = strrchr(exe, '/');
     info->image_name = (info->image_name == NULL ? exe : info->image_name + 1);
+    info->exited = false;
+    info->killpg = false;
+    info->exitcode = -1;
+    return info;
 }
 
 /* Returns 0 on success.
@@ -322,8 +335,7 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
 {
     int r;
     int fds[2];
-    dr_inject_info_t *info = malloc(sizeof(*info));
-    set_exe_and_argv(info, exe, argv);
+    dr_inject_info_t *info = create_inject_info(exe, argv);
 
     /* Create a pipe to a forked child and have it block on the pipe. */
     r = pipe(fds);
@@ -349,8 +361,7 @@ DR_EXPORT
 int
 dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
 {
-    dr_inject_info_t *info = malloc(sizeof(*info));
-    set_exe_and_argv(info, exe, argv);
+    dr_inject_info_t *info = create_inject_info(exe, argv);
     info->pid = getpid();
     info->pipe_fd = 0;  /* No pipe. */
     info->exec_self = true;
@@ -372,6 +383,24 @@ dr_inject_prepare_to_ptrace(void *data)
     if (info->exec_self)
         return false;
     info->method = INJECT_PTRACE;
+    return true;
+}
+
+DR_EXPORT
+bool
+dr_inject_prepare_new_process_group(void *data)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    int res;
+    if (data == NULL)
+        return false;
+    if (info->exec_self)
+        return false;
+    /* Put the child in its own process group. */
+    res = setpgid(info->pid, info->pid);
+    if (res < 0)
+        return false;
+    info->killpg = true;
     return true;
 }
 
@@ -454,6 +483,15 @@ dr_inject_process_inject(void *data, bool force_injection,
     return false;
 }
 
+/* We get the signal, we set the volatile, which is guaranteed to be signal
+ * safe.  waitpid should return EINTR after we receive the signal.
+ */
+static void
+alarm_handler(int sig)
+{
+    timeout_expired = true;
+}
+
 DR_EXPORT
 bool
 dr_inject_process_run(void *data)
@@ -477,17 +515,68 @@ dr_inject_process_run(void *data)
 }
 
 DR_EXPORT
+bool
+dr_inject_wait_for_child(void *data, uint64 timeout_millis)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *) data;
+    pid_t res;
+
+    timeout_expired = false;
+    if (timeout_millis > 0) {
+        /* Set a timer ala runstats. */
+        struct sigaction act;
+        struct itimerval timer;
+
+        /* Set an alarm handler. */
+        memset(&act, 0, sizeof(act));
+        act.sa_handler = alarm_handler;
+        sigaction(SIGALRM, &act, NULL);
+
+        /* No interval, one shot only. */
+        timer.it_interval.tv_sec = 0;
+        timer.it_interval.tv_usec = 0;
+        timer.it_value.tv_sec = timeout_millis / 1000;
+        timer.it_value.tv_usec = (timeout_millis % 1000) * 1000;
+        setitimer(ITIMER_REAL, &timer, NULL);
+    }
+
+    do {
+        res = waitpid(info->pid, &info->exitcode, 0);
+    } while (res != info->pid && res != -1 &&
+             /* The signal handler sets this and makes waitpid return EINTR. */
+             !timeout_expired);
+    info->exited = (res == info->pid);
+    return info->exited;
+}
+
+DR_EXPORT
 int
 dr_inject_process_exit(void *data, bool terminate)
 {
     dr_inject_info_t *info = (dr_inject_info_t *) data;
     int status;
-    if (terminate) {
-        kill(info->pid, SIGKILL);
+    if (info->exited) {
+        /* If it already exited when we waited on it above, then we *cannot*
+         * wait on it again or try to kill it, or we might target some new
+         * process with the same pid.
+         */
+        status = info->exitcode;
+    } else {
+        if (terminate) {
+            /* We use SIGKILL to match Windows, which doesn't provide the app a
+             * chance to clean up.
+             */
+            if (info->killpg) {
+                /* i#501: Kill app subprocesses to prevent hangs. */
+                killpg(info->pid, SIGKILL);
+            } else {
+                kill(info->pid, SIGKILL);
+            }
+        }
+        if (info->pipe_fd != 0)
+            close(info->pipe_fd);
+        waitpid(info->pid, &status, 0);
     }
-    if (info->pipe_fd != 0)
-        close(info->pipe_fd);
-    waitpid(info->pid, &status, 0);
     free(info);
     return status;
 }
