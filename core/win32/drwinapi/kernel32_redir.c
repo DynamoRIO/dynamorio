@@ -133,6 +133,19 @@ static const redirect_import_t redirect_kernel32[] = {
     {"FindNextFileW",                  (app_pc)redirect_FindNextFileW},
     {"FlushFileBuffers",               (app_pc)redirect_FlushFileBuffers},
 
+    /* Synchronization routines */
+    {"InitializeCriticalSectionAndSpinCount",
+                                  (app_pc)redirect_InitializeCriticalSectionAndSpinCount},
+    {"InitializeCriticalSectionEx",    (app_pc)redirect_InitializeCriticalSectionEx},
+    {"DeleteCriticalSection",          (app_pc)redirect_DeleteCriticalSection},
+    {"EnterCriticalSection",           (app_pc)redirect_EnterCriticalSection},
+    {"LeaveCriticalSection",           (app_pc)redirect_LeaveCriticalSection},
+    {"InterlockedCompareExchange ",    (app_pc)redirect_InterlockedCompareExchange },
+    {"InterlockedDecrement",           (app_pc)redirect_InterlockedDecrement},
+    {"InterlockedExchange",            (app_pc)redirect_InterlockedExchange},
+    {"InterlockedIncrement",           (app_pc)redirect_InterlockedIncrement},
+    {"WaitForSingleObject",            (app_pc)redirect_WaitForSingleObject},
+
     /* Miscellaneous routines */
     {"GetLastError",                   (app_pc)redirect_GetLastError},
     {"SetLastError",                   (app_pc)redirect_SetLastError},

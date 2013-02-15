@@ -1219,18 +1219,6 @@ redirect_WriteConsoleW(
 
 VOID
 WINAPI
-redirect_DeleteCriticalSection(
-    __inout LPCRITICAL_SECTION lpCriticalSection
-    );
-
-VOID
-WINAPI
-redirect_EnterCriticalSection(
-    __inout LPCRITICAL_SECTION lpCriticalSection
-    );
-
-VOID
-WINAPI
 redirect_InitializeCriticalSection(
     __out LPCRITICAL_SECTION lpCriticalSection
     );
@@ -1250,8 +1238,26 @@ redirect_InitializeCriticalSectionEx(
     __in  DWORD Flags
     );
 
+VOID
+WINAPI
+redirect_DeleteCriticalSection(
+    __inout LPCRITICAL_SECTION lpCriticalSection
+    );
+
+VOID
+WINAPI
+redirect_EnterCriticalSection(
+    __inout LPCRITICAL_SECTION lpCriticalSection
+    );
+
+VOID
+WINAPI
+redirect_LeaveCriticalSection(
+    __inout LPCRITICAL_SECTION lpCriticalSection
+    );
+
 LONG
-__cdecl
+WINAPI
 redirect_InterlockedCompareExchange (
     __inout __drv_interlocked LONG volatile *Destination,
     __in LONG ExChange,
@@ -1259,28 +1265,22 @@ redirect_InterlockedCompareExchange (
     );
 
 LONG
-__cdecl
+WINAPI
 redirect_InterlockedDecrement(
     __inout __drv_interlocked LONG volatile *Addend
     );
 
 LONG
-__cdecl
+WINAPI
 redirect_InterlockedExchange(
     __inout __drv_interlocked LONG volatile *Target,
     __in LONG Value
     );
 
 LONG
-__cdecl
+WINAPI
 redirect_InterlockedIncrement(
     __inout __drv_interlocked LONG volatile *Addend
-    );
-
-VOID
-WINAPI
-redirect_LeaveCriticalSection(
-    __inout LPCRITICAL_SECTION lpCriticalSection
     );
 
 DWORD

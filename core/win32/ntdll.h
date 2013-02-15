@@ -2019,6 +2019,9 @@ nt_query_security_object(IN HANDLE Handle,
  * ntdll.c and drwinapi/).
  */
 
+GET_NTDLL(RtlEnterCriticalSection, (IN OUT RTL_CRITICAL_SECTION *crit));
+GET_NTDLL(RtlLeaveCriticalSection, (IN OUT RTL_CRITICAL_SECTION *crit));
+
 GET_NTDLL(NtWaitForSingleObject, (IN HANDLE ObjectHandle, 
                                   IN BOOLEAN Alertable, 
                                   IN PLARGE_INTEGER TimeOut));

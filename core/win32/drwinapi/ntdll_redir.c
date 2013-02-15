@@ -547,9 +547,9 @@ redirect_RtlInitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
      */
     LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"\n", __FUNCTION__, crit);
     IF_CLIENT_INTERFACE(ASSERT(get_own_teb()->ProcessEnvironmentBlock ==
-                               get_private_peb()));
+                               get_private_peb() || standalone_library));
     if (crit == NULL)
-        return ERROR_INVALID_PARAMETER;
+        return STATUS_INVALID_PARAMETER;
     if (TEST(RTL_CRITICAL_SECTION_FLAG_STATIC_INIT, flags)) {
         /* We're supposed to use a memory pool but it's not
          * clear whether it really matters so we ignore this flag.
@@ -585,9 +585,9 @@ redirect_RtlDeleteCriticalSection(RTL_CRITICAL_SECTION* crit)
     GET_NTDLL(RtlDeleteCriticalSection, (RTL_CRITICAL_SECTION *crit));
     LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"\n", __FUNCTION__, crit);
     IF_CLIENT_INTERFACE(ASSERT(get_own_teb()->ProcessEnvironmentBlock ==
-                               get_private_peb()));
+                               get_private_peb() || standalone_library));
     if (crit == NULL)
-        return ERROR_INVALID_PARAMETER;
+        return STATUS_INVALID_PARAMETER;
     if (crit->DebugInfo != NULL) {
         if (is_dynamo_address((byte *)crit->DebugInfo))
             wrapped_dr_free((byte *)crit->DebugInfo);

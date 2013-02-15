@@ -172,6 +172,7 @@ redirect_ignore_arg12(void *arg1, void *arg2, void *arg3)
 #ifdef STANDALONE_UNIT_TEST
 void unit_test_drwinapi_kernel32_mem(void);
 void unit_test_drwinapi_kernel32_file(void);
+void unit_test_drwinapi_kernel32_sync(void);
 void unit_test_drwinapi_kernel32_misc(void);
 void unit_test_drwinapi_rpcrt4(void);
 void unit_test_drwinapi_advapi32(void);
@@ -185,6 +186,7 @@ unit_test_drwinapi(void)
 
     unit_test_drwinapi_kernel32_mem();
     unit_test_drwinapi_kernel32_file();
+    unit_test_drwinapi_kernel32_sync();
     unit_test_drwinapi_kernel32_misc();
     unit_test_drwinapi_rpcrt4();
     unit_test_drwinapi_advapi32();

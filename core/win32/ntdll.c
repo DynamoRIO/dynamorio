@@ -1290,8 +1290,6 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
     bool using_local_bitmap = false;
 
     NTSTATUS res;
-    GET_NTDLL(RtlEnterCriticalSection, (IN OUT RTL_CRITICAL_SECTION *crit));
-    GET_NTDLL(RtlLeaveCriticalSection, (IN OUT RTL_CRITICAL_SECTION *crit));
     if (synch) {
         /* FIXME: I read somewhere they are removing more PEB pointers in Vista or earlier..  */
         /* TlsAlloc calls RtlAcquirePebLock which calls RtlEnterCriticalSection */
@@ -1533,7 +1531,6 @@ tls_free_helper(int synch, uint teb_offs, int num)
 
     NTSTATUS res;
     GET_NTDLL(RtlTryEnterCriticalSection, (IN OUT RTL_CRITICAL_SECTION *crit));
-    GET_NTDLL(RtlLeaveCriticalSection, (IN OUT RTL_CRITICAL_SECTION *crit));
 
     if (synch) {
         /* TlsFree calls RtlAcquirePebLock which calls RtlEnterCriticalSection
