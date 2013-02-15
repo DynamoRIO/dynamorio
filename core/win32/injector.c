@@ -810,16 +810,12 @@ bool
 dr_inject_wait_for_child(void *data, uint64 timeout_millis)
 {
     dr_inject_info_t *info = (dr_inject_info_t *) data;
-    bool exited;
-    int wait_result;
-    LARGE_INTEGER timeout_large;
+    wait_status_t wait_result;
     if (timeout_millis == 0)
         timeout_millis = INFINITE;
-    /* Use our ntdll wrapper so we don't lose precision on uint64. */
-    timeout_large.QuadPart = timeout_millis;
-    wait_result = nt_wait_event_with_timeout(info->pi.hProcess, &timeout_large);
-    exited = (wait_result == WAIT_OBJECT_0);
-    return exited;
+    /* We use the Nt version to avoid loss of precision. */
+    wait_result = os_wait_handle(info->pi.hProcess, timeout_millis);
+    return (wait_result == WAIT_SIGNALED);
 }
 
 DYNAMORIO_EXPORT

@@ -1315,11 +1315,14 @@ int main(int argc, char *argv[])
 # endif
         if (!success)
             info("timeout after %d seconds\n", limit);
-        exitcode = dr_inject_process_exit(inject_data, !success/*kill process*/);
     } else {
-        /* Don't wait, just return success. */
-        exitcode = 0;
+        success = true;  /* Don't kill the child if we're not waiting. */
     }
+
+    exitcode = dr_inject_process_exit(inject_data, !success/*kill process*/);
+
+    if (limit < 0)
+        exitcode = 0;  /* Return success if we didn't wait. */
 
     if (exit0)
         exitcode = 0;

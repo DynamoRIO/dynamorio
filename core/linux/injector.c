@@ -561,22 +561,30 @@ dr_inject_process_exit(void *data, bool terminate)
          * process with the same pid.
          */
         status = info->exitcode;
-    } else {
-        if (terminate) {
-            /* We use SIGKILL to match Windows, which doesn't provide the app a
-             * chance to clean up.
-             */
-            if (info->killpg) {
-                /* i#501: Kill app subprocesses to prevent hangs. */
-                killpg(info->pid, SIGKILL);
-            } else {
-                kill(info->pid, SIGKILL);
-            }
+    } else if (terminate) {
+        /* We use SIGKILL to match Windows, which doesn't provide the app a
+         * chance to clean up.
+         */
+        if (info->killpg) {
+            /* i#501: Kill app subprocesses to prevent hangs. */
+            killpg(info->pid, SIGKILL);
+        } else {
+            kill(info->pid, SIGKILL);
         }
-        if (info->pipe_fd != 0)
-            close(info->pipe_fd);
+        /* Do a blocking wait to get the real status code.  This shouldn't take
+         * long since we just sent an unblockable SIGKILL.
+         */
         waitpid(info->pid, &status, 0);
+    } else {
+        /* Use WNOHANG to match our Windows semantics, which does not block if
+         * the child hasn't exited.  The status returned is probably not useful,
+         * but the caller shouldn't look at it if they haven't waited for the
+         * app to terminate.
+         */
+        waitpid(info->pid, &status, WNOHANG);
     }
+    if (info->pipe_fd != 0)
+        close(info->pipe_fd);
     free(info);
     return status;
 }

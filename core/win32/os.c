@@ -6968,8 +6968,10 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
     KSTOP(wait_event);
 }
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
 wait_status_t
-os_wait_handle(HANDLE h, uint timeout_ms)
+os_wait_handle(HANDLE h, uint64 timeout_ms)
 {
     LARGE_INTEGER li;
     LARGE_INTEGER *timeout;
@@ -6981,6 +6983,8 @@ os_wait_handle(HANDLE h, uint timeout_ms)
     }
     return nt_wait_event_with_timeout(h, timeout);
 }
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 void
 mutex_wait_contended_lock(mutex_t *lock)
