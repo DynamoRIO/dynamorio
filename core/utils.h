@@ -381,9 +381,6 @@ enum {
 #endif
     LOCK_RANK(coarse_info_lock), /* < special_heap_lock, < global_alloc_lock,
                                   * > change_linking_lock */
-    LOCK_RANK(special_units_list_lock), /* < special_heap_lock */
-    LOCK_RANK(special_heap_lock), /* > bb_building_lock, > hotp_vul_table_lock
-                                   * < dynamo_areas, < heap_unit_lock */
     LOCK_RANK(coarse_info_incoming_lock), /* > special_heap_lock, > coarse_info_lock,
                                            * > change_linking_lock */
 
@@ -426,6 +423,10 @@ enum {
     LOCK_RANK(emulate_write_areas), /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(IAT_areas), /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(module_data_lock),  /* < loaded_module_areas */
+    LOCK_RANK(special_units_list_lock), /* < special_heap_lock */
+    LOCK_RANK(special_heap_lock), /* > bb_building_lock, > hotp_vul_table_lock
+                                   * > module_data_lock,
+                                   * < dynamo_areas, < heap_unit_lock */
 #ifdef CLIENT_INTERFACE
     /* PR 198871: this same label is used for all client locks */
     LOCK_RANK(dr_client_mutex), /* > module_data_lock */

@@ -1289,6 +1289,8 @@ if (UNIX)
     "-native_exec_list ${native_dll_name} -native_exec_retakeover" "")
   torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
     "-native_exec_list common.nativeexec -native_exec_retakeover" "")
+  torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
+    "-native_exec_list common.nativeexec -native_exec_retakeover" "-bind_now")
 endif ()
 
 # app seg mangling makes dstack test fail so we disable such mangling

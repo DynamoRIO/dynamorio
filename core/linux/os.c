@@ -153,9 +153,11 @@ char **our_environ;
 # undef ASSERT
 # undef ASSERT_NOT_IMPLEMENTED
 # undef ASSERT_NOT_TESTED
+# undef ASSERT_CURIOSITY
 # define ASSERT(x) /* nothing */
 # define ASSERT_NOT_IMPLEMENTED(x) /* nothing */
 # define ASSERT_NOT_TESTED(x) /* nothing */
+# define ASSERT_CURIOSITY(x) /* nothing */
 # undef LOG
 # undef DOSTATS
 # define LOG(...) /* nothing */

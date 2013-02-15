@@ -37,10 +37,6 @@
  */
 #include "tools.h"
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 /* from nativeexec.dll.dll */
 IMPORT void import_me1(int x);
 IMPORT void import_me2(int x);
@@ -50,14 +46,21 @@ void call_plt(void (*fn)(int));
 void call_funky(void (*fn)(int));
 
 int
-main(void)
+main(int argc, char **argv)
 {
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     INIT();
+
+    if (argc > 2 && strcmp("-bind_now", argv[1])) {
+#ifdef WINDOWS
+        print("-bind_now is Linux-only\n");
+#else
+        /* Re-exec the test with LD_BIND_NOW in the environment to force eager
+         * binding.
+         */
+        setenv("LD_BIND_NOW", "1", true/*overwrite*/);
+        execv(argv[0], argv);
+#endif
+    }
 
     print("calling via IAT-style call\n");
     import_me1(57);
@@ -89,10 +92,6 @@ main(void)
 
     print("all done\n");
 
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }
 
