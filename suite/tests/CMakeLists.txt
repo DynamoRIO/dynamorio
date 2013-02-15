@@ -1287,6 +1287,8 @@ if (UNIX)
   # FIXME i#978: Windows support NYI
   torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
     "-native_exec_list ${native_dll_name} -native_exec_retakeover" "")
+  torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
+    "-native_exec_list common.nativeexec -native_exec_retakeover" "")
 endif ()
 
 # app seg mangling makes dstack test fail so we disable such mangling

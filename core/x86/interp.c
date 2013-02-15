@@ -4246,6 +4246,19 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
                 *is_call = false;
             }
         }
+#ifdef LINUX
+        /* Is this the entry point of a native ELF executable?  The entry point
+         * (usually _start) cannot return as there is no retaddr.
+         */
+        else if (DYNAMO_OPTION(native_exec_retakeover) &&
+                 LINKSTUB_INDIRECT(dcontext->last_exit->flags) &&
+                 start == get_image_entry()) {
+            if (vmvector_overlap(native_exec_areas, start, start+1)) {
+                native_exec_bb = true;
+                *is_call = false;
+            }
+        }
+#endif
         /* can we GUESS that we came from an indirect call? */
         else if (DYNAMO_OPTION(native_exec_guess_calls) &&
                  (/* FIXME: require jmp* be in separate module? */
