@@ -348,7 +348,9 @@ env_var_exists(const char *name, char *buf, size_t buflen)
     if (len == 0 || len > buflen)
         return false;
 #else
-    char *val = getenv(LOCAL_CONFIG_ENV);
+    char *val = getenv(name);
+    if (val == NULL)
+        return false;
     strncpy(buf, val, buflen);
     buf[buflen - 1] = '\0';
 #endif

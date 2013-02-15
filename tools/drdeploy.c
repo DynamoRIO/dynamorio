@@ -228,6 +228,10 @@ const char *usage_str =
     "                          specified number of minutes.\n"
     "       -h <hours>         Kill the application if it runs longer than the\n"
     "                          specified number of hours.\n"
+#ifdef LINUX
+    "       -killpg            Create a new process group for the app.  If the app\n"
+    "                          times out, kill the entire process group.\n"
+#endif
     "       -stats             Print /usr/bin/time-style elapsed time and memory used.\n"
     "       -mem               Print memory usage statistics.\n"
     "       -pidfile <file>    Print the pid of the child process to the given file.\n"
@@ -332,9 +336,10 @@ GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
     }
 }
 
-# ifdef DRRUN
+# if defined(DRRUN) || defined(DRINJECT)
 /* PID of child to kill when alarm goes off. */
 static process_id_t alarm_child_pid;
+static bool kill_group;
 
 /* Handles SIGALRM for -s timeouts set for drrun.
  */
@@ -350,10 +355,14 @@ alarm_handler(int sig)
         /* Go straight for SIGKILL to match Windows.  If DR is hung, its signal
          * handler may be confused.
          */
-        kill(pid, SIGKILL);
+        if (kill_group) {
+            killpg(pid, SIGKILL);
+        } else {
+            kill(pid, SIGKILL);
+        }
     }
 }
-# endif /* DRRUN */
+# endif /* DRRUN || DRINJECT */
 
 #endif /* LINUX */
 
@@ -627,6 +636,7 @@ write_pid_to_file(const char *pidfile, process_id_t pid)
 }
 #endif /* DRCONFIG */
 
+#if defined(DRCONFIG) || defined(DRRUN)
 static void
 append_client(const char *client, int id, const char *client_ops,
               char client_paths[MAX_CLIENT_LIBS][MAXIMUM_PATH],
@@ -642,29 +652,32 @@ append_client(const char *client, int id, const char *client_ops,
     client_options[*num_clients] = client_ops;
     (*num_clients)++;
 }
+#endif
 
 int main(int argc, char *argv[])
 {
-    char *process = NULL;
     char *dr_root = NULL;
     char client_paths[MAX_CLIENT_LIBS][MAXIMUM_PATH];
+#if defined(DRCONFIG) || defined(DRRUN)
+    char *process = NULL;
     const char *client_options[MAX_CLIENT_LIBS] = {NULL,};
     client_id_t client_ids[MAX_CLIENT_LIBS] = {0,};
     size_t num_clients = 0;
-#if defined(DRCONFIG) || defined(DRRUN)
     char single_client_ops[DR_MAX_OPTIONS_LENGTH];
 #endif
-#if defined(MF_API) || defined(PROBE_API)
+#ifndef DRINJECT
+# if defined(MF_API) || defined(PROBE_API)
     /* must set -mode */
     dr_operation_mode_t dr_mode = DR_MODE_NONE;
-#else
-    /* only one choice so no -mode */
-# ifdef CLIENT_INTERFACE
-    dr_operation_mode_t dr_mode = DR_MODE_CODE_MANIPULATION;
 # else
+    /* only one choice so no -mode */
+#  ifdef CLIENT_INTERFACE
+    dr_operation_mode_t dr_mode = DR_MODE_CODE_MANIPULATION;
+#  else
     dr_operation_mode_t dr_mode = DR_MODE_NONE;
+#  endif
 # endif
-#endif
+#endif /* !DRINJECT */
     char extra_ops[MAX_OPTIONS_STRING];
 #ifdef DRCONFIG
     action_t action = action_none;
@@ -986,6 +999,11 @@ int main(int argc, char *argv[])
             if (limit <= 0)
                 usage("invalid time");
 	}
+# ifdef LINUX
+        else if (strcmp(argv[i], "-killpg") == 0) {
+            kill_group = true;
+        }
+# endif
 #endif
 #if defined(DRCONFIG) || defined(DRRUN)
         /* if there are still options, assume user is using -- to separate and pass
@@ -1005,7 +1023,7 @@ int main(int argc, char *argv[])
                 NULL_TERMINATE_BUFFER(extra_ops);
                 i++;
             }
-            if (strcmp(argv[i], "-c") == 0) {
+            if (i < argc && strcmp(argv[i], "-c") == 0) {
                 const char *client;
                 if (i + 1 >= argc)
                     usage("too few arguments to -c");
@@ -1214,6 +1232,17 @@ int main(int argc, char *argv[])
         info("created child with pid %d for %s",
              dr_inject_get_process_id(inject_data), app_name);
     }
+# ifdef LINUX
+    if (limit != 0 && kill_group) {
+        /* Move the child to its own process group. */
+        process_id_t child_pid = dr_inject_get_process_id(inject_data);
+        int res = setpgid(child_pid, child_pid);
+        if (res < 0) {
+            perror("ERROR in setpgid");
+            goto error;
+        }
+    }
+# endif
 # ifdef WINDOWS
     if (errcode == ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE) {
         /* Better error message than the FormatMessage */
