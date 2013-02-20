@@ -732,6 +732,66 @@ redirect_WriteFile(
     return TRUE;
 }
 
+/***************************************************************************
+ * FILE QUERIES
+ */
+
+DWORD
+WINAPI
+redirect_GetFileAttributesA(
+    __in LPCSTR lpFileName
+    )
+{
+    wchar_t wbuf[MAX_PATH];
+    int len;
+    if (lpFileName == NULL) {
+        set_last_error(ERROR_INVALID_PARAMETER);
+        return INVALID_FILE_ATTRIBUTES;
+    }
+    len = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%hs", lpFileName);
+    if (len < 0) {
+        set_last_error(ERROR_INVALID_PARAMETER);
+        return INVALID_FILE_ATTRIBUTES;
+    }
+    NULL_TERMINATE_BUFFER(wbuf);
+    return redirect_GetFileAttributesW(wbuf);
+}
+
+DWORD
+WINAPI
+redirect_GetFileAttributesW(
+    __in LPCWSTR lpFileName
+    )
+{
+    NTSTATUS res;
+    wchar_t ntbuf[MAX_PATH];
+    wchar_t *nt_path = NULL;
+    size_t alloc_sz = 0;
+    OBJECT_ATTRIBUTES oa;
+    UNICODE_STRING us;
+    FILE_NETWORK_OPEN_INFORMATION info;
+
+    nt_path = convert_to_NT_file_path_wide(ntbuf, lpFileName,
+                                           BUFFER_SIZE_ELEMENTS(ntbuf), &alloc_sz);
+    if (nt_path == NULL) {
+        set_last_error(ERROR_FILE_NOT_FOUND);
+        return INVALID_FILE_ATTRIBUTES;
+    }
+    res = wchar_to_unicode(&us, nt_path);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ERROR_PATH_NOT_FOUND);
+        return INVALID_FILE_ATTRIBUTES;
+    }
+
+    init_object_attr_for_files(&oa, &us, NULL, NULL);
+    res = nt_raw_QueryFullAttributesFile(&oa, &info);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return INVALID_FILE_ATTRIBUTES;
+    }
+    return info.FileAttributes;
+}
+
 
 /***************************************************************************
  * FILE MAPPING
@@ -1871,6 +1931,11 @@ test_files(void)
 
     ok = redirect_CloseHandle(h);
     EXPECT(ok, true);
+
+    /* test queries */
+    dw = redirect_GetFileAttributesA(buf);
+    EXPECT(dw != INVALID_FILE_ATTRIBUTES, true);
+
     ok = redirect_DeleteFileA(buf);
     EXPECT(ok, true);
 

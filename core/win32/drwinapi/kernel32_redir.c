@@ -140,6 +140,8 @@ static const redirect_import_t redirect_kernel32[] = {
     {"GetDiskFreeSpaceW",              (app_pc)redirect_GetDiskFreeSpaceW},
     {"GetDriveTypeA",                  (app_pc)redirect_GetDriveTypeA},
     {"GetDriveTypeW",                  (app_pc)redirect_GetDriveTypeW},
+    {"GetFileAttributesA",             (app_pc)redirect_GetFileAttributesA},
+    {"GetFileAttributesW",             (app_pc)redirect_GetFileAttributesW},
 
     /* Synchronization routines */
     {"InitializeCriticalSectionAndSpinCount",
