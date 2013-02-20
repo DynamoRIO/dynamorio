@@ -857,6 +857,24 @@ redirect_GetFileInformationByHandle(
     return TRUE;
 }
 
+DWORD
+WINAPI
+redirect_GetFileSize(
+    __in      HANDLE hFile,
+    __out_opt LPDWORD lpFileSizeHigh
+    )
+{
+    NTSTATUS res;
+    FILE_STANDARD_INFORMATION standard;
+    res = nt_query_file_info(hFile, &standard, sizeof(standard), FileStandardInformation);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return INVALID_FILE_SIZE;
+    }
+    if (lpFileSizeHigh != NULL)
+        *lpFileSizeHigh = standard.EndOfFile.HighPart;
+    return standard.EndOfFile.LowPart;
+}
 
 /***************************************************************************
  * FILE MAPPING
@@ -1932,7 +1950,7 @@ test_files(void)
     HANDLE h, h2;
     PVOID p;
     BOOL ok;
-    DWORD dw;
+    DWORD dw, dw2;
     char env[MAX_PATH];
     char buf[MAX_PATH];
     int res;
@@ -1996,6 +2014,10 @@ test_files(void)
 
     dw = redirect_GetFileAttributesA(buf);
     EXPECT(dw != INVALID_FILE_ATTRIBUTES, true);
+
+    dw = redirect_GetFileSize(h, &dw2);
+    EXPECT(dw != INVALID_FILE_SIZE, true);
+    EXPECT(dw > 0 && dw2 == 0, true);
 
     ok = redirect_CloseHandle(h);
     EXPECT(ok, true);

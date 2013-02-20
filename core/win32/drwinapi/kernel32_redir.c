@@ -143,6 +143,7 @@ static const redirect_import_t redirect_kernel32[] = {
     {"GetFileAttributesA",             (app_pc)redirect_GetFileAttributesA},
     {"GetFileAttributesW",             (app_pc)redirect_GetFileAttributesW},
     {"GetFileInformationByHandle",     (app_pc)redirect_GetFileInformationByHandle},
+    {"GetFileSize",                    (app_pc)redirect_GetFileSize},
 
     /* Synchronization routines */
     {"InitializeCriticalSectionAndSpinCount",
