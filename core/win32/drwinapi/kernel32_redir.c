@@ -51,6 +51,7 @@ static const redirect_import_t redirect_kernel32[] = {
     {"GetCurrentProcessId",            (app_pc)redirect_GetCurrentProcessId},
     {"GetCurrentThread",               (app_pc)redirect_GetCurrentThread},
     {"GetCurrentThreadId",             (app_pc)redirect_GetCurrentThreadId},
+    {"ExitProcess",                    (app_pc)redirect_ExitProcess},
     /* To avoid the FlsCallback being interpreted */
     {"FlsAlloc",                       (app_pc)redirect_FlsAlloc},
 

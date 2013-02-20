@@ -34,6 +34,7 @@
 
 #include "kernel32_redir.h" /* must be included first */
 #include "../../globals.h"
+#include "instrument.h"
 
 static DWORD (WINAPI *priv_kernel32_FlsAlloc)(PFLS_CALLBACK_FUNCTION);
 
@@ -97,6 +98,22 @@ redirect_GetCurrentProcessId(
     )
 {
     return (DWORD) get_process_id();
+}
+
+DECLSPEC_NORETURN
+VOID
+WINAPI
+redirect_ExitProcess(
+    __in UINT uExitCode
+    )
+{
+#ifdef CLIENT_INTERFACE
+    dr_exit_process(uExitCode);
+#else
+    os_terminate_with_code(get_thread_private_dcontext(), /* dcontext is required */
+                           TERMINATE_CLEANUP|TERMINATE_PROCESS, uExitCode);
+#endif
+    ASSERT_NOT_REACHED();
 }
 
 /***************************************************************************
