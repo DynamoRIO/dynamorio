@@ -1000,6 +1000,16 @@ redirect_GetDiskFreeSpaceA(
     __out_opt LPDWORD lpTotalNumberOfClusters
     );
 
+BOOL
+WINAPI
+redirect_GetDiskFreeSpaceW(
+    __in_opt  LPCWSTR lpRootPathName,
+    __out_opt LPDWORD lpSectorsPerCluster,
+    __out_opt LPDWORD lpBytesPerSector,
+    __out_opt LPDWORD lpNumberOfFreeClusters,
+    __out_opt LPDWORD lpTotalNumberOfClusters
+    );
+
 UINT
 WINAPI
 redirect_GetDriveTypeA(

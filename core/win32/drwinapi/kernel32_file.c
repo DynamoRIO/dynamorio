@@ -1068,6 +1068,113 @@ redirect_DeviceIoControl(
     return TRUE;
 }
 
+BOOL
+WINAPI
+redirect_GetDiskFreeSpaceA(
+    __in_opt  LPCSTR lpRootPathName,
+    __out_opt LPDWORD lpSectorsPerCluster,
+    __out_opt LPDWORD lpBytesPerSector,
+    __out_opt LPDWORD lpNumberOfFreeClusters,
+    __out_opt LPDWORD lpTotalNumberOfClusters
+    )
+{
+    wchar_t wbuf[MAX_PATH];
+    wchar_t *wpath = NULL;
+    int len;
+    if (lpRootPathName != NULL) {
+        len = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%hs", lpRootPathName);
+        if (len < 0) {
+            set_last_error(ERROR_PATH_NOT_FOUND);
+            return FALSE;
+        }
+        NULL_TERMINATE_BUFFER(wbuf);
+        wpath = wbuf;
+    }
+    return redirect_GetDiskFreeSpaceW(wpath, lpSectorsPerCluster, lpBytesPerSector,
+                                      lpNumberOfFreeClusters, lpTotalNumberOfClusters);
+}
+
+BOOL
+WINAPI
+redirect_GetDiskFreeSpaceW(
+    __in_opt  LPCWSTR lpRootPathName,
+    __out_opt LPDWORD lpSectorsPerCluster,
+    __out_opt LPDWORD lpBytesPerSector,
+    __out_opt LPDWORD lpNumberOfFreeClusters,
+    __out_opt LPDWORD lpTotalNumberOfClusters
+    )
+{
+    NTSTATUS res;
+    wchar_t wbuf[MAX_PATH];
+    const wchar_t *wpath = NULL;
+    wchar_t ntbuf[MAX_PATH];
+    wchar_t *nt_path = NULL;
+    size_t alloc_sz = 0;
+    HANDLE dir;
+    FILE_FS_SIZE_INFORMATION info;
+    bool use_cur_dir = false;
+
+    if (lpRootPathName == NULL)
+        use_cur_dir = true;
+    else {
+        /* Despite the man page claiming a trailing \ is needed, on win7
+         * it works fine without it.
+         * A relative path seems to turn into the cur dir.
+         * A \\server path needs a share.
+         */
+        if ((lpRootPathName[0] == L'\\' && lpRootPathName[1] == L'\\') ||
+            (lpRootPathName[0] != L'\0' && lpRootPathName[1] == L':' &&
+             lpRootPathName[2] == L'\\')) {
+            /* x:\ or \\server => take as is.  Up to the caller to pass
+             * in a directory instead of a file.
+             */
+            wpath = lpRootPathName;
+        } else
+            use_cur_dir = true;
+    }
+    if (use_cur_dir) {
+        redirect_GetCurrentDirectoryW(BUFFER_SIZE_ELEMENTS(wbuf), wbuf);
+        wpath = wbuf;
+    }
+
+    nt_path = convert_to_NT_file_path_wide(ntbuf, wpath, BUFFER_SIZE_ELEMENTS(ntbuf),
+                                           &alloc_sz);
+    if (nt_path == NULL) {
+        set_last_error(ERROR_PATH_NOT_FOUND);
+        return FALSE;
+    }
+
+    res = nt_open_file(&dir, nt_path, GENERIC_READ | FILE_LIST_DIRECTORY,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_DIRECTORY_FILE);
+
+    if (nt_path != NULL && nt_path != ntbuf)
+        convert_to_NT_file_path_wide_free(nt_path, alloc_sz);
+
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ERROR_PATH_NOT_FOUND);
+        return FALSE;
+    }
+
+    res = nt_query_volume_info(dir, &info, sizeof(info), FileFsSizeInformation);
+    if (!NT_SUCCESS(res)) {
+        close_handle(dir);
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+
+    if (lpSectorsPerCluster != NULL)
+        *lpSectorsPerCluster = info.SectorsPerAllocationUnit;
+    if (lpBytesPerSector != NULL)
+        *lpBytesPerSector = info.BytesPerSector;
+    if (lpNumberOfFreeClusters != NULL)
+        *lpNumberOfFreeClusters = info.AvailableAllocationUnits.u.LowPart;
+    if (lpTotalNumberOfClusters != NULL)
+        *lpTotalNumberOfClusters = info.TotalAllocationUnits.u.LowPart;
+    close_handle(dir);
+    return TRUE;
+}
+
+
 /***************************************************************************
  * HANDLES
  */
@@ -2083,6 +2190,38 @@ test_file_paths(void)
     EXPECT(ok, TRUE);
 }
 
+static void
+test_sizes(void)
+{
+    BOOL ok;
+    DWORD secs_per_cluster, bytes_per_sector, free_clusters, num_clusters;
+
+    ok = redirect_GetDiskFreeSpaceA("c:\\", &secs_per_cluster, &bytes_per_sector,
+                                    &free_clusters, &num_clusters);
+    EXPECT(ok, TRUE);
+    /* on win7 at least, trailing \ not required, despite man page */
+    ok = redirect_GetDiskFreeSpaceA("c:", &secs_per_cluster, &bytes_per_sector,
+                                    &free_clusters, &num_clusters);
+    EXPECT(ok, TRUE);
+    ok = redirect_GetDiskFreeSpaceA("bogus\\relative\\path",
+                                    &secs_per_cluster, &bytes_per_sector,
+                                    &free_clusters, &num_clusters);
+    EXPECT(ok, TRUE);
+    /* test passing in a file instead of a dir */
+    ok = redirect_GetDiskFreeSpaceA("c:\\windows\\system.ini",
+                                    &secs_per_cluster, &bytes_per_sector,
+                                    &free_clusters, &num_clusters);
+    EXPECT(ok, FALSE);
+    EXPECT(get_last_error(), ERROR_PATH_NOT_FOUND);
+    ok = redirect_GetDiskFreeSpaceW(L"c:\\", &secs_per_cluster, &bytes_per_sector,
+                                    &free_clusters, &num_clusters);
+    EXPECT(ok, TRUE);
+    ok = redirect_GetDiskFreeSpaceW(NULL, &secs_per_cluster, &bytes_per_sector,
+                                    &free_clusters, &num_clusters);
+    EXPECT(ok, TRUE);
+    /* I manually tested \\server => ERROR_PATH_NOT_FOUND and \\server\share => ok */
+}
+
 void
 unit_test_drwinapi_kernel32_file(void)
 {
@@ -2103,5 +2242,7 @@ unit_test_drwinapi_kernel32_file(void)
     test_find_file();
 
     test_file_paths();
+
+    test_sizes();
 }
 #endif
