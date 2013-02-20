@@ -319,6 +319,18 @@ typedef struct _FILE_FS_SIZE_INFORMATION {
     ULONG BytesPerSector;
 } FILE_FS_SIZE_INFORMATION, *PFILE_FS_SIZE_INFORMATION;
 
+typedef struct _FILE_FS_DEVICE_INFORMATION {
+    ULONG /*DEVICE_TYPE*/ DeviceType;
+    ULONG Characteristics;
+} FILE_FS_DEVICE_INFORMATION, *PFILE_FS_DEVICE_INFORMATION;
+
+/* FILE_FS_DEVICE_INFORMATION Characteristics */
+#define FILE_REMOVABLE_MEDIA                    0x00000001
+#define FILE_READ_ONLY_DEVICE                   0x00000002
+#define FILE_FLOPPY_DISKETTE                    0x00000004
+#define FILE_WRITE_ONCE_MEDIA                   0x00000008
+#define FILE_REMOTE_DEVICE                      0x00000010
+
 typedef struct _FILE_FS_FULL_SIZE_INFORMATION {
     LARGE_INTEGER TotalAllocationUnits;
     LARGE_INTEGER CallerAvailableAllocationUnits;

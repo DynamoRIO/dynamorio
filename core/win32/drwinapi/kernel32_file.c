@@ -1094,15 +1094,12 @@ redirect_GetDiskFreeSpaceA(
                                       lpNumberOfFreeClusters, lpTotalNumberOfClusters);
 }
 
-BOOL
-WINAPI
-redirect_GetDiskFreeSpaceW(
-    __in_opt  LPCWSTR lpRootPathName,
-    __out_opt LPDWORD lpSectorsPerCluster,
-    __out_opt LPDWORD lpBytesPerSector,
-    __out_opt LPDWORD lpNumberOfFreeClusters,
-    __out_opt LPDWORD lpTotalNumberOfClusters
-    )
+/* Shared among GetDiskFreeSpace and GetDriveType.
+ * Returns NULL on error.  Up to caller to call set_last_error().
+ * On success, up to user to close the handle returned.
+ */
+HANDLE
+open_dir_from_path(__in_opt  LPCWSTR lpRootPathName)
 {
     NTSTATUS res;
     wchar_t wbuf[MAX_PATH];
@@ -1111,16 +1108,15 @@ redirect_GetDiskFreeSpaceW(
     wchar_t *nt_path = NULL;
     size_t alloc_sz = 0;
     HANDLE dir;
-    FILE_FS_SIZE_INFORMATION info;
     bool use_cur_dir = false;
 
     if (lpRootPathName == NULL)
         use_cur_dir = true;
     else {
-        /* Despite the man page claiming a trailing \ is needed, on win7
-         * it works fine without it.
+        /* For GetDiskFreeSpace, despite the man page claiming a
+         * trailing \ is needed, on win7 it works fine without it.
          * A relative path seems to turn into the cur dir.
-         * A \\server path needs a share.
+         * A \\server path needs a share (\\server\share).
          */
         if ((lpRootPathName[0] == L'\\' && lpRootPathName[1] == L'\\') ||
             (lpRootPathName[0] != L'\0' && lpRootPathName[1] == L':' &&
@@ -1139,10 +1135,8 @@ redirect_GetDiskFreeSpaceW(
 
     nt_path = convert_to_NT_file_path_wide(ntbuf, wpath, BUFFER_SIZE_ELEMENTS(ntbuf),
                                            &alloc_sz);
-    if (nt_path == NULL) {
-        set_last_error(ERROR_PATH_NOT_FOUND);
-        return FALSE;
-    }
+    if (nt_path == NULL)
+        return NULL;
 
     res = nt_open_file(&dir, nt_path, GENERIC_READ | FILE_LIST_DIRECTORY,
                        FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_DIRECTORY_FILE);
@@ -1150,14 +1144,35 @@ redirect_GetDiskFreeSpaceW(
     if (nt_path != NULL && nt_path != ntbuf)
         convert_to_NT_file_path_wide_free(nt_path, alloc_sz);
 
-    if (!NT_SUCCESS(res)) {
+    if (!NT_SUCCESS(res))
+        return NULL;
+
+    return dir;
+}
+
+BOOL
+WINAPI
+redirect_GetDiskFreeSpaceW(
+    __in_opt  LPCWSTR lpRootPathName,
+    __out_opt LPDWORD lpSectorsPerCluster,
+    __out_opt LPDWORD lpBytesPerSector,
+    __out_opt LPDWORD lpNumberOfFreeClusters,
+    __out_opt LPDWORD lpTotalNumberOfClusters
+    )
+{
+    NTSTATUS res;
+    HANDLE dir;
+    FILE_FS_SIZE_INFORMATION info;
+
+    dir = open_dir_from_path(lpRootPathName);
+    if (dir == NULL) {
         set_last_error(ERROR_PATH_NOT_FOUND);
         return FALSE;
     }
 
     res = nt_query_volume_info(dir, &info, sizeof(info), FileFsSizeInformation);
+    close_handle(dir);
     if (!NT_SUCCESS(res)) {
-        close_handle(dir);
         set_last_error(ntstatus_to_last_error(res));
         return FALSE;
     }
@@ -1170,8 +1185,72 @@ redirect_GetDiskFreeSpaceW(
         *lpNumberOfFreeClusters = info.AvailableAllocationUnits.u.LowPart;
     if (lpTotalNumberOfClusters != NULL)
         *lpTotalNumberOfClusters = info.TotalAllocationUnits.u.LowPart;
-    close_handle(dir);
     return TRUE;
+}
+
+UINT
+WINAPI
+redirect_GetDriveTypeA(
+    __in_opt  LPCSTR lpRootPathName
+    )
+{
+    wchar_t wbuf[MAX_PATH];
+    wchar_t *wpath = NULL;
+    int len;
+    if (lpRootPathName != NULL) {
+        len = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"%hs", lpRootPathName);
+        if (len < 0) {
+            set_last_error(ERROR_PATH_NOT_FOUND);
+            return DRIVE_NO_ROOT_DIR;
+        }
+        NULL_TERMINATE_BUFFER(wbuf);
+        wpath = wbuf;
+    }
+    return redirect_GetDriveTypeW(wpath);
+}
+
+UINT
+WINAPI
+redirect_GetDriveTypeW(
+    __in_opt  LPCWSTR lpRootPathName
+    )
+{
+    NTSTATUS res;
+    HANDLE dir;
+    FILE_FS_DEVICE_INFORMATION info;
+
+    dir = open_dir_from_path(lpRootPathName);
+    if (dir == NULL) {
+        set_last_error(ERROR_NOT_A_REPARSE_POINT); /* observed error code */
+        return DRIVE_NO_ROOT_DIR;
+    }
+
+    res = nt_query_volume_info(dir, &info, sizeof(info), FileFsDeviceInformation);
+    close_handle(dir);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return DRIVE_NO_ROOT_DIR;
+    }
+
+    switch (info.DeviceType) {
+    case FILE_DEVICE_DISK:
+    case FILE_DEVICE_DISK_FILE_SYSTEM: {
+        if (TEST(FILE_REMOVABLE_MEDIA, info.Characteristics))
+            return DRIVE_REMOVABLE;
+        else if (TEST(FILE_REMOTE_DEVICE, info.Characteristics))
+            return DRIVE_REMOTE;
+        else
+            return DRIVE_FIXED;
+    }
+    case FILE_DEVICE_CD_ROM:
+    case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
+        return DRIVE_CDROM;
+    case FILE_DEVICE_VIRTUAL_DISK:
+        return DRIVE_RAMDISK;
+    case FILE_DEVICE_NETWORK_FILE_SYSTEM:
+        return DRIVE_REMOTE;
+    }
+    return DRIVE_UNKNOWN;
 }
 
 
@@ -2191,10 +2270,11 @@ test_file_paths(void)
 }
 
 static void
-test_sizes(void)
+test_drive(void)
 {
     BOOL ok;
     DWORD secs_per_cluster, bytes_per_sector, free_clusters, num_clusters;
+    UINT type;
 
     ok = redirect_GetDiskFreeSpaceA("c:\\", &secs_per_cluster, &bytes_per_sector,
                                     &free_clusters, &num_clusters);
@@ -2220,6 +2300,23 @@ test_sizes(void)
                                     &free_clusters, &num_clusters);
     EXPECT(ok, TRUE);
     /* I manually tested \\server => ERROR_PATH_NOT_FOUND and \\server\share => ok */
+
+    EXPECT(redirect_GetDriveTypeA("c:\\"), DRIVE_FIXED);
+    type = redirect_GetDriveTypeA("bogus\\relative\\path");
+    EXPECT(type == DRIVE_FIXED ||
+           /* handle tester's cur dir being elsewhere */
+           type == DRIVE_RAMDISK || type == DRIVE_REMOTE, true);
+    type = redirect_GetDriveTypeA(NULL);
+    EXPECT(type == DRIVE_FIXED ||
+           /* handle tester's cur dir being elsewhere */
+           type == DRIVE_RAMDISK || type == DRIVE_REMOTE, true);
+    /* test passing in a file instead of a dir */
+    EXPECT(redirect_GetDriveTypeA("c:\\windows\\system.ini"), DRIVE_NO_ROOT_DIR);
+    EXPECT(redirect_GetDriveTypeW(L"c:\\"), DRIVE_FIXED);
+    EXPECT(redirect_GetDriveTypeW(NULL), DRIVE_FIXED);
+    EXPECT(redirect_GetDriveTypeW(L"\\\\bogusserver\\bogusshare"), DRIVE_NO_ROOT_DIR);
+    EXPECT(get_last_error() == ERROR_NOT_A_REPARSE_POINT, true);
+    /* manually tested \\server => DRIVE_NO_ROOT_DIR. \\server\share\ => DRIVE_REMOTE */
 }
 
 void
@@ -2243,6 +2340,6 @@ unit_test_drwinapi_kernel32_file(void)
 
     test_file_paths();
 
-    test_sizes();
+    test_drive();
 }
 #endif

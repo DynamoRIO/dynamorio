@@ -138,6 +138,8 @@ static const redirect_import_t redirect_kernel32[] = {
     {"FlushFileBuffers",               (app_pc)redirect_FlushFileBuffers},
     {"GetDiskFreeSpaceA",              (app_pc)redirect_GetDiskFreeSpaceA},
     {"GetDiskFreeSpaceW",              (app_pc)redirect_GetDiskFreeSpaceW},
+    {"GetDriveTypeA",                  (app_pc)redirect_GetDriveTypeA},
+    {"GetDriveTypeW",                  (app_pc)redirect_GetDriveTypeW},
 
     /* Synchronization routines */
     {"InitializeCriticalSectionAndSpinCount",

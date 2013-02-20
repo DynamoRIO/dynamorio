@@ -1565,6 +1565,9 @@ query_full_attributes_file(PCWSTR filename,
 /* An attempt was made to access an exiting process. */
 #define STATUS_PROCESS_IS_TERMINATING    ((NTSTATUS)0xC000010AL)
 
+/* The NTFS file or directory is not a reparse point. */
+#define STATUS_NOT_A_REPARSE_POINT       ((NTSTATUS)0xC0000275L)
+
 /* This is in VS2005 winnt.h but not in SDK winnt.h */
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION
 # define IMAGE_SIZEOF_BASE_RELOCATION         8
