@@ -876,6 +876,49 @@ redirect_GetFileSize(
     return standard.EndOfFile.LowPart;
 }
 
+DWORD
+WINAPI
+redirect_GetFileType(
+    __in HANDLE hFile
+    )
+{
+    NTSTATUS res;
+    FILE_FS_DEVICE_INFORMATION info;
+    res = nt_query_volume_info(hFile, &info, sizeof(info), FileFsDeviceInformation);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FILE_TYPE_UNKNOWN;
+    }
+
+    set_last_error(NO_ERROR);
+    switch (info.DeviceType) {
+    case FILE_DEVICE_CD_ROM:
+    case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
+    case FILE_DEVICE_CONTROLLER:
+    case FILE_DEVICE_DATALINK:
+    case FILE_DEVICE_DFS:
+    case FILE_DEVICE_DISK:
+    case FILE_DEVICE_DISK_FILE_SYSTEM:
+    case FILE_DEVICE_VIRTUAL_DISK:
+        return FILE_TYPE_DISK;
+
+    case FILE_DEVICE_KEYBOARD:
+    case FILE_DEVICE_MOUSE:
+    case FILE_DEVICE_NULL:
+    case FILE_DEVICE_PARALLEL_PORT:
+    case FILE_DEVICE_PRINTER:
+    case FILE_DEVICE_SERIAL_PORT:
+    case FILE_DEVICE_SCREEN:
+    case FILE_DEVICE_SOUND:
+    case FILE_DEVICE_MODEM:
+        return FILE_TYPE_CHAR;
+
+    case FILE_DEVICE_NAMED_PIPE:
+        return FILE_TYPE_PIPE;
+    }
+    return FILE_TYPE_UNKNOWN;
+}
+
 /***************************************************************************
  * FILE MAPPING
  */
@@ -2019,6 +2062,9 @@ test_files(void)
     EXPECT(dw != INVALID_FILE_SIZE, true);
     EXPECT(dw > 0 && dw2 == 0, true);
 
+    dw = redirect_GetFileType(h);
+    EXPECT(dw == FILE_TYPE_DISK, true);
+
     ok = redirect_CloseHandle(h);
     EXPECT(ok, true);
     ok = redirect_DeleteFileA(buf);
@@ -2135,6 +2181,8 @@ test_pipe(void)
     ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD) &res, NULL);
     EXPECT(ok, true);
     EXPECT((HANDLE)p == h2, true);
+    res = redirect_GetFileType(h);
+    EXPECT(res == FILE_TYPE_PIPE, true);
     ok = redirect_DuplicateHandle(GetCurrentProcess(), h, GetCurrentProcess(), &h3,
                                   0, FALSE, 0);
     EXPECT(ok, true);
