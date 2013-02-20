@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -326,6 +326,10 @@ mark_executable_area_coarse_frozen(coarse_info_t *info);
  */
 bool
 is_executable_area_writable(app_pc addr);
+
+/* combines is_executable_area_writable and is_pretend_writable_address */
+bool
+is_pretend_or_executable_writable(app_pc addr);
 
 bool
 was_executable_area_writable(app_pc addr);

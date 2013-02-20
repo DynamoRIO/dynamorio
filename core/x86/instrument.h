@@ -1957,6 +1957,10 @@ DR_API
  *
  * \note To examine only application memory, skip memory for which
  * dr_memory_is_dr_internal() or dr_memory_is_in_client() returns true.
+ *
+ * \note DR may mark writable code pages as read-only but pretend they're
+ * writable.  When this happens, it will include both #DR_MEMPROT_WRITE
+ * and #DR_MEMPROT_PRETEND_WRITE in \p prot.
  */
 bool
 dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot);
@@ -1971,6 +1975,10 @@ DR_API
  *
  * \note To examine only application memory, skip memory for which
  * dr_memory_is_dr_internal() returns true.
+ *
+ * \note DR may mark writable code pages as read-only but pretend they're
+ * writable.  When this happens, it will include both #DR_MEMPROT_WRITE
+ * and #DR_MEMPROT_PRETEND_WRITE in \p info->prot.
  */
 bool
 dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
@@ -1978,13 +1986,18 @@ dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
 /* DR_API EXPORT BEGIN */
 #ifdef WINDOWS 
 /* DR_API EXPORT END */
-/* NOTE - see fixme for dr_query_memory - PR 198873. */
 DR_API
 /**
  * Equivalent to the win32 API function VirtualQuery().
  * See that routine for a description of
  * arguments and return values.  \note Windows-only.
- */
+  *
+ * \note DR may mark writable code pages as read-only but pretend they're
+ * writable.  When this happens, this routine will indicate that the
+ * memory is writable.  Call dr_query_memory() or dr_query_memory_ex()
+ * before attempting to write to application memory to ensure it's
+ * not read-only underneath.
+*/
 size_t
 dr_virtual_query(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbi_size);
 /* DR_API EXPORT BEGIN */

@@ -9,3 +9,4 @@ code cache:
   testing global memory alloc...success
   testing nonheap memory alloc...success
   testing raw memory alloc...success
+  testing query pretend-write....success

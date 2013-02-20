@@ -3160,6 +3160,15 @@ is_executable_area_writable_overlap(app_pc start, app_pc end,
 }
 #endif
 
+bool
+is_pretend_or_executable_writable(app_pc addr)
+{
+    /* see if asking about an executable area we made read-only */
+    return (is_executable_area_writable(addr) ||
+            (USING_PRETEND_WRITABLE() &&
+             is_pretend_writable_address(addr)));
+}
+
 /* Returns true if region [start, end) overlaps any regions that are
  * marked as FRAG_COARSE_GRAIN.
  */

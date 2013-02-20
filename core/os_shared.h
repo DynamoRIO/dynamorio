@@ -363,6 +363,15 @@ char *get_dynamorio_library_path(void);
 #ifdef WINDOWS
 # define DR_MEMPROT_GUARD 0x08 /**< Guard page (Windows only) */
 #endif
+/**
+ * DR's default cache consistency strategy modifies the page protection of
+ * pages containing code, making them read-only.  It pretends on application
+ * and client queries that the application is writable.  However, a client
+ * that writes to the memory will fault, and should check this flag to determine
+ * whether doing so is safe.  If the application writes to such memory, DR
+ * handles it automatically.
+ */
+#define DR_MEMPROT_PRETEND_WRITE 0x10
 
 /**
  * Flags describing memory used by dr_query_memory_ex().

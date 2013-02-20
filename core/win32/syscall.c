@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3108,9 +3108,7 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
     if (is_phandle_me(process_handle)) {
         if (class == MemoryBasicInformation) {
             /* see if asking about an executable area we made read-only */
-            if (is_executable_area_writable(base) ||
-                (USING_PRETEND_WRITABLE() &&
-                 is_pretend_writable_address(base))) {
+            if (is_pretend_or_executable_writable(base)) {
                 /* pretend area is writable */
                 uint flags =
                     mbi->Protect & ~PAGE_PROTECTION_QUALIFIERS;

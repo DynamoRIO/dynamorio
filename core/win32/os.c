@@ -1809,6 +1809,18 @@ osprot_add_writecopy(uint prot)
     return prot;
 }
 
+/* does not change prot if it doesn't already have read access */
+static uint
+osprot_add_write(uint prot)
+{
+    int pr = prot & ~PAGE_PROTECTION_QUALIFIERS;
+    switch (pr) {
+    case PAGE_READONLY: return (prot & (~pr)) | PAGE_READWRITE;
+    case PAGE_EXECUTE_READ: return (prot & (~pr)) | PAGE_EXECUTE_READWRITE;
+    }
+    return prot;
+}
+
 /* returns osprot flags preserving all native protection flags except
  * for RWX, which are replaced according to memprot */
 uint
@@ -4162,6 +4174,26 @@ get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot)
             *prot = osprot_to_memprot(mbi.Protect);
     }
     return true;
+}
+
+DR_API
+/* Calls NtQueryVirtualMemory. */
+size_t
+dr_virtual_query(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbi_size)
+{
+    size_t res = query_virtual_memory(pc, mbi, mbi_size);
+    if (is_pretend_or_executable_writable((app_pc)pc)) {
+        /* We can't assert !prot_is_writable(mbi->Protect) b/c we mark selfmod
+         * as executable-but-writable and we'll come here.
+         */
+        /* We can't easily add an analogue of DR_MEMPROT_PRETEND_WRITE b/c
+         * users won't expect it due to the bulk of the flags not being
+         * bitmasks.  Should we not pretend these regions are writable, then?
+         * User can always call dr_query_memory().
+         */
+        mbi->Protect = osprot_add_write(mbi->Protect);
+    }
+    return res;
 }
 
 /* It is ok to pass NULL for dcontext */

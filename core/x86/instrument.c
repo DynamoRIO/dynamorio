@@ -2557,13 +2557,12 @@ dr_memory_is_readable(const byte *pc, size_t size)
 }
 
 DR_API
-/* OS neutral memory query for clients, just wrapper around our get_memory_info().
- * FIXME i#143/PR 214872/PR 198873: do something about executable
- * areas we made non-writable
- */
+/* OS neutral memory query for clients, just wrapper around our get_memory_info(). */
 bool
 dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
 {
+    uint real_prot;
+    bool res;
 #if defined(LINUX) && defined(HAVE_PROC_MAPS)
     /* xref PR 246897 - the cached all memory list can have problems when
      * out-of-process entities change the mapings. For now we use the from
@@ -2572,36 +2571,41 @@ dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
      * XXX i#853: We could decide allmem vs os with the use_all_memory_areas
      * option.
      */
-    return get_memory_info_from_os(pc, base_pc, size, prot);
+    res = get_memory_info_from_os(pc, base_pc, size, &real_prot);
 #else 
-    return get_memory_info(pc, base_pc, size, prot);
+    res = get_memory_info(pc, base_pc, size, &real_prot);
 #endif
+    if (prot != NULL) {
+        if (is_pretend_or_executable_writable((app_pc)pc)) {
+            /* We can't assert there's no DR_MEMPROT_WRITE b/c we mark selfmod
+             * as executable-but-writable and we'll come here.
+             */
+            real_prot |= DR_MEMPROT_WRITE | DR_MEMPROT_PRETEND_WRITE;
+        }
+        *prot = real_prot;
+    }
+    return res;
 }
 
 DR_API
 bool
 dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
 {
+    bool res;
 #if defined(LINUX) && defined(HAVE_PROC_MAPS)
     /* PR 246897: all_memory_areas not ready for prime time */
-    return query_memory_ex_from_os(pc, info);
+    res = query_memory_ex_from_os(pc, info);
 #else
-    return query_memory_ex(pc, info);
+    res = query_memory_ex(pc, info);
 #endif
+    if (is_pretend_or_executable_writable((app_pc)pc)) {
+        /* We can't assert there's no DR_MEMPROT_WRITE b/c we mark selfmod
+         * as executable-but-writable and we'll come here.
+         */
+        info->prot |= DR_MEMPROT_WRITE | DR_MEMPROT_PRETEND_WRITE;
+    }
+    return res;
 }
-
-#ifdef WINDOWS
-DR_API
-/* Calls NtQueryVirtualMemory.
- * FIXME i#143/PR 214872/PR 198873: do something about executable
- * areas we made non-writable
- */
-size_t
-dr_virtual_query(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbi_size)
-{
-    return query_virtual_memory(pc, mbi, mbi_size);
-}
-#endif
 
 DR_API
 /* Wrapper around our safe_read. Xref P4 198875, placeholder till we have try/except */

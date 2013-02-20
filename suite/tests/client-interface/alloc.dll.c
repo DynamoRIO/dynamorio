@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,6 +32,7 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 
 char *global;
 #define SIZE 10
@@ -170,6 +172,44 @@ dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_t
         dr_cleanup_after_call(drcontext, bb, instr, 0);
 
         inserted = true;
+    }
+
+    /* Match nop,nop,nop,ret in client's +w code */
+    if (instr_get_opcode(instrlist_first(bb)) == OP_nop) {
+        instr_t *nxt = instr_get_next(instrlist_first(bb));
+        if (nxt != NULL && instr_get_opcode(nxt) == OP_nop) {
+            nxt = instr_get_next(nxt);
+            if (nxt != NULL && instr_get_opcode(nxt) == OP_nop) {
+                nxt = instr_get_next(nxt);
+                if (nxt != NULL && instr_get_opcode(nxt) == OP_ret) {
+                    uint prot;
+                    dr_mem_info_t info;
+                    app_pc pc = dr_fragment_app_pc(tag);
+#ifdef WINDOWS
+                    MEMORY_BASIC_INFORMATION mbi;
+#endif
+                    dr_fprintf(STDERR, "  testing query pretend-write....");
+
+                    if (!dr_query_memory(pc, NULL, NULL, &prot))
+                        dr_fprintf(STDERR, "error: unable to query code prot\n");
+                    if (!TESTALL(DR_MEMPROT_WRITE | DR_MEMPROT_PRETEND_WRITE, prot))
+                        dr_fprintf(STDERR, "error: not pretend-writable\n");
+
+                    if (!dr_query_memory_ex(pc, &info))
+                        dr_fprintf(STDERR, "error: unable to query code prot\n");
+                    if (!TESTALL(DR_MEMPROT_WRITE | DR_MEMPROT_PRETEND_WRITE, info.prot))
+                        dr_fprintf(STDERR, "error: not pretend-writable\n");
+
+#ifdef WINDOWS
+                    if (dr_virtual_query(pc, &mbi, sizeof(mbi)) != sizeof(mbi))
+                        dr_fprintf(STDERR, "error: unable to query code prot\n");
+                    if (mbi.Protect != PAGE_EXECUTE_READWRITE)
+                        dr_fprintf(STDERR, "error: not pretend-writable\n");
+#endif
+                    dr_fprintf(STDERR, "success\n");
+                }
+            }
+        }
     }
 
     /* store, since we're not deterministic */
