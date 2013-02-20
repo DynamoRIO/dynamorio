@@ -38,6 +38,8 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_ 1
 
+#include "dr_config.h"  /* for dr_platform_t */
+
 void
 config_init(void);
 
@@ -62,6 +64,7 @@ get_config_val_ex(const char *var, bool *app_specific, bool *from_env);
 
 bool
 get_config_val_other_app(const char *appname, process_id_t pid,
+                         dr_platform_t platform,
                          const char *var, char *val, size_t valsz,
                          bool *app_specific, bool *from_env, bool *from_1config);
 

@@ -416,7 +416,7 @@ find_dynamo_library(void)
                      comment_buffer);
         if (len < 4)
             comment_buffer[0] = '\0';
-        if (strstr(comment_buffer, "dynamorio") != 0) {
+        if (strstr(comment_buffer, "libdynamorio.so") != 0) {
             fclose(maps);
             return true;
         }

@@ -1181,6 +1181,8 @@ module_get_nth_segment(app_pc module_base, uint n,
     return res;
 }
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
 size_t
 module_get_header_size(app_pc module_base)
 {
@@ -1196,19 +1198,35 @@ module_get_header_size(app_pc module_base)
 }
 
 bool
-file_is_elf64(file_t f)
+get_elf_platform(file_t f, dr_platform_t *platform)
 {
-    /* on error, assume same arch as us */
-    bool res = IF_X64_ELSE(true, false);
     elf_generic_header_t elf_header;
     if (os_read(f, &elf_header, sizeof(elf_header)) != sizeof(elf_header))
-        return res;
+        return false;
     if (!is_elf_so_header_common((app_pc)&elf_header, sizeof(elf_header), false))
-        return res;
-    ASSERT(offsetof(Elf64_Ehdr, e_machine) == 
+        return false;
+    ASSERT(offsetof(Elf64_Ehdr, e_machine) ==
            offsetof(Elf32_Ehdr, e_machine));
-    return (elf_header.elf64.e_machine == EM_X86_64);
+    switch (elf_header.elf64.e_machine) {
+    case EM_X86_64: *platform = DR_PLATFORM_64BIT; break;
+    case EM_386:    *platform = DR_PLATFORM_32BIT; break;
+    default:
+        return false;
+    }
+    return true;
 }
+
+bool
+file_is_elf64(file_t f)
+{
+    dr_platform_t platform;
+    if (get_elf_platform(f, &platform))
+        return platform == DR_PLATFORM_64BIT;
+    /* on error, assume same arch as us */
+    return IF_X64_ELSE(true, false);
+}
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 /* returns true if the module is marked as having text relocations.
  * XXX: should we also have a routine that walks the relocs (once that

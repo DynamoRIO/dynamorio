@@ -1047,12 +1047,12 @@ dr_register_process(const char *process_name,
 
     /* set the autoinject string (i.e., path to dynamorio.dll */
     if (debug) {
-        if (!platform_is_64bit(get_dr_platform()))
+        if (!platform_is_64bit(dr_platform))
             _sntprintf(wbuf, MAXIMUM_PATH, _TEXT(TSTR_FMT)DEBUG32_DLL, dr_root_dir);
         else
             _sntprintf(wbuf, MAXIMUM_PATH, _TEXT(TSTR_FMT)DEBUG64_DLL, dr_root_dir);
     } else {
-        if (!platform_is_64bit(get_dr_platform()))
+        if (!platform_is_64bit(dr_platform))
             _sntprintf(wbuf, MAXIMUM_PATH, _TEXT(TSTR_FMT)RELEASE32_DLL, dr_root_dir);
         else
             _sntprintf(wbuf, MAXIMUM_PATH, _TEXT(TSTR_FMT)RELEASE64_DLL, dr_root_dir);

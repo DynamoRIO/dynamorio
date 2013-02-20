@@ -231,8 +231,8 @@ const char *usage_str =
 #ifdef LINUX
     "       -killpg            Create a new process group for the app.  If the app\n"
     "                          times out, kill the entire process group.  This forces\n"
-    "                          the child to be a new process with a new pid, rather than\n"
-    "                          reusing the parent's pid.\n"
+    "                          the child to be a new process with a new pid, rather\n"
+    "                          than reusing the parent's pid.\n"
 #endif
     "       -stats             Print /usr/bin/time-style elapsed time and memory used.\n"
     "       -mem               Print memory usage statistics.\n"
@@ -842,7 +842,9 @@ int main(int argc, char *argv[])
         }
 
         /* params with an arg */
-        if (strcmp(argv[i], "-root") == 0) {
+        if (strcmp(argv[i], "-root") == 0 ||
+            /* support -dr_home alias used by script */
+            strcmp(argv[i], "-dr_home") == 0) {
             dr_root = argv[++i];
         }
 #ifdef DRCONFIG

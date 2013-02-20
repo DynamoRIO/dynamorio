@@ -1055,7 +1055,7 @@ get_process_parameter_ex(HANDLE phandle, const char *name, char *value, int maxl
     NULL_TERMINATE_BUFFER(short_unqual_name);
     snprintf(appname, BUFFER_SIZE_ELEMENTS(appname), "%ls", short_unqual_name);
     NULL_TERMINATE_BUFFER(appname);
-    if (!get_config_val_other_app(appname, pid, name, value, maxlen,
+    if (!get_config_val_other_app(appname, pid, DR_PLATFORM_DEFAULT, name, value, maxlen,
                                   &app_specific, NULL, &from_1config) ||
         (!consider_1config && from_1config))
         return GET_PARAMETER_FAILURE;

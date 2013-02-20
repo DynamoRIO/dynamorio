@@ -610,10 +610,19 @@ get_config_val_other(const char *appname, process_id_t pid, const char *sfx,
 
 bool
 get_config_val_other_app(const char *appname, process_id_t pid,
+                         dr_platform_t platform,
                          const char *var, char *val, size_t valsz,
                          bool *app_specific, bool *from_env, bool *from_1config)
 {
-    return get_config_val_other(appname, pid, CFG_SFX, var, val, valsz,
+    const char *sfx;;
+    switch (platform) {
+    case DR_PLATFORM_DEFAULT: sfx = CFG_SFX;    break;
+    case DR_PLATFORM_32BIT:   sfx = CFG_SFX_32; break;
+    case DR_PLATFORM_64BIT:   sfx = CFG_SFX_64; break;
+    default:
+        return false;  /* invalid parms */
+    }
+    return get_config_val_other(appname, pid, sfx, var, val, valsz,
                                 app_specific, from_env, from_1config);
 }
 

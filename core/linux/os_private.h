@@ -43,6 +43,7 @@
 #include "module.h" /* for os_module_data_t */
 #include "instr.h" /* for reg_id_t */
 #include <sys/time.h> /* struct itimerval */
+#include "dr_config.h" /* for dr_platform_t */
 
 /* for inline asm */
 #ifdef X64
@@ -237,6 +238,7 @@ bool module_read_program_header(app_pc base,
 
 void os_request_live_coredump(const char *msg);
 bool file_is_elf64(file_t f);
+bool get_elf_platform(file_t f, dr_platform_t *platform);
 
 /* helper routines for using futex(2). See i#96/PR 295561. in os.c */
 ptr_int_t 
