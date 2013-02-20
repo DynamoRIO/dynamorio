@@ -324,6 +324,14 @@ typedef struct _FILE_FS_DEVICE_INFORMATION {
     ULONG Characteristics;
 } FILE_FS_DEVICE_INFORMATION, *PFILE_FS_DEVICE_INFORMATION;
 
+typedef struct _FILE_FS_VOLUME_INFORMATION {
+    LARGE_INTEGER VolumeCreationTime;
+    ULONG VolumeSerialNumber;
+    ULONG VolumeLabelLength;
+    BOOLEAN SupportsObjects;
+    WCHAR VolumeLabel[1];
+} FILE_FS_VOLUME_INFORMATION, *PFILE_FS_VOLUME_INFORMATION;
+
 /* FILE_FS_DEVICE_INFORMATION Characteristics */
 #define FILE_REMOVABLE_MEDIA                    0x00000001
 #define FILE_READ_ONLY_DEVICE                   0x00000002

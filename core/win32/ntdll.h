@@ -1618,7 +1618,11 @@ typedef struct _FILE_STANDARD_INFORMATION {
     BOOLEAN DeletePending;                                  
     BOOLEAN Directory;                                      
 } FILE_STANDARD_INFORMATION, *PFILE_STANDARD_INFORMATION;   
-                                                            
+
+typedef struct _FILE_INTERNAL_INFORMATION {
+    LARGE_INTEGER IndexNumber;
+} FILE_INTERNAL_INFORMATION, *PFILE_INTERNAL_INFORMATION;
+                                                  
 typedef struct _FILE_POSITION_INFORMATION {                 
     LARGE_INTEGER CurrentByteOffset;                        
 } FILE_POSITION_INFORMATION, *PFILE_POSITION_INFORMATION;   

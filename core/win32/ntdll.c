@@ -4896,7 +4896,10 @@ nt_query_volume_info(IN HANDLE FileHandle,
         NTPRINT("nt_query_volume_info: can't open file, res: %x\n", res);
     }
     else {
-        ASSERT(iob.Information == FsInformationLength);
+        ASSERT(iob.Information == FsInformationLength ||
+               /* volume info needs a big buffer so ok to be oversized */
+               (FsInformationClass == FileFsVolumeInformation &&
+                iob.Information >= offsetof(FILE_FS_VOLUME_INFORMATION, VolumeLabel)));
     }
     return res;
 }

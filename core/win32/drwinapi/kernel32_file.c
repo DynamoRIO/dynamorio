@@ -141,6 +141,14 @@ init_object_attr_for_files(OBJECT_ATTRIBUTES *oa, UNICODE_STRING *us,
         oa->SecurityQualityOfService = sqos;
 }
 
+static void
+largeint_to_filetime(const LARGE_INTEGER *li, FILETIME *ft OUT)
+{
+    ft->dwHighDateTime = li->HighPart;
+    ft->dwLowDateTime = li->LowPart;
+}
+
+
 /***************************************************************************
  * DIRECTORIES
  */
@@ -792,6 +800,63 @@ redirect_GetFileAttributesW(
     return info.FileAttributes;
 }
 
+BOOL
+WINAPI
+redirect_GetFileInformationByHandle(
+    __in  HANDLE hFile,
+    __out LPBY_HANDLE_FILE_INFORMATION lpFileInformation
+    )
+{
+    NTSTATUS res;
+    FILE_BASIC_INFORMATION basic;
+    FILE_STANDARD_INFORMATION standard;
+    FILE_INTERNAL_INFORMATION internal;
+    byte volume_buf[sizeof(FILE_FS_VOLUME_INFORMATION) + sizeof(wchar_t)*MAX_PATH];
+    FILE_FS_VOLUME_INFORMATION *volume = (FILE_FS_VOLUME_INFORMATION *) volume_buf;
+
+    if (lpFileInformation == NULL) {
+        set_last_error(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
+    res = nt_query_file_info(hFile, &basic, sizeof(basic), FileBasicInformation);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    lpFileInformation->dwFileAttributes = basic.FileAttributes;
+    largeint_to_filetime(&basic.CreationTime, &lpFileInformation->ftCreationTime);
+    largeint_to_filetime(&basic.LastAccessTime, &lpFileInformation->ftLastAccessTime);
+    largeint_to_filetime(&basic.LastWriteTime, &lpFileInformation->ftLastWriteTime);
+
+    res = nt_query_file_info(hFile, &internal, sizeof(internal), FileInternalInformation);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    lpFileInformation->nFileIndexHigh = internal.IndexNumber.HighPart;
+    lpFileInformation->nFileIndexLow = internal.IndexNumber.LowPart;
+
+    res = nt_query_volume_info(hFile, volume, sizeof(volume_buf),
+                               FileFsVolumeInformation);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    lpFileInformation->dwVolumeSerialNumber = volume->VolumeSerialNumber;
+
+    res = nt_query_file_info(hFile, &standard, sizeof(standard), FileStandardInformation);
+    if (!NT_SUCCESS(res)) {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+    lpFileInformation->nNumberOfLinks = standard.NumberOfLinks;
+    lpFileInformation->nFileSizeHigh = standard.EndOfFile.HighPart;
+    lpFileInformation->nFileSizeLow = standard.EndOfFile.LowPart;
+
+    return TRUE;
+}
+
 
 /***************************************************************************
  * FILE MAPPING
@@ -1439,13 +1504,6 @@ redirect_GetSystemTimeAsFileTime(
     redirect_SystemTimeToFileTime(&st, lpSystemTimeAsFileTime);
 }
 
-static void
-largeint_to_filetime(const LARGE_INTEGER *li, FILETIME *ft OUT)
-{
-    ft->dwHighDateTime = li->HighPart;
-    ft->dwLowDateTime = li->LowPart;
-}
-
 BOOL
 WINAPI
 redirect_GetFileTime(
@@ -1880,6 +1938,7 @@ test_files(void)
     int res;
     OVERLAPPED overlap = {0,};
     HANDLE e;
+    BY_HANDLE_FILE_INFORMATION byh_info;
 
     res = GetEnvironmentVariableA("TMP", env, BUFFER_SIZE_ELEMENTS(env));
     EXPECT(res > 0, true);
@@ -1929,13 +1988,17 @@ test_files(void)
     EXPECT(dw == sizeof(h2), true);
     EXPECT((HANDLE)p == h2, true);
 
-    ok = redirect_CloseHandle(h);
-    EXPECT(ok, true);
-
     /* test queries */
+    memset(&byh_info, 0, sizeof(byh_info));
+    ok = redirect_GetFileInformationByHandle(h, &byh_info);
+    EXPECT(ok, TRUE);
+    EXPECT(byh_info.nFileSizeLow != 0, true);
+
     dw = redirect_GetFileAttributesA(buf);
     EXPECT(dw != INVALID_FILE_ATTRIBUTES, true);
 
+    ok = redirect_CloseHandle(h);
+    EXPECT(ok, true);
     ok = redirect_DeleteFileA(buf);
     EXPECT(ok, true);
 
