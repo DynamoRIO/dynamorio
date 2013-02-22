@@ -402,7 +402,7 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
 }
 
 /* i#955: we support a <basename>.drpath text file listing search paths.
- * XXX: should we support something like DR_RPATH's $ORIGIN for relative
+ * XXX i#1078: should we support something like DT_RPATH's $ORIGIN for relative
  * entries in this file?
  */
 static void
