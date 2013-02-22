@@ -146,6 +146,8 @@ static const redirect_import_t redirect_kernel32[] = {
     {"GetFileInformationByHandle",     (app_pc)redirect_GetFileInformationByHandle},
     {"GetFileSize",                    (app_pc)redirect_GetFileSize},
     {"GetFileType",                    (app_pc)redirect_GetFileType},
+    /* skipped a few in alpha order, to focus on those invoked by dbghelp */
+    {"GetStdHandle",                   (app_pc)redirect_GetStdHandle},
 
     /* Synchronization routines */
     {"InitializeCriticalSectionAndSpinCount",

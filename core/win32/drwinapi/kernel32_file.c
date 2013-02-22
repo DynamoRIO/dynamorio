@@ -1474,6 +1474,21 @@ redirect_DuplicateHandle(
     return NT_SUCCESS(res);
 }
 
+HANDLE
+WINAPI
+redirect_GetStdHandle(
+    __in DWORD nStdHandle
+    )
+{
+    switch (nStdHandle) {
+    case STD_INPUT_HANDLE: return get_stdin_handle();
+    case STD_OUTPUT_HANDLE: return get_stdout_handle();
+    case STD_ERROR_HANDLE: return get_stderr_handle();
+    }
+    set_last_error(ERROR_INVALID_PARAMETER);
+    return INVALID_HANDLE_VALUE;
+}
+
 /***************************************************************************
  * FILE TIME
  */
@@ -2517,6 +2532,19 @@ test_drive(void)
     /* manually tested \\server => DRIVE_NO_ROOT_DIR. \\server\share\ => DRIVE_REMOTE */
 }
 
+static void
+test_handles(void)
+{
+    HANDLE h;
+    BOOL ok;
+    DWORD written;
+    const char *msg = "GetStdHandle test\n";
+
+    h = redirect_GetStdHandle(STD_ERROR_HANDLE);
+    ok = redirect_WriteFile(h, msg, (DWORD) strlen(msg), &written, NULL);
+    EXPECT(ok && written == strlen(msg), true);
+}
+
 void
 unit_test_drwinapi_kernel32_file(void)
 {
@@ -2539,5 +2567,7 @@ unit_test_drwinapi_kernel32_file(void)
     test_file_paths();
 
     test_drive();
+
+    test_handles();
 }
 #endif

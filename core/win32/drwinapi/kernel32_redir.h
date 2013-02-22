@@ -1074,7 +1074,6 @@ redirect_GetFullPathNameW(
     __deref_opt_out LPWSTR *lpFilePart
     );
 
-__out
 HANDLE
 WINAPI
 redirect_GetStdHandle(
