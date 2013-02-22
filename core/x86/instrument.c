@@ -3683,7 +3683,7 @@ dr_write_to_console(bool to_stdout, const char *fmt, va_list ap)
     uint written;
     int len;
     HANDLE std;
-    CLIENT_ASSERT(!dr_using_console(), "internal logic error");
+    CLIENT_ASSERT(dr_using_console(), "internal logic error");
     ASSERT(priv_kernel32 != NULL &&
            kernel32_WriteFile != NULL);
     /* kernel32!GetStdHandle(STD_OUTPUT_HANDLE) == our PEB-based get_stdout_handle */
