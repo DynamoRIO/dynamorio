@@ -427,7 +427,7 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   set(${flags_out} "${extra_cflags}" PARENT_SCOPE)
 endfunction (DynamoRIO_extra_cflags)
 
-function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
+function (configure_DynamoRIO_common target is_client x64_var defs_var)
   get_lang(${target} tgt_lang)
   if (${tgt_lang} MATCHES CXX)
     set(tgt_cxx ON)
@@ -616,16 +616,20 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var link_var)
       SKIP_BUILD_RPATH ON)
   endif (use_rpath)
 
+  # Append LINK_FLAGS
+  append_property_string(TARGET ${target} LINK_FLAGS "${tgt_link_flags}")
+
   # Pass data to caller
   set(${x64_var} ${tgt_x64} PARENT_SCOPE)
   set(${defs_var} "${tgt_cflags}" PARENT_SCOPE)
-  set(${link_var} "${tgt_link_flags}" PARENT_SCOPE)
 
 endfunction (configure_DynamoRIO_common)
 
 
 function (configure_DynamoRIO_client target)
-  configure_DynamoRIO_common(${target} ON tgt_x64 tgt_cflags tgt_link_flags)
+  # We clear LINK_FLAGS and let the helper routines append to them:
+  set_target_properties(${target} PROPERTIES LINK_FLAGS "")
+  configure_DynamoRIO_common(${target} ON tgt_x64 tgt_cflags)
   if (just_configured)
     # get around lack of GLOBAL_SCOPE
     # do NOT set just_configured in global scope
@@ -688,11 +692,10 @@ function (configure_DynamoRIO_client target)
     else (UNIX)
       set(PREFERRED_BASE_FLAGS "/base:${PREFERRED_BASE} /dynamicbase:no")
     endif (UNIX)
-    set(tgt_link_flags "${tgt_link_flags} ${PREFERRED_BASE_FLAGS}")
+    append_property_string(TARGET ${target} LINK_FLAGS "${PREFERRED_BASE_FLAGS}")
   endif (tgt_x64 OR DynamoRIO_SET_PREFERRED_BASE)
 
   set_compile_flags(${target} "${tgt_cflags}")
-  set_target_properties(${target} PROPERTIES LINK_FLAGS "${tgt_link_flags}")
 
   # TODO: a nice feature would be to check the client for libc imports or
   # other not-recommended properties
@@ -701,7 +704,9 @@ endfunction (configure_DynamoRIO_client)
 
 
 function (configure_DynamoRIO_standalone target)
-  configure_DynamoRIO_common(${target} OFF tgt_x64 tgt_cflags tgt_link_flags)
+  # We don't clear LINK_FLAGS b/c we assume standalone doesn't need to have
+  # flags removed.  Usually the target LINK_FLAGS is empty at this point anyway.
+  configure_DynamoRIO_common(${target} OFF tgt_x64 tgt_cflags)
   # get around lack of GLOBAL_SCOPE
   foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
     if ("${config}" STREQUAL "")
@@ -717,7 +722,7 @@ function (configure_DynamoRIO_standalone target)
   endforeach (config)
 
   set_compile_flags(${target} "${tgt_cflags} -DDYNAMORIO_STANDALONE")
-  set_target_properties(${target} PROPERTIES LINK_FLAGS "${tgt_link_flags}")
+  # LINK_FLAGS are appended by the helper routines above
 
 endfunction (configure_DynamoRIO_standalone)
 
