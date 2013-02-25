@@ -1618,7 +1618,8 @@ drmgr_decode_sysnum_from_wrapper(app_pc entry)
         }
         /* stop at call to vsyscall (wow64) or at int itself */
     } while (opc != OP_call_ind && opc != OP_int &&
-             opc != OP_sysenter && opc != OP_syscall);
+             opc != OP_sysenter && opc != OP_syscall &&
+             opc != OP_ret);
     instr_free(drcontext, &instr);
     return num;
 }
