@@ -1053,16 +1053,20 @@ privload_call_entry(privmod_t *privmod, uint reason)
             /* FIXME i#915: win8 kernelbase entry fails on initial csrss setup,
              * and on x64 it crashes.
              * Currently we have no solution.  Xref i#364, i#440.
+             * We can keep going for at least small apps on non-x64 though.
              */
-            SYSLOG(SYSLOG_ERROR, WIN8_PRIVATE_KERNELBASE_NYI, 2,
-                   get_application_name(), get_application_pid());
-            os_terminate(NULL, TERMINATE_PROCESS);
+            DO_ONCE({
+                SYSLOG(IF_X64_ELSE(SYSLOG_ERROR,SYSLOG_WARNING),
+                       WIN8_PRIVATE_KERNELBASE_NYI, 2,
+                       get_application_name(), get_application_pid());
+                IF_X64(os_terminate(NULL, TERMINATE_PROCESS));
+            });
         }
 
         res = (*func)((HANDLE)privmod->base, reason, NULL);
 
         if (!res && get_os_version() >= WINDOWS_VERSION_7 &&
-            str_case_prefix(privmod->name, "kernel32")) {
+            str_case_prefix(privmod->name, "kernel")) {
             /* i#364: win7 _BaseDllInitialize fails to initialize a new console
              * (0xc0000041 (3221225537) - The NtConnectPort request is refused)
              * which we ignore for now.  DR always had trouble writing to the
