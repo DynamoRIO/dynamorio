@@ -43,8 +43,9 @@
 static void
 signal_handler(int sig)
 {
-    if (sig == SIGTERM)
-        fprintf(stderr, "done\n");
+    if (sig == SIGTERM) {
+        print("done\n");
+    }
     exit(1);
 }
 
@@ -58,16 +59,18 @@ main(int argc, const char *argv[])
             /* enough verbosity to satisfy runall.cmake: needs an initial and a
              * final line
              */
-            fprintf(stderr, "starting\n");
             intercept_signal(SIGTERM, (handler_3_t) signal_handler, false);
+            print("starting\n");
             arg_offs++;
         } else
             return 1;
     }
 
     while (1) {
-        /* workaround for PR 213040: prevent loop from being coarse */
-        volatile int x = getpid();
+        /* workaround for PR 213040 and i#1087: prevent loop from being coarse
+         * by using a non-ignorable system call
+         */
+        protect_mem((void *)signal_handler, 1, ALLOW_READ|ALLOW_EXEC);
         /* don't spin forever to avoid hosing machines if test harness somehow
          * fails to kill.  15 billion syscalls takes ~ 1 minute.
          */
