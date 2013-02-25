@@ -53,6 +53,7 @@
 #endif
 
 #include <string.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -242,6 +243,7 @@ const char *usage_str =
     "       -early             Whether to use early injection.\n"
     "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
     "                          for pid to launch and inject into a new process.\n"
+    "       -logdir <dir>      Logfiles will be stored in this directory.\n"
 # endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
@@ -628,6 +630,32 @@ append_client(const char *client, int id, const char *client_ops,
 }
 #endif
 
+/* Appends a space-separated option string to buf.  A space is appended only if
+ * the buffer is non-empty.  Aborts on buffer overflow.  Always null terminates
+ * the string.
+ * XXX: Use print_to_buffer.
+ */
+static void
+add_extra_option(char *buf, size_t bufsz, size_t *sofar, const char *fmt, ...)
+{
+    ssize_t len;
+    va_list ap;
+    if (*sofar > 0 && *sofar < bufsz)
+        buf[(*sofar)++] = ' ';  /* Add a space. */
+
+    va_start(ap, fmt);
+    len = vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
+    va_end(ap);
+
+    if (len < 0 || (size_t)len >= bufsz) {
+        error("option string too long, buffer overflow");
+        die();
+    }
+    *sofar += len;
+    /* be paranoid: though usually many calls in a row and could delay until end */
+    buf[bufsz-1] = '\0';
+}
+
 int main(int argc, char *argv[])
 {
     char *dr_root = NULL;
@@ -653,6 +681,7 @@ int main(int argc, char *argv[])
 # endif
 #endif /* !DRINJECT */
     char extra_ops[MAX_OPTIONS_STRING];
+    size_t extra_ops_sofar = 0;
 #ifdef DRCONFIG
     action_t action = action_none;
 #endif
@@ -820,14 +849,11 @@ int main(int argc, char *argv[])
             continue;
         }
         else if (strcmp(argv[i], "-early") == 0) {
-            /* Appending -early_inject to extra_ops communicates our intentions to
-             * drinjectlib.
-             * XXX: reuse print_to_buffer from x86/decodelib.c and utils.c.
+            /* Appending -early_inject to extra_ops communicates our intentions
+             * to drinjectlib.
              */
-            _snprintf(extra_ops + strlen(extra_ops),
-                      BUFFER_SIZE_ELEMENTS(extra_ops) - strlen(extra_ops),
-                      "%s-early_inject", (extra_ops[0] == '\0') ? "" : " ");
-            NULL_TERMINATE_BUFFER(extra_ops);
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
+                             &extra_ops_sofar, "-early_inject");
             continue;
         }
 # endif /* LINUX */
@@ -846,6 +872,15 @@ int main(int argc, char *argv[])
             /* support -dr_home alias used by script */
             strcmp(argv[i], "-dr_home") == 0) {
             dr_root = argv[++i];
+        }
+        else if (strcmp(argv[i], "-logdir") == 0) {
+            /* Accept this for compatibility with the old drrun shell script. */
+            const char *dir = argv[++i];
+            if (_access(dir, 0) == -1)
+                usage("-logdir %s does not exist", dir);
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
+                             &extra_ops_sofar, "-logdir `%s`", dir);
+            continue;
         }
 #ifdef DRCONFIG
         else if (strcmp(argv[i], "-reg") == 0) {
@@ -943,10 +978,8 @@ int main(int argc, char *argv[])
         }
         else if (strcmp(argv[i], "-ops") == 0) {
             /* support repeating the option (i#477) */
-            _snprintf(extra_ops + strlen(extra_ops),
-                      BUFFER_SIZE_ELEMENTS(extra_ops) - strlen(extra_ops),
-                      "%s%s", (extra_ops[0] == '\0') ? "" : " ", argv[++i]);
-            NULL_TERMINATE_BUFFER(extra_ops);
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
+                             &extra_ops_sofar, "%s", argv[++i]);
 	}
 #endif
 #if defined(DRRUN) || defined(DRINJECT)
@@ -994,14 +1027,13 @@ int main(int argc, char *argv[])
                     strcmp(argv[i], "--") == 0) {
                     break;
                 }
-                _snprintf(extra_ops + strlen(extra_ops),
-                          BUFFER_SIZE_ELEMENTS(extra_ops) - strlen(extra_ops),
-                          "%s%s", (extra_ops[0] == '\0') ? "" : " ", argv[i]);
-                NULL_TERMINATE_BUFFER(extra_ops);
+                add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
+                                 &extra_ops_sofar, "%s", argv[i]);
                 i++;
             }
             if (i < argc && strcmp(argv[i], "-c") == 0) {
                 const char *client;
+                size_t client_sofar = 0;
                 if (i + 1 >= argc)
                     usage("too few arguments to -c");
                 if (num_clients != 0)
@@ -1012,12 +1044,9 @@ int main(int argc, char *argv[])
                 i++;
                 single_client_ops[0] = '\0';
                 while (i < argc && strcmp(argv[i], "--") != 0) {
-                    _snprintf(single_client_ops + strlen(single_client_ops),
-                              BUFFER_SIZE_ELEMENTS(single_client_ops) -
-                              strlen(single_client_ops),
-                              "%s%s", (single_client_ops[0] == '\0') ? "" : " ",
-                              argv[i]);
-                    NULL_TERMINATE_BUFFER(single_client_ops);
+                    add_extra_option(single_client_ops,
+                                     BUFFER_SIZE_ELEMENTS(single_client_ops),
+                                     &client_sofar, "%s", argv[i]);
                     i++;
                 }
                 append_client(client, 0, single_client_ops, client_paths,
