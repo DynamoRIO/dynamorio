@@ -947,65 +947,69 @@ endfunction(template2expect)
 function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
   # assumes tools have been built: enforced at top level
   if (UNIX)
-    set(os_ops "-dumpcore_mask 0")
-  else ()
-    # Turn on core dumps for most fatal errors.  Don't dump for curiosities or
-    # security violations.
-    set(os_ops "-msgbox_mask 0 -dumpcore_mask 0x7d -staged")
-  endif ()
-  set(dr_ops "-stderr_mask 0xC ${os_ops} ${dr_ops_aux} ${TEST_OPTIONS}")
-
-  if (is_runall)
-    # eliminate double-spaces, to help w/ passing strings to runall.cmake
-    string(REGEX REPLACE "  +" " " dr_ops "${dr_ops}")
-    string(REGEX REPLACE " $" "" dr_ops "${dr_ops}")
-    # ; must be quoted: can't seem to match \; or replace w/ \ so using !
-    string(REGEX REPLACE ".;" "!" dr_ops "${dr_ops}")
-  endif (is_runall)
-
-  if (WIN32 OR NOT native)
-    # Both Windows and non-native Unix tests now use the native drrun frontend.
+    set(dr_ops "-stderr_mask 0xC -dumpcore_mask 0 ${dr_ops_aux} ${TEST_OPTIONS}")
+    if (is_runall)
+      # eliminate double-spaces, to help w/ passing strings to runall.cmake
+      string(REGEX REPLACE "  +" " " dr_ops "${dr_ops}")
+      string(REGEX REPLACE " $" "" dr_ops "${dr_ops}")
+      # ; must be quoted: can't seem to match \; or replace w/ \ so using !
+      string(REGEX REPLACE ".;" "!" dr_ops "${dr_ops}")
+    endif (is_runall)
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
-    get_target_property(drrun_path drrun LOCATION${location_suffix})
-    set(cmd "${drrun_path}" -s ${TEST_SECONDS} -quiet)
-    if (DEBUG)
-      set(cmd ${cmd} -debug)
+    set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${TEST_SECONDS} -killpg -silent)
+    if (NOT native)
+      set(cmd ${cmd} ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun)
+      if (TEST_SUITE)  # Use install dir in the suite for cross-arch execve.
+        set(cmd ${cmd} -dr_home "${CMAKE_INSTALL_PREFIX}")
+      endif ()
+      if (DEBUG)
+        set(cmd ${cmd} -debug)
+      endif ()
+      if (LINUX AND "${dr_ops}" MATCHES "-early_inject")
+        set(cmd ${cmd} -early)
+      endif()
+      # add dr_ops last to avoid needing extra \ on ;
+      set(${outcmd} ${cmd} -ops "${dr_ops}" PARENT_SCOPE)
+    else ()
+      # We set LD_LIBRARY_PATH for native api/ apps since we're not setting
+      # rpath (to make it easier to try different trees)
+      set(cmd ${cmd} -env LD_LIBRARY_PATH
+        "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
+      # add dr_ops last to avoid needing extra \ on ;
+      set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
     endif ()
-    if (UNIX)
-      set(cmd ${cmd} -killpg)
-    endif ()
-    if (UNIX AND TEST_SUITE)
-      # In the Unix suite, use the DR install dir for cross-arch execve.
-      set(cmd ${cmd} -dr_home "${CMAKE_INSTALL_PREFIX}")
-    endif ()
-    if (WIN32)
+  else (UNIX)
+    # Turn on core dumps for most fatal errors.  Don't dump for curiosities or
+    # security violations.
+    set(dr_ops "-stderr_mask 0xC -msgbox_mask 0 -dumpcore_mask 0x7d -staged ${dr_ops_aux} ${TEST_OPTIONS}")
+    if (is_runall)
+      # eliminate double-spaces, to help w/ passing strings to runall.cmake
+      string(REGEX REPLACE "  +" " " dr_ops "${dr_ops}")
+      string(REGEX REPLACE " $" "" dr_ops "${dr_ops}")
+      # ; must be quoted: can't seem to match \; or replace w/ \ so using !
+      string(REGEX REPLACE ".;" "!" dr_ops "${dr_ops}")
+    endif (is_runall)
+    # if we used a cmake script to run each test we could use in that script:
+    #   set(ENV{DYNAMORIO_OPTIONS} "${dr_ops}")
+    # but we take advantage of the new drrun tool
+    # we pass -exit0 to avoid ctest from considering our segfault and other tests
+    # to have failed (also xref PR 548997).
+    if (VPS AND VMAP OR VMSAFE)
+      set(MODE -mode code)
+    else (VPS AND VMAP OR VMSAFE)
+      set(MODE "")
+    endif (VPS AND VMAP OR VMSAFE)
+    set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun.exe -s ${TEST_SECONDS} -quiet -exit0 ${MODE})
+    if (native)
+      set(${outcmd} ${cmd} -ops "${dr_ops}" -noinject PARENT_SCOPE)
+    else (native)
       file(TO_CMAKE_PATH "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll" dllpath)
       # forward slashes work fine: we just need drive-letter path
-      set(cmd ${cmd} -use_dll ${dllpath})
-      # we pass -exit0 to avoid ctest from considering our segfault and other tests
-      # to have failed (also xref PR 548997).
-      set(cmd ${cmd} -exit0)
-      if (VPS AND VMAP OR VMSAFE)
-        set(cmd ${cmd} -mode code)
-      endif (VPS AND VMAP OR VMSAFE)
-      if (native)
-        set(cmd ${cmd} -noinject)
-      endif ()
-    endif (WIN32)
-    # add dr_ops last to avoid needing extra \ on ;
-    set(${outcmd} ${cmd} -ops "${dr_ops}" PARENT_SCOPE)
-
-  elseif (UNIX AND native)
-    set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${TEST_SECONDS} -killpg -silent)
-    # We set LD_LIBRARY_PATH for native api/ apps since we're not setting
-    # rpath (to make it easier to try different trees)
-    set(cmd ${cmd} -env LD_LIBRARY_PATH
-      "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
-    # add dr_ops last to avoid needing extra \ on ;
-    set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
-  endif ()
-
+      # add dr_ops last to avoid needing extra \ on ;
+      set(${outcmd} ${cmd} -ops "${dr_ops}" -use_dll ${dllpath} PARENT_SCOPE)
+    endif (native)
+  endif (UNIX)
   set(${outops} "${dr_ops}" PARENT_SCOPE)
 endfunction(rundr_cmd)
 
@@ -1068,12 +1072,9 @@ function(torun test key source native dr_ops exe_ops)
     if (UNIX)
       # swap from runstats to run_in_bg to run the test in the background
       set(tmpfile "${CMAKE_CURRENT_BINARY_DIR}/${test}-out")
-      string(REGEX REPLACE "^.*(${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun)" 
+      string(REGEX REPLACE "^.*(-env;LD_L|${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun)" 
         "${MAIN_RUNTIME_OUTPUT_DIRECTORY}/run_in_bg;-out;${tmpfile};\\1"
         rundr "${rundr}")
-      # Remove timeout args to drrun to ensure that it doesn't fork the app.
-      string(REGEX REPLACE ";-s;[0-9]+" "" rundr "${rundr}")
-      string(REGEX REPLACE ";-killpg" "" rundr "${rundr}")
       set(clear_arg "")
       if ("${runall}" MATCHES "<reset>")
         set(nudge_arg "-type\;reset")

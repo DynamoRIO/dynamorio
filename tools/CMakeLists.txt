@@ -43,6 +43,34 @@ if (UNIX)
 
   add_definitions(-DNOT_DYNAMORIO_CORE)
 
+  # we generate 3 different scripts from drdeploy.in
+  if (X64)
+    set(archdefault 64)
+    set(archother 32)
+  else (X64)
+    set(archdefault 32)
+    set(archother 64)
+  endif (X64)
+  if (STATIC_LIBRARY)
+    set(static 1)
+  else ()
+    set(static 0)
+  endif ()
+  set(config 1)
+  set(runapp 0)
+  set(name "drconfig")
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in"
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${name}" @ONLY)
+  set(config 1)
+  set(runapp 1)
+  set(name "drrun")
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in"
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${name}" @ONLY)
+  set(config 0)
+  set(runapp 1)
+  set(name "drinject")
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/drdeploy.in"
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${name}" @ONLY)
   # we leave drdeploy for backward compat w/ old script
   execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
     "drrun" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drdeploy"
@@ -80,8 +108,23 @@ if (UNIX)
     PERMISSIONS OWNER_READ OWNER_EXECUTE 
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
-  set(tool_cflags "")
-  set(RESOURCES "")
+  # Links a target against a list of libraries, and adds relative rpaths
+  # pointing to the directories of the libraries.
+  function (link_libs_with_rel_rpath target)
+    target_link_libraries(${target} ${ARGN})
+    add_rel_rpaths(${target} ${ARGN})
+  endfunction (link_libs_with_rel_rpath)
+
+  # FIXME i#840: Drop the _exe suffix, replace the shell scripts, and combine
+  # with the Windows drdeploy.c targets below.
+  # Add a native version of drconfig.
+  add_executable(drconfig_exe drdeploy.c)
+  link_libs_with_rel_rpath(drconfig_exe drconfiglib)
+  set_target_properties(drconfig_exe PROPERTIES COMPILE_FLAGS "-DDRCONFIG")
+  # Add a native version of drrun.
+  add_executable(drrun_exe drdeploy.c)
+  link_libs_with_rel_rpath(drrun_exe drconfiglib drinjectlib)
+  set_target_properties(drrun_exe PROPERTIES COMPILE_FLAGS "-DDRRUN")
 
   DR_install(TARGETS nudgeunix DESTINATION ${INSTALL_BIN})
 else (UNIX)
@@ -151,6 +194,22 @@ else (UNIX)
       COMPILE_FLAGS "${tool_cflags} ${unicode_cflags} -DRC_IS_${tgt}")
   endforeach (tgt)
 
+  # we generate 3 different tools from drdeploy.c
+  add_executable(drconfig drdeploy.c ${RESOURCES})
+  set_target_properties(drconfig PROPERTIES
+    COMPILE_FLAGS "${tool_cflags} -DRC_IS_drconfig -DDRCONFIG")
+  add_executable(drrun drdeploy.c ${RESOURCES})
+  set_target_properties(drrun PROPERTIES
+    COMPILE_FLAGS "${tool_cflags} -DRC_IS_drrun -DDRRUN")
+  add_executable(drinject drdeploy.c ${RESOURCES})
+  set_target_properties(drinject PROPERTIES
+    COMPILE_FLAGS "${tool_cflags} -DRC_IS_drinject -DDRINJECT")
+  set(tgts ${tgts} drconfig drrun drinject)
+  foreach (deploytgt drconfig drrun drinject)
+    target_link_libraries(${deploytgt}
+      policy_static user32 advapi32 pdh imagehlp shell32 drconfiglib drinjectlib)
+  endforeach ()
+
   # drdeploy.exe links to libutil/drconfiglib.dll.  When we build drdeploy,
   # we'll copy the DLL to the tools directory so users won't need to
   # update their path.
@@ -161,34 +220,9 @@ else (UNIX)
   # isn't runas admin which isn't quite as nice.  Disable for now.
   # $(MT) -manifest drdeploy.exe.manifest -outputresource:drdeploy.exe
 
+  DR_install(TARGETS ${tgts} DESTINATION "${INSTALL_BIN}")
+
 endif (UNIX)
-
-# we generate 3 different tools from drdeploy.c
-add_executable(drconfig drdeploy.c ${RESOURCES})
-set_target_properties(drconfig PROPERTIES
-  COMPILE_FLAGS "${tool_cflags} -DRC_IS_drconfig -DDRCONFIG")
-add_executable(drrun drdeploy.c ${RESOURCES})
-set_target_properties(drrun PROPERTIES
-  COMPILE_FLAGS "${tool_cflags} -DRC_IS_drrun -DDRRUN")
-add_executable(drinject drdeploy.c ${RESOURCES})
-set_target_properties(drinject PROPERTIES
-  COMPILE_FLAGS "${tool_cflags} -DRC_IS_drinject -DDRINJECT")
-set(tgts ${tgts} drconfig drrun drinject)
-
-foreach (deploytgt drconfig drrun drinject)
-  if (WINDOWS)
-    target_link_libraries(${deploytgt}
-      policy_static user32 advapi32 pdh imagehlp shell32)
-  endif ()
-  target_link_libraries(${deploytgt} drconfiglib)
-  add_rel_rpaths(${deploytgt} drconfiglib)
-  if (NOT ${deploytgt} MATCHES "drconfig")
-    target_link_libraries(${deploytgt} drinjectlib)
-    add_rel_rpaths(${deploytgt} drinjectlib)
-  endif ()
-endforeach ()
-
-DR_install(TARGETS ${tgts} DESTINATION "${INSTALL_BIN}")
 
 if (X64)
   set(SYMSFX "64")
