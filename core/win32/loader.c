@@ -1184,6 +1184,50 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "sechost.dll";
     else if (str_case_prefix(name, "API-MS-Win-Service-Winsvc-L1"))
         return "sechost.dll";
+    /**************************************************/
+    /* Added in Win8 */
+    else if (str_case_prefix(name, "API-MS-Win-Core-Kernel32-Legacy-L1"))
+        return "kernel32.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Registry-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Job-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Threadpool-Legacy-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Threadpool-Private-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Timezone-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Localization-Private-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Comm-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-WOW64-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Realtime-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-SystemTopology-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-ProcessTopology-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Namespace-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-File-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Localization-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Normalization-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-SideBySide-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Appcompat-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-WindowsErrorReporting-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Console-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Psapi-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Psapi-Ansi-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Psapi-Obsolete-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Appcontainer-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Eventing-Controller-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Eventing-Consumer-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Registry-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-String-Obsolete-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Timezone-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Threadpool-Legacy-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Registry-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-String-Obsolete-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Timezone-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Threadpool-Legacy-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-BEM-L1-1"))
+        return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-CRT-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-CRT-L2-1"))
+        return "msvcrt.dll";
     else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
