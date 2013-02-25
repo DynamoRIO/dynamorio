@@ -113,7 +113,9 @@ static const redirect_import_t redirect_kernel32[] = {
     {"DeleteFileA",                    (app_pc)redirect_DeleteFileA},
     {"DeleteFileW",                    (app_pc)redirect_DeleteFileW},
     {"ReadFile",                       (app_pc)redirect_ReadFile},
+#if 0 /* FIXME i#1089: disabling until we have console support */
     {"WriteFile",                      (app_pc)redirect_WriteFile},
+#endif
     {"CreateFileMappingA",             (app_pc)redirect_CreateFileMappingA},
     {"CreateFileMappingW",             (app_pc)redirect_CreateFileMappingW},
     {"MapViewOfFile",                  (app_pc)redirect_MapViewOfFile},
