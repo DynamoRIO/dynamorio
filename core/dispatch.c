@@ -601,7 +601,7 @@ dispatch_enter_native(dcontext_t *dcontext)
         dcontext->native_exec_postsyscall = NULL;
         LOG(THREAD, LOG_DISPATCH, 2, "Entry into native_exec after intercepted syscall\n");
         /* restore state as though never came out for syscall */
-        KSTART(fcache_default);
+        KSTART_DC(dcontext, fcache_default);
         enter_nolinking(dcontext, NULL, true);
     } 
     else {
@@ -738,7 +738,8 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         dispatch_exit_fcache_stats(dcontext);
         KSTOP_NOT_MATCHING(dispatch_num_exits);
     }
-    KSTART(dispatch_num_exits); /* KSWITCHed next time around for a better explanation */
+    /* KSWITCHed next time around for a better explanation */
+    KSTART_DC(dcontext, dispatch_num_exits);
 
     if (wherewasi != WHERE_APP) { /* if not first entrance */
         if (get_at_syscall(dcontext))
@@ -1825,7 +1826,7 @@ handle_system_call(dcontext_t *dcontext)
         SELF_PROTECT_LOCAL(dcontext, READONLY);
 
         set_at_syscall(dcontext, true);
-        KSTART(syscall_fcache); /* stopped in dispatch_exit_fcache_stats */
+        KSTART_DC(dcontext, syscall_fcache); /* stopped in dispatch_exit_fcache_stats */
         enter_fcache(dcontext, fcache_enter, do_syscall);
         /* will handle post processing in handle_post_system_call */
         ASSERT_NOT_REACHED();
@@ -1957,7 +1958,7 @@ handle_callback_return(dcontext_t *dcontext)
      * that indirects through the dcontext passed to it (so ignores the switch-to
      * dcontext that callback_start_return swapped into the main dcontext)
      */
-    KSTART(syscall_fcache);     /* continue the interrupted syscall handling */
+    KSTART_DC(dcontext, syscall_fcache);  /* continue the interrupted syscall handling */
     (*fcache_enter)(prev_dcontext);
     /* callback return does not return to here! */
     DOLOG(1, LOG_ASYNCH, {
