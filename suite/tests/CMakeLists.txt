@@ -1275,13 +1275,15 @@ endif (WIN32)
 tobuild(common.eflags common/eflags.c)
 tobuild(common.fib common/fib.c)
 tobuild(common.getretaddr common/getretaddr.c)
-if (WIN32)
-  set(native_dll_name "common.nativeexec.dll.dll")
-else ()
-  set(native_dll_name "libcommon.nativeexec.dll.so")
-endif ()
-tobuild_dll(common.nativeexec common/nativeexec.c
+
+tobuild_appdll(common.nativeexec common/nativeexec.c)
+get_target_property(native_dll_name common.nativeexec.appdll LOCATION${location_suffix})
+get_filename_component(native_dll_name "${native_dll_name}" NAME)
+tobuild(common.nativeexec common/nativeexec.c
   "-native_exec_list ${native_dll_name}")
+target_link_libraries(common.nativeexec common.nativeexec.appdll)
+# We want rpath on Linux so we can load the appdll.
+set_target_properties(common.nativeexec PROPERTIES SKIP_BUILD_RPATH OFF)
 if (UNIX)
   # FIXME i#978: Windows support NYI
   torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c

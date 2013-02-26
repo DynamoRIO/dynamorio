@@ -30,10 +30,18 @@
  * DAMAGE.
  */
 
+/* Split C/asm source file. */
+#ifndef ASM_CODE_ONLY
+
 /* nativexec.dll.dll
  * nativeexec.exe calls routines here w/ different call* constructions
  */
 #include "tools.h"
+
+typedef void (*int_fn_t)(int);
+typedef int (*int2_fn_t)(int, int);
+
+int import_ret_imm(int x, int y);
 
 void EXPORT
 import_me1(int x)
@@ -53,6 +61,36 @@ import_me3(int x)
     print("nativeexec.dll:import_me3(%d)\n", x);
 }
 
+void EXPORT
+import_me4(int_fn_t fn, int x)
+{
+    fn(x);
+}
+
+void EXPORT
+unwind_level1(int_fn_t fn, int x)
+{
+    fn(x);
+}
+
+void EXPORT
+unwind_level3(int_fn_t fn, int x)
+{
+    fn(x);
+}
+
+void EXPORT
+unwind_level5(int_fn_t fn, int x)
+{
+    fn(x);
+}
+
+int2_fn_t EXPORT
+get_import_ret_imm(void)
+{
+    return import_ret_imm;
+}
+
 #ifdef WINDOWS
 BOOL APIENTRY 
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
@@ -60,3 +98,21 @@ DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
     return TRUE;
 }
 #endif
+
+#else /* ASM_CODE_ONLY */
+
+#include "asm_defines.asm"
+
+START_FILE
+
+        DECLARE_EXPORTED_FUNC(import_ret_imm)
+GLOBAL_LABEL(import_ret_imm:)
+        /* XXX: Not doing SEH prologue for test code. */
+        mov      REG_XAX, [REG_XSP + 1 * ARG_SZ] /* arg1 */
+        add      REG_XAX, [REG_XSP + 2 * ARG_SZ] /* arg2 */
+        ret      2 * ARG_SZ    /* Callee cleared args, ret_imm. */
+        END_FUNC(import_ret_imm)
+
+END_FILE
+
+#endif /* ASM_CODE_ONLY */

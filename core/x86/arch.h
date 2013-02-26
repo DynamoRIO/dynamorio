@@ -116,8 +116,6 @@ mixed_mode_enabled(void)
 #define NEXT_TAG_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, next_tag))
 #define LAST_EXIT_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, last_exit))
 #define DSTACK_OFFSET          ((PROT_OFFS)+offsetof(dcontext_t, dstack))
-#define NATIVE_EXEC_RETVAL_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, native_exec_retval))
-#define NATIVE_EXEC_RETLOC_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, native_exec_retloc))
 #ifdef RETURN_STACK
 # define RSTACK_OFFSET         ((PROT_OFFS)+offsetof(dcontext_t, rstack))
 # define TOP_OF_RSTACK_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, top_of_rstack))

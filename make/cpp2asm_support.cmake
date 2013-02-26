@@ -352,7 +352,7 @@ endfunction (add_asm_target)
 # dependencies.
 function (add_split_asm_target source output_out tgt_out
     extra_suffix extra_defs extra_deps)
-  get_filename_component(srcbase ${source} NAME_WE)
+  get_filename_component(srcbase ${source} NAME)
   set(asm_file "${CMAKE_CURRENT_BINARY_DIR}/${srcbase}${extra_suffix}.asm")
 
   # Be sure to make extra_defs a list!

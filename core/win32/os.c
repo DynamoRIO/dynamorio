@@ -6661,15 +6661,7 @@ detach_helper(int detach_type)
                 /* we do need to restore the app ret addr, for native_exec */
                 if (!DYNAMO_OPTION(thin_client) && DYNAMO_OPTION(native_exec) &&
                     !vmvector_empty(native_exec_areas)) {
-                    /* We store the retaddr location that we clobbered in
-                     * native_exec_retloc.  We don't currently follow callbacks
-                     * so we don't have to do this while walking the callback
-                     * stack below, just for this dcontext.  We also only have a
-                     * single location since we don't re-takeover while native on
-                     * an APC or an exception.
-                     */
-                    app_pc *esp = (app_pc *) threads[i]->dcontext->native_exec_retloc;
-                    app_pc real_retaddr = threads[i]->dcontext->native_exec_retval;
+                    IF_HOTP(bool had_retaddrs =) put_back_native_retaddrs(dcontext);
 
                     /* In hotp_only mode, a thread can be !under_dynamo_control 
                      * and have no native_exec_retloc.  For hotp_only, there 
@@ -6679,17 +6671,11 @@ detach_helper(int detach_type)
                      * mode, i.e., with the code cache.  See case 7681. 
                      */
 #ifdef HOT_PATCHING_INTERFACE
-                    if (esp == NULL) {
+                    if (had_retaddrs) {
                         ASSERT(DYNAMO_OPTION(hotp_only));
                         ASSERT(real_retaddr == NULL);
                     } else {
                         ASSERT(!DYNAMO_OPTION(hotp_only));
-#endif
-                        ASSERT(esp != NULL && 
-                               *esp == (app_pc)back_from_native);
-                        ASSERT(real_retaddr != NULL);
-                        *esp = real_retaddr;
-#ifdef HOT_PATCHING_INTERFACE
                     }
 #endif
                 }

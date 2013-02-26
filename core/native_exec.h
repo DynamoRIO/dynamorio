@@ -50,7 +50,11 @@ native_exec_exit(void);
 
 /* Gets called on every call into a native module. */
 void
-entering_native(void);
+call_to_native(app_pc *sp);
+
+/* Gets called on every return to a native module. */
+void
+return_to_native(void);
 
 /* Gets called on every cross-module call out of a native module. */
 void
@@ -69,5 +73,13 @@ void
 native_module_hook(module_area_t *ma, bool at_map);
 void
 native_module_unhook(module_area_t *ma);
+
+/* Put back the native return addresses that we swapped to maintain control.  We
+ * do this when detaching.  If we're coordinating with the app, then we could do
+ * this before the app takes a stack trace.  Returns whether or not there were
+ * any native retaddrs.
+ */
+bool
+put_back_native_retaddrs(dcontext_t *dcontext);
 
 #endif /* _NATIVE_EXEC_H_ */

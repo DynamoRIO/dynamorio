@@ -54,6 +54,11 @@
  */
 vm_area_vector_t *native_exec_areas;
 
+static app_pc retstub_start = (app_pc) back_from_native_retstubs;
+#ifdef DEBUG
+static app_pc retstub_end = (app_pc) back_from_native_retstubs_end;
+#endif
+
 void
 native_exec_init(void)
 {
@@ -62,6 +67,8 @@ native_exec_init(void)
         return;
     VMVECTOR_ALLOC_VECTOR(native_exec_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
                           native_exec_areas);
+    ASSERT(retstub_end == retstub_start +
+           MAX_NATIVE_RETSTACK * BACK_FROM_NATIVE_RETSTUB_SIZE);
 }
 
 void
@@ -152,13 +159,9 @@ native_exec_module_unload(module_area_t *ma)
  * asynch handling and updates some state.  Called from native bbs built by
  * build_native_exec_bb() in x86/interp.c.
  */
-void
-entering_native(void)
+static void
+entering_native(dcontext_t *dcontext)
 {
-    dcontext_t *dcontext;
-    ENTERING_DR();
-    dcontext = get_thread_private_dcontext();
-    ASSERT(dcontext != NULL);
 #ifdef WINDOWS
     /* turn off asynch interception for this thread while native
      * FIXME: what if callbacks and apcs are destined for other modules?
@@ -184,9 +187,47 @@ entering_native(void)
     /* now we're in app! */
     dcontext->whereami = WHERE_APP;
     SYSLOG_INTERNAL_WARNING_ONCE("entered at least one module natively");
-    LOG(THREAD, LOG_ASYNCH, 1, "!!!! Entering module NATIVELY, retaddr="PFX"\n\n",
-        dcontext->native_exec_retval);
     STATS_INC(num_native_module_enter);
+}
+
+void
+call_to_native(app_pc *sp)
+{
+    dcontext_t *dcontext;
+    uint i;
+    ENTERING_DR();
+    dcontext = get_thread_private_dcontext();
+    ASSERT(dcontext != NULL);
+    /* Push the retaddr and stack location onto our stack.  The current entry
+     * should be free and we should have enough space.
+     * XXX: it would be nice to abort in a release build, but this can be perf
+     * critical.
+     */
+    i = dcontext->native_retstack_cur;
+    ASSERT(i < MAX_NATIVE_RETSTACK);
+    dcontext->native_retstack[i].retaddr = *sp;
+    dcontext->native_retstack[i].retloc = (app_pc) sp;
+    dcontext->native_retstack_cur = i + 1;
+    LOG(THREAD, LOG_ASYNCH, 1,
+        "!!!! Entering module NATIVELY, retaddr="PFX"\n\n", *sp);
+    /* i#978: We use a different return stub for every nested call to native
+     * code.  Each stub pushes a different index into the retstack.  We could
+     * use the SP at return time to try to find the app's return address, but
+     * because of ret imm8 instructions, that's not robust.
+     */
+    *sp = retstub_start + i * BACK_FROM_NATIVE_RETSTUB_SIZE;
+    entering_native(dcontext);
+    EXITING_DR();
+}
+
+void
+return_to_native(void)
+{
+    dcontext_t *dcontext;
+    ENTERING_DR();
+    dcontext = get_thread_private_dcontext();
+    ASSERT(dcontext != NULL);
+    entering_native(dcontext);
     EXITING_DR();
 }
 
@@ -194,7 +235,7 @@ entering_native(void)
  * calls out of native modules.  Inverse of entering_native().
  */
 static void
-back_from_native_C(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target)
+back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target)
 {
     /* ASSUMPTION: was native entire time, don't need to initialize dcontext
      * or anything, and next_tag is still there!
@@ -227,19 +268,37 @@ void
 return_from_native(priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
+    ptr_int_t i;
     app_pc target;
+    app_pc xsp;
     ENTERING_DR();
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-    LOG(THREAD, LOG_ASYNCH, 1, "\n!!!! Returned from NATIVE module to "PFX"\n",
-        dcontext->native_exec_retval);
     SYSLOG_INTERNAL_WARNING_ONCE("returned from at least one native module");
-    ASSERT(dcontext->native_exec_retval != NULL);
-    ASSERT(dcontext->native_exec_retloc != NULL);
-    target = dcontext->native_exec_retval;
-    dcontext->native_exec_retval = NULL;
-    dcontext->native_exec_retloc = NULL;
-    back_from_native_C(dcontext, mc, target); /* noreturn */
+#ifdef X86
+    /* Account for our push of the retstack index. */
+    i = *(ptr_int_t *) mc->xsp;
+    mc->xsp += sizeof(void *);
+    xsp = (app_pc) mc->xsp;
+#else
+# error "x86.asm retstubs push an index; for other ISAs we'd do something else"
+#endif
+    ASSERT(i >= 0 && i < MAX_NATIVE_RETSTACK &&
+           (uint)i < dcontext->native_retstack_cur);
+    target = dcontext->native_retstack[i].retaddr;
+    DOCHECK(CHKLVL_ASSERTS, {
+        /* Because of ret imm8 instrs, we can't assert that the current xsp is
+         * one slot off from the xsp after the call.  We can assert that it's
+         * within 256 bytes, though.
+         */
+        app_pc retloc = dcontext->native_retstack[i].retloc;
+        ASSERT(xsp >= retloc && xsp <= retloc + 256 + sizeof(void*) &&
+               "failed to find current sp in native_retstack");
+    });
+    dcontext->native_retstack_cur = (uint)i;
+    LOG(THREAD, LOG_ASYNCH, 1, "\n!!!! Returned from NATIVE module to "PFX"\n",
+        target);
+    back_from_native_common(dcontext, mc, target); /* noreturn */
     ASSERT_NOT_REACHED();
 }
 
@@ -256,6 +315,21 @@ native_module_callout(priv_mcontext_t *mc, app_pc target)
     ASSERT(DYNAMO_OPTION(native_exec_retakeover));
     LOG(THREAD, LOG_ASYNCH, 4, "%s: cross-module call to %p\n",
         __FUNCTION__, target);
-    back_from_native_C(dcontext, mc, target);
+    back_from_native_common(dcontext, mc, target);
     ASSERT_NOT_REACHED();
+}
+
+bool
+put_back_native_retaddrs(dcontext_t *dcontext)
+{
+    retaddr_and_retloc_t *retstack = dcontext->native_retstack;
+    uint i;
+    ASSERT(dcontext->native_retstack_cur < MAX_NATIVE_RETSTACK);
+    for (i = 0; i < dcontext->native_retstack_cur; i++) {
+        app_pc *retloc = (app_pc *) retstack[i].retloc;
+        ASSERT(*retloc >= retstub_start && *retloc < retstub_end);
+        *retloc = retstack[i].retaddr;
+    }
+    dcontext->native_retstack_cur = 0;
+    return i > 0;
 }

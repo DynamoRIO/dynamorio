@@ -168,7 +168,8 @@ START_FILE
 # define dstack_OFFSET     (PRIV_MCXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
 # define MCONTEXT_PC_OFFS  (9*ARG_SZ)
 #endif
-#define is_exiting_OFFSET (dstack_OFFSET+3*ARG_SZ)
+/* offsetof(dcontext_t, is_exiting) */
+#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 #define PUSHGPR_XSP_OFFS  (3*ARG_SZ)
 #define MCONTEXT_XSP_OFFS (PUSHGPR_XSP_OFFS)
 #define PUSH_PRIV_MCXT_PRE_PC_SHIFT (- XMM_SAVED_SIZE - PRE_XMM_PADDING)
@@ -1472,6 +1473,46 @@ GLOBAL_LABEL(nt_continue_dynamo_start:)
         END_FUNC(nt_continue_dynamo_start)
 #endif /* WINDOWS */
 
+/* back_from_native_retstubs -- We use a different version of back_from_native for
+ * each nested module transition.  This has to have MAX_NATIVE_RETSTACK
+ * elements, which we check in native_exec_init().  The size of each entry has
+ * to match BACK_FROM_NATIVE_RETSTUB_SIZE in arch_exports.h.  Currently we
+ * assume that the assembler uses push imm8 and jmp rel8.  As in
+ * back_from_native, this code is executed natively by the app, so we assume the
+ * app stack is valid and can be clobbered.
+ */
+        DECLARE_FUNC(back_from_native_retstubs)
+GLOBAL_LABEL(back_from_native_retstubs:)
+#ifndef ASSEMBLE_WITH_GAS
+/* MASM does short jumps for public symbols. */
+# define Lback_from_native back_from_native
+#endif
+        push     0
+        jmp      Lback_from_native
+        push     1
+        jmp      Lback_from_native
+        push     2
+        jmp      Lback_from_native
+        push     3
+        jmp      Lback_from_native
+        push     4
+        jmp      Lback_from_native
+        push     5
+        jmp      Lback_from_native
+        push     6
+        jmp      Lback_from_native
+        push     7
+        jmp      Lback_from_native
+        push     8
+        jmp      Lback_from_native
+        push     9
+        jmp      Lback_from_native
+DECLARE_GLOBAL(back_from_native_retstubs_end)
+#ifndef ASSEMBLE_WITH_GAS
+# undef Lback_from_native
+#endif
+ADDRTAKEN_LABEL(back_from_native_retstubs_end:)
+        END_FUNC(back_from_native_retstubs)
 
 /*
  * back_from_native -- for taking control back after letting a module
@@ -1480,6 +1521,10 @@ GLOBAL_LABEL(nt_continue_dynamo_start:)
  */
         DECLARE_FUNC(back_from_native)
 GLOBAL_LABEL(back_from_native:)
+#ifdef ASSEMBLE_WITH_GAS
+        /* We use Lback_from_native to force short jumps with gas.  */
+Lback_from_native:
+#endif
         /* assume valid esp  
          * FIXME: more robust if don't use app's esp -- should use initstack
          */
@@ -1487,10 +1532,13 @@ GLOBAL_LABEL(back_from_native:)
         PUSH_PRIV_MCXT(0 /* for priv_mcontext_t.pc */)
         lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
 
-        /* Call return_from_native passing the priv_mcontext_t.  It will 
-         * obtain this thread's dcontext pointer and
-         * begin execution with the passed-in state.
+        /* Call return_from_native passing the priv_mcontext_t.  It will obtain
+         * this thread's dcontext pointer and begin execution with the passed-in
+         * state.
          */
+#ifdef X64
+        and      REG_XSP, -FRAME_ALIGNMENT  /* x64 alignment */
+#endif
         CALLC1(return_from_native, REG_XAX)
         /* should not return */
         jmp      unexpected_return

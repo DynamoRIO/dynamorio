@@ -4,4 +4,11 @@ calling via PLT-style call
 nativeexec.dll:import_me2(37)
 calling via funky ind call
 nativeexec.dll:import_me3(17)
+calling nested native
+nativeexec.exe:print_int(42)
+calling cross-module unwinder
+before longjmp, 1
+after longjmp
+calling indirect ret_imm
+ -> 40
 all done
