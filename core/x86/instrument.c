@@ -3520,8 +3520,21 @@ DR_API
 bool
 dr_unmap_file(void *map, size_t size)
 {
+    dr_mem_info_t info;
     CLIENT_ASSERT(ALIGNED(map, PAGE_SIZE),
                   "dr_unmap_file: map is not page aligned");
+    if (!dr_query_memory_ex(map, &info) /* fail to query */ ||
+        info.type == DR_MEMTYPE_FREE /* not mapped file */) {
+        CLIENT_ASSERT(false, "dr_unmap_file: incorrect file map");
+        return false;
+    }
+#ifdef WINDOWS
+    /* On Windows, the whole file will be unmapped instead, so we adjust
+     * the bound to make sure vm_areas are updated correctly.
+     */
+    map  = info.base_pc;
+    size = info.size;
+#endif
     return unmap_file((byte *) map, size);
 }
 
