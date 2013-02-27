@@ -82,3 +82,25 @@ function (add_rel_rpaths target)
     endforeach ()
   endif (UNIX)
 endfunction (add_rel_rpaths)
+
+# Check if we're using GNU gold.  We use CMAKE_C_COMPILER in
+# CMAKE_C_LINK_EXECUTABLE, so call the compiler instead of CMAKE_LINKER.  That
+# way we query the linker that the compiler actually uses.
+function (check_if_linker_is_gnu_gold var_out)
+  if (WIN32)
+    # We don't support gold on Windows.  We only support the MSVC toolchain.
+    set(is_gold OFF)
+  else ()
+    execute_process(COMMAND ${CMAKE_C_COMPILER} -Wl,--version
+      RESULT_VARIABLE ld_result
+      ERROR_VARIABLE ld_error
+      OUTPUT_VARIABLE ld_out)
+    set(is_gold OFF)
+    if (${ld_result} OR ${ld_error})
+      message(WARNING "failed to get linker version: assuming ld.bfd")
+    elseif ("${ld_out}" MATCHES "GNU gold")
+      set(is_gold ON)
+    endif ()
+  endif ()
+  set(${var_out} ${is_gold} PARENT_SCOPE)
+endfunction (check_if_linker_is_gnu_gold)

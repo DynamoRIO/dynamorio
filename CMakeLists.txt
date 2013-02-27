@@ -134,6 +134,11 @@ endif ()
 include(CheckCCompilerFlag)
 
 ###########################################################################
+# utility functions
+
+include(make/utils.cmake)
+
+###########################################################################
 # configuration options
 
 # many are core-specific
@@ -470,6 +475,8 @@ if (UNIX)
     message(FATAL_ERROR "gcc is required to build")
   endif (NOT CMAKE_COMPILER_IS_GNUCC)
 
+  check_if_linker_is_gnu_gold(LINKER_IS_GNU_GOLD)
+
 else (UNIX)
 
   if (NOT ${COMPILER_BASE_NAME} STREQUAL "cl")
@@ -713,24 +720,26 @@ if (UNIX)
     set(HAVE_FVISIBILITY ON)
   endif (VISIBILITY)
 
-  # Better to use -dT when passing linker options through gcc, but ld
-  # prior to 2.18 only supports -T
-  # FIXME: should we duplicate this in DynamoRIOConfig.cmake?
-  execute_process(COMMAND
-    ${CMAKE_LINKER} --help
-    RESULT_VARIABLE ld_result
-    ERROR_VARIABLE ld_error
-    OUTPUT_VARIABLE ld_out)
-  if (ld_result OR ld_error)
-    message(FATAL_ERROR "*** ${CMAKE_LINKER} failed: ***\n${ld_error}")
-  endif (ld_result OR ld_error)
-  string(REGEX MATCH "dT" flag_present "${ld_out}")
-  if (NOT flag_present)
-    message("${CMAKE_LINKER} missing flag -dT, using -T instead")
-    set(ld_script_option "-T")
-  else (NOT flag_present)
-    set(ld_script_option "-dT")
-  endif (NOT flag_present)
+  if (NOT LINKER_IS_GNU_GOLD)
+    # Better to use -dT when passing linker options through gcc, but ld
+    # prior to 2.18 only supports -T
+    # FIXME: should we duplicate this in DynamoRIOConfig.cmake?
+    execute_process(COMMAND
+      ${CMAKE_LINKER} --help
+      RESULT_VARIABLE ld_result
+      ERROR_VARIABLE ld_error
+      OUTPUT_VARIABLE ld_out)
+    if (ld_result OR ld_error)
+      message(FATAL_ERROR "*** ${CMAKE_LINKER} failed: ***\n${ld_error}")
+    endif (ld_result OR ld_error)
+    string(REGEX MATCH "dT" flag_present "${ld_out}")
+    if (NOT flag_present)
+      message("${CMAKE_LINKER} missing flag -dT, using -T instead")
+      set(ld_script_option "-T")
+    else (NOT flag_present)
+      set(ld_script_option "-dT")
+    endif (NOT flag_present)
+  endif (NOT LINKER_IS_GNU_GOLD)
 
   # We want separate .debug files for all shared libraries
   if (NOT DEFINED CMAKE_OBJCOPY)
@@ -812,11 +821,6 @@ if (NOT DISABLE_WARNINGS)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WARN}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARN}")
 endif (NOT DISABLE_WARNINGS)
-
-###########################################################################
-# utility functions
-
-include(make/utils.cmake)
 
 ###########################################################################
 

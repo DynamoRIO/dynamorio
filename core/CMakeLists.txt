@@ -281,38 +281,40 @@ if (UNIX)
   set(ld_script ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
   set_directory_properties(PROPERTIES
     ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
+
+  function (set_preferred_base_start_and_end target)
+    if (NOT LINKER_IS_GNU_GOLD)
+      set(ldflags "-Wl,${ld_script_option},\"${ld_script}\"")
+      add_custom_command(TARGET ${target}
+        PRE_LINK
+        COMMAND ${CMAKE_COMMAND}
+        # script does not inherit any vars so we must pass them all in
+        # to work around i#84 be sure to put a space after -D for 1st arg at least
+        ARGS -D outfile=${ld_script}
+             -DCMAKE_LINKER=${CMAKE_LINKER}
+             -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
+             -DLD_FLAGS=${LD_FLAGS}
+             -Dset_preferred=${SET_PREFERRED_BASE}
+             -Dreplace_maxpagesize=${REPLACE_MAXPAGESIZE}
+             -Dpreferred_base=${preferred_base}
+             -P ${PROJECT_SOURCE_DIR}/core/CMake_ldscript.cmake
+        VERBATIM # recommended: p260
+        )
+    else ()
+      set(ldflags "")
+      if (SET_PREFERRED_BASE)
+        # FIXME: This should be -Ttext-segment for bfd, but most golds want -Ttext.
+        # See http://sourceware.org/ml/binutils/2013-02/msg00194.html
+        set(ldflags "-Wl,-Ttext=${preferred_base}")
+      endif ()
+      # Add our start and end symbols for library bounds.
+      set(ldflags "${ldflags} -Wl,--defsym,dynamorio_so_start=__executable_start")
+      set(ldflags "${ldflags} -Wl,--defsym,dynamorio_so_end=end")
+    endif ()
+    append_property_string(TARGET ${target} LINK_FLAGS "${ldflags}")
+  endfunction (set_preferred_base_start_and_end)
+
 endif (UNIX)
-
-function (add_ldscript_opt target)
-  # -dT is preferred, available on ld 2.18+: we could check for it
-  set(LD_SCRIPT_OPTION "-T")
-  set(PREFERRED_BASE_FLAGS "-Xlinker ${LD_SCRIPT_OPTION} -Xlinker \"${ld_script}\"")
-  get_target_property(tgt_link_flags ${target} LINK_FLAGS)
-  if (NOT tgt_link_flags)
-    set(tgt_link_flags "")
-  endif (NOT tgt_link_flags)
-  set(tgt_link_flags "${tgt_link_flags} ${PREFERRED_BASE_FLAGS}")
-  set_target_properties(${target} PROPERTIES
-    LINK_FLAGS "${tgt_link_flags}")
-endfunction (add_ldscript_opt)
-
-function (use_ldscript target)
-  add_custom_command(TARGET ${target}
-    PRE_LINK
-    COMMAND ${CMAKE_COMMAND}
-    # script does not inherit any vars so we must pass them all in
-    # to work around i#84 be sure to put a space after -D for 1st arg at least
-    ARGS -D outfile=${ld_script}
-         -DCMAKE_LINKER=${CMAKE_LINKER}
-         -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
-         -DLD_FLAGS=${LD_FLAGS}
-         -Dset_preferred=${SET_PREFERRED_BASE}
-         -Dreplace_maxpagesize=${REPLACE_MAXPAGESIZE}
-         -Dpreferred_base=${preferred_base}
-         -P ${PROJECT_SOURCE_DIR}/core/CMake_ldscript.cmake
-    VERBATIM # recommended: p260
-    )
-endfunction (use_ldscript)
 
 # rather than a separate BUILD_INCLUDES option we always build
 # include headers if building core (or if building docs or samples as
@@ -399,12 +401,11 @@ if (UNIX)
       "${dynamorio_link_flags} -Xlinker --version-script -Xlinker ${export_list}")
   endif (NOT HAVE_FVISIBILITY)
 
-  set(dynamorio_link_flags 
-    "${dynamorio_link_flags} -Xlinker ${ld_script_option} -Xlinker \"${ld_script}\"")
-  use_ldscript(dynamorio)
-
   set_target_properties(dynamorio PROPERTIES
     LINK_FLAGS "${dynamorio_link_flags}")
+
+  # This appends to LINK_FLAGS, so do it after we set them above.
+  set_preferred_base_start_and_end(dynamorio)
   # i#46: We're pretty libc independent these days, but we still support
   # -no_private_loader when loaded by the system loader.  We also have a sqrt
   # import that we should cut.
@@ -731,10 +732,8 @@ if (BUILD_TESTS)
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
   if (UNIX)
-    set_target_properties(unit_tests PROPERTIES
-      LINK_FLAGS "-Xlinker ${ld_script_option} -Xlinker \"${ld_script}\"")
     target_link_libraries(unit_tests c dl m)
-    use_ldscript(unit_tests)
+    set_preferred_base_start_and_end(unit_tests)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntimp_lib
     target_link_libraries(unit_tests ${WIN32_C_LIB} ${ntimp_lib})

@@ -200,6 +200,8 @@ else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   set(location_suffix "")
 endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
+check_if_linker_is_gnu_gold(LINKER_IS_GNU_GOLD)
+
 # helper function
 function (get_lang target lang_var)
   # Note that HAS_CXX and LINKER_LANGUAGE are only defined it
@@ -657,38 +659,48 @@ function (configure_DynamoRIO_client target)
       set(PREFERRED_BASE 0x72000000)
     endif ()
     if (UNIX)
-      # We use a linker script to set the preferred base
-      set(LD_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
-      # We do NOT add ${LD_SCRIPT} as an ADDITIONAL_MAKE_CLEAN_FILES since it's
-      # configure-time built not make-time built
-      set(LD_FLAGS "-melf_x86_64")
+      if (LINKER_IS_GNU_GOLD)
+        # Gold doesn't have a default version script for us to edit.  However,
+        # it has a handy command line flag that does exactly what we want.  Note
+        # that gnu ld has -Ttext as well, but it is very different.
+        # XXX: gnu ld added an equivalent -Ttext-segment to binutils 2.20 in
+        # 2009.  We could switch to that if we ever drop support for old
+        # linkers.
+        set(PREFERRED_BASE_FLAGS "-Wl,-Ttext=${PREFERRED_BASE}")
+      else (LINKER_IS_GNU_GOLD)
+        # We use a linker script to set the preferred base
+        set(LD_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
+        # We do NOT add ${LD_SCRIPT} as an ADDITIONAL_MAKE_CLEAN_FILES since it's
+        # configure-time built not make-time built
+        set(LD_FLAGS "-melf_x86_64")
 
-      # In order to just tweak the default linker script we start with exactly that.
-      execute_process(COMMAND
-        ${CMAKE_LINKER} "${LD_FLAGS}" --verbose
-        RESULT_VARIABLE ld_result
-        ERROR_VARIABLE ld_error
-        OUTPUT_VARIABLE string)
-      if (ld_result OR ld_error)
-        message(FATAL_ERROR "*** ${CMAKE_LINKER} failed: ***\n${ld_error}")
-      endif (ld_result OR ld_error)
+        # In order to just tweak the default linker script we start with exactly that.
+        execute_process(COMMAND
+          ${CMAKE_LINKER} "${LD_FLAGS}" --verbose
+          RESULT_VARIABLE ld_result
+          ERROR_VARIABLE ld_error
+          OUTPUT_VARIABLE string)
+        if (ld_result OR ld_error)
+          message(FATAL_ERROR "*** ${CMAKE_LINKER} failed: ***\n${ld_error}")
+        endif (ld_result OR ld_error)
 
-      # Strip out just the SECTIONS{} portion
-      string(REGEX REPLACE ".*(SECTIONS.*\n\\}).*" "\\1" string "${string}")
-      # Find and replace the default base
-      string(REGEX MATCH "= *[^{\\.\n]+(0x[0-9]+)\\)? *\\+ *SIZEOF_HEADERS"
-        default_base "${string}")
-      if ("${default_base}" STREQUAL "")
-        message(FATAL_ERROR "unsupported ld version: please file this bug")
-      endif()
-      string(REGEX REPLACE ".*(0x[0-9]+).*" "\\1" default_base "${default_base}")
-      string(REGEX REPLACE "${default_base}" "${PREFERRED_BASE}" string "${string}")
-      string(REGEX REPLACE "(\n{)" "\\1\n  . = ${PREFERRED_BASE};" string "${string}")
-      file(WRITE ${LD_SCRIPT} "${string}")
+        # Strip out just the SECTIONS{} portion
+        string(REGEX REPLACE ".*(SECTIONS.*\n\\}).*" "\\1" string "${string}")
+        # Find and replace the default base
+        string(REGEX MATCH "= *[^{\\.\n]+(0x[0-9]+)\\)? *\\+ *SIZEOF_HEADERS"
+          default_base "${string}")
+        if ("${default_base}" STREQUAL "")
+          message(FATAL_ERROR "unsupported ld version: please file this bug")
+        endif()
+        string(REGEX REPLACE ".*(0x[0-9]+).*" "\\1" default_base "${default_base}")
+        string(REGEX REPLACE "${default_base}" "${PREFERRED_BASE}" string "${string}")
+        string(REGEX REPLACE "(\n{)" "\\1\n  . = ${PREFERRED_BASE};" string "${string}")
+        file(WRITE ${LD_SCRIPT} "${string}")
 
-      # -dT is preferred, available on ld 2.18+: we could check for it
-      set(LD_SCRIPT_OPTION "-T")
-      set(PREFERRED_BASE_FLAGS "-Xlinker ${LD_SCRIPT_OPTION} -Xlinker \"${LD_SCRIPT}\"")
+        # -dT is preferred, available on ld 2.18+: we could check for it
+        set(LD_SCRIPT_OPTION "-T")
+        set(PREFERRED_BASE_FLAGS "-Xlinker ${LD_SCRIPT_OPTION} -Xlinker \"${LD_SCRIPT}\"")
+      endif (LINKER_IS_GNU_GOLD)
     else (UNIX)
       set(PREFERRED_BASE_FLAGS "/base:${PREFERRED_BASE} /dynamicbase:no")
     endif (UNIX)
