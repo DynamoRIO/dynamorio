@@ -43,6 +43,8 @@ if (UNIX)
 
   add_definitions(-DNOT_DYNAMORIO_CORE)
 
+  # i#1092: remove any stale symlink that might be there.
+  file(REMOVE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drdeploy")
   # we leave drdeploy for backward compat w/ old script
   execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
     "drrun" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drdeploy"
@@ -59,7 +61,6 @@ if (UNIX)
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
     PATTERN "run_in_bg*" EXCLUDE
     PATTERN "runstats*" EXCLUDE
-    PATTERN "*_exe*" EXCLUDE # Don't install the native drdeploy tools for now.
     )
 
   # Set up our debugging support for gdb in the build directory.
