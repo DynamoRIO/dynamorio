@@ -319,7 +319,7 @@ native_module_callout(priv_mcontext_t *mc, app_pc target)
     ASSERT_NOT_REACHED();
 }
 
-bool
+void
 put_back_native_retaddrs(dcontext_t *dcontext)
 {
     retaddr_and_retloc_t *retstack = dcontext->native_retstack;
@@ -331,5 +331,18 @@ put_back_native_retaddrs(dcontext_t *dcontext)
         *retloc = retstack[i].retaddr;
     }
     dcontext->native_retstack_cur = 0;
-    return i > 0;
+#ifdef HOT_PATCHING_INTERFACE
+    /* In hotp_only mode, a thread can be !under_dynamo_control
+     * and have no native_exec_retloc.  For hotp_only, there
+     * should be no need to restore a return value on the stack
+     * as the thread has been native from the start and not
+     * half-way through as it would in the regular hot patching
+     * mode, i.e., with the code cache.  See case 7681.
+     */
+    if (i == 0) {
+        ASSERT(DYNAMO_OPTION(hotp_only));
+    } else {
+        ASSERT(!DYNAMO_OPTION(hotp_only));
+    }
+#endif
 }

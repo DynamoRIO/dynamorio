@@ -6661,23 +6661,7 @@ detach_helper(int detach_type)
                 /* we do need to restore the app ret addr, for native_exec */
                 if (!DYNAMO_OPTION(thin_client) && DYNAMO_OPTION(native_exec) &&
                     !vmvector_empty(native_exec_areas)) {
-                    IF_HOTP(bool had_retaddrs =) put_back_native_retaddrs(dcontext);
-
-                    /* In hotp_only mode, a thread can be !under_dynamo_control 
-                     * and have no native_exec_retloc.  For hotp_only, there 
-                     * should be no need to restore a return value on the stack 
-                     * as the thread has been native from the start and not 
-                     * half-way through as it would in the regular hot patching 
-                     * mode, i.e., with the code cache.  See case 7681. 
-                     */
-#ifdef HOT_PATCHING_INTERFACE
-                    if (had_retaddrs) {
-                        ASSERT(DYNAMO_OPTION(hotp_only));
-                        ASSERT(real_retaddr == NULL);
-                    } else {
-                        ASSERT(!DYNAMO_OPTION(hotp_only));
-                    }
-#endif
+                    put_back_native_retaddrs(dcontext);
                 }
             }
             /* handle special case of vsyscall, need to hack the return address

@@ -79,7 +79,7 @@ native_module_unhook(module_area_t *ma);
  * this before the app takes a stack trace.  Returns whether or not there were
  * any native retaddrs.
  */
-bool
+void
 put_back_native_retaddrs(dcontext_t *dcontext);
 
 #endif /* _NATIVE_EXEC_H_ */
