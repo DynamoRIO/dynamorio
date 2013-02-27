@@ -282,7 +282,7 @@ endif (UNIX)
 # dependencies.
 function (add_asm_target source output_out tgt_out extra_suffix extra_defs extra_deps)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    get_filename_component(srcbase "${source}" NAME_WE)
+    get_filename_component(srcbase "${source}" NAME)
 
     set(s_file "${CMAKE_CURRENT_BINARY_DIR}/${srcbase}${extra_suffix}.s")
     set_source_files_properties("${s_file}" PROPERTIES GENERATED true)
