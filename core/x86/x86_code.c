@@ -197,6 +197,22 @@ auto_setup(ptr_uint_t appstack)
     ASSERT_NOT_REACHED();
 }
 
+/* Get the retstack index from the app stack and reset the mcontext to the
+ * original app state.  The retstub saved it like this in x86.asm:
+ *   push $retidx
+ *   jmp back_from_native
+ * back_from_native:
+ *   push mcontext
+ *   call return_from_native(mc)
+ */
+int
+native_get_retstack_idx(priv_mcontext_t *mc)
+{
+    int retidx = (int) *(ptr_int_t *) mc->xsp;
+    mc->xsp += sizeof(void *);  /* Undo the push. */
+    return retidx;
+}
+
 /****************************************************************************/
 #ifdef LINUX
 

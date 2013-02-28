@@ -41,6 +41,7 @@
 
 typedef void (*int_fn_t)(int);
 typedef int (*int2_fn_t)(int, int);
+typedef void (*tail_caller_t)(int_fn_t, int);
 
 /* from nativeexec.dll.dll */
 IMPORT void import_me1(int x);
@@ -48,6 +49,7 @@ IMPORT void import_me2(int x);
 IMPORT void import_me3(int x);
 IMPORT void import_me4(int_fn_t fn, int x);
 IMPORT int2_fn_t get_import_ret_imm(void);
+IMPORT tail_caller_t get_tail_caller(void);
 
 /* Test unwinding across back_from_native retaddrs. */
 IMPORT void unwind_level1(int_fn_t fn, int x);
@@ -97,6 +99,7 @@ main(int argc, char **argv)
 {
     int x;
     int2_fn_t import_ret_imm;
+    tail_caller_t tail_caller;
 
     INIT();
 
@@ -126,6 +129,7 @@ main(int argc, char **argv)
      * here.
      */
     import_ret_imm = get_import_ret_imm();
+    tail_caller = get_tail_caller();
 
     /* funky ind call is only caught by us w/ -native_exec_guess_calls
      * FIXME: add a -no_native_exec_guess_calls runregression run
@@ -155,6 +159,12 @@ main(int argc, char **argv)
     print("calling indirect ret_imm\n");
     x = call_ret_imm(import_ret_imm);
     print(" -> %d\n", x);
+
+    /* i#1077: If the appdll is native, then DR inserts a back_from_native
+     * retaddr.  The appdll then does a tail call
+     */
+    print("calling tail caller\n");
+    tail_caller(print_int, 35);
 
     print("all done\n");
 

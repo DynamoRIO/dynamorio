@@ -40,8 +40,10 @@
 
 typedef void (*int_fn_t)(int);
 typedef int (*int2_fn_t)(int, int);
+typedef void (*tail_caller_t)(int_fn_t, int);
 
 int import_ret_imm(int x, int y);
+void tail_caller(int_fn_t fn, int x);
 
 void EXPORT
 import_me1(int x)
@@ -91,6 +93,12 @@ get_import_ret_imm(void)
     return import_ret_imm;
 }
 
+tail_caller_t EXPORT
+get_tail_caller(void)
+{
+    return tail_caller;
+}
+
 #ifdef WINDOWS
 BOOL APIENTRY 
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
@@ -112,6 +120,20 @@ GLOBAL_LABEL(import_ret_imm:)
         add      REG_XAX, [REG_XSP + 2 * ARG_SZ] /* arg2 */
         ret      2 * ARG_SZ    /* Callee cleared args, ret_imm. */
         END_FUNC(import_ret_imm)
+
+/* void tail_caller(int_fn_t fn, int x) -- Tail call fn(x).
+ *
+ * i#1077: If fn is in a non-native module and we take over, we used to end up
+ * interpreting the back_from_native return address on the stack.
+ */
+        DECLARE_EXPORTED_FUNC(tail_caller)
+GLOBAL_LABEL(tail_caller:)
+        /* XXX: Not doing SEH prologue for test code. */
+        mov      REG_XAX, ARG1      /* put fn in xax */
+        mov      REG_XCX, ARG2      /* mov x to arg1 */
+        mov      ARG1, REG_XCX
+        jmp      REG_XAX            /* tail call */
+        END_FUNC(tail_caller)
 
 END_FILE
 

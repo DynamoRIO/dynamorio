@@ -98,6 +98,9 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext);
 static void
 handle_post_system_call(dcontext_t *dcontext);
 
+static void
+handle_special_tag(dcontext_t *dcontext);
+
 #ifdef WINDOWS
 static void
 handle_callback_return(dcontext_t *dcontext);
@@ -148,12 +151,9 @@ dispatch(dcontext_t *dcontext)
      * cache due to flushing before we get there.
      */
     do {
-        if (is_stopping_point(dcontext, dcontext->next_tag)) {
-            LOG(THREAD, LOG_INTERP, 1,
-                "\nFound DynamoRIO stopping point: thread %d returning to app @"PFX"\n",
-                get_thread_id(),  dcontext->next_tag);
-            dispatch_enter_native(dcontext);
-            ASSERT_NOT_REACHED();
+        if (is_in_dynamo_dll(dcontext->next_tag) ||
+            dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL) {
+            handle_special_tag(dcontext);
         }
 
         /* Neither hotp_only nor thin_client should have any fragment 
@@ -509,6 +509,29 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
     dcontext->whereami = WHERE_FCACHE;
     (*entry)(dcontext);
     ASSERT_NOT_REACHED();
+}
+
+/* Handles special tags in DR or elsewhere that do interesting things.
+ * All PCs checked in here must be in DR or be BACK_TO_NATIVE_AFTER_SYSCALL.
+ * Does not return if we've hit a stopping point; otherwise returns with an
+ * updated next_tag for continued dispatch.
+ */
+static void
+handle_special_tag(dcontext_t *dcontext)
+{
+    if (native_exec_is_back_from_native(dcontext->next_tag)) {
+        /* This can happen if we start interpreting a native module. */
+        ASSERT(DYNAMO_OPTION(native_exec));
+        interpret_back_from_native(dcontext);  /* updates next_tag */
+    }
+
+    if (is_stopping_point(dcontext, dcontext->next_tag)) {
+        LOG(THREAD, LOG_INTERP, 1,
+            "\nFound DynamoRIO stopping point: thread %d returning to app @"PFX"\n",
+            get_thread_id(),  dcontext->next_tag);
+        dispatch_enter_native(dcontext);
+        ASSERT_NOT_REACHED();  /* noreturn */
+    }
 }
 
 #if defined(DR_APP_EXPORTS) || defined(LINUX)

@@ -54,9 +54,9 @@
  */
 vm_area_vector_t *native_exec_areas;
 
-static app_pc retstub_start = (app_pc) back_from_native_retstubs;
+static const app_pc retstub_start = (app_pc) back_from_native_retstubs;
 #ifdef DEBUG
-static app_pc retstub_end = (app_pc) back_from_native_retstubs_end;
+static const app_pc retstub_end = (app_pc) back_from_native_retstubs_end;
 #endif
 
 void
@@ -261,6 +261,31 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     ASSERT_NOT_REACHED();
 }
 
+/* Pops all return address pairs off the native return stack up to and including
+ * retidx.  Returns the return address corresponding to retidx.  This assumes
+ * that the app is only doing unwinding, and not re-entering frames after
+ * returning past them.
+ */
+static app_pc
+pop_retaddr_for_index(dcontext_t *dcontext, int retidx, app_pc xsp)
+{
+    ASSERT(dcontext != NULL);
+    ASSERT(retidx >= 0 && retidx < MAX_NATIVE_RETSTACK &&
+           (uint)retidx < dcontext->native_retstack_cur);
+    DOCHECK(CHKLVL_ASSERTS, {
+        /* Because of ret imm8 instrs, we can't assert that the current xsp is
+         * one slot off from the xsp after the call.  We can assert that it's
+         * within 256 bytes, though.
+         */
+        app_pc retloc = dcontext->native_retstack[retidx].retloc;
+        ASSERT(xsp >= retloc && xsp <= retloc + 256 + sizeof(void*) &&
+               "failed to find current sp in native_retstack");
+    });
+    /* Not zeroing out the [retidx:cur] range for performance. */
+    dcontext->native_retstack_cur = retidx;
+    return dcontext->native_retstack[retidx].retaddr;
+}
+
 /* Re-enters DR after a call to a native module returns.  Called from the asm
  * routine back_from_native() in x86.asm.
  */
@@ -268,34 +293,14 @@ void
 return_from_native(priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
-    ptr_int_t i;
     app_pc target;
-    app_pc xsp;
+    int retidx;
     ENTERING_DR();
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
     SYSLOG_INTERNAL_WARNING_ONCE("returned from at least one native module");
-#ifdef X86
-    /* Account for our push of the retstack index. */
-    i = *(ptr_int_t *) mc->xsp;
-    mc->xsp += sizeof(void *);
-    xsp = (app_pc) mc->xsp;
-#else
-# error "x86.asm retstubs push an index; for other ISAs we'd do something else"
-#endif
-    ASSERT(i >= 0 && i < MAX_NATIVE_RETSTACK &&
-           (uint)i < dcontext->native_retstack_cur);
-    target = dcontext->native_retstack[i].retaddr;
-    DOCHECK(CHKLVL_ASSERTS, {
-        /* Because of ret imm8 instrs, we can't assert that the current xsp is
-         * one slot off from the xsp after the call.  We can assert that it's
-         * within 256 bytes, though.
-         */
-        app_pc retloc = dcontext->native_retstack[i].retloc;
-        ASSERT(xsp >= retloc && xsp <= retloc + 256 + sizeof(void*) &&
-               "failed to find current sp in native_retstack");
-    });
-    dcontext->native_retstack_cur = (uint)i;
+    retidx = native_get_retstack_idx(mc);
+    target = pop_retaddr_for_index(dcontext, retidx, (app_pc) mc->xsp);
     LOG(THREAD, LOG_ASYNCH, 1, "\n!!!! Returned from NATIVE module to "PFX"\n",
         target);
     back_from_native_common(dcontext, mc, target); /* noreturn */
@@ -317,6 +322,24 @@ native_module_callout(priv_mcontext_t *mc, app_pc target)
         __FUNCTION__, target);
     back_from_native_common(dcontext, mc, target);
     ASSERT_NOT_REACHED();
+}
+
+/* Update next_tag with the real app return address.  next_tag should currently
+ * be equal to a return stub PC.  We compute the offset of the stub, and then
+ * divide by the length of each stub to get the index into the return stub.
+ */
+void
+interpret_back_from_native(dcontext_t *dcontext)
+{
+    app_pc xsp = (app_pc) get_mcontext(dcontext)->xsp;
+    ptr_int_t offset = dcontext->next_tag - retstub_start;
+    int retidx;
+    ASSERT(native_exec_is_back_from_native(dcontext->next_tag));
+    ASSERT(offset % BACK_FROM_NATIVE_RETSTUB_SIZE == 0);
+    retidx = (int)offset / BACK_FROM_NATIVE_RETSTUB_SIZE;
+    dcontext->next_tag = pop_retaddr_for_index(dcontext, retidx, xsp);
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: tried to interpret back_from_native, "
+        "interpreting retaddr "PFX" instead\n", dcontext->next_tag);
 }
 
 void

@@ -7799,12 +7799,6 @@ is_in_dynamo_dll(app_pc pc)
     if (vmk_in_vmklib(pc))
         return true;
 #endif
-#ifdef STATIC_LIBRARY
-    /* i#975: with STATIC_LIBRARY, we can't separate our code from the
-     * executable, so we always return false.
-     */
-    return false;
-#endif
     return (pc >= dynamo_dll_start && pc < dynamo_dll_end);
 }
 

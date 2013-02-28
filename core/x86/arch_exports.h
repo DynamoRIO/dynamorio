@@ -878,6 +878,12 @@ void hashlookup_null_handler(void);
 /* x86_code.c */
 void dynamo_start(priv_mcontext_t *mc);
 
+/* Gets the retstack index saved in x86.asm and restores the mcontext to the
+ * original app state.
+ */
+int
+native_get_retstack_idx(priv_mcontext_t *mc);
+
 /* in proc.c -- everything in proc.h is exported so just include it here */
 #include "proc.h"
 
