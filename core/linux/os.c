@@ -4924,7 +4924,8 @@ handle_execve(dcontext_t *dcontext)
         idx_ldpath = i++;
     if (DYNAMO_OPTION(follow_children)) {
         for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-            if (prop_found[j] < 0)
+            prop_idx[j] = prop_found[j];
+            if (prop_idx[j] < 0)
                 prop_idx[j] = i++;
         }
     }
@@ -4971,27 +4972,30 @@ handle_execve(dcontext_t *dcontext)
 
     if (DYNAMO_OPTION(follow_children)) {
         for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-            if (prop_found[j] < 0) {
-                const char *val = "";
-                switch (j) {
-                case ENV_PROP_RUNUNDER:
-                    ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_RUNUNDER) == 0);
-                    /* Must pass RUNUNDER_ALL to get child injected if has no app config.
-                     * If rununder var is already set we assume it's set to 1.
-                     */
-                    ASSERT((RUNUNDER_ON | RUNUNDER_ALL) == 0x3); /* else, update "3" */
-                    val = "3";
-                    break;
-                case ENV_PROP_OPTIONS:
-                    ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
-                    val = option_string;
-                    break;
-                default:
-                    val = getenv(env_to_propagate[j]);
-                    if (val == NULL)
-                        val = "";
-                    break;
-                }
+            const char *val = "";
+            bool set_env_var = (prop_found[j] < 0);
+            switch (j) {
+            case ENV_PROP_RUNUNDER:
+                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_RUNUNDER) == 0);
+                /* Must pass RUNUNDER_ALL to get child injected if has no app config.
+                 * If rununder var is already set we assume it's set to 1.
+                 */
+                ASSERT((RUNUNDER_ON | RUNUNDER_ALL) == 0x3); /* else, update "3" */
+                val = "3";
+                break;
+            case ENV_PROP_OPTIONS:
+                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
+                val = option_string;
+                /* i#1097: don't use options from the app's envp; use ours. */
+                set_env_var = true;
+                break;
+            default:
+                val = getenv(env_to_propagate[j]);
+                if (val == NULL)
+                    val = "";
+                break;
+            }
+            if (set_env_var) {
                 sz = strlen(env_to_propagate[j]) + strlen(val) + 2 /* '=' + null */;
                 var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
                 snprintf(var, sz, "%s=%s", env_to_propagate[j], val);

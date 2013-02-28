@@ -85,9 +85,10 @@ int main(int argc, char *argv[])
         const char **env = NULL;
 #else
         const char *env0 = "LD_LIBRARY_PATH=/bin:.";
-        const char *env[2];
-	env[0] = env0;
-	env[1] = NULL;
+        const char *env[3];
+        env[0] = env0;
+        env[1] = "DYNAMORIO_OPTIONS=-bad_option i#1097";
+        env[2] = NULL;
 #endif
 	arg[0] = argv[1];
 	arg[1] = "/fake/path/it_worked";
