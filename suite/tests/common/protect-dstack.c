@@ -87,7 +87,7 @@ unsigned int dcontext_tls_offset;
 /*     0:001> dt getdc owning_thread    
  *        +0x05c owning_thread
  */
-# define OWNING_THREAD_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x220,0x1a4)
+# define OWNING_THREAD_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x210,0x19c)
 /* offset varies based on release/debug build (# of slots we need)
  * and cache line size (must be aligned) and the -ibl_table_in_tls
  * option being set to true
