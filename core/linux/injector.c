@@ -578,6 +578,8 @@ dr_inject_process_exit(void *data, bool terminate)
          * process with the same pid.
          */
         status = info->exitcode;
+    } else if (info->exec_self) {
+        status = -1;  /* We never injected, must have been some other error. */
     } else if (terminate) {
         /* We use SIGKILL to match Windows, which doesn't provide the app a
          * chance to clean up.

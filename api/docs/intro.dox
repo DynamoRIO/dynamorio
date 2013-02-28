@@ -291,8 +291,8 @@ is handled by a set of libraries and tools.  \if linux On Windows, the
 tools are \c drconfig.exe, \c drrun.exe, and \c drinject.exe.  The
 corresponding libraries (whose APIs are exposed by the tools) are \c
 drconfiglib.dll and \c drinjectlib.dll with header files \c dr_config.h and
-\c dr_inject.h.  On Linux, the tools are the \c drconfig, \c drrun, and \c
-drinject scripts. \endif
+\c dr_inject.h.  On Linux, the tools are named \c drconfig, \c drrun, and \c
+drinject. \endif
 
 \ifnot vmsafe 
 When using DynamoRIO as a third-party disassembly library (see \ref
@@ -426,10 +426,10 @@ sure that the cmd shell being used was started with elevated permissions.
 \if linux
 \section lin_deploy Linux Deployment
 
-Once DynamoRIO has been unpacked, a set of three scripts provide
-flexibility in configuring and executing applications.
+Once DynamoRIO has been unpacked, the same set of helper binaries as on
+Windows provide flexibility in configuring and executing applications.
 The \ref limits_linux_preload "LD_PRELOAD"
-based scripts and the \ref sec_startstop "app_start()/app_stop()"
+injection mechanism and the \ref sec_startstop "app_start()/app_stop()"
 interface are currently the only supported methods of running
 applications under DynamoRIO on Linux.
 
@@ -447,14 +447,14 @@ environment variable shortcuts it supports.  To disable following across
 child execve calls, use the \ref op_children "-no_follow_children" runtime
 option.
 
-Use the scripts in \c bin32/ for 32-bit applications and the scripts in \c
+Use the tools in \c bin32/ for 32-bit applications and the tools in \c
 bin64/ for 64-bit applications.
 
 The two-step method allows for greater control over child processes.  The
-\p drconfig script writes a configuration file for a given application
+\p drconfig tool writes a configuration file for a given application
 name.  DynamoRIO reads its options from the configuration file at runtime.
-Once each process name is configured, the \p drinject script can be used to
-invoke the parent process.  The \p drrun script can also be used but it
+Once each process name is configured, the \p drinject tool can be used to
+invoke the parent process.  The \p drrun tool can also be used but it
 creates a temporary configuration file that will override settings
 requested via \p drconfig.  The configuration file for each application is
 stored in <tt>$HOME/.dynamorio/&lt;appname&gt;.config32</tt> (or a \p
@@ -1186,9 +1186,8 @@ target application process.  These include:
 \section sec_options Fine-Tuning DynamoRIO: Runtime Parameters
 
 DynamoRIO's behavior can be fine-tuned using runtime parameters.  Options
-are specified via \c drconfig.exe, \c drrun.exe, or dr_register_process()
-\if linux on Windows and via the \c drconfig and \c drrun scripts on
-Linux\endif.  See \ref page_deploy.
+are specified via \c drconfig, \c drrun, or dr_register_process().  See
+\ref page_deploy.
 
  - \b -no_follow_children: \anchor op_children
    By default, DynamoRIO follows all child processes.  When this option
@@ -1452,9 +1451,8 @@ Options available only in the debug build of DynamoRIO:
     that is incremented with each directory created.  \if Linux On
     Windows the \else The \endif directories are located by default in
     a subdirectory \e logs of the DynamoRIO home directory as
-    specified in the dr_register_process() or \c drconfig.exe
-    configuration for the target application.  \if linux On Linux the
-    \c drconfig and \c drrun scripts allow for setting the logging directory. \endif
+    specified in the dr_register_process(), \c drconfig, or \c drrun
+    configuration for the target application.
     The runtime option \ref op_logdir "-logdir" can be used to override the
     default directory.
     There is one main log file per directory named
@@ -1573,16 +1571,16 @@ read from standard input, an alternative exists: the \ref op_pause
 "-pause_on_error" option allows attaching a debugger when a problem
 occurs.
 
-To run an application on Linux under a debugger from the start you can
-launch bash under gdb like so:
+To run an application on Linux under a debugger from process start you
+can launch drrun under gdb as you would normally:
 
 \code
-gdb --args /bin/bash path/to/drrun <options> -- path/to/app
+gdb --args path/to/drrun <options> -- path/to/app
 \endcode
 
-Because the executable changes from bash to the app, the app cannot be
+Because the executable changes from drrun to the app, the app cannot be
 re-run from gdb's prompt.  To re-run an application from gdb's prompt,
-you can perform the work of the \c drrun script by setting the
+you can perform the work of the \c drrun tool by setting the
 LD_LIBRARY_PATH and LD_PRELOAD environment variables from within the
 debugger.
 

@@ -763,7 +763,8 @@ int main(int argc, char *argv[])
     for (i=1; i<argc; i++) {
 
         /* params with no arg */
-        if (strcmp(argv[i], "-verbose") == 0) {
+        if (strcmp(argv[i], "-verbose") == 0 ||
+            strcmp(argv[i], "-v") == 0) {
             verbose = true;
             continue;
         }
@@ -775,7 +776,7 @@ int main(int argc, char *argv[])
             use_debug = true;
             continue;
         }
-        else if (!strcmp(argv[i], "-v")) {
+        else if (!strcmp(argv[i], "-version")) {
 #if defined(BUILD_NUMBER) && defined(VERSION_NUMBER)
           printf(TOOLNAME" version %s -- build %d\n", STRINGIFY(VERSION_NUMBER), BUILD_NUMBER);
 #elif defined(BUILD_NUMBER)
