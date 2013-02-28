@@ -283,7 +283,8 @@ _access(const char *fname, int mode)
 
 # ifndef DRCONFIG
 /* Implements a normal path search for fname on the paths in env_var.  Assumes
- * full_path is at least MAXIMUM_PATH bytes long.
+ * full_path is at least MAXIMUM_PATH bytes long.  Resolves symlinks, which is
+ * needed to get the right config filename (i#1062).
  */
 static int
 _searchenv(const char *fname, const char *env_var, char *full_path)
@@ -323,21 +324,32 @@ GetLastError(void)
 }
 # endif
 
-/* XXX: Returns void and resolves symlinks, which we may not want.
+/* Simply concatenates the cwd with the given relative path.  Previously we
+ * called realpath, but this requires the path to exist and expands symlinks,
+ * which is inconsistent with Windows GetFullPathName().
  */
 static void
 GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
 {
-    /* XXX: realpath takes no size, so we have to allocate a larger buffer. */
-    char tmp_buf[PATH_MAX];
-    char *err;
+    size_t len = 0;
     assert(ext == NULL && "invalid param");
-    err = realpath(rel, tmp_buf);
-    if (err == NULL) {
-        abs[0] = '\0';
-    } else {
-        strncpy(abs, tmp_buf, abs_len);
+    if (rel[0] != '/') {
+        char *err = getcwd(abs, abs_len);
+        if (err != NULL) {
+            len = strlen(abs);
+            /* Append a slash if it doesn't have a trailing slash. */
+            if (abs[len-1] != '/' && len < abs_len) {
+                abs[len++] = '/';
+                abs[len] = '\0';
+            }
+            /* Omit any leading ./. */
+            if (rel[0] == '.' && rel[0] == '/') {
+                rel += 2;
+            }
+        }
     }
+    strncpy(abs + len, rel, abs_len - len);
+    abs[abs_len-1] = '\0';
 }
 
 #endif /* LINUX */

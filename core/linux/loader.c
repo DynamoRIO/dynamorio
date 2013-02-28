@@ -538,9 +538,11 @@ static bool
 privload_search_rpath(privmod_t *mod, const char *name,
                       char *filename OUT /* buffer size is MAXIMUM_PATH */)
 {
-    os_privmod_data_t *opd = (os_privmod_data_t *) mod->os_privmod_data;
+    os_privmod_data_t *opd;
     ELF_DYNAMIC_ENTRY_TYPE *dyn;
+    ASSERT(mod != NULL && "can't look for rpath without a dependent module");
     /* get the loading module's dir for RPATH_ORIGIN */
+    opd = (os_privmod_data_t *) mod->os_privmod_data;
     const char *moddir_end = strrchr(mod->path, '/');
     size_t moddir_len = (moddir_end == NULL ? strlen(mod->path) : moddir_end - mod->path);
     const char *strtab;
@@ -612,7 +614,7 @@ privload_locate(const char *name, privmod_t *dep,
      */
     /* the loader search order: */
     /* 0) DT_RPATH */
-    if (privload_search_rpath(dep, name, filename))
+    if (dep != NULL && privload_search_rpath(dep, name, filename))
         return true;
 
     /* 1) client lib dir */
