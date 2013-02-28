@@ -100,6 +100,10 @@
 # they can be triggered earlier by calling configure_DynamoRIO_global().
 # The original cflag values are saved in variables with the prefix ORIG_
 # followed by the variable name (e.g., ORIG_CMAKE_C_FLAGS).
+# These flags are set in the configure_DynamoRIO_*() functions via
+# PARENT_SCOPE.  If you want to call these functions from another
+# function, you must first call configure_DynamoRIO_global() from
+# global scope ahead of time.
 #
 # The compiler flags are not changed when using
 # configure_DynamoRIO_decoder().
@@ -289,6 +293,10 @@ set_property(GLOBAL PROPERTY
 # or per-target include dirs or link dirs, so we have to make global changes.
 # We don't want find_package() to incur those changes: only if a target
 # is actually configured.
+# The is_cxx parameter does not matter much: this routine can be called
+# with is_cxx=OFF and C++ clients will still be configured properly,
+# unless the C++ compiler and the C compiler are configured for
+# different bitwidths.
 function (configure_DynamoRIO_global is_cxx change_flags)
   # Should only be done once per project
   get_property(already_configured_project GLOBAL PROPERTY
@@ -401,6 +409,22 @@ function (configure_DynamoRIO_global is_cxx change_flags)
       endforeach (config)
     endif (change_flags)
 
+  else (NOT DEFINED already_configured_listdir)
+    # We can detect failure to propagate to global scope on the 2nd client
+    # in the same listdir.
+    # XXX: is there any way we can have better support for functions?
+    # I spent a while trying to use CACHE INTERNAL FORCE to set the
+    # global vars but it has all kinds of weird consequences for other
+    # vars based on the original values of the now-cache vars.
+    # This behavior varies by generator and I never found a solution
+    # that worked for all generators.  Ninja was easy, but VS and Makefiles
+    # ended up with ORIG_* set to the blank values, even when ORIG_*
+    # was marked as cache.  Plus, Dr. Memory's SAVE_* values ended up
+    # w/ the cache value as well.
+    if (NOT DEFINED ORIG_CMAKE_C_FLAGS)
+      message(FATAL_ERROR "When invoking configure_DynamoRIO_*() from a function, "
+        "configure_DynamoRIO_global() must be called from global scope first.")
+    endif (NOT DEFINED ORIG_CMAKE_C_FLAGS)
   endif (NOT DEFINED already_configured_listdir)
 endfunction (configure_DynamoRIO_global)
 

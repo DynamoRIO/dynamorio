@@ -172,6 +172,10 @@ endfunction (add_sample_standalone)
 
 ###########################################################################
 
+# As we'll be calling configure_DynamoRIO_{client,standalone} from within
+# a function scope, we must set the global vars ahead of time:
+configure_DynamoRIO_global(OFF ON)
+
 # Use ;-separated lists for source files and extensions.
 
 add_sample_client(bbbuf       "bbbuf.c"         "")

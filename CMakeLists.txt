@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -32,12 +32,9 @@
 ###########################################################################
 # Missing features:
 # i#77: make DRgui a subproject to support with different compiler from libutil 
-# i#73: provide automatic suport for locating ml64.exe when using Vista SDK+WDK
-# i#79: custom build number or label for non-release builds
 # i#84: nmake adds space before 1st / in 1st arg to a command invoked with quotes
 # i#74: create source tarball via 'make package_source' 
 # i#68: replace perl with cmake scripts and CTest
-# i#69: re-add support for core unit tests and standalone build rules
 # i#70: symbol store support in core/Makefile and tools/Makefile
 # i#75: convert clients/standalone/Makefile to CMake 
 # i#72: RHEL3 linker script has no __executable_start
