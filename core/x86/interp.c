@@ -736,7 +736,7 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
     if (DYNAMO_OPTION(native_exec) &&
         DYNAMO_OPTION(native_exec_dircalls) &&
         !vmvector_empty(native_exec_areas) &&
-        vmvector_overlap(native_exec_areas, new_pc, new_pc+1))
+        is_native_pc(new_pc))
         return false;
 #ifdef CLIENT_INTERFACE
     /* i#805: If we're crossing a module boundary between two modules that are
@@ -2227,7 +2227,7 @@ bb_process_IAT_convertible_indjmp(dcontext_t *dcontext, build_bb_t *bb,
      * intercept those jmps.
      */
     if (DYNAMO_OPTION(native_exec) &&
-        vmvector_overlap(native_exec_areas, target, target+1)) {
+        is_native_pc(target)) {
         BBPRINT(bb, 3,
                 "   NOT inlining indirect jump to native exec module "PFX"\n", target);
         STATS_INC(num_indirect_jumps_IAT_native);
@@ -2342,7 +2342,7 @@ bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
      * this check isn't much slower.
      */
     if (DYNAMO_OPTION(native_exec) &&
-        vmvector_overlap(native_exec_areas, target, target+1)) {
+        is_native_pc(target)) {
         BBPRINT(bb, 3,
                 "   NOT inlining indirect call to native exec module "PFX"\n", target);
         STATS_INC(num_indirect_calls_IAT_native);
@@ -3389,7 +3389,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
          * at a return-address-clobberable point.
          */
         app_pc tgt = opnd_get_pc(instr_get_target(bb->instr));
-        if (vmvector_overlap(native_exec_areas, tgt, tgt+1) &&
+        if (is_native_pc(tgt) &&
             at_native_exec_gateway(dcontext, tgt, &bb->native_call
                                    _IF_DEBUG(true/*xfer tgt*/))) {
             /* replace this ilist w/ a native exec one */
@@ -4171,7 +4171,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
              LINKSTUB_INDIRECT(dcontext->last_exit->flags))) {
             STATS_INC(num_native_entrance_checks);
             /* we do the overlap check last since it's more costly */
-            if (vmvector_overlap(native_exec_areas, start, start+1)) {
+            if (is_native_pc(start)) {
                 native_exec_bb = true;
                 *is_call = true;
                 DOSTATS({
@@ -4189,7 +4189,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
         else if (DYNAMO_OPTION(native_exec_retakeover) &&
                  LINKSTUB_INDIRECT(dcontext->last_exit->flags) &&
                  TEST(LINK_RETURN, dcontext->last_exit->flags)) {
-            if (vmvector_overlap(native_exec_areas, start, start+1)) {
+            if (is_native_pc(start)) {
                 /* XXX: check that this is the return address of a known native
                  * callsite where we took over on a module transition.
                  */
@@ -4205,7 +4205,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
         else if (DYNAMO_OPTION(native_exec_retakeover) &&
                  LINKSTUB_INDIRECT(dcontext->last_exit->flags) &&
                  start == get_image_entry()) {
-            if (vmvector_overlap(native_exec_areas, start, start+1)) {
+            if (is_native_pc(start)) {
                 native_exec_bb = true;
                 *is_call = false;
             }
@@ -4225,7 +4225,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
             /* vector check cheaper than is_readable syscall, etc. so do it before them,
              * but after last_exit checks above since overlap is more costly
              */
-            if (vmvector_overlap(native_exec_areas, start, start+1) &&
+            if (is_native_pc(start) &&
                 is_readable_without_exception((app_pc)tos, sizeof(app_pc))) {
                 enum { MAX_CALL_CONSIDER = 6 /* ignore prefixes */ };
                 app_pc retaddr = *tos;
@@ -4284,7 +4284,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
         DOSTATS({
             /* did we reach a native dll w/o going through an ind call caught above? */
             if (!xfer_target /* else we'll re-check at the target itself */ &&
-                !native_exec_bb && vmvector_overlap(native_exec_areas, start, start+1)) {
+                !native_exec_bb && is_native_pc(start)) {
                 LOG(THREAD, LOG_INTERP|LOG_VMAREAS, 2,
                     "WARNING: pc "PFX" is on native list but reached bypassing gateway!\n",
                     start);

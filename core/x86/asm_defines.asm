@@ -106,7 +106,7 @@ ASSUME fs:_DATA @N@\
 # define END_FILE END
 /* we don't seem to need EXTERNDEF or GLOBAL */
 # define DECLARE_FUNC(symbol) symbol PROC
-# define DECLARE_EXPORTED_FUNC(symbol) symbol PROC
+# define DECLARE_EXPORTED_FUNC(symbol) symbol PROC EXPORT
 # define END_FUNC(symbol) symbol ENDP
 # define DECLARE_GLOBAL(symbol) PUBLIC symbol
 /* XXX: this should be renamed FUNC_ENTRY_LABEL */

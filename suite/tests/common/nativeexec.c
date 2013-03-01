@@ -48,8 +48,8 @@ IMPORT void import_me1(int x);
 IMPORT void import_me2(int x);
 IMPORT void import_me3(int x);
 IMPORT void import_me4(int_fn_t fn, int x);
-IMPORT int2_fn_t get_import_ret_imm(void);
-IMPORT tail_caller_t get_tail_caller(void);
+IMPORT int import_ret_imm(int x, int y);
+IMPORT void *tail_caller(int_fn_t, int);
 
 /* Test unwinding across back_from_native retaddrs. */
 IMPORT void unwind_level1(int_fn_t fn, int x);
@@ -98,8 +98,6 @@ int
 main(int argc, char **argv)
 {
     int x;
-    int2_fn_t import_ret_imm;
-    tail_caller_t tail_caller;
 
     INIT();
 
@@ -123,13 +121,6 @@ main(int argc, char **argv)
      */
     print("calling via PLT-style call\n");
     call_plt(&import_me2);
-
-    /* Work around for not being able to export syms from asm code.  This
-     * requires doing a cross-native PLT-style call, which most natrually fits
-     * here.
-     */
-    import_ret_imm = get_import_ret_imm();
-    tail_caller = get_tail_caller();
 
     /* funky ind call is only caught by us w/ -native_exec_guess_calls
      * FIXME: add a -no_native_exec_guess_calls runregression run

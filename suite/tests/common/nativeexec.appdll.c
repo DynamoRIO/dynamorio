@@ -87,18 +87,6 @@ unwind_level5(int_fn_t fn, int x)
     fn(x);
 }
 
-int2_fn_t EXPORT
-get_import_ret_imm(void)
-{
-    return import_ret_imm;
-}
-
-tail_caller_t EXPORT
-get_tail_caller(void)
-{
-    return tail_caller;
-}
-
 #ifdef WINDOWS
 BOOL APIENTRY 
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)

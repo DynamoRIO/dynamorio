@@ -48,6 +48,9 @@ native_exec_init(void);
 void
 native_exec_exit(void);
 
+bool
+is_native_pc(app_pc pc);
+
 /* Gets called on every call into a native module. */
 void
 call_to_native(app_pc *sp);
