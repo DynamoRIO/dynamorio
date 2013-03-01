@@ -1227,11 +1227,15 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Timezone-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Threadpool-Legacy-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-BEM-L1-1"))
+             str_case_prefix(name, "API-MS-Win-Core-BEM-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Base-Private-L1-1"))
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-CRT-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-CRT-L2-1"))
         return "msvcrt.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Service-Private-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1"))
+        return "sechost.dll";
     else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
