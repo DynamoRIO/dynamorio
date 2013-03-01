@@ -1116,11 +1116,19 @@ os_terminate_wow64_stack(HANDLE thread_handle)
             teb = get_teb(thread_handle);
         if (teb == NULL) /* app may have passed bogus handle */
             return (byte *) wow64_syscall_stack;
-        /* Use the TLS slots.  Leave room for syscall call*'s retaddr plus 1
-         * extra.  There's still plenty of room at higher addresses for 2 args
-         * for os_terminate_wow64_write_args().
+        /* We use our scratch slots in the TEB.  We need room for syscall
+         * call*'s retaddr below and 2 args for os_terminate_wow64_write_args()
+         * above, so we take our own xbx slot, which has xax below and xcx+xdx
+         * above.  We do not have the extra safety slot that wow64_syscall_stack
+         * has, but that's not necessary, and if the wow64 wrapper wrote to it
+         * it would just be writing to an app slot that's likely unused (b/c DR
+         * takes TLS slots from the end).
+         *
+         * XXX: it would be cleaner to not write to this until we're done
+         * cleaning up private libraries, which examine the TEB.
+         * Then we could use any part of the TEB.
          */
-        return (byte *)teb + offsetof(TEB, TlsSlots) + 2*XSP_SZ;        
+        return (byte *)teb + os_tls_offset(TLS_XBX_SLOT);
     }
 #endif
 }
