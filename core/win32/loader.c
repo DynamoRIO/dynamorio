@@ -1029,6 +1029,10 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
     if (forwfunc != NULL) {
         /* XXX i#233: support redirecting when imported by ordinal */
         dst = privload_redirect_imports(forwmod, forwfunc, mod);
+        DOLOG(2, LOG_LOADER, {
+            if (dst != NULL)
+                LOG(GLOBAL, LOG_LOADER, 2, "\tredirect => "PFX"\n", dst);
+        });
     }
     if (dst == NULL)
         dst = (app_pc) func;

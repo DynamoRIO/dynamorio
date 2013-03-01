@@ -37,6 +37,9 @@
 #include "../../module_shared.h"
 #include "drwinapi.h"
 
+/* If you add any new priv invocation pointer here, update the list in
+ * drwinapi_redirect_imports().
+ */
 static HMODULE (WINAPI *priv_kernel32_GetModuleHandleA)(const char *);
 static HMODULE (WINAPI *priv_kernel32_GetModuleHandleW)(const wchar_t *);
 static FARPROC (WINAPI *priv_kernel32_GetProcAddress)(HMODULE, const char *);

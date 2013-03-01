@@ -78,14 +78,32 @@ drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
     if (strcasecmp(impmod->name, "ntdll.dll") == 0) {
         return ntdll_redir_lookup(name);
     } else if (strcasecmp(impmod->name, "kernel32.dll") == 0 ||
-               /* we don't want to redirect kernel32.dll's calls to kernelbase */
-               ((importer == NULL ||
-                 strcasecmp(importer->name, "kernel32.dll") != 0) &&
-                strcasecmp(impmod->name, "kernelbase.dll") == 0)) {
+               strcasecmp(impmod->name, "kernelbase.dll") == 0) {
         app_pc res = kernel32_redir_lookup(name);
         if (res == NULL) {
             /* win7 has some Reg* routines in kernel32 so we check advapi */
             res = advapi32_redir_lookup(name);
+        }
+        if (res != NULL && get_os_version() >= WINDOWS_VERSION_7 &&
+            importer != NULL && strcasecmp(importer->name, "kernel32.dll") == 0) {
+            /* We can't redirect kernel32.dll's calls to kernelbase when we ourselves
+             * call the kernel32.dll routine when our redirection fails.
+             *
+             * XXX: we could add a 2nd return val from the lookup, but there are
+             * only a few of these and as time goes forward this set should ideally
+             * shrink to zero.  Thus we hardcode here.
+             *
+             * XXX: might some dlls import from kernelbase instead of kernel32 and
+             * bypass our redirection altogether?  Yet another reason to eliminate
+             * our redirection routines calling back into the priv libs.
+             */
+            if (strcmp(name, "GetModuleHandleA") == 0 ||
+                strcmp(name, "GetModuleHandleW") == 0 ||
+                strcmp(name, "GetProcAddress") == 0 ||
+                strcmp(name, "LoadLibraryA") == 0 ||
+                strcmp(name, "LoadLibraryW") == 0 ||
+                strcmp(name, "FlsAlloc") == 0)
+                return NULL;
         }
         return res;
     } else if (strcasecmp(impmod->name, "rpcrt4.dll") == 0) {

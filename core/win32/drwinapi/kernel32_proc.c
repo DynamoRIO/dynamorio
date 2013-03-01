@@ -36,6 +36,9 @@
 #include "../../globals.h"
 #include "instrument.h"
 
+/* If you add any new priv invocation pointer here, update the list in
+ * drwinapi_redirect_imports().
+ */
 static DWORD (WINAPI *priv_kernel32_FlsAlloc)(PFLS_CALLBACK_FUNCTION);
 
 /* Support for running private FlsCallback routines natively */
