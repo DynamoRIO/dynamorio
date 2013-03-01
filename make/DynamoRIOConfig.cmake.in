@@ -846,7 +846,11 @@ function (use_DynamoRIO_extension target extname)
       # File should have been created fresh when configured.
       # XXX: in the future we may add support for relative dirs but for
       # now we only support absolute.
-      file(APPEND ${drpath_file} "${libdir}\n")
+      file(READ ${drpath_file} cur_contents)
+      string(FIND ${cur_contents} ${libdir} cur_found)
+      if (NOT cur_found)
+        file(APPEND ${drpath_file} "${libdir}\n")
+      endif (NOT cur_found)
     endif (WIN32)
   else ()
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)

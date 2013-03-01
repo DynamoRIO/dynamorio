@@ -401,6 +401,18 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     return (void *)mod;
 }
 
+static bool
+privload_search_path_exists(const char *path, size_t len)
+{
+    uint i;
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    for (i = 0; i < search_paths_idx; i++) {
+        if (IF_LINUX_ELSE(strncmp,strncasecmp)(search_paths[i], path, len) == 0)
+            return true;
+    }
+    return false;
+}
+
 /* i#955: we support a <basename>.drpath text file listing search paths.
  * XXX i#1078: should we support something like DT_RPATH's $ORIGIN for relative
  * entries in this file?
@@ -439,13 +451,15 @@ privload_read_drpath_file(const char *libname)
                     }
                     if (nl == s)
                         break;
-                    snprintf(search_paths[search_paths_idx],
-                             BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx]),
-                             "%.*s", nl - s, s);
-                    NULL_TERMINATE_BUFFER(search_paths[search_paths_idx]);
-                    LOG(GLOBAL, LOG_LOADER, 1, "%s: added search dir \"%s\"\n",
-                        __FUNCTION__, search_paths[search_paths_idx]);
-                    search_paths_idx++;
+                    if (!privload_search_path_exists(s, nl - s)) {
+                        snprintf(search_paths[search_paths_idx],
+                                 BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx]),
+                                 "%.*s", nl - s, s);
+                        NULL_TERMINATE_BUFFER(search_paths[search_paths_idx]);
+                        LOG(GLOBAL, LOG_LOADER, 1, "%s: added search dir \"%s\"\n",
+                            __FUNCTION__, search_paths[search_paths_idx]);
+                        search_paths_idx++;
+                    }
                     s = nl + 1;
                     while (s < map + file_size && (*s == '\r' || *s == '\n'))
                         s++;
@@ -482,14 +496,19 @@ privload_load(const char *filename, privmod_t *dependent)
         return NULL;
     }
 
-    /* i#955: support a <basename>.rpath file for search paths */
+    /* i#955: support a <basename>.drpath file for search paths */
     privload_read_drpath_file(filename);
 
-    /* Keep a copy of the lib path for use in searching: we'll strdup in loader_init.
+    /* For direct client libs (not dependent libs),
+     * keep a copy of the lib path for use in searching: we'll strdup in loader_init.
      * This needs to come before privload_insert which will inc search_paths_idx.
+     * There should be very few of these (normally just 1), so we don't call
+     * privload_search_path_exists() (which would require refactoring when the
+     * search_paths_idx increment happens).
      */
     if (!privload_modlist_initialized()) {
         const char *end = double_strrchr(filename, DIRSEP, ALT_DIRSEP);
+        ASSERT(search_paths_idx < SEARCH_PATHS_NUM);
         if (end != NULL &&
             end - filename < BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx])) {
             snprintf(search_paths[search_paths_idx], end - filename, "%s",
