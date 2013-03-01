@@ -509,6 +509,9 @@ privload_load_private_library(const char *name);
 void
 privload_redirect_setup(privmod_t *mod);
 
+void
+privload_os_finalize(privmod_t *privmod_t);
+
 app_pc
 privload_map_and_relocate(const char *filename, size_t *size OUT);
 

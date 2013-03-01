@@ -1633,9 +1633,6 @@ get_process_handle_count(HANDLE ph, ULONG *handle_count)
     return res;
 }
 
-/* forward -- static since others probably want seconds as unit */
-static LONGLONG query_time_100ns(void);
-
 int
 get_process_load(HANDLE h)
 {
@@ -2936,7 +2933,7 @@ get_application_cmdline(void)
                                  peb->ProcessParameters->CommandLine.Buffer);
 }
 
-static LONGLONG
+LONGLONG
 query_time_100ns()
 {
     /* FIXME: we could use KUSER_SHARED_DATA here, but it's too volatile

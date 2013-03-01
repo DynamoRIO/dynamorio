@@ -495,6 +495,12 @@ privload_redirect_setup(privmod_t *privmod)
     /* do nothing, the redirection is done when relocating */
 }
 
+void
+privload_os_finalize(privmod_t *privmod_t)
+{
+    /* nothing */
+}
+
 static void
 privload_init_search_paths(void)
 {

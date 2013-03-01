@@ -619,9 +619,7 @@ privload_load_finalize(privmod_t *privmod)
         return false;
     }
 
-    /* FIXME: not supporting TLS today in Windows: 
-     * covered by i#233, but we don't expect to see it for dlls, only exes
-     */
+    privload_os_finalize(privmod);
 
     if (!privload_call_entry(privmod, DLL_PROCESS_INIT)) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: entry routine failed\n", __FUNCTION__);

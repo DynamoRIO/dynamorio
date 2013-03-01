@@ -1706,6 +1706,8 @@ convert_100ns_to_system_time(uint64 time_in_100ns, SYSTEMTIME *st OUT);
 void
 convert_system_time_to_100ns(const SYSTEMTIME *st, uint64 *time_in_100ns OUT);
 
+LONGLONG query_time_100ns(void);
+
 void
 query_system_time(SYSTEMTIME *st OUT);
 
@@ -2063,6 +2065,11 @@ GET_NTDLL(NtWriteFile, (IN HANDLE FileHandle,
                         IN ULONG Length,
                         IN PLARGE_INTEGER ByteOffset OPTIONAL,
                         IN PULONG Key OPTIONAL));
+
+/* Not really a syscall: reads KUSER_SHARED_DATA.
+ * Redirects to RtlGetTickCount on Win2003+.
+ */
+NTSYSAPI ULONG_PTR NTAPI NtGetTickCount(void);
 
 /***************************************************************************
  * RAW WRAPPERS
