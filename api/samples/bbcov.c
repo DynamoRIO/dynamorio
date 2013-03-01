@@ -808,6 +808,11 @@ options_init(client_id_t id)
         DR_ASSERT(options.logdir[0] != '\0');
         DR_ASSERT(dr_directory_exists(options.logdir));
     }
+    if (!options.dump_text && !options.dump_binary &&
+        !options.check && !options.summary) {
+        /* default: dump_text */
+        options.dump_text = true;
+    }
     DR_ASSERT(options.dump_text || options.dump_binary ||
               options.check || options.summary);
 }

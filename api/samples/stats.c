@@ -185,7 +185,9 @@ shared_memory_init(void)
         num++;
     }
     dr_log(NULL, LOG_ALL, 1, "Shared memory key is: \"%S\"\n", shared_keyname);
+#ifdef SHOW_RESULTS
     dr_fprintf(STDERR, "Shared memory key is: \"%S\"\n", shared_keyname);
+#endif
     shared_view = MapViewOfFile(shared_map, FILE_MAP_READ|FILE_MAP_WRITE, 0, 0, 0);
     DR_ASSERT(shared_view != NULL);
     return (client_stats *) shared_view;

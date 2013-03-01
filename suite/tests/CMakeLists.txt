@@ -54,7 +54,6 @@ set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 set(TEST_32BIT_PATH "" CACHE STRING "32-bit test bin dir for cross-arch tests")
 
 # FIXME: i#120: .runall support
-# FIXME: i#65: run samples like runregression does
 # FIXME: i#65: add command to run natively
 # FIXME: i#111: get .runall tests to run in parallel
 #   and use latest cmake for "ctest -j" (and "ctest -W 60")
@@ -680,8 +679,9 @@ function(tobuild_gcc exe source depender extra_args)
   add_dependencies(${depender} target_${exe})
 endfunction(tobuild_gcc)
 
+# If the client is in suite/tests/client-interface, caller must append ".dll".
 function(torunonly_ci test realexe realclient source client_ops dr_ops exe_ops)
-  get_client_path(client_path ${realclient}.dll ${realexe})
+  get_client_path(client_path ${realclient} ${realexe})
 
   # note that b/c of cmake's ridiculous scoping we can't easily share this code
   # w/ tobuild_ci: still have to propagate out of there, so we dup.
@@ -1434,7 +1434,7 @@ if (CLIENT_INTERFACE)
       client-interface/drsyms-test.appdll.cpp client.drsyms-test "-shared")
     torunonly_ci(client.drsyms-testgcc
       ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.exe
-      client.drsyms-test client-interface/drsyms-test.cpp "" "-stack_size 36K"
+      client.drsyms-test.dll client-interface/drsyms-test.cpp "" "-stack_size 36K"
       "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.appdll.dll")
     set(client.drsyms-testgcc_expectbase "drsyms-testgcc")
   endif (WIN32 AND GCC AND NOT X64)
@@ -1458,7 +1458,7 @@ if (CLIENT_INTERFACE)
     append_link_flags(client.pcache "/dynamicbase:no")
   endif ()
   set(DynamoRIO_SET_PREFERRED_BASE OFF)
-  torunonly_ci(client.pcache-use client.pcache client.pcache
+  torunonly_ci(client.pcache-use client.pcache client.pcache.dll
     client-interface/pcache.c "" "-persist" "")
   # XXX: we should have the key be the default for the .expect but
   # currently that's not the case (thread-reset, etc.).
@@ -1501,6 +1501,21 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.nudge_ex_FLAKY.dll drmgr)
 
   tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
+
+  if (BUILD_SAMPLES)
+    # Sanity tests: we run the samples without SHOW_RESULTS (turned off
+    # if BUILD_TESTS is on) so we're only ensuring the client doesn't crash.
+    # This requires that each sample does not affect stdout and works
+    # when given no arguments.
+    # We run common.eflags mainly for memtrace and other big clients which
+    # are quite slow on common.fib or common.broadfun: just a sanity check
+    # after all.
+    get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
+    foreach (sample ${sample_list})
+      torunonly_ci(sample.${sample} common.eflags ${sample} common/eflags.c "" "" "")
+    endforeach ()
+  endif (BUILD_SAMPLES)
+
 endif (CLIENT_INTERFACE)
 
 if (UNIX)

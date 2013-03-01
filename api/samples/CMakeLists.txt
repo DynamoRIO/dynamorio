@@ -66,9 +66,16 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   endforeach ()
 endif ()
 
+if (BUILD_TESTS)
+  # For automated sanity tests we can't have msgboxes or output
+  set(SHOW_RESULTS_DEFAULT OFF)
+else (BUILD_TESTS)
+  set(SHOW_RESULTS_DEFAULT ON)
+endif (BUILD_TESTS)
+
 option(SHOW_RESULTS
   "Display client results in pop-up (Windows) or console message (Linux)"
-  ON)
+  ${SHOW_RESULTS_DEFAULT})
 if (SHOW_RESULTS)
   add_definitions(-DSHOW_RESULTS)
 endif (SHOW_RESULTS)
@@ -143,6 +150,10 @@ function (add_sample_client name source_file_list extension_list)
       ARGS -E echo "Usage: pass to drconfig or drrun: -c ${path}"
       VERBATIM)
   endif ()
+
+  get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list) # NON-PUBLIC
+  set_property(GLOBAL PROPERTY DynamoRIO_sample_list              # NON-PUBLIC
+    "${sample_list};${name}")                                     # NON-PUBLIC
 endfunction (add_sample_client)
 
 function (add_sample_standalone name source_file_list)
@@ -215,9 +226,11 @@ endif ()
 
 add_sample_standalone(tracedump   "tracedump.c")
 
-# Strip out everything past this point for the user-exposed file
+# Strip out everything past this point for the user-exposed file.
+# We also remove any lines above marked "NON_PUBLIC".
 # Should we add some install targets for users?
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt" string)
+string(REGEX REPLACE "[^\n]*NON-PUBLIC[^\n]*\n" "" string "${string}")
 string(REGEX REPLACE "# Strip out everything.*$" "" string "${string}")
 string(REGEX REPLACE "\\$\\{(VERSION_NUMBER[^\\}]*)\\}" "@\\1@" string "${string}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt.in" "${string}")

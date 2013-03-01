@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -72,9 +73,11 @@ dr_init(client_id_t client_id)
     int i;
     bool success = true;
 
+#ifdef SHOW_RESULTS
     cout << "Start..." << endl;
+#endif
     dr_register_exit_event(event_exit);
-#ifdef LINUX
+#if defined(LINUX) && defined(SHOW_RESULTS)
     cout << "input a tls value" << endl;
     cin >> tls_var;
     cout << "Set tls var to " << tls_var << endl;
