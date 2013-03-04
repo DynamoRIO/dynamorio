@@ -382,6 +382,18 @@ enum {
     LOCK_RANK(coarse_info_lock), /* < special_heap_lock, < global_alloc_lock,
                                   * > change_linking_lock */
 
+    LOCK_RANK(executable_areas), /* < dynamo_areas < global_alloc_lock
+                                  * < process_module_vector_lock (diagnostics)
+                                  */
+    LOCK_RANK(module_data_lock),  /* < loaded_module_areas, < special_heap_lock,
+                                   * > executable_areas */
+    LOCK_RANK(special_units_list_lock), /* < special_heap_lock */
+    LOCK_RANK(special_heap_lock), /* > bb_building_lock, > hotp_vul_table_lock
+                                   * < dynamo_areas, < heap_unit_lock */
+    LOCK_RANK(coarse_info_incoming_lock), /* < coarse_table_rwlock
+                                           * > special_heap_lock, > coarse_info_lock,
+                                           * > change_linking_lock */
+
     /* (We don't technically need a coarse_table_rwlock separate from table_rwlock
      * anymore but having it gives us flexibility so I'm leaving it)
      */
@@ -392,16 +404,6 @@ enum {
     /* We make the th table separate (we look in it while holding master table lock) */
     LOCK_RANK(coarse_th_table_rwlock), /* < global_alloc_lock */
 
-    LOCK_RANK(executable_areas), /* < dynamo_areas < global_alloc_lock
-                                  * < process_module_vector_lock (diagnostics)
-                                  */
-    LOCK_RANK(module_data_lock),  /* < loaded_module_areas, < special_heap_lock,
-                                   * > executable_areas */
-    LOCK_RANK(special_units_list_lock), /* < special_heap_lock */
-    LOCK_RANK(special_heap_lock), /* > bb_building_lock, > hotp_vul_table_lock
-                                   * < dynamo_areas, < heap_unit_lock */
-    LOCK_RANK(coarse_info_incoming_lock), /* > special_heap_lock, > coarse_info_lock,
-                                           * > change_linking_lock */
 #ifdef RCT_IND_BRANCH
     LOCK_RANK(rct_module_lock), /* > coarse_info_lock, > executable_areas,
                                  * < heap allocation */
