@@ -1729,30 +1729,98 @@ return_stack_mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist,
 #endif /* RETURN_STACK */
 
 void
-insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                        ptr_int_t val)
+insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first, instr_t **second)
 {
+    instr_t *mov1, *mov2;
+#ifdef X64
+    if (X64_MODE_DC(dcontext) && !opnd_is_reg(dst)) {
+        if (val <= INT_MAX && val >= INT_MIN) {
+            /* mov is sign-extended, so we can use one move if it is all
+             * 0 or 1 in top 33 bits
+             */
+            mov1 = INSTR_CREATE_mov_imm(dcontext, dst,
+                                        OPND_CREATE_INT32((int)val));
+            PRE(ilist, instr, mov1);
+            mov2 = NULL;
+        } else {
+            /* do mov-64-bit-immed in two pieces.  tiny corner-case risk of racy
+             * access to [dst] if this thread is suspended in between or another
+             * thread is trying to read [dst], but o/w we have to spill and
+             * restore a register.
+             */
+            CLIENT_ASSERT(opnd_is_memory_reference(dst), "invalid dst opnd");
+            /* mov low32 => [mem32] */
+            opnd_set_size(&dst, OPSZ_4);
+            mov1 = INSTR_CREATE_mov_st(dcontext, dst,
+                                       OPND_CREATE_INT32((int)val));
+            PRE(ilist, instr, mov1);
+            /* mov high32 => [mem32+4] */
+            if (opnd_is_base_disp(dst)) {
+                int disp = opnd_get_disp(dst);
+                CLIENT_ASSERT(disp + 4 > disp, "disp overflow");
+                opnd_set_disp(&dst, disp+4);
+            } else {
+                byte *addr = opnd_get_addr(dst);
+                CLIENT_ASSERT(!POINTER_OVERFLOW_ON_ADD(addr, 4),
+                              "addr overflow");
+                dst = OPND_CREATE_ABSMEM(addr+4, OPSZ_4);
+            }
+            mov2 = INSTR_CREATE_mov_st(dcontext, dst,
+                                       OPND_CREATE_INT32((int)(val >> 32)));
+            PRE(ilist, instr, mov2);
+        }
+    } else {
+#endif
+        mov1 = INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INTPTR(val));
+        PRE(ilist, instr, mov1);
+        mov2 = NULL;
+#ifdef X64
+    }
+#endif
+    if (first != NULL)
+        *first = mov1;
+    if (second != NULL)
+        *second = mov2;
+}
+
+void
+insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                        ptr_int_t val, instr_t **first, instr_t **second)
+{
+    instr_t *push, *mov;
 #ifdef X64
     if (X64_MODE_DC(dcontext)) {
         /* do push-64-bit-immed in two pieces.  tiny corner-case risk of racy
          * access to TOS if this thread is suspended in between or another
          * thread is trying to read its stack, but o/w we have to spill and
-         * restore a register. */
-        PRE(ilist, instr,
-            INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32((int)val)));
-        /* push is sign-extended, so we can skip top half if nothing in top 33 bits */
-        if (val >= 0x80000000) {
-            PRE(ilist, instr,
-                INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, 4),
-                                    OPND_CREATE_INT32((int)(val >> 32))));
+         * restore a register.
+         */
+        push = INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32((int)val));
+        PRE(ilist, instr, push);
+        /* push is sign-extended, so we can skip top half if it is all 0 or 1
+         * in top 33 bits
+         */
+        if (val <= INT_MAX && val >= INT_MIN) {
+            mov = NULL;
+        } else {
+            mov = INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, 4),
+                                      OPND_CREATE_INT32((int)(val >> 32)));
+            PRE(ilist, instr, mov);
         }
     } else {
 #endif
-        PRE(ilist, instr,
-            INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(val)));
+        push = INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(val));
+        PRE(ilist, instr, push);
+        mov  = NULL;
 #ifdef X64
     }
 #endif
+    if (first != NULL)
+        *first = push;
+    if (second != NULL)
+        *second = mov;
 }
 
 /* Far calls and rets have double total size */
@@ -1810,7 +1878,7 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                 OPND_CREATE_INT16(val)));
     } else if (opsize == OPSZ_PTR
                IF_X64(|| (!X64_CACHE_MODE_DC(dcontext) && opsize == OPSZ_4))) {
-        insert_push_immed_ptrsz(dcontext, ilist, instr, retaddr);
+        insert_push_immed_ptrsz(dcontext, ilist, instr, retaddr, NULL, NULL);
     } else {
 #ifdef X64
         ptr_int_t val = retaddr & (ptr_int_t) 0xffffffff;

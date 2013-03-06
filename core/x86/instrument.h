@@ -5228,4 +5228,28 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
                                                byte *bb_start, size_t bb_size,
                                                void *user_data));
 
+DR_API
+/**
+ * Create instructions for storing pointer-size integer \p val to \p dst,
+ * and then insert them into \p ilist prior to \p where. 
+ * The created instructions are returned in \p first and \p second.
+ * Note that \p second may return NULL if only one instruction is created.
+ */
+void
+instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
+                                 instrlist_t *ilist, instr_t *where,
+                                 instr_t **first OUT, instr_t **second OUT);
+
+DR_API
+/**
+ * Create instructions for pushing pointer-size integer \p val on the stack,
+ * and then insert them into \p ilist prior to \p where. 
+ * The created instructions are returned in \p first and \p second.
+ * Note that \p second may return NULL if only one instruction is created.
+ */
+void
+instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val,
+                                  instrlist_t *ilist, instr_t *where,
+                                  instr_t **first OUT, instr_t **second OUT);
+
 #endif /* _INSTRUMENT_H_ */

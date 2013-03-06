@@ -134,6 +134,7 @@ The changes between version \DR_VERSION and 4.0.1 include:
    binaries instead of shell scripts.
  - The deployment tools (drrun etc.) now interpret -v as an alias for
    -verbose and use -version to print version info.
+ - Added instrlist_insert_mov_immed_ptrsz() and instrlist_insert_push_immed_ptrsz()
 
 **************************************************
 <hr>

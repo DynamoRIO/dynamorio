@@ -128,6 +128,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 {
     instr_t *first = instrlist_first(bb);
     app_pc   pc    = dr_fragment_app_pc(tag);
+    instr_t *mov1, *mov2;
     /* We try to avoid register stealing by using "dead" register if possible.
      * However, technically, a fault could come in and want the original value
      * of the "dead" register, but that's too corner-case for us.
@@ -148,18 +149,16 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
              opnd_create_reg(reg),
              opnd_create_far_base_disp(tls_seg, DR_REG_NULL, DR_REG_NULL,
                                        0, tls_offs, OPSZ_PTR)));
+
     /* store bb's start pc into the buffer */
-    MINSERT(bb, first, INSTR_CREATE_mov_st
-            (drcontext,
-             OPND_CREATE_MEM32(reg, 0),
-             OPND_CREATE_INT32((int)(ptr_int_t)pc)));
-#ifdef X64
-    /* in x64, there is no "mov int64 => mem" */
-    MINSERT(bb, first, INSTR_CREATE_mov_st
-            (drcontext,
-             OPND_CREATE_MEM32(reg, 4),
-             OPND_CREATE_INT32((int)((ptr_int_t)pc>>32))));
-#endif
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
+                                     OPND_CREATE_MEMPTR(reg, 0),
+                                     bb, first, &mov1, &mov2);
+    DR_ASSERT(mov1 != NULL);
+    instr_set_ok_to_mangle(mov1, false);
+    if (mov2 != NULL)
+        instr_set_ok_to_mangle(mov2, false);
+
     /* update the TLS buffer pointer by incrementing just the bottom 16 bits of
      * the pointer
      */

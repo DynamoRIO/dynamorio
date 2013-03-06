@@ -6434,4 +6434,32 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
     return remove_callback(&persist_patch_callbacks, (void (*)(void))func_patch, true);
 }
 
+DR_API
+/* Create instructions for storing pointer-size integer val to dst,
+ * and then insert them into ilist prior to where. 
+ * The created instructions are returned in first and second.
+ */
+void
+instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
+                                 instrlist_t *ilist, instr_t *where,
+                                 instr_t **first OUT, instr_t **second OUT)
+{
+    CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
+    insert_mov_immed_ptrsz((dcontext_t *)drcontext, val, dst,
+                           ilist, where, first, second);
+}
+
+DR_API
+/* Create instructions for pushing pointer-size integer val on the stack,
+ * and then insert them into ilist prior to where. 
+ * The created instructions are returned in first and second.
+ */
+void
+instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val,
+                                  instrlist_t *ilist, instr_t *where,
+                                  instr_t **first OUT, instr_t **second OUT)
+{
+    insert_push_immed_ptrsz((dcontext_t *)drcontext, ilist, where,
+                            val, first, second);
+}
 #endif /* CLIENT_INTERFACE */

@@ -2124,9 +2124,9 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
                  * back here.
                  * FIXME: keep in mind the code on the instrlist is executed natively
                  */
+                insert_push_immed_ptrsz(dcontext, ilist, NULL, (ptr_int_t)pc,
+                                        NULL, NULL);
 #ifdef X64
-                /* do push-64-bit-immed in two pieces */
-                insert_push_immed_ptrsz(dcontext, ilist, NULL, (ptr_int_t)pc);
                 /* check reachability from new location */
                 /* allow interception code to be up to a page: don't bother
                  * to calculate exactly where our jmp will be encoded */
@@ -2137,9 +2137,6 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
                     FATAL_USAGE_ERROR(TAMPERED_NTDLL, 2, get_application_name(),
                                       get_application_pid());
                 }
-#else
-                instrlist_append(ilist, INSTR_CREATE_push_imm
-                                 (dcontext, OPND_CREATE_INTPTR((ptr_int_t)pc)));
 #endif
                 instrlist_append(ilist,
                                  INSTR_CREATE_jmp(dcontext, 

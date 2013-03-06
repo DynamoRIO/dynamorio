@@ -1507,8 +1507,12 @@ instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc
 void insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext, instrlist_t *ilist,
         instr_t *instr, void *callee, int arg, app_pc jmp_tag, instr_t *jmp_instr);
 void
+insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first OUT, instr_t **second OUT);
+void
 insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                        ptr_int_t val);
+                        ptr_int_t val, instr_t **first OUT, instr_t **second OUT);
 #ifdef LINUX
 void mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip);
 bool mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
