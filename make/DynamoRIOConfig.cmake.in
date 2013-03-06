@@ -837,20 +837,24 @@ function (use_DynamoRIO_extension target extname)
     endif ()
   endif (NOT DynamoRIO_INTERNAL)
 
-  if (DEFINED DynamoRIO_RPATH)
+  if (DynamoRIO_RPATH)
     add_rel_rpaths(${target} ${extname})
     if (WIN32)
       get_target_property(libpath ${extname} LOCATION${location_suffix})
       get_filename_component(libdir ${libpath} PATH)
       get_drpath_name(drpath_file ${target})
-      # File should have been created fresh when configured.
-      # XXX: in the future we may add support for relative dirs but for
-      # now we only support absolute.
-      file(READ ${drpath_file} cur_contents)
-      string(FIND ${cur_contents} ${libdir} cur_found)
-      if (NOT cur_found)
-        file(APPEND ${drpath_file} "${libdir}\n")
-      endif (NOT cur_found)
+      if (EXISTS ${drpath_file})
+        # File should have been created fresh when configured.
+        # If it's not there, this is probably a standalone app, for which
+        # a .drpath file is useless.
+        # XXX: in the future we may add support for relative dirs but for
+        # now we only support absolute.
+        file(READ ${drpath_file} cur_contents)
+        string(FIND ${cur_contents} ${libdir} cur_found)
+        if (NOT cur_found)
+          file(APPEND ${drpath_file} "${libdir}\n")
+        endif (NOT cur_found)
+      endif ()
     endif (WIN32)
   else ()
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
