@@ -286,7 +286,7 @@ redirect_RegQueryValueExA(
                                  ((char *)lpData) + sofar*sizeof(wchar_t)))
                 return ERROR_MORE_DATA;
             sofar++; /* include, and skip, the null between strings */
-        } while (type == REG_MULTI_SZ && sofar > prev_sofar && sofar < *lpcbData);
+        } while (type == REG_MULTI_SZ && sofar > prev_sofar + 1 && sofar < *lpcbData);
         memcpy(lpData, buf, *lpcbData);
         redirect_HeapFree(redirect_GetProcessHeap(), 0, buf);
     }
@@ -435,12 +435,12 @@ unit_test_drwinapi_advapi32(void)
     res = redirect_RegOpenKeyExW(HKEY_CURRENT_USER, L"Environment", 0, KEY_READ, &key);
     EXPECT(res == ERROR_SUCCESS, true);
     size = BUFFER_SIZE_BYTES(buf);
-    /* PATH is sometimes REG_SZ and sometimes REG_EXPAND_SZ.  TEMP always seems
-     * to be REG_EXPAND_SZ, so far at least.
+    /* PATH is sometimes REG_SZ and sometimes REG_EXPAND_SZ.  TEMP is
+     * REG_EXPAND_SZ by default, but if the user changes it it may be REG_SZ.
      */
     res = redirect_RegQueryValueExW(key, L"TEMP", 0, &type, (LPBYTE) buf, &size);
     EXPECT(res == ERROR_SUCCESS, true);
-    EXPECT(type == REG_EXPAND_SZ, true);
+    EXPECT(type == REG_EXPAND_SZ || type == REG_SZ, true);
     res = redirect_RegCloseKey(key);
     EXPECT(res == ERROR_SUCCESS, true);
 
