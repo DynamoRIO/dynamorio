@@ -33,10 +33,16 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
+#ifdef LINUX
+# include <sys/personality.h>
+#endif
 
 char *global;
 #define SIZE 10
 #define VAL 17
+
+/* i#262 add exec if READ_IMPLIES_EXEC is set in personality */
+static bool add_exec = false;
 
 static
 void write_array(char *array)
@@ -56,12 +62,15 @@ static
 void global_test(void)
 {
     char *array;
-    uint prot;
+    uint prot, expect;
     dr_fprintf(STDERR, "  testing global memory alloc...");
     array = dr_global_alloc(SIZE);
     write_array(array);
     dr_query_memory((const byte *)array, NULL, NULL, &prot);
-    if (prot != (DR_MEMPROT_READ|DR_MEMPROT_WRITE))
+    expect = DR_MEMPROT_READ|DR_MEMPROT_WRITE;
+    if (add_exec)
+        expect |= DR_MEMPROT_EXEC;
+    if (prot != expect)
         dr_fprintf(STDERR, "[error: prot %d doesn't match rw] ", prot);
     dr_global_free(array, SIZE);
     dr_fprintf(STDERR, "success\n");
@@ -75,7 +84,7 @@ void global_test(void)
 static
 void raw_alloc_test(void)
 {
-    uint prot;
+    uint prot, expect;
     char *array = PREFERRED_ADDR;
     dr_mem_info_t info;
     bool res;
@@ -88,7 +97,10 @@ void raw_alloc_test(void)
     }
     write_array(array);
     dr_query_memory((const byte *)array, NULL, NULL, &prot);
-    if (prot != (DR_MEMPROT_READ|DR_MEMPROT_WRITE))
+    expect = DR_MEMPROT_READ|DR_MEMPROT_WRITE;
+    if (add_exec)
+        expect |= DR_MEMPROT_EXEC;
+    if (prot != expect)
         dr_fprintf(STDERR, "[error: prot %d doesn't match rw]\n", prot);
     dr_raw_mem_free(array, PAGE_SIZE);
     dr_query_memory_ex((const byte *)array, &info);
@@ -100,7 +112,7 @@ void raw_alloc_test(void)
 static
 void nonheap_test(void)
 {
-    uint prot;
+    uint prot, expect;
     char *array =
         dr_nonheap_alloc(SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|DR_MEMPROT_EXEC);
     dr_fprintf(STDERR, "  testing nonheap memory alloc...");
@@ -111,10 +123,13 @@ void nonheap_test(void)
     dr_memory_protect(array, SIZE, DR_MEMPROT_NONE);
     dr_query_memory((const byte *)array, NULL, NULL, &prot);
     if (prot != DR_MEMPROT_NONE)
-        dr_fprintf(STDERR, "[error: prot %d doesn't match r] ", prot);
+        dr_fprintf(STDERR, "[error: prot %d doesn't match none] ", prot);
     dr_memory_protect(array, SIZE, DR_MEMPROT_READ);
     dr_query_memory((const byte *)array, NULL, NULL, &prot);
-    if (prot != DR_MEMPROT_READ)
+    expect = DR_MEMPROT_READ;
+    if (add_exec)
+        expect |= DR_MEMPROT_EXEC;
+    if (prot != expect)
         dr_fprintf(STDERR, "[error: prot %d doesn't match r] ", prot);
     if (dr_safe_write(array, 1, (const void *) &prot, NULL))
         dr_fprintf(STDERR, "[error: should not be writable] ");
@@ -220,6 +235,18 @@ DR_EXPORT
 void dr_init(client_id_t id)
 {
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
+
+#ifdef LINUX
+    /* i#262: check if READ_IMPLIES_EXEC in personality. If true,
+     * we expect the readable memory also has exec right.
+     */
+    int res = personality(0xffffffff);
+    if (res == -1)
+        fprintf(stderr, "Error: fail to get personality\n");
+    else if (TEST(READ_IMPLIES_EXEC, res))
+        add_exec = true;
+#endif
+
     global_test();
     nonheap_test();
 
