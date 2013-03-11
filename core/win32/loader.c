@@ -1054,16 +1054,15 @@ privload_call_entry(privmod_t *privmod, uint reason)
 
         if (get_os_version() >= WINDOWS_VERSION_8 &&
             str_case_prefix(privmod->name, "kernelbase")) {
-            /* FIXME i#915: win8 kernelbase entry fails on initial csrss setup,
-             * and on x64 it crashes.
-             * Currently we have no solution.  Xref i#364, i#440.
-             * We can keep going for at least small apps on non-x64 though.
+            /* XXX i#915: win8 kernelbase entry fails on initial csrss setup.
+             * Xref i#364, i#440.
+             * We can ignore and continue for at least small apps.
+             * Once larger ones seem ok we can remove the warning.
              */
             DO_ONCE({
-                SYSLOG(IF_X64_ELSE(SYSLOG_ERROR,SYSLOG_WARNING),
+                SYSLOG(SYSLOG_WARNING,
                        WIN8_PRIVATE_KERNELBASE_NYI, 2,
                        get_application_name(), get_application_pid());
-                IF_X64(os_terminate(NULL, TERMINATE_PROCESS));
             });
         }
 
