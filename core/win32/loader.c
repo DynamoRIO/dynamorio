@@ -1044,11 +1044,12 @@ bool
 privload_call_entry(privmod_t *privmod, uint reason)
 {
     app_pc entry = get_module_entry(privmod->base);
+    dcontext_t *dcontext = get_thread_private_dcontext();
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     /* get_module_entry adds base => returns base instead of NULL */
     if (entry != NULL && entry != privmod->base) {
         dllmain_t func = (dllmain_t) convert_data_to_function(entry);
-        BOOL res;
+        BOOL res = FALSE;
         LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s entry "PFX" for %d\n",
             __FUNCTION__, privmod->name, entry, reason);
 
@@ -1066,7 +1067,13 @@ privload_call_entry(privmod_t *privmod, uint reason)
             });
         }
 
-        res = (*func)((HANDLE)privmod->base, reason, NULL);
+        TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
+            res = (*func)((HANDLE)privmod->base, reason, NULL);
+        }, { /* EXCEPT */
+            LOG(GLOBAL, LOG_LOADER, 1,
+                "%s: %s entry routine crashed!\n", __FUNCTION__, privmod->name);
+            res = FALSE;
+        });
 
         if (!res && get_os_version() >= WINDOWS_VERSION_7 &&
             str_case_prefix(privmod->name, "kernel")) {
