@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1556,16 +1556,8 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
     bool is_hooked = false;
     bool ok;
 
-#ifdef HOT_PATCHING_INTERFACE
-    /* During core init time when hotp_init() is executed, for hotp_only 
-     * injection takes place.  At this time thread initializations haven't 
-     * been done, so dcontext is NULL, therefore the call to intercept_call() 
-     * fails because it calls decode() which needs a valid dcontext to 
-     * allocate memory. 
-     */
-    if (DYNAMO_OPTION(hotp_only) && dcontext == NULL)
+    if (dcontext == NULL)
         dcontext = GLOBAL_DCONTEXT;
-#endif
 
     ASSERT(tgt_pc != NULL);
     /* can't detect hookers if ignoring CTIs */
@@ -2446,6 +2438,8 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
     bool changed_prot;
     dcontext_t *dcontext = get_thread_private_dcontext();
     bool ok;
+    if (dcontext == NULL)
+        dcontext = GLOBAL_DCONTEXT;
 
     instrlist_init(&ilist);
 
@@ -2653,6 +2647,8 @@ is_syscall_trampoline(byte *pc, byte **tgt)
             is_jmp_rel32(pc - JMP_LONG_LENGTH, NULL, NULL)) {
             dcontext_t *dcontext = get_thread_private_dcontext();
             instr_t instr;
+            if (dcontext == NULL)
+                dcontext = GLOBAL_DCONTEXT;
             instr_init(dcontext, &instr);
             decode(dcontext, syscall, &instr);
             if (instr_is_syscall(&instr)) {
@@ -3481,6 +3477,8 @@ check_apc_context_offset(byte *apc_entry)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     instr_t instr;
+    if (dcontext == NULL)
+        dcontext = GLOBAL_DCONTEXT;
     instr_init(dcontext, &instr);
 
     LOG(GLOBAL, LOG_ASYNCH, 3, "check_apc_context_offset\n");
@@ -4911,7 +4909,7 @@ intercept_exception(app_state_at_intercept_t *state)
      * is_thread_known().  
      * FIXME: is_thread_known() may be unnecessary */
     dcontext_t *dcontext = get_thread_private_dcontext();
-    
+
     if (dynamo_exited && get_num_threads() > 1) {
         /* PR 470957: this is almost certainly a race so just squelch it.
          * We live w/ the risk that it was holding a lock our release-build
@@ -4952,7 +4950,8 @@ intercept_exception(app_state_at_intercept_t *state)
 #endif
         fault_xsp = (byte *) cxt->CXT_XSP;
 
-        if (dcontext == NULL && !is_safe_read_pc((app_pc)cxt->CXT_XIP)) {
+        if (dcontext == NULL && !is_safe_read_pc((app_pc)cxt->CXT_XIP) &&
+            (dynamo_initialized || global_try_except.try_except_state == NULL)) {
             ASSERT_NOT_TESTED();
             SYSLOG_INTERNAL_CRITICAL("Early thread failure, no dcontext\n");
             /* there is no good reason for this, other than DR error */
@@ -5044,7 +5043,8 @@ intercept_exception(app_state_at_intercept_t *state)
 #endif
 
         if (is_safe_read_pc((app_pc)cxt->CXT_XIP) ||
-            dcontext->try_except_state != NULL) {
+            (dcontext != NULL && dcontext->try_except.try_except_state != NULL) ||
+            (!dynamo_initialized && global_try_except.try_except_state != NULL)) {
             /* handle our own TRY/EXCEPT */
             /* similar to hotpatch exceptions above */
 
@@ -5062,9 +5062,10 @@ intercept_exception(app_state_at_intercept_t *state)
 # endif
 
 # ifndef CLIENT_INTERFACE /* clients may use for other purposes */
-            ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP) ||
-                   is_on_initstack((byte *)cxt->CXT_XSP) ||
-                   !dynamo_initialized);
+            ASSERT(!dynamo_initialized ||
+                   (dcontext != NULL &&
+                    is_on_dstack(dcontext, (byte *)cxt->CXT_XSP)) ||
+                   is_on_initstack((byte *)cxt->CXT_XSP));
             ASSERT(pExcptRec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION);
             ASSERT_CURIOSITY((pExcptRec->NumberParameters >= 2) && 
                              (pExcptRec->ExceptionInformation[0] == 
@@ -5080,8 +5081,13 @@ intercept_exception(app_state_at_intercept_t *state)
             if (is_safe_read_pc((app_pc)cxt->CXT_XIP)) {
                 cxt->CXT_XIP = (ptr_uint_t) safe_read_resume_pc();
                 nt_continue(cxt);
-            } else
-                DR_LONGJMP(&dcontext->try_except_state->context, LONGJMP_EXCEPTION);
+            } else {
+                try_except_context_t *try_cxt =
+                    (dcontext != NULL) ? dcontext->try_except.try_except_state :
+                    global_try_except.try_except_state;
+                ASSERT(try_cxt != NULL);
+                DR_LONGJMP(&try_cxt->context, LONGJMP_EXCEPTION);
+            }
             ASSERT_NOT_REACHED();
         }
         ASSERT(dcontext != NULL); /* NULL cases handled above */
@@ -6281,6 +6287,8 @@ get_pc_after_call(byte *entry, byte **cbret)
     byte *after_call = NULL;
     instr_t instr;
     int num_instrs = 0;
+    if (dcontext == NULL)
+        dcontext = GLOBAL_DCONTEXT;
 
     /* find call to callback */
     instr_init(dcontext, &instr);
@@ -7291,6 +7299,8 @@ callback_interception_init_finish(void)
         dcontext_t *dcontext = get_thread_private_dcontext();
         bool skip8 = false;
         byte *end_asynch_pc = pc;
+        if (dcontext == NULL)
+            dcontext = GLOBAL_DCONTEXT;
         pc = interception_code + sizeof(dr_marker_t);
         LOG(GLOBAL, LOG_EMIT, 3, "\nCreated these interception points:\n");
         do {

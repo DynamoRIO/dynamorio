@@ -808,6 +808,9 @@ os_init(void)
     if (GLOBAL != INVALID_FILE)
         fd_table_add(GLOBAL, OS_OPEN_CLOSE_ON_FORK);
 #endif
+
+    /* Ensure initialization */
+    get_dynamorio_dll_start();
 }
 
 /* called before any logfiles are opened */

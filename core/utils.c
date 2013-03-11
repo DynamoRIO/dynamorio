@@ -79,6 +79,8 @@
 
 #include <stdarg.h> /* for varargs */
 
+try_except_t global_try_except;
+
 #ifdef SIDELINE
 extern void sideline_exit(void);
 #endif
@@ -2311,7 +2313,7 @@ is_readable_without_exception_try(byte *pc, size_t size)
         return is_readable_without_exception(pc, size);
     }
 
-    TRY(dcontext, {
+    TRY_EXCEPT(dcontext, {
         byte *check_pc = (byte *) ALIGN_BACKWARD(pc, PAGE_SIZE);
         if (size > (size_t)((byte *)POINTER_MAX - pc)) {
             ASSERT_NOT_TESTED();
@@ -2329,10 +2331,10 @@ is_readable_without_exception_try(byte *pc, size_t size)
             check_pc += PAGE_SIZE;
         } while (check_pc != 0/*overflow*/ && check_pc < pc+size);
         /* TRY usage note: can't return here */
-    }, EXCEPT(dcontext, {
+    }, { /* EXCEPT */
         /* no state to preserve */
         return false;
-    }));
+    });
 
     return true;
 }

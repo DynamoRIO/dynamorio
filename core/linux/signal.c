@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3944,12 +3944,14 @@ master_signal_handler_C(byte *xsp)
     bool local;
     dcontext_t *dcontext = get_thread_private_dcontext();
 
-    /* i#350: To support safe_read without a dcontext, use the global dcontext
+    /* i#350: To support safe_read or TRY_EXCEPT without a dcontext, use the
+     * global dcontext
      * when handling safe_read faults.  This lets us pass the check for a
      * dcontext below and causes us to use the global log.
      */
     if (dcontext == NULL && (sig == SIGSEGV || sig == SIGBUS) &&
-        is_safe_read_ucxt(ucxt)) {
+        (is_safe_read_ucxt(ucxt) ||
+         (!dynamo_initialized && global_try_except.try_except_state != NULL))) {
         dcontext = GLOBAL_DCONTEXT;
     }
 
@@ -4083,8 +4085,11 @@ master_signal_handler_C(byte *xsp)
             ASSERT_NOT_REACHED();
         }
 #endif
-        if (is_safe_read_ucxt(ucxt) || dcontext->try_except_state != NULL) {
+        if (is_safe_read_ucxt(ucxt) ||
+            (!dynamo_initialized && global_try_except.try_except_state != NULL) ||
+            dcontext->try_except.try_except_state != NULL) {
             /* handle our own TRY/EXCEPT */
+            try_except_context_t *try_cxt;
 #ifdef HAVE_PROC_MAPS
             /* our probe produces many of these every run */
             /* since we use for safe_*, making a _ONCE */
@@ -4100,6 +4105,9 @@ master_signal_handler_C(byte *xsp)
                  */
                 break;
             }
+            try_cxt = (dcontext != NULL) ? dcontext->try_except.try_except_state :
+                global_try_except.try_except_state;
+            ASSERT(try_cxt != NULL);
 
             /* The exception interception code did an ENTER so we must EXIT here */
             EXITING_DR();
@@ -4111,11 +4119,11 @@ master_signal_handler_C(byte *xsp)
             /* Verify that there's no scenario where the mask gets changed prior
              * to a fault inside a try
              */
-            ASSERT(memcmp(&dcontext->try_except_state->context.sigmask,
+            ASSERT(memcmp(&try_cxt->context.sigmask,
                           &ucxt->uc_sigmask, sizeof(ucxt->uc_sigmask)) == 0);
             sigprocmask_syscall(SIG_SETMASK, &ucxt->uc_sigmask, NULL,
                                 sizeof(ucxt->uc_sigmask));
-            DR_LONGJMP(&dcontext->try_except_state->context, LONGJMP_EXCEPTION);
+            DR_LONGJMP(&try_cxt->context, LONGJMP_EXCEPTION);
             ASSERT_NOT_REACHED();
         }
 

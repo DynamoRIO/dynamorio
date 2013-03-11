@@ -2644,8 +2644,8 @@ dr_try_setup(void *drcontext, void **try_cxt)
     try_state = (try_except_context_t *)
         HEAP_TYPE_ALLOC(dcontext, try_except_context_t, ACCT_CLIENT, PROTECTED);
     *try_cxt = try_state;
-    try_state->prev_context = dcontext->try_except_state;
-    dcontext->try_except_state = try_state;
+    try_state->prev_context = dcontext->try_except.try_except_state;
+    dcontext->try_except.try_except_state = try_state;
 }
 
 /* dr_try_start() is in x86.asm since we can't have an extra frame that's
@@ -2661,7 +2661,7 @@ dr_try_stop(void *drcontext, void *try_cxt)
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL && dcontext == get_thread_private_dcontext());
     ASSERT(try_state != NULL);
-    POP_TRY_BLOCK(dcontext, *try_state); 
+    POP_TRY_BLOCK(&dcontext->try_except, *try_state);
     HEAP_TYPE_FREE(dcontext, try_state, try_except_context_t, ACCT_CLIENT, PROTECTED);
 }
 

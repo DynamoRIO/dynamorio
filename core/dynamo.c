@@ -501,6 +501,31 @@ dynamorio_app_init(void)
         modules_init(); /* before vm_areas_init() */
         os_init();
         config_heap_init(); /* after heap_init */
+
+        /* Setup for handling faults in loader_init() */
+        /* initial stack so we don't have to use app's 
+         * N.B.: we never de-allocate initstack (see comments in app_exit)
+         */
+        initstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE);
+
+#if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
+        /* PR203701: separate stack for error reporting when the
+         * dstack is exhausted
+         */
+        exception_stack = (byte *) stack_alloc(EXCEPTION_STACK_SIZE);
+#endif
+#ifdef WINDOWS
+        if (!INTERNAL_OPTION(noasynch)) {
+            /* We split the hooks up: first we put in just Ki* to catch
+             * exceptions in client init routines (PR 200207), but we don't want
+             * syscall hooks so client init can scan syscalls.
+             * Xref PR 216934 where this was originally down below 1st thread init,
+             * before we had GLOBAL_DCONTEXT.
+             */
+            callback_interception_init_start();
+        }
+#endif /* WINDOWS */
+
         /* loader initialization, finalize the private lib load.
          * FIXME i#338: this must be before arch_init() for Windows, but Linux
          * wants it later.
@@ -544,17 +569,6 @@ dynamorio_app_init(void)
         }
 #endif /* INTERNAL */
 
-        /* initial stack so we don't have to use app's 
-         * N.B.: we never de-allocate initstack (see comments in app_exit)
-         */
-        initstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE);
-
-#if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
-        /* PR203701: separate stack for error reporting when the
-         * dstack is exhausted
-         */
-        exception_stack = (byte *) stack_alloc(EXCEPTION_STACK_SIZE);
-#endif
         LOG(GLOBAL, LOG_TOP, 1, "\n");
 
         /* initialize thread hashtable */
@@ -604,21 +618,6 @@ dynamorio_app_init(void)
             find_dynamo_library_vm_areas();
             dynamo_vm_areas_unlock();
         }
-
-#ifdef WINDOWS
-        if (!INTERNAL_OPTION(noasynch)) {
-            /* PR 216934: This is only this late b/c we originally didn't have
-             * GLOBAL_DCONTEXT and had to be post-thread-init.  Now we should
-             * move it up to report errors in client init routines: though we
-             * then have to handle client library loads w/ our hooks in place.
-             */
-            /* We split the hooks up: first we put in just Ki* to catch
-             * exceptions in client init routines (PR 200207), but we don't want
-             * syscall hooks so client init can scan syscalls
-             */
-            callback_interception_init_start();
-        }
-#endif /* WINDOWS */
 
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
@@ -1471,7 +1470,7 @@ create_new_dynamo_context(bool initial, byte *dstack_in)
     /* Set the hot patch exception state to be empty/unused. */
     DODEBUG(memset(&dcontext->hotp_excpt_state, -1, sizeof(dr_jmp_buf_t)););
 #endif
-    ASSERT(dcontext->try_except_state == NULL);
+    ASSERT(dcontext->try_except.try_except_state == NULL);
 
     DODEBUG({dcontext->logfile = INVALID_FILE;});
     dcontext->owning_thread = get_thread_id();
@@ -1499,7 +1498,7 @@ delete_dynamo_context(dcontext_t *dcontext, bool free_stack)
         stack_free(dcontext->dstack, DYNAMORIO_STACK_SIZE);
     } /* else will be cleaned up by caller */
 
-    ASSERT(dcontext->try_except_state == NULL);
+    ASSERT(dcontext->try_except.try_except_state == NULL);
 
 #ifdef RETURN_STACK
     LOG(THREAD, LOG_TOP, 1, "Return stack still has %d pair(s) on it\n",
@@ -1717,7 +1716,7 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     new_dcontext->nudge_thread = old_dcontext->nudge_thread;
 #endif
     /* our exceptions should be handled within one DR context switch */
-    ASSERT(old_dcontext->try_except_state == NULL);
+    ASSERT(old_dcontext->try_except.try_except_state == NULL);
     new_dcontext->local_state = old_dcontext->local_state;
 #ifdef WINDOWS
     new_dcontext->aslr_context.last_child_padded =

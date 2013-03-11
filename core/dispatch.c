@@ -488,7 +488,7 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
      * assumes none are held
      */
     ASSERT_OWN_NO_LOCKS();
-    ASSERT(dcontext->try_except_state == NULL);
+    ASSERT(dcontext->try_except.try_except_state == NULL);
 
     /* prepare to enter fcache */
     LOG(THREAD, LOG_DISPATCH, 4, "fcache_enter = "PFX", target = "PFX"\n", entry, pc);
