@@ -855,7 +855,7 @@ function (use_DynamoRIO_extension target extname)
         # now we only support absolute.
         file(READ ${drpath_file} cur_contents)
         string(FIND ${cur_contents} ${libdir} cur_found)
-        if (NOT cur_found)
+        if (cur_found LESS 0) # -1 if not found
           file(APPEND ${drpath_file} "${libdir}\n")
         endif (NOT cur_found)
       endif ()
