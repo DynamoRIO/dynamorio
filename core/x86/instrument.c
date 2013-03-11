@@ -1103,18 +1103,8 @@ dr_nudge_client(client_id_t client_id, uint64 argument)
 }
 
 void
-instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
+instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
 {
-#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
-    bool swap_peb = false;
-#endif
-
-    /* Note that we're called twice for the initial thread: once prior
-     * to instrument_init() (PR 216936) to set up the dcontext client
-     * field (at which point there should be no callbacks since client
-     * has not had a chance to register any), and once after
-     * instrument_init() to call the client event.
-     */
     if (dcontext->client_data == NULL) {
         dcontext->client_data = HEAP_TYPE_ALLOC(dcontext, client_data_t,
                                                 ACCT_OTHER, UNPROTECTED);
@@ -1134,10 +1124,28 @@ instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
         /* We don't call dynamo_thread_not_under_dynamo() b/c we want itimers. */
         dcontext->thread_record->under_dynamo_control = false;
         dcontext->client_data->is_client_thread = true;
+    }
+#endif /* CLIENT_SIDELINE */
+}
+
+void
+instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
+{
+    /* Note that we're called twice for the initial thread: once prior
+     * to instrument_init() (PR 216936) to set up the dcontext client
+     * field (at which point there should be no callbacks since client
+     * has not had a chance to register any) (now split out, but both
+     * routines are called prior to instrument_init()), and once after
+     * instrument_init() to call the client event.
+     */
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+    bool swap_peb = false;
+#endif
+
+    if (client_thread) {
         /* no init event */
         return;
     }
-#endif /* CLIENT_SIDELINE */
 
 #if defined(CLIENT_INTERFACE) && defined(WINDOWS)
     /* i#996: we might be in app's state.

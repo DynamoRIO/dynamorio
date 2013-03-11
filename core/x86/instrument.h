@@ -1443,6 +1443,7 @@ bool get_client_bounds(client_id_t client_id,
                        app_pc *start/*OUT*/, app_pc *end/*OUT*/);
 const char *get_client_path_from_addr(app_pc addr);
 bool is_valid_client_id(client_id_t id);
+void instrument_client_thread_init(dcontext_t *dcontext, bool client_thread);
 void instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc);
 void instrument_thread_exit_event(dcontext_t *dcontext);
 void instrument_thread_exit(dcontext_t *dcontext);

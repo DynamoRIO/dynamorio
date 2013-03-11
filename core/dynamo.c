@@ -1671,6 +1671,7 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     new_dcontext->priv_nt_rpc = old_dcontext->priv_nt_rpc;
     new_dcontext->app_nls_cache = old_dcontext->app_nls_cache;
     new_dcontext->priv_nls_cache = old_dcontext->priv_nls_cache;
+    IF_X64(new_dcontext->app_stack_limit = old_dcontext->app_stack_limit);
     new_dcontext->teb_base = old_dcontext->teb_base;
 #endif
 #ifdef LINUX
@@ -2143,6 +2144,11 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
      * to avoid holding it while running private lib thread init code (i#875).
      */
     mutex_unlock(&thread_initexit_lock);
+
+#ifdef CLIENT_INTERFACE
+    /* Set up client data needed in loader_thread_init for IS_CLIENT_THREAD */
+    instrument_client_thread_init(dcontext, client_thread);
+#endif
 
     loader_thread_init(dcontext);
 

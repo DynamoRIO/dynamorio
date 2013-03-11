@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -865,6 +865,8 @@ dispatch_exit_fcache(dcontext_t *dcontext)
     ASSERT(dcontext->app_nt_rpc == NULL ||
            dcontext->app_nt_rpc != dcontext->priv_nt_rpc);
     ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
+    IF_X64(ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
+                  IS_CLIENT_THREAD(dcontext)));
     ASSERT(dcontext->app_nls_cache == NULL ||
            dcontext->app_nls_cache != dcontext->priv_nls_cache);
 #endif

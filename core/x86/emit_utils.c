@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3122,6 +3122,37 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
              (SEG_TLS, REG_NULL, REG_NULL, 0, ERRNO_TIB_OFFSET, OPSZ_4),
              opnd_create_reg(scratch32)));
     }
+
+#ifdef X64
+    /* We have to swap TEB->StackLimit (i#1102).  For now I'm only doing this
+     * on X64, though it seems possible for 32-bit stacks to be up high too?
+     * We have never seen that.
+     */
+    if (to_priv) {
+        PRE(ilist, next, INSTR_CREATE_mov_ld
+            (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, BASE_STACK_TIB_OFFSET, OPSZ_PTR)));
+        PRE(ilist, next, SAVE_TO_DC_VIA_REG
+            (absolute, dcontext, reg_dr, reg_scratch, APP_STACK_LIMIT_OFFSET));
+        PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+            (absolute, dcontext, reg_dr, reg_scratch, DSTACK_OFFSET));
+        PRE(ilist, next, INSTR_CREATE_lea
+            (dcontext, opnd_create_reg(reg_scratch),
+             opnd_create_base_disp(reg_scratch, REG_NULL, 0,
+                                   -(int)DYNAMORIO_STACK_SIZE, OPSZ_lea)));
+        PRE(ilist, next, INSTR_CREATE_mov_st
+            (dcontext, opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, BASE_STACK_TIB_OFFSET, OPSZ_PTR),
+             opnd_create_reg(reg_scratch)));
+    } else {
+        PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+            (absolute, dcontext, reg_dr, reg_scratch, APP_STACK_LIMIT_OFFSET));
+        PRE(ilist, next, INSTR_CREATE_mov_st
+            (dcontext, opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, BASE_STACK_TIB_OFFSET, OPSZ_PTR),
+             opnd_create_reg(reg_scratch)));
+    }
+#endif
 
     /* We also swap TEB->NlsCache.  Unlike TEB->ProcessEnvironmentBlock, which is
      * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain

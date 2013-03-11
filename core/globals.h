@@ -718,6 +718,9 @@ struct _dcontext_t {
     void *         priv_nt_rpc;
     void *         app_nls_cache;
     void *         priv_nls_cache;
+#  ifdef X64
+    void *         app_stack_limit;
+#  endif
     /* we need this to restore ptrs for other threads on detach */
     byte *         teb_base;
 # endif
