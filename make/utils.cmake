@@ -93,11 +93,11 @@ function (check_if_linker_is_gnu_gold var_out)
   else ()
     execute_process(COMMAND ${CMAKE_C_COMPILER} -Wl,--version
       RESULT_VARIABLE ld_result
-      ERROR_VARIABLE ld_error
+      ERROR_QUIET  # gcc's collect2 always writes to stderr, so ignore it.
       OUTPUT_VARIABLE ld_out)
     set(is_gold OFF)
-    if (${ld_result} OR ${ld_error})
-      message(WARNING "failed to get linker version: assuming ld.bfd")
+    if (ld_result)
+      message("failed to get linker version, assuming ld.bfd (${ld_result})")
     elseif ("${ld_out}" MATCHES "GNU gold")
       set(is_gold ON)
     endif ()
