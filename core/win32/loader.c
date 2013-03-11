@@ -1638,6 +1638,12 @@ privload_set_security_cookie(privmod_t *mod)
         /* If it happens to match, make it not match */
         cookie--;
     }
+#ifdef X64
+    /* Apparently the top 16 bits should always be 0.
+     * XXX: is my algorithm wrong for x64 above?
+     */
+    cookie &= 0x0000ffffffffffff;
+#endif
     LOG(GLOBAL, LOG_LOADER, 2, "  new cookie value: "PFX"\n", cookie);
 
     *cookie_ptr = cookie;
