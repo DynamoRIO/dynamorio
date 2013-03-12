@@ -857,7 +857,7 @@ function (use_DynamoRIO_extension target extname)
         string(FIND ${cur_contents} ${libdir} cur_found)
         if (cur_found LESS 0) # -1 if not found
           file(APPEND ${drpath_file} "${libdir}\n")
-        endif (NOT cur_found)
+        endif ()
       endif ()
     endif (WIN32)
   else ()

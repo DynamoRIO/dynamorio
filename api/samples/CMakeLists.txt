@@ -154,6 +154,8 @@ function (add_sample_client name source_file_list extension_list)
   get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list) # NON-PUBLIC
   set_property(GLOBAL PROPERTY DynamoRIO_sample_list              # NON-PUBLIC
     "${sample_list};${name}")                                     # NON-PUBLIC
+  set(srcs ${srcs} ${source_file_list} PARENT_SCOPE)              # NON-PUBLIC
+  set(tgts ${tgts} ${name} PARENT_SCOPE)                          # NON-PUBLIC
 endfunction (add_sample_client)
 
 function (add_sample_standalone name source_file_list)
@@ -179,6 +181,8 @@ function (add_sample_standalone name source_file_list)
       ARGS -E echo "Make sure the loader finds the dynamorio library ${FIND_MSG}"
       VERBATIM)
   endif ()
+  set(srcs ${srcs} ${source_file_list} PARENT_SCOPE)              # NON-PUBLIC
+  set(tgts ${tgts} ${name} PARENT_SCOPE)                          # NON-PUBLIC
 endfunction (add_sample_standalone)
 
 ###########################################################################
