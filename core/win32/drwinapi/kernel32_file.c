@@ -1101,12 +1101,12 @@ redirect_FlushViewOfFile(
 {
     NTSTATUS res;
     PVOID base = (PVOID) lpBaseAddress;
-    ULONG size = (ULONG) dwNumberOfBytesToFlush;
+    ULONG_PTR size = (ULONG_PTR) dwNumberOfBytesToFlush;
     IO_STATUS_BLOCK iob = {0,0};
     GET_NTDLL(NtFlushVirtualMemory,
               (IN HANDLE ProcessHandle,
                IN OUT PVOID *BaseAddress,
-               IN OUT PULONG FlushSize,
+               IN OUT PULONG_PTR FlushSize,
                OUT PIO_STATUS_BLOCK IoStatusBlock));
     res = NtFlushVirtualMemory(NT_CURRENT_PROCESS, &base, &size, &iob);
     if (!NT_SUCCESS(res)) {
