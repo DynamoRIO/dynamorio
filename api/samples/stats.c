@@ -81,7 +81,7 @@ const char *stat_names[] = {
  */
 #define CLIENT_SHMEM_KEY_NT_L L"DynamoRIO_Client_Statistics"
 #define CLIENT_SHMEM_KEY_L    L"Local\\DynamoRIO_Client_Statistics"
-#define CLIENTSTAT_NAME_MAX_LEN 50
+#define CLIENTSTAT_NAME_MAX_LEN 47
 #define NUM_STATS (sizeof(stat_names)/sizeof(char*))
 
 /* Statistics are all 64-bit for x64.  At some point we'll add per-stat

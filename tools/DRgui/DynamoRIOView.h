@@ -61,7 +61,7 @@ extern "C" {
  */
 #define CLIENT_SHMEM_KEY_NT "DynamoRIO_Client_Statistics" 
 #define CLIENT_SHMEM_KEY "Local\\DynamoRIO_Client_Statistics" 
-#define CLIENTSTAT_NAME_MAX_LEN 50
+#define CLIENTSTAT_NAME_MAX_LEN 47
 
 /* we allocate this struct in the shared memory: */
 typedef struct _client_stats {

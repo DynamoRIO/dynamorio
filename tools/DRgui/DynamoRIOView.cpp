@@ -373,11 +373,17 @@ BOOL CDynamoRIOView::UpdateProcessList()
 }
 
 #ifdef X64
-/* XXX: may want to go to %19 and resize the window */
+/* For x64 we don't go all the way to %19 (would have to resize the window or
+ * really shrink the names).  Instead we add 3 more digits which gets us
+ * up to hundreds of billions, and we shrunk stat names by 3 to 47.
+ */
 /* SZFC is 2 literals => _T only gets first, so we manually construct: */
-# define STAT_PFMT _T("%10")_T(INT64_FORMAT)_T("u")
+# define CLIENT_STAT_PFMT _T("%13")_T(INT64_FORMAT)_T("u")
+# define DR_STAT_PFMT _T("%10")_T(INT64_FORMAT)_T("u")
 #else
-# define STAT_PFMT _T("%10")_T(SZFC)
+/* 13 is beyond 32-bit reach but this lines everything up and is consistent w/ x64 */
+# define CLIENT_STAT_PFMT _T("%13")_T(SZFC)
+# define DR_STAT_PFMT _T("%10")_T(SZFC)
 #endif
 
 uint CDynamoRIOView::PrintStat(TCHAR *c, uint i, BOOL filter)
@@ -393,7 +399,7 @@ uint CDynamoRIOView::PrintStat(TCHAR *c, uint i, BOOL filter)
             return 0;
 #endif
     }
-    return _stprintf(c, _T("%*.*") ASCII_PRINTF _T(" = ") STAT_PFMT _T("\r\n"),
+    return _stprintf(c, _T("%*.*") ASCII_PRINTF _T(" = ") DR_STAT_PFMT _T("\r\n"),
                      BUFFER_SIZE_ELEMENTS(m_stats->stats[i].name),
                      BUFFER_SIZE_ELEMENTS(m_stats->stats[i].name),
                      m_stats->stats[i].name, m_stats->stats[i].value);
@@ -416,7 +422,7 @@ uint CDynamoRIOView::PrintClientStats(TCHAR *c, TCHAR *max)
     for (i=0; i<m_clientStats->num_stats; i++) {
         if (c >= max - CLIENTSTAT_NAME_MAX_SHOW*2 - 3)
             break;
-        c += _stprintf(c, _T("%*.*") ASCII_PRINTF _T(" = ") STAT_PFMT _T("\r\n"),
+        c += _stprintf(c, _T("%*.*") ASCII_PRINTF _T(" = ") CLIENT_STAT_PFMT _T("\r\n"),
                        CLIENTSTAT_NAME_MAX_SHOW, CLIENTSTAT_NAME_MAX_SHOW,
                        names[i], vals[i]);
         assert(c < max);
