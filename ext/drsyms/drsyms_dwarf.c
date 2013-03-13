@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,6 +53,7 @@ static bool verbose = false;
 } while (0)
 
 typedef struct _dwarf_module_t {
+    byte *load_base;
     Dwarf_Debug dbg;
     /* we cache the last CU we looked up */
     Dwarf_Die lines_cu;
@@ -223,6 +224,32 @@ drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info
     return success;
 }
 
+static Dwarf_Signed
+get_lines_from_cu(dwarf_module_t *mod, Dwarf_Die cu_die,
+                  Dwarf_Line **lines_out OUT)
+{
+    if (mod->lines_cu != cu_die) {
+        Dwarf_Line *lines;
+        Dwarf_Signed num_lines;
+        Dwarf_Error de = {0};
+        if (dwarf_srclines(cu_die, &lines, &num_lines, &de) != DW_DLV_OK) {
+            NOTIFY_DWARF(de);
+            return -1;
+        }
+        /* XXX: we should fix libelftc to sort as it builds the table but for now
+         * it's easier to sort and store here
+         */
+        qsort(lines, (size_t)num_lines, sizeof(*lines), compare_lines);
+        /* Save for next query */
+        dwarf_srclines_dealloc(mod->dbg, mod->lines, mod->num_lines);
+        mod->lines_cu = cu_die;
+        mod->lines = lines;
+        mod->num_lines = num_lines;
+    }
+    *lines_out = mod->lines;
+    return mod->num_lines;
+}
+
 static bool
 search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
                        drsym_info_t *sym_info INOUT)
@@ -235,24 +262,9 @@ search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
     bool success = false;
     Dwarf_Error de = {0};
 
-    if (mod->lines_cu == cu_die) {
-        lines = mod->lines;
-        num_lines = mod->num_lines;
-    } else {
-        if (dwarf_srclines(cu_die, &lines, &num_lines, &de) != DW_DLV_OK) {
-            NOTIFY_DWARF(de);
-            return false;
-        }
-        /* XXX: we should fix libelftc to sort as it builds the table but for now
-         * it's easier to sort and store here
-         */
-        qsort(lines, (size_t)num_lines, sizeof(*lines), compare_lines);
-        /* Save for next query */
-        dwarf_srclines_dealloc(mod->dbg, mod->lines, mod->num_lines);
-        mod->lines_cu = cu_die;
-        mod->lines = lines;
-        mod->num_lines = num_lines;
-    }
+    num_lines = get_lines_from_cu(mod, cu_die, &lines);
+    if (num_lines < 0)
+        return false;
 
     /* We could binary search this, but we assume dwarf_srclines is the
      * bottleneck.
@@ -297,10 +309,102 @@ search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
     return success;
 }
 
+/* Return value: 0 means success but break; 1 means success and continue;
+ * -1 means error.
+ */
+static int
+enumerate_lines_in_cu(dwarf_module_t *mod, Dwarf_Die cu_die,
+                      drsym_enumerate_lines_cb callback, void *data)
+{
+    Dwarf_Line *lines;
+    Dwarf_Signed num_lines;
+    int i;
+    Dwarf_Error de = {0};
+    drsym_line_info_t info;
+
+    if (dwarf_diename(cu_die, (char **) &info.cu_name, &de) != DW_DLV_OK) {
+        NOTIFY_DWARF(de);
+        return -1;
+    }
+
+    num_lines = get_lines_from_cu(mod, cu_die, &lines);
+    if (num_lines < 0) {
+        /* This cu has no line info.  Don't bail: keep going. */
+        info.file = NULL;
+        info.line = 0;
+        info.line_addr = 0;
+        if (!(*callback)(&info, data))
+            return 0;
+        return 1;
+    }
+
+    for (i = 0; i < num_lines; i++) {
+        Dwarf_Unsigned lineno;
+        Dwarf_Addr lineaddr;
+
+        /* We do not want to bail on failure of any of these: we want to
+         * provide as much information as possible.
+         */
+        if (dwarf_linesrc(lines[i], (char **) &info.file, &de) != DW_DLV_OK) {
+            NOTIFY_DWARF(de);
+            info.file = NULL;
+        }
+
+        if (dwarf_lineno(lines[i], &lineno, &de) != DW_DLV_OK) {
+            NOTIFY_DWARF(de);
+            info.line = 0;
+        } else
+            info.line = lineno;
+
+        if (dwarf_lineaddr(lines[i], &lineaddr, &de) != DW_DLV_OK) {
+            NOTIFY_DWARF(de);
+            info.line_addr = 0;
+        } else
+            info.line_addr = (size_t) (lineaddr - (Dwarf_Addr)(ptr_uint_t)mod->load_base);
+
+        if (!(*callback)(&info, data))
+            return 0;
+    }
+
+    return 1;
+}
+
+drsym_error_t
+drsym_dwarf_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void *data)
+{
+    drsym_error_t success = DRSYM_SUCCESS;
+    dwarf_module_t *mod = (dwarf_module_t *) mod_in;
+    Dwarf_Error de = {0};
+    Dwarf_Die cu_die;
+    Dwarf_Unsigned cu_offset = 0;
+
+    /* Enumerate all CU's */
+    while (dwarf_next_cu_header(mod->dbg, NULL, NULL, NULL, NULL,
+                                &cu_offset, &de) == DW_DLV_OK) {
+        /* Scan forward in the tag soup for a CU DIE. */
+        cu_die = next_die_matching_tag(mod->dbg, DW_TAG_compile_unit);
+        if (cu_die != NULL) {
+            int res = enumerate_lines_in_cu(mod, cu_die, callback, data);
+            if (res < 0)
+                success = DRSYM_ERROR_LINE_NOT_AVAILABLE;
+            if (res <= 0)
+                break;
+        }
+    }
+
+    while (dwarf_next_cu_header(mod->dbg, NULL, NULL, NULL, NULL,
+                                &cu_offset, &de) == DW_DLV_OK) {
+        /* Reset the internal CU header state. */
+    }
+
+    return success;
+}
+
 void *
-drsym_dwarf_init(Dwarf_Debug dbg)
+drsym_dwarf_init(Dwarf_Debug dbg, byte *load_base)
 {
     dwarf_module_t *mod = (dwarf_module_t *) dr_global_alloc(sizeof(*mod));
+    mod->load_base = load_base;
     mod->dbg = dbg;
     mod->lines_cu = NULL;
     mod->lines = NULL;

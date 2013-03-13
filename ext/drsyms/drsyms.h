@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -550,6 +550,53 @@ DR_EXPORT
  */
 drsym_error_t
 drsym_free_resources(const char *modpath);
+
+/***************************************************************************
+ * Line iteration
+ */
+
+/**
+ * Line information returned by drsym_enumerate_lines().
+ * This information should not be relied upon to be accessible
+ * beyond the return of the callback routine to which it is passed.
+ */
+typedef struct _drsym_line_info_t {
+    /** Compilation unit (object file) name */
+    const char *cu_name;
+    /** Source file name */
+    const char *file;
+    /** Line number */
+    uint64 line;
+    /** Offset from module base of the first instruction of the line */
+    size_t line_addr;
+} drsym_line_info_t;
+
+/**
+ * Type for drsym_enumerate_lines callback function.
+ * Returns whether to continue the enumeration.
+ *
+ * @param[in]  info    Information about the line.
+ * @param[in]  data    User parameter passed to drsym_enumerate_lines().
+ */
+typedef bool (*drsym_enumerate_lines_cb)(drsym_line_info_t *info, void *data);
+
+DR_EXPORT
+/**
+ * Enumerates all source lines for a given module.
+ * Calls the given callback function for each line.
+ * If the callback returns false, the enumeration will end.
+ *
+ * If an individual compilation unit is missing line number information,
+ * the callback will still be called once for that unit, with the fields other
+ * than \p cu_name set to NULL or 0.
+ *
+ * @param[in] modpath   The full path to the module to be queried.
+ * @param[in] callback  Function to call for each line.
+ * @param[in] data      User parameter passed to callback.
+ */
+drsym_error_t
+drsym_enumerate_lines(const char *modpath, drsym_enumerate_lines_cb callback, void *data);
+
 
 /*@}*/ /* end doxygen group */
 

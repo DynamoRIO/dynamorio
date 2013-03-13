@@ -435,6 +435,33 @@ lookup_overloads(const char *exe_path)
 }
 #endif /* WINDOWS */
 
+static bool
+enum_line_cb(drsym_line_info_t *info, void *data)
+{
+    static bool found_tools_h, found_appdll;
+    const module_data_t *dll_data = (const module_data_t *) data;
+    ASSERT(info->line_addr <= (size_t)(dll_data->end - dll_data->start));
+    if (info->file != NULL) {
+        if (!found_tools_h && strstr(info->file, "tools.h") != NULL) {
+            found_tools_h = true;
+            dr_fprintf(STDERR, "found tools.h\n");
+        }
+        if (!found_appdll && strstr(info->file, "drsyms-test.appdll.cpp") != NULL) {
+            found_appdll = true;
+            dr_fprintf(STDERR, "found drsyms-test.appdll.cpp\n");
+        }
+    }
+    return true;
+}
+
+static void
+test_line_iteration(const module_data_t *dll_data)
+{
+    drsym_error_t res = drsym_enumerate_lines(dll_data->full_path, enum_line_cb,
+                                              (void *) dll_data);
+    ASSERT(res == DRSYM_SUCCESS);
+}
+
 /* Lookup symbols in the appdll and wrap them. */
 static void
 lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
@@ -504,6 +531,8 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     ASSERT(ok);
 
     check_enumerate_dll_syms(dll_path);
+
+    test_line_iteration(dll_data);
 
     drsym_free_resources(dll_path);
 }

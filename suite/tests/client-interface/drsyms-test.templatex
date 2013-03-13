@@ -26,6 +26,10 @@ finished unmangling.
 enumerating with DRSYM_LEAVE_MANGLED
 enumerating with DRSYM_DEMANGLE
 enumerating with DRSYM_DEMANGLE_FULL
+#ifdef LINUX
+found tools.h
+#endif
+found drsyms-test.appdll.cpp
 stack trace:
 drsyms-test\.appdll\.cpp:52!dll_public(\(\))?
 #if !(defined(WINDOWS) && defined(X64))

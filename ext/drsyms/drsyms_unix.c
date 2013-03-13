@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -174,7 +174,7 @@ load_module(const char *modpath)
             goto error;
         if (TEST(DRSYM_DWARF_LINE, mod->debug_kind) &&
             drsym_obj_dwarf_init(mod->obj_info, &dbg)) {
-            mod->dwarf_info = drsym_dwarf_init(dbg);
+            mod->dwarf_info = drsym_dwarf_init(dbg, drsym_obj_load_base(mod->obj_info));
         } else {
             NOTIFY("%s: failed to init DWARF for %s\n", __FUNCTION__, modpath);
             mod->dwarf_info = NULL;
@@ -538,6 +538,19 @@ drsym_unix_lookup_address(void *mod_in, size_t modoffs,
 
     out->debug_kind = mod->debug_kind;
     return r;
+}
+
+drsym_error_t
+drsym_unix_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void *data)
+{
+    dbg_module_t *mod = (dbg_module_t *) mod_in;
+    dbg_module_t *mod4line = mod;
+    if (mod->mod_with_dwarf != NULL)
+        mod4line = mod->mod_with_dwarf;
+    if (mod4line->dwarf_info != NULL)
+        return drsym_dwarf_enumerate_lines(mod4line->dwarf_info, callback, data);
+    else
+        return DRSYM_ERROR_LINE_NOT_AVAILABLE;
 }
 
 drsym_error_t

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -141,5 +141,8 @@ drsym_unix_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
 
 drsym_error_t
 drsym_unix_get_module_debug_kind(void *moddata, drsym_debug_kind_t *kind OUT);
+
+drsym_error_t
+drsym_unix_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void *data);
 
 #endif /* DRSYMS_PRIVATE_H */

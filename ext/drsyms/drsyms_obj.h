@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -93,12 +93,15 @@ drsym_obj_debug_path(void);
  */
 
 void *
-drsym_dwarf_init(Dwarf_Debug dbg);
+drsym_dwarf_init(Dwarf_Debug dbg, byte *load_base);
 
 void
 drsym_dwarf_exit(void *mod_in);
 
 bool
 drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info INOUT);
+
+drsym_error_t
+drsym_dwarf_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void *data);
 
 #endif /* DRSYMS_ARCH_H */

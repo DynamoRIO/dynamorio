@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -157,6 +157,29 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
 
     dr_recurlock_unlock(symbol_lock);
     return r;
+}
+
+static drsym_error_t
+drsym_enumerate_lines_local(const char *modpath, drsym_enumerate_lines_cb callback,
+                            void *data)
+{
+    void *mod;
+    drsym_error_t res;
+
+    if (modpath == NULL || callback == NULL)
+        return DRSYM_ERROR_INVALID_PARAMETER;
+
+    dr_recurlock_lock(symbol_lock);
+    mod = lookup_or_load(modpath);
+    if (mod == NULL) {
+        dr_recurlock_unlock(symbol_lock);
+        return DRSYM_ERROR_LOAD_FAILED;
+    }
+
+    res = drsym_unix_enumerate_lines(mod, callback, data);
+
+    dr_recurlock_unlock(symbol_lock);
+    return res;
 }
 
 
@@ -351,5 +374,16 @@ drsym_free_resources(const char *modpath)
         dr_recurlock_unlock(symbol_lock);
 
         return (found ? DRSYM_SUCCESS : DRSYM_ERROR);
+    }
+}
+
+DR_EXPORT
+drsym_error_t
+drsym_enumerate_lines(const char *modpath, drsym_enumerate_lines_cb callback, void *data)
+{
+    if (IS_SIDELINE) {
+        return DRSYM_ERROR_NOT_IMPLEMENTED;
+    } else {
+        return drsym_enumerate_lines_local(modpath, callback, data);
     }
 }

@@ -772,6 +772,76 @@ demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
     return len;
 }
 
+typedef struct _enum_line_info_t {
+    drsym_enumerate_lines_cb cb;
+    void *data;
+    DWORD64 base;
+    drsym_error_t success;
+} enum_line_info_t;
+
+static BOOL CALLBACK
+enum_lines_cb(PSRCCODEINFO in, void *data)
+{
+    enum_line_info_t *enum_info = (enum_line_info_t *) data;
+    drsym_line_info_t out;
+    if (in->SizeOfStruct < sizeof(*in)) {
+        /* Old dbghelp or something: bail */
+        enum_info->success = DRSYM_ERROR_FEATURE_NOT_AVAILABLE;
+        return FALSE;
+    }
+    out.cu_name = in->Obj;
+    out.file = in->FileName;
+    out.line = in->LineNumber;
+    out.line_addr = (size_t) (in->Address - enum_info->base);
+    if (!(*enum_info->cb)(&out, data))
+        return FALSE;
+    else
+        return TRUE;
+}
+
+static drsym_error_t
+drsym_enumerate_lines_local(const char *modpath, drsym_enumerate_lines_cb callback,
+                            void *data)
+{
+    mod_entry_t *mod;
+    enum_line_info_t info;
+
+    if (modpath == NULL || callback == NULL)
+        return DRSYM_ERROR_INVALID_PARAMETER;
+
+    dr_recurlock_lock(symbol_lock);
+    mod = lookup_or_load(modpath, true/*use dbghelp*/);
+    if (mod == NULL) {
+        dr_recurlock_unlock(symbol_lock);
+        return DRSYM_ERROR_LOAD_FAILED;
+    }
+    recursive_context = true;
+    if (mod->use_pecoff_symtable) {
+        drsym_error_t symerr =
+            drsym_unix_enumerate_lines(mod->u.pecoff_data, callback, data);
+        recursive_context = false;
+        dr_recurlock_unlock(symbol_lock);
+        return symerr;
+    }
+
+    info.cb = callback;
+    info.data = data;
+    info.base = mod->u.load_base;
+    info.success = DRSYM_SUCCESS;
+    /* SymEnumSourceLines does not include compiler-provided files.
+     * We assume the caller wants all files, so we use SymEnumLines.
+     */
+    if (!SymEnumLines(GetCurrentProcess(), mod->u.load_base, NULL/*all*/,
+                      NULL/*all*/, enum_lines_cb, &info)) {
+       NOTIFY("SymEnumLines error %d\n", GetLastError());
+       info.success = DRSYM_ERROR_LINE_NOT_AVAILABLE;
+    }
+    recursive_context = false;
+
+    dr_recurlock_unlock(symbol_lock);
+    return info.success;
+}
+
 /***************************************************************************
  * Dbghelp type information decoding routines.
  */
@@ -1486,5 +1556,16 @@ drsym_free_resources(const char *modpath)
         dr_recurlock_unlock(symbol_lock);
 
         return (found ? DRSYM_SUCCESS : DRSYM_ERROR);
+    }
+}
+
+DR_EXPORT
+drsym_error_t
+drsym_enumerate_lines(const char *modpath, drsym_enumerate_lines_cb callback, void *data)
+{
+    if (IS_SIDELINE) {
+        return DRSYM_ERROR_NOT_IMPLEMENTED;
+    } else {
+        return drsym_enumerate_lines_local(modpath, callback, data);
     }
 }
