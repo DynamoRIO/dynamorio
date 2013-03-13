@@ -2332,6 +2332,15 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     if (!other_thread)
         dynamo_thread_not_under_dynamo(dcontext);
 
+    /* We clean up priv libs prior to setting tls dc to NULL so we can use
+     * TRY_EXCEPT when calling the priv lib entry routine
+     */
+    if (!dynamo_exited ||
+        (other_thread &&
+         (IF_WINDOWS_ELSE(!doing_detach, true) ||
+          dcontext->owning_thread != get_thread_id()))) /* else already did this */
+        loader_thread_exit(dcontext);
+
     /* set tls dc to NULL prior to cleanup, to avoid problems handling
      * alarm signals received during cleanup (we'll suppress if tls
      * dc==NULL which seems the right thing to do: not worth our
@@ -2349,11 +2358,6 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     if (id == get_thread_id())
         set_thread_private_dcontext(NULL);
 
-    if (!dynamo_exited ||
-        (other_thread &&
-         (IF_WINDOWS_ELSE(!doing_detach, true) ||
-          dcontext->owning_thread != get_thread_id()))) /* else already did this */
-        loader_thread_exit(dcontext);
     fcache_thread_exit(dcontext);
     link_thread_exit(dcontext);
     monitor_thread_exit(dcontext);

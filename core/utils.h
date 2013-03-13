@@ -1239,7 +1239,12 @@ extern mutex_t do_threshold_mutex;
  * (tip: compile your TRY blocks first outside of this macro for
  * easier line matching and debugging)
  */
-/* this form allows GLOBAL_DCONTEXT or NULL dcontext if !dynamo_initialized */
+/* This form allows GLOBAL_DCONTEXT or NULL dcontext if !dynamo_initialized.
+ * In release build we'll run w/o crashing if dcontext is NULL and we're
+ * post-dynamo_initialized and so can't use global_try_except w/o a race,
+ * but we don't want to do this and we assert on it.  It should only
+ * happen during late thread exit and currently there are no instances of it.
+ */
 #define TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, try_statement, except_statement) do {  \
     try_except_t *try__except = NULL;                                                 \
     dcontext_t *dc__local = dcontext;                                                 \
@@ -1251,22 +1256,21 @@ extern mutex_t do_threshold_mutex;
         if (dc__local != NULL)                                                        \
             try__except = &dc__local->try_except;                                     \
     }                                                                                 \
-    if (try__except == NULL) {                                                        \
-        ASSERT_NOT_REACHED();                                                         \
-    } else {                                                                          \
-        TRY(try__except, try_statement,                                               \
-            EXCEPT(try__except, except_statement));                                   \
-    }                                                                                 \
+    ASSERT(try__except != NULL);                                                      \
+    TRY(try__except, try_statement,                                                   \
+        EXCEPT(try__except, except_statement));                                       \
 } while (0)
 
 /* these use do..while w/ a local to avoid double-eval of dcontext */
 #define TRY_EXCEPT(dcontext, try_statement, except_statement) do {          \
     try_except_t *try__except = &(dcontext)->try_except;                    \
+    ASSERT((dcontext) != NULL && (dcontext) != GLOBAL_DCONTEXT);             \
     TRY(try__except, try_statement, EXCEPT(try__except, except_statement)); \
 } while (0)
 
 #define TRY_FINALLY(dcontext, try_statement, finally_statement) do {         \
     try_except_t *try__except = &(dcontext)->try_except;                     \
+    ASSERT((dcontext) != NULL && (dcontext) != GLOBAL_DCONTEXT);             \
     TRY(try__except, try_statement, FINALLY(try__except, except_statement)); \
 } while (0)
 
@@ -1274,14 +1278,22 @@ extern mutex_t do_threshold_mutex;
 #define TRY(try_pointer, try_statement, except_or_finally) do {          \
     try_except_context_t try__state;                                     \
     /* must be current thread -> where we'll fault */                    \
+    /* We allow NULL solely to avoid duplicating try_statement in        \
+     * TRY_EXCEPT_ALLOW_NO_DCONTEXT.                                     \
+     */                                                                  \
     ASSERT((try_pointer) == &global_try_except ||                        \
+           (try_pointer) == NULL ||                                      \
            (try_pointer) == &get_thread_private_dcontext()->try_except); \
-    try__state.prev_context = (try_pointer)->try_except_state;           \
-    (try_pointer)->try_except_state = &try__state;                       \
-    if (DR_SETJMP(&try__state.context) == 0) {  /* TRY block */          \
-        try_statement                                                    \
+    if ((try_pointer) != NULL) {                                         \
+        try__state.prev_context = (try_pointer)->try_except_state;       \
+        (try_pointer)->try_except_state = &try__state;                   \
+    }                                                                    \
+    if ((try_pointer) == NULL || DR_SETJMP(&try__state.context) == 0) {  \
+        try_statement    /* TRY block */                                 \
         /* make sure there is no return in try_statement */              \
-        POP_TRY_BLOCK(try_pointer, try__state);                          \
+        if ((try_pointer) != NULL) {                                     \
+            POP_TRY_BLOCK(try_pointer, try__state);                      \
+        }                                                                \
     }                                                                    \
     except_or_finally                                                    \
     /* EXCEPT or FINALLY will POP_TRY_BLOCK on exception */              \
@@ -1331,6 +1343,7 @@ extern mutex_t do_threshold_mutex;
 /* NYI */
 #define FINALLY(try_pointer, statement) /* ALWAYS */ {                  \
         ASSERT_NOT_IMPLEMENTED(false);                                  \
+        ASSERT((try_pointer) != NULL);                                  \
         if ((try_pointer)->unwinding_exception) {                       \
             /* only on exception we have to POP here */                 \
             /* normal execution would have already POPped */            \
@@ -1356,6 +1369,7 @@ extern mutex_t do_threshold_mutex;
 
 /* internal helper */
 #define POP_TRY_BLOCK(try_pointer, state)                          \
+        ASSERT((try_pointer) != NULL);                             \
         ASSERT((try_pointer)->try_except_state == &(state));       \
         (try_pointer)->try_except_state =                          \
             (try_pointer)->try_except_state->prev_context;
