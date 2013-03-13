@@ -283,6 +283,9 @@ DR_EXPORT
  * \note This function is currently implemented only for Windows PDB
  * symbols (DRSYM_PDB).
  *
+ * \note The public Windows symbol files typically do not contain type
+ * information for function parameters.
+ *
  * \note Despite the name, this routine will retrieve type information
  * for non-functions as well.
  *
@@ -317,6 +320,9 @@ DR_EXPORT
  *
  * \note This function is currently implemented only for Windows PDB
  * symbols (DRSYM_PDB).
+ *
+ * \note The public Windows symbol files typically do not contain type
+ * information for function parameters.
  *
  * @param[in] modpath    The full path to the module to be queried.
  * @param[in] type_id    The type index, acquired from a prior call to
