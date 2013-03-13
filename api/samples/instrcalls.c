@@ -125,7 +125,7 @@ event_thread_init(void *drcontext)
     for (dirsep = logname + len; *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\'); dirsep--)
         DR_ASSERT(dirsep > logname);
     len = dr_snprintf(dirsep + 1,
-                      (sizeof(logname) - (dirsep - logname))/sizeof(logname[0]),
+                      (sizeof(logname)-(dirsep-logname))/sizeof(logname[0]) - 1,
                       "instrcalls.%d.log", dr_get_thread_id(drcontext));
     DR_ASSERT(len > 0);
     logname[sizeof(logname)/sizeof(logname[0])-1] = '\0';

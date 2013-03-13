@@ -50,6 +50,8 @@
  *                The result are printed to bbcov.*.res file.
  * -summary_only  Prints only the summary of check results. Must be used
  *                with -check_cbr option.
+ * -nudge_kills   Uses nudge to notify the process for termination so that
+ *                the exit event will be called.
  * -logdir <dir>  Sets log directory, which by default is at the same directory
  *                as the client library. It must be the last option.
  */
@@ -61,18 +63,37 @@
 #include <string.h>
 
 #ifdef WINDOWS
+# define  STATIC_DRMGR_ONLY 1 /* for drmgr_decode_sysnum_from_wrapper only */
+# include "drmgr.h"
 # define IF_WINDOWS(x) x
+# define IF_LINUX_ELSE(x,y) y
 #else
 # define IF_WINDOWS(x) /* nothing */
+# define IF_LINUX_ELSE(x,y) x
 #endif
 
-#define NULL_TERMINATE(buf) (buf)[(sizeof(buf)/sizeof((buf)[0])) - 1] = '\0'
+#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
+#define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+
+#ifdef DEBUG
+# define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+#else
+# define ASSERT(x, msg) /* nothing */
+#endif
 
 typedef struct _bbcov_option_t {
     bool dump_text;
     bool dump_binary;
     bool check;
     bool summary;
+#ifdef WINDOWS
+    /* Use nudge to notify the process for termination so that
+     * event_exit will be called.
+     */
+    bool nudge_kills;
+#endif
     char *logdir;
 } bbcov_option_t;
 bbcov_option_t options;
@@ -112,61 +133,82 @@ static client_id_t client_id;
 /****************************************************************************
  * Utility Functions
  */
+static file_t
+log_file_create_helper(void *drcontext, char *prefix, const char *suffix)
+{
+    char buf[MAXIMUM_PATH];
+    file_t log;
+    int i;
+    size_t len;
+    for (i = 0; i < 10000; i++) {
+        len = dr_snprintf(buf, MAXIMUM_PATH, "%s.%04d.%s", prefix, i, suffix);
+        ASSERT(len > 0, "dr_snprintf failed");
+        NULL_TERMINATE_BUFFER(buf);
+        log = dr_open_file(buf, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
+        if (log != INVALID_FILE) {
+            dr_log(drcontext, LOG_ALL, 1, "bbcov: log file is %s\n", buf);
+            return log;
+        }
+    }
+    return INVALID_FILE;
+}
+
 static void
 log_file_create(void *drcontext, per_thread_t *data)
 {
     char logname[MAXIMUM_PATH];
+    const char *app_name;
     char *dirsep;
-    file_t log;
     size_t len;
-    bool per_thread = (drcontext != NULL);
+
     /* We will dump data to a log file at the same directory as our library.
      * We could also pass in a path and retrieve with dr_get_options().
      */
-    len = dr_snprintf(logname, sizeof(logname)/sizeof(logname[0]), "%s",
+    len = dr_snprintf(logname, BUFFER_SIZE_ELEMENTS(logname), "%s",
                       options.logdir != NULL ?
                       options.logdir : dr_get_client_path(client_id));
-    DR_ASSERT(len > 0);
-    for (dirsep   = logname + len;
-         *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\');
-         dirsep--) {
-        DR_ASSERT(dirsep > logname);
+    ASSERT(len > 0, "dr_snprintf failed");
+    NULL_TERMINATE_BUFFER(logname);
+    dirsep = logname + len - 1;
+    if (options.logdir == NULL /* removing client lib */ ||
+        /* path does not have a trailing / and is too large to add it */
+        (*dirsep != '/' IF_WINDOWS(&& *dirsep != '\\') &&
+         len == BUFFER_SIZE_ELEMENTS(logname) - 1)) {
+        for (dirsep = logname + len;
+             *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\');
+             dirsep--)
+            ASSERT(dirsep > logname, "fail to find tailing /");
     }
+    /* add trailing / if necessary */
+    if (*dirsep != '/' IF_WINDOWS(&& *dirsep != '\\')) {
+        dirsep++;
+        /* append a dirsep at the end if missing */
+        *dirsep = IF_LINUX_ELSE('/', '\\');
+    }
+    app_name = dr_get_application_name();
+    if (app_name == NULL)
+        app_name = "unknown";
     len = dr_snprintf(dirsep + 1,
-                      (sizeof(logname) - (dirsep - logname))/sizeof(logname[0]),
+                      (sizeof(logname)-(dirsep+1-logname))/sizeof(logname[0]),
+                      "bbcov.%s.%05d", app_name,
                       drcontext == NULL ?
-                      "bbcov.%d.proc.log" : "bbcov.%d.thd.log",
-                      drcontext == NULL ?
-                      dr_get_process_id() : dr_get_thread_id(drcontext));
-    DR_ASSERT(len > 0);
-    NULL_TERMINATE(logname);
+                      dr_get_process_id() :
+                      dr_get_thread_id(drcontext));
+    ASSERT(len > 0, "dr_snprintf failed");
+    NULL_TERMINATE_BUFFER(logname);
     if (options.dump_text || options.dump_binary) {
-        log = dr_open_file(logname,
-                           DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
-        DR_ASSERT(log != INVALID_FILE);
+        data->log = log_file_create_helper(drcontext, logname,
+                                           drcontext == NULL ?
+                                           "proc.log" : "thd.log");
     } else {
-        log = INVALID_FILE;
+        data->log = INVALID_FILE;
     }
-    data->log = log;
-    dr_log(drcontext, LOG_ALL, 1,
-           "bbcov: log for %s %d is bbcov.%03d\n",
-           per_thread ? "thread" : "process",
-           per_thread ? dr_get_thread_id(drcontext) : dr_get_process_id(),
-           per_thread ? dr_get_thread_id(drcontext) : dr_get_process_id());
-    if (!options.check) {
+    if (options.check) {
+        data->res = log_file_create_helper(drcontext, logname,
+                                           drcontext == NULL ?
+                                           "proc.res" : "thd.res");
+    } else
         data->res = INVALID_FILE;
-        return;
-    }
-    /* replace .log with .res */
-    len = strlen(logname);
-    DR_ASSERT(len > 4 && logname[len-4] == '.');
-    logname[len-3] = 'r';
-    logname[len-2] = 'e';
-    logname[len-1] = 's';
-    /* create .res file */
-    log = dr_open_file(logname, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
-    DR_ASSERT(log != INVALID_FILE);
-    data->res = log;
 }
 
 /****************************************************************************
@@ -188,7 +230,7 @@ module_table_load(module_table_t *table, const module_data_t *data)
     /* Some apps repeatedly unload and reload the same module,
      * so we will try to re-use the old one.
      */
-    DR_ASSERT(data != NULL);
+    ASSERT(data != NULL, "data must not be NULL");
     drvector_lock(&table->vector);
     /* Assuming most recently loaded entries are most likely to be unloaded,
      * we iterate the module table in a backward way for better performance.
@@ -221,7 +263,6 @@ module_table_load(module_table_t *table, const module_data_t *data)
     }
     if (entry == NULL) {
         entry = dr_global_alloc(sizeof(*entry));
-        DR_ASSERT(entry != NULL);
         entry->id = table->vector.entries;
         entry->unload = false;
         entry->data = dr_copy_module_data(data);
@@ -258,7 +299,7 @@ module_table_lookup(per_thread_t *data, module_table_t *table, app_pc pc)
     table->cache = NULL;
     for (i = table->vector.entries - 1; i >= 0; i--) {
         entry = drvector_get_entry(&table->vector, i);
-        DR_ASSERT(entry != NULL);
+        ASSERT(entry != NULL, "fail to get module entry");
         mod = entry->data;
         if (mod != NULL && !entry->unload &&
             pc >= mod->start && pc < mod->end) {
@@ -280,7 +321,7 @@ module_table_unload(module_table_t *table, const module_data_t *data)
     if (entry != NULL) {
         entry->unload = true;
     } else {
-        DR_ASSERT(false);
+        ASSERT(false, "fail to find the module to be unloaded");
     }
     table->cache = NULL;
 }
@@ -308,7 +349,14 @@ module_table_print(module_table_t *table, file_t log)
 {
     uint i;
     module_entry_t *entry;
-    DR_ASSERT(log != INVALID_FILE);
+    if (log == INVALID_FILE) {
+        /* It is possible that failure on log file creation is caused by the
+         * running process not having enough privilege, so this is not a
+         * release-build fatal error
+         */
+        ASSERT(false, "invalid log file");
+        return;
+    }
     dr_fprintf(log, "Module Table: id, base, end, entry, unload, name, path");
 #ifdef WINDOWS
     dr_fprintf(log, ", checksum, timestamp");
@@ -453,7 +501,7 @@ bb_table_check_cbr(module_table_t *table, per_thread_t *data)
     int i;
     /* one additional mod for bb w/o module */
     int num_mods = table->vector.entries + 1;
-    DR_ASSERT(data->res != INVALID_FILE);
+    ASSERT(data->res != INVALID_FILE, "result file is invalid");
     /* create hashtable for each module */
     iter_data.data          = data;
     iter_data.num_mods      = num_mods;
@@ -493,7 +541,7 @@ bb_table_check_cbr(module_table_t *table, per_thread_t *data)
     drvector_lock(&module_table->vector);
     for (i = 0; i < num_mods-1; i++) {
         module_entry_t *entry = drvector_get_entry(&module_table->vector, i);
-        DR_ASSERT(entry != NULL);
+        ASSERT(entry != NULL, "fail to get a module entry");
         module_table_entry_print(entry, data->res);
         bb_table_check_print_result(data, &iter_data, i);
     }
@@ -534,7 +582,11 @@ bb_table_entry_print(ptr_uint_t idx, void *entry, void *iter_data)
 static void
 bb_table_print(void *drcontext, per_thread_t *data)
 {
-    DR_ASSERT(data != NULL && data->log != INVALID_FILE);
+    ASSERT(data != NULL, "data must not be NULL");
+    if (data->log == INVALID_FILE) {
+        ASSERT(false, "invalid log file");
+        return;
+    }
     dr_fprintf(data->log, "BB Table: %8d bbs\n",
                drtable_num_entries(data->bb_table));
     if (options.dump_text) {
@@ -558,9 +610,11 @@ bb_table_entry_add(void *drcontext, per_thread_t *data,
     bb_entry->num_instrs = num_instrs;
     if (mod_entry != NULL && mod_entry->data != NULL) {
         bb_entry->mod_id = mod_entry->id;
-        DR_ASSERT(start > mod_entry->data->start);
+        ASSERT(start > mod_entry->data->start,
+               "wrong module");
         bb_entry->start_offs = (ptr_uint_t)(start - mod_entry->data->start);
-        DR_ASSERT(cbr_tgt == NULL || cbr_tgt > mod_entry->data->start);
+        ASSERT(cbr_tgt == NULL || cbr_tgt > mod_entry->data->start,
+               "cbr target should be withing module");
         bb_entry->cbr_tgt_offs = (cbr_tgt == NULL) ?
             0 : (ptr_uint_t)(cbr_tgt - mod_entry->data->start);
     } else {
@@ -592,10 +646,10 @@ thread_data_create(void *drcontext)
 {
     per_thread_t *data;
     if (drcontext == NULL) {
-        DR_ASSERT(!bbcov_per_thread);
+        ASSERT(!bbcov_per_thread, "bbcov_per_thread shoudl not be set");
         data = dr_global_alloc(sizeof(*data));
     } else {
-        DR_ASSERT(bbcov_per_thread);
+        ASSERT(bbcov_per_thread, "bbcov_per_thread should be set");
         data = dr_thread_alloc(drcontext, sizeof(*data));
     }
     data->bb_table = bb_table_create(drcontext == NULL ? true : false);
@@ -612,10 +666,10 @@ thread_data_destroy(void *drcontext, per_thread_t *data)
     dr_close_file(data->log);
     /* free thread data */
     if (drcontext == NULL) {
-        DR_ASSERT(!bbcov_per_thread);
+        ASSERT(!bbcov_per_thread, "bbcov_per_thread should not be set");
         dr_global_free(data, sizeof(*data));
     } else {
-        DR_ASSERT(bbcov_per_thread);
+        ASSERT(bbcov_per_thread, "bbcov_per_thread is not set");
         dr_thread_free(drcontext, data, sizeof(*data));
     }
 }
@@ -631,6 +685,71 @@ global_data_destroy(per_thread_t *data)
 {
     thread_data_destroy(NULL, data);
 }
+
+/****************************************************************************
+ * Windows Specific Code
+ */
+
+#ifdef WINDOWS
+
+enum {
+    NUDGE_TERMINATE_PROCESS = 1,
+};
+
+static int sysnum_TerminateProcess = 0;
+
+/* copy from nudge_ex.dll.c */
+static int
+get_sysnum(const char *wrapper)
+{
+    byte *entry;
+    module_data_t *data = dr_lookup_module_by_name("ntdll.dll");
+    ASSERT(data != NULL, "data must not be NULL");
+    entry = (byte *) dr_get_proc_address(data->handle, wrapper);
+    dr_free_module_data(data);
+    if (entry == NULL)
+        return -1;
+    return drmgr_decode_sysnum_from_wrapper(entry);
+}
+
+static void
+event_nudge(void *drcontext, uint64 argument)
+{
+    int nudge_arg = (int)argument;
+    int exit_arg  = (int)(argument >> 32);
+    if (nudge_arg == NUDGE_TERMINATE_PROCESS)
+        dr_exit_process(exit_arg);
+    ASSERT(nudge_arg == NUDGE_TERMINATE_PROCESS, "unsupported nudge");
+    ASSERT(false, "should not reach"); /* should not reach */
+}
+
+static bool
+event_pre_syscall(void *drcontext, int sysnum)
+{
+    if (options.nudge_kills && sysnum == sysnum_TerminateProcess) {
+        HANDLE proc = (HANDLE)dr_syscall_get_param(drcontext, 0);
+        process_id_t pid = dr_convert_handle_to_pid(proc);
+        if (pid != INVALID_PROCESS_ID && pid != dr_get_process_id()) {
+            /* we pass [exit_code, NUDGE_TERMINATE_PROCESS] to target process */
+            dr_config_status_t res;
+            uint64 exit_code = (uint64)dr_syscall_get_param(drcontext, 1);
+            ASSERT(exit_code >> 32 == 0, "exit_code top 32-bit is not zero");
+            res = dr_nudge_client_ex(pid, client_id,
+                                     NUDGE_TERMINATE_PROCESS | exit_code << 32,
+                                     0);
+            if (res == DR_SUCCESS) {
+                /* skip syscall since target will terminate itself */
+                dr_syscall_set_result(drcontext, 0/*success*/);
+                return false;
+            }
+            /* else failed b/c target not under DR control or maybe some other
+             * error: let syscall go through
+             */
+        }
+    }
+    return true;
+}
+#endif
 
 /****************************************************************************
  * Event Callbacks
@@ -654,7 +773,7 @@ event_basic_block(void *drcontext, void *tag,
         return DR_EMIT_DEFAULT;
 
     if (bbcov_per_thread)
-        data = dr_get_tls_field(drcontext);
+        data = (per_thread_t *)dr_get_tls_field(drcontext);
     else
         data = global_data;
 
@@ -675,7 +794,7 @@ event_basic_block(void *drcontext, void *tag,
             int len = instr_length(drcontext, instr);
             num_instrs++;
             /* no support -opt_speed (elision) */
-            DR_ASSERT(pc >= start_pc);
+            ASSERT(pc >= start_pc, "-opt_spped is not supported");
             if (pc + len > end_pc) {
                 end_pc = pc + len;
                 if (instr_is_cbr(instr)) {
@@ -719,8 +838,8 @@ event_thread_exit(void *drcontext)
     if (!bbcov_per_thread)
         return;
 
-    data = dr_get_tls_field(drcontext);
-    DR_ASSERT(data != NULL);
+    data = (per_thread_t *)dr_get_tls_field(drcontext);
+    ASSERT(data != NULL, "data must not be NULL");
     if (options.dump_text || options.dump_binary) {
         module_table_print(module_table, data->log);
         bb_table_print(drcontext, data);
@@ -763,12 +882,15 @@ event_exit(void)
 static void
 event_init(void)
 {
+#ifdef DEBUG
     uint64 max_elide_jmp  = 0;
     uint64 max_elide_call = 0;
     /* assuming no elision */
-    DR_ASSERT(dr_get_integer_option("max_elide_jmp", &max_elide_jmp) &&
-              dr_get_integer_option("max_elide_call", &max_elide_jmp) &&
-              max_elide_jmp == 0 && max_elide_call == 0);
+    ASSERT(dr_get_integer_option("max_elide_jmp", &max_elide_jmp) &&
+           dr_get_integer_option("max_elide_call", &max_elide_jmp) &&
+           max_elide_jmp == 0 && max_elide_call == 0,
+           "elision is not supported");
+#endif
     /* create module table */
     module_table = module_table_create();
     /* create process data if whole process bb coverage. */
@@ -798,23 +920,28 @@ options_init(client_id_t id)
         options.check = true;
     }
     if (strstr(opstr, "-summary_only") != NULL) {
-        DR_ASSERT(options.check);
+        ASSERT(options.check, "check_cbr is not set");
         options.summary = true;
     }
+#ifdef WINDOWS
+    if (strstr(opstr, "-nudge_kills") != NULL) {
+        options.nudge_kills = true;
+    }
+#endif
     options.logdir = strstr(opstr, "-logdir ");
     if (options.logdir != NULL) {
         options.logdir += strlen("-logdir");
         for (; *options.logdir == ' '; options.logdir++);
-        DR_ASSERT(options.logdir[0] != '\0');
-        DR_ASSERT(dr_directory_exists(options.logdir));
+        ASSERT(options.logdir[0] != '\0' && dr_directory_exists(options.logdir),
+               "invalid logdir");
     }
     if (!options.dump_text && !options.dump_binary &&
         !options.check && !options.summary) {
         /* default: dump_text */
         options.dump_text = true;
     }
-    DR_ASSERT(options.dump_text || options.dump_binary ||
-              options.check || options.summary);
+    ASSERT(options.dump_text || options.dump_binary ||
+           options.check || options.summary, "invalid options");
 }
 
 DR_EXPORT void 
@@ -826,6 +953,10 @@ dr_init(client_id_t id)
     dr_register_bb_event(event_basic_block);
     dr_register_module_load_event(event_module_load);
     dr_register_module_unload_event(event_module_unload);
+#ifdef WINDOWS
+    dr_register_pre_syscall_event(event_pre_syscall);
+    sysnum_TerminateProcess = get_sysnum("NtTerminateProcess");
+#endif
     client_id = id;
     if (dr_using_all_private_caches())
         bbcov_per_thread = true;

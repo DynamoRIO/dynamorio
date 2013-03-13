@@ -195,7 +195,7 @@ configure_DynamoRIO_global(OFF ON)
 
 add_sample_client(bbbuf       "bbbuf.c"         "")
 add_sample_client(bbcount     "bbcount.c"       "")
-add_sample_client(bbcov       "bbcov.c"         "drcontainers")
+add_sample_client(bbcov       "bbcov.c"         "drmgr;drcontainers")
 add_sample_client(bbsize      "bbsize.c"        "")
 add_sample_client(cbr         "cbr.c"           "")
 add_sample_client(countcalls  "countcalls.c"    "")

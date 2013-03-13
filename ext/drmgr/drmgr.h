@@ -51,37 +51,44 @@ extern "C" {
  */
 /*@{*/ /* begin doxygen group */
 
+#ifndef STATIC_DRMGR_ONLY
+/* A client can use a static function like drmgr_decode_sysnum_from_wrapper
+ * directly, in which case, we allow the client to use following functions.
+ */
+
 /* drmgr replaces the bb event */
-#define dr_register_bb_event DO_NOT_USE_bb_event_USE_drmgr_bb_events_instead
-#define dr_unregister_bb_event DO_NOT_USE_bb_event_USE_drmgr_bb_events_instead
+# define dr_register_bb_event DO_NOT_USE_bb_event_USE_drmgr_bb_events_instead
+# define dr_unregister_bb_event DO_NOT_USE_bb_event_USE_drmgr_bb_events_instead
 
 /* drmgr replaces the tls field routines */
-#define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-#define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-#define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-#define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+# define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+# define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+# define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+# define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
 
 /* drmgr replaces these events in order to provide ordering control */
-#define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-#define dr_unregister_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-#define dr_register_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-#define dr_unregister_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-#define dr_register_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
-#define dr_unregister_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
-#define dr_register_post_syscall_event DO_NOT_USE_post_syscall_USE_drmgr_events_instead
-#define dr_unregister_post_syscall_event DO_NOT_USE_post_syscall_USE_drmgr_events_instead
-#define dr_register_module_load_event DO_NOT_USE_module_load_USE_drmgr_events_instead
-#define dr_unregister_module_load_event DO_NOT_USE_module_load_USE_drmgr_events_instead
-#define dr_register_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
-#define dr_unregister_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
-#define dr_register_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
-#define dr_unregister_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
-#define dr_register_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
-#define dr_unregister_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
-#define dr_register_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
-#define dr_unregister_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
-#define dr_register_restore_state_ex_event DO_NOT_USE_restore_state_ex_USE_drmgr_instead
-#define dr_unregister_restore_state_ex_event DO_NOT_USE_restore_state_ex_USE_drmgr_instead
+# define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+# define dr_unregister_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+# define dr_register_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+# define dr_unregister_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+# define dr_register_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
+# define dr_unregister_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
+# define dr_register_post_syscall_event DO_NOT_USE_post_syscall_USE_drmgr_events_instead
+# define dr_unregister_post_syscall_event DO_NOT_USE_post_syscall_USE_drmgr_events_instead
+# define dr_register_module_load_event DO_NOT_USE_module_load_USE_drmgr_events_instead
+# define dr_unregister_module_load_event DO_NOT_USE_module_load_USE_drmgr_events_instead
+# define dr_register_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
+# define dr_unregister_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
+# define dr_register_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
+# define dr_unregister_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
+# define dr_register_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
+# define dr_unregister_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
+# define dr_register_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
+# define dr_unregister_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
+# define dr_register_restore_state_ex_event DO_NOT_USE_restore_state_ex_USE_drmgr_instead
+# define dr_unregister_restore_state_ex_event DO_NOT_USE_restore_state_ex_USE_drmgr_instead
+
+#endif /* !STATIC_DRMGR_ONLY */
 
 /***************************************************************************
  * TYPES
