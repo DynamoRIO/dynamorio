@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1998,7 +1998,7 @@ redirect_calloc(size_t nmemb, size_t size)
     void *buf = NULL;
     size = size * nmemb;
     
-    buf = redirect_malloc(nmemb * size);
+    buf = redirect_malloc(size);
     if (buf != NULL)
         memset(buf, 0, size);
     return buf;

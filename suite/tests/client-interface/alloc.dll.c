@@ -137,6 +137,17 @@ void nonheap_test(void)
     dr_fprintf(STDERR, "success\n");
 }
 
+#ifdef LINUX
+static void
+calloc_test(void)
+{
+    /* using the trigger from i#1115 */
+    char *array = (char *) calloc(100000, 16);
+    if (array[100000*16 - 1] != 0)
+        dr_fprintf(STDERR, "error: calloc not zeroing\n");
+}
+#endif
+
 static
 void local_test(void *drcontext)
 {
@@ -168,6 +179,9 @@ void inline_alloc_test(void)
     global_test();
     nonheap_test();
     raw_alloc_test();
+#ifdef LINUX
+    calloc_test();
+#endif
 }
 
 #define MINSERT instrlist_meta_preinsert
