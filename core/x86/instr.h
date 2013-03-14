@@ -4429,7 +4429,7 @@ enum {
 /* 538 */     OP_palignr,        /* &prefix_extensions[133][0], */ /**< palignr opcode */
 
     /* SSE4 (incl AMD (SSE4A) and Intel-specific (SSE4.1, SSE4.2) extensions */
-/* 539 */     OP_popcnt,         /* &second_byte[0xb8], */ /**< popcnt opcode */
+/* 539 */     OP_popcnt,         /* &prefix_extensions[140][1], */ /**< popcnt opcode */
 /* 540 */     OP_movntss,        /* &prefix_extensions[11][1], */ /**< movntss opcode */
 /* 541 */     OP_movntsd,        /* &prefix_extensions[11][3], */ /**< movntsd opcode */
 /* 542 */     OP_extrq,          /* &prefix_extensions[134][2], */ /**< extrq opcode */

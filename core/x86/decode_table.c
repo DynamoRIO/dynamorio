@@ -643,7 +643,7 @@ const instr_info_t * const op_instr[] =
     /* OP_palignr       */   &prefix_extensions[133][0],
 
     /* SSE4 (incl AMD (SSE4A) and Intel-specific (SSE4.1, SSE4.2) extensions */
-    /* OP_popcnt        */   &second_byte[0xb8],
+    /* OP_popcnt        */   &prefix_extensions[140][1],
     /* OP_movntss       */   &prefix_extensions[11][1],
     /* OP_movntsd       */   &prefix_extensions[11][3],
     /* OP_extrq         */   &prefix_extensions[134][2],
@@ -1983,7 +1983,7 @@ const instr_info_t second_byte[] = {
   /* should be 0x0fb800? no! 01 signals to encoder is 2 byte instruction */
   {OP_jmpe_abs,  0x0fb810, "jmpe", xx, xx, Av, xx, xx, no, x, END_LIST}, 
 #else
-  {OP_popcnt, 0x0fb810, "popcnt", Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
+  {PREFIX_EXT, 0x0fb810, "(prefix ext 140)", xx, xx, xx, xx, xx, mrm, x, 140},
 #endif
   /* This is Group 10, but all identical (ud2b) so no reason to split opcode by /reg */
   {OP_ud2b, 0x0fb910, "ud2b", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -3962,6 +3962,16 @@ const instr_info_t prefix_extensions[][8] = {
      * there is a separate instruction with both 66 and f2 prefixes!
      * But detail page doesn't corroborate that...
      */
+  },
+  { /* prefix extension 140 */
+    {INVALID,    0x0fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_popcnt,0xf30fb810, "popcnt", Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
+    {INVALID,  0x660fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,  0xf20fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,    0x0fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,  0xf30fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,  0x660fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,  0xf20fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },
 };
 
