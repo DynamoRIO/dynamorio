@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 20011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,15 +59,28 @@
  * Flags controlling disassembly style
  */
 typedef enum {
-    DR_DISASM_ATT          =    0, /**< AT&T syntax */
-    DR_DISASM_INTEL        =    1, /**< Intel syntax */
+    /** The default: use AT&T syntax for disassembly. */
+    DR_DISASM_ATT            =  0x0,
+    /**
+     * Requests Intel syntax for disassembly.  This sets the same option that is
+     * controlled by the runtime option \p -syntax_intel.
+     */
+    DR_DISASM_INTEL          =  0x1,
+    /**
+     * Certain reserved or unspecified opcodes are in a gray area where they
+     * could be decoded with their length and operands understood, but they are
+     * not fully defined and in fact they may raise an illegal instruction fault
+     * when executed.  By default, DR does not treat them as invalid.  If this
+     * option is set, DR tightens up its decoding and does treat them as
+     * invalid.
+     */
+    DR_DISASM_STRICT_INVALID =  0x2,
 } dr_disasm_flags_t;
 /* DR_API EXPORT END */
 
 DR_API
 /**
- * Sets the disassembly style.  Setting DR_DISASM_INTEL sets the same
- * option that is controlled by the runtime option \p -syntax_intel.
+ * Sets the disassembly style and decoding options.
  */
 void
 disassemble_set_syntax(dr_disasm_flags_t flags);

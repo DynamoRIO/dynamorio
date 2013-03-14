@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -56,6 +56,8 @@ void test_3dnow(char *buf);
 void test_far_cti(void);
 void test_data16_mbr(void);
 void test_rip_rel_ind(void);
+void test_bsr(void);
+void test_SSE2(void);
 
 SIGJMP_BUF mark;
 static int count = 0;
@@ -266,6 +268,13 @@ int main(int argc, char *argv[])
     print("Testing rip-rel ind branch\n");
     func_ptr = actual_call_target;
     test_rip_rel_ind();
+
+    /* i#1118: subtle prefix opcode issues */
+    test_bsr();
+    i = SIGSETJMP(mark);
+    if (i == 0) {
+        test_SSE2();
+    }
 
 #ifdef LINUX
     free(sigstack.ss_sp);
@@ -618,6 +627,66 @@ GLOBAL_LABEL(FUNCNAME:)
         END_PROLOG
         CALL_SETJMP
         call     PTRSZ SYMREF(func_ptr)
+        ret
+        END_FUNC(FUNCNAME)
+
+#undef FUNCNAME
+#define FUNCNAME test_bsr
+       /* If we make this a leaf function (no SEH directives), our top-level handler
+        * does not get called!  Annoying.
+        */
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* push callee-saved registers */
+        PUSH_SEH(REG_XBX)
+        PUSH_SEH(REG_XBP)
+        PUSH_SEH(REG_XSI)
+        PUSH_SEH(REG_XDI)
+        END_PROLOG
+
+        /* test i#1118 sequences: all should be valid */
+        RAW(66) RAW(0F) RAW(BB) RAW(E9) /* btc */
+        RAW(66) RAW(0F) RAW(BC) RAW(E9) /* bsf */
+        RAW(66) RAW(0F) RAW(BD) RAW(E9) /* bsr */
+        RAW(f2) RAW(0F) RAW(BB) RAW(E9) /* btc */
+        RAW(f2) RAW(0F) RAW(BC) RAW(E9) /* bsf */
+        RAW(f2) RAW(0F) RAW(BD) RAW(E9) /* bsr */
+        RAW(f3) RAW(0F) RAW(BB) RAW(E9) /* btc */
+        RAW(f3) RAW(0F) RAW(BC) RAW(E9) /* bsf */
+        RAW(f3) RAW(0F) RAW(BD) RAW(E9) /* bsr */
+
+        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+        pop      REG_XBX
+        ret
+        END_FUNC(FUNCNAME)
+
+#undef FUNCNAME
+#define FUNCNAME test_SSE2
+       /* If we make this a leaf function (no SEH directives), our top-level handler
+        * does not get called!  Annoying.
+        */
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* push callee-saved registers */
+        PUSH_SEH(REG_XBX)
+        PUSH_SEH(REG_XBP)
+        PUSH_SEH(REG_XSI)
+        PUSH_SEH(REG_XDI)
+        END_PROLOG
+
+        RAW(66) RAW(0F) RAW(D8) RAW(E9) /* psubusb */
+        /* These two fault, despite gdb + dumpbin listing as fine: */
+        RAW(f2) RAW(0F) RAW(D8) RAW(E9) /* psubusb */
+        RAW(f3) RAW(0F) RAW(D8) RAW(E9) /* psubusb */
+
+        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+        pop      REG_XBX
         ret
         END_FUNC(FUNCNAME)
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -939,6 +939,27 @@ test_instr_opnds(void *dc)
     instrlist_destroy(dc, ilist);
 }
 
+static void
+test_strict_invalid(void *dc)
+{
+    instr_t instr;
+    byte *pc;
+    const byte buf[] = { 0xf2, 0x0f, 0xd8, 0xe9 }; /* psubusb w/ invalid prefix */
+
+    instr_init(dc, &instr);
+
+    /* The instr should be valid by default and invalid if decode_strict */
+    pc = decode(dc, (byte *)buf, &instr);
+    ASSERT(pc != NULL);
+
+    disassemble_set_syntax(DR_DISASM_STRICT_INVALID);
+    instr_reset(dc, &instr);
+    pc = decode(dc, (byte *)buf, &instr);
+    ASSERT(pc == NULL);
+
+    instr_free(dc, &instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -989,6 +1010,8 @@ main(int argc, char *argv[])
     test_regs(dcontext);
 
     test_instr_opnds(dcontext);
+
+    test_strict_invalid(dcontext);
 
     print("all done\n");
     return 0;

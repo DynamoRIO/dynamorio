@@ -3912,9 +3912,15 @@ const instr_info_t prefix_extensions[][8] = {
   },
   { /* prefix extension 136 */
     {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
+    /* XXX: if cpuid doesn't show lzcnt support, this is treated as bsr */
     {OP_lzcnt,     0xf30fbd10, "lzcnt",   Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
-    {INVALID,      0x660fbd10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,      0xf20fbd10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    /* This is bsr w/ DATA_PREFIX, which we indicate by omitting 0x66 (i#1118).
+     * It's not in the encoding chain.  Ditto for 0xf2.  If we keep the "all
+     * prefix ext marked invalid are really treated valid" we don't need these,
+     * but better to be explicit where we have to so we can easily remove that.
+     */
+    {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm, fW6, NA},
+    {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm, fW6, NA},
     {INVALID,        0x0fbd10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf30fbd10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x660fbd10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},

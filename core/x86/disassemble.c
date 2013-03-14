@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -102,6 +102,7 @@ disassemble_set_syntax(dr_disasm_flags_t flags)
     options_make_writable();
 #endif
     dynamo_options.syntax_intel = TEST(DR_DISASM_INTEL, flags);
+    dynamo_options.decode_strict = TEST(DR_DISASM_STRICT_INVALID, flags);
 #ifndef STANDALONE_DECODER
     options_restore_readonly();
 #endif

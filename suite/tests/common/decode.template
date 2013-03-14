@@ -52,4 +52,9 @@ Access violation, instance 18
 #endif
 Testing rip-rel ind branch
 Made it to actual_call_target
+#ifdef WINDOWS
+Bad instruction, instance 19
+#else
+Bad instruction, instance 9
+#endif
 All done

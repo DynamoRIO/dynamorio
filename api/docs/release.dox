@@ -136,6 +136,7 @@ The changes between version \DR_VERSION and 4.0.1 include:
    -verbose and use -version to print version info.
  - Added instrlist_insert_mov_immed_ptrsz() and instrlist_insert_push_immed_ptrsz()
  - Added drsym_enumerate_lines()
+ - Added #DR_DISASM_STRICT_INVALID
 
 **************************************************
 <hr>
