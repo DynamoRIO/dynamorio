@@ -740,8 +740,6 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
                         IN size_t buf_len/*# elements*/);
 
 /* in loader.c */
-void
-privload_add_windbg_cmds(void);
 
 /* early injection bootstrapping */
 bool

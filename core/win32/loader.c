@@ -120,6 +120,9 @@ privload_add_windbg_cmds_post_init(privmod_t *mod);
 static app_pc
 privload_redirect_imports(privmod_t *impmod, const char *name, privmod_t *importer);
 
+static void
+privload_add_windbg_cmds(void);
+
 #ifdef CLIENT_INTERFACE
 /* Isolate the app's PEB by making a copy for use by private libs (i#249) */
 static PEB *private_peb;
@@ -278,6 +281,10 @@ os_loader_init_epilogue(void)
         swap_peb_pointer(NULL, false/*to app*/);
         swapped_to_app_peb = true;
     }
+#endif
+#ifndef STANDALONE_UNIT_TEST
+    /* drmarker and the privlist are set up, so fill in the windbg commands (i#522) */
+    privload_add_windbg_cmds();
 #endif
 }
 
@@ -1739,7 +1746,7 @@ add_mod_to_drmarker(dr_marker_t *marker, const char *path, const char *modname,
     }
 }
 
-void
+static void
 privload_add_windbg_cmds(void)
 {
     /* i#522: print windbg commands to locate DR and priv libs */
