@@ -144,7 +144,7 @@ log_file_create_helper(void *drcontext, char *prefix, const char *suffix)
         len = dr_snprintf(buf, MAXIMUM_PATH, "%s.%04d.%s", prefix, i, suffix);
         ASSERT(len > 0, "dr_snprintf failed");
         NULL_TERMINATE_BUFFER(buf);
-        log = dr_open_file(buf, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
+        log = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW | DR_FILE_ALLOW_LARGE);
         if (log != INVALID_FILE) {
             dr_log(drcontext, LOG_ALL, 1, "bbcov: log file is %s\n", buf);
             return log;
