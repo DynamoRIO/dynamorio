@@ -4853,7 +4853,7 @@ convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
     const wchar_t *name = fname;
     wchar_t *buf;
     int i, size;
-    size_t size_needed, buf_len;
+    size_t wchars_needed, buf_len;
     ASSERT(fixedbuf != NULL && fixedbuf_len != 0);
     if (name[0] == L'\\') {
         name += 1; /* eat the first \ */
@@ -4889,9 +4889,9 @@ convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
         }
     }
     /* should now have either ("c:\" and !is_UNC) or ("\server" and is_UNC) */ 
-    size_needed = (wcslen(name) + wcslen(L"\\??\\") +
-                   (is_UNC ? wcslen(L"UNC") : 0) + 1/*null*/) * sizeof(wchar_t);
-    if (fixedbuf_len >= size_needed) {
+    wchars_needed = (wcslen(name) + wcslen(L"\\??\\") +
+                     (is_UNC ? wcslen(L"UNC") : 0) + 1/*null*/);
+    if (fixedbuf_len >= wchars_needed) {
         buf = fixedbuf;
         buf_len = fixedbuf_len;
     } else {
@@ -4899,16 +4899,17 @@ convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
          * larger-than-MAX_PATH paths (technically drwinapi only has to do
          * that for "\\?\" paths).
          */
-        buf = (wchar_t *) global_heap_alloc(size_needed HEAPACCT(ACCT_OTHER));
-        buf_len = size_needed;
-        *allocbuf_sz = buf_len;
+        buf = (wchar_t *) global_heap_alloc(wchars_needed * sizeof(wchar_t)
+                                            HEAPACCT(ACCT_OTHER));
+        buf_len = wchars_needed;
+        *allocbuf_sz = wchars_needed * sizeof(wchar_t);
     }
     size = snwprintf(buf, buf_len, L"\\??\\%s%s", is_UNC ? L"UNC" : L"", name);
     buf[buf_len-1] = L'\0';
     if (size < 0 || size == (int)buf_len) {
         if (buf != fixedbuf)
-            global_heap_free(buf, buf_len HEAPACCT(ACCT_OTHER));
-        return false;
+            global_heap_free(buf, *allocbuf_sz HEAPACCT(ACCT_OTHER));
+        return NULL;
     }
     /* change / to \ */
     for (i = 0; i < size; i++) {
