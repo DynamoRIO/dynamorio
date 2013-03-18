@@ -59,13 +59,23 @@
  * Flags controlling disassembly style
  */
 typedef enum {
-    /** The default: use AT&T syntax for disassembly. */
-    DR_DISASM_ATT            =  0x0,
+    /**
+     * The default: displays all operands, including implicit operands.
+     * Lists source operands first, then "->", and then destination
+     * operands.
+     */
+    DR_DISASM_DR             =  0x0,
     /**
      * Requests Intel syntax for disassembly.  This sets the same option that is
-     * controlled by the runtime option \p -syntax_intel.
+     * controlled by the runtime option \p -syntax_intel.  Implicit operands
+     * are not displayed.
      */
     DR_DISASM_INTEL          =  0x1,
+    /**
+     * Requests AT&T syntax ordering for disassembly.  Implicit
+     * operands are not displayed.
+     */
+    DR_DISASM_ATT            =  0x2,
     /**
      * Certain reserved or unspecified opcodes are in a gray area where they
      * could be decoded with their length and operands understood, but they are
@@ -74,7 +84,7 @@ typedef enum {
      * option is set, DR tightens up its decoding and does treat them as
      * invalid.
      */
-    DR_DISASM_STRICT_INVALID =  0x2,
+    DR_DISASM_STRICT_INVALID =  0x4,
 } dr_disasm_flags_t;
 /* DR_API EXPORT END */
 

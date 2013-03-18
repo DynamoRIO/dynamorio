@@ -38,28 +38,19 @@
 /* disassemble.c -- printing of x86 instructions
  *
  * Note that when printing out instructions:
- * Uses AT&T syntax, NOT Intel syntax, unless -syntax_intel is specified.
+ * Uses DR syntax of "srcs -> dsts" including implicit operands, unless
+ * -syntax_att (AT&T syntax) or -syntax_intel (Intel syntax) is specified.
  * See the info pages for "as" for details on the differences.
- *   From gdb: "The enter and bound instructions are printed with operands
- *   in the same order as the intel book; everything else is printed in
- *   reverse order."
  */
 
 /*
- * FIXME
- *
+ * XXX disassembly discrepancies:
  * 1) I print "%st(0),%st(1)", gdb prints "%st,%st(1)"
  * 2) I print movzx, gdb prints movzw (with an 'l' suffix tacked on)
  * 3) gdb says bound and leave are to be printed "Intel order", not AT&T ?!?
- * 4) add ATT-style 'l' & other suffixes based on op size
- *    I have a set_suffix function, I'm not sure when the suffix is really
- *    added by gdb...only when size not obvious from registers, etc.
- * 5) print symbolic addresses
- *    gdb: opcodes/i386-dis.c calls print_address_func, which points to
- *    print_address in gdb/printcmd.c, which calls print_address_symbolic
- *    in the same file.  We can get fragment tags and exit stubs through
- *    our own data structures, so no reason to load symbol table and play
- *    tricks like adding each fragment to it.
+ *    From gdb: "The enter and bound instructions are printed with operands
+ *    in the same order as the intel book; everything else is printed in
+ *    reverse order."
  */
 
 #include "../globals.h"
@@ -102,6 +93,7 @@ disassemble_set_syntax(dr_disasm_flags_t flags)
     options_make_writable();
 #endif
     dynamo_options.syntax_intel = TEST(DR_DISASM_INTEL, flags);
+    dynamo_options.syntax_att = TEST(DR_DISASM_ATT, flags);
     dynamo_options.decode_strict = TEST(DR_DISASM_STRICT_INVALID, flags);
 #ifndef STANDALONE_DECODER
     options_restore_readonly();
@@ -123,7 +115,7 @@ immed_prefix(void)
 static inline const char *
 postop_suffix(void)
 {
-    return (DYNAMO_OPTION(syntax_intel) ? "" : " ");
+    return ((DYNAMO_OPTION(syntax_intel) || DYNAMO_OPTION(syntax_att)) ? "" : " ");
 }
 
 static void
@@ -761,9 +753,9 @@ instr_implicit_reg(instr_t *instr)
 }
 
 static bool
-opnd_disassemble_intel(char *buf, size_t bufsz, size_t *sofar INOUT,
-                       dcontext_t *dcontext, instr_t *instr,
-                       byte optype, opnd_t opnd, bool prev, bool multiple_encodings)
+opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
+                            dcontext_t *dcontext, instr_t *instr,
+                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings)
 {
     switch (optype) {
     case TYPE_REG:
@@ -843,13 +835,15 @@ opnd_disassemble_intel(char *buf, size_t bufsz, size_t *sofar INOUT,
 }
 
 static void
-instr_disassemble_opnds_intel(char *buf, size_t bufsz, size_t *sofar INOUT,
-                              dcontext_t *dcontext, instr_t *instr)
+instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
+                                   dcontext_t *dcontext, instr_t *instr)
 {
     /* We need to find the non-implicit operands */
     const instr_info_t *info;
-    int i;
-    byte optype, dst0type = TYPE_NONE, dst1type = TYPE_NONE;
+    int i, num;
+    byte optype;
+    /* avoid duplicate on ALU: only happens w/ 2dst, 3srcs */
+    byte optype_already[3] = {TYPE_NONE, TYPE_NONE, TYPE_NONE};
     opnd_t opnd;
     bool prev = false, multiple_encodings = false;
 
@@ -863,25 +857,31 @@ instr_disassemble_opnds_intel(char *buf, size_t bufsz, size_t *sofar INOUT,
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
         return;
     }
-    for (i=0; i<instr_num_dsts(instr); i++) {
+    if (DYNAMO_OPTION(syntax_intel))
+        num = instr_num_dsts(instr);
+    else
+        num = instr_num_srcs(instr);
+    for (i=0; i<num; i++) {
         bool printing;
-        opnd = instr_get_dst(instr, i);
-        optype = instr_info_opnd_type(info, false/*dst*/, i);
-        printing = opnd_disassemble_intel(buf, bufsz, sofar, dcontext,
-                                          instr, optype, opnd, prev,
-                                          multiple_encodings);
-        if (printing) {
-            /* w/o the "printing" check we suppress "push esp" => "push" */
-            if (i == 0)
-                dst0type = optype;
-            else if (i == 1)
-                dst1type = optype;
-        }
+        opnd = DYNAMO_OPTION(syntax_intel) ?
+            instr_get_dst(instr, i) : instr_get_src(instr, i);
+        optype = instr_info_opnd_type(info, !DYNAMO_OPTION(syntax_intel), i);
+        printing = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext,
+                                               instr, optype, opnd, prev,
+                                               multiple_encodings);
+        /* w/o the "printing" check we suppress "push esp" => "push" */
+        if (printing && i < 3)
+            optype_already[i] = optype;
         prev = printing || prev;
     }
-    for (i=0; i<instr_num_srcs(instr); i++) {
-        opnd = instr_get_src(instr, i);
-        optype = instr_info_opnd_type(info, true/*src*/, i);
+    if (DYNAMO_OPTION(syntax_intel))
+        num = instr_num_srcs(instr);
+    else
+        num = instr_num_dsts(instr);
+    for (i=0; i<num; i++) {
+        opnd = DYNAMO_OPTION(syntax_intel) ?
+            instr_get_src(instr, i) : instr_get_dst(instr, i);
+        optype = instr_info_opnd_type(info, DYNAMO_OPTION(syntax_intel), i);
         /* PR 312458: still not matching Intel-style tools like windbg or udis86:
          * we need to suppress certain implicit operands, such as:
          * - div dx, ax
@@ -891,12 +891,13 @@ instr_disassemble_opnds_intel(char *buf, size_t bufsz, size_t *sofar INOUT,
          */
 
         /* Don't re-do src==dst of ALU ops */
-        if ((optype != dst0type && optype != dst1type) ||
+        if ((optype != optype_already[0] && optype != optype_already[1] &&
+             optype != optype_already[2]) ||
             /* Don't suppress 2nd of st* if FP ALU */
             (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd)))) {
-            prev = opnd_disassemble_intel(buf, bufsz, sofar, dcontext,
-                                          instr, optype, opnd, prev,
-                                          multiple_encodings)
+            prev = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext,
+                                               instr, optype, opnd, prev,
+                                               multiple_encodings)
                 || prev;
         }
     }
@@ -927,7 +928,7 @@ instr_opcode_name(instr_t *instr, const instr_info_t *info)
 static const char *
 instr_opcode_name_suffix(instr_t *instr)
 {
-    if (DYNAMO_OPTION(syntax_intel)) {
+    if (DYNAMO_OPTION(syntax_intel) || DYNAMO_OPTION(syntax_att)) {
         /* add "b" or "d" suffix */
         switch (instr_get_opcode(instr)) {
         case OP_pushf: case OP_popf:
@@ -966,6 +967,24 @@ instr_opcode_name_suffix(instr_t *instr)
                 else if (sz == 40)
                     return "q";
         }
+        }
+    }
+    if (DYNAMO_OPTION(syntax_att) && instr_operands_valid(instr)) {
+        /* XXX: requiring both src and dst.  Ideally we'd wait until we
+         * see if there is a register or in some cases an immed operand
+         * and then go back and add the suffix.  This will do for now.
+         */
+        if (instr_num_srcs(instr) > 0 && !opnd_is_reg(instr_get_src(instr, 0)) &&
+            instr_num_dsts(instr) > 0 && !opnd_is_reg(instr_get_dst(instr, 0))) {
+            uint sz = instr_memory_reference_size(instr);
+            if (sz == 1)
+                return "b";
+            else if (sz == 2)
+                return "w";
+            else if (sz == 4)
+                return "l";
+            else if (sz == 8)
+                return "q";
         }
     }
     return "";
@@ -1032,8 +1051,6 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     } else
         print_to_buffer(buf, bufsz, sofar, " ");
 
-    /* FIXME: AT&T suffix */
-
     IF_X64(CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(strlen(name)),
                          "instr_disassemble: internal truncation error"));
     sz = (int) strlen(name) + (int) strlen(instr_opcode_name_suffix(instr));
@@ -1055,8 +1072,8 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         return;
     }
 
-    if (DYNAMO_OPTION(syntax_intel)) {
-        instr_disassemble_opnds_intel(buf, bufsz, sofar, dcontext, instr);
+    if (DYNAMO_OPTION(syntax_intel) || DYNAMO_OPTION(syntax_att)) {
+        instr_disassemble_opnds_noimplicit(buf, bufsz, sofar, dcontext, instr);
         return;
     }
 
