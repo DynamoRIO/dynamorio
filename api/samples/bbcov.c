@@ -724,6 +724,12 @@ event_nudge(void *drcontext, uint64 argument)
 }
 
 static bool
+event_filter_syscall(void *drcontext, int sysnum)
+{
+    return (options.nudge_kills && sysnum == sysnum_TerminateProcess);
+}
+
+static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     if (options.nudge_kills && sysnum == sysnum_TerminateProcess) {
@@ -954,8 +960,10 @@ dr_init(client_id_t id)
     dr_register_module_load_event(event_module_load);
     dr_register_module_unload_event(event_module_unload);
 #ifdef WINDOWS
+    dr_register_filter_syscall_event(event_filter_syscall);
     dr_register_pre_syscall_event(event_pre_syscall);
     sysnum_TerminateProcess = get_sysnum("NtTerminateProcess");
+    dr_register_nudge_event(event_nudge, id);
 #endif
     client_id = id;
     if (dr_using_all_private_caches())
