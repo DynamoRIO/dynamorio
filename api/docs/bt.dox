@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -640,6 +640,23 @@ to the proper target offset.
 
 The 64-bit build of DynamoRIO is capable of encoding 32-bit code as well.
 See \ref sec_64bit for details.
+
+********************
+\subsection sec_disasm Disassembly
+
+DynamoRIO provides several routines for printing instructions to a file or
+a buffer.  These include disassemble(), opnd_disassemble(),
+instr_disassemble(), instrlist_disassemble(), disassemble_with_info(),
+disassemble_from_copy(), and disassemble_to_buffer().
+
+The style of disassembly can be controlled through the 
+\ref op_syntax_intel "-syntax_intel" (for Intel-style disassembly) and
+\ref op_syntax_att "-syntax_att" (for AT&T-style disassembly) runtime
+options, or the disassemble_set_syntax() function.  The default disassembly
+style is DynamoRIO's custom style, which lists all operands (both implicit
+and explicit).  The sources are listed first, followed by "->", and then
+the destinations.
+
 
 ***************************************************************************
 \htmlonly

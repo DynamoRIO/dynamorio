@@ -72,8 +72,9 @@ typedef enum {
      */
     DR_DISASM_INTEL          =  0x1,
     /**
-     * Requests AT&T syntax ordering for disassembly.  Implicit
-     * operands are not displayed.
+     * Requests AT&T syntax for disassembly.  This sets the same option that is
+     * controlled by the runtime option \p -syntax_att.  Implicit operands
+     * are not displayed.
      */
     DR_DISASM_ATT            =  0x2,
     /**

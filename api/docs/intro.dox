@@ -1350,7 +1350,12 @@ they want to shrink memory usage
 
  - \b -syntax_intel: \anchor op_syntax_intel
     This option causes DynamoRIO to output all disassembly using Intel
-    syntax rather than the default AT&T-style syntax.  This can also be set
+    syntax rather than the default show-implicit-operands syntax.  This can also be set
+    using disassemble_set_syntax().
+
+ - \b -syntax_att: \anchor op_syntax_att
+    This option causes DynamoRIO to output all disassembly using AT&T
+    syntax rather than the default show-implicit-operands syntax.  This can also be set
     using disassemble_set_syntax().
 
 \ifnot vmsafe
