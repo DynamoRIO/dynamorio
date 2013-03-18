@@ -1336,7 +1336,9 @@ check_ilist_translations(instrlist_t *ilist)
      */
     instr_t *in;
     for (in = instrlist_first(ilist); in != NULL; in = instr_get_next(in)) {
-        if (instr_ok_to_mangle(in)) {
+        if (!instr_opcode_valid(in)) {
+            CLIENT_ASSERT(INTERNAL_OPTION(fast_client_decode), "level 0 instr found");
+        } else if (instr_ok_to_mangle(in)) {
             DOLOG(LOG_INTERP, 1, {
                 if (instr_get_translation(in) == NULL)
                     loginst(get_thread_private_dcontext(), 1, in, "translation is NULL");

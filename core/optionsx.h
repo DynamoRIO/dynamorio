@@ -488,7 +488,14 @@
      * yet be exposed in non-internal CI builds, so we make it CI-only.
      */
     OPTION_INTERNAL(bool, full_decode, "decode all instrs to level 3 during bb building")
-# endif
+    /* Provides a speed boost at startup for obsevation-only clients that don't
+     * use any libraries that need to see all instructions.
+     * Not officially supported yet: see i#805 and i#1112.
+     * Not compatible with DR_EMIT_STORE_TRANSLATIONS.
+     */
+    OPTION_INTERNAL(bool, fast_client_decode,
+                    "avoid full decoding even when clients are present (risky)")
+# endif /* CLIENT_INTERFACE */
 #endif /* EXPOSE_INTERNAL_OPTIONS */
 
     /* i#42: Optimize and shrink clean call sequences */

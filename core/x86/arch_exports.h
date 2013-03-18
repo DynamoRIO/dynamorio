@@ -1353,6 +1353,9 @@ instrlist_t * build_app_bb_ilist(dcontext_t *dcontext, byte *start_pc, file_t ou
 void
 bb_build_abort(dcontext_t *dcontext, bool clean_vmarea);
 
+bool
+expand_should_set_translation(dcontext_t *dcontext);
+
 /* Builds an instrlist_t as though building a bb from pc.
  * Use recreate_fragment_ilist() for building an instrlist_t for a fragment.
  * If check_vm_area is false, Does NOT call check_thread_vm_area()!

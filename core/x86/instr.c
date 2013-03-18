@@ -2770,6 +2770,10 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         /* insert every separated instr into list */
         newinstr = instr_create(dcontext);
         newbytes = decode_raw(dcontext, curbytes, newinstr);
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+        if (expand_should_set_translation(dcontext))
+            instr_set_translation(newinstr, curbytes);
+#endif
         if (newbytes == NULL) {
             /* invalid instr -- stop expanding, point instr at remaining bytes */
             instr_set_raw_bits(instr, curbytes, remaining_bytes);
@@ -2989,6 +2993,10 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
         CLIENT_ASSERT(instr_raw_bits_valid(instr), "instr_decode: raw bits are invalid");
         instr_reuse(dcontext, instr);
         next_pc = decode(dcontext, instr_get_raw_bits(instr), instr);
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+        if (expand_should_set_translation(dcontext))
+            instr_set_translation(instr, instr_get_raw_bits(instr));
+#endif
 #ifdef X64
         set_x86_mode(dcontext, old_mode);
         /* decode sets raw bits which invalidates rip_rel, but

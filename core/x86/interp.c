@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2474,9 +2474,17 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
      */
     if (instrlist_first(bb->ilist) == NULL)
         return;
-    if (!instr_opcode_valid(instrlist_first(bb->ilist))) {
-        /* it should have only one instr */
-        ASSERT(instrlist_first(bb->ilist) == instrlist_last(bb->ilist));
+    if (!instr_opcode_valid(instrlist_first(bb->ilist)) &&
+        /* For -fast_client_decode we can have level 0 instrs so check
+         * to ensure this is a single-instr bb that was built just to
+         * raise the fault for us.
+         * XXX: shouldn't we pass this to the client?  It might not handle an
+         * invalid instr properly though.
+         * NOCHECKIN to reviewer: this seems very familiar: we had
+         * some conversation on this in the past.  Do you remember
+         * what we decided?
+         */
+        instrlist_first(bb->ilist) == instrlist_last(bb->ilist)) {
         return;
     }
 
@@ -2717,12 +2725,19 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
      * FIXME: should we not do eflags tracking while decoding, then, and always
      * do it afterward?
      */
-    bb->eflags = forward_eflags_analysis(dcontext, bb->ilist, instrlist_first(bb->ilist));
+    /* for -fast_client_decode, we don't support the client changing the app code */
+    if (!INTERNAL_OPTION(fast_client_decode)) {
+        bb->eflags = forward_eflags_analysis(dcontext, bb->ilist,
+                                             instrlist_first(bb->ilist));
+    }
 
     if (TEST(DR_EMIT_STORE_TRANSLATIONS, emitflags)) {
         /* PR 214962: let client request storage instead of recreation */
         bb->flags |= FRAG_HAS_TRANSLATION_INFO;
         /* if we didn't have record on from start, can't store translation info */
+        CLIENT_ASSERT(!INTERNAL_OPTION(fast_client_decode),
+                      "-fast_client_decode not compatible with "
+                      "DR_EMIT_STORE_TRANSLATIONS");
         ASSERT(bb->record_translation && bb->full_decode);
     }
 
@@ -2832,7 +2847,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     } else
         ASSERT(dynamo_exited);
     
-    if (bb->record_translation || !bb->for_cache
+    if ((bb->record_translation
+         IF_CLIENT_INTERFACE(&& !INTERNAL_OPTION(fast_client_decode))) ||
+        !bb->for_cache
         /* to split riprel, need to decode every instr */
         /* in x86_to_x64, need to translate every x86 instr */
         IF_X64(|| DYNAMO_OPTION(coarse_split_riprel) || DYNAMO_OPTION(x86_to_x64))
@@ -3039,7 +3056,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
          * through the above loop only once for cti's, so it's safe
          * to set the translation here.
          */
-        if (instr_opcode_valid(bb->instr) && instr_is_cti(bb->instr))
+        if (instr_opcode_valid(bb->instr) &&
+            (instr_is_cti(bb->instr) || bb->record_translation))
             instr_set_translation(bb->instr, bb->instr_start);
 
 #ifdef HOT_PATCHING_INTERFACE
@@ -3784,6 +3802,20 @@ bb_build_abort(dcontext_t *dcontext, bool clean_vmarea)
     }
 }
 
+bool
+expand_should_set_translation(dcontext_t *dcontext)
+{
+    if (dcontext->bb_build_info != NULL) {
+        build_bb_t *bb = (build_bb_t *) dcontext->bb_build_info;
+        /* Expanding to a higher level should set the translation to
+         * the raw bytes if we're building a bb where we can assume
+         * the raw byte pointer is the app pc.
+         */
+        return bb->record_translation;
+    }
+    return false;
+}
+
 /* returns false if need to rebuild bb: in that case this routine will
  * set the bb flags needed to ensure successful mangling 2nd time around
  */
@@ -4361,7 +4393,7 @@ init_interp_build_bb(dcontext_t *dcontext, build_bb_t *bb, app_pc start,
          * do not export level-handling instr_t routines like *_expand
          * for walking instrlists and instr_decode().
          */
-        bb->full_decode = true;
+        bb->full_decode = !INTERNAL_OPTION(fast_client_decode);
         /* PR 299808: we give client chance to re-add instrumentation */
         bb->for_trace = for_trace;
     }
