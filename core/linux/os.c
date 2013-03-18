@@ -1348,19 +1348,20 @@ static uint
 read_selector(reg_id_t seg)
 {
     uint sel;
-    /* pre-P6 family leaves upper 2 bytes undefined, so we clear them
-     * we don't clear and then use movw b/c that takes an extra clock cycle
-     */
     if (seg == SEG_FS) {
-        asm volatile("movl %%fs, %%eax; andl $0x0000ffff, %%eax; "
-                     "movl %%eax, %0" : "=m"(sel) : : "eax");
+        asm volatile("movl %%fs, %0" : "=r"(sel));
     } else if (seg == SEG_GS) {
-        asm volatile("movl %%gs, %%eax; andl $0x0000ffff, %%eax; "
-                     "movl %%eax, %0" : "=m"(sel) : : "eax");
+        asm volatile("movl %%gs, %0" : "=r"(sel));
     } else {
         ASSERT_NOT_REACHED();
         return 0;
     }
+    /* Pre-P6 family leaves upper 2 bytes undefined, so we clear them.  We don't
+     * clear and then use movw because that takes an extra clock cycle, and gcc
+     * can optimize this "and" into "test %?x, %?x" for calls from
+     * is_segment_register_initialized().
+     */
+    sel &= 0xffff;
     return sel;
 }
 
@@ -1424,23 +1425,26 @@ typedef struct _os_local_state_t {
 #define TLS_APP_FS_OFFSET (offsetof(os_local_state_t, app_fs))
 
 /* N.B.: imm and idx are ushorts!
- * imm must be a preprocessor constant
- * cannot find a gcc asm constraint that will put an immed w/o a $ in, so
- * we use the preprocessor to paste the constant in.
+ * We use %c[0-9] to get gcc to emit an integer constant without a leading $ for
+ * the segment offset.  See the documentation here:
+ * http://gcc.gnu.org/onlinedocs/gccint/Output-Template.html#Output-Template
  * Also, var needs to match the pointer size, or else we'll get stack corruption.
+ * XXX: This is marked volatile prevent gcc from speculating this code before
+ * checks for is_segment_register_initialized(), but if we could find a more
+ * precise constraint, then the compiler would be able to optimize better.  See
+ * glibc comments on THREAD_SELF.
  */
 #define WRITE_TLS_SLOT_IMM(imm, var)                                  \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                            \
     ASSERT(sizeof(var) == sizeof(void*));                             \
-    asm("mov %0, %%"ASM_XAX : : "m"((var)) : ASM_XAX);                \
-    asm("mov %"ASM_XAX", "ASM_SEG":"STRINGIFY(imm) : : "m"((var)) : ASM_XAX);
+    asm volatile("mov %0, %"ASM_SEG":%c1" : : "r"(var), "i"(imm));
 
 #define READ_TLS_SLOT_IMM(imm, var)                  \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());           \
     ASSERT(sizeof(var) == sizeof(void*));            \
-    asm("mov "ASM_SEG":"STRINGIFY(imm)", %"ASM_XAX); \
-    asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
+    asm volatile("mov %"ASM_SEG":%c1, %0" : "=r"(var) : "i"(imm));
 
+/* FIXME: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
 #define WRITE_TLS_SLOT(idx, var)                            \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                  \
     ASSERT(sizeof(var) == sizeof(void*));                   \
@@ -1449,10 +1453,6 @@ typedef struct _os_local_state_t {
     asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XDX : : "m"((idx)) : ASM_XDX); \
     asm("mov %%"ASM_XAX", %"ASM_SEG":(%%"ASM_XDX")" : : : ASM_XAX, ASM_XDX);
 
-/* FIXME: get_thread_private_dcontext() is a bottleneck, so it would be
- * good to figure out how to easily change this to use an immediate since it is
- * known at compile time -- see comments above for the _IMM versions
- */
 #define READ_TLS_SLOT(idx, var)                                    \
     ASSERT(sizeof(var) == sizeof(void*));                          \
     ASSERT(sizeof(idx) == 2);                                      \
@@ -1496,9 +1496,8 @@ static os_local_state_t *
 get_os_tls(void)
 {
     os_local_state_t *os_tls;
-    ushort offs = TLS_SELF_OFFSET;
     ASSERT(is_segment_register_initialized());
-    READ_TLS_SLOT(offs, os_tls);
+    READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
     return os_tls;
 }
 
@@ -1669,9 +1668,8 @@ local_state_extended_t *
 get_local_state_extended()
 {
     os_local_state_t *os_tls;
-    ushort offs = TLS_SELF_OFFSET;
     ASSERT(is_segment_register_initialized());
-    READ_TLS_SLOT(offs, os_tls);
+    READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
     return &(os_tls->state);
 }
 
@@ -2536,12 +2534,9 @@ thread_id_t
 get_tls_thread_id(void)
 {
     ptr_int_t tid; /* can't use thread_id_t since it's 32-bits */
-    /* need dedicated-storage var for _TLS_SLOT macros, can't use expr */
-    ushort offs;
     if (!is_segment_register_initialized())
         return INVALID_THREAD_ID;
-    offs = TLS_THREAD_ID_OFFSET;
-    READ_TLS_SLOT(offs, tid);
+    READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, tid);
     /* it reads 8-bytes into the memory, which includes app_gs and app_fs.
      * 0x000000007127357b <get_tls_thread_id+37>:      mov    %gs:(%rax),%rax
      * 0x000000007127357f <get_tls_thread_id+41>:      mov    %rax,-0x8(%rbp)
@@ -2556,8 +2551,6 @@ get_thread_private_dcontext(void)
 {
 #ifdef HAVE_TLS
     dcontext_t *dcontext;
-    /* FIXME: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
-    ushort offs;
     /* We have to check this b/c this is called from __errno_location prior
      * to os_tls_init, as well as after os_tls_exit, and early in a new
      * thread's initialization (see comments below on that).
@@ -2596,8 +2589,7 @@ get_thread_private_dcontext(void)
                /* ok for fork as mentioned above */
                pid_cached != get_process_id());
     });
-    offs = TLS_DCONTEXT_OFFSET;
-    READ_TLS_SLOT(offs, dcontext);
+    READ_TLS_SLOT_IMM(TLS_DCONTEXT_OFFSET, dcontext);
     return dcontext;
 #else
     /* Assumption: no lock needed on a read => no race conditions between
@@ -2623,10 +2615,8 @@ void
 set_thread_private_dcontext(dcontext_t *dcontext)
 {
 #ifdef HAVE_TLS
-    /* FIXME: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
-    ushort offs = TLS_DCONTEXT_OFFSET;
     ASSERT(is_segment_register_initialized());
-    WRITE_TLS_SLOT(offs, dcontext);
+    WRITE_TLS_SLOT_IMM(TLS_DCONTEXT_OFFSET, dcontext);
 #else
     thread_id_t tid = get_thread_id();
     int i;
@@ -2671,17 +2661,15 @@ static void
 replace_thread_id(thread_id_t old, thread_id_t new)
 {
 #ifdef HAVE_TLS
-    /* FIXME: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
-    ushort offs = TLS_THREAD_ID_OFFSET;
     ptr_int_t new_tid = new; /* can't use thread_id_t since it's 32-bits */
     ASSERT(is_segment_register_initialized());
     DOCHECK(1, {
         ptr_int_t old_tid; /* can't use thread_id_t since it's 32-bits */
-        READ_TLS_SLOT(offs, old_tid);
+        READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);
         IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(old_tid)));
         ASSERT(old_tid == old);
     });
-    WRITE_TLS_SLOT(offs, new_tid);
+    WRITE_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid);
 #else
     int i;
     mutex_lock(&tls_lock);
