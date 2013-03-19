@@ -386,6 +386,15 @@ enum {
     LOCK_RANK(executable_areas), /* < dynamo_areas < global_alloc_lock
                                   * < process_module_vector_lock (diagnostics)
                                   */
+#ifdef RCT_IND_BRANCH
+    LOCK_RANK(rct_module_lock), /* > coarse_info_lock, > executable_areas,
+                                 * < module_data_lock, < heap allocation */
+#endif
+#ifdef RETURN_AFTER_CALL
+    LOCK_RANK(after_call_lock), /* < table_rwlock, > bb_building_lock,
+                                 * > coarse_info_lock, > executable_areas,
+                                 * < module_data_lock */
+#endif
     LOCK_RANK(module_data_lock),  /* < loaded_module_areas, < special_heap_lock,
                                    * > executable_areas */
     LOCK_RANK(special_units_list_lock), /* < special_heap_lock */
@@ -405,14 +414,6 @@ enum {
     /* We make the th table separate (we look in it while holding master table lock) */
     LOCK_RANK(coarse_th_table_rwlock), /* < global_alloc_lock */
 
-#ifdef RCT_IND_BRANCH
-    LOCK_RANK(rct_module_lock), /* > coarse_info_lock, > executable_areas,
-                                 * < heap allocation */
-#endif
-#ifdef RETURN_AFTER_CALL
-    LOCK_RANK(after_call_lock), /* < table_rwlock, > bb_building_lock,
-                                 * > coarse_info_lock, > executable_areas */
-#endif
     LOCK_RANK(process_module_vector_lock), /* < snapshot_lock > all_threads_synch_lock */
     /* For Loglevel 1 and higher, with LOG_MEMSTATS, the snapshot lock is
      * grabbed on an exception, possible deadlock if already held FIXME */
