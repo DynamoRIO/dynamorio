@@ -3525,7 +3525,7 @@ dr_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
 {
     return (void *) map_file(f, size, offs, addr, prot,
                              TEST(DR_MAP_PRIVATE, flags),
-                             false/*!image*/,
+                             IF_WINDOWS_ELSE(TEST(DR_MAP_IMAGE, flags), false),
                              IF_WINDOWS_ELSE(false, TEST(DR_MAP_FIXED, flags)));
 }
 

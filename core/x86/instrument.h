@@ -3119,22 +3119,31 @@ dr_file_size(file_t fd, OUT uint64 *size);
 /* DR_API EXPORT END */
 /* DR_API EXPORT BEGIN */
 /* flags for use with dr_map_file() */
-/**
- * If set, changes to mapped memory are private to the mapping process and
- * are not reflected in the underlying file.  If not set, changes are visible
- * to other processes that map the same file, and will be propagated
- * to the file itself.
- */
-#define DR_MAP_PRIVATE               0x1
+enum {
+    /**
+     * If set, changes to mapped memory are private to the mapping process and
+     * are not reflected in the underlying file.  If not set, changes are visible
+     * to other processes that map the same file, and will be propagated
+     * to the file itself.
+     */
+    DR_MAP_PRIVATE             = 0x1,
 #ifdef LINUX
-/**
- * If set, indicates that the passed-in start address is required rather than a
- * hint.  On Linux, this has the same semantics as mmap with MAP_FIXED: i.e.,
- * any existing mapping in [addr,addr+size) will be unmapped.  This flags is not
- * supported on Windows.
- */
-#define DR_MAP_FIXED                 0x2
+    /**
+     * If set, indicates that the passed-in start address is required rather than a
+     * hint.  On Linux, this has the same semantics as mmap with MAP_FIXED: i.e.,
+     * any existing mapping in [addr,addr+size) will be unmapped.  This flags is not
+     * supported on Windows.
+     */
+    DR_MAP_FIXED               = 0x2,
 #endif
+#ifdef WINDOWS
+    /**
+     * If set, loads the specified file as an executable image, rather than a data
+     * file.  This flags is not supported on Linux.
+     */
+    DR_MAP_IMAGE               = 0x4,
+#endif
+};
 /* DR_API EXPORT END */
 
 DR_API

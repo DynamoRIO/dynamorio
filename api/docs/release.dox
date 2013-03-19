@@ -143,6 +143,7 @@ The changes between version \DR_VERSION and 4.0.1 include:
    #DR_DISASM_ATT selecting a true AT&T disassembly style that hides
    implicit operands.  The only compatibility change here is if a client
    selected DR_DISASM_ATT and expected DR-style disassembly.
+ - Added #DR_MAP_IMAGE
 
 **************************************************
 <hr>
