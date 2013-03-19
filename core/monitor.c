@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -669,7 +669,8 @@ monitor_remove_fragment(dcontext_t *dcontext, fragment_t *f)
      * starts at the next_tag and last_fragment is really not
      * related.
      */
-    if (md->last_fragment == f || dcontext->last_fragment == f) {
+    if ((md->last_fragment == f || dcontext->last_fragment == f) &&
+        !TEST(FRAG_TEMP_PRIVATE, f->flags)) {
         if (md->trace_tag > 0) {
             LOG(THREAD, LOG_MONITOR, 2,
                 "Aborting current trace since F%d was deleted\n",
@@ -1896,7 +1897,8 @@ internal_restore_last(dcontext_t *dcontext)
      * Do NOT reset last_fragment_flags as that field is needed prior to the
      * cache entry and is referenced in monitor_cache_enter().
      */
-    md->last_fragment = NULL;
+    if (!TEST(FRAG_TEMP_PRIVATE, md->last_fragment->flags))
+        md->last_fragment = NULL;
 }
 
 /* if we are building a trace, unfreezes and relinks the last_fragment */
@@ -2012,7 +2014,8 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         /* unprotect local heap */
         SELF_PROTECT_LOCAL(dcontext, WRITABLE);
         /* should have restored last fragment on cache exit */
-        ASSERT(md->last_fragment == NULL);
+        ASSERT(md->last_fragment == NULL ||
+               TEST(FRAG_TEMP_PRIVATE, md->last_fragment->flags));
 #ifdef RETURN_STACK
         if (md->num_blks > 0) {
             if (TEST(FRAG_ENDS_WITH_RETURN, dcontext->last_fragment->flags))
@@ -2186,7 +2189,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                 md->trace_tag, f->id, f->tag);
 
             f = end_and_emit_trace(dcontext, f);
-            LOG(THREAD, LOG_MONITOR, 3, "Returning to search mode\n");
+            LOG(THREAD, LOG_MONITOR, 3, "Returning to search mode f="PFX"\n", f);
         } else {
             LOG(THREAD, LOG_MONITOR, 3,
                 "Extending hot trace (tag "PFX") with F%d ("PFX")\n",
