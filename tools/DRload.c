@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,6 +33,7 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include <io.h> /* _access */
 
 /* This is a tool whose sole purpose is to provide an in-memory image
  * of an initialized dynamorio.dll, so we can query it with a debugger.
@@ -49,12 +51,18 @@
 typedef int (*int_func_t) ();
 typedef void (*void_func_t) ();
 
+#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
+#define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+
 int
 usage(char *exec)
 {
     fprintf(stderr, "Usage: %s [-help] [-debugbreak] [-loop] [-key] [-no_init]\n"
             "        [-call_to_offset <hex offset>] [-find_safe_offset] [-no_resolve]\n"
-            "        [-map <filename>] [-base <hex addr>] <DR/other dll path>\n", exec);
+            "        [-map <filename>] [-base <hex addr>] [-imagelist <file> |"
+            "<DR/other dll path>]\n", exec);
     return 1;
 }
 
@@ -91,21 +99,26 @@ map_file(const char *filename, void *addr, int image)
     HANDLE map;
     PBYTE view;
     /* Must specify FILE_SHARE_READ to open if -persist_lock_file is in use */
-    HANDLE file = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
+    HANDLE file = CreateFileA(filename, GENERIC_READ | (image ? FILE_EXECUTE : 0),
+                              FILE_SHARE_READ, NULL,
                               OPEN_EXISTING,
                               FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == NULL) {
         int err = GetLastError();
-        printf("Error %d opening %s\n", err, filename);
+        fprintf(stderr, "Error %d opening \"%s\"\n", err, filename);
         return 0;
     }
-    /* FIXME: to map as image also need to adjust file and mapping to be executable */
-    map = CreateFileMapping(file, NULL, image ? SEC_IMAGE : PAGE_READONLY, 
+    /* For image, it fails w/ ACCESS_DENIED at the map stage if we ask for
+     * more than PAGE_READONLY, and at the view stage if we ask for
+     * anything more than FILE_MAP_READ.
+     */
+    map = CreateFileMapping(file, NULL,
+                            PAGE_READONLY | (image ? SEC_IMAGE : 0), 
                             0, 0, NULL);
     if (map == NULL) {
         int err = GetLastError();
         CloseHandle(file);
-        printf("Error %d mapping %s\n", err, filename);
+        fprintf(stderr, "Error %d mapping \"%s\"\n", err, filename);
         return 0;
     }
     view = MapViewOfFileEx(map, FILE_MAP_READ, 0, 0, 0, addr);
@@ -113,7 +126,7 @@ map_file(const char *filename, void *addr, int image)
         int err = GetLastError();
         CloseHandle(map);
         CloseHandle(file);
-        printf("Error %d mapping view of %s\n", err, filename);
+        fprintf(stderr, "Error %d mapping view of \"%s\"\n", err, filename);
         return 0;
     }
     return 1;
@@ -137,13 +150,14 @@ main(int argc, char *argv[])
     void *preferred_base = NULL;
     int call_offset = -1;
     BOOL find_safe_offset = FALSE;
+    char *imagelist = NULL;
 
     /* Link user32.dll for easier running under dr */
     do { if (argc > 1000) MessageBeep(0); } while (0);
 
     if (argc < 2)
         return usage(argv[0]);
-    while (argv[arg_offs][0] == '-') {
+    while (arg_offs < argc && argv[arg_offs][0] == '-') {
         if (strcmp(argv[arg_offs], "-help") == 0) {
             return help(argv[0]);
         } else if (strcmp(argv[arg_offs], "-debugbreak") == 0) {
@@ -202,104 +216,140 @@ main(int argc, char *argv[])
             if (len != 1 || preferred_base == NULL)
                 return usage(argv[0]);
             arg_offs += 1;
+        } else if (strcmp(argv[arg_offs], "-imagelist") == 0) {
+            arg_offs += 1;
+            if (argc - (arg_offs) < 1)
+                return usage(argv[0]);
+            imagelist = argv[arg_offs];
+            arg_offs += 1;
         } else
             return usage(argv[0]);
-        if (argc - arg_offs < 1)
+        if (argc - arg_offs < (imagelist == NULL ? 1 : 0))
             return usage(argv[0]);
     }
-    DRpath = argv[arg_offs];
 
-    if (force_base != NULL) {
-        /* add load blocks at the expected base addresses */
-        void *base;
-        if (preferred_base != NULL)
-            base = preferred_base;
-        else /* assume DR dll */
-            base = (void *)0x71000000;
-        VirtualAllocEx(GetCurrentProcess(), 
-                       base, 0x1000, MEM_RESERVE, PAGE_NOACCESS);
-        if (preferred_base == NULL) {
-            /* also do debug build base */
-            base = (void*)0x15000000;
-            VirtualAllocEx(GetCurrentProcess(), 
-                           base, 0x1000, MEM_RESERVE, PAGE_NOACCESS);
+    if (imagelist != NULL) {
+        FILE *f;
+        int count = 0;
+        char line[MAX_PATH];
+        if (_access(imagelist, 4/*read*/) == -1) {
+            fprintf(stderr, "Cannot read %s\n", imagelist);
+            return 1;
         }
-        base = force_base;
-        /* to ensure we fill all cavities we loop through */
-        while (base > (void*)0x10000) {
-            base = (void*)((int)base - 0x10000);
-            VirtualAllocEx(GetCurrentProcess(), 
-                           base, 0x1000, MEM_RESERVE, PAGE_NOACCESS);
+        f = fopen(imagelist, "r");
+        if (f == NULL) {
+            fprintf(stderr, "Failed to open %s\n", imagelist);
+            return 1;
         }
-
-#if 0
-        map_file(DRpath, force_base, 1 /* image */);
-        /* FIXME: note that the DLL will not be relocated! */
-        /* we can't really initialize */
-#endif
-    }
-
-
-    if (use_dont_resolve) {
-        dll = LoadLibraryExA(DRpath, NULL, DONT_RESOLVE_DLL_REFERENCES);
+        while (fgets(line, BUFFER_SIZE_ELEMENTS(line), f) != NULL) {
+            size_t len = strlen(line) - 1;
+            while (len > 0 && (line[len] == '\n' || line[len] == '\r')) {
+                line[len] = '\0';
+                len--;
+            }
+            fprintf(stderr, "loading %s\n", line);
+            if (map_file(line, NULL, 1/*image*/))
+                count++;
+            else
+                fprintf(stderr, "  => FAILED\n", line);
+        }
+        fprintf(stderr, "loaded %d images successfully\n", count);
+        fflush(stderr);
     } else {
-        dll = LoadLibraryA(DRpath);
-    }
+        DRpath = argv[arg_offs];
 
-    if (dll == NULL) {
-        int err = GetLastError();
-        printf("Error %d loading %s\n", err, DRpath);
-        return 1;
-    }
+        if (force_base != NULL) {
+            /* add load blocks at the expected base addresses */
+            void *base;
+            if (preferred_base != NULL)
+                base = preferred_base;
+            else /* assume DR dll */
+                base = (void *)0x71000000;
+            VirtualAllocEx(GetCurrentProcess(), 
+                           base, 0x1000, MEM_RESERVE, PAGE_NOACCESS);
+            if (preferred_base == NULL) {
+                /* also do debug build base */
+                base = (void*)0x15000000;
+                VirtualAllocEx(GetCurrentProcess(), 
+                               base, 0x1000, MEM_RESERVE, PAGE_NOACCESS);
+            }
+            base = force_base;
+            /* to ensure we fill all cavities we loop through */
+            while (base > (void*)0x10000) {
+                base = (void*)((int)base - 0x10000);
+                VirtualAllocEx(GetCurrentProcess(), 
+                               base, 0x1000, MEM_RESERVE, PAGE_NOACCESS);
+            }
 
-    if (initialize_dr) {
-        init_func = (int_func_t) GetProcAddress(dll, "dynamorio_app_init");
-        take_over_func = (void_func_t) GetProcAddress(dll, "dynamorio_app_take_over");
-        if (init_func == NULL || take_over_func == NULL) {
-            printf("Error finding DR init routines\n");
-            res = 1;
-            goto done;
+    #if 0
+            map_file(DRpath, force_base, 1 /* image */);
+            /* FIXME: note that the DLL will not be relocated! */
+            /* we can't really initialize */
+    #endif
         }
-        res = (*init_func)();
-        /* FIXME: ASSERT(res) */
-        (*take_over_func)();
-        res = 0;
-    }
 
-    if (call_offset != -1) {
-        unsigned char *call_location = (char *)dll+call_offset;
-        if (find_safe_offset) {
-            MEMORY_BASIC_INFORMATION mbi;
-            if (VirtualQuery(call_location, &mbi, sizeof(mbi)) != sizeof(mbi) ||
-                mbi.State == MEM_FREE || mbi.State == MEM_RESERVE) {
-                printf("Call offset invalid, leaving as is\n");
-            } else {
-                /* find safe place to call, we just look for 0xc3 though could in theory
-                 * use other types of rets too */
-                unsigned char *test;
-                for (test = call_location;
-                     test < (char *)mbi.BaseAddress+mbi.RegionSize; test++) {
-                    if (*test == 0xc3 /* plain ret */) {
-                        printf("Found safe call target at offset 0x%08x\n",
-                               test - (char *)dll);
-                        call_location = test;
-                        break;
+
+        if (use_dont_resolve) {
+            dll = LoadLibraryExA(DRpath, NULL, DONT_RESOLVE_DLL_REFERENCES);
+        } else {
+            dll = LoadLibraryA(DRpath);
+        }
+
+        if (dll == NULL) {
+            int err = GetLastError();
+            fprintf(stderr, "Error %d loading %s\n", err, DRpath);
+            return 1;
+        }
+
+        if (initialize_dr) {
+            init_func = (int_func_t) GetProcAddress(dll, "dynamorio_app_init");
+            take_over_func = (void_func_t) GetProcAddress(dll, "dynamorio_app_take_over");
+            if (init_func == NULL || take_over_func == NULL) {
+                fprintf(stderr, "Error finding DR init routines\n");
+                res = 1;
+                goto done;
+            }
+            res = (*init_func)();
+            /* FIXME: ASSERT(res) */
+            (*take_over_func)();
+            res = 0;
+        }
+
+        if (call_offset != -1) {
+            unsigned char *call_location = (char *)dll+call_offset;
+            if (find_safe_offset) {
+                MEMORY_BASIC_INFORMATION mbi;
+                if (VirtualQuery(call_location, &mbi, sizeof(mbi)) != sizeof(mbi) ||
+                    mbi.State == MEM_FREE || mbi.State == MEM_RESERVE) {
+                    fprintf(stderr, "Call offset invalid, leaving as is\n");
+                } else {
+                    /* find safe place to call, we just look for 0xc3 though could in theory
+                     * use other types of rets too */
+                    unsigned char *test;
+                    for (test = call_location;
+                         test < (char *)mbi.BaseAddress+mbi.RegionSize; test++) {
+                        if (*test == 0xc3 /* plain ret */) {
+                            fprintf(stderr, "Found safe call target at offset 0x%08x\n",
+                                   test - (char *)dll);
+                            call_location = test;
+                            break;
+                        }
+                    }
+                    if (call_location != test) {
+                        fprintf(stderr, "Unable to find safe call target\n");
                     }
                 }
-                if (call_location != test) {
-                    printf("Unable to find safe call target\n");
-                }
             }
+            fprintf(stderr, "Calling base(0x%08x) + offset(0x%08x) = 0x%08x\n",
+                   dll, call_location-(char *)dll, call_location);
+            (*(int (*) ())(call_location))();
         }
-        printf("Calling base(0x%08x) + offset(0x%08x) = 0x%08x\n",
-               dll, call_location-(char *)dll, call_location);
-        (*(int (*) ())(call_location))();
     }
 
  done:
     if (keypress) {
-        printf("press any key or attach a debugger...\n");
-        fflush(stdout);
+        fprintf(stderr, "press any key or attach a debugger...\n");
+        fflush(stderr);
         getchar();
     }
     if (debugbreak) {
@@ -307,7 +357,7 @@ main(int argc, char *argv[])
     }
     if (infinite) {
         while (1)
-            ;
+            Sleep(1);
     }
     return res;
 }
