@@ -250,8 +250,7 @@ redirect_RtlCreateHeap(ULONG flags, void *base, size_t reserve_sz,
 bool
 redirect_heap_call(HANDLE heap)
 {
-    ASSERT(!dynamo_initialized || dynamo_exited ||
-           IF_CLIENT_INTERFACE(standalone_library ||)
+    ASSERT(!dynamo_initialized || dynamo_exited || standalone_library ||
            get_thread_private_dcontext() == NULL /*thread exiting*/ ||
            !os_using_app_state(get_thread_private_dcontext()));
 #ifdef CLIENT_INTERFACE

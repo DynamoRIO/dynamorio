@@ -272,11 +272,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                 print_to_buffer(buf, bufsz, sofar,
                                 "$"PFX" <exit_dynamorio_hook> ", target);
                 printed = true;
-            } else if (dcontext != NULL && dynamo_initialized
-# if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
-                       && !standalone_library
-# endif
-                       ) {
+            } else if (dcontext != NULL && dynamo_initialized && !standalone_library) {
                 const char *gencode_routine = NULL;
                 const char *ibl_brtype;
                 const char *ibl_name =
@@ -438,11 +434,8 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         printed = true;
                     }                        
                 }
-            } else if (dynamo_initialized && !SHARED_FRAGMENTS_ENABLED()
-# if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
-                       && !standalone_library
-# endif
-                       ) {
+            } else if (dynamo_initialized && !SHARED_FRAGMENTS_ENABLED() &&
+                       !standalone_library) {
                 print_to_buffer(buf, bufsz, sofar, "NULL DCONTEXT! ");
             }
 #endif /* !STANDALONE_DECODER */
@@ -857,10 +850,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
         return;
     }
-    if (DYNAMO_OPTION(syntax_intel))
-        num = instr_num_dsts(instr);
-    else
-        num = instr_num_srcs(instr);
+    num = DYNAMO_OPTION(syntax_intel) ? instr_num_dsts(instr) : instr_num_srcs(instr);
     for (i=0; i<num; i++) {
         bool printing;
         opnd = DYNAMO_OPTION(syntax_intel) ?
@@ -874,10 +864,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
             optype_already[i] = optype;
         prev = printing || prev;
     }
-    if (DYNAMO_OPTION(syntax_intel))
-        num = instr_num_srcs(instr);
-    else
-        num = instr_num_dsts(instr);
+    num = DYNAMO_OPTION(syntax_intel) ? instr_num_srcs(instr) : instr_num_dsts(instr);
     for (i=0; i<num; i++) {
         opnd = DYNAMO_OPTION(syntax_intel) ?
             instr_get_src(instr, i) : instr_get_dst(instr, i);

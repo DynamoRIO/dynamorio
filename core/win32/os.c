@@ -909,7 +909,7 @@ os_init(void)
         TLS_NUM_SLOTS, IF_X64_ELSE("gs", "fs"), tls_local_state_offs);
     ASSERT_CURIOSITY(proc_is_cache_aligned(get_local_state()) || 
                      DYNAMO_OPTION(tls_align != 0));
-    if (IF_CLIENT_INTERFACE_ELSE(IF_UNIT_TEST_ELSE(true, !standalone_library), true)) {
+    if (IF_UNIT_TEST_ELSE(true, !standalone_library)) {
         tls_dcontext_offs = os_tls_offset(TLS_DCONTEXT_SLOT);
         ASSERT(tls_dcontext_offs != TLS_UNINITIALIZED);
     }
@@ -958,7 +958,7 @@ os_init(void)
     get_dynamorio_dll_preferred_base();
     get_image_entry();
     get_system_basic_info();
-    if (IF_CLIENT_INTERFACE_ELSE(!standalone_library, true))
+    if (!standalone_library)
         os_user_directory_supports_ownership();
     is_wow64_process(NT_CURRENT_PROCESS);
     is_in_ntdll(get_ntdll_base());
@@ -5304,9 +5304,9 @@ os_open(const char *fname, int os_open_flags)
         return os_internal_create_file(fname, false, access, sharing, FILE_OPEN);
 
     /* clients are allowed to open the file however they want, xref PR 227737 */
-    ASSERT_CURIOSITY_ONCE((TEST(OS_OPEN_REQUIRE_NEW, os_open_flags)
-                           IF_CLIENT_INTERFACE( || standalone_library ||
-                             !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))) &&
+    ASSERT_CURIOSITY_ONCE((TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) || standalone_library
+                           IF_CLIENT_INTERFACE(|| !IS_INTERNAL_STRING_OPTION_EMPTY
+                                               (client_lib))) &&
                           "symlink risk PR 213492");
     
     return os_internal_create_file(fname, false,

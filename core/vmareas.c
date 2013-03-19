@@ -3164,7 +3164,7 @@ bool
 is_pretend_or_executable_writable(app_pc addr)
 {
     /* see if asking about an executable area we made read-only */
-    return (IF_CLIENT_INTERFACE(!standalone_library &&)
+    return (!standalone_library &&
             (is_executable_area_writable(addr) ||
              (USING_PRETEND_WRITABLE() &&
               is_pretend_writable_address(addr))));

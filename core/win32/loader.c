@@ -154,7 +154,7 @@ os_loader_init_prologue(void)
     app_pc user32 = NULL;
     privmod_t *mod;
     /* FIXME i#812: need to delay this for earliest injection */
-    if (!dr_earliest_injected IF_CLIENT_INTERFACE(&& !standalone_library)) {
+    if (!dr_earliest_injected && !standalone_library) {
         user32 = (app_pc) get_module_handle(L"user32.dll");
     }
 

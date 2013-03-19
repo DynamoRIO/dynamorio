@@ -442,6 +442,9 @@ extern bool dynamo_all_threads_synched; /* are all other threads suspended safel
 
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 extern bool standalone_library;  /* used as standalone library */
+#else
+/* avoid complex ifdefs everywhere */
+# define standalone_library false
 #endif
 #ifdef LINUX
 extern bool post_execve;         /* have we performed an execve? */
