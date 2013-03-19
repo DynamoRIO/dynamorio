@@ -1014,9 +1014,11 @@ presys_CreateThread(dcontext_t *dcontext, reg_t *param_base)
      * if not injecting at all we won't change cxt.
      */
     maybe_inject_into_process(dcontext, process_handle, cxt);
+
+    if (is_phandle_me(process_handle))
+        pre_second_thread();
 }
 
-#ifdef DEBUG
 /* NtCreateThreadEx */
 static void
 presys_CreateThreadEx(dcontext_t *dcontext, reg_t *param_base)
@@ -1038,7 +1040,7 @@ presys_CreateThreadEx(dcontext_t *dcontext, reg_t *param_base)
      *   INOUT create_thread_info_t *thread_info [ see ntdll.h ])
      */
     DEBUG_DECLARE(priv_mcontext_t *mc = get_mcontext(dcontext);)
-    DEBUG_DECLARE(HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 3);)
+    HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 3);
     DEBUG_DECLARE(byte *start_addr = (byte *) sys_param(dcontext, param_base, 4);)
     DEBUG_DECLARE(void *start_parameter = (void *) sys_param(dcontext, param_base, 5);)
     DEBUG_DECLARE(bool create_suspended = (bool) sys_param(dcontext, param_base, 6);)
@@ -1055,8 +1057,34 @@ presys_CreateThreadEx(dcontext_t *dcontext, reg_t *param_base)
         LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2, 
             "\tsymbol info for start address : %s\n", buf);
     });
+
+    if (is_phandle_me(process_handle))
+        pre_second_thread();
 }
-#endif
+
+/* NtCreateWorkerFactory */
+static void
+presys_CreateWorkerFactory(dcontext_t *dcontext, reg_t *param_base)
+{
+    /* New in Vista.  10 args:
+     * NtCreateWorkerFactory(
+     *    __out PHANDLE FactoryHandle,
+     *    __in ACCESS_MASK DesiredAccess,
+     *    __in_opt POBJECT_ATTRIBUTES ObjectAttributes,
+     *    __in HANDLE CompletionPortHandle,
+     *    __in HANDLE ProcessHandle,
+     *    __in PVOID StartRoutine,
+     *    __in_opt PVOID StartParameter,
+     *    __in_opt ULONG MaxThreadCount,
+     *    __in_opt SIZE_T StackReserve,
+     *    __in_opt SIZE_T StackCommit)
+     */
+    HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 4);
+    ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
+
+    if (is_phandle_me(process_handle))
+        pre_second_thread();
+}
 
 /***************************************************************************
  * ENV VAR PROPAGATION
@@ -2403,11 +2431,12 @@ pre_system_call(dcontext_t *dcontext)
     else if (sysnum == syscalls[SYS_CreateThread]) {
         presys_CreateThread(dcontext, param_base);
     }
-#ifdef DEBUG
     else if (sysnum == syscalls[SYS_CreateThreadEx]) {
         presys_CreateThreadEx(dcontext, param_base);
     }
-#endif
+    else if (sysnum == syscalls[SYS_CreateWorkerFactory]) {
+        presys_CreateWorkerFactory(dcontext, param_base);
+    }
     else if (sysnum == syscalls[SYS_SuspendThread]) {
         HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
         thread_id_t tid = thread_id_from_handle(thread_handle);

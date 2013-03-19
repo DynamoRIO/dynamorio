@@ -581,6 +581,9 @@ dynamorio_app_init(void)
         size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t*);
         all_threads = (thread_record_t**) global_heap_alloc(size HEAPACCT(ACCT_THREAD_MGT));
         memset(all_threads, 0, size);
+        if (!INTERNAL_OPTION(nop_initial_bblock)
+            IF_WINDOWS(|| !check_sole_thread())) /* some other thread is already here! */
+            bb_lock_start = true;
 
 #ifdef SIDELINE
         /* initialize sideline thread after thread table is set up */
@@ -2028,6 +2031,10 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
      * for win32, in new_thread_setup for linux, in main init for 1st thread
      */
 
+    /* Try to handle externally injected threads */
+    if (dynamo_initialized && !bb_lock_start)
+        pre_second_thread();
+
     /* synch point so thread creation can be prevented for critical periods */
     mutex_lock(&thread_initexit_lock);
 
@@ -2621,6 +2628,8 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     do {
         found_threads = os_take_over_all_unknown_threads(dcontext);
         attempts++;
+        if (found_threads && !bb_lock_start)
+            bb_lock_start = true;
     } while (found_threads && attempts < MAX_TAKE_OVER_ATTEMPTS);
 
     if (found_threads) {
@@ -3170,3 +3179,25 @@ is_currently_on_dstack(dcontext_t *dcontext)
     GET_STACK_PTR(cur_esp);
     return is_on_dstack(dcontext, cur_esp);
 }
+
+void
+pre_second_thread(void)
+{
+    /* i#1111: nop-out bb_building_lock until 2nd thread created.
+     * While normally we'll call this in the primary thread while not holding
+     * the lock, it's possible on Windows for an externally injected thread
+     * (or for a thread sneakily created by some native_exec code w/o going
+     * through ntdll wrappers) to appear.  We solve the problem of the main
+     * thread currently holding bb_building_lock and us turning its
+     * unlock into an error by the bb_lock_would_have bool in
+     * SHARED_BB_UNLOCK().
+     */
+    if (!bb_lock_start) {
+        mutex_lock(&bb_building_lock);
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        bb_lock_start = true;
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+        mutex_unlock(&bb_building_lock);
+    }
+}
+

@@ -173,8 +173,9 @@ dispatch(dcontext_t *dcontext)
             }
             if (targetf != NULL)
                 break;
-            if (USE_BB_BUILDING_LOCK()) {
-                mutex_lock(&bb_building_lock);
+            /* must call outside of USE_BB_BUILDING_LOCK guard for bb_lock_would_have: */
+            SHARED_BB_LOCK();
+            if (USE_BB_BUILDING_LOCK() || targetf == NULL) {
                 /* must re-lookup while holding lock and keep the lock until we've
                  * built the bb and added it to the lookup table
                  * FIXME: optimize away redundant lookup: flags to know why came out?
@@ -199,13 +200,12 @@ dispatch(dcontext_t *dcontext)
                  * and all the way through emit and link?  Would need linkstubs
                  * tailing the fragment_t.
                  */
-                ASSERT(USE_BB_BUILDING_LOCK());
+                ASSERT(USE_BB_BUILDING_LOCK_STEADY_STATE());
                 fragment_coarse_wrapper(&coarse_f, targetf->tag,
                                         FCACHE_ENTRY_PC(targetf));
                 targetf = &coarse_f;
             }
-            if (USE_BB_BUILDING_LOCK())
-                mutex_unlock(&bb_building_lock);
+            SHARED_BB_UNLOCK();
             /* loop around and re-do monitor check */
         } while (true);
 

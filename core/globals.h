@@ -470,6 +470,9 @@ extern byte *  exception_stack;
  * the all_threads list */
 extern int exiting_thread_count;
 
+/* Called before a second thread is ever scheduled. */
+void pre_second_thread(void);
+
 bool is_on_initstack(byte *esp);
 
 bool is_on_dstack(dcontext_t *dcontext, byte *esp);
@@ -569,6 +572,7 @@ bool data_sections_enclose_region(app_pc start, app_pc end);
  * sequences, exported so that micro-operations can assert that one is held 
  */
 extern mutex_t bb_building_lock;
+extern volatile bool bb_lock_start;
 extern recursive_lock_t change_linking_lock;
 
 /* where the current app thread's control is */

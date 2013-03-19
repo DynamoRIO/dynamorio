@@ -310,12 +310,13 @@ enum {
 
     LOCK_RANK(trace_building_lock), /* < bb_building_lock, < table_rwlock */
 
-    LOCK_RANK(bb_building_lock), /* < change_linking_lock + all vm and heap locks */
     /* decode exception -> check if should_intercept requires all_threads 
      * FIXME: any other locks that could be interrupted by exception that
      * could be app's fault?
      */
     LOCK_RANK(thread_initexit_lock), /* < all_threads_lock, < snapshot_lock */
+
+    LOCK_RANK(bb_building_lock), /* < change_linking_lock + all vm and heap locks */
 
 #if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
     LOCK_RANK(exception_stack_lock), /* < all_threads_lock */
@@ -815,11 +816,28 @@ int atomic_swap(volatile int *addr, int value);
     if (SHARED_FRAGMENTS_ENABLED() && !INTERNAL_OPTION(single_thread_in_DR))  \
         operation##_recursive_lock(&(lock));                                  \
 } while (0)
-#define USE_BB_BUILDING_LOCK()  \
+/* internal use only */
+#define USE_BB_BUILDING_LOCK_STEADY_STATE()                                  \
     (DYNAMO_OPTION(shared_bbs) && !INTERNAL_OPTION(single_thread_in_DR))
-#define SHARED_BB_MUTEX(operation) do {                                      \
+/* anyone guarding the bb_building_lock with this must use SHARED_BB_{UN,}LOCK */
+#define USE_BB_BUILDING_LOCK()                                               \
+    (USE_BB_BUILDING_LOCK_STEADY_STATE() && bb_lock_start)
+#define SHARED_BB_LOCK() do {                                                \
     if (USE_BB_BUILDING_LOCK())                                              \
-        mutex_##operation(&(bb_building_lock));                              \
+        mutex_lock(&(bb_building_lock));                                     \
+} while (0)
+/* We explicitly check the lock_requests to handle a thread from appearing
+ * suddenly and causing USE_BB_BUILDING_LOCK() to return true while we're
+ * about to unlock it.
+ * We'll still have a race where the original thread and the new thread
+ * add to the cache simultaneously, and the original thread can do the
+ * unlock (with the 2nd thread's unlock then being a nop), but it should
+ * only happen in extreme corner cases.  In debug it could raise an
+ * error about the non-owner releasing the mutex.
+ */
+#define SHARED_BB_UNLOCK() do {                                              \
+    if (USE_BB_BUILDING_LOCK() && bb_building_lock.lock_requests > LOCK_FREE_STATE) \
+        mutex_unlock(&(bb_building_lock));                                   \
 } while (0)
 /* we assume dynamo_resetting is only done w/ all threads suspended */
 #define NEED_SHARED_LOCK(flags)                                          \

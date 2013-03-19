@@ -1079,6 +1079,9 @@ dr_nudge_client_ex(process_id_t process_id, client_id_t client_id,
 {
     if (process_id == get_process_id()) {
         size_t i;
+#ifdef WINDOWS
+        pre_second_thread();
+#endif
         for (i=0; i<num_client_libs; i++) {
             if (client_libs[i].id == client_id) {
                 if (client_libs[i].nudge_callbacks.num == 0) {

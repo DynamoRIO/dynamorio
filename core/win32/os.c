@@ -1623,6 +1623,8 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     LOG(THREAD, LOG_ASYNCH, 1,
         "dr_create_client_thread: dstack for new thread is "PFX"\n", dstack);
 
+    pre_second_thread();
+
     /* We store the func and args at base of dstack for client_thread_target */
     arg_buf[0] = (void *) func;
     arg_buf[1] = arg;

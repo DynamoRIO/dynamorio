@@ -3354,6 +3354,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
         IF_NOT_X64(| CLONE_SETTLS)
         /* CLONE_THREAD required.  Signals and itimers are private anyway. */
         IF_VMX86(| (os_in_vmkernel_userworld() ? CLONE_THREAD : 0));
+    pre_second_thread();
     /* need to share signal handler table, prior to creating clone record */
     handle_clone(dcontext, flags);
     void *crec = create_clone_record(dcontext, (reg_t*)&xsp);

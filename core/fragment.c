@@ -2412,7 +2412,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size,
 
     if (TEST(FRAG_COARSE_GRAIN, flags)) {
         ASSERT(DYNAMO_OPTION(coarse_units));
-        ASSERT_OWN_MUTEX(true, &bb_building_lock);
+        ASSERT_OWN_MUTEX(USE_BB_BUILDING_LOCK(), &bb_building_lock);
         ASSERT(!TEST(FRAG_IS_TRACE, flags));
         ASSERT(TEST(FRAG_SHARED, flags));
         ASSERT(fragment_prefix_size(flags) == 0);
@@ -3232,6 +3232,7 @@ void
 fragment_record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist)
 {
     ASSERT(!NEED_SHARED_LOCK(f->flags) ||
+           !USE_BB_BUILDING_LOCK() ||
            OWN_MUTEX(&bb_building_lock) ||
            OWN_MUTEX(&trace_building_lock) ||
            is_self_flushing());

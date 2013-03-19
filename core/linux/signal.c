@@ -1835,6 +1835,8 @@ handle_clone(dcontext_t *dcontext, uint flags)
         return;
     }
 
+    pre_second_thread();
+
     if ((flags & CLONE_SIGHAND) != 0) {
         /* need to share table of handlers! */
         LOG(THREAD, LOG_ASYNCH, 2, "handle_clone: CLONE_SIGHAND set!\n");

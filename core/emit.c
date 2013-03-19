@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -441,6 +441,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
 
     /* ensure some higher-level lock is held if f is shared */
     ASSERT(!TEST(FRAG_SHARED, flags) || INTERNAL_OPTION(single_thread_in_DR) ||
+           !USE_BB_BUILDING_LOCK() ||
            OWN_MUTEX(&bb_building_lock) || OWN_MUTEX(&trace_building_lock));
 
     /* 1st walk through instr list:

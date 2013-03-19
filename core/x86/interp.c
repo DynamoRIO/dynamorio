@@ -108,6 +108,9 @@ bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md);
 /* exported so micro routines can assert whether held */
 DECLARE_CXTSWPROT_VAR(mutex_t bb_building_lock, INIT_LOCK_FREE(bb_building_lock));
 
+/* i#1111: we do not use the lock until the 2nd thread is created */
+volatile bool bb_lock_start;
+
 #ifdef INTERNAL
 file_t bbdump_file = INVALID_FILE;
 #endif
@@ -2478,11 +2481,8 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         /* For -fast_client_decode we can have level 0 instrs so check
          * to ensure this is a single-instr bb that was built just to
          * raise the fault for us.
-         * XXX: shouldn't we pass this to the client?  It might not handle an
+         * XXX i#1000: shouldn't we pass this to the client?  It might not handle an
          * invalid instr properly though.
-         * NOCHECKIN to reviewer: this seems very familiar: we had
-         * some conversation on this in the past.  Do you remember
-         * what we decided?
          */
         instrlist_first(bb->ilist) == instrlist_last(bb->ilist)) {
         return;
@@ -3794,7 +3794,7 @@ bb_build_abort(dcontext_t *dcontext, bool clean_vmarea)
          */
         if (bb->has_bb_building_lock) {
             ASSERT_OWN_MUTEX(USE_BB_BUILDING_LOCK(), &bb_building_lock);
-            SHARED_BB_MUTEX(unlock);
+            SHARED_BB_UNLOCK();
             KSTOP_REWIND(bb_building);
         } else
             ASSERT_DO_NOT_OWN_MUTEX(USE_BB_BUILDING_LOCK(), &bb_building_lock);
