@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2905,15 +2905,17 @@ rct_add_exports(dcontext_t *dcontext, app_pc module_base, size_t module_size)
             app_pc func = module_base + functions[i];
 
             /* check if it points within the exports section in real address space */
-            if (func < (app_pc)exports || func >= (app_pc)exports + size) {
+            if ((func < (app_pc)exports || func >= (app_pc)exports + size) &&
+                /* ensure points within this module: resolved forwarder might point
+                 * at another module
+                 */
+                (func >= module_base && func < (module_base + module_size))) {
                 /* FIXME: use print_symbolic_address() */
                 LOG(GLOBAL, LOG_RCT, 3, "\tadding i=%d "PFX"\n", i, func);
                 /* interestingly there are ordinals in shell32.dll
                  * that are at module_base, so can't make this point
                  * to code sections only
                  */
-                ASSERT(func >= module_base && func < (module_base + module_size) ||
-                       EXEMPT_TEST("win32.partial_map.exe"));
                 /* FIXME: note that we may add not only functions but
                  * export data as well! 
                  * FIXME: currently we leave on code origins to cover this up,
@@ -2936,8 +2938,13 @@ rct_add_exports(dcontext_t *dcontext, app_pc module_base, size_t module_size)
                 /* skip forwarded function - it forwards to a named
                  * import e.g. NTDLL.RtlAllocateHeap which will be
                  * added in its own module's exports */
-                LOG(GLOBAL, LOG_RCT, 3, "Forward to "PFX" %s.  Skipping...\n", func,
-                    (char*)func);
+                if (func >= (app_pc)exports && func < (app_pc)exports + size) {
+                    LOG(GLOBAL, LOG_RCT, 3, "Forward to "PFX" %s.  Skipping...\n", func,
+                        (char*)func);
+                } else {
+                    LOG(GLOBAL, LOG_RCT, 3,
+                        "Forward to outside module "PFX": already resolved?\n", func);
+                }
             }
         }
         
