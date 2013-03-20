@@ -668,6 +668,79 @@ add_extra_option(char *buf, size_t bufsz, size_t *sofar, const char *fmt, ...)
     buf[bufsz-1] = '\0';
 }
 
+#if defined(DRCONFIG) || defined(DRRUN)
+/* Returns the path to the client library.  Appends to extra_ops. 
+ * A tool config file must contain one of these line types:
+ *   CLIENT_ABS=<absolute path to client>
+ *   CLIENT_REL=<path to client relative to DR root>
+ * It can contain as many DR_OP= lines as desired.  Each must contain
+ * one DynamoRIO option token:
+ *   DR_OP=<DR option token>
+ * It can also contain TOOL_OP= lines for tool options, though normally
+ * tool default options should just be set in the tool:
+ *   TOOL_OP=<tool option token>
+ * We take one token per line rather than a string of options to avoid
+ * having to do any string parsing.
+ * DR ops go last (thus, user can't override); tool ops go first.
+ */
+static bool
+read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platform,
+               char *client, size_t client_size,
+               char *ops, size_t ops_size, size_t *ops_sofar,
+               char *tool_ops, size_t tool_ops_size, size_t *tool_ops_sofar)
+{
+    FILE *f;
+    char config_file[MAXIMUM_PATH];
+    char line[MAXIMUM_PATH];
+    bool found_client = false;
+    const char *arch = IF_X64_ELSE("64", "32");
+    if (dr_platform == DR_PLATFORM_32BIT)
+        arch = "32";
+    else if (dr_platform == DR_PLATFORM_64BIT)
+        arch = "64";
+    _snprintf(config_file, BUFFER_SIZE_ELEMENTS(config_file),
+              "%s/tools/%s.drrun%s", dr_root, toolname, arch);
+    NULL_TERMINATE_BUFFER(config_file);
+    info("reading tool config file %s", config_file);
+    /* XXX i#943: we need to use _tfopen() on windows */
+    f = fopen(config_file, "r");
+    if (f == NULL) {
+        error("Cannot find tool config file %s\n", config_file);
+        return false;
+    }
+    while (fgets(line, BUFFER_SIZE_ELEMENTS(line), f) != NULL) {
+        ssize_t len;
+        NULL_TERMINATE_BUFFER(line);
+        len = strlen(line) - 1;
+        while (len >= 0 && (line[len] == '\n' || line[len] == '\r')) {
+            line[len] = '\0';
+            len--;
+        }
+        if (line[0] == '#') {
+            continue;
+        } else if (strstr(line, "CLIENT_REL=") == line) {
+            _snprintf(client, client_size, "%s/%s", dr_root,
+                      line + strlen("CLIENT_REL="));
+            client[client_size-1] = '\0';
+            found_client = true;
+        } else if (strstr(line, "CLIENT_ABS=") == line) {
+            strncpy(client, line + strlen("CLIENT_ABS="), client_size);
+            found_client = true;
+        } else if (strstr(line, "DR_OP=") == line) {
+            add_extra_option(ops, ops_size, ops_sofar, "%s", line + strlen("DR_OP="));
+        } else if (strstr(line, "TOOL_OP=") == line) {
+            add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
+                             "%s", line + strlen("TOOL_OP="));
+        } else if (line[0] != '\0') {
+            error("Tool config file is malformed: unknown line %s\n", line);
+            return false;
+        }
+    }
+    fclose(f);
+    return found_client;
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     char *dr_root = NULL;
@@ -1041,6 +1114,7 @@ int main(int argc, char *argv[])
         else if (argv[i][0] == '-') {
             while (i<argc) {
                 if (strcmp(argv[i], "-c") == 0 ||
+                    strcmp(argv[i], "-t") == 0 ||
                     strcmp(argv[i], "--") == 0) {
                     break;
                 }
@@ -1048,18 +1122,37 @@ int main(int argc, char *argv[])
                                  &extra_ops_sofar, "%s", argv[i]);
                 i++;
             }
-            if (i < argc && strcmp(argv[i], "-c") == 0) {
+            if (i < argc &&
+                (strcmp(argv[i], "-t") == 0 ||
+                 strcmp(argv[i], "-c") == 0)) {
                 const char *client;
+                char client_buf[MAXIMUM_PATH];
                 size_t client_sofar = 0;
                 if (i + 1 >= argc)
-                    usage("too few arguments to -c");
+                    usage("too few arguments to %s", argv[i]);
                 if (num_clients != 0)
-                    usage("Cannot use -client with -c.");
+                    usage("Cannot use -client with %s.", argv[i]);
                 client = argv[++i];
+                single_client_ops[0] = '\0';
+
+                if (strcmp(argv[i-1], "-t") == 0) {
+                    /* Client-requested DR default options come last, so they
+                     * cannot be overridden by DR options passed here.
+                     * The user must use -c or -client to do that.
+                     */
+                    if (!read_tool_file(client, dr_root, dr_platform,
+                                        client_buf, BUFFER_SIZE_ELEMENTS(client_buf),
+                                        extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
+                                        &extra_ops_sofar,
+                                        single_client_ops,
+                                        BUFFER_SIZE_ELEMENTS(single_client_ops),
+                                        &client_sofar))
+                        usage("unknown tool requested");
+                    client = client_buf;
+                }
 
                 /* Treat everything up to -- or end of argv as client args. */
                 i++;
-                single_client_ops[0] = '\0';
                 while (i < argc && strcmp(argv[i], "--") != 0) {
                     add_extra_option(single_client_ops,
                                      BUFFER_SIZE_ELEMENTS(single_client_ops),

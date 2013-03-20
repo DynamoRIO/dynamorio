@@ -544,6 +544,71 @@ to the first registered callback since that callback is given the final
 opportunity to modify the instruction stream or influence DynamoRIO's
 operation. 
 
+
+\section tool_frontend End-User Tools
+
+A client can be packaged up with DynamoRIO to create an end-user tool.  For
+many tools, a separate front-end executable is not necessary, and \p drrun
+is sufficient.  Using \p drrun for a tool is made simpler by the \p -t
+option.  To use the option, first create a file in the \p tools
+subdirectory of the root of the DynamoRIO installation called \p
+toolname.drrun32 or \p toolname.drrun64, depending on the target
+architecture.  Here, \p toolname is the desired external name of the tool.
+This file should contain one of the following lines:
+
+\code
+CLIENT_ABS=/absolute/path/to/client
+\endcode
+
+or
+
+\code
+CLIENT_REL=relative/path/to/client/from/DynamoRIO/root
+\endcode
+
+This enables \p drrun to locate the tool's client library.
+
+The file can also modify the default DynamoRIO runtime options (see \ref
+sec_options) via \p DR_OP= lines.  Each line contains only one option string
+token.  For example:
+
+\code
+DR_OP=-persist
+DR_OP=-persist_dir
+DR_OP=c:\\path with spaces\\subdir
+\endcode
+
+Tool options can also be specified, but normally the defaults should be set
+up appropriately in the client itself:
+
+\code
+TOOL_OP=-custom_op1
+TOOL_OP=-custom_op2
+\endcode
+
+Lines beginning with \p # are considered comments.
+
+When \p drrun is passed the option string <tt>-t toolname</tt>, it looks
+for <tt>tools/toolname.drrun64</tt> or <tt>tools/toolname.drrun32</tt> and
+reads the file to determine the client library to use and the default
+DynamoRIO options.  This makes for a simpler launching command, rather than
+the end user needing to name the exact location of the client library.  For
+example, this command:
+
+\code
+bin64/drrun -t mytool -tool_option1 -tool_option2 -- myapp
+\endcode
+
+can be made to expand to this equivalent command:
+
+\code
+bin64/drrun -mytool_dr_option1 -mytool_dr_option2 -c tools/mytool/libmytool.so -tool_option1 -tool_option2 -- myapp
+\endcode
+
+For more extensive actions on launching the tool, a custom front-end
+executable can be created that replaces \p drrun by using \p drinjectlib
+and \p drconfiglib.
+
 ****************************************************************************
 ****************************************************************************
 */
