@@ -772,6 +772,10 @@ int main(int argc, char *argv[])
             quiet = true;
             continue;
         }
+        else if (strcmp(argv[i], "-nocheck") == 0) {
+            nocheck = true;
+            continue;
+        }
         else if (strcmp(argv[i], "-debug") == 0) {
             use_debug = true;
             continue;
