@@ -2692,7 +2692,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
      * We could optimize out these system calls, but for now staying safe
      */
     if (!is_readable_pe_base(base)) {
-        DOLOG(1, LOG_VMAREAS, {
+        DOCHECK(1, {
             wchar_t buf[MAXIMUM_PATH];
             NTSTATUS res = get_mapped_file_name(base, buf, BUFFER_SIZE_BYTES(buf));
             if (NT_SUCCESS(res)) {
@@ -2700,11 +2700,12 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                     "\t%s: WARNING: image but non-PE mapping @"PFX" backed by \"%S\"\n",
                     __FUNCTION__, base, buf);
             }
+            /* This happens with on win7 so not an assert curiosity
+             * \Device\HarddiskVolume1\Windows\System32\apisetschema.dll
+             */
+            if (!NT_SUCCESS(res) || wcsstr(buf, L"apisetschema") == NULL)
+                SYSLOG_INTERNAL_WARNING_ONCE("image but non-PE mapping found");
         });
-        /* This happens with on win7 so not an assert curiosity
-         * \Device\HarddiskVolume1\Windows\System32\apisetschema.dll
-         */
-        SYSLOG_INTERNAL_WARNING_ONCE("image but non-PE mapping found");
         return;
     }
     /* Our WOW64 design for 32-bit DR involves ignoring all 64-bit dlls
