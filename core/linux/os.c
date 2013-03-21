@@ -7540,12 +7540,14 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
  
         if ((name_cmp != NULL &&
              (strstr(iter.comment, name_cmp) != NULL ||
-              /* Include anonymous mappings like .bss.  Our private loader
+              /* Include mid-library (non-.bss) anonymous mappings.  Our private loader
                * fills mapping holes with anonymous memory instead of a
                * MEMPROT_NONE mapping from the original file.
+               * .bss, which can be merged with a subsequent +rw anon mapping,
+               * is handled post-loop.
                */
               (found_library && iter.comment[0] == '\0' && image_size != 0 &&
-               cur_end - mod_start < image_size))) ||
+               iter.vm_end - mod_start < image_size))) ||
             (name == NULL && *start >= iter.vm_start && *start < iter.vm_end)) {
             if (!found_library) {
                 size_t mod_readable_sz;
