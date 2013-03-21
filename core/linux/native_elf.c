@@ -86,6 +86,9 @@ static uint plt_stub_immed_offset;
 static uint plt_stub_jmp_tgt_offset;
 static size_t plt_stub_size;
 static app_pc stub_heap;
+#ifdef X64
+static app_pc reachability_stub;
+#endif
 
 static bool
 module_contains_pc(module_area_t *ma, app_pc pc)
@@ -148,12 +151,15 @@ initialize_plt_stub_template(void)
 #ifdef X64
     instrlist_append(ilist, INSTR_CREATE_mov_imm
                      (dc, opnd_create_reg(DR_REG_R11), OPND_CREATE_INTPTR(0)));
+    instrlist_append(ilist, INSTR_CREATE_jmp_ind
+                     (dc, opnd_create_rel_addr(0, OPSZ_PTR)));
 #else
     instrlist_append(ilist, INSTR_CREATE_push_imm(dc, OPND_CREATE_INTPTR(0)));
+    instrlist_append(ilist, INSTR_CREATE_jmp(dc, opnd_create_pc(0)));
 #endif
-    instrlist_append(ilist, INSTR_CREATE_jmp (dc, opnd_create_pc(0)));
     next_pc = instrlist_encode_to_copy(dc, ilist, plt_stub_template, NULL,
                                        code_end, false);
+    ASSERT(next_pc != NULL);
     plt_stub_size = next_pc - plt_stub_template;
 
     /* We need to get the offsets of the operands.  We assume the operands are
@@ -244,8 +250,13 @@ create_plt_stub(app_pc plt_target)
     tgt_immed = (app_pc *) (stub_pc + plt_stub_immed_offset);
     jmp_tgt = stub_pc + plt_stub_jmp_tgt_offset;
     *tgt_immed = plt_target;
+#ifdef X64
+    /* This is a reladdr operand, which we patch in just the same way. */
+    insert_relative_target(jmp_tgt, reachability_stub, false/*!hotpatch*/);
+#else
     insert_relative_target(jmp_tgt, (app_pc) native_plt_call,
                            false/*!hotpatch*/);
+#endif
     return stub_pc;
 }
 
@@ -464,6 +475,13 @@ native_module_init(void)
     initialize_plt_stub_template();
     stub_heap = special_heap_init(plt_stub_size, true/*locked*/,
                                   true/*executable*/, true/*persistent*/);
+#ifdef X64
+    /* i#719: native_plt_call may not be reachable from the stub heap, so we
+     * indirect through this "stub".
+     */
+    reachability_stub = special_heap_alloc(stub_heap);
+    *((app_pc*)reachability_stub) = (app_pc)native_plt_call;
+#endif
 }
 
 void
@@ -482,6 +500,13 @@ native_module_exit(void)
          }
     }
     module_iterator_stop(mi);
+
+#ifdef X64
+    if (reachability_stub != NULL) {
+        special_heap_free(stub_heap, reachability_stub);
+        reachability_stub = NULL;
+    }
+#endif
 
     if (stub_heap != NULL) {
         special_heap_exit(stub_heap);
