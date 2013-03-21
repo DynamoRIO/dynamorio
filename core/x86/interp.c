@@ -4033,7 +4033,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     instr_t *in;
     opnd_t jmp_tgt;
 #ifdef X64
-    bool reachable = rel32_reachable_from_heap(bb->start_pc);
+    bool reachable = rel32_reachable_from_vmcode(bb->start_pc);
 #endif
     DEBUG_DECLARE(bool ok;)
     /* if we ever protect from simultaneous thread attacks then this will

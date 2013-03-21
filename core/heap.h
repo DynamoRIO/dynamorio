@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -101,11 +101,14 @@ void vmm_heap_init(void);
 void vmm_heap_exit(void);
 void print_vmm_heap_data(file_t outf);
 void get_vmm_heap_bounds(byte **heap_start/*OUT*/, byte **heap_end/*OUT*/);
+byte *vmcode_get_start();
+byte *vmcode_get_end();
+byte *vmcode_unreachable_pc();
 
 bool heap_check_option_compatibility(void);
 
 bool is_vmm_reserved_address(byte *pc, size_t size);
-bool rel32_reachable_from_heap(byte *target);
+bool rel32_reachable_from_vmcode(byte *target);
 
 /* heap management */
 void heap_init(void);

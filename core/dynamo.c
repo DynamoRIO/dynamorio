@@ -2950,26 +2950,25 @@ check_should_be_protected(uint sec)
 bool
 data_sections_enclose_region(app_pc start, app_pc end)
 {
-    /* rather than solve the general enclose problem, we check for 32-bit,
-     * where .data|.fspdata|.cspdata|.nspdata form the only writable region,
-     * and 64-bit, where .pdata is between .data and .fspdata.
-     * Building with VS2012, I'm seeing the sections in other orders (i#1075).
+    /* Rather than solve the general enclose problem by sorting,
+     * we subtract each piece we find.
+     * It used to be that on 32-bit .data|.fspdata|.cspdata|.nspdata formed
+     * the only writable region, with .pdata between .data and .fspdata on 64.
+     * But building with VS2012, I'm seeing the sections in other orders (i#1075).
+     * And with x64 reachability we moved the interception buffer in .data,
+     * and marking it +rx results in sub-section calls to here.
      */
     int i;
     bool found_start = false, found_end = false;
-    ssize_t sz = 0;
+    ssize_t sz = end - start;
     for (i = 0; i < DATASEC_NUM; i++) {
-        if (datasec_start[i] == start)
-            found_start = true;
-        if (datasec_end[i] == end)
-            found_end = true;
-        sz += (datasec_end[i] - datasec_start[i]);
+        if (datasec_start[i] <= end && datasec_end[i] >= start) {
+            byte *overlap_start = MAX(datasec_start[i], start);
+            byte *overlap_end = MIN(datasec_end[i], end);
+            sz -= overlap_end - overlap_start;
+        }
     }
-#  ifdef X64
-    return (found_start && found_end);
-#  else
-    return (found_start && found_end && sz == end - start);
-#  endif
+    return sz == 0;
 }
 # endif /* WINDOWS */
 #endif /* DEBUG */

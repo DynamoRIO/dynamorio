@@ -4233,11 +4233,37 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         va_end(ap);
     }
     insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/,
-                           callee, num_args, args);
+                           vmcode_get_start(), callee, num_args, args);
     if (num_args != 0) {
         HEAP_ARRAY_FREE(drcontext, args, opnd_t, num_args,
                         ACCT_CLEANCALL, UNPROTECTED);
     }
+}
+
+bool
+dr_insert_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
+                  byte *encode_pc, void *callee, uint num_args, ...)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    opnd_t *args = NULL;
+    bool direct;
+    va_list ap;
+    CLIENT_ASSERT(drcontext != NULL, "dr_insert_call: drcontext cannot be NULL");
+    /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
+    if (num_args != 0) {
+        args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
+                                ACCT_CLEANCALL, UNPROTECTED);
+        va_start(ap, num_args);
+        convert_va_list_to_opnd(args, num_args, ap);
+        va_end(ap);
+    }
+    direct = insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/,
+                                    encode_pc, callee, num_args, args);
+    if (num_args != 0) {
+        HEAP_ARRAY_FREE(drcontext, args, opnd_t, num_args,
+                        ACCT_CLEANCALL, UNPROTECTED);
+    }
+    return direct;
 }
 
 /* Internal utility routine for inserting context save for a clean call.
@@ -4312,6 +4338,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     clean_call_info_t cci; /* information for clean call insertion. */
     opnd_t *args = NULL;
     bool save_fpstate = TEST(DR_CLEANCALL_SAVE_FLOAT, save_flags);
+    byte *encode_pc;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
@@ -4419,8 +4446,12 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
      * flag will disappear and translation will fail.
      */
     instrlist_set_our_mangling(ilist, true);
+    if (TEST(DR_CLEANCALL_INDIRECT, save_flags))
+        encode_pc = vmcode_unreachable_pc();
+    else
+        encode_pc = vmcode_get_start();
     insert_meta_call_vargs(dcontext, ilist, where, true/*clean*/,
-                           callee, num_args, args);
+                           encode_pc, callee, num_args, args);
     if (num_args != 0) {
         HEAP_ARRAY_FREE(drcontext, args, opnd_t, num_args, 
                         ACCT_CLEANCALL, UNPROTECTED);

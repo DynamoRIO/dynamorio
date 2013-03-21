@@ -1314,17 +1314,24 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
  * For x64, assumes the stack pointer is currently 16-byte aligned.
  * Clean calls ensure this by using clean base of dstack and having
  * dr_prepare_for_call pad to 16 bytes.
+ * Returns whether the call is direct.
  */
-void
+bool
 insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, void *callee, uint num_args, opnd_t *args)
+                       bool clean_call, byte *encode_pc, void *callee,
+                       uint num_args, opnd_t *args)
 {
     instr_t *in = (instr == NULL) ? instrlist_last(ilist) : instr_get_prev(instr);
+    bool direct;
     uint stack_for_params = 
         insert_parameter_preparation(dcontext, ilist, instr, 
                                      clean_call, num_args, args);
     IF_X64(ASSERT(ALIGNED(stack_for_params, 16)));
-    PRE(ilist, instr, INSTR_CREATE_call(dcontext, opnd_create_pc(callee)));
+    /* If we need an indirect call, we use r11 as the last of the scratch regs.
+     * We document this to clients using dr_insert_call_ex() or DR_CLEANCALL_INDIRECT.
+     */
+    direct = insert_reachable_cti(dcontext, ilist, instr, encode_pc, (byte *)callee,
+                                  false/*call*/, false/*!precise*/, DR_REG_R11, NULL);
     if (stack_for_params > 0) {
         /* FIXME PR 245936: let user decide whether to clean up?
          * i.e., support calling a stdcall routine?
@@ -1343,6 +1350,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_ok_to_mangle(in, false);
         in = instr_get_next(in);
     }
+    return direct;
 }
 
 /* If jmp_instr == NULL, uses jmp_tag, otherwise uses jmp_instr
@@ -1383,6 +1391,78 @@ insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext,
     cleanup_after_clean_call(dcontext, NULL, ilist, instr);
     false_popa = instr_get_next(false_popa);
     instr_set_target(jcc, opnd_create_instr(false_popa));
+}
+
+/* If !precise, encode_pc is treated as +- a page (meant for clients
+ * writing an instrlist to gencode so not sure of exact placement but
+ * within a page).
+ * If encode_pc == vmcode_get_start(), checks reachability of whole
+ * vmcode region (meant for code going somewhere not precisely known
+ * in the code cache).
+ * Returns whether ended up using a direct cti.  If inlined_tgt_instr != NULL,
+ * and an inlined target was used, returns a pointer to that instruction
+ * in *inlined_tgt_instr.
+ */
+bool
+insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                     byte *encode_pc, byte *target, bool jmp, bool precise,
+                     reg_id_t scratch, instr_t **inlined_tgt_instr)
+{
+    byte *encode_start;
+    byte *encode_end;
+    if (precise) {
+        encode_start = target + JMP_LONG_LENGTH;
+        encode_end = encode_start;
+    } else if (encode_pc == vmcode_get_start()) {
+        /* consider whole vmcode region */
+        encode_start = encode_pc;
+        encode_end = vmcode_get_end();
+    } else {
+        encode_start = (byte *) PAGE_START(encode_pc - PAGE_SIZE);
+        encode_end = (byte *) ALIGN_FORWARD(encode_pc + PAGE_SIZE, PAGE_SIZE);
+    }
+    if (REL32_REACHABLE(encode_start, target) &&
+        REL32_REACHABLE(encode_end, target)) {
+        /* For precise, we could consider a short cti, but so far no
+         * users are precise so we'll leave that for i#56.
+         */
+        if (jmp)
+            PRE(ilist, where, INSTR_CREATE_jmp(dcontext, opnd_create_pc(target)));
+        else
+            PRE(ilist, where, INSTR_CREATE_call(dcontext, opnd_create_pc(target)));
+        return true;
+    } else {
+        opnd_t ind_tgt;
+        instr_t *inlined_tgt = NULL;
+        if (scratch == DR_REG_NULL) {
+            /* indirect through an inlined target */
+            inlined_tgt = instr_build_bits(dcontext, OP_UNDECODED, sizeof(target));
+            /* XXX: could use mov imm->xax and have target skip rex+opcode
+             * for clean disassembly
+             */
+            instr_set_raw_bytes(inlined_tgt, (byte *) &target, sizeof(target));
+            /* this will copy the bytes for us, so we don't have to worry about
+             * the lifetime of the target param
+             */
+            instr_allocate_raw_bits(dcontext, inlined_tgt, sizeof(target));
+            ind_tgt = opnd_create_mem_instr(inlined_tgt, 0, OPSZ_PTR);
+            if (inlined_tgt_instr != NULL)
+                *inlined_tgt_instr = inlined_tgt;
+        } else {
+            PRE(ilist, where, INSTR_CREATE_mov_imm
+                (dcontext, opnd_create_reg(scratch), OPND_CREATE_INTPTR(target)));
+            ind_tgt = opnd_create_reg(scratch);
+            if (inlined_tgt_instr != NULL)
+                *inlined_tgt_instr = NULL;
+        }
+        if (jmp)
+            PRE(ilist, where, INSTR_CREATE_jmp_ind(dcontext, ind_tgt));
+        else
+            PRE(ilist, where, INSTR_CREATE_call_ind(dcontext, ind_tgt));
+        if (inlined_tgt != NULL)
+            PRE(ilist, where, inlined_tgt);
+        return false;
+    }
 }
 
 /*###########################################################################
@@ -2932,11 +3012,14 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(parent)));
 
     PRE(ilist, in, child);
-    /* an exit cti, not a meta instr */
-    instrlist_preinsert
-        (ilist, in,
-         INSTR_CREATE_jmp(dcontext, opnd_create_pc
-                          ((app_pc)get_new_thread_start(dcontext _IF_X64(mode)))));
+    /* We used to insert this directly into fragments for inlined system
+     * calls, but not once we eliminated clean calls out of the DR cache
+     * for security purposes.  Thus it can be a meta jmp, or an indirect jmp.
+     */
+    insert_reachable_cti(dcontext, ilist, in, vmcode_get_start(),
+                         (byte *) get_new_thread_start(dcontext _IF_X64(mode)),
+                         true/*jmp*/, false/*!precise*/, DR_REG_NULL/*no scratch*/,
+                         NULL);
     instr_set_ok_to_mangle(instr_get_prev(in), false);
     PRE(ilist, in, parent);
     PRE(ilist, in, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
@@ -3532,7 +3615,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * heap (assumed to be a single heap: xref PR 215395, and xref
          * potential secondary code caches PR 253446.
          */
-        if (!rel32_reachable_from_heap(tgt)) {
+        if (!rel32_reachable_from_vmcode(tgt)) {
             int si = -1, di = -1;
             opnd_t relop, newop;
             bool spill = true;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -902,14 +902,43 @@ get_vmm_heap_bounds(byte **heap_start/*OUT*/, byte **heap_end/*OUT*/)
     *heap_end = heapmgt->vmheap.end_addr;
 }
 
-bool
-rel32_reachable_from_heap(byte *tgt)
+/* i#774: eventually we'll split vmheap from vmcode.  For now, vmcode queries
+ * refer to the single vmheap reservation.
+ */
+byte *
+vmcode_get_start(void)
 {
-    byte *heap_start, *heap_end;
-    ptr_int_t new_offs;
-    /* FIXME: also check if we're now allocating memory beyond the vmm heap */
-    get_vmm_heap_bounds(&heap_start, &heap_end);
-    new_offs = (tgt > heap_start) ? (tgt - heap_start) : (heap_end - tgt);
+    byte *start, *end;
+    get_vmm_heap_bounds(&start, &end);
+    return start;
+}
+
+byte *
+vmcode_get_end(void)
+{
+    byte *start, *end;
+    get_vmm_heap_bounds(&start, &end);
+    return end;
+}
+
+byte *
+vmcode_unreachable_pc(void)
+{
+    ptr_uint_t start, end;
+    get_vmm_heap_bounds((byte **)&start, (byte **)&end);
+    if (start > INT_MAX)
+        return NULL;
+    else
+        return (byte *) PTR_UINT_MINUS_1;
+}
+
+bool
+rel32_reachable_from_vmcode(byte *tgt)
+{
+    byte *vmcode_start = vmcode_get_start();
+    byte *vmcode_end = vmcode_get_end();
+    ptr_int_t new_offs = (tgt > vmcode_start) ? (tgt - vmcode_start) : (vmcode_end - tgt);
+    /* FIXME i#774: handle beyond-vmm-reservation allocs */
     return REL32_REACHABLE_OFFS(new_offs);
 }
 
@@ -4710,7 +4739,7 @@ alloc_landing_pad(app_pc addr_to_hook)
      * pads aren't added to executable_areas here, at the point of allocation.
      */
 
-    LOG(GLOBAL, LOG_ALL, 1/*NOCHECKIN 3*/, "%s: used "PIFX" bytes in "PFX"-"PFX"\n", __FUNCTION__,
+    LOG(GLOBAL, LOG_ALL, 3, "%s: used "PIFX" bytes in "PFX"-"PFX"\n", __FUNCTION__,
         lpad_area->cur_ptr - lpad_area->start, lpad_area->start, lpad_area->end);
 
     /* Boundary check to make sure the allocation is within the landing pad area. */
