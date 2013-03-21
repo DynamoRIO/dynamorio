@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -656,7 +656,7 @@ get_drmarker_field(uint offset)
     drmarker = *((byte **)(landing_pad+1)) /* skip jmp opcode */
         + (uint)landing_pad + 5; /* relative */
 #endif
-    drmarker = (byte *) ALIGN_BACKWARD((uint)drmarker, PAGE_SIZE);
+    drmarker = (byte *) ALIGN_BACKWARD((ptr_uint_t)drmarker, PAGE_SIZE);
     /* FIXME: check magic fields */
     field = *((byte **)(drmarker + offset));
     return field;

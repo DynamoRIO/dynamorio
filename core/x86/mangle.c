@@ -1596,6 +1596,7 @@ FIXME: coordinate this w/ ret site:       restore flags
     }
 # endif
 
+    /* exit cit, so no reachability concerns */
     instrlist_preinsert(ilist, next_instr, INSTR_CREATE_jmp(dcontext,
                                                 opnd_create_pc((app_pc)retaddr)));
     return next_instr;
@@ -2561,6 +2562,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 # endif
     instrlist_preinsert(ilist, next_instr,
                        INSTR_CREATE_call(dcontext, opnd_create_instr(next_instr)));
+    /* exit cti, so no reachability concerns */
     instrlist_preinsert(ilist, next_instr, INSTR_CREATE_jmp(dcontext,
                                                 opnd_create_pc((app_pc)retaddr)));
 #endif
@@ -4974,6 +4976,7 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
 #endif
                 cache_pc start_pc, end_pc;
                 app_pc app_start;
+                instr_t *inst;
                 instrlist_init(&ilist);
                 /* sandbox_top_of_bb assumes there's an instr there */
                 instrlist_append(&ilist, INSTR_CREATE_label(dcontext));
@@ -4985,6 +4988,15 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
                                    * both patch points */
                                   app_start, app_start + 2, false,
                                   &patch, &start_pc, &end_pc);
+                /* The exit cti's may not reachably encode (normally
+                 * they'd be mangled away) so we munge them first
+                 */
+                for (inst = instrlist_first(&ilist); inst != NULL;
+                     inst = instr_get_next(inst)) {
+                    if (instr_is_exit_cti(inst)) {
+                        instr_set_target(inst, opnd_create_pc(buf));
+                    }
+                }
                 len = encode_with_patch_list(dcontext, &patch, &ilist, buf);
                 ASSERT(len < BUFFER_SIZE_BYTES(buf));
                 IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(start_pc - buf)));

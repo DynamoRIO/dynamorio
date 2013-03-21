@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -176,6 +176,9 @@ main()
     where = setjmp(mark);
     if (where == 0) {
         DR_base = get_DR_base();
+#if VERBOSE
+        print("DR base is "PFX"\n", DR_base);
+#endif
         for (i=0; i<DATASEC_NUM; i++) {
             byte *start, *end, *pc;
             bool found = get_named_section_bounds(DR_base,

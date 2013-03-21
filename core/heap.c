@@ -423,7 +423,11 @@ DECLARE_CXTSWPROT_VAR(static mutex_t request_region_be_heap_reachable_lock,
 /* Request that the supplied region be 32bit offset reachable from the DR heap.  Should
  * be called before vmm_heap_init() so we can place the DR heap to meet these constraints.
  * Can also be called post vmm_heap_init() but at that point acts as an assert that the
- * supplied region is reachable since the heap is already reserved. */
+ * supplied region is reachable since the heap is already reserved.
+ *
+ * Must be called at least once up front, for the -heap_in_lower_4GB code here
+ * to kick in!
+ */
 void
 request_region_be_heap_reachable(byte *start, size_t size)
 {
@@ -720,22 +724,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
      * hand changing any of the lower 16 bits will make our bugs
      * non-deterministic. */
     /* Make sure we don't waste the lower bits from our random number */
-    preferred = (
-#if defined(WINDOWS) || !defined(X64) || defined(VMX86_SERVER)
-                 DYNAMO_OPTION(vm_base)
-#else
-                 /* For 64-bit linux we can't use a fixed base since our library
-                  * might be loaded anywhere.  For now we just hope to find
-                  * enough free space at this random offset from it. 
-                  * Probably the best long-term solution is to make our heap
-                  * and library not need to reach each other, which should only
-                  * require indirect jumps in fcache_{enter,return}.  Selfmod
-                  * s2ro isn't perf-critical.  Client library callees and data
-                  * should ideally be close to the heap though.
-                  * Xref PR 253624.
-                  */
-                 (ptr_uint_t) get_dynamorio_dll_start()
-#endif
+    preferred = (DYNAMO_OPTION(vm_base)
                  + get_random_offset(DYNAMO_OPTION(vm_max_offset)/VMM_BLOCK_SIZE)
                  *VMM_BLOCK_SIZE);
     preferred = ALIGN_FORWARD(preferred, VMM_BLOCK_SIZE);
@@ -1316,18 +1305,12 @@ vmm_heap_init()
 {
 #ifdef X64
     /* add reachable regions before we allocate the heap, xref PR 215395 */
-# ifdef WINDOWS
-    request_region_be_heap_reachable(get_dynamorio_dll_start(),
-                                     get_allocation_size(get_dynamorio_dll_start(), NULL));
-    /* i#774, i#901: we do not need to be near ntdll.dll */
-# else /* LINUX */
-    /* FIXME - On Linux we compile core with -fpic and samples Makefile uses it as
-     * well (comments suggest problems if we don't).  But without our own loader
-     * that means we can't control where the libraries are loaded.  For now we count
-     * on a good choice of vm_base.  See PR 253624. */
-    request_region_be_heap_reachable(get_dynamorio_dll_start(),
-                                     get_dynamorio_dll_end() - get_dynamorio_dll_start());
-# endif
+    /* i#774, i#901: we no longer need the DR library nor ntdll.dll to be
+     * reachable by the vmheap reservation.  But, for -heap_in_lower_4GB,
+     * we must call request_region_be_heap_reachable() up front.
+     */
+    if (DYNAMO_OPTION(heap_in_lower_4GB))
+        request_region_be_heap_reachable((byte *)(ptr_uint_t)0x80000000/*middle*/, 1);
 #endif /* X64 */
     
     IF_WINDOWS(ASSERT(VMM_BLOCK_SIZE == OS_ALLOC_GRANULARITY));

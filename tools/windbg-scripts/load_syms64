@@ -1,5 +1,5 @@
 $$ **********************************************************
-$$ Copyright (c) 2011 Google, Inc.  All rights reserved.
+$$ Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
 $$ **********************************************************
 
 $$ Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@ $$ Loads symbols for DynamoRIO and all libraries loaded by its private loader
 r $t0=ntdll!KiUserCallbackDispatcher+1
 $$ I don't know how to deref and cast to int via asm syntax
 r $t0=@@(*(int*)@$t0) + ntdll!KiUserCallbackDispatcher+5
-r $t1=(dwo(@$t0-8) & 0xfffff000)
+r $t1=(qwo(@$t0-8) & 0xfffffffffffff000)
 
 $$ Check magic values to avoid executing random command w/o DynamoRIO
 .if (dwo(@$t1) = b1d2ae58) {
