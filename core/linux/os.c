@@ -1134,6 +1134,11 @@ typedef enum {
 #endif
 } tls_type_t;
 
+static tls_type_t tls_type;
+#ifdef X64
+static bool tls_using_msr;
+#endif
+
 #ifdef HAVE_TLS
 /* GDT slot we use for set_thread_area.
  * This depends on the kernel, not on the app!
@@ -1365,13 +1370,6 @@ read_selector(reg_id_t seg)
     return sel;
 }
 
-/* FIXME: assumes that fs/gs is not already in use by app */
-static bool
-is_segment_register_initialized(void)
-{
-    return (read_selector(SEG_TLS) != 0);
-}
-
 /* i#107: handle segment reg usage conflicts */
 typedef struct _os_seg_info_t {
     int   tls_type;
@@ -1459,6 +1457,36 @@ typedef struct _os_local_state_t {
     asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XAX : : "m"((idx)) : ASM_XAX); \
     asm("mov %"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);  \
     asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
+
+/* FIXME: assumes that fs/gs is not already in use by app */
+static bool
+is_segment_register_initialized(void)
+{
+    if (read_selector(SEG_TLS) != 0)
+        return true;
+#ifdef X64
+    if (tls_using_msr) {
+        /* When the MSR is used, the selector in the register remains 0.
+         * We can't clear the MSR early in a new thread and then look for
+         * a zero base here b/c if kernel decides to use GDT that zeroing
+         * will set the selector, unless we want to assume we know when
+         * the kernel uses the GDT.
+         * Instead we make a syscall to get the tid.  This should be ok
+         * perf-wise b/c the common case is the non-zero above.
+         */
+        byte *base;
+        int res = dynamorio_syscall(SYS_arch_prctl, 2,
+                                    (SEG_TLS == SEG_FS ? ARCH_GET_FS : ARCH_GET_GS),
+                                    &base);
+        ASSERT(tls_type == TLS_TYPE_ARCH_PRCTL);
+        if (res >= 0 && base != NULL) {
+            os_local_state_t *os_tls = (os_local_state_t *) base;
+            return (os_tls->tid == get_sys_thread_id());
+        }
+    }
+#endif
+    return false;
+}
 
 /* converts a local_state_t offset to a segment offset */
 ushort
@@ -1997,6 +2025,10 @@ os_tls_init(void)
                 os_tls->tls_type = TLS_TYPE_ARCH_PRCTL;
                 LOG(GLOBAL, LOG_THREADS, 1,
                     "os_tls_init: arch_prctl successful for base "PFX"\n", segment);
+                /* Kernel should have written %gs for us if using GDT */
+                ASSERT(is_segment_register_initialized());
+                if (!dynamo_initialized && read_selector(SEG_TLS) == 0)
+                    tls_using_msr = true;
                 if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
                     res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_FS, 
                                             os_tls->os_seg_info.dr_fs_base);
@@ -2112,6 +2144,8 @@ os_tls_init(void)
         global_heap_alloc(MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     memset(tls_table, 0, MAX_THREADS*sizeof(tls_slot_t));
 #endif
+    /* store type in global var for convenience: should be same for all threads */
+    tls_type = os_tls->tls_type;
 }
 
 /* Frees local_state.  If the calling thread is exiting (i.e.,
@@ -2131,7 +2165,10 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     tls_type_t tls_type = os_tls->tls_type;
     int index = os_tls->ldt_index;
 
-    if (!other_thread) {
+    /* If the MSR is in use, writing to the reg faults.  We rely on it being 0
+     * to indicate that.
+     */
+    if (!other_thread && read_selector(SEG_TLS) != 0) {
         WRITE_DR_SEG(zero); /* macro needs lvalue! */
     }
     heap_munmap(os_tls->self, PAGE_SIZE);
@@ -2155,7 +2192,9 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
             res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, NULL);
             ASSERT(res >= 0);
             /* syscall re-sets gs register so re-clear it */
-            WRITE_DR_SEG(zero); /* macro needs lvalue! */
+            if (read_selector(SEG_TLS) != 0) {
+                WRITE_DR_SEG(zero); /* macro needs lvalue! */
+            }
         }
 # endif
     }
