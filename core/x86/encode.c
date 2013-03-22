@@ -1029,6 +1029,16 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         }
     case TYPE_O:
         return ((opnd_is_abs_addr(opnd) ||
+#ifdef X64
+                 /* We'll take a relative address that rip-rel won't reach:
+                  * after all, OPND_CREATE_ABSMEM() makes a rip-rel.
+                  */
+                 (opnd_is_rel_addr(opnd) &&
+                  (!REL32_REACHABLE(di->final_pc + MAX_INSTR_LENGTH,
+                                    (byte *)opnd_get_addr(opnd)) ||
+                   !REL32_REACHABLE(di->final_pc + 4,
+                                    (byte *)opnd_get_addr(opnd)))) ||
+#endif
                  (!X64_MODE(di) && opnd_is_mem_instr(opnd))) &&
                 size_ok(di, opnd_get_size(opnd), opsize, false/*!addr*/));
     case TYPE_X:
@@ -1538,15 +1548,12 @@ encode_base_disp(decode_info_t * di, opnd_t opnd)
     int scale, disp;
     /* in 64-bit mode, addr prefix simply truncates registers and final address */
     bool addr16 = !X64_MODE(di) && TEST(PREFIX_ADDR, di->prefixes);
-    base = opnd_get_base(opnd);
-    index = opnd_get_index(opnd);
-    scale = opnd_get_scale(opnd);
-    disp = opnd_get_disp(opnd);
 
     /* user can use opnd_create_abs_addr() but it will internally be a base-disp
      * if its disp is 32-bit: if it's larger it has to be TYPE_O and not get here!
      */
-    CLIENT_ASSERT(opnd_is_base_disp(opnd), "encode error: operand type mismatch");
+    CLIENT_ASSERT(opnd_is_base_disp(opnd),
+                  "encode error: operand type mismatch (expecting base_disp type)");
     if (di->mod < 5) {
         /* mod, rm, & sib have already been set, probably b/c
          * we have a src that equals a dst.
@@ -1555,6 +1562,10 @@ encode_base_disp(decode_info_t * di, opnd_t opnd)
         return;
     }
 
+    base = opnd_get_base(opnd);
+    index = opnd_get_index(opnd);
+    scale = opnd_get_scale(opnd);
+    disp = opnd_get_disp(opnd);
     if (base == REG_NULL && index == REG_NULL) {
         /* absolute displacement */
         if (!addr16 && di->seg_override != REG_NULL &&
@@ -1780,9 +1791,14 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
                 di->has_instr_opnds = true;
             } else {
 #ifdef X64
-                if (opnd_is_rel_addr(opnd))
+                if (X64_MODE(di) && opnd_is_rel_addr(opnd))
                     encode_rel_addr(di, opnd);
-                else
+                else if (X64_MODE(di) && opnd_is_abs_addr(opnd) &&
+                         !opnd_is_base_disp(opnd)) {
+                    /* try to fit it as rip-rel */
+                    opnd.kind = REL_ADDR_kind;
+                    encode_rel_addr(di, opnd);
+                } else
 #endif
                     encode_base_disp(di, opnd);
             }
@@ -1964,6 +1980,8 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
         {
             ptr_int_t addr;
             CLIENT_ASSERT(opnd_is_abs_addr(opnd) ||
+                          /* rel addr => abs if won't reach */
+                          IF_X64(opnd_is_rel_addr(opnd) ||)
                           (!X64_MODE(di) && opnd_is_mem_instr(opnd)),
                           "encode error: O operand must be absolute mem ref");
             if (opnd_is_mem_instr(opnd)) {

@@ -81,6 +81,60 @@ void global_test(void)
 #else
 # define PREFERRED_ADDR (char *)0x2000000
 #endif
+
+#ifdef X64
+/* This could be moved into its own test, but it fits conveniently here
+ * while we have a >4GB address we can write to, and we can add to it once
+ * we have DR_HEAP_REACHABLE and DR_LOW_2GB params on client alloc routines.
+ */
+static void
+reachability_test(void)
+{
+    void *drcontext = dr_get_current_drcontext();
+    instrlist_t *ilist = instrlist_create(drcontext);
+    byte *gencode = (byte *)
+        dr_nonheap_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|DR_MEMPROT_EXEC);
+    byte *pc;
+    int res;
+    byte *highmem = PREFERRED_ADDR;
+    pc = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|
+                               DR_MEMPROT_EXEC, highmem);
+    ASSERT(pc == highmem);
+
+    /* Test auto-magically turning rip-rel that won't reach but targets xax
+     * into absmem.
+     */
+    instrlist_append(ilist, INSTR_CREATE_mov_ld
+                     (drcontext, opnd_create_reg(DR_REG_EAX),
+                      opnd_create_rel_addr(highmem, OPSZ_4)));
+    instrlist_append(ilist, INSTR_CREATE_ret(drcontext));
+    pc = instrlist_encode(drcontext, ilist, gencode, false);
+    instrlist_clear(drcontext, ilist);
+    ASSERT(pc < gencode + PAGE_SIZE);
+    *(int*)highmem = 0x12345678;
+    res = ((int (*)(void))gencode)();
+    ASSERT(res == 0x12345678);
+
+    /* Test auto-magically turning a reachable absmem into a rip-rel. */
+    instrlist_append(ilist, INSTR_CREATE_mov_ld
+                     (drcontext, opnd_create_reg(DR_REG_ECX),
+                      opnd_create_abs_addr(highmem + 0x800, OPSZ_4)));
+    instrlist_append(ilist, INSTR_CREATE_mov_ld
+                     (drcontext, opnd_create_reg(DR_REG_EAX),
+                      opnd_create_reg(DR_REG_ECX)));
+    instrlist_append(ilist, INSTR_CREATE_ret(drcontext));
+    pc = instrlist_encode(drcontext, ilist, highmem, false);
+    instrlist_clear_and_destroy(drcontext, ilist);
+    ASSERT(pc < highmem + PAGE_SIZE);
+    *(int*)(highmem + 0x800) = 0x12345678;
+    res = ((int (*)(void))highmem)();
+    ASSERT(res == 0x12345678);
+
+    dr_raw_mem_free(highmem, PAGE_SIZE);
+    dr_nonheap_free(gencode, PAGE_SIZE);
+}
+#endif
+
 static
 void raw_alloc_test(void)
 {
@@ -181,6 +235,9 @@ void inline_alloc_test(void)
     raw_alloc_test();
 #ifdef LINUX
     calloc_test();
+#endif
+#ifdef X64
+    reachability_test();
 #endif
 }
 

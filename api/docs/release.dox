@@ -149,6 +149,8 @@ The changes between version \DR_VERSION and 4.0.1 include:
    dr_insert_clean_call().  Added explicit control over reachability
    in a new routine dr_insert_call_ex() and in #DR_CLEANCALL_INDIRECT
    for dr_insert_clean_call_ex().
+ - Added auto-magic conversion of absolute and pc-relative memory
+   operands to each other for more flexible 64-bit encoding.
 
 **************************************************
 <hr>
