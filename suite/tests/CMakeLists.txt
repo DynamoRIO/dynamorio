@@ -1213,6 +1213,10 @@ function(torun_normal name test ops)
     ops2testprefix(prefix "${ops}")
     set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${${test}_depends}")
   endif (DEFINED ${test}_depends)
+  if (DEFINED ${test}_env)
+    ops2testprefix(prefix "${ops}")
+    set_property(TEST ${name} APPEND PROPERTY ENVIRONMENT "${prefix}${${test}_env}")
+  endif ()
 endfunction(torun_normal)
 
 function(torun_ci name test ops)
@@ -1237,6 +1241,10 @@ function(torun_ci name test ops)
     ops2testprefix(prefix "${ops}")
     set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${${test}_depends}")
   endif (DEFINED ${test}_depends)
+  if (DEFINED ${test}_env)
+    ops2testprefix(prefix "${ops}")
+    set_property(TEST ${name} APPEND PROPERTY ENVIRONMENT "${prefix}${${test}_env}")
+  endif ()
 endfunction(torun_ci)
 
 function(torun_api name test ops)
@@ -1853,6 +1861,28 @@ if (NOT X64)
 endif (NOT X64)
 tobuild(security-common.selfmod security-common/selfmod.c)
 tochcon(security-common.selfmod textrel_shlib_t)
+if (X64)
+  # Reachability tests
+
+  # Floating DR lib.  We'd have to build a 2nd dynamorio.dll on Windows so
+  # we only test on Linux for now.
+  if (UNIX)
+    torunonly(float_DR security-common.selfmod security-common/selfmod.c "" "")
+    set(float_DR_env "LD_USE_LOAD_BIAS=0")
+    if (CLIENT_INTERFACE)
+      torunonly_ci(client.float_DR security-common.selfmod
+        client.dr_options.dll security-common/selfmod.c
+        # I picked dr_options b/c it has no output, but it requires all these ops:
+        "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
+      set(client.float_DR_env "LD_USE_LOAD_BIAS=0")
+    endif ()
+  endif (UNIX)
+
+  # Floating vmbase.  Risky to just pick this hardcoded address: any better ideas?
+  torunonly(float_vmbase security-common.selfmod security-common/selfmod.c
+    "-vm_base 0x30000000000 -no_heap_in_lower_4GB" "")
+
+endif (X64)
 
 tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
 

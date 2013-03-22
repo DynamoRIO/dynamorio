@@ -2026,7 +2026,6 @@ os_tls_init(void)
                 LOG(GLOBAL, LOG_THREADS, 1,
                     "os_tls_init: arch_prctl successful for base "PFX"\n", segment);
                 /* Kernel should have written %gs for us if using GDT */
-                ASSERT(is_segment_register_initialized());
                 if (!dynamo_initialized && read_selector(SEG_TLS) == 0)
                     tls_using_msr = true;
                 if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
@@ -2146,6 +2145,7 @@ os_tls_init(void)
 #endif
     /* store type in global var for convenience: should be same for all threads */
     tls_type = os_tls->tls_type;
+    ASSERT(is_segment_register_initialized());
 }
 
 /* Frees local_state.  If the calling thread is exiting (i.e.,

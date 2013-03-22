@@ -145,6 +145,10 @@ The changes between version \DR_VERSION and 4.0.1 include:
    selected DR_DISASM_ATT and expected DR-style disassembly.
  - Added #DR_MAP_IMAGE
  - Added -t option to drrun for end-user tools
+ - Added 64-bit reachability support to dr_insert_call() and
+   dr_insert_clean_call().  Added explicit control over reachability
+   in a new routine dr_insert_call_ex() and in #DR_CLEANCALL_INDIRECT
+   for dr_insert_clean_call_ex().
 
 **************************************************
 <hr>
@@ -936,7 +940,7 @@ not supported.
     AMD64-compatible hardware.
   - Cross-architecture execve (e.g., a 32-bit process performing execve of
     a 64-bit executable) may stop working if the paths to the
-    libdynamrio.so and libdrpreload.so libraries are renamed.
+    libdynamorio.so and libdrpreload.so libraries are renamed.
 \endif
 
 \subsection sec_limit_perf Performance Limitations
@@ -992,11 +996,11 @@ not supported.
     dr_register_process() in order for DynamoRIO to take control of any
     applications.  The reboot will not change or undo the registration.
   - A Windows application that does not statically link with
-    user32.dll will not be run under control of DynamoRIO unless its
+    user32.dll will not be run under control of DynamoRIO using
+    system-wide injection unless its
     parent process (typically cmd.exe or explorer.exe, for manually
     launched applications) is already under DynamoRIO control
-    \if vmsafe (the parent can be in any mode)\endif or the drinject.exe
-    utility is used to launch the application. Only some small
+    \if vmsafe (the parent can be in any mode)\endif. Only some small
     non-graphical applications do not link with user32.dll.
   - When invoking an application in any way that is not from a parent
     process under DynamoRIO control, DynamoRIO takes control a little
