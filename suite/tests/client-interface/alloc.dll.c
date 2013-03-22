@@ -124,13 +124,51 @@ reachability_test(void)
                       opnd_create_reg(DR_REG_ECX)));
     instrlist_append(ilist, INSTR_CREATE_ret(drcontext));
     pc = instrlist_encode(drcontext, ilist, highmem, false);
-    instrlist_clear_and_destroy(drcontext, ilist);
+    instrlist_clear(drcontext, ilist);
     ASSERT(pc < highmem + PAGE_SIZE);
     *(int*)(highmem + 0x800) = 0x12345678;
     res = ((int (*)(void))highmem)();
     ASSERT(res == 0x12345678);
 
     dr_raw_mem_free(highmem, PAGE_SIZE);
+
+    /* Test targeting upper 2GB of low 4GB */
+    highmem = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|
+                               DR_MEMPROT_EXEC, (byte *)0xabcd0000);
+    instrlist_append(ilist, INSTR_CREATE_mov_ld
+                     (drcontext, opnd_create_reg(DR_REG_ECX),
+                      opnd_create_abs_addr(highmem, OPSZ_4)));
+    instrlist_append(ilist, INSTR_CREATE_mov_ld
+                     (drcontext, opnd_create_reg(DR_REG_EAX),
+                      opnd_create_reg(DR_REG_ECX)));
+    instrlist_append(ilist, INSTR_CREATE_ret(drcontext));
+    pc = instrlist_encode(drcontext, ilist, gencode, false);
+    instrlist_clear(drcontext, ilist);
+    ASSERT(pc < gencode + PAGE_SIZE);
+    *(int*)highmem = 0x12345678;
+    res = ((int (*)(void))gencode)();
+    ASSERT(res == 0x12345678);
+    dr_raw_mem_free(highmem, PAGE_SIZE);
+
+    /* Test targeting lower 2GB of low 4GB */
+    highmem = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|
+                               DR_MEMPROT_EXEC, (byte *)0x143d0000);
+    instrlist_append(ilist, INSTR_CREATE_mov_ld
+                     (drcontext, opnd_create_reg(DR_REG_ECX),
+                      opnd_create_abs_addr(highmem, OPSZ_4)));
+    instrlist_append(ilist, INSTR_CREATE_mov_ld
+                     (drcontext, opnd_create_reg(DR_REG_EAX),
+                      opnd_create_reg(DR_REG_ECX)));
+    instrlist_append(ilist, INSTR_CREATE_ret(drcontext));
+    pc = instrlist_encode(drcontext, ilist, gencode, false);
+    instrlist_clear(drcontext, ilist);
+    ASSERT(pc < gencode + PAGE_SIZE);
+    *(int*)highmem = 0x12345678;
+    res = ((int (*)(void))gencode)();
+    ASSERT(res == 0x12345678);
+    dr_raw_mem_free(highmem, PAGE_SIZE);
+
+    instrlist_clear_and_destroy(drcontext, ilist);
     dr_nonheap_free(gencode, PAGE_SIZE);
 }
 #endif

@@ -1580,6 +1580,11 @@ encode_base_disp(decode_info_t * di, opnd_t opnd)
              * use a large bogus value that won't trigger this, or
              * specify force_full_disp.
              */
+            /* For x64 wanting addr32 to address high 2GB of low 4GB, caller
+             * should set disp_short_addr on the base-disp opnd, which is
+             * done automatically for opnd_create_abs_addr().  That sets
+             * PREFIX_ADDR earlier in the encoding process.
+             */
             if (!X64_MODE(di) && /* disp always 32-bit for x64 */
                 use_addr_prefix_on_short_disp()) {
                 di->prefixes |= PREFIX_ADDR; /* for 16-bit disp */

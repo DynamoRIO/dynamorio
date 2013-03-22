@@ -546,10 +546,17 @@ opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
      * the sib byte the base-disp ends up being one byte longer.
      */
     if (IF_X64_ELSE((ptr_uint_t)addr <= UINT_MAX, true)) {
+        bool need_addr32 = false;
         CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint((ptr_uint_t)addr),
                       "internal error: abs addr too large");
-        return opnd_create_far_base_disp(seg, REG_NULL, REG_NULL, 0,
-                                         (int)(ptr_int_t)addr, data_size);
+#ifdef X64
+        /* To reach the high 2GB of the lower 4GB we need the addr32 prefix */
+        if ((ptr_uint_t)addr > INT_MAX)
+            need_addr32 = X64_MODE_DC(get_thread_private_dcontext());
+#endif
+        return opnd_create_far_base_disp_ex(seg, REG_NULL, REG_NULL, 0,
+                                            (int)(ptr_int_t)addr, data_size,
+                                            false, false, need_addr32);
     } 
 #ifdef X64
     else {

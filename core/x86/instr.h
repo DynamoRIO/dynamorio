@@ -747,7 +747,7 @@ DR_API
  *    needs to be specified for an absolute address; otherwise, simply
  *    use the desired short registers for base and/or index).
  *
- * (Both of those are false when using opnd_create_far_base_disp()).
+ * (All of these are false when using opnd_create_far_base_disp()).
  */
 opnd_t
 opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg,
