@@ -793,7 +793,7 @@ enum_lines_cb(PSRCCODEINFO in, void *data)
     out.file = in->FileName;
     out.line = in->LineNumber;
     out.line_addr = (size_t) (in->Address - enum_info->base);
-    if (!(*enum_info->cb)(&out, data))
+    if (!(*enum_info->cb)(&out, enum_info->data))
         return FALSE;
     else
         return TRUE;
