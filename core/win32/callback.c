@@ -2133,7 +2133,7 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
                  * back here.
                  * FIXME: keep in mind the code on the instrlist is executed natively
                  */
-                insert_push_immed_ptrsz(dcontext, ilist, NULL, (ptr_int_t)pc,
+                insert_push_immed_ptrsz(dcontext, (ptr_int_t)pc, ilist, NULL,
                                         NULL, NULL);
 #ifdef X64
                 /* check reachability from new location */

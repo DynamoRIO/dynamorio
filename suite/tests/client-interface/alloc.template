@@ -9,4 +9,7 @@ code cache:
   testing global memory alloc...success
   testing nonheap memory alloc...success
   testing raw memory alloc...success
+#ifdef X64
+  reachability test...success
+#endif
   testing query pretend-write....success

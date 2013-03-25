@@ -83,10 +83,55 @@ void global_test(void)
 #endif
 
 #ifdef X64
-/* This could be moved into its own test, but it fits conveniently here
- * while we have a >4GB address we can write to, and we can add to it once
- * we have DR_HEAP_REACHABLE and DR_LOW_2GB params on client alloc routines.
- */
+static void
+test_instr_as_immed(void)
+{
+    void *drcontext = dr_get_current_drcontext();
+    instrlist_t *ilist = instrlist_create(drcontext);
+    byte *pc;
+    instr_t *ins0, *ins1, *ins2;
+    opnd_t opnd;
+    byte *highmem = PREFERRED_ADDR;
+    pc = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|
+                               DR_MEMPROT_EXEC, highmem);
+    ASSERT(pc == highmem);
+
+    /* Test push_imm of instr */
+    ins0 = INSTR_CREATE_nop(drcontext);
+    instrlist_append(ilist, ins0);
+    instrlist_insert_push_instr_addr(drcontext, ins0, highmem,
+                                     ilist, NULL, &ins1, &ins2);
+    ASSERT(ins2 != NULL);
+    instrlist_append(ilist, INSTR_CREATE_pop
+                     (drcontext, opnd_create_reg(DR_REG_RAX)));
+    instrlist_append(ilist, INSTR_CREATE_ret(drcontext));
+    pc = instrlist_encode(drcontext, ilist, highmem, true);
+    instrlist_clear(drcontext, ilist);
+    ASSERT(pc < highmem + PAGE_SIZE);
+    pc = ((byte* (*)(void))highmem)();
+    ASSERT(pc == highmem);
+
+    /* Test mov_imm of instr */
+    ins0 = INSTR_CREATE_nop(drcontext);
+    instrlist_append(ilist, ins0);
+    /* Beyond TOS, but a convenient mem dest */
+    opnd = opnd_create_base_disp(DR_REG_RSP, DR_REG_NULL, 0, -8, OPSZ_8);
+    instrlist_insert_mov_instr_addr(drcontext, ins0, highmem, opnd,
+                                    ilist, NULL, &ins1, &ins2);
+    ASSERT(ins2 != NULL);
+    instrlist_append(ilist, INSTR_CREATE_mov_ld
+                     (drcontext, opnd_create_reg(DR_REG_RAX), opnd));
+    instrlist_append(ilist, INSTR_CREATE_ret(drcontext));
+    pc = instrlist_encode(drcontext, ilist, highmem, true);
+    instrlist_clear(drcontext, ilist);
+    ASSERT(pc < highmem + PAGE_SIZE);
+    pc = ((byte* (*)(void))highmem)();
+    ASSERT(pc == highmem);
+
+    instrlist_clear_and_destroy(drcontext, ilist);
+    dr_raw_mem_free(highmem, PAGE_SIZE);
+}
+
 static void
 reachability_test(void)
 {
@@ -100,6 +145,8 @@ reachability_test(void)
     pc = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|
                                DR_MEMPROT_EXEC, highmem);
     ASSERT(pc == highmem);
+
+    dr_fprintf(STDERR, "  reachability test...");
 
     /* Test auto-magically turning rip-rel that won't reach but targets xax
      * into absmem.
@@ -170,6 +217,10 @@ reachability_test(void)
 
     instrlist_clear_and_destroy(drcontext, ilist);
     dr_nonheap_free(gencode, PAGE_SIZE);
+
+    test_instr_as_immed();
+
+    dr_fprintf(STDERR, "success\n");
 }
 #endif
 

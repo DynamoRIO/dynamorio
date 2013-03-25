@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -395,7 +395,7 @@ static void
 instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, 
                int pos, bool write)
 {
-    instr_t *instr, *call, *restore;
+    instr_t *instr, *call, *restore, *first, *second;
     opnd_t   ref, opnd1, opnd2;
     reg_id_t reg1 = DR_REG_XBX; /* We can optimize it by picking dead reg */
     reg_id_t reg2 = DR_REG_XCX; /* reg2 must be ECX or RCX for jecxz */
@@ -458,18 +458,14 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     pc = instr_get_app_pc(where);
     /* For 64-bit, we can't use a 64-bit immediate so we split pc into two halves.
      * We could alternatively load it into reg1 and then store reg1.
+     * We use a convenience routine that does the two-step store for us.
      */
-    opnd1 = OPND_CREATE_MEM32(reg2, offsetof(mem_ref_t, pc));
-    opnd2 = OPND_CREATE_INT32((int)(ptr_int_t)pc);
-    instr = INSTR_CREATE_mov_st(drcontext, opnd1, opnd2);
-    instrlist_meta_preinsert(ilist, where, instr);
-#ifdef X64
-    /* Top half of pc */
-    opnd1 = OPND_CREATE_MEM32(reg2, offsetof(mem_ref_t, pc) + sizeof(int));
-    opnd2 = OPND_CREATE_INT32((int)((ptr_int_t)pc >> 32));
-    instr = INSTR_CREATE_mov_st(drcontext, opnd1, opnd2);
-    instrlist_meta_preinsert(ilist, where, instr);
-#endif
+    opnd1 = OPND_CREATE_MEMPTR(reg2, offsetof(mem_ref_t, pc));
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) pc, opnd1,
+                                     ilist, where, &first, &second);
+    instr_set_ok_to_mangle(first, false/*meta*/);
+    if (second != NULL)
+        instr_set_ok_to_mangle(second, false/*meta*/);
 
     /* Increment reg value by pointer size using lea instr */
     opnd1 = opnd_create_reg(reg2);
@@ -521,7 +517,10 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     opnd1 = opnd_create_reg(reg2);
     /* this is the return address for jumping back from lean procedure */
     opnd2 = opnd_create_instr(restore);
-    instr = INSTR_CREATE_mov_st(drcontext, opnd1, opnd2);
+    /* We could use instrlist_insert_mov_instr_addr(), but with a register
+     * destination we know we can use a 64-bit immediate.
+     */
+    instr = INSTR_CREATE_mov_imm(drcontext, opnd1, opnd2);
     instrlist_meta_preinsert(ilist, where, instr);
     /* jmp code_cache */
     opnd1 = opnd_create_pc(code_cache);

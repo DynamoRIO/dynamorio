@@ -217,8 +217,8 @@ opnd_get_size(opnd_t opnd)
     case ABS_ADDR_kind: 
 #endif
     case MEM_INSTR_kind:
-        return opnd.size;
     case INSTR_kind:
+        return opnd.size;
     case PC_kind:
         return OPSZ_PTR;
     case FAR_PC_kind:
@@ -243,6 +243,7 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
     case ABS_ADDR_kind: 
 #endif
     case MEM_INSTR_kind:
+    case INSTR_kind:
         opnd->size = newsize;
         return;
     default:
@@ -338,12 +339,20 @@ opnd_create_far_pc(ushort seg_selector, app_pc pc)
 }
 
 opnd_t
-opnd_create_instr(instr_t *instr)
+opnd_create_instr_ex(instr_t *instr, opnd_size_t size, ushort shift)
 {
     opnd_t opnd;
     opnd.kind = INSTR_kind;
     opnd.value.instr = instr;
+    opnd.seg.shift = shift;
+    opnd.size = size;
     return opnd;
+}
+
+opnd_t
+opnd_create_instr(instr_t *instr)
+{
+    return opnd_create_instr_ex(instr, OPSZ_PTR, 0);
 }
 
 opnd_t
@@ -397,6 +406,14 @@ opnd_get_instr(opnd_t opnd)
     CLIENT_ASSERT(opnd_is_instr(opnd) || opnd_is_mem_instr(opnd),
                   "opnd_get_instr called on non-instr");
     return opnd.value.instr;
+}
+
+DR_API
+ushort
+opnd_get_shift(opnd_t opnd)
+{
+    CLIENT_ASSERT(opnd_is_near_instr(opnd), "opnd_get_shift called on non-near-instr");
+    return opnd.seg.shift;
 }
 
 short 
@@ -978,6 +995,9 @@ bool opnd_same(opnd_t op1, opnd_t op2)
         return (op1.seg.far_pc_seg_selector == op2.seg.far_pc_seg_selector && 
                 op1.value.pc == op2.value.pc);
     case INSTR_kind:
+        return (op1.value.instr == op2.value.instr &&
+                op1.seg.shift == op2.seg.shift &&
+                op1.size == op2.size);
     case FAR_INSTR_kind:
         return op1.value.instr == op2.value.instr;
     case REG_kind: 

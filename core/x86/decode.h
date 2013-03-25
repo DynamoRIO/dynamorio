@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -299,6 +299,10 @@ typedef struct decode_info_t {
     /* immed info */
     opnd_size_t size_immed;
     opnd_size_t size_immed2;
+    bool immed_pc_relativize:1;
+    bool immed_subtract_length:1;
+    bool immed_pc_rel_offs:1;
+    ushort immed_shift;
     ptr_int_t immed;
     ptr_int_t immed2; /* this additional field could be 32-bit on all platforms */
     /* These fields are only used when decoding rip-relative data refs */

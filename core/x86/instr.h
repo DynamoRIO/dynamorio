@@ -516,6 +516,7 @@ struct _opnd_t {
         reg_id_t segment : REG_SPECIFIER_BITS; /* BASE_DISP_kind, REL_ADDR_kind,
                                                 * and ABS_ADDR_kind */
         ushort disp;           /* MEM_INSTR_kind */
+        ushort shift;          /* INSTR_kind */
     } seg;
     union {
         /* all are 64 bits or less */
@@ -645,6 +646,17 @@ opnd_create_instr(instr_t *instr);
 
 DR_API
 /**
+ * Returns an operand whose value will be the encoded address of \p
+ * instr.  This operand can be used as an immediate integer or as a
+ * direct call or jump target.  Its size is the specified \p size.
+ * Its value can be optionally right-shifted by \p shift from the
+ * encoded address.
+ */
+opnd_t
+opnd_create_instr_ex(instr_t *instr, opnd_size_t size, ushort shift);
+
+DR_API
+/**
  * Returns a far instr_t pointer address with value \p seg_selector:instr.
  * \p seg_selector is a segment selector, not a DR_SEG_ constant.
  */
@@ -659,7 +671,7 @@ DR_API
  * (opnd_create_abs_addr()); for 64-bit mode, it will be encoded just
  * like a pc-relative address (opnd_create_rel_addr()). This operand
  * can be used anywhere a regular memory operand can be used.  Its
- * size is always #OPSZ_PTR.
+ * size is \p data_size.
  *
  * \note This operand will return false to opnd_is_instr(), opnd_is_rel_addr(),
  * and opnd_is_abs_addr().  It is a separate type.
@@ -1054,7 +1066,8 @@ opnd_get_size(opnd_t opnd);
 DR_API
 /** 
  * Sets the data size of \p opnd.
- * Assumes \p opnd is an immediate integer or a memory reference.
+ * Assumes \p opnd is an immediate integer, a memory reference,
+ * or an instr_t pointer address operand.
  */
 void   
 opnd_set_size(opnd_t *opnd, opnd_size_t newsize);
@@ -1098,6 +1111,11 @@ DR_API
 /** Assumes \p opnd is an instr_t (near, far, or memory) operand and returns its value. */
 instr_t*
 opnd_get_instr(opnd_t opnd);
+
+DR_API
+/** Assumes \p opnd is a near instr_t operand and returns its shift value. */
+ushort
+opnd_get_shift(opnd_t opnd);
 
 DR_API
 /**
@@ -2123,8 +2141,7 @@ DR_API
 /**
  * Returns a copy of \p orig with separately allocated memory for
  * operands and raw bytes if they were present in \p orig.
- * Cloning an instruction with a non-zero \p note field is not
- * supported.
+ * Only a shallow copy of the \p note field is made.
  */
 instr_t *
 instr_clone(dcontext_t *dcontext, instr_t *orig);

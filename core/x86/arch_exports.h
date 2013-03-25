@@ -1496,7 +1496,7 @@ DR_API
  * their offsets relative to pc.
  *
  * If \p max_pc is non-NULL, computes the total size required to encode the
- * instruction liast before performing any encoding.  If the whole list will not
+ * instruction list before performing any encoding.  If the whole list will not
  * fit starting at \p copy_pc without exceeding \p max_pc, returns NULL without
  * encoding anything.  Otherwise encodes as normal.  Note that x86 instructions
  * can occupy up to 17 bytes each, so if \p max_pc is NULL, the caller should
@@ -1514,8 +1514,18 @@ insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
                        instrlist_t *ilist, instr_t *instr,
                        instr_t **first OUT, instr_t **second OUT);
 void
-insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                        ptr_int_t val, instr_t **first OUT, instr_t **second OUT);
+insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
+                        instrlist_t *ilist, instr_t *instr,
+                        instr_t **first OUT, instr_t **second OUT);
+void
+insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
+                      opnd_t dst, instrlist_t *ilist, instr_t *instr,
+                      instr_t **first, instr_t **second);
+void
+insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first, instr_t **second);
+
 #ifdef LINUX
 void mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip);
 bool mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);

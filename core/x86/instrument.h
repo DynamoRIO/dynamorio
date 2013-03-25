@@ -5305,4 +5305,42 @@ instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val,
                                   instrlist_t *ilist, instr_t *where,
                                   instr_t **first OUT, instr_t **second OUT);
 
+DR_API
+/**
+ * Create instructions for storing the address of \p src_inst to \p dst,
+ * and then insert them into \p ilist prior to \p where.
+ * The \p encode_estimate parameter, used only for 64-bit mode,
+ * indicates whether the final address of \p src_inst, when it is
+ * encoded later, will fit in 32 bits or needs 64 bits.
+ * If the encoding will be in DynamoRIO's code cache, pass NULL.
+ * If the final encoding location is unknown, pass a high address to be on
+ * the safe side.
+ * The created instructions are returned in \p first and \p second.
+ * Note that \p second may return NULL if only one instruction is created.
+ */
+void
+instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst,
+                                byte *encode_estimate,
+                                opnd_t dst, instrlist_t *ilist, instr_t *where,
+                                instr_t **first OUT, instr_t **second OUT);
+
+DR_API
+/**
+ * Create instructions for pushing the address of \p src_inst on the stack,
+ * and then insert them into \p ilist prior to \p where.
+ * The \p encode_estimate parameter, used only for 64-bit mode,
+ * indicates whether the final address of \p src_inst, when it is
+ * encoded later, will fit in 32 bits or needs 64 bits.
+ * If the encoding will be in DynamoRIO's code cache, pass NULL.
+ * If the final encoding location is unknown, pass a high address to be on
+ * the safe side.
+ * The created instructions are returned in \p first and \p second.
+ * Note that \p second may return NULL if only one instruction is created.
+ */
+void
+instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst,
+                                 byte *encode_estimate,
+                                 instrlist_t *ilist, instr_t *where,
+                                 instr_t **first OUT, instr_t **second OUT);
+
 #endif /* _INSTRUMENT_H_ */

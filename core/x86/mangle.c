@@ -1809,12 +1809,20 @@ return_stack_mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist,
 }
 #endif /* RETURN_STACK */
 
-void
-insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
-                       instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second)
+/* If src_inst != NULL, uses it (and assumes it will be encoded at
+ * encode_estimate to determine whether > 32 bits or not: so if unsure where
+ * it will be encoded, pass a high address) as the immediate; else
+ * uses val.
+ */
+static void
+insert_mov_immed_common(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                        ptr_int_t val, opnd_t dst,
+                        instrlist_t *ilist, instr_t *instr,
+                        instr_t **first, instr_t **second)
 {
     instr_t *mov1, *mov2;
+    if (src_inst != NULL)
+        val = (ptr_int_t) encode_estimate;
 #ifdef X64
     if (X64_MODE_DC(dcontext) && !opnd_is_reg(dst)) {
         if (val <= INT_MAX && val >= INT_MIN) {
@@ -1822,7 +1830,9 @@ insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
              * 0 or 1 in top 33 bits
              */
             mov1 = INSTR_CREATE_mov_imm(dcontext, dst,
-                                        OPND_CREATE_INT32((int)val));
+                                        (src_inst == NULL) ?
+                                        OPND_CREATE_INT32((int)val) :
+                                        opnd_create_instr_ex(src_inst, OPSZ_4, 0));
             PRE(ilist, instr, mov1);
             mov2 = NULL;
         } else {
@@ -1835,7 +1845,9 @@ insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
             /* mov low32 => [mem32] */
             opnd_set_size(&dst, OPSZ_4);
             mov1 = INSTR_CREATE_mov_st(dcontext, dst,
-                                       OPND_CREATE_INT32((int)val));
+                                       (src_inst == NULL) ?
+                                       OPND_CREATE_INT32((int)val) :
+                                       opnd_create_instr_ex(src_inst, OPSZ_4, 0));
             PRE(ilist, instr, mov1);
             /* mov high32 => [mem32+4] */
             if (opnd_is_base_disp(dst)) {
@@ -1849,12 +1861,17 @@ insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
                 dst = OPND_CREATE_ABSMEM(addr+4, OPSZ_4);
             }
             mov2 = INSTR_CREATE_mov_st(dcontext, dst,
-                                       OPND_CREATE_INT32((int)(val >> 32)));
+                                       (src_inst == NULL) ?
+                                       OPND_CREATE_INT32((int)(val >> 32)) :
+                                       opnd_create_instr_ex(src_inst, OPSZ_4, 32));
             PRE(ilist, instr, mov2);
         }
     } else {
 #endif
-        mov1 = INSTR_CREATE_mov_imm(dcontext, dst, OPND_CREATE_INTPTR(val));
+        mov1 = INSTR_CREATE_mov_imm(dcontext, dst,
+                                    (src_inst == NULL) ?
+                                    OPND_CREATE_INTPTR(val) :
+                                    opnd_create_instr_ex(src_inst, OPSZ_4, 0));
         PRE(ilist, instr, mov1);
         mov2 = NULL;
 #ifdef X64
@@ -1867,10 +1884,38 @@ insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
 }
 
 void
-insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                        ptr_int_t val, instr_t **first, instr_t **second)
+insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first, instr_t **second)
+{
+    insert_mov_immed_common(dcontext, NULL, NULL, val, dst,
+                            ilist, instr, first, second);
+}
+
+void
+insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
+                      opnd_t dst, instrlist_t *ilist, instr_t *instr,
+                      instr_t **first, instr_t **second)
+{
+    insert_mov_immed_common(dcontext, src, encode_estimate, 0, dst,
+                            ilist, instr, first, second);
+}
+
+
+
+/* If src_inst != NULL, uses it (and assumes it will be encoded at
+ * encode_estimate to determine whether > 32 bits or not: so if unsure where
+ * it will be encoded, pass a high address) as the immediate; else
+ * uses val.
+ */
+static void
+insert_push_immed_common(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                         ptr_int_t val, instrlist_t *ilist, instr_t *instr,
+                         instr_t **first, instr_t **second)
 {
     instr_t *push, *mov;
+    if (src_inst != NULL)
+        val = (ptr_int_t) encode_estimate;
 #ifdef X64
     if (X64_MODE_DC(dcontext)) {
         /* do push-64-bit-immed in two pieces.  tiny corner-case risk of racy
@@ -1878,7 +1923,10 @@ insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
          * thread is trying to read its stack, but o/w we have to spill and
          * restore a register.
          */
-        push = INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32((int)val));
+        push = INSTR_CREATE_push_imm(dcontext,
+                                     (src_inst == NULL) ?
+                                     OPND_CREATE_INT32((int)val) :
+                                     opnd_create_instr_ex(src_inst, OPSZ_4, 0));
         PRE(ilist, instr, push);
         /* push is sign-extended, so we can skip top half if it is all 0 or 1
          * in top 33 bits
@@ -1887,12 +1935,17 @@ insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
             mov = NULL;
         } else {
             mov = INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, 4),
-                                      OPND_CREATE_INT32((int)(val >> 32)));
+                                      (src_inst == NULL) ?
+                                      OPND_CREATE_INT32((int)(val >> 32)) :
+                                      opnd_create_instr_ex(src_inst, OPSZ_4, 32));
             PRE(ilist, instr, mov);
         }
     } else {
 #endif
-        push = INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(val));
+        push = INSTR_CREATE_push_imm(dcontext,
+                                     (src_inst == NULL) ?
+                                     OPND_CREATE_INT32(val) :
+                                     opnd_create_instr_ex(src_inst, OPSZ_4, 0));
         PRE(ilist, instr, push);
         mov  = NULL;
 #ifdef X64
@@ -1902,6 +1955,24 @@ insert_push_immed_ptrsz(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
         *first = push;
     if (second != NULL)
         *second = mov;
+}
+
+void
+insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
+                        instrlist_t *ilist, instr_t *instr,
+                        instr_t **first, instr_t **second)
+{
+    insert_push_immed_common(dcontext, NULL, NULL, val,
+                             ilist, instr, first, second);
+}
+
+void
+insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first, instr_t **second)
+{
+    insert_push_immed_common(dcontext, src_inst, encode_estimate, 0,
+                             ilist, instr, first, second);
 }
 
 /* Far calls and rets have double total size */
@@ -1959,7 +2030,7 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                 OPND_CREATE_INT16(val)));
     } else if (opsize == OPSZ_PTR
                IF_X64(|| (!X64_CACHE_MODE_DC(dcontext) && opsize == OPSZ_4))) {
-        insert_push_immed_ptrsz(dcontext, ilist, instr, retaddr, NULL, NULL);
+        insert_push_immed_ptrsz(dcontext, retaddr, ilist, instr, NULL, NULL);
     } else {
 #ifdef X64
         ptr_int_t val = retaddr & (ptr_int_t) 0xffffffff;

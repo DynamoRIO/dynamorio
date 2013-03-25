@@ -987,11 +987,14 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
     case TYPE_I:
         /* we allow instr: it means 4/8-byte immed equal to pc of instr */
         return ((opnd_is_near_instr(opnd) &&
-                 (size_ok(di, OPSZ_PTR, opsize, false/*!addr*/) ||
-                  /* xref:i222, assume code cache is always in the first 2G,
-                   * so it is possible to use 4-byte opnd to represent the pc
+                 (size_ok(di, opnd_get_size(opnd), opsize, false/*!addr*/) ||
+                  /* Though we recommend using instrlist_insert_{mov,push}_instr_addr(),
+                   * we will accept a pointer-sized 8-byte instr_t when encoded
+                   * to low 2GB (w/o top bit set, else sign-extended).
                    */
-                  IF_X64_ELSE(size_ok(di, OPSZ_4, opsize, false), false))) || 
+                  (X64_MODE(di) && ((ptr_uint_t)di->final_pc) +
+                   (ptr_uint_t)opnd_get_instr(opnd)->note - di->cur_note < INT_MAX &&
+                   size_ok(di, OPSZ_4, opsize, false)))) ||
                 (opnd_is_immed_int(opnd) &&
                  size_ok(di, opnd_get_size(opnd), opsize, false/*!addr*/) &&
                  immed_size_ok(di, opnd_get_immed_int(opnd), opsize)));
@@ -1377,10 +1380,9 @@ encode_immed(decode_info_t * di, byte *pc)
     opnd_size_t size;
     if (di->size_immed != OPSZ_NA) {
         /* do we need to pc-relativize a target pc? */
-        if (di->size_immed == OPSZ_512) { /* special code */
+        if (di->immed_pc_relativize) {
             int len;
-            size = di->size_immed2; /* TYPE_J put real size there */
-            di->size_immed2 = OPSZ_NA;
+            size = di->size_immed;
             if ((size == OPSZ_4_short2 && !TEST(PREFIX_DATA, di->prefixes)) ||
                 size == OPSZ_4)
                 len = 4;
@@ -1394,13 +1396,12 @@ encode_immed(decode_info_t * di, byte *pc)
             }
             /* offset is from start of next instruction */
             val = di->immed - ((ptr_int_t)pc + len);
-        } else if (di->size_immed == OPSZ_10) { /* another code */
+        } else if (di->immed_subtract_length) {
             /* this code means that the immed holds not the absolute pc but
              * the offset not counting the instruction length
              */
             int len;
-            size = di->size_immed2; /* TYPE_J put real size there */
-            di->size_immed2 = OPSZ_NA;
+            size = di->size_immed;
             if ((size == OPSZ_4_short2 && !TEST(PREFIX_DATA, di->prefixes)) ||
                 size == OPSZ_4)
                 len = 4;
@@ -1417,12 +1418,11 @@ encode_immed(decode_info_t * di, byte *pc)
              * prior to this immed
              */
             val = di->immed - (len + di->modrm);
-        } else if (di->size_immed == OPSZ_28_short14) { /* another code */
+        } else if (di->immed_pc_rel_offs) {
             /* this code means that the immed holds not the absolute pc but
              * the offset
              */
-            size = di->size_immed2; /* TYPE_I put real size there */
-            di->size_immed2 = OPSZ_NA;
+            size = di->size_immed; /* TYPE_I put real size there */
             CLIENT_ASSERT((size == OPSZ_4_short2 && !TEST(PREFIX_DATA, di->prefixes)) ||
                           (size == OPSZ_4) || IF_X64_ELSE((size == OPSZ_8), false),
                           "encode error: immediate has invalid size");
@@ -1432,12 +1432,10 @@ encode_immed(decode_info_t * di, byte *pc)
              * prior to this immed
              */
             val = di->immed + (ptr_int_t)pc - di->modrm;
+            if (di->immed_shift > 0)
+                val >>= di->immed_shift;
 #ifdef X64
-            /* check if code in 2G assumption is violated, i.e. 0 < val < 2G */
-            if (size == OPSZ_4) {
-                CLIENT_ASSERT((val > 0) && (val < INT_MAX),
-                              "encode error: immediate has invalid size");
-            }
+            /* we auto-truncate below to the proper size rather than complaining */
 #endif
         } else {
             val = di->immed;
@@ -1848,7 +1846,8 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
             instr_t *target_instr = opnd_get_instr(opnd);
             ptr_uint_t target = (ptr_uint_t)target_instr->note - di->cur_note;
             /* We don't know the encode pc yet, so we put it in as pc-relative and
-             * fix it up later
+             * fix it up later.
+             * The size was already checked, so just use the template size.
              */
             set_immed(di, (ptr_uint_t)target, opsize);
             /* this immed is pc-relative except it needs to have the
@@ -1857,9 +1856,10 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
              */
             CLIENT_ASSERT(di->size_immed2 == OPSZ_NA,
                           "encode error: immed size already set");
-            di->size_immed2 = resolve_variable_size(di, opsize, false);
+            di->size_immed = resolve_variable_size(di, opsize, false);
             /* And now we ask to be adjusted to become an absolute pc: */
-            di->size_immed = OPSZ_28_short14; /* == immed needs +pc */
+            di->immed_pc_rel_offs = true; /* == immed needs +pc */
+            di->immed_shift = opnd_get_shift(opnd);
             di->has_instr_opnds = true;
         } else {
             CLIENT_ASSERT(opnd_is_immed_int(opnd), "encode error: opnd not immed int");
@@ -1888,21 +1888,18 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
                  */
                 CLIENT_ASSERT(di->size_immed2 == OPSZ_NA,
                               "encode error: immed size already set");
-                di->size_immed2 = opsize;
-                di->size_immed = OPSZ_10; /* == immed needs -length */
+                di->size_immed = opsize;
+                di->immed_subtract_length = true; /* == immed needs -length */
                 di->has_instr_opnds = true;
             } else {
                 CLIENT_ASSERT(opnd_is_near_pc(opnd), "encode error: opnd not pc");
                 target = (ptr_uint_t) opnd_get_pc(opnd);
                 set_immed(di, target, opsize);
-                /* here's how we indicate that this immed needs to
-                 * be pc-relativized, we take advantage of the fact that all
-                 * TYPE_J do not have other immeds in the same instruction:
-                 */
+                /* TYPE_J never has other immeds in the same instruction */
                 CLIENT_ASSERT(di->size_immed2 == OPSZ_NA,
                               "encode error: immed size already set");
-                di->size_immed2 = opsize;
-                di->size_immed = OPSZ_512; /* == immed needs relativizing */
+                di->immed_pc_relativize = true;
+                di->size_immed = opsize;
             }
             return;
         }
@@ -2375,8 +2372,15 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
     di.prefixes = instr->prefixes;
     di.vex_vvvv = 0xf; /* 4 1's by default */
 
+    /* Used for PR 253327 addr32 rip-relative and instr_t targets, including
+     * during encoding_possible().
+     */
+    di.start_pc = cache_pc;
+    di.final_pc = final_pc;
+
     while (!encoding_possible(&di, instr, info)) {
-        LOG(THREAD, LOG_EMIT, ENC_LEVEL, "\tencoding for 0x%x no good...\n", info->opcode);
+        LOG(THREAD, LOG_EMIT, ENC_LEVEL, "\tencoding for 0x%x no good...\n",
+            info->opcode);
         info = get_next_instr_info(info);
         /* stop when hit end of list or when hit extra operand tables (OP_CONTD) */
         if (info == NULL || info->opcode == OP_CONTD) {
@@ -2394,10 +2398,6 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
     }
 
     /* fill out the other fields of di */
-    /* used for PR 253327 addr32 rip-relative and instr_t targets */
-    di.start_pc = cache_pc;
-    di.final_pc = final_pc;
-
     di.size_immed = OPSZ_NA;
     di.size_immed2 = OPSZ_NA;
     /* these (illegal) values indicate uninitialization */

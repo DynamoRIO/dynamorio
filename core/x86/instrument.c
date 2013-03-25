@@ -6503,7 +6503,44 @@ instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val,
                                   instrlist_t *ilist, instr_t *where,
                                   instr_t **first OUT, instr_t **second OUT)
 {
-    insert_push_immed_ptrsz((dcontext_t *)drcontext, ilist, where,
-                            val, first, second);
+    insert_push_immed_ptrsz((dcontext_t *)drcontext, val, ilist, where,
+                            first, second);
 }
+
+DR_API
+void
+instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
+                                opnd_t dst, instrlist_t *ilist, instr_t *where,
+                                instr_t **first OUT, instr_t **second OUT)
+{
+    CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
+    if (encode_pc == NULL) {
+        /* Pass highest code cache address.
+         * XXX: unless we're beyond the reservation!  Would still be reachable
+         * from rest of vmcode, but might be higher than vmcode_get_end()!
+         */
+        encode_pc = vmcode_get_end();
+    }
+    insert_mov_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc, dst,
+                           ilist, where, first, second);
+}
+
+DR_API
+void
+instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
+                                 instrlist_t *ilist, instr_t *where,
+                                 instr_t **first OUT, instr_t **second OUT)
+{
+    if (encode_pc == NULL) {
+        /* Pass highest code cache address.
+         * XXX: unless we're beyond the reservation!  Would still be reachable
+         * from rest of vmcode, but might be higher than vmcode_get_end()!
+         */
+        encode_pc = vmcode_get_end();
+    }
+    insert_push_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc,
+                           ilist, where, first, second);
+}
+
+
 #endif /* CLIENT_INTERFACE */
