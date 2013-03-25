@@ -1011,18 +1011,21 @@ endfunction(rundr_cmd)
 
 # if test != exe we assume exe is already added as a build target
 # key is the test name without the options, and is used to look up ${key}_expectbase
-function(torun test key source native dr_ops exe_ops)
+function(torun test key source native dr_ops exe_ops added_out)
   # Avoid running some tests with invalid option combinations.  For example,
   # coarse fragments are incompatible with thread private code caches.
   if ("${dr_ops}" MATCHES "-thread_private" AND
       "${dr_ops}" MATCHES "-opt_memory")
+    set(added_out OFF PARENT_SCOPE)
     return()
   endif ()
   if ("${dr_ops}" MATCHES "-early_inject" AND
       "${dr_ops}" MATCHES "-no_private_loader")
+    set(added_out OFF PARENT_SCOPE)
     return()
   endif ()
   if (STATIC_LIBRARY AND "${dr_ops}" MATCHES "-early_inject")
+    set(added_out OFF PARENT_SCOPE)
     return()
   endif ()
 
@@ -1201,6 +1204,7 @@ function(torun test key source native dr_ops exe_ops)
     # global reg keys and can thus run multiple instances of the same
     # app name simultaneously so we do not need to mark RUN_SERIAL
   endif (WIN32)
+  set(added_out ON PARENT_SCOPE)
 endfunction(torun)
 
 function(torun_normal name test ops)
@@ -1208,7 +1212,7 @@ function(torun_normal name test ops)
     return()
   endif ()
   torun("${name}" ${test} ${${test}_source} OFF "${${test}_dr_ops} ${ops}"
-    "${${test}_exe_ops}")
+    "${${test}_exe_ops}" added)
   if (DEFINED ${test}_depends)
     ops2testprefix(prefix "${ops}")
     set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${${test}_depends}")
@@ -1236,20 +1240,22 @@ function(torun_ci name test ops)
   endif ()
   # note that we cannot use double quotes as they'll be stripped out
   torun("${name}" ${test} ${${test}_source} OFF
-    " -code_api -client_lib '${${test}_client_path}\;0\;${cli_ops}' ${${test}_dr_ops} ${ops}" "${${test}_exe_ops}")
-  if (DEFINED ${test}_depends)
-    ops2testprefix(prefix "${ops}")
-    set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${${test}_depends}")
-  endif (DEFINED ${test}_depends)
-  if (DEFINED ${test}_env)
-    ops2testprefix(prefix "${ops}")
-    set_property(TEST ${name} APPEND PROPERTY ENVIRONMENT "${prefix}${${test}_env}")
-  endif ()
+    " -code_api -client_lib '${${test}_client_path}\;0\;${cli_ops}' ${${test}_dr_ops} ${ops}" "${${test}_exe_ops}" added)
+  if (added)
+    if (DEFINED ${test}_depends)
+      ops2testprefix(prefix "${ops}")
+      set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${${test}_depends}")
+    endif (DEFINED ${test}_depends)
+    if (DEFINED ${test}_env)
+      ops2testprefix(prefix "${ops}")
+      set_property(TEST ${name} APPEND PROPERTY ENVIRONMENT "${prefix}${${test}_env}")
+    endif ()
+  endif (added)
 endfunction(torun_ci)
 
 function(torun_api name test ops)
   torun("${name}" ${test} ${${test}_source} ON
-    "${${test}_dr_ops} ${ops}" "${${test}_exe_ops}")
+    "${${test}_dr_ops} ${ops}" "${${test}_exe_ops}" added)
 endfunction(torun_api)
 
 function(torun_runall name test ops)
