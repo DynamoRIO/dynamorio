@@ -36,6 +36,7 @@
 #ifdef LINUX
 # include <sys/personality.h>
 #endif
+#include <limits.h>
 
 char *global;
 #define SIZE 10
@@ -43,6 +44,8 @@ char *global;
 
 /* i#262 add exec if READ_IMPLIES_EXEC is set in personality */
 static bool add_exec = false;
+
+static client_id_t client_id;
 
 static
 void write_array(char *array)
@@ -280,6 +283,89 @@ void nonheap_test(void)
     dr_fprintf(STDERR, "success\n");
 }
 
+static bool
+reachable_from_client(void *addr)
+{
+    ssize_t diff = (byte *)addr - dr_get_client_base(client_id);
+    return (diff <= INT_MAX && diff >= INT_MIN);
+}
+
+static
+void custom_test(void)
+{
+    void *drcontext = dr_get_current_drcontext();
+    void *array;
+    size_t size;
+    uint prot;
+
+    dr_fprintf(STDERR, "  testing custom memory alloc....");
+
+    /* test global */
+    array = dr_custom_alloc(NULL, 0, SIZE, 0, NULL);
+    write_array(array);
+    dr_custom_free(NULL, 0, array, SIZE);
+
+    array = dr_custom_alloc(NULL, DR_ALLOC_CACHE_REACHABLE, SIZE, 0, NULL);
+    ASSERT(reachable_from_client(array));
+    write_array(array);
+    dr_custom_free(NULL, DR_ALLOC_CACHE_REACHABLE, array, SIZE);
+
+    /* test thread-local */
+    array = dr_custom_alloc(drcontext, DR_ALLOC_THREAD_PRIVATE, SIZE, 0, NULL);
+    write_array(array);
+    dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE, array, SIZE);
+
+    array = dr_custom_alloc(drcontext, DR_ALLOC_THREAD_PRIVATE|DR_ALLOC_CACHE_REACHABLE,
+                            SIZE, 0, NULL);
+    ASSERT(reachable_from_client(array));
+    write_array(array);
+    dr_custom_free(drcontext, DR_ALLOC_THREAD_PRIVATE|DR_ALLOC_CACHE_REACHABLE,
+                   array, SIZE);
+
+    /* test non-heap */
+    array = dr_custom_alloc(NULL, DR_ALLOC_NON_HEAP, PAGE_SIZE,
+                            DR_MEMPROT_READ|DR_MEMPROT_WRITE, NULL);
+    write_array(array);
+    dr_custom_free(NULL, DR_ALLOC_NON_HEAP, array, PAGE_SIZE);
+
+    array = dr_custom_alloc(NULL, DR_ALLOC_NON_HEAP|DR_ALLOC_FIXED_LOCATION, PAGE_SIZE,
+                            DR_MEMPROT_READ|DR_MEMPROT_WRITE, PREFERRED_ADDR);
+    ASSERT(array == (void *)PREFERRED_ADDR);
+    write_array(array);
+    dr_custom_free(NULL, DR_ALLOC_NON_HEAP|DR_ALLOC_FIXED_LOCATION, array, PAGE_SIZE);
+
+    array = dr_custom_alloc(NULL, DR_ALLOC_NON_HEAP|DR_ALLOC_CACHE_REACHABLE,
+                            PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE, NULL);
+    ASSERT(reachable_from_client(array));
+    write_array(array);
+    dr_custom_free(NULL, DR_ALLOC_NON_HEAP|DR_ALLOC_CACHE_REACHABLE,
+                   array, PAGE_SIZE);
+
+    array = dr_custom_alloc(NULL, DR_ALLOC_NON_HEAP|DR_ALLOC_LOW_2GB,
+                            PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE, NULL);
+#ifdef X64
+    ASSERT((ptr_uint_t)array < 0x80000000);
+#endif
+    write_array(array);
+    dr_custom_free(NULL, DR_ALLOC_NON_HEAP|DR_ALLOC_LOW_2GB, array, PAGE_SIZE);
+
+    array = dr_custom_alloc(NULL, DR_ALLOC_NON_HEAP|DR_ALLOC_NON_DR,
+                            PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE, NULL);
+    write_array(array);
+    dr_custom_free(NULL, DR_ALLOC_NON_HEAP|DR_ALLOC_NON_DR,
+                   array, PAGE_SIZE);
+
+    array = dr_custom_alloc(NULL, DR_ALLOC_NON_HEAP, PAGE_SIZE,
+                            DR_MEMPROT_READ|DR_MEMPROT_WRITE|DR_MEMPROT_EXEC, NULL);
+    ASSERT(dr_query_memory((byte *)array, NULL, &size, &prot) &&
+           size == PAGE_SIZE && prot == (DR_MEMPROT_READ|DR_MEMPROT_WRITE|
+                                         DR_MEMPROT_EXEC));
+    write_array(array);
+    dr_custom_free(NULL, DR_ALLOC_NON_HEAP, array, PAGE_SIZE);
+
+    dr_fprintf(STDERR, "success\n");
+}
+
 #ifdef LINUX
 static void
 calloc_test(void)
@@ -394,6 +480,8 @@ dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_t
 DR_EXPORT
 void dr_init(client_id_t id)
 {
+    client_id = id;
+
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
 
 #ifdef LINUX
@@ -409,6 +497,7 @@ void dr_init(client_id_t id)
 
     global_test();
     nonheap_test();
+    custom_test();
 
     dr_register_bb_event(bb_event);
     dr_register_thread_init_event(thread_init_event);

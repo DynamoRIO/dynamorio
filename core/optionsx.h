@@ -1315,6 +1315,10 @@
                    "on 64bit request that the dr heap "
                    "be allocated entirely within the lower 4GB of address space so that "
                    "it can be accessed directly as a 32bit address. See PR 215395.")
+    /* XXX i#774: this will become false by default once we split vmheap and vmcode */
+    OPTION_DEFAULT(bool, reachable_heap, true,
+                   "guarantee that all heap memory 32-bit-displacement "
+                   "reachable from the code cache.")
 #endif
      /* FIXME: the lower 16 bits are ignored - so this here gives us
       * 12bits of randomness.  Could make it larger if we verify as

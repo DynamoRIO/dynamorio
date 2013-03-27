@@ -2844,7 +2844,7 @@ os_raw_mem_free(void *p, size_t size, heap_error_code_t *error_code)
  * caller is required to handle thread synchronization and to update
  */
 void *
-os_raw_mem_alloc(void *preferred, size_t size, uint prot,
+os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
                  heap_error_code_t *error_code)
 {
     byte *p;
@@ -2855,7 +2855,7 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot,
     ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
 
     p = mmap_syscall(preferred, size, os_prot,
-                     MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+                     MAP_PRIVATE|MAP_ANONYMOUS|flags, -1, 0);
     if (!mmap_syscall_succeeded(p)) {
         *error_code = -(heap_error_code_t)(ptr_int_t)p;
         LOG(GLOBAL, LOG_HEAP, 3,

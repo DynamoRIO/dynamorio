@@ -949,14 +949,68 @@ so as to avoid corrupting it.
 \section sec_64bit_reach 64-Bit Reachability
 
 To simplify reachability in a 64-bit address space, DynamoRIO guarantees
-that all of its code caches and heap are within the same 2GB memory region.
-DynamoRIO also loads client libraries within 32-bit reachability of its
-code caches and heap.  DynamoRIO's private loader will ensure this, though
-on Windows it is more efficient to set a preferred base of a client
-library to be in the lower 2GB to avoid the cost of relocation at load time.
-Any static data or code in a client
-library, or any data allocated using DynamoRIO's API, is guaranteed to be
-directly reachable from code cache code.
+that all of its code caches are located within a single 2GB memory region.
+It also places all client memory allocated through dr_thread_alloc(),
+dr_global_alloc(), dr_nonheap_alloc(), or dr_custom_alloc() with
+#DR_ALLOC_CACHE_REACHABLE in the same region.
+
+DynamoRIO loads client libraries and Extensions (but not copies of system
+libraries) within 32-bit reachability of its code caches.  Typically, the
+code cache region is located in the low 4GB of the address space; thus, to
+avoid relocations at client library load time, it is recommended to set a
+preferred client library base in the low 4GB.
+
+The net result is that any static data or code in a client library, or any
+data allocated using DynamoRIO's API routines (except dr_raw_mem_alloc() or
+dr_custom_alloc()), is guaranteed to be directly reachable from code cache
+code.  However, memory allocated through system libraries (including
+malloc, operator new, and HeapAlloc), as well as DynamoRIO's own
+internally-used heap memory, is *not* guaranteed to be reachable: only
+memory directly allocated via DynamoRIO's API.  The \ref op_reachable_heap
+"-reachable_heap runtime option" can be used to guarantee that all memory
+is reachable, at the risk of running out memory due to the smaller space
+of available memory.
+
+To make more space available for the code caches when running larger
+applications, or for clients that use a lot of heap memory that is not
+directly referenced from the cache, we recommend that dr_custom_alloc() be
+called to obtain memory that is not guaranteed to be reachable from the
+code cache (by not passing #DR_ALLOC_CACHE_REACHABLE).  This frees up space
+in the reachable region.
+
+When inserting calls, dr_insert_call() and dr_insert_clean_call() assume
+that the call is destined for encoding into the code cache-reachable memory
+region, when determining whether a direct or indirect call is needed.
+An indirect call will clobber r11.  Use dr_insert_clean_call_ex()
+with #DR_CLEANCALL_INDIRECT to ensure reachability when encoding to
+a location other than DR's regular code region, or when a clean call is not
+needed, dr_insert_call_ex() takes in a target encode location for more
+flexible determination of direct versus indirect.
+
+DynamoRIO does not guarantee that any of its memory is allocated in the
+lower 4GB of the address space.  However, it provides several features to
+make it easier to reference addresses absolutely:
+
+ - For directly referencing a global variable \p var in a client library, the
+   client can create an operand with the address \p &var and it will
+   auto-magically turn into a pc-relative addressing mode.
+   OPND_CREATE_ABSMEM() directly creates a pc-relative operand, while
+   opnd_create_abs_addr() will convert to a pc-relative operand when an
+   absolute reference will not encode.  An opnd_create_rel_addr() operand
+   will also convert to an absolute reference when that will reach but a
+   pc-relative reference will not.
+
+ - When using an address as an immediate, use the routines
+   instrlist_insert_mov_immed_ptrsz() or
+   instrlist_insert_push_immed_ptrsz() to conveniently insert either one or
+   two instructions depending on whether the address is in the lower 4GB or
+   not.
+
+ - When using an \p instr_t pointer as an immediate, use the routines
+   instrlist_insert_mov_instr_addr() or instrlist_insert_push_instr_addr()
+   to conveniently insert either one or two instructions depending on
+   whether the resulting instr_t encoded address is in the lower 4GB or
+   not.
 
 ***************************************************************************
 \section sec_utf8 String Encoding
@@ -1354,6 +1408,18 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    are incompatible with this default mode.  Client users can gain
    access to the entire set of API functions with -enable_full_api.
    Note that this option may result in a small performance degradation.
+
+ - \b -reachable_heap: \anchor op_reachable_heap
+   By default, DynamoRIO guarantees that heap allocated directly through
+   its API routines dr_thread_alloc(), dr_global_alloc(),
+   dr_nonheap_alloc(), or dr_custom_alloc() with #DR_ALLOC_CACHE_REACHABLE
+   is reachable by a 32-bit displacement from the code cache.  However, it
+   does not guarantee that memory allocated through system libraries
+   (including malloc, operator new, and HeapAlloc) or DynamoRIO's own
+   internal memory is reachable.  Turning this option on combines all of
+   the heap memory such that it is all guaranteed to be reachable from the
+   code cache, at the risk of running out memory due to the smaller space
+   of available memory.
 
  - \b -max_bb_instrs: 
    DynamoRIO stops building a basic block if it hits this application

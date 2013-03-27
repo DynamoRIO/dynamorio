@@ -1,6 +1,7 @@
 thank you for testing the client interface
   testing global memory alloc...success
   testing nonheap memory alloc...success
+  testing custom memory alloc....success
 thread initialization:
   testing local memory alloc....success
   testing global memory alloc...success

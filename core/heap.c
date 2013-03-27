@@ -927,7 +927,10 @@ rel32_reachable_from_vmcode(byte *tgt)
     byte *vmcode_start = vmcode_get_start();
     byte *vmcode_end = vmcode_get_end();
     ptr_int_t new_offs = (tgt > vmcode_start) ? (tgt - vmcode_start) : (vmcode_end - tgt);
-    /* FIXME i#774: handle beyond-vmm-reservation allocs */
+    /* Beyond-vmm-reservation allocs are handled b/c those are subject to the
+     * reachability constraints we set up on every new reservation, including
+     * the initial vm_reserve.
+     */
     return REL32_REACHABLE_OFFS(new_offs);
 }
 
@@ -1998,6 +2001,10 @@ release_guarded_real_memory(vm_addr_t p, size_t size, bool remove_vm, bool guard
 void *
 heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded)
 {
+    /* XXX i#774: when we split vmheap and vmcode, if MEMPROT_EXEC is requested
+     * here (or this is a call from a client, for reachability
+     * compatibility), put it in vmcode; else in vmheap.
+     */
     void *p = get_guarded_real_memory(reserve_size, commit_size, prot, true, guarded
                                       _IF_DEBUG("heap_mmap"));
 #ifdef DEBUG_MEMORY

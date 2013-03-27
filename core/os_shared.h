@@ -91,7 +91,7 @@ enum {
 typedef uint heap_error_code_t;
 
 /* For dr_raw_mem_alloc, try to allocate memory at preferred address. */
-void *os_raw_mem_alloc(void *preferred, size_t size, uint prot,
+void *os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
                        heap_error_code_t *error_code);
 /* For dr_raw_mem_free, free memory allocated from os_raw_mem_alloc */
 void os_raw_mem_free(void *p, size_t size, heap_error_code_t *error_code);

@@ -818,11 +818,18 @@ DR_API
  * if \p addr is out of reach of a 32-bit signed displacement from the
  * next instruction, encoding will fail.
  *
- * DR guarantees that all of its code caches and heap are within the
- * same 2GB memory region.  DR also loads client libraries within
- * 32-bit reachability of its code caches and heap.  This means that
- * any static data or code in a client library, or any data allocated
- * using DR's API, is guaranteed to be reachable from code cache code.
+ * DR guarantees that all of its code caches, all client libraries and
+ * Extensions (though not copies of system libraries), and all client
+ * memory allocated through dr_thread_alloc(), dr_global_alloc(),
+ * dr_nonheap_alloc(), or dr_custom_alloc() with
+ * #DR_ALLOC_CACHE_REACHABLE, can reach each other with a 32-bit
+ * displacement.  Thus, any normally-allocated data or any static data
+ * or code in a client library is guaranteed to be reachable from code
+ * cache code.  Memory allocated through system libraries (including
+ * malloc, operator new, and HeapAlloc) is not guaranteed to be
+ * reachable: only memory directly allocated via DR's API.  The
+ * runtime option -reachable_heap can be used to guarantee that
+ * all memory is reachable.
  *
  * If \p addr is not pc-reachable at encoding time and this operand is
  * used in a load or store to or from the rax (or eax) register, an
@@ -848,11 +855,18 @@ DR_API
  * via a 32-bit signed displacement from the next instruction at emit
  * time.
  *
- * DR guarantees that all of its code caches and heap are within the
- * same 2GB memory region.  DR also loads client libraries within
- * 32-bit reachability of its code caches and heap.  This means that
- * any static data or code in a client library, or any data allocated
- * using DR's API, is guaranteed to be reachable from code cache code.
+ * DR guarantees that all of its code caches, all client libraries and
+ * Extensions (though not copies of system libraries), and all client
+ * memory allocated through dr_thread_alloc(), dr_global_alloc(),
+ * dr_nonheap_alloc(), or dr_custom_alloc() with
+ * #DR_ALLOC_CACHE_REACHABLE, can reach each other with a 32-bit
+ * displacement.  Thus, any normally-allocated data or any static data
+ * or code in a client library is guaranteed to be reachable from code
+ * cache code.  Memory allocated through system libraries (including
+ * malloc, operator new, and HeapAlloc) is not guaranteed to be
+ * reachable: only memory directly allocated via DR's API.  The
+ * runtime option -reachable_heap can be used to guarantee that
+ * all memory is reachable.
  *
  * If \p addr is not pc-reachable at encoding time and this operand is
  * used in a load or store to or from the rax (or eax) register, an

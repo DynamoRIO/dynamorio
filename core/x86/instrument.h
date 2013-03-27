@@ -1789,6 +1789,69 @@ dr_exit_process(int exit_code);
 /**************************************************
  * APPLICATION-INDEPENDENT MEMORY ALLOCATION
  */
+
+/** Flags used with dr_custom_alloc() */
+typedef enum {
+    /**
+     * If this flag is not specified, dr_custom_alloc() uses a managed
+     * heap to allocate the memory, just like dr_thread_alloc() or
+     * dr_global_alloc().  In that case, it ignores any requested
+     * protection bits (\p prot parameter), and the location (\p addr
+     * parameter) must be NULL.  If this flag is specified, a
+     * page-aligned, separate block of memory is allocated, in a
+     * similar fashion to dr_nonheap_alloc().
+     */
+    DR_ALLOC_NON_HEAP             = 0x0001,
+    /**
+     * This flag only applies to heap memory (i.e., when
+     * #DR_ALLOC_NON_HEAP is not specified).  If this flag is not
+     * specified, global heap is used (just like dr_global_alloc())
+     * and the \p drcontext parameter is ignored.  If it is specified,
+     * thread-private heap specific to \p drcontext is used, just like
+     * dr_thread_alloc(). 
+     */
+    DR_ALLOC_THREAD_PRIVATE       = 0x0002,
+    /**
+     * Allocate memory that is 32-bit-displacement reachable from the
+     * code caches and from the client library.  Memory allocated
+     * through dr_thread_alloc(), dr_global_alloc(), and
+     * dr_nonheap_alloc() is also reachable, but for
+     * dr_custom_alloc(), the resulting memory is not reachable unless
+     * this flag is specified.  If this flag is passed, the requested
+     * location (\p addr parameter) must be NULL.  This flag is not
+     * compatible with #DR_ALLOC_LOW_2GB, #DR_ALLOC_FIXED_LOCATION, or
+     * #DR_ALLOC_NON_DR.
+     */
+    DR_ALLOC_CACHE_REACHABLE      = 0x0004,
+    /**
+     * This flag only applies to non-heap memory (i.e., when
+     * #DR_ALLOC_NON_HEAP is specified).  The flag requests that
+     * memory be allocated at a specific address, given in the \p addr
+     * parameter.  Without this flag, the \p addr parameter is not
+     * honored.  This flag is not compatible with #DR_ALLOC_LOW_2GB or
+     * #DR_ALLOC_CACHE_REACHABLE.
+     */
+    DR_ALLOC_FIXED_LOCATION       = 0x0008,
+    /**
+     * This flag only applies to non-heap memory (i.e., when
+     * #DR_ALLOC_NON_HEAP is specified) in 64-bit mode.  The flag
+     * requests that memory be allocated in the low 2GB of the address
+     * space.  If this flag is passed, the requested location (\p addr
+     * parameter) must be NULL.  This flag is not compatible with
+     * #DR_ALLOC_FIXED_LOCATION.
+     */
+    DR_ALLOC_LOW_2GB              = 0x0010,
+    /**
+     * This flag only applies to non-heap memory (i.e., when
+     * #DR_ALLOC_NON_HEAP is specified).  When this flag is specified,
+     * the allocated memory is not considered to be DynamoRIO or tool
+     * memory and thus is not kept separate from the application.
+     * This is similar to dr_raw_mem_alloc().  Use of this memory is
+     * at the client's own risk.  This flag is not compatible with
+     * #DR_ALLOC_CACHE_REACHABLE.
+     */
+    DR_ALLOC_NON_DR               = 0x0020,
+} dr_alloc_flags_t;
 /* DR_API EXPORT END */
 
 DR_API 
@@ -1819,6 +1882,33 @@ DR_API
  */
 void
 dr_global_free(void *mem, size_t size);
+
+DR_API
+/**
+ * Allocates memory with the properties requested by \p flags.  
+ *
+ * If \p addr is non-NULL (only allowed with certain flags), it must
+ * be page-aligned.
+ *
+ * To make more space available for the code caches when running
+ * larger applications, or for clients that use a lot of heap memory
+ * that is not directly referenced from the cache, we recommend that
+ * dr_custom_alloc() be called to obtain memory that is not guaranteed
+ * to be reachable from the code cache (by not passing
+ * #DR_ALLOC_CACHE_REACHABLE).  This frees up space in the reachable
+ * region.
+ */
+void *
+dr_custom_alloc(void *drcontext, dr_alloc_flags_t flags, size_t size,
+                uint prot, void *addr);
+
+DR_API
+/**
+ * Frees memory allocated by dr_custom_alloc().  The same \p flags
+ * and \p size must be passed here as were passed to dr_custom_alloc().
+ */
+void
+dr_custom_free(void *drcontext, dr_alloc_flags_t flags, void *addr, size_t size);
 
 DR_API 
 /**
@@ -4117,9 +4207,10 @@ DR_API
  * \ref op_cleancall "-opt_cleancall".
  *
  * For 64-bit, for purposes of reachability, this call is assumed to
- * be destined for encoding into DR's regular generated code region.
+ * be destined for encoding into DR's code cache-reachable memory region.
  * This includes the code cache as well as memory allocated with
- * dr_nonheap_alloc() specified as #DR_MEMPROT_EXEC.  The call used
+ * dr_thread_alloc(), dr_global_alloc(), dr_nonheap_alloc(), or
+ * dr_custom_alloc() with #DR_ALLOC_CACHE_REACHABLE.  The call used
  * here will be direct if it is reachable from those locations; if it
  * is not reachable, an indirect call through r11 will be used (with
  * r11's contents being clobbered).  Use dr_insert_clean_call_ex()
@@ -4187,6 +4278,7 @@ typedef enum {
 } dr_cleancall_save_t;
 /* DR_API EXPORT END */
 
+DR_API
 /**
  * Identical to dr_insert_clean_call() except it takes in \p
  * save_flags which allows requests to not save certain state.  This
@@ -4195,7 +4287,6 @@ typedef enum {
  * mind that any register that is not saved will not be present in a
  * context obtained from dr_get_mcontext().
  */
-DR_API
 void 
 dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
                         void *callee, dr_cleancall_save_t save_flags,
@@ -4229,9 +4320,10 @@ DR_API
  * #dr_insert_clean_call().
  *
  * For 64-bit, for purposes of reachability, this call is assumed to
- * be destined for encoding into DR's regular generated code region.
+ * be destined for encoding into DR's code cache-reachable memory region.
  * This includes the code cache as well as memory allocated with
- * dr_nonheap_alloc() specified as #DR_MEMPROT_EXEC.  The call used
+ * dr_thread_alloc(), dr_global_alloc(), dr_nonheap_alloc(), or
+ * dr_custom_alloc() with #DR_ALLOC_CACHE_REACHABLE.  The call used
  * here will be direct if it is reachable from those locations; if it
  * is not reachable, an indirect call through r11 will be used (with
  * r11's contents being clobbered).  Use dr_insert_call_ex() when
@@ -4262,6 +4354,7 @@ void
 dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                void *callee, uint num_args, ...);
 
+DR_API
 /**
  * Identical to dr_insert_call() except it takes in \p encode_pc
  * indicating roughly where the call sequence will be encoded.  If \p
@@ -4271,7 +4364,6 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
  *
  * \return true if the inserted call is direct and false if indirect.
  */
-DR_API
 bool
 dr_insert_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
                   byte *encode_pc, void *callee, uint num_args, ...);

@@ -61,6 +61,7 @@
 #ifdef LINUX
 # include <sys/time.h> /* ITIMER_* */
 # include "../linux/module.h" /* redirect_* functions */
+# include <sys/mman.h> /* MAP_32BIT */
 #endif
 
 #ifdef CLIENT_INTERFACE
@@ -2383,6 +2384,15 @@ dr_get_random_seed(void)
     return get_random_seed();
 }
 
+/***************************************************************************
+ * MEMORY ALLOCATION
+ *
+ * XXX i#774: once we split vmheap from vmcode, we need to make
+ * dr_thread_alloc(), dr_global_alloc(), and dr_nonheap_alloc()
+ * all allocate vmcode-reachable memory.  Library-redirected
+ * allocations do not need to be reachable.
+ */
+
 DR_API 
 /* Allocates memory from DR's memory pool specific to the
  * thread associated with drcontext.
@@ -2442,38 +2452,185 @@ dr_nonheap_free(void *mem, size_t size)
     heap_munmap_ex(mem, size, false/*no guard pages*/);
 }
 
-DR_API
-void *
-dr_raw_mem_alloc(size_t size, uint prot, void *addr)
+static void *
+raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
 {
     byte *p;
     heap_error_code_t error_code;
 
     CLIENT_ASSERT(ALIGNED(addr, PAGE_SIZE), "addr is not page size aligned");
-    addr = (void *)ALIGN_BACKWARD(addr, PAGE_SIZE);
-    p = os_raw_mem_alloc(addr, size, prot, &error_code);
-    if (p != NULL) {
-        all_memory_areas_lock();
-        update_all_memory_areas(p, p+size, prot, DR_MEMTYPE_DATA);
-        all_memory_areas_unlock();
+    if (!TEST(DR_ALLOC_NON_DR, flags)) {
+        /* memory alloc/dealloc and updating DR list must be atomic */
+        dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
     }
+    addr = (void *)ALIGN_BACKWARD(addr, PAGE_SIZE);
+    size = ALIGN_FORWARD(size, PAGE_SIZE);
+#ifdef WINDOWS
+    if (TEST(DR_ALLOC_LOW_2GB, flags)) {
+        p = os_heap_reserve_in_region(NULL, (byte *)(ptr_uint_t)0x80000000, size,
+                                      &error_code, TEST(DR_MEMPROT_EXEC, flags));
+        if (p != NULL) {
+            if (!os_heap_commit(p, size, prot, &error_code)) {
+                os_heap_free(p, size, &error_code);
+                p = NULL;
+            }
+        }
+    } else
+#endif
+        {
+            /* We specify that DR_ALLOC_LOW_2GB only applies to x64, so it's
+             * ok that the Linux kernel will ignore MAP_32BIT for 32-bit.
+             */
+            p = os_raw_mem_alloc(addr, size, prot,
+                                 IF_LINUX_ELSE(TEST(DR_ALLOC_LOW_2GB, flags) ?
+                                               MAP_32BIT : 0, 0),
+                                 &error_code);
+        }
+
+    if (p != NULL) {
+        if (TEST(DR_ALLOC_NON_DR, flags)) {
+            all_memory_areas_lock();
+            update_all_memory_areas(p, p+size, prot, DR_MEMTYPE_DATA);
+            all_memory_areas_unlock();
+        } else {
+            /* this routine updates allmem for us: */
+            add_dynamo_vm_area((app_pc)p, ((app_pc)p)+size, prot,
+                               true _IF_DEBUG("fls cb in private lib"));
+        }
+    }
+    if (!TEST(DR_ALLOC_NON_DR, flags))
+        dynamo_vm_areas_unlock();
     return p;
+}
+
+static void
+raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
+{
+    heap_error_code_t error_code;
+    byte *p = addr;
+    if (TEST(DR_ALLOC_NON_DR, flags)) {
+        /* use lock to avoid racy update on parallel memory allocation,
+         * e.g. allocation from another thread at p happens after os_heap_free
+         * but before remove_from_all_memory_areas
+         */
+        all_memory_areas_lock();
+    } else {
+        /* memory alloc/dealloc and updating DR list must be atomic */
+        dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
+    }
+    os_raw_mem_free(p, size, &error_code);
+    if (TEST(DR_ALLOC_NON_DR, flags)) {
+        remove_from_all_memory_areas(p, p + size);
+        all_memory_areas_unlock();
+    } else {
+        /* this routine updates allmem for us: */
+        remove_dynamo_vm_area((app_pc)addr, ((app_pc)addr)+size);
+    }
+    if (!TEST(DR_ALLOC_NON_DR, flags))
+        dynamo_vm_areas_unlock();
+}
+
+DR_API
+void *
+dr_raw_mem_alloc(size_t size, uint prot, void *addr)
+{
+    return raw_mem_alloc(size, prot, addr, DR_ALLOC_NON_DR);
 }
 
 DR_API
 void
 dr_raw_mem_free(void *addr, size_t size)
 {
-    heap_error_code_t error_code;
-    byte *p = addr;
-    /* use lock to avoid racy update on parallel memory allocation,
-     * e.g. allocation from another thread at p happens after os_heap_free
-     * but before remove_from_all_memory_areas
-     */
-    all_memory_areas_lock();
-    os_raw_mem_free(p, size, &error_code);
-    remove_from_all_memory_areas(p, p + size);
-    all_memory_areas_unlock();
+    raw_mem_free(addr, size, DR_ALLOC_NON_DR);
+}
+
+static void *
+custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t size,
+                     uint prot, void *addr)
+{
+    CLIENT_ASSERT(alloc || addr != NULL, "cannot free NULL");
+    CLIENT_ASSERT(!TESTALL(DR_ALLOC_NON_DR|DR_ALLOC_CACHE_REACHABLE, flags),
+                  "dr_custom_alloc: cannot combine non-DR and cache-reachable");
+    CLIENT_ASSERT(!alloc || TEST(DR_ALLOC_FIXED_LOCATION, flags) || addr == NULL,
+                  "dr_custom_alloc: address only honored for fixed location");
+    if (TEST(DR_ALLOC_NON_HEAP, flags)) {
+        CLIENT_ASSERT(drcontext == NULL,
+                      "dr_custom_alloc: drcontext must be NULL for non-heap");
+        CLIENT_ASSERT(!TEST(DR_ALLOC_THREAD_PRIVATE, flags),
+                      "dr_custom_alloc: non-heap cannot be thread-private");
+        CLIENT_ASSERT(!TESTALL(DR_ALLOC_CACHE_REACHABLE|DR_ALLOC_LOW_2GB, flags),
+                      "dr_custom_alloc: cannot combine low-2GB and cache-reachable");
+        if (TEST(DR_ALLOC_LOW_2GB, flags)) {
+            CLIENT_ASSERT(!alloc || addr == NULL,
+                          "dr_custom_alloc: cannot pass an addr with low-2GB");
+            /* Even if not non-DR, easier to allocate via raw */
+            if (alloc)
+                return raw_mem_alloc(size, prot, addr, flags);
+            else
+                raw_mem_free(addr, size, flags);
+        } else if (TEST(DR_ALLOC_NON_DR, flags)) {
+            /* ok for addr to be NULL */
+            if (alloc)
+                return dr_raw_mem_alloc(size, prot, addr);
+            else
+                dr_raw_mem_free(addr, size);
+        } else { /* including DR_ALLOC_CACHE_REACHABLE */
+            CLIENT_ASSERT(!alloc || !TEST(DR_ALLOC_CACHE_REACHABLE, flags) ||
+                          addr == NULL,
+                          "dr_custom_alloc: cannot ask for addr and cache-reachable");
+            /* This flag is here solely so we know which version of free to call */
+            if (TEST(DR_ALLOC_FIXED_LOCATION, flags)) {
+                CLIENT_ASSERT(addr != NULL,
+                              "dr_custom_alloc: fixed location requires an address");
+                if (alloc)
+                    return raw_mem_alloc(size, prot, addr, 0);
+                else
+                    raw_mem_free(addr, size, 0);
+            } else {
+                if (alloc)
+                    return dr_nonheap_alloc(size, prot);
+                else
+                    dr_nonheap_free(addr, size);
+            }
+        }
+    } else {
+        CLIENT_ASSERT(!alloc || addr == NULL,
+                      "dr_custom_alloc: cannot pass an addr for heap memory");
+        CLIENT_ASSERT(drcontext == NULL || TEST(DR_ALLOC_THREAD_PRIVATE, flags),
+                      "dr_custom_alloc: drcontext must be NULL for global heap");
+        CLIENT_ASSERT(!TEST(DR_ALLOC_LOW_2GB, flags),
+                      "dr_custom_alloc: cannot ask for heap in low 2GB");
+        CLIENT_ASSERT(!TEST(DR_ALLOC_NON_DR, flags),
+                      "dr_custom_alloc: cannot ask for non-DR heap memory");
+        /* for now it's all cache-reachable so we ignore DR_ALLOC_CACHE_REACHABLE */
+        if (TEST(DR_ALLOC_THREAD_PRIVATE, flags)) {
+            if (alloc)
+                return dr_thread_alloc(drcontext, size);
+            else
+                dr_thread_free(drcontext, addr, size);
+        } else {
+            if (alloc)
+                return dr_global_alloc(size);
+            else
+                dr_global_free(addr, size);
+        }
+    }
+    return NULL;
+}
+
+DR_API
+void *
+dr_custom_alloc(void *drcontext, dr_alloc_flags_t flags, size_t size,
+                uint prot, void *addr)
+{
+    return custom_memory_shared(true, drcontext, flags, size, prot, addr);
+}
+
+DR_API
+void
+dr_custom_free(void *drcontext, dr_alloc_flags_t flags, void *addr, size_t size)
+{
+    custom_memory_shared(false, drcontext, flags, size, 0, addr);
 }
 
 #ifdef LINUX

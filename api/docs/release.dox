@@ -116,7 +116,16 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 
 The current version is \DR_VERSION.  
 
-The changes between version \DR_VERSION and 4.0.1 include:
+The changes between version \DR_VERSION and 4.0.1 include a
+minor compatibility change for 64-bit reachability:
+
+ - Memory allocated through system libraries (including malloc, operator
+   new, and HeapAlloc) is not guaranteed to be reachable by a 32-bit
+   displacement from the code cache: only memory directly allocated via
+   DR's API.  The \ref op_reachable_heap "-reachable_heap runtime option"
+   can be used to guarantee that all memory is reachable.
+
+Further non-compatibility-affecting changes include:
 
  - Added instr_is_floating_ex()
  - Ported the stats.c sample and DRgui to 64-bit.  As part of this, the
@@ -152,8 +161,8 @@ The changes between version \DR_VERSION and 4.0.1 include:
    for dr_insert_clean_call_ex().
  - Added auto-magic conversion of absolute and pc-relative memory
    operands to each other for more flexible 64-bit encoding.
- - Added opnd_create_instr_ex()
  - Added opnd_create_instr_ex() and opnd_get_shift()
+ - Added dr_custom_alloc()
 
 **************************************************
 <hr>

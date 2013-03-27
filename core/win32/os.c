@@ -3418,7 +3418,7 @@ os_raw_mem_free(void *p, size_t size, heap_error_code_t *error_code)
 }
 
 void *
-os_raw_mem_alloc(void *preferred, size_t size, uint prot,
+os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags/*unused*/,
                  heap_error_code_t *error_code)
 {
     void *p = preferred;
