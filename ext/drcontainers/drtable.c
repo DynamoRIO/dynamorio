@@ -392,13 +392,6 @@ drtable_dump_entries(void *tab, file_t log)
     if (table->synch)
         drtable_lock(table);
     entries = table->entries;
-#ifdef X64
-    i = 64;
-#else
-    i = 32;
-#endif
-    dr_write_file(log, &i, sizeof(i));
-    dr_write_file(log, &entries, sizeof(entries));
     entries = 0;
     for (i = 0; i < table->vec.entries; i++) {
         chunk = drvector_get_entry(&table->vec, i);

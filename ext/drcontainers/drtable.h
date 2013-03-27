@@ -150,10 +150,9 @@ ptr_uint_t
 drtable_num_entries(void *tab);
 
 /**
- * Dumps all the table entries into a file in binary format.
- * The first 4 bytes store value 32 or 64 to indicate whether it is 32-bit
- * or 64-bit, which is followed by the pointer-sized counter of the
- * number of entries dumped, which is also returned to the caller.
+ * Dumps all the table entries as an array into a file in binary format.
+ * There is no header add, so the user should add one if so desired.
+ * Returns the number of entries dumped.
  */
 ptr_uint_t
 drtable_dump_entries(void *tab, file_t log);
