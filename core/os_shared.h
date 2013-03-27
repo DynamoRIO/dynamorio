@@ -194,6 +194,12 @@ char *get_application_name(void);
 const char *get_application_short_name(void);
 char *get_computer_name(void); /* implemented on win32 only, in eventlog.c */
 
+app_pc
+get_application_base(void);
+
+app_pc
+get_application_end(void);
+
 int get_num_processors(void);
 
 /* Terminate types - the best choice here is TERMINATE_PROCESS, no cleanup*/

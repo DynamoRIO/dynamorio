@@ -459,6 +459,7 @@ dynamorio_app_init(void)
         /* Must be before {vmm_,}heap_init() */
         vmk_init_lib();
 #endif
+        vmm_heap_init_constraints(); /* before client libs are loaded! */
 #ifdef CLIENT_INTERFACE
         /* PR 200207: load the client lib before callback_interception_init
          * since the client library load would hit our own hooks (xref hotpatch

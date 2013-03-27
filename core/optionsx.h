@@ -1307,11 +1307,13 @@
                    "place it instead of dying")
     OPTION_DEFAULT(bool, vm_allow_smaller, true, "if we can't allocate vm heap of "
                    "requested size, try smaller sizes instead of dying")
+    OPTION_DEFAULT(bool, vm_base_near_app, true,
+                   "allocate vm region near the app")
 #ifdef X64
-    /* For linux, we assume our preferred address gets us <4GB as well: if that
-     * has issues we should make them independent (PR 253624).
+    /* We prefer low addresses in general, and only need this option if it's
+     * an absolute requirement (XXX i#829: it is required for mixed-mode).
      */
-    OPTION_DEFAULT(bool, heap_in_lower_4GB, true,
+    OPTION_DEFAULT(bool, heap_in_lower_4GB, false,
                    "on 64bit request that the dr heap "
                    "be allocated entirely within the lower 4GB of address space so that "
                    "it can be accessed directly as a 32bit address. See PR 215395.")

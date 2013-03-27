@@ -487,9 +487,9 @@ request_region_be_heap_reachable(byte *start, size_t size)
     /* Reachability checks (xref PR 215395, note since we currently can't directly
      * control where DR/client dlls are loaded these could fire if rebased). */
     ASSERT(heap_allowable_region_start <= must_reach_region_start && 
-           "PR 215395 reachability contraints not satisfiable");
+           "x64 reachability contraints not satisfiable");
     ASSERT(must_reach_region_end <= heap_allowable_region_end && 
-           "PR 215395 reachability contraints not satisfiable");
+           "x64 reachability contraints not satisfiable");
 
     /* Handle release build failure. */
     if (heap_allowable_region_start > must_reach_region_start ||
@@ -748,8 +748,6 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
 #ifdef X64
     if ((byte *)preferred < heap_allowable_region_start ||
         (byte *)preferred + size > heap_allowable_region_end) {
-        ASSERT(false && "-vm_base [plus rand(-vm_max_offset)] doesn't satisfy "
-               "heap reachability constraints");
         error_code = HEAP_ERROR_NOT_AT_PREFERRED;
     } else {
 #endif
@@ -762,7 +760,9 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
     }
 #endif
     while (vmh->start_addr == NULL && DYNAMO_OPTION(vm_allow_not_at_base)) {
-        SYSLOG_INTERNAL_WARNING_ONCE("Preferred vmm heap allocation failed");
+        /* Since we prioritize low-4GB or near-app over -vm_base, we do not
+         * syslog or assert here
+         */
         /* need extra size to ensure alignment */
         vmh->alloc_size = size + VMM_BLOCK_SIZE;
 #ifdef X64
@@ -780,7 +780,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
         LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init unable to allocate at preferred="
             PFX" letting OS place sz=%dM addr="PFX" \n",
             preferred, size/(1024*1024), vmh->start_addr);
-        if (DYNAMO_OPTION(vm_allow_smaller)) {
+        if (vmh->alloc_start == NULL && DYNAMO_OPTION(vm_allow_smaller)) {
             /* Just a little smaller might fit */
             size_t sub = (size_t) ALIGN_FORWARD(size/16, 1024*1024);
             SYSLOG_INTERNAL_WARNING_ONCE("Full size vmm heap allocation failed");
@@ -792,21 +792,23 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
             break;
     }
 #ifdef X64
-    ASSERT(vmh->start_addr >= heap_allowable_region_start &&
-           !POINTER_OVERFLOW_ON_ADD(vmh->start_addr, size) &&
-           vmh->start_addr + size <= heap_allowable_region_end);
     /* ensure future out-of-block heap allocations are reachable from this allocation */
-    if (vmh->start_addr != NULL)
+    if (vmh->start_addr != NULL) {
+        ASSERT(vmh->start_addr >= heap_allowable_region_start &&
+               !POINTER_OVERFLOW_ON_ADD(vmh->start_addr, size) &&
+               vmh->start_addr + size <= heap_allowable_region_end);
         request_region_be_heap_reachable(vmh->start_addr, size);
+    }
 #endif
     if (vmh->start_addr == 0) {
         vmm_heap_initialize_unusable(vmh);
         /* we couldn't even reserve initial virtual memory - we're out of luck */
-        /* FIXME: case 7373 make sure we tag as a potential
+        /* XXX case 7373: make sure we tag as a potential
          * interoperability issue, in staging mode we should probably
          * get out from the process since we haven't really started yet
          */
         report_low_on_memory(OOM_INIT, error_code);
+        ASSERT_NOT_REACHED();
     }
     vmh->end_addr = vmh->start_addr + size;
     ASSERT_TRUNCATE(vmh->num_blocks, uint, size / VMM_BLOCK_SIZE);
@@ -1318,9 +1320,9 @@ vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code)
     return p;
 }
 
-/* virtual memory manager initialization */
+/* set reachability constraints before loading any client libs */
 void
-vmm_heap_init()
+vmm_heap_init_constraints()
 {
 #ifdef X64
     /* add reachable regions before we allocate the heap, xref PR 215395 */
@@ -1330,8 +1332,34 @@ vmm_heap_init()
      */
     if (DYNAMO_OPTION(heap_in_lower_4GB))
         request_region_be_heap_reachable((byte *)(ptr_uint_t)0x80000000/*middle*/, 1);
+    else if (DYNAMO_OPTION(vm_base_near_app)) {
+        /* Required for STATIC_LIBRARY: must be near app b/c clients are there.
+         * Non-static: still a good idea for fewer rip-rel manglings.
+         * Asking for app base means we'll prefer before the app, which
+         * has less of an impact on its heap.
+         */
+        app_pc base = get_application_base();
+        request_region_be_heap_reachable(base, get_application_end() - base);
+    } else {
+        /* It seems silly to let the 1st client lib set the region, so we give
+         * -vm_base priority.
+         */
+        request_region_be_heap_reachable
+            ((byte *)DYNAMO_OPTION(vm_base), DYNAMO_OPTION(vm_size));
+    }
+    /* XXX: really we should iterate and try other options: right now we'll
+     * just fail if we run out of space.  E.g., if the app is quite large, we might
+     * fit the client near, and then our vm reservation could fail and at that
+     * point we'd just abort.  We need to restructure the code to allow
+     * iterating over the client lib loads and vm reservation at once.
+     */
 #endif /* X64 */
-    
+}
+
+/* virtual memory manager initialization */
+void
+vmm_heap_init()
+{
     IF_WINDOWS(ASSERT(VMM_BLOCK_SIZE == OS_ALLOC_GRANULARITY));
     if (DYNAMO_OPTION(vm_reserve)) {
         vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vm_size));

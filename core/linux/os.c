@@ -270,6 +270,7 @@ static app_pc dynamo_dll_start = NULL;
 static app_pc dynamo_dll_end = NULL; /* open-ended */
 
 static app_pc executable_start = NULL;
+static app_pc executable_end = NULL;
 
 /* Used by get_application_name(). */
 static char executable_path[MAXIMUM_PATH];
@@ -766,6 +767,7 @@ os_init(void)
 
     /* Populate global data caches. */
     get_application_name();
+    get_application_base();
 
     /* determine whether gettid is provided and needed for threads,
      * or whether getpid suffices.  even 2.4 kernels have gettid
@@ -7863,6 +7865,40 @@ read_proc_self_exe(bool ignore_cache)
 #endif /* HAVE_PROC_MAPS */
 
 app_pc
+get_application_base(void)
+{
+    if (executable_start == NULL) {
+#ifdef HAVE_PROC_MAPS
+        /* Haven't done find_executable_vm_areas() yet so walk maps ourselves */
+        const char *name = get_application_name();
+        if (name != NULL && name[0] != '\0') {
+            maps_iter_t iter;
+            maps_iterator_start(&iter, false/*won't alloc*/);
+            while (maps_iterator_next(&iter)) {
+                if (strcmp(iter.comment, name) == 0) {
+                    executable_start = iter.vm_start;
+                    executable_end = iter.vm_end;
+                    break;
+                }
+            }
+            maps_iterator_stop(&iter);
+        }
+#else
+        /* We have to fail.  Should we dl_iterate this early? */
+#endif
+    }
+    return executable_start;
+}
+
+app_pc
+get_application_end(void)
+{
+    if (executable_end == NULL)
+        get_application_base();
+    return executable_end;
+}
+
+app_pc
 get_image_entry()
 {
     static app_pc image_entry_point = NULL;
@@ -8338,7 +8374,10 @@ find_executable_vm_areas(void)
             if (exec_match != NULL && exec_match[0] != '\0')
                 found_exec = (strcmp(iter.comment, exec_match) == 0);
             if (found_exec) {
-                executable_start = iter.vm_start;
+                if (executable_start == NULL)
+                    executable_start = iter.vm_start;
+                else
+                    ASSERT(iter.vm_start == executable_start);
                 LOG(GLOBAL, LOG_VMAREAS, 2,
                     "Found executable %s @"PFX"-"PFX" %s\n", get_application_name(),
                     iter.vm_start, iter.vm_start+image_size, iter.comment);

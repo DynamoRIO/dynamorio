@@ -957,6 +957,8 @@ os_init(void)
     /* avoid later .data-unprotection calls */
     get_dynamorio_dll_preferred_base();
     get_image_entry();
+    get_application_base();
+    get_application_end();
     get_system_basic_info();
     if (!standalone_library)
         os_user_directory_supports_ownership();
@@ -3201,7 +3203,33 @@ process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add, const char 
 }
 
 app_pc
-get_image_entry()
+get_application_base(void)
+{
+    static app_pc app_start = NULL;
+    if (app_start == NULL) {
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        app_start = get_own_peb()->ImageBaseAddress;
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    }
+    return app_start;
+}
+
+app_pc
+get_application_end(void)
+{
+    static app_pc app_end = NULL;
+    if (app_end == NULL) {
+        app_pc start;
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        start = get_own_peb()->ImageBaseAddress;
+        app_end = start + get_allocation_size(start, NULL);
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    }
+    return app_end;
+}
+
+app_pc
+get_image_entry(void)
 {
     static app_pc image_entry_point = NULL;
     if (image_entry_point == NULL) {

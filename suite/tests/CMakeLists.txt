@@ -1825,17 +1825,19 @@ else (UNIX)
   # For now we assume injection succeeds on Vista+ and that the test thus
   # actually tests mixed-mode, until we've got early/earliest injection working
   # everywhere (xref i#381, i#234, i#803).
+  #
+  # XXX i#829: mixed-mode stubs and abs far jmps require -heap_in_lower_4GB
   if (TEST_SUITE OR TEST_32BIT_PATH OR NOT X64)
     if (X64)
       torunonly(win32.mixedmode
         ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
         win32/mixedmode.c
-        "-early_inject_map -early_inject_location 5"
+        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB"
         "${TEST_32BIT_PATH}/win32.mixedmode.exe;mixedmode")
       torunonly(win32.x86_to_x64
         ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
         win32/mixedmode.c
-        "-early_inject_map -early_inject_location 5 -x86_to_x64"
+        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB -x86_to_x64"
         "${TEST_32BIT_PATH}/win32.mixedmode.exe;x86_to_x64")
     else (X64)
       add_exe(win32.mixedmode win32/mixedmode.c)
@@ -1886,7 +1888,23 @@ if (X64)
 
   # Floating vmbase.  Risky to just pick this hardcoded address: any better ideas?
   torunonly(float_vmbase security-common.selfmod security-common/selfmod.c
-    "-vm_base 0x30000000000 -no_heap_in_lower_4GB" "")
+    "-vm_base 0x30000000000 -no_vm_base_near_app" "")
+  if (CLIENT_INTERFACE)
+    torunonly_ci(client.float_vmbase security-common.selfmod 
+      client.dr_options.dll security-common/selfmod.c
+      # I picked dr_options b/c it has no output, but it requires
+      # -thread_private:
+      "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private -vm_base 0x30000000000 -no_vm_base_near_app"
+      "")
+    if (UNIX)
+      # Test client with PIE w/ default options
+      torunonly_ci(client.float_vmbase_PIE linux.fib-pie
+        client.dr_options.dll common/fib.c
+        # I picked dr_options b/c it has no output, but it requires
+        # -thread_private:
+        "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
+    endif (UNIX)
+  endif (CLIENT_INTERFACE)
 
 endif (X64)
 
