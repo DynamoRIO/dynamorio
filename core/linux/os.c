@@ -4062,7 +4062,7 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
              * region big enough" matches the kernel's, else we'll loop forever
              * (which we try to catch w/ a max iters count).
              */
-            munmap_syscall(addr, *size);
+            munmap_syscall(map, *size);
             map = NULL;
         } else
             break;
