@@ -2999,7 +2999,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
                           heap_error_code_t *error_code, bool executable)
 {
     byte *p = NULL;
-    byte *try_start;
+    byte *try_start = NULL;
 
     ASSERT(ALIGNED(start, PAGE_SIZE) && ALIGNED(end, PAGE_SIZE));
     ASSERT(ALIGNED(size, PAGE_SIZE));
