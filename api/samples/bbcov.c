@@ -44,23 +44,30 @@
  * The runtime options for this client include:
  * -dump_text     Dumps the log file in text format
  * -dump_binary   Dumps the log file in binary format
+ * -nudge_kills   Windows only. Uses nudge to notify the process for termination
+ *                so that the exit event will be called.
+ * -logdir <dir>  Sets log directory, which by default is at the same directory
+ *                as the client library. It must be the last option.
+ *
+ * The two options below can only be used when the client is compiled with
+ * CBR_COVERAGE being defined.
+ *
  * -check_cbr     Performs simple online conditional branch coverage checks.
  *                Checks how many conditional branches are seen and how
  *                many branches/fallthroughs are not excercised.
  *                The result are printed to bbcov.*.res file.
  * -summary_only  Prints only the summary of check results. Must be used
  *                with -check_cbr option.
- * -nudge_kills   Uses nudge to notify the process for termination so that
- *                the exit event will be called.
- * -logdir <dir>  Sets log directory, which by default is at the same directory
- *                as the client library. It must be the last option.
  */
 
 #include "dr_api.h"
 #include "drvector.h"
 #include "hashtable.h"
 #include "drtable.h"
+#include "limits.h"
 #include <string.h>
+
+#define BBCOV_VERSION 1
 
 #ifdef WINDOWS
 # define  STATIC_DRMGR_ONLY 1 /* for drmgr_decode_sysnum_from_wrapper only */
@@ -86,17 +93,22 @@
 typedef struct _bbcov_option_t {
     bool dump_text;
     bool dump_binary;
-    bool check;
-    bool summary;
 #ifdef WINDOWS
     /* Use nudge to notify the process for termination so that
-     * event_exit will be called.
+     * event_exit will be called. Windows only.
      */
     bool nudge_kills;
 #endif
     char *logdir;
+#ifdef CBR_COVERAGE
+    bool check;
+    bool summary;
+#endif
 } bbcov_option_t;
-bbcov_option_t options;
+static bbcov_option_t options;
+
+#define NUM_GLOBAL_MODULE_CACHE 8
+#define NUM_THREAD_MODULE_CACHE 4
 
 typedef struct _module_entry_t {
     int  id;
@@ -106,23 +118,29 @@ typedef struct _module_entry_t {
 
 typedef struct _module_table_t {
     drvector_t vector;
-    module_entry_t *cache; /* for quick query without lock */
+    /* for quick query without lock, assuming pointer-aligned */
+    module_entry_t *cache[NUM_GLOBAL_MODULE_CACHE];
 } module_table_t;
 
 typedef struct _bb_entry_t {
-    ptr_uint_t start_offs;   /* offset of bb start from the image base */
-    ptr_uint_t cbr_tgt_offs; /* offset of cbr target from the image base */
+    uint   start;   /* offset of bb start from the image base */
+    ushort size;
+    ushort mod_id;
+#ifdef CBR_COVERAGE
     bool   trace;
     ushort num_instrs;
-    uint   size;
-    int    mod_id;
+    uint   cbr_tgt; /* offset of cbr target from the image base */
+#endif
 } bb_entry_t;
 
 typedef struct _per_thread_t {
     void *bb_table;
-    module_entry_t *recent_mod; /* for quick per-thread query without lock */
+    /* for quick per-thread query without lock */
+    module_entry_t *cache[NUM_THREAD_MODULE_CACHE];
     file_t  log;
+#ifdef CBR_COVERAGE
     file_t  res;
+#endif
 } per_thread_t;
 
 static per_thread_t *global_data;
@@ -203,17 +221,45 @@ log_file_create(void *drcontext, per_thread_t *data)
     } else {
         data->log = INVALID_FILE;
     }
+#ifdef CBR_COVERAGE
     if (options.check) {
         data->res = log_file_create_helper(drcontext, logname,
                                            drcontext == NULL ?
                                            "proc.res" : "thd.res");
     } else
         data->res = INVALID_FILE;
+#endif
 }
 
 /****************************************************************************
  * Module Table Functions
  */
+
+/* we use direct map cache to avoid locking */
+static inline void
+global_module_cache_add(module_entry_t **cache, module_entry_t *entry)
+{
+    cache[entry->id % NUM_GLOBAL_MODULE_CACHE] = entry;
+}
+
+static inline void
+thread_module_cache_adjust(module_entry_t **cache,
+                           module_entry_t  *entry,
+                           uint pos)
+{
+    uint i;
+    ASSERT(pos < NUM_THREAD_MODULE_CACHE, "wrong pos");
+    for (i = pos; i > 0; i--)
+        cache[i] = cache[i-1];
+    cache[0] = entry;
+}
+
+static inline void
+thread_module_cache_add(module_entry_t **cache, module_entry_t *entry)
+{
+    thread_module_cache_adjust(cache, entry, NUM_THREAD_MODULE_CACHE - 1);
+}
+
 static void
 module_table_entry_free(void *entry)
 {
@@ -268,44 +314,58 @@ module_table_load(module_table_t *table, const module_data_t *data)
         entry->data = dr_copy_module_data(data);
         drvector_append(&table->vector, entry);
     }
-    table->cache = entry;
     drvector_unlock(&table->vector);
+    global_module_cache_add(table->cache, entry);
+}
+
+static inline bool
+pc_is_in_module(module_entry_t *entry, app_pc pc)
+{
+    if (entry != NULL && !entry->unload && entry->data != NULL) {
+        module_data_t *mod = entry->data;
+        if (pc >= mod->start && pc < mod->end)
+            return true;
+    }
+    return false;
 }
 
 static module_entry_t *
 module_table_lookup(per_thread_t *data, module_table_t *table, app_pc pc)
 {
     module_entry_t *entry;
-    module_data_t  *mod;
     int i;
 
     /* We assume we never change an entry's data field, even on unload,
      * and thus it is ok to check its value without a lock.
      */
-    entry = (data == NULL) ? NULL : data->recent_mod;
-    if (entry != NULL && !entry->unload) {
-        mod = entry->data;
-        if (pc >= mod->start && pc < mod->end)
-            return entry;
-    }
-    entry = table->cache;
-    if (entry != NULL && !entry->unload) {
-        mod = entry->data;
-        if (pc >= mod->start && pc < mod->end) {
-            return entry;
+    /* lookup thread module cache */
+    if (data != NULL) {
+        for (i = 0; i < NUM_THREAD_MODULE_CACHE; i++) {
+            entry = data->cache[i];
+            if (pc_is_in_module(entry, pc)) {
+                if (i > 0)
+                    thread_module_cache_adjust(data->cache, entry, i);
+                return entry;
+            }
         }
     }
+    /* lookup global module cache */
+    /* we use a direct map cache, so it is ok to access it without lock */
+    for (i = 0; i < NUM_GLOBAL_MODULE_CACHE; i++) {
+        entry = table->cache[i];
+        if (pc_is_in_module(entry, pc))
+            return entry;
+    }
+    /* lookup module table */
+    entry = NULL;
     drvector_lock(&table->vector);
-    table->cache = NULL;
     for (i = table->vector.entries - 1; i >= 0; i--) {
         entry = drvector_get_entry(&table->vector, i);
         ASSERT(entry != NULL, "fail to get module entry");
-        mod = entry->data;
-        if (mod != NULL && !entry->unload &&
-            pc >= mod->start && pc < mod->end) {
-            table->cache = entry;
+        if (pc_is_in_module(entry, pc)) {
+            global_module_cache_add(table->cache, entry);
             if (data != NULL)
-                data->recent_mod = entry;
+                thread_module_cache_add(data->cache, entry);
             break;
         }
         entry = NULL;
@@ -323,7 +383,6 @@ module_table_unload(module_table_t *table, const module_data_t *data)
     } else {
         ASSERT(false, "fail to find the module to be unloaded");
     }
-    table->cache = NULL;
 }
 
 /* assuming caller holds the lock */
@@ -332,16 +391,24 @@ module_table_entry_print(module_entry_t *entry, file_t log)
 {
     const char *name;
     module_data_t *data;
+    const char *full_path = "<unknown>";
     data = entry->data;
     name = dr_module_preferred_name(data);
+    if (data->full_path != NULL && data->full_path[0] != '\0')
+        full_path = data->full_path;
+#ifdef CBR_COVERAGE
     dr_fprintf(log, "%3u, "PFX", "PFX", "PFX", %s, %s",
                entry->id, data->start, data->end, data->entry_point,
-               name == NULL ? "<unknown>" : name,
-               data->full_path == NULL ? "<unknown>" : data->full_path);
-#ifdef WINDOWS
+               (name == NULL || name[0] == '\0') ? "<unknown>" : name,
+               full_path);
+# ifdef WINDOWS
     dr_fprintf(log, ", 0x%08x, 0x%08x", data->checksum, data->timestamp);
-#endif
+# endif /* WINDOWS */
     dr_fprintf(log, "\n");
+#else /* CBR_COVERAGE */
+    dr_fprintf(log, " %u, %llu, %s\n", entry->id,
+               (uint64)(data->end - data->start), full_path);
+#endif /* !CBR_COVERAGE */
 }
 
 static void
@@ -357,26 +424,29 @@ module_table_print(module_table_t *table, file_t log)
         ASSERT(false, "invalid log file");
         return;
     }
-    dr_fprintf(log, "Module Table: id, base, end, entry, unload, name, path");
-#ifdef WINDOWS
-    dr_fprintf(log, ", checksum, timestamp");
-#endif
-    dr_fprintf(log, "\n");
-
+    dr_fprintf(log, "BBCOV VERSION: %d\n", BBCOV_VERSION);
     drvector_lock(&table->vector);
+    dr_fprintf(log, "Module Table: %u\n", table->vector.entries);
+#ifdef CBR_COVERAGE
+    dr_fprintf(log, "Module Table: id, base, end, entry, unload, name, path");
+# ifdef WINDOWS
+    dr_fprintf(log, ", checksum, timestamp");
+# endif
+    dr_fprintf(log, "\n");
+#endif
+
     for (i = 0; i < table->vector.entries; i++) {
         entry = drvector_get_entry(&table->vector, i);
         module_table_entry_print(entry, log);
     }
     drvector_unlock(&table->vector);
-    dr_fprintf(log, "\n");
 }
 
 static module_table_t *
 module_table_create()
 {
     module_table_t *table = dr_global_alloc(sizeof(*table));
-    table->cache = NULL;
+    memset(table->cache, 0, sizeof(table->cache));
     drvector_init(&table->vector, 16, false, module_table_entry_free);
     return table;
 }
@@ -392,6 +462,7 @@ module_table_destroy(module_table_t *table)
  * BB Table Functions
  */
 
+#ifdef CBR_COVERAGE
 /* iterate data passed for branch coverage check iteration */
 typedef struct _check_iter_data_t {
     per_thread_t *data;
@@ -418,34 +489,35 @@ bb_table_entry_check(ptr_uint_t idx, void *entry, void *iter_data)
     int mod_id = (bb_entry->mod_id == -1) ? data->num_mods-1 : bb_entry->mod_id;
     bb_htable  = &data->bb_htables[mod_id];
     cbr_htable = &data->cbr_htables[mod_id];
-    if (bb_entry->cbr_tgt_offs != 0) {
-        if (hashtable_add(cbr_htable, (void *)bb_entry->cbr_tgt_offs, entry)) {
+    if (bb_entry->cbr_tgt != 0) {
+        if (hashtable_add
+            (cbr_htable, (void *)(ptr_uint_t)bb_entry->cbr_tgt, entry)) {
             data->num_cbr_tgts[mod_id]++;
-            if (hashtable_lookup(bb_htable, (void *)bb_entry->cbr_tgt_offs)
-                == NULL) {
+            if (hashtable_lookup
+                (bb_htable, (void *)(ptr_uint_t)bb_entry->cbr_tgt) == NULL) {
                 data->num_cbr_tgt_misses[mod_id]++;
                 if (!options.summary) {
                     dr_fprintf(data->data->res, "module[%3d]: "PFX" to "PFX"\n",
                                mod_id,
-                               (void *)bb_entry->start_offs,
-                               (void *)bb_entry->cbr_tgt_offs);
+                               (void *)(ptr_uint_t)bb_entry->start,
+                               (void *)(ptr_uint_t)bb_entry->cbr_tgt);
                 }
             }
         }
         if (hashtable_add(cbr_htable,
-                          (void *)(bb_entry->start_offs + bb_entry->size),
+                          (void *)(ptr_uint_t)(bb_entry->start+bb_entry->size),
                           entry)) {
             data->num_cbr_falls[mod_id]++;
             if (hashtable_lookup(bb_htable,
-                                 (void *)(bb_entry->start_offs +
-                                          bb_entry->size))
+                                 (void *)(ptr_uint_t)
+                                 (bb_entry->start + bb_entry->size))
                 == NULL) {
                 data->num_cbr_fall_misses[mod_id]++;
                 if (!options.summary) {
                     dr_fprintf(data->data->res, "module[%3d]: "PFX" to "PFX"\n",
                                mod_id,
-                               bb_entry->start_offs,
-                               bb_entry->start_offs + bb_entry->size);
+                               bb_entry->start,
+                               bb_entry->start + bb_entry->size);
                 }
             }
         }
@@ -461,7 +533,7 @@ bb_table_entry_fill_htable(ptr_uint_t idx, void *entry, void *iter_data)
     int mod_id = (bb_entry->mod_id == -1) ?
         data->num_mods - 1 : bb_entry->mod_id;
     hashtable_t *htable = &data->bb_htables[mod_id];
-    if (hashtable_add(htable, (void *)bb_entry->start_offs, entry))
+    if (hashtable_add(htable, (void *)(ptr_uint_t)bb_entry->start, entry))
         data->num_bbs[mod_id]++;
     return true;
 }
@@ -563,19 +635,20 @@ bb_table_check_cbr(module_table_t *table, per_thread_t *data)
     dr_global_free(iter_data.num_cbr_tgt_misses, sizeof(ptr_uint_t)*num_mods);
     dr_global_free(iter_data.num_cbr_fall_misses, sizeof(ptr_uint_t)*num_mods);
 }
+#endif /* CBR_COVERAGE */
 
 static bool
 bb_table_entry_print(ptr_uint_t idx, void *entry, void *iter_data)
 {
     per_thread_t *data = iter_data;
     bb_entry_t *bb_entry = (bb_entry_t *)entry;
-    dr_fprintf(data->log, "module[%3d]: "PFX", "PFX", %2d, %4d, %4d\n",
-               bb_entry->mod_id,
-               bb_entry->start_offs,
-               bb_entry->cbr_tgt_offs,
-               bb_entry->trace ? 1 : 0,
-               bb_entry->num_instrs,
-               bb_entry->size);
+    dr_fprintf(data->log, "module[%3u]: "PFX", %3u",
+               bb_entry->mod_id, bb_entry->start, bb_entry->size);
+#ifdef CBR_COVERAGE
+    dr_fprintf(data->log, ", "PFX", %2u, %3u",
+               bb_entry->cbr_tgt, bb_entry->trace ? 1:0, bb_entry->num_instrs);
+#endif
+    dr_fprintf(data->log, "\n");
     return true; /* continue iteration */
 }
 
@@ -587,41 +660,58 @@ bb_table_print(void *drcontext, per_thread_t *data)
         ASSERT(false, "invalid log file");
         return;
     }
-    dr_fprintf(data->log, "BB Table: %8d bbs\n",
+    dr_fprintf(data->log, "BB Table: %u bbs\n",
                drtable_num_entries(data->bb_table));
     if (options.dump_text) {
-        dr_fprintf(data->log, "module id, start offs, cbr tgt offs,"
-                   " trace, #instr, size:\n");
+        dr_fprintf(data->log, "module id, start, size");
+#ifdef CBR_COVERAGE
+        dr_fprintf(data->log, ", cbr tgt, trace, #instr");
+#endif
+        dr_fprintf(data->log, ":\n");
         drtable_iterate(data->bb_table, data, bb_table_entry_print);
     } else
         drtable_dump_entries(data->bb_table, data->log);
 }
 
 static void
-bb_table_entry_add(void *drcontext, per_thread_t *data,
-                   app_pc start, app_pc cbr_tgt,
-                   uint size, ushort num_instrs, bool trace)
+bb_table_entry_add(void *drcontext, per_thread_t *data, app_pc start,
+#ifdef CBR_COVERAGE
+                   app_pc cbr_tgt, ushort num_instrs, bool trace,
+#endif
+                   uint size)
 {
     bb_entry_t *bb_entry = drtable_alloc(data->bb_table, 1, NULL);
     module_entry_t *mod_entry = module_table_lookup(data, module_table, start);
     /* we do not de-duplicate repeated bbs */
-    bb_entry->trace = trace;
-    bb_entry->size  = size;
-    bb_entry->num_instrs = num_instrs;
+    ASSERT(size < USHRT_MAX, "size overflow");
+    bb_entry->size = (ushort)size;
     if (mod_entry != NULL && mod_entry->data != NULL) {
-        bb_entry->mod_id = mod_entry->id;
-        ASSERT(start > mod_entry->data->start,
-               "wrong module");
-        bb_entry->start_offs = (ptr_uint_t)(start - mod_entry->data->start);
+        ASSERT(bb_entry->mod_id < USHRT_MAX, "module id overflow");
+        bb_entry->mod_id = (ushort)mod_entry->id;
+        ASSERT(start > mod_entry->data->start, "wrong module");
+        bb_entry->start = (uint)(start - mod_entry->data->start);
+#ifdef CBR_COVERAGE
         ASSERT(cbr_tgt == NULL || cbr_tgt > mod_entry->data->start,
                "cbr target should be withing module");
-        bb_entry->cbr_tgt_offs = (cbr_tgt == NULL) ?
-            0 : (ptr_uint_t)(cbr_tgt - mod_entry->data->start);
+        bb_entry->cbr_tgt = (cbr_tgt == NULL) ?
+            0 : (uint)(cbr_tgt - mod_entry->data->start);
+#endif
     } else {
-        bb_entry->mod_id = -1;
-        bb_entry->start_offs = (ptr_uint_t)start;
-        bb_entry->cbr_tgt_offs = (ptr_uint_t)cbr_tgt;
+        /* XXX: we just truncate the address, which may have wrong value
+         * in x64 arch. It should be ok now since it is an unknown module,
+         * which will be ignored in the post-processing.
+         * Should be handled for JIT code in the future.
+         */
+        bb_entry->mod_id = USHRT_MAX;
+        bb_entry->start  = (uint)(ptr_uint_t)start;
+#ifdef CBR_COVERAGE
+        bb_entry->cbr_tgt = (uint)(ptr_uint_t)cbr_tgt;
+#endif
     }
+#ifdef CBR_COVERAGE
+    bb_entry->trace = trace;
+    bb_entry->num_instrs = num_instrs;
+#endif
 }
 
 #define INIT_BB_TABLE_ENTRIES 4096
@@ -641,6 +731,18 @@ bb_table_destroy(void *table, void *data)
 /****************************************************************************
  * Thread/Global Data Creation/Destroy
  */
+
+/* make a copy of global data for pre-thread cache */
+static per_thread_t *
+thread_data_copy(void *drcontext)
+{
+    per_thread_t *data;
+    ASSERT(drcontext != NULL, "drcontext must not be NULL");
+    data = dr_thread_alloc(drcontext, sizeof(*data));
+    *data = *global_data;
+    return data;
+}
+
 static per_thread_t *
 thread_data_create(void *drcontext)
 {
@@ -652,8 +754,11 @@ thread_data_create(void *drcontext)
         ASSERT(bbcov_per_thread, "bbcov_per_thread should be set");
         data = dr_thread_alloc(drcontext, sizeof(*data));
     }
+    /* XXX: can we assume bb create event is serialized,
+     * if so, no lock is required for bb_table operation.
+     */
     data->bb_table = bb_table_create(drcontext == NULL ? true : false);
-    data->recent_mod = NULL;
+    memset(data->cache, 0, sizeof(data->cache));
     log_file_create(drcontext, data);
     return data;
 }
@@ -771,42 +876,39 @@ event_basic_block(void *drcontext, void *tag,
 {
     per_thread_t *data;
     instr_t *instr;
-    ushort num_instrs;
-    app_pc start_pc, end_pc, cbr_tgt;
+    app_pc start_pc, end_pc;
+#ifdef CBR_COVERAGE
+    ushort num_instrs = 0;
+    app_pc cbr_tgt = NULL;
+#endif
 
     /* do nothing for translation */
     if (translating)
         return DR_EMIT_DEFAULT;
 
-    if (bbcov_per_thread)
-        data = (per_thread_t *)dr_get_tls_field(drcontext);
-    else
-        data = global_data;
-
+    data = (per_thread_t *)dr_get_tls_field(drcontext);
     /* Collect the number of instructions and the basic block size,
      * assuming the basic block does not have any elision on control
      * transfer instructions, which is true for default options passed
      * to DR but not for -opt_speed.
      */
-    num_instrs = 0;
     start_pc = dr_fragment_app_pc(tag);
     end_pc   = start_pc; /* for finding the size */
-    cbr_tgt  = NULL;
     for (instr  = instrlist_first(bb);
          instr != NULL;
          instr  = instr_get_next(instr)) {
         app_pc pc = instr_get_app_pc(instr);
-        if (pc != NULL && instr_ok_to_mangle(instr)) {
+        if (instr_ok_to_mangle(instr)) {
             int len = instr_length(drcontext, instr);
-            num_instrs++;
-            /* no support -opt_speed (elision) */
-            ASSERT(pc >= start_pc, "-opt_spped is not supported");
-            if (pc + len > end_pc) {
+            /* -opt_speed (elision) is not supported */
+            ASSERT(pc != NULL && pc >= start_pc, "-opt_speed is not supported");
+            if (pc + len > end_pc)
                 end_pc = pc + len;
-                if (instr_is_cbr(instr)) {
-                    cbr_tgt = opnd_get_pc(instr_get_target(instr));
-                }
-            }
+#ifdef CBR_COVERAGE
+            num_instrs++;
+            if (instr_opcode_valid(instr) && instr_is_cbr(instr))
+                cbr_tgt = opnd_get_pc(instr_get_target(instr));
+#endif
         }
     }
     /* We allow duplicated basic blocks for the following reasons:
@@ -818,9 +920,12 @@ event_basic_block(void *drcontext, void *tag,
      * 4. The duplication can be easily handled in a post-processing step,
      *    which is required anyway.
      */
-    bb_table_entry_add(drcontext, data, start_pc, cbr_tgt,
-                       (uint)(end_pc - start_pc),
-                       num_instrs, for_trace);
+    bb_table_entry_add(drcontext, data, start_pc,
+#ifdef CBR_COVERAGE
+                       cbr_tgt, num_instrs, for_trace,
+#endif
+                       (uint)(end_pc - start_pc));
+
     return DR_EMIT_DEFAULT;
 }
 
@@ -841,19 +946,25 @@ static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data;
-    if (!bbcov_per_thread)
-        return;
 
     data = (per_thread_t *)dr_get_tls_field(drcontext);
     ASSERT(data != NULL, "data must not be NULL");
-    if (options.dump_text || options.dump_binary) {
-        module_table_print(module_table, data->log);
-        bb_table_print(drcontext, data);
+
+    if (bbcov_per_thread) {
+        /* print per-thread bbcov info */
+        if (options.dump_text || options.dump_binary) {
+            module_table_print(module_table, data->log);
+            bb_table_print(drcontext, data);
+        }
+#ifdef CBR_COVERAGE
+        if (options.check)
+            bb_table_check_cbr(module_table, data);
+#endif
+        thread_data_destroy(drcontext, data);
+    } else {
+        /* the per-thread data is a copy of global data */
+        dr_thread_free(drcontext, data, sizeof(*data));
     }
-    if (options.check) {
-        bb_table_check_cbr(module_table, data);
-    }
-    thread_data_destroy(drcontext, data);
 }
 
 static void 
@@ -861,10 +972,11 @@ event_thread_init(void *drcontext)
 {
     per_thread_t *data;
 
-    if (!bbcov_per_thread)
-        return;
-    /* allocate thread private data */
-    data = thread_data_create(drcontext);
+    /* allocate thread private data for per-thread cache */
+    if (bbcov_per_thread)
+        data = thread_data_create(drcontext);
+    else
+        data = thread_data_copy(drcontext);
     dr_set_tls_field(drcontext, data);
 }
 
@@ -876,9 +988,10 @@ event_exit(void)
             module_table_print(module_table, global_data->log);
             bb_table_print(NULL, global_data);
         }
-        if (options.check) {
+#ifdef CBR_COVERAGE
+        if (options.check)
             bb_table_check_cbr(module_table, global_data);
-        }
+#endif
         global_data_destroy(global_data);
     }
     /* destroy module table */
@@ -915,31 +1028,30 @@ options_init(client_id_t id)
         options.dump_text = true;
     if (strstr(opstr, "-dump_binary") != NULL)
         options.dump_binary = true;
-    if (options.dump_text && options.dump_binary) {
-        /* If both specified, we honor the later one. */
-        if (strstr(opstr, "-dump_text") > strstr(opstr, "-dump_binary"))
-            options.dump_binary = false;
-        else
-            options.dump_text = false;
+    /* If both or neither specified, we honor the binary. */
+    if ((options.dump_text && options.dump_binary) ||
+        (!options.dump_text && !options.dump_binary)) {
+        options.dump_text   = true;
+        options.dump_binary = false;
     }
+#ifdef WINDOWS
+    if (strstr(opstr, "-nudge_kills") != NULL)
+        options.nudge_kills = true;
+#endif
+    options.logdir = strstr(opstr, "-logdir ");
+    if (options.logdir != NULL) {
+        options.logdir += strlen("-logdir ");
+        ASSERT(options.logdir[0] != ' '  &&
+               options.logdir[0] != '\0' && dr_directory_exists(options.logdir),
+               "invalid logdir");
+    }
+#ifdef CBR_COVERAGE
     if (strstr(opstr, "-check_cbr") != NULL) {
         options.check = true;
     }
     if (strstr(opstr, "-summary_only") != NULL) {
         ASSERT(options.check, "check_cbr is not set");
         options.summary = true;
-    }
-#ifdef WINDOWS
-    if (strstr(opstr, "-nudge_kills") != NULL) {
-        options.nudge_kills = true;
-    }
-#endif
-    options.logdir = strstr(opstr, "-logdir ");
-    if (options.logdir != NULL) {
-        options.logdir += strlen("-logdir");
-        for (; *options.logdir == ' '; options.logdir++);
-        ASSERT(options.logdir[0] != '\0' && dr_directory_exists(options.logdir),
-               "invalid logdir");
     }
     if (!options.dump_text && !options.dump_binary &&
         !options.check && !options.summary) {
@@ -948,6 +1060,7 @@ options_init(client_id_t id)
     }
     ASSERT(options.dump_text || options.dump_binary ||
            options.check || options.summary, "invalid options");
+#endif
 }
 
 DR_EXPORT void 
