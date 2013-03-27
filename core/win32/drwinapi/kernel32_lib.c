@@ -136,7 +136,7 @@ redirect_LoadLibraryA(const char *name)
 {
     app_pc res = NULL;
     ASSERT(priv_kernel32_LoadLibraryA != NULL);
-    res = privload_load_private_library(name);
+    res = privload_load_private_library(name, false/*!reachable*/);
     if (res == NULL) {
         /* XXX: if private loader can't handle some feature (delay-load dll,
          * bound imports, etc.), we could have the private kernel32 call the
@@ -161,7 +161,7 @@ redirect_LoadLibraryW(const wchar_t *name)
     if (_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", name) < 0)
         return (*priv_kernel32_LoadLibraryW)(name);
     NULL_TERMINATE_BUFFER(buf);
-    res = privload_load_private_library(buf);
+    res = privload_load_private_library(buf, false/*!reachable*/);
     if (res == NULL) {
         /* XXX: should set more appropriate error code */
         set_last_error(ERROR_DLL_NOT_FOUND);

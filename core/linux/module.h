@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -325,8 +325,7 @@ typedef struct elf_loader_t {
 } elf_loader_t;
 
 typedef byte *(*map_fn_t)(file_t f, size_t *size INOUT, uint64 offs,
-                          app_pc addr, uint prot/*MEMPROT_*/, bool cow,
-                          bool image, bool fixed);
+                          app_pc addr, uint prot/*MEMPROT_*/, map_flags_t map_flags);
 typedef bool (*unmap_fn_t)(byte *map, size_t size);
 typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot/*MEMPROT_*/);
 
@@ -354,7 +353,7 @@ elf_loader_read_headers(elf_loader_t *elf, const char *filename);
  * headers and debug info.  Does not re-map the same file if called twice.
  */
 app_pc
-elf_loader_map_file(elf_loader_t *elf);
+elf_loader_map_file(elf_loader_t *elf, bool reachable);
 
 /* Maps in the PT_LOAD segments of an ELF file, returning the base.  Must be
  * called after reading program headers with elf_loader_read_phdrs() or the
@@ -363,7 +362,7 @@ elf_loader_map_file(elf_loader_t *elf);
  */
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
-                     unmap_fn_t unmap_func, prot_fn_t prot_func);
+                     unmap_fn_t unmap_func, prot_fn_t prot_func, bool reachable);
 
 /* Iterate program headers of a mapped ELF image and find the string that
  * PT_INTERP points to.  Typically this comes early in the file and is always

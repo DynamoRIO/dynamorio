@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -951,15 +951,16 @@ injectee_mmap(dr_inject_info_t *info, void *addr, size_t sz, int prot,
  */
 static byte *
 injectee_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
-                  uint prot, bool copy_on_write, bool image, bool fixed)
+                  uint prot, map_flags_t map_flags)
 {
     int fd;
     int flags = 0;
     app_pc r;
-    if (copy_on_write)
+    if (TEST(MAP_FILE_COPY_ON_WRITE, map_flags))
         flags |= MAP_PRIVATE;
-    if (fixed)
+    if (TEST(MAP_FILE_FIXED, map_flags))
         flags |= MAP_FIXED;
+    /* MAP_FILE_IMAGE is a nop on Linux. */
     if (f == injector_dr_fd)
         fd = injectee_dr_fd;
     else
@@ -967,7 +968,6 @@ injectee_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
     if (fd == -1) {
         flags |= MAP_ANONYMOUS;
     }
-    /* image is a nop on Linux. */
     r = injectee_mmap(injector_info, addr, *size, memprot_to_osprot(prot),
                       flags, fd, offs);
     if (!mmap_syscall_succeeded(r)) {
@@ -1084,8 +1084,7 @@ detach_and_exec_gdb(process_id_t pid, const char *library_path)
     uint64 size64;
     os_get_file_size_by_handle(f, &size64);
     size_t size = (size_t) size64;
-    byte *base = os_map_file(f, &size, 0, NULL, MEMPROT_READ,
-                             true, false, false);
+    byte *base = os_map_file(f, &size, 0, NULL, MEMPROT_READ, MAP_FILE_COPY_ON_WRITE);
     app_pc text_start = (app_pc) module_get_text_section(base, size);
     os_unmap_file(base, size);
     os_close(f);
@@ -1168,7 +1167,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injectee_dr_fd = dr_fd;
     injected_base = elf_loader_map_phdrs(&loader, true/*fixed*/,
                                          injectee_map_file, injectee_unmap,
-                                         injectee_prot);
+                                         injectee_prot, false/*!reachable*/);
     if (injected_base == NULL) {
         if (verbose)
             fprintf(stderr, "Unable to mmap libdynamorio.so in injectee\n");

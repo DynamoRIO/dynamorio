@@ -329,7 +329,7 @@ typedef uint64 dr_auxlib64_routine_ptr_t;
 typedef void * shlib_handle_t;
 typedef void (*shlib_routine_ptr_t)();
 
-shlib_handle_t load_shared_library(const char *name);
+shlib_handle_t load_shared_library(const char *name, bool reachable);
 #elif defined(WINDOWS) && !defined(X64)
 /* Used for non-CLIENT_INTERFACE as well */
 typedef uint64 dr_auxlib64_handle_t;
@@ -704,7 +704,7 @@ bool os_rename_file(const char *orig_name, const char *new_name, bool replace);
  * and handling it is covered by PR 214097.
  */
 byte *os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
-                  uint prot, bool copy_on_write, bool image, bool fixed);
+                  uint prot, map_flags_t map_flags);
 bool os_unmap_file(byte *map, size_t size);
 /* unlike set_protection, os_set_protection does not update 
  * the allmem info in Linux. */
@@ -1009,10 +1009,10 @@ trim_landing_pad(byte *lpad_start, size_t space_used);
 void landing_pads_to_executable_areas(bool add);
 
 /* in loader_shared.c */
-app_pc load_private_library(const char *filename);
+app_pc load_private_library(const char *filename, bool reachable);
 bool unload_private_library(app_pc modbase);
 /* searches in standard paths instead of requiring abs path */
-app_pc locate_and_load_private_library(const char *name);
+app_pc locate_and_load_private_library(const char *name, bool reachable);
 void loader_init(void);
 void loader_exit(void);
 void loader_thread_init(dcontext_t *dcontext);

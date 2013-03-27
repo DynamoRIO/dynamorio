@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3508,9 +3508,8 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
             /* FIXME if mmap up front (case 9758) don't need this mmap */
             sz = pers.header_len+pers.data_len-sizeof(persisted_footer_t);
             map = map_file(fd, &sz, 0, NULL, MEMPROT_READ,
-                           false/*won't change so save pagefile by not asking for COW*/,
-                           false/*!image*/,
-                           false/*!fixed*/);
+                           /* won't change so save pagefile by not asking for COW */
+                           MAP_FILE_REACHABLE);
             ASSERT(map != NULL);
             if (map == NULL) {
                 /* give up */
@@ -3854,8 +3853,8 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
                    /* case 9599: asking for COW commits pagefile space
                     * up front, so we map two separate views later: see below
                     */
-                   true/*writes should not change file*/, false/*!image*/,
-                   false/* !fixed*/);
+                   MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
+                   MAP_FILE_REACHABLE);
     /* case 9925: if we keep the file handle open we can prevent writes
      * to the file while it's mapped in, but it prevents our rename replacement
      * scheme (case 9701/9720) so we have it under option control.
@@ -4045,13 +4044,13 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
             map = map_file(fd, &map_size, 0, map,
                            /* Ask for max, then restrict pieces */
                            MEMPROT_READ|MEMPROT_EXEC,
-                           false/*no COW to avoid pagefile cost*/, false/*!image*/,
-                           false/*!fixed*/);
+                           /* no COW to avoid pagefile cost */
+                           MAP_FILE_REACHABLE);
             map2 = map_file(fd, &map2_size, map_size, map + map_size,
                             /* Ask for max, then restrict pieces */
                             MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
-                            true/*writes should not change file*/, false/*!image*/,
-                            false/*!fixed*/);
+                            MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
+                            MAP_FILE_REACHABLE);
             /* FIXME: try again if racy alloc and they both don't fit */
             if (!DYNAMO_OPTION(persist_lock_file)) {
                 os_close(fd);

@@ -417,7 +417,7 @@ add_client_lib(char *path, char *id_str, char *options)
 
     LOG(GLOBAL, LOG_INTERP, 4, "about to load client library %s\n", path);
 
-    client_lib = load_shared_library(path);
+    client_lib = load_shared_library(path, true/*reachable*/);
     if (client_lib == NULL) {
         char msg[MAXIMUM_PATH*4];
         char err[MAXIMUM_PATH*2];
@@ -468,9 +468,9 @@ add_client_lib(char *path, char *id_str, char *options)
             LOG(GLOBAL, LOG_INTERP, 1, "loaded %s at "PFX"-"PFX"\n",
                 path, client_libs[idx].start, client_libs[idx].end);
 #ifdef X64
-            /* provide a better error message than the heap assert */
-            CLIENT_ASSERT(client_libs[idx].start < MAX_LOW_2GB,
-                          "64-bit client library must have base in lower 2GB");
+            /* Now that we map the client within the constraints, this request
+             * should always succeed.
+             */
             request_region_be_heap_reachable(client_libs[idx].start,
                                              client_libs[idx].end -
                                              client_libs[idx].start);
@@ -2883,7 +2883,7 @@ dr_load_aux_library(const char *name,
                     byte **lib_end /*OPTIONAL OUT*/)
 {
     byte *start, *end;
-    dr_auxlib_handle_t lib = load_shared_library(name);
+    dr_auxlib_handle_t lib = load_shared_library(name, true/*reachable*/);
     if (shared_library_bounds(lib, NULL, name, &start, &end)) {
         /* be sure to replace b/c i#852 now adds during load w/ empty data */
         vmvector_add_replace(client_aux_libs, start, end, (void*)lib);
@@ -3680,10 +3680,12 @@ void *
 dr_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
             uint flags)
 {
-    return (void *) map_file(f, size, offs, addr, prot,
-                             TEST(DR_MAP_PRIVATE, flags),
-                             IF_WINDOWS_ELSE(TEST(DR_MAP_IMAGE, flags), false),
-                             IF_WINDOWS_ELSE(false, TEST(DR_MAP_FIXED, flags)));
+    return (void *)
+        map_file(f, size, offs, addr, prot,
+                 (TEST(DR_MAP_PRIVATE, flags) ? MAP_FILE_COPY_ON_WRITE : 0) |
+                 IF_WINDOWS((TEST(DR_MAP_IMAGE, flags) ? MAP_FILE_IMAGE : 0) |)
+                 IF_LINUX((TEST(DR_MAP_FIXED, flags) ? MAP_FILE_FIXED : 0) |)
+                 (TEST(DR_MAP_CACHE_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
 }
 
 DR_API
@@ -3924,7 +3926,7 @@ dr_enable_console_printing(void)
              * locate-and-load.
              */
             priv_kernel32 = (shlib_handle_t)
-                locate_and_load_private_library("kernel32.dll");
+                locate_and_load_private_library("kernel32.dll", false/*!reachable*/);
         }
         if (priv_kernel32 != NULL && kernel32_WriteFile == NULL) {
             kernel32_WriteFile = (kernel32_WriteFile_t)

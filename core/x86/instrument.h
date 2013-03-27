@@ -3216,23 +3216,29 @@ enum {
      * to other processes that map the same file, and will be propagated
      * to the file itself.
      */
-    DR_MAP_PRIVATE             = 0x1,
+    DR_MAP_PRIVATE             = 0x0001,
 #ifdef LINUX
     /**
      * If set, indicates that the passed-in start address is required rather than a
      * hint.  On Linux, this has the same semantics as mmap with MAP_FIXED: i.e.,
-     * any existing mapping in [addr,addr+size) will be unmapped.  This flags is not
+     * any existing mapping in [addr,addr+size) will be unmapped.  This flag is not
      * supported on Windows.
      */
-    DR_MAP_FIXED               = 0x2,
+    DR_MAP_FIXED               = 0x0002,
 #endif
 #ifdef WINDOWS
     /**
      * If set, loads the specified file as an executable image, rather than a data
-     * file.  This flags is not supported on Linux.
+     * file.  This flag is not supported on Linux.
      */
-    DR_MAP_IMAGE               = 0x4,
+    DR_MAP_IMAGE               = 0x0004,
 #endif
+    /**
+     * If set, loads the specified file at a location that is reachable from
+     * the code cache and client libraries by a 32-bit displacement.  If not
+     * set, the mapped file is not guaranteed to be reachable from the cache.
+     */
+    DR_MAP_CACHE_REACHABLE     = 0x0008,
 };
 /* DR_API EXPORT END */
 

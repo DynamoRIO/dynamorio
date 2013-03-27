@@ -3476,14 +3476,45 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     return p;
 }
 
+static bool
+find_free_memory_in_region(byte *start, byte *end, size_t size,
+                           byte **found_start OUT, byte **found_end OUT)
+{
+    byte *cur, *p = NULL;
+    MEMORY_BASIC_INFORMATION mbi;
+    /* walk bounds to find a suitable location */
+    cur = (byte *)ALIGN_FORWARD(start, VM_ALLOCATION_BOUNDARY);
+    while (p == NULL && cur + size <= (byte *)end &&
+           query_virtual_memory(cur, &mbi, sizeof(mbi)) == sizeof(mbi)) { 
+        if (mbi.State == MEM_FREE &&
+            mbi.RegionSize - (cur - (byte *)mbi.BaseAddress) >= size) {
+            /* we have a slot */
+            if (found_start != NULL)
+                *found_start = cur;
+            if (found_end != NULL)
+                *found_end = (byte *)mbi.BaseAddress + mbi.RegionSize;
+            return true;
+        }
+        cur = (byte *)ALIGN_FORWARD((byte *)mbi.BaseAddress + mbi.RegionSize,
+                                    VM_ALLOCATION_BOUNDARY);
+        /* check for overflow or 0 region size to prevent infinite loop */
+        if (cur <= (byte *)mbi.BaseAddress)
+            break; /* give up */
+    }
+    return false;
+}
+
 /* executable arg is ignored */
 void *
 os_heap_reserve_in_region(void *start, void *end, size_t size,
                           heap_error_code_t *error_code, bool executable)
 {
-    byte *cur, *p = NULL;
-    MEMORY_BASIC_INFORMATION mbi;
+    byte *try_start, *p = NULL;
+    uint iters = 0;
+#   define MAX_REGION_ITERS 100    
 
+    ASSERT(ALIGNED(start, PAGE_SIZE) && ALIGNED(end, PAGE_SIZE));
+    ASSERT(ALIGNED(size, PAGE_SIZE));
     ASSERT(start < end);
 
     LOG(GLOBAL, LOG_HEAP, 3,
@@ -3493,26 +3524,20 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
     if (start == (void *)PTR_UINT_0 && end == (void *)POINTER_MAX)
         return os_heap_reserve(NULL, size, error_code, executable);
 
-    /* walk bounds to find a suitable location */
-    cur = (byte *)ALIGN_FORWARD(start, VM_ALLOCATION_BOUNDARY);
     *error_code = HEAP_ERROR_CANT_RESERVE_IN_REGION;
-    while (p == NULL && cur + size <= (byte *)end &&
-           query_virtual_memory(cur, &mbi, sizeof(mbi)) == sizeof(mbi)) { 
-        if (mbi.State == MEM_FREE &&
-            mbi.RegionSize - (cur - (byte *)mbi.BaseAddress) >= size) {
-            /* we have a slot */
-            p = (byte *)os_heap_reserve(cur, size, error_code, executable);
-            /* note - p could be NULL if someone grabbed some of the memory first */
-            LOG(GLOBAL, LOG_HEAP, (p == NULL) ? 1U : 3U,
-                "os_heap_reserve_in_region: got "PFX" trying to reserve "SZFMT" byte @ "
-                PFX" in free region "PFX"-"PFX"\n",
-                p, size, cur, mbi.BaseAddress, (byte *)mbi.BaseAddress + mbi.RegionSize);
+    /* loop to handle races */
+    while (find_free_memory_in_region(start, end, size, &try_start, NULL)) {
+        p = (byte *)os_heap_reserve(try_start, size, error_code, executable);
+        /* note - p could be NULL if someone grabbed some of the memory first */
+        LOG(GLOBAL, LOG_HEAP, (p == NULL) ? 1U : 3U,
+            "os_heap_reserve_in_region: got "PFX" reserving "SZFMT" byte @ "PFX"\n",
+            p, size, try_start);
+        if (p != NULL)
+            break;
+        if (++iters > MAX_REGION_ITERS) {
+            ASSERT_NOT_REACHED();
+            break;
         }
-        cur = (byte *)ALIGN_FORWARD((byte *)mbi.BaseAddress + mbi.RegionSize,
-                                    VM_ALLOCATION_BOUNDARY);
-        /* check for overflow or 0 region size to prevent infinite loop */
-        if (cur <= (byte *)mbi.BaseAddress)
-            break; /* give up */
     }
 
     LOG(GLOBAL, LOG_HEAP, 2,
@@ -3912,13 +3937,13 @@ os_countdown_messagebox(char *message, int time_in_milliseconds) {
 
 #if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
 shlib_handle_t 
-load_shared_library(const char *name)
+load_shared_library(const char *name, bool client)
 {
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         /* We call locate_and_load_private_library() to support searching for
          * a pathless name.
          */
-        return (shlib_handle_t) locate_and_load_private_library(name);
+        return (shlib_handle_t) locate_and_load_private_library(name, client);
     } else {
         wchar_t buf[MAX_PATH];
         snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%hs", name);
@@ -5706,16 +5731,22 @@ os_rename_file_in_directory(IN HANDLE rootdir,
 
 byte *
 os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-            bool copy_on_write, bool image, bool fixed)
+            map_flags_t map_flags)
 {
     NTSTATUS res;
     HANDLE section;
     byte *map = addr;
     uint osprot = memprot_to_osprot(prot);
+#ifdef X64
+    bool loop = false;
+    byte *region_start = NULL, *region_end = NULL;
+    uint iters = 0;
+#   define MAX_MAP_LOOP_ITERS 100
+#endif
     LARGE_INTEGER li_offs;
     li_offs.QuadPart = offs;
 
-    if (copy_on_write && TEST(MEMPROT_WRITE, prot)) {
+    if (TEST(MAP_FILE_COPY_ON_WRITE, map_flags) && TEST(MEMPROT_WRITE, prot)) {
         /* Ask for COW for both the section and the view, though we should only
          * need it for the view (except on win98, according to Richter p604)
          */
@@ -5728,7 +5759,7 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
                             /* can only be SEC_IMAGE if a PE file */
                             /* FIXME: SEC_RESERVE shouldn't work w/ COW yet
                              * it did in my test */
-                            image ? SEC_IMAGE : SEC_COMMIT,
+                            TEST(MAP_FILE_IMAGE, map_flags) ? SEC_IMAGE : SEC_COMMIT,
                             f,
                             /* process private - no security needed */
                             /* object name attributes */
@@ -5737,19 +5768,38 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
         LOG(GLOBAL, LOG_NT, 2, "os_map_file: NtCreateSection error "PFX"\n", res);
         return NULL;
     }
-    /* FIXME case 9642: support requesting a particular base address so
-     * we can randomize, make adjacent to vmheap, etc.
-     */
-    res = nt_raw_MapViewOfSection(section, /* 0 */
-                                  NT_CURRENT_PROCESS, /* 1 */
-                                  &map, /* 2 */
-                                  0, /* 3 */
-                                  0 /* not page-file-backed */, /* 4 */
-                                  &li_offs, /* 5 */
-                                  (PSIZE_T) size, /* 6 */
-                                  ViewUnmap /* FIXME: expose? */, /* 7 */
-                                  0 /* no special top-down or anything */, /* 8 */
-                                  osprot); /* 9 */
+#ifdef X64
+    if (TEST(MAP_FILE_REACHABLE, map_flags)) {
+        loop = true;
+        vmcode_get_reachable_region(&region_start, &region_end);
+        /* addr need not be NULL: we'll use it if it's in the region */
+    }
+    while (!loop ||
+           (map != NULL && map >= region_start && map+*size <= region_end) ||
+           find_free_memory_in_region(region_start, region_end, *size, &map, NULL)) {
+#endif
+        res = nt_raw_MapViewOfSection(section, /* 0 */
+                                      NT_CURRENT_PROCESS, /* 1 */
+                                      &map, /* 2 */
+                                      0, /* 3 */
+                                      0 /* not page-file-backed */, /* 4 */
+                                      &li_offs, /* 5 */
+                                      (PSIZE_T) size, /* 6 */
+                                      ViewUnmap /* FIXME: expose? */, /* 7 */
+                                      0 /* no special top-down or anything */, /* 8 */
+                                      osprot); /* 9 */
+#ifdef X64
+        if (!loop || NT_SUCCESS(res))
+            break;
+        if (++iters > MAX_MAP_LOOP_ITERS) {
+            ASSERT_NOT_REACHED();
+            break;
+        }
+        map = NULL; /* pick a new one */
+    }
+    if (NT_SUCCESS(res) && TEST(MAP_FILE_REACHABLE, map_flags))
+        ASSERT(map >= region_start && map+*size <= region_end);
+#endif
     /* We do not need to keep the section handle open */
     close_handle(section);
     if (!NT_SUCCESS(res)) {

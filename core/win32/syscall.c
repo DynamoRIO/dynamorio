@@ -3243,13 +3243,13 @@ postsys_create_or_open_section(dcontext_t *dcontext,
                  */
                 size_t size = 0;
                 byte *pc = os_map_file(file_handle, &size, 0, NULL, MEMPROT_READ,
-                                       false/*no cow*/, false/*!image*/, false/*!fixed*/);
+                                       0/*not cow or image*/);
                 if (pc == NULL) {
                     /* We don't know what perms the file was opened with.  Sometimes
                      * we can only map +x so try that.
                      */
                     pc = os_map_file(file_handle, &size, 0, NULL, MEMPROT_EXEC,
-                                     false/*no cow*/, false/*!image*/, false/*!fixed*/);
+                                     0/*not cow or image*/);
                 }
                 if (pc != NULL) {
                     NTSTATUS res = get_mapped_file_name(pc, buf, BUFFER_SIZE_BYTES(buf));

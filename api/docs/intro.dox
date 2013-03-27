@@ -1047,8 +1047,10 @@ from any copy used by the application.
 If the private loader is deliberately disabled, for transparency reasons
 (see \ref transparency), clients should be 
 self-contained and should not share libraries with the application.  
-Additionally, 64-bit clients must set a preferred base address in the
-lower 2GB.
+Without the private loader, 64-bit clients must take care to try and load
+themselves within reachable range of DynamoRIO's code caches by setting a
+preferred base address, although this may not always be honored by the
+system loader.
 
 The DynamoRIO release supplies <a href="http://www.cmake.org">CMake</a>
 configuration files to facilitate building clients with the proper

@@ -85,16 +85,28 @@ typedef enum {
 # define IF_HEAPACCT_ELSE(x, y) y
 #endif
 
+typedef enum {
+    MAP_FILE_COPY_ON_WRITE   = 0x0001,
+    MAP_FILE_IMAGE           = 0x0002, /* Windows-only */
+    MAP_FILE_FIXED           = 0x0004, /* Linux-only */
+    MAP_FILE_REACHABLE       = 0x0008, /* Map at location reachable from vmcode */
+} map_flags_t;
+
 typedef byte * heap_pc;
 #define HEAP_ALIGNMENT sizeof(heap_pc*)
 extern vm_area_vector_t *landing_pad_areas;
 
+#ifdef X64
 /* Request that the supplied region be 32bit offset reachable from the DR heap.  Should
  * be called before vmm_heap_init() so we can place the DR heap to meet these constraints.
  * Can also be called post vmm_heap_init() but at that point acts as an assert that the
  * supplied region is reachable since the heap is already reserved. */
 void
 request_region_be_heap_reachable(byte *start, size_t size);
+
+void
+vmcode_get_reachable_region(byte **region_start OUT, byte **region_end OUT);
+#endif
 
 /* virtual heap manager */
 void vmm_heap_init(void);
@@ -142,7 +154,7 @@ void heap_munmap_ex(void *p, size_t size, bool guarded);
 /* updates dynamo_areas and calls the os_ versions */
 byte *
 map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-         bool copy_on_write, bool image, bool fixed);
+         map_flags_t map_flags);
 bool
 unmap_file(byte *map, size_t size);
 

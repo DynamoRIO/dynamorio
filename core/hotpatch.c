@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1228,7 +1228,7 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
              * Once we have our own loader we can remove this.
              */
             VUL(vul_tab, vul).hotp_dll_base = 
-                load_shared_library(hotp_dll_path);
+                load_shared_library(hotp_dll_path, false/*!reachable*/);
         
             /* TODO: if module base is null, raise a log event, mark vul as not
              *       usable (probably a new status) and move on; for now just

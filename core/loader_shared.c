@@ -236,15 +236,15 @@ loader_thread_exit(dcontext_t *dcontext)
  * Will also accept a full path.
  */
 app_pc
-locate_and_load_private_library(const char *name)
+locate_and_load_private_library(const char *name, bool reachable)
 {
     DODEBUG(privload_recurse_cnt = 0;);
-    return privload_load_private_library(name);
+    return privload_load_private_library(name, reachable);
 }
 
 /* Load private library for DR's client.  Must be passed a full path. */
 app_pc
-load_private_library(const char *filename)
+load_private_library(const char *filename, bool reachable)
 {
     app_pc res = NULL;
     privmod_t *privmod;
@@ -260,7 +260,7 @@ load_private_library(const char *filename)
      */
     if (privmod == NULL) {
         DODEBUG(privload_recurse_cnt = 0;);
-        privmod = privload_load(filename, NULL);
+        privmod = privload_load(filename, NULL, reachable);
     }
 
     if (privmod != NULL)
@@ -441,7 +441,7 @@ privload_read_drpath_file(const char *libname)
             os_get_file_size_by_handle(f, &file_size)) {
             LOG(GLOBAL, LOG_LOADER, 2, "%s: reading %s\n", __FUNCTION__, path);
             map = (char *)
-                os_map_file(f, &map_size, 0, NULL, MEMPROT_READ, false, false, false);
+                os_map_file(f, &map_size, 0, NULL, MEMPROT_READ, 0);
             if (map != NULL && map_size >= file_size) {
                 const char *s = (char *) map;
                 const char *nl;
@@ -472,7 +472,7 @@ privload_read_drpath_file(const char *libname)
 }
 
 privmod_t *
-privload_load(const char *filename, privmod_t *dependent)
+privload_load(const char *filename, privmod_t *dependent, bool client)
 {
     app_pc map;
     size_t size;
@@ -490,7 +490,7 @@ privload_load(const char *filename, privmod_t *dependent)
 
     LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s\n", __FUNCTION__, filename);
 
-    map = privload_map_and_relocate(filename, &size);
+    map = privload_map_and_relocate(filename, &size, client);
     if (map == NULL) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to map %s\n", __FUNCTION__, filename);
         return NULL;

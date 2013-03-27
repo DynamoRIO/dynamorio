@@ -112,7 +112,7 @@ static const char *
 privload_map_name(const char *impname, privmod_t *immed_dep);
 
 static privmod_t *
-privload_locate_and_load(const char *impname, privmod_t *dependent);
+privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachable);
 
 static void
 privload_add_windbg_cmds_post_init(privmod_t *mod);
@@ -683,12 +683,12 @@ privload_unload_imports(privmod_t *mod)
 
 /* if anything fails, undoes the mapping and returns NULL */
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT)
+privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable)
 {
     file_t fd;
     app_pc map;
     app_pc pref;
-    byte *(*map_func)(file_t, size_t *, uint64, app_pc, uint, bool, bool, bool);
+    byte *(*map_func)(file_t, size_t *, uint64, app_pc, uint, map_flags_t);
     bool (*unmap_func)(file_t, size_t);
     ASSERT(size != NULL);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
@@ -725,53 +725,40 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
     /* On Windows, SEC_IMAGE => the kernel sets up the different segments w/
      * proper protections for us, all on this single map syscall
      */
-    /* First map: let kernel pick base */
+    /* First map: let kernel pick base.
+     * Even for a lib that needs to be reachable, we'd need to read or map
+     * the headers to find the preferred base anyway, and the common
+     * case will be a client lib with a preferred base in the low 2GB which
+     * will need no re-mapping.
+     */
     map = (*map_func)(fd, size, 0/*offs*/, NULL/*base*/,
                       /* Ask for max, then restrict pieces */
                       MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
-                      true/*writes should not change file*/, true/*image*/,
-                      false/*!fixed*/);
+                      MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
+                      MAP_FILE_IMAGE/*image*/);
 #ifdef X64
-    /* Client libs need to be in lower 2GB.  DynamoRIOConfig.cmake tries to ensure
-     * that.  Other libs that clients use don't need to be, but we add them as DR
-     * areas, so DR will assert if they're not: so we match the Linux private loader
-     * and get everything in the lower 2GB.  We search for the client too in
-     * case built w/o preferred or conflict w/ executable.
-     */
-    if (map >= MAX_LOW_2GB) {
-        MEMORY_BASIC_INFORMATION mbi;
-        byte *cur = (byte *)(ptr_uint_t)VM_ALLOCATION_BOUNDARY;
-        size_t fsz = *size;
+    if (reachable) {
         bool reloc = module_file_relocatable(map);
-        (*unmap_func)(map, fsz);
+        (*unmap_func)(map, *size);
         map = NULL;
         if (!reloc) {
             os_close(fd);
             return NULL; /* failed */
         }
-        /* Query to find a big enough region */
-        while (cur + fsz <= MAX_LOW_2GB &&
-               query_virtual_memory(cur, &mbi, sizeof(mbi)) == sizeof(mbi)) { 
-            if (mbi.State == MEM_FREE &&
-                mbi.RegionSize - (cur - (byte *)mbi.BaseAddress) >= fsz) {
-                map = (*map_func)(fd, size, 0/*offs*/, cur,
-                                  MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
-                                  true/*COW*/, true/*image*/, false/*!fixed*/);
-                if (map != NULL) {
-                    if (map >= MAX_LOW_2GB) {
-                        /* try again: could be a race or sthg */
-                        (*unmap_func)(map, fsz);
-                        map = NULL;
-                    } else
-                        break; /* done */
-                }
+        /* Re-map with MAP_FILE_REACHABLE */
+        map = (*map_func)(fd, size, 0/*offs*/, NULL,
+                          MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
+                          MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
+                          MAP_FILE_IMAGE/*image*/ |
+                          MAP_FILE_REACHABLE);
+        DOCHECK(1, {
+            if (map != NULL) {
+                byte *region_start = NULL;
+                byte *region_end = NULL;
+                vmcode_get_reachable_region(&region_start, &region_end);
+                ASSERT(map >= region_start && map+*size <= region_end);
             }
-            cur = (byte *)ALIGN_FORWARD((byte *)mbi.BaseAddress + mbi.RegionSize,
-                                        VM_ALLOCATION_BOUNDARY);
-            /* check for overflow or 0 region size to prevent infinite loop */
-            if (cur <= (byte *)mbi.BaseAddress)
-                break; /* give up */
-        }
+        });
     }
 #endif
     os_close(fd); /* no longer needed */
@@ -801,7 +788,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
 
 static privmod_t *
 privload_lookup_locate_and_load(const char *name, privmod_t *name_dependent,
-                                privmod_t *load_dependent, bool inc_refcnt)
+                                privmod_t *load_dependent, bool inc_refcnt,
+                                bool reachable)
 {
     privmod_t *newmod = NULL;
     const char *path;
@@ -809,7 +797,7 @@ privload_lookup_locate_and_load(const char *name, privmod_t *name_dependent,
     path = privload_map_name(name, name_dependent);
     newmod = privload_lookup(path);
     if (newmod == NULL)
-        newmod = privload_locate_and_load(path, load_dependent);
+        newmod = privload_locate_and_load(path, load_dependent, reachable);
     else if (inc_refcnt)
         newmod->ref_count++;
     return newmod;
@@ -819,12 +807,13 @@ privload_lookup_locate_and_load(const char *name, privmod_t *name_dependent,
  * passing it the whole path (i#486).
  */
 app_pc
-privload_load_private_library(const char *name)
+privload_load_private_library(const char *name, bool reachable)
 {
     privmod_t *newmod;
     app_pc res = NULL;
     acquire_recursive_lock(&privload_lock);
-    newmod = privload_lookup_locate_and_load(name, NULL, NULL, true/*inc refcnt*/);
+    newmod = privload_lookup_locate_and_load(name, NULL, NULL, true/*inc refcnt*/,
+                                             reachable);
     if (newmod != NULL)
         res = newmod->base;
     release_recursive_lock(&privload_lock);
@@ -881,7 +870,8 @@ privload_process_imports(privmod_t *mod)
                 __FUNCTION__, mod->name);
         }
 
-        impmod = privload_lookup_locate_and_load(impname, mod, mod, true/*inc refcnt*/);
+        impmod = privload_lookup_locate_and_load(impname, mod, mod, true/*inc refcnt*/,
+                                                 false/*=> true if in client/ext dir*/);
         if (impmod == NULL) {
             LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load import lib %s\n",
                 __FUNCTION__, impname);
@@ -1050,7 +1040,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
          */
         forwmod = privload_lookup_locate_and_load
             (forwmodpath, last_forwmod == NULL ? mod : last_forwmod,
-             mod, false/*!inc refcnt*/);
+             mod, false/*!inc refcnt*/, false/*=> true if in client/ext dir*/);
         if (forwmod == NULL) {
             LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forworder for %s\n"
                 __FUNCTION__, forwarder);
@@ -1312,7 +1302,7 @@ privload_map_name(const char *impname, privmod_t *immed_dep)
 }
 
 static privmod_t *
-privload_locate_and_load(const char *impname, privmod_t *dependent)
+privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachable)
 {
     privmod_t *mod = NULL;
     uint i;
@@ -1331,7 +1321,7 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
 
     /* We may be passed a full path. */
     if (os_file_exists(impname, false/*!is_dir*/)) {
-        mod = privload_load(impname, dependent);
+        mod = privload_load(impname, dependent, reachable);
         return mod; /* if fails to load, don't keep searching */
     }
 
@@ -1342,7 +1332,7 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
         NULL_TERMINATE_BUFFER(modpath);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
         if (os_file_exists(modpath, false/*!is_dir*/)) {
-            mod = privload_load(modpath, dependent);
+            mod = privload_load(modpath, dependent, true/*always reachable*/);
             /* if fails to load, don't keep searching: that seems the most
              * reasonable semantics.  we could keep searching: then should
              * relax the privload_recurse_cnt curiosity b/c won't be reset
@@ -1359,7 +1349,7 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
         NULL_TERMINATE_BUFFER(modpath);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
         if (os_file_exists(modpath, false/*!is_dir*/)) {
-            mod = privload_load(modpath, dependent);
+            mod = privload_load(modpath, dependent, reachable);
             return mod; /* if fails to load, don't keep searching */
         }
         /* 4) windows dir */
@@ -1368,7 +1358,7 @@ privload_locate_and_load(const char *impname, privmod_t *dependent)
         NULL_TERMINATE_BUFFER(modpath);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, modpath);
         if (os_file_exists(modpath, false/*!is_dir*/)) {
-            mod = privload_load(modpath, dependent);
+            mod = privload_load(modpath, dependent, reachable);
             return mod; /* if fails to load, don't keep searching */
         }
     }

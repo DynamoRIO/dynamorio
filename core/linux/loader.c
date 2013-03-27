@@ -112,10 +112,10 @@ static void
 privload_init_search_paths(void);
 
 static bool
-privload_locate(const char *name, privmod_t *dep, char *filename OUT);
+privload_locate(const char *name, privmod_t *dep, char *filename OUT, bool *client OUT);
 
 static privmod_t *
-privload_locate_and_load(const char *impname, privmod_t *dependent);
+privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachable);
 
 static void
 privload_call_modules_entry(privmod_t *mod, uint reason);
@@ -331,7 +331,7 @@ dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
 }
 
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT)
+privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable)
 {
     map_fn_t map_func;
     unmap_fn_t unmap_func;
@@ -361,7 +361,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
         return NULL;
 
     base = elf_loader_map_phdrs(&loader, false /* fixed */, map_func,
-                                unmap_func, prot_func);
+                                unmap_func, prot_func, reachable);
     if (base != NULL) {
         if (size != NULL)
             *size = loader.image_size;
@@ -371,7 +371,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT)
          * are not part of the mapped image, so we have to map the whole file.
          * XXX: seek to e_shoff and read the section headers to avoid this map.
          */
-        if (elf_loader_map_file(&loader) != NULL) {
+        if (elf_loader_map_file(&loader, reachable) != NULL) {
             text_addr = (app_pc)module_get_text_section(loader.file_map,
                                                         loader.file_size);
             text_addr += loader.load_delta;
@@ -419,7 +419,8 @@ privload_process_imports(privmod_t *mod)
         if (dyn->d_tag == DT_NEEDED) {
             name = strtab + dyn->d_un.d_val;
             if (privload_lookup(name) == NULL) {
-                privmod_t *impmod = privload_locate_and_load(name, mod);
+                privmod_t *impmod = privload_locate_and_load(name, mod,
+                                                             false/*client dir=>true*/);
                 if (impmod == NULL)
                     return false;
 #ifdef CLIENT_INTERFACE
@@ -509,23 +510,23 @@ privload_init_search_paths(void)
 }
 
 static privmod_t *
-privload_locate_and_load(const char *impname, privmod_t *dependent)
+privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachable)
 {
     char filename[MAXIMUM_PATH];
-    if (privload_locate(impname, dependent, filename))
-        return privload_load(filename, dependent);
+    if (privload_locate(impname, dependent, filename, &reachable))
+        return privload_load(filename, dependent, reachable);
     return NULL;
 }
 
 app_pc
-privload_load_private_library(const char *name)
+privload_load_private_library(const char *name, bool reachable)
 {
     privmod_t *newmod;
     app_pc res = NULL;
     acquire_recursive_lock(&privload_lock);
     newmod = privload_lookup(name);
     if (newmod == NULL)
-        newmod = privload_locate_and_load(name, NULL);
+        newmod = privload_locate_and_load(name, NULL, reachable);
     else
         newmod->ref_count++;
     if (newmod != NULL)
@@ -603,7 +604,8 @@ privload_search_rpath(privmod_t *mod, const char *name,
 
 static bool
 privload_locate(const char *name, privmod_t *dep, 
-                char *filename OUT /* buffer size is MAXIMUM_PATH */)
+                char *filename OUT /* buffer size is MAXIMUM_PATH */,
+                bool *reachable INOUT)
 {
     uint i;
     char *lib_paths;
@@ -632,6 +634,8 @@ privload_locate(const char *name, privmod_t *dep,
             __FUNCTION__, filename);
         if (os_file_exists(filename, false/*!is_dir*/) &&
             os_file_has_elf_so_header(filename)) {
+            /* If in client or extension dir, always map it reachable */
+            *reachable = true;
             return true;
         }
     }
@@ -1323,7 +1327,7 @@ privload_early_inject(void **sp)
              "architecture.");
     /* FIXME: PIEs with a base of 0 should not use MAP_FIXED. */
     exe_map = elf_loader_map_phdrs(&exe_ld, true /* MAP_FIXED */, os_map_file,
-                                   os_unmap_file, os_set_protection);
+                                   os_unmap_file, os_set_protection, false/*!reachable*/);
     apicheck(exe_map != NULL, "Failed to load application.  "
              "Check path and architecture.");
     ASSERT(exe_ld.load_delta == 0);
@@ -1352,7 +1356,7 @@ privload_early_inject(void **sp)
         apicheck(success, "Failed to read ELF interpreter headers.");
         interp_map = elf_loader_map_phdrs(&interp_ld, false /* fixed */,
                                           os_map_file, os_unmap_file,
-                                          os_set_protection);
+                                          os_set_protection, false/*!reachable*/);
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
         ASSERT_MESSAGE(CHKLVL_ASSERTS, "The interpreter shouldn't have an "

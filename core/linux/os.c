@@ -2963,12 +2963,44 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     return p;
 }
 
+static bool
+find_free_memory_in_region(byte *start, byte *end, size_t size,
+                           byte **found_start OUT, byte **found_end OUT)
+{
+    maps_iter_t iter;
+    /* XXX: despite /proc/sys/vm/mmap_min_addr == PAGE_SIZE, mmap won't
+     * give me that address if I use it as a hint.
+     */
+    app_pc last_end = (app_pc) (PAGE_SIZE*16);
+    bool found = false;
+    maps_iterator_start(&iter, false/*won't alloc*/);
+    while (maps_iterator_next(&iter)) {
+        if (iter.vm_start >= start &&
+            MIN(iter.vm_start, end) - MAX(last_end, start) >= size) {
+            if (found_start != NULL)
+                *found_start = MAX(last_end, start);
+            if (found_end != NULL)
+                *found_end = MIN(iter.vm_start, end);
+            found = true;
+            break;
+        }
+        if (iter.vm_start >= end)
+            break;
+        last_end = iter.vm_end;
+    }
+    maps_iterator_stop(&iter);
+    return found;
+}
+
 void *
 os_heap_reserve_in_region(void *start, void *end, size_t size,
                           heap_error_code_t *error_code, bool executable)
 {
     byte *p = NULL;
     byte *try_start;
+
+    ASSERT(ALIGNED(start, PAGE_SIZE) && ALIGNED(end, PAGE_SIZE));
+    ASSERT(ALIGNED(size, PAGE_SIZE));
 
     LOG(GLOBAL, LOG_HEAP, 3,
         "os_heap_reserve_in_region: "SZFMT" bytes in "PFX"-"PFX"\n", size, start, end);
@@ -2977,16 +3009,14 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
     if (start == (void *)PTR_UINT_0 && end == (void *)POINTER_MAX)
         return os_heap_reserve(NULL, size, error_code, executable);
 
-    /* FIXME: be smarter and use a memory query instead of trying every single page 
-     * FIXME: if result is not at preferred it may still be in range: so
-     * make syscall ourselves and avoid this loop.
-     */
-    for (try_start = (byte *) start; try_start < (byte *)end - size;
-         try_start += PAGE_SIZE) {
+    /* loop to handle races */
+    while (find_free_memory_in_region(start, end, size, &try_start, NULL)) {
         p = os_heap_reserve(try_start, size, error_code, executable);
-        if (*error_code == HEAP_ERROR_SUCCESS && p != NULL &&
-            p >= (byte *)start && p + size <= (byte *)end)
+        if (p != NULL) {
+            ASSERT(*error_code == HEAP_ERROR_SUCCESS);
+            ASSERT(p >= (byte *)start && p + size <= (byte *)end);
             break;
+        }
     }
     if (p == NULL)
         *error_code = HEAP_ERROR_CANT_RESERVE_IN_REGION;
@@ -3475,7 +3505,7 @@ get_num_processors(void)
 
 #if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
 shlib_handle_t 
-load_shared_library(const char *name)
+load_shared_library(const char *name, bool reachable)
 {
 # ifdef STATIC_LIBRARY
     if (os_files_same(name, get_application_name())) {
@@ -3489,7 +3519,7 @@ load_shared_library(const char *name)
      * a pathless name.
      */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
-        return (shlib_handle_t) locate_and_load_private_library(name);
+        return (shlib_handle_t) locate_and_load_private_library(name, reachable);
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlopen(name, RTLD_LAZY);
 }
@@ -3969,10 +3999,16 @@ os_delete_mapped_file(const char *filename)
 
 byte *
 os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-            bool copy_on_write, bool image, bool fixed)
+            map_flags_t map_flags)
 {
     int flags;
-#ifndef X64
+    byte *map;
+#if defined(X64) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+    bool loop = false;
+    uint iters = 0;
+#   define MAX_MMAP_LOOP_ITERS 100
+    byte *region_start = NULL, *region_end = NULL;
+#else
     uint pg_offs;
     ASSERT_TRUNCATE(pg_offs, uint, offs / PAGE_SIZE);
     pg_offs = (uint) (offs / PAGE_SIZE);
@@ -3980,30 +4016,64 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
 #ifdef VMX86_SERVER
     flags = MAP_PRIVATE; /* MAP_SHARED not supported yet */
 #else
-    flags = copy_on_write ? MAP_PRIVATE : MAP_SHARED;
+    flags = TEST(MAP_FILE_COPY_ON_WRITE, map_flags) ? MAP_PRIVATE : MAP_SHARED;
 #endif
-#ifdef X64
-    /* allocate memory from reachable range for image: or anything (pcache
-     * in particular)
+#if defined(X64) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+    /* Allocate memory from reachable range for image: or anything (pcache
+     * in particular): for low 4GB, easiest to just pass MAP_32BIT (which is
+     * low 2GB, but good enough).
      */
-    if (!fixed)
+    if (DYNAMO_OPTION(heap_in_lower_4GB) && !TEST(MAP_FILE_FIXED, map_flags))
         flags |= MAP_32BIT;
 #endif
     /* Allows memory request instead of mapping a file, 
      * so we can request memory from a particular address with fixed argument */
     if (f == -1)
         flags |= MAP_ANONYMOUS;
-    if (fixed)
+    if (TEST(MAP_FILE_FIXED, map_flags))
         flags |= MAP_FIXED;
-    byte *map = mmap_syscall(addr, *size, memprot_to_osprot(prot),
-                             flags, f,
-                             /* mmap in X64 uses offset instead of page offset */
-                             IF_X64_ELSE(offs, pg_offs));
-    if (!mmap_syscall_succeeded(map)) {
-        LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n",
-            __func__, map);
-        map = NULL;
+    /* Reachability is not supported for drinjectlib */
+#if defined(X64) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+    if (!TEST(MAP_32BIT, flags) && TEST(MAP_FILE_REACHABLE, map_flags)) {
+        vmcode_get_reachable_region(&region_start, &region_end);
+        /* addr need not be NULL: we'll use it if it's in the region */
+        ASSERT(!TEST(MAP_FILE_FIXED, map_flags));
+        /* Loop to handle races */
+        loop = true;
     }
+    while (!loop ||
+           (addr != NULL && addr >= region_start && addr+*size <= region_end) ||
+           find_free_memory_in_region(region_start, region_end, *size, &addr, NULL)) {
+#endif
+        map = mmap_syscall(addr, *size, memprot_to_osprot(prot),
+                           flags, f,
+                           /* mmap in X64 uses offset instead of page offset */
+                           IF_X64_ELSE(offs, pg_offs));
+        if (!mmap_syscall_succeeded(map)) {
+            LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n",
+                __func__, map);
+            map = NULL;
+        }
+#if defined(X64) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+        else if (loop && (map < region_start || map+*size > region_end)) {
+            /* Try again: probably a race.  Hopefully our notion of "there's a free
+             * region big enough" matches the kernel's, else we'll loop forever
+             * (which we try to catch w/ a max iters count).
+             */
+            munmap_syscall(addr, *size);
+            map = NULL;
+        } else
+            break;
+        if (!loop)
+            break;
+        if (++iters > MAX_MMAP_LOOP_ITERS) {
+            ASSERT_NOT_REACHED();
+            map = NULL;
+            break;
+        }
+        addr = NULL; /* pick a new one */
+    }
+#endif
     return map;
 }
 

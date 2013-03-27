@@ -500,6 +500,18 @@ request_region_be_heap_reachable(byte *start, size_t size)
                           get_application_name(), get_application_pid());
     }
 }
+
+void
+vmcode_get_reachable_region(byte **region_start OUT, byte **region_end OUT)
+{
+    /* We track sub-page for more accuracy on additional constraints, and
+     * align when asked about it.
+     */
+    if (region_start != NULL)
+        *region_start = (byte *) ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE);
+    if (region_end != NULL)
+        *region_end = (byte *) ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE);
+}
 #endif
 
 /* forward declarations of static functions */
@@ -755,10 +767,11 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
         vmh->alloc_size = size + VMM_BLOCK_SIZE;
 #ifdef X64
         /* PR 215395, make sure allocation satisfies heap reachability contraints */
-        vmh->alloc_start = os_heap_reserve_in_region(heap_allowable_region_start,
-                                                     heap_allowable_region_end,
-                                                     size + VMM_BLOCK_SIZE, &error_code,
-                                                     true/*+x*/);
+        vmh->alloc_start = os_heap_reserve_in_region
+            ((void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
+             (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE),
+             size + VMM_BLOCK_SIZE, &error_code,
+             true/*+x*/);
 #else
         vmh->alloc_start = (heap_pc)
             os_heap_reserve(NULL, size + VMM_BLOCK_SIZE, &error_code, true/*+x*/);
@@ -1062,9 +1075,10 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable)
             });     
 #ifdef X64
             /* PR 215395, make sure allocation satisfies heap reachability contraints */
-            p = os_heap_reserve_in_region(heap_allowable_region_start,
-                                          heap_allowable_region_end,
-                                          size, error_code, executable);
+            p = os_heap_reserve_in_region
+                ((void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
+                 (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE),
+                 size, error_code, executable);
             /* ensure future heap allocations are reachable from this allocation */
             if (p != NULL)
                 request_region_be_heap_reachable(p, size);
@@ -1127,8 +1141,10 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable)
     /* if we fail to allocate from our reservation we fall back to the OS */
 #ifdef X64
     /* PR 215395, make sure allocation satisfies heap reachability contraints */
-    p = os_heap_reserve_in_region(heap_allowable_region_start, heap_allowable_region_end,
-                                  size, error_code, executable);
+    p = os_heap_reserve_in_region
+        ((void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
+         (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE),
+         size, error_code, executable);
     /* ensure future heap allocations are reachable from this allocation */
     if (p != NULL)
         request_region_be_heap_reachable(p, size);
@@ -2345,12 +2361,12 @@ is_stack_overflow(dcontext_t *dcontext, byte *sp)
 
 byte *
 map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-         bool copy_on_write, bool image, bool fixed)
+         map_flags_t map_flags)
 {
     byte *view;
     /* memory alloc/dealloc and updating DR list must be atomic */
     dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
-    view = os_map_file(f, size, offs, addr, prot, copy_on_write, image, fixed);
+    view = os_map_file(f, size, offs, addr, prot, map_flags);
     if (view != NULL) {
         STATS_ADD_PEAK(file_map_capacity, *size);
         account_for_memory((void *)view, *size, prot, true/*add now*/, true/*image*/
@@ -4646,10 +4662,10 @@ alloc_landing_pad(app_pc addr_to_hook)
         bool allocated = true;
         heap_error_code_t heap_error;
         lpad_area_end = NULL;
-        lpad_area_start = os_heap_reserve_in_region(alloc_region_start,
-                                                    alloc_region_end,
-                                                    LANDING_PAD_AREA_SIZE,
-                                                    &heap_error, true/*+x*/);
+        lpad_area_start = os_heap_reserve_in_region
+            ((void *)ALIGN_FORWARD(alloc_region_start, PAGE_SIZE),
+             (void *)ALIGN_BACKWARD(alloc_region_end, PAGE_SIZE),
+             LANDING_PAD_AREA_SIZE, &heap_error, true/*+x*/);
         if (lpad_area_start == NULL ||
             heap_error == HEAP_ERROR_CANT_RESERVE_IN_REGION) {
             /* Should retry with using just the aligned target address - we may

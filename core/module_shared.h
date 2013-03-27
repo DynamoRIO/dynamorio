@@ -480,7 +480,7 @@ privload_print_modules(bool path, bool lock, char *buf, size_t bufsz, size_t *so
  * os independent functions in loader_shared.c, can be called from loader.c  *
  * ************************************************************************* */
 privmod_t *
-privload_load(const char *filename, privmod_t *dependent);
+privload_load(const char *filename, privmod_t *dependent, bool reachable);
 
 bool
 privload_unload(privmod_t *privmod);
@@ -504,7 +504,7 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
 
 /* searches in standard paths instead of requiring abs path */
 app_pc
-privload_load_private_library(const char *name);
+privload_load_private_library(const char *name, bool reachable);
 
 void
 privload_redirect_setup(privmod_t *mod);
@@ -513,7 +513,7 @@ void
 privload_os_finalize(privmod_t *privmod_t);
 
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT);
+privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable);
 
 bool
 privload_call_entry(privmod_t *privmod, uint reason);

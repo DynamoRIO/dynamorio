@@ -2076,7 +2076,7 @@ elf_loader_read_ehdr(elf_loader_t *elf)
 }
 
 app_pc
-elf_loader_map_file(elf_loader_t *elf)
+elf_loader_map_file(elf_loader_t *elf, bool reachable)
 {
     uint64 size64;
     if (elf->file_map != NULL)
@@ -2091,7 +2091,8 @@ elf_loader_map_file(elf_loader_t *elf)
      * We don't need to add and remove it from dynamo_areas.
      */
     elf->file_map = os_map_file(elf->fd, &elf->file_size, 0, NULL, MEMPROT_READ,
-                                true/*cow*/, false/*image*/, false/*fixed*/);
+                                MAP_FILE_COPY_ON_WRITE |
+                                (reachable ? MAP_FILE_REACHABLE : 0));
     return elf->file_map;
 }
 
@@ -2112,7 +2113,7 @@ elf_loader_read_phdrs(elf_loader_t *elf)
          * seek and read just the phdrs to avoid disturbing the address space,
          * but that would introduce a dependency on DR's heap.
          */
-        if (elf_loader_map_file(elf) == NULL)
+        if (elf_loader_map_file(elf, false/*!reachable*/) == NULL)
             return NULL;
         elf->phdrs = (ELF_PROGRAM_HEADER_TYPE *) (elf->file_map +
                                                   elf->ehdr->e_phoff);
@@ -2134,7 +2135,7 @@ elf_loader_read_headers(elf_loader_t *elf, const char *filename)
 
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
-                     unmap_fn_t unmap_func, prot_fn_t prot_func)
+                     unmap_fn_t unmap_func, prot_fn_t prot_func, bool reachable)
 {
     app_pc lib_base, lib_end, last_end;
     ELF_HEADER_TYPE *elf_hdr = elf->ehdr;
@@ -2154,9 +2155,10 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
     /* reserve the memory from os for library */
     lib_base = (*map_func)(-1, &elf->image_size, 0, map_base,
                            MEMPROT_WRITE | MEMPROT_READ /* prot */,
-                           true  /* copy-on-write */,
-                           true  /* image, make it reachable */,
-                           fixed);
+                           MAP_FILE_COPY_ON_WRITE |
+                           MAP_FILE_IMAGE |
+                           (fixed ? MAP_FILE_FIXED : 0) |
+                           (reachable ? MAP_FILE_REACHABLE : 0));
     ASSERT(lib_base != NULL);
     lib_end = lib_base + elf->image_size;
     elf->load_base = lib_base;
@@ -2208,9 +2210,10 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             map = (*map_func)(elf->fd, &seg_size, pg_offs,
                               seg_base /* base */,
                               seg_prot | MEMPROT_WRITE /* prot */,
-                              true /* writes should not change file */,
-                              true /* image */,
-                              true /* fixed */);
+                              MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
+                              MAP_FILE_IMAGE |
+                              /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
+                              MAP_FILE_FIXED);
             ASSERT(map != NULL);
             /* fill zeros at extend size */
             file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
