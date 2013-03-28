@@ -3637,6 +3637,14 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
              * like signals do for better performance?
              */
             cxt->CXT_XIP = (ptr_uint_t) nt_continue_dynamo_start;
+        } else if (cxt->CXT_XIP == (ptr_uint_t) thread_attach_takeover) {
+            /* We set the context of this thread before it was done with its init
+             * APC: so we need to undo our takeover changes and take over
+             * normally here.
+             */
+            thread_attach_context_revert(cxt);
+            dcontext->asynch_target = (app_pc) cxt->CXT_XIP;
+            cxt->CXT_XIP = (ptr_uint_t) nt_continue_dynamo_start;
         } else {
             /* No explanation for this one! */
             SYSLOG_INTERNAL_ERROR("ERROR: intercept_nt_continue: xip="PFX

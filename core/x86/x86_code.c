@@ -219,7 +219,7 @@ native_get_retstack_idx(priv_mcontext_t *mc)
 /* Called by new_thread_dynamo_start to initialize the dcontext
  * structure for the current thread and start executing at the
  * the pc stored in the clone_record_t * stored at mc->pc.
- * Assumes that it is called on the initstack.
+ * Assumes that it is called on the dstack.
  *
  * CAUTION: don't add a lot of stack variables in this routine or call a lot 
  *          of functions before get_clone_record() because get_clone_record() 

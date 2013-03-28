@@ -370,6 +370,17 @@ ntdll_RtlGetExtendedContextLength_t ntdll_RtlGetExtendedContextLength   = NULL;
 ntdll_RtlInitializeExtendedContext_t ntdll_RtlInitializeExtendedContext = NULL;
 ntdll_RtlLocateLegacyContext_t ntdll_RtlLocateLegacyContext = NULL;
 
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+/* Nt* routines that are not available on all versions of Windows */
+typedef NTSTATUS (WINAPI *NtGetNextThread_t)(__in HANDLE ProcessHandle,
+                                             __in HANDLE ThreadHandle,
+                                             __in ACCESS_MASK DesiredAccess,
+                                             __in ULONG HandleAttributes,
+                                             __in ULONG Flags,
+                                             __out PHANDLE NewThreadHandle);
+NtGetNextThread_t NtGetNextThread;
+#endif
+
 /***************************************************************************
  * Implementation
  */
@@ -586,6 +597,11 @@ nt_get_context_extended_functions(app_pc base)
     }
 }
 
+static void
+nt_init_dynamic_syscall_wrappers(app_pc base)
+{
+    NtGetNextThread = (NtGetNextThread_t) get_proc_address(base, "NtGetNextThread");
+}
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 void
@@ -596,6 +612,7 @@ ntdll_init()
      */
     ASSERT(offsetof(TEB, TlsSlots) == TEB_TLS64_OFFSET);
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+    nt_init_dynamic_syscall_wrappers((app_pc)get_ntdll_base());
     nt_get_context_extended_functions((app_pc)get_ntdll_base());
 #endif
 }
@@ -844,6 +861,27 @@ process_handle_from_id(process_id_t pid)
         return h;
 }
 
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+HANDLE
+thread_handle_from_id(thread_id_t tid)
+{
+    NTSTATUS res;
+    HANDLE h;
+    OBJECT_ATTRIBUTES oa;
+    CLIENT_ID cid;
+    InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, NULL, NULL);
+    memset(&cid, 0, sizeof(cid));
+    cid.UniqueThread = (HANDLE) tid;
+    res = nt_raw_OpenThread(&h, THREAD_ALL_ACCESS, &oa, &cid);
+    if (!NT_SUCCESS(res)) {
+        NTPRINT("nt_open_thread failed: %x\n", res);
+    }
+    if (!NT_SUCCESS(res))
+        return INVALID_HANDLE_VALUE;
+    else
+        return h;
+}
+#endif
 
 /* PEB:
  * for a running thread this is stored at fs:[30h] 
@@ -2005,6 +2043,17 @@ nt_thread_resume(HANDLE hthread, int *previous_suspend_count)
     res = NT_SYSCALL(ResumeThread, hthread, (ULONG *)previous_suspend_count);
     return NT_SUCCESS(res);
 }
+
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+NTSTATUS
+nt_thread_iterator_next(HANDLE hprocess, HANDLE cur_thread, HANDLE *next_thread,
+                        ACCESS_MASK access)
+{
+    if (NtGetNextThread == NULL)
+        return STATUS_NOT_IMPLEMENTED;
+    return NtGetNextThread(hprocess, cur_thread, access, 0, 0, next_thread);
+}
+#endif
 
 bool
 nt_terminate_thread(HANDLE hthread, NTSTATUS exit_code)

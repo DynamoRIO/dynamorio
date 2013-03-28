@@ -1000,6 +1000,9 @@ process_id_from_thread_handle(HANDLE h);
 HANDLE
 process_handle_from_id(process_id_t pid);
 
+HANDLE
+thread_handle_from_id(thread_id_t tid);
+
 PEB *
 get_peb(HANDLE h);
 
@@ -1092,6 +1095,13 @@ nt_thread_suspend(HANDLE hthread, int *previous_suspend_count);
 
 bool
 nt_thread_resume(HANDLE hthread, int *previous_suspend_count);
+
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+/* Returns STATUS_NOT_IMPLEMENTED on pre-Vista */
+NTSTATUS
+nt_thread_iterator_next(HANDLE hprocess, HANDLE cur_thread, HANDLE *next_thread,
+                        ACCESS_MASK access);
+#endif
 
 bool
 nt_terminate_thread(HANDLE hthread, NTSTATUS exit_code);
@@ -1370,6 +1380,9 @@ query_full_attributes_file(PCWSTR filename,
 
 /* From NTSTATUS.H -- this shouldn't change, but you never know... */
 /* DDK2003SP1/3790.1830/inc/wnet/ntstatus.h */
+
+#define STATUS_NOT_IMPLEMENTED           ((NTSTATUS)0xC0000002L)
+
 #define STATUS_INFO_LENGTH_MISMATCH      ((NTSTATUS)0xC0000004L)
 
 /* The requested operation is not implemented. */

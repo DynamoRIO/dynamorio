@@ -142,6 +142,9 @@ void
 os_terminate_wow64_write_args(bool exit_process, HANDLE proc_or_thread_handle,
                               int exit_status);
 
+void
+thread_attach_context_revert(CONTEXT *cxt INOUT);
+
 /* in syscall.c *********************************************************/
 
 /* this points to a windows-version-specific syscall array */
@@ -751,5 +754,9 @@ bootstrap_protect_virtual_memory(void *base, size_t size, uint prot, uint *old_p
 /* in ntdll.c, set via arg from parent for earliest inj */
 void
 set_ntdll_base(app_pc base);
+
+/* in diagnost.c */
+byte *
+get_system_processes(OUT uint *info_bytes_needed);
 
 #endif /* _OS_PRIVATE_H_ */

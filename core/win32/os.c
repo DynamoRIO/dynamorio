@@ -167,6 +167,12 @@ get_process_owner_SID(void);
 static size_t
 get_allocation_size_ex(HANDLE process, byte *pc, byte **base_pc);
 
+static void
+os_take_over_init(void);
+
+static void
+os_take_over_exit(void);
+
 bool
 os_user_directory_supports_ownership(void);
 
@@ -964,6 +970,8 @@ os_init(void)
         os_user_directory_supports_ownership();
     is_wow64_process(NT_CURRENT_PROCESS);
     is_in_ntdll(get_ntdll_base());
+
+    os_take_over_init();
 }
 
 static void
@@ -1092,6 +1100,7 @@ os_slow_exit(void)
 
     aslr_exit();
     eventlog_slow_exit();
+    os_take_over_exit();
 }
 
 
@@ -1560,12 +1569,425 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
     set_asynch_interception(get_thread_id(), false);
 }
 
+/***************************************************************************
+ * THREAD TAKEOVER
+ */
+
+/* Data passed to a thread for its own initialization */
+typedef struct _takeover_data_t {
+    app_pc continuation_pc;
+    byte *dstack;
+    bool in_progress;
+    priv_mcontext_t mc;
+} takeover_data_t;
+
+/* List of threads */
+typedef struct _thread_list_t {
+    HANDLE handle;
+    thread_id_t tid; /* may not be known, in which case INVALID_THREAD_ID */
+    void *user_data; /* set to NULL initially */
+} thread_list_t;
+
+/* Stored in thread_list_t.user_data */
+enum {
+    TAKEOVER_NEW = 0, /* must match initial NULL */
+    TAKEOVER_TRIED,
+    TAKEOVER_SUCCESS,
+};
+
+/* Our set of a thread's context is not always visible until the thread is
+ * scheduled.  Thus to avoid memory leaks we need global storage that lasts
+ * across calls to os_take_over_all_unknown_threads().
+ * We also use the table to ensure we (eventually) free any takeover_data_t for
+ * a thread that never gets scheduled.
+ * A final use is for cases where our set context doesn't seem to take
+ * effect except for eip.
+ */
+static generic_table_t *takeover_table;
+#define INIT_HTABLE_SIZE_TAKEOVER 6 /* should remain small */
+#define INVALID_PAYLOAD ((void *)(ptr_int_t)-2) /* NULL and -1 are used by table */
+
+static void
+takeover_table_entry_free(void *e)
+{
+    takeover_data_t *data = (takeover_data_t *) e;
+    if (e == INVALID_PAYLOAD)
+        return;
+   if (data->dstack != NULL)
+        stack_free(data->dstack, DYNAMORIO_STACK_SIZE);
+    global_heap_free(data, sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
+}
+
+static void
+os_take_over_init(void)
+{
+    takeover_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_TAKEOVER,
+                                         80 /* load factor: not perf-critical */,
+                                         HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
+                                         takeover_table_entry_free
+                                         _IF_DEBUG("takeover table"));
+}
+
+/* Only called on slow exit */
+static void
+os_take_over_exit(void)
+{
+    generic_hash_destroy(GLOBAL_DCONTEXT, takeover_table);
+}
+
+/* We need to distinguish a thread intercepted via APC hook but that is in ntdll
+ * code (e.g., waiting for a lock) so we mark threads during init prior to being
+ * added to the main thread table
+ */
+void
+os_take_over_mark_thread(thread_id_t tid)
+{
+    TABLE_RWLOCK(takeover_table, write, lock);
+    if (generic_hash_lookup(GLOBAL_DCONTEXT, takeover_table, tid) == NULL)
+        generic_hash_add(GLOBAL_DCONTEXT, takeover_table, tid, INVALID_PAYLOAD);
+    TABLE_RWLOCK(takeover_table, write, unlock);
+}
+
+void
+os_take_over_unmark_thread(thread_id_t tid)
+{
+    TABLE_RWLOCK(takeover_table, write, lock);
+    if (generic_hash_lookup(GLOBAL_DCONTEXT, takeover_table, tid) == INVALID_PAYLOAD)
+        generic_hash_remove(GLOBAL_DCONTEXT, takeover_table, tid);
+    TABLE_RWLOCK(takeover_table, write, unlock);
+}
+
+/* Returns an array of num_threads_out thread_list_t entries allocated on the
+ * global protected heap with HEAPACCT(ACCT_THREAD_MGT).
+ * Each HANDLE should be closed prior to freeing the array.
+ */
+static thread_list_t *
+os_list_threads(uint *num_threads_out)
+{
+    HANDLE hthread;
+    thread_list_t *threads = NULL;
+    NTSTATUS res = nt_thread_iterator_next
+        (NT_CURRENT_PROCESS, NULL, &hthread, THREAD_ALL_ACCESS);
+    ASSERT(num_threads_out != NULL);
+    if (NT_SUCCESS(res)) {
+        uint num_threads = 0;
+        uint num_alloc = 16;
+        threads = global_heap_alloc(num_alloc*sizeof(*threads) HEAPACCT(ACCT_THREAD_MGT));
+        do {
+            if (num_threads == num_alloc) {
+                uint new_alloc = num_alloc * 2;
+                threads = global_heap_realloc(threads, num_alloc, new_alloc,
+                                              sizeof(*threads) HEAPACCT(ACCT_THREAD_MGT));
+                num_alloc = new_alloc;
+            }
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "%s: thread %d handle="PFX"\n", __FUNCTION__, num_threads, hthread);
+            threads[num_threads].handle = hthread;
+            threads[num_threads].tid = INVALID_THREAD_ID;
+            threads[num_threads].user_data = NULL;
+            num_threads++;
+            res = nt_thread_iterator_next
+                (NT_CURRENT_PROCESS, hthread, &hthread, THREAD_ALL_ACCESS);
+        } while (NT_SUCCESS(res));
+        *num_threads_out = num_threads;
+        threads = global_heap_realloc(threads, num_alloc, num_threads,
+                                      sizeof(*threads) HEAPACCT(ACCT_THREAD_MGT));
+    } else {
+        SYSTEM_PROCESSES *sp;
+        uint sysinfo_size;
+        byte *sysinfo;
+        sysinfo = get_system_processes(&sysinfo_size);
+        sp = (SYSTEM_PROCESSES *) sysinfo;
+        while (sysinfo != NULL) {
+            if (is_pid_me((process_id_t)sp->ProcessId)) {
+                uint i;
+                threads = global_heap_alloc(sp->ThreadCount*sizeof(*threads)
+                                            HEAPACCT(ACCT_THREAD_MGT));
+                for (i = 0; i < sp->ThreadCount; i++) {
+                    thread_id_t tid = (thread_id_t) sp->Threads[i].ClientId.UniqueThread;
+                    LOG(GLOBAL, LOG_THREADS, 1,
+                        "%s: thread %d UniqueThread="PFX"\n", __FUNCTION__, i, tid);
+                    threads[i].handle = thread_handle_from_id(tid);
+                    threads[i].tid = tid;
+                    threads[i].user_data = NULL;
+                }
+                *num_threads_out = sp->ThreadCount;
+                break;
+            }
+            if (sp->NextEntryDelta == 0)
+                break;
+            sp = (SYSTEM_PROCESSES *) (((byte *)sp) + sp->NextEntryDelta);
+        }
+        global_heap_free(sysinfo, sysinfo_size HEAPACCT(ACCT_OTHER));
+    }
+    return threads;
+}
+
+/* Removes the entry for the executing thread from the table and frees data */
+static void
+thread_attach_remove_from_table(takeover_data_t *data)
+{
+    TABLE_RWLOCK(takeover_table, write, lock);
+    /* this will free data */
+    data->dstack = NULL; /* don't free this */
+    generic_hash_remove(GLOBAL_DCONTEXT, takeover_table, (ptr_uint_t)get_thread_id());
+    TABLE_RWLOCK(takeover_table, write, unlock);
+}
+
+void
+thread_attach_context_revert(CONTEXT *cxt INOUT)
+{
+    takeover_data_t *data = (takeover_data_t *) cxt->CXT_XBX;
+    mcontext_to_context(cxt, &data->mc, false /*! set cur_seg*/);
+    cxt->CXT_XIP = (ptr_uint_t) data->continuation_pc;;
+    thread_attach_remove_from_table(data);
+}
+
+/* On success, returns true and leaves thread suspended. */
+static bool
+os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid)
+{
+    bool success = true;
+    char buf[MAX_CONTEXT_SIZE];
+    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    ASSERT(tid == thread_id_from_handle(hthread));
+    if (nt_thread_suspend(hthread, NULL) &&
+        NT_SUCCESS(nt_get_context(hthread, cxt))) {
+        /* Rather than try to emulate clone handling by putting this
+         * on the stack and thus risking transparency violations, we
+         * just allocate it on our heap and point xax at it.
+         * We switch to dstack and point the thread at an init routine.
+         */
+        NTSTATUS res;
+        takeover_data_t *data;
+        void *already_taken_over;
+        /* Avoid double-takeover.
+         * N.B.: is_dynamo_address() on xip and xsp is not sufficient as
+         * a newly set context may not show up until the thread is scheduled.
+         * We still want to check them to catch threads created after
+         * our APC hook was in place.
+         */
+        TABLE_RWLOCK(takeover_table, read, lock);
+        already_taken_over =
+            generic_hash_lookup(GLOBAL_DCONTEXT, takeover_table, (ptr_uint_t)tid);
+        TABLE_RWLOCK(takeover_table, read, unlock);
+        if (already_taken_over != NULL ||
+            is_dynamo_address((byte *)cxt->CXT_XIP) ||
+            is_dynamo_address((byte *)cxt->CXT_XSP)) {
+            /* Thread was never scheduled on last takeover, or has not
+             * yet added itself to main thread table.
+             */
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "\tthread %d partially taken over already; pc="PFX"\n", tid, cxt->CXT_XIP);
+            if (already_taken_over != NULL && already_taken_over != INVALID_PAYLOAD &&
+                !is_dynamo_address((byte *)cxt->CXT_XIP) &&
+                /* Rule out thread initializing but currently in ntdll */
+                !((takeover_data_t *)already_taken_over)->in_progress &&
+                cxt->CXT_XIP != (ptr_uint_t) thread_attach_takeover) {
+                /* XXX: I see cases where my setcontext succeeds, immediate getcontext
+                 * confirms, and then later the thread's context is back to native
+                 * and we never take it over!  So we detect here and try again.
+                 */
+                data = (takeover_data_t *) already_taken_over;
+                ASSERT(is_dynamo_address(data->dstack));
+                LOG(GLOBAL, LOG_THREADS, 1, "\tthread %d reverted!", tid);
+            } else
+                return true;
+        } else {
+            data = (takeover_data_t *)
+                global_heap_alloc(sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
+            data->dstack = stack_alloc(DYNAMORIO_STACK_SIZE);
+        }
+        context_to_mcontext(&data->mc, cxt);
+        data->in_progress = false;
+        data->continuation_pc = (app_pc) cxt->CXT_XIP;
+        cxt->CXT_XIP = (ptr_uint_t) thread_attach_takeover;
+        /* XXX: xax, xcx, and xdx get clobbered (b/c of wow64 syscall return
+         * complications for NtSetContextThread?) so we use xbx
+         */
+        cxt->CXT_XBX = (ptr_uint_t) data;
+        cxt->CXT_XSP = (ptr_uint_t) data->dstack;
+        cxt->CXT_XFLAGS = 0; /* must clear DF */
+        ASSERT(TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags));
+        res = nt_set_context(hthread, cxt);
+        if (!NT_SUCCESS(res)) {
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "\tfailed to set context for thread %d with error %d\n", tid, res);
+            success = false;
+            global_heap_free(data, sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
+            if (!nt_thread_resume(hthread, NULL)) {
+                LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to resume thread %d\n", tid);
+                ASSERT_NOT_REACHED();
+            }
+        } else {
+            if (already_taken_over == NULL) {
+                TABLE_RWLOCK(takeover_table, write, lock);
+                generic_hash_add(GLOBAL_DCONTEXT, takeover_table, tid, data);
+                TABLE_RWLOCK(takeover_table, write, unlock);
+            }
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "\tset context for thread %d; old xsp="PFX", old xip="PFX", data="PFX"\n",
+                tid, data->mc.xsp, data->continuation_pc, data);
+            /* leave thread suspended */
+        }
+    } else {
+        LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to suspend/query thread %d\n", tid);
+        success = false;
+    }
+    return success;
+}
+
 bool
 os_take_over_all_unknown_threads(dcontext_t *dcontext)
 {
-    /* FIXME NYI i#725: Part of Windows attach. */
-    return false;  /* Means there were no other threads. */
+    uint i, iters;
+    const uint MAX_ITERS = 16;
+    uint num_threads = 0;
+    thread_list_t *threads = NULL;
+    bool took_over_all = true, found_new_threads = true;
+    /* ensure user_data starts out how we think it does */
+    ASSERT(TAKEOVER_NEW == (ptr_uint_t) NULL);
+
+    mutex_lock(&thread_initexit_lock);
+
+    /* Need to iterate until no new threads, w/ an escape valve of max iters.
+     * This ends up looking similar to synch_with_all_threads(), though it has
+     * some key differences, making it non-trivial to share code.
+     * We need to do at least 2 iters no matter what, but dr_app_start or
+     * external attach should be considered heavyweight events in any case.
+     */
+    for (iters = 0; found_new_threads && iters < MAX_ITERS; iters++) {
+        uint num_new_threads, j;
+        thread_list_t *new_threads = os_list_threads(&num_new_threads);
+        LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: iteration %d\n", iters);
+        if (new_threads == NULL) {
+            took_over_all = false;
+            break;
+        }
+        found_new_threads = false;
+        for (i = 0; i < num_new_threads; i++) {
+            if (new_threads[i].tid == INVALID_THREAD_ID)
+                new_threads[i].tid = thread_id_from_handle(new_threads[i].handle);
+        }
+        if (threads != NULL) {
+            /* Copy user_data over.  Yeah, nested loop: but hashtable seems overkill. */
+            for (i = 0; i < num_threads; i++) {
+                for (j = 0; j < num_new_threads; j++) {
+                    if (new_threads[j].tid == threads[i].tid)
+                        new_threads[j].user_data = threads[i].user_data;
+                }
+                if ((ptr_uint_t)threads[i].user_data == TAKEOVER_SUCCESS)
+                    close_handle(threads[i].handle);
+            }
+            global_heap_free(threads, num_threads*sizeof(*threads)
+                             HEAPACCT(ACCT_THREAD_MGT));
+        }
+        threads = new_threads;
+        num_threads = num_new_threads;
+        for (i = 0; i < num_threads; i++) {
+            thread_record_t *tr;
+            if ((ptr_uint_t)threads[i].user_data == TAKEOVER_NEW) {
+                found_new_threads = true;
+                threads[i].user_data = (void *)(ptr_uint_t) TAKEOVER_TRIED;
+                tr = thread_lookup(threads[i].tid);
+                if (tr == NULL) { /* not already under our control */
+                    /* cur thread is assumed to be under DR */
+                    ASSERT(threads[i].tid != get_thread_id());
+                    LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: taking over thread %d\n",
+                        threads[i].tid);
+                    if (os_take_over_thread(dcontext, threads[i].handle,
+                                            threads[i].tid)) {
+                        threads[i].user_data = (void *)(ptr_uint_t) TAKEOVER_SUCCESS;
+                    } else
+                        took_over_all = false;
+                }
+            }
+            if ((ptr_uint_t)threads[i].user_data != TAKEOVER_SUCCESS)
+                close_handle(threads[i].handle);
+        }
+    }
+    /* Potential risk of a thread from an earlier list somehow not showing up on
+     * the final list: but shouldn't happen unless the thread is destroyed in
+     * which case it's ok to never resume it.
+     */
+    for (i = 0; i < num_threads; i++) {
+        if ((ptr_uint_t)threads[i].user_data == TAKEOVER_SUCCESS) {
+            if (!nt_thread_resume(threads[i].handle, NULL)) {
+                LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to resume thread %d\n",
+                    threads[i].tid);
+                took_over_all = false;
+                ASSERT_NOT_REACHED();
+            }
+            close_handle(threads[i].handle);
+        }
+    }
+    global_heap_free(threads, num_threads*sizeof(*threads) HEAPACCT(ACCT_THREAD_MGT));
+    if (iters == MAX_ITERS) {
+        LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: hit max iters %d\n", iters);
+        took_over_all = false;
+    }
+
+    mutex_unlock(&thread_initexit_lock);
+    return !took_over_all;
 }
+
+/* Previously-unknown thread is redirected here to initialize itself. */
+void
+thread_attach_setup(takeover_data_t *data)
+{
+    dcontext_t *dcontext;
+    int rc;
+    ENTERING_DR();
+
+    if (!is_dynamo_address((byte *)data)) {
+        /* XXX: I frequently see instances where our set context doesn't seem to take
+         * effect except for eip (else wouldn't get here), so data and the stack
+         * are both off.  We use the hashtable to recover.  Would be nice to
+         * understand why this is happening and whether it's just an artifact
+         * of wow64 or a general issue.  Xref xax being clobbered post-setcontext
+         * (there it was clearly running some wow64 code before enacting the setcontext).
+         */
+        LOG(GLOBAL, LOG_THREADS, 1,
+            "TAKEOVER: context partially reverted for thread %d!\n", get_thread_id());
+        TABLE_RWLOCK(takeover_table, write, lock);
+        data = (takeover_data_t *)
+            generic_hash_lookup(GLOBAL_DCONTEXT, takeover_table,
+                                (ptr_uint_t)get_thread_id());
+        TABLE_RWLOCK(takeover_table, write, unlock);
+    }
+    if (!is_dynamo_address((byte *)data)) {
+        ASSERT_NOT_REACHED();
+        /* in release better to let thread run native than to crash */
+        EXITING_DR();
+        return;
+    }
+    /* Preclude double takeover if we become suspended while in ntdll */
+    data->in_progress = true;
+
+    rc = dynamo_thread_init(data->dstack, &data->mc _IF_CLIENT_INTERFACE(false));
+    ASSERT(rc != -1); /* -1 indicates an already initialized thread */
+    dcontext = get_thread_private_dcontext();
+    ASSERT(dcontext != NULL);
+    dynamo_thread_under_dynamo(dcontext);
+
+    LOG(GLOBAL, LOG_THREADS, 1,
+        "TAKEOVER: thread %d, dstack "PFX", start pc "PFX"\n",
+        get_thread_id(), data->dstack, data->continuation_pc);
+
+    dcontext->next_tag = data->continuation_pc;
+    *get_mcontext(dcontext) = data->mc;
+
+    thread_attach_remove_from_table(data);
+    data = NULL;
+
+    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+                      false/*not on initstack*/, false/*shouldn't return*/);
+    ASSERT_NOT_REACHED();
+}
+
+/***************************************************************************
+ * CLIENT THREADS
+ */
 
 #ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
 /* i#41/PR 222812: client threads

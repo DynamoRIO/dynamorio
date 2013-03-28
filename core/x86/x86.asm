@@ -245,6 +245,7 @@ DECL_EXTERN(privload_early_inject)
 DECL_EXTERN(dynamorio_dl_fixup)
 #endif
 #ifdef WINDOWS
+DECL_EXTERN(thread_attach_setup)
 DECL_EXTERN(dynamorio_earliest_init_takeover_C)
 DECL_EXTERN(os_terminate_wow64_stack)
 #endif
@@ -288,6 +289,18 @@ GLOBAL_LABEL(dynamo_auto_start:)
         /* if auto_setup returns, we need to go native */
         jmp      load_dynamo_failure
         END_FUNC(dynamo_auto_start)
+
+/* Target for a thread we're taking control of on attach.
+ * Assumes that xbx holds the arg to pass to thread_attach_setup.
+ * This is an asm routine b/c it's easier to pass an arg via CALLC1 macro than
+ * to duplicate the logic in C code operating on a CONTEXT.
+ */
+        DECLARE_FUNC(thread_attach_takeover)
+GLOBAL_LABEL(thread_attach_takeover:)
+        CALLC1(thread_attach_setup, REG_XBX)
+        /* shouldn't return */
+        jmp      unexpected_return
+        END_FUNC(thread_attach_takeover)
 #endif
 
 #ifdef LINUX

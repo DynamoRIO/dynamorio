@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -829,8 +829,8 @@ report_current_process(IN file_t diagnostics_file, IN PSYSTEM_PROCESSES sp,
  * calling function can cast the buffer to PSYSTEM_PROCESSES for
  * each process chained by the NextEntryDelta field.
  */
-static byte *
-get_system_processes(IN file_t diagnostics_file, OUT uint *info_bytes_needed)
+byte *
+get_system_processes(OUT uint *info_bytes_needed)
 {
     NTSTATUS result;
     byte *process_info;
@@ -874,7 +874,7 @@ report_processes(IN file_t diagnostics_file, IN security_violation_t violation_t
     /* We use byte * for process_info because
      * SystemProcessesAndThreadsInformation is variable,
      * each entry is cast to a SYSTEM_PROCESSES prior to access */
-    process_info = get_system_processes(diagnostics_file, &info_bytes_needed);
+    process_info = get_system_processes(&info_bytes_needed);
 
     if (process_info != NULL) {
         /* Initialize to first process */

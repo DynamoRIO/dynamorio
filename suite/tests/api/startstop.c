@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -121,11 +121,11 @@ int main(void)
     double res = 0.;
     int i,j;
     void *stack = NULL;
-    uint tid;
 #ifdef LINUX
     pthread_t pt[10];  /* On Linux, the tid. */
 #else
     uintptr_t thread[10];  /* _beginthreadex doesn't return HANDLE? */
+    uint tid[10];
 #endif
 
     /* Create spinning sideline threads. */
@@ -141,16 +141,16 @@ int main(void)
     pthread_create(&pt[8], NULL, sideline_spinner, (void*)func_8);
     pthread_create(&pt[9], NULL, sideline_spinner, (void*)func_9);
 #else
-    thread[0] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_0, 0, &tid);
-    thread[1] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_1, 0, &tid);
-    thread[2] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_2, 0, &tid);
-    thread[3] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_3, 0, &tid);
-    thread[4] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_4, 0, &tid);
-    thread[5] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_5, 0, &tid);
-    thread[6] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_6, 0, &tid);
-    thread[7] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_7, 0, &tid);
-    thread[8] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_8, 0, &tid);
-    thread[9] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_9, 0, &tid);
+    thread[0] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_0, 0, &tid[0]);
+    thread[1] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_1, 0, &tid[1]);
+    thread[2] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_2, 0, &tid[2]);
+    thread[3] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_3, 0, &tid[3]);
+    thread[4] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_4, 0, &tid[4]);
+    thread[5] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_5, 0, &tid[5]);
+    thread[6] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_6, 0, &tid[6]);
+    thread[7] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_7, 0, &tid[7]);
+    thread[8] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_8, 0, &tid[8]);
+    thread[9] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_9, 0, &tid[9]);
 #endif
 
 #ifdef USE_DYNAMO
@@ -195,14 +195,19 @@ int main(void)
     for (i = 0; i < 10; i++) {
 #ifdef LINUX
         pthread_join(pt[i], NULL);
-        /* FIXME i#725: Windows needs attach in order to take over these
-         * threads.
-         */
-        if (!took_over_thread[i])
-            print("failed to take over thread %d!\n", i);
 #else
         WaitForSingleObject((HANDLE)thread[i], INFINITE);
 #endif
+        if (!took_over_thread[i]) {
+            /* FIXME i#725: Windows attach is not yet reliable enough:
+             * the setcontext gets reverted.  So not yet ready to enable
+             * as a criterion for test success.
+             */
+#ifdef LINUX
+            print("failed to take over thread %d==%d!\n", i,
+                  IF_WINDOWS_ELSE(tid[i],pt[i]));
+#endif
+        }
     }
 #ifdef USE_DYNAMO
     dr_app_stop();

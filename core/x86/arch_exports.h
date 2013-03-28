@@ -845,6 +845,7 @@ void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec
                                CONTEXT *cxt, byte *stack);
 # endif
 void dynamorio_earliest_init_takeover(void);
+void thread_attach_takeover(void);
 #else /* LINUX */
 void client_int_syscall(void);
 ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);

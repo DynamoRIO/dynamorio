@@ -394,6 +394,12 @@ void earliest_inject_cleanup(byte *arg_ptr);
 wait_status_t
 os_wait_handle(HANDLE h, uint64 timeout_ms);
 
+void
+os_take_over_mark_thread(thread_id_t tid);
+
+void
+os_take_over_unmark_thread(thread_id_t tid);
+
 /* in module.c */
 app_pc get_module_preferred_base_safe(app_pc pc);
 app_pc get_module_preferred_base(app_pc pc);

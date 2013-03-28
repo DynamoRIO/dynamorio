@@ -2031,6 +2031,14 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     /* note that ENTERING_DR is assumed to have already happened: in apc handler
      * for win32, in new_thread_setup for linux, in main init for 1st thread
      */
+#if defined(WINDOWS) && defined(DR_APP_EXPORTS)
+    /* We need to identify a thread we intercepted in its APC when we
+     * take over all threads on dr_app_start().  Stack and pc checks aren't
+     * simple b/c it can be in ntdll waiting on a lock.
+     */
+    if (dr_api_entry)
+        os_take_over_mark_thread(get_thread_id());
+#endif
 
     /* Try to handle externally injected threads */
     if (dynamo_initialized && !bb_lock_start)
@@ -2061,6 +2069,10 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
 
     if (is_thread_initialized()) {
         mutex_unlock(&thread_initexit_lock);
+#if defined(WINDOWS) && defined(DR_APP_EXPORTS)
+        if (dr_api_entry)
+            os_take_over_unmark_thread(get_thread_id());
+#endif
         return -1;
     }
 
@@ -2096,6 +2108,11 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
      */
     add_thread(IF_WINDOWS_ELSE(NT_CURRENT_THREAD, get_process_id()), get_thread_id(), 
                under_dynamo_control, dcontext);
+#if defined(WINDOWS) && defined(DR_APP_EXPORTS)
+    /* Now that the thread is in the main thread table we don't need to remember it */
+    if (dr_api_entry)
+        os_take_over_unmark_thread(get_thread_id());
+#endif
 
     LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
         "\ndynamo_thread_init: %d thread(s) now, dcontext="PFX", #=%d, id=%d, pid=%d\n\n",
@@ -2493,6 +2510,11 @@ dynamo_thread_stack_free_and_exit(byte *stack)
 DR_APP_API int
 dr_app_setup(void)
 {
+    /* FIXME: we either have to disallow the client calling this with
+     * more than one thread running, or we have to suspend all the threads.
+     * We should share the suspend-and-takeover loop (and for dr_app_setup_and_start
+     * share the takeover portion) from dr_app_start().
+     */
     dr_api_entry = true;
     return dynamorio_app_init();
 }
@@ -2528,6 +2550,8 @@ void
 dr_app_start_helper(priv_mcontext_t *mc)
 {
     apicheck(dynamo_initialized, PRODUCT_NAME" not initialized");
+    LOG(GLOBAL, LOG_TOP, 1, "dr_app_start in thread %d", get_thread_id());
+
     if (!INTERNAL_OPTION(nullcalls)) {
         /* Adjust the app stack to account for the return address + alignment.
          * See dr_app_start in x86.asm.
@@ -2937,7 +2961,14 @@ check_should_be_protected(uint sec)
     /* FIXME: even checking get_num_threads()==1 is still racy as a thread could
      * exit, and it's not worth grabbing thread_initexit_lock here..
      */
-    if (threads_ever_count == 1)
+    if (threads_ever_count == 1
+#ifdef DR_APP_EXPORTS
+        /* For start/stop, can be other threads running around so we bail on
+         * perfect protection
+         */
+        && !dr_api_entry
+#endif
+        )
         return false;
     /* FIXME: no count of threads in DR or anything so can't conclude much
      * Just return true and hope developer looks at datasec_not_prot stats.
@@ -3055,8 +3086,11 @@ data_section_exit(void)
         /* There can't have been that many races.
          * A failure to re-protect should result in a ton of dispatch
          * entrances w/ .data unprot, so should show up here.
+         * However, an app with threads that are initializing in DR and thus
+         * unprotected .data while other threads are running new code (such as
+         * on attach) can easily rack up hundreds of unprot cache entrances.
          */
-        ASSERT_CURIOSITY(GLOBAL_STAT(datasec_not_prot) < 100);
+        ASSERT_CURIOSITY(GLOBAL_STAT(datasec_not_prot) < 5000);
     });
     for (i=0; i<DATASEC_NUM; i++)
         DELETE_LOCK(datasec_lock[i]);
@@ -3110,8 +3144,9 @@ protect_data_section(uint sec, bool writable)
     }
     LOG(TEST(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? THREAD_GET : GLOBAL,
         LOG_VMAREAS, TEST(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? 3U : 2U,
-        "protect_data_section: %s %s %s %d\n",
-        DATASEC_WRITABLE(sec) == 1 ? "changing" : "nop",
+        "protect_data_section: thread %d %s (recur %d, stat %d) %s %s %d\n",
+        get_thread_id(), DATASEC_WRITABLE(sec) == 1 ? "changing" : "nop",
+        DATASEC_WRITABLE(sec), GLOBAL_STAT(datasec_not_prot),
         DATASEC_NAMES[sec], writable ? "rw" : "r", DATASEC_WRITABLE(sec));
     if (!writable) {
         ASSERT(DATASEC_WRITABLE(sec) > 0);
