@@ -408,8 +408,10 @@ typedef struct _client_data_t {
     bool           in_post_syscall;
     /* flag for dr_syscall_invoke_another() */
     bool           invoke_another_syscall;
-    /* flag for dr_get_mcontext (i#117/PR 395156) */
+    /* flags for dr_get_mcontext (i#117/PR 395156) */
     bool           mcontext_in_dcontext;
+    bool           suspended;
+    priv_mcontext_t *cur_mc;
 } client_data_t;
 #else
 # define IS_CLIENT_THREAD(dcontext) false

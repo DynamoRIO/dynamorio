@@ -4228,28 +4228,22 @@ dr_suspend_all_other_threads(OUT void ***drcontexts,
                     get_mcontext(dcontext)->xip = dcontext->next_tag;
                     dcontext->client_data->mcontext_in_dcontext = true;
                 } else {
-                    bool res;
                     (*drcontexts)[out_suspended] = (void *) dcontext;
                     out_suspended++;
-                    /* FIXME: I'm not 100% sure but I believe it is safe for
-                     * all safe_spots to clobber the thread's mcontext with
-                     * its own translation.  If it turns out not to be we'll
-                     * have to allocate a new mcontext for each thread here.
+                    /* It's not safe to clobber the thread's mcontext with
+                     * its own translation b/c for shared_syscall we store
+                     * the continuation pc in the esi slot.
+                     * We could translate here into heap-allocated memory,
+                     * but some clients may just want to stop
+                     * the world but not examine the threads, so we lazily
+                     * translate in dr_get_mcontext().
                      */
-                    /* FIXME PERFORMANCE: better to lazily only translate
-                     * if client actually calls dr_get_mcontext(), via a
-                     * new flag, since some clients may just want to stop
-                     * the world but not examine the threads.
-                     */                     
-                    res = thread_get_mcontext(threads[i], get_mcontext(dcontext));
-                    CLIENT_ASSERT(res, "failed to get mcontext of suspended thread");
-                    res = translate_mcontext(threads[i], get_mcontext(dcontext),
-                                             false/*do not restore memory*/, NULL);
-                    CLIENT_ASSERT(res, "failed to xl8 mcontext of suspended thread");
-                    CLIENT_ASSERT(!dcontext->client_data->mcontext_in_dcontext,
-                                  "internal inconsistency in where mcontext is");
-                    dcontext->client_data->mcontext_in_dcontext = true;
-                }
+                    CLIENT_ASSERT(!dcontext->client_data->suspended,
+                                  "inconsistent usage of dr_suspend_all_other_threads");
+                    CLIENT_ASSERT(dcontext->client_data->cur_mc == NULL,
+                                  "inconsistent usage of dr_suspend_all_other_threads");
+                    dcontext->client_data->suspended = true;
+               }
             }
         }
     }
@@ -4277,7 +4271,13 @@ dr_resume_all_other_threads(IN void **drcontexts,
     num_threads = (int)(ptr_int_t) drcontexts[num_suspended+1];
     for (i = 0; i < num_suspended; i++) {
         dcontext_t *dcontext = (dcontext_t *) drcontexts[i];
-        dcontext->client_data->mcontext_in_dcontext = false;
+        if (dcontext->client_data->cur_mc != NULL) {
+            /* clear any cached mc from dr_get_mcontext_priv() */
+            heap_free(dcontext, dcontext->client_data->cur_mc,
+                      sizeof(*dcontext->client_data->cur_mc) HEAPACCT(ACCT_CLIENT));
+            dcontext->client_data->cur_mc = NULL;
+        }
+        dcontext->client_data->suspended = false;
     }
     global_heap_free(drcontexts, (num_threads+2)*sizeof(dcontext_t*)
                      HEAPACCT(ACCT_THREAD_MGT));
@@ -5435,6 +5435,41 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     /* no support for init or initial thread init */
     if (!dynamo_initialized)
         return false;
+
+    if (dcontext->client_data->cur_mc != NULL) {
+        if (mc != NULL)
+            *mc = *dcontext->client_data->cur_mc;
+        else if (!priv_mcontext_to_dr_mcontext(dmc, dcontext->client_data->cur_mc))
+            return false;
+        return true;
+    }
+
+    if (dcontext->client_data->suspended) {
+        /* A thread suspended by dr_suspend_all_other_threads() has its
+         * context translated lazily here.
+         * We cache the result in cur_mc to avoid a translation cost next time.
+         */
+        bool res;
+        priv_mcontext_t *mc_xl8;
+        if (mc != NULL)
+            mc_xl8 = mc;
+        else {
+            dcontext->client_data->cur_mc = (priv_mcontext_t *)
+                heap_alloc(dcontext, sizeof(*dcontext->client_data->cur_mc)
+                           HEAPACCT(ACCT_CLIENT));
+            /* We'll clear this cache in dr_resume_all_other_threads() */
+            mc_xl8 = dcontext->client_data->cur_mc;
+        }
+        res = thread_get_mcontext(dcontext->thread_record, mc_xl8);
+        CLIENT_ASSERT(res, "failed to get mcontext of suspended thread");
+        res = translate_mcontext(dcontext->thread_record, mc_xl8,
+                                 false/*do not restore memory*/, NULL);
+        CLIENT_ASSERT(res, "failed to xl8 mcontext of suspended thread");
+        if (mc == NULL && !priv_mcontext_to_dr_mcontext(dmc, mc_xl8))
+            return false;
+        return true;
+    }
+
     /* PR 207947: support mcontext access from syscall events */
     if (dcontext->client_data->mcontext_in_dcontext ||
         dcontext->client_data->in_pre_syscall ||
